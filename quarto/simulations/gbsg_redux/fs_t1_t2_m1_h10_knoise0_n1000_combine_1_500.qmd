@@ -75,6 +75,12 @@ library(foreach)
 library(doFuture)
 library(future)
 
+# Single-source bundle enrichment: beta(Hhat)/beta(Hhat^c) truth targets at the
+# realized region, plus covariate-name extraction for the identification figures.
+# Must sit in the render working directory.  rule_covs() ships to the %dofuture%
+# workers as a detected global of record_replicate (as .na_record/.classify do).
+source("betaHhat_truth.R")
+
 # Parallelization topology (works with run_mode / batching above):
 #   "sims"  -> replicates fan out across workers; each replicate's forestsearch +
 #              bootstrap run sequentially.  Best when n_sims >= n_workers (fills cores).
@@ -113,9 +119,9 @@ sim_id_start <- 201L        # first sim_id of THIS batch (101L, 201L, ... for la
 subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
 
 target_hr_harm  <- 1.0    # calibrate k_inter to this Cox HR in the harm subgroup
-n_sample        <- 500L   # M1 sample size
+n_sample        <- 1000L   # M1 sample size
 
-rds_stem     <- "fs_t1_t2_m1_h10_knoise0_n500"   # file stem; batch range appended below
+rds_stem     <- "fs_t1_t2_m1_h10_knoise0_n1000"   # file stem; batch range appended below
 
 sim_id_end   <- sim_id_start + n_sims - 1L
 rds_path     <- sprintf("%s_res_%d_%d.rds", rds_stem, sim_id_start, sim_id_end)  # THIS batch's file
@@ -253,6 +259,20 @@ if (identical(run_mode, "batch")) {
   cat(sprintf("  overall causal HR      : %.3f\n", truth$hr_causal))
   cat(sprintf("  theta-dagger  H / Hc   : %.3f / %.3f\n", truth$marg_H, truth$marg_Hc))
   cat(sprintf("  theta-ddagger H / Hc   : %.3f / %.3f\n", truth$cde_H,  truth$cde_Hc))
+
+  # Large censored evaluation population for the conditional target beta(Hhat),
+  # drawn ONCE and reused for every replicate (beta(Hhat) is n-invariant -- a
+  # property of the realized rule and the population).  The sanity gate recomputes
+  # theta-dagger on this same frame at the true harm flag; it should reproduce
+  # dgm$hr_H_true / hr_Hc_true, confirming the frame reads as "population".
+  eval_df <- build_eval_frame(dgm, n_eval = 100000L, analysis_time = analysis_time,
+                              cens_adjust = cens_adjust, eval_seed = 20260628L)
+  .td_chk <- betaHhat_theta_dagger_check(eval_df, harm.name = harm_col,
+                                         outcome.name = outcome_name,
+                                         event.name = event_name, treat.name = treat_name)
+  cat(sprintf("  beta(Hhat) eval frame  : n=%d (eval_seed = 20260628)\n", nrow(eval_df)))
+  cat(sprintf("  theta-dagger (on frame): %.3f / %.3f  (cross-check vs above)\n",
+              .td_chk[["thetaDagger_H"]], .td_chk[["thetaDagger_Hc"]]))
 } else {
   # combine mode: the DGM is not needed here; truth is read from the batch
   # bundles in the combine step below.
@@ -311,7 +331,9 @@ across workers within each trial.  Results are identical either way.
 .na_record <- function(sim_id) data.frame(
   sim_id = sim_id, detected = 0L, gate_ok = 0L, n_sel = NA_integer_,
   n_harm = NA_integer_, n_true = NA_integer_,
-  label = NA_character_, t1_secs = NA_real_, t2_secs = NA_real_, t1_err = NA_character_,
+  label = NA_character_, sg_def = NA_character_, covs = NA_character_,
+  betaHhat_H = NA_real_, betaHhat_Hc = NA_real_,
+  t1_secs = NA_real_, t2_secs = NA_real_, t1_err = NA_character_,
   or_H_est = NA, or_H_lo = NA, or_H_hi = NA,
   or_Hc_est = NA, or_Hc_lo = NA, or_Hc_hi = NA,
   nv_H_est = NA, nv_H_lo = NA, nv_H_hi = NA,
@@ -409,6 +431,10 @@ if (k_random_noise > 0) {
   g     <- fs.est$debias_gate
   found <- !is.null(fs.est$sg.harm)
   rec$detected <- as.integer(found)
+  if (found) {
+    rec$sg_def <- paste(fs.est$sg.harm, collapse = " & ")          # full rule -> beta(Hhat) scoring
+    rec$covs   <- paste(rule_covs(fs.est$sg.harm), collapse = "+")  # variable names -> id figures
+  }
   if (!found) return(rec)
   rec$gate_ok <- as.integer(!is.null(g))
 
@@ -521,6 +547,12 @@ if (run_smoke && identical(run_mode, "batch")) {
     elapsed <- proc.time()[3] - t_all
     plan("sequential"); gc()
   }
+
+  # Conditional truth targets beta(Hhat)/beta(Hhat^c) for the realized rule of each
+  # detected replicate -- deduplicated over distinct sg_def, computed in the main
+  # process so the large eval frame stays in one place (not copied into workers).
+  results <- attach_betaHhat(results, eval_df, outcome.name = outcome_name,
+                             event.name = event_name, treat.name = treat_name)
 
   cat(sprintf("Batch sim_id %d-%d: %d/%d detections in %.1f s (%.1f s/replicate).\n",
               min(sim_ids), max(sim_ids),
@@ -825,6 +857,7 @@ build_block <- function(r, suffix, tgt_cde, tgt_marg) {
   est_keys <- c(oracle = "or", naive = "nv", `Tier-1` = "t1", `Tier-2` = "t2")
   if (!run_tier1) est_keys <- est_keys[names(est_keys) != "Tier-1"]  # Tier-2-only run
   or_est <- r[[paste0("or_", suffix, "_est")]]   # per-replicate oracle target
+  bH_est <- r[[paste0("betaHhat_", suffix)]]     # per-replicate beta(Hhat) target
   rows <- lapply(names(est_keys), function(lab) {
     k  <- est_keys[[lab]]
     e  <- r[[paste0(k, "_", suffix, "_est")]]
@@ -840,9 +873,11 @@ build_block <- function(r, suffix, tgt_cde, tgt_marg) {
       Len_med = if (length(len)) stats::median(len) else NA_real_,
       Length  = if (length(len)) mean(len) else NA_real_,
       b_oracle = .pbias(e, or_est),
+      b_betaHhat = .pbias(e, bH_est),
       b_cde    = .pbias(e, tgt_cde),
       b_marg   = .pbias(e, tgt_marg),
       Cov_oracle = .cover(or_est, lo, hi),
+      Cov_betaHhat = .cover(bH_est, lo, hi),
       Cov_cde    = .cover(tgt_cde,  lo, hi),
       Cov_marg   = .cover(tgt_marg, lo, hi),
       stringsAsFactors = FALSE)
@@ -886,22 +921,23 @@ if (run_smoke && !is.null(results)) {
         sprintf("M1 smoke test \u00b7 n=%d, %d sims, draws=%d \u00b7 resample identification (Tier-2 only)",
                 n_sample, n_sims, gate_draws)) |>
     fmt_number(columns = c(Avg, SD, SD_hat, Len_med, Length), decimals = 2) |>
-    fmt_number(columns = c(b_oracle, b_cde, b_marg), decimals = 1) |>
-    fmt_number(columns = c(Cov_oracle, Cov_cde, Cov_marg), decimals = 2) |>
+    fmt_number(columns = c(b_oracle, b_betaHhat, b_cde, b_marg), decimals = 1) |>
+    fmt_number(columns = c(Cov_oracle, Cov_betaHhat, Cov_cde, Cov_marg), decimals = 2) |>
     cols_label(
       n = "n", Len_med = "Len(med)",
       SD_hat = md("$\\widehat{\\text{SD}}$"),
-      b_oracle = md("$b^{\\text{oracle}}$"), b_cde = md("$b^{\\ddagger}$"),
-      b_marg = md("$b^{\\dagger}$"),
-      Cov_oracle = md("$\\hat{C}^{\\text{oracle}}$"),
+      b_oracle = md("$b^{\\text{oracle}}$"), b_betaHhat = md("$b^{\\beta}$"),
+      b_cde = md("$b^{\\ddagger}$"), b_marg = md("$b^{\\dagger}$"),
+      Cov_oracle = md("$\\hat{C}^{\\text{oracle}}$"), Cov_betaHhat = md("$\\hat{C}^{\\beta}$"),
       Cov_cde = md("$\\hat{C}^{\\ddagger}$"), Cov_marg = md("$C^{\\dagger}$")) |>
-    tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_cde, b_marg)) |>
-    tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_cde, Cov_marg)) |>
+    tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_betaHhat, b_cde, b_marg)) |>
+    tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_betaHhat, Cov_cde, Cov_marg)) |>
     tab_footnote(footnote = md(sprintf(
       "Detection rate **%.0f%%** of %d sims; gate flags harm in **%.0f%%** of detected reps; IJ variance held (not fallback) in **%.0f%%**. Classification of \u0124 vs true subgroup: %s. Summaries finite-only over detected reps; `n` = finite reps contributing.",
       100 * det_rate, n_sims, 100 * harm_rate, 100 * ij_ok, cls))) |>
     tab_footnote(footnote = md(paste(
       "Targets: $b^{\\text{oracle}}$ vs per-replicate oracle $\\hat\\theta(H)$;",
+      "$b^{\\beta}$ / $\\hat C^{\\beta}$ vs the conditional subgroup HR $\\beta(\\widehat H)$ at the realized region (Theorem 2 target);",
       "$b^{\\ddagger}$ vs CDE $\\theta^{\\ddagger}$;",
       "$b^{\\dagger}$ vs marginal subgroup HR $\\theta^{\\dagger}$.",
       "`Len(med)` = median CI length (robust to blow-ups); `Length` = mean.",
@@ -941,6 +977,7 @@ if (run_smoke && !is.null(results)) {
     est_keys <- c(oracle = "or", naive = "nv", `Tier-1` = "t1", `Tier-2` = "t2")
     if (!run_tier1) est_keys <- est_keys[names(est_keys) != "Tier-1"]  # Tier-2-only run
     or_est <- r[[paste0("or_", suffix, "_est")]]
+    bH_est <- r[[paste0("betaHhat_", suffix)]]
     rows <- lapply(names(est_keys), function(lab) {
       k  <- est_keys[[lab]]
       e  <- r[[paste0(k, "_", suffix, "_est")]]
@@ -955,9 +992,11 @@ if (run_smoke && !is.null(results)) {
         SD_hat  = .sd_hat_med(e, lo, hi),
         Len_med = if (length(len)) stats::median(len) else NA_real_,
         b_oracle = .pbias_med(e, or_est),
+        b_betaHhat = .pbias_med(e, bH_est),
         b_cde    = .pbias_med(e, tgt_cde),
         b_marg   = .pbias_med(e, tgt_marg),
         Cov_oracle = .cover(or_est, lo, hi),
+        Cov_betaHhat = .cover(bH_est, lo, hi),
         Cov_cde    = .cover(tgt_cde,  lo, hi),
         Cov_marg   = .cover(tgt_marg, lo, hi),
         stringsAsFactors = FALSE)
@@ -984,17 +1023,17 @@ if (run_smoke && !is.null(results)) {
         sprintf("Same detected reps \u00b7 n=%d, %d sims, draws=%d \u00b7 location columns are medians",
                 n_sample, n_sims, gate_draws)) |>
     fmt_number(columns = c(Med, SD, SD_hat, Len_med), decimals = 2) |>
-    fmt_number(columns = c(b_oracle, b_cde, b_marg), decimals = 1) |>
-    fmt_number(columns = c(Cov_oracle, Cov_cde, Cov_marg), decimals = 2) |>
+    fmt_number(columns = c(b_oracle, b_betaHhat, b_cde, b_marg), decimals = 1) |>
+    fmt_number(columns = c(Cov_oracle, Cov_betaHhat, Cov_cde, Cov_marg), decimals = 2) |>
     cols_label(
       n = "n", Med = "Median", Len_med = "Len(med)",
       SD_hat = md("$\\widehat{\\text{SD}}$"),
-      b_oracle = md("$b^{\\text{oracle}}$"), b_cde = md("$b^{\\ddagger}$"),
-      b_marg = md("$b^{\\dagger}$"),
-      Cov_oracle = md("$\\hat{C}^{\\text{oracle}}$"),
+      b_oracle = md("$b^{\\text{oracle}}$"), b_betaHhat = md("$b^{\\beta}$"),
+      b_cde = md("$b^{\\ddagger}$"), b_marg = md("$b^{\\dagger}$"),
+      Cov_oracle = md("$\\hat{C}^{\\text{oracle}}$"), Cov_betaHhat = md("$\\hat{C}^{\\beta}$"),
       Cov_cde = md("$\\hat{C}^{\\ddagger}$"), Cov_marg = md("$C^{\\dagger}$")) |>
-    tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_cde, b_marg)) |>
-    tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_cde, Cov_marg)) |>
+    tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_betaHhat, b_cde, b_marg)) |>
+    tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_betaHhat, Cov_cde, Cov_marg)) |>
     tab_footnote(footnote = md(paste(
       "Median counterpart to the mean-based table above, over the same detected reps.",
       "Point estimate (**Median**), $\\widehat{\\text{SD}}$, `Len(med)`, and relative bias are medians;",

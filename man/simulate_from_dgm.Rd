@@ -17,7 +17,8 @@ simulate_from_dgm(
   strata_rand = NULL,
   hrz_crit = NULL,
   keep_rand = FALSE,
-  time_eos = NULL
+  time_eos = NULL,
+  replace = TRUE
 )
 }
 \arguments{
@@ -66,6 +67,15 @@ column preserving the randomisation sequence. Default \code{FALSE}.}
 \item{time_eos}{Numeric secondary administrative censoring cutoff
 (end-of-study time on the DGM scale). Applied after \code{follow_up}
 censoring. Default \code{NULL}.}
+
+\item{replace}{Logical sampling scheme for drawing the \code{n} subjects
+from \code{dgm$df_super}. \code{TRUE} (default) samples with replacement
+(the trial-resampling / bootstrap mode used for simulated trials).
+\code{FALSE} samples without replacement and so requires
+\code{n <= nrow(dgm$df_super)}; with \code{n = nrow(dgm$df_super)} it
+evaluates every super-population subject exactly once while still applying
+randomisation and censoring (unlike the \code{n = NULL} path, which uses
+the pool as-is and skips both). Default \code{TRUE}.}
 }
 \value{
 A \code{data.frame} with columns: \describe{

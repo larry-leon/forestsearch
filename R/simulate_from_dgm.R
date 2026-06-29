@@ -51,6 +51,14 @@
 #' @param time_eos Numeric secondary administrative censoring cutoff
 #'   (end-of-study time on the DGM scale). Applied after \code{follow_up}
 #'   censoring. Default \code{NULL}.
+#' @param replace Logical sampling scheme for drawing the \code{n} subjects
+#'   from \code{dgm$df_super}. \code{TRUE} (default) samples with replacement
+#'   (the trial-resampling / bootstrap mode used for simulated trials).
+#'   \code{FALSE} samples without replacement and so requires
+#'   \code{n <= nrow(dgm$df_super)}; with \code{n = nrow(dgm$df_super)} it
+#'   evaluates every super-population subject exactly once while still applying
+#'   randomisation and censoring (unlike the \code{n = NULL} path, which uses
+#'   the pool as-is and skips both). Default \code{TRUE}.
 #'
 #' @return A \code{data.frame} with columns: \describe{
 #'   \item{\code{id}}{Subject identifier.}
@@ -123,7 +131,8 @@ simulate_from_dgm <- function(dgm,
                               strata_rand    = NULL,
                               hrz_crit       = NULL,
                               keep_rand      = FALSE,
-                              time_eos       = NULL) {
+                              time_eos       = NULL,
+                              replace        = TRUE) {
 
   if (!inherits(dgm, c("aft_dgm_flex", "aft_dgm")))
     stop("dgm must be an object created by generate_aft_dgm_flex()")
@@ -158,7 +167,10 @@ simulate_from_dgm <- function(dgm,
     # -------------------------------------------------------------------------
     # n != NULL path: sample with replacement and simulate staggered entry.
     # -------------------------------------------------------------------------
-    idx_sample <- sample(seq_len(nrow(df_super)), size = n, replace = TRUE)
+    if (!replace && n > nrow(df_super))
+      stop("replace = FALSE requires n <= nrow(dgm$df_super) (have ",
+           nrow(df_super), ", requested ", n, ").")
+    idx_sample <- sample(seq_len(nrow(df_super)), size = n, replace = replace)
     df_sim     <- df_super[idx_sample, ]
 
     # Staggered entry times

@@ -1,0 +1,421 @@
+---
+title: "Post-selection coverage against the conditional estimand β(Ĥ)"
+subtitle: "Refit-free re-scoring of stored MR / FB intervals against the realized-subgroup, censored observed-data Cox coefficient"
+author: "León & Anderson"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: show
+    code-tools: true
+    df-print: paged
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+## What this template does
+
+Theorem 2 certifies coverage of **β(Ĥ)** — the population value of the *standard
+within-subgroup analysis* (`coxph(Surv(time, event) ~ treat)` on the **observed,
+randomized, censored** data) evaluated at whatever region the search realized.
+The simulation tables instead score against the causal targets θ†(H) / θ‡(H)
+(uncensored potential-outcome quantities at the *true* H). This template computes
+β(Ĥ) and re-scores the **already-stored** MR and FB interval endpoints against it,
+so coverage can be reported against the estimand the theorem actually certifies.
+
+It does **not** re-run the bootstrap. For each detected replicate it (1) recovers
+the realized rule (from the bundle's `sg.def` if present, else by re-identifying
+with the same `forestsearch()` call your id-sweep uses, seed-linked via
+`seed_base + sim_id`), (2) computes β(Ĥ) and β(Ĥᶜ) **once per distinct rule** on a
+cached large censored super-population — membership via `get_dfpred()`, the
+within-region log-HR via `get_Cox_sg()`, exactly the fitting path the oracle/naive
+use — and (3) scores the stored `t1_*` (FB), `t2_*` (MR), `or_*` (oracle), and
+`nv_*` (naive) endpoints for containment of β(Ĥ), with relative bias of each
+point estimate against β(Ĥ).
+
+The output is a sidecar `betaHhat_<run_tag>.rds` (per-replicate β plus
+coverage/bias summaries, keyed by `sim_id`) that the companion fragment
+`_betaHhat_coverage_table.qmd` renders alongside the existing estimation table.
+
+> **β(Ĥ) is the *censored observed-data* Cox coefficient** — it is computed on the
+> same generative pipeline as the simulation's per-replicate data
+> (`simulate_from_dgm()` with `analysis_time` + `cens_adjust`), **not** on the
+> uncensored potential-outcome stack (which would reproduce `hr_*_true`) and not
+> the AHR average. The two differ under the AFT (non-PH) DGM; β(Ĥ) is the one
+> Theorem 2 targets.
+
+------------------------------------------------------------------------
+
+## Configuration (knobs) {#sec-config}
+
+```{r config}
+# ── The stored t1_t2 results bundle to re-score ─────────────────────────────
+# This is the SAME bundle the estimation/synthesis fragments read.
+rds_dir   <- "../analysis/simulations/gbsg/resampling_comparisons/m1"
+run_tag   <- "fs_m1_h10_knoise0_n500"                         # names the sidecar
+bundle    <- file.path(rds_dir, "fs_t1_t2_m1_h10_knoise0_n500_combined_1_500.rds")
+
+# ── DGM knobs — MUST match the generation of `bundle` (copied from the
+#    id-sweep config so the recovered rules and β(Ĥ) align with that run). ────
+dgm_model      <- "alt"
+target_hr_harm <- 1.0
+n_super        <- 25000L
+seed_base      <- 8316951L        # replicate i used seed_base + i
+analysis_time  <- 84              # administrative censoring (months) — CENSORED data
+cens_adjust    <- log(1.5)        # censoring-rate adjustment
+n_sample       <- 500L            # per-replicate trial size of THIS bundle
+
+# ── Evaluation population for β(g): one large CENSORED draw, fixed across reps ─
+n_eval    <- 100000L              # larger => more stable β(g); 1e5 is ample
+eval_seed <- 20260628L            # fixed, distinct from any replicate seed
+
+# ── Column map for the stored bundle (override if your bundle differs) ───────
+# Estimator key -> column stem; endpoints are <stem>_<region>_{est,lo,hi}.
+est_keys   <- c(oracle = "or", naive = "nv", FB = "t1", MR = "t2")
+regions    <- c(H = "H", Hc = "Hc")
+detect_col <- "detected"          # 0/1 detection flag in results
+# Candidate columns that may carry the realized rule (first match wins).
+rule_cols  <- c("sg.def", "sg", "subgroup", "sg.harm")
+# Candidate columns for the per-replicate id (first match wins; else row order).
+simid_cols <- c("sim_id", "sim", "rep", "replicate", "id")
+
+# ── Rule recovery: "auto" reads the bundle rule column if present, else
+#    re-identifies; "reidentify" always re-runs forestsearch (seed-linked). ───
+rule_recovery <- "auto"           # "auto" | "reidentify"
+
+# ── forestsearch identification spec — used ONLY by the re-identify fallback.
+#    Must match the config that produced `bundle`. (Copied from the id-sweep.) ─
+confounders_base <- c("er", "age", "meno", "pgr", "nodes", "size", "grade")
+fs_params <- list(
+  subgroup_method        = "consistency",
+  consistency_method     = "resample",
+  sg_focus               = "eff",
+  selection_rule         = "neighborhood",
+  hr.threshold           = 0.90,
+  hr.consistency         = 0.80,
+  pconsistency.threshold = 0.90,
+  n.min                  = NULL,
+  maxk                   = 2L,
+  d0.min                 = 10L,
+  d1.min                 = 0L,
+  use_lasso              = FALSE,
+  use_grf                = FALSE,
+  use_twostage           = TRUE,
+  use_dina               = FALSE,
+  conf_force             = c("meno == 0", "er <= 0", "pgr <= 0"),
+  conf.cont_jcuts        = list(er = 10),
+  fs.splits              = 400L
+)
+
+# Column names emitted by simulate_from_dgm().
+outcome_name <- "y_sim"; event_name <- "event_sim"; treat_name <- "treat_sim"
+id_name <- "id"; harm_col <- "flag_harm"
+
+# ── Output / caching ────────────────────────────────────────────────────────
+# The sidecar is written NEXT TO THE BUNDLE (rds_dir) so the synthesis figure
+# and the coverage-table fragment, which look in the bundle directory, find it.
+# The DGM and eval-population caches are scratch and stay in cache_dir.
+cache_dir   <- "."
+sidecar_rds <- file.path(rds_dir, sprintf("betaHhat_%s.rds", run_tag))
+n_workers   <- if (rule_recovery == "reidentify")
+  round(0.8 * max(1L, parallel::detectCores(logical = FALSE) - 1L)) else 1L
+
+# ── Smoke test: set to e.g. 1:20 to validate end-to-end fast (NULL = all) ────
+smoke_ids <- 1:20
+```
+
+------------------------------------------------------------------------
+
+## Setup {#sec-setup}
+
+```{r setup}
+library(forestsearch)   # devtools::install()ed, not load_all(): workers need it
+library(survival)
+library(data.table)
+library(foreach)
+library(doFuture)
+library(future)
+
+if (n_workers > 1L) plan(multisession, workers = n_workers) else plan(sequential)
+
+cox_formula <- build_cox_formula(outcome_name, event_name, treat_name)
+
+# Reconstruct the sg.harm vector get_dfpred() expects from a stored rule string.
+#   FS / DINA: AND-composed braced cuts joined by " & "  -> split into a vector.
+#   GRF:       a single disjunction containing "|"        -> keep as one string.
+rule_to_sgharm <- function(x) {
+  if (is.null(x) || length(x) != 1L || is.na(x) || !nzchar(x)) return(NULL)
+  if (grepl("|", x, fixed = TRUE)) return(x)                 # GRF disjunction: as-is
+  trimws(strsplit(x, "&", fixed = TRUE)[[1]])                # AND form: vector of cuts
+}
+
+# Membership in the realized region on an arbitrary df, via the package's own
+# evaluator (handles braces, "!{meno}" negation, and GRF disjunctions).
+#   region "H"  -> treat.recommend == 0L  (the identified harm region Ĥ)
+#   region "Hc" -> treat.recommend == 1L  (its complement Ĥᶜ)
+in_region <- function(df, sg_harm, region = "H") {
+  tr <- get_dfpred(df, sg_harm)$treat.recommend
+  if (region == "H") tr == 0L else tr == 1L
+}
+```
+
+------------------------------------------------------------------------
+
+## DGM and the censored evaluation population {#sec-dgm}
+
+```{r build-dgm}
+dgm_cache <- file.path(
+  cache_dir, sprintf("dgm_%s_hr%.2f_nsuper%d_seed%d.rds",
+                     dgm_model, target_hr_harm, n_super, seed_base))
+if (file.exists(dgm_cache)) {
+  dgm <- readRDS(dgm_cache)
+  message("Loaded cached DGM: ", dgm_cache)
+} else {
+  k_inter <- calibrate_k_inter(target_hr_harm = target_hr_harm,
+                               model = dgm_model, use_ahr = FALSE)
+  dgm <- setup_gbsg_dgm(model = dgm_model, k_inter = k_inter,
+                        n_super = n_super, seed = seed_base)
+  saveRDS(dgm, dgm_cache)
+  message(sprintf("Built DGM (k_inter = %.4f); cached.", k_inter))
+}
+```
+
+```{r build-eval-pop}
+# One large CENSORED draw — the population at which β(g) is evaluated. Same
+# pipeline (analysis_time + cens_adjust) as the per-replicate simulation data,
+# so β(g) is the least-false Cox coefficient under the OBSERVED (censored) law.
+eval_cache <- file.path(
+  cache_dir, sprintf("evalpop_%s_n%d_at%g_ca%.3f_seed%d.rds",
+                     dgm_model, n_eval, analysis_time, cens_adjust, eval_seed))
+if (file.exists(eval_cache)) {
+  df_eval <- readRDS(eval_cache)
+  message("Loaded cached eval population: ", eval_cache)
+} else {
+  df_eval <- simulate_from_dgm(dgm, n = n_eval, analysis_time = analysis_time,
+                               cens_adjust = cens_adjust, seed = eval_seed)
+  saveRDS(df_eval, eval_cache)
+  message(sprintf("Built eval population: n = %s, event rate = %.3f.",
+                  format(n_eval, big.mark = ","), mean(df_eval[[event_name]])))
+}
+stopifnot(all(c(outcome_name, event_name, treat_name) %in% names(df_eval)))
+```
+
+------------------------------------------------------------------------
+
+## Load the stored bundle and preflight {#sec-load}
+
+```{r load-bundle}
+# Interactive runs often have a different working directory than `quarto render`,
+# so a relative `rds_dir` can miss. If the configured path is absent, try a few
+# likely locations and then a recursive search from getwd(); on a unique match,
+# adopt it (and re-home the sidecar beside it). Otherwise fail with diagnostics.
+if (!file.exists(bundle)) {
+  quick <- file.path(c(rds_dir,
+                       "analysis/simulations/gbsg/resampling_comparisons/m1",
+                       "../analysis/simulations/gbsg/resampling_comparisons/m1"),
+                     basename(bundle))
+  hit <- quick[file.exists(quick)]
+  if (!length(hit))
+    hit <- list.files(".", pattern = paste0("^", basename(bundle), "$"),
+                      recursive = TRUE, full.names = TRUE)
+  hit <- unique(hit[file.exists(hit)])
+  if (length(hit) == 1L) {
+    bundle      <- normalizePath(hit[1])
+    rds_dir     <- dirname(bundle)                       # keep the sidecar beside it
+    sidecar_rds <- file.path(rds_dir, sprintf("betaHhat_%s.rds", run_tag))
+    message("Resolved bundle to: ", bundle)
+  } else {
+    stop("Bundle not found.",
+         "\n  getwd():  ", getwd(),
+         "\n  rds_dir:  ", rds_dir, "  (exists: ", dir.exists(rds_dir), ")",
+         "\n  basename: ", basename(bundle),
+         if (length(hit) > 1L)
+           paste0("\n  Multiple matches under getwd():\n    ",
+                  paste(hit, collapse = "\n    "), "\n  Set `bundle` explicitly.")
+         else "\n  No matches under getwd(). Set `rds_dir`/`bundle` (absolute path safest).")
+  }
+}
+B   <- readRDS(bundle)
+res <- as.data.frame(B$results)
+
+# Resolve the per-replicate id and the rule column (first match wins).
+simid_col <- intersect(simid_cols, names(res))[1]
+if (is.na(simid_col)) { res$.row_simid <- seq_len(nrow(res)); simid_col <- ".row_simid" }
+rule_col  <- intersect(rule_cols, names(res))[1]   # NA => must re-identify
+
+reident <- (rule_recovery == "reidentify") || is.na(rule_col)
+
+cat("Bundle:", basename(bundle), "\n")
+cat(sprintf("  replicates: %d | detected: %d\n", nrow(res), sum(res[[detect_col]] == 1L, na.rm = TRUE)))
+cat(sprintf("  sim-id column: %s | rule column: %s | recovery: %s\n",
+            simid_col, if (is.na(rule_col)) "<none>" else rule_col,
+            if (reident) "re-identify (seed-linked forestsearch)" else "from bundle"))
+
+# Verify the endpoint columns the re-scoring needs are present.
+endpoint_cols <- unlist(lapply(est_keys, function(k)
+  unlist(lapply(regions, function(r) paste0(k, "_", r, c("_est","_lo","_hi"))))))
+missing <- setdiff(endpoint_cols, names(res))
+if (length(missing))
+  stop("Bundle is missing expected endpoint columns:\n  ",
+       paste(missing, collapse = ", "),
+       "\nEdit `est_keys` / `regions` in the config to match this bundle.")
+```
+
+------------------------------------------------------------------------
+
+## Recover the realized rule per replicate {#sec-recover}
+
+```{r recover-rules}
+det_idx <- which(res[[detect_col]] == 1L)
+if (!is.null(smoke_ids)) det_idx <- det_idx[res[[simid_col]][det_idx] %in% smoke_ids]
+det_simid <- res[[simid_col]][det_idx]
+
+if (!reident) {
+  # Rule is stored in the bundle: read it directly.
+  rule_str <- as.character(res[[rule_col]][det_idx])
+} else {
+  # Fallback: re-identify with the seed-linked forestsearch call (id-sweep parity).
+  reident_one <- function(sid) {
+    df <- tryCatch(
+      simulate_from_dgm(dgm, n = n_sample, analysis_time = analysis_time,
+                        cens_adjust = cens_adjust, seed = seed_base + sid),
+      error = function(e) NULL)
+    if (is.null(df)) return(NA_character_)
+    df[[id_name]] <- seq_len(nrow(df))
+    confs <- intersect(confounders_base, names(df))
+    fixed_args <- list(
+      df.analysis = df, outcome.name = outcome_name, event.name = event_name,
+      treat.name = treat_name, id.name = id_name, flag_harm.name = harm_col,
+      confounders.name = confs, is.RCT = TRUE, seedit = seed_base + sid,
+      quiet = TRUE, parallel_args = list(plan = "sequential"), debias_gate = FALSE)
+    fs <- tryCatch(do.call(forestsearch, c(fixed_args, fs_params)),
+                   error = function(e) NULL)
+    if (is.null(fs) || is.null(fs$sg.harm) || all(is.na(fs$sg.harm)))
+      return(NA_character_)
+    paste(fs$sg.harm, collapse = " & ")
+  }
+  rule_list <- foreach(sid = det_simid, .options.future = list(seed = TRUE)) %dofuture% {
+    reident_one(sid)
+  }
+  rule_str <- unlist(rule_list)
+  plan(sequential); gc(verbose = FALSE)
+}
+names(rule_str) <- det_simid
+ok_rule  <- !is.na(rule_str) & nzchar(rule_str)
+cat(sprintf("Recovered a rule for %d / %d detected replicates.\n",
+            sum(ok_rule), length(rule_str)))
+```
+
+------------------------------------------------------------------------
+
+## β(g) once per distinct rule {#sec-beta}
+
+```{r beta-per-rule}
+# β(g) on the HR scale for a region, computed on the fixed censored eval pop.
+beta_hr <- function(sg_harm, region) {
+  idx <- in_region(df_eval, sg_harm, region)
+  if (sum(idx) < 20L || length(unique(df_eval[[treat_name]][idx])) < 2L)
+    return(NA_real_)
+  est_log <- tryCatch(
+    get_Cox_sg(df_eval[idx, , drop = FALSE], cox.formula = cox_formula,
+               est.loghr = TRUE)$est_obs,
+    error = function(e) NA_real_)
+  unname(exp(est_log))                       # HR scale, matching stored endpoints
+}
+
+distinct_rules <- unique(rule_str[ok_rule])
+cat(sprintf("Distinct realized rules: %d (over %d detections).\n",
+            length(distinct_rules), sum(ok_rule)))
+
+lut <- data.frame(rule = distinct_rules, betaH_hr = NA_real_, betaHc_hr = NA_real_,
+                  stringsAsFactors = FALSE)
+for (i in seq_len(nrow(lut))) {
+  sg <- rule_to_sgharm(lut$rule[i])
+  lut$betaH_hr[i]  <- beta_hr(sg, "H")
+  lut$betaHc_hr[i] <- beta_hr(sg, "Hc")
+}
+# Map each replicate to its β(Ĥ), β(Ĥᶜ).
+m <- match(rule_str, lut$rule)
+betaH_hr  <- lut$betaH_hr[m]
+betaHc_hr <- lut$betaHc_hr[m]
+```
+
+------------------------------------------------------------------------
+
+## Re-score the stored endpoints against β(Ĥ) {#sec-score}
+
+```{r score}
+.cover <- function(target, lo, hi) ifelse(is.finite(target) & is.finite(lo) & is.finite(hi),
+                                          target >= lo & target <= hi, NA)
+tgt <- list(H = betaH_hr, Hc = betaHc_hr)
+
+# Per-replicate frame; accumulate a coverage column per estimator × region.
+per <- data.frame(sim_id = det_simid, rule = rule_str,
+                  betaH_hr = betaH_hr, betaHc_hr = betaHc_hr,
+                  stringsAsFactors = FALSE)
+
+summ_rows <- list()
+for (rg in names(regions)) {
+  target <- tgt[[rg]]
+  for (lab in names(est_keys)) {
+    k  <- est_keys[[lab]]
+    e  <- res[[paste0(k, "_", regions[[rg]], "_est")]][det_idx]
+    lo <- res[[paste0(k, "_", regions[[rg]], "_lo")]][det_idx]
+    hi <- res[[paste0(k, "_", regions[[rg]], "_hi")]][det_idx]
+    cov <- .cover(target, lo, hi)
+    rb  <- (e - target) / target
+    per[[paste0("cov_", k, "_", rg)]] <- as.integer(cov)
+    summ_rows[[length(summ_rows) + 1L]] <- data.frame(
+      region = rg, estimator = lab,
+      n = sum(is.finite(target) & is.finite(lo) & is.finite(hi)),
+      cover_betaHhat   = mean(cov, na.rm = TRUE),
+      relbias_betaHhat = 100 * mean(rb[is.finite(rb)]),
+      stringsAsFactors = FALSE)
+  }
+}
+summ <- do.call(rbind, summ_rows)
+summ$region    <- factor(summ$region, levels = c("H", "Hc"))
+summ$estimator <- factor(summ$estimator, levels = names(est_keys))
+summ <- summ[order(summ$region, summ$estimator), ]
+rownames(summ) <- NULL
+summ
+```
+
+```{r save-sidecar}
+sidecar <- list(
+  summary    = summ,
+  per_replicate = per,
+  distinct_rules = lut,
+  meta = list(run_tag = run_tag, bundle = bundle, n_eval = n_eval,
+              eval_seed = eval_seed, analysis_time = analysis_time,
+              cens_adjust = cens_adjust, n_detected = length(det_idx),
+              n_rule_recovered = sum(ok_rule), n_distinct_rules = nrow(lut),
+              rule_recovery = if (reident) "reidentify" else "bundle",
+              eval_event_rate = mean(df_eval[[event_name]]),
+              built = Sys.time()))
+saveRDS(sidecar, sidecar_rds)
+cat("Wrote sidecar:", sidecar_rds, "\n")
+```
+
+------------------------------------------------------------------------
+
+## Notes for reuse
+
+- **Other scenarios** — repoint `bundle` and `run_tag` and adjust the DGM knobs
+  (`target_hr_harm`, `n_sample`, `analysis_time`, `cens_adjust`) to match that
+  bundle's generation; the eval population is cached per (n_eval, analysis_time,
+  cens_adjust, seed). DINA/GRF bundles work unchanged provided their stored rule
+  (or the re-identify `fs_params`) is set to that engine.
+- **Rule recovery** — `"auto"` reads the bundle's rule column when present (no
+  re-identification); set `"reidentify"` to force the seed-linked re-run.
+- **β(g) stability** — increase `n_eval` if distinct-rule β estimates look noisy;
+  1e5 is typically ample for a stable least-false Cox coefficient.
+- **Validation** — set `smoke_ids <- 1:20` (and, for re-identify, `n_workers`
+  small) to exercise the full path in well under a minute before the full run.
+- The sidecar is consumed by `_betaHhat_coverage_table.qmd`, which renders the
+  β(Ĥ) coverage and relative-bias columns next to the existing estimation table.
+```

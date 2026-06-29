@@ -1,0 +1,89 @@
+<!--
+  β(Ĥ) coverage table (manuscript fragment, payload-driven).
+
+  Reads ONLY the sidecar written by betaHhat_sweep.qmd
+  (betaHhat_<run_tag>.rds: a list with `summary`, `per_replicate`,
+  `distinct_rules`, `meta`) — no forestsearch, no DGM, no Cox fitting at render
+  time — so it renders in milliseconds. Defines @tbl-betaHhat-coverage.
+
+  This reports coverage and relative bias against β(Ĥ), the conditional estimand
+  Theorem 2 certifies (the censored observed-data least-false Cox coefficient in
+  the *realized* region), as a complement to the θ†/θ‡/oracle columns of the main
+  estimation table. Keep the sidecar beside this fragment or set `payload_dir`.
+-->
+
+```{r betaHhat-setup}
+#| echo: false
+#| message: false
+#| warning: false
+library(kableExtra)
+
+# Where the sidecar lives (written by betaHhat_sweep.qmd, next to the bundles)
+# and which run to show. Both must match the scorer's `rds_dir` and `run_tag`.
+payload_dir <- "../analysis/simulations/gbsg/resampling_comparisons/m1"
+run_tag     <- "fs_m1_h10_knoise0_n500"
+rds_file    <- sprintf("betaHhat_%s.rds", run_tag)
+
+.pdir <- if (is.null(payload_dir))
+  tryCatch(dirname(knitr::current_input(dir = TRUE)), error = function(e) getwd()) else payload_dir
+.rds_path <- file.path(.pdir, rds_file)
+have_sc   <- file.exists(.rds_path)
+
+fmt2 <- function(x) ifelse(is.na(x), "\u2014", sprintf("%.2f", x))
+fmtb <- function(x) ifelse(is.na(x), "\u2014", sprintf("%+.1f", x))
+
+if (have_sc) {
+  SC <- readRDS(.rds_path); S <- SC$summary; M <- SC$meta
+  # Wide layout: one row per estimator, columns = {cover, relbias} × {H, Hc}.
+  est_lv <- levels(S$estimator); if (is.null(est_lv)) est_lv <- unique(S$estimator)
+  pick <- function(rg, col) sapply(est_lv, function(e) {
+    v <- S[S$region == rg & S$estimator == e, col]; if (length(v)) v[1] else NA_real_ })
+  tab <- data.frame(
+    Estimator = est_lv,
+    cH  = fmt2(pick("H",  "cover_betaHhat")),
+    bH  = fmtb(pick("H",  "relbias_betaHhat")),
+    cHc = fmt2(pick("Hc", "cover_betaHhat")),
+    bHc = fmtb(pick("Hc", "relbias_betaHhat")),
+    check.names = FALSE)
+  n_rec <- M$n_rule_recovered; n_det <- M$n_detected; n_rules <- M$n_distinct_rules
+  cap_bh <- sprintf(paste0(
+    "Coverage and relative bias against the conditional estimand $\\beta(\\widehat H)$ ",
+    "— the least-false within-subgroup Cox coefficient on the observed, censored data, ",
+    "evaluated at the realized region — for forest search, re-scoring the stored ",
+    "multiplier-resampling and full-bootstrap intervals (no bootstrap re-run). ",
+    "$\\beta(\\widehat H)$ was computed once per distinct realized rule (%d rules over ",
+    "%d detections) on a censored evaluation population of n = %s (event rate %.2f). ",
+    "Contrast with the $\\theta^{\\dagger}$/$\\theta^{\\ddagger}$/oracle columns of the ",
+    "main estimation table, which target the true subgroup $H$."),
+    n_rules, n_rec, format(M$n_eval, big.mark = ","), M$eval_event_rate)
+} else {
+  cap_bh <- sprintf(paste0("Coverage and relative bias against $\\beta(\\widehat H)$. ",
+    "**Placeholder \u2014 run `betaHhat_sweep.qmd` to write `%s`.**"), rds_file)
+}
+```
+
+## Coverage against the conditional estimand β(Ĥ) {#sec-betaHhat}
+
+On the fixed forest-search family the multiplier-resampling and full-bootstrap intervals target $\beta(\widehat H)$, the population value of the standard within-subgroup analysis at the *realized* region. @tbl-betaHhat-coverage re-scores the stored intervals against $\beta(\widehat H)$ directly, the estimand Theorem 2 certifies — distinct from the $\theta^{\dagger}(H)$/$\theta^{\ddagger}(H)$ targets of the main table, which are causal effects in the *true* subgroup and coincide with $\beta(\widehat H)$ only when $\widehat H = H$ and the working model is proportional under the operative censoring.
+
+```{r}
+#| label: tbl-betaHhat-coverage
+#| tbl-cap: !expr cap_bh
+#| echo: false
+#| message: false
+#| warning: false
+if (!have_sc) {
+  data.frame(Estimator = c("oracle","naive","FB","MR"),
+             `Cov` = "\u2014", `Bias` = "\u2014", check.names = FALSE) |>
+    kbl(booktabs = TRUE, escape = FALSE) |> kable_styling()
+} else {
+  colnames(tab) <- c("Estimator",
+                     "Coverage", "Rel. bias (%)", "Coverage", "Rel. bias (%)")
+  kbl(tab, booktabs = TRUE, escape = FALSE, align = "lcccc", linesep = "") |>
+    kable_styling(font_size = if (knitr::is_latex_output()) 10 else NULL) |>
+    add_header_above(c(" " = 1,
+                       "Harm subgroup" = 2,
+                       "Complement" = 2),
+                     escape = FALSE)
+}
+```

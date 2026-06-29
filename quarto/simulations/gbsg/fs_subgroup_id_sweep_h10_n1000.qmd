@@ -58,6 +58,8 @@ analysis_time   <- 84           # administrative censoring (months)
 cens_adjust     <- log(1.5)     # censoring-rate adjustment
 n_sample        <- 1000L        # per-replicate trial size (set 500L for the n=500 sweep)
 
+identifier <- "fs"
+
 # ── Sweep ───────────────────────────────────────────────────────────────────
 sim_ids   <- 1:500              # replicates to run. Use e.g. 1:20 for a smoke test.
 n_workers <- round(0.8*max(1L, parallel::detectCores(logical = FALSE) - 1L))  # set 1L for sequential
@@ -74,11 +76,13 @@ harm_col     <- "flag_harm"     # planted true-membership indicator (0/1)
 # categorical -> meno (0/1), grade (1/2/3).
 confounders_base <- c("er", "age", "meno", "pgr", "nodes", "size", "grade")
 
+sg_method <- ifelse(identifier == "fs", "consistency", identifier)
+
 # ── forestsearch identification spec (the reusable engine knobs) ────────────
 # Only TUNABLE forestsearch args go here; data/name/run-flag args are bound
 # per replicate in record_replicate().  do.call() merges the two.
 fs_params <- list(
-  subgroup_method        = "consistency",   # "consistency" | "dina" | "grf"
+  subgroup_method        = sg_method,   # "consistency" | "dina" | "grf"
   consistency_method     = "resample",      # closed-form resample identification
   sg_focus               = "eff",           # selection focus once consistency passes
   selection_rule         = "neighborhood",  # *MaxSG/*MinSG band rule (inert for "eff")
@@ -110,9 +114,9 @@ truth_proxy   <- "age"    # known correlate of the partner FS may substitute
 top_n_subgroups <- 15L                              # rows in the top-subgroups table
 cache_dir       <- "."                              # where to cache the DGM + results
 use_dgm_cache   <- TRUE                             # reuse a built DGM across runs
-results_rds     <- sprintf("fs_idsweep_%s_n%d_%s.rds",
-                           dgm_model, n_sample, target_hr_harm,
-                           format(Sys.Date(), "%Y%m%d"))
+
+results_rds <- sprintf("%s_n%d_%.1f.rds", identifier, n_sample, target_hr_harm)
+
 ```
 
 ------------------------------------------------------------------------

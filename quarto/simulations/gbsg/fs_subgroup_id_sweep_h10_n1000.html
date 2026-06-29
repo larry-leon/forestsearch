@@ -3574,61 +3574,64 @@ window.onload = function() {
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>cens_adjust     <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="fl">1.5</span>)     <span class="co"># censoring-rate adjustment</span></span>
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>n_sample        <span class="ot">&lt;-</span> <span class="dv">1000</span>L        <span class="co"># per-replicate trial size (set 500L for the n=500 sweep)</span></span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Sweep ───────────────────────────────────────────────────────────────────</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>sim_ids   <span class="ot">&lt;-</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">500</span>              <span class="co"># replicates to run. Use e.g. 1:20 for a smoke test.</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>n_workers <span class="ot">&lt;-</span> <span class="fu">round</span>(<span class="fl">0.8</span><span class="sc">*</span><span class="fu">max</span>(<span class="dv">1</span>L, parallel<span class="sc">::</span><span class="fu">detectCores</span>(<span class="at">logical =</span> <span class="cn">FALSE</span>) <span class="sc">-</span> <span class="dv">1</span>L))  <span class="co"># set 1L for sequential</span></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Column names emitted by simulate_from_dgm() ─────────────────────────────</span></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>outcome_name <span class="ot">&lt;-</span> <span class="st">&quot;y_sim&quot;</span></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>event_name   <span class="ot">&lt;-</span> <span class="st">&quot;event_sim&quot;</span></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>treat_name   <span class="ot">&lt;-</span> <span class="st">&quot;treat_sim&quot;</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>id_name      <span class="ot">&lt;-</span> <span class="st">&quot;id&quot;</span></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>harm_col     <span class="ot">&lt;-</span> <span class="st">&quot;flag_harm&quot;</span>     <span class="co"># planted true-membership indicator (0/1)</span></span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Raw covariate candidates forestsearch is allowed to cut on (forestsearch</span></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="co"># discovers its own cuts). Continuous -&gt; er, age, pgr, nodes, size;</span></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="co"># categorical -&gt; meno (0/1), grade (1/2/3).</span></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>confounders_base <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;er&quot;</span>, <span class="st">&quot;age&quot;</span>, <span class="st">&quot;meno&quot;</span>, <span class="st">&quot;pgr&quot;</span>, <span class="st">&quot;nodes&quot;</span>, <span class="st">&quot;size&quot;</span>, <span class="st">&quot;grade&quot;</span>)</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="co"># ── forestsearch identification spec (the reusable engine knobs) ────────────</span></span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="co"># Only TUNABLE forestsearch args go here; data/name/run-flag args are bound</span></span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="co"># per replicate in record_replicate().  do.call() merges the two.</span></span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>fs_params <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  <span class="at">subgroup_method        =</span> <span class="st">&quot;consistency&quot;</span>,   <span class="co"># &quot;consistency&quot; | &quot;dina&quot; | &quot;grf&quot;</span></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">consistency_method     =</span> <span class="st">&quot;resample&quot;</span>,      <span class="co"># closed-form resample identification</span></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">sg_focus               =</span> <span class="st">&quot;eff&quot;</span>,           <span class="co"># selection focus once consistency passes</span></span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection_rule         =</span> <span class="st">&quot;neighborhood&quot;</span>,  <span class="co"># *MaxSG/*MinSG band rule (inert for &quot;eff&quot;)</span></span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">hr.threshold           =</span> <span class="fl">0.90</span>,</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">hr.consistency         =</span> <span class="fl">0.80</span>,</span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">pconsistency.threshold =</span> <span class="fl">0.90</span>,</span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">n.min                  =</span> <span class="cn">NULL</span>,            <span class="co"># minimum subgroup size (NULL = engine default)</span></span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">maxk                   =</span> <span class="dv">2</span>L,              <span class="co"># max factors in a subgroup definition</span></span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">d0.min                 =</span> <span class="dv">10</span>L,</span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>  <span class="at">d1.min                 =</span> <span class="dv">0</span>L,</span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_lasso              =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_grf                =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_twostage           =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_dina               =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Forced candidate cuts: always available regardless of screening.</span></span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>  <span class="at">conf_force             =</span> <span class="fu">c</span>(<span class="st">&quot;meno == 0&quot;</span>, <span class="st">&quot;er &lt;= 0&quot;</span>, <span class="st">&quot;pgr &lt;= 0&quot;</span>),</span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Per-variable J-quantile grids (er only; everything else gets default cuts).</span></span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>  <span class="at">conf.cont_jcuts        =</span> <span class="fu">list</span>(<span class="at">er =</span> <span class="dv">10</span>),</span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs.splits              =</span> <span class="dv">400</span>L             <span class="co"># moot under &quot;resample&quot;</span></span>
-<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Truth structure (for the recovery / substitution breakdown) ─────────────</span></span>
-<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a><span class="co"># Edit these three to match the planted subgroup of whatever DGM you run.</span></span>
-<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>truth_anchor  <span class="ot">&lt;-</span> <span class="st">&quot;er&quot;</span>     <span class="co"># factor FS should reliably recover (here z1 analog)</span></span>
-<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>truth_partner <span class="ot">&lt;-</span> <span class="st">&quot;meno&quot;</span>   <span class="co"># true second factor in H               (here z3 analog)</span></span>
-<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>truth_proxy   <span class="ot">&lt;-</span> <span class="st">&quot;age&quot;</span>    <span class="co"># known correlate of the partner FS may substitute</span></span>
-<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Output / caching ────────────────────────────────────────────────────────</span></span>
-<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>top_n_subgroups <span class="ot">&lt;-</span> <span class="dv">15</span>L                              <span class="co"># rows in the top-subgroups table</span></span>
-<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>cache_dir       <span class="ot">&lt;-</span> <span class="st">&quot;.&quot;</span>                              <span class="co"># where to cache the DGM + results</span></span>
-<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>use_dgm_cache   <span class="ot">&lt;-</span> <span class="cn">TRUE</span>                             <span class="co"># reuse a built DGM across runs</span></span>
-<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>results_rds     <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">&quot;fs_idsweep_%s_n%d_%s.rds&quot;</span>,</span>
-<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>                           dgm_model, n_sample, target_hr_harm,</span>
-<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a>                           <span class="fu">format</span>(<span class="fu">Sys.Date</span>(), <span class="st">&quot;%Y%m%d&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>identifier <span class="ot">&lt;-</span> <span class="st">&quot;fs&quot;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Sweep ───────────────────────────────────────────────────────────────────</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>sim_ids   <span class="ot">&lt;-</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">500</span>              <span class="co"># replicates to run. Use e.g. 1:20 for a smoke test.</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>n_workers <span class="ot">&lt;-</span> <span class="fu">round</span>(<span class="fl">0.8</span><span class="sc">*</span><span class="fu">max</span>(<span class="dv">1</span>L, parallel<span class="sc">::</span><span class="fu">detectCores</span>(<span class="at">logical =</span> <span class="cn">FALSE</span>) <span class="sc">-</span> <span class="dv">1</span>L))  <span class="co"># set 1L for sequential</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Column names emitted by simulate_from_dgm() ─────────────────────────────</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>outcome_name <span class="ot">&lt;-</span> <span class="st">&quot;y_sim&quot;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>event_name   <span class="ot">&lt;-</span> <span class="st">&quot;event_sim&quot;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>treat_name   <span class="ot">&lt;-</span> <span class="st">&quot;treat_sim&quot;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>id_name      <span class="ot">&lt;-</span> <span class="st">&quot;id&quot;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>harm_col     <span class="ot">&lt;-</span> <span class="st">&quot;flag_harm&quot;</span>     <span class="co"># planted true-membership indicator (0/1)</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Raw covariate candidates forestsearch is allowed to cut on (forestsearch</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="co"># discovers its own cuts). Continuous -&gt; er, age, pgr, nodes, size;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="co"># categorical -&gt; meno (0/1), grade (1/2/3).</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>confounders_base <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;er&quot;</span>, <span class="st">&quot;age&quot;</span>, <span class="st">&quot;meno&quot;</span>, <span class="st">&quot;pgr&quot;</span>, <span class="st">&quot;nodes&quot;</span>, <span class="st">&quot;size&quot;</span>, <span class="st">&quot;grade&quot;</span>)</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>sg_method <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(identifier <span class="sc">==</span> <span class="st">&quot;fs&quot;</span>, <span class="st">&quot;consistency&quot;</span>, identifier)</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="co"># ── forestsearch identification spec (the reusable engine knobs) ────────────</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="co"># Only TUNABLE forestsearch args go here; data/name/run-flag args are bound</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="co"># per replicate in record_replicate().  do.call() merges the two.</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>fs_params <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">subgroup_method        =</span> sg_method,   <span class="co"># &quot;consistency&quot; | &quot;dina&quot; | &quot;grf&quot;</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">consistency_method     =</span> <span class="st">&quot;resample&quot;</span>,      <span class="co"># closed-form resample identification</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">sg_focus               =</span> <span class="st">&quot;eff&quot;</span>,           <span class="co"># selection focus once consistency passes</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection_rule         =</span> <span class="st">&quot;neighborhood&quot;</span>,  <span class="co"># *MaxSG/*MinSG band rule (inert for &quot;eff&quot;)</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">hr.threshold           =</span> <span class="fl">0.90</span>,</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">hr.consistency         =</span> <span class="fl">0.80</span>,</span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>  <span class="at">pconsistency.threshold =</span> <span class="fl">0.90</span>,</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>  <span class="at">n.min                  =</span> <span class="cn">NULL</span>,            <span class="co"># minimum subgroup size (NULL = engine default)</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>  <span class="at">maxk                   =</span> <span class="dv">2</span>L,              <span class="co"># max factors in a subgroup definition</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>  <span class="at">d0.min                 =</span> <span class="dv">10</span>L,</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>  <span class="at">d1.min                 =</span> <span class="dv">0</span>L,</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_lasso              =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_grf                =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_twostage           =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_dina               =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Forced candidate cuts: always available regardless of screening.</span></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>  <span class="at">conf_force             =</span> <span class="fu">c</span>(<span class="st">&quot;meno == 0&quot;</span>, <span class="st">&quot;er &lt;= 0&quot;</span>, <span class="st">&quot;pgr &lt;= 0&quot;</span>),</span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Per-variable J-quantile grids (er only; everything else gets default cuts).</span></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>  <span class="at">conf.cont_jcuts        =</span> <span class="fu">list</span>(<span class="at">er =</span> <span class="dv">10</span>),</span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs.splits              =</span> <span class="dv">400</span>L             <span class="co"># moot under &quot;resample&quot;</span></span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Truth structure (for the recovery / substitution breakdown) ─────────────</span></span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a><span class="co"># Edit these three to match the planted subgroup of whatever DGM you run.</span></span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a>truth_anchor  <span class="ot">&lt;-</span> <span class="st">&quot;er&quot;</span>     <span class="co"># factor FS should reliably recover (here z1 analog)</span></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>truth_partner <span class="ot">&lt;-</span> <span class="st">&quot;meno&quot;</span>   <span class="co"># true second factor in H               (here z3 analog)</span></span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>truth_proxy   <span class="ot">&lt;-</span> <span class="st">&quot;age&quot;</span>    <span class="co"># known correlate of the partner FS may substitute</span></span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Output / caching ────────────────────────────────────────────────────────</span></span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>top_n_subgroups <span class="ot">&lt;-</span> <span class="dv">15</span>L                              <span class="co"># rows in the top-subgroups table</span></span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a>cache_dir       <span class="ot">&lt;-</span> <span class="st">&quot;.&quot;</span>                              <span class="co"># where to cache the DGM + results</span></span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>use_dgm_cache   <span class="ot">&lt;-</span> <span class="cn">TRUE</span>                             <span class="co"># reuse a built DGM across runs</span></span>
+<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a>results_rds <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">&quot;%s_n%d_%.1f.rds&quot;</span>, identifier, n_sample, target_hr_harm)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <hr>
@@ -3771,7 +3774,7 @@ window.onload = function() {
 <span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>            <span class="fu">nrow</span>(results), elapsed, elapsed <span class="sc">/</span> <span class="fu">nrow</span>(results), n_workers))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>Ran 500 replicates in 110.9 s (0.22 s/replicate, 102 workers).</code></pre>
+<pre><code>Ran 500 replicates in 110.8 s (0.22 s/replicate, 102 workers).</code></pre>
 </div>
 <details open class="code-fold">
 <summary>Code</summary>
@@ -3780,7 +3783,7 @@ window.onload = function() {
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>            <span class="dv">100</span> <span class="sc">*</span> <span class="fu">mean</span>(results<span class="sc">$</span>detected), <span class="fu">file.path</span>(cache_dir, results_rds)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>Detections: 226 / 500 (45.2%). Saved per-replicate records to ./fs_idsweep_alt_n1000_1.rds</code></pre>
+<pre><code>Detections: 226 / 500 (45.2%). Saved per-replicate records to ./fs_n1000_1.0.rds</code></pre>
 </div>
 </div>
 <hr>
@@ -3823,20 +3826,20 @@ window.onload = function() {
 <span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">quantity =</span> <span class="st">&quot;&quot;</span>, <span class="at">value =</span> <span class="st">&quot;&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
-<div id="lxugffkrqu" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#lxugffkrqu table {
+<div id="kkwocgyptq" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#kkwocgyptq table {
 font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 -webkit-font-smoothing: antialiased;
 -moz-osx-font-smoothing: grayscale;
 }
-#lxugffkrqu thead, #lxugffkrqu tbody, #lxugffkrqu tfoot, #lxugffkrqu tr, #lxugffkrqu td, #lxugffkrqu th {
+#kkwocgyptq thead, #kkwocgyptq tbody, #kkwocgyptq tfoot, #kkwocgyptq tr, #kkwocgyptq td, #kkwocgyptq th {
 border-style: none;
 }
-#lxugffkrqu p {
+#kkwocgyptq p {
 margin: 0;
 padding: 0;
 }
-#lxugffkrqu .gt_table {
+#kkwocgyptq .gt_table {
 display: table;
 border-collapse: collapse;
 line-height: normal;
@@ -3861,11 +3864,11 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#lxugffkrqu .gt_caption {
+#kkwocgyptq .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#lxugffkrqu .gt_title {
+#kkwocgyptq .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -3876,7 +3879,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#lxugffkrqu .gt_subtitle {
+#kkwocgyptq .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -3887,7 +3890,7 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#lxugffkrqu .gt_heading {
+#kkwocgyptq .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -3898,12 +3901,12 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#lxugffkrqu .gt_bottom_border {
+#kkwocgyptq .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#lxugffkrqu .gt_col_headings {
+#kkwocgyptq .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -3917,7 +3920,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#lxugffkrqu .gt_col_heading {
+#kkwocgyptq .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -3936,7 +3939,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#lxugffkrqu .gt_column_spanner_outer {
+#kkwocgyptq .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -3947,13 +3950,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#lxugffkrqu .gt_column_spanner_outer:first-child {
+#kkwocgyptq .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#lxugffkrqu .gt_column_spanner_outer:last-child {
+#kkwocgyptq .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#lxugffkrqu .gt_column_spanner {
+#kkwocgyptq .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -3964,10 +3967,10 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#lxugffkrqu .gt_spanner_row {
+#kkwocgyptq .gt_spanner_row {
 border-bottom-style: hidden;
 }
-#lxugffkrqu .gt_group_heading {
+#kkwocgyptq .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -3992,7 +3995,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#lxugffkrqu .gt_empty_group_heading {
+#kkwocgyptq .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -4006,13 +4009,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#lxugffkrqu .gt_from_md > :first-child {
+#kkwocgyptq .gt_from_md > :first-child {
 margin-top: 0;
 }
-#lxugffkrqu .gt_from_md > :last-child {
+#kkwocgyptq .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#lxugffkrqu .gt_row {
+#kkwocgyptq .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4030,7 +4033,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#lxugffkrqu .gt_stub {
+#kkwocgyptq .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4042,7 +4045,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lxugffkrqu .gt_stub_row_group {
+#kkwocgyptq .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4055,13 +4058,13 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#lxugffkrqu .gt_row_group_first td {
+#kkwocgyptq .gt_row_group_first td {
 border-top-width: 2px;
 }
-#lxugffkrqu .gt_row_group_first th {
+#kkwocgyptq .gt_row_group_first th {
 border-top-width: 2px;
 }
-#lxugffkrqu .gt_summary_row {
+#kkwocgyptq .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -4070,14 +4073,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lxugffkrqu .gt_first_summary_row {
+#kkwocgyptq .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#lxugffkrqu .gt_first_summary_row.thick {
+#kkwocgyptq .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#lxugffkrqu .gt_last_summary_row {
+#kkwocgyptq .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4086,7 +4089,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#lxugffkrqu .gt_grand_summary_row {
+#kkwocgyptq .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -4095,7 +4098,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lxugffkrqu .gt_first_grand_summary_row {
+#kkwocgyptq .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4104,7 +4107,7 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#lxugffkrqu .gt_last_grand_summary_row_top {
+#kkwocgyptq .gt_last_grand_summary_row_top {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4113,10 +4116,10 @@ border-bottom-style: double;
 border-bottom-width: 6px;
 border-bottom-color: #D3D3D3;
 }
-#lxugffkrqu .gt_striped {
+#kkwocgyptq .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#lxugffkrqu .gt_table_body {
+#kkwocgyptq .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -4124,7 +4127,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#lxugffkrqu .gt_footnotes {
+#kkwocgyptq .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -4137,7 +4140,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#lxugffkrqu .gt_footnote {
+#kkwocgyptq .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-top: 4px;
@@ -4145,7 +4148,7 @@ padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lxugffkrqu .gt_sourcenotes {
+#kkwocgyptq .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -4158,64 +4161,64 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#lxugffkrqu .gt_sourcenote {
+#kkwocgyptq .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lxugffkrqu .gt_left {
+#kkwocgyptq .gt_left {
 text-align: left;
 }
-#lxugffkrqu .gt_center {
+#kkwocgyptq .gt_center {
 text-align: center;
 }
-#lxugffkrqu .gt_right {
+#kkwocgyptq .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#lxugffkrqu .gt_font_normal {
+#kkwocgyptq .gt_font_normal {
 font-weight: normal;
 }
-#lxugffkrqu .gt_font_bold {
+#kkwocgyptq .gt_font_bold {
 font-weight: bold;
 }
-#lxugffkrqu .gt_font_italic {
+#kkwocgyptq .gt_font_italic {
 font-style: italic;
 }
-#lxugffkrqu .gt_super {
+#kkwocgyptq .gt_super {
 font-size: 65%;
 }
-#lxugffkrqu .gt_footnote_marks {
+#kkwocgyptq .gt_footnote_marks {
 font-size: 75%;
 vertical-align: 0.4em;
 position: initial;
 }
-#lxugffkrqu .gt_asterisk {
+#kkwocgyptq .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#lxugffkrqu .gt_indent_1 {
+#kkwocgyptq .gt_indent_1 {
 text-indent: 5px;
 }
-#lxugffkrqu .gt_indent_2 {
+#kkwocgyptq .gt_indent_2 {
 text-indent: 10px;
 }
-#lxugffkrqu .gt_indent_3 {
+#kkwocgyptq .gt_indent_3 {
 text-indent: 15px;
 }
-#lxugffkrqu .gt_indent_4 {
+#kkwocgyptq .gt_indent_4 {
 text-indent: 20px;
 }
-#lxugffkrqu .gt_indent_5 {
+#kkwocgyptq .gt_indent_5 {
 text-indent: 25px;
 }
-#lxugffkrqu .katex-display {
+#kkwocgyptq .katex-display {
 display: inline-flex !important;
 margin-bottom: 0.75em !important;
 }
-#lxugffkrqu div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#kkwocgyptq div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
 height: 0px !important;
 }
 </style>
@@ -4274,20 +4277,20 @@ height: 0px !important;
 <span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>             <span class="at">subtitle =</span> <span class="fu">sprintf</span>(<span class="st">&quot;Among %d detections&quot;</span>, n_det))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
-<div id="dwacgfajag" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#dwacgfajag table {
+<div id="nbztanvlht" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#nbztanvlht table {
 font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 -webkit-font-smoothing: antialiased;
 -moz-osx-font-smoothing: grayscale;
 }
-#dwacgfajag thead, #dwacgfajag tbody, #dwacgfajag tfoot, #dwacgfajag tr, #dwacgfajag td, #dwacgfajag th {
+#nbztanvlht thead, #nbztanvlht tbody, #nbztanvlht tfoot, #nbztanvlht tr, #nbztanvlht td, #nbztanvlht th {
 border-style: none;
 }
-#dwacgfajag p {
+#nbztanvlht p {
 margin: 0;
 padding: 0;
 }
-#dwacgfajag .gt_table {
+#nbztanvlht .gt_table {
 display: table;
 border-collapse: collapse;
 line-height: normal;
@@ -4312,11 +4315,11 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#dwacgfajag .gt_caption {
+#nbztanvlht .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#dwacgfajag .gt_title {
+#nbztanvlht .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -4327,7 +4330,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#dwacgfajag .gt_subtitle {
+#nbztanvlht .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -4338,7 +4341,7 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#dwacgfajag .gt_heading {
+#nbztanvlht .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -4349,12 +4352,12 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#dwacgfajag .gt_bottom_border {
+#nbztanvlht .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#dwacgfajag .gt_col_headings {
+#nbztanvlht .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -4368,7 +4371,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#dwacgfajag .gt_col_heading {
+#nbztanvlht .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4387,7 +4390,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#dwacgfajag .gt_column_spanner_outer {
+#nbztanvlht .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4398,13 +4401,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#dwacgfajag .gt_column_spanner_outer:first-child {
+#nbztanvlht .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#dwacgfajag .gt_column_spanner_outer:last-child {
+#nbztanvlht .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#dwacgfajag .gt_column_spanner {
+#nbztanvlht .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -4415,10 +4418,10 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#dwacgfajag .gt_spanner_row {
+#nbztanvlht .gt_spanner_row {
 border-bottom-style: hidden;
 }
-#dwacgfajag .gt_group_heading {
+#nbztanvlht .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4443,7 +4446,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#dwacgfajag .gt_empty_group_heading {
+#nbztanvlht .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -4457,13 +4460,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#dwacgfajag .gt_from_md > :first-child {
+#nbztanvlht .gt_from_md > :first-child {
 margin-top: 0;
 }
-#dwacgfajag .gt_from_md > :last-child {
+#nbztanvlht .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#dwacgfajag .gt_row {
+#nbztanvlht .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4481,7 +4484,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#dwacgfajag .gt_stub {
+#nbztanvlht .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4493,7 +4496,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#dwacgfajag .gt_stub_row_group {
+#nbztanvlht .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4506,13 +4509,13 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#dwacgfajag .gt_row_group_first td {
+#nbztanvlht .gt_row_group_first td {
 border-top-width: 2px;
 }
-#dwacgfajag .gt_row_group_first th {
+#nbztanvlht .gt_row_group_first th {
 border-top-width: 2px;
 }
-#dwacgfajag .gt_summary_row {
+#nbztanvlht .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -4521,14 +4524,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#dwacgfajag .gt_first_summary_row {
+#nbztanvlht .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#dwacgfajag .gt_first_summary_row.thick {
+#nbztanvlht .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#dwacgfajag .gt_last_summary_row {
+#nbztanvlht .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4537,7 +4540,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#dwacgfajag .gt_grand_summary_row {
+#nbztanvlht .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -4546,7 +4549,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#dwacgfajag .gt_first_grand_summary_row {
+#nbztanvlht .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4555,7 +4558,7 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#dwacgfajag .gt_last_grand_summary_row_top {
+#nbztanvlht .gt_last_grand_summary_row_top {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4564,10 +4567,10 @@ border-bottom-style: double;
 border-bottom-width: 6px;
 border-bottom-color: #D3D3D3;
 }
-#dwacgfajag .gt_striped {
+#nbztanvlht .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#dwacgfajag .gt_table_body {
+#nbztanvlht .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -4575,7 +4578,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#dwacgfajag .gt_footnotes {
+#nbztanvlht .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -4588,7 +4591,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#dwacgfajag .gt_footnote {
+#nbztanvlht .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-top: 4px;
@@ -4596,7 +4599,7 @@ padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#dwacgfajag .gt_sourcenotes {
+#nbztanvlht .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -4609,64 +4612,64 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#dwacgfajag .gt_sourcenote {
+#nbztanvlht .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#dwacgfajag .gt_left {
+#nbztanvlht .gt_left {
 text-align: left;
 }
-#dwacgfajag .gt_center {
+#nbztanvlht .gt_center {
 text-align: center;
 }
-#dwacgfajag .gt_right {
+#nbztanvlht .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#dwacgfajag .gt_font_normal {
+#nbztanvlht .gt_font_normal {
 font-weight: normal;
 }
-#dwacgfajag .gt_font_bold {
+#nbztanvlht .gt_font_bold {
 font-weight: bold;
 }
-#dwacgfajag .gt_font_italic {
+#nbztanvlht .gt_font_italic {
 font-style: italic;
 }
-#dwacgfajag .gt_super {
+#nbztanvlht .gt_super {
 font-size: 65%;
 }
-#dwacgfajag .gt_footnote_marks {
+#nbztanvlht .gt_footnote_marks {
 font-size: 75%;
 vertical-align: 0.4em;
 position: initial;
 }
-#dwacgfajag .gt_asterisk {
+#nbztanvlht .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#dwacgfajag .gt_indent_1 {
+#nbztanvlht .gt_indent_1 {
 text-indent: 5px;
 }
-#dwacgfajag .gt_indent_2 {
+#nbztanvlht .gt_indent_2 {
 text-indent: 10px;
 }
-#dwacgfajag .gt_indent_3 {
+#nbztanvlht .gt_indent_3 {
 text-indent: 15px;
 }
-#dwacgfajag .gt_indent_4 {
+#nbztanvlht .gt_indent_4 {
 text-indent: 20px;
 }
-#dwacgfajag .gt_indent_5 {
+#nbztanvlht .gt_indent_5 {
 text-indent: 25px;
 }
-#dwacgfajag .katex-display {
+#nbztanvlht .katex-display {
 display: inline-flex !important;
 margin-bottom: 0.75em !important;
 }
-#dwacgfajag div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#nbztanvlht div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
 height: 0px !important;
 }
 </style>
@@ -4739,20 +4742,20 @@ height: 0px !important;
 <span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>                                truth_anchor, truth_partner, truth_proxy))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
-<div id="ptdabgahrr" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#ptdabgahrr table {
+<div id="rtgiaidzxu" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#rtgiaidzxu table {
 font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 -webkit-font-smoothing: antialiased;
 -moz-osx-font-smoothing: grayscale;
 }
-#ptdabgahrr thead, #ptdabgahrr tbody, #ptdabgahrr tfoot, #ptdabgahrr tr, #ptdabgahrr td, #ptdabgahrr th {
+#rtgiaidzxu thead, #rtgiaidzxu tbody, #rtgiaidzxu tfoot, #rtgiaidzxu tr, #rtgiaidzxu td, #rtgiaidzxu th {
 border-style: none;
 }
-#ptdabgahrr p {
+#rtgiaidzxu p {
 margin: 0;
 padding: 0;
 }
-#ptdabgahrr .gt_table {
+#rtgiaidzxu .gt_table {
 display: table;
 border-collapse: collapse;
 line-height: normal;
@@ -4777,11 +4780,11 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#ptdabgahrr .gt_caption {
+#rtgiaidzxu .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#ptdabgahrr .gt_title {
+#rtgiaidzxu .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -4792,7 +4795,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#ptdabgahrr .gt_subtitle {
+#rtgiaidzxu .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -4803,7 +4806,7 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#ptdabgahrr .gt_heading {
+#rtgiaidzxu .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -4814,12 +4817,12 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#ptdabgahrr .gt_bottom_border {
+#rtgiaidzxu .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#ptdabgahrr .gt_col_headings {
+#rtgiaidzxu .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -4833,7 +4836,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#ptdabgahrr .gt_col_heading {
+#rtgiaidzxu .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4852,7 +4855,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#ptdabgahrr .gt_column_spanner_outer {
+#rtgiaidzxu .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4863,13 +4866,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#ptdabgahrr .gt_column_spanner_outer:first-child {
+#rtgiaidzxu .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#ptdabgahrr .gt_column_spanner_outer:last-child {
+#rtgiaidzxu .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#ptdabgahrr .gt_column_spanner {
+#rtgiaidzxu .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -4880,10 +4883,10 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#ptdabgahrr .gt_spanner_row {
+#rtgiaidzxu .gt_spanner_row {
 border-bottom-style: hidden;
 }
-#ptdabgahrr .gt_group_heading {
+#rtgiaidzxu .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4908,7 +4911,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#ptdabgahrr .gt_empty_group_heading {
+#rtgiaidzxu .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -4922,13 +4925,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#ptdabgahrr .gt_from_md > :first-child {
+#rtgiaidzxu .gt_from_md > :first-child {
 margin-top: 0;
 }
-#ptdabgahrr .gt_from_md > :last-child {
+#rtgiaidzxu .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#ptdabgahrr .gt_row {
+#rtgiaidzxu .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4946,7 +4949,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#ptdabgahrr .gt_stub {
+#rtgiaidzxu .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4958,7 +4961,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ptdabgahrr .gt_stub_row_group {
+#rtgiaidzxu .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4971,13 +4974,13 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#ptdabgahrr .gt_row_group_first td {
+#rtgiaidzxu .gt_row_group_first td {
 border-top-width: 2px;
 }
-#ptdabgahrr .gt_row_group_first th {
+#rtgiaidzxu .gt_row_group_first th {
 border-top-width: 2px;
 }
-#ptdabgahrr .gt_summary_row {
+#rtgiaidzxu .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -4986,14 +4989,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ptdabgahrr .gt_first_summary_row {
+#rtgiaidzxu .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#ptdabgahrr .gt_first_summary_row.thick {
+#rtgiaidzxu .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#ptdabgahrr .gt_last_summary_row {
+#rtgiaidzxu .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5002,7 +5005,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#ptdabgahrr .gt_grand_summary_row {
+#rtgiaidzxu .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5011,7 +5014,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ptdabgahrr .gt_first_grand_summary_row {
+#rtgiaidzxu .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5020,7 +5023,7 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#ptdabgahrr .gt_last_grand_summary_row_top {
+#rtgiaidzxu .gt_last_grand_summary_row_top {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5029,10 +5032,10 @@ border-bottom-style: double;
 border-bottom-width: 6px;
 border-bottom-color: #D3D3D3;
 }
-#ptdabgahrr .gt_striped {
+#rtgiaidzxu .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#ptdabgahrr .gt_table_body {
+#rtgiaidzxu .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5040,7 +5043,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#ptdabgahrr .gt_footnotes {
+#rtgiaidzxu .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5053,7 +5056,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#ptdabgahrr .gt_footnote {
+#rtgiaidzxu .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-top: 4px;
@@ -5061,7 +5064,7 @@ padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ptdabgahrr .gt_sourcenotes {
+#rtgiaidzxu .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5074,64 +5077,64 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#ptdabgahrr .gt_sourcenote {
+#rtgiaidzxu .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ptdabgahrr .gt_left {
+#rtgiaidzxu .gt_left {
 text-align: left;
 }
-#ptdabgahrr .gt_center {
+#rtgiaidzxu .gt_center {
 text-align: center;
 }
-#ptdabgahrr .gt_right {
+#rtgiaidzxu .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#ptdabgahrr .gt_font_normal {
+#rtgiaidzxu .gt_font_normal {
 font-weight: normal;
 }
-#ptdabgahrr .gt_font_bold {
+#rtgiaidzxu .gt_font_bold {
 font-weight: bold;
 }
-#ptdabgahrr .gt_font_italic {
+#rtgiaidzxu .gt_font_italic {
 font-style: italic;
 }
-#ptdabgahrr .gt_super {
+#rtgiaidzxu .gt_super {
 font-size: 65%;
 }
-#ptdabgahrr .gt_footnote_marks {
+#rtgiaidzxu .gt_footnote_marks {
 font-size: 75%;
 vertical-align: 0.4em;
 position: initial;
 }
-#ptdabgahrr .gt_asterisk {
+#rtgiaidzxu .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#ptdabgahrr .gt_indent_1 {
+#rtgiaidzxu .gt_indent_1 {
 text-indent: 5px;
 }
-#ptdabgahrr .gt_indent_2 {
+#rtgiaidzxu .gt_indent_2 {
 text-indent: 10px;
 }
-#ptdabgahrr .gt_indent_3 {
+#rtgiaidzxu .gt_indent_3 {
 text-indent: 15px;
 }
-#ptdabgahrr .gt_indent_4 {
+#rtgiaidzxu .gt_indent_4 {
 text-indent: 20px;
 }
-#ptdabgahrr .gt_indent_5 {
+#rtgiaidzxu .gt_indent_5 {
 text-indent: 25px;
 }
-#ptdabgahrr .katex-display {
+#rtgiaidzxu .katex-display {
 display: inline-flex !important;
 margin-bottom: 0.75em !important;
 }
-#ptdabgahrr div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#rtgiaidzxu div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
 height: 0px !important;
 }
 </style>
@@ -5199,20 +5202,20 @@ height: 0px !important;
 <span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="fu">sprintf</span>(<span class="st">&quot;Top %d identified subgroups&quot;</span>, top_n_subgroups))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
-<div id="drhtehasvg" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#drhtehasvg table {
+<div id="yykmxjgmgz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#yykmxjgmgz table {
 font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 -webkit-font-smoothing: antialiased;
 -moz-osx-font-smoothing: grayscale;
 }
-#drhtehasvg thead, #drhtehasvg tbody, #drhtehasvg tfoot, #drhtehasvg tr, #drhtehasvg td, #drhtehasvg th {
+#yykmxjgmgz thead, #yykmxjgmgz tbody, #yykmxjgmgz tfoot, #yykmxjgmgz tr, #yykmxjgmgz td, #yykmxjgmgz th {
 border-style: none;
 }
-#drhtehasvg p {
+#yykmxjgmgz p {
 margin: 0;
 padding: 0;
 }
-#drhtehasvg .gt_table {
+#yykmxjgmgz .gt_table {
 display: table;
 border-collapse: collapse;
 line-height: normal;
@@ -5237,11 +5240,11 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#drhtehasvg .gt_caption {
+#yykmxjgmgz .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#drhtehasvg .gt_title {
+#yykmxjgmgz .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -5252,7 +5255,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#drhtehasvg .gt_subtitle {
+#yykmxjgmgz .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -5263,7 +5266,7 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#drhtehasvg .gt_heading {
+#yykmxjgmgz .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -5274,12 +5277,12 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#drhtehasvg .gt_bottom_border {
+#yykmxjgmgz .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#drhtehasvg .gt_col_headings {
+#yykmxjgmgz .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5293,7 +5296,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#drhtehasvg .gt_col_heading {
+#yykmxjgmgz .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5312,7 +5315,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#drhtehasvg .gt_column_spanner_outer {
+#yykmxjgmgz .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5323,13 +5326,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#drhtehasvg .gt_column_spanner_outer:first-child {
+#yykmxjgmgz .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#drhtehasvg .gt_column_spanner_outer:last-child {
+#yykmxjgmgz .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#drhtehasvg .gt_column_spanner {
+#yykmxjgmgz .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -5340,10 +5343,10 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#drhtehasvg .gt_spanner_row {
+#yykmxjgmgz .gt_spanner_row {
 border-bottom-style: hidden;
 }
-#drhtehasvg .gt_group_heading {
+#yykmxjgmgz .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5368,7 +5371,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#drhtehasvg .gt_empty_group_heading {
+#yykmxjgmgz .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -5382,13 +5385,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#drhtehasvg .gt_from_md > :first-child {
+#yykmxjgmgz .gt_from_md > :first-child {
 margin-top: 0;
 }
-#drhtehasvg .gt_from_md > :last-child {
+#yykmxjgmgz .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#drhtehasvg .gt_row {
+#yykmxjgmgz .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5406,7 +5409,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#drhtehasvg .gt_stub {
+#yykmxjgmgz .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5418,7 +5421,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#drhtehasvg .gt_stub_row_group {
+#yykmxjgmgz .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5431,13 +5434,13 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#drhtehasvg .gt_row_group_first td {
+#yykmxjgmgz .gt_row_group_first td {
 border-top-width: 2px;
 }
-#drhtehasvg .gt_row_group_first th {
+#yykmxjgmgz .gt_row_group_first th {
 border-top-width: 2px;
 }
-#drhtehasvg .gt_summary_row {
+#yykmxjgmgz .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5446,14 +5449,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#drhtehasvg .gt_first_summary_row {
+#yykmxjgmgz .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#drhtehasvg .gt_first_summary_row.thick {
+#yykmxjgmgz .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#drhtehasvg .gt_last_summary_row {
+#yykmxjgmgz .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5462,7 +5465,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#drhtehasvg .gt_grand_summary_row {
+#yykmxjgmgz .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5471,7 +5474,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#drhtehasvg .gt_first_grand_summary_row {
+#yykmxjgmgz .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5480,7 +5483,7 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#drhtehasvg .gt_last_grand_summary_row_top {
+#yykmxjgmgz .gt_last_grand_summary_row_top {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5489,10 +5492,10 @@ border-bottom-style: double;
 border-bottom-width: 6px;
 border-bottom-color: #D3D3D3;
 }
-#drhtehasvg .gt_striped {
+#yykmxjgmgz .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#drhtehasvg .gt_table_body {
+#yykmxjgmgz .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5500,7 +5503,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#drhtehasvg .gt_footnotes {
+#yykmxjgmgz .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5513,7 +5516,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#drhtehasvg .gt_footnote {
+#yykmxjgmgz .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-top: 4px;
@@ -5521,7 +5524,7 @@ padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#drhtehasvg .gt_sourcenotes {
+#yykmxjgmgz .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5534,64 +5537,64 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#drhtehasvg .gt_sourcenote {
+#yykmxjgmgz .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#drhtehasvg .gt_left {
+#yykmxjgmgz .gt_left {
 text-align: left;
 }
-#drhtehasvg .gt_center {
+#yykmxjgmgz .gt_center {
 text-align: center;
 }
-#drhtehasvg .gt_right {
+#yykmxjgmgz .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#drhtehasvg .gt_font_normal {
+#yykmxjgmgz .gt_font_normal {
 font-weight: normal;
 }
-#drhtehasvg .gt_font_bold {
+#yykmxjgmgz .gt_font_bold {
 font-weight: bold;
 }
-#drhtehasvg .gt_font_italic {
+#yykmxjgmgz .gt_font_italic {
 font-style: italic;
 }
-#drhtehasvg .gt_super {
+#yykmxjgmgz .gt_super {
 font-size: 65%;
 }
-#drhtehasvg .gt_footnote_marks {
+#yykmxjgmgz .gt_footnote_marks {
 font-size: 75%;
 vertical-align: 0.4em;
 position: initial;
 }
-#drhtehasvg .gt_asterisk {
+#yykmxjgmgz .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#drhtehasvg .gt_indent_1 {
+#yykmxjgmgz .gt_indent_1 {
 text-indent: 5px;
 }
-#drhtehasvg .gt_indent_2 {
+#yykmxjgmgz .gt_indent_2 {
 text-indent: 10px;
 }
-#drhtehasvg .gt_indent_3 {
+#yykmxjgmgz .gt_indent_3 {
 text-indent: 15px;
 }
-#drhtehasvg .gt_indent_4 {
+#yykmxjgmgz .gt_indent_4 {
 text-indent: 20px;
 }
-#drhtehasvg .gt_indent_5 {
+#yykmxjgmgz .gt_indent_5 {
 text-indent: 25px;
 }
-#drhtehasvg .katex-display {
+#yykmxjgmgz .katex-display {
 display: inline-flex !important;
 margin-bottom: 0.75em !important;
 }
-#drhtehasvg div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#yykmxjgmgz div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
 height: 0px !important;
 }
 </style>
@@ -5710,20 +5713,20 @@ height: 0px !important;
 <span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>             <span class="at">subtitle =</span> <span class="fu">sprintf</span>(<span class="st">&quot;Among %d detections&quot;</span>, n_det))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
-<div id="zyobttapzs" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#zyobttapzs table {
+<div id="mwvkithewe" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#mwvkithewe table {
 font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 -webkit-font-smoothing: antialiased;
 -moz-osx-font-smoothing: grayscale;
 }
-#zyobttapzs thead, #zyobttapzs tbody, #zyobttapzs tfoot, #zyobttapzs tr, #zyobttapzs td, #zyobttapzs th {
+#mwvkithewe thead, #mwvkithewe tbody, #mwvkithewe tfoot, #mwvkithewe tr, #mwvkithewe td, #mwvkithewe th {
 border-style: none;
 }
-#zyobttapzs p {
+#mwvkithewe p {
 margin: 0;
 padding: 0;
 }
-#zyobttapzs .gt_table {
+#mwvkithewe .gt_table {
 display: table;
 border-collapse: collapse;
 line-height: normal;
@@ -5748,11 +5751,11 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#zyobttapzs .gt_caption {
+#mwvkithewe .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#zyobttapzs .gt_title {
+#mwvkithewe .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -5763,7 +5766,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#zyobttapzs .gt_subtitle {
+#mwvkithewe .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -5774,7 +5777,7 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#zyobttapzs .gt_heading {
+#mwvkithewe .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -5785,12 +5788,12 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#zyobttapzs .gt_bottom_border {
+#mwvkithewe .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#zyobttapzs .gt_col_headings {
+#mwvkithewe .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5804,7 +5807,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#zyobttapzs .gt_col_heading {
+#mwvkithewe .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5823,7 +5826,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#zyobttapzs .gt_column_spanner_outer {
+#mwvkithewe .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5834,13 +5837,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#zyobttapzs .gt_column_spanner_outer:first-child {
+#mwvkithewe .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#zyobttapzs .gt_column_spanner_outer:last-child {
+#mwvkithewe .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#zyobttapzs .gt_column_spanner {
+#mwvkithewe .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -5851,10 +5854,10 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#zyobttapzs .gt_spanner_row {
+#mwvkithewe .gt_spanner_row {
 border-bottom-style: hidden;
 }
-#zyobttapzs .gt_group_heading {
+#mwvkithewe .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5879,7 +5882,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#zyobttapzs .gt_empty_group_heading {
+#mwvkithewe .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -5893,13 +5896,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#zyobttapzs .gt_from_md > :first-child {
+#mwvkithewe .gt_from_md > :first-child {
 margin-top: 0;
 }
-#zyobttapzs .gt_from_md > :last-child {
+#mwvkithewe .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#zyobttapzs .gt_row {
+#mwvkithewe .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5917,7 +5920,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#zyobttapzs .gt_stub {
+#mwvkithewe .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5929,7 +5932,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#zyobttapzs .gt_stub_row_group {
+#mwvkithewe .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5942,13 +5945,13 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#zyobttapzs .gt_row_group_first td {
+#mwvkithewe .gt_row_group_first td {
 border-top-width: 2px;
 }
-#zyobttapzs .gt_row_group_first th {
+#mwvkithewe .gt_row_group_first th {
 border-top-width: 2px;
 }
-#zyobttapzs .gt_summary_row {
+#mwvkithewe .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5957,14 +5960,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#zyobttapzs .gt_first_summary_row {
+#mwvkithewe .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#zyobttapzs .gt_first_summary_row.thick {
+#mwvkithewe .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#zyobttapzs .gt_last_summary_row {
+#mwvkithewe .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5973,7 +5976,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#zyobttapzs .gt_grand_summary_row {
+#mwvkithewe .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5982,7 +5985,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#zyobttapzs .gt_first_grand_summary_row {
+#mwvkithewe .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5991,7 +5994,7 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#zyobttapzs .gt_last_grand_summary_row_top {
+#mwvkithewe .gt_last_grand_summary_row_top {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6000,10 +6003,10 @@ border-bottom-style: double;
 border-bottom-width: 6px;
 border-bottom-color: #D3D3D3;
 }
-#zyobttapzs .gt_striped {
+#mwvkithewe .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#zyobttapzs .gt_table_body {
+#mwvkithewe .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6011,7 +6014,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#zyobttapzs .gt_footnotes {
+#mwvkithewe .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6024,7 +6027,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#zyobttapzs .gt_footnote {
+#mwvkithewe .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-top: 4px;
@@ -6032,7 +6035,7 @@ padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#zyobttapzs .gt_sourcenotes {
+#mwvkithewe .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6045,64 +6048,64 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#zyobttapzs .gt_sourcenote {
+#mwvkithewe .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#zyobttapzs .gt_left {
+#mwvkithewe .gt_left {
 text-align: left;
 }
-#zyobttapzs .gt_center {
+#mwvkithewe .gt_center {
 text-align: center;
 }
-#zyobttapzs .gt_right {
+#mwvkithewe .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#zyobttapzs .gt_font_normal {
+#mwvkithewe .gt_font_normal {
 font-weight: normal;
 }
-#zyobttapzs .gt_font_bold {
+#mwvkithewe .gt_font_bold {
 font-weight: bold;
 }
-#zyobttapzs .gt_font_italic {
+#mwvkithewe .gt_font_italic {
 font-style: italic;
 }
-#zyobttapzs .gt_super {
+#mwvkithewe .gt_super {
 font-size: 65%;
 }
-#zyobttapzs .gt_footnote_marks {
+#mwvkithewe .gt_footnote_marks {
 font-size: 75%;
 vertical-align: 0.4em;
 position: initial;
 }
-#zyobttapzs .gt_asterisk {
+#mwvkithewe .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#zyobttapzs .gt_indent_1 {
+#mwvkithewe .gt_indent_1 {
 text-indent: 5px;
 }
-#zyobttapzs .gt_indent_2 {
+#mwvkithewe .gt_indent_2 {
 text-indent: 10px;
 }
-#zyobttapzs .gt_indent_3 {
+#mwvkithewe .gt_indent_3 {
 text-indent: 15px;
 }
-#zyobttapzs .gt_indent_4 {
+#mwvkithewe .gt_indent_4 {
 text-indent: 20px;
 }
-#zyobttapzs .gt_indent_5 {
+#mwvkithewe .gt_indent_5 {
 text-indent: 25px;
 }
-#zyobttapzs .katex-display {
+#mwvkithewe .katex-display {
 display: inline-flex !important;
 margin-bottom: 0.75em !important;
 }
-#zyobttapzs div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#mwvkithewe div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
 height: 0px !important;
 }
 </style>
@@ -6699,335 +6702,339 @@ height: 0px !important;
 <span id="cb15-58"><a href="#cb15-58" aria-hidden="true" tabindex="-1"></a>cens_adjust     <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="fl">1.5</span>)     <span class="co"># censoring-rate adjustment</span></span>
 <span id="cb15-59"><a href="#cb15-59" aria-hidden="true" tabindex="-1"></a>n_sample        <span class="ot">&lt;-</span> <span class="dv">1000</span>L        <span class="co"># per-replicate trial size (set 500L for the n=500 sweep)</span></span>
 <span id="cb15-60"><a href="#cb15-60" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-61"><a href="#cb15-61" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Sweep ───────────────────────────────────────────────────────────────────</span></span>
-<span id="cb15-62"><a href="#cb15-62" aria-hidden="true" tabindex="-1"></a>sim_ids   <span class="ot">&lt;-</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">500</span>              <span class="co"># replicates to run. Use e.g. 1:20 for a smoke test.</span></span>
-<span id="cb15-63"><a href="#cb15-63" aria-hidden="true" tabindex="-1"></a>n_workers <span class="ot">&lt;-</span> <span class="fu">round</span>(<span class="fl">0.8</span><span class="sc">*</span><span class="fu">max</span>(<span class="dv">1</span>L, parallel<span class="sc">::</span><span class="fu">detectCores</span>(<span class="at">logical =</span> <span class="cn">FALSE</span>) <span class="sc">-</span> <span class="dv">1</span>L))  <span class="co"># set 1L for sequential</span></span>
-<span id="cb15-64"><a href="#cb15-64" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-65"><a href="#cb15-65" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Column names emitted by simulate_from_dgm() ─────────────────────────────</span></span>
-<span id="cb15-66"><a href="#cb15-66" aria-hidden="true" tabindex="-1"></a>outcome_name <span class="ot">&lt;-</span> <span class="st">&quot;y_sim&quot;</span></span>
-<span id="cb15-67"><a href="#cb15-67" aria-hidden="true" tabindex="-1"></a>event_name   <span class="ot">&lt;-</span> <span class="st">&quot;event_sim&quot;</span></span>
-<span id="cb15-68"><a href="#cb15-68" aria-hidden="true" tabindex="-1"></a>treat_name   <span class="ot">&lt;-</span> <span class="st">&quot;treat_sim&quot;</span></span>
-<span id="cb15-69"><a href="#cb15-69" aria-hidden="true" tabindex="-1"></a>id_name      <span class="ot">&lt;-</span> <span class="st">&quot;id&quot;</span></span>
-<span id="cb15-70"><a href="#cb15-70" aria-hidden="true" tabindex="-1"></a>harm_col     <span class="ot">&lt;-</span> <span class="st">&quot;flag_harm&quot;</span>     <span class="co"># planted true-membership indicator (0/1)</span></span>
-<span id="cb15-71"><a href="#cb15-71" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-72"><a href="#cb15-72" aria-hidden="true" tabindex="-1"></a><span class="co"># Raw covariate candidates forestsearch is allowed to cut on (forestsearch</span></span>
-<span id="cb15-73"><a href="#cb15-73" aria-hidden="true" tabindex="-1"></a><span class="co"># discovers its own cuts). Continuous -&gt; er, age, pgr, nodes, size;</span></span>
-<span id="cb15-74"><a href="#cb15-74" aria-hidden="true" tabindex="-1"></a><span class="co"># categorical -&gt; meno (0/1), grade (1/2/3).</span></span>
-<span id="cb15-75"><a href="#cb15-75" aria-hidden="true" tabindex="-1"></a>confounders_base <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;er&quot;</span>, <span class="st">&quot;age&quot;</span>, <span class="st">&quot;meno&quot;</span>, <span class="st">&quot;pgr&quot;</span>, <span class="st">&quot;nodes&quot;</span>, <span class="st">&quot;size&quot;</span>, <span class="st">&quot;grade&quot;</span>)</span>
-<span id="cb15-76"><a href="#cb15-76" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-77"><a href="#cb15-77" aria-hidden="true" tabindex="-1"></a><span class="co"># ── forestsearch identification spec (the reusable engine knobs) ────────────</span></span>
-<span id="cb15-78"><a href="#cb15-78" aria-hidden="true" tabindex="-1"></a><span class="co"># Only TUNABLE forestsearch args go here; data/name/run-flag args are bound</span></span>
-<span id="cb15-79"><a href="#cb15-79" aria-hidden="true" tabindex="-1"></a><span class="co"># per replicate in record_replicate().  do.call() merges the two.</span></span>
-<span id="cb15-80"><a href="#cb15-80" aria-hidden="true" tabindex="-1"></a>fs_params <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb15-81"><a href="#cb15-81" aria-hidden="true" tabindex="-1"></a>  <span class="at">subgroup_method        =</span> <span class="st">&quot;consistency&quot;</span>,   <span class="co"># &quot;consistency&quot; | &quot;dina&quot; | &quot;grf&quot;</span></span>
-<span id="cb15-82"><a href="#cb15-82" aria-hidden="true" tabindex="-1"></a>  <span class="at">consistency_method     =</span> <span class="st">&quot;resample&quot;</span>,      <span class="co"># closed-form resample identification</span></span>
-<span id="cb15-83"><a href="#cb15-83" aria-hidden="true" tabindex="-1"></a>  <span class="at">sg_focus               =</span> <span class="st">&quot;eff&quot;</span>,           <span class="co"># selection focus once consistency passes</span></span>
-<span id="cb15-84"><a href="#cb15-84" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection_rule         =</span> <span class="st">&quot;neighborhood&quot;</span>,  <span class="co"># *MaxSG/*MinSG band rule (inert for &quot;eff&quot;)</span></span>
-<span id="cb15-85"><a href="#cb15-85" aria-hidden="true" tabindex="-1"></a>  <span class="at">hr.threshold           =</span> <span class="fl">0.90</span>,</span>
-<span id="cb15-86"><a href="#cb15-86" aria-hidden="true" tabindex="-1"></a>  <span class="at">hr.consistency         =</span> <span class="fl">0.80</span>,</span>
-<span id="cb15-87"><a href="#cb15-87" aria-hidden="true" tabindex="-1"></a>  <span class="at">pconsistency.threshold =</span> <span class="fl">0.90</span>,</span>
-<span id="cb15-88"><a href="#cb15-88" aria-hidden="true" tabindex="-1"></a>  <span class="at">n.min                  =</span> <span class="cn">NULL</span>,            <span class="co"># minimum subgroup size (NULL = engine default)</span></span>
-<span id="cb15-89"><a href="#cb15-89" aria-hidden="true" tabindex="-1"></a>  <span class="at">maxk                   =</span> <span class="dv">2</span>L,              <span class="co"># max factors in a subgroup definition</span></span>
-<span id="cb15-90"><a href="#cb15-90" aria-hidden="true" tabindex="-1"></a>  <span class="at">d0.min                 =</span> <span class="dv">10</span>L,</span>
-<span id="cb15-91"><a href="#cb15-91" aria-hidden="true" tabindex="-1"></a>  <span class="at">d1.min                 =</span> <span class="dv">0</span>L,</span>
-<span id="cb15-92"><a href="#cb15-92" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_lasso              =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb15-93"><a href="#cb15-93" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_grf                =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb15-94"><a href="#cb15-94" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_twostage           =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb15-95"><a href="#cb15-95" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_dina               =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb15-96"><a href="#cb15-96" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Forced candidate cuts: always available regardless of screening.</span></span>
-<span id="cb15-97"><a href="#cb15-97" aria-hidden="true" tabindex="-1"></a>  <span class="at">conf_force             =</span> <span class="fu">c</span>(<span class="st">&quot;meno == 0&quot;</span>, <span class="st">&quot;er &lt;= 0&quot;</span>, <span class="st">&quot;pgr &lt;= 0&quot;</span>),</span>
-<span id="cb15-98"><a href="#cb15-98" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Per-variable J-quantile grids (er only; everything else gets default cuts).</span></span>
-<span id="cb15-99"><a href="#cb15-99" aria-hidden="true" tabindex="-1"></a>  <span class="at">conf.cont_jcuts        =</span> <span class="fu">list</span>(<span class="at">er =</span> <span class="dv">10</span>),</span>
-<span id="cb15-100"><a href="#cb15-100" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs.splits              =</span> <span class="dv">400</span>L             <span class="co"># moot under &quot;resample&quot;</span></span>
-<span id="cb15-101"><a href="#cb15-101" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb15-102"><a href="#cb15-102" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-103"><a href="#cb15-103" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Truth structure (for the recovery / substitution breakdown) ─────────────</span></span>
-<span id="cb15-104"><a href="#cb15-104" aria-hidden="true" tabindex="-1"></a><span class="co"># Edit these three to match the planted subgroup of whatever DGM you run.</span></span>
-<span id="cb15-105"><a href="#cb15-105" aria-hidden="true" tabindex="-1"></a>truth_anchor  <span class="ot">&lt;-</span> <span class="st">&quot;er&quot;</span>     <span class="co"># factor FS should reliably recover (here z1 analog)</span></span>
-<span id="cb15-106"><a href="#cb15-106" aria-hidden="true" tabindex="-1"></a>truth_partner <span class="ot">&lt;-</span> <span class="st">&quot;meno&quot;</span>   <span class="co"># true second factor in H               (here z3 analog)</span></span>
-<span id="cb15-107"><a href="#cb15-107" aria-hidden="true" tabindex="-1"></a>truth_proxy   <span class="ot">&lt;-</span> <span class="st">&quot;age&quot;</span>    <span class="co"># known correlate of the partner FS may substitute</span></span>
-<span id="cb15-108"><a href="#cb15-108" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-109"><a href="#cb15-109" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Output / caching ────────────────────────────────────────────────────────</span></span>
-<span id="cb15-110"><a href="#cb15-110" aria-hidden="true" tabindex="-1"></a>top_n_subgroups <span class="ot">&lt;-</span> <span class="dv">15</span>L                              <span class="co"># rows in the top-subgroups table</span></span>
-<span id="cb15-111"><a href="#cb15-111" aria-hidden="true" tabindex="-1"></a>cache_dir       <span class="ot">&lt;-</span> <span class="st">&quot;.&quot;</span>                              <span class="co"># where to cache the DGM + results</span></span>
-<span id="cb15-112"><a href="#cb15-112" aria-hidden="true" tabindex="-1"></a>use_dgm_cache   <span class="ot">&lt;-</span> <span class="cn">TRUE</span>                             <span class="co"># reuse a built DGM across runs</span></span>
-<span id="cb15-113"><a href="#cb15-113" aria-hidden="true" tabindex="-1"></a>results_rds     <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">&quot;fs_idsweep_%s_n%d_%s.rds&quot;</span>,</span>
-<span id="cb15-114"><a href="#cb15-114" aria-hidden="true" tabindex="-1"></a>                           dgm_model, n_sample, target_hr_harm,</span>
-<span id="cb15-115"><a href="#cb15-115" aria-hidden="true" tabindex="-1"></a>                           <span class="fu">format</span>(<span class="fu">Sys.Date</span>(), <span class="st">&quot;%Y%m%d&quot;</span>))</span>
-<span id="cb15-116"><a href="#cb15-116" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-61"><a href="#cb15-61" aria-hidden="true" tabindex="-1"></a>identifier <span class="ot">&lt;-</span> <span class="st">&quot;fs&quot;</span></span>
+<span id="cb15-62"><a href="#cb15-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-63"><a href="#cb15-63" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Sweep ───────────────────────────────────────────────────────────────────</span></span>
+<span id="cb15-64"><a href="#cb15-64" aria-hidden="true" tabindex="-1"></a>sim_ids   <span class="ot">&lt;-</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">500</span>              <span class="co"># replicates to run. Use e.g. 1:20 for a smoke test.</span></span>
+<span id="cb15-65"><a href="#cb15-65" aria-hidden="true" tabindex="-1"></a>n_workers <span class="ot">&lt;-</span> <span class="fu">round</span>(<span class="fl">0.8</span><span class="sc">*</span><span class="fu">max</span>(<span class="dv">1</span>L, parallel<span class="sc">::</span><span class="fu">detectCores</span>(<span class="at">logical =</span> <span class="cn">FALSE</span>) <span class="sc">-</span> <span class="dv">1</span>L))  <span class="co"># set 1L for sequential</span></span>
+<span id="cb15-66"><a href="#cb15-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-67"><a href="#cb15-67" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Column names emitted by simulate_from_dgm() ─────────────────────────────</span></span>
+<span id="cb15-68"><a href="#cb15-68" aria-hidden="true" tabindex="-1"></a>outcome_name <span class="ot">&lt;-</span> <span class="st">&quot;y_sim&quot;</span></span>
+<span id="cb15-69"><a href="#cb15-69" aria-hidden="true" tabindex="-1"></a>event_name   <span class="ot">&lt;-</span> <span class="st">&quot;event_sim&quot;</span></span>
+<span id="cb15-70"><a href="#cb15-70" aria-hidden="true" tabindex="-1"></a>treat_name   <span class="ot">&lt;-</span> <span class="st">&quot;treat_sim&quot;</span></span>
+<span id="cb15-71"><a href="#cb15-71" aria-hidden="true" tabindex="-1"></a>id_name      <span class="ot">&lt;-</span> <span class="st">&quot;id&quot;</span></span>
+<span id="cb15-72"><a href="#cb15-72" aria-hidden="true" tabindex="-1"></a>harm_col     <span class="ot">&lt;-</span> <span class="st">&quot;flag_harm&quot;</span>     <span class="co"># planted true-membership indicator (0/1)</span></span>
+<span id="cb15-73"><a href="#cb15-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-74"><a href="#cb15-74" aria-hidden="true" tabindex="-1"></a><span class="co"># Raw covariate candidates forestsearch is allowed to cut on (forestsearch</span></span>
+<span id="cb15-75"><a href="#cb15-75" aria-hidden="true" tabindex="-1"></a><span class="co"># discovers its own cuts). Continuous -&gt; er, age, pgr, nodes, size;</span></span>
+<span id="cb15-76"><a href="#cb15-76" aria-hidden="true" tabindex="-1"></a><span class="co"># categorical -&gt; meno (0/1), grade (1/2/3).</span></span>
+<span id="cb15-77"><a href="#cb15-77" aria-hidden="true" tabindex="-1"></a>confounders_base <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;er&quot;</span>, <span class="st">&quot;age&quot;</span>, <span class="st">&quot;meno&quot;</span>, <span class="st">&quot;pgr&quot;</span>, <span class="st">&quot;nodes&quot;</span>, <span class="st">&quot;size&quot;</span>, <span class="st">&quot;grade&quot;</span>)</span>
+<span id="cb15-78"><a href="#cb15-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-79"><a href="#cb15-79" aria-hidden="true" tabindex="-1"></a>sg_method <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(identifier <span class="sc">==</span> <span class="st">&quot;fs&quot;</span>, <span class="st">&quot;consistency&quot;</span>, identifier)</span>
+<span id="cb15-80"><a href="#cb15-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-81"><a href="#cb15-81" aria-hidden="true" tabindex="-1"></a><span class="co"># ── forestsearch identification spec (the reusable engine knobs) ────────────</span></span>
+<span id="cb15-82"><a href="#cb15-82" aria-hidden="true" tabindex="-1"></a><span class="co"># Only TUNABLE forestsearch args go here; data/name/run-flag args are bound</span></span>
+<span id="cb15-83"><a href="#cb15-83" aria-hidden="true" tabindex="-1"></a><span class="co"># per replicate in record_replicate().  do.call() merges the two.</span></span>
+<span id="cb15-84"><a href="#cb15-84" aria-hidden="true" tabindex="-1"></a>fs_params <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb15-85"><a href="#cb15-85" aria-hidden="true" tabindex="-1"></a>  <span class="at">subgroup_method        =</span> sg_method,   <span class="co"># &quot;consistency&quot; | &quot;dina&quot; | &quot;grf&quot;</span></span>
+<span id="cb15-86"><a href="#cb15-86" aria-hidden="true" tabindex="-1"></a>  <span class="at">consistency_method     =</span> <span class="st">&quot;resample&quot;</span>,      <span class="co"># closed-form resample identification</span></span>
+<span id="cb15-87"><a href="#cb15-87" aria-hidden="true" tabindex="-1"></a>  <span class="at">sg_focus               =</span> <span class="st">&quot;eff&quot;</span>,           <span class="co"># selection focus once consistency passes</span></span>
+<span id="cb15-88"><a href="#cb15-88" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection_rule         =</span> <span class="st">&quot;neighborhood&quot;</span>,  <span class="co"># *MaxSG/*MinSG band rule (inert for &quot;eff&quot;)</span></span>
+<span id="cb15-89"><a href="#cb15-89" aria-hidden="true" tabindex="-1"></a>  <span class="at">hr.threshold           =</span> <span class="fl">0.90</span>,</span>
+<span id="cb15-90"><a href="#cb15-90" aria-hidden="true" tabindex="-1"></a>  <span class="at">hr.consistency         =</span> <span class="fl">0.80</span>,</span>
+<span id="cb15-91"><a href="#cb15-91" aria-hidden="true" tabindex="-1"></a>  <span class="at">pconsistency.threshold =</span> <span class="fl">0.90</span>,</span>
+<span id="cb15-92"><a href="#cb15-92" aria-hidden="true" tabindex="-1"></a>  <span class="at">n.min                  =</span> <span class="cn">NULL</span>,            <span class="co"># minimum subgroup size (NULL = engine default)</span></span>
+<span id="cb15-93"><a href="#cb15-93" aria-hidden="true" tabindex="-1"></a>  <span class="at">maxk                   =</span> <span class="dv">2</span>L,              <span class="co"># max factors in a subgroup definition</span></span>
+<span id="cb15-94"><a href="#cb15-94" aria-hidden="true" tabindex="-1"></a>  <span class="at">d0.min                 =</span> <span class="dv">10</span>L,</span>
+<span id="cb15-95"><a href="#cb15-95" aria-hidden="true" tabindex="-1"></a>  <span class="at">d1.min                 =</span> <span class="dv">0</span>L,</span>
+<span id="cb15-96"><a href="#cb15-96" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_lasso              =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb15-97"><a href="#cb15-97" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_grf                =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb15-98"><a href="#cb15-98" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_twostage           =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb15-99"><a href="#cb15-99" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_dina               =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb15-100"><a href="#cb15-100" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Forced candidate cuts: always available regardless of screening.</span></span>
+<span id="cb15-101"><a href="#cb15-101" aria-hidden="true" tabindex="-1"></a>  <span class="at">conf_force             =</span> <span class="fu">c</span>(<span class="st">&quot;meno == 0&quot;</span>, <span class="st">&quot;er &lt;= 0&quot;</span>, <span class="st">&quot;pgr &lt;= 0&quot;</span>),</span>
+<span id="cb15-102"><a href="#cb15-102" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Per-variable J-quantile grids (er only; everything else gets default cuts).</span></span>
+<span id="cb15-103"><a href="#cb15-103" aria-hidden="true" tabindex="-1"></a>  <span class="at">conf.cont_jcuts        =</span> <span class="fu">list</span>(<span class="at">er =</span> <span class="dv">10</span>),</span>
+<span id="cb15-104"><a href="#cb15-104" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs.splits              =</span> <span class="dv">400</span>L             <span class="co"># moot under &quot;resample&quot;</span></span>
+<span id="cb15-105"><a href="#cb15-105" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb15-106"><a href="#cb15-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-107"><a href="#cb15-107" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Truth structure (for the recovery / substitution breakdown) ─────────────</span></span>
+<span id="cb15-108"><a href="#cb15-108" aria-hidden="true" tabindex="-1"></a><span class="co"># Edit these three to match the planted subgroup of whatever DGM you run.</span></span>
+<span id="cb15-109"><a href="#cb15-109" aria-hidden="true" tabindex="-1"></a>truth_anchor  <span class="ot">&lt;-</span> <span class="st">&quot;er&quot;</span>     <span class="co"># factor FS should reliably recover (here z1 analog)</span></span>
+<span id="cb15-110"><a href="#cb15-110" aria-hidden="true" tabindex="-1"></a>truth_partner <span class="ot">&lt;-</span> <span class="st">&quot;meno&quot;</span>   <span class="co"># true second factor in H               (here z3 analog)</span></span>
+<span id="cb15-111"><a href="#cb15-111" aria-hidden="true" tabindex="-1"></a>truth_proxy   <span class="ot">&lt;-</span> <span class="st">&quot;age&quot;</span>    <span class="co"># known correlate of the partner FS may substitute</span></span>
+<span id="cb15-112"><a href="#cb15-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-113"><a href="#cb15-113" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Output / caching ────────────────────────────────────────────────────────</span></span>
+<span id="cb15-114"><a href="#cb15-114" aria-hidden="true" tabindex="-1"></a>top_n_subgroups <span class="ot">&lt;-</span> <span class="dv">15</span>L                              <span class="co"># rows in the top-subgroups table</span></span>
+<span id="cb15-115"><a href="#cb15-115" aria-hidden="true" tabindex="-1"></a>cache_dir       <span class="ot">&lt;-</span> <span class="st">&quot;.&quot;</span>                              <span class="co"># where to cache the DGM + results</span></span>
+<span id="cb15-116"><a href="#cb15-116" aria-hidden="true" tabindex="-1"></a>use_dgm_cache   <span class="ot">&lt;-</span> <span class="cn">TRUE</span>                             <span class="co"># reuse a built DGM across runs</span></span>
 <span id="cb15-117"><a href="#cb15-117" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-118"><a href="#cb15-118" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------------------</span>
+<span id="cb15-118"><a href="#cb15-118" aria-hidden="true" tabindex="-1"></a>results_rds <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">&quot;%s_n%d_%.1f.rds&quot;</span>, identifier, n_sample, target_hr_harm)</span>
 <span id="cb15-119"><a href="#cb15-119" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-120"><a href="#cb15-120" aria-hidden="true" tabindex="-1"></a><span class="fu">## Setup {#sec-setup}</span></span>
+<span id="cb15-120"><a href="#cb15-120" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb15-121"><a href="#cb15-121" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-122"><a href="#cb15-122" aria-hidden="true" tabindex="-1"></a><span class="in">```{r setup}</span></span>
-<span id="cb15-123"><a href="#cb15-123" aria-hidden="true" tabindex="-1"></a><span class="co"># forestsearch must be INSTALLED (devtools::install()), NOT load_all(): parallel</span></span>
-<span id="cb15-124"><a href="#cb15-124" aria-hidden="true" tabindex="-1"></a><span class="co"># workers need the installed package on the library path.</span></span>
-<span id="cb15-125"><a href="#cb15-125" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(forestsearch)</span>
-<span id="cb15-126"><a href="#cb15-126" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(survival)</span>
-<span id="cb15-127"><a href="#cb15-127" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(data.table)</span>
-<span id="cb15-128"><a href="#cb15-128" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gt)</span>
-<span id="cb15-129"><a href="#cb15-129" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(foreach)</span>
-<span id="cb15-130"><a href="#cb15-130" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(doFuture)</span>
-<span id="cb15-131"><a href="#cb15-131" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(future)</span>
-<span id="cb15-132"><a href="#cb15-132" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-133"><a href="#cb15-133" aria-hidden="true" tabindex="-1"></a><span class="co"># Parallel plan: replicates fan out here; forestsearch runs sequentially inside</span></span>
-<span id="cb15-134"><a href="#cb15-134" aria-hidden="true" tabindex="-1"></a><span class="co"># each worker (parallel_args = list(plan = &quot;sequential&quot;) in record_replicate),</span></span>
-<span id="cb15-135"><a href="#cb15-135" aria-hidden="true" tabindex="-1"></a><span class="co"># so there is no nested parallelism.</span></span>
-<span id="cb15-136"><a href="#cb15-136" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (n_workers <span class="sc">&gt;</span> <span class="dv">1</span>L) <span class="fu">plan</span>(multisession, <span class="at">workers =</span> n_workers) <span class="cf">else</span> <span class="fu">plan</span>(sequential)</span>
-<span id="cb15-137"><a href="#cb15-137" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-138"><a href="#cb15-138" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Helpers ─────────────────────────────────────────────────────────────────</span></span>
-<span id="cb15-139"><a href="#cb15-139" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-140"><a href="#cb15-140" aria-hidden="true" tabindex="-1"></a><span class="co"># Covariate name from a named cut expression: &quot;{er &lt;= 10}&quot; -&gt; &quot;er&quot;, &quot;!{meno}&quot; -&gt; &quot;meno&quot;.</span></span>
-<span id="cb15-141"><a href="#cb15-141" aria-hidden="true" tabindex="-1"></a>parse_covs <span class="ot">&lt;-</span> <span class="cf">function</span>(sg) {</span>
-<span id="cb15-142"><a href="#cb15-142" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.null</span>(sg) <span class="sc">||</span> <span class="sc">!</span><span class="fu">length</span>(sg)) <span class="fu">return</span>(<span class="fu">character</span>(<span class="dv">0</span>))</span>
-<span id="cb15-143"><a href="#cb15-143" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">&quot;^!?</span><span class="sc">\\</span><span class="st">{|</span><span class="sc">\\</span><span class="st">}$&quot;</span>, <span class="st">&quot;&quot;</span>, <span class="fu">trimws</span>(sg))            <span class="co"># strip leading !{ or { and trailing }</span></span>
-<span id="cb15-144"><a href="#cb15-144" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">sub</span>(<span class="st">&quot;</span><span class="sc">\\</span><span class="st">s*(&lt;=|&gt;=|==|!=|&lt;|&gt;).*$&quot;</span>, <span class="st">&quot;&quot;</span>, x)          <span class="co"># drop operator + threshold</span></span>
-<span id="cb15-145"><a href="#cb15-145" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sort</span>(<span class="fu">unique</span>(<span class="fu">trimws</span>(x)))</span>
-<span id="cb15-146"><a href="#cb15-146" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb15-147"><a href="#cb15-147" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-148"><a href="#cb15-148" aria-hidden="true" tabindex="-1"></a><span class="co"># Classification accuracy of identified membership vs. the planted truth.</span></span>
-<span id="cb15-149"><a href="#cb15-149" aria-hidden="true" tabindex="-1"></a>classify_acc <span class="ot">&lt;-</span> <span class="cf">function</span>(pred, truth) {</span>
-<span id="cb15-150"><a href="#cb15-150" aria-hidden="true" tabindex="-1"></a>  pred <span class="ot">&lt;-</span> <span class="fu">as.integer</span>(pred); truth <span class="ot">&lt;-</span> <span class="fu">as.integer</span>(truth)</span>
-<span id="cb15-151"><a href="#cb15-151" aria-hidden="true" tabindex="-1"></a>  ok <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">is.na</span>(pred) <span class="sc">&amp;</span> <span class="sc">!</span><span class="fu">is.na</span>(truth); pred <span class="ot">&lt;-</span> pred[ok]; truth <span class="ot">&lt;-</span> truth[ok]</span>
-<span id="cb15-152"><a href="#cb15-152" aria-hidden="true" tabindex="-1"></a>  tp <span class="ot">&lt;-</span> <span class="fu">sum</span>(pred <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> truth <span class="sc">==</span> <span class="dv">1</span>); fp <span class="ot">&lt;-</span> <span class="fu">sum</span>(pred <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> truth <span class="sc">==</span> <span class="dv">0</span>)</span>
-<span id="cb15-153"><a href="#cb15-153" aria-hidden="true" tabindex="-1"></a>  fn <span class="ot">&lt;-</span> <span class="fu">sum</span>(pred <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;</span> truth <span class="sc">==</span> <span class="dv">1</span>); tn <span class="ot">&lt;-</span> <span class="fu">sum</span>(pred <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;</span> truth <span class="sc">==</span> <span class="dv">0</span>)</span>
-<span id="cb15-154"><a href="#cb15-154" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="at">sens =</span> <span class="cf">if</span> ((tp <span class="sc">+</span> fn) <span class="sc">&gt;</span> <span class="dv">0</span>) tp <span class="sc">/</span> (tp <span class="sc">+</span> fn) <span class="cf">else</span> <span class="cn">NA_real_</span>,</span>
-<span id="cb15-155"><a href="#cb15-155" aria-hidden="true" tabindex="-1"></a>    <span class="at">spec =</span> <span class="cf">if</span> ((tn <span class="sc">+</span> fp) <span class="sc">&gt;</span> <span class="dv">0</span>) tn <span class="sc">/</span> (tn <span class="sc">+</span> fp) <span class="cf">else</span> <span class="cn">NA_real_</span>,</span>
-<span id="cb15-156"><a href="#cb15-156" aria-hidden="true" tabindex="-1"></a>    <span class="at">ppv  =</span> <span class="cf">if</span> ((tp <span class="sc">+</span> fp) <span class="sc">&gt;</span> <span class="dv">0</span>) tp <span class="sc">/</span> (tp <span class="sc">+</span> fp) <span class="cf">else</span> <span class="cn">NA_real_</span>,</span>
-<span id="cb15-157"><a href="#cb15-157" aria-hidden="true" tabindex="-1"></a>    <span class="at">npv  =</span> <span class="cf">if</span> ((tn <span class="sc">+</span> fn) <span class="sc">&gt;</span> <span class="dv">0</span>) tn <span class="sc">/</span> (tn <span class="sc">+</span> fn) <span class="cf">else</span> <span class="cn">NA_real_</span>)</span>
-<span id="cb15-158"><a href="#cb15-158" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb15-159"><a href="#cb15-159" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-160"><a href="#cb15-160" aria-hidden="true" tabindex="-1"></a><span class="co"># Structure label for a detected subgroup, relative to the planted truth.</span></span>
-<span id="cb15-161"><a href="#cb15-161" aria-hidden="true" tabindex="-1"></a>classify_structure <span class="ot">&lt;-</span> <span class="cf">function</span>(covs, anchor, partner, proxy) {</span>
-<span id="cb15-162"><a href="#cb15-162" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span>(anchor <span class="sc">%in%</span> covs)) <span class="fu">return</span>(<span class="fu">sprintf</span>(<span class="st">&quot;anchor missed (no %s)&quot;</span>, anchor))</span>
-<span id="cb15-163"><a href="#cb15-163" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">length</span>(<span class="fu">setdiff</span>(covs, anchor)) <span class="sc">==</span> <span class="dv">0</span>L) <span class="fu">return</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%s only&quot;</span>, anchor))</span>
-<span id="cb15-164"><a href="#cb15-164" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (partner <span class="sc">%in%</span> covs) <span class="fu">return</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%s + %s (true partner)&quot;</span>, anchor, partner))</span>
-<span id="cb15-165"><a href="#cb15-165" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (proxy   <span class="sc">%in%</span> covs) <span class="fu">return</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%s + %s (proxy partner)&quot;</span>, anchor, proxy))</span>
-<span id="cb15-166"><a href="#cb15-166" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sprintf</span>(<span class="st">&quot;%s + other&quot;</span>, anchor)</span>
-<span id="cb15-167"><a href="#cb15-167" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb15-168"><a href="#cb15-168" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-169"><a href="#cb15-169" aria-hidden="true" tabindex="-1"></a><span class="co"># One replicate: re-simulate -&gt; identify -&gt; read named subgroup -&gt; classify.</span></span>
-<span id="cb15-170"><a href="#cb15-170" aria-hidden="true" tabindex="-1"></a>record_replicate <span class="ot">&lt;-</span> <span class="cf">function</span>(sim_id) {</span>
-<span id="cb15-171"><a href="#cb15-171" aria-hidden="true" tabindex="-1"></a>  na_rec <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb15-172"><a href="#cb15-172" aria-hidden="true" tabindex="-1"></a>    <span class="at">sim_id =</span> sim_id, <span class="at">detected =</span> <span class="dv">0</span>L, <span class="at">k =</span> <span class="cn">NA_integer_</span>, <span class="at">sg =</span> <span class="cn">NA_character_</span>, <span class="at">covs =</span> <span class="cn">NA_character_</span>,</span>
-<span id="cb15-173"><a href="#cb15-173" aria-hidden="true" tabindex="-1"></a>    <span class="at">sens =</span> <span class="cn">NA_real_</span>, <span class="at">spec =</span> <span class="cn">NA_real_</span>, <span class="at">ppv =</span> <span class="cn">NA_real_</span>, <span class="at">npv =</span> <span class="cn">NA_real_</span>,</span>
-<span id="cb15-174"><a href="#cb15-174" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_harm =</span> <span class="cn">NA_integer_</span>, <span class="at">n_true =</span> <span class="cn">NA_integer_</span>, <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb15-175"><a href="#cb15-175" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-176"><a href="#cb15-176" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(</span>
-<span id="cb15-177"><a href="#cb15-177" aria-hidden="true" tabindex="-1"></a>    <span class="fu">simulate_from_dgm</span>(dgm, <span class="at">n =</span> n_sample, <span class="at">analysis_time =</span> analysis_time,</span>
-<span id="cb15-178"><a href="#cb15-178" aria-hidden="true" tabindex="-1"></a>                      <span class="at">cens_adjust =</span> cens_adjust, <span class="at">seed =</span> seed_base <span class="sc">+</span> sim_id),</span>
-<span id="cb15-179"><a href="#cb15-179" aria-hidden="true" tabindex="-1"></a>    <span class="at">error =</span> <span class="cf">function</span>(e) <span class="cn">NULL</span>)</span>
-<span id="cb15-180"><a href="#cb15-180" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.null</span>(df)) <span class="fu">return</span>(na_rec)</span>
-<span id="cb15-181"><a href="#cb15-181" aria-hidden="true" tabindex="-1"></a>  df[[id_name]] <span class="ot">&lt;-</span> <span class="fu">seq_len</span>(<span class="fu">nrow</span>(df))</span>
-<span id="cb15-182"><a href="#cb15-182" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>n_true <span class="ot">&lt;-</span> <span class="fu">sum</span>(df[[harm_col]] <span class="sc">==</span> <span class="dv">1</span>L, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb15-183"><a href="#cb15-183" aria-hidden="true" tabindex="-1"></a>  confs <span class="ot">&lt;-</span> <span class="fu">intersect</span>(confounders_base, <span class="fu">names</span>(df))</span>
-<span id="cb15-184"><a href="#cb15-184" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-185"><a href="#cb15-185" aria-hidden="true" tabindex="-1"></a>  fixed_args <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb15-186"><a href="#cb15-186" aria-hidden="true" tabindex="-1"></a>    <span class="at">df.analysis =</span> df, <span class="at">outcome.name =</span> outcome_name, <span class="at">event.name =</span> event_name,</span>
-<span id="cb15-187"><a href="#cb15-187" aria-hidden="true" tabindex="-1"></a>    <span class="at">treat.name =</span> treat_name, <span class="at">id.name =</span> id_name, <span class="at">flag_harm.name =</span> harm_col,</span>
-<span id="cb15-188"><a href="#cb15-188" aria-hidden="true" tabindex="-1"></a>    <span class="at">confounders.name =</span> confs, <span class="at">is.RCT =</span> <span class="cn">TRUE</span>, <span class="at">seedit =</span> seed_base <span class="sc">+</span> sim_id, <span class="at">quiet =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb15-189"><a href="#cb15-189" aria-hidden="true" tabindex="-1"></a>    <span class="at">parallel_args =</span> <span class="fu">list</span>(<span class="at">plan =</span> <span class="st">&quot;sequential&quot;</span>),   <span class="co"># no nesting; replicates parallel outside</span></span>
-<span id="cb15-190"><a href="#cb15-190" aria-hidden="true" tabindex="-1"></a>    <span class="at">debias_gate   =</span> <span class="cn">FALSE</span>)                        <span class="co"># gate does not change sg.harm; off = faster</span></span>
-<span id="cb15-191"><a href="#cb15-191" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-192"><a href="#cb15-192" aria-hidden="true" tabindex="-1"></a>  fs <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(<span class="fu">do.call</span>(forestsearch, <span class="fu">c</span>(fixed_args, fs_params)),</span>
-<span id="cb15-193"><a href="#cb15-193" aria-hidden="true" tabindex="-1"></a>                 <span class="at">error =</span> <span class="cf">function</span>(e) <span class="cn">NULL</span>)</span>
-<span id="cb15-194"><a href="#cb15-194" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.null</span>(fs) <span class="sc">||</span> <span class="fu">is.null</span>(fs<span class="sc">$</span>sg.harm)) <span class="fu">return</span>(na_rec)   <span class="co"># no detection</span></span>
+<span id="cb15-122"><a href="#cb15-122" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------------------</span>
+<span id="cb15-123"><a href="#cb15-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-124"><a href="#cb15-124" aria-hidden="true" tabindex="-1"></a><span class="fu">## Setup {#sec-setup}</span></span>
+<span id="cb15-125"><a href="#cb15-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-126"><a href="#cb15-126" aria-hidden="true" tabindex="-1"></a><span class="in">```{r setup}</span></span>
+<span id="cb15-127"><a href="#cb15-127" aria-hidden="true" tabindex="-1"></a><span class="co"># forestsearch must be INSTALLED (devtools::install()), NOT load_all(): parallel</span></span>
+<span id="cb15-128"><a href="#cb15-128" aria-hidden="true" tabindex="-1"></a><span class="co"># workers need the installed package on the library path.</span></span>
+<span id="cb15-129"><a href="#cb15-129" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(forestsearch)</span>
+<span id="cb15-130"><a href="#cb15-130" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(survival)</span>
+<span id="cb15-131"><a href="#cb15-131" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(data.table)</span>
+<span id="cb15-132"><a href="#cb15-132" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gt)</span>
+<span id="cb15-133"><a href="#cb15-133" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(foreach)</span>
+<span id="cb15-134"><a href="#cb15-134" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(doFuture)</span>
+<span id="cb15-135"><a href="#cb15-135" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(future)</span>
+<span id="cb15-136"><a href="#cb15-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-137"><a href="#cb15-137" aria-hidden="true" tabindex="-1"></a><span class="co"># Parallel plan: replicates fan out here; forestsearch runs sequentially inside</span></span>
+<span id="cb15-138"><a href="#cb15-138" aria-hidden="true" tabindex="-1"></a><span class="co"># each worker (parallel_args = list(plan = &quot;sequential&quot;) in record_replicate),</span></span>
+<span id="cb15-139"><a href="#cb15-139" aria-hidden="true" tabindex="-1"></a><span class="co"># so there is no nested parallelism.</span></span>
+<span id="cb15-140"><a href="#cb15-140" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (n_workers <span class="sc">&gt;</span> <span class="dv">1</span>L) <span class="fu">plan</span>(multisession, <span class="at">workers =</span> n_workers) <span class="cf">else</span> <span class="fu">plan</span>(sequential)</span>
+<span id="cb15-141"><a href="#cb15-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-142"><a href="#cb15-142" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Helpers ─────────────────────────────────────────────────────────────────</span></span>
+<span id="cb15-143"><a href="#cb15-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-144"><a href="#cb15-144" aria-hidden="true" tabindex="-1"></a><span class="co"># Covariate name from a named cut expression: &quot;{er &lt;= 10}&quot; -&gt; &quot;er&quot;, &quot;!{meno}&quot; -&gt; &quot;meno&quot;.</span></span>
+<span id="cb15-145"><a href="#cb15-145" aria-hidden="true" tabindex="-1"></a>parse_covs <span class="ot">&lt;-</span> <span class="cf">function</span>(sg) {</span>
+<span id="cb15-146"><a href="#cb15-146" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.null</span>(sg) <span class="sc">||</span> <span class="sc">!</span><span class="fu">length</span>(sg)) <span class="fu">return</span>(<span class="fu">character</span>(<span class="dv">0</span>))</span>
+<span id="cb15-147"><a href="#cb15-147" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">&quot;^!?</span><span class="sc">\\</span><span class="st">{|</span><span class="sc">\\</span><span class="st">}$&quot;</span>, <span class="st">&quot;&quot;</span>, <span class="fu">trimws</span>(sg))            <span class="co"># strip leading !{ or { and trailing }</span></span>
+<span id="cb15-148"><a href="#cb15-148" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">sub</span>(<span class="st">&quot;</span><span class="sc">\\</span><span class="st">s*(&lt;=|&gt;=|==|!=|&lt;|&gt;).*$&quot;</span>, <span class="st">&quot;&quot;</span>, x)          <span class="co"># drop operator + threshold</span></span>
+<span id="cb15-149"><a href="#cb15-149" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sort</span>(<span class="fu">unique</span>(<span class="fu">trimws</span>(x)))</span>
+<span id="cb15-150"><a href="#cb15-150" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-151"><a href="#cb15-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-152"><a href="#cb15-152" aria-hidden="true" tabindex="-1"></a><span class="co"># Classification accuracy of identified membership vs. the planted truth.</span></span>
+<span id="cb15-153"><a href="#cb15-153" aria-hidden="true" tabindex="-1"></a>classify_acc <span class="ot">&lt;-</span> <span class="cf">function</span>(pred, truth) {</span>
+<span id="cb15-154"><a href="#cb15-154" aria-hidden="true" tabindex="-1"></a>  pred <span class="ot">&lt;-</span> <span class="fu">as.integer</span>(pred); truth <span class="ot">&lt;-</span> <span class="fu">as.integer</span>(truth)</span>
+<span id="cb15-155"><a href="#cb15-155" aria-hidden="true" tabindex="-1"></a>  ok <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">is.na</span>(pred) <span class="sc">&amp;</span> <span class="sc">!</span><span class="fu">is.na</span>(truth); pred <span class="ot">&lt;-</span> pred[ok]; truth <span class="ot">&lt;-</span> truth[ok]</span>
+<span id="cb15-156"><a href="#cb15-156" aria-hidden="true" tabindex="-1"></a>  tp <span class="ot">&lt;-</span> <span class="fu">sum</span>(pred <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> truth <span class="sc">==</span> <span class="dv">1</span>); fp <span class="ot">&lt;-</span> <span class="fu">sum</span>(pred <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> truth <span class="sc">==</span> <span class="dv">0</span>)</span>
+<span id="cb15-157"><a href="#cb15-157" aria-hidden="true" tabindex="-1"></a>  fn <span class="ot">&lt;-</span> <span class="fu">sum</span>(pred <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;</span> truth <span class="sc">==</span> <span class="dv">1</span>); tn <span class="ot">&lt;-</span> <span class="fu">sum</span>(pred <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;</span> truth <span class="sc">==</span> <span class="dv">0</span>)</span>
+<span id="cb15-158"><a href="#cb15-158" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="at">sens =</span> <span class="cf">if</span> ((tp <span class="sc">+</span> fn) <span class="sc">&gt;</span> <span class="dv">0</span>) tp <span class="sc">/</span> (tp <span class="sc">+</span> fn) <span class="cf">else</span> <span class="cn">NA_real_</span>,</span>
+<span id="cb15-159"><a href="#cb15-159" aria-hidden="true" tabindex="-1"></a>    <span class="at">spec =</span> <span class="cf">if</span> ((tn <span class="sc">+</span> fp) <span class="sc">&gt;</span> <span class="dv">0</span>) tn <span class="sc">/</span> (tn <span class="sc">+</span> fp) <span class="cf">else</span> <span class="cn">NA_real_</span>,</span>
+<span id="cb15-160"><a href="#cb15-160" aria-hidden="true" tabindex="-1"></a>    <span class="at">ppv  =</span> <span class="cf">if</span> ((tp <span class="sc">+</span> fp) <span class="sc">&gt;</span> <span class="dv">0</span>) tp <span class="sc">/</span> (tp <span class="sc">+</span> fp) <span class="cf">else</span> <span class="cn">NA_real_</span>,</span>
+<span id="cb15-161"><a href="#cb15-161" aria-hidden="true" tabindex="-1"></a>    <span class="at">npv  =</span> <span class="cf">if</span> ((tn <span class="sc">+</span> fn) <span class="sc">&gt;</span> <span class="dv">0</span>) tn <span class="sc">/</span> (tn <span class="sc">+</span> fn) <span class="cf">else</span> <span class="cn">NA_real_</span>)</span>
+<span id="cb15-162"><a href="#cb15-162" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-163"><a href="#cb15-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-164"><a href="#cb15-164" aria-hidden="true" tabindex="-1"></a><span class="co"># Structure label for a detected subgroup, relative to the planted truth.</span></span>
+<span id="cb15-165"><a href="#cb15-165" aria-hidden="true" tabindex="-1"></a>classify_structure <span class="ot">&lt;-</span> <span class="cf">function</span>(covs, anchor, partner, proxy) {</span>
+<span id="cb15-166"><a href="#cb15-166" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span>(anchor <span class="sc">%in%</span> covs)) <span class="fu">return</span>(<span class="fu">sprintf</span>(<span class="st">&quot;anchor missed (no %s)&quot;</span>, anchor))</span>
+<span id="cb15-167"><a href="#cb15-167" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">length</span>(<span class="fu">setdiff</span>(covs, anchor)) <span class="sc">==</span> <span class="dv">0</span>L) <span class="fu">return</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%s only&quot;</span>, anchor))</span>
+<span id="cb15-168"><a href="#cb15-168" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (partner <span class="sc">%in%</span> covs) <span class="fu">return</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%s + %s (true partner)&quot;</span>, anchor, partner))</span>
+<span id="cb15-169"><a href="#cb15-169" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (proxy   <span class="sc">%in%</span> covs) <span class="fu">return</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%s + %s (proxy partner)&quot;</span>, anchor, proxy))</span>
+<span id="cb15-170"><a href="#cb15-170" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sprintf</span>(<span class="st">&quot;%s + other&quot;</span>, anchor)</span>
+<span id="cb15-171"><a href="#cb15-171" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-172"><a href="#cb15-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-173"><a href="#cb15-173" aria-hidden="true" tabindex="-1"></a><span class="co"># One replicate: re-simulate -&gt; identify -&gt; read named subgroup -&gt; classify.</span></span>
+<span id="cb15-174"><a href="#cb15-174" aria-hidden="true" tabindex="-1"></a>record_replicate <span class="ot">&lt;-</span> <span class="cf">function</span>(sim_id) {</span>
+<span id="cb15-175"><a href="#cb15-175" aria-hidden="true" tabindex="-1"></a>  na_rec <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb15-176"><a href="#cb15-176" aria-hidden="true" tabindex="-1"></a>    <span class="at">sim_id =</span> sim_id, <span class="at">detected =</span> <span class="dv">0</span>L, <span class="at">k =</span> <span class="cn">NA_integer_</span>, <span class="at">sg =</span> <span class="cn">NA_character_</span>, <span class="at">covs =</span> <span class="cn">NA_character_</span>,</span>
+<span id="cb15-177"><a href="#cb15-177" aria-hidden="true" tabindex="-1"></a>    <span class="at">sens =</span> <span class="cn">NA_real_</span>, <span class="at">spec =</span> <span class="cn">NA_real_</span>, <span class="at">ppv =</span> <span class="cn">NA_real_</span>, <span class="at">npv =</span> <span class="cn">NA_real_</span>,</span>
+<span id="cb15-178"><a href="#cb15-178" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_harm =</span> <span class="cn">NA_integer_</span>, <span class="at">n_true =</span> <span class="cn">NA_integer_</span>, <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb15-179"><a href="#cb15-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-180"><a href="#cb15-180" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(</span>
+<span id="cb15-181"><a href="#cb15-181" aria-hidden="true" tabindex="-1"></a>    <span class="fu">simulate_from_dgm</span>(dgm, <span class="at">n =</span> n_sample, <span class="at">analysis_time =</span> analysis_time,</span>
+<span id="cb15-182"><a href="#cb15-182" aria-hidden="true" tabindex="-1"></a>                      <span class="at">cens_adjust =</span> cens_adjust, <span class="at">seed =</span> seed_base <span class="sc">+</span> sim_id),</span>
+<span id="cb15-183"><a href="#cb15-183" aria-hidden="true" tabindex="-1"></a>    <span class="at">error =</span> <span class="cf">function</span>(e) <span class="cn">NULL</span>)</span>
+<span id="cb15-184"><a href="#cb15-184" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.null</span>(df)) <span class="fu">return</span>(na_rec)</span>
+<span id="cb15-185"><a href="#cb15-185" aria-hidden="true" tabindex="-1"></a>  df[[id_name]] <span class="ot">&lt;-</span> <span class="fu">seq_len</span>(<span class="fu">nrow</span>(df))</span>
+<span id="cb15-186"><a href="#cb15-186" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>n_true <span class="ot">&lt;-</span> <span class="fu">sum</span>(df[[harm_col]] <span class="sc">==</span> <span class="dv">1</span>L, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb15-187"><a href="#cb15-187" aria-hidden="true" tabindex="-1"></a>  confs <span class="ot">&lt;-</span> <span class="fu">intersect</span>(confounders_base, <span class="fu">names</span>(df))</span>
+<span id="cb15-188"><a href="#cb15-188" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-189"><a href="#cb15-189" aria-hidden="true" tabindex="-1"></a>  fixed_args <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb15-190"><a href="#cb15-190" aria-hidden="true" tabindex="-1"></a>    <span class="at">df.analysis =</span> df, <span class="at">outcome.name =</span> outcome_name, <span class="at">event.name =</span> event_name,</span>
+<span id="cb15-191"><a href="#cb15-191" aria-hidden="true" tabindex="-1"></a>    <span class="at">treat.name =</span> treat_name, <span class="at">id.name =</span> id_name, <span class="at">flag_harm.name =</span> harm_col,</span>
+<span id="cb15-192"><a href="#cb15-192" aria-hidden="true" tabindex="-1"></a>    <span class="at">confounders.name =</span> confs, <span class="at">is.RCT =</span> <span class="cn">TRUE</span>, <span class="at">seedit =</span> seed_base <span class="sc">+</span> sim_id, <span class="at">quiet =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb15-193"><a href="#cb15-193" aria-hidden="true" tabindex="-1"></a>    <span class="at">parallel_args =</span> <span class="fu">list</span>(<span class="at">plan =</span> <span class="st">&quot;sequential&quot;</span>),   <span class="co"># no nesting; replicates parallel outside</span></span>
+<span id="cb15-194"><a href="#cb15-194" aria-hidden="true" tabindex="-1"></a>    <span class="at">debias_gate   =</span> <span class="cn">FALSE</span>)                        <span class="co"># gate does not change sg.harm; off = faster</span></span>
 <span id="cb15-195"><a href="#cb15-195" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-196"><a href="#cb15-196" aria-hidden="true" tabindex="-1"></a>  covs <span class="ot">&lt;-</span> <span class="fu">parse_covs</span>(fs<span class="sc">$</span>sg.harm)</span>
-<span id="cb15-197"><a href="#cb15-197" aria-hidden="true" tabindex="-1"></a>  cl   <span class="ot">&lt;-</span> <span class="fu">classify_acc</span>(fs<span class="sc">$</span>grp.consistency<span class="sc">$</span>sg.harm.id, df[[harm_col]])</span>
-<span id="cb15-198"><a href="#cb15-198" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>detected <span class="ot">&lt;-</span> <span class="dv">1</span>L</span>
-<span id="cb15-199"><a href="#cb15-199" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>k        <span class="ot">&lt;-</span> <span class="fu">length</span>(fs<span class="sc">$</span>sg.harm)</span>
-<span id="cb15-200"><a href="#cb15-200" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>sg       <span class="ot">&lt;-</span> <span class="fu">paste</span>(fs<span class="sc">$</span>sg.harm, <span class="at">collapse =</span> <span class="st">&quot; &amp; &quot;</span>)</span>
-<span id="cb15-201"><a href="#cb15-201" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>covs     <span class="ot">&lt;-</span> <span class="fu">paste</span>(covs, <span class="at">collapse =</span> <span class="st">&quot;+&quot;</span>)</span>
-<span id="cb15-202"><a href="#cb15-202" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>sens <span class="ot">&lt;-</span> cl[<span class="st">&quot;sens&quot;</span>]; na_rec<span class="sc">$</span>spec <span class="ot">&lt;-</span> cl[<span class="st">&quot;spec&quot;</span>]</span>
-<span id="cb15-203"><a href="#cb15-203" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>ppv  <span class="ot">&lt;-</span> cl[<span class="st">&quot;ppv&quot;</span>];  na_rec<span class="sc">$</span>npv  <span class="ot">&lt;-</span> cl[<span class="st">&quot;npv&quot;</span>]</span>
-<span id="cb15-204"><a href="#cb15-204" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>n_harm <span class="ot">&lt;-</span> <span class="fu">sum</span>(fs<span class="sc">$</span>grp.consistency<span class="sc">$</span>sg.harm.id <span class="sc">==</span> <span class="dv">1</span>L, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb15-205"><a href="#cb15-205" aria-hidden="true" tabindex="-1"></a>  na_rec</span>
-<span id="cb15-206"><a href="#cb15-206" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb15-207"><a href="#cb15-207" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb15-208"><a href="#cb15-208" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-209"><a href="#cb15-209" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------------------</span>
-<span id="cb15-210"><a href="#cb15-210" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-211"><a href="#cb15-211" aria-hidden="true" tabindex="-1"></a><span class="fu">## Build the data-generating mechanism {#sec-dgm}</span></span>
+<span id="cb15-196"><a href="#cb15-196" aria-hidden="true" tabindex="-1"></a>  fs <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(<span class="fu">do.call</span>(forestsearch, <span class="fu">c</span>(fixed_args, fs_params)),</span>
+<span id="cb15-197"><a href="#cb15-197" aria-hidden="true" tabindex="-1"></a>                 <span class="at">error =</span> <span class="cf">function</span>(e) <span class="cn">NULL</span>)</span>
+<span id="cb15-198"><a href="#cb15-198" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.null</span>(fs) <span class="sc">||</span> <span class="fu">is.null</span>(fs<span class="sc">$</span>sg.harm)) <span class="fu">return</span>(na_rec)   <span class="co"># no detection</span></span>
+<span id="cb15-199"><a href="#cb15-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-200"><a href="#cb15-200" aria-hidden="true" tabindex="-1"></a>  covs <span class="ot">&lt;-</span> <span class="fu">parse_covs</span>(fs<span class="sc">$</span>sg.harm)</span>
+<span id="cb15-201"><a href="#cb15-201" aria-hidden="true" tabindex="-1"></a>  cl   <span class="ot">&lt;-</span> <span class="fu">classify_acc</span>(fs<span class="sc">$</span>grp.consistency<span class="sc">$</span>sg.harm.id, df[[harm_col]])</span>
+<span id="cb15-202"><a href="#cb15-202" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>detected <span class="ot">&lt;-</span> <span class="dv">1</span>L</span>
+<span id="cb15-203"><a href="#cb15-203" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>k        <span class="ot">&lt;-</span> <span class="fu">length</span>(fs<span class="sc">$</span>sg.harm)</span>
+<span id="cb15-204"><a href="#cb15-204" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>sg       <span class="ot">&lt;-</span> <span class="fu">paste</span>(fs<span class="sc">$</span>sg.harm, <span class="at">collapse =</span> <span class="st">&quot; &amp; &quot;</span>)</span>
+<span id="cb15-205"><a href="#cb15-205" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>covs     <span class="ot">&lt;-</span> <span class="fu">paste</span>(covs, <span class="at">collapse =</span> <span class="st">&quot;+&quot;</span>)</span>
+<span id="cb15-206"><a href="#cb15-206" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>sens <span class="ot">&lt;-</span> cl[<span class="st">&quot;sens&quot;</span>]; na_rec<span class="sc">$</span>spec <span class="ot">&lt;-</span> cl[<span class="st">&quot;spec&quot;</span>]</span>
+<span id="cb15-207"><a href="#cb15-207" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>ppv  <span class="ot">&lt;-</span> cl[<span class="st">&quot;ppv&quot;</span>];  na_rec<span class="sc">$</span>npv  <span class="ot">&lt;-</span> cl[<span class="st">&quot;npv&quot;</span>]</span>
+<span id="cb15-208"><a href="#cb15-208" aria-hidden="true" tabindex="-1"></a>  na_rec<span class="sc">$</span>n_harm <span class="ot">&lt;-</span> <span class="fu">sum</span>(fs<span class="sc">$</span>grp.consistency<span class="sc">$</span>sg.harm.id <span class="sc">==</span> <span class="dv">1</span>L, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb15-209"><a href="#cb15-209" aria-hidden="true" tabindex="-1"></a>  na_rec</span>
+<span id="cb15-210"><a href="#cb15-210" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-211"><a href="#cb15-211" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb15-212"><a href="#cb15-212" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-213"><a href="#cb15-213" aria-hidden="true" tabindex="-1"></a>Built once and cached. The candidate grid depends only on the covariate</span>
-<span id="cb15-214"><a href="#cb15-214" aria-hidden="true" tabindex="-1"></a>distributions, but the *outcome* depends on <span class="in">`k_inter`</span>, so the same calibration</span>
-<span id="cb15-215"><a href="#cb15-215" aria-hidden="true" tabindex="-1"></a>is used to reproduce the exact simulated data.</span>
+<span id="cb15-213"><a href="#cb15-213" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------------------</span>
+<span id="cb15-214"><a href="#cb15-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-215"><a href="#cb15-215" aria-hidden="true" tabindex="-1"></a><span class="fu">## Build the data-generating mechanism {#sec-dgm}</span></span>
 <span id="cb15-216"><a href="#cb15-216" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-217"><a href="#cb15-217" aria-hidden="true" tabindex="-1"></a><span class="in">```{r build-dgm}</span></span>
-<span id="cb15-218"><a href="#cb15-218" aria-hidden="true" tabindex="-1"></a>dgm_cache <span class="ot">&lt;-</span> <span class="fu">file.path</span>(</span>
-<span id="cb15-219"><a href="#cb15-219" aria-hidden="true" tabindex="-1"></a>  cache_dir, <span class="fu">sprintf</span>(<span class="st">&quot;dgm_%s_hr%.2f_nsuper%d_seed%d.rds&quot;</span>,</span>
-<span id="cb15-220"><a href="#cb15-220" aria-hidden="true" tabindex="-1"></a>                     dgm_model, target_hr_harm, n_super, seed_base))</span>
-<span id="cb15-221"><a href="#cb15-221" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-222"><a href="#cb15-222" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (use_dgm_cache <span class="sc">&amp;&amp;</span> <span class="fu">file.exists</span>(dgm_cache)) {</span>
-<span id="cb15-223"><a href="#cb15-223" aria-hidden="true" tabindex="-1"></a>  dgm <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(dgm_cache)</span>
-<span id="cb15-224"><a href="#cb15-224" aria-hidden="true" tabindex="-1"></a>  <span class="fu">message</span>(<span class="st">&quot;Loaded cached DGM: &quot;</span>, dgm_cache)</span>
-<span id="cb15-225"><a href="#cb15-225" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
-<span id="cb15-226"><a href="#cb15-226" aria-hidden="true" tabindex="-1"></a>  k_inter <span class="ot">&lt;-</span> <span class="fu">calibrate_k_inter</span>(<span class="at">target_hr_harm =</span> target_hr_harm,</span>
-<span id="cb15-227"><a href="#cb15-227" aria-hidden="true" tabindex="-1"></a>                               <span class="at">model =</span> dgm_model, <span class="at">use_ahr =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb15-228"><a href="#cb15-228" aria-hidden="true" tabindex="-1"></a>  dgm <span class="ot">&lt;-</span> <span class="fu">setup_gbsg_dgm</span>(<span class="at">model =</span> dgm_model, <span class="at">k_inter =</span> k_inter,</span>
-<span id="cb15-229"><a href="#cb15-229" aria-hidden="true" tabindex="-1"></a>                        <span class="at">n_super =</span> n_super, <span class="at">seed =</span> seed_base)</span>
-<span id="cb15-230"><a href="#cb15-230" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (use_dgm_cache) <span class="fu">saveRDS</span>(dgm, dgm_cache)</span>
-<span id="cb15-231"><a href="#cb15-231" aria-hidden="true" tabindex="-1"></a>  <span class="fu">message</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Built DGM (k_inter = %.4f); cached to %s&quot;</span>, k_inter, dgm_cache))</span>
-<span id="cb15-232"><a href="#cb15-232" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb15-233"><a href="#cb15-233" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb15-234"><a href="#cb15-234" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-235"><a href="#cb15-235" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------------------</span>
-<span id="cb15-236"><a href="#cb15-236" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-237"><a href="#cb15-237" aria-hidden="true" tabindex="-1"></a><span class="fu">## Run the sweep {#sec-sweep}</span></span>
+<span id="cb15-217"><a href="#cb15-217" aria-hidden="true" tabindex="-1"></a>Built once and cached. The candidate grid depends only on the covariate</span>
+<span id="cb15-218"><a href="#cb15-218" aria-hidden="true" tabindex="-1"></a>distributions, but the *outcome* depends on <span class="in">`k_inter`</span>, so the same calibration</span>
+<span id="cb15-219"><a href="#cb15-219" aria-hidden="true" tabindex="-1"></a>is used to reproduce the exact simulated data.</span>
+<span id="cb15-220"><a href="#cb15-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-221"><a href="#cb15-221" aria-hidden="true" tabindex="-1"></a><span class="in">```{r build-dgm}</span></span>
+<span id="cb15-222"><a href="#cb15-222" aria-hidden="true" tabindex="-1"></a>dgm_cache <span class="ot">&lt;-</span> <span class="fu">file.path</span>(</span>
+<span id="cb15-223"><a href="#cb15-223" aria-hidden="true" tabindex="-1"></a>  cache_dir, <span class="fu">sprintf</span>(<span class="st">&quot;dgm_%s_hr%.2f_nsuper%d_seed%d.rds&quot;</span>,</span>
+<span id="cb15-224"><a href="#cb15-224" aria-hidden="true" tabindex="-1"></a>                     dgm_model, target_hr_harm, n_super, seed_base))</span>
+<span id="cb15-225"><a href="#cb15-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-226"><a href="#cb15-226" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (use_dgm_cache <span class="sc">&amp;&amp;</span> <span class="fu">file.exists</span>(dgm_cache)) {</span>
+<span id="cb15-227"><a href="#cb15-227" aria-hidden="true" tabindex="-1"></a>  dgm <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(dgm_cache)</span>
+<span id="cb15-228"><a href="#cb15-228" aria-hidden="true" tabindex="-1"></a>  <span class="fu">message</span>(<span class="st">&quot;Loaded cached DGM: &quot;</span>, dgm_cache)</span>
+<span id="cb15-229"><a href="#cb15-229" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb15-230"><a href="#cb15-230" aria-hidden="true" tabindex="-1"></a>  k_inter <span class="ot">&lt;-</span> <span class="fu">calibrate_k_inter</span>(<span class="at">target_hr_harm =</span> target_hr_harm,</span>
+<span id="cb15-231"><a href="#cb15-231" aria-hidden="true" tabindex="-1"></a>                               <span class="at">model =</span> dgm_model, <span class="at">use_ahr =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb15-232"><a href="#cb15-232" aria-hidden="true" tabindex="-1"></a>  dgm <span class="ot">&lt;-</span> <span class="fu">setup_gbsg_dgm</span>(<span class="at">model =</span> dgm_model, <span class="at">k_inter =</span> k_inter,</span>
+<span id="cb15-233"><a href="#cb15-233" aria-hidden="true" tabindex="-1"></a>                        <span class="at">n_super =</span> n_super, <span class="at">seed =</span> seed_base)</span>
+<span id="cb15-234"><a href="#cb15-234" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (use_dgm_cache) <span class="fu">saveRDS</span>(dgm, dgm_cache)</span>
+<span id="cb15-235"><a href="#cb15-235" aria-hidden="true" tabindex="-1"></a>  <span class="fu">message</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Built DGM (k_inter = %.4f); cached to %s&quot;</span>, k_inter, dgm_cache))</span>
+<span id="cb15-236"><a href="#cb15-236" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-237"><a href="#cb15-237" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb15-238"><a href="#cb15-238" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-239"><a href="#cb15-239" aria-hidden="true" tabindex="-1"></a><span class="in">```{r sweep}</span></span>
-<span id="cb15-240"><a href="#cb15-240" aria-hidden="true" tabindex="-1"></a>t0 <span class="ot">&lt;-</span> <span class="fu">proc.time</span>()[[<span class="st">&quot;elapsed&quot;</span>]]</span>
-<span id="cb15-241"><a href="#cb15-241" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-242"><a href="#cb15-242" aria-hidden="true" tabindex="-1"></a>records <span class="ot">&lt;-</span> <span class="fu">foreach</span>(<span class="at">sim_id =</span> sim_ids,</span>
-<span id="cb15-243"><a href="#cb15-243" aria-hidden="true" tabindex="-1"></a>                   <span class="at">.options.future =</span> <span class="fu">list</span>(<span class="at">seed =</span> <span class="cn">TRUE</span>)) <span class="sc">%dofuture%</span> {</span>
-<span id="cb15-244"><a href="#cb15-244" aria-hidden="true" tabindex="-1"></a>  <span class="fu">record_replicate</span>(sim_id)</span>
-<span id="cb15-245"><a href="#cb15-245" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb15-246"><a href="#cb15-246" aria-hidden="true" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, records)</span>
-<span id="cb15-247"><a href="#cb15-247" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-248"><a href="#cb15-248" aria-hidden="true" tabindex="-1"></a>elapsed <span class="ot">&lt;-</span> <span class="fu">proc.time</span>()[[<span class="st">&quot;elapsed&quot;</span>]] <span class="sc">-</span> t0</span>
-<span id="cb15-249"><a href="#cb15-249" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(results, <span class="fu">file.path</span>(cache_dir, results_rds))</span>
-<span id="cb15-250"><a href="#cb15-250" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-251"><a href="#cb15-251" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Ran %d replicates in %.1f s (%.2f s/replicate, %d workers).</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
-<span id="cb15-252"><a href="#cb15-252" aria-hidden="true" tabindex="-1"></a>            <span class="fu">nrow</span>(results), elapsed, elapsed <span class="sc">/</span> <span class="fu">nrow</span>(results), n_workers))</span>
-<span id="cb15-253"><a href="#cb15-253" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Detections: %d / %d (%.1f%%). Saved per-replicate records to %s</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
-<span id="cb15-254"><a href="#cb15-254" aria-hidden="true" tabindex="-1"></a>            <span class="fu">sum</span>(results<span class="sc">$</span>detected), <span class="fu">nrow</span>(results),</span>
-<span id="cb15-255"><a href="#cb15-255" aria-hidden="true" tabindex="-1"></a>            <span class="dv">100</span> <span class="sc">*</span> <span class="fu">mean</span>(results<span class="sc">$</span>detected), <span class="fu">file.path</span>(cache_dir, results_rds)))</span>
-<span id="cb15-256"><a href="#cb15-256" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb15-257"><a href="#cb15-257" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-258"><a href="#cb15-258" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------------------</span>
-<span id="cb15-259"><a href="#cb15-259" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-260"><a href="#cb15-260" aria-hidden="true" tabindex="-1"></a><span class="fu">## Results {#sec-results}</span></span>
+<span id="cb15-239"><a href="#cb15-239" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------------------</span>
+<span id="cb15-240"><a href="#cb15-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-241"><a href="#cb15-241" aria-hidden="true" tabindex="-1"></a><span class="fu">## Run the sweep {#sec-sweep}</span></span>
+<span id="cb15-242"><a href="#cb15-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-243"><a href="#cb15-243" aria-hidden="true" tabindex="-1"></a><span class="in">```{r sweep}</span></span>
+<span id="cb15-244"><a href="#cb15-244" aria-hidden="true" tabindex="-1"></a>t0 <span class="ot">&lt;-</span> <span class="fu">proc.time</span>()[[<span class="st">&quot;elapsed&quot;</span>]]</span>
+<span id="cb15-245"><a href="#cb15-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-246"><a href="#cb15-246" aria-hidden="true" tabindex="-1"></a>records <span class="ot">&lt;-</span> <span class="fu">foreach</span>(<span class="at">sim_id =</span> sim_ids,</span>
+<span id="cb15-247"><a href="#cb15-247" aria-hidden="true" tabindex="-1"></a>                   <span class="at">.options.future =</span> <span class="fu">list</span>(<span class="at">seed =</span> <span class="cn">TRUE</span>)) <span class="sc">%dofuture%</span> {</span>
+<span id="cb15-248"><a href="#cb15-248" aria-hidden="true" tabindex="-1"></a>  <span class="fu">record_replicate</span>(sim_id)</span>
+<span id="cb15-249"><a href="#cb15-249" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-250"><a href="#cb15-250" aria-hidden="true" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, records)</span>
+<span id="cb15-251"><a href="#cb15-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-252"><a href="#cb15-252" aria-hidden="true" tabindex="-1"></a>elapsed <span class="ot">&lt;-</span> <span class="fu">proc.time</span>()[[<span class="st">&quot;elapsed&quot;</span>]] <span class="sc">-</span> t0</span>
+<span id="cb15-253"><a href="#cb15-253" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(results, <span class="fu">file.path</span>(cache_dir, results_rds))</span>
+<span id="cb15-254"><a href="#cb15-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-255"><a href="#cb15-255" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Ran %d replicates in %.1f s (%.2f s/replicate, %d workers).</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb15-256"><a href="#cb15-256" aria-hidden="true" tabindex="-1"></a>            <span class="fu">nrow</span>(results), elapsed, elapsed <span class="sc">/</span> <span class="fu">nrow</span>(results), n_workers))</span>
+<span id="cb15-257"><a href="#cb15-257" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Detections: %d / %d (%.1f%%). Saved per-replicate records to %s</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb15-258"><a href="#cb15-258" aria-hidden="true" tabindex="-1"></a>            <span class="fu">sum</span>(results<span class="sc">$</span>detected), <span class="fu">nrow</span>(results),</span>
+<span id="cb15-259"><a href="#cb15-259" aria-hidden="true" tabindex="-1"></a>            <span class="dv">100</span> <span class="sc">*</span> <span class="fu">mean</span>(results<span class="sc">$</span>detected), <span class="fu">file.path</span>(cache_dir, results_rds)))</span>
+<span id="cb15-260"><a href="#cb15-260" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb15-261"><a href="#cb15-261" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-262"><a href="#cb15-262" aria-hidden="true" tabindex="-1"></a><span class="in">```{r results-prep}</span></span>
-<span id="cb15-263"><a href="#cb15-263" aria-hidden="true" tabindex="-1"></a>det   <span class="ot">&lt;-</span> results[results<span class="sc">$</span>detected <span class="sc">==</span> <span class="dv">1</span>L, , drop <span class="ot">=</span> <span class="cn">FALSE</span>]</span>
-<span id="cb15-264"><a href="#cb15-264" aria-hidden="true" tabindex="-1"></a>n_det <span class="ot">&lt;-</span> <span class="fu">nrow</span>(det)</span>
-<span id="cb15-265"><a href="#cb15-265" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(n_det <span class="sc">&gt;</span> <span class="dv">0</span>L)</span>
-<span id="cb15-266"><a href="#cb15-266" aria-hidden="true" tabindex="-1"></a>covs_list      <span class="ot">&lt;-</span> <span class="fu">strsplit</span>(det<span class="sc">$</span>covs, <span class="st">&quot;+&quot;</span>, <span class="at">fixed =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb15-267"><a href="#cb15-267" aria-hidden="true" tabindex="-1"></a>det<span class="sc">$</span>structure  <span class="ot">&lt;-</span> <span class="fu">vapply</span>(covs_list, classify_structure, <span class="fu">character</span>(<span class="dv">1</span>),</span>
-<span id="cb15-268"><a href="#cb15-268" aria-hidden="true" tabindex="-1"></a>                         <span class="at">anchor =</span> truth_anchor, <span class="at">partner =</span> truth_partner, <span class="at">proxy =</span> truth_proxy)</span>
-<span id="cb15-269"><a href="#cb15-269" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb15-270"><a href="#cb15-270" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-271"><a href="#cb15-271" aria-hidden="true" tabindex="-1"></a><span class="fu">### Headline</span></span>
-<span id="cb15-272"><a href="#cb15-272" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-273"><a href="#cb15-273" aria-hidden="true" tabindex="-1"></a><span class="in">```{r results-headline}</span></span>
-<span id="cb15-274"><a href="#cb15-274" aria-hidden="true" tabindex="-1"></a>true_recovery  <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">vapply</span>(covs_list, <span class="cf">function</span>(z)</span>
-<span id="cb15-275"><a href="#cb15-275" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">all</span>(<span class="fu">c</span>(truth_anchor, truth_partner) <span class="sc">%in%</span> z), <span class="fu">logical</span>(<span class="dv">1</span>)))</span>
-<span id="cb15-276"><a href="#cb15-276" aria-hidden="true" tabindex="-1"></a>proxy_sub      <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">vapply</span>(covs_list, <span class="cf">function</span>(z)</span>
-<span id="cb15-277"><a href="#cb15-277" aria-hidden="true" tabindex="-1"></a>                  truth_anchor <span class="sc">%in%</span> z <span class="sc">&amp;&amp;</span> truth_proxy <span class="sc">%in%</span> z <span class="sc">&amp;&amp;</span> <span class="sc">!</span>(truth_partner <span class="sc">%in%</span> z), <span class="fu">logical</span>(<span class="dv">1</span>)))</span>
-<span id="cb15-278"><a href="#cb15-278" aria-hidden="true" tabindex="-1"></a>anchor_recall  <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">vapply</span>(covs_list, <span class="cf">function</span>(z) truth_anchor <span class="sc">%in%</span> z, <span class="fu">logical</span>(<span class="dv">1</span>)))</span>
-<span id="cb15-279"><a href="#cb15-279" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-280"><a href="#cb15-280" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
-<span id="cb15-281"><a href="#cb15-281" aria-hidden="true" tabindex="-1"></a>  <span class="at">quantity =</span> <span class="fu">c</span>(<span class="st">&quot;Detection rate (all replicates)&quot;</span>,</span>
-<span id="cb15-282"><a href="#cb15-282" aria-hidden="true" tabindex="-1"></a>               <span class="fu">sprintf</span>(<span class="st">&quot;Anchor recall: %s present | detected&quot;</span>, truth_anchor),</span>
-<span id="cb15-283"><a href="#cb15-283" aria-hidden="true" tabindex="-1"></a>               <span class="fu">sprintf</span>(<span class="st">&quot;True-subgroup recovery: %s &amp; %s | detected&quot;</span>, truth_anchor, truth_partner),</span>
-<span id="cb15-284"><a href="#cb15-284" aria-hidden="true" tabindex="-1"></a>               <span class="fu">sprintf</span>(<span class="st">&quot;Proxy substitution: %s &amp; %s (no %s) | detected&quot;</span>,</span>
-<span id="cb15-285"><a href="#cb15-285" aria-hidden="true" tabindex="-1"></a>                       truth_anchor, truth_proxy, truth_partner)),</span>
-<span id="cb15-286"><a href="#cb15-286" aria-hidden="true" tabindex="-1"></a>  <span class="at">value =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.1f%%&quot;</span>, <span class="dv">100</span> <span class="sc">*</span> <span class="fu">c</span>(<span class="fu">mean</span>(results<span class="sc">$</span>detected), anchor_recall,</span>
-<span id="cb15-287"><a href="#cb15-287" aria-hidden="true" tabindex="-1"></a>                                    true_recovery, proxy_sub))</span>
-<span id="cb15-288"><a href="#cb15-288" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
-<span id="cb15-289"><a href="#cb15-289" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">|&gt;</span></span>
-<span id="cb15-290"><a href="#cb15-290" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">&quot;Identification headline&quot;</span>) <span class="sc">|&gt;</span></span>
-<span id="cb15-291"><a href="#cb15-291" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">quantity =</span> <span class="st">&quot;&quot;</span>, <span class="at">value =</span> <span class="st">&quot;&quot;</span>)</span>
-<span id="cb15-292"><a href="#cb15-292" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb15-293"><a href="#cb15-293" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-294"><a href="#cb15-294" aria-hidden="true" tabindex="-1"></a><span class="fu">### Per-covariate involvement</span></span>
-<span id="cb15-295"><a href="#cb15-295" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-296"><a href="#cb15-296" aria-hidden="true" tabindex="-1"></a><span class="in">```{r results-involvement}</span></span>
-<span id="cb15-297"><a href="#cb15-297" aria-hidden="true" tabindex="-1"></a>inv <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb15-298"><a href="#cb15-298" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariate   =</span> confounders_base,</span>
-<span id="cb15-299"><a href="#cb15-299" aria-hidden="true" tabindex="-1"></a>  <span class="at">involvement =</span> <span class="fu">vapply</span>(confounders_base,</span>
-<span id="cb15-300"><a href="#cb15-300" aria-hidden="true" tabindex="-1"></a>                       <span class="cf">function</span>(cv) <span class="fu">mean</span>(<span class="fu">vapply</span>(covs_list, <span class="cf">function</span>(z) cv <span class="sc">%in%</span> z, <span class="fu">logical</span>(<span class="dv">1</span>))),</span>
-<span id="cb15-301"><a href="#cb15-301" aria-hidden="true" tabindex="-1"></a>                       <span class="fu">numeric</span>(<span class="dv">1</span>)),</span>
-<span id="cb15-302"><a href="#cb15-302" aria-hidden="true" tabindex="-1"></a>  <span class="at">row.names =</span> <span class="cn">NULL</span>)</span>
-<span id="cb15-303"><a href="#cb15-303" aria-hidden="true" tabindex="-1"></a>inv <span class="ot">&lt;-</span> inv[<span class="fu">order</span>(<span class="sc">-</span>inv<span class="sc">$</span>involvement), ]</span>
-<span id="cb15-304"><a href="#cb15-304" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-305"><a href="#cb15-305" aria-hidden="true" tabindex="-1"></a><span class="fu">gt</span>(inv) <span class="sc">|&gt;</span></span>
-<span id="cb15-306"><a href="#cb15-306" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_percent</span>(<span class="at">columns =</span> involvement, <span class="at">decimals =</span> <span class="dv">1</span>) <span class="sc">|&gt;</span></span>
-<span id="cb15-307"><a href="#cb15-307" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">covariate =</span> <span class="st">&quot;Covariate&quot;</span>, <span class="at">involvement =</span> <span class="st">&quot;% of detections&quot;</span>) <span class="sc">|&gt;</span></span>
-<span id="cb15-308"><a href="#cb15-308" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">&quot;Per-covariate involvement in identified subgroups&quot;</span>,</span>
-<span id="cb15-309"><a href="#cb15-309" aria-hidden="true" tabindex="-1"></a>             <span class="at">subtitle =</span> <span class="fu">sprintf</span>(<span class="st">&quot;Among %d detections&quot;</span>, n_det))</span>
-<span id="cb15-310"><a href="#cb15-310" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb15-311"><a href="#cb15-311" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-312"><a href="#cb15-312" aria-hidden="true" tabindex="-1"></a><span class="fu">### Structure breakdown</span></span>
-<span id="cb15-313"><a href="#cb15-313" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-314"><a href="#cb15-314" aria-hidden="true" tabindex="-1"></a>How often the true partner is recovered vs. a proxy is substituted vs. some</span>
-<span id="cb15-315"><a href="#cb15-315" aria-hidden="true" tabindex="-1"></a>other factor is chosen.</span>
-<span id="cb15-316"><a href="#cb15-316" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-317"><a href="#cb15-317" aria-hidden="true" tabindex="-1"></a><span class="in">```{r results-structure}</span></span>
-<span id="cb15-318"><a href="#cb15-318" aria-hidden="true" tabindex="-1"></a>sf <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(<span class="fu">table</span>(det<span class="sc">$</span>structure), <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb15-319"><a href="#cb15-319" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(sf) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;structure&quot;</span>, <span class="st">&quot;n&quot;</span>)</span>
-<span id="cb15-320"><a href="#cb15-320" aria-hidden="true" tabindex="-1"></a>sf <span class="ot">&lt;-</span> sf[<span class="fu">order</span>(<span class="sc">-</span>sf<span class="sc">$</span>n), ]</span>
-<span id="cb15-321"><a href="#cb15-321" aria-hidden="true" tabindex="-1"></a>sf<span class="sc">$</span>pct <span class="ot">&lt;-</span> sf<span class="sc">$</span>n <span class="sc">/</span> n_det</span>
-<span id="cb15-322"><a href="#cb15-322" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-323"><a href="#cb15-323" aria-hidden="true" tabindex="-1"></a><span class="fu">gt</span>(sf) <span class="sc">|&gt;</span></span>
-<span id="cb15-324"><a href="#cb15-324" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_percent</span>(<span class="at">columns =</span> pct, <span class="at">decimals =</span> <span class="dv">1</span>) <span class="sc">|&gt;</span></span>
-<span id="cb15-325"><a href="#cb15-325" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">structure =</span> <span class="st">&quot;Subgroup structure&quot;</span>, <span class="at">n =</span> <span class="st">&quot;N&quot;</span>, <span class="at">pct =</span> <span class="st">&quot;%&quot;</span>) <span class="sc">|&gt;</span></span>
-<span id="cb15-326"><a href="#cb15-326" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">&quot;Identified-subgroup structure&quot;</span>,</span>
-<span id="cb15-327"><a href="#cb15-327" aria-hidden="true" tabindex="-1"></a>             <span class="at">subtitle =</span> <span class="fu">sprintf</span>(<span class="st">&quot;Anchor = %s, true partner = %s, proxy = %s&quot;</span>,</span>
-<span id="cb15-328"><a href="#cb15-328" aria-hidden="true" tabindex="-1"></a>                                truth_anchor, truth_partner, truth_proxy))</span>
-<span id="cb15-329"><a href="#cb15-329" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb15-330"><a href="#cb15-330" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-331"><a href="#cb15-331" aria-hidden="true" tabindex="-1"></a><span class="fu">### Most frequent named subgroups</span></span>
-<span id="cb15-332"><a href="#cb15-332" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-333"><a href="#cb15-333" aria-hidden="true" tabindex="-1"></a><span class="in">```{r results-topsg}</span></span>
-<span id="cb15-334"><a href="#cb15-334" aria-hidden="true" tabindex="-1"></a>sg <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(<span class="fu">table</span>(det<span class="sc">$</span>sg), <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb15-335"><a href="#cb15-335" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(sg) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;subgroup&quot;</span>, <span class="st">&quot;n&quot;</span>)</span>
-<span id="cb15-336"><a href="#cb15-336" aria-hidden="true" tabindex="-1"></a>sg <span class="ot">&lt;-</span> sg[<span class="fu">order</span>(<span class="sc">-</span>sg<span class="sc">$</span>n), ]</span>
-<span id="cb15-337"><a href="#cb15-337" aria-hidden="true" tabindex="-1"></a>sg<span class="sc">$</span>pct <span class="ot">&lt;-</span> sg<span class="sc">$</span>n <span class="sc">/</span> n_det</span>
-<span id="cb15-338"><a href="#cb15-338" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-339"><a href="#cb15-339" aria-hidden="true" tabindex="-1"></a><span class="fu">gt</span>(utils<span class="sc">::</span><span class="fu">head</span>(sg, top_n_subgroups)) <span class="sc">|&gt;</span></span>
-<span id="cb15-340"><a href="#cb15-340" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_percent</span>(<span class="at">columns =</span> pct, <span class="at">decimals =</span> <span class="dv">1</span>) <span class="sc">|&gt;</span></span>
-<span id="cb15-341"><a href="#cb15-341" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">subgroup =</span> <span class="st">&quot;Identified subgroup (named)&quot;</span>, <span class="at">n =</span> <span class="st">&quot;N&quot;</span>, <span class="at">pct =</span> <span class="st">&quot;%&quot;</span>) <span class="sc">|&gt;</span></span>
-<span id="cb15-342"><a href="#cb15-342" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="fu">sprintf</span>(<span class="st">&quot;Top %d identified subgroups&quot;</span>, top_n_subgroups))</span>
-<span id="cb15-343"><a href="#cb15-343" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb15-344"><a href="#cb15-344" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-345"><a href="#cb15-345" aria-hidden="true" tabindex="-1"></a><span class="fu">### Classification accuracy</span></span>
-<span id="cb15-346"><a href="#cb15-346" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-347"><a href="#cb15-347" aria-hidden="true" tabindex="-1"></a>Membership of the identified subgroup vs. the planted <span class="in">`flag_harm`</span>. NPV is</span>
-<span id="cb15-348"><a href="#cb15-348" aria-hidden="true" tabindex="-1"></a>reported alongside sensitivity, specificity, and PPV.</span>
-<span id="cb15-349"><a href="#cb15-349" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-350"><a href="#cb15-350" aria-hidden="true" tabindex="-1"></a><span class="in">```{r results-classification}</span></span>
-<span id="cb15-351"><a href="#cb15-351" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
-<span id="cb15-352"><a href="#cb15-352" aria-hidden="true" tabindex="-1"></a>  <span class="at">metric =</span> <span class="fu">c</span>(<span class="st">&quot;Sensitivity&quot;</span>, <span class="st">&quot;Specificity&quot;</span>, <span class="st">&quot;PPV&quot;</span>, <span class="st">&quot;NPV&quot;</span>),</span>
-<span id="cb15-353"><a href="#cb15-353" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean   =</span> <span class="fu">c</span>(<span class="fu">mean</span>(det<span class="sc">$</span>sens, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="fu">mean</span>(det<span class="sc">$</span>spec, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
-<span id="cb15-354"><a href="#cb15-354" aria-hidden="true" tabindex="-1"></a>             <span class="fu">mean</span>(det<span class="sc">$</span>ppv,  <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="fu">mean</span>(det<span class="sc">$</span>npv,  <span class="at">na.rm =</span> <span class="cn">TRUE</span>)),</span>
-<span id="cb15-355"><a href="#cb15-355" aria-hidden="true" tabindex="-1"></a>  <span class="at">median =</span> <span class="fu">c</span>(<span class="fu">median</span>(det<span class="sc">$</span>sens, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="fu">median</span>(det<span class="sc">$</span>spec, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
-<span id="cb15-356"><a href="#cb15-356" aria-hidden="true" tabindex="-1"></a>             <span class="fu">median</span>(det<span class="sc">$</span>ppv,  <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="fu">median</span>(det<span class="sc">$</span>npv,  <span class="at">na.rm =</span> <span class="cn">TRUE</span>))</span>
-<span id="cb15-357"><a href="#cb15-357" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
-<span id="cb15-358"><a href="#cb15-358" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">|&gt;</span></span>
-<span id="cb15-359"><a href="#cb15-359" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_number</span>(<span class="at">columns =</span> <span class="fu">c</span>(mean, median), <span class="at">decimals =</span> <span class="dv">3</span>) <span class="sc">|&gt;</span></span>
-<span id="cb15-360"><a href="#cb15-360" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">metric =</span> <span class="st">&quot;Metric&quot;</span>, <span class="at">mean =</span> <span class="st">&quot;Mean&quot;</span>, <span class="at">median =</span> <span class="st">&quot;Median&quot;</span>) <span class="sc">|&gt;</span></span>
-<span id="cb15-361"><a href="#cb15-361" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">&quot;Classification accuracy of identified subgroups&quot;</span>,</span>
-<span id="cb15-362"><a href="#cb15-362" aria-hidden="true" tabindex="-1"></a>             <span class="at">subtitle =</span> <span class="fu">sprintf</span>(<span class="st">&quot;Among %d detections&quot;</span>, n_det))</span>
-<span id="cb15-363"><a href="#cb15-363" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb15-364"><a href="#cb15-364" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-365"><a href="#cb15-365" aria-hidden="true" tabindex="-1"></a><span class="fu">### Sample of identified subgroups</span></span>
-<span id="cb15-366"><a href="#cb15-366" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-367"><a href="#cb15-367" aria-hidden="true" tabindex="-1"></a><span class="in">```{r results-sample}</span></span>
-<span id="cb15-368"><a href="#cb15-368" aria-hidden="true" tabindex="-1"></a>utils<span class="sc">::</span><span class="fu">head</span>(det[, <span class="fu">c</span>(<span class="st">&quot;sim_id&quot;</span>, <span class="st">&quot;k&quot;</span>, <span class="st">&quot;sg&quot;</span>, <span class="st">&quot;structure&quot;</span>,</span>
-<span id="cb15-369"><a href="#cb15-369" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;sens&quot;</span>, <span class="st">&quot;spec&quot;</span>, <span class="st">&quot;ppv&quot;</span>, <span class="st">&quot;npv&quot;</span>, <span class="st">&quot;n_harm&quot;</span>, <span class="st">&quot;n_true&quot;</span>)], <span class="dv">12</span>)</span>
-<span id="cb15-370"><a href="#cb15-370" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb15-371"><a href="#cb15-371" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-372"><a href="#cb15-372" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------------------</span>
-<span id="cb15-373"><a href="#cb15-373" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-374"><a href="#cb15-374" aria-hidden="true" tabindex="-1"></a><span class="fu">## Notes for reuse</span></span>
+<span id="cb15-262"><a href="#cb15-262" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------------------</span>
+<span id="cb15-263"><a href="#cb15-263" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-264"><a href="#cb15-264" aria-hidden="true" tabindex="-1"></a><span class="fu">## Results {#sec-results}</span></span>
+<span id="cb15-265"><a href="#cb15-265" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-266"><a href="#cb15-266" aria-hidden="true" tabindex="-1"></a><span class="in">```{r results-prep}</span></span>
+<span id="cb15-267"><a href="#cb15-267" aria-hidden="true" tabindex="-1"></a>det   <span class="ot">&lt;-</span> results[results<span class="sc">$</span>detected <span class="sc">==</span> <span class="dv">1</span>L, , drop <span class="ot">=</span> <span class="cn">FALSE</span>]</span>
+<span id="cb15-268"><a href="#cb15-268" aria-hidden="true" tabindex="-1"></a>n_det <span class="ot">&lt;-</span> <span class="fu">nrow</span>(det)</span>
+<span id="cb15-269"><a href="#cb15-269" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(n_det <span class="sc">&gt;</span> <span class="dv">0</span>L)</span>
+<span id="cb15-270"><a href="#cb15-270" aria-hidden="true" tabindex="-1"></a>covs_list      <span class="ot">&lt;-</span> <span class="fu">strsplit</span>(det<span class="sc">$</span>covs, <span class="st">&quot;+&quot;</span>, <span class="at">fixed =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb15-271"><a href="#cb15-271" aria-hidden="true" tabindex="-1"></a>det<span class="sc">$</span>structure  <span class="ot">&lt;-</span> <span class="fu">vapply</span>(covs_list, classify_structure, <span class="fu">character</span>(<span class="dv">1</span>),</span>
+<span id="cb15-272"><a href="#cb15-272" aria-hidden="true" tabindex="-1"></a>                         <span class="at">anchor =</span> truth_anchor, <span class="at">partner =</span> truth_partner, <span class="at">proxy =</span> truth_proxy)</span>
+<span id="cb15-273"><a href="#cb15-273" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-274"><a href="#cb15-274" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-275"><a href="#cb15-275" aria-hidden="true" tabindex="-1"></a><span class="fu">### Headline</span></span>
+<span id="cb15-276"><a href="#cb15-276" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-277"><a href="#cb15-277" aria-hidden="true" tabindex="-1"></a><span class="in">```{r results-headline}</span></span>
+<span id="cb15-278"><a href="#cb15-278" aria-hidden="true" tabindex="-1"></a>true_recovery  <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">vapply</span>(covs_list, <span class="cf">function</span>(z)</span>
+<span id="cb15-279"><a href="#cb15-279" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">all</span>(<span class="fu">c</span>(truth_anchor, truth_partner) <span class="sc">%in%</span> z), <span class="fu">logical</span>(<span class="dv">1</span>)))</span>
+<span id="cb15-280"><a href="#cb15-280" aria-hidden="true" tabindex="-1"></a>proxy_sub      <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">vapply</span>(covs_list, <span class="cf">function</span>(z)</span>
+<span id="cb15-281"><a href="#cb15-281" aria-hidden="true" tabindex="-1"></a>                  truth_anchor <span class="sc">%in%</span> z <span class="sc">&amp;&amp;</span> truth_proxy <span class="sc">%in%</span> z <span class="sc">&amp;&amp;</span> <span class="sc">!</span>(truth_partner <span class="sc">%in%</span> z), <span class="fu">logical</span>(<span class="dv">1</span>)))</span>
+<span id="cb15-282"><a href="#cb15-282" aria-hidden="true" tabindex="-1"></a>anchor_recall  <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">vapply</span>(covs_list, <span class="cf">function</span>(z) truth_anchor <span class="sc">%in%</span> z, <span class="fu">logical</span>(<span class="dv">1</span>)))</span>
+<span id="cb15-283"><a href="#cb15-283" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-284"><a href="#cb15-284" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
+<span id="cb15-285"><a href="#cb15-285" aria-hidden="true" tabindex="-1"></a>  <span class="at">quantity =</span> <span class="fu">c</span>(<span class="st">&quot;Detection rate (all replicates)&quot;</span>,</span>
+<span id="cb15-286"><a href="#cb15-286" aria-hidden="true" tabindex="-1"></a>               <span class="fu">sprintf</span>(<span class="st">&quot;Anchor recall: %s present | detected&quot;</span>, truth_anchor),</span>
+<span id="cb15-287"><a href="#cb15-287" aria-hidden="true" tabindex="-1"></a>               <span class="fu">sprintf</span>(<span class="st">&quot;True-subgroup recovery: %s &amp; %s | detected&quot;</span>, truth_anchor, truth_partner),</span>
+<span id="cb15-288"><a href="#cb15-288" aria-hidden="true" tabindex="-1"></a>               <span class="fu">sprintf</span>(<span class="st">&quot;Proxy substitution: %s &amp; %s (no %s) | detected&quot;</span>,</span>
+<span id="cb15-289"><a href="#cb15-289" aria-hidden="true" tabindex="-1"></a>                       truth_anchor, truth_proxy, truth_partner)),</span>
+<span id="cb15-290"><a href="#cb15-290" aria-hidden="true" tabindex="-1"></a>  <span class="at">value =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.1f%%&quot;</span>, <span class="dv">100</span> <span class="sc">*</span> <span class="fu">c</span>(<span class="fu">mean</span>(results<span class="sc">$</span>detected), anchor_recall,</span>
+<span id="cb15-291"><a href="#cb15-291" aria-hidden="true" tabindex="-1"></a>                                    true_recovery, proxy_sub))</span>
+<span id="cb15-292"><a href="#cb15-292" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb15-293"><a href="#cb15-293" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">|&gt;</span></span>
+<span id="cb15-294"><a href="#cb15-294" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">&quot;Identification headline&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb15-295"><a href="#cb15-295" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">quantity =</span> <span class="st">&quot;&quot;</span>, <span class="at">value =</span> <span class="st">&quot;&quot;</span>)</span>
+<span id="cb15-296"><a href="#cb15-296" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-297"><a href="#cb15-297" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-298"><a href="#cb15-298" aria-hidden="true" tabindex="-1"></a><span class="fu">### Per-covariate involvement</span></span>
+<span id="cb15-299"><a href="#cb15-299" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-300"><a href="#cb15-300" aria-hidden="true" tabindex="-1"></a><span class="in">```{r results-involvement}</span></span>
+<span id="cb15-301"><a href="#cb15-301" aria-hidden="true" tabindex="-1"></a>inv <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb15-302"><a href="#cb15-302" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariate   =</span> confounders_base,</span>
+<span id="cb15-303"><a href="#cb15-303" aria-hidden="true" tabindex="-1"></a>  <span class="at">involvement =</span> <span class="fu">vapply</span>(confounders_base,</span>
+<span id="cb15-304"><a href="#cb15-304" aria-hidden="true" tabindex="-1"></a>                       <span class="cf">function</span>(cv) <span class="fu">mean</span>(<span class="fu">vapply</span>(covs_list, <span class="cf">function</span>(z) cv <span class="sc">%in%</span> z, <span class="fu">logical</span>(<span class="dv">1</span>))),</span>
+<span id="cb15-305"><a href="#cb15-305" aria-hidden="true" tabindex="-1"></a>                       <span class="fu">numeric</span>(<span class="dv">1</span>)),</span>
+<span id="cb15-306"><a href="#cb15-306" aria-hidden="true" tabindex="-1"></a>  <span class="at">row.names =</span> <span class="cn">NULL</span>)</span>
+<span id="cb15-307"><a href="#cb15-307" aria-hidden="true" tabindex="-1"></a>inv <span class="ot">&lt;-</span> inv[<span class="fu">order</span>(<span class="sc">-</span>inv<span class="sc">$</span>involvement), ]</span>
+<span id="cb15-308"><a href="#cb15-308" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-309"><a href="#cb15-309" aria-hidden="true" tabindex="-1"></a><span class="fu">gt</span>(inv) <span class="sc">|&gt;</span></span>
+<span id="cb15-310"><a href="#cb15-310" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_percent</span>(<span class="at">columns =</span> involvement, <span class="at">decimals =</span> <span class="dv">1</span>) <span class="sc">|&gt;</span></span>
+<span id="cb15-311"><a href="#cb15-311" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">covariate =</span> <span class="st">&quot;Covariate&quot;</span>, <span class="at">involvement =</span> <span class="st">&quot;% of detections&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb15-312"><a href="#cb15-312" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">&quot;Per-covariate involvement in identified subgroups&quot;</span>,</span>
+<span id="cb15-313"><a href="#cb15-313" aria-hidden="true" tabindex="-1"></a>             <span class="at">subtitle =</span> <span class="fu">sprintf</span>(<span class="st">&quot;Among %d detections&quot;</span>, n_det))</span>
+<span id="cb15-314"><a href="#cb15-314" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-315"><a href="#cb15-315" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-316"><a href="#cb15-316" aria-hidden="true" tabindex="-1"></a><span class="fu">### Structure breakdown</span></span>
+<span id="cb15-317"><a href="#cb15-317" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-318"><a href="#cb15-318" aria-hidden="true" tabindex="-1"></a>How often the true partner is recovered vs. a proxy is substituted vs. some</span>
+<span id="cb15-319"><a href="#cb15-319" aria-hidden="true" tabindex="-1"></a>other factor is chosen.</span>
+<span id="cb15-320"><a href="#cb15-320" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-321"><a href="#cb15-321" aria-hidden="true" tabindex="-1"></a><span class="in">```{r results-structure}</span></span>
+<span id="cb15-322"><a href="#cb15-322" aria-hidden="true" tabindex="-1"></a>sf <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(<span class="fu">table</span>(det<span class="sc">$</span>structure), <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb15-323"><a href="#cb15-323" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(sf) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;structure&quot;</span>, <span class="st">&quot;n&quot;</span>)</span>
+<span id="cb15-324"><a href="#cb15-324" aria-hidden="true" tabindex="-1"></a>sf <span class="ot">&lt;-</span> sf[<span class="fu">order</span>(<span class="sc">-</span>sf<span class="sc">$</span>n), ]</span>
+<span id="cb15-325"><a href="#cb15-325" aria-hidden="true" tabindex="-1"></a>sf<span class="sc">$</span>pct <span class="ot">&lt;-</span> sf<span class="sc">$</span>n <span class="sc">/</span> n_det</span>
+<span id="cb15-326"><a href="#cb15-326" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-327"><a href="#cb15-327" aria-hidden="true" tabindex="-1"></a><span class="fu">gt</span>(sf) <span class="sc">|&gt;</span></span>
+<span id="cb15-328"><a href="#cb15-328" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_percent</span>(<span class="at">columns =</span> pct, <span class="at">decimals =</span> <span class="dv">1</span>) <span class="sc">|&gt;</span></span>
+<span id="cb15-329"><a href="#cb15-329" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">structure =</span> <span class="st">&quot;Subgroup structure&quot;</span>, <span class="at">n =</span> <span class="st">&quot;N&quot;</span>, <span class="at">pct =</span> <span class="st">&quot;%&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb15-330"><a href="#cb15-330" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">&quot;Identified-subgroup structure&quot;</span>,</span>
+<span id="cb15-331"><a href="#cb15-331" aria-hidden="true" tabindex="-1"></a>             <span class="at">subtitle =</span> <span class="fu">sprintf</span>(<span class="st">&quot;Anchor = %s, true partner = %s, proxy = %s&quot;</span>,</span>
+<span id="cb15-332"><a href="#cb15-332" aria-hidden="true" tabindex="-1"></a>                                truth_anchor, truth_partner, truth_proxy))</span>
+<span id="cb15-333"><a href="#cb15-333" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-334"><a href="#cb15-334" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-335"><a href="#cb15-335" aria-hidden="true" tabindex="-1"></a><span class="fu">### Most frequent named subgroups</span></span>
+<span id="cb15-336"><a href="#cb15-336" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-337"><a href="#cb15-337" aria-hidden="true" tabindex="-1"></a><span class="in">```{r results-topsg}</span></span>
+<span id="cb15-338"><a href="#cb15-338" aria-hidden="true" tabindex="-1"></a>sg <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(<span class="fu">table</span>(det<span class="sc">$</span>sg), <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb15-339"><a href="#cb15-339" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(sg) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;subgroup&quot;</span>, <span class="st">&quot;n&quot;</span>)</span>
+<span id="cb15-340"><a href="#cb15-340" aria-hidden="true" tabindex="-1"></a>sg <span class="ot">&lt;-</span> sg[<span class="fu">order</span>(<span class="sc">-</span>sg<span class="sc">$</span>n), ]</span>
+<span id="cb15-341"><a href="#cb15-341" aria-hidden="true" tabindex="-1"></a>sg<span class="sc">$</span>pct <span class="ot">&lt;-</span> sg<span class="sc">$</span>n <span class="sc">/</span> n_det</span>
+<span id="cb15-342"><a href="#cb15-342" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-343"><a href="#cb15-343" aria-hidden="true" tabindex="-1"></a><span class="fu">gt</span>(utils<span class="sc">::</span><span class="fu">head</span>(sg, top_n_subgroups)) <span class="sc">|&gt;</span></span>
+<span id="cb15-344"><a href="#cb15-344" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_percent</span>(<span class="at">columns =</span> pct, <span class="at">decimals =</span> <span class="dv">1</span>) <span class="sc">|&gt;</span></span>
+<span id="cb15-345"><a href="#cb15-345" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">subgroup =</span> <span class="st">&quot;Identified subgroup (named)&quot;</span>, <span class="at">n =</span> <span class="st">&quot;N&quot;</span>, <span class="at">pct =</span> <span class="st">&quot;%&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb15-346"><a href="#cb15-346" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="fu">sprintf</span>(<span class="st">&quot;Top %d identified subgroups&quot;</span>, top_n_subgroups))</span>
+<span id="cb15-347"><a href="#cb15-347" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-348"><a href="#cb15-348" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-349"><a href="#cb15-349" aria-hidden="true" tabindex="-1"></a><span class="fu">### Classification accuracy</span></span>
+<span id="cb15-350"><a href="#cb15-350" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-351"><a href="#cb15-351" aria-hidden="true" tabindex="-1"></a>Membership of the identified subgroup vs. the planted <span class="in">`flag_harm`</span>. NPV is</span>
+<span id="cb15-352"><a href="#cb15-352" aria-hidden="true" tabindex="-1"></a>reported alongside sensitivity, specificity, and PPV.</span>
+<span id="cb15-353"><a href="#cb15-353" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-354"><a href="#cb15-354" aria-hidden="true" tabindex="-1"></a><span class="in">```{r results-classification}</span></span>
+<span id="cb15-355"><a href="#cb15-355" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
+<span id="cb15-356"><a href="#cb15-356" aria-hidden="true" tabindex="-1"></a>  <span class="at">metric =</span> <span class="fu">c</span>(<span class="st">&quot;Sensitivity&quot;</span>, <span class="st">&quot;Specificity&quot;</span>, <span class="st">&quot;PPV&quot;</span>, <span class="st">&quot;NPV&quot;</span>),</span>
+<span id="cb15-357"><a href="#cb15-357" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean   =</span> <span class="fu">c</span>(<span class="fu">mean</span>(det<span class="sc">$</span>sens, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="fu">mean</span>(det<span class="sc">$</span>spec, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb15-358"><a href="#cb15-358" aria-hidden="true" tabindex="-1"></a>             <span class="fu">mean</span>(det<span class="sc">$</span>ppv,  <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="fu">mean</span>(det<span class="sc">$</span>npv,  <span class="at">na.rm =</span> <span class="cn">TRUE</span>)),</span>
+<span id="cb15-359"><a href="#cb15-359" aria-hidden="true" tabindex="-1"></a>  <span class="at">median =</span> <span class="fu">c</span>(<span class="fu">median</span>(det<span class="sc">$</span>sens, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="fu">median</span>(det<span class="sc">$</span>spec, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb15-360"><a href="#cb15-360" aria-hidden="true" tabindex="-1"></a>             <span class="fu">median</span>(det<span class="sc">$</span>ppv,  <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="fu">median</span>(det<span class="sc">$</span>npv,  <span class="at">na.rm =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb15-361"><a href="#cb15-361" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb15-362"><a href="#cb15-362" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">|&gt;</span></span>
+<span id="cb15-363"><a href="#cb15-363" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_number</span>(<span class="at">columns =</span> <span class="fu">c</span>(mean, median), <span class="at">decimals =</span> <span class="dv">3</span>) <span class="sc">|&gt;</span></span>
+<span id="cb15-364"><a href="#cb15-364" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">metric =</span> <span class="st">&quot;Metric&quot;</span>, <span class="at">mean =</span> <span class="st">&quot;Mean&quot;</span>, <span class="at">median =</span> <span class="st">&quot;Median&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb15-365"><a href="#cb15-365" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">&quot;Classification accuracy of identified subgroups&quot;</span>,</span>
+<span id="cb15-366"><a href="#cb15-366" aria-hidden="true" tabindex="-1"></a>             <span class="at">subtitle =</span> <span class="fu">sprintf</span>(<span class="st">&quot;Among %d detections&quot;</span>, n_det))</span>
+<span id="cb15-367"><a href="#cb15-367" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-368"><a href="#cb15-368" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-369"><a href="#cb15-369" aria-hidden="true" tabindex="-1"></a><span class="fu">### Sample of identified subgroups</span></span>
+<span id="cb15-370"><a href="#cb15-370" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-371"><a href="#cb15-371" aria-hidden="true" tabindex="-1"></a><span class="in">```{r results-sample}</span></span>
+<span id="cb15-372"><a href="#cb15-372" aria-hidden="true" tabindex="-1"></a>utils<span class="sc">::</span><span class="fu">head</span>(det[, <span class="fu">c</span>(<span class="st">&quot;sim_id&quot;</span>, <span class="st">&quot;k&quot;</span>, <span class="st">&quot;sg&quot;</span>, <span class="st">&quot;structure&quot;</span>,</span>
+<span id="cb15-373"><a href="#cb15-373" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;sens&quot;</span>, <span class="st">&quot;spec&quot;</span>, <span class="st">&quot;ppv&quot;</span>, <span class="st">&quot;npv&quot;</span>, <span class="st">&quot;n_harm&quot;</span>, <span class="st">&quot;n_true&quot;</span>)], <span class="dv">12</span>)</span>
+<span id="cb15-374"><a href="#cb15-374" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb15-375"><a href="#cb15-375" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-376"><a href="#cb15-376" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Other sample sizes** — set <span class="in">`n_sample &lt;- 500L`</span> and re-run; the DGM cache is</span>
-<span id="cb15-377"><a href="#cb15-377" aria-hidden="true" tabindex="-1"></a>  shared (the super-population is independent of <span class="in">`n_sample`</span>).</span>
-<span id="cb15-378"><a href="#cb15-378" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Other DGMs / planted subgroups** — edit <span class="in">`dgm_model`</span>, <span class="in">`target_hr_harm`</span>,</span>
-<span id="cb15-379"><a href="#cb15-379" aria-hidden="true" tabindex="-1"></a>  <span class="in">`confounders_base`</span>, <span class="in">`conf_force`</span>, <span class="in">`conf.cont_jcuts`</span>, and the</span>
-<span id="cb15-380"><a href="#cb15-380" aria-hidden="true" tabindex="-1"></a>  <span class="in">`truth_anchor / truth_partner / truth_proxy`</span> triple so the structure breakdown</span>
-<span id="cb15-381"><a href="#cb15-381" aria-hidden="true" tabindex="-1"></a>  matches the new planted subgroup.</span>
-<span id="cb15-382"><a href="#cb15-382" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Other identifiers** — switch <span class="in">`fs_params$subgroup_method`</span> to <span class="in">`&quot;dina&quot;`</span> or</span>
-<span id="cb15-383"><a href="#cb15-383" aria-hidden="true" tabindex="-1"></a>  <span class="in">`&quot;grf&quot;`</span> and supply that engine&#39;s method-specific args; everything downstream</span>
-<span id="cb15-384"><a href="#cb15-384" aria-hidden="true" tabindex="-1"></a>  reads <span class="in">`fs$sg.harm`</span>, which is populated for all three engines.</span>
-<span id="cb15-385"><a href="#cb15-385" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Smoke test** — set <span class="in">`sim_ids &lt;- 1:20`</span> and <span class="in">`n_workers &lt;- 1L`</span> to validate end</span>
-<span id="cb15-386"><a href="#cb15-386" aria-hidden="true" tabindex="-1"></a>  to end in well under a minute before launching the full sweep.</span>
-<span id="cb15-387"><a href="#cb15-387" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Post-selection inference** — intentionally out of scope here. Re-enable</span>
-<span id="cb15-388"><a href="#cb15-388" aria-hidden="true" tabindex="-1"></a>  <span class="in">`debias_gate = TRUE`</span> and call <span class="in">`fs_bootstrap()`</span> in a separate analysis when CIs</span>
-<span id="cb15-389"><a href="#cb15-389" aria-hidden="true" tabindex="-1"></a>  are needed; this template is identification-only.</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal><i class="bi"></i></button></div>
+<span id="cb15-376"><a href="#cb15-376" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------------------</span>
+<span id="cb15-377"><a href="#cb15-377" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-378"><a href="#cb15-378" aria-hidden="true" tabindex="-1"></a><span class="fu">## Notes for reuse</span></span>
+<span id="cb15-379"><a href="#cb15-379" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-380"><a href="#cb15-380" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Other sample sizes** — set <span class="in">`n_sample &lt;- 500L`</span> and re-run; the DGM cache is</span>
+<span id="cb15-381"><a href="#cb15-381" aria-hidden="true" tabindex="-1"></a>  shared (the super-population is independent of <span class="in">`n_sample`</span>).</span>
+<span id="cb15-382"><a href="#cb15-382" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Other DGMs / planted subgroups** — edit <span class="in">`dgm_model`</span>, <span class="in">`target_hr_harm`</span>,</span>
+<span id="cb15-383"><a href="#cb15-383" aria-hidden="true" tabindex="-1"></a>  <span class="in">`confounders_base`</span>, <span class="in">`conf_force`</span>, <span class="in">`conf.cont_jcuts`</span>, and the</span>
+<span id="cb15-384"><a href="#cb15-384" aria-hidden="true" tabindex="-1"></a>  <span class="in">`truth_anchor / truth_partner / truth_proxy`</span> triple so the structure breakdown</span>
+<span id="cb15-385"><a href="#cb15-385" aria-hidden="true" tabindex="-1"></a>  matches the new planted subgroup.</span>
+<span id="cb15-386"><a href="#cb15-386" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Other identifiers** — switch <span class="in">`fs_params$subgroup_method`</span> to <span class="in">`&quot;dina&quot;`</span> or</span>
+<span id="cb15-387"><a href="#cb15-387" aria-hidden="true" tabindex="-1"></a>  <span class="in">`&quot;grf&quot;`</span> and supply that engine&#39;s method-specific args; everything downstream</span>
+<span id="cb15-388"><a href="#cb15-388" aria-hidden="true" tabindex="-1"></a>  reads <span class="in">`fs$sg.harm`</span>, which is populated for all three engines.</span>
+<span id="cb15-389"><a href="#cb15-389" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Smoke test** — set <span class="in">`sim_ids &lt;- 1:20`</span> and <span class="in">`n_workers &lt;- 1L`</span> to validate end</span>
+<span id="cb15-390"><a href="#cb15-390" aria-hidden="true" tabindex="-1"></a>  to end in well under a minute before launching the full sweep.</span>
+<span id="cb15-391"><a href="#cb15-391" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Post-selection inference** — intentionally out of scope here. Re-enable</span>
+<span id="cb15-392"><a href="#cb15-392" aria-hidden="true" tabindex="-1"></a>  <span class="in">`debias_gate = TRUE`</span> and call <span class="in">`fs_bootstrap()`</span> in a separate analysis when CIs</span>
+<span id="cb15-393"><a href="#cb15-393" aria-hidden="true" tabindex="-1"></a>  are needed; this template is identification-only.</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 
