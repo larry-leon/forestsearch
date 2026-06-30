@@ -76,9 +76,10 @@ cov_fig_h       <- if (is_2x2) 8  else 4.5
 .rds_path <- file.path(.pdir, rds_file)
 have_grid <- file.exists(.rds_path)
 
-.lab_tgt <- c(C_dagger  = "marginal subgroup odds ratio (C\u2020)",
-              C_ddagger = "controlled direct effect (C\u2021)",
-              C_oracle  = "per-replicate oracle")[[target_pick]]
+.lab_tgt <- c(C_dagger   = "marginal subgroup odds ratio (C\u2020)",
+              C_ddagger  = "controlled direct effect (C\u2021)",
+              C_oracle   = "per-replicate oracle",
+              C_betaHhat = "conditional subgroup odds ratio \u03b2(\u0124)")[[target_pick]]
 .lab_blk   <- if (block_pick == "H") "harm subgroup \u0124" else "complement \u0124\u1d9c"
 .scale_phrase <- switch(bias_scale, log = "on the log-OR scale",
                          rel = "as a percentage of the target", or = "on the OR scale")

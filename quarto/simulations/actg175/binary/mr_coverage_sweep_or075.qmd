@@ -66,6 +66,12 @@ library(foreach)
 library(doFuture)
 library(future)
 
+# Super-population conditional beta(Hhat)-OR targets (the Theorem-2 estimand).
+# PRODUCER side: builds the full-pool evaluation frame and attaches beta(Hhat)
+# to each detected replicate.  Place betaHhat_truth_glm.R in this document's
+# directory (it is sourced from the working directory at render time).
+source("betaHhat_truth_glm.R")
+
 # ── The sweep ────────────────────────────────────────────────────────────────
 methods  <- c("consistency", "dina", "grf")     # detector axis
 n_grid   <- seq(500L, 2000L, by = 250L)         # sample-size axis: 500..2000 by 250 (7); brackets ACTG175 n=1083
@@ -76,7 +82,7 @@ methods_run <- methods                           # e.g. "consistency"
 n_grid_run  <- n_grid                            # e.g. c(500L, 1000L)
 
 # ── Counts (the main knobs for smoke → production) ───────────────────────────
-n_sims    <- 1000L      # simulated trials per cell        (prod: 1000 → 20000)
+n_sims    <- 20L      # simulated trials per cell        (prod: 1000 → 20000)
 nb_boots  <- NULL       # FB nonparametric bootstraps; NULL/0 ⇒ MR-only (FB dormant)
 gate_draws <- 5000L     # MR multiplier draws              (keep ~2000–5000)
 diag_mode <- FALSE      # TRUE caps each cell to 5 reps and surfaces forestsearch errors
@@ -88,9 +94,9 @@ run_sweep   <- TRUE                       # FALSE ⇒ skip computation, just (re
 # folder and a new grid with NO pooling of prior runs — the clean way to get a fresh set.
 # The figure fragment (_sim_mr_coverage_or15.qmd) reads the grid by matching this SAME run_tag,
 # so keep the two strings identical. Convention: <dgm>_s<n_sims>_d<gate_draws>.
-run_tag     <- "actg175_or075_s1000" # ← bump this for a fresh, isolated run
+run_tag     <- "actg175_or075_s20" # ← bump this for a fresh, isolated run
 results_dir <- file.path("mr_sweep", run_tag)   # per-run folder: bundles + grid live here
-rds_tag     <- "fs_mr"                     # per-cell bundle stem (method + n appended)
+rds_tag     <- "mr"                        # per-cell engine token; the method tag (fs/dina/grf) LEADS the filename
 grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
 
 # ── Parallelization ──────────────────────────────────────────────────────────
@@ -121,7 +127,7 @@ z975 <- qnorm(0.975)
 # same grid: when you set dgm_model <- "null", ALSO change run_tag (e.g.
 # "actg175_null_s1000") so it writes to its own folder/grid.
 dgm_model   <- "alt"         # "alt" | "null"
-n_super     <- 25000L        # super-population size (n-invariant truth)
+n_super     <- 100000L       # super-population size (n-invariant truth); fixed 100k universe
 target_or_h <- 0.75           # (alt only) planted marginal OR in the harm subgroup H
 sg_quantile <- 0.70          # upper-tail q-cut on each subgroup var (prevalence ~10%; 0.65 ≈ 13%)
 k_random_noise <- 0          # add k_random_noise standard-normal noise confounders
@@ -188,7 +194,7 @@ cat(sprintf("Parallel: %s · %d workers · seed_base=%d.\n",
 # Build the DGM once (n-invariant truth) {#sec-dgm}
 
 ```{r build-dgm}
-dgm <- NULL; truth <- NULL
+dgm <- NULL; truth <- NULL; eval_df <- NULL
 if (run_sweep) {
   # ACTG175, prepped exactly as the Section 6.2 application: arm 1 (ZDV+ddI,
   # experimental) vs arm 3 (ddI, control); week-20 "no CD4 improvement" outcome.
@@ -278,6 +284,19 @@ if (run_sweep) {
   cat(sprintf("  overall marginal OR  : %.3f\n", truth$or_causal))
   cat(sprintf("  θ†  (marginal)  H/Hc : %.3f / %.3f\n", truth$marg_H, truth$marg_Hc))
   cat(sprintf("  θ‡  (CDE)       H/Hc : %.3f / %.3f\n", truth$cde_H,  truth$cde_Hc))
+
+  # beta(Hhat)-OR evaluation frame: the ENTIRE super-population, each subject
+  # once (replace = FALSE), under the trials' randomized analysis -- the
+  # Theorem-2 conditional target's evaluation population (one fixed universe).
+  eval_df <- build_eval_frame_glm(dgm, eval_seed = 20260628L)
+  for (v in bin_vars)                 # match the recorder's factor->0/1 coercion
+    if (v %in% names(eval_df) && is.factor(eval_df[[v]]))   # so rule evaluation on
+      eval_df[[v]] <- as.numeric(as.character(eval_df[[v]]))  # the eval frame == trials
+  .td_chk <- betaHhat_theta_dagger_check_or(eval_df, harm.name = harm_col,
+                                            outcome.name = outcome_name,
+                                            treat.name = treat_name)
+  cat(sprintf("  beta(Hhat) eval frame: n=%d (FULL super-population, each subject once; eval_seed = 20260628)\n", nrow(eval_df)))
+  cat(sprintf("  theta-dagger check   : %.3f / %.3f  (eval frame at true H/Hc; matches marginal OR above)\n", .td_chk["thetaDagger_H"], .td_chk["thetaDagger_Hc"]))
 } else {
   cat("run_sweep = FALSE: DGM build skipped (grid rebuilt from existing bundles).\n")
 }
@@ -297,25 +316,31 @@ loop never aborts a cell.
 # Guards separation / degenerate cells: non-finite coef/SE or a near-constant
 # outcome returns a clean NA triple, not Inf bounds.
 .logit_or_ci <- function(df) {
-  if (length(unique(df[[treat_name]])) < 2L) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
+  if (length(unique(df[[treat_name]])) < 2L) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_))
   y <- df[[outcome_name]]
   if (sum(y == 1L) < 5L || sum(y == 0L) < 5L)
-    return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
+    return(c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_))
   fml <- stats::as.formula(sprintf("%s ~ %s", outcome_name, treat_name))
   fit <- tryCatch(suppressWarnings(stats::glm(fml, data = df, family = stats::binomial("logit"))),
                   error = function(e) NULL)
-  if (is.null(fit)) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
+  if (is.null(fit)) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_))
   cf <- stats::coef(fit)
-  if (!(treat_name %in% names(cf))) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
+  if (!(treat_name %in% names(cf))) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_))
   b <- unname(cf[[treat_name]])
   v <- unname(suppressWarnings(diag(stats::vcov(fit))[treat_name]))
   se <- if (is.finite(v) && v > 0) sqrt(v) else NA_real_
   if (!is.finite(b) || !is.finite(se))
-    return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
-  c(est = exp(b), lo = exp(b - z975 * se), hi = exp(b + z975 * se))
+    return(c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_))
+  c(est = exp(b), lo = exp(b - z975 * se), hi = exp(b + z975 * se), se = se)
 }
 
 # Classification of Ĥ vs the true harm flag.
+# Recover the log-OR (beta) SE from an OR-scale SD (sdH2): se_beta = sdH2 / OR.
+# Used for the FB row when the bootstrap is enabled; NA on a non-finite/<=0 OR.
+.se_beta_or <- function(sd_or, or) {
+  if (is.finite(sd_or) && is.finite(or) && or > 0) sd_or / or else NA_real_
+}
+
 .classify <- function(sg_hat, truth_flag) {
   out <- c(sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_)
   if (is.null(sg_hat) || length(sg_hat) != length(truth_flag)) return(out)
@@ -335,13 +360,15 @@ loop never aborts a cell.
 .na_record <- function(sim_id) data.frame(
   sim_id = sim_id, detected = 0L, gate_ok = 0L, n_sel = NA_integer_,
   n_harm = NA_integer_, n_true = NA_integer_,
-  label = NA_character_, t1_secs = NA_real_, t2_secs = NA_real_, t1_err = NA_character_,
-  ora_H_est = NA, ora_H_lo = NA, ora_H_hi = NA,
-  ora_Hc_est = NA, ora_Hc_lo = NA, ora_Hc_hi = NA,
-  nv_H_est = NA, nv_H_lo = NA, nv_H_hi = NA,
-  nv_Hc_est = NA, nv_Hc_lo = NA, nv_Hc_hi = NA,
-  t1_H_est = NA, t1_H_lo = NA, t1_H_hi = NA,
-  t1_Hc_est = NA, t1_Hc_lo = NA, t1_Hc_hi = NA,
+  label = NA_character_, sg_def = NA_character_,
+  betaHhat_H = NA_real_, betaHhat_Hc = NA_real_,
+  t1_secs = NA_real_, t2_secs = NA_real_, t1_err = NA_character_,
+  ora_H_est = NA, ora_H_lo = NA, ora_H_hi = NA, ora_H_se = NA,
+  ora_Hc_est = NA, ora_Hc_lo = NA, ora_Hc_hi = NA, ora_Hc_se = NA,
+  nv_H_est = NA, nv_H_lo = NA, nv_H_hi = NA, nv_H_se = NA,
+  nv_Hc_est = NA, nv_Hc_lo = NA, nv_Hc_hi = NA, nv_Hc_se = NA,
+  t1_H_est = NA, t1_H_lo = NA, t1_H_hi = NA, t1_H_se = NA,
+  t1_Hc_est = NA, t1_Hc_lo = NA, t1_Hc_hi = NA, t1_Hc_se = NA,
   t2_H_est = NA, t2_H_lo = NA, t2_H_hi = NA, t2_H_se_ij = NA,
   t2_Hc_est = NA, t2_Hc_lo = NA, t2_Hc_hi = NA, t2_Hc_se_ij = NA,
   t2_harm_flag = NA_integer_, ij_source = NA_character_,
@@ -435,6 +462,7 @@ record_replicate <- function(sim_id, method, n_sample, nb_boots) {
   found <- !is.null(fs.est$sg.harm)
   rec$detected <- as.integer(found)
   if (!found) return(rec)
+  rec$sg_def <- paste(fs.est$sg.harm, collapse = " & ")   # realized rule -> beta(Hhat)
   rec$gate_ok <- as.integer(!is.null(g))
 
   if (!is.null(g)) {
@@ -442,13 +470,14 @@ record_replicate <- function(sim_id, method, n_sample, nb_boots) {
     rec$n_sel <- g$n_selected      %||% NA_integer_
     rec$t2_harm_flag <- as.integer(isTRUE(g$harm_flag))
     rec$ij_source    <- g$debiased$ij_source %||% NA_character_
-    rec$nv_H_est <- g$naive$est;    rec$nv_H_lo <- g$naive$lower;    rec$nv_H_hi <- g$naive$upper
+    rec$nv_H_est <- g$naive$est;    rec$nv_H_lo <- g$naive$lower;    rec$nv_H_hi <- g$naive$upper;    rec$nv_H_se <- g$debiased$se_wald %||% NA_real_
     rec$t2_H_est <- g$debiased$est; rec$t2_H_lo <- g$debiased$lower; rec$t2_H_hi <- g$debiased$upper
     rec$t2_H_se_ij <- g$debiased$se_ij %||% NA_real_
     if (is.list(g$complement) && !is.null(g$complement$debiased)) {
       rec$nv_Hc_est <- g$complement$naive$est
       rec$nv_Hc_lo  <- g$complement$naive$lower
       rec$nv_Hc_hi  <- g$complement$naive$upper
+      rec$nv_Hc_se  <- g$complement$debiased$se_wald %||% NA_real_
       rec$t2_Hc_est <- g$complement$debiased$est
       rec$t2_Hc_lo  <- g$complement$debiased$lower
       rec$t2_Hc_hi  <- g$complement$debiased$upper
@@ -475,20 +504,22 @@ record_replicate <- function(sim_id, method, n_sample, nb_boots) {
       rec$t1_H_est <- he$H2 %||% NA_real_
       rec$t1_H_lo  <- he$H2_lower %||% NA_real_
       rec$t1_H_hi  <- he$H2_upper %||% NA_real_
+      rec$t1_H_se  <- .se_beta_or(he$sdH2 %||% NA_real_, he$H2 %||% NA_real_)
     }
     if (!is.null(boot) && !is.null(boot$Hc_estimates)) {
       hce <- boot$Hc_estimates
       rec$t1_Hc_est <- hce$H2 %||% NA_real_
       rec$t1_Hc_lo  <- hce$H2_lower %||% NA_real_
       rec$t1_Hc_hi  <- hce$H2_upper %||% NA_real_
+      rec$t1_Hc_se  <- .se_beta_or(hce$sdH2 %||% NA_real_, hce$H2 %||% NA_real_)
     }
   }
 
   # ---- Oracle: refit on the TRUE harm subgroup of this trial ----------------
   oH  <- .logit_or_ci(df[df[[harm_col]] == 1, , drop = FALSE])
   oHc <- .logit_or_ci(df[df[[harm_col]] == 0, , drop = FALSE])
-  rec$ora_H_est  <- oH["est"];  rec$ora_H_lo  <- oH["lo"];  rec$ora_H_hi  <- oH["hi"]
-  rec$ora_Hc_est <- oHc["est"]; rec$ora_Hc_lo <- oHc["lo"]; rec$ora_Hc_hi <- oHc["hi"]
+  rec$ora_H_est  <- oH["est"];  rec$ora_H_lo  <- oH["lo"];  rec$ora_H_hi  <- oH["hi"];  rec$ora_H_se  <- oH["se"]
+  rec$ora_Hc_est <- oHc["est"]; rec$ora_Hc_lo <- oHc["lo"]; rec$ora_Hc_hi <- oHc["hi"]; rec$ora_Hc_se <- oHc["se"]
 
   rec
 }
@@ -523,6 +554,12 @@ run_cell <- function(method, n_sample, nb_boots = NULL, out = NULL,
   elapsed <- proc.time()[3] - t0
   if (is.null(results) || !nrow(results)) results <- .na_record(0L)[0, , drop = FALSE]
 
+  # Attach the per-replicate beta(Hhat)-OR / beta(Hhat^c)-OR targets (Theorem 2),
+  # deduplicated over distinct realized rules, on the full-pool eval frame in THIS
+  # (main) process -- not inside the workers.
+  results <- attach_betaHhat_or(results, eval_df,
+                                outcome.name = outcome_name, treat.name = treat_name)
+
   bundle <- list(
     results = results, truth = truth,
     meta = list(n_sample = n_sample, n_sims = n_sims, nb_boots = nb_boots,
@@ -540,7 +577,7 @@ run_cell <- function(method, n_sample, nb_boots = NULL, out = NULL,
 ```{r coverage-helpers}
 # Oracle key is "ora" (see .na_record): avoids the "or_" / odds-ratio collision.
 .EST_KEYS   <- c(oracle = "ora", naive = "nv", FB = "t1", MR = "t2")
-.TARGET_COL <- c(oracle = "C_oracle", cde = "C_ddagger", marg = "C_dagger")
+.TARGET_COL <- c(oracle = "C_oracle", cde = "C_ddagger", marg = "C_dagger", betaHhat = "C_betaHhat")
 
 # Coverage + uncertainty for one (target, lo, hi) triple.  The finite-only mask
 # reproduces the original .cover() exactly; n_eff / mc_se / Wilson are additions.
@@ -579,7 +616,7 @@ run_cell <- function(method, n_sample, nb_boots = NULL, out = NULL,
 coverage_from_bundle <- function(bundle,
                                  estimators = c("oracle", "naive", "MR"),
                                  blocks = c("H", "Hc"),
-                                 targets = c("marg", "cde"),
+                                 targets = c("marg", "cde", "betaHhat"),
                                  drop_all_na = TRUE, src = NULL) {
   if (is.character(bundle)) {
     stopifnot(file.exists(bundle)); if (is.null(src)) src <- basename(bundle)
@@ -592,9 +629,11 @@ coverage_from_bundle <- function(bundle,
 
   rows <- list()
   for (blk in blocks) {
-    tgt_val <- list(oracle = rH[[paste0("ora_", blk, "_est")]],
-                    cde    = tr[[paste0("cde_",  blk)]],
-                    marg   = tr[[paste0("marg_", blk)]])
+    tgt_val <- list(oracle   = rH[[paste0("ora_", blk, "_est")]],
+                    cde      = tr[[paste0("cde_",  blk)]],
+                    marg     = tr[[paste0("marg_", blk)]],
+                    betaHhat = if (!is.null(rH[[paste0("betaHhat_", blk)]]))
+                                 rH[[paste0("betaHhat_", blk)]] else rep(NA_real_, nrow(rH)))
     for (est in estimators) {
       k  <- .EST_KEYS[[est]]
       lo <- rH[[paste0(k, "_", blk, "_lo")]]; hi <- rH[[paste0(k, "_", blk, "_hi")]]
@@ -686,7 +725,7 @@ length_from_bundle <- function(bundle, estimators = c("oracle", "naive", "MR"),
 # One bundle -> tidy one-row-per (method, n, block, estimator, target) bias summary.
 # Bias depends on the target (unlike CI length), so it carries the target column.
 bias_from_bundle <- function(bundle, estimators = c("oracle", "naive", "MR"),
-                             blocks = c("H", "Hc"), targets = c("marg", "cde"),
+                             blocks = c("H", "Hc"), targets = c("marg", "cde", "betaHhat"),
                              drop_all_na = TRUE, src = NULL) {
   if (is.character(bundle)) {
     stopifnot(file.exists(bundle)); if (is.null(src)) src <- basename(bundle)
@@ -698,9 +737,11 @@ bias_from_bundle <- function(bundle, estimators = c("oracle", "naive", "MR"),
   rH <- res[res$detected == 1L, , drop = FALSE]
   rows <- list()
   for (blk in blocks) {
-    tgt_val <- list(oracle = rH[[paste0("ora_", blk, "_est")]],
-                    cde    = tr[[paste0("cde_",  blk)]],
-                    marg   = tr[[paste0("marg_", blk)]])
+    tgt_val <- list(oracle   = rH[[paste0("ora_", blk, "_est")]],
+                    cde      = tr[[paste0("cde_",  blk)]],
+                    marg     = tr[[paste0("marg_", blk)]],
+                    betaHhat = if (!is.null(rH[[paste0("betaHhat_", blk)]]))
+                                 rH[[paste0("betaHhat_", blk)]] else rep(NA_real_, nrow(rH)))
     for (est in estimators) {
       k  <- .EST_KEYS[[est]]
       ev <- rH[[paste0(k, "_", blk, "_est")]]
@@ -726,7 +767,7 @@ bias_from_bundle <- function(bundle, estimators = c("oracle", "naive", "MR"),
 
 # Pool many cells into one tidy grid; assert a shared DGM (truth + seed_base).
 accumulate_coverage <- function(paths, estimators = c("oracle", "naive", "MR"),
-                                blocks = c("H", "Hc"), targets = c("marg", "cde"),
+                                blocks = c("H", "Hc"), targets = c("marg", "cde", "betaHhat"),
                                 require_same_truth = TRUE, truth_tol = 1e-8) {
   paths <- paths[file.exists(paths)]
   if (!length(paths)) stop("accumulate_coverage: no files found.")
@@ -780,8 +821,10 @@ save_coverage_grid <- function(grid, path) { saveRDS(grid, path); invisible(path
 
 ```{r run-sweep, message=FALSE, warning=FALSE}
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
-cell_path <- function(method, n)
-  file.path(results_dir, sprintf("%s_%s_n%d_res.rds", rds_tag, method, n))
+cell_path <- function(method, n) {
+  method_tag <- if (identical(method, "consistency")) "fs" else method  # fs|dina|grf LEADS the stem
+  file.path(results_dir, sprintf("%s_%s_n%d_res.rds", method_tag, rds_tag, n))
+}
 
 sweep_log <- NULL
 if (run_sweep) {
@@ -819,12 +862,12 @@ if (run_sweep) {
 ```{r build-grid}
 # Glob EVERY cell present in results_dir (not just this run's subset) so the grid
 # reflects all accumulated cells — the heart of the resumable workflow.
-all_bundles <- Sys.glob(file.path(results_dir, sprintf("%s_*_n*_res.rds", rds_tag)))
+all_bundles <- Sys.glob(file.path(results_dir, sprintf("*_%s_n*_res.rds", rds_tag)))
 have_grid <- length(all_bundles) > 0L
 
 if (have_grid) {
   grid <- accumulate_coverage(all_bundles, estimators = c("oracle", "naive", "MR"),
-                              blocks = c("H", "Hc"), targets = c("marg", "cde"))
+                              blocks = c("H", "Hc"), targets = c("marg", "cde", "betaHhat"))
   save_coverage_grid(grid, grid_path)
   cat(sprintf("Grid: %d cell(s) → %d coverage rows. Saved to %s\n",
               nrow(grid$manifest), nrow(grid$coverage), grid_path))
@@ -850,7 +893,8 @@ band           <- "wilson"     # "wilson" | "mc_se" | "none"
 if (have_grid) {
   pretty_tgt <- c(C_dagger = "Marginal subgroup OR (C\u2020)",
                   C_ddagger = "CDE (C\u2021)",
-                  C_oracle = "Per-replicate oracle")[[target_pick]]
+                  C_oracle = "Per-replicate oracle",
+                  C_betaHhat = "Conditional OR \u03b2(\u0124)")[[target_pick]]
   sl <- subset(grid$coverage, target == target_pick &
                               estimator == estimator_pick & block == block_pick)
   sl <- sl[order(sl$n_sample), ]
