@@ -82,7 +82,7 @@ methods_run <- methods                           # e.g. "consistency"
 n_grid_run  <- n_grid                            # e.g. c(500L, 1000L)
 
 # ── Counts (the main knobs for smoke → production) ───────────────────────────
-n_sims    <- 1000L        # simulated trials per cell        (prod: 1000 → 20000)
+n_sims    <- 500L        # simulated trials per cell        (prod: 1000 → 20000)
 nb_boots  <- NULL       # FB nonparametric bootstraps; NULL/0 ⇒ MR-only (FB dormant)
 gate_draws <- 5000L     # MR multiplier draws              (keep ~2000–5000)
 diag_mode <- FALSE      # TRUE caps each cell to 5 reps and surfaces forestsearch errors
@@ -94,7 +94,7 @@ run_sweep   <- TRUE                       # FALSE ⇒ skip computation, just (re
 # folder and a new grid with NO pooling of prior runs — the clean way to get a fresh set.
 # The figure fragment (_sim_mr_coverage.qmd) reads the grid by matching this SAME run_tag,
 # so keep the two strings identical. Convention: <dgm>_s<n_sims>_d<gate_draws>.
-run_tag     <- "m1_h20_knoise0_s1000" # ← bump this for a fresh, isolated run
+run_tag     <- "m1_h25_knoise0_s500" # ← bump this for a fresh, isolated run
 results_dir <- file.path("mr_sweep", run_tag)   # per-run folder: bundles + grid live here
 rds_tag     <- "mr"                        # per-cell engine token; the method tag (fs/dina/grf) LEADS the filename
 grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
@@ -120,7 +120,7 @@ dgm_model      <- "alt"
 analysis_time  <- 84            # administrative censoring (months)
 cens_adjust    <- log(1.5)
 n_super        <- 100000L
-target_hr_harm <- 2.0           # calibrate k_inter to this Cox HR in the harm subgroup
+target_hr_harm <- 2.5           # calibrate k_inter to this Cox HR in the harm subgroup
 k_random_noise <- 0             # add k_random_noise standard-normal noise confounders
 
 # ── Search configuration (León tuning; resample identification) ──────────────
