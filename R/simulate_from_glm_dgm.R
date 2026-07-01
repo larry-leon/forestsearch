@@ -25,6 +25,13 @@
 #' @param draw_treatment Logical.  If \code{TRUE} (default), randomly
 #'   assigns treatment.  If \code{FALSE}, retains the treatment column
 #'   from the super-population.
+#' @param replace Logical sampling scheme for drawing the \code{n} subjects
+#'   from \code{dgm$df_super}.  \code{TRUE} (default) samples with replacement
+#'   (bootstrap-style trial sampling).  \code{FALSE} samples without
+#'   replacement and so requires \code{n <= nrow(dgm$df_super)}; treatment is
+#'   still re-randomised and the outcome re-drawn.  Used to draw the full pool
+#'   once (\code{n = nrow(dgm$df_super)}, \code{replace = FALSE}) for the
+#'   beta(Hhat) evaluation frame.  Ignored on the \code{n = NULL} path.
 #'
 #' @return A data frame with columns:
 #'   \describe{
@@ -57,7 +64,8 @@ simulate_from_glm_dgm <- function(
     n               = NULL,
     rand_ratio      = 1,
     seed            = NULL,
-    draw_treatment  = TRUE
+    draw_treatment  = TRUE,
+    replace         = TRUE
 ) {
 
   # -- Validate --------------------------------------------------------------
@@ -73,7 +81,10 @@ simulate_from_glm_dgm <- function(
   if (is.null(n)) {
     df_sim <- df_super
   } else {
-    idx <- sample(nrow(df_super), n, replace = TRUE)
+    if (!replace && n > nrow(df_super))
+      stop("replace = FALSE requires n <= nrow(dgm$df_super) (have ",
+           nrow(df_super), ", requested ", n, ").")
+    idx <- sample(nrow(df_super), n, replace = replace)
     df_sim <- df_super[idx, , drop = FALSE]
   }
 

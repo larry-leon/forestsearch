@@ -9,7 +9,8 @@ simulate_from_glm_dgm(
   n = NULL,
   rand_ratio = 1,
   seed = NULL,
-  draw_treatment = TRUE
+  draw_treatment = TRUE,
+  replace = TRUE
 )
 }
 \arguments{
@@ -28,6 +29,14 @@ seed; use the calling environment's RNG state).}
 \item{draw_treatment}{Logical.  If \code{TRUE} (default), randomly
 assigns treatment.  If \code{FALSE}, retains the treatment column
 from the super-population.}
+
+\item{replace}{Logical sampling scheme for drawing the \code{n} subjects
+from \code{dgm$df_super}.  \code{TRUE} (default) samples with replacement
+(bootstrap-style trial sampling).  \code{FALSE} samples without
+replacement and so requires \code{n <= nrow(dgm$df_super)}; treatment is
+still re-randomised and the outcome re-drawn.  Used to draw the full pool
+once (\code{n = nrow(dgm$df_super)}, \code{replace = FALSE}) for the
+beta(Hhat) evaluation frame.  Ignored on the \code{n = NULL} path.}
 }
 \value{
 A data frame with columns:
