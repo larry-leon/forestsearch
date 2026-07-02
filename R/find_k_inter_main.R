@@ -29,6 +29,9 @@
 #' @param verbose Logical indicating whether to print progress information.
 #'   Default is TRUE.
 #'
+#' @param tol_rel Numeric. Maximum tolerated relative error, in percent; the
+#'   call stops if the achieved HR is not within \code{tol_rel} percent of the
+#'   target. Default \code{2.5}.
 #' @return A list of class "k_inter_result" containing:
 #' \describe{
 #'   \item{k_inter}{Numeric value of optimal k_inter parameter}
@@ -94,14 +97,13 @@ find_k_inter_for_target_hr <- function(target_hr_harm,
                                        k_treat = 1,
                                        k_inter_range = c(-10, 10),
                                        tol = 0.001,
+                                       tol_rel = 2.5,
                                        n_super = 5000,
                                        verbose = TRUE) {
 
-  # Objective function: returns difference between achieved and target HR
-  objective_function <- function(k_inter_val) {
-
-    # Generate DGM with current k_inter
-    dgm_temp <- generate_aft_dgm_flex(
+  # Realised harm-subgroup HR at a given interaction shift.
+  eff_at <- function(k_inter_val) {
+    generate_aft_dgm_flex(
       data = data,
       continuous_vars = continuous_vars,
       factor_vars = factor_vars,
@@ -114,88 +116,61 @@ find_k_inter_for_target_hr <- function(target_hr_harm,
       k_treat = k_treat,
       k_inter = k_inter_val,
       n_super = n_super,
-      verbose = FALSE  # Suppress output during search
-    )
-
-    # Get the harm subgroup HR
-    hr_harm_achieved <- dgm_temp$hazard_ratios$harm_subgroup
-
-    # Return difference from target
-    return(hr_harm_achieved - target_hr_harm)
+      verbose = FALSE
+    )$hazard_ratios$harm_subgroup
   }
 
   if (verbose) {
     cat("Searching for k_inter to achieve harm subgroup HR =", target_hr_harm, "\n")
-    cat("Search range: [", k_inter_range[1], ",", k_inter_range[2], "]\n")
+    cat("Search range: [", k_inter_range[1], ",", k_inter_range[2], "] (extendInt = \"yes\")\n")
   }
 
-  # Use uniroot to find k_inter
-  tryCatch({
-    result <- uniroot(
-      f = objective_function,
-      interval = k_inter_range,
-      tol = tol
-    )
+  # Bracketed root-finding with automatic interval extension + a hard relative-
+  # tolerance gate, shared with calibrate_k_inter(), calibrate_k_treat(), and
+  # calibrate_glm_interaction() via .calibrate_by_root().
+  sol <- .calibrate_by_root(
+    effect_fun = eff_at, target = target_hr_harm, interval = k_inter_range,
+    tol = tol, tol_rel = tol_rel, label = "HR(H)", param = "k_inter",
+    verbose = verbose
+  )
+  k_inter_optimal <- sol$root
 
-    k_inter_optimal <- result$root
+  # Rebuild the calibrated DGM to return alongside the solution.
+  dgm_final <- generate_aft_dgm_flex(
+    data = data,
+    continuous_vars = continuous_vars,
+    factor_vars = factor_vars,
+    outcome_var = outcome_var,
+    event_var = event_var,
+    treatment_var = treatment_var,
+    subgroup_vars = subgroup_vars,
+    subgroup_cuts = subgroup_cuts,
+    model = "alt",
+    k_treat = k_treat,
+    k_inter = k_inter_optimal,
+    n_super = n_super,
+    verbose = FALSE
+  )
+  hr_harm_final <- dgm_final$hazard_ratios$harm_subgroup
 
-    # Verify the result
-    dgm_final <- generate_aft_dgm_flex(
-      data = data,
-      continuous_vars = continuous_vars,
-      factor_vars = factor_vars,
-      outcome_var = outcome_var,
-      event_var = event_var,
-      treatment_var = treatment_var,
-      subgroup_vars = subgroup_vars,
-      subgroup_cuts = subgroup_cuts,
-      model = "alt",
-      k_treat = k_treat,
-      k_inter = k_inter_optimal,
-      n_super = n_super,
-      verbose = FALSE
-    )
+  if (verbose) {
+    cat("\n=== RESULTS ===\n")
+    cat("Optimal k_inter:", round(k_inter_optimal, 4), "\n")
+    cat("Achieved harm subgroup HR:", round(hr_harm_final, 4), "\n")
+    cat("Target harm subgroup HR:", target_hr_harm, "\n")
+    cat("Absolute error:", round(abs(hr_harm_final - target_hr_harm), 6), "\n")
+    cat("Overall HR:", round(dgm_final$hazard_ratios$overall, 4), "\n")
+    cat("No-harm subgroup HR:", round(dgm_final$hazard_ratios$no_harm_subgroup, 4), "\n")
+  }
 
-    hr_harm_final <- dgm_final$hazard_ratios$harm_subgroup
-
-    if (verbose) {
-      cat("\n=== RESULTS ===\n")
-      cat("Optimal k_inter:", round(k_inter_optimal, 4), "\n")
-      cat("Achieved harm subgroup HR:", round(hr_harm_final, 4), "\n")
-      cat("Target harm subgroup HR:", target_hr_harm, "\n")
-      cat("Absolute error:", round(abs(hr_harm_final - target_hr_harm), 6), "\n")
-      cat("Overall HR:", round(dgm_final$hazard_ratios$overall, 4), "\n")
-      cat("No-harm subgroup HR:", round(dgm_final$hazard_ratios$no_harm_subgroup, 4), "\n")
-    }
-
-    return(list(
-      k_inter = k_inter_optimal,
-      achieved_hr_harm = hr_harm_final,
-      target_hr_harm = target_hr_harm,
-      error = abs(hr_harm_final - target_hr_harm),
-      dgm = dgm_final,
-      convergence = result$iter
-    ))
-
-  }, error = function(e) {
-    if (verbose) {
-      cat("\nError in root finding. Trying boundary search...\n")
-      cat("Error message:", e$message, "\n")
-    }
-
-    # If uniroot fails, try boundary values
-    obj_lower <- objective_function(k_inter_range[1])
-    obj_upper <- objective_function(k_inter_range[2])
-
-    if (verbose) {
-      cat("HR at k_inter =", k_inter_range[1], ":", round(obj_lower + target_hr_harm, 4), "\n")
-      cat("HR at k_inter =", k_inter_range[2], ":", round(obj_upper + target_hr_harm, 4), "\n")
-      cat("\nSolution may be outside the search range.\n")
-      cat("Try adjusting k_inter_range parameter.\n")
-    }
-
-    return(NULL)
-  })
+  list(
+    k_inter = k_inter_optimal,
+    achieved_hr_harm = hr_harm_final,
+    target_hr_harm = target_hr_harm,
+    error = abs(hr_harm_final - target_hr_harm),
+    dgm = dgm_final,
+    convergence = sol$iter
+  )
 }
 
 

@@ -9,6 +9,7 @@ calibrate_k_treat(
   base_args,
   k_treat_range = c(-5, 5),
   tol = 1e-06,
+  tol_rel = 2.5,
   use_ahr = FALSE,
   verbose = FALSE
 )
@@ -30,6 +31,10 @@ target (uniroot will error otherwise).}
 
 \item{tol}{Numeric.  Tolerance for root finding.  Default \code{1e-6}.}
 
+\item{tol_rel}{Numeric. Maximum tolerated relative error, in percent; the
+call stops if the achieved HR is not within \code{tol_rel} percent of the
+target. Default \code{2.5}.}
+
 \item{use_ahr}{Logical.  If \code{TRUE}, calibrate to the average
 hazard ratio (\code{dgm$hazard_ratios$AHR}) instead of the Cox-based
 overall HR (\code{dgm$hazard_ratios$overall}).  Default \code{FALSE}.}
@@ -38,9 +43,10 @@ overall HR (\code{dgm$hazard_ratios$overall}).  Default \code{FALSE}.}
 \code{FALSE}.}
 }
 \value{
-Numeric scalar.  The calibrated \code{k_treat} value.  Returns
-\code{NA_real_} with a warning if root finding fails — most commonly
-when the target is not bracketed by \code{k_treat_range}.
+Numeric scalar. The calibrated \code{k_treat} value. Stops with an
+error if the target cannot be reached -- the search interval fails to
+bracket it even after automatic extension, or the achieved HR lies outside
+\code{tol_rel} percent of the target.
 }
 \description{
 Finds the treatment effect multiplier (\code{k_treat}) that achieves a

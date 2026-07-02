@@ -14,6 +14,7 @@ calibrate_cens_adjust(
   seed = 42,
   interval = c(-3, 3),
   tol = 1e-04,
+  tol_rel = 2.5,
   n_eval = 2000,
   verbose = TRUE,
   ...
@@ -47,6 +48,10 @@ function uses this seed for reproducibility. Default \code{42}.}
 (corresponding roughly to a 20-fold decrease/increase in censoring times).}
 
 \item{tol}{Numeric. Root-finding tolerance. Default \code{1e-4}.}
+
+\item{tol_rel}{Numeric. Maximum tolerated relative error, in percent; the
+call stops if the achieved metric is not within \code{tol_rel} percent of
+the reference. Default \code{2.5}.}
 
 \item{n_eval}{Integer. Sample size used inside the objective function
 during root-finding. Smaller values are faster but noisier; increase

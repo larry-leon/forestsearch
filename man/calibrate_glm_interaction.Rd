@@ -20,6 +20,7 @@ calibrate_glm_interaction(
   adverse_outcome = FALSE,
   k_inter_range = c(-10, 10),
   grid_step = 0.05,
+  tol_rel = 2.5,
   n_super = 5000L,
   seed = 8316951L,
   verbose = FALSE
@@ -73,6 +74,10 @@ can auto-coordinate the analysis direction.  Default \code{FALSE}.}
 \code{k_inter}. Default \code{c(0, 10)}.}
 
 \item{grid_step}{Numeric. Grid resolution. Default \code{0.05}.}
+
+\item{tol_rel}{Numeric. Maximum tolerated relative error, in percent; the
+call stops (fails loudly) if the achieved OR is not within \code{tol_rel}
+percent of the target. Default \code{2.5}.}
 
 \item{n_super}{Integer. Super-population size. Default \code{5000L}.}
 

@@ -588,6 +588,9 @@ check_censoring_dgm <- function(sim_data,
 #'   \code{cens_adjust} on the log scale. Default \code{c(-3, 3)}
 #'   (corresponding roughly to a 20-fold decrease/increase in censoring times).
 #' @param tol Numeric. Root-finding tolerance. Default \code{1e-4}.
+#' @param tol_rel Numeric. Maximum tolerated relative error, in percent; the
+#'   call stops if the achieved metric is not within \code{tol_rel} percent of
+#'   the reference. Default \code{2.5}.
 #' @param n_eval Integer. Sample size used inside the objective function
 #'   during root-finding. Smaller values are faster but noisier; increase
 #'   for precision. Default \code{2000}.
@@ -711,6 +714,7 @@ calibrate_cens_adjust <- function(dgm,
                                   seed          = 42,
                                   interval      = c(-3, 3),
                                   tol           = 1e-4,
+                                  tol_rel       = 2.5,
                                   n_eval        = 2000,
                                   verbose       = TRUE,
                                   ...) {
@@ -760,10 +764,10 @@ calibrate_cens_adjust <- function(dgm,
   }
 
   # ---------------------------------------------------------------------------
-  # Objective function: sim_metric - ref_metric
-  # Uses a fixed seed so the same candidate is always evaluated identically.
+  # Simulated metric (censoring rate or KM median) at a candidate cens_adjust.
+  # A fixed seed makes each candidate evaluate identically.
   # ---------------------------------------------------------------------------
-  objective <- function(adj) {
+  sim_metric <- function(adj) {
     sim <- simulate_from_dgm(
       dgm           = dgm,
       n             = n_eval,
@@ -774,54 +778,26 @@ calibrate_cens_adjust <- function(dgm,
       seed          = seed,
       ...
     )
-
-    diag <- check_censoring_dgm(sim, dgm,
-                                verbose    = FALSE,
-                                rate_tol   = Inf,
-                                median_tol = Inf)
-
-    sim_value <- switch(target,
-                        rate      = diag$rates$Sim_rate[diag$rates$Group == "Overall"],
-                        km_median = diag$km_medians$Sim_median[diag$km_medians$Group == "Overall"]
-    )
-
-    sim_value - ref_value
+    diag <- check_censoring_dgm(sim, dgm, verbose = FALSE,
+                                rate_tol = Inf, median_tol = Inf)
+    switch(target,
+           rate      = diag$rates$Sim_rate[diag$rates$Group == "Overall"],
+           km_median = diag$km_medians$Sim_median[diag$km_medians$Group == "Overall"])
   }
 
   # ---------------------------------------------------------------------------
-  # Boundary check: ensure the root lies within the interval
-  # ---------------------------------------------------------------------------
-  f_lo <- objective(interval[1])
-  f_hi <- objective(interval[2])
-
-  if (verbose)
-    cat(sprintf("  f(interval[1] = %.2f) = %+.4f\n", interval[1], f_lo))
-
-  if (verbose)
-    cat(sprintf("  f(interval[2] = %.2f) = %+.4f\n", interval[2], f_hi))
-
-  if (sign(f_lo) == sign(f_hi)) {
-    stop(
-      "Root not bracketed in interval [", interval[1], ", ", interval[2], "]. ",
-      "f(lower) = ", round(f_lo, 4), ", f(upper) = ", round(f_hi, 4), ".\n",
-      "Try a wider interval argument."
-    )
-  }
-
-  # ---------------------------------------------------------------------------
-  # Root finding
+  # Root finding: uniroot() with automatic interval extension + a hard relative-
+  # tolerance gate, shared with the effect-calibrators via .calibrate_by_root().
+  # Replaces the former manual bracket check plus bare uniroot.
   # ---------------------------------------------------------------------------
   if (verbose) cat("  Searching...\n")
 
-  result <- tryCatch(
-    uniroot(objective, interval = interval, tol = tol),
-    error = function(e) {
-      stop("uniroot failed: ", e$message,
-           "\nTry a wider interval or larger n_eval.")
-    }
+  sol <- .calibrate_by_root(
+    effect_fun = sim_metric, target = ref_value, interval = interval,
+    tol = tol, tol_rel = tol_rel, label = target, param = "cens_adjust",
+    verbose = verbose
   )
-
-  cens_adj_cal <- result$root
+  cens_adj_cal <- sol$root
 
   # ---------------------------------------------------------------------------
   # Evaluate final diagnostic at calibrated value
@@ -857,7 +833,7 @@ calibrate_cens_adjust <- function(dgm,
     cat(sprintf("  Simulated %-10s: %.4f\n", target, sim_value_final))
     cat(sprintf("  Residual         : %.4f\n",
                 abs(sim_value_final - ref_value)))
-    cat(sprintf("  uniroot iters    : %d\n", result$iter))
+    cat(sprintf("  uniroot iters    : %d\n", sol$iter))
     cat(paste(rep("-", 55), collapse = ""), "\n\n", sep = "")
   }
 
@@ -867,7 +843,7 @@ calibrate_cens_adjust <- function(dgm,
     ref_value    = ref_value,
     sim_value    = sim_value_final,
     residual     = abs(sim_value_final - ref_value),
-    iterations   = result$iter,
+    iterations   = sol$iter,
     diagnostic   = diag_final
   ))
 }

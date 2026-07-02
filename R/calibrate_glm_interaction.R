@@ -50,6 +50,9 @@
 #' @param n_super Integer. Super-population size. Default \code{5000L}.
 #' @param seed Integer. Random seed. Default \code{8316951L}.
 #' @param verbose Logical. Print calibration progress. Default \code{FALSE}.
+#' @param tol_rel Numeric. Maximum tolerated relative error, in percent; the
+#'   call stops (fails loudly) if the achieved OR is not within \code{tol_rel}
+#'   percent of the target. Default \code{2.5}.
 #'
 #' @return An object of class \code{"glm_dgm"} with the calibrated
 #'   \code{k_inter} and updated \code{hazard_ratios}.
@@ -99,6 +102,7 @@ calibrate_glm_interaction <- function(
     adverse_outcome = FALSE,
     k_inter_range   = c(-10, 10),
     grid_step       = 0.05,
+    tol_rel         = 2.5,
     n_super         = 5000L,
     seed            = 8316951L,
     verbose         = FALSE
@@ -134,19 +138,15 @@ calibrate_glm_interaction <- function(
     search_target <- target_effect
   }
 
-  # -- Build grid ------------------------------------------------------------
-  k_grid <- seq(k_inter_range[1], k_inter_range[2], by = grid_step)
-
-  if (verbose) {
-    cat(sprintf("Calibrating: target %s = %.3f (search target: %.4f)\n",
-        em, target_effect, search_target))
-    cat(sprintf("  Grid: %.2f to %.2f by %.3f (%d values)\n",
-        k_inter_range[1], k_inter_range[2], grid_step, length(k_grid)))
-  }
-
-  # -- Evaluate each k_inter -------------------------------------------------
-  effects_Q <- vapply(k_grid, function(k) {
-    dgm_k <- generate_glm_dgm(
+  # -- Solve for k_inter by bracketed root-finding ---------------------------
+  # Consistent with the survival calibrators (calibrate_k_inter(),
+  # calibrate_k_treat()): uniroot() with automatic interval extension plus a
+  # hard tolerance gate that STOPS if the target OR cannot be reached. This
+  # replaces the former fixed grid search, which snapped to the nearest grid
+  # point and could saturate silently at a range edge. `grid_step` is retained
+  # for backward compatibility but is no longer used.
+  eff_at <- function(k) {
+    generate_glm_dgm(
       data            = data,
       factor_vars     = factor_vars,
       continuous_vars = continuous_vars,
@@ -164,19 +164,20 @@ calibrate_glm_interaction <- function(
       n_super         = n_super,
       seed            = seed,
       verbose         = FALSE
-    )
-    dgm_k$hazard_ratios$harm_subgroup
-  }, numeric(1))
-
-  # -- Find best -------------------------------------------------------------
-  best_idx <- which.min(abs(effects_Q - search_target))
-  best_k   <- k_grid[best_idx]
-  best_eff <- effects_Q[best_idx]
+    )$hazard_ratios$harm_subgroup
+  }
 
   if (verbose) {
-    cat(sprintf("  Best: k_inter = %.3f -> Effect(Q) = %.4f (search target: %.4f)\n",
-        best_k, best_eff, search_target))
+    cat(sprintf("Calibrating: target %s = %.3f (search target: %.4f)\n",
+        em, target_effect, search_target))
   }
+
+  sol <- .calibrate_by_root(
+    effect_fun = eff_at, target = search_target, interval = k_inter_range,
+    tol_rel = tol_rel, label = sprintf("%s(Q)", em), param = "k_inter",
+    verbose = verbose
+  )
+  best_k <- sol$root
 
   # -- Build final DGM with the calibrated k_inter --------------------------
   dgm_cal <- generate_glm_dgm(

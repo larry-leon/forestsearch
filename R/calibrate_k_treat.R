@@ -32,9 +32,13 @@
 #' @param verbose Logical.  Print diagnostic information.  Default
 #'   \code{FALSE}.
 #'
-#' @return Numeric scalar.  The calibrated \code{k_treat} value.  Returns
-#'   \code{NA_real_} with a warning if root finding fails — most commonly
-#'   when the target is not bracketed by \code{k_treat_range}.
+#' @param tol_rel Numeric. Maximum tolerated relative error, in percent; the
+#'   call stops if the achieved HR is not within \code{tol_rel} percent of the
+#'   target. Default \code{2.5}.
+#' @return Numeric scalar. The calibrated \code{k_treat} value. Stops with an
+#'   error if the target cannot be reached -- the search interval fails to
+#'   bracket it even after automatic extension, or the achieved HR lies outside
+#'   \code{tol_rel} percent of the target.
 #'
 #' @details
 #' Reproducibility requires the \code{uniroot} objective to be deterministic
@@ -93,6 +97,7 @@ calibrate_k_treat <- function(target_hr_overall,
                               base_args,
                               k_treat_range = c(-5, 5),
                               tol           = 1e-6,
+                              tol_rel       = 2.5,
                               use_ahr       = FALSE,
                               verbose       = FALSE) {
 
@@ -125,72 +130,24 @@ calibrate_k_treat <- function(target_hr_overall,
   # and we want to *override* it during calibration rather than create a
   # duplicate argument that do.call() would reject.
   # ---------------------------------------------------------------------------
-  objective <- function(k_val) {
-    args_call <- utils::modifyList(
-      base_args,
-      list(k_treat = k_val, verbose = FALSE)
-    )
+  eff_at <- function(k_val) {
+    args_call <- utils::modifyList(base_args, list(k_treat = k_val, verbose = FALSE))
     dgm <- do.call(generate_aft_dgm_flex, args_call)
-    if (use_ahr) {
-      dgm$hazard_ratios$AHR     - target_hr_overall
-    } else {
-      dgm$hazard_ratios$overall - target_hr_overall
-    }
+    if (use_ahr) dgm$hazard_ratios$AHR else dgm$hazard_ratios$overall
   }
 
   hr_type <- if (use_ahr) "AHR" else "HR(overall)"
 
   if (verbose) {
-    message(sprintf("Calibrating k_treat to achieve %s = %.4f",
-                    hr_type, target_hr_overall))
-    message(sprintf("Search range: [%.2f, %.2f]",
+    message(sprintf("Calibrating k_treat to achieve %s = %.4f", hr_type, target_hr_overall))
+    message(sprintf("Search range: [%.2f, %.2f] (extendInt = \"yes\")",
                     k_treat_range[1], k_treat_range[2]))
-
-    # Evaluate at boundaries so the user sees the bracket interval
-    lo_val <- objective(k_treat_range[1]) + target_hr_overall
-    hi_val <- objective(k_treat_range[2]) + target_hr_overall
-    message(sprintf("%s at k_treat = %.2f: %.4f",
-                    hr_type, k_treat_range[1], lo_val))
-    message(sprintf("%s at k_treat = %.2f: %.4f",
-                    hr_type, k_treat_range[2], hi_val))
   }
 
-  # ---------------------------------------------------------------------------
-  # Root finding
-  # ---------------------------------------------------------------------------
-  result <- tryCatch(
-    stats::uniroot(objective, interval = k_treat_range, tol = tol),
-    error = function(e) {
-      warning("Root finding failed: ", e$message,
-              "\nWiden k_treat_range if the boundary HRs do not bracket the target.",
-              call. = FALSE)
-      NULL
-    }
-  )
-
-  if (is.null(result)) return(NA_real_)
-
-  k_treat <- result$root
-
-  if (verbose) {
-    args_verify <- utils::modifyList(
-      base_args,
-      list(k_treat = k_treat, verbose = FALSE)
-    )
-    dgm_verify <- do.call(generate_aft_dgm_flex, args_verify)
-    achieved <- if (use_ahr) {
-      dgm_verify$hazard_ratios$AHR
-    } else {
-      dgm_verify$hazard_ratios$overall
-    }
-    message("")
-    message("=== Calibration Result ===")
-    message(sprintf("Found k_treat = %.6f", k_treat))
-    message(sprintf("Achieved %s = %.4f (target: %.4f)",
-                    hr_type, achieved, target_hr_overall))
-    message(sprintf("Error: %.6f", abs(achieved - target_hr_overall)))
-    message(sprintf("Iterations: %d", result$iter))
-  }
-
-  k_treat
+  # Bracketed root-finding + hard tolerance gate (shared with the GLM path).
+  .calibrate_by_root(
+    effect_fun = eff_at, target = target_hr_overall, interval = k_treat_range,
+    tol = tol, tol_rel = tol_rel, label = hr_type, param = "k_treat",
+    verbose = verbose
+  )$root
 }

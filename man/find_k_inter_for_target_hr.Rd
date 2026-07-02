@@ -17,6 +17,7 @@ find_k_inter_for_target_hr(
   k_treat = 1,
   k_inter_range = c(-10, 10),
   tol = 0.001,
+  tol_rel = 2.5,
   n_super = 5000,
   verbose = TRUE
 )
@@ -53,6 +54,10 @@ for k_inter. Default is c(-10, 10).}
 
 \item{tol}{Numeric value specifying tolerance for root finding convergence.
 Default is 0.001.}
+
+\item{tol_rel}{Numeric. Maximum tolerated relative error, in percent; the
+call stops if the achieved HR is not within \code{tol_rel} percent of the
+target. Default \code{2.5}.}
 
 \item{n_super}{Integer specifying size of super population for hazard ratio
 calculation. Default is 5000.}
