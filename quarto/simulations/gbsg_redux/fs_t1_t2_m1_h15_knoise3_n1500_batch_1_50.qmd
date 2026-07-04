@@ -1,0 +1,1231 @@
+---
+title: "Operating Characteristics of the Tier-2 De-biased Gate"
+subtitle: "Estimation/coverage head-to-head against the Tier-1 bootstrap, on the León (2024) Table 2 design"
+author: "Larry León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    html-math-method: mathjax
+    theme: cosmo
+    fig-cap-location: bottom
+    code-fold: true
+---
+
+> **Status — smoke test.** This is the development configuration of the
+> simulation: tiny counts to wire the pipeline end-to-end on a single M1 cell
+> before scaling up. Every tunable lives in the setup chunk (@sec-setup); the
+> counts (`n_sims`, `nb_boots`, `gate_draws`) are the main knobs for moving from
+> smoke test to production; `run_mode` and `sim_id_start` (@sec-setup) split a
+> long run into seed-disjoint batches that combine later. Each batch render
+> persists its results to an `.rds`; `run_mode = "combine"` reads them back and
+> renders every table on the pooled set.
+
+# What this evaluates {#sec-intro}
+
+The **Tier-2 de-biased gate** (`fs_debias_gate()`, surfaced through
+`forestsearch(debias_gate = TRUE)`) is a refit-free multiplier-bootstrap
+approximation of León's post-selection bias correction, with an
+infinitesimal-jackknife (IJ) confidence interval. To first order its point
+estimate equals León's Eq. 7 correction and its interval equals León's IJ
+variance, the only approximation being the per-subgroup `dfbeta` linearization.
+
+This document turns the single-trial validation into operating characteristics by
+re-running the León (2024) estimation/coverage design and recording, **per
+replicate on the same data and the same selected subgroup**:
+
+* **oracle** $\hat\theta(H)$ — refit on the *true* harm subgroup;
+* **naive** $\hat\theta(\hat H)$ — plugin on the identified subgroup;
+* **Tier-1** $\hat\theta^{*}(\hat H)$ — full nonparametric bootstrap
+  bias-correction (`forestsearch_bootstrap_dofuture()`, León Eq. 7, the `H2`
+  variant accounting for both bias sources) with its IJ interval;
+* **Tier-2** $\tilde\theta(\hat H)$ — the de-biased gate with its IJ interval.
+
+Each is compared to three truth targets: the per-replicate **oracle** estimate,
+the controlled direct effect $\theta^{\ddagger}$ (CDE), and the marginal subgroup
+hazard ratio $\theta^{\dagger}$. The two outputs are (1) the León Table-2-layout
+estimation/coverage table with a Tier-2 block, and (2) the paired
+Tier-1$\leftrightarrow$Tier-2 agreement panel.  For `consistency` (a fixed
+candidate family) that panel is the most direct empirical check of the
+leading-order correspondence; for `dina`/`grf` the bootstrap regenerates the
+family per resample, so the panel instead measures the family-regeneration gap
+between the unconditional (Tier-1) and conditional-on-family (Tier-2) estimands.
+
+The search runs under `consistency_method = "resample"` and `sg_focus = "eff"`;
+the gate re-selects with `reselection = "maxcons"`, which reproduces the
+`sg_focus = "eff"` rule (highest consistency rate) so both tiers share the same
+selection map.
+
+# Setup — all knobs {#sec-setup}
+
+```{r setup, message=FALSE, warning=FALSE}
+.t0_doc <- Sys.time()    # start of document-level wall-clock (total reported at the very end)
+
+# NOTE: forestsearch must be INSTALLED (devtools::install()), not load_all():
+# the doFuture multisession workers spawn separate R processes that only see the
+# installed package.
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+library(ggplot2)
+library(foreach)
+library(doFuture)
+library(future)
+
+# Single-source bundle enrichment: beta(Hhat)/beta(Hhat^c) truth targets at the
+# realized region, plus covariate-name extraction for the identification figures.
+# Must sit in the render working directory.  rule_covs() ships to the %dofuture%
+# workers as a detected global of record_replicate (as .na_record/.classify do).
+source("betaHhat_truth.R")
+
+# Parallelization topology (works with run_mode / batching above):
+#   "sims"  -> replicates fan out across workers; each replicate's forestsearch +
+#              bootstrap run sequentially.  Best when n_sims >= n_workers (fills cores).
+#   "boots" -> replicates run sequentially; the forestsearch search AND the nb_boots
+#              bootstrap fan out across workers WITHIN each replicate.  Best when
+#              n_sims is small (single-/few-trial deep dives) and "sims" would idle cores.
+# Bootstrap resample indices are seeded on the main process, so results are
+# plan-invariant: the two modes differ in WALL-CLOCK only, not in detection/estimates.
+parallel_mode <- "boots"
+
+# ── Smoke-test counts (the only knobs to change for production) ────────────
+n_sims       <- 50L      # simulated trials                (prod: 1000 -> 20000)
+diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
+                          # worker's forestsearch() error (otherwise swallowed by the inner
+                          # tryCatch).  Set FALSE for a real run.
+nb_boots     <- 300L      # Tier-1 nonparametric bootstraps (prod: 200 -> 500).
+                          # Set 0L (or NULL) to SKIP Tier-1 entirely and run only
+k_random_noise <- 3       # Add k_random_noise confounders
+
+# ── Batching across renders (split one long run into seed-disjoint pieces) ──
+# Each render is ONE batch of `n_sims` replicates starting at `sim_id_start`.
+# Every per-replicate seed is `seed_base + sim_id` (DGM, search, bootstrap, AND
+# the noise covariates), so disjoint sim_id ranges across renders are independent
+# and pool to exactly what one big run would have produced:
+#
+#   Batch 1 : run_mode "batch", sim_id_start = 1     -> ..._res_1_100.rds
+#   Batch 2 : run_mode "batch", sim_id_start = 101   -> ..._res_101_200.rds   (re-render)
+#   ...      (re-render per batch, advancing sim_id_start by n_sims each time)
+#   Combine : run_mode "combine"                     -> reads ..._res_*.rds, rbinds,
+#                                                       renders every table on the union
+#
+# DEFAULT is a single batch starting at 1: render once and you have the whole run.
+run_mode     <- "batch"   # "batch" (run + save one piece) | "combine" (merge + report)
+sim_id_start <- 1L        # first sim_id of THIS batch (101L, 201L, ... for later pieces)
+
+subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
+
+target_hr_harm  <- 2.0    # calibrate k_inter to this Cox HR in the harm subgroup
+n_sample        <- 1500L   # M1 sample size
+
+# Output stem derives from the knobs above, so changing n_sample / target_hr_harm /
+# k_random_noise / subgroup_method renames every saved file automatically -- no manual
+# edit, and DINA/GRF runs never overwrite the consistency files. The leading token IS
+# the subgroup method: "fs" for consistency (back-compatible -- the consistency stem is
+# unchanged), else "dina"/"grf". Batch range is appended below.
+method_tag   <- if (identical(subgroup_method, "consistency")) "fs" else subgroup_method
+rds_stem     <- sprintf("%s_t1_t2_m1_h%02d_knoise%d_n%d",
+                        method_tag, round(10 * target_hr_harm), k_random_noise, n_sample)
+
+sim_id_end   <- sim_id_start + n_sims - 1L
+rds_path     <- sprintf("%s_res_%d_%d.rds", rds_stem, sim_id_start, sim_id_end)  # THIS batch's file
+combine_glob <- sprintf("%s_res_*.rds", rds_stem)   # combine mode: which batch files to merge
+combine_files <- NULL   # optional explicit character vector; NULL -> use combine_glob
+save_combined <- TRUE   # combine mode: ALSO write the pooled bundle to disk
+combined_path <- NULL   # NULL -> auto "<rds_stem>_combined_<min>_<max>.rds" (deliberately
+                        # outside combine_glob, so a re-combine never re-ingests the pool)
+
+# ── Persist results? The Tier-1 bootstrap (B x n_sims, each re-running the
+# engine) is the wall-clock bottleneck; saving the results bundle lets you
+# regenerate the summary tables without re-running the simulation. 
+
+# Scale-up scenarios for the timing projection (n_sims, nb_boots). Edit freely.
+proj_scenarios <- list(
+  c(n_sims = 100L,  nb_boots = 300L),
+  c(n_sims = 500L,  nb_boots = 300L),
+  c(n_sims = 10000L, nb_boots = 500L)
+)
+                          # the Tier-2 gate -- see run_tier1 below.
+gate_draws   <- 5000L     # Tier-2 multiplier draws         (keep ~2000)
+
+save_rds <- identical(run_mode, "batch") && !is.null(rds_path)  # write only when running a batch
+
+# Tier-1 is the wall-clock bottleneck.  forestsearch_bootstrap_dofuture() itself
+# requires nb_boots >= 1 (it errors otherwise), so a skip is enforced HERE -- the
+# bootstrap is simply never called -- rather than by passing 0L/NULL into it.
+# nb_boots = 0L (or NULL) => run_tier1 = FALSE => Tier-2-only run.
+run_tier1 <- is.numeric(nb_boots) && length(nb_boots) == 1L && nb_boots >= 1L
+run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
+
+
+# ── DGM: León M1 cell (GBSG AFT super-population, alt hypothesis) ───────────
+dgm_model       <- "alt"
+analysis_time   <- 84     # administrative censoring (months)
+cens_adjust     <- log(1.5)
+n_super         <- 100000L  # fixed super-population = the eligible-patient universe; trials AND beta(Hhat) draw from this one pool
+
+# ── Subgroup-identification method ─────────────────────────────────────────
+# The Tier-1 bootstrap (H2, León Eq.7) re-runs whichever engine fs.est used,
+# regenerating the candidate family on each resample, so the Tier-1-vs-Tier-2
+# comparison is produced for every engine.  Interpretation differs by engine:
+# for "consistency" the family is fixed, so Tier-1 and the gate target the same
+# estimand and should agree (the dfbeta-linearisation check); for "dina"/"grf"
+# the family regenerates per resample, so Tier-1 is the *unconditional*
+# comparator against the gate's *conditional-on-family* estimate, and a
+# Tier-1<->Tier-2 gap is the family-regeneration signal, not an error.
+
+grf_selection   <- "frontier"      # only if subgroup_method == "grf": "tree" | "frontier"
+grf_select_statistic <- "effect"   # only if grf frontier: "dr" | "effect" (no-op for tree)
+grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
+dmin.grf        <- 0.0             # GRF DR-score screening floor
+dina_args       <- list()          # extra args forwarded to the DINA selector (dina_args =)
+dina_select_statistic <- "effect"  # only if subgroup_method == "dina": "dina" | "effect"
+
+# ── Search configuration (León tuning; resample identification) ────────────
+consistency_method <- "resample"   # decided: resample identification (the new default)
+sg_focus           <- "eff"        # -> "hr": highest consistency rate, ties by effect
+# Gate re-selection is no longer set explicitly: forestsearch() derives it from
+# sg_focus (consistency + "eff" -> "maxcons"), reproducing the legacy explicit
+# value while staying faithful per engine.  Override via `reselection =` in
+# debias_gate_args (advanced use only).
+selection_rule     <- "neighborhood"  # *MaxSG/*MinSG band rule (inert for sg_focus = "eff")
+hr_threshold       <- 0.90
+hr_consistency     <- 0.80
+pconsistency       <- 0.90
+fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
+maxk               <- 2L
+n_min              <- NULL
+d0_min             <- 10L
+d1_min             <- 10L
+use_lasso          <- FALSE
+use_dina           <- FALSE
+use_grf            <- FALSE         # FALSE = LASSO-only (fast, "FSl"); set TRUE for "FSlg"
+use_twostage       <- TRUE
+
+fs_conf_force      <- c("meno == 0", "er <= 0", "pgr <= 0")   # premenopausal (raw analog of z3 == 1)
+fs_conf.cont_jcuts <- list(er = 10)     # J-quantile grid on raw ER (analog of z1; now meaningful, ER is continuous)
+
+# ── Column names emitted by simulate_from_dgm() ────────────────────────────
+outcome_name   <- "y_sim"
+event_name     <- "event_sim"
+treat_name     <- "treat_sim"
+id_name        <- "id"
+harm_col       <- "flag_harm"
+# Raw GBSG covariate candidates (as in a real analysis): forestsearch discovers
+# its own cuts. Continuous -> er, age, pgr, nodes, size; categorical -> meno (0/1),
+# grade (1/2/3). The pre-dichotomized z1..z5 are NOT used. The true harm subgroup
+# (er <= 25th pct & meno == 0) must be re-discovered from these raw variables.
+
+confounders_base <- c("er", "age", "meno", "pgr", "nodes", "size", "grade")
+
+# ── Reproducibility / parallelism ──────────────────────────────────────────
+seed_base  <- 8316951L
+n_workers  <- ceiling(0.90*max(1L, min(parallel::detectCores(logical = FALSE) - 1L)))
+
+stopifnot(parallel_mode %in% c("sims", "boots"))
+inner_parallel <- if (identical(parallel_mode, "boots"))
+  list(plan = "multisession", workers = n_workers) else list(plan = "sequential")
+cat(sprintf("Parallel mode: %s (%s)\n", parallel_mode,
+            if (identical(parallel_mode, "boots")) "replicates sequential, bootstrap parallel"
+            else "replicates parallel, bootstrap sequential"))
+z975       <- qnorm(0.975)
+
+cat(sprintf("Smoke test: method=%s%s, n_sims=%d, nb_boots=%s, gate_draws=%d, workers=%d\n",
+            subgroup_method,
+            if (identical(subgroup_method, "grf")) paste0("/", grf_selection) else "",
+            n_sims, if (is.null(nb_boots)) "0 (skip)" else as.character(nb_boots),
+            gate_draws, n_workers))
+```
+
+# Build the DGM and read off the truth targets
+
+```{r build-dgm}
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
+
+if (identical(run_mode, "batch")) {
+  k_inter <- calibrate_k_inter(target_hr_harm = target_hr_harm,
+                               model = dgm_model, use_ahr = FALSE)
+
+  dgm <- setup_gbsg_dgm(model = dgm_model, k_inter = k_inter,
+                        n_super = n_super, seed = seed_base)
+  dgm <- compute_dgm_cde(dgm)   # attaches CDE (theta-ddagger) targets
+
+  # Fixed (population) truth targets, read defensively from the DGM object.
+  truth <- list(
+    hr_causal   = dgm$hr_causal   %||% NA_real_,                 # overall causal HR
+    marg_H      = dgm$hr_H_true   %||% NA_real_,                 # theta-dagger (H)
+    marg_Hc     = dgm$hr_Hc_true  %||% NA_real_,                 # theta-dagger (Hc)
+    cde_H       = dgm$cde_H       %||% (dgm$hazard_ratios$CDE_harm    %||% NA_real_),  # theta-ddagger (H)
+    cde_Hc      = dgm$cde_Hc      %||% (dgm$hazard_ratios$CDE_no_harm %||% NA_real_)   # theta-ddagger (Hc)
+  )
+
+  cat("DGM truth targets (population):\n")
+  cat(sprintf("  overall causal HR      : %.3f\n", truth$hr_causal))
+  cat(sprintf("  theta-dagger  H / Hc   : %.3f / %.3f\n", truth$marg_H, truth$marg_Hc))
+  cat(sprintf("  theta-ddagger H / Hc   : %.3f / %.3f\n", truth$cde_H,  truth$cde_Hc))
+
+  # Conditional target beta(Hhat) is evaluated on the ENTIRE super-population
+  # (every dgm$df_super subject once) -- the SAME fixed universe the trials
+  # sub-sample -- under the trials' randomized, censored analysis.  beta(Hhat) is
+  # n-invariant (a property of the realized rule and the population).  The sanity
+  # gate recomputes theta-dagger on this same frame at the true harm flag; it
+  # should reproduce dgm$hr_H_true / hr_Hc_true, confirming "population" reads.
+  eval_df <- build_eval_frame(dgm, analysis_time = analysis_time,
+                              cens_adjust = cens_adjust, eval_seed = 20260628L)
+  .td_chk <- betaHhat_theta_dagger_check(eval_df, harm.name = harm_col,
+                                         outcome.name = outcome_name,
+                                         event.name = event_name, treat.name = treat_name)
+  cat(sprintf("  beta(Hhat) eval frame  : n=%d (FULL super-population, each subject once; eval_seed = 20260628)\n", nrow(eval_df)))
+  cat(sprintf("  theta-dagger (on frame): %.3f / %.3f  (cross-check vs above)\n",
+              .td_chk[["thetaDagger_H"]], .td_chk[["thetaDagger_Hc"]]))
+} else {
+  # combine mode: the DGM is not needed here; truth is read from the batch
+  # bundles in the combine step below.
+  truth <- NULL
+  cat("Combine mode: DGM build skipped (truth read from batch files).\n")
+}
+```
+
+# Per-replicate paired recorder
+
+For each simulated trial: identify $\hat H$ and obtain the naive + Tier-2 gate in
+one `forestsearch()` call, run the Tier-1 bootstrap on the *same* fit (inheriting
+`consistency_method = "resample"`), and refit the oracle on the true subgroup.
+Inner `forestsearch()`/bootstrap parallelism follows `parallel_mode` (@sec-setup):
+in `"sims"` mode it is sequential because the outer loop parallelises across trials;
+in `"boots"` mode the outer loop is sequential and the search + bootstrap parallelise
+across workers within each trial.  Results are identical either way.
+
+```{r recorder}
+# Cox HR + delta-method 95% CI on a subset (for the per-replicate oracle).
+# Guards against separation: non-finite coef/SE (the "coefficient may be
+# infinite" case) returns a clean NA triple rather than Inf/NaN bounds.
+.cox_hr_ci <- function(df) {
+  if (sum(df[[event_name]]) < 5L || length(unique(df[[treat_name]])) < 2L)
+    return(c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_))
+  fml <- stats::as.formula(
+    sprintf("survival::Surv(%s, %s) ~ %s", outcome_name, event_name, treat_name))
+  fit <- tryCatch(survival::coxph(fml, data = df), error = function(e) NULL)
+  if (is.null(fit)) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_))
+  b  <- unname(stats::coef(fit)[1])
+  v  <- unname(suppressWarnings(diag(stats::vcov(fit))[1]))  # unname: else lo/hi inherit coef name -> oH["lo"] = NA
+  se <- if (is.finite(v) && v > 0) sqrt(v) else NA_real_
+  if (!is.finite(b) || !is.finite(se))
+    return(c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_))
+  c(est = exp(b), lo = exp(b - z975 * se), hi = exp(b + z975 * se), se = se)
+}
+
+# Recover the log-HR (beta-scale) SE from an HR-scale SD: sd_hr = HR * se_beta,
+# so se_beta = sd_hr / HR.  Used for the FB row, whose bootstrap summary reports
+# sdH2 on the HR scale.  Returns NA on a non-positive/non-finite estimate.
+.se_beta_hr <- function(sd_hr, hr) {
+  if (is.finite(sd_hr) && is.finite(hr) && hr > 0) sd_hr / hr else NA_real_
+}
+
+# Classification of the identified subgroup against the true harm flag.
+# sg_hat is grp.consistency$sg.harm.id: a per-subject 0/1 vector, length
+# nrow(df), aligned to the input rows (clean on the consistency result; the
+# GRF-object naming collision does not apply here).
+.classify <- function(sg_hat, truth) {
+  out <- c(sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_)
+  if (is.null(sg_hat) || length(sg_hat) != length(truth)) return(out)
+  sg_hat <- as.integer(sg_hat); truth <- as.integer(truth)
+  tp <- sum(sg_hat == 1 & truth == 1); fp <- sum(sg_hat == 1 & truth == 0)
+  fn <- sum(sg_hat == 0 & truth == 1); tn <- sum(sg_hat == 0 & truth == 0)
+  out["sens"] <- if (tp + fn > 0) tp / (tp + fn) else NA_real_
+  out["spec"] <- if (tn + fp > 0) tn / (tn + fp) else NA_real_
+  out["ppv"]  <- if (tp + fp > 0) tp / (tp + fp) else NA_real_
+  out["npv"]  <- if (tn + fn > 0) tn / (tn + fn) else NA_real_
+  out
+}
+
+# One all-NA record (returned on failure so the loop never aborts a cell).
+.na_record <- function(sim_id) data.frame(
+  sim_id = sim_id, detected = 0L, gate_ok = 0L, n_sel = NA_integer_,
+  n_harm = NA_integer_, n_true = NA_integer_,
+  label = NA_character_, sg_def = NA_character_, covs = NA_character_,
+  betaHhat_H = NA_real_, betaHhat_Hc = NA_real_,
+  t1_secs = NA_real_, t2_secs = NA_real_, t1_err = NA_character_,
+  or_H_est = NA, or_H_lo = NA, or_H_hi = NA, or_H_se = NA,
+  or_Hc_est = NA, or_Hc_lo = NA, or_Hc_hi = NA, or_Hc_se = NA,
+  nv_H_est = NA, nv_H_lo = NA, nv_H_hi = NA, nv_H_se = NA,
+  nv_Hc_est = NA, nv_Hc_lo = NA, nv_Hc_hi = NA, nv_Hc_se = NA,
+  t1_H_est = NA, t1_H_lo = NA, t1_H_hi = NA, t1_H_se = NA,
+  t1_Hc_est = NA, t1_Hc_lo = NA, t1_Hc_hi = NA, t1_Hc_se = NA,
+  t2_H_est = NA, t2_H_lo = NA, t2_H_hi = NA, t2_H_se_ij = NA,
+  t2_Hc_est = NA, t2_Hc_lo = NA, t2_Hc_hi = NA, t2_Hc_se_ij = NA,
+  t2_harm_flag = NA_integer_, ij_source = NA_character_,
+  sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_,
+  stringsAsFactors = FALSE)
+
+record_replicate <- function(sim_id) {
+  rec <- .na_record(sim_id)
+
+  df <- tryCatch(
+    simulate_from_dgm(dgm, n = n_sample, analysis_time = analysis_time,
+                      cens_adjust = cens_adjust, seed = seed_base + sim_id),
+    error = function(e) NULL)
+  if (is.null(df)) return(rec)
+  df[[id_name]] <- seq_len(nrow(df))
+  
+  confs <- intersect(confounders_base, names(df))
+
+# Add k_random_noise standard-normal noise covariates
+# (k_random_noise is set upstream, e.g. in the setup chunk; 0 = no noise)
+if (k_random_noise > 0) {
+  noise_names <- paste0("noise", seq_len(k_random_noise))
+  # Seed the noise draws by sim_id (offset to stay disjoint from the DGM seed
+  # seed_base + sim_id) so the FULL replicate -- survival data AND noise -- is a
+  # deterministic function of sim_id, independent of batch and loop position.
+  # Without this the noise would draw from future's per-iteration RNG stream,
+  # which is keyed to loop position, not sim_id, and could collide across batches.
+  set.seed(seed_base + sim_id + 1000000L)
+  for (nm in noise_names) {
+    df[[nm]] <- rnorm(n = nrow(df))
+  }
+  confs <- c(confs, noise_names)
+}
+  
+  
+  rec$n_true <- sum(df[[harm_col]] == 1L, na.rm = TRUE)   # true |Q| this trial (all reps)
+
+  
+  # ---- Identification + naive + Tier-2 gate (single forestsearch call) -----
+  # Args common to every method, plus a method-specific block.  Consistency-only
+  # tuning (LASSO/two-stage/forced cuts/maxk) is NOT forwarded to DINA/GRF, which
+  # have their own candidate enumeration; all methods search the same confs.
+  base_args <- list(
+    df.analysis     = df,
+    outcome.name    = outcome_name, event.name = event_name,
+    treat.name      = treat_name,   id.name    = id_name,
+    flag_harm.name  = harm_col,     confounders.name = confs,
+    is.RCT          = TRUE,         seedit = seed_base + sim_id,
+    quiet           = TRUE,         # suppress the "De-biased gate: ..." cat()
+    sg_focus        = sg_focus,
+    subgroup_method = subgroup_method,
+    hr.threshold    = hr_threshold, hr.consistency = hr_consistency,
+    pconsistency.threshold = pconsistency, n.min = n_min,
+    selection_rule  = selection_rule,   # governs *MaxSG/*MinSG band (search + gate)
+    parallel_args   = inner_parallel,              # parallel_mode: sims->sequential, boots->multisession
+    debias_gate     = TRUE,
+    debias_gate_args = list(ci_method = "ij", draws = gate_draws,
+                            include_complement = TRUE)  # reselection derived from sg_focus
+  )
+  method_args <- switch(
+    subgroup_method,
+    consistency = list(
+      consistency_method = consistency_method,
+      use_lasso = use_lasso, use_grf = use_grf, use_twostage = use_twostage,
+      use_dina = use_dina,
+      conf_force = fs_conf_force, conf.cont_jcuts = fs_conf.cont_jcuts,
+      fs.splits = fs_splits, maxk = maxk, d0.min = d0_min, d1.min = d1_min),
+    dina = list(dina_select_statistic = dina_select_statistic,
+                dina_args             = dina_args),
+    grf  = list(grf_selection = grf_selection, grf_depth = grf_depth,
+                dmin.grf = dmin.grf, grf_select_statistic = grf_select_statistic),
+    stop("unknown subgroup_method: ", subgroup_method)
+  )
+
+  t2_t0 <- proc.time()[3]
+  fs.est <- tryCatch(do.call(forestsearch, c(base_args, method_args)),
+                     error = function(e) {
+                       if (isTRUE(get0("diag_mode", ifnotfound = FALSE)))
+                         warning(sprintf("FS-ERR sim %d: %s", sim_id,
+                                         conditionMessage(e)), call. = FALSE)
+                       NULL
+                     })
+  rec$t2_secs <- proc.time()[3] - t2_t0
+  if (is.null(fs.est)) return(rec)
+
+  # Detection is METHOD-AGNOSTIC (a subgroup was identified), independent of
+  # whether the Tier-2 gate produced a CI; gate availability is tracked
+  # separately in gate_ok so a gate failure never masks a true detection.
+  g     <- fs.est$debias_gate
+  found <- !is.null(fs.est$sg.harm)
+  rec$detected <- as.integer(found)
+  if (found) {
+    rec$sg_def <- paste(fs.est$sg.harm, collapse = " & ")          # full rule -> beta(Hhat) scoring
+    rec$covs   <- paste(rule_covs(fs.est$sg.harm), collapse = "+")  # variable names -> id figures
+  }
+  if (!found) return(rec)
+  rec$gate_ok <- as.integer(!is.null(g))
+
+  if (!is.null(g)) {
+    rec$label <- g$selected_label %||% NA_character_
+    rec$n_sel <- g$n_selected      %||% NA_integer_
+    rec$t2_harm_flag <- as.integer(isTRUE(g$harm_flag))
+    rec$ij_source    <- g$debiased$ij_source %||% NA_character_
+    rec$nv_H_est <- g$naive$est;    rec$nv_H_lo <- g$naive$lower;    rec$nv_H_hi <- g$naive$upper;    rec$nv_H_se <- g$debiased$se_wald %||% NA_real_
+    rec$t2_H_est <- g$debiased$est; rec$t2_H_lo <- g$debiased$lower; rec$t2_H_hi <- g$debiased$upper
+    rec$t2_H_se_ij <- g$debiased$se_ij %||% NA_real_
+    if (is.list(g$complement) && !is.null(g$complement$debiased)) {
+      rec$nv_Hc_est <- g$complement$naive$est
+      rec$nv_Hc_lo  <- g$complement$naive$lower
+      rec$nv_Hc_hi  <- g$complement$naive$upper
+      rec$nv_Hc_se  <- g$complement$debiased$se_wald %||% NA_real_
+      rec$t2_Hc_est <- g$complement$debiased$est
+      rec$t2_Hc_lo  <- g$complement$debiased$lower
+      rec$t2_Hc_hi  <- g$complement$debiased$upper
+      rec$t2_Hc_se_ij <- g$complement$debiased$se_ij %||% NA_real_
+    }
+  }
+
+  # ---- Classification of Ĥ against the true harm flag ----------------------
+  cl <- .classify(fs.est$grp.consistency$sg.harm.id, df[[harm_col]])
+  rec$sens <- cl["sens"]; rec$spec <- cl["spec"]
+  rec$ppv  <- cl["ppv"];  rec$npv <- cl["npv"]
+  rec$n_harm <- sum(fs.est$grp.consistency$sg.harm.id == 1L, na.rm = TRUE)
+
+  # ---- Tier-1 bootstrap (H2 = León Eq.7) -----------------------------------
+  # forestsearch_bootstrap_dofuture re-runs whichever engine fs.est used (via
+  # fs.est$args_call_all), regenerating the candidate family on each resample.
+  # For "consistency" the family is fixed, so Tier-1 and the Tier-2 gate target
+  # the same estimand; for "dina"/"grf" the family regenerates per resample, so
+  # Tier-1 is the *unconditional* comparator against the gate's
+  # *conditional-on-family* estimate -- a Tier-1<->Tier-2 gap there is the
+  # family-regeneration signal, not an error.  If an engine cannot return H2 the
+  # call falls back to NULL (t1_* stay NA) and the message is captured in t1_err.
+  if (run_tier1 && subgroup_method %in% c("consistency", "dina", "grf")) {
+    t1_t0 <- proc.time()[3]; t1_err <- NA_character_
+    boot <- tryCatch(
+      forestsearch_bootstrap_dofuture(
+        fs.est, nb_boots = nb_boots, seed = seed_base + sim_id,
+        parallel_args = inner_parallel),
+      error = function(e) { t1_err <<- conditionMessage(e); NULL })
+    rec$t1_secs <- proc.time()[3] - t1_t0
+    rec$t1_err  <- t1_err
+    if (!is.null(boot) && !is.null(boot$H_estimates)) {
+      he <- boot$H_estimates                     # H2 = León Eq.7 (both bias sources)
+      # %||% guards a missing H2 column (get_dfRes omits H2 when the 2nd-order
+      # bias adjustment is unavailable): a bare NULL assignment would DELETE the
+      # column from rec, and the short record is then silently dropped by the
+      # run-loop's rbind/.errorhandling = "remove" -> a hidden, non-random loss.
+      rec$t1_H_est <- he$H2 %||% NA_real_
+      rec$t1_H_lo  <- he$H2_lower %||% NA_real_
+      rec$t1_H_hi  <- he$H2_upper %||% NA_real_
+      rec$t1_H_se  <- .se_beta_hr(he$sdH2 %||% NA_real_, he$H2 %||% NA_real_)
+    }
+    if (!is.null(boot) && !is.null(boot$Hc_estimates)) {
+      hce <- boot$Hc_estimates
+      rec$t1_Hc_est <- hce$H2 %||% NA_real_
+      rec$t1_Hc_lo  <- hce$H2_lower %||% NA_real_
+      rec$t1_Hc_hi  <- hce$H2_upper %||% NA_real_
+      rec$t1_Hc_se  <- .se_beta_hr(hce$sdH2 %||% NA_real_, hce$H2 %||% NA_real_)
+    }
+  }
+
+  # ---- Oracle: refit on the TRUE harm subgroup of this trial ---------------
+  oH  <- .cox_hr_ci(df[df[[harm_col]] == 1, , drop = FALSE])
+  oHc <- .cox_hr_ci(df[df[[harm_col]] == 0, , drop = FALSE])
+  rec$or_H_est <- oH["est"];   rec$or_H_lo <- oH["lo"];   rec$or_H_hi <- oH["hi"];   rec$or_H_se <- oH["se"]
+  rec$or_Hc_est <- oHc["est"]; rec$or_Hc_lo <- oHc["lo"]; rec$or_Hc_hi <- oHc["hi"]; rec$or_Hc_se <- oHc["se"]
+
+  rec
+}
+```
+
+# Run the simulation
+
+```{r run-loop, message=FALSE, warning=FALSE}
+results <- NULL
+elapsed <- NA_real_   # combine mode has no wall-clock; NA -> em-dash in the timing table
+
+if (run_smoke && identical(run_mode, "batch")) {
+  sim_ids <- sim_id_start:(sim_id_start + n_sims - 1L)
+  if (isTRUE(diag_mode)) sim_ids <- utils::head(sim_ids, 5L)  # diag cap (not a combinable batch)
+
+  if (identical(parallel_mode, "sims")) {
+    # replicates fan out across workers; each replicate's search + bootstrap are sequential
+    plan("sequential"); gc()
+    plan("multisession", workers = n_workers)
+
+    t_all <- proc.time()[3]
+    results <- foreach(
+      s = sim_ids,
+      .combine = rbind, .errorhandling = "remove",
+      .options.future = list(packages = c("forestsearch", "survival", "data.table"),
+                             seed = TRUE)
+    ) %dofuture% {
+      record_replicate(s)
+    }
+    elapsed <- proc.time()[3] - t_all
+
+    plan("sequential"); gc()   # release workers between phases
+  } else {
+    # "boots": replicates run sequentially in the main process; the forestsearch
+    # search and the nb_boots bootstrap fan out over n_workers WITHIN each replicate
+    # (via inner_parallel).  No outer pool -> no nested parallelism.
+    plan("sequential"); gc()
+    t_all <- proc.time()[3]
+    results <- do.call(rbind, lapply(sim_ids, function(s)
+      tryCatch(record_replicate(s), error = function(e) NULL)))   # match "remove" semantics
+    elapsed <- proc.time()[3] - t_all
+    plan("sequential"); gc()
+  }
+
+  # Conditional truth targets beta(Hhat)/beta(Hhat^c) for the realized rule of each
+  # detected replicate -- deduplicated over distinct sg_def, computed in the main
+  # process so the large eval frame stays in one place (not copied into workers).
+  results <- attach_betaHhat(results, eval_df, outcome.name = outcome_name,
+                             event.name = event_name, treat.name = treat_name)
+
+  cat(sprintf("Batch sim_id %d-%d: %d/%d detections in %.1f s (%.1f s/replicate).\n",
+              min(sim_ids), max(sim_ids),
+              sum(results$detected, na.rm = TRUE), length(sim_ids), elapsed,
+              elapsed / max(1L, length(sim_ids))))
+  if (run_tier1) {
+    cat(sprintf("Mean wall-clock: Tier-2 gate %.3f s vs Tier-1 bootstrap %.2f s (B=%d).\n",
+                mean(results$t2_secs, na.rm = TRUE),
+                mean(results$t1_secs, na.rm = TRUE), nb_boots))
+
+    # Surface any (otherwise-swallowed) Tier-1 bootstrap error(s) on detected reps.
+    t1_tried <- sum(results$detected == 1L, na.rm = TRUE)
+    t1_fail  <- sum(results$detected == 1L & is.na(results$t1_H_est), na.rm = TRUE)
+    if (t1_fail > 0L) {
+      cat(sprintf("Tier-1 bootstrap returned no estimate on %d of %d detected replicate(s).\n",
+                  t1_fail, t1_tried))
+      errs <- unique(stats::na.omit(results$t1_err))
+      if (length(errs))
+        cat("Distinct Tier-1 error(s):\n", paste0("  - ", errs, collapse = "\n"), "\n", sep = "")
+    }
+  } else {
+    cat(sprintf("Mean wall-clock: Tier-2 gate %.3f s  (Tier-1 skipped: nb_boots = %s).\n",
+                mean(results$t2_secs, na.rm = TRUE),
+                if (is.null(nb_boots)) "NULL" else as.character(nb_boots)))
+  }
+
+  # Persist the results bundle (knob in @sec-setup).  Saved as a list so the
+  # truth targets and key counts travel with the per-replicate records, and the
+  # tables can be regenerated downstream without re-running the simulation.
+  if (isTRUE(save_rds) && !is.null(results)) {
+    saveRDS(list(results = results, truth = truth,
+                 meta = list(n_sample = n_sample, n_sims = n_sims,
+                             nb_boots = nb_boots, gate_draws = gate_draws,
+                             subgroup_method = subgroup_method,
+                             sim_id_start = sim_id_start, sim_id_end = sim_id_end,
+                             seed_base = seed_base, parallel_mode = parallel_mode)),
+            rds_path)
+    cat(sprintf("Saved batch bundle (%d rows, sim_id %d-%d) to %s\n",
+                nrow(results), sim_id_start, sim_id_end, rds_path))
+  }
+
+} else if (run_smoke && identical(run_mode, "combine")) {
+  # ---- Combine seed-disjoint batches into one pooled results set -----------
+  # Reads every ..._res_*.rds (or the explicit `combine_files`), validates that
+  # the batches are poolable, refuses on overlapping sim_id, and populates the
+  # same globals (`results`, `truth`, `n_sims`, ...) the report chunks consume --
+  # so every downstream table renders on the union with no other change.
+  files <- if (!is.null(combine_files)) combine_files else Sys.glob(combine_glob)
+  files <- files[file.exists(files)]
+  if (!length(files))
+    stop("combine mode: no batch files found (combine_glob = '", combine_glob, "').")
+
+  bundles <- lapply(files, readRDS)
+
+  # Count-invariant meta MUST agree across batches to pool them.
+  .meta_get <- function(b, k) b$meta[[k]] %||% NA
+  for (k in c("n_sample", "nb_boots", "gate_draws", "subgroup_method", "seed_base")) {
+    vals <- unique(lapply(bundles, .meta_get, k = k))
+    if (length(vals) > 1L)
+      stop(sprintf("combine mode: batches disagree on meta$%s (%s).",
+                   k, paste(unlist(vals), collapse = ", ")))
+  }
+
+  # truth must match across batches (same DGM + seed_base); use the first.
+  truths <- lapply(bundles, `[[`, "truth")
+  if (length(truths) > 1L &&
+      !all(vapply(truths[-1], identical, logical(1), truths[[1]])))
+    warning("combine mode: truth targets differ across batches; using the first.")
+  truth <- truths[[1]]
+
+  # Pool the per-replicate records.
+  results <- do.call(rbind, lapply(bundles, `[[`, "results"))
+
+  # Disjointness: a repeated sim_id means the seed ranges overlapped, so the
+  # pooled set is NOT independent -- refuse rather than silently double-count.
+  dup <- unique(results$sim_id[duplicated(results$sim_id)])
+  if (length(dup))
+    stop(sprintf("combine mode: %d duplicated sim_id across batches (e.g. %s); seed ranges overlap.",
+                 length(dup), paste(utils::head(sort(dup), 5L), collapse = ", ")))
+
+  # Make the report self-describing from the files (not the setup chunk's knobs).
+  n_sample        <- bundles[[1]]$meta$n_sample        %||% n_sample
+  nb_boots        <- bundles[[1]]$meta$nb_boots        %||% nb_boots
+  gate_draws      <- bundles[[1]]$meta$gate_draws      %||% gate_draws
+  subgroup_method <- bundles[[1]]$meta$subgroup_method %||% subgroup_method
+  run_tier1       <- is.numeric(nb_boots) && length(nb_boots) == 1L && nb_boots >= 1L
+  n_sims          <- sum(vapply(bundles,
+                                function(b) as.integer(b$meta$n_sims %||% NA_integer_),
+                                integer(1)))
+
+  rng <- range(results$sim_id)
+  cat(sprintf("Combined %d batch file(s) -> %d rows, sim_id %d-%d (n_sims = %d).\n",
+              length(files), nrow(results), rng[1], rng[2], n_sims))
+  cat("  files: ", paste(basename(files), collapse = ", "), "\n", sep = "")
+
+  # Persist the pooled bundle so downstream docs load ONE file.  The name is
+  # chosen to fall OUTSIDE combine_glob ("..._res_*"), so a later re-combine never
+  # re-ingests this pooled file alongside the batch pieces.
+  if (isTRUE(save_combined)) {
+    cpath <- combined_path %||%
+      sprintf("%s_combined_%d_%d.rds", rds_stem, rng[1], rng[2])
+    saveRDS(list(results = results, truth = truth,
+                 meta = list(n_sample = n_sample, n_sims = n_sims,
+                             nb_boots = nb_boots, gate_draws = gate_draws,
+                             subgroup_method = subgroup_method,
+                             sim_id_start = rng[1], sim_id_end = rng[2],
+                             seed_base = bundles[[1]]$meta$seed_base %||% NA_integer_,
+                             n_batches = length(files),
+                             source_files = basename(files))),
+            cpath)
+    cat(sprintf("Saved pooled bundle (%d rows, sim_id %d-%d, %d batches) to %s\n",
+                nrow(results), rng[1], rng[2], length(files), cpath))
+  }
+}
+```
+
+# Timing and scale-up projection
+
+Tier-2 cost per replicate is essentially fixed (one fit + the multiplier draws,
+independent of `nb_boots`); Tier-1 cost scales **linearly** with `nb_boots`
+(it re-runs the whole search once per bootstrap). The projection below uses the
+measured per-replicate times and assumes Tier-1 runs only on detected
+replicates. The modelled wall-clock spreads the reps over the workers respecting
+the integer reps-per-worker ceiling, then a single calibration factor (measured
+wall / modelled wall on this run) carries this run's realized overhead into the
+projections.
+
+```{r timing-projection}
+if (run_smoke && !is.null(results)) {
+  t2_mean  <- mean(results$t2_secs, na.rm = TRUE)              # forestsearch + gate, per rep
+  det_rate <- mean(results$detected, na.rm = TRUE)
+  # Tier-1 timing only when Tier-1 actually ran; nb_boots may be 0L or NULL.
+  boots_disp <- if (run_tier1) as.integer(nb_boots) else 0L
+  t1_mean  <- if (run_tier1) mean(results$t1_secs, na.rm = TRUE) else NA_real_
+  per_boot <- if (run_tier1 && boots_disp > 0L) t1_mean / boots_disp else NA_real_
+
+  fmt_hm <- function(sec) {
+    if (!is.finite(sec)) return("\u2014")                       # no timing available
+    h <- floor(sec / 3600); m <- round((sec - 3600 * h) / 60)
+    if (h >= 1) sprintf("%d h %02d m", h, m) else sprintf("%d m", round(sec / 60))
+  }
+
+  # Per-rep total cost (Tier-2 every rep; Tier-1 on the det_rate fraction only).
+  per_rep_total <- function(B) {
+    t1_rep <- if (run_tier1 && is.finite(per_boot)) per_boot * B else 0
+    t2_mean + det_rate * t1_rep
+  }
+  # Modelled wall-clock, by parallel_mode:
+  #  "sims"  -> replicates fan out, so the busiest worker handles ceil(ns/n_workers)
+  #             reps and sets the wall (the integer ceiling matters at smoke-test
+  #             scale, where ns can be < n_workers).
+  #  "boots" -> replicates run sequentially, so the wall is their sum (ns * per-rep);
+  #             the parallelism is already inside per_rep_total via the measured
+  #             (parallel) bootstrap time.
+  wall_model <- function(ns, B) {
+    if (identical(parallel_mode, "boots")) ns * per_rep_total(B)
+    else ceiling(ns / n_workers) * per_rep_total(B)
+  }
+
+  # Calibration: the busiest-worker model still omits load imbalance, per-rep
+  # variance, and fixed overhead (pool spin-up, gc, dispatch, DGM build, table
+  # render).  In BATCH mode we have a measured wall clock, so calibrate ONE
+  # multiplier k = elapsed / wall_model(current run) and apply it to every
+  # projection: by construction the current-run calibrated wall equals the
+  # measured wall, and projections inherit this run's realized overhead.  In
+  # COMBINE mode there is no single wall clock, so k is undefined and the
+  # calibrated column is left blank.
+  wall_model_cur <- wall_model(n_sims, boots_disp)
+  k_cal <- if (is.finite(elapsed) && is.finite(wall_model_cur) && wall_model_cur > 0)
+             elapsed / wall_model_cur else NA_real_
+
+  proj_row <- function(ns, B, actual_sec = NA_real_) {
+    t1_rep  <- if (run_tier1 && is.finite(per_boot)) per_boot * B else NA_real_
+    cpu_sec <- ns * per_rep_total(B)                           # total serial CPU-seconds
+    w_model <- wall_model(ns, B)                               # busiest-worker idealization
+    w_cal   <- if (is.finite(k_cal)) k_cal * w_model else NA_real_
+    data.frame(n_sims = ns, B = as.integer(B),
+               t2_rep_s = round(t2_mean, 1),
+               t1_rep_s = if (is.finite(t1_rep)) round(t1_rep, 0) else NA_real_,
+               cpu_hours = round(cpu_sec / 3600, 1),
+               wall_actual = fmt_hm(actual_sec),
+               wall_model  = fmt_hm(w_model),
+               wall_cal    = fmt_hm(w_cal),
+               stringsAsFactors = FALSE)
+  }
+  cur <- proj_row(n_sims, boots_disp, actual_sec = elapsed)
+  scn <- do.call(rbind, lapply(proj_scenarios,
+                               function(s) proj_row(s[["n_sims"]], s[["nb_boots"]])))
+  tab <- rbind(cbind(Scenario = "current run", cur),
+               cbind(Scenario = "projection",  scn))
+
+  run_label <- if (is.finite(elapsed))
+    sprintf("%d reps in %.0f s on %d workers", n_sims, elapsed, n_workers)
+  else
+    sprintf("%d reps pooled from batch files (no single wall-clock)", n_sims)
+  if (run_tier1) {
+    cat(sprintf(
+      "Current run: %s. Per rep: Tier-2 %.1f s, Tier-1 %.0f s (B=%d, ~%.1f s/bootstrap). Detection %.0f%%.\n",
+      run_label, t2_mean, t1_mean, boots_disp, per_boot, 100 * det_rate))
+  } else {
+    cat(sprintf(
+      "Current run: %s. Per rep: Tier-2 %.1f s (Tier-1 skipped). Detection %.0f%%.\n",
+      run_label, t2_mean, 100 * det_rate))
+  }
+  if (is.finite(k_cal))
+    cat(sprintf("Realized overhead factor k = %.2f (measured wall / busiest-worker model).\n", k_cal))
+
+  gt(tab) |>
+    tab_header(title = "Wall-clock projection",
+               subtitle = sprintf("%s mode \u00b7 %d workers \u00b7 detection %.0f%%%s",
+                                  parallel_mode, n_workers, 100 * det_rate,
+                                  if (is.finite(k_cal)) sprintf(" \u00b7 k = %.2f", k_cal) else "")) |>
+    cols_label(n_sims = "sims", B = "boots", t2_rep_s = "MR/rep (s)",
+               t1_rep_s = "FB/rep (s)", cpu_hours = "CPU-hours",
+               wall_actual = "wall (actual)",
+               wall_model = "wall (modeled)", wall_cal = "wall (calibrated)") |>
+    tab_footnote(footnote = md(paste(
+      "`wall (actual)` is the **measured** wall-clock for the current run",
+      "(\u2014 for projections, and in combine mode, which have no single wall-clock).",
+      if (identical(parallel_mode, "boots"))
+        "`wall (modeled)` = sims \u00d7 per-rep cost (replicates sequential; the bootstrap parallelizes inside each), where per-rep cost ="
+      else
+        "`wall (modeled)` = ceil(sims / workers) \u00d7 per-rep cost (replicates parallel, bootstrap sequential), where per-rep cost =",
+      if (run_tier1)
+        "MR/rep + detection \u00d7 FB/rep (FB/rep = per-bootstrap cost \u00d7 boots);"
+      else
+        "MR/rep (FB skipped);",
+      "It omits load imbalance and fixed overhead.",
+      "`wall (calibrated)` = k \u00d7 modeled, with k = measured wall / modeled wall on THIS run,",
+      "so the current row reproduces the measured wall and projections carry this run's realized overhead.",
+      "`CPU-hours` = sims \u00d7 per-rep cost (total serial work).")))
+}
+```
+
+# Subgroup sizes
+
+```{r subgroup-size-callout, results='asis'}
+#| code-fold: true
+if (run_smoke && !is.null(results)) {
+  rH <- results[results$detected == 1, , drop = FALSE]
+  nH <- rH$n_harm[is.finite(rH$n_harm)]
+  if (length(nH)) {
+    nHc <- n_sample - nH
+    .fmt <- function(v) sprintf(
+      "mean %.0f (SD %.0f), range [%d, %d], %.1f%% of ITT",
+      mean(v), stats::sd(v), as.integer(min(v)), as.integer(max(v)),
+      100 * mean(v) / n_sample)
+    has_true <- "n_true" %in% names(rH) && any(is.finite(rH$n_true))
+
+    cat(sprintf(
+      "\n::: {.callout-note title=\"Identified subgroup sizes (%d of %d replicates detected, N = %d each)\"}\n\n",
+      nrow(rH), nrow(results), n_sample))
+    cat(sprintf("- **Harm $\\widehat H$**: %s\n", .fmt(nH)))
+    cat(sprintf("- **Complement $\\widehat H^{c}$**: %s\n", .fmt(nHc)))
+    if (has_true) {
+      nT <- rH$n_true[is.finite(rH$n_true)]
+      cat(sprintf("- **True harm $Q$**: %s\n", .fmt(nT)))
+      cat(sprintf(
+        "\nThe identified $\\widehat H$ averages **%.1f%%** of ITT against a true harm prevalence of **%.1f%%**; this small-subgroup regime is what stresses the large-sample behaviour of the Tier-2 gate.\n",
+        100 * mean(nH) / n_sample, 100 * mean(nT) / n_sample))
+    } else {
+      cat(sprintf(
+        "\nThe identified $\\widehat H$ averages **%.1f%%** of ITT (the true harm subgroup is ~11%% of ITT by design); this small-subgroup regime is what stresses the large-sample behaviour of the Tier-2 gate.\n",
+        100 * mean(nH) / n_sample))
+    }
+    cat("\n:::\n\n")
+  } else {
+    cat("\n::: {.callout-note title=\"Identified subgroup sizes\"}\nNo subgroup was identified on any replicate, so no $\\widehat H$ sizes are available.\n:::\n\n")
+  }
+}
+```
+
+# Estimation / coverage table (León Table 2 layout + Tier-2)
+
+```{r estimation-table}
+# All summaries are finite-only: non-finite estimates/bounds (e.g. from Cox
+# separation or an unstable small-B IJ) are dropped so a single blow-up cannot
+# dominate a mean.
+.cover <- function(target, lo, hi) {
+  target <- rep_len(target, length(lo))   # recycle scalar targets (CDE/marginal) to n reps
+  ok <- is.finite(target) & is.finite(lo) & is.finite(hi)
+  if (!any(ok)) return(NA_real_)
+  mean(target[ok] >= lo[ok] & target[ok] <= hi[ok])
+}
+.pbias <- function(est, target) {
+  d <- (est - target) / target; d <- d[is.finite(d)]
+  if (!length(d)) return(NA_real_)
+  100 * mean(d)
+}
+.mfin <- function(x) { x <- x[is.finite(x)]; if (length(x)) mean(x) else NA_real_ }
+.sdfin <- function(x) { x <- x[is.finite(x)]; if (length(x) > 1L) sd(x) else NA_real_ }
+# Empirical (true) SD on the log-HR (beta) scale: SD of log(HR) across reps.
+.sd_log <- function(e) { l <- log(e[is.finite(e) & e > 0]); if (length(l) > 1L) sd(l) else NA_real_ }
+# Stored per-replicate log-HR (beta-scale) SE for an estimator -- read at the
+# source, never back-calculated from CI bounds (or_/nv_/t1_*_se; MR uses its IJ
+# SE, t2_*_se_ij).  A missing column (results saved before SEs were stored)
+# yields all-NA so the table still renders.
+.get_se <- function(r, k, suffix) {
+  col <- if (k == "t2") paste0(k, "_", suffix, "_se_ij") else paste0(k, "_", suffix, "_se")
+  v <- r[[col]]
+  if (is.null(v)) rep(NA_real_, nrow(r)) else v
+}
+
+# Build one block (H or Hc): four estimator rows against three targets.
+build_block <- function(r, suffix, tgt_cde, tgt_marg) {
+  est_keys <- c(oracle = "or", naive = "nv", FB = "t1", MR = "t2")
+  if (!run_tier1) est_keys <- est_keys[names(est_keys) != "FB"]  # MR-only run
+  or_est <- r[[paste0("or_", suffix, "_est")]]   # per-replicate oracle target
+  bH_est <- r[[paste0("betaHhat_", suffix)]]     # per-replicate beta(Hhat) target
+  rows <- lapply(names(est_keys), function(lab) {
+    k  <- est_keys[[lab]]
+    e  <- r[[paste0(k, "_", suffix, "_est")]]
+    lo <- r[[paste0(k, "_", suffix, "_lo")]]
+    hi <- r[[paste0(k, "_", suffix, "_hi")]]
+    len <- hi - lo; len <- len[is.finite(len)]
+    seb <- .get_se(r, k, suffix)                  # stored log-HR (beta) SE
+    data.frame(
+      Estimator = lab,
+      n       = sum(is.finite(e)),
+      Avg     = .mfin(e),
+      SD        = .sd_log(e),                      # empirical SD, log-HR (beta) scale  [reported]
+      SD_hr     = .sdfin(e),                       # empirical SD, HR scale             [retained]
+      SD_hat    = .mfin(seb),                      # mean model SE, log-HR (beta) scale [reported]
+      SD_hat_hr = .mfin(e * seb),                  # mean model SE, HR scale            [retained]
+      Len_med = if (length(len)) stats::median(len) else NA_real_,
+      Length  = if (length(len)) mean(len) else NA_real_,
+      b_oracle = .pbias(e, or_est),
+      b_betaHhat = .pbias(e, bH_est),
+      b_cde    = .pbias(e, tgt_cde),
+      b_marg   = .pbias(e, tgt_marg),
+      Cov_oracle = .cover(or_est, lo, hi),
+      Cov_betaHhat = .cover(bH_est, lo, hi),
+      Cov_cde    = .cover(tgt_cde,  lo, hi),
+      Cov_marg   = .cover(tgt_marg, lo, hi),
+      stringsAsFactors = FALSE)
+  })
+  do.call(rbind, rows)
+}
+
+if (run_smoke && !is.null(results)) {
+  rH  <- results[results$detected == 1, , drop = FALSE]
+  blockH  <- build_block(rH, "H",  truth$cde_H,  truth$marg_H)
+  blockHc <- build_block(rH, "Hc", truth$cde_Hc, truth$marg_Hc)
+  # Fold the mean identified subgroup size into the block label, so |H-hat|
+  # travels with the table (as in build_estimation_table()'s row-group labels).
+  .blk_lab <- function(label, sym, v) {
+    if (!any(is.finite(v))) return(label)
+    sprintf("%s (mean |%s| = %.0f, %.1f%% ITT)", label, sym,
+            mean(v, na.rm = TRUE), 100 * mean(v, na.rm = TRUE) / n_sample)
+  }
+  est_tab <- rbind(
+    cbind(Block = .blk_lab("Harm  \u0124", "\u0124", rH$n_harm), blockH),
+    cbind(Block = .blk_lab("Complement  \u0124\u1d9c", "\u0124\u1d9c",
+                           n_sample - rH$n_harm), blockHc)
+  )
+
+  det_rate <- mean(results$detected, na.rm = TRUE)
+  # Classification + decision + IJ-stability diagnostics (over detected reps).
+  cls <- sprintf("sens %.2f \u00b7 spec %.2f \u00b7 PPV %.2f \u00b7 NPV %.2f",
+                 .mfin(rH$sens), .mfin(rH$spec), .mfin(rH$ppv), .mfin(rH$npv))
+  harm_rate <- mean(rH$t2_harm_flag, na.rm = TRUE)
+  ij_ok     <- mean(rH$ij_source == "ij", na.rm = TRUE)
+
+  gt(est_tab, groupname_col = "Block") |>
+    tab_header(
+      title = if (run_tier1)
+        "MR de-biased gate vs FB bootstrap: estimation & coverage"
+      else "MR de-biased gate: estimation & coverage",
+      subtitle = if (run_tier1)
+        sprintf("M1 smoke test \u00b7 n=%d, %d sims, B=%d, draws=%d \u00b7 resample identification",
+                n_sample, n_sims, nb_boots, gate_draws)
+      else
+        sprintf("M1 smoke test \u00b7 n=%d, %d sims, draws=%d \u00b7 resample identification (MR only)",
+                n_sample, n_sims, gate_draws)) |>
+    fmt_number(columns = c(Avg, SD, SD_hr, SD_hat, SD_hat_hr, Len_med, Length), decimals = 2) |>
+    fmt_number(columns = c(b_oracle, b_betaHhat, b_cde, b_marg), decimals = 1) |>
+    fmt_number(columns = c(Cov_oracle, Cov_betaHhat, Cov_cde, Cov_marg), decimals = 2) |>
+    cols_label(
+      n = "n", Len_med = "Len(med)",
+      SD = md("$\\text{SD}_{\\beta}$"), SD_hat = md("$\\widehat{\\text{SD}}_{\\beta}$"),
+      b_oracle = md("$b^{\\text{or}}$"), b_betaHhat = md("$b^{\\beta}$"),
+      b_cde = md("$b^{\\ddagger}$"), b_marg = md("$b^{\\dagger}$"),
+      Cov_oracle = md("$\\hat{C}^{\\text{or}}$"), Cov_betaHhat = md("$\\hat{C}^{\\beta}$"),
+      Cov_cde = md("$\\hat{C}^{\\ddagger}$"), Cov_marg = md("$C^{\\dagger}$")) |>
+    cols_hide(columns = c(SD_hr, SD_hat_hr)) |>
+    tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_betaHhat, b_cde, b_marg)) |>
+    tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_betaHhat, Cov_cde, Cov_marg)) |>
+    tab_footnote(footnote = md(sprintf(
+      "Detection rate **%.0f%%** of %d sims; gate flags harm in **%.0f%%** of detected reps; IJ variance held (not fallback) in **%.0f%%**. Classification of \u0124 vs true subgroup: %s. Summaries finite-only over detected reps; `n` = finite reps contributing.",
+      100 * det_rate, n_sims, 100 * harm_rate, 100 * ij_ok, cls))) |>
+    tab_footnote(footnote = md(paste(
+      "$\\text{SD}_{\\beta}$ (empirical SD) and $\\widehat{\\text{SD}}_{\\beta}$ (mean of the model SEs) are on the log-hazard-ratio ($\\beta$) scale; HR-scale versions are computed but hidden.",
+      "Targets: $b^{\\text{or}}$ vs per-replicate oracle $\\hat\\theta(H)$;",
+      "$b^{\\beta}$ / $\\hat C^{\\beta}$ vs the conditional subgroup HR $\\beta(\\widehat H)$ at the realized region (Theorem 2 target);",
+      "$b^{\\ddagger}$ vs CDE $\\theta^{\\ddagger}$;",
+      "$b^{\\dagger}$ vs marginal subgroup HR $\\theta^{\\dagger}$.",
+      "`Len(med)` = median CI length (robust to blow-ups); `Length` = mean.",
+      if (run_tier1)
+        "FB = `H2` (León Eq.7, both bias sources); MR = de-biased gate, IJ interval."
+      else
+        "MR = de-biased gate, IJ interval (FB skipped).")))
+}
+```
+
+The table below is a **median** companion to the table above, over the same
+detected replicates and rendered identically so the columns line up. Location
+columns (point estimate, $\widehat{\text{SD}}$, CI length, relative bias) use the
+median; **SD**, **n**, and coverage are computed exactly as above.
+
+```{r estimation-table-medians}
+# Median companion to the main (mean-based) table, rendered the SAME way -- a
+# single auto-printed gt -- so the column formatting matches exactly.  Reuses
+# .cover()/.sdfin() from the estimation-table chunk; location columns use the
+# median.  The mean "Length" column is dropped (Len(med) already gives it).
+if (run_smoke && !is.null(results)) {
+
+  .medfin     <- function(x) { x <- x[is.finite(x)]; if (length(x)) stats::median(x) else NA_real_ }
+  .pbias_med  <- function(est, target) {
+    d <- (est - target) / target; d <- d[is.finite(d)]
+    if (!length(d)) return(NA_real_)
+    100 * stats::median(d)
+  }
+
+  build_block_med <- function(r, suffix, tgt_cde, tgt_marg) {
+    est_keys <- c(oracle = "or", naive = "nv", FB = "t1", MR = "t2")
+    if (!run_tier1) est_keys <- est_keys[names(est_keys) != "FB"]  # MR-only run
+    or_est <- r[[paste0("or_", suffix, "_est")]]
+    bH_est <- r[[paste0("betaHhat_", suffix)]]
+    rows <- lapply(names(est_keys), function(lab) {
+      k  <- est_keys[[lab]]
+      e  <- r[[paste0(k, "_", suffix, "_est")]]
+      lo <- r[[paste0(k, "_", suffix, "_lo")]]
+      hi <- r[[paste0(k, "_", suffix, "_hi")]]
+      len <- hi - lo; len <- len[is.finite(len)]
+      seb <- .get_se(r, k, suffix)                  # stored log-HR (beta) SE
+      data.frame(
+        Estimator = lab,
+        n       = sum(is.finite(e)),
+        Med     = .medfin(e),
+        SD        = .sd_log(e),                      # empirical SD, log-HR (beta) scale  [reported]
+        SD_hr     = .sdfin(e),                       # empirical SD, HR scale             [retained]
+        SD_hat    = .medfin(seb),                    # median model SE, log-HR (beta)     [reported]
+        SD_hat_hr = .medfin(e * seb),                # median model SE, HR scale          [retained]
+        Len_med = if (length(len)) stats::median(len) else NA_real_,
+        b_oracle = .pbias_med(e, or_est),
+        b_betaHhat = .pbias_med(e, bH_est),
+        b_cde    = .pbias_med(e, tgt_cde),
+        b_marg   = .pbias_med(e, tgt_marg),
+        Cov_oracle = .cover(or_est, lo, hi),
+        Cov_betaHhat = .cover(bH_est, lo, hi),
+        Cov_cde    = .cover(tgt_cde,  lo, hi),
+        Cov_marg   = .cover(tgt_marg, lo, hi),
+        stringsAsFactors = FALSE)
+    })
+    do.call(rbind, rows)
+  }
+
+  rHm <- results[results$detected == 1, , drop = FALSE]
+  est_tab_med <- rbind(
+    cbind(Block = .blk_lab("Harm  \u0124", "\u0124", rHm$n_harm),
+          build_block_med(rHm, "H",  truth$cde_H,  truth$marg_H)),
+    cbind(Block = .blk_lab("Complement  \u0124\u1d9c", "\u0124\u1d9c",
+                           n_sample - rHm$n_harm),
+          build_block_med(rHm, "Hc", truth$cde_Hc, truth$marg_Hc))
+  )
+
+  gt(est_tab_med, groupname_col = "Block") |>
+    tab_header(
+      title = "Median summary (companion to the table above)",
+      subtitle = if (run_tier1)
+        sprintf("Same detected reps \u00b7 n=%d, %d sims, B=%d, draws=%d \u00b7 location columns are medians",
+                n_sample, n_sims, nb_boots, gate_draws)
+      else
+        sprintf("Same detected reps \u00b7 n=%d, %d sims, draws=%d \u00b7 location columns are medians",
+                n_sample, n_sims, gate_draws)) |>
+    fmt_number(columns = c(Med, SD, SD_hr, SD_hat, SD_hat_hr, Len_med), decimals = 2) |>
+    fmt_number(columns = c(b_oracle, b_betaHhat, b_cde, b_marg), decimals = 1) |>
+    fmt_number(columns = c(Cov_oracle, Cov_betaHhat, Cov_cde, Cov_marg), decimals = 2) |>
+    cols_label(
+      n = "n", Med = "Median", Len_med = "Len(med)",
+      SD = md("$\\text{SD}_{\\beta}$"), SD_hat = md("$\\widehat{\\text{SD}}_{\\beta}$"),
+      b_oracle = md("$b^{\\text{or}}$"), b_betaHhat = md("$b^{\\beta}$"),
+      b_cde = md("$b^{\\ddagger}$"), b_marg = md("$b^{\\dagger}$"),
+      Cov_oracle = md("$\\hat{C}^{\\text{or}}$"), Cov_betaHhat = md("$\\hat{C}^{\\beta}$"),
+      Cov_cde = md("$\\hat{C}^{\\ddagger}$"), Cov_marg = md("$C^{\\dagger}$")) |>
+    cols_hide(columns = c(SD_hr, SD_hat_hr)) |>
+    tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_betaHhat, b_cde, b_marg)) |>
+    tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_betaHhat, Cov_cde, Cov_marg)) |>
+    tab_footnote(footnote = md(paste(
+      "Median counterpart to the mean-based table above, over the same detected reps.",
+      "Point estimate (**Median**), $\\widehat{\\text{SD}}_{\\beta}$, `Len(med)`, and relative bias are medians;",
+      "$\\text{SD}_{\\beta}$, **n**, and all **coverage** rates are computed exactly as above.",
+      "$\\text{SD}_{\\beta}$ and $\\widehat{\\text{SD}}_{\\beta}$ are on the log-hazard-ratio scale.",
+      if (run_tier1)
+        "FB = `H2` (Le\u00f3n Eq.7); MR = de-biased gate (IJ)."
+      else
+        "MR = de-biased gate (IJ) (FB skipped).")))
+}
+```
+
+# The conditional target $\beta(\widehat H)$ vs the oracle
+
+```{r betaHhat-callout, results='asis'}
+#| code-fold: true
+# Narrative companion to the estimation tables: summarises the new conditional
+# target beta(Hhat) and contrasts it with the oracle.  Pure consumer of `results`
+# (no simulation), reusing the table's per-replicate relative-bias / coverage
+# logic, restricted to the harm block where the contrast lives.
+if (run_smoke && !is.null(results)) {
+  rC <- results[results$detected == 1, , drop = FALSE]
+  ok <- is.finite(rC$betaHhat_H)
+  if (any(ok)) {
+    .relb <- function(est, tgt) { d <- (est - tgt) / tgt; d <- d[is.finite(d)]
+                                  if (length(d)) 100 * mean(d) else NA_real_ }
+    .covg <- function(tgt, lo, hi) { o <- is.finite(tgt) & is.finite(lo) & is.finite(hi)
+                                     if (any(o)) 100 * mean(tgt[o] >= lo[o] & tgt[o] <= hi[o]) else NA_real_ }
+    bH  <- rC$betaHhat_H        # realized-region truth (the Theorem 2 target)
+    orH <- rC$or_H_est         # oracle: effect at the TRUE region (theta-dagger(H))
+    keys <- c(naive = "nv", FB = "t1", MR = "t2")
+    if (!run_tier1) keys <- keys[names(keys) != "FB"]
+    erows <- vapply(names(keys), function(lab) {
+      k  <- keys[[lab]]
+      e  <- rC[[paste0(k, "_H_est")]]; lo <- rC[[paste0(k, "_H_lo")]]; hi <- rC[[paste0(k, "_H_hi")]]
+      sprintf("| %s | %.2f | %+.0f%% | %+.0f%% | %.0f%% | %.0f%% |",
+              lab, mean(e[is.finite(e)]), .relb(e, bH), .relb(e, orH),
+              .covg(bH, lo, hi), .covg(orH, lo, hi))
+    }, character(1))
+    t2m    <- mean(rC$t2_H_est[is.finite(rC$t2_H_est)])
+    nearer <- if (isTRUE(abs(t2m - mean(orH, na.rm = TRUE)) <= abs(t2m - mean(bH))))
+                "the oracle (true-region) effect $\\theta^{\\dagger}(H)$" else "$\\beta(\\widehat H)$"
+
+    cat(sprintf("\n::: {.callout-note title=\"The \u03b2(\u0124) target vs the oracle \u2014 harm block, %d detections\"}\n\n", sum(ok)))
+    cat("$\\beta(\\widehat H)$ is the population value of the standard within-subgroup analysis ",
+        "(the Cox hazard ratio of treatment) at the **realized** region $\\widehat H$ \u2014 the truth of the ",
+        "subgroup the search actually found, and the conditional estimand Theorem 2 certifies. It is a ",
+        "*per-replicate* target. The **oracle** $\\hat\\theta(H)$ refits on the **true** region $H$ instead ",
+        "(the effect one would estimate knowing the subgroup); their gap is the price of selecting the ",
+        "wrong region.\n\n", sep = "")
+    cat(sprintf("- $\\beta(\\widehat H)$: mean **%.2f** (median %.2f)  \u00b7  $\\beta(\\widehat H^{c})$: mean %.2f\n",
+                mean(bH), stats::median(bH), mean(rC$betaHhat_Hc[is.finite(rC$betaHhat_Hc)])))
+    cat(sprintf("- oracle $\\hat\\theta(H)$: mean **%.2f**  (true-region effect $\\theta^{\\dagger}(H) = %.2f$)\n",
+                mean(orH, na.rm = TRUE), truth$marg_H))
+    cat(sprintf("- discovery gap $\\hat\\theta(H) - \\beta(\\widehat H)$: mean **%.2f**\n\n",
+                mean((orH - bH)[is.finite(orH - bH)])))
+    cat("| estimator | mean | bias vs $\\beta(\\widehat H)$ | bias vs oracle | cov $\\beta(\\widehat H)$ | cov oracle |\n")
+    cat("|:--|--:|--:|--:|--:|--:|\n")
+    cat(paste(erows, collapse = "\n"), "\n\n")
+    cat(sprintf("In this cell the MR estimate sits nearer %s. ", nearer))
+    cat("The *bias vs $\\beta(\\widehat H)$* column is what Theorem 2 speaks to; *bias vs oracle* is distance ",
+        "from the true-region effect. ", sep = "")
+    cat(sprintf("At %d detections these figures are indicative, not a coverage read.\n", sum(ok)))
+    cat("\n:::\n\n")
+  }
+}
+```
+
+# Paired Tier-1 ↔ Tier-2 agreement panel {#sec-paired}
+
+For a fixed candidate family (`consistency`) both tiers correct the *same*
+selected $\hat H$ on the *same* data, so per-replicate differences isolate the
+`dfbeta` linearisation -- the cleanest test of the leading-order correspondence.
+For `dina`/`grf` the Tier-1 bootstrap regenerates the family (and re-selects) on
+each resample while the gate holds the observed family fixed, so the differences
+additionally carry the family-regeneration gap (unconditional vs
+conditional-on-family). Reported on the log-effect scale.
+
+```{r paired-panel, results='asis'}
+#| eval: !expr run_tier1
+if (run_smoke && !is.null(results)) {
+  rd <- results[results$detected == 1, , drop = FALSE]
+
+  # Per-block log-scale agreement (Tier-2 - Tier-1) on point estimate and bounds.
+  agree_block <- function(suffix) {
+    e1 <- rd[[paste0("t1_", suffix, "_est")]]; e2 <- rd[[paste0("t2_", suffix, "_est")]]
+    l1 <- rd[[paste0("t1_", suffix, "_lo")]];  l2 <- rd[[paste0("t2_", suffix, "_lo")]]
+    u1 <- rd[[paste0("t1_", suffix, "_hi")]];  u2 <- rd[[paste0("t2_", suffix, "_hi")]]
+    ok <- is.finite(e1) & is.finite(e2)
+    if (sum(ok) < 2L) return(NULL)
+    dpt <- log(e2[ok]) - log(e1[ok])
+    dlo <- log(l2[ok]) - log(l1[ok]); dhi <- log(u2[ok]) - log(u1[ok])
+    list(
+      tab = data.frame(
+        Block = if (suffix == "H") "Harm \u0124" else "Complement \u0124\u1d9c",
+        Quantity = c("log point", "log CI lower", "log CI upper"),
+        mean_d = c(mean(dpt), .mfin(dlo), .mfin(dhi)),
+        sd_d   = c(sd(dpt),   .sdfin(dlo), .sdfin(dhi)),
+        stringsAsFactors = FALSE),
+      n = sum(ok), corr = suppressWarnings(cor(log(e1[ok]), log(e2[ok]))),
+      pts = data.frame(block = if (suffix == "H") "Harm \u0124" else "Complement \u0124\u1d9c",
+                       t1 = e1[ok], t2 = e2[ok])
+    )
+  }
+
+  aH <- agree_block("H"); aHc <- agree_block("Hc")
+  parts <- Filter(Negate(is.null), list(aH, aHc))
+
+  if (length(parts)) {
+    tab <- do.call(rbind, lapply(parts, `[[`, "tab"))
+    sub <- paste(vapply(parts, function(p)
+      sprintf("%s: %d reps, corr %.3f", sub("  .*", "", p$tab$Block[1]), p$n, p$corr),
+      character(1)), collapse = "  \u00b7  ")
+    cat(as_raw_html(
+      gt(tab, groupname_col = "Block") |>
+        tab_header(title = "MR \u2212 FB (log scale)", subtitle = sub) |>
+        cols_label(mean_d = "Mean \u0394", sd_d = "SD \u0394") |>
+        fmt_number(columns = c(mean_d, sd_d), decimals = 4)
+    ))
+
+    pts <- do.call(rbind, lapply(parts, `[[`, "pts"))
+    p <- ggplot(pts, aes(x = t1, y = t2)) +
+      geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "grey50") +
+      geom_point(size = 2, alpha = 0.8) +
+      scale_x_log10() + scale_y_log10() +
+      facet_wrap(~ block, scales = "free") +
+      labs(x = expression("FB  "*hat(theta)^"*"),
+           y = expression("MR  "*tilde(theta)),
+           title = "Per-replicate de-biased point estimates") +
+      theme_minimal(base_size = 12)
+    print(p)
+  } else {
+    cat("Too few paired replicates at smoke-test counts to draw the panel.\n")
+  }
+}
+```
+
+# Notes for scale-up
+
+* **Counts.** Move `n_sims` $\to$ 1000 $\to$ 20000 and `nb_boots` $\to$ 200–500
+  in @sec-setup; nothing else changes. Tier-1 is the wall-clock bottleneck (the
+  per-replicate timing line above quantifies the gap).
+* **M2 / M3 and the regime sweep.** Add the smaller-$N$ / noise-factor cells
+  (`n_add_noise`, $N \in \{500, 300\}$) and the true-HR $\times$ $n_S$ sweep once
+  the M1 cell looks sane; the small-$n_S$ M3 cell is the linearisation's stress
+  test.
+* **FSlg.** Set `use_grf = TRUE` to match León's LASSO+GRF screening; the smoke
+  test uses LASSO-only for speed.
+* **Target semantics to confirm.** The three targets here are (per-replicate
+  oracle, DGM `cde_H`/`cde_Hc`, DGM `hr_H_true`/`hr_Hc_true`). Before publishing
+  numbers, confirm these match the $\theta^{\ddagger}$/$\theta^{\dagger}$
+  definitions used by `build_estimation_table()` / León Table 5.
+
+```{r session-info}
+# Single, unambiguous start-to-finish wall-clock: from the first line of `setup`
+# to here.  This is the true total cost of running the whole document -- setup +
+# library loads + DGM build + every simulation replicate (Tier-2 gate AND Tier-1
+# bootstrap) + all table rendering -- not a per-rep mean or a model.
+.fmt_dur <- function(s) {
+  h <- s %/% 3600; m <- (s %% 3600) %/% 60; sec <- round(s %% 60)
+  if (h >= 1) sprintf("%d h %02d m %02d s", h, m, sec)
+  else if (m >= 1) sprintf("%d m %02d s", m, sec)
+  else sprintf("%.1f s", s)
+}
+.secs_total <- as.numeric(difftime(Sys.time(), .t0_doc, units = "secs"))
+cat(sprintf("TOTAL wall-clock, start to finish: %s  (= %.0f s; %d reps on %d workers)\n",
+            .fmt_dur(.secs_total), .secs_total, n_sims, n_workers))
+
+sessionInfo()
+```
