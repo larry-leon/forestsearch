@@ -1992,11 +1992,21 @@ forestsearch <- function(df.analysis,
                                n_min_default = n.min,
                                seed_default  = seedit)
 
+      # DINA requires numeric covariates.  Coerce all-numeric-level factor /
+      # character candidates to numeric via the shared helper, scoped to a
+      # local frame so the surrounding consistency search is untouched.  This
+      # is optional screening (the consistency search is the gatekeeper), so a
+      # genuinely categorical covariate raises inside this tryCatch and is
+      # reported below as "DINA analysis failed" -- contributing no DINA cuts
+      # rather than aborting the run (unlike subgroup_method = "dina", where
+      # DINA is mandatory and the same helper hard-stops).
+      df.dina <- .coerce_covariates_numeric(df.analysis, confounders.name)
+
       if (is.null(dina_res)) {
         # Cox requires a status column; GLM families do not.
         status_arg <- if (identical(da$fit$family, "cox")) event.name else NULL
         fit_call <- c(
-          list(df = df.analysis, outcome = outcome.name,
+          list(df = df.dina, outcome = outcome.name,
                treatment = treat.name, covariates = confounders.name,
                status = status_arg),
           da$fit
@@ -2005,7 +2015,7 @@ forestsearch <- function(df.analysis,
       }
 
       fr <- do.call(dina_frontier,
-                    c(list(fit = dina_res, df = df.analysis,
+                    c(list(fit = dina_res, df = df.dina,
                            covariates = confounders.name),
                       da$frontier))
 
@@ -2019,7 +2029,7 @@ forestsearch <- function(df.analysis,
                       else log(hr.threshold)
         sgsel <- dina_subgroup(
           fit                 = dina_res,
-          df                  = df.analysis,
+          df                  = df.dina,
           covariates          = confounders.name,
           m_diff              = m_diff_sel,
           n_min               = n.min,

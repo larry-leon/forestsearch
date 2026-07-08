@@ -1167,6 +1167,74 @@ reset_workers <- function(workers   = NULL,
 }
 
 
+#' Coerce candidate covariates to numeric for the DINA paths
+#'
+#' DINA fits a linear-in-covariates working model and therefore requires
+#' numeric predictors: \code{dina()} rejects factor/character covariates.
+#' \code{forestsearch()}'s GRF and consistency paths already coerce
+#' all-numeric-level factors internally (\code{.build_grf_X()} and
+#' \code{evaluate_comparison()} respectively); this helper supplies the same
+#' coercion for every DINA entry point -- the \code{subgroup_method = "dina"}
+#' selection path, the \code{use_dina} screening path, and
+#' \code{dina_subgroup_bootstrap()} -- so all engines behave consistently.
+#'
+#' Coercion rule (a deliberate hybrid):
+#' \itemize{
+#'   \item Numeric columns are returned unchanged.
+#'   \item Factor/character columns whose levels are all numeric strings
+#'     (e.g. "0"/"1") are coerced with \code{as.numeric(as.character())},
+#'     preserving the actual level values -- identical to the GRF and
+#'     consistency paths.
+#'   \item Genuinely categorical columns (non-numeric levels) are NOT
+#'     silently integer-coded, which would mis-encode them as an ordered
+#'     numeric predictor in the DINA linear model.  Instead the function
+#'     stops with an actionable error naming them (callers where DINA is
+#'     optional, such as \code{use_dina} screening, may catch this and
+#'     degrade to no DINA contribution).
+#' }
+#'
+#' \code{NULL} data (an optional df.predict/df.test) passes through unchanged.
+#'
+#' @param data A data frame, or \code{NULL}.
+#' @param covariates Character vector of candidate covariate names.  Names not
+#'   present in \code{data} are ignored.
+#' @return \code{data} with any all-numeric-level factor/character covariate
+#'   coerced to numeric (or \code{NULL} when \code{data} is \code{NULL}).
+#' @noRd
+.coerce_covariates_numeric <- function(data, covariates) {
+  if (is.null(data)) return(NULL)
+  present   <- intersect(covariates, names(data))
+  offenders <- character(0)
+  for (v in present) {
+    col <- data[[v]]
+    if (is.factor(col) || is.character(col)) {
+      lvls <- if (is.factor(col)) levels(col) else unique(col)
+      if (!anyNA(suppressWarnings(as.numeric(lvls)))) {
+        # All-numeric levels: preserve the actual values (level "1" -> 1),
+        # matching .build_grf_X() and evaluate_comparison().
+        data[[v]] <- as.numeric(as.character(col))
+      } else {
+        offenders <- c(offenders, v)
+      }
+    }
+  }
+  if (length(offenders) > 0L) {
+    stop(
+      "DINA requires numeric candidate covariates, but the following are ",
+      "categorical with non-numeric levels: ",
+      paste(offenders, collapse = ", "), ".\n",
+      "  DINA fits a linear-in-covariates working model, so categorical ",
+      "predictors must be supplied as numeric dummy indicators (0/1) before ",
+      "the call.  Factors whose levels are already numeric (e.g. \"0\"/\"1\") ",
+      "are coerced automatically; genuinely categorical variables are not, ",
+      "to avoid silently mis-encoding them as ordered integer codes.",
+      call. = FALSE
+    )
+  }
+  data
+}
+
+
 #' DINA-selection mode for forestsearch (subgroup_method = "dina")
 #'
 #' Fits a DINA model and delegates subgroup selection to
@@ -1192,6 +1260,18 @@ reset_workers <- function(workers   = NULL,
                                       adverse_outcome = TRUE) {
   da <- .resolve_dina_args(dina_args, outcome_type,
                            n_min_default = n.min, seed_default = seedit)
+
+  # DINA requires numeric covariates (dina() rejects factors/characters).
+  # Coerce all-numeric-level factor/character candidates to numeric -- the
+  # same coercion the GRF (.build_grf_X) and consistency (evaluate_comparison)
+  # paths already apply -- so subgroup_method = "dina" is robust to 0/1
+  # indicators stored as factors.  Genuinely categorical covariates raise a
+  # clear error via .coerce_covariates_numeric() rather than the previous
+  # silent no-detection.  Applied to all three frames so the returned
+  # df.est / df.predict / df.test carry a consistent numeric encoding.
+  df         <- .coerce_covariates_numeric(df, confounders.name)
+  df.predict <- .coerce_covariates_numeric(df.predict, confounders.name)
+  df.test    <- .coerce_covariates_numeric(df.test, confounders.name)
 
   # Fit DINA unless a fit was supplied.
   if (is.null(dina_res)) {

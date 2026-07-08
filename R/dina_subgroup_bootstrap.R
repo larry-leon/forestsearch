@@ -295,6 +295,14 @@ dina_subgroup_bootstrap <- function(df,
   direction <- match.arg(direction)
   call      <- match.call()
 
+  # DINA requires numeric covariates (dina() rejects factors/characters).
+  # Coerce all-numeric-level factor/character candidates to numeric once, up
+  # front, so BOTH the original-data point estimate and every bootstrap
+  # resample inherit the numeric encoding.  Uses the same shared helper as
+  # forestsearch()'s DINA paths; a genuinely categorical covariate raises a
+  # clear error here (DINA inference is this function's sole purpose).
+  df <- .coerce_covariates_numeric(df, covariates)
+
   # ---- Argument validation ----------------------------------------------
   if (missing(m_diff) || length(m_diff) != 1L || !is.numeric(m_diff) ||
       !is.finite(m_diff)) {
