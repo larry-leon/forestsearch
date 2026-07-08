@@ -8,7 +8,9 @@ bibliography: []
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+# warning = TRUE so any package-emitted warning surfaces in the render; the
+# runner additionally captures per-call warnings and reports them explicitly.
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = TRUE)
 ```
 
 ## Purpose
@@ -137,21 +139,35 @@ run_fs <- function(df, family, method, force_na = FALSE) {
                    outcome_type = "binary", effect_measure = "OR"))
   }
   call_fs <- function() do.call(forestsearch, args)
+  warns <- character(0)
   fs <- tryCatch(
-    if (force_na) with_resample_NA(call_fs()) else call_fs(),
+    withCallingHandlers(
+      if (force_na) with_resample_NA(call_fs()) else call_fs(),
+      warning = function(w) {
+        warns <<- c(warns, conditionMessage(w))
+        invokeRestart("muffleWarning")
+      }
+    ),
     error = function(e) list(.error = conditionMessage(e))
   )
-  if (!is.null(fs$.error)) return(list(found = NA, subgroup = paste("ERROR:", fs$.error), pcons = NA_real_))
+  if (!is.null(fs$.error)) {
+    return(list(found = NA, subgroup = paste("ERROR:", fs$.error),
+                pcons = NA_real_, result = NULL, harm_id = NULL, warnings = warns))
+  }
   sg <- fs$sg.harm
   found <- !is.null(sg)
-  # pull the identified subgroup's consistency proportion if available
-  pc <- tryCatch({
-    os <- fs$grp.consistency$out_sg
-    if (!is.null(os) && "Pcons" %in% names(os)) as.numeric(os[["Pcons"]][1]) else NA_real_
-  }, error = function(e) NA_real_)
+  # out_sg is a LIST: $result (candidate table, top row = selected) + pareto_frontier
+  # + sg.harm/sg.harm_label/df_flag/sg.harm.id.  Pcons lives in out_sg$result.
+  os <- tryCatch(fs$grp.consistency$out_sg, error = function(e) NULL)
+  result_tab <- if (!is.null(os) && !is.null(os$result)) as.data.frame(os$result) else NULL
+  pc <- if (!is.null(result_tab) && "Pcons" %in% names(result_tab)) {
+    as.numeric(result_tab$Pcons[1])
+  } else NA_real_
+  # per-subject membership indicator (length nrow(df)) -- strongest discriminator
+  harm_id <- tryCatch(fs$grp.consistency$sg.harm.id, error = function(e) NULL)
   list(found = found,
        subgroup = if (found) paste(deparse(sg), collapse = " ") else "(none)",
-       pcons = pc)
+       pcons = pc, result = result_tab, harm_id = harm_id, warnings = warns)
 }
 ```
 
@@ -164,18 +180,22 @@ scenarios <- expand.grid(
   stringsAsFactors = FALSE
 )
 
-res <- lapply(seq_len(nrow(scenarios)), function(i) {
+RUN <- list()   # full run objects, keyed by "family|mode", for the assertions
+rows <- vector("list", nrow(scenarios))
+for (i in seq_len(nrow(scenarios))) {
   fam  <- scenarios$family[i]
   mode <- scenarios$mode[i]
-  method  <- if (grepl("split", mode)) "split" else "resample"
+  method   <- if (grepl("split", mode)) "split" else "resample"
   force_na <- grepl("forced NA", mode)
   r <- run_fs(if (fam == "cox") cox_df else bin_df, fam, method, force_na)
-  data.frame(family = fam, mode = mode,
-             found = r$found, pcons = round(r$pcons, 3),
-             subgroup = r$subgroup, stringsAsFactors = FALSE)
-})
-res <- do.call(rbind, res)
-knitr::kable(res, caption = "Identified subgroup by family x consistency mode")
+  RUN[[paste(fam, mode, sep = "|")]] <- r
+  rows[[i]] <- data.frame(
+    family = fam, mode = mode, found = r$found,
+    pcons = round(r$pcons, 3), n_pass = if (is.null(r$result)) 0L else nrow(r$result),
+    n_warn = length(r$warnings), subgroup = r$subgroup, stringsAsFactors = FALSE)
+}
+res <- do.call(rbind, rows)
+knitr::kable(res, caption = "Identified subgroup by family x consistency mode (n_pass = candidates passing consistency; n_warn = warnings captured)")
 ```
 
 ## Assertions
@@ -187,47 +207,73 @@ The fix is confirmed when, for **each** family:
    falls back to splitting instead of dropping the candidate. *(Pre-fix, Cox
    would return no subgroup here; GLM already passed.)*
 3. `split (native)` finds a subgroup.
-4. The forced-NA fallback result **matches** the native split result (same
-   subgroup, same `Pcons`) — the fallback is genuinely the split calculation.
+4. The forced-NA fallback **reproduces** native splitting: the *full* candidate
+   table (`out_sg$result`, all rows/columns) **and** the per-subject membership
+   vector are identical between the two runs. This discriminates even when
+   `Pcons` saturates at 1.0 — unlike a top-row `Pcons` comparison, which is
+   vacuous under saturation.
 
 ```{r assertions}
-get1 <- function(fam, mode) res[res$family == fam & res$mode == mode, ]
-
 check_family <- function(fam) {
-  rn <- get1(fam, "resample (normal)")
-  rf <- get1(fam, "resample (forced NA -> fallback)")
-  sp <- get1(fam, "split (native)")
+  rn <- RUN[[paste(fam, "resample (normal)", sep = "|")]]
+  rf <- RUN[[paste(fam, "resample (forced NA -> fallback)", sep = "|")]]
+  sp <- RUN[[paste(fam, "split (native)", sep = "|")]]
 
   a1 <- isTRUE(rn$found)                                   # closed-form path intact
   a2 <- isTRUE(rf$found)                                   # KEY: fallback fires (not dropped)
   a3 <- isTRUE(sp$found)                                   # native split works
-  a4 <- identical(rf$subgroup, sp$subgroup) &&
-        isTRUE(all.equal(rf$pcons, sp$pcons))              # fallback == native split (diagnostic)
+
+  # a4: fallback genuinely reproduces native splitting. Require BOTH the full
+  # candidate table and the per-subject membership to be non-NULL and identical.
+  # (Guards against a vacuous pass: e.g. two NULLs, or saturated Pcons matching
+  #  by coincidence -- neither can satisfy this.)
+  tab_match <- !is.null(rf$result) && !is.null(sp$result) &&
+               isTRUE(all.equal(rf$result, sp$result))
+  id_match  <- !is.null(rf$harm_id) && !is.null(sp$harm_id) &&
+               length(rf$harm_id) == length(sp$harm_id) &&
+               identical(rf$harm_id, sp$harm_id)
+  a4 <- tab_match && id_match
 
   data.frame(
     family = fam,
-    `1_resample_normal_found` = a1,
-    `2_fallback_fires`        = a2,
-    `3_split_found`           = a3,
+    `1_resample_found`  = a1,
+    `2_fallback_fires`  = a2,
+    `3_split_found`     = a3,
     PASS = all(a1, a2, a3),                                # core alignment gate
-    `4_fallback_eq_split`     = a4,                        # expected TRUE; reported, not gated
+    `4_fallback_reproduces_split` = a4,                    # table + membership identical
+    tab_match = tab_match, id_match = id_match,
     check.names = FALSE
   )
 }
 
 report <- rbind(check_family("cox"), check_family("binary"))
-knitr::kable(report, caption = "Fallback-alignment assertions (PASS gates on 1-3; col 4 is a diagnostic)")
+knitr::kable(report, caption = "Fallback-alignment assertions (PASS gates on 1-3; col 4 = rigorous reproduction check)")
 
+## Surface every warning captured across all runs -- this is the codebase check
+all_warn <- unlist(lapply(RUN, function(r) r$warnings), use.names = FALSE)
+cat("\n--- Warnings captured across all six runs ---\n")
+if (length(all_warn) == 0) {
+  cat("None. No package warning was emitted by any Cox or GLM run.\n")
+} else {
+  for (w in unique(all_warn)) cat(" * ", w, "\n", sep = "")
+  cat("(", length(all_warn), " total,", length(unique(all_warn)), "unique) -- review these; they are not test failures per se but indicate package-level conditions.\n")
+}
+
+cat("\n--- Verdict ---\n")
 if (all(report$PASS)) {
-  cat("\n\u2705 ALL PASS - Cox and GLM both retain the candidate on an NA closed-form",
+  cat("\u2705 CORE PASS - Cox and GLM both retain the candidate on an NA closed-form",
       "(fall back to splitting instead of dropping).\n")
-  if (!all(report$`4_fallback_eq_split`)) {
-    cat("   Note: fallback rate did not exactly equal native split for a family",
-        "(col 4 = FALSE) - expected to match; check seedit parity if investigating.\n")
+  if (all(report$`4_fallback_reproduces_split`)) {
+    cat("\u2705 REPRODUCTION PASS - forced-NA fallback reproduces native splitting",
+        "exactly (full candidate table + per-subject membership identical) for both families.\n")
+  } else {
+    cat("\u26a0\ufe0f  REPRODUCTION CHECK FAILED for a family (col 4 = FALSE):",
+        "the fallback did NOT reproduce native splitting. Inspect tab_match / id_match",
+        "columns -- this would be a genuine discrepancy worth investigating, not a cosmetic one.\n")
   }
 } else {
-  cat("\n\u274c FAILURE - see the assertion table above.\n")
-  stop("Consistency fallback alignment smoke test failed.")
+  cat("\u274c CORE FAILURE - see the assertion table above.\n")
+  stop("Consistency fallback alignment smoke test failed (core assertions 1-3).")
 }
 ```
 
