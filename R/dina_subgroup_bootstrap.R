@@ -567,13 +567,36 @@ dina_subgroup_bootstrap <- function(df,
   # linear functional a*^T beta_b -- is computed separately below using
   # each iteration's full coefficient vector and the FIXED a* from the
   # original-data subgroup.
+  # Per-resample selected-subgroup fields for the stability diagnostic frame.
+  # A resample may select a DEPTH-2 conjunction, in which case dina_subgroup()
+  # returns `covariate`, `direction`, and `threshold` as length-2 vectors (one
+  # entry per cut).  A plain vapply(..., character(1L)) aborts the whole
+  # bootstrap on the first such resample, so collapse covariate/direction to a
+  # single signature string per resample (keeping the frame rectangular).
+  # `threshold` is retained numerically only for single-cut selections -- a
+  # two-cut subgroup has no single threshold, so it is NA and is thereby
+  # excluded from threshold_ci below.  `n_subgroup` and `mean_tau_hat` are
+  # scalar regardless of depth, and the effect CI (computed separately from the
+  # per-iteration coefficient vectors) never depended on these fields.
   boot_df <- data.frame(
     found        = vapply(boot_list, function(r) {
                     if (is.na(r$found)) NA else as.logical(r$found)
                    }, logical(1L)),
-    covariate    = vapply(boot_list, `[[`, character(1L), "covariate"),
-    direction    = vapply(boot_list, `[[`, character(1L), "direction"),
-    threshold    = vapply(boot_list, `[[`, numeric(1L),   "threshold"),
+    covariate    = vapply(boot_list, function(r) {
+                     v <- r$covariate
+                     if (is.null(v) || length(v) == 0L || all(is.na(v)))
+                       NA_character_ else paste(v, collapse = " & ")
+                   }, character(1L)),
+    direction    = vapply(boot_list, function(r) {
+                     d <- r$direction
+                     if (is.null(d) || length(d) == 0L || all(is.na(d)))
+                       NA_character_ else paste(d, collapse = " & ")
+                   }, character(1L)),
+    threshold    = vapply(boot_list, function(r) {
+                     t <- r$threshold
+                     if (length(t) == 1L && is.finite(t)) as.numeric(t)
+                     else NA_real_
+                   }, numeric(1L)),
     n_subgroup   = vapply(boot_list, `[[`, integer(1L),   "n_subgroup"),
     mean_tau_hat = vapply(boot_list, `[[`, numeric(1L),   "mean_tau_hat"),
     failed       = vapply(boot_list, `[[`, logical(1L),   "failed"),
@@ -646,9 +669,15 @@ dina_subgroup_bootstrap <- function(df,
   n_modal_match <- NA_integer_
 
   if (isTRUE(sg_point$found) && n_boot_found > 0L) {
+    # Match resamples that selected the SAME subgroup signature as the
+    # original-data fit.  Collapse the point estimate's cut vectors the same
+    # way boot_df does, so a depth-2 original subgroup compares correctly
+    # (a scalar-vs-length-2 `==` would recycle and mis-match).
+    pt_cov_sig <- paste(sg_point$covariate, collapse = " & ")
+    pt_dir_sig <- paste(sg_point$direction, collapse = " & ")
     modal_match <- found_mask &
-      boot_df$covariate == sg_point$covariate &
-      boot_df$direction == sg_point$direction
+      boot_df$covariate == pt_cov_sig &
+      boot_df$direction == pt_dir_sig
     n_modal_match <- as.integer(sum(modal_match))
 
     if (n_modal_match >= 2L) {

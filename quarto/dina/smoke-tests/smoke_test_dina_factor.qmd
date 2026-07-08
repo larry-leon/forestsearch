@@ -1,0 +1,377 @@
+---
+title: "forestsearch: DINA factor-coercion smoke test"
+subtitle: "End-to-end pipeline check on synthetic survival data with factor covariates"
+date: today
+format:
+  html:
+    toc: true
+    code-fold: false
+    embed-resources: true
+bibliography: []
+execute:
+  warning: true
+  message: true
+  echo: true
+---
+
+## What this document does
+
+A smoke test (integration check, not a unit test) that exercises the full
+subgroup-identification pipeline after installing the revised package. Its
+purpose is to confirm that the DINA factor-coercion fix works uniformly across
+every DINA entry point, and that the FS (consistency) and GRF paths still run.
+
+The synthetic data deliberately stores the binary candidate covariates as
+**factors** — the exact condition that previously produced silent 0% DINA
+detection. A known harm subgroup is planted so the identifiers have a real
+signal to find (the *recovered* subgroup need not equal the planted one; the
+pass criterion is that each path runs and DINA now detects).
+
+Sections:
+
+- **A** — DINA selection: `forestsearch(subgroup_method = "dina")`
+- **B** — DINA screening: `forestsearch(subgroup_method = "consistency", use_dina = TRUE)`
+- **C** — Parity: FS (`"consistency"`) and GRF (`"grf"`)
+- **D** — `dina_subgroup_bootstrap()` on factor covariates
+- **E** — Guard: genuinely categorical covariate (error vs. graceful warning)
+
+> **A related bug this test originally surfaced (now fixed).** An earlier run of
+> Section D exposed a *pre-existing* defect in `dina_subgroup_bootstrap()` — a
+> depth-2 aggregation `vapply` (lines ~571–579) that aborted the bootstrap when a
+> resample selected a two-cut subgroup, independent of the factor fix. It has been
+> fixed in the revised package, so Section D should now report **PASS**. The
+> `PARTIAL` branch below is retained only as a regression guard. See the closing
+> notes.
+
+```{r setup}
+suppressPackageStartupMessages({
+  library(forestsearch)
+  library(survival)
+})
+
+## null-coalescing (base R gained %||% only in 4.4.0; define if absent)
+if (!exists("%||%")) `%||%` <- function(a, b) if (is.null(a) || length(a) == 0L) b else a
+
+## ---- Knobs (all in one place) --------------------------------------------
+SEED     <- 20260707L
+N        <- 900L      # sample size
+N_BOOT   <- 150L      # bootstrap resamples (Section D)
+WORKERS  <- 2L        # bump this on your 127-core box
+RUN_GRF  <- TRUE      # set FALSE to skip GRF (Section C) if grf is unavailable
+FS_SPLITS <- 100L     # consistency splits (small = fast smoke test)
+
+## ---- tiny PASS/FAIL reporter ---------------------------------------------
+.results <- new.env()
+report <- function(id, ok, detail = "") {
+  tag <- if (isTRUE(ok)) "PASS" else if (identical(ok, "PARTIAL")) "PARTIAL" else "FAIL"
+  assign(id, tag, envir = .results)
+  cat(sprintf("[%-7s] %s%s\n", tag, id, if (nzchar(detail)) paste0(" — ", detail) else ""))
+}
+
+## ---- run forestsearch() capturing any warnings ---------------------------
+run_fs <- function(...) {
+  warns <- character(0)
+  res <- withCallingHandlers(
+    tryCatch(forestsearch(...), error = function(e) e),
+    warning = function(w) {
+      warns[[length(warns) + 1L]] <<- conditionMessage(w)
+      invokeRestart("muffleWarning")
+    }
+  )
+  list(res = res, warnings = warns)
+}
+
+## has forestsearch() returned a non-empty subgroup label?
+fs_found <- function(res) {
+  !inherits(res, "error") && !is.null(res$sg.harm) && length(res$sg.harm) > 0L
+}
+fs_label <- function(res) {
+  if (fs_found(res)) paste(res$sg.harm, collapse = " & ") else "(none)"
+}
+```
+
+## Synthetic data (binary covariates stored as factors)
+
+```{r data}
+set.seed(SEED)
+
+x1 <- rnorm(N); x2 <- rnorm(N)                       # continuous candidates
+z1 <- rbinom(N, 1, 0.50); z2 <- rbinom(N, 1, 0.45)   # binary candidates
+z3 <- rbinom(N, 1, 0.40); z4 <- rbinom(N, 1, 0.50)
+w  <- rbinom(N, 1, 0.50)                             # randomized treatment (RCT)
+
+## Planted harm cell H = {z1 == 1 AND x1 > 0}: treatment raises the hazard there.
+H  <- as.numeric(z1 == 1 & x1 > 0)
+lp <- 0.30 * x1 - 0.20 * x2 + 0.40 * z1 - 0.20 * w + 1.00 * w * H
+Tt <- rexp(N, rate = exp(lp))
+Cc <- rexp(N, rate = 0.30)
+
+df <- data.frame(
+  time  = pmin(Tt, Cc),
+  event = as.integer(Tt <= Cc),
+  w     = w,
+  x1    = x1,
+  x2    = x2,
+  z1    = factor(z1),   # <-- FACTORS: the previously-failing condition
+  z2    = factor(z2),
+  z3    = factor(z3),
+  z4    = factor(z4),
+  id    = seq_len(N)
+)
+confs <- c("x1", "x2", "z1", "z2", "z3", "z4")
+
+cat("covariate classes:\n"); print(sapply(df[confs], class))
+cat(sprintf("\nevents: %d / %d (%.0f%%)   |   planted-H prevalence: %.1f%%\n",
+            sum(df$event), N, 100 * mean(df$event), 100 * mean(H)))
+```
+
+## A — DINA selection (`subgroup_method = "dina"`)
+
+The primary fix: with factor covariates, `.forestsearch_dina_select()` now
+coerces before the DINA fit, so selection runs instead of silently returning
+nothing.
+
+```{r section-A}
+A <- run_fs(
+  df, outcome.name = "time", event.name = "event", treat.name = "w",
+  id.name = "id", confounders.name = confs,
+  outcome_type = "survival",
+  subgroup_method = "dina",
+  use_grf = FALSE, use_lasso = FALSE,
+  hr.threshold = 1.25, n.min = 60L, sg_focus = "hr",
+  selection_rule = "neighborhood", effect_neighborhood = 0.10,
+  maxk = 2L, d0.min = 10L, d1.min = 10L,
+  max.minutes = 2, seedit = SEED,
+  parallel_args = list(plan = "multisession", workers = WORKERS,
+                       show_message = FALSE),
+  details = TRUE, quiet = FALSE
+)
+
+if (inherits(A$res, "error")) {
+  report("A_dina_selection", FALSE, conditionMessage(A$res))
+} else {
+  bad <- any(grepl("must be numeric|DINA analysis failed", A$warnings))
+  report("A_dina_selection", !bad,
+         sprintf("subgroup = %s", fs_label(A$res)))
+}
+```
+
+## B — DINA screening (`use_dina = TRUE`, consistency)
+
+DINA contributes candidate cuts to the consistency search. The fix means
+all-numeric-level factors are coerced instead of triggering the
+"DINA analysis failed: covariate must be numeric" warning.
+
+```{r section-B}
+B <- run_fs(
+  df, outcome.name = "time", event.name = "event", treat.name = "w",
+  id.name = "id", confounders.name = confs,
+  outcome_type = "survival",
+  subgroup_method = "consistency",
+  use_dina = TRUE, use_grf = FALSE, use_lasso = FALSE,
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  sg_focus = "hr", n.min = 60L, maxk = 2L,
+  d0.min = 10L, d1.min = 10L, fs.splits = FS_SPLITS,
+  max_subgroups_search = 3L, max.minutes = 2, seedit = SEED,
+  parallel_args = list(plan = "multisession", workers = WORKERS,
+                       show_message = FALSE),
+  details = TRUE, quiet = FALSE
+)
+
+if (inherits(B$res, "error")) {
+  report("B_dina_screening", FALSE, conditionMessage(B$res))
+} else {
+  dina_failed <- any(grepl("must be numeric|DINA analysis failed", B$warnings))
+  report("B_dina_screening", !dina_failed,
+         if (dina_failed) "DINA screening still warns on factors"
+         else sprintf("ran cleanly; subgroup = %s", fs_label(B$res)))
+}
+```
+
+## C — Parity: FS (consistency) and GRF
+
+Confirms the fix did not disturb the other two identifiers.
+
+```{r section-C-fs}
+Cfs <- run_fs(
+  df, outcome.name = "time", event.name = "event", treat.name = "w",
+  id.name = "id", confounders.name = confs,
+  outcome_type = "survival",
+  subgroup_method = "consistency",
+  use_dina = FALSE, use_grf = FALSE, use_lasso = TRUE,
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  sg_focus = "hr", n.min = 60L, maxk = 2L,
+  d0.min = 10L, d1.min = 10L, fs.splits = FS_SPLITS,
+  max_subgroups_search = 3L, max.minutes = 2, seedit = SEED,
+  parallel_args = list(plan = "multisession", workers = WORKERS,
+                       show_message = FALSE),
+  details = FALSE, quiet = TRUE
+)
+report("C_fs_consistency", !inherits(Cfs$res, "error"),
+       if (inherits(Cfs$res, "error")) conditionMessage(Cfs$res)
+       else sprintf("ran; subgroup = %s", fs_label(Cfs$res)))
+```
+
+```{r section-C-grf, eval=RUN_GRF}
+Cgrf <- run_fs(
+  df, outcome.name = "time", event.name = "event", treat.name = "w",
+  id.name = "id", confounders.name = confs,
+  outcome_type = "survival",
+  subgroup_method = "grf",
+  use_grf = TRUE, use_lasso = FALSE,
+  hr.threshold = 1.25, n.min = 60L, sg_focus = "hr",
+  grf_depth = 2L, maxk = 2L, d0.min = 10L, d1.min = 10L,
+  max.minutes = 2, seedit = SEED,
+  parallel_args = list(plan = "multisession", workers = WORKERS,
+                       show_message = FALSE),
+  details = FALSE, quiet = TRUE
+)
+report("C_grf", !inherits(Cgrf$res, "error"),
+       if (inherits(Cgrf$res, "error")) conditionMessage(Cgrf$res)
+       else sprintf("ran; subgroup = %s", fs_label(Cgrf$res)))
+```
+
+```{r section-C-grf-skip, eval=!RUN_GRF}
+report("C_grf", TRUE, "skipped (RUN_GRF = FALSE)")
+```
+
+## D — `dina_subgroup_bootstrap()` on factor covariates
+
+The user-facing bootstrap coerces `df` once up front, so both the point estimate
+and every resample inherit the numeric encoding. The outcome is classified so a
+coercion regression, the (now-fixed) depth-2 aggregation defect, and a clean run
+are each reported distinctly.
+
+```{r section-D}
+boot_out <- tryCatch(
+  dina_subgroup_bootstrap(
+    df = df, outcome = "time", treatment = "w", covariates = confs,
+    family = "cox", status = "event", m_diff = log(1.25),
+    n_min = 60L, sg_focus = "maxSG", n_boot = N_BOOT, seed = SEED,
+    refit = FALSE, verbose = FALSE),
+  error = function(e) e)
+
+if (inherits(boot_out, "error")) {
+  msg <- conditionMessage(boot_out)
+  if (grepl("must be numeric", msg)) {
+    report("D_bootstrap_factor_coercion", FALSE,
+           "bootstrap still rejects factors — coercion did NOT take effect")
+  } else if (grepl("length 1", msg) && grepl("length 2", msg)) {
+    report("D_bootstrap_factor_coercion", "PARTIAL",
+           paste("coercion OK (passed the numeric check), but hit the depth-2",
+                 "aggregation error in dina_subgroup_bootstrap ~L571-579 —",
+                 "this should be fixed; reinstall the revised package"))
+  } else {
+    report("D_bootstrap_factor_coercion", FALSE, paste("unexpected error:", msg))
+  }
+} else {
+  report("D_bootstrap_factor_coercion", TRUE,
+         sprintf("ran fully; found = %s, effect = %.4f, CI = [%s]",
+                 isTRUE(boot_out$found),
+                 boot_out$effect %||% NA_real_,
+                 paste(round(boot_out$effect_ci %||% c(NA, NA), 4), collapse = ", ")))
+}
+```
+
+## E — Guard: genuinely categorical covariate
+
+A non-numeric-level factor (`grp`) is never silently integer-coded. In the
+mandatory DINA path it raises a clear, named error; in optional screening it
+degrades to a warning while the consistency search proceeds.
+
+```{r section-E-mandatory}
+df_cat <- df
+df_cat$grp <- factor(sample(c("A", "B", "C"), N, replace = TRUE))
+confs_cat <- c(confs, "grp")
+
+E1 <- run_fs(
+  df_cat, outcome.name = "time", event.name = "event", treat.name = "w",
+  id.name = "id", confounders.name = confs_cat,
+  outcome_type = "survival", subgroup_method = "dina",
+  use_grf = FALSE, use_lasso = FALSE,
+  hr.threshold = 1.25, n.min = 60L, max.minutes = 2, seedit = SEED,
+  parallel_args = list(plan = "multisession", workers = WORKERS,
+                       show_message = FALSE),
+  details = FALSE, quiet = TRUE
+)
+err_ok <- inherits(E1$res, "error") &&
+  grepl("grp", conditionMessage(E1$res)) &&
+  grepl("dummy", conditionMessage(E1$res))
+report("E_guard_mandatory_errors", err_ok,
+       if (inherits(E1$res, "error")) "clear error naming 'grp' + dummy guidance"
+       else "expected an error but the call succeeded")
+```
+
+```{r section-E-screening}
+E2 <- run_fs(
+  df_cat, outcome.name = "time", event.name = "event", treat.name = "w",
+  id.name = "id", confounders.name = confs_cat,
+  outcome_type = "survival", subgroup_method = "consistency",
+  use_dina = TRUE, use_grf = FALSE, use_lasso = FALSE,
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  sg_focus = "hr", n.min = 60L, maxk = 2L, d0.min = 10L, d1.min = 10L,
+  fs.splits = FS_SPLITS, max_subgroups_search = 3L,
+  max.minutes = 2, seedit = SEED,
+  parallel_args = list(plan = "multisession", workers = WORKERS,
+                       show_message = FALSE),
+  details = FALSE, quiet = TRUE
+)
+## Screening should NOT hard-error on a categorical covariate; a DINA warning
+## is expected and acceptable (consistency remains the gatekeeper).
+report("E_guard_screening_graceful", !inherits(E2$res, "error"),
+       if (inherits(E2$res, "error"))
+         paste("errored (check whether from consistency vs DINA):",
+               conditionMessage(E2$res))
+       else "screening completed (DINA warning expected; consistency proceeded)")
+```
+
+## Summary
+
+```{r summary}
+ids <- sort(ls(.results))
+tab <- data.frame(check = ids,
+                  result = vapply(ids, function(i) get(i, envir = .results),
+                                  character(1L)),
+                  row.names = NULL)
+print(tab, right = FALSE)
+
+n_fail <- sum(tab$result == "FAIL")
+cat(sprintf("\n%d PASS, %d PARTIAL, %d FAIL\n",
+            sum(tab$result == "PASS"),
+            sum(tab$result == "PARTIAL"),
+            n_fail))
+cat(if (n_fail == 0L)
+      "\nAll hard checks passed. A PARTIAL on D means the depth-2 fix is not installed.\n"
+    else "\nReview FAIL rows above.\n")
+```
+
+```{r session}
+sessionInfo()
+```
+
+## Notes
+
+**Factor-coercion fix (the point of this test).** Sections A, B, D, and E
+target the three DINA entry points routed through the shared
+`.coerce_covariates_numeric()` helper: the selection path, the `use_dina`
+screening path, and `dina_subgroup_bootstrap()`. All-numeric-level factors
+(the `z*` 0/1 indicators) are coerced to their actual numeric values; a
+genuinely categorical factor (`grp`) raises a clear error in the mandatory
+paths (A, E-mandatory) and degrades to a warning in optional screening
+(E-screening).
+
+**Depth-2 bootstrap fix (also included).** This test originally surfaced an
+independent defect in `dina_subgroup_bootstrap()`: the per-resample aggregation at
+lines ~571–579 collapsed `covariate`/`direction`/`threshold` with a length-1
+`vapply`, which aborted the whole bootstrap whenever a resample selected a depth-2
+conjunction (reproducible with plain numeric covariates and default settings). It
+is fixed in the revised package — those fields now record conjunctions as
+signature strings, with `threshold` kept numeric only for single-cut selections
+(`NA` otherwise). The effect CI (computed from the per-iteration coefficient
+vectors) was never affected, and the failure was always a hard abort rather than a
+silently wrong interval. If Section D reports `PARTIAL`, the revised package is not
+installed.
+```

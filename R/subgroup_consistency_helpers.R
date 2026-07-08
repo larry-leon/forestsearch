@@ -1228,6 +1228,59 @@ remove_redundant_subgroups <- function(found.hrs) {
   }
 }
 
+#' Evaluate Subgroup Consistency (Single-Stage)
+#'
+#' Evaluates a single candidate subgroup for treatment-effect consistency using
+#' repeated random data splits (the standard, non-two-stage algorithm).  For
+#' each split the subgroup effect is scored and compared against the harm
+#' threshold; the consistency rate is the proportion of splits meeting it.
+#' Called internally by \code{\link{forestsearch}} (via
+#' \code{\link{subgroup.consistency}}); \code{\link{evaluate_consistency_twostage}}
+#' is the screened, early-stopping counterpart used when
+#' \code{use_twostage = TRUE}.
+#'
+#' @param m Integer. Index of subgroup to evaluate.
+#' @param index.Z data.table or matrix. Factor indicators for all subgroups.
+#' @param names.Z Character vector. Names of factor columns.
+#' @param df data.frame. Original data with Y, Event, Treat, id columns.
+#' @param found.hrs data.table. Subgroup hazard ratio results.
+#' @param n.splits Integer. Number of random splits used to evaluate
+#'   consistency.
+#' @param hr.consistency Numeric. Minimum HR threshold for consistency.
+#' @param pconsistency.threshold Numeric. Final consistency threshold.
+#' @param pconsistency.digits Integer. Rounding digits for output.
+#' @param maxk Integer. Maximum number of factors in a subgroup.
+#' @param confs_labels Character vector. Labels for confounders.
+#' @param details Logical. Print progress details.
+#' @param estimator_fn Closure or \code{NULL}. Effect-estimator closure from
+#'   \code{\link{make_effect_estimator}} for GLM outcomes.  Default \code{NULL}
+#'   (uses Cox model).
+#' @param consistency_threshold Numeric or \code{NULL}. Threshold for GLM
+#'   consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).
+#' @param adjust_covariates Character vector or \code{NULL}. Additional Cox
+#'   model terms (e.g. \code{"strata(x1)"}) used when scoring survival
+#'   subgroups.  Referenced columns must be present in \code{df}.  Ignored
+#'   on the GLM path.  Default \code{NULL} (unadjusted).
+#' @param consistency_method Character. \code{"split"} (default) or
+#'   \code{"resample"}; see \code{\link{subgroup.consistency}}.  When
+#'   \code{"resample"} engages it bypasses the split evaluation (the rate is
+#'   computed from a single fit); an unsupported/non-convergent GLM rate falls
+#'   through to the split evaluation.
+#' @param glm_resample_spec List or \code{NULL}. GLM resampling specification
+#'   threaded from \code{\link{forestsearch}}; see
+#'   \code{\link{subgroup.consistency}}.  \code{NULL} on the survival path.
+#'
+#' @return Named numeric vector with consistency results, or \code{NULL} if the
+#'   subgroup does not meet the criteria.
+#'
+#' @examples
+#' \dontrun{
+#' # evaluate_subgroup_consistency() is called internally by forestsearch().
+#' # Use forestsearch() as the entry point:
+#' fs <- forestsearch(gbsg,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#' }
 #' @importFrom data.table data.table
 #' @importFrom survival coxph Surv
 #' @export
