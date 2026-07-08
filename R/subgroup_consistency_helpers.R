@@ -1388,7 +1388,14 @@ evaluate_subgroup_consistency <- function(
     )
     p.consistency <- round(rr$rate_closed, pconsistency.digits)
     if (is.na(p.consistency)) {
-      return(NULL)
+      # Inestimable closed form (e.g. non-convergent fit on a candidate):
+      # fall back to literal splitting rather than dropping the subgroup.
+      # Mirrors the GLM path so Cox and GLM behave identically.
+      p.consistency <- .consistency_via_splits(
+        df.x, N.x, n.splits, hr.consistency, cox_init, estimator_fn,
+        consistency_threshold, adjust_covariates, pconsistency.digits,
+        m, details)
+      if (is.na(p.consistency)) return(NULL)
     }
   } else if (identical(consistency_method, "resample") &&
              !is.null(estimator_fn) && !is.null(glm_resample_spec) &&
@@ -1764,13 +1771,14 @@ evaluate_consistency_twostage <- function(
     }
     p.consistency <- round(rr$rate_closed, pconsistency.digits)
 
-    # GLM with an NA rate = unsupported/non-convergent -> fall through to splits.
-    glm_unsupported <- glm_resample && is.na(p.consistency)
-    if (!glm_unsupported) {
-      if (is.na(p.consistency) || p.consistency < pconsistency.threshold) {
+    # Inestimable closed-form rate (NA) for EITHER family -> fall through to the
+    # Stage 1/2 splitting below rather than dropping the candidate.  Cox and GLM
+    # behave identically here.
+    resample_unsupported <- is.na(p.consistency)
+    if (!resample_unsupported) {
+      if (p.consistency < pconsistency.threshold) {
         if (details) {
-          cat("Subgroup ", m, ": resample Pcons=",
-              ifelse(is.na(p.consistency), NA, p.consistency),
+          cat("Subgroup ", m, ": resample Pcons=", p.consistency,
               " (threshold ", pconsistency.threshold, ")\n", sep = "")
         }
         return(NULL)

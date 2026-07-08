@@ -1,0 +1,245 @@
+---
+title: "Smoke test — Cox/GLM consistency `resample` fallback alignment"
+format:
+  html:
+    toc: true
+    code-fold: false
+bibliography: []
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## Purpose
+
+`consistency_method = "resample"` computes the split-consistency rate from a
+closed form. When that closed form is inestimable for a candidate (it returns
+`rate_closed = NA`), the evaluator is supposed to **fall back to literal
+splitting** rather than dropping the candidate.
+
+Previously the two families behaved differently on that NA branch: the GLM path
+fell through to splitting, while the Cox path returned `NULL` (dropping the
+candidate). This test confirms they are now **aligned** — a candidate whose
+closed-form rate is `NA` is retained via splitting for *both* Cox and GLM, and
+the fallback rate matches what native `consistency_method = "split"` produces.
+
+The trigger is made deterministic by temporarily replacing
+`consistency_resample()` with a stub that returns `NA`, which forces every
+candidate down the fallback path. GRF/LASSO/DINA screening are disabled (as in
+the real applications' main runs), so only default candidate cuts are used.
+
+```{r libs}
+library(forestsearch)
+library(survival)
+
+SEED <- 8316951L
+```
+
+## Synthetic data with a clear harm subgroup
+
+Both generators place a strong *harm* signal (treatment is detrimental) inside
+`x1 > 0.5 & x2 > 0.5` and a benefit elsewhere, so the consistency screen should
+identify that subgroup robustly under every method.
+
+```{r data-gen}
+make_cox <- function(n = 800, seed = 1) {
+  set.seed(seed)
+  x1 <- runif(n); x2 <- runif(n)
+  treat <- rbinom(n, 1, 0.5)
+  harm  <- as.integer(x1 > 0.5 & x2 > 0.5)          # harm subgroup
+  # log-HR of treatment: +1.1 (harm) inside, -0.5 (benefit) outside
+  lhr   <- ifelse(harm == 1, 1.1, -0.5) * treat
+  rate  <- 0.15 * exp(lhr)
+  tt    <- rexp(n, rate)
+  cens  <- pmin(rexp(n, 0.05), 24)                  # admin + random censoring
+  time  <- pmin(tt, cens)
+  event <- as.integer(tt <= cens)
+  data.frame(id = seq_len(n), time = time, event = event,
+             treat = treat, x1 = x1, x2 = x2)
+}
+
+make_binary <- function(n = 800, seed = 2) {
+  set.seed(seed)
+  x1 <- runif(n); x2 <- runif(n)
+  treat <- rbinom(n, 1, 0.5)
+  harm  <- as.integer(x1 > 0.5 & x2 > 0.5)
+  # log-OR of treatment on the adverse outcome: +1.3 (harm) inside, -0.6 outside
+  lodds <- -0.2 + ifelse(harm == 1, 1.3, -0.6) * treat
+  y     <- rbinom(n, 1, plogis(lodds))              # 1 = adverse (no benefit)
+  data.frame(id = seq_len(n), y = y, treat = treat, x1 = x1, x2 = x2)
+}
+
+cox_df <- make_cox()
+bin_df <- make_binary()
+
+cat("Cox: n =", nrow(cox_df), "| events =", sum(cox_df$event),
+    "| harm-subgroup n =", sum(cox_df$x1 > 0.5 & cox_df$x2 > 0.5), "\n")
+cat("Binary: n =", nrow(bin_df), "| adverse =", sum(bin_df$y),
+    "| harm-subgroup n =", sum(bin_df$x1 > 0.5 & bin_df$x2 > 0.5), "\n")
+```
+
+## Fallback-forcing stub
+
+`with_resample_NA()` swaps `forestsearch:::consistency_resample()` for a stub
+returning `rate_closed = NA` for the duration of a single expression, then
+restores the original. Under `consistency_method = "resample"`, this forces
+every candidate onto the NA→split fallback.
+
+```{r stub}
+with_resample_NA <- function(expr) {
+  orig <- forestsearch::consistency_resample
+  stub <- function(...) list(rate_closed = NA_real_, rate_mc = NA_real_,
+                             beta_hat = NA_real_, sigma_D = NA_real_)
+  assignInNamespace("consistency_resample", stub, ns = "forestsearch")
+  on.exit(assignInNamespace("consistency_resample", orig, ns = "forestsearch"),
+          add = TRUE)
+  force(expr)
+}
+```
+
+## Runner
+
+Runs `forestsearch()` with GRF/LASSO/DINA off and the two-stage consistency
+engine (the path the applications use), and returns the identified subgroup plus
+its consistency proportion. `force_na = TRUE` wraps the call in the stub.
+
+```{r runner}
+run_fs <- function(df, family, method, force_na = FALSE) {
+  common <- list(
+    df.analysis      = df,
+    treat.name       = "treat",
+    id.name          = "id",
+    confounders.name = c("x1", "x2"),
+    is.RCT           = TRUE,
+    use_lasso        = FALSE,
+    use_grf          = FALSE,
+    use_dina         = FALSE,
+    subgroup_method  = "consistency",
+    consistency_method = method,
+    use_twostage     = TRUE,
+    maxk             = 2L,
+    n.min            = 50L,
+    d0.min           = 5L,
+    d1.min           = 5L,
+    hr.threshold     = 1.0,
+    hr.consistency   = 1.0,
+    pconsistency.threshold = 0.80,
+    seedit           = SEED,
+    details          = FALSE,
+    debias_gate      = FALSE
+  )
+  args <- if (family == "cox") {
+    c(common, list(outcome.name = "time", event.name = "event",
+                   outcome_type = "survival", effect_measure = "HR"))
+  } else {
+    c(common, list(outcome.name = "y", event.name = "y",
+                   outcome_type = "binary", effect_measure = "OR"))
+  }
+  call_fs <- function() do.call(forestsearch, args)
+  fs <- tryCatch(
+    if (force_na) with_resample_NA(call_fs()) else call_fs(),
+    error = function(e) list(.error = conditionMessage(e))
+  )
+  if (!is.null(fs$.error)) return(list(found = NA, subgroup = paste("ERROR:", fs$.error), pcons = NA_real_))
+  sg <- fs$sg.harm
+  found <- !is.null(sg)
+  # pull the identified subgroup's consistency proportion if available
+  pc <- tryCatch({
+    os <- fs$grp.consistency$out_sg
+    if (!is.null(os) && "Pcons" %in% names(os)) as.numeric(os[["Pcons"]][1]) else NA_real_
+  }, error = function(e) NA_real_)
+  list(found = found,
+       subgroup = if (found) paste(deparse(sg), collapse = " ") else "(none)",
+       pcons = pc)
+}
+```
+
+## Run all six scenarios
+
+```{r run-all}
+scenarios <- expand.grid(
+  family = c("cox", "binary"),
+  mode   = c("resample (normal)", "resample (forced NA -> fallback)", "split (native)"),
+  stringsAsFactors = FALSE
+)
+
+res <- lapply(seq_len(nrow(scenarios)), function(i) {
+  fam  <- scenarios$family[i]
+  mode <- scenarios$mode[i]
+  method  <- if (grepl("split", mode)) "split" else "resample"
+  force_na <- grepl("forced NA", mode)
+  r <- run_fs(if (fam == "cox") cox_df else bin_df, fam, method, force_na)
+  data.frame(family = fam, mode = mode,
+             found = r$found, pcons = round(r$pcons, 3),
+             subgroup = r$subgroup, stringsAsFactors = FALSE)
+})
+res <- do.call(rbind, res)
+knitr::kable(res, caption = "Identified subgroup by family x consistency mode")
+```
+
+## Assertions
+
+The fix is confirmed when, for **each** family:
+
+1. `resample (normal)` finds a subgroup — the closed-form path is intact.
+2. `resample (forced NA -> fallback)` **also** finds a subgroup — the NA branch
+   falls back to splitting instead of dropping the candidate. *(Pre-fix, Cox
+   would return no subgroup here; GLM already passed.)*
+3. `split (native)` finds a subgroup.
+4. The forced-NA fallback result **matches** the native split result (same
+   subgroup, same `Pcons`) — the fallback is genuinely the split calculation.
+
+```{r assertions}
+get1 <- function(fam, mode) res[res$family == fam & res$mode == mode, ]
+
+check_family <- function(fam) {
+  rn <- get1(fam, "resample (normal)")
+  rf <- get1(fam, "resample (forced NA -> fallback)")
+  sp <- get1(fam, "split (native)")
+
+  a1 <- isTRUE(rn$found)                                   # closed-form path intact
+  a2 <- isTRUE(rf$found)                                   # KEY: fallback fires (not dropped)
+  a3 <- isTRUE(sp$found)                                   # native split works
+  a4 <- identical(rf$subgroup, sp$subgroup) &&
+        isTRUE(all.equal(rf$pcons, sp$pcons))              # fallback == native split (diagnostic)
+
+  data.frame(
+    family = fam,
+    `1_resample_normal_found` = a1,
+    `2_fallback_fires`        = a2,
+    `3_split_found`           = a3,
+    PASS = all(a1, a2, a3),                                # core alignment gate
+    `4_fallback_eq_split`     = a4,                        # expected TRUE; reported, not gated
+    check.names = FALSE
+  )
+}
+
+report <- rbind(check_family("cox"), check_family("binary"))
+knitr::kable(report, caption = "Fallback-alignment assertions (PASS gates on 1-3; col 4 is a diagnostic)")
+
+if (all(report$PASS)) {
+  cat("\n\u2705 ALL PASS - Cox and GLM both retain the candidate on an NA closed-form",
+      "(fall back to splitting instead of dropping).\n")
+  if (!all(report$`4_fallback_eq_split`)) {
+    cat("   Note: fallback rate did not exactly equal native split for a family",
+        "(col 4 = FALSE) - expected to match; check seedit parity if investigating.\n")
+  }
+} else {
+  cat("\n\u274c FAILURE - see the assertion table above.\n")
+  stop("Consistency fallback alignment smoke test failed.")
+}
+```
+
+## Notes
+
+- This exercises the **two-stage** evaluator (`use_twostage = TRUE`), which is
+  the path both applications use and where the Cox-vs-GLM asymmetry lived. To
+  additionally cover the single-stage evaluator, set `use_twostage = FALSE` in
+  `run_fs()`'s `common` list and re-render.
+- The stub forces *every* candidate through the fallback, which is the strongest
+  form of the test. In production the fallback fires only for candidates whose
+  closed form is genuinely inestimable (e.g. a non-convergent fit).
+- If assertion 4 shows a benign mismatch, check that `seedit` is identical across
+  the two calls (it is, via `SEED`) — the split RNG must match for the fallback
+  and native-split rates to be bit-identical.

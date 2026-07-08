@@ -557,7 +557,12 @@
 #'   literal repeated 50/50 split-and-refit consistency calculation;
 #'   \code{"resample"} uses the multiplier (influence-function / \code{dfbeta})
 #'   approximation (\code{\link{consistency_resample}}), returning the rate from
-#'   a single subgroup fit. The \code{"resample"} path applies to the Cox
+#'   a single subgroup fit. Despite the name, \code{"resample"} performs no
+#'   numerical resampling at evaluation time -- the rate is a closed-form
+#'   expression. The name reflects the method's derivation: the repeated-split
+#'   consistency rate admits an equivalent multiplier-resampling (MR)
+#'   representation, and taking that representation to its analytic limit
+#'   yields the closed form implemented here. The \code{"resample"} path applies to the Cox
 #'   (survival) outcome and to GLM outcomes whose effect is a single model
 #'   coefficient (OR, RR, RD, MD, IRR); configurations it cannot represent that
 #'   way (IRD, propensity-adjusted effects, or a non-convergent fit on a given
