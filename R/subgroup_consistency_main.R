@@ -14,6 +14,58 @@
 #
 # =============================================================================
 
+#' Per-candidate L'Ecuyer-CMRG seeds for reproducible parallel consistency RNG
+#'
+#' Generates one L'Ecuyer-CMRG RNG stream per candidate, derived deterministically
+#' from a single master \code{seed}.  The consistency search evaluates candidates
+#' in worker-sized batches and calls \code{future.apply::future_lapply()} once per
+#' batch; passing a scalar \code{seed} (or \code{TRUE}) to \code{future.seed} on
+#' each batch call makes the RNG stream a candidate receives depend on its
+#' position \emph{within its batch}, and hence on the batch size -- which is
+#' derived from the number of workers.  The consequence is that identical seeds
+#' produce different consistency splits when the core count changes (e.g. an
+#' 11-worker laptop vs. a 102-worker server), so results are not reproducible
+#' across machines.
+#'
+#' Pre-generating the streams here and indexing them by \emph{global} candidate
+#' position (\code{candidate_seeds[batch_indices]}) makes each candidate's RNG
+#' depend only on its index and the master seed, invariant to batch size and
+#' worker count, while preserving batched early stopping.
+#'
+#' @param seed Integer master seed.
+#' @param n Integer number of candidates (length of the returned list).
+#' @return A length-\code{n} list of L'Ecuyer-CMRG \code{.Random.seed} vectors,
+#'   suitable for \code{future.seed} in \code{future.apply::future_lapply()}.
+#' @noRd
+.make_candidate_rng_seeds <- function(seed, n) {
+  # Derive the streams without disturbing the caller's RNG: save the current
+  # RNG kind and state, switch to L'Ecuyer-CMRG to generate per-candidate
+  # streams, then restore kind first and the exact prior state second.
+  has_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  old_seed <- if (has_seed) {
+    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  }
+  oldkind <- RNGkind("L'Ecuyer-CMRG")
+  on.exit({
+    RNGkind(oldkind[1L])
+    if (has_seed) {
+      assign(".Random.seed", old_seed, envir = .GlobalEnv)
+    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
+  }, add = TRUE)
+
+  set.seed(seed)
+  s <- .Random.seed
+  seeds <- vector("list", n)
+  for (i in seq_len(n)) {
+    seeds[[i]] <- s
+    s <- parallel::nextRNGStream(s)
+  }
+  seeds
+}
+
+
 #' Evaluate Subgroup Consistency
 #'
 #' Evaluates candidate subgroups using split-sample consistency validation.
@@ -744,6 +796,18 @@ subgroup.consistency <- function(df,
     # Process in batches
     n_batches <- ceiling(n_candidates / batch_size_parallel)
 
+    # Pre-generate one RNG stream per candidate from the master seed so that a
+    # candidate's consistency splits depend only on its GLOBAL index and `seed`
+    # -- not on the batch size / worker count.  Passing a scalar `seed` (or TRUE)
+    # to future.seed on each batch call assigned streams by within-batch
+    # position, which changed with the number of workers and broke cross-machine
+    # reproducibility.  With `seed = NULL` we fall back to future.seed = TRUE.
+    candidate_seeds <- if (!is.null(seed)) {
+      .make_candidate_rng_seeds(seed, n_candidates)
+    } else {
+      NULL
+    }
+
     for (batch_num in seq_len(n_batches)) {
 
       start_idx <- (batch_num - 1L) * batch_size_parallel + 1L
@@ -755,13 +819,18 @@ subgroup.consistency <- function(df,
             ": candidates", start_idx, "-", end_idx, "\n")
       }
 
-      # Parallel evaluation of batch (suppress package version warnings)
-      # Use seed for reproducible parallel RNG
+      # Parallel evaluation of batch (suppress package version warnings).
+      # future.seed is the per-candidate stream list (indexed by global position)
+      # for reproducibility invariant to workers/batching; TRUE only when no seed.
       batch_results <- suppressWarnings({
         future.apply::future_lapply(
           batch_indices,
           eval_fun,
-          future.seed = if (!is.null(seed)) seed else TRUE
+          future.seed = if (!is.null(candidate_seeds)) {
+            candidate_seeds[batch_indices]
+          } else {
+            TRUE
+          }
         )
       })
 
