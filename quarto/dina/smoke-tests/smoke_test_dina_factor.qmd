@@ -268,10 +268,11 @@ if (inherits(boot_out, "error")) {
   }
 } else {
   report("D_bootstrap_factor_coercion", TRUE,
-         sprintf("ran fully; found = %s, effect = %.4f, CI = [%s]",
-                 isTRUE(boot_out$found),
-                 boot_out$effect %||% NA_real_,
-                 paste(round(boot_out$effect_ci %||% c(NA, NA), 4), collapse = ", ")))
+         sprintf("ran fully; point subgroup found = %s, effect CI = [%s], resamples used = %d/%d",
+                 isTRUE(boot_out$point$found),
+                 paste(round(boot_out$effect_ci, 4), collapse = ", "),
+                 boot_out$n_boot_found %||% NA_integer_,
+                 boot_out$n_boot %||% NA_integer_))
 }
 ```
 
