@@ -1,0 +1,183 @@
+<!--
+  Selection stability and covariate involvement vs sample size
+  (corroboration fragment).
+
+  Purpose. From the realized harm-rule string sg_def already stored in every
+  sweep bundle, measure how STOCHASTIC the argmax competition is, per (detector,
+  n), at the borderline null theta_dagger(H) = 1.0. Two readouts:
+
+    (1) Rule-distribution stability. Over detected replicates, the distribution of
+        the canonicalized realized rule. modal_share (largest rule's frequency)
+        near 1 and norm_entropy near 0 mean one region wins almost every trial --
+        SEPARATED selection; low modal_share / high norm_entropy mean many regions
+        win about equally -- the LOCAL (near-tie) regime the anti-concentration
+        argument concerns (Section S4.5). This is the empirical local-vs-separated
+        selection signal, per cell.
+
+    (2) Covariate involvement. Share of detected replicates whose rule mentions
+        each covariate -- the direct read of the meno-vs-age near-tie of
+        Section S6 (Table S6): a persistent split of the second factor between the
+        true modifier and its correlate is the eta_n = o(n^{-1/2}) boundary made
+        visible.
+
+  Reads ONLY the per-cell bundles list(results, truth, meta) written by
+  run_cell() -- sg_def lives in bundle$results, NOT in the pooled coverage grid --
+  so this fragment globs the run's results_dir. No forestsearch, no DGM, no
+  re-run: it post-processes what the sweep already stored. Defines
+  @tbl-mr-stability-h10, @tbl-mr-involvement-h10, @fig-mr-selection-stability-h10.
+-->
+
+```{r mr-stability-setup-h10}
+#| echo: false
+#| message: false
+#| warning: false
+library(ggplot2)
+
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
+
+# ── Which run's bundles to read ──────────────────────────────────────────────
+run_tag     <- "m1_h10_knoise0_s1000"           # the sweep run whose bundles to summarize
+results_dir <- file.path("mr_sweep", run_tag)    # where <fs|dina|grf>_mr_n*_res.rds live
+# results_dir <- "_payloads/"                    # ...or wherever the per-cell bundles were placed
+rds_tag      <- "mr"                             # per-cell engine token (matches the sweep)
+method_order <- c("consistency", "dina", "grf")  # display order
+
+# ── sg_def parsing ───────────────────────────────────────────────────────────
+# sg_def is `paste(fs.est$sg.harm, collapse = " & ")`, e.g. "meno == 0 & er <= 8".
+# Canonicalize by sorting the &-clauses so "a & b" == "b & a"; a rule's variables
+# are the leading identifier token of each clause.
+.canon_rule <- function(s) {
+  if (is.na(s) || !nzchar(s)) return(NA_character_)
+  cl <- trimws(strsplit(s, "&", fixed = TRUE)[[1]]); cl <- cl[nzchar(cl)]
+  if (!length(cl)) return(NA_character_)
+  paste(sort(cl), collapse = " & ")
+}
+.rule_vars <- function(s) {
+  if (is.na(s) || !nzchar(s)) return(character(0))
+  cl <- trimws(strsplit(s, "&", fixed = TRUE)[[1]]); cl <- cl[nzchar(cl)]
+  unique(sub("^\\s*([A-Za-z0-9_.]+).*$", "\\1", cl))
+}
+.norm_entropy <- function(counts) {           # counts = integer vector of rule frequencies
+  p <- counts / sum(counts); p <- p[p > 0]
+  k <- length(p)
+  if (k <= 1L) 0 else as.numeric(-sum(p * log(p)) / log(k))   # 0 = one rule; 1 = uniform
+}
+
+bundle_paths <- Sys.glob(file.path(results_dir, sprintf("*_%s_n*_res.rds", rds_tag)))
+have_bundles <- length(bundle_paths) > 0L
+
+stab <- NULL; inv <- NULL; inv_wide <- NULL
+if (have_bundles) {
+  stab_rows <- list(); inv_rows <- list()
+  for (p in bundle_paths) {
+    b <- tryCatch(readRDS(p), error = function(e) NULL); if (is.null(b)) next
+    res <- b$results; meta <- b$meta
+    if (is.null(res) || !nrow(res)) next
+    rH <- res[res$detected == 1L & !is.na(res$sg_def) & nzchar(res$sg_def), , drop = FALSE]
+    if (!nrow(rH)) next
+    meth <- meta$subgroup_method %||% NA_character_
+    nn   <- meta$n_sample        %||% NA_integer_
+
+    canon <- vapply(rH$sg_def, .canon_rule, character(1)); canon <- canon[!is.na(canon)]
+    tab   <- sort(table(canon), decreasing = TRUE)
+    stab_rows[[length(stab_rows) + 1L]] <- data.frame(
+      subgroup_method = meth, n_sample = nn, n_detected = nrow(rH),
+      n_distinct = length(tab),
+      modal_share = if (length(tab)) as.numeric(tab[1]) / sum(tab) else NA_real_,
+      norm_entropy = .norm_entropy(as.integer(tab)),
+      modal_rule = if (length(tab)) names(tab)[1] else NA_character_,
+      stringsAsFactors = FALSE)
+
+    vars <- lapply(rH$sg_def, .rule_vars)
+    for (v in sort(unique(unlist(vars)))) {
+      inv_rows[[length(inv_rows) + 1L]] <- data.frame(
+        subgroup_method = meth, n_sample = nn, covariate = v,
+        involvement = mean(vapply(vars, function(z) v %in% z, logical(1))),
+        stringsAsFactors = FALSE)
+    }
+  }
+  stab <- if (length(stab_rows)) do.call(rbind, stab_rows) else NULL
+  inv  <- if (length(inv_rows))  do.call(rbind, inv_rows)  else NULL
+
+  if (!is.null(stab)) {
+    ord <- order(match(stab$subgroup_method, method_order), stab$n_sample)
+    stab <- stab[ord, ]; rownames(stab) <- NULL
+  }
+  if (!is.null(inv)) {
+    inv_wide <- stats::reshape(inv, idvar = c("subgroup_method", "n_sample"),
+                               timevar = "covariate", direction = "wide")
+    names(inv_wide) <- sub("^involvement\\.", "", names(inv_wide))
+    covcols <- setdiff(names(inv_wide), c("subgroup_method", "n_sample"))
+    for (cc in covcols) inv_wide[[cc]] <- round(inv_wide[[cc]], 3)
+    ord <- order(match(inv_wide$subgroup_method, method_order), inv_wide$n_sample)
+    inv_wide <- inv_wide[ord, ]; rownames(inv_wide) <- NULL
+  }
+}
+```
+
+```{r}
+#| label: tbl-mr-stability-h10
+#| echo: false
+#| message: false
+#| warning: false
+if (!is.null(stab)) {
+  disp <- stab
+  disp$modal_share  <- round(disp$modal_share, 3)
+  disp$norm_entropy <- round(disp$norm_entropy, 3)
+  knitr::kable(disp[, c("subgroup_method", "n_sample", "n_detected", "n_distinct",
+                        "modal_share", "norm_entropy", "modal_rule")],
+               row.names = FALSE,
+               caption = paste0("Realized-rule stability over detected replicates, per detector and n. ",
+                                "modal_share = frequency of the most common rule; ",
+                                "norm_entropy \u2208 [0,1] (0 = one rule always wins, separated ",
+                                "selection; \u21921 = many rules win about equally, the local ",
+                                "near-tie regime)."))
+} else {
+  cat("No bundles found under results_dir \u2014 render the sweep first, or point results_dir at the bundle folder.\n")
+}
+```
+
+```{r}
+#| label: tbl-mr-involvement-h10
+#| echo: false
+#| message: false
+#| warning: false
+if (!is.null(inv_wide)) {
+  knitr::kable(inv_wide, row.names = FALSE,
+               caption = paste0("Covariate involvement: share of detected replicates whose realized ",
+                                "harm rule mentions each covariate, per detector and n. A persistent ",
+                                "split of the second factor (e.g. meno vs its age proxy) is the ",
+                                "eta_n = o(n^{-1/2}) near-tie made visible."))
+}
+```
+
+```{r}
+#| label: fig-mr-selection-stability-h10
+#| fig-cap: "Selection stability vs n: modal-rule share (solid) and normalized rule entropy (dashed) over detected replicates, per detector. High modal share / low entropy is separated selection; the reverse is the local near-tie regime the anti-concentration argument concerns."
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-width: 8
+#| fig-height: 4.5
+if (!is.null(stab) && nrow(stab)) {
+  long <- rbind(
+    data.frame(subgroup_method = stab$subgroup_method, n_sample = stab$n_sample,
+               metric = "modal share",   value = stab$modal_share,  stringsAsFactors = FALSE),
+    data.frame(subgroup_method = stab$subgroup_method, n_sample = stab$n_sample,
+               metric = "norm. entropy", value = stab$norm_entropy, stringsAsFactors = FALSE))
+  print(
+    ggplot(long, aes(n_sample, value, colour = subgroup_method, linetype = metric,
+                     group = interaction(subgroup_method, metric))) +
+      geom_line(linewidth = 0.7) + geom_point(size = 2.2) +
+      scale_x_continuous(breaks = sort(unique(stab$n_sample))) +
+      coord_cartesian(ylim = c(0, 1)) +
+      labs(x = "Sample size  n", y = "value",
+           colour = "Method", linetype = "Metric",
+           title = "Realized-rule stability vs n",
+           subtitle = "Solid = modal-rule share \u00b7 dashed = normalized rule entropy") +
+      theme_minimal(base_size = 12) + theme(legend.position = "bottom"))
+} else {
+  ggplot() + annotate("text", x = 0, y = 0, label = "Pending sweep bundles", colour = "grey50") +
+    theme_void()
+}
+```

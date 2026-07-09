@@ -1,0 +1,182 @@
+<!--
+  Noise-covariate overlay of conditional-estimand coverage vs sample size
+  (manuscript / corroboration fragment).
+
+  Purpose. Compare C_betaHhat = coverage of the conditional estimand theta(Hhat)
+  (the Theorem-2 target) as a function of n ACROSS noise-covariate counts, at the
+  borderline null theta_dagger(H) = 1.0. Each noise level is a separate sweep run
+  of mr_coverage_sweep_h10.qmd with a different k_random_noise and run_tag; this
+  fragment reads their pooled grids and overlays them, so the reader can see
+  whether the conditional-coverage curve dips as the candidate family is enlarged
+  by distractor covariates, and whether any dip shrinks with n.
+
+  The DGM (and hence theta_dagger / the beta(Hhat) eval frame) is identical across
+  the runs -- k_random_noise adds standard-normal covariates to the ANALYSIS pool
+  in the recorder only, not to the harm-generating DGM -- so the curves are
+  apples-to-apples.
+
+  Reads ONLY the pooled grids written by save_coverage_grid()
+  (mr_coverage_grid_<run_tag>.rds: a list with `coverage`, `length`, `bias`,
+  `manifest`, `truth`, `built`) plus ggplot2 -- no forestsearch, no DGM, no
+  simulation -- so it renders in seconds. Missing grids are skipped with a warning
+  so a partially-run comparison still plots. Defines @fig-mr-coverage-knoise-h10.
+-->
+
+```{r mr-knoise-fig-setup-h10}
+#| echo: false
+#| message: false
+#| warning: false
+library(ggplot2)
+
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
+
+# ── Runs to overlay (one grid per noise-covariate count) ─────────────────────
+# List the sweep run_tags to compare. The noise count k is parsed from each tag's
+# "knoise<k>" token (falling back to NA / the tag string if absent). Produce each
+# grid by rendering mr_coverage_sweep_h10.qmd with k_random_noise <- k and the
+# matching run_tag, then make the grids visible here (see payload_dir below).
+run_tags <- c("m1_h10_knoise0_s1000",   # the S3 conditional-target run (k = 0)
+              "m1_h10_knoise3_s1000",   # k = 3 distractor covariates
+              "m1_h10_knoise6_s1000")   # k = 6 distractor covariates
+
+# Where the grids live.
+#   read_from_sweep = FALSE : read mr_coverage_grid_<tag>.rds from payload_dir
+#                             (flat; copy the grids there, matching the other
+#                             _sim_* fragments). payload_dir = NULL reads beside
+#                             this fragment.
+#   read_from_sweep = TRUE  : read each grid in place from mr_sweep/<tag>/.
+payload_dir     <- "_payloads/"
+read_from_sweep <- FALSE
+
+# ── What to plot ─────────────────────────────────────────────────────────────
+target_pick    <- "C_betaHhat"   # conditional estimand theta(Hhat) — Theorem 2's target
+estimator_pick <- "MR"           # single estimator: the corroboration is about MR coverage
+block_pick     <- "H"            # harm block Hhat
+method_pick    <- "consistency"  # "consistency" (FS) | any of consistency/dina/grf; >1 ⇒ facet by method
+band           <- "wilson"       # "wilson" | "mc_se" | "none"
+
+# ── Locate + load ────────────────────────────────────────────────────────────
+.knoise_of <- function(tag) {
+  m <- regmatches(tag, regexpr("knoise[0-9]+", tag))
+  if (length(m)) as.integer(sub("knoise", "", m)) else NA_integer_
+}
+.grid_path <- function(tag) {
+  fn <- sprintf("mr_coverage_grid_%s.rds", tag)
+  if (isTRUE(read_from_sweep)) return(file.path("mr_sweep", tag, fn))
+  pdir <- if (is.null(payload_dir))
+    tryCatch(dirname(knitr::current_input(dir = TRUE)), error = function(e) getwd()) else payload_dir
+  file.path(pdir, fn)
+}
+
+.truth1 <- NULL
+.load_slice <- function(tag) {
+  p <- .grid_path(tag)
+  if (!file.exists(p)) { warning(sprintf("grid not found, skipping: %s", p)); return(NULL) }
+  G <- readRDS(p)
+  if (is.null(.truth1)) .truth1 <<- G$truth
+  s <- G$coverage[G$coverage$target == target_pick &
+                  G$coverage$estimator == estimator_pick &
+                  G$coverage$block == block_pick &
+                  G$coverage$subgroup_method %in% method_pick, , drop = FALSE]
+  if (!nrow(s)) return(NULL)
+  s$run_tag <- tag
+  s$knoise  <- .knoise_of(tag)
+  s
+}
+
+sl <- do.call(rbind, lapply(run_tags, .load_slice))
+have_data <- !is.null(sl) && nrow(sl) > 0
+
+# ── Labels + caption ─────────────────────────────────────────────────────────
+.lab_tgt <- c(C_dagger   = "marginal subgroup hazard ratio (C\u2020)",
+              C_ddagger  = "controlled direct effect (C\u2021)",
+              C_oracle   = "per-replicate oracle",
+              C_betaHhat = "conditional subgroup hazard ratio \u03b2(\u0124)")[[target_pick]]
+.lab_blk <- if (block_pick == "H") "harm subgroup \u0124" else "complement \u0124\u1d9c"
+
+if (have_data) {
+  sl <- sl[order(sl$subgroup_method, sl$knoise, sl$n_sample), ]
+  klev <- sort(unique(sl$knoise))
+  sl$knoise_f <- factor(sl$knoise, levels = klev,
+                        labels = ifelse(is.na(klev), "n/a", sprintf("%d noise", klev)))
+  multi_method <- length(unique(sl$subgroup_method)) > 1L
+
+  .rng <- function(x) { u <- sort(unique(x[is.finite(x)]))
+    if (length(u) <= 1L) format(u, big.mark = ",") else
+      sprintf("%s-%s", format(min(u), big.mark = ","), format(max(u), big.mark = ",")) }
+  ns_txt   <- .rng(sl$n_sims); gd_txt <- .rng(sl$gate_draws)
+  meth_txt <- paste(sort(unique(sl$subgroup_method)), collapse = ", ")
+  k_txt    <- paste(klev, collapse = ", ")
+  thH      <- .truth1$marg_H  %||% NA_real_
+  thHc     <- .truth1$marg_Hc %||% NA_real_
+  band_txt <- if (band == "wilson") "Shaded bands are Wilson 95% intervals on each rate."
+              else if (band == "mc_se") "Shaded bands span \u00b11 Monte-Carlo SE."
+              else ""
+
+  cap_knoise <- sprintf(paste0(
+    "Empirical 95%% CI coverage of the %s for the %s estimator on the %s, vs per-trial ",
+    "sample size n, overlaid across noise-covariate counts k \u2208 {%s} (each a separate ",
+    "sweep run at the same DGM; noise covariates enter the analysis pool only). ",
+    "True $\\theta^{\\dagger}(H) = %.2f$, $\\theta^{\\dagger}(H^{c}) = %.2f$; %s simulations per ",
+    "cell, %s MR draws; detector(s): %s. Dashed line = 0.95 nominal. %s All rates ",
+    "conditional on identifying a subgroup."),
+    .lab_tgt, estimator_pick, .lab_blk, k_txt, thH, thHc, ns_txt, gd_txt, meth_txt, band_txt)
+} else {
+  cap_knoise <- sprintf(paste0(
+    "Coverage of the %s vs sample size, overlaid across noise-covariate counts. ",
+    "**Placeholder \u2014 to be populated from the per-run coverage grids ",
+    "(mr_coverage_grid_<run_tag>.rds for run_tags: %s).**"),
+    .lab_tgt, paste(run_tags, collapse = ", "))
+}
+
+.ph <- function(lab) ggplot() +
+  annotate("text", x = 0, y = 0, label = lab, size = 4, colour = "grey50") + theme_void()
+```
+
+```{r}
+#| label: fig-mr-coverage-knoise-h10
+#| fig-cap: !expr cap_knoise
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-width: 8
+#| fig-height: 5
+if (!have_data) {
+  .ph("Pending per-run coverage grids")
+} else {
+  p <- ggplot(sl, aes(n_sample, coverage, colour = knoise_f, fill = knoise_f, group = knoise_f))
+  if (band == "wilson")
+    p <- p + geom_ribbon(aes(ymin = wilson_lo, ymax = wilson_hi), alpha = 0.12, colour = NA)
+  else if (band == "mc_se")
+    p <- p + geom_ribbon(aes(ymin = coverage - mc_se, ymax = coverage + mc_se), alpha = 0.12, colour = NA)
+  y_lo <- min(0.80, min(sl$wilson_lo, sl$coverage, na.rm = TRUE))
+  p <- p + geom_hline(yintercept = 0.95, linetype = 2, colour = "grey40") +
+    geom_line(linewidth = 0.7) + geom_point(size = 2.3) +
+    scale_x_continuous(breaks = sort(unique(sl$n_sample))) +
+    coord_cartesian(ylim = c(y_lo, 1.0)) +
+    labs(x = "Sample size  n", y = "95% CI coverage",
+         colour = "Noise covariates", fill = "Noise covariates",
+         title = sprintf("%s coverage vs n, by noise-covariate count", .lab_tgt),
+         subtitle = "Dashed line = 0.95 nominal") +
+    theme_minimal(base_size = 12) + theme(legend.position = "bottom")
+  if (multi_method) p <- p + facet_wrap(~ subgroup_method)
+  print(p)
+}
+```
+
+```{r}
+#| label: tbl-mr-coverage-knoise-h10
+#| echo: false
+#| message: false
+#| warning: false
+if (have_data) {
+  disp <- sl[, c("subgroup_method", "knoise", "n_sample", "coverage", "mc_se",
+                 "wilson_lo", "wilson_hi", "n_eff", "n_detected", "det_rate")]
+  disp <- disp[order(disp$subgroup_method, disp$knoise, disp$n_sample), ]
+  for (cc in c("coverage", "mc_se", "wilson_lo", "wilson_hi", "det_rate"))
+    disp[[cc]] <- round(disp[[cc]], 3)
+  knitr::kable(disp, row.names = FALSE,
+               caption = sprintf("%s \u00b7 %s estimator \u00b7 %s block, by noise-covariate count.",
+                                 target_pick, estimator_pick, block_pick))
+}
+```
