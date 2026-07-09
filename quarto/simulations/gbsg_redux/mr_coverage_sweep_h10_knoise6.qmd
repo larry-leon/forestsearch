@@ -94,7 +94,7 @@ run_sweep   <- TRUE                       # FALSE ⇒ skip computation, just (re
 # folder and a new grid with NO pooling of prior runs — the clean way to get a fresh set.
 # The figure fragment (_sim_mr_coverage.qmd) reads the grid by matching this SAME run_tag,
 # so keep the two strings identical. Convention: <dgm>_s<n_sims>_d<gate_draws>.
-run_tag <- "m1_h10_knoise6_s1000" # ← bump this for a fresh, isolated run
+run_tag <- "m1_h10_knoise6new_s1000" # ← bump this for a fresh, isolated run
 results_dir <- file.path("mr_sweep", run_tag)   # per-run folder: bundles + grid live here
 rds_tag     <- "mr"                        # per-cell engine token; the method tag (fs/dina/grf) LEADS the filename
 grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
