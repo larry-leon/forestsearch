@@ -128,7 +128,7 @@ these rules in your prompts.
 ## 7. Git and branch operations
 
 - The active development branch is `feature/glm-extension`. The
-  trunk is `main`.
+  trunk is `master`.
 - Commit `R/`, `vignettes/`, `tests/`, `man/`, `NAMESPACE`, and
   `DESCRIPTION` changes. Do not commit `_files/` sidecar
   directories from Quarto renders, `.Rproj.user/`,
