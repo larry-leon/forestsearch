@@ -32,7 +32,9 @@
       "Bash(Rscript -e 's<-readLines\\(file.path\\(\"/tmp/claude-1000/-home-larryleon-Documents-GitHub-forestsearch/6c4547a0-9d37-4401-85f1-487a40f830d4/scratchpad\",\"t1cal.out\"\\)\\); cat\\(tail\\(s,6\\),sep=\"\\\\n\"\\)')",
       "Bash(Rscript -e 'cat\\(\"t2full running:\", any\\(grepl\\(\"run_t2full\", system\\(\"pgrep -af Rscript\", intern=TRUE\\)\\)\\), \"\\\\n\"\\)')",
       "Bash(Rscript -e 'q\\(status=if\\(file.exists\\(file.path\\(\"/tmp/claude-1000/-home-larryleon-Documents-GitHub-forestsearch/6c4547a0-9d37-4401-85f1-487a40f830d4/scratchpad\",\"fs_cell_FIXED_t2full_1_500.rds\"\\)\\)\\)0 else 1\\)')",
-      "Bash(Rscript -e 's<-readLines\\(file.path\\(\"/tmp/claude-1000/-home-larryleon-Documents-GitHub-forestsearch/6c4547a0-9d37-4401-85f1-487a40f830d4/scratchpad\",\"t2full.out\"\\)\\);cat\\(grep\\(\"Batch sim_id|Saved batch\",s,value=TRUE\\),sep=\"\\\\n\"\\)')"
+      "Bash(Rscript -e 's<-readLines\\(file.path\\(\"/tmp/claude-1000/-home-larryleon-Documents-GitHub-forestsearch/6c4547a0-9d37-4401-85f1-487a40f830d4/scratchpad\",\"t2full.out\"\\)\\);cat\\(grep\\(\"Batch sim_id|Saved batch\",s,value=TRUE\\),sep=\"\\\\n\"\\)')",
+      "Bash(Rscript -e 'q\\(status=if\\(file.exists\\(file.path\\(\"/tmp/claude-1000/-home-larryleon-Documents-GitHub-forestsearch/6c4547a0-9d37-4401-85f1-487a40f830d4/scratchpad\",\"fs_cell_FIXED_t2full_1_500.rds\"\\)\\) && file.exists\\(file.path\\(\"/tmp/claude-1000/-home-larryleon-Documents-GitHub-forestsearch/6c4547a0-9d37-4401-85f1-487a40f830d4/scratchpad\",\"fs_cell_FIXED_t1sub_1_20.rds\"\\)\\)\\)0 else 1\\)')",
+      "Bash(Rscript -e 'for\\(nm in c\\(\"t2full\",\"t1sub\"\\)\\){s<-readLines\\(file.path\\(\"/tmp/claude-1000/-home-larryleon-Documents-GitHub-forestsearch/6c4547a0-9d37-4401-85f1-487a40f830d4/scratchpad\",paste0\\(nm,\".out\"\\)\\)\\);cat\\(\"==\",nm,\"==\\\\n\"\\);cat\\(grep\\(\"Batch sim_id|Saved batch|Tier-1 bootstrap returned\",s,value=TRUE\\),sep=\"\\\\n\"\\);cat\\(\"\\\\n\"\\)}')"
     ]
   }
 }
