@@ -646,7 +646,7 @@ subgroup.consistency <- function(df,
       n_evaluated <- m
 
       if (use_twostage) {
-        results_list[[m]] <- evaluate_consistency_twostage(
+        res_m <- evaluate_consistency_twostage(
           m = m,
           index.Z = index.Z,
           names.Z = names.Z,
@@ -671,7 +671,7 @@ subgroup.consistency <- function(df,
           glm_resample_spec = glm_resample_spec
         )
       } else {
-        results_list[[m]] <- evaluate_subgroup_consistency(
+        res_m <- evaluate_subgroup_consistency(
           m = m,
           index.Z = index.Z,
           names.Z = names.Z,
@@ -692,9 +692,17 @@ subgroup.consistency <- function(df,
         )
       }
 
-      # Check early stopping condition
-      if (!is.null(stop_threshold) && !is.null(results_list[[m]])) {
-        pcons_m <- as.numeric(results_list[[m]]["Pcons"])
+      # Store only non-NULL results.  Assigning NULL via `[[<-` deletes the
+      # pre-allocated slot and SHRINKS results_list, shifting every later
+      # index down and eventually driving the early-stop read below out of
+      # bounds.  Empty slots stay NULL from vector("list", n_candidates), so
+      # Section 9's Filter(Negate(is.null), ...) still drops them.
+      if (!is.null(res_m)) results_list[[m]] <- res_m
+
+      # Check early stopping condition (use the freshly computed res_m, not a
+      # re-read of results_list[[m]], which is populated only when non-NULL).
+      if (!is.null(stop_threshold) && !is.null(res_m)) {
+        pcons_m <- as.numeric(res_m["Pcons"])
 
         if (!is.na(pcons_m) && pcons_m >= stop_threshold) {
           early_stop_triggered <- TRUE
@@ -705,7 +713,7 @@ subgroup.consistency <- function(df,
             cat("EARLY STOP TRIGGERED\n")
             cat("  Candidate:", m, "of", n_candidates, "\n")
             cat("  Pcons:", round(pcons_m, 4), ">=", stop_threshold, "\n")
-            cat("  HR:", round(as.numeric(results_list[[m]]["hr"]), 3), "\n")
+            cat("  HR:", round(as.numeric(res_m["hr"]), 3), "\n")
             cat(paste(rep("=", 50), collapse = ""), "\n\n", sep = "")
           }
           break
@@ -834,9 +842,13 @@ subgroup.consistency <- function(df,
         )
       })
 
-      # Store results
+      # Store results.  Guard against NULL: assigning NULL via `[[<-` deletes
+      # the pre-allocated slot and shrinks results_list, misaligning the
+      # global candidate indices.  Empty slots stay NULL for Section 9's filter.
       for (i in seq_along(batch_indices)) {
-        results_list[[batch_indices[i]]] <- batch_results[[i]]
+        if (!is.null(batch_results[[i]])) {
+          results_list[[batch_indices[i]]] <- batch_results[[i]]
+        }
       }
 
       n_evaluated <- end_idx
