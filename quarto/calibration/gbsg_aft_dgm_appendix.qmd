@@ -1,0 +1,266 @@
+---
+title: "The GBSG AFT data-generating mechanism"
+subtitle: "An introduction / appendix for FDR operating characteristics with fs_fdr_report()"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: show
+    number-sections: true
+    df-print: paged
+bibliography: []
+vignette: >
+  %\VignetteIndexEntry{The GBSG AFT data-generating mechanism}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+execute:
+  warning: false
+  message: false
+  cache: false
+---
+
+```{r setup}
+#| include: false
+library(forestsearch)
+library(survival)
+```
+
+# Why this document
+
+`fs_fdr_report()` reports the *operating* false-discovery rate of a fitted
+`forestsearch()` analysis: for the analysis's own $(c_1, c_2)$, it simulates
+under a null and returns **A** = $P(\text{declare any harm subgroup})$ and, at
+each de-biased-HR gate $g$, **B(g)** = $P(\text{declare AND de-biased } HR \ge
+g)$. Those probabilities are only as meaningful as the null they are computed
+under. This appendix documents that null: the GBSG accelerated-failure-time
+(AFT) data-generating mechanism built by `setup_gbsg_dgm()`, all of its options,
+and — a point that is easy to lose track of — how its **censoring** model is
+obtained.
+
+Everything below is drawn from the package source (`setup_gbsg_dgm.R`,
+`sim_aft_gbsg.R`, `simulate_from_dgm.R`, `find_k_inter_main.R`), not from
+recollection.
+
+# The outcome model is a Weibull AFT fitted to GBSG
+
+`setup_gbsg_dgm()` is a thin wrapper: it calls the internal
+`.create_gbsg_dgm_()`, then reshapes the result into an `aft_dgm_flex` object
+that `simulate_from_dgm()` can draw from. The substance is in
+`.create_gbsg_dgm_()`.
+
+It fits a Weibull AFT to the GBSG data,
+
+$$\log T = \mu + \sigma\,\varepsilon + \eta(X), \qquad \eta(X) = X'\gamma,$$
+
+via `survreg(Surv(y, event) ~ z_true, dist = "weibull")`, and extracts the
+fitted coefficients $\gamma$ and scale $\sigma$. It then **scales three of those
+coefficients** by the effect multipliers you supply:
+
+$$\gamma_{\text{treat}} \leftarrow k_{\text{treat}}\,\gamma_{\text{treat}},
+\qquad
+\gamma_{z_3} \leftarrow k_{z_3}\,\gamma_{z_3},
+\qquad
+\gamma_{z_h} \leftarrow k_{\text{inter}}\,\gamma_{z_h},$$
+
+where $z_h = \text{treat} \times z_1 \times z_3$ is the treatment-by-subgroup
+interaction. Converting the AFT to a proportional-hazards reading
+($b_0 = -\gamma/\sigma$) gives the two hazard ratios that anchor everything:
+
+$$\mathrm{HR}(H) = \exp\!\big(-\gamma_{\text{treat}}/\sigma - \gamma_{z_h}/\sigma\big),
+\qquad
+\mathrm{HR}(H^c) = \exp\!\big(-\gamma_{\text{treat}}/\sigma\big).$$
+
+The single most useful consequence: **`k_inter = 0` makes $\gamma_{z_h} = 0$, so
+$\mathrm{HR}(H) = \mathrm{HR}(H^c)$** — a real, uniform treatment effect with no
+modifier. That is the homogeneous null. A nonzero `k_inter` bends the harm
+region's HR away from the complement's.
+
+`model = "alt"` activates the interaction and defines the harm region; `model =
+"null"` sets `flag_harm = 0` throughout (a no-subgroup world).
+
+# The harm subgroup
+
+The flagged region is fixed and clinical: `flag_harm = (z1 == 1 & z3 == 1)`,
+where `z1 = 1` marks **low estrogen receptor** (ER at or below the
+`z1_quantile` quantile) and `z3 = 1` marks **premenopausal** status. The source
+labels it *"low ER & premenopausal."* `z1_quantile` (default 0.25) therefore
+controls how large the candidate harm region is.
+
+# The censoring model — fitted from the data by default
+
+This is the part worth stating precisely. For the default `cens_type =
+"weibull"`, `.create_gbsg_dgm_()` **fits a censoring model to the data**:
+
+```r
+survreg(Surv(y, 1 - event) ~ z_cens, dist = "weibull")
+```
+
+Flipping the event indicator to `1 - event` turns the outcome fit into a
+*time-to-censoring* fit, and `z_cens` are covariates — so the censoring is a
+**covariate-dependent Weibull**, estimated from GBSG, not a fixed rate. Its
+intercept $\mu_c$, scale $\tau_c$, and covariate effects are stored in the DGM's
+`cens_params`.
+
+So your recollection is right, with one refinement: it is not that the DGM
+*auto-selects a censoring family from the data*. You choose the family via
+`cens_type` (default `"weibull"`), and the default family's **parameters** are
+what get estimated from the data. The alternative, `cens_type = "uniform"`, is
+analytical rather than fitted.
+
+At draw time, `simulate_from_dgm()` generates censoring times as
+
+$$\log C = \mu_c + \texttt{cens\_adjust} + \tau_c\,\varepsilon_c + \eta_c(X),$$
+
+so **`cens_adjust` is a log-scale shift of the censoring intercept** that tunes
+the censoring rate *without refitting*: `cens_adjust = log(2)` doubles expected
+censoring times (fewer events censored), `log(0.5)` halves them (more
+censoring). On top of this, `analysis_time` imposes **administrative**
+censoring — follow-up is capped at `analysis_time - entry_time` — which is why
+the source warns that a time-unit mismatch (e.g. `analysis_time` in months but
+the fitted $\mu$ implying years) can drive censoring toward 100%. A companion
+diagnostic in `simulate_from_dgm.R` compares the reference (GBSG) and simulated
+censoring rates and KM curves so you can check the draw is aligned with the real
+data.
+
+::: {.callout-note}
+## The general engine has an explicit toggle
+`setup_gbsg_dgm()` uses the legacy GBSG path, which always fits the Weibull
+censoring model from data. The more general `generate_aft_dgm()` (which works on
+any dataset) exposes a `select_censoring` argument: `TRUE` (default) fits the
+censoring model from data; `FALSE` lets you supply `cens_params` analytically or
+force an intercept-only fit. `setup_gbsg_dgm()`'s own header notes a migration
+path toward that engine. For the GBSG null behind `fs_fdr_report()`, the
+fit-from-data Weibull is what you get.
+:::
+
+# Calibrating `k_inter` to a target HR
+
+You rarely set `k_inter` directly; you set the HR you want and solve for it.
+`calibrate_k_inter()` uses root-finding (`uniroot`, `extendInt = "yes"`, over a
+default range of $[-10, 10]$) to find the `k_inter` at which the realized
+$\mathrm{HR}(H)$ equals a target. `use_ahr = FALSE` calibrates the Cox-scale
+$\mathrm{HR}(H)$; `use_ahr = TRUE` calibrates the average HR.
+
+This is exactly how the two `fs_fdr_report()` nulls arise:
+
+- **H0-hom:** `k_inter = 0` directly — $\mathrm{HR}(H) = \mathrm{HR}(H^c)$, a
+  uniform effect. False discovery = manufacturing heterogeneity from selection.
+- **H0-harm:** `calibrate_k_inter(target_hr_harm = 1.0)` — a *real* modifier
+  tuned so the flagged region sits exactly at $\mathrm{HR}(H) = 1.0$ while the
+  complement still responds. False discovery = calling that region harmful when
+  it is null there. This is the more adversarial null.
+
+# All the options at a glance
+
+`setup_gbsg_dgm()`:
+
+| Argument | Default | Role |
+|---|---|---|
+| `model` | `"alt"` | `"alt"` = real effect/interaction and a defined harm region; `"null"` = no subgroup (`flag_harm = 0`). |
+| `k_treat` | `1` | Multiplier on the fitted treatment main effect $\gamma_{\text{treat}}$. |
+| `k_inter` | `1` | Multiplier on the interaction coefficient $\gamma_{z_h}$; `0` gives homogeneity. |
+| `k_z3` | `1` | Multiplier on the $z_3$ (menopausal-status) effect. |
+| `z1_quantile` | `0.25` | ER quantile defining `z1 = 1` (low ER), hence the harm-region size. |
+| `n_super` | `5000` | Super-population size the AFT and censoring models are built on. |
+| `cens_type` | `"weibull"` | Censoring family: `"weibull"` (fitted from data) or `"uniform"` (analytical). |
+| `use_rand_params` | `FALSE` | Refit the nuisance covariate coefficients from a richer model. |
+| `seed` | `8316951` | Seed for the super-population construction. |
+| `verbose` | `FALSE` | Print the fitted coefficients and subgroup summary. |
+
+Key `simulate_from_dgm()` draw controls:
+
+| Argument | Default | Role |
+|---|---|---|
+| `n` | — | Trial size to draw. |
+| `analysis_time` | `48` | Calendar time of analysis; sets administrative censoring via `analysis_time - entry_time`. |
+| `cens_adjust` | `0` | Log-scale shift of the censoring intercept; tunes the censoring rate without refitting. |
+| `seed` | — | Per-draw seed (draws are reproducible and plan-invariant). |
+
+Emitted columns: `y_sim` = $\min(T, C)$, `event_sim` = $\mathbb{1}(T \le C)$,
+`treat_sim`, `flag_harm`, and `c_time` — the exact names `fs_fdr_report()`
+binds to.
+
+# Seeing it concretely
+
+The two nulls, with their realized structure. (`n_super` is modest here for a
+fast render; `fs_fdr_report()` defaults to 25000.)
+
+```{r build-dgms}
+n_super_demo <- 5000L
+dgm_hom  <- setup_gbsg_dgm(model = "alt", k_inter = 0, n_super = n_super_demo)
+k_harm   <- calibrate_k_inter(target_hr_harm = 1.0, model = "alt",
+                              use_ahr = FALSE)
+dgm_harm <- setup_gbsg_dgm(model = "alt", k_inter = k_harm,
+                           n_super = n_super_demo)
+```
+
+```{r hr-structure}
+# k_inter lives in effect_modifiers (NOT model_params); HR/AHR are top-level.
+hr_row <- function(tag, dgm) {
+  em <- dgm$effect_modifiers
+  data.frame(
+    null    = tag,
+    k_inter = round(em$k_inter, 3),
+    HR_H    = round(dgm$hr_H_true,  3),
+    HR_Hc   = round(dgm$hr_Hc_true, 3),
+    AHR_H   = round(dgm$AHR_H_true,  3),
+    AHR_Hc  = round(dgm$AHR_Hc_true, 3),
+    prop_H  = round(dgm$subgroup_info$proportion, 3),
+    stringsAsFactors = FALSE)
+}
+knitr::kable(
+  rbind(hr_row("H0-hom  (k_inter = 0)",       dgm_hom),
+        hr_row("H0-harm (target HR_H = 1.0)", dgm_harm)),
+  row.names = FALSE,
+  caption = "Realized structure of the two nulls (prop_H = harm-region share).")
+```
+
+Under H0-hom the two HRs should be $\approx$ equal and away from 1; under
+H0-harm, $\mathrm{HR}(H) \approx 1.0$ with $\mathrm{HR}(H^c)$ unchanged.
+
+The fitted censoring model, and how `cens_adjust` moves the censoring rate:
+
+```{r censoring}
+# Parameters of the Weibull censoring model fitted from the data:
+str(dgm_hom$cens_params[c("type", "mu", "sigma")])
+
+# cens_adjust shifts the censoring intercept; higher -> longer censoring times
+# -> fewer censored observations.
+cens_rate <- function(ca) {
+  d <- simulate_from_dgm(dgm_hom, n = 1000L, analysis_time = 84,
+                         cens_adjust = ca, seed = 1L)
+  mean(d$event_sim == 0L)
+}
+adj <- c(log(0.5), 0, log(1.5), log(2))
+knitr::kable(
+  data.frame(cens_adjust = c("log(0.5)", "0", "log(1.5)", "log(2)"),
+             value       = round(adj, 3),
+             cens_rate   = round(vapply(adj, cens_rate, numeric(1)), 3)),
+  row.names = FALSE,
+  caption = "Censoring rate vs cens_adjust at analysis_time = 84 (n = 1000).")
+```
+
+# Connecting back to `fs_fdr_report()`
+
+Operating characteristics build directly on this DGM: `fs_fdr_report()` draws
+H0-hom and/or H0-harm from `setup_gbsg_dgm()`, runs the *analysis's own*
+identifier configuration (inherited from `args_call_all`) on each draw, and
+tabulates A and B(g). The DGM options above are the levers behind those nulls —
+`k_inter` and `calibrate_k_inter()` set the effect structure; `cens_adjust` and
+`analysis_time` set the censoring; `n` (defaulting to your analysis's sample
+size) sets the trial size.
+
+```{r fdr-pointer}
+#| eval: false
+# The operating-characteristics run (see the fs_fdr_report smoke doc for the
+# full harness). This is where the DGM above becomes an FDR:
+# rep <- fs_fdr_report(fit, df0, n = 700L, nsims = 1000L, n_workers = 100L)
+# rep$fdr          # A (raw FDR) and B(g) (de-biased-gated FDR) by null x c_gate
+```
+
+```{r session}
+#| echo: false
+sessionInfo()
+```
