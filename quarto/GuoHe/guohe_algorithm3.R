@@ -93,6 +93,34 @@
   )
 }
 
+# ---- internal: lean unadjusted two-group Cox ------------------------------
+# `.g3_coef()` receives a data-frame subset of the FULL frame -- which at
+# forest-search scale carries ~1700 membership columns -- and then uses exactly
+# three of them. This variant takes plain vectors and calls
+# `survival::coxph.fit()` directly, skipping formula parsing, model.frame
+# construction, and assembly of the large coxph return object.
+#
+# It is the SAME estimator, not an approximation: `method = "efron"` matches
+# coxph()'s default tie handling, and the two agree to ~1e-15 (asserted in the
+# smoke test). Guards are replicated from `.g3_coef()` exactly so the two paths
+# declare the same candidates non-estimable.
+.g3_cox_lean <- function(time_v, ev_v, tr_v, min_events, ctl) {
+  if (length(unique(tr_v)) < 2L) return(NA_real_)
+  if (min(table(tr_v)) < min_events) return(NA_real_)
+  if (sum(ev_v == 1) < min_events) return(NA_real_)
+  tryCatch(
+    suppressWarnings(unname(
+      survival::coxph.fit(
+        x = matrix(as.double(tr_v), ncol = 1L),
+        y = survival::Surv(time_v, ev_v),
+        strata = NULL, offset = NULL, init = 0, control = ctl,
+        weights = NULL, method = "efron", rownames = NULL
+      )$coefficients[[1L]]
+    )),
+    error = function(e) NA_real_
+  )
+}
+
 #' De-biased inference for the best subgroup over a large enumerated family
 #'
 #' Finite realization of Algorithm 3 of Guo and He (2021): the candidate family
@@ -248,9 +276,39 @@ guohe_algorithm3 <- function(data,
     }
   }
 
+  # ---- lean refit path ----------------------------------------------------
+  # Engages exactly where the closed forms do NOT: unadjusted survival, which is
+  # where the remaining cost lives. Pre-extracting the three columns coxph needs
+  # avoids materialising a wide data-frame subset once per candidate per draw.
+  lean_cox <- identical(outcome, "survival") && is.null(adjust_covariates) &&
+    !isTRUE(fast)
+  ctl_lean <- NULL
+  if (isTRUE(lean_cox)) {
+    ctl_lean <- survival::coxph.control()
+    # coxph.fit() is exported, but probe once anyway: a signature change across
+    # survival versions should degrade to the data-frame path, not error out.
+    lean_cox <- isTRUE(tryCatch(
+      is.finite(.g3_cox_lean(seq_len(10), rep(c(1L, 0L), 5),
+                             rep(c(0, 1), each = 5), 1L, ctl_lean)),
+      error = function(e) FALSE))
+  }
+  if (isTRUE(lean_cox)) {
+    Mslow   <- as.matrix(membership)
+    tr_slow <- data[[treatment]]
+    tm_slow <- data[[time]]
+    ev_slow <- data[[event]]
+  }
+
   # oriented score for every candidate on a given row-index set
   score_vec <- function(idx) {
     if (isTRUE(fast)) return(score_fast(tabulate(idx, nbins = n)))
+    if (isTRUE(lean_cox)) {
+      tb <- tr_slow[idx]; yb <- tm_slow[idx]; eb <- ev_slow[idx]
+      return(vapply(seq_len(n_cand), function(k) {
+        s <- Mslow[idx, k] == 1L
+        orient * .g3_cox_lean(yb[s], eb[s], tb[s], min_events, ctl_lean)
+      }, numeric(1)))
+    }
     d <- data[idx, , drop = FALSE]
     m <- membership[idx, , drop = FALSE]
     vapply(
@@ -312,7 +370,7 @@ guohe_algorithm3 <- function(data,
       idx_list, one_draw,
       future.seed = FALSE,
       future.globals = c("score_vec", "offset", "gamma_max", "diagnostics",
-                         ".g3_coef", "fast", "n")
+                         ".g3_coef", ".g3_cox_lean", "fast", "n")
     )
   } else {
     res <- lapply(idx_list, one_draw)
@@ -387,6 +445,7 @@ guohe_algorithm3 <- function(data,
       n_candidates    = n_cand,
       n_estimable     = sum(ok),
       fast            = isTRUE(fast),
+      lean_cox        = isTRUE(lean_cox),
       adjust_covariates          = adjust_covariates,
       drop_rate       = if (diagnostics) {
         stats::setNames(drop_ct / max(1L, B), candidates)
