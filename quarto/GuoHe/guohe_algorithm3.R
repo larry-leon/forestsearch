@@ -47,7 +47,8 @@
 # ---- internal: one within-subgroup treatment coefficient ------------------
 # Returns the treatment coefficient on the model's natural scale
 # (log-HR / log-OR / mean difference), or NA_real_ if not estimable.
-.g3_coef <- function(sub, outcome, treatment, time, event, y, min_events) {
+.g3_coef <- function(sub, outcome, treatment, time, event, y, min_events,
+                     adjust_covariates = NULL) {
   tr <- sub[[treatment]]
   if (length(unique(tr)) < 2L) {
     return(NA_real_)
@@ -62,15 +63,30 @@
         if (sum(ev == 1) < min_events) {
           return(NA_real_)
         }
-        fit <- survival::coxph(survival::Surv(sub[[time]], ev) ~ tr)
-        unname(fit$coefficients[[1L]])
+        if (is.null(adjust_covariates)) {
+          fit <- survival::coxph(survival::Surv(sub[[time]], ev) ~ tr)
+          unname(fit$coefficients[[1L]])
+        } else {
+          md <- data.frame(.tr = tr, .time = sub[[time]], .ev = ev)
+          md[adjust_covariates] <- sub[adjust_covariates]
+          fml <- stats::as.formula(paste("survival::Surv(.time, .ev) ~ .tr +",
+                                         paste(adjust_covariates, collapse = " + ")))
+          unname(survival::coxph(fml, data = md)$coefficients[[".tr"]])
+        }
       } else {
         yy <- sub[[y]]
         if (outcome == "binary" && length(unique(yy)) < 2L) {
           return(NA_real_)
         }
         fam <- if (outcome == "binary") stats::binomial() else stats::gaussian()
-        unname(stats::coef(stats::glm(yy ~ tr, family = fam))[["tr"]])
+        if (is.null(adjust_covariates)) {
+          unname(stats::coef(stats::glm(yy ~ tr, family = fam))[["tr"]])
+        } else {
+          md <- data.frame(.y = yy, .tr = tr)
+          md[adjust_covariates] <- sub[adjust_covariates]
+          fml <- stats::as.formula(paste(".y ~ .tr +", paste(adjust_covariates, collapse = " + ")))
+          unname(stats::coef(stats::glm(fml, family = fam, data = md))[[".tr"]])
+        }
       }
     }),
     error = function(e) NA_real_
@@ -113,6 +129,32 @@
 #' @param min_events Minimum events (survival) or minimum per-arm count for a
 #'   candidate to be estimable.
 #' @param diagnostics Logical; if `TRUE`, record per-resample estimability.
+#' @param adjust_covariates Optional character vector of covariate names for the
+#'   within-subgroup model, matching the argument of the same name in
+#'   `forestsearch()`'s `.estimate_or()` / `.make_lm_estimator()`. Default `NULL`
+#'   is the unadjusted model. Supplying it DISABLES the closed-form fast path,
+#'   because an adjusted coefficient is a partial regression coefficient, not a
+#'   2x2 log-odds-ratio or a difference of arm means.
+#'
+#'   NOTE: `forestsearch()` has a SECOND adjustment axis, `ps_adjust_method`
+#'   (`"iptw"` weighted fitting, `"dr_gcomp"` Bang-Robins G-computation). Those
+#'   modes are not implemented in this comparator, and the closed forms would be
+#'   invalid under them too -- IPTW fits a weighted logistic, and DR reports a
+#'   marginal log-OR from G-computed probabilities; neither equals the 2x2
+#'   statistic. If the comparator is extended to those modes, the `fast_ok` gate
+#'   must be extended with them.
+#' @param fast Logical or `NULL`. Closed-form evaluation of the within-subgroup
+#'   effect, available only for UNADJUSTED binary and continuous outcomes. These
+#'   are EXACT, not approximations: with a single binary covariate the logistic
+#'   model is saturated, so its MLE is the 2x2 log-odds-ratio, and the Gaussian
+#'   coefficient is the difference of arm means. `NULL` (default) auto-enables
+#'   it whenever it is valid. `TRUE` errors if the configuration makes it
+#'   invalid (survival, or any `adjust_covariates`), rather than silently falling back.
+#' @param parallel Logical; if `TRUE`, distribute the bootstrap model fitting
+#'   with `future.apply`. Requires a `future::plan()` to have been set by the
+#'   caller. Results are identical to `parallel = FALSE` for the same `seed`,
+#'   because resample indices are drawn serially before any distribution.
+#'   Do NOT enable this inside an already-parallel outer loop.
 #'
 #' @return An object of class `"guohe_a3"`.
 #' @export
@@ -129,7 +171,10 @@ guohe_algorithm3 <- function(data,
                              level = 0.05,
                              seed = NULL,
                              min_events = 5L,
-                             diagnostics = TRUE) {
+                             diagnostics = TRUE,
+                             parallel = FALSE,
+                             adjust_covariates = NULL,
+                             fast = NULL) {
   outcome <- match.arg(outcome)
   stopifnot(
     is.data.frame(data),
@@ -153,15 +198,67 @@ guohe_algorithm3 <- function(data,
   names(membership) <- candidates
   n_cand <- ncol(membership)
 
+  # ---- closed-form eligibility --------------------------------------------
+  # EXACT, not approximate: with a single binary covariate the logistic model is
+  # saturated (its MLE is the 2x2 log-odds-ratio) and the Gaussian coefficient
+  # is the difference of arm means. Neither identity survives adjustment, and
+  # Cox has no closed form -- hence the gate.
+  fast_ok <- outcome %in% c("binary", "continuous") && is.null(adjust_covariates)
+  if (is.null(fast)) {
+    fast <- fast_ok
+  } else if (isTRUE(fast) && !fast_ok) {
+    stop("fast = TRUE is invalid here: closed forms exist only for unadjusted ",
+         "binary or continuous outcomes (got outcome = '", outcome, "'",
+         if (!is.null(adjust_covariates)) ", with adjustment covariates" else "", ").")
+  }
+  if (!is.null(adjust_covariates)) {
+    miss_adj <- setdiff(adjust_covariates, names(data))
+    if (length(miss_adj)) {
+      stop("Adjustment covariates not found: ", paste(miss_adj, collapse = ", "))
+    }
+  }
+
+  # Closed-form scorer. `w` is the per-subject resample multiplicity, so ONE
+  # crossprod scores the whole family: t(M) %*% (w * cells) returns, for every
+  # candidate, the sufficient statistics of its resampled subgroup. This
+  # replaces n_cand model fits per draw with a single matrix product.
+  if (isTRUE(fast)) {
+    Mmat <- as.matrix(membership) * 1.0
+    tr_v <- as.numeric(data[[treatment]] == 1)
+    y_v  <- as.numeric(data[[y]])
+    cellmat <- if (outcome == "binary") {
+      cbind(tr_v * y_v, tr_v * (1 - y_v), (1 - tr_v) * y_v, (1 - tr_v) * (1 - y_v))
+    } else {
+      cbind(tr_v, 1 - tr_v, tr_v * y_v, (1 - tr_v) * y_v)
+    }
+    score_fast <- function(w) {
+      cnt <- crossprod(Mmat, w * cellmat)
+      if (outcome == "binary") {
+        a <- cnt[, 1]; b <- cnt[, 2]; cc <- cnt[, 3]; dd <- cnt[, 4]
+        val <- log(a) + log(dd) - log(b) - log(cc)
+        bad <- (a + b) < min_events | (cc + dd) < min_events |
+          a <= 0 | b <= 0 | cc <= 0 | dd <= 0
+      } else {
+        n1 <- cnt[, 1]; n0 <- cnt[, 2]; s1 <- cnt[, 3]; s0 <- cnt[, 4]
+        val <- s1 / n1 - s0 / n0
+        bad <- n1 < min_events | n0 < min_events
+      }
+      val[bad] <- NA_real_
+      unname(orient * val)
+    }
+  }
+
   # oriented score for every candidate on a given row-index set
   score_vec <- function(idx) {
+    if (isTRUE(fast)) return(score_fast(tabulate(idx, nbins = n)))
     d <- data[idx, , drop = FALSE]
     m <- membership[idx, , drop = FALSE]
     vapply(
       seq_len(n_cand),
       function(k) {
         sub <- d[m[[k]] == 1L, , drop = FALSE]
-        orient * .g3_coef(sub, outcome, treatment, time, event, y, min_events)
+        orient * .g3_coef(sub, outcome, treatment, time, event, y, min_events,
+                          adjust_covariates)
       },
       numeric(1)
     )
@@ -186,19 +283,46 @@ guohe_algorithm3 <- function(data,
   # ---- pair bootstrap ------------------------------------------------------
   # U_b = sup_c (beta*_b(c) + d(c)) - gamma_max_hat   (T*_b = sqrt(n) * U_b;
   # the sqrt(n) cancels on inversion, so everything below is on the U scale)
+  #
+  # PARALLELISM. All B resample index vectors are drawn SERIALLY under `seed`
+  # first, and only the (expensive) model fitting is distributed. Because the
+  # RNG draws therefore occur in the same order regardless of backend, the
+  # parallel path reproduces the serial path EXACTLY -- the property that makes
+  # the speed-up verifiable rather than merely plausible. (Index pre-generation
+  # costs O(B * n) integers, negligible at trial sizes; for very large n switch
+  # to pre-generating per-draw seeds instead.)
   if (!is.null(seed)) set.seed(seed)
-  U <- numeric(B)
-  drop_ct <- integer(n_cand)
-  for (b_i in seq_len(B)) {
-    idx <- sample.int(n, n, replace = TRUE)
+  idx_list <- lapply(seq_len(B), function(b) sample.int(n, n, replace = TRUE))
+
+  one_draw <- function(idx) {
     val <- score_vec(idx) + offset
     fin <- is.finite(val)
-    if (diagnostics) drop_ct <- drop_ct + as.integer(!fin)
-    if (!any(fin)) {
-      U[b_i] <- NA_real_
-      next
+    list(u = if (any(fin)) max(val[fin]) - gamma_max else NA_real_,
+         bad = if (diagnostics) !fin else NULL)
+  }
+
+  if (isTRUE(parallel)) {
+    if (!requireNamespace("future.apply", quietly = TRUE)) {
+      stop("parallel = TRUE requires the 'future.apply' package.")
     }
-    U[b_i] <- max(val[fin]) - gamma_max
+    # future.seed = FALSE is correct here: no RNG is used inside one_draw --
+    # the indices were already drawn above. `.g3_coef` qualifies survival and
+    # stats with `::`, so workers need no attached packages.
+    res <- future.apply::future_lapply(
+      idx_list, one_draw,
+      future.seed = FALSE,
+      future.globals = c("score_vec", "offset", "gamma_max", "diagnostics",
+                         ".g3_coef", "fast", "n")
+    )
+  } else {
+    res <- lapply(idx_list, one_draw)
+  }
+
+  U <- vapply(res, function(z) z$u, numeric(1))
+  drop_ct <- if (diagnostics) {
+    Reduce(`+`, lapply(res, function(z) as.integer(z$bad)))
+  } else {
+    integer(n_cand)
   }
   n_bad <- sum(!is.finite(U))
   if (n_bad > 0) {
@@ -262,6 +386,8 @@ guohe_algorithm3 <- function(data,
       level           = level,
       n_candidates    = n_cand,
       n_estimable     = sum(ok),
+      fast            = isTRUE(fast),
+      adjust_covariates          = adjust_covariates,
       drop_rate       = if (diagnostics) {
         stats::setNames(drop_ct / max(1L, B), candidates)
       } else NULL

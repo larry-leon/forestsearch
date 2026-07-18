@@ -23,20 +23,6 @@ The invariants in the quick tier are the load-bearing ones: they lock the
 validation chain back to the authors' published Table 2, and they pin the
 relationship between the certified one-sided bound and the two-sided extension.
 
-**Closed forms.** All three full-tier cells are GLM paths (scale and separated
-are binary, calibration is continuous), so `guohe_algorithm3()` auto-enables its
-exact closed-form evaluation: with a single binary covariate and no adjustment,
-the logistic model is saturated -- its MLE is the 2x2 log-odds-ratio -- and the
-Gaussian coefficient is the difference of arm means. These are the SAME
-estimators `forestsearch()` fits in its unadjusted mode (`.estimate_or()` with
-`adjust_covariates = NULL, ps_adjust_method = "none"`, and
-`.make_lm_estimator()`), not approximations to them. Verified against `glm`/`lm`:
-continuous agrees to 7e-15 and binary to 9e-9 (the latter being `glm`'s own IRLS
-tolerance, so the closed form is if anything the more accurate of the two), with
-identical selected candidates and identical drop-rate vectors -- at roughly
-**700x** the speed. The survival cells are unaffected: Cox has no closed form and
-the gate refuses one.
-
 ```{r}
 #| label: setup
 #| message: false
@@ -47,10 +33,12 @@ SCALE <- "full"           # "quick" (any machine) or "full" (Claude Code / 127-c
 B_Q   <- 200L             # bootstrap draws, quick tier
 
 # ---- Full-tier settings -----------------------------------------------------
-# PRODUCTION values, for a real operating-characteristic evaluation rather than
-# a smoke test. Reduce for a quick code check (B_F 300L, REPS 100L, B_CAL 500L);
-# the calibration cell stamps a PROVISIONAL banner whenever it is run below
-# REPS 300 / B_CAL 1000.
+# PROVISIONAL (code-check pass). Restore the publication values shown below
+# before quoting any coverage figure.
+#
+#   B_F   300L  -> publication 2000L
+#   REPS  100L  -> publication 300L (or more)
+#   B_CAL 500L  -> publication 1000L+
 #
 # What is safe to reduce, and what is not:
 #   * B_F drives only the enumerated-family scale cell, which makes no coverage
@@ -62,15 +50,9 @@ B_Q   <- 200L             # bootstrap draws, quick tier
 #     answer: the bound is a tail quantile (q_{1-alpha}), and noisy quantiles pull
 #     coverage slightly downward. The de-biased point estimate is a mean and
 #     converges much faster, so it is comparatively insensitive to B_CAL.
-B_F   <- 2000L            # bootstrap draws, full-family scale cell
-REPS  <- 1000L            # replications, calibration cell
-B_CAL <- 1000L            # inner bootstrap draws, calibration cell
-
-# ---- Parallelism (calibration cell only) -----------------------------------
-# Outermost loop only. The invariant/regression cells stay SERIAL so their
-# exact-match assertions remain valid regression tests.
-PARALLEL <- TRUE
-WORKERS  <- round(0.9*max(1L, parallel::detectCores() - 2L))
+B_F   <- 300L             # bootstrap draws, full-family scale cell
+REPS  <- 100L             # replications, calibration cell
+B_CAL <- 500L             # inner bootstrap draws, calibration cell
 
 # One synthetic trial: `k` binary candidate covariates, v1 the true modifier.
 simulate_trial <- function(n, k, seed,
@@ -334,14 +316,10 @@ if (identical(SCALE, "full")) {
   fam <- cbind(base, prs)
   dat <- cbind(data.frame(trt = trt, y = ybin), fam)
 
-  # No outer loop here, so parallelism goes over the bootstrap draws instead.
-  # Safe because nothing else is parallel at this point.
-  if (isTRUE(PARALLEL)) future::plan(future::multisession, workers = WORKERS)
   res_full <- guohe_algorithm3(dat, "binary", treatment = "trt",
                                candidates = names(fam), y = "y",
                                orient = +1, B = B_F, seed = 11L,
-                               min_events = 5L, parallel = PARALLEL)
-  if (isTRUE(PARALLEL)) future::plan(future::sequential)
+                               min_events = 5L)
   print(res_full)
   stopifnot(
     res_full$n_candidates > 200L,
@@ -368,10 +346,6 @@ parallelize over `REPS` with `doFuture`/`future` on the 127-core box.
 if (identical(SCALE, "full")) {
   TRUE_MD <- 0.1
   one_rep <- function(rep_id) {
-    # Force the RNG kind: a parallel backend may leave L'Ecuyer-CMRG current,
-    # and set.seed() inherits the CURRENT kind. Pinning it here makes each
-    # replication byte-identical to the serial run.
-    RNGkind("Mersenne-Twister")
     set.seed(10000 + rep_id)
     n <- 800; k <- 25
     trt <- rbinom(n, 1, 0.5)
@@ -387,27 +361,7 @@ if (identical(SCALE, "full")) {
       covered_two = as.numeric(r$ci_two_sided[1] <= TRUE_MD &&
                                  TRUE_MD <= r$ci_two_sided[2]))
   }
-  # Parallelism, outermost loop only. Each replication seeds itself, so the
-  # parallel result is byte-identical to the serial one -- which is what makes
-  # the speed-up verifiable. Never also set parallel = TRUE inside
-  # guohe_algorithm3() here: that would nest multisession within multisession.
-  if (isTRUE(PARALLEL)) {
-    future::plan(future::multisession, workers = WORKERS)
-    a3_path <- normalizePath("guohe_algorithm3.R")   # workers resolve by path
-    reps <- future.apply::future_lapply(
-      seq_len(REPS),
-      function(i) {
-        if (!exists("guohe_algorithm3", mode = "function")) source(a3_path)
-        one_rep(i)
-      },
-      future.seed = TRUE,
-      future.globals = c("one_rep", "a3_path", "TRUE_MD", "B_CAL")
-    )
-  } else {
-    reps <- lapply(seq_len(REPS), one_rep)
-  }
-  if (isTRUE(PARALLEL)) future::plan(future::sequential)   # release workers
-  out <- do.call(rbind, reps)
+  out <- t(vapply(seq_len(REPS), one_rep, numeric(4)))
   cat(sprintf("truth %.3f | mean naive %.3f (bias %+.3f) | mean de-biased %.3f (bias %+.3f)\n",
               TRUE_MD, mean(out[, "naive"]), mean(out[, "naive"]) - TRUE_MD,
               mean(out[, "debiased"]), mean(out[, "debiased"]) - TRUE_MD))
@@ -427,197 +381,5 @@ if (identical(SCALE, "full")) {
   cat("PASS: de-biasing reduces bias and the one-sided bound covers.\n")
 } else {
   cat("SCALE != 'full'; calibration cell skipped (Claude Code tier).\n")
-}
-```
-
-## Full tier --- separated-signal operating characteristics
-
-The calibration cell above is the **all-tied null**: every candidate shares the
-same true effect, which is the configuration the shrinkage offsets are designed
-for. This cell is its complement --- a **real signal inside a large overlapping
-conjunction family**, i.e. the regime a forest-search application actually
-lands in. It replicates the enumerated-family geometry of the scale cell across
-many datasets and evaluates bias and coverage at several fixed `r`.
-
-Truth is the least-false marginal odds ratio of the **selected** rule, which
-differs from replication to replication (the winner is a data-driven
-approximation to the generating rule and generally does not equal it). Each
-worker therefore returns the numeric thresholds of its selected rule, and the
-master evaluates those against one large fixed population --- which keeps the
-truth computation out of the workers entirely.
-
-**Cost.** With the closed-form path this cell is no longer expensive: the
-binary outcome is unadjusted, so each resample scores the whole family with one
-matrix product rather than `candidates` model fits. What was roughly 47 minutes
-on 125 workers under `glm` is now a few minutes. Adaptive-`r` (Algorithm 2) was
-excluded here because it multiplies cost by a further `v * length(r_grid)` per
-dataset, which was prohibitive under `glm`; that objection no longer holds, and
-adding it is the natural next extension of this cell.
-
-```{r}
-#| label: full-separated
-SEP_REPS <- 200L                    # replications
-SEP_N    <- 1200L                   # trial size per replication
-SEP_B    <- 300L                    # bootstrap draws
-SEP_R    <- c(0.03, 0.15, 0.30)     # fixed tuning values to compare
-SEP_V    <- 5L                      # CV folds for the adaptive-r arm
-TRUTH_N  <- 300000L                 # population size for the truth evaluation
-
-# Build the enumerated family AND record each candidate's numeric thresholds,
-# so the selected rule can be re-applied to the truth population later.
-build_family <- function(z) {
-  qgrid <- c(.3, .4, .5, .6, .7, .8)
-  cols <- list(); nm <- character(0); thr <- list()
-  for (j in 1:4) for (q in qgrid) {
-    tv <- unname(stats::quantile(z[, j], q))
-    cols[[length(cols) + 1L]] <- as.integer(z[, j] > tv)
-    nm <- c(nm, sprintf("z%d.gt.q%02d", j, round(100 * q)))
-    t4 <- rep(-Inf, 4); t4[j] <- tv
-    thr[[length(thr) + 1L]] <- t4
-  }
-  nb <- length(cols)
-  ix <- utils::combn(nb, 2)
-  for (k in seq_len(ncol(ix))) {
-    a <- ix[1, k]; b <- ix[2, k]
-    v <- as.integer(cols[[a]] == 1 & cols[[b]] == 1)
-    if (sum(v) >= 60) {
-      cols[[length(cols) + 1L]] <- v
-      nm  <- c(nm, paste0(nm[a], "_AND_", nm[b]))
-      thr[[length(thr) + 1L]] <- pmax(thr[[a]], thr[[b]])   # conjunction = tighter
-    }
-  }
-  fam <- as.data.frame(cols); names(fam) <- nm
-  list(fam = fam, thr = stats::setNames(thr, nm))
-}
-
-# One replication: generate, enumerate, then de-bias at each fixed r.
-one_sep_rep <- function(rep_id) {
-  RNGkind("Mersenne-Twister")
-  set.seed(50000 + rep_id)
-  trt  <- rbinom(SEP_N, 1, 0.5)
-  z    <- matrix(rnorm(SEP_N * 4), SEP_N, 4)
-  harm <- as.integer(z[, 1] > 0.5 & z[, 2] > 0)
-  lp   <- -0.4 + 0.3 * z[, 3] + trt * (-0.25 + 1.1 * harm)
-  y    <- rbinom(SEP_N, 1, plogis(lp))
-  bf  <- build_family(z)
-  dat <- cbind(data.frame(trt = trt, y = y), bf$fam)
-
-  row_of <- function(arm, r_used, res) {
-    tv <- bf$thr[[res$selected]]
-    data.frame(rep_id = rep_id, arm = arm, r_used = r_used,
-               selected = res$selected,
-               t1 = tv[1], t2 = tv[2], t3 = tv[3], t4 = tv[4],
-               naive = res$naive, debiased = res$debiased,
-               bound = res$bound_one_sided,
-               ci_lo = res$ci_two_sided[1], ci_hi = res$ci_two_sided[2],
-               stringsAsFactors = FALSE)
-  }
-
-  # fixed-r arms
-  fixed <- do.call(rbind, lapply(SEP_R, function(rv) {
-    res <- guohe_algorithm3(dat, "binary", treatment = "trt",
-                            candidates = names(bf$fam), y = "y",
-                            orient = +1, B = SEP_B, r = rv, level = 0.05,
-                            seed = rep_id, min_events = 5L, diagnostics = FALSE)
-    row_of(sprintf("r=%.2f", rv), rv, res)
-  }))
-
-  # adaptive-r arm (Algorithm 2), selecting r from the same grid per dataset
-  ar <- try(suppressWarnings(
-    guohe_adaptive_r(dat, "binary", treatment = "trt",
-                     candidates = names(bf$fam), y = "y", orient = +1,
-                     r_grid = SEP_R, v = SEP_V, B = SEP_B, level = 0.05,
-                     seed = rep_id, min_events = 5L, refit = TRUE)
-  ), silent = TRUE)
-  if (inherits(ar, "try-error")) return(fixed)
-  rbind(fixed, row_of("adaptive", ar$r_hat, ar$fit))
-}
-
-if (identical(SCALE, "full")) {
-  if (isTRUE(PARALLEL)) {
-    future::plan(future::multisession, workers = WORKERS)
-    a3_path <- normalizePath("guohe_algorithm3.R")
-    ar_path <- normalizePath("guohe_adaptive_r.R")
-    sep <- future.apply::future_lapply(
-      seq_len(SEP_REPS),
-      function(i) {
-        if (!exists("guohe_algorithm3", mode = "function")) source(a3_path)
-        if (!exists("guohe_adaptive_r", mode = "function")) source(ar_path)
-        one_sep_rep(i)
-      },
-      future.seed = TRUE,
-      future.globals = c("one_sep_rep", "build_family", "a3_path", "ar_path",
-                         "SEP_N", "SEP_B", "SEP_R", "SEP_V")
-    )
-    future::plan(future::sequential)
-  } else {
-    sep <- lapply(seq_len(SEP_REPS), one_sep_rep)
-  }
-  sep <- do.call(rbind, sep)
-
-  # ---- truth for each selected rule, evaluated in the master ---------------
-  set.seed(987654)
-  Ztr   <- matrix(rnorm(TRUTH_N * 4), TRUTH_N, 4)
-  trttr <- rbinom(TRUTH_N, 1, 0.5)
-  hmtr  <- as.integer(Ztr[, 1] > 0.5 & Ztr[, 2] > 0)
-  ytr   <- rbinom(TRUTH_N, 1,
-                  plogis(-0.4 + 0.3 * Ztr[, 3] + trttr * (-0.25 + 1.1 * hmtr)))
-
-  truth_of <- function(t1, t2, t3, t4) {
-    keep <- (Ztr[, 1] > t1) & (Ztr[, 2] > t2) & (Ztr[, 3] > t3) & (Ztr[, 4] > t4)
-    if (sum(keep) < 200L) return(NA_real_)
-    ok <- tryCatch(suppressWarnings(
-      stats::glm(ytr[keep] ~ trttr[keep], family = stats::binomial())),
-      error = function(e) NULL)
-    if (is.null(ok)) NA_real_ else unname(exp(stats::coef(ok)[2]))
-  }
-  key <- paste(sep$t1, sep$t2, sep$t3, sep$t4, sep = "|")
-  uk  <- !duplicated(key)
-  tru <- vapply(which(uk), function(i)
-    truth_of(sep$t1[i], sep$t2[i], sep$t3[i], sep$t4[i]), numeric(1))
-  sep$truth <- tru[match(key, key[uk])]
-
-  # ---- summarise by r ------------------------------------------------------
-  ok <- is.finite(sep$truth)
-  arms <- c(sprintf("r=%.2f", SEP_R), "adaptive")
-  summ <- do.call(rbind, lapply(arms, function(av) {
-    s <- sep[ok & sep$arm == av, ]
-    if (!nrow(s)) return(NULL)
-    data.frame(
-      arm            = av,
-      reps           = nrow(s),
-      mean_r         = mean(s$r_used),
-      mean_truth     = mean(s$truth),
-      bias_naive     = mean(s$naive - s$truth),
-      bias_debiased  = mean(s$debiased - s$truth),
-      rmse_naive     = sqrt(mean((s$naive - s$truth)^2)),
-      rmse_debiased  = sqrt(mean((s$debiased - s$truth)^2)),
-      cover_onesided = mean(s$bound <= s$truth),
-      cover_twosided = mean(s$ci_lo <= s$truth & s$truth <= s$ci_hi)
-    )
-  }))
-  cat(sprintf("Separated-signal OCs | %d reps, %d candidates, B = %d, n = %d\n",
-              SEP_REPS, length(unique(sep$selected)), SEP_B, SEP_N))
-  cat(sprintf("distinct selected rules across replications: %d\n",
-              length(unique(sep$selected))))
-  cat(sprintf("Monte Carlo SE on coverage ~ %.3f\n\n", sqrt(0.95 * 0.05 / SEP_REPS)))
-  print(summ, row.names = FALSE, digits = 4)
-
-  ad <- sep[ok & sep$arm == "adaptive", ]
-  if (nrow(ad)) {
-    cat("\nadaptive-r: distribution of the selected r\n")
-    print(table(sprintf("%.2f", ad$r_used)))
-  }
-
-  stopifnot(
-    nrow(summ) == length(SEP_R) + 1L,
-    all(summ$reps > 0.8 * SEP_REPS),          # truth resolvable for most reps
-    all(summ$bias_naive > 0)                  # winner's curse present at every r
-  )
-  cat("\nRead: `bias_naive` is the winner's curse; `bias_debiased` is what remains\n",
-      "after correction. A sign flip means over-correction past truth. Coverage is\n",
-      "against the SELECTED rule's own truth, which varies by replication.\n", sep = "")
-} else {
-  cat("SCALE != 'full'; separated-signal cell skipped (Claude Code tier).\n")
 }
 ```

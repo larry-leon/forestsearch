@@ -1,0 +1,228 @@
+---
+title: "Consistency screen: `split` vs `resample`"
+subtitle: "What the MR approximation inside the search actually buys (GBSG, Cox)"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: true
+  message: true
+bibliography: []
+---
+
+`forestsearch()` offers `consistency_method = c("split", "resample")`.
+
+- **`"split"`** is the literal calculation: repeated 50/50 splits, each requiring
+  two refits per candidate.
+- **`"resample"`** replaces that with a single subgroup fit plus a multiplier
+  representation of the split pair. The per-subject treatment influence
+  contributions are the treatment column of the model's `dfbeta`, the half
+  effects are $\hat\beta \pm D$ with $D=\sum_i G_i\,\mathrm{dfbeta}_i$, and
+  because $\sigma_D=\sqrt{\sum_i \mathrm{dfbeta}_i^2}$ is exactly the robust SE,
+  the consistency rate collapses to a closed form,
+  $2\Phi\!\left((\hat\beta-c)/\sigma_D\right)-1$.
+
+This is MR machinery operating *inside* the search, so it is inherited by every
+bootstrap resample --- the full bootstrap re-runs the whole search per draw.
+This document measures what that substitution buys and whether it changes any
+conclusion.
+
+Two tiers, independently toggleable:
+
+- **Tier A (cheap, minutes):** a single search under each method. Compares the
+  selected subgroup, the candidate/survivor counts, the consistency rates, and
+  the naive effects.
+- **Tier B (expensive, ~10--25 min per arm):** the full bootstrap under each
+  method. This is the number that matters, because the screen runs inside every
+  one of the `NB` resamples --- Tier A alone understates the saving by roughly a
+  factor of `NB`.
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+library(forestsearch)
+library(survival)
+library(future)
+timings <- list()
+```
+
+```{r config}
+n_cores <- max(1L, floor(0.80 * parallel::detectCores(logical = FALSE)))
+NB      <- 1000L        # bootstrap draws for Tier B
+RUN_TIER_B <- TRUE      # set FALSE to skip the full-bootstrap arms
+
+# Knobs mirrored from analysis_gbsg_cox_multimethod_psi_v2_2new.qmd so the
+# comparison sits on the same configuration as the main analysis.
+fs_sg_focus             <- "effMaxSG"
+fs_hr_threshold         <- 1.0
+fs_hr_consistency       <- 1.0
+fs_max_subgroups_search <- 50
+fs_conf_force           <- c("er <= 0", "pgr <= 0")
+fs_subgroup_method      <- "consistency"   # the screen only applies here
+run_debias_gate         <- TRUE
+gate_draws              <- 5000L
+cat("cores:", n_cores, "| NB:", NB, "| Tier B:", RUN_TIER_B, "\n")
+```
+
+## Data
+
+```{r data-setup}
+df.analysis <- gbsg
+df.analysis <- within(df.analysis, {
+  id          <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3      <- ifelse(grade == "3", 1, 0)
+  treat       <- hormon
+})
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+outcome.name <- "time_months"; event.name <- "status"
+id.name      <- "id";          treat.name <- "hormon"
+cat("n =", nrow(df.analysis), "| events =", sum(df.analysis$status), "\n")
+```
+
+## Tier A --- one search under each method
+
+```{r tier-a}
+fit_one <- function(method, seed = 8316951) {
+  t0 <- proc.time()
+  fs <- forestsearch(
+    df.analysis,
+    outcome.name = outcome.name, event.name = event.name,
+    treat.name = treat.name, id.name = id.name,
+    confounders.name = confounders.name,
+    is.RCT = TRUE, seedit = seed, est.scale = "hr",
+    use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE,
+    conf_force = fs_conf_force,
+    conf.cont_jcuts = list(er = 10, pgr = 10),
+    collapse_cuts = TRUE, cont.cutoff = 4,
+    subgroup_method = fs_subgroup_method,
+    sg_focus = fs_sg_focus,
+    selection_rule = "neighborhood", effect_neighborhood = 0.10,
+    debias_gate = run_debias_gate,
+    debias_gate_args = list(draws = gate_draws),
+    n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
+    max_subgroups_search = fs_max_subgroups_search,
+    hr.threshold = fs_hr_threshold, hr.consistency = fs_hr_consistency,
+    pconsistency.threshold = 0.90,
+    consistency_method = method,          # <-- the comparison
+    fs.splits = 1000, stop_threshold = 0.95,
+    use_twostage = TRUE, max.minutes = 3,
+    details = FALSE, quiet = TRUE, plot.sg = FALSE,
+    parallel_args = list(plan = "multisession", workers = n_cores,
+                         show_message = FALSE)
+  )
+  plan("sequential")
+  list(fs = fs, secs = unname((proc.time() - t0)["elapsed"]))
+}
+
+a_split  <- fit_one("split")
+a_resamp <- fit_one("resample")
+timings$search_split  <- a_split$secs
+timings$search_resamp <- a_resamp$secs
+
+descr <- function(o) {
+  fs <- o$fs
+  sg <- tryCatch(paste(fs$sg.harm, collapse = " & "), error = function(e) NA_character_)
+  g  <- fs$debias_gate
+  data.frame(
+    search_secs = round(o$secs, 2),
+    subgroup    = if (length(sg) && !is.na(sg) && nzchar(sg)) sg else "(none)",
+    n_family    = tryCatch(as.integer(g$n_family), error = function(e) NA_integer_),
+    sel_bias    = tryCatch(round(as.numeric(g$selection_bias), 4), error = function(e) NA_real_),
+    gate_secs   = tryCatch(round(as.numeric(g$timing_seconds), 3), error = function(e) NA_real_),
+    stringsAsFactors = FALSE
+  )
+}
+tierA <- rbind(cbind(method = "split", descr(a_split)),
+               cbind(method = "resample", descr(a_resamp)))
+knitr::kable(tierA, caption = "Tier A: single search under each consistency method")
+```
+
+```{r tier-a-agreement}
+same_sg <- identical(tierA$subgroup[1], tierA$subgroup[2])
+cat(sprintf("Same subgroup selected: %s\n", same_sg))
+cat(sprintf("Search speed-up (split / resample): %.1fx\n",
+            timings$search_split / timings$search_resamp))
+if (!same_sg) {
+  cat("\nNOTE: the two methods selected DIFFERENT subgroups. That is the",
+      "\nsubstantive result -- the approximation changed the search outcome,",
+      "\nnot merely its speed. Report it rather than averaging over it.\n")
+}
+```
+
+## Tier B --- full bootstrap under each method
+
+The screen runs inside every resample, so this is where the substitution pays.
+Both arms use the same `NB` and the same worker count, so the ratio is
+attributable to the screen.
+
+```{r tier-b}
+#| eval: !expr RUN_TIER_B
+boot_one <- function(fs_obj) {
+  t0 <- proc.time()
+  bc <- forestsearch_bootstrap_dofuture(
+    fs.est = fs_obj, nb_boots = NB, show_three = FALSE, details = FALSE,
+    parallel_args = list(plan = "multisession", workers = n_cores,
+                         show_message = FALSE)
+  )
+  plan("sequential")
+  list(bc = bc, secs = unname((proc.time() - t0)["elapsed"]))
+}
+b_split  <- boot_one(a_split$fs)
+b_resamp <- boot_one(a_resamp$fs)
+timings$boot_split  <- b_split$secs
+timings$boot_resamp <- b_resamp$secs
+
+pull <- function(o) {
+  e <- o$bc$H_estimates
+  f <- function(n) tryCatch(as.numeric(e[[n]]), error = function(x) NA_real_)
+  data.frame(boot_min = round(o$secs / 60, 2),
+             naive_H0 = round(f("H0"), 4),
+             debiased_H2 = round(f("H2"), 4),
+             H2_lo = round(f("H2_lower"), 4), H2_hi = round(f("H2_upper"), 4))
+}
+tierB <- rbind(cbind(method = "split", pull(b_split)),
+               cbind(method = "resample", pull(b_resamp)))
+knitr::kable(tierB, caption = "Tier B: full bootstrap under each consistency method")
+
+cat(sprintf("\nBootstrap speed-up (split / resample): %.1fx\n",
+            timings$boot_split / timings$boot_resamp))
+cat(sprintf("De-biased HR: split %.4f vs resample %.4f (absolute diff %.4f)\n",
+            tierB$debiased_H2[1], tierB$debiased_H2[2],
+            abs(tierB$debiased_H2[1] - tierB$debiased_H2[2])))
+```
+
+```{r tier-b-skipped}
+#| eval: !expr (!RUN_TIER_B)
+cat("Tier B skipped (RUN_TIER_B = FALSE).\n")
+```
+
+## Reading this
+
+The comparison answers two separate questions, and they should not be
+collapsed:
+
+1. **Speed.** The Tier B ratio is the honest figure for what the MR
+   approximation buys in practice, because the screen is re-run inside every
+   bootstrap draw. The Tier A ratio understates it by roughly `NB`.
+2. **Fidelity.** Whether `"resample"` reaches the same subgroup and the same
+   de-biased estimate as the exact `"split"` calculation. Agreement supports
+   treating the approximation as sound; disagreement is a finding about the
+   approximation, not a bug.
+
+Both are single-application results. A claim that `"resample"` is a reliable
+substitute in general needs replication across simulated datasets --- the same
+distinction that applies to every other one-dataset comparison in this project.
+
+```{r session}
+#| echo: false
+cat("\n--- timings (seconds) ---\n"); print(unlist(timings))
+```
