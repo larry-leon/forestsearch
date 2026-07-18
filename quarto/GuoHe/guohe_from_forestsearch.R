@@ -82,13 +82,17 @@ guohe_from_forestsearch <- function(fs,
 
   # ---- scope gate --------------------------------------------------------
   focus <- fs$sg_focus %||% args$sg_focus
-  in_scope <- identical(focus, "maxeff")
+  # The argmax-of-effect primitive Guo & He cover is forestsearch()'s "eff"
+  # focus (canonical synonym "hr"): which.max(effect) among passers.  ("maxeff"
+  # is NOT a user-facing sg_focus -- it is the de-biased gate's INTERNAL
+  # reselection-rule token; a fitted object's sg_focus is "eff"/"hr".)
+  in_scope <- isTRUE(focus %in% c("eff", "hr"))
   if (!in_scope) {
     msg <- paste0(
       "sg_focus = '", focus, "' is outside Guo & He's scope. Their correction is ",
       "built on the argmax functional; '", focus, "' selects by size within an ",
       "effect band, which is not a supremum of the effect. Use sg_focus = ",
-      "'maxeff', or set force = TRUE and report the result as out of scope."
+      "'eff' (or 'hr'), or set force = TRUE and report the result as out of scope."
     )
     if (!isTRUE(force)) stop(msg) else warning(msg)
   }
@@ -127,17 +131,33 @@ guohe_from_forestsearch <- function(fs,
   }
 
   # ---- reconstruct the full <= maxk family, filtered by n.min -----------
-  Z <- as.data.frame(lapply(df[cuts], function(z) as.integer(z == 1)))
-  names(Z) <- cuts
-  L <- ncol(Z)
-  memb <- list()
-  for (k in seq_len(min(maxk, L))) {
-    combos <- utils::combn(L, k, simplify = FALSE)
-    for (cb in combos) {
-      v <- Reduce(`&`, lapply(cb, function(j) Z[[j]] == 1L))
-      if (sum(v) >= n.min) {
-        memb[[paste(cuts[cb], collapse = " & ")]] <- as.integer(v)
-      }
+  # Enumerate with the SEARCH'S OWN helpers over the dummy-expanded cut matrix
+  # Z -- i.e. BOTH directions of each cut (x.0 and x.1), exactly as
+  # forestsearch_main.R builds the space it hands the Tier-2 gate
+  # (Z <- as.matrix(dummy(df[, conf.screen]))).  Coercing the single-direction
+  # `cuts` with combn (the previous approach) omitted every complement column
+  # and could never reproduce the gate's family.  `as.factor` before
+  # dummy_encode guarantees each 0/1 cut expands to two indicators even if the
+  # estimation frame stored it numeric.
+  Zdf <- forestsearch::dummy_encode(
+    as.data.frame(lapply(df[cuts], as.factor), check.names = FALSE))
+  Z   <- as.matrix(Zdf)
+  colnames(Z) <- names(Zdf)
+  L   <- ncol(Z)
+  combo <- forestsearch:::generate_combination_indices(L, maxk)
+  tot   <- forestsearch:::calculate_max_combinations(L, maxk)
+  memb  <- list()
+  for (kk in seq_len(tot)) {
+    covs.in <- forestsearch::get_covs_in(
+      kk, maxk, L,
+      combo$counts_1, combo$indices_1,
+      combo$counts_2, combo$indices_2,
+      combo$counts_3, combo$indices_3)
+    k_sel <- sum(covs.in)
+    if (k_sel < 1L || k_sel > maxk) next
+    v <- as.integer(forestsearch::get_subgroup_membership(Z, covs.in))
+    if (sum(v) >= n.min) {
+      memb[[paste(colnames(Z)[covs.in == 1], collapse = " & ")]] <- v
     }
   }
   if (!length(memb)) stop("No candidate met `n.min`; nothing to search over.")

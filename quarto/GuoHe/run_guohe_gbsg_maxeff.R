@@ -66,7 +66,7 @@ cat("cores:", n_cores, "\n\n")
 # correction is built on the argmax functional, so "maxeff" is the only
 # configuration it covers. Expect a DIFFERENT selected subgroup than the
 # headline fit -- that is the configuration change, not an error.
-cat("=== fitting forestsearch(sg_focus = 'maxeff') ===\n")
+cat("=== fitting forestsearch(sg_focus = 'eff') ===\n")
 t0 <- proc.time()
 fs <- forestsearch(
   df.analysis,
@@ -79,7 +79,10 @@ fs <- forestsearch(
   conf.cont_jcuts = list(er = 10, pgr = 10),
   collapse_cuts = TRUE, cont.cutoff = 4,
   subgroup_method = "consistency",
-  sg_focus = "maxeff",                       # <-- the argmax configuration
+  sg_focus = "eff",                          # <-- the argmax configuration
+                                             # ("eff"/"hr" is the argmax-of-effect
+                                             # primitive; "maxeff" is an internal
+                                             # gate reselection token, not a sg_focus)
   selection_rule = "neighborhood", effect_neighborhood = 0.10,
   debias_gate = TRUE,                        # needed for the self-check
   debias_gate_args = list(draws = 5000L),
@@ -101,11 +104,17 @@ cat("gate n_family:", tryCatch(fs$debias_gate$n_family, error = function(e) NA),
 
 # ---- apply the Guo & He comparator ----------------------------------------
 cat("=== Guo & He comparator on the reconstructed family ===\n")
+cat(sprintf("comparator parallel: TRUE | workers: %d\n", n_cores))
+future::plan(future::multisession, workers = n_cores)
 res <- guohe_from_forestsearch(
   fs, r = 0.03, B = 2000L, level = 0.05, seed = 20260718L,
   orient = +1,          # forest-search harm convention: most HARMFUL effect
+  parallel = TRUE,      # distribute bootstrap model fits over the workers above
+                        # (byte-identical to serial: resample indices are drawn
+                        #  serially under `seed`, only fitting is distributed)
   verbose = TRUE
 )
+future::plan(future::sequential)
 print(res)
 
 cat("\n=== ACCEPTANCE CHECK ===\n")
