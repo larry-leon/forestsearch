@@ -1,0 +1,541 @@
+---
+title: "Detailed reproduction of the Guo & He (2021) supplement proofs"
+subtitle: "Expanded arguments for Theorems 1--5, with the underlying empirical-process machinery"
+date: 2026-07-18
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+bibliography: []
+---
+
+## Preface {#sec-preface}
+
+This document reproduces, in expanded detail, the proofs in Appendix A of the
+supplement to Guo and He (2021), *Inference on Selected Subgroups in Clinical
+Trials* (JASA 116(535):1498--1506). The supplement is terse: several steps are
+compressed into "similar to the proof of Lemma X," and the measure-theoretic
+machinery is invoked implicitly. Here every lemma and theorem is restated and
+proved with the intermediate steps written out, and the standard results that
+carry each step are named and attributed to the texts in the project knowledge
+base.
+
+**Conventions and honesty notes.**
+
+- *Provenance.* The statements and proof skeletons are Guo and He's; the
+  expansions, the explicit machinery, and the remarks connecting to
+  `forestsearch` are added here. Where a step goes beyond a verbatim expansion,
+  it is marked *(expansion)*.
+- *Project-KB citations.* The empirical-process texts in the KB
+  (`Kosorok2008`, `pollard1984`, `Gill_1980`, `Wellner_1986`) are **scanned
+  image PDFs and are not machine-readable**, so results from them are cited by
+  their well-established content and standard numbering *from knowledge*, not by
+  page numbers verified against those specific scans. Treat the pinpoint
+  references as "the standard result of this name in this source," to be checked
+  against the physical copy before any citation is transcribed into a
+  manuscript. `Billingsley_1999`, `2015cck`, and `StafanskiBoos_2001` are cited
+  the same way.
+- *One transcription subtlety.* The extracted text of the supplement renders the
+  localization radius in Lemma 5.1 as $\log(n)/n$, but the proof's own
+  inequality requires $\sqrt n \cdot (\text{radius}) \to \infty$, which forces
+  the radius to be $\log(n)/\sqrt n$. This is almost certainly a dropped
+  $\sqrt{\,\cdot\,}$ in extraction; @sec-lem51 uses the coherent radius and flags
+  the point.
+
+---
+
+## Part I --- Predefined family (Theorems 1--3) {#sec-part1}
+
+### Setup, notation, and assumptions {#sec-setup1}
+
+There are $k$ candidate subgroups (possibly overlapping), with population and
+estimated treatment effects $\beta_i$ and $\hat\beta_i$, $i \in [k] = \{1,\dots,k\}$,
+each estimated from the $n_i$ subjects in subgroup $i$; $k$ is **fixed** and
+$n_i/n$ is bounded away from $0$ and $1$. A larger $\beta_i$ denotes a better
+treatment effect. The two targets are
+
+$$
+\beta_{\max} = \max_{i\in[k]}\beta_i \quad(\text{a fixed parameter}),
+\qquad
+\beta_s = \beta_{s},\ \ s = \arg\max_{i\in[k]}\hat\beta_i\quad(\text{random: the effect of the \emph{selected} subgroup}).
+$$
+
+Write the **best set** $H = \{i : \beta_i = \beta_{\max}\}$ and the **margin**
+$$
+d_{\max} \;=\; \beta_{\max} - \max_{i\notin H}\beta_i \;>\; 0,
+$$
+the (strictly positive) gap separating the best tier $H$ from the rest. Define
+the local coordinates
+$$
+T_i = \sqrt n(\hat\beta_i - \beta_i),\qquad
+T_i^\ast = \sqrt n(\beta_i^\ast - \hat\beta_i),
+$$
+where $\beta_i^\ast$ is the effect in a bootstrap resample, and the vector
+$V=(V_1,\dots,V_k)$ with $V_i = (\hat\beta_{\max}-\beta_{\max})-(\hat\beta_i-\beta_i)$.
+The **shrinkage offsets** and the **modified bootstrap maximum** are
+$$
+d_i = \bigl(1-n^{\,r-0.5}\bigr)\bigl(\hat\beta_{\max}-\hat\beta_i\bigr),
+\qquad
+\beta^\ast_{\max,\mathrm{modified}} = \max_{i\in[k]}\bigl(\beta_i^\ast + d_i\bigr),
+\qquad r\in(0,\tfrac12).
+$$
+
+**Assumption 1.1 (asymptotic normality).** $\sqrt n(\hat\beta_1-\beta_1,\dots,\hat\beta_k-\beta_k)$ is asymptotically normal.
+
+**Assumption 1.2 (bootstrap consistency).** Conditional on the data, the limiting law of $\sqrt n(\beta_1^\ast-\hat\beta_1,\dots,\beta_k^\ast-\hat\beta_k)$ equals that in Assumption 1.1, in probability.
+
+**Assumption 2.1 (2nd moment).** $\limsup_{n}\mathbb E\bigl[\sqrt n(\hat\beta_i-\beta_i)\bigr]^2<\infty$, $i\in[k]$.
+
+**Assumption 2.2 (2nd bootstrap moment).** $\limsup_{n}\mathbb E^\ast\bigl[\sqrt n(\beta_i^\ast-\hat\beta_i)\bigr]^2<\infty$, $i\in[k]$, in probability.
+
+**Assumption 2.3.** $\limsup_{n}\mathbb E\bigl\{\mathbb E^\ast[\sqrt n(\beta_i^\ast-\hat\beta_i)]^2\bigr\}<\infty$, $i\in[k]$.
+
+::: {.callout-note}
+## Remark (expansion): when do 1.1 / 1.2 hold, and why the Cox $\to$ GLM swap is legitimate
+Assumption 1.1 is a regular-asymptotic-linearity (RAL) statement. For the GLM
+paths (logistic log-odds-ratio, Gaussian mean difference) it follows from
+$M$-estimation theory: the within-subgroup estimator solves an unbiased
+estimating equation and admits an influence-function expansion with a sandwich
+variance (Stefanski and Boos, 2001). For the survival path (Cox partial-
+likelihood log-hazard-ratio) it follows from the counting-process/martingale
+central limit theorem for the partial-likelihood score (Gill, 1980). Bootstrap
+consistency (1.2) holds for these smooth estimators under the paired/case
+bootstrap (this is the standard "bootstrap works for the sandwich" fact). Because
+the whole argument below uses $\hat\beta_i$ *only through* 1.1--1.2, it is
+indifferent to which of these estimators produces $\hat\beta_i$ --- the exact
+reason the comparator's `coxph` $\to$ `glm` swap preserves validity.
+:::
+
+### A helper: a maximum with one component diverging to $-\infty$ {#sec-helper}
+
+*(expansion --- used repeatedly and stated once here.)*
+
+> **Lemma H.** Let $A_n \rightsquigarrow A$ and $B_n \to -\infty$ in probability.
+> Then $\max(A_n,B_n)\rightsquigarrow A$.
+
+*Proof.* Fix $x$ with $\mathbb P(A\le x)$ continuous at $x$. For any $M$,
+$\{\max(A_n,B_n)\le x\}=\{A_n\le x\}\cap\{B_n\le x\}$, so
+$$
+\mathbb P(A_n\le x)-\mathbb P(B_n>x)\le \mathbb P(\max(A_n,B_n)\le x)\le \mathbb P(A_n\le x).
+$$
+Since $B_n\to-\infty$ in probability, $\mathbb P(B_n>x)\le \mathbb P(B_n>-M)\to0$;
+hence $\mathbb P(\max(A_n,B_n)\le x)\to \mathbb P(A\le x)$. $\qquad\blacksquare$
+
+The same bound underlies (A.1)--(A.2) in the supplement; isolating it removes the
+repetition.
+
+### Lemma 1.1 {#sec-lem11}
+
+> **Lemma 1.1.** Under Assumption 1.1,
+> $\displaystyle \sup_{x\in\mathbb R}\bigl|\,\mathbb P(\sqrt n(\hat\beta_{\max}-\beta_{\max})\le x)-\mathbb P(\max_{i\in H}T_i\le x)\bigr|\to0.$
+
+*Proof.* Because $\hat\beta_{\max}=\max_i\hat\beta_i$,
+$$
+\sqrt n(\hat\beta_{\max}-\beta_{\max})
+=\max_{i\in[k]}\sqrt n(\hat\beta_i-\beta_{\max})
+=\max_{i\in[k]}\bigl[T_i+\sqrt n(\beta_i-\beta_{\max})\bigr].
+$$
+Split $[k]=H\cup H^{c}$. For $i\in H$, $\beta_i=\beta_{\max}$, so the bracket is
+$T_i$. For $j\notin H$, $\beta_j<\beta_{\max}$ and
+$\sqrt n(\beta_j-\beta_{\max})\le-\sqrt n\,d_{\max}\to-\infty$. Thus the event
+$\{\sqrt n(\hat\beta_{\max}-\beta_{\max})\le x\}$ equals
+$$
+\Bigl\{\max_{i\in H}T_i\le x\Bigr\}\ \cap\ \Bigl\{T_j\le x+\sqrt n(\beta_{\max}-\beta_j),\ j\notin H\Bigr\}. \tag{A.1}
+$$
+Intersecting the second event contains $\{\max_{j\notin H}T_j\le x+\sqrt n\,d_{\max}\}$ (since $\beta_{\max}-\beta_j\ge d_{\max}$), so
+$$
+\bigl|\mathbb P(\sqrt n(\hat\beta_{\max}-\beta_{\max})\le x)-\mathbb P(\max_{i\in H}T_i\le x)\bigr|
+\le 1-\mathbb P\!\Bigl(\max_{j\notin H}T_j\le x+\sqrt n\,d_{\max}\Bigr).
+$$
+Under Assumption 1.1 each $T_j=O_p(1)$, while $x+\sqrt n\,d_{\max}\to+\infty$;
+hence the right side $\to0$ for every fixed $x$. The pointwise convergence is of
+cdfs to the cdf of $\max_{i\in H}T_i$, which is the maximum of a (jointly)
+Gaussian vector and therefore **continuous** (no atoms). By Pólya's theorem
+(Billingsley, 1999 --- pointwise convergence to a continuous limit cdf upgrades to
+uniform), the convergence is uniform in $x$. $\qquad\blacksquare$
+
+::: {.callout-note}
+## Remark (expansion): the margin $d_{\max}>0$ is the regularity that makes this "sharp"
+The single ingredient beyond asymptotic normality is $d_{\max}>0$ --- a
+*separated* best tier. This is precisely the separated branch of the $(A5)$-type
+threshold in `fs-post-selection`; the "near-tie" regime ($d_{\max}\downarrow0$
+with $n$) is exactly where the fixed-$k$ argument becomes delicate, and is the
+regime that document treats as its headline.
+:::
+
+### Lemma 1.2 {#sec-lem12}
+
+> **Lemma 1.2.** Under Assumptions 1.1--1.2 and $0<r<\tfrac12$,
+> $\displaystyle \sup_{x}\bigl|\,\mathbb P^\ast(\sqrt n(\beta^\ast_{\max,\mathrm{modified}}-\hat\beta_{\max})\le x)-\mathbb P(\max_{i\in H}T_i\le x)\bigr|\to0$ in probability.
+
+*Proof.* The modified statistic is
+$\beta^\ast_{\max,\mathrm{modified}}-\hat\beta_{\max}
+=\max_{i}\bigl(\beta_i^\ast+d_i-\hat\beta_{\max}\bigr)$. Adding and subtracting,
+$\sqrt n(\beta_i^\ast+d_i-\hat\beta_{\max})=T_i^\ast+\sqrt n(d_i-(\hat\beta_{\max}-\hat\beta_i))
+=T_i^\ast - n^{\,r}(\hat\beta_{\max}-\hat\beta_i)$, using
+$d_i-(\hat\beta_{\max}-\hat\beta_i)=-n^{\,r-0.5}(\hat\beta_{\max}-\hat\beta_i)$ and multiplying by $\sqrt n$.
+Writing the offset through $V$ as in the supplement (for $i\in H$,
+$n^{r}(\hat\beta_{\max}-\hat\beta_i)=n^{r}V_i+o_p(1)$), the same decomposition as
+(A.1) gives, with $\lVert V\rVert_\infty=\max_i|V_i|$,
+$$
+\Bigl|\mathbb P^\ast\!\bigl(\sqrt n(\beta^\ast_{\max,\mathrm{modified}}-\hat\beta_{\max})\le x\bigr)-\mathbb P^\ast\!\bigl(T_i^\ast\le x+n^{r}V_i,\ i\in H\bigr)\Bigr|
+\le 1-\mathbb P^\ast\!\Bigl(T_j^\ast\le x+n^{r}d_{\max}-n^{r}\lVert V\rVert_\infty,\ j\notin H\Bigr). \tag{A.2}
+$$
+Two facts finish it. **(i)** $V_i=(\hat\beta_{\max}-\beta_{\max})-(\hat\beta_i-\beta_i)=O_p(n^{-1/2})$ by Assumption 1.1, so $n^{r}\lVert V\rVert_\infty=O_p(n^{\,r-1/2})\to0$ because $r<\tfrac12$; and $n^{r}d_{\max}\to+\infty$. Hence the right side of (A.2) $\to0$ in probability (each $T_j^\ast=O_p(1)$ under 1.2). **(ii)** For $i\in H$, $x+n^{r}V_i=x+o_p(1)$, so by 1.1--1.2 the reference event $\{T_i^\ast\le x+n^{r}V_i,\ i\in H\}$ has the same limiting probability as $\{\max_{i\in H}T_i\le x\}$. Combining and applying Pólya's theorem (continuous Gaussian-max limit) gives uniform convergence in probability. $\qquad\blacksquare$
+
+::: {.callout-note}
+## Remark (expansion): what the offsets do
+$d_i$ shifts each *non-winner* up toward the winner by $(1-n^{r-0.5})(\hat\beta_{\max}-\hat\beta_i)$. On the bootstrap scale this contributes $-n^{r}(\hat\beta_{\max}-\hat\beta_i)$, which $\to-\infty$ for a strict loser ($i\notin H$) but stays $O_p(1)$ for a co-winner ($i\in H$, where $\hat\beta_{\max}-\hat\beta_i=O_p(n^{-1/2})$). The offsets therefore *retain exactly the members of $H$ in the bootstrap competition and eject the strict losers* --- reproducing, in the resample, the same $\max_{i\in H}$ that governs the sampling law in Lemma 1.1. The rate $r<\tfrac12$ is what makes $n^{r}\cdot O_p(n^{-1/2})\to0$ (co-winners survive) while $n^{r}\cdot(\text{const})\to\infty$ (losers ejected).
+:::
+
+### Theorem 1 and Corollary 1 {#sec-thm1}
+
+> **Theorem 1.** Under 1.1--1.2 and $0<r<\tfrac12$,
+> $\sup_x|\mathbb P^\ast(\sqrt n(\beta^\ast_{\max,\mathrm{modified}}-\hat\beta_{\max})\le x)-\mathbb P(\sqrt n(\hat\beta_{\max}-\beta_{\max})\le x)|\to0$ in probability.
+
+*Proof.* Both cdfs converge uniformly to the cdf of $\max_{i\in H}T_i$ --- the
+sampling side by Lemma 1.1, the bootstrap side by Lemma 1.2 --- so their
+difference is bounded by the sum of the two Lemma bounds and $\to0$ in
+probability. $\qquad\blacksquare$
+
+> **Corollary 1.** Under the same conditions, the statement holds with $\beta_s$ in place of $\beta_{\max}$ on the sampling side.
+
+*Proof.* It suffices that $\sqrt n(\beta_s-\beta_{\max})\to0$ in probability;
+then $\sqrt n(\hat\beta_{\max}-\beta_s)$ and $\sqrt n(\hat\beta_{\max}-\beta_{\max})$
+share a limit and Theorem 1 transfers. Suppose not. By definition $\beta_s=\beta_{\hat s}$ with $\hat s=\arg\max_i\hat\beta_i$; $\beta_s\ne\beta_{\max}$ on a set of non-vanishing probability means $\hat s\notin H$ with non-vanishing probability, i.e. $\max_{i\notin H}\hat\beta_i\ge\max_{i\in H}\hat\beta_i$ persists. But $\max_{i\in H}\hat\beta_i=\beta_{\max}+O_p(n^{-1/2})$ and $\max_{i\notin H}\hat\beta_i=\max_{i\notin H}\beta_i+O_p(n^{-1/2})\le\beta_{\max}-d_{\max}+O_p(n^{-1/2})$, so that event has probability $\to0$ --- contradiction. $\qquad\blacksquare$
+
+::: {.callout-note}
+## Remark: this is the merger that settles the estimand question
+Corollary 1 is the precise mechanism behind "the two targets coincide" once the
+family is predefined: with probability $\to1$ the selected subgroup *is* a best
+subgroup, so $\sqrt n(\beta_s-\beta_{\max})\to0$ and the same interval serves both
+$\beta_s$ (conditional, $\beta(\hat H)$-adjacent) and $\beta_{\max}$ (marginal,
+$\theta^\dagger$-adjacent). @sec-lem51--@sec-thm5 show this merger is a
+*predefined-family* phenomenon that need **not** hold for post-hoc identification,
+where a separate argument ($\gamma_{ss}$) is required.
+:::
+
+### Uniform integrability and the bias: Lemmas 2.1--2.2 {#sec-lem2}
+
+The bias-reduction results upgrade the *distributional* convergence of
+@sec-lem11--@sec-lem12 to convergence of *means*. The tool is:
+
+> **Fact (uniform integrability $\Rightarrow$ convergence of moments).** If $X_n\rightsquigarrow X$ and $\{X_n\}$ is uniformly integrable, then $\mathbb E X_n\to\mathbb E X$ (Billingsley, 1999, Thm. 3.5 / §25). A sufficient condition for UI is $\sup_n\mathbb E|X_n|^2<\infty$.
+
+> **Lemma 2.1.** Under 1.1 and 2.1, $\bigl|\mathbb E[\sqrt n(\hat\beta_{\max}-\beta_{\max})]-\mathbb E[\max_{i\in H}T_i]\bigr|\to0$.
+
+*Proof.* Write $X_n=\sqrt n(\hat\beta_{\max}-\beta_{\max})=\max_{i\in H}T_i+R_n$ with $R_n=\max\!\bigl(0,\max_{j\notin H}\sqrt n(\hat\beta_j-\hat\beta_{\max})\bigr)\ge0$. By $(a+b)^2\le2a^2+2b^2$,
+$$
+\mathbb E X_n^2\le 2\,\mathbb E\bigl[\max_{i\in H}T_i\bigr]^2+2\,\mathbb E\bigl[\max\bigl(0,\max_{j\notin H}(T_j-\max_{i\in H}T_i)\bigr)\bigr]^2. \tag{A.3}
+$$
+Both terms are finite uniformly in $n$: $\mathbb E[\max_{i\in H}T_i]^2\le\mathbb E[\max_{i\in H}T_i^2]\le\sum_{i\in H}\mathbb E T_i^2<\infty$ by Assumption 2.1, and identically for the $H^{c}$ term. Hence $\sup_n\mathbb E X_n^2<\infty$, so $\{X_n\}$ is UI; indeed, by Cauchy--Schwarz,
+$$
+\mathbb E\bigl[|X_n|\,\mathbf 1_{|X_n|>c}\bigr]\le\bigl(\mathbb E X_n^2\bigr)^{1/2}\bigl(\mathbb P(|X_n|>c)\bigr)^{1/2}\le\bigl(\mathbb E X_n^2\bigr)^{1/2}\bigl(\mathbb E X_n^2/c^2\bigr)^{1/2}\to0 \tag{A.4}
+$$
+uniformly in $n$ as $c\to\infty$ (Markov for $\mathbb P(|X_n|>c)$). With $X_n\rightsquigarrow\max_{i\in H}T_i$ (Lemma 1.1) and UI, the Fact gives $\mathbb E X_n\to\mathbb E[\max_{i\in H}T_i]$. $\qquad\blacksquare$
+
+> **Lemma 2.2.** Under 1.1--1.2 and 2.2 and $0<r<\tfrac12$, $\mathbb E^\ast[\sqrt n(\beta^\ast_{\max,\mathrm{modified}}-\hat\beta_{\max})]-\mathbb E[\max_{i\in H}T_i]\to0$ in probability.
+
+*Proof.* Identical in structure to Lemma 2.1, on the bootstrap probability space. With $Y_n=\sqrt n(\beta^\ast_{\max,\mathrm{modified}}-\hat\beta_{\max})=\max_{i}(T_i^\ast-n^{r}V_i^{H})$ (the offset expansion of @sec-lem12), Assumption 2.2 gives $\mathbb E^\ast[\max_{i\in H}(T_i^\ast-n^{r}V_i)]^2<\infty$ and $\mathbb E^\ast[\max_{j\notin H}(T_j^\ast-n^{r}V_j)]^2<\infty$ uniformly in $n$ in probability, so as in (A.5)
+$$
+\mathbb E^\ast Y_n^2\le 2\Bigl\{\mathbb E^\ast\bigl|\max_{i\in H}(T_i^\ast-n^{r}V_i)\bigr|^2+\mathbb E^\ast\bigl|\max\bigl(0,\max_{j\notin H}(T_j^\ast-n^{r}V_j-\max_{i\in H}(T_i^\ast-n^{r}V_i))\bigr)\bigr|^2\Bigr\}<\infty. \tag{A.5}
+$$
+UI of $\{Y_n\}$ (in probability) follows as in (A.4), and with $Y_n\rightsquigarrow\max_{i\in H}T_i$ (Lemma 1.2) the Fact yields the claim. $\qquad\blacksquare$
+
+### Theorem 2, Corollary 2, Theorem 3 {#sec-thm2}
+
+> **Theorem 2.** Under 1.1--1.2, 2.1--2.2, the bootstrap mean of the modified statistic and the true standardized bias share a limit: both $\mathbb E^\ast[\sqrt n(\beta^\ast_{\max,\mathrm{modified}}-\hat\beta_{\max})]$ and $\mathbb E[\sqrt n(\hat\beta_{\max}-\beta_{\max})]$ converge to $\mathbb E[\max_{i\in H}T_i]$.
+
+*Proof.* Immediate from Lemmas 2.1 and 2.2. $\qquad\blacksquare$
+
+Consequently the **bias-reduced estimator**
+$\hat\beta_{\max,\mathrm{reduced}}=\hat\beta_{\max}-\mathbb E^\ast[\beta^\ast_{\max,\mathrm{modified}}-\hat\beta_{\max}]$
+removes the leading bias: $\mathbb E[\hat\beta_{\max,\mathrm{reduced}}-\beta_{\max}]=o(n^{-1/2})$.
+
+> **Corollary 2.** Under 1.1--1.2, 2.1, 2.3, the standardized bias of $\hat\beta_{\max,\mathrm{reduced}}$ is $o(1)$; equivalently, when $|H|=1$ both $\hat\beta_{\max}$ and $\hat\beta_{\max,\mathrm{reduced}}$ have bias $o(n^{-1/2})$, whereas when $|H|>1$ the bias of $\hat\beta_{\max}$ is $O(n^{-1/2})$ and that of $\hat\beta_{\max,\mathrm{reduced}}$ is reduced to $o(n^{-1/2})$.
+
+*Proof.* Same uniform-integrability argument as Lemma 2.2, applied to $\mathbb E^\ast[\sqrt n(\beta^\ast_{\max,\mathrm{modified}}-\hat\beta_{\max})]$ under 2.3, gives $\mathbb E[\hat\beta_{\max,\mathrm{reduced}}-\beta_{\max}]\to0$ on the $\sqrt n$ scale. The dichotomy is Lemma 2.1: $\mathbb E[\max_{i\in H}T_i]=0$ iff $|H|=1$ (a single Gaussian has mean $0$), and is a strictly positive skew term when $|H|>1$ (the mean of a maximum of $\ge2$ jointly Gaussian variates). $\qquad\blacksquare$
+
+> **Theorem 3.** Under the assumptions of Corollary 2, the cross-validated tuning rule (Algorithm 2) targets the MSE-optimal $r$: $\mathbb E[\hat\beta_{\max,\mathrm{reduced},1}(r)-\beta_{\max}]^2=\min_{i\in[k]}\mathbb E[\hat\beta_{\max,\mathrm{reduced},1}(r)-\beta_i]^2$.
+
+*Proof.* For each competitor $i$, decompose
+$$
+\mathbb E[\hat\beta_{\max,\mathrm{reduced},1}(r)-\beta_i]^2
+=\underbrace{\mathbb E[\hat\beta_{\max,\mathrm{reduced},1}(r)-\beta_{\max}]^2}_{\text{does not depend on }i}
++(\beta_{\max}-\beta_i)^2
++2\,\mathbb E[\hat\beta_{\max,\mathrm{reduced},1}(r)-\beta_{\max}]\,(\beta_{\max}-\beta_i). \tag{A.6}
+$$
+By Corollary 2, $\mathbb E[\hat\beta_{\max,\mathrm{reduced},1}(r)-\beta_{\max}]=o(1)$, so the cross term is $o(1)\cdot(\beta_{\max}-\beta_i)$ and the middle term $(\beta_{\max}-\beta_i)^2\ge0$ is minimized ($=0$) exactly at $i\in H$, i.e. at $\beta_i=\beta_{\max}$. Hence, up to $o(1)$, minimizing over the computable surrogate $\min_{i\in[k]}\mathbb E[\cdot-\beta_i]^2$ agrees with minimizing $\mathbb E[\cdot-\beta_{\max}]^2$. $\qquad\blacksquare$
+
+::: {.callout-note}
+## Bridge to the comparator (and to MR)
+Theorem 2 is exactly what the comparator's `CB` (point estimate) computes: subtract the bootstrap mean discrepancy from the naive maximum. The $|H|=1$ vs $|H|>1$ dichotomy in Corollary 2 is the statistical content of the winner's curse --- there is *nothing to correct at first order* unless the top tier is (near-)tied, which is why an honest de-biasing procedure must be judged in the near-tie regime. This is the same message `fs-post-selection` encodes via its $(A5)$-local branch; `MR` reaches it without a tuning parameter (no analogue of $r$), whereas Theorem 3 supplies Guo and He's cross-validated choice.
+:::
+
+---
+
+## Part II --- Continuum of candidates (Theorems 4--5) {#sec-part2}
+
+This is the part that bears directly on the `forestsearch` "many / possibly
+infinite candidates" setting: a conjunction of cuts on continuous covariates is a
+subgroup $S(c)$ indexed by a threshold vector $c$ in a compact set.
+
+### Setup and assumptions {#sec-setup2}
+
+Let $\{S(c):c\in D\}$ be the family, $D$ **compact** in a Euclidean space, with
+population and estimated effects $\beta(c)$ and $\hat\beta(c)$. Define
+$$
+\gamma_{\max}=\sup_{c\in D}\beta(c),\quad
+K=\{c\in D:\beta(c)=\gamma_{\max}\},\quad
+\gamma_s=\text{effect of the selected subgroup } \arg\max_{c\in D}\hat\beta(c),
+$$
+the empirical processes $G_n(c)=\sqrt n(\hat\beta(c)-\beta(c))$ and $G_n^\ast(c)=\sqrt n(\beta^\ast(c)-\hat\beta(c))$, and $K+d=\{c\in D:\operatorname{dist}(c,K)\le d\}$.
+
+**Assumption 4.1 (functional CLT).** $G_n\rightsquigarrow G$ in $\ell^\infty(D)$, where $G$ is a Gaussian process with (almost surely) continuous sample paths.
+
+**Assumption 4.2 (bootstrap consistency).** $G_n^\ast\rightsquigarrow G$ in $\ell^\infty(D)$, in probability.
+
+**Assumption 4.3 (continuity).** $c\mapsto\beta(c)$ is continuous on $D$.
+
+::: {.callout-note}
+## Remark (expansion): 4.1 is a Donsker condition, and it is where DINA/GRF fall out
+Assumption 4.1 says the class $\{S(c):c\in D\}$ (equivalently, the indicator/score
+class indexing the within-subgroup effect) is **Donsker**, so that the normalized
+effect process converges in $\ell^\infty(D)$ to a tight Gaussian limit (Kosorok,
+2008, Ch. 2, and the empirical-process CLT of Pollard, 1984). For a fixed grid of
+covariate cuts this is a VC/Donsker class and 4.1 is standard; 4.2 is the
+in-probability bootstrap version (Kosorok, 2008, Ch. 2 and 10). The requirement of
+a *continuous-path* $\sqrt n$-Gaussian limit is exactly what **DINA/GRF** violate:
+they regenerate the ranking surface from a refitted nonparametric model at
+nonparametric rates and threshold it, so $\hat\beta(\cdot)$ is not a
+$\sqrt n$-Donsker effect process over a fixed continuum. This is the correct
+statement of "why Guo and He does not transfer to DINA/GRF" --- a rate-and-
+continuity failure, not merely "the family is fixed."
+:::
+
+### Lemma 4.1 {#sec-lem41}
+
+> **Lemma 4.1.** Under 4.1 and 4.3, for any $x$, $\ \mathbb P(\sqrt n(\hat\gamma_{\max}-\gamma_{\max})\le x)\to\mathbb P(\sup_{c\in K}G(c)\le x)$, where $\hat\gamma_{\max}=\sup_{c\in D}\hat\beta(c)$.
+
+*Proof.* Write
+$$
+\sqrt n(\hat\gamma_{\max}-\gamma_{\max})
+=\sup_{c\in D}\bigl[G_n(c)+\sqrt n(\beta(c)-\gamma_{\max})\bigr]
+=\max\!\Bigl(\ \sup_{c\in K+d}[\,\cdot\,],\ \sup_{c\in\overline{K+d}}[\,\cdot\,]\Bigr), \tag{A.7}
+$$
+splitting $D$ into $K+d$ and its complement $\overline{K+d}$. On $\overline{K+d}$,
+$\beta(c)\le\gamma_{\max}-\delta_d$ for some $\delta_d>0$ (continuity of $\beta$ on
+the compact $D$, so $\beta$ attains its max only on $K$ and is bounded away from
+$\gamma_{\max}$ off any neighborhood of $K$); hence
+$\sqrt n(\beta(c)-\gamma_{\max})\to-\infty$ uniformly there, and with
+$G_n=O_p(1)$ in $\ell^\infty$ (Assumption 4.1) the second supremum $\to-\infty$ in
+probability. By **Lemma H** the maximum in (A.7) is asymptotically equivalent to
+$$
+\sup_{c\in K+d}\bigl[G_n(c)+\sqrt n(\beta(c)-\gamma_{\max})\bigr]. \tag{A.8}
+$$
+On $K+d$, $\beta(c)-\gamma_{\max}\le0$ with equality on $K$; therefore
+$$
+\sup_{c\in K}G_n(c)\ \le\ (\text{A.8})\ \le\ \sup_{c\in K+d}G_n(c). \tag{A.9}
+$$
+The supremum map $f\mapsto\sup_{c\in A}f(c)$ is $1$-Lipschitz on $\ell^\infty(D)$
+for any fixed $A$, hence continuous; by the continuous mapping theorem for weak
+convergence in $\ell^\infty$ (Kosorok, 2008; Billingsley, 1999) together with 4.1,
+$\sup_{c\in K}G_n\rightsquigarrow\sup_{c\in K}G$ and $\sup_{c\in K+d}G_n\rightsquigarrow\sup_{c\in K+d}G$. Taking $n\to\infty$ in (A.9),
+$$
+\mathbb P(\sup_{c\in K}G\le x)\ \le\ \liminf_n(\text{A.8})\ \le\ \limsup_n(\text{A.8})\ \le\ \mathbb P(\sup_{c\in K+d}G\le x). \tag{A.10}
+$$
+Since (A.8) is asymptotically equivalent to $L_n(x)=\mathbb P(\sqrt n(\hat\gamma_{\max}-\gamma_{\max})\le x)$,
+$$
+\mathbb P(\sup_{c\in K}G\le x)\ \le\ \liminf_n L_n(x)\ \le\ \limsup_n L_n(x)\ \le\ \mathbb P(\sup_{c\in K+d}G\le x)\qquad\text{for every }d>0. \tag{A.11}
+$$
+Finally, as $d\downarrow0$ the sets $K+d$ decrease to $K$; by almost-sure path
+continuity of $G$ and compactness, $\sup_{c\in K+d}G\to\sup_{c\in K}G$ almost
+surely, hence in distribution (dominated convergence of the cdfs). Letting
+$d\downarrow0$ in (A.11) squeezes $L_n(x)\to\mathbb P(\sup_{c\in K}G\le x)$. $\qquad\blacksquare$
+
+::: {.callout-note}
+## Remark (expansion): continuity of the limit cdf (anti-concentration)
+The pointwise-in-$x$ statement upgrades to $\sup_x$ (Kolmogorov distance, as used
+in Theorem 4) provided the limit cdf $x\mapsto\mathbb P(\sup_{c\in K}G(c)\le x)$ is
+continuous. Suprema of a non-degenerate separable Gaussian process are
+**atomless** --- indeed absolutely continuous away from the infimum of the support
+--- by the anti-concentration inequalities of Chernozhukov, Chetverikov, and Kato
+(the KB item `2015cck` and the companion anti-concentration paper). This is the
+continuum analogue of "the Gaussian max is continuous" used in Part I, and it is
+also what makes the quantile $q_\alpha$ in @sec-lem53 well-defined and consistently
+estimable.
+:::
+
+### Lemma 4.2 {#sec-lem42}
+
+> **Lemma 4.2.** Under 4.1--4.3 and $0<r<\tfrac12$, for any $x$, $\ \mathbb P^\ast(\sqrt n(\gamma^\ast_{\max,\mathrm{modified}}-\hat\gamma_{\max})\le x)\to\mathbb P(\sup_{c\in K}G(c)\le x)$ in probability, where $\gamma^\ast_{\max,\mathrm{modified}}=\sup_{c\in D}\{\beta^\ast(c)+d(c)\}$ and $d(c)=(1-n^{r-0.5})(\hat\gamma_{\max}-\hat\beta(c))$.
+
+*Proof.* As in Lemma 4.1,
+$$
+\sqrt n(\gamma^\ast_{\max,\mathrm{modified}}-\hat\gamma_{\max})
+=\sup_{c\in D}\Bigl(G_n^\ast(c)-n^{r}\sup_{b\in D}[\hat\beta(b)-\hat\beta(c)]\Bigr), \tag{A.12}
+$$
+using $\sqrt n(d(c)-(\hat\gamma_{\max}-\hat\beta(c)))=-n^{r}(\hat\gamma_{\max}-\hat\beta(c))=-n^{r}\sup_{b}(\hat\beta(b)-\hat\beta(c))$. Bound the deterministic penalty: for $c\in K+d$,
+$$
+n^{r}\sup_{b\in D}[\hat\beta(b)-\hat\beta(c)]
+\le n^{r}\sup_{b}\bigl[(\hat\beta(b)-\beta(b))-(\hat\beta(c)-\beta(c))\bigr]-n^{r}\inf_{c\in K+d}(\gamma_{\max}-\beta(c)). \tag{A.13}
+$$
+By 4.1--4.2 the first term is $n^{r}\cdot O_p(n^{-1/2})=O_p(n^{r-1/2})\to0$; the second $\to-\infty$ off $K$ and is $\to0$ on $K$. Hence $n^{r}\sup_b[\hat\beta(b)-\hat\beta(c)]\to-\infty$ uniformly for $c\in\overline{K+d}$, so by **Lemma H** (A.12) reduces to the supremum over $K+d$. A second application of (A.13)-type bounds shows
+$$
+\sup_{c\in K+d}\bigl|\,n^{r}\sup_b[\hat\beta(b)-\hat\beta(c)]-n^{r}(\gamma_{\max}-\beta(c))\,\bigr|\to0\ \text{in probability},
+$$
+so the penalty may be replaced by the deterministic $n^{r}(\gamma_{\max}-\beta(c))$, giving the sandwich
+$$
+\mathbb P^\ast(\sup_{c\in K+d}G_n^\ast\le x)\ \le\ \liminf_n L_n^\ast(x)\ \le\ \limsup_n L_n^\ast(x)\ \le\ \mathbb P^\ast(\sup_{c\in K}G_n^\ast\le x)
+$$
+in probability. The $d\downarrow0$ limit, as in Lemma 4.1 (now via 4.2), completes the proof. $\qquad\blacksquare$
+
+### Theorem 4 {#sec-thm4}
+
+> **Theorem 4.** Under 4.1--4.3 and $0<r<\tfrac12$, $\sup_x|\mathbb P^\ast(\sqrt n(\gamma^\ast_{\max,\mathrm{modified}}-\hat\gamma_{\max})\le x)-\mathbb P(\sqrt n(\hat\gamma_{\max}-\gamma_{\max})\le x)|\to0$ in probability.
+
+*Proof.* Both sides converge to the (continuous, by anti-concentration) cdf of
+$\sup_{c\in K}G$ --- sampling side by Lemma 4.1, bootstrap side by Lemma 4.2 --- so
+Pólya's theorem gives uniform convergence and the difference $\to0$ in
+probability. $\qquad\blacksquare$
+
+### The selected effect $\gamma_{ss}$: localization {#sec-lem51}
+
+Define the shrinking neighborhood and the selected value
+$$
+S_n=\{c\in D:\beta(c)\ge\gamma_{\max}-r_n\},\qquad
+\gamma_{ss}=\beta(\tilde c),
+$$
+where $\tilde c$ is the value of $c$ achieving the *minimum* of $\beta(c)$ among
+$\arg\max_{c\in D}\hat\beta(c)$ (a measurable selection), and $c_0$ is the
+smallest maximizer of $\beta$ (well-defined by continuity + compactness).
+
+::: {.callout-warning}
+## Transcription note on the radius $r_n$
+The extracted supplement text renders $S_n$ and Lemma 5.1's conclusion with
+radius $\log(n)/n$, but the proof's own inequality states
+$\sqrt n\,\inf_{c\in\overline{S_n}}(\gamma_{\max}-\beta(c))\ge\log(n)$, which forces
+$r_n=\log(n)/\sqrt n$ (so that $\sqrt n\cdot r_n=\log(n)\to\infty$). The two are
+inconsistent by a factor $\sqrt n$; the coherent reading --- the one that makes the
+separation argument valid --- is
+$$
+r_n=\frac{\log(n)}{\sqrt n}\ \ \bigl(r_n\to0\ \text{and}\ \sqrt n\,r_n\to\infty\bigr).
+$$
+This is almost certainly a dropped $\sqrt{\,\cdot\,}$ in text extraction. **Verify
+against the typeset PDF before citing the exact radius.** The lemma below uses
+$r_n=\log(n)/\sqrt n$; nothing downstream depends on the specific rate beyond
+$r_n\to0$ with $\sqrt n\,r_n\to\infty$.
+:::
+
+> **Lemma 5.1.** Under 4.1, $\mathbb P(\gamma_{\max}-\gamma_{ss}\le r_n)\to1$; equivalently $\mathbb P(\tilde c\in S_n)\to1$.
+
+*Proof.* If $\tilde c\notin S_n$ then some point of $\overline{S_n}$ beats $c_0$
+empirically: $\hat\beta(c_0)<\sup_{c\in\overline{S_n}}\hat\beta(c)$. Hence
+$$
+\mathbb P(\gamma_{\max}-\gamma_{ss}>r_n)
+\le\mathbb P\Bigl(\hat\beta(c_0)<\sup_{c\in\overline{S_n}}\hat\beta(c)\Bigr)
+=\mathbb P\Bigl(\sqrt n(\hat\beta(c_0)-\gamma_{\max})<\sup_{c\in\overline{S_n}}\bigl[G_n(c)+\sqrt n(\beta(c)-\gamma_{\max})\bigr]\Bigr). \tag{A.14}
+$$
+Bounding the right side, $\sup_{c\in\overline{S_n}}[G_n(c)+\sqrt n(\beta(c)-\gamma_{\max})]\le\sup_{c\in D}G_n(c)-\sqrt n\inf_{c\in\overline{S_n}}(\gamma_{\max}-\beta(c))$. Now $\sqrt n\sup_D G_n=O_p(1)$ by 4.1, $\sqrt n(\hat\beta(c_0)-\gamma_{\max})=G_n(c_0)=O_p(1)$, and by definition of $\overline{S_n}=\{\beta<\gamma_{\max}-r_n\}$,
+$$
+\sqrt n\,\inf_{c\in\overline{S_n}}(\gamma_{\max}-\beta(c))\ \ge\ \sqrt n\, r_n\ =\ \log(n)\ \to\ \infty.
+$$
+Thus the right side of (A.14) is $\mathbb P\bigl(O_p(1)<O_p(1)-\log(n)\bigr)\to0$. $\qquad\blacksquare$
+
+> **Lemma 5.2.** Under 4.1, for fixed $x$, $\ \mathbb P\bigl(\sqrt n\sup_{c\in S_n}(\hat\beta(c)-\beta(c))\le x\bigr)\to\mathbb P(\sup_{c\in K}G(c)\le x)$.
+
+*Proof.* $S_n$ is squeezed between fixed neighborhoods of $K$ (for large $n$,
+$K\subseteq S_n\subseteq K+d$ for any fixed $d>0$, since $r_n\to0$). Apply the
+$K$-localization of Lemma 4.1 to the process $G_n=\sqrt n(\hat\beta-\beta)$
+restricted to $S_n$: the same sandwich (A.9)--(A.11) with $S_n$ in place of the
+generic $K+d$, and $r_n\to0$, gives convergence of $\sup_{S_n}G_n$ to
+$\sup_{K}G$. $\qquad\blacksquare$
+
+> **Lemma 5.3.** Let $q_\alpha$ be the $(1-\alpha)$ quantile of $\sup_{c\in K}G(c)$. Under 4.1, $\ \mathbb P\bigl(\sqrt n\sup_{c\in D}(\hat\beta(c)-\gamma_{ss})\le q_\alpha\bigr)\to1-\alpha$.
+
+*Proof.* Since $\sup_{c\in D}\hat\beta(c)=\hat\beta(\tilde c)$ and $\gamma_{ss}=\beta(\tilde c)$, the event is $\{G_n(\tilde c)\le q_\alpha\}=\{\sqrt n(\hat\beta(\tilde c)-\beta(\tilde c))\le q_\alpha\}$. Split on $\{\tilde c\in S_n\}$:
+$$
+\mathbb P(G_n(\tilde c)\le q_\alpha)
+=\mathbb P(G_n(\tilde c)\le q_\alpha,\tilde c\in S_n)+\mathbb P(G_n(\tilde c)\le q_\alpha,\tilde c\notin S_n). \tag{A.15}
+$$
+The second term $\to0$ by Lemma 5.1. For the first, since $\tilde c\in S_n\Rightarrow G_n(\tilde c)\le\sup_{c\in S_n}G_n(c)$,
+$$
+\{\,\textstyle\sup_{c\in S_n}G_n(c)\le q_\alpha,\ \tilde c\in S_n\,\}\ \subseteq\ \{\,G_n(\tilde c)\le q_\alpha,\ \tilde c\in S_n\,\},
+$$
+so with Lemma 5.1 ($\mathbb P(\tilde c\in S_n)\to1$) and Lemma 5.2 ($\sup_{S_n}G_n\rightsquigarrow\sup_K G$, whose $(1-\alpha)$ quantile is $q_\alpha$),
+$$
+\liminf_n\mathbb P(G_n(\tilde c)\le q_\alpha,\tilde c\in S_n)\ \ge\ \liminf_n\mathbb P\bigl(\textstyle\sup_{S_n}G_n\le q_\alpha\bigr)\ =\ 1-\alpha. \tag{A.16}
+$$
+For the reverse, $\gamma_{ss}\le\gamma_{\max}$ gives $\sup_D(\hat\beta-\gamma_{ss})\ge\sup_D(\hat\beta-\gamma_{\max})=\hat\gamma_{\max}-\gamma_{\max}$, so by Lemma 4.1 $\limsup_n\mathbb P(G_n(\tilde c)\le q_\alpha)\le\mathbb P(\sup_K G\le q_\alpha)=1-\alpha$. The two bounds coincide. $\qquad\blacksquare$
+
+### Theorem 5 {#sec-thm5}
+
+> **Theorem 5.** Under 4.1--4.3, $\sup_x|\mathbb P^\ast(\sqrt n(\gamma^\ast_{\max,\mathrm{modified}}-\hat\gamma_{\max})\le x)-\mathbb P(\sqrt n(\hat\gamma_{\max}-\gamma_{ss})\le x)|\to0$ in probability.
+
+*Proof.* Theorem 4 gives that the bootstrap law and the sampling law of the
+$\gamma_{\max}$-statistic share the limit $\sup_{c\in K}G$. Lemma 5.3 (with the
+localization Lemmas 5.1--5.2) gives that the sampling law of the *selected*-effect
+statistic $\sqrt n(\hat\gamma_{\max}-\gamma_{ss})$ has the *same* limiting cdf
+$\mathbb P(\sup_K G\le\cdot)$ --- because the selected location $\tilde c$ lands in
+the shrinking neighborhood $S_n\downarrow K$. Composing the two uniform (Pólya /
+anti-concentration) convergences yields the claim. $\qquad\blacksquare$
+
+::: {.callout-note}
+## Reading of Part II for `forestsearch`
+Theorems 4--5 say the de-biasing bootstrap remains valid when the "family" is a
+*continuum* $\{S(c):c\in D\}$, with the limiting law governed by
+$\sup_{c\in K}G(c)$ --- the supremum of a Gaussian process over the argmax set $K$.
+Two structural facts matter for the comparator:
+
+1. **The interval is *locally* simultaneous.** The critical value is the quantile
+   of $\sup_{c\in K}G$, a supremum over the (small) argmax set $K\subseteq D$, not
+   over all of $D$. This is strictly tighter than a globally simultaneous band and
+   is the source of Guo and He's efficiency claim. A faithful continuum comparator
+   must estimate *this* quantile (through the modified bootstrap), not a Bonferroni
+   or whole-$D$ band.
+2. **Selected vs best.** $\gamma_{ss}$ (selected) and $\gamma_{\max}$ (best)
+   *share* the limiting law here only because $\tilde c$ localizes to $K$
+   (Lemma 5.1). The estimand distinction that Part I dissolved for a predefined
+   family is preserved in form but reconciled through localization --- the
+   continuum analogue of Corollary 1.
+:::
+
+---
+
+## The machinery, mapped to the project KB {#sec-toolbox}
+
+Each externally-supplied step above, with the KB source that carries it (cited by
+established content; see the honesty note in @sec-preface):
+
+| Step in the proofs | Result invoked | KB source |
+|---|---|---|
+| Pointwise cdf $\to$ uniform (the $\sup_x$ statements) | Pólya's uniform-convergence theorem (limit cdf continuous) | `Billingsley_1999` |
+| Continuity of the Gaussian-max / Gaussian-sup cdf | Anti-concentration for suprema of Gaussian processes | `2015cck` |
+| $\max(A_n,B_n)$ with $B_n\to-\infty$ (Lemma H; (A.1)-(A.2)) | Slutsky-type / weak-convergence bound | `Billingsley_1999` |
+| $\sup_{c\in A}(\cdot)$ continuous on $\ell^\infty(D)$; CMT | Continuous mapping theorem in $\ell^\infty$ | `Kosorok2008`, `Billingsley_1999` |
+| $G_n\rightsquigarrow G$ in $\ell^\infty(D)$ (Assumption 4.1) | Empirical-process CLT / Donsker classes | `Kosorok2008`, `pollard1984` |
+| Bootstrap version $G_n^\ast\rightsquigarrow G$ (Assumption 4.2) | Bootstrap CLT for Donsker classes | `Kosorok2008` |
+| UI $\Rightarrow$ convergence of moments (Lemmas 2.1-2.2) | Uniform integrability theorem | `Billingsley_1999` |
+| Asymptotic normality of $\hat\beta_i$, GLM paths (Assumption 1.1) | $M$-estimation / influence functions / sandwich | `StafanskiBoos_2001` |
+| Asymptotic normality of $\hat\beta_i$, Cox path (Assumption 1.1) | Counting-process martingale CLT for partial likelihood | `Gill_1980` |
+
+`Wellner_1986` (also in the KB, and not machine-readable) is the natural companion
+reference for the bootstrap of empirical processes should a pinpoint citation for
+Assumption 4.2 be wanted alongside `Kosorok2008`.
+
+---
+
+## Caveats and items to check against the typeset originals {#sec-caveats}
+
+1. **Radius in Lemma 5.1** (@sec-lem51): the extracted text is internally
+   inconsistent by $\sqrt n$; the coherent radius is $r_n=\log(n)/\sqrt n$. Confirm
+   against the published PDF.
+2. **KB pinpoints** (@sec-preface, @sec-toolbox): the empirical-process texts are
+   scanned images; theorem-number citations are from established content, to be
+   verified against the physical copies before transcription into a manuscript.
+3. **The offset expansion** ($n^{r}(\hat\beta_{\max}-\hat\beta_i)=n^{r}V_i+o_p(1)$
+   for $i\in H$, used in Lemmas 1.2 and 2.2) is written compactly in the
+   supplement; the version here makes the $O_p(n^{r-1/2})\to0$ / $n^{r}\cdot\text{const}\to\infty$ split explicit, which is the crux of why $r\in(0,\tfrac12)$ is exactly the admissible range.
+4. **$|H|>1$ and the skew term** (Corollary 2, @sec-thm2): the claim that the
+   correction is first-order material iff $|H|>1$ rests on $\mathbb E[\max_{i\in H}T_i]\ne0$ for $|H|\ge2$; a fully quantitative version (the $k=2$ skew-normal mean of Nadarajah and Kotz cited in the main text) is worth stating explicitly if this feeds a manuscript claim about the size of the correction.

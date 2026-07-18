@@ -1,0 +1,385 @@
+---
+title: "Smoke test --- Guo & He Algorithm 3 (enumerated family) comparator"
+subtitle: "Structural invariants, three outcome paths, and scale/calibration tiers"
+date: 2026-07-18
+format: html
+bibliography: []
+---
+
+Fail-loud integration test for `guohe_algorithm3()` in `guohe_algorithm3.R`. Every
+section asserts with `stopifnot`, so a completed render *is* a pass.
+
+**Two tiers, set by `SCALE` below.**
+
+- `SCALE = "quick"` --- structural invariants, all three outcome paths, small
+  families, modest `B`. Runs in roughly a minute; suitable anywhere.
+- `SCALE = "full"` --- adds a realistic enumerated conjunction family
+  (several hundred candidates) at production `B`, and a replicated null
+  calibration check. **Run this tier in Claude Code / on the 127-core box**: the
+  full-family cell alone is on the order of an hour single-core, and the
+  calibration cell is a replication loop that wants parallel workers.
+
+The invariants in the quick tier are the load-bearing ones: they lock the
+validation chain back to the authors' published Table 2, and they pin the
+relationship between the certified one-sided bound and the two-sided extension.
+
+```{r}
+#| label: setup
+#| message: false
+library(survival)
+source("guohe_algorithm3.R")
+
+SCALE <- "full"           # "quick" (any machine) or "full" (Claude Code / 127-core)
+B_Q   <- 200L             # bootstrap draws, quick tier
+
+# ---- Full-tier settings -----------------------------------------------------
+# PROVISIONAL (code-check pass). Restore the publication values shown below
+# before quoting any coverage figure.
+#
+#   B_F   300L  -> publication 2000L
+#   REPS  100L  -> publication 300L (or more)
+#   B_CAL 500L  -> publication 1000L+
+#
+# What is safe to reduce, and what is not:
+#   * B_F drives only the enumerated-family scale cell, which makes no coverage
+#     claim. Reducing it costs nothing statistically.
+#   * REPS controls only the PRECISION of the calibration coverage estimate, not
+#     the estimator. At REPS = 100 the Monte Carlo SE on a 0.95 coverage is
+#     about 0.022 -- ample to clear the 0.80 assertion, too coarse to publish.
+#   * B_CAL is the inner bootstrap for the calibration cell and DOES affect the
+#     answer: the bound is a tail quantile (q_{1-alpha}), and noisy quantiles pull
+#     coverage slightly downward. The de-biased point estimate is a mean and
+#     converges much faster, so it is comparatively insensitive to B_CAL.
+B_F   <- 300L             # bootstrap draws, full-family scale cell
+REPS  <- 100L             # replications, calibration cell
+B_CAL <- 500L             # inner bootstrap draws, calibration cell
+
+# One synthetic trial: `k` binary candidate covariates, v1 the true modifier.
+simulate_trial <- function(n, k, seed,
+                           link = c("survival", "binary", "continuous"),
+                           delta = 1.0) {
+  link <- match.arg(link)
+  set.seed(seed)
+  trt <- rbinom(n, 1, 0.5)
+  x   <- as.data.frame(matrix(rbinom(n * k, 1, 0.4), n, k))
+  names(x) <- paste0("v", seq_len(k))
+  modifier <- x$v1
+  base <- 0.4 * x$v2 - 0.3 * x$v3
+
+  out <- switch(link,
+    survival = {
+      loghaz <- -3 + base + trt * (-0.2 - delta * modifier)   # protective in v1
+      tlat <- rexp(n, rate = exp(loghaz))
+      cens <- rexp(n, rate = exp(-3.2))
+      data.frame(trt = trt, time = pmin(tlat, cens),
+                 event = as.integer(tlat <= cens))
+    },
+    binary = {
+      lp <- -0.3 + base + trt * (-0.2 + delta * modifier)     # HARMFUL in v1
+      data.frame(trt = trt, y = rbinom(n, 1, plogis(lp)))
+    },
+    continuous = {
+      mu <- 1.0 + base + trt * (0.1 + delta * modifier)       # +MD in v1
+      data.frame(trt = trt, y = rnorm(n, mu, 1.0))
+    }
+  )
+  cbind(out, x)
+}
+
+cand_names <- function(k) paste0("v", seq_len(k))
+cat("SCALE =", SCALE, "\n")
+```
+
+## Invariant A --- continuity with the validated Section 2 engine
+
+`guohe_algorithm3()` must reproduce `guohe_debias()` exactly on identical seeds:
+the arithmetic is the same, so this transitively preserves the machine-precision
+match to the authors' `synthetic code.R` and the ~1e-3 agreement with their
+published Table 2. If this fails, the validation chain is broken.
+
+```{r}
+#| label: invariant-continuity
+if (file.exists("guohe_comparator.R")) {
+  source("guohe_comparator.R")
+  d <- simulate_trial(900, 8, seed = 11, link = "survival")
+  cn <- cand_names(8); S <- 4242L
+
+  a3 <- guohe_algorithm3(d, "survival", treatment = "trt", candidates = cn,
+                         time = "time", event = "event", orient = -1,
+                         B = B_Q, r = 0.03, level = 0.05, seed = S,
+                         min_events = 5L, diagnostics = FALSE)
+  s2 <- guohe_debias(d, "survival", treatment = "trt", candidates = cn,
+                     time = "time", event = "event", orient = -1,
+                     B = B_Q, r = 0.03, level = 0.05, seed = S,
+                     min_events = 5L, symmetric = FALSE)
+
+  stopifnot(
+    identical(a3$selected, s2$selected),
+    abs(a3$naive           - s2$naive)    < 1e-12,
+    abs(a3$debiased        - s2$debiased) < 1e-12,
+    abs(a3$bound_one_sided - s2$bound)    < 1e-12
+  )
+  cat(sprintf("PASS: A3 reproduces the validated engine exactly (bound %.10f)\n",
+              a3$bound_one_sided))
+} else {
+  cat("guohe_comparator.R not alongside; continuity check skipped.\n")
+}
+```
+
+## Invariant B --- the one-sided / two-sided quantile relationship
+
+The certified one-sided limit inverts $T^*$ at $q_{1-\alpha}$; the two-sided
+interval inverts the *same* $T^*$ at $(q_{\alpha/2}, q_{1-\alpha/2})$. So the
+two-sided conservative endpoint must equal the one-sided bound run at
+`level/2` **exactly**, and must be strictly more conservative than the one-sided
+bound at `level`. This pins the distinction the interval labelling depends on.
+
+```{r}
+#| label: invariant-quantile
+d  <- simulate_trial(900, 8, seed = 12, link = "survival")
+cn <- cand_names(8); S <- 777L
+
+full <- guohe_algorithm3(d, "survival", treatment = "trt", candidates = cn,
+                         time = "time", event = "event", orient = -1,
+                         B = B_Q, level = 0.05, seed = S, diagnostics = FALSE)
+half <- guohe_algorithm3(d, "survival", treatment = "trt", candidates = cn,
+                         time = "time", event = "event", orient = -1,
+                         B = B_Q, level = 0.025, seed = S, diagnostics = FALSE)
+
+# orient = -1 on a ratio scale: the UPPER endpoint is the conservative one
+cons <- full$ci_two_sided[2]
+stopifnot(
+  abs(cons - half$bound_one_sided) < 1e-12,   # identity
+  cons > full$bound_one_sided,                # strictly wider
+  full$ci_two_sided[1] < full$ci_two_sided[2]
+)
+cat(sprintf("PASS: two-sided(0.05) upper %.6f == one-sided(0.025) %.6f; one-sided(0.05) %.6f\n",
+            cons, half$bound_one_sided, full$bound_one_sided))
+
+# the Wald interval is a DIFFERENT object (T* is skewed) -- report, do not assert equality
+cat(sprintf("      Wald upper %.6f (heuristic; differs from quantile inversion)\n",
+            full$ci_wald[2]))
+```
+
+## Survival path (hazard ratio, benefit orientation)
+
+```{r}
+#| label: survival
+d <- simulate_trial(1000, 10, seed = 21, link = "survival")
+res_surv <- guohe_algorithm3(d, "survival", treatment = "trt",
+                             candidates = cand_names(10),
+                             time = "time", event = "event", orient = -1,
+                             B = B_Q, seed = 1L)
+print(res_surv)
+
+stopifnot(
+  is.finite(res_surv$naive),
+  res_surv$debiased        > res_surv$naive,      # HR shrinks toward 1
+  res_surv$bound_one_sided > res_surv$debiased,   # bound conservative
+  res_surv$ci_two_sided[1] < res_surv$ci_two_sided[2]
+)
+```
+
+## Binary path (odds ratio, HARM orientation)
+
+The forest-search harm setting: `orient = +1` selects the most *harmful* odds
+ratio, and de-biasing must shrink it **down** toward 1.
+
+```{r}
+#| label: binary-harm
+d <- simulate_trial(1000, 10, seed = 22, link = "binary")
+res_bin <- guohe_algorithm3(d, "binary", treatment = "trt",
+                            candidates = cand_names(10), y = "y",
+                            orient = +1, B = B_Q, seed = 1L)
+print(res_bin)
+
+stopifnot(
+  is.finite(res_bin$naive),
+  res_bin$debiased        < res_bin$naive,       # OR shrinks toward 1 from above
+  res_bin$bound_one_sided < res_bin$debiased,    # lower bound conservative
+  res_bin$ci_two_sided[1] < res_bin$ci_two_sided[2]
+)
+```
+
+## Continuous path, and orientation symmetry
+
+Negating the outcome *and* flipping `orient` leaves the internal oriented score
+`orient * b` unchanged, so the selected candidate must be identical and every
+reported mean difference must flip sign exactly. This is a genuine algebraic
+invariant of the orientation handling, not a soft check.
+
+```{r}
+#| label: continuous-symmetry
+d <- simulate_trial(1000, 10, seed = 23, link = "continuous")
+cn <- cand_names(10); S <- 5L
+
+pos <- guohe_algorithm3(d, "continuous", treatment = "trt", candidates = cn,
+                        y = "y", orient = +1, B = B_Q, seed = S,
+                        diagnostics = FALSE)
+d_neg <- d; d_neg$y <- -d$y
+neg <- guohe_algorithm3(d_neg, "continuous", treatment = "trt", candidates = cn,
+                        y = "y", orient = -1, B = B_Q, seed = S,
+                        diagnostics = FALSE)
+print(pos)
+
+stopifnot(
+  is.finite(pos$naive),
+  pos$debiased        < pos$naive,       # MD shrinks toward 0
+  pos$bound_one_sided < pos$debiased,    # toward-zero bound conservative
+  identical(pos$selected, neg$selected),
+  abs(pos$naive    + neg$naive)    < 1e-10,
+  abs(pos$debiased + neg$debiased) < 1e-10
+)
+cat(sprintf("PASS: orientation symmetry (selected %s; MD %.6f vs %.6f)\n",
+            pos$selected, pos$debiased, neg$debiased))
+```
+
+## Reproducibility and estimability diagnostics
+
+Same seed must give bit-identical output. The drop-rate diagnostic must be
+reported for every candidate and lie in $[0,1]$; a deliberately tiny candidate
+should show a strictly higher drop rate than a large one, since small subgroups
+lose an arm in resamples and are silently removed from that resample's maximum.
+
+```{r}
+#| label: repro-diagnostics
+d <- simulate_trial(800, 6, seed = 24, link = "continuous")
+cn <- cand_names(6)
+
+r1 <- guohe_algorithm3(d, "continuous", treatment = "trt", candidates = cn,
+                       y = "y", orient = +1, B = B_Q, seed = 99L)
+r2 <- guohe_algorithm3(d, "continuous", treatment = "trt", candidates = cn,
+                       y = "y", orient = +1, B = B_Q, seed = 99L)
+stopifnot(
+  identical(r1$selected, r2$selected),
+  abs(r1$debiased        - r2$debiased)        < 1e-12,
+  abs(r1$bound_one_sided - r2$bound_one_sided) < 1e-12
+)
+
+# Add a small candidate sized to produce PARTIAL drop-out -- the insidious case:
+# estimable on the observed data, yet absent from a sizeable share of resamples,
+# which silently shrinks the competitor set and UNDER-states the correction.
+# (A candidate small enough to be dropped outright is less dangerous: it is
+# excluded up front and raises a warning.)
+d2 <- d
+set.seed(1); d2$small <- 0L; d2$small[sample.int(nrow(d2), 26)] <- 1L
+d2$big <- as.integer(runif(nrow(d2)) < 0.45)
+r3 <- guohe_algorithm3(d2, "continuous", treatment = "trt",
+                       candidates = c(cn, "small", "big"), y = "y",
+                       orient = +1, B = B_Q, seed = 3L, min_events = 5L)
+dr <- r3$drop_rate
+stopifnot(
+  !is.null(dr),
+  length(dr) == length(cn) + 2L,
+  all(dr >= 0 & dr <= 1),
+  r3$n_estimable == r3$n_candidates,   # fine on the observed data ...
+  dr[["small"]] > 0.05,                # ... yet dropping in many resamples
+  dr[["small"]] < 1,                   # partial, not outright exclusion
+  dr[["small"]] > dr[["big"]]
+)
+cat(sprintf("PASS: reproducible; partial drop-out detected -- small(n=26) %.3f vs big %.3f\n",
+            dr[["small"]], dr[["big"]]))
+```
+
+## Full tier --- enumerated conjunction family at production `B`
+
+Realistic forest-search geometry: cuts on continuous covariates plus their
+pairwise conjunctions, giving several hundred overlapping candidates. **Claude
+Code / 127-core box.** Skipped unless `SCALE == "full"`.
+
+```{r}
+#| label: full-scale
+if (identical(SCALE, "full")) {
+  set.seed(9090); n <- 1200
+  trt <- rbinom(n, 1, 0.5)
+  z <- matrix(rnorm(n * 4), n, 4)
+  harm <- as.integer(z[, 1] > 0.5 & z[, 2] > 0)
+  lp <- -0.4 + 0.3 * z[, 3] + trt * (-0.25 + 1.1 * harm)
+  ybin <- rbinom(n, 1, plogis(lp))
+
+  base <- list(); nm <- character(0)
+  for (j in 1:4) for (q in c(.3, .4, .5, .6, .7, .8)) {
+    base[[length(base) + 1L]] <- as.integer(z[, j] > quantile(z[, j], q))
+    nm <- c(nm, sprintf("z%d.gt.q%02d", j, round(100 * q)))
+  }
+  base <- as.data.frame(base); names(base) <- nm
+
+  prs <- list(); pnm <- character(0); ix <- combn(ncol(base), 2)
+  for (k in seq_len(ncol(ix))) {
+    v <- as.integer(base[[ix[1, k]]] == 1 & base[[ix[2, k]]] == 1)
+    if (sum(v) >= 60) {
+      prs[[length(prs) + 1L]] <- v
+      pnm <- c(pnm, paste0(names(base)[ix[1, k]], "_AND_", names(base)[ix[2, k]]))
+    }
+  }
+  prs <- as.data.frame(prs); names(prs) <- pnm
+  fam <- cbind(base, prs)
+  dat <- cbind(data.frame(trt = trt, y = ybin), fam)
+
+  res_full <- guohe_algorithm3(dat, "binary", treatment = "trt",
+                               candidates = names(fam), y = "y",
+                               orient = +1, B = B_F, seed = 11L,
+                               min_events = 5L)
+  print(res_full)
+  stopifnot(
+    res_full$n_candidates > 200L,
+    res_full$debiased < res_full$naive,          # large family -> large correction
+    res_full$ci_two_sided[1] < res_full$ci_two_sided[2]
+  )
+  cat(sprintf("PASS: %d candidates; naive OR %.3f -> de-biased %.3f\n",
+              res_full$n_candidates, res_full$naive, res_full$debiased))
+} else {
+  cat("SCALE != 'full'; enumerated-conjunction cell skipped (Claude Code tier).\n")
+}
+```
+
+## Full tier --- null calibration
+
+Under a null with **no** effect modification, every candidate has the same true
+effect, so the naive maximum is pure winner's curse. The de-biased estimate
+should return near the truth and the one-sided bound should cover at roughly the
+nominal rate. This is the statistically meaningful check and needs replication;
+parallelize over `REPS` with `doFuture`/`future` on the 127-core box.
+
+```{r}
+#| label: full-calibration
+if (identical(SCALE, "full")) {
+  TRUE_MD <- 0.1
+  one_rep <- function(rep_id) {
+    set.seed(10000 + rep_id)
+    n <- 800; k <- 25
+    trt <- rbinom(n, 1, 0.5)
+    x <- as.data.frame(matrix(rbinom(n * k, 1, 0.4), n, k))
+    names(x) <- paste0("v", seq_len(k))
+    y <- 1 + TRUE_MD * trt + rnorm(n)            # no modification anywhere
+    dd <- cbind(data.frame(trt = trt, y = y), x)
+    r <- guohe_algorithm3(dd, "continuous", treatment = "trt",
+                          candidates = names(x), y = "y", orient = +1,
+                          B = B_CAL, seed = rep_id, diagnostics = FALSE)
+    c(naive = r$naive, debiased = r$debiased,
+      covered_one = as.numeric(r$bound_one_sided <= TRUE_MD),
+      covered_two = as.numeric(r$ci_two_sided[1] <= TRUE_MD &&
+                                 TRUE_MD <= r$ci_two_sided[2]))
+  }
+  out <- t(vapply(seq_len(REPS), one_rep, numeric(4)))
+  cat(sprintf("truth %.3f | mean naive %.3f (bias %+.3f) | mean de-biased %.3f (bias %+.3f)\n",
+              TRUE_MD, mean(out[, "naive"]), mean(out[, "naive"]) - TRUE_MD,
+              mean(out[, "debiased"]), mean(out[, "debiased"]) - TRUE_MD))
+  cat(sprintf("one-sided bound coverage %.3f | two-sided CI coverage %.3f (nominal 0.95)\n",
+              mean(out[, "covered_one"]), mean(out[, "covered_two"])))
+  cat(sprintf("settings: REPS = %d, B_CAL = %d | Monte Carlo SE on coverage ~ %.3f\n",
+              REPS, B_CAL, sqrt(0.95 * 0.05 / REPS)))
+  if (REPS < 300L || B_CAL < 1000L) {
+    cat("*** PROVISIONAL: code-check settings. Restore REPS >= 300 and",
+        "B_CAL >= 1000 before quoting these coverage figures. ***\n")
+  }
+  stopifnot(
+    mean(out[, "naive"]) > TRUE_MD,                                  # winner's curse present
+    abs(mean(out[, "debiased"]) - TRUE_MD) < abs(mean(out[, "naive"]) - TRUE_MD),
+    mean(out[, "covered_one"]) > 0.80
+  )
+  cat("PASS: de-biasing reduces bias and the one-sided bound covers.\n")
+} else {
+  cat("SCALE != 'full'; calibration cell skipped (Claude Code tier).\n")
+}
+```

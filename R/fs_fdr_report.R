@@ -472,7 +472,10 @@ fs_fdr_report <- function(fs_analysis,
 # ---------------------------------------------------------------------------
 .fs_fdr_hr_row <- function(tag, dgm) {
   hr <- dgm$hazard_ratios
-  ki <- dgm$model_params$k_inter %||% dgm$k_inter %||% NA_real_
+  # k_inter is stored under effect_modifiers by setup_gbsg_dgm() /
+  # .create_gbsg_dgm_() (sim_aft_gbsg.R), not model_params.
+  ki <- dgm$effect_modifiers$k_inter %||% dgm$model_params$k_inter %||%
+    dgm$k_inter %||% NA_real_
   data.frame(
     null    = tag,
     k_inter = round(ki, 3),

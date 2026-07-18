@@ -1,0 +1,147 @@
+---
+title: "Smoke test --- GLM-generalized Guo & He (2021) de-biasing comparator"
+subtitle: "End-to-end pipeline check on synthetic survival, binary, and continuous data"
+date: 2026-07-17
+format: html
+bibliography: []
+---
+
+This living document exercises `guohe_debias()` (in `guohe_comparator.R`) end to
+end on self-generated synthetic data for all three outcome types. It is a
+fail-loud integration check: each section asserts that the mechanics run and
+that de-biasing moves the selected effect toward the null with a conservative
+one-sided bound. No external data are required. If `synthetic code.R` and
+`syntheticdata.csv` (the MONET1 survival reference) are present alongside this
+file, the final section additionally confirms an **exact** reproduction of that
+reference.
+
+```{r}
+#| label: setup
+#| message: false
+library(survival)
+source("guohe_comparator.R")
+
+# One synthetic trial with eight binary candidate covariates; v1 is the true
+# effect modifier carrying an extra treatment effect. `link` shapes the outcome.
+simulate_trial <- function(n, seed, link = c("survival", "binary", "continuous")) {
+  link <- match.arg(link)
+  set.seed(seed)
+  trt <- rbinom(n, 1, 0.5)
+  x   <- as.data.frame(matrix(rbinom(n * 8, 1, 0.4), n, 8))
+  names(x) <- paste0("v", 1:8)
+  modifier <- x$v1
+  base <- 0.4 * x$v2 - 0.3 * x$v3
+
+  if (link == "survival") {
+    loghaz <- -3 + base + trt * (-0.2 - 1.0 * modifier)   # protective, +benefit in v1
+    tlat   <- rexp(n, rate = exp(loghaz))
+    cens   <- rexp(n, rate = exp(-3.2))
+    out <- data.frame(trt = trt,
+                      time  = pmin(tlat, cens),
+                      event = as.integer(tlat <= cens))
+  } else if (link == "binary") {
+    lp <- -0.3 + base + trt * (-0.2 - 1.0 * modifier)      # protective OR in v1
+    out <- data.frame(trt = trt, y = rbinom(n, 1, plogis(lp)))
+  } else {
+    mu <- 1.0 + base + trt * (0.1 + 1.2 * modifier)        # +MD in v1
+    out <- data.frame(trt = trt, y = rnorm(n, mu, 1.0))
+  }
+  cbind(out, x)
+}
+
+candidates <- paste0("v", 1:8)   # v1 is the planted modifier
+```
+
+## Survival (hazard ratio)
+
+```{r}
+#| label: survival
+d_surv <- simulate_trial(1000, seed = 11, link = "survival")
+res_surv <- guohe_debias(
+  d_surv, outcome = "survival", treatment = "trt", candidates = candidates,
+  time = "time", event = "event", orient = -1,
+  B = 500L, r = 0.03, level = 0.05, seed = 1L, symmetric = FALSE
+)
+print(res_surv)
+
+stopifnot(
+  is.finite(res_surv$naive),
+  res_surv$debiased > res_surv$naive,   # HR shrinks toward 1
+  res_surv$bound    > res_surv$debiased # upper bound is conservative
+)
+```
+
+## Binary (odds ratio)
+
+```{r}
+#| label: binary
+d_bin <- simulate_trial(1000, seed = 22, link = "binary")
+res_bin <- guohe_debias(
+  d_bin, outcome = "binary", treatment = "trt", candidates = candidates,
+  y = "y", orient = -1, B = 500L, r = 0.03, level = 0.05,
+  seed = 1L, symmetric = FALSE
+)
+print(res_bin)
+
+stopifnot(
+  is.finite(res_bin$naive),
+  res_bin$debiased > res_bin$naive,   # OR shrinks toward 1
+  res_bin$bound    > res_bin$debiased # upper bound is conservative
+)
+```
+
+## Continuous (mean difference)
+
+```{r}
+#| label: continuous
+d_cont <- simulate_trial(1000, seed = 33, link = "continuous")
+res_cont <- guohe_debias(
+  d_cont, outcome = "continuous", treatment = "trt", candidates = candidates,
+  y = "y", orient = +1, B = 500L, r = 0.03, level = 0.05,
+  seed = 1L, symmetric = FALSE
+)
+print(res_cont)
+
+stopifnot(
+  is.finite(res_cont$naive),
+  res_cont$debiased < res_cont$naive,   # MD shrinks toward 0
+  res_cont$bound    < res_cont$debiased # toward-zero bound is conservative
+)
+```
+
+## Optional: exact reproduction of the MONET1 survival reference
+
+Runs only if `synthetic code.R` and `syntheticdata.csv` sit alongside this file.
+Confirms that `outcome = "survival"`, `orient = -1`, `symmetric = TRUE`
+reproduces `BC()` and `CB()` to machine precision on identical resamples.
+
+```{r}
+#| label: monet1-exact
+if (file.exists("synthetic code.R") && file.exists("syntheticdata.csv")) {
+  # Evaluate only the reference's function definitions (up to its read.csv line),
+  # so BC()/CB() are defined without triggering its slow B = 2000 demonstration.
+  ref_txt <- readLines("synthetic code.R")
+  cut <- grep("read.csv", ref_txt)[1] - 1L
+  eval(parse(text = paste(ref_txt[seq_len(cut)], collapse = "\n")))
+
+  D <- read.csv("syntheticdata.csv"); n <- nrow(D)
+  B <- 500L; r <- 0.03; level <- 0.05; S <- 20260717L
+  inds <- names(D)[4:11]
+
+  set.seed(S); ref_bound <- BC(D, B, r, n, level)
+  set.seed(S); ref_point <- CB(D, B, r, n)
+  mine <- guohe_debias(D, outcome = "survival", treatment = "treatment",
+                       candidates = inds, time = "aval1", event = "CNSR",
+                       orient = -1, B = B, r = r, level = level,
+                       seed = S, min_events = 1L, symmetric = TRUE)
+
+  stopifnot(
+    abs(ref_bound - mine$bound)    < 1e-9,
+    abs(ref_point - mine$debiased) < 1e-9
+  )
+  cat(sprintf("Exact match confirmed: bound %.6f, debiased HR %.6f (selected %s)\n",
+              mine$bound, mine$debiased, mine$selected))
+} else {
+  cat("MONET1 reference files not found alongside this document; section skipped.\n")
+}
+```
