@@ -155,7 +155,8 @@ guohe_adaptive_r <- function(data,
                              min_events = 5L,
                              refit = TRUE,
                              adjust_covariates = NULL,
-                             fast = NULL) {
+                             fast = NULL,
+                             parallel = FALSE) {
   outcome <- match.arg(outcome)
   if (!exists("guohe_algorithm3", mode = "function")) {
     stop("guohe_algorithm3() not found; source 'guohe_algorithm3.R' first.")
@@ -220,7 +221,8 @@ guohe_adaptive_r <- function(data,
                          time = time, event = event, y = y, orient = orient,
                          B = B, r = r_grid[l], level = level,
                          min_events = min_events, diagnostics = FALSE,
-                         adjust_covariates = adjust_covariates, fast = fast)
+                         adjust_covariates = adjust_covariates, fast = fast,
+                         parallel = parallel)
       ), silent = TRUE)
       if (inherits(fit_tr, "try-error")) next
       d_score <- .ar_to_score(fit_tr$debiased, orient, outcome)
@@ -249,7 +251,8 @@ guohe_adaptive_r <- function(data,
                          candidates = candidates, time = time, event = event,
                          y = y, orient = orient, B = B, r = r_hat,
                          level = level, seed = seed, min_events = min_events,
-                         adjust_covariates = adjust_covariates, fast = fast)
+                         adjust_covariates = adjust_covariates, fast = fast,
+                         parallel = parallel)
       )
     } else NULL
   ), class = "guohe_ar")

@@ -102,29 +102,89 @@ cat(sprintf("fit completed in %.1f s\n", (proc.time() - t0)["elapsed"]))
 cat("selected subgroup:", paste(fs$sg.harm, collapse = " & "), "\n")
 cat("gate n_family:", tryCatch(fs$debias_gate$n_family, error = function(e) NA), "\n\n")
 
-# ---- apply the Guo & He comparator ----------------------------------------
+# ---- apply the Guo & He comparator: sweep r + one adaptive arm ------------
+# All arms reuse the SAME fitted `fs` (no forestsearch refit) and run with
+# parallel = TRUE, B = 2000. Parallelism is byte-identical to serial: resample
+# indices are drawn serially under `seed`, only the model fitting is distributed.
+r_sweep <- c(0.03, 0.15, 0.30, 0.45)
+B_comp  <- 2000L
 cat("=== Guo & He comparator on the reconstructed family ===\n")
-cat(sprintf("comparator parallel: TRUE | workers: %d\n", n_cores))
+cat(sprintf("comparator parallel: TRUE | workers: %d | B: %d\n", n_cores, B_comp))
+cat(sprintf("fixed-r sweep: %s | adaptive arm: r_grid = {%s}, v = 5\n\n",
+            paste(sprintf("%.2f", r_sweep), collapse = ", "),
+            paste(sprintf("%.2f", r_sweep), collapse = ", ")))
 future::plan(future::multisession, workers = n_cores)
-res <- guohe_from_forestsearch(
-  fs, r = 0.03, B = 2000L, level = 0.05, seed = 20260718L,
-  orient = +1,          # forest-search harm convention: most HARMFUL effect
-  parallel = TRUE,      # distribute bootstrap model fits over the workers above
-                        # (byte-identical to serial: resample indices are drawn
-                        #  serially under `seed`, only fitting is distributed)
-  verbose = TRUE
-)
-future::plan(future::sequential)
-print(res)
 
+# pull the reporting quantities out of a guohe_a3 fit into one row
+.arm_row <- function(arm, r_used, a3) {
+  data.frame(
+    arm          = arm,
+    r            = r_used,
+    debiased_HR  = a3$debiased,
+    bound_side   = a3$bound_side,
+    bound_1sided = a3$bound_one_sided,
+    ci_lo        = a3$ci_two_sided[1],
+    ci_hi        = a3$ci_two_sided[2],
+    stringsAsFactors = FALSE
+  )
+}
+
+arms <- list()
+rows <- list()
+
+# ---- fixed-r arms ---------------------------------------------------------
+for (rr in r_sweep) {
+  cat(sprintf("--- fixed r = %.2f ---\n", rr))
+  a <- guohe_from_forestsearch(
+    fs, r = rr, B = B_comp, level = 0.05, seed = 20260718L,
+    orient = +1,          # forest-search harm convention: most HARMFUL effect
+    parallel = TRUE,
+    verbose = (rr == r_sweep[1])   # print the family reconstruction only once
+  )
+  key <- sprintf("fixed_r_%.2f", rr)
+  arms[[key]] <- a
+  rows[[key]] <- .arm_row(sprintf("fixed r=%.2f", rr), a$r, a)
+}
+
+# ---- adaptive-r arm (Algorithm 2, v = 5 folds over the same grid) ---------
+cat("\n--- adaptive r (guohe_adaptive_r, v = 5) ---\n")
+ar <- guohe_from_forestsearch(
+  fs, adaptive = TRUE, r_grid = r_sweep, v = 5L,
+  B = B_comp, level = 0.05, seed = 20260718L,
+  orient = +1, parallel = TRUE, verbose = FALSE
+)
+arms[["adaptive"]] <- ar
+cat(sprintf("adaptive selected r = %.2f\n", ar$r_hat))
+rows[["adaptive"]] <- .arm_row(sprintf("adaptive (r*=%.2f)", ar$r_hat),
+                               ar$r_hat, ar$fit)
+
+future::plan(future::sequential)
+
+# ---- report table ---------------------------------------------------------
+tab <- do.call(rbind, rows)
+rownames(tab) <- NULL
+cat("\n=== SWEEP SUMMARY (de-biased HR scale) ===\n")
+tab_show <- within(tab, {
+  debiased_HR  <- sprintf("%.4f", debiased_HR)
+  bound_1sided <- sprintf("%.4f", bound_1sided)
+  two_sided_CI <- sprintf("(%.4f, %.4f)", ci_lo, ci_hi)
+  r            <- sprintf("%.2f", r)
+})
+print(tab_show[, c("arm", "r", "debiased_HR", "bound_side",
+                   "bound_1sided", "two_sided_CI")], row.names = FALSE)
+
+# ---- acceptance check (same reconstructed family for every arm) -----------
+self_check <- arms[[1]]$bridge$self_check
 cat("\n=== ACCEPTANCE CHECK ===\n")
-cat("self-check:", res$bridge$self_check, "\n")
-if (!grepl("^PASS", res$bridge$self_check)) {
+cat("self-check:", self_check, "\n")
+if (!grepl("^PASS", self_check)) {
   cat("\n*** Family reconstruction did not match the gate. Diagnose against the\n",
       "*** package's own enumeration helpers before using this result.\n", sep = "")
 } else {
   cat("Family reconstruction is faithful to the search's own enumeration.\n")
 }
 
+res <- list(fixed = arms[grep("^fixed", names(arms))],
+            adaptive = arms[["adaptive"]], summary = tab)
 saveRDS(res, file.path(.this_dir, "guohe_gbsg_maxeff_result.rds"))
 cat("\nsaved:", file.path(.this_dir, "guohe_gbsg_maxeff_result.rds"), "\n")
