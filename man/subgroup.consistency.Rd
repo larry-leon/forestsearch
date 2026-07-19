@@ -21,7 +21,7 @@ subgroup.consistency(
   sg_focus = "hr",
   selection_rule = "neighborhood",
   effect_neighborhood = 0.1,
-  stop_Kgroups = 10,
+  stop_Kgroups = 200,
   stop_threshold = NULL,
   show_candidate_summary = FALSE,
   pconsistency.digits = 2,
@@ -112,7 +112,8 @@ when \code{sg_focus} is \code{"hr"}, \code{"maxSG"}, or
 left at its default (the rule does not consult it).}
 
 \item{stop_Kgroups}{Integer. Maximum number of candidates to evaluate.
-Default: 10}
+When the ranked pool exceeds this cap it is truncated and a warning naming
+both counts and the \code{sg_focus} ordering is emitted. Default: 200}
 
 \item{stop_threshold}{Numeric in \code{[0, 1]} or \code{NULL}.
 When a candidate subgroup's consistency probability (\code{Pcons})

@@ -128,7 +128,8 @@
 #'   \code{"minSG"}.  When \code{selection_rule = "pareto"}, must be
 #'   left at its default (the rule does not consult it).
 #' @param stop_Kgroups Integer. Maximum number of candidates to evaluate.
-#'   Default: 10
+#'   When the ranked pool exceeds this cap it is truncated and a warning naming
+#'   both counts and the `sg_focus` ordering is emitted. Default: 200
 #' @param stop_threshold Numeric in \code{[0, 1]} or \code{NULL}.
 #'   When a candidate subgroup's consistency probability (\code{Pcons})
 #'   meets or exceeds this threshold, evaluation stops early -- remaining
@@ -335,7 +336,7 @@ subgroup.consistency <- function(df,
                                  sg_focus = "hr",
                                  selection_rule = "neighborhood",
                                  effect_neighborhood = 0.10,
-                                 stop_Kgroups = 10,
+                                 stop_Kgroups = 200,
                                  stop_threshold = NULL,
                                  show_candidate_summary = FALSE,
                                  pconsistency.digits = 2,
@@ -586,8 +587,26 @@ subgroup.consistency <- function(df,
     cat("# of unique initial candidates:", nrow(found.hrs), "\n")
   }
 
-  # Limit to top stop_Kgroups candidates
-  maxsgs <- min(nrow(found.hrs), stop_Kgroups)
+  # Limit to top stop_Kgroups candidates.  Warn whenever the pool is ACTUALLY
+  # truncated (condition-based, not tied to any default value, so it cannot be
+  # outgrown by a future default): the criterion-optimal subgroup can rank below
+  # the cap, most acutely for the size foci where small high-effect subgroups
+  # sort last.  maxeff forces stop_Kgroups = Inf, so it never triggers here.
+  n_pool <- nrow(found.hrs)
+  maxsgs <- min(n_pool, stop_Kgroups)
+  if (n_pool > stop_Kgroups) {
+    msg <- sprintf(paste0(
+      "max_subgroups_search = %g truncated the candidate pool from %d to %d. ",
+      "Candidates ranked below %d under the sg_focus = '%s' preview ordering ",
+      "were not evaluated."),
+      stop_Kgroups, n_pool, maxsgs, maxsgs, sg_focus)
+    if (sg_focus %in% c("maxSG", "minSG")) {
+      msg <- paste0(msg, " Size-focused foci ('maxSG'/'minSG') order by subgroup ",
+                    "size, so small high-effect subgroups rank last and truncate ",
+                    "first.")
+    }
+    warning(msg, call. = FALSE)
+  }
   found.hrs <- found.hrs[seq_len(maxsgs), ]
   index.Z <- index.Z[seq_len(maxsgs), ]
 

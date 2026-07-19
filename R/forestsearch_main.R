@@ -515,12 +515,12 @@
 #' @param plot.sg Logical. Plot subgroup survival curves. Default FALSE.
 #' @param plot.grf Logical. Plot GRF results. Default FALSE.
 #' @param max_subgroups_search Integer. Maximum subgroups to evaluate.
-#'   Default 30.  For `sg_focus` in `"effMaxSG"` / `"effMinSG"` (equivalently
-#'   `"hrMaxSG"` / `"hrMinSG"`), the subgroup that is optimal under the
-#'   criterion can sit further down the ranked candidate list, so the
-#'   candidate pool should be broad: keep `max_subgroups_search >= 30` (a
-#'   smaller value may miss the optimal subgroup).  Overridden to \code{Inf}
-#'   under \code{sg_focus = "maxeff"} (no candidate-pool truncation).
+#'   Default 200.  For `sg_focus` in `"effMaxSG"` / `"effMinSG"` (equivalently
+#'   `"hrMaxSG"` / `"hrMinSG"`) and the size foci `"maxSG"` / `"minSG"`, the
+#'   subgroup that is optimal under the criterion can sit far down the ranked
+#'   candidate list, so the candidate pool should be broad; when the pool is
+#'   actually truncated a warning naming both counts is emitted.  Overridden to
+#'   \code{Inf} under \code{sg_focus = "maxeff"} (no candidate-pool truncation).
 #' @param vi.grf.min Numeric. Minimum GRF variable importance. Default -0.2.
 #' @param use_twostage Logical. Use two-stage sequential consistency algorithm for
 #'   improved performance. Default FALSE for backward compatibility. When TRUE,
@@ -885,7 +885,7 @@ forestsearch <- function(df.analysis,
                          by.risk = 12,
                          plot.sg = FALSE,
                          plot.grf = FALSE,
-                         max_subgroups_search = 30,
+                         max_subgroups_search = 200,
                          vi.grf.min = -0.2,
                          # NEW: Two-stage consistency parameters
                          use_twostage = TRUE,

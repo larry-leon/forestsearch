@@ -72,7 +72,7 @@ forestsearch(
   by.risk = 12,
   plot.sg = FALSE,
   plot.grf = FALSE,
-  max_subgroups_search = 30,
+  max_subgroups_search = 200,
   vi.grf.min = -0.2,
   use_twostage = TRUE,
   twostage_args = list(),
@@ -473,12 +473,12 @@ Default FALSE.}
 \item{plot.grf}{Logical. Plot GRF results. Default FALSE.}
 
 \item{max_subgroups_search}{Integer. Maximum subgroups to evaluate.
-Default 30.  For \code{sg_focus} in \code{"effMaxSG"} / \code{"effMinSG"} (equivalently
-\code{"hrMaxSG"} / \code{"hrMinSG"}), the subgroup that is optimal under the
-criterion can sit further down the ranked candidate list, so the
-candidate pool should be broad: keep \code{max_subgroups_search >= 30} (a
-smaller value may miss the optimal subgroup).  Overridden to \code{Inf}
-under \code{sg_focus = "maxeff"} (no candidate-pool truncation).}
+Default 200.  For \code{sg_focus} in \code{"effMaxSG"} / \code{"effMinSG"} (equivalently
+\code{"hrMaxSG"} / \code{"hrMinSG"}) and the size foci \code{"maxSG"} / \code{"minSG"}, the
+subgroup that is optimal under the criterion can sit far down the ranked
+candidate list, so the candidate pool should be broad; when the pool is
+actually truncated a warning naming both counts is emitted.  Overridden to
+\code{Inf} under \code{sg_focus = "maxeff"} (no candidate-pool truncation).}
 
 \item{vi.grf.min}{Numeric. Minimum GRF variable importance. Default -0.2.}
 
