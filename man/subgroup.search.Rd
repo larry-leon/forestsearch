@@ -25,7 +25,8 @@ subgroup.search(
   effect_threshold = NULL,
   effect_measure = NULL,
   outcome_type = NULL,
-  adjust_covariates = NULL
+  adjust_covariates = NULL,
+  disable_effect_floor = FALSE
 )
 }
 \arguments{
@@ -89,6 +90,12 @@ model terms (e.g. \code{"strata(x1)"} or \code{"x2"}) used to adjust the
 candidate-search Cox scorer on the survival path.  Referenced columns are
 sourced from \code{df_analysis}.  Ignored on the GLM path.  Default
 \code{NULL} (treatment-only).}
+
+\item{disable_effect_floor}{Logical. When \code{TRUE}, the Status-6 effect
+threshold (\code{hr.threshold}) is not applied, so the full estimable
+candidate family is retained regardless of effect size.  Set by
+\code{\link{forestsearch}} when \code{sg_focus = "maxeff"} so the effect
+maximiser ranges over an unconditional family.  Default \code{FALSE}.}
 }
 \value{
 List with found subgroups, maximum HR, search time, configuration info,

@@ -48,6 +48,11 @@
 #'   candidate-search Cox scorer on the survival path.  Referenced columns are
 #'   sourced from \code{df_analysis}.  Ignored on the GLM path.  Default
 #'   \code{NULL} (treatment-only).
+#' @param disable_effect_floor Logical. When \code{TRUE}, the Status-6 effect
+#'   threshold (\code{hr.threshold}) is not applied, so the full estimable
+#'   candidate family is retained regardless of effect size.  Set by
+#'   \code{\link{forestsearch}} when \code{sg_focus = "maxeff"} so the effect
+#'   maximiser ranges over an unconditional family.  Default \code{FALSE}.
 #'
 #' @return List with found subgroups, maximum HR, search time, configuration info,
 #'   and filtering statistics.
@@ -78,7 +83,8 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
                             effect_threshold = NULL,
                             effect_measure = NULL,
                             outcome_type = NULL,
-                            adjust_covariates = NULL) {
+                            adjust_covariates = NULL,
+                            disable_effect_floor = FALSE) {
 
   # =========================================================================
   # SECTION 1: DATA PREPARATION AND VALIDATION
@@ -146,7 +152,8 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
     estimator_fn = estimator_fn,
     df_clean = df_clean,
     outcome_type = outcome_type,
-    adjust_covariates = adjust_covariates
+    adjust_covariates = adjust_covariates,
+    disable_effect_floor = disable_effect_floor
   )
 
   # Reset to sequential plan
@@ -229,7 +236,8 @@ search_combinations_parallel <- function(yy, dd, tt, zz, combo_info,
                                          estimator_fn = NULL,
                                          df_clean = NULL,
                                          outcome_type = NULL,
-                                         adjust_covariates = NULL) {
+                                         adjust_covariates = NULL,
+                                         disable_effect_floor = FALSE) {
 
   tot_counts <- combo_info$max_count
 
@@ -252,7 +260,8 @@ search_combinations_parallel <- function(yy, dd, tt, zz, combo_info,
       estimator_fn = estimator_fn,
       df_clean = df_clean,
       outcome_type = outcome_type,
-      adjust_covariates = adjust_covariates
+      adjust_covariates = adjust_covariates,
+      disable_effect_floor = disable_effect_floor
     )
   })
 
@@ -540,7 +549,8 @@ evaluate_combination_with_status <- function(covs.in, yy, dd, tt, zz,
                                              estimator_fn = NULL,
                                              df_clean = NULL,
                                              outcome_type = NULL,
-                                             adjust_covariates = NULL) {
+                                             adjust_covariates = NULL,
+                                             disable_effect_floor = FALSE) {
 
   # Extract selected factors
   selected_cols <- which(covs.in == 1)
@@ -603,8 +613,10 @@ evaluate_combination_with_status <- function(covs.in, yy, dd, tt, zz,
       return(list(status = 5L, result = NULL))
     }
 
-    # Status 6: Check effect threshold
-    if (glm_result$hr <= hr.threshold) {
+    # Status 6: Check effect threshold.  Skipped when the effect floor is
+    # disabled (sg_focus = "maxeff" retains the full estimable family so the
+    # argmax is unconditional -- see forestsearch() search_overrides).
+    if (!disable_effect_floor && glm_result$hr <= hr.threshold) {
       return(list(status = 6L, result = NULL))
     }
 
@@ -642,8 +654,10 @@ evaluate_combination_with_status <- function(covs.in, yy, dd, tt, zz,
     return(list(status = 5L, result = NULL))
   }
 
-  # Status 6: Check HR threshold
-  if (cox_result$hr <= hr.threshold) {
+  # Status 6: Check HR threshold.  Skipped when the effect floor is disabled
+  # (sg_focus = "maxeff" retains the full estimable family so the argmax is
+  # unconditional -- see forestsearch() search_overrides).
+  if (!disable_effect_floor && cox_result$hr <= hr.threshold) {
     return(list(status = 6L, result = NULL))
   }
 

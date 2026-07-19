@@ -20,7 +20,8 @@ evaluate_combination_with_status(
   estimator_fn = NULL,
   df_clean = NULL,
   outcome_type = NULL,
-  adjust_covariates = NULL
+  adjust_covariates = NULL,
+  disable_effect_floor = FALSE
 )
 }
 \arguments{

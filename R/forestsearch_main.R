@@ -1115,7 +1115,10 @@ forestsearch <- function(df.analysis,
     if (length(.ov)) {
       warning("sg_focus = 'maxeff' selects the effect maximiser with no ",
               "auxiliary conditions; overriding: ",
-              paste(.ov, collapse = ", "), ".", call. = FALSE)
+              paste(.ov, collapse = ", "),
+              ". The subgroup-search effect floor (hr.threshold) is also ",
+              "disabled so the argmax ranges over the full estimable family.",
+              call. = FALSE)
     }
     if (identical(consistency_method, "split")) {
       warning("sg_focus = 'maxeff' evaluates consistency for EVERY candidate ",
@@ -2375,7 +2378,11 @@ forestsearch <- function(df.analysis,
         minp = minp,
         maxk = maxk,
         parallel_workers = 1,  # Ensure sequential execution if inside parallel context
-        details = details       # Optionally suppress details
+        details = details,      # Optionally suppress details
+        # maxeff is the unconditional effect maximiser: disable the search
+        # effect floor so hr.threshold cannot prune the argmax (a threshold
+        # above the best subgroup effect would otherwise empty the family).
+        disable_effect_floor = identical(sg_focus, "maxeff")
   )
 
   # Only pass GLM params when active (same rationale as consistency_overrides)
@@ -2482,6 +2489,15 @@ forestsearch <- function(df.analysis,
       confs_labels = confs_labels,
       n.splits = fs.splits,
       stop_Kgroups = max_subgroups_search,
+      # Pass consistency-gating params from the LOCALS, not args_call_all, so
+      # sg_focus = "maxeff" overrides (pconsistency.threshold -> 0,
+      # stop_threshold -> NULL) actually reach the engine.  args_call_all is
+      # not re-synced after the maxeff override block, and filter_call_args
+      # gives these overrides precedence -- so an omission here silently sends
+      # the stale user values (0.90 / 0.95) and re-enables filtering + early
+      # stopping the override promised to disable.
+      pconsistency.threshold = pconsistency.threshold,
+      stop_threshold = stop_threshold,
       # NEW: Pass two-stage parameters
       use_twostage = use_twostage,
       twostage_args = twostage_args,
