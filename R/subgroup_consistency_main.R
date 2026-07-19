@@ -95,6 +95,7 @@
 #'   \describe{
 #'     \item{\code{"hr"} (or \code{"eff"})}{Sort by
 #'       \eqn{(-Pcons, -hr, K)}; pick top.}
+#'     \item{\code{"maxeff"}}{Sort by \eqn{(-hr, K)}; pick top.  No consistency filter.}
 #'     \item{\code{"maxSG"}}{Sort by \eqn{(-N, -Pcons, K)}; pick top.}
 #'     \item{\code{"minSG"}}{Sort by \eqn{(N, -Pcons, K)}; pick top.}
 #'     \item{\code{"hrMaxSG"} (or \code{"effMaxSG"})}{Among candidates
@@ -491,6 +492,11 @@ subgroup.consistency <- function(df,
     ))
   }
 
+  if (identical(sg_focus, "maxeff")) {
+    # Guo & He's argmax ranges over the whole family; an effect floor would make
+    # it a constrained maximiser.
+    found.hrs <- hr.subgroups
+  } else {
   if (is.finite(m1.threshold)) {
     hr.subgroups <- hr.subgroups[!is.na(hr.subgroups$m1), ]
     if (nrow(hr.subgroups) == 0) {
@@ -509,6 +515,7 @@ subgroup.consistency <- function(df,
                                 hr.subgroups$m1 <= m1.threshold, ]
   } else {
     found.hrs <- hr.subgroups[hr.subgroups$HR >= hr.threshold, ]
+  }
   }
 
   if (nrow(found.hrs) == 0) {
@@ -968,7 +975,7 @@ subgroup.consistency <- function(df,
     # Validate sg_focus.  Note: hrMaxSG and hrMinSG are passed through
     # unchanged (no longer collapsed to maxSG/minSG), so that the
     # neighborhood-based selection in sort_subgroups() is applied.
-    valid_sg_focus <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG")
+    valid_sg_focus <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG", "maxeff")
     if (!sg_focus %in% valid_sg_focus) {
       stop(sprintf("Unknown sg_focus value: %s", sg_focus))
     }

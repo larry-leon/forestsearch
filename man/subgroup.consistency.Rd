@@ -76,6 +76,7 @@ Default: 100}
 \describe{
 \item{\code{"hr"} (or \code{"eff"})}{Sort by
 \eqn{(-Pcons, -hr, K)}; pick top.}
+\item{\code{"maxeff"}}{Sort by \eqn{(-hr, K)}; pick top.  No consistency filter.}
 \item{\code{"maxSG"}}{Sort by \eqn{(-N, -Pcons, K)}; pick top.}
 \item{\code{"minSG"}}{Sort by \eqn{(N, -Pcons, K)}; pick top.}
 \item{\code{"hrMaxSG"} (or \code{"effMaxSG"})}{Among candidates

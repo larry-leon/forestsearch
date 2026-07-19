@@ -364,6 +364,13 @@ maximum, pick the one with the \emph{largest} sample size.}
 \item{\code{"hrMinSG"} (or \code{"effMinSG"})}{Among candidates
 with effect size within \code{effect_neighborhood} of the
 maximum, pick the one with the \emph{smallest} sample size.}
+\item{\code{"maxeff"}}{The effect maximiser over the enumerated
+family, with no consistency threshold, effect threshold, early
+stopping, two-stage screening or candidate-pool truncation.
+Implements the argmax primitive of Guo and He (2021). Size/event
+minima still apply. Contrast \code{"hr"}, which ranks by
+consistency first, uses effect only as a tiebreaker, and under
+early stopping returns the first passer in effect order.}
 }
 Default \code{"hr"}.  The \code{"eff*"} forms are aliases for the
 \code{"hr*"} forms and read more naturally in GLM contexts
@@ -399,7 +406,8 @@ splits when \code{use_twostage = TRUE}). Default 1000.}
 
 \item{m1.threshold}{Numeric. Maximum median survival threshold. Default Inf.}
 
-\item{pconsistency.threshold}{Numeric. Minimum consistency proportion. Default 0.90.}
+\item{pconsistency.threshold}{Numeric. Minimum consistency proportion. Default 0.90.
+Overridden to \code{0} under \code{sg_focus = "maxeff"} (no consistency filter).}
 
 \item{stop_threshold}{Numeric in \code{[0, 1]} or \code{NULL}.
 Early stopping threshold for consistency evaluation. When a candidate
@@ -414,7 +422,8 @@ stopping, use \code{stop_threshold = NULL}, not a value above 1.
 Automatically reset to \code{NULL} (with a warning) when
 \code{sg_focus} is \code{"hrMaxSG"} or \code{"hrMinSG"}, because
 neighborhood-based selection requires comparing effect sizes
-across all candidates to determine the in-neighborhood set.}
+across all candidates to determine the in-neighborhood set.
+Also overridden to \code{NULL} under \code{sg_focus = "maxeff"}.}
 
 \item{show_candidate_summary}{Logical. If \code{TRUE}, prints a
 post-consistency summary table of all passing candidates with
@@ -462,14 +471,16 @@ Default 30.  For \code{sg_focus} in \code{"effMaxSG"} / \code{"effMinSG"} (equiv
 \code{"hrMaxSG"} / \code{"hrMinSG"}), the subgroup that is optimal under the
 criterion can sit further down the ranked candidate list, so the
 candidate pool should be broad: keep \code{max_subgroups_search >= 30} (a
-smaller value may miss the optimal subgroup).}
+smaller value may miss the optimal subgroup).  Overridden to \code{Inf}
+under \code{sg_focus = "maxeff"} (no candidate-pool truncation).}
 
 \item{vi.grf.min}{Numeric. Minimum GRF variable importance. Default -0.2.}
 
 \item{use_twostage}{Logical. Use two-stage sequential consistency algorithm for
 improved performance. Default FALSE for backward compatibility. When TRUE,
 \code{fs.splits} becomes the maximum number of splits, and early stopping
-is enabled. See Details.}
+is enabled. See Details.  Overridden to \code{FALSE} under
+\code{sg_focus = "maxeff"} (no two-stage screening).}
 
 \item{twostage_args}{List. Parameters for two-stage algorithm (only used when
 \code{use_twostage = TRUE}):

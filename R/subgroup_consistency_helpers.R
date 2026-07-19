@@ -544,6 +544,13 @@ sort_subgroups <- function(result_new, sg_focus,
 
   .validate_selection_rule(selection_rule, sg_focus, effect_neighborhood)
 
+  # Effect maximiser, no auxiliary condition.  Distinct from "hr", which sorts
+  # (-Pcons, -hr, K) and lets consistency dominate.  K breaks exact ties toward
+  # the simpler rule; it cannot override the effect ordering.
+  if (sg_focus == "maxeff") {
+    data.table::setorder(result_new, -hr, K)
+    return(result_new)
+  }
   if (sg_focus == "hr") {
     data.table::setorder(result_new, -Pcons, -hr, K)
     return(result_new)
@@ -618,6 +625,10 @@ sort_subgroups_preview <- function(result_new, sg_focus,
 
   .validate_selection_rule(selection_rule, sg_focus, effect_neighborhood)
 
+  if (sg_focus == "maxeff") {
+    data.table::setorder(result_new, -HR, K)
+    return(result_new)
+  }
   if (sg_focus == "hr") {
     data.table::setorder(result_new, -HR, K)
     return(result_new)

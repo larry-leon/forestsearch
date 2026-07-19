@@ -424,6 +424,13 @@
 #'     \item{\code{"hrMinSG"} (or \code{"effMinSG"})}{Among candidates
 #'       with effect size within \code{effect_neighborhood} of the
 #'       maximum, pick the one with the \emph{smallest} sample size.}
+#'     \item{\code{"maxeff"}}{The effect maximiser over the enumerated
+#'       family, with no consistency threshold, effect threshold, early
+#'       stopping, two-stage screening or candidate-pool truncation.
+#'       Implements the argmax primitive of Guo and He (2021). Size/event
+#'       minima still apply. Contrast \code{"hr"}, which ranks by
+#'       consistency first, uses effect only as a tiebreaker, and under
+#'       early stopping returns the first passer in effect order.}
 #'   }
 #'   Default \code{"hr"}.  The \code{"eff*"} forms are aliases for the
 #'   \code{"hr*"} forms and read more naturally in GLM contexts
@@ -465,10 +472,12 @@
 #'   \code{sg_focus} is \code{"hrMaxSG"} or \code{"hrMinSG"}, because
 #'   neighborhood-based selection requires comparing effect sizes
 #'   across all candidates to determine the in-neighborhood set.
+#'   Also overridden to \code{NULL} under \code{sg_focus = "maxeff"}.
 #' @param fs.splits Integer. Number of splits for consistency evaluation (or maximum
 #'   splits when \code{use_twostage = TRUE}). Default 1000.
 #' @param m1.threshold Numeric. Maximum median survival threshold. Default Inf.
 #' @param pconsistency.threshold Numeric. Minimum consistency proportion. Default 0.90.
+#'   Overridden to \code{0} under \code{sg_focus = "maxeff"} (no consistency filter).
 #' @param show_candidate_summary Logical. If \code{TRUE}, prints a
 #'   post-consistency summary table of all passing candidates with
 #'   Frontier/InBand/Selected flags.  See
@@ -504,12 +513,14 @@
 #'   `"hrMaxSG"` / `"hrMinSG"`), the subgroup that is optimal under the
 #'   criterion can sit further down the ranked candidate list, so the
 #'   candidate pool should be broad: keep `max_subgroups_search >= 30` (a
-#'   smaller value may miss the optimal subgroup).
+#'   smaller value may miss the optimal subgroup).  Overridden to \code{Inf}
+#'   under \code{sg_focus = "maxeff"} (no candidate-pool truncation).
 #' @param vi.grf.min Numeric. Minimum GRF variable importance. Default -0.2.
 #' @param use_twostage Logical. Use two-stage sequential consistency algorithm for
 #'   improved performance. Default FALSE for backward compatibility. When TRUE,
 #'   \code{fs.splits} becomes the maximum number of splits, and early stopping
-#'   is enabled. See Details.
+#'   is enabled. See Details.  Overridden to \code{FALSE} under
+#'   \code{sg_focus = "maxeff"} (no two-stage screening).
 #' @param twostage_args List. Parameters for two-stage algorithm (only used when
 #'   \code{use_twostage = TRUE}):
 #'   \describe{
@@ -1050,7 +1061,7 @@ forestsearch <- function(df.analysis,
   # check below.
   sg_focus_user <- sg_focus                       # save for error message
   sg_focus      <- .normalize_sg_focus(sg_focus)
-  valid_sg_focus <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG")
+  valid_sg_focus <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG", "maxeff")
   valid_sg_focus_user <- c(valid_sg_focus,
                            "eff", "effMaxSG", "effMinSG")
   if (!is.character(sg_focus) || length(sg_focus) != 1L ||
@@ -1079,6 +1090,40 @@ forestsearch <- function(df.analysis,
   #    (matches the existing conditional pattern in sort_subgroups()).
   if (sg_focus %in% c("hrMaxSG", "hrMinSG")) {
     .validate_effect_neighborhood(effect_neighborhood)
+  }
+
+  # sg_focus = "maxeff" implements Guo & He's argmax primitive: the effect
+  # maximiser over the enumerated family, subject to NO auxiliary selection
+  # condition.  Consistency screening, effect thresholding, early stopping,
+  # two-stage pruning and candidate-pool truncation would each change which
+  # candidate wins (or stop the family being fully evaluated), so all are
+  # disabled BY CONSTRUCTION rather than left to the caller.  Size/event minima
+  # (n.min, d0.min, d1.min) are retained: they define which candidates are
+  # estimable, not which one wins.
+  if (identical(sg_focus, "maxeff")) {
+    .ov <- character(0)
+    if (!isTRUE(all.equal(pconsistency.threshold, 0)))
+      .ov <- c(.ov, "pconsistency.threshold -> 0")
+    if (!is.null(stop_threshold))       .ov <- c(.ov, "stop_threshold -> NULL")
+    if (isTRUE(use_twostage))           .ov <- c(.ov, "use_twostage -> FALSE")
+    if (is.finite(max_subgroups_search))
+      .ov <- c(.ov, sprintf("max_subgroups_search %g -> Inf", max_subgroups_search))
+    pconsistency.threshold <- 0
+    stop_threshold         <- NULL
+    use_twostage           <- FALSE
+    max_subgroups_search   <- Inf
+    if (length(.ov)) {
+      warning("sg_focus = 'maxeff' selects the effect maximiser with no ",
+              "auxiliary conditions; overriding: ",
+              paste(.ov, collapse = ", "), ".", call. = FALSE)
+    }
+    if (identical(consistency_method, "split")) {
+      warning("sg_focus = 'maxeff' evaluates consistency for EVERY candidate ",
+              "(no screening, no early stopping, no truncation). With ",
+              "consistency_method = 'split' that is fs.splits x 2 refits per ",
+              "candidate and is usually impractical; 'resample' is a single fit ",
+              "plus a closed form.", call. = FALSE)
+    }
   }
 
   # Validate parallel arguments
