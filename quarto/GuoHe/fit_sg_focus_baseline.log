@@ -1,0 +1,39 @@
+script directory: /home/larryleon/Documents/GitHub/forestsearch/quarto/GuoHe 
+cores: 102 
+
+=== fitting forestsearch(sg_focus = 'hr') ===
+  selected subgroup : {er <= 0} & {size <= 35}
+  subgroup n        : 61
+  naive HR (sg.harm): 2.5369
+  [gate] naive est / label: 2.5369 / q1.1 & q27.1
+  fit time          : 26.1 s
+
+=== fitting forestsearch(sg_focus = 'effMaxSG') ===
+  selected subgroup : {er <= 0} & {size <= 35}
+  subgroup n        : 61
+  naive HR (sg.harm): 2.5369
+  [gate] naive est / label: 2.5369 / q1.1 & q27.1
+  fit time          : 27.2 s
+
+=== fitting forestsearch(sg_focus = 'maxSG') ===
+  selected subgroup : {er <= 0}
+  subgroup n        : 82
+  naive HR (sg.harm): 1.9514
+  [gate] naive est / label: 1.9514 / q1.1
+  fit time          : 26.3 s
+
+Warning message:
+stop_threshold = 0.95 reset to NULL for sg_focus = 'hrMaxSG'.
+Neighborhood-based selection requires evaluating all candidates to determine the effect-size neighborhood.
+To suppress this warning, pass stop_threshold = NULL explicitly. 
+=== sg_focus baseline (seedit = 8316951) ===
+ sg_focus                 selected subgroup_n naive_HR gate_naive_est
+       hr {er <= 0} & {size <= 35}         61   2.5369         2.5369
+ effMaxSG {er <= 0} & {size <= 35}         61   2.5369         2.5369
+    maxSG                {er <= 0}         82   1.9514         1.9514
+   gate_label
+ q1.1 & q27.1
+ q1.1 & q27.1
+         q1.1
+
+saved: /home/larryleon/Documents/GitHub/forestsearch/quarto/GuoHe/sg_focus_baseline.rds 

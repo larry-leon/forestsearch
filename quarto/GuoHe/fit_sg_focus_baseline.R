@@ -6,10 +6,25 @@
 # subgroup (fs$sg.harm) and its naive HR.  Saves sg_focus_baseline.rds beside
 # this script.
 #
+# CANDIDATE-POOL DEPTH.  run_guohe_gbsg_maxeff.R uses max_subgroups_search = 50.
+# At that depth "maxSG" selects NO subgroup: the consistency pool is the top-K
+# of the sg_focus-ORDERED preview list (subgroup_consistency_main.R:552-568), and
+# "maxSG" orders by largest-N first, so the harmful subgroup here ({er<=0} &
+# {size<=35}, n = 61, at the n.min floor) ranks in the small-N tail and is
+# truncated away before consistency.  ("hr" orders by -HR and puts it at the
+# top; "effMaxSG" evaluates the full pool.)  We therefore use a DEEP pool below
+# so every focus screens the same, un-truncated candidate set -- an
+# apples-to-apples baseline.  See MAX_SG.
+#
 # Run from anywhere -- it locates its own directory, so the working directory
 # does not matter:
 #   Rscript quarto/GuoHe/fit_sg_focus_baseline.R
 # or open in RStudio and Source.
+
+# Candidate-pool depth for the consistency screen (see header).  Deep enough to
+# reach the small-N harmful subgroups that "maxSG" orders last (~90 sufficed
+# here; 2000 is comfortably past the full screened family).
+MAX_SG <- 2000L
 
 # ---- locate this script's directory, however it was invoked ---------------
 .this_dir <- local({
@@ -67,7 +82,7 @@ fit_one <- function(focus) {
     debias_gate = TRUE,
     debias_gate_args = list(draws = 5000L),
     n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
-    max_subgroups_search = 50,
+    max_subgroups_search = MAX_SG,             # deep pool (see header) -- 50 truncates maxSG to NULL
     hr.threshold = 1.0, hr.consistency = 1.0,
     pconsistency.threshold = 0.90,
     consistency_method = "resample",
@@ -146,7 +161,8 @@ tab <- do.call(rbind, lapply(res, function(x) data.frame(
 )))
 rownames(tab) <- NULL
 
-out <- list(results = res, summary = tab, seedit = 8316951)
+out <- list(results = res, summary = tab, seedit = 8316951,
+            max_subgroups_search = MAX_SG)
 saveRDS(out, file.path(.this_dir, "sg_focus_baseline.rds"))
 
 cat("=== sg_focus baseline (seedit = 8316951) ===\n")
