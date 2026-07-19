@@ -1955,3 +1955,49 @@ evaluate_consistency_twostage <- function(
 
   return(resultk)
 }
+
+#' Collapse identical-membership candidates for sg_focus = "maxeff"
+#'
+#' Two candidate cut-sets can define the SAME subject-level subgroup -- e.g.
+#' \code{{er <= 0}} and \code{{er <= 0} & {er <= 10}} when \code{er <= 0}
+#' implies \code{er <= 10}.  For the unconditional argmax these are exact
+#' duplicates; evaluating both wastes compute and lets the \code{(-hr, K)} order
+#' break a tie on cut count.  This keeps ONE representative per membership: the
+#' fewest cuts (smallest \code{K}), ties broken by the lexicographically
+#' smallest selected-column indices (a deterministic "first index").  No
+#' distinct subgroup is dropped -- a collapsed encoding always shares its
+#' membership with the retained representative.
+#'
+#' @param found.hrs data.table/data.frame of candidates; the \code{names.Z}
+#'   columns are 0/1 selection indicators.
+#' @param df Data frame carrying the \code{names.Z} cut columns (subject rows).
+#' @param names.Z Character vector of cut-indicator column names.
+#' @return \code{found.hrs} with duplicate-membership rows removed, original
+#'   row order preserved.
+#' @keywords internal
+#' @noRd
+.maxeff_membership_dedup <- function(found.hrs, df, names.Z) {
+  fh <- as.data.frame(found.hrs)
+  if (nrow(fh) <= 1L) return(found.hrs)
+
+  Zmat <- as.matrix(df[, names.Z, drop = FALSE]);  storage.mode(Zmat) <- "double"
+  Smat <- as.matrix(fh[, names.Z, drop = FALSE]);  storage.mode(Smat) <- "double"
+  n_subj <- nrow(Zmat)
+
+  keys <- character(nrow(fh))   # subject-membership key
+  ktie <- character(nrow(fh))   # deterministic tiebreak: sorted selected indices
+  Kvec <- integer(nrow(fh))
+  for (r in seq_len(nrow(fh))) {
+    sel <- which(Smat[r, ] == 1)
+    Kvec[r] <- length(sel)
+    memb <- if (length(sel) == 0L) rep(TRUE, n_subj)
+            else rowSums(Zmat[, sel, drop = FALSE]) == length(sel)
+    keys[r] <- paste0(which(memb), collapse = ",")
+    ktie[r] <- paste(sprintf("%05d", sort(sel)), collapse = ".")
+  }
+
+  # Order by K asc, then first-index; keep the first row seen per membership.
+  ord       <- order(Kvec, ktie)
+  keep_rows <- ord[!duplicated(keys[ord])]
+  found.hrs[sort(keep_rows), ]
+}

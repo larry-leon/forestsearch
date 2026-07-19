@@ -543,12 +543,29 @@ subgroup.consistency <- function(df,
   if (nrow(found.hrs) > 1) {
     n_before <- nrow(found.hrs)
 
-    tryCatch({
-      found.hrs <- remove_near_duplicate_subgroups(found.hrs, details = details)
-    }, error = function(e) {
-      warning("Error removing duplicates: ", e$message,
-              ". Proceeding with original subgroups.")
-    })
+    if (identical(sg_focus, "maxeff")) {
+      # Exact membership dedup: distinct cut-encodings of the SAME subject-level
+      # subgroup (e.g. {er<=0} and {er<=0} & {er<=10}) are collapsed to one
+      # representative -- the fewest cuts (smallest K), ties broken by first
+      # selected-column index.  Statistics-based near-duplicate removal is NOT
+      # used for maxeff: it keys on K (so it misses same-membership pairs of
+      # different cut count) and could collapse two genuinely distinct
+      # subgroups that share summary statistics.
+      found.hrs <- tryCatch(
+        .maxeff_membership_dedup(found.hrs, df, names.Z),
+        error = function(e) {
+          warning("maxeff membership dedup failed: ", e$message,
+                  ". Proceeding with original candidates.")
+          found.hrs
+        })
+    } else {
+      tryCatch({
+        found.hrs <- remove_near_duplicate_subgroups(found.hrs, details = details)
+      }, error = function(e) {
+        warning("Error removing duplicates: ", e$message,
+                ". Proceeding with original subgroups.")
+      })
+    }
 
     if (nrow(found.hrs) == 0) {
       stop("All subgroups removed during duplicate removal.")

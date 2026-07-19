@@ -368,9 +368,15 @@ maximum, pick the one with the \emph{smallest} sample size.}
 family, with no consistency threshold, effect threshold, early
 stopping, two-stage screening or candidate-pool truncation.
 Implements the argmax primitive of Guo and He (2021). Size/event
-minima still apply. Contrast \code{"hr"}, which ranks by
-consistency first, uses effect only as a tiebreaker, and under
-early stopping returns the first passer in effect order.}
+minima (\code{n.min}, \code{d0.min}, \code{d1.min}) still apply as
+estimability constraints; prevalence and redundancy pruning are
+relaxed to their most permissive setting (\code{minp} -> 0,
+\code{rmin} -> 0) and duplicate removal collapses identical-membership
+candidates to their fewest-cut representative, so only degenerate or
+exactly-duplicated candidates are dropped and the argmax is invariant.
+Contrast \code{"hr"}, which
+ranks by consistency first, uses effect only as a tiebreaker, and
+under early stopping returns the first passer in effect order.}
 }
 Default \code{"hr"}.  The \code{"eff*"} forms are aliases for the
 \code{"hr*"} forms and read more naturally in GLM contexts

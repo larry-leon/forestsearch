@@ -428,9 +428,15 @@
 #'       family, with no consistency threshold, effect threshold, early
 #'       stopping, two-stage screening or candidate-pool truncation.
 #'       Implements the argmax primitive of Guo and He (2021). Size/event
-#'       minima still apply. Contrast \code{"hr"}, which ranks by
-#'       consistency first, uses effect only as a tiebreaker, and under
-#'       early stopping returns the first passer in effect order.}
+#'       minima (\code{n.min}, \code{d0.min}, \code{d1.min}) still apply as
+#'       estimability constraints; prevalence and redundancy pruning are
+#'       relaxed to their most permissive setting (\code{minp} -> 0,
+#'       \code{rmin} -> 0) and duplicate removal collapses identical-membership
+#'       candidates to their fewest-cut representative, so only degenerate or
+#'       exactly-duplicated candidates are dropped and the argmax is invariant.
+#'       Contrast \code{"hr"}, which
+#'       ranks by consistency first, uses effect only as a tiebreaker, and
+#'       under early stopping returns the first passer in effect order.}
 #'   }
 #'   Default \code{"hr"}.  The \code{"eff*"} forms are aliases for the
 #'   \code{"hr*"} forms and read more naturally in GLM contexts
@@ -1099,7 +1105,13 @@ forestsearch <- function(df.analysis,
   # candidate wins (or stop the family being fully evaluated), so all are
   # disabled BY CONSTRUCTION rather than left to the caller.  Size/event minima
   # (n.min, d0.min, d1.min) are retained: they define which candidates are
-  # estimable, not which one wins.
+  # estimable, not which one wins.  Prevalence (minp) and redundancy (rmin) are
+  # relaxed to their most permissive setting -- minp -> 0 and rmin -> 0 -- so
+  # only degenerate candidates (empty cuts, exact duplicates) are pruned: these
+  # share a retained twin's effect, leaving the argmax invariant, whereas
+  # dropping distinct near-duplicates would force the (-hr, K) order to break
+  # genuine ties on cut count, an arbitrary tie-break in a rule meant to have
+  # none.  rmin is applied via search_overrides (not a forestsearch formal).
   if (identical(sg_focus, "maxeff")) {
     .ov <- character(0)
     if (!isTRUE(all.equal(pconsistency.threshold, 0)))
@@ -1108,16 +1120,22 @@ forestsearch <- function(df.analysis,
     if (isTRUE(use_twostage))           .ov <- c(.ov, "use_twostage -> FALSE")
     if (is.finite(max_subgroups_search))
       .ov <- c(.ov, sprintf("max_subgroups_search %g -> Inf", max_subgroups_search))
+    if (!isTRUE(all.equal(minp, 0)))    .ov <- c(.ov, "minp -> 0")
     pconsistency.threshold <- 0
     stop_threshold         <- NULL
     use_twostage           <- FALSE
     max_subgroups_search   <- Inf
+    minp                   <- 0
     if (length(.ov)) {
       warning("sg_focus = 'maxeff' selects the effect maximiser with no ",
               "auxiliary conditions; overriding: ",
               paste(.ov, collapse = ", "),
-              ". The subgroup-search effect floor (hr.threshold) is also ",
-              "disabled so the argmax ranges over the full estimable family.",
+              ". The subgroup-search effect floor (hr.threshold) is disabled, ",
+              "redundancy pruning is relaxed to exact-duplicate removal ",
+              "(rmin -> 0), and consistency-stage duplicate removal collapses ",
+              "identical-membership candidates to their fewest-cut ",
+              "representative -- so the argmax ranges over the full estimable ",
+              "family with no arbitrary tie-break.",
               call. = FALSE)
     }
     if (identical(consistency_method, "split")) {
@@ -2384,6 +2402,11 @@ forestsearch <- function(df.analysis,
         # above the best subgroup effect would otherwise empty the family).
         disable_effect_floor = identical(sg_focus, "maxeff")
   )
+
+  # maxeff: relax redundancy pruning to exact-duplicate only.  rmin is not a
+  # forestsearch formal, so it is set here (not in the override block above).
+  # The default (subgroup.search rmin = 5) is preserved for every other focus.
+  if (identical(sg_focus, "maxeff")) search_overrides$rmin <- 0
 
   # Only pass GLM params when active (same rationale as consistency_overrides)
   if (!is.null(estimator_fn)) {
