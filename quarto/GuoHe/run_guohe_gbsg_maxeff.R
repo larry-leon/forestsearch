@@ -66,7 +66,7 @@ cat("cores:", n_cores, "\n\n")
 # correction is built on the argmax functional, so "maxeff" is the only
 # configuration it covers. Expect a DIFFERENT selected subgroup than the
 # headline fit -- that is the configuration change, not an error.
-cat("=== fitting forestsearch(sg_focus = 'eff') ===\n")
+cat("=== fitting forestsearch(sg_focus = 'maxeff') ===\n")
 t0 <- proc.time()
 fs <- forestsearch(
   df.analysis,
@@ -79,10 +79,10 @@ fs <- forestsearch(
   conf.cont_jcuts = list(er = 10, pgr = 10),
   collapse_cuts = TRUE, cont.cutoff = 4,
   subgroup_method = "consistency",
-  sg_focus = "eff",                          # <-- the argmax configuration
-                                             # ("eff"/"hr" is the argmax-of-effect
-                                             # primitive; "maxeff" is an internal
-                                             # gate reselection token, not a sg_focus)
+  sg_focus = "maxeff",                       # <-- the argmax-of-effect primitive;
+                                             # the ONLY sg_focus Guo & He covers, and
+                                             # the only one the bridge accepts without
+                                             # force = TRUE
   selection_rule = "neighborhood", effect_neighborhood = 0.10,
   debias_gate = TRUE,                        # needed for the self-check
   debias_gate_args = list(draws = 5000L),

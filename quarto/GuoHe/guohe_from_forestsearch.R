@@ -16,14 +16,25 @@
 # `forestsearch()`'s `sg_focus` therefore matters:
 #
 #   * "maxeff"   -- which.max(beta) among passers. THIS is the argmax primitive,
-#                   and the configuration Guo & He covers.
+#                   and the ONLY configuration Guo & He covers.
+#   * "hr"/"eff"  -- lexicographic (-Pcons, -hr): consistency rate first, effect
+#                   only as a tiebreaker; and under early stopping the search
+#                   returns the FIRST passer in effect order, not the effect
+#                   maximiser. Not a supremum of the effect -- out of scope.
 #   * "effMaxSG" -- max SIZE within an effect band (the neighbourhood rule), and
 #                   "pareto" / "both" bands. These are NOT suprema of the
 #                   effect, so none of the four pillars above transfers.
 #                   Extending Guo & He to them would be new theory, not new code.
 #
-# This bridge therefore refuses non-`maxeff` focus unless `force = TRUE`, and
-# labels the output as out of scope when forced.
+# This bridge therefore accepts ONLY `sg_focus = "maxeff"`; every other focus
+# requires `force = TRUE` and is labelled out of scope when forced.
+#
+# PRECONDITION. Even for "maxeff" the bridge re-derives the argmax over its OWN
+# reconstructed family and asserts it equals `fs$sg.harm`. The two families
+# differ by construction -- the bridge filters on `n.min` only, whereas the
+# search now evaluates a smaller space (per-arm minima, rmin = 0 containment
+# pruning, exact-membership dedup). They agree on GBSG, but if they diverge the
+# bridge would de-bias a subgroup the analysis does not report, so it STOPs.
 #
 # WHICH FAMILY. The bridge reconstructs the FULL enumerated <= maxk candidate
 # space filtered by `n.min` -- the same space `forestsearch_main.R` hands the
@@ -82,17 +93,22 @@ guohe_from_forestsearch <- function(fs,
 
   # ---- scope gate --------------------------------------------------------
   focus <- fs$sg_focus %||% args$sg_focus
-  # The argmax-of-effect primitive Guo & He cover is forestsearch()'s "eff"
-  # focus (canonical synonym "hr"): which.max(effect) among passers.  ("maxeff"
-  # is NOT a user-facing sg_focus -- it is the de-biased gate's INTERNAL
-  # reselection-rule token; a fitted object's sg_focus is "eff"/"hr".)
-  in_scope <- isTRUE(focus %in% c("eff", "hr"))
+  # Guo & He cover the argmax-of-effect primitive, which is forestsearch()'s
+  # user-facing sg_focus = "maxeff": which.max(beta) among passers, with no
+  # auxiliary selection condition.  "hr"/"eff" are demoted to force-only: they
+  # rank lexicographically by (-Pcons, -hr) -- consistency first, effect only as
+  # a tiebreaker -- and under early stopping return the first passer in effect
+  # order rather than the maximiser, so they are NOT an effect argmax.
+  in_scope <- identical(focus, "maxeff")
   if (!in_scope) {
     msg <- paste0(
       "sg_focus = '", focus, "' is outside Guo & He's scope. Their correction is ",
-      "built on the argmax functional; '", focus, "' selects by size within an ",
-      "effect band, which is not a supremum of the effect. Use sg_focus = ",
-      "'eff' (or 'hr'), or set force = TRUE and report the result as out of scope."
+      "built on the argmax-of-effect functional (which.max(beta) among passers). ",
+      "'hr'/'eff' select lexicographically by (-Pcons, -hr) -- consistency first, ",
+      "effect only as a tiebreaker -- and under early stopping return the first ",
+      "passer in effect order, not the maximiser; other foci select by size ",
+      "within an effect band. None is a supremum of the effect. Use sg_focus = ",
+      "'maxeff', or set force = TRUE and report the result as out of scope."
     )
     if (!isTRUE(force)) stop(msg) else warning(msg)
   }
@@ -181,6 +197,60 @@ guohe_from_forestsearch <- function(fs,
                 if (in_scope) "in scope" else "OUT OF SCOPE -- forced"))
   }
 
+  # ---- precondition: the bridge's OWN argmax must equal fs$sg.harm -------
+  # The reconstructed family (n.min only) and the space forestsearch actually
+  # evaluated (per-arm minima, rmin = 0 containment pruning, membership dedup)
+  # differ by construction.  They agree on GBSG, but nothing guarantees it
+  # elsewhere.  If the bridge's effect-argmax over ITS family is not the
+  # subgroup the analysis reports, Guo & He would de-bias a subgroup that is
+  # never selected -- so STOP rather than mislabel the output.  The argmax is
+  # computed with the SAME within-subgroup estimator guohe_algorithm3() uses
+  # (.g3_coef), oriented by `orient`.
+  sel_sg <- fs$sg.harm
+  if (is.null(sel_sg) || !length(sel_sg)) {
+    stop("`fs$sg.harm` is empty; the fit selected no subgroup to de-bias.")
+  }
+  .dots <- list(...)
+  .me   <- if (!is.null(.dots$min_events)) .dots$min_events else 5L
+  .adjc <- .dots$adjust_covariates                       # NULL unless supplied
+  beta_hat <- vapply(names(fam), function(nm) {
+    sub <- df[fam[[nm]] == 1L, , drop = FALSE]
+    orient * .g3_coef(sub, otype, treat_col, time_col, event_col, y_col, .me, .adjc)
+  }, numeric(1))
+  if (!any(is.finite(beta_hat))) {
+    stop("No estimable candidate in the reconstructed family; cannot check the argmax.")
+  }
+  argmax_label  <- names(fam)[which.max(replace(beta_hat, !is.finite(beta_hat), -Inf))]
+  argmax_memb   <- as.integer(fam[[argmax_label]] == 1L)
+  sg_harm_label <- paste(sel_sg, collapse = " & ")
+
+  # fs$sg.harm membership over the SAME estimation frame (row-aligned with fam;
+  # both are built from fs$df.est).  Compare memberships, not labels, so a
+  # different but equivalent cut-encoding of the same subgroup is not a spurious
+  # mismatch.
+  sel_memb <- fs$grp.consistency$sg.harm.id
+  if (is.null(sel_memb) || length(sel_memb) != nrow(df)) {
+    stop("Cannot recover fs$sg.harm membership (grp.consistency$sg.harm.id) ",
+         "aligned to fs$df.est; precondition unverifiable.")
+  }
+  sel_memb        <- as.integer(sel_memb == 1L)
+  precondition_ok <- identical(argmax_memb, sel_memb)
+  if (verbose) {
+    cat(sprintf("Precondition (bridge argmax == fs$sg.harm): %s\n",
+                if (precondition_ok) "PASS" else "FAIL"))
+    cat(sprintf("  bridge argmax : %s\n", argmax_label))
+    cat(sprintf("  fs$sg.harm    : %s\n", sg_harm_label))
+  }
+  if (!precondition_ok) {
+    stop(sprintf(paste0(
+      "Precondition FAILED: the bridge's argmax over its reconstructed family ",
+      "('%s') is not the subgroup forestsearch reports (fs$sg.harm = '%s'). Guo & ",
+      "He would de-bias a subgroup the analysis does not select. The reconstructed ",
+      "family (n.min only) and the evaluated space differ by construction; ",
+      "reconcile the two before using this comparator."),
+      argmax_label, sg_harm_label))
+  }
+
   dat <- cbind(df[, c(treat_col, time_col, event_col, y_col), drop = FALSE], fam)
 
   common <- list(
@@ -200,7 +270,10 @@ guohe_from_forestsearch <- function(fs,
   out$bridge <- list(n_family = ncol(fam), n_cuts = L, maxk = maxk, n.min = n.min,
                      sg_focus = focus, in_scope = in_scope,
                      gate_n_family = gate_n, self_check = check,
-                     screen_applied = FALSE)
+                     screen_applied = FALSE,
+                     precondition_ok = precondition_ok,
+                     argmax_label = argmax_label,
+                     sg_harm_label = sg_harm_label)
   out
 }
 
