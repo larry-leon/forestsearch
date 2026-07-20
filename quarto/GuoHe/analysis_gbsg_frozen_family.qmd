@@ -70,6 +70,8 @@ gate_draws <- 5000L     # MR multiplier draws
 GH_B       <- 2000L     # Guo & He pair-bootstrap resamples
 GH_r       <- 0.03      # Guo & He tuning parameter
 GH_PARALLEL <- .Platform$OS.type == "unix"   # forked GH bootstrap where available
+run_loo    <- TRUE      # leave-one-out (N-fold) honest out-of-sample subgroup estimate
+timings$loo <- NA_real_
 cat("Using", n_cores, "physical cores\n")
 ```
 
@@ -252,23 +254,76 @@ cat(sprintf("GH  naive HR %.3f  debiased HR %.3f  lower bound %.3f\n",
             gh$naive_hr, gh$debiased_hr, gh$bound_hr))
 ```
 
+## Leave-one-out (honest out-of-sample estimate)
+
+Leave-one-out re-runs the entire selection on each hold-out of one subject and
+predicts the held-out subject's subgroup membership from its covariates. Because
+no subject informs its own subgroup label, the resulting subgroup effect is free
+of selection bias at the source, rather than corrected for it after the fact --
+a quasi-external reference. This is `forestsearch_Kfold()` at N-fold
+(`Kfolds = nrow(df)`), the same leave-one-out analysis carried in the multimethod
+document, applied to the frozen-family fit. The out-of-sample subgroup hazard
+ratio is added to the comparison below.
+
+Note this is the heaviest step: N-fold means one full forest search per subject
+(here 686 re-runs). It is tractable on the small frozen family but is the long
+pole; on the analysis box, not the sandbox.
+
+```{r loo-skipped-note, eval = !run_loo}
+cat("Leave-one-out skipped (run_loo = FALSE).",
+    "Set run_loo <- TRUE in parallel-setup to run it.\n")
+```
+
+```{r loo, eval = run_loo}
+t0 <- proc.time()
+fs_OOB <- forestsearch_Kfold(
+  fs.est  = fs,
+  details = FALSE,
+  Kfolds  = nrow(df.analysis),   # N-fold = leave-one-out
+  parallel_args = list(plan = "multisession", workers = n_cores,
+                       show_message = TRUE)
+)
+plan("sequential")
+timings$loo <- (proc.time() - t0)[["elapsed"]]
+
+cv_out <- forestsearch_KfoldOut(res = fs_OOB, details = FALSE, outall = TRUE)
+
+# The honest out-of-sample subgroup estimate is the K-fold (Kf) row of
+# SG_tab_Kfold; the harm subgroup is row 1. The "HR (95% CI)" column is a
+# preformatted string, so it is displayed as-is in the comparison table.
+loo_hr_str <- as.character(cv_out$SG_tab_Kfold[1, "HR (95% CI)"])
+cat("LOO out-of-sample subgroup HR:", loo_hr_str,
+    " | LOO", round(timings$loo / 60, 1), "min\n")
+
+# Full CV tables (ITT / full-analysis / K-fold, plus agreement metrics).
+tables <- cv_summary_tables(cv_out)
+tables$combined_table
+tables$metrics_table
+```
+
 ## Corrections in the frozen family {#sec-compare}
 
 ```{r table}
-#| tbl-cap: "De-biased subgroup hazard ratios in the FROZEN (non-regenerating) family. The FB-MR gap is the quantity of interest (see below); Guo & He is included for parity with the headline analysis. Guo & He reports a one-sided lower bound."
+#| tbl-cap: "Subgroup hazard ratios in the FROZEN (non-regenerating) family. The FB-MR gap is the quantity of interest (see below). Guo & He reports a one-sided lower bound. Leave-one-out is an honest out-of-sample estimate (not a de-biasing correction), shown to see which correction it tracks."
 #| echo: false
 fci <- function(e, l, u, d = 2) {
   ifelse(is.na(e), "\u2014", sprintf("%.*f (%.*f, %.*f)", d, e, d, l, d, u))
 }
 naive_hr <- fs_bc$H_estimates$H0
 
+loo_row <- if (isTRUE(run_loo) && exists("cv_out")) {
+  as.character(cv_out$SG_tab_Kfold[1, "HR (95% CI)"])
+} else "\u2014 (run_loo = FALSE)"
+
 tab <- data.frame(
-  Method = c("Naive", "Full bootstrap", "Multiplier resampling", "Guo & He (2021)"),
+  Method = c("Naive", "Full bootstrap", "Multiplier resampling",
+             "Guo & He (2021)", "Leave-one-out (out-of-sample)"),
   Estimate = c(
     sprintf("%.2f", naive_hr),
     fci(fs_bc$H_estimates$H2, fs_bc$H_estimates$H2_lower, fs_bc$H_estimates$H2_upper),
     fci(g$debiased$est, g$debiased$lower, g$debiased$upper),
-    sprintf("%.2f (LB %.2f)", gh$debiased_hr, gh$bound_hr)
+    sprintf("%.2f (LB %.2f)", gh$debiased_hr, gh$bound_hr),
+    loo_row
   ),
   check.names = FALSE
 )
@@ -307,14 +362,25 @@ removed by freezing the family.
 The comparison is within-family only. The selected subgroup here differs from
 the headline maxeff subgroup (a coarser median-cut family), so point estimates
 are not comparable across the two analyses -- only the FB-MR gap within each is.
+
+Leave-one-out is included as an honest, selection-bias-free out-of-sample
+reference: it estimates the subgroup effect without any subject informing its
+own subgroup label, so it corrects the winner's-curse optimism at the source
+rather than after the fact. In the frozen family, where the candidate set cannot
+regenerate, the conditional and marginal targets coincide, so LOO is expected to
+sit near both FB and MR (which themselves nearly coincide here). The more
+discriminating comparison is in the headline maxeff family, where regeneration
+separates FB (marginal) from MR (conditional): there, which correction LOO
+tracks is informative rather than predetermined. Read the LOO row as a reference
+point, not a fifth correction.
 :::
 
 ```{r timing}
 #| echo: false
 td <- data.frame(
   Step = c("Fit + MR gate", "Full bootstrap", "MR gate (within fit)",
-           "Guo & He bootstrap"),
-  Seconds = c(timings$fit, timings$fb, timings$mr, timings$gh)
+           "Guo & He bootstrap", "Leave-one-out (N-fold)"),
+  Seconds = c(timings$fit, timings$fb, timings$mr, timings$gh, timings$loo)
 )
 td$Minutes <- round(td$Seconds / 60, 2)
 kbl(td, booktabs = TRUE, align = "lrr") |> kable_styling()
