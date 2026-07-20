@@ -339,6 +339,7 @@ subgroup.consistency <- function(df,
                                  stop_Kgroups = 200,
                                  stop_threshold = NULL,
                                  show_candidate_summary = FALSE,
+                                 max_print = Inf,
                                  pconsistency.digits = 2,
                                  seed = 8316951,
                                  checking = FALSE,
@@ -636,7 +637,8 @@ subgroup.consistency <- function(df,
       selection_rule      = selection_rule,
       effect_neighborhood = effect_neighborhood,
       effect_log_scale    = effect_log_scale,
-      effect_label        = effect_label
+      effect_label        = effect_label,
+      max_print           = max_print
     )
   }
 
@@ -956,7 +958,8 @@ subgroup.consistency <- function(df,
         selection_rule      = selection_rule,
         effect_neighborhood = effect_neighborhood,
         effect_log_scale    = effect_log_scale,
-        effect_label        = effect_label
+        effect_label        = effect_label,
+        max_print           = max_print
       )
     }
 
@@ -1063,7 +1066,8 @@ subgroup.consistency <- function(df,
       selection_rule      = selection_rule,
       effect_neighborhood = effect_neighborhood,
       effect_log_scale    = effect_log_scale,
-      effect_label        = effect_label
+      effect_label        = effect_label,
+      max_print           = max_print
     )
   }
 

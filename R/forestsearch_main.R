@@ -489,6 +489,14 @@
 #'   Frontier/InBand/Selected flags.  See
 #'   \code{\link{subgroup.consistency}} for details.  Default
 #'   \code{FALSE}.
+#' @param max_print Integer. Maximum number of candidate subgroups to print in
+#'   the pre- and post-consistency candidate summaries when
+#'   \code{show_candidate_summary = TRUE}.  Candidates are printed in sorted
+#'   order with the selected subgroup first, so \code{max_print = 10} shows the
+#'   selected subgroup and the next nine, followed by a "... N more not shown"
+#'   line.  Only the per-candidate rows are capped; the banner, header, legend,
+#'   and summary footer are always printed.  Default \code{Inf} (print all
+#'   candidates), preserving prior behaviour.
 #' @param d0.min Integer. Minimum per-arm filter for candidate subgroups.
 #'   For \code{"survival"} and \code{"binary"} outcomes, this is the minimum
 #'   number of events in the control arm (for binary, events are Y = 1).
@@ -875,6 +883,7 @@ forestsearch <- function(df.analysis,
                          pconsistency.threshold = 0.90,
                          stop_threshold = 0.95,
                          show_candidate_summary = FALSE,
+                         max_print = Inf,
                          d0.min = 10,
                          d1.min = 10,
                          max.minutes = 3,
@@ -2521,6 +2530,7 @@ forestsearch <- function(df.analysis,
       # stopping the override promised to disable.
       pconsistency.threshold = pconsistency.threshold,
       stop_threshold = stop_threshold,
+      max_print = max_print,
       # NEW: Pass two-stage parameters
       use_twostage = use_twostage,
       twostage_args = twostage_args,

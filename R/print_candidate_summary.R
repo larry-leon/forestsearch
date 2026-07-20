@@ -48,7 +48,8 @@ print_candidate_summary <- function(out_sg,
                                     effect_neighborhood,
                                     effect_log_scale = FALSE,
                                     effect_label     = "HR",
-                                    max_width        = NULL) {
+                                    max_width        = NULL,
+                                    max_print        = Inf) {
   # ---------------------------------------------------------------------------
   # Always emit the SUMMARY banner, even in the zero-passed case.
   # Downstream tooling (extract_candidate_diagnostics() in
@@ -182,8 +183,10 @@ print_candidate_summary <- function(out_sg,
   cat(paste(hdr_parts, collapse = "  "), "\n", sep = "")
   cat(thin, "\n", sep = "")
 
-  # Body rows
-  for (k in seq_len(n)) {
+  # Body rows (capped at max_print; candidates are sorted selection-first, so
+  # the selected subgroup is always shown).
+  n_show <- min(n, max_print)
+  for (k in seq_len(n_show)) {
     row_parts <- c(
       rank_strs[k], hr_strs[k], N_strs[k], E_strs[k], K_strs[k],
       pcons_strs[k], fr_strs[k],
@@ -191,6 +194,11 @@ print_candidate_summary <- function(out_sg,
       sel_strs[k], cuts_disp[k]
     )
     cat(paste(row_parts, collapse = "  "), "\n", sep = "")
+  }
+  if (n_show < n) {
+    cat(sprintf("... %d more candidate%s not shown (max_print = %s).\n",
+                n - n_show, if (n - n_show == 1L) "" else "s",
+                format(max_print)))
   }
   cat(thin, "\n", sep = "")
 
@@ -260,7 +268,8 @@ print_candidate_preview <- function(found.hrs,
                                     effect_neighborhood,
                                     effect_log_scale = FALSE,
                                     effect_label     = "HR",
-                                    max_width        = NULL) {
+                                    max_width        = NULL,
+                                    max_print        = Inf) {
   if (is.null(found.hrs) || nrow(found.hrs) == 0L) {
     cat("\nNo candidates to preview.\n")
     return(invisible(NULL))
@@ -353,7 +362,9 @@ print_candidate_preview <- function(found.hrs,
   )
   cat(paste(hdr_parts, collapse = "  "), "\n", sep = "")
   cat(thin, "\n", sep = "")
-  for (k in seq_len(n)) {
+  # Body rows (capped at max_print; sorted selection-first).
+  n_show <- min(n, max_print)
+  for (k in seq_len(n_show)) {
     row_parts <- c(
       rank_strs[k], hr_strs[k], N_strs[k], E_strs[k], K_strs[k],
       fr_strs[k],
@@ -361,6 +372,11 @@ print_candidate_preview <- function(found.hrs,
       cuts_disp[k]
     )
     cat(paste(row_parts, collapse = "  "), "\n", sep = "")
+  }
+  if (n_show < n) {
+    cat(sprintf("... %d more candidate%s not shown (max_print = %s).\n",
+                n - n_show, if (n - n_show == 1L) "" else "s",
+                format(max_print)))
   }
   cat(thin, "\n", sep = "")
   n_front <- sum(is_frontier)

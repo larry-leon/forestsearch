@@ -24,6 +24,7 @@ subgroup.consistency(
   stop_Kgroups = 200,
   stop_threshold = NULL,
   show_candidate_summary = FALSE,
+  max_print = Inf,
   pconsistency.digits = 2,
   seed = 8316951,
   checking = FALSE,
