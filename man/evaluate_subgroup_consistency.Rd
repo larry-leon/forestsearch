@@ -21,7 +21,8 @@ evaluate_subgroup_consistency(
   consistency_threshold = NULL,
   adjust_covariates = NULL,
   consistency_method = "split",
-  glm_resample_spec = NULL
+  glm_resample_spec = NULL,
+  skip_consistency = FALSE
 )
 }
 \arguments{
@@ -71,6 +72,13 @@ through to the split evaluation.}
 \item{glm_resample_spec}{List or \code{NULL}. GLM resampling specification
 threaded from \code{\link{forestsearch}}; see
 \code{\link{subgroup.consistency}}.  \code{NULL} on the survival path.}
+
+\item{skip_consistency}{Logical. When \code{TRUE}, skip the consistency
+estimation entirely and return the effect-carry result row (effect from
+\code{found.hrs}, \code{Pcons = NA}) without forming the subgroup subset or
+refitting.  Used by the \code{sg_focus = "maxeff"} fast path, which needs
+effects for the argmax but consistency for the selected winner only.
+Default \code{FALSE}.}
 }
 \value{
 Named numeric vector with consistency results, or \code{NULL} if the

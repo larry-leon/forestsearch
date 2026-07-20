@@ -95,7 +95,12 @@
 #'   \describe{
 #'     \item{\code{"hr"} (or \code{"eff"})}{Sort by
 #'       \eqn{(-Pcons, -hr, K)}; pick top.}
-#'     \item{\code{"maxeff"}}{Sort by \eqn{(-hr, K)}; pick top.  No consistency filter.}
+#'     \item{\code{"maxeff"}}{Sort by \eqn{(-hr, K)}; pick top.  No consistency
+#'       filter.  Consistency (\code{Pcons}) does not enter the sort key, so it
+#'       is evaluated for the SELECTED winner only (reported in the footer) and
+#'       is \code{NA} for every other candidate -- the effect (from the search)
+#'       is carried for all, but the per-candidate consistency refits are
+#'       skipped.  Selection is identical to evaluating every candidate.}
 #'     \item{\code{"maxSG"}}{Sort by \eqn{(-N, -Pcons, K)}; pick top.}
 #'     \item{\code{"minSG"}}{Sort by \eqn{(N, -Pcons, K)}; pick top.}
 #'     \item{\code{"hrMaxSG"} (or \code{"effMaxSG"})}{Among candidates
@@ -681,7 +686,37 @@ subgroup.consistency <- function(df,
   # SECTION 8: EVALUATE CANDIDATES
   # ===========================================================================
 
-  if (!use_parallel) {
+  if (identical(sg_focus, "maxeff")) {
+    # -------------------------------------------------------------------------
+    # maxeff FAST PATH: winner-only consistency
+    # -------------------------------------------------------------------------
+    # Selection is the effect argmax (sort_subgroups(): setorder(-hr, K)); Pcons
+    # never enters the maxeff sort key.  found.hrs is already preview-sorted, so
+    # row 1 is the winner.  Evaluate consistency for the WINNER ONLY and carry
+    # every other candidate's effect (found.hrs$HR) with Pcons = NA.  Selection
+    # is provably identical, and this skips ~n-1 per-candidate Cox refits AND the
+    # parallel consistency loop's per-batch serialization overhead.  Runs
+    # sequentially on purpose: the per-candidate work is now a cheap row-assembly,
+    # so dispatching it to workers would only add overhead.
+    .maxeff_eval <- function(m, skip) evaluate_subgroup_consistency(
+      m = m, index.Z = index.Z, names.Z = names.Z, df = df, found.hrs = found.hrs,
+      n.splits = n.splits, hr.consistency = hr.consistency,
+      pconsistency.threshold = pconsistency.threshold,
+      pconsistency.digits = pconsistency.digits, maxk = maxk,
+      confs_labels = confs_labels, details = FALSE, estimator_fn = estimator_fn,
+      consistency_threshold = consistency_threshold, adjust_covariates = adjust_covariates,
+      consistency_method = consistency_method, glm_resample_spec = glm_resample_spec,
+      skip_consistency = skip)
+    for (m in seq_len(n_candidates)) {
+      res_m <- .maxeff_eval(m, skip = (m != 1L))
+      # The winner (m == 1) must always yield a row; if its consistency pass is
+      # inestimable (NULL), fall back to the effect-carry row (Pcons = NA).
+      if (m == 1L && is.null(res_m)) res_m <- .maxeff_eval(m, skip = TRUE)
+      if (!is.null(res_m)) results_list[[m]] <- res_m
+    }
+    n_evaluated <- n_candidates
+
+  } else if (!use_parallel) {
     # -------------------------------------------------------------------------
     # SEQUENTIAL EXECUTION
     # -------------------------------------------------------------------------

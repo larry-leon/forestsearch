@@ -103,6 +103,13 @@ print_candidate_summary <- function(out_sg,
   # Selected flag (row 1 of out_sg$result is the winner per sort_subgroups)
   is_selected <- c(TRUE, rep(FALSE, nrow(res) - 1L))
 
+  # Under sg_focus = "maxeff", consistency is a property of the WINNER only
+  # (per-candidate Pcons is not computed -- see the maxeff fast path in
+  # subgroup.consistency()).  Suppress the per-candidate P column, which would be
+  # NA for every non-winner, and report the selected subgroup's Pcons in the
+  # footer instead.  All other foci keep the P column unchanged.
+  show_pcons <- !identical(sg_focus, "maxeff")
+
   # Band flag (only when the rule uses one)
   band_used <- sg_focus %in% c("hrMaxSG", "hrMinSG") &&
                selection_rule %in% c("neighborhood", "both")
@@ -151,9 +158,11 @@ print_candidate_summary <- function(out_sg,
   band_strs  <- if (band_used) center_flag(in_band, band_w) else NULL
 
   # Header ------------------------------------------------------------------
-  hdr_cols <- c("Rank", effect_label, "N", "E", "K", "P", "OF",
+  hdr_cols <- c("Rank", effect_label, "N", "E", "K",
+                if (show_pcons) "P", "OF",
                 if (band_used) "IB", "S", "Subgroup")
-  widths   <- c(4, max(6L, nchar(effect_label)), 5, 4, 3, pcons_hdr_w, fr_w,
+  widths   <- c(4, max(6L, nchar(effect_label)), 5, 4, 3,
+                if (show_pcons) pcons_hdr_w, fr_w,
                 if (band_used) band_w, sel_w)
   # Width of "Subgroup" col absorbs leftover space; compute total
   fixed_total <- sum(widths) + 2 * length(widths)   # padding
@@ -174,7 +183,7 @@ print_candidate_summary <- function(out_sg,
     formatC("N",            width = 5,          flag = "-"),
     formatC("E",            width = 4,          flag = "-"),
     formatC("K",            width = 3,          flag = "-"),
-    formatC("P",            width = pcons_hdr_w, flag = "-"),
+    if (show_pcons) formatC("P", width = pcons_hdr_w, flag = "-"),
     formatC("OF",           width = fr_w,        flag = "-"),
     if (band_used) formatC("IB", width = band_w, flag = "-"),
     formatC("S",            width = sel_w,       flag = "-"),
@@ -189,7 +198,7 @@ print_candidate_summary <- function(out_sg,
   for (k in seq_len(n_show)) {
     row_parts <- c(
       rank_strs[k], hr_strs[k], N_strs[k], E_strs[k], K_strs[k],
-      pcons_strs[k], fr_strs[k],
+      if (show_pcons) pcons_strs[k], fr_strs[k],
       if (band_used) band_strs[k],
       sel_strs[k], cuts_disp[k]
     )
@@ -212,8 +221,16 @@ print_candidate_summary <- function(out_sg,
     as.character(res$m[1])
   )
   cat(footer, "\n", sep = "")
+  # maxeff: report the selected subgroup's consistency here (it is the only one
+  # computed) rather than as a per-candidate column.
+  if (!show_pcons) {
+    sel_pcons <- suppressWarnings(as.numeric(res$Pcons[1]))
+    cat(sprintf("Selected subgroup Pcons (consistency probability): %s\n",
+                if (is.na(sel_pcons)) "NA (inestimable)" else formatC(sel_pcons, format = "f", digits = 3)))
+  }
   legend <- sprintf(
-    "Legend: P = Pcons (consistency probability); OF = on Pareto frontier;%s S = selected.",
+    "Legend: %sOF = on Pareto frontier;%s S = selected.",
+    if (show_pcons) "P = Pcons (consistency probability); " else "",
     if (band_used) "  IB = in effect-size band;" else ""
   )
   cat(legend, "\n", sep = "")

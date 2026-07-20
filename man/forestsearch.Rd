@@ -375,6 +375,9 @@ relaxed to their most permissive setting (\code{minp} -> 0,
 \code{rmin} -> 0) and duplicate removal collapses identical-membership
 candidates to their fewest-cut representative, so only degenerate or
 exactly-duplicated candidates are dropped and the argmax is invariant.
+Because consistency (\code{Pcons}) never enters the argmax, it is
+computed for the SELECTED subgroup only (reported alongside it) rather
+than for every candidate, avoiding the per-candidate consistency refits.
 Contrast \code{"hr"}, which
 ranks by consistency first, uses effect only as a tiebreaker, and
 under early stopping returns the first passer in effect order.}

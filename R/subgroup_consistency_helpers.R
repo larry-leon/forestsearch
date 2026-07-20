@@ -1280,6 +1280,12 @@ remove_redundant_subgroups <- function(found.hrs) {
 #' @param glm_resample_spec List or \code{NULL}. GLM resampling specification
 #'   threaded from \code{\link{forestsearch}}; see
 #'   \code{\link{subgroup.consistency}}.  \code{NULL} on the survival path.
+#' @param skip_consistency Logical. When \code{TRUE}, skip the consistency
+#'   estimation entirely and return the effect-carry result row (effect from
+#'   \code{found.hrs}, \code{Pcons = NA}) without forming the subgroup subset or
+#'   refitting.  Used by the \code{sg_focus = "maxeff"} fast path, which needs
+#'   effects for the argmax but consistency for the selected winner only.
+#'   Default \code{FALSE}.
 #'
 #' @return Named numeric vector with consistency results, or \code{NULL} if the
 #'   subgroup does not meet the criteria.
@@ -1312,7 +1318,8 @@ evaluate_subgroup_consistency <- function(
     consistency_threshold = NULL,
     adjust_covariates = NULL,
     consistency_method = "split",
-    glm_resample_spec = NULL
+    glm_resample_spec = NULL,
+    skip_consistency = FALSE
 ) {
 
   # -------------------------------------------------------------------------
@@ -1344,6 +1351,25 @@ evaluate_subgroup_consistency <- function(
 
   # Convert to labels
   this.m_label <- vapply(this.m, function(q) FS_labels(q, confs_labels), character(1))
+
+  # -------------------------------------------------------------------------
+  # SECTION 2b: SKIP CONSISTENCY (Pcons = NA)
+  # -------------------------------------------------------------------------
+  # Effect-carry-only path used by the sg_focus = "maxeff" fast path: the argmax
+  # ranks on effect alone (found.hrs$HR, already computed by the search), so
+  # consistency need not be evaluated per candidate.  Build the result row from
+  # found.hrs with Pcons = NA and skip the subgroup subset + Cox refits below.
+  # The winner is evaluated separately with skip_consistency = FALSE.
+  if (isTRUE(skip_consistency)) {
+    k <- length(this.m)
+    Mnames <- paste("M", seq_len(maxk), sep = ".")
+    mfound <- rep("", maxk)
+    mfound[seq_len(k)] <- this.m_label
+    resultk <- c(NA_real_, found.hrs$HR[m], found.hrs$n[m],
+                 found.hrs$E[m], found.hrs$grp[m], m, k, mfound)
+    names(resultk) <- c("Pcons", "hr", "N", "E", "g", "m", "K", Mnames)
+    return(resultk)
+  }
 
   # -------------------------------------------------------------------------
   # SECTION 3: IDENTIFY SUBGROUP MEMBERS
