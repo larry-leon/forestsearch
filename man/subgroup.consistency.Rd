@@ -157,6 +157,14 @@ together make the rule's filter visible end-to-end.  Pcons is
 shown only for passing candidates (the consistency evaluator
 returns NULL for non-passing ones).  Default: FALSE.}
 
+\item{max_print}{Integer. Maximum number of candidate rows printed in
+each \code{show_candidate_summary} table (forwarded to the internal
+\code{print_candidate_summary()}).  Candidates are sorted
+selection-first, so the selected subgroup is always shown; any
+remaining candidates beyond \code{max_print} are collapsed into a
+trailing "... N more candidate(s) not shown" line.  Affects console
+output only, not the returned object.  Default: 10.}
+
 \item{pconsistency.digits}{Integer. Decimal places for consistency
 proportion. Default: 2}
 
