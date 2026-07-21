@@ -62,7 +62,8 @@ is based on ForestSearch's split-sample consistency evaluation:
 The approximation assumes:
 \itemize{
 \item Large sample sizes (CLT applies)
-\item Var(log(HR)) ~ 4/d per treatment arm
+\item Var(log(HR)) ~ 4/d for the full subgroup (d = total subgroup
+events); each 50/50 split-half (d/2 events) has variance 8/d
 \item Independence between split-halves (conditional on true effect)
 }
 }
