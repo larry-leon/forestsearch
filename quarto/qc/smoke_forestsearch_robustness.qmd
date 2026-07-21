@@ -1,0 +1,298 @@
+---
+title: "forestsearch — no-subgroup & robustness smoke suite"
+format: html
+bibliography: []
+execute:
+  warning: false
+  message: false
+  error: true
+---
+
+## What this is
+
+A smoke suite that exercises the CV pipeline **end-to-end on real data** to stress the
+robustness of the recent `feature/glm-extension` revisions:
+
+1. **Loud failures** — a genuine fold-refit *error* must be fatal and diagnostic
+   (`.collect_cv_results` re-raises rather than silently falling back to ITT).
+2. **No-subgroup completion** — when the primary fit identifies no subgroup
+   (`df.est == NULL`, `sg.harm == NULL`), the CV entry points must complete as a
+   valid 0%-identification result instead of crashing. This is checked **per
+   outcome family**, because the family-specific placeholder-event handling is
+   exactly what regressed for continuous/count.
+3. **Happy-path regression** — subgroup-found runs still complete and return sane
+   structure.
+
+Every check is wrapped in `tryCatch` and prints `[PASS] / [FAIL] / [SKIP] / [INFO]`,
+with a summary table and an overall verdict at the end. Nothing here mutates your
+package or repo.
+
+::: {.callout-important}
+## Read before running
+
+- **Written without execution.** I could not run R against the built package, so
+  treat first-run hiccups as expected. The **survival / GBSG** row is the
+  high-confidence anchor. The **binary / continuous / count** rows are best-effort:
+  if one fails on an *argument* error (unknown `effect_measure`, an `event.name`
+  the family doesn't want, a missing column), the fix is almost always a one-line
+  edit in the **Config** block below — or point each family at your own
+  `tests/testthat/helper-synthetic-dgm.R` (`.fs_args_for()` / `.make_*_data()`),
+  which already encode the correct per-family arguments.
+- **No-subgroup is forced via `pconsistency.threshold = 0.999`** — a near-impossible
+  split-consistency bar that no candidate clears, *family-agnostically*. If a family
+  still finds a subgroup under that, the no-subgroup checks `SKIP` (with a hint to
+  push the threshold higher) rather than giving a false pass.
+- **Sequential by design** (`plan = "sequential"`) so it runs fast and sidesteps the
+  doFuture worker/install rule. Run **after** `devtools::install()` so the installed
+  package matches the branch.
+- **Count** is a commented stub (no standard count dataset here) — fill it from your
+  own count DGM; the shape is shown at the bottom of the Config block.
+:::
+
+```{r setup}
+library(forestsearch)
+set.seed(8316951L)
+
+SEQ <- list(plan = "sequential", workers = 1, show_message = FALSE)  # no parallel during smoke
+```
+
+## Config — EDIT THIS BLOCK if column names / measures differ
+
+```{r config}
+# Per family: how to load the dataset, the fixed forestsearch() args, and two
+# threshold sets — one that (loosely) permits a subgroup, one that forbids all.
+FAMILIES <- list(
+
+  survival = list(
+    label = "survival/Cox (GBSG)",
+    load  = function() {
+      d <- survival::gbsg           # N = 686; hormon = treatment, rfstime/status = outcome
+      d$id <- seq_len(nrow(d))
+      d
+    },
+    args = list(
+      outcome.name     = "rfstime",
+      event.name       = "status",
+      treat.name       = "hormon",
+      id.name          = "id",
+      confounders.name = c("age", "meno", "size", "grade", "nodes", "pgr", "er"),
+      outcome_type     = "survival",
+      est.scale        = "hr",
+      sg_focus         = "hr"
+    ),
+    thr_found = list(hr.threshold = 1.05, pconsistency.threshold = 0.50),
+    thr_nosg  = list(hr.threshold = 100,  pconsistency.threshold = 0.999)
+  ),
+
+  # ---- GLM rows: BEST-EFFORT. Confirm against your ACTG175 analysis / helpers. ----
+
+  binary = list(
+    label = "binary/OR (ACTG175)",
+    load  = function() {
+      if (!requireNamespace("speff2trial", quietly = TRUE))
+        stop("package 'speff2trial' not installed")
+      d <- speff2trial::ACTG175      # treat = 0/1; cens = 0/1 outcome
+      d$id <- seq_len(nrow(d))
+      d
+    },
+    args = list(
+      outcome.name     = "cens",     # 0/1 response
+      # event.name deliberately omitted -> defaults to "event" (absent);
+      #   the binary path does not use a survival event column.
+      treat.name       = "treat",
+      id.name          = "id",
+      confounders.name = c("age", "wtkg", "karnof", "cd40", "cd80"),
+      outcome_type     = "binary",
+      effect_measure   = "OR"
+    ),
+    thr_found = list(effect.threshold = 1.05, pconsistency.threshold = 0.50),
+    thr_nosg  = list(effect.threshold = 100,  pconsistency.threshold = 0.999)
+  ),
+
+  continuous = list(
+    label = "continuous/MD (ACTG175 CD4)",
+    load  = function() {
+      if (!requireNamespace("speff2trial", quietly = TRUE))
+        stop("package 'speff2trial' not installed")
+      d <- speff2trial::ACTG175
+      d$id <- seq_len(nrow(d))
+      d
+    },
+    args = list(
+      outcome.name     = "cd420",    # CD4 at 20 weeks (continuous)
+      # event.name omitted -> forestsearch synthesizes ".event_placeholder" (= 1L);
+      #   THIS is the path the Layer-B fix must handle on the no-subgroup fallback.
+      treat.name       = "treat",
+      id.name          = "id",
+      confounders.name = c("age", "wtkg", "karnof", "cd40", "cd80"),
+      outcome_type     = "continuous",
+      effect_measure   = "MD"
+    ),
+    thr_found = list(effect.threshold = 1.0,  pconsistency.threshold = 0.50),
+    thr_nosg  = list(effect.threshold = 1e6,  pconsistency.threshold = 0.999)
+  )
+
+  # ,count = list(
+  #   label = "count/IRR (your count DGM)",
+  #   load  = function() { <your count data frame with an offset column> },
+  #   args  = list(outcome.name = "<count>", treat.name = "treat", id.name = "id",
+  #                confounders.name = c(...), outcome_type = "count",
+  #                effect_measure = "IRR", offset.name = "<log-exposure>"),
+  #   thr_found = list(effect.threshold = 1.05, pconsistency.threshold = 0.50),
+  #   thr_nosg  = list(effect.threshold = 100,  pconsistency.threshold = 0.999)
+  # )
+)
+```
+
+## Harness
+
+```{r harness}
+.smoke <- new.env()
+.smoke$rows <- list()
+
+record <- function(family, scenario, status, detail = "") {
+  .smoke$rows[[length(.smoke$rows) + 1L]] <-
+    data.frame(family = family, scenario = scenario, status = status,
+               detail = detail, stringsAsFactors = FALSE)
+  cat(sprintf("[%-4s] %-26s | %-34s %s\n",
+              status, family, scenario,
+              if (nzchar(detail)) paste0("- ", detail) else ""))
+  invisible(NULL)
+}
+
+# Fit forestsearch() for a given family/mode; returns the fs object OR the error.
+fit_fs <- function(cfg, mode) {
+  df  <- cfg$load()
+  thr <- if (identical(mode, "nosg")) cfg$thr_nosg else cfg$thr_found
+  args <- c(list(df.analysis = df, parallel_args = SEQ, seedit = 8316951L),
+            cfg$args, thr)
+  do.call(forestsearch, args)
+}
+
+is_no_subgroup <- function(fs) is.null(fs$sg.harm) && is.null(fs$df.est)
+```
+
+## Per-family checks
+
+```{r per-family}
+for (fam in names(FAMILIES)) {
+  cfg <- FAMILIES[[fam]]
+  lab <- cfg$label
+
+  # -- dataset availability --
+  df0 <- tryCatch(cfg$load(), error = function(e) e)
+  if (inherits(df0, "error")) {
+    record(lab, "dataset loads", "SKIP", conditionMessage(df0))
+    next
+  }
+
+  # ============================ NO-SUBGROUP BRANCH ============================
+  fs_nosg <- tryCatch(fit_fs(cfg, "nosg"), error = function(e) e)
+
+  if (inherits(fs_nosg, "error")) {
+    record(lab, "fit, no-subgroup config", "FAIL", conditionMessage(fs_nosg))
+  } else if (!is_no_subgroup(fs_nosg)) {
+    record(lab, "fit, no-subgroup config", "SKIP",
+           "still found a subgroup; push pconsistency.threshold toward 1")
+  } else {
+    record(lab, "fit, no-subgroup config", "PASS", "sg.harm/df.est NULL as intended")
+
+    # ***** crown jewel: tenfold must COMPLETE on a no-subgroup fit *****
+    tf <- tryCatch(
+      forestsearch_tenfold(fs_nosg, sims = 3L, Kfolds = 3L,
+                           details = FALSE, parallel_args = SEQ),
+      error = function(e) e)
+    if (inherits(tf, "error")) {
+      record(lab, "tenfold completes (no-subgroup)", "FAIL", conditionMessage(tf))
+    } else {
+      all_itt <- tryCatch(all(tf$fold_summary$any_found == 0), error = function(e) NA)
+      record(lab, "tenfold completes (no-subgroup)", "PASS",
+             sprintf("class=%s; all any_found==0: %s",
+                     paste(class(tf), collapse = "/"), all_itt))
+    }
+
+    # Kfold on a no-subgroup fit: Option 1 -> completes; else must be a CLEAR
+    # message, never the cryptic NULL-attribute / undefined-columns crash.
+    kf <- tryCatch(
+      forestsearch_Kfold(fs_nosg, Kfolds = 5L, parallel_args = SEQ),
+      error = function(e) e)
+    if (inherits(kf, "error")) {
+      msg     <- conditionMessage(kf)
+      cryptic <- grepl("attempt to set an attribute on NULL|undefined columns selected", msg)
+      record(lab, "Kfold on no-subgroup", if (cryptic) "FAIL" else "INFO",
+             if (cryptic) paste("CRYPTIC crash:", msg)
+             else paste("errored with a message (Option 2 / clear reject?):", msg))
+    } else {
+      record(lab, "Kfold on no-subgroup", "PASS", "completed (0%-identification result)")
+    }
+  }
+
+  # ============================== HAPPY PATH ================================
+  fs_found <- tryCatch(fit_fs(cfg, "found"), error = function(e) e)
+  if (inherits(fs_found, "error")) {
+    record(lab, "fit, subgroup-permitting config", "FAIL", conditionMessage(fs_found))
+  } else if (is.null(fs_found$sg.harm)) {
+    record(lab, "happy-path (subgroup found)", "SKIP",
+           "permissive config found nothing; lower pconsistency.threshold to exercise")
+  } else {
+    tf2 <- tryCatch(
+      forestsearch_tenfold(fs_found, sims = 3L, Kfolds = 3L,
+                           details = FALSE, parallel_args = SEQ),
+      error = function(e) e)
+    record(lab, "happy-path tenfold (subgroup present)",
+           if (inherits(tf2, "error")) "FAIL" else "PASS",
+           if (inherits(tf2, "error")) conditionMessage(tf2)
+           else "subgroup-found CV completed")
+  }
+}
+```
+
+## Cross-cutting: fatal-on-any (loud-failures guard)
+
+Directly checks that `.collect_cv_results` re-raises a captured error instead of
+swallowing it — the core of the loud-failures fix, verified deterministically so it
+does not depend on provoking a real refit crash.
+
+```{r collector-fatal}
+collector_fatal_check <- function() {
+  fn <- tryCatch(get(".collect_cv_results", envir = asNamespace("forestsearch")),
+                 error = function(e) NULL)
+  if (is.null(fn)) {
+    record("core", "collector present", "SKIP",
+           ".collect_cv_results not found (renamed / not exported internally?)")
+    return(invisible())
+  }
+  simulated <- tryCatch(stop("SIMULATED refit failure on fold X of Y"),
+                        error = function(e) e)
+  mixed_list <- list(data.frame(a = 1), simulated, data.frame(a = 2))
+  out <- tryCatch(fn(mixed_list), error = function(e) conditionMessage(e))
+  if (is.character(out) && grepl("SIMULATED refit failure", out)) {
+    record("core", "fatal-on-any: collector re-raises", "PASS",
+           "captured error propagated (not swallowed to a fallback)")
+  } else {
+    record("core", "fatal-on-any: collector re-raises", "FAIL",
+           "returned a value instead of re-raising -> silent-failure regression")
+  }
+}
+collector_fatal_check()
+```
+
+## Summary
+
+```{r summary}
+summ <- do.call(rbind, .smoke$rows)
+knitr::kable(summ, row.names = FALSE)
+
+n <- function(s) sum(summ$status == s)
+cat(sprintf("\nOVERALL: %d PASS | %d FAIL | %d SKIP | %d INFO\n",
+            n("PASS"), n("FAIL"), n("SKIP"), n("INFO")))
+if (n("FAIL") == 0L) {
+  cat("No robustness failures detected.\n")
+} else {
+  cat("Robustness FAILURES present — inspect the FAIL rows above.\n")
+}
+
+# SKIP/INFO are not failures: SKIP usually means a threshold needs tuning or a
+# dataset/helper is unavailable; INFO on Kfold means it errored with a *clear*
+# (non-cryptic) message, which is acceptable under the reject-with-message policy.
+```
