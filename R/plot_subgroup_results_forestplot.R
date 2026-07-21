@@ -687,7 +687,16 @@ plot_subgroup_results_forestplot <- function(
   # -----------------------------------------------------------------
   # SECTION 3: Add identified subgroups from ForestSearch
   # -----------------------------------------------------------------
-  if (!is.null(fs.est) && !is.null(fs.est$df.est)) {
+  # Only add FS subgroup rows when a subgroup was actually identified.
+  # The DINA/GRF selection paths return a populated df.est WITHOUT a
+  # treat.recommend column on their no-subgroup result, so gating on df.est
+  # alone entered this block for a no-subgroup DINA/GRF fit and crashed at
+  # the subset(df_fs, treat.recommend == ...) calls below with the cryptic
+  # "object 'treat.recommend' not found".  Key on sg.harm (the actual
+  # no-subgroup contract) so no-subgroup fits simply skip these rows.  A
+  # subgroup-found fit has sg.harm non-NULL AND df.est populated, so the
+  # block runs unchanged.
+  if (!is.null(fs.est) && !is.null(fs.est$sg.harm) && !is.null(fs.est$df.est)) {
 
     df_fs <- fs.est$df.est
 

@@ -5,10 +5,11 @@
 # Functions for computing the probability of detecting a true subgroup
 # using asymptotic normal approximations for the log hazard ratio estimator.
 #
-# Based on the variance approximation: Var(log(HR)) ~ 4/d for each treatment
-# arm, giving Var(log(HR)) ~ 8/d for the combined estimator, where d is the
-
-# number of events in the subgroup.
+# Based on the Leon et al. (2024, Section 2.1) variance approximation for the
+# subgroup log hazard ratio.  Let d = the TOTAL number of events in the
+# subgroup.  The full-subgroup log-HR has Var(log(HR)) ~ 4/d, so each 50/50
+# split-half (which holds d/2 events) has Var ~ 4/(d/2) = 8/d.  That 8/d is
+# the per-split variance the detection criterion below is built on.
 #
 # Reference: Leon et al. (2024) "Exploratory subgroup identification in the
 # heterogeneous Cox model"
@@ -48,9 +49,10 @@ NULL
 #'   \item Individual splits: x1 >= k_ind AND x2 >= k_ind
 #' }
 #'
-#' Under the asymptotic approximation, each split-half log(HR) estimator
-#' follows N(log(theta), 8/d) where d = n_sg * (1 - prop_cens) / 2 is the
-#' expected number of events per split.
+#' Under the Leon et al. (2024, Section 2.1) approximation, each 50/50
+#' split-half log(HR) estimator follows N(log(theta), 8/d) where
+#' d = n_sg * (1 - prop_cens) is the expected TOTAL number of events in the
+#' subgroup.  Each split holds d/2 events, so its variance is 4/(d/2) = 8/d.
 #'
 #' @keywords internal
 density_threshold_both <- function(x, theta, prop_cens = 0.3, n_sg, k_avg, k_ind) {
@@ -58,10 +60,11 @@ density_threshold_both <- function(x, theta, prop_cens = 0.3, n_sg, k_avg, k_ind
  # Events in subgroup (total)
   d_sg <- n_sg * (1 - prop_cens)
 
- # Variance for each split-half estimator
-  # Each split has d_sg/2 events, so Var = 8/(d_sg/2) = 16/d_sg
-  # But the original code uses 8/d_sg which assumes full sample variance
-  # for demonstration purposes
+ # Per-split log-HR variance (Leon et al. 2024, Section 2.1).  d_sg is the
+  # TOTAL number of subgroup events; the full-subgroup log-HR has Var ~ 4/d_sg,
+  # so a 50/50 split-half (d_sg/2 events) has Var = 4/(d_sg/2) = 8/d_sg.
+  # (Do NOT write 16/d_sg: that double-counts the split penalty by starting
+  # from an 8/events base instead of the correct 4/events.)
   sig2_split <- 8 / d_sg
   sig_split <- sqrt(sig2_split)
 
@@ -150,7 +153,8 @@ density_threshold_integrand <- function(x, theta, prop_cens, n_sg, k_avg, k_ind)
 #' The approximation assumes:
 #' \itemize{
 #'   \item Large sample sizes (CLT applies)
-#'   \item Var(log(HR)) ~ 4/d per treatment arm
+#'   \item Var(log(HR)) ~ 4/d for the full subgroup (d = total subgroup
+#'     events); each 50/50 split-half (d/2 events) has variance 8/d
 #'   \item Independence between split-halves (conditional on true effect)
 #' }
 #'

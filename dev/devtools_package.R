@@ -194,6 +194,7 @@ help(forestsearch)
 #Esc            # then Ctrl+C twice (or /exit) to exit fully
 # relaunch: bypass on + model set, resuming this conversation
 #claude --continue --dangerously-skip-permissions --model claude-fable-5
+#claude --dangerously-skip-permissions --model claude-fable-5
 
 
 # Testing

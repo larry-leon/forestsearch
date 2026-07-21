@@ -936,13 +936,23 @@ sg_tables <- function(fs,
   args_fs <- fs$args_call_all
 
   # -- No-subgroup / empty-data guard -----------------------------------------
-  # When forestsearch() identifies no harm subgroup, fs$sg.harm is NULL and the
-  # selected data frame (fs$df.est / fs$df.test) is returned as NULL.  Without
-  # this guard the survival path below would pass a NULL data frame into
-  # SG_tab_estimates() -> analyze_subgroup() -> km_summary() ->
-  # survival::Surv(), which fails with the opaque message "Time variable is not
-  # numeric".  Return empty tables with an informative warning instead.
-  if (is.null(df)) {
+  # When forestsearch() identifies no harm subgroup, fs$sg.harm is NULL.  The
+  # CONSISTENCY path returns the selected data frame (fs$df.est / fs$df.test) as
+  # NULL, but the DINA and GRF selection paths
+  # (.forestsearch_dina_select / .forestsearch_grf_select) return df.est = df --
+  # a populated frame WITHOUT a treat.recommend column.  So keying the guard on
+  # is.null(df) alone catches the consistency case but lets a no-subgroup
+  # DINA/GRF fit fall through to Table 1's SG_tab_estimates(SG_flag =
+  # "treat.recommend"), which splits on the absent column and dies with the
+  # opaque "undefined columns selected" (prepare_subgroup_data: df[, SG_flag]).
+  # Key on sg.harm (the actual "no subgroup identified" contract) as well, so
+  # every no-subgroup fit returns empty tables regardless of subgroup_method.
+  # A subgroup-found fit has sg.harm non-NULL, so the condition reduces to
+  # is.null(df) -- byte-identical to the former behaviour.
+  # (Without the guard the survival path would instead pass a NULL data frame
+  # into SG_tab_estimates() -> analyze_subgroup() -> km_summary() ->
+  # survival::Surv(), failing with "Time variable is not numeric".)
+  if (is.null(fs$sg.harm) || is.null(df)) {
     reason <- if (is.null(fs$sg.harm)) {
       "no harm subgroup was identified (fs$sg.harm is NULL)"
     } else {

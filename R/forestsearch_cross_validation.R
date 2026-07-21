@@ -68,7 +68,17 @@
 # treat.recommend.original (the full-data subgroup assignment).  This path is
 # byte-identical to the former inline construction.
 #
-# When NO subgroup was found, fs.est$df.est (and df.predict/df.test) are NULL.
+# When NO subgroup was found, the consistency path leaves fs.est$df.est (and
+# df.predict/df.test) NULL, while the DINA and GRF selection paths
+# (.forestsearch_dina_select / .forestsearch_grf_select) return df.est = df --
+# a NON-NULL working frame WITHOUT a treat.recommend column.  The no-subgroup
+# gate therefore keys on sg.harm (the actual "no subgroup identified"
+# contract, and a required fs.est component) as well as df.est; gating on
+# df.est alone sent no-subgroup DINA/GRF fits down the subgroup-found branch,
+# where selecting the absent treat.recommend column failed with the cryptic
+# "undefined columns selected".  Every fit with a subgroup (sg.harm non-NULL,
+# df.est populated) takes the found branch exactly as before.
+# On the no-subgroup fallback:
 # Fall back to the original analysis frame carried in args_call_all, set
 # treat.recommend.original = 1.0 (ITT -- recommend all, matching a no-subgroup
 # primary result), and synthesize the placeholder event column that
@@ -94,7 +104,7 @@
   treat.name       <- fs_args$treat.name
   offset.name      <- fs_args$offset.name
 
-  no_sg <- is.null(fs.est$df.est)
+  no_sg <- is.null(fs.est$sg.harm) || is.null(fs.est$df.est)
   if (no_sg) {
     src <- as.data.frame(fs_args$df.analysis)
     # Mirror forestsearch()'s placeholder-event synthesis exactly.
@@ -130,10 +140,13 @@
 # Number of subjects the CV runs over: rows of df.est when a subgroup was
 # found, else rows of the original analysis frame (no-subgroup fallback).
 # Used by forestsearch_Kfold for the LOO default and fold-size validation,
-# where nrow(fs.est$df.est) would be NULL for a no-subgroup fit.
+# where nrow(fs.est$df.est) would be NULL for a no-subgroup fit.  The
+# no-subgroup gate matches .fs_cv_base_frame() (sg.harm OR df.est missing)
+# so the count is always taken from the same frame the base frame is built
+# from -- including no-subgroup DINA/GRF fits, whose df.est is non-NULL.
 # @noRd
 .fs_cv_nobs <- function(fs.est) {
-  if (is.null(fs.est$df.est)) {
+  if (is.null(fs.est$sg.harm) || is.null(fs.est$df.est)) {
     nrow(as.data.frame(fs.est$args_call_all$df.analysis))
   } else {
     nrow(fs.est$df.est)

@@ -37,8 +37,9 @@ The detection criterion requires:
 \item Individual splits: x1 >= k_ind AND x2 >= k_ind
 }
 
-Under the asymptotic approximation, each split-half log(HR) estimator
-follows N(log(theta), 8/d) where d = n_sg * (1 - prop_cens) / 2 is the
-expected number of events per split.
+Under the Leon et al. (2024, Section 2.1) approximation, each 50/50
+split-half log(HR) estimator follows N(log(theta), 8/d) where
+d = n_sg * (1 - prop_cens) is the expected TOTAL number of events in the
+subgroup.  Each split holds d/2 events, so its variance is 4/(d/2) = 8/d.
 }
 \keyword{internal}
