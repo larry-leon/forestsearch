@@ -6,7 +6,7 @@
 \usage{
 forestsearch_Kfold(
   fs.est,
-  Kfolds = nrow(fs.est$df.est),
+  Kfolds = .fs_cv_nobs(fs.est),
   seedit = 8316951L,
   parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE),
   sg0.name = "Not recommend",
