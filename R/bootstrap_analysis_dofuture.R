@@ -296,6 +296,28 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
                               effect_measure = NULL,
                               boot_index_mat = NULL) {
   # =========================================================================
+  # SECTION: PRECONDITION -- AN IDENTIFIED SUBGROUP IS REQUIRED
+  # =========================================================================
+  # Every bootstrap iteration splits df_boot on the 'treat.recommend' column
+  # (subgroups H / H^c).  A no-subgroup fit -- in particular a DINA/GRF fit
+  # whose df.est is populated but carries NO treat.recommend column -- has
+  # nothing to bias-correct; without this guard each iteration would fail
+  # with the cryptic "object 'treat.recommend' not found", which
+  # .collect_bootstrap_results() then reports only as the aggregate
+  # "All N bootstrap iterations failed".  Mirror the fail-fast precondition
+  # of forestsearch_bootstrap_dofuture() so a direct caller gets the same
+  # clear message.  A valid subgroup fit has the column, so this never fires
+  # for the intended input.
+  if (!is.data.frame(df_boot_analysis) ||
+      !"treat.recommend" %in% names(df_boot_analysis)) {
+    stop("bootstrap_results(): df_boot_analysis has no 'treat.recommend' ",
+         "column, so there is no identified subgroup to bias-correct.  The ",
+         "bootstrap requires a fit with an identified subgroup (check ",
+         "fs.est$sg.harm / that fs.est$df.est carries 'treat.recommend').",
+         call. = FALSE)
+  }
+
+  # =========================================================================
   # SECTION: INITIALIZE TIMING
   # =========================================================================
   t_start_bootstrap <- proc.time()[3]
