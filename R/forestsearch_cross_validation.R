@@ -939,25 +939,12 @@ forestsearch_tenfold <- function(
       sg1.name = "Recommend"
     )
 
-    # When the primary fit identified no subgroup, sg_analysis (fs.est$sg.harm)
-    # is NULL and forestsearch_KfoldOut() rejects it at input validation
-    # ("missing sg_analysis").  There is no original subgroup to score CV
-    # agreement against, so return the zero/NA metric shape KfoldOut would
-    # otherwise produce -- NA sensitivity/PPV (no confusion table to compare)
-    # and zero finding metrics -- so the simulation completes as a valid
-    # 0%-identification result rather than aborting the run.  Fold-level
-    # identification is still recorded independently in fold_summary_i.
-    if (is.null(fs.est$sg.harm)) {
-      out <- list(
-        sens_metrics_original = stats::setNames(
-          rep(NA_real_, 4L), c("sens_H", "sens_Hc", "ppv_H", "ppv_Hc")),
-        find_metrics = stats::setNames(
-          rep(0, 8L), c("Any", "Exact", "At least 1", "Cov1", "Cov2",
-                        "Cov 1 & 2", "Cov1 exact", "Cov2 exact"))
-      )
-    } else {
-      out <- forestsearch_KfoldOut(res = res, outall = FALSE, details = FALSE)
-    }
+    # sg_analysis is optional in forestsearch_KfoldOut(): when the primary fit
+    # identified no subgroup (fs.est$sg.harm NULL) it returns the zero/NA
+    # metric shape directly, so the no-subgroup case needs no special-casing
+    # here.  Fold-level identification is still recorded independently in
+    # fold_summary_i.
+    out <- forestsearch_KfoldOut(res = res, outall = FALSE, details = FALSE)
 
     list(
       sens_metrics_original = out$sens_metrics_original,
