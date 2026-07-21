@@ -59,6 +59,74 @@
 }
 
 
+# Build the base per-subject data frame both CV entry points work from,
+# uniformly whether or not the primary fit identified a subgroup.
+#
+# When a subgroup was found, fs.est$df.est is the processed analysis frame
+# carrying a treat.recommend column; the base frame is that frame with the
+# needed columns selected and treat.recommend renamed to
+# treat.recommend.original (the full-data subgroup assignment).  This path is
+# byte-identical to the former inline construction.
+#
+# When NO subgroup was found, fs.est$df.est (and df.predict/df.test) are NULL.
+# Fall back to the original analysis frame carried in args_call_all, set
+# treat.recommend.original = 1.0 (ITT -- recommend all, matching a no-subgroup
+# primary result), and synthesize the placeholder event column that
+# forestsearch() itself creates for continuous/count outcomes.  That column
+# (event.name == ".event_placeholder", value 1L; see forestsearch_main.R) lives
+# in df.est but NOT in the raw analysis frame, so without re-creating it every
+# downstream selection by event.name ("undefined columns selected") fails for
+# continuous/count.  The name and constant are taken from forestsearch()'s own
+# synthesis, not guessed: any resolved event.name absent from the fallback
+# frame is added as 1L.
+#
+# The offset / conf_force / adjust_covariates retention filters against the
+# SOURCE frame in use (df.est when populated -- identical to before; the
+# analysis frame on the no-subgroup fallback) so forced-cut and adjustment
+# columns survive into the CV data in both cases.
+# @noRd
+.fs_cv_base_frame <- function(fs.est) {
+  fs_args <- fs.est$args_call_all
+  confounders.name <- fs_args$confounders.name
+  outcome.name     <- fs_args$outcome.name
+  event.name       <- fs_args$event.name
+  id.name          <- fs_args$id.name
+  treat.name       <- fs_args$treat.name
+  offset.name      <- fs_args$offset.name
+
+  no_sg <- is.null(fs.est$df.est)
+  if (no_sg) {
+    src <- as.data.frame(fs_args$df.analysis)
+    # Mirror forestsearch()'s placeholder-event synthesis exactly.
+    if (!is.null(event.name) && !(event.name %in% names(src))) {
+      src[[event.name]] <- 1L
+    }
+  } else {
+    src <- fs.est$df.est
+  }
+
+  get_names <- c(confounders.name, outcome.name, event.name, id.name, treat.name)
+  if (!is.null(offset.name) && offset.name %in% names(src)) {
+    get_names <- unique(c(get_names, offset.name))
+  }
+  cf_cols <- .fs_conf_force_vars(fs_args$conf_force)
+  cf_cols <- cf_cols[cf_cols %in% names(src)]
+  if (length(cf_cols)) get_names <- unique(c(get_names, cf_cols))
+  adj_cols <- .fs_adjust_vars(fs_args$adjust_covariates)
+  adj_cols <- adj_cols[adj_cols %in% names(src)]
+  if (length(adj_cols)) get_names <- unique(c(get_names, adj_cols))
+
+  if (no_sg) {
+    dfa <- src[, get_names, drop = FALSE]
+    dfa$treat.recommend.original <- 1.0
+  } else {
+    dfa <- src[, c(get_names, "treat.recommend")]
+    names(dfa)[names(dfa) == "treat.recommend"] <- "treat.recommend.original"
+  }
+  as.data.frame(dfa)
+}
+
+
 #' ForestSearch K-Fold Cross-Validation
 #'
 #' Performs K-fold cross-validation for ForestSearch, evaluating subgroup
@@ -214,35 +282,12 @@ forestsearch_Kfold <- function(
   est.scale <- fs_args$est.scale
   confounders.name <- fs_args$confounders.name
 
-  # Include offset.name for Poisson/rate-based GLM measures (IRR, IRD)
-  offset.name <- fs_args$offset.name
-  get_names <- c(confounders.name, outcome.name, event.name, id.name, treat.name)
-  if (!is.null(offset.name) && offset.name %in% names(fs.est$df.est)) {
-    get_names <- unique(c(get_names, offset.name))
-  }
-
-  # Retain columns referenced by conf_force forced cuts even when they lie
-  # OUTSIDE confounders.name (e.g. a frozen-family design where confounders.name
-  # is small but conf_force forces cuts on other variables).  Otherwise those
-  # columns are dropped from the CV data frame and every fold's forced cut
-  # silently fails -> no subgroup found -> spurious ITT fallback.  No-op when
-  # the columns are already present (unique() dedups).
-  .cf_cols <- .fs_conf_force_vars(fs_args$conf_force)
-  .cf_cols <- .cf_cols[.cf_cols %in% names(fs.est$df.est)]
-  if (length(.cf_cols)) get_names <- unique(c(get_names, .cf_cols))
-
-  # Carry covariate-adjustment columns into the CV base data even when they are
-  # NOT in the candidate pool (confounders.name), so the adjusted outcome model
-  # can be re-fit on the held-out predictions.  Empty when adjust_covariates is
-  # NULL (unadjusted -> unchanged).
-  .adj_cols <- .fs_adjust_vars(fs_args$adjust_covariates)
-  .adj_cols <- .adj_cols[.adj_cols %in% names(fs.est$df.est)]
-  if (length(.adj_cols)) get_names <- unique(c(get_names, .adj_cols))
-
-  # Prepare analysis data
-  dfa <- fs.est$df.est[, c(get_names, "treat.recommend")]
-  names(dfa)[names(dfa) == "treat.recommend"] <- "treat.recommend.original"
-  dfnew <- as.data.frame(dfa)
+  # Prepare base data.  .fs_cv_base_frame() builds the per-subject frame
+  # uniformly: the processed df.est when a subgroup was found (byte-identical
+  # to the former inline selection + rename), or an ITT fallback from the
+  # original analysis frame -- with the placeholder event column re-created --
+  # when the primary fit identified no subgroup (df.est NULL).
+  dfnew <- .fs_cv_base_frame(fs.est)
 
   # ===========================================================================
   # SECTION 4: FOLD ASSIGNMENT
@@ -643,48 +688,13 @@ forestsearch_tenfold <- function(
   id.name <- fs_args$id.name
   confounders.name <- fs_args$confounders.name
 
-  # Include offset.name for Poisson/rate-based GLM measures (IRR, IRD)
-  offset.name <- fs_args$offset.name
-  get_names <- c(confounders.name, outcome.name, event.name, id.name, treat.name)
-  if (!is.null(offset.name) && offset.name %in% names(fs.est$df.est)) {
-    get_names <- unique(c(get_names, offset.name))
-  }
-
-  # Retain columns referenced by conf_force forced cuts even when they lie
-  # OUTSIDE confounders.name (e.g. a frozen-family design where confounders.name
-  # is small but conf_force forces cuts on other variables).  Otherwise those
-  # columns are dropped from the CV data frame and every fold's forced cut
-  # silently fails -> no subgroup found -> spurious ITT fallback.  No-op when
-  # the columns are already present (unique() dedups).
-  .cf_cols <- .fs_conf_force_vars(fs_args$conf_force)
-  .cf_cols <- .cf_cols[.cf_cols %in% names(fs.est$df.est)]
-  if (length(.cf_cols)) get_names <- unique(c(get_names, .cf_cols))
-
-  # Carry covariate-adjustment columns into the CV base data even when they are
-  # NOT in the candidate pool (confounders.name), so the adjusted outcome model
-  # can be re-fit on the held-out predictions.  Empty when adjust_covariates is
-  # NULL (unadjusted -> unchanged).
-  .adj_cols <- .fs_adjust_vars(fs_args$adjust_covariates)
-  .adj_cols <- .adj_cols[.adj_cols %in% names(fs.est$df.est)]
-  if (length(.adj_cols)) get_names <- unique(c(get_names, .adj_cols))
-
-  # Prepare base data.  When the primary fit identified no subgroup,
-  # fs.est$df.est is NULL (as are df.predict/df.test); fall back to the
-  # original analysis frame carried in args_call_all and treat the
-  # "original" recommendation as ITT (recommend all).  Without this,
-  # NULL[, cols] yields NULL and names(dfa)[...] <- ... errors with
-  # "attempt to set an attribute on NULL", aborting the whole run for a
-  # null-DGM fs.est that should complete as a 0%-identification result.
-  if (is.null(fs.est$df.est)) {
-    base_df <- as.data.frame(fs.est$args_call_all$df.analysis)
-    keep_base <- intersect(get_names, names(base_df))
-    dfa <- base_df[, keep_base, drop = FALSE]
-    dfa$treat.recommend.original <- 1.0
-  } else {
-    dfa <- fs.est$df.est[, c(get_names, "treat.recommend")]
-    names(dfa)[names(dfa) == "treat.recommend"] <- "treat.recommend.original"
-  }
-  dfnew <- as.data.frame(dfa)
+  # Prepare base data.  .fs_cv_base_frame() builds the per-subject frame
+  # uniformly: the processed df.est when a subgroup was found (byte-identical
+  # to the former inline selection + rename), or an ITT fallback from the
+  # original analysis frame -- with the placeholder event column re-created so
+  # continuous/count selections by event.name do not fail -- when the primary
+  # fit identified no subgroup (df.est NULL).
+  dfnew <- .fs_cv_base_frame(fs.est)
 
   # Configure CV arguments (sequential within each simulation)
   cv_args <- fs_args
