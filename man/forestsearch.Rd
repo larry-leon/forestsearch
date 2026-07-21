@@ -62,7 +62,7 @@ forestsearch(
   pconsistency.threshold = 0.9,
   stop_threshold = 0.95,
   show_candidate_summary = FALSE,
-  max_print = Inf,
+  max_print = 10,
   d0.min = 10,
   d1.min = 10,
   max.minutes = 3,
@@ -447,8 +447,8 @@ the pre- and post-consistency candidate summaries when
 order with the selected subgroup first, so \code{max_print = 10} shows the
 selected subgroup and the next nine, followed by a "... N more not shown"
 line.  Only the per-candidate rows are capped; the banner, header, legend,
-and summary footer are always printed.  Default \code{Inf} (print all
-candidates), preserving prior behaviour.}
+and summary footer are always printed.  Default \code{10} (the selected
+subgroup and the next nine); use \code{Inf} to print all candidates.}
 
 \item{d0.min}{Integer. Minimum per-arm filter for candidate subgroups.
 For \code{"survival"} and \code{"binary"} outcomes, this is the minimum
