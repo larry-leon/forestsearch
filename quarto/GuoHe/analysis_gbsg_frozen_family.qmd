@@ -257,13 +257,15 @@ cat(sprintf("GH  naive HR %.3f  debiased HR %.3f  lower bound %.3f\n",
 ## Leave-one-out (honest out-of-sample estimate)
 
 Leave-one-out re-runs the entire selection on each hold-out of one subject and
-predicts the held-out subject's subgroup membership from its covariates. Because
-no subject informs its own subgroup label, the resulting subgroup effect is free
-of selection bias at the source, rather than corrected for it after the fact --
-a quasi-external reference. This is `forestsearch_Kfold()` at N-fold
+predicts the held-out subject's subgroup membership from its covariates. It is an
+out-of-sample **stability check on the subgroup _definition_**, not a de-biasing
+correction of the _effect_: it asks whether the same subgroup is recovered when
+no subject informs its own label. This is `forestsearch_Kfold()` at N-fold
 (`Kfolds = nrow(df)`), the same leave-one-out analysis carried in the multimethod
-document, applied to the frozen-family fit. The out-of-sample subgroup hazard
-ratio is added to the comparison below.
+document, applied to the frozen-family fit. Both the recovered definition (how
+often, and which) and its out-of-sample hazard ratio are reported below; see the
+interpretation callout for why, here, the out-of-sample HR equals Naive by
+construction.
 
 Note this is the heaviest step: N-fold means one full forest search per subject
 (here 686 re-runs). It is tractable on the small frozen family but is the long
@@ -275,25 +277,60 @@ cat("Leave-one-out skipped (run_loo = FALSE).",
 ```
 
 ```{r loo, eval = run_loo}
-t0 <- proc.time()
-fs_OOB <- forestsearch_Kfold(
-  fs.est  = fs,
-  details = FALSE,
-  Kfolds  = nrow(df.analysis),   # N-fold = leave-one-out
-  parallel_args = list(plan = "multisession", workers = n_cores,
-                       show_message = TRUE)
-)
-plan("sequential")
-timings$loo <- (proc.time() - t0)[["elapsed"]]
+# Leave-one-out (N-fold) is the long pole -- one full forest search per subject
+# (686 re-runs). If a precomputed cv_out is available (LOO_CACHE env var, else
+# the default path in gh_dir) load it; otherwise run the N-fold search and cache
+# it for re-renders. Sequential execution is used for reproducibility.
+loo_cache <- Sys.getenv("LOO_CACHE",
+                        unset = file.path(gh_dir, "cv_out_frozen_family.rds"))
+if (file.exists(loo_cache)) {
+  cv_out <- readRDS(loo_cache)
+  timings$loo <- NA_real_
+  cat("LOO loaded from cache:", loo_cache, "\n")
+} else {
+  t0 <- proc.time()
+  fs_OOB <- forestsearch_Kfold(
+    fs.est  = fs,
+    details = FALSE,
+    Kfolds  = nrow(df.analysis),   # N-fold = leave-one-out
+    parallel_args = list(plan = "sequential", workers = 1, show_message = TRUE)
+  )
+  plan("sequential")
+  timings$loo <- (proc.time() - t0)[["elapsed"]]
+  cv_out <- forestsearch_KfoldOut(res = fs_OOB, details = FALSE, outall = TRUE)
+  saveRDS(cv_out, loo_cache)
+}
 
-cv_out <- forestsearch_KfoldOut(res = fs_OOB, details = FALSE, outall = TRUE)
+# Out-of-sample harm-subgroup HR, read BY IDENTITY (the harm row of the K-fold
+# table, matched on its subgroup label sg0.name = "Not recommend"), never
+# positionally -- the table layout depends on n_sgfound. Two structural cases:
+#   (i)  stable subgroup: SG_tab_Kfold is a matrix whose harm row carries the
+#        sg0.name label -> its out-of-sample HR (identical to tab_all's KfA_0);
+#   (ii) ITT fallback: no subgroup survives out-of-sample (n_sgfound == 1) and
+#        SG_tab_Kfold collapses to the 1-D ITT vector -> no harm row -> report
+#        the fallback explicitly. Present but inactive in this frozen family.
+.loo_harm_row <- function(cv_out, harm_label = "Not recommend") {
+  sgk <- cv_out$SG_tab_Kfold
+  if (is.matrix(sgk) && "Subgroup" %in% colnames(sgk)) {
+    j <- which(sgk[, "Subgroup"] == harm_label)
+    if (length(j) == 1L)
+      return(list(case = "stable",
+                  hr   = as.character(sgk[j, "HR (95% CI)"]),
+                  n    = as.character(sgk[j, "n"])))
+  }
+  list(case = "itt_fallback",
+       hr   = "— (no stable subgroup out-of-sample; ITT)",
+       n    = NA_character_)
+}
+loo <- .loo_harm_row(cv_out)
 
-# The honest out-of-sample subgroup estimate is the K-fold (Kf) row of
-# SG_tab_Kfold; the harm subgroup is row 1. The "HR (95% CI)" column is a
-# preformatted string, so it is displayed as-is in the comparison table.
-loo_hr_str <- as.character(cv_out$SG_tab_Kfold[1, "HR (95% CI)"])
-cat("LOO out-of-sample subgroup HR:", loo_hr_str,
-    " | LOO", round(timings$loo / 60, 1), "min\n")
+# Definition stability: how many folds recovered a subgroup, and how many
+# distinct definitions appeared across the 686 folds.
+metr <- cv_out$sens_metrics_original
+cat(sprintf(
+  "LOO [%s]: out-of-sample harm HR %s (n = %s)\n  agreement: sens_H = %.2f, ppv_H = %.2f (exact-match = %.2f)\n",
+  loo$case, loo$hr, loo$n, metr[["sens_H"]], metr[["ppv_H"]],
+  cv_out$find_metrics[["Exact"]]))
 
 # Full CV tables (ITT / full-analysis / K-fold, plus agreement metrics).
 tables <- cv_summary_tables(cv_out)
@@ -304,16 +341,16 @@ tables$metrics_table
 ## Corrections in the frozen family {#sec-compare}
 
 ```{r table}
-#| tbl-cap: "Subgroup hazard ratios in the FROZEN (non-regenerating) family. The FB-MR gap is the quantity of interest (see below). Guo & He reports a one-sided lower bound. Leave-one-out is an honest out-of-sample estimate (not a de-biasing correction), shown to see which correction it tracks."
+#| tbl-cap: "Subgroup hazard ratios in the FROZEN (non-regenerating) family. The FB-MR gap is the quantity of interest (see below). Guo & He reports a one-sided lower bound. Leave-one-out is NOT a de-biasing correction: it is an out-of-sample STABILITY check on the subgroup definition. It equals Naive here by construction (see the interpretation callout) -- included for completeness, not as a fifth correction."
 #| echo: false
 fci <- function(e, l, u, d = 2) {
   ifelse(is.na(e), "\u2014", sprintf("%.*f (%.*f, %.*f)", d, e, d, l, d, u))
 }
 naive_hr <- fs_bc$H_estimates$H0
 
-loo_row <- if (isTRUE(run_loo) && exists("cv_out")) {
-  as.character(cv_out$SG_tab_Kfold[1, "HR (95% CI)"])
-} else "\u2014 (run_loo = FALSE)"
+# LOO row read by identity from the harm-subgroup extraction above (both the
+# stable-subgroup and ITT-fallback cases resolve to loo$hr).
+loo_row <- if (isTRUE(run_loo) && exists("loo")) loo$hr else "\u2014 (run_loo = FALSE)"
 
 tab <- data.frame(
   Method = c("Naive", "Full bootstrap", "Multiplier resampling",
@@ -363,16 +400,30 @@ The comparison is within-family only. The selected subgroup here differs from
 the headline maxeff subgroup (a coarser median-cut family), so point estimates
 are not comparable across the two analyses -- only the FB-MR gap within each is.
 
-Leave-one-out is included as an honest, selection-bias-free out-of-sample
-reference: it estimates the subgroup effect without any subject informing its
-own subgroup label, so it corrects the winner's-curse optimism at the source
-rather than after the fact. In the frozen family, where the candidate set cannot
-regenerate, the conditional and marginal targets coincide, so LOO is expected to
-sit near both FB and MR (which themselves nearly coincide here). The more
-discriminating comparison is in the headline maxeff family, where regeneration
-separates FB (marginal) from MR (conditional): there, which correction LOO
-tracks is informative rather than predetermined. Read the LOO row as a reference
-point, not a fifth correction.
+Leave-one-out is **not a de-biasing correction** and should not be read as one.
+It is an out-of-sample **stability check on the subgroup _definition_**: it asks
+whether the same subgroup is recovered when no subject informs its own label.
+Here all 686 folds recovered the *identical* definition
+($\{er \le 0\} \cap \{pgr \le 32.5\}$; `sens_H = ppv_H = 1.00`, exact-match
+$= 1.00$).
+
+Consequently the LOO out-of-sample HR **equals Naive by construction**, not by
+coincidence. The subgroup is a deterministic function of baseline covariates, and
+with every fold recovering the same definition, each held-out subject's
+out-of-sample membership equals its in-sample membership -- the harm group is the
+same 75 subjects and the hazard ratio is mechanically the naive one. So
+`LOO = Naive` while `FB, MR, GH < Naive` are **consistent**, not contradictory:
+they answer different questions -- definition *stability* (LOO) versus effect
+*optimism* (the de-biasing corrections). LOO validates that the subgroup
+reproduces out-of-sample; it does not, and cannot here, shrink the effect.
+
+This reproducibility is also **partly structural**: the frozen family is small,
+so the argmax chooses among few candidates and high fold-agreement is expected
+even absent deep signal. The honest claim is therefore narrow -- *this* frozen
+definition is reproducible out-of-sample -- and is **not** evidence that a
+finer-grained (regenerating) search would be as stable. The frozen-family LOO is
+included for completeness; the discriminating comparison is the headline maxeff
+family, where family regeneration separates FB (marginal) from MR (conditional).
 :::
 
 ```{r timing}
