@@ -12,6 +12,32 @@
 # ==============================================================================
 
 
+# Collect the per-unit result list returned by a cross-validation foreach loop
+# run with `.errorhandling = "pass"`, applying a FATAL-on-any-error policy.
+#
+# Unlike `.collect_bootstrap_results()` (which warns on partial failure and only
+# stops when every resample fails), CV treats ANY refit error as fatal: each
+# fold refit is essentially the same computation on n - 1 rows, so a single
+# genuine failure signals a code/data bug that would corrupt the whole run.  A
+# legitimate no-subgroup fold does NOT reach here as an error - the fold body
+# converts it to an ITT fallback and returns a normal result row.
+#
+# On the first captured error condition, re-raises its message verbatim (the
+# fold body has already formatted it with fold/sim context).  Otherwise, when
+# `combine = TRUE`, row-binds the successful results via `rbind` (matching the
+# former `.combine = "rbind"` semantics); when `combine = FALSE`, returns the
+# list invisibly (used purely as a fatal guard, e.g. in forestsearch_tenfold).
+# @noRd
+.collect_cv_results <- function(results, combine = TRUE) {
+  is_err <- vapply(results, inherits, logical(1), what = "error")
+  if (any(is_err)) {
+    first_err <- results[[which(is_err)[1L]]]
+    stop(conditionMessage(first_err), call. = FALSE)
+  }
+  if (combine) do.call(rbind, results) else invisible(results)
+}
+
+
 # Extract the column names referenced by `conf_force` forced-cut expressions.
 # Mirrors the label-stripping logic of .fs_gh_parse_label(): strip an optional
 # leading "!" (negation) and surrounding braces, then take the leading variable
@@ -276,7 +302,6 @@ forestsearch_Kfold <- function(
   resCV <- suppressWarnings({foreach::foreach(
     cv_index = seq_len(Kfolds),
     .options.future = list(seed = TRUE),
-    .combine = "rbind",
     .errorhandling = "pass"
   ) %dofuture% {
 
@@ -291,8 +316,27 @@ forestsearch_Kfold <- function(
     # Run ForestSearch on training fold
     fs.train <- suppressWarnings(try(do.call(forestsearch, cv_args), TRUE))
 
-    # Process results
-    if (!inherits(fs.train, "try-error") && !is.null(fs.train$sg.harm)) {
+    # A genuine refit ERROR (as opposed to a clean no-subgroup result) is
+    # fatal: re-raise with fold context.  `.errorhandling = "pass"` on the
+    # foreach captures this condition; `.collect_cv_results()` re-raises it in
+    # the parent so the CV halts loudly instead of silently degrading to ITT.
+    if (inherits(fs.train, "try-error")) {
+      stop(
+        sprintf(
+          paste0(
+            "forestsearch CV halted: training refit FAILED on fold %d of %d.\n",
+            "  This is a refit ERROR, not a legitimate no-subgroup fold - ",
+            "CV cannot continue.\n",
+            "  Verbatim error from forestsearch(): %s"
+          ),
+          cv_index, Kfolds, conditionMessage(attr(fs.train, "condition"))
+        ),
+        call. = FALSE
+      )
+    }
+
+    # Process results (fs.train is guaranteed non-error here)
+    if (!is.null(fs.train$sg.harm)) {
       # Subgroup found - apply to test data
       sg1 <- fs.train$sg.harm[1]
       sg2 <- if (length(fs.train$sg.harm) > 1) fs.train$sg.harm[2] else NA
@@ -324,6 +368,13 @@ forestsearch_Kfold <- function(
     )
   }
 })
+
+  # Convert the per-fold result list into a single data.table, halting on the
+  # FIRST fold that re-raised a refit error above.  On the all-success path
+  # this is do.call(rbind, .) over the fold data.tables, matching the former
+  # `.combine = "rbind"` behaviour.
+  resCV <- .collect_cv_results(resCV)
+
   # ===========================================================================
   # SECTION 7: POST-PROCESSING AND VALIDATION
   # ===========================================================================
@@ -693,7 +744,29 @@ forestsearch_tenfold <- function(
 
       fs.train <- suppressWarnings(try(do.call(forestsearch, cv_args), TRUE))
 
-      if (!inherits(fs.train, "try-error") && !is.null(fs.train$sg.harm)) {
+      # A genuine refit ERROR is fatal (see forestsearch_Kfold for rationale).
+      # The inner fold loop is sequential, so this propagates to the sim-level
+      # foreach; `.collect_cv_results()` (called after the foreach, before the
+      # valid-results Filter) re-raises it so a refit crash aborts the whole
+      # run rather than being silently dropped as a failed simulation.
+      if (inherits(fs.train, "try-error")) {
+        stop(
+          sprintf(
+            paste0(
+              "forestsearch CV halted: training refit FAILED on sim %d, ",
+              "fold %d of %d.\n",
+              "  This is a refit ERROR, not a legitimate no-subgroup fold - ",
+              "CV cannot continue.\n",
+              "  Verbatim error from forestsearch(): %s"
+            ),
+            ksim, cv_index, Kfolds,
+            conditionMessage(attr(fs.train, "condition"))
+          ),
+          call. = FALSE
+        )
+      }
+
+      if (!is.null(fs.train$sg.harm)) {
         sg1 <- fs.train$sg.harm[1]
         sg2 <- if (length(fs.train$sg.harm) > 1) fs.train$sg.harm[2] else NA
 
@@ -841,6 +914,11 @@ forestsearch_tenfold <- function(
   # ===========================================================================
   # SECTION 5: COMBINE AND SUMMARIZE RESULTS
   # ===========================================================================
+
+  # A refit failure in any fold re-raises as a sim-level error condition (see
+  # the fold loop above).  Halt loudly on the FIRST such error before the
+  # Filter below would silently drop it and complete with fewer simulations.
+  .collect_cv_results(simulation_results, combine = FALSE)
 
   # Extract metrics from successful simulations
   valid_results <- Filter(function(x) !inherits(x, "error") && is.list(x), simulation_results)
