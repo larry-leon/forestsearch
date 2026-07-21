@@ -1,0 +1,395 @@
+---
+title: "GBSG maxeff subgroup analysis: Naive, Full Bootstrap, Multiplier Resampling, and Guo & He"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    code-fold: true
+bibliography: []
+---
+
+<!--
+  analysis_gbsg_cox_maxeff.qmd
+
+  A simplified single-track version of analysis_gbsg_cox_multimethod_*.qmd,
+  reduced to the sg_focus = "maxeff" path where Guo & He (2021) Algorithm 3
+  applies, and adding Guo & He as a fourth de-biasing correction alongside the
+  Naive estimate, the Full Bootstrap (FB), and Multiplier Resampling (MR).
+
+  Relative to the multimethod document, this DROPS: the DINA and GRF selection
+  tracks (Guo & He's argmax comparator is not the relevant correction for
+  data-driven regenerating families), and the CV/LOO validation blocks.
+
+  Guo & He enters through the sourced adapter fs_to_guohe.R, which exports the
+  maxeff candidate family as membership columns and runs guohe_algorithm3() on
+  the SAME selected subgroup forestsearch chose. Neither guohe_algorithm3.R nor
+  the forestsearch package is modified.
+
+  VENUE. The forestsearch fit, the full bootstrap, and the Guo & He pair
+  bootstrap are compute-heavy and require the forestsearch package installed.
+  Run on the analysis machine (Linux, many cores) -- see the parallelism note in
+  the setup chunk. Not a chat-sandbox document.
+-->
+
+```{r setup}
+#| message: false
+#| warning: false
+library(forestsearch)
+library(survival)
+library(data.table)
+library(ggplot2)
+library(doFuture)
+library(kableExtra)
+
+timings <- list()
+
+# ---------------------------------------------------------------------------
+# Guo & He comparator: sourced, not installed. Point gh_dir at the directory
+# holding guohe_algorithm3.R and fs_to_guohe.R (e.g. the repo's quarto/GuoHe/).
+# ---------------------------------------------------------------------------
+gh_dir <- Sys.getenv("GH_DIR", unset = "../../../quarto/GuoHe")
+source(file.path(gh_dir, "guohe_algorithm3.R"))
+source(file.path(gh_dir, "fs_to_guohe.R"))
+```
+
+```{r parallel-setup}
+# PARALLELISM NOTES (see the doFuture discussion):
+#   * FB  -- forestsearch_bootstrap_dofuture() uses %dofuture%; it inherits the
+#            plan set here and restores the previous plan on exit. Any plan works.
+#   * MR  -- the de-biased gate is vectorized matrix algebra (a single crossprod
+#            over all draws), NOT a parallel loop; it needs no plan, only a
+#            threaded BLAS to benefit. Do not wrap it in a future.
+#   * GH  -- guohe_algorithm3()'s pair bootstrap is parallelised via its own
+#            `parallel` argument. Because guohe_algorithm3() is SOURCED (not
+#            installed), multisession workers would not see it; use forked
+#            workers (plan(multicore), Linux/Mac) so the sourced function is
+#            inherited, OR run GH serially. On the Linux analysis box, multicore
+#            is available.
+n_cores <- max(1L, floor(0.80 * parallel::detectCores(logical = FALSE)))
+cat("Using", n_cores, "physical cores for parallel sections\n")
+
+NB         <- 1000L     # full-bootstrap resamples (production: 500-2000)
+gate_draws <- 5000L     # MR multiplier draws
+GH_B       <- 2000L     # Guo & He pair-bootstrap resamples
+GH_r       <- 0.03      # Guo & He tuning parameter (their adaptive default region)
+GH_PARALLEL <- .Platform$OS.type == "unix"   # forked GH bootstrap where available
+run_loo    <- TRUE      # leave-one-out (N-fold) honest out-of-sample subgroup estimate
+timings$loo <- NA_real_
+```
+
+```{r data}
+df.analysis <- gbsg
+df.analysis <- within(df.analysis, {
+  id <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3 <- ifelse(grade == "3", 1, 0)
+})
+
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+outcome.name <- "time_months"
+event.name   <- "status"
+id.name      <- "id"
+treat.name   <- "hormon"
+
+cat("Sample size:", nrow(df.analysis), "\n")
+cat("Events:", sum(df.analysis[[event.name]]),
+    sprintf("(%.1f%%)\n", 100 * mean(df.analysis[[event.name]])))
+```
+
+## Maxeff identification {#sec-fit}
+
+The forest search is run under `sg_focus = "maxeff"`: the selected subgroup is
+the effect maximiser over the enumerated candidate family -- the argmax
+primitive of Guo and He (2021), and the selection Guo & He's de-biasing is built
+to correct. Under `maxeff` the candidate pool is not truncated, so the family
+the correction ranges over is the full enumerated family. The receptor cuts
+$\{er \le 0\}$ and $\{pgr \le 0\}$ are pre-specified as forced candidates, and
+$J = 10$ cuts are used for the continuous `er` and `pgr` covariates.
+
+```{r forestsearch-maxeff}
+#| fig-width: 10
+#| fig-height: 7
+t0 <- proc.time()
+
+fs <- forestsearch(
+  df.analysis,
+  outcome.name          = outcome.name,
+  event.name            = event.name,
+  treat.name            = treat.name,
+  id.name               = id.name,
+  confounders.name      = confounders.name,
+  is.RCT                = TRUE,
+  seedit                = 8316951,
+  est.scale             = "hr",
+  # candidate generation: consistency search only (no LASSO/GRF/DINA screens)
+  use_lasso             = FALSE,
+  use_grf               = FALSE,
+  use_dina              = FALSE,
+  # continuous-cut construction + pre-specified receptor candidates
+  conf.cont_jcuts       = list(er = 10, pgr = 10),
+  collapse_cuts         = TRUE,
+  conf_force            = c("er <= 0", "pgr <= 0"),
+  # selection: the effect-maximiser argmax (Guo & He primitive)
+  subgroup_method       = "consistency",
+  sg_focus              = "maxeff",
+  # subgroup constraints
+  n.min                 = 60, d0.min = 10, d1.min = 10, maxk = 2,
+  # Tier-2 de-biased gate (MR) computed inside the fit
+  debias_gate           = TRUE,
+  debias_gate_args      = list(draws = gate_draws),
+  # consistency search
+  consistency_method    = "resample",
+  fs.splits             = 1000, stop_threshold = 0.95,
+  use_twostage          = TRUE, max.minutes = 3,
+  show_candidate_summary = TRUE, details = TRUE, quiet = FALSE,
+  plot.sg               = TRUE,
+  parallel_args = list(plan = "multisession", workers = n_cores,
+                       show_message = TRUE)
+)
+plan("sequential")
+timings$fit <- (proc.time() - t0)[["elapsed"]]
+
+stopifnot(!is.null(fs$sg.harm))
+cat("\nSelected subgroup:", paste(fs$sg.harm, collapse = " & "),
+    "  |  fit", round(timings$fit / 60, 1), "min\n")
+```
+
+## Full bootstrap (FB)
+
+```{r bootstrap}
+t0 <- proc.time()
+fs_bc <- forestsearch_bootstrap_dofuture(
+  fs.est   = fs,
+  nb_boots = NB,
+  show_three = FALSE,
+  details  = FALSE,
+  parallel_args = list(plan = "multisession", workers = n_cores,
+                       show_message = TRUE)
+)
+plan("sequential")
+timings$fb <- (proc.time() - t0)[["elapsed"]]
+
+fb_sum <- summarize_bootstrap_results(
+  sgharm = fs$sg.harm, boot_results = fs_bc,
+  create_plots = FALSE, est.scale = "hr"
+)
+cat("FB completed in", round(timings$fb / 60, 1), "min\n")
+```
+
+## Multiplier resampling (MR)
+
+The Tier-2 de-biased gate is the MR correction, computed inside the fit above
+(vectorized over `r format(gate_draws, big.mark=",")` draws). It is read from
+`fs$debias_gate`; no separate run is needed.
+
+```{r mr}
+g <- fs$debias_gate
+stopifnot(!is.null(g))
+timings$mr <- g$timing_seconds
+cat("MR gate:", round(timings$mr, 2), "s over",
+    format(gate_draws, big.mark = ","), "draws\n")
+```
+
+## Guo & He (GH)
+
+The adapter exports the maxeff candidate family as membership columns and runs
+Guo & He Algorithm 3 on the same selected subgroup. The membership integrity
+check asserts that the exported selected-subgroup column matches forestsearch's
+own `sg.harm.id` exactly before the estimator runs.
+
+```{r guohe}
+t0 <- proc.time()
+gh <- fs_to_guohe(
+  fit       = fs,
+  time      = "time_months", event = "status", treatment = "hormon",
+  B         = GH_B, r = GH_r, level = 0.05, seed = 8316951,
+  parallel  = GH_PARALLEL, verify = TRUE
+)
+timings$gh <- (proc.time() - t0)[["elapsed"]]
+
+cat("GH family size:", length(gh$export$candidates),
+    " | selected:", gh$selected,
+    " | GH", round(timings$gh / 60, 1), "min\n")
+cat(sprintf("GH  naive HR %.3f  debiased HR %.3f  lower bound %.3f\n",
+            gh$naive_hr, gh$debiased_hr, gh$bound_hr))
+```
+
+## Leave-one-out (honest out-of-sample estimate)
+
+Leave-one-out re-runs the entire selection on each hold-out of one subject and
+predicts the held-out subject's subgroup membership from its covariates. It is an
+out-of-sample **stability check on the subgroup _definition_**, not a de-biasing
+correction of the _effect_: it asks whether the same subgroup is recovered when
+no subject informs its own label. This is `forestsearch_Kfold()` at N-fold
+(`Kfolds = nrow(df)`), applied to the selected maxeff fit.
+
+Unlike the coarse frozen-family companion analysis -- where the median-cut family
+is small, so the argmax has few candidates to choose among and the recovered
+definition is mechanically stable -- the maxeff family here is the full,
+finer-grained candidate set (quantile cuts on the continuous covariates). The
+argmax therefore has genuine room to land on different definitions across folds,
+so this is the **discriminating** leave-one-out comparison: whether the
+out-of-sample estimate tracks Naive (definition perfectly stable) or one of the
+de-biasing corrections (definition varies fold to fold, so out-of-sample
+membership differs from in-sample) is informative rather than predetermined. The
+recovered-definition distribution and the out-of-sample hazard ratio are reported
+below; read them against the agreement metrics.
+
+Note this is the heaviest step: N-fold means one full forest search per subject.
+It is the long pole; on the analysis box, not the sandbox.
+
+```{r loo-skipped-note, eval = !run_loo}
+cat("Leave-one-out skipped (run_loo = FALSE).",
+    "Set run_loo <- TRUE in parallel-setup to run it.\n")
+```
+
+```{r loo, eval = run_loo}
+# Leave-one-out (N-fold) is the long pole -- one full forest search per subject.
+# If a precomputed cv_out is available (LOO_CACHE env var, else the default path
+# in gh_dir) load it; otherwise run the N-fold search and cache it for
+# re-renders. Sequential execution is used for reproducibility.
+loo_cache <- Sys.getenv("LOO_CACHE",
+                        unset = file.path(gh_dir, "cv_out_maxeff.rds"))
+if (file.exists(loo_cache)) {
+  cv_out <- readRDS(loo_cache)
+  timings$loo <- NA_real_
+  cat("LOO loaded from cache:", loo_cache, "\n")
+} else {
+  t0 <- proc.time()
+  fs_OOB <- forestsearch_Kfold(
+    fs.est  = fs,
+    details = FALSE,
+    Kfolds  = nrow(df.analysis),   # N-fold = leave-one-out
+    parallel_args = list(plan = "sequential", workers = 1, show_message = TRUE)
+  )
+  plan("sequential")
+  timings$loo <- (proc.time() - t0)[["elapsed"]]
+  cv_out <- forestsearch_KfoldOut(res = fs_OOB, details = FALSE, outall = TRUE)
+  saveRDS(cv_out, loo_cache)
+}
+
+# Out-of-sample harm-subgroup HR, read BY IDENTITY (the harm row of the K-fold
+# table, matched on its subgroup label sg0.name = "Not recommend"), never
+# positionally -- the table layout depends on n_sgfound. Two structural cases:
+#   (i)  stable subgroup: SG_tab_Kfold is a matrix whose harm row carries the
+#        sg0.name label -> its out-of-sample HR (identical to tab_all's KfA_0);
+#   (ii) ITT fallback: no stable subgroup survives out-of-sample (n_sgfound == 1)
+#        and SG_tab_Kfold collapses to the 1-D ITT vector -> no harm row ->
+#        report the fallback explicitly. In the finer maxeff family this branch
+#        may genuinely trigger if the argmax definition varies across folds.
+.loo_harm_row <- function(cv_out, harm_label = "Not recommend") {
+  sgk <- cv_out$SG_tab_Kfold
+  if (is.matrix(sgk) && "Subgroup" %in% colnames(sgk)) {
+    j <- which(sgk[, "Subgroup"] == harm_label)
+    if (length(j) == 1L)
+      return(list(case = "stable",
+                  hr   = as.character(sgk[j, "HR (95% CI)"]),
+                  n    = as.character(sgk[j, "n"])))
+  }
+  list(case = "itt_fallback",
+       hr   = "\u2014 (no stable subgroup out-of-sample; ITT)",
+       n    = NA_character_)
+}
+loo <- .loo_harm_row(cv_out)
+
+# Definition stability: fold recovery and agreement with the full-data subgroup.
+metr <- cv_out$sens_metrics_original
+cat(sprintf(
+  "LOO [%s]: out-of-sample harm HR %s (n = %s)\n  agreement: sens_H = %.2f, ppv_H = %.2f (exact-match = %.2f)\n",
+  loo$case, loo$hr, loo$n, metr[["sens_H"]], metr[["ppv_H"]],
+  cv_out$find_metrics[["Exact"]]))
+
+# Full CV tables (ITT / full-analysis / K-fold, plus agreement metrics).
+tables <- cv_summary_tables(cv_out)
+tables$combined_table
+tables$metrics_table
+```
+
+## Comparison: four corrections on the selected subgroup {#sec-table}
+
+```{r table}
+#| tbl-cap: "Subgroup hazard ratios for the GBSG selected (maxeff) subgroup. Parenthetical values are 95% intervals; Guo & He reports a one-sided lower bound. Leave-one-out is NOT a de-biasing correction: it is an out-of-sample stability check on the subgroup definition. Whether it tracks Naive or a correction is informative in this finer maxeff family (see the leave-one-out section)."
+#| echo: false
+fci <- function(e, l, u, d = 2) {
+  ifelse(is.na(e), "\u2014", sprintf("%.*f (%.*f, %.*f)", d, e, d, l, d, u))
+}
+
+# Selected-subgroup (H) HR + 95% CI on the HR scale, read straight from the
+# actual result objects (verified against str(fs_bc$H_estimates) and
+# str(fs$debias_gate); the estimates are unchanged, this is display plumbing):
+#   FB bias-corrected: the bootstrap object's H_estimates carries H0 (naive HR)
+#     and H2 (the "HR*" infinitesimal-jackknife bias-corrected HR) with
+#     H2_lower/H2_upper -- summarize_bootstrap_results() formats these into a gt
+#     table and exposes no top-level est_H/lo_H/hi_H fields.
+#   MR de-biased gate: fs$debias_gate$debiased$est / lower / upper (there is no
+#     g$Hc_estimates; the gate's H-subgroup de-biased HR lives under $debiased).
+naive_hr <- gh$naive_hr    # naive is identical across methods (same fit)
+
+# LOO row read by identity from the harm-subgroup extraction above (both the
+# stable-subgroup and ITT-fallback cases resolve to loo$hr).
+loo_row <- if (isTRUE(run_loo) && exists("loo")) loo$hr else "\u2014 (run_loo = FALSE)"
+
+tab <- data.frame(
+  Method = c("Naive", "Full bootstrap", "Multiplier resampling",
+             "Guo & He (2021)", "Leave-one-out (out-of-sample)"),
+  Estimate = c(
+    sprintf("%.2f", naive_hr),
+    fci(fs_bc$H_estimates$H2, fs_bc$H_estimates$H2_lower, fs_bc$H_estimates$H2_upper),
+    fci(g$debiased$est, g$debiased$lower, g$debiased$upper),
+    sprintf("%.2f (LB %.2f)", gh$debiased_hr, gh$bound_hr),
+    loo_row
+  ),
+  check.names = FALSE
+)
+kbl(tab, booktabs = TRUE, escape = FALSE, align = "ll") |>
+  kable_styling()
+```
+
+::: {.callout-note}
+## Reading the table
+
+Naive is the uncorrected subgroup hazard ratio. Full bootstrap and Multiplier
+resampling both target the conditional estimand and report two-sided intervals;
+they differ in that FB re-runs the entire selection on each resample (so its
+cost scales with the resample count) while MR holds the fitted family fixed and
+is vectorized (so its cost does not). Guo & He corrects the winner's-curse
+optimism of the argmax selection and reports a de-biased point estimate with a
+one-sided lower confidence bound -- the object their Theorems 4/5 and
+simulations certify.
+
+Guo & He assumes a fixed candidate family; the maxeff family here is large
+(hundreds to ~1744 candidates depending on cut construction) and data-adjacent,
+which is outside their stated small-fixed-$k$ regime. The Section 5 reproduction
+established that their estimator is faithfully implemented on disjoint families
+up to $k = 12$; its behaviour on a family this size is the open question, and is
+exactly why the head-to-head with MR is of interest.
+
+Leave-one-out is **not a de-biasing correction** and should not be read as one.
+It is an out-of-sample **stability check on the subgroup _definition_**: it asks
+whether the same subgroup is recovered when no subject informs its own label. Its
+value here depends on the fold-recovery behaviour, which the agreement metrics
+report. If every fold recovers the *identical* definition, out-of-sample
+membership equals in-sample membership and the leave-one-out HR is mechanically
+the naive one -- so `LOO = Naive` would indicate a perfectly stable definition,
+not a failure to correct. If the argmax instead lands on *different* definitions
+across folds (which the finer maxeff family makes possible, unlike the coarse
+frozen-family companion), out-of-sample membership departs from in-sample and the
+leave-one-out HR moves away from Naive -- and *where* it moves is the informative
+signal. Read the leave-one-out row together with the agreement metrics
+(`sens_H`, `ppv_H`, exact-match): they say whether the definition is stable, and
+the HR says what the honest out-of-sample effect is for that (possibly varying)
+membership. Leave-one-out validates the *definition*; the de-biasing corrections
+address the *effect* optimism -- distinct questions, so agreement or disagreement
+between the leave-one-out row and the corrections is not a contradiction.
+:::
+
+```{r timing}
+#| echo: false
+td <- data.frame(
+  Step = c("Fit + MR gate", "Full bootstrap", "MR gate (within fit)",
+           "Guo & He bootstrap", "Leave-one-out (N-fold)"),
+  Seconds = c(timings$fit, timings$fb, timings$mr, timings$gh, timings$loo)
+)
+td$Minutes <- round(td$Seconds / 60, 2)
+kbl(td, booktabs = TRUE, align = "lrr") |> kable_styling()
+```
