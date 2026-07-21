@@ -38,8 +38,8 @@
   if (!is.null(fs$sg.harm)) {
     skip(sprintf("null DGM unexpectedly identified a subgroup (%s)", method))
   }
-  expect_false(is.null(fs$df.est))
-  expect_false("treat.recommend" %in% names(fs$df.est))
+  # Unified no-subgroup contract (Option i): df.est = NULL for all identifiers.
+  expect_null(fs$df.est)
   fs
 }
 
@@ -84,6 +84,11 @@ test_that("forestsearch_bootstrap_dofuture() still fails fast on a no-subgroup f
                            show_message = FALSE))),
     error = function(e) e)
   expect_s3_class(err, "error")
-  expect_match(conditionMessage(err), "no subgroup was identified",
-               fixed = TRUE)
+  # Under the unified no-subgroup contract (Option i) df.est = NULL, so the
+  # entry point halts at its df.est non-empty-frame validator ("must be a
+  # non-empty data frame") -- the same clean halt the consistency path always
+  # produced -- before reaching the more specific "no subgroup was identified"
+  # message.  Either is a correct fail-fast on a no-subgroup fit.
+  expect_match(conditionMessage(err),
+               "no subgroup was identified|must be a non-empty data frame")
 })

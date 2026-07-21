@@ -58,12 +58,11 @@ for (method in c("dina", "grf")) {
       skip_on_cran()
       fs <- .make_null_fit_dg(method, fam)
 
-      # The shape this regression guards: DINA/GRF not-found fits carry a
-      # NON-NULL df.est without treat.recommend (the consistency path
-      # carries NULL).  Either shape must be handled; assert the current
-      # one so a future contract change is caught deliberately.
-      expect_false(is.null(fs$df.est))
-      expect_false("treat.recommend" %in% names(fs$df.est))
+      # Unified no-subgroup contract (Option i): DINA/GRF not-found fits now
+      # return df.est = NULL, matching the consistency path.  (Historically
+      # they returned a populated df.est without treat.recommend, which is
+      # the divergence this contract unification removed.)
+      expect_null(fs$df.est)
 
       cv <- suppressWarnings(forestsearch_tenfold(
         fs.est = fs, sims = 2L, Kfolds = 3L,

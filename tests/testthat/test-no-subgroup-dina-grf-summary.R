@@ -45,8 +45,8 @@
     skip(sprintf("null DGM unexpectedly identified a subgroup (%s/%s)",
                  method, family))
   }
-  expect_false(is.null(fs$df.est))
-  expect_false("treat.recommend" %in% names(fs$df.est))
+  # Unified no-subgroup contract (Option i): df.est = NULL for all identifiers.
+  expect_null(fs$df.est)
   fs
 }
 

@@ -1382,9 +1382,13 @@ reset_workers <- function(workers   = NULL,
   }
 
   if (!isTRUE(sg$found)) {
+    # Unified no-subgroup contract: df.est / df.predict / df.test = NULL, matching
+    # the consistency path (forestsearch_main.R).  Downstream detection keys on
+    # sg.harm (NULL here); returning a populated frame WITHOUT treat.recommend
+    # was the DINA/GRF-only divergence that forced per-identifier consumer guards.
     return(list(found = FALSE, sg.harm = NULL, grp.consistency = NULL,
-                dina_res = dina_res, df.est = df,
-                df.predict = df.predict, df.test = df.test))
+                dina_res = dina_res, df.est = NULL,
+                df.predict = NULL, df.test = NULL))
   }
 
   # Cut label(s): direction "left" => {x <= q}, "right" => {x >= q}.  For a
@@ -1655,9 +1659,13 @@ reset_workers <- function(workers   = NULL,
   }
 
   if (!found) {
+    # Unified no-subgroup contract: df.est / df.predict / df.test = NULL, matching
+    # the consistency path (forestsearch_main.R).  Downstream detection keys on
+    # sg.harm (NULL here); returning a populated frame WITHOUT treat.recommend
+    # was the DINA/GRF-only divergence that forced per-identifier consumer guards.
     return(list(found = FALSE, sg.harm = NULL, grp.consistency = NULL,
-                grf_res = grf_res, df.est = df,
-                df.predict = df.predict, df.test = df.test))
+                grf_res = grf_res, df.est = NULL,
+                df.predict = NULL, df.test = NULL))
   }
 
   # sg.harm representation:
