@@ -185,6 +185,14 @@ library(forestsearch)
 args(forestsearch)
 help(forestsearch)
 
+
+# Some Claude tools
+# interrupt the current session
+#Esc            # then Ctrl+C twice (or /exit) to exit fully
+# relaunch: bypass on + model set, resuming this conversation
+#claude --continue --dangerously-skip-permissions --model claude-fable-5
+
+
 # Testing
 # Be careful: Claude tends to modify tests until they pass without anything actionable
 devtools::test()
