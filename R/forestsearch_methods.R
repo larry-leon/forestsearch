@@ -385,7 +385,15 @@ plot.forestsearch <- function(x,
 
   type <- match.arg(type)
 
-  if (is.null(x$df.est)) {
+  # No-subgroup guard.  The CONSISTENCY path returns df.est = NULL when no
+  # subgroup is identified, but the DINA/GRF selection paths return a
+  # populated df.est WITHOUT a treat.recommend column, so keying on df.est
+  # alone lets a no-subgroup DINA/GRF fit fall through to plot_sg_results(),
+  # which then hard-errors on the missing treat.recommend column instead of
+  # the intended graceful no-op.  Key on sg.harm (the actual no-subgroup
+  # contract) as well.  A subgroup-found fit has sg.harm non-NULL, so the
+  # condition reduces to is.null(x$df.est) -- unchanged for found fits.
+  if (is.null(x$sg.harm) || is.null(x$df.est)) {
     message("No subgroup identified -- nothing to plot.")
     return(invisible(x))
   }
