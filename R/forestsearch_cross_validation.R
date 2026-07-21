@@ -12,6 +12,27 @@
 # ==============================================================================
 
 
+# Extract the column names referenced by `conf_force` forced-cut expressions.
+# Mirrors the label-stripping logic of .fs_gh_parse_label(): strip an optional
+# leading "!" (negation) and surrounding braces, then take the leading variable
+# token before the comparison operator.  Cuts are canonical "var <= value"
+# expressions (see get_fsdata.R), so the variable is the leading R identifier.
+# Returns a de-duplicated character vector (character(0) for NULL/empty input).
+# @noRd
+.fs_conf_force_vars <- function(conf_force) {
+  if (is.null(conf_force) || !length(conf_force)) return(character(0))
+  vars <- vapply(conf_force, function(expr) {
+    expr <- trimws(as.character(expr))
+    if (!nzchar(expr)) return(NA_character_)
+    expr <- sub("^!", "", trimws(expr))                       # strip leading "!"
+    expr <- trimws(sub("^\\{", "", sub("\\}$", "", expr)))    # strip braces
+    v <- regmatches(expr, regexpr("^[A-Za-z.][A-Za-z0-9._]*", expr))  # leading var
+    if (length(v)) v else NA_character_
+  }, character(1))
+  unique(vars[!is.na(vars) & nzchar(vars)])
+}
+
+
 #' ForestSearch K-Fold Cross-Validation
 #'
 #' Performs K-fold cross-validation for ForestSearch, evaluating subgroup
@@ -173,6 +194,16 @@ forestsearch_Kfold <- function(
   if (!is.null(offset.name) && offset.name %in% names(fs.est$df.est)) {
     get_names <- unique(c(get_names, offset.name))
   }
+
+  # Retain columns referenced by conf_force forced cuts even when they lie
+  # OUTSIDE confounders.name (e.g. a frozen-family design where confounders.name
+  # is small but conf_force forces cuts on other variables).  Otherwise those
+  # columns are dropped from the CV data frame and every fold's forced cut
+  # silently fails -> no subgroup found -> spurious ITT fallback.  No-op when
+  # the columns are already present (unique() dedups).
+  .cf_cols <- .fs_conf_force_vars(fs_args$conf_force)
+  .cf_cols <- .cf_cols[.cf_cols %in% names(fs.est$df.est)]
+  if (length(.cf_cols)) get_names <- unique(c(get_names, .cf_cols))
 
   # Carry covariate-adjustment columns into the CV base data even when they are
   # NOT in the candidate pool (confounders.name), so the adjusted outcome model
@@ -567,6 +598,16 @@ forestsearch_tenfold <- function(
   if (!is.null(offset.name) && offset.name %in% names(fs.est$df.est)) {
     get_names <- unique(c(get_names, offset.name))
   }
+
+  # Retain columns referenced by conf_force forced cuts even when they lie
+  # OUTSIDE confounders.name (e.g. a frozen-family design where confounders.name
+  # is small but conf_force forces cuts on other variables).  Otherwise those
+  # columns are dropped from the CV data frame and every fold's forced cut
+  # silently fails -> no subgroup found -> spurious ITT fallback.  No-op when
+  # the columns are already present (unique() dedups).
+  .cf_cols <- .fs_conf_force_vars(fs_args$conf_force)
+  .cf_cols <- .cf_cols[.cf_cols %in% names(fs.est$df.est)]
+  if (length(.cf_cols)) get_names <- unique(c(get_names, .cf_cols))
 
   # Carry covariate-adjustment columns into the CV base data even when they are
   # NOT in the candidate pool (confounders.name), so the adjusted outcome model
