@@ -153,6 +153,9 @@ unlink("Meta", recursive = TRUE)
 devtools::document()
 
 
+devtools::install(args = "--no-byte-compile")
+
+
 devtools::check_man()
 
 
