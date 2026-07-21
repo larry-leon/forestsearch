@@ -1,0 +1,438 @@
+---
+title: "Frozen-family check: FB vs MR correspondence under non-regenerating cuts"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    code-fold: true
+bibliography: []
+---
+
+<!--
+  analysis_gbsg_frozen_family.qmd
+
+  A controlled variant of the GBSG maxeff analysis whose sole purpose is to
+  test the estimand claim that the Full Bootstrap (FB) and Multiplier Resampling
+  (MR) corrections differ BECAUSE FB regenerates the candidate family on each
+  resample (recomputing quantile cutpoints), while MR holds the fitted family
+  fixed.
+
+  MECHANISM (established by reading the package). The bootstrap replays the
+  original forestsearch call arguments (fs.est$args_call_all) on each resample.
+  Under conf.cont_jcuts, the *instruction* "cut er at its J quantiles" is
+  replayed, so the quantiles are recomputed on each bootstrap sample and the cut
+  LOCATIONS move -- the family regenerates. Under a conf_force expression with a
+  fixed numeric threshold ("er <= 36"), the cut does NOT move: it is a fixed
+  string, exempt from cut collapse, replayed verbatim.
+
+  DESIGN. Freeze every cut. Drop the continuous factors from confounders.name
+  (so nothing is auto-cut) and supply, via conf_force, a fixed cut per
+  continuous factor at its OBSERVED-DATA median, plus the clinically meaningful
+  receptor-negative cuts {er <= 0} and {pgr <= 0}. Keep the categorical factors
+  (meno, grade3). Remove conf.cont_jcuts entirely. In this family FB has nothing
+  to regenerate, so the prediction is FB ~ MR (up to Monte Carlo error and MR's
+  leading-order approximation).
+
+  WHAT THIS DOES AND DOES NOT SHOW. It does NOT reproduce the headline maxeff
+  numbers -- the family is a coarser median-cut family, so the selected subgroup
+  and its effect estimates will differ. Do not compare point estimates across
+  the two analyses. It DOES test whether, in a provably frozen family, FB and MR
+  correspond. The headline analysis's FB-MR gap (regenerating family) is the
+  contrast: regeneration present -> divergence; regeneration absent ->
+  correspondence. Two runs, one claim.
+
+  VENUE. Requires the forestsearch package installed. Compute-heavy (a
+  forestsearch fit + an FB bootstrap). Run on the analysis machine, not the chat
+  sandbox.
+-->
+
+```{r setup}
+#| message: false
+#| warning: false
+library(forestsearch)
+library(survival)
+library(data.table)
+library(doFuture)
+library(kableExtra)
+
+timings <- list()
+print(getwd())
+# Guo & He comparator: sourced, not installed (as in the headline analysis).
+gh_dir <- Sys.getenv("GH_DIR", unset = "../../quarto/GuoHe")
+source(file.path(gh_dir, "guohe_algorithm3.R"))
+source(file.path(gh_dir, "fs_to_guohe.R"))
+```
+
+```{r parallel-setup}
+n_cores <- max(1L, floor(0.80 * parallel::detectCores(logical = FALSE)))
+NB         <- 1000L     # full-bootstrap resamples, matching the headline run
+gate_draws <- 5000L     # MR multiplier draws
+GH_B       <- 2000L     # Guo & He pair-bootstrap resamples
+GH_r       <- 0.03      # Guo & He tuning parameter
+GH_PARALLEL <- .Platform$OS.type == "unix"   # forked GH bootstrap where available
+run_loo    <- TRUE      # leave-one-out (N-fold) honest out-of-sample subgroup estimate
+timings$loo <- NA_real_
+cat("Using", n_cores, "physical cores\n")
+```
+
+```{r data}
+df.analysis <- gbsg
+df.analysis <- within(df.analysis, {
+  id <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3 <- ifelse(grade == "3", 1, 0)
+})
+
+# The forced cuts are computed ONCE on the observed data and hard-coded as
+# fixed-threshold expressions, so the bootstrap replay cannot move them.
+med <- sapply(c("age", "size", "nodes", "pgr", "er"),
+              function(v) stats::median(df.analysis[[v]]))
+frozen_cuts <- c(
+  sprintf("age <= %g",   med[["age"]]),     # observed median
+  sprintf("size <= %g",  med[["size"]]),
+  sprintf("nodes <= %g", med[["nodes"]]),
+  sprintf("pgr <= %g",   med[["pgr"]]),
+  sprintf("er <= %g",    med[["er"]]),
+  "er <= 0",                                 # receptor-negative (clinical)
+  "pgr <= 0"
+)
+cat("Frozen cuts (fixed thresholds, replayed verbatim under bootstrap):\n")
+cat(paste0("  ", frozen_cuts), sep = "\n")
+
+# CATEGORICAL factors only in confounders.name: the continuous factors are
+# DROPPED so forestsearch never auto-cuts (and never quantile-recomputes) them.
+confounders.name <- c("meno", "grade3")
+
+outcome.name <- "time_months"
+event.name   <- "status"
+id.name      <- "id"
+treat.name   <- "hormon"
+```
+
+## Frozen-family fit {#sec-fit}
+
+Every continuous factor is represented only by fixed median cuts (plus the
+receptor-negative cuts); the continuous factors themselves are excluded from the
+confounder set, and `conf.cont_jcuts` is not used. The candidate family is
+therefore fully determined by the fixed cuts and cannot regenerate under
+bootstrap resampling.
+
+```{r fit}
+#| fig-width: 10
+#| fig-height: 7
+t0 <- proc.time()
+
+fs <- forestsearch(
+  df.analysis,
+  outcome.name       = outcome.name,
+  event.name         = event.name,
+  treat.name         = treat.name,
+  id.name            = id.name,
+  confounders.name   = confounders.name,   # categorical only
+  is.RCT             = TRUE,
+  seedit             = 8316951,
+  est.scale          = "hr",
+  use_lasso          = FALSE,
+  use_grf            = FALSE,
+  use_dina           = FALSE,
+  conf_force         = frozen_cuts,        # all cuts fixed
+  # conf.cont_jcuts intentionally OMITTED -- no quantile cuts
+  collapse_cuts      = TRUE,
+  subgroup_method    = "consistency",
+  sg_focus           = "maxeff",
+  n.min              = 60, d0.min = 10, d1.min = 10, maxk = 2,
+  debias_gate        = TRUE,
+  debias_gate_args   = list(draws = gate_draws),
+  consistency_method = "resample",
+  fs.splits          = 1000, stop_threshold = 0.95,
+  use_twostage       = TRUE, max.minutes = 3,
+  show_candidate_summary = TRUE, details = TRUE, quiet = FALSE,
+  plot.sg            = TRUE,
+  parallel_args = list(plan = "multisession", workers = n_cores,
+                       show_message = TRUE)
+)
+plan("sequential")
+timings$fit <- (proc.time() - t0)[["elapsed"]]
+stopifnot(!is.null(fs$sg.harm))
+cat("\nSelected subgroup:", paste(fs$sg.harm, collapse = " & "),
+    "  |  fit", round(timings$fit / 60, 1), "min\n")
+```
+
+### Gate 0 -- confirm the family is actually frozen
+
+The whole check is void if any candidate cut is quantile-derived (hence
+regenerating). Verify that the realized candidate family contains only the fixed
+cuts: every cut label must correspond to one of the forced expressions or a
+categorical factor level, and no continuous factor may appear as an auto-derived
+cut. This is a hard gate -- if it fails, stop; the comparison below is not
+interpretable.
+
+```{r gate0}
+fam <- as.data.frame(fs$grp.consistency$out_sg$result)
+mcols <- grep("^M\\.[0-9]+$", names(fam), value = TRUE)
+labels <- unique(unlist(lapply(mcols, function(cn) fam[[cn]])))
+labels <- labels[nzchar(labels)]
+
+# Normalize a family cut label ("{er <= 0}", "!{age <= 53}") to its inner form.
+norm_lab <- function(x) {
+  x <- sub("^!", "", trimws(x))
+  trimws(sub("^\\{", "", sub("\\}$", "", x)))
+}
+inner <- sort(unique(norm_lab(labels)))
+
+# Allowed inner forms: the forced cuts, plus categorical factor cuts on
+# meno / grade3 (which forestsearch may encode as "meno <= 0" / bare levels).
+allowed_fixed <- frozen_cuts
+cat("Distinct candidate cut forms in the realized family:\n")
+cat(paste0("  ", inner), sep = "\n")
+
+# Flag any cut on a continuous factor that is NOT one of the fixed thresholds.
+cont_vars <- c("age", "size", "nodes", "pgr", "er")
+offending <- inner[
+  vapply(inner, function(s) {
+    v <- sub("\\s*(<=|>=|<|>|==).*$", "", s)
+    v <- trimws(v)
+    (v %in% cont_vars) && !(s %in% trimws(sub("\\s+", " ", allowed_fixed)))
+  }, logical(1))
+]
+
+if (length(offending)) {
+  stop("GATE 0 FAILED -- continuous-factor cuts not in the fixed set are ",
+       "present (family is NOT frozen): ",
+       paste(offending, collapse = "; "))
+}
+cat("\nGATE 0 PASS -- every continuous-factor cut is a fixed threshold; ",
+    "the family cannot regenerate under bootstrap.\n", sep = "")
+```
+
+## Full bootstrap (FB)
+
+```{r bootstrap}
+t0 <- proc.time()
+fs_bc <- forestsearch_bootstrap_dofuture(
+  fs.est   = fs, nb_boots = NB, show_three = FALSE, details = FALSE,
+  parallel_args = list(plan = "multisession", workers = n_cores,
+                       show_message = TRUE)
+)
+plan("sequential")
+timings$fb <- (proc.time() - t0)[["elapsed"]]
+cat("FB completed in", round(timings$fb / 60, 1), "min\n")
+```
+
+## Multiplier resampling (MR)
+
+```{r mr}
+g <- fs$debias_gate
+stopifnot(!is.null(g))
+timings$mr <- g$timing_seconds
+cat("MR gate:", round(timings$mr, 2), "s over",
+    format(gate_draws, big.mark = ","), "draws\n")
+```
+
+## Guo & He (GH)
+
+The adapter exports the frozen candidate family as membership columns and runs
+Guo & He Algorithm 3 on the same selected subgroup, asserting membership
+integrity against `fit$grp.consistency$sg.harm.id` before the estimator runs.
+The frozen family is coarser than the headline maxeff family (about 116
+candidates versus ~1340), which remains well within the range where the argmax
+de-biasing is meaningful.
+
+```{r guohe}
+t0 <- proc.time()
+gh <- fs_to_guohe(
+  fit       = fs,
+  time      = "time_months", event = "status", treatment = "hormon",
+  B         = GH_B, r = GH_r, level = 0.05, seed = 8316951,
+  parallel  = GH_PARALLEL, verify = TRUE
+)
+timings$gh <- (proc.time() - t0)[["elapsed"]]
+cat("GH family size:", length(gh$export$candidates),
+    " | selected:", gh$selected,
+    " | GH", round(timings$gh / 60, 1), "min\n")
+cat(sprintf("GH  naive HR %.3f  debiased HR %.3f  lower bound %.3f\n",
+            gh$naive_hr, gh$debiased_hr, gh$bound_hr))
+```
+
+## Leave-one-out (honest out-of-sample estimate)
+
+Leave-one-out re-runs the entire selection on each hold-out of one subject and
+predicts the held-out subject's subgroup membership from its covariates. It is an
+out-of-sample **stability check on the subgroup _definition_**, not a de-biasing
+correction of the _effect_: it asks whether the same subgroup is recovered when
+no subject informs its own label. This is `forestsearch_Kfold()` at N-fold
+(`Kfolds = nrow(df)`), the same leave-one-out analysis carried in the multimethod
+document, applied to the frozen-family fit. Both the recovered definition (how
+often, and which) and its out-of-sample hazard ratio are reported below; see the
+interpretation callout for why, here, the out-of-sample HR equals Naive by
+construction.
+
+Note this is the heaviest step: N-fold means one full forest search per subject
+(here 686 re-runs). It is tractable on the small frozen family but is the long
+pole; on the analysis box, not the sandbox.
+
+```{r loo-skipped-note, eval = !run_loo}
+cat("Leave-one-out skipped (run_loo = FALSE).",
+    "Set run_loo <- TRUE in parallel-setup to run it.\n")
+```
+
+```{r loo, eval = run_loo}
+# Leave-one-out (N-fold) is the long pole -- one full forest search per subject
+# (686 re-runs). If a precomputed cv_out is available (LOO_CACHE env var, else
+# the default path in gh_dir) load it; otherwise run the N-fold search and cache
+# it for re-renders. Sequential execution is used for reproducibility.
+loo_cache <- Sys.getenv("LOO_CACHE",
+                        unset = file.path(gh_dir, "cv_out_frozen_family.rds"))
+if (file.exists(loo_cache)) {
+  cv_out <- readRDS(loo_cache)
+  timings$loo <- NA_real_
+  cat("LOO loaded from cache:", loo_cache, "\n")
+} else {
+  t0 <- proc.time()
+  fs_OOB <- forestsearch_Kfold(
+    fs.est  = fs,
+    details = FALSE,
+    Kfolds  = nrow(df.analysis),   # N-fold = leave-one-out
+    parallel_args = list(plan = "sequential", workers = 1, show_message = TRUE)
+  )
+  plan("sequential")
+  timings$loo <- (proc.time() - t0)[["elapsed"]]
+  cv_out <- forestsearch_KfoldOut(res = fs_OOB, details = FALSE, outall = TRUE)
+  saveRDS(cv_out, loo_cache)
+}
+
+# Out-of-sample harm-subgroup HR, read BY IDENTITY (the harm row of the K-fold
+# table, matched on its subgroup label sg0.name = "Not recommend"), never
+# positionally -- the table layout depends on n_sgfound. Two structural cases:
+#   (i)  stable subgroup: SG_tab_Kfold is a matrix whose harm row carries the
+#        sg0.name label -> its out-of-sample HR (identical to tab_all's KfA_0);
+#   (ii) ITT fallback: no subgroup survives out-of-sample (n_sgfound == 1) and
+#        SG_tab_Kfold collapses to the 1-D ITT vector -> no harm row -> report
+#        the fallback explicitly. Present but inactive in this frozen family.
+.loo_harm_row <- function(cv_out, harm_label = "Not recommend") {
+  sgk <- cv_out$SG_tab_Kfold
+  if (is.matrix(sgk) && "Subgroup" %in% colnames(sgk)) {
+    j <- which(sgk[, "Subgroup"] == harm_label)
+    if (length(j) == 1L)
+      return(list(case = "stable",
+                  hr   = as.character(sgk[j, "HR (95% CI)"]),
+                  n    = as.character(sgk[j, "n"])))
+  }
+  list(case = "itt_fallback",
+       hr   = "— (no stable subgroup out-of-sample; ITT)",
+       n    = NA_character_)
+}
+loo <- .loo_harm_row(cv_out)
+
+# Definition stability: how many folds recovered a subgroup, and how many
+# distinct definitions appeared across the 686 folds.
+metr <- cv_out$sens_metrics_original
+cat(sprintf(
+  "LOO [%s]: out-of-sample harm HR %s (n = %s)\n  agreement: sens_H = %.2f, ppv_H = %.2f (exact-match = %.2f)\n",
+  loo$case, loo$hr, loo$n, metr[["sens_H"]], metr[["ppv_H"]],
+  cv_out$find_metrics[["Exact"]]))
+
+# Full CV tables (ITT / full-analysis / K-fold, plus agreement metrics).
+tables <- cv_summary_tables(cv_out)
+tables$combined_table
+tables$metrics_table
+```
+
+## Corrections in the frozen family {#sec-compare}
+
+```{r table}
+#| tbl-cap: "Subgroup hazard ratios in the FROZEN (non-regenerating) family. The FB-MR gap is the quantity of interest (see below). Guo & He reports a one-sided lower bound. Leave-one-out is NOT a de-biasing correction: it is an out-of-sample STABILITY check on the subgroup definition. It equals Naive here by construction (see the interpretation callout) -- included for completeness, not as a fifth correction."
+#| echo: false
+fci <- function(e, l, u, d = 2) {
+  ifelse(is.na(e), "\u2014", sprintf("%.*f (%.*f, %.*f)", d, e, d, l, d, u))
+}
+naive_hr <- fs_bc$H_estimates$H0
+
+# LOO row read by identity from the harm-subgroup extraction above (both the
+# stable-subgroup and ITT-fallback cases resolve to loo$hr).
+loo_row <- if (isTRUE(run_loo) && exists("loo")) loo$hr else "\u2014 (run_loo = FALSE)"
+
+tab <- data.frame(
+  Method = c("Naive", "Full bootstrap", "Multiplier resampling",
+             "Guo & He (2021)", "Leave-one-out (out-of-sample)"),
+  Estimate = c(
+    sprintf("%.2f", naive_hr),
+    fci(fs_bc$H_estimates$H2, fs_bc$H_estimates$H2_lower, fs_bc$H_estimates$H2_upper),
+    fci(g$debiased$est, g$debiased$lower, g$debiased$upper),
+    sprintf("%.2f (LB %.2f)", gh$debiased_hr, gh$bound_hr),
+    loo_row
+  ),
+  check.names = FALSE
+)
+kbl(tab, booktabs = TRUE, escape = FALSE, align = "ll") |> kable_styling()
+```
+
+```{r gap}
+#| echo: false
+fb_hr <- fs_bc$H_estimates$H2
+mr_hr <- g$debiased$est
+cat(sprintf("FB debiased HR: %.3f\n", fb_hr))
+cat(sprintf("MR debiased HR: %.3f\n", mr_hr))
+cat(sprintf("FB - MR (log-HR): %.4f\n", log(fb_hr) - log(mr_hr)))
+cat(sprintf("FB / MR (HR ratio): %.4f\n", fb_hr / mr_hr))
+```
+
+::: {.callout-note}
+## Interpretation
+
+If the frozen-family FB and MR debiased HRs agree up to Monte Carlo error, that
+corroborates the account that their divergence in the headline maxeff analysis
+is the family-regeneration component: FB there recomputes quantile cutpoints on
+each resample and so marginalizes over family regeneration (targeting the
+marginal $\theta^\dagger(H)$), while MR holds the fitted family fixed
+(targeting the conditional $\beta(\widehat{H})$). Here, with every cut fixed,
+there is nothing to regenerate, so the two estimands coincide and the estimators
+should correspond.
+
+A small residual FB-MR difference may persist even frozen, from MR's
+leading-order (infinitesimal-jackknife) approximation to the bootstrap -- a
+distinct term from regeneration. A large residual would instead implicate that
+approximation and would be its own finding. This run does not, by itself,
+decompose those two terms; it tests whether the dominant regeneration term is
+removed by freezing the family.
+
+The comparison is within-family only. The selected subgroup here differs from
+the headline maxeff subgroup (a coarser median-cut family), so point estimates
+are not comparable across the two analyses -- only the FB-MR gap within each is.
+
+Leave-one-out is **not a de-biasing correction** and should not be read as one.
+It is an out-of-sample **stability check on the subgroup _definition_**: it asks
+whether the same subgroup is recovered when no subject informs its own label.
+Here all 686 folds recovered the *identical* definition
+($\{er \le 0\} \cap \{pgr \le 32.5\}$; `sens_H = ppv_H = 1.00`, exact-match
+$= 1.00$).
+
+Consequently the LOO out-of-sample HR **equals Naive by construction**, not by
+coincidence. The subgroup is a deterministic function of baseline covariates, and
+with every fold recovering the same definition, each held-out subject's
+out-of-sample membership equals its in-sample membership -- the harm group is the
+same 75 subjects and the hazard ratio is mechanically the naive one. So
+`LOO = Naive` while `FB, MR, GH < Naive` are **consistent**, not contradictory:
+they answer different questions -- definition *stability* (LOO) versus effect
+*optimism* (the de-biasing corrections). LOO validates that the subgroup
+reproduces out-of-sample; it does not, and cannot here, shrink the effect.
+
+This reproducibility is also **partly structural**: the frozen family is small,
+so the argmax chooses among few candidates and high fold-agreement is expected
+even absent deep signal. The honest claim is therefore narrow -- *this* frozen
+definition is reproducible out-of-sample -- and is **not** evidence that a
+finer-grained (regenerating) search would be as stable. The frozen-family LOO is
+included for completeness; the discriminating comparison is the headline maxeff
+family, where family regeneration separates FB (marginal) from MR (conditional).
+:::
+
+```{r timing}
+#| echo: false
+td <- data.frame(
+  Step = c("Fit + MR gate", "Full bootstrap", "MR gate (within fit)",
+           "Guo & He bootstrap", "Leave-one-out (N-fold)"),
+  Seconds = c(timings$fit, timings$fb, timings$mr, timings$gh, timings$loo)
+)
+td$Minutes <- round(td$Seconds / 60, 2)
+kbl(td, booktabs = TRUE, align = "lrr") |> kable_styling()
+```
