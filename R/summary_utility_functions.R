@@ -510,6 +510,17 @@ analyze_subgroup <- function(df_sub, outcome.name, event.name, treat.name,
     df_sub[[strata.name]]
   }
 
+  # Empty or all-missing subgroup arm: survfit()/coxph() would error with
+  # "data set has no non-missing observations".  This arises legitimately,
+  # e.g. summarizing an all-ITT CV prediction frame where the complementary
+  # subgroup arm has zero members.  Return a same-shape formatted row with
+  # zero counts and NA estimates instead of aborting the whole table.
+  if (length(Y) == 0L || all(is.na(Y))) {
+    zero_n <- n_pcnt(numeric(0), N)
+    return(format_results(subgroup_name, zero_n, zero_n, zero_n,
+                          NA, NA, NA, NA, hr_a, NA, return_medians))
+  }
+
   # =========================================================================
   # OPTIMIZATION 2: Use optimized cox_summary()
   # =========================================================================
