@@ -127,6 +127,20 @@
 }
 
 
+# Number of subjects the CV runs over: rows of df.est when a subgroup was
+# found, else rows of the original analysis frame (no-subgroup fallback).
+# Used by forestsearch_Kfold for the LOO default and fold-size validation,
+# where nrow(fs.est$df.est) would be NULL for a no-subgroup fit.
+# @noRd
+.fs_cv_nobs <- function(fs.est) {
+  if (is.null(fs.est$df.est)) {
+    nrow(as.data.frame(fs.est$args_call_all$df.analysis))
+  } else {
+    nrow(fs.est$df.est)
+  }
+}
+
+
 #' ForestSearch K-Fold Cross-Validation
 #'
 #' Performs K-fold cross-validation for ForestSearch, evaluating subgroup
@@ -221,7 +235,7 @@
 
 forestsearch_Kfold <- function(
     fs.est,
-    Kfolds = nrow(fs.est$df.est),
+    Kfolds = .fs_cv_nobs(fs.est),
     seedit = 8316951L,
     parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE),
     sg0.name = "Not recommend",
@@ -243,16 +257,20 @@ forestsearch_Kfold <- function(
     stop("fs.est missing required components: ", paste(missing, collapse = ", "))
   }
 
-  if (is.null(fs.est$df.est) || !is.data.frame(fs.est$df.est) || nrow(fs.est$df.est) == 0) {
-    stop("fs.est$df.est must be a non-empty data frame")
+  # A no-subgroup primary fit carries df.est == NULL; .fs_cv_base_frame()
+  # rebuilds an ITT base frame from args_call_all in that case, so NULL is
+  # allowed.  A non-NULL df.est must still be a non-empty data frame.
+  if (!is.null(fs.est$df.est) &&
+      (!is.data.frame(fs.est$df.est) || nrow(fs.est$df.est) == 0)) {
+    stop("fs.est$df.est must be NULL (no subgroup) or a non-empty data frame")
   }
 
   if (!is.numeric(Kfolds) || length(Kfolds) != 1 || Kfolds < 2) {
     stop("Kfolds must be an integer >= 2")
   }
 
-  if (Kfolds > nrow(fs.est$df.est)) {
-    stop("Kfolds cannot exceed number of observations (", nrow(fs.est$df.est), ")")
+  if (Kfolds > .fs_cv_nobs(fs.est)) {
+    stop("Kfolds cannot exceed number of observations (", .fs_cv_nobs(fs.est), ")")
   }
 
   # ===========================================================================
@@ -280,7 +298,6 @@ forestsearch_Kfold <- function(
   treat.name <- fs_args$treat.name
   id.name <- fs_args$id.name
   est.scale <- fs_args$est.scale
-  confounders.name <- fs_args$confounders.name
 
   # Prepare base data.  .fs_cv_base_frame() builds the per-subject frame
   # uniformly: the processed df.est when a subgroup was found (byte-identical
@@ -296,7 +313,7 @@ forestsearch_Kfold <- function(
   df_scrambled <- data.table::copy(dfnew)
 
   # Scramble only if not doing LOO
-  if (Kfolds < nrow(fs.est$df.est)) {
+  if (Kfolds < .fs_cv_nobs(fs.est)) {
     set.seed(seedit)
     id_sample <- sample(seq_len(nrow(df_scrambled)), replace = FALSE)
     df_scrambled <- df_scrambled[id_sample, ]
@@ -1067,7 +1084,9 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE,
   # ===========================================================================
 
   # List of required elements in res
-  required_elements <- c("cv_args", "sg_analysis", "sg0.name", "sg1.name", "Kfolds", "resCV")
+  # sg_analysis is OPTIONAL: NULL means the primary fit identified no subgroup,
+  # a valid 0%-identification input.  The remaining elements are required.
+  required_elements <- c("cv_args", "sg0.name", "sg1.name", "Kfolds", "resCV")
   missing_elements <- required_elements[!sapply(required_elements, function(x) !is.null(res[[x]]))]
   if (length(missing_elements) > 0) {
     stop("The following elements are missing in 'res': ", paste(missing_elements, collapse = ", "))
@@ -1089,6 +1108,7 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE,
   event.name <- res$cv_args$event.name
   treat.name <- res$cv_args$treat.name
   sg_analysis <- res$sg_analysis
+  no_original_sg <- is.null(sg_analysis)   # primary fit identified no subgroup
   sg0.name <- res$sg0.name
   sg1.name <- res$sg1.name
   est.scale <- if (!is.null(res$cv_args$est.scale)) res$cv_args$est.scale else "hr"
@@ -1114,62 +1134,74 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE,
   # COMPUTE CV SUMMARY METRICS
   # ===========================================================================
 
-  CV_summary <- CV_sgs(
-    sg1 = sg1,
-    sg2 = sg2,
-    confs = confounders.name,
-    sg_analysis = sg_analysis
-  )
-
-  if (details) {
-    cat("Any found:", mean(CV_summary$any_found), "\n")
-    cat("Exact match:", mean(CV_summary$exact_match), "\n")
-    cat("At least 1 match:", mean(CV_summary$one_match), "\n")
-    cat("Cov 1 any:", mean(CV_summary$cov1_any), "\n")
-    cat("Cov 2 any:", mean(CV_summary$cov2_any, na.rm = TRUE), "\n")
-    cat("Cov 1 and 2 any:", mean(ifelse(CV_summary$cov1_any & CV_summary$cov2_any, 1, 0), na.rm = TRUE), "\n")
-    cat("Cov 1 exact:", mean(CV_summary$cov1_exact), "\n")
-    cat("Cov 2 exact:", mean(CV_summary$cov2_exact, na.rm = TRUE), "\n")
-  }
-
-  find_metrics <- c(
-    mean(CV_summary$any_found),
-    mean(CV_summary$exact_match),
-    mean(CV_summary$one_match),
-    mean(CV_summary$cov1_any),
-    mean(CV_summary$cov2_any, na.rm = TRUE),
-    mean(ifelse(CV_summary$cov1_any & CV_summary$cov2_any, 1, 0), na.rm = TRUE),
-    mean(CV_summary$cov1_exact),
-    mean(CV_summary$cov2_exact, na.rm = TRUE)
-  )
-  names(find_metrics) <- c("Any", "Exact", "At least 1", "Cov1", "Cov2",
-                           "Cov 1 & 2", "Cov1 exact", "Cov2 exact")
-
-  # ===========================================================================
-  # COMPUTE SENSITIVITY/PPV METRICS
-  # ===========================================================================
-
+  # n_sgfound drives table assembly below; compute it regardless of whether an
+  # original subgroup exists.
   n_sgfound <- length(unique(df_CV$treat.recommend))
 
-  if (n_sgfound == 2) {
-    tabit <- with(df_CV, table(treat.recommend, treat.recommend.original))
-    sensH <- tabit[1, 1] / sum(tabit[, 1])
-    sensHc <- tabit[2, 2] / sum(tabit[, 2])
-    ppvH <- tabit[1, 1] / sum(tabit[1, ])
-    ppvHc <- tabit[2, 2] / sum(tabit[2, ])
+  if (no_original_sg) {
+    # No original subgroup to score CV agreement against: zero finding metrics
+    # and NA sensitivity/PPV (same 0/NA shape as the tenfold per-sim
+    # no-subgroup guard).  Any subgroups the folds did find are recorded
+    # separately in SGs_found.
+    CV_summary <- NULL
+    find_metrics <- stats::setNames(
+      rep(0, 8L),
+      c("Any", "Exact", "At least 1", "Cov1", "Cov2",
+        "Cov 1 & 2", "Cov1 exact", "Cov2 exact"))
+    sens_metrics_original <- stats::setNames(
+      rep(NA_real_, 4L), c("sens_H", "sens_Hc", "ppv_H", "ppv_Hc"))
   } else {
-    tabit <- with(df_CV, table(treat.recommend, treat.recommend.original))
-    sensH <- if (nrow(tabit) > 0 && ncol(tabit) > 0) tabit[1, 1] / sum(tabit[, 1]) else NA
-    sensHc <- NA
-    ppvH <- if (nrow(tabit) > 0) tabit[1, 1] / sum(tabit[1, ]) else NA
-    ppvHc <- NA
-  }
+    CV_summary <- CV_sgs(
+      sg1 = sg1,
+      sg2 = sg2,
+      confs = confounders.name,
+      sg_analysis = sg_analysis
+    )
 
-  sens_metrics_original <- c(sensH, sensHc, ppvH, ppvHc)
-  names(sens_metrics_original) <- c("sens_H", "sens_Hc", "ppv_H", "ppv_Hc")
+    if (details) {
+      cat("Any found:", mean(CV_summary$any_found), "\n")
+      cat("Exact match:", mean(CV_summary$exact_match), "\n")
+      cat("At least 1 match:", mean(CV_summary$one_match), "\n")
+      cat("Cov 1 any:", mean(CV_summary$cov1_any), "\n")
+      cat("Cov 2 any:", mean(CV_summary$cov2_any, na.rm = TRUE), "\n")
+      cat("Cov 1 and 2 any:", mean(ifelse(CV_summary$cov1_any & CV_summary$cov2_any, 1, 0), na.rm = TRUE), "\n")
+      cat("Cov 1 exact:", mean(CV_summary$cov1_exact), "\n")
+      cat("Cov 2 exact:", mean(CV_summary$cov2_exact, na.rm = TRUE), "\n")
+    }
 
-  if (details) {
-    cat("Agreement (sens, ppv) in H and Hc:", c(sensH, sensHc, ppvH, ppvHc), "\n")
+    find_metrics <- c(
+      mean(CV_summary$any_found),
+      mean(CV_summary$exact_match),
+      mean(CV_summary$one_match),
+      mean(CV_summary$cov1_any),
+      mean(CV_summary$cov2_any, na.rm = TRUE),
+      mean(ifelse(CV_summary$cov1_any & CV_summary$cov2_any, 1, 0), na.rm = TRUE),
+      mean(CV_summary$cov1_exact),
+      mean(CV_summary$cov2_exact, na.rm = TRUE)
+    )
+    names(find_metrics) <- c("Any", "Exact", "At least 1", "Cov1", "Cov2",
+                             "Cov 1 & 2", "Cov1 exact", "Cov2 exact")
+
+    if (n_sgfound == 2) {
+      tabit <- with(df_CV, table(treat.recommend, treat.recommend.original))
+      sensH <- tabit[1, 1] / sum(tabit[, 1])
+      sensHc <- tabit[2, 2] / sum(tabit[, 2])
+      ppvH <- tabit[1, 1] / sum(tabit[1, ])
+      ppvHc <- tabit[2, 2] / sum(tabit[2, ])
+    } else {
+      tabit <- with(df_CV, table(treat.recommend, treat.recommend.original))
+      sensH <- if (nrow(tabit) > 0 && ncol(tabit) > 0) tabit[1, 1] / sum(tabit[, 1]) else NA
+      sensHc <- NA
+      ppvH <- if (nrow(tabit) > 0) tabit[1, 1] / sum(tabit[1, ]) else NA
+      ppvHc <- NA
+    }
+
+    sens_metrics_original <- c(sensH, sensHc, ppvH, ppvHc)
+    names(sens_metrics_original) <- c("sens_H", "sens_Hc", "ppv_H", "ppv_Hc")
+
+    if (details) {
+      cat("Agreement (sens, ppv) in H and Hc:", c(sensH, sensHc, ppvH, ppvHc), "\n")
+    }
   }
 
   # ===========================================================================
@@ -1180,6 +1212,59 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE,
     # Detect GLM outcome type -- SG_tab_estimates() is survival-specific
     outcome_type <- res$cv_args$outcome_type
     is_glm <- !is.null(outcome_type) && outcome_type != "survival"
+
+    if (no_original_sg) {
+      # No original subgroup identified: return ITT-only tables.  There is no
+      # subgroup to tabulate, and the survival subgroup-table path would split
+      # an all-ITT sample into an empty complementary arm.  ITT is the whole
+      # sample, so its table is well defined for every outcome family.
+      if (is_glm) {
+        effect_measure <- res$cv_args$effect_measure
+        if (is.null(effect_measure)) {
+          effect_measure <- switch(outcome_type,
+            binary = "RD", continuous = "MD", count = "IRR", "RD")
+        }
+        estimator_fn_cv <- tryCatch(
+          make_effect_estimator(
+            outcome_type      = outcome_type,
+            treat.name        = treat.name,
+            outcome.name      = outcome.name,
+            offset.name       = res$cv_args$offset.name,
+            effect_measure    = effect_measure,
+            adjust_covariates = res$cv_args$adjust_covariates),
+          error = function(e) NULL)
+        itt_tab <- tryCatch(
+          SG_tab_estimates_glm(
+            df = as.data.frame(df_CV), SG_flag = "ITT",
+            outcome.name = outcome.name, treat.name = treat.name,
+            estimator_fn = estimator_fn_cv, effect_measure = effect_measure,
+            outcome_type = outcome_type, est.scale = est.scale, digits = digits),
+          error = function(e) {
+            if (details) cat("GLM ITT table failed:", e$message, "\n"); NULL })
+        out <- list(itt_tab = itt_tab, SG_tab_original = NULL,
+                    SG_tab_Kfold = NULL, CV_summary = CV_summary,
+                    sens_metrics_original = sens_metrics_original,
+                    find_metrics = find_metrics, SGs_found = SGs_found,
+                    tab_all = itt_tab, outcome_type = outcome_type,
+                    effect_measure = effect_measure)
+      } else {
+        itt_tab <- tryCatch(
+          SG_tab_estimates(
+            df = as.data.frame(df_CV), SG_flag = "ITT", draws = 0,
+            details = FALSE, outcome.name = outcome.name,
+            event.name = event.name, treat.name = treat.name,
+            strata.name = NULL, potentialOutcome.name = NULL,
+            est.scale = est.scale, sg0_name = "Questionable",
+            sg1_name = "Recommend"),
+          error = function(e) NULL)
+        out <- list(itt_tab = itt_tab, SG_tab_original = NULL,
+                    SG_tab_Kfold = NULL, CV_summary = CV_summary,
+                    sens_metrics_original = sens_metrics_original,
+                    find_metrics = find_metrics, SGs_found = SGs_found,
+                    tab_all = itt_tab)
+      }
+      return(out)
+    }
 
     if (is_glm) {
       # GLM outcomes: detailed tables via SG_tab_estimates_glm
