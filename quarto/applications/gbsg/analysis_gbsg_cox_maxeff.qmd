@@ -75,6 +75,11 @@ GH_r       <- 0.03      # Guo & He tuning parameter (their adaptive default regi
 GH_PARALLEL <- .Platform$OS.type == "unix"   # forked GH bootstrap where available
 run_loo    <- TRUE      # leave-one-out (N-fold) honest out-of-sample subgroup estimate
 timings$loo <- NA_real_
+# LOO fold-loop workers: 80% of physical cores (same rule as n_cores above), so
+# this adapts to whichever machine renders. No nested parallelism to guard
+# against: forestsearch_Kfold() pins each fold's inner forestsearch() refit to
+# plan = "sequential", workers = 1, so these are the ONLY workers in play.
+loo_workers <- n_cores
 run_cv_kfold <- TRUE    # repeated 10-fold cross-validation (stability diagnostics)
 Ksims       <- 50L      # repeated 10-fold partitions (>= 50 for production)
 timings$kfold <- NA_real_
@@ -349,6 +354,15 @@ below; read them against the agreement metrics.
 Note this is the heaviest step: N-fold means one full forest search per subject.
 It is the long pole; on the analysis box, not the sandbox.
 
+The fold loop is distributed across `r loo_workers` workers. `parallel_args`
+controls **fold-level** parallelism only -- each fold's inner `forestsearch()`
+refit is pinned to `plan = "sequential"`, so there is no nested oversubscription
+-- and the fold loop draws parallel-safe L'Ecuyer streams
+(`.options.future = list(seed = TRUE)`). In the frozen-family companion analysis
+the parallel fold loop was verified against a sequential run of the same
+analysis: **identical** per-subject predictions and an identical out-of-sample
+HR, at 5.2x the speed on 11 workers.
+
 ```{r loo-skipped-note, eval = !run_loo}
 cat("Leave-one-out skipped (run_loo = FALSE).",
     "Set run_loo <- TRUE in parallel-setup to run it.\n")
@@ -358,7 +372,8 @@ cat("Leave-one-out skipped (run_loo = FALSE).",
 # Leave-one-out (N-fold) is the long pole -- one full forest search per subject.
 # If a precomputed cv_out is available (LOO_CACHE env var, else the default path
 # in gh_dir) load it; otherwise run the N-fold search and cache it for
-# re-renders. Sequential execution is used for reproducibility.
+# re-renders. The fold loop runs in parallel on loo_workers workers; each fold's
+# inner search is pinned sequential by forestsearch_Kfold().
 loo_cache <- Sys.getenv("LOO_CACHE",
                         unset = file.path(gh_dir, "cv_out_maxeff.rds"))
 if (file.exists(loo_cache)) {
@@ -371,7 +386,8 @@ if (file.exists(loo_cache)) {
     fs.est  = fs,
     details = FALSE,
     Kfolds  = nrow(df.analysis),   # N-fold = leave-one-out
-    parallel_args = list(plan = "sequential", workers = 1, show_message = TRUE)
+    parallel_args = list(plan = "multisession", workers = loo_workers,
+                         show_message = TRUE)
   )
   plan("sequential")
   timings$loo <- (proc.time() - t0)[["elapsed"]]
@@ -498,7 +514,8 @@ between the leave-one-out row and the corrections is not a contradiction.
 #| echo: false
 td <- data.frame(
   Step = c("Fit + MR gate", "Full bootstrap", "MR gate (within fit)",
-           "Guo & He bootstrap", "10-fold CV", "Leave-one-out (N-fold)"),
+           "Guo & He bootstrap", "10-fold CV",
+           sprintf("Leave-one-out (N-fold, %d workers)", loo_workers)),
   Seconds = c(timings$fit, timings$fb, timings$mr, timings$gh,
               timings$kfold, timings$loo)
 )
