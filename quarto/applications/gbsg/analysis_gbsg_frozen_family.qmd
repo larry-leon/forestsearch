@@ -72,16 +72,12 @@ GH_r       <- 0.03      # Guo & He tuning parameter
 GH_PARALLEL <- .Platform$OS.type == "unix"   # forked GH bootstrap where available
 run_loo    <- TRUE      # leave-one-out (N-fold) honest out-of-sample subgroup estimate
 timings$loo <- NA_real_
-# Sequential-vs-multisession A/B on the LOO fold loop (@sec-loo-parallel).
-run_loo_par <- TRUE     # repeat the LOO with a parallel fold loop
-# Fold-loop workers: 80% of physical cores (the same rule as n_cores above), so
-# the A/B adapts to whichever machine renders this -- Mac or the 127-core box.
-# There is no nested parallelism to guard against: forestsearch_Kfold() pins each
-# fold's inner forestsearch() refit to plan = "sequential", workers = 1, so these
-# workers are the ONLY ones in play. Replace with a fixed integer to pin it.
+# LOO fold-loop workers: 80% of physical cores (the same rule as n_cores above),
+# so this adapts to whichever machine renders. There is no nested parallelism to
+# guard against: forestsearch_Kfold() pins each fold's inner forestsearch() refit
+# to plan = "sequential", workers = 1, so these are the ONLY workers in play.
+# Replace with a fixed integer to pin it.
 loo_workers <- n_cores
-loo_fresh   <- TRUE     # bypass the LOO cache so BOTH runs are timed this render
-timings$loo_par <- NA_real_
 run_cv_kfold <- FALSE    # repeated 10-fold cross-validation (stability diagnostics)
 Ksims       <- 50L      # repeated 10-fold partitions (>= 50 for production)
 timings$kfold <- NA_real_
@@ -394,6 +390,15 @@ Note this is the heaviest step: N-fold means one full forest search per subject
 (here 686 re-runs). It is tractable on the small frozen family but is the long
 pole; on the analysis box, not the sandbox.
 
+The fold loop is distributed across `r loo_workers` workers. `parallel_args`
+controls **fold-level** parallelism only -- each fold's inner `forestsearch()`
+refit is pinned to `plan = "sequential"`, so there is no nested oversubscription
+-- and the fold loop draws parallel-safe L'Ecuyer streams
+(`.options.future = list(seed = TRUE)`). This was verified against a sequential
+run of the same analysis: **identical** per-subject predictions
+(`identical(resCV)`) and an identical out-of-sample HR, at 5.2x the speed on 11
+workers (399.1 s -> 76.5 s). Parallel execution is therefore the default here.
+
 ```{r loo-skipped-note, eval = !run_loo}
 cat("Leave-one-out skipped (run_loo = FALSE).",
     "Set run_loo <- TRUE in parallel-setup to run it.\n")
@@ -403,10 +408,11 @@ cat("Leave-one-out skipped (run_loo = FALSE).",
 # Leave-one-out (N-fold) is the long pole -- one full forest search per subject
 # (686 re-runs). If a precomputed cv_out is available (LOO_CACHE env var, else
 # the default path in gh_dir) load it; otherwise run the N-fold search and cache
-# it for re-renders. Sequential execution is used for reproducibility.
+# it for re-renders. The fold loop runs in parallel on loo_workers workers;
+# each fold's inner search is pinned sequential by forestsearch_Kfold().
 loo_cache <- Sys.getenv("LOO_CACHE",
                         unset = file.path(gh_dir, "cv_out_frozen_family.rds"))
-if (file.exists(loo_cache) && !isTRUE(loo_fresh)) {
+if (file.exists(loo_cache)) {
   cv_out <- readRDS(loo_cache)
   timings$loo <- NA_real_
   cat("LOO loaded from cache:", loo_cache, "\n")
@@ -416,7 +422,8 @@ if (file.exists(loo_cache) && !isTRUE(loo_fresh)) {
     fs.est  = fs,
     details = FALSE,
     Kfolds  = nrow(df.analysis),   # N-fold = leave-one-out
-    parallel_args = list(plan = "sequential", workers = 1, show_message = TRUE)
+    parallel_args = list(plan = "multisession", workers = loo_workers,
+                         show_message = TRUE)
   )
   plan("sequential")
   timings$loo <- (proc.time() - t0)[["elapsed"]]
@@ -459,76 +466,6 @@ cat(sprintf(
 tables <- cv_summary_tables(cv_out)
 tables$combined_table
 tables$metrics_table
-```
-
-## Leave-one-out: sequential vs. multisession {#sec-loo-parallel}
-
-The same N-fold analysis, re-run with the fold loop distributed across
-`r loo_workers` workers (80% of this machine's physical cores, set in
-`parallel-setup`). Two questions: (i) what wall-clock gain does fold-level
-parallelism give on this machine, and (ii) is the parallel result *identical* to
-the sequential one.
-
-`parallel_args` controls **fold-level** parallelism only -- the fold loop is
-distributed across workers while each fold's inner `forestsearch()` refit stays
-sequential (deliberate nested-parallelism avoidance). The plan is taken from
-`parallel_args`, **not** from any ambient `future::plan()` set beforehand. The
-fold loop draws parallel-safe L'Ecuyer streams (`.options.future = list(seed =
-TRUE)`), so per-subject predictions should match bit-for-bit regardless of
-worker count -- which is what the agreement check below verifies.
-
-```{r loo-parallel, eval = run_loo && run_loo_par}
-t0 <- proc.time()
-fs_OOB_par <- forestsearch_Kfold(
-  fs.est  = fs,
-  details = FALSE,
-  Kfolds  = nrow(df.analysis),   # N-fold = leave-one-out
-  parallel_args = list(plan = "multisession", workers = loo_workers,
-                       show_message = TRUE)
-)
-plan("sequential")
-timings$loo_par <- (proc.time() - t0)[["elapsed"]]
-cv_out_par <- forestsearch_KfoldOut(res = fs_OOB_par, details = FALSE,
-                                    outall = TRUE)
-
-# Agreement. resCV (per-subject out-of-sample predictions) is the authoritative
-# comparison; the derived harm-row HR is the number that reaches the results
-# table. resCV is only comparable when the sequential arm ran THIS render --
-# with loo_fresh = FALSE and a warm cache only cv_out is restored.
-same_resCV <- if (exists("fs_OOB")) {
-  identical(fs_OOB$resCV, fs_OOB_par$resCV)
-} else {
-  NA
-}
-loo_par <- .loo_harm_row(cv_out_par)
-same_hr <- identical(loo$hr, loo_par$hr)
-
-speedup <- if (is.na(timings$loo)) NA_real_ else timings$loo / timings$loo_par
-cat(sprintf(
-  "LOO wall-clock: sequential %s | multisession(%d) %.1f s | speedup %s\n",
-  ifelse(is.na(timings$loo), "NA (loaded from cache)",
-         sprintf("%.1f s", timings$loo)),
-  loo_workers, timings$loo_par,
-  ifelse(is.na(speedup), "NA", sprintf("%.2fx", speedup))))
-cat(sprintf(
-  "Agreement: identical(resCV) = %s | identical(harm HR) = %s\n",
-  ifelse(is.na(same_resCV), "NA (sequential arm cached)", same_resCV), same_hr))
-cat(sprintf("  sequential: %s\n  parallel  : %s\n", loo$hr, loo_par$hr))
-
-ab <- data.frame(
-  Run      = c("Sequential (1 worker)",
-               sprintf("Multisession (%d workers)", loo_workers)),
-  Seconds  = c(timings$loo, timings$loo_par),
-  `Harm HR (95% CI)` = c(loo$hr, loo_par$hr),
-  check.names = FALSE
-)
-ab$Minutes <- round(ab$Seconds / 60, 2)
-kbl(ab, booktabs = TRUE, align = "lrlr") |> kable_styling()
-```
-
-```{r loo-parallel-skipped, eval = !(run_loo && run_loo_par)}
-cat("Sequential-vs-multisession LOO comparison skipped",
-    "(needs run_loo and run_loo_par both TRUE).\n")
 ```
 
 ## Corrections in the frozen family {#sec-compare}
@@ -623,10 +560,10 @@ family, where family regeneration separates FB (marginal) from MR (conditional).
 #| echo: false
 td <- data.frame(
   Step = c("Fit + MR gate", "Full bootstrap", "MR gate (within fit)",
-           "Guo & He bootstrap", "10-fold CV", "Leave-one-out (N-fold)",
-           sprintf("Leave-one-out (multisession, %d)", loo_workers)),
+           "Guo & He bootstrap", "10-fold CV",
+           sprintf("Leave-one-out (N-fold, %d workers)", loo_workers)),
   Seconds = c(timings$fit, timings$fb, timings$mr, timings$gh,
-              timings$kfold, timings$loo, timings$loo_par)
+              timings$kfold, timings$loo)
 )
 td$Minutes <- round(td$Seconds / 60, 2)
 kbl(td, booktabs = TRUE, align = "lrr") |> kable_styling()
