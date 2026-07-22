@@ -72,6 +72,9 @@ GH_r       <- 0.03      # Guo & He tuning parameter
 GH_PARALLEL <- .Platform$OS.type == "unix"   # forked GH bootstrap where available
 run_loo    <- TRUE      # leave-one-out (N-fold) honest out-of-sample subgroup estimate
 timings$loo <- NA_real_
+run_cv_kfold <- TRUE    # repeated 10-fold cross-validation (stability diagnostics)
+Ksims       <- 50L      # repeated 10-fold partitions (>= 50 for production)
+timings$kfold <- NA_real_
 cat("Using", n_cores, "physical cores\n")
 ```
 
@@ -254,6 +257,114 @@ cat(sprintf("GH  naive HR %.3f  debiased HR %.3f  lower bound %.3f\n",
             gh$naive_hr, gh$debiased_hr, gh$bound_hr))
 ```
 
+## Repeated 10-fold cross-validation (stability diagnostics)
+
+Repeated 10-fold cross-validation partitions the data into ten folds, refits the
+selection on each nine-fold training set, and records which subgroup is
+identified -- repeated over `Ksims` random partitions. It is a **stability
+diagnostic on the subgroup _definition_**: across `Ksims` × 10 training splits,
+does the maxeff argmax converge on a single dominant subgroup, or does the
+selection wander with the particular split? This is `forestsearch_tenfold()`;
+because the search is data-adjacent, the recovered-subgroup distribution is the
+quantity of interest.
+
+This is a pure maxeff, fixed-family analysis (no GRF, DINA, or LASSO screens), so
+the GRF-specific fold diagnostics are omitted; the universal ones -- identified-
+subgroup distribution, selected-candidate consistency, per-fold numerics, and
+agreement with the full-data selection -- are reported.
+
+```{r cv-kfold-skip-note, eval = !run_cv_kfold, results = "asis"}
+cat("> **10-fold CV skipped.** Set `run_cv_kfold <- TRUE` in the",
+    "configuration to enable.\n")
+```
+
+```{r kfold-cv, eval = run_cv_kfold}
+t0 <- proc.time()
+fs_kfold <- forestsearch_tenfold(
+  fs.est  = fs,
+  sims    = Ksims,
+  Kfolds  = 10,
+  details = FALSE,
+  parallel_args = list(plan = "multisession", workers = n_cores,
+                       show_message = FALSE)
+)
+plan("sequential")
+timings$kfold <- (proc.time() - t0)[["elapsed"]]
+cat("10-fold CV:", Ksims, "x 10 partitions in",
+    round(timings$kfold / 60, 1), "min\n")
+metrics_tables <- cv_metrics_tables(fs_kfold)
+metrics_tables
+```
+
+### Diagnostic tabulations
+
+`summarize_cv_results()` consolidates the per-fold record into diagnostic tables.
+For this maxeff fixed-family analysis the meaningful (non-GRF) diagnostics are:
+the distribution of identified subgroups across resamples, the consistency of the
+selected candidates, the per-fold numeric summary, and agreement with the
+full-data selection.
+
+```{r cv-diagnostics-run, eval = run_cv_kfold}
+cv_diag <- summarize_cv_results(
+  cv_output    = fs_kfold,
+  original_sg  = fs$sg.harm,
+  top_n        = 10L,
+  create_plots = TRUE
+)
+```
+
+**Which subgroups emerged across resamples?** The identification summary shows
+the distribution of selected subgroups across all `r Ksims` × 10 sim × fold
+pairs. A single dominant subgroup with high share indicates the maxeff argmax
+converges on a stable selection; a long tail indicates the selection is sensitive
+to the training split.
+
+```{r cv-identification, eval = run_cv_kfold}
+cv_diag$identification_summary
+```
+
+**How confidently were the successful identifications made?** Among folds that
+identified a subgroup, the `pconsistency_distribution` shows where the selected
+candidate's consistency probability (`Pcons`) landed. (Under maxeff no
+consistency threshold is applied at selection, so this is descriptive of the
+selected argmax, not a gate.)
+
+```{r cv-pcons, eval = run_cv_kfold}
+cv_diag$pconsistency_distribution
+```
+
+**How do the numeric fold-level diagnostics summarize?** The
+`fold_numeric_summary` tabulates median / IQR / range for each numeric fold-level
+column: fold size (`n_test`), training-fold HR of the selected subgroup
+(`training_fs_hr`, in-sample and optimistically biased -- for diagnostic
+comparison only), and candidate count (`n_candidates_evaluated`).
+
+```{r cv-fold-numeric, eval = run_cv_kfold}
+cv_diag$fold_numeric_summary
+```
+
+**Agreement with the full-data analysis.** How often does a training fold
+reproduce the original full-data subgroup exactly, or share a factor with it?
+
+```{r cv-original-agreement, eval = run_cv_kfold}
+cv_diag$original_agreement
+```
+
+**Identified-subgroup distribution (plot).** The bar chart of the top identified
+subgroups across the `r Ksims` × 10 partitions visualizes the stability of the
+maxeff selection: a dominant bar is a stable definition, a flat spread is an
+unstable one.
+
+```{r cv-identification-plot, eval = run_cv_kfold}
+#| fig-width: 9
+#| fig-height: 5
+#| fig-cap: "Distribution of identified subgroups across repeated 10-fold training splits."
+if (!is.null(cv_diag$plots) && !is.null(cv_diag$plots$identification)) {
+  cv_diag$plots$identification
+}
+```
+
+
 ## Leave-one-out (honest out-of-sample estimate)
 
 Leave-one-out re-runs the entire selection on each hold-out of one subject and
@@ -430,8 +541,9 @@ family, where family regeneration separates FB (marginal) from MR (conditional).
 #| echo: false
 td <- data.frame(
   Step = c("Fit + MR gate", "Full bootstrap", "MR gate (within fit)",
-           "Guo & He bootstrap", "Leave-one-out (N-fold)"),
-  Seconds = c(timings$fit, timings$fb, timings$mr, timings$gh, timings$loo)
+           "Guo & He bootstrap", "10-fold CV", "Leave-one-out (N-fold)"),
+  Seconds = c(timings$fit, timings$fb, timings$mr, timings$gh,
+              timings$kfold, timings$loo)
 )
 td$Minutes <- round(td$Seconds / 60, 2)
 kbl(td, booktabs = TRUE, align = "lrr") |> kable_styling()
