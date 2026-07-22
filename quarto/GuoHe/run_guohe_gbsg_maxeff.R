@@ -9,7 +9,9 @@
 #   Rscript quarto/GoHe/run_guohe_gbsg_maxeff.R
 #
 # or open it in RStudio and Source. Requires, in the SAME directory:
-#   guohe_algorithm3.R, guohe_adaptive_r.R, guohe_from_forestsearch.R
+#   guohe_from_forestsearch.R
+# (guohe_algorithm3.R / guohe_adaptive_r.R were promoted to package API and
+# now load with library(forestsearch).)
 #
 # ACCEPTANCE CRITERION. The self-check line must read PASS: the reconstructed
 # candidate family must equal the Tier-2 gate's `n_family`. If it does not, the
@@ -32,7 +34,7 @@
 })
 cat("script directory:", .this_dir, "\n")
 
-need <- c("guohe_algorithm3.R", "guohe_adaptive_r.R", "guohe_from_forestsearch.R")
+need <- c("guohe_from_forestsearch.R")
 miss <- need[!file.exists(file.path(.this_dir, need))]
 if (length(miss)) {
   stop("Missing alongside this script: ", paste(miss, collapse = ", "))

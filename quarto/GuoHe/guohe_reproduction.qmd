@@ -23,8 +23,8 @@ bibliography: []
 # Targets (GH_TABLE_3/5/6), the DGM, the naive comparator and the scoring live
 # in guohe_reproduction_sim.R and are SOURCED here -- never retyped -- so no
 # transcription error can enter this comparison. The two artifacts under test
-# (guohe_algorithm3.R, guohe_adaptive_r.R) are sourced by that file and are NOT
-# modified anywhere in this reproduction.
+# (guohe_algorithm3(), guohe_adaptive_r()) are package API loaded by that file
+# via library(forestsearch) and are NOT modified anywhere in this reproduction.
 source("guohe_reproduction_sim.R")
 
 COLS <- c("r=1/3", "r=1/12", "r=1/21", "r=1/30", "naive", "adaptive")

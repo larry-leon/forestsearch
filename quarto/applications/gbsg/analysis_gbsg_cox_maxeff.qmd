@@ -20,10 +20,10 @@ bibliography: []
   tracks (Guo & He's argmax comparator is not the relevant correction for
   data-driven regenerating families), and the CV/LOO validation blocks.
 
-  Guo & He enters through the sourced adapter fs_to_guohe.R, which exports the
-  maxeff candidate family as membership columns and runs guohe_algorithm3() on
-  the SAME selected subgroup forestsearch chose. Neither guohe_algorithm3.R nor
-  the forestsearch package is modified.
+  Guo & He enters through the adapter fs_to_guohe() (package API, exported by
+  forestsearch), which exports the maxeff candidate family as membership
+  columns and runs guohe_algorithm3() on the SAME selected subgroup
+  forestsearch chose.
 
   VENUE. The forestsearch fit, the full bootstrap, and the Guo & He pair
   bootstrap are compute-heavy and require the forestsearch package installed.
@@ -43,13 +43,9 @@ library(kableExtra)
 
 timings <- list()
 
-# ---------------------------------------------------------------------------
-# Guo & He comparator: sourced, not installed. Point gh_dir at the directory
-# holding guohe_algorithm3.R and fs_to_guohe.R (e.g. the repo's quarto/GuoHe/).
-# ---------------------------------------------------------------------------
+# Guo & He comparator: guohe_algorithm3() / fs_to_guohe() are package API
+# (exported by forestsearch). gh_dir is kept only for the LOO cache path below.
 gh_dir <- Sys.getenv("GH_DIR", unset = "../../../quarto/GuoHe")
-source(file.path(gh_dir, "guohe_algorithm3.R"))
-source(file.path(gh_dir, "fs_to_guohe.R"))
 ```
 
 ```{r parallel-setup}
@@ -60,11 +56,10 @@ source(file.path(gh_dir, "fs_to_guohe.R"))
 #            over all draws), NOT a parallel loop; it needs no plan, only a
 #            threaded BLAS to benefit. Do not wrap it in a future.
 #   * GH  -- guohe_algorithm3()'s pair bootstrap is parallelised via its own
-#            `parallel` argument. Because guohe_algorithm3() is SOURCED (not
-#            installed), multisession workers would not see it; use forked
-#            workers (plan(multicore), Linux/Mac) so the sourced function is
-#            inherited, OR run GH serially. On the Linux analysis box, multicore
-#            is available.
+#            `parallel` argument. guohe_algorithm3() is package API, so any
+#            plan works (workers see the installed forestsearch); forked
+#            workers (plan(multicore), Linux/Mac) remain the cheapest, hence
+#            the unix-only default below.
 n_cores <- max(1L, floor(0.80 * parallel::detectCores(logical = FALSE)))
 cat("Using", n_cores, "physical cores for parallel sections\n")
 

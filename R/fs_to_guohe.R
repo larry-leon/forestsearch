@@ -36,8 +36,7 @@
 # must equal it row for row. `fs_assert_membership()` enforces this as a hard
 # error; a mismatch means the reconstruction is wrong and the run stops.
 #
-# Depends on {survival} (via guohe_algorithm3.R) and base R. Not part of the
-# package surface. Source alongside guohe_algorithm3.R.
+# Depends on {survival} (via guohe_algorithm3) and base R.
 
 # ---------------------------------------------------------------------------
 # label parsing
@@ -51,6 +50,7 @@
 #'   `cand`).
 #' @return `NULL` for an empty label; otherwise a list with `dummy` (the column
 #'   name) and `negate` (logical).
+#' @noRd
 .fs_gh_parse_label <- function(lbl, cand, evaluated) {
   lbl <- trimws(lbl)
   if (!nzchar(lbl)) return(NULL)
@@ -67,6 +67,7 @@
 }
 
 #' Membership (0/1 vector) for one candidate row of the family table
+#' @noRd
 .fs_gh_candidate_membership <- function(row, df, cand, evaluated, mcols) {
   labels <- vapply(mcols, function(cn) as.character(row[[cn]]), character(1))
   parsed <- Filter(Negate(is.null),
@@ -85,6 +86,56 @@
 # ---------------------------------------------------------------------------
 
 #' Materialize the maxeff candidate family as 0/1 membership columns
+#'
+#' Reconstructs, for every candidate in the deduplicated maxeff family kept on
+#' a `forestsearch(sg_focus = "maxeff")` fit, its per-subject 0/1 membership on
+#' the estimation frame `fit$df.est`. Each candidate's cut labels (e.g.
+#' `"{er <= 0}"`, or a negated cut `"!{size <= 20}"`) are mapped back to the
+#' aligned dummy columns of `fit$df.est` via `fit$confounders.evaluated` /
+#' `fit$confounders.candidate`, and a candidate's membership is the
+#' intersection (AND) over its cuts. The result is the materialized family
+#' that [guohe_algorithm3()] consumes; [fs_to_guohe()] calls this internally.
+#'
+#' @param fit A `forestsearch` object fitted with `sg_focus = "maxeff"`.
+#' @param prefix Character prefix for the generated membership column names
+#'   (`sg_0001`, `sg_0002`, ... by default).
+#'
+#' @return A list with elements `data` (`fit$df.est` with one appended 0/1
+#'   membership column per candidate), `candidates` (the appended column
+#'   names), `selected` (the column name of the forestsearch-selected
+#'   candidate; the family table is sorted selected-first), and `family` (the
+#'   candidate family table `fit$grp.consistency$out_sg$result`).
+#'
+#' @examples
+#' set.seed(11)
+#' n <- 200
+#' df <- data.frame(id = seq_len(n), treat = rbinom(n, 1, 0.5),
+#'                  age = round(rnorm(n, 55, 12)),
+#'                  bm = factor(rbinom(n, 1, 0.5)))
+#' harm <- df$age <= 50 & df$bm == "1"
+#' tt <- rexp(n, 0.05 * exp(log(2.5) * df$treat * harm))
+#' df$time <- pmin(tt, 60)
+#' df$event <- as.integer(tt <= 60)
+#' fit <- forestsearch(
+#'   df.analysis = df,
+#'   outcome.name = "time", event.name = "event",
+#'   treat.name = "treat", id.name = "id",
+#'   confounders.name = c("age", "bm"),
+#'   sg_focus = "maxeff", use_grf = FALSE, use_lasso = FALSE,
+#'   fs.splits = 50, n.min = 30, d0.min = 5, d1.min = 5,
+#'   hr.threshold = 1.1, hr.consistency = 1.0,
+#'   pconsistency.threshold = 0.5, maxk = 2,
+#'   details = FALSE, plot.sg = FALSE,
+#'   parallel_args = list(plan = "sequential", workers = 1L,
+#'                        show_message = FALSE)
+#' )
+#' exp_fam <- fs_export_maxeff_family(fit)
+#' head(exp_fam$candidates)
+#' exp_fam$selected
+#'
+#' @seealso [fs_to_guohe()], [fs_assert_membership()]
+#' @importFrom utils head
+#' @export
 fs_export_maxeff_family <- function(fit, prefix = "sg_") {
   if (!inherits(fit, "forestsearch")) stop("fit must be a 'forestsearch' object.")
   if (!identical(fit$sg_focus, "maxeff")) {
@@ -135,6 +186,49 @@ fs_export_maxeff_family <- function(fit, prefix = "sg_") {
 # ---------------------------------------------------------------------------
 
 #' Assert the exported selected-subgroup membership matches forestsearch's own
+#'
+#' Integrity check for [fs_export_maxeff_family()]: the materialized membership
+#' column of the selected candidate must equal, row for row, the per-subject
+#' membership forestsearch itself computed
+#' (`fit$grp.consistency$sg.harm.id`). A mismatch means the label-to-dummy
+#' reconstruction is wrong, so this stops with an error rather than letting a
+#' silently different subgroup be de-biased. [fs_to_guohe()] runs this check by
+#' default (`verify = TRUE`).
+#'
+#' @param exp The list returned by [fs_export_maxeff_family()].
+#' @param fit The `forestsearch` object `exp` was exported from.
+#'
+#' @return `TRUE`, invisibly, if the memberships agree; otherwise an error is
+#'   thrown.
+#'
+#' @examples
+#' set.seed(11)
+#' n <- 200
+#' df <- data.frame(id = seq_len(n), treat = rbinom(n, 1, 0.5),
+#'                  age = round(rnorm(n, 55, 12)),
+#'                  bm = factor(rbinom(n, 1, 0.5)))
+#' harm <- df$age <= 50 & df$bm == "1"
+#' tt <- rexp(n, 0.05 * exp(log(2.5) * df$treat * harm))
+#' df$time <- pmin(tt, 60)
+#' df$event <- as.integer(tt <= 60)
+#' fit <- forestsearch(
+#'   df.analysis = df,
+#'   outcome.name = "time", event.name = "event",
+#'   treat.name = "treat", id.name = "id",
+#'   confounders.name = c("age", "bm"),
+#'   sg_focus = "maxeff", use_grf = FALSE, use_lasso = FALSE,
+#'   fs.splits = 50, n.min = 30, d0.min = 5, d1.min = 5,
+#'   hr.threshold = 1.1, hr.consistency = 1.0,
+#'   pconsistency.threshold = 0.5, maxk = 2,
+#'   details = FALSE, plot.sg = FALSE,
+#'   parallel_args = list(plan = "sequential", workers = 1L,
+#'                        show_message = FALSE)
+#' )
+#' exp_fam <- fs_export_maxeff_family(fit)
+#' fs_assert_membership(exp_fam, fit)
+#'
+#' @seealso [fs_export_maxeff_family()], [fs_to_guohe()]
+#' @export
 fs_assert_membership <- function(exp, fit) {
   own <- fit$grp.consistency$sg.harm.id
   if (is.null(own)) own <- fit$grp.consistency$out_sg$sg.harm.id
@@ -159,14 +253,92 @@ fs_assert_membership <- function(exp, fit) {
 # top-level bridge
 # ---------------------------------------------------------------------------
 
-#' Run Guo & He Algorithm 3 on a forestsearch maxeff fit
+#' Run Guo and He Algorithm 3 on a forestsearch maxeff fit
+#'
+#' Bridge from a `forestsearch(sg_focus = "maxeff")` fit to the Guo and He
+#' (2021) Algorithm 3 de-biasing estimator [guohe_algorithm3()]. This is the
+#' "post-hoc identified subgroups" application of Guo and He: forestsearch
+#' enumerates a large candidate family and selects the argmax; Guo and He
+#' supplies a de-biased effect and one-sided bound for the selected subgroup,
+#' correcting the winner's-curse optimism of that selection. The candidate
+#' family is materialized from the fit with [fs_export_maxeff_family()] and,
+#' by default, verified against forestsearch's own selected-subgroup
+#' membership with [fs_assert_membership()] before any de-biasing runs.
+#'
+#' The de-biasing engine is an independent implementation of the published
+#' method, validated by reproducing the simulation study of Section 5 of Guo
+#' and He (2021).
+#'
+#' The Guo and He selection is `orient = +1` (the maximum-hazard-ratio, i.e.
+#' harm, subgroup), so its argmax coincides with the forestsearch maxeff
+#' selection. If the two nevertheless disagree (possible when candidates are
+#' dropped as non-estimable), a warning is issued and the returned Guo and He
+#' objects refer to the Guo and He argmax.
+#'
+#' @param fit A `forestsearch` object fitted with `sg_focus = "maxeff"`.
+#' @param time,event,treatment Names of the time, event, and 0/1 treatment
+#'   columns on `fit$df.est`. The defaults match the GBSG analyses
+#'   (`"time_months"`, `"status"`, `"hormon"`); set them to the names used in
+#'   the forestsearch call.
+#' @param B Number of bootstrap resamples passed to [guohe_algorithm3()].
+#' @param r Shrinkage tuning parameter, strictly between 0 and 0.5; see
+#'   [guohe_algorithm3()] and [guohe_adaptive_r()].
+#' @param level One-sided level; the two-sided interval has coverage
+#'   `1 - level`.
+#' @param seed Optional integer for reproducible resampling.
+#' @param min_events Minimum events for a candidate to be estimable.
+#' @param parallel Logical; passed to [guohe_algorithm3()]. Requires a
+#'   `future::plan()` to have been set by the caller.
+#' @param verify Logical; if `TRUE` (default), run [fs_assert_membership()]
+#'   and stop on any mismatch between the reconstructed and the original
+#'   selected-subgroup membership.
+#'
+#' @return A list with elements `gh` (the full `"guohe_a3"` object), `export`
+#'   (the [fs_export_maxeff_family()] result), `selected` (the Guo and He
+#'   argmax candidate name), and the convenience scalars `naive_hr`,
+#'   `debiased_hr`, and `bound_hr` (hazard-ratio scale).
+#'
+#' @references
+#' Guo, X. and He, X. (2021). Inference on Selected Subgroups in Clinical
+#' Trials. \emph{Journal of the American Statistical Association},
+#' \strong{116}(535), 1498--1506. \doi{10.1080/01621459.2020.1740096}
+#'
+#' @examples
+#' set.seed(11)
+#' n <- 200
+#' df <- data.frame(id = seq_len(n), treat = rbinom(n, 1, 0.5),
+#'                  age = round(rnorm(n, 55, 12)),
+#'                  bm = factor(rbinom(n, 1, 0.5)))
+#' harm <- df$age <= 50 & df$bm == "1"
+#' tt <- rexp(n, 0.05 * exp(log(2.5) * df$treat * harm))
+#' df$time <- pmin(tt, 60)
+#' df$event <- as.integer(tt <= 60)
+#' fit <- forestsearch(
+#'   df.analysis = df,
+#'   outcome.name = "time", event.name = "event",
+#'   treat.name = "treat", id.name = "id",
+#'   confounders.name = c("age", "bm"),
+#'   sg_focus = "maxeff", use_grf = FALSE, use_lasso = FALSE,
+#'   fs.splits = 50, n.min = 30, d0.min = 5, d1.min = 5,
+#'   hr.threshold = 1.1, hr.consistency = 1.0,
+#'   pconsistency.threshold = 0.5, maxk = 2,
+#'   details = FALSE, plot.sg = FALSE,
+#'   parallel_args = list(plan = "sequential", workers = 1L,
+#'                        show_message = FALSE)
+#' )
+#' gh <- fs_to_guohe(fit, time = "time", event = "event",
+#'                   treatment = "treat", B = 50, seed = 3)
+#' gh$naive_hr
+#' gh$debiased_hr
+#' gh$bound_hr
+#'
+#' @seealso [fs_export_maxeff_family()], [fs_assert_membership()],
+#'   [guohe_algorithm3()], [guohe_adaptive_r()]
+#' @export
 fs_to_guohe <- function(fit,
                         time = "time_months", event = "status", treatment = "hormon",
                         B = 2000L, r = 0.03, level = 0.05, seed = NULL,
                         min_events = 5L, parallel = FALSE, verify = TRUE) {
-  if (!exists("guohe_algorithm3", mode = "function")) {
-    stop("guohe_algorithm3() not found; source guohe_algorithm3.R first.")
-  }
   exp <- fs_export_maxeff_family(fit)
   if (isTRUE(verify)) fs_assert_membership(exp, fit)
 

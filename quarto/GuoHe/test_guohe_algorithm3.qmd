@@ -41,7 +41,7 @@ the gate refuses one.
 #| label: setup
 #| message: false
 library(survival)
-source("guohe_algorithm3.R")
+library(forestsearch)  # guohe_algorithm3() / guohe_adaptive_r() are package API
 
 SCALE <- "full"           # "quick" (any machine) or "full" (Claude Code / 127-core)
 B_Q   <- 200L             # bootstrap draws, quick tier
@@ -393,15 +393,14 @@ if (identical(SCALE, "full")) {
   # guohe_algorithm3() here: that would nest multisession within multisession.
   if (isTRUE(PARALLEL)) {
     future::plan(future::multisession, workers = WORKERS)
-    a3_path <- normalizePath("guohe_algorithm3.R")   # workers resolve by path
     reps <- future.apply::future_lapply(
       seq_len(REPS),
       function(i) {
-        if (!exists("guohe_algorithm3", mode = "function")) source(a3_path)
+        library(forestsearch)   # guohe_algorithm3() is package API
         one_rep(i)
       },
       future.seed = TRUE,
-      future.globals = c("one_rep", "a3_path", "TRUE_MD", "B_CAL")
+      future.globals = c("one_rep", "TRUE_MD", "B_CAL")
     )
   } else {
     reps <- lapply(seq_len(REPS), one_rep)
@@ -536,17 +535,14 @@ one_sep_rep <- function(rep_id) {
 if (identical(SCALE, "full")) {
   if (isTRUE(PARALLEL)) {
     future::plan(future::multisession, workers = WORKERS)
-    a3_path <- normalizePath("guohe_algorithm3.R")
-    ar_path <- normalizePath("guohe_adaptive_r.R")
     sep <- future.apply::future_lapply(
       seq_len(SEP_REPS),
       function(i) {
-        if (!exists("guohe_algorithm3", mode = "function")) source(a3_path)
-        if (!exists("guohe_adaptive_r", mode = "function")) source(ar_path)
+        library(forestsearch)   # guohe_algorithm3() / guohe_adaptive_r() are package API
         one_sep_rep(i)
       },
       future.seed = TRUE,
-      future.globals = c("one_sep_rep", "build_family", "a3_path", "ar_path",
+      future.globals = c("one_sep_rep", "build_family",
                          "SEP_N", "SEP_B", "SEP_R", "SEP_V")
     )
     future::plan(future::sequential)

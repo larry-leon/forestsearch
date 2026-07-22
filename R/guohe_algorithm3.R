@@ -35,7 +35,7 @@
 #     skewed (it is a maximum) it need not agree with `ci_two_sided`. Provided
 #     only for comparability with that literature; do not present as certified.
 #
-# Depends on {survival} and base R only. Not part of the package surface.
+# Depends on {survival}, {stats}, and (optionally) {future.apply}.
 #
 # References:
 #   Guo, X. and He, X. (2021). Inference on selected subgroups in clinical
@@ -47,6 +47,7 @@
 # ---- internal: one within-subgroup treatment coefficient ------------------
 # Returns the treatment coefficient on the model's natural scale
 # (log-HR / log-OR / mean difference), or NA_real_ if not estimable.
+#' @noRd
 .g3_coef <- function(sub, outcome, treatment, time, event, y, min_events,
                      adjust_covariates = NULL) {
   tr <- sub[[treatment]]
@@ -104,6 +105,7 @@
 # coxph()'s default tie handling, and the two agree to ~1e-15 (asserted in the
 # smoke test). Guards are replicated from `.g3_coef()` exactly so the two paths
 # declare the same candidates non-estimable.
+#' @noRd
 .g3_cox_lean <- function(time_v, ev_v, tr_v, min_events, ctl) {
   if (length(unique(tr_v)) < 2L) return(NA_real_)
   if (min(table(tr_v)) < min_events) return(NA_real_)
@@ -140,6 +142,9 @@
 #' (HR or OR below 1) as the effect of interest, matching Guo and He's MONET1
 #' convention; `orient = +1` treats a harmful ratio as the effect of interest,
 #' which is the setting for a forest-search harm subgroup.
+#'
+#' This is an independent implementation of the published method, validated by
+#' reproducing the simulation study of Section 5 of Guo and He (2021).
 #'
 #' @param data A data frame.
 #' @param outcome One of `"survival"`, `"binary"`, `"continuous"`.
@@ -184,7 +189,41 @@
 #'   because resample indices are drawn serially before any distribution.
 #'   Do NOT enable this inside an already-parallel outer loop.
 #'
-#' @return An object of class `"guohe_a3"`.
+#' @return An object of class `"guohe_a3"`: a list with the selected candidate
+#'   (`selected`), the naive and de-biased effects on the reporting scale
+#'   (`naive`, `debiased`), the certified one-sided bound (`bound_one_sided`,
+#'   with its conservative side in `bound_side`), the two-sided
+#'   quantile-inversion interval (`ci_two_sided`), the heuristic Wald interval
+#'   (`ci_wald`), and bookkeeping fields (`n`, `B`, `B_requested`, `r`,
+#'   `level`, `n_candidates`, `n_estimable`, `fast`, `lean_cox`,
+#'   `adjust_covariates`, and, when `diagnostics = TRUE`, the per-candidate
+#'   resample `drop_rate`).
+#'
+#' @references
+#' Guo, X. and He, X. (2021). Inference on Selected Subgroups in Clinical
+#' Trials. \emph{Journal of the American Statistical Association},
+#' \strong{116}(535), 1498--1506. \doi{10.1080/01621459.2020.1740096}
+#'
+#' @examples
+#' set.seed(1)
+#' n <- 160
+#' df <- data.frame(
+#'   treat = rbinom(n, 1, 0.5),
+#'   y     = rbinom(n, 1, 0.3),
+#'   g1    = rbinom(n, 1, 0.5),
+#'   g2    = rbinom(n, 1, 0.5),
+#'   g3    = rbinom(n, 1, 0.5)
+#' )
+#' fit <- guohe_algorithm3(
+#'   df, outcome = "binary", treatment = "treat",
+#'   candidates = c("g1", "g2", "g3"), y = "y",
+#'   orient = +1, B = 50, seed = 2
+#' )
+#' fit
+#'
+#' @importFrom survival coxph Surv coxph.fit coxph.control
+#' @importFrom stats as.formula coef glm binomial gaussian quantile qnorm sd setNames
+#' @importFrom future.apply future_lapply
 #' @export
 guohe_algorithm3 <- function(data,
                              outcome = c("survival", "binary", "continuous"),
@@ -455,6 +494,15 @@ guohe_algorithm3 <- function(data,
   )
 }
 
+#' Print method for guohe_a3 objects
+#'
+#' Prints the family size, the selected candidate, the naive and de-biased
+#' effects, and the three interval objects returned by [guohe_algorithm3()],
+#' labelled by their inferential status (certified / extension / heuristic).
+#'
+#' @param x An object of class `"guohe_a3"`.
+#' @param ... Ignored; present for method consistency.
+#' @return `x`, invisibly.
 #' @export
 print.guohe_a3 <- function(x, ...) {
   cat(sprintf("Guo-He Algorithm 3 (enumerated family)  [%s, orient = %+d]\n",

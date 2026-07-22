@@ -46,9 +46,8 @@
 #
 # All arithmetic is on the ORIENTED SCORE scale (orient * coefficient).
 
-suppressWarnings(suppressMessages(library(survival)))
-
 # ---- internal: coefficient AND standard error for one subgroup (slow path) --
+#' @noRd
 .ar_coef_se <- function(sub, outcome, treatment, time, event, y, min_events,
                         adjust_covariates = NULL) {
   na2 <- c(NA_real_, NA_real_)
@@ -98,6 +97,7 @@ suppressWarnings(suppressMessages(library(survival)))
 
 # ---- internal: closed-form coefficient AND SE for every candidate at once ----
 # `w` is a 0/1 weight vector selecting the reference fold.
+#' @noRd
 .ar_ref_fast <- function(Mmat, cellmat, w, outcome, min_events, orient) {
   cnt <- crossprod(Mmat, w * cellmat)
   if (outcome == "binary") {
@@ -120,14 +120,23 @@ suppressWarnings(suppressMessages(library(survival)))
 }
 
 # report scale -> oriented score scale (exact inverse of guohe_algorithm3's map)
+#' @noRd
 .ar_to_score <- function(report, orient, outcome) {
   if (outcome == "continuous") orient * report else orient * log(report)
 }
 
 #' Cross-validated choice of the shrinkage tuning parameter r
 #'
-#' Implements Algorithm 2 of Guo and He (2021). Requires `guohe_algorithm3()`
-#' to be available (source `guohe_algorithm3.R` first).
+#' Implements Algorithm 2 of Guo and He (2021), Section 2.5: a v-fold
+#' cross-validated choice of the shrinkage tuning parameter `r` used by
+#' [guohe_algorithm3()]. For each candidate `r` and each fold, the
+#' bias-reduced estimator is computed on the training folds and compared, on
+#' the held-out fold, against every candidate subgroup's effect estimate with
+#' its sampling variance subtracted; the `r` minimising the resulting CV
+#' objective is selected.
+#'
+#' This is an independent implementation of the published method, validated by
+#' reproducing the simulation study of Section 5 of Guo and He (2021).
 #'
 #' @inheritParams guohe_algorithm3
 #' @param r_grid Numeric vector of candidate values in (0, 0.5).
@@ -135,9 +144,36 @@ suppressWarnings(suppressMessages(library(survival)))
 #' @param refit Logical; if `TRUE`, also return a full-data fit at the selected
 #'   `r`.
 #'
-#' @return An object of class `"guohe_ar"`: the selected `r`, the CV objective
-#'   over the grid, the per-candidate objective at the selected `r`, and
-#'   optionally the refitted full-data result.
+#' @return An object of class `"guohe_ar"`: the selected `r` (`r_hat`), the CV
+#'   objective over the grid (`objective`), the per-candidate objective at the
+#'   selected `r` (`per_candidate`), bookkeeping fields (`r_grid`, `v`, `B`,
+#'   `n`, `n_candidates`, `fast`, `outcome`, `orient`, `level`,
+#'   `adjust_covariates`), and, when `refit = TRUE`, the refitted full-data
+#'   [guohe_algorithm3()] result (`fit`).
+#'
+#' @references
+#' Guo, X. and He, X. (2021). Inference on Selected Subgroups in Clinical
+#' Trials. \emph{Journal of the American Statistical Association},
+#' \strong{116}(535), 1498--1506. \doi{10.1080/01621459.2020.1740096}
+#'
+#' @examples
+#' set.seed(1)
+#' n <- 160
+#' df <- data.frame(
+#'   treat = rbinom(n, 1, 0.5),
+#'   y     = rbinom(n, 1, 0.3),
+#'   g1    = rbinom(n, 1, 0.5),
+#'   g2    = rbinom(n, 1, 0.5),
+#'   g3    = rbinom(n, 1, 0.5)
+#' )
+#' cv <- guohe_adaptive_r(
+#'   df, outcome = "binary", treatment = "treat",
+#'   candidates = c("g1", "g2", "g3"), y = "y",
+#'   orient = +1, r_grid = c(0.05, 0.25), v = 2, B = 25, seed = 2
+#' )
+#' cv$r_hat
+#'
+#' @importFrom stats setNames vcov
 #' @export
 guohe_adaptive_r <- function(data,
                              outcome = c("survival", "binary", "continuous"),
@@ -158,9 +194,6 @@ guohe_adaptive_r <- function(data,
                              fast = NULL,
                              parallel = FALSE) {
   outcome <- match.arg(outcome)
-  if (!exists("guohe_algorithm3", mode = "function")) {
-    stop("guohe_algorithm3() not found; source 'guohe_algorithm3.R' first.")
-  }
   stopifnot(
     is.data.frame(data),
     all(r_grid > 0), all(r_grid < 0.5),
@@ -258,6 +291,15 @@ guohe_adaptive_r <- function(data,
   ), class = "guohe_ar")
 }
 
+#' Print method for guohe_ar objects
+#'
+#' Prints the cross-validation objective over the `r` grid, marks the selected
+#' value, and, when present, prints the refitted full-data
+#' [guohe_algorithm3()] result.
+#'
+#' @param x An object of class `"guohe_ar"`.
+#' @param ... Ignored; present for method consistency.
+#' @return `x`, invisibly.
 #' @export
 print.guohe_ar <- function(x, ...) {
   cat("Guo-He Algorithm 2: cross-validated tuning parameter\n")

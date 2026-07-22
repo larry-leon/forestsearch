@@ -43,26 +43,10 @@
 
 suppressMessages(library(survival))
 
-.gh_dir <- local({
-  a <- commandArgs(trailingOnly = FALSE)
-  f <- sub("^--file=", "", a[grep("^--file=", a)])
-  cand <- if (length(f)) dirname(normalizePath(f[1])) else normalizePath(getwd())
-  # Under knitr/quarto the --file points at an internal rmd, not this script's
-  # directory, so fall back to getwd() when the siblings are not found next to
-  # the resolved path.  The Rscript path (direct or via the run driver) is
-  # unaffected: there --file already resolves to this directory.
-  if (!file.exists(file.path(cand, "guohe_algorithm3.R")) &&
-      file.exists(file.path(getwd(), "guohe_algorithm3.R"))) {
-    cand <- normalizePath(getwd())
-  }
-  cand
-})
-
-for (f in c("guohe_algorithm3.R", "guohe_adaptive_r.R")) {
-  p <- file.path(.gh_dir, f)
-  if (!file.exists(p)) stop("required file not found: ", p)
-  source(p)
-}
+# guohe_algorithm3() / guohe_adaptive_r() are package API (exported by
+# forestsearch); the sourced copies this script used to load were promoted
+# to R/ and no longer live in this directory.
+suppressMessages(library(forestsearch))
 
 # Published grid, Tables 3-6. NOT the package defaults of `guohe_adaptive_r()`.
 GH_R_GRID <- c(1 / 3, 1 / 12, 1 / 21, 1 / 30)
