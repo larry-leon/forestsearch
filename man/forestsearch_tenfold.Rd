@@ -26,7 +26,18 @@ forestsearch_tenfold(
 \item{seed}{Integer. Base random seed for fold shuffling. Default 8316951L.
 Each simulation uses seed + 1000 * ksim for reproducibility.}
 
-\item{parallel_args}{List. Parallelization configuration.}
+\item{parallel_args}{List. Parallelization configuration (elements
+\code{plan} / \code{workers} / \code{show_message}; see \strong{Parallelization
+Strategy}).  Here \code{parallel_args} controls \strong{simulation-level}
+parallelism: the \code{sims} repetitions are distributed across workers,
+while each simulation runs its K-fold CV -- and every inner
+\code{\link{forestsearch}} refit -- sequentially (so workers are not
+oversubscribed by nested parallelism).  As in
+\code{\link{forestsearch_Kfold}}, the plan is taken from
+\code{parallel_args}, not from any ambient \code{future::plan()} set by the
+caller (which is saved and restored on exit).  For example, to run the
+simulations on four workers:
+\code{parallel_args = list(plan = "multisession", workers = 4)}.}
 
 \item{keep_resCV}{Logical. If \code{TRUE}, preserve the full per-subject
 cross-validation prediction data frame for every simulation in the

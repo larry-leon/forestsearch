@@ -195,6 +195,15 @@
 #'     \item \code{workers}: Integer. Number of parallel workers
 #'     \item \code{show_message}: Logical. Show parallel setup messages
 #'   }
+#'   \code{parallel_args} controls \strong{fold-level} parallelism only: the
+#'   fold loop is distributed across workers from this argument, while each
+#'   fold's inner \code{\link{forestsearch}} refit is pinned to
+#'   \code{plan = "sequential"} (deliberate nested-parallelism avoidance, so
+#'   fold-level workers are not oversubscribed by inner-search workers).  The
+#'   plan is taken from \code{parallel_args}, not from any ambient
+#'   \code{future::plan()} set by the caller (which is saved and restored on
+#'   exit).  For example, to run the folds on four workers:
+#'   \code{parallel_args = list(plan = "multisession", workers = 4)}.
 #' @param sg0.name Character. Label for subgroup 0 (default: "Not recommend").
 #' @param sg1.name Character. Label for subgroup 1 (default: "Recommend").
 #' @param details Logical. Print progress details (default: FALSE).
@@ -571,7 +580,18 @@ forestsearch_Kfold <- function(
 #'   Each simulation uses seed + 1000 * ksim for reproducibility.
 #' @param Kfolds Integer. Number of folds per simulation (default: 10).
 #' @param details Logical. Print progress details (default: TRUE).
-#' @param parallel_args List. Parallelization configuration.
+#' @param parallel_args List. Parallelization configuration (elements
+#'   \code{plan} / \code{workers} / \code{show_message}; see \strong{Parallelization
+#'   Strategy}).  Here \code{parallel_args} controls \strong{simulation-level}
+#'   parallelism: the \code{sims} repetitions are distributed across workers,
+#'   while each simulation runs its K-fold CV -- and every inner
+#'   \code{\link{forestsearch}} refit -- sequentially (so workers are not
+#'   oversubscribed by nested parallelism).  As in
+#'   \code{\link{forestsearch_Kfold}}, the plan is taken from
+#'   \code{parallel_args}, not from any ambient \code{future::plan()} set by the
+#'   caller (which is saved and restored on exit).  For example, to run the
+#'   simulations on four workers:
+#'   \code{parallel_args = list(plan = "multisession", workers = 4)}.
 #' @param keep_resCV Logical. If \code{TRUE}, preserve the full per-subject
 #'   cross-validation prediction data frame for every simulation in the
 #'   returned \code{resCV_all} slot.  Useful for post-hoc metric computation,

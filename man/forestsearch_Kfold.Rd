@@ -27,7 +27,16 @@ Must contain \code{df.est} (data frame) and \code{args_call_all} (list of argume
 \item \code{plan}: Character. One of "multisession", "multicore", "sequential"
 \item \code{workers}: Integer. Number of parallel workers
 \item \code{show_message}: Logical. Show parallel setup messages
-}}
+}
+\code{parallel_args} controls \strong{fold-level} parallelism only: the
+fold loop is distributed across workers from this argument, while each
+fold's inner \code{\link{forestsearch}} refit is pinned to
+\code{plan = "sequential"} (deliberate nested-parallelism avoidance, so
+fold-level workers are not oversubscribed by inner-search workers).  The
+plan is taken from \code{parallel_args}, not from any ambient
+\code{future::plan()} set by the caller (which is saved and restored on
+exit).  For example, to run the folds on four workers:
+\code{parallel_args = list(plan = "multisession", workers = 4)}.}
 
 \item{sg0.name}{Character. Label for subgroup 0 (default: "Not recommend").}
 
