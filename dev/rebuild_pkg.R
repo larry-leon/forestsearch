@@ -27,5 +27,5 @@ rebuild_pkg <- function(path = ".", document = TRUE, fresh = FALSE) {
 
   if (document) devtools::document(path)
   devtools::install(path, args = "--no-byte-compile",
-                    upgrade = "never", quick = FALSE)
+                    upgrade = FALSE, quick = FALSE)
 }
