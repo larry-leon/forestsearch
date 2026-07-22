@@ -12,6 +12,10 @@ devtools::document()
 devtools::install(args = "--no-byte-compile")
 
 
+source("rebuild_pkg.R")
+rebuild_pkg("/path/to/your/package", fresh = TRUE)
+
+
 library(forestsearch)
 args(forestsearch)
 help(forestsearch)
