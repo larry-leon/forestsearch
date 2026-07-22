@@ -1,7 +1,6 @@
 
 # Please fetch forestsearch codebase https://github.com/larry-leon/forestsearch
 
-
 devtools::clean_dll()
 unlink("man/*.Rd")
 unlink("Meta", recursive = TRUE)
