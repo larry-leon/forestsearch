@@ -38,8 +38,11 @@
 # targets are stated in the paper. Inferred / chosen here, recorded as such:
 # the numerical method for beta(c) (one large sample per scenario, prefix
 # sweep over a fine c grid, Cox fit per grid point), `n_big`, `c_step`, the
-# isotonic non-increasing projection used as the default interpolation basis,
-# and the gate tolerances (calibration notes at each gate below).
+# isotonic non-increasing projection used as the interpolation basis where no
+# closed form exists, and the gate tolerances (calibration notes at each gate
+# below). NOT inferred: at beta2 = 0 the curve beta(c) = 0 is exact, not
+# estimated (see `beta_exact` below), so that scenario carries no truth-curve
+# Monte Carlo error at all.
 #
 # Run (production defaults; per-scenario .rds caches, skip-if-exists):
 #   Rscript quarto/GuoHe/guohe_sec52_truth.R
@@ -176,9 +179,28 @@ gh52_truth_curve <- function(beta2, n_big = 2e6, c_step = 0.25, seed,
 
   # isotonic non-increasing projection: beta(c) is monotone non-increasing on
   # the truth, so the projection strictly reduces Monte Carlo error and is the
-  # default interpolation basis (an INFERRED choice; `gh52_truth_at()` exposes
-  # the raw curve as well).
+  # default interpolation basis where no closed form exists (an INFERRED
+  # choice; `gh52_truth_at()` exposes the raw curve as well).
   beta_smooth <- -stats::isoreg(c_grid, -beta_raw)$yf
+
+  # EXACT truth where a closed form exists. At beta2 = 0 the DGM sets
+  # b(w) = 0 for every w, so within EVERY S(c) the treatment-only Cox model is
+  # correctly specified with true coefficient exactly 0: beta(c) = 0 on the
+  # whole grid. Scoring against a simulated estimate of a known constant would
+  # inject a FIXED per-scenario offset -- one draw's Monte Carlo error, shared
+  # by all coverage replicates and therefore NOT averaging out -- so the exact
+  # curve becomes the scoring basis while the simulated curve is retained in
+  # full for the gates and for the offset diagnostics below. No closed form
+  # exists for beta2 > 0 (the misspecified Lin-Wei estimand is a weighted
+  # average of b(.) over [0, c] with censoring-dependent weights), where
+  # `beta_exact` is NULL and scoring falls back to `beta_smooth`.
+  beta_exact <- if (beta2 == 0) rep(0, m) else NULL
+
+  # Residual truth-curve offset, for the manuscript's inferred ledger. The
+  # anchor deviation is observable for every scenario because beta(30) = beta2
+  # exactly; where `beta_exact` exists the curve-wide mean deviation is too.
+  offset_anchor <- beta_raw[1] - beta2
+  offset_mean <- if (is.null(beta_exact)) NA_real_ else mean(beta_raw - beta_exact)
 
   # ---- gates: evaluate all, report all, then hard-stop on any failure ------
   rise_tol <- max(tol_total_rise, 2 * se[1])
@@ -226,6 +248,9 @@ gh52_truth_curve <- function(beta2, n_big = 2e6, c_step = 0.25, seed,
     list(
       beta2 = beta2, n_big = n_big, c_step = c_step, seed = seed,
       c_grid = c_grid, beta_raw = beta_raw, beta_smooth = beta_smooth,
+      beta_exact = beta_exact,
+      scoring_basis = if (is.null(beta_exact)) "smooth" else "exact",
+      offset_anchor = offset_anchor, offset_mean = offset_mean,
       se = se, n_sub = n_sub, n_events = n_ev,
       cens_emp = cens_emp, cens_analytic = cens_ana,
       gates = gates,
@@ -248,6 +273,12 @@ print.gh52_truth <- function(x, ...) {
   cat(sprintf("  censoring %.4f (analytic %.4f)   gates: %s\n",
               x$cens_emp, x$cens_analytic,
               if (all(x$gates$pass)) "all PASS" else "FAILURES PRESENT"))
+  cat(sprintf("  scoring basis: %s%s\n",
+              if (is.null(x$beta_exact)) "simulated (isotonic)" else
+                "EXACT beta(c) = 0",
+              if (is.null(x$beta_exact))
+                sprintf("   residual anchor offset %+.4f", x$offset_anchor)
+              else ""))
   invisible(x)
 }
 
@@ -259,10 +290,27 @@ print.gh52_truth <- function(x, ...) {
 #'
 #' @param truth A `gh52_truth` object.
 #' @param c_hat Numeric vector of selected cutpoints.
-#' @param use `"smooth"` (default; isotonic projection) or `"raw"`.
-gh52_truth_at <- function(truth, c_hat, use = c("smooth", "raw")) {
+#' @param use Scoring basis. `"auto"` (default) uses the exact curve when one
+#'   exists (beta2 = 0) and the isotonic projection otherwise; this is the
+#'   basis the coverage harness should use. `"exact"` demands the closed form
+#'   and errors where none exists; `"smooth"` and `"raw"` force the simulated
+#'   curve and exist for diagnostics -- including quantifying what the exact
+#'   basis removes. Objects written before `beta_exact` existed fall back to
+#'   `"smooth"` under `"auto"`, so old caches remain readable.
+gh52_truth_at <- function(truth, c_hat, use = c("auto", "exact", "smooth", "raw")) {
   use <- match.arg(use)
-  y <- if (use == "smooth") truth$beta_smooth else truth$beta_raw
+  has_exact <- !is.null(truth$beta_exact)
+  if (use == "exact" && !has_exact) {
+    stop("No exact truth curve exists for beta2 = ", truth$beta2,
+         "; a closed form is available only at beta2 = 0.", call. = FALSE)
+  }
+  y <- switch(
+    use,
+    auto = if (has_exact) truth$beta_exact else truth$beta_smooth,
+    exact = truth$beta_exact,
+    smooth = truth$beta_smooth,
+    raw = truth$beta_raw
+  )
   stats::approx(truth$c_grid, y, xout = c_hat, rule = 2)$y
 }
 
@@ -317,6 +365,8 @@ if (sys.nframe() == 0L) {
     rows[[length(rows) + 1L]] <- data.frame(
       beta2 = b2, beta30_hat = tr$beta_raw[1], se30 = tr$se[1],
       anchor_z = (tr$beta_raw[1] - tr$beta2) / tr$se[1],
+      scoring = tr$scoring_basis,
+      offset_anchor = tr$offset_anchor, offset_mean = tr$offset_mean,
       drop_30_60 = tr$beta_raw[1] - tr$beta_raw[length(tr$beta_raw)],
       max_rise = max(diff(tr$beta_raw)),
       cens_emp = tr$cens_emp, cens_analytic = tr$cens_analytic,

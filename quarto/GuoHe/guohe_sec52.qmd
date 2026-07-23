@@ -1,0 +1,495 @@
+---
+title: "Reproducing Guo & He (2021), Section 5.2"
+subtitle: "Published vs reproduced coverage of the 95% lower bound of $\\gamma_s$, Table 7 (nested post-hoc family)"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: false
+  message: false
+bibliography: []
+---
+
+```{r setup}
+#| include: false
+# The target table (GH52_TABLE_7), the r grid, the candidate construction, the
+# naive comparator and the scoring live in guohe_sec52_sim.R and are SOURCED
+# here -- never retyped -- so no transcription error can enter this comparison.
+# That file in turn sources guohe_sec52_truth.R (DGM, analytic censoring,
+# truth curve, gh52_truth_at). The artifact under test (guohe_algorithm3())
+# is package API loaded by that file via library(forestsearch) and is NOT
+# modified anywhere in this reproduction. guohe_adaptive_r() is not used --
+# Table 7 has no Adaptive column.
+source("guohe_sec52_sim.R")
+
+COLS <- c("r=1/3", "r=1/12", "r=1/21", "r=1/30", "naive")
+B2   <- c(0, 1, 2, 3, 4, 5) / 10
+rd   <- function(b2) readRDS(sprintf("guohe_repro_t7_beta2_%02d.rds", round(b2 * 10)))
+rd_truth <- function(b2) readRDS(sprintf("guohe_sec52_truth_beta2_%02d.rds", round(b2 * 10)))
+
+t7     <- lapply(B2, rd)
+truths <- lapply(B2, rd_truth)
+
+NREP   <- t7[[1]]$n_rep_used
+B_USED <- t7[[1]]$B
+
+# per-column bias/dist Monte Carlo SE from the per-replication $results
+res_se <- function(o, tags) {
+  vapply(tags, function(t) {
+    v <- o$results[[t]]; v <- v[is.finite(v)]
+    if (length(v) < 2L) NA_real_ else stats::sd(v) / sqrt(length(v))
+  }, numeric(1))
+}
+
+stars <- function(d, se) ifelse(is.na(se) | se == 0, "",
+                   ifelse(abs(d) > 3 * se, "***", ifelse(abs(d) > 2 * se, "*", "")))
+
+# One 3-row block per scenario: reproduced, published, and the flagged delta.
+stack3 <- function(label, R, P, SE, digits = 3L) {
+  d <- R - P
+  m <- rbind(formatC(R, format = "f", digits = digits),
+             formatC(P, format = "f", digits = digits),
+             paste0(formatC(d, format = "f", digits = digits), stars(d, SE)))
+  df <- data.frame(scenario = c(label, "", ""),
+                   stat = c("reproduced", "published", "Δ = R−P"),
+                   m, check.names = FALSE, stringsAsFactors = FALSE)
+  names(df) <- c("scenario", "stat", COLS)
+  df
+}
+
+# Combined per-cell Monte Carlo SE of TWO estimates -- the reproduced value at
+# NREP replications AND the published value at 2000 -- the published numbers
+# are themselves Monte Carlo estimates, not fixed truth, so the band carries
+# noise on both sides: sqrt(se_repro^2 + p_pub (1 - p_pub) / 2000).
+cov_se_comb <- function(o, P) sqrt(o$summary$mcse_cover[1:5]^2 + P * (1 - P) / 2000)
+
+# collect every cell beyond 2 combined SE
+miss <- data.frame(scenario = character(), column = character(),
+                   delta = numeric(), n_se = numeric())
+# n_se is stored UNROUNDED -- the 2/3-SE tallies threshold on it, and rounding
+# first (e.g. -3.02 -> -3.0) would silently drop cells from the 3-SE count
+# that the table body flags with ***; round only at display time.
+add_miss <- function(scen, R, P, SE) {
+  d <- R - P; nse <- d / SE
+  h <- which(is.finite(nse) & abs(nse) > 2)
+  if (length(h)) miss <<- rbind(miss, data.frame(
+    scenario = scen, column = COLS[h],
+    delta = round(d[h], 4), n_se = nse[h]))
+}
+```
+
+# Purpose {#sec-purpose}
+
+The §5.1 reproduction (Tables 3--6, *disjoint* families) is complete: it
+excluded "our code is wrong" for `guohe_algorithm3()` on small disjoint
+equal-probability families up to $k = 12$. Section 5.2 is the **nested**
+regime -- $S(c) = \{W \le c\}$, adjacent candidates differing by a single
+subject -- which is the published setting closest to the `forestsearch`
+maxeff family on GBSG, and Table 7 (empirical coverage of the 95% lower
+bound of $\gamma_s$, the best *selected* subgroup effect) is the remaining
+validation target. Reproducing it extends the exclusion to the
+post-hoc-identified, heavily-overlapping family structure that the GBSG
+application actually uses.
+
+::: {.callout-note}
+## `B` is an inference, not a quotation
+The paper states no bootstrap count $B$ for Section 5.
+`r sprintf("B = %d", B_USED)` is carried from the §5.1 reproduction (itself
+the authors' MONET1-script value) and is **recorded as an inference**, not
+attributed to the paper.
+:::
+
+# Orientation resolution {#sec-orient}
+
+§2.1 of the paper sets larger $\beta$ = better effect *without loss of
+generality*; §5.2 pins the direction for the nested family:
+
+> "As $\beta_2$ increases, the subgroups are farther away from homogeneity,
+> and **the best subgroup, S(30)**, is more distinctive from the others."
+
+Under the DGM as printed (hazard $\lambda_0(t)e^{b(W)D}$), the
+within-$S(c)$ Cox coefficient attains its maximum $\beta(30) = \beta_2$ at
+$c = 30$ and dilutes monotonically toward zero as $c$ grows. For the
+paper's sentence to hold, selection must be the argmax of the **raw**
+coefficient: `orient = +1` in every engine call, and no negation appears
+anywhere in this reproduction. §5.1 used `orient = -1`; for *disjoint*
+families the sign is unidentified by the published tables (relabeling
+symmetry), which is exactly why §5.1's success could never adjudicate it.
+The nesting breaks the symmetry: under negation, $S(30)$ becomes the
+*worst* candidate and selection drifts to $S(60)$, inverting the design.
+The selected-$\hat c$ distributions in @sec-chat make the resolved
+direction visible: selection concentrates toward $c = 30$ as $\beta_2$
+grows. (The sign-flipped protective DGM with `orient = -1` is the symmetric
+alternative, differing only through arm-level event-rate asymmetry; we take
+the printed form.)
+
+# Design {#sec-design}
+
+Stated in Guo & He (2021) §5.2 and verified against the PDF text layer on
+2026-07-21:
+
+- $n = 400$; hazard $\lambda_0(t)e^{b(W)D}$, $\lambda_0$ unit-exponential;
+  $D \sim \mathrm{Bernoulli}(0.5)$, $D \perp W$, $W \sim \mathrm{Unif}[0, 80]$.
+- Censoring inherited verbatim from §5.1: $\log C \sim \mathrm{Unif}(-1.25, 1.00)$;
+  "about 40% across different choices of $b(\cdot)$".
+- $b(w) = \beta_1 = 0$ for $w > 30$; $b(w) = \beta_2$ for $w \le 30$;
+  $\beta_2 \in \{0, 1, 2, 3, 4, 5\}/10$.
+- Family $S(c) = \{W \le c\}$, $c \in [30, 60]$; $\beta(c)$ the Lin--Wei
+  estimand of the treatment-only Cox fit on $S(c)$ ("a weighted average of
+  $b(\cdot)$ in the range $[0, c]$").
+- 2000 Monte Carlo samples; $r \in \{1/3, 1/12, 1/21, 1/30\}$ plus Naive;
+  **no Adaptive column**.
+
+**Candidate family.** Data-determined per replicate: cutpoints
+$\{30\} \cup \{W_i : W_i \in (30, 60]\}$, so the supremum over
+$c \in [30, 60]$ is an exact maximum over order-statistic cutpoints
+(expected family size $1 + 400 \times 3/8 = 151$, random across
+replicates -- never a fixed grid, which would understate selection bias).
+Reproduced mean family size:
+`r sprintf("%.1f", mean(sapply(t7, function(o) mean(o$results$n_cand))))`.
+
+**Estimand.** $\gamma_s = \beta(\hat c)$: the truth curve at the
+replicate's selected cutpoint (isotonic-smoothed basis). The engine's
+selection is $r$-invariant and asserted per replicate; the **naive**
+comparator is an independent calculation (own `coxph` loop, own argmax,
+lower bound $\hat\beta(\hat c) - z_{0.95}\mathrm{SE}(\hat c)$), scored
+against $\gamma_s$ at its *own* $\hat c$. Engine-vs-independent selection
+agreement rate:
+`r sprintf("%.4f", mean(sapply(t7, function(o) mean(o$results$sel_agree, na.rm = TRUE))))`.
+
+**The band.** Each cell is flagged against its **combined** Monte Carlo SE,
+$\sqrt{\mathrm{SE}^2_{\text{repro}} + \hat p_{\text{pub}}(1-\hat p_{\text{pub}})/2000}$
+-- both sides are estimates. Flags: `*` = $|\Delta| > 2\,\mathrm{SE}$,
+`***` = $|\Delta| > 3\,\mathrm{SE}$.
+
+# Truth curves {#sec-truth}
+
+$\beta(c)$ per scenario from the gate-cleared production caches
+(`guohe_sec52_truth.R`; gates G1--G6 all PASS at
+$n_{big} = `r format(truths[[1]]$n_big, big.mark = ",")`$,
+$c_{step} = `r truths[[1]]$c_step`$). Raw curve, isotonic-smoothed basis
+(the scoring default), $\pm 2\,\mathrm{SE}$ band, and the exact anchor
+$\beta(30) = \beta_2$ marked.
+
+```{r truth-curves}
+#| fig-width: 9
+#| fig-height: 6
+op <- par(mfrow = c(2, 3), mar = c(4, 4, 2.5, 1))
+for (i in seq_along(B2)) {
+  tr <- truths[[i]]
+  ylim <- range(tr$beta_raw - 2 * tr$se, tr$beta_raw + 2 * tr$se, B2[i], 0)
+  plot(tr$c_grid, tr$beta_raw, type = "l", col = "grey60", ylim = ylim,
+       xlab = "c", ylab = expression(beta(c)),
+       main = bquote(beta[2] == .(sprintf("%.1f", B2[i]))))
+  polygon(c(tr$c_grid, rev(tr$c_grid)),
+          c(tr$beta_raw - 2 * tr$se, rev(tr$beta_raw + 2 * tr$se)),
+          col = grDevices::adjustcolor("grey60", 0.25), border = NA)
+  lines(tr$c_grid, tr$beta_smooth, col = "black", lwd = 2)
+  points(30, B2[i], pch = 19, col = "red")
+  abline(h = 0, lty = 3)
+}
+par(op)
+```
+
+The dilution drop $\beta(30) - \beta(60)$ is approximately
+$0.49\,\beta_2$, linear in $\beta_2$ -- consistent with the paper's
+weighted-average reading of the Lin--Wei estimand.
+
+# Table 7 --- coverage of the 95% lower bound of $\gamma_s$ {#sec-t7}
+
+```{r tab7}
+tab7 <- do.call(rbind, lapply(seq_along(t7), function(i) {
+  o <- t7[[i]]
+  P <- as.numeric(GH52_TABLE_7[GH52_TABLE_7$beta2 == B2[i],
+        c("r_1_3", "r_1_12", "r_1_21", "r_1_30", "naive")])
+  SE <- cov_se_comb(o, P)
+  add_miss(sprintf("beta2=%.1f", B2[i]), o$summary$cover[1:5], P, SE)
+  stack3(sprintf("β₂=%.1f", B2[i]), o$summary$cover[1:5], P, SE)
+}))
+knitr::kable(tab7, align = c("l", "l", rep("r", 5)))
+```
+
+## Miss tally {#sec-miss}
+
+```{r misstally}
+n2 <- nrow(miss)
+n3 <- sum(abs(miss$n_se) > 3)
+cat(sprintf("Cells beyond 2 combined SE: %d.   Cells beyond 3 combined SE: %d.\n",
+            n2, n3))
+if (n2 == 0L) {
+  cat("No cell exceeds 2 combined Monte Carlo standard errors.\n")
+} else {
+  miss_disp <- miss[order(-abs(miss$n_se)), ]
+  miss_disp$n_se <- round(miss_disp$n_se, 1)
+  knitr::kable(miss_disp, caption = "Cells with |R - P| > 2 combined SE")
+}
+```
+
+## B-sensitivity at $\beta_2 = 0.1$ {#sec-bsens}
+
+All flagged cells lie in the proposed columns of the $\beta_2 = 0.1$ row,
+and $B$ is the one inferred quantity inside those columns. A direct
+experiment isolates it: the scenario re-run at $B = 500$ under the same
+seed base generates identical data, selections, and $\gamma_s$ per
+replicate, and (by common random numbers) its 500 resamples are exactly the
+first 500 of the production run's 2000 — the comparison is
+bootstrap-resolution pure.
+
+```{r bsens}
+sens <- readRDS("sens_B500/guohe_repro_t7_beta2_01.rds")
+prod1 <- t7[[2]]
+P1 <- as.numeric(GH52_TABLE_7[GH52_TABLE_7$beta2 == 0.1,
+        c("r_1_3", "r_1_12", "r_1_21", "r_1_30", "naive")])
+stopifnot(identical(sens$results$gamma_s, prod1$results$gamma_s),
+          identical(sens$results$c_hat_gh, prod1$results$c_hat_gh))
+flips <- vapply(c("r1", "r2", "r3", "r4"), function(t) {
+  sum(sens$results[[paste0(t, "_cover")]] != prod1$results[[paste0(t, "_cover")]],
+      na.rm = TRUE)
+}, numeric(1))
+knitr::kable(data.frame(
+  column = COLS,
+  `B=500` = round(sens$summary$cover, 3),
+  `B=2000` = round(prod1$summary$cover, 3),
+  published = P1, check.names = FALSE),
+  align = "r", caption = "beta2 = 0.1: bootstrap-count sensitivity (identical data and selections)")
+gain <- mean(prod1$summary$cover[1:4] - sens$summary$cover[1:4])
+gap <- mean(P1[1:4] - prod1$summary$cover[1:4])
+cat(sprintf(
+  "Quadrupling B (500 -> 2000) bought %+.4f coverage on average across the proposed columns\n(per-replicate: %d-%d of 2000 indicators flip per column); the gap to published is %.3f.\n",
+  gain, min(flips), max(flips), gap))
+```
+
+**$B$ is exonerated on magnitude and saturation.** A fourfold increase in
+$B$ moved the proposed columns by about $+0.0025$; by the same scaling the
+remaining $B \to \infty$ headroom is of the same order, $\sim +0.0025$ —
+while the gap to published is $0.020$. No bootstrap count closes a
+$0.020$ gap when $4\times$ the resamples buy $0.0025$.
+
+The flags are then better read against the whole table than as a
+row-specific defect. Across all six rows the proposed columns sit **below
+published by a small one-sided offset of order $0.010$**:
+
+```{r bsens-offsets}
+offs <- vapply(seq_along(t7), function(i) {
+  P <- as.numeric(GH52_TABLE_7[i, c("r_1_3", "r_1_12", "r_1_21", "r_1_30")])
+  mean(t7[[i]]$summary$cover[1:4] - P)
+}, numeric(1))
+offn <- vapply(seq_along(t7), function(i) {
+  t7[[i]]$summary$cover[5] - GH52_TABLE_7$naive[i]
+}, numeric(1))
+se_nv <- mean(vapply(seq_along(t7), function(i) {
+  p <- GH52_TABLE_7$naive[i]
+  sqrt(t7[[i]]$summary$mcse_cover[5]^2 + p * (1 - p) / 2000)
+}, numeric(1)))
+knitr::kable(data.frame(beta2 = B2,
+  `proposed mean Δ` = round(offs, 4),
+  `naive Δ` = round(offn, 4), check.names = FALSE), align = "r",
+  caption = "Row-mean reproduced − published: proposed columns vs naive")
+cat(sprintf("Pooled: proposed %+.4f, naive %+.4f.\n", mean(offs), mean(offn)))
+```
+
+The naive column — which involves no bootstrap and no $r$ — is within
+Monte Carlo noise throughout: its deviations scatter on both signs
+(`r paste(sprintf("%+.3f", offn), collapse = ", ")`), with empirical SD
+`r sprintf("%.4f", stats::sd(offn))` against a theoretical combined SE of
+`r sprintf("%.4f", se_nv)` — the behaviour of independent Monte Carlo
+error, which strengthens the within-noise reading rather than qualifying
+it. The published values themselves wiggle by
+roughly $\pm 0.005$ around any smooth trend across rows, consistent with
+their own Monte Carlo error at 2000 samples; ours carry the same-sized
+noise. On this reading the $\beta_2 = 0.1$ flags mark the coincidence of
+two mild excursions — our row on the low side, the published row on the
+high side — stacked on the shared small offset, rather than anything
+specific to that scenario. The offset itself is recorded as an open,
+unexplained residual of order $0.010$ on the proposed columns; no
+candidate mechanism is asserted for it here.
+
+## Conservatism check {#sec-conserve}
+
+The published proposed columns run **conservative** (0.947--0.973 vs
+nominal 0.95) -- expected from the nesting, since adjacent candidates
+differ by a single subject and the effective number of independent
+comparisons is far below the family size. A reproduction landing
+near-nominal across the proposed columns is a red flag for the family
+construction (most likely a hard-coded grid).
+
+```{r conserve}
+cons <- do.call(rbind, lapply(seq_along(t7), function(i) {
+  o <- t7[[i]]
+  data.frame(beta2 = B2[i],
+             t(setNames(round(o$summary$cover[1:4], 3), COLS[1:4])),
+             min_proposed = round(min(o$summary$cover[1:4]), 3),
+             check.names = FALSE)
+}))
+knitr::kable(cons, align = "r",
+             caption = "Reproduced coverage, proposed columns only")
+pub_min <- vapply(seq_along(t7), function(i)
+  min(as.numeric(GH52_TABLE_7[i, c("r_1_3", "r_1_12", "r_1_21", "r_1_30")])),
+  numeric(1))
+cmp <- data.frame(beta2 = B2,
+                  min_reproduced = round(cons$min_proposed, 3),
+                  min_published = round(pub_min, 3),
+                  check.names = FALSE)
+knitr::kable(cmp, align = "r",
+  caption = "Minimum proposed-column coverage, reproduced vs published")
+cat(sprintf(
+  "Sub-nominal minima: reproduced at beta2 = %s; published at beta2 = %s.\n",
+  paste(sprintf("%.1f", B2[cons$min_proposed < 0.95]), collapse = ", "),
+  paste(sprintf("%.1f", B2[pub_min < 0.95]), collapse = ", ")))
+```
+
+Both tables dip below nominal in the $r = 1/3$ column at small $\beta_2$ --
+the published table at $\beta_2 = 0$ ($0.947$), ours at
+$\beta_2 = 0, 0.1, 0.2$. The difference between the two is the table-wide
+offset of @sec-bsens rather than a distinct finding. The failure mode this
+check targets, a hard-coded coarse cutpoint grid, is independently excluded
+by the reproduced mean family size of
+`r sprintf("%.1f", mean(sapply(t7, function(o) mean(o$results$n_cand))))`
+against an expected 151 (@sec-design): a fixed 31-point grid would show as
+31. The qualitative conservatism pattern reproduces -- $r = 1/3$ least
+conservative in both tables, the three smaller $r$ values at or above
+nominal throughout in ours. The practical reading for the GBSG application:
+this implementation is reliably conservative at
+$r \in \{1/12, 1/21, 1/30\}$ and marginally anti-conservative at $r = 1/3$
+for small $\beta_2$.
+
+# Selected $\hat c$ by $\beta_2$ {#sec-chat}
+
+The paper's design narrative made visible: at $\beta_2 = 0$ every $S(c)$
+has the same (null) effect and selection is diffuse over $[30, 60]$; as
+$\beta_2$ grows, $S(30)$ becomes "more distinctive from the others" and
+selection concentrates toward $c = 30$. Concentration near 60 would mean
+the orientation sign is wrong (@sec-orient).
+
+```{r chat-dist}
+#| fig-width: 8
+#| fig-height: 4.5
+chat <- do.call(rbind, lapply(seq_along(t7), function(i) {
+  data.frame(beta2 = sprintf("%.1f", B2[i]), c_hat = t7[[i]]$results$c_hat_gh)
+}))
+boxplot(c_hat ~ beta2, data = chat, xlab = expression(beta[2]),
+        ylab = expression(hat(c)), col = "grey85",
+        main = "Selected cutpoint (engine) by scenario")
+abline(h = 30, col = "red", lty = 2)
+```
+
+```{r chat-quant}
+qt <- do.call(rbind, lapply(seq_along(t7), function(i) {
+  q <- stats::quantile(t7[[i]]$results$c_hat_gh,
+                       c(.1, .25, .5, .75, .9), na.rm = TRUE)
+  data.frame(beta2 = B2[i], t(round(q, 1)),
+             mean_n_sel = round(mean(t7[[i]]$results$n_sel, na.rm = TRUE), 0),
+             check.names = FALSE)
+}))
+knitr::kable(qt, caption = "Quantiles of the selected cutpoint, and mean selected-subgroup size")
+```
+
+# Ours-only diagnostics: distance and bias {#sec-diag}
+
+Table 7 publishes coverage only. Distance
+($\gamma_s - \text{lower}$) and bias ($\text{debiased} - \gamma_s$;
+for the naive column, $\hat\beta(\hat c) - \gamma_s$) are computed and
+reported here as **ours-only** diagnostics -- there is no published target
+to compare against. These diagnostics are to be carried into the
+companion-paper hand-off alongside the coverage comparison (owner decision,
+2026-07-21).
+
+```{r diag}
+dg <- do.call(rbind, lapply(seq_along(t7), function(i) {
+  o <- t7[[i]]
+  data.frame(beta2 = B2[i], column = o$summary$column,
+             dist = round(o$summary$dist, 4), bias = round(o$summary$bias, 4))
+}))
+dist_w <- reshape(dg[, c("beta2", "column", "dist")], direction = "wide",
+                  idvar = "beta2", timevar = "column")
+bias_w <- reshape(dg[, c("beta2", "column", "bias")], direction = "wide",
+                  idvar = "beta2", timevar = "column")
+names(dist_w) <- names(bias_w) <- c("beta2", COLS)
+knitr::kable(dist_w, align = "r", caption = "Mean distance γ_s − lower (ours only)")
+knitr::kable(bias_w, align = "r", caption = "Mean bias debiased − γ_s (ours only; naive: point − γ_s)")
+```
+
+# Stated vs inferred {#sec-ledger}
+
+**Stated (PDF-verified 2026-07-21):** the DGM (hazard, $W$, $D$,
+baseline); the censoring law and its §5.1 inheritance; $D = [30, 60]$ and
+$S(c) = \{W \le c\}$; the step $b(\cdot)$ with $\beta_1 = 0$; the
+$\beta_2$ grid; 2000 Monte Carlo samples; the $r$ grid; the absence of an
+Adaptive column; every Table 7 cell.
+
+**Inferred / chosen (recorded as such):**
+
+1. $B = `r B_USED`$ -- the paper is silent; carried from §5.1.
+2. The order-statistic candidate construction -- our reading of
+   "$c \in D$ compact" plus finiteness of the empirical family.
+3. The truth-curve numerical method:
+   $n_{big} = `r format(truths[[1]]$n_big, big.mark = ",")`$,
+   $c_{step} = `r truths[[1]]$c_step`$, isotonic smoothing as the scoring
+   basis, and the gate tolerances (calibration provenance in
+   `guohe_sec52_truth.R`). At $\beta_2 = 0$ the scoring basis is the exact
+   null $\beta(c) \equiv 0$ -- a closed form of the DGM stored as
+   `beta_exact` in the truth cache and selected by `gh52_truth_at()`'s
+   `"auto"` default, with the run driver refusing a pre-`beta_exact` cache
+   -- so no Monte Carlo curve noise enters the null scenario's coverage
+   indicators; the simulated curve there serves only as a DGM gate and an
+   offset diagnostic.
+4. The `orient = +1` resolution -- anchored to the paper's $S(30)$
+   sentence (@sec-orient); the sign-flipped protective DGM with
+   `orient = -1` is the symmetric alternative, differing only through
+   arm-level event-rate asymmetry; we take the printed form.
+5. Replicates: `r NREP` used here vs the published 2000
+   `r if (NREP < 2000L) sprintf("(a reduction; coverage MCSE ≈ %.3f at p = 0.95)", sqrt(0.95 * 0.05 / NREP)) else "(matched)"`.
+
+# Conclusion {#sec-conclusion}
+
+```{r verdict}
+cat(sprintf(
+  "Table 7 at %d replications, B = %d: cells beyond 2 combined SE: %d; beyond 3 SE: %d.\n",
+  NREP, B_USED, nrow(miss), sum(abs(miss$n_se) > 3)))
+```
+
+Twenty-six of thirty cells reproduce within two combined Monte Carlo
+standard errors; the four exceptions are the proposed columns of the
+$\beta_2 = 0.1$ row. The naive column, which uses no bootstrap and no $r$,
+agrees with published throughout (pooled
+`r sprintf("%.4f", mean(offn))`), which places the residual inside the
+bound rather than in the data generation, the order-statistic family, the
+selection, or the truth-curve scoring — each of which the naive agreement
+exercises. The proposed columns carry a one-sided offset of order $0.010$
+(pooled `r sprintf("%.4f", mean(offs))`), with $B$ excluded by direct
+experiment (@sec-bsens) and no mechanism asserted. The claim licensed is
+therefore: **`guohe_algorithm3()` is faithfully implemented on nested,
+order-statistic-indexed families of $\approx 151$ heavily-overlapping
+candidates at $n = 400$, with a small unexplained conservatism deficit in
+the bound relative to the published values** — extending the §5.1
+exclusion from disjoint families toward the `forestsearch` maxeff regime.
+
+# Provenance {#sec-prov}
+
+```{r prov}
+pv <- do.call(rbind, lapply(t7, function(o) data.frame(
+  id = o$id, reps = o$n_rep_used, B = o$B, seed_base = o$seed_base,
+  truth_n_big = o$truth_identity$n_big, truth_c_step = o$truth_identity$c_step,
+  truth_seed = o$truth_identity$seed,
+  beta_exact = isTRUE(o$truth_identity$beta_exact),
+  elapsed_min = round(o$elapsed_sec / 60, 1))))
+knitr::kable(pv, caption = "Per-scenario provenance (each .rds also carries its full sessionInfo)")
+```
+
+```{r sessioninfo}
+cat(t7[[length(t7)]]$sessionInfo, sep = "\n")
+```
+
+Each scenario's `.rds` (`guohe_repro_t7_beta2_XX.rds`) carries its own
+`results`, `summary`, seed base, truth-cache identity, and `sessionInfo`;
+the run is restartable and every replication is reproducible from
+`(scenario id, m)`. Targets `GH52_TABLE_7` are sourced from
+`guohe_sec52_sim.R`, not transcribed.
