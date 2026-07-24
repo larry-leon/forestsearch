@@ -687,6 +687,31 @@ if (run_smoke && identical(run_mode, "batch")) {
 }
 ```
 
+# Population effect at the true region
+
+```{r beta-true-region}
+# beta(H) and beta(H^c): the population effect at the TRUE harm region.  Combine
+# mode skips the DGM build above, so (re)build it here -- every constant is
+# already in scope and the eval frame is a deterministic function of them, so
+# this reproduces the frame batch mode would have used.
+k_inter <- calibrate_k_inter(target_hr_harm = target_hr_harm, model = dgm_model,
+                             use_ahr = FALSE)
+dgm     <- setup_gbsg_dgm(model = dgm_model, k_inter = k_inter,
+                          n_super = n_super, seed = seed_base)
+dgm     <- compute_dgm_cde(dgm)
+eval_df <- build_eval_frame(dgm, analysis_time = analysis_time,
+                            cens_adjust = cens_adjust, eval_seed = 20260628L)
+
+# exp{beta(.)} at the TRUE regions. Same functional as beta(Hhat) -- only the region
+# differs -- so the two are comparable on this one evaluation frame.
+.bH <- betaHhat_theta_dagger_check(eval_df, harm.name = "flag_harm",
+                                   outcome.name = "y_sim", event.name = "event_sim",
+                                   treat.name = "treat_sim")
+betaH_H  <- unname(.bH[["thetaDagger_H"]])    # name is legacy; the value is exp{beta(H)}
+betaH_Hc <- unname(.bH[["thetaDagger_Hc"]])
+cat(sprintf("beta(H) = %.6f   beta(H^c) = %.6f\n", betaH_H, betaH_Hc))
+```
+
 # Timing and scale-up projection
 
 Tier-2 cost per replicate is essentially fixed (one fit + the multiplier draws,
@@ -907,7 +932,13 @@ build_block <- function(r, suffix, tgt_cde, tgt_marg) {
       Cov_marg   = .cover(tgt_marg, lo, hi),
       stringsAsFactors = FALSE)
   })
-  do.call(rbind, rows)
+  blk <- do.call(rbind, rows)
+  # The oracle refits on the TRUE region H, so it does not estimate beta(Hhat).
+  # These two cells are a region mismatch, not a bias or a coverage rate.
+  is_or <- blk$Estimator == "oracle"
+  blk$b_betaHhat[is_or]   <- NA_real_
+  blk$Cov_betaHhat[is_or] <- NA_real_
+  blk
 }
 
 if (run_smoke && !is.null(results)) {
@@ -934,6 +965,13 @@ if (run_smoke && !is.null(results)) {
   harm_rate <- mean(rH$t2_harm_flag, na.rm = TRUE)
   ij_ok     <- mean(rH$ij_source == "ij", na.rm = TRUE)
 
+  # Identification factor: effect at the true region relative to the realized one.
+  # kappa = 1 exactly when the realized region reproduces the true region's effect.
+  .kap  <- betaH_H / rH$betaHhat_H
+  .kap  <- .kap[is.finite(.kap)]
+  kappa_txt <- if (length(.kap))
+    sprintf("%.2f (median %.2f)", mean(.kap), stats::median(.kap)) else "\u2014"
+
   gt(est_tab, groupname_col = "Block") |>
     tab_header(
       title = if (run_tier1)
@@ -948,6 +986,7 @@ if (run_smoke && !is.null(results)) {
     fmt_number(columns = c(Avg, SD, SD_hr, SD_hat, SD_hat_hr, Len_med, Length), decimals = 2) |>
     fmt_number(columns = c(b_oracle, b_betaHhat, b_cde, b_marg), decimals = 1) |>
     fmt_number(columns = c(Cov_oracle, Cov_betaHhat, Cov_cde, Cov_marg), decimals = 2) |>
+    sub_missing(columns = c(b_betaHhat, Cov_betaHhat), missing_text = "\u2014") |>
     cols_label(
       n = "n", Len_med = "Len(med)",
       SD = md("$\\text{SD}_{\\beta}$"), SD_hat = md("$\\widehat{\\text{SD}}_{\\beta}$"),
@@ -971,7 +1010,14 @@ if (run_smoke && !is.null(results)) {
       if (run_tier1)
         "FB = `H2` (León Eq.7, both bias sources); MR = de-biased gate, IJ interval."
       else
-        "MR = de-biased gate, IJ interval (FB skipped).")))
+        "MR = de-biased gate, IJ interval (FB skipped).",
+      sprintf(paste("The oracle refits on the true region $H$, so it does not estimate",
+                    "$\\beta(\\widehat H)$; its $b^{\\beta(\\widehat H)}$ and",
+                    "$\\hat C^{\\beta(\\widehat H)}$ cells are a region mismatch rather than a",
+                    "bias or coverage rate and are suppressed. That mismatch is the",
+                    "identification factor $\\kappa = \\beta(H)/\\beta(\\widehat H)$ = %s, with",
+                    "$\\beta(H)$ = %.3f."),
+              kappa_txt, betaH_H))))
 }
 ```
 
@@ -1025,7 +1071,13 @@ if (run_smoke && !is.null(results)) {
         Cov_marg   = .cover(tgt_marg, lo, hi),
         stringsAsFactors = FALSE)
     })
-    do.call(rbind, rows)
+    blk <- do.call(rbind, rows)
+    # The oracle refits on the TRUE region H, so it does not estimate beta(Hhat).
+    # These two cells are a region mismatch, not a bias or a coverage rate.
+    is_or <- blk$Estimator == "oracle"
+    blk$b_betaHhat[is_or]   <- NA_real_
+    blk$Cov_betaHhat[is_or] <- NA_real_
+    blk
   }
 
   rHm <- results[results$detected == 1, , drop = FALSE]
@@ -1049,6 +1101,7 @@ if (run_smoke && !is.null(results)) {
     fmt_number(columns = c(Med, SD, SD_hr, SD_hat, SD_hat_hr, Len_med), decimals = 2) |>
     fmt_number(columns = c(b_oracle, b_betaHhat, b_cde, b_marg), decimals = 1) |>
     fmt_number(columns = c(Cov_oracle, Cov_betaHhat, Cov_cde, Cov_marg), decimals = 2) |>
+    sub_missing(columns = c(b_betaHhat, Cov_betaHhat), missing_text = "\u2014") |>
     cols_label(
       n = "n", Med = "Median", Len_med = "Len(med)",
       SD = md("$\\text{SD}_{\\beta}$"), SD_hat = md("$\\widehat{\\text{SD}}_{\\beta}$"),
@@ -1067,7 +1120,14 @@ if (run_smoke && !is.null(results)) {
       if (run_tier1)
         "FB = `H2` (Le\u00f3n Eq.7); MR = de-biased gate (IJ)."
       else
-        "MR = de-biased gate (IJ) (FB skipped).")))
+        "MR = de-biased gate (IJ) (FB skipped).",
+      sprintf(paste("The oracle refits on the true region $H$, so it does not estimate",
+                    "$\\beta(\\widehat H)$; its $b^{\\beta(\\widehat H)}$ and",
+                    "$\\hat C^{\\beta(\\widehat H)}$ cells are a region mismatch rather than a",
+                    "bias or coverage rate and are suppressed. That mismatch is the",
+                    "identification factor $\\kappa = \\beta(H)/\\beta(\\widehat H)$ = %s, with",
+                    "$\\beta(H)$ = %.3f."),
+              kappa_txt, betaH_H))))
 }
 ```
 
