@@ -875,8 +875,17 @@ reset_workers <- function(workers   = NULL,
 #   "effMaxSG" -> "hrMaxSG"
 #   "effMinSG" -> "hrMinSG"
 #   "eff"      -> "hr"
-#   "maxSG"    -> "maxSG"   (unchanged; pre-existing alias for hrMaxSG)
-#   "minSG"    -> "minSG"   (unchanged; pre-existing alias for hrMinSG)
+#   "maxcons"  -> "hr"      (says what the rule does: consistency argmax)
+#
+# NOT aliases -- these are distinct canonical foci, returned unchanged:
+#   "maxSG"      keys (-N, -Pcons, K); takes no effect band; rejects any
+#                selection_rule other than "neighborhood".  It is NOT a
+#                spelling of hrMaxSG, whose key is (-in_band, -N, -Pcons,
+#                -hr, K).
+#   "minSG"      keys (N, -Pcons, K); same relationship to hrMinSG.
+#   "maxeff"     keys (-hr, K) over ALL candidates, ungated.
+#   "maxeffCons" keys (-hr, K) among consistency-qualifying candidates.
+#
 # Any other value is returned unchanged so the downstream whitelist
 # check produces its usual error message.
 # ----------------------------------------------------------------------------
@@ -884,10 +893,15 @@ reset_workers <- function(workers   = NULL,
 #' Translate the new effect-vocabulary `sg_focus` aliases to canonical form
 #'
 #' Accepts the GLM-natural vocabulary (\code{"effMaxSG"},
-#' \code{"effMinSG"}, \code{"eff"}) and translates to the canonical
-#' Cox-flavored internal names (\code{"hrMaxSG"}, \code{"hrMinSG"},
-#' \code{"hr"}).  Unrecognized values pass through unchanged so the
-#' caller's own whitelist check fires.
+#' \code{"effMinSG"}, \code{"eff"}) and the descriptive alias
+#' \code{"maxcons"}, and translates to the canonical Cox-flavored internal
+#' names (\code{"hrMaxSG"}, \code{"hrMinSG"}, \code{"hr"}).  Unrecognized
+#' values pass through unchanged so the caller's own whitelist check fires.
+#'
+#' Because every entry point (\code{\link{forestsearch}},
+#' \code{\link{subgroup.consistency}}, \code{dina_subgroup()},
+#' \code{dina_subgroup_bootstrap()}) normalizes before whitelisting, an alias
+#' added here is accepted by all of them without further change.
 #'
 #' This is an internal helper.  User code does not call it directly;
 #' \code{\link{forestsearch}} and \code{\link{subgroup.consistency}}
@@ -907,6 +921,7 @@ reset_workers <- function(workers   = NULL,
     effMaxSG = "hrMaxSG",
     effMinSG = "hrMinSG",
     eff      = "hr",
+    maxcons  = "hr",
     sg_focus
   )
 }
