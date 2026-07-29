@@ -41,6 +41,20 @@ shared by every path is `.compute_inclusion_band()`, called by both
 `sort_subgroups()` (final, post-consistency selection) and
 `sort_subgroups_preview()` (pre-consistency triage).
 
+::: {.callout-important title="Scope: these arguments apply to two foci only"}
+`selection_rule` and `effect_neighborhood` configure the **effect band**, and
+only `"hrMaxSG"`/`"hrMinSG"` (equivalently `"effMaxSG"`/`"effMinSG"`) consult
+it. For every other `sg_focus` --- `"hr"`/`"eff"`/`"maxcons"`, `"maxeff"`,
+`"maxeffCons"`, `"maxSG"`, `"minSG"` --- they are **inert**, and the band shown
+throughout this note plays no part in the selection.
+
+This is enforced rather than ignored: passing a `selection_rule` other than
+`"neighborhood"` together with a non-band focus is an **error**, not a silent
+no-op. Note in particular that `"maxSG"`/`"minSG"` are *not* spellings of
+`"hrMaxSG"`/`"hrMinSG"` --- they rank by size among all qualifiers with no
+band at all.
+:::
+
 # Setup
 
 ```{r setup}
@@ -227,6 +241,28 @@ so: in-band candidates first; then the largest $N$; then higher
 consistency; then higher effect; then fewer factors. `"hrMinSG"` is
 identical except $N$ is minimized. Only `in_band` depends on
 `selection_rule` --- the sort itself is fixed.
+
+## The preview sort carries an extra frontier key
+
+`sort_subgroups_preview()`, which triages candidates *before* consistency is
+evaluated, does **not** use the same key. It inserts `-on_frontier` between
+`-in_band` and $\pm N$:
+
+$$
+(-\,\texttt{in\_band},\; -\,\texttt{on\_frontier},\; \mp N,\; -\texttt{HR},\; K),
+$$
+
+with `on_frontier` the raw Pareto indicator on (effect, $N$), computed
+irrespective of `selection_rule`. `Pcons` cannot appear here --- it does not
+exist yet.
+
+The extra key exists to protect the frontier from truncation. Only the top
+`max_subgroups_search` candidates in preview order are sent for consistency
+evaluation, and a restrictive rule such as `selection_rule = "both"` can
+otherwise let higher-$N$ *dominated* candidates crowd low-$N$ frontier members
+out of those slots --- so a candidate that would have won is never scored. The
+key affects **which candidates are evaluated**, not which one wins: the
+post-consistency winner is still chosen by `sort_subgroups()` above.
 
 For the worked set, every rule that keeps `C` selects it (largest $N$ in
 the band), so the **top pick is `C`** under `"neighborhood"` and

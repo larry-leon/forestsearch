@@ -1,6 +1,60 @@
 # forestsearch 0.2.0
 
+## Behaviour Changes
+
+**These change which subgroup a search returns.**  0.1.0 is on CRAN; an
+analysis re-run under 0.2.0 can select a different subgroup than it did
+before.  Anyone reproducing published results should pin the version or
+re-record the selection.
+
+* **`sg_focus = "hr"` (and its aliases `"eff"`, `"maxcons"`) no longer stops
+  early.**  Early stopping halts the candidate scan at the first candidate
+  reaching `stop_threshold` and then applies the focus's selection key to that
+  prefix.  That is sound only when the key is fully determined by the
+  enumeration order, and `Pcons` never is -- it is unknown until a candidate is
+  evaluated.  Any key containing a `Pcons` term can therefore be beaten by a
+  candidate the scan never reached.  This affects `"hr"` (`Pcons` primary) and
+  also `"maxSG"` / `"minSG"`, where `Pcons` breaks ties in subgroup size and a
+  truncated scan can halt before a tied candidate with higher `Pcons` is seen.
+  `stop_threshold` is now reset to `NULL` for all of these, with a warning when
+  it was supplied explicitly.
+
+  A visible consequence: the selected subgroup no longer depends on
+  `parallel_args$batch_size`.  Before this change, that performance knob could
+  alter a scientific result.
+
+* **`stop_threshold` now defaults to `pconsistency.threshold`** instead of a
+  fixed `0.95`.  Previously the two defaults were `0.95` and `0.90`, so a
+  candidate with `Pcons` in `[0.90, 0.95)` qualified but did not halt the scan.
+  The default is a promise, so it tracks a user-supplied floor rather than
+  reverting to the old gap.  This is an efficiency change, not a correctness
+  fix: where early stopping is sound at all, the prefix sort recovers the same
+  winner for any `stop_threshold >= pconsistency.threshold`.
+
 ## New Features
+
+* **New `sg_focus = "maxeffCons"`**: the effect maximiser among candidates
+  clearing `pconsistency.threshold`.  It sits between the two existing
+  effect-oriented rules -- `"maxeff"` maximises effect with no consistency
+  condition at all, while `"hr"`/`"maxcons"` maximises consistency and uses
+  effect only as a tiebreak.  `"maxeffCons"` is the only focus for which early
+  stopping is sound, since its key `(-hr, K)` is exactly the enumeration order.
+  The Tier-2 de-biased gate replays this rule correctly (it maps to the gate's
+  `"maxeff"`, which is already gated to consistency-qualifying candidates).
+
+* **New `sg_focus = "maxcons"`**, an alias for `"hr"`.  `"hr"` selects the
+  consistency argmax with effect only as a tiebreak, which is the opposite of
+  what the name suggests to most readers; `"maxcons"` names the rule it
+  actually implements.  `"hr"` and `"eff"` are unchanged and keep their
+  meaning.
+
+* `sort_subgroups()` and `sort_subgroups_preview()` now accept the alias
+  vocabulary (`"eff"`, `"effMaxSG"`, `"effMinSG"`, `"maxcons"`) when called
+  directly, as the other entry points already did.
+
+* `parallel_args$batch_size` is now documented in `forestsearch()`.  It was
+  accepted and validated but appeared in no roxygen block.
+
 
 ### GLM Extension
 

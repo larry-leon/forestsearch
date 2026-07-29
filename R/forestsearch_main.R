@@ -223,6 +223,16 @@
 #'       check}).  On a 4-core laptop the default is 3 workers; on a
 #'       16-core workstation it is 12.}
 #'     \item{show_message}{Logical. Show parallel setup messages.}
+#'     \item{batch_size}{Integer. Number of \emph{candidate subgroups}
+#'       dispatched to the workers per batch during consistency evaluation.
+#'       Default: chosen from the worker count and pool size.
+#'       \strong{This is a performance knob only -- it does not affect the
+#'       selected subgroup.}  Smaller batches let an early stop take effect
+#'       sooner (relevant only for \code{sg_focus = "maxeffCons"}, the one
+#'       focus that early-stops); larger batches amortise dispatch overhead.
+#'       Not to be confused with \code{twostage_args$batch.size}, which
+#'       batches \emph{splits} within Stage 2 of the two-stage consistency
+#'       algorithm -- a different quantity in different units.}
 #'   }
 #'   To disable parallelism entirely, pass
 #'   \code{parallel_args = list(plan = "sequential")}.
@@ -409,15 +419,28 @@
 #' @param hr.consistency Numeric. Legacy name for \code{consistency.threshold}.
 #'   Retained for backward compatibility.  Default 1.0.  When
 #'   \code{consistency.threshold} is provided, \code{hr.consistency} is ignored.
-#' @param sg_focus Character. Subgroup selection focus. One of:
+#' @param sg_focus Character. Subgroup selection focus -- \emph{what} is
+#'   selected, not merely how candidates are sorted. Except for
+#'   \code{"maxeff"}, every focus selects among \strong{qualifiers}: candidates
+#'   whose consistency rate reaches \code{pconsistency.threshold}. One of:
 #'   \describe{
-#'     \item{\code{"hr"} (or \code{"eff"})}{Pick the candidate with the
-#'       highest consistency (\code{Pcons}); ties broken by largest
-#'       effect.}
-#'     \item{\code{"maxSG"}}{Pick the candidate with the largest sample
-#'       size; ties broken by consistency.}
-#'     \item{\code{"minSG"}}{Pick the candidate with the smallest sample
-#'       size; ties broken by consistency.}
+#'     \item{\code{"hr"} (or \code{"eff"}, \code{"maxcons"})}{Pick the
+#'       qualifier with the highest consistency (\code{Pcons}); ties broken by
+#'       largest effect.  \strong{This is consistency-primary with effect only
+#'       as a tiebreak} -- despite the name, it does not maximise the effect.
+#'       Use \code{"maxeffCons"} for that.  \code{"maxcons"} is the
+#'       recommended spelling, since it says what the rule does.}
+#'     \item{\code{"maxeffCons"}}{Pick the qualifier with the largest effect;
+#'       ties broken by fewest cuts (\code{K}).  The effect maximiser
+#'       \emph{subject to} the consistency floor -- as against \code{"maxeff"},
+#'       which applies no floor.  This is the only focus for which early
+#'       stopping is sound; see \code{stop_threshold}.}
+#'     \item{\code{"maxSG"}}{Pick the qualifier with the largest sample
+#'       size; ties broken by consistency.  Not a spelling of
+#'       \code{"hrMaxSG"}: it applies no effect band.}
+#'     \item{\code{"minSG"}}{Pick the qualifier with the smallest sample
+#'       size; ties broken by consistency.  Not a spelling of
+#'       \code{"hrMinSG"}.}
 #'     \item{\code{"hrMaxSG"} (or \code{"effMaxSG"})}{Among candidates
 #'       with effect size within \code{effect_neighborhood} of the
 #'       maximum, pick the one with the \emph{largest} sample size.}
@@ -437,9 +460,10 @@
 #'       Because consistency (\code{Pcons}) never enters the argmax, it is
 #'       computed for the SELECTED subgroup only (reported alongside it) rather
 #'       than for every candidate, avoiding the per-candidate consistency refits.
-#'       Contrast \code{"hr"}, which
-#'       ranks by consistency first, uses effect only as a tiebreaker, and
-#'       under early stopping returns the first passer in effect order.}
+#'       Contrast \code{"maxeffCons"}, which applies the same argmax but only
+#'       among candidates clearing \code{pconsistency.threshold}, and
+#'       \code{"hr"}, which ranks by consistency first and uses effect only as
+#'       a tiebreaker.}
 #'   }
 #'   Default \code{"hr"}.  The \code{"eff*"} forms are aliases for the
 #'   \code{"hr*"} forms and read more naturally in GLM contexts
@@ -447,6 +471,20 @@
 #'   hazard ratio.  Both vocabularies produce identical results; pick
 #'   whichever fits the outcome type.  See \code{\link{sort_subgroups}}
 #'   for full sort keys and tiebreakers.
+#'
+#'   \strong{Scope of the band arguments.}  \code{selection_rule} and
+#'   \code{effect_neighborhood} configure the effect band, which only
+#'   \code{"hrMaxSG"} / \code{"hrMinSG"} (equivalently \code{"effMaxSG"} /
+#'   \code{"effMinSG"}) consult.  They are inert for every other focus, and
+#'   supplying \code{selection_rule} other than \code{"neighborhood"} with a
+#'   non-band focus is an error rather than a silent no-op.
+#'
+#'   \strong{Choosing between the three effect-oriented rules.}
+#'   \code{"maxeff"} answers "what is the most extreme subgroup in this
+#'   family?"; \code{"maxeffCons"} answers "what is the most extreme subgroup
+#'   that also replicates across splits?"; \code{"hr"}/\code{"maxcons"} answers
+#'   "which subgroup replicates most reliably?".  They can and do select
+#'   different subgroups on the same data.
 #' @param selection_rule Character. Rule defining the candidate
 #'   inclusion set for \code{"hrMaxSG"} / \code{"hrMinSG"}.  One of
 #'   \code{"neighborhood"} (default; current behaviour),
