@@ -1,0 +1,168 @@
+---
+title: "forestsearch efficiency evaluation"
+subtitle: "Measurement only --- no package code modified"
+format: html
+bibliography: []
+execute:
+  echo: false
+  warning: false
+---
+
+```{r}
+#| label: load
+res_dir <- "results"
+rd <- function(f) {
+  p <- file.path(res_dir, f)
+  if (file.exists(p)) readRDS(p) else NULL
+}
+env <- rd("environment.rds"); G <- rd("G.rds"); M <- rd("M.rds")
+P <- rd("P.rds"); E <- rd("E.rds"); ALL <- rd("all.rds")
+fmt <- function(x, d = 2) formatC(x, format = "f", digits = d)
+```
+
+## Environment
+
+```{r}
+if (!is.null(env)) knitr::kable(t(env), col.names = "value") else
+  cat("No environment record found --- run `run_eval()` first.")
+```
+
+```{r}
+#| results: asis
+if (!is.null(ALL$guard)) {
+  cat("**Read-only contract:** ", ALL$guard$note, "\n\n", sep = "")
+}
+```
+
+## Stage G --- equivalence gates
+
+Speedups below are reportable only for candidates whose gate passed. A failed
+gate means the candidate does not compute the same thing, and its timing is
+not evidence of anything.
+
+```{r}
+if (!is.null(G)) {
+  knitr::kable(G[, c("gate", "what", "n", "pass", "detail")])
+} else cat("Stage G not run.")
+```
+
+```{r}
+#| results: asis
+if (!is.null(G) && !all(G$pass, na.rm = TRUE)) {
+  cat("\n::: {.callout-important}\n## Gate failure\n",
+      "One or more candidates did not reproduce the package result. ",
+      "Do not incorporate those candidates on the strength of their timing.\n:::\n")
+}
+```
+
+## Stage M --- unit costs
+
+```{r}
+if (!is.null(M)) {
+  m <- M
+  m$speedup <- paste0(fmt(m$speedup, 2), "x")
+  m$current_ms <- fmt(m$current_ms, 3)
+  m$candidate_ms <- fmt(m$candidate_ms, 3)
+  knitr::kable(m[, c("id", "what", "n", "current_ms", "candidate_ms",
+                     "speedup", "note")])
+} else cat("Stage M not run.")
+```
+
+## Stage P --- parallel behaviour
+
+### P2: batch_size sweep (the decision point)
+
+`forestsearch()` defaults `stop_threshold = 0.95`; with `sg_focus = "hr"` the
+batching logic forces `batch_size = 1`, so each `future_lapply()` call carries
+one candidate. The question is empirical: does the finer early stopping save
+more than the idle workers and per-candidate serialization cost?
+
+Read the `extra` column: if `evaluated` stays low across all batch sizes,
+`batch_size = 1` is doing its job and should be left alone. If `evaluated`
+is large and wall-clock falls sharply as `batch_size` rises, the default is
+costing real time on this hardware.
+
+**The `selected` field must be identical across every row.** If it is not,
+batch size is changing the answer, and that is a correctness question that
+takes precedence over any timing.
+
+```{r}
+if (!is.null(P)) {
+  p2 <- P[P$id == "P2", ]
+  if (nrow(p2)) knitr::kable(p2[, c("x", "seconds", "extra")],
+                             col.names = c("batch_size", "seconds", "detail"))
+} else cat("Stage P not run.")
+```
+
+### P1 / P3 / P4
+
+```{r}
+if (!is.null(P)) {
+  rest <- P[P$id != "P2", ]
+  if (nrow(rest)) knitr::kable(rest[, c("id", "what", "x", "xlab",
+                                        "seconds", "extra")])
+}
+```
+
+## Stage E --- measured end-to-end attribution
+
+Shares come from `Rprof` on a sequential run, so they are observed rather than
+modelled. `E6` isolates pure formula dispatch --- the ceiling on what swapping
+in `coxph.fit()` can remove.
+
+```{r}
+if (!is.null(E)) knitr::kable(E) else cat("Stage E not run.")
+```
+
+## Decision table
+
+```{r}
+gate_ok <- function(ids) {
+  if (is.null(G)) return(NA)
+  sel <- G$gate %in% ids
+  if (!any(sel)) NA else all(G$pass[sel], na.rm = TRUE)
+}
+spd <- function(id) {
+  if (is.null(M)) return(NA_real_)
+  v <- M$speedup[M$id == id]
+  if (!length(v)) NA_real_ else stats::median(v, na.rm = TRUE)
+}
+
+dec <- data.frame(
+  stringsAsFactors = FALSE,
+  change = c("Fast Cox engine (coxph.fit)",
+             "Exact futility stopping",
+             "Search scorer without summary.survfit",
+             "Vectorised combination pre-screen",
+             "GLM via glm.fit",
+             "batch_size default at high worker counts",
+             "plan() hygiene in subgroup_search.R"),
+  gate = c(gate_ok(c("G1", "G2")), gate_ok(c("G3a", "G3b")),
+           gate_ok(c("G4a", "G4b")), gate_ok(grep("^G5", G$gate, value = TRUE)),
+           gate_ok("G6"), NA, NA),
+  measured = c(paste0(fmt(spd("M1")), "x"),
+               "see P2 (data-dependent)",
+               paste0(fmt(spd("M2")), "x"),
+               paste0(fmt(spd("M3.k2")), "x / ", fmt(spd("M3.k3")), "x"),
+               paste0(fmt(spd("M4")), "x"),
+               "see P2", "see P1"),
+  behaviour = c("Pcons bit-identical",
+                "decision identical; Pcons becomes a bound for rejected candidates",
+                "HR/medians identical; CI differs at ~1e-6 (qnorm vs 1.96)",
+                "passing set identical",
+                "estimate and SE identical",
+                "must verify selected subgroup is invariant",
+                "restores caller's plan; no numerical effect")
+)
+knitr::kable(dec)
+```
+
+## What this evaluation did not measure
+
+- The **adjusted** Cox path (`adjust_covariates`, especially `strata()`).
+  The fast engine does not apply there and no claim is made about it.
+- **DINA and GRF.** These findings concern the FS search and consistency
+  stages only.
+- Any **GLM outcome family beyond the one gated** (`run_glm = TRUE` covers
+  binary/OR). Continuous/MD and count/IRR are untested here.
+- Interaction with `use_twostage = TRUE`, which has its own screening logic.

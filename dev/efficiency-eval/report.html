@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>forestsearch efficiency evaluation</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="report_files/libs/clipboard/clipboard.min.js"></script>
+<script src="report_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="report_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="report_files/libs/quarto-html/popper.min.js"></script>
+<script src="report_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="report_files/libs/quarto-html/anchor.min.js"></script>
+<link href="report_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="report_files/libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="report_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="report_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="report_files/libs/bootstrap/bootstrap-495e6bcb9a188ae19484469917226738.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">forestsearch efficiency evaluation</h1>
+<p class="subtitle lead">Measurement only — no package code modified</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="environment" class="level2">
+<h2 class="anchored" data-anchor-id="environment">Environment</h2>
+<div class="cell">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: left;">value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">timestamp</td>
+<td style="text-align: left;">2026-07-28 20:39:31 PDT</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">r_version</td>
+<td style="text-align: left;">4.6.1</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">platform</td>
+<td style="text-align: left;">x86_64-pc-linux-gnu</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">blas</td>
+<td style="text-align: left;">/usr/lib/x86_64-linux-gnu/blas/libblas.so.3.12.0</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">detect_cores</td>
+<td style="text-align: left;">128</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">avail_cores</td>
+<td style="text-align: left;">128</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">forestsearch</td>
+<td style="text-align: left;">0.2.0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">survival</td>
+<td style="text-align: left;">3.8.9</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">data_table</td>
+<td style="text-align: left;">1.18.4</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">future</td>
+<td style="text-align: left;">1.75.0</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p><strong>Read-only contract:</strong> 138 source files verified unchanged</p>
+</section>
+<section id="stage-g-equivalence-gates" class="level2">
+<h2 class="anchored" data-anchor-id="stage-g-equivalence-gates">Stage G — equivalence gates</h2>
+<p>Speedups below are reportable only for candidates whose gate passed. A failed gate means the candidate does not compute the same thing, and its timing is not evidence of anything.</p>
+<div class="cell">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 38%">
+<col style="width: 3%">
+<col style="width: 3%">
+<col style="width: 47%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">gate</th>
+<th style="text-align: left;">what</th>
+<th style="text-align: right;">n</th>
+<th style="text-align: left;">pass</th>
+<th style="text-align: left;">detail</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">G1</td>
+<td style="text-align: left;">coxph.fit == coxph (beta)</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">max |diff| = 0.000e+00 over 40 fits (incl.&nbsp;tied times)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">G2</td>
+<td style="text-align: left;">Pcons exact, engine swap only</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">exact for all hr.consistency tested</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">G3a</td>
+<td style="text-align: left;">futility: decision unchanged</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">identical at threshold 0.90</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">G3b</td>
+<td style="text-align: left;">futility: reported value is an upper bound</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">truncated Pcons &gt;= full-budget Pcons (cannot wrongly reject)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">G4a</td>
+<td style="text-align: left;">search scorer: HR matches</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">max |dHR| = 0.000e+00</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">G4b</td>
+<td style="text-align: left;">search scorer: medians match without summary.survfit</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">max |dCI| = 0.000e+00 (qnorm vs 1.96 in package)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">G5.L20.k2</td>
+<td style="text-align: left;">pre-screen selects identical set</td>
+<td style="text-align: right;">190</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">120 of 190 pass; L_eff = 16</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">G5.L20.k3</td>
+<td style="text-align: left;">pre-screen selects identical set</td>
+<td style="text-align: right;">1140</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">560 of 1140 pass; L_eff = 16</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">G5.L40.k2</td>
+<td style="text-align: left;">pre-screen selects identical set</td>
+<td style="text-align: right;">780</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">435 of 780 pass; L_eff = 30</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">G5.L40.k3</td>
+<td style="text-align: left;">pre-screen selects identical set</td>
+<td style="text-align: right;">9880</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">4053 of 9880 pass; L_eff = 30</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">G6</td>
+<td style="text-align: left;">glm.fit == glm + vcov</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">max |db| = 0.000e+00, max |dse| = 0.000e+00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section id="stage-m-unit-costs" class="level2">
+<h2 class="anchored" data-anchor-id="stage-m-unit-costs">Stage M — unit costs</h2>
+<div class="cell">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 4%">
+<col style="width: 26%">
+<col style="width: 3%">
+<col style="width: 7%">
+<col style="width: 9%">
+<col style="width: 5%">
+<col style="width: 42%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">id</th>
+<th style="text-align: left;">what</th>
+<th style="text-align: right;">n</th>
+<th style="text-align: left;">current_ms</th>
+<th style="text-align: left;">candidate_ms</th>
+<th style="text-align: left;">speedup</th>
+<th style="text-align: left;">note</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">M1</td>
+<td style="text-align: left;">single Cox fit (treatment-only)</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">1.286</td>
+<td style="text-align: left;">0.089</td>
+<td style="text-align: left;">14.53x</td>
+<td style="text-align: left;">dispatch overhead removed; numerics unchanged</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">M1</td>
+<td style="text-align: left;">single Cox fit (treatment-only)</td>
+<td style="text-align: right;">120</td>
+<td style="text-align: left;">1.300</td>
+<td style="text-align: left;">0.097</td>
+<td style="text-align: left;">13.40x</td>
+<td style="text-align: left;">dispatch overhead removed; numerics unchanged</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">M1</td>
+<td style="text-align: left;">single Cox fit (treatment-only)</td>
+<td style="text-align: right;">250</td>
+<td style="text-align: left;">1.364</td>
+<td style="text-align: left;">0.105</td>
+<td style="text-align: left;">12.99x</td>
+<td style="text-align: left;">dispatch overhead removed; numerics unchanged</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">M1</td>
+<td style="text-align: left;">single Cox fit (treatment-only)</td>
+<td style="text-align: right;">500</td>
+<td style="text-align: left;">1.545</td>
+<td style="text-align: left;">0.128</td>
+<td style="text-align: left;">12.07x</td>
+<td style="text-align: left;">dispatch overhead removed; numerics unchanged</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">M2</td>
+<td style="text-align: left;">fit_cox_for_subgroup (per candidate)</td>
+<td style="text-align: right;">300</td>
+<td style="text-align: left;">4.250</td>
+<td style="text-align: left;">1.200</td>
+<td style="text-align: left;">3.54x</td>
+<td style="text-align: left;">summary.survfit medians replaced by direct <span class="math inline">\(time/\)</span>surv read</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">M2</td>
+<td style="text-align: left;">fit_cox_for_subgroup (per candidate)</td>
+<td style="text-align: right;">686</td>
+<td style="text-align: left;">4.500</td>
+<td style="text-align: left;">1.300</td>
+<td style="text-align: left;">3.46x</td>
+<td style="text-align: left;">summary.survfit medians replaced by direct <span class="math inline">\(time/\)</span>surv read</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">M2</td>
+<td style="text-align: left;">fit_cox_for_subgroup (per candidate)</td>
+<td style="text-align: right;">1500</td>
+<td style="text-align: left;">5.000</td>
+<td style="text-align: left;">1.636</td>
+<td style="text-align: left;">3.06x</td>
+<td style="text-align: left;">summary.survfit medians replaced by direct <span class="math inline">\(time/\)</span>surv read</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">M3.k2</td>
+<td style="text-align: left;">screen 2-factor combinations</td>
+<td style="text-align: right;">190</td>
+<td style="text-align: left;">5.000</td>
+<td style="text-align: left;">2.300</td>
+<td style="text-align: left;">2.17x</td>
+<td style="text-align: left;">L=20 -&gt; L_eff=16; search space 210 -&gt; 136 (35% fewer)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">M3.k3</td>
+<td style="text-align: left;">screen 3-factor combinations</td>
+<td style="text-align: right;">1140</td>
+<td style="text-align: left;">38.500</td>
+<td style="text-align: left;">12.750</td>
+<td style="text-align: left;">3.02x</td>
+<td style="text-align: left;">L=20 -&gt; L_eff=16; search space 1350 -&gt; 696 (48% fewer)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">M3.k2</td>
+<td style="text-align: left;">screen 2-factor combinations</td>
+<td style="text-align: right;">780</td>
+<td style="text-align: left;">21.500</td>
+<td style="text-align: left;">9.000</td>
+<td style="text-align: left;">2.39x</td>
+<td style="text-align: left;">L=40 -&gt; L_eff=30; search space 820 -&gt; 465 (43% fewer)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">M3.k3</td>
+<td style="text-align: left;">screen 3-factor combinations</td>
+<td style="text-align: right;">9880</td>
+<td style="text-align: left;">329.500</td>
+<td style="text-align: left;">95.000</td>
+<td style="text-align: left;">3.47x</td>
+<td style="text-align: left;">L=40 -&gt; L_eff=30; search space 10700 -&gt; 4525 (58% fewer)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">M4</td>
+<td style="text-align: left;">GLM effect + SE (binary/OR)</td>
+<td style="text-align: right;">120</td>
+<td style="text-align: left;">0.750</td>
+<td style="text-align: left;">0.261</td>
+<td style="text-align: left;">2.88x</td>
+<td style="text-align: left;">glm.fit on prebuilt design; SE from QR</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">M4</td>
+<td style="text-align: left;">GLM effect + SE (binary/OR)</td>
+<td style="text-align: right;">300</td>
+<td style="text-align: left;">0.950</td>
+<td style="text-align: left;">0.400</td>
+<td style="text-align: left;">2.38x</td>
+<td style="text-align: left;">glm.fit on prebuilt design; SE from QR</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">M4</td>
+<td style="text-align: left;">GLM effect + SE (binary/OR)</td>
+<td style="text-align: right;">800</td>
+<td style="text-align: left;">1.364</td>
+<td style="text-align: left;">0.636</td>
+<td style="text-align: left;">2.14x</td>
+<td style="text-align: left;">glm.fit on prebuilt design; SE from QR</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section id="stage-p-parallel-behaviour" class="level2">
+<h2 class="anchored" data-anchor-id="stage-p-parallel-behaviour">Stage P — parallel behaviour</h2>
+<section id="p2-batch_size-sweep-the-decision-point" class="level3">
+<h3 class="anchored" data-anchor-id="p2-batch_size-sweep-the-decision-point">P2: batch_size sweep (the decision point)</h3>
+<p><code>forestsearch()</code> defaults <code>stop_threshold = 0.95</code>; with <code>sg_focus = "hr"</code> the batching logic forces <code>batch_size = 1</code>, so each <code>future_lapply()</code> call carries one candidate. The question is empirical: does the finer early stopping save more than the idle workers and per-candidate serialization cost?</p>
+<p>Read the <code>extra</code> column: if <code>evaluated</code> stays low across all batch sizes, <code>batch_size = 1</code> is doing its job and should be left alone. If <code>evaluated</code> is large and wall-clock falls sharply as <code>batch_size</code> rises, the default is costing real time on this hardware.</p>
+<p><strong>The <code>selected</code> field must be identical across every row.</strong> If it is not, batch size is changing the answer, and that is a correctness question that takes precedence over any timing.</p>
+<div class="cell">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 3%">
+<col style="width: 11%">
+<col style="width: 8%">
+<col style="width: 76%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: right;">batch_size</th>
+<th style="text-align: right;">seconds</th>
+<th style="text-align: left;">detail</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">6</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">8.543</td>
+<td style="text-align: left;">rep=1 evaluated=1 early_stop=TRUE selected={{er &lt;= 0} &amp; {size &lt;= 35}}</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">7</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">8.244</td>
+<td style="text-align: left;">rep=2 evaluated=1 early_stop=TRUE selected={{er &lt;= 0} &amp; {size &lt;= 35}}</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">8</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">8.028</td>
+<td style="text-align: left;">rep=3 evaluated=1 early_stop=TRUE selected={{er &lt;= 0} &amp; {size &lt;= 35}}</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">9</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">9.402</td>
+<td style="text-align: left;">rep=1 evaluated=8 early_stop=TRUE selected={{er &lt;= 0} &amp; {pgr &lt;= 33}}</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">10</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">9.450</td>
+<td style="text-align: left;">rep=2 evaluated=8 early_stop=TRUE selected={{er &lt;= 0} &amp; {pgr &lt;= 33}}</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">11</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">9.399</td>
+<td style="text-align: left;">rep=3 evaluated=8 early_stop=TRUE selected={{er &lt;= 0} &amp; {pgr &lt;= 33}}</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">12</td>
+<td style="text-align: right;">51</td>
+<td style="text-align: right;">9.462</td>
+<td style="text-align: left;">rep=1 evaluated=8 early_stop=TRUE selected={{er &lt;= 0} &amp; {pgr &lt;= 33}}</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">13</td>
+<td style="text-align: right;">51</td>
+<td style="text-align: right;">9.386</td>
+<td style="text-align: left;">rep=2 evaluated=8 early_stop=TRUE selected={{er &lt;= 0} &amp; {pgr &lt;= 33}}</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">14</td>
+<td style="text-align: right;">51</td>
+<td style="text-align: right;">9.421</td>
+<td style="text-align: left;">rep=3 evaluated=8 early_stop=TRUE selected={{er &lt;= 0} &amp; {pgr &lt;= 33}}</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">15</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">9.382</td>
+<td style="text-align: left;">rep=1 evaluated=8 early_stop=TRUE selected={{er &lt;= 0} &amp; {pgr &lt;= 33}}</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">16</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">9.410</td>
+<td style="text-align: left;">rep=2 evaluated=8 early_stop=TRUE selected={{er &lt;= 0} &amp; {pgr &lt;= 33}}</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">17</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">9.600</td>
+<td style="text-align: left;">rep=3 evaluated=8 early_stop=TRUE selected={{er &lt;= 0} &amp; {pgr &lt;= 33}}</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">18</td>
+<td style="text-align: right;">204</td>
+<td style="text-align: right;">9.429</td>
+<td style="text-align: left;">rep=1 evaluated=8 early_stop=TRUE selected={{er &lt;= 0} &amp; {pgr &lt;= 33}}</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">19</td>
+<td style="text-align: right;">204</td>
+<td style="text-align: right;">9.307</td>
+<td style="text-align: left;">rep=2 evaluated=8 early_stop=TRUE selected={{er &lt;= 0} &amp; {pgr &lt;= 33}}</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">20</td>
+<td style="text-align: right;">204</td>
+<td style="text-align: right;">9.400</td>
+<td style="text-align: left;">rep=3 evaluated=8 early_stop=TRUE selected={{er &lt;= 0} &amp; {pgr &lt;= 33}}</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section id="p1-p3-p4" class="level3">
+<h3 class="anchored" data-anchor-id="p1-p3-p4">P1 / P3 / P4</h3>
+<div class="cell">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 2%">
+<col style="width: 3%">
+<col style="width: 28%">
+<col style="width: 3%">
+<col style="width: 8%">
+<col style="width: 6%">
+<col style="width: 48%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: left;">id</th>
+<th style="text-align: left;">what</th>
+<th style="text-align: right;">x</th>
+<th style="text-align: left;">xlab</th>
+<th style="text-align: right;">seconds</th>
+<th style="text-align: left;">extra</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">1</td>
+<td style="text-align: left;">P1</td>
+<td style="text-align: left;">cold pool spawn + first dispatch</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: left;">workers</td>
+<td style="text-align: right;">0.019</td>
+<td style="text-align: left;">cost paid per subgroup.search() call</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">2</td>
+<td style="text-align: left;">P1</td>
+<td style="text-align: left;">cold pool spawn + first dispatch</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: left;">workers</td>
+<td style="text-align: right;">0.487</td>
+<td style="text-align: left;">cost paid per subgroup.search() call</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">3</td>
+<td style="text-align: left;">P1</td>
+<td style="text-align: left;">cold pool spawn + first dispatch</td>
+<td style="text-align: right;">32</td>
+<td style="text-align: left;">workers</td>
+<td style="text-align: right;">0.724</td>
+<td style="text-align: left;">cost paid per subgroup.search() call</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">4</td>
+<td style="text-align: left;">P1</td>
+<td style="text-align: left;">cold pool spawn + first dispatch</td>
+<td style="text-align: right;">64</td>
+<td style="text-align: left;">workers</td>
+<td style="text-align: right;">1.138</td>
+<td style="text-align: left;">cost paid per subgroup.search() call</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">5</td>
+<td style="text-align: left;">P1</td>
+<td style="text-align: left;">cold pool spawn + first dispatch</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: left;">workers</td>
+<td style="text-align: right;">1.570</td>
+<td style="text-align: left;">cost paid per subgroup.search() call</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">21</td>
+<td style="text-align: left;">P3</td>
+<td style="text-align: left;">forestsearch() wall-clock by workers</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: left;">workers</td>
+<td style="text-align: right;">2.423</td>
+<td style="text-align: left;">batch_size = workers</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">22</td>
+<td style="text-align: left;">P3</td>
+<td style="text-align: left;">forestsearch() wall-clock by workers</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: left;">workers</td>
+<td style="text-align: right;">6.011</td>
+<td style="text-align: left;">batch_size = workers</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">23</td>
+<td style="text-align: left;">P3</td>
+<td style="text-align: left;">forestsearch() wall-clock by workers</td>
+<td style="text-align: right;">32</td>
+<td style="text-align: left;">workers</td>
+<td style="text-align: right;">6.779</td>
+<td style="text-align: left;">batch_size = workers</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">24</td>
+<td style="text-align: left;">P3</td>
+<td style="text-align: left;">forestsearch() wall-clock by workers</td>
+<td style="text-align: right;">64</td>
+<td style="text-align: left;">workers</td>
+<td style="text-align: right;">7.873</td>
+<td style="text-align: left;">batch_size = workers</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">25</td>
+<td style="text-align: left;">P3</td>
+<td style="text-align: left;">forestsearch() wall-clock by workers</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: left;">workers</td>
+<td style="text-align: right;">9.399</td>
+<td style="text-align: left;">batch_size = workers</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">26</td>
+<td style="text-align: left;">P4a</td>
+<td style="text-align: left;">closure payload size</td>
+<td style="text-align: right;">686</td>
+<td style="text-align: left;">rows in df</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">0.04 MB per dispatch</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">27</td>
+<td style="text-align: left;">P4b</td>
+<td style="text-align: left;">serialize() cost per dispatch</td>
+<td style="text-align: right;">686</td>
+<td style="text-align: left;">rows in df</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: left;">x 200 candidates at batch_size=1 -&gt; 0.0 s of pure serialization</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+</section>
+<section id="stage-e-measured-end-to-end-attribution" class="level2">
+<h2 class="anchored" data-anchor-id="stage-e-measured-end-to-end-attribution">Stage E — measured end-to-end attribution</h2>
+<p>Shares come from <code>Rprof</code> on a sequential run, so they are observed rather than modelled. <code>E6</code> isolates pure formula dispatch — the ceiling on what swapping in <code>coxph.fit()</code> can remove.</p>
+<div class="cell">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 1%">
+<col style="width: 19%">
+<col style="width: 4%">
+<col style="width: 4%">
+<col style="width: 69%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">id</th>
+<th style="text-align: left;">what</th>
+<th style="text-align: right;">value</th>
+<th style="text-align: left;">unit</th>
+<th style="text-align: left;">note</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">E1</td>
+<td style="text-align: left;">forestsearch() wall-clock (sequential)</td>
+<td style="text-align: right;">3.694000</td>
+<td style="text-align: left;">s</td>
+<td style="text-align: left;">profiled run; see stage P for parallel wall-clock</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E2</td>
+<td style="text-align: left;">share in consistency evaluation</td>
+<td style="text-align: right;">6.750000</td>
+<td style="text-align: left;">% of total</td>
+<td style="text-align: left;">measured; tiny here because early stop fires at candidate 1</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">E3</td>
+<td style="text-align: left;">share in subgroup search (candidate screening)</td>
+<td style="text-align: right;">26.980000</td>
+<td style="text-align: left;">% of total</td>
+<td style="text-align: left;">per-candidate Cox+survfit screening during enumeration</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E3b</td>
+<td style="text-align: left;">share in GRF candidate construction</td>
+<td style="text-align: right;">37.300000</td>
+<td style="text-align: left;">% of total</td>
+<td style="text-align: left;">candidate construction – NOT touched by any candidate change</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">E3c</td>
+<td style="text-align: left;">share in LASSO candidate construction</td>
+<td style="text-align: right;">6.940000</td>
+<td style="text-align: left;">% of total</td>
+<td style="text-align: left;">candidate construction – NOT touched by any candidate change</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E4</td>
+<td style="text-align: left;">share in coxph() specifically</td>
+<td style="text-align: right;">8.930000</td>
+<td style="text-align: left;">% of total</td>
+<td style="text-align: left;">upper bound on what the fast engine can remove</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">E5</td>
+<td style="text-align: left;">share in survfit/summary.survfit</td>
+<td style="text-align: right;">6.750000</td>
+<td style="text-align: left;">% of total</td>
+<td style="text-align: left;">median columns; unused for selection when m1.threshold = Inf</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E6</td>
+<td style="text-align: left;">share in model.frame/model.matrix/terms</td>
+<td style="text-align: right;">1.590000</td>
+<td style="text-align: left;">% of total</td>
+<td style="text-align: left;">pure formula dispatch – the overhead coxph.fit() removes</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">E7</td>
+<td style="text-align: left;">projected speedup, fast Cox engine only</td>
+<td style="text-align: right;">1.090447</td>
+<td style="text-align: left;">x</td>
+<td style="text-align: left;">Amdahl on measured coxph share 8.9% at 14.1x</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E8</td>
+<td style="text-align: left;">NOTE</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">Futility stopping reduces the NUMBER of fits and so multiplies on top of E7; its factor is data-dependent and is measured directly in stage P2, not projected here.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section id="decision-table" class="level2">
+<h2 class="anchored" data-anchor-id="decision-table">Decision table</h2>
+<div class="cell">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 30%">
+<col style="width: 3%">
+<col style="width: 17%">
+<col style="width: 48%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">change</th>
+<th style="text-align: left;">gate</th>
+<th style="text-align: left;">measured</th>
+<th style="text-align: left;">behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Fast Cox engine (coxph.fit)</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">13.19x</td>
+<td style="text-align: left;">Pcons bit-identical</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Exact futility stopping</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">see P2 (data-dependent)</td>
+<td style="text-align: left;">decision identical; Pcons becomes a bound for rejected candidates</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Search scorer without summary.survfit</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">3.46x</td>
+<td style="text-align: left;">HR/medians identical; CI differs at ~1e-6 (qnorm vs 1.96)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Vectorised combination pre-screen</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">2.28x / 3.24x</td>
+<td style="text-align: left;">passing set identical</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">GLM via glm.fit</td>
+<td style="text-align: left;">TRUE</td>
+<td style="text-align: left;">2.38x</td>
+<td style="text-align: left;">estimate and SE identical</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">batch_size default at high worker counts</td>
+<td style="text-align: left;">NA</td>
+<td style="text-align: left;">see P2</td>
+<td style="text-align: left;">must verify selected subgroup is invariant</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">plan() hygiene in subgroup_search.R</td>
+<td style="text-align: left;">NA</td>
+<td style="text-align: left;">see P1</td>
+<td style="text-align: left;">restores caller’s plan; no numerical effect</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section id="what-this-evaluation-did-not-measure" class="level2">
+<h2 class="anchored" data-anchor-id="what-this-evaluation-did-not-measure">What this evaluation did not measure</h2>
+<ul>
+<li>The <strong>adjusted</strong> Cox path (<code>adjust_covariates</code>, especially <code>strata()</code>). The fast engine does not apply there and no claim is made about it.</li>
+<li><strong>DINA and GRF.</strong> These findings concern the FS search and consistency stages only.</li>
+<li>Any <strong>GLM outcome family beyond the one gated</strong> (<code>run_glm = TRUE</code> covers binary/OR). Continuous/MD and count/IRR are untested here.</li>
+<li>Interaction with <code>use_twostage = TRUE</code>, which has its own screening logic.</li>
+</ul>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
