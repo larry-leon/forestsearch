@@ -76,17 +76,31 @@ and then the focus's own key is applied to the truncation
   and is therefore already in the prefix. Do not justify the coupling as a
   correctness fix in `NEWS.md`.
 
-**General criterion, from which the last column follows:** early stopping is
-valid iff the enumeration order's primary term matches the selection key's
-primary term.
+**General criterion (CORRECTED):** early stopping is sound only if the selection
+key contains **no `Pcons` term at all**.
+
+An earlier version of this brief said "the enumeration order's primary term
+matches the key's primary term". That is too weak: it ignores **ties in the
+primary term**, which expose a secondary `Pcons` term. Worked counterexample
+for `minSG` (key `(N, -Pcons, K)`, enumeration `(n, K)`):
+
+    A: N = 50, K = 1, Pcons = 0.96     <- reaches stop_threshold, loop halts
+    B: N = 50, K = 2, Pcons = 0.99     <- never evaluated
+
+Prefix = {A}, so A wins. The true `minSG` winner is B: same `N`, higher `Pcons`.
+`Pcons` is not knowable before evaluation, so no enumeration order can fix this.
+
+`maxeffCons` is the ONLY focus whose key is entirely pre-computable: key
+`(-hr, K)` and enumeration `(-HR, K)` are the same ordering, ties included, so
+the first qualifier is provably the winner.
 
 | `sg_focus` | selection rule | consistency gate | early stop valid |
 |---|---|---|---|
 | `maxeff` | argmax effect over **all** candidates | **none** -- winner-only evaluation; the winner is retained even if it fails the floor | n/a (winner-only fast path) |
 | `maxeffCons` *(new)* | argmax effect among qualifiers | `Pcons >= pconsistency.threshold` | **yes** (enum `-HR`, key `-hr`) |
 | `maxcons` (= `hr`, `eff`) | argmax `Pcons` among qualifiers; effect breaks ties | same | **no** (key `Pcons`-primary; not pre-sortable) |
-| `maxSG` | argmax `N` among qualifiers; `Pcons` breaks ties | same | **yes** (enum `-n`, key `-N`) |
-| `minSG` | argmin `N` among qualifiers; `Pcons` breaks ties | same | **yes** (enum `n`, key `N`) |
+| `maxSG` | argmax `N` among qualifiers; `Pcons` breaks ties | same | **no** -- `Pcons` secondary; unsound under `N` ties |
+| `minSG` | argmin `N` among qualifiers; `Pcons` breaks ties | same | **no** -- `Pcons` secondary; unsound under `N` ties |
 | `hrMaxSG` / `effMaxSG` | argmax `N` among qualifiers **within the effect band** | gate + band | **no** (already disabled) |
 | `hrMinSG` / `effMinSG` | argmin `N` among qualifiers **within the effect band** | gate + band | **no** (already disabled) |
 
@@ -223,13 +237,19 @@ selection key's primary term:
 | `hrMaxSG` / `hrMinSG` | band | `-in_band` | no | already disabled |
 
 1. `forestsearch_main.R:1200` — extend to
-   `sg_focus %in% c("hrMaxSG", "hrMinSG", "hr")`. Update the comment: the
+   `sg_focus %in% c("hrMaxSG", "hrMinSG", "hr", "maxSG", "minSG")`.
+   **Early stopping is permitted for `maxeffCons` ONLY** -- the only focus whose
+   selection key contains no `Pcons` term. `maxSG` / `minSG` are included in the
+   disable list because `Pcons` occupies their secondary key position and is
+   therefore unsound under ties in `N` (see the corrected criterion above).
+   Consequence: `stop_threshold` is meaningful for `maxeffCons` alone, and the
+   Phase 4 coupling matters only there. Document it that way. Update the comment: the
    stated principle (*"requires comparing HR and size across all candidates"*)
    generalises — `"hr"` requires comparing `Pcons` across all candidates.
    The existing `user_explicit` warning then fires for anyone who set
    `stop_threshold` deliberately, which is correct and wanted.
 2. `subgroup_consistency_main.R:836-841` — change
-   `c("hr", "minSG")` to `c("minSG", "maxSG", "maxeffCons")`.
+   `c("hr", "minSG")` to `c("maxeffCons")`.
 
 **Acceptance:**
 * `sg_focus = "hr"` returns the SAME subgroup for
