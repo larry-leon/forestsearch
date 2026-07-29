@@ -542,12 +542,32 @@ sort_subgroups <- function(result_new, sg_focus,
                            effect_neighborhood = 0.10,
                            effect_log_scale = FALSE) {
 
+  # Normalize the alias vocabulary ("eff", "effMaxSG", "effMinSG", "maxcons")
+  # before anything keys on sg_focus.  This function is exported and may be
+  # called directly, in which case no caller has normalized for us; the
+  # .validate_selection_rule() call below is present for the same reason.
+  # Normalizing FIRST also means selection_rule = "pareto" is accepted for
+  # "effMaxSG"/"effMinSG", matching their canonical "hrMaxSG"/"hrMinSG" forms.
+  sg_focus <- .normalize_sg_focus(sg_focus)
+
   .validate_selection_rule(selection_rule, sg_focus, effect_neighborhood)
 
   # Effect maximiser, no auxiliary condition.  Distinct from "hr", which sorts
   # (-Pcons, -hr, K) and lets consistency dominate.  K breaks exact ties toward
   # the simpler rule; it cannot override the effect ordering.
   if (sg_focus == "maxeff") {
+    data.table::setorder(result_new, -hr, K)
+    return(result_new)
+  }
+  # maxeffCons: the effect maximiser among CONSISTENCY-QUALIFYING candidates.
+  # The key is identical to maxeff's, but the population it ranges over is not:
+  # every row reaching here already cleared pconsistency.threshold, because
+  # evaluate_subgroup_consistency() returns NULL below it.  So the consistency
+  # gate is applied by construction and needs no term in the sort key.  The
+  # difference from maxeff is upstream, in subgroup.consistency(): maxeff takes
+  # a winner-only fast path and keeps its winner even when consistency fails,
+  # whereas maxeffCons must evaluate every candidate.
+  if (sg_focus == "maxeffCons") {
     data.table::setorder(result_new, -hr, K)
     return(result_new)
   }
@@ -623,9 +643,20 @@ sort_subgroups_preview <- function(result_new, sg_focus,
                                    effect_neighborhood = 0.10,
                                    effect_log_scale = FALSE) {
 
+  # See sort_subgroups(): normalize aliases before keying on sg_focus, since
+  # this function is exported and may be called without a normalizing caller.
+  sg_focus <- .normalize_sg_focus(sg_focus)
+
   .validate_selection_rule(selection_rule, sg_focus, effect_neighborhood)
 
   if (sg_focus == "maxeff") {
+    data.table::setorder(result_new, -HR, K)
+    return(result_new)
+  }
+  # maxeffCons enumerates effect-descending, matching its selection key's
+  # primary term -- which is what makes first-passer early stopping valid for
+  # it (see subgroup.consistency()'s batch guard).
+  if (sg_focus == "maxeffCons") {
     data.table::setorder(result_new, -HR, K)
     return(result_new)
   }

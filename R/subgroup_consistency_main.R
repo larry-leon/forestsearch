@@ -1056,7 +1056,8 @@ subgroup.consistency <- function(df,
     # Validate sg_focus.  Note: hrMaxSG and hrMinSG are passed through
     # unchanged (no longer collapsed to maxSG/minSG), so that the
     # neighborhood-based selection in sort_subgroups() is applied.
-    valid_sg_focus <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG", "maxeff")
+    valid_sg_focus <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG",
+                        "maxeff", "maxeffCons")
     if (!sg_focus %in% valid_sg_focus) {
       stop(sprintf("Unknown sg_focus value: %s", sg_focus))
     }

@@ -1079,9 +1079,10 @@ forestsearch <- function(df.analysis,
   # check below.
   sg_focus_user <- sg_focus                       # save for error message
   sg_focus      <- .normalize_sg_focus(sg_focus)
-  valid_sg_focus <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG", "maxeff")
+  valid_sg_focus <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG",
+                      "maxeff", "maxeffCons")
   valid_sg_focus_user <- c(valid_sg_focus,
-                           "eff", "effMaxSG", "effMinSG")
+                           "eff", "effMaxSG", "effMinSG", "maxcons")
   if (!is.character(sg_focus) || length(sg_focus) != 1L ||
       !sg_focus %in% valid_sg_focus) {
     stop(sprintf(

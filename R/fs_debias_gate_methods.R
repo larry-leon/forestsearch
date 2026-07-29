@@ -140,6 +140,12 @@
          minSG    = "minSG",
          maxcons  = "maxcons",
          maxeff   = "maxeff",
+         # maxeffCons -> the gate's "maxeff", which is
+         # passers[which.max(beta[passers])]: argmax effect among PASSERS, and
+         # `passers` is the gate's consistency-qualifying set (driven by
+         # p_star = pconsistency.threshold).  So the gate rule named "maxeff"
+         # is the maxeffCons rule, NOT sg_focus = "maxeff" (which is ungated).
+         maxeffCons = "maxeff",
          effMaxSG = "effMaxSG",
          effMinSG = "effMinSG",
          hr_rule)
