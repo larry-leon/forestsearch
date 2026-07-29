@@ -56,8 +56,27 @@ gbsg_fs <- function(...) {
   do.call(forestsearch::forestsearch, base)
 }
 
-#' The comparable part of a fit: the selected subgroup and its scored row.
-#' Excludes timings and the echoed call, which differ by construction.
+#' The SELECTION only -- what invariance checks must compare.
+#'
+#' Deliberately excludes n_candidates_evaluated / n_passed / early_stop_triggered.
+#' Those are bookkeeping and legitimately vary with batch_size under a focus that
+#' early-stops: a larger batch scores more candidates before the stop condition
+#' is noticed, so it reports a higher n_evaluated and finds more qualifiers while
+#' selecting the same subgroup.  Comparing them would flag correct behaviour as a
+#' regression.  `m` is retained: it is the candidate's index in the enumeration
+#' order, which batching does not change.
+gbsg_pick <- function(fs) {
+  gc_ <- fs$grp.consistency
+  res <- gc_$out_sg$result
+  list(
+    sg_def  = if (is.null(fs$sg.harm)) NA_character_ else paste(fs$sg.harm, collapse = " & "),
+    n_sel   = if (is.null(gc_$sg.harm.id)) NA_integer_ else sum(gc_$sg.harm.id == 1L),
+    top_row = if (is.null(res) || !nrow(res)) NULL else
+                as.list(as.data.frame(res)[1, c("Pcons", "hr", "N", "K", "m")])
+  )
+}
+
+#' Selection plus the scan diagnostics, for reporting (not for invariance).
 gbsg_selection <- function(fs) {
   gc_ <- fs$grp.consistency
   res <- gc_$out_sg$result

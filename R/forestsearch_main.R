@@ -472,16 +472,35 @@
 #'   subgroup's consistency probability (\code{Pcons}) meets or exceeds this
 #'   threshold, evaluation stops early -- remaining candidates are skipped.
 #'   Set to \code{NULL} to disable early stopping and force evaluation of
-#'   all candidates up to \code{max_subgroups_search}. Default \code{0.95}.
+#'   all candidates up to \code{max_subgroups_search}. Defaults to
+#'   \code{pconsistency.threshold}, so it tracks the consistency floor
+#'   automatically if that is changed.
+#'
+#'   \strong{Applies to \code{sg_focus = "maxeffCons"} only.} Early stopping
+#'   halts the scan and then applies the focus's selection key to the resulting
+#'   prefix, so it is sound only when that key is fully determined by the
+#'   enumeration order.  \code{Pcons} is not -- it is unknown until a candidate
+#'   is evaluated -- so any focus whose key contains a \code{Pcons} term can be
+#'   beaten by a candidate the scan never reached.  \code{"maxeffCons"} is the
+#'   only focus with no such term: its key \code{(-hr, K)} is exactly the
+#'   enumeration order \code{(-HR, K)}, ties included, so the first qualifying
+#'   candidate is provably the winner.
+#'
+#'   For every other focus \code{stop_threshold} is reset to \code{NULL}, with a
+#'   warning if it was supplied explicitly:
+#'   \itemize{
+#'     \item \code{"hr"} (\code{"eff"}, \code{"maxcons"}) selects on
+#'       \code{Pcons} directly;
+#'     \item \code{"maxSG"} / \code{"minSG"} use \code{Pcons} to break ties in
+#'       subgroup size, which a truncated scan can miss;
+#'     \item \code{"hrMaxSG"} / \code{"hrMinSG"} additionally need the whole
+#'       pool to compute the effect neighborhood;
+#'     \item \code{"maxeff"} evaluates only its winner, so early stopping has
+#'       nothing to skip.
+#'   }
 #'
 #'   \strong{Note:} Values > 1.0 are not permitted. To disable early
 #'   stopping, use \code{stop_threshold = NULL}, not a value above 1.
-#'
-#'   Automatically reset to \code{NULL} (with a warning) when
-#'   \code{sg_focus} is \code{"hrMaxSG"} or \code{"hrMinSG"}, because
-#'   neighborhood-based selection requires comparing effect sizes
-#'   across all candidates to determine the in-neighborhood set.
-#'   Also overridden to \code{NULL} under \code{sg_focus = "maxeff"}.
 #' @param fs.splits Integer. Number of splits for consistency evaluation (or maximum
 #'   splits when \code{use_twostage = TRUE}). Default 1000.
 #' @param m1.threshold Numeric. Maximum median survival threshold. Default Inf.
@@ -884,7 +903,12 @@ forestsearch <- function(df.analysis,
                          fs.splits = 1000,
                          m1.threshold = Inf,
                          pconsistency.threshold = 0.90,
-                         stop_threshold = 0.95,
+                         # Lazily coupled: a candidate in
+                         # [pconsistency.threshold, stop_threshold) qualifies
+                         # but does not halt the scan, so the two must not
+                         # drift apart.  Written as a promise, not a literal,
+                         # so it tracks a user-supplied floor.
+                         stop_threshold = pconsistency.threshold,
                          show_candidate_summary = FALSE,
                          max_print = 10,
                          d0.min = 10,
@@ -1196,19 +1220,55 @@ forestsearch <- function(df.analysis,
     }
   }
 
-  # Early stopping is incompatible with compound sg_focus criteria that
-  # require comparing HR *and* size across all candidates.
-  if (!is.null(stop_threshold) && sg_focus %in% c("hrMaxSG", "hrMinSG")) {
+  # Early stopping halts the candidate scan at the first candidate reaching
+  # stop_threshold, then applies the focus's own key to that PREFIX.  For the
+  # prefix winner to be the global winner, the key must be fully determined by
+  # quantities the enumeration order already fixes.  Pcons is not: it is only
+  # known after a candidate is evaluated.  So early stopping is sound only for a
+  # focus whose selection key contains NO Pcons term at all -- and among the
+  # consistency-engine foci that is maxeffCons alone (key (-hr, K), enumerated
+  # (-HR, K): the same ordering, ties included).
+  #
+  # A key with Pcons merely SECONDARY is still unsound, because ties in the
+  # primary term expose it.  For minSG (key (N, -Pcons, K), enumerated (n, K)):
+  #
+  #     A: N = 50, K = 1, Pcons = 0.96   <- reaches stop_threshold, loop halts
+  #     B: N = 50, K = 2, Pcons = 0.99   <- never evaluated
+  #
+  # The prefix is {A}, so A is returned; the true minSG winner is B, on the
+  # Pcons tiebreak.  No enumeration order can repair this, since Pcons cannot be
+  # sorted on before it is computed.  hr is unsound for the same reason with
+  # Pcons primary rather than secondary; hrMaxSG / hrMinSG additionally need the
+  # whole pool to compute the effect band.
+  #
+  # Consequence: stop_threshold is meaningful for maxeffCons only.
+  if (!is.null(stop_threshold) &&
+      sg_focus %in% c("hrMaxSG", "hrMinSG", "hr", "maxSG", "minSG")) {
 
     # Detect whether user explicitly set stop_threshold (vs. inheriting default)
     user_explicit <- !missing(stop_threshold)
 
     if (user_explicit) {
+      # The reason differs by focus, so state the applicable one rather than
+      # the band explanation (which only fits hrMaxSG / hrMinSG).
+      why <- if (sg_focus %in% c("hrMaxSG", "hrMinSG")) {
+        paste0("Neighborhood-based selection requires evaluating all ",
+               "candidates to determine the effect-size neighborhood.")
+      } else if (identical(sg_focus, "hr")) {
+        paste0("This focus selects on consistency rate (Pcons), which is only ",
+               "known after a candidate is evaluated, so the highest-Pcons ",
+               "candidate cannot be found from a truncated scan.")
+      } else {
+        paste0("This focus uses Pcons to break ties in subgroup size, and a ",
+               "truncated scan can halt before a tied candidate with higher ",
+               "Pcons has been evaluated.")
+      }
       warning(
         "stop_threshold = ", stop_threshold,
         " reset to NULL for sg_focus = '", sg_focus, "'.\n",
-        "Neighborhood-based selection requires evaluating all candidates ",
-        "to determine the effect-size neighborhood.\n",
+        why, "\n",
+        "Early stopping is available for sg_focus = 'maxeffCons', whose ",
+        "selection key contains no Pcons term.\n",
         "To suppress this warning, pass stop_threshold = NULL explicitly.",
         call. = FALSE
       )

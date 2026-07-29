@@ -60,7 +60,7 @@ forestsearch(
   fs.splits = 1000,
   m1.threshold = Inf,
   pconsistency.threshold = 0.9,
-  stop_threshold = 0.95,
+  stop_threshold = pconsistency.threshold,
   show_candidate_summary = FALSE,
   max_print = 10,
   d0.min = 10,
@@ -424,16 +424,35 @@ Early stopping threshold for consistency evaluation. When a candidate
 subgroup's consistency probability (\code{Pcons}) meets or exceeds this
 threshold, evaluation stops early -- remaining candidates are skipped.
 Set to \code{NULL} to disable early stopping and force evaluation of
-all candidates up to \code{max_subgroups_search}. Default \code{0.95}.
+all candidates up to \code{max_subgroups_search}. Defaults to
+\code{pconsistency.threshold}, so it tracks the consistency floor
+automatically if that is changed.
+
+\strong{Applies to \code{sg_focus = "maxeffCons"} only.} Early stopping
+halts the scan and then applies the focus's selection key to the resulting
+prefix, so it is sound only when that key is fully determined by the
+enumeration order.  \code{Pcons} is not -- it is unknown until a candidate
+is evaluated -- so any focus whose key contains a \code{Pcons} term can be
+beaten by a candidate the scan never reached.  \code{"maxeffCons"} is the
+only focus with no such term: its key \code{(-hr, K)} is exactly the
+enumeration order \code{(-HR, K)}, ties included, so the first qualifying
+candidate is provably the winner.
+
+For every other focus \code{stop_threshold} is reset to \code{NULL}, with a
+warning if it was supplied explicitly:
+\itemize{
+\item \code{"hr"} (\code{"eff"}, \code{"maxcons"}) selects on
+\code{Pcons} directly;
+\item \code{"maxSG"} / \code{"minSG"} use \code{Pcons} to break ties in
+subgroup size, which a truncated scan can miss;
+\item \code{"hrMaxSG"} / \code{"hrMinSG"} additionally need the whole
+pool to compute the effect neighborhood;
+\item \code{"maxeff"} evaluates only its winner, so early stopping has
+nothing to skip.
+}
 
 \strong{Note:} Values > 1.0 are not permitted. To disable early
-stopping, use \code{stop_threshold = NULL}, not a value above 1.
-
-Automatically reset to \code{NULL} (with a warning) when
-\code{sg_focus} is \code{"hrMaxSG"} or \code{"hrMinSG"}, because
-neighborhood-based selection requires comparing effect sizes
-across all candidates to determine the in-neighborhood set.
-Also overridden to \code{NULL} under \code{sg_focus = "maxeff"}.}
+stopping, use \code{stop_threshold = NULL}, not a value above 1.}
 
 \item{show_candidate_summary}{Logical. If \code{TRUE}, prints a
 post-consistency summary table of all passing candidates with

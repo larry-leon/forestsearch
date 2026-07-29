@@ -833,10 +833,18 @@ subgroup.consistency <- function(df,
       # User-specified batch size
       batch_size_parallel <- min(as.integer(parallel_args$batch_size), n_candidates)
     } else if (!is.null(stop_threshold)) {
-      # Early stopping enabled - batch size depends on sg_focus
-      if (sg_focus %in% c("hr", "minSG")) {
-        # For "hr" or "minSG", first passing candidate is optimal
-        # Use batch_size = 1 to stop immediately
+      # Early stopping enabled - batch size depends on sg_focus.
+      # maxeffCons is the only focus for which first-passer stopping is sound:
+      # its key (-hr, K) is exactly the enumeration order (-HR, K), ties
+      # included, so the first qualifier is provably the winner.  Any key with a
+      # Pcons term -- primary (hr) or merely a size tiebreak (maxSG, minSG) --
+      # can be beaten by an unevaluated candidate, so forestsearch() resets
+      # stop_threshold to NULL for those and this branch is not reached.
+      # Callers invoking subgroup.consistency() directly with such a focus AND
+      # an explicit stop_threshold get larger batches, which does not make the
+      # truncation sound; it only reduces how much is skipped.
+      if (sg_focus %in% c("maxeffCons")) {
+        # Batch of 1 halts at the earliest sound point.
         batch_size_parallel <- 1L
       } else {
         # For other sg_focus values, use smaller batches for granularity
