@@ -1,0 +1,467 @@
+---
+title: "`sg_focus` selection rules — smoke test"
+subtitle: "Legality, aliasing, distinctness, and invariance of the subgroup selection rule"
+author: "forestsearch"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+    embed-resources: true
+---
+
+## What this checks {#sec-intro}
+
+`sg_focus` decides **which** subgroup a search returns. This document exercises
+every accepted value end-to-end on **GBSG** (`survival::gbsg`, no external
+dependency) and asserts the properties the selection rules are supposed to have.
+
+The headline check is @sec-batch. Before the `maxeffCons` work, the subgroup
+returned under `sg_focus = "hr"` depended on `parallel_args$batch_size` — a
+performance knob silently changing a scientific result. That must be gone.
+
+The selection contract, by focus:
+
+| `sg_focus` | selects | consistency gate | early stop |
+|---|---|---|---|
+| `maxeff` | argmax effect over **all** candidates | none (winner-only evaluation) | n/a |
+| `maxeffCons` | argmax effect among qualifiers | `Pcons >= pconsistency.threshold` | **yes** |
+| `maxcons` = `hr` = `eff` | argmax `Pcons` among qualifiers; effect breaks ties | same | no |
+| `maxSG` | argmax `N` among qualifiers; `Pcons` breaks ties | same | no |
+| `minSG` | argmin `N` among qualifiers; `Pcons` breaks ties | same | no |
+| `hrMaxSG` = `effMaxSG` | argmax `N` among qualifiers **within the effect band** | gate + band | no |
+| `hrMinSG` = `effMinSG` | argmin `N` among qualifiers **within the effect band** | gate + band | no |
+
+Early stopping is sound only when the selection key is fully determined by the
+enumeration order. `Pcons` never is — it is unknown until a candidate is
+evaluated — so any key containing a `Pcons` term, **including as a mere
+tiebreak**, can be beaten by a candidate the scan never reached. `maxeffCons` is
+the only focus with no such term.
+
+`debias_gate = FALSE` throughout, to keep render time sane; @sec-gate checks the
+gate's rule *mapping* only.
+
+```{r setup, message=FALSE, warning=FALSE}
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+
+# GBSG ships with `survival`. In survival::gbsg, `grade` is an integer.
+df.analysis <- within(survival::gbsg, {
+  id          <- seq_len(nrow(survival::gbsg))
+  time_months <- rfstime / 30.4375
+  grade3      <- as.integer(grade == 3)
+})
+
+CONFS <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+
+FS_BASE <- list(
+  df.analysis            = df.analysis,
+  outcome.name           = "time_months",
+  event.name             = "status",
+  treat.name             = "hormon",
+  id.name                = "id",
+  confounders.name       = CONFS,
+  is.RCT                 = TRUE,
+  seedit                 = 8316951,
+  quiet                  = TRUE,
+  use_lasso              = FALSE,
+  use_grf                = FALSE,
+  use_twostage           = FALSE,
+  debias_gate            = FALSE,
+  consistency_method     = "resample",
+  hr.threshold           = 1.25,
+  hr.consistency         = 1.00,
+  pconsistency.threshold = 0.90,
+  maxk                   = 2L,
+  n.min                  = 60L,
+  d0.min                 = 12L,
+  d1.min                 = 12L,
+  conf_force             = c("er <= 0", "pgr <= 0"),
+  parallel_args          = list(plan = "sequential", workers = 1L)
+)
+
+# Overrides are applied with `args[nm] <- list(v)`, NOT utils::modifyList():
+# modifyList treats NULL as "delete this element", so `stop_threshold = NULL`
+# would silently be a no-op and the package default would still apply. Passing
+# NULL explicitly is central to @sec-stopthr, so it has to survive.
+fs_run <- function(...) {
+  args <- FS_BASE
+  over <- list(...)
+  for (nm in names(over)) args[nm] <- list(over[[nm]])
+  do.call(forestsearch, args)
+}
+
+# Run and classify: accepted (with the fit) or errored (with the message).
+fs_try <- function(...) {
+  warns <- character(0)
+  fit <- withCallingHandlers(
+    tryCatch(fs_run(...), error = function(e) structure(conditionMessage(e), class = "fs_err")),
+    warning = function(w) { warns <<- c(warns, conditionMessage(w)); invokeRestart("muffleWarning") })
+  list(ok = !inherits(fit, "fs_err"),
+       fit = if (inherits(fit, "fs_err")) NULL else fit,
+       msg = if (inherits(fit, "fs_err")) as.character(fit) else NA_character_,
+       warns = warns)
+}
+
+# The SELECTION only. Deliberately excludes n_candidates_evaluated / n_passed /
+# early_stop_triggered: those are bookkeeping and legitimately vary with
+# batch_size under a focus that early-stops (a larger batch scores more
+# candidates before the stop is noticed) while the selected subgroup is
+# unchanged. Comparing them would flag correct behaviour as a regression.
+fs_pick <- function(fit) {
+  gcx <- fit$grp.consistency
+  res <- gcx$out_sg$result
+  list(
+    sg_def  = if (is.null(fit$sg.harm)) NA_character_ else paste(fit$sg.harm, collapse = " & "),
+    n_sel   = if (is.null(gcx$sg.harm.id)) NA_integer_ else sum(gcx$sg.harm.id == 1L),
+    top_row = if (is.null(res) || !nrow(res)) NULL else
+                as.list(as.data.frame(res)[1, c("Pcons", "hr", "N", "K", "m")]))
+}
+
+FOCI <- c("maxeff", "maxeffCons", "maxcons", "hr", "eff",
+          "maxSG", "minSG", "hrMaxSG", "effMaxSG", "hrMinSG", "effMinSG")
+RULES <- c("neighborhood", "pareto", "both")
+
+# Collected assertions; @sec-summary fails the render if any did not hold.
+.checks <- list()
+check <- function(label, passed, detail = "") {
+  .checks[[length(.checks) + 1L]] <<-
+    data.frame(check = label, result = if (isTRUE(passed)) "PASS" else "FAIL",
+               detail = detail, stringsAsFactors = FALSE)
+  invisible(passed)
+}
+```
+
+## Legality matrix {#sec-legality}
+
+Every `sg_focus` crossed with every `selection_rule`. Expected: non-`"neighborhood"`
+accepted **only** for the four `*MaxSG` / `*MinSG` names, since the effect band
+is the only thing `selection_rule` configures.
+
+```{r legality}
+grid <- expand.grid(sg_focus = FOCI, selection_rule = RULES,
+                    stringsAsFactors = FALSE)
+
+runs <- Map(function(f, r) fs_try(sg_focus = f, selection_rule = r),
+            grid$sg_focus, grid$selection_rule)
+
+grid$accepted <- vapply(runs, `[[`, logical(1), "ok")
+grid$message  <- vapply(runs, function(x)
+  if (is.na(x$msg)) "" else sub("\\s+$", "", substr(x$msg, 1, 90)), character(1))
+
+band_foci <- c("hrMaxSG", "effMaxSG", "hrMinSG", "effMinSG")
+grid$expected <- grid$selection_rule == "neighborhood" | grid$sg_focus %in% band_foci
+grid$as_expected <- grid$accepted == grid$expected
+
+check("Legality matrix matches the documented scope of selection_rule",
+      all(grid$as_expected),
+      sprintf("%d of %d cells as expected", sum(grid$as_expected), nrow(grid)))
+
+gt(grid[, c("sg_focus", "selection_rule", "accepted", "as_expected", "message")]) |>
+  tab_header(title = "sg_focus x selection_rule",
+             subtitle = "selection_rule is only meaningful for the effect-band foci") |>
+  cols_label(sg_focus = "sg_focus", selection_rule = "selection_rule",
+             accepted = "accepted", as_expected = "as expected", message = "error (truncated)") |>
+  data_color(columns = "as_expected",
+             fn = function(x) ifelse(x, "#d9f2d9", "#f8d7da"))
+```
+
+## Selection results on GBSG {#sec-results}
+
+One row per legal combination.
+
+```{r results}
+legal <- which(grid$accepted)
+sel <- do.call(rbind, lapply(legal, function(i) {
+  p <- fs_pick(runs[[i]]$fit); gcx <- runs[[i]]$fit$grp.consistency
+  data.frame(sg_focus = grid$sg_focus[i], selection_rule = grid$selection_rule[i],
+             subgroup = p$sg_def, n = p$n_sel,
+             effect = if (is.null(p$top_row)) NA_real_ else round(p$top_row$hr, 3),
+             Pcons  = if (is.null(p$top_row)) NA_real_ else p$top_row$Pcons,
+             n_evaluated = gcx$n_candidates_evaluated,
+             n_total = gcx$n_candidates_total,
+             n_passed = gcx$n_passed,
+             early_stop = isTRUE(gcx$early_stop_triggered),
+             stringsAsFactors = FALSE)
+}))
+
+gt(sel) |>
+  tab_header(title = "Selected subgroup by focus",
+             subtitle = "GBSG; hr.threshold = 1.25, pconsistency.threshold = 0.90") |>
+  tab_footnote(footnote = md(paste(
+    "`early_stop` is TRUE only for `maxeffCons`: every other focus has a `Pcons`",
+    "term in its selection key, so `forestsearch()` resets `stop_threshold` to NULL.",
+    "`maxeff` evaluates the whole family but scores consistency for its winner only,",
+    "so `n_passed` counts effect-carry rows with `Pcons = NA`.")))
+```
+
+## Alias equivalence {#sec-alias}
+
+`eff`, `maxcons` and `hr` are the same rule; so are `effMaxSG`/`hrMaxSG` and
+`effMinSG`/`hrMinSG`. Equivalence is asserted on the **selection**, not on
+bookkeeping counters.
+
+```{r alias}
+pick_for <- function(f, rule = "neighborhood") {
+  i <- which(grid$sg_focus == f & grid$selection_rule == rule)
+  fs_pick(runs[[i]]$fit)
+}
+
+alias_sets <- list(c("hr", "eff", "maxcons"),
+                   c("hrMaxSG", "effMaxSG"),
+                   c("hrMinSG", "effMinSG"))
+
+alias_tab <- do.call(rbind, lapply(alias_sets, function(s) {
+  picks <- lapply(s, pick_for)
+  same  <- all(vapply(picks[-1], identical, logical(1), picks[[1]]))
+  check(sprintf("Alias set {%s} selects identically", paste(s, collapse = " = ")), same)
+  data.frame(aliases = paste(s, collapse = " = "),
+             subgroup = picks[[1]]$sg_def, n = picks[[1]]$n_sel,
+             identical = same, stringsAsFactors = FALSE)
+}))
+
+gt(alias_tab) |> tab_header(title = "Alias equivalence")
+```
+
+## `batch_size` invariance — the regression check {#sec-batch}
+
+**This is the defect the work was for.** `parallel_args$batch_size` is a
+performance knob; it must not change the selected subgroup for any focus.
+
+```{r batch}
+BATCHES <- c(1L, 8L, 64L)
+batch_tab <- do.call(rbind, lapply(setdiff(FOCI, character(0)), function(f) {
+  fits <- lapply(BATCHES, function(b) fs_try(
+    sg_focus = f,
+    parallel_args = list(plan = "sequential", workers = 1L, batch_size = b)))
+  picks <- lapply(fits, function(x) fs_pick(x$fit))
+  same  <- all(vapply(picks[-1], identical, logical(1), picks[[1]]))
+  check(sprintf("batch_size invariance: %s", f), same)
+  data.frame(sg_focus = f, subgroup = picks[[1]]$sg_def, n = picks[[1]]$n_sel,
+             n_evaluated = paste(vapply(fits, function(x)
+               x$fit$grp.consistency$n_candidates_evaluated, numeric(1)), collapse = " / "),
+             result = if (same) "PASS" else "FAIL", stringsAsFactors = FALSE)
+}))
+
+gt(batch_tab) |>
+  tab_header(title = "Selected subgroup vs batch_size in {1, 8, 64}",
+             subtitle = "Identical selection required for every focus") |>
+  tab_footnote(footnote = md(paste(
+    "`n_evaluated` differing across batch sizes is expected and correct for",
+    "`maxeffCons`: a larger batch scores more candidates before the stop condition",
+    "is noticed. Only the *selection* must be invariant.")),
+    locations = cells_column_labels(columns = "n_evaluated")) |>
+  data_color(columns = "result", fn = function(x) ifelse(x == "PASS", "#d9f2d9", "#f8d7da"))
+```
+
+## `stop_threshold` invariance {#sec-stopthr}
+
+For every focus whose key contains a `Pcons` term, `stop_threshold` is reset to
+`NULL`, so an explicit value must not change the selection — and must warn.
+For `maxeffCons`, early stopping is legal, so `NULL` and
+`pconsistency.threshold` must agree because the prefix sort recovers the global
+winner either way.
+
+```{r stopthr}
+RESET_FOCI <- c("hr", "maxSG", "minSG", "hrMaxSG", "hrMinSG")
+
+reset_tab <- do.call(rbind, lapply(RESET_FOCI, function(f) {
+  a <- fs_try(sg_focus = f, stop_threshold = NULL)
+  b <- fs_try(sg_focus = f, stop_threshold = 0.95)
+  same  <- identical(fs_pick(a$fit), fs_pick(b$fit))
+  warned <- any(grepl("reset to NULL", b$warns))
+  check(sprintf("stop_threshold inert for %s", f), same)
+  check(sprintf("explicit stop_threshold warns for %s", f), warned)
+  data.frame(sg_focus = f, subgroup = fs_pick(a$fit)$sg_def,
+             identical_selection = same, warned_on_explicit = warned,
+             stringsAsFactors = FALSE)
+}))
+
+mc_a <- fs_try(sg_focus = "maxeffCons", stop_threshold = NULL)
+mc_b <- fs_try(sg_focus = "maxeffCons", stop_threshold = 0.90)
+mc_same <- identical(fs_pick(mc_a$fit), fs_pick(mc_b$fit))
+check("maxeffCons: stop_threshold NULL vs pconsistency.threshold agree", mc_same)
+check("maxeffCons does not warn (early stopping is legal there)",
+      !any(grepl("reset to NULL", mc_b$warns)))
+
+reset_tab <- rbind(reset_tab,
+  data.frame(sg_focus = "maxeffCons", subgroup = fs_pick(mc_a$fit)$sg_def,
+             identical_selection = mc_same,
+             warned_on_explicit = any(grepl("reset to NULL", mc_b$warns)),
+             stringsAsFactors = FALSE))
+
+gt(reset_tab) |>
+  tab_header(title = "stop_threshold: explicit vs NULL") |>
+  tab_footnote(footnote = md(paste(
+    "`maxeffCons` is the only row that should NOT warn: it is the only focus for",
+    "which early stopping is sound, so an explicit `stop_threshold` is honoured",
+    "rather than reset.")))
+```
+
+## The foci are genuinely distinct {#sec-distinct}
+
+GBSG does not separate every rule (see @sec-results — several foci coincide
+there, which is a property of this dataset, not evidence the rules agree). To
+demonstrate the distinction rather than assume it, call the exported
+`sort_subgroups()` on a hand-built candidate table.
+
+```{r distinct}
+# Effect argmax (m = 1) is NOT the Pcons argmax (m = 2), and the effect argmax
+# fails the consistency floor. Because evaluate_subgroup_consistency() returns
+# NULL below the floor, a failing candidate never reaches sort_subgroups() under
+# a gated focus -- so the gated table omits it, while maxeff's winner-only fast
+# path retains it with Pcons = NA.
+failing  <- data.table(Pcons = NA_real_, hr = 3.10, N = 70,  E = 35, g = 0L, m = 1L, K = 2)
+qualified <- data.table(Pcons = c(0.99, 0.93), hr = c(1.30, 2.40), N = c(150, 80),
+                        E = c(70, 40), g = 1:2, m = 2:3, K = c(1, 2))
+
+top <- function(tab, f) as.data.frame(sort_subgroups(copy(tab), f))[1, ]
+
+r_maxeff     <- top(rbind(failing, qualified), "maxeff")
+r_maxeffCons <- top(qualified, "maxeffCons")
+r_maxcons    <- top(qualified, "maxcons")
+
+distinct_tab <- data.frame(
+  sg_focus = c("maxeff", "maxeffCons", "maxcons"),
+  ranges_over = c("all candidates, ungated", "qualifiers only", "qualifiers only"),
+  m = c(r_maxeff$m, r_maxeffCons$m, r_maxcons$m),
+  effect = c(r_maxeff$hr, r_maxeffCons$hr, r_maxcons$hr),
+  Pcons = c(r_maxeff$Pcons, r_maxeffCons$Pcons, r_maxcons$Pcons),
+  stringsAsFactors = FALSE)
+
+all_differ <- length(unique(distinct_tab$m)) == 3L
+check("maxeff / maxeffCons / maxcons select three different candidates", all_differ,
+      sprintf("m = %s", paste(distinct_tab$m, collapse = ", ")))
+check("maxeff retains a winner that failed the consistency floor",
+      is.na(r_maxeff$Pcons) && r_maxeff$hr == 3.10)
+check("maxeffCons returns the highest-effect QUALIFIER",
+      r_maxeffCons$hr == 2.40 && !is.na(r_maxeffCons$Pcons))
+check("maxcons returns the Pcons argmax", r_maxcons$Pcons == 0.99)
+
+gt(distinct_tab) |>
+  tab_header(title = "Three rules, three different winners",
+             subtitle = "Hand-built candidate table; sort_subgroups() called directly") |>
+  tab_footnote(footnote = md(paste(
+    "`maxeff` returns m = 1 (effect 3.10) with `Pcons = NA` -- it failed the floor",
+    "but is retained. `maxeffCons` returns m = 3, the highest-effect *qualifier*.",
+    "`maxcons` returns m = 2, the consistency argmax, whose effect is the lowest",
+    "of the three.")))
+```
+
+Whether GBSG separates the foci in @sec-results:
+
+```{r distinct-gbsg}
+gb <- unique(sel[sel$selection_rule == "neighborhood", c("sg_focus", "subgroup", "n")])
+n_distinct_gbsg <- length(unique(gb$subgroup))
+cat(sprintf("On GBSG the %d foci yield %d distinct subgroup(s):\n",
+            nrow(gb), n_distinct_gbsg))
+for (s in unique(gb$subgroup))
+  cat(sprintf("  %-30s <- %s\n", s, paste(gb$sg_focus[gb$subgroup == s], collapse = ", ")))
+cat("\nCoincidence here is a property of this dataset, not of the rules;\n",
+    "@sec-distinct separates them by construction.\n", sep = "")
+```
+
+## Threshold coupling {#sec-coupling}
+
+`stop_threshold` defaults to `pconsistency.threshold` (a promise, not a
+literal), so it tracks a user-supplied floor.
+
+```{r coupling}
+coup <- do.call(rbind, lapply(c(0.90, 0.85, 0.75), function(p) {
+  fit <- fs_run(sg_focus = "maxeffCons", pconsistency.threshold = p)
+  data.frame(pconsistency.threshold = p,
+             resolved_stop_threshold = fit$grp.consistency$stop_threshold,
+             in_args_call_all = fit$args_call_all$stop_threshold,
+             stringsAsFactors = FALSE)
+}))
+coup$tracks <- isTRUE(all.equal(coup$resolved_stop_threshold, coup$pconsistency.threshold))
+check("stop_threshold tracks pconsistency.threshold (no hardcoded 0.90)",
+      isTRUE(all.equal(coup$resolved_stop_threshold, coup$pconsistency.threshold)),
+      paste(coup$resolved_stop_threshold, collapse = ", "))
+
+gt(coup) |>
+  tab_header(title = "Lazily coupled default") |>
+  tab_footnote(footnote = md(paste(
+    "`in_args_call_all` matters for the bootstrap: `mget()` forces the promise at",
+    "capture, so `do.call(forestsearch, args_call_all)` reconstructs the same run.")))
+```
+
+## Gate rule mapping {#sec-gate}
+
+The Tier-2 gate replays the selection step inside each multiplier draw, so the
+replayed rule must be the rule the search used. A focus missing from
+`.fs_dg_reselection_from_focus()`'s `switch()` falls through to the bare
+fallback — **silently**, because the fallback returns the same value as the
+named `hr` case. Return value alone therefore cannot detect fallthrough; the
+check is that the normalized focus is one of the switch's named cases.
+
+```{r gate}
+gate_named <- local({
+  sw <- NULL
+  walk <- function(e) if (is.call(e)) {
+    if (identical(e[[1]], as.name("switch"))) sw <<- e
+    for (i in seq_along(e)) {
+      el <- tryCatch(e[[i]], error = function(err) NULL)
+      if (!is.null(el)) walk(el)
+    }
+  }
+  walk(body(forestsearch:::.fs_dg_reselection_from_focus))
+  nm <- names(sw); nm[!is.na(nm) & nzchar(nm)]
+})
+
+gate_tab <- do.call(rbind, lapply(FOCI, function(f) {
+  canon <- forestsearch:::.normalize_sg_focus(f)
+  data.frame(sg_focus = f, canonical = canon,
+             named_case = canon %in% gate_named,
+             gate_rule_consistency =
+               forestsearch:::.fs_dg_reselection_from_focus(f, engine = "consistency"),
+             stringsAsFactors = FALSE)
+}))
+
+check("Every accepted sg_focus maps to an explicitly named gate rule",
+      all(gate_tab$named_case),
+      paste(gate_tab$sg_focus[!gate_tab$named_case], collapse = ", "))
+check("maxeffCons maps to the gate's maxeff",
+      identical(forestsearch:::.fs_dg_reselection_from_focus(
+        "maxeffCons", engine = "consistency"), "maxeff"))
+
+gt(gate_tab) |>
+  tab_header(title = "sg_focus -> de-biased gate re-selection rule") |>
+  tab_footnote(footnote = md(paste(
+    "The gate's `\"maxeff\"` is `passers[which.max(beta[passers])]` -- argmax effect",
+    "among *passers*, and `passers` is the gate's consistency-qualifying set",
+    "(`p_star = pconsistency.threshold`). That is the `maxeffCons` rule, not the",
+    "ungated `sg_focus = \"maxeff\"`.")))
+```
+
+## Summary {#sec-summary}
+
+```{r summary}
+res <- do.call(rbind, .checks)
+n_fail <- sum(res$result == "FAIL")
+
+gt(res) |>
+  tab_header(title = sprintf("%d checks, %d failed", nrow(res), n_fail)) |>
+  data_color(columns = "result", fn = function(x) ifelse(x == "PASS", "#d9f2d9", "#f8d7da"))
+```
+
+```{r summary-gate, results='asis'}
+if (n_fail > 0L) {
+  cat("\n::: {.callout-important title=\"Smoke test FAILED\"}\n",
+      sprintf("%d check(s) failed. These are reported, not worked around.\n", n_fail),
+      ":::\n", sep = "")
+  stop(sprintf("sg_focus smoke test: %d check(s) failed", n_fail))
+} else {
+  cat("\n::: {.callout-note title=\"All checks passed\"}\n",
+      sprintf("%d assertions held.\n", nrow(res)), ":::\n", sep = "")
+}
+```
+
+```{r session}
+sessionInfo()
+```
