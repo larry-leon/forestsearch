@@ -57,6 +57,45 @@ implementing around it.
 
 ---
 
+## DEFINITIONS (authoritative — implement exactly these)
+
+Phase 0 corrected the earlier account of what early stopping does. It does
+**not** implement an alternative selection rule: it truncates the candidate pool
+and then the focus's own key is applied to the truncation
+(`PHASE0_FINDINGS.md` §2a). Two consequences, both simplifying:
+
+* Early stopping under `"hr"` has **no defensible interpretation** -- it applies
+  the documented `(-Pcons, -hr, K)` rule to an arbitrarily truncated pool.
+  Disabling it (Phase 3) is a straightforward correctness fix, not a design
+  tradeoff.
+* Coupling `stop_threshold` to `pconsistency.threshold` (Phase 4) is an
+  **efficiency** change, **not** a correctness fix. Where the enumeration order
+  matches the key's primary term, the sort over the prefix recovers the global
+  winner for **any** `stop_threshold >= pconsistency.threshold`: the stopping
+  candidate qualifies, and every qualifier ranking above it has a lower index
+  and is therefore already in the prefix. Do not justify the coupling as a
+  correctness fix in `NEWS.md`.
+
+**General criterion, from which the last column follows:** early stopping is
+valid iff the enumeration order's primary term matches the selection key's
+primary term.
+
+| `sg_focus` | selection rule | consistency gate | early stop valid |
+|---|---|---|---|
+| `maxeff` | argmax effect over **all** candidates | **none** -- winner-only evaluation; the winner is retained even if it fails the floor | n/a (winner-only fast path) |
+| `maxeffCons` *(new)* | argmax effect among qualifiers | `Pcons >= pconsistency.threshold` | **yes** (enum `-HR`, key `-hr`) |
+| `maxcons` (= `hr`, `eff`) | argmax `Pcons` among qualifiers; effect breaks ties | same | **no** (key `Pcons`-primary; not pre-sortable) |
+| `maxSG` | argmax `N` among qualifiers; `Pcons` breaks ties | same | **yes** (enum `-n`, key `-N`) |
+| `minSG` | argmin `N` among qualifiers; `Pcons` breaks ties | same | **yes** (enum `n`, key `N`) |
+| `hrMaxSG` / `effMaxSG` | argmax `N` among qualifiers **within the effect band** | gate + band | **no** (already disabled) |
+| `hrMinSG` / `effMinSG` | argmin `N` among qualifiers **within the effect band** | gate + band | **no** (already disabled) |
+
+The roxygen written in Phase 5 must state these rules in these terms. The
+current `@param sg_focus` text describes sort keys, which is accurate but does
+not tell a user what is being selected.
+
+---
+
 ## PREREQUISITE — Phase 0 must be complete and signed off
 
 Characterisation of the existing simulation runs is a **separate, read-only
@@ -64,8 +103,14 @@ brief**: `dev/sg-focus-work/CC_BRIEF_phase0_characterization.md`. It must be
 run first, on unmodified code, because the behaviour it measures stops being
 reachable once Phase 3 lands.
 
-**Do not start Phase 1 until `dev/sg-focus-work/PHASE0_FINDINGS.md` exists and
-the maintainer has signed off on it.** If it is missing, stop and say so.
+**Phase 0 is COMPLETE** (`dev/sg-focus-work/PHASE0_FINDINGS.md`). Its outcome:
+the mechanism is confirmed, and 166 of 2642 selections diverged from the
+intended rule. The footnote-vs-rerun decision for the five diverging cells is
+**deferred by the maintainer** and is NOT a blocker -- the priority is correct
+`sg_focus` definitions and implementation. Proceed with Phase 1.
+
+Do not revisit the rerun question, the debias gate beyond the single mapping in
+Phase 2, or any FDR/type-I-error analysis. All are explicitly out of scope.
 
 ## Phase 1 — additive only (zero behaviour change)
 
@@ -337,7 +382,19 @@ Commit: `test: add sg_focus smoke-test living document`
 
 ---
 
-## Phase 6 — simulation `.qmd` (only after Phase 0 sign-off)
+## Phase 6 — simulation `.qmd` — **ON HOLD, DO NOT EXECUTE**
+
+**Stop after Phase 5.** Report completion and await instruction.
+
+Phase 6 would switch the simulation `.qmd` to `sg_focus = "maxeffCons"`, which
+makes a re-render produce different results from the saved 500-replicate
+bundles for the five cells that showed divergence (`PHASE0_FINDINGS.md` §7-8).
+That is entangled with the footnote-vs-rerun decision the maintainer has
+explicitly deferred. Do not pre-empt it by editing the `.qmd`.
+
+The specification below is retained for when the hold lifts.
+
+### (held) Phase 6 specification
 
 In `fs_t1_t2_m1_*.qmd`:
 
