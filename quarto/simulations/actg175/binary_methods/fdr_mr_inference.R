@@ -1,5 +1,5 @@
 # =============================================================================
-# fdr_debias_gate.R
+# fdr_mr_inference.R
 #
 # PROTOTYPE / SKETCH -- Tier 2: a FAST multiplier-bootstrap approximation of the
 # forest-search bootstrap bias-corrected estimate, plus a de-biased SELECTION
@@ -19,10 +19,10 @@
 # gate decision are one influence-matrix computation.
 #
 # A "gate" then declares a subgroup only if its de-biased effect clears a
-# threshold t_gate (point) or its selection-adjusted lower bound clears the null
+# threshold t_confirm (point) or its selection-adjusted lower bound clears the null
 # (CI).  Because the correction collapses spurious selections toward the null,
 # the gate mitigates the search-level FDR; because the correction over-shrinks
-# true effects, t_gate must be calibrated near the null (not at the screen).
+# true effects, t_confirm must be calibrated near the null (not at the screen).
 #
 # Multiplier note: the de-bias mimics the (multinomial) nonparametric bootstrap,
 # so the default multiplier here is "poisson" (centred Poisson ~= K_bi - 1), NOT
@@ -32,7 +32,7 @@
 # uses fdr_calibration.R + consistency_resample.R (or installed forestsearch).
 #
 # Usage:
-#   source("fdr_debias_gate.R"); run_debias_gate_demo()
+#   source("fdr_mr_inference.R"); run_mr_demo()
 # =============================================================================
 
 if (!exists(".draw_multipliers")) {
@@ -156,16 +156,16 @@ debias_family_multiplier <- function(influence, beta_hat, sigma_D = NULL, sizes 
 #' Gate decision from a de-bias result
 #'
 #' @param db Output of [debias_family_multiplier()].
-#' @param t_gate Effect-scale gate threshold (e.g. OR `1.0`).
-#' @param gate `"point"` (de-biased point estimate >= t_gate) or `"ci"`
-#'   (selection-adjusted lower bound >= t_gate).
+#' @param t_confirm Effect-scale gate threshold (e.g. OR `1.0`).
+#' @param confirm_rule `"point"` (de-biased point estimate >= t_confirm) or `"ci"`
+#'   (selection-adjusted lower bound >= t_confirm).
 #' @return Logical: declare the subgroup or not.
 #' @export
-gated_declare <- function(db, t_gate = 1.0, gate = c("point", "ci")) {
-  gate <- match.arg(gate)
+confirm_declare <- function(db, t_confirm = 1.0, confirm_rule = c("point", "ci")) {
+  confirm_rule <- match.arg(confirm_rule)
   if (is.na(db$selected_index)) return(FALSE)
-  if (gate == "point") db$effect_debiased   >= t_gate
-  else                 db$ci_lower_debiased >= t_gate
+  if (confirm_rule == "point") db$effect_debiased   >= t_confirm
+  else                 db$ci_lower_debiased >= t_confirm
 }
 
 
@@ -173,23 +173,23 @@ gated_declare <- function(db, t_gate = 1.0, gate = c("point", "ci")) {
 #'
 #' Null-centres the candidate family, and for each multiplier draw applies the
 #' selection rule, the (aggregate) selection-bias de-biasing, and a sweep of gate
-#' thresholds.  Returns the ungated and gated family FDR for each `t_gate`, all
+#' thresholds.  Returns the ungated and gated family FDR for each `t_confirm`, all
 #' from one influence-matrix computation.
 #'
 #' @inheritParams debias_family_multiplier
 #' @param beta_null Scalar or length-S null log effect at which to centre.
-#' @param t_gate_grid Effect-scale gate thresholds to sweep.
-#' @param gate `"point"` or `"ci"`.
-#' @return Data frame: `t_gate`, `ungated_fdr`, `gated_fdr`.
+#' @param t_confirm_grid Effect-scale gate thresholds to sweep.
+#' @param confirm_rule `"point"` or `"ci"`.
+#' @return Data frame: `t_confirm`, `fdr_raw`, `fdr_confirmed`.
 #' @export
-gated_fdr_curve <- function(influence, beta_hat, sigma_D = NULL, sizes = NULL,
+confirm_fdr_curve <- function(influence, beta_hat, sigma_D = NULL, sizes = NULL,
                             c_screen, c_consistency = 0, p_star = 0.90,
                             selection = "maxcons", effect_neighborhood = 0.10,
-                            beta_null = 0, t_gate_grid = c(1.0, 1.1, 1.25, 1.5),
-                            gate = c("point", "ci"),
+                            beta_null = 0, t_confirm_grid = c(1.0, 1.1, 1.25, 1.5),
+                            confirm_rule = c("point", "ci"),
                             draws = 3000L, multiplier = c("poisson", "gaussian", "rademacher"),
                             seed = NULL) {
-  gate <- match.arg(gate); multiplier <- match.arg(multiplier)
+  confirm_rule <- match.arg(confirm_rule); multiplier <- match.arg(multiplier)
   if (!is.null(seed)) set.seed(seed)
   influence <- as.matrix(influence); N <- nrow(influence); S <- ncol(influence)
   if (is.null(sigma_D)) sigma_D <- sqrt(colSums(influence^2))
@@ -220,10 +220,10 @@ gated_fdr_curve <- function(influence, beta_hat, sigma_D = NULL, sizes = NULL,
   lo_b     <- debias_b - stats::qnorm(0.95) * sel_se   # CI lower bound per draw
 
   data.frame(
-    t_gate      = t_gate_grid,
-    ungated_fdr = mean(passed),
-    gated_fdr   = vapply(t_gate_grid, function(tg) {
-      val <- if (gate == "point") debias_b else lo_b
+    t_confirm      = t_confirm_grid,
+    fdr_raw = mean(passed),
+    fdr_confirmed   = vapply(t_confirm_grid, function(tg) {
+      val <- if (confirm_rule == "point") debias_b else lo_b
       mean(passed & is.finite(val) & (val >= log(tg)), na.rm = FALSE)
     }, numeric(1)))
 }
@@ -244,7 +244,7 @@ gated_fdr_curve <- function(influence, beta_hat, sigma_D = NULL, sizes = NULL,
 #' installed forestsearch) for the per-candidate dfbeta.
 #'
 #' @keywords internal
-run_debias_gate_demo <- function(n = 1500L, B_literal = 300L, draws = 4000L, seed = 11L) {
+run_mr_demo <- function(n = 1500L, B_literal = 300L, draws = 4000L, seed = 11L) {
   for (f in c("fdr_calibration.R")) if (!exists("build_influence_matrix")) source(f)
   csc <- log(1.25); ccon <- log(1.0); pst <- 0.90; rule <- "maxcons"
   spec <- list(outcome_type = "binary", effect_measure = "OR", treat.name = "trt",
@@ -308,9 +308,9 @@ run_debias_gate_demo <- function(n = 1500L, B_literal = 300L, draws = 4000L, see
   dn <- mk(FALSE, seed + 12L); bn <- bld(dn); infn <- bn$infl
   szn <- vapply(seq_len(infn$n_usable), function(g) sum(infn$B[,g] != 0), numeric(1))
   itt <- as.numeric(stats::coef(glm(y~trt, binomial(), dn))[["trt"]])
-  curve <- gated_fdr_curve(infn$B, infn$beta_hat, infn$sigma_D, szn,
+  curve <- confirm_fdr_curve(infn$B, infn$beta_hat, infn$sigma_D, szn,
              c_screen = csc, c_consistency = ccon, p_star = pst, selection = rule,
-             beta_null = itt, t_gate_grid = c(1.00, 1.10, 1.25, 1.50), gate = "point",
+             beta_null = itt, t_confirm_grid = c(1.00, 1.10, 1.25, 1.50), confirm_rule = "point",
              draws = draws, multiplier = "poisson", seed = seed + 2L)
   cat(sprintf("\n==== (2) NULL fit: gated-FDR curve (null OR %.2f) ====\n", exp(itt)))
   print(curve, row.names = FALSE)
@@ -322,5 +322,5 @@ run_debias_gate_demo <- function(n = 1500L, B_literal = 300L, draws = 4000L, see
 
 if (identical(environment(), globalenv()) && !interactive() &&
     sys.nframe() == 0L && length(commandArgs(trailingOnly = TRUE)) == 0L) {
-  run_debias_gate_demo()
+  run_mr_demo()
 }

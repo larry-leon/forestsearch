@@ -17,7 +17,7 @@ format:
 > **Status — smoke test.** This is the development configuration of the
 > simulation: tiny counts to wire the pipeline end-to-end on a single M1 cell
 > before scaling up. Every tunable lives in the setup chunk (@sec-setup); the
-> counts (`n_sims`, `nb_boots`, `gate_draws`) are the main knobs for moving from
+> counts (`n_sims`, `nb_boots`, `mr_draws`) are the main knobs for moving from
 > smoke test to production; `run_mode` and `sim_id_start` (@sec-setup) split a
 > long run into seed-disjoint batches that combine later. Each batch render
 > persists its results to an `.rds`; `run_mode = "combine"` reads them back and
@@ -25,8 +25,8 @@ format:
 
 # What this evaluates {#sec-intro}
 
-The **Tier-2 de-biased gate** (`fs_debias_gate()`, surfaced through
-`forestsearch(debias_gate = TRUE)`) is a refit-free multiplier-bootstrap
+The **Tier-2 de-biased gate** (`fs_mr_inference()`, surfaced through
+`forestsearch(mr_inference = TRUE)`) is a refit-free multiplier-bootstrap
 approximation of León's post-selection bias correction, with an
 infinitesimal-jackknife (IJ) confidence interval. To first order its point
 estimate equals León's Eq. 7 correction and its interval equals León's IJ
@@ -136,7 +136,7 @@ proj_scenarios <- list(
   c(n_sims = 10000L, nb_boots = 500L)
 )
                           # the Tier-2 gate -- see run_tier1 below.
-gate_draws   <- 5000L     # Tier-2 multiplier draws         (keep ~2000)
+mr_draws   <- 5000L     # Tier-2 multiplier draws         (keep ~2000)
 
 save_rds <- identical(run_mode, "batch") && !is.null(rds_path)  # write only when running a batch
 
@@ -177,7 +177,7 @@ sg_focus           <- "eff"        # -> "hr": highest consistency rate, ties by 
 # Gate re-selection is no longer set explicitly: forestsearch() derives it from
 # sg_focus (consistency + "eff" -> "maxcons"), reproducing the legacy explicit
 # value while staying faithful per engine.  Override via `reselection =` in
-# debias_gate_args (advanced use only).
+# mr_inference_args (advanced use only).
 selection_rule     <- "neighborhood"  # *MaxSG/*MinSG band rule (inert for sg_focus = "eff")
 hr_threshold       <- 0.90
 hr_consistency     <- 0.80
@@ -220,11 +220,11 @@ cat(sprintf("Parallel mode: %s (%s)\n", parallel_mode,
             else "replicates parallel, bootstrap sequential"))
 z975       <- qnorm(0.975)
 
-cat(sprintf("Smoke test: method=%s%s, n_sims=%d, nb_boots=%s, gate_draws=%d, workers=%d\n",
+cat(sprintf("Smoke test: method=%s%s, n_sims=%d, nb_boots=%s, mr_draws=%d, workers=%d\n",
             subgroup_method,
             if (identical(subgroup_method, "grf")) paste0("/", grf_selection) else "",
             n_sims, if (is.null(nb_boots)) "0 (skip)" else as.character(nb_boots),
-            gate_draws, n_workers))
+            mr_draws, n_workers))
 ```
 
 # Build the DGM and read off the truth targets
@@ -309,7 +309,7 @@ across workers within each trial.  Results are identical either way.
 
 # One all-NA record (returned on failure so the loop never aborts a cell).
 .na_record <- function(sim_id) data.frame(
-  sim_id = sim_id, detected = 0L, gate_ok = 0L, n_sel = NA_integer_,
+  sim_id = sim_id, detected = 0L, mr_ok = 0L, n_sel = NA_integer_,
   n_harm = NA_integer_, n_true = NA_integer_,
   label = NA_character_, t1_secs = NA_real_, t2_secs = NA_real_, t1_err = NA_character_,
   or_H_est = NA, or_H_lo = NA, or_H_hi = NA,
@@ -373,8 +373,8 @@ if (k_random_noise > 0) {
     pconsistency.threshold = pconsistency, n.min = n_min,
     selection_rule  = selection_rule,   # governs *MaxSG/*MinSG band (search + gate)
     parallel_args   = inner_parallel,              # parallel_mode: sims->sequential, boots->multisession
-    debias_gate     = TRUE,
-    debias_gate_args = list(ci_method = "ij", draws = gate_draws,
+    mr_inference     = TRUE,
+    mr_inference_args = list(ci_method = "ij", draws = mr_draws,
                             include_complement = TRUE)  # reselection derived from sg_focus
   )
   method_args <- switch(
@@ -405,12 +405,12 @@ if (k_random_noise > 0) {
 
   # Detection is METHOD-AGNOSTIC (a subgroup was identified), independent of
   # whether the Tier-2 gate produced a CI; gate availability is tracked
-  # separately in gate_ok so a gate failure never masks a true detection.
-  g     <- fs.est$debias_gate
+  # separately in mr_ok so a gate failure never masks a true detection.
+  g     <- fs.est$mr_inference
   found <- !is.null(fs.est$sg.harm)
   rec$detected <- as.integer(found)
   if (!found) return(rec)
-  rec$gate_ok <- as.integer(!is.null(g))
+  rec$mr_ok <- as.integer(!is.null(g))
 
   if (!is.null(g)) {
     rec$label <- g$selected_label %||% NA_character_
@@ -553,7 +553,7 @@ if (run_smoke && identical(run_mode, "batch")) {
   if (isTRUE(save_rds) && !is.null(results)) {
     saveRDS(list(results = results, truth = truth,
                  meta = list(n_sample = n_sample, n_sims = n_sims,
-                             nb_boots = nb_boots, gate_draws = gate_draws,
+                             nb_boots = nb_boots, mr_draws = mr_draws,
                              subgroup_method = subgroup_method,
                              sim_id_start = sim_id_start, sim_id_end = sim_id_end,
                              seed_base = seed_base, parallel_mode = parallel_mode)),
@@ -577,7 +577,7 @@ if (run_smoke && identical(run_mode, "batch")) {
 
   # Count-invariant meta MUST agree across batches to pool them.
   .meta_get <- function(b, k) b$meta[[k]] %||% NA
-  for (k in c("n_sample", "nb_boots", "gate_draws", "subgroup_method", "seed_base")) {
+  for (k in c("n_sample", "nb_boots", "mr_draws", "subgroup_method", "seed_base")) {
     vals <- unique(lapply(bundles, .meta_get, k = k))
     if (length(vals) > 1L)
       stop(sprintf("combine mode: batches disagree on meta$%s (%s).",
@@ -604,7 +604,7 @@ if (run_smoke && identical(run_mode, "batch")) {
   # Make the report self-describing from the files (not the setup chunk's knobs).
   n_sample        <- bundles[[1]]$meta$n_sample        %||% n_sample
   nb_boots        <- bundles[[1]]$meta$nb_boots        %||% nb_boots
-  gate_draws      <- bundles[[1]]$meta$gate_draws      %||% gate_draws
+  mr_draws      <- bundles[[1]]$meta$mr_draws      %||% mr_draws
   subgroup_method <- bundles[[1]]$meta$subgroup_method %||% subgroup_method
   run_tier1       <- is.numeric(nb_boots) && length(nb_boots) == 1L && nb_boots >= 1L
   n_sims          <- sum(vapply(bundles,
@@ -624,7 +624,7 @@ if (run_smoke && identical(run_mode, "batch")) {
       sprintf("%s_combined_%d_%d.rds", rds_stem, rng[1], rng[2])
     saveRDS(list(results = results, truth = truth,
                  meta = list(n_sample = n_sample, n_sims = n_sims,
-                             nb_boots = nb_boots, gate_draws = gate_draws,
+                             nb_boots = nb_boots, mr_draws = mr_draws,
                              subgroup_method = subgroup_method,
                              sim_id_start = rng[1], sim_id_end = rng[2],
                              seed_base = bundles[[1]]$meta$seed_base %||% NA_integer_,
@@ -881,10 +881,10 @@ if (run_smoke && !is.null(results)) {
       else "Tier-2 de-biased gate: estimation & coverage",
       subtitle = if (run_tier1)
         sprintf("M1 smoke test \u00b7 n=%d, %d sims, B=%d, draws=%d \u00b7 resample identification",
-                n_sample, n_sims, nb_boots, gate_draws)
+                n_sample, n_sims, nb_boots, mr_draws)
       else
         sprintf("M1 smoke test \u00b7 n=%d, %d sims, draws=%d \u00b7 resample identification (Tier-2 only)",
-                n_sample, n_sims, gate_draws)) |>
+                n_sample, n_sims, mr_draws)) |>
     fmt_number(columns = c(Avg, SD, SD_hat, Len_med, Length), decimals = 2) |>
     fmt_number(columns = c(b_oracle, b_cde, b_marg), decimals = 1) |>
     fmt_number(columns = c(Cov_oracle, Cov_cde, Cov_marg), decimals = 2) |>
@@ -979,10 +979,10 @@ if (run_smoke && !is.null(results)) {
       title = "Median summary (companion to the table above)",
       subtitle = if (run_tier1)
         sprintf("Same detected reps \u00b7 n=%d, %d sims, B=%d, draws=%d \u00b7 location columns are medians",
-                n_sample, n_sims, nb_boots, gate_draws)
+                n_sample, n_sims, nb_boots, mr_draws)
       else
         sprintf("Same detected reps \u00b7 n=%d, %d sims, draws=%d \u00b7 location columns are medians",
-                n_sample, n_sims, gate_draws)) |>
+                n_sample, n_sims, mr_draws)) |>
     fmt_number(columns = c(Med, SD, SD_hat, Len_med), decimals = 2) |>
     fmt_number(columns = c(b_oracle, b_cde, b_marg), decimals = 1) |>
     fmt_number(columns = c(Cov_oracle, Cov_cde, Cov_marg), decimals = 2) |>

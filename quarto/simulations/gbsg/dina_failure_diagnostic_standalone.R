@@ -48,7 +48,7 @@ hr_threshold   <- 1.0
 hr_consistency <- 1.0
 pconsistency   <- 0.90
 n_min          <- 60L
-gate_draws     <- 2000L
+mr_draws     <- 2000L
 
 # Column names emitted by simulate_from_dgm()
 outcome_name <- "y_sim"
@@ -88,8 +88,8 @@ fs <- tryCatch(
     pconsistency.threshold = pconsistency, n.min = n_min,
     selection_rule         = selection_rule,
     parallel_args          = list(plan = "sequential"),
-    debias_gate            = TRUE,
-    debias_gate_args       = list(ci_method = "ij", draws = gate_draws,
+    mr_inference            = TRUE,
+    mr_inference_args       = list(ci_method = "ij", draws = mr_draws,
                                   include_complement = TRUE),
     dina_args = modifyList(dina_args, list(select_statistic = dina_select_statistic)),
     details = TRUE, quiet = FALSE),                # <- expose DINA's decisions
@@ -104,9 +104,9 @@ fs <- tryCatch(
 if (!is.null(fs)) {
   cat("\nsg.harm :", if (is.null(fs$sg.harm)) "NULL (no subgroup)"
                      else paste(fs$sg.harm, collapse = " & "), "\n")
-  cat("gate    :", if (is.null(fs$debias_gate)) "NULL" else "present", "\n")
-  if (!is.null(fs$debias_gate)) {
-    g <- fs$debias_gate
+  cat("gate    :", if (is.null(fs$mr_inference)) "NULL" else "present", "\n")
+  if (!is.null(fs$mr_inference)) {
+    g <- fs$mr_inference
     cat(sprintf("  naive HR = %.3f | debiased HR = %.3f [%.3f, %.3f] | n_family = %d\n",
                 g$naive$est, g$debiased$est, g$debiased$lower, g$debiased$upper,
                 g$n_family))

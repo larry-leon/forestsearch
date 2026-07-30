@@ -27,7 +27,7 @@ from `fs$sg.harm` (a character vector of cut expressions such as
 
 It deliberately **does not** run the Tier-1 nonparametric bootstrap
 (`fs_bootstrap()`) and turns the Tier-2 de-biased gate **off**
-(`debias_gate = FALSE`). The gate does not change `sg.harm` (verified), and the
+(`mr_inference = FALSE`). The gate does not change `sg.harm` (verified), and the
 identification question here is independent of the bootstrap — so this is the
 fast path. The expensive bootstrap can be re-enabled in a separate analysis when
 post-selection inference is needed.
@@ -187,7 +187,7 @@ record_replicate <- function(sim_id) {
     treat.name = treat_name, id.name = id_name, flag_harm.name = harm_col,
     confounders.name = confs, is.RCT = TRUE, seedit = seed_base + sim_id, quiet = TRUE,
     parallel_args = list(plan = "sequential"),   # no nesting; replicates parallel outside
-    debias_gate   = FALSE)                        # gate does not change sg.harm; off = faster
+    mr_inference   = FALSE)                        # gate does not change sg.harm; off = faster
 
   fs <- tryCatch(do.call(forestsearch, c(fixed_args, fs_params)),
                  error = function(e) NULL)
@@ -385,5 +385,5 @@ utils::head(det[, c("sim_id", "k", "sg", "structure",
 - **Smoke test** — set `sim_ids <- 1:20` and `n_workers <- 1L` to validate end
   to end in well under a minute before launching the full sweep.
 - **Post-selection inference** — intentionally out of scope here. Re-enable
-  `debias_gate = TRUE` and call `fs_bootstrap()` in a separate analysis when CIs
+  `mr_inference = TRUE` and call `fs_bootstrap()` in a separate analysis when CIs
   are needed; this template is identification-only.

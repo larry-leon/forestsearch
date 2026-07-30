@@ -1,7 +1,7 @@
 # =============================================================================
 # Tier-2 de-biased gate: method-agnostic application layer
 # -----------------------------------------------------------------------------
-# fs_debias_gate() itself is already method-agnostic: it takes a candidate
+# fs_mr_inference() itself is already method-agnostic: it takes a candidate
 # family (named list of row-index vectors), the selected members, a Cox/GLM
 # `spec`, and a `reselection` rule, and de-biases the selected subgroup's
 # Cox/GLM effect with an IJ interval.  These helpers let the consistency, DINA,
@@ -153,8 +153,8 @@
 
 #' Apply the Tier-2 de-biased gate with forestsearch's defaulting rules.
 #'
-#' Thin wrapper around [fs_debias_gate()] shared by the consistency, DINA, and
-#' GRF branches so the call (and `debias_gate_args` overrides) stays identical
+#' Thin wrapper around [fs_mr_inference()] shared by the consistency, DINA, and
+#' GRF branches so the call (and `mr_inference_args` overrides) stays identical
 #' across methods.  Wrapped in tryCatch so a reconstruction failure yields
 #' `NULL` (the branch's normal output is unaffected) rather than aborting.
 #'
@@ -165,11 +165,11 @@
                                   c_screen, c_consistency, p_star,
                                   effect_neighborhood, reselection_default,
                                   selection_rule_default = "neighborhood",
-                                  debias_gate_args = list(), seedit = NULL) {
+                                  mr_inference_args = list(), seedit = NULL) {
   .g <- function(a, b) if (is.null(a)) b else a
-  if (is.null(debias_gate_args)) debias_gate_args <- list()
+  if (is.null(mr_inference_args)) mr_inference_args <- list()
   tryCatch(
-    fs_debias_gate(
+    fs_mr_inference(
       df               = df,
       candidates       = candidates,
       spec             = spec,
@@ -177,18 +177,18 @@
       c_screen         = c_screen,
       c_consistency    = c_consistency,
       p_star           = p_star,
-      t_gate           = debias_gate_args$t_gate,            # NULL -> near-null
-      gate             = .g(debias_gate_args$gate,        "point"),
-      reselection      = .g(debias_gate_args$reselection, reselection_default),
+      t_confirm        = mr_inference_args$t_confirm,          # NULL -> near-null
+      confirm_rule     = .g(mr_inference_args$confirm_rule, "point"),
+      reselection      = .g(mr_inference_args$reselection, reselection_default),
       effect_neighborhood = effect_neighborhood,
-      selection_rule   = .g(debias_gate_args$selection_rule, selection_rule_default),
-      draws            = .g(debias_gate_args$draws,       2000L),
-      multiplier       = .g(debias_gate_args$multiplier,  "poisson"),
-      include_complement = .g(debias_gate_args$include_complement, TRUE),
-      ci_method        = .g(debias_gate_args$ci_method,   "ij"),
-      seed             = .g(debias_gate_args$seed,        seedit)),
+      selection_rule   = .g(mr_inference_args$selection_rule, selection_rule_default),
+      draws            = .g(mr_inference_args$draws,       2000L),
+      multiplier       = .g(mr_inference_args$multiplier,  "poisson"),
+      include_complement = .g(mr_inference_args$include_complement, TRUE),
+      ci_method        = .g(mr_inference_args$ci_method,   "ij"),
+      seed             = .g(mr_inference_args$seed,        seedit)),
     error = function(e) {
-      warning("debias_gate (", spec$outcome_type, ") failed: ",
+      warning("mr_inference (", spec$outcome_type, ") failed: ",
               conditionMessage(e), call. = FALSE)
       NULL
     })

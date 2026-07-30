@@ -86,8 +86,8 @@ fs <- forestsearch(
                                              # the only one the bridge accepts without
                                              # force = TRUE
   selection_rule = "neighborhood", effect_neighborhood = 0.10,
-  debias_gate = TRUE,                        # needed for the self-check
-  debias_gate_args = list(draws = 5000L),
+  mr_inference = TRUE,                        # needed for the self-check
+  mr_inference_args = list(draws = 5000L),
   n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
   max_subgroups_search = 50,
   hr.threshold = 1.0, hr.consistency = 1.0,
@@ -102,7 +102,7 @@ fs <- forestsearch(
 plan("sequential")
 cat(sprintf("fit completed in %.1f s\n", (proc.time() - t0)["elapsed"]))
 cat("selected subgroup:", paste(fs$sg.harm, collapse = " & "), "\n")
-cat("gate n_family:", tryCatch(fs$debias_gate$n_family, error = function(e) NA), "\n\n")
+cat("gate n_family:", tryCatch(fs$mr_inference$n_family, error = function(e) NA), "\n\n")
 
 # ---- apply the Guo & He comparator: sweep r + one adaptive arm ------------
 # All arms reuse the SAME fitted `fs` (no forestsearch refit) and run with

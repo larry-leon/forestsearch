@@ -180,11 +180,11 @@ guohe_from_forestsearch <- function(fs,
   fam <- as.data.frame(memb, check.names = FALSE)
 
   # ---- self-check against the gate's own family size ---------------------
-  gate_n <- tryCatch(as.integer(fs$debias_gate$n_family), error = function(e) NA_integer_)
-  if (!length(gate_n)) gate_n <- NA_integer_          # no gate on this fit
-  check <- if (is.na(gate_n)) "not available (no Tier-2 gate on this fit)" else
-    if (identical(gate_n, ncol(fam))) sprintf("PASS (%d == %d)", ncol(fam), gate_n) else
-      sprintf("MISMATCH (reconstructed %d vs gate %d)", ncol(fam), gate_n)
+  mr_n <- tryCatch(as.integer(fs$mr_inference$n_family), error = function(e) NA_integer_)
+  if (!length(mr_n)) mr_n <- NA_integer_          # no gate on this fit
+  check <- if (is.na(mr_n)) "not available (no Tier-2 gate on this fit)" else
+    if (identical(mr_n, ncol(fam))) sprintf("PASS (%d == %d)", ncol(fam), mr_n) else
+      sprintf("MISMATCH (reconstructed %d vs gate %d)", ncol(fam), mr_n)
   if (grepl("^MISMATCH", check)) {
     warning("Family reconstruction does not match the gate's n_family: ", check,
             ". Do not use this result until reconciled.")
@@ -269,7 +269,7 @@ guohe_from_forestsearch <- function(fs,
 
   out$bridge <- list(n_family = ncol(fam), n_cuts = L, maxk = maxk, n.min = n.min,
                      sg_focus = focus, in_scope = in_scope,
-                     gate_n_family = gate_n, self_check = check,
+                     mr_n_family = mr_n, self_check = check,
                      screen_applied = FALSE,
                      precondition_ok = precondition_ok,
                      argmax_label = argmax_label,

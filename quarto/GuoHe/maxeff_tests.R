@@ -53,7 +53,7 @@ fit_fs <- function(sg_focus, overrides = list()) {
     subgroup_method = "consistency",
     sg_focus = sg_focus,
     selection_rule = "neighborhood", effect_neighborhood = 0.10,
-    debias_gate = TRUE, debias_gate_args = list(draws = 5000L),
+    mr_inference = TRUE, mr_inference_args = list(draws = 5000L),
     n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
     max_subgroups_search = 2000,
     hr.threshold = 1.0, hr.consistency = 1.0,
@@ -334,11 +334,11 @@ results$T5 <- list(ok = t5_ok, n_rows = t5_ncand, n_below = t5_nbelow,
 # T6 -- gate mapping: the Tier-2 gate re-selects under rule "maxeff".
 # ===========================================================================
 cat("\n=== T6: gate mapping ===\n")
-gate_rule <- tryCatch(fs1$debias_gate$gate$reselection, error = function(e) NULL)
-t6_ok <- identical(as.character(gate_rule), "maxeff")
+mr_rule <- tryCatch(fs1$mr_inference$settings$reselection, error = function(e) NULL)
+t6_ok <- identical(as.character(mr_rule), "maxeff")
 cat(sprintf("T6 %s -- Re-selection rule = %s\n", PF(t6_ok),
-            ifelse(is.null(gate_rule), "NULL", gate_rule)))
-results$T6 <- list(ok = t6_ok, reselection = gate_rule)
+            ifelse(is.null(mr_rule), "NULL", mr_rule)))
+results$T6 <- list(ok = t6_ok, reselection = mr_rule)
 
 # ===========================================================================
 # T7 -- truncation is inert: max_subgroups_search = 5 does not move selection.

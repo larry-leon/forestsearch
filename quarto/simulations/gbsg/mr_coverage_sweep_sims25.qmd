@@ -39,7 +39,7 @@ format:
 For each cell — one `(subgroup_method, n_sample)` pair — the document runs
 `n_sims` simulated trials on the León (2024) GBSG-AFT M1 super-population, and on
 each detected replicate records the **MR** de-biased gate
-(`forestsearch(debias_gate = TRUE)`, infinitesimal-jackknife interval) together
+(`forestsearch(mr_inference = TRUE)`, infinitesimal-jackknife interval) together
 with the oracle and naive estimators. Coverage is the proportion of detected
 replicates whose 95% CI contains the target, computed against the **marginal
 subgroup hazard ratio** θ† (population, *n*-invariant). Because θ† and the other
@@ -82,7 +82,7 @@ n_grid_run  <- n_grid                            # e.g. c(500L, 1000L)
 # ── Counts (the main knobs for smoke → production) ───────────────────────────
 n_sims    <- 25L        # simulated trials per cell        (prod: 1000 → 20000)
 nb_boots  <- NULL       # FB nonparametric bootstraps; NULL/0 ⇒ MR-only (FB dormant)
-gate_draws <- 5000L     # MR multiplier draws              (keep ~2000–5000)
+mr_draws <- 5000L     # MR multiplier draws              (keep ~2000–5000)
 diag_mode <- FALSE      # TRUE caps each cell to 5 reps and surfaces forestsearch errors
 
 # ── Run controls ─────────────────────────────────────────────────────────────
@@ -142,9 +142,9 @@ confounders_base <- c("er", "age", "meno", "pgr", "nodes", "size", "grade")
 cat(sprintf("Sweep: %d method(s) × %d size(s) = %d cell(s) to consider.\n",
             length(methods_run), length(n_grid_run),
             length(methods_run) * length(n_grid_run)))
-cat(sprintf("Counts: n_sims=%d, nb_boots=%s (MR-only=%s), gate_draws=%d.\n",
+cat(sprintf("Counts: n_sims=%d, nb_boots=%s (MR-only=%s), mr_draws=%d.\n",
             n_sims, if (is.null(nb_boots)) "NULL" else as.character(nb_boots),
-            if (is.null(nb_boots) || identical(nb_boots, 0L)) "yes" else "no", gate_draws))
+            if (is.null(nb_boots) || identical(nb_boots, 0L)) "yes" else "no", mr_draws))
 cat(sprintf("Parallel: %s · %d workers · seed_base=%d.\n",
             parallel_mode, n_workers, seed_base))
 ```
@@ -219,7 +219,7 @@ loop never aborts a cell.
 
 # One all-NA record (returned on failure so the loop never aborts a cell).
 .na_record <- function(sim_id) data.frame(
-  sim_id = sim_id, detected = 0L, gate_ok = 0L, n_sel = NA_integer_,
+  sim_id = sim_id, detected = 0L, mr_ok = 0L, n_sel = NA_integer_,
   n_harm = NA_integer_, n_true = NA_integer_,
   label = NA_character_, t1_secs = NA_real_, t2_secs = NA_real_, t1_err = NA_character_,
   or_H_est = NA, or_H_lo = NA, or_H_hi = NA,
@@ -272,8 +272,8 @@ record_replicate <- function(sim_id, method, n_sample, nb_boots) {
     pconsistency.threshold = pconsistency, n.min = n_min,
     selection_rule  = selection_rule,
     parallel_args   = inner_parallel,
-    debias_gate     = TRUE,
-    debias_gate_args = list(ci_method = "ij", draws = gate_draws,
+    mr_inference     = TRUE,
+    mr_inference_args = list(ci_method = "ij", draws = mr_draws,
                             include_complement = TRUE))
   method_args <- switch(
     method,
@@ -299,11 +299,11 @@ record_replicate <- function(sim_id, method, n_sample, nb_boots) {
   rec$t2_secs <- proc.time()[3] - t2_t0
   if (is.null(fs.est)) return(rec)
 
-  g     <- fs.est$debias_gate
+  g     <- fs.est$mr_inference
   found <- !is.null(fs.est$sg.harm)
   rec$detected <- as.integer(found)
   if (!found) return(rec)
-  rec$gate_ok <- as.integer(!is.null(g))
+  rec$mr_ok <- as.integer(!is.null(g))
 
   if (!is.null(g)) {
     rec$label <- g$selected_label %||% NA_character_
@@ -395,7 +395,7 @@ run_cell <- function(method, n_sample, nb_boots = NULL, out = NULL,
   bundle <- list(
     results = results, truth = truth,
     meta = list(n_sample = n_sample, n_sims = n_sims, nb_boots = nb_boots,
-                gate_draws = gate_draws, subgroup_method = method,
+                mr_draws = mr_draws, subgroup_method = method,
                 sim_id_start = sim_id_start, sim_id_end = max(sim_ids),
                 seed_base = seed_base, parallel_mode = parallel_mode,
                 elapsed_sec = elapsed))
@@ -476,7 +476,7 @@ coverage_from_bundle <- function(bundle,
           cm,
           data.frame(n_sims = meta$n_sims %||% NA_integer_, n_detected = nrow(rH),
                      det_rate = if (nrow(res)) mean(res$detected, na.rm = TRUE) else NA_real_,
-                     gate_draws = meta$gate_draws %||% NA_integer_,
+                     mr_draws = meta$mr_draws %||% NA_integer_,
                      nb_boots = meta$nb_boots %||% NA_integer_,
                      seed_base = meta$seed_base %||% NA_integer_, src = src,
                      stringsAsFactors = FALSE))
@@ -509,7 +509,7 @@ length_from_bundle <- function(bundle, estimators = c("oracle", "naive", "MR"),
                  block = blk, estimator = est, stringsAsFactors = FALSE),
       lm,
       data.frame(n_sims = meta$n_sims %||% NA_integer_,
-                 gate_draws = meta$gate_draws %||% NA_integer_,
+                 mr_draws = meta$mr_draws %||% NA_integer_,
                  nb_boots = meta$nb_boots %||% NA_integer_, src = src,
                  stringsAsFactors = FALSE))
   }
@@ -552,7 +552,7 @@ accumulate_coverage <- function(paths, estimators = c("oracle", "naive", "MR"),
                n_sample = m$n_sample %||% NA_integer_, n_sims = m$n_sims %||% NA_integer_,
                n_detected = sum(r$detected == 1L, na.rm = TRUE),
                det_rate = mean(r$detected, na.rm = TRUE),
-               gate_draws = m$gate_draws %||% NA_integer_,
+               mr_draws = m$mr_draws %||% NA_integer_,
                nb_boots = m$nb_boots %||% NA_integer_,
                seed_base = m$seed_base %||% NA_integer_, stringsAsFactors = FALSE)
   }))

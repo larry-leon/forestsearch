@@ -8,7 +8,7 @@ fs_fdr_report(
   fs_analysis,
   df_analysis,
   null = c("hom", "harm"),
-  c_gate = c(0.9, 1, 1.25),
+  c_confirm = c(0.9, 1, 1.25),
   nsims = 1000L,
   n = NULL,
   confounders = NULL,
@@ -36,7 +36,7 @@ no modifier); \code{"harm"} is the null-harm-region null
 (\code{target_hr_harm = 1.0}: a real modifier tuned so the flagged region
 has HR = 1.0 while treatment stays active elsewhere).  Default both.}
 
-\item{c_gate}{Numeric vector of de-biased-HR gate thresholds at which to
+\item{c_confirm}{Numeric vector of de-biased-HR gate thresholds at which to
 report B.  Default \code{c(0.9, 1.0, 1.25)}.  On real data the gate is
 inert; here it annotates the null's operating characteristics only.}
 
@@ -79,7 +79,7 @@ Default 8316951.}
 \value{
 An object of class \code{"fs_fdr_report"}: a list with
 \describe{
-\item{\code{fdr}}{Data frame, one row per null x \code{c_gate}, with
+\item{\code{fdr}}{Data frame, one row per null x \code{c_confirm}, with
 \code{A}, \code{A_lo}, \code{A_hi} (raw FDR and 95\% Wilson CI),
 \code{B}, \code{B_lo}, \code{B_hi} (gated FDR and CI), \code{reduction}
 (\code{A - B}), and the accounting columns \code{n_valid},
@@ -113,7 +113,7 @@ gap \eqn{A - B(g)} is what the de-biasing step buys at gate \eqn{g}.
 
 All thresholds and identifier knobs are inherited from
 \code{fs_analysis$args_call_all}, so the FDR reported is that of the analysis
-as run.  The gate is forced on internally (\code{debias_gate = TRUE})
+as run.  The gate is forced on internally (\code{mr_inference = TRUE})
 regardless of the fitted setting, because B requires the per-replicate
 de-biased HR.
 \subsection{What "false discovery" means here}{
@@ -142,7 +142,7 @@ Identifier knobs (thresholds, \code{subgroup_method}, \code{consistency_method},
 transfer verbatim from \code{args_call_all}.  The data-binding arguments --
 the five column names and the confounder set -- are rebound to the DGM,
 because \code{simulate_from_dgm()} emits fixed names
-(\code{y_sim / event_sim / treat_sim / id / flag_harm}).  \code{debias_gate}
+(\code{y_sim / event_sim / treat_sim / id / flag_harm}).  \code{mr_inference}
 is forced \code{TRUE} so B is computable.
 }
 }
@@ -158,12 +158,12 @@ fit <- forestsearch(
   subgroup_method = "consistency", consistency_method = "resample",
   hr.threshold = 1.25, hr.consistency = 1.0,
   pconsistency.threshold = 0.90, maxk = 2,
-  debias_gate = TRUE)
+  mr_inference = TRUE)
 
 # Characterize its operating FDR and whether the de-biased gate helps
 rep <- fs_fdr_report(fit, gbsg_df, nsims = 1000, n_workers = 100)
 rep                       # prints the realized-HR table and the A/B table
-rep$fdr                   # one row per null x c_gate
+rep$fdr                   # one row per null x c_confirm
 
 # Reproduce the published reference (n = 700): A ~ 0.138 (hom), 0.278 (harm)
 fs_fdr_report(fit, gbsg_df, n = 700, nsims = 1000, n_workers = 100)

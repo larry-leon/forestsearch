@@ -76,8 +76,8 @@ fs_consistency_method    <- "resample"
 # bootstrap bias-correction, computed inside the fit and compared to the full
 # bootstrap below.  On the survival path it runs as a standalone approximation
 # under the default split-consistency search (it re-derives Cox dfbeta itself).
-run_debias_gate <- TRUE     # add debias_gate = TRUE to the forestsearch call
-gate_draws      <- 2000L    # multiplier-bootstrap draws for the gate
+run_mr <- TRUE     # add mr_inference = TRUE to the forestsearch call
+mr_draws      <- 2000L    # multiplier-bootstrap draws for the gate
 
 # (A) ForestSearch + DINA screening (consistency search selects; DINA only
 #     contributes candidate cuts)
@@ -377,8 +377,8 @@ fs <- forestsearch(
   selection_rule            = "neighborhood",  # default "neighborhood"
   effect_neighborhood       = 0.10,            # default 0.10
   # --- Tier-2 de-biased gate ----------------------------------------------
-  debias_gate               = run_debias_gate,           # set in setup chunk
-  debias_gate_args          = list(draws = gate_draws),  # set in setup chunk
+  mr_inference               = run_mr,           # set in setup chunk
+  mr_inference_args          = list(draws = mr_draws),  # set in setup chunk
   # --- Subgroup constraints -----------------------------------------------
   n.min                     = 60,             # default 60
   d0.min                    = 10,             # default 10
@@ -592,9 +592,9 @@ subgroup and its complement, so both appear in the comparison and the table belo
 ```{r debias-gate-comparison, eval = !is.null(fs$sg.harm)}
 #| echo: false
 #| results: asis
-g <- fs$debias_gate
+g <- fs$mr_inference
 if (is.null(g)) {
-  cat("_The de-biased gate did not run (set `run_debias_gate <- TRUE`)._\n")
+  cat("_The de-biased gate did not run (set `run_mr <- TRUE`)._\n")
 } else {
   fmt_ci <- function(e, l, u) sprintf("%.3f (%.3f, %.3f)", e, l, u)
   fl <- function(o, n) tryCatch(as.numeric(o[[n]]), error = function(e) NA_real_)
@@ -645,10 +645,10 @@ if (is.null(g)) {
     cat(sprintf(" -> **%.0fx** faster (multiplier loop only; the full bootstrap scales with `NB`, the gate does not)", boot_s / g$timing_seconds))
   cat(".\n\n")
 
-  cat(sprintf("Gate `harm_flag_debiased` = **%s** (de-biased HR %.3f %s gate %.2f); selection bias %.4f (log-HR).\n",
-              fs$harm_flag_debiased, g$debiased$est,
-              if (g$gate$type == "point") "vs" else "lower-bound vs",
-              g$gate$t_gate, g$selection_bias))
+  cat(sprintf("Gate `mr_harm_confirmed` = **%s** (de-biased HR %.3f %s gate %.2f); selection bias %.4f (log-HR).\n",
+              fs$mr_harm_confirmed, g$debiased$est,
+              if (g$settings$confirm_rule == "point") "vs" else "lower-bound vs",
+              g$settings$t_confirm, g$selection_bias))
   if (!is.null(g$ci_method) && !is.null(g$debiased$se_ij))
     cat(sprintf("De-biased CI: %s (IJ SE %.3f vs robust SE %.3f, log-HR).\n",
                 if (identical(g$ci_method, "ij")) "infinitesimal jackknife (Tier-1 analogue)" else "robust SE",
@@ -670,8 +670,8 @@ descriptive columns and naive effect are tier-independent (inherited from the
 bootstrap result used as a template); the bias-corrected column carries the gate's
 de-biased estimate for **both** the selected subgroup and its complement.
 
-```{r debias-gate-table, eval = !is.null(fs$sg.harm) && !is.null(fs$debias_gate)}
-gate_estimates_table(fs, boot_results = fs_bc, est.scale = "hr", digits = 2)
+```{r debias-gate-table, eval = !is.null(fs$sg.harm) && !is.null(fs$mr_inference)}
+mr_estimates_table(fs, boot_results = fs_bc, est.scale = "hr", digits = 2)
 ```
 
 ## Kaplan-Meier by Identified Subgroups

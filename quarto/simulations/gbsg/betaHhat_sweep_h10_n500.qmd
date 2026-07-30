@@ -291,7 +291,7 @@ if (!reident) {
       df.analysis = df, outcome.name = outcome_name, event.name = event_name,
       treat.name = treat_name, id.name = id_name, flag_harm.name = harm_col,
       confounders.name = confs, is.RCT = TRUE, seedit = seed_base + sid,
-      quiet = TRUE, parallel_args = list(plan = "sequential"), debias_gate = FALSE)
+      quiet = TRUE, parallel_args = list(plan = "sequential"), mr_inference = FALSE)
     fs <- tryCatch(do.call(forestsearch, c(fixed_args, fs_params)),
                    error = function(e) NULL)
     if (is.null(fs) || is.null(fs$sg.harm) || all(is.na(fs$sg.harm)))

@@ -1,7 +1,7 @@
 # =============================================================================
-# smoke_test_debias_gate_methods.R
+# smoke_test_mr_inference_methods.R
 # -----------------------------------------------------------------------------
-# Confirms the Tier-2 de-biased gate now populates out$debias_gate for ALL
+# Confirms the Tier-2 de-biased gate now populates out$mr_inference for ALL
 # subgroup_method options (consistency / dina / grf-tree / grf-frontier), each
 # de-biased against its OWN candidate family (approach (i)).
 #
@@ -62,8 +62,8 @@ run_one <- function(method, grf_selection = "tree") {
     pconsistency.threshold = 0.90,
     n.min                  = 50,
     fs.splits              = 200,                 # small: this is a smoke test
-    debias_gate            = TRUE,
-    debias_gate_args       = list(draws = 1000, gate = "point"),
+    mr_inference            = TRUE,
+    mr_inference_args       = list(draws = 1000, confirm_rule = "point"),
     details                = FALSE
   )
 }
@@ -76,16 +76,16 @@ fits <- list(
 )
 
 # -----------------------------------------------------------------------------
-# 3. Inspect the gate.  Pass = out$debias_gate is non-NULL with a debiased CI.
+# 3. Inspect the gate.  Pass = out$mr_inference is non-NULL with a debiased CI.
 #    (NULL is the legitimate "no subgroup found / gate skipped" outcome.)
 # -----------------------------------------------------------------------------
-show_gate <- function(fs, tag) {
+show_mr <- function(fs, tag) {
   cat("\n== ", tag, " ==\n", sep = "")
   cat("  selected sg.harm: ",
       if (is.null(fs$sg.harm)) "none" else paste(fs$sg.harm, collapse = " & "),
       "\n", sep = "")
-  g <- fs$debias_gate
-  if (is.null(g)) { cat("  debias_gate = NULL\n"); return(invisible(FALSE)) }
+  g <- fs$mr_inference
+  if (is.null(g)) { cat("  mr_inference = NULL\n"); return(invisible(FALSE)) }
   cat(sprintf("  family size (n_family) = %s   selected size (n_selected) = %s\n",
               g$n_family, g$n_selected))
   cat(sprintf("  measure = %s   selected_label = %s\n",
@@ -103,7 +103,7 @@ show_gate <- function(fs, tag) {
 }
 
 cat("\n------------------------------------------------------------\n")
-ok <- mapply(show_gate, fits, names(fits))
+ok <- mapply(show_mr, fits, names(fits))
 cat("\n------------------------------------------------------------\n")
 cat("PASS (gate produced a debiased CI):\n")
 print(ok)

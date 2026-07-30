@@ -63,7 +63,7 @@ n_cores <- max(1L, floor(0.80 * parallel::detectCores(logical = FALSE)))
 cat("Using", n_cores, "physical cores for parallel sections\n")
 
 NB         <- 1000L     # full-bootstrap resamples (production: 500-2000)
-gate_draws <- 5000L     # MR multiplier draws
+mr_draws <- 5000L     # MR multiplier draws
 GH_B       <- 2000L     # Guo & He pair-bootstrap resamples
 GH_r       <- 0.03      # Guo & He tuning parameter (their adaptive default region)
 GH_PARALLEL <- .Platform$OS.type == "unix"   # forked GH bootstrap where available
@@ -127,8 +127,8 @@ fs <- forestsearch(
   # subgroup constraints
   n.min                 = 60, d0.min = 10, d1.min = 10, maxk = 2,
   # Tier-2 de-biased gate (MR) computed inside the fit
-  debias_gate           = TRUE,
-  debias_gate_args      = list(draws = gate_draws),
+  mr_inference           = TRUE,
+  mr_inference_args      = list(draws = mr_draws),
   # consistency search
   consistency_method    = "resample",
   fs.splits             = 1000, stop_threshold = 0.95,
@@ -171,15 +171,15 @@ cat("FB completed in", round(timings$fb / 60, 1), "min\n")
 ## Multiplier resampling (MR)
 
 The Tier-2 de-biased gate is the MR correction, computed inside the fit above
-(vectorized over `r format(gate_draws, big.mark=",")` draws). It is read from
-`fs$debias_gate`; no separate run is needed.
+(vectorized over `r format(mr_draws, big.mark=",")` draws). It is read from
+`fs$mr_inference`; no separate run is needed.
 
 ```{r mr}
-g <- fs$debias_gate
+g <- fs$mr_inference
 stopifnot(!is.null(g))
 timings$mr <- g$timing_seconds
 cat("MR gate:", round(timings$mr, 2), "s over",
-    format(gate_draws, big.mark = ","), "draws\n")
+    format(mr_draws, big.mark = ","), "draws\n")
 ```
 
 ## Guo & He (GH)
@@ -217,12 +217,12 @@ fci <- function(e, l, u, d = 2) {
 
 # Selected-subgroup (H) HR + 95% CI on the HR scale, read straight from the
 # actual result objects (verified against str(fs_bc$H_estimates) and
-# str(fs$debias_gate); the estimates are unchanged, this is display plumbing):
+# str(fs$mr_inference); the estimates are unchanged, this is display plumbing):
 #   FB bias-corrected: the bootstrap object's H_estimates carries H0 (naive HR)
 #     and H2 (the "HR*" infinitesimal-jackknife bias-corrected HR) with
 #     H2_lower/H2_upper -- summarize_bootstrap_results() formats these into a gt
 #     table and exposes no top-level est_H/lo_H/hi_H fields.
-#   MR de-biased gate: fs$debias_gate$debiased$est / lower / upper (there is no
+#   MR de-biased gate: fs$mr_inference$debiased$est / lower / upper (there is no
 #     g$Hc_estimates; the gate's H-subgroup de-biased HR lives under $debiased).
 naive_hr <- gh$naive_hr    # naive is identical across methods (same fit)
 

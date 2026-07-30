@@ -1,5 +1,5 @@
 # =============================================================================
-# fs_debias_gate.R
+# fs_mr_inference.R
 #
 # Tier-2 fast de-biased gate for a selected forestsearch subgroup.
 #
@@ -221,11 +221,11 @@
 #'   **comparison scale** (log for ratio measures, identity for differences) --
 #'   i.e. `forestsearch()`'s resolved `effect_threshold` / `consistency_threshold`.
 #' @param p_star Consistency-rate cutoff (`pconsistency.threshold`).
-#' @param t_gate Gate threshold on the **effect scale**; `NULL` uses the
+#' @param t_confirm Gate threshold on the **effect scale**; `NULL` uses the
 #'   near-null default (`1` ratio, `0` difference). Set near the null, not at the
 #'   screen, since the correction over-shrinks true effects.
-#' @param gate `"point"` (de-biased point estimate clears `t_gate`) or `"ci"`
-#'   (one-sided selection-adjusted lower bound clears `t_gate`).
+#' @param confirm_rule `"point"` (de-biased point estimate clears `t_confirm`) or `"ci"`
+#'   (one-sided selection-adjusted lower bound clears `t_confirm`).
 #' @param reselection Bootstrap re-selection rule for the bias term; default
 #'   `"maxcons"` (validated). `"effMaxSG"` etc. are available but approximate.
 #' @param effect_neighborhood Band for the `eff*SG` re-selection rules.
@@ -253,9 +253,9 @@
 #'   complement subgroup's `naive`/`debiased` estimates and bias terms in the
 #'   same form, including its own IJ variance.
 #' @keywords internal
-fs_debias_gate <- function(df, candidates, spec, selected_members,
+fs_mr_inference <- function(df, candidates, spec, selected_members,
                            c_screen, c_consistency = 0, p_star = 0.90,
-                           t_gate = NULL, gate = c("point", "ci"),
+                           t_confirm = NULL, confirm_rule = c("point", "ci"),
                            reselection = c("maxcons", "maxeff", "maxSG",
                                            "minSG", "effMaxSG", "effMinSG"),
                            effect_neighborhood = 0.10,
@@ -265,7 +265,7 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
                            include_complement = FALSE,
                            ci_method = c("ij", "wald"),
                            seed = NULL) {
-  gate <- match.arg(gate); reselection <- match.arg(reselection)
+  confirm_rule <- match.arg(confirm_rule); reselection <- match.arg(reselection)
   selection_rule <- match.arg(selection_rule)
   multiplier <- match.arg(multiplier); ci_method <- match.arg(ci_method)
   if (!is.null(seed)) set.seed(seed)
@@ -283,15 +283,16 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
   else { candidates[[H_lab]] <- selected_members; sel_lab <- H_lab }
 
   asm <- .fs_mr_assemble(df, candidates, spec)
-  if (is.null(t_gate)) t_gate <- if (asm$log_scale) 1 else 0
+  if (is.null(t_confirm)) t_confirm <- if (asm$log_scale) 1 else 0
   sel <- match(sel_lab, asm$names)
 
-  gate_meta <- list(t_gate = t_gate, type = gate, reselection = reselection,
-                    selection_rule = selection_rule,
-                    multiplier = multiplier, draws = as.integer(draws))
+  mr_settings <- list(t_confirm = t_confirm, confirm_rule = confirm_rule,
+                      reselection = reselection,
+                      selection_rule = selection_rule,
+                      multiplier = multiplier, draws = as.integer(draws))
   if (is.na(sel)) {
     return(list(selected_index = NA_integer_, selected_label = sel_lab,
-                harm_flag = NA, gate = gate_meta,
+                harm_flag = NA, settings = mr_settings,
                 note = "selected subgroup could not be fit in the reconstructed family",
                 n_family = length(asm$names)))
   }
@@ -334,9 +335,9 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
   se_ij <- .fs_mr_se_from_ij(ijH, se_wald)
   se    <- if (ci_method == "ij") se_ij$se else se_wald
 
-  gate_cmp <- if (log_scale) log(t_gate) else t_gate
+  t_cmp    <- if (log_scale) log(t_confirm) else t_confirm
   ci_lo_1s <- beta_deb - stats::qnorm(0.95) * se
-  flag <- if (gate == "point") (beta_deb >= gate_cmp) else (ci_lo_1s >= gate_cmp)
+  flag <- if (confirm_rule == "point") (beta_deb >= t_cmp) else (ci_lo_1s >= t_cmp)
 
   # ---------------------------------------------------------------------------
   # Complement subgroup (optional).  The complement is induced by the selection,
@@ -416,7 +417,7 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
     selection_bias = selection_bias, fixed_bias = fixed_bias,
     selection_rate = selection_rate,
     complement = complement,
-    gate = gate_meta, harm_flag = isTRUE(flag),
+    settings = mr_settings, harm_flag = isTRUE(flag),
     n_family = length(asm$names), n_selected = sz[sel],
     timing_seconds = timing)
 }

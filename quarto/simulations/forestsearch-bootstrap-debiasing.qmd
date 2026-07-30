@@ -39,7 +39,7 @@ Two papers are involved, and they describe **the same estimator** by two routes:
 - **León & Anderson (2026)** (the "JASA" paper) shows that on a *fixed* candidate
   family the identical correction is obtained refit-free, by a multiplier
   resampling of the subgroup estimating function, reproducing the full bootstrap's
-  point estimate **and** interval to first order. That is `fs_debias_gate()` — the
+  point estimate **and** interval to first order. That is `fs_mr_inference()` — the
   **Tier-2** de-biased gate.
 
 The point of this note is the correspondence: which code symbol is which paper
@@ -259,7 +259,7 @@ robust SE $\approx 0.36$ on the log-hazard scale (JASA §3.2).
 
 # Tier-1 and Tier-2 are the same estimator
 
-The bridge that makes `fs_debias_gate()` reproduce all of the above without
+The bridge that makes `fs_mr_inference()` reproduce all of the above without
 re-running the search is JASA §2.5. On a *fixed* family, refitting candidate $g$
 on resample $b$ is, to first order, a dot product of the centered resampling
 weights with the candidate's per-subject influence values (dfbeta):
@@ -275,7 +275,7 @@ So every $\eta^{*}_{b}(g)$ the full bootstrap computes by *literal refitting*
 equals $D_g(b)$, re-selection becomes the deterministic rule applied to the
 perturbed effects $\{\hat\beta(g) + D_g(b)\}$, and the whole competition is one
 matrix product $P = B_{\mathrm{eff}}^{\top}\Xi$ over the influence columns and the
-multiplier draws. `fs_debias_gate()` assembles the same
+multiplier draws. `fs_mr_inference()` assembles the same
 $\widehat{\text{bias}}_{\mathrm{sel}}$, $\widehat{\text{bias}}_{\mathrm{fix}}$, and
 IJ residual $r$ from $P$ — which is why its de-biased estimate and interval match
 `forestsearch_bootstrap_dofuture()`'s `H2` row to first order on a fixed
@@ -306,7 +306,7 @@ per engine.
 | Mean + IJ variance + finite-B (SIM Eq. 9) | `get_targetEst()` | `bootstrap_calculations_helpers.R` (≈331–373) |
 | Per-subject IJ influence $\widetilde{\mathrm{cov}}_i$ | `calc_cov()` | `bootstrap_calculations_helpers.R` (≈134–136) |
 | Assemble H0/H1/H2 + CIs | `get_dfRes()`, `ci_est()` | `bootstrap_calculations_helpers.R` (≈151–318) |
-| Tier-2 refit-free reconstruction (JASA Eqs. 6, 10, 12–14) | `fs_debias_gate()` | `fs_debias_gate.R` |
+| Tier-2 refit-free reconstruction (JASA Eqs. 6, 10, 12–14) | `fs_mr_inference()` | `fs_mr_inference.R` |
 
 # References
 

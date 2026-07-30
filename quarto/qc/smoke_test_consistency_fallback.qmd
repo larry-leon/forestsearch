@@ -129,7 +129,7 @@ run_fs <- function(df, family, method, force_na = FALSE) {
     pconsistency.threshold = 0.80,
     seedit           = SEED,
     details          = FALSE,
-    debias_gate      = FALSE
+    mr_inference      = FALSE
   )
   args <- if (family == "cox") {
     c(common, list(outcome.name = "time", event.name = "event",

@@ -605,7 +605,7 @@
 #'     \item{conf.level}{Numeric. Confidence level for early stopping. Default 0.95.}
 #'     \item{min.valid.screen}{Integer. Minimum valid Stage 1 splits. Default 10.}
 #'   }
-#' @param debias_gate Logical.  When \code{TRUE}, compute a fast
+#' @param mr_inference Logical.  When \code{TRUE}, compute a fast
 #'   multiplier-bootstrap de-biased estimate of the selected subgroup and flag
 #'   whether it remains consistent with harm.  Supported on the GLM
 #'   resample-consistency path (\code{consistency_method = "resample"} with a
@@ -614,9 +614,10 @@
 #'   split-consistency search.  This is a Tier-2 approximation of the full
 #'   bootstrap bias-correction (\code{\link{forestsearch_bootstrap_dofuture}})
 #'   and does not replace it.  Default \code{FALSE}.
-#' @param debias_gate_args List of optional gate controls: \code{t_gate}
-#'   (effect-scale gate; near-null default \code{1} for ratio measures, \code{0}
-#'   for differences -- set near the null, not at the screen), \code{gate}
+#' @param mr_inference_args List of optional controls: \code{t_confirm}
+#'   (effect-scale harm-confirmation threshold; near-null default \code{1} for
+#'   ratio measures, \code{0} for differences -- set near the null, not at the
+#'   screen), \code{confirm_rule}
 #'   (\code{"point"} or \code{"ci"}), \code{reselection} (bootstrap re-selection
 #'   rule, default \code{"maxcons"}), \code{draws} (default \code{2000}),
 #'   \code{multiplier} (default \code{"poisson"}), \code{include_complement}
@@ -742,13 +743,13 @@
 #'     \item{max_sg_est}{Maximum subgroup HR estimate}
 #'     \item{grf_plot}{GRF plot object (if plot.grf = TRUE)}
 #'     \item{args_call_all}{All arguments for reproducibility}
-#'     \item{debias_gate}{Tier-2 de-biased gate result, or \code{NULL} when the
-#'       gate did not run.  See \code{\link{fs_debias_gate}} for fields
+#'     \item{mr_inference}{Tier-2 de-biased gate result, or \code{NULL} when the
+#'       gate did not run.  See \code{\link{fs_mr_inference}} for fields
 #'       (\code{naive}, \code{debiased}, \code{selection_bias}, \code{gate},
 #'       \code{harm_flag}, \code{timing_seconds}).  The de-biased CI is
 #'       approximate (subgroup robust SE) and narrower than the Tier-1
 #'       infinitesimal-jackknife CI.}
-#'     \item{harm_flag_debiased}{Logical.  \code{TRUE} when the selected
+#'     \item{mr_harm_confirmed}{Logical.  \code{TRUE} when the selected
 #'       subgroup's de-biased estimate is still consistent with harm; \code{NA}
 #'       when the gate did not run.}
 #'   }
@@ -981,8 +982,8 @@ forestsearch <- function(df.analysis,
                          ps_adjust_method = c("none", "iptw", "dr_gcomp"),
                          ps_hat = NULL,
                          # Tier-2 de-biased gate (optional; GLM resample path)
-                         debias_gate = FALSE,
-                         debias_gate_args = list()) {
+                         mr_inference = FALSE,
+                         mr_inference_args = list()) {
 
   # ===========================================================================
   # SECTION 1A: RESOLVE FORMAL DEFAULTS BEFORE ARGUMENT CAPTURE
@@ -1867,9 +1868,9 @@ forestsearch <- function(df.analysis,
 
     # SECTION 9B (DINA): Tier-2 de-biased gate over DINA's OWN candidate family
     # (approach (i)).  Re-selection matches the DINA focus rule via sg_focus.
-    # Defensive: any failure leaves out$debias_gate NULL; DINA output unaffected.
-    out$debias_gate <- NULL
-    if (isTRUE(debias_gate) && isTRUE(dsel$found) &&
+    # Defensive: any failure leaves out$mr_inference NULL; DINA output unaffected.
+    out$mr_inference <- NULL
+    if (isTRUE(mr_inference) && isTRUE(dsel$found) &&
         !is.null(dsel$grp.consistency) &&
         !is.null(dsel$grp.consistency$sg.harm.id)) {
       .mr_df   <- dsel$df.est
@@ -1892,8 +1893,8 @@ forestsearch <- function(df.analysis,
       # per-candidate effect (`sel_effect`, attached by the select wrapper);
       # otherwise restrict on DINA's native tau-hat.  Default neighbourhood:
       # match effect_neighborhood (the band DINA selects within).  Set
-      # debias_gate_args$family_native_neighborhood >= 1 to disable (full family).
-      .mr_nbhd <- debias_gate_args$family_native_neighborhood
+      # mr_inference_args$family_native_neighborhood >= 1 to disable (full family).
+      .mr_nbhd <- mr_inference_args$family_native_neighborhood
       if (is.null(.mr_nbhd)) .mr_nbhd <- effect_neighborhood
       .mr_stat <- if (identical(dsel$select_statistic, "effect") &&
                       "sel_effect" %in% names(dsel$candidates))
@@ -1904,7 +1905,7 @@ forestsearch <- function(df.analysis,
         log_scale = .mr_em %in% c("HR", "OR", "IRR"))
       .mr_fam  <- .fs_mr_family_from_table(.mr_df, .mr_tab,
                                            op_right = ">=", n_min = n.min)
-      out$debias_gate <- .fs_apply_mr(
+      out$mr_inference <- .fs_apply_mr(
         df = .mr_df, candidates = .mr_fam,
         selected_members = which(dsel$grp.consistency$sg.harm.id == 1L),
         spec = .mr_spec, c_screen = .mr_cscr, c_consistency = 0,
@@ -1912,11 +1913,11 @@ forestsearch <- function(df.analysis,
         effect_neighborhood = effect_neighborhood,
         reselection_default = .fs_mr_reselection_from_focus(sg_focus, engine = "effect"),
         selection_rule_default = selection_rule,
-        debias_gate_args = debias_gate_args, seedit = seedit)
+        mr_inference_args = mr_inference_args, seedit = seedit)
     }
 
-    out$harm_flag_debiased <- if (!is.null(out$debias_gate))
-      isTRUE(out$debias_gate$harm_flag) else NA
+    out$mr_harm_confirmed <- if (!is.null(out$mr_inference))
+      isTRUE(out$mr_inference$harm_flag) else NA
     class(out) <- c("forestsearch", "list")
     return(out)
   }
@@ -2000,9 +2001,9 @@ forestsearch <- function(df.analysis,
     # (approach (i)).  Frontier ranks this family directly; the policy tree uses
     # it as the cut-defined universe.  Re-selection matches sg_focus.  GRF cut
     # operator for non-"left" is ">" (matches .grf_sg_def_from_candidate).
-    # Defensive: any failure leaves out$debias_gate NULL; GRF output unaffected.
-    out$debias_gate <- NULL
-    if (isTRUE(debias_gate) && !is.null(gsel$grp.consistency) &&
+    # Defensive: any failure leaves out$mr_inference NULL; GRF output unaffected.
+    out$mr_inference <- NULL
+    if (isTRUE(mr_inference) && !is.null(gsel$grp.consistency) &&
         !is.null(gsel$grp.consistency$sg.harm.id)) {
       .mr_df   <- gsel$df.est
       # Mirror SECTION 9B (see DINA branch): survival uses "HR"/log(hr.threshold);
@@ -2023,8 +2024,8 @@ forestsearch <- function(df.analysis,
       # attached by the select wrapper); otherwise restrict on GRF's native
       # doubly-robust score (additive scale).  Default: match effect_neighborhood
       # (the band GRF's frontier selects within).  Set
-      # debias_gate_args$family_native_neighborhood >= 1 to disable (full family).
-      .mr_nbhd <- debias_gate_args$family_native_neighborhood
+      # mr_inference_args$family_native_neighborhood >= 1 to disable (full family).
+      .mr_nbhd <- mr_inference_args$family_native_neighborhood
       if (is.null(.mr_nbhd)) .mr_nbhd <- effect_neighborhood
       .mr_eff_sel <- identical(gsel$select_statistic, "effect") &&
                      "sel_effect" %in% names(gsel$candidates)
@@ -2036,7 +2037,7 @@ forestsearch <- function(df.analysis,
         log_scale = if (.mr_eff_sel) .mr_em %in% c("HR", "OR", "IRR") else FALSE)
       .mr_fam  <- .fs_mr_family_from_table(.mr_df, .mr_tab,
                                            op_right = ">", n_min = n.min)
-      out$debias_gate <- .fs_apply_mr(
+      out$mr_inference <- .fs_apply_mr(
         df = .mr_df, candidates = .mr_fam,
         selected_members = which(gsel$grp.consistency$sg.harm.id == 1L),
         spec = .mr_spec, c_screen = .mr_cscr, c_consistency = 0,
@@ -2044,11 +2045,11 @@ forestsearch <- function(df.analysis,
         effect_neighborhood = effect_neighborhood,
         reselection_default = .fs_mr_reselection_from_focus(sg_focus, engine = "effect"),
         selection_rule_default = selection_rule,
-        debias_gate_args = debias_gate_args, seedit = seedit)
+        mr_inference_args = mr_inference_args, seedit = seedit)
     }
 
-    out$harm_flag_debiased <- if (!is.null(out$debias_gate))
-      isTRUE(out$debias_gate$harm_flag) else NA
+    out$mr_harm_confirmed <- if (!is.null(out$mr_inference))
+      isTRUE(out$mr_inference$harm_flag) else NA
     class(out) <- c("forestsearch", "list")
     return(out)
   }
@@ -2816,7 +2817,7 @@ forestsearch <- function(df.analysis,
   mr_out <- NULL
   .mr_glm_ok <- consistency_method == "resample" && !is.null(estimator_fn)
   .mr_cox_ok <- outcome_type == "survival" && is.null(estimator_fn)
-  if (isTRUE(debias_gate) && !is.null(sg.harm) &&
+  if (isTRUE(mr_inference) && !is.null(sg.harm) &&
       (.mr_glm_ok || .mr_cox_ok) &&
       !is.null(grp.consistency) && !is.null(grp.consistency$sg.harm.id)) {
 
@@ -2866,36 +2867,36 @@ forestsearch <- function(df.analysis,
         c_consistency_mr <- consistency_threshold # comparison scale
       }
 
-      fs_debias_gate(
+      fs_mr_inference(
         df = df.fs, candidates = fam, spec = gspec,
         selected_members = which(grp.consistency$sg.harm.id == 1),
         c_screen      = c_screen_mr,
         c_consistency = c_consistency_mr,
         p_star        = pconsistency.threshold,
-        t_gate        = debias_gate_args$t_gate,            # NULL -> near-null default
-        gate          = .g_mr(debias_gate_args$gate,        "point"),
-        reselection   = .g_mr(debias_gate_args$reselection,
+        t_confirm     = mr_inference_args$t_confirm,         # NULL -> near-null default
+        confirm_rule  = .g_mr(mr_inference_args$confirm_rule, "point"),
+        reselection   = .g_mr(mr_inference_args$reselection,
                               .fs_mr_reselection_from_focus(sg_focus,
                                                             engine = "consistency")),
         effect_neighborhood = effect_neighborhood,
-        selection_rule = .g_mr(debias_gate_args$selection_rule, selection_rule),
-        draws         = .g_mr(debias_gate_args$draws,       2000L),
-        multiplier    = .g_mr(debias_gate_args$multiplier,  "poisson"),
-        include_complement = .g_mr(debias_gate_args$include_complement, TRUE),
-        ci_method     = .g_mr(debias_gate_args$ci_method,   "ij"),
-        seed          = .g_mr(debias_gate_args$seed,        seedit))
+        selection_rule = .g_mr(mr_inference_args$selection_rule, selection_rule),
+        draws         = .g_mr(mr_inference_args$draws,       2000L),
+        multiplier    = .g_mr(mr_inference_args$multiplier,  "poisson"),
+        include_complement = .g_mr(mr_inference_args$include_complement, TRUE),
+        ci_method     = .g_mr(mr_inference_args$ci_method,   "ij"),
+        seed          = .g_mr(mr_inference_args$seed,        seedit))
     }, error = function(e) {
-      warning("debias_gate failed: ", conditionMessage(e)); NULL
+      warning("mr_inference failed: ", conditionMessage(e)); NULL
     })
 
     if (!quiet && !is.null(mr_out) &&
         !is.na(mr_out$harm_flag)) {
-      cat(sprintf("De-biased gate: %s = %.3f (gate %s %.2f) -> %s\n",
+      cat(sprintf("MR harm confirmation: %s = %.3f (%s rule vs %.2f) -> %s\n",
                   .g_mr(mr_out$measure, "effect"),
-                  mr_out$debiased$est, mr_out$gate$type,
-                  mr_out$gate$t_gate,
+                  mr_out$debiased$est, mr_out$settings$confirm_rule,
+                  mr_out$settings$t_confirm,
                   if (mr_out$harm_flag) "consistent with harm"
-                  else "not flagged"))
+                  else "not confirmed"))
     }
   }
 
@@ -2915,9 +2916,9 @@ forestsearch <- function(df.analysis,
     grf_res = grf_res,
     sg_focus = sg_focus,
     sg.harm = sg.harm,
-    # Tier-2 de-biased gate (NULL unless debias_gate = TRUE)
-    debias_gate = mr_out,
-    harm_flag_debiased = if (!is.null(mr_out)) mr_out$harm_flag
+    # Tier-2 de-biased gate (NULL unless mr_inference = TRUE)
+    mr_inference = mr_out,
+    mr_harm_confirmed = if (!is.null(mr_out)) mr_out$harm_flag
                          else NA,
     grf_cuts = grf_cuts,
     dina_res = dina_res,

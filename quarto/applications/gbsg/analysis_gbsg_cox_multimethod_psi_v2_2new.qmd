@@ -89,8 +89,8 @@ fs_consistency_method    <- "resample"
 # bootstrap below.  It runs for whichever selection engine fs_subgroup_method
 # names, de-biasing against that engine's own candidate family (it re-derives
 # the per-candidate Cox dfbeta itself).
-run_debias_gate <- TRUE     # add debias_gate = TRUE to the forestsearch call
-gate_draws      <- 5000L    # multiplier-bootstrap draws for the gate
+run_mr <- TRUE     # add mr_inference = TRUE to the forestsearch call
+mr_draws      <- 5000L    # multiplier-bootstrap draws for the gate
 
 # ---------------------------------------------------------------------------
 # Output directory for the Section 6.2 reproducibility payload written at the
@@ -463,8 +463,8 @@ fs <- forestsearch(
   selection_rule            = "neighborhood",  # default "neighborhood"
   effect_neighborhood       = 0.10,            # default 0.10
   # --- Tier-2 de-biased gate ----------------------------------------------
-  debias_gate               = run_debias_gate,           # set in setup chunk
-  debias_gate_args          = list(draws = gate_draws,
+  mr_inference               = run_mr,           # set in setup chunk
+  mr_inference_args          = list(draws = mr_draws,
                                    family_native_neighborhood = fs_family_native_nbhd),
   # --- Subgroup constraints -----------------------------------------------
   n.min                     = 60,                       # default 60
@@ -681,9 +681,9 @@ subgroup and its complement, so both appear in the comparison and the table belo
 ```{r debias-gate-comparison, eval = !is.null(fs$sg.harm)}
 #| echo: false
 #| results: asis
-g <- fs$debias_gate
+g <- fs$mr_inference
 if (is.null(g)) {
-  cat("_The de-biased gate did not run (set `run_debias_gate <- TRUE`)._\n")
+  cat("_The de-biased gate did not run (set `run_mr <- TRUE`)._\n")
 } else {
   fmt_ci <- function(e, l, u) sprintf("%.3f (%.3f, %.3f)", e, l, u)
   fl <- function(o, n) tryCatch(as.numeric(o[[n]]), error = function(e) NA_real_)
@@ -728,7 +728,7 @@ if (is.null(g)) {
               if (!is.na(n_surv)) sprintf("; screened survivors = %d", n_surv) else ""))
 
   cat(sprintf("Re-selection rule = `%s`%s.\n\n",
-              if (!is.null(g$gate$reselection)) g$gate$reselection else "?",
+              if (!is.null(g$settings$reselection)) g$settings$reselection else "?",
               if (fs_subgroup_method %in% c("dina", "grf"))
                 sprintf(" (a Cox-effect proxy for the %s; native-family band = %s)",
                         if (identical(fs_subgroup_method, "dina")) "DINA tau-hat" else "GRF DR-score",
@@ -744,10 +744,10 @@ if (is.null(g)) {
     cat(sprintf(" -> **%.0fx** faster (multiplier loop only; the full bootstrap scales with `NB`, the gate does not)", boot_s / g$timing_seconds))
   cat(".\n\n")
 
-  cat(sprintf("Gate `harm_flag_debiased` = **%s** (de-biased HR %.3f %s gate %.2f); selection bias %.4f (log-HR).\n",
-              fs$harm_flag_debiased, g$debiased$est,
-              if (g$gate$type == "point") "vs" else "lower-bound vs",
-              g$gate$t_gate, g$selection_bias))
+  cat(sprintf("Gate `mr_harm_confirmed` = **%s** (de-biased HR %.3f %s gate %.2f); selection bias %.4f (log-HR).\n",
+              fs$mr_harm_confirmed, g$debiased$est,
+              if (g$settings$confirm_rule == "point") "vs" else "lower-bound vs",
+              g$settings$t_confirm, g$selection_bias))
   if (!is.null(g$ci_method) && !is.null(g$debiased$se_ij))
     cat(sprintf("De-biased CI: %s (IJ SE %.3f vs robust SE %.3f, log-HR).\n",
                 if (identical(g$ci_method, "ij")) "infinitesimal jackknife (Tier-1 analogue)" else "robust SE",
@@ -769,8 +769,8 @@ descriptive columns and naive effect are tier-independent (inherited from the
 bootstrap result used as a template); the bias-corrected column carries the gate's
 de-biased estimate for **both** the selected subgroup and its complement.
 
-```{r debias-gate-table, eval = !is.null(fs$sg.harm) && !is.null(fs$debias_gate)}
-gate_estimates_table(fs, boot_results = fs_bc, est.scale = "hr", digits = 2)
+```{r debias-gate-table, eval = !is.null(fs$sg.harm) && !is.null(fs$mr_inference)}
+mr_estimates_table(fs, boot_results = fs_bc, est.scale = "hr", digits = 2)
 ```
 
 ## Kaplan-Meier by Identified Subgroups
@@ -1174,8 +1174,8 @@ fs_dina <- forestsearch(
   n.min               = 60,              # default 60
   hr.threshold        = fs_dina_hr_threshold,  # set in setup chunk (-> log-HR floor)
   # --- Tier-2 de-biased gate ----------------------------------------------
-  debias_gate         = run_debias_gate,           # set in setup chunk
-  debias_gate_args    = list(draws = gate_draws,
+  mr_inference         = run_mr,           # set in setup chunk
+  mr_inference_args    = list(draws = mr_draws,
                              family_native_neighborhood = fs_dina_family_native_nbhd),
   # --- Output -------------------------------------------------------------
   details             = TRUE             # default FALSE
@@ -1277,9 +1277,9 @@ as a fast, conservative check.
 ```{r fs-dina-debias-gate-comparison, eval = !is.null(fs_dina$sg.harm)}
 #| echo: false
 #| results: asis
-g <- fs_dina$debias_gate
+g <- fs_dina$mr_inference
 if (is.null(g)) {
-  cat("_The de-biased gate did not run (set `run_debias_gate <- TRUE`)._\n")
+  cat("_The de-biased gate did not run (set `run_mr <- TRUE`)._\n")
 } else {
   fmt_ci <- function(e, l, u) sprintf("%.3f (%.3f, %.3f)", e, l, u)
   fl <- function(o, n) tryCatch(as.numeric(o[[n]]), error = function(e) NA_real_)
@@ -1316,10 +1316,10 @@ if (is.null(g)) {
   cat(".\n\n")
   cat(sprintf("Gate harm flag = **%s** (de-biased HR %.3f %s gate %.2f); selection bias %.4f (log-HR); candidate family = %d.\n",
               isTRUE(g$harm_flag), g$debiased$est,
-              if (g$gate$type == "point") "vs" else "lower-bound vs",
-              g$gate$t_gate, g$selection_bias, g$n_family))
+              if (g$settings$confirm_rule == "point") "vs" else "lower-bound vs",
+              g$settings$t_confirm, g$selection_bias, g$n_family))
   cat(sprintf("Re-selection rule = `%s` (a Cox-effect proxy for DINA's tau-hat); native-family band = %s.\n",
-              if (!is.null(g$gate$reselection)) g$gate$reselection else "?",
+              if (!is.null(g$settings$reselection)) g$settings$reselection else "?",
               if (is.null(fs_dina_family_native_nbhd)) "default (matched to effect_neighborhood)"
               else if (fs_dina_family_native_nbhd >= 1) "off (full family)"
               else sprintf("%.2f (restricted to tau-hat-competitive candidates)",
@@ -1335,8 +1335,8 @@ The Tier-1 bias-corrected table above, rebuilt from the Tier-2 gate object (the
 descriptive columns and naive effect are tier-independent; the bias-corrected
 column carries the gate's de-biased estimate for the subgroup and its complement).
 
-```{r fs-dina-debias-gate-table, eval = !is.null(fs_dina$sg.harm) && !is.null(fs_dina$debias_gate)}
-gate_estimates_table(fs_dina, boot_results = fs_dina_bc, est.scale = "hr", digits = 2)
+```{r fs-dina-debias-gate-table, eval = !is.null(fs_dina$sg.harm) && !is.null(fs_dina$mr_inference)}
+mr_estimates_table(fs_dina, boot_results = fs_dina_bc, est.scale = "hr", digits = 2)
 ```
 
 ::: {.callout-note}
@@ -1398,8 +1398,8 @@ fs_grf <- forestsearch(
   effect_neighborhood = 0.10,            # default 0.10
   n.min               = 60,              # default 60
   # --- Tier-2 de-biased gate ----------------------------------------------
-  debias_gate         = run_debias_gate,           # set in setup chunk
-  debias_gate_args    = list(draws = gate_draws,
+  mr_inference         = run_mr,           # set in setup chunk
+  mr_inference_args    = list(draws = mr_draws,
                              family_native_neighborhood = fs_grf_family_native_nbhd),
   # --- Output -------------------------------------------------------------
   details             = TRUE             # default FALSE
@@ -1499,9 +1499,9 @@ reference for GRF and the gate as a fast, conservative check.
 ```{r fs-grf-debias-gate-comparison, eval = !is.null(fs_grf$sg.harm)}
 #| echo: false
 #| results: asis
-g <- fs_grf$debias_gate
+g <- fs_grf$mr_inference
 if (is.null(g)) {
-  cat("_The de-biased gate did not run (set `run_debias_gate <- TRUE`)._\n")
+  cat("_The de-biased gate did not run (set `run_mr <- TRUE`)._\n")
 } else {
   fmt_ci <- function(e, l, u) sprintf("%.3f (%.3f, %.3f)", e, l, u)
   fl <- function(o, n) tryCatch(as.numeric(o[[n]]), error = function(e) NA_real_)
@@ -1538,10 +1538,10 @@ if (is.null(g)) {
   cat(".\n\n")
   cat(sprintf("Gate harm flag = **%s** (de-biased HR %.3f %s gate %.2f); selection bias %.4f (log-HR); candidate family = %d.\n",
               isTRUE(g$harm_flag), g$debiased$est,
-              if (g$gate$type == "point") "vs" else "lower-bound vs",
-              g$gate$t_gate, g$selection_bias, g$n_family))
+              if (g$settings$confirm_rule == "point") "vs" else "lower-bound vs",
+              g$settings$t_confirm, g$selection_bias, g$n_family))
   cat(sprintf("Re-selection rule = `%s` (a Cox-effect proxy for GRF's DR-score); native-family band = %s.\n",
-              if (!is.null(g$gate$reselection)) g$gate$reselection else "?",
+              if (!is.null(g$settings$reselection)) g$settings$reselection else "?",
               if (is.null(fs_grf_family_native_nbhd)) "default (matched to effect_neighborhood)"
               else if (fs_grf_family_native_nbhd >= 1) "off (full family)"
               else sprintf("%.2f (restricted to DR-score-competitive candidates)",
@@ -1557,8 +1557,8 @@ The Tier-1 bias-corrected table above, rebuilt from the Tier-2 gate object (the
 descriptive columns and naive effect are tier-independent; the bias-corrected
 column carries the gate's de-biased estimate for the subgroup and its complement).
 
-```{r fs-grf-debias-gate-table, eval = !is.null(fs_grf$sg.harm) && !is.null(fs_grf$debias_gate)}
-gate_estimates_table(fs_grf, boot_results = fs_grf_bc, est.scale = "hr", digits = 2)
+```{r fs-grf-debias-gate-table, eval = !is.null(fs_grf$sg.harm) && !is.null(fs_grf$mr_inference)}
+mr_estimates_table(fs_grf, boot_results = fs_grf_bc, est.scale = "hr", digits = 2)
 ```
 
 ::: {.callout-note}
@@ -1958,8 +1958,8 @@ dir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)
 }
 
 .engine_rows <- function(method, fit, boot) {
-  if (is.null(fit) || is.null(fit$debias_gate)) return(NULL)
-  g  <- fit$debias_gate
+  if (is.null(fit) || is.null(fit$mr_inference)) return(NULL)
+  g  <- fit$mr_inference
   cc <- g$complement
   tr <- fit$df.est$treat.recommend
   n_tot <- length(tr); n_H <- sum(tr == 0, na.rm = TRUE)
@@ -1980,15 +1980,15 @@ dir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)
 }
 
 .engine_meta <- function(fit, boot_seconds) {
-  if (is.null(fit) || is.null(fit$debias_gate))
+  if (is.null(fit) || is.null(fit$mr_inference))
     return(list(label = NA_character_, n_family = NA_integer_, selection_bias = NA_real_,
-                boot_sec = NA_real_, gate_sec = NA_real_, speedup = NA_real_))
-  g <- fit$debias_gate
-  gate_sec <- if (!is.null(g$timing_seconds)) as.numeric(g$timing_seconds) else NA_real_
+                boot_sec = NA_real_, mr_sec = NA_real_, speedup = NA_real_))
+  g <- fit$mr_inference
+  mr_sec <- if (!is.null(g$timing_seconds)) as.numeric(g$timing_seconds) else NA_real_
   list(label = paste(fit$sg.harm, collapse = " & "),
        n_family = g$n_family, selection_bias = g$selection_bias,
-       boot_sec = boot_seconds, gate_sec = gate_sec,
-       speedup = if (is.finite(boot_seconds) && is.finite(gate_sec) && gate_sec > 0) boot_seconds / gate_sec else NA_real_)
+       boot_sec = boot_seconds, mr_sec = mr_sec,
+       speedup = if (is.finite(boot_seconds) && is.finite(mr_sec) && mr_sec > 0) boot_seconds / mr_sec else NA_real_)
 }
 
 .tm <- .get("timings")
@@ -2122,7 +2122,7 @@ payload <- list(
                 dina_standalone = dina_standalone),
   meta   = list(
     B          = if (exists("NB")) NB else NA_integer_,
-    gate_draws = if (exists("gate_draws")) gate_draws else NA_integer_,
+    mr_draws = if (exists("mr_draws")) mr_draws else NA_integer_,
     n_total    = if (!is.null(.fs)) nrow(.fs$df.est) else NA_integer_,
     cores      = tryCatch(unname(future::availableCores()), error = function(e) NA_integer_),
     machine    = .machine_info(n_workers = if (exists("n_cores")) n_cores else NULL),

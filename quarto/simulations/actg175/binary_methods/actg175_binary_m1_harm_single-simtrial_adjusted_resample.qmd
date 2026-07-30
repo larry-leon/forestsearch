@@ -76,9 +76,9 @@ fs_run_method_compare <- TRUE
 ## -- De-biased selection gate (Tier-2 test) ----------------------------------
 # Fast multiplier-bootstrap de-biased estimate + selection gate, validated
 # against the full (Tier-1) bootstrap on this single trial.  Requires
-# fdr_family_multiplier.R, fdr_calibration.R, and fdr_debias_gate.R on the path
+# fdr_family_multiplier.R, fdr_calibration.R, and fdr_mr_inference.R on the path
 # (set options(fdr_src_dir = "<dir>") if they are not beside this .qmd).
-run_debias_gate <- TRUE
+run_mr <- TRUE
 
 
 ## -- Methods set & flagship arm ----------------------------------------------
@@ -829,11 +829,11 @@ is set near the null (OR > 1), not at the screening threshold.
 ```{r debias-gate-setup}
 #| eval: !expr run_single_trial
 #| include: false
-.dg_files <- c("fdr_family_multiplier.R", "fdr_calibration.R", "fdr_debias_gate.R")
+.mr_files <- c("fdr_family_multiplier.R", "fdr_calibration.R", "fdr_mr_inference.R")
 .dg_dir   <- getOption("fdr_src_dir", ".")
-.dg_ok    <- all(file.exists(file.path(.dg_dir, .dg_files)))
-if (.dg_ok) invisible(lapply(file.path(.dg_dir, .dg_files), source))
-run_debias_gate_eval <- isTRUE(run_debias_gate) && isTRUE(.dg_ok) && !is.null(fs$sg.harm)
+.mr_ok    <- all(file.exists(file.path(.dg_dir, .mr_files)))
+if (.mr_ok) invisible(lapply(file.path(.dg_dir, .mr_files), source))
+run_mr_eval <- isTRUE(run_mr) && isTRUE(.mr_ok) && !is.null(fs$sg.harm)
 
 # Factor family reproducing the search candidate space (continuous covariates
 # cut at q1/median/q3 both sides, binaries both levels); unique() collapses tied
@@ -861,14 +861,14 @@ run_debias_gate_eval <- isTRUE(run_debias_gate) && isTRUE(.dg_ok) && !is.null(fs
 # into the global environment and collide with later chunks (e.g. the Pareto
 # appendix's data.table `cands`).
 local({
-if (!run_debias_gate_eval) {
+if (!run_mr_eval) {
   cat(if (is.null(fs$sg.harm))
         "_De-biased gate test skipped: no subgroup discovered in this trial._\n"
-      else if (!isTRUE(run_debias_gate))
-        "_De-biased gate test skipped (`run_debias_gate = FALSE`)._\n"
+      else if (!isTRUE(run_mr))
+        "_De-biased gate test skipped (`run_mr = FALSE`)._\n"
       else
         paste0("_De-biased gate test skipped: place `fdr_family_multiplier.R`, ",
-               "`fdr_calibration.R`, and `fdr_debias_gate.R` beside this document ",
+               "`fdr_calibration.R`, and `fdr_mr_inference.R` beside this document ",
                "(or set `options(fdr_src_dir = \"<dir>\")`)._\n"))
 } else {
   spec <- list(outcome_type = "binary", effect_measure = "OR", treat.name = "treat_sim",
@@ -961,11 +961,11 @@ if (!run_debias_gate_eval) {
 
     cat("Gate decisions:\n\n")
     for (tg in c(1.00, 1.10, 1.25)) {
-      d <- gated_declare(dg, t_gate = tg, gate = "point")
+      d <- confirm_declare(dg, t_confirm = tg, confirm_rule = "point")
       cat(sprintf("- OR > %.2f (point): de-biased OR %.2f -> **%s**\n",
                   tg, dg$effect_debiased, if (d) "DECLARE" else "reject"))
     }
-    dci <- gated_declare(dg, t_gate = 1.0, gate = "ci")
+    dci <- confirm_declare(dg, t_confirm = 1.0, confirm_rule = "ci")
     cat(sprintf("- CI lower bound > 1.0: lower %.2f -> **%s**\n",
                 dg$ci_lower_debiased, if (dci) "DECLARE" else "reject"))
   }
@@ -978,7 +978,7 @@ estimate stays elevated — while rejecting spurious ones, whose de-biased estim
 collapses toward the ITT effect. The Tier-2 figures here are a fast, leading-order
 approximation of the Tier-1 bootstrap: the family is reconstructed from the
 quartile-cut candidate space, the bias term uses the consistency-maximizing
-re-selection (validated against a literal bootstrap in `fdr_debias_gate.R`'s
+re-selection (validated against a literal bootstrap in `fdr_mr_inference.R`'s
 demo), and the comparison conditions on this trial's selected subgroup. Treat a
 close de-biased-OR row as confirmation that Tier 2 tracks Tier 1; a large gap
 flags that the selection-rule approximation needs refinement before the gate is

@@ -89,8 +89,8 @@ forestsearch(
   ps_method = NULL,
   ps_adjust_method = c("none", "iptw", "dr_gcomp"),
   ps_hat = NULL,
-  debias_gate = FALSE,
-  debias_gate_args = list()
+  mr_inference = FALSE,
+  mr_inference_args = list()
 )
 }
 \arguments{
@@ -649,7 +649,7 @@ weights), or \code{"dr_gcomp"} (IPS covariate).}
 \item{ps_hat}{Numeric vector or \code{NULL}. User-supplied propensity
 scores.  Must have length equal to \code{nrow(df.analysis)}.}
 
-\item{debias_gate}{Logical.  When \code{TRUE}, compute a fast
+\item{mr_inference}{Logical.  When \code{TRUE}, compute a fast
 multiplier-bootstrap de-biased estimate of the selected subgroup and flag
 whether it remains consistent with harm.  Supported on the GLM
 resample-consistency path (\code{consistency_method = "resample"} with a
@@ -659,9 +659,10 @@ split-consistency search.  This is a Tier-2 approximation of the full
 bootstrap bias-correction (\code{\link{forestsearch_bootstrap_dofuture}})
 and does not replace it.  Default \code{FALSE}.}
 
-\item{debias_gate_args}{List of optional gate controls: \code{t_gate}
-(effect-scale gate; near-null default \code{1} for ratio measures, \code{0}
-for differences -- set near the null, not at the screen), \code{gate}
+\item{mr_inference_args}{List of optional controls: \code{t_confirm}
+(effect-scale harm-confirmation threshold; near-null default \code{1} for
+ratio measures, \code{0} for differences -- set near the null, not at the
+screen), \code{confirm_rule}
 (\code{"point"} or \code{"ci"}), \code{reselection} (bootstrap re-selection
 rule, default \code{"maxcons"}), \code{draws} (default \code{2000}),
 \code{multiplier} (default \code{"poisson"}), \code{include_complement}
@@ -720,13 +721,13 @@ no subgroup was identified.}
 \item{max_sg_est}{Maximum subgroup HR estimate}
 \item{grf_plot}{GRF plot object (if plot.grf = TRUE)}
 \item{args_call_all}{All arguments for reproducibility}
-\item{debias_gate}{Tier-2 de-biased gate result, or \code{NULL} when the
-gate did not run.  See \code{\link{fs_debias_gate}} for fields
+\item{mr_inference}{Tier-2 de-biased gate result, or \code{NULL} when the
+gate did not run.  See \code{\link{fs_mr_inference}} for fields
 (\code{naive}, \code{debiased}, \code{selection_bias}, \code{gate},
 \code{harm_flag}, \code{timing_seconds}).  The de-biased CI is
 approximate (subgroup robust SE) and narrower than the Tier-1
 infinitesimal-jackknife CI.}
-\item{harm_flag_debiased}{Logical.  \code{TRUE} when the selected
+\item{mr_harm_confirmed}{Logical.  \code{TRUE} when the selected
 subgroup's de-biased estimate is still consistent with harm; \code{NA}
 when the gate did not run.}
 }

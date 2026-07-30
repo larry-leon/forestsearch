@@ -65,7 +65,7 @@ gh_dir <- Sys.getenv("GH_DIR", unset = "../../quarto/GuoHe")
 ```{r parallel-setup}
 n_cores <- max(1L, floor(0.80 * parallel::detectCores(logical = FALSE)))
 NB         <- 1000L     # full-bootstrap resamples, matching the headline run
-gate_draws <- 5000L     # MR multiplier draws
+mr_draws <- 5000L     # MR multiplier draws
 GH_B       <- 2000L     # Guo & He pair-bootstrap resamples
 GH_r       <- 0.03      # Guo & He tuning parameter
 GH_PARALLEL <- .Platform$OS.type == "unix"   # forked GH bootstrap where available
@@ -140,8 +140,8 @@ fs <- forestsearch(
   subgroup_method    = "consistency",
   sg_focus           = "maxeff",
   n.min              = 60, d0.min = 10, d1.min = 10, maxk = 2,
-  debias_gate        = TRUE,
-  debias_gate_args   = list(draws = gate_draws),
+  mr_inference        = TRUE,
+  mr_inference_args   = list(draws = mr_draws),
   consistency_method = "resample",
   fs.splits          = 1000, stop_threshold = 0.95,
   use_twostage       = TRUE, max.minutes = 3,
@@ -166,7 +166,7 @@ categorical factor level, and no continuous factor may appear as an auto-derived
 cut. This is a hard gate -- if it fails, stop; the comparison below is not
 interpretable.
 
-```{r gate0}
+```{r mr0}
 fam <- as.data.frame(fs$grp.consistency$out_sg$result)
 mcols <- grep("^M\\.[0-9]+$", names(fam), value = TRUE)
 labels <- unique(unlist(lapply(mcols, function(cn) fam[[cn]])))
@@ -221,11 +221,11 @@ cat("FB completed in", round(timings$fb / 60, 1), "min\n")
 ## Multiplier resampling (MR)
 
 ```{r mr}
-g <- fs$debias_gate
+g <- fs$mr_inference
 stopifnot(!is.null(g))
 timings$mr <- g$timing_seconds
 cat("MR gate:", round(timings$mr, 2), "s over",
-    format(gate_draws, big.mark = ","), "draws\n")
+    format(mr_draws, big.mark = ","), "draws\n")
 ```
 
 ## Guo & He (GH)

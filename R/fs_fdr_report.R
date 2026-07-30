@@ -50,7 +50,7 @@
 #'
 #' All thresholds and identifier knobs are inherited from
 #' \code{fs_analysis$args_call_all}, so the FDR reported is that of the analysis
-#' as run.  The gate is forced on internally (\code{debias_gate = TRUE})
+#' as run.  The gate is forced on internally (\code{mr_inference = TRUE})
 #' regardless of the fitted setting, because B requires the per-replicate
 #' de-biased HR.
 #'
@@ -65,7 +65,7 @@
 #'   no modifier); \code{"harm"} is the null-harm-region null
 #'   (\code{target_hr_harm = 1.0}: a real modifier tuned so the flagged region
 #'   has HR = 1.0 while treatment stays active elsewhere).  Default both.
-#' @param c_gate Numeric vector of de-biased-HR gate thresholds at which to
+#' @param c_confirm Numeric vector of de-biased-HR gate thresholds at which to
 #'   report B.  Default \code{c(0.9, 1.0, 1.25)}.  On real data the gate is
 #'   inert; here it annotates the null's operating characteristics only.
 #' @param nsims Integer; null replicates per null.  Default 1000.
@@ -97,7 +97,7 @@
 #'
 #' @return An object of class \code{"fs_fdr_report"}: a list with
 #' \describe{
-#'   \item{\code{fdr}}{Data frame, one row per null x \code{c_gate}, with
+#'   \item{\code{fdr}}{Data frame, one row per null x \code{c_confirm}, with
 #'     \code{A}, \code{A_lo}, \code{A_hi} (raw FDR and 95% Wilson CI),
 #'     \code{B}, \code{B_lo}, \code{B_hi} (gated FDR and CI), \code{reduction}
 #'     (\code{A - B}), and the accounting columns \code{n_valid},
@@ -135,7 +135,7 @@
 #' transfer verbatim from \code{args_call_all}.  The data-binding arguments --
 #' the five column names and the confounder set -- are rebound to the DGM,
 #' because \code{simulate_from_dgm()} emits fixed names
-#' (\code{y_sim / event_sim / treat_sim / id / flag_harm}).  \code{debias_gate}
+#' (\code{y_sim / event_sim / treat_sim / id / flag_harm}).  \code{mr_inference}
 #' is forced \code{TRUE} so B is computable.
 #'
 #' @examples
@@ -150,12 +150,12 @@
 #'   subgroup_method = "consistency", consistency_method = "resample",
 #'   hr.threshold = 1.25, hr.consistency = 1.0,
 #'   pconsistency.threshold = 0.90, maxk = 2,
-#'   debias_gate = TRUE)
+#'   mr_inference = TRUE)
 #'
 #' # Characterize its operating FDR and whether the de-biased gate helps
 #' rep <- fs_fdr_report(fit, gbsg_df, nsims = 1000, n_workers = 100)
 #' rep                       # prints the realized-HR table and the A/B table
-#' rep$fdr                   # one row per null x c_gate
+#' rep$fdr                   # one row per null x c_confirm
 #'
 #' # Reproduce the published reference (n = 700): A ~ 0.138 (hom), 0.278 (harm)
 #' fs_fdr_report(fit, gbsg_df, n = 700, nsims = 1000, n_workers = 100)
@@ -174,7 +174,7 @@
 fs_fdr_report <- function(fs_analysis,
                           df_analysis,
                           null          = c("hom", "harm"),
-                          c_gate        = c(0.9, 1.0, 1.25),
+                          c_confirm        = c(0.9, 1.0, 1.25),
                           nsims         = 1000L,
                           n             = NULL,
                           confounders   = NULL,
@@ -229,9 +229,9 @@ fs_fdr_report <- function(fs_analysis,
             "parallel_args", "outcome.name", "event.name", "treat.name",
             "id.name", "flag_harm.name", "confounders.name")
   fs_params <- params[setdiff(names(params), drop)]
-  fs_params$debias_gate <- TRUE                    # B needs the de-biased HR
-  if (is.null(fs_params$debias_gate_args))
-    fs_params$debias_gate_args <- list(ci_method = "ij", draws = 1000L,
+  fs_params$mr_inference <- TRUE                    # B needs the de-biased HR
+  if (is.null(fs_params$mr_inference_args))
+    fs_params$mr_inference_args <- list(ci_method = "ij", draws = 1000L,
                                        include_complement = TRUE)
   fs_params$quiet   <- TRUE
   fs_params$details <- FALSE
@@ -276,7 +276,7 @@ fs_fdr_report <- function(fs_analysis,
       fs_params = fs_params, c1 = c1, c2 = c2, dgm_names = dgm_names,
       conf_use = conf_use, nsims = nsims, n_workers = n_workers,
       seed_base = seed_base + 100000L * j,   # disjoint seed block per null
-      c_gate = c_gate, n = n, event_min = event_min, quiet = quiet)
+      c_confirm = c_confirm, n = n, event_min = event_min, quiet = quiet)
   })
 
   fdr <- do.call(rbind, lapply(runs, `[[`, "rows"))
@@ -309,11 +309,11 @@ fs_fdr_report <- function(fs_analysis,
          n            = n,
          nsims        = nsims,
          nulls        = null,
-         call_args    = list(c_gate = c_gate, n_super = n_super,
+         call_args    = list(c_confirm = c_confirm, n_super = n_super,
                              analysis_time = analysis_time,
                              cens_adjust = cens_adjust, seed_base = seed_base,
                              n_workers = n_workers,
-                             debias_gate_args = fs_params$debias_gate_args)),
+                             mr_inference_args = fs_params$mr_inference_args)),
     class = "fs_fdr_report")
 }
 
@@ -372,9 +372,9 @@ fs_fdr_report <- function(fs_analysis,
 
   declared <- !is.null(fs$sg.harm) && length(fs$sg.harm) > 0
   deb_hr <- NA_real_
-  if (declared && !is.null(fs$debias_gate))
+  if (declared && !is.null(fs$mr_inference))
     # gate returns debiased$est on the effect scale (HR here, via to_eff())
-    deb_hr <- tryCatch(fs$debias_gate$debiased$est, error = function(e) NA_real_)
+    deb_hr <- tryCatch(fs$mr_inference$debiased$est, error = function(e) NA_real_)
   list(flag = as.integer(declared), deb_hr = deb_hr, msg = NA_character_)
 }
 
@@ -383,11 +383,11 @@ fs_fdr_report <- function(fs_analysis,
 # Internal: run one null.  Parallel over replicates (outer multisession, inner
 # forestsearch sequential); collect flags, de-biased HRs, and failure messages;
 # print a diagnostic line with distinct failure messages; score A and B(g) with
-# Wilson CIs.  Returns the per-c_gate rows plus the failure accounting.
+# Wilson CIs.  Returns the per-c_confirm rows plus the failure accounting.
 # ---------------------------------------------------------------------------
 .fs_fdr_run_null <- function(gen_df, label, fs_params, c1, c2, dgm_names,
                              conf_use, nsims, n_workers, seed_base,
-                             c_gate, n, event_min, quiet) {
+                             c_confirm, n, event_min, quiet) {
   future::plan("sequential"); gc()
   future::plan("multisession", workers = n_workers)
 
@@ -435,11 +435,11 @@ fs_fdr_report <- function(fs_analysis,
 
   # B(g): declared AND de-biased HR >= g (NA de-biased HR fails the gate)
   decl_ok <- ok & flags == 1L
-  rows <- lapply(c_gate, function(g) {
-    n_gate <- sum(decl_ok & is.finite(debs) & debs >= g)
+  rows <- lapply(c_confirm, function(g) {
+    n_confirm <- sum(decl_ok & is.finite(debs) & debs >= g)
     n_dbna <- sum(decl_ok & !is.finite(debs))
-    B      <- if (n_valid > 0) n_gate / n_valid else NA_real_
-    b_ci   <- .wilson_ci(n_gate, n_valid)
+    B      <- if (n_valid > 0) n_confirm / n_valid else NA_real_
+    b_ci   <- .wilson_ci(n_confirm, n_valid)
     data.frame(
       null       = label,
       n          = n,
@@ -451,7 +451,7 @@ fs_fdr_report <- function(fs_analysis,
       A          = round(A, 4),
       A_lo       = round(a_ci[1], 4),
       A_hi       = round(a_ci[2], 4),
-      c_gate     = g,
+      c_confirm     = g,
       n_deb_na   = n_dbna,
       B          = round(B, 4),
       B_lo       = round(b_ci[1], 4),

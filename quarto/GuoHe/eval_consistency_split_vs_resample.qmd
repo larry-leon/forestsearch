@@ -67,8 +67,8 @@ fs_hr_consistency       <- 1.0
 fs_max_subgroups_search <- 50
 fs_conf_force           <- c("er <= 0", "pgr <= 0")
 fs_subgroup_method      <- "consistency"   # the screen only applies here
-run_debias_gate         <- TRUE
-gate_draws              <- 5000L
+run_mr         <- TRUE
+mr_draws              <- 5000L
 cat("cores:", n_cores, "| NB:", NB, "| Tier B:", RUN_TIER_B, "\n")
 ```
 
@@ -106,8 +106,8 @@ fit_one <- function(method, seed = 8316951) {
     subgroup_method = fs_subgroup_method,
     sg_focus = fs_sg_focus,
     selection_rule = "neighborhood", effect_neighborhood = 0.10,
-    debias_gate = run_debias_gate,
-    debias_gate_args = list(draws = gate_draws),
+    mr_inference = run_mr,
+    mr_inference_args = list(draws = mr_draws),
     n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
     max_subgroups_search = fs_max_subgroups_search,
     hr.threshold = fs_hr_threshold, hr.consistency = fs_hr_consistency,
@@ -131,13 +131,13 @@ timings$search_resamp <- a_resamp$secs
 descr <- function(o) {
   fs <- o$fs
   sg <- tryCatch(paste(fs$sg.harm, collapse = " & "), error = function(e) NA_character_)
-  g  <- fs$debias_gate
+  g  <- fs$mr_inference
   data.frame(
     search_secs = round(o$secs, 2),
     subgroup    = if (length(sg) && !is.na(sg) && nzchar(sg)) sg else "(none)",
     n_family    = tryCatch(as.integer(g$n_family), error = function(e) NA_integer_),
     sel_bias    = tryCatch(round(as.numeric(g$selection_bias), 4), error = function(e) NA_real_),
-    gate_secs   = tryCatch(round(as.numeric(g$timing_seconds), 3), error = function(e) NA_real_),
+    mr_secs   = tryCatch(round(as.numeric(g$timing_seconds), 3), error = function(e) NA_real_),
     stringsAsFactors = FALSE
   )
 }

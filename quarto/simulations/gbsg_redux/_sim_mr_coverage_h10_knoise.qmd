@@ -104,7 +104,7 @@ if (have_data) {
   .rng <- function(x) { u <- sort(unique(x[is.finite(x)]))
     if (length(u) <= 1L) format(u, big.mark = ",") else
       sprintf("%s-%s", format(min(u), big.mark = ","), format(max(u), big.mark = ",")) }
-  ns_txt   <- .rng(sl$n_sims); gd_txt <- .rng(sl$gate_draws)
+  ns_txt   <- .rng(sl$n_sims); gd_txt <- .rng(sl$mr_draws)
   meth_txt <- paste(sort(unique(sl$subgroup_method)), collapse = ", ")
   k_txt    <- paste(klev, collapse = ", ")
   thH      <- .truth1$marg_H  %||% NA_real_

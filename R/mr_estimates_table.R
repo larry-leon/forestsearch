@@ -1,17 +1,17 @@
 #' Tier-2 de-biased estimates table (bootstrap-table format)
 #'
 #' Renders the selected subgroup's fast de-biased gate estimate
-#' ([forestsearch()] with `debias_gate = TRUE`) in the same `gt` layout as the
+#' ([forestsearch()] with `mr_inference = TRUE`) in the same `gt` layout as the
 #' bias-corrected table produced by [summarize_bootstrap_results()].  The
 #' descriptive columns (sample size, medians/RMST or rates) and the naive effect
 #' are tier-independent, so they are inherited from a bootstrap result used as a
 #' template; the bias-corrected column is replaced with the Tier-2 values from
-#' `fs$debias_gate` -- the de-biased estimate for the selected subgroup and, when
+#' `fs$mr_inference` -- the de-biased estimate for the selected subgroup and, when
 #' the gate was run with `include_complement = TRUE`, for the complement as well
 #' (otherwise the complement cell is marked, since the gate de-biases the
 #' selected subgroup only).
 #'
-#' @param fs A [forestsearch()] result with a non-NULL `debias_gate` element.
+#' @param fs A [forestsearch()] result with a non-NULL `mr_inference` element.
 #' @param boot_results A [forestsearch_bootstrap_dofuture()] result used as the
 #'   template for the descriptive columns, the naive effect, the complement row,
 #'   and the subgroup footnote.  Must contain `FSsg_tab` and `SG_CIs`.
@@ -32,12 +32,12 @@
 #'
 #' @seealso [summarize_bootstrap_results()], [format_bootstrap_table()]
 #' @export
-gate_estimates_table <- function(fs, boot_results, est.scale = "hr",
-                                 digits = 2) {
+mr_estimates_table <- function(fs, boot_results, est.scale = "hr",
+                               digits = 2) {
 
-  g <- fs$debias_gate
+  g <- fs$mr_inference
   if (is.null(g)) {
-    stop("fs$debias_gate is NULL; run forestsearch(debias_gate = TRUE).",
+    stop("fs$mr_inference is NULL; run forestsearch(mr_inference = TRUE).",
          call. = FALSE)
   }
   if (is.null(boot_results$FSsg_tab) || is.null(boot_results$SG_CIs)) {
@@ -93,7 +93,7 @@ gate_estimates_table <- function(fs, boot_results, est.scale = "hr",
   # (an em dash is not a CI string).
   if (length(hc_row) == 1L && !has_cc) tab[[bc_col]][hc_row] <- "\u2014"
 
-  draws <- if (!is.null(g$gate$draws)) g$gate$draws else NA_integer_
+  draws <- if (!is.null(g$settings$draws)) g$settings$draws else NA_integer_
   cc_note <- if (has_cc) "" else "; complement not de-biased"
   format_bootstrap_table(
     FSsg_tab          = tab,

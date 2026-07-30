@@ -93,8 +93,8 @@ fit <- forestsearch(
   conf.cont_jcuts = list(er = 10, pgr = 10),
   d0.min = 10L, d1.min = 0L,
   parallel_args = list(plan = "sequential"),
-  debias_gate = TRUE,
-  debias_gate_args = list(ci_method = "ij", draws = 1000L,
+  mr_inference = TRUE,
+  mr_inference_args = list(ci_method = "ij", draws = 1000L,
                           include_complement = TRUE))
 ```
 
@@ -123,7 +123,7 @@ knitr::kable(smoke$hr_structure, row.names = FALSE,
 
 ## Operating FDR (A) and de-biased-gated FDR (B)
 
-One row per null $\times$ `c_gate`. `A` repeats down a null's gate rows (it does
+One row per null $\times$ `c_confirm`. `A` repeats down a null's gate rows (it does
 not depend on `g`); `reduction` is $A - B(g)$. `n_deb_na` counts declarations
 whose de-biased HR could not be computed -- watch it: a large value means part
 of any apparent reduction is de-biased-HR *unavailability*, not gate benefit.
@@ -132,10 +132,10 @@ of any apparent reduction is de-biased-HR *unavailability*, not gate benefit.
 fd <- smoke$fdr
 fd[["A (95% CI)"]] <- fmt_ci(fd$A, fd$A_lo, fd$A_hi)
 fd[["B (95% CI)"]] <- fmt_ci(fd$B, fd$B_lo, fd$B_hi)
-show <- fd[, c("null", "c_gate", "A (95% CI)", "B (95% CI)", "reduction",
+show <- fd[, c("null", "c_confirm", "A (95% CI)", "B (95% CI)", "reduction",
                "n_valid", "n_declared", "n_deb_na", "fs_errors")]
 knitr::kable(show, row.names = FALSE,
-             caption = paste("Smoke A/B by null x c_gate",
+             caption = paste("Smoke A/B by null x c_confirm",
                              "(nsims = 8; execution check, not the reference)."))
 ```
 
@@ -172,22 +172,22 @@ saveRDS(rep, "fs_fdr_report_baseline.rds")
 
 Expected at this configuration: verdict `CLEAN`, and in `rep$fdr` the **A**
 column reading approximately **0.138 [0.118, 0.161]** for H0-hom and **0.278
-[0.251, 0.307]** for H0-harm. Across `c_gate`, `reduction` should be substantial
-at `c_gate = 1.25` and marginal at `c_gate = 1.0` -- the de-biased gate helping
+[0.251, 0.307]** for H0-harm. Across `c_confirm`, `reduction` should be substantial
+at `c_confirm = 1.25` and marginal at `c_confirm = 1.0` -- the de-biased gate helping
 meaningfully only at a real threshold.
 
 # Characterizing your own analysis (not evaluated)
 
 The smoke fits on a DGM draw only to obtain a valid `args_call_all`. In practice
 you pass **your own** fitted `forestsearch()` object: `fs_fdr_report()` inherits
-its thresholds and identifier knobs, forces `debias_gate = TRUE`, and rebinds the
+its thresholds and identifier knobs, forces `mr_inference = TRUE`, and rebinds the
 data-binding names to the null.
 
 ```{r own-analysis}
 #| eval: false
 # your_fit <- forestsearch(df.analysis = your_df, ...,
 #                          hr.threshold = c1, hr.consistency = c2,
-#                          debias_gate = TRUE)
+#                          mr_inference = TRUE)
 # fs_fdr_report(your_fit, your_df, nsims = 1000L, n_workers = 100L)
 ```
 

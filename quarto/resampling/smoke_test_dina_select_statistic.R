@@ -59,7 +59,7 @@ run_dina <- function(stat) {
     df.analysis = dat, outcome.name = "tte", event.name = "event",
     treat.name = "treat", id.name = "id", confounders.name = covs,
     outcome_type = "survival", subgroup_method = "dina",
-    hr.threshold = 1.25, n.min = 60, debias_gate = TRUE,
+    hr.threshold = 1.25, n.min = 60, mr_inference = TRUE,
     dina_args = list(select_statistic = stat),
     parallel_args = list(plan = "sequential", show_message = FALSE),
     details = FALSE, quiet = TRUE)
@@ -71,7 +71,7 @@ run_grf <- function(stat) {
     treat.name = "treat", id.name = "id", confounders.name = covs,
     outcome_type = "survival", subgroup_method = "grf",
     grf_selection = "frontier", grf_select_statistic = stat,
-    hr.threshold = 1.25, n.min = 60, debias_gate = TRUE,
+    hr.threshold = 1.25, n.min = 60, mr_inference = TRUE,
     parallel_args = list(plan = "sequential", show_message = FALSE),
     details = FALSE, quiet = TRUE)
 }
@@ -80,8 +80,8 @@ summarize <- function(fs, tag) {
   cat("\n==", tag, "==\n")
   if (is.null(fs$sg.harm)) { cat("  no subgroup selected\n"); return(invisible(FALSE)) }
   cat("  selected sg.harm:", paste(fs$sg.harm, collapse = " & "), "\n")
-  g <- fs$debias_gate
-  if (is.null(g)) { cat("  debias_gate = NULL (gate did not run)\n"); return(invisible(FALSE)) }
+  g <- fs$mr_inference
+  if (is.null(g)) { cat("  mr_inference = NULL (gate did not run)\n"); return(invisible(FALSE)) }
   cat(sprintf("  n_family = %d   n_selected = %d   measure = %s\n",
               g$n_family, g$n_selected, g$measure))
   cat(sprintf("  naive    est = %.3f  [%.3f, %.3f]\n",
@@ -95,7 +95,7 @@ summarize <- function(fs, tag) {
 
 # Cross-mode comparison (native-statistic vs effect) for a method
 cross_mode <- function(fs_a, fs_b, lab_a, lab_b, method) {
-  pass <- function(fs) !is.null(fs$debias_gate) && is.finite(fs$debias_gate$debiased$est)
+  pass <- function(fs) !is.null(fs$mr_inference) && is.finite(fs$mr_inference$debiased$est)
   la <- if (!is.null(fs_a$sg.harm)) paste(fs_a$sg.harm, collapse = " & ") else NA
   lb <- if (!is.null(fs_b$sg.harm)) paste(fs_b$sg.harm, collapse = " & ") else NA
   cat(sprintf("\n[%s] PASS (finite debiased CI): %s = %s | %s = %s\n",
@@ -105,7 +105,7 @@ cross_mode <- function(fs_a, fs_b, lab_a, lab_b, method) {
     cat(sprintf("    %-6s -> %s\n    %-6s -> %s\n", lab_a, la, lab_b, lb))
   if (pass(fs_a) && pass(fs_b))
     cat(sprintf("  naive HR: %s = %.3f | %s = %.3f  (effect >= native expected when winners differ)\n",
-                lab_a, fs_a$debias_gate$naive$est, lab_b, fs_b$debias_gate$naive$est))
+                lab_a, fs_a$mr_inference$naive$est, lab_b, fs_b$mr_inference$naive$est))
   invisible(NULL)
 }
 
@@ -127,10 +127,10 @@ cross_mode(fs_gdr, fs_geff, "dr", "effect", "GRF")
 # so H2 captures Layer-1 (winner selection) AND Layer-2 (family construction) --
 # the Tier-1 reference the single-fit Tier-2 gate only approximates.
 boot_compare <- function(fs, tag) {
-  if (is.null(fs$sg.harm) || is.null(fs$debias_gate)) {
+  if (is.null(fs$sg.harm) || is.null(fs$mr_inference)) {
     cat(sprintf("\n== %-22s : skipped (no subgroup / no gate)\n", tag)); return(invisible(NULL))
   }
-  g <- fs$debias_gate
+  g <- fs$mr_inference
   boot <- tryCatch(
     forestsearch_bootstrap_dofuture(
       fs.est = fs, nb_boots = NB_BOOTS, seed = 8316951L,

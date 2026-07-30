@@ -79,8 +79,8 @@ fit_one <- function(focus) {
     subgroup_method = "consistency",
     sg_focus = focus,                          # <-- the only thing that varies
     selection_rule = "neighborhood", effect_neighborhood = 0.10,
-    debias_gate = TRUE,
-    debias_gate_args = list(draws = 5000L),
+    mr_inference = TRUE,
+    mr_inference_args = list(draws = 5000L),
     n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
     max_subgroups_search = MAX_SG,             # deep pool (see header) -- 50 truncates maxSG to NULL
     hr.threshold = 1.0, hr.consistency = 1.0,
@@ -126,8 +126,8 @@ fit_one <- function(focus) {
   }
 
   # cross-reference: the Tier-2 gate's own naive estimate + its selected label
-  gate_naive <- scalar(tryCatch(fs$debias_gate$naive$est,      error = function(e) NULL), NA_real_)
-  gate_label <- scalar(tryCatch(fs$debias_gate$selected_label, error = function(e) NULL), NA_character_)
+  mr_naive <- scalar(tryCatch(fs$mr_inference$naive$est,      error = function(e) NULL), NA_real_)
+  mr_label <- scalar(tryCatch(fs$mr_inference$selected_label, error = function(e) NULL), NA_character_)
   n_sub      <- if (!is.null(fs$grp.consistency$sg.harm.id))
                   sum(fs$grp.consistency$sg.harm.id == 1L) else NA_integer_
 
@@ -136,12 +136,12 @@ fit_one <- function(focus) {
   cat(sprintf("  selected subgroup : %s\n", fchr(sg_label)))
   cat(sprintf("  subgroup n        : %s\n", fchr(n_sub)))
   cat(sprintf("  naive HR (sg.harm): %s\n", fnum(naive_hr)))
-  cat(sprintf("  [gate] naive est / label: %s / %s\n", fnum(gate_naive), fchr(gate_label)))
+  cat(sprintf("  [gate] naive est / label: %s / %s\n", fnum(mr_naive), fchr(mr_label)))
   cat(sprintf("  fit time          : %.1f s\n\n", elapsed))
 
   list(sg_focus = focus, sg.harm = sg, sg_label = sg_label,
        subgroup_n = n_sub, naive_hr = naive_hr,
-       gate_naive_est = gate_naive, gate_selected_label = gate_label,
+       mr_naive_est = mr_naive, mr_selected_label = mr_label,
        seedit = 8316951, elapsed_sec = unname(elapsed))
 }
 
@@ -155,8 +155,8 @@ tab <- do.call(rbind, lapply(res, function(x) data.frame(
   selected       = x$sg_label,
   subgroup_n     = x$subgroup_n,
   naive_HR       = x$naive_hr,
-  gate_naive_est = x$gate_naive_est,
-  gate_label     = x$gate_selected_label,
+  mr_naive_est = x$mr_naive_est,
+  mr_label     = x$mr_selected_label,
   stringsAsFactors = FALSE
 )))
 rownames(tab) <- NULL
@@ -168,7 +168,7 @@ saveRDS(out, file.path(.this_dir, "sg_focus_baseline.rds"))
 cat("=== sg_focus baseline (seedit = 8316951) ===\n")
 tab_show <- tab
 tab_show$naive_HR       <- sprintf("%.4f", tab_show$naive_HR)
-tab_show$gate_naive_est <- ifelse(is.na(tab$gate_naive_est), "NA",
-                                  sprintf("%.4f", tab$gate_naive_est))
+tab_show$mr_naive_est <- ifelse(is.na(tab$mr_naive_est), "NA",
+                                  sprintf("%.4f", tab$mr_naive_est))
 print(tab_show, row.names = FALSE)
 cat("\nsaved:", file.path(.this_dir, "sg_focus_baseline.rds"), "\n")

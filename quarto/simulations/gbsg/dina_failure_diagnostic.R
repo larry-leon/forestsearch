@@ -32,8 +32,8 @@ cat(sprintf("n = %d | events = %d | arms = %d | confs = %s\n\n",
     pconsistency.threshold = pconsistency, n.min = n_min,
     selection_rule         = selection_rule,
     parallel_args          = list(plan = "sequential"),
-    debias_gate            = TRUE,
-    debias_gate_args       = list(ci_method = "ij", draws = gate_draws,
+    mr_inference            = TRUE,
+    mr_inference_args       = list(ci_method = "ij", draws = mr_draws,
                                   include_complement = TRUE),
     dina_args = modifyList(dina_args, list(select_statistic = dina_select_statistic)),
     details = TRUE, quiet = FALSE),                # <- expose DINA's decisions
@@ -46,5 +46,5 @@ cat(sprintf("n = %d | events = %d | arms = %d | confs = %s\n\n",
 if (!is.null(.dx)) {
   cat("\nsg.harm :", if (is.null(.dx$sg.harm)) "NULL (no subgroup)"
                      else paste(.dx$sg.harm, collapse = " & "), "\n")
-  cat("gate    :", if (is.null(.dx$debias_gate)) "NULL" else "present", "\n")
+  cat("gate    :", if (is.null(.dx$mr_inference)) "NULL" else "present", "\n")
 }

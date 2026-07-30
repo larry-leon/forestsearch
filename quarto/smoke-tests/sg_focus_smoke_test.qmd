@@ -41,7 +41,7 @@ evaluated — so any key containing a `Pcons` term, **including as a mere
 tiebreak**, can be beaten by a candidate the scan never reached. `maxeffCons` is
 the only focus with no such term.
 
-`debias_gate = FALSE` throughout, to keep render time sane; @sec-gate checks the
+`mr_inference = FALSE` throughout, to keep render time sane; @sec-gate checks the
 gate's rule *mapping* only.
 
 ```{r setup, message=FALSE, warning=FALSE}
@@ -72,7 +72,7 @@ FS_BASE <- list(
   use_lasso              = FALSE,
   use_grf                = FALSE,
   use_twostage           = FALSE,
-  debias_gate            = FALSE,
+  mr_inference            = FALSE,
   consistency_method     = "resample",
   hr.threshold           = 1.25,
   hr.consistency         = 1.00,
@@ -395,13 +395,13 @@ gt(coup) |>
 
 The Tier-2 gate replays the selection step inside each multiplier draw, so the
 replayed rule must be the rule the search used. A focus missing from
-`.fs_dg_reselection_from_focus()`'s `switch()` falls through to the bare
+`.fs_mr_reselection_from_focus()`'s `switch()` falls through to the bare
 fallback — **silently**, because the fallback returns the same value as the
 named `hr` case. Return value alone therefore cannot detect fallthrough; the
 check is that the normalized focus is one of the switch's named cases.
 
 ```{r gate}
-gate_named <- local({
+mr_named <- local({
   sw <- NULL
   walk <- function(e) if (is.call(e)) {
     if (identical(e[[1]], as.name("switch"))) sw <<- e
@@ -410,27 +410,27 @@ gate_named <- local({
       if (!is.null(el)) walk(el)
     }
   }
-  walk(body(forestsearch:::.fs_dg_reselection_from_focus))
+  walk(body(forestsearch:::.fs_mr_reselection_from_focus))
   nm <- names(sw); nm[!is.na(nm) & nzchar(nm)]
 })
 
-gate_tab <- do.call(rbind, lapply(FOCI, function(f) {
+mr_tab <- do.call(rbind, lapply(FOCI, function(f) {
   canon <- forestsearch:::.normalize_sg_focus(f)
   data.frame(sg_focus = f, canonical = canon,
-             named_case = canon %in% gate_named,
-             gate_rule_consistency =
-               forestsearch:::.fs_dg_reselection_from_focus(f, engine = "consistency"),
+             named_case = canon %in% mr_named,
+             mr_rule_consistency =
+               forestsearch:::.fs_mr_reselection_from_focus(f, engine = "consistency"),
              stringsAsFactors = FALSE)
 }))
 
 check("Every accepted sg_focus maps to an explicitly named gate rule",
-      all(gate_tab$named_case),
-      paste(gate_tab$sg_focus[!gate_tab$named_case], collapse = ", "))
+      all(mr_tab$named_case),
+      paste(mr_tab$sg_focus[!mr_tab$named_case], collapse = ", "))
 check("maxeffCons maps to the gate's maxeff",
-      identical(forestsearch:::.fs_dg_reselection_from_focus(
+      identical(forestsearch:::.fs_mr_reselection_from_focus(
         "maxeffCons", engine = "consistency"), "maxeff"))
 
-gt(gate_tab) |>
+gt(mr_tab) |>
   tab_header(title = "sg_focus -> de-biased gate re-selection rule") |>
   tab_footnote(footnote = md(paste(
     "The gate's `\"maxeff\"` is `passers[which.max(beta[passers])]` -- argmax effect",
