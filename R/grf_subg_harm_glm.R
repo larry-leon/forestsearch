@@ -489,7 +489,7 @@ grf.subg.harm.glm <- function(
   # DR-score candidate family (depth-1 + depth-2) in (v1,d1,c1,v2,d2,c2) form,
   # exposed for the Tier-2 de-biased gate: it re-selects over the SAME family
   # GRF ranks (frontier) or, under the policy tree, the cut-defined universe.
-  .dg_candidates <- tryCatch({
+  .mr_candidates <- tryCatch({
     cc <- .grf_dr_candidates(X, dr_scores, n_min = n.min)
     if (maxdepth >= 2L) {
       cc2 <- .grf_dr_candidates_d2(X, dr_scores, n_min = n.min)
@@ -562,7 +562,7 @@ grf.subg.harm.glm <- function(
            best_depth = if (is.na(sel$v2)) 1L else 2L,
            selection = "frontier",
            frontier = .grf_mark_frontier(cand),
-           candidates = .dg_candidates),
+           candidates = .mr_candidates),
       class = "grf_glm_result"))
   }
 
@@ -699,7 +699,7 @@ grf.subg.harm.glm <- function(
       cate_sg             = best$cate_sg,
       cate_sgc            = best$cate_sgc,
       best_depth          = best$depth,
-      candidates          = .dg_candidates   # DR-candidate family for the Tier-2 gate
+      candidates          = .mr_candidates   # DR-candidate family for the Tier-2 gate
     ),
     class = "grf_glm_result"
   )

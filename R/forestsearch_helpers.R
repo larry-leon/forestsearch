@@ -1072,7 +1072,7 @@ reset_workers <- function(workers   = NULL,
 #' Replaces DINA's native tau-hat winner with the candidate that maximises the
 #' effect measure the Tier-2 gate de-biases (Cox HR for survival; the resolved
 #' GLM effect otherwise), scored with the gate's own per-candidate estimator
-#' (`.fs_dg_pieces`) so the realized selection is the exact event the gate
+#' (`.fs_mr_pieces`) so the realized selection is the exact event the gate
 #' corrects.  Ranking honours the same `sg_focus` / `selection_rule` /
 #' `effect_neighborhood` band logic as `dina_subgroup()`.  Returns `sg` with the
 #' winner fields overwritten and a `sel_effect` (link-scale) column attached to
@@ -1092,11 +1092,11 @@ reset_workers <- function(workers   = NULL,
   # "HR" on the log scale; GLM uses the resolved effect_measure.
   em   <- if (identical(outcome_type, "survival")) "HR" else effect_measure
   adv  <- if (identical(outcome_type, "survival")) TRUE else adverse_outcome
-  spec <- .fs_dg_spec(outcome_type, em, treat.name, outcome.name, event.name,
+  spec <- .fs_mr_spec(outcome_type, em, treat.name, outcome.name, event.name,
                       offset.name, adjust_covariates, adverse_outcome = adv,
                       df = df)
 
-  # Per-candidate effect on the SAME statistic the gate uses (.fs_dg_pieces),
+  # Per-candidate effect on the SAME statistic the gate uses (.fs_mr_pieces),
   # row-aligned to `tab`; skip rows with < 6 members exactly as the gate does.
   nr        <- nrow(tab)
   eff_link  <- rep(NA_real_, nr)
@@ -1114,10 +1114,10 @@ reset_workers <- function(workers   = NULL,
                                 stringsAsFactors = FALSE)
     }
     cj  <- do.call(rbind, comps)
-    mem <- tryCatch(.fs_dg_members_from_conj(df, cj),
+    mem <- tryCatch(.fs_mr_members_from_conj(df, cj),
                     error = function(e) integer(0))
     if (length(mem) < 6L) next
-    pc <- tryCatch(.fs_dg_pieces(df[mem, , drop = FALSE], spec),
+    pc <- tryCatch(.fs_mr_pieces(df[mem, , drop = FALSE], spec),
                    error = function(e) NULL)
     if (is.null(pc) || !is.finite(pc$beta_hat)) next
     eff_link[i] <- pc$beta_hat
@@ -1447,7 +1447,7 @@ reset_workers <- function(workers   = NULL,
 #' \code{grf_selection = "frontier"}.  Re-scores the DR-candidate family
 #' (\code{grf_res$candidates}) on the effect measure the Tier-2 gate de-biases
 #' (Cox HR for survival; the resolved GLM effect otherwise), using the gate's
-#' own per-candidate estimator (\code{.fs_dg_pieces}), then re-selects the winner
+#' own per-candidate estimator (\code{.fs_mr_pieces}), then re-selects the winner
 #' with GRF's own \code{.grf_frontier_select()} logic on those Cox-HR scores
 #' (harm floor HR >= 1).  The winning row is turned back into the standard
 #' \code{sg_def} via \code{.grf_sg_def_from_candidate()}, so all downstream
@@ -1468,7 +1468,7 @@ reset_workers <- function(workers   = NULL,
 
   em   <- if (identical(outcome_type, "survival")) "HR" else effect_measure
   adv  <- if (identical(outcome_type, "survival")) TRUE else adverse_outcome
-  spec <- .fs_dg_spec(outcome_type, em, treat.name, outcome.name, event.name,
+  spec <- .fs_mr_spec(outcome_type, em, treat.name, outcome.name, event.name,
                       offset.name, adjust_covariates, adverse_outcome = adv,
                       df = df)
 
@@ -1484,7 +1484,7 @@ reset_workers <- function(workers   = NULL,
     mem <- tryCatch(which(.grf_evaluate_subgroup(sgd_i, df) == 0L),
                     error = function(e) integer(0))
     if (length(mem) < 6L) next
-    pc <- tryCatch(.fs_dg_pieces(df[mem, , drop = FALSE], spec),
+    pc <- tryCatch(.fs_mr_pieces(df[mem, , drop = FALSE], spec),
                    error = function(e) NULL)
     if (is.null(pc) || !is.finite(pc$beta_hat)) next
     eff_link[i] <- pc$beta_hat

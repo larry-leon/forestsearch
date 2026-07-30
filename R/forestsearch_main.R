@@ -1872,19 +1872,19 @@ forestsearch <- function(df.analysis,
     if (isTRUE(debias_gate) && isTRUE(dsel$found) &&
         !is.null(dsel$grp.consistency) &&
         !is.null(dsel$grp.consistency$sg.harm.id)) {
-      .dg_df   <- dsel$df.est
+      .mr_df   <- dsel$df.est
       # Mirror SECTION 9B: survival -> effect_measure "HR" on log scale;
       # GLM -> resolved effect_measure with the precomputed comparison-scale
       # threshold (effect_measure is NULL for survival, so do NOT test it).
-      .dg_em   <- if (identical(outcome_type, "survival")) "HR" else effect_measure
-      .dg_cscr <- if (identical(outcome_type, "survival")) log(hr.threshold)
+      .mr_em   <- if (identical(outcome_type, "survival")) "HR" else effect_measure
+      .mr_cscr <- if (identical(outcome_type, "survival")) log(hr.threshold)
                   else effect_threshold
-      .dg_spec <- .fs_dg_spec(
-        outcome_type, .dg_em, treat.name, outcome.name, event.name,
+      .mr_spec <- .fs_mr_spec(
+        outcome_type, .mr_em, treat.name, outcome.name, event.name,
         offset.name, adjust_covariates,
         adverse_outcome = if (identical(outcome_type, "survival")) TRUE
                           else adverse_outcome,
-        df = .dg_df)
+        df = .mr_df)
       # Restrict the gate family to candidates competitive on the SAME statistic
       # that selected the winner, so the re-selection mirrors DINA's selection
       # neighbourhood instead of the full family.  With select_statistic =
@@ -1893,24 +1893,24 @@ forestsearch <- function(df.analysis,
       # otherwise restrict on DINA's native tau-hat.  Default neighbourhood:
       # match effect_neighborhood (the band DINA selects within).  Set
       # debias_gate_args$family_native_neighborhood >= 1 to disable (full family).
-      .dg_nbhd <- debias_gate_args$family_native_neighborhood
-      if (is.null(.dg_nbhd)) .dg_nbhd <- effect_neighborhood
-      .dg_stat <- if (identical(dsel$select_statistic, "effect") &&
+      .mr_nbhd <- debias_gate_args$family_native_neighborhood
+      if (is.null(.mr_nbhd)) .mr_nbhd <- effect_neighborhood
+      .mr_stat <- if (identical(dsel$select_statistic, "effect") &&
                       "sel_effect" %in% names(dsel$candidates))
                     dsel$candidates$sel_effect else dsel$candidates$tau_hat
-      .dg_tab  <- .fs_dg_restrict_native(
-        dsel$candidates, .dg_stat,
-        neighborhood = .dg_nbhd,
-        log_scale = .dg_em %in% c("HR", "OR", "IRR"))
-      .dg_fam  <- .fs_dg_family_from_table(.dg_df, .dg_tab,
+      .mr_tab  <- .fs_mr_restrict_native(
+        dsel$candidates, .mr_stat,
+        neighborhood = .mr_nbhd,
+        log_scale = .mr_em %in% c("HR", "OR", "IRR"))
+      .mr_fam  <- .fs_mr_family_from_table(.mr_df, .mr_tab,
                                            op_right = ">=", n_min = n.min)
-      out$debias_gate <- .fs_apply_debias_gate(
-        df = .dg_df, candidates = .dg_fam,
+      out$debias_gate <- .fs_apply_mr(
+        df = .mr_df, candidates = .mr_fam,
         selected_members = which(dsel$grp.consistency$sg.harm.id == 1L),
-        spec = .dg_spec, c_screen = .dg_cscr, c_consistency = 0,
+        spec = .mr_spec, c_screen = .mr_cscr, c_consistency = 0,
         p_star = pconsistency.threshold,
         effect_neighborhood = effect_neighborhood,
-        reselection_default = .fs_dg_reselection_from_focus(sg_focus, engine = "effect"),
+        reselection_default = .fs_mr_reselection_from_focus(sg_focus, engine = "effect"),
         selection_rule_default = selection_rule,
         debias_gate_args = debias_gate_args, seedit = seedit)
     }
@@ -2004,19 +2004,19 @@ forestsearch <- function(df.analysis,
     out$debias_gate <- NULL
     if (isTRUE(debias_gate) && !is.null(gsel$grp.consistency) &&
         !is.null(gsel$grp.consistency$sg.harm.id)) {
-      .dg_df   <- gsel$df.est
+      .mr_df   <- gsel$df.est
       # Mirror SECTION 9B (see DINA branch): survival uses "HR"/log(hr.threshold);
       # GLM uses effect_measure/effect_threshold.  effect_measure is NULL for
       # survival, so never test it directly.
-      .dg_em   <- if (identical(outcome_type, "survival")) "HR" else effect_measure
-      .dg_cscr <- if (identical(outcome_type, "survival")) log(hr.threshold)
+      .mr_em   <- if (identical(outcome_type, "survival")) "HR" else effect_measure
+      .mr_cscr <- if (identical(outcome_type, "survival")) log(hr.threshold)
                   else effect_threshold
-      .dg_spec <- .fs_dg_spec(
-        outcome_type, .dg_em, treat.name, outcome.name, event.name,
+      .mr_spec <- .fs_mr_spec(
+        outcome_type, .mr_em, treat.name, outcome.name, event.name,
         offset.name, adjust_covariates,
         adverse_outcome = if (identical(outcome_type, "survival")) TRUE
                           else adverse_outcome,
-        df = .dg_df)
+        df = .mr_df)
       # Restrict the gate family to candidates competitive on the SAME statistic
       # that selected the winner.  With grf_select_statistic = "effect" (frontier
       # mode), restrict on the per-candidate effect (`sel_effect`, link scale,
@@ -2024,25 +2024,25 @@ forestsearch <- function(df.analysis,
       # doubly-robust score (additive scale).  Default: match effect_neighborhood
       # (the band GRF's frontier selects within).  Set
       # debias_gate_args$family_native_neighborhood >= 1 to disable (full family).
-      .dg_nbhd <- debias_gate_args$family_native_neighborhood
-      if (is.null(.dg_nbhd)) .dg_nbhd <- effect_neighborhood
-      .dg_eff_sel <- identical(gsel$select_statistic, "effect") &&
+      .mr_nbhd <- debias_gate_args$family_native_neighborhood
+      if (is.null(.mr_nbhd)) .mr_nbhd <- effect_neighborhood
+      .mr_eff_sel <- identical(gsel$select_statistic, "effect") &&
                      "sel_effect" %in% names(gsel$candidates)
-      .dg_stat    <- if (.dg_eff_sel) gsel$candidates$sel_effect
+      .mr_stat    <- if (.mr_eff_sel) gsel$candidates$sel_effect
                      else gsel$candidates$effect
-      .dg_tab  <- .fs_dg_restrict_native(
-        gsel$candidates, .dg_stat,
-        neighborhood = .dg_nbhd,
-        log_scale = if (.dg_eff_sel) .dg_em %in% c("HR", "OR", "IRR") else FALSE)
-      .dg_fam  <- .fs_dg_family_from_table(.dg_df, .dg_tab,
+      .mr_tab  <- .fs_mr_restrict_native(
+        gsel$candidates, .mr_stat,
+        neighborhood = .mr_nbhd,
+        log_scale = if (.mr_eff_sel) .mr_em %in% c("HR", "OR", "IRR") else FALSE)
+      .mr_fam  <- .fs_mr_family_from_table(.mr_df, .mr_tab,
                                            op_right = ">", n_min = n.min)
-      out$debias_gate <- .fs_apply_debias_gate(
-        df = .dg_df, candidates = .dg_fam,
+      out$debias_gate <- .fs_apply_mr(
+        df = .mr_df, candidates = .mr_fam,
         selected_members = which(gsel$grp.consistency$sg.harm.id == 1L),
-        spec = .dg_spec, c_screen = .dg_cscr, c_consistency = 0,
+        spec = .mr_spec, c_screen = .mr_cscr, c_consistency = 0,
         p_star = pconsistency.threshold,
         effect_neighborhood = effect_neighborhood,
-        reselection_default = .fs_dg_reselection_from_focus(sg_focus, engine = "effect"),
+        reselection_default = .fs_mr_reselection_from_focus(sg_focus, engine = "effect"),
         selection_rule_default = selection_rule,
         debias_gate_args = debias_gate_args, seedit = seedit)
     }
@@ -2813,29 +2813,29 @@ forestsearch <- function(df.analysis,
   # a fast standalone approximation -- it re-derives Cox dfbeta and re-selects
   # over the family itself, so it does not require resample consistency and runs
   # under the default split-consistency search.  Default off.
-  debias_gate_out <- NULL
-  .dg_glm_ok <- consistency_method == "resample" && !is.null(estimator_fn)
-  .dg_cox_ok <- outcome_type == "survival" && is.null(estimator_fn)
+  mr_out <- NULL
+  .mr_glm_ok <- consistency_method == "resample" && !is.null(estimator_fn)
+  .mr_cox_ok <- outcome_type == "survival" && is.null(estimator_fn)
   if (isTRUE(debias_gate) && !is.null(sg.harm) &&
-      (.dg_glm_ok || .dg_cox_ok) &&
+      (.mr_glm_ok || .mr_cox_ok) &&
       !is.null(grp.consistency) && !is.null(grp.consistency$sg.harm.id)) {
 
-    .g_dg <- function(a, b) if (is.null(a)) b else a
+    .g_mr <- function(a, b) if (is.null(a)) b else a
 
-    debias_gate_out <- tryCatch({
+    mr_out <- tryCatch({
       # Full candidate space: enumerate all <= maxk combinations of the cut
       # matrix Z with the search's OWN helpers, so the family is identical to
       # the space subgroup.search() ranked over (faithful to the Tier-1 search).
-      L_dg     <- ncol(Z)
-      combo_dg <- generate_combination_indices(L_dg, maxk)
-      tot_dg   <- calculate_max_combinations(L_dg, maxk)
+      L_mr     <- ncol(Z)
+      combo_mr <- generate_combination_indices(L_mr, maxk)
+      tot_mr   <- calculate_max_combinations(L_mr, maxk)
       fam <- list()
-      for (kk in seq_len(tot_dg)) {
+      for (kk in seq_len(tot_mr)) {
         covs.in <- get_covs_in(
-          kk, maxk, L_dg,
-          combo_dg$counts_1, combo_dg$indices_1,
-          combo_dg$counts_2, combo_dg$indices_2,
-          combo_dg$counts_3, combo_dg$indices_3)
+          kk, maxk, L_mr,
+          combo_mr$counts_1, combo_mr$indices_1,
+          combo_mr$counts_2, combo_mr$indices_2,
+          combo_mr$counts_3, combo_mr$indices_3)
         k_sel <- sum(covs.in)
         if (k_sel < 1L || k_sel > maxk) next
         mem <- which(get_subgroup_membership(Z, covs.in))
@@ -2847,54 +2847,54 @@ forestsearch <- function(df.analysis,
       # internal df.fs column names (Y/Event/Treat) and log-HR thresholds; GLM
       # uses the user-facing names and the already-log effect/consistency
       # thresholds.  Cox dispatch happens inside the engine via outcome_type.
-      if (.dg_cox_ok) {
-        adj_dg <- intersect(adjust_covariates, names(df.fs))  # only if present
+      if (.mr_cox_ok) {
+        adj_mr <- intersect(adjust_covariates, names(df.fs))  # only if present
         gspec <- list(outcome_type = "survival", effect_measure = "HR",
                       treat.name = "Treat", outcome.name = "Y",
                       event.name = "Event", offset.name = NULL,
-                      adjust_covariates = if (length(adj_dg)) adj_dg else NULL,
+                      adjust_covariates = if (length(adj_mr)) adj_mr else NULL,
                       adverse_outcome = TRUE)
-        c_screen_dg      <- log(hr.threshold)
-        c_consistency_dg <- log(max(hr.consistency, 1e-3))
+        c_screen_mr      <- log(hr.threshold)
+        c_consistency_mr <- log(max(hr.consistency, 1e-3))
       } else {
         gspec <- list(outcome_type = outcome_type, effect_measure = effect_measure,
                       treat.name = treat.name, outcome.name = outcome.name,
                       event.name = event.name, offset.name = offset.name,
                       adjust_covariates = adjust_covariates,
                       adverse_outcome = adverse_outcome)
-        c_screen_dg      <- effect_threshold      # comparison scale (log for ratio)
-        c_consistency_dg <- consistency_threshold # comparison scale
+        c_screen_mr      <- effect_threshold      # comparison scale (log for ratio)
+        c_consistency_mr <- consistency_threshold # comparison scale
       }
 
       fs_debias_gate(
         df = df.fs, candidates = fam, spec = gspec,
         selected_members = which(grp.consistency$sg.harm.id == 1),
-        c_screen      = c_screen_dg,
-        c_consistency = c_consistency_dg,
+        c_screen      = c_screen_mr,
+        c_consistency = c_consistency_mr,
         p_star        = pconsistency.threshold,
         t_gate        = debias_gate_args$t_gate,            # NULL -> near-null default
-        gate          = .g_dg(debias_gate_args$gate,        "point"),
-        reselection   = .g_dg(debias_gate_args$reselection,
-                              .fs_dg_reselection_from_focus(sg_focus,
+        gate          = .g_mr(debias_gate_args$gate,        "point"),
+        reselection   = .g_mr(debias_gate_args$reselection,
+                              .fs_mr_reselection_from_focus(sg_focus,
                                                             engine = "consistency")),
         effect_neighborhood = effect_neighborhood,
-        selection_rule = .g_dg(debias_gate_args$selection_rule, selection_rule),
-        draws         = .g_dg(debias_gate_args$draws,       2000L),
-        multiplier    = .g_dg(debias_gate_args$multiplier,  "poisson"),
-        include_complement = .g_dg(debias_gate_args$include_complement, TRUE),
-        ci_method     = .g_dg(debias_gate_args$ci_method,   "ij"),
-        seed          = .g_dg(debias_gate_args$seed,        seedit))
+        selection_rule = .g_mr(debias_gate_args$selection_rule, selection_rule),
+        draws         = .g_mr(debias_gate_args$draws,       2000L),
+        multiplier    = .g_mr(debias_gate_args$multiplier,  "poisson"),
+        include_complement = .g_mr(debias_gate_args$include_complement, TRUE),
+        ci_method     = .g_mr(debias_gate_args$ci_method,   "ij"),
+        seed          = .g_mr(debias_gate_args$seed,        seedit))
     }, error = function(e) {
       warning("debias_gate failed: ", conditionMessage(e)); NULL
     })
 
-    if (!quiet && !is.null(debias_gate_out) &&
-        !is.na(debias_gate_out$harm_flag)) {
+    if (!quiet && !is.null(mr_out) &&
+        !is.na(mr_out$harm_flag)) {
       cat(sprintf("De-biased gate: %s = %.3f (gate %s %.2f) -> %s\n",
-                  .g_dg(debias_gate_out$measure, "effect"),
-                  debias_gate_out$debiased$est, debias_gate_out$gate$type,
-                  debias_gate_out$gate$t_gate,
-                  if (debias_gate_out$harm_flag) "consistent with harm"
+                  .g_mr(mr_out$measure, "effect"),
+                  mr_out$debiased$est, mr_out$gate$type,
+                  mr_out$gate$t_gate,
+                  if (mr_out$harm_flag) "consistent with harm"
                   else "not flagged"))
     }
   }
@@ -2916,8 +2916,8 @@ forestsearch <- function(df.analysis,
     sg_focus = sg_focus,
     sg.harm = sg.harm,
     # Tier-2 de-biased gate (NULL unless debias_gate = TRUE)
-    debias_gate = debias_gate_out,
-    harm_flag_debiased = if (!is.null(debias_gate_out)) debias_gate_out$harm_flag
+    debias_gate = mr_out,
+    harm_flag_debiased = if (!is.null(mr_out)) mr_out$harm_flag
                          else NA,
     grf_cuts = grf_cuts,
     dina_res = dina_res,

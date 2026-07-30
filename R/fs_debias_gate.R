@@ -36,7 +36,7 @@
 #'   `"HR"`, `"RD"`, `"MD"`, ...) or `NULL`.
 #' @return `1` for ratio measures (effect scale), `0` for differences.
 #' @keywords internal
-.fs_dg_gate_null <- function(effect_measure) {
+.fs_mr_confirm_null <- function(effect_measure) {
   if (is.null(effect_measure)) return(1)
   if (effect_measure %in% c("OR", "RR", "IRR", "HR")) 1 else 0
 }
@@ -55,7 +55,7 @@
 #' @return Output of [.consistency_glm_pieces()] / [.consistency_cox_pieces()],
 #'   or `NULL`.
 #' @keywords internal
-.fs_dg_pieces <- function(df_sub, spec) {
+.fs_mr_pieces <- function(df_sub, spec) {
   if (identical(spec$outcome_type, "survival")) {
     .consistency_cox_pieces(
       df_sub, tte.name = spec$outcome.name, event.name = spec$event.name,
@@ -78,11 +78,11 @@
 #'
 #' @param df Analysis data frame.
 #' @param candidates Named list of integer row-index vectors.
-#' @param spec See [.fs_dg_pieces()].
+#' @param spec See [.fs_mr_pieces()].
 #' @return List with `B` (`N x S_kept`), `beta_hat`, `sigma_D`, `sizes`,
 #'   `names`, `keep`, `log_scale`.
 #' @keywords internal
-.fs_dg_assemble <- function(df, candidates, spec) {
+.fs_mr_assemble <- function(df, candidates, spec) {
   N <- nrow(df); S <- length(candidates)
   B  <- matrix(0, N, S)
   bh <- rep(NA_real_, S); sdv <- rep(NA_real_, S); sz <- rep(NA_integer_, S)
@@ -90,7 +90,7 @@
   for (g in seq_len(S)) {
     idx <- candidates[[g]]
     if (length(idx) < 6L) next
-    pc <- tryCatch(.fs_dg_pieces(df[idx, , drop = FALSE], spec), error = function(e) NULL)
+    pc <- tryCatch(.fs_mr_pieces(df[idx, , drop = FALSE], spec), error = function(e) NULL)
     if (is.null(pc) || length(pc$dfbeta) != length(idx)) next
     B[idx, g] <- pc$dfbeta
     bh[g] <- pc$beta_hat; sdv[g] <- pc$sigma_D; sz[g] <- length(idx)
@@ -104,7 +104,7 @@
 
 #' Mean-zero unit-variance multiplier vectors (one column per draw)
 #' @keywords internal
-.fs_dg_multipliers <- function(n, draws, type) {
+.fs_mr_multipliers <- function(n, draws, type) {
   switch(type,
     rademacher = matrix(sample(c(-1, 1), n * draws, replace = TRUE), n, draws),
     gaussian   = matrix(stats::rnorm(n * draws), n, draws),
@@ -126,7 +126,7 @@
 #' `beta` is on the working scale (log for ratio measures); `log_scale` controls
 #' the conversion to the natural effect for the band.
 #' @keywords internal
-.fs_dg_select <- function(beta, zcons, sizes, passers, rule, nbhd,
+.fs_mr_select <- function(beta, zcons, sizes, passers, rule, nbhd,
                           selection_rule = "neighborhood", log_scale = TRUE) {
   if (!length(passers)) return(NA_integer_)
   .inband <- function() {
@@ -168,7 +168,7 @@
 #' @return List with `tilde_V` (raw IJ), `hat_V` (Wager 2014 bias-corrected),
 #'   and `B_ok` (number of usable draws).
 #' @keywords internal
-.fs_dg_ij_var <- function(Xi, r, ok) {
+.fs_mr_ij_var <- function(Xi, r, ok) {
   if (length(ok) < 2L)
     return(list(tilde_V = NA_real_, hat_V = NA_real_, B_ok = length(ok)))
   Xk  <- Xi[, ok, drop = FALSE]            # N x B_ok
@@ -187,12 +187,12 @@
 #' Prefers the bias-corrected IJ variance; if it is non-positive (too few
 #' draws), falls back to the raw IJ variance, then to the subgroup robust SE.
 #'
-#' @param ij Output of [.fs_dg_ij_var()].
+#' @param ij Output of [.fs_mr_ij_var()].
 #' @param se_fallback Robust subgroup SE (`sigma_D`) used as last resort.
 #' @return List with `se`, `var`, and `source`
 #'   (`"ij"`, `"ij_raw"`, or `"wald_fallback"`).
 #' @keywords internal
-.fs_dg_se_from_ij <- function(ij, se_fallback) {
+.fs_mr_se_from_ij <- function(ij, se_fallback) {
   if (is.finite(ij$hat_V) && ij$hat_V > 0)
     return(list(se = sqrt(ij$hat_V), var = ij$hat_V, source = "ij"))
   if (is.finite(ij$tilde_V) && ij$tilde_V > 0)
@@ -282,7 +282,7 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
   if (length(hit)) sel_lab <- names(candidates)[hit[1]]
   else { candidates[[H_lab]] <- selected_members; sel_lab <- H_lab }
 
-  asm <- .fs_dg_assemble(df, candidates, spec)
+  asm <- .fs_mr_assemble(df, candidates, spec)
   if (is.null(t_gate)) t_gate <- if (asm$log_scale) 1 else 0
   sel <- match(sel_lab, asm$names)
 
@@ -304,7 +304,7 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
   t_g    <- pmax(c_screen, c_consistency + z * sdv)
 
   t0 <- proc.time()
-  Xi <- .fs_dg_multipliers(nrow(B), draws, multiplier)
+  Xi <- .fs_mr_multipliers(nrow(B), draws, multiplier)
   P  <- crossprod(B, Xi)                 # S x draws : D_g(b)
   beta_star <- bh + P
   sel_bias <- rep(NA_real_, draws)
@@ -313,7 +313,7 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
     bs <- beta_star[, b]
     pass <- which(bs >= t_g)
     if (!length(pass)) next
-    s <- .fs_dg_select(bs, (bs - c_consistency) / sdv, sz, pass, reselection,
+    s <- .fs_mr_select(bs, (bs - c_consistency) / sdv, sz, pass, reselection,
                        effect_neighborhood, selection_rule, log_scale)
     if (!is.na(s)) { sel_bias[b] <- P[s, b]; winner[b] <- s }
   }
@@ -330,8 +330,8 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
   # Infinitesimal-jackknife variance of the de-biased estimate (Eq. VInfJ_bc),
   # from the same draws: r_b = (selection_bias + fixed_bias) - D_{H*_b}(b) - D_H(b).
   r_H   <- (selection_bias + fb) - sel_bias - P[sel, ]
-  ijH   <- .fs_dg_ij_var(Xi, r_H, which(is.finite(sel_bias)))
-  se_ij <- .fs_dg_se_from_ij(ijH, se_wald)
+  ijH   <- .fs_mr_ij_var(Xi, r_H, which(is.finite(sel_bias)))
+  se_ij <- .fs_mr_se_from_ij(ijH, se_wald)
   se    <- if (ci_method == "ij") se_ij$se else se_wald
 
   gate_cmp <- if (log_scale) log(t_gate) else t_gate
@@ -355,7 +355,7 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
     for (w in winset) {
       comp_idx <- setdiff(seq_len(Nall), kept[[w]])
       if (length(comp_idx) < 6L) next
-      pcc <- tryCatch(.fs_dg_pieces(df[comp_idx, , drop = FALSE], spec),
+      pcc <- tryCatch(.fs_mr_pieces(df[comp_idx, , drop = FALSE], spec),
                       error = function(e) NULL)
       if (is.null(pcc) || length(pcc$dfbeta) != length(comp_idx)) next
       Bc[comp_idx, w] <- pcc$dfbeta
@@ -378,8 +378,8 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
       bdc <- bnc - sbc - fcc
       sec <- sdv_c[sel]
       r_c   <- (sbc + fcc) - selb_c - Pc[sel, ]
-      ijC   <- .fs_dg_ij_var(Xi, r_c, which(is.finite(selb_c)))
-      se_ijc <- .fs_dg_se_from_ij(ijC, sec)
+      ijC   <- .fs_mr_ij_var(Xi, r_c, which(is.finite(selb_c)))
+      se_ijc <- .fs_mr_se_from_ij(ijC, sec)
       sec_used <- if (ci_method == "ij") se_ijc$se else sec
       complement <- list(
         naive    = list(est = to_eff(bnc),

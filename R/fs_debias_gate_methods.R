@@ -23,7 +23,7 @@
 #' @param cj Conjunction data frame with columns `variable`, `op`, `value`.
 #' @return Integer row indices of subjects in the (harm) subgroup.
 #' @keywords internal
-.fs_dg_members_from_conj <- function(df, cj) {
+.fs_mr_members_from_conj <- function(df, cj) {
   def <- list(conjunctions = list(cj), labels = NULL,
               definition = NA_character_, is_disjunction = FALSE)
   which(.grf_evaluate_subgroup(def, df) == 0L)
@@ -58,7 +58,7 @@
 #'   exists.
 #' @keywords internal
 #' @noRd
-.fs_dg_restrict_native <- function(tab, stat, neighborhood = NULL,
+.fs_mr_restrict_native <- function(tab, stat, neighborhood = NULL,
                                    log_scale = FALSE) {
   if (is.null(neighborhood) || !is.finite(neighborhood) ||
       neighborhood < 0 || neighborhood >= 1 ||
@@ -84,7 +84,7 @@
 #' @param digits Threshold label formatting (matches the package convention).
 #' @return Named list of integer row-index vectors (one per candidate).
 #' @keywords internal
-.fs_dg_family_from_table <- function(df, tab, op_right = ">=",
+.fs_mr_family_from_table <- function(df, tab, op_right = ">=",
                                      n_min = 1L, digits = 17L) {
   if (is.null(tab) || !nrow(tab)) return(list())
   fam <- list()
@@ -100,7 +100,7 @@
                                 stringsAsFactors = FALSE)
     }
     cj  <- do.call(rbind, comps)
-    mem <- tryCatch(.fs_dg_members_from_conj(df, cj),
+    mem <- tryCatch(.fs_mr_members_from_conj(df, cj),
                     error = function(e) integer(0))
     if (length(mem) >= n_min) {
       lab <- paste(sprintf("%s %s %s", cj$variable, cj$op,
@@ -127,7 +127,7 @@
 #' @param engine `"consistency"` (so `"hr"` -> `"maxcons"`) or `"effect"`
 #'   (DINA/GRF; `"hr"` -> `"maxeff"`).
 #' @keywords internal
-.fs_dg_reselection_from_focus <- function(sg_focus,
+.fs_mr_reselection_from_focus <- function(sg_focus,
                                           engine = c("effect", "consistency")) {
   engine  <- match.arg(engine)
   hr_rule <- if (identical(engine, "consistency")) "maxcons" else "maxeff"
@@ -159,9 +159,9 @@
 #' `NULL` (the branch's normal output is unaffected) rather than aborting.
 #'
 #' @param reselection_default Method-appropriate default re-selection rule
-#'   (`"maxcons"` for consistency; [.fs_dg_reselection_from_focus()] otherwise).
+#'   (`"maxcons"` for consistency; [.fs_mr_reselection_from_focus()] otherwise).
 #' @keywords internal
-.fs_apply_debias_gate <- function(df, candidates, selected_members, spec,
+.fs_apply_mr <- function(df, candidates, selected_members, spec,
                                   c_screen, c_consistency, p_star,
                                   effect_neighborhood, reselection_default,
                                   selection_rule_default = "neighborhood",
@@ -200,7 +200,7 @@
 #' `df.fs`), so survival uses the user column names here -- unlike the
 #' consistency hook, which uses the internal Y/Event/Treat names on `df.fs`.
 #' @keywords internal
-.fs_dg_spec <- function(outcome_type, effect_measure, treat.name, outcome.name,
+.fs_mr_spec <- function(outcome_type, effect_measure, treat.name, outcome.name,
                         event.name, offset.name, adjust_covariates,
                         adverse_outcome, df) {
   adj <- if (length(adjust_covariates))

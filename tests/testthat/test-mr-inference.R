@@ -124,13 +124,13 @@ test_that("enabled on the Cox/consistency path it returns the documented fields"
 })
 
 test_that("the near-null default threshold is measure-dependent", {
-  expect_equal(.fs_dg_gate_null("HR"), 1)
-  expect_equal(.fs_dg_gate_null("OR"), 1)
-  expect_equal(.fs_dg_gate_null("RR"), 1)
-  expect_equal(.fs_dg_gate_null("IRR"), 1)
-  expect_equal(.fs_dg_gate_null("RD"), 0)
-  expect_equal(.fs_dg_gate_null("MD"), 0)
-  expect_equal(.fs_dg_gate_null(NULL), 1)
+  expect_equal(.fs_mr_confirm_null("HR"), 1)
+  expect_equal(.fs_mr_confirm_null("OR"), 1)
+  expect_equal(.fs_mr_confirm_null("RR"), 1)
+  expect_equal(.fs_mr_confirm_null("IRR"), 1)
+  expect_equal(.fs_mr_confirm_null("RD"), 0)
+  expect_equal(.fs_mr_confirm_null("MD"), 0)
+  expect_equal(.fs_mr_confirm_null(NULL), 1)
 })
 
 test_that("the complement is de-biased by default from forestsearch()", {
@@ -247,11 +247,11 @@ test_that("sg_focus maps to the re-selection rule per engine, for all eleven foc
 
   for (i in seq_len(nrow(map))) {
     expect_identical(
-      .fs_dg_reselection_from_focus(map$sg_focus[i], engine = "consistency"),
+      .fs_mr_reselection_from_focus(map$sg_focus[i], engine = "consistency"),
       map$consistency[i],
       info = sprintf("sg_focus '%s', engine 'consistency'", map$sg_focus[i]))
     expect_identical(
-      .fs_dg_reselection_from_focus(map$sg_focus[i], engine = "effect"),
+      .fs_mr_reselection_from_focus(map$sg_focus[i], engine = "effect"),
       map$effect[i],
       info = sprintf("sg_focus '%s', engine 'effect'", map$sg_focus[i]))
   }
@@ -264,7 +264,7 @@ test_that("sg_focus maps to the re-selection rule per engine, for all eleven foc
 test_that("the rule reaching fs_debias_gate() is the one sg_focus implies", {
   # End-to-end, not just the mapping helper: what the search recorded.
   expect_identical(.mri_fit$value$debias_gate$gate$reselection,
-                   .fs_dg_reselection_from_focus("maxSG", engine = "consistency"))
+                   .fs_mr_reselection_from_focus("maxSG", engine = "consistency"))
 
   r <- .run_fs_capture(
     .mri_data,

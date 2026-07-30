@@ -108,7 +108,7 @@ test_that("selection_rule other than neighborhood is rejected for maxeffCons", {
       }
     }
   }
-  walk(body(.fs_dg_reselection_from_focus))
+  walk(body(.fs_mr_reselection_from_focus))
   expect_false(is.null(sw))
   nms <- names(sw)
   nms[!is.na(nms) & nzchar(nms)]
@@ -124,7 +124,7 @@ test_that("every accepted sg_focus maps to an explicitly named gate rule", {
     canonical <- .normalize_sg_focus(f)
     expect_true(canonical %in% named,
                 info = sprintf(
-                  "sg_focus '%s' (canonical '%s') is not a named case in .fs_dg_reselection_from_focus(); it would fall through to the bare fallback",
+                  "sg_focus '%s' (canonical '%s') is not a named case in .fs_mr_reselection_from_focus(); it would fall through to the bare fallback",
                   f, canonical))
   }
 })
@@ -134,17 +134,17 @@ test_that("maxeffCons maps to the gate's maxeff (argmax effect among passers)", 
   # consistency-qualifying set (p_star = pconsistency.threshold), so it encodes
   # the maxeffCons rule -- not the ungated sg_focus = "maxeff".
   expect_identical(
-    .fs_dg_reselection_from_focus("maxeffCons", engine = "consistency"), "maxeff")
+    .fs_mr_reselection_from_focus("maxeffCons", engine = "consistency"), "maxeff")
   expect_identical(
-    .fs_dg_reselection_from_focus("maxeffCons", engine = "effect"), "maxeff")
+    .fs_mr_reselection_from_focus("maxeffCons", engine = "effect"), "maxeff")
 })
 
 test_that("hr and its aliases map to the consistency-rate gate rule", {
   for (f in c("hr", "eff", "maxcons")) {
     expect_identical(
-      .fs_dg_reselection_from_focus(f, engine = "consistency"), "maxcons")
+      .fs_mr_reselection_from_focus(f, engine = "consistency"), "maxcons")
     expect_identical(
-      .fs_dg_reselection_from_focus(f, engine = "effect"), "maxeff")
+      .fs_mr_reselection_from_focus(f, engine = "effect"), "maxeff")
   }
 })
 
