@@ -2,7 +2,7 @@
 % Please edit documentation in R/mr_estimates_table.R
 \name{mr_estimates_table}
 \alias{mr_estimates_table}
-\title{Tier-2 de-biased estimates table (bootstrap-table format)}
+\title{Multiplier-resampling (MR) estimates table (bootstrap-table format)}
 \usage{
 mr_estimates_table(fs, boot_results, est.scale = "hr", digits = 2)
 }
@@ -23,25 +23,31 @@ reformatter \code{\link[=summarize_bootstrap_results]{summarize_bootstrap_result
 A \code{gt} table.
 }
 \description{
-Renders the selected subgroup's fast de-biased gate estimate
-(\code{\link[=forestsearch]{forestsearch()}} with \code{mr_inference = TRUE}) in the same \code{gt} layout as the
-bias-corrected table produced by \code{\link[=summarize_bootstrap_results]{summarize_bootstrap_results()}}.  The
-descriptive columns (sample size, medians/RMST or rates) and the naive effect
-are tier-independent, so they are inherited from a bootstrap result used as a
-template; the bias-corrected column is replaced with the Tier-2 values from
-\code{fs$mr_inference} -- the de-biased estimate for the selected subgroup and, when
-the gate was run with \code{include_complement = TRUE}, for the complement as well
-(otherwise the complement cell is marked, since the gate de-biases the
-selected subgroup only).
+Renders the selected subgroup's MR de-biased estimate (\code{\link[=forestsearch]{forestsearch()}} with
+\code{mr_inference = TRUE}) in the same \code{gt} layout as the bias-corrected table
+produced by \code{\link[=summarize_bootstrap_results]{summarize_bootstrap_results()}}.  The descriptive columns
+(sample size, medians/RMST or rates) and the naive effect do not depend on
+which de-biasing method was used, so they are inherited from a full-bootstrap
+(FB) result used as a template; the bias-corrected column is replaced with
+the MR values from \code{fs$mr_inference} -- the de-biased estimate for the
+selected subgroup and, when MR was run with \code{include_complement = TRUE}, for
+the complement as well (otherwise the complement cell is marked, since MR
+de-biases the selected subgroup only).
 }
 \details{
 The selected-subgroup row is matched by its bias-corrected string
 (\code{boot_results$SG_CIs$H_bc}) rather than by position, so the substitution is
-robust to row ordering.  The Tier-2 de-biased confidence interval uses the
-subgroup robust SE and is an approximation of the bootstrap
-infinitesimal-jackknife interval, so the bias-corrected cell may differ
+robust to row ordering.  The MR de-biased confidence interval is a
+leading-order approximation of the full-bootstrap infinitesimal-jackknife
+interval -- it comes from the IJ variance computed on the multiplier draws
+under the default \code{ci_method = "ij"}, and from the subgroup robust SE only
+under \code{ci_method = "wald"}.  Either way the bias-corrected cell may differ
 slightly from the full bootstrap even when the naive effect matches exactly.
 }
 \seealso{
+\code{\link[=forestsearch]{forestsearch()}} for the \code{mr_inference} switch and the vocabulary
+section; \code{\link[=fs_mr_inference]{fs_mr_inference()}} for the MR computation itself;
+\code{\link[=forestsearch_bootstrap_dofuture]{forestsearch_bootstrap_dofuture()}} for the full bootstrap that supplies
+the template; \code{\link[=fs_fdr_report]{fs_fdr_report()}} for harm-confirmation threshold sweeps;
 \code{\link[=summarize_bootstrap_results]{summarize_bootstrap_results()}}, \code{\link[=format_bootstrap_table]{format_bootstrap_table()}}
 }

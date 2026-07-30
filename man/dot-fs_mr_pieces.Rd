@@ -18,7 +18,7 @@ Output of \code{\link[=.consistency_glm_pieces]{.consistency_glm_pieces()}} / \c
 or \code{NULL}.
 }
 \description{
-Thin dispatch onto the existing forestsearch internals so the gate uses the
+Thin dispatch onto the existing forestsearch internals so MR uses the
 identical treatment \code{dfbeta}, \code{beta_hat}, and robust \code{sigma_D} the resample
 consistency engine uses.
 }

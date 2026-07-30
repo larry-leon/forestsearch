@@ -206,9 +206,9 @@ analogue of \code{grf_select_statistic}.  \code{"dina"} ranks DINA's
 qualifying family on its native subgroup-mean tau-hat (unchanged legacy
 behaviour).  \code{"effect"} re-ranks the same family on the inferential
 effect measure (Cox HR for survival; the resolved GLM effect otherwise),
-scored with the same per-candidate estimator the Tier-2 de-biased gate
-uses, so the realized selection is the exact event the gate de-biases (and
-the gate's native-family restriction follows the effect rather than
+scored with the same per-candidate estimator multiplier resampling (MR)
+uses, so the realized selection is the exact event MR de-biases (and
+MR's native-family restriction follows the effect rather than
 tau-hat).}
 
 \item{subgroup_method}{Character, one of \code{"consistency"} (default),
@@ -257,8 +257,8 @@ the recommended default.}
 on GRF's native doubly-robust score (legacy behaviour).  \code{"effect"}
 re-ranks the same DR-candidate frontier on the inferential effect measure
 (Cox HR for survival; the resolved GLM effect otherwise), scored with the
-same per-candidate estimator the Tier-2 de-biased gate uses, so the realized
-selection is the exact event the gate de-biases (and the gate's
+same per-candidate estimator multiplier resampling (MR) uses, so the realized
+selection is the exact event MR de-biases (and MR's
 native-family restriction follows the effect rather than the DR score).
 Ignored for \code{grf_selection = "tree"} (the policy-tree leaf is the
 selection, with no enumerated family to rank).}
@@ -649,41 +649,68 @@ weights), or \code{"dr_gcomp"} (IPS covariate).}
 \item{ps_hat}{Numeric vector or \code{NULL}. User-supplied propensity
 scores.  Must have length equal to \code{nrow(df.analysis)}.}
 
-\item{mr_inference}{Logical.  When \code{TRUE}, compute a fast
-multiplier-bootstrap de-biased estimate of the selected subgroup and flag
-whether it remains consistent with harm.  Supported on the GLM
-resample-consistency path (\code{consistency_method = "resample"} with a
-GLM effect) and on the survival/Cox path (\code{outcome_type = "survival"}),
-where it runs as a fast standalone approximation under the default
-split-consistency search.  This is a Tier-2 approximation of the full
-bootstrap bias-correction (\code{\link{forestsearch_bootstrap_dofuture}})
-and does not replace it.  Default \code{FALSE}.}
+\item{mr_inference}{Logical.  Whether to follow the search with multiplier
+resampling (MR): a refit-free de-biased estimate of the selected
+subgroup's treatment effect, an interval for it, and a harm-confirmation
+flag.  \strong{Default \code{FALSE}}, so by default this function performs
+\emph{identification only} -- no de-biasing, no harm confirmation, and
+\code{mr_inference} / \code{mr_harm_confirmed} come back \code{NULL} /
+\code{NA}.  Setting it \code{TRUE} adds a step that runs \emph{after} the
+subgroup has been chosen and cannot change that choice.  Supported on the
+GLM resample-consistency path (\code{consistency_method = "resample"} with
+a GLM effect) and on the survival/Cox path
+(\code{outcome_type = "survival"}), where it runs under the default
+split-consistency search.  MR approximates the full bootstrap
+(\code{\link{forestsearch_bootstrap_dofuture}}) to leading order and does
+not replace it.  See the vocabulary section.}
 
-\item{mr_inference_args}{List of optional controls: \code{t_confirm}
-(effect-scale harm-confirmation threshold; near-null default \code{1} for
-ratio measures, \code{0} for differences -- set near the null, not at the
-screen), \code{confirm_rule}
-(\code{"point"} or \code{"ci"}), \code{reselection} (bootstrap re-selection
-rule, default \code{"maxcons"}), \code{draws} (default \code{2000}),
-\code{multiplier} (default \code{"poisson"}), \code{include_complement}
-(default \code{TRUE}), \code{ci_method} (\code{"ij"} default -- de-biased CI
-from the infinitesimal-jackknife variance, the Tier-1 analogue -- or
-\code{"wald"} for the subgroup robust SE), \code{seed}, and
-\code{family_native_neighborhood}.  The last applies
-only to \code{subgroup_method = "dina"} and \code{"grf"}: a value in
-\code{[0, 1)} restricts the gate's re-selection family to candidates within
+\item{mr_inference_args}{List of optional MR controls; used only when
+\code{mr_inference = TRUE}.
+\describe{
+\item{\code{confirm_rule}}{Which harm-confirmation rule to apply to the
+de-biased estimate: \code{"point"} (default) compares the de-biased
+point estimate to \code{t_confirm}; \code{"ci"} compares the one-sided
+95\% selection-adjusted lower bound, and is therefore the stricter
+requirement.}
+\item{\code{t_confirm}}{The threshold \code{confirm_rule} compares
+against, on the \strong{effect} scale (not the working log scale).
+\code{NULL} (default) resolves to the null effect: \code{1} for ratio
+measures, \code{0} for differences.  Set near the null rather than at
+the screening threshold, because the correction over-shrinks true
+effects.}
+\item{\code{reselection}}{Which selection rule to replay on each
+perturbed draw when forming the bias term.  Defaults to the rule
+\code{sg_focus} implies, so it normally needs no setting.}
+\item{\code{draws}}{Number of multiplier draws.  Default \code{2000}.}
+\item{\code{multiplier}}{Multiplier distribution, default
+\code{"poisson"} (centred Poisson(1) weights, the multiplier-bootstrap
+analogue of nonparametric-bootstrap multiplicities); also
+\code{"gaussian"}, \code{"rademacher"}.}
+\item{\code{ci_method}}{\code{"ij"} (default) takes the de-biased
+interval from the infinitesimal-jackknife variance, the leading-order
+analogue of the full-bootstrap interval; \code{"wald"} uses the
+subgroup robust SE.  The naive interval always uses the robust SE.}
+\item{\code{include_complement}}{Also de-bias the complement subgroup.
+Passed as \code{TRUE} by every internal caller.}
+\item{\code{seed}}{Seed for the multiplier draws; defaults to
+\code{seedit}.}
+\item{\code{family_native_neighborhood}}{Applies only to
+\code{subgroup_method = "dina"} and \code{"grf"}.  A value in
+\code{[0, 1)} restricts MR's re-selection family to candidates within
 that multiplicative band of the best \emph{native} statistic (DINA
 subgroup-mean tau-hat; GRF doubly-robust score), so the Cox/GLM-effect
-re-selection mirrors the method's own selection neighbourhood rather than
-ranging over the full candidate family -- curbing the over-correction that
-can occur when the native ranking diverges from the Cox/GLM effect.  It
-\strong{defaults to \code{effect_neighborhood}} (matching the band DINA/GRF
-select within, the recommended setting); pass a value \code{>= 1} to disable
-the restriction and de-bias against the full enumerated family.  Note this
-tunes only the candidate-competition part of the bias: the gate holds the
-forest fixed, so for DINA/GRF the full bootstrap remains the reference
-regardless of this value.  Ignored by \code{"consistency"}, whose
-\code{maxcons} re-selection already matches its search statistic.}
+re-selection mirrors the method's own selection neighbourhood rather
+than ranging over the full candidate family -- curbing the
+over-correction that can occur when the native ranking diverges from
+the Cox/GLM effect.  \strong{Defaults to \code{effect_neighborhood}}
+(matching the band DINA/GRF select within, the recommended setting);
+pass a value \code{>= 1} to disable the restriction and de-bias
+against the full enumerated family.  This tunes only the
+candidate-competition part of the bias: MR holds the forest fixed, so
+for DINA/GRF the full bootstrap remains the reference regardless.
+Ignored by \code{"consistency"}, whose \code{maxcons} re-selection
+already matches its search statistic.}
+}}
 }
 \value{
 A list of class "forestsearch" containing:
@@ -721,15 +748,23 @@ no subgroup was identified.}
 \item{max_sg_est}{Maximum subgroup HR estimate}
 \item{grf_plot}{GRF plot object (if plot.grf = TRUE)}
 \item{args_call_all}{All arguments for reproducibility}
-\item{mr_inference}{Tier-2 de-biased gate result, or \code{NULL} when the
-gate did not run.  See \code{\link{fs_mr_inference}} for fields
-(\code{naive}, \code{debiased}, \code{selection_bias}, \code{gate},
-\code{harm_flag}, \code{timing_seconds}).  The de-biased CI is
-approximate (subgroup robust SE) and narrower than the Tier-1
-infinitesimal-jackknife CI.}
-\item{mr_harm_confirmed}{Logical.  \code{TRUE} when the selected
-subgroup's de-biased estimate is still consistent with harm; \code{NA}
-when the gate did not run.}
+\item{mr_inference}{Multiplier-resampling (MR) result, or \code{NULL}
+when MR did not run.  See \code{\link{fs_mr_inference}} for fields
+(\code{naive}, \code{debiased}, \code{selection_bias},
+\code{settings}, \code{harm_flag}, \code{timing_seconds}).  MR
+approximates the full bootstrap (FB) to leading order; its interval is
+the infinitesimal-jackknife analogue of the FB interval under the
+default \code{ci_method = "ij"}, and the subgroup robust-SE interval
+under \code{"wald"}.}
+\item{mr_harm_confirmed}{Logical, three-valued.  \code{TRUE} when MR ran
+and the de-biased estimate still indicates harm under
+\code{confirm_rule}; \code{FALSE} when MR ran and it does not;
+\code{NA} when MR did \strong{not} run or could not be computed.
+\code{NA} is therefore \emph{absence of evidence, not evidence
+against harm} -- test it with \code{is.na()} before
+\code{isTRUE()}, which collapses \code{NA} to \code{FALSE} and so
+reports "harm not confirmed" for an analysis that never ran.  See
+the vocabulary section.}
 }
 }
 \description{
@@ -794,6 +829,81 @@ vector -- unlike \code{sg.harm.id} on GRF result objects, which
 for the full discussion of this naming collision.  Code that must
 handle both object types should prefer the top-level \code{sg.harm}
 accessor on forestsearch results.
+}
+
+\section{Vocabulary FB MR and harm confirmation}{
+
+Four different things in this package used to share the word "gate".  They
+are distinct, they happen at different stages, and only the last one is a
+pass/fail decision:
+
+\describe{
+\item{Admissibility criteria}{Which candidate subgroups are even eligible
+to be considered: \code{hr.threshold}, \code{pconsistency.threshold},
+\code{n.min}, \code{d0.min}, \code{d1.min}, \code{maxk}.  Applied during
+the search.}
+\item{Selection rule}{Which admissible candidate is chosen as the
+estimated subgroup: \code{sg_focus}.  Applied during the search.}
+\item{Post-selection inference}{Correcting the chosen subgroup's treatment
+effect for the optimism of having chosen it, and putting an interval
+around the corrected value.  This is FB and MR below.  Applied
+\emph{after} the search.}
+\item{Harm confirmation}{The one pass/fail: does the corrected estimate
+still indicate harm?  This is \code{confirm_rule} against
+\code{t_confirm}, reported as \code{mr_harm_confirmed}.}
+}
+
+\strong{Full bootstrap (FB)} --- \code{\link{forestsearch_bootstrap_dofuture}}.
+Resamples \emph{subjects}, and re-runs the entire subgroup search inside
+every replicate, so the replicate may select a different subgroup than the
+original analysis did.  That is what lets it correct the selection-induced
+bias in the reported treatment effect, and supply an
+infinitesimal-jackknife interval.  It is the reference method, and it is
+expensive: cost scales with \code{nb_boots} times the cost of one search.
+
+\strong{Multiplier resampling (MR)} --- \code{\link{fs_mr_inference}}, turned
+on by \code{mr_inference = TRUE}.  Resamples nothing; it perturbs the
+per-subject influence contributions (\code{dfbeta}) of a \emph{single} set of
+fits with random mean-zero multipliers, and re-applies the selection rule on
+each perturbed draw.  It corrects the same selection bias FB corrects and
+produces the same kind of interval, to leading order, at a small fraction of
+the cost --- no refits.  MR is \strong{post-selection inference on a
+completed analysis}: it runs after the subgroup has been chosen and
+\strong{cannot change which subgroup is identified}.  Running with
+\code{mr_inference = TRUE} and \code{FALSE} gives identical
+\code{sg.harm}, \code{df.est} and \code{max_sg_est}.  MR approximates FB;
+it does not replace it.
+
+\strong{Harm confirmation.}  Once MR has produced a de-biased estimate,
+\code{mr_inference_args$confirm_rule} decides whether that estimate still
+indicates harm:
+\describe{
+\item{\code{"point"} (default)}{Compares the de-biased \emph{point
+estimate} to \code{t_confirm}.}
+\item{\code{"ci"}}{Compares the one-sided 95\% selection-adjusted
+\emph{lower bound} to \code{t_confirm}.  Strictly the stronger
+requirement, so anything it confirms \code{"point"} also confirms.}
+}
+
+\strong{\code{t_confirm}} is the threshold those rules compare against, on
+the \strong{effect} scale (HR, OR, RR, IRR; or RD, MD for differences) ---
+not the working log scale used internally.  Left \code{NULL} it resolves to
+the null effect: \code{1} for ratio measures, \code{0} for differences.  It
+is deliberately set near the null rather than at \code{hr.threshold},
+because the de-biasing correction over-shrinks genuine effects, so
+re-applying the screening threshold to a corrected estimate would discard
+true findings.
+
+\strong{\code{mr_harm_confirmed}} carries the answer, and is three-valued:
+\code{TRUE} = MR ran and harm is confirmed; \code{FALSE} = MR ran and harm
+is not confirmed; \code{NA} = MR did not run, or could not be computed.
+\strong{\code{NA} is not evidence against harm.}  It arises when
+\code{mr_inference = FALSE} (the default), when no subgroup was identified,
+or when the MR step was skipped or failed for the outcome/consistency
+combination in use.  Because \code{isTRUE(NA)} is \code{FALSE}, code that
+reads this field with \code{isTRUE()} alone silently reports "harm not
+confirmed" for an analysis that was never performed; branch on
+\code{is.na()} first.
 }
 
 \examples{
@@ -868,7 +978,12 @@ treatment effects using random forests. JASA.
 }
 \seealso{
 \code{\link{subgroup.consistency}} for consistency evaluation details
-\code{\link{forestsearch_bootstrap_dofuture}} for bootstrap inference
+\code{\link{forestsearch_bootstrap_dofuture}} for the full bootstrap (FB)
+\code{\link{fs_mr_inference}} for multiplier resampling (MR), the
+\code{mr_inference = TRUE} step
+\code{\link{mr_estimates_table}} to render the MR estimates
+\code{\link{fs_fdr_report}} to sweep harm-confirmation thresholds
+(\code{c_confirm}) and measure what confirmation buys
 \code{\link{forestsearch_Kfold}} for cross-validation
 
 Package website: \url{https://larry-leon.github.io/forestsearch/}

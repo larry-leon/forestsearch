@@ -1,5 +1,5 @@
 # =============================================================================
-# Tier-2 de-biased gate: method-agnostic application layer
+# Multiplier resampling (MR): method-agnostic application layer
 # -----------------------------------------------------------------------------
 # fs_mr_inference() itself is already method-agnostic: it takes a candidate
 # family (named list of row-index vectors), the selected members, a Cox/GLM
@@ -32,19 +32,19 @@
 #' Restrict a candidate table to rows competitive on a method's native ranking
 #' statistic (DINA tau-hat, GRF doubly-robust score)
 #'
-#' The Tier-2 gate re-selects winners on each multiplier draw by perturbed
+#' MR re-selects winners on each multiplier draw by perturbed
 #' Cox/GLM effect.  DINA and GRF, however, select on their own statistic
 #' (subgroup-mean tau-hat / mean DR score), so over a large family the
 #' Cox-effect re-selection explores candidates the native rule would never
 #' reach, inflating the selection-bias term relative to the full bootstrap
 #' (which re-runs the native selection).  Limiting the family to candidates
-#' within a band of the best native statistic makes the gate's re-selection
+#' within a band of the best native statistic makes MR's re-selection
 #' neighbourhood mirror the one the bootstrap actually explores.
 #'
-#' The DINA and GRF gate branches default the band to `effect_neighborhood` (the
+#' The DINA and GRF MR branches default the band to `effect_neighborhood` (the
 #' band those engines select within); a value `>= 1` (or `NULL`) disables the
 #' restriction and returns `tab` unchanged.  The consistency method does not call
-#' this -- its gate re-selection (`maxcons`) already matches the search statistic.
+#' this -- its MR re-selection (`maxcons`) already matches the search statistic.
 #'
 #' @param tab Candidate table (rows = candidates).
 #' @param stat Numeric native statistic aligned to `tab` rows (harm = high).
@@ -113,11 +113,11 @@
   fam
 }
 
-#' Map `sg_focus` to the gate's re-selection rule, faithfully per engine.
+#' Map `sg_focus` to MR's re-selection rule, faithfully per engine.
 #'
-#' The gate must re-select under the same rule the search used.  The only rule
+#' MR must re-select under the same rule the search used.  The only rule
 #' that differs by engine is the `"hr"`/`"eff"` focus: the consistency search
-#' ranks by consistency rate, whose gate analog is `"maxcons"`; DINA/GRF rank by
+#' ranks by consistency rate, whose MR analog is `"maxcons"`; DINA/GRF rank by
 #' effect, whose analog is `"maxeff"`.  Every other focus maps identically
 #' (`maxSG`/`minSG` pass through; `hrMaxSG`/`hrMinSG` -> the size-within-effect-
 #' neighborhood rules `effMaxSG`/`effMinSG`).  This makes `sg_focus` the single
@@ -140,10 +140,10 @@
          minSG    = "minSG",
          maxcons  = "maxcons",
          maxeff   = "maxeff",
-         # maxeffCons -> the gate's "maxeff", which is
+         # maxeffCons -> MR's "maxeff", which is
          # passers[which.max(beta[passers])]: argmax effect among PASSERS, and
-         # `passers` is the gate's consistency-qualifying set (driven by
-         # p_star = pconsistency.threshold).  So the gate rule named "maxeff"
+         # `passers` is MR's consistency-qualifying set (driven by
+         # p_star = pconsistency.threshold).  So the MR rule named "maxeff"
          # is the maxeffCons rule, NOT sg_focus = "maxeff" (which is ungated).
          maxeffCons = "maxeff",
          effMaxSG = "effMaxSG",
@@ -151,7 +151,7 @@
          hr_rule)
 }
 
-#' Apply the Tier-2 de-biased gate with forestsearch's defaulting rules.
+#' Apply multiplier resampling with forestsearch's defaulting rules.
 #'
 #' Thin wrapper around [fs_mr_inference()] shared by the consistency, DINA, and
 #' GRF branches so the call (and `mr_inference_args` overrides) stays identical
@@ -194,7 +194,7 @@
     })
 }
 
-#' Build the Cox/GLM `spec` for the gate from forestsearch()'s resolved columns.
+#' Build the Cox/GLM `spec` for MR from forestsearch()'s resolved columns.
 #'
 #' DINA/GRF operate on the user-facing analysis frame `df` (not the standardized
 #' `df.fs`), so survival uses the user column names here -- unlike the

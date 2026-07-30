@@ -2,7 +2,7 @@
 % Please edit documentation in R/fs_mr_inference_methods.R
 \name{.fs_apply_mr}
 \alias{.fs_apply_mr}
-\title{Apply the Tier-2 de-biased gate with forestsearch's defaulting rules.}
+\title{Apply multiplier resampling with forestsearch's defaulting rules.}
 \usage{
 .fs_apply_mr(
   df,

@@ -1030,8 +1030,8 @@ reset_workers <- function(workers   = NULL,
   # "dina" (default) ranks on DINA's native subgroup-mean tau-hat -- the
   # legacy behaviour, unchanged.  "effect" ranks on the inferential effect
   # measure (Cox HR for survival; OR/MD/IRR under the GLM extension), computed
-  # with the SAME per-candidate estimator the Tier-2 de-biased gate uses, so
-  # the realized selection is the exact event the gate then de-biases.
+  # with the SAME per-candidate estimator multiplier resampling (MR) uses, so
+  # the realized selection is the exact event MR then de-biases.
   select_statistic <- get_arg("select_statistic", "dina")
   if (!is.character(select_statistic) || length(select_statistic) != 1L ||
       !select_statistic %in% c("dina", "effect")) {
@@ -1070,9 +1070,9 @@ reset_workers <- function(workers   = NULL,
 #' Re-rank DINA's qualifying family on the inferential effect measure
 #'
 #' Replaces DINA's native tau-hat winner with the candidate that maximises the
-#' effect measure the Tier-2 gate de-biases (Cox HR for survival; the resolved
-#' GLM effect otherwise), scored with the gate's own per-candidate estimator
-#' (`.fs_mr_pieces`) so the realized selection is the exact event the gate
+#' effect measure multiplier resampling (MR) de-biases (Cox HR for survival; the
+#' resolved GLM effect otherwise), scored with MR's own per-candidate estimator
+#' (`.fs_mr_pieces`) so the realized selection is the exact event MR
 #' corrects.  Ranking honours the same `sg_focus` / `selection_rule` /
 #' `effect_neighborhood` band logic as `dina_subgroup()`.  Returns `sg` with the
 #' winner fields overwritten and a `sel_effect` (link-scale) column attached to
@@ -1088,7 +1088,7 @@ reset_workers <- function(workers   = NULL,
   tab <- sg$candidates
   if (is.null(tab) || !nrow(tab)) return(sg)
 
-  # Effect measure / spec, mirroring the DINA Tier-2 gate branch: survival uses
+  # Effect measure / spec, mirroring the DINA MR branch: survival uses
   # "HR" on the log scale; GLM uses the resolved effect_measure.
   em   <- if (identical(outcome_type, "survival")) "HR" else effect_measure
   adv  <- if (identical(outcome_type, "survival")) TRUE else adverse_outcome
@@ -1096,8 +1096,8 @@ reset_workers <- function(workers   = NULL,
                       offset.name, adjust_covariates, adverse_outcome = adv,
                       df = df)
 
-  # Per-candidate effect on the SAME statistic the gate uses (.fs_mr_pieces),
-  # row-aligned to `tab`; skip rows with < 6 members exactly as the gate does.
+  # Per-candidate effect on the SAME statistic MR uses (.fs_mr_pieces),
+  # row-aligned to `tab`; skip rows with < 6 members exactly as MR does.
   nr        <- nrow(tab)
   eff_link  <- rep(NA_real_, nr)
   sz        <- rep(NA_integer_, nr)
@@ -1124,7 +1124,7 @@ reset_workers <- function(workers   = NULL,
     sz[i]       <- length(mem)
     log_scale   <- isTRUE(pc$log_scale)
   }
-  sg$candidates$sel_effect <- eff_link  # link scale; consumed by the gate branch
+  sg$candidates$sel_effect <- eff_link  # link scale; consumed by the MR branch
 
   ok <- which(is.finite(eff_link) & !is.na(sz))
   if (!length(ok)) return(sg)           # nothing scorable -> keep native winner
@@ -1356,7 +1356,7 @@ reset_workers <- function(workers   = NULL,
   )
 
   # Effect-based re-selection (dina_args$select_statistic = "effect"): re-rank
-  # DINA's qualifying family on the inferential effect measure the Tier-2 gate
+  # DINA's qualifying family on the inferential effect measure MR
   # de-biases, overriding the native tau-hat winner.  The default "dina" path
   # leaves `sg` untouched.  Any failure falls back to the native winner.
   if (identical(da$select$select_statistic, "effect") && isTRUE(sg$found) &&
@@ -1436,7 +1436,7 @@ reset_workers <- function(workers   = NULL,
   list(found = TRUE, sg.harm = sg.harm, grp.consistency = grp.consistency,
        dina_res = dina_res, df.est = df.est,
        df.predict = df.predict_out, df.test = df.test_out,
-       candidates = sg$candidates,    # qualifying family for the Tier-2 gate
+       candidates = sg$candidates,    # qualifying family for MR
        select_statistic = da$select$select_statistic)
 }
 
@@ -1445,8 +1445,8 @@ reset_workers <- function(workers   = NULL,
 #'
 #' The GRF analogue of \code{.dina_reselect_on_effect()}, for
 #' \code{grf_selection = "frontier"}.  Re-scores the DR-candidate family
-#' (\code{grf_res$candidates}) on the effect measure the Tier-2 gate de-biases
-#' (Cox HR for survival; the resolved GLM effect otherwise), using the gate's
+#' (\code{grf_res$candidates}) on the effect measure multiplier resampling (MR)
+#' de-biases (Cox HR for survival; the resolved GLM effect otherwise), using MR's
 #' own per-candidate estimator (\code{.fs_mr_pieces}), then re-selects the winner
 #' with GRF's own \code{.grf_frontier_select()} logic on those Cox-HR scores
 #' (harm floor HR >= 1).  The winning row is turned back into the standard
@@ -1472,7 +1472,7 @@ reset_workers <- function(workers   = NULL,
                       offset.name, adjust_covariates, adverse_outcome = adv,
                       df = df)
 
-  # Per-candidate effect on the SAME statistic the gate uses, with GRF-native
+  # Per-candidate effect on the SAME statistic MR uses, with GRF-native
   # membership (sg_def -> .grf_evaluate_subgroup); skip < 6-member candidates.
   nr        <- nrow(cand)
   eff_link  <- rep(NA_real_, nr)
@@ -1490,7 +1490,7 @@ reset_workers <- function(workers   = NULL,
     eff_link[i] <- pc$beta_hat
     log_scale   <- isTRUE(pc$log_scale)
   }
-  grf_res$candidates$sel_effect <- eff_link  # link scale; consumed by gate branch
+  grf_res$candidates$sel_effect <- eff_link  # link scale; consumed by MR branch
   if (!any(is.finite(eff_link))) return(grf_res)  # nothing scorable -> keep native
 
   # Re-select via GRF's own frontier logic, scoring on the natural-scale effect
@@ -1614,7 +1614,7 @@ reset_workers <- function(workers   = NULL,
   }
 
   # Effect-based re-selection (grf_select_statistic = "effect"): re-rank GRF's
-  # DR-candidate frontier on the inferential effect the Tier-2 gate de-biases,
+  # DR-candidate frontier on the inferential effect MR de-biases,
   # overriding the native DR-score winner.  Frontier-only: tree-mode selection
   # is the policy-tree leaf, which has no enumerated family to rank, so the leaf
   # stands.  Default "dr" leaves grf_res untouched.  Failures fall back to native.
@@ -1719,6 +1719,6 @@ reset_workers <- function(workers   = NULL,
   list(found = TRUE, sg.harm = sg.harm, grp.consistency = grp.consistency,
        grf_res = grf_res, df.est = df.est,
        df.predict = df.predict_out, df.test = df.test_out,
-       candidates = grf_res$candidates,   # DR-candidate family for the Tier-2 gate
+       candidates = grf_res$candidates,   # DR-candidate family for MR
        select_statistic = grf_select_statistic)
 }

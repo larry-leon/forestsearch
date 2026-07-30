@@ -36,9 +36,10 @@ no modifier); \code{"harm"} is the null-harm-region null
 (\code{target_hr_harm = 1.0}: a real modifier tuned so the flagged region
 has HR = 1.0 while treatment stays active elsewhere).  Default both.}
 
-\item{c_confirm}{Numeric vector of de-biased-HR gate thresholds at which to
-report B.  Default \code{c(0.9, 1.0, 1.25)}.  On real data the gate is
-inert; here it annotates the null's operating characteristics only.}
+\item{c_confirm}{Numeric vector of de-biased-HR harm-confirmation
+thresholds at which to report B, i.e. the values \code{t_confirm} is swept
+over.  Default \code{c(0.9, 1.0, 1.25)}.  On real data harm confirmation
+is inert; here it annotates the null's operating characteristics only.}
 
 \item{nsims}{Integer; null replicates per null.  Default 1000.}
 
@@ -81,7 +82,7 @@ An object of class \code{"fs_fdr_report"}: a list with
 \describe{
 \item{\code{fdr}}{Data frame, one row per null x \code{c_confirm}, with
 \code{A}, \code{A_lo}, \code{A_hi} (raw FDR and 95\% Wilson CI),
-\code{B}, \code{B_lo}, \code{B_hi} (gated FDR and CI), \code{reduction}
+\code{B}, \code{B_lo}, \code{B_hi} (confirmed FDR and CI), \code{reduction}
 (\code{A - B}), and the accounting columns \code{n_valid},
 \code{n_declared}, \code{n_deb_na}, \code{fs_errors}, \code{unhandled}.}
 \item{\code{hr_structure}}{Data frame of the realized hazard ratios each
@@ -97,8 +98,9 @@ inherited thresholds and run settings.}
 }
 \description{
 Characterizes the operating false-discovery rate (FDR) of a \strong{fitted}
-\code{\link{forestsearch}} analysis and tests whether a de-biased-effect
-gate reduces it.  This is a \strong{measurement} tool, not a calibration tool:
+\code{\link{forestsearch}} analysis and tests whether requiring harm
+confirmation on the de-biased effect reduces it.  This is a \strong{measurement}
+tool, not a calibration tool:
 it does not solve for thresholds that control an FDR target.  For the
 \eqn{(c_1, c_2)} pair the analysis actually used, it reports two quantities
 under a null:
@@ -106,16 +108,17 @@ under a null:
 \details{
 \itemize{
 \item \strong{A} (raw FDR): \eqn{A = P(\text{declare any harm subgroup} \mid c_1, c_2)}.
-\item \strong{B(g)} (gated FDR): \eqn{B(g) = P(\text{declare AND de-biased } HR \ge g)}.
-Because gating can only remove declarations, \eqn{B(g) \le A} always; the
-gap \eqn{A - B(g)} is what the de-biasing step buys at gate \eqn{g}.
+\item \strong{B(g)} (confirmed FDR): \eqn{B(g) = P(\text{declare AND de-biased } HR \ge g)}.
+Because harm confirmation can only remove declarations, \eqn{B(g) \le A}
+always; the gap \eqn{A - B(g)} is what the de-biasing step buys at
+confirmation threshold \eqn{g}.
 }
 
 All thresholds and identifier knobs are inherited from
 \code{fs_analysis$args_call_all}, so the FDR reported is that of the analysis
-as run.  The gate is forced on internally (\code{mr_inference = TRUE})
-regardless of the fitted setting, because B requires the per-replicate
-de-biased HR.
+as run.  Multiplier resampling is forced on internally
+(\code{mr_inference = TRUE}) regardless of the fitted setting, because B
+requires the per-replicate de-biased HR.
 \subsection{What "false discovery" means here}{
 
 Under \code{"hom"} the treatment effect is real but uniform, so any declared
@@ -126,19 +129,19 @@ is the more adversarial null.  The declared cut need not overlap
 \code{flag_harm}: under either null any declaration is a false discovery.
 }
 
-\subsection{The gate accounting (why n_deb_na matters)}{
+\subsection{The confirmation accounting (why n_deb_na matters)}{
 
 B(g) counts a declaration only when its de-biased HR is finite and clears
-\code{g}; a declaration whose de-biased HR could not be computed fails the
-gate.  Such cases are counted in \code{n_deb_na} and reported, so that
-\code{A - B} is never mistaken for pure gate benefit when part of it is
-de-biased-HR unavailability.
+\code{g}; a declaration whose de-biased HR could not be computed counts as
+unconfirmed.  Such cases are counted in \code{n_deb_na} and reported, so
+that \code{A - B} is never mistaken for pure de-biasing benefit when part
+of it is de-biased-HR unavailability.
 }
 
 \subsection{Inheritance and rebinding}{
 
 Identifier knobs (thresholds, \code{subgroup_method}, \code{consistency_method},
-\code{conf_force}, \code{conf.cont_jcuts}, \code{maxk}, gate arguments, ...)
+\code{conf_force}, \code{conf.cont_jcuts}, \code{maxk}, MR arguments, ...)
 transfer verbatim from \code{args_call_all}.  The data-binding arguments --
 the five column names and the confounder set -- are rebound to the DGM,
 because \code{simulate_from_dgm()} emits fixed names
@@ -160,7 +163,7 @@ fit <- forestsearch(
   pconsistency.threshold = 0.90, maxk = 2,
   mr_inference = TRUE)
 
-# Characterize its operating FDR and whether the de-biased gate helps
+# Characterize its operating FDR and whether harm confirmation helps
 rep <- fs_fdr_report(fit, gbsg_df, nsims = 1000, n_workers = 100)
 rep                       # prints the realized-HR table and the A/B table
 rep$fdr                   # one row per null x c_confirm
@@ -171,7 +174,11 @@ fs_fdr_report(fit, gbsg_df, n = 700, nsims = 1000, n_workers = 100)
 
 }
 \seealso{
-\code{\link{forestsearch}}, \code{\link{fpr_calibration}},
+\code{\link{forestsearch}} (and its vocabulary section),
+\code{\link{fs_mr_inference}} for the MR step this forces on,
+\code{\link{mr_estimates_table}},
+\code{\link{forestsearch_bootstrap_dofuture}} for the full bootstrap,
+\code{\link{fpr_calibration}},
 \code{\link{setup_gbsg_dgm}}, \code{\link{calibrate_k_inter}},
 \code{\link{simulate_from_dgm}}
 }

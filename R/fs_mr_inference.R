@@ -1,19 +1,19 @@
 # =============================================================================
 # fs_mr_inference.R
 #
-# Tier-2 fast de-biased gate for a selected forestsearch subgroup.
+# Multiplier resampling (MR) for a selected forestsearch subgroup.
 #
 # After forestsearch() selects a harm subgroup H-hat, this computes a fast
 # multiplier-bootstrap approximation of the bootstrap bias-corrected treatment
 # effect and flags whether that de-biased estimate is still consistent with
-# harm.  It is a leading-order approximation of the full bootstrap correction
-# (forestsearch_bootstrap_dofuture(), "Tier 1") and does NOT replace it.
+# harm.  It is a leading-order approximation of the full bootstrap (FB)
+# correction (forestsearch_bootstrap_dofuture()) and does NOT replace it.
 #
 # The expensive quantity -- the per-subject treatment dfbeta for each candidate
 # -- is exactly what the resample consistency engine already computes via
 # .consistency_glm_pieces() / .consistency_cox_pieces().  Phase 1 re-derives
 # those pieces from the candidate family (a few seconds at the ACTG175 scale);
-# Phase 2 retains them in the consistency engine so the gate is near-zero cost.
+# Phase 2 retains them in the consistency engine so MR is near-zero cost.
 #
 # Closed form (see consistency_resample.R / the resampling-theory note):
 #   beta*(b) = beta_hat + D(b),   D_g(b) = sum_i G_i(b) dfbeta_{g,i}
@@ -25,12 +25,15 @@
 # from the same draws -- the centered multipliers play the role of the bootstrap
 # multiplicities (K*_bi - Kbar*_i) and the per-draw residual is
 #   r_b = (selection_bias + fixed_bias) - D_{H*_b}(b) - D_{H-hat}(b).
-# This is the leading-order analogue of the Tier-1 IJ variance; with
-# ci_method = "wald" the gate falls back to the subgroup robust SE.
+# This is the leading-order analogue of the FB IJ variance; with
+# ci_method = "wald" MR falls back to the subgroup robust SE.
 # =============================================================================
 
 
-#' Default near-null gate threshold for a measure
+#' Default near-null harm-confirmation threshold for a measure
+#'
+#' The value `t_confirm` takes when left `NULL`: the null effect on the effect
+#' scale, i.e. no effect at all rather than the screening threshold.
 #'
 #' @param effect_measure Character measure label (`"OR"`, `"RR"`, `"IRR"`,
 #'   `"HR"`, `"RD"`, `"MD"`, ...) or `NULL`.
@@ -44,7 +47,7 @@
 
 #' Per-candidate influence pieces (Cox / GLM dispatch)
 #'
-#' Thin dispatch onto the existing forestsearch internals so the gate uses the
+#' Thin dispatch onto the existing forestsearch internals so MR uses the
 #' identical treatment `dfbeta`, `beta_hat`, and robust `sigma_D` the resample
 #' consistency engine uses.
 #'
@@ -201,12 +204,19 @@
 }
 
 
-#' Fast de-biased gate for a selected forestsearch subgroup
+#' Multiplier resampling (MR) for a selected forestsearch subgroup
 #'
 #' Computes a multiplier-bootstrap approximation of the bootstrap
 #' bias-corrected treatment effect for the selected subgroup and flags whether
 #' it is still consistent with harm.  Reuses the resample consistency engine's
 #' per-candidate treatment `dfbeta`; see the file header for the closed form.
+#'
+#' This is **post-selection inference on a completed analysis**: it runs after
+#' [forestsearch()] has chosen the subgroup and cannot change that choice.  It
+#' is the fast, refit-free counterpart of the full bootstrap (FB,
+#' [forestsearch_bootstrap_dofuture()]), which re-runs the entire search in
+#' every replicate; MR perturbs the influence contributions of a single fit
+#' instead.  MR approximates FB to leading order and does not replace it.
 #'
 #' @param df Analysis data frame (the standardized `df.fs` inside
 #'   `forestsearch()`); must contain the columns named in `spec`.
@@ -221,11 +231,15 @@
 #'   **comparison scale** (log for ratio measures, identity for differences) --
 #'   i.e. `forestsearch()`'s resolved `effect_threshold` / `consistency_threshold`.
 #' @param p_star Consistency-rate cutoff (`pconsistency.threshold`).
-#' @param t_confirm Gate threshold on the **effect scale**; `NULL` uses the
-#'   near-null default (`1` ratio, `0` difference). Set near the null, not at the
-#'   screen, since the correction over-shrinks true effects.
-#' @param confirm_rule `"point"` (de-biased point estimate clears `t_confirm`) or `"ci"`
-#'   (one-sided selection-adjusted lower bound clears `t_confirm`).
+#' @param t_confirm Harm-confirmation threshold on the **effect scale** (HR/OR/
+#'   RR/IRR, or RD/MD for differences -- not the working log scale). `NULL` uses
+#'   the near-null default: `1` for ratio measures, `0` for differences. Set it
+#'   near the null rather than at the screening threshold, because the
+#'   de-biasing correction over-shrinks true effects.
+#' @param confirm_rule Which harm-confirmation rule to apply to the de-biased
+#'   estimate: `"point"` requires the de-biased point estimate to clear
+#'   `t_confirm`; `"ci"` requires the one-sided 95% selection-adjusted lower
+#'   bound to clear it, and is therefore the stricter of the two.
 #' @param reselection Bootstrap re-selection rule for the bias term; default
 #'   `"maxcons"` (validated). `"effMaxSG"` etc. are available but approximate.
 #' @param effect_neighborhood Band for the `eff*SG` re-selection rules.
@@ -240,18 +254,34 @@
 #'   the extra cost is small.  Default `FALSE`.
 #' @param ci_method `"ij"` (default) bases the **de-biased** CI on the
 #'   infinitesimal-jackknife variance (Leon et al. 2024, Eq. VInfJ_bc), computed
-#'   from the same multiplier draws -- the leading-order analogue of the Tier-1
+#'   from the same multiplier draws -- the leading-order analogue of the FB
 #'   interval.  `"wald"` uses the subgroup robust SE (`sigma_D`).  The naive CI
 #'   always uses the robust SE.
 #' @return List with the selected index/label, `naive` and `debiased` estimates
 #'   (effect scale, with approximate 95% CIs), `selection_bias`, `fixed_bias`,
-#'   `selection_rate`, the `gate` settings, `harm_flag`, family/subgroup sizes,
-#'   and `timing_seconds`. The `debiased` element carries `se_ij`, `se_wald`,
-#'   `var_ij`, and `ij_source`; its CI uses the IJ SE under the default
-#'   `ci_method = "ij"` (the Tier-1 analogue) and the robust SE under `"wald"`.
+#'   `selection_rate`, the `settings` actually used (`t_confirm`,
+#'   `confirm_rule`, `reselection`, `selection_rule`, `multiplier`, `draws`),
+#'   `harm_flag`, family/subgroup sizes, and `timing_seconds`. The `debiased`
+#'   element carries `se_ij`, `se_wald`, `var_ij`, and `ij_source`; its CI uses
+#'   the IJ SE under the default `ci_method = "ij"` (the FB analogue) and the
+#'   robust SE under `"wald"`.
 #'   When `include_complement = TRUE`, a `complement` element carries the
 #'   complement subgroup's `naive`/`debiased` estimates and bias terms in the
 #'   same form, including its own IJ variance.
+#'
+#'   Note the mixed scales in the flat `debiased` list: `est`/`lower`/`upper`/
+#'   `lower_1s` are on the **effect** scale, while `se`/`se_ij`/`se_wald`/
+#'   `var_ij` and the two bias terms are on the **working** (log, for ratio
+#'   measures) scale.
+#'
+#'   When the selected subgroup cannot be fit in the reconstructed family the
+#'   return is a short variant carrying only `selected_index` (`NA`),
+#'   `selected_label`, `harm_flag` (`NA`), `settings`, `note` and `n_family`;
+#'   consumers must tolerate that shape.
+#' @seealso [forestsearch()] for the `mr_inference` switch and the
+#'   vocabulary section; [mr_estimates_table()] to render the result;
+#'   [forestsearch_bootstrap_dofuture()] for the full bootstrap (FB) this
+#'   approximates; [fs_fdr_report()] which sweeps `c_confirm` thresholds.
 #' @keywords internal
 fs_mr_inference <- function(df, candidates, spec, selected_members,
                            c_screen, c_consistency = 0, p_star = 0.90,

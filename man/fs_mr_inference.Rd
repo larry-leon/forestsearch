@@ -2,7 +2,7 @@
 % Please edit documentation in R/fs_mr_inference.R
 \name{fs_mr_inference}
 \alias{fs_mr_inference}
-\title{Fast de-biased gate for a selected forestsearch subgroup}
+\title{Multiplier resampling (MR) for a selected forestsearch subgroup}
 \usage{
 fs_mr_inference(
   df,
@@ -44,12 +44,16 @@ i.e. \code{forestsearch()}'s resolved \code{effect_threshold} / \code{consistenc
 
 \item{p_star}{Consistency-rate cutoff (\code{pconsistency.threshold}).}
 
-\item{t_confirm}{Gate threshold on the \strong{effect scale}; \code{NULL} uses the
-near-null default (\code{1} ratio, \code{0} difference). Set near the null, not at the
-screen, since the correction over-shrinks true effects.}
+\item{t_confirm}{Harm-confirmation threshold on the \strong{effect scale} (HR/OR/
+RR/IRR, or RD/MD for differences -- not the working log scale). \code{NULL} uses
+the near-null default: \code{1} for ratio measures, \code{0} for differences. Set it
+near the null rather than at the screening threshold, because the
+de-biasing correction over-shrinks true effects.}
 
-\item{confirm_rule}{\code{"point"} (de-biased point estimate clears \code{t_confirm}) or \code{"ci"}
-(one-sided selection-adjusted lower bound clears \code{t_confirm}).}
+\item{confirm_rule}{Which harm-confirmation rule to apply to the de-biased
+estimate: \code{"point"} requires the de-biased point estimate to clear
+\code{t_confirm}; \code{"ci"} requires the one-sided 95\% selection-adjusted lower
+bound to clear it, and is therefore the stricter of the two.}
 
 \item{reselection}{Bootstrap re-selection rule for the bias term; default
 \code{"maxcons"} (validated). \code{"effMaxSG"} etc. are available but approximate.}
@@ -69,25 +73,51 @@ the extra cost is small.  Default \code{FALSE}.}
 
 \item{ci_method}{\code{"ij"} (default) bases the \strong{de-biased} CI on the
 infinitesimal-jackknife variance (Leon et al. 2024, Eq. VInfJ_bc), computed
-from the same multiplier draws -- the leading-order analogue of the Tier-1
+from the same multiplier draws -- the leading-order analogue of the FB
 interval.  \code{"wald"} uses the subgroup robust SE (\code{sigma_D}).  The naive CI
 always uses the robust SE.}
 }
 \value{
 List with the selected index/label, \code{naive} and \code{debiased} estimates
 (effect scale, with approximate 95\% CIs), \code{selection_bias}, \code{fixed_bias},
-\code{selection_rate}, the \code{gate} settings, \code{harm_flag}, family/subgroup sizes,
-and \code{timing_seconds}. The \code{debiased} element carries \code{se_ij}, \code{se_wald},
-\code{var_ij}, and \code{ij_source}; its CI uses the IJ SE under the default
-\code{ci_method = "ij"} (the Tier-1 analogue) and the robust SE under \code{"wald"}.
+\code{selection_rate}, the \code{settings} actually used (\code{t_confirm},
+\code{confirm_rule}, \code{reselection}, \code{selection_rule}, \code{multiplier}, \code{draws}),
+\code{harm_flag}, family/subgroup sizes, and \code{timing_seconds}. The \code{debiased}
+element carries \code{se_ij}, \code{se_wald}, \code{var_ij}, and \code{ij_source}; its CI uses
+the IJ SE under the default \code{ci_method = "ij"} (the FB analogue) and the
+robust SE under \code{"wald"}.
 When \code{include_complement = TRUE}, a \code{complement} element carries the
 complement subgroup's \code{naive}/\code{debiased} estimates and bias terms in the
 same form, including its own IJ variance.
+
+Note the mixed scales in the flat \code{debiased} list: \code{est}/\code{lower}/\code{upper}/
+\code{lower_1s} are on the \strong{effect} scale, while \code{se}/\code{se_ij}/\code{se_wald}/
+\code{var_ij} and the two bias terms are on the \strong{working} (log, for ratio
+measures) scale.
+
+When the selected subgroup cannot be fit in the reconstructed family the
+return is a short variant carrying only \code{selected_index} (\code{NA}),
+\code{selected_label}, \code{harm_flag} (\code{NA}), \code{settings}, \code{note} and \code{n_family};
+consumers must tolerate that shape.
 }
 \description{
 Computes a multiplier-bootstrap approximation of the bootstrap
 bias-corrected treatment effect for the selected subgroup and flags whether
 it is still consistent with harm.  Reuses the resample consistency engine's
 per-candidate treatment \code{dfbeta}; see the file header for the closed form.
+}
+\details{
+This is \strong{post-selection inference on a completed analysis}: it runs after
+\code{\link[=forestsearch]{forestsearch()}} has chosen the subgroup and cannot change that choice.  It
+is the fast, refit-free counterpart of the full bootstrap (FB,
+\code{\link[=forestsearch_bootstrap_dofuture]{forestsearch_bootstrap_dofuture()}}), which re-runs the entire search in
+every replicate; MR perturbs the influence contributions of a single fit
+instead.  MR approximates FB to leading order and does not replace it.
+}
+\seealso{
+\code{\link[=forestsearch]{forestsearch()}} for the \code{mr_inference} switch and the
+vocabulary section; \code{\link[=mr_estimates_table]{mr_estimates_table()}} to render the result;
+\code{\link[=forestsearch_bootstrap_dofuture]{forestsearch_bootstrap_dofuture()}} for the full bootstrap (FB) this
+approximates; \code{\link[=fs_fdr_report]{fs_fdr_report()}} which sweeps \code{c_confirm} thresholds.
 }
 \keyword{internal}

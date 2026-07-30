@@ -130,7 +130,14 @@
 #' }
 #'
 #' @seealso
-#' \code{\link{forestsearch}} for initial subgroup identification
+#' \code{\link{forestsearch}} for initial subgroup identification, and its
+#'   vocabulary section for how the full bootstrap (FB) implemented here
+#'   relates to multiplier resampling (MR)
+#' \code{\link{fs_mr_inference}} for MR, the fast refit-free approximation to
+#'   this function
+#' \code{\link{mr_estimates_table}} to render MR estimates in this function's
+#'   table layout
+#' \code{\link{fs_fdr_report}} for harm-confirmation threshold sweeps
 #' \code{\link{bootstrap_results}} for the core bootstrap worker function
 #' \code{\link{build_cox_formula}} for Cox formula construction
 #' \code{\link{fit_cox_models}} for Cox model fitting

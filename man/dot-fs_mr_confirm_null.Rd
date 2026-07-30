@@ -2,7 +2,7 @@
 % Please edit documentation in R/fs_mr_inference.R
 \name{.fs_mr_confirm_null}
 \alias{.fs_mr_confirm_null}
-\title{Default near-null gate threshold for a measure}
+\title{Default near-null harm-confirmation threshold for a measure}
 \usage{
 .fs_mr_confirm_null(effect_measure)
 }
@@ -14,6 +14,7 @@
 \code{1} for ratio measures (effect scale), \code{0} for differences.
 }
 \description{
-Default near-null gate threshold for a measure
+The value \code{t_confirm} takes when left \code{NULL}: the null effect on the effect
+scale, i.e. no effect at all rather than the screening threshold.
 }
 \keyword{internal}

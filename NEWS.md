@@ -1,5 +1,85 @@
 # forestsearch 0.2.0
 
+## Terminology: "gate" and "tier" are gone
+
+The post-selection-inference surface was named after a "gate" while mostly
+doing something else, and the two de-biasing routes were called "Tier 1" and
+"Tier 2", which said nothing about what either one does.  Both vocabularies
+are retired.  **None of the renamed names appeared in CRAN 0.1.0** -- the
+whole family was added after that release -- so these are renames of
+unreleased names, not breaking changes for any CRAN user, and no deprecation
+forwards are provided.  `?forestsearch` now carries a *Vocabulary* section
+defining every term.
+
+* **"Tier 1" is now the full bootstrap (FB)** --
+  `forestsearch_bootstrap_dofuture()`.  It resamples subjects and re-runs the
+  whole search per replicate.
+* **"Tier 2" is now multiplier resampling (MR)** -- `fs_mr_inference()`.  It
+  resamples nothing; it perturbs the influence contributions of a single set
+  of fits.  MR is post-selection inference on a completed analysis and cannot
+  change which subgroup is identified.
+
+| removed | replacement |
+|---|---|
+| `debias_gate` (`forestsearch()` argument) | `mr_inference` |
+| `debias_gate_args` | `mr_inference_args` |
+| `out$debias_gate` | `out$mr_inference` |
+| `out$harm_flag_debiased` | `out$mr_harm_confirmed` |
+| `gate_estimates_table()` | `mr_estimates_table()` |
+| `fs_debias_gate()` (internal) | `fs_mr_inference()` |
+| `mr_inference_args$gate` | `mr_inference_args$confirm_rule` |
+| `mr_inference_args$t_gate` | `mr_inference_args$t_confirm` |
+| `c_gate` (`fs_fdr_report()` argument and `rep$fdr` column) | `c_confirm` |
+| `out$mr_inference$gate` | `out$mr_inference$settings` |
+| `out$mr_inference$gate$type` | `out$mr_inference$settings$confirm_rule` |
+| `.fs_dg_*`, `.fs_apply_debias_gate()` (internal) | `.fs_mr_*`, `.fs_apply_mr()` |
+
+The permitted values of `confirm_rule` are unchanged (`"point"`, `"ci"`);
+only the argument name moved.  Three files were renamed to match their main
+function: `R/fs_mr_inference.R`, `R/fs_mr_inference_methods.R`,
+`R/mr_estimates_table.R`.
+
+Unrelated uses of the word were deliberately left alone: the calibrators'
+hard tolerance gates (a genuine pass/fail that `stop()`s), and the
+`tier1`/`tier2` risk-difference fallback ladder in
+`glm_effect_estimators.R`.
+
+**`mr_harm_confirmed` is three-valued and `NA` is not a negative result.**
+`TRUE` = MR ran and harm is confirmed; `FALSE` = MR ran and it is not;
+`NA` = MR did not run or could not be computed -- including the default
+`mr_inference = FALSE`, and the case where no subgroup was identified.
+Because `isTRUE(NA)` is `FALSE`, code that reads this field with `isTRUE()`
+alone reports "harm not confirmed" for an analysis that never ran.  Branch on
+`is.na()` first.
+
+## Known limitations of the MR step
+
+Documented here because they are measurable and were not previously written
+down.  None is changed by the rename; all are behaviour, and all remain open.
+
+* **MR is silently skipped for GLM outcomes under the default
+  `consistency_method = "split"`.**  The consistency branch runs MR only when
+  `consistency_method == "resample"` with a GLM effect, or on the survival/Cox
+  path.  For a binary/count/continuous outcome at the default
+  `consistency_method`, setting `mr_inference = TRUE` does nothing, emits no
+  warning, and leaves `mr_harm_confirmed = NA`.  Pass
+  `consistency_method = "resample"` to get MR on a GLM outcome.
+* **MR's re-selection family does not fully replay the identifier's
+  admissibility.**  The per-arm event minima (`d0.min` / `d1.min`) and
+  `max_subgroups_search` are not re-applied, so MR re-selects over a superset
+  of the candidates the search actually chose among.  This inflates the
+  selection-bias term, i.e. over-corrects the de-biased estimate.
+* **MR is recomputed inside every bootstrap replicate and CV fold, and the
+  result is discarded.**  `mr_inference` propagates through
+  `args_call_all`, and neither `forestsearch_bootstrap_dofuture()` nor
+  `forestsearch_Kfold()` overrides it.  This is wasted work only -- the
+  reported result comes from the original analysis -- but at the default
+  `draws = 2000` it is not cheap.
+
+`tests/testthat/test-mr-inference.R` is new and covers this surface, which
+previously had no regression tests at all; the first limitation above is
+pinned there as present behaviour.
+
 ## Behaviour Changes
 
 **These change which subgroup a search returns.**  0.1.0 is on CRAN; an
@@ -39,8 +119,9 @@ re-record the selection.
   condition at all, while `"hr"`/`"maxcons"` maximises consistency and uses
   effect only as a tiebreak.  `"maxeffCons"` is the only focus for which early
   stopping is sound, since its key `(-hr, K)` is exactly the enumeration order.
-  The Tier-2 de-biased gate replays this rule correctly (it maps to the gate's
-  `"maxeff"`, which is already gated to consistency-qualifying candidates).
+  Multiplier resampling replays this rule correctly (it maps to MR's
+  `"maxeff"`, which already ranges only over consistency-qualifying
+  candidates).
 
 * **New `sg_focus = "maxcons"`**, an alias for `"hr"`.  `"hr"` selects the
   consistency argmax with effect only as a tiebreak, which is the opposite of

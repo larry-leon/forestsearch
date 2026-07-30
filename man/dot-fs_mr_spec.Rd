@@ -2,7 +2,7 @@
 % Please edit documentation in R/fs_mr_inference_methods.R
 \name{.fs_mr_spec}
 \alias{.fs_mr_spec}
-\title{Build the Cox/GLM \code{spec} for the gate from forestsearch()'s resolved columns.}
+\title{Build the Cox/GLM \code{spec} for MR from forestsearch()'s resolved columns.}
 \usage{
 .fs_mr_spec(
   outcome_type,

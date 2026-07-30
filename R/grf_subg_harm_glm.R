@@ -487,7 +487,7 @@ grf.subg.harm.glm <- function(
   )
 
   # DR-score candidate family (depth-1 + depth-2) in (v1,d1,c1,v2,d2,c2) form,
-  # exposed for the Tier-2 de-biased gate: it re-selects over the SAME family
+  # exposed for multiplier resampling (MR): it re-selects over the SAME family
   # GRF ranks (frontier) or, under the policy tree, the cut-defined universe.
   .mr_candidates <- tryCatch({
     cc <- .grf_dr_candidates(X, dr_scores, n_min = n.min)
@@ -699,7 +699,7 @@ grf.subg.harm.glm <- function(
       cate_sg             = best$cate_sg,
       cate_sgc            = best$cate_sgc,
       best_depth          = best$depth,
-      candidates          = .mr_candidates   # DR-candidate family for the Tier-2 gate
+      candidates          = .mr_candidates   # DR-candidate family for MR
     ),
     class = "grf_glm_result"
   )

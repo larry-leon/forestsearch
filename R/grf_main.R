@@ -256,7 +256,7 @@ grf.subg.harm.survival <- function(data,
   n.max <- length(Y)
 
   # DR-score candidate family (depth-1 + depth-2) in (v1,d1,c1,v2,d2,c2) form,
-  # exposed so the Tier-2 de-biased gate can re-select over the SAME family GRF
+  # exposed so multiplier resampling (MR) can re-select over the SAME family GRF
   # ranks (frontier) or, under the policy tree, over the cut-defined universe.
   .mr_candidates <- tryCatch({
     cc <- .grf_dr_candidates(X, dr.scores, n_min = config$n.min)
@@ -407,7 +407,7 @@ grf.subg.harm.survival <- function(data,
   # Structured subgroup definition (path-based, direction-correct; possibly a
   # disjunction) for downstream membership evaluation on new data.
   result$sg_def <- sg_def
-  result$candidates <- .mr_candidates   # DR-candidate family for the Tier-2 gate
+  result$candidates <- .mr_candidates   # DR-candidate family for MR
 
   return(result)
 }
