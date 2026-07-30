@@ -1,5 +1,5 @@
 # =============================================================================
-# sg_focus selection rules: keys, aliases, and de-biased-gate rule mapping
+# sg_focus selection rules: keys, aliases, and MR re-selection rule mapping
 # =============================================================================
 # The selection contract per focus (see ?forestsearch):
 #   maxeff      argmax effect over ALL candidates, ungated
@@ -88,16 +88,16 @@ test_that("selection_rule other than neighborhood is rejected for maxeffCons", {
 })
 
 # ---------------------------------------------------------------------------
-# De-biased gate rule mapping
+# MR re-selection rule mapping
 # ---------------------------------------------------------------------------
-# The Tier-2 gate replays the selection step inside each multiplier draw, so the
-# replayed rule must be the rule the search used. A focus missing from the
+# MR replays the selection step inside each multiplier draw, so the replayed
+# rule must be the rule the search used. A focus missing from the
 # switch falls through to the bare `hr_rule` fallback -- silently, since the
 # fallback returns the same value as the named `hr` case. Guard the mapping by
 # asserting the NORMALIZED focus is one of the switch's explicitly named cases,
 # which return value alone cannot establish.
 
-.gate_switch_cases <- function() {
+.mr_switch_cases <- function() {
   sw <- NULL
   walk <- function(e) {
     if (is.call(e)) {
@@ -114,12 +114,12 @@ test_that("selection_rule other than neighborhood is rejected for maxeffCons", {
   nms[!is.na(nms) & nzchar(nms)]
 }
 
-test_that("every accepted sg_focus maps to an explicitly named gate rule", {
+test_that("every accepted sg_focus maps to an explicitly named MR re-selection rule", {
   accepted <- c("hr", "eff", "maxcons",
                 "maxeff", "maxeffCons",
                 "maxSG", "minSG",
                 "hrMaxSG", "effMaxSG", "hrMinSG", "effMinSG")
-  named <- .gate_switch_cases()
+  named <- .mr_switch_cases()
   for (f in accepted) {
     canonical <- .normalize_sg_focus(f)
     expect_true(canonical %in% named,
@@ -129,8 +129,8 @@ test_that("every accepted sg_focus maps to an explicitly named gate rule", {
   }
 })
 
-test_that("maxeffCons maps to the gate's maxeff (argmax effect among passers)", {
-  # The gate's "maxeff" is passers[which.max(beta[passers])] and `passers` is the
+test_that("maxeffCons maps to MR's maxeff (argmax effect among passers)", {
+  # MR's "maxeff" is passers[which.max(beta[passers])] and `passers` is the
   # consistency-qualifying set (p_star = pconsistency.threshold), so it encodes
   # the maxeffCons rule -- not the ungated sg_focus = "maxeff".
   expect_identical(
@@ -139,7 +139,7 @@ test_that("maxeffCons maps to the gate's maxeff (argmax effect among passers)", 
     .fs_mr_reselection_from_focus("maxeffCons", engine = "effect"), "maxeff")
 })
 
-test_that("hr and its aliases map to the consistency-rate gate rule", {
+test_that("hr and its aliases map to the consistency-rate MR rule", {
   for (f in c("hr", "eff", "maxcons")) {
     expect_identical(
       .fs_mr_reselection_from_focus(f, engine = "consistency"), "maxcons")
