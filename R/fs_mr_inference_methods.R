@@ -214,3 +214,65 @@
        adjust_covariates = if (length(adj)) adj else NULL,
        adverse_outcome = adverse_outcome)
 }
+
+
+# ==============================================================================
+# MESSAGING (Part C)
+# ==============================================================================
+# All MR user-facing reporting goes through these three helpers so that the
+# `quiet` contract is enforced in exactly one place.  message() (stderr,
+# suppressible via suppressMessages()) is used throughout -- never cat() --
+# because the simulation cells run with quiet = TRUE and must stay silent.
+
+#' Emit an MR message unless `quiet`.
+#'
+#' @param quiet Logical. When TRUE nothing is emitted.
+#' @param ... Passed to [message()].
+#' @return `NULL`, invisibly. Called for its side effect.
+#' @keywords internal
+#' @noRd
+.mr_msg <- function(quiet, ...) {
+  if (!isTRUE(quiet)) message(...)
+  invisible(NULL)
+}
+
+#' Announce that MR is about to run (C.1).
+#'
+#' States the three required facts: that multiplier-resampling de-biased
+#' estimates are being constructed, the number of draws, and that this is
+#' post-selection inference which cannot change the identified subgroup.
+#'
+#' @param quiet Logical. Suppresses the message when TRUE.
+#' @param draws Integer. Number of multiplier draws.
+#' @return `NULL`, invisibly.
+#' @keywords internal
+#' @noRd
+.mr_announce <- function(quiet, draws) {
+  .mr_msg(quiet, sprintf(
+    paste0("Multiplier resampling (MR): constructing de-biased estimates from ",
+           "%d draws.\n  This is post-selection inference on the completed ",
+           "search; it cannot change the identified subgroup."),
+    as.integer(draws)))
+}
+
+#' Report that MR was requested but not performed (C.2).
+#'
+#' `mr_inference = TRUE` can leave `mr_harm_confirmed = NA` for several
+#' distinct reasons, and `isTRUE(NA)` is `FALSE`, so silence here reads to a
+#' user as "harm not confirmed" for an analysis that was never run.  This makes
+#' each route audible and names it.  It changes no behaviour: the skip
+#' conditions and `mr_harm_confirmed = NA` are exactly as before.
+#'
+#' @param quiet Logical. Suppresses the message when TRUE.
+#' @param reason Character. The specific reason, phrased to complete the
+#'   sentence "... was not performed: <reason>".
+#' @return `NULL`, invisibly.
+#' @keywords internal
+#' @noRd
+.mr_skip <- function(quiet, reason) {
+  .mr_msg(quiet, sprintf(
+    paste0("mr_inference = TRUE but multiplier resampling was NOT performed: ",
+           "%s\n  mr_harm_confirmed is NA (not computed). NA is not evidence ",
+           "against harm."),
+    reason))
+}

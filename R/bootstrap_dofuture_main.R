@@ -54,6 +54,34 @@
 #'   round down but cannot recover precision lost at construction).
 #'   Threaded through \code{\link{format_CI}} and
 #'   \code{\link{SG_tab_estimates_glm}}.
+#' @param mr_in_replicates Logical.  Whether multiplier resampling (MR) runs
+#'   \emph{inside} each bootstrap replicate.  \strong{Default \code{FALSE}}.
+#'
+#'   \code{mr_inference} reaches each replicate through the reconstructed call
+#'   in \code{fs.est$args_call_all}, so an analysis fitted with
+#'   \code{mr_inference = TRUE} would otherwise run MR in every replicate --
+#'   and nothing consumes the result.  Under the default the flag is stripped
+#'   from the replicate call, so that work is not done at all.  This does
+#'   \emph{not} affect the top-level analysis: \code{fs.est} keeps whatever
+#'   de-biased estimate it was fitted with.
+#'
+#'   \code{TRUE} lets \code{mr_inference} propagate unchanged into each
+#'   replicate \emph{and} retains the result, returned as \code{$mr_replicates}
+#'   -- a list of length \code{nb_boots} whose \code{b}-th element is that
+#'   replicate's \code{mr_inference} object, or \code{NULL} where the replicate
+#'   failed or identified no subgroup.  MR therefore runs in the replicates
+#'   only if the original analysis set \code{mr_inference = TRUE}; running it
+#'   and discarding the result is never a reachable combination.
+#'
+#'   \strong{The retained objects are not aggregable into an estimate for the
+#'   original analysis.}  Each replicate re-runs the search, selects its own
+#'   subgroup, and de-biases \emph{that} subgroup -- so the collection
+#'   describes MR's sampling behaviour across resampled selections, not a
+#'   better estimate of the original quantity.  Averaging them, or pooling
+#'   their intervals, is an error.  The bias-corrected estimate for the
+#'   original analysis is the one this function already returns in
+#'   \code{SG_CIs}, and the original subgroup's own MR estimate is on
+#'   \code{fs.est}.
 #'
 #' @return An \code{fs_bootstrap} object (a list with class
 #'   \code{c("fs_bootstrap", "list")}) containing:
@@ -64,6 +92,13 @@
 #'   \item{Ystar_mat}{Matrix (nb_boots x n) of bootstrap sample indicators}
 #'   \item{H_estimates}{Detailed estimates for subgroup H}
 #'   \item{Hc_estimates}{Detailed estimates for subgroup Hc}
+#'   \item{mr_replicates}{\code{NULL} under the default
+#'     \code{mr_in_replicates = FALSE}.  Otherwise a list of length
+#'     \code{nb_boots}, element \code{b} holding replicate \code{b}'s
+#'     \code{mr_inference} object (or \code{NULL} for a failed or
+#'     no-subgroup replicate), each computed against \emph{that replicate's}
+#'     candidate family and selected subgroup.  See the
+#'     \code{mr_in_replicates} parameter for why these must not be averaged.}
 #'   \item{summary}{(If create_summary=TRUE) Enhanced summary with tables and diagnostics}
 #'   \item{nb_boots}{Integer. Number of bootstrap iterations requested.
 #'     Used by \code{\link{print.fs_bootstrap}} to compute identification
@@ -154,7 +189,8 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
                                             details = FALSE,
                                             show_three = FALSE,
                                             parallel_args = list(),
-                                            digits = 4
+                                            digits = 4,
+                                            mr_in_replicates = FALSE
 ){
 
   # =======================================================================
@@ -378,6 +414,26 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   # SECTION 8: RUN BOOTSTRAP ANALYSIS
   # =======================================================================
 
+  # C.3 -- ONE message before the loop, never one per replicate.  Under the
+  # default (mr_in_replicates = FALSE) nothing is said: silence is correct when
+  # nothing is happening.  `quiet` is not a formal of this function, so the
+  # original analysis's setting governs, mirroring how every other inner
+  # forestsearch() setting is inherited from args_call_all.
+  if (isTRUE(mr_in_replicates)) {
+    .mr_msg(isTRUE(args_forestsearch_call$quiet), sprintf(
+      paste0("Multiplier resampling (MR) will run inside each of the %d ",
+             "bootstrap replicates and the results will be retained in ",
+             "$mr_replicates.\n  These are not aggregable into an estimate ",
+             "for the original analysis: each replicate corrects a different ",
+             "selected subgroup."),
+      nb_boots))
+    if (!isTRUE(args_forestsearch_call$mr_inference))
+      .mr_msg(isTRUE(args_forestsearch_call$quiet),
+        paste0("  Note: the original analysis was fitted with ",
+               "mr_inference = FALSE, so no replicate will produce an MR ",
+               "object and $mr_replicates will be all NULL."))
+  }
+
   results <- bootstrap_results(
     fs.est = fs.est,
     df_boot_analysis = fs.est$df.est,
@@ -389,8 +445,10 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
     seed = boot_seed,
     estimator_fn = estimator_fn_boot,
     effect_measure = args_forestsearch_call$effect_measure,
-    boot_index_mat = boot_index_mat
+    boot_index_mat = boot_index_mat,
+    mr_in_replicates = mr_in_replicates
   )
+  mr_replicates <- attr(results, "mr_replicates")
 
   options(warn = old_warn)
 
@@ -682,7 +740,11 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
     outcome_type   = if (is_glm) outcome_type else "survival",
     effect_measure = if (is_glm) args_forestsearch_call$effect_measure
                      else "HR",
-    est.scale      = est.scale
+    est.scale      = est.scale,
+    # NULL under the default; a list of length nb_boots when retention was
+    # requested.  See the mr_in_replicates @param for why these must not be
+    # averaged.
+    mr_replicates  = mr_replicates
   )
 
   class(out) <- c("fs_bootstrap", "list")

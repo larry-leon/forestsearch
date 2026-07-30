@@ -109,6 +109,14 @@
 #'   \code{Ystar_mat} count matrix. When \code{NULL} (default), each
 #'   iteration draws its own indices via \code{sample.int()} - retained
 #'   for backward compatibility with direct callers.
+#' @param mr_in_replicates Logical. Whether multiplier resampling runs inside
+#'   each replicate. Default \code{FALSE}, which strips \code{mr_inference}
+#'   from the reconstructed per-replicate call. When \code{TRUE} the flag
+#'   propagates unchanged and each replicate's MR object is attached to the
+#'   returned table as the \code{"mr_replicates"} attribute (a list of length
+#'   \code{nb_boots}). See
+#'   \code{\link{forestsearch_bootstrap_dofuture}} for the full contract,
+#'   including why the retained objects are not aggregable.
 #'
 #' @return Data.table with one row per bootstrap iteration and columns:
 #'   \describe{
@@ -294,7 +302,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
                               seed = 8316951L,
                               estimator_fn = NULL,
                               effect_measure = NULL,
-                              boot_index_mat = NULL) {
+                              boot_index_mat = NULL,
+                              mr_in_replicates = FALSE) {
   # =========================================================================
   # SECTION: PRECONDITION -- AN IDENTIFIED SUBGROUP IS REQUIRED
   # =========================================================================
@@ -576,6 +585,16 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     args_FS_boot$parallel_args$plan <- "sequential"
     args_FS_boot$parallel_args$workers <- 1L
     args_FS_boot$parallel_args$show_message <- FALSE
+
+    # CATEGORY 4: POST-SELECTION INFERENCE INSIDE THE REPLICATE
+    # mr_inference arrives here through args_call_all's bulk mget(), so an
+    # analysis fitted with mr_inference = TRUE would otherwise run MR in every
+    # replicate.  Nothing downstream consumes a replicate's MR object, so under
+    # the default it is stripped rather than computed and discarded.  When
+    # retention is requested the flag is left exactly as the original call set
+    # it -- so MR runs here only if the original analysis asked for it -- and
+    # the result is captured below.
+    if (!isTRUE(mr_in_replicates)) args_FS_boot$mr_inference <- FALSE
 
     # =================================================================
     # Run forestsearch on bootstrap sample (WITH TIMING)
@@ -930,6 +949,16 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       grf_cuts_b = grf_cuts_b
     )
 
+    # Carry this replicate's MR object out as an attribute rather than a
+    # column: the collector rbinds the per-replicate tables and rbindlist()
+    # would drop a list column's identity, whereas the raw foreach list still
+    # holds attributes and is harvested before collection.
+    if (isTRUE(mr_in_replicates)) {
+      attr(dfres, "mr_rep") <-
+        if (!inherits(run_bootstrap, "try-error")) run_bootstrap$mr_inference
+        else NULL
+    }
+
     return(dfres)
   }
   })
@@ -944,7 +973,16 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
   # message via warning() (or stop() on 100% failure), and rbinds the
   # successes via data.table::rbindlist(..., fill = TRUE).  This mirrors
   # the convention established in the package's Quarto calibration suite.
+  # Harvest per-replicate MR objects BEFORE collection: rbindlist() returns a
+  # new table and the per-element attributes do not survive it.  Order matches
+  # the replicate order, and failed/absent replicates contribute NULL.
+  mr_replicates <- if (isTRUE(mr_in_replicates))
+    lapply(foreach_results, function(x)
+      if (inherits(x, "condition")) NULL else attr(x, "mr_rep")) else NULL
+
   foreach_results <- .collect_bootstrap_results(foreach_results, nb_boots)
+  if (isTRUE(mr_in_replicates))
+    attr(foreach_results, "mr_replicates") <- mr_replicates
 
   # =========================================================================
   # SECTION: CALCULATE TOTAL BOOTSTRAP TIMING

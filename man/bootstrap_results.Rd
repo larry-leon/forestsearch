@@ -15,7 +15,8 @@ bootstrap_results(
   seed = 8316951L,
   estimator_fn = NULL,
   effect_measure = NULL,
-  boot_index_mat = NULL
+  boot_index_mat = NULL,
+  mr_in_replicates = FALSE
 )
 }
 \arguments{
@@ -78,6 +79,15 @@ indices drive both the worker's bootstrap data construction and the
 \code{Ystar_mat} count matrix. When \code{NULL} (default), each
 iteration draws its own indices via \code{sample.int()} - retained
 for backward compatibility with direct callers.}
+
+\item{mr_in_replicates}{Logical. Whether multiplier resampling runs inside
+each replicate. Default \code{FALSE}, which strips \code{mr_inference}
+from the reconstructed per-replicate call. When \code{TRUE} the flag
+propagates unchanged and each replicate's MR object is attached to the
+returned table as the \code{"mr_replicates"} attribute (a list of length
+\code{nb_boots}). See
+\code{\link{forestsearch_bootstrap_dofuture}} for the full contract,
+including why the retained objects are not aggregable.}
 }
 \value{
 Data.table with one row per bootstrap iteration and columns:

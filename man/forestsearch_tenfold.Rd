@@ -11,7 +11,8 @@ forestsearch_tenfold(
   details = TRUE,
   seed = 8316951L,
   parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE),
-  keep_resCV = FALSE
+  keep_resCV = FALSE,
+  mr_in_replicates = FALSE
 )
 }
 \arguments{
@@ -48,6 +49,32 @@ fold.  Memory cost scales as \code{sims * nrow(df.est) * ~9 columns}
 trial with 1,000 sims, ~1 GB).  Default: \code{FALSE}.  Regardless of
 this flag, a compact \code{fold_summary} (one row per sim x fold) is
 always returned; see Return.}
+
+\item{mr_in_replicates}{Logical.  Whether multiplier resampling (MR) runs
+\emph{inside} each CV fold.  \strong{Default \code{FALSE}}.
+
+\code{mr_inference} reaches each fold through the reconstructed call in
+\code{fs.est$args_call_all}, so an analysis fitted with
+\code{mr_inference = TRUE} would otherwise run MR in every fold of every
+simulation -- \code{sims * Kfolds} runs -- and nothing consumes the
+result.  Under the default the flag is stripped from the per-fold call, so
+that work is not done at all.  The top-level analysis on \code{fs.est} is
+unaffected.
+
+\code{TRUE} lets \code{mr_inference} propagate unchanged into each fold
+\emph{and} retains the results, returned as \code{$mr_replicates} -- a
+list with one element per successful simulation (named \code{sim<k>} after
+its \code{sim_id}, so a dropped simulation shows as a gap rather than a
+silent re-index), each itself a list of length \code{Kfolds} holding that
+fold's \code{mr_inference} object or \code{NULL}.  MR therefore runs in
+the folds only if the original analysis set \code{mr_inference = TRUE}.
+
+\strong{The retained objects are not aggregable into an estimate for the
+original analysis.}  Each fold re-runs the search on its training split,
+selects its own subgroup, and de-biases \emph{that} subgroup -- so the
+collection describes MR's behaviour across fold-specific selections, not a
+better estimate of the original quantity.  Averaging them, or pooling
+their intervals, is an error.}
 }
 \value{
 List with components:
@@ -94,6 +121,13 @@ populated when \code{keep_resCV = TRUE}; otherwise \code{NULL}.}
 \item{timing_minutes}{Total execution time}
 \item{sims}{Number of simulations run}
 \item{Kfolds}{Number of folds per simulation}
+\item{mr_replicates}{\code{NULL} under the default
+\code{mr_in_replicates = FALSE}.  Otherwise a nested list: one element
+per successful simulation (named \code{sim<k>}), each a list of length
+\code{Kfolds} holding that fold's \code{mr_inference} object (or
+\code{NULL}), computed against \emph{that fold's} candidate family and
+selected subgroup.  Not aggregable -- see the \code{mr_in_replicates}
+parameter.}
 }
 }
 \description{

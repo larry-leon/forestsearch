@@ -207,6 +207,29 @@
 #' @param sg0.name Character. Label for subgroup 0 (default: "Not recommend").
 #' @param sg1.name Character. Label for subgroup 1 (default: "Recommend").
 #' @param details Logical. Print progress details (default: FALSE).
+#' @param mr_in_replicates Logical.  Whether multiplier resampling (MR) runs
+#'   \emph{inside} each CV fold.  \strong{Default \code{FALSE}}.
+#'
+#'   \code{mr_inference} reaches each fold through the reconstructed call in
+#'   \code{fs.est$args_call_all}, so an analysis fitted with
+#'   \code{mr_inference = TRUE} would otherwise run MR in every fold -- and
+#'   nothing consumes the result.  Under the default the flag is stripped from
+#'   the per-fold call, so that work is not done at all.  The top-level
+#'   analysis on \code{fs.est} is unaffected.
+#'
+#'   \code{TRUE} lets \code{mr_inference} propagate unchanged into each fold
+#'   \emph{and} retains the result, returned as \code{$mr_replicates} -- a list
+#'   of length \code{Kfolds} whose \code{k}-th element is fold \code{k}'s
+#'   \code{mr_inference} object, or \code{NULL} where that fold identified no
+#'   subgroup.  MR therefore runs in the folds only if the original analysis
+#'   set \code{mr_inference = TRUE}.
+#'
+#'   \strong{The retained objects are not aggregable into an estimate for the
+#'   original analysis.}  Each fold re-runs the search on its training split,
+#'   selects its own subgroup, and de-biases \emph{that} subgroup -- so the
+#'   collection describes MR's behaviour across fold-specific selections, not a
+#'   better estimate of the original quantity.  Averaging them, or pooling
+#'   their intervals, is an error.
 #'
 #' @return List with components:
 #' \describe{
@@ -219,6 +242,12 @@
 #'   \item{Kfolds}{Number of folds used}
 #'   \item{sens_summary}{Named vector of sensitivity metrics (sens_H, sens_Hc, ppv_H, ppv_Hc)}
 #'   \item{find_summary}{Named vector of subgroup-finding metrics (Any, Exact, etc.)}
+#'   \item{mr_replicates}{\code{NULL} under the default
+#'     \code{mr_in_replicates = FALSE}.  Otherwise a list of length
+#'     \code{Kfolds}, element \code{k} holding fold \code{k}'s
+#'     \code{mr_inference} object (or \code{NULL}), each computed against
+#'     \emph{that fold's} candidate family and selected subgroup.  Not
+#'     aggregable -- see the \code{mr_in_replicates} parameter.}
 #' }
 #'
 #' @examples
@@ -262,7 +291,8 @@ forestsearch_Kfold <- function(
     parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE),
     sg0.name = "Not recommend",
     sg1.name = "Recommend",
-    details = FALSE
+    details = FALSE,
+    mr_in_replicates = FALSE
 ) {
 
   # ===========================================================================
@@ -365,6 +395,27 @@ forestsearch_Kfold <- function(
   # ps_method and ps_adjust_method carry through via args_call_all.
   cv_args$ps_hat <- NULL
 
+  # Post-selection inference inside the folds.  Same contract as the bootstrap:
+  # mr_inference arrives via args_call_all, nothing downstream consumes a
+  # fold's MR object, so under the default it is stripped rather than computed
+  # and discarded.  The top-level analysis on fs.est is untouched.
+  if (!isTRUE(mr_in_replicates)) {
+    cv_args$mr_inference <- FALSE
+  } else {
+    # C.3 -- ONE message before the fold loop, never one per fold.  `quiet` is
+    # not a formal here, so the original analysis's setting governs.
+    .mr_msg(isTRUE(fs_args$quiet), sprintf(
+      paste0("Multiplier resampling (MR) will run inside each of the %d ",
+             "CV folds and the results will be retained in $mr_replicates.\n",
+             "  These are not aggregable into an estimate for the original ",
+             "analysis: each fold corrects a different selected subgroup."),
+      Kfolds))
+    if (!isTRUE(fs_args$mr_inference))
+      .mr_msg(isTRUE(fs_args$quiet),
+        paste0("  Note: the original analysis was fitted with ",
+               "mr_inference = FALSE, so no fold will produce an MR object ",
+               "and $mr_replicates will be all NULL."))
+  }
 
   # ===========================================================================
   # SECTION 5.1: VERIFY CV FORESTSEARCH PARAMETERS (when details = TRUE)
@@ -447,9 +498,15 @@ forestsearch_Kfold <- function(
                           "treat.recommend", "treat.recommend.original",
                           "cvindex", "sg1", "sg2",
                           intersect(cv_adjust_cols, names(df.test))))
-    data.table::data.table(
+    fold_dt <- data.table::data.table(
       as.data.frame(df.test)[, keep_cols, drop = FALSE]
     )
+    # Carry this fold's MR object out as an attribute: the collector rbinds the
+    # per-fold tables, which does not preserve per-element attributes, so the
+    # raw foreach list is harvested first (below).
+    if (isTRUE(mr_in_replicates))
+      attr(fold_dt, "mr_rep") <- fs.train$mr_inference
+    fold_dt
   }
 })
 
@@ -457,6 +514,12 @@ forestsearch_Kfold <- function(
   # FIRST fold that re-raised a refit error above.  On the all-success path
   # this is do.call(rbind, .) over the fold data.tables, matching the former
   # `.combine = "rbind"` behaviour.
+  # Harvest per-fold MR objects BEFORE collection, for the same reason as the
+  # bootstrap arm: rbind returns a new table and drops per-element attributes.
+  mr_replicates <- if (isTRUE(mr_in_replicates))
+    lapply(resCV, function(x)
+      if (inherits(x, "condition")) NULL else attr(x, "mr_rep")) else NULL
+
   resCV <- .collect_cv_results(resCV)
 
   # ===========================================================================
@@ -546,7 +609,11 @@ forestsearch_Kfold <- function(
     Kfolds = Kfolds,
     # Add summary outputs to align with forestsearch_tenfold
     sens_summary = sens_summary,
-    find_summary = find_summary
+    find_summary = find_summary,
+    # NULL under the default; a list of length Kfolds when retention was
+    # requested.  See the mr_in_replicates @param for why these must not be
+    # averaged.
+    mr_replicates = mr_replicates
   )
 
   class(result) <- c("fs_kfold", "list")
@@ -601,6 +668,31 @@ forestsearch_Kfold <- function(
 #'   trial with 1,000 sims, ~1 GB).  Default: \code{FALSE}.  Regardless of
 #'   this flag, a compact \code{fold_summary} (one row per sim x fold) is
 #'   always returned; see Return.
+#' @param mr_in_replicates Logical.  Whether multiplier resampling (MR) runs
+#'   \emph{inside} each CV fold.  \strong{Default \code{FALSE}}.
+#'
+#'   \code{mr_inference} reaches each fold through the reconstructed call in
+#'   \code{fs.est$args_call_all}, so an analysis fitted with
+#'   \code{mr_inference = TRUE} would otherwise run MR in every fold of every
+#'   simulation -- \code{sims * Kfolds} runs -- and nothing consumes the
+#'   result.  Under the default the flag is stripped from the per-fold call, so
+#'   that work is not done at all.  The top-level analysis on \code{fs.est} is
+#'   unaffected.
+#'
+#'   \code{TRUE} lets \code{mr_inference} propagate unchanged into each fold
+#'   \emph{and} retains the results, returned as \code{$mr_replicates} -- a
+#'   list with one element per successful simulation (named \code{sim<k>} after
+#'   its \code{sim_id}, so a dropped simulation shows as a gap rather than a
+#'   silent re-index), each itself a list of length \code{Kfolds} holding that
+#'   fold's \code{mr_inference} object or \code{NULL}.  MR therefore runs in
+#'   the folds only if the original analysis set \code{mr_inference = TRUE}.
+#'
+#'   \strong{The retained objects are not aggregable into an estimate for the
+#'   original analysis.}  Each fold re-runs the search on its training split,
+#'   selects its own subgroup, and de-biases \emph{that} subgroup -- so the
+#'   collection describes MR's behaviour across fold-specific selections, not a
+#'   better estimate of the original quantity.  Averaging them, or pooling
+#'   their intervals, is an error.
 #'
 #' @return List with components:
 #' \describe{
@@ -646,6 +738,13 @@ forestsearch_Kfold <- function(
 #'   \item{timing_minutes}{Total execution time}
 #'   \item{sims}{Number of simulations run}
 #'   \item{Kfolds}{Number of folds per simulation}
+#'   \item{mr_replicates}{\code{NULL} under the default
+#'     \code{mr_in_replicates = FALSE}.  Otherwise a nested list: one element
+#'     per successful simulation (named \code{sim<k>}), each a list of length
+#'     \code{Kfolds} holding that fold's \code{mr_inference} object (or
+#'     \code{NULL}), computed against \emph{that fold's} candidate family and
+#'     selected subgroup.  Not aggregable -- see the \code{mr_in_replicates}
+#'     parameter.}
 #' }
 #'
 #' @examples
@@ -681,7 +780,8 @@ forestsearch_tenfold <- function(
     details = TRUE,
     seed = 8316951L,
     parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE),
-    keep_resCV = FALSE
+    keep_resCV = FALSE,
+    mr_in_replicates = FALSE
 ) {
 
   # ===========================================================================
@@ -758,6 +858,31 @@ forestsearch_tenfold <- function(
   # ps_method and ps_adjust_method carry through via args_call_all.
   cv_args$ps_hat <- NULL
 
+  # Post-selection inference inside the folds.  Same contract as
+  # forestsearch_Kfold() and the bootstrap: mr_inference arrives via
+  # args_call_all, nothing downstream consumes a fold's MR object, so under the
+  # default it is stripped rather than computed and discarded.  Here the waste
+  # is sims * Kfolds MR runs, not Kfolds.  The top-level analysis is untouched.
+  if (!isTRUE(mr_in_replicates)) {
+    cv_args$mr_inference <- FALSE
+  } else {
+    # C.3 -- ONE message before the simulation loop, never one per fold and
+    # never one per simulation.  `quiet` is not a formal here, so the original
+    # analysis's setting governs.
+    .mr_msg(isTRUE(fs_args$quiet), sprintf(
+      paste0("Multiplier resampling (MR) will run inside each of the %d folds ",
+             "in each of the %d simulations (%d runs) and the results will be ",
+             "retained in $mr_replicates.\n  These are not aggregable into an ",
+             "estimate for the original analysis: each fold corrects a ",
+             "different selected subgroup."),
+      Kfolds, sims, Kfolds * sims))
+    if (!isTRUE(fs_args$mr_inference))
+      .mr_msg(isTRUE(fs_args$quiet),
+        paste0("  Note: the original analysis was fitted with ",
+               "mr_inference = FALSE, so no fold will produce an MR object ",
+               "and $mr_replicates will be all NULL."))
+  }
+
   # ===========================================================================
   # SECTION 3.1: VERIFY CV FORESTSEARCH PARAMETERS (when details = TRUE)
   # ===========================================================================
@@ -785,6 +910,10 @@ forestsearch_tenfold <- function(
 
     # Run K-fold CV sequentially within this simulation
     resCV_list <- vector("list", Kfolds)
+
+    # Per-fold MR objects, populated only when retention was requested.  Stays
+    # a list of NULLs otherwise, and is dropped from the sim's return value.
+    mr_list <- vector("list", Kfolds)
 
     grf_cuts_list <- vector("list", Kfolds)
 
@@ -927,6 +1056,11 @@ forestsearch_tenfold <- function(
                         intersect(.fs_adjust_vars(cv_args$adjust_covariates),
                                   names(df.test))))
       resCV_list[[cv_index]] <- as.data.frame(df.test)[, .keep, drop = FALSE]
+
+      # Retain this fold's MR object.  No attribute round-trip is needed here
+      # (unlike the Kfold/bootstrap arms): the simulation returns a named list,
+      # so the per-fold objects can be carried directly.
+      if (isTRUE(mr_in_replicates)) mr_list[[cv_index]] <- fs.train$mr_inference
     }
 
     resCV <- do.call(rbind, resCV_list)
@@ -984,7 +1118,8 @@ forestsearch_tenfold <- function(
       find_metrics          = out$find_metrics,
       sim_id                = ksim,
       fold_summary          = fold_summary_i,
-      resCV                 = if (isTRUE(keep_resCV)) resCV else NULL
+      resCV                 = if (isTRUE(keep_resCV)) resCV else NULL,
+      mr_replicates         = if (isTRUE(mr_in_replicates)) mr_list else NULL
     )
   }
 })
@@ -1025,6 +1160,17 @@ forestsearch_tenfold <- function(
     NULL
   }
 
+  # Per-fold MR objects, nested one level: outer element per SUCCESSFUL
+  # simulation (named by its sim_id, so a dropped simulation is visible as a
+  # gap rather than a silent re-index), inner element per fold.
+  mr_replicates <- if (isTRUE(mr_in_replicates)) {
+    mrl <- lapply(valid_results, `[[`, "mr_replicates")
+    names(mrl) <- paste0("sim", vapply(valid_results, `[[`, numeric(1), "sim_id"))
+    mrl
+  } else {
+    NULL
+  }
+
   # Compute summaries
   sens_summary <- apply(sens_out, 2, median, na.rm = TRUE)
   find_summary <- apply(find_out, 2, median, na.rm = TRUE)
@@ -1052,7 +1198,11 @@ forestsearch_tenfold <- function(
     resCV_all      = resCV_all,
     timing_minutes = t_min,
     sims           = length(valid_results),
-    Kfolds         = Kfolds
+    Kfolds         = Kfolds,
+    # NULL under the default; nested sims x Kfolds when retention was
+    # requested.  See the mr_in_replicates @param for why these must not be
+    # averaged.
+    mr_replicates  = mr_replicates
   )
 
   class(result) <- c("fs_tenfold", "list")

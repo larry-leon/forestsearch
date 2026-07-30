@@ -1983,9 +1983,21 @@ forestsearch <- function(df.analysis,
     # (approach (i)).  Re-selection matches the DINA focus rule via sg_focus.
     # Defensive: any failure leaves out$mr_inference NULL; DINA output unaffected.
     out$mr_inference <- NULL
-    if (isTRUE(mr_inference) && isTRUE(dsel$found) &&
-        !is.null(dsel$grp.consistency) &&
-        !is.null(dsel$grp.consistency$sg.harm.id)) {
+    .mr_dina_ok <- isTRUE(mr_inference) && isTRUE(dsel$found) &&
+      !is.null(dsel$grp.consistency) &&
+      !is.null(dsel$grp.consistency$sg.harm.id)
+    # C.2 -- DINA-selection route.
+    if (isTRUE(mr_inference) && !.mr_dina_ok)
+      .mr_skip(quiet,
+        if (!isTRUE(dsel$found))
+          "DINA selection identified no subgroup, so there is nothing to de-bias."
+        else paste0("the DINA selection returned no subgroup membership ",
+                    "(grp.consistency$sg.harm.id is absent)."))
+    if (.mr_dina_ok) {
+      # C.1
+      .mr_announce(quiet,
+                   if (is.null(mr_inference_args$draws)) 2000L
+                   else mr_inference_args$draws)
       .mr_df   <- dsel$df.est
       # Mirror SECTION 9B: survival -> effect_measure "HR" on log scale;
       # GLM -> resolved effect_measure with the precomputed comparison-scale
@@ -2116,8 +2128,19 @@ forestsearch <- function(df.analysis,
     # operator for non-"left" is ">" (matches .grf_sg_def_from_candidate).
     # Defensive: any failure leaves out$mr_inference NULL; GRF output unaffected.
     out$mr_inference <- NULL
-    if (isTRUE(mr_inference) && !is.null(gsel$grp.consistency) &&
-        !is.null(gsel$grp.consistency$sg.harm.id)) {
+    .mr_grf_ok <- isTRUE(mr_inference) && !is.null(gsel$grp.consistency) &&
+      !is.null(gsel$grp.consistency$sg.harm.id)
+    # C.2 -- GRF-selection route (survey finding F4).
+    if (isTRUE(mr_inference) && !.mr_grf_ok)
+      .mr_skip(quiet,
+               paste0("GRF selection produced no subgroup membership ",
+                      "(grp.consistency$sg.harm.id is absent), so there is ",
+                      "nothing to de-bias."))
+    if (.mr_grf_ok) {
+      # C.1
+      .mr_announce(quiet,
+                   if (is.null(mr_inference_args$draws)) 2000L
+                   else mr_inference_args$draws)
       .mr_df   <- gsel$df.est
       # Mirror SECTION 9B (see DINA branch): survival uses "HR"/log(hr.threshold);
       # GLM uses effect_measure/effect_threshold.  effect_measure is NULL for
@@ -2930,11 +2953,37 @@ forestsearch <- function(df.analysis,
   mr_out <- NULL
   .mr_glm_ok <- consistency_method == "resample" && !is.null(estimator_fn)
   .mr_cox_ok <- outcome_type == "survival" && is.null(estimator_fn)
-  if (isTRUE(mr_inference) && !is.null(sg.harm) &&
-      (.mr_glm_ok || .mr_cox_ok) &&
-      !is.null(grp.consistency) && !is.null(grp.consistency$sg.harm.id)) {
+  .mr_eligible <- isTRUE(mr_inference) && !is.null(sg.harm) &&
+    (.mr_glm_ok || .mr_cox_ok) &&
+    !is.null(grp.consistency) && !is.null(grp.consistency$sg.harm.id)
+
+  # C.2 -- make every "requested but skipped" route audible.  Behaviour is
+  # unchanged: these conditions and the resulting mr_harm_confirmed = NA are
+  # exactly as before; only the silence is removed.  Reasons are tested in
+  # precedence order, most specific first.
+  if (isTRUE(mr_inference) && !.mr_eligible) {
+    .mr_skip(quiet,
+      if (is.null(sg.harm))
+        "no subgroup was identified, so there is nothing to de-bias."
+      else if (!is.null(estimator_fn) && consistency_method != "resample")
+        paste0("MR on a GLM outcome requires consistency_method = ",
+               "\"resample\"; this analysis used consistency_method = \"",
+               consistency_method, "\". Re-run with ",
+               "consistency_method = \"resample\" to obtain MR.")
+      else if (!.mr_glm_ok && !.mr_cox_ok)
+        paste0("no MR path supports outcome_type = \"", outcome_type,
+               "\" with consistency_method = \"", consistency_method, "\".")
+      else
+        paste0("the consistency stage returned no subgroup membership ",
+               "(grp.consistency$sg.harm.id is absent)."))
+  }
+
+  if (.mr_eligible) {
 
     .g_mr <- function(a, b) if (is.null(a)) b else a
+
+    # C.1 -- announce before the work starts.
+    .mr_announce(quiet, .g_mr(mr_inference_args$draws, 2000L))
 
     mr_out <- tryCatch({
       # Full candidate space: enumerate all <= maxk combinations of the cut
@@ -3004,6 +3053,11 @@ forestsearch <- function(df.analysis,
     }, error = function(e) {
       warning("mr_inference failed: ", conditionMessage(e)); NULL
     })
+
+    # C.2 -- the tryCatch route.  The warning above carries the cause; this
+    # states the consequence in the same vocabulary as the other skip routes.
+    if (is.null(mr_out))
+      .mr_skip(quiet, "the MR computation failed (see the warning above).")
 
     if (!quiet && !is.null(mr_out) &&
         !is.na(mr_out$harm_flag)) {
