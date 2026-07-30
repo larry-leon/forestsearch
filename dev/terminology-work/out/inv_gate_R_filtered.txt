@@ -1,0 +1,208 @@
+R/calibrate_helpers.R:15:#   * a HARD relative-tolerance gate -- if the achieved effect is not within
+R/calibrate_helpers.R:79:      paste0("calibration for %s FAILED the tolerance gate: achieved %.4f vs ",
+R/fs_debias_gate_methods.R:2:# Tier-2 de-biased gate: method-agnostic application layer
+R/fs_debias_gate_methods.R:4:# fs_debias_gate() itself is already method-agnostic: it takes a candidate
+R/fs_debias_gate_methods.R:35:#' The Tier-2 gate re-selects winners on each multiplier draw by perturbed
+R/fs_debias_gate_methods.R:41:#' within a band of the best native statistic makes the gate's re-selection
+R/fs_debias_gate_methods.R:44:#' The DINA and GRF gate branches default the band to `effect_neighborhood` (the
+R/fs_debias_gate_methods.R:47:#' this -- its gate re-selection (`maxcons`) already matches the search statistic.
+R/fs_debias_gate_methods.R:116:#' Map `sg_focus` to the gate's re-selection rule, faithfully per engine.
+R/fs_debias_gate_methods.R:118:#' The gate must re-select under the same rule the search used.  The only rule
+R/fs_debias_gate_methods.R:120:#' ranks by consistency rate, whose gate analog is `"maxcons"`; DINA/GRF rank by
+R/fs_debias_gate_methods.R:143:         # maxeffCons -> the gate's "maxeff", which is
+R/fs_debias_gate_methods.R:145:         # `passers` is the gate's consistency-qualifying set (driven by
+R/fs_debias_gate_methods.R:146:         # p_star = pconsistency.threshold).  So the gate rule named "maxeff"
+R/fs_debias_gate_methods.R:147:         # is the maxeffCons rule, NOT sg_focus = "maxeff" (which is ungated).
+R/fs_debias_gate_methods.R:154:#' Apply the Tier-2 de-biased gate with forestsearch's defaulting rules.
+R/fs_debias_gate_methods.R:156:#' Thin wrapper around [fs_debias_gate()] shared by the consistency, DINA, and
+R/fs_debias_gate_methods.R:157:#' GRF branches so the call (and `debias_gate_args` overrides) stays identical
+R/fs_debias_gate_methods.R:164:.fs_apply_debias_gate <- function(df, candidates, selected_members, spec,
+R/fs_debias_gate_methods.R:168:                                  debias_gate_args = list(), seedit = NULL) {
+R/fs_debias_gate_methods.R:170:  if (is.null(debias_gate_args)) debias_gate_args <- list()
+R/fs_debias_gate_methods.R:172:    fs_debias_gate(
+R/fs_debias_gate_methods.R:180:      t_gate           = debias_gate_args$t_gate,            # NULL -> near-null
+R/fs_debias_gate_methods.R:181:      gate             = .g(debias_gate_args$gate,        "point"),
+R/fs_debias_gate_methods.R:182:      reselection      = .g(debias_gate_args$reselection, reselection_default),
+R/fs_debias_gate_methods.R:184:      selection_rule   = .g(debias_gate_args$selection_rule, selection_rule_default),
+R/fs_debias_gate_methods.R:185:      draws            = .g(debias_gate_args$draws,       2000L),
+R/fs_debias_gate_methods.R:186:      multiplier       = .g(debias_gate_args$multiplier,  "poisson"),
+R/fs_debias_gate_methods.R:187:      include_complement = .g(debias_gate_args$include_complement, TRUE),
+R/fs_debias_gate_methods.R:188:      ci_method        = .g(debias_gate_args$ci_method,   "ij"),
+R/fs_debias_gate_methods.R:189:      seed             = .g(debias_gate_args$seed,        seedit)),
+R/fs_debias_gate_methods.R:191:      warning("debias_gate (", spec$outcome_type, ") failed: ",
+R/fs_debias_gate_methods.R:197:#' Build the Cox/GLM `spec` for the gate from forestsearch()'s resolved columns.
+R/fs_fdr_report.R:5:# analysis, with an optional de-biased-effect gate.
+R/fs_fdr_report.R:16:#       buys at gate g.
+R/fs_fdr_report.R:41:#' gate reduces it.  This is a **measurement** tool, not a calibration tool:
+R/fs_fdr_report.R:47:#' - **B(g)** (gated FDR): \eqn{B(g) = P(\text{declare AND de-biased } HR \ge g)}.
+R/fs_fdr_report.R:49:#'   gap \eqn{A - B(g)} is what the de-biasing step buys at gate \eqn{g}.
+R/fs_fdr_report.R:53:#' as run.  The gate is forced on internally (\code{debias_gate = TRUE})
+R/fs_fdr_report.R:68:#' @param c_gate Numeric vector of de-biased-HR gate thresholds at which to
+R/fs_fdr_report.R:69:#'   report B.  Default \code{c(0.9, 1.0, 1.25)}.  On real data the gate is
+R/fs_fdr_report.R:100:#'   \item{\code{fdr}}{Data frame, one row per null x \code{c_gate}, with
+R/fs_fdr_report.R:102:#'     \code{B}, \code{B_lo}, \code{B_hi} (gated FDR and CI), \code{reduction}
+R/fs_fdr_report.R:125:#' ## The gate accounting (why n_deb_na matters)
+R/fs_fdr_report.R:128:#' gate.  Such cases are counted in \code{n_deb_na} and reported, so that
+R/fs_fdr_report.R:129:#' \code{A - B} is never mistaken for pure gate benefit when part of it is
+R/fs_fdr_report.R:134:#' \code{conf_force}, \code{conf.cont_jcuts}, \code{maxk}, gate arguments, ...)
+R/fs_fdr_report.R:138:#' (\code{y_sim / event_sim / treat_sim / id / flag_harm}).  \code{debias_gate}
+R/fs_fdr_report.R:153:#'   debias_gate = TRUE)
+R/fs_fdr_report.R:155:#' # Characterize its operating FDR and whether the de-biased gate helps
+R/fs_fdr_report.R:158:#' rep$fdr                   # one row per null x c_gate
+R/fs_fdr_report.R:177:                          c_gate        = c(0.9, 1.0, 1.25),
+R/fs_fdr_report.R:225:  # ---- strip calibrator-managed + data-binding args; force the gate ON ----
+R/fs_fdr_report.R:232:  fs_params$debias_gate <- TRUE                    # B needs the de-biased HR
+R/fs_fdr_report.R:233:  if (is.null(fs_params$debias_gate_args))
+R/fs_fdr_report.R:234:    fs_params$debias_gate_args <- list(ci_method = "ij", draws = 1000L,
+R/fs_fdr_report.R:279:      c_gate = c_gate, n = n, event_min = event_min, quiet = quiet)
+R/fs_fdr_report.R:312:         call_args    = list(c_gate = c_gate, n_super = n_super,
+R/fs_fdr_report.R:316:                             debias_gate_args = fs_params$debias_gate_args)),
+R/fs_fdr_report.R:375:  if (declared && !is.null(fs$debias_gate))
+R/fs_fdr_report.R:376:    # gate returns debiased$est on the effect scale (HR here, via to_eff())
+R/fs_fdr_report.R:377:    deb_hr <- tryCatch(fs$debias_gate$debiased$est, error = function(e) NA_real_)
+R/fs_fdr_report.R:386:# Wilson CIs.  Returns the per-c_gate rows plus the failure accounting.
+R/fs_fdr_report.R:390:                             c_gate, n, event_min, quiet) {
+R/fs_fdr_report.R:436:  # B(g): declared AND de-biased HR >= g (NA de-biased HR fails the gate)
+R/fs_fdr_report.R:438:  rows <- lapply(c_gate, function(g) {
+R/fs_fdr_report.R:439:    n_gate <- sum(decl_ok & is.finite(debs) & debs >= g)
+R/fs_fdr_report.R:441:    B      <- if (n_valid > 0) n_gate / n_valid else NA_real_
+R/fs_fdr_report.R:442:    b_ci   <- .wilson_ci(n_gate, n_valid)
+R/fs_fdr_report.R:454:      c_gate     = g,
+R/fs_fdr_report.R:505:  cat("\n  Operating FDR (A) and de-biased-gated FDR (B), 95% Wilson CIs:\n")
+R/forestsearch_cross_validation.R:75:# gate therefore keys on sg.harm (the actual "no subgroup identified"
+R/forestsearch_cross_validation.R:144:# no-subgroup gate matches .fs_cv_base_frame() (sg.harm OR df.est missing)
+R/subgroup_consistency_helpers.R:566:  # gate is applied by construction and needs no term in the sort key.  The
+R/subgroup_consistency_main.R:641:  # summary).  Both views are gated on the same flag.
+R/find_k_inter_main.R:129:  # tolerance gate, shared with calibrate_k_inter(), calibrate_k_treat(), and
+R/grf_main.R:259:  # exposed so the Tier-2 de-biased gate can re-select over the SAME family GRF
+R/grf_main.R:410:  result$candidates <- .dg_candidates   # DR-candidate family for the Tier-2 gate
+R/fs_debias_gate.R:2:# fs_debias_gate.R
+R/fs_debias_gate.R:4:# Tier-2 fast de-biased gate for a selected forestsearch subgroup.
+R/fs_debias_gate.R:16:# Phase 2 retains them in the consistency engine so the gate is near-zero cost.
+R/fs_debias_gate.R:29:# ci_method = "wald" the gate falls back to the subgroup robust SE.
+R/fs_debias_gate.R:33:#' Default near-null gate threshold for a measure
+R/fs_debias_gate.R:39:.fs_dg_gate_null <- function(effect_measure) {
+R/fs_debias_gate.R:47:#' Thin dispatch onto the existing forestsearch internals so the gate uses the
+R/fs_debias_gate.R:204:#' Fast de-biased gate for a selected forestsearch subgroup
+R/fs_debias_gate.R:224:#' @param t_gate Gate threshold on the **effect scale**; `NULL` uses the
+R/fs_debias_gate.R:227:#' @param gate `"point"` (de-biased point estimate clears `t_gate`) or `"ci"`
+R/fs_debias_gate.R:228:#'   (one-sided selection-adjusted lower bound clears `t_gate`).
+R/fs_debias_gate.R:248:#'   `selection_rate`, the `gate` settings, `harm_flag`, family/subgroup sizes,
+R/fs_debias_gate.R:256:fs_debias_gate <- function(df, candidates, spec, selected_members,
+R/fs_debias_gate.R:258:                           t_gate = NULL, gate = c("point", "ci"),
+R/fs_debias_gate.R:268:  gate <- match.arg(gate); reselection <- match.arg(reselection)
+R/fs_debias_gate.R:286:  if (is.null(t_gate)) t_gate <- if (asm$log_scale) 1 else 0
+R/fs_debias_gate.R:289:  gate_meta <- list(t_gate = t_gate, type = gate, reselection = reselection,
+R/fs_debias_gate.R:294:                harm_flag = NA, gate = gate_meta,
+R/fs_debias_gate.R:337:  gate_cmp <- if (log_scale) log(t_gate) else t_gate
+R/fs_debias_gate.R:339:  flag <- if (gate == "point") (beta_deb >= gate_cmp) else (ci_lo_1s >= gate_cmp)
+R/fs_debias_gate.R:419:    gate = gate_meta, harm_flag = isTRUE(flag),
+R/guohe_adaptive_r.R:43:#       The gate matches `guohe_algorithm3()`: adjustment or a survival outcome
+R/forestsearch_main.R:294:#'   scored with the same per-candidate estimator the Tier-2 de-biased gate
+R/forestsearch_main.R:295:#'   uses, so the realized selection is the exact event the gate de-biases (and
+R/forestsearch_main.R:296:#'   the gate's native-family restriction follows the effect rather than
+R/forestsearch_main.R:340:#'   same per-candidate estimator the Tier-2 de-biased gate uses, so the realized
+R/forestsearch_main.R:341:#'   selection is the exact event the gate de-biases (and the gate's
+R/forestsearch_main.R:608:#' @param debias_gate Logical.  When \code{TRUE}, compute a fast
+R/forestsearch_main.R:617:#' @param debias_gate_args List of optional gate controls: \code{t_gate}
+R/forestsearch_main.R:618:#'   (effect-scale gate; near-null default \code{1} for ratio measures, \code{0}
+R/forestsearch_main.R:619:#'   for differences -- set near the null, not at the screen), \code{gate}
+R/forestsearch_main.R:628:#'   \code{[0, 1)} restricts the gate's re-selection family to candidates within
+R/forestsearch_main.R:637:#'   tunes only the candidate-competition part of the bias: the gate holds the
+R/forestsearch_main.R:745:#'     \item{debias_gate}{Tier-2 de-biased gate result, or \code{NULL} when the
+R/forestsearch_main.R:746:#'       gate did not run.  See \code{\link{fs_debias_gate}} for fields
+R/forestsearch_main.R:747:#'       (\code{naive}, \code{debiased}, \code{selection_bias}, \code{gate},
+R/forestsearch_main.R:753:#'       when the gate did not run.}
+R/forestsearch_main.R:983:                         # Tier-2 de-biased gate (optional; GLM resample path)
+R/forestsearch_main.R:984:                         debias_gate = FALSE,
+R/forestsearch_main.R:985:                         debias_gate_args = list()) {
+R/forestsearch_main.R:1868:    # SECTION 9B (DINA): Tier-2 de-biased gate over DINA's OWN candidate family
+R/forestsearch_main.R:1870:    # Defensive: any failure leaves out$debias_gate NULL; DINA output unaffected.
+R/forestsearch_main.R:1871:    out$debias_gate <- NULL
+R/forestsearch_main.R:1872:    if (isTRUE(debias_gate) && isTRUE(dsel$found) &&
+R/forestsearch_main.R:1888:      # Restrict the gate family to candidates competitive on the SAME statistic
+R/forestsearch_main.R:1895:      # debias_gate_args$family_native_neighborhood >= 1 to disable (full family).
+R/forestsearch_main.R:1896:      .dg_nbhd <- debias_gate_args$family_native_neighborhood
+R/forestsearch_main.R:1907:      out$debias_gate <- .fs_apply_debias_gate(
+R/forestsearch_main.R:1915:        debias_gate_args = debias_gate_args, seedit = seedit)
+R/forestsearch_main.R:1918:    out$harm_flag_debiased <- if (!is.null(out$debias_gate))
+R/forestsearch_main.R:1919:      isTRUE(out$debias_gate$harm_flag) else NA
+R/forestsearch_main.R:1999:    # SECTION 9B (GRF): Tier-2 de-biased gate over GRF's OWN DR-candidate family
+R/forestsearch_main.R:2003:    # Defensive: any failure leaves out$debias_gate NULL; GRF output unaffected.
+R/forestsearch_main.R:2004:    out$debias_gate <- NULL
+R/forestsearch_main.R:2005:    if (isTRUE(debias_gate) && !is.null(gsel$grp.consistency) &&
+R/forestsearch_main.R:2020:      # Restrict the gate family to candidates competitive on the SAME statistic
+R/forestsearch_main.R:2026:      # debias_gate_args$family_native_neighborhood >= 1 to disable (full family).
+R/forestsearch_main.R:2027:      .dg_nbhd <- debias_gate_args$family_native_neighborhood
+R/forestsearch_main.R:2039:      out$debias_gate <- .fs_apply_debias_gate(
+R/forestsearch_main.R:2047:        debias_gate_args = debias_gate_args, seedit = seedit)
+R/forestsearch_main.R:2050:    out$harm_flag_debiased <- if (!is.null(out$debias_gate))
+R/forestsearch_main.R:2051:      isTRUE(out$debias_gate$harm_flag) else NA
+R/forestsearch_main.R:2812:  # (estimator_fn NULL, outcome_type = "survival").  On the Cox path the gate is
+R/forestsearch_main.R:2816:  debias_gate_out <- NULL
+R/forestsearch_main.R:2819:  if (isTRUE(debias_gate) && !is.null(sg.harm) &&
+R/forestsearch_main.R:2825:    debias_gate_out <- tryCatch({
+R/forestsearch_main.R:2869:      fs_debias_gate(
+R/forestsearch_main.R:2875:        t_gate        = debias_gate_args$t_gate,            # NULL -> near-null default
+R/forestsearch_main.R:2876:        gate          = .g_dg(debias_gate_args$gate,        "point"),
+R/forestsearch_main.R:2877:        reselection   = .g_dg(debias_gate_args$reselection,
+R/forestsearch_main.R:2881:        selection_rule = .g_dg(debias_gate_args$selection_rule, selection_rule),
+R/forestsearch_main.R:2882:        draws         = .g_dg(debias_gate_args$draws,       2000L),
+R/forestsearch_main.R:2883:        multiplier    = .g_dg(debias_gate_args$multiplier,  "poisson"),
+R/forestsearch_main.R:2884:        include_complement = .g_dg(debias_gate_args$include_complement, TRUE),
+R/forestsearch_main.R:2885:        ci_method     = .g_dg(debias_gate_args$ci_method,   "ij"),
+R/forestsearch_main.R:2886:        seed          = .g_dg(debias_gate_args$seed,        seedit))
+R/forestsearch_main.R:2888:      warning("debias_gate failed: ", conditionMessage(e)); NULL
+R/forestsearch_main.R:2891:    if (!quiet && !is.null(debias_gate_out) &&
+R/forestsearch_main.R:2892:        !is.na(debias_gate_out$harm_flag)) {
+R/forestsearch_main.R:2893:      cat(sprintf("De-biased gate: %s = %.3f (gate %s %.2f) -> %s\n",
+R/forestsearch_main.R:2894:                  .g_dg(debias_gate_out$measure, "effect"),
+R/forestsearch_main.R:2895:                  debias_gate_out$debiased$est, debias_gate_out$gate$type,
+R/forestsearch_main.R:2896:                  debias_gate_out$gate$t_gate,
+R/forestsearch_main.R:2897:                  if (debias_gate_out$harm_flag) "consistent with harm"
+R/forestsearch_main.R:2918:    # Tier-2 de-biased gate (NULL unless debias_gate = TRUE)
+R/forestsearch_main.R:2919:    debias_gate = debias_gate_out,
+R/forestsearch_main.R:2920:    harm_flag_debiased = if (!is.null(debias_gate_out)) debias_gate_out$harm_flag
+R/simulation_tables.R:756:  # Threshold-gated trimming: when abs(raw mean) exceeds trim_threshold the
+R/simulation_tables.R:1183:  # Threshold-gated trimming for the narrative.  Mirrors the pattern in
+R/gate_estimates_table.R:3:#' Renders the selected subgroup's fast de-biased gate estimate
+R/gate_estimates_table.R:4:#' ([forestsearch()] with `debias_gate = TRUE`) in the same `gt` layout as the
+R/gate_estimates_table.R:9:#' `fs$debias_gate` -- the de-biased estimate for the selected subgroup and, when
+R/gate_estimates_table.R:10:#' the gate was run with `include_complement = TRUE`, for the complement as well
+R/gate_estimates_table.R:11:#' (otherwise the complement cell is marked, since the gate de-biases the
+R/gate_estimates_table.R:14:#' @param fs A [forestsearch()] result with a non-NULL `debias_gate` element.
+R/gate_estimates_table.R:35:gate_estimates_table <- function(fs, boot_results, est.scale = "hr",
+R/gate_estimates_table.R:38:  g <- fs$debias_gate
+R/gate_estimates_table.R:40:    stop("fs$debias_gate is NULL; run forestsearch(debias_gate = TRUE).",
+R/gate_estimates_table.R:59:  # the complement (Hc) row, which the gate does not de-bias.
+R/gate_estimates_table.R:75:  # Complement: use the gate's complement de-biased estimate when available
+R/gate_estimates_table.R:76:  # (include_complement = TRUE); otherwise mark it, since the gate de-biases the
+R/gate_estimates_table.R:96:  draws <- if (!is.null(g$gate$draws)) g$gate$draws else NA_integer_
+R/simulate_from_dgm.R:790:  # tolerance gate, shared with the effect-calibrators via .calibrate_by_root().
+R/guohe_algorithm3.R:177:#'   statistic. If the comparator is extended to those modes, the `fast_ok` gate
+R/guohe_algorithm3.R:272:  # Cox has no closed form -- hence the gate.
+R/grf_subg_harm_glm.R:490:  # exposed for the Tier-2 de-biased gate: it re-selects over the SAME family
+R/grf_subg_harm_glm.R:702:      candidates          = .dg_candidates   # DR-candidate family for the Tier-2 gate
+R/calibrate_glm_interaction.R:144:  # hard tolerance gate that STOPS if the target OR cannot be reached. This
+R/calibrate_k_treat.R:147:  # Bracketed root-finding + hard tolerance gate (shared with the GLM path).
+R/sim_aft_gbsg.R:1039:  # Bracketed root-finding + hard tolerance gate (shared with the GLM path).
+R/dina_subgroup.R:18:# same m_diff / n_min gates, same sg_focus ranking).  Depth-1 singletons
+R/dina_subgroup.R:969:#' composes (up to `maxk`) and consistency-gatekeeps them, exactly as it
+R/forestsearch_helpers.R:886:#   "maxeff"     keys (-hr, K) over ALL candidates, ungated.
+R/forestsearch_helpers.R:1033:  # with the SAME per-candidate estimator the Tier-2 de-biased gate uses, so
+R/forestsearch_helpers.R:1034:  # the realized selection is the exact event the gate then de-biases.
+R/forestsearch_helpers.R:1073:#' effect measure the Tier-2 gate de-biases (Cox HR for survival; the resolved
+R/forestsearch_helpers.R:1074:#' GLM effect otherwise), scored with the gate's own per-candidate estimator
+R/forestsearch_helpers.R:1075:#' (`.fs_dg_pieces`) so the realized selection is the exact event the gate
+R/forestsearch_helpers.R:1091:  # Effect measure / spec, mirroring the DINA Tier-2 gate branch: survival uses
+R/forestsearch_helpers.R:1099:  # Per-candidate effect on the SAME statistic the gate uses (.fs_dg_pieces),
+R/forestsearch_helpers.R:1100:  # row-aligned to `tab`; skip rows with < 6 members exactly as the gate does.
+R/forestsearch_helpers.R:1127:  sg$candidates$sel_effect <- eff_link  # link scale; consumed by the gate branch
+R/forestsearch_helpers.R:1359:  # DINA's qualifying family on the inferential effect measure the Tier-2 gate
+R/forestsearch_helpers.R:1439:       candidates = sg$candidates,    # qualifying family for the Tier-2 gate
+R/forestsearch_helpers.R:1448:#' (\code{grf_res$candidates}) on the effect measure the Tier-2 gate de-biases
+R/forestsearch_helpers.R:1449:#' (Cox HR for survival; the resolved GLM effect otherwise), using the gate's
+R/forestsearch_helpers.R:1475:  # Per-candidate effect on the SAME statistic the gate uses, with GRF-native
+R/forestsearch_helpers.R:1493:  grf_res$candidates$sel_effect <- eff_link  # link scale; consumed by gate branch
+R/forestsearch_helpers.R:1617:  # DR-candidate frontier on the inferential effect the Tier-2 gate de-biases,
+R/forestsearch_helpers.R:1722:       candidates = grf_res$candidates,   # DR-candidate family for the Tier-2 gate
