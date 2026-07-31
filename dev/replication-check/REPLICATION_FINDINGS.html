@@ -358,6 +358,17 @@ display: none;
 on <code>feature/mr-in-replicates</code>, compared against the two
 existing rendered baselines, plus an assessment of what the comparison
 exposes about the code.</p>
+<blockquote>
+<p><strong>Post-hoc path update (filename migration).</strong> The
+harness paths in <code>R/01_precondition_rng.R</code> and
+<code>R/04_compare.R</code> were repointed to
+<code>analysis_gbsg_survival_multimethod.qmd</code> and
+<code>gbsg_survival_multimethod_payload.rds</code> after these findings
+were recorded; that notebook is <em>not</em> the file that produced them
+— it additionally carries parameter-provenance tables, fit-integrity
+guards, and a corrected <code>stop_threshold</code> comment, all
+intended to be inert.</p>
+</blockquote>
 <hr />
 <div id="verdict" class="section level2">
 <h2>1. Verdict</h2>
@@ -476,6 +487,21 @@ the state the run actually used.</p>
 <p>No package code, <code>.qmd</code>, or test was modified. Everything
 written by this exercise lives under
 <code>dev/replication-check/</code>.</p>
+</div>
+<div id="cross-machine-payloads-are-not-bit-comparable" class="section level3">
+<h3>2.2 Cross-machine payloads are not bit-comparable</h3>
+<p>The like-for-like comparison above holds only because both baselines
+ran on this host. <strong>Check <code>payload$meta$machine</code> before
+comparing any two payloads</strong>: a later exercise compared the GBSG
+multimethod payload against a baseline rendered on an Apple M4 Max (14
+cores, arm64) from this box (128 cores, x86_64) and found 8 of 11
+numeric columns differing by up to 2.2 ULP — from the architecture and
+from the worker count, which feeds the candidate-search batch size and
+so changes summation order. <code>tolerance = 0</code> is therefore not
+a usable acceptance criterion across machines; the only form of that
+test that discriminates is a same-machine control render of the
+<em>unedited</em> source, compared against the edited one. The worked
+case is in <code>dev/review/QMD_FIXES_APPLIED.md</code> §1.</p>
 <hr />
 </div>
 </div>

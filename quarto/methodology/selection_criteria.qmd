@@ -1,0 +1,677 @@
+---
+title: "Selection criteria in forestsearch"
+subtitle: "`sg_focus`, `selection_rule`, and the candidate inclusion band"
+author: "forestsearch v0.2.0"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    embed-resources: true
+    theme: cosmo
+execute:
+  echo: true
+  warning: false
+  message: false
+bibliography: []
+---
+
+```{r setup}
+#| code-fold: false
+suppressPackageStartupMessages({
+  library(data.table)
+  library(ggplot2)
+})
+have_fs <- requireNamespace("forestsearch", quietly = TRUE)
+
+EFFECT_NEIGHBORHOOD <- 0.10   # package default band half-width
+```
+
+# Purpose
+
+`forestsearch()` enumerates candidate subgroups, screens them, and returns one.
+This document is about the **last** of those three steps: given a set of
+surviving candidates, which one is returned, and why.
+
+Two arguments control it.
+
+* **`sg_focus`** selects the ranking rule. Eight values are legal; they differ
+  in what they optimise and in whether consistency enters the ranking at all.
+* **`selection_rule`** shapes a *candidate inclusion band* --- but only for two
+  of the eight foci. Everywhere else it is inert, and supplying a non-default
+  value is an error rather than a silent no-op.
+
+Everything below is stated against the shipped implementation:
+`sort_subgroups()` in `R/subgroup_consistency_helpers.R`,
+`.compute_inclusion_band()` and `.normalize_sg_focus()` in
+`R/forestsearch_helpers.R`, and the override blocks in `R/forestsearch_main.R`.
+Where a claim can be checked against the package, @sec-validate checks it.
+
+## The identifier is the estimator
+
+A recurring source of confusion is worth settling first. In this framework the
+**identifier** --- the rule that picks a subgroup --- *is* the estimator. FB
+(full bootstrap) and MR (multiplier resampling) are inference procedures applied
+to that estimator; they correct its selection bias. They do not identify a
+subgroup, and they do not change the one that was identified.
+
+The identifier has two parts:
+
+| part | argument | values |
+|---|---|---|
+| **engine** --- how candidates are generated and screened | `subgroup_method` | `"consistency"`, `"dina"`, `"grf"` |
+| **focus** --- which survivor is returned | `sg_focus` | the eight below |
+
+Both parts must be recorded to describe a run. Two analyses that differ in
+`sg_focus` are estimating different things, however similar the output looks.
+
+# Vocabulary: `eff*` and `hr*` are the same rules {#sec-vocab}
+
+The internal names are Cox-flavoured (`hr` = hazard ratio). The `eff*` spellings
+generalise to GLM outcomes --- binary/OR, continuous/MD, count/IRR --- where
+"hazard ratio" is meaningless. `.normalize_sg_focus()` collapses them before
+anything keys on the value:
+
+```{r aliases}
+#| code-fold: false
+normalize <- function(x)
+  switch(x, effMaxSG = "hrMaxSG", effMinSG = "hrMinSG",
+            eff = "hr", maxcons = "hr", x)
+
+vocab <- data.table(
+  supplied  = c("eff", "maxcons", "hr", "effMaxSG", "hrMaxSG",
+                "effMinSG", "hrMinSG", "maxeff", "maxeffCons", "maxSG", "minSG"))
+vocab[, canonical := vapply(supplied, normalize, character(1))]
+vocab[, note := c("alias", "alias (preferred: names the rule)", "canonical",
+                  "alias (preferred: GLM-neutral)", "canonical",
+                  "alias (preferred: GLM-neutral)", "canonical",
+                  "canonical", "canonical", "canonical", "canonical")]
+vocab[]
+```
+
+Three pairs are the same rule under two spellings. **Prefer the `eff*` and
+`maxcons` spellings**; they say what the rule does and they survive the move to
+GLM outcomes.
+
+::: {.callout-warning}
+## `maxSG` is not `effMaxSG`
+
+`maxSG`/`minSG` are **not** spellings of `effMaxSG`/`effMinSG`. They rank by
+size across *all* qualifiers with no band at all. The banded foci first restrict
+to an inclusion band and only then rank by size. Different rules, similar names.
+:::
+
+# Where selection sits in the pipeline
+
+```{r pipeline}
+#| code-fold: true
+data.table(
+  stage = c("1. Generation", "2. Admission", "3. Selection"),
+  what  = c("Enumerate covariate-cut conjunctions, in (-effect, K) order",
+            "Apply size/event minima, the effect floor, and the consistency screen",
+            "Rank the survivors by sg_focus; return the top row"),
+  governed_by = c("maxk, cont.cutoff, conf_force, collapse_cuts, use_lasso/use_grf",
+                  "n.min, d0.min, d1.min, hr.threshold, pconsistency.threshold",
+                  "sg_focus, selection_rule, effect_neighborhood"))[]
+```
+
+Two facts about stage 1 matter later:
+
+1. **Enumeration is in descending-effect order**, ties broken by `K` (the number
+   of conjuncts). Written as a key: $(-\mathrm{HR},\, K)$.
+2. **Admission is per candidate.** A candidate that fails the consistency screen
+   never reaches stage 3 --- `evaluate_subgroup_consistency()` returns `NULL`
+   below `pconsistency.threshold`. The screen is a *filter*, not a term in any
+   ranking.
+
+# The eight foci {#sec-foci}
+
+`sort_subgroups()` applies a lexicographic sort and takes the first row. The
+keys, verbatim from the implementation:
+
+```{r keys}
+#| code-fold: true
+data.table(
+  focus = c("maxcons (hr)", "maxeff", "maxeffCons", "maxSG", "minSG",
+            "effMaxSG (hrMaxSG)", "effMinSG (hrMinSG)"),
+  sort_key = c("(-Pcons, -hr, K)", "(-hr, K)", "(-hr, K)",
+          "(-N, -Pcons, K)", "(N, -Pcons, K)",
+          "(-in_band, -N, -Pcons, -hr, K)", "(-in_band, N, -Pcons, -hr, K)"),
+  ranges_over = c("all qualifiers", "ALL candidates, ungated",
+                  "consistency-qualifying candidates only",
+                  "all qualifiers", "all qualifiers",
+                  "all qualifiers", "all qualifiers"),
+  band = c("no", "no", "no", "no", "no", "yes", "yes"))[]
+```
+
+`K` is always the final tiebreak and resolves exact ties toward the simpler
+rule. It can never override the keys before it.
+
+## `maxcons` --- consistency argmax {#sec-maxcons}
+
+Key $(-\texttt{Pcons},\, -\texttt{hr},\, K)$. Consistency is primary; effect
+breaks ties. This is the rule León et al. (2024) use.
+
+Because enumeration is by *effect* and the key is led by *consistency*, the scan
+order carries no information about the ranking. A candidate far down the
+enumeration --- weaker effect --- can carry the highest `Pcons` and win. **Every
+candidate must be evaluated**; nothing can be concluded early.
+
+## `maxeff` --- unconditional effect argmax {#sec-maxeff}
+
+Key $(-\texttt{hr},\, K)$ over *all* candidates. This focus is unusual enough to
+deserve its own treatment (@sec-maxeff-detail): it applies **no thresholds at
+all**, and it always returns a subgroup.
+
+## `maxeffCons` --- effect argmax among qualifiers {#sec-maxeffcons}
+
+Key $(-\texttt{hr},\, K)$ --- *identical* to `maxeff`. The difference is not in
+the key but in the population it ranges over: only candidates that cleared
+`pconsistency.threshold` reach the sort. The consistency condition is applied by
+construction, upstream, and therefore needs no term in the key.
+
+This is the only focus for which **early stopping is sound** (@sec-stopping).
+
+## `maxSG` / `minSG` --- size extremes
+
+Keys $(-N,\, -\texttt{Pcons},\, K)$ and $(N,\, -\texttt{Pcons},\, K)$. Largest
+or smallest qualifier, consistency as tiebreak. No band, no effect term until
+`K`.
+
+## `effMaxSG` / `effMinSG` --- banded size extremes
+
+Keys $(-\texttt{in\_band},\, \mp N,\, -\texttt{Pcons},\, -\texttt{hr},\, K)$.
+In-band candidates first, then size, then consistency, then effect. Only
+`in_band` depends on `selection_rule`; the rest of the key is fixed. These are
+the subject of @sec-band onward.
+
+# `maxeff` in detail {#sec-maxeff-detail}
+
+`forestsearch()` treats `maxeff` as a special case and overrides five settings,
+warning as it does so:
+
+```{r maxeff-overrides}
+#| code-fold: true
+data.table(
+  setting = c("pconsistency.threshold", "stop_threshold", "use_twostage",
+              "max_subgroups_search", "minp", "rmin", "hr.threshold",
+              "n.min / d0.min / d1.min"),
+  under_maxeff = c("-> 0", "-> NULL", "-> FALSE", "-> Inf", "-> 0", "-> 0",
+                   "disabled (disable_effect_floor = TRUE)", "RETAINED"),
+  why = c("screen admits everything", "stopping unsound for this key",
+          "no two-stage narrowing", "no truncation of the pool",
+          "prevalence floor relaxed", "redundancy pruning relaxed",
+          "no effect floor: pure argmax",
+          "define which candidates are ESTIMABLE, not which one wins"))[]
+```
+
+Two consequences follow.
+
+**Nothing can reject the winner.** There is no effect threshold to fail and no
+consistency condition to fail. Consistency *is* computed for the winner
+afterwards and reported, but descriptively --- it is not a filter. So
+`prop_SG_found = 100%` is **structural**, not an empirical finding.
+
+**The guarantee is conditional on a non-empty candidate family.** The size and
+event minima are deliberately retained, and the source is explicit about the
+reasoning: they define which candidates are estimable, not which one wins. Only
+degenerate candidates --- empty cuts, exact duplicates --- are pruned, and those
+share a retained twin's effect, so the argmax is unchanged. Dropping distinct
+near-duplicates would have forced $(-\mathrm{hr}, K)$ to break genuine ties on
+cut count, an arbitrary tiebreak in a rule designed to have none.
+
+So `maxeff` returns empty only if no conjunction is estimable at all --- a data
+condition, not a selection outcome.
+
+::: {.callout-note}
+## When `maxeff` is the right choice
+
+`maxeff` is the argmax primitive that post-selection inference methods such as
+Guo & He (2021) are defined against. Use it when the estimand is "the effect in
+the subgroup that maximises the estimated effect," accepting that the subgroup
+may be unstable. Do not use it when replicability is part of the claim --- it
+can return a subgroup whose consistency is arbitrarily low.
+:::
+
+# Early stopping and why only one focus qualifies {#sec-stopping}
+
+`stop_threshold` halts the consistency scan at the first candidate to reach it.
+That is sound only if the scan order agrees with the ranking.
+
+```{r stopping}
+#| code-fold: true
+data.table(
+  focus = c("maxeffCons", "maxeff", "maxcons (hr)", "maxSG", "minSG",
+            "effMaxSG", "effMinSG"),
+  sort_key = c("(-hr, K)", "(-hr, K)", "(-Pcons, -hr, K)", "(-N, -Pcons, K)",
+          "(N, -Pcons, K)", "(-in_band, ...)", "(-in_band, ...)"),
+  matches_enumeration = c("YES", "n/a (winner-only path)", "no", "no", "no",
+                          "no", "no"),
+  stopping = c("SOUND, batch size 1", "not reached",
+               rep("reset to NULL by forestsearch()", 5)))[]
+```
+
+The argument, from `subgroup_consistency_main.R`: `maxeffCons`'s key
+$(-\mathrm{hr}, K)$ *is* the enumeration order $(-\mathrm{HR}, K)$, ties
+included. So the first candidate to clear the threshold is provably the winner
+--- everything unexamined has weaker or equal effect. Batch size drops to `1L`
+to halt at the earliest sound point.
+
+Any key with a `Pcons` term --- primary as in `maxcons`, or merely a size
+tiebreak as in `maxSG`/`minSG` --- can be beaten by an unevaluated candidate.
+`forestsearch()` therefore resets `stop_threshold` to `NULL` for
+`c("hrMaxSG", "hrMinSG", "hr", "maxSG", "minSG")`, and **warns only when the
+value was supplied explicitly**. Inherited defaults are reset silently, which is
+worth knowing: a configuration can have early stopping disabled without saying
+so anywhere.
+
+::: {.callout-important}
+## "Must evaluate every candidate" and "can stop early" are not in tension
+
+`maxeffCons` gets no shortcut past consistency evaluation --- it must score
+candidates one at a time, because it needs to know which qualify. What it gets
+is permission to *halt* at the first qualifier.
+
+`maxeff` is the opposite: it skips straight to the effect argmax and scores
+consistency for that candidate alone (the winner-only fast path, worth roughly
+20x), but it can return a subgroup that fails consistency entirely.
+:::
+
+# The inclusion band {#sec-band}
+
+For `effMaxSG`/`effMinSG` only, `.compute_inclusion_band()` builds two
+indicators and multiplies them:
+
+```r
+in_nbhd   <- (hr >= (1 - effect_neighborhood) * max(hr))   # 1-D effect band
+in_pareto <- !dominated_xy(hr, N)                          # 2-D frontier
+in_band   <- in_nbhd * in_pareto
+```
+
+`selection_rule` switches the components on or off:
+
+| `selection_rule` | `in_nbhd` | `in_pareto` | `in_band` is |
+|---|---|---|---|
+| `"neighborhood"` (default) | active | all ones | the effect band only |
+| `"pareto"` | all ones | active | the frontier only |
+| `"both"` | active | active | their intersection |
+
+`in_nbhd` is a **relative** tolerance: at `effect_neighborhood = 0.10` a
+candidate is in-band iff its effect is within 10% of the strongest effect among
+the survivors. Setting it to `0` collapses the band to a strict max-effect
+filter. For ratio measures stored on the log scale (OR, IRR), both tests are
+applied after exponentiating, so comparisons are on the natural scale; Cox HR is
+already natural.
+
+## Pareto dominance
+
+Candidate $i$ is **dominated** when some $j$ is at least as good on both axes
+and strictly better on one:
+
+$$
+\exists\, j \neq i:\quad
+\mathrm{hr}_j \ge \mathrm{hr}_i \;\wedge\; N_j \ge N_i
+\;\wedge\; (\mathrm{hr}_j > \mathrm{hr}_i \;\vee\; N_j > N_i).
+$$
+
+The non-dominated set is the **frontier**: candidates for which no alternative
+is better on effect without being worse on size, or vice versa.
+
+```{r dominance}
+#| code-fold: false
+# Mirror of the package internal .pareto_dominated_xy(); both axes maximised.
+dominated_xy <- function(x, y) {
+  n <- length(x)
+  dom <- logical(n)
+  for (i in seq_len(n)) {
+    if (is.na(x[i]) || is.na(y[i])) { dom[i] <- TRUE; next }
+    for (j in seq_len(n)) {
+      if (i == j) next
+      if (is.na(x[j]) || is.na(y[j])) next
+      if (x[j] >= x[i] && y[j] >= y[i] && (x[j] > x[i] || y[j] > y[i])) {
+        dom[i] <- TRUE
+        break
+      }
+    }
+  }
+  dom
+}
+```
+
+`NA` on either axis is treated as dominated --- an unscorable candidate cannot
+be on the frontier.
+
+# Worked example: the band {#sec-worked}
+
+Five candidates that have already cleared consistency and the effect floor.
+
+```{r candidates}
+cands <- data.table(
+  id = c("A", "B", "C", "E", "F"),
+  hr = c(2.50, 2.40, 2.30, 2.35, 2.00),
+  N  = c(70L,  100L, 150L, 90L,  200L))
+
+hr_max   <- max(cands$hr)
+hr_floor <- (1 - EFFECT_NEIGHBORHOOD) * hr_max
+
+cands[, in_nbhd     := hr >= hr_floor]
+cands[, dominated   := dominated_xy(hr, N)]
+cands[, on_frontier := !dominated]
+cands[, in_both     := in_nbhd & on_frontier]
+cands[, .(id, hr, N, in_nbhd, on_frontier, in_both)]
+```
+
+With `hr_max = 2.5` the floor is `r round(hr_floor, 3)`:
+
+* **`A`, `B`, `C`** are in the effect band *and* on the frontier --- in-band
+  under every rule.
+* **`E`** (HR 2.35, $N$ 90) is in the effect band but **dominated by `B`**
+  (HR 2.40 $\ge$ 2.35 and $N$ 100 $\ge$ 90). `"pareto"` and `"both"` exclude it;
+  `"neighborhood"` keeps it.
+* **`F`** (HR 2.00, $N$ 200) is on the frontier --- nothing has larger $N$ ---
+  but **below the floor**. `"neighborhood"` and `"both"` exclude it; `"pareto"`
+  keeps it. This is the over-extension guard the effect band provides and the
+  bare frontier does not.
+
+```{r band-figure}
+#| code-fold: true
+#| fig-height: 4.2
+pl <- copy(cands)
+pl[, status := fifelse(!in_nbhd, "below floor (pareto only)",
+                fifelse(in_both, "in band under all rules",
+                                 "neighborhood only (dominated)"))]
+ggplot(pl, aes(N, hr)) +
+  geom_hline(yintercept = hr_floor, linetype = 2, colour = "grey45") +
+  geom_step(data = pl[on_frontier == TRUE][order(N)],
+            direction = "vh", colour = "grey70", linewidth = 0.4) +
+  geom_point(aes(colour = status), size = 3.6) +
+  geom_text(aes(label = id), nudge_y = 0.045, size = 3.6) +
+  annotate("text", x = max(pl$N), y = hr_floor, vjust = -0.6, hjust = 1,
+           label = sprintf("floor = %.3f", hr_floor), size = 3, colour = "grey40") +
+  scale_colour_manual(values = c("in band under all rules" = "#2c7fb8",
+                                 "neighborhood only (dominated)" = "#d95f02",
+                                 "below floor (pareto only)" = "#7570b3")) +
+  labs(x = "Subgroup size N", y = "Effect (HR)", colour = NULL,
+       title = "Effect band, Pareto frontier, and their intersection") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+
+Under every rule that retains `C`, `C` wins --- it has the largest $N$ in the
+band. So the **top pick is `C`** under `"neighborhood"` and `"both"` alike. The
+rules differ here only in which candidates carry an in-band flag in the
+diagnostic table.
+
+## Where the rules genuinely diverge {#sec-corner}
+
+Top selection differs only in a narrow corner: when two candidates **tie on the
+maximum band $N$**. The sort breaks $N$-ties by consistency *before* effect,
+whereas Pareto dominance looks only at (effect, $N$).
+
+```{r corner}
+corner <- data.table(
+  id    = c("T", "D"),
+  Pcons = c(0.95, 0.80),
+  hr    = c(2.30, 2.45),
+  N     = c(150L, 150L),
+  K     = c(1L,   1L))
+corner[]
+```
+
+`D` dominates `T` --- equal $N$, higher effect. Under `"neighborhood"` both are
+in-band, they tie on $N$, and the consistency tier keeps `T`. Under `"both"`,
+`T` is off the frontier and excluded, so `D` wins.
+
+```{r corner-eval}
+if (have_fs) {
+  top_pick <- function(rule) {
+    s <- forestsearch::sort_subgroups(
+      data.table::copy(corner), "hrMaxSG",
+      selection_rule = rule, effect_neighborhood = EFFECT_NEIGHBORHOOD)
+    s$id[1L]
+  }
+  data.table(selection_rule = c("neighborhood", "both"),
+             top_pick = vapply(c("neighborhood", "both"), top_pick, character(1)))
+} else {
+  cat("forestsearch not installed; expected: neighborhood -> T, both -> D.\n")
+}
+```
+
+So `"both"` refuses to settle on a point another candidate beats on both axes,
+even when it won the consistency tie. `"neighborhood"` keeps the
+higher-consistency point.
+
+# Worked example: the foci disagree {#sec-foci-example}
+
+The band example holds `sg_focus` fixed. This one holds the candidate set fixed
+and varies the focus, on a set constructed so that every rule picks differently.
+
+```{r foci-set}
+set <- data.table(
+  id    = c("P", "Q", "R", "S"),
+  hr    = c(3.10, 2.60, 2.55, 1.40),
+  N     = c( 40L, 120L, 130L, 300L),
+  Pcons = c(0.55, 0.97, 0.93, 0.99),
+  K     = c(  2L,   2L,   1L,   1L))
+set[]
+```
+
+Read the columns as competing claims. `P` has the strongest effect on the
+smallest subgroup with poor replicability. `Q` and `R` are the middle ground.
+`S` is large, highly replicable, and weak.
+
+```{r foci-apply}
+#| code-fold: false
+pick <- function(dt, focus, p_star = 0.90,
+                 rule = "neighborhood", nbhd = EFFECT_NEIGHBORHOOD) {
+  d <- copy(dt)
+  # Stage 2: the consistency screen is a FILTER, applied before ranking.
+  # maxeff is the exception -- it overrides p_star to 0.
+  qual <- if (focus == "maxeff") d else d[Pcons >= p_star]
+  if (!nrow(qual)) return(NA_character_)
+
+  if (focus %in% c("maxeff", "maxeffCons")) {
+    setorder(qual, -hr, K)
+  } else if (focus %in% c("maxcons", "hr")) {
+    setorder(qual, -Pcons, -hr, K)
+  } else if (focus == "maxSG") {
+    setorder(qual, -N, -Pcons, K)
+  } else if (focus == "minSG") {
+    setorder(qual, N, -Pcons, K)
+  } else if (focus %in% c("effMaxSG", "effMinSG")) {
+    nb  <- qual$hr >= (1 - nbhd) * max(qual$hr)
+    pa  <- if (rule == "neighborhood") rep(TRUE, nrow(qual)) else !dominated_xy(qual$hr, qual$N)
+    nb  <- if (rule == "pareto") rep(TRUE, nrow(qual)) else nb
+    qual[, in_band := as.integer(nb & pa)]
+    ord <- if (focus == "effMaxSG")
+      order(-qual$in_band, -qual$N, -qual$Pcons, -qual$hr, qual$K) else
+      order(-qual$in_band,  qual$N, -qual$Pcons, -qual$hr, qual$K)
+    qual <- qual[ord]
+  }
+  qual$id[1L]
+}
+
+foci <- c("maxeff", "maxeffCons", "maxcons", "maxSG", "minSG",
+          "effMaxSG", "effMinSG")
+res <- data.table(sg_focus = foci,
+                  selected = vapply(foci, function(f) pick(set, f), character(1)))
+res[set, on = c(selected = "id"),
+    `:=`(hr = i.hr, N = i.N, Pcons = i.Pcons)]
+res[]
+```
+
+Reading the result:
+
+* **`maxeff` returns `P`** --- the strongest effect, on 40 subjects, with
+  `Pcons` 0.55. No threshold could stop it; the consistency screen is overridden
+  to 0. This is the winner's-curse case in its purest form.
+* **`maxeffCons` returns `Q`** --- `P` is filtered out at admission (0.55 below
+  $p^\star$ = 0.90), so the effect argmax over the survivors is `Q`. Same key as
+  `maxeff`, different population, materially different answer.
+* **`maxcons` returns `S`** --- highest `Pcons` at 0.99, despite the weakest
+  effect among qualifiers. Consistency leads the key.
+* **`maxSG` returns `S`** and **`minSG` returns `Q`** --- size extremes among
+  qualifiers, with no band and no effect term until the final tiebreak.
+* **`effMaxSG` returns `R`** --- the band is `hr >= 0.9 * 2.60 = 2.34`, which
+  admits `Q` and `R` but excludes `S`; `R` then wins on size within the band
+  ($N$ 130 against `Q`'s 120). Note this is *not* the effect argmax: `Q` has the
+  stronger effect, but both are in-band, so the size key decides. The band is
+  what stops the size-seeking rule from running out to the weak-but-large `S`
+  that `maxSG` selects.
+* **`effMinSG` returns `Q`** --- the same band, size minimised.
+
+That last contrast is the practical point of the banded foci: **`maxSG` optimises
+size subject to consistency; `effMaxSG` optimises size subject to consistency
+*and* to staying near the best available effect.**
+
+## Why `maxcons` cannot stop early, illustrated
+
+The same set, in enumeration order, with the running argmax under each key:
+
+```{r stopping-illustration}
+#| code-fold: true
+scan <- set[order(-hr, K)]                      # enumeration order
+scan[, seen := seq_len(.N)]
+scan[, best_maxeffCons := cummax(ifelse(Pcons >= 0.90, hr, -Inf))]
+scan[, best_maxcons    := cummax(ifelse(Pcons >= 0.90, Pcons, -Inf))]
+scan[, .(seen, id, hr, Pcons,
+         qualifies = Pcons >= 0.90,
+         running_effect_max = best_maxeffCons,
+         running_Pcons_max  = best_maxcons)]
+```
+
+Under `maxeffCons` the first qualifier encountered --- `Q` at position 2 --- is
+already the answer, because everything after it has weaker effect by
+construction of the scan order. Under `maxcons` the answer is `S`, at position
+4, the *last* candidate examined: its `Pcons` of 0.99 is invisible until it is
+scored. Halting early on a `Pcons` key discards the winner.
+
+# What is inert where {#sec-inert}
+
+```{r inert}
+#| code-fold: true
+data.table(
+  argument = c("selection_rule", "effect_neighborhood", "stop_threshold",
+               "pconsistency.threshold", "hr.threshold"),
+  active_for = c("effMaxSG, effMinSG only", "effMaxSG, effMinSG only",
+                 "maxeffCons only", "all but maxeff", "all but maxeff"),
+  elsewhere = c("ERROR if non-default", "ignored", "reset to NULL",
+                "overridden to 0", "disabled"))[]
+```
+
+One of these is enforced rather than ignored: passing a `selection_rule` other
+than `"neighborhood"` together with a non-band focus **raises an error**. The
+rationale is that `selection_rule = "pareto"` under `sg_focus = "maxcons"` is
+not a harmless redundancy --- it states an intent the run will not honour.
+
+The rest degrade silently, which is why a run's resolved settings are worth
+recording rather than inferring from the call.
+
+# The preview sort carries an extra key {#sec-preview}
+
+`sort_subgroups_preview()` triages candidates *before* consistency exists. It
+inserts `-on_frontier` between `-in_band` and $\mp N$:
+
+$$
+(-\,\texttt{in\_band},\; -\,\texttt{on\_frontier},\; \mp N,\; -\mathrm{HR},\; K)
+$$
+
+with `on_frontier` computed irrespective of `selection_rule`. `Pcons` cannot
+appear --- it does not exist yet.
+
+The extra key protects the frontier from truncation. Only the top
+`max_subgroups_search` candidates in preview order are sent for consistency
+evaluation, and a restrictive rule such as `"both"` can otherwise let higher-$N$
+*dominated* candidates crowd low-$N$ frontier members out of those slots, so a
+candidate that would have won is never scored. The key affects **which
+candidates are evaluated**, not which one wins.
+
+# Validation against the package {#sec-validate}
+
+```{r validate}
+#| code-fold: false
+if (have_fs) {
+  .ok <- function(lbl, cond)
+    cat(if (isTRUE(cond)) "PASS" else "FAIL", "-", lbl, "\n")
+
+  dt_hn <- cands[, .(hr, N)]
+
+  .ok("dominated flags match the .pareto_dominated_xy mirror",
+      identical(forestsearch:::pareto_dominated_flags(dt_hn), cands$dominated))
+
+  .ok("neighborhood band matches",
+      identical(as.logical(forestsearch:::.compute_inclusion_band(
+        cands$hr, cands$N, "neighborhood", EFFECT_NEIGHBORHOOD)), cands$in_nbhd))
+
+  .ok("both band matches in_nbhd & on_frontier",
+      identical(as.logical(forestsearch:::.compute_inclusion_band(
+        cands$hr, cands$N, "both", EFFECT_NEIGHBORHOOD)), cands$in_both))
+
+  .ok("compute_pareto_frontier returns the non-dominated set",
+      setequal(forestsearch:::compute_pareto_frontier(dt_hn)$hr,
+               cands[on_frontier == TRUE, hr]))
+
+  # The alias table in @sec-vocab against the shipped normaliser.
+  .ok("alias normalisation matches .normalize_sg_focus",
+      all(vapply(vocab$supplied,
+                 function(x) identical(forestsearch:::.normalize_sg_focus(x),
+                                       normalize(x)), logical(1))))
+
+  # The @sec-foci-example picks against the shipped sorter.
+  chk <- function(focus, expected) {
+    d <- copy(set)
+    qual <- if (focus == "maxeff") d else d[Pcons >= 0.90]
+    s <- forestsearch::sort_subgroups(data.table::copy(qual), focus,
+                                      effect_neighborhood = EFFECT_NEIGHBORHOOD)
+    identical(s$id[1L], expected)
+  }
+  for (f in foci)
+    .ok(sprintf("sort_subgroups agrees on %s", f),
+        chk(f, res[sg_focus == f, selected]))
+} else {
+  cat("forestsearch not installed; validation skipped.\n")
+}
+```
+
+# Practical guidance
+
+```{r guidance}
+#| code-fold: true
+data.table(
+  if_you_want = c(
+    "The maximal estimated effect, accepting instability",
+    "The maximal effect among replicable subgroups",
+    "The most replicable subgroup",
+    "The largest replicable subgroup",
+    "The largest subgroup that is also near-optimal on effect",
+    "The smallest such subgroup"),
+  use = c("maxeff", "maxeffCons", "maxcons", "maxSG", "effMaxSG", "effMinSG"),
+  caveat = c(
+    "No thresholds apply; always returns a subgroup; consistency is descriptive",
+    "The only focus that can stop early; cost scales with where the winner sits",
+    "Must evaluate the full pool; effect is only a tiebreak",
+    "Can run out to a large, weak subgroup",
+    "Band width (effect_neighborhood) is a real modelling choice",
+    "Same, with size minimised"))[]
+```
+
+Two closing cautions.
+
+**Record the focus.** Two runs that differ only in `sg_focus` estimate different
+quantities. A results file that does not record which focus produced it cannot
+be interpreted after the fact, and pooling across foci silently mixes estimators.
+
+**`effect_neighborhood` is not a nuisance parameter.** At `0` the banded foci
+collapse to a strict max-effect filter; as it grows they approach `maxSG`/
+`minSG`. The default `0.10` sits between two qualitatively different rules, and
+the choice deserves the same justification as any other modelling decision.
+
+# Session information
+
+```{r session-info}
+#| code-fold: true
+sessionInfo()
+```
