@@ -1,0 +1,195 @@
+Using 102 of 128 total cores for parallel processingSample size: 686 
+Events: 299 (43.6%)
+Baseline factors: age, meno, size, grade3, nodes, pgr, er 
+Using 102 of 128 total cores for parallel processing
+--- config check ---
+  fs_sg_focus              effMaxSG
+  fs_hr_threshold          1
+  fs_hr_consistency        1
+  fs_max_subgroups_search  50
+  fs_consistency_method    resample
+  fs_subgroup_method       consistency
+  run_cv                   FALSE
+  run_loo                  FALSE
+  fs_conf_force            er <= 0 | pgr <= 0
+  NB                       1000
+  mr_draws                 5000
+  n_cores                  102
+
+--- fitting main forestsearch (mr_inference = TRUE) ---
+
+[forestsearch] Subgroup Identification Configuration
+  Outcome type:   survival (Cox PH)
+  Effect measure: HR (hazard ratio)
+  Scale:          log (ratio)
+
+  Screening:      HR >= 1.00  (log: 0.0000)
+  Consistency:    HR >= 1.00  (log: 0.0000)
+  Consistency rate threshold: 90%
+
+  Interpretation:
+    Candidates: subgroup hazard ratio >= 1.00
+    Splits:     each split HR >= 1.00
+
+
+==============================================================
+  Search Alignment Diagnostic
+==============================================================
+
+  Outcome:    time_months (survival)
+  Treatment:  hormon
+  Measure:    Hazard Ratio (HR)
+
+  ForestSearch searches for:
+    Subgroups where hormon increases the event hazard
+    (HR >= threshold in the candidate subgroup)
+
+  Thresholds:
+    Screening: HR >= 1.000 in the candidate subgroup
+    Consistency: HR >= 1.000 in each bootstrap split
+
+  Variable screening:
+    LASSO: LASSO screening: DISABLED
+    GRF:   DISABLED
+
+  No alignment concerns detected.
+==============================================================
+
+Forced confounders: er <= 0, pgr <= 0 
+J-quantile cuts: er (J=10), pgr (J=10) 
+Candidate factors: 33 
+ [1] "er <= 0"    "pgr <= 0"   "er <= 3"    "er <= 9"    "er <= 17"  
+ [6] "er <= 30"   "er <= 44"   "er <= 70"   "er <= 100"  "er <= 174" 
+[11] "er <= 294"  "pgr <= 2"   "pgr <= 8"   "pgr <= 16"  "pgr <= 26" 
+[16] "pgr <= 45"  "pgr <= 77"  "pgr <= 114" "pgr <= 184" "pgr <= 337"
+[21] "age <= 53"  "age <= 46"  "age <= 61"  "size <= 29" "size <= 25"
+[26] "size <= 20" "size <= 35" "nodes <= 5" "nodes <= 3" "nodes <= 1"
+[31] "nodes <= 7" "meno"       "grade3"    
+Number of possible configurations (<= maxk): maxk = 2 , # combinations = 2211 
+Per-arm events criteria: control >= 10, treatment >= 10
+Sample size criteria: n >= 60 
+Subgroup search completed in 0.11 minutes
+
+--- Filtering Summary ---
+  Combinations evaluated: 2211 
+  Passed variance check: 2069 
+  Passed prevalence (>= 0.025 ): 2069 
+  Passed redundancy check: 1943 
+  Passed events counts (d0>= 10, d1>= 10): 1451
+  Passed sample size (n>= 60 ): 1407 
+  Cox model fit successfully: 1407
+  Passed effect threshold (effect >= 1.0000): 124
+-------------------------
+
+Found 124 subgroup candidate(s)
+# of candidate subgroups (meeting all criteria) = 124 
+Removed 1 near-duplicate subgroups
+# of unique initial candidates: 123 
+# Restricting to top stop_Kgroups = 50 
+# of candidates to evaluate: 50 
+
+==============================================================================================================
+CANDIDATE EVALUATION PREVIEW (pre-consistency) (sg_focus = "hrMaxSG", selection_rule = "neighborhood")
+==============================================================================================================
+Rank  HR      N      E     K    OF  IB  Subgroup
+--------------------------------------------------------------------------------------------------------------
+   1   2.537     61    34    2  *   *   {er <= 0} & {size <= 35}
+   2   2.335     61    31    2  -   *   {er <= 0} & {nodes <= 7}
+   3   1.024    245   139    2  *   -   !{size <= 20} & {pgr <= 26}
+   4   1.126    235   125    2  *   -   !{size <= 25} & {pgr <= 114}
+   5   1.160    212   116    2  *   -   !{size <= 25} & {pgr <= 77}
+   6   1.170    209   115    2  *   -   !{size <= 29} & {pgr <= 114}
+   7   1.219    188   106    2  *   -   !{size <= 29} & {pgr <= 77}
+   8   1.254    157    95    2  *   -   !{size <= 25} & {pgr <= 26}
+   9   1.318    139    85    2  *   -   !{size <= 29} & {pgr <= 26}
+  10   1.323    128    80    2  *   -   !{size <= 25} & {pgr <= 16}
+... 40 more candidates not shown (max_print = 10).
+--------------------------------------------------------------------------------------------------------------
+To evaluate: 50   On frontier: 14   In band: 2
+Legend: OF = on Pareto frontier;  IB = in effect-size band.
+==============================================================================================================
+
+Parallel plan: multisession with 102 workers.
+Parallel config: workers = 102 , batch_size = 50 
+Batch 1 / 1 : candidates 1 - 50 
+Evaluated 50 of 50 candidates (complete) 
+4 subgroups passed consistency threshold
+*** Subgroup found: {er <= 0} {size <= 35} 
+% consistency criteria met= 0.99 
+SG focus = hrMaxSG 
+
+==============================================================================================================
+CANDIDATE EVALUATION SUMMARY  (sg_focus = "hrMaxSG", selection_rule = "neighborhood")
+==============================================================================================================
+Rank  HR      N      E     K    P      OF  IB  S  Subgroup
+--------------------------------------------------------------------------------------------------------------
+   1   2.537     61    34    2  0.990  *   *   *  {er <= 0} & {size <= 35}
+   2   2.335     61    31    2  0.970  -   *   -  {er <= 0} & {nodes <= 7}
+   3   1.951     82    45    1  0.960  *   -   -  {er <= 0}
+   4   2.222     75    41    2  0.990  *   -   -  {er <= 0} & {pgr <= 26}
+--------------------------------------------------------------------------------------------------------------
+Evaluated: 50   Passed: 4   On frontier: 3   In band: 2   Selected: m=1
+Legend: P = Pcons (consistency probability); OF = on Pareto frontier;  IB = in effect-size band; S = selected.
+==============================================================================================================
+
+Seconds and minutes forestsearch overall = 12.36 0.206 
+Consistency algorithm used: twostage 
+Subgroup identified: {er <= 0} & {size <= 35} 
+Multiplier resampling (MR): constructing de-biased estimates from 5000 draws.
+  This is post-selection inference on the completed search; it cannot change the identified subgroup.
+MR harm confirmation: HR = 1.449 (point rule vs 1.00) -> consistent with harm
+
+ForestSearch completed in 26.8 seconds
+Warning messages:
+1: stop_threshold = 0.95 reset to NULL for sg_focus = 'hrMaxSG'.
+Neighborhood-based selection requires evaluating all candidates to determine the effect-size neighborhood.
+Early stopping is available for sg_focus = 'maxeffCons', whose selection key contains no Pcons term.
+To suppress this warning, pass stop_threshold = NULL explicitly. 
+2: max_subgroups_search = 50 truncated the candidate pool from 123 to 50. Candidates ranked below 50 under the sg_focus = 'hrMaxSG' preview ordering were not evaluated. 
+main fit elapsed: 26.8 s
+selected subgroup: {er <= 0} & {size <= 35} 
+
+--- bootstrap nb_boots = 5 , mr_in_replicates = FALSE ---
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use: 5 workers with 'multisession' plan
+Bootstrap iteration 1/5
+Bootstrap iteration 5/5
+Warning message:
+In forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB_SHORT,  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+
+--- bootstrap nb_boots = 5 , mr_in_replicates = TRUE ---
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use: 5 workers with 'multisession' plan
+Multiplier resampling (MR) will run inside each of the 5 bootstrap replicates and the results will be retained in $mr_replicates.
+  These are not aggregable into an estimate for the original analysis: each replicate corrects a different selected subgroup.
+Bootstrap iteration 1/5
+Bootstrap iteration 5/5
+Warning message:
+In forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB_SHORT,  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+
+=================== PRECONDITION RESULT ===================
+List of 16
+ $ ystar_identical  : logi TRUE
+ $ ystar_allequal   : logi TRUE
+ $ results_cols     : chr [1:34] "boot_id" "H_biasadj_1" "H_biasadj_2" "Hc_biasadj_1" ...
+ $ sg_cols          : chr(0) 
+ $ sg_identical     : logi NA
+ $ results_identical: logi FALSE
+ $ results_allequal : logi FALSE
+ $ diff_cols        : chr [1:2] "tmins_search" "tmins_iteration"
+ $ H_identical      : logi TRUE
+ $ Hc_identical     : logi TRUE
+ $ SGCIs_identical  : logi TRUE
+ $ FSsg_identical   : logi TRUE
+ $ mr_replicates_F  : logi TRUE
+ $ mr_replicates_T_n: int 5
+ $ elapsed_F        : num 13.8
+ $ elapsed_T        : num 31.1
+
+RNG-NEUTRAL: FALSE 
+
+saved: dev/replication-check/out/precond_rng.rds 

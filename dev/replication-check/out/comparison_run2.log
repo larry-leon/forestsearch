@@ -1,0 +1,188 @@
+
+=============== META ===============
+ run            built_at version B_boots n_total cores draws
+ new 2026-07-30 15:37:33   0.2.0    1000     686   128  5000
+   B 2026-07-08 13:58:55   0.2.0    1000     686   128  5000
+   A 2026-07-08 08:18:06   0.2.0    1000     686   128  5000
+
+=============== CV / LOO GATED OFF ===============
+ run cv_skipped loo_skipped
+ new       TRUE        TRUE
+   B       TRUE        TRUE
+   A       TRUE        TRUE
+
+=============== SELECTED SUBGROUPS ===============
+                    analysis                         new
+                FS main (fs)    {er <= 0} & {size <= 35}
+           (A) DINA-screened    {er <= 0} & {size <= 35}
+ (C) DINA-selected (fs_dina) {grade3 >= 1} & {pgr <= 10}
+   (D) GRF-selected (fs_grf)                   {er <= 0}
+         (B) standalone DINA grade3 >=  1.0, pgr >= 32.5
+                           B                           A vs_B    vs_A
+    {er <= 0} & {size <= 35}    {er <= 0} & {size <= 35} same    same
+    {er <= 0} & {size <= 35}    {er <= 0} & {nodes <= 7} same differs
+ {grade3 >= 1} & {pgr <= 10} {grade3 >= 1} & {pgr <= 10} same    same
+                   {er <= 0}                   {er <= 0} same    same
+ grade3 >=  1.0, pgr >= 32.5 grade3 >=  1.0, pgr >= 32.5 same    same
+
+--- sizes ---
+                    analysis   size_new     size_B     size_A size_vs_B
+                FS main (fs)  61 (9.0%)  61 (9.0%)  61 (9.0%)      same
+           (A) DINA-screened  61 (8.9%)  61 (8.9%)  61 (8.9%)      same
+ (C) DINA-selected (fs_dina) 89 (13.0%) 89 (13.0%) 89 (13.0%)      same
+   (D) GRF-selected (fs_grf) 82 (12.0%) 82 (12.0%) 82 (12.0%)      same
+         (B) standalone DINA        127        127        127      same
+ size_vs_A
+      same
+      same
+      same
+      same
+      same
+
+=============== EVAL LINES ===============
+        which
+      FS main
+ (A) screened
+                                                                      new
+  Evaluated: 50   Passed: 4   On frontier: 3   In band: 2   Selected: m=1
+ Evaluated: 30   Passed: 11   On frontier: 9   In band: 2   Selected: m=1
+                                                                        B
+  Evaluated: 50   Passed: 4   On frontier: 3   In band: 2   Selected: m=1
+ Evaluated: 30   Passed: 11   On frontier: 9   In band: 2   Selected: m=1
+                                                                       A
+ Evaluated: 50   Passed: 4   On frontier: 3   In band: 2   Selected: m=1
+ Evaluated: 30   Passed: 9   On frontier: 8   In band: 2   Selected: m=2
+
+=============== MANUSCRIPT TABLE ===============
+     row  quantity         new           B           A vs_B vs_A
+    FS/H         n  61.0000000  61.0000000  61.0000000 same same
+    FS/H       pct   9.0000000   9.0000000   9.0000000 same same
+    FS/H naive_est   2.5369176   2.5369176   2.5369176 same same
+    FS/H  naive_lo   1.2453976   1.2453976   1.2453976 same same
+    FS/H  naive_hi   5.1677879   5.1677879   5.1677879 same same
+    FS/H    fb_est   1.9353002   1.9353002   1.9353002 same same
+    FS/H     fb_lo   0.8895315   0.8895315   0.8895315 same same
+    FS/H     fb_hi   4.2105164   4.2105164   4.2105164 same same
+    FS/H    mr_est   1.4485071   1.4485071   1.4485071 same same
+    FS/H     mr_lo   0.6220092   0.6220092   0.6220092 same same
+    FS/H     mr_hi   3.3732186   3.3732186   3.3732186 same same
+   FS/Hc         n 625.0000000 625.0000000 625.0000000 same same
+   FS/Hc       pct  91.0000000  91.0000000  91.0000000 same same
+   FS/Hc naive_est   0.6079379   0.6079379   0.6079379 same same
+   FS/Hc  naive_lo   0.4685957   0.4685957   0.4685957 same same
+   FS/Hc  naive_hi   0.7887150   0.7887150   0.7887150 same same
+   FS/Hc    fb_est   0.6304172   0.6304172   0.6304172 same same
+   FS/Hc     fb_lo   0.4271978   0.4271978   0.4271978 same same
+   FS/Hc     fb_hi   0.9303087   0.9303087   0.9303087 same same
+   FS/Hc    mr_est   0.6447685   0.6447685   0.6447685 same same
+   FS/Hc     mr_lo   0.4023791   0.4023791   0.4023791 same same
+   FS/Hc     mr_hi   1.0331709   1.0331709   1.0331709 same same
+  DINA/H         n  89.0000000  89.0000000  89.0000000 same same
+  DINA/H       pct  13.0000000  13.0000000  13.0000000 same same
+  DINA/H naive_est   1.5993583   1.5993583   1.5993583 same same
+  DINA/H  naive_lo   0.8796067   0.8796067   0.8796067 same same
+  DINA/H  naive_hi   2.9080577   2.9080577   2.9080577 same same
+  DINA/H    fb_est   0.9154569   0.9154569   0.9154569 same same
+  DINA/H     fb_lo   0.3659104   0.3659104   0.3659104 same same
+  DINA/H     fb_hi   2.2903460   2.2903460   2.2903460 same same
+  DINA/H    mr_est   1.2245298   1.2245298   1.2245298 same same
+  DINA/H     mr_lo   0.8907832   0.8907832   0.8907832 same same
+  DINA/H     mr_hi   1.6833200   1.6833200   1.6833200 same same
+ DINA/Hc         n 597.0000000 597.0000000 597.0000000 same same
+ DINA/Hc       pct  87.0000000  87.0000000  87.0000000 same same
+ DINA/Hc naive_est   0.6290717   0.6290717   0.6290717 same same
+ DINA/Hc  naive_lo   0.4822802   0.4822802   0.4822802 same same
+ DINA/Hc  naive_hi   0.8205422   0.8205422   0.8205422 same same
+ DINA/Hc    fb_est   0.6660065   0.6660065   0.6660065 same same
+ DINA/Hc     fb_lo   0.3960919   0.3960919   0.3960919 same same
+ DINA/Hc     fb_hi   1.1198531   1.1198531   1.1198531 same same
+ DINA/Hc    mr_est   0.6327346   0.6327346   0.6327346 same same
+ DINA/Hc     mr_lo   0.3804379   0.3804379   0.3804379 same same
+ DINA/Hc     mr_hi   1.0523481   1.0523481   1.0523481 same same
+   GRF/H         n  82.0000000  82.0000000  82.0000000 same same
+   GRF/H       pct  12.0000000  12.0000000  12.0000000 same same
+   GRF/H naive_est   1.9513931   1.9513931   1.9513931 same same
+   GRF/H  naive_lo   1.0366097   1.0366097   1.0366097 same same
+   GRF/H  naive_hi   3.6734509   3.6734509   3.6734509 same same
+   GRF/H    fb_est   1.0439733   1.0439733   1.0439733 same same
+   GRF/H     fb_lo   0.4829750   0.4829750   0.4829750 same same
+   GRF/H     fb_hi   2.2565975   2.2565975   2.2565975 same same
+   GRF/H    mr_est   1.6238572   1.6238572   1.6238572 same same
+   GRF/H     mr_lo   0.9296158   0.9296158   0.9296158 same same
+   GRF/H     mr_hi   2.8365615   2.8365615   2.8365615 same same
+  GRF/Hc         n 604.0000000 604.0000000 604.0000000 same same
+  GRF/Hc       pct  88.0000000  88.0000000  88.0000000 same same
+  GRF/Hc naive_est   0.6149954   0.6149954   0.6149954 same same
+  GRF/Hc  naive_lo   0.4723151   0.4723151   0.4723151 same same
+  GRF/Hc  naive_hi   0.8007776   0.8007776   0.8007776 same same
+  GRF/Hc    fb_est   0.6621515   0.6621515   0.6621515 same same
+  GRF/Hc     fb_lo   0.3879882   0.3879882   0.3879882 same same
+  GRF/Hc     fb_hi   1.1300463   1.1300463   1.1300463 same same
+  GRF/Hc    mr_est   0.6202614   0.6202614   0.6202614 same same
+  GRF/Hc     mr_lo   0.3795885   0.3795885   0.3795885 same same
+  GRF/Hc     mr_hi   1.0135295   1.0135295   1.0135295 same same
+
+rows differing vs B: 0  vs A: 0 
+
+=============== TIMINGS (payload) ===============
+ engine       quantity          new            B            A    vs_B    vs_A
+     fs       boot_sec  288.9650000  653.4480000  656.0030000 differs differs
+     fs         mr_sec    4.5140000    4.4350000    4.4770000 differs differs
+     fs        speedup   64.0152858  147.3388952  146.5273621 differs differs
+     fs       n_family 1744.0000000 1744.0000000 1744.0000000    same    same
+     fs selection_bias    0.5556458    0.5556458    0.5556458    same    same
+   dina       boot_sec  154.9090000  159.0330000  159.0810000 differs differs
+   dina         mr_sec    0.0970000    0.1000000    0.0930000 differs differs
+   dina        speedup 1597.0000000 1590.3300000 1710.5483871 differs differs
+   dina       n_family    1.0000000    1.0000000    1.0000000    same    same
+   dina selection_bias    0.2632054    0.2632054    0.2632054    same    same
+    grf       boot_sec  192.8180000  194.7400000  195.0850000 differs differs
+    grf         mr_sec    0.0890000    0.0960000    0.0880000 differs differs
+    grf        speedup 2166.4943820 2028.5416667 2216.8750000 differs differs
+    grf       n_family    1.0000000    1.0000000    1.0000000    same    same
+    grf selection_bias    0.1770723    0.1770723    0.1770723    same    same
+
+=============== WALL CLOCK (console) ===============
+                 quantity                                                  new
+      FS search (console)               ForestSearch completed in 26.3 seconds
+ Main bootstrap (console)                   Bootstrap completed in 4.8 minutes
+                    cores Using 102 of 128 total cores for parallel processing
+                                                    B
+               ForestSearch completed in 25.2 seconds
+                  Bootstrap completed in 10.9 minutes
+ Using 102 of 128 total cores for parallel processing
+                                                    A
+               ForestSearch completed in 25.3 seconds
+                  Bootstrap completed in 10.9 minutes
+ Using 102 of 128 total cores for parallel processing
+
+=============== VOCABULARY ===============
+    debias_gate run_debias_gate gate_draws harm_flag_debiased t_gate
+new           0               0          0                  0      0
+B            35              11         11                  3      3
+A            35              11         11                  3      3
+    mr_inference mr_draws mr_harm_confirmed t_confirm mr_in_replicates
+new            7        4                 1         0                0
+B              0        0                 0         0                0
+A              0        0                 0         0                0
+
+=============== HARM CONFIRMATION ===============
+-- new --
+                                                                                                           line
+ mr_harm_confirmed = TRUE (de-biased HR 1.449 vs gate 1.00); selection bias 0.5556 (log-HR). De-biased CI: infi
+ Gate harm flag = TRUE (de-biased HR 1.225 vs gate 1.00); selection bias 0.2632 (log-HR); candidate family = 1.
+ Gate harm flag = TRUE (de-biased HR 1.624 vs gate 1.00); selection bias 0.1771 (log-HR); candidate family = 1.
+-- B --
+                                                                                                           line
+                                           De-biased gate: HR = 1.449 (gate point 1.00) -> consistent with harm
+ harm_flag_debiased = TRUE (de-biased HR 1.449 vs gate 1.00); selection bias 0.5556 (log-HR). De-biased CI: inf
+ Gate harm flag = TRUE (de-biased HR 1.225 vs gate 1.00); selection bias 0.2632 (log-HR); candidate family = 1.
+ Gate harm flag = TRUE (de-biased HR 1.624 vs gate 1.00); selection bias 0.1771 (log-HR); candidate family = 1.
+-- A --
+                                                                                                           line
+                                           De-biased gate: HR = 1.449 (gate point 1.00) -> consistent with harm
+ harm_flag_debiased = TRUE (de-biased HR 1.449 vs gate 1.00); selection bias 0.5556 (log-HR). De-biased CI: inf
+ Gate harm flag = TRUE (de-biased HR 1.225 vs gate 1.00); selection bias 0.2632 (log-HR); candidate family = 1.
+ Gate harm flag = TRUE (de-biased HR 1.624 vs gate 1.00); selection bias 0.1771 (log-HR); candidate family = 1.
+
+saved: dev/replication-check/out/comparison_run2.rds 
