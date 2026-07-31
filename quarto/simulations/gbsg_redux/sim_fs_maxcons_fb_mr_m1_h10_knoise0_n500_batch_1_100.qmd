@@ -563,8 +563,14 @@ if (k_random_noise > 0) {
       he <- boot$H_estimates                     # H2 = León Eq.7 (both bias sources)
       # %||% guards a missing H2 column (get_dfRes omits H2 when the 2nd-order
       # bias adjustment is unavailable): a bare NULL assignment would DELETE the
-      # column from rec, and the short record is then silently dropped by the
-      # run-loop's rbind/.errorhandling = "remove" -> a hidden, non-random loss.
+      # column from rec, and the resulting short record ABORTS THE WHOLE BATCH.
+      # Not a silent drop -- rbind() on data.frames with differing columns
+      # errors ("numbers of columns of arguments do not match"), and neither
+      # run-loop path survives it: "boots" mode combines with
+      # do.call(rbind, lapply(...)), and in "sims" mode the failure is in
+      # foreach's .combine, which .errorhandling = "remove" does not cover
+      # (that only removes errors raised in the loop BODY).  One malformed
+      # replicate therefore loses the entire run, not one cell.
       rec$fb_H_est <- he$H2 %||% NA_real_
       rec$fb_H_lo  <- he$H2_lower %||% NA_real_
       rec$fb_H_hi  <- he$H2_upper %||% NA_real_

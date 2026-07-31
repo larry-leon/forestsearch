@@ -52,8 +52,10 @@ which is what the FB-vs-MR panels below check.
 **not** run inside bootstrap replicates or cross-validation folds. The argument
 `mr_in_replicates` defaults to `FALSE` in `forestsearch_bootstrap_dofuture()`,
 `forestsearch_Kfold()` and `forestsearch_tenfold()`, and each strips
-`mr_inference` from the replicate call unless it is set. This document never
-sets it, so every MR figure below comes from the single fit for that engine.
+`mr_inference` from the replicate call unless it is set. This document pins it
+to `FALSE` at every one of those call sites -- the package default, so the pin
+is a no-op that only makes the setting visible -- and never sets it to `TRUE`.
+Every MR figure below therefore comes from the single fit for that engine.
 
 Setting `mr_in_replicates = TRUE` restores the earlier behaviour, in which
 `mr_inference = TRUE` was inherited from the parent call into every replicate.
@@ -116,7 +118,10 @@ operations (bootstrap, cross-validation).
 #     workers are the only ones in play.  No nested parallelism to guard.
 # Every parallel block below is followed by plan("sequential").
 
-# Detect available cores (limited to 2 cores for CRAN checks)
+# Worker count for every parallel block below: 80% of PHYSICAL cores (at least
+# one).  This is a render-time setting, not the package default -- forestsearch's
+# own .default_parallel_workers() is what applies the CRAN 2-core cap under
+# R CMD check, and it is not in play here.
 n_cores_total <- parallel::detectCores()
 n_cores <- max(1L, floor(0.80 * parallel::detectCores(logical = FALSE)))
 cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing")
@@ -138,9 +143,11 @@ NB <- 1000
 #             loo-skipped-note chunk says so, and timings$oob stays NA.
 run_cv  <- FALSE    # K-Fold cross-validation (kfold-cv + diagnostics)
 run_loo <- FALSE    # Leave-one-out / N-fold OOB (oob-cv)
-# 10-fold CV with multiple iterations
+# K-fold CV with multiple iterations
 # Use Ksims >= 50 for production
-Ksims <- 50
+Ksims    <- 50
+Kfolds_cv <- 10     # folds per iteration; feeds BOTH the call and the narrative,
+                    # so the "Ksims x Kfolds" count in the prose cannot drift
 
 # Pre-seed CV/LOO timings so the Computational Timing table is well-formed
 # whether or not these run (skipped analyses report NA).
@@ -604,17 +611,12 @@ cross-validation/leave-one-out diagnostics, and the Kaplan–Meier band — runs
 the single fitted object and therefore inherits that engine automatically, so
 the entire analysis re-renders under a different method by changing one knob.
 The consistency search (the default below) performs an exhaustive search over
-candidate subgroup combinations with up to `maxk` factors; the parameters in the
-table apply to that engine. Key parameters:
+candidate subgroup combinations with up to `maxk` factors.
 
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| `hr.threshold` | 1.25 | Minimum HR for consistency evaluation |
-| `hr.consistency` | 1.0 | Minimum consistency rate for candidates |
-| `pconsistency.threshold` | 0.90 | Required consistency for selection |
-| `maxk` | 2 | Maximum factors in subgroup definition |
-| `n.min` | 60 | Minimum subgroup sample size |
-| `d0.min`, `d1.min` | 12 | Minimum events per treatment arm |
+The parameters this fit actually used are not restated here. They are rendered
+from `fit$args_call_all` by the provenance table immediately after the call
+(@sec-param-helper), so they cannot drift from the code that produced the
+results; the full reconciliation across all fits is in @sec-param-appendix.
 
 ::: {.callout-note}
 ## Selection criteria (`sg_focus`)
@@ -750,7 +752,16 @@ fs <- forestsearch(
   minp                      = 0.025,          # default 0.025
   # --- Consistency search -------------------------------------------------
   fs.splits                 = 1000,           # default 1000
-  stop_threshold            = 0.95,           # default = pconsistency.threshold (0.90 here), NOT 0.95
+  stop_threshold            = NULL,           # NULL is what this configuration RESOLVES to, not a
+                                              #   preference.  This call's sg_focus ("effMaxSG")
+                                              #   normalizes to "hrMaxSG", and forestsearch_main.R:1403
+                                              #   resets stop_threshold to NULL for that focus: a
+                                              #   neighborhood band needs every candidate evaluated,
+                                              #   so a truncated scan is unsound.  Any non-NULL value
+                                              #   reaches the same NULL but warns on every render;
+                                              #   passing NULL skips the reset branch outright (its
+                                              #   guard is !is.null(stop_threshold)).  Named here so
+                                              #   the resolved setting stays inspectable.
   use_twostage              = TRUE,           # default TRUE
   twostage_args             = list(),         # default list()
   max.minutes               = 3,              # default 3
@@ -777,6 +788,13 @@ timings$forestsearch <- (proc.time() - t0)["elapsed"]
 # chunks).  Assert only that the fit returned and captured its arguments, which
 # every downstream provenance table depends on.
 stopifnot(!is.null(fs), !is.null(fs$args_call_all))
+
+# Guard for the GRF-dependent diagnostics below, read from the FIT rather than
+# from the call, so it tracks whatever the fit actually resolved to.  With
+# use_grf = FALSE no GRF cut is ever produced, and the bootstrap GRF-cut
+# stability table would render a single "(no GRF cut) -- 100%" row presented as
+# a result.
+fs_used_grf <- isTRUE(fs$args_call_all$use_grf)
 
 cat("\nForestSearch completed in",
     round(timings$forestsearch, 1), "seconds\n")
@@ -1055,8 +1073,9 @@ cat("_No harm subgroup was selected, so the MR comparison does not apply._\n")
 ```
 
 The same bias-corrected estimates table, rebuilt from the MR object. The
-descriptive columns and naive effect are tier-independent (inherited from the
-bootstrap result used as a template); the bias-corrected column carries MR's
+descriptive columns and naive effect are the same under either correction
+(inherited from the bootstrap result used as a template); the bias-corrected
+column carries MR's
 de-biased estimate for **both** the selected subgroup and its complement.
 
 ```{r debias-MR-table, eval = !is.null(fs$sg.harm) && !is.null(fs$mr_inference)}
@@ -1123,19 +1142,32 @@ if (!is.null(summaries$subgroup_summary$factor_presence)) {
 
 ### GRF-Cut Stability Across Bootstraps
 
-Separately from whether bootstrap identifies the *same subgroup*, we can
-ask what raw cut GRF itself surfaced on each resample, independent of
-whether the downstream consistency stage accepted it.  A dominant row
-here paired with a low `(no GRF cut)` rate indicates that GRF's
-upstream discovery is stable across resamples; a frequent
-`(no GRF cut)` row indicates GRF itself is the source of
-variability.  This distinction matters because the two failure modes
-call for different tuning responses — relaxing `dmin.grf` /
-`frac.tau` (for "GRF produced no cut") vs. relaxing
-`pconsistency.threshold` (for "GRF produced a cut that consistency
-rejected").
+```{r grf-cuts-skipped-note, eval = !fs_used_grf}
+#| echo: false
+#| results: asis
+cat("_The main fit ran with `use_grf = FALSE`, so GRF contributed no candidate",
+    "cuts and there is no GRF-cut stability to report. This block renders when",
+    "the fit is built with `use_grf = TRUE`._\n")
+```
 
-```{r bootstrap-grf-cuts}
+```{r grf-cuts-note, eval = fs_used_grf}
+#| echo: false
+#| results: asis
+cat(paste(
+  "Separately from whether bootstrap identifies the *same subgroup*, we can",
+  "ask what raw cut GRF itself surfaced on each resample, independent of",
+  "whether the downstream consistency stage accepted it.  A dominant row",
+  "here paired with a low `(no GRF cut)` rate indicates that GRF's",
+  "upstream discovery is stable across resamples; a frequent",
+  "`(no GRF cut)` row indicates GRF itself is the source of",
+  "variability.  This distinction matters because the two failure modes",
+  "call for different tuning responses -- relaxing `dmin.grf` /",
+  "`frac.tau` (for \"GRF produced no cut\") vs. relaxing",
+  "`pconsistency.threshold` (for \"GRF produced a cut that consistency",
+  "rejected\")."), "\n")
+```
+
+```{r bootstrap-grf-cuts, eval = fs_used_grf}
 if (!is.null(summaries$subgroup_summary$grf_cut_freq)) {
   summaries$subgroup_summary$grf_cut_freq |>
     utils::head(10) |>
@@ -1173,8 +1205,12 @@ DINA (Doubly-robust Identification of Non-Additive effects) screens and
 selects subgroups from an influence-function representation of the
 covariate-specific treatment effect, fit with cross-fitting. It plugs into
 the ForestSearch workflow in three complementary ways, all configured to
-mirror the main Cox analysis above (same confounders, harm threshold
-`hr.threshold = 1.25`, minimum size `n.min = 60`, and `sg_focus`):
+mirror the main Cox analysis above: same confounders, same minimum size
+(`n.min = 60`), same `sg_focus`. The harm threshold is the one thing they do
+*not* inherit from the main fit -- each track sets its own in the setup chunk
+(`dina_screen_hr_threshold` for (A), `fs_dina_hr_threshold` for (B) and (C)),
+because DINA's model-based effect is attenuated relative to the raw Cox HR. The
+resolved values are in the per-fit provenance tables below.
 
 * **(A)** ForestSearch *using DINA for screening* -- DINA's per-covariate
   frontier contributes candidate cuts to the screening pool; the consistency
@@ -1283,7 +1319,16 @@ fs_dina_screen <- forestsearch(
   minp                      = 0.025,          # default 0.025
   # --- Consistency search -------------------------------------------------
   fs.splits                 = 1000,           # default 1000
-  stop_threshold            = 0.95,           # default = pconsistency.threshold (0.90 here), NOT 0.95
+  stop_threshold            = NULL,           # NULL is what this configuration RESOLVES to, not a
+                                              #   preference.  This call's sg_focus ("effMaxSG")
+                                              #   normalizes to "hrMaxSG", and forestsearch_main.R:1403
+                                              #   resets stop_threshold to NULL for that focus: a
+                                              #   neighborhood band needs every candidate evaluated,
+                                              #   so a truncated scan is unsound.  Any non-NULL value
+                                              #   reaches the same NULL but warns on every render;
+                                              #   passing NULL skips the reset branch outright (its
+                                              #   guard is !is.null(stop_threshold)).  Named here so
+                                              #   the resolved setting stays inspectable.
   use_twostage              = TRUE,           # default TRUE
   twostage_args             = list(),         # default list()
   max.minutes               = 3,              # default 3
@@ -1347,8 +1392,9 @@ pareto_frontier_table(fs_dina_screen)
 The same DINA fit, run outside ForestSearch. Its `dina_frontier()` output is
 the candidate set fed into screening in (A); its `dina_subgroup()` output is
 the single subgroup selected by DINA itself -- the mechanism (C) uses
-internally. Parameters are analogous to (A): same confounders, harm floor
-`m_diff = log(1.25)`, `n_min = 60`, and `sg_focus`.
+internally. Parameters are analogous to (A): same confounders, `n_min = 60`,
+and `sg_focus`, with the harm floor `m_diff = log(fs_dina_hr_threshold)` set in
+the dina-config chunk below (so (B) and (C) share one floor by construction).
 
 ```{r dina-standalone-fit}
 t0 <- proc.time()
@@ -1517,11 +1563,14 @@ correction reflects the DINA selection process itself.
 # identified subgroup's effect, so there is nothing to do otherwise.
 t0 <- proc.time()
 
-# Diagnostic run: sequential plan + details = TRUE so per-iteration output is
-# visible and errors surface in order (helpful while validating DINA-mode
-# bootstrap). Switch plan back to "multisession" for production speed.
+# details = TRUE keeps per-iteration output visible while validating DINA-mode
+# bootstrap.  The plan is "multisession" (production speed); switch it to
+# "sequential" if errors need to surface in loop order.
 
 fs_dina_bc <- forestsearch_bootstrap_dofuture(
+  # Pinned to the package default, as at the main bootstrap above -- see the
+  # comment there for why this is a no-op.
+  mr_in_replicates = FALSE,
   fs.est = fs_dina,
   nb_boots = NB,
   show_three = FALSE,
@@ -1569,7 +1618,7 @@ DINA-selection fit. The MR de-biases against DINA's **own** qualifying
 candidate family (re-running nothing), while the bootstrap above re-runs DINA on
 every resample.
 
-For DINA the two tiers are **not** expected to agree as tightly as for the
+For DINA, FB and MR are **not** expected to agree as tightly as for the
 consistency method. DINA selects on its survival-forest **tau-hat**, but MR's de-biasing is
 computed on the perturbed **Cox** effect; over a large depth-2 candidate family
 the winner's-curse term can therefore exceed the bootstrap's and over-correct
@@ -1579,8 +1628,8 @@ candidates competitive on DINA's native tau-hat, matching the band to
 `effect_neighborhood` (the recommended default, used here via
 `fs_dina_family_native_nbhd <- NULL`; set an explicit number for a different band,
 or `>= 1` to de-bias against the full unrestricted family). The complement is the
-induced residual rather than a max-over-family selection, so it agrees across
-tiers regardless. This band tunes only the *candidate-competition* part of the
+induced residual rather than a max-over-family selection, so FB and MR agree on
+it regardless. This band tunes only the *candidate-competition* part of the
 bias -- MR holds the survival forest fixed, so the forest-refit optimism is
 invisible to it; treat the full bootstrap as the reference for DINA and MR
 as a fast, conservative check.
@@ -1643,8 +1692,9 @@ if (is.null(g)) {
 ```
 
 The FB bias-corrected table above, rebuilt from the MR object (the
-descriptive columns and naive effect are tier-independent; the bias-corrected
-column carries MR's de-biased estimate for the subgroup and its complement).
+descriptive columns and naive effect are the same under either correction; the
+bias-corrected column carries MR's de-biased estimate for the subgroup and its
+complement).
 
 ```{r fs-dina-debias-MR-table, eval = !is.null(fs_dina$sg.harm) && !is.null(fs_dina$mr_inference)}
 mr_estimates_table(fs_dina, boot_results = fs_dina_bc, est.scale = "hr", digits = 2)
@@ -1753,6 +1803,9 @@ the correction reflects the GRF selection process itself.
 t0 <- proc.time()
 
 fs_grf_bc <- forestsearch_bootstrap_dofuture(
+  # Pinned to the package default, as at the main bootstrap above -- see the
+  # comment there for why this is a no-op.
+  mr_in_replicates = FALSE,
   fs.est = fs_grf,
   nb_boots = NB,
   show_three = FALSE,
@@ -1798,7 +1851,7 @@ GRF-selection fit. The MR de-biases against GRF's **own** DR-score candidate
 family (re-running nothing), while the bootstrap above re-runs GRF on every
 resample.
 
-As with DINA, the two tiers are **not** expected to agree as tightly as for the
+As with DINA, FB and MR are **not** expected to agree as tightly as for the
 consistency method. GRF selects on its **doubly-robust (RMST-based) score**, but
 MR's de-biasing is computed on the perturbed **Cox** effect; the additive RMST
 scale and the multiplicative hazard scale need not rank candidates the same way,
@@ -1808,7 +1861,7 @@ GRF's own selection band, MR by default restricts its family to candidates compe
 the band to `effect_neighborhood` (the recommended default, used here via
 `fs_grf_family_native_nbhd <- NULL`; set an explicit number for a different band,
 or `>= 1` to de-bias against the full family). The complement is the induced
-residual rather than a max-over-family selection, so it agrees across tiers
+residual rather than a max-over-family selection, so FB and MR agree on it
 regardless. Two caveats specific to GRF: a *dominant* DR-score winner can collapse
 the restricted family to a single candidate (`candidate family = 1` in the note
 below), in which case MR removes only MR-threshold optimism; and,
@@ -1875,8 +1928,9 @@ if (is.null(g)) {
 ```
 
 The FB bias-corrected table above, rebuilt from the MR object (the
-descriptive columns and naive effect are tier-independent; the bias-corrected
-column carries MR's de-biased estimate for the subgroup and its complement).
+descriptive columns and naive effect are the same under either correction; the
+bias-corrected column carries MR's de-biased estimate for the subgroup and its
+complement).
 
 ```{r fs-grf-debias-MR-table, eval = !is.null(fs_grf$sg.harm) && !is.null(fs_grf$mr_inference)}
 mr_estimates_table(fs_grf, boot_results = fs_grf_bc, est.scale = "hr", digits = 2)
@@ -1922,7 +1976,7 @@ fs_kfold <- forestsearch_tenfold(
   mr_in_replicates = FALSE,
   fs.est = fs,
   sims = Ksims,
-  Kfolds = 10,
+  Kfolds = Kfolds_cv,
   details = FALSE,
   parallel_args = list(
     plan = "multisession",
@@ -1937,14 +1991,18 @@ metrics_tables <- cv_metrics_tables(fs_kfold)
 metrics_tables
 ```
 
-### Diagnostic Tabulations
-
-`summarize_cv_results()` consolidates the per-fold record into a panel
-of diagnostic tables that together answer the core questions an
-analyst asks of a repeated K-fold run: which subgroups did the
-pipeline identify across resamples, which GRF cuts drove those
-identifications, when identification failed what was the proximate
-cause, and how confidently were the successful identifications made.
+```{r cv-diag-heading, eval = run_cv}
+#| echo: false
+#| results: asis
+cat("### Diagnostic Tabulations\n\n")
+cat(paste(
+  "`summarize_cv_results()` consolidates the per-fold record into a panel",
+  "of diagnostic tables that together answer the core questions an",
+  "analyst asks of a repeated K-fold run: which subgroups did the",
+  "pipeline identify across resamples, which GRF cuts drove those",
+  "identifications, when identification failed what was the proximate",
+  "cause, and how confidently were the successful identifications made."), "\n\n")
+```
 
 ```{r cv-diagnostics-run, eval = run_cv}
 cv_diag <- summarize_cv_results(
@@ -1955,67 +2013,99 @@ cv_diag <- summarize_cv_results(
 )
 ```
 
-**Which subgroups emerged across resamples?**  The identification
-summary shows the distribution of selected subgroups across all
-`r paste0(Ksims, " × 10 = ", Ksims * 10)` sim × fold pairs.  A
-single dominant subgroup with high share indicates the pipeline
-converges on a stable selection; a long tail suggests selection is
-sensitive to the particular training split.
+```{r cv-identification-note, eval = run_cv}
+#| echo: false
+#| results: asis
+cat(sprintf(paste(
+  "**Which subgroups emerged across resamples?**  The identification",
+  "summary shows the distribution of selected subgroups across all",
+  "%d x %d = %d sim x fold pairs.  A",
+  "single dominant subgroup with high share indicates the pipeline",
+  "converges on a stable selection; a long tail suggests selection is",
+  "sensitive to the particular training split.\n\n"),
+  Ksims, Kfolds_cv, Ksims * Kfolds_cv))
+```
 
 ```{r cv-identification, eval = run_cv}
 cv_diag$identification_summary
 ```
 
-**Which GRF cuts drove those selections?**  The GRF cut summary
-tabulates the raw policy-tree output on each training fold,
-independent of whether the downstream consistency stage accepted
-it.  Comparison against the identification summary reveals whether
-GRF's upstream discovery is stable (a dominant cut shared across
-folds) or noisy (a long tail of one-off cuts).
+```{r cv-grf-cut-note, eval = run_cv}
+#| echo: false
+#| results: asis
+cat(paste(
+  "**Which GRF cuts drove those selections?**  The GRF cut summary",
+  "tabulates the raw policy-tree output on each training fold,",
+  "independent of whether the downstream consistency stage accepted",
+  "it.  Comparison against the identification summary reveals whether",
+  "GRF's upstream discovery is stable (a dominant cut shared across",
+  "folds) or noisy (a long tail of one-off cuts)."), "\n\n")
+```
 
 ```{r cv-grf-cut, eval = run_cv}
 cv_diag$grf_cut_summary
 ```
 
-**When a fold failed to identify a subgroup, why?**  The no-subgroup
-decomposition splits the non-identifying folds into two actionable
-buckets: *GRF returned no cut* (nothing for consistency to evaluate,
-typically pointing at `dmin.grf` or `frac.tau` thresholds) versus
-*GRF returned a cut but consistency rejected it* (candidates existed
-but none met `pconsistency.threshold`).  The former argues for
-relaxing the GRF upstream; the latter for relaxing the consistency
-threshold or reviewing candidate quality.
+```{r cv-no-subgroup-note, eval = run_cv}
+#| echo: false
+#| results: asis
+cat(paste(
+  "**When a fold failed to identify a subgroup, why?**  The no-subgroup",
+  "decomposition splits the non-identifying folds into two actionable",
+  "buckets: *GRF returned no cut* (nothing for consistency to evaluate,",
+  "typically pointing at `dmin.grf` or `frac.tau` thresholds) versus",
+  "*GRF returned a cut but consistency rejected it* (candidates existed",
+  "but none met `pconsistency.threshold`).  The former argues for",
+  "relaxing the GRF upstream; the latter for relaxing the consistency",
+  "threshold or reviewing candidate quality."), "\n\n")
+```
 
 ```{r cv-no-subgroup, eval = run_cv}
 cv_diag$no_subgroup_decomposition
 ```
 
-**How confidently were the successful identifications made?**  Among
-folds that *did* identify a subgroup, the `pconsistency_distribution`
-shows where the selected candidate's consistency probability
-(`Pcons`) landed relative to the 0.90 threshold.  Identifications in
-the `[0.85, 0.95)` bin are marginal; those concentrated at or near
-1.0 are robust.
+```{r cv-pcons-note, eval = run_cv}
+#| echo: false
+#| results: asis
+cat(sprintf(paste(
+  "**How confidently were the successful identifications made?**  Among",
+  "folds that *did* identify a subgroup, the `pconsistency_distribution`",
+  "shows where the selected candidate's consistency probability",
+  "(`Pcons`) landed relative to the %s threshold.  Identifications in",
+  "the `[0.85, 0.95)` bin are marginal; those concentrated at or near",
+  "1.0 are robust.\n\n"),
+  sprintf("%.2f", fs$args_call_all$pconsistency.threshold)))
+```
 
 ```{r cv-pcons, eval = run_cv}
 cv_diag$pconsistency_distribution
 ```
 
-**How do all the numeric fold-level diagnostics summarize together?**
-The `fold_numeric_summary` tabulates median / IQR / range for each
-numeric column in the per-fold record: fold size (`n_test`),
-consistency probability (`pconsistency`), training-fold HR of the
-selected subgroup (`training_fs_hr`, optimistically biased — for
-diagnostic comparison only), and candidate count
-(`n_candidates_evaluated`).
+```{r cv-fold-numeric-note, eval = run_cv}
+#| echo: false
+#| results: asis
+cat(paste(
+  "**How do all the numeric fold-level diagnostics summarize together?**",
+  "The `fold_numeric_summary` tabulates median / IQR / range for each",
+  "numeric column in the per-fold record: fold size (`n_test`),",
+  "consistency probability (`pconsistency`), training-fold HR of the",
+  "selected subgroup (`training_fs_hr`, optimistically biased -- for",
+  "diagnostic comparison only), and candidate count",
+  "(`n_candidates_evaluated`)."), "\n\n")
+```
 
 ```{r cv-fold-numeric, eval = run_cv}
 cv_diag$fold_numeric_summary
 ```
 
-**Agreement with the full-data analysis.**  How often does a training
-fold reproduce the original full-data subgroup exactly, share a
-factor with it, or match its GRF cut?
+```{r cv-original-agreement-note, eval = run_cv}
+#| echo: false
+#| results: asis
+cat(paste(
+  "**Agreement with the full-data analysis.**  How often does a training",
+  "fold reproduce the original full-data subgroup exactly, share a",
+  "factor with it, or match its GRF cut?"), "\n\n")
+```
 
 ```{r cv-original-agreement, eval = run_cv}
 cv_diag$original_agreement
@@ -2024,7 +2114,11 @@ cv_diag$original_agreement
 
 ## Out-of-Bag (N-Fold) Cross-Validation
 
-N-fold CV (leave-one-out):
+```{r loo-note, eval = run_loo}
+#| echo: false
+#| results: asis
+cat("N-fold CV (leave-one-out):\n\n")
+```
 
 ```{r loo-skipped-note, eval = !run_loo}
 cat("Leave-one-out (N-fold / OOB) skipped (run_loo = FALSE). Set run_loo <- TRUE",
@@ -2217,25 +2311,50 @@ patients may not benefit is consistent with:
 ```{r timing-summary}
 timings$total <- (proc.time() - t_vignette_start)["elapsed"]
 
-timing_df <- data.frame(
-  Analysis = c("GRF", "ForestSearch", "Bootstrap",
-               "FS (DINA screening)", "DINA (standalone)",
-               "FS (subgroup_method=dina)", "FS DINA bootstrap",
-               "kfold", "oob", "Total"),
-  Seconds = c(
-    timings$grf,
-    timings$forestsearch,
-    timings$bootstrap,
-    timings$fs_dina_screen,
-    timings$dina_standalone,
-    timings$fs_dina_select,
-    timings$fs_dina_bootstrap,
-    timings$kfold,
-    timings$oob,
-    timings$total
-  )
+# The rows are DRIVEN BY names(timings), not typed out.  A hand-written row list
+# is how the (D) GRF fit and its bootstrap went missing from this table while
+# still counting toward Total.  This map supplies readable labels and the
+# display order; anything timed above but not labelled here STOPS the render
+# rather than being silently dropped.
+.timing_labels <- c(
+  grf               = "GRF (preliminary)",
+  forestsearch      = "ForestSearch (main fit)",
+  bootstrap         = "FB bootstrap (main)",
+  fs_dina_screen    = "FS (DINA screening)",
+  dina_standalone   = "DINA (standalone)",
+  fs_dina_select    = "FS (subgroup_method=dina)",
+  fs_dina_bootstrap = "FB bootstrap (DINA)",
+  fs_grf_select     = "FS (subgroup_method=grf)",
+  fs_grf_bootstrap  = "FB bootstrap (GRF)",
+  kfold             = "K-fold CV",
+  oob               = "Leave-one-out CV",
+  total             = "Total"
 )
+
+.unlabelled <- setdiff(names(timings), names(.timing_labels))
+if (length(.unlabelled))
+  stop("Computational Timing: no label for timings$",
+       paste(.unlabelled, collapse = ", timings$"),
+       " -- add it to .timing_labels in the timing-summary chunk.")
+
+# Display order follows the map; Total last.  Skipped analyses (run_cv /
+# run_loo FALSE) are pre-seeded NA and still get a row, so the reader sees
+# that they were skipped rather than that they were forgotten.
+.ord <- intersect(names(.timing_labels), names(timings))
+.ord <- c(setdiff(.ord, "total"), intersect("total", .ord))
+
+timing_df <- data.frame(
+  Analysis  = unname(.timing_labels[.ord]),
+  Seconds   = vapply(.ord, function(k) as.numeric(timings[[k]]), numeric(1)),
+  row.names = NULL, stringsAsFactors = FALSE)
 timing_df$Minutes <- timing_df$Seconds / 60
+
+# Reconciliation: Total is the whole-document wall clock, so it legitimately
+# exceeds the sum of the timed blocks (data prep, tables, figures, rendering are
+# not timed).  Stating the residual makes an unexplained gap visible.
+.parts_s <- sum(timing_df$Seconds[.ord != "total"], na.rm = TRUE)
+.total_s <- as.numeric(timings$total)
+.resid_s <- .total_s - .parts_s
 
 gt(timing_df) |>
   tab_header(title = "Computational Timing") |>
@@ -2244,7 +2363,13 @@ gt(timing_df) |>
     Analysis = "Component",
     Seconds = "Time (sec)",
     Minutes = "Time (min)"
-  )
+  ) |>
+  tab_footnote(footnote = md(sprintf(
+    paste("Rows are generated from `names(timings)`; a timed component with no",
+          "label stops the render. Timed blocks account for %.1f s of the %.1f s",
+          "total, leaving %.1f s (%.0f%%) in untimed work (data prep, tables,",
+          "figures, document rendering). `NA` marks an analysis a toggle skipped."),
+    .parts_s, .total_s, .resid_s, 100 * .resid_s / .total_s)))
 ```
 
 
