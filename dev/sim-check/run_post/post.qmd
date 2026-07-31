@@ -95,7 +95,7 @@ source("betaHhat_truth.R")
 parallel_mode <- "boots"
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 50L      # simulated trials                (prod: 1000 -> 20000)
+n_sims       <- 5L      # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
@@ -152,17 +152,7 @@ method_tag   <- if (identical(subgroup_method, "consistency")) "fs" else subgrou
 # Aliases normalize FORWARD to the descriptive name rather than back through
 # .normalize_sg_focus(), which maps eff -> "hr": the Cox-flavoured internal
 # vocabulary.  "eff*" generalizes across GLM outcomes, "hr" does not.
-# Fold every alias pair onto one tag.  .normalize_sg_focus() collapses three
-# pairs -- eff/hr, effMaxSG/hrMaxSG, effMinSG/hrMinSG -- so each pair is one
-# rule under two spellings.  Without folding, identical runs written under
-# different spellings land in different stems and never pool.  The eff*
-# spelling wins because it carries over to GLM outcomes; the consistency
-# argmax takes "maxcons", which names what the rule does.
-focus_tag    <- switch(sg_focus,
-                       eff      = , hr      = , maxcons = "maxcons",
-                       effMaxSG = , hrMaxSG = "effMaxSG",
-                       effMinSG = , hrMinSG = "effMinSG",
-                       sg_focus)
+focus_tag    <- switch(sg_focus, eff = "maxcons", sg_focus)
 
 rds_stem     <- sprintf("%s_%s_fb_mr_m1_h%02d_knoise%d_n%d",
                         method_tag, focus_tag, round(10 * target_hr_harm),
@@ -234,12 +224,6 @@ selection_rule     <- "neighborhood"  # effMaxSG/effMinSG band rule.  INERT unde
                                       # consistency-primary with no band term.
                                       # Retained unchanged so the effMaxSG/effMinSG
                                       # arms can use it.
-stop_threshold     <- NULL            # early stopping.  NULL is what this config
-                                      # already resolves to: forestsearch() resets
-                                      # it for the canonical "hr" family, which
-                                      # "maxcons" normalizes to, and does so WITHOUT
-                                      # warning unless supplied explicitly.  Named
-                                      # here so the setting is inspectable.
 effect_neighborhood <- 0.10           # package default; band half-width for
                                       # effMaxSG/effMinSG.  Pinned rather than
                                       # inherited so the value is visible; inert
@@ -462,7 +446,14 @@ if (k_random_noise > 0) {
     pconsistency.threshold = pconsistency, n.min = n_min,
     selection_rule  = selection_rule,   # governs *MaxSG/*MinSG band (search, and MR's de-biasing family)
     effect_neighborhood = effect_neighborhood,  # band width; inert unless the focus is effMaxSG/effMinSG
-    stop_threshold  = stop_threshold,   # see @sec-setup; NULL, i.e. no early stopping
+    # stop_threshold pinned to NULL, which is what this configuration already
+    # resolves to and therefore a no-op.  Left implicit it is invisible: the
+    # default is pconsistency.threshold (0.90 here), and forestsearch() resets it
+    # to NULL for the canonical "hr" family -- which "maxcons" normalizes to --
+    # WITHOUT warning, because the reset only warns when the value was supplied
+    # explicitly.  Early stopping is therefore off, and stating it here is the
+    # difference between that being a decision and an accident.
+    stop_threshold  = NULL,
     parallel_args   = inner_parallel,              # parallel_mode: sims->sequential, boots->multisession
     mr_inference     = TRUE,
     mr_inference_args = list(ci_method = "ij", draws = mr_draws,
@@ -548,13 +539,11 @@ if (k_random_noise > 0) {
       forestsearch_bootstrap_dofuture(
         fs.est, nb_boots = nb_boots, seed = seed_base + sim_id,
         parallel_args = inner_parallel,
-        # Pinned to the package default, purely so the setting is visible.
-        # It is a no-op: FALSE is the formal default
-        # (bootstrap_dofuture_main.R:193) and bootstrap_analysis_dofuture.R:597
-        # strips mr_inference from the replicate call regardless, so the
-        # un-pinned call already took this path.  Setting TRUE would run MR
-        # inside every replicate and attach an mr_replicates payload that
-        # nothing here consumes.
+        # Pinned to the package default.  fs.est is fitted with
+        # mr_inference = TRUE, and the replicate call is a copy of that fit's
+        # argument list, so without this the flag would be inherited and MR
+        # would run inside all nb_boots replicates of every sim.  Nothing
+        # downstream consumes a per-replicate MR object.  No-op as written.
         mr_in_replicates = FALSE),
       error = function(e) { fb_err <<- conditionMessage(e); NULL })
     rec$fb_secs <- proc.time()[3] - fb_t0
@@ -639,7 +628,7 @@ if (run_smoke && identical(run_mode, "batch")) {
               sum(results$detected, na.rm = TRUE), length(sim_ids), elapsed,
               elapsed / max(1L, length(sim_ids))))
   if (run_fb) {
-    cat(sprintf("Mean wall-clock: fit+MR %.3f s vs FB bootstrap %.2f s (B=%d).\n",
+    cat(sprintf("Mean wall-clock: MR %.3f s vs FB bootstrap %.2f s (B=%d).\n",
                 mean(results$fit_mr_secs, na.rm = TRUE),
                 mean(results$fb_secs, na.rm = TRUE), nb_boots))
 
@@ -654,7 +643,7 @@ if (run_smoke && identical(run_mode, "batch")) {
         cat("Distinct FB error(s):\n", paste0("  - ", errs, collapse = "\n"), "\n", sep = "")
     }
   } else {
-    cat(sprintf("Mean wall-clock: fit+MR %.3f s  (FB skipped: nb_boots = %s).\n",
+    cat(sprintf("Mean wall-clock: MR %.3f s  (FB skipped: nb_boots = %s).\n",
                 mean(results$fit_mr_secs, na.rm = TRUE),
                 if (is.null(nb_boots)) "NULL" else as.character(nb_boots)))
   }
@@ -668,29 +657,7 @@ if (run_smoke && identical(run_mode, "batch")) {
                              nb_boots = nb_boots, mr_draws = mr_draws,
                              subgroup_method = subgroup_method,
                              sim_id_start = sim_id_start, sim_id_end = sim_id_end,
-                             seed_base = seed_base, parallel_mode = parallel_mode,
-                             # --- provenance, RECORD ONLY -------------------
-                             # Deliberately NOT added to the agreement-check key
-                             # vector in combine mode: a missing field resolves
-                             # to NA there and NA counts as a distinct value, so
-                             # every batch written before this change would
-                             # stop() the pool.  These exist so a bundle can be
-                             # identified after the fact -- which identifier,
-                             # which build, how many workers -- not to gate
-                             # anything.
-                             sg_focus            = sg_focus,
-                             focus_tag           = focus_tag,
-                             consistency_method  = consistency_method,
-                             stop_threshold      = paste(deparse(stop_threshold),
-                                                         collapse = " "),
-                             selection_rule      = selection_rule,
-                             effect_neighborhood = effect_neighborhood,
-                             forestsearch_version =
-                               as.character(utils::packageVersion("forestsearch")),
-                             n_workers           = n_workers,
-                             r_version           = as.character(getRversion()),
-                             hostname            = unname(Sys.info()[["nodename"]]),
-                             built_at            = Sys.time())),
+                             seed_base = seed_base, parallel_mode = parallel_mode)),
             rds_path)
     cat(sprintf("Saved batch bundle (%d rows, sim_id %d-%d) to %s\n",
                 nrow(results), sim_id_start, sim_id_end, rds_path))
@@ -763,18 +730,7 @@ if (run_smoke && identical(run_mode, "batch")) {
                              sim_id_start = rng[1], sim_id_end = rng[2],
                              seed_base = bundles[[1]]$meta$seed_base %||% NA_integer_,
                              n_batches = length(files),
-                             source_files = basename(files),
-                             # Provenance carried from the first pooled bundle,
-                             # as seed_base already is.  NA for batches written
-                             # before provenance was recorded.
-                             sg_focus   = bundles[[1]]$meta$sg_focus %||% NA_character_,
-                             focus_tag  = bundles[[1]]$meta$focus_tag %||% NA_character_,
-                             consistency_method =
-                               bundles[[1]]$meta$consistency_method %||% NA_character_,
-                             stop_threshold =
-                               bundles[[1]]$meta$stop_threshold %||% NA_character_,
-                             forestsearch_version =
-                               bundles[[1]]$meta$forestsearch_version %||% NA_character_)),
+                             source_files = basename(files))),
             cpath)
     cat(sprintf("Saved pooled bundle (%d rows, sim_id %d-%d, %d batches) to %s\n",
                 nrow(results), rng[1], rng[2], length(files), cpath))
@@ -795,9 +751,6 @@ projections.
 
 ```{r timing-projection}
 if (run_smoke && !is.null(results)) {
-  # NB: the whole forestsearch() call -- the search PLUS MR -- which is the
-  # cost FB is then measured on top of.  MR's own cost alone is in
-  # fs.est$mr_inference$timing_seconds.
   mr_mean  <- mean(results$fit_mr_secs, na.rm = TRUE)          # forestsearch fit + MR, per rep
   det_rate <- mean(results$detected, na.rm = TRUE)
   # FB timing only when FB actually ran; nb_boots may be 0L or NULL.
@@ -866,11 +819,11 @@ if (run_smoke && !is.null(results)) {
     sprintf("%d reps pooled from batch files (no single wall-clock)", n_sims)
   if (run_fb) {
     cat(sprintf(
-      "Current run: %s. Per rep: fit+MR %.1f s, FB %.0f s (B=%d, ~%.1f s/bootstrap). Detection %.0f%%.\n",
+      "Current run: %s. Per rep: MR %.1f s, FB %.0f s (B=%d, ~%.1f s/bootstrap). Detection %.0f%%.\n",
       run_label, mr_mean, fb_mean, boots_disp, per_boot, 100 * det_rate))
   } else {
     cat(sprintf(
-      "Current run: %s. Per rep: fit+MR %.1f s (FB skipped). Detection %.0f%%.\n",
+      "Current run: %s. Per rep: MR %.1f s (FB skipped). Detection %.0f%%.\n",
       run_label, mr_mean, 100 * det_rate))
   }
   if (is.finite(k_cal))
@@ -881,7 +834,7 @@ if (run_smoke && !is.null(results)) {
                subtitle = sprintf("%s mode \u00b7 %d workers \u00b7 detection %.0f%%%s",
                                   parallel_mode, n_workers, 100 * det_rate,
                                   if (is.finite(k_cal)) sprintf(" \u00b7 k = %.2f", k_cal) else "")) |>
-    cols_label(n_sims = "sims", B = "boots", mr_rep_s = "fit+MR/rep (s)",
+    cols_label(n_sims = "sims", B = "boots", mr_rep_s = "MR/rep (s)",
                fb_rep_s = "FB/rep (s)", cpu_hours = "CPU-hours",
                wall_actual = "wall (actual)",
                wall_model = "wall (modeled)", wall_cal = "wall (calibrated)") |>
@@ -893,9 +846,9 @@ if (run_smoke && !is.null(results)) {
       else
         "`wall (modeled)` = ceil(sims / workers) \u00d7 per-rep cost (replicates parallel, bootstrap sequential), where per-rep cost =",
       if (run_fb)
-        "fit+MR/rep + detection \u00d7 FB/rep (FB/rep = per-bootstrap cost \u00d7 boots);"
+        "MR/rep + detection \u00d7 FB/rep (FB/rep = per-bootstrap cost \u00d7 boots);"
       else
-        "fit+MR/rep (FB skipped);",
+        "MR/rep (FB skipped);",
       "It omits load imbalance and fixed overhead.",
       "`wall (calibrated)` = k \u00d7 modeled, with k = measured wall / modeled wall on THIS run,",
       "so the current row reproduces the measured wall and projections carry this run's realized overhead.",

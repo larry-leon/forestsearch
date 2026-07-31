@@ -1,0 +1,107 @@
+
+Attaching package: ‘data.table’
+
+The following object is masked from ‘package:base’:
+
+    %notin%
+
+Loading required package: future
+
+Attaching package: ‘future’
+
+The following object is masked from ‘package:survival’:
+
+    cluster
+
+### STRUCTURAL CHECK 1/2 -- setup chunk symbols resolve
+  rds_stem     = fs_maxcons_fb_mr_m1_h10_knoise0_n500
+  rds_path     = fs_maxcons_fb_mr_m1_h10_knoise0_n500_res_1_5.rds
+  combine_glob = fs_maxcons_fb_mr_m1_h10_knoise0_n500_res_*.rds
+  n_workers    = 115
+
+Warning messages:
+1: In coxph.fit(X, Y, istrat, offset, init, control, weights = weights,  :
+  Loglik converged before variable  1 ; coefficient may be infinite. 
+2: In coxph.fit(X, Y, istrat, offset, init, control, weights = weights,  :
+  Loglik converged before variable  1 ; coefficient may be infinite. 
+3: In coxph.fit(X, Y, istrat, offset, init, control, weights = weights,  :
+  Loglik converged before variable  1 ; coefficient may be infinite. 
+4: In coxph.fit(X, Y, istrat, offset, init, control, weights = weights,  :
+  Loglik converged before variable  1 ; coefficient may be infinite. 
+5: In coxph.fit(X, Y, istrat, offset, init, control, weights = weights,  :
+  Loglik converged before variable  1 ; coefficient may be infinite. 
+6: In coxph.fit(X, Y, istrat, offset, init, control, weights = weights,  :
+  Loglik converged before variable  1 ; coefficient may be infinite. 
+### SECTION 2 -- resolved parameters (post-edit call, stop_threshold = NULL pinned)
+  sg_focus               = "hr"
+  subgroup_method        = "consistency"
+  consistency_method     = "resample"
+  stop_threshold         = NULL
+  selection_rule         = "neighborhood"
+  effect_neighborhood    = 0.1
+  mr_inference           = TRUE
+  stop_threshold in list? = TRUE
+  warnings emitted (post-edit route): 0
+  any mentioning stop_threshold: FALSE
+
+### SECTION 2b -- same call with stop_threshold OMITTED (pre-edit route)
+  sg_focus               = "hr"
+  subgroup_method        = "consistency"
+  consistency_method     = "resample"
+  stop_threshold         = NULL
+  selection_rule         = "neighborhood"
+  effect_neighborhood    = 0.1
+  mr_inference           = TRUE
+  warnings emitted (pre-edit route): 0
+  any mentioning stop_threshold: FALSE
+  sg.harm identical pre vs post: TRUE
+  mr_inference$debiased identical: TRUE
+
+### SECTION 5 -- field paths on the real fit
+  names(fs.est$mr_inference):  selected_index, selected_label, measure, log_scale, ci_method, naive, debiased, selection_bias, fixed_bias, selection_rate, complement, settings, harm_flag, n_family, n_selected, timing_seconds 
+  names(...$debiased):         est, lower, upper, lower_1s, se, se_ij, se_wald, var_ij, ij_source, ij_draws 
+    mr_inference$debiased$est    = 0.76717884
+    mr_inference$debiased$lower  = 0.39999624
+    mr_inference$debiased$upper  = 1.4714223
+    mr_inference$debiased$se_ij  = 0.33228407
+  complement$debiased present:  TRUE 
+
+### SECTION 3 -- mr_in_replicates FALSE vs TRUE, same seed
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use: 115 workers with 'multisession' plan
+Bootstrap iteration 1/20
+Bootstrap iteration 10/20
+Bootstrap iteration 20/20
+Warning message:
+In forestsearch_bootstrap_dofuture(fs.est, nb_boots = nb_boots,  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use: 115 workers with 'multisession' plan
+Bootstrap iteration 1/20
+Bootstrap iteration 10/20
+Bootstrap iteration 20/20
+Warning message:
+In forestsearch_bootstrap_dofuture(fs.est, nb_boots = nb_boots,  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+  names(boot):  results, SG_CIs, FSsg_tab, Ystar_mat, H_estimates, Hc_estimates, nb_boots, original_sg, outcome_type, effect_measure, est.scale, mr_replicates 
+  names(H_estimates):  H0, sdH0, H0_lower, H0_upper, H1, sdH1, H1_lower, H1_upper, H2, sdH2, H2_lower, H2_upper 
+    H_estimates$H2        = 1.002853
+    H_estimates$H2_lower  = 0.35904019
+    H_estimates$H2_upper  = 2.8011187
+    H_estimates$sdH2      = 0.52557111
+    Hc_estimates$H2       = 0.66065951
+    Hc_estimates$H2_lower = 0.38932976
+    Hc_estimates$H2_upper = 1.121083
+    Hc_estimates$sdH2     = 0.17825052
+
+  H_estimates  identical: TRUE
+  Hc_estimates identical: TRUE
+  mr_replicates: FALSE-> NULL ; TRUE-> list of 20
+  names present only with TRUE:  (none) 
+  all.equal(boot_F, boot_T) ex mr_replicates:  Component “results”: Datasets has different number of (non-excluded) attributes: target 3, current 4 
+
+  wall-clock: FALSE 16.8 s ; TRUE 21.7 s ; ratio 1.30x
+
+### DONE
