@@ -1035,6 +1035,18 @@ if (run_smoke && !is.null(results)) {
   # Classification + decision + IJ-stability diagnostics (over detected reps).
   cls <- sprintf("sens %.2f \u00b7 spec %.2f \u00b7 PPV %.2f \u00b7 NPV %.2f",
                  .mfin(rH$sens), .mfin(rH$spec), .mfin(rH$ppv), .mfin(rH$npv))
+  # MR availability: the share of DETECTED reps for which MR returned an object.
+  # The detected-only denominator is what makes this mean "MR failed" rather than
+  # "nothing was found": .na_record() sets mr_ok = 0L, so every undetected rep
+  # also carries mr_ok = 0 and an unconditional mean would just reproduce the
+  # detection rate.  Reported because mr_ok is otherwise invisible -- a run where
+  # MR failed on a third of the detected reps would read identically to one where
+  # it never failed.
+  mr_avail  <- mean(rH$mr_ok, na.rm = TRUE)
+  # Both of the following are ALREADY conditional on MR having run: mr_harm_flag
+  # and ij_source stay NA when g is NULL, and na.rm = TRUE drops those reps.  So
+  # their denominator is mr_avail * |detected|, not |detected| -- which is why
+  # availability is stated first and these two read "among those".
   harm_rate <- mean(rH$mr_harm_flag, na.rm = TRUE)
   ij_ok     <- mean(rH$ij_source == "ij", na.rm = TRUE)
 
@@ -1063,8 +1075,8 @@ if (run_smoke && !is.null(results)) {
     tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_betaHhat, b_cde, b_marg)) |>
     tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_betaHhat, Cov_cde, Cov_marg)) |>
     tab_footnote(footnote = md(sprintf(
-      "Detection rate **%.0f%%** of %d sims; MR flags harm in **%.0f%%** of detected reps; IJ variance held (not fallback) in **%.0f%%**. Classification of \u0124 vs true subgroup: %s. Summaries finite-only over detected reps; `n` = finite reps contributing.",
-      100 * det_rate, n_sims, 100 * harm_rate, 100 * ij_ok, cls))) |>
+      "Detection rate **%.0f%%** of %d sims; MR returned an estimate on **%.0f%%** of detected reps; among those, MR flags harm in **%.0f%%** and IJ variance held (not fallback) in **%.0f%%**. Classification of \u0124 vs true subgroup: %s. Summaries finite-only over detected reps; `n` = finite reps contributing.",
+      100 * det_rate, n_sims, 100 * mr_avail, 100 * harm_rate, 100 * ij_ok, cls))) |>
     tab_footnote(footnote = md(paste(
       "$\\text{SD}_{\\beta}$ (empirical SD) and $\\widehat{\\text{SD}}_{\\beta}$ (mean of the model SEs) are on the log-hazard-ratio ($\\beta$) scale; HR-scale versions are computed but hidden.",
       "Targets: $b^{\\text{or}}$ vs per-replicate oracle $\\hat\\theta(H)$;",

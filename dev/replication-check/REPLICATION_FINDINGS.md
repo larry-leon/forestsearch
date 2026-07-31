@@ -81,6 +81,19 @@ state the run actually used.
 No package code, `.qmd`, or test was modified. Everything written by this
 exercise lives under `dev/replication-check/`.
 
+### 2.2 Cross-machine payloads are not bit-comparable
+
+The like-for-like comparison above holds only because both baselines ran on this
+host. **Check `payload$meta$machine` before comparing any two payloads**: a
+later exercise compared the GBSG multimethod payload against a baseline rendered
+on an Apple M4 Max (14 cores, arm64) from this box (128 cores, x86_64) and found
+8 of 11 numeric columns differing by up to 2.2 ULP — from the architecture and
+from the worker count, which feeds the candidate-search batch size and so
+changes summation order. `tolerance = 0` is therefore not a usable acceptance
+criterion across machines; the only form of that test that discriminates is a
+same-machine control render of the *unedited* source, compared against the
+edited one. The worked case is in `dev/review/QMD_FIXES_APPLIED.md` §1.
+
 ---
 
 ## 3. What was compared
