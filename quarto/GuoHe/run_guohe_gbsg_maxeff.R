@@ -47,7 +47,7 @@ suppressMessages({
   library(future)
 })
 
-# ---- data, mirroring analysis_gbsg_cox_multimethod_psi_v2_2new.qmd --------
+# ---- data, mirroring analysis_gbsg_survival_multimethod.qmd --------
 df.analysis <- gbsg
 df.analysis <- within(df.analysis, {
   id          <- seq_len(nrow(df.analysis))

@@ -13,7 +13,7 @@ suppressPackageStartupMessages({
 })
 
 OUT <- "dev/replication-check/out"
-QMD <- "quarto/applications/gbsg/analysis_gbsg_cox_multimethod_psi_v2_2new.qmd"
+QMD <- "quarto/applications/gbsg/analysis_gbsg_survival_multimethod.qmd"
 
 # --- pull a chunk verbatim out of the rendered notebook ----------------------
 chunk_src <- function(label, path = QMD) {

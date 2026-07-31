@@ -29,6 +29,29 @@ execute:
 > standalone-DINA, and GRF sections that follow are fixed illustrations of the
 > individual engines and are unaffected by `fs_subgroup_method`.
 
+<!--
+  analysis_gbsg_survival_multimethod.qmd
+
+  The multimethod GBSG analysis: one dataset, one outcome type (survival),
+  three identifier engines (FS / DINA / GRF) compared side by side, each with
+  Naive, Full Bootstrap (FB) and Multiplier Resampling (MR) corrections.
+
+  Relative to analysis_gbsg_survival_maxeff_mrconfirm.qmd, this document ADDS:
+  the DINA and GRF selection tracks, the DINA-screened FS variant, and the
+  CV / LOO validation blocks.  It DROPS: the Guo & He (2021) Algorithm 3
+  comparator (its argmax primitive is the relevant correction only on the
+  maxeff path) and the independent MR confirmation fit.
+
+  VENUE.  The four forestsearch fits and their bootstraps are compute-heavy and
+  require the forestsearch package INSTALLED (devtools::install(), not
+  load_all() -- doFuture workers spawn separate R processes).  Run on the
+  analysis machine; see the parallelism notes in the setup chunk.
+
+  PARAMETER PROVENANCE.  Every fit renders a table reconciling
+  fit$args_call_all against formals(forestsearch), so the values actually used
+  are visible in the rendered document without consulting ?forestsearch.
+-->
+
 ```{r setup}
 #| include: false
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
@@ -44,6 +67,20 @@ ForestSearch supports parallel processing for computationally intensive
 operations (bootstrap, cross-validation).
 
 ```{r parallel-setup}
+# PARALLELISM NOTES
+#   * FS search -- forestsearch() parallelises the consistency search via its
+#     own parallel_args; the plan is set per call and restored on exit.
+#   * FB  -- forestsearch_bootstrap_dofuture() uses %dofuture% with
+#     .options.future = list(seed = TRUE), so each replicate holds its own
+#     L'Ecuyer-CMRG substream.  It inherits the plan set here.
+#   * MR  -- vectorised matrix algebra (a single crossprod over all draws), NOT
+#     a parallel loop.  It needs no plan, only a threaded BLAS to benefit.  Do
+#     not wrap it in a future.
+#   * CV / LOO -- forestsearch_Kfold() and forestsearch_tenfold() pin each
+#     fold's inner refit to plan = "sequential", workers = 1, so the fold loop
+#     workers are the only ones in play.  No nested parallelism to guard.
+# Every parallel block below is followed by plan("sequential").
+
 # Detect available cores (limited to 2 cores for CRAN checks)
 n_cores_total <- parallel::detectCores()
 n_cores <- max(1L, floor(0.80 * parallel::detectCores(logical = FALSE)))
@@ -58,6 +95,12 @@ NB <- 1000
 # run_cv  controls K-Fold cross-validation; run_loo controls leave-one-out
 # (N-fold / OOB).  Either can be turned off without affecting the other.
 # ---------------------------------------------------------------------------
+#   run_cv  : TRUE runs repeated K-fold CV (kfold-cv plus the diagnostic
+#             tabulations and the identification plot).  FALSE skips all of
+#             them; the cv-skipped-note chunk states so in the rendered output
+#             and timings$kfold stays NA.
+#   run_loo : TRUE runs leave-one-out / N-fold OOB.  FALSE skips it, the
+#             loo-skipped-note chunk says so, and timings$oob stays NA.
 run_cv  <- FALSE    # K-Fold cross-validation (kfold-cv + diagnostics)
 run_loo <- FALSE    # Leave-one-out / N-fold OOB (oob-cv)
 # 10-fold CV with multiple iterations
@@ -89,6 +132,10 @@ fs_consistency_method    <- "resample"
 # bootstrap below.  It runs for whichever selection engine fs_subgroup_method
 # names, de-biasing against that engine's own candidate family (it re-derives
 # the per-candidate Cox dfbeta itself).
+# run_mr : TRUE passes mr_inference = TRUE to every forestsearch() call, so the
+#          MR de-biased estimate is computed inside each fit.  FALSE passes
+#          mr_inference = FALSE and no MR compute runs at all; the MR rows and
+#          tables then report that it was skipped rather than showing blanks.
 run_mr <- TRUE     # add mr_inference = TRUE to the forestsearch call
 mr_draws      <- 5000L    # multiplier-bootstrap draws for the gate
 
@@ -230,6 +277,98 @@ library(weightedsurv)
 
 # Set ggplot theme
 theme_set(theme_minimal(base_size = 12))
+```
+
+## Parameter provenance {#sec-param-helper}
+
+Each `forestsearch()` fit carries `args_call_all`: the argument list the call
+actually resolved to, kept in sync by the package's own `.sync_args_call_all()`
+and used by `forestsearch()` itself for reconstruction. The helper below
+reconciles that list against `formals(forestsearch)` at render time, so the
+values reported are the ones the fit used, read from the fit rather than
+restated in comments that can drift.
+
+```{r param-provenance-helper}
+#| code-fold: false
+
+.fs_fmt_val <- function(v) {
+  if (is.null(v)) return("NULL")
+  if (is.data.frame(v)) return(sprintf("<data.frame %d x %d>", nrow(v), ncol(v)))
+  if (is.function(v)) return("<function>")
+  if (is.list(v)) {
+    if (length(v) == 0L) return("list()")
+    nms <- names(v); if (is.null(nms)) nms <- rep("", length(v))
+    inner <- vapply(seq_along(v), function(i) {
+      val <- tryCatch(paste(deparse(v[[i]], width.cutoff = 200L), collapse = " "),
+                      error = function(e) "<?>")
+      if (nzchar(nms[i])) paste0(nms[i], " = ", val) else val
+    }, character(1))
+    return(paste0("list(", paste(inner, collapse = ", "), ")"))
+  }
+  if (length(v) > 6L) return(sprintf("<%s[%d]>", class(v)[1], length(v)))
+  paste(deparse(v, width.cutoff = 200L), collapse = " ")
+}
+
+.fs_fmt_default <- function(x) {
+  if (identical(x, quote(expr = ))) return("<required; no default>")
+  paste(deparse(x, width.cutoff = 200L), collapse = " ")
+}
+
+#' Reconcile a fit's resolved arguments against forestsearch()'s formals
+#'
+#' @param fit A fitted `forestsearch()` object carrying `args_call_all`.
+#' @param fn Function whose formals define the reference set.
+#' @return One row per formal: the package default, the value the fit resolved
+#'   to, and whether that value sits at the default.
+fs_param_provenance <- function(fit, fn = forestsearch) {
+  stopifnot(!is.null(fit), !is.null(fit$args_call_all))
+  args <- fit$args_call_all
+  fm   <- formals(fn)
+  nm   <- setdiff(names(fm), "...")
+
+  defaults <- vapply(fm[nm], .fs_fmt_default, character(1), USE.NAMES = FALSE)
+  used <- vapply(nm, function(p) {
+    if (!p %in% names(args)) return(NA_character_)
+    .fs_fmt_val(args[[p]])
+  }, character(1), USE.NAMES = FALSE)
+
+  # match.arg-style defaults resolve to their first element
+  eff <- vapply(defaults, function(d)
+    if (grepl('^c[(]"', d)) sub('^c[(]"([^"]*)".*$', '"\\1"', d) else d,
+    character(1), USE.NAMES = FALSE)
+
+  data.frame(
+    parameter  = nm,
+    default    = defaults,
+    value_used = ifelse(is.na(used), "<not captured>", used),
+    status     = ifelse(is.na(used), "not captured",
+                 ifelse(used == eff, "at default", "differs from default")),
+    stringsAsFactors = FALSE
+  )
+}
+
+#' Render a provenance table for one fit
+fs_param_table <- function(fit, title) {
+  pv <- fs_param_provenance(fit)
+  n_diff <- sum(pv$status == "differs from default")
+  sub <- sprintf(
+    "%d of %d formals differ from their package default (forestsearch %s, read at render time).",
+    n_diff, nrow(pv),
+    tryCatch(as.character(utils::packageVersion("forestsearch")),
+             error = function(e) "version unknown"))
+
+  gt::gt(pv) |>
+    gt::tab_header(title = title, subtitle = sub) |>
+    gt::cols_label(parameter = "Parameter", default = "Package default",
+                   value_used = "Value used", status = "Status") |>
+    gt::tab_style(
+      style = gt::cell_fill(color = "#eef4fb"),
+      locations = gt::cells_body(rows = pv$status == "differs from default")) |>
+    gt::tab_style(
+      style = gt::cell_text(font = gt::google_font("JetBrains Mono"), size = "x-small"),
+      locations = gt::cells_body(columns = c(default, value_used))) |>
+    gt::tab_options(table.font.size = gt::px(11), data_row.padding = gt::px(2))
+}
 ```
 
 
@@ -483,7 +622,7 @@ fs <- forestsearch(
   minp                      = 0.025,          # default 0.025
   # --- Consistency search -------------------------------------------------
   fs.splits                 = 1000,           # default 1000
-  stop_threshold            = 0.95,           # default 0.95
+  stop_threshold            = 0.95,           # default = pconsistency.threshold (0.90 here), NOT 0.95
   use_twostage              = TRUE,           # default TRUE
   twostage_args             = list(),         # default list()
   max.minutes               = 3,              # default 3
@@ -505,8 +644,19 @@ fs <- forestsearch(
 plan("sequential")
 timings$forestsearch <- (proc.time() - t0)["elapsed"]
 
+# Fit-integrity guard.  NOT stopifnot(!is.null(fs$sg.harm)): a NULL subgroup is
+# a legitimate outcome this document handles explicitly (see the *-no-subgroup
+# chunks).  Assert only that the fit returned and captured its arguments, which
+# every downstream provenance table depends on.
+stopifnot(!is.null(fs), !is.null(fs$args_call_all))
+
 cat("\nForestSearch completed in",
     round(timings$forestsearch, 1), "seconds\n")
+```
+
+```{r fs-param-provenance}
+#| echo: false
+fs_param_table(fs, "Main ForestSearch fit: resolved parameters")
 ```
 
 
@@ -988,11 +1138,12 @@ fs_dina_screen <- forestsearch(
   effect.threshold          = NULL,           # default NULL (alias of hr.threshold)
   consistency.threshold     = NULL,           # default NULL (alias of hr.consistency)
   pconsistency.threshold    = 0.90,           # default 0.90
+  consistency_method        = fs_consistency_method,  # ALIGN: match main run + ACTG175 (gate/consistency parity)
   m1.threshold              = Inf,            # default Inf
   minp                      = 0.025,          # default 0.025
   # --- Consistency search -------------------------------------------------
   fs.splits                 = 1000,           # default 1000
-  stop_threshold            = 0.95,           # default 0.95
+  stop_threshold            = 0.95,           # default = pconsistency.threshold (0.90 here), NOT 0.95
   use_twostage              = TRUE,           # default TRUE
   twostage_args             = list(),         # default list()
   max.minutes               = 3,              # default 3
@@ -1013,12 +1164,18 @@ fs_dina_screen <- forestsearch(
 
 plan("sequential")
 timings$fs_dina_screen <- (proc.time() - t0)["elapsed"]
+stopifnot(!is.null(fs_dina_screen), !is.null(fs_dina_screen$args_call_all))
 
 cat("Identified subgroup (H):",
     paste(fs_dina_screen$sg.harm, collapse = " & "), "\n")
 cat("Subgroup size:", sum(fs_dina_screen$df.est$treat.recommend == 0),
     sprintf("(%.1f%% of ITT)\n",
             100 * mean(fs_dina_screen$df.est$treat.recommend == 0)))
+```
+
+```{r fs-dina-screen-param-provenance}
+#| echo: false
+fs_param_table(fs_dina_screen, "(A) DINA-screened fit: resolved parameters")
 ```
 
 The cuts DINA contributed to the candidate pool are recorded on the result
@@ -1184,6 +1341,7 @@ fs_dina <- forestsearch(
 )
 
 timings$fs_dina_select <- (proc.time() - t0)["elapsed"]
+stopifnot(!is.null(fs_dina), !is.null(fs_dina$args_call_all))
 
 cat("DINA-selected subgroup (H):",
     paste(fs_dina$sg.harm, collapse = " & "), "\n")
@@ -1191,6 +1349,15 @@ cat("Subgroup size:", sum(fs_dina$df.est$treat.recommend == 0),
     sprintf("(%.1f%% of ITT)\n",
             100 * mean(fs_dina$df.est$treat.recommend == 0)))
 ```
+
+```{r fs-dina-param-provenance}
+#| echo: false
+fs_param_table(fs_dina, "(C) subgroup_method = dina: resolved parameters")
+```
+
+Under `subgroup_method = "dina"` the consistency search, LASSO and GRF screens
+are bypassed. The table still lists every formal, so the inert ones appear as
+resolved defaults rather than silently absent.
 
 ### Bootstrap Bias-Corrected Cox Estimates
 
@@ -1408,12 +1575,18 @@ fs_grf <- forestsearch(
 )
 
 timings$fs_grf_select <- (proc.time() - t0)["elapsed"]
+stopifnot(!is.null(fs_grf), !is.null(fs_grf$args_call_all))
 
 cat("GRF-selected subgroup (H):",
     paste(fs_grf$sg.harm, collapse = " & "), "\n")
 cat("Subgroup size:", sum(fs_grf$df.est$treat.recommend == 0),
     sprintf("(%.1f%% of ITT)\n",
             100 * mean(fs_grf$df.est$treat.recommend == 0)))
+```
+
+```{r fs-grf-param-provenance}
+#| echo: false
+fs_param_table(fs_grf, "(D) subgroup_method = grf: resolved parameters")
 ```
 
 ### Bootstrap Bias-Corrected Cox Estimates
@@ -1922,6 +2095,35 @@ A relatively simple procedure." *Statistics in Medicine*.
 DOI: [10.1002/sim.10163](https://doi.org/10.1002/sim.10163)
 
 
+# Parameter provenance (all fits) {#sec-param-appendix}
+
+Formals whose resolved value differs from the package default, stacked across
+the four fits. Values are read from each fit's `args_call_all`, so this table
+cannot drift from the code that produced the results.
+
+```{r param-provenance-appendix}
+#| echo: false
+.fits <- list("FS (main)" = fs, "(A) DINA-screened" = fs_dina_screen,
+              "(C) DINA-selected" = fs_dina, "(D) GRF-selected" = fs_grf)
+.pp <- do.call(rbind, lapply(names(.fits), function(nm) {
+  d <- fs_param_provenance(.fits[[nm]])
+  d <- d[d$status == "differs from default", c("parameter", "default", "value_used")]
+  if (nrow(d)) cbind(fit = nm, d) else NULL
+}))
+gt::gt(.pp, groupname_col = "fit") |>
+  gt::tab_header(
+    title = "Parameters differing from package defaults, by fit",
+    subtitle = sprintf("forestsearch %s, read from args_call_all at render time.",
+                       tryCatch(as.character(utils::packageVersion("forestsearch")),
+                                error = function(e) "version unknown"))) |>
+  gt::cols_label(parameter = "Parameter", default = "Package default",
+                 value_used = "Value used") |>
+  gt::tab_style(
+    style = gt::cell_text(font = gt::google_font("JetBrains Mono"), size = "x-small"),
+    locations = gt::cells_body(columns = c(default, value_used))) |>
+  gt::tab_options(table.font.size = gt::px(11), data_row.padding = gt::px(2))
+```
+
 # Session Information
 
 ```{r session-info}
@@ -2138,7 +2340,7 @@ payload <- list(
 
 # Payload filename -- analog of actg175's "actg175_table_payload.rds".
 # (If your gbsg reader/manuscript doc expects "gbsg_table1_payload.rds", change it here.)
-.payload_file <- file.path(.out_dir, "gbsg_table2A_payload.rds")
+.payload_file <- file.path(.out_dir, "gbsg_survival_multimethod_payload.rds")
 saveRDS(payload, .payload_file)
 cat("Wrote Section 6.2 payload to:", .payload_file, "\n")
 ```

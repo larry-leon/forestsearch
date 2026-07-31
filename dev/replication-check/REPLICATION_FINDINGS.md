@@ -4,6 +4,8 @@ Re-run of `analysis_gbsg_cox_multimethod_psi_v2_2new.qmd` on
 `feature/mr-in-replicates`, compared against the two existing rendered
 baselines, plus an assessment of what the comparison exposes about the code.
 
+> **Post-hoc path update (filename migration).** The harness paths in `R/01_precondition_rng.R` and `R/04_compare.R` were repointed to `analysis_gbsg_survival_multimethod.qmd` and `gbsg_survival_multimethod_payload.rds` after these findings were recorded; that notebook is *not* the file that produced them — it additionally carries parameter-provenance tables, fit-integrity guards, and a corrected `stop_threshold` comment, all intended to be inert.
+
 ---
 
 ## 1. Verdict

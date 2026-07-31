@@ -9,7 +9,7 @@ bibliography: []
 ---
 
 <!--
-  analysis_gbsg_frozen_family.qmd
+  analysis_gbsg_survival_frozen_family.qmd
 
   A controlled variant of the GBSG maxeff analysis whose sole purpose is to
   test the estimand claim that the Full Bootstrap (FB) and Multiplier Resampling
@@ -119,6 +119,81 @@ id.name      <- "id"
 treat.name   <- "hormon"
 ```
 
+## Parameter provenance {#sec-param}
+
+Each `forestsearch()` fit carries `args_call_all`: the argument list the call
+actually resolved to, kept in sync by the package's `.sync_args_call_all()` and
+used by `forestsearch()` for reconstruction. The table below reconciles it
+against `formals(forestsearch)` at render time, so the values reported are the
+ones the fit used rather than restated comments that can drift.
+
+```{r param-provenance-helper}
+#| code-fold: false
+
+.fs_fmt_val <- function(v) {
+  if (is.null(v)) return("NULL")
+  if (is.data.frame(v)) return(sprintf("<data.frame %d x %d>", nrow(v), ncol(v)))
+  if (is.function(v)) return("<function>")
+  if (is.list(v)) {
+    if (length(v) == 0L) return("list()")
+    nms <- names(v); if (is.null(nms)) nms <- rep("", length(v))
+    inner <- vapply(seq_along(v), function(i) {
+      val <- tryCatch(paste(deparse(v[[i]], width.cutoff = 200L), collapse = " "),
+                      error = function(e) "<?>")
+      if (nzchar(nms[i])) paste0(nms[i], " = ", val) else val
+    }, character(1))
+    return(paste0("list(", paste(inner, collapse = ", "), ")"))
+  }
+  if (length(v) > 6L) return(sprintf("<%s[%d]>", class(v)[1], length(v)))
+  paste(deparse(v, width.cutoff = 200L), collapse = " ")
+}
+
+.fs_fmt_default <- function(x) {
+  if (identical(x, quote(expr = ))) return("<required; no default>")
+  paste(deparse(x, width.cutoff = 200L), collapse = " ")
+}
+
+#' Reconcile a fit's resolved arguments against forestsearch()'s formals
+fs_param_provenance <- function(fit, fn = forestsearch) {
+  stopifnot(!is.null(fit), !is.null(fit$args_call_all))
+  args <- fit$args_call_all
+  fm   <- formals(fn)
+  nm   <- setdiff(names(fm), "...")
+
+  defaults <- vapply(fm[nm], .fs_fmt_default, character(1), USE.NAMES = FALSE)
+  used <- vapply(nm, function(p) {
+    if (!p %in% names(args)) return(NA_character_)
+    .fs_fmt_val(args[[p]])
+  }, character(1), USE.NAMES = FALSE)
+
+  # match.arg-style defaults resolve to their first element
+  eff <- vapply(defaults, function(d)
+    if (grepl('^c[(]"', d)) sub('^c[(]"([^"]*)".*$', '"\\1"', d) else d,
+    character(1), USE.NAMES = FALSE)
+
+  data.frame(
+    parameter  = nm,
+    default    = defaults,
+    value_used = ifelse(is.na(used), "<not captured>", used),
+    status     = ifelse(is.na(used), "not captured",
+                 ifelse(used == eff, "at default", "differs from default")),
+    stringsAsFactors = FALSE
+  )
+}
+
+#' Render a provenance table for one fit
+fs_param_table <- function(fit, title) {
+  pv <- fs_param_provenance(fit)
+  n_diff <- sum(pv$status == "differs from default")
+  sub <- sprintf(
+    "%d of %d formals differ from their package default (forestsearch %s, read at render time).",
+    n_diff, nrow(pv),
+    tryCatch(as.character(utils::packageVersion("forestsearch")),
+             error = function(e) "version unknown"))
+  knitr::kable(pv, caption = paste0(title, " -- ", sub))
+}
+```
+
 ## Frozen-family fit {#sec-fit}
 
 Every continuous factor is represented only by fixed median cuts (plus the
@@ -154,6 +229,12 @@ fs <- forestsearch(
   mr_inference        = TRUE,
   mr_inference_args   = list(draws = mr_draws),
   consistency_method = "resample",
+  # stop_threshold: under sg_focus = "maxeff" this is NOT reset to NULL --
+  # forestsearch_main.R resets only for hrMaxSG/hrMinSG/hr/maxSG/minSG -- so no
+  # warning is emitted here.  The sequential stopping branch in
+  # subgroup_consistency_main.R gates on maxeffCons and is not reached, but the
+  # parallel batch branch checks stop_threshold with no sg_focus gate.  See the
+  # open question raised in the replication findings; value left unchanged.
   fs.splits          = 1000, stop_threshold = 0.95,
   use_twostage       = TRUE, max.minutes = 3,
   show_candidate_summary = TRUE, details = TRUE, quiet = FALSE,
@@ -167,6 +248,12 @@ stopifnot(!is.null(fs$sg.harm))
 cat("\nSelected subgroup:", paste(fs$sg.harm, collapse = " & "),
     "  |  fit", round(timings$fit / 60, 1), "min\n")
 ```
+
+```{r param-provenance}
+#| echo: false
+fs_param_table(fs, "Resolved parameters for the frozen-family fit")
+```
+
 
 ### Gate 0 -- confirm the family is actually frozen
 

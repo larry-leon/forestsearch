@@ -16,9 +16,9 @@ OUT_TAG <- if (length(.a) > 1) .a[2] else ""
                             sub("\\.", paste0(OUT_TAG, "."), f))
 
 paths <- list(
-  new = list(payload = file.path(NEW_DIR, "gbsg_table2new_payload.rds"),
-             html    = file.path(NEW_DIR, "analysis_gbsg_cox_multimethod_psi_v2_2new.html")),
-  B   = list(payload = file.path(GB, "gbsg_table2new_payload.rds"),
+  new = list(payload = file.path(NEW_DIR, "gbsg_survival_multimethod_payload.rds"),
+             html    = file.path(NEW_DIR, "analysis_gbsg_survival_multimethod.html")),
+  B   = list(payload = file.path(GB, "gbsg_survival_multimethod_payload.rds"),
              html    = file.path(GB, "analysis_gbsg_cox_multimethod_psi_v2_2new.html")),
   A   = list(payload = file.path(GB, "gbsg_table2Alinux_payload.rds"),
              html    = file.path(GB, "analysis_gbsg_cox_multimethod_psi_v2_2A_linux.html")))

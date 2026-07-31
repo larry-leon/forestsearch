@@ -9,7 +9,7 @@ bibliography: []
 ---
 
 <!--
-  analysis_gbsg_cox_maxeff.qmd
+  analysis_gbsg_survival_maxeff_mrconfirm.qmd
 
   A simplified single-track version of analysis_gbsg_cox_multimethod_*.qmd,
   reduced to the sg_focus = "maxeff" path where Guo & He (2021) Algorithm 3
@@ -68,6 +68,20 @@ mr_draws <- 5000L     # MR multiplier draws
 GH_B       <- 2000L     # Guo & He pair-bootstrap resamples
 GH_r       <- 0.03      # Guo & He tuning parameter (their adaptive default region)
 GH_PARALLEL <- .Platform$OS.type == "unix"   # forked GH bootstrap where available
+# --- MR toggles -----------------------------------------------------------
+# run_mr: the in-fit MR de-biased gate, computed inside forestsearch(). TRUE
+#   passes mr_inference = TRUE to the primary fit; FALSE skips it entirely
+#   (the fit is then called with mr_inference = FALSE, so no MR compute runs).
+run_mr     <- TRUE
+timings$mr <- NA_real_
+# run_mr_confirm: a SEPARATE confirmation fit -- a second forestsearch() with
+#   mr_inference = TRUE forced on, run REGARDLESS of run_mr, replaying the
+#   primary fit's captured arguments at the same seed. It reproduces the in-fit
+#   MR exactly and thereby confirms the internal analysis. Costs a full second
+#   fit; set FALSE to skip for a fast pass.
+run_mr_confirm     <- TRUE
+timings$mr_confirm <- NA_real_
+# --------------------------------------------------------------------------
 run_loo    <- TRUE      # leave-one-out (N-fold) honest out-of-sample subgroup estimate
 timings$loo <- NA_real_
 # LOO fold-loop workers: 80% of physical cores (same rule as n_cores above), so
@@ -75,6 +89,13 @@ timings$loo <- NA_real_
 # against: forestsearch_Kfold() pins each fold's inner forestsearch() refit to
 # plan = "sequential", workers = 1, so these are the ONLY workers in play.
 loo_workers <- n_cores
+# LOO cache: TRUE reuses a saved cv_out (LOO_CACHE env var, else gh_dir/
+#   cv_out_maxeff.rds) on re-render, skipping the N-fold recompute. Set FALSE to
+#   force a fresh run -- e.g. a reproducibility check. The N-fold search is
+#   deterministic (forestsearch_Kfold() sets seed 8316951 with reproducible
+#   parallel streams), so a forced recompute reproduces the cached result; a
+#   fresh run then overwrites the cache.
+loo_use_cache <- FALSE
 run_cv_kfold <- TRUE    # repeated 10-fold cross-validation (stability diagnostics)
 Ksims       <- 50L      # repeated 10-fold partitions (>= 50 for production)
 timings$kfold <- NA_real_
@@ -137,8 +158,10 @@ fs <- forestsearch(
   sg_focus              = "maxeff",
   # subgroup constraints
   n.min                 = 60, d0.min = 10, d1.min = 10, maxk = 2,
-  # Tier-2 de-biased gate (MR) computed inside the fit
-  mr_inference           = TRUE,
+  # Tier-2 de-biased gate (MR) computed inside the fit; run_mr toggles it. The
+  # independent confirmation fit (see the MR-confirmation section) forces
+  # mr_inference = TRUE regardless, by replaying fs$args_call_all.
+  mr_inference           = run_mr,
   mr_inference_args      = list(draws = mr_draws),
   # consistency search
   consistency_method    = "resample",
@@ -164,6 +187,7 @@ t0 <- proc.time()
 fs_bc <- forestsearch_bootstrap_dofuture(
   fs.est   = fs,
   nb_boots = NB,
+  seed     = 8316951,   # explicit default: FB is reproducible render-to-render
   show_three = FALSE,
   details  = FALSE,
   parallel_args = list(plan = "multisession", workers = n_cores,
@@ -182,15 +206,89 @@ cat("FB completed in", round(timings$fb / 60, 1), "min\n")
 ## Multiplier resampling (MR)
 
 The Tier-2 de-biased gate is the MR correction, computed inside the fit above
-(vectorized over `r format(mr_draws, big.mark=",")` draws). It is read from
-`fs$mr_inference`; no separate run is needed.
+(vectorized over `r format(mr_draws, big.mark=",")` draws) when `run_mr = TRUE`.
+It is read from `fs$mr_inference`; no separate run is needed. Setting
+`run_mr <- FALSE` skips it -- the fit is then called with `mr_inference = FALSE`,
+so no MR compute happens inside the fit -- mirroring the `run_loo` /
+`run_cv_kfold` toggles. The separate confirmation fit in the next section still
+supplies an MR estimate even when `run_mr = FALSE`.
 
-```{r mr}
+```{r mr-skip-note, eval = !run_mr, results = "asis"}
+cat("> **In-fit MR gate skipped** (`run_mr = FALSE`). The MR estimate reported",
+    "below and in the comparison table comes from the separate confirmation fit.\n")
+```
+
+```{r mr, eval = run_mr}
 g <- fs$mr_inference
 stopifnot(!is.null(g))
 timings$mr <- g$timing_seconds
 cat("MR gate:", round(timings$mr, 2), "s over",
     format(mr_draws, big.mark = ","), "draws\n")
+```
+
+## MR confirmation (independent second fit) {#sec-mr-confirm}
+
+A **separate multiplier-resampling run that executes regardless of `run_mr`**, as
+a check on the in-fit gate. There is no package entry point that re-runs MR on an
+existing fit -- the gate is built from the fit's internal cut matrix and working
+data, which the returned object does not expose -- so the confirmation is a
+second `forestsearch()` fit with `mr_inference = TRUE` forced on. It replays the
+primary fit's own captured arguments (`fs$args_call_all`, the list the package
+itself uses to reconstruct the call for its bootstrap and cross-validation),
+overriding only `mr_inference` (plus display-only flags), so the two fits are
+identical in every computational respect. Because the search seed (`seedit`) and
+the MR draw seed are unchanged, the confirmation reproduces the same selected
+subgroup, the same candidate family, and the same multiplier draws -- so when the
+in-fit gate also ran (`run_mr = TRUE`), the two MR results must match to full
+precision. A mismatch would indicate the in-fit result was altered downstream, or
+that the pipeline is not deterministic under the stated seed.
+
+This runs a full second forest search, so it roughly doubles the fit cost; set
+`run_mr_confirm <- FALSE` in the configuration to skip it for a fast pass.
+
+```{r mr-confirm-skip-note, eval = !run_mr_confirm, results = "asis"}
+cat("> **MR confirmation fit skipped** (`run_mr_confirm = FALSE`). Set it to",
+    "`TRUE` to run the independent second fit that reproduces the in-fit MR.\n")
+```
+
+```{r mr-confirm, eval = run_mr_confirm}
+t0 <- proc.time()
+# Replay the primary fit via its own captured argument list, forcing the MR gate
+# on. do.call(forestsearch, args_call_all) is the package's documented
+# reconstruction path (see forestsearch_main.R Section 1B): a faithful re-run
+# differing ONLY in the flags set below.
+confirm_args <- fs$args_call_all
+confirm_args$mr_inference           <- TRUE   # the only computational change
+confirm_args$quiet                  <- TRUE   # display-only suppressions (these do
+confirm_args$details                <- FALSE  #   not affect the search or MR RNG):
+confirm_args$show_candidate_summary <- FALSE  #   keep the confirmation quiet and
+confirm_args$plot.sg                <- FALSE  #   avoid a duplicate subgroup plot.
+fs_confirm <- do.call(forestsearch, confirm_args)
+plan("sequential")
+timings$mr_confirm <- (proc.time() - t0)[["elapsed"]]
+
+g_confirm <- fs_confirm$mr_inference
+stopifnot(!is.null(g_confirm))
+cat(sprintf("MR confirmation fit: debiased HR %.4f (%.4f, %.4f) | %.1f min\n",
+            g_confirm$debiased$est, g_confirm$debiased$lower,
+            g_confirm$debiased$upper, timings$mr_confirm / 60))
+
+# When the in-fit gate also ran, confirm the two agree to full precision.
+if (isTRUE(run_mr) && exists("g") && !is.null(g)) {
+  agree <- all(vapply(c("est", "lower", "upper"), function(f)
+    isTRUE(all.equal(g$debiased[[f]], g_confirm$debiased[[f]])), logical(1)))
+  cat(sprintf("  in-fit MR: debiased HR %.4f (%.4f, %.4f)  ->  %s\n",
+              g$debiased$est, g$debiased$lower, g$debiased$upper,
+              if (agree) "MATCH (in-fit MR reproduced exactly)"
+              else "MISMATCH -- investigate"))
+  if (!agree)
+    warning("MR confirmation MISMATCH: the independent fit did not reproduce the ",
+            "in-fit MR de-biased HR; investigate determinism or downstream ",
+            "mutation of fs$mr_inference.")
+} else {
+  cat("  in-fit MR gate was skipped (run_mr = FALSE); this confirmation fit is",
+      "the sole MR estimate.\n")
+}
 ```
 
 ## Guo & He (GH)
@@ -365,13 +463,13 @@ cat("Leave-one-out skipped (run_loo = FALSE).",
 
 ```{r loo, eval = run_loo}
 # Leave-one-out (N-fold) is the long pole -- one full forest search per subject.
-# If a precomputed cv_out is available (LOO_CACHE env var, else the default path
-# in gh_dir) load it; otherwise run the N-fold search and cache it for
-# re-renders. The fold loop runs in parallel on loo_workers workers; each fold's
+# If loo_use_cache is TRUE and a precomputed cv_out exists (LOO_CACHE env var,
+# else the default path in gh_dir), load it; otherwise run the N-fold search and
+# cache it. The fold loop runs in parallel on loo_workers workers; each fold's
 # inner search is pinned sequential by forestsearch_Kfold().
 loo_cache <- Sys.getenv("LOO_CACHE",
                         unset = file.path(gh_dir, "cv_out_maxeff.rds"))
-if (file.exists(loo_cache)) {
+if (loo_use_cache && file.exists(loo_cache)) {
   cv_out <- readRDS(loo_cache)
   timings$loo <- NA_real_
   cat("LOO loaded from cache:", loo_cache, "\n")
@@ -409,7 +507,7 @@ if (file.exists(loo_cache)) {
                   n    = as.character(sgk[j, "n"])))
   }
   list(case = "itt_fallback",
-       hr   = "\u2014 (no stable subgroup out-of-sample; ITT)",
+       hr   = "— (no stable subgroup out-of-sample; ITT)",
        n    = NA_character_)
 }
 loo <- .loo_harm_row(cv_out)
@@ -433,7 +531,7 @@ tables$metrics_table
 #| tbl-cap: "Subgroup hazard ratios for the GBSG selected (maxeff) subgroup. Parenthetical values are 95% intervals; Guo & He reports a one-sided lower bound. Leave-one-out is NOT a de-biasing correction: it is an out-of-sample stability check on the subgroup definition. Whether it tracks Naive or a correction is informative in this finer maxeff family (see the leave-one-out section)."
 #| echo: false
 fci <- function(e, l, u, d = 2) {
-  ifelse(is.na(e), "\u2014", sprintf("%.*f (%.*f, %.*f)", d, e, d, l, d, u))
+  ifelse(is.na(e), "—", sprintf("%.*f (%.*f, %.*f)", d, e, d, l, d, u))
 }
 
 # Selected-subgroup (H) HR + 95% CI on the HR scale, read straight from the
@@ -447,9 +545,18 @@ fci <- function(e, l, u, d = 2) {
 #     g$Hc_estimates; the gate's H-subgroup de-biased HR lives under $debiased).
 naive_hr <- gh$naive_hr    # naive is identical across methods (same fit)
 
+# MR row: the in-fit gate (g) when run_mr = TRUE, else the always-run confirmation
+# fit (g_confirm). Both live on the HR scale under $debiased; em-dash only if BOTH
+# the in-fit gate and the confirmation fit were skipped.
+g_report <- if (isTRUE(run_mr) && exists("g") && !is.null(g)) g else
+            if (exists("g_confirm") && !is.null(g_confirm)) g_confirm else NULL
+mr_row <- if (!is.null(g_report))
+  fci(g_report$debiased$est, g_report$debiased$lower, g_report$debiased$upper) else
+  "— (no MR: run_mr and run_mr_confirm both FALSE)"
+
 # LOO row read by identity from the harm-subgroup extraction above (both the
 # stable-subgroup and ITT-fallback cases resolve to loo$hr).
-loo_row <- if (isTRUE(run_loo) && exists("loo")) loo$hr else "\u2014 (run_loo = FALSE)"
+loo_row <- if (isTRUE(run_loo) && exists("loo")) loo$hr else "— (run_loo = FALSE)"
 
 tab <- data.frame(
   Method = c("Naive", "Full bootstrap", "Multiplier resampling",
@@ -457,7 +564,7 @@ tab <- data.frame(
   Estimate = c(
     sprintf("%.2f", naive_hr),
     fci(fs_bc$H_estimates$H2, fs_bc$H_estimates$H2_lower, fs_bc$H_estimates$H2_upper),
-    fci(g$debiased$est, g$debiased$lower, g$debiased$upper),
+    mr_row,
     sprintf("%.2f (LB %.2f)", gh$debiased_hr, gh$bound_hr),
     loo_row
   ),
@@ -508,10 +615,11 @@ between the leave-one-out row and the corrections is not a contradiction.
 ```{r timing}
 #| echo: false
 td <- data.frame(
-  Step = c("Fit + MR gate", "Full bootstrap", "MR gate (within fit)",
+  Step = c("Fit (+ in-fit MR gate)", "Full bootstrap", "MR gate (within fit)",
+           "MR confirmation fit (independent)",
            "Guo & He bootstrap", "10-fold CV",
            sprintf("Leave-one-out (N-fold, %d workers)", loo_workers)),
-  Seconds = c(timings$fit, timings$fb, timings$mr, timings$gh,
+  Seconds = c(timings$fit, timings$fb, timings$mr, timings$mr_confirm, timings$gh,
               timings$kfold, timings$loo)
 )
 td$Minutes <- round(td$Seconds / 60, 2)
