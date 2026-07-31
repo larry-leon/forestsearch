@@ -20,7 +20,12 @@
 #' @noRd
 .sync_args_call_all <- function(args_call_all, env, names) {
   for (n in names) {
-    args_call_all[[n]] <- get(n, envir = env)
+    # Single-bracket assignment of a length-1 list, NOT `[[<-`.  Assigning NULL
+    # with `args_call_all[[n]] <- NULL` DELETES the element, so a formal that
+    # resolved to NULL (stop_threshold under the hrMaxSG family at ~1430,
+    # adjust_covariates at ~1885) would vanish from the capture rather than be
+    # recorded as NULL.  `[<-` with list(NULL) stores the NULL.
+    args_call_all[n] <- list(get(n, envir = env))
   }
   args_call_all
 }
