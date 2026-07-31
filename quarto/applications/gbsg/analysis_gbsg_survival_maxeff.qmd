@@ -133,6 +133,14 @@ ones the fit used rather than restated comments that can drift.
   paste(deparse(x, width.cutoff = 200L), collapse = " ")
 }
 
+# match.arg-style values resolve to their first element.  Applied to BOTH sides
+# of the comparison below: a value captured unresolved (grf_selection,
+# grf_select_statistic) still sits at its default and must not read as differing.
+.fs_collapse_matcharg <- function(x) {
+  ifelse(!is.na(x) & grepl('^c[(]"', x),
+         sub('^c[(]"([^"]*)".*$', '"\\1"', x), x)
+}
+
 #' Reconcile a fit's resolved arguments against forestsearch()'s formals
 fs_param_provenance <- function(fit, fn = forestsearch) {
   stopifnot(!is.null(fit), !is.null(fit$args_call_all))
@@ -146,19 +154,30 @@ fs_param_provenance <- function(fit, fn = forestsearch) {
     .fs_fmt_val(args[[p]])
   }, character(1), USE.NAMES = FALSE)
 
-  # match.arg-style defaults resolve to their first element
-  eff <- vapply(defaults, function(d)
-    if (grepl('^c[(]"', d)) sub('^c[(]"([^"]*)".*$', '"\\1"', d) else d,
-    character(1), USE.NAMES = FALSE)
+  eff      <- .fs_collapse_matcharg(defaults)
+  eff_used <- .fs_collapse_matcharg(used)
 
-  data.frame(
+  out <- data.frame(
     parameter  = nm,
     default    = defaults,
-    value_used = ifelse(is.na(used), "<not captured>", used),
+    value_used = ifelse(is.na(used), "(not captured)", used),
     status     = ifelse(is.na(used), "not captured",
-                 ifelse(used == eff, "at default", "differs from default")),
+                 ifelse(eff_used == eff, "at default", "differs from default")),
     stringsAsFactors = FALSE
   )
+
+  # forestsearch_main.R:1304 overrides these five under sg_focus = "maxeff" and
+  # does NOT re-sync args_call_all afterwards (the package notes this itself at
+  # ~2763), so what was captured is the value typed into the call, not the value
+  # the engine ran with.
+  if (identical(args$sg_focus, "maxeff")) {
+    .ov <- c("pconsistency.threshold", "stop_threshold", "use_twostage",
+             "max_subgroups_search", "minp")
+    i <- out$parameter %in% .ov
+    out$status[i] <- "captured BEFORE maxeff override -- not what the engine used"
+  }
+
+  out
 }
 
 #' Render a provenance table for one fit
@@ -170,6 +189,15 @@ fs_param_table <- function(fit, title) {
     n_diff, nrow(pv),
     tryCatch(as.character(utils::packageVersion("forestsearch")),
              error = function(e) "version unknown"))
+  # Only meaningful when the maxeff override actually fired; under any other
+  # sg_focus nothing is overridden and the caveat would be false.
+  if (any(grepl("^captured BEFORE", pv$status))) {
+    sub <- paste(sub,
+      "args_call_all is not re-synced after the sg_focus = \"maxeff\" override block",
+      "(forestsearch_main.R:1304; the package notes this itself at ~2763), so the",
+      "rows flagged as such report the value typed into the call rather than the",
+      "value the engine used -- the render's own maxeff warning lists those.")
+  }
   knitr::kable(pv, caption = paste0(title, " -- ", sub))
 }
 ```
@@ -217,12 +245,10 @@ fs <- forestsearch(
   mr_inference_args      = list(draws = mr_draws),
   # consistency search
   consistency_method    = "resample",
-  # stop_threshold: under sg_focus = "maxeff" this is NOT reset to NULL --
-  # forestsearch_main.R resets only for hrMaxSG/hrMinSG/hr/maxSG/minSG -- so no
-  # warning is emitted here.  The sequential stopping branch in
-  # subgroup_consistency_main.R gates on maxeffCons and is not reached, but the
-  # parallel batch branch checks stop_threshold with no sg_focus gate.  See the
-  # open question raised in the replication findings; value left unchanged.
+  # stop_threshold: INERT here.  forestsearch_main.R:1304 sets it to NULL under
+  # sg_focus = "maxeff", together with pconsistency.threshold -> 0,
+  # use_twostage -> FALSE, max_subgroups_search -> Inf and minp -> 0, and warns
+  # listing the overrides.  The engine never sees the value below.
   fs.splits             = 1000, stop_threshold = 0.95,
   use_twostage          = TRUE, max.minutes = 3,
   show_candidate_summary = TRUE, details = TRUE, quiet = FALSE,
