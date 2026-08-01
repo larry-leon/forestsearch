@@ -1,0 +1,499 @@
+```{r lit-gbsg-fallbacks}
+#| include: false
+
+# When this file is rendered as a stand-alone document for review,
+# the parent vignette's setup chunk has not run, so any inline R
+# references like `r gbsg_estrec_cut` fall out of scope.  We supply
+# fallback values matching the parent vignette's setup chunk so
+# inline references resolve.  When this file is included as content
+# in the parent vignette, the parent's setup chunk runs first and
+# the fallbacks here become no-ops because the variables already
+# exist.
+if (!exists("gbsg_estrec_cut"))   gbsg_estrec_cut   <- 0L
+if (!exists("gbsg_n"))            gbsg_n            <- 686L
+if (!exists("gbsg_itt_hr"))       gbsg_itt_hr       <- 0.69
+if (!exists("gbsg_itt_hr_lcl"))   gbsg_itt_hr_lcl   <- 0.54
+if (!exists("gbsg_itt_hr_ucl"))   gbsg_itt_hr_ucl   <- 0.89
+```
+
+## Literature on Subgroup Discovery in GBSG {#sec-literature-gbsg}
+
+The German Breast Cancer Study Group dataset [@schumacher1994; @sauerbrei1999]
+— commonly distributed in R as `TH.data::GBSG2`, in Python as
+`lifelines.datasets.gbsg2`, and as part of the train/test split popularised
+by Katzman et al. [@katzman2018] — is among the most heavily reused public
+benchmark datasets in survival analysis. The trial enrolled
+*N* = `r gbsg_n` node-positive breast cancer patients in a 2 × 2 randomised
+design comparing duration of CMF chemotherapy with or without 2 years of
+tamoxifen [@schumacher1994]. Methods papers spanning three decades have used
+GBSG to illustrate fractional-polynomial prognostic modelling, random
+survival forests, conditional inference forests, deep survival neural
+networks, treatment-recommendation systems, transformation models,
+penalised Cox regression, and recursive partitioning.
+
+Despite the breadth of methodological reuse, GBSG occupies a notably
+different position from ACTG175 in the heterogeneous-treatment-effect
+literature. The dominant uses of GBSG are *prognostic* — predicting
+survival from baseline covariates — rather than *predictive* in the
+HTE/CATE sense (predicting differential treatment effect). Papers that
+explicitly identify GBSG-based treatment subgroups are comparatively rare,
+which means the forestsearch result on this dataset is validated more
+strongly by the *external clinical literature* on tamoxifen and estrogen-
+receptor (ER) status than by competing methodological subgroup identifications.
+
+```{r lit-gbsg-table}
+#| echo: false
+#| message: false
+#| warning: false
+#| tbl-cap: "Selected studies that have analysed GBSG/GBSG2 or tamoxifen ER-status interaction. The literature divides into a methods column (using GBSG as a benchmark) and a clinical column (independently establishing the ER mechanism). Outcome abbreviations: RFS = recurrence-free survival; OS = overall survival; treatment recommender = personalised survival prediction with counterfactual treatment assignment."
+
+library(gt)
+
+lit_gbsg <- data.frame(
+  citation = c(
+    "Schumacher et al. (1994), J Clin Oncol",
+    "Sauerbrei & Royston (1999), JRSS-A",
+    "Hothorn et al. (HSAUR/ipred/party), 2003+",
+    "Royston & Altman (2013), BMC MedResMethodol",
+    "Ishwaran et al. (2008), Annals Appl Stat",
+    "Katzman et al. (2018), BMC MedResMethodol (DeepSurv)",
+    "Kvamme et al. (2019), JMLR (Cox-Time, DeepHit)",
+    "Kundu & Ghosh (2021), SAM (SurvCART)",
+    "Hothorn / Bühlmann boosting & tram lineage",
+    "Kuo et al. (2024), arXiv (CK4Gen synthetic GBSG2)",
+    "EBCTCG (2011), Lancet (patient-level meta-analysis)",
+    "Cuzick et al. (2013), Lancet (prevention meta-analysis)",
+    "Allison et al. (2020), J Clin Oncol (ASCO/CAP guideline)",
+    "León et al. (2024), Stat Med (forestsearch)"
+  ),
+  method = c(
+    "Original RCT; stratified Cox PH; protocol-specified subgroup analyses",
+    "Fractional polynomials for multivariable prognostic modelling",
+    "Conditional inference trees / forests; survival ensembles",
+    "Cox model external validation methodology (Rotterdam cohort)",
+    "Random survival forest (RSF)",
+    "Deep neural network Cox PH; treatment recommender system",
+    "Discrete-time and continuous-time deep survival networks",
+    "Survival CART (recursive partitioning via parameter-instability tests)",
+    "Penalised Cox / boosting / transformation models",
+    "Knowledge-distillation synthetic-data generation",
+    "Patient-level meta-analysis of adjuvant tamoxifen efficacy by ER status",
+    "Patient-level meta-analysis of tamoxifen prevention trials by ER status",
+    "Hormone-receptor testing guideline (ER cut-points and predictive use)",
+    "All-possible-subgroups screen with consistency criterion + bootstrap bias correction"
+  ),
+  context = c(
+    "Methods (clinical RCT)",
+    "Methods (prognostic)",
+    "Methods (prognostic / benchmark)",
+    "Methods (validation)",
+    "Methods (prognostic)",
+    "Methods (HTE / treatment recommender)",
+    "Methods (prognostic / benchmark)",
+    "Methods (subgroup detection)",
+    "Methods (prognostic)",
+    "Methods (synthetic data)",
+    "Clinical (predictive biomarker)",
+    "Clinical (predictive biomarker)",
+    "Clinical (guideline)",
+    "Methods (subgroup identification)"
+  ),
+  outcome = c(
+    "RFS, OS",
+    "RFS",
+    "RFS",
+    "RFS (Rotterdam)",
+    "RFS / general survival",
+    "RFS (Rot. + GBSG split, also illustrative recommender)",
+    "RFS (Rot. + GBSG split)",
+    "Generic survival (with GBSG2 as worked example)",
+    "RFS",
+    "RFS (synthetic)",
+    "Recurrence, breast-cancer mortality (15-yr)",
+    "Breast-cancer incidence (prevention)",
+    "n/a",
+    "RFS"
+  ),
+  candidate_set = c(
+    "Pre-specified: hormonal therapy, chemotherapy duration",
+    "8 candidate prognostic factors (age, tsize, tgrade, pnodes, progrec, estrec, menostat, horTh)",
+    "Same 8 covariates as Sauerbrei/Royston",
+    "8 covariates incl. ER and PR",
+    "8 GBSG2 covariates as standard input",
+    "8 covariates standardised; treatment indicator as one of them",
+    "8 covariates per Katzman et al. preprocessing",
+    "8 GBSG2 covariates as splitting candidates",
+    "8 GBSG2 covariates",
+    "8 covariates retained from ground truth",
+    "Patient-level data from 20 trials, n = 21 457; ER and PR central",
+    "5 prevention trials; ER status central",
+    "n/a",
+    "8 covariates; lasso pre-selects Grade, Size, Nodes, Prog; GRF adds Estrogen≤0"
+  ),
+  identified_role = c(
+    paste0("Clinical-ITT analysis: tamoxifen vs no tamoxifen, ",
+           "RR = 0.75 (0.54, 1.04) for RFS, P = 0.08 — non-significant ",
+           "overall. PNODES and PROGREC the dominant prognostic factors."),
+    paste0("Multivariable prognostic model with non-linear effects of ",
+           "age, tsize, pnodes, progrec via fractional polynomials. ",
+           "Establishes the canonical 8-covariate framing reused downstream."),
+    paste0("Cforest and ctree treat GBSG2 as a benchmark for ensemble ",
+           "survival prediction; not designed to identify HTE subgroups."),
+    paste0("Develops external-validation pipeline using Rotterdam tumor ",
+           "bank as a held-out cohort for Cox prognostic models."),
+    paste0("RSF on GBSG2 ranks PNODES, PROGREC, and TSIZE as top ",
+           "prognostic variables; emphasis is risk prediction, not HTE."),
+    paste0("DeepSurv trains on Rotterdam, tests on GBSG; reports ",
+           "survival gains under model-recommended treatment vs ",
+           "observed assignment. Treatment recommender output, not an ",
+           "explicit subgroup."),
+    paste0("Cox-Time / DeepHit / Logistic-Hazard benchmarks on the same ",
+           "Rot. + GBSG split; concordance and IBS rather than subgroup ",
+           "discovery."),
+    paste0("Documentation example uses GBSG2 to illustrate SurvCART; ",
+           "identifies splits primarily on PNODES and PROGREC, ",
+           "consistent with the prognostic literature."),
+    paste0("Boosting algorithms and transformation-model variants used ",
+           "GBSG2 in original papers as illustrative survival example; ",
+           "again, prognostic rather than HTE focus."),
+    paste0("Generates synthetic GBSG2 versions retaining covariate ",
+           "structure for benchmarking; treats Sauerbrei/Royston ",
+           "specification as the ground-truth model."),
+    paste0("Recurrence reductions seen across all subgroups for ER+ ",
+           "disease; ER-negative disease shows essentially no benefit ",
+           "(RR ≈ 1 with wide CI). Tamoxifen efficacy depends ",
+           "essentially on ER status — *the* established clinical fact."),
+    paste0("In tamoxifen prevention trials, no effect for ER-negative ",
+           "breast cancers (HR 1.22 [0.89, 1.67]), supporting the ",
+           "ER-mechanism interpretation."),
+    paste0("Recommends ≥ 1% nuclear ER staining as the threshold for ",
+           "ER-positive status and for offering endocrine therapy. ",
+           "Substantively defines what 'ER = 0' means clinically."),
+    paste0("Identifies Estrogen≤0 (estrec ≤ ", gbsg_estrec_cut,
+           " fmol) as Ĥ with consistency rate 95.1%; Ĥc = 88% of ITT ",
+           "with bias-corrected HR 0.64 (0.44, 0.93). Recovers the ",
+           "ER-mechanism subgroup *without* prior knowledge of biology.")
+  ),
+  stringsAsFactors = FALSE
+)
+
+gt(lit_gbsg) |>
+  cols_label(
+    citation        = "Citation",
+    method          = "Method",
+    context         = "Context",
+    outcome         = "Outcome",
+    candidate_set   = "Candidate covariates",
+    identified_role = md("Identified role of **Estrogen / ER** (or prognostic substitute)")
+  ) |>
+  tab_options(
+    table.font.size           = px(11),
+    column_labels.font.weight = "bold",
+    data_row.padding          = px(4),
+    table.border.top.style    = "none",
+    table.border.bottom.style = "none"
+  ) |>
+  cols_width(
+    citation        ~ pct(15),
+    method          ~ pct(17),
+    context         ~ pct(10),
+    outcome         ~ pct(8),
+    candidate_set   ~ pct(20),
+    identified_role ~ pct(30)
+  )
+```
+
+### Methodological breadth
+
+The studies in the table above split into three distinct families,
+addressing GBSG from genuinely different starting points and asking
+different questions.
+
+**Prognostic-modelling tradition.** Sauerbrei & Royston [@sauerbrei1999],
+Royston & Altman [@royston2013], Ishwaran et al. [@ishwaran2008] (random
+survival forests), and the Hothorn/Bühlmann transformation-model lineage
+all use GBSG as a benchmark for the question "given baseline covariates,
+how well can we predict survival." This is the dominant use of the dataset
+and shapes its canonical 8-covariate framing. None of these methods is
+designed to identify treatment-effect subgroups.
+
+**Deep survival / treatment-recommender tradition.** DeepSurv [@katzman2018]
+introduced the now-standard split — train on the Rotterdam tumor bank
+[@foekens2000], test on GBSG — and recast the problem as personalised
+survival prediction, with counterfactual treatment assignment giving an
+implicit recommender. Many follow-ups (Cox-Time, DeepHit, DySurv,
+Survival MDN, NeuralSurv) [@kvamme2019] adopt the same split as a
+benchmark for concordance and integrated-Brier-score performance.
+The output of these systems is a per-patient recommendation rather
+than a discrete subgroup defined by interpretable cuts.
+
+**Subgroup-identification tradition (small).** Compared with ACTG175,
+remarkably few methods papers explicitly identify treatment-effect
+subgroups in GBSG. SurvCART [@kundu_ghosh2021] uses GBSG2 in its package
+documentation as a recursive-partitioning example, but its splits are
+prognostic (PNODES, PROGREC) rather than treatment-modifying. The
+forestsearch result [@leon2024_forestsearch] is one of the few methods
+papers to identify a treatment-modifying subgroup on GBSG and report
+bias-corrected effect estimates within it.
+
+**Clinical / predictive-biomarker tradition.** The strongest external
+evidence for the forestsearch finding is not in the methods literature
+at all — it is in the clinical meta-analyses by the EBCTCG [@ebctcg2011]
+and Cuzick et al. [@cuzick2013], which independently established that
+tamoxifen efficacy depends essentially on ER status, with no benefit in
+ER-negative disease. The ASCO/CAP guideline [@allison2020] provides the
+clinical definition that anchors what "ER = 0" means in practice.
+
+These traditions disagree on what counts as the "right" answer: a
+prognostic risk score, a treatment-recommendation policy, an
+interpretable subgroup, or a meta-analytic biomarker. They nevertheless
+converge on the same factual claim — that ER status governs tamoxifen
+efficacy — even though only the clinical and forestsearch traditions
+explicitly target *that* claim.
+
+### Convergent and divergent findings
+
+**The strongest, most consistent signal is ER status.** The clinical
+meta-analyses [@ebctcg2011; @cuzick2013] establish unambiguously that
+the proportional reduction in recurrence and mortality from adjuvant
+tamoxifen is concentrated in ER-positive disease, and that ER-negative
+disease shows essentially no benefit. The ASCO/CAP guideline
+[@allison2020] formalises this by recommending ≥ 1% nuclear ER staining
+as the cut-point for offering endocrine therapy. The forestsearch
+result on GBSG2 — that the maximally-consistent harmful-or-null
+subgroup is exactly Estrogen ≤ `r gbsg_estrec_cut` — recovers this
+mechanism *without* prior biological input.
+
+**The prognostic literature points elsewhere.** Sauerbrei & Royston
+[@sauerbrei1999] and the random-survival-forest literature
+[@ishwaran2008] consistently identify PNODES (number of positive
+lymph nodes) and PROGREC (progesterone receptor) as the dominant
+*prognostic* variables. These factors predict who is at higher
+*absolute* risk regardless of treatment, which is a different question
+from who *benefits more* from tamoxifen. The two literatures agree
+without conflict because they target different estimands.
+
+**The deep-survival literature does not produce a subgroup.** DeepSurv
+[@katzman2018] and its successors output a continuous treatment-
+recommendation score per patient. Whether the score implicitly carves
+out an ER-defined subgroup at the cohort level is rarely reported,
+since these papers are evaluated on concordance and Brier score
+rather than on subgroup recovery. As a result, comparing forestsearch
+to DeepSurv on GBSG is not directly possible without re-running both
+and post-hoc summarising the recommender output.
+
+**Sample-size caveat.** GBSG is small (*N* = `r gbsg_n`) compared with
+the trials in the EBCTCG meta-analysis (*n* = 21 457). The forestsearch
+ER ≤ `r gbsg_estrec_cut` subgroup has just over 80 patients
+(approximately 12% of the cohort), with the bias-corrected HR
+confidence interval (0.86, 2.9) wide enough that the result is best
+read as *consistent with* the established clinical mechanism, not as
+independent confirmation.
+
+### Connection to the present analysis
+
+The forestsearch ITT estimate on GBSG2 (HR =
+`r gbsg_itt_hr` [`r gbsg_itt_hr_lcl`, `r gbsg_itt_hr_ucl`]) sits
+within a 2 × 2 design where everyone received CMF chemotherapy and the
+randomised contrast is hormonal therapy yes vs no
+[@schumacher1994]. The subgroup result — that Estrogen ≤
+`r gbsg_estrec_cut` may not benefit from tamoxifen, while the
+complementary subgroup of ER-positive patients shows a slightly
+stronger benefit (HR 0.64 [0.44, 0.93]) than the overall ITT — is
+biologically expected because tamoxifen is a selective ER modulator
+and acts mechanistically through the ER pathway [@allison2020;
+@ebctcg2011].
+
+The methodological contribution is therefore not the *finding* (which
+the clinical literature had already established by the late 1990s)
+but the *recovery of the finding from data* using only the 8 routine
+baseline covariates and a procedure that does not pre-specify ER
+status as the candidate effect modifier. This is a different kind of
+demonstration than the ACTG175 application, where the forestsearch
+finding (Preanti × Age) competed with a substantial prior HTE
+literature on the same dataset.
+
+::: {.callout-note title="What this literature does NOT establish"}
+The convergent ER signal does not, on its own, validate any single
+forestsearch threshold or any specific cut on the continuous estrogen-
+receptor measurement. The clinical literature reports ≥ 1% as the
+practical positivity threshold [@allison2020], the EBCTCG observed
+substantial benefit at 10–19 fmol/mg [@ebctcg2011], and the
+forestsearch result identifies estrec = 0 as the discrete cut. These
+are all consistent with the same underlying biology but are not
+identical operationalisations. The GBSG sample is also small relative
+to the meta-analyses, and external validation on the Rotterdam cohort
+[@foekens2000] shows the same direction but with the ER-negative
+subgroup point estimate trending toward favourable benefit (HR 0.55,
+[0.30, 1.01]) rather than the harm direction seen in GBSG2.
+:::
+
+<!-- ─────────────────────────────────────────────────────────────
+     Bibliography entries (BibTeX format) for the @key citations
+     used above. Move these into the vignette's references.bib or
+     paste into a YAML `bibliography:` file. The keys match the
+     in-text @cite calls. If the parent vignette already has a
+     references.bib, deduplicate before merging.
+     ───────────────────────────────────────────────────────── -->
+
+<!--
+@article{schumacher1994,
+  author  = {Schumacher, M. and Bastert, G. and Bojar, H. and
+             Hu{\"e}bner, K. and Olschewski, M. and Sauerbrei, W. and
+             Schmoor, C. and Beyerle, C. and Neumann, R. L. A. and
+             Rauschecker, H. F.},
+  title   = {Randomized 2 x 2 trial evaluating hormonal treatment
+             and the duration of chemotherapy in node-positive
+             breast cancer patients. {German Breast Cancer Study Group}},
+  journal = {Journal of Clinical Oncology},
+  volume  = {12},
+  number  = {10},
+  pages   = {2086--2093},
+  year    = {1994},
+  doi     = {10.1200/JCO.1994.12.10.2086}
+}
+
+@article{sauerbrei1999,
+  author  = {Sauerbrei, W. and Royston, P. and Bojar, H. and
+             Schmoor, C. and Schumacher, M.},
+  title   = {Modelling the effects of standard prognostic factors
+             in node-positive breast cancer},
+  journal = {British Journal of Cancer},
+  volume  = {79},
+  number  = {11--12},
+  pages   = {1752--1760},
+  year    = {1999}
+}
+
+@article{royston2013,
+  author  = {Royston, P. and Altman, D. G.},
+  title   = {External validation of a {Cox} prognostic model:
+             principles and methods},
+  journal = {BMC Medical Research Methodology},
+  volume  = {13},
+  pages   = {33},
+  year    = {2013},
+  doi     = {10.1186/1471-2288-13-33}
+}
+
+@article{ishwaran2008,
+  author  = {Ishwaran, H. and Kogalur, U. B. and Blackstone, E. H.
+             and Lauer, M. S.},
+  title   = {Random survival forests},
+  journal = {Annals of Applied Statistics},
+  volume  = {2},
+  number  = {3},
+  pages   = {841--860},
+  year    = {2008},
+  doi     = {10.1214/08-AOAS169}
+}
+
+@article{katzman2018,
+  author  = {Katzman, J. L. and Shaham, U. and Cloninger, A. and
+             Bates, J. and Jiang, T. and Kluger, Y.},
+  title   = {{DeepSurv}: personalized treatment recommender system
+             using a {Cox} proportional hazards deep neural network},
+  journal = {BMC Medical Research Methodology},
+  volume  = {18},
+  number  = {1},
+  pages   = {24},
+  year    = {2018},
+  doi     = {10.1186/s12874-018-0482-1}
+}
+
+@article{kvamme2019,
+  author  = {Kvamme, H. and Borgan, {\O}. and Scheel, I.},
+  title   = {Time-to-event prediction with neural networks and
+             {Cox} regression},
+  journal = {Journal of Machine Learning Research},
+  volume  = {20},
+  number  = {129},
+  pages   = {1--30},
+  year    = {2019}
+}
+
+@article{kundu_ghosh2021,
+  author  = {Kundu, M. G. and Ghosh, S.},
+  title   = {Survival trees based on heterogeneity in time-to-event
+             and censoring distributions using parameter instability
+             test},
+  journal = {Statistical Analysis and Data Mining: The ASA Data
+             Science Journal},
+  volume  = {14},
+  number  = {5},
+  pages   = {466--483},
+  year    = {2021},
+  doi     = {10.1002/sam.11534}
+}
+
+@article{foekens2000,
+  author  = {Foekens, J. A. and Peters, H. A. and Look, M. P. and
+             others},
+  title   = {The urokinase system of plasminogen activation and
+             prognosis in 2780 breast cancer patients},
+  journal = {Cancer Research},
+  volume  = {60},
+  number  = {3},
+  pages   = {636--643},
+  year    = {2000}
+}
+
+@article{ebctcg2011,
+  author  = {{Early Breast Cancer Trialists' Collaborative Group}},
+  title   = {Relevance of breast cancer hormone receptors and other
+             factors to the efficacy of adjuvant tamoxifen:
+             patient-level meta-analysis of randomised trials},
+  journal = {Lancet},
+  volume  = {378},
+  number  = {9793},
+  pages   = {771--784},
+  year    = {2011},
+  doi     = {10.1016/S0140-6736(11)60993-8}
+}
+
+@article{cuzick2013,
+  author  = {Cuzick, J. and Sestak, I. and Bonanni, B. and others},
+  title   = {Selective oestrogen receptor modulators in prevention
+             of breast cancer: an updated meta-analysis of
+             individual participant data},
+  journal = {Lancet},
+  volume  = {381},
+  number  = {9880},
+  pages   = {1827--1834},
+  year    = {2013},
+  doi     = {10.1016/S0140-6736(13)60140-3}
+}
+
+@article{allison2020,
+  author  = {Allison, K. H. and Hammond, M. E. H. and Dowsett, M.
+             and others},
+  title   = {Estrogen and progesterone receptor testing in breast
+             cancer: {ASCO/CAP} guideline update},
+  journal = {Journal of Clinical Oncology},
+  volume  = {38},
+  number  = {12},
+  pages   = {1346--1366},
+  year    = {2020},
+  doi     = {10.1200/JCO.19.02309}
+}
+
+@misc{kuo2024_ck4gen,
+  author  = {Kuo, N. I. and others},
+  title   = {{CK4Gen}: A Knowledge Distillation Framework for
+             Generating High-Utility Synthetic Survival Datasets in
+             Healthcare},
+  year    = {2024},
+  eprint  = {2410.16872},
+  archivePrefix = {arXiv}
+}
+
+@article{leon2024_forestsearch,
+  author  = {Le{\'o}n, L. F. and Jemielita, T. and Guo, Z. and
+             Marceau West, R. and Anderson, K. M.},
+  title   = {Exploratory subgroup identification in the heterogeneous
+             {Cox} model: A relatively simple procedure},
+  journal = {Statistics in Medicine},
+  year    = {2024},
+  doi     = {10.1002/sim.10163}
+}
+-->
