@@ -341,6 +341,40 @@ if (identical(run_mode, "batch")) {
 }
 ```
 
+```{r beta-true-region}
+# beta(H) and beta(H^c): the population effect at the TRUE harm region.  This is
+# the denominator of the identification factor kappa reported in the estimation
+# table footnotes below.
+#
+# Batch mode already computed it as .td_chk in build-dgm above, so it is reused
+# rather than recomputed.  Combine mode skips the DGM build, so the frame is
+# rebuilt here -- every constant is already in scope and build_eval_frame() is a
+# deterministic function of them at a fixed eval_seed, so this reproduces exactly
+# the frame batch mode would have used.  The guard mirrors build-dgm's own rather
+# than testing exists(.td_chk), so a stale object from an interactive session
+# cannot be picked up silently.
+if (!identical(run_mode, "batch")) {
+  k_inter <- calibrate_k_inter(target_hr_harm = target_hr_harm,
+                               model = dgm_model, use_ahr = FALSE)
+  dgm     <- setup_gbsg_dgm(model = dgm_model, k_inter = k_inter,
+                            n_super = n_super, seed = seed_base)
+  dgm     <- compute_dgm_cde(dgm)
+  eval_df <- build_eval_frame(dgm, analysis_time = analysis_time,
+                              cens_adjust = cens_adjust, eval_seed = 20260628L)
+  .td_chk <- betaHhat_theta_dagger_check(eval_df, harm.name = harm_col,
+                                         outcome.name = outcome_name,
+                                         event.name = event_name,
+                                         treat.name = treat_name)
+}
+
+# The list names are legacy ("thetaDagger_*"); the values are exp{beta(.)} at the
+# true region.  Same functional as beta(Hhat) -- only the region differs -- so the
+# two are directly comparable on this one evaluation frame.
+betaH_H  <- unname(.td_chk[["thetaDagger_H"]])
+betaH_Hc <- unname(.td_chk[["thetaDagger_Hc"]])
+cat(sprintf("beta(H) = %.6f   beta(H^c) = %.6f\n", betaH_H, betaH_Hc))
+```
+
 # Per-replicate paired recorder
 
 For each simulated trial: identify $\hat H$ and obtain the naive + MR in
@@ -1011,7 +1045,13 @@ build_block <- function(r, suffix, tgt_cde, tgt_marg) {
       Cov_marg   = .cover(tgt_marg, lo, hi),
       stringsAsFactors = FALSE)
   })
-  do.call(rbind, rows)
+  blk <- do.call(rbind, rows)
+  # The oracle refits on the TRUE region H, so it does not estimate beta(Hhat).
+  # These two cells are a region mismatch, not a bias or a coverage rate.
+  is_or <- blk$Estimator == "oracle"
+  blk$b_betaHhat[is_or]   <- NA_real_
+  blk$Cov_betaHhat[is_or] <- NA_real_
+  blk
 }
 
 if (run_smoke && !is.null(results)) {
@@ -1042,6 +1082,14 @@ if (run_smoke && !is.null(results)) {
   # detection rate.  Reported because mr_ok is otherwise invisible -- a run where
   # MR failed on a third of the detected reps would read identically to one where
   # it never failed.
+  # Identification factor: the effect at the TRUE region relative to the realized
+  # one.  kappa = 1 exactly when the realized region reproduces the true region's
+  # effect, so it measures identification quality separately from estimation bias.
+  .kap  <- betaH_H / rH$betaHhat_H
+  .kap  <- .kap[is.finite(.kap)]
+  kappa_txt <- if (length(.kap))
+    sprintf("%.2f (median %.2f)", mean(.kap), stats::median(.kap)) else "\u2014"
+
   mr_avail  <- mean(rH$mr_ok, na.rm = TRUE)
   # Both of the following are ALREADY conditional on MR having run: mr_harm_flag
   # and ij_source stay NA when g is NULL, and na.rm = TRUE drops those reps.  So
@@ -1072,6 +1120,7 @@ if (run_smoke && !is.null(results)) {
       Cov_oracle = md("$\\hat{C}^{\\text{or}}$"), Cov_betaHhat = md("$\\hat{C}^{\\beta}$"),
       Cov_cde = md("$\\hat{C}^{\\ddagger}$"), Cov_marg = md("$C^{\\dagger}$")) |>
     cols_hide(columns = c(SD_hr, SD_hat_hr)) |>
+    sub_missing(columns = c(b_betaHhat, Cov_betaHhat), missing_text = "\u2014") |>
     tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_betaHhat, b_cde, b_marg)) |>
     tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_betaHhat, Cov_cde, Cov_marg)) |>
     tab_footnote(footnote = md(sprintf(
@@ -1087,7 +1136,13 @@ if (run_smoke && !is.null(results)) {
       if (run_fb)
         "FB = `H2` (León Eq.7, both bias sources); MR = MR, IJ interval."
       else
-        "MR = MR, IJ interval (FB skipped).")))
+        "MR = MR, IJ interval (FB skipped).",
+      sprintf(paste("The oracle refits on the true region $H$, so it does not estimate",
+                    "$\\beta(\\widehat H)$; its $b^{\\beta}$ and $\\hat C^{\\beta}$ cells are a",
+                    "region mismatch rather than a bias or coverage rate, and are",
+                    "suppressed. That mismatch is the identification factor",
+                    "$\\kappa = \\beta(H)/\\beta(\\widehat H)$ = %s, with $\\beta(H)$ = %.3f."),
+              kappa_txt, betaH_H))))
 }
 ```
 
@@ -1141,7 +1196,13 @@ if (run_smoke && !is.null(results)) {
         Cov_marg   = .cover(tgt_marg, lo, hi),
         stringsAsFactors = FALSE)
     })
-    do.call(rbind, rows)
+    blk <- do.call(rbind, rows)
+    # The oracle refits on the TRUE region H, so it does not estimate beta(Hhat).
+    # These two cells are a region mismatch, not a bias or a coverage rate.
+    is_or <- blk$Estimator == "oracle"
+    blk$b_betaHhat[is_or]   <- NA_real_
+    blk$Cov_betaHhat[is_or] <- NA_real_
+    blk
   }
 
   rHm <- results[results$detected == 1, , drop = FALSE]
@@ -1173,6 +1234,7 @@ if (run_smoke && !is.null(results)) {
       Cov_oracle = md("$\\hat{C}^{\\text{or}}$"), Cov_betaHhat = md("$\\hat{C}^{\\beta}$"),
       Cov_cde = md("$\\hat{C}^{\\ddagger}$"), Cov_marg = md("$C^{\\dagger}$")) |>
     cols_hide(columns = c(SD_hr, SD_hat_hr)) |>
+    sub_missing(columns = c(b_betaHhat, Cov_betaHhat), missing_text = "\u2014") |>
     tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_betaHhat, b_cde, b_marg)) |>
     tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_betaHhat, Cov_cde, Cov_marg)) |>
     tab_footnote(footnote = md(paste(
@@ -1183,7 +1245,13 @@ if (run_smoke && !is.null(results)) {
       if (run_fb)
         "FB = `H2` (Le\u00f3n Eq.7); MR = MR (IJ)."
       else
-        "MR = MR (IJ) (FB skipped).")))
+        "MR = MR (IJ) (FB skipped).",
+      sprintf(paste("The oracle refits on the true region $H$, so it does not estimate",
+                    "$\\beta(\\widehat H)$; its $b^{\\beta}$ and $\\hat C^{\\beta}$ cells are a",
+                    "region mismatch rather than a bias or coverage rate, and are",
+                    "suppressed. That mismatch is the identification factor",
+                    "$\\kappa = \\beta(H)/\\beta(\\widehat H)$ = %s, with $\\beta(H)$ = %.3f."),
+              kappa_txt, betaH_H))))
 }
 ```
 
