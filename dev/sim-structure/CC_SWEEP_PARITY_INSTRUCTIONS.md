@@ -82,15 +82,15 @@ provenance in the bundle `meta`. Nothing else.
   error and no warning**. Larry's decision: defer to the fold pass, which
   regenerates into fresh `run_tag` directories anyway. Section 3, B3 pins a
   comment on `.EST_KEYS` so nobody "tidies" it in the meantime.
-* **The 9 → 1 structural fold.** Step 6 part 2. Do not add a `params:` block.
+* **The 8 → 1 structural fold.** Step 6 part 2. Do not add a `params:` block.
 
 **Verified before drafting, not inferred from comments or filenames:**
 
 | Claim | How verified |
 |---|---|
 | `sg_focus = "eff"` and `"maxcons"` are exact synonyms | `.normalize_sg_focus()` (`R/forestsearch_helpers.R`) maps both to `"hr"`; both were executed through `.normalize_sg_focus()` → `.fs_mr_reselection_from_focus()` for `engine = "consistency"` **and** `engine = "effect"` — identical output (`maxcons` / `maxeff` respectively). The change is inert on all three detector arms |
-| Cell-to-cell delta is **2 lines**, not 4 | `diff` of `h10_knoise0` against `h075`, `h15`, `h20`: only `run_tag` and `target_hr_harm` differ. (`diff` prints 4 lines because it shows both sides.) Section 1 re-checks this live, including the `knoise` cells |
-| The sweep's `meta` records **no** DGM parameters | `run_cell()` writes `n_sample, n_sims, nb_boots, mr_draws, subgroup_method, sim_id_start, sim_id_end, seed_base, parallel_mode, elapsed_sec` — not `target_hr_harm`, not `k_random_noise`, not `run_tag`. Those two values are the only things distinguishing the nine documents, so a bundle currently identifies its cell **only by the directory it sits in** — a filename, in the one directory known for lying filenames. Section 4 closes this, and it is a prerequisite for the fold |
+| Cell-to-cell delta is **2 lines** for seven cells, **3 for `h25`** | `diff` of `h10_knoise0` against `h075`, `h15`, `h20`: only `run_tag` and `target_hr_harm` differ. (`diff` prints 4 lines because it shows both sides.) `h25` additionally sets `n_sims <- 500L` against `1000L` everywhere else — a real configuration difference, encoded in its `run_tag` (`m1_h25_knoise0_s500`). `n_sims` is therefore an allowed delta in the Section 1 gate, cross-checked against the `_s<N>` token so an accidental change still fails. Section 1 re-checks all of this live, including the `knoise` cells |
+| The sweep's `meta` records **no** DGM parameters | `run_cell()` writes `n_sample, n_sims, nb_boots, mr_draws, subgroup_method, sim_id_start, sim_id_end, seed_base, parallel_mode, elapsed_sec` — not `target_hr_harm`, not `k_random_noise`, not `run_tag`. Those two values (plus `n_sims` for `h25`) are the only things distinguishing the eight documents, so a bundle currently identifies its cell **only by the directory it sits in** — a filename, in the one directory known for lying filenames. Section 4 closes this, and it is a prerequisite for the fold |
 
 ---
 
@@ -275,23 +275,29 @@ C† (marginal subgroup HR) coverage of the **MR** gate on the **harm** block Ĥ
 C† (marginal subgroup HR) coverage of the **MR**-corrected interval on the **harm** block Ĥ,
 ```
 
-**A5** — stale cross-reference (~L72), automated with a fallback
+**A5** — RESOLVED: no edit. The cross-reference at ~L72 is **correct as written**.
 
 ```
 # (also sourced by the fs_t1_t2 FB engine); place it in this document's directory.
 ```
 
-The `fs_t1_t2` engine document was renamed by the reorg. Resolve it:
+This step originally asserted that "the `fs_t1_t2` engine document was renamed by
+the reorg" and asked for its successor. **That premise was false**, and the step
+is retained only so the question is not reopened:
 
-```bash
-ls -1 sim_fs_*.qmd
-git log --diff-filter=R --name-status --oneline -- '*fs_t1_t2*' | head -20
-```
+* The `fs_t1_t2` family was **never renamed away**. 84 `fs_t1_t2_*.qmd` are still
+  tracked, roughly 40 of them in `quarto/simulations/gbsg_redux/` itself. Run
+  `git ls-files '*fs_t1_t2*.qmd' | wc -l` **from the repo root** — a pathspec run
+  from inside the sweep directory resolves relative to the working directory and
+  returns 0, which is what made the family look deleted.
+* There is **no rename path** from any `fs_t1_t2` document to any current
+  `sim_fs_*.qmd`. `git log --follow` on the `sim_fs_*` files returns nothing;
+  commit `98115f3` archived 12 `t1_t2` combine documents to `legacy/` and adopted
+  the maxcons template as a **new** file. The relationship is adoption, not a
+  rename, and it is many-to-many besides.
 
-If **exactly one** current `sim_fs_*.qmd` is the successor, substitute its name.
-If the match is ambiguous or the document is gone, **leave the line unchanged**
-and report it — do not guess a filename. This is the one judgment call in the
-pass, and leaving it alone is the correct default.
+The line stays exactly as it is. **Do not re-litigate this in the fold pass** —
+there is no stale filename here to fix.
 
 **A6** — MR must not be described as re-selecting. MR de-biases against a fitted
 candidate family; it does not identify or re-select a subgroup. After A1–A5:
@@ -300,9 +306,10 @@ candidate family; it does not identify or re-select a subgroup. After A1–A5:
 grep -ni 're-select\|reselect\|re-selection' mr_coverage_sweep_*.qmd
 ```
 
-The only survivor should be the `sg_focus` comment written in B1, which
-describes `forestsearch()`'s *derivation* of MR's de-biasing rule. Any other hit
-is a prose bug: report it with the line, do not fix it silently.
+**Expect 0 hits.** An earlier draft expected one survivor — the `sg_focus`
+comment written in B1 — but the verbatim B1 text says "*derives MR's de-biasing
+rule*" and contains no form of "re-select". Any hit at all is a prose bug:
+report it with the line, do not fix it silently. Matches 5.1.
 
 ---
 
@@ -386,7 +393,7 @@ Replace the `meta` list in `run_cell()` (~L434–438) with:
                 # resolve to NA there and NA counts as a distinct value, so every
                 # bundle written before this change would stop() the pool.  These
                 # exist so a bundle can be identified after the fact -- which DGM
-                # cell, which config, which build -- not to gate anything.
+                # cell, which config, which build -- never as an agreement key.
                 run_tag             = run_tag,
                 dgm_model           = dgm_model,
                 target_hr_harm      = target_hr_harm,
@@ -417,6 +424,42 @@ in `accumulate_coverage()`. That check stays exactly as it is.
 
 Per file, in order. Do not skip a rung.
 
+### Hard rule for every execution-based step (5.3 and 5.4)
+
+**Any step that *executes* document code — 5.3 as much as 5.4 — runs from a
+scratch worktree, with `results_dir` redirected to a COPY of the bundles under
+`/tmp`. Never point an executing step at the real `mr_sweep` tree.**
+
+`run_sweep <- FALSE` is **not** a write guard. It gates per-cell *recomputation*
+only. The `build-grid` chunk calls `save_coverage_grid()` unconditionally, so any
+execution that reaches it overwrites
+`mr_sweep/<run_tag>/mr_coverage_grid_<run_tag>.rds` — a **tracked** file — no
+matter what `run_sweep` is set to.
+
+This bit in 5.3, not 5.4: a chunk-slicing helper that split labels on `-` failed
+to match `coverage-helpers`, the slice silently widened to the whole document,
+`build-grid` ran, and the tracked grid `.rds` was overwritten. It was restored
+byte-identical from `HEAD`, but a step advertised as read-only was not. Two
+consequences, both mandatory:
+
+* Redirect `results_dir` **immediately after the `setup` chunk**, before any
+  later chunk can read it — `run-sweep` calls `dir.create(results_dir)` too:
+
+  ```r
+  results_dir <- file.path("/tmp/fs-sweep-scratch", run_tag)
+  grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
+  ```
+
+* Assert the tree is clean after every executing step, and treat a hit as a
+  failure of that step:
+
+  ```bash
+  git status --porcelain -- quarto/simulations/gbsg_redux/mr_sweep/   # expect empty
+  ```
+
+Also run executing steps from a directory where a stray `Rplots.pdf` does not
+land in the repo, or delete it afterwards — base graphics opens a device.
+
 **5.1 Residual vocabulary scan** — case-insensitive, substrings included.
 `\bt2\b` does not match `t2m`, and `\b` does not match between `_` and `t`, so
 `_t1_t2_` survives a word-boundary pattern. Use the unbounded forms:
@@ -424,11 +467,23 @@ Per file, in order. Do not skip a rung.
 ```bash
 grep -nic 'gate' mr_coverage_sweep_*.qmd          # expect 0
 grep -ni  'tier' mr_coverage_sweep_*.qmd          # expect only grf "frontier"
-grep -ni  're-select\|reselect' mr_coverage_sweep_*.qmd   # expect only the B1 comment
+grep -ni  're-select\|reselect' mr_coverage_sweep_*.qmd   # expect 0
 grep -n   'sg_focus *<- *"eff"' mr_coverage_sweep_*.qmd   # expect 0
 ```
 
 `t1`/`t2` will still appear — that is the deferred schema (B3) and is correct.
+
+Both zero-expectations are exact, and each depends on the verbatim replacement
+text elsewhere in this document; if either is edited, re-check the other:
+
+* **`gate` → 0.** The Section 4 provenance comment ends "*never as an agreement
+  key*" precisely so this scan stays clean. An earlier draft ended "*not to gate
+  anything*", which left one hit per file and made a passing scan look like a
+  failure.
+* **`re-select|reselect` → 0**, not "only the B1 comment". The verbatim B1 text
+  in Section 3 says "*derives MR's de-biasing rule*" and contains no such word.
+  A6's reasoning is unchanged — MR de-biases, it does not re-select — the count
+  is simply 0.
 
 **5.2 Parse.** Extract and parse the R, per file:
 
@@ -446,6 +501,20 @@ fails at execution. In a fresh R process, with `run_sweep <- FALSE`, source the
 `run_cell` and the three `*_from_bundle` functions exist and `.EST_KEYS` is
 intact.
 
+This executes document code, so the hard rule above applies in full: run it from
+the worktree with `results_dir` on scratch, and confirm `mr_sweep/` is clean
+afterwards. Slice the chunks by a label parse that splits on `,` and **not** on
+`-` — chunk labels themselves contain `-` (`coverage-helpers`, `run-cell`,
+`build-dgm`), and a `-` split silently widens the slice to the whole document:
+
+```r
+lab <- trimws(gsub("-+$", "", sub(",.*$", "", sub("^## -+", "", ln[hdr]))))
+if (is.na(match("coverage-helpers", lab))) stop("chunk labels not resolved")
+```
+
+Fail loudly on an unresolved label. Do not let it fall through to a default of
+"everything".
+
 **5.4 Same-machine control render, reference file only.** `tolerance = 0` is not
 a cross-machine test — worker count feeds the search batch size and changes
 summation order. Same machine, same worker count, using a scratch worktree so
@@ -453,11 +522,18 @@ the live tree is never perturbed:
 
 ```bash
 git worktree add /tmp/fs-control HEAD
-# render /tmp/fs-control/quarto/simulations/gbsg_redux/mr_coverage_sweep_h10_knoise0.qmd
-#   and the edited file, both with run_sweep <- FALSE, both pointing results_dir
-#   at the real mr_sweep tree.  run_sweep = FALSE rebuilds the grid from existing
-#   bundles: no recomputation, and no .rds written.
+# Render BOTH the worktree copy of mr_coverage_sweep_h10_knoise0.qmd and the
+#   edited file, both with run_sweep <- FALSE, and both with results_dir
+#   redirected to a scratch COPY of the bundles under /tmp -- one copy per side:
+#     mkdir -p /tmp/fs-sweep-A/<run_tag> && cp <real>/*_mr_n*_res.rds /tmp/fs-sweep-A/<run_tag>/
+#     (likewise /tmp/fs-sweep-B)
+#   NOT at the real mr_sweep tree.  run_sweep = FALSE stops per-cell
+#   recomputation but does NOT stop the grid write: build-grid calls
+#   save_coverage_grid() unconditionally, so rendering against the real tree
+#   overwrites the tracked mr_coverage_grid_<run_tag>.rds.  Same bundles in on
+#   both sides, so the grid comparison is unaffected by the redirect.
 git worktree remove /tmp/fs-control
+git status --porcelain -- quarto/simulations/gbsg_redux/mr_sweep/   # expect empty
 ```
 
 Diff `grid$coverage`, `grid$length`, `grid$manifest` at `tolerance = 0`,
@@ -466,8 +542,8 @@ changes no read path, so anything other than identical means an edit landed
 where it should not have — halt and report, do not rationalise a small
 difference.
 
-One control render on the reference is sufficient given the 2-line cell delta,
-provided 5.1–5.3 are clean on every file.
+One control render on the reference is sufficient given the cell delta (2 lines,
+3 for `h25`), provided 5.1–5.3 are clean on every file.
 
 ---
 
@@ -478,9 +554,11 @@ Recorded so this pass is not redone:
 * **The `t1_`/`t2_` → `fb_`/`mr_` rename**, with either a migrate-on-read shim
   or regeneration into fresh `run_tag` directories. See Section 0 for why it
   fails silently if done naively.
-* **The `params:` block** is `target_hr_harm`, `k_random_noise`, `run_tag` —
-  confirmed 2 lines for the `h*` cells, and confirmed live for all cells by the
-  Section 1 gate.
+* **The `params:` block** is `target_hr_harm`, `k_random_noise`, `run_tag`,
+  **`n_sims`** — confirmed live for all eight cells by the Section 1 gate. The
+  delta is 2 lines for seven cells and 3 for `h25`, which runs `n_sims <- 500L`
+  against `1000L` everywhere else. `n_sims` is **not** optional in this list:
+  omit it and `h25` silently folds to 1000 replicates.
 * **`run_tag` is not derivable** and must stay an explicit parameter, not a
   `sprintf()` of the other two: the reference cell's tag is
   `"m1_h10_knoise0new_s1000"`, with a `new` no formula produces.
