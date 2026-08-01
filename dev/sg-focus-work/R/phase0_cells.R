@@ -53,6 +53,6 @@ PHASE0_COMMON <- list(
 SIM_DIR <- "quarto/simulations/gbsg_redux"
 
 phase0_bundle_path <- function(cell) {
-  file.path(SIM_DIR, sprintf("fs_t1_t2_m1_%s_combined_1_500.rds",
-                             sub("^h", "h", cell)))
+  file.path(SIM_DIR, "results", sprintf("fs_t1_t2_m1_%s_combined_1_500.rds",
+                                        sub("^h", "h", cell)))
 }

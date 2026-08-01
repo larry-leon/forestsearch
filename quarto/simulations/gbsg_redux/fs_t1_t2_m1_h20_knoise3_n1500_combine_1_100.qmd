@@ -131,11 +131,11 @@ rds_stem     <- sprintf("%s_t1_t2_m1_h%02d_knoise%d_n%d",
                         method_tag, round(10 * target_hr_harm), k_random_noise, n_sample)
 
 sim_id_end   <- sim_id_start + n_sims - 1L
-rds_path     <- sprintf("%s_res_%d_%d.rds", rds_stem, sim_id_start, sim_id_end)  # THIS batch's file
-combine_glob <- sprintf("%s_res_*.rds", rds_stem)   # combine mode: which batch files to merge
+rds_path     <- file.path("results", sprintf("%s_res_%d_%d.rds", rds_stem, sim_id_start, sim_id_end))  # THIS batch's file
+combine_glob <- file.path("results", sprintf("%s_res_*.rds", rds_stem))   # combine mode: which batch files to merge
 combine_files <- NULL   # optional explicit character vector; NULL -> use combine_glob
 save_combined <- TRUE   # combine mode: ALSO write the pooled bundle to disk
-combined_path <- NULL   # NULL -> auto "<rds_stem>_combined_<min>_<max>.rds" (deliberately
+combined_path <- NULL   # NULL -> auto "results/<rds_stem>_combined_<min>_<max>.rds" (deliberately
                         # outside combine_glob, so a re-combine never re-ingests the pool)
 
 # ── Persist results? The Tier-1 bootstrap (B x n_sims, each re-running the
@@ -601,6 +601,7 @@ if (run_smoke && identical(run_mode, "batch")) {
   # truth targets and key counts travel with the per-replicate records, and the
   # tables can be regenerated downstream without re-running the simulation.
   if (isTRUE(save_rds) && !is.null(results)) {
+    dir.create(dirname(rds_path), showWarnings = FALSE, recursive = TRUE)
     saveRDS(list(results = results, truth = truth,
                  meta = list(n_sample = n_sample, n_sims = n_sims,
                              nb_boots = nb_boots, mr_draws = mr_draws,
@@ -671,7 +672,8 @@ if (run_smoke && identical(run_mode, "batch")) {
   # re-ingests this pooled file alongside the batch pieces.
   if (isTRUE(save_combined)) {
     cpath <- combined_path %||%
-      sprintf("%s_combined_%d_%d.rds", rds_stem, rng[1], rng[2])
+      file.path("results", sprintf("%s_combined_%d_%d.rds", rds_stem, rng[1], rng[2]))
+    dir.create(dirname(cpath), showWarnings = FALSE, recursive = TRUE)
     saveRDS(list(results = results, truth = truth,
                  meta = list(n_sample = n_sample, n_sims = n_sims,
                              nb_boots = nb_boots, mr_draws = mr_draws,

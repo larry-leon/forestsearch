@@ -31,7 +31,7 @@ run("all new, DIFFERENT focus -- must refuse",        list(mk("maxcons"), mk("ef
 run("legacy + two different foci -- must refuse",     list(mk(NULL), mk("maxcons"), mk("minSG")))
 run("new batches vs mismatched setup knob -- warn",   list(mk("effMaxSG"), mk("effMaxSG")))
 cat("\n### the real on-disk batch (pre-fix, no focus_tag)\n")
-b <- readRDS("../../../quarto/simulations/gbsg_redux/fs_maxcons_fb_mr_m1_h10_knoise0_n500_res_1_100.rds")
+b <- readRDS("../../../quarto/simulations/gbsg_redux/results/legacy_fs_maxcons_fb_mr_m1_h10_knoise0_n500_res_1_100.rds")
 cat("  meta keys:", paste(names(b$meta), collapse=", "), "\n")
 run("existing res_1_100.rds alone", list(b))
 run("existing res_1_100.rds + a future post-fix batch", list(b, mk("maxcons")))

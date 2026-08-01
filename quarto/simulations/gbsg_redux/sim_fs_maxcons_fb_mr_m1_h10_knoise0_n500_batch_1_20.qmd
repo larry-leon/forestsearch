@@ -119,7 +119,15 @@ k_random_noise <- 0       # Add k_random_noise confounders
 run_mode     <- "batch"   # "batch" (run + save one piece) | "combine" (merge + report)
 sim_id_start <- 1L        # first sim_id of THIS batch (101L, 201L, ... for later pieces)
 
+# ── The identifier: engine + focus ─────────────────────────────────────────
+# These two together ARE the estimator, and both feed the output stem below,
+# so they are defined here rather than with the search-tuning knobs.  Defining
+# sg_focus later would leave focus_tag undefined at stem-construction time.
 subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
+sg_focus           <- "maxcons"    # consistency argmax: highest consistency rate,
+                                   # ties broken by effect.  Alias of "eff" -- both
+                                   # normalize to one canonical focus, so this rename
+                                   # is inert.  "maxcons" names what the rule does.
 
 target_hr_harm  <- 1.0    # calibrate k_inter to this Cox HR in the harm subgroup
 n_sample        <- 500L   # M1 sample size
@@ -144,18 +152,28 @@ method_tag   <- if (identical(subgroup_method, "consistency")) "fs" else subgrou
 # Aliases normalize FORWARD to the descriptive name rather than back through
 # .normalize_sg_focus(), which maps eff -> "hr": the Cox-flavoured internal
 # vocabulary.  "eff*" generalizes across GLM outcomes, "hr" does not.
-focus_tag    <- switch(sg_focus, eff = "maxcons", sg_focus)
+# Fold every alias pair onto one tag.  .normalize_sg_focus() collapses three
+# pairs -- eff/hr, effMaxSG/hrMaxSG, effMinSG/hrMinSG -- so each pair is one
+# rule under two spellings.  Without folding, identical runs written under
+# different spellings land in different stems and never pool.  The eff*
+# spelling wins because it carries over to GLM outcomes; the consistency
+# argmax takes "maxcons", which names what the rule does.
+focus_tag    <- switch(sg_focus,
+                       eff      = , hr      = , maxcons = "maxcons",
+                       effMaxSG = , hrMaxSG = "effMaxSG",
+                       effMinSG = , hrMinSG = "effMinSG",
+                       sg_focus)
 
 rds_stem     <- sprintf("%s_%s_fb_mr_m1_h%02d_knoise%d_n%d",
                         method_tag, focus_tag, round(10 * target_hr_harm),
                         k_random_noise, n_sample)
 
 sim_id_end   <- sim_id_start + n_sims - 1L
-rds_path     <- sprintf("%s_res_%d_%d.rds", rds_stem, sim_id_start, sim_id_end)  # THIS batch's file
-combine_glob <- sprintf("%s_res_*.rds", rds_stem)   # combine mode: which batch files to merge
+rds_path     <- file.path("results", sprintf("%s_res_%d_%d.rds", rds_stem, sim_id_start, sim_id_end))  # THIS batch's file
+combine_glob <- file.path("results", sprintf("%s_res_*.rds", rds_stem))   # combine mode: which batch files to merge
 combine_files <- NULL   # optional explicit character vector; NULL -> use combine_glob
 save_combined <- TRUE   # combine mode: ALSO write the pooled bundle to disk
-combined_path <- NULL   # NULL -> auto "<rds_stem>_combined_<min>_<max>.rds" (deliberately
+combined_path <- NULL   # NULL -> auto "results/<rds_stem>_combined_<min>_<max>.rds" (deliberately
                         # outside combine_glob, so a re-combine never re-ingests the pool)
 
 # ── Persist results? The FB bootstrap (B x n_sims, each re-running the
@@ -169,7 +187,7 @@ proj_scenarios <- list(
   c(n_sims = 10000L, nb_boots = 500L)
 )
                           # the MR -- see run_fb below.
-mr_draws   <- 5000L     # MR multiplier draws         (keep ~2000)
+mr_draws   <- 500L     # MR multiplier draws         (keep ~2000)
 
 save_rds <- identical(run_mode, "batch") && !is.null(rds_path)  # write only when running a batch
 
@@ -205,11 +223,8 @@ dina_args       <- list()          # extra args forwarded to the DINA selector (
 dina_select_statistic <- "effect"  # only if subgroup_method == "dina": "dina" | "effect"
 
 # ── Search configuration (León tuning; resample identification) ────────────
+# sg_focus and subgroup_method are set earlier, with the output stem they feed.
 consistency_method <- "resample"   # decided: resample identification (the new default)
-sg_focus           <- "maxcons"    # consistency argmax: highest consistency rate,
-                                   # ties broken by effect.  Alias of "eff" -- both
-                                   # normalize to one canonical focus, so this rename
-                                   # is inert.  "maxcons" names what the rule does.
 # MR's de-biasing rule is no longer set explicitly: forestsearch() derives it from
 # sg_focus ("maxcons" for the consistency engine), reproducing the legacy
 # value while staying faithful per engine.  Override via `reselection =` in
@@ -219,6 +234,12 @@ selection_rule     <- "neighborhood"  # effMaxSG/effMinSG band rule.  INERT unde
                                       # consistency-primary with no band term.
                                       # Retained unchanged so the effMaxSG/effMinSG
                                       # arms can use it.
+stop_threshold     <- NULL            # early stopping.  NULL is what this config
+                                      # already resolves to: forestsearch() resets
+                                      # it for the canonical "hr" family, which
+                                      # "maxcons" normalizes to, and does so WITHOUT
+                                      # warning unless supplied explicitly.  Named
+                                      # here so the setting is inspectable.
 effect_neighborhood <- 0.10           # package default; band half-width for
                                       # effMaxSG/effMinSG.  Pinned rather than
                                       # inherited so the value is visible; inert
@@ -441,14 +462,7 @@ if (k_random_noise > 0) {
     pconsistency.threshold = pconsistency, n.min = n_min,
     selection_rule  = selection_rule,   # governs *MaxSG/*MinSG band (search, and MR's de-biasing family)
     effect_neighborhood = effect_neighborhood,  # band width; inert unless the focus is effMaxSG/effMinSG
-    # stop_threshold pinned to NULL, which is what this configuration already
-    # resolves to and therefore a no-op.  Left implicit it is invisible: the
-    # default is pconsistency.threshold (0.90 here), and forestsearch() resets it
-    # to NULL for the canonical "hr" family -- which "maxcons" normalizes to --
-    # WITHOUT warning, because the reset only warns when the value was supplied
-    # explicitly.  Early stopping is therefore off, and stating it here is the
-    # difference between that being a decision and an accident.
-    stop_threshold  = NULL,
+    stop_threshold  = stop_threshold,   # see @sec-setup; NULL, i.e. no early stopping
     parallel_args   = inner_parallel,              # parallel_mode: sims->sequential, boots->multisession
     mr_inference     = TRUE,
     mr_inference_args = list(ci_method = "ij", draws = mr_draws,
@@ -534,11 +548,13 @@ if (k_random_noise > 0) {
       forestsearch_bootstrap_dofuture(
         fs.est, nb_boots = nb_boots, seed = seed_base + sim_id,
         parallel_args = inner_parallel,
-        # Pinned to the package default.  fs.est is fitted with
-        # mr_inference = TRUE, and the replicate call is a copy of that fit's
-        # argument list, so without this the flag would be inherited and MR
-        # would run inside all nb_boots replicates of every sim.  Nothing
-        # downstream consumes a per-replicate MR object.  No-op as written.
+        # Pinned to the package default, purely so the setting is visible.
+        # It is a no-op: FALSE is the formal default
+        # (bootstrap_dofuture_main.R:193) and bootstrap_analysis_dofuture.R:597
+        # strips mr_inference from the replicate call regardless, so the
+        # un-pinned call already took this path.  Setting TRUE would run MR
+        # inside every replicate and attach an mr_replicates payload that
+        # nothing here consumes.
         mr_in_replicates = FALSE),
       error = function(e) { fb_err <<- conditionMessage(e); NULL })
     rec$fb_secs <- proc.time()[3] - fb_t0
@@ -547,8 +563,14 @@ if (k_random_noise > 0) {
       he <- boot$H_estimates                     # H2 = León Eq.7 (both bias sources)
       # %||% guards a missing H2 column (get_dfRes omits H2 when the 2nd-order
       # bias adjustment is unavailable): a bare NULL assignment would DELETE the
-      # column from rec, and the short record is then silently dropped by the
-      # run-loop's rbind/.errorhandling = "remove" -> a hidden, non-random loss.
+      # column from rec, and the resulting short record ABORTS THE WHOLE BATCH.
+      # Not a silent drop -- rbind() on data.frames with differing columns
+      # errors ("numbers of columns of arguments do not match"), and neither
+      # run-loop path survives it: "boots" mode combines with
+      # do.call(rbind, lapply(...)), and in "sims" mode the failure is in
+      # foreach's .combine, which .errorhandling = "remove" does not cover
+      # (that only removes errors raised in the loop BODY).  One malformed
+      # replicate therefore loses the entire run, not one cell.
       rec$fb_H_est <- he$H2 %||% NA_real_
       rec$fb_H_lo  <- he$H2_lower %||% NA_real_
       rec$fb_H_hi  <- he$H2_upper %||% NA_real_
@@ -623,7 +645,7 @@ if (run_smoke && identical(run_mode, "batch")) {
               sum(results$detected, na.rm = TRUE), length(sim_ids), elapsed,
               elapsed / max(1L, length(sim_ids))))
   if (run_fb) {
-    cat(sprintf("Mean wall-clock: MR %.3f s vs FB bootstrap %.2f s (B=%d).\n",
+    cat(sprintf("Mean wall-clock: fit+MR %.3f s vs FB bootstrap %.2f s (B=%d).\n",
                 mean(results$fit_mr_secs, na.rm = TRUE),
                 mean(results$fb_secs, na.rm = TRUE), nb_boots))
 
@@ -638,7 +660,7 @@ if (run_smoke && identical(run_mode, "batch")) {
         cat("Distinct FB error(s):\n", paste0("  - ", errs, collapse = "\n"), "\n", sep = "")
     }
   } else {
-    cat(sprintf("Mean wall-clock: MR %.3f s  (FB skipped: nb_boots = %s).\n",
+    cat(sprintf("Mean wall-clock: fit+MR %.3f s  (FB skipped: nb_boots = %s).\n",
                 mean(results$fit_mr_secs, na.rm = TRUE),
                 if (is.null(nb_boots)) "NULL" else as.character(nb_boots)))
   }
@@ -647,12 +669,35 @@ if (run_smoke && identical(run_mode, "batch")) {
   # truth targets and key counts travel with the per-replicate records, and the
   # tables can be regenerated downstream without re-running the simulation.
   if (isTRUE(save_rds) && !is.null(results)) {
+    dir.create(dirname(rds_path), showWarnings = FALSE, recursive = TRUE)
     saveRDS(list(results = results, truth = truth,
                  meta = list(n_sample = n_sample, n_sims = n_sims,
                              nb_boots = nb_boots, mr_draws = mr_draws,
                              subgroup_method = subgroup_method,
                              sim_id_start = sim_id_start, sim_id_end = sim_id_end,
-                             seed_base = seed_base, parallel_mode = parallel_mode)),
+                             seed_base = seed_base, parallel_mode = parallel_mode,
+                             # --- provenance, RECORD ONLY -------------------
+                             # Deliberately NOT added to the agreement-check key
+                             # vector in combine mode: a missing field resolves
+                             # to NA there and NA counts as a distinct value, so
+                             # every batch written before this change would
+                             # stop() the pool.  These exist so a bundle can be
+                             # identified after the fact -- which identifier,
+                             # which build, how many workers -- not to gate
+                             # anything.
+                             sg_focus            = sg_focus,
+                             focus_tag           = focus_tag,
+                             consistency_method  = consistency_method,
+                             stop_threshold      = paste(deparse(stop_threshold),
+                                                         collapse = " "),
+                             selection_rule      = selection_rule,
+                             effect_neighborhood = effect_neighborhood,
+                             forestsearch_version =
+                               as.character(utils::packageVersion("forestsearch")),
+                             n_workers           = n_workers,
+                             r_version           = as.character(getRversion()),
+                             hostname            = unname(Sys.info()[["nodename"]]),
+                             built_at            = Sys.time())),
             rds_path)
     cat(sprintf("Saved batch bundle (%d rows, sim_id %d-%d) to %s\n",
                 nrow(results), sim_id_start, sim_id_end, rds_path))
@@ -717,7 +762,8 @@ if (run_smoke && identical(run_mode, "batch")) {
   # re-ingests this pooled file alongside the batch pieces.
   if (isTRUE(save_combined)) {
     cpath <- combined_path %||%
-      sprintf("%s_combined_%d_%d.rds", rds_stem, rng[1], rng[2])
+      file.path("results", sprintf("%s_combined_%d_%d.rds", rds_stem, rng[1], rng[2]))
+    dir.create(dirname(cpath), showWarnings = FALSE, recursive = TRUE)
     saveRDS(list(results = results, truth = truth,
                  meta = list(n_sample = n_sample, n_sims = n_sims,
                              nb_boots = nb_boots, mr_draws = mr_draws,
@@ -725,7 +771,18 @@ if (run_smoke && identical(run_mode, "batch")) {
                              sim_id_start = rng[1], sim_id_end = rng[2],
                              seed_base = bundles[[1]]$meta$seed_base %||% NA_integer_,
                              n_batches = length(files),
-                             source_files = basename(files))),
+                             source_files = basename(files),
+                             # Provenance carried from the first pooled bundle,
+                             # as seed_base already is.  NA for batches written
+                             # before provenance was recorded.
+                             sg_focus   = bundles[[1]]$meta$sg_focus %||% NA_character_,
+                             focus_tag  = bundles[[1]]$meta$focus_tag %||% NA_character_,
+                             consistency_method =
+                               bundles[[1]]$meta$consistency_method %||% NA_character_,
+                             stop_threshold =
+                               bundles[[1]]$meta$stop_threshold %||% NA_character_,
+                             forestsearch_version =
+                               bundles[[1]]$meta$forestsearch_version %||% NA_character_)),
             cpath)
     cat(sprintf("Saved pooled bundle (%d rows, sim_id %d-%d, %d batches) to %s\n",
                 nrow(results), rng[1], rng[2], length(files), cpath))
@@ -746,6 +803,9 @@ projections.
 
 ```{r timing-projection}
 if (run_smoke && !is.null(results)) {
+  # NB: the whole forestsearch() call -- the search PLUS MR -- which is the
+  # cost FB is then measured on top of.  MR's own cost alone is in
+  # fs.est$mr_inference$timing_seconds.
   mr_mean  <- mean(results$fit_mr_secs, na.rm = TRUE)          # forestsearch fit + MR, per rep
   det_rate <- mean(results$detected, na.rm = TRUE)
   # FB timing only when FB actually ran; nb_boots may be 0L or NULL.
@@ -814,11 +874,11 @@ if (run_smoke && !is.null(results)) {
     sprintf("%d reps pooled from batch files (no single wall-clock)", n_sims)
   if (run_fb) {
     cat(sprintf(
-      "Current run: %s. Per rep: MR %.1f s, FB %.0f s (B=%d, ~%.1f s/bootstrap). Detection %.0f%%.\n",
+      "Current run: %s. Per rep: fit+MR %.1f s, FB %.0f s (B=%d, ~%.1f s/bootstrap). Detection %.0f%%.\n",
       run_label, mr_mean, fb_mean, boots_disp, per_boot, 100 * det_rate))
   } else {
     cat(sprintf(
-      "Current run: %s. Per rep: MR %.1f s (FB skipped). Detection %.0f%%.\n",
+      "Current run: %s. Per rep: fit+MR %.1f s (FB skipped). Detection %.0f%%.\n",
       run_label, mr_mean, 100 * det_rate))
   }
   if (is.finite(k_cal))
@@ -829,7 +889,7 @@ if (run_smoke && !is.null(results)) {
                subtitle = sprintf("%s mode \u00b7 %d workers \u00b7 detection %.0f%%%s",
                                   parallel_mode, n_workers, 100 * det_rate,
                                   if (is.finite(k_cal)) sprintf(" \u00b7 k = %.2f", k_cal) else "")) |>
-    cols_label(n_sims = "sims", B = "boots", mr_rep_s = "MR/rep (s)",
+    cols_label(n_sims = "sims", B = "boots", mr_rep_s = "fit+MR/rep (s)",
                fb_rep_s = "FB/rep (s)", cpu_hours = "CPU-hours",
                wall_actual = "wall (actual)",
                wall_model = "wall (modeled)", wall_cal = "wall (calibrated)") |>
@@ -841,9 +901,9 @@ if (run_smoke && !is.null(results)) {
       else
         "`wall (modeled)` = ceil(sims / workers) \u00d7 per-rep cost (replicates parallel, bootstrap sequential), where per-rep cost =",
       if (run_fb)
-        "MR/rep + detection \u00d7 FB/rep (FB/rep = per-bootstrap cost \u00d7 boots);"
+        "fit+MR/rep + detection \u00d7 FB/rep (FB/rep = per-bootstrap cost \u00d7 boots);"
       else
-        "MR/rep (FB skipped);",
+        "fit+MR/rep (FB skipped);",
       "It omits load imbalance and fixed overhead.",
       "`wall (calibrated)` = k \u00d7 modeled, with k = measured wall / modeled wall on THIS run,",
       "so the current row reproduces the measured wall and projections carry this run's realized overhead.",
@@ -977,6 +1037,18 @@ if (run_smoke && !is.null(results)) {
   # Classification + decision + IJ-stability diagnostics (over detected reps).
   cls <- sprintf("sens %.2f \u00b7 spec %.2f \u00b7 PPV %.2f \u00b7 NPV %.2f",
                  .mfin(rH$sens), .mfin(rH$spec), .mfin(rH$ppv), .mfin(rH$npv))
+  # MR availability: the share of DETECTED reps for which MR returned an object.
+  # The detected-only denominator is what makes this mean "MR failed" rather than
+  # "nothing was found": .na_record() sets mr_ok = 0L, so every undetected rep
+  # also carries mr_ok = 0 and an unconditional mean would just reproduce the
+  # detection rate.  Reported because mr_ok is otherwise invisible -- a run where
+  # MR failed on a third of the detected reps would read identically to one where
+  # it never failed.
+  mr_avail  <- mean(rH$mr_ok, na.rm = TRUE)
+  # Both of the following are ALREADY conditional on MR having run: mr_harm_flag
+  # and ij_source stay NA when g is NULL, and na.rm = TRUE drops those reps.  So
+  # their denominator is mr_avail * |detected|, not |detected| -- which is why
+  # availability is stated first and these two read "among those".
   harm_rate <- mean(rH$mr_harm_flag, na.rm = TRUE)
   ij_ok     <- mean(rH$ij_source == "ij", na.rm = TRUE)
 
@@ -1005,8 +1077,8 @@ if (run_smoke && !is.null(results)) {
     tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_betaHhat, b_cde, b_marg)) |>
     tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_betaHhat, Cov_cde, Cov_marg)) |>
     tab_footnote(footnote = md(sprintf(
-      "Detection rate **%.0f%%** of %d sims; MR flags harm in **%.0f%%** of detected reps; IJ variance held (not fallback) in **%.0f%%**. Classification of \u0124 vs true subgroup: %s. Summaries finite-only over detected reps; `n` = finite reps contributing.",
-      100 * det_rate, n_sims, 100 * harm_rate, 100 * ij_ok, cls))) |>
+      "Detection rate **%.0f%%** of %d sims; MR returned an estimate on **%.0f%%** of detected reps; among those, MR flags harm in **%.0f%%** and IJ variance held (not fallback) in **%.0f%%**. Classification of \u0124 vs true subgroup: %s. Summaries finite-only over detected reps; `n` = finite reps contributing.",
+      100 * det_rate, n_sims, 100 * mr_avail, 100 * harm_rate, 100 * ij_ok, cls))) |>
     tab_footnote(footnote = md(paste(
       "$\\text{SD}_{\\beta}$ (empirical SD) and $\\widehat{\\text{SD}}_{\\beta}$ (mean of the model SEs) are on the log-hazard-ratio ($\\beta$) scale; HR-scale versions are computed but hidden.",
       "Targets: $b^{\\text{or}}$ vs per-replicate oracle $\\hat\\theta(H)$;",

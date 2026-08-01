@@ -31,7 +31,7 @@ normalise_sgdef <- function(x) {
 }
 
 saved_for <- function(cell) {
-  p <- file.path(SIM_DIR, sprintf("fs_t1_t2_m1_%s_combined_1_500.rds", cell))
+  p <- file.path(SIM_DIR, "results", sprintf("fs_t1_t2_m1_%s_combined_1_500.rds", cell))
   if (!file.exists(p)) return(NULL)
   readRDS(p)$results
 }
