@@ -447,7 +447,7 @@ run_cell <- function(method, n_sample, nb_boots = NULL, out = NULL,
                 # resolve to NA there and NA counts as a distinct value, so every
                 # bundle written before this change would stop() the pool.  These
                 # exist so a bundle can be identified after the fact -- which DGM
-                # cell, which config, which build -- not to gate anything.
+                # cell, which config, which build -- never as an agreement key.
                 run_tag             = run_tag,
                 dgm_model           = dgm_model,
                 target_hr_harm      = target_hr_harm,
