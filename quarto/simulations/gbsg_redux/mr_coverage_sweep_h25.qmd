@@ -38,7 +38,7 @@ format:
 
 For each cell — one `(subgroup_method, n_sample)` pair — the document runs
 `n_sims` simulated trials on the León (2024) GBSG-AFT M1 super-population, and on
-each detected replicate records the **MR** de-biased gate
+each detected replicate records the **MR** de-biased estimate and interval
 (`forestsearch(mr_inference = TRUE)`, infinitesimal-jackknife interval) together
 with the oracle and naive estimators. Coverage is the proportion of detected
 replicates whose 95% CI contains the target, computed against the **marginal
@@ -125,7 +125,12 @@ k_random_noise <- 0             # add k_random_noise standard-normal noise confo
 
 # ── Search configuration (León tuning; resample identification) ──────────────
 consistency_method <- "resample"
-sg_focus           <- "eff"     # consistency + "eff" ⇒ gate re-selection "maxcons"
+# "maxcons" and "eff" are exact synonyms: .normalize_sg_focus() maps both to the
+# canonical internal "hr".  "maxcons" is preferred because it names what the rule
+# does.  forestsearch() derives MR's de-biasing rule from the normalized value and
+# the engine -- "maxcons" for the consistency engine, "maxeff" for dina/grf -- so
+# the spelling change is inert on all three detector arms.
+sg_focus           <- "maxcons"
 selection_rule     <- "neighborhood"
 hr_threshold   <- 0.90
 hr_consistency <- 0.80
@@ -199,7 +204,7 @@ if (run_sweep) {
 
 `record_replicate()` takes the cell axes (`method`, `n_sample`) explicitly and
 reads the fixed configuration from the setup chunk. Everything else mirrors the
-single-cell recorder: identify Ĥ + naive + MR gate in one `forestsearch()` call,
+single-cell recorder: identify Ĥ + naive + MR correction in one `forestsearch()` call,
 optionally run the FB bootstrap (skipped when `nb_boots` is NULL/0), and refit
 the oracle on the true harm subgroup. A failure returns an all-NA record so the
 loop never aborts a cell.
@@ -262,7 +267,7 @@ loop never aborts a cell.
   stringsAsFactors = FALSE)
 
 record_replicate <- function(sim_id, method, n_sample, nb_boots) {
-  run_tier1 <- is.numeric(nb_boots) && length(nb_boots) == 1L && nb_boots >= 1L
+  run_fb <- is.numeric(nb_boots) && length(nb_boots) == 1L && nb_boots >= 1L
   rec <- .na_record(sim_id)
 
   df <- tryCatch(
@@ -285,7 +290,7 @@ record_replicate <- function(sim_id, method, n_sample, nb_boots) {
 
   rec$n_true <- sum(df[[harm_col]] == 1L, na.rm = TRUE)
 
-  # ---- Identification + naive + MR gate (single forestsearch call) ----------
+  # ---- Identification + naive + MR correction (single forestsearch call) ----
   base_args <- list(
     df.analysis     = df,
     outcome.name    = outcome_name, event.name = event_name,
@@ -358,7 +363,7 @@ record_replicate <- function(sim_id, method, n_sample, nb_boots) {
   rec$n_harm <- sum(fs.est$grp.consistency$sg.harm.id == 1L, na.rm = TRUE)
 
   # ---- FB bootstrap (H2 = León Eq.7) — dormant when nb_boots NULL/0 ----------
-  if (run_tier1 && method %in% c("consistency", "dina", "grf")) {
+  if (run_fb && method %in% c("consistency", "dina", "grf")) {
     t1_t0 <- proc.time()[3]; t1_err <- NA_character_
     boot <- tryCatch(
       forestsearch_bootstrap_dofuture(fs.est, nb_boots = nb_boots,
@@ -435,7 +440,29 @@ run_cell <- function(method, n_sample, nb_boots = NULL, out = NULL,
                 mr_draws = mr_draws, subgroup_method = method,
                 sim_id_start = sim_id_start, sim_id_end = max(sim_ids),
                 seed_base = seed_base, parallel_mode = parallel_mode,
-                elapsed_sec = elapsed))
+                elapsed_sec = elapsed,
+                # --- provenance, RECORD ONLY ------------------------------
+                # Never added to the agreement check in accumulate_coverage():
+                # that compares truth and seed_base only.  A missing field would
+                # resolve to NA there and NA counts as a distinct value, so every
+                # bundle written before this change would stop() the pool.  These
+                # exist so a bundle can be identified after the fact -- which DGM
+                # cell, which config, which build -- not to gate anything.
+                run_tag             = run_tag,
+                dgm_model           = dgm_model,
+                target_hr_harm      = target_hr_harm,
+                k_random_noise      = k_random_noise,
+                analysis_time       = analysis_time,
+                cens_adjust         = cens_adjust,
+                sg_focus            = sg_focus,
+                consistency_method  = consistency_method,
+                selection_rule      = selection_rule,
+                forestsearch_version =
+                  as.character(utils::packageVersion("forestsearch")),
+                n_workers           = n_workers,
+                r_version           = as.character(getRversion()),
+                hostname            = unname(Sys.info()[["nodename"]]),
+                built_at            = Sys.time()))
   if (!is.null(out)) saveRDS(bundle, out)
   bundle
 }
@@ -444,6 +471,13 @@ run_cell <- function(method, n_sample, nb_boots = NULL, out = NULL,
 # Coverage post-processing helpers (inlined) {#sec-helpers}
 
 ```{r coverage-helpers}
+# DELIBERATE: the "t1"/"t2" values are the COLUMN PREFIXES of the bundle results
+# frame, not vocabulary.  Every .rds already committed under mr_sweep/<run_tag>/
+# carries them.  Renaming these to "fb"/"mr" without also migrating those bundles
+# makes legacy cells vanish from the grid SILENTLY -- `[[` returns NULL on a
+# missing column, .coverage_meta() absorbs it into an all-NA row, and
+# drop_all_na discards it.  The rename is deferred to the fold pass, which
+# regenerates into fresh run_tag directories.  Do not "tidy" this line.
 .EST_KEYS   <- c(oracle = "or", naive = "nv", FB = "t1", MR = "t2")
 .TARGET_COL <- c(oracle = "C_oracle", cde = "C_ddagger", marg = "C_dagger", betaHhat = "C_betaHhat")
 
@@ -731,7 +765,7 @@ if (have_grid) {
 
 # Coverage vs sample size {#sec-plot}
 
-C† (marginal subgroup HR) coverage of the **MR** gate on the **harm** block Ĥ,
+C† (marginal subgroup HR) coverage of the **MR**-corrected interval on the **harm** block Ĥ,
 one line per detector, with the 0.95 nominal line and Wilson 95% bands on each
 rate. Switch `target_pick` to `"C_ddagger"` for the CDE, `block_pick` to `"Hc"`,
 or `estimator_pick` to `"naive"`/`"oracle"` to re-slice the same grid.
