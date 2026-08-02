@@ -92,11 +92,22 @@ run_sweep   <- TRUE                       # FALSE ⇒ skip computation, just (re
 # run_tag identifies THIS run (DGM cell · sim count · draws · whatever distinguishes it).
 # results_dir AND the grid filename both derive from it, so changing run_tag writes to a new
 # folder and a new grid with NO pooling of prior runs — the clean way to get a fresh set.
-# The figure fragment (_sim_mr_coverage.qmd) reads the grid by matching this SAME run_tag,
-# so keep the two strings identical. Convention: <dgm>_s<n_sims>_d<mr_draws>.
-run_tag <- "m1_h10_knoise0new_s1000" # ← bump this for a fresh, isolated run
+# No fragment reads this document's grid.  The _sim_mr_coverage_* fragments hold
+# their own hardcoded run_tags vector and default to payload_dir "_payloads/",
+# not mr_sweep/; none of them includes or is included by this file.  Verified
+# 2026-08-01 -- an earlier version of this comment claimed a shared-run_tag
+# dependency that does not exist, and that claim cost a preflight halt.
+# Convention: <dgm>_<engine_tag>_v2_s<n_sims>.
+# FB dormancy is the single source of truth for the engine token.  It names the
+# bundle files AND the build-grid glob, which both derive from rds_tag, so the
+# two cannot fall out of sync.  MR-only and FB+MR runs therefore land in separate
+# run_tag directories: they never pool, and file.exists() resume never crosses a
+# configuration boundary.  Bump the v2 token for a fresh isolated run.
+fb_active   <- is.numeric(nb_boots) && length(nb_boots) == 1L && nb_boots >= 1L
+engine_tag  <- if (fb_active) "fbmr" else "mr"
+run_tag     <- sprintf("m1_h10_knoise0_%s_v2_s%d", engine_tag, n_sims)
 results_dir <- file.path("mr_sweep", run_tag)   # per-run folder: bundles + grid live here
-rds_tag     <- "mr"                        # per-cell engine token; the method tag (fs/dina/grf) LEADS the filename
+rds_tag     <- engine_tag                  # per-cell engine token; the method tag (fs/dina/grf) LEADS the filename
 grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
 
 # ── Parallelization ──────────────────────────────────────────────────────────
@@ -253,21 +264,21 @@ loop never aborts a cell.
   n_harm = NA_integer_, n_true = NA_integer_,
   label = NA_character_, sg_def = NA_character_,
   betaHhat_H = NA_real_, betaHhat_Hc = NA_real_,
-  t1_secs = NA_real_, t2_secs = NA_real_, t1_err = NA_character_,
+  fb_secs = NA_real_, fit_mr_secs = NA_real_, fb_err = NA_character_,
   or_H_est = NA, or_H_lo = NA, or_H_hi = NA, or_H_se = NA,
   or_Hc_est = NA, or_Hc_lo = NA, or_Hc_hi = NA, or_Hc_se = NA,
   nv_H_est = NA, nv_H_lo = NA, nv_H_hi = NA, nv_H_se = NA,
   nv_Hc_est = NA, nv_Hc_lo = NA, nv_Hc_hi = NA, nv_Hc_se = NA,
-  t1_H_est = NA, t1_H_lo = NA, t1_H_hi = NA, t1_H_se = NA,
-  t1_Hc_est = NA, t1_Hc_lo = NA, t1_Hc_hi = NA, t1_Hc_se = NA,
-  t2_H_est = NA, t2_H_lo = NA, t2_H_hi = NA, t2_H_se_ij = NA,
-  t2_Hc_est = NA, t2_Hc_lo = NA, t2_Hc_hi = NA, t2_Hc_se_ij = NA,
-  t2_harm_flag = NA_integer_, ij_source = NA_character_,
+  fb_H_est = NA, fb_H_lo = NA, fb_H_hi = NA, fb_H_se = NA,
+  fb_Hc_est = NA, fb_Hc_lo = NA, fb_Hc_hi = NA, fb_Hc_se = NA,
+  mr_H_est = NA, mr_H_lo = NA, mr_H_hi = NA, mr_H_se_ij = NA,
+  mr_Hc_est = NA, mr_Hc_lo = NA, mr_Hc_hi = NA, mr_Hc_se_ij = NA,
+  mr_harm_flag = NA_integer_, ij_source = NA_character_,
   sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_,
   stringsAsFactors = FALSE)
 
 record_replicate <- function(sim_id, method, n_sample, nb_boots) {
-  run_fb <- is.numeric(nb_boots) && length(nb_boots) == 1L && nb_boots >= 1L
+  run_fb <- fb_active   # single source of truth, set in setup
   rec <- .na_record(sim_id)
 
   df <- tryCatch(
@@ -320,7 +331,7 @@ record_replicate <- function(sim_id, method, n_sample, nb_boots) {
                 dmin.grf = dmin.grf, grf_select_statistic = grf_select_statistic),
     stop("unknown subgroup_method: ", method))
 
-  t2_t0 <- proc.time()[3]
+  mr_t0 <- proc.time()[3]
   fs.est <- tryCatch(do.call(forestsearch, c(base_args, method_args)),
                      error = function(e) {
                        if (isTRUE(get0("diag_mode", ifnotfound = FALSE)))
@@ -328,7 +339,7 @@ record_replicate <- function(sim_id, method, n_sample, nb_boots) {
                                          method, n_sample, conditionMessage(e)),
                                  call. = FALSE)
                        NULL })
-  rec$t2_secs <- proc.time()[3] - t2_t0
+  rec$fit_mr_secs <- proc.time()[3] - mr_t0
   if (is.null(fs.est)) return(rec)
 
   g     <- fs.est$mr_inference
@@ -341,20 +352,20 @@ record_replicate <- function(sim_id, method, n_sample, nb_boots) {
   if (!is.null(g)) {
     rec$label <- g$selected_label %||% NA_character_
     rec$n_sel <- g$n_selected      %||% NA_integer_
-    rec$t2_harm_flag <- as.integer(isTRUE(g$harm_flag))
+    rec$mr_harm_flag <- as.integer(isTRUE(g$harm_flag))
     rec$ij_source    <- g$debiased$ij_source %||% NA_character_
     rec$nv_H_est <- g$naive$est;    rec$nv_H_lo <- g$naive$lower;    rec$nv_H_hi <- g$naive$upper;    rec$nv_H_se <- g$debiased$se_wald %||% NA_real_
-    rec$t2_H_est <- g$debiased$est; rec$t2_H_lo <- g$debiased$lower; rec$t2_H_hi <- g$debiased$upper
-    rec$t2_H_se_ij <- g$debiased$se_ij %||% NA_real_
+    rec$mr_H_est <- g$debiased$est; rec$mr_H_lo <- g$debiased$lower; rec$mr_H_hi <- g$debiased$upper
+    rec$mr_H_se_ij <- g$debiased$se_ij %||% NA_real_
     if (is.list(g$complement) && !is.null(g$complement$debiased)) {
       rec$nv_Hc_est <- g$complement$naive$est
       rec$nv_Hc_lo  <- g$complement$naive$lower
       rec$nv_Hc_hi  <- g$complement$naive$upper
       rec$nv_Hc_se  <- g$complement$debiased$se_wald %||% NA_real_
-      rec$t2_Hc_est <- g$complement$debiased$est
-      rec$t2_Hc_lo  <- g$complement$debiased$lower
-      rec$t2_Hc_hi  <- g$complement$debiased$upper
-      rec$t2_Hc_se_ij <- g$complement$debiased$se_ij %||% NA_real_
+      rec$mr_Hc_est <- g$complement$debiased$est
+      rec$mr_Hc_lo  <- g$complement$debiased$lower
+      rec$mr_Hc_hi  <- g$complement$debiased$upper
+      rec$mr_Hc_se_ij <- g$complement$debiased$se_ij %||% NA_real_
     }
   }
 
@@ -364,27 +375,27 @@ record_replicate <- function(sim_id, method, n_sample, nb_boots) {
 
   # ---- FB bootstrap (H2 = León Eq.7) — dormant when nb_boots NULL/0 ----------
   if (run_fb && method %in% c("consistency", "dina", "grf")) {
-    t1_t0 <- proc.time()[3]; t1_err <- NA_character_
+    fb_t0 <- proc.time()[3]; fb_err <- NA_character_
     boot <- tryCatch(
       forestsearch_bootstrap_dofuture(fs.est, nb_boots = nb_boots,
                                       seed = seed_base + sim_id,
                                       parallel_args = inner_parallel),
-      error = function(e) { t1_err <<- conditionMessage(e); NULL })
-    rec$t1_secs <- proc.time()[3] - t1_t0
-    rec$t1_err  <- t1_err
+      error = function(e) { fb_err <<- conditionMessage(e); NULL })
+    rec$fb_secs <- proc.time()[3] - fb_t0
+    rec$fb_err  <- fb_err
     if (!is.null(boot) && !is.null(boot$H_estimates)) {
       he <- boot$H_estimates
-      rec$t1_H_est <- he$H2 %||% NA_real_
-      rec$t1_H_lo  <- he$H2_lower %||% NA_real_
-      rec$t1_H_hi  <- he$H2_upper %||% NA_real_
-      rec$t1_H_se  <- .se_beta_hr(he$sdH2 %||% NA_real_, he$H2 %||% NA_real_)
+      rec$fb_H_est <- he$H2 %||% NA_real_
+      rec$fb_H_lo  <- he$H2_lower %||% NA_real_
+      rec$fb_H_hi  <- he$H2_upper %||% NA_real_
+      rec$fb_H_se  <- .se_beta_hr(he$sdH2 %||% NA_real_, he$H2 %||% NA_real_)
     }
     if (!is.null(boot) && !is.null(boot$Hc_estimates)) {
       hce <- boot$Hc_estimates
-      rec$t1_Hc_est <- hce$H2 %||% NA_real_
-      rec$t1_Hc_lo  <- hce$H2_lower %||% NA_real_
-      rec$t1_Hc_hi  <- hce$H2_upper %||% NA_real_
-      rec$t1_Hc_se  <- .se_beta_hr(hce$sdH2 %||% NA_real_, hce$H2 %||% NA_real_)
+      rec$fb_Hc_est <- hce$H2 %||% NA_real_
+      rec$fb_Hc_lo  <- hce$H2_lower %||% NA_real_
+      rec$fb_Hc_hi  <- hce$H2_upper %||% NA_real_
+      rec$fb_Hc_se  <- .se_beta_hr(hce$sdH2 %||% NA_real_, hce$H2 %||% NA_real_)
     }
   }
 
@@ -436,7 +447,8 @@ run_cell <- function(method, n_sample, nb_boots = NULL, out = NULL,
 
   bundle <- list(
     results = results, truth = truth,
-    meta = list(n_sample = n_sample, n_sims = n_sims, nb_boots = nb_boots,
+    meta = list(n_sample = n_sample, n_sims = n_sims,
+                nb_boots = if (is.null(nb_boots)) NA_integer_ else nb_boots,
                 mr_draws = mr_draws, subgroup_method = method,
                 sim_id_start = sim_id_start, sim_id_end = max(sim_ids),
                 seed_base = seed_base, parallel_mode = parallel_mode,
@@ -471,14 +483,7 @@ run_cell <- function(method, n_sample, nb_boots = NULL, out = NULL,
 # Coverage post-processing helpers (inlined) {#sec-helpers}
 
 ```{r coverage-helpers}
-# DELIBERATE: the "t1"/"t2" values are the COLUMN PREFIXES of the bundle results
-# frame, not vocabulary.  Every .rds already committed under mr_sweep/<run_tag>/
-# carries them.  Renaming these to "fb"/"mr" without also migrating those bundles
-# makes legacy cells vanish from the grid SILENTLY -- `[[` returns NULL on a
-# missing column, .coverage_meta() absorbs it into an all-NA row, and
-# drop_all_na discards it.  The rename is deferred to the fold pass, which
-# regenerates into fresh run_tag directories.  Do not "tidy" this line.
-.EST_KEYS   <- c(oracle = "or", naive = "nv", FB = "t1", MR = "t2")
+.EST_KEYS   <- c(oracle = "or", naive = "nv", FB = "fb", MR = "mr")
 .TARGET_COL <- c(oracle = "C_oracle", cde = "C_ddagger", marg = "C_dagger", betaHhat = "C_betaHhat")
 
 # Coverage + uncertainty for one (target, lo, hi) triple.  The finite-only mask
@@ -526,6 +531,11 @@ coverage_from_bundle <- function(bundle,
   }
   if (is.null(src)) src <- NA_character_
   res <- bundle$results; tr <- bundle$truth; meta <- bundle$meta
+  if ("FB" %in% estimators &&
+      is.na(bundle$meta$nb_boots %||% NA_integer_))
+    stop("FB requested but this bundle was written with nb_boots dormant ",
+         "(MR-only): the fb_* columns are all NA by construction.",
+         call. = FALSE)
   stopifnot(is.data.frame(res), is.list(tr), is.list(meta))
   rH <- res[res$detected == 1L, , drop = FALSE]
 
@@ -570,6 +580,11 @@ length_from_bundle <- function(bundle, estimators = c("oracle", "naive", "MR"),
   }
   if (is.null(src)) src <- NA_character_
   res <- bundle$results; meta <- bundle$meta
+  if ("FB" %in% estimators &&
+      is.na(bundle$meta$nb_boots %||% NA_integer_))
+    stop("FB requested but this bundle was written with nb_boots dormant ",
+         "(MR-only): the fb_* columns are all NA by construction.",
+         call. = FALSE)
   stopifnot(is.data.frame(res), is.list(meta))
   rH <- res[res$detected == 1L, , drop = FALSE]
   rows <- list()
@@ -619,6 +634,11 @@ bias_from_bundle <- function(bundle, estimators = c("oracle", "naive", "MR"),
   }
   if (is.null(src)) src <- NA_character_
   res <- bundle$results; tr <- bundle$truth; meta <- bundle$meta
+  if ("FB" %in% estimators &&
+      is.na(bundle$meta$nb_boots %||% NA_integer_))
+    stop("FB requested but this bundle was written with nb_boots dormant ",
+         "(MR-only): the fb_* columns are all NA by construction.",
+         call. = FALSE)
   stopifnot(is.data.frame(res), is.list(tr), is.list(meta))
   rH <- res[res$detected == 1L, , drop = FALSE]
   rows <- list()
@@ -660,9 +680,9 @@ accumulate_coverage <- function(paths, estimators = c("oracle", "naive", "MR"),
   bundles <- lapply(paths, readRDS)
 
   if (require_same_truth && length(bundles) > 1L) {
-    t1 <- bundles[[1]]$truth
+    truth_ref <- bundles[[1]]$truth
     for (i in seq_along(bundles)[-1]) {
-      cmp <- all.equal(t1, bundles[[i]]$truth, tolerance = truth_tol)
+      cmp <- all.equal(truth_ref, bundles[[i]]$truth, tolerance = truth_tol)
       if (!isTRUE(cmp))
         stop(sprintf("truth differs (%s vs %s): %s", basename(paths[1]),
                      basename(paths[i]), paste(cmp, collapse = "; ")))
