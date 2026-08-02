@@ -89,26 +89,6 @@ diag_mode <- FALSE      # TRUE caps each cell to 5 reps and surfaces forestsearc
 
 # ── Run controls ─────────────────────────────────────────────────────────────
 run_sweep   <- TRUE                       # FALSE ⇒ skip computation, just (re)build grid + plots
-# run_tag identifies THIS run (DGM cell · sim count · draws · whatever distinguishes it).
-# results_dir AND the grid filename both derive from it, so changing run_tag writes to a new
-# folder and a new grid with NO pooling of prior runs — the clean way to get a fresh set.
-# No fragment reads this document's grid.  The _sim_mr_coverage_* fragments hold
-# their own hardcoded run_tags vector and default to payload_dir "_payloads/",
-# not mr_sweep/; none of them includes or is included by this file.  Verified
-# 2026-08-01 -- an earlier version of this comment claimed a shared-run_tag
-# dependency that does not exist, and that claim cost a preflight halt.
-# Convention: <dgm>_<engine_tag>_v2_s<n_sims>.
-# FB dormancy is the single source of truth for the engine token.  It names the
-# bundle files AND the build-grid glob, which both derive from rds_tag, so the
-# two cannot fall out of sync.  MR-only and FB+MR runs therefore land in separate
-# run_tag directories: they never pool, and file.exists() resume never crosses a
-# configuration boundary.  Bump the v2 token for a fresh isolated run.
-fb_active   <- is.numeric(nb_boots) && length(nb_boots) == 1L && nb_boots >= 1L
-engine_tag  <- if (fb_active) "fbmr" else "mr"
-run_tag     <- sprintf("maxcons_m1_h10_knoise0_%s_v2_s%d", engine_tag, n_sims)
-results_dir <- file.path("mr_sweep", run_tag)   # per-run folder: bundles + grid live here
-rds_tag     <- engine_tag                  # per-cell engine token; the method tag (fs/dina/grf) LEADS the filename
-grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
 
 # ── Parallelization ──────────────────────────────────────────────────────────
 # "sims"  -> replicates fan out across workers (each rep's search runs sequentially).
@@ -155,6 +135,45 @@ fs_conf.cont_jcuts <- list(er = 10)                          # J-quantile grid o
 grf_selection <- "frontier"; grf_select_statistic <- "effect"
 grf_depth <- 2L; dmin.grf <- 0.0
 dina_args <- list(); dina_select_statistic <- "effect"
+
+# ── Run tag (DERIVED — do not hand-edit) ─────────────────────────────────────
+# run_tag identifies THIS run.  results_dir AND the grid filename both derive from
+# it, so a change writes to a new folder and a new grid with NO pooling of prior
+# runs.  It is assembled HERE, below the search configuration, because sg_focus is
+# defined above: assembling it in the Run-controls block (where it used to live)
+# put it before sg_focus existed, which is why the focus token had to be hardcoded
+# and could silently disagree with the configuration it names.
+#
+# No fragment reads this document's grid.  The _sim_mr_coverage_* fragments hold
+# their own hardcoded run_tags vector and default to payload_dir "_payloads/",
+# not mr_sweep/; none of them includes or is included by this file.  Verified
+# 2026-08-01 -- an earlier version of this comment claimed a shared-run_tag
+# dependency that does not exist, and that claim cost a preflight halt.
+#
+# Convention: <dgm>_<focus_tag>_<engine_tag>_s<n_sims>.
+
+# Focus token.  Mirrors .normalize_sg_focus() but emits a USER-FACING label: the
+# internal "hr*" spelling never reaches a filename, and synonyms collapse to ONE
+# token so a single configuration cannot produce two directories ("eff" and
+# "maxcons" are exact synonyms).  `[[` fails loudly on an unrecognised value --
+# if forestsearch gains a new sg_focus, this stops rather than inventing a tag.
+.FOCUS_TAGS <- c(eff = "maxcons", maxcons = "maxcons", hr = "maxcons",
+                 effMaxSG = "effMaxSG", hrMaxSG = "effMaxSG",
+                 effMinSG = "effMinSG", hrMinSG = "effMinSG",
+                 maxeff   = "maxeff")
+focus_tag <- .FOCUS_TAGS[[sg_focus]]
+
+# FB dormancy is the single source of truth for the engine token.  It names the
+# bundle files AND the build-grid glob, which both derive from rds_tag, so the two
+# cannot fall out of sync.  MR-only and FB+MR runs therefore land in separate
+# run_tag directories: they never pool, and file.exists() resume never crosses a
+# configuration boundary.
+fb_active   <- is.numeric(nb_boots) && length(nb_boots) == 1L && nb_boots >= 1L
+engine_tag  <- if (fb_active) "fbmr" else "mr"
+run_tag     <- sprintf("m1_h10_knoise0_%s_%s_s%d", focus_tag, engine_tag, n_sims)
+results_dir <- file.path("mr_sweep", run_tag)   # per-run folder: bundles + grid live here
+rds_tag     <- engine_tag                  # per-cell engine token; the method tag (fs/dina/grf) LEADS the filename
+grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
 
 # ── Column names emitted by simulate_from_dgm() ──────────────────────────────
 outcome_name <- "y_sim"; event_name <- "event_sim"; treat_name <- "treat_sim"
