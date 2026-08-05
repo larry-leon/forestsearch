@@ -2043,6 +2043,20 @@ payload <- list(
     mr_draws = if (exists("mr_draws")) mr_draws else NA_integer_,
     n_total    = if (!is.null(.fs)) nrow(.fs$df.est) else NA_integer_,
     cores      = tryCatch(unname(future::availableCores()), error = function(e) NA_integer_),
+    # R version is NOT incidental provenance for a GLM outcome.  sigma_D is
+    # sqrt(sum(dfbeta^2)), and R 4.6.0 changed stats::dfbeta() for glm objects
+    # (deviance residuals -> weighted working residuals; influence measures now
+    # use Pearson residuals).  That shifts sigma_D by ~13-16% on the OR scale,
+    # and with it the naive interval, the screening threshold t_g, and every
+    # mr_* column -- while leaving the point estimates bit-identical.  The
+    # 2026-06 payload was built under R 4.5.2 and its naive/mr_* columns are
+    # affected; without this field the version gap was invisible at comparison
+    # time.  See dev/identifier-alignment/NOTE_actg175_naive_interval_rootcause.md
+    # Mirrors what the GBSG document records via .machine_info() and what the
+    # simulation bundles record as meta$r_version.
+    r_version  = R.version.string,
+    platform   = R.version$platform,
+    hostname   = tryCatch(unname(Sys.info()[["nodename"]]), error = function(e) NA_character_),
     covariates = if (exists("confounders.name")) confounders.name else NA_character_,
     timings    = list(fs = .meta_fs, dina = .meta_dina, grf = .meta_grf)),
   extras = list(
