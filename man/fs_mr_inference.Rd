@@ -114,6 +114,25 @@ is the fast, refit-free counterpart of the full bootstrap (FB,
 every replicate; MR perturbs the influence contributions of a single fit
 instead.  MR approximates FB to leading order and does not replace it.
 }
+\section{Alignment is assumed, not checked here}{
+
+This is an engine-level entry point. Its arguments are a candidate family,
+a specification, and a selected membership vector -- the identifier
+configuration that produced them is not visible, so the alignment
+conditions MR requires (selection ranking on the inferential coefficient
+\eqn{\hat\beta(g)}, and a fixed candidate family) cannot be verified at
+this level and are assumed to have been established upstream.
+
+They are enforced by \code{.validate_mr_configuration()} at the three
+configuration-visible entry points -- \code{\link[=forestsearch]{forestsearch()}} under
+\code{mr_inference = TRUE}, and \code{\link[=forestsearch_bootstrap_dofuture]{forestsearch_bootstrap_dofuture()}} and
+\code{\link[=forestsearch_Kfold]{forestsearch_Kfold()}} under \code{mr_in_replicates = TRUE}. Calling
+\code{fs_mr_inference()} directly bypasses those guards: a family ranked on
+DINA's native tau-hat, on GRF's doubly-robust score, or on a GRF
+policy-tree objective will still produce numbers, but they do not de-bias
+the reported effect.
+}
+
 \seealso{
 \code{\link[=forestsearch]{forestsearch()}} for the \code{mr_inference} switch and the
 vocabulary section; \code{\link[=mr_estimates_table]{mr_estimates_table()}} to render the result;

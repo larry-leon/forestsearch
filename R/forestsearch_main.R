@@ -246,8 +246,15 @@
 #' @param is.RCT Logical. Is this a randomized controlled trial? Default TRUE.
 #' @param seedit Integer. Random seed. Default 8316951.
 #' @param est.scale Character. Estimation scale ("hr" or "rmst"). Default "hr".
-#' @param use_lasso Logical. Use LASSO for variable selection. Default TRUE.
-#' @param use_grf Logical. Use GRF for variable importance. Default TRUE.
+#' @param use_lasso Logical. Use LASSO for variable selection. Default FALSE.
+#'   The default changed from \code{TRUE} in an earlier release: with
+#'   \code{subgroup_method = "consistency"} a model-based front end makes the
+#'   candidate family data-dependent, which multiplier resampling
+#'   (\code{mr_inference = TRUE}) requires be fixed.  Set \code{TRUE} to
+#'   restore the prognostic-lasso prefilter used in Leon et al. (2024).
+#' @param use_grf Logical. Use GRF for variable importance. Default FALSE.
+#'   The default changed from \code{TRUE} in an earlier release, for the same
+#'   fixed-candidate-family reason given under \code{use_lasso}.
 #' @param grf_res GRF results object (optional, for reuse).
 #' @param grf_cuts List. Custom GRF cut points (optional).
 #' @param use_dina Logical. Generate additional screening-stage candidate
@@ -290,8 +297,8 @@
 #'   same cut \code{subgroup_method = "dina"} would select. Set \code{FALSE} to
 #'   contribute the full frontier candidate set instead. Unknown keys raise
 #'   an error.
-#' @param dina_select_statistic Character, one of \code{"dina"} (default) or
-#'   \code{"effect"}, used only when \code{subgroup_method = "dina"}.  The DINA
+#' @param dina_select_statistic Character, one of \code{"effect"} (default) or
+#'   \code{"dina"}, used only when \code{subgroup_method = "dina"}.  The DINA
 #'   analogue of \code{grf_select_statistic}.  \code{"dina"} ranks DINA's
 #'   qualifying family on its native subgroup-mean tau-hat (unchanged legacy
 #'   behaviour).  \code{"effect"} re-ranks the same family on the inferential
@@ -299,7 +306,9 @@
 #'   scored with the same per-candidate estimator multiplier resampling (MR)
 #'   uses, so the realized selection is the exact event MR de-biases (and
 #'   MR's native-family restriction follows the effect rather than
-#'   tau-hat).
+#'   tau-hat).  \code{"effect"} is the default because only it ranks on the
+#'   inferential coefficient; \code{"dina"} is rejected under
+#'   \code{mr_inference = TRUE}.
 #' @param subgroup_method Character, one of \code{"consistency"} (default),
 #'   \code{"dina"}, or \code{"grf"}. \code{"consistency"} is the standard
 #'   ForestSearch pipeline (GRF/LASSO screening then the consistency search).
@@ -326,18 +335,25 @@
 #'   AND-conjunction.
 #' @param max_n_confounders Integer. Maximum confounders to consider. Default 1000.
 #' @param grf_depth Integer. GRF tree depth. Default 2.
-#' @param grf_selection Character, one of \code{"tree"} (default) or
-#'   \code{"frontier"}, used only when \code{subgroup_method = "grf"}.
-#'   \code{"tree"} selects via the GRF policy tree. \code{"frontier"} is an
-#'   \strong{experimental} alternative that selects from the Pareto frontier of
-#'   the doubly-robust scores (see \code{\link{grf.subg.harm.survival}}); the
-#'   frontier rule is taken from \code{sg_focus} -- all five values map through
-#'   (\code{"eff"}, \code{"effMaxSG"}, \code{"effMinSG"}, \code{"maxSG"},
-#'   \code{"minSG"}), aligned with \code{dina_subgroup()} -- and the relative
-#'   band from \code{effect_neighborhood}. Provided for comparison; the tree is
-#'   the recommended default.
-#' @param grf_select_statistic Character, one of \code{"dr"} (default) or
-#'   \code{"effect"}, used only when \code{subgroup_method = "grf"} and
+#' @param grf_selection Character, one of \code{"frontier"} (default) or
+#'   \code{"tree"}, used only when \code{subgroup_method = "grf"}.
+#'   \code{"tree"} selects via the GRF policy tree. \code{"frontier"} selects
+#'   from the Pareto frontier of the doubly-robust scores (see
+#'   \code{\link{grf.subg.harm.survival}}); the frontier rule is taken from
+#'   \code{sg_focus} -- \code{"eff"}, \code{"effMaxSG"}, \code{"effMinSG"},
+#'   \code{"maxSG"} and \code{"minSG"} each map to the aligned frontier rule,
+#'   as in \code{dina_subgroup()} -- and the relative band from
+#'   \code{effect_neighborhood}. Note that \code{sg_focus} admits two further
+#'   values, \code{"maxeff"} and \code{"maxeffCons"}, which have no branch in
+#'   that mapping and fall through to the \code{"effMaxSG"} rule without a
+#'   condition being raised; avoid pairing either with
+#'   \code{grf_selection = "frontier"} until that gap is resolved.
+#'   \code{"frontier"} is the default
+#'   because it enumerates a family that can be ranked on the inferential
+#'   effect; the policy tree exposes no such family, so \code{"tree"} is
+#'   rejected under \code{mr_inference = TRUE}.
+#' @param grf_select_statistic Character, one of \code{"effect"} (default) or
+#'   \code{"dr"}, used only when \code{subgroup_method = "grf"} and
 #'   \code{grf_selection = "frontier"}.  \code{"dr"} selects the frontier winner
 #'   on GRF's native doubly-robust score (legacy behaviour).  \code{"effect"}
 #'   re-ranks the same DR-candidate frontier on the inferential effect measure
@@ -345,6 +361,8 @@
 #'   same per-candidate estimator multiplier resampling (MR) uses, so the realized
 #'   selection is the exact event MR de-biases (and MR's
 #'   native-family restriction follows the effect rather than the DR score).
+#'   \code{"effect"} is the default because only it ranks on the inferential
+#'   coefficient; \code{"dr"} is rejected under \code{mr_inference = TRUE}.
 #'   Ignored for \code{grf_selection = "tree"} (the policy-tree leaf is the
 #'   selection, with no enumerated family to rank).
 #' @param dmin.grf Numeric. Minimum events for GRF. Default 0.0.
@@ -775,6 +793,17 @@
 #'     \item{max_sg_est}{Maximum subgroup HR estimate}
 #'     \item{grf_plot}{GRF plot object (if plot.grf = TRUE)}
 #'     \item{args_call_all}{All arguments for reproducibility}
+#'     \item{family_status}{Character scalar recording whether the candidate
+#'       family the identifier ranked over is fixed -- the condition
+#'       multiplier resampling requires (see \code{mr_inference}).
+#'       \code{"fixed"}: \code{subgroup_method = "consistency"} with
+#'       \code{use_lasso}, \code{use_grf} and \code{use_dina} all
+#'       \code{FALSE}.  \code{"conditional-removable"}: the same method with
+#'       at least one front end on -- data-dependent, but fixed by turning
+#'       those off.  \code{"conditional-inherent"}: \code{subgroup_method} of
+#'       \code{"dina"} or \code{"grf"}, where the family is generated by
+#'       fitting a model to the same data and cannot be made fixed.
+#'       Descriptive only; it never raises a condition.}
 #'     \item{mr_inference}{Multiplier-resampling (MR) result, or \code{NULL}
 #'       when MR did not run.  See \code{\link{fs_mr_inference}} for fields
 #'       (\code{naive}, \code{debiased}, \code{selection_bias},
@@ -1020,20 +1049,20 @@ forestsearch <- function(df.analysis,
                          is.RCT = TRUE,
                          seedit = 8316951,
                          est.scale = "hr",
-                         use_lasso = TRUE,
-                         use_grf = TRUE,
+                         use_lasso = FALSE,
+                         use_grf = FALSE,
                          grf_res = NULL,
                          grf_cuts = NULL,
                          use_dina = FALSE,
                          dina_res = NULL,
                          dina_cuts = NULL,
                          dina_args = list(),
-                         dina_select_statistic = c("dina", "effect"),
+                         dina_select_statistic = c("effect", "dina"),
                          subgroup_method = c("consistency", "dina", "grf"),
                          max_n_confounders = 1000,
                          grf_depth = 2,
-                         grf_selection = c("tree", "frontier"),
-                         grf_select_statistic = c("dr", "effect"),
+                         grf_selection = c("frontier", "tree"),
+                         grf_select_statistic = c("effect", "dr"),
                          dmin.grf = 0.0,
                          frac.tau = 0.8,
                          return_selected_cuts_only = TRUE,
@@ -1204,6 +1233,27 @@ forestsearch <- function(df.analysis,
 
   args_names <- names(formals())
   args_call_all <- mget(args_names, envir = environment())
+
+  # ===========================================================================
+  # SECTION 1B2: MR ALIGNMENT GUARD
+  # ===========================================================================
+  # Multiplier resampling linearizes the selection event, which is valid only
+  # when selection ranks on the inferential coefficient and the candidate
+  # family is fixed.  Checked here, immediately after the capture, so an
+  # unusable configuration fails before any fitting rather than producing an
+  # MR correction that silently does not correspond to the reported effect.
+  # `grf_selection` / `grf_select_statistic` are still unresolved match.arg
+  # vectors at this point; the validator takes their first element, which is
+  # what match.arg() would return at :2067-2068.
+  if (isTRUE(mr_inference)) {
+    .validate_mr_configuration(args_call_all,
+                               context = "forestsearch(mr_inference = TRUE)")
+  }
+
+  # Descriptive companion to the guard above: record whether the candidate
+  # family is fixed, so a sweep can tabulate it without parsing text.  Never
+  # raises a condition; carried on the returned object as $family_status.
+  family_status <- .fs_family_status(args_call_all)
 
   # ===========================================================================
   # SECTION 1C: DEFENSIVE EARLY EXITS (shape guards)
@@ -1981,7 +2031,8 @@ forestsearch <- function(df.analysis,
       effect_measure        = effect_measure,
       threshold_config      = if (exists("threshold_config")) threshold_config
                               else NULL,
-      subgroup_method       = "dina"
+      subgroup_method       = "dina",
+      family_status         = family_status
     )
 
     # SECTION 9B (DINA): multiplier resampling over DINA's OWN candidate family
@@ -2067,8 +2118,27 @@ forestsearch <- function(df.analysis,
     grf_selection <- match.arg(grf_selection)
     grf_select_statistic <- match.arg(grf_select_statistic)
     # In frontier mode the selection rule comes from sg_focus (which the tree
-    # path ignores).  All five sg_focus values map to the aligned frontier rule;
-    # an unrecognized value falls back to the robust default (effMaxSG).
+    # path ignores).  An unrecognized value falls back to the robust default
+    # (effMaxSG).
+    #
+    # KNOWN GAP -- NOT FIXED HERE (out of scope; recorded so it is not
+    # rediscovered as a surprise).  The post-normalization whitelist at ~:1308
+    # admits SEVEN values -- hr, hrMaxSG, maxSG, hrMinSG, minSG, maxeff,
+    # maxeffCons -- but the switch() below has branches for only the first
+    # five.  `maxeff` and `maxeffCons` therefore fall through to the default
+    # and are selected under "effMaxSG", silently: no error, no warning, and
+    # nothing in the returned object records that the requested focus was not
+    # the focus used.  Two consequences worth knowing before touching this:
+    #   * `maxeff` is ungated at the identifier (no effect floor), whereas the
+    #     MR re-selection rule named "maxeff" IS gated by c_screen /
+    #     c_consistency / p_star and so corresponds to `maxeffCons` -- see the
+    #     comment at .fs_mr_reselection_from_focus() (fs_mr_inference_methods.R
+    #     ~:143-147).  Under sg_focus = "maxeff" the identifier and MR can thus
+    #     disagree about whether t_g applies.
+    #   * The fallback is silent, so a GRF frontier run under either focus
+    #     produces plausible output for a rule the caller did not ask for.
+    # Fixing this means deciding what those two focuses should map to on the
+    # frontier, which is a modelling decision, not an editorial one.
     .sgf <- tryCatch(.normalize_sg_focus(sg_focus), error = function(e) sg_focus)
     frontier_rule <- switch(as.character(.sgf),
                             hr = "eff", hrMaxSG = "effMaxSG", hrMinSG = "effMinSG",
@@ -2124,7 +2194,8 @@ forestsearch <- function(df.analysis,
       effect_measure        = effect_measure,
       threshold_config      = if (exists("threshold_config")) threshold_config
                               else NULL,
-      subgroup_method       = "grf"
+      subgroup_method       = "grf",
+      family_status         = family_status
     )
 
     # SECTION 9B (GRF): multiplier resampling over GRF's OWN DR-candidate family
@@ -3109,7 +3180,10 @@ forestsearch <- function(df.analysis,
     effect_measure = effect_measure,
     # NEW: Resolved threshold configuration
     threshold_config = if (exists("threshold_config")) threshold_config
-                       else NULL
+                       else NULL,
+    # Candidate-family status: "fixed", "conditional-removable" or
+    # "conditional-inherent".  Descriptive only; see .fs_family_status().
+    family_status = family_status
   )
 
   class(out) <- c("forestsearch", "list")

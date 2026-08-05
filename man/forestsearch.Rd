@@ -20,20 +20,20 @@ forestsearch(
   is.RCT = TRUE,
   seedit = 8316951,
   est.scale = "hr",
-  use_lasso = TRUE,
-  use_grf = TRUE,
+  use_lasso = FALSE,
+  use_grf = FALSE,
   grf_res = NULL,
   grf_cuts = NULL,
   use_dina = FALSE,
   dina_res = NULL,
   dina_cuts = NULL,
   dina_args = list(),
-  dina_select_statistic = c("dina", "effect"),
+  dina_select_statistic = c("effect", "dina"),
   subgroup_method = c("consistency", "dina", "grf"),
   max_n_confounders = 1000,
   grf_depth = 2,
-  grf_selection = c("tree", "frontier"),
-  grf_select_statistic = c("dr", "effect"),
+  grf_selection = c("frontier", "tree"),
+  grf_select_statistic = c("effect", "dr"),
   dmin.grf = 0,
   frac.tau = 0.8,
   return_selected_cuts_only = TRUE,
@@ -148,9 +148,16 @@ To disable parallelism entirely, pass
 
 \item{est.scale}{Character. Estimation scale ("hr" or "rmst"). Default "hr".}
 
-\item{use_lasso}{Logical. Use LASSO for variable selection. Default TRUE.}
+\item{use_lasso}{Logical. Use LASSO for variable selection. Default FALSE.
+The default changed from \code{TRUE} in an earlier release: with
+\code{subgroup_method = "consistency"} a model-based front end makes the
+candidate family data-dependent, which multiplier resampling
+(\code{mr_inference = TRUE}) requires be fixed.  Set \code{TRUE} to
+restore the prognostic-lasso prefilter used in Leon et al. (2024).}
 
-\item{use_grf}{Logical. Use GRF for variable importance. Default TRUE.}
+\item{use_grf}{Logical. Use GRF for variable importance. Default FALSE.
+The default changed from \code{TRUE} in an earlier release, for the same
+fixed-candidate-family reason given under \code{use_lasso}.}
 
 \item{grf_res}{GRF results object (optional, for reuse).}
 
@@ -200,8 +207,8 @@ same cut \code{subgroup_method = "dina"} would select. Set \code{FALSE} to
 contribute the full frontier candidate set instead. Unknown keys raise
 an error.}
 
-\item{dina_select_statistic}{Character, one of \code{"dina"} (default) or
-\code{"effect"}, used only when \code{subgroup_method = "dina"}.  The DINA
+\item{dina_select_statistic}{Character, one of \code{"effect"} (default) or
+\code{"dina"}, used only when \code{subgroup_method = "dina"}.  The DINA
 analogue of \code{grf_select_statistic}.  \code{"dina"} ranks DINA's
 qualifying family on its native subgroup-mean tau-hat (unchanged legacy
 behaviour).  \code{"effect"} re-ranks the same family on the inferential
@@ -209,7 +216,9 @@ effect measure (Cox HR for survival; the resolved GLM effect otherwise),
 scored with the same per-candidate estimator multiplier resampling (MR)
 uses, so the realized selection is the exact event MR de-biases (and
 MR's native-family restriction follows the effect rather than
-tau-hat).}
+tau-hat).  \code{"effect"} is the default because only it ranks on the
+inferential coefficient; \code{"dina"} is rejected under
+\code{mr_inference = TRUE}.}
 
 \item{subgroup_method}{Character, one of \code{"consistency"} (default),
 \code{"dina"}, or \code{"grf"}. \code{"consistency"} is the standard
@@ -240,19 +249,26 @@ AND-conjunction.}
 
 \item{grf_depth}{Integer. GRF tree depth. Default 2.}
 
-\item{grf_selection}{Character, one of \code{"tree"} (default) or
-\code{"frontier"}, used only when \code{subgroup_method = "grf"}.
-\code{"tree"} selects via the GRF policy tree. \code{"frontier"} is an
-\strong{experimental} alternative that selects from the Pareto frontier of
-the doubly-robust scores (see \code{\link{grf.subg.harm.survival}}); the
-frontier rule is taken from \code{sg_focus} -- all five values map through
-(\code{"eff"}, \code{"effMaxSG"}, \code{"effMinSG"}, \code{"maxSG"},
-\code{"minSG"}), aligned with \code{dina_subgroup()} -- and the relative
-band from \code{effect_neighborhood}. Provided for comparison; the tree is
-the recommended default.}
+\item{grf_selection}{Character, one of \code{"frontier"} (default) or
+\code{"tree"}, used only when \code{subgroup_method = "grf"}.
+\code{"tree"} selects via the GRF policy tree. \code{"frontier"} selects
+from the Pareto frontier of the doubly-robust scores (see
+\code{\link{grf.subg.harm.survival}}); the frontier rule is taken from
+\code{sg_focus} -- \code{"eff"}, \code{"effMaxSG"}, \code{"effMinSG"},
+\code{"maxSG"} and \code{"minSG"} each map to the aligned frontier rule,
+as in \code{dina_subgroup()} -- and the relative band from
+\code{effect_neighborhood}. Note that \code{sg_focus} admits two further
+values, \code{"maxeff"} and \code{"maxeffCons"}, which have no branch in
+that mapping and fall through to the \code{"effMaxSG"} rule without a
+condition being raised; avoid pairing either with
+\code{grf_selection = "frontier"} until that gap is resolved.
+\code{"frontier"} is the default
+because it enumerates a family that can be ranked on the inferential
+effect; the policy tree exposes no such family, so \code{"tree"} is
+rejected under \code{mr_inference = TRUE}.}
 
-\item{grf_select_statistic}{Character, one of \code{"dr"} (default) or
-\code{"effect"}, used only when \code{subgroup_method = "grf"} and
+\item{grf_select_statistic}{Character, one of \code{"effect"} (default) or
+\code{"dr"}, used only when \code{subgroup_method = "grf"} and
 \code{grf_selection = "frontier"}.  \code{"dr"} selects the frontier winner
 on GRF's native doubly-robust score (legacy behaviour).  \code{"effect"}
 re-ranks the same DR-candidate frontier on the inferential effect measure
@@ -260,6 +276,8 @@ re-ranks the same DR-candidate frontier on the inferential effect measure
 same per-candidate estimator multiplier resampling (MR) uses, so the realized
 selection is the exact event MR de-biases (and MR's
 native-family restriction follows the effect rather than the DR score).
+\code{"effect"} is the default because only it ranks on the inferential
+coefficient; \code{"dr"} is rejected under \code{mr_inference = TRUE}.
 Ignored for \code{grf_selection = "tree"} (the policy-tree leaf is the
 selection, with no enumerated family to rank).}
 
@@ -748,6 +766,17 @@ no subgroup was identified.}
 \item{max_sg_est}{Maximum subgroup HR estimate}
 \item{grf_plot}{GRF plot object (if plot.grf = TRUE)}
 \item{args_call_all}{All arguments for reproducibility}
+\item{family_status}{Character scalar recording whether the candidate
+family the identifier ranked over is fixed -- the condition
+multiplier resampling requires (see \code{mr_inference}).
+\code{"fixed"}: \code{subgroup_method = "consistency"} with
+\code{use_lasso}, \code{use_grf} and \code{use_dina} all
+\code{FALSE}.  \code{"conditional-removable"}: the same method with
+at least one front end on -- data-dependent, but fixed by turning
+those off.  \code{"conditional-inherent"}: \code{subgroup_method} of
+\code{"dina"} or \code{"grf"}, where the family is generated by
+fitting a model to the same data and cannot be made fixed.
+Descriptive only; it never raises a condition.}
 \item{mr_inference}{Multiplier-resampling (MR) result, or \code{NULL}
 when MR did not run.  See \code{\link{fs_mr_inference}} for fields
 (\code{naive}, \code{debiased}, \code{selection_bias},

@@ -278,6 +278,23 @@
 #'   return is a short variant carrying only `selected_index` (`NA`),
 #'   `selected_label`, `harm_flag` (`NA`), `settings`, `note` and `n_family`;
 #'   consumers must tolerate that shape.
+#' @section Alignment is assumed, not checked here:
+#' This is an engine-level entry point. Its arguments are a candidate family,
+#' a specification, and a selected membership vector -- the identifier
+#' configuration that produced them is not visible, so the alignment
+#' conditions MR requires (selection ranking on the inferential coefficient
+#' \eqn{\hat\beta(g)}, and a fixed candidate family) cannot be verified at
+#' this level and are assumed to have been established upstream.
+#'
+#' They are enforced by `.validate_mr_configuration()` at the three
+#' configuration-visible entry points -- [forestsearch()] under
+#' `mr_inference = TRUE`, and [forestsearch_bootstrap_dofuture()] and
+#' [forestsearch_Kfold()] under `mr_in_replicates = TRUE`. Calling
+#' `fs_mr_inference()` directly bypasses those guards: a family ranked on
+#' DINA's native tau-hat, on GRF's doubly-robust score, or on a GRF
+#' policy-tree objective will still produce numbers, but they do not de-bias
+#' the reported effect.
+#'
 #' @seealso [forestsearch()] for the `mr_inference` switch and the
 #'   vocabulary section; [mr_estimates_table()] to render the result;
 #'   [forestsearch_bootstrap_dofuture()] for the full bootstrap (FB) this

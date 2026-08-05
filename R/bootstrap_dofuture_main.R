@@ -119,6 +119,31 @@
 #'     intervals (\code{"hr"} or \code{"1/hr"}).  Added in v0.2.0.}
 #' }
 #'
+#' @section Valid for every identifier configuration:
+#' Unlike multiplier resampling, the full bootstrap places no alignment
+#' requirement on the identifier. It replays the entire pipeline on each
+#' resample -- refitting the front ends, re-enumerating the candidate family
+#' and re-running selection -- rather than linearizing the selection event, so
+#' neither of MR's two conditions (selection ranking on the inferential
+#' coefficient, and a fixed candidate family) bears on its validity. In the
+#' equivalence result those conditions state, the bootstrap is the reference
+#' standard, not a party to it.
+#'
+#' It is therefore valid for all six identifier configurations, including the
+#' three that rank on a native statistic: DINA under
+#' \code{dina_select_statistic = "dina"}, GRF under
+#' \code{grf_select_statistic = "dr"}, and GRF under
+#' \code{grf_selection = "tree"}. For those, it correctly estimates the
+#' selection bias that ranking on the native statistic induces on the
+#' reported effect \eqn{\hat\beta}. That is a coherent quantity, and the
+#' estimate of it is valid -- it simply sits outside the framework the
+#' manuscript develops, which is about identifiers whose selection map and
+#' reported effect are the same functional.
+#'
+#' The one place an alignment check does apply here is
+#' \code{mr_in_replicates = TRUE}, which asks for MR \emph{inside} each
+#' replicate; see that parameter.
+#'
 #' @section Performance:
 #' Typical runtime: 1-5 seconds per bootstrap iteration. For 1000 bootstraps with
 #' 6 workers, expect 3-10 minutes total. Memory usage scales with dataset size
@@ -240,6 +265,17 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   # =======================================================================
 
   args_forestsearch_call <- fs.est$args_call_all
+
+  # MR alignment guard.  Under mr_in_replicates = TRUE, mr_inference
+  # propagates unchanged into every replicate, so a misaligned identifier
+  # would run a misaligned re-selection nb_boots times.  Under the default
+  # FALSE the flag is stripped downstream and no check is needed.
+  if (isTRUE(mr_in_replicates)) {
+    .validate_mr_configuration(
+      args_forestsearch_call,
+      context = "forestsearch_bootstrap_dofuture(mr_in_replicates = TRUE)")
+  }
+
   parallel_args <- resolve_bootstrap_parallel_args(parallel_args, args_forestsearch_call)
 
   # =======================================================================

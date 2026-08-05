@@ -1,5 +1,85 @@
 # forestsearch 0.2.0
 
+## Identifier alignment: new defaults (BREAKING) and an MR configuration guard
+
+Multiplier resampling (MR) linearizes the selection event, which is valid only
+when two conditions hold: selection ranks on the same within-subgroup effect
+the analysis reports, and the candidate family is fixed rather than estimated
+from the outcome data.  Several package defaults did not satisfy them.  Five
+defaults changed and a hard configuration check was added.
+
+### Breaking: `use_lasso` and `use_grf` now default to `FALSE`
+
+`forestsearch()` previously ran a prognostic Cox-LASSO prefilter and a GRF
+importance screen before enumerating candidates.  Both are now off by default.
+
+**This changes the candidate family on every `forestsearch()` call with
+`subgroup_method = "consistency"`, not only under MR.**  A different family
+can yield a different selected subgroup, so results from 0.1.0 and earlier
+will not necessarily reproduce at the new defaults.
+
+Reproducing Leon et al. (2024, *Statistics in Medicine*, doi:10.1002/sim.10163),
+which used the prognostic lasso prefilter, now requires setting the flags
+explicitly:
+
+```r
+forestsearch(..., use_lasso = TRUE, use_grf = TRUE)
+```
+
+That configuration remains fully supported.  It is simply no longer the
+default, because a model-based front end makes the family data-dependent.
+
+### Changed defaults: three `match.arg()` re-orderings
+
+The permitted values of all three are unchanged; only which one is the default
+moved.  Each previously defaulted to its engine's native statistic, which is
+not the effect the analysis reports.
+
+| argument | was | now |
+|---|---|---|
+| `dina_select_statistic` | `"dina"` (subgroup-mean tau-hat) | `"effect"` |
+| `grf_selection` | `"tree"` (policy-tree objective) | `"frontier"` |
+| `grf_select_statistic` | `"dr"` (mean doubly-robust score) | `"effect"` |
+
+`use_dina` is unchanged (`FALSE`).
+
+### New: MR configurations are validated, not silently accepted
+
+A misaligned configuration combined with MR previously ran to completion and
+returned a correction that did not de-bias the reported effect.  It now raises
+an error naming the offending argument and the setting that resolves it, at
+three entry points:
+
+* `forestsearch()` under `mr_inference = TRUE`;
+* `forestsearch_bootstrap_dofuture()` under `mr_in_replicates = TRUE`;
+* `forestsearch_Kfold()` under `mr_in_replicates = TRUE`.
+
+Rejected: `dina_select_statistic = "dina"`, `grf_select_statistic = "dr"`,
+`grf_selection = "tree"`, and -- for `subgroup_method = "consistency"` only --
+any of `use_lasso` / `use_grf` / `use_dina` left `TRUE`.  That last check is
+**not** applied to `subgroup_method` of `"dina"` or `"grf"`: their families
+regenerate under resampling by construction, which is a property of the
+methods, not a configuration error.
+
+Errors only -- no warnings, no silent coercion.  All six configurations remain
+reachable; the three misaligned ones now require explicit opt-in and are
+unavailable under MR.
+
+### New: `$family_status` on the returned object
+
+`forestsearch()` now records the candidate-family status as a character
+scalar, so a sweep can tabulate it without parsing text: `"fixed"`,
+`"conditional-removable"` (a front end is on, and turning it off would make
+the family fixed), or `"conditional-inherent"` (DINA/GRF).  Shown by
+`print()` and `summary()`.  Descriptive only; it never raises a condition.
+
+### Unaffected: the full bootstrap
+
+`forestsearch_bootstrap_dofuture()` remains valid for all six configurations.
+It replays the whole pipeline per resample rather than linearizing it, so the
+alignment conditions do not bear on its validity -- it is the reference
+standard those conditions are stated against.  See its documentation.
+
 ## Terminology: "gate" and "tier" are gone
 
 The post-selection-inference surface was named after a "gate" while mostly

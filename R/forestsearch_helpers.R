@@ -1722,3 +1722,170 @@ reset_workers <- function(workers   = NULL,
        candidates = grf_res$candidates,   # DR-candidate family for MR
        select_statistic = grf_select_statistic)
 }
+
+
+# =============================================================================
+# Multiplier-resampling (MR) configuration validation
+# =============================================================================
+
+#' Validate an identifier configuration for multiplier resampling
+#'
+#' Multiplier resampling (MR) linearizes the selection event, so it is valid
+#' only for identifier configurations that satisfy the two alignment
+#' conditions:
+#'
+#' \enumerate{
+#'   \item \strong{Selection ranks on the inferential coefficient.} The
+#'     statistic the identifier maximizes must be the same within-subgroup
+#'     effect \eqn{\hat\beta(g)} that is subsequently reported. DINA's native
+#'     \eqn{\bar\tau}, GRF's mean doubly-robust score, and the GRF policy-tree
+#'     objective all rank on something else.
+#'   \item \strong{The candidate family is fixed.} The family enumerated on the
+#'     observed data must not itself be a function of the data. For
+#'     \code{subgroup_method = "consistency"} this is attained by disabling the
+#'     model-based front ends (\code{use_lasso}, \code{use_grf},
+#'     \code{use_dina}); it is checked here because it is trivially fixable.
+#' }
+#'
+#' Condition 2 is deliberately \strong{not} checked for
+#' \code{subgroup_method \%in\% c("dina", "grf")}. Those families regenerate
+#' under resampling by construction, which is a property of the methods rather
+#' than a configuration error, and erroring (or warning) would fire on every
+#' DINA and GRF replicate.
+#'
+#' The three front-end flags are also \strong{not} checked on the DINA and GRF
+#' paths, where they are inert: they are consumed downstream of those branches'
+#' returns.
+#'
+#' Errors only -- never a warning, never a silent coercion. Each message names
+#' the offending argument and the exact setting that resolves it.
+#'
+#' @param config Named list of resolved \code{forestsearch()} arguments -- in
+#'   practice either \code{args_call_all} or an \code{mget()} of the relevant
+#'   formals. Recognized names: \code{subgroup_method},
+#'   \code{dina_select_statistic}, \code{grf_selection},
+#'   \code{grf_select_statistic}, \code{use_lasso}, \code{use_grf},
+#'   \code{use_dina}. Missing names are treated as absent rather than invalid,
+#'   so a configuration that cannot fail a given check is not penalized for
+#'   omitting the argument. Values may be unresolved \code{match.arg} vectors;
+#'   the first element is taken, matching \code{match.arg()}.
+#' @param context Character scalar naming the call site that requires MR
+#'   alignment, e.g. \code{"forestsearch(mr_inference = TRUE)"}. Prefixed to
+#'   the error message so the user can see which entry point objected.
+#'
+#' @return Invisibly \code{TRUE} if the configuration is valid; otherwise
+#'   \code{stop()}s.
+#' @noRd
+.validate_mr_configuration <- function(config, context = "mr_inference = TRUE") {
+
+  .first <- function(nm, default = NULL) {
+    v <- config[[nm]]
+    if (is.null(v) || length(v) == 0L) return(default)
+    v[[1L]]
+  }
+
+  method <- .first("subgroup_method")
+  if (is.null(method) || is.na(method)) return(invisible(TRUE))
+  method <- as.character(method)
+
+  fail <- function(msg) {
+    stop(sprintf("%s requires an identifier aligned with the reported effect.\n  %s",
+                 context, msg), call. = FALSE)
+  }
+
+  # ---------------------------------------------------------------------------
+  # Condition 1: selection must rank on the inferential coefficient
+  # ---------------------------------------------------------------------------
+  if (identical(method, "dina")) {
+    if (identical(as.character(.first("dina_select_statistic", "effect")), "dina")) {
+      fail(paste0(
+        "dina_select_statistic = \"dina\" ranks the qualifying family on DINA's ",
+        "native subgroup-mean tau-hat, not on the effect the analysis reports.\n",
+        "  Set dina_select_statistic = \"effect\", or run without MR ",
+        "(mr_inference = FALSE)."))
+    }
+  }
+
+  if (identical(method, "grf")) {
+    if (identical(as.character(.first("grf_selection", "frontier")), "tree")) {
+      fail(paste0(
+        "grf_selection = \"tree\" selects by the policy-tree objective and ",
+        "enumerates no candidate family to rank on the reported effect; the ",
+        "misalignment is structural, not a tuning choice.\n",
+        "  Set grf_selection = \"frontier\", or run without MR ",
+        "(mr_inference = FALSE)."))
+    }
+    if (identical(as.character(.first("grf_select_statistic", "effect")), "dr")) {
+      fail(paste0(
+        "grf_select_statistic = \"dr\" ranks the frontier on GRF's native mean ",
+        "doubly-robust score, not on the effect the analysis reports.\n",
+        "  Set grf_select_statistic = \"effect\", or run without MR ",
+        "(mr_inference = FALSE)."))
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # Condition 2: fixed candidate family (consistency / FS only)
+  # ---------------------------------------------------------------------------
+  if (identical(method, "consistency")) {
+    front_ends <- c(use_lasso = isTRUE(.first("use_lasso", FALSE)),
+                    use_grf   = isTRUE(.first("use_grf",   FALSE)),
+                    use_dina  = isTRUE(.first("use_dina",  FALSE)))
+    on <- names(front_ends)[front_ends]
+    if (length(on)) {
+      fail(sprintf(paste0(
+        "The model-based front end%s %s set TRUE, so the candidate family is ",
+        "estimated from the same data the search runs on and is not fixed.\n",
+        "  Set %s and re-run."),
+        if (length(on) > 1L) "s" else "",
+        paste(paste(on, collapse = " and "),
+              if (length(on) > 1L) "are" else "is"),
+        paste(sprintf("%s = FALSE", on), collapse = ", ")))
+    }
+  }
+
+  invisible(TRUE)
+}
+
+
+#' Classify the candidate-family status of a forestsearch configuration
+#'
+#' Records, as a machine-readable field on the returned object, whether the
+#' candidate family the identifier ranked over is fixed:
+#'
+#' \describe{
+#'   \item{\code{"fixed"}}{\code{subgroup_method = "consistency"} with all
+#'     three model-based front ends off. The family is enumerated from the
+#'     supplied factors alone and does not depend on the outcome data.}
+#'   \item{\code{"conditional-removable"}}{\code{subgroup_method =
+#'     "consistency"} with at least one of \code{use_lasso}, \code{use_grf},
+#'     \code{use_dina} on. The family is data-dependent, but becomes fixed by
+#'     turning those flags off.}
+#'   \item{\code{"conditional-inherent"}}{\code{subgroup_method} of
+#'     \code{"dina"} or \code{"grf"}. The family is generated by fitting a
+#'     model to the same data, which is intrinsic to the method and cannot be
+#'     switched off.}
+#' }
+#'
+#' Purely descriptive: it never raises a condition, so a sweep can tabulate it
+#' across configurations without any message volume. Enforcement lives in
+#' \code{.validate_mr_configuration()}.
+#'
+#' @param config Named list of resolved \code{forestsearch()} arguments
+#'   (typically \code{args_call_all}).
+#' @return Character scalar, one of \code{"fixed"},
+#'   \code{"conditional-removable"}, \code{"conditional-inherent"}.
+#' @noRd
+.fs_family_status <- function(config) {
+  .first <- function(nm, default = NULL) {
+    v <- config[[nm]]
+    if (is.null(v) || length(v) == 0L) return(default)
+    v[[1L]]
+  }
+  method <- as.character(.first("subgroup_method", "consistency"))
+  if (!identical(method, "consistency")) return("conditional-inherent")
+  any_front_end <- isTRUE(.first("use_lasso", FALSE)) ||
+                   isTRUE(.first("use_grf",   FALSE)) ||
+                   isTRUE(.first("use_dina",  FALSE))
+  if (any_front_end) "conditional-removable" else "fixed"
+}

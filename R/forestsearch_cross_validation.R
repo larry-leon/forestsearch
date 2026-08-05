@@ -402,6 +402,14 @@ forestsearch_Kfold <- function(
   if (!isTRUE(mr_in_replicates)) {
     cv_args$mr_inference <- FALSE
   } else {
+    # MR alignment guard.  Structurally identical to the bootstrap path: with
+    # mr_in_replicates = TRUE, mr_inference propagates unchanged into every
+    # fold, so a misaligned identifier would run a misaligned re-selection
+    # Kfolds times.
+    .validate_mr_configuration(
+      fs_args,
+      context = "forestsearch_Kfold(mr_in_replicates = TRUE)")
+
     # C.3 -- ONE message before the fold loop, never one per fold.  `quiet` is
     # not a formal here, so the original analysis's setting governs.
     .mr_msg(isTRUE(fs_args$quiet), sprintf(
@@ -866,6 +874,14 @@ forestsearch_tenfold <- function(
   if (!isTRUE(mr_in_replicates)) {
     cv_args$mr_inference <- FALSE
   } else {
+    # MR alignment guard.  Same check and same message as forestsearch_Kfold()
+    # and the bootstrap: with mr_in_replicates = TRUE, mr_inference propagates
+    # unchanged into every fold, so a misaligned identifier would run a
+    # misaligned re-selection sims * Kfolds times.
+    .validate_mr_configuration(
+      fs_args,
+      context = "forestsearch_tenfold(mr_in_replicates = TRUE)")
+
     # C.3 -- ONE message before the simulation loop, never one per fold and
     # never one per simulation.  `quiet` is not a formal here, so the original
     # analysis's setting governs.
