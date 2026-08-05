@@ -135,13 +135,34 @@
   .inband <- function() {
     eff <- if (log_scale) exp(beta[passers]) else beta[passers]  # natural effect
     sz  <- sizes[passers]
-    nb  <- eff >= (1 - nbhd) * max(eff)                          # multiplicative band
-    ib <- switch(selection_rule,
-      neighborhood = nb,
-      pareto       = !.pareto_dominated_xy(eff, sz),
-      both         = nb & !.pareto_dominated_xy(eff, sz),
-      nb)
-    if (!any(ib)) ib <- rep(TRUE, length(passers))              # safety: never empty
+    # Band from the shared helper, the same one the consistency engine, DINA
+    # and (since the frontier fix) GRF use.  This replaces a local copy that
+    # reimplemented the same three rules.  The local copy differed in its NA
+    # handling: it used a plain max() with no is.na() guard, so a single
+    # non-finite effect made the threshold NA, made the whole band NA, and --
+    # via the emptiness fallback below -- silently degraded the band to ALL
+    # passers rather than to a sensible band.  The shared helper uses
+    # max(na.rm = TRUE) and guards !is.na(), degrading one candidate instead
+    # of the draw.  That is a bug fix, not a preference.
+    ib <- .compute_inclusion_band(hr_vec = eff, n_vec = sz,
+                                  selection_rule = selection_rule,
+                                  effect_neighborhood = nbhd) == 1L
+    # EMPTY-BAND FALLBACK -- deliberately here, at the call site, not inside
+    # the shared helper.  The two callers want different things and the
+    # difference is not reconcilable:
+    #
+    #   * In the consistency/DINA sort an all-zero band is harmless: -in_band
+    #     is the leading sort key and the next key breaks the tie, so nothing
+    #     is lost.
+    #   * Here the band is a FILTER inside a draw.  Returning nothing loses
+    #     that draw from sel_bias -- and it loses exactly the draws where the
+    #     perturbed effects were extreme enough to empty the band, which
+    #     biases the correction rather than protecting it.  Same failure mode
+    #     as an over-tight admission floor.
+    #
+    # Keeping it visible at the call site records that it is a deliberate
+    # choice for MR, not a property of the band.
+    if (!any(ib)) ib <- rep(TRUE, length(passers))
     passers[ib]
   }
   pick <- switch(rule,
