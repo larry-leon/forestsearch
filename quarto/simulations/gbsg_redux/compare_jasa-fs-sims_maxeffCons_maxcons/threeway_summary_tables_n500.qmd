@@ -1,0 +1,270 @@
+---
+title: "Three-way summary: t1_t2_legacy vs maxeffCons vs maxcons"
+subtitle: "M1, target HR harm $= 1.0$, $n = 500$, 500 replicates"
+date: today
+format:
+  pdf:
+    documentclass: scrartcl
+    papersize: letter
+    geometry: margin=1in
+    toc: false
+    number-sections: true
+bibliography: []
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+
+data_dir <- "."
+
+arm_files <- c(
+  t1_t2_legacy = "fs_t1_t2_m1_h10_knoise0_n500_combined_1_500.rds",
+  maxeffCons   = "fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_combined_1_500.rds",
+  maxcons      = "fs_maxcons_fb_mr_m1_h10_knoise0_n500_combined_1_500.rds"
+)
+
+#' Load simulation bundles and resolve the legacy/new column naming.
+#'
+#' Legacy runs record the full bootstrap as `t1_*` and multiplier resampling as
+#' `t2_*`; the revised codebase records them as `fb_*` and `mr_*`. Detection of
+#' `t1_H_est` decides which convention applies.
+load_arms <- function(data_dir, files = arm_files) {
+  arms <- lapply(names(files), function(nm) {
+    bundle <- readRDS(file.path(data_dir, files[[nm]]))
+    legacy <- "t1_H_est" %in% names(bundle$results)
+    list(
+      name      = nm,
+      results   = bundle$results,
+      truth     = bundle$truth,
+      meta      = bundle$meta,
+      fb        = if (legacy) "t1" else "fb",
+      mr        = if (legacy) "t2" else "mr",
+      harm_flag = if (legacy) "t2_harm_flag" else "mr_harm_flag",
+      mr_ok     = if (legacy) "gate_ok" else "mr_ok",
+      fb_secs   = if (legacy) "t1_secs" else "fb_secs",
+      mr_secs   = if (legacy) "t2_secs" else "fit_mr_secs"
+    )
+  })
+  names(arms) <- names(files)
+  arms
+}
+
+detected_of <- function(arm) {
+  arm$results[arm$results$detected == 1, , drop = FALSE]
+}
+
+num <- function(x, digits = 3) formatC(x, format = "f", digits = digits)
+
+#' Evaluate a named list of functions over every arm and bind into a table.
+arm_table <- function(arms, rows) {
+  body <- lapply(rows, function(f) vapply(arms, f, character(1)))
+  df <- as.data.frame(do.call(rbind, body), stringsAsFactors = FALSE)
+  cbind(Metric = names(rows), df, row.names = NULL)
+}
+
+#' Point estimate, interval length, bias and coverage for one estimator,
+#' evaluated against the conditional target $\beta(\widehat H)$.
+est_summary <- function(arm, prefix, block = "H") {
+  d   <- detected_of(arm)
+  est <- d[[paste0(prefix, "_", block, "_est")]]
+  lo  <- d[[paste0(prefix, "_", block, "_lo")]]
+  hi  <- d[[paste0(prefix, "_", block, "_hi")]]
+  tgt <- d[[paste0("betaHhat_", block)]]
+  ok  <- is.finite(est) & is.finite(lo) & is.finite(hi) & is.finite(tgt)
+  c(
+    avg  = mean(est[ok]),
+    len  = median((hi - lo)[ok]),
+    bias = 100 * mean((est[ok] - tgt[ok]) / tgt[ok]),
+    cov  = mean(tgt[ok] >= lo[ok] & tgt[ok] <= hi[ok])
+  )
+}
+
+prefix_for <- function(arm, estimator) {
+  switch(estimator, oracle = "or", naive = "nv", FB = arm$fb, MR = arm$mr)
+}
+
+estimation_table <- function(arms, block = "H",
+                             estimators = c("oracle", "naive", "FB", "MR")) {
+  metrics <- c(avg = "Avg", len = "Len", bias = "Bias (\\%)", cov = "Cov")
+  parts <- lapply(estimators, function(e) {
+    vals <- lapply(arms, function(a) est_summary(a, prefix_for(a, e), block))
+    tab <- vapply(names(metrics), function(m) {
+      digits <- if (m == "bias") 1 else 3
+      vapply(vals, function(v) num(v[[m]], digits), character(1))
+    }, character(length(arms)))
+    data.frame(
+      Estimator = c(e, rep("", length(metrics) - 1L)),
+      Metric    = unname(metrics),
+      t(tab),
+      check.names = FALSE, row.names = NULL, stringsAsFactors = FALSE
+    )
+  })
+  do.call(rbind, parts)
+}
+
+show_table <- function(df, caption) {
+  knitr::kable(df, booktabs = TRUE, linesep = "", align = "l",
+               escape = FALSE, caption = caption)
+}
+
+arms <- load_arms(data_dir)
+```
+
+All three bundles share the design cell: `n_sample` 500, `n_sims` 500,
+`nb_boots` 300, draws 5000, `seed_base` 8316951,
+`consistency_method = "resample"`, `forestsearch` 0.2.0, and identical `truth`.
+The arms differ only in `sg_focus`: `"eff"`, `"maxeffCons"`, `"maxcons"`.
+
+```{r}
+#| label: design-check
+
+design <- data.frame(
+  arm       = names(arms),
+  sg_focus  = vapply(arms, function(a) {
+    if (is.null(a$meta$sg_focus)) "eff (legacy)" else a$meta$sg_focus
+  }, character(1)),
+  n_sample  = vapply(arms, function(a) a$meta$n_sample, integer(1)),
+  n_sims    = vapply(arms, function(a) a$meta$n_sims, integer(1)),
+  nb_boots  = vapply(arms, function(a) a$meta$nb_boots, integer(1)),
+  seed_base = vapply(arms, function(a) a$meta$seed_base, integer(1)),
+  batches   = vapply(arms, function(a) a$meta$n_batches, integer(1)),
+  row.names = NULL
+)
+show_table(design, "Design constants and provenance.")
+
+# truth is identical across arms
+stopifnot(
+  all.equal(arms$t1_t2_legacy$truth, arms$maxeffCons$truth),
+  all.equal(arms$t1_t2_legacy$truth, arms$maxcons$truth)
+)
+```
+
+# Detection and subgroup identification
+
+Rows below the detection count are over the detected replicates.
+
+```{r}
+#| label: tbl-detection
+
+rows_detection <- list(
+  "Detections / 500"     = function(a) as.character(sum(a$results$detected)),
+  "Detection rate (\\%)"   = function(a) num(100 * mean(a$results$detected), 1),
+  "mean $\\lvert\\widehat{H}\\rvert$"          = function(a) num(mean(detected_of(a)$n_harm), 1),
+  "SD $\\lvert\\widehat{H}\\rvert$"            = function(a) num(sd(detected_of(a)$n_harm), 1),
+  "median $\\lvert\\widehat{H}\\rvert$"        = function(a) num(median(detected_of(a)$n_harm), 0),
+  "min $\\lvert\\widehat{H}\\rvert$"           = function(a) num(min(detected_of(a)$n_harm), 0),
+  "max $\\lvert\\widehat{H}\\rvert$"           = function(a) num(max(detected_of(a)$n_harm), 0),
+  "mean $\\lvert\\widehat{H}\\rvert$ (\\% ITT)"  = function(a) {
+    num(100 * mean(detected_of(a)$n_harm) / a$meta$n_sample, 1)
+  },
+  "mean true Q"          = function(a) num(mean(detected_of(a)$n_true), 1),
+  "Sensitivity"          = function(a) num(mean(detected_of(a)$sens)),
+  "Specificity"          = function(a) num(mean(detected_of(a)$spec)),
+  "PPV"                  = function(a) num(mean(detected_of(a)$ppv)),
+  "NPV"                  = function(a) num(mean(detected_of(a)$npv)),
+  "MR harm flags"        = function(a) {
+    as.character(sum(detected_of(a)[[a$harm_flag]], na.rm = TRUE))
+  },
+  "MR returned estimate" = function(a) {
+    d <- detected_of(a)
+    sprintf("%d / %d", sum(d[[a$mr_ok]], na.rm = TRUE), nrow(d))
+  },
+  "mean $\\beta(\\widehat{H})$"      = function(a) num(mean(detected_of(a)$betaHhat_H))
+)
+
+show_table(arm_table(arms, rows_detection),
+           "Detection and subgroup identification.")
+```
+
+# Estimation and coverage --- harm block $\widehat{H}$
+
+Avg is the mean point estimate, Len the median interval length; Bias% and Cov
+are computed against $\beta(\widehat{H})$.
+
+```{r}
+#| label: tbl-harm
+
+show_table(estimation_table(arms, block = "H"),
+           "Harm block: estimation and coverage against $\\beta(\\widehat{H})$.")
+```
+
+The oracle refits on the true region $H$, so its Bias% and Cov entries are
+computed against a different region from the one it estimates.
+
+# Estimation and coverage --- complement block $\widehat{H}^{\mathrm{c}}$
+
+```{r}
+#| label: tbl-complement
+
+show_table(estimation_table(arms, block = "Hc"),
+           "Complement block: estimation and coverage against $\\beta(\\widehat{H}^{\\mathrm{c}})$.")
+```
+
+# Timings
+
+Legacy records `t1_secs` and `t2_secs`; the revised arms record `fb_secs` and
+`fit_mr_secs`. These are the same measured quantities. FB rows are over detected
+replicates, fit+MR rows over all 500.
+
+```{r}
+#| label: tbl-timings
+
+rows_timing <- list(
+  "FB mean (s)"     = function(a) num(mean(detected_of(a)[[a$fb_secs]], na.rm = TRUE), 1),
+  "FB median (s)"   = function(a) num(median(detected_of(a)[[a$fb_secs]], na.rm = TRUE), 1),
+  "FB min (s)"      = function(a) num(min(detected_of(a)[[a$fb_secs]], na.rm = TRUE), 1),
+  "FB max (s)"      = function(a) num(max(detected_of(a)[[a$fb_secs]], na.rm = TRUE), 1),
+  "fit+MR mean (s)" = function(a) num(mean(a$results[[a$mr_secs]], na.rm = TRUE), 2),
+  "fit+MR median (s)" = function(a) num(median(a$results[[a$mr_secs]], na.rm = TRUE), 2),
+  "fit+MR min (s)"  = function(a) num(min(a$results[[a$mr_secs]], na.rm = TRUE), 2),
+  "fit+MR max (s)"  = function(a) num(max(a$results[[a$mr_secs]], na.rm = TRUE), 2),
+  "batches pooled"  = function(a) as.character(a$meta$n_batches)
+)
+
+show_table(arm_table(arms, rows_timing),
+           "Wall-clock seconds per replicate under 115 workers.")
+```
+
+Timings vary by batch within each arm, so cross-arm differences reflect render
+conditions as well as any code effect.
+
+```{r}
+#| label: tbl-timing-batches
+
+#' Mean seconds per replicate within `sim_id` segments. Batch boundaries are
+#' not stored numerically in `meta`, so they are supplied from
+#' `meta$source_files`.
+timing_by_batch <- function(arm, breaks, secs = c("fb", "mr")) {
+  secs <- match.arg(secs)
+  d    <- arm$results
+  keep <- if (secs == "fb") d$detected == 1 else rep(TRUE, nrow(d))
+  col  <- if (secs == "fb") arm$fb_secs else arm$mr_secs
+  seg  <- cut(d$sim_id, breaks = breaks)
+  round(tapply(d[[col]][keep], seg[keep], mean, na.rm = TRUE), 2)
+}
+
+batch_breaks <- list(
+  t1_t2_legacy = c(0, 20, 100, 200, 500),
+  maxeffCons   = c(0, 50, 300, 500),
+  maxcons      = c(0, 20, 300, 500)
+)
+
+for (nm in names(arms)) {
+  cat("\n", nm, " --- FB: ",
+      paste(timing_by_batch(arms[[nm]], batch_breaks[[nm]], "fb"), collapse = " / "),
+      "  |  fit+MR: ",
+      paste(timing_by_batch(arms[[nm]], batch_breaks[[nm]], "mr"), collapse = " / "),
+      "\n", sep = "")
+}
+```
+
+# Session information
+
+```{r}
+#| label: session
+sessionInfo()
+```
