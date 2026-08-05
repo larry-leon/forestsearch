@@ -122,6 +122,9 @@
 #'   \code{"eff"}, \code{"maxSG"}, \code{"minSG"}, or \code{"effMinSG"}; the rule
 #'   applied to the frontier when \code{grf_selection = "frontier"}. See
 #'   \code{\link{grf.subg.harm.survival}}.
+#' @param selection_rule Character, one of \code{"neighborhood"} (default),
+#'   \code{"pareto"}, \code{"both"}; the inclusion band for the
+#'   \code{eff*SG} frontier rules.  Inert for the other rules.
 #' @param effect_neighborhood Numeric in (0, 1); relative neighborhood for the
 #'   \code{"effMaxSG"} / \code{"effMinSG"} rules. Default 0.10. Used only when
 #'   \code{grf_selection = "frontier"}.
@@ -303,6 +306,7 @@ grf.subg.harm.glm <- function(
     grf_selection       = c("tree", "frontier"),
     frontier_rule       = c("effMaxSG", "eff", "maxSG", "minSG", "effMinSG"),
     effect_neighborhood = 0.10,
+    selection_rule      = c("neighborhood", "pareto", "both"),
     details             = FALSE,
     verbose             = FALSE
 ) {
@@ -316,6 +320,7 @@ grf.subg.harm.glm <- function(
   grf_count_transform <- match.arg(grf_count_transform)
   grf_selection       <- match.arg(grf_selection)
   frontier_rule       <- match.arg(frontier_rule)
+  selection_rule      <- match.arg(selection_rule)
 
   # Default effect_measure by outcome type
   if (is.null(effect_measure)) {
@@ -516,7 +521,8 @@ grf.subg.harm.glm <- function(
                else if (is.null(cand2)) cand else rbind(cand, cand2)
     }
     sel <- .grf_frontier_select(cand, dmin = dmin.grf, rule = frontier_rule,
-                                nbhd = effect_neighborhood)
+                                nbhd = effect_neighborhood,
+                                selection_rule = selection_rule)
     if (is.null(sel)) {
       if (verbose || details)
         message("[grf.subg.harm.glm] frontier: no eligible subgroup.")

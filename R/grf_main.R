@@ -43,6 +43,10 @@
 #'   largest/smallest eligible candidate (effect >= \code{dmin.grf});
 #'   \code{"effMaxSG"}/\code{"effMinSG"} the largest/smallest candidate within
 #'   \code{effect_neighborhood} (relative) of the max harm-effect.
+#' @param selection_rule Character, one of \code{"neighborhood"} (default),
+#'   \code{"pareto"}, \code{"both"}; the inclusion band for the
+#'   \code{eff*SG} frontier rules, matching \code{forestsearch()} and
+#'   \code{dina_subgroup()}.  Inert for the other rules.
 #' @param effect_neighborhood Numeric in (0, 1); relative neighborhood for the
 #'   \code{"effMaxSG"} / \code{"effMinSG"} rules. Default 0.10. Used only when
 #'   \code{grf_selection = "frontier"}.
@@ -163,10 +167,13 @@ grf.subg.harm.survival <- function(data,
                                    grf_selection = c("tree", "frontier"),
                                    frontier_rule = c("effMaxSG", "eff", "maxSG",
                                                      "minSG", "effMinSG"),
-                                   effect_neighborhood = 0.10) {
+                                   effect_neighborhood = 0.10,
+                                   selection_rule = c("neighborhood", "pareto",
+                                                      "both")) {
 
   grf_selection <- match.arg(grf_selection)
   frontier_rule <- match.arg(frontier_rule)
+  selection_rule <- match.arg(selection_rule)
 
   # ===========================================================================
   # SECTION: INPUT VALIDATION
@@ -208,6 +215,7 @@ grf.subg.harm.survival <- function(data,
   config$selection           <- grf_selection
   config$frontier_rule       <- frontier_rule
   config$effect_neighborhood <- effect_neighborhood
+  config$selection_rule      <- selection_rule
 
   # ===========================================================================
   # SECTION: DATA PREPARATION
@@ -282,7 +290,8 @@ grf.subg.harm.survival <- function(data,
     }
     sel <- .grf_frontier_select(cand, dmin = config$dmin.grf,
                                 rule = config$frontier_rule,
-                                nbhd = config$effect_neighborhood)
+                                nbhd = config$effect_neighborhood,
+                                selection_rule = config$selection_rule)
     if (is.null(sel)) {
       if (details) print_grf_details(config, NULL, NULL, NULL)
       nullres <- create_null_result(data, NULL, NULL, config)

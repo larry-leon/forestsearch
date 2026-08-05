@@ -40,7 +40,8 @@
                                 grf_count_transform = "log",
                                 grf_selection       = "tree",
                                 frontier_rule       = "effMaxSG",
-                                effect_neighborhood = 0.10) {
+                                effect_neighborhood = 0.10,
+                                selection_rule      = "neighborhood") {
 
   # Map forestsearch outcome_type to the grf.subg.harm.glm vocabulary
   ot_grf <- if (outcome_type == "count")       "count"
@@ -64,7 +65,8 @@
     adverse_outcome           = adverse_outcome,
     grf_selection             = grf_selection,
     frontier_rule             = frontier_rule,
-    effect_neighborhood       = effect_neighborhood
+    effect_neighborhood       = effect_neighborhood,
+    selection_rule            = selection_rule
   )
 
   # Count-specific parameters
@@ -96,7 +98,8 @@
                                      return_selected_cuts_only,
                                      grf_selection = "tree",
                                      frontier_rule = "effMaxSG",
-                                     effect_neighborhood = 0.10) {
+                                     effect_neighborhood = 0.10,
+                                     selection_rule = "neighborhood") {
   list(
     data                      = data,
     confounders.name          = confounders.name,
@@ -114,7 +117,8 @@
     return_selected_cuts_only = return_selected_cuts_only,
     grf_selection             = grf_selection,
     frontier_rule             = frontier_rule,
-    effect_neighborhood       = effect_neighborhood
+    effect_neighborhood       = effect_neighborhood,
+    selection_rule            = selection_rule
   )
 }
 

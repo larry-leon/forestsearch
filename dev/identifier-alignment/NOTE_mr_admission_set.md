@@ -139,7 +139,7 @@ Whether a given run has a fixed family is a property of the **configuration**,
 not something the code enforces. Two distinct things go by "fixed" and should
 not be conflated:
 
-- `family_status = "fixed"` records that no model-based front end
+- `family_status = "no-front-end"` (formerly `"fixed"`) records that no model-based front end
   (`use_lasso` / `use_grf` / `use_dina`) shapes the family on the observed
   data. That is what the MR alignment condition checks.
 - It does **not** mean the family is invariant under resampling. With
@@ -148,7 +148,7 @@ not be conflated:
   are resample-invariant.
 
 The validation above was run with all three front ends `FALSE`, so
-`family_status = "fixed"` -- yet the cut grid still regenerates per replicate,
+`family_status = "no-front-end"` -- yet the cut grid still regenerates per replicate,
 because the cuts are quantiles. Under a regenerating family FB and MR target
 **different estimands**: FB is unconditional over the family-generating
 process, MR is conditional on the realized family. That is the

@@ -23,7 +23,8 @@ grf.subg.harm.survival(
   tune_grf = FALSE,
   grf_selection = c("tree", "frontier"),
   frontier_rule = c("effMaxSG", "eff", "maxSG", "minSG", "effMinSG"),
-  effect_neighborhood = 0.1
+  effect_neighborhood = 0.1,
+  selection_rule = c("neighborhood", "pareto", "both")
 )
 }
 \arguments{
@@ -86,6 +87,11 @@ largest/smallest eligible candidate (effect >= \code{dmin.grf});
 \item{effect_neighborhood}{Numeric in (0, 1); relative neighborhood for the
 \code{"effMaxSG"} / \code{"effMinSG"} rules. Default 0.10. Used only when
 \code{grf_selection = "frontier"}.}
+
+\item{selection_rule}{Character, one of \code{"neighborhood"} (default),
+\code{"pareto"}, \code{"both"}; the inclusion band for the
+\code{eff*SG} frontier rules, matching \code{forestsearch()} and
+\code{dina_subgroup()}.  Inert for the other rules.}
 }
 \value{
 A list with GRF results, including:

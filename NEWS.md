@@ -68,9 +68,12 @@ unavailable under MR.
 ### New: `$family_status` on the returned object
 
 `forestsearch()` now records the candidate-family status as a character
-scalar, so a sweep can tabulate it without parsing text: `"fixed"`,
-`"conditional-removable"` (a front end is on, and turning it off would make
-the family fixed), or `"conditional-inherent"` (DINA/GRF).  Shown by
+scalar, so a sweep can tabulate it without parsing text: `"no-front-end"`,
+`"conditional-removable"` (a front end is on, and turning it off would reach
+`"no-front-end"`), or `"conditional-inherent"` (DINA/GRF).  The first level is
+deliberately not called `"fixed"`: it records that no fitted model shapes the
+family on the observed data, which is weaker than the manuscript's fixed
+family, that additionally requires resample-invariant cut locations.  Shown by
 `print()` and `summary()`.  Descriptive only; it never raises a condition.
 
 ### Unaffected: the full bootstrap

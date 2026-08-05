@@ -310,15 +310,24 @@
 }
 
 #' Mark the Pareto frontier on (effect maximize, size maximize)
+#'
+#' Contract unchanged: returns \code{cand} sorted by \code{(-effect, -size)}
+#' with an added logical \code{on_frontier} column.
+#'
+#' Dominance now comes from \code{.pareto_dominated_xy()}, the same core the
+#' consistency engine and \code{.compute_inclusion_band()} use on the same
+#' axes, rather than a local sweep. The two agree except on exact duplicates in
+#' \code{(effect, size)}: the sweep's \code{size > best_size} test kept only the
+#' first of a tied pair, whereas \code{.pareto_dominated_xy()} requires a strict
+#' improvement on one axis, so identical points are all non-dominated. The
+#' latter is the correct reading of Pareto dominance, and \code{on_frontier} is
+#' a reported field rather than a selection input (its only caller is
+#' \code{grf_main.R}), so the change is confined to what is displayed.
 #' @noRd
 .grf_mark_frontier <- function(cand) {
   ord <- order(-cand$effect, -cand$size)
   cand <- cand[ord, , drop = FALSE]
-  best_size <- -Inf; on <- logical(nrow(cand))
-  for (i in seq_len(nrow(cand))) {
-    if (cand$size[i] > best_size) { on[i] <- TRUE; best_size <- cand$size[i] }
-  }
-  cand$on_frontier <- on
+  cand$on_frontier <- !.pareto_dominated_xy(cand$effect, cand$size)
   cand
 }
 
@@ -333,21 +342,45 @@
 #' @param nbhd relative neighborhood for the \code{eff*SG} rules: keep candidates
 #'   with effect >= (1 - nbhd) * max-eligible-effect, then take the
 #'   largest/smallest.
+#' @param selection_rule one of \code{"neighborhood"} (default), \code{"pareto"},
+#'   \code{"both"}, defining the inclusion band for the \code{eff*SG} rules.
+#'   Previously this argument did not exist and the band was hardcoded to the
+#'   multiplicative neighborhood, so a caller asking for \code{"pareto"} or
+#'   \code{"both"} was silently given \code{"neighborhood"} -- while MR's
+#'   re-selection honoured the request, leaving the identifier and MR banding
+#'   differently. The band now comes from \code{.compute_inclusion_band()}, the
+#'   same helper DINA and the consistency engine use.
 #' @return one-row data.frame (the selected candidate), or NULL.
 #' @noRd
-.grf_frontier_select <- function(cand, dmin, rule = "effMaxSG", nbhd = 0.10) {
+.grf_frontier_select <- function(cand, dmin, rule = "effMaxSG", nbhd = 0.10,
+                                 selection_rule = "neighborhood") {
   if (is.null(cand) || !nrow(cand)) return(NULL)
   elig <- cand[cand$effect >= dmin, , drop = FALSE]
   if (!nrow(elig)) return(NULL)
-  emax <- max(elig$effect)
   if (rule == "maxSG") {
     elig[which.max(elig$size), , drop = FALSE]
   } else if (rule == "minSG") {
     elig[which.min(elig$size), , drop = FALSE]
   } else if (rule == "eff") {
     elig[which.max(elig$effect), , drop = FALSE]
-  } else { # effMaxSG / effMinSG: restrict to the near-max-effect band first
-    band <- elig[elig$effect >= emax * (1 - nbhd), , drop = FALSE]
+  } else { # effMaxSG / effMinSG: restrict to the inclusion band first
+    # Identical to the former hardcoded band under the default
+    # selection_rule = "neighborhood": .compute_inclusion_band() applies
+    # (1 - effect_neighborhood) * max(effect), which is the same comparison as
+    # the previous effect >= emax * (1 - nbhd).
+    in_band <- .compute_inclusion_band(
+      hr_vec              = elig$effect,
+      n_vec               = elig$size,
+      selection_rule      = selection_rule,
+      effect_neighborhood = nbhd)
+    band <- elig[in_band == 1L, , drop = FALSE]
+    # No empty-band fallback here, deliberately.  The band CAN empty: when the
+    # maximum effect is negative, (1 - nbhd) * emax exceeds emax, so even the
+    # maximum fails its own test.  That is a property of the formula, identical
+    # before and after this change, and the old code likewise returned a
+    # zero-row selection.  MR's .inband() does carry a "never empty" fallback;
+    # reconciling the two is a decision pending on its own, and adding a
+    # fallback here would pre-empt it and change behaviour beyond threading.
     if (rule == "effMinSG") {
       band[which.min(band$size), , drop = FALSE]
     } else { # effMaxSG (default)

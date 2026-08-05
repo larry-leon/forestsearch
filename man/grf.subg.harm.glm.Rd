@@ -29,6 +29,7 @@ grf.subg.harm.glm(
   grf_selection = c("tree", "frontier"),
   frontier_rule = c("effMaxSG", "eff", "maxSG", "minSG", "effMinSG"),
   effect_neighborhood = 0.1,
+  selection_rule = c("neighborhood", "pareto", "both"),
   details = FALSE,
   verbose = FALSE
 )
@@ -151,6 +152,10 @@ applied to the frontier when \code{grf_selection = "frontier"}. See
 \item{effect_neighborhood}{Numeric in (0, 1); relative neighborhood for the
 \code{"effMaxSG"} / \code{"effMinSG"} rules. Default 0.10. Used only when
 \code{grf_selection = "frontier"}.}
+
+\item{selection_rule}{Character, one of \code{"neighborhood"} (default),
+\code{"pareto"}, \code{"both"}; the inclusion band for the
+\code{eff*SG} frontier rules.  Inert for the other rules.}
 
 \item{details}{Logical. Print GRF diagnostic information. Default: \code{FALSE}.}
 

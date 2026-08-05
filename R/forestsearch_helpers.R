@@ -1462,7 +1462,8 @@ reset_workers <- function(workers   = NULL,
                                     treat.name, outcome.name, event.name,
                                     offset.name, adjust_covariates,
                                     adverse_outcome, frontier_rule,
-                                    effect_neighborhood) {
+                                    effect_neighborhood,
+                                    selection_rule = "neighborhood") {
   cand <- grf_res$candidates
   if (is.null(cand) || !nrow(cand)) return(grf_res)
 
@@ -1501,7 +1502,8 @@ reset_workers <- function(workers   = NULL,
   cand_hr <- cand_hr[is.finite(cand_hr$effect), , drop = FALSE]
   win <- tryCatch(
     .grf_frontier_select(cand_hr, dmin = 1, rule = frontier_rule,
-                         nbhd = effect_neighborhood),
+                         nbhd = effect_neighborhood,
+                         selection_rule = selection_rule),
     error = function(e) NULL)
   if (is.null(win) || !nrow(win)) return(grf_res)  # no HR-harm winner -> keep native
 
@@ -1558,6 +1560,7 @@ reset_workers <- function(workers   = NULL,
                                      grf_selection = "tree",
                                      frontier_rule = "effMaxSG",
                                      effect_neighborhood = 0.10,
+                                     selection_rule = "neighborhood",
                                      details = FALSE,
                                      grf_select_statistic = "dr",
                                      effect_measure = NULL,
@@ -1584,7 +1587,8 @@ reset_workers <- function(workers   = NULL,
         return_selected_cuts_only = TRUE,
         grf_selection             = grf_selection,
         frontier_rule             = frontier_rule,
-        effect_neighborhood       = effect_neighborhood
+        effect_neighborhood       = effect_neighborhood,
+        selection_rule            = selection_rule
       )
       grf_res <- do.call(grf.subg.harm.survival, surv_args)
     } else {
@@ -1607,7 +1611,8 @@ reset_workers <- function(workers   = NULL,
         grf_count_transform       = grf_count_transform,
         grf_selection             = grf_selection,
         frontier_rule             = frontier_rule,
-        effect_neighborhood       = effect_neighborhood
+        effect_neighborhood       = effect_neighborhood,
+        selection_rule            = selection_rule
       )
       grf_res <- do.call(grf.subg.harm.glm, glm_args)
     }
@@ -1629,7 +1634,8 @@ reset_workers <- function(workers   = NULL,
         outcome.name = outcome.name, event.name = event.name,
         offset.name = offset.name, adjust_covariates = adjust_covariates,
         adverse_outcome = adverse_outcome, frontier_rule = frontier_rule,
-        effect_neighborhood = effect_neighborhood),
+        effect_neighborhood = effect_neighborhood,
+        selection_rule = selection_rule),
       error = function(e) grf_res)
   } else if (identical(grf_select_statistic, "effect") &&
              identical(grf_selection, "tree") && isTRUE(details)) {
@@ -1854,9 +1860,13 @@ reset_workers <- function(workers   = NULL,
 #' candidate family the identifier ranked over is fixed:
 #'
 #' \describe{
-#'   \item{\code{"fixed"}}{\code{subgroup_method = "consistency"} with all
-#'     three model-based front ends off. The family is enumerated from the
-#'     supplied factors alone and does not depend on the outcome data.}
+#'   \item{\code{"no-front-end"}}{\code{subgroup_method = "consistency"} with
+#'     all three model-based front ends off, so no fitted model shapes the
+#'     family on the observed data.  Deliberately NOT called "fixed": the
+#'     manuscript's Section 2.1 fixed family additionally requires the cut
+#'     locations to be resample-invariant, which quantile-derived cuts
+#'     (\code{cut_type = "default"}) are not.  This level reports the weaker,
+#'     checkable property.}
 #'   \item{\code{"conditional-removable"}}{\code{subgroup_method =
 #'     "consistency"} with at least one of \code{use_lasso}, \code{use_grf},
 #'     \code{use_dina} on. The family is data-dependent, but becomes fixed by
@@ -1873,7 +1883,7 @@ reset_workers <- function(workers   = NULL,
 #'
 #' @param config Named list of resolved \code{forestsearch()} arguments
 #'   (typically \code{args_call_all}).
-#' @return Character scalar, one of \code{"fixed"},
+#' @return Character scalar, one of \code{"no-front-end"},
 #'   \code{"conditional-removable"}, \code{"conditional-inherent"}.
 #' @noRd
 .fs_family_status <- function(config) {
@@ -1887,7 +1897,7 @@ reset_workers <- function(workers   = NULL,
   any_front_end <- isTRUE(.first("use_lasso", FALSE)) ||
                    isTRUE(.first("use_grf",   FALSE)) ||
                    isTRUE(.first("use_dina",  FALSE))
-  if (any_front_end) "conditional-removable" else "fixed"
+  if (any_front_end) "conditional-removable" else "no-front-end"
 }
 
 
