@@ -93,6 +93,67 @@
 
 # -----------------------------------------------------------------------------
 # GLM pieces (binary OR/RR/RD, continuous MD, count IRR)
+#' One-step treatment `dfbeta` for a GLM fit
+#'
+#' Replaces \code{stats::dfbeta(fit)} on the GLM influence path. The
+#' influence is built directly from the one-step formula rather than taken
+#' from \code{lm.influence()}:
+#'
+#' \deqn{\mathrm{dfbeta}_i = (X'WX)^{-1} x_i w_i r_i / (1 - h_i)}
+#'
+#' with \eqn{w} the IRLS working weights, \eqn{r} the working residuals
+#' (\code{fit$residuals}, which is the working residual for every GLM family,
+#' so this is general rather than family-specific) and \eqn{h} the hat values.
+#'
+#' \strong{Why not \code{stats::dfbeta()}.} R 4.6.0 corrected
+#' \code{stats::dfbeta()} for \code{glm} objects:
+#' \code{weighted.residuals()} previously returned \emph{deviance} residuals,
+#' which -- per R's own NEWS -- "do not give the one-step approximated dfbeta
+#' values". \code{sigma_D} computed under R < 4.6.0 therefore differs from the
+#' same quantity computed under R >= 4.6.0. Building the influence here makes
+#' it correct on every R version rather than documenting the dependency.
+#' Validated against exact leave-one-out refits in
+#' \code{dev/identifier-alignment/dfbeta_glm_validation.qmd}.
+#'
+#' \strong{Behaviour at leverage 1, and why it differs from
+#' \code{stats::dfbeta()}.} When \eqn{h_i = 1} -- one observation entirely
+#' determines the coefficient, e.g. a single subject in one arm -- the
+#' one-step is \strong{undefined}: \eqn{0/0}, returned as \code{NaN}. That is
+#' the honest answer, because the leave-one-out estimate it approximates does
+#' not exist either; removing that observation leaves the coefficient
+#' unidentifiable.
+#'
+#' \code{stats::dfbeta()} instead returns \strong{zero} influence for that
+#' observation. Zero is wrong, and wrong in the direction that matters: the
+#' observation which alone determines the estimate is recorded as having no
+#' influence on it, so \code{sigma_D} comes out \emph{smaller} than it would
+#' with two such observations. Measured on a probit fit: one subject in the
+#' treated arm gives \code{sigma_D} 0.447, two give 1.529. A subgroup whose
+#' effect rests on a single observation is thereby scored with a falsely
+#' narrow interval and a falsely low \code{t_g} -- anticonservative exactly
+#' where caution is warranted.
+#'
+#' No epsilon guard is applied. Clamping \eqn{1 - h_i} would make
+#' \code{sigma_D} scale as \eqn{1/\epsilon}, letting an arbitrary constant set
+#' the magnitude of a reported quantity. \code{NaN} propagates to
+#' \code{sigma_D}, the caller's \code{is.finite()} check rejects it, and the
+#' candidate is dropped -- the same treatment every other non-estimable
+#' candidate receives.
+#'
+#' @param fit A fitted \code{glm} (or \code{lm}) object.
+#' @return Numeric matrix, one row per observation and one column per
+#'   coefficient.
+#' @noRd
+.dfbeta_glm <- function(fit) {
+  w <- fit$weights
+  h <- stats::lm.influence(fit, do.coef = FALSE)$hat
+  X <- stats::model.matrix(fit)
+  A <- solve(crossprod(X, w * X))
+  r <- sqrt(w) * fit$residuals          # weighted working residual
+  t(A %*% t(X * (sqrt(w) * r / (1 - h))))
+}
+
+
 # -----------------------------------------------------------------------------
 
 #' Normalise adjustment terms (mirrors forestsearch:::.fs_adjust_terms)
@@ -203,7 +264,9 @@
   if (!is.null(fit$converged) && isFALSE(fit$converged)) return(NULL)
 
   beta_hat <- unname(cf[[treat.name]])
-  dfb <- tryCatch(stats::dfbeta(fit), error = function(e) NULL)
+  # .dfbeta_glm(), not stats::dfbeta(): the latter changed meaning at R 4.6.0
+  # and returns a wrong (zero) influence at leverage 1.  See .dfbeta_glm().
+  dfb <- tryCatch(.dfbeta_glm(fit), error = function(e) NULL)
   if (is.null(dfb)) return(NULL)
   if (is.matrix(dfb)) {
     j <- match(treat.name, colnames(dfb))
