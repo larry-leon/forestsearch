@@ -732,22 +732,6 @@ subgroup robust SE.  The naive interval always uses the robust SE.}
 Passed as \code{TRUE} by every internal caller.}
 \item{\code{seed}}{Seed for the multiplier draws; defaults to
 \code{seedit}.}
-\item{\code{family_native_neighborhood}}{Applies only to
-\code{subgroup_method = "dina"} and \code{"grf"}.  A value in
-\code{[0, 1)} restricts MR's re-selection family to candidates within
-that multiplicative band of the best \emph{native} statistic (DINA
-subgroup-mean tau-hat; GRF doubly-robust score), so the Cox/GLM-effect
-re-selection mirrors the method's own selection neighbourhood rather
-than ranging over the full candidate family -- curbing the
-over-correction that can occur when the native ranking diverges from
-the Cox/GLM effect.  \strong{Defaults to \code{effect_neighborhood}}
-(matching the band DINA/GRF select within, the recommended setting);
-pass a value \code{>= 1} to disable the restriction and de-bias
-against the full enumerated family.  This tunes only the
-candidate-competition part of the bias: MR holds the forest fixed, so
-for DINA/GRF the full bootstrap remains the reference regardless.
-Ignored by \code{"consistency"}, whose \code{maxcons} re-selection
-already matches its search statistic.}
 }}
 }
 \value{

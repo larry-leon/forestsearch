@@ -692,22 +692,6 @@
 #'       Passed as \code{TRUE} by every internal caller.}
 #'     \item{\code{seed}}{Seed for the multiplier draws; defaults to
 #'       \code{seedit}.}
-#'     \item{\code{family_native_neighborhood}}{Applies only to
-#'       \code{subgroup_method = "dina"} and \code{"grf"}.  A value in
-#'       \code{[0, 1)} restricts MR's re-selection family to candidates within
-#'       that multiplicative band of the best \emph{native} statistic (DINA
-#'       subgroup-mean tau-hat; GRF doubly-robust score), so the Cox/GLM-effect
-#'       re-selection mirrors the method's own selection neighbourhood rather
-#'       than ranging over the full candidate family -- curbing the
-#'       over-correction that can occur when the native ranking diverges from
-#'       the Cox/GLM effect.  \strong{Defaults to \code{effect_neighborhood}}
-#'       (matching the band DINA/GRF select within, the recommended setting);
-#'       pass a value \code{>= 1} to disable the restriction and de-bias
-#'       against the full enumerated family.  This tunes only the
-#'       candidate-competition part of the bias: MR holds the forest fixed, so
-#'       for DINA/GRF the full bootstrap remains the reference regardless.
-#'       Ignored by \code{"consistency"}, whose \code{maxcons} re-selection
-#'       already matches its search statistic.}
 #'   }
 #' @param consistency_method Character. \code{"split"} (default) runs the
 #'   literal repeated 50/50 split-and-refit consistency calculation;
@@ -2116,24 +2100,15 @@ forestsearch <- function(df.analysis,
         adverse_outcome = if (identical(outcome_type, "survival")) TRUE
                           else adverse_outcome,
         df = .mr_df)
-      # Restrict the MR family to candidates competitive on the SAME statistic
-      # that selected the winner, so the re-selection mirrors DINA's selection
-      # neighbourhood instead of the full family.  With select_statistic =
-      # "effect", DINA selected on the inferential effect, so restrict on the
-      # per-candidate effect (`sel_effect`, attached by the select wrapper);
-      # otherwise restrict on DINA's native tau-hat.  Default neighbourhood:
-      # match effect_neighborhood (the band DINA selects within).  Set
-      # mr_inference_args$family_native_neighborhood >= 1 to disable (full family).
-      .mr_nbhd <- mr_inference_args$family_native_neighborhood
-      if (is.null(.mr_nbhd)) .mr_nbhd <- effect_neighborhood
-      .mr_stat <- if (identical(dsel$select_statistic, "effect") &&
-                      "sel_effect" %in% names(dsel$candidates))
-                    dsel$candidates$sel_effect else dsel$candidates$tau_hat
-      .mr_tab  <- .fs_mr_restrict_native(
-        dsel$candidates, .mr_stat,
-        neighborhood = .mr_nbhd,
-        log_scale = .mr_em %in% c("HR", "OR", "IRR"))
-      .mr_fam  <- .fs_mr_family_from_table(.mr_df, .mr_tab,
+      # MR's family is DINA's qualifying candidates -- the whole of it.  This
+      # is what Algorithm Step 2 specifies, and what the consistency engine
+      # already does.  A former native-statistic band (.fs_mr_restrict_native)
+      # narrowed it so MR's re-selection neighbourhood would mirror the one
+      # the full bootstrap explores; MR is not required to mimic FB, and the
+      # band's premise -- DINA ranking on tau-hat while MR ranks on perturbed
+      # beta-hat -- no longer holds now that select_statistic = "effect" is
+      # the default.
+      .mr_fam  <- .fs_mr_family_from_table(.mr_df, dsel$candidates,
                                            op_right = ">=", n_min = n.min)
       out$mr_inference <- .fs_apply_mr(
         df = .mr_df, candidates = .mr_fam,
@@ -2299,24 +2274,12 @@ forestsearch <- function(df.analysis,
         adverse_outcome = if (identical(outcome_type, "survival")) TRUE
                           else adverse_outcome,
         df = .mr_df)
-      # Restrict the MR family to candidates competitive on the SAME statistic
-      # that selected the winner.  With grf_select_statistic = "effect" (frontier
-      # mode), restrict on the per-candidate effect (`sel_effect`, link scale,
-      # attached by the select wrapper); otherwise restrict on GRF's native
-      # doubly-robust score (additive scale).  Default: match effect_neighborhood
-      # (the band GRF's frontier selects within).  Set
-      # mr_inference_args$family_native_neighborhood >= 1 to disable (full family).
-      .mr_nbhd <- mr_inference_args$family_native_neighborhood
-      if (is.null(.mr_nbhd)) .mr_nbhd <- effect_neighborhood
-      .mr_eff_sel <- identical(gsel$select_statistic, "effect") &&
-                     "sel_effect" %in% names(gsel$candidates)
-      .mr_stat    <- if (.mr_eff_sel) gsel$candidates$sel_effect
-                     else gsel$candidates$effect
-      .mr_tab  <- .fs_mr_restrict_native(
-        gsel$candidates, .mr_stat,
-        neighborhood = .mr_nbhd,
-        log_scale = if (.mr_eff_sel) .mr_em %in% c("HR", "OR", "IRR") else FALSE)
-      .mr_fam  <- .fs_mr_family_from_table(.mr_df, .mr_tab,
+      # MR's family is GRF's qualifying candidates -- the whole of it.  See the
+      # DINA branch above: the former native-statistic band existed to make
+      # MR's re-selection mirror the bootstrap's, which MR is not required to
+      # do, and its premise no longer holds under grf_select_statistic =
+      # "effect".
+      .mr_fam  <- .fs_mr_family_from_table(.mr_df, gsel$candidates,
                                            op_right = ">", n_min = n.min)
       out$mr_inference <- .fs_apply_mr(
         df = .mr_df, candidates = .mr_fam,

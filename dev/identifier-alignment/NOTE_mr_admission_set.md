@@ -98,6 +98,66 @@ This bears directly on:
 The consistency engine is unaffected -- all seven foci are numerically
 unchanged.
 
+
+## Removal of the MR family restriction
+
+Separate from the admission set, and removed later: `.fs_mr_restrict_native()`
+narrowed MR's re-selection **family** for DINA and GRF to candidates within a
+multiplicative band of the best *native* statistic. Deleted, along with both
+call sites and the `mr_inference_args$family_native_neighborhood` entry. MR's
+family is now the identifier's qualifying candidates -- what Algorithm Step 2
+specifies, and what the consistency engine already did.
+
+**Rationale.** The restriction existed solely to make MR's re-selection
+neighbourhood mirror the one the full bootstrap explores. MR is not required
+to mimic FB. Its premise no longer holds either: it compensated for DINA and
+GRF ranking on their native statistic while MR ranks on perturbed
+\eqn{\hat\beta}, and `select_statistic = "effect"` is now the default, so there
+is no such mismatch.
+
+### The default was never off
+
+`mr_inference_args$family_native_neighborhood` defaults to `NULL`, which reads
+like "no restriction". It was not. Both call sites substituted
+`effect_neighborhood` before calling:
+
+```r
+.mr_nbhd <- mr_inference_args$family_native_neighborhood
+if (is.null(.mr_nbhd)) .mr_nbhd <- effect_neighborhood
+```
+
+So `.fs_mr_restrict_native()` received **0.10 in every DINA and GRF run ever
+made**. Disabling it required passing a value `>= 1` explicitly -- the
+documentation said so, but the `NULL` default hid it. Nothing in the returned
+object recorded that the family had been cut.
+
+### The size of what was being excluded
+
+`n_family` on the ACTG175 analysis, before and after removal:
+
+| engine | with restriction | without | retained |
+|---|---|---|---|
+| GRF | 2 | **1289** | **0.16%** |
+| DINA | 1 | 1 | not binding here |
+
+GRF's MR correction was computed against **2 candidates out of 1289**. The
+selection-bias term is the winner's curse over the family MR re-selects
+within, so cutting the family to a fifth of a percent of itself removes almost
+all of the competition the correction is meant to account for.
+
+For DINA on ACTG175 the restriction was not binding -- its qualifying frontier
+holds a single candidate, so there was nothing to cut. The same is true of
+GBSG (DINA `n_family` 1, GRF `n_family` 1). Whether the restriction bit at all
+therefore depended entirely on how many candidates the engine's frontier
+produced, with no signal either way in the output.
+
+### After the removal
+
+`effect_neighborhood` is consumed only for its documented purpose -- the
+`effMaxSG`/`effMinSG` inclusion band, via `.compute_inclusion_band()` -- plus
+its own range validation and the diagnostic that explains that band. Its
+second, silent role as the family-restriction width is gone.
+
 ## Observation: the FB/MR gap under maxeff, and why it is expected
 
 **This is an observation to characterise, not a defect awaiting a fix.**
