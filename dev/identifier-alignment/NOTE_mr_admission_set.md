@@ -4,7 +4,8 @@ bibliography: []
 
 # Note: the MR admission set, and what its correction changed
 
-**Status:** fixed. One item recorded as **OPEN** at the end.
+**Status:** fixed. One further observation recorded at the end --
+characterisation, not an outstanding defect.
 **Change:** `.fs_resolve_admission()` -- admission resolved once and carried to
 MR, replacing MR's reconstruction of `t_g` from raw parameters.
 **Validated:** 2026-08-05, ACTG175 binary/OR, fixed family
@@ -40,7 +41,8 @@ another. They drifted, in two opposite directions:
 ## What the fix changed, measured
 
 Before/after on ACTG175, fixed family, MR draws 2000. Full bootstrap was run
-only where the comparison required it (see the open item below); everything
+only where the comparison required it (the `maxeff` FB/MR observation below,
+at 100 replicates -- a detection question, not an estimation one); everything
 else is MR-versus-MR on the same fitted object, where a bootstrap adds nothing.
 
 | config | MR before | MR after | change | sel-rate before -> after |
@@ -96,11 +98,14 @@ This bears directly on:
 The consistency engine is unaffected -- all seven foci are numerically
 unchanged.
 
-## OPEN: the maxeff FB/MR gap does not close
+## Observation: the FB/MR gap under maxeff, and why it is expected
 
-Theorem 2 gives first-order agreement between MR and the full bootstrap under a
-fixed family. Under `sg_focus = "maxeff"` it is not observed, and the admission
-fix did not change it:
+**This is an observation to characterise, not a defect awaiting a fix.**
+Nothing here should be read as a proposal to change the bootstrap.
+
+Theorem 2 gives first-order agreement between MR and the full bootstrap
+**under a fixed family**. Under `sg_focus = "maxeff"` a gap is present, and the
+admission fix did not change it:
 
 | | FB | MR | gap (log scale) |
 |---|---|---|---|
@@ -119,32 +124,46 @@ selection rate below 1 (draws get dropped -- exactly DINA's case), with a
 size-based rule (`maxSG`/`effMaxSG`, where a floor changes the pool rather than
 the maximum), or with a non-zero `p_star` making `t_g` candidate-varying.
 
-**So the admission set was not the cause of this gap.** The fix remains
-necessary and correct; it simply does not happen to move this number.
+So the admission set was not the cause of this gap. The fix remains necessary
+and correct; it simply does not happen to move this number.
 
-**Hypothesis to test first, before anything else.** The full bootstrap may not
-be the fixed-family bootstrap Theorem 2 refers to. If FB re-derives cut
-locations from each resampled dataset, its candidate family regenerates per
-replicate, and the FB/MR gap is then the conditional-versus-marginal estimand
-distinction rather than a defect.
+### Why a gap is expected here
 
-**The bootstrap does not freeze the cut grid.** Stated as fact, from the code,
-without further investigation:
+**The full bootstrap refits everything on each resample by design, and that is
+correct.** It re-runs the whole pipeline per replicate -- re-deriving cut
+locations, refitting front ends, re-enumerating candidates and re-selecting.
+Freezing the cut grid is **not** something to implement, and this note does not
+propose it.
 
-- `bootstrap_analysis_dofuture.R:377-378` -- "In the consistency/GRF/LASSO path,
-  `confounders.candidate` are derived cut-columns that `forestsearch()` rebuilds
-  internally on each resample, so they are dropped here and regenerated." The
-  derived cut columns are removed from the resampled frame and rebuilt by the
-  inner `forestsearch()` call, which re-runs `get_FSdata()` on the resampled
-  data. With `cut_type = "default"`, cut locations are sample quantiles, so
-  they are re-derived from each resample.
-- `bootstrap_analysis_dofuture.R:575-583` -- `grf_res`, `grf_cuts`, `dina_res`
-  and `dina_cuts` are all set to `NULL` per replicate, explicitly "so each
-  replicate re-fits ... and re-runs its selection from scratch".
+Whether a given run has a fixed family is a property of the **configuration**,
+not something the code enforces. Two distinct things go by "fixed" and should
+not be conflated:
 
-The one exception is `conf_force`, whose cut expressions are literal and
-therefore identical on every resample.
+- `family_status = "fixed"` records that no model-based front end
+  (`use_lasso` / `use_grf` / `use_dina`) shapes the family on the observed
+  data. That is what the MR alignment condition checks.
+- It does **not** mean the family is invariant under resampling. With
+  `cut_type = "default"` the cut locations are sample quantiles, so they move
+  with each resample. Only literal cut expressions supplied via `conf_force`
+  are resample-invariant.
 
-This supports the hypothesis and should be the first thing checked when the
-gap is taken up. It is **not** investigated further here, and no conclusion is
-drawn about whether the gap is benign.
+The validation above was run with all three front ends `FALSE`, so
+`family_status = "fixed"` -- yet the cut grid still regenerates per replicate,
+because the cuts are quantiles. Under a regenerating family FB and MR target
+**different estimands**: FB is unconditional over the family-generating
+process, MR is conditional on the realized family. That is the
+conditional-versus-marginal distinction of Section 5. A gap is therefore the
+expected consequence of the configuration, not an anomaly.
+
+What remains genuinely open is only its **size** -- characterising how the gap
+behaves as the family-generating step is made more or less stable (for example
+`conf_force` cut expressions versus default quantile cuts) -- rather than
+whether it should be there at all.
+
+For the record, the code confirming that FB regenerates rather than freezes:
+`bootstrap_analysis_dofuture.R:377-378` drops the derived cut columns from the
+resampled frame and lets the inner `forestsearch()` rebuild them via
+`get_FSdata()`; `:575-583` sets `grf_res`, `grf_cuts`, `dina_res` and
+`dina_cuts` to `NULL` per replicate "so each replicate re-fits ... and re-runs
+its selection from scratch". This is the intended behaviour of a bootstrap that
+replays the whole pipeline.
