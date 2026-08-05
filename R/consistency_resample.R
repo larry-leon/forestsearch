@@ -105,6 +105,15 @@
 #' (\code{fit$residuals}, which is the working residual for every GLM family,
 #' so this is general rather than family-specific) and \eqn{h} the hat values.
 #'
+#' \strong{The \code{lm} case.} \code{effect_measure = "MD"} fits with
+#' \code{stats::lm()}, not \code{glm()}, and an \code{lm} with no prior weights
+#' has \code{fit$weights == NULL} rather than a vector of ones. \eqn{w}
+#' therefore defaults to \code{rep(1, nrow(X))}, under which the formula
+#' reduces to the ordinary least-squares one-step
+#' \eqn{(X'X)^{-1} x_i e_i / (1 - h_i)}. \code{lm()} \emph{with} prior weights
+#' carries them in \code{fit$weights} and needs no special case. This case was
+#' missed when the function was written -- see the note below.
+#'
 #' \strong{Why not \code{stats::dfbeta()}.} R 4.6.0 corrected
 #' \code{stats::dfbeta()} for \code{glm} objects:
 #' \code{weighted.residuals()} previously returned \emph{deviance} residuals,
@@ -140,14 +149,27 @@
 #' candidate is dropped -- the same treatment every other non-estimable
 #' candidate receives.
 #'
+#' \strong{Note on the original validation.} The first version of this function
+#' read \code{w <- fit$weights} unconditionally and therefore errored
+#' (\dQuote{non-conformable arguments}) on every unweighted \code{lm} fit,
+#' taking the whole \code{MD} influence path down with it:
+#' \code{.consistency_glm_pieces()} returned \code{NULL}, the resample
+#' consistency engine fell back to literal splitting, and
+#' \code{fs_mr_inference()} could fit no candidate at all. The validation grid
+#' did not catch it because its \dQuote{gaussian identity} control was a
+#' \code{glm(family = gaussian())}, where \code{fit$weights} is a vector of
+#' ones -- so the control exercised the gaussian \emph{family} but never the
+#' \code{lm} \emph{path}. The grid now carries \code{lm} rows of its own.
+#'
 #' @param fit A fitted \code{glm} (or \code{lm}) object.
 #' @return Numeric matrix, one row per observation and one column per
 #'   coefficient.
 #' @noRd
 .dfbeta_glm <- function(fit) {
-  w <- fit$weights
-  h <- stats::lm.influence(fit, do.coef = FALSE)$hat
   X <- stats::model.matrix(fit)
+  w <- fit$weights
+  if (is.null(w)) w <- rep(1, nrow(X))     # lm() with no prior weights
+  h <- stats::lm.influence(fit, do.coef = FALSE)$hat
   A <- solve(crossprod(X, w * X))
   r <- sqrt(w) * fit$residuals          # weighted working residual
   t(A %*% t(X * (sqrt(w) * r / (1 - h))))

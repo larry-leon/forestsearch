@@ -61,10 +61,17 @@ cat("stats::dfbeta has a coxph method? ",
 # ---- CANDIDATE -------------------------------------------------------------
 # One-step influence built directly.  fit$residuals is the WORKING residual for
 # any GLM family, so this is general rather than binomial-specific.
+#
+# The `is.null(w)` line is the 2026-08-05 correction.  An UNWEIGHTED lm() has
+# fit$weights == NULL, not a vector of ones, so the original body errored on
+# every lm fit -- and effect_measure = "MD" fits with lm().  See "What the
+# original grid missed" below.  This body must stay byte-identical to
+# forestsearch:::.dfbeta_glm(); the end-to-end section asserts that.
 dfbeta_glm <- function(fit) {
-  w <- fit$weights
-  h <- stats::lm.influence(fit, do.coef = FALSE)$hat
   X <- stats::model.matrix(fit)
+  w <- fit$weights
+  if (is.null(w)) w <- rep(1, nrow(X))     # lm() with no prior weights
+  h <- stats::lm.influence(fit, do.coef = FALSE)$hat
   A <- solve(crossprod(X, w * X))
   r <- sqrt(w) * fit$residuals          # weighted working residual
   t(A %*% t(X * (sqrt(w) * r / (1 - h))))
@@ -74,10 +81,17 @@ dfbeta_glm <- function(fit) {
 # lm.influence() computes dfbeta_i = (X'WX)^-1 x_i sqrt(w_i) * wt.res_i /
 # (1 - h_i).  Before R 4.6.0, weighted.residuals() on a glm returned DEVIANCE
 # residuals, so that is what went in as wt.res.
+#
+# Given the same NULL-weights treatment, so the lm rows added below produce a
+# comparable C column rather than an uninformative NA.  On an lm the deviance
+# residual IS the response residual, so this coincides with the candidate
+# exactly -- which is the point: the lm path is one where old and new agree,
+# and agreement there is therefore no evidence the path was exercised.
 dfbeta_old_deviance <- function(fit) {
-  w <- fit$weights
-  h <- stats::lm.influence(fit, do.coef = FALSE)$hat
   X <- stats::model.matrix(fit)
+  w <- fit$weights
+  if (is.null(w)) w <- rep(1, nrow(X))
+  h <- stats::lm.influence(fit, do.coef = FALSE)$hat
   A <- solve(crossprod(X, w * X))
   rdev <- stats::residuals(fit, type = "deviance")
   t(A %*% t(X * (sqrt(w) * rdev / (1 - h))))
@@ -194,6 +208,21 @@ make_fit <- function(spec) {
     d$y <- 2 + 0.5 * d$treat + 0.3 * d$x1 + rnorm(n)
     fit <- stats::glm(y ~ treat + x1 + x2, data = d,
                       family = stats::gaussian("identity"), weights = pw)
+  } else if (fam == "lm") {
+    # THE PATH THE ORIGINAL GRID HAD NO ROW FOR.
+    #
+    # This is not a re-spelling of the gaussian branch above.  glm(gaussian)
+    # and lm() give identical coefficients and identical influences, but they
+    # differ in the one respect that mattered: glm() always populates
+    # fit$weights (ones, when unweighted) and an unweighted lm() leaves it
+    # NULL.  Note the branch below passes NO `weights` argument in the
+    # unweighted case -- writing `weights = rep(1, n)` would populate
+    # fit$weights and quietly restore the gaussian-glm situation, defeating
+    # the whole purpose of the row.
+    d$y <- 2 + 0.5 * d$treat + 0.3 * d$x1 + rnorm(n)
+    f <- y ~ treat + x1 + x2
+    fit <- if (isTRUE(spec$prior_weights)) stats::lm(f, data = d, weights = pw)
+           else                            stats::lm(f, data = d)
   }
   fit
 }
@@ -280,7 +309,27 @@ add(label = "EDGE prior weights (gaussian)", family = "gaussian",
     link = "identity", n = 80, rate = 0.5, balance = "1:1",
     prior_weights = TRUE, seed = 3007)
 
+# lm() rows -- ADDED 2026-08-05, DISTINCT FROM THE glm(gaussian) ROWS ABOVE.
+# effect_measure = "MD" is fitted with lm(), and no row in the original grid
+# reached lm().  Unweighted and prior-weighted are separate rows because only
+# the unweighted one has fit$weights == NULL, which is the condition that
+# broke.
+for (n in c(40, 100, 500)) {
+  add(label = sprintf("lm/identity UNWEIGHTED n=%d  [MD path]", n),
+      family = "lm", link = "identity", n = n, rate = 0.5, balance = "1:1",
+      seed = 4000 + n)
+}
+add(label = "lm/identity PRIOR WEIGHTS n=100", family = "lm",
+    link = "identity", n = 100, rate = 0.5, balance = "1:1",
+    prior_weights = TRUE, seed = 4500)
+add(label = "lm/identity UNWEIGHTED n=40 1:9 imbalance", family = "lm",
+    link = "identity", n = 40, rate = 0.5, balance = "1:9", seed = 4600)
+add(label = "lm/identity UNWEIGHTED high leverage", family = "lm",
+    link = "identity", n = 60, rate = 0.5, balance = "1:1",
+    high_leverage = TRUE, seed = 4601)
+
 cat("scenarios:", length(specs), "\n")
+cat("  of which lm():", sum(vapply(specs, function(s) s$family == "lm", logical(1))), "\n")
 ```
 
 ```{r run-grid}
@@ -305,6 +354,109 @@ cat("max over gaussian scenarios of arm-B max relative error:",
 stopifnot(max(g$B_max, na.rm = TRUE) < 1e-8)
 cat("PASS: one-step is exact for gaussian identity.\n")
 ```
+
+## Hard control: the `lm()` path must run at all {#sec-lm-control}
+
+The gaussian control above is a control on the *algebra*. This one is a control
+on the *path*: `effect_measure = "MD"` fits with `stats::lm()`, and an
+unweighted `lm()` is the only fit in this package for which `fit$weights` is
+`NULL`. The assertions below are, in order: the function returns without
+error; it returns finite values; it agrees with `stats::dfbeta()` to 1e-8; and
+it is exact against leave-one-out.
+
+The `stats::dfbeta()` comparison is a legitimate assertion **here** and not for
+`binomial`, because on an identity-link gaussian fit the working residual and
+the deviance residual coincide -- so this comparison is version-independent,
+whereas for `binomial` the two differ on R < 4.6.0 by design.
+
+```{r lm-control}
+lm_rows <- res[startsWith(res$scenario, "lm/"), ]
+cat("lm() scenarios:", nrow(lm_rows), "\n")
+cat("all completed  :", all(lm_rows$status == "ok"), "\n")
+cat("max arm-B rel error over lm() rows:",
+    format(max(lm_rows$B_max, na.rm = TRUE), scientific = TRUE), "\n")
+cat("all match this R's stats::dfbeta():", all(lm_rows$A_exact), "\n")
+
+stopifnot(nrow(lm_rows) > 0L)                       # the row must EXIST
+stopifnot(all(lm_rows$status == "ok"))              # ... and must not error
+stopifnot(all(lm_rows$A_exact))                     # ... and must match dfbeta()
+stopifnot(max(lm_rows$B_max, na.rm = TRUE) < 1e-8)  # ... and be exact vs LOO
+
+# Direct check of the precondition, independent of the grid machinery: an
+# unweighted lm() really does have NULL weights, and the function copes.
+.lm_probe <- local({
+  set.seed(99); n <- 120
+  d <- data.frame(treat = rbinom(n, 1, 0.5), x1 = rnorm(n))
+  d$y <- 2 + 0.5 * d$treat + 0.3 * d$x1 + rnorm(n)
+  stats::lm(y ~ treat + x1, data = d)
+})
+cat("\nunweighted lm(): is.null(fit$weights) =", is.null(.lm_probe$weights), "\n")
+stopifnot(is.null(.lm_probe$weights))               # the precondition holds
+stopifnot(all(is.finite(dfbeta_glm(.lm_probe))))
+stopifnot(isTRUE(all.equal(unname(dfbeta_glm(.lm_probe)),
+                           unname(stats::dfbeta(.lm_probe)),
+                           tolerance = 1e-8)))
+cat("PASS: the lm() path runs, and is exact.\n")
+```
+
+## What the original grid missed {#sec-miss}
+
+This section exists because the grid *passed* while the function was broken for
+an entire outcome type, and that is worth recording precisely rather than
+quietly fixing.
+
+**The defect.** The first version of `dfbeta_glm()` opened with
+`w <- fit$weights` and used `w` unconditionally. For an unweighted `lm()`,
+`fit$weights` is `NULL`, so `crossprod(X, w * X)` was non-conformable and the
+function errored -- on every `lm` fit, every time.
+
+**The blast radius, all of it silent.** `effect_measure = "MD"` is the only
+measure fitted with `lm()`, and nothing downstream reports a failure:
+
+| Level | Behaviour with the defect |
+|---|---|
+| `.dfbeta_glm()` | errors, "non-conformable arguments" |
+| `.consistency_glm_pieces()` | catches it, returns `NULL` |
+| `consistency_resample()` | returns all-`NA` rates |
+| the consistency engine | falls back to literal splitting, ignoring `consistency_method = "resample"` without a message |
+| `fs_mr_inference()` | fits no candidate; returns the short variant with `n_family = 0` and no `debiased` element |
+
+So a continuous-outcome analysis run with `mr_inference = TRUE` produced no MR
+correction at all, and said nothing about it.
+
+**Why this grid did not catch it.** The grid had a `gaussian identity` row, and
+that row was the *strictest* check in the whole document -- exact to 7.2e-13,
+enforced by `stopifnot`. But it was built with
+`glm(family = gaussian("identity"))`, where `fit$weights` is a vector of ones.
+It exercised the gaussian **family** and never the `lm` **path**. The two are
+numerically identical and structurally different, and only the structural
+difference mattered.
+
+That is the general lesson, and it is not about weights:
+
+> A control that passes because the *quantity* is easy is not evidence that the
+> *code path* is reachable. The gaussian row was chosen for being the case
+> where the algebra is exact -- which is exactly why it could not detect a
+> failure that had nothing to do with the algebra.
+
+**What the end-to-end section did and did not buy.** The end-to-end check added
+in the original commit was the right instinct and it did catch two wiring bugs.
+But it ran one `forestsearch()` fit on ACTG175 -- a **binary** outcome, hence
+`glm`. One end-to-end path is not end-to-end coverage; the continuous path had
+no run of any kind, at any level.
+
+**What now covers it.**
+
+1. The `lm/` rows added to the grid above -- unweighted and prior-weighted as
+   separate scenarios, since only the unweighted one has `NULL` weights.
+2. @sec-lm-control, which asserts the rows exist, complete, and are exact, and
+   separately probes the `is.null(fit$weights)` precondition directly, so the
+   control fails loudly if a future R changes it.
+3. `tests/testthat/test-dfbeta-lm-influence-path.R` in the package suite, which
+   runs `forestsearch()` on a continuous outcome with `mr_inference = TRUE` and
+   asserts the MR object is the full variant (`n_family > 0`, no `note`, a
+   finite `debiased$est`). Verified against the pre-fix body: it fails all
+   three.
 
 ## The ACTG175 regions from the actual analysis
 
@@ -468,8 +620,16 @@ cat("\nPASS: the value forestsearch() reports is the validated computation.\n")
 ## Findings
 
 **The candidate is correct and the old computation is wrong**, on the regions
-that matter and across the grid. It is not yet installed; two limitations
-below need a decision first.
+that matter and across the grid. Installed as `.dfbeta_glm()` in `c68fe70`;
+corrected for the `lm()` path on 2026-08-05 (@sec-miss). Two limitations
+below are known and accepted rather than fixed.
+
+::: {.callout-note}
+The counts in this section are computed from the grid at render time rather
+than written in. They were previously hard-coded, and adding the `lm/` rows
+made them stale on the spot -- a small instance of the same "one quantity,
+two places" failure this whole document is about.
+:::
 
 ### On the four ACTG175 regions -- the decisive result
 
@@ -489,18 +649,33 @@ rather than against the other computation.
 
 ### Across the grid
 
-Of 136 scenarios, 112 produced a usable fit. Splitting on whether the one-step
-approximation is usable at all (arm B max relative error <= 0.10):
+Of `r nrow(res)` scenarios, `r nrow(ok)` produced a usable fit. Splitting on
+whether the one-step approximation is usable at all (arm B max relative error
+<= 0.10):
 
-| regime | n | candidate better | tie | candidate worse |
-|---|---|---|---|---|
-| one-step usable | 67 | 49 | 18 | **0** |
-| one-step broken down | 45 | 38 | 0 | 7 |
+```{r grid-regimes, echo=FALSE}
+.bad <- ok[ok$B_max > 0.10, ]
+knitr::kable(data.frame(
+  regime = c("one-step usable", "one-step broken down"),
+  n      = c(nrow(good), nrow(.bad)),
+  candidate_better = c(sum(good$cmp == "better"), sum(.bad$cmp == "better")),
+  tie              = c(sum(good$cmp == "tie"),    sum(.bad$cmp == "tie")),
+  candidate_worse  = c(sum(good$cmp == "worse"),  sum(.bad$cmp == "worse"))),
+  row.names = FALSE)
+```
 
-In the usable regime the candidate is **never worse**, and the 18 ties are
-gaussian, where the deviance and working residuals coincide so the two
-computations are identical by construction. Median max relative error:
-candidate **2.15e-02**, old **1.94e-01** -- about a 9x improvement.
+In the usable regime the candidate is **never worse**
+(`r sum(good$cmp == "worse")` scenarios), and the `r sum(good$cmp == "tie")`
+ties are the identity-link gaussian and `lm` rows, where the deviance and
+working residuals coincide so the two computations are identical by
+construction. Median max relative error: candidate
+**`r format(stats::median(good$B_max), digits = 3, scientific = TRUE)`**, old
+**`r format(stats::median(good$C_max), digits = 3, scientific = TRUE)`**.
+
+Note what the tie count means and does not mean. A tie is a scenario where the
+two computations agree exactly -- which is informative about the algebra and
+says nothing about whether the code path was exercised. That distinction is
+what @sec-miss is about.
 
 ### Hard control passed
 
@@ -510,7 +685,8 @@ The algebra is right.
 
 ### The one-step itself breaks down at high leverage, independent of this fix
 
-In 45 of 112 scenarios **both** computations are far from the exact LOO. These
+In `r sum(ok$B_max > 0.10)` of `r nrow(ok)` scenarios **both** computations are
+far from the exact LOO. These
 are sparse-event, small-n, imbalanced-arm fits with high leverage: worst cases
 reach relative errors of 1e+12 (binomial/logit n=100 rate=0.02 1:9) and 9e+05
 (binomial/probit n=40 rate=0.02 1:1, max hat = 0.99999992). Where a single
@@ -520,9 +696,9 @@ residual rescues it.
 **This is a property of `sigma_D` as a construct, not of the fix.** It bounds
 how much any influence-based standard error can be trusted in small, sparse
 subgroups -- which is exactly the regime forestsearch searches in. Worth
-knowing independently. The 7 scenarios where the candidate is nominally worse
-are all inside this regime, where both numbers are unusable and the comparison
-is meaningless.
+knowing independently. The scenarios where the candidate is nominally worse are
+all inside this regime, where both numbers are unusable and the comparison is
+meaningless.
 
 ### Behaviour at exact leverage 1 -- and why no guard was added
 
@@ -606,8 +782,9 @@ can move `sigma_D` either way.
 
 ### Not defects
 
-- **22 "fit failed" scenarios** are `binomial(log)` / `binomial(identity)`
-  convergence failures in the generator, before any dfbeta is computed.
+- **`r sum(res$status == "fit failed")` "fit failed" scenarios** are
+  `binomial(log)` / `binomial(identity)` convergence failures in the generator,
+  before any dfbeta is computed.
 - **1 "dfbeta_glm failed"** (`gaussian/identity n=40 rate=0.50 1:9`) has
   **zero subjects in the treated arm**: the design is rank-deficient, the
   `treat` coefficient is `NA`, and `stats::dfbeta()` errors too.
@@ -616,7 +793,33 @@ can move `sigma_D` either way.
 - **The single arm-A "inexactness"** (`binomial/logit n=40 rate=0.02 1:1`, one
   event in 40) is a relative difference of **2.06e-09** -- numerical noise from
   a near-degenerate fit. It passes `all.equal` at tolerance 1e-6 and fails only
-  the strict 1e-10 used here. Arm A is otherwise exact in 111 of 112.
+  the strict 1e-10 used here. Arm A is otherwise exact in
+  `r sum(ok$A_exact %in% TRUE)` of `r nrow(ok)`.
+
+### Corrected 2026-08-05: the `lm()` path
+
+The version first installed errored on every unweighted `lm()` fit, taking the
+whole `effect_measure = "MD"` influence path down with it -- silently, at every
+level. The correction is one added line; the `X` assignment already existed and
+only moves up, because the new line needs `nrow(X)`:
+
+```r
+  X <- stats::model.matrix(fit)          # moved up from below `h`
+  w <- fit$weights
++ if (is.null(w)) w <- rep(1, nrow(X))   # lm() with no prior weights
+```
+
+The grid did not catch it because its `gaussian identity` control was a
+`glm(family = gaussian())`, where `fit$weights` is a vector of ones -- so the
+control exercised the gaussian *family* and never the `lm` *path*. **The
+gaussian control passing was therefore not the control it appeared to be.**
+Full account in @sec-miss; coverage now in the `lm/` grid rows,
+@sec-lm-control, and `tests/testthat/test-dfbeta-lm-influence-path.R`.
+
+Nothing above this section changes: the accuracy findings, the ACTG175 result,
+the leverage-1 behaviour and the no-epsilon-guard decision all concerned `glm`
+fits and are unaffected. What changes is the scope over which they hold --
+previously `glm` only, in fact rather than in intent.
 
 ### Outcome
 
@@ -627,7 +830,8 @@ ground truth everywhere the one-step is usable, never worse there, and removes
 the R-version dependency rather than documenting it. The leverage-1 case
 returns `NaN` and the caller drops the candidate, which is the correct
 treatment for a subgroup whose effect is not identified without one
-observation.
+observation. As of the correction above it also handles `lm()`, weighted and
+unweighted, which is the `MD` path.
 
 The remaining limitation -- that the one-step itself breaks down at high
 leverage regardless of residual definition -- is unchanged by this and bounds
