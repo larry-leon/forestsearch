@@ -157,9 +157,22 @@
 #'   instead.
 #' @param sg_focus character; subgroup selection criterion applied to the
 #'   qualifying candidates.  One of `"maxSG"` (default), `"minSG"`,
-#'   `"eff"`, `"effMaxSG"`, `"effMinSG"`.  The canonical forms `"hr"`,
-#'   `"hrMaxSG"`, `"hrMinSG"` (used internally by [forestsearch()]) are
-#'   also accepted.  See Description for the semantics of each.
+#'   `"eff"`, `"effMaxSG"`, `"effMinSG"`, `"maxeff"`, `"maxeffCons"`.  The
+#'   canonical forms `"hr"`, `"hrMaxSG"`, `"hrMinSG"` (used internally by
+#'   [forestsearch()]) are also accepted.  See Description for the semantics
+#'   of each.
+#'
+#'   `"maxeff"` and `"maxeffCons"` are **synonyms here**, both ranking the
+#'   qualifying candidates by effect (ties broken by insertion order) exactly
+#'   as `"eff"` / `"hr"` does.  The `Cons` suffix names the consistency floor,
+#'   and DINA has none -- it computes no `Pcons`, and no ordering key below
+#'   contains one -- so there is nothing for the qualifier to bind to.  This
+#'   is engine-specific: under [forestsearch()] with
+#'   `subgroup_method = "consistency"` the two are genuinely distinct, since
+#'   `"maxeffCons"` retains both the consistency and effect floors while
+#'   `"maxeff"` disables both.  The synonymy disables no floor -- candidates
+#'   are qualified before this ordering is applied -- and raises no condition,
+#'   by design.
 #' @param selection_rule character; rule defining the candidate inclusion
 #'   band for `"effMaxSG"` / `"effMinSG"`.  One of `"neighborhood"`
 #'   (default; 1-D effect band), `"pareto"` (2-D non-dominated frontier
@@ -305,12 +318,18 @@ dina_subgroup <- function(fit, df, covariates,
   # to the canonical internal form ("hr", "hrMaxSG", "hrMinSG") shared
   # with forestsearch(), then whitelist.
   sg_focus <- .normalize_sg_focus(sg_focus)
-  valid_sg_focus <- c("hr", "maxSG", "minSG", "hrMaxSG", "hrMinSG")
+  # All seven canonical foci, matching forestsearch()'s post-normalization
+  # whitelist.  `maxeff` / `maxeffCons` were previously absent here, so a
+  # caller could pass a focus forestsearch() accepts and be rejected by
+  # dina_subgroup().  .assert_sg_focus_dispatch_complete() now keeps this
+  # vector, the ordering switch below, and the GRF frontier switch in step.
+  valid_sg_focus <- .FS_SG_FOCUS_CANONICAL
   if (!is.character(sg_focus) || length(sg_focus) != 1L ||
       !sg_focus %in% valid_sg_focus) {
     stop("`sg_focus` must be one of \"maxSG\", \"minSG\", \"eff\", ",
-         "\"effMaxSG\", \"effMinSG\" (canonical forms \"hr\", ",
-         "\"hrMaxSG\", \"hrMinSG\" are also accepted).")
+         "\"effMaxSG\", \"effMinSG\", \"maxeff\", \"maxeffCons\" ",
+         "(canonical forms \"hr\", \"hrMaxSG\", \"hrMinSG\" are also ",
+         "accepted).")
   }
   # Always range-check; only consulted for the band foci below.
   .validate_effect_neighborhood(effect_neighborhood)
@@ -435,11 +454,26 @@ dina_subgroup <- function(fit, df, covariates,
   eff <- if (effect_log_scale) exp(cand_tau) else cand_tau
   idx <- seq_along(cand_tau)
 
+  # `maxeff` and `maxeffCons` are DELIBERATE SYNONYMS of `hr` here, for the
+  # same reason as on the GRF frontier (see forestsearch_main.R, the
+  # frontier_rule switch).  "Cons" names the CONSISTENCY floor; DINA computes
+  # no Pcons and no key below contains one, so the qualifier has nothing to
+  # bind to.  Separating the two by the EFFECT floor alone was possible and
+  # was rejected: manuscript Section 1.1 keeps the harm threshold in the
+  # common form across all three identifiers, and FS's `maxeff` exists as a
+  # comparison against Guo & He's argmax primitive, which DINA does not
+  # participate in.  This does NOT touch subgroup_method = "consistency",
+  # where maxeffCons retains both floors and maxeff disables both.
+  #
+  # NO FLOOR IS DISABLED HERE: candidates are qualified before this sort, so
+  # `ord` only ranks survivors.  The collapse raises no condition by design.
   ord <- switch(
     sg_focus,
     maxSG   = order(-cand_n, -eff, idx),
     minSG   = order( cand_n, -eff, idx),
     hr      = order(-eff, idx),
+    maxeff     = order(-eff, idx),
+    maxeffCons = order(-eff, idx),
     hrMaxSG = {
       in_band <- .compute_inclusion_band(
         hr_vec              = eff,

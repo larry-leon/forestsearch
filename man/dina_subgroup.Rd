@@ -69,9 +69,22 @@ instead.}
 
 \item{sg_focus}{character; subgroup selection criterion applied to the
 qualifying candidates.  One of \code{"maxSG"} (default), \code{"minSG"},
-\code{"eff"}, \code{"effMaxSG"}, \code{"effMinSG"}.  The canonical forms \code{"hr"},
-\code{"hrMaxSG"}, \code{"hrMinSG"} (used internally by \code{\link[=forestsearch]{forestsearch()}}) are
-also accepted.  See Description for the semantics of each.}
+\code{"eff"}, \code{"effMaxSG"}, \code{"effMinSG"}, \code{"maxeff"}, \code{"maxeffCons"}.  The
+canonical forms \code{"hr"}, \code{"hrMaxSG"}, \code{"hrMinSG"} (used internally by
+\code{\link[=forestsearch]{forestsearch()}}) are also accepted.  See Description for the semantics
+of each.
+
+\code{"maxeff"} and \code{"maxeffCons"} are \strong{synonyms here}, both ranking the
+qualifying candidates by effect (ties broken by insertion order) exactly
+as \code{"eff"} / \code{"hr"} does.  The \code{Cons} suffix names the consistency floor,
+and DINA has none -- it computes no \code{Pcons}, and no ordering key below
+contains one -- so there is nothing for the qualifier to bind to.  This
+is engine-specific: under \code{\link[=forestsearch]{forestsearch()}} with
+\code{subgroup_method = "consistency"} the two are genuinely distinct, since
+\code{"maxeffCons"} retains both the consistency and effect floors while
+\code{"maxeff"} disables both.  The synonymy disables no floor -- candidates
+are qualified before this ordering is applied -- and raises no condition,
+by design.}
 
 \item{selection_rule}{character; rule defining the candidate inclusion
 band for \code{"effMaxSG"} / \code{"effMinSG"}.  One of \code{"neighborhood"}

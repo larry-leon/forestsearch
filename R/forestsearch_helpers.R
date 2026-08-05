@@ -1889,3 +1889,145 @@ reset_workers <- function(workers   = NULL,
                    isTRUE(.first("use_dina",  FALSE))
   if (any_front_end) "conditional-removable" else "fixed"
 }
+
+
+# =============================================================================
+# sg_focus dispatch completeness
+# =============================================================================
+
+#' Canonical sg_focus values (post-normalization)
+#'
+#' The single source of truth for which selection foci exist, after
+#' \code{.normalize_sg_focus()} has folded the GLM-natural aliases
+#' (\code{"eff"}, \code{"effMaxSG"}, \code{"effMinSG"}, \code{"maxcons"}) onto
+#' their canonical spellings.
+#'
+#' Every entry here must have an explicit branch at each focus dispatch site.
+#' Historically this vector was duplicated as a literal in \code{forestsearch()}
+#' and \code{dina_subgroup()}, and the two drifted: \code{"maxeff"} and
+#' \code{"maxeffCons"} were whitelisted by \code{forestsearch()} but had no
+#' branch in the GRF frontier rule map, so they fell through to the
+#' \code{"effMaxSG"} default silently, and \code{dina_subgroup()} rejected them
+#' outright. \code{.assert_sg_focus_dispatch_complete()} exists to make that
+#' class of drift impossible.
+#'
+#' @noRd
+.FS_SG_FOCUS_CANONICAL <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG",
+                            "maxeff", "maxeffCons")
+
+
+#' Extract the branch names of a \code{switch()} assigned to a given variable
+#'
+#' Walks a function's body looking for \code{<var> <- switch(...)} and returns
+#' the names of that call's branches. Used by
+#' \code{.assert_sg_focus_dispatch_complete()} so the check reads the dispatch
+#' sites themselves rather than a hand-maintained copy of what they support --
+#' a copy would be one more thing to drift.
+#'
+#' @param fn Function to inspect.
+#' @param target_var Character scalar; the assignment target.
+#' @return Character vector of branch names (possibly empty).
+#' @noRd
+.find_switch_branches <- function(fn, target_var) {
+  found <- character(0)
+  walk <- function(e) {
+    if (!is.call(e)) return(invisible(NULL))
+    if (length(e) == 3L &&
+        is.symbol(e[[1L]]) &&
+        as.character(e[[1L]]) %in% c("<-", "=", "<<-") &&
+        is.symbol(e[[2L]]) &&
+        identical(as.character(e[[2L]]), target_var) &&
+        is.call(e[[3L]]) && is.symbol(e[[3L]][[1L]]) &&
+        identical(as.character(e[[3L]][[1L]]), "switch")) {
+      nm <- names(e[[3L]])
+      if (!is.null(nm)) found <<- c(found, nm[nzchar(nm)])
+    }
+    # Recurse element-wise.  A call can hold the empty symbol (e.g. the blank
+    # index in `x[, 1]`); forcing it raises "argument is missing", so each
+    # descent is guarded rather than pre-tested -- testing would have to force
+    # it too.
+    for (i in seq_along(e)) tryCatch(walk(e[[i]]), error = function(err) NULL)
+    invisible(NULL)
+  }
+  walk(body(fn))
+  unique(found)
+}
+
+
+#' Assert that every canonical sg_focus has a branch at every dispatch site
+#'
+#' Three sites decide behaviour from \code{sg_focus} after normalization:
+#'
+#' \enumerate{
+#'   \item \code{forestsearch()}'s GRF \code{frontier_rule} map;
+#'   \item \code{dina_subgroup()}'s ordering-key map (\code{ord});
+#'   \item \code{dina_subgroup()}'s whitelist, which must be
+#'     \code{.FS_SG_FOCUS_CANONICAL} rather than a re-inlined literal.
+#' }
+#'
+#' A focus added to the whitelist without branches at (1) and (2) does not
+#' error -- it falls through to a default and silently selects under a rule
+#' the caller did not ask for. This assertion is what turns that into a
+#' failure. It is a developer-facing check with no runtime cost on any
+#' analysis path; it is exercised by the test suite.
+#'
+#' @return Invisibly \code{TRUE}; otherwise \code{stop()}s naming the site and
+#'   the missing values.
+#' @noRd
+.assert_sg_focus_dispatch_complete <- function() {
+  canonical <- .FS_SG_FOCUS_CANONICAL
+  problems  <- character(0)
+
+  sites <- list(
+    "forestsearch(): GRF frontier_rule map" =
+      .find_switch_branches(forestsearch, "frontier_rule"),
+    "dina_subgroup(): ordering-key map (ord)" =
+      .find_switch_branches(dina_subgroup, "ord")
+  )
+  for (nm in names(sites)) {
+    missing <- setdiff(canonical, sites[[nm]])
+    if (length(missing)) {
+      problems <- c(problems, sprintf(
+        "  %s\n    no branch for: %s",
+        nm, paste(sprintf("\"%s\"", missing), collapse = ", ")))
+    }
+  }
+
+  # Site 3: dina_subgroup()'s whitelist must reference the shared constant.
+  # A re-inlined literal would compile and pass every functional test while
+  # reintroducing exactly the drift this guard exists to prevent.
+  uses_constant <- local({
+    ok <- FALSE
+    walk <- function(e) {
+      if (!is.call(e)) return(invisible(NULL))
+      if (length(e) == 3L && is.symbol(e[[1L]]) &&
+          as.character(e[[1L]]) %in% c("<-", "=") &&
+          is.symbol(e[[2L]]) &&
+          identical(as.character(e[[2L]]), "valid_sg_focus") &&
+          is.symbol(e[[3L]]) &&
+          identical(as.character(e[[3L]]), ".FS_SG_FOCUS_CANONICAL")) ok <<- TRUE
+      # Guarded descent -- see the note in .find_switch_branches().
+      for (i in seq_along(e)) tryCatch(walk(e[[i]]), error = function(err) NULL)
+      invisible(NULL)
+    }
+    walk(body(dina_subgroup))
+    ok
+  })
+  if (!uses_constant) {
+    problems <- c(problems, paste0(
+      "  dina_subgroup(): whitelist\n",
+      "    `valid_sg_focus` is not assigned from .FS_SG_FOCUS_CANONICAL; a\n",
+      "    re-inlined literal can drift from the canonical set."))
+  }
+
+  if (length(problems)) {
+    stop("sg_focus dispatch is incomplete.\n",
+         paste(problems, collapse = "\n"),
+         "\n\n  Every value in .FS_SG_FOCUS_CANONICAL must have an explicit\n",
+         "  branch at every dispatch site.  Without one it falls through to a\n",
+         "  default and selects under a rule the caller did not request, with\n",
+         "  no condition raised.",
+         call. = FALSE)
+  }
+  invisible(TRUE)
+}

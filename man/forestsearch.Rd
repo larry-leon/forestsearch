@@ -424,6 +424,26 @@ among candidates clearing \code{pconsistency.threshold}, and
 \code{"hr"}, which ranks by consistency first and uses effect only as
 a tiebreaker.}
 }
+\strong{The descriptions above are for \code{subgroup_method =
+  "consistency"}.}  There, \code{"maxeffCons"} retains \emph{both} the
+consistency floor (\code{pconsistency.threshold}) and the effect floor,
+while \code{"maxeff"} disables both -- the distinction the \code{Cons}
+suffix names.
+
+For \code{subgroup_method = "dina"} and \code{"grf"}, \code{"maxeff"} and
+\code{"maxeffCons"} are \strong{synonyms}, both selecting the effect
+maximiser over the identifier's qualifiers with the harm floor active.
+Neither engine has a consistency floor -- neither computes \code{Pcons},
+and no DINA or GRF sort key contains one -- so the \code{Cons} qualifier
+has nothing to bind to.  The two could in principle have been separated
+by the effect floor alone; they deliberately are not, because the
+manuscript keeps the harm threshold in a common form across all three
+identifiers, and \code{"maxeff"} exists for \code{"consistency"} as a
+comparison against the argmax primitive of Guo and He (2021), which has
+no DINA or GRF counterpart.  No floor is disabled by this on any path,
+and the collapse raises no condition: it is intended behaviour, and a
+warning would fire on every such run.
+
 Default \code{"hr"}.  The \code{"eff*"} forms are aliases for the
 \code{"hr*"} forms and read more naturally in GLM contexts
 (continuous MD, binary OR/RR/RD, count IRR) where there is no

@@ -488,6 +488,26 @@
 #'       \code{"hr"}, which ranks by consistency first and uses effect only as
 #'       a tiebreaker.}
 #'   }
+#'   \strong{The descriptions above are for \code{subgroup_method =
+#'   "consistency"}.}  There, \code{"maxeffCons"} retains \emph{both} the
+#'   consistency floor (\code{pconsistency.threshold}) and the effect floor,
+#'   while \code{"maxeff"} disables both -- the distinction the \code{Cons}
+#'   suffix names.
+#'
+#'   For \code{subgroup_method = "dina"} and \code{"grf"}, \code{"maxeff"} and
+#'   \code{"maxeffCons"} are \strong{synonyms}, both selecting the effect
+#'   maximiser over the identifier's qualifiers with the harm floor active.
+#'   Neither engine has a consistency floor -- neither computes \code{Pcons},
+#'   and no DINA or GRF sort key contains one -- so the \code{Cons} qualifier
+#'   has nothing to bind to.  The two could in principle have been separated
+#'   by the effect floor alone; they deliberately are not, because the
+#'   manuscript keeps the harm threshold in a common form across all three
+#'   identifiers, and \code{"maxeff"} exists for \code{"consistency"} as a
+#'   comparison against the argmax primitive of Guo and He (2021), which has
+#'   no DINA or GRF counterpart.  No floor is disabled by this on any path,
+#'   and the collapse raises no condition: it is intended behaviour, and a
+#'   warning would fire on every such run.
+#'
 #'   Default \code{"hr"}.  The \code{"eff*"} forms are aliases for the
 #'   \code{"hr*"} forms and read more naturally in GLM contexts
 #'   (continuous MD, binary OR/RR/RD, count IRR) where there is no
@@ -1310,8 +1330,12 @@ forestsearch <- function(df.analysis,
   # check below.
   sg_focus_user <- sg_focus                       # save for error message
   sg_focus      <- .normalize_sg_focus(sg_focus)
-  valid_sg_focus <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG",
-                      "maxeff", "maxeffCons")
+  # Single source of truth, shared with dina_subgroup()'s whitelist and
+  # checked against every focus dispatch site by
+  # .assert_sg_focus_dispatch_complete().  Do not re-inline this vector: the
+  # duplicate literal here and in dina_subgroup() is exactly how `maxeff` and
+  # `maxeffCons` came to be whitelisted without dispatch branches.
+  valid_sg_focus <- .FS_SG_FOCUS_CANONICAL
   valid_sg_focus_user <- c(valid_sg_focus,
                            "eff", "effMaxSG", "effMinSG", "maxcons")
   if (!is.character(sg_focus) || length(sg_focus) != 1L ||
@@ -2119,30 +2143,41 @@ forestsearch <- function(df.analysis,
     grf_select_statistic <- match.arg(grf_select_statistic)
     # In frontier mode the selection rule comes from sg_focus (which the tree
     # path ignores).  An unrecognized value falls back to the robust default
-    # (effMaxSG).
+    # (effMaxSG).  All seven canonical foci have an explicit branch below;
+    # .assert_sg_focus_dispatch_complete() enforces that they continue to.
     #
-    # KNOWN GAP -- NOT FIXED HERE (out of scope; recorded so it is not
-    # rediscovered as a surprise).  The post-normalization whitelist at ~:1308
-    # admits SEVEN values -- hr, hrMaxSG, maxSG, hrMinSG, minSG, maxeff,
-    # maxeffCons -- but the switch() below has branches for only the first
-    # five.  `maxeff` and `maxeffCons` therefore fall through to the default
-    # and are selected under "effMaxSG", silently: no error, no warning, and
-    # nothing in the returned object records that the requested focus was not
-    # the focus used.  Two consequences worth knowing before touching this:
-    #   * `maxeff` is ungated at the identifier (no effect floor), whereas the
-    #     MR re-selection rule named "maxeff" IS gated by c_screen /
-    #     c_consistency / p_star and so corresponds to `maxeffCons` -- see the
-    #     comment at .fs_mr_reselection_from_focus() (fs_mr_inference_methods.R
-    #     ~:143-147).  Under sg_focus = "maxeff" the identifier and MR can thus
-    #     disagree about whether t_g applies.
-    #   * The fallback is silent, so a GRF frontier run under either focus
-    #     produces plausible output for a rule the caller did not ask for.
-    # Fixing this means deciding what those two focuses should map to on the
-    # frontier, which is a modelling decision, not an editorial one.
+    # `maxeff` and `maxeffCons` are DELIBERATE SYNONYMS on this path, mapping
+    # to the same plain effect-argmax frontier rule as `hr`.  This was a
+    # decision, not a definitional consequence, so it is recorded here.
+    #
+    # "Cons" names the CONSISTENCY floor.  For subgroup_method = "consistency",
+    # maxeffCons keeps both the consistency floor and the effect floor while
+    # maxeff disables both, so the two are genuinely distinct there and the FS
+    # path is untouched by this mapping.  GRF has no consistency floor -- it
+    # computes no Pcons and no GRF sort key contains one -- so the "Cons"
+    # qualifier has nothing to bind to.  The two foci could still in principle
+    # have been separated by the EFFECT floor alone; the decision is that they
+    # are not.  Both range over the identifier's qualifiers with the harm
+    # floor active.
+    #
+    # Basis: manuscript Section 1.1 keeps the harm threshold in the common
+    # form for all three identifiers, and FS's `maxeff` exists specifically as
+    # a comparison against Guo & He's argmax primitive -- a purpose with no GRF
+    # counterpart.  The alternative considered and rejected was to let
+    # `maxeff` disable the effect floor on GRF too, mirroring FS; that would
+    # have put GRF outside Section 1.1's common harm threshold for the sake of
+    # a comparison GRF does not participate in.
+    #
+    # NO FLOOR IS DISABLED BY THIS MAPPING.  .grf_frontier_select()
+    # (grf_subgroup_labels.R:340) keeps its unconditional
+    # `elig <- cand[cand$effect >= dmin, ]` filter regardless of rule.  The
+    # collapse raises no condition: it is intended behaviour, and a warning
+    # would fire on every GRF frontier run under either focus.
     .sgf <- tryCatch(.normalize_sg_focus(sg_focus), error = function(e) sg_focus)
     frontier_rule <- switch(as.character(.sgf),
                             hr = "eff", hrMaxSG = "effMaxSG", hrMinSG = "effMinSG",
                             maxSG = "maxSG", minSG = "minSG",
+                            maxeff = "eff", maxeffCons = "eff",
                             "effMaxSG")
     gsel <- .forestsearch_grf_select(
       df = df, df.predict = df.predict, df.test = df.test,
