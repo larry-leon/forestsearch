@@ -227,10 +227,24 @@
 #'   `adverse_outcome`.
 #' @param selected_members Integer row indices of the observed selected subgroup
 #'   (`which(grp.consistency$sg.harm.id == 1)`).
-#' @param c_screen,c_consistency Screening and consistency thresholds on the
-#'   **comparison scale** (log for ratio measures, identity for differences) --
-#'   i.e. `forestsearch()`'s resolved `effect_threshold` / `consistency_threshold`.
-#' @param p_star Consistency-rate cutoff (`pconsistency.threshold`).
+#' @param admission The resolved admission set, as returned by
+#'   `.fs_resolve_admission()`: a list with `effect_floor` (numeric on the
+#'   **comparison scale** -- log for ratio measures -- or `NULL`) and
+#'   `consistency` (a list with `c_cons` and `p_star`, or `NULL`).
+#'
+#'   This replaces the former `c_screen` / `c_consistency` / `p_star`
+#'   arguments, from which MR used to rebuild
+#'   `t_g <- pmax(c_screen, c_consistency + z * sigma_D)` at this site. That
+#'   reconstruction was the defect: the identifier resolved its floors in one
+#'   place and MR re-derived them in another, so the two could disagree about
+#'   which candidates were ever in contention -- and under
+#'   `sg_focus = "maxeff"` they did. MR is a linearization of the selection
+#'   *map*, which is a ranking and a domain; passing the resolved domain makes
+#'   the two equal by construction.
+#'
+#'   `NULL` means the floor does not apply, and is handled by a separate code
+#'   path rather than by sentinel arithmetic. With neither floor present there
+#'   is no admission filter at all.
 #' @param t_confirm Harm-confirmation threshold on the **effect scale** (HR/OR/
 #'   RR/IRR, or RD/MD for differences -- not the working log scale). `NULL` uses
 #'   the near-null default: `1` for ratio measures, `0` for differences. Set it
@@ -301,7 +315,7 @@
 #'   approximates; [fs_fdr_report()] which sweeps `c_confirm` thresholds.
 #' @keywords internal
 fs_mr_inference <- function(df, candidates, spec, selected_members,
-                           c_screen, c_consistency = 0, p_star = 0.90,
+                           admission,
                            t_confirm = NULL, confirm_rule = c("point", "ci"),
                            reselection = c("maxcons", "maxeff", "maxSG",
                                            "minSG", "effMaxSG", "effMinSG"),
@@ -347,9 +361,50 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   B <- asm$B; bh <- asm$beta_hat; sdv <- asm$sigma_D; sz <- asm$sizes
   log_scale <- asm$log_scale
   to_eff    <- function(x) if (log_scale) exp(x) else x
-  z      <- stats::qnorm((1 + p_star) / 2)
   z975   <- stats::qnorm(0.975)
-  t_g    <- pmax(c_screen, c_consistency + z * sdv)
+
+  # ---------------------------------------------------------------------------
+  # ADMISSION SET
+  # ---------------------------------------------------------------------------
+  # MR linearizes the identifier's selection MAP, which is a ranking AND a
+  # domain.  The domain is resolved once by .fs_resolve_admission() and carried
+  # here; it is NOT reconstructed from raw thresholds at this site, because
+  # reconstruction is what let MR's admission set drift from the identifier's.
+  #
+  # Absence is absence: a floor that does not apply is NULL, not -Inf.  The
+  # three cases are three code paths, not one expression fed sentinels -- with
+  # a sentinel, "no filter" is arithmetically indistinguishable from "a filter
+  # that happens to admit everything", and only the second is testable.
+  .has_effect <- !is.null(admission$effect_floor)
+  .has_cons   <- !is.null(admission$consistency)
+  c_cons <- if (.has_cons) admission$consistency$c_cons else NULL
+
+  if (.has_effect && .has_cons) {
+    z   <- stats::qnorm((1 + admission$consistency$p_star) / 2)
+    t_g <- pmax(admission$effect_floor, c_cons + z * sdv)
+    .admit <- function(bs) which(bs >= t_g)
+  } else if (.has_effect) {
+    t_g <- admission$effect_floor
+    .admit <- function(bs) which(bs >= t_g)
+  } else {
+    # Unrestricted: every estimable candidate is admissible, matching an
+    # identifier that applied no auxiliary selection condition.
+    t_g <- NULL
+    .admit <- function(bs) seq_along(bs)
+  }
+
+  # The consistency-standardized score is only defined when a consistency floor
+  # exists, and only the "maxcons" rule consults it.  Ranking on it without one
+  # would be the same class of mismatch this change removes, in the ranking
+  # rather than the domain, so it is refused rather than silently centred at 0.
+  if (identical(reselection, "maxcons") && !.has_cons) {
+    stop("reselection = \"maxcons\" ranks on a consistency-standardized ",
+         "statistic, but the resolved admission set has no consistency floor ",
+         "(subgroup_method without a consistency screen, or ",
+         "sg_focus = \"maxeff\").  MR would then rank on a quantity the ",
+         "identifier never computed.", call. = FALSE)
+  }
+  .zcons <- function(bs) if (.has_cons) (bs - c_cons) / sdv else NULL
 
   t0 <- proc.time()
   Xi <- .fs_mr_multipliers(nrow(B), draws, multiplier)
@@ -359,9 +414,9 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   winner   <- rep(NA_integer_, draws)    # which candidate won on draw b
   for (b in seq_len(draws)) {
     bs <- beta_star[, b]
-    pass <- which(bs >= t_g)
+    pass <- .admit(bs)
     if (!length(pass)) next
-    s <- .fs_mr_select(bs, (bs - c_consistency) / sdv, sz, pass, reselection,
+    s <- .fs_mr_select(bs, .zcons(bs), sz, pass, reselection,
                        effect_neighborhood, selection_rule, log_scale)
     if (!is.na(s)) { sel_bias[b] <- P[s, b]; winner[b] <- s }
   }

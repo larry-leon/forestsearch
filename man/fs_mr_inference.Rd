@@ -9,9 +9,7 @@ fs_mr_inference(
   candidates,
   spec,
   selected_members,
-  c_screen,
-  c_consistency = 0,
-  p_star = 0.9,
+  admission,
   t_confirm = NULL,
   confirm_rule = c("point", "ci"),
   reselection = c("maxcons", "maxeff", "maxSG", "minSG", "effMaxSG", "effMinSG"),
@@ -38,11 +36,24 @@ candidate subgroup (the family the selection rule chose among).}
 \item{selected_members}{Integer row indices of the observed selected subgroup
 (\code{which(grp.consistency$sg.harm.id == 1)}).}
 
-\item{c_screen, c_consistency}{Screening and consistency thresholds on the
-\strong{comparison scale} (log for ratio measures, identity for differences) --
-i.e. \code{forestsearch()}'s resolved \code{effect_threshold} / \code{consistency_threshold}.}
+\item{admission}{The resolved admission set, as returned by
+\code{.fs_resolve_admission()}: a list with \code{effect_floor} (numeric on the
+\strong{comparison scale} -- log for ratio measures -- or \code{NULL}) and
+\code{consistency} (a list with \code{c_cons} and \code{p_star}, or \code{NULL}).
 
-\item{p_star}{Consistency-rate cutoff (\code{pconsistency.threshold}).}
+This replaces the former \code{c_screen} / \code{c_consistency} / \code{p_star}
+arguments, from which MR used to rebuild
+\code{t_g <- pmax(c_screen, c_consistency + z * sigma_D)} at this site. That
+reconstruction was the defect: the identifier resolved its floors in one
+place and MR re-derived them in another, so the two could disagree about
+which candidates were ever in contention -- and under
+\code{sg_focus = "maxeff"} they did. MR is a linearization of the selection
+\emph{map}, which is a ranking and a domain; passing the resolved domain makes
+the two equal by construction.
+
+\code{NULL} means the floor does not apply, and is handled by a separate code
+path rather than by sentinel arithmetic. With neither floor present there
+is no admission filter at all.}
 
 \item{t_confirm}{Harm-confirmation threshold on the \strong{effect scale} (HR/OR/
 RR/IRR, or RD/MD for differences -- not the working log scale). \code{NULL} uses

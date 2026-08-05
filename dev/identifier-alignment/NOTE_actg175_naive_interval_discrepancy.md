@@ -146,6 +146,20 @@ sqrt(sum(stats::dfbeta(f)[, "treat"]^2))     # 0.51181 = the new run
 The DINA region is `preanti >= 849.4 & cd40 >= 338` (n = 98); the GRF region
 is `wtkg > 84.3696 & cd40 > 368.2` (n = 95).
 
+## A second, independent defect also affects the DINA and GRF rows
+
+Separately from the R 4.6.0 issue above, MR was applying a consistency floor
+to DINA and GRF -- engines that have no consistency screen -- because its
+admission set was rebuilt from raw parameters rather than resolved once. In
+the configuration measured, DINA's multiplier draws passed that floor only
+**5.1%** of the time, so its MR correction rested on a twentieth of the
+resampling distribution.
+
+The two compound: the offending term is `z * sigma_D`, so an inflated
+`sigma_D` makes the floor bite harder. See
+`NOTE_mr_admission_set.md`. The `mr_*` columns of the DINA and GRF rows should
+be regenerated rather than trusted, on the same footing as the FS row.
+
 ## Bearing on the manuscript
 
 Until the source of the June values is identified, the `naive_*` and `mr_*`

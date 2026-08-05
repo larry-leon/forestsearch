@@ -162,7 +162,7 @@
 #'   (`"maxcons"` for consistency; [.fs_mr_reselection_from_focus()] otherwise).
 #' @keywords internal
 .fs_apply_mr <- function(df, candidates, selected_members, spec,
-                                  c_screen, c_consistency, p_star,
+                                  admission,
                                   effect_neighborhood, reselection_default,
                                   selection_rule_default = "neighborhood",
                                   mr_inference_args = list(), seedit = NULL) {
@@ -174,9 +174,7 @@
       candidates       = candidates,
       spec             = spec,
       selected_members = selected_members,
-      c_screen         = c_screen,
-      c_consistency    = c_consistency,
-      p_star           = p_star,
+      admission        = admission,
       t_confirm        = mr_inference_args$t_confirm,          # NULL -> near-null
       confirm_rule     = .g(mr_inference_args$confirm_rule, "point"),
       reselection      = .g(mr_inference_args$reselection, reselection_default),

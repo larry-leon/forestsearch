@@ -1415,6 +1415,12 @@ forestsearch <- function(df.analysis,
     }
   }
 
+  # Which admission floors this (focus, method) applies -- the SAME decision
+  # MR's admission set is built from (.fs_resolve_admission()).  The identifier
+  # sites below read it rather than re-testing sg_focus, so the identifier and
+  # MR cannot disagree about which floors are in force.
+  .admit_applies <- .fs_admission_applies(sg_focus, subgroup_method)
+
   # Validate parallel arguments
   if (length(parallel_args) > 0) {
     allowed_plans <- c("multisession", "multicore", "callr", "sequential")
@@ -1833,6 +1839,21 @@ forestsearch <- function(df.analysis,
     )
   }
 
+  # ===========================================================================
+  # ADMISSION SET -- RESOLVED ONCE
+  # ===========================================================================
+  # threshold_config$screening / $consistency are already on the comparison
+  # scale (log for ratio measures), which is the scale MR's admission set is
+  # expressed on.  Resolving here, once, and carrying the result to every MR
+  # call site is the point of this object: MR must not rebuild the domain from
+  # raw parameters, because that is how its admission set drifted from the
+  # identifier's.
+  admission_resolved <- .fs_resolve_admission(
+    sg_focus, subgroup_method,
+    hr.threshold           = threshold_config$screening,
+    hr.consistency         = threshold_config$consistency,
+    pconsistency.threshold = threshold_config$pconsistency)
+
   # -- Search alignment diagnostic --------------------------------------
   # Only print when details = TRUE (single-data exploratory analysis).
   # Suppressed during bootstrap, cross-validation, and simulation loops
@@ -2056,7 +2077,8 @@ forestsearch <- function(df.analysis,
       threshold_config      = if (exists("threshold_config")) threshold_config
                               else NULL,
       subgroup_method       = "dina",
-      family_status         = family_status
+      family_status         = family_status,
+      admission             = admission_resolved
     )
 
     # SECTION 9B (DINA): multiplier resampling over DINA's OWN candidate family
@@ -2113,8 +2135,12 @@ forestsearch <- function(df.analysis,
       out$mr_inference <- .fs_apply_mr(
         df = .mr_df, candidates = .mr_fam,
         selected_members = which(dsel$grp.consistency$sg.harm.id == 1L),
-        spec = .mr_spec, c_screen = .mr_cscr, c_consistency = 0,
-        p_star = pconsistency.threshold,
+        spec = .mr_spec,
+        # Admission resolved once, not rebuilt here.  DINA and GRF have no
+        # consistency screen, so no consistency term may enter their admission
+        # set -- previously `c_consistency = 0` with `p_star` still set meant
+        # t_g carried a z * sigma_D term these engines never applied.
+        admission = admission_resolved,
         effect_neighborhood = effect_neighborhood,
         reselection_default = .fs_mr_reselection_from_focus(sg_focus, engine = "effect"),
         selection_rule_default = selection_rule,
@@ -2230,7 +2256,8 @@ forestsearch <- function(df.analysis,
       threshold_config      = if (exists("threshold_config")) threshold_config
                               else NULL,
       subgroup_method       = "grf",
-      family_status         = family_status
+      family_status         = family_status,
+      admission             = admission_resolved
     )
 
     # SECTION 9B (GRF): multiplier resampling over GRF's OWN DR-candidate family
@@ -2287,8 +2314,12 @@ forestsearch <- function(df.analysis,
       out$mr_inference <- .fs_apply_mr(
         df = .mr_df, candidates = .mr_fam,
         selected_members = which(gsel$grp.consistency$sg.harm.id == 1L),
-        spec = .mr_spec, c_screen = .mr_cscr, c_consistency = 0,
-        p_star = pconsistency.threshold,
+        spec = .mr_spec,
+        # Admission resolved once, not rebuilt here.  DINA and GRF have no
+        # consistency screen, so no consistency term may enter their admission
+        # set -- previously `c_consistency = 0` with `p_star` still set meant
+        # t_g carried a z * sigma_D term these engines never applied.
+        admission = admission_resolved,
         effect_neighborhood = effect_neighborhood,
         reselection_default = .fs_mr_reselection_from_focus(sg_focus, engine = "effect"),
         selection_rule_default = selection_rule,
@@ -2759,13 +2790,13 @@ forestsearch <- function(df.analysis,
         # maxeff is the unconditional effect maximiser: disable the search
         # effect floor so hr.threshold cannot prune the argmax (a threshold
         # above the best subgroup effect would otherwise empty the family).
-        disable_effect_floor = identical(sg_focus, "maxeff")
+        disable_effect_floor = !.admit_applies[["effect"]]
   )
 
   # maxeff: relax redundancy pruning to exact-duplicate only.  rmin is not a
   # forestsearch formal, so it is set here (not in the override block above).
   # The default (subgroup.search rmin = 5) is preserved for every other focus.
-  if (identical(sg_focus, "maxeff")) search_overrides$rmin <- 0
+  if (!.admit_applies[["effect"]]) search_overrides$rmin <- 0
 
   # Only pass GLM params when active (same rationale as consistency_overrides)
   if (!is.null(estimator_fn)) {
@@ -3146,9 +3177,11 @@ forestsearch <- function(df.analysis,
       fs_mr_inference(
         df = df.fs, candidates = fam, spec = gspec,
         selected_members = which(grp.consistency$sg.harm.id == 1),
-        c_screen      = c_screen_mr,
-        c_consistency = c_consistency_mr,
-        p_star        = pconsistency.threshold,
+        # Admission resolved once (see .fs_resolve_admission).  Under
+        # sg_focus = "maxeff" the identifier applies no auxiliary selection
+        # condition, so this returns both floors NULL and MR re-selects over
+        # the whole family -- matching the selection event that occurred.
+        admission     = admission_resolved,
         t_confirm     = mr_inference_args$t_confirm,         # NULL -> near-null default
         confirm_rule  = .g_mr(mr_inference_args$confirm_rule, "point"),
         reselection   = .g_mr(mr_inference_args$reselection,
@@ -3218,7 +3251,10 @@ forestsearch <- function(df.analysis,
                        else NULL,
     # Candidate-family status: "fixed", "conditional-removable" or
     # "conditional-inherent".  Descriptive only; see .fs_family_status().
-    family_status = family_status
+    family_status = family_status,
+    # The admission set MR re-selected over, recorded so a run's domain is
+    # auditable rather than inferable from sg_focus and subgroup_method.
+    admission = admission_resolved
   )
 
   class(out) <- c("forestsearch", "list")

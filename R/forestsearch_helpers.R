@@ -2031,3 +2031,219 @@ reset_workers <- function(workers   = NULL,
   }
   invisible(TRUE)
 }
+
+
+# =============================================================================
+# MR admission set
+# =============================================================================
+
+#' Which admission floors apply, as a structural fact
+#'
+#' The presence pattern is a function of \code{(sg_focus, subgroup_method)}
+#' alone -- it does not depend on any threshold value. Kept separate from
+#' \code{.fs_resolve_admission()} so the identifier's own floor-disabling sites
+#' can read the same decision without needing resolved numerics, which are not
+#' available at the point in \code{forestsearch()} where those overrides are
+#' applied.
+#'
+#' @param sg_focus Selection focus (any spelling; normalized here).
+#' @param subgroup_method One of \code{"consistency"}, \code{"dina"},
+#'   \code{"grf"}.
+#' @return Named logical vector \code{c(effect = , consistency = )}.
+#' @noRd
+.fs_admission_applies <- function(sg_focus, subgroup_method = "consistency") {
+  sgf <- tryCatch(.normalize_sg_focus(sg_focus), error = function(e) sg_focus)
+  method <- as.character(subgroup_method)[1L]
+
+  # sg_focus = "maxeff" on the consistency engine is Guo and He's argmax
+  # primitive: the effect maximiser over the enumerated family subject to NO
+  # auxiliary selection condition.  The identifier disables both floors, so MR
+  # must admit the whole family too.
+  if (identical(method, "consistency") && identical(as.character(sgf), "maxeff")) {
+    return(c(effect = FALSE, consistency = FALSE))
+  }
+  # DINA and GRF have no consistency screen -- neither computes Pcons, and no
+  # DINA or GRF sort key contains one -- so no consistency term may enter their
+  # admission set.  They do apply an effect (harm) floor.
+  if (method %in% c("dina", "grf")) {
+    return(c(effect = TRUE, consistency = FALSE))
+  }
+  c(effect = TRUE, consistency = TRUE)
+}
+
+
+#' Resolve the admission set once, for the identifier and MR alike
+#'
+#' Multiplier resampling is a linearization of the identifier's selection
+#' \emph{map}, which is a ranking \strong{and} a domain. MR is therefore valid
+#' only if the set it re-selects over is the set the identifier selected over.
+#' Previously MR reconstructed that domain from raw parameters at its own call
+#' site (\code{t_g <- pmax(c_screen, c_consistency + z * sigma_D)}), which is
+#' the defect this function exists to remove: the identifier decided its floors
+#' in one place and MR re-derived them in another, and the two drifted.
+#'
+#' \code{sg_focus = "maxeff"} is where the drift showed up -- the identifier
+#' disables both floors while MR kept applying the effect floor -- but nothing
+#' about that was specific to \code{maxeff}. Any future focus could diverge the
+#' same way. Resolving admission once and carrying the result to MR makes the
+#' two equal by construction rather than by coincidence.
+#'
+#' Absence is represented as \code{NULL}, never as \code{-Inf} or any other
+#' sentinel: a floor that does not apply is not a floor set very low, and
+#' arithmetic through a sentinel is exactly how a "no filter" case comes to be
+#' silently filtered.
+#'
+#' Expected resolutions:
+#' \tabular{lll}{
+#'   \strong{method} \tab \strong{focus} \tab \strong{result} \cr
+#'   consistency \tab maxeff \tab both \code{NULL} \cr
+#'   consistency \tab any other \tab both present \cr
+#'   dina, grf \tab any \tab effect floor only \cr
+#' }
+#'
+#' @param sg_focus Selection focus (any spelling; normalized internally).
+#' @param subgroup_method One of \code{"consistency"}, \code{"dina"},
+#'   \code{"grf"}.
+#' @param hr.threshold Screening threshold \strong{on the comparison scale}
+#'   (log for ratio measures, identity for differences) -- i.e. the caller has
+#'   already applied \code{log()} where appropriate. Ignored when no effect
+#'   floor applies.
+#' @param hr.consistency Consistency threshold on the comparison scale.
+#'   Ignored when no consistency floor applies.
+#' @param pconsistency.threshold Consistency-rate cutoff. Ignored when no
+#'   consistency floor applies.
+#' @return List with \code{effect_floor} (numeric scalar or \code{NULL}) and
+#'   \code{consistency} (list with \code{c_cons} and \code{p_star}, or
+#'   \code{NULL}).
+#' @noRd
+.fs_resolve_admission <- function(sg_focus, subgroup_method = "consistency",
+                                  hr.threshold = NULL, hr.consistency = NULL,
+                                  pconsistency.threshold = NULL) {
+  applies <- .fs_admission_applies(sg_focus, subgroup_method)
+
+  effect_floor <- NULL
+  if (isTRUE(unname(applies[["effect"]]))) {
+    if (is.null(hr.threshold) || !is.finite(hr.threshold)) {
+      stop("An effect floor applies to sg_focus = '", sg_focus, "' under ",
+           "subgroup_method = '", subgroup_method, "', but hr.threshold is ",
+           "not a finite value.", call. = FALSE)
+    }
+    effect_floor <- as.numeric(hr.threshold)
+  }
+
+  consistency <- NULL
+  if (isTRUE(unname(applies[["consistency"]]))) {
+    if (is.null(hr.consistency) || !is.finite(hr.consistency) ||
+        is.null(pconsistency.threshold) || !is.finite(pconsistency.threshold)) {
+      stop("A consistency floor applies to sg_focus = '", sg_focus, "' under ",
+           "subgroup_method = '", subgroup_method, "', but hr.consistency / ",
+           "pconsistency.threshold are not finite values.", call. = FALSE)
+    }
+    consistency <- list(c_cons = as.numeric(hr.consistency),
+                        p_star = as.numeric(pconsistency.threshold))
+  }
+
+  list(effect_floor = effect_floor, consistency = consistency)
+}
+
+
+#' Describe a resolved admission set in one line
+#'
+#' Used by \code{print()}/\code{summary()} so a run's admission set is
+#' auditable rather than inferable from the focus and method.
+#' @noRd
+.fs_format_admission <- function(admission) {
+  # NULL in, NULL out: summary()'s .print_param() skips NULL, so an object
+  # predating this field prints nothing rather than "admission set: NA".
+  if (is.null(admission)) return(NULL)
+  has_e <- !is.null(admission$effect_floor)
+  has_c <- !is.null(admission$consistency)
+  if (!has_e && !has_c) return("unrestricted (no effect floor, no consistency floor)")
+  parts <- character(0)
+  if (has_e) parts <- c(parts, sprintf("effect floor %.4g", admission$effect_floor))
+  if (has_c) parts <- c(parts, sprintf("consistency floor %.4g at p* = %.3g",
+                                       admission$consistency$c_cons,
+                                       admission$consistency$p_star))
+  paste(parts, collapse = "; ")
+}
+
+
+#' Assert that every (focus, engine) pair resolves to the intended admission
+#'
+#' Companion to \code{.assert_sg_focus_dispatch_complete()}. That one checks
+#' every canonical focus has a \emph{dispatch branch}; this one checks every
+#' \code{(focus, subgroup_method)} pair resolves to the admission set the
+#' identifier actually applies. A focus can have branches everywhere and still
+#' be given the wrong domain, which is the failure this fix removes.
+#'
+#' The expected pattern is a property of the engines, not of any focus:
+#' \itemize{
+#'   \item \code{consistency} + \code{maxeff} -- neither floor. The identifier
+#'     applies no auxiliary selection condition (Guo and He's argmax
+#'     primitive), so MR must re-select over the whole family.
+#'   \item \code{consistency} + any other focus -- both floors.
+#'   \item \code{dina}, \code{grf} -- effect floor only. Neither engine has a
+#'     consistency screen, so no consistency term may enter their admission
+#'     set.
+#' }
+#'
+#' @return Invisibly \code{TRUE}; otherwise \code{stop()}s.
+#' @noRd
+.assert_admission_resolution_complete <- function() {
+  foci    <- .FS_SG_FOCUS_CANONICAL
+  engines <- c("consistency", "dina", "grf")
+  bad <- character(0)
+
+  for (m in engines) for (f in foci) {
+    want_effect <- !(identical(m, "consistency") && identical(f, "maxeff"))
+    want_cons   <- identical(m, "consistency") && !identical(f, "maxeff")
+
+    a <- tryCatch(
+      .fs_resolve_admission(f, m, hr.threshold = 0.25,
+                            hr.consistency = 0, pconsistency.threshold = 0.9),
+      error = function(e) e)
+    if (inherits(a, "error")) {
+      bad <- c(bad, sprintf("  %s / %s: resolver errored: %s",
+                            m, f, conditionMessage(a)))
+      next
+    }
+    got_effect <- !is.null(a$effect_floor)
+    got_cons   <- !is.null(a$consistency)
+    if (!identical(got_effect, want_effect) || !identical(got_cons, want_cons)) {
+      bad <- c(bad, sprintf(
+        "  %s / %s: got (effect=%s, consistency=%s), expected (effect=%s, consistency=%s)",
+        m, f, got_effect, got_cons, want_effect, want_cons))
+    }
+    # Absence must be absence, never a permissive sentinel.
+    if (!got_effect && !is.null(a$effect_floor)) {
+      bad <- c(bad, sprintf("  %s / %s: effect_floor is not NULL when absent", m, f))
+    }
+    if (got_effect && !is.finite(a$effect_floor)) {
+      bad <- c(bad, sprintf(
+        "  %s / %s: effect_floor is %s -- a sentinel, not a floor",
+        m, f, format(a$effect_floor)))
+    }
+  }
+
+  # The identifier's own floor sites must agree with the resolver.
+  for (m in engines) for (f in foci) {
+    ap <- .fs_admission_applies(f, m)
+    a  <- .fs_resolve_admission(f, m, hr.threshold = 0.25,
+                                hr.consistency = 0, pconsistency.threshold = 0.9)
+    if (!identical(unname(ap[["effect"]]), !is.null(a$effect_floor)) ||
+        !identical(unname(ap[["consistency"]]), !is.null(a$consistency))) {
+      bad <- c(bad, sprintf(
+        "  %s / %s: .fs_admission_applies() disagrees with .fs_resolve_admission()",
+        m, f))
+    }
+  }
+
+  if (length(bad)) {
+    stop("Admission resolution is wrong for ", length(bad), " case(s):\n",
+         paste(bad, collapse = "\n"),
+         "\n\n  MR re-selects over the admission set; if it differs from the\n",
+         "  identifier's, MR corrects a selection event that did not occur.",
+         call. = FALSE)
+  }
+  invisible(TRUE)
+}
