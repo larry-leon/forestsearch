@@ -323,6 +323,49 @@ cat(sprintf("Smoke test: method=%s%s, n_sims=%d, nb_boots=%s, mr_draws=%d, worke
             mr_draws, n_workers))
 ```
 
+# MR validity guard {#sec-guard}
+
+The run loop wraps each `forestsearch()` call in
+`tryCatch(..., error = function(e) NULL)` and turns a `NULL` into
+`.na_record()`, which sets `detected = 0L`.  A package-level `stop()` raised
+*inside* the loop therefore surfaces as a 0% detection rate — indistinguishable
+from an identifier that legitimately found nothing.
+
+So the configuration is checked **here**, outside the loop, before any
+replicate runs.  This calls the package's own validator rather than restating
+its logic, so the document and the package can never disagree about which
+configurations MR admits.  An invalid configuration halts the render
+immediately, naming the offending argument.
+
+```{r mr-validity-guard}
+# .validate_mr_configuration() is the single source of truth (A2): it rejects
+#   (1) selection that does not rank on the inferential coefficient --
+#       dina_select_statistic = "dina", grf_select_statistic = "dr",
+#       grf_selection = "tree";
+#   (2) for the consistency engine only, a candidate family that is not fixed --
+#       any of use_lasso / use_grf / use_dina left TRUE.
+# Condition (2) is deliberately NOT applied to dina/grf: their families
+# regenerate under resampling by construction, which is this simulation's
+# subject matter rather than a misconfiguration.
+forestsearch:::.validate_mr_configuration(
+  list(subgroup_method       = subgroup_method,
+       dina_select_statistic = dina_select_statistic,
+       grf_selection         = grf_selection,
+       grf_select_statistic  = grf_select_statistic,
+       use_lasso             = use_lasso,
+       use_grf               = use_grf,
+       use_dina              = use_dina),
+  context = sprintf("This simulation (subgroup_method = \"%s\", mr_draws = %d)",
+                    subgroup_method, mr_draws))
+
+cat(sprintf("MR configuration OK: engine = %s, focus = %s, family = %s\n",
+            subgroup_method, sg_focus,
+            forestsearch:::.fs_family_status(
+              list(subgroup_method = subgroup_method,
+                   use_lasso = use_lasso, use_grf = use_grf,
+                   use_dina = use_dina))))
+```
+
 # Build the DGM and read off the truth targets
 
 ```{r build-dgm}
