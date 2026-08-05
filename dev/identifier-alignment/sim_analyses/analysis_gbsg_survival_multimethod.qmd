@@ -186,7 +186,16 @@ mr_draws      <- 5000L    # multiplier-bootstrap draws for MR
 # END of this document (manuscript Table + results overview).
 #   NULL (default) -> alongside this .qmd, resolved at render time
 #   or an explicit directory, e.g. "~/results" or "/abs/path/out"
-results_dir <- NULL
+#
+# Pointed at ../rerun so this render writes NOWHERE NEAR the manuscript-era
+# reference bundles that sit alongside this document.  This directory is
+# read-only for the identifier-alignment re-analysis: gbsg_table_payload.rds
+# is the comparison target, and rendering into the default NULL location is
+# how a reference gets clobbered.  (The filename this document writes,
+# gbsg_survival_multimethod_payload.rds, does not itself collide -- but its
+# sibling ACTG175 document's does, so both are redirected for the same reason
+# and by the same rule.)
+results_dir <- "../rerun"
 
 # ---------------------------------------------------------------------------
 # Selection engine for the MAIN analysis.  The headline fit, its bootstrap,

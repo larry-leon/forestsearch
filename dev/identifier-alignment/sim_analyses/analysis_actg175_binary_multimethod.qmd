@@ -98,14 +98,26 @@ fs_consistency_method    <- "resample"
 # names, de-biasing against that engine's own candidate family (it re-derives
 # the per-candidate GLM dfbeta itself).
 run_mr <- TRUE     # add mr_inference = TRUE to the forestsearch call
-mr_draws      <- 2000L    # multiplier-bootstrap draws for the gate
+# 5000 matches actg175_table_payload.rds (meta$gate_draws = 5000) and the GBSG
+# document.  Was 2000.  mr_draws is a Monte Carlo precision parameter -- it
+# governs sampling error in the MR estimate, not the estimand -- so matching
+# the reference removes a nuisance source of variation from the mr_* columns
+# rather than tuning toward agreement.  It leaves the use_lasso/use_grf change
+# below as the only deliberate difference in those columns.
+mr_draws      <- 5000L    # multiplier-bootstrap draws for MR
 
 # ---------------------------------------------------------------------------
 # Output directory for the Section 6.2 reproducibility payload written at the
 # END of this document (manuscript Table + results overview).
 #   NULL (default) -> alongside this .qmd, resolved at render time
 #   or an explicit directory, e.g. "~/results" or "/abs/path/out"
-results_dir <- NULL
+#
+# Pointed at ../rerun because this document writes actg175_table_payload.rds
+# -- byte-identical to the name of the manuscript-era reference bundle sitting
+# beside it.  Under the default NULL, rendering here DESTROYS the comparison
+# target.  This directory is read-only for the identifier-alignment
+# re-analysis.
+results_dir <- "../rerun"
 
 # ---------------------------------------------------------------------------
 # Selection engine for the MAIN analysis.  The headline fit, its bootstrap,
@@ -538,8 +550,22 @@ fs <- forestsearch(
   effect_measure            = fs_effect_measure,
   adverse_outcome           = TRUE,
   # --- Screening engines (candidate generation) ---------------------------
-  use_lasso                 = TRUE,
-  use_grf                   = TRUE,
+  # Both were TRUE in the manuscript-era run.  Turned off to match the GBSG
+  # configuration and the supplement's recommended fully-enumerated default
+  # (S1, "A note on the lasso").  A model-based front end makes the candidate
+  # family a function of the same data the search runs on, which forfeits the
+  # fixed family MR requires -- and this fit passes mr_inference = run_mr with
+  # run_mr = TRUE, so the package validator now rejects the old setting
+  # outright rather than silently returning a correction that does not
+  # de-bias the reported effect.
+  #
+  # EXPECT THE FS SUBGROUP TO CHANGE.  Removing the prefilter enlarges the
+  # enumerated family, so a different region may win.  A label differing from
+  # actg175_table_payload.rds is the finding, not a reproduction failure.
+  # Only the FS row is affected: the DINA and GRF fits below set
+  # subgroup_method explicitly and these flags are inert on those paths.
+  use_lasso                 = FALSE,
+  use_grf                   = FALSE,
   grf_depth                 = fs_grf_depth,
   dmin.grf                  = fs_dmin_grf,
   frac.tau                  = 0.80,
