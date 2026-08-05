@@ -1,0 +1,496 @@
+---
+title: "Validating `dfbeta_glm()` against exact leave-one-out"
+subtitle: "Candidate replacement for `stats::dfbeta()` on the GLM influence path"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+    code-fold: show
+execute:
+  echo: true
+  warning: false
+  message: false
+bibliography: []
+---
+
+## Why
+
+`sigma_D = sqrt(sum(dfbeta^2))` is the robust subgroup standard error the
+consistency engine and multiplier resampling both rest on. On the GLM path it
+is built from `stats::dfbeta(fit)` at `R/consistency_resample.R:206`.
+
+**R 4.6.0 changed what that returns.** `weighted.residuals()` on a `glm` used
+to return *deviance* residuals, which -- per R's own NEWS -- "do not give the
+one-step approximated dfbeta values"; influence measures now use Pearson /
+working residuals. Results computed under R < 4.6.0 therefore carry a
+different `sigma_D`, inflated by 12--16% in the case measured in
+`NOTE_actg175_naive_interval_rootcause.md`.
+
+Computing the influence directly makes `sigma_D` correct on **every** R
+version and removes the version dependency rather than documenting it.
+
+**This document validates the candidate. It does not install it.**
+`consistency_resample.R` is unchanged.
+
+### The Cox path is not affected — confirmed, not assumed
+
+`R/consistency_resample.R:79` uses `stats::residuals(fit, type = "dfbeta")` on
+a `coxph` object. That dispatches to `survival:::residuals.coxph`, an
+independent implementation, not to `stats::dfbeta`. It needs no change. (This
+matches the empirical result that GBSG, a survival analysis, reproduced its
+2026-06 reference to 1.8e-15 while the binary ACTG175 analysis did not.)
+
+```{r cox-dispatch-check}
+suppressMessages(library(survival))
+set.seed(1)
+n <- 60
+.d <- data.frame(t = rexp(n), e = rbinom(n, 1, 0.7), treat = rep(0:1, n / 2))
+.cx <- survival::coxph(survival::Surv(t, e) ~ treat, data = .d)
+cat("class(fit):            ", paste(class(.cx), collapse = ", "), "\n")
+cat("residuals() dispatches to: ",
+    paste(format(utils::getS3method("residuals", "coxph"))[1], collapse = ""), "\n")
+cat("stats::dfbeta has a coxph method? ",
+    !is.null(tryCatch(utils::getS3method("dfbeta", "coxph"), error = function(e) NULL)),
+    "\n")
+```
+
+## The three computations
+
+```{r computations}
+# ---- CANDIDATE -------------------------------------------------------------
+# One-step influence built directly.  fit$residuals is the WORKING residual for
+# any GLM family, so this is general rather than binomial-specific.
+dfbeta_glm <- function(fit) {
+  w <- fit$weights
+  h <- stats::lm.influence(fit, do.coef = FALSE)$hat
+  X <- stats::model.matrix(fit)
+  A <- solve(crossprod(X, w * X))
+  r <- sqrt(w) * fit$residuals          # weighted working residual
+  t(A %*% t(X * (sqrt(w) * r / (1 - h))))
+}
+
+# ---- OLD (pre-R-4.6.0) -----------------------------------------------------
+# lm.influence() computes dfbeta_i = (X'WX)^-1 x_i sqrt(w_i) * wt.res_i /
+# (1 - h_i).  Before R 4.6.0, weighted.residuals() on a glm returned DEVIANCE
+# residuals, so that is what went in as wt.res.
+dfbeta_old_deviance <- function(fit) {
+  w <- fit$weights
+  h <- stats::lm.influence(fit, do.coef = FALSE)$hat
+  X <- stats::model.matrix(fit)
+  A <- solve(crossprod(X, w * X))
+  rdev <- stats::residuals(fit, type = "deviance")
+  t(A %*% t(X * (sqrt(w) * rdev / (1 - h))))
+}
+
+# ---- GROUND TRUTH: exact leave-one-out -------------------------------------
+# beta_hat - beta_hat_(i), refitting without observation i.  dfbeta is a
+# one-step approximation to exactly this, so LOO -- not old-versus-new --
+# decides which computation is right.
+dfbeta_loo <- function(fit, coefname, idx = NULL) {
+  # Refit via `subset = -i` rather than by handing update() a model frame.
+  # model.frame() renames prior weights and offsets to "(weights)"/"(offset)",
+  # so update(data = model.frame(fit)) fails to find them and every refit
+  # errors -- silently, since the loop catches errors and returns NA.  Using
+  # `subset` keeps the original call and data intact.
+  b0 <- stats::coef(fit)[coefname]
+  n  <- stats::nobs(fit)
+  ii <- if (is.null(idx)) seq_len(n) else idx
+  out <- rep(NA_real_, length(ii))
+  cl  <- stats::getCall(fit)
+  env <- environment(stats::formula(fit))
+  for (k in seq_along(ii)) {
+    # Splice the VALUE into the call.  update(fit, subset = -ii[k]) would
+    # store the unevaluated expression `-ii[k]` and evaluate it in the model's
+    # environment, where `ii` and `k` do not exist -- every refit then errors
+    # and the loop returns all-NA.  Assigning the number directly avoids the
+    # lookup entirely.
+    cl$subset <- -ii[k]
+    fi <- tryCatch(suppressWarnings(eval(cl, envir = env)),
+                   error = function(e) NULL)
+    if (is.null(fi)) next
+    if (!is.null(fi$converged) && isFALSE(fi$converged)) next
+    ci <- stats::coef(fi)[coefname]
+    if (length(ci) != 1L || is.na(ci)) next
+    out[k] <- unname(b0 - ci)
+  }
+  out
+}
+
+# Guard: a LOO vector that is entirely NA means the refits failed, which would
+# make every downstream comparison vacuously NA.  Fail loudly instead.
+check_loo <- function(loo, label) {
+  if (all(is.na(loo)))
+    stop("leave-one-out refits all failed for: ", label, call. = FALSE)
+  invisible(TRUE)
+}
+```
+
+## Error metrics
+
+Elementwise relative error is unstable where the true influence is near zero,
+so two metrics are reported. Both are scaled by the vector's own magnitude,
+which is the scale `sigma_D` actually depends on.
+
+```{r metrics}
+err_stats <- function(approx, truth) {
+  ok <- is.finite(approx) & is.finite(truth)
+  if (!any(ok)) return(c(max_rel = NA_real_, med_rel = NA_real_, n_used = 0))
+  a <- approx[ok]; b <- truth[ok]
+  scale_b <- max(abs(b))
+  if (!is.finite(scale_b) || scale_b == 0) return(c(max_rel = NA_real_,
+                                                    med_rel = NA_real_,
+                                                    n_used = sum(ok)))
+  max_rel <- max(abs(a - b)) / scale_b               # worst error, vector-scaled
+  big <- abs(b) > 1e-8 * scale_b                     # skip the numerically-zero tail
+  med_rel <- if (any(big)) stats::median(abs(a[big] - b[big]) / abs(b[big])) else NA_real_
+  c(max_rel = max_rel, med_rel = med_rel, n_used = sum(ok))
+}
+```
+
+## Scenario generator
+
+```{r scenarios}
+make_fit <- function(spec) {
+  set.seed(spec$seed)
+  n <- spec$n
+  z <- if (spec$balance == "1:1") rbinom(n, 1, 0.5) else rbinom(n, 1, 0.1)
+  x1 <- rnorm(n)
+  x2 <- if (isTRUE(spec$collinear)) x1 + rnorm(n, sd = 0.01) else rnorm(n)
+  d <- data.frame(treat = z, x1 = x1, x2 = x2)
+  if (isTRUE(spec$high_leverage)) d$x1[1] <- 40      # single extreme covariate value
+  pw <- if (isTRUE(spec$prior_weights)) sample(1:3, n, TRUE) else rep(1, n)
+  d$pw <- pw
+  fam <- spec$family; lnk <- spec$link
+  rate <- spec$rate
+  fit <- NULL
+  if (fam == "binomial") {
+    eta0 <- stats::qlogis(rate)
+    lp <- eta0 + 0.8 * d$treat + 0.4 * d$x1
+    if (isTRUE(spec$separation)) lp <- -8 + 16 * d$treat   # fitted probs near 0/1
+    d$y <- rbinom(n, 1, stats::plogis(lp))
+    if (isTRUE(spec$few_events)) d$y[d$treat == 1][-(1:2)] <- 0
+    f <- y ~ treat + x1 + x2
+    fit <- switch(lnk,
+      logit = stats::glm(f, data = d, family = stats::binomial("logit"), weights = pw),
+      log = tryCatch(stats::glm(f, data = d, family = stats::binomial("log"),
+                                weights = pw,
+                                start = c(log(mean(d$y) + .01), 0, 0, 0)),
+                     error = function(e) NULL, warning = function(w) NULL),
+      identity = tryCatch(stats::glm(f, data = d, family = stats::binomial("identity"),
+                                     weights = pw,
+                                     start = c(mean(d$y), 0, 0, 0)),
+                          error = function(e) NULL, warning = function(w) NULL),
+      probit = stats::glm(f, data = d, family = stats::binomial("probit"), weights = pw))
+  } else if (fam == "poisson" || fam == "quasipoisson") {
+    d$logT <- if (isTRUE(spec$offset)) log(runif(n, 0.5, 2)) else 0
+    d$y <- rpois(n, exp(log(rate * 10) + 0.5 * d$treat + 0.3 * d$x1 + d$logT))
+    f <- if (isTRUE(spec$offset)) y ~ treat + x1 + x2 + offset(logT)
+         else y ~ treat + x1 + x2
+    fit <- stats::glm(f, data = d, weights = pw,
+                      family = if (fam == "poisson") stats::poisson("log")
+                               else stats::quasipoisson("log"))
+  } else if (fam == "gaussian") {
+    d$y <- 2 + 0.5 * d$treat + 0.3 * d$x1 + rnorm(n)
+    fit <- stats::glm(y ~ treat + x1 + x2, data = d,
+                      family = stats::gaussian("identity"), weights = pw)
+  }
+  fit
+}
+
+run_scenario <- function(spec) {
+  fit <- tryCatch(make_fit(spec), error = function(e) NULL)
+  base <- data.frame(scenario = spec$label, stringsAsFactors = FALSE)
+  if (is.null(fit) || (!is.null(fit$converged) && isFALSE(fit$converged))) {
+    return(cbind(base, status = "fit failed", A_exact = NA, B_max = NA, B_med = NA,
+                 C_max = NA, C_med = NA, max_h = NA))
+  }
+  cn <- "treat"
+  new <- tryCatch(dfbeta_glm(fit)[, cn], error = function(e) NULL)
+  old <- tryCatch(dfbeta_old_deviance(fit)[, cn], error = function(e) NULL)
+  bi  <- tryCatch(stats::dfbeta(fit)[, cn], error = function(e) NULL)
+  if (is.null(new)) {
+    return(cbind(base, status = "dfbeta_glm failed", A_exact = NA, B_max = NA,
+                 B_med = NA, C_max = NA, C_med = NA, max_h = NA))
+  }
+  if (!all(is.finite(new))) {
+    return(cbind(base, status = "dfbeta_glm non-finite", A_exact = NA, B_max = NA,
+                 B_med = NA, C_max = NA, C_med = NA, max_h = NA))
+  }
+  loo <- dfbeta_loo(fit, cn)
+  if (all(is.na(loo))) {
+    return(cbind(base, status = "LOO refits failed", A_exact = NA, B_max = NA,
+                 B_med = NA, C_max = NA, C_med = NA, max_h = NA))
+  }
+  # Arm A: candidate vs this R's stats::dfbeta()
+  A_exact <- if (is.null(bi)) NA else isTRUE(all.equal(unname(new), unname(bi),
+                                                       tolerance = 1e-10))
+  B <- err_stats(new, loo)
+  C <- if (is.null(old)) c(max_rel = NA, med_rel = NA) else err_stats(old, loo)
+  h <- stats::lm.influence(fit, do.coef = FALSE)$hat
+  cbind(base, status = "ok", A_exact = A_exact,
+        B_max = unname(B["max_rel"]), B_med = unname(B["med_rel"]),
+        C_max = unname(C["max_rel"]), C_med = unname(C["med_rel"]),
+        max_h = max(h))
+}
+```
+
+## The grid
+
+```{r grid}
+specs <- list()
+add <- function(...) specs[[length(specs) + 1L]] <<- list(...)
+
+# Common cases: family/link x n x rate x balance
+for (fl in list(c("binomial", "logit"), c("binomial", "log"),
+                c("binomial", "identity"), c("binomial", "probit"),
+                c("poisson", "log"), c("quasipoisson", "log"),
+                c("gaussian", "identity"))) {
+  for (n in c(40, 100, 500)) {
+    for (rate in c(0.5, 0.1, 0.02)) {
+      for (bal in c("1:1", "1:9")) {
+        add(label = sprintf("%s/%s n=%d rate=%.2f %s", fl[1], fl[2], n, rate, bal),
+            family = fl[1], link = fl[2], n = n, rate = rate, balance = bal,
+            seed = 1000 + length(specs))
+      }
+    }
+  }
+}
+# Poisson with offset
+for (n in c(40, 100, 500)) {
+  add(label = sprintf("poisson/log OFFSET n=%d", n), family = "poisson",
+      link = "log", n = n, rate = 0.5, balance = "1:1", offset = TRUE,
+      seed = 2000 + n)
+}
+# Edge cases
+add(label = "EDGE quasi-separation (binomial logit)", family = "binomial",
+    link = "logit", n = 100, rate = 0.5, balance = "1:1", separation = TRUE,
+    seed = 3001)
+add(label = "EDGE high leverage (h near 1)", family = "binomial", link = "logit",
+    n = 60, rate = 0.5, balance = "1:1", high_leverage = TRUE, seed = 3002)
+add(label = "EDGE few events in one arm", family = "binomial", link = "logit",
+    n = 120, rate = 0.2, balance = "1:1", few_events = TRUE, seed = 3003)
+add(label = "EDGE prior weights supplied", family = "binomial", link = "logit",
+    n = 100, rate = 0.4, balance = "1:1", prior_weights = TRUE, seed = 3004)
+add(label = "EDGE near-collinear covariates", family = "binomial", link = "logit",
+    n = 100, rate = 0.4, balance = "1:1", collinear = TRUE, seed = 3005)
+add(label = "EDGE high leverage (poisson)", family = "poisson", link = "log",
+    n = 60, rate = 0.5, balance = "1:1", high_leverage = TRUE, seed = 3006)
+add(label = "EDGE prior weights (gaussian)", family = "gaussian",
+    link = "identity", n = 80, rate = 0.5, balance = "1:1",
+    prior_weights = TRUE, seed = 3007)
+
+cat("scenarios:", length(specs), "\n")
+```
+
+```{r run-grid}
+res <- do.call(rbind, lapply(specs, run_scenario))
+res$B_max <- as.numeric(res$B_max); res$C_max <- as.numeric(res$C_max)
+res$B_med <- as.numeric(res$B_med); res$C_med <- as.numeric(res$C_med)
+res$B_better <- res$B_max < res$C_max
+knitr::kable(res, digits = 6, row.names = FALSE)
+```
+
+## Hard control: gaussian identity must be EXACT
+
+For a gaussian identity-link GLM the one-step influence is not an
+approximation -- it is the closed form of the leave-one-out change. If arm B is
+not exact to machine precision here, the algebra is wrong.
+
+```{r gaussian-control}
+g <- res[grepl("^gaussian", res$scenario) | grepl("gaussian", res$scenario), ]
+cat("gaussian scenarios:", nrow(g), "\n")
+cat("max over gaussian scenarios of arm-B max relative error:",
+    format(max(g$B_max, na.rm = TRUE), scientific = TRUE), "\n")
+stopifnot(max(g$B_max, na.rm = TRUE) < 1e-8)
+cat("PASS: one-step is exact for gaussian identity.\n")
+```
+
+## The ACTG175 regions from the actual analysis
+
+```{r actg175}
+suppressMessages(library(speff2trial))
+ad <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+ad$treat <- ifelse(ad$arms == 1L, 1L, 0L)
+ad <- ad[!is.na(ad$cd420), ]
+ad$y <- 1L - as.integer(ad$cd420 > ad$cd40)
+
+regions <- list(
+  "FS H  (wtkg>86 & cd40>380)"        = (ad$wtkg > 86) & (ad$cd40 > 380),
+  "FS Hc (complement)"                = !((ad$wtkg > 86) & (ad$cd40 > 380)),
+  "DINA H (preanti>=849.4 & cd40>=338)" =
+    (ad$preanti >= 849.40000000000009) & (ad$cd40 >= 338),
+  "GRF H (wtkg>84.37 & cd40>368.2)"   =
+    (ad$wtkg > 84.369600000000005) & (ad$cd40 > 368.20000000000005))
+
+actg <- do.call(rbind, lapply(names(regions), function(nm) {
+  s <- regions[[nm]]
+  fit <- stats::glm(y ~ treat, data = ad[s, ], family = stats::binomial())
+  new <- dfbeta_glm(fit)[, "treat"]
+  old <- dfbeta_old_deviance(fit)[, "treat"]
+  bi  <- stats::dfbeta(fit)[, "treat"]
+  loo <- dfbeta_loo(fit, "treat")
+  B <- err_stats(new, loo); C <- err_stats(old, loo)
+  data.frame(region = nm, n = sum(s),
+             A_exact = isTRUE(all.equal(unname(new), unname(bi), tolerance = 1e-10)),
+             B_max = unname(B["max_rel"]), B_med = unname(B["med_rel"]),
+             C_max = unname(C["max_rel"]), C_med = unname(C["med_rel"]),
+             sigma_new = sqrt(sum(new^2)), sigma_old = sqrt(sum(old^2)),
+             sigma_loo = sqrt(sum(loo^2)), stringsAsFactors = FALSE)
+}))
+knitr::kable(actg, digits = 6, row.names = FALSE)
+```
+
+## Summary
+
+```{r summary}
+ok <- res[res$status == "ok", ]
+
+# Classify B against C.  A strict `<` counts an exact TIE as "not better",
+# which misreports gaussian: there the deviance and working residuals coincide,
+# so the two computations are identical by construction, not merely close.
+rel <- function(a, b) abs(a - b) / pmax(abs(b), .Machine$double.eps)
+ok$cmp <- ifelse(rel(ok$B_max, ok$C_max) < 1e-8, "tie",
+                 ifelse(ok$B_max < ok$C_max, "better", "worse"))
+
+cat("scenarios run   :", nrow(res), "\n")
+cat("scenarios ok    :", nrow(ok), "\n")
+cat("arm B vs arm C  : better", sum(ok$cmp == "better"),
+    "| tie", sum(ok$cmp == "tie"), "| worse", sum(ok$cmp == "worse"), "\n\n")
+
+cat("arm B (candidate vs LOO) max rel -- median",
+    format(stats::median(ok$B_max, na.rm = TRUE), digits = 3, scientific = TRUE), "\n")
+cat("arm C (old vs LOO)       max rel -- median",
+    format(stats::median(ok$C_max, na.rm = TRUE), digits = 3, scientific = TRUE), "\n\n")
+
+# Arm A: candidate must equal THIS R's stats::dfbeta() to machine precision.
+badA <- ok[!(ok$A_exact %in% TRUE), ]
+cat("ARM A (candidate vs stats::dfbeta on this R) not exact in",
+    nrow(badA), "scenario(s):\n")
+if (nrow(badA)) print(badA[, c("scenario", "max_h")], row.names = FALSE)
+
+# Where the ONE-STEP ITSELF is poor: both computations far from LOO.  This is a
+# limitation of sigma_D as a construct, independent of which residual is used.
+cat("\nONE-STEP BREAKDOWN (arm B max rel > 0.10) -- a sigma_D limitation,\n")
+cat("not a property of this fix.  Both computations are unusable here:\n")
+poor <- ok[ok$B_max > 0.10, c("scenario", "B_max", "C_max", "max_h", "cmp")]
+if (nrow(poor)) print(poor, row.names = FALSE) else cat("  none\n")
+
+cat("\nAmong scenarios where the one-step is usable (arm B max rel <= 0.10):\n")
+good <- ok[ok$B_max <= 0.10, ]
+cat("  n =", nrow(good), "| B better", sum(good$cmp == "better"),
+    "| tie", sum(good$cmp == "tie"), "| worse", sum(good$cmp == "worse"), "\n")
+cat("  arm B max rel: median",
+    format(stats::median(good$B_max), digits = 3, scientific = TRUE),
+    " worst", format(max(good$B_max), digits = 3, scientific = TRUE), "\n")
+cat("  arm C max rel: median",
+    format(stats::median(good$C_max), digits = 3, scientific = TRUE),
+    " worst", format(max(good$C_max), digits = 3, scientific = TRUE), "\n")
+
+failed <- res[res$status != "ok", c("scenario", "status")]
+cat("\nNON-OK SCENARIOS (", nrow(failed), "):\n", sep = "")
+if (nrow(failed)) print(unique(failed[, c("status")]), row.names = FALSE)
+if (nrow(failed)) print(table(failed$status))
+
+saveRDS(list(grid = res, actg = actg), "dfbeta_glm_validation_results.rds")
+```
+
+
+## Findings
+
+**The candidate is correct and the old computation is wrong**, on the regions
+that matter and across the grid. It is not yet installed; two limitations
+below need a decision first.
+
+### On the four ACTG175 regions -- the decisive result
+
+`sigma_loo` is `sqrt(sum(dfbeta_LOO^2))` built from the exact refits.
+
+| region | n | sigma old | sigma candidate | sigma exact-LOO | old vs LOO | candidate vs LOO |
+|---|---|---|---|---|---|---|
+| FS H | 72 | 0.580187 | 0.511807 | **0.515491** | +12.5% | -0.7% |
+| FS Hc | 1011 | 0.150031 | 0.130977 | **0.131022** | +14.5% | -0.03% |
+| DINA H | 98 | 0.493361 | 0.427534 | **0.428863** | +15.0% | -0.3% |
+| GRF H | 95 | 0.496428 | 0.427890 | **0.428751** | +15.8% | -0.2% |
+
+The old deviance-based `sigma_D` is 12--16% too large on every region; the
+candidate is within 0.7%. This is the same 12--16% inflation measured in
+`NOTE_actg175_naive_interval_rootcause.md`, now confirmed against ground truth
+rather than against the other computation.
+
+### Across the grid
+
+Of 136 scenarios, 112 produced a usable fit. Splitting on whether the one-step
+approximation is usable at all (arm B max relative error <= 0.10):
+
+| regime | n | candidate better | tie | candidate worse |
+|---|---|---|---|---|
+| one-step usable | 67 | 49 | 18 | **0** |
+| one-step broken down | 45 | 38 | 0 | 7 |
+
+In the usable regime the candidate is **never worse**, and the 18 ties are
+gaussian, where the deviance and working residuals coincide so the two
+computations are identical by construction. Median max relative error:
+candidate **2.15e-02**, old **1.94e-01** -- about a 9x improvement.
+
+### Hard control passed
+
+Gaussian identity is exact to machine precision (worst arm-B max relative
+error 7.2e-13 across all gaussian scenarios, enforced by `stopifnot` above).
+The algebra is right.
+
+### LIMITATION 1 -- the one-step itself breaks down, independent of this fix
+
+In 45 of 112 scenarios **both** computations are far from the exact LOO. These
+are sparse-event, small-n, imbalanced-arm fits with high leverage: worst cases
+reach relative errors of 1e+12 (binomial/logit n=100 rate=0.02 1:9) and 9e+05
+(binomial/probit n=40 rate=0.02 1:1, max hat = 0.99999992). Where a single
+observation approaches leverage 1, `1/(1 - h_i)` explodes and no choice of
+residual rescues it.
+
+**This is a property of `sigma_D` as a construct, not of the fix.** It bounds
+how much any influence-based standard error can be trusted in small, sparse
+subgroups -- which is exactly the regime forestsearch searches in. Worth
+knowing independently. The 7 scenarios where the candidate is nominally worse
+are all inside this regime, where both numbers are unusable and the comparison
+is meaningless.
+
+### LIMITATION 2 -- behaviour at exact leverage 1 differs from `stats::dfbeta()`
+
+`binomial/probit n=40 rate=0.50 1:9` has one subject in the treated arm and a
+hat value of **exactly 1**. The candidate returns `Inf` (from `1/(1 - h)`);
+`stats::dfbeta()` returns finite values.
+
+This matters for the swap: `.consistency_glm_pieces()` computes
+`sigma_D <- sqrt(sum(dfb^2))` and then rejects the candidate if
+`!is.finite(sigma_D)`. So installing the candidate as written would make such a
+subgroup be **dropped** rather than scored. That may well be the right
+behaviour -- a leverage-1 point means the subgroup effect is determined by a
+single observation -- but it is a behaviour change and should be a decision,
+not a side effect. A guard on `h >= 1 - eps` is the alternative.
+
+### Not defects
+
+- **22 "fit failed" scenarios** are `binomial(log)` / `binomial(identity)`
+  convergence failures in the generator, before any dfbeta is computed.
+- **1 "dfbeta_glm failed"** (`gaussian/identity n=40 rate=0.50 1:9`) has
+  **zero subjects in the treated arm**: the design is rank-deficient, the
+  `treat` coefficient is `NA`, and `stats::dfbeta()` errors too.
+  `.consistency_glm_pieces()` already rejects this upstream via its
+  `any(is.na(cf))` guard, so it cannot reach either computation in production.
+- **The single arm-A "inexactness"** (`binomial/logit n=40 rate=0.02 1:1`, one
+  event in 40) is a relative difference of **2.06e-09** -- numerical noise from
+  a near-degenerate fit. It passes `all.equal` at tolerance 1e-6 and fails only
+  the strict 1e-10 used here. Arm A is otherwise exact in 111 of 112.
+
+### Recommendation
+
+Install the candidate, subject to a decision on Limitation 2. It is exact
+where exactness is provable, materially closer to ground truth everywhere the
+one-step is usable, never worse there, and removes the R-version dependency
+rather than documenting it. `consistency_resample.R` is unchanged pending that
+decision.
+
+```{r session}
+sessionInfo()
+```
