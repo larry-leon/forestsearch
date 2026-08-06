@@ -149,7 +149,45 @@ defaults while missing later changes.
 Nothing regenerated for this note; the five documents were regenerated
 separately at HEAD and already reflect the post-`84203ed` families. The
 correction is to the record in `84203ed`'s commit message, which cannot be
-amended in place. Open question not pursued: whether the ACTG175 DINA cell
-(`1 -> 1`, reported under `hr.threshold = 1.25`) has the same defect as the
-GBSG cells; the shipped document runs that engine at `or_threshold = 1.0`,
-where the measured family is 147.
+amended in place.
+
+## The ACTG175 DINA cell is correct, but unrepresentative
+
+`84203ed` also reported `DINA 1 -> 1 (not binding here)` for ACTG175. Measured
+the same way, reproducing the shipped `fs_dina` call
+(`analysis_actg175_binary_multimethod.qmd:1230`) at both the threshold that
+cell used and the threshold the document actually runs:
+
+| threshold | package state | `n_family` | bias | rate | label |
+|---|---|---|---|---|---|
+| `hr.threshold = 1.25` | `84203ed^` (`c68fe70`) | 1 | 0.5320 | 0.3214 | `{cd40 >= 500} & {homo >= 1}` |
+| `hr.threshold = 1.25` | `0302e8c^` (`411a448`) | 1 | 0.5320 | 0.3214 | `{cd40 >= 500} & {homo >= 1}` |
+| `hr.threshold = 1.25` | HEAD | -- | -- | -- | no subgroup (`0302e8c`) |
+| `or_threshold = 1.0` | `84203ed^` (`c68fe70`) | **5** | 0.3894 | 0.9948 | `{preanti >= 849.4} & {cd40 >= 338}` |
+| `or_threshold = 1.0` | `0302e8c^` (`411a448`) | **147** | 0.7081 | 1.0000 | `{preanti >= 849.4} & {cd40 >= 338}` |
+| `or_threshold = 1.0` | HEAD | 147 | 0.7081 | 1.0000 | `{preanti >= 849.4} & {cd40 >= 338}` |
+
+**At 1.25 the `1 -> 1` is genuine.** The two states are identical on every
+field, so the restriction really was inert there -- the qualifying family at
+that threshold holds one candidate, as `check_dina_actg.R` records (147
+qualifying at floor 0, 89 at 1.05, 1 at 1.25). This cell does NOT have the
+GBSG defect, and unlike the GBSG cells it was a true measurement.
+
+**But it is not the configuration the document runs.** At
+`or_threshold = 1.0`, which `analysis_actg175_binary_multimethod.qmd` uses, the
+restriction cut 147 to 5 -- 96.6% of the family removed. That is the 5 -> 147
+jump seen in the regenerated ACTG175 payload, and it lands on `84203ed`
+exactly, since `411a448` and HEAD agree.
+
+So the cell is accurate and misleading at once: "not binding here" is true of
+`hr.threshold = 1.25` and false of the shipped threshold, and the commit does
+not say which one it measured. The same conflation is recorded in
+`HANDOFF_2026-08-05_session2.md` -- DINA's "family of one" on ACTG175 is a
+property of the threshold, not of DINA -- and it recurred here in a different
+form.
+
+Note also the `selection_rate` of 0.3214 at 1.25: a subgroup selected on two
+draws in three that it was not, the signature `0302e8c` describes for a winner
+sitting below `t_g`. That commit reports 0.338 for the comparable cell; the
+small gap is a configuration difference between the two measurements
+(`sg_focus`/`selection_rule`) and was not chased.
