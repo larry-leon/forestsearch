@@ -1,0 +1,1108 @@
+---
+title: "Audit: does the code implement the manuscript's algorithm?"
+subtitle: "Branch `mr-in-replicates`, working tree as of 2026-08-05"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+    code-fold: false
+    theme: cosmo
+bibliography: []
+---
+
+## Scope and status
+
+This document answers the question in `CODE_THEORY_AUDIT_SPEC.md`: for each
+quantity the manuscript defines, does the code compute it once, in one place,
+as defined?
+
+It is a **reading and tracing** result. No code was changed. The working tree's
+uncommitted changes (`max_subgroups_search` default `Inf`, both analysis
+documents uncapped) were left in place and are treated as the current state.
+
+::: {.callout-important}
+## The manuscript PDFs are not on disk
+
+`dev/identifier-alignment/` contains the handoff, the notes, and the dfbeta
+validation document, but no manuscript PDF. A repo-wide search finds
+`Leon-etal_SIM_2024.pdf` (the 2024 *Statistics in Medicine* paper) but nothing
+carrying the sections quoted in the spec -- §2.1, §2.2, §2.4, §3.1, §3.2, §4.2,
+§5, the Algorithm steps, or Supplements S1/S2.
+
+Everything below is therefore checked against the **extracts quoted in the
+audit spec**. Where a verdict turns on context the extract may not carry, it is
+flagged in @sec-questions rather than asserted. Please supply the PDFs and the
+flagged items can be closed.
+:::
+
+All three phases are reported below.
+
+---
+
+## Summary {#sec-summary}
+
+| # | Quantity | Sites | Verdict |
+|---|---|---:|---|
+| 1 | $\mathcal{F}$, the candidate family | 17 | **departs** |
+| 2 | $\hat\beta(g)$ and $db_{g,i}$ | 7 | **duplicated + departs** |
+| 3 | $\sigma^2_{D,g}$ | 2 | **matches** |
+| 4 | $t_g$ | 1 (+3 dead) | **matches** |
+| 5 | $\mathcal{S}$, the selection map | 9 | **departs** |
+| 6 | The inclusion band | 6 selection + 5 display | **duplicated** |
+| 7 | Alignment $S_g = \hat\beta(g)$ | -- | **departs** (domain, not ranking) |
+| 8 | $P = B_{\text{eff}}^\top \Xi$ | 3 | **matches** |
+| 9 | The de-biasing terms (Eq. 9, 10) | 2 | **matches**, one caveat |
+| 10 | The IJ variance (Eq. 12-14) | 1 | **matches** |
+| 11 | The bootstrap replay | 12 alterations | **matches**, one departure |
+| 12 | Cross-validation replay | 6 alterations | **departs** |
+
+### Findings, ranked
+
+| ID | Finding | Severity |
+|---|---|---|
+| **F1** | `.dfbeta_glm()` errors on every `lm` fit, so `effect_measure = "MD"` has no influence path at all: MR is dead for continuous outcomes and the resample consistency engine silently degrades to splitting. Regression introduced by `c68fe70`. | **high** |
+| **F2** | GRF's identifier admits $\hat\beta \ge \log 1$ (hard-coded `dmin = 1`) while MR admits $\hat\beta^* \ge \log(\texttt{hr.threshold}) = \log 1.25$. Different domains for the same selection event, at package defaults. | **high** |
+| **F3** | DINA's identifier applies **no** $\hat\beta$ floor when re-ranking on the effect, while MR applies $\hat\beta^* \ge \log 1.25$. Same class as F2, opposite direction. | **high** |
+| **F4** | Under `ps_method != "none"` the identifier ranks on a PS-weighted / G-computed effect while `.consistency_glm_pieces()` silently fits the unweighted conditional model. MR de-biases a different estimand than the one selected on. | **high** |
+| **F5** | FS's MR family is a superset of the identifier's: `d0.min`/`d1.min`, `minp`, `rmin` and `max_subgroups_search` are not replayed, and the `n.min` comparison is off by one. The code comment names two of the five gaps. | **medium** |
+| **F6** | `max_subgroups_search` truncation is emitted as a warning but recorded nowhere on the returned object; the field named `n_candidates_total` is the post-truncation count. | **medium** |
+| **F7** | The inclusion band empties whenever the maximum effect is negative, and the three consumers handle that differently (GRF returns nothing, MR falls back to all passers, the sort keys tie). Reachable for `RD` / `MD`. | **medium** |
+| **F8** | Five display/reporting sites re-implement the neighbourhood band inline and ignore `selection_rule`, so what is shown as "in band" differs from what selection used under `"pareto"` / `"both"`. | **low** |
+| **F9** | `.dina_reselect_on_effect()` and `subgroup.consistency()` are `sg_focus` dispatch sites that `.assert_sg_focus_dispatch_complete()` does not read; one routes `maxeff`/`maxeffCons` through a default, the other re-inlines the canonical vector as a literal. Behaviour agrees today. | **low** |
+| **F10** | `.mr_cscr` (×2) and `c_screen_mr` / `c_consistency_mr` are assigned and never consulted -- leftovers of the very reconstruction `.fs_resolve_admission()` removed. | **low** |
+| **F11** | `max.minutes` is a formal of `subgroup.search()` and `search_combinations_parallel()` that no code path consults. Already documented as inert in `forestsearch()`'s roxygen but not in `subgroup.search()`'s. | **low** |
+| **F12** | Cross-validation does not null `grf_res` / `grf_cuts` / `dina_res` / `dina_cuts`, which the bootstrap does explicitly. A user-supplied cached fit is reused inside every training fold, leaking the held-out fold into the candidate family. | **medium** |
+| **F13** | `bias_sel` averages over draws that produced a winner (`na.rm = TRUE`) while `bias_fix` averages over all draws. Manuscript Eq. 9 divides both by $B$. Divergence is exactly the draws where no candidate was admitted. | **low** |
+| **F14** | Both replay paths re-derive quantile cut locations from the resampled/training data, so $\mathcal{F}$ is not fixed across replicates. Recognised at the identifier level by `.fs_family_status()`; unrecorded at the replay level. | **noted** |
+
+---
+
+# Phase 1 -- identifier and MR paths
+
+## 1. $\mathcal{F}$, the candidate family {#sec-family}
+
+### Definition
+
+> §2.1: the candidate family is every conjunction of at most two distinct
+> conditions, $\mathcal{F} = \{\varphi\} \cup \{\varphi \wedge \varphi'\}$,
+> $|\mathcal{F}| \le L + \binom{L}{2}$. The bound is not attained -- empty
+> intersections and candidates failing minimum subgroup-size and minimum-event
+> guards are dropped.
+>
+> Algorithm Step 2: for a model-based identifier, $\mathcal{F}$ is its
+> qualifying candidates and $\mathcal{S}$ re-ranks them on $\hat\beta$.
+>
+> §5: the re-selection must range over the full enumerated family -- every cut
+> combination the search could form -- re-applying the screen on each draw.
+
+### Sites
+
+**Consistency (FS) engine -- identifier side**
+
+| Site | What it does | In §2.1? |
+|---|---|---|
+| `subgroup_search.R:332` `generate_combination_indices()` | enumerates all $\le$ `maxk` combinations | yes |
+| `subgroup_search.R:365` `calculate_max_combinations()` | $L + \binom{L}{2}$ | yes |
+| `subgroup_search.R:560` variance check | drops empty intersections | yes |
+| `subgroup_search.R:565` `minp` (default 0.025) | prevalence floor $n_g/n \ge$ `minp` | **partly** |
+| `subgroup_search.R:570` `rmin` (default 5) | drops a conjunction whose second cut removes $\le 5$ subjects | **no** |
+| `subgroup_search.R:591` / `:639` `d0.min`/`d1.min` (10/10) | per-arm event minima | yes |
+| `subgroup_search.R:606` / `:645` `n.min` (60) | `nx <= n.min` rejects, i.e. requires $n_g > 60$ | yes (off by one) |
+| `subgroup_search.R:619` / `:660` `hr.threshold` | the screen $c_{\text{screen}}$ | this is $t_g$, not $\mathcal{F}$ |
+| `subgroup_consistency_main.R:577` `remove_near_duplicate_subgroups()` | statistics-keyed near-duplicate removal | **no** |
+| `subgroup_consistency_main.R:569` `.maxeff_membership_dedup()` | exact-membership dedup (`maxeff` only) | equivalent to "empty intersections" |
+| `subgroup_consistency_main.R:623` `max_subgroups_search` cap | truncates the ranked pool | **no** |
+| `subgroup_consistency_helpers.R:1507` `pconsistency.threshold` | returns `NULL` below $p^\star$ | this is $t_g$, not $\mathcal{F}$ |
+
+**Consistency engine -- MR side**
+
+| Site | What it does |
+|---|---|
+| `forestsearch_main.R:3114-3129` | re-enumerates $\mathcal{F}$ from `Z` with the search's own helpers, keeping candidates with `length(mem) >= n.min` |
+
+**DINA**
+
+| Site | What it does |
+|---|---|
+| `dina_subgroup.R:653` `.dina_collect_candidates()` | depth-1: keep iff $n_S \ge$ `n_min` **and** $\bar\tau_S \ge$ `m_diff` |
+| `dina_subgroup.R:~713` `.dina_collect_candidates_depth2()` | depth-2 over the quantile grid, same two gates |
+| `forestsearch_main.R:2118` `.fs_mr_family_from_table()` | MR family = `dsel$candidates`, the whole qualifying table |
+
+**GRF**
+
+| Site | What it does |
+|---|---|
+| `grf_subgroup_labels.R:255` `.grf_dr_candidates()` | depth-1 over the decile grid; keep iff `n_min <= nS <= n-1` |
+| `grf_subgroup_labels.R:281` `.grf_dr_candidates_d2()` | depth-2 over the quintile grid, same gate |
+| `forestsearch_main.R:2289` `.fs_mr_family_from_table()` | MR family = `gsel$candidates`, the whole enumerated table |
+
+### Verdict: **departs**
+
+**DINA's family matches Supplement S2 Step 4 exactly.** `n_S >= n_min` and
+`mean_tau >= m_diff` at `dina_subgroup.R:682` and `:685`, and MR is handed that
+same table. This is the one engine where the family is unambiguously right.
+
+**GRF's family matches Algorithm Step 2 and §5.** The candidate table is the
+pre-floor enumeration; the harm floor lives in `.grf_frontier_select()`, so MR
+receives the full enumerated family and re-applies a floor per draw. That is
+the shape §5 asks for. (Whether the floor it re-applies is the *right* one is
+F2, in @sec-selection.)
+
+**FS's family departs on both sides, in opposite directions.**
+
+*Identifier side.* Two filters have no manuscript counterpart:
+
+- `rmin = 5` (`subgroup_search.R:570`, `extract_idx_flagredundancy()`) drops any
+  two-cut conjunction whose second condition removes 5 or fewer subjects
+  relative to the first. §2.1 lists exactly three grounds for dropping a
+  candidate -- empty intersection, minimum subgroup size, minimum events -- and
+  this is none of them. It is a *redundancy* criterion, and it removes
+  candidates that are perfectly estimable.
+- `remove_near_duplicate_subgroups()` (`subgroup_consistency_helpers.R:1102`,
+  called at `subgroup_consistency_main.R:577`) removes further candidates on a
+  statistics key after the search. The `maxeff` path deliberately avoids it
+  (using exact-membership dedup instead) with the reasoning given inline at
+  `subgroup_consistency_main.R:561-567`; every other focus still runs it.
+
+`minp` is a partial duplicate of `n.min`: it enforces $n_g / n \ge 0.025$
+alongside $n_g > 60$. At $n = 500$ that is $n_g \ge 12.5$, strictly weaker than
+`n.min`, so it is inert at typical sizes; at $n = 5000$ it binds at 125 and is
+the operative size guard. Two size guards where the manuscript specifies one.
+
+*MR side.* The re-enumeration at `forestsearch_main.R:3114-3129` applies
+**only** `n.min`. Not replayed:
+
+| Filter | Identifier | MR family |
+|---|---|---|
+| `d0.min` / `d1.min` | applied | **not applied** |
+| `minp` | applied | **not applied** |
+| `rmin` | applied | **not applied** |
+| near-duplicate removal | applied | **not applied** |
+| `max_subgroups_search` | applied | **not applied** |
+| `n.min` | `nx <= n.min` rejects ($n_g > 60$) | `length(mem) >= n.min` accepts ($n_g \ge 60$) |
+
+So MR's competition includes candidates the search could not have formed. §5
+warns against the *opposite* error (restricting to post-screen survivors), and
+the code's comment at `:3110-3113` correctly identifies the direction --
+"inflates the selection-bias term" -- but names only two of the five gaps, and
+the inflation is reported nowhere in the output.
+
+The off-by-one on `n.min` is small but is a genuine disagreement: a candidate
+with exactly 60 members is in MR's family and was never in the identifier's.
+
+::: {.callout-note}
+## `max_subgroups_search`, per the spec's instruction
+
+The spec asks three specific questions rather than a re-derivation.
+
+**Where is the cap applied?** `subgroup_consistency_main.R:608-624`, inside
+`subgroup.consistency()` -- *after* the search screen, *after* duplicate
+removal, and *after* `sort_subgroups_preview()` has ordered the pool by the
+focus's preview key, but *before* any consistency evaluation. So the ranking
+that decides which candidates survive truncation is the *pre*-consistency key,
+which for `hr` is $(-\text{HR}, K)$ while the selection key is
+$(-P_{\text{cons}}, -\text{HR}, K)$. A candidate that would have won on
+consistency can be truncated on effect.
+
+**Does anything downstream record the truncation?** No. A `warning()` fires at
+`:621` whenever `n_pool > stop_Kgroups`, and that is the only trace. The
+returned list (`:1129-1143`) carries `n_candidates_evaluated` and
+`n_candidates_total`, but `n_candidates` is assigned at `:626` **after** the
+truncation at `:623`, so `n_candidates_total` is the post-truncation pool.
+The pre-truncation size `n_pool` is never stored. By contrast
+`early_stop_triggered` and `early_stop_candidate` *are* returned -- so the
+object records one form of incomplete evaluation and not the other. (**F6**)
+
+**Any other cap of the same kind?**
+
+- `stop_threshold` early stopping (`subgroup_consistency_main.R:952-977`) halts
+  the scan at the first candidate reaching the threshold. This one is
+  **correctly guarded**: `forestsearch_main.R:1476-1511` resets
+  `stop_threshold` to `NULL` for every focus whose selection key contains a
+  $P_{\text{cons}}$ term, leaving it live only for `maxeffCons`, where the
+  enumeration order $(-\text{HR}, K)$ *is* the selection key so the first
+  qualifier is provably the winner. The reasoning is written out at
+  `:1454-1475` and it is right.
+- `max.minutes` (`forestsearch()` default 3) is threaded into
+  `subgroup.search()` and `search_combinations_parallel()` and **never read**.
+  `forestsearch()`'s roxygen at `:610` says so; `subgroup.search()`'s at
+  `subgroup_search.R:25` still describes it as "Maximum minutes for search".
+  (**F11**)
+- DINA's `max_subgroups` (`dina_subgroup.R:984`, `:1028`) caps the *frontier
+  display*, not the ranked family, per its own documentation. Not a selection
+  cap.
+:::
+
+---
+
+## 2. $\hat\beta(g)$ and the influence $db_{g,i}$ {#sec-beta}
+
+### Definition
+
+> §2.2: $\hat\beta(g)$ solves $\sum_{i \in g}\psi_i(\beta;g) = 0$, and the
+> per-subject empirical influence is the dfbeta
+> $db_{g,i} = \mathcal{I}_g^{-1}\psi_i(\hat\beta(g);g) \approx \hat\beta(g) -
+> \hat\beta_{(-i)}(g)$, $\sum_{i\in g} db_{g,i} = 0$.
+
+### Sites
+
+**Survival**
+
+| Site | Fits | Returns |
+|---|---|---|
+| `subgroup_search.R:715` `fit_cox_for_subgroup()` | `coxph(Surv(Y,E) ~ Treat [+ adj], robust = FALSE)` | $\exp\hat\beta$ (natural scale) -- the search's ranking statistic |
+| `consistency_resample.R:55` `.consistency_cox_pieces()` | the same formula, `robust = FALSE`, `init = cox_init` | $\hat\beta$, `dfbeta`, $\sigma_D$ -- the consistency and MR statistic |
+| `subgroup_consistency_helpers.R:188` `get_split_hr_fast()` | half-sample Cox refits | split effects (literal-splitting path) |
+| `Cox_estimation_helpers.R` | final reported estimate | reporting |
+
+**GLM**
+
+| Site | Fits | Returns |
+|---|---|---|
+| `glm_effect_estimators.R` `make_effect_estimator()` closures | per-measure, with `ps_method` / `robust_se` / marginal-vs-conditional variants | the search's ranking statistic |
+| `consistency_resample.R:199` `.consistency_glm_pieces()` | a second, independent per-measure implementation | $\hat\beta$, `dfbeta`, $\sigma_D$ |
+| `consistency_resample.R:147` `.dfbeta_glm()` | one-step influence $(X'WX)^{-1}x_i w_i r_i/(1-h_i)$ | the influence itself |
+
+### Verdict: **duplicated + departs**
+
+The Cox path is clean: both sites fit the identical model, so the statistic the
+search ranks on and the statistic MR perturbs are the same $\hat\beta$ (the
+search reports $\exp\hat\beta$, a monotone transform, so the ordering is
+identical). `.consistency_cox_pieces()` takes `dfbeta` from
+`residuals(fit, type = "dfbeta")`, which dispatches to `survival` and is the
+matrix of $\hat\beta - \hat\beta_{(-i)}$ approximations §2.2 asks for.
+
+The GLM path is $\hat\beta$ implemented **twice**, and the two implementations
+disagree in two reachable configurations.
+
+#### F1 (high) -- `.dfbeta_glm()` cannot handle an `lm` fit
+
+`consistency_resample.R:148` opens with `w <- fit$weights`. For an unweighted
+`stats::lm` -- which is exactly what `effect_measure = "MD"` fits at
+`consistency_resample.R:251` -- `fit$weights` is `NULL`, so `w * X` collapses to
+`numeric(0)` and `crossprod(X, w * X)` is non-conformable. Verified:
+
+```
+lm weights is.null: TRUE
+ERROR: non-conformable arguments
+```
+
+Consequences, all silent:
+
+- `.consistency_glm_pieces()` catches the error at `:269`, returns `NULL` at
+  `:270`.
+- `consistency_resample()` returns all-`NA` rates, so
+  `subgroup_consistency_helpers.R:1486-1494` falls back to literal splitting on
+  **every** candidate. The consistency estimate is still defensible (splitting
+  is the definition the resample approximates) but the run silently ignores
+  `consistency_method = "resample"` and pays the full refit cost.
+- `.fs_mr_assemble()` (`fs_mr_inference.R:97`) drops every candidate, `asm$names`
+  is empty, `sel` is `NA`, and `fs_mr_inference()` returns the short variant at
+  `:376-380` with `note = "selected subgroup could not be fit in the
+  reconstructed family"`. **MR is unavailable for continuous outcomes.**
+
+This is a regression from `c68fe70`. `stats::dfbeta()` has an `lm` method
+(`lm.influence()$coefficients`) and handled this case. The commit message's
+136-scenario validation grid evidently contained no unweighted `lm`.
+
+The `@importFrom stats ... dfbeta` at `consistency_resample.R:198` is now
+unused, which is a second (cosmetic) trace of the same change.
+
+#### F4 (high) -- propensity adjustment is invisible to the influence path
+
+`.consistency_glm_pieces()` takes no `ps_method` argument and `.fs_mr_spec()`
+carries no propensity fields. It fits the plain conditional model regardless.
+But `make_effect_estimator()` does not:
+
+- `ps_adjust_method = "iptw"` materialises stabilised weights into an `sw`
+  column and fits `lm(..., weights = data_slice$sw)`
+  (`glm_effect_estimators.R:831`);
+- `ps_adjust_method = "dr_gcomp"` returns a **marginal** log-OR computed from
+  predicted probabilities (`glm_effect_estimators.R:500-506`), a different
+  estimand from the conditional coefficient, not merely a different estimate.
+
+`ps_method` defaults to `"none"` under `is.RCT = TRUE` but to `"grf"` under
+`is.RCT = FALSE`. So for observational analyses at package defaults, the
+identifier ranks candidates on the PS-adjusted effect and MR de-biases the
+unadjusted conditional coefficient of the same subgroup. The docstring at
+`consistency_resample.R:179-181` says propensity-adjusted effects "return
+`NULL` (the caller falls back to splitting)" -- the code does not implement
+that, because it has no way to know.
+
+Both are cases of the audit's own criterion: *a function's documentation
+describes behaviour it does not have.*
+
+---
+
+## 3. $\sigma^2_{D,g}$ {#sec-sigma}
+
+### Definition
+
+> §2.2: $\sigma^2_{D,g} = \sum_{i\in g} db^2_{g,i}$ is the robust
+> (sandwich / infinitesimal-jackknife) variance of $\hat\beta(g)$.
+
+### Sites
+
+| Site | Expression |
+|---|---|
+| `consistency_resample.R:86` | `sigma_D <- sqrt(sum(dfbeta^2))` |
+| `consistency_resample.R:277` | `sigma_D <- sqrt(sum(dfb^2))` |
+
+Every downstream consumer reads one of these two: `fs_mr_inference.R:99`,
+`:382`, `:452`, `:486`; `consistency_resample.R:398`, `:405`.
+
+### Verdict: **matches**
+
+Two sites, one per outcome family, identical expression, no third site. Both
+guard `is.finite(sigma_D) && sigma_D > 0` and drop the candidate otherwise
+(`:87`, `:278`), which is the treatment §2.2 implies for a non-estimable
+candidate. The quantity is $\sqrt{\sigma^2_{D,g}}$ throughout -- consistently
+the SD, never the variance -- and callers use it as such.
+
+The only caveat is upstream, not here: on the GLM path the `dfbeta` it squares
+comes from `.dfbeta_glm()`, so F1 and F4 propagate into $\sigma_D$.
+
+---
+
+## 4. $t_g$ {#sec-tg}
+
+### Definition
+
+> §2.4: $t_g = \max\left(c_{\text{screen}},\;
+> c_{\text{cons}} + z_{(1+p^\star)/2}\,\sigma_{D,g}\right)$.
+
+### Sites
+
+| Site | Role |
+|---|---|
+| `forestsearch_helpers.R:2129` `.fs_resolve_admission()` | resolves *which* floors apply and their values, once per call |
+| `forestsearch_main.R:1845` | the single call, before any branch |
+| `fs_mr_inference.R:403-415` | the only place the arithmetic $\max(c_{\text{screen}}, c_{\text{cons}} + z\sigma_D)$ is performed |
+
+Reached by all three engines: `forestsearch_main.R:2128` (DINA), `:2299` (GRF),
+`:3161` (consistency).
+
+### Verdict: **matches**
+
+The consolidation holds. `grep -rn "p_star\|c_screen\|c_consistency"` over
+`R/` returns no second reconstruction. The three-way branch at
+`fs_mr_inference.R:403-415` is faithful to §2.4:
+
+- both floors present $\Rightarrow$ `pmax(effect_floor, c_cons + z * sdv)` with
+  `z = qnorm((1 + p_star)/2)`, which is §2.4 verbatim;
+- effect floor only $\Rightarrow$ the constant $c_{\text{screen}}$;
+- neither $\Rightarrow$ no filter, via a separate code path rather than a
+  sentinel.
+
+`.assert_admission_resolution_complete()` (`forestsearch_helpers.R:2202`) checks
+every (focus, engine) pair against the intended pattern and cross-checks
+`.fs_admission_applies()` against `.fs_resolve_admission()`. The identifier's
+own floor-disabling sites read `.fs_admission_applies()` directly
+(`forestsearch_main.R:1416` $\to$ `:2770`, `:2776`), so the identifier and MR
+cannot disagree about *which* floors are in force.
+
+They can still disagree about *what value* the effect floor takes -- see F2 and
+F3 in @sec-selection. `.fs_resolve_admission()` fixes the presence pattern; it
+does not reconcile the numbers, because the identifier's numbers for DINA and
+GRF are set elsewhere.
+
+#### F10 (low) -- dead leftovers of the removed reconstruction
+
+Three variables are assigned and never consulted:
+
+| Site | Variable |
+|---|---|
+| `forestsearch_main.R:2102` | `.mr_cscr` (DINA branch) |
+| `forestsearch_main.R:2276` | `.mr_cscr` (GRF branch) |
+| `forestsearch_main.R:3142-3151` | `c_screen_mr`, `c_consistency_mr` |
+
+These are precisely the raw thresholds MR used to rebuild $t_g$ from. They
+survived the fix. Harmless today; they are also the exact material a future
+edit would reach for.
+
+---
+
+## 5. $\mathcal{S}$, the selection map {#sec-selection}
+
+### Definition
+
+> §2.4: among the admitted $\{g : \hat\beta(g) \ge t_g\}$, take the largest
+> effect, or the most consistent candidate, with subgroup size breaking ties.
+> $\mathcal{S}$ is deterministic given the candidate effects (with the
+> $\sigma_{D,g}$ entering only through the fixed thresholds $t_g$), and it ranks
+> on the inferential effect.
+
+$\mathcal{S}$ is a **ranking and a domain**. Both are audited.
+
+### Sites
+
+| Site | Engine | Side |
+|---|---|---|
+| `subgroup_consistency_helpers.R:540` `sort_subgroups()` | consistency | identifier (post-consistency winner) |
+| `subgroup_consistency_helpers.R:641` `sort_subgroups_preview()` | consistency | identifier (pre-consistency ordering / truncation) |
+| `dina_subgroup.R:470` `ord` switch | DINA | identifier, native $\bar\tau$ |
+| `forestsearch_helpers.R:1138` `.dina_reselect_on_effect()` `ord` switch | DINA | identifier, $\hat\beta$ |
+| `grf_subgroup_labels.R:355` `.grf_frontier_select()` | GRF | identifier, native DR score |
+| `forestsearch_helpers.R:1504` `.grf_reselect_on_effect()` | GRF | identifier, $\hat\beta$ |
+| `forestsearch_main.R:2188` `frontier_rule` switch | GRF | focus $\to$ rule map |
+| `fs_mr_inference_methods.R:85` `.fs_mr_reselection_from_focus()` | all | focus $\to$ MR rule map |
+| `fs_mr_inference.R:132` `.fs_mr_select()` | all | MR re-selection |
+
+### Ranking: agrees
+
+| `sg_focus` | Consistency identifier key | MR rule | Agree? |
+|---|---|---|---|
+| `hr` / `maxcons` | $(-P_{\text{cons}}, -\hat\beta, K)$ | `maxcons`: $\arg\max (\hat\beta^* - c_{\text{cons}})/\sigma_D$ | yes -- $P_{\text{cons}} \approx 2\Phi(z_{\text{cons}})-1$ is monotone in $z_{\text{cons}}$ |
+| `maxSG` | $(-N, -P_{\text{cons}}, K)$ | `maxSG`: $\arg\max n$ | yes on the primary key; MR has no $P_{\text{cons}}$ tiebreak |
+| `minSG` | $(N, -P_{\text{cons}}, K)$ | `minSG`: $\arg\min n$ | as above |
+| `hrMaxSG` | $(-\text{band}, -N, -P_{\text{cons}}, -\hat\beta, K)$ | `effMaxSG`: $\arg\max n$ within band | yes |
+| `hrMinSG` | $(-\text{band}, N, \ldots)$ | `effMinSG` | yes |
+| `maxeff` | $(-\hat\beta, K)$, both floors off | `maxeff` over an unrestricted domain | yes |
+| `maxeffCons` | $(-\hat\beta, K)$ among $P_{\text{cons}}$-qualifiers | `maxeff` among `passers` | yes -- `passers` *is* the linearised consistency gate |
+
+The mapping `.fs_mr_reselection_from_focus()` is right, including the two
+subtle cases documented inline: `hr` maps to `maxcons` only on the consistency
+engine (`:88`), and MR's rule *named* `"maxeff"` is gated by `passers` so it
+corresponds to `sg_focus = "maxeffCons"`, not to `sg_focus = "maxeff"` (`:98-103`).
+The `maxeff` case is nonetheless handled correctly, because
+`.fs_admission_applies()` returns both floors `NULL` for
+`consistency`+`maxeff`, which makes `.admit()` the identity and `passers` the
+whole family.
+
+Both `sort_subgroups()` and `sort_subgroups_preview()` have an explicit branch
+for all seven canonical foci and `stop()` otherwise. No silent default.
+
+### Domain: **departs** for DINA and GRF
+
+This is where the identifier and MR disagree, and they disagree differently on
+each engine.
+
+#### F2 (high) -- GRF
+
+`.grf_reselect_on_effect()` re-scores GRF's candidates on $\hat\beta$ and then
+calls, at `forestsearch_helpers.R:1504`:
+
+```r
+.grf_frontier_select(cand_hr, dmin = 1, rule = frontier_rule, ...)
+```
+
+`dmin = 1` is a **hard-coded literal** on the natural HR scale. Inside
+`.grf_frontier_select()` it becomes `elig <- cand[cand$effect >= dmin, ]`
+(`grf_subgroup_labels.R:358`). So the identifier's admissible domain is
+$\{g : \text{HR}(g) \ge 1\} = \{g : \hat\beta(g) \ge 0\}$.
+
+MR's domain, for the same run, is `admission_resolved$effect_floor`
+$= \log(\texttt{hr.threshold}) = \log 1.25 = 0.223$
+(`forestsearch_main.R:1845` $\to$ `:2299` $\to$ `fs_mr_inference.R:408`).
+
+Two consequences:
+
+1. MR's per-draw competition is strictly smaller than the set the identifier
+   chose from. §5's warning is about restricting the perturbed competition; the
+   optimism of every candidate with $\hat\beta \in [0, 0.223)$ is omitted, so
+   the correction **under-corrects**.
+2. If the selected subgroup itself has $\hat\beta \in [0, 0.223)$ -- entirely
+   possible, since the identifier admitted it -- it is not in MR's admitted set
+   on any draw. It is still `sel`, so `beta_naive`, `fixed_bias` and the
+   interval are all computed; but the selection-bias term is drawn from a
+   competition the reported subgroup never entered.
+
+Note also the scale asymmetry: the same `dmin` formal receives `config$dmin.grf`
+(default `0.0`, on the **additive DR** scale) on the native path at
+`grf_main.R:291`, and `1` (on the **multiplicative HR** scale) on the effect
+path. The comment at `forestsearch_helpers.R:1498-1499` acknowledges this as
+"the ratio analogue of `dmin.grf`". But `dmin.grf` is a user argument and `1`
+is not, so a user who sets `dmin.grf` gets it honoured on the native path and
+ignored on the effect path -- which is the default path.
+
+#### F3 (high) -- DINA
+
+`.dina_reselect_on_effect()` (`forestsearch_helpers.R:1129-1156`) ranks over
+`ok <- which(is.finite(eff_link) & !is.na(sz))` -- every candidate it could
+score. There is **no** $\hat\beta$ floor anywhere in the function.
+
+The qualifying family it ranks over was qualified on
+$\bar\tau_S \ge m_{\text{diff}} = \log(\texttt{hr.threshold})$
+(`dina_subgroup.R:685`), which is a floor on DINA's *native* statistic, not on
+$\hat\beta$.
+
+MR's domain for the same run is $\{g : \hat\beta^*(g) \ge \log 1.25\}$.
+
+So the identifier applies no $\hat\beta$ floor and MR applies one. Same defect
+as F2 with the sign reversed: here MR's competition is smaller than the
+identifier's *for a different reason*, and the same "selected subgroup may be
+inadmissible to MR" failure applies.
+
+This reading of Algorithm Step 2 -- "$\mathcal{F}$ is its qualifying candidates
+and $\mathcal{S}$ re-ranks them on $\hat\beta$" -- is that no further
+$\hat\beta$ screen applies, which is what `.dina_reselect_on_effect()` does and
+what MR does not. See @sec-questions.
+
+#### Three different floors for one quantity
+
+| Path | Admissible domain |
+|---|---|
+| Consistency identifier | $\hat\beta \ge \log(\texttt{hr.threshold})$, applied at enumeration (`subgroup_search.R:660`) |
+| DINA identifier (effect) | none |
+| GRF identifier (effect) | $\hat\beta \ge \log 1$ |
+| GRF identifier (native) | DR score $\ge$ `dmin.grf` $= 0$ |
+| MR, all engines | $\hat\beta^* \ge \log(\texttt{hr.threshold})$ |
+
+Only the consistency engine's identifier and MR agree.
+
+---
+
+## 6. The inclusion band {#sec-band}
+
+### Sites
+
+**Selection (all route through the shared helper)**
+
+| Site | Caller |
+|---|---|
+| `subgroup_consistency_helpers.R:778` | `.compute_inclusion_band()` -- the definition |
+| `subgroup_consistency_helpers.R:601` | `sort_subgroups()` |
+| `subgroup_consistency_helpers.R:689` | `sort_subgroups_preview()` |
+| `dina_subgroup.R:478`, `:487` | DINA `hrMaxSG` / `hrMinSG` |
+| `grf_subgroup_labels.R:371` | `.grf_frontier_select()` |
+| `forestsearch_helpers.R:1144`, `:1150` | `.dina_reselect_on_effect()` |
+| `fs_mr_inference.R:147` | `.fs_mr_select()` |
+
+**Display (each re-implements it inline)**
+
+| Site | What it computes |
+|---|---|
+| `print_candidate_summary.R:117` | `(1 - effect_neighborhood) * max(hr_nat)`, gated on `selection_rule %in% c("neighborhood","both")` |
+| `print_candidate_summary.R:322` | same, preview version |
+| `explain_pareto_selection.R:119` | same |
+| `pareto_frontier_table.R:235` | same |
+| `plot_pareto_frontier.R:227` | same |
+
+### Verdict: **duplicated**
+
+The *selection* consolidation is complete and verified: `grep` for
+`(1 - effect_neighborhood)` and equivalents finds no inline band on any
+selection path. `.grf_frontier_select()` gained the `selection_rule` formal and
+uses the shared helper (`grf_subgroup_labels.R:371`), and
+`forestsearch_main.R:2208` passes `selection_rule` through
+`.forestsearch_grf_select()`, so the argument actually arrives -- traced hop by
+hop: `forestsearch_main.R:2208` $\to$ `forestsearch_helpers.R:1563` (formal)
+$\to$ `:1591` / `:1615` (into the arg builders) and `:1638` (into
+`.grf_reselect_on_effect()`) $\to$ `:1506` (into `.grf_frontier_select()`).
+`grf_args.R:68` and `:120` carry the formal, which was the gap the earlier
+30,000-comparison check missed.
+
+Two residual problems.
+
+#### F8 (low) -- display sites disagree with selection under non-default rules
+
+All five display sites compute the neighbourhood component **only**. Under
+`selection_rule = "pareto"` they set `band_used <- FALSE` and show `NA`, and
+under `"both"` they show the neighbourhood indicator where selection used the
+neighbourhood **and** Pareto intersection. So the "in band" column in
+`print_candidate_summary()` does not describe the band that chose the winner.
+Reporting-only, but it is the one artifact a reader would use to check the
+selection by eye.
+
+#### F7 (medium) -- the band empties on negative effects, and the three consumers differ
+
+`.compute_inclusion_band()` computes `hr_floor <- (1 - effect_neighborhood) *
+max(hr_vec)`. When `max(hr_vec) < 0` -- reachable for `effect_measure = "RD"`
+and `"MD"`, where the effect is a difference and `log_scale` is `FALSE`, so no
+exponentiation intervenes -- the floor **exceeds** the maximum and no candidate
+is in band.
+
+The three consumers then do three different things:
+
+| Consumer | Behaviour on an empty band |
+|---|---|
+| `sort_subgroups()` / `_preview()` | `-in_band` is constant, so the key silently degenerates to the next term ($N$ / $-N$) -- i.e. `hrMaxSG` becomes `maxSG` |
+| `.grf_frontier_select()` | returns a zero-row selection, i.e. **no subgroup found** (`grf_subgroup_labels.R:376-388`) |
+| `.fs_mr_select()` | falls back to *all* passers (`fs_mr_inference.R:165`) -- so `effMaxSG` becomes `maxSG` for that draw |
+
+The GRF comment at `grf_subgroup_labels.R:377-383` identifies the cause
+precisely and records that reconciling the three is "a decision pending on its
+own". It is still pending, and the divergence is between the identifier
+(sort keys / GRF) and MR (`.fs_mr_select()`), which is exactly the identifier/MR
+asymmetry this audit is about. The consistency-engine degeneracy and MR's
+fallback happen to coincide (both reduce to `maxSG`); GRF's does not.
+
+---
+
+## 7. The alignment condition $S_g = \hat\beta(g)$ {#sec-alignment}
+
+### Definition
+
+> §4.2: the re-selection $\hat H^*_b = \mathcal{S}(\{\hat\beta(g) + D_g^{(b)}\})$
+> is the faithful linearization of the identifier's selection **exactly when**
+> $S_g = \hat\beta(g)$.
+
+### Every reachable combination
+
+| # | `subgroup_method` | sub-mode | `sg_focus` | Identifier ranks on | MR re-selects on | Identifier domain | MR domain | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| 1 | `consistency` | -- | `hr` | $z_{\text{cons}} = (\hat\beta - c_{\text{cons}})/\sigma_D$, then $\hat\beta$ | `maxcons`: $z_{\text{cons}}$ | screen + $P_{\text{cons}}$ | $t_g$ | **aligned** |
+| 2 | `consistency` | -- | `maxSG` / `minSG` | $n$, then $P_{\text{cons}}$ | $n$ | screen + $P_{\text{cons}}$ | $t_g$ | **aligned** |
+| 3 | `consistency` | -- | `hrMaxSG` / `hrMinSG` | band, then $n$ | band, then $n$ | screen + $P_{\text{cons}}$ | $t_g$ | **aligned** (band caveat F7) |
+| 4 | `consistency` | -- | `maxeffCons` | $\hat\beta$ | $\hat\beta$ among passers | screen + $P_{\text{cons}}$ | $t_g$ | **aligned** |
+| 5 | `consistency` | -- | `maxeff` | $\hat\beta$ | $\hat\beta$ | none | none | **aligned** |
+| 6 | `dina` | `select_statistic = "effect"` | any | $\hat\beta$ | $\hat\beta$ | **none** | $\hat\beta^* \ge \log 1.25$ | **domain mismatch (F3)** |
+| 7 | `dina` | `select_statistic = "dina"` | any | $\bar\tau$ | $\hat\beta$ | $\bar\tau \ge m$ | $\hat\beta^* \ge \log 1.25$ | misaligned; **blocked** by `.validate_mr_configuration()` |
+| 8 | `grf` | `frontier` + `"effect"` | any | $\hat\beta$ | $\hat\beta$ | $\hat\beta \ge 0$ | $\hat\beta^* \ge \log 1.25$ | **domain mismatch (F2)** |
+| 9 | `grf` | `frontier` + `"dr"` | any | DR score | $\hat\beta$ | DR $\ge$ `dmin.grf` | $\hat\beta^* \ge \log 1.25$ | misaligned; **blocked** |
+| 10 | `grf` | `tree` | ignored | policy-tree objective | $\hat\beta$ | -- | -- | misaligned; **blocked** |
+
+Rows 7, 9 and 10 are the three configurations the handoff's condition 1
+identifies. `.validate_mr_configuration()` (`forestsearch_helpers.R:1785`)
+blocks all three, and it is called at all three configuration-visible entry
+points: `forestsearch_main.R:1263`, `bootstrap_dofuture_main.R:274`,
+`forestsearch_cross_validation.R:409` and `:881`. That enforcement is complete
+and correct. (Two CV sites, not one -- the handoff anticipated one.)
+
+Rows 1-5 are aligned on both ranking and domain, subject to the family
+superset F5 and the band degeneracy F7.
+
+Rows 6 and 8 -- **the two default model-based configurations, the ones the
+validator lets through** -- are aligned on the ranking statistic and misaligned
+on the domain. The alignment work fixed $S_g$ and left the admissible set.
+
+### F9 (low) -- two `sg_focus` dispatch sites the completeness assert does not read
+
+`.assert_sg_focus_dispatch_complete()` (`forestsearch_helpers.R:1987`) reads
+three sites: `forestsearch()`'s `frontier_rule` switch, `dina_subgroup()`'s
+`ord` switch, and `dina_subgroup()`'s whitelist. Two more exist:
+
+- `.dina_reselect_on_effect()`'s `ord` switch (`forestsearch_helpers.R:1138`)
+  has branches for `maxSG`, `minSG`, `hr`, `hrMaxSG`, `hrMinSG` -- **five of the
+  seven canonical foci**. `maxeff` and `maxeffCons` fall through to the default
+  at `:1155`. The default is `order(-eff, ok)`, which happens to be exactly what
+  `dina_subgroup.R:475-476` does for those two foci, so behaviour agrees today.
+  But this is the "seven whitelisted values, five branches" shape the assert
+  exists to prevent, at a site it does not read.
+- `subgroup_consistency_main.R:1067-1068` re-inlines
+  `valid_sg_focus <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG", "maxeff",
+  "maxeffCons")` as a literal instead of `.FS_SG_FOCUS_CANONICAL`. The assert
+  checks `dina_subgroup()` for exactly this and not `subgroup.consistency()`.
+  Contents are currently identical.
+
+---
+
+# Phase 2 -- the correction itself
+
+The whole of Phase 2 lives in one function, `fs_mr_inference()`
+(`R/fs_mr_inference.R:338-546`), with three helpers. There is no second
+implementation of any of it -- `grep` for `crossprod`, `tilde_V`, `sel_bias`,
+`fixed_bias` finds no other site. That alone removes the failure mode this
+audit exists to catch; what follows is a check against the equations.
+
+## 8. $P = B_{\text{eff}}^\top \Xi$ {#sec-perturbation}
+
+### Definition
+
+> Algorithm Step 3: draw centered, unit-variance multipliers $\Xi$ ($n \times B$)
+> and form $P = B_{\text{eff}}^\top \Xi$, so one shared draw perturbs every
+> candidate at once: $\hat\beta(g) + D_g^{(b)}$ with $D_g^{(b)} = P[g,b]$.
+
+### Sites
+
+| Site | Role |
+|---|---|
+| `fs_mr_inference.R:110` `.fs_mr_multipliers()` | builds $\Xi$ |
+| `fs_mr_inference.R:88` `.fs_mr_assemble()` | builds $B_{\text{eff}}$ |
+| `fs_mr_inference.R:431-433` | `Xi <- ...; P <- crossprod(B, Xi); beta_star <- bh + P` |
+
+### Verdict: **matches**
+
+**Centered, unit-variance.** All three options are exactly mean-zero and
+unit-variance by construction, confirmed numerically at $n = 2\times10^5$:
+
+| `multiplier` | Construction | Sample mean | Sample var |
+|---|---|---:|---:|
+| `poisson` (default) | `rpois(n, 1) - 1` | $-0.00033$ | $0.9978$ |
+| `gaussian` | `rnorm(n)` | $-0.00237$ | $1.0031$ |
+| `rademacher` | `sample(c(-1,1))` | $+0.00104$ | $1.0000$ |
+
+The `poisson` default is the one that reproduces the nonparametric bootstrap's
+multiplicities, which is what makes the $K^*_{bi} - \bar K^*_i$ reading of
+Eq. 13 literal rather than analogical. `stop()` on an unrecognised value at
+`:115` -- no silent default.
+
+**One shared draw perturbs every candidate.** $B$ is $N \times S$, $\Xi$ is
+$N \times B_{\text{draws}}$, so `crossprod(B, Xi)` is $S \times B_{\text{draws}}$
+and column $b$ is one draw applied to all $S$ candidates simultaneously. The
+loop at `:436-443` reads `beta_star[, b]` -- a whole column -- so the
+re-selection on draw $b$ genuinely ranks candidates perturbed by the *same*
+multiplier vector. This is the property that makes the correction a maximum-type
+order statistic over the competition rather than $S$ independent perturbations,
+and it holds.
+
+**$B_{\text{eff}}$ holds the influences.** `.fs_mr_assemble()` fits each
+candidate once via `.fs_mr_pieces()` and writes `B[idx, g] <- pc$dfbeta` --
+the candidate's own subjects carry its influence, everyone else is structurally
+zero. That is the correct sparsity: a subject outside $g$ has no influence on
+$\hat\beta(g)$, so $D_g^{(b)} = \sum_{i \in g} \Xi_{ib}\, db_{g,i}$, which is
+the §2.2 influence summed against the multiplier. Candidates that cannot be fit,
+or whose `dfbeta` length disagrees with their membership, are dropped from the
+family entirely (`:97`) rather than entering with zeros -- correct, since a zero
+column would be a candidate that never moves and therefore never loses.
+
+The minimum-size guard `if (length(idx) < 6L) next` at `:95` is an additional,
+undocumented family filter, but it removes only candidates below the size at
+which a two-arm fit is possible, and `n.min` (60) dominates it on every path
+that reaches here.
+
+## 9. The de-biasing terms {#sec-debias}
+
+### Definition
+
+> §3.1 Eq. 9: $\text{bias}_{\text{sel}} = B^{-1}\sum_b D_{\hat H^*_b}(b)$,
+> $\text{bias}_{\text{fix}} = B^{-1}\sum_b D_{\hat H}(b)$.
+>
+> Eq. 10: $\tilde\beta(\hat H) = \hat\beta(\hat H) - \text{bias}_{\text{sel}}
+> - \text{bias}_{\text{fix}}$. León et al. keep $\text{bias}_{\text{fix}}$;
+> dropping it is harmless for the point estimate but not for its variance. The
+> complement $\hat H^c$ is de-biased identically.
+
+### Sites
+
+| Site | Expression |
+|---|---|
+| `fs_mr_inference.R:447-451` | `selection_bias`, `fixed_bias`, `beta_deb` (selected subgroup) |
+| `fs_mr_inference.R:496-502` | `selbias_c`, `fixed_c`, `bdc` (complement) |
+
+### Verdict: **matches**, one caveat
+
+```r
+selection_bias <- mean(sel_bias, na.rm = TRUE)   # bias_sel
+fixed_bias     <- mean(P[sel, ])                 # bias_fix
+beta_deb       <- beta_naive - selection_bias - fb
+```
+
+Eq. 10 verbatim, with `bias_fix` **retained**, as the manuscript specifies. The
+comment block at `:454-455` states the same equation, so code and comment agree.
+
+`fb <- if (is.finite(fixed_bias)) fixed_bias else 0` at `:449` substitutes zero
+for a non-finite `bias_fix`. Since `bias_fix` has expectation zero this is a
+benign degradation, and it is the right one -- but it is silent, and the
+returned `fixed_bias` field reports the non-finite original while the estimate
+used zero. A consumer reading `$fixed_bias` cannot tell which was applied.
+
+**The complement is treated identically**, and correctly so on the point the
+manuscript is specific about: the complement's bias is
+`Pc[cbind(winner[ok], ok)]` (`:492`) -- the perturbation of *the complement of
+the re-selected winner on each draw*, not the complement of the fixed selection.
+That is the "induced by selecting the subgroup" reading, and getting it wrong
+would be easy. `vals[is.na(bh_c[winner[ok]])] <- NA_real_` at `:493` correctly
+excludes draws whose winner's complement could not be fit, rather than treating
+an unfit complement as zero perturbation.
+
+Complements are fit only for candidates that actually win (`winset` at `:476`),
+which is a cost optimisation with no effect on the estimand.
+
+#### F13 (low) -- the two averages use different denominators
+
+`bias_sel` uses `na.rm = TRUE`, so it averages over $|\{b : \hat H^*_b \text{
+exists}\}|$; `bias_fix` averages over all $B$. Eq. 9 divides both by $B$.
+
+The two coincide when `selection_rate == 1`, which is the normal case. They
+diverge exactly when some draws admit no candidate -- i.e. when the perturbed
+effects fell below $t_g$ for every candidate. Those are the draws where the
+competition was weakest, and dropping them from `bias_sel` alone inflates it
+relative to a $1/B$ average.
+
+`selection_rate` is returned (`:541`), so the condition is at least visible.
+Whether $B^{-1}$ or $|\text{ok}|^{-1}$ is intended for `bias_sel` is a question
+for the manuscript -- an average over draws with no winner is not obviously
+defined either. Flagged rather than called wrong.
+
+## 10. The IJ variance {#sec-ij}
+
+### Definition
+
+> §3.2 Eq. 12: $r_b = (\text{bias}_{\text{sel}} + \text{bias}_{\text{fix}})
+> - D_{\hat H^*_b}(b) - D_{\hat H}(b)$.
+>
+> Eq. 13: $\tilde V = \sum_i \tilde{\text{cov}}_i^2$,
+> $\tilde{\text{cov}}_i = B^{-1}\sum_b (K^*_{bi} - \bar K^*_i) r_b$,
+> $\hat V = \tilde V - (n/B)\bar{r^2}$.
+>
+> Eq. 14: $\tilde{\text{cov}} = B^{-1}\tilde\Xi r$, $\tilde V =
+> \|\tilde{\text{cov}}\|^2$, with $\tilde\Xi = \Xi - \text{rowmean}\,\Xi$.
+
+### Sites
+
+| Site | Role |
+|---|---|
+| `fs_mr_inference.R:195` `.fs_mr_ij_var()` | the whole of Eq. 13/14 |
+
+Called twice -- `:457` for $\hat H$, `:505` for $\hat H^c$ -- with the same
+$\Xi$ both times.
+
+### Verdict: **matches**
+
+Term by term.
+
+| Manuscript | Code | Line |
+|---|---|---|
+| $r_b = (\text{bias}_{\text{sel}} + \text{bias}_{\text{fix}}) - D_{\hat H^*_b}(b) - D_{\hat H}(b)$ | `r_H <- (selection_bias + fb) - sel_bias - P[sel, ]` | `:456` |
+| $\tilde\Xi = \Xi - \text{rowmean}\,\Xi$ | `Xc <- Xk - rowMeans(Xk)` | `:201` |
+| $\tilde{\text{cov}} = B^{-1}\tilde\Xi r$ | `cov_i <- as.numeric(Xc %*% rb) / Bok` | `:202` |
+| $\tilde V = \|\tilde{\text{cov}}\|^2$ | `tilde_V <- sum(cov_i^2)` | `:203` |
+| $\hat V = \tilde V - (n/B)\bar{r^2}$ | `hat_V <- tilde_V - (nrow(Xi)/Bok) * mean(rb^2)` | `:204` |
+
+`nrow(Xi)` is $n$, the number of subjects; `Bok` is the number of usable draws,
+used consistently as $B$ in all three places. `mean(rb^2)` is
+$B^{-1}\sum_b r_b^2$, matching $\bar{r^2}$ as defined -- the mean of squares,
+not the square of the mean. Eq. 14's vectorised form is what is implemented, and
+it is algebraically Eq. 13.
+
+**The "same draws" property holds.** `Xi` is created once at `:431`, used to
+form `P` at `:432`, and passed unchanged to `.fs_mr_ij_var()` at `:457` and
+`:505`. There is no `set.seed()` between them and no second call to
+`.fs_mr_multipliers()`. The centering is over the used draws only
+(`Xk <- Xi[, ok]` then `rowMeans(Xk)`), which is consistent with `rb <- r[ok]`
+-- both restricted to the same index set, so $\tilde\Xi$ and $r$ are aligned.
+
+`if (length(ok) < 2L)` returns `NA` rather than dividing by a degenerate
+denominator (`:196-197`).
+
+The finite-$B$ correction can go negative, which the manuscript's construction
+allows. `.fs_mr_se_from_ij()` (`:219`) then falls back to $\tilde V$, and
+failing that to $\sigma_D$, recording which was used in `ij_source`. That is a
+graceful degradation with an audit trail, not a silent substitution -- the
+returned object carries `se_ij`, `se_wald`, `var_ij` and `ij_source` separately
+(`:537-539`), so a consumer can see that the IJ interval was not in fact used.
+
+---
+
+# Phase 3 -- replay paths
+
+The criterion, per the spec: does an alteration change what $\mathcal{F}$,
+$\mathcal{S}$, $t_g$ or $\sigma_D$ are within a replicate, relative to the
+original fit?
+
+## 11. The bootstrap {#sec-bootstrap}
+
+`forestsearch_bootstrap_dofuture()` (`R/bootstrap_dofuture_main.R`) hands
+`fs.est$args_call_all` to `bootstrap_analysis_dofuture()`, which clones it per
+replicate as `args_FS_boot` and mutates it.
+
+`args_call_all` itself is a bulk `mget()` of every formal at
+`forestsearch_main.R:1249`, so the reconstruction starts from the complete
+argument set rather than a hand-maintained list. That is the right foundation:
+a formal added to `forestsearch()` is captured automatically.
+
+### Every alteration
+
+| # | Site | Alteration | Category | Changes $\mathcal{F}/\mathcal{S}/t_g/\sigma_D$? |
+|---|---|---|---|---|
+| 1 | `:559` | `df.analysis` $\leftarrow$ resampled frame | the point of the procedure | yes, by design |
+| 2 | `:560` | `df.predict` $\leftarrow$ `dfnew_predict` | prediction frame | no |
+| 3 | `:566` | `details` $\leftarrow$ `show3` | verbosity | no |
+| 4 | `:567` | `show_candidate_summary` $\leftarrow$ `FALSE` | verbosity | no |
+| 5 | `:568` | `plot.sg` $\leftarrow$ `FALSE` | plotting | no |
+| 6 | `:569` | `plot.grf` $\leftarrow$ `FALSE` | plotting | no |
+| 7 | `:570` | `quiet` $\leftarrow$ `!show3` | verbosity | no |
+| 8 | `:574-575` | `grf_res`, `grf_cuts` $\leftarrow$ `NULL` | forces refit | **required** -- see below |
+| 9 | `:581-582` | `dina_res`, `dina_cuts` $\leftarrow$ `NULL` | forces refit | **required** |
+| 10 | `:585-587` | `parallel_args` $\leftarrow$ sequential | parallelism | no |
+| 11 | `:597` | `mr_inference` $\leftarrow$ `FALSE` unless `mr_in_replicates` | post-selection inference | no |
+| 12 | `:395` | column drop: `confounders.candidate` removed (consistency mode only) | forces cut regeneration | **yes** -- F14 |
+
+### Verdict: **matches**, one departure
+
+Alterations 1-11 are correct, and two of them are load-bearing rather than
+cosmetic:
+
+**#8/#9 are necessary, not optional.** `forestsearch()` reuses a supplied
+`grf_res` (`forestsearch_main.R:2317`, and `.forestsearch_grf_select()` at
+`forestsearch_helpers.R:1572`) and a supplied `dina_res`
+(`forestsearch_main.R:1292`). Without the nulling, every replicate would rank
+over the *original sample's* candidate family -- $\mathcal{F}$ frozen at the
+observed data -- and the bootstrap would measure no family-selection optimism
+at all. The comment at `:576-580` states exactly this. Correct.
+
+**#12 is the departure.** In consistency mode the replicate frame drops
+`fs.est$confounders.candidate` -- the derived cut columns -- so `get_fsdata()`
+rebuilds them from the *bootstrap sample's* quantiles. §2.1 is explicit that
+"cut locations from observed quantiles are held fixed under all resampling".
+They are not.
+
+The asymmetry at `:389-394` is deliberate and correct in its own terms: DINA and
+GRF mode retain the raw covariate columns because those engines re-fit from
+them, and dropping them made `.dina_extract_X_from_df()` fail silently into
+zero detections. But the consequence is that in all three modes the family is
+regenerated per replicate.
+
+This is **already recognised** in the package: `.fs_family_status()`'s
+documentation (`forestsearch_helpers.R:1866-1869`) says the `"no-front-end"`
+level is "deliberately NOT called `fixed`: the manuscript's Section 2.1 fixed
+family additionally requires the cut locations to be resample-invariant, which
+quantile-derived cuts (`cut_type = "default"`) are not." So the gap is known at
+the identifier level. What is missing is that the same fact governs the
+bootstrap, and nothing in the bootstrap's output records it.
+
+It is also arguably the *right* behaviour for the full bootstrap specifically:
+FB is the reference standard in §4.2's iff, not a party to it, and replaying
+cut derivation captures the cut-selection optimism that holding cuts fixed
+would omit. Recorded as **F14 (noted)** rather than a defect, but it is the one
+place where a reader could reasonably expect "fixed family" to mean something
+it does not. `cut_type` / `conf.cont_medians` / `conf.cont_jcuts` offer a route
+to genuinely fixed cuts; whether the manuscript's results were produced that way
+is a question for @sec-questions.
+
+`mr_in_replicates = TRUE` is guarded by `.validate_mr_configuration()` at
+`bootstrap_dofuture_main.R:274`, before any replicate runs. Correct placement --
+inside the loop it would be swallowed by the `try()` at `:604`.
+
+## 12. Cross-validation {#sec-cv}
+
+`forestsearch_Kfold()` (`:345-440`) and `forestsearch_tenfold()` (`:840-900`)
+build `cv_args` from `fs.est$args_call_all` by the same clone-and-mutate
+pattern.
+
+### Every alteration (identical in both functions)
+
+| # | Site | Alteration | Changes $\mathcal{F}/\mathcal{S}/t_g/\sigma_D$? |
+|---|---|---|---|
+| 1 | `:388` / `:859` | `parallel_args` $\leftarrow$ sequential | no |
+| 2 | `:389` / `:860` | `details` $\leftarrow$ `FALSE` | no |
+| 3 | `:390` / `:861` | `quiet` $\leftarrow$ `TRUE` | no |
+| 4 | `:391` / `:862` | `plot.sg` $\leftarrow$ `FALSE` | no |
+| 5 | `:396` / `:867` | `ps_hat` $\leftarrow$ `NULL` | **required** -- forces per-fold PS re-estimation |
+| 6 | `:403` / `:875` | `mr_inference` $\leftarrow$ `FALSE` unless `mr_in_replicates` | no |
+| -- | `.fs_cv_base_frame()` `:98-137` | fold frame carries raw `confounders.name`, not derived cuts | **yes** -- F14, same as the bootstrap |
+
+### Verdict: **departs**
+
+#### F12 (medium) -- the CATEGORY-2 nulling is missing
+
+The bootstrap nulls `grf_res`, `grf_cuts`, `dina_res` and `dina_cuts` with an
+explicit comment saying why. **Cross-validation does not.**
+
+`args_call_all` carries all four (bulk `mget()`), and `forestsearch()` reuses a
+non-`NULL` `grf_res` / `dina_res` rather than re-fitting. So if the original
+analysis was called with a pre-fitted forest or DINA fit -- which is exactly
+what those formals exist for, and what `extract_grf_args()` /
+`grf_res = <object>` are documented to support -- every training fold ranks over
+a candidate family estimated on the **full data, including the held-out fold**.
+
+That is a change to $\mathcal{F}$ within a replicate relative to the original
+fit, which is the spec's criterion, and it is the direction that matters: the
+CV metrics (`sensCV`, `ppvCV`, exact-match) would be optimistic, because the
+family the training fold selects from already saw the test fold.
+
+The inconsistency is visible in the code itself: `ps_hat` **is** nulled, with
+the comment "PS must be re-estimated on each training fold -- NULL out any
+user-supplied `ps_hat` (wrong length for training fold)". The same reasoning
+applies verbatim to `grf_res` and `dina_res`; the length mismatch just does not
+happen to make them error.
+
+Note the scope: this bites only when the user supplies a cached fit. At the
+common usage `grf_res = NULL` there is nothing to leak. But the bootstrap
+guards against it and CV does not, and there is no comment recording the
+difference as deliberate.
+
+#### What CV gets right
+
+`.fs_cv_base_frame()` (`:98-137`) selects raw columns by name --
+`confounders.name`, outcome, event, id, treatment, plus `offset.name`,
+`conf_force` and `adjust_covariates` variables when present -- so derived cut
+columns are excluded and each fold rebuilds them. Same F14 consequence as the
+bootstrap, same reasoning.
+
+`.validate_mr_configuration()` fires at **both** CV entry points
+(`:409` for `forestsearch_Kfold()`, `:881` for `forestsearch_tenfold()`) before
+the fold loop, not inside it. The handoff anticipated one CV enforcement site;
+there are two, and both are correctly placed.
+
+---
+
+## Questions for Larry {#sec-questions}
+
+Per the spec's "ask rather than guess". Each of these changes a verdict.
+
+1. **The manuscript PDFs.** Not in `dev/identifier-alignment/`. Please supply
+   them; several items below may already be settled by context the extracts
+   lack.
+
+2. **Does Algorithm Step 2 impose an effect floor on a model-based
+   identifier?** "For a model-based identifier, $\mathcal{F}$ is its qualifying
+   candidates and $\mathcal{S}$ re-ranks them on $\hat\beta$" reads as *no*
+   further screen. §2.4's $t_g = \max(c_{\text{screen}}, \ldots)$ reads as
+   *yes*. F2 and F3 are defects under either reading -- the identifier and MR
+   disagree with each other regardless -- but **which side to move** depends on
+   this. If no floor applies, MR's `effect_floor` should be `NULL` for DINA and
+   GRF (a `.fs_admission_applies()` change). If a floor applies, the identifier
+   should use $\log(\texttt{hr.threshold})$ and GRF's hard-coded `dmin = 1`
+   should go.
+
+3. **Is `sg_focus = "hr"` inside §4.2's scope?** It ranks on
+   $z_{\text{cons}} = (\hat\beta - c_{\text{cons}})/\sigma_D$, so $\sigma_{D,g}$
+   enters the *ranking*, not only $t_g$. §2.4 says "$\mathcal{S}$ is
+   deterministic given the candidate effects (with the $\sigma_{D,g}$ entering
+   only through the fixed thresholds $t_g$)" and §4.2 states the iff as
+   $S_g = \hat\beta(g)$. Yet §2.4 also offers "the most consistent candidate" as
+   one of the two sanctioned rules. The code is internally consistent -- the
+   identifier and MR rank on the same $z_{\text{cons}}$ with each candidate's
+   own $\sigma_D$ held fixed -- so this is a question about the manuscript's
+   statement, not a code defect. `hr` is the **default** `sg_focus`.
+
+4. **`rmin` and `remove_near_duplicate_subgroups()`.** These drop estimable
+   candidates on redundancy grounds §2.1 does not list. Deliberate extension,
+   or should §2.1's family be taken literally? If deliberate, they still need
+   replaying in MR's family for the domains to match (F5).
+
+5. **F1's blast radius.** Is `effect_measure = "MD"` in the manuscript's scope
+   at all? If continuous outcomes are out of scope, F1 is a latent bug rather
+   than a result-affecting one. If they are in scope, any MD result produced
+   since `c68fe70` has no MR.
+
+6. **F7's empty band.** Reconciling the three consumers is recorded as pending
+   at `grf_subgroup_labels.R:381-383`. Does the manuscript define the band
+   multiplicatively (which is what breaks on negative effects) or as
+   $\hat\beta \ge \max\hat\beta - \delta$ (which does not)?
+
+7. **Eq. 9's denominator for `bias_sel` (F13).** When a draw admits no
+   candidate, is $D_{\hat H^*_b}(b)$ zero, or is the draw excluded and the sum
+   divided by the number of draws with a winner? The code does the latter for
+   `bias_sel` and the former for `bias_fix`. Both readings are defensible; they
+   should match each other.
+
+8. **Were the manuscript's results produced with fixed cuts (F14)?** Both replay
+   paths re-derive quantile cuts per replicate/fold. Under `cut_type =
+   "default"` with `conf.cont_medians = NULL` the cut locations move with the
+   resample, contradicting §2.1's "cut locations from observed quantiles are
+   held fixed under all resampling". For the full bootstrap this is arguably
+   correct (FB is the reference standard, not a party to the iff), but if the
+   manuscript's §2.1 sentence is meant to describe what the code does, it
+   describes a configuration -- explicit `conf.cont_medians` / `conf.cont_jcuts`
+   -- rather than the default.
+
+---
+
+## What this audit would and would not have caught {#sec-method}
+
+Per the spec's calibration instruction: the six previously-found defects were
+re-audited from scratch rather than assumed fixed.
+
+| Prior defect | Re-audit result |
+|---|---|
+| MR admission set rebuilt at MR's call site | **fix holds** -- one reconstruction site, from a resolved object (@sec-tg). But it fixed the *presence* pattern, not the *values*, which is F2/F3. |
+| DINA/GRF consistency floor with `p_star` live | **fix holds** -- `.fs_admission_applies()` returns `consistency = FALSE` for both engines, asserted for every (focus, engine) pair. |
+| GRF inclusion band hardcoded | **fix holds**, and the wiring was traced hop-by-hop rather than at the leaf (@sec-band). |
+| `maxeff`/`maxeffCons` frontier dispatch | **fix holds** at the two asserted sites; **two more dispatch sites exist that the assert does not read** (F9). |
+| `sigma_D` from `stats::dfbeta()` | **fix is correct for `glm`, broken for `lm`** -- F1. |
+| MR family restriction | **fix holds** -- `.fs_mr_restrict_native` is gone from `R/`, both branches pass the whole qualifying table. |
+
+Three of the six fixes turned out to be incomplete in a way visible only by
+tracing rather than by reading the change: F9 (the assert covers 3 of 5 sites),
+F1 (the validation grid had no `lm`), and F2/F3 (the resolver unified presence
+but not value).
+
+The method that surfaced F1 was running the function, not reading it. The
+method that surfaced F2/F3 was tabulating the domain for every reachable
+configuration in one table -- neither is visible from either side alone. The
+method that surfaced F12 was reading the bootstrap and the CV reconstruction
+against each other rather than each against the manuscript.
