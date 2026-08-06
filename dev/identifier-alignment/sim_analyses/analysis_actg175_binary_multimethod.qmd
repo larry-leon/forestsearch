@@ -87,7 +87,15 @@ fs_selection_rule        <- "both"       # neighborhood ∩ Pareto (effMaxSG/eff
 fs_or_threshold          <- 1.25
 fs_or_consistency        <- 1.0
 fs_pconsistency          <- 0.90
-fs_max_subgroups_search  <- 20L
+# Uncapped.  The cap has no counterpart in the method: the candidate family is
+# every conjunction of at most two conditions, less empty intersections and
+# size/event failures, and selection ranges over that family.  Truncation
+# applies a PREVIEW ordering, so the candidate that is optimal under the actual
+# selection criterion can be discarded before it is ever evaluated.  Measured
+# cost of removing it here: 17 extra candidates at ~4.8 ms each, under a second.
+# It previously bound (pool 37 truncated to 20), so the FS label may differ from earlier runs --
+# that is a result change, not a defect.
+fs_max_subgroups_search  <- Inf
 # IMPORTANT: the Tier-2 de-biased gate on the GLM path runs ONLY under the
 # resample-consistency engine (consistency_method = "resample").  Under the
 # default "split" engine the gate is silently skipped for GLM outcomes.
@@ -158,7 +166,11 @@ fs_family_native_nbhd <- NULL
 dina_screen_sg_focus             <- "effMaxSG"
 dina_screen_or_threshold         <- 1.0
 dina_screen_or_consistency       <- 0.9
-dina_screen_max_subgroups_search <- 30L
+# Uncapped, for the same reason as fs_max_subgroups_search above: no
+# counterpart in the method, truncation under a preview ordering, and a
+# measured cost of 135 extra candidates at ~4.8 ms each.  It previously bound
+# (pool 165 truncated to 30).
+dina_screen_max_subgroups_search <- Inf
 # Screening cut set: FALSE => full DINA frontier; TRUE => only the single
 # dina_subgroup()-selected cut (uses dina_screen_sg_focus / selection_rule).
 dina_screen_selected_only        <- TRUE
