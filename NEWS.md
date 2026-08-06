@@ -1,5 +1,30 @@
 # forestsearch 0.2.0
 
+## Bug fix: the bootstrap carried a user-supplied `ps_hat` into replicates unaligned
+
+`forestsearch()` assigns a user-supplied `ps_hat` positionally
+(`df.analysis$ps_hat <- ps_hat`) and derives the IPTW weights from it. A
+bootstrap resample has the **same row count** but different subjects, so the
+length check passed while every score belonged to a different person. The
+replicate then de-biased using propensity scores attached to the wrong
+subjects.
+
+`forestsearch_bootstrap_dofuture()` now nulls `ps_hat` in its
+`CATEGORY 2: VARIABLE RE-SELECTION` block, alongside `grf_res`, `grf_cuts`,
+`dina_res` and `dina_cuts`. Each replicate estimates its own score under the
+replicate's `ps_method`. This matches cross-validation, which nulls `ps_hat` at
+both entry points on identical reasoning -- the asymmetry was the defect.
+
+**This changes bootstrap results for anyone passing `ps_hat` explicitly**, and
+only for them: with `ps_hat = NULL` (the default) the score was already
+estimated per replicate and nothing changes. Measured on ACTG175, binary/OR,
+`ps_adjust_method = "iptw"`, 40 replicates on a fixed seed: the selected
+subgroup and its size are unchanged, the FB estimate moves 2.0919 -> 2.2434
+(+7.2%), and the interval widens from [0.812, 5.389] to [0.625, 8.059].
+
+Note the effect is confined to GLM outcomes. On the survival path the score is
+attached and never read, so nothing consumed the misaligned values there.
+
 ## New: `mean_r` and `mean_r_c` on the MR object
 
 `fs_mr_inference()` now returns two diagnostics beside `selection_rate`:

@@ -580,6 +580,16 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     # to provide.
     args_FS_boot$dina_res <- NULL
     args_FS_boot$dina_cuts <- NULL
+    # A user-supplied ps_hat is positional: forestsearch() assigns it with
+    # df.analysis$ps_hat <- ps_hat and derives the IPTW weights from it.  A
+    # resample has the SAME row count but different subjects, so the length
+    # check passes while every score belongs to a different person -- this
+    # attaches wrong values, not merely stale ones.  Nulling it makes each
+    # replicate estimate its own score under the replicate's ps_method, which
+    # is what the correction requires.  THIS MATCHES CROSS-VALIDATION, which
+    # nulls ps_hat at both entry points on identical reasoning; the asymmetry
+    # was the defect, not the nulling.
+    args_FS_boot$ps_hat <- NULL
 
     # CATEGORY 3: SEQUENTIAL EXECUTION
     args_FS_boot$parallel_args$plan <- "sequential"
