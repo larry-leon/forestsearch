@@ -73,7 +73,7 @@ forestsearch(
   by.risk = 12,
   plot.sg = FALSE,
   plot.grf = FALSE,
-  max_subgroups_search = 200,
+  max_subgroups_search = Inf,
   vi.grf.min = -0.2,
   use_twostage = TRUE,
   twostage_args = list(),
@@ -580,13 +580,20 @@ Default FALSE.}
 
 \item{plot.grf}{Logical. Plot GRF results. Default FALSE.}
 
-\item{max_subgroups_search}{Integer. Maximum subgroups to evaluate.
-Default 200.  For \code{sg_focus} in \code{"effMaxSG"} / \code{"effMinSG"} (equivalently
-\code{"hrMaxSG"} / \code{"hrMinSG"}) and the size foci \code{"maxSG"} / \code{"minSG"}, the
-subgroup that is optimal under the criterion can sit far down the ranked
-candidate list, so the candidate pool should be broad; when the pool is
-actually truncated a warning naming both counts is emitted.  Overridden to
-\code{Inf} under \code{sg_focus = "maxeff"} (no candidate-pool truncation).}
+\item{max_subgroups_search}{Numeric. Maximum subgroups to evaluate.
+\strong{Default \code{Inf}} -- no truncation.  The cap has no counterpart
+in the method: the candidate family is every conjunction of at most two
+conditions, less empty intersections and size/event failures, and
+selection ranges over that family.  A finite value truncates the pool
+under a \emph{preview} ordering, so the subgroup that is optimal under
+the actual criterion can be discarded before it is ever evaluated -- most
+acutely for the size foci \code{"maxSG"} / \code{"minSG"}, where small
+high-effect subgroups sort last, and for the band foci
+\code{"effMaxSG"} / \code{"effMinSG"}.  When a finite value does truncate
+the pool a warning naming both counts is emitted.
+
+Set a finite value only to bound runtime, knowing it can change which
+subgroup is selected.  The default was \code{200} in earlier versions.}
 
 \item{vi.grf.min}{Numeric. Minimum GRF variable importance. Default -0.2.}
 

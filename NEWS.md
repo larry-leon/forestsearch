@@ -1,5 +1,31 @@
 # forestsearch 0.2.0
 
+## Breaking: `max_subgroups_search` now defaults to `Inf`
+
+`forestsearch()` capped the candidate pool at the top **200** subgroups before
+consistency evaluation. The default is now `Inf` -- no truncation.
+
+The cap has no counterpart in the method. The candidate family is every
+conjunction of at most two conditions, less empty intersections and
+size/event failures, and selection ranges over that family. Truncation applied
+a *preview* ordering and discarded everything below the cut, so the subgroup
+that is optimal under the actual selection criterion could be dropped before
+it was ever evaluated -- most acutely for the size foci `"maxSG"` / `"minSG"`,
+where small high-effect subgroups sort last, and for the band foci
+`"effMaxSG"` / `"effMinSG"`.
+
+**This changes FS results wherever the cap previously bound**, i.e. wherever
+the post-screen pool exceeded 200 and the truncation warning fired. Where the
+pool was smaller than the cap, nothing changes. Runs that relied on the cap for
+runtime should set a finite value explicitly, knowing it can change which
+subgroup is selected:
+
+```r
+forestsearch(..., max_subgroups_search = 200)   # previous behaviour
+```
+
+`sg_focus = "maxeff"` already forced `Inf` and is unaffected.
+
 ## Identifier alignment: new defaults (BREAKING) and an MR configuration guard
 
 Multiplier resampling (MR) linearizes the selection event, which is valid only
