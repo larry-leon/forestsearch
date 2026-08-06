@@ -773,11 +773,31 @@
 #'   method: \code{"grf"}, \code{"lasso"}, \code{"logistic"}, or
 #'   \code{"none"}.  Default: \code{"none"} for RCT, \code{"grf"} for
 #'   observational.
+#'
+#'   **GLM outcome types only** (\code{"binary"}, \code{"continuous"},
+#'   \code{"count"}). Propensity adjustment is **not implemented for
+#'   \code{outcome_type = "survival"}**: no Cox estimation path reads the
+#'   resulting weights, so any value other than \code{"none"} is an error there
+#'   rather than a silent no-op. For confounding control on a survival outcome
+#'   use \code{adjust_covariates}. Note the default resolves to \code{"grf"}
+#'   when \code{is.RCT = FALSE}, so an observational survival analysis must
+#'   pass \code{ps_method = "none"} explicitly.
 #' @param ps_adjust_method Character. PS adjustment method: \code{"none"}
 #'   (default), \code{"iptw"} (stabilized inverse probability of treatment
 #'   weights), or \code{"dr_gcomp"} (IPS covariate).
+#'
+#'   **GLM outcome types only**, and consumed only when \code{ps_method} is not
+#'   \code{"none"} -- it selects how the estimator closure is rebuilt, and that
+#'   rebuild is GLM-gated. It has no effect on a survival outcome, which is
+#'   refused at \code{ps_method}.
 #' @param ps_hat Numeric vector or \code{NULL}. User-supplied propensity
-#'   scores.  Must have length equal to \code{nrow(df.analysis)}.
+#'   scores.  Must have length equal to \code{nrow(df.analysis)}, and is
+#'   applied **positionally** to \code{df.analysis}.
+#'
+#'   Not carried into bootstrap replicates or cross-validation folds: a
+#'   resample has the same row count but different subjects, so a supplied
+#'   score would be attached to the wrong people. Both re-estimate their own
+#'   score per replicate/fold under \code{ps_method}.
 #'
 #' @return A list of class "forestsearch" containing:
 #'   \describe{
@@ -1899,8 +1919,41 @@ forestsearch <- function(df.analysis,
   # ===========================================================================
 
   # Resolve ps_method default
+  ps_method_supplied <- !is.null(ps_method)
   if (is.null(ps_method)) {
     ps_method <- if (is.RCT) "none" else "grf"
+  }
+
+  # PROPENSITY ADJUSTMENT IS NOT IMPLEMENTED FOR SURVIVAL OUTCOMES.
+  #
+  # The estimator-closure rebuild below is gated on `if (is_glm)`, and no Cox
+  # path reads `sw`, `ps_hat` or `ips_covar` -- those three names do not appear
+  # in any Cox estimation file.  So on a survival outcome the score is
+  # estimated, the columns are attached, and nothing consumes them: the
+  # estimates are bit-identical to ps_method = "none" at every
+  # ps_adjust_method, while the returned object still reports the method that
+  # was asked for.
+  #
+  # This errors rather than warning, on the same grounds as F2's silently
+  # ignored dmin.grf: an adjustment argument that cannot change any result is a
+  # defect, not a documentation matter, and a warning invites the reader to
+  # believe there is a setting here worth tuning.  There is no configuration in
+  # which it does something, so there is nothing to tune.
+  if (!is_glm && !identical(ps_method, "none")) {
+    stop("ps_method = \"", ps_method, "\" was requested for outcome_type = ",
+         "\"survival\", but propensity-score adjustment is NOT IMPLEMENTED for ",
+         "survival outcomes: the score would be estimated and attached to the ",
+         "data, and no Cox estimation path reads it, so every estimate would be ",
+         "identical to ps_method = \"none\".\n",
+         if (!ps_method_supplied)
+           paste0("  This value was not supplied -- ps_method defaults to ",
+                  "\"grf\" when is.RCT = FALSE. Pass ps_method = \"none\" ",
+                  "explicitly for an observational survival analysis.\n")
+         else
+           "  Pass ps_method = \"none\", or use a GLM outcome_type.\n",
+         "  For confounding control on a survival outcome, use ",
+         "adjust_covariates (regression/strata adjustment), which the Cox path ",
+         "does consume.", call. = FALSE)
   }
   args_call_all <- .sync_args_call_all(args_call_all, environment(),
                                        "ps_method")

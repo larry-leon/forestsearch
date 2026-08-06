@@ -1,5 +1,33 @@
 # forestsearch 0.2.0
 
+## Breaking: `ps_method != "none"` is now an error for survival outcomes
+
+Propensity adjustment is **not implemented** for `outcome_type = "survival"`.
+The estimator-closure rebuild is gated on `if (is_glm)`, and no Cox estimation
+path reads `sw`, `ps_hat` or `ips_covar` -- those names appear in no Cox file.
+So the score was estimated, the columns were attached, nothing consumed them,
+and the returned object still reported the method that was asked for.
+
+Measured on GBSG: `ps_method = "grf"` at `ps_adjust_method` of `"iptw"`,
+`"dr_gcomp"` and `"none"` gives results **bit-identical** to
+`ps_method = "none"` -- same selected subgroup, same `treat.recommend`, same
+`result_1sided` at tolerance 0.
+
+This errors rather than warning, on the same grounds as the silently ignored
+`dmin.grf` on the GRF effect path: an adjustment argument that cannot change
+any result is a defect, not a documentation matter. There is no configuration
+in which it does something, so a warning would invite the reader to think there
+is a setting worth tuning.
+
+**Note the default.** `ps_method` resolves to `"grf"` when `is.RCT = FALSE`, so
+an observational **survival** analysis that never mentioned `ps_method` now
+errors and must pass `ps_method = "none"` explicitly. The message says so. Such
+a run was already getting no adjustment while reporting `ps_method = "grf"`, so
+the break surfaces a result that was not what it claimed.
+
+For confounding control on a survival outcome use `adjust_covariates`, which
+the Cox path does consume.
+
 ## Bug fix: the bootstrap carried a user-supplied `ps_hat` into replicates unaligned
 
 `forestsearch()` assigns a user-supplied `ps_hat` positionally

@@ -695,14 +695,34 @@ exclusive with \code{ps_method != "none"}.  Default \code{NULL}
 \item{ps_method}{Character or \code{NULL}. Propensity score estimation
 method: \code{"grf"}, \code{"lasso"}, \code{"logistic"}, or
 \code{"none"}.  Default: \code{"none"} for RCT, \code{"grf"} for
-observational.}
+observational.
+
+\strong{GLM outcome types only} (\code{"binary"}, \code{"continuous"},
+\code{"count"}). Propensity adjustment is \strong{not implemented for
+\code{outcome_type = "survival"}}: no Cox estimation path reads the
+resulting weights, so any value other than \code{"none"} is an error there
+rather than a silent no-op. For confounding control on a survival outcome
+use \code{adjust_covariates}. Note the default resolves to \code{"grf"}
+when \code{is.RCT = FALSE}, so an observational survival analysis must
+pass \code{ps_method = "none"} explicitly.}
 
 \item{ps_adjust_method}{Character. PS adjustment method: \code{"none"}
 (default), \code{"iptw"} (stabilized inverse probability of treatment
-weights), or \code{"dr_gcomp"} (IPS covariate).}
+weights), or \code{"dr_gcomp"} (IPS covariate).
+
+\strong{GLM outcome types only}, and consumed only when \code{ps_method} is not
+\code{"none"} -- it selects how the estimator closure is rebuilt, and that
+rebuild is GLM-gated. It has no effect on a survival outcome, which is
+refused at \code{ps_method}.}
 
 \item{ps_hat}{Numeric vector or \code{NULL}. User-supplied propensity
-scores.  Must have length equal to \code{nrow(df.analysis)}.}
+scores.  Must have length equal to \code{nrow(df.analysis)}, and is
+applied \strong{positionally} to \code{df.analysis}.
+
+Not carried into bootstrap replicates or cross-validation folds: a
+resample has the same row count but different subjects, so a supplied
+score would be attached to the wrong people. Both re-estimate their own
+score per replicate/fold under \code{ps_method}.}
 
 \item{mr_inference}{Logical.  Whether to follow the search with multiplier
 resampling (MR): a refit-free de-biased estimate of the selected
