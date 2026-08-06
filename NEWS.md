@@ -458,6 +458,44 @@ re-record the selection.
 
 ## Bug Fixes
 
+* **Fixed an incoherence between the two multiplier-resampling bias terms'
+  denominators.** `selection_bias` averaged over the draws that produced a
+  re-selected winner while `fixed_bias` averaged over all `B` draws. The
+  infinitesimal-jackknife residual combines the two, so it mixed differently
+  normalised quantities and its mean over the draws the IJ used was not zero --
+  precisely the condition the finite-`B` correction needs in order to be the
+  centered quantity it is meant to be. Both terms, and the IJ, are now taken
+  over the same draws: those on which a selection occurred.
+
+  This conditions the correction on identification, which is deliberate. The
+  reported analysis exists only because a subgroup was identified, the selected
+  subgroup's effect is already a conditional estimand, and a bootstrap replicate
+  that identifies nothing contributes nothing to the full bootstrap that MR
+  approximates.
+
+  **Wherever `selection_rate < 1` the de-biased point estimate shifts by exactly
+  the old residual mean** -- the incoherence was surfacing directly as a bias of
+  that size. Intervals are essentially unchanged, and **`selection_rate = 1`
+  analyses are unaffected to every digit**. `$mr_inference$selection_rate` is
+  the field that tells you which case you are in. Measured on ACTG175 at
+  `selection_rate = 0.865`:
+
+  | quantity | before | after |
+  |---|---:|---:|
+  | `selection_bias` | 0.6623937 | 0.6623937 (identical) |
+  | `fixed_bias` | 0.0053309 | 0.0908747 |
+  | de-biased OR | 1.52988 | 1.40445 |
+  | `tilde_V` | 0.2965604 | 0.2965604 (identical) |
+  | `se_ij` | 0.4190578 | 0.4217818 |
+
+  Note that `fixed_bias` is now a **conditional** expectation and is no longer
+  mean-zero: the draws that clear the admission floor are exactly those where
+  the perturbation pushed effects up, so the conditioning event correlates with
+  the quantity being averaged. It shrinks monotonically to zero as
+  `selection_rate` approaches 1 -- the behaviour of a selection effect rather
+  than an artefact. Both the shipped DINA configuration and GRF on ACTG175 ran
+  at `selection_rate = 1`.
+
 * Fixed cross-validation reusing a cached `grf_res` / `dina_res` inside every
   training fold.  `forestsearch_Kfold()` and `forestsearch_tenfold()` rebuild
   each fold's call from `args_call_all`, which carries all of `forestsearch()`'s

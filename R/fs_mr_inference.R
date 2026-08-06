@@ -443,9 +443,29 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   }
   timing <- as.numeric((proc.time() - t0)["elapsed"])
 
+  # BOTH BIAS TERMS ARE CONDITIONAL ON IDENTIFICATION, over the same draws.
+  #
+  # The defect was never the denominator on its own -- it was that the two terms
+  # carried DIFFERENT ones: selection_bias over the draws that produced a
+  # winner, fixed_bias over all B.  The residual then mixed differently
+  # normalised quantities and mean(r) was not zero, which is the condition
+  # Eq. 13's uncentered rbar2 needs in order to be Wager's centered v-hat.
+  #
+  # Averaging BOTH over `ok` repairs that.  The alternative repair -- both over
+  # B, with D := 0 on a no-winner draw -- is equally centered, so centering does
+  # not choose between them; they differ in ESTIMAND.  Conditioning is the
+  # deliberate choice: the reported analysis exists only because a subgroup was
+  # identified, beta(H-hat) is already a conditional estimand, and a bootstrap
+  # replicate that identifies nothing contributes nothing to the full bootstrap
+  # MR approximates.  It also avoids having to invent a convention for the
+  # complement of an empty winner, whose complement is everyone.
+  # Named ok_H, not ok: the complement block below rebinds `ok` to its own draw
+  # set, and two different index sets under one name is the kind of quiet
+  # aliasing this change exists to remove.
+  ok_H <- which(is.finite(sel_bias))
   selection_rate <- mean(!is.na(sel_bias))
-  selection_bias <- mean(sel_bias, na.rm = TRUE)
-  fixed_bias     <- mean(P[sel, ])
+  selection_bias <- mean(sel_bias, na.rm = TRUE)   # over `ok_H`
+  fixed_bias     <- mean(P[sel, ok_H])             # over `ok_H`, was all B
   fb             <- if (is.finite(fixed_bias)) fixed_bias else 0
   beta_naive <- bh[sel]
   beta_deb   <- beta_naive - selection_bias - fb
@@ -453,8 +473,10 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
 
   # Infinitesimal-jackknife variance of the de-biased estimate (Eq. VInfJ_bc),
   # from the same draws: r_b = (selection_bias + fixed_bias) - D_{H*_b}(b) - D_H(b).
+  # Evaluated on `ok`, the same draws both bias terms average over -- which is
+  # what makes mean(r_b) identically zero there.
   r_H   <- (selection_bias + fb) - sel_bias - P[sel, ]
-  ijH   <- .fs_mr_ij_var(Xi, r_H, which(is.finite(sel_bias)))
+  ijH   <- .fs_mr_ij_var(Xi, r_H, ok_H)
   se_ij <- .fs_mr_se_from_ij(ijH, se_wald)
   se    <- if (ci_method == "ij") se_ij$se else se_wald
 
@@ -493,8 +515,24 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
       vals[is.na(bh_c[winner[ok]])] <- NA_real_  # winner's complement not fit
       selb_c[ok] <- vals
     }
-    selbias_c <- mean(selb_c, na.rm = TRUE)
-    fixed_c   <- mean(Pc[sel, ])
+    # Same principle as the selected subgroup: both bias terms and the IJ share
+    # one denominator.  Here that is the draws on which the complement's
+    # perturbation EXISTS, which is_finite(selb_c) already identifies -- it
+    # excludes two distinct events at once, and under this convention both are
+    # excluded rather than one being substituted:
+    #
+    #   (a) the draw admitted no candidate      -- winner[b] is NA;
+    #   (b) the winner's complement was not fit -- set NA at the line above.
+    #
+    # (b) is missing data, not a selection outcome, so it must never be
+    # substituted with a value.  Conditioning makes (a) excluded too, so the
+    # distinction needs no code: naming the shared set is enough.  It also
+    # avoids the question of what the complement of an EMPTY winner is -- under
+    # this convention that draw is excluded on both sides, and the complement is
+    # always a genuine complement.
+    use_c     <- which(is.finite(selb_c))
+    selbias_c <- mean(selb_c[use_c])
+    fixed_c   <- mean(Pc[sel, use_c])            # over `use_c`, was all B
     bnc       <- bh_c[sel]
     if (is.finite(bnc)) {
       sbc <- if (is.finite(selbias_c)) selbias_c else 0
@@ -502,7 +540,7 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
       bdc <- bnc - sbc - fcc
       sec <- sdv_c[sel]
       r_c   <- (sbc + fcc) - selb_c - Pc[sel, ]
-      ijC   <- .fs_mr_ij_var(Xi, r_c, which(is.finite(selb_c)))
+      ijC   <- .fs_mr_ij_var(Xi, r_c, use_c)
       se_ijc <- .fs_mr_se_from_ij(ijC, sec)
       sec_used <- if (ci_method == "ij") se_ijc$se else sec
       complement <- list(

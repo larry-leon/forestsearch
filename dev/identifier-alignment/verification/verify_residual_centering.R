@@ -22,12 +22,19 @@
 # Binding the real function makes "what is exercised is the shipped
 # computation" true permanently rather than only at the moment of writing.
 #
-# Reproduced from the source at lines 434-457:
+# Reproduced from the source at lines 434-479.  NOTE: this is the behaviour as
+# it was WHEN THIS SCRIPT WAS WRITTEN, i.e. the defect being diagnosed:
 #   sel_bias[b]    <- P[s, b]  where a winner exists, else NA
 #   selection_bias <- mean(sel_bias, na.rm = TRUE)   # over WINNER draws
-#   fixed_bias     <- mean(P[sel, ])                 # over ALL draws
+#   fixed_bias     <- mean(P[sel, ])                 # over ALL draws  <-- the
+#                                                    #   mismatched denominator
 #   r_H            <- (selection_bias + fb) - sel_bias - P[sel, ]
 #   ijH            <- .fs_mr_ij_var(Xi, r_H, which(is.finite(sel_bias)))
+# The package has since been repaired: fixed_bias now averages over the winner
+# draws too, so both terms share one denominator and mean(r) is zero there.
+# Neither arm below matches the shipped code any more -- both hold fixed_bias at
+# all-B -- and that is deliberate: this script is the record of the DIAGNOSIS,
+# and its "winners" arm is what the code did before the repair.
 
 .fs_mr_ij_var <- forestsearch:::.fs_mr_ij_var   # the SHIPPED function, not a copy
 

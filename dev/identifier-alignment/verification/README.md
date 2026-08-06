@@ -32,6 +32,27 @@ V5 and V6 are the audit's **F13** material — the denominator convention for
 establish what each convention implies, so the choice can be made on the
 numbers.
 
+### `verify_eq9_alignment.R` — V8 and `verify_conditional_convention.R` — V9
+
+The two scripts behind the F13 change, in order.
+
+**V8** compares three arms: as-coded (`bias_sel` over winner draws, `bias_fix`
+over `B`, IJ on winners); Eq. 9 literal (both over `B` with `D := 0` on a
+no-winner draw, IJ over all `B`); and half-aligned. It establishes that the
+as-coded arm is not centered (`mean(r)` = −0.169) and that Eq. 9 literal is
+(+2.3e−17), and that the half-aligned arm is **worse than doing nothing**
+(−0.367) — so the denominator change alone is a regression, not a partial
+improvement.
+
+**V9** adds the option V8 did not consider: **conditional**, both terms over the
+winner draws, IJ on the same. It is equally centered (`mean(r)` = 9.7e−18),
+leaves `tilde_V` unchanged (+0.0%) and leaves `selection_bias` unchanged, where
+Eq. 9 literal multiplies `selection_bias` by the selection rate.
+
+**The package implements the conditional convention.** Both repairs are
+coherent and both center; they differ in estimand, and centering does not
+choose between them. See `../NOTE_f13_open_questions.md`.
+
 ### `verify_residual_centering.R` — V7
 
 Checks the residual-centering condition underlying the finite-B correction:
@@ -47,21 +68,26 @@ Base R only, seeded, no arguments:
 ```sh
 Rscript verify_closedform_fixture.R
 Rscript verify_residual_centering.R
+Rscript verify_eq9_alignment.R
+Rscript verify_conditional_convention.R
 ```
 
-Verified under R 4.3.3. Both were re-run under R 4.6.1 when filed here; all
-blocks passed on both.
+Verified under R 4.3.3. All were re-run under R 4.6.1 when filed here; all
+blocks passed.
 
-**`verify_residual_centering.R` additionally requires `forestsearch` to be
-installed**, because of the provenance change below. `verify_closedform_fixture.R`
-has no package dependency.
+**`verify_residual_centering.R`, `verify_eq9_alignment.R` and
+`verify_conditional_convention.R` additionally require `forestsearch` to be
+installed**, because of the provenance change below.
+`verify_closedform_fixture.R` has no package dependency.
 
 ## Provenance {#provenance}
 
-`verify_residual_centering.R` originally `source()`d `ij_var_verbatim.R`, a
+`verify_residual_centering.R`, `verify_eq9_alignment.R` and
+`verify_conditional_convention.R` all originally `source()`d
+`ij_var_verbatim.R`, a
 byte-for-byte snapshot of `.fs_mr_ij_var()` from `R/fs_mr_inference.R`. That
-snapshot was **deliberately not filed**; the script now binds the shipped
-function directly:
+snapshot was **deliberately not filed**; each now binds the shipped function
+directly:
 
 ```r
 .fs_mr_ij_var <- forestsearch:::.fs_mr_ij_var   # the SHIPPED function, not a copy
@@ -76,6 +102,8 @@ The reasoning is in that script's own header and is not repeated here.
 | `verify_residual_centering.R` | the `source()` line above |
 | `verify_residual_centering.R` | header corrected — it still described the function as extracted verbatim, base R only, with no package dependencies, all three of which the line above makes false |
 | `verify_residual_centering.R` | closing note qualified — it cites V6 without saying V6 is in the sibling script |
+| `verify_eq9_alignment.R` | same `source()` replacement, and the matching header correction |
+| `verify_conditional_convention.R` | same `source()` replacement, and the matching header correction |
 | `verify_closedform_fixture.R` | none; as received |
 
 Line-range references in `verify_residual_centering.R`'s header were checked
