@@ -458,6 +458,21 @@ re-record the selection.
 
 ## Bug Fixes
 
+* Fixed the influence path erroring on every `lm()` fit, which disabled
+  multiplier resampling (MR) for continuous outcomes entirely.  The internal
+  one-step `dfbeta` read `fit$weights` unconditionally; an unweighted `lm()`
+  has `NULL` there rather than a vector of ones, so the computation was
+  non-conformable and failed.  `effect_measure = "MD"` is the only measure
+  fitted with `lm()`, and the failure was silent at every level:
+  `consistency_resample()` returned `NA` rates, the consistency engine fell
+  back to literal splitting while `consistency_method = "resample"` was in
+  force, and `fs_mr_inference()` could fit no candidate at all -- so
+  `mr_inference = TRUE` on a continuous outcome produced no correction and
+  reported nothing.  **Any MD analysis run with `mr_inference = TRUE` between
+  the introduction of the one-step `dfbeta` and this release has no MR result
+  and should be re-run.**  Binary, count and survival outcomes are unaffected:
+  all fit with `glm()` or `coxph()`, where the weights are always present.
+
 * Fixed `grf.subg.harm.glm()` ignoring `adverse_outcome`: the Y-flip
   before `causal_forest()` was accepted but never applied, causing the
   policy tree to identify the complement of the true subgroup in

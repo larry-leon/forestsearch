@@ -2026,7 +2026,10 @@ forestsearch <- function(df.analysis,
       effect_measure = effect_measure, offset.name = offset.name,
       adjust_covariates = adjust_covariates,
       adverse_outcome = if (identical(outcome_type, "survival")) TRUE
-                        else adverse_outcome)
+                        else adverse_outcome,
+      # The SAME resolved admission set MR re-selects over, so the identifier
+      # and MR cannot disagree about which candidates were in contention.
+      admission = admission_resolved)
 
     t.min_all <- (proc.time()[3] - t.start_all) / 60
 
@@ -2200,7 +2203,10 @@ forestsearch <- function(df.analysis,
       # honoured selection_rule -- so identifier and MR could band differently.
       selection_rule = selection_rule,
       grf_select_statistic = grf_select_statistic,
-      effect_measure = effect_measure, adjust_covariates = adjust_covariates)
+      effect_measure = effect_measure, adjust_covariates = adjust_covariates,
+      # The SAME resolved admission set MR re-selects over.  This replaces the
+      # hard-coded dmin = 1 inside .grf_reselect_on_effect().
+      admission = admission_resolved)
 
     t.min_all <- (proc.time()[3] - t.start_all) / 60
 

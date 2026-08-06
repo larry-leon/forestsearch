@@ -1078,13 +1078,26 @@ reset_workers <- function(workers   = NULL,
 #' winner fields overwritten and a `sel_effect` (link-scale) column attached to
 #' `sg$candidates`; if no candidate is scorable it returns `sg` unchanged.
 #'
+#' Selection is over the ADMITTED set, \eqn{\{g : \hat\beta(g) \ge t_g\}}
+#' (manuscript Section 2.4).  DINA has no consistency screen, so
+#' \eqn{t_g = c_{screen}}, supplied here as the resolved \code{admission}
+#' object rather than re-derived -- the same object, from the same
+#' \code{.fs_resolve_admission()} call, that MR re-selects over.  Ranking on
+#' \eqn{\hat\beta} while admitting on DINA's native \eqn{\bar\tau} alone was
+#' the misalignment: the identifier could select a candidate MR's competition
+#' excluded, so the two linearized different selection events.
+#'
+#' @param admission Resolved admission set from \code{.fs_resolve_admission()}.
+#'   \code{effect_floor} is on the comparison scale, which is the scale
+#'   \code{sel_effect} is on, so no conversion is needed here.
 #' @keywords internal
 #' @noRd
 .dina_reselect_on_effect <- function(sg, df, outcome_type, effect_measure,
                                      treat.name, outcome.name, event.name,
                                      offset.name, adjust_covariates,
                                      adverse_outcome, sg_focus,
-                                     selection_rule, effect_neighborhood) {
+                                     selection_rule, effect_neighborhood,
+                                     admission = NULL) {
   tab <- sg$candidates
   if (is.null(tab) || !nrow(tab)) return(sg)
 
@@ -1126,8 +1139,31 @@ reset_workers <- function(workers   = NULL,
   }
   sg$candidates$sel_effect <- eff_link  # link scale; consumed by the MR branch
 
-  ok <- which(is.finite(eff_link) & !is.na(sz))
-  if (!length(ok)) return(sg)           # nothing scorable -> keep native winner
+  scorable <- which(is.finite(eff_link) & !is.na(sz))
+  if (!length(scorable)) return(sg)     # nothing scorable -> keep native winner
+
+  # ADMISSION -- manuscript Section 2.4: rank among {g : beta-hat(g) >= t_g}.
+  # Taken from the resolved admission set, NOT re-derived from hr.threshold
+  # here: one resolution, carried, is the whole point of
+  # .fs_resolve_admission().  effect_floor is on the comparison scale and so is
+  # eff_link, so the comparison is direct.
+  floor_cmp <- if (is.null(admission)) NULL else admission$effect_floor
+  ok <- if (is.null(floor_cmp)) scorable
+        else scorable[eff_link[scorable] >= floor_cmp]
+
+  if (!length(ok)) {
+    # The admitted set is EMPTY: no candidate clears the harm floor on the
+    # inferential effect.  That is a selection outcome, not a failure, and the
+    # native tau-hat winner must not stand in for it -- doing so would report a
+    # subgroup chosen on a statistic the analysis does not report, which is the
+    # misalignment the floor exists to remove.  found = FALSE routes into
+    # .forestsearch_dina_select()'s unified no-subgroup contract.
+    sg$found            <- FALSE
+    sg$select_statistic <- "effect"
+    sg$admitted_n       <- 0L
+    return(sg)
+  }
+  sg$admitted_n <- length(ok)
 
   # Natural-scale effect for ordering / band (ratio families exponentiated; the
   # monotone transform leaves non-band foci unaffected).  Match dina_subgroup()'s
@@ -1272,7 +1308,8 @@ reset_workers <- function(workers   = NULL,
                                       dina_args, dina_res, seedit, details,
                                       effect_measure = NULL, offset.name = NULL,
                                       adjust_covariates = NULL,
-                                      adverse_outcome = TRUE) {
+                                      adverse_outcome = TRUE,
+                                      admission = NULL) {
   da <- .resolve_dina_args(dina_args, outcome_type,
                            n_min_default = n.min, seed_default = seedit)
 
@@ -1369,7 +1406,8 @@ reset_workers <- function(workers   = NULL,
         offset.name = offset.name, adjust_covariates = adjust_covariates,
         adverse_outcome = adverse_outcome, sg_focus = sg_focus,
         selection_rule = selection_rule,
-        effect_neighborhood = effect_neighborhood),
+        effect_neighborhood = effect_neighborhood,
+        admission = admission),
       error = function(e) sg)
   }
 
@@ -1448,14 +1486,30 @@ reset_workers <- function(workers   = NULL,
 #' (\code{grf_res$candidates}) on the effect measure multiplier resampling (MR)
 #' de-biases (Cox HR for survival; the resolved GLM effect otherwise), using MR's
 #' own per-candidate estimator (\code{.fs_mr_pieces}), then re-selects the winner
-#' with GRF's own \code{.grf_frontier_select()} logic on those Cox-HR scores
-#' (harm floor HR >= 1).  The winning row is turned back into the standard
+#' with GRF's own \code{.grf_frontier_select()} logic on those scores.  The
+#' winning row is turned back into the standard
 #' \code{sg_def} via \code{.grf_sg_def_from_candidate()}, so all downstream
 #' membership/labelling is unchanged.  Attaches a \code{sel_effect} (link-scale)
-#' column to \code{grf_res$candidates}; on any failure to score/select it returns
+#' column to \code{grf_res$candidates}; if no candidate is scorable it returns
 #' \code{grf_res} unchanged.  Tree-mode selection has no enumerated family to
 #' rank, so the caller applies this only in frontier mode.
 #'
+#' The harm floor is the resolved admission set's \code{effect_floor}
+#' (manuscript Section 2.4: rank among \eqn{\{g : \hat\beta(g) \ge t_g\}}; GRF
+#' has no consistency screen, so \eqn{t_g = c_{screen}}).  It was previously a
+#' hard-coded \code{dmin = 1} -- the floor at the null -- so the identifier
+#' admitted every candidate with HR >= 1 while MR admitted only those with
+#' \eqn{\hat\beta \ge \log(\texttt{hr.threshold})}, and the two linearized
+#' different selection events.  A side effect of the literal was that a
+#' user-supplied \code{dmin.grf} was honoured on the native DR path and silently
+#' ignored here.
+#'
+#' @param admission Resolved admission set from \code{.fs_resolve_admission()}.
+#'   \code{effect_floor} is on the comparison scale;
+#'   \code{.grf_frontier_select()} compares against the NATURAL-scale effect, so
+#'   it is converted here using the same \code{log_scale} flag that produced
+#'   that column -- the flag \code{.fs_mr_pieces()} returns, so the scale
+#'   decision is not made twice.
 #' @keywords internal
 #' @noRd
 .grf_reselect_on_effect <- function(grf_res, df, outcome_type, effect_measure,
@@ -1463,7 +1517,8 @@ reset_workers <- function(workers   = NULL,
                                     offset.name, adjust_covariates,
                                     adverse_outcome, frontier_rule,
                                     effect_neighborhood,
-                                    selection_rule = "neighborhood") {
+                                    selection_rule = "neighborhood",
+                                    admission = NULL) {
   cand <- grf_res$candidates
   if (is.null(cand) || !nrow(cand)) return(grf_res)
 
@@ -1494,18 +1549,37 @@ reset_workers <- function(workers   = NULL,
   grf_res$candidates$sel_effect <- eff_link  # link scale; consumed by MR branch
   if (!any(is.finite(eff_link))) return(grf_res)  # nothing scorable -> keep native
 
-  # Re-select via GRF's own frontier logic, scoring on the natural-scale effect
-  # with an HR-harm floor (>= 1) -- the ratio analogue of dmin.grf on the
-  # additive DR scale.
+  # Re-select via GRF's own frontier logic, scoring on the natural-scale effect.
   cand_hr <- grf_res$candidates
   cand_hr$effect <- if (log_scale) exp(eff_link) else eff_link
   cand_hr <- cand_hr[is.finite(cand_hr$effect), , drop = FALSE]
+
+  # ADMISSION -- from the resolved admission set, not a literal.  cand_hr$effect
+  # is natural scale and effect_floor is comparison scale, so convert with the
+  # same log_scale flag that built the column.
+  floor_cmp <- if (is.null(admission)) NULL else admission$effect_floor
+  dmin_eff  <- if (is.null(floor_cmp)) {
+    if (log_scale) 1 else 0       # no floor resolved: the null, as before
+  } else if (log_scale) exp(floor_cmp) else floor_cmp
+
   win <- tryCatch(
-    .grf_frontier_select(cand_hr, dmin = 1, rule = frontier_rule,
+    .grf_frontier_select(cand_hr, dmin = dmin_eff, rule = frontier_rule,
                          nbhd = effect_neighborhood,
                          selection_rule = selection_rule),
     error = function(e) NULL)
-  if (is.null(win) || !nrow(win)) return(grf_res)  # no HR-harm winner -> keep native
+  if (is.null(win) || !nrow(win)) {
+    # The admitted set is EMPTY: no candidate clears the harm floor on the
+    # inferential effect.  Keeping the native DR-score winner here would report
+    # a subgroup selected on a statistic the analysis does not report -- the
+    # misalignment this floor removes -- so the selection returns nothing.
+    # NULLing sg_def makes .forestsearch_grf_select()'s `found` FALSE, which
+    # routes into the unified no-subgroup contract.
+    grf_res$sg_def           <- NULL
+    grf_res$select_statistic <- "effect"
+    grf_res$admitted_n       <- 0L
+    return(grf_res)
+  }
+  grf_res$admitted_n <- sum(cand_hr$effect >= dmin_eff, na.rm = TRUE)
 
   grf_res$sg_def <- .grf_sg_def_from_candidate(win)
   grf_res$select_statistic <- "effect"
@@ -1564,7 +1638,8 @@ reset_workers <- function(workers   = NULL,
                                      details = FALSE,
                                      grf_select_statistic = "dr",
                                      effect_measure = NULL,
-                                     adjust_covariates = NULL) {
+                                     adjust_covariates = NULL,
+                                     admission = NULL) {
 
   # Fit GRF unless a fit was supplied.  Build args through the same helpers the
   # screening path uses so the GRF-selection fit cannot drift from GRF
@@ -1635,7 +1710,8 @@ reset_workers <- function(workers   = NULL,
         offset.name = offset.name, adjust_covariates = adjust_covariates,
         adverse_outcome = adverse_outcome, frontier_rule = frontier_rule,
         effect_neighborhood = effect_neighborhood,
-        selection_rule = selection_rule),
+        selection_rule = selection_rule,
+        admission = admission),
       error = function(e) grf_res)
   } else if (identical(grf_select_statistic, "effect") &&
              identical(grf_selection, "tree") && isTRUE(details)) {
