@@ -9,8 +9,7 @@ Reasoning behind settled decisions is in the specs and notes, not repeated here.
 
 ## What landed
 
-Branch `mr-in-replicates`, **pushed** (`e956d0d..972f8fc`). Ten commits this
-session, oldest first:
+Branch `mr-in-replicates`, **pushed**. This session's commits, oldest first:
 
 | commit | |
 |---|---|
@@ -24,7 +23,10 @@ session, oldest first:
 | `1ed6d38` | `max_subgroups_search` now defaults to `Inf` |
 | `972f8fc` | uncapped the candidate pool in both analysis documents |
 
-Plus the handoff commit carrying this file.
+Plus the session-record commit carrying this file, and this correction. The
+exact range is whatever `git log e956d0d..origin/mr-in-replicates` reports; it
+is not written out here, because a terminal SHA cannot be correct inside the
+commit that creates it.
 
 `R CMD check --as-cran` was clean (0/0/0) before each commit touching package
 code.
