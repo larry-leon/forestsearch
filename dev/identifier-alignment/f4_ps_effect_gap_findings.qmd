@@ -1,0 +1,251 @@
+---
+title: "F4 — the propensity-score effect gap"
+subtitle: "Findings only. Branch `mr-in-replicates`, after `917e15d`."
+date: 2026-08-05
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+    theme: cosmo
+bibliography: []
+---
+
+## Scope of this document {#sec-scope}
+
+`SPEC_f4_ps_effect_gap.md` set four questions and asked for a resolutions
+section. That was **narrowed mid-task to questions 1 and 4 only**, with the
+resolutions section dropped. This document answers those two and nothing else.
+
+Deliberately **not** here:
+
+- **Q2** — how far apart the adjusted and unadjusted effects are for the
+  selected subgroup.
+- **Q3** — whether the *ranking* changes: Spearman correlation over the family,
+  argmax agreement, and admission-status changes against `c_screen`. This is the
+  question that decides whether F4 is a **variance-estimation** problem or a
+  **selection** problem, and it is unanswered.
+- The three resolutions (extend the influence path / make the docstring true /
+  hard-error) and what the evidence says about each.
+
+One behaviour-free change was made: the docstring correction the spec permits
+(@sec-docstring). No behaviour was changed.
+
+---
+
+## Verified from source {#sec-source}
+
+Read rather than inferred. Line numbers current as of `917e15d`; where the spec
+cited a different number it is noted.
+
+| claim | site | verdict |
+|---|---|---|
+| `ps_method <- if (is.RCT) "none" else "grf"` | `forestsearch_main.R:1892-1893` | **confirmed** |
+| `ps_adjust_resolved` set | `:1903` | **confirmed** |
+| estimator closure rebuilt with `ps_adjust_method = ps_adjust_resolved` | `:1967-1974` | **confirmed** (spec said `1966-1973`; off by one) |
+| `adjust_covariates` mutually exclusive with `ps_method != "none"` | `:1913-1918` | **confirmed** |
+| `.consistency_glm_pieces()` has no propensity formal | `consistency_resample.R:221-224` | **confirmed** (spec said `:221`; the function moved when `411a448` added roxygen, but the formals line is still 221) |
+| the only measure guard is `IRD` | `consistency_resample.R:230` | **confirmed** |
+| `.fs_mr_pieces()` passes no propensity information | `fs_mr_inference.R:61-73` | **confirmed** |
+
+The formals are exactly `df`, `outcome_type`, `effect_measure`, `treat.name`,
+`outcome.name`, `offset.name`, `adjust_covariates`, `adverse_outcome`. Grepping
+the function body for `sw`, `ps_hat`, `ips_covar`, `weights` or `propensity`
+returns nothing.
+
+The `adjust_covariates` guard sharpens the gap exactly as the spec said it
+would: in this branch that formal is necessarily `NULL`, so the model fitted is
+**fully unadjusted**, not differently adjusted.
+
+---
+
+## Q1 — does MR execute under `ps_method != "none"`? {#sec-q1}
+
+**Yes, fully, and silently.**
+
+ACTG175 binary, OR, `subgroup_method = "consistency"`,
+`consistency_method = "resample"`, `mr_inference = TRUE`, 1000 draws.
+`is.RCT = FALSE` makes `ps_method` resolve to `"grf"` — the **default** for a
+non-randomised analysis, not an exotic setting. (ACTG175 is a randomised trial;
+`is.RCT = FALSE` is set to exercise the path, which is what the question asks
+about.)
+
+| `is.RCT` | `ps_adjust_method` | resolved `ps_method` | validator fired | MR variant | `n_family` | naive OR |
+|---|---|---|---|---|---:|---:|
+| `TRUE` | (default) | `none` | no | **FULL** | 1450 | 2.982955 |
+| `FALSE` | (default → `iptw`) | `grf` | no | **FULL** | 1450 | 2.982955 |
+| `FALSE` | `iptw` | `grf` | no | **FULL** | 1450 | 2.982955 |
+| `FALSE` | `dr_gcomp` | `grf` | no | **FULL** | 1450 | 2.982955 |
+
+Three things follow.
+
+**`.validate_mr_configuration()` never fires.** Confirmed both by reading —
+grepping its body for `ps_method` / `ps_adjust` / `propensity` returns nothing —
+and by the runs. It inspects `subgroup_method`, `dina_select_statistic`,
+`grf_selection`, `grf_select_statistic`, `use_lasso`, `use_grf` and `use_dina`,
+and nothing else. Propensity adjustment is invisible to it.
+
+**MR returns the full variant, not the short one.** There is no `note`, no
+degraded family, no fallback. `n_family` is 1450 in every row. Nothing in the
+returned object records that the correction describes a different functional
+from the one selected on.
+
+**The reported estimate is bit-identical across all four rows.** `2.982955` to
+every digit printed, whether PS adjustment is off, IPTW, or g-computation. That
+identity is the cleanest available demonstration that the influence path is
+blind to the propensity adjustment — not approximately, exactly. Changing
+`ps_adjust_method` changes nothing MR reports.
+
+Two qualifications, so the result is not over-read:
+
+- The **selected subgroup is the same** in all four runs
+  (`!{cd40 <= 421} & !{wtkg <= 82}`), so the identical naive estimate follows
+  from fitting the same unadjusted model to the same rows. What the identity
+  demonstrates is the blindness of the influence path, not that the identifier's
+  ranking is unaffected. **Whether the ranking changes is Q3, and Q3 was not
+  run.** On ACTG175 — a randomised trial, where estimated propensity scores are
+  near-constant — the adjustment has little to bite on, and this says nothing
+  about data where it would.
+- The information is **present but unread**. `fs$df.est` carries `sw`, `ps_hat`
+  and `ips_covar`. The influence path is not missing the data; it has no
+  argument that would tell it to look.
+
+---
+
+## Q4 — which paths reach the influence path? {#sec-q4}
+
+Enumerated with unbounded `grep -rn` and counted, per the spec's warning about
+`head`-limited searches.
+
+### The influence path itself
+
+`.consistency_glm_pieces()` has **2** live callers (a third hit is a comment):
+
+| site | caller |
+|---|---|
+| `consistency_resample.R:403` | `consistency_resample()` |
+| `fs_mr_inference.R:67` | `.fs_mr_pieces()` |
+
+`.fs_mr_pieces()` has **4** callers:
+
+| site | caller | reaches it when |
+|---|---|---|
+| `fs_mr_inference.R:96` | `.fs_mr_assemble()` — every candidate in MR's family | `mr_inference = TRUE` |
+| `fs_mr_inference.R:482` | `fs_mr_inference()`, complement subgroup | `include_complement = TRUE` (the default) |
+| `forestsearch_helpers.R:1133` | `.dina_reselect_on_effect()` | `subgroup_method = "dina"`, `dina_select_statistic = "effect"` (default) |
+| `forestsearch_helpers.R:1543` | `.grf_reselect_on_effect()` | `subgroup_method = "grf"`, `grf_select_statistic = "effect"` (default) |
+
+`consistency_resample()` has **5** live callers (plus one comment and one
+`exists()` guard):
+
+| site | caller |
+|---|---|
+| `subgroup_consistency_helpers.R:1453` | `evaluate_subgroup_consistency()`, Cox branch |
+| `subgroup_consistency_helpers.R:1474` | `evaluate_subgroup_consistency()`, GLM branch |
+| `subgroup_consistency_helpers.R:1825`, `:1829` | `evaluate_consistency_twostage()` |
+| `consistency_resample.R:485` | `consistency_resample_compare()` (exported, standalone) |
+
+### Routes on which `ps_method != "none"` coexists with it
+
+| # | route | reached by | PS carried? |
+|---|---|---|---|
+| 1 | MR over the consistency family | `forestsearch(mr_inference = TRUE)` | yes — closure adjusted, influence not |
+| 2 | MR's complement subgroup | same, `include_complement = TRUE` | yes |
+| 3 | MR on the DINA branch | `subgroup_method = "dina"` | yes |
+| 4 | MR on the GRF branch | `subgroup_method = "grf"` | yes |
+| 5 | the resample consistency engine | `consistency_method = "resample"` | yes — every candidate's $P_{\text{cons}}$ |
+| 6 | the two-stage consistency engine | `use_twostage = TRUE` (default) | yes |
+| 7 | every bootstrap replicate | `forestsearch_bootstrap_dofuture()` | yes — routes 1–6 replayed per replicate |
+| 8 | every CV fold | `forestsearch_Kfold()` / `_tenfold()` | yes — routes 1–6 replayed per fold |
+| 9 | `consistency_resample_compare()` | direct call | n/a — takes raw data, no `forestsearch()` config |
+
+Routes 5 and 6 matter as much as 1–4 and are easy to miss: the consistency rate
+is computed from the same unadjusted `beta_hat` and `sigma_D`, so under
+`ps_method != "none"` the **screen** $t_g$ is applied to a different functional
+from the one the identifier ranks on — not only the post-selection correction.
+
+Nothing nulls or guards `ps_method` on the replay paths: the bootstrap does not
+mention it, and CV explicitly carries it (`forestsearch_cross_validation.R:395`,
+`:885`: "ps_method and ps_adjust_method carry through via args_call_all").
+
+### Exhaustive check on the weight column
+
+Every site in `R/` that reads `sw` — 12 hits, all listed:
+
+- **written** at `forestsearch_main.R:1943` and `glm_effect_estimators.R:1085`;
+- **read** only at `glm_effect_estimators.R:235`, `:237`, `:354`, `:355`,
+  `:468`, `:473`, `:650`, `:658`, `:830`, `:831` — all inside
+  `make_effect_estimator()`'s closures.
+
+No read in `consistency_resample.R`, `fs_mr_inference.R`, `subgroup_search.R` or
+`Cox_estimation_helpers.R`. The adjustment lives entirely in the estimator
+closure and nowhere in the influence apparatus.
+
+### Two adjacent observations from the enumeration
+
+Neither is F4, and neither was chased. Both were found by enumerating routes and
+are recorded so they are not lost.
+
+**Survival plus `ps_method != "none"` appears to be a no-op.** The closure
+rebuild at `forestsearch_main.R:1967` is guarded by `if (is_glm)`, and
+`estimator_fn` is built only inside `if (outcome_type != "survival")`
+(`:1546`, `:1589`), so it is `NULL` for survival. `fit_cox_for_subgroup()`,
+`.consistency_cox_pieces()` and `Cox_estimation_helpers.R` contain no `weights`
+or `sw` reference. So PS is estimated, the columns are attached, and nothing
+consumes them: the survival path is unadjusted throughout while reporting
+`ps_method = "grf"`. `make_effect_estimator()` *does* have a weighted Cox branch
+(`glm_effect_estimators.R:235-237`), but `forestsearch()` never builds a closure
+for survival, so that branch is unreachable from `forestsearch()`.
+
+**The bootstrap carries a user-supplied `ps_hat` into replicates unaligned.**
+CV nulls `ps_hat` because it would be "wrong length for training fold"
+(`forestsearch_cross_validation.R:394-396`, `:884-886`). The bootstrap nulls
+nothing propensity-related, and a bootstrap resample has the **same** row count
+as the original — so `forestsearch()`'s length check at `:1922` passes and the
+original subjects' propensity scores are used for the resampled rows. This bites
+only when the user passes `ps_hat` explicitly; at the default `NULL` the PS is
+re-estimated per replicate. Structurally the same conditional shape as F12.
+
+---
+
+## The docstring correction {#sec-docstring}
+
+Made. The spec permitted it and observed that silently keeping the false claim
+is not defensible; it is documentation-only and independent of how F4 resolves.
+
+`R/consistency_resample.R:199-203` said `"IRD"` **and** propensity-adjusted
+(`iptw` / `dr_gcomp`) effects "are not single coefficients, so they return
+`NULL` (the caller falls back to splitting)". The body's only such guard is
+`if (effect_measure == "IRD") return(NULL)`. The claim was not merely false but
+**unfulfillable** — the function has no argument from which it could learn it is
+in the propensity-adjusted case.
+
+The docstring now states that the function fits an unweighted, unadjusted model;
+that `"IRD"` alone returns `NULL`; and, in a dedicated section, that under
+`ps_method != "none"` a propensity-adjusted effect is fitted *as if unadjusted*
+rather than declined, with the consequence for
+$\hat\beta(g)$, $db_{g,i}$, $\sigma_{D,g}$ and the whole correction. It records
+that the previous claim was never true, and points here.
+
+**No guard was added**, per the spec. The behaviour is unchanged.
+
+Also corrected: the opening sentence claimed the function "fits the same
+treatment-effect model the corresponding `make_effect_estimator()` closure
+fits". Under `ps_method != "none"` that is exactly what it does not do, and it
+is the same false claim in a weaker form.
+
+---
+
+## What remains open {#sec-open}
+
+- **Q2 and Q3 were not run.** Q3 in particular is load-bearing: it decides
+  whether F4 is a variance-estimation problem (the ranking is intact, only the
+  correction describes the wrong functional) or a selection problem (the
+  identifier and MR disagree about which subgroup won). Those need different
+  fixes.
+- **The resolutions were not assessed.** Nothing here rules any of the three in
+  or out.
+- The choice turns on whether the manuscript's scope covers non-randomised data
+  at all. Both applications are randomised trials, so it may not — in which case
+  the cheapest honest resolution may be the hard error rather than extending the
+  influence path.

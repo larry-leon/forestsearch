@@ -37,16 +37,37 @@ List with \code{beta_hat}, \code{dfbeta}, \code{sigma_D}, \code{n}, \code{d}, \c
 \code{measure}; or \code{NULL} if unsupported/degenerate/non-convergent.
 }
 \description{
-Fits the same treatment-effect model the corresponding
-\code{\link[=make_effect_estimator]{make_effect_estimator()}} closure fits (matching \code{effect_measure} and
-\code{adverse_outcome} conventions), and returns the treatment coefficient, its
-per-subject \code{dfbeta} influence contributions, and the split-perturbation SD.
+Fits an unweighted, unadjusted treatment-effect model and returns the
+treatment coefficient, its per-subject \code{dfbeta} influence contributions, and
+the split-perturbation SD.
 }
 \details{
 Supported: \code{"OR"} (logistic), \code{"RR"} (log-binomial with Poisson fallback),
 \code{"RD"} (identity-link binomial), \code{"MD"} (OLS), \code{"IRR"} (Poisson with
-\code{offset(log(time))}). \code{"IRD"} and propensity-adjusted (\code{iptw}/\code{dr_gcomp})
-effects are not single coefficients, so they return \code{NULL} (the caller falls
-back to splitting).
+\code{offset(log(time))}). \code{"IRD"} is not a single coefficient and returns
+\code{NULL}, and the caller falls back to splitting.
 }
+\section{Propensity adjustment is not represented here}{
+
+This function has \strong{no} \code{ps_method} or \code{ps_adjust_method} argument and reads
+no \code{sw} / \code{ps_hat} / \code{ips_covar} column, so under \code{ps_method != "none"} it
+fits the effect \strong{as if unadjusted} rather than declining to fit it. It
+cannot do otherwise: nothing in its signature tells it which case it is in.
+
+The consequence is that the identifier ranks candidates on the IPTW or
+g-computation adjusted effect built by \code{\link[=make_effect_estimator]{make_effect_estimator()}}, while
+every quantity derived here -- \eqn{\hat\beta(g)}, \eqn{db_{g,i}},
+\eqn{\sigma_{D,g}}, and therefore the whole multiplier-resampling
+correction -- describes the unadjusted functional. \code{forestsearch()} also
+forbids \code{adjust_covariates} alongside \code{ps_method != "none"}, so the model
+fitted here is fully unadjusted, not differently adjusted.
+
+Earlier versions of this documentation claimed that propensity-adjusted
+effects "return \code{NULL} (the caller falls back to splitting)". That was never
+true and was not implementable as written. Whether to extend the influence
+path, add the argument purely so the claim can be honoured, or refuse the
+combination outright is unresolved; see
+\code{dev/identifier-alignment/f4_ps_effect_gap_findings.qmd}.
+}
+
 \keyword{internal}

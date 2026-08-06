@@ -191,16 +191,35 @@
 
 #' Per-subject GLM pieces for the consistency approximation
 #'
-#' Fits the same treatment-effect model the corresponding
-#' [make_effect_estimator()] closure fits (matching `effect_measure` and
-#' `adverse_outcome` conventions), and returns the treatment coefficient, its
-#' per-subject `dfbeta` influence contributions, and the split-perturbation SD.
+#' Fits an unweighted, unadjusted treatment-effect model and returns the
+#' treatment coefficient, its per-subject `dfbeta` influence contributions, and
+#' the split-perturbation SD.
 #'
 #' Supported: `"OR"` (logistic), `"RR"` (log-binomial with Poisson fallback),
 #' `"RD"` (identity-link binomial), `"MD"` (OLS), `"IRR"` (Poisson with
-#' `offset(log(time))`). `"IRD"` and propensity-adjusted (`iptw`/`dr_gcomp`)
-#' effects are not single coefficients, so they return `NULL` (the caller falls
-#' back to splitting).
+#' `offset(log(time))`). `"IRD"` is not a single coefficient and returns
+#' `NULL`, and the caller falls back to splitting.
+#'
+#' @section Propensity adjustment is not represented here:
+#' This function has **no** `ps_method` or `ps_adjust_method` argument and reads
+#' no `sw` / `ps_hat` / `ips_covar` column, so under `ps_method != "none"` it
+#' fits the effect **as if unadjusted** rather than declining to fit it. It
+#' cannot do otherwise: nothing in its signature tells it which case it is in.
+#'
+#' The consequence is that the identifier ranks candidates on the IPTW or
+#' g-computation adjusted effect built by [make_effect_estimator()], while
+#' every quantity derived here -- \eqn{\hat\beta(g)}, \eqn{db_{g,i}},
+#' \eqn{\sigma_{D,g}}, and therefore the whole multiplier-resampling
+#' correction -- describes the unadjusted functional. `forestsearch()` also
+#' forbids `adjust_covariates` alongside `ps_method != "none"`, so the model
+#' fitted here is fully unadjusted, not differently adjusted.
+#'
+#' Earlier versions of this documentation claimed that propensity-adjusted
+#' effects "return `NULL` (the caller falls back to splitting)". That was never
+#' true and was not implementable as written. Whether to extend the influence
+#' path, add the argument purely so the claim can be honoured, or refuse the
+#' combination outright is unresolved; see
+#' `dev/identifier-alignment/f4_ps_effect_gap_findings.qmd`.
 #'
 #' @param df data.frame/data.table with `outcome.name`, `treat.name`, any
 #'   `adjust_covariates`, and `offset.name` (rate measures).
