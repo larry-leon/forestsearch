@@ -382,14 +382,24 @@
 #'   tree depth that identified the selected subgroup meeting `dmin.grf`. If FALSE
 #'   returns all cuts from all fitted trees (depths 1 through `grf_depth`).
 #'   See \code{\link{grf.subg.harm.survival}} for details.
-#' @param conf_force Character vector. Variables to force include (optional).
+#' @param conf_force Character vector of forced cut expressions (optional),
+#'   e.g. `c("er <= 0", "pgr <= 10")`. Literal cut locations: unlike the
+#'   `conf.cont_*` arguments these do not move with a resample.
 #' @param defaultcut_names Character vector. Default cut variable names (optional).
-#' @param cut_type Character. Cut type ("default" or "custom"). Default "default".
+#' @param cut_type Character. Cut strategy: `"default"` or `"median"`. Default
+#'   `"default"`. These are the only permitted values -- `get_FSdata()`
+#'   validates against them and errors otherwise.
 #' @param exclude_cuts Character vector. Variables to exclude from cutting (optional).
 #' @param replace_med_grf Logical. Replace median with GRF cuts. Default FALSE.
 #' @param cont.cutoff Integer. Cutoff for continuous vs categorical. Default 4.
-#' @param conf.cont_medians Named numeric vector. Median values for continuous variables (optional).
-#' @param conf.cont_medians_force Named numeric vector. Forced median values (optional).
+#' @param conf.cont_medians Character vector of continuous confounders to cut at
+#'   their median (optional). **Names, not values** -- the cut location is the
+#'   median computed from the supplied data, so it is not fixed by this
+#'   argument and moves with a resample. To pin a cut location, pass a literal
+#'   cut expression via `conf_force`.
+#' @param conf.cont_medians_force Character vector of additional continuous
+#'   confounders to force a median cut on (optional). Names, not values, with
+#'   the same consequence as `conf.cont_medians` above.
 #' @param conf.cont_jcuts Named integer list (each value >= 1). Per-variable
 #'   J-quantile cut override for continuous covariates: for an entry
 #'   \code{X = J}, the default cut set for X is replaced by \code{J}

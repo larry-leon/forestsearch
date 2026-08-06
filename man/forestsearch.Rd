@@ -301,11 +301,15 @@ tree depth that identified the selected subgroup meeting \code{dmin.grf}. If FAL
 returns all cuts from all fitted trees (depths 1 through \code{grf_depth}).
 See \code{\link{grf.subg.harm.survival}} for details.}
 
-\item{conf_force}{Character vector. Variables to force include (optional).}
+\item{conf_force}{Character vector of forced cut expressions (optional),
+e.g. \code{c("er <= 0", "pgr <= 10")}. Literal cut locations: unlike the
+\verb{conf.cont_*} arguments these do not move with a resample.}
 
 \item{defaultcut_names}{Character vector. Default cut variable names (optional).}
 
-\item{cut_type}{Character. Cut type ("default" or "custom"). Default "default".}
+\item{cut_type}{Character. Cut strategy: \code{"default"} or \code{"median"}. Default
+\code{"default"}. These are the only permitted values -- \code{get_FSdata()}
+validates against them and errors otherwise.}
 
 \item{exclude_cuts}{Character vector. Variables to exclude from cutting (optional).}
 
@@ -313,9 +317,15 @@ See \code{\link{grf.subg.harm.survival}} for details.}
 
 \item{cont.cutoff}{Integer. Cutoff for continuous vs categorical. Default 4.}
 
-\item{conf.cont_medians}{Named numeric vector. Median values for continuous variables (optional).}
+\item{conf.cont_medians}{Character vector of continuous confounders to cut at
+their median (optional). \strong{Names, not values} -- the cut location is the
+median computed from the supplied data, so it is not fixed by this
+argument and moves with a resample. To pin a cut location, pass a literal
+cut expression via \code{conf_force}.}
 
-\item{conf.cont_medians_force}{Named numeric vector. Forced median values (optional).}
+\item{conf.cont_medians_force}{Character vector of additional continuous
+confounders to force a median cut on (optional). Names, not values, with
+the same consequence as \code{conf.cont_medians} above.}
 
 \item{conf.cont_jcuts}{Named integer list (each value >= 1). Per-variable
 J-quantile cut override for continuous covariates: for an entry
