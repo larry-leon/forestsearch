@@ -2490,11 +2490,15 @@ dir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)
 .engine_meta <- function(fit, boot_seconds) {
   if (is.null(fit) || is.null(fit$mr_inference))
     return(list(label = NA_character_, n_family = NA_integer_, selection_bias = NA_real_,
+                selection_rate = NA_real_,
                 boot_sec = NA_real_, mr_sec = NA_real_, speedup = NA_real_))
   g <- fit$mr_inference
   mr_sec <- if (!is.null(g$timing_seconds)) as.numeric(g$timing_seconds) else NA_real_
   list(label = paste(fit$sg.harm, collapse = " & "),
        n_family = g$n_family, selection_bias = g$selection_bias,
+       # Recorded so the dad0415 (F13) shared-denominator change is checkable:
+       # that change moves the MR estimate only where selection_rate < 1.
+       selection_rate = g$selection_rate %||% NA_real_,
        boot_sec = boot_seconds, mr_sec = mr_sec,
        speedup = if (is.finite(boot_seconds) && is.finite(mr_sec) && mr_sec > 0) boot_seconds / mr_sec else NA_real_)
 }
