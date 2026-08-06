@@ -50,6 +50,21 @@ Everything below is stated against the shipped implementation:
 `R/forestsearch_helpers.R`, and the override blocks in `R/forestsearch_main.R`.
 Where a claim can be checked against the package, @sec-validate checks it.
 
+::: {.callout-important}
+## Scope: this document's sort keys describe one engine
+
+The sort keys in @sec-foci, the band behaviour in @sec-band, and the
+inert-argument table in @sec-inert describe **`subgroup_method = "consistency"`**.
+
+`"dina"` and `"grf"` rank on their own statistics and have no consistency term
+at all, so no key of theirs can contain `Pcons`. Their keys, their admission
+behaviour, and what `hr.threshold` does for them are in @sec-engines. Reading
+the tables below as though they covered all three engines is a live source of
+error --- it is how a Pareto frontier of 8 came to be read against an MR family
+of 1, and a "family of one" came to be read as a property of DINA rather than of
+a threshold.
+:::
+
 ## The identifier is the estimator
 
 A recurring source of confusion is worth settling first. In this framework the
@@ -67,6 +82,10 @@ The identifier has two parts:
 
 Both parts must be recorded to describe a run. Two analyses that differ in
 `sg_focus` are estimating different things, however similar the output looks.
+
+What follows develops the **focus** axis for the consistency engine. The engine
+axis is developed in @sec-engines. The table above is complete; the sections
+after it are not, and are not meant to be.
 
 # Vocabulary: `eff*` and `hr*` are the same rules {#sec-vocab}
 
@@ -102,6 +121,20 @@ GLM outcomes.
 `maxSG`/`minSG` are **not** spellings of `effMaxSG`/`effMinSG`. They rank by
 size across *all* qualifiers with no band at all. The banded foci first restrict
 to an inclusion band and only then rank by size. Different rules, similar names.
+:::
+
+::: {.callout-note}
+## `maxeff` and `maxeffCons` are synonyms outside the consistency engine
+
+`.normalize_sg_focus()` leaves both unchanged --- they are canonical spellings,
+not aliases --- so the table above correctly shows no folding. But the
+*distinction* between them is a consistency-engine distinction: it is whether
+the ranking is gated on consistency qualification (@sec-maxeffcons).
+
+DINA and GRF have no consistency screen, so there is nothing to gate on and the
+two values name **the same rule** there. In `.dina_reselect_on_effect()` neither
+matches any branch of the focus `switch()`, so both fall through to the same
+plain effect argmax. Checked in @sec-validate.
 :::
 
 # Where selection sits in the pipeline
@@ -549,7 +582,153 @@ construction of the scan order. Under `maxcons` the answer is `S`, at position
 4, the *last* candidate examined: its `Pcons` of 0.99 is invisible until it is
 scored. Halting early on a `Pcons` key discards the winner.
 
+# The other two engines {#sec-engines}
+
+Everything above this point describes `subgroup_method = "consistency"`. DINA
+and GRF select differently, and the differences are not cosmetic.
+
+## Neither has a consistency term
+
+**No key for either engine contains `Pcons`.** There is no consistency screen on
+these paths, so there is no such quantity to rank on or to break ties with. Any
+reasoning that carries a `Pcons` tier over from @sec-foci is wrong for these two
+engines.
+
+Each ranks **natively first** --- DINA on its mean $\bar\tau$, GRF on the
+doubly-robust score --- and then, when the effect-path re-selection applies,
+re-ranks on $\widehat\beta$ among the admitted set. The two sites are
+`.dina_reselect_on_effect()` and `.grf_reselect_on_effect()` in
+`R/forestsearch_helpers.R`.
+
+The DINA keys, from the focus `switch()` at that site:
+
+```{r dina-keys}
+#| code-fold: true
+data.table(
+  canonical_focus = c("maxSG", "minSG", "hr (maxcons, eff)",
+                      "hrMaxSG (effMaxSG)", "hrMinSG (effMinSG)",
+                      "maxeff / maxeffCons"),
+  dina_sort_key = c("(-N, -eff, idx)", "(N, -eff, idx)", "(-eff, idx)",
+                    "(-in_band, -N, -eff, idx)", "(-in_band, N, -eff, idx)",
+                    "(-eff, idx)  [fallback branch]"),
+  contains_Pcons = "no")[]
+```
+
+Two things differ from the consistency keys beyond the missing `Pcons`. The
+final tiebreak is the **row index** --- a stable insertion order --- not `K`.
+And `hr`, `maxeff` and `maxeffCons` all reduce to the same plain effect argmax,
+the last two by falling through the `switch()` to its fallback.
+
+## An empty admitted set returns no subgroup
+
+Both engines admit on $\widehat\beta(g) \ge t_g$, taken from the resolved
+admission set. When nothing clears the floor, **the selection returns nothing**
+--- it does not fall back to the native winner.
+
+That is a deliberate choice and the reason matters: the native winner was chosen
+on $\bar\tau$ or on the DR score, and reporting it would present a subgroup
+selected on a statistic the analysis does not report. That is precisely the
+misalignment the floor exists to remove, so reinstating it under a different
+name would defeat the change. DINA sets `found <- FALSE`; GRF sets
+`sg_def <- NULL`. Both route into the unified no-subgroup contract, and both
+record `admitted_n <- 0L`.
+
+::: {.callout-warning}
+## "No subgroup" here is a selection outcome, not a failure
+
+A run reporting nothing under DINA or GRF at a given `hr.threshold` has not
+errored. It has found that no candidate clears the harm floor on the effect the
+analysis reports. Distinguishing this from a fit failure is what `admitted_n`
+is for.
+:::
+
+## The band, per engine {#sec-band-engines}
+
+`.compute_inclusion_band()` is now the only band on any selection path. It
+applies:
+
+| engine | where the band applies |
+|---|---|
+| `"consistency"` | `effMaxSG` / `effMinSG` only (@sec-band) |
+| `"dina"` | `hrMaxSG` / `hrMinSG` branches of the effect-path `switch()` |
+| `"grf"` | inside `.grf_frontier_select()`, on the frontier path |
+
+The GRF effect path takes its floor from the **resolved admission set** rather
+than the hard-coded `dmin = 1` it previously used. Because that column is on the
+natural scale while `effect_floor` is on the comparison scale, the floor is
+converted with the same `log_scale` flag that built the column --- the scale
+decision is made once, not twice. Checked in @sec-validate.
+
+# MR reuses two of these names for different rules {#sec-mr-names}
+
+`fs_mr_inference()` takes a `reselection` argument whose permitted values are
+spelled the same as two `sg_focus` values. **They do not mean the same thing.**
+
+| | `sg_focus = "maxcons"` / `"maxeff"` | `reselection = "maxcons"` / `"maxeff"` |
+|---|---|---|
+| carried by | `forestsearch()` | `fs_mr_inference()` |
+| ranks | the observed candidates, once | a **perturbed** family, on every draw |
+| governs | which subgroup is identified | how each multiplier draw re-selects |
+
+The identifier's focus decides what is reported. MR's `reselection` decides how
+the selection event is *linearised* --- it re-ranks perturbed effects
+$\widehat\beta(g) + D_g(b)$ within each draw, to estimate the selection bias of
+a rule that has already run.
+
+A reader who assumes one meaning transfers to the other will misread both:
+`sg_focus = "maxeff"` runs, because the identifier's `maxeff` is ungated and
+disables its thresholds, and MR's `reselection = "maxeff"`, which is *gated* by
+the admission set it is handed. The two are not the same rule under one name;
+they are two rules sharing a spelling across two layers of the same package.
+
+# Fixing the candidate family {#sec-freeze}
+
+The document has so far treated the candidate set as given. How it is built
+determines whether it is the *same* set under a resample, which is what
+`.fs_family_status()` reports on.
+
+Under `cut_type = "default"` the cut locations are derived from **observed
+quantiles**, so they move with a resample: a bootstrap replicate computes its
+own quantiles and gets slightly different cuts. That is why
+`.fs_family_status()` returns `"no-front-end"` rather than `"fixed"` even with
+`use_lasso`, `use_grf` and `use_dina` all `FALSE` --- no fitted model shapes the
+family, but the cut locations are still data-derived.
+
+```{r freeze}
+#| code-fold: true
+data.table(
+  configuration = c(
+    "cut_type = 'default', no conf_force",
+    "conf.cont_medians / conf.cont_medians_force",
+    "conf.cont_jcuts = list(X = J)",
+    "conf_force = c('er <= 0', 'pgr <= 10')"),
+  cut_locations = c("observed quantiles", "observed medians",
+                    "observed (k/(J+1)) quantiles", "LITERAL, as written"),
+  moves_under_resample = c("yes", "yes", "yes", "no"),
+  family_status = c("no-front-end", "no-front-end", "no-front-end",
+                    "no-front-end"))[]
+```
+
+**Only `conf_force` with literal cut expressions genuinely fixes the cuts.** The
+`conf.cont_*` arguments select *which* variables are cut and *how many* cuts
+each gets; the locations remain functions of the data. `conf.cont_medians` and
+`conf.cont_medians_force` take **variable names**, not values
+(`R/get_fsdata.R:31-32`), so supplying them pins neither location.
+
+Note that `.fs_family_status()` reports `"no-front-end"` in all four rows: it
+keys on the three front-end flags and on `subgroup_method`, not on `cut_type`.
+A configuration with literally fixed cuts and one with quantile cuts are
+indistinguishable in that field.
+
+::: {.callout-note}
+This section describes what each setting does, not what anyone should choose.
+Whether cuts *should* be frozen is settled and out of scope: the full bootstrap
+refits everything per resample by design.
+:::
+
 # What is inert where {#sec-inert}
+
+## Under `subgroup_method = "consistency"`
 
 ```{r inert}
 #| code-fold: true
@@ -567,8 +746,44 @@ than `"neighborhood"` together with a non-band focus **raises an error**. The
 rationale is that `selection_rule = "pareto"` under `sg_focus = "maxcons"` is
 not a harmless redundancy --- it states an intent the run will not honour.
 
-The rest degrade silently, which is why a run's resolved settings are worth
-recording rather than inferring from the call.
+## Under `"dina"` and `"grf"` {#sec-inert-engines}
+
+A separate table, because the rows differ enough that merging them would leave
+one table carrying mostly caveats.
+
+```{r inert-engines}
+#| code-fold: true
+data.table(
+  argument = c("selection_rule", "effect_neighborhood", "stop_threshold",
+               "pconsistency.threshold", "hr.threshold"),
+  dina_grf = c("banded foci only, via .compute_inclusion_band()",
+               "banded foci only",
+               "not applicable -- no consistency scan to halt",
+               "INERT -- no consistency screen exists on these paths",
+               "ACTIVE -- sets the admission floor t_g"))[]
+```
+
+::: {.callout-important}
+## `hr.threshold` is active for DINA and GRF
+
+The consistency-engine table above says `hr.threshold` is *disabled* outside
+`maxeff`. **That row does not carry over.** Both engines now admit on
+$\widehat\beta(g) \ge t_g$ with
+$t_g = c_{\mathrm{screen}} = \log(\texttt{hr.threshold})$ for ratio measures,
+read from the resolved admission set (@sec-engines).
+
+The threshold is therefore load-bearing for these engines in a way it was not
+when the first table was written: raising it can take a run from reporting a
+subgroup to reporting none. It is also why "DINA found nothing" is a statement
+about a threshold at least as much as about DINA.
+:::
+
+Everything not enforced degrades silently, which is why a run's resolved
+settings are worth recording rather than inferring from the call. The object
+that records them is **`admission_resolved`**, built once by
+`.fs_resolve_admission()` and carried to every site that needs a floor ---
+identifier and MR alike --- so the two cannot disagree about which floors are in
+force.
 
 # The preview sort carries an extra key {#sec-preview}
 
@@ -631,10 +846,88 @@ if (have_fs) {
   for (f in foci)
     .ok(sprintf("sort_subgroups agrees on %s", f),
         chk(f, res[sg_focus == f, selected]))
+
+  # ---- @sec-engines, @sec-vocab, @sec-inert-engines -----------------------
+
+  # The DINA/GRF keys contain no Pcons term. Checked at the source rather than
+  # asserted: neither re-selection site references the quantity at all.
+  dina_src <- paste(deparse(forestsearch:::.dina_reselect_on_effect),
+                    collapse = "\n")
+  grf_src  <- paste(deparse(forestsearch:::.grf_reselect_on_effect),
+                    collapse = "\n")
+  .ok("DINA effect-path ranking contains no Pcons term",
+      !grepl("Pcons|pconsistency", dina_src))
+  .ok("GRF effect-path ranking contains no Pcons term",
+      !grepl("Pcons|pconsistency", grf_src))
+
+  # maxeff and maxeffCons are the same rule outside the consistency engine:
+  # .normalize_sg_focus leaves both canonical, and neither matches a branch of
+  # the DINA focus switch, so both reach the same fallback argmax.
+  .ok("maxeff / maxeffCons are canonical (not folded onto each other)",
+      identical(forestsearch:::.normalize_sg_focus("maxeff"), "maxeff") &&
+      identical(forestsearch:::.normalize_sg_focus("maxeffCons"), "maxeffCons"))
+  .ok("neither maxeff nor maxeffCons has a DINA switch branch (both fall through)",
+      !grepl('maxeffCons[[:space:]]*=', dina_src) &&
+      !grepl('maxeff[[:space:]]*=', dina_src))
+
+  # The GRF effect path's floor comes from the resolved admission set, not the
+  # literal 1 it previously used.
+  .ok("GRF effect path reads admission$effect_floor",
+      grepl("admission\\$effect_floor", grf_src))
+  .ok("GRF effect path no longer passes a hard-coded dmin = 1",
+      !grepl("dmin[[:space:]]*=[[:space:]]*1[^0-9.]", grf_src))
+
+  # An empty admitted set returns no subgroup rather than the native winner.
+  .ok("DINA sets found = FALSE and admitted_n = 0 on an empty admitted set",
+      grepl("found[[:space:]]*<-[[:space:]]*FALSE", dina_src) &&
+      grepl("admitted_n[[:space:]]*<-[[:space:]]*0L", dina_src))
+  .ok("GRF sets sg_def = NULL and admitted_n = 0 on an empty admitted set",
+      grepl("sg_def[[:space:]]*<-[[:space:]]*NULL", grf_src) &&
+      grepl("admitted_n[[:space:]]*<-[[:space:]]*0L", grf_src))
+
+  # @sec-inert-engines: the admission floor is resolved once, on the comparison
+  # scale, and is non-NULL for DINA/GRF where an effect floor applies.
+  adm <- forestsearch:::.fs_resolve_admission(
+    "hr", "dina", hr.threshold = log(1.25),
+    hr.consistency = NULL, pconsistency.threshold = NULL)
+  .ok("resolved admission carries an effect floor for DINA and no consistency term",
+      identical(adm$effect_floor, log(1.25)) && is.null(adm$consistency))
+
+  # @sec-mr-names: MR's reselection values overlap sg_focus spellings.
+  mr_vals <- eval(formals(forestsearch:::fs_mr_inference)$reselection)
+  .ok("MR reselection reuses the spellings 'maxcons' and 'maxeff'",
+      all(c("maxcons", "maxeff") %in% mr_vals))
+
+  # @sec-freeze: the conf.cont_* arguments take variable NAMES, so they cannot
+  # pin cut locations. Checked via the documented default assignment.
+  gf <- paste(deparse(forestsearch:::get_FSdata), collapse = "\n")
+  .ok("conf.cont_medians defaults to a vector of confounder NAMES",
+      grepl("conf\\.cont_medians[[:space:]]*<-[[:space:]]*confounders\\.name", gf))
 } else {
   cat("forestsearch not installed; validation skipped.\n")
 }
 ```
+
+::: {.callout-note}
+## What is asserted here but not checked
+
+Three claims above are **not** machine-checked, and are marked as such rather
+than left to read like the rest:
+
+* That an empty admitted set produces no subgroup **end to end** --- the checks
+  above confirm the two sites set `found`/`sg_def` and `admitted_n`, not that a
+  full `forestsearch()` run returns nothing. Confirming that needs a fitted
+  run on data engineered to empty the admitted set, which this document does
+  not perform.
+* That cut locations **move under a resample** (@sec-freeze). This follows from
+  quantiles being computed per replicate, but is not exercised here.
+* That DINA and GRF rank **natively first** and only then re-rank on
+  $\widehat\beta$. The ordering is visible in the source but is a claim about
+  control flow, not a value a check can compare.
+
+A document that mixes validated and unvalidated assertions in one voice is worse
+than one that marks the difference.
+:::
 
 # Practical guidance
 
