@@ -1,5 +1,26 @@
 # forestsearch 0.2.0
 
+## New: `mean_r` and `mean_r_c` on the MR object
+
+`fs_mr_inference()` now returns two diagnostics beside `selection_rate`:
+
+- `mean_r` -- the mean of the infinitesimal-jackknife residual over the draws
+  the IJ actually uses (`ok_H`), not over all `draws`.
+- `mean_r_c` -- the same for the complement, `NA_real_` when no complement was
+  fit.
+
+**No estimate changes.** This is exposure of a quantity the correction already
+formed; no computation was touched.
+
+They exist to make one invariant checkable: the residual mean is **zero by
+construction whenever both bias terms share a denominator**, which is the
+convention the package implements -- `selection_bias` and `fixed_bias` both
+average over the draws that produced a winner, and the IJ runs on that same
+set. A non-zero value means the two terms are being normalised differently
+somewhere. That was exactly the defect corrected earlier in this cycle, whose
+signature was a non-zero residual mean; until now nothing asserted its absence
+directly.
+
 ## Breaking: `max_subgroups_search` now defaults to `Inf`
 
 `forestsearch()` capped the candidate pool at the top **200** subgroups before

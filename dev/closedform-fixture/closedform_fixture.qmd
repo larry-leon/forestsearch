@@ -553,29 +553,81 @@ tbl(CEN, "tilde_V under r -> r + c, for c in {-3.5, 0.75, 10}",
   fmt_scientific(columns = "max_abs_change", decimals = 2)
 ```
 
-## What this level cannot assert, and why {#sec-rbar-gap}
+## The residual mean, asserted directly {#sec-rbar-gap}
 
-The spec requires $\bar r$ over the draws the IJ uses, asserted against zero at
-$10^{-10}$, with `selection_rate` beside it. **That assertion cannot be made
-from the returned object.** `fs_mr_inference()` returns `selection_bias`,
-`fixed_bias`, `selection_rate`, and `debiased$var_ij`/`se_ij`/`ij_source`; it
-returns neither $r_b$, nor $\Xi$, nor the per-draw winner vector. Recovering
-$\bar r$ requires rebuilding $D_g(b)$ inside the fixture, which is the first
-thing the spec forbids.
+**This section previously recorded an open gap; it is now closed.** The gap was
+that $\bar r$ could not be asserted from the returned object ---
+`fs_mr_inference()` returned neither $r_b$, nor $\Xi$, nor the per-draw winner
+vector, and rebuilding $D_g(b)$ inside the fixture is the first thing the
+fixture spec forbids. The $\widetilde V$ shift-invariance check above was the
+strongest available substitute, but it tests `.fs_mr_ij_var()`'s arithmetic
+rather than the pipeline's choice of draw set. It is retained below, because it
+tests a different property.
 
-The invariance check above is the strongest available substitute --- it
-exercises the shipped IJ arithmetic and would fail if row-centering were
-removed --- but it is a check on `.fs_mr_ij_var()`, not on the pipeline's
-choice of draw set. Under the conditional convention $\bar r = 0$ is an
-algebraic identity of the code as written (`fs_mr_inference.R:465-475`: both
-bias terms average over `ok_H`, and the IJ runs on `ok_H`), so what the
-assertion would actually detect is a *reintroduced* denominator mismatch --- the
-F13 defect returning. That is exactly the failure mode with no other detector
-here.
+`mean_r` and `mean_r_c` now come off the returned object: the mean of the IJ
+residual over `ok_H` and `use_c` respectively --- exactly the draws entering
+each variance, not all $B$, since on an excluded draw $r_b$ is not a meaningful
+quantity. Exposure only; no computation changed.
 
-Closing it needs one of: a `mean_r` (or `r`/`ok`) element on the returned
-object, or an internal accessor the fixture may call. Both are package changes,
-which this task excludes. **Recorded as an open gap, not worked around.**
+The stake is specific. $\bar r = 0$ **is** what F13 was: the two bias terms
+carried different denominators and the signature was a non-zero residual mean.
+The inverted `fixed_bias` pair in @sec-inverted catches a reversion to the
+unconditional convention, but that is one particular way the denominators can
+diverge. Any other way produces $\bar r \ne 0$, and nothing else here notices.
+
+```{r rbar}
+#| code-fold: true
+# Two blocks, so the candidate is a strict subset and the complement is
+# non-empty -- with a single candidate spanning the frame, mean_r_c is NA.
+rb_bl  <- fx_blocks(60, delta = c(1.0, 0.2), s = c(1.0, 1.0))
+rb_df  <- rb_bl$df; rb_idx <- rb_bl$rows[[1]]
+rb_A   <- asm(rb_df, list(g1 = rb_idx), SPEC_MD)
+
+rbar_run <- function(label, adm) {
+  rr <- mr(rb_df, list(g1 = rb_idx), SPEC_MD, selected_members = rb_idx,
+           admission = adm, reselection = "maxeff", draws = DRAWS,
+           multiplier = "gaussian", seed = 7L, include_complement = TRUE)
+  # Counterfactual: the pre-dad0415 arrangement, fixed_bias over all B while
+  # selection_bias stays over the winner draws. Arithmetic per
+  # verify_conditional_convention.R; not re-derived here.
+  rbar_old <- rr$fixed_bias * rr$selection_rate - rr$fixed_bias
+  data.frame(
+    scenario = label, selection_rate = rr$selection_rate,
+    mean_r = rr$mean_r, mean_r_c = rr$mean_r_c,
+    rbar_old_convention = rbar_old,
+    result = mark("L3", abs(rr$mean_r) < 1e-10 && abs(rr$mean_r_c) < 1e-10))
+}
+
+RB <- rbind(
+  rbar_run("S2-shaped (floor binds)",
+           list(effect_floor = rb_A$beta_hat[1] + 0.4307 * rb_A$sigma_D[1],
+                consistency = NULL)),
+  rbar_run("rate-1 control", NOFLOOR))
+
+# The binding row must also show the old convention failing, else the assertion
+# cannot distinguish a correct implementation from an accidentally small value.
+ok_cf <- abs(RB$rbar_old_convention[1]) > 1e-3
+RB$result[1] <- mark("L3", RB$result[1] == "PASS" && ok_cf)
+
+tbl(RB, "Level 3 --- mean_r over the draws the IJ uses",
+    "Zero by construction when both bias terms share a denominator.") |>
+  fmt_scientific(columns = c("mean_r", "mean_r_c"), decimals = 3) |>
+  fmt_number(columns = c("selection_rate", "rbar_old_convention"), decimals = 6)
+```
+
+**Where it binds.** At `selection_rate` $= 1$ the two candidate draw sets
+coincide, so centering holds trivially and a pass there asserts nothing about
+the convention --- the vacuity this document's own closing section warns about.
+The S2-shaped row carries the assertion, at rate
+`r sprintf("%.4f", RB$selection_rate[1])`, and its `selection_rate` is reported
+beside the residual so that a rate drifting to 1 is visible rather than silent.
+
+**The old convention would fail it.** Reconstructing $\bar r$ under the
+pre-`dad0415` arrangement gives
+`r sprintf("%+.6f", RB$rbar_old_convention[1])` where the floor binds, against
+`r sprintf("%+.6f", RB$rbar_old_convention[2])` at rate 1 --- materially
+non-zero exactly where the conventions differ, and identically zero where they
+coincide.
 
 ```{r gate3}
 #| echo: false

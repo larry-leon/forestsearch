@@ -177,6 +177,59 @@ test_that("S3: var_ij / sigma2_D approaches 4 as B grows", {
 })
 
 
+test_that("Level 3: mean_r is zero where the admission floor binds", {
+  # THE assertion that would have caught F13 in CI rather than by a bisect three
+  # commits later. rbar = 0 is the property whose absence WAS the defect: the two
+  # bias terms carried different denominators, so the residual mixed differently
+  # normalised quantities.
+  #
+  # Two blocks, so the candidate is a strict subset and the complement is
+  # non-empty -- otherwise mean_r_c degrades to NA and asserts nothing.
+  bl <- .fx_blocks(60, delta = c(1.0, 0.2), s = c(1.0, 1.0))
+  df <- bl$df; idx <- bl$rows[[1]]
+  A <- .fs_mr_assemble(df, list(g1 = idx), SPEC_MD)
+
+  res <- fs_mr_inference(
+    df, list(g1 = idx), SPEC_MD, selected_members = idx,
+    admission = list(effect_floor = A$beta_hat[1] + 0.4307 * A$sigma_D[1],
+                     consistency = NULL),
+    reselection = "maxeff", draws = 20000L, multiplier = "gaussian",
+    seed = 7L, include_complement = TRUE)
+
+  # RATE FIRST. A change that inadvertently drives the rate to 1 must fail
+  # loudly here rather than pass the residual check vacuously: at rate 1 the two
+  # candidate draw sets coincide and centering holds trivially.
+  expect_gt(res$selection_rate, 0.3)
+  expect_lt(res$selection_rate, 0.9)
+
+  expect_lt(abs(res$mean_r), 1e-10)
+  expect_false(is.na(res$mean_r_c))
+  expect_lt(abs(res$mean_r_c), 1e-10)
+
+  # The old arrangement -- fixed_bias over all B, selection_bias over the winner
+  # draws -- would NOT satisfy this. Without asserting the counterfactual is
+  # non-zero, a correct implementation is indistinguishable from one where the
+  # quantity happens to be small.
+  rbar_old <- res$fixed_bias * res$selection_rate - res$fixed_bias
+  expect_gt(abs(rbar_old), 1e-3)
+})
+
+
+test_that("Level 3: mean_r_c is NA when no complement is fit", {
+  # A single candidate spanning the whole frame has an empty complement.
+  # NA is missing data, not a value; it must not be substituted with zero.
+  bl <- .fx_blocks(60, delta = 1.0, s = 1.0)
+  df <- bl$df; idx <- bl$rows[[1]]
+
+  res <- fs_mr_inference(df, list(g1 = idx), SPEC_MD, selected_members = idx,
+                         admission = NOFLOOR, reselection = "maxeff",
+                         draws = 2000L, multiplier = "gaussian",
+                         seed = 7L, include_complement = TRUE)
+  expect_true(is.na(res$mean_r_c))
+  expect_lt(abs(res$mean_r), 1e-10)
+})
+
+
 test_that("Level 3 wiring: tilde_V is invariant to a constant shift in r", {
   # .fs_mr_ij_var() row-centers the multiplier matrix, so adding a constant to
   # every r_b cannot move tilde_V. Binds the SHIPPED function, not a copy.

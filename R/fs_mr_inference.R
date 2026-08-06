@@ -294,7 +294,7 @@
 #'   always uses the robust SE.
 #' @return List with the selected index/label, `naive` and `debiased` estimates
 #'   (effect scale, with approximate 95% CIs), `selection_bias`, `fixed_bias`,
-#'   `selection_rate`, the `settings` actually used (`t_confirm`,
+#'   `selection_rate`, `mean_r`, `mean_r_c`, the `settings` actually used (`t_confirm`,
 #'   `confirm_rule`, `reselection`, `selection_rule`, `multiplier`, `draws`),
 #'   `harm_flag`, family/subgroup sizes, and `timing_seconds`. The `debiased`
 #'   element carries `se_ij`, `se_wald`, `var_ij`, and `ij_source`; its CI uses
@@ -303,6 +303,20 @@
 #'   When `include_complement = TRUE`, a `complement` element carries the
 #'   complement subgroup's `naive`/`debiased` estimates and bias terms in the
 #'   same form, including its own IJ variance.
+#'
+#'   `mean_r` is the mean of the IJ residual \eqn{r_b} over `ok_H` -- exactly
+#'   the draws entering the variance, not all `draws`, since on an excluded
+#'   draw \eqn{r_b} is not a meaningful quantity. **The invariant is that it is
+#'   zero by construction whenever both bias terms share a denominator**, which
+#'   is the convention the package implements: `selection_bias` and
+#'   `fixed_bias` both average over the draws that produced a winner, and the
+#'   IJ runs on that same set. A non-zero value therefore means the two terms
+#'   are being normalised differently somewhere -- the defect corrected in
+#'   `dad0415`, whose signature was precisely a non-zero residual mean.
+#'   `mean_r_c` is the same quantity for the complement over `use_c`, and is
+#'   `NA_real_` when no complement was fit. Both are diagnostics of the
+#'   correction's internal consistency rather than properties of the estimate,
+#'   which is why they sit beside `selection_rate` and not inside `debiased`.
 #'
 #'   Note the mixed scales in the flat `debiased` list: `est`/`lower`/`upper`/
 #'   `lower_1s` are on the **effect** scale, while `se`/`se_ij`/`se_wald`/
@@ -476,6 +490,10 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   # Evaluated on `ok`, the same draws both bias terms average over -- which is
   # what makes mean(r_b) identically zero there.
   r_H   <- (selection_bias + fb) - sel_bias - P[sel, ]
+  # Exposure only -- reads the residual the IJ is about to consume, over the
+  # same `ok_H`.  Zero by construction while both bias terms share a
+  # denominator; a non-zero value means they do not, which is what F13 was.
+  mean_r <- mean(r_H[ok_H])
   ijH   <- .fs_mr_ij_var(Xi, r_H, ok_H)
   se_ij <- .fs_mr_se_from_ij(ijH, se_wald)
   se    <- if (ci_method == "ij") se_ij$se else se_wald
@@ -491,6 +509,7 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   # that win across draws (plus the selected one) to keep the cost small.
   # ---------------------------------------------------------------------------
   complement <- NULL
+  mean_r_c   <- NA_real_        # stays NA when no complement is fit
   if (isTRUE(include_complement)) {
     kept   <- candidates[asm$keep]              # aligns with asm columns
     Ncol   <- length(asm$names)
@@ -540,6 +559,7 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
       bdc <- bnc - sbc - fcc
       sec <- sdv_c[sel]
       r_c   <- (sbc + fcc) - selb_c - Pc[sel, ]
+      mean_r_c <- mean(r_c[use_c])          # exposure only; see mean_r above
       ijC   <- .fs_mr_ij_var(Xi, r_c, use_c)
       se_ijc <- .fs_mr_se_from_ij(ijC, sec)
       sec_used <- if (ci_method == "ij") se_ijc$se else sec
@@ -577,6 +597,7 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                     ij_draws = ijH$B_ok),
     selection_bias = selection_bias, fixed_bias = fixed_bias,
     selection_rate = selection_rate,
+    mean_r = mean_r, mean_r_c = mean_r_c,
     complement = complement,
     settings = mr_settings, harm_flag = isTRUE(flag),
     n_family = length(asm$names), n_selected = sz[sel],

@@ -91,7 +91,7 @@ always uses the robust SE.}
 \value{
 List with the selected index/label, \code{naive} and \code{debiased} estimates
 (effect scale, with approximate 95\% CIs), \code{selection_bias}, \code{fixed_bias},
-\code{selection_rate}, the \code{settings} actually used (\code{t_confirm},
+\code{selection_rate}, \code{mean_r}, \code{mean_r_c}, the \code{settings} actually used (\code{t_confirm},
 \code{confirm_rule}, \code{reselection}, \code{selection_rule}, \code{multiplier}, \code{draws}),
 \code{harm_flag}, family/subgroup sizes, and \code{timing_seconds}. The \code{debiased}
 element carries \code{se_ij}, \code{se_wald}, \code{var_ij}, and \code{ij_source}; its CI uses
@@ -100,6 +100,20 @@ robust SE under \code{"wald"}.
 When \code{include_complement = TRUE}, a \code{complement} element carries the
 complement subgroup's \code{naive}/\code{debiased} estimates and bias terms in the
 same form, including its own IJ variance.
+
+\code{mean_r} is the mean of the IJ residual \eqn{r_b} over \code{ok_H} -- exactly
+the draws entering the variance, not all \code{draws}, since on an excluded
+draw \eqn{r_b} is not a meaningful quantity. \strong{The invariant is that it is
+zero by construction whenever both bias terms share a denominator}, which
+is the convention the package implements: \code{selection_bias} and
+\code{fixed_bias} both average over the draws that produced a winner, and the
+IJ runs on that same set. A non-zero value therefore means the two terms
+are being normalised differently somewhere -- the defect corrected in
+\code{dad0415}, whose signature was precisely a non-zero residual mean.
+\code{mean_r_c} is the same quantity for the complement over \code{use_c}, and is
+\code{NA_real_} when no complement was fit. Both are diagnostics of the
+correction's internal consistency rather than properties of the estimate,
+which is why they sit beside \code{selection_rate} and not inside \code{debiased}.
 
 Note the mixed scales in the flat \code{debiased} list: \code{est}/\code{lower}/\code{upper}/
 \code{lower_1s} are on the \strong{effect} scale, while \code{se}/\code{se_ij}/\code{se_wald}/
