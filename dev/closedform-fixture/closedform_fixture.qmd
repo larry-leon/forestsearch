@@ -1,0 +1,643 @@
+---
+title: "The mean-difference closed-form fixture"
+subtitle: "Binding fs_mr_inference() to values computable independently"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: true
+  message: true
+---
+
+## What this document is
+
+`dev/identifier-alignment/verification/` establishes that the closed forms are
+**correct** --- the algebra gives the numbers it claims. Nothing there fails if
+`forestsearch()` regresses, because none of it touches the pipeline. This
+document is the missing half: does `fs_mr_inference()`, run end to end,
+reproduce those values?
+
+Three rules, from `SPEC_closedform_fixture.md`, each recording a mistake already
+made once in this project:
+
+1. **No re-implementing the pipeline.** Every comparison is against a value the
+   package returned. Where a closed form is computed here it is computed from
+   the *observed* per-candidate objects, never from a parallel construction of
+   $D_g(b)$.
+2. **No asserting at the leaf.** Each level contains at least one assertion that
+   runs the top-level function and reads its returned object, so the fixture
+   proves the value *arrives* rather than merely that some helper can compute it.
+3. **No control that passes because the quantity is easy.** Every scenario is
+   configured so the target is distinguishable from zero, from $\sigma_D$, and
+   from the naive estimate.
+
+The MR correction is settled as of `dad0415`. This document asserts **against**
+it, not about it. A failing assertion is a finding, not a licence to adjust the
+code.
+
+### Why the mean difference
+
+The MD score is linear in $(\alpha, \beta)$, so Lemma 1's mean-value curvature
+term vanishes identically --- the linearization carries no curvature error and
+every per-candidate object is closed form. It is also the only measure fitted
+with `lm()`, the path `411a448` repaired: a $\sigma_D$ assertion fails **on
+contact** if that path breaks again, rather than degrading silently to
+`n_family = 0`.
+
+```{r setup}
+#| include: false
+library(forestsearch)
+library(gt)
+
+mr  <- forestsearch:::fs_mr_inference
+asm <- forestsearch:::.fs_mr_assemble
+ijv <- forestsearch:::.fs_mr_ij_var
+
+SPEC_MD <- list(outcome_type = "continuous", effect_measure = "MD",
+                treat.name = "trt", outcome.name = "y", event.name = NULL,
+                offset.name = NULL, adjust_covariates = NULL,
+                adverse_outcome = TRUE)
+NOFLOOR <- list(effect_floor = NULL, consistency = NULL)
+
+DRAWS <- 20000L          # spec: B >= 20000 keeps the O(B^-1/2) envelope inside
+Z975  <- stats::qnorm(0.975)
+
+# Deterministic centered scores: constructed, not sampled, so arm means and arm
+# variances are fixed before any fit runs.
+fx_z <- function(m) { z <- stats::qnorm((seq_len(m) - 0.5) / m); z - mean(z) }
+
+fx_blocks <- function(n_per_arm, delta, s) {
+  out <- NULL
+  for (b in seq_along(delta)) {
+    zb <- fx_z(n_per_arm)
+    out <- rbind(out, data.frame(trt = rep(c(1L, 0L), each = n_per_arm),
+                                 y = c(delta[b] + s[b] * zb, s[b] * zb)))
+  }
+  out$id <- seq_len(nrow(out))
+  k <- 2 * n_per_arm
+  list(df = out,
+       rows = lapply(seq_along(delta), function(b) ((b - 1) * k + 1):(b * k)))
+}
+
+# Closed forms. The (n_a - 1) denominators are the one-step influence
+# (X'X)^-1 x_i e_i / (1 - h_i) with h_i = 1/n_a; see @sec-findings.
+fx_cf_beta <- function(df, idx) {
+  d <- df[idx, ]; mean(d$y[d$trt == 1L]) - mean(d$y[d$trt == 0L])
+}
+fx_cf_db <- function(df, idx) {
+  d <- df[idx, ]
+  y1 <- d$y[d$trt == 1L]; y0 <- d$y[d$trt == 0L]
+  n1 <- length(y1); n0 <- length(y0)
+  db <- numeric(nrow(d))
+  db[d$trt == 1L] <-  (y1 - mean(y1)) / (n1 - 1)
+  db[d$trt == 0L] <- -(y0 - mean(y0)) / (n0 - 1)
+  db
+}
+fx_cf_sigma <- function(df, idx) sqrt(sum(fx_cf_db(df, idx)^2))
+
+# Pass/fail bookkeeping. Levels are gated: Level 1 must pass before Level 2
+# means anything, and Level 2 before Level 3.
+LEVEL_OK <- c(L1 = TRUE, L2 = TRUE, L3 = TRUE)
+mark <- function(level, ok) {
+  if (!isTRUE(ok)) LEVEL_OK[[level]] <<- FALSE
+  if (isTRUE(ok)) "PASS" else "**FAIL**"
+}
+gate <- function(level) {
+  if (!LEVEL_OK[[level]])
+    stop("Level ", level, " failed; later levels are not meaningful. ",
+         "Report levels in order and stop on the first failure.", call. = FALSE)
+  invisible(TRUE)
+}
+tbl <- function(d, title, subtitle = NULL) {
+  g <- gt(d) |> tab_header(title = title, subtitle = subtitle) |>
+    cols_align(align = "left", columns = 1)
+  g
+}
+```
+
+## The four scenarios
+
+| | shape | isolates |
+|---|---|---|
+| **S1** | two candidates, floor inactive | the main selection-bias check |
+| **S2** | $M = 1$, floor active | the conditional denominator convention --- the load-bearing scenario |
+| **S3** | $M = 1$, floor inactive | the degenerate IJ case, $\widetilde V/\sigma^2_D \to 4$ |
+| **S4** | $M$ disjoint candidates, no separation | the $\mathbb{E}[\max]$ constants |
+
+`multiplier = "gaussian"` throughout. The package default is `"poisson"`; under
+Gaussian multipliers $D_g(b)$ is exactly multivariate normal at every $n$, which
+is what every closed form below assumes. A fixture left on the Poisson default
+misses by a few percent and the miss looks like a defect.
+
+```{r build-frames}
+#| code-fold: true
+
+# S1 -- two OVERLAPPING candidates, so Sigma_12 != 0 and tau is not trivial.
+s1  <- fx_blocks(40, delta = c(1.2, 0.4), s = c(1.0, 1.3))
+s1_cands <- list(
+  g1 = c(s1$rows[[1]], s1$rows[[2]][1:20], s1$rows[[2]][41:60]),
+  g2 = c(s1$rows[[2]], s1$rows[[1]][1:20], s1$rows[[1]][41:60]))
+
+# S3 / S2 -- a single candidate.
+s3  <- fx_blocks(60, delta = 1.0, s = 1.0)
+s3_idx <- s3$rows[[1]]
+```
+
+# Level 1 --- the per-candidate objects {#sec-level1}
+
+Algebraic identities, so equality at `1e-10` rather than an envelope. A failure
+here is a broken influence path, which is `411a448`'s signature.
+
+```{r level1}
+#| code-fold: true
+A1 <- asm(s1$df, s1_cands, SPEC_MD)
+Sig <- crossprod(A1$B)
+
+rows <- list()
+for (g in seq_along(s1_cands)) {
+  idx <- s1_cands[[g]]
+  ok_b <- isTRUE(all.equal(A1$beta_hat[g], fx_cf_beta(s1$df, idx), tolerance = 1e-10))
+  ok_s <- isTRUE(all.equal(A1$sigma_D[g],  fx_cf_sigma(s1$df, idx), tolerance = 1e-10))
+  ok_B <- isTRUE(all.equal(unname(A1$B[idx, g]), unname(fx_cf_db(s1$df, idx)),
+                           tolerance = 1e-10))
+  tr <- s1$df$trt[idx]
+  ok_z <- max(abs(c(sum(A1$B[idx, g][tr == 1L]), sum(A1$B[idx, g][tr == 0L])))) < 1e-10
+  rows[[length(rows) + 1]] <- data.frame(
+    quantity = sprintf("beta_hat(g%d)", g),
+    closed_form = fx_cf_beta(s1$df, idx), observed = A1$beta_hat[g],
+    abs_diff = abs(A1$beta_hat[g] - fx_cf_beta(s1$df, idx)),
+    result = mark("L1", ok_b))
+  rows[[length(rows) + 1]] <- data.frame(
+    quantity = sprintf("sigma_D(g%d)", g),
+    closed_form = fx_cf_sigma(s1$df, idx), observed = A1$sigma_D[g],
+    abs_diff = abs(A1$sigma_D[g] - fx_cf_sigma(s1$df, idx)),
+    result = mark("L1", ok_s))
+  rows[[length(rows) + 1]] <- data.frame(
+    quantity = sprintf("B[, g%d] = e_i/(n_a - 1)", g),
+    closed_form = NA_real_, observed = NA_real_,
+    abs_diff = max(abs(A1$B[idx, g] - fx_cf_db(s1$df, idx))),
+    result = mark("L1", ok_B))
+  rows[[length(rows) + 1]] <- data.frame(
+    quantity = sprintf("within-arm sums of B[, g%d]", g),
+    closed_form = 0, observed = NA_real_,
+    abs_diff = max(abs(c(sum(A1$B[idx, g][tr == 1L]), sum(A1$B[idx, g][tr == 0L])))),
+    result = mark("L1", ok_z))
+}
+
+Bcf <- matrix(0, nrow(s1$df), length(s1_cands))
+for (g in seq_along(s1_cands)) Bcf[s1_cands[[g]], g] <- fx_cf_db(s1$df, s1_cands[[g]])
+ok_S <- isTRUE(all.equal(unname(Sig), unname(crossprod(Bcf)), tolerance = 1e-10))
+rows[[length(rows) + 1]] <- data.frame(
+  quantity = "Sigma = crossprod(B)", closed_form = NA_real_, observed = NA_real_,
+  abs_diff = max(abs(Sig - crossprod(Bcf))), result = mark("L1", ok_S))
+
+L1 <- do.call(rbind, rows)
+tbl(L1, "Level 1 --- per-candidate objects (S1 frame)",
+    "Equality at 1e-10. Read from .fs_mr_assemble().") |>
+  fmt_number(columns = c("closed_form", "observed"), decimals = 6) |>
+  fmt_scientific(columns = "abs_diff", decimals = 2) |>
+  sub_missing(missing_text = "--")
+```
+
+## Level 1 reaches the top level
+
+Reading `.fs_mr_assemble()` proves the assembler works; it does not prove
+`fs_mr_inference()` calls it, or that the value reaches `debiased$se_wald`.
+
+```{r level1-toplevel}
+#| code-fold: true
+r1 <- mr(s1$df, s1_cands, SPEC_MD, selected_members = s1_cands[[1]],
+         admission = NOFLOOR, reselection = "maxeff",
+         draws = DRAWS, multiplier = "gaussian", seed = 42L)
+
+ok_tl <- isTRUE(all.equal(r1$debiased$se_wald, fx_cf_sigma(s1$df, s1_cands[[1]]),
+                          tolerance = 1e-10))
+L1b <- data.frame(
+  quantity = c("debiased$se_wald vs closed-form sigma_D(g1)", "n_family"),
+  closed_form = c(fx_cf_sigma(s1$df, s1_cands[[1]]), 2),
+  observed = c(r1$debiased$se_wald, r1$n_family),
+  abs_diff = c(abs(r1$debiased$se_wald - fx_cf_sigma(s1$df, s1_cands[[1]])), 0),
+  result = c(mark("L1", ok_tl), mark("L1", r1$n_family == 2L)))
+tbl(L1b, "Level 1 --- top-level tie-in",
+    "fs_mr_inference() run end to end; values read from its returned object.") |>
+  fmt_number(columns = c("closed_form", "observed"), decimals = 6) |>
+  fmt_scientific(columns = "abs_diff", decimals = 2)
+```
+
+```{r gate1}
+#| echo: false
+gate("L1")
+```
+
+# Level 2 --- the correction {#sec-level2}
+
+## S1 --- two candidates, floor inactive
+
+With $d = \widehat\beta(g_1) - \widehat\beta(g_2)$ and
+$\tau^2 = \sigma_1^2 + \sigma_2^2 - 2\sigma_{12}$, both taken from the Level 1
+objects,
+$$\widehat{\mathrm{bias}}_{\mathrm{sel}} \longrightarrow \tau\,\varphi(d/\tau).$$
+
+```{r s1-bias}
+#| code-fold: true
+d_s1   <- A1$beta_hat[1] - A1$beta_hat[2]
+tau_s1 <- sqrt(Sig[1, 1] + Sig[2, 2] - 2 * Sig[1, 2])
+cf_s1  <- tau_s1 * stats::dnorm(d_s1 / tau_s1)
+env_s1 <- 4 * max(A1$sigma_D) / sqrt(DRAWS)
+err_s1 <- r1$selection_bias - cf_s1
+
+S1 <- data.frame(
+  quantity = c("d = beta1 - beta2", "tau", "selection_bias"),
+  closed_form = c(d_s1, tau_s1, cf_s1),
+  observed = c(NA_real_, NA_real_, r1$selection_bias),
+  error = c(NA_real_, NA_real_, err_s1),
+  envelope = c(NA_real_, NA_real_, env_s1),
+  selection_rate = c(NA_real_, NA_real_, r1$selection_rate),
+  result = c("--", "--", mark("L2", abs(err_s1) <= env_s1)))
+tbl(S1, "S1 --- selection bias against tau * phi(d / tau)",
+    sprintf("B = %d, gaussian multipliers. Envelope 4 max sigma_j B^-1/2.", DRAWS)) |>
+  fmt_number(columns = c("closed_form", "observed", "error", "envelope",
+                         "selection_rate"), decimals = 6) |>
+  sub_missing(missing_text = "--")
+```
+
+The target is `r sprintf("%.4f", cf_s1)`, against $\sigma_D =$
+`r sprintf("%.4f", A1$sigma_D[1])` and a naive estimate of
+`r sprintf("%.4f", A1$beta_hat[1])`. It is distinguishable from zero, from
+$\sigma_D$, and from the naive value, so a pipeline that computed nothing would
+not pass.
+
+### Rate check --- the error must fall at $B^{-1/2}$
+
+A systematic offset that does not shrink is the failure a single comparison
+cannot see. Averaged over eight seeds per $B$, since a single seed's error is
+itself noise.
+
+```{r s1-rate}
+#| code-fold: true
+seeds <- 101:108
+rate_rows <- lapply(c(DRAWS, 4L * DRAWS, 16L * DRAWS), function(B) {
+  errs <- vapply(seeds, function(sd_) {
+    rr <- mr(s1$df, s1_cands, SPEC_MD, selected_members = s1_cands[[1]],
+             admission = NOFLOOR, reselection = "maxeff",
+             draws = B, multiplier = "gaussian", seed = sd_)
+    rr$selection_bias - cf_s1
+  }, numeric(1))
+  data.frame(B = B, rms_error = sqrt(mean(errs^2)))
+})
+RT <- do.call(rbind, rate_rows)
+RT$ratio_vs_first <- RT$rms_error / RT$rms_error[1]
+RT$predicted <- sqrt(RT$B[1] / RT$B)
+ok_rate <- RT$rms_error[3] < RT$rms_error[1]
+RT$result <- c("--", "--", mark("L2", ok_rate))
+tbl(RT, "S1 rate check --- RMS error over 8 seeds",
+    "predicted = sqrt(B_1 / B), the B^-1/2 rate.") |>
+  fmt_number(columns = c("rms_error"), decimals = 7) |>
+  fmt_number(columns = c("ratio_vs_first", "predicted"), decimals = 4)
+```
+
+### Tie sanity --- $d = 0$, orthogonal unit-scale influences
+
+At $d = 0$ with $\Sigma_{12} = 0$ and $\sigma_1 = \sigma_2 = \sigma$,
+$\tau = \sqrt2\,\sigma$ and $\tau\varphi(0) = \sigma/\sqrt\pi$ --- the expected
+maximum of two normals.
+
+```{r s1-tie}
+#| code-fold: true
+tie <- fx_blocks(40, delta = c(1.0, 1.0), s = c(1.0, 1.0))
+tie_c <- list(g1 = tie$rows[[1]], g2 = tie$rows[[2]])
+At <- asm(tie$df, tie_c, SPEC_MD)
+rt <- mr(tie$df, tie_c, SPEC_MD, selected_members = tie_c[[1]],
+         admission = NOFLOOR, reselection = "maxeff",
+         draws = DRAWS, multiplier = "gaussian", seed = 5L)
+cf_tie <- mean(At$sigma_D) / sqrt(pi)
+env_tie <- 4 * max(At$sigma_D) / sqrt(DRAWS)
+ok_tie <- abs(rt$selection_bias - cf_tie) <= env_tie
+TIE <- data.frame(quantity = "selection_bias at d = 0",
+                  closed_form = cf_tie, observed = rt$selection_bias,
+                  error = rt$selection_bias - cf_tie, envelope = env_tie,
+                  selection_rate = rt$selection_rate,
+                  result = mark("L2", ok_tie))
+tbl(TIE, "S1 tie sanity --- sigma / sqrt(pi)") |>
+  fmt_number(columns = 2:6, decimals = 6)
+```
+
+## S2 --- $M = 1$, floor active: the denominator convention {#sec-s2}
+
+The load-bearing scenario. With $M = 1$, $c = t_g - \widehat\beta(g)$ and
+$\sigma = \sigma_{D,g}$, the **conditional** convention the package implements
+as of `dad0415` gives
+$$\widehat{\mathrm{bias}}_{\mathrm{sel}} \longrightarrow
+  \frac{\sigma\,\varphi(c/\sigma)}{\overline\Phi(c/\sigma)},
+  \qquad p = \overline\Phi(c/\sigma),$$
+against the **unconditional** divide-by-$B$ value $\sigma\varphi(c/\sigma)$.
+The two differ by exactly $1/p$. A fixture that only checks the value the code
+produces cannot tell a convention change from a regression, so S2 asserts both
+that the conditional form holds **and** that the unconditional form does not.
+
+```{r s2}
+#| code-fold: true
+A3   <- asm(s3$df, list(g1 = s3_idx), SPEC_MD)
+sg   <- A3$sigma_D[1]; bh <- A3$beta_hat[1]
+zcs  <- c(0.8416, 0.4307, 0.0)          # p ~ 0.20, 0.33, 0.50
+
+s2_rows <- lapply(zcs, function(zc) {
+  fl <- bh + zc * sg
+  rr <- mr(s3$df, list(g1 = s3_idx), SPEC_MD, selected_members = s3_idx,
+           admission = list(effect_floor = fl, consistency = NULL),
+           reselection = "maxeff", draws = DRAWS, multiplier = "gaussian",
+           seed = 7L)
+  p_obs  <- rr$selection_rate
+  cond   <- sg * stats::dnorm(zc) / stats::pnorm(zc, lower.tail = FALSE)
+  uncond <- sg * stats::dnorm(zc)
+  env    <- 4 * sg / sqrt(DRAWS * p_obs)
+  ok_c   <- abs(rr$selection_bias - cond) <= env
+  ok_u   <- abs(rr$selection_bias - uncond) > env     # must NOT match
+  data.frame(c_over_sigma = zc, p = p_obs,
+             conditional = cond, observed = rr$selection_bias,
+             error = rr$selection_bias - cond, envelope = env,
+             unconditional = uncond, ratio_cond_uncond = cond / uncond,
+             result = mark("L2", ok_c && ok_u))
+})
+S2 <- do.call(rbind, s2_rows)
+tbl(S2, "S2 --- conditional closed form asserted, unconditional asserted to fail",
+    sprintf("B = %d. Envelope 4 sigma / sqrt(B p) -- the average is over Bp draws, not B.", DRAWS)) |>
+  fmt_number(columns = 2:8, decimals = 6)
+```
+
+The separation is `r sprintf("%.2f", S2$ratio_cond_uncond[2])`-fold at
+$c = \sigma/2$, so the two conventions are not distinguishable only in
+principle.
+
+### `fixed_bias`: the inverted pair {#sec-inverted}
+
+The mean-zero envelope
+$|\widehat{\mathrm{bias}}_{\mathrm{fix}}| \le z_{0.975}\,\sigma_D B^{-1/2}$
+holds at $p = 1$ **and only at $p = 1$**. Under conditioning, admission selects
+draws with upward perturbation, so $\widehat{\mathrm{bias}}_{\mathrm{fix}}$ is a
+genuine selection effect and must *breach* the envelope.
+
+This inverted pair is the strongest assertion in the fixture: an implementation
+that reverted to the unconditional convention would pass at rate 1 and fail S2,
+and nothing else here detects that.
+
+```{r fixed-bias-pair}
+#| code-fold: true
+env_mz <- function(sd_, B) Z975 * sd_ / sqrt(B)
+
+fb_rows <- list()
+for (nm in c("S1", "S3", "S4 (M=2)")) {
+  rr <- switch(nm,
+    "S1" = r1,
+    "S3" = mr(s3$df, list(g1 = s3_idx), SPEC_MD, selected_members = s3_idx,
+              admission = NOFLOOR, reselection = "maxeff",
+              draws = DRAWS, multiplier = "gaussian", seed = 7L),
+    "S4 (M=2)" = rt)
+  sd_ <- rr$debiased$se_wald
+  e <- env_mz(sd_, DRAWS)
+  fb_rows[[nm]] <- data.frame(
+    scenario = nm, selection_rate = rr$selection_rate,
+    fixed_bias = rr$fixed_bias, envelope = e,
+    expectation = "within", result = mark("L2", abs(rr$fixed_bias) <= e))
+}
+for (i in seq_along(zcs)) {
+  zc <- zcs[i]; fl <- bh + zc * sg
+  rr <- mr(s3$df, list(g1 = s3_idx), SPEC_MD, selected_members = s3_idx,
+           admission = list(effect_floor = fl, consistency = NULL),
+           reselection = "maxeff", draws = DRAWS, multiplier = "gaussian",
+           seed = 7L)
+  e <- env_mz(sg, DRAWS)
+  fb_rows[[paste0("S2_", i)]] <- data.frame(
+    scenario = sprintf("S2 (c/sigma = %.4f)", zc),
+    selection_rate = rr$selection_rate,
+    fixed_bias = rr$fixed_bias, envelope = e,
+    expectation = "breaches", result = mark("L2", abs(rr$fixed_bias) > e))
+}
+FB <- do.call(rbind, fb_rows)
+tbl(FB, "fixed_bias --- mean-zero envelope at rate 1, breach below it",
+    "selection_rate reported on every row so a vacuous rate-1 pass is visible as such.") |>
+  fmt_number(columns = c("selection_rate", "fixed_bias", "envelope"), decimals = 6)
+```
+
+### Monotonicity in $p$, on a fixed draw matrix
+
+`fs_mr_inference()` builds its multipliers from `seed`, so holding the seed,
+the data and `draws` fixed while varying only `admission$effect_floor` varies
+$p$ **on the same draw matrix**. Redrawing per floor would confound the trend
+with sampling noise.
+
+```{r monotone}
+#| code-fold: true
+zc_grid <- c(1.2816, 0.8416, 0.4307, 0.0, -0.8416)
+mono <- do.call(rbind, lapply(zc_grid, function(zc) {
+  rr <- mr(s3$df, list(g1 = s3_idx), SPEC_MD, selected_members = s3_idx,
+           admission = list(effect_floor = bh + zc * sg, consistency = NULL),
+           reselection = "maxeff", draws = DRAWS, multiplier = "gaussian",
+           seed = 7L)
+  data.frame(c_over_sigma = zc, p = rr$selection_rate,
+             fixed_bias = rr$fixed_bias)
+}))
+mono <- mono[order(mono$p), ]
+ok_mono <- all(diff(mono$fixed_bias) < 0)
+mono$result <- c(rep("--", nrow(mono) - 1), mark("L2", ok_mono))
+tbl(mono, "fixed_bias is monotone decreasing in p, approaching 0 as p -> 1",
+    "Same seed, same data, same draws: only the floor varies.") |>
+  fmt_number(columns = 1:3, decimals = 6)
+```
+
+## S4 --- $M$ disjoint candidates, no separation
+
+The $\Sigma \ge 0$ gate runs **before** the $\mathbb{E}[\max]$ comparison,
+since the bound is Slepian's and holds under non-negative pairwise covariance
+rather than universally.
+
+```{r s4}
+#| code-fold: true
+Emax <- c(1 / sqrt(pi), 3 / (2 * sqrt(pi)), 1.02938)
+s4 <- do.call(rbind, lapply(2:4, function(M) {
+  blM <- fx_blocks(40, delta = rep(1.0, M), s = rep(1.0, M))
+  cM  <- stats::setNames(blM$rows, paste0("g", seq_len(M)))
+  AM  <- asm(blM$df, cM, SPEC_MD)
+  SigM <- crossprod(AM$B)
+  min_off <- min(SigM[upper.tri(SigM)])
+  gate_ok <- min_off >= -1e-12
+  rr <- mr(blM$df, cM, SPEC_MD, selected_members = cM[[1]],
+           admission = NOFLOOR, reselection = "maxeff",
+           draws = DRAWS, multiplier = "gaussian", seed = 3L)
+  cf  <- mean(AM$sigma_D) * Emax[M - 1]
+  env <- 4 * max(AM$sigma_D) / sqrt(DRAWS)
+  data.frame(M = M, min_offdiag_Sigma = min_off, gate = if (gate_ok) "ok" else "**FAIL**",
+             closed_form = cf, observed = rr$selection_bias,
+             error = rr$selection_bias - cf, envelope = env,
+             selection_rate = rr$selection_rate,
+             result = mark("L2", gate_ok && abs(rr$selection_bias - cf) <= env))
+}))
+tbl(s4, "S4 --- E[max] of M iid normals, after the Sigma >= 0 gate",
+    "Constants 1/sqrt(pi), 3/(2 sqrt(pi)), 1.02938 for M = 2, 3, 4.") |>
+  fmt_number(columns = c("closed_form", "observed", "error", "envelope",
+                         "selection_rate"), decimals = 6) |>
+  fmt_scientific(columns = "min_offdiag_Sigma", decimals = 2)
+```
+
+```{r gate2}
+#| echo: false
+gate("L2")
+```
+
+# Level 3 --- the interval {#sec-level3}
+
+## S3 --- $\widetilde V / \sigma^2_{D,\widehat H} \to 4$
+
+The assertion that certifies **both** terms of the residual reach the variance.
+With $M = 1$ the residual is $r_b = \text{const} - 2 D_1(b)$, so its variance is
+$4\sigma^2$. An implementation dropping
+$\widehat{\mathrm{bias}}_{\mathrm{fix}}$ returns $1$ here and passes every other
+check in this document. Reported at three values of $B$, confirming approach
+rather than asserting a point value at one $B$.
+
+```{r s3-ratio}
+#| code-fold: true
+s2d <- A3$sigma_D[1]^2
+S3 <- do.call(rbind, lapply(c(DRAWS, 4L * DRAWS, 16L * DRAWS), function(B) {
+  rr <- mr(s3$df, list(g1 = s3_idx), SPEC_MD, selected_members = s3_idx,
+           admission = NOFLOOR, reselection = "maxeff",
+           draws = B, multiplier = "gaussian", seed = 7L)
+  data.frame(B = B, var_ij = rr$debiased$var_ij, sigma2_D = s2d,
+             ratio = rr$debiased$var_ij / s2d,
+             selection_rate = rr$selection_rate,
+             ij_source = rr$debiased$ij_source)
+}))
+ok_s3 <- S3$ratio[3] > 3.8 && S3$ratio[3] < 4.2 && S3$ratio[3] > S3$ratio[1]
+S3$result <- c("--", "--", mark("L3", ok_s3))
+tbl(S3, "S3 --- IJ variance ratio approaches 4",
+    "Value 1 would indicate a dropped fixed_bias term.") |>
+  fmt_number(columns = c("var_ij", "sigma2_D", "ratio", "selection_rate"), decimals = 6)
+```
+
+## Row-centering: $\widetilde V$ is invariant to a constant shift in $r$
+
+`.fs_mr_ij_var()` centers the multiplier matrix by row, so
+$\sum_b (\Xi - \bar\Xi)_{ib} = 0$ and adding a constant to every $r_b$ cannot
+move $\widetilde V$. A wiring check on the centering, not a statistical one.
+This binds the **shipped** function, as the reference scripts do --- not a copy.
+
+```{r centering}
+#| code-fold: true
+set.seed(99)
+N_ <- 40L; Bd <- 800L
+Xi_ <- matrix(stats::rnorm(N_ * Bd), N_, Bd)
+r_  <- stats::rnorm(Bd)
+full <- seq_len(Bd)
+sub  <- sort(sample(Bd, 300L))          # the selection_rate < 1 case
+
+CEN <- do.call(rbind, lapply(list(list("all draws", full), list("subset (rate < 1)", sub)),
+  function(cc) {
+    base <- ijv(Xi_, r_, cc[[2]])
+    shifted <- vapply(c(-3.5, 0.75, 10), function(s) ijv(Xi_, r_ + s, cc[[2]])$tilde_V,
+                      numeric(1))
+    data.frame(draws_used = cc[[1]], B_ok = base$B_ok, tilde_V = base$tilde_V,
+               max_abs_change = max(abs(shifted - base$tilde_V)),
+               result = mark("L3", max(abs(shifted - base$tilde_V)) < 1e-12))
+  }))
+tbl(CEN, "tilde_V under r -> r + c, for c in {-3.5, 0.75, 10}",
+    "Exact invariance follows from row-centering of Xi.") |>
+  fmt_number(columns = "tilde_V", decimals = 8) |>
+  fmt_scientific(columns = "max_abs_change", decimals = 2)
+```
+
+## What this level cannot assert, and why {#sec-rbar-gap}
+
+The spec requires $\bar r$ over the draws the IJ uses, asserted against zero at
+$10^{-10}$, with `selection_rate` beside it. **That assertion cannot be made
+from the returned object.** `fs_mr_inference()` returns `selection_bias`,
+`fixed_bias`, `selection_rate`, and `debiased$var_ij`/`se_ij`/`ij_source`; it
+returns neither $r_b$, nor $\Xi$, nor the per-draw winner vector. Recovering
+$\bar r$ requires rebuilding $D_g(b)$ inside the fixture, which is the first
+thing the spec forbids.
+
+The invariance check above is the strongest available substitute --- it
+exercises the shipped IJ arithmetic and would fail if row-centering were
+removed --- but it is a check on `.fs_mr_ij_var()`, not on the pipeline's
+choice of draw set. Under the conditional convention $\bar r = 0$ is an
+algebraic identity of the code as written (`fs_mr_inference.R:465-475`: both
+bias terms average over `ok_H`, and the IJ runs on `ok_H`), so what the
+assertion would actually detect is a *reintroduced* denominator mismatch --- the
+F13 defect returning. That is exactly the failure mode with no other detector
+here.
+
+Closing it needs one of: a `mean_r` (or `r`/`ok`) element on the returned
+object, or an internal accessor the fixture may call. Both are package changes,
+which this task excludes. **Recorded as an open gap, not worked around.**
+
+```{r gate3}
+#| echo: false
+gate("L3")
+```
+
+# Findings {#sec-findings}
+
+## The spec's Level 1 closed forms omit the leverage factor
+
+`SPEC_closedform_fixture.md` states
+$\mathrm{db}_{g,i} = e_i/n_1$ (treated), $-e_i/n_0$ (control), and
+$\sigma^2_{D,g} = \widehat s_1^2/n_1 + \widehat s_0^2/n_0$, "the Neyman
+variance". **The package computes neither.**
+
+`.dfbeta_glm()` (`R/consistency_resample.R:168-176`) returns the one-step
+influence $(X'X)^{-1}x_i e_i/(1 - h_i)$. For a two-group model $h_i = 1/n_a$,
+so the leverage factor is $n_a/(n_a - 1)$ and
+
+$$\mathrm{db}_i = \frac{e_i}{n_a - 1},
+\qquad
+\sigma^2_{D,g} = \frac{\mathrm{SS}_1}{(n_1-1)^2} + \frac{\mathrm{SS}_0}{(n_0-1)^2}.$$
+
+Measured at $n_a = 100$: package `0.2696379`, spec's Neyman form `0.2669415` ---
+a 1.0% gap, against a stated tolerance of `1e-10`. The spec's forms would have
+failed **on contact**, and the failure would have looked like a broken influence
+path rather than a mis-stated reference.
+
+This is a spec correction, not a package defect. The one-step form is the
+documented and verified construction: `411a448` validated `.dfbeta_glm()`
+against `stats::dfbeta()` to ~1e-16 on `lm()` unweighted, `lm()` with prior
+weights, and three glm families. The discrepancy is $O(n_a^{-1})$ relative ---
+the same order as the perturbed-information remainder the spec itself notes ---
+so the Neyman form is the correct *asymptotic* statement and the wrong *exact*
+one. This document and the testthat file assert the exact form, and the
+testthat file additionally asserts that the Neyman form does **not** match, so a
+future change toward it is caught rather than absorbed.
+
+## The verification README's V5/V6 paragraph was stale
+
+It described the F13 denominator question as "undecided, and these scripts do
+not decide it", three paragraphs above its own V8/V9 section stating that the
+package implements the conditional convention. Corrected when this fixture was
+built; the reference scripts themselves were not touched.
+
+# Summary
+
+```{r summary}
+#| echo: false
+SUM <- data.frame(
+  level = c("Level 1 --- per-candidate objects",
+            "Level 2 --- the correction",
+            "Level 3 --- the interval"),
+  status = ifelse(LEVEL_OK, "PASS", "**FAIL**"),
+  note = c("beta_hat, sigma_D, B, Sigma; plus se_wald at the top level",
+           "S1 + rate + tie, S2 conditional vs unconditional, the inverted fixed_bias pair, S4",
+           "S3 ratio -> 4, row-centering invariance; rbar gap recorded"))
+tbl(SUM, "Fixture result", format(Sys.time(), "%Y-%m-%d %H:%M"))
+```
+
+```{r sessioninfo}
+#| echo: false
+cat("forestsearch", as.character(utils::packageVersion("forestsearch")), "|",
+    R.version.string, "|", "B =", DRAWS, "| multiplier = gaussian\n")
+```
