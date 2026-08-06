@@ -28,9 +28,11 @@ Everything feeding that function is still synthetic.
 | V6 | the same convention question in the other direction: `V_tilde` is invariant to it, `V_hat` is not |
 
 V5 and V6 are the audit's **F13** material — the denominator convention for
-`bias_sel`. That question is undecided, and these scripts do not decide it; they
-establish what each convention implies, so the choice can be made on the
-numbers.
+`bias_sel`. These scripts do not *decide* it; they establish what each
+convention implies, so the choice could be made on the numbers. **The choice has
+since been made:** `dad0415` adopted the conditional convention, via the V8/V9
+pair below. This paragraph previously said the question was undecided, which
+contradicted the V8/V9 section three paragraphs down.
 
 ### `verify_eq9_alignment.R` — V8 and `verify_conditional_convention.R` — V9
 
