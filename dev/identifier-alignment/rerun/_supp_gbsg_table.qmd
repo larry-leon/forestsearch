@@ -1,0 +1,181 @@
+# GBSG application: de-biased subgroup hazard-ratio table {#sec-supp-gbsg-table}
+
+This table accompanies the German Breast Cancer Study Group analysis of Section 6 of the main paper.
+
+```{r setup-payload}
+#| echo: false
+#| message: false
+#| warning: false
+library(kableExtra)
+
+# ---------------------------------------------------------------------------
+# Where to read the payload from.
+#   NULL (default) -> alongside this .qmd (resolved at render time)
+#   or set an explicit directory matching where the analysis output was placed.
+# (The analysis runs outside the manuscript tree, so copy the .rds next to this
+#  file or point payload_dir at it.)
+# ---------------------------------------------------------------------------
+payload_dir <- "_payloads/"
+
+.pdir <- if (is.null(payload_dir)) {
+  tryCatch(dirname(knitr::current_input(dir = TRUE)), error = function(e) getwd())
+} else {
+  payload_dir
+}
+P <- readRDS(file.path(.pdir, "gbsg_survival_multimethod_payload.rds"))
+
+# ---- formatters -----------------------------------------------------------
+# numeric est/lo/hi -> "1.95 (1.04, 3.67)"
+fci <- function(e, l, u, d = 2) {
+  ifelse(is.na(e), "\u2014", sprintf("%.*f (%.*f, %.*f)", d, e, d, l, d, u))
+}
+
+# R-style cut string -> inline-math house form:
+#   "er <= 0 & pgr <= 10" -> "$\{er \le 0\} \cap \{pgr \le 10\}$"
+fmt_label <- function(s) {
+  if (is.null(s) || length(s) != 1L || is.na(s) || !nzchar(s)) return("\u2014")
+  opmap <- c("<=" = "\\le", ">=" = "\\ge", "<" = "<", ">" = ">", "==" = "=")
+  fmt_cut <- function(p) {
+    m <- regmatches(p, regexec("^(\\S+)\\s*(<=|>=|==|<|>)\\s*(\\S+)$", p))[[1]]
+    if (length(m) == 4L) {
+      sprintf("\\{%s %s %s\\}", m[2], opmap[[m[3]]], m[4])
+    } else {
+      paste0("\\{", trimws(p), "\\}")
+    }
+  }
+  parts <- trimws(strsplit(s, "&", fixed = TRUE)[[1]])
+  paste0("$", paste(vapply(parts, fmt_cut, character(1)), collapse = " \\cap "), "$")
+}
+
+# seconds -> readable duration
+fmt_dur <- function(sec) {
+  if (is.null(sec) || is.na(sec)) return("\u2014")
+  if (sec < 1)  return(sprintf("%.2f seconds", sec))
+  if (sec < 90) return(sprintf("about %.0f seconds", sec))
+  sprintf("about %.1f minutes", sec / 60)
+}
+
+# ---- precomputed prose fragments (keeps inline-R minimal) -----------------
+fs_l    <- fmt_label(P$labels$fs)
+grf_l   <- fmt_label(P$labels$grf)
+dina_l  <- fmt_label(P$labels$dina)
+same_fg <- identical(P$labels$fs, P$labels$grf)
+
+h_desc <- if (same_fg) {
+  paste0(fs_l, " for FS and GRF")
+} else {
+  paste0(fs_l, " for FS, ", grf_l, " for GRF")
+}
+
+cap_tbl <- paste0(
+  "De-biased subgroup hazard ratios for the GBSG trial;",
+  " parenthetical values are 95% confidence intervals. Here ",
+  "$\\widehat{H}$ is ", h_desc, ", and ", dina_l, " for DINA.")
+
+cf_sentence <- if (same_fg) {
+  paste0("The GRF identifier selected the same ", fs_l,
+         " subgroup as the FS identifier; DINA selected a distinct subgroup (",
+         dina_l, ").")
+} else {
+  paste0("The GRF identifier selected ", grf_l, " and the FS identifier ", fs_l,
+         "; DINA selected ", dina_l, ".")
+}
+
+ds <- P$labels$dina_standalone
+dina_standalone_sentence <- if (isTRUE(ds$found)) {
+  paste0("the DINA (\u00a77.2.2) identifier selects ", fmt_label(ds$label),
+         " (N = ", ds$n, ") on the DINA scale without a Cox HR")
+} else {
+  "the DINA identifier (\u00a77.2.2) selected no subgroup on the DINA scale"
+}
+
+B_txt     <- format(P$meta$B, big.mark = ",")
+draws_txt <- format(P$meta$gate_draws, big.mark = ",")
+# Cores ACTUALLY USED for the parallel sections, read from the analysis
+# machine's payload.  Prefer machine$cores_used (the worker count); fall back
+# to the older meta$cores = availableCores() for payloads written before the
+# machine block existed.
+.mi <- P$meta$machine
+.cores_used <- if (!is.null(.mi) && length(.mi$cores_used) && isTRUE(is.finite(.mi$cores_used))) {
+  .mi$cores_used
+} else if (length(P$meta$cores) && isTRUE(is.finite(P$meta$cores))) {
+  P$meta$cores
+} else NA_integer_
+cores_txt <- if (!is.na(.cores_used)) as.character(.cores_used) else "many"
+
+# Optional hardware detail (CPU model + BLAS backend) from the analysis
+# machine, to make the timing claim attributable.  Degrades to just the worker
+# count when the machine block is absent.
+.cpu_bits <- character(0)
+if (!is.null(.mi)) {
+  if (length(.mi$cpu_model) && !is.na(.mi$cpu_model)) .cpu_bits <- c(.cpu_bits, .mi$cpu_model)
+  if (length(.mi$blas) && !is.na(.mi$blas)) {
+    if (grepl("Accelerate|vecLib", .mi$blas))                 .cpu_bits <- c(.cpu_bits, "Accelerate BLAS")
+    else if (grepl("openblas", .mi$blas, ignore.case = TRUE)) .cpu_bits <- c(.cpu_bits, "OpenBLAS")
+    else if (grepl("mkl",      .mi$blas, ignore.case = TRUE)) .cpu_bits <- c(.cpu_bits, "MKL")
+  }
+}
+cores_phrase <- if (!is.na(.cores_used) && length(.cpu_bits)) {
+  sprintf("%d worker%s (%s)", .cores_used, if (.cores_used == 1L) "" else "s", paste(.cpu_bits, collapse = ", "))
+} else if (!is.na(.cores_used)) {
+  sprintf("%d worker%s", .cores_used, if (.cores_used == 1L) "" else "s")
+} else {
+  "many cores"
+}
+# Timing across the three identifier analyses (FS, DINA, GRF): report the
+# spread (fastest to slowest) rather than a single engine's time.
+bs <- vapply(P$meta$timings, function(m) m$boot_sec, numeric(1)); bs <- bs[is.finite(bs)]
+gs <- vapply(P$meta$timings, function(m) m$mr_sec, numeric(1)); gs <- gs[is.finite(gs)]
+boot_min <- if (length(bs)) fmt_dur(min(bs)) else "\u2014"
+boot_max <- if (length(bs)) fmt_dur(max(bs)) else "\u2014"
+gate_min <- if (length(gs)) fmt_dur(min(gs)) else "\u2014"
+gate_max <- if (length(gs)) fmt_dur(max(gs)) else "\u2014"
+sp <- vapply(P$meta$timings, function(m) m$speedup, numeric(1)); sp <- sp[is.finite(sp)]
+speedup_phrase <- if (length(sp)) {
+  paste0("roughly ", format(round(min(sp)), big.mark = ","), " to ",
+         format(round(max(sp)), big.mark = ","), " times faster")
+} else {
+  "far faster"
+}
+# --- scalar extractors for the prose (single source of truth = P$table) ---
+.grow <- function(meth, reg) P$table[P$table$method == meth & P$table$region == reg, , drop = FALSE]
+.gpt  <- function(df, col) if (nrow(df)==0L || is.na(df[[col]][1])) "\u2014" else sprintf("%.2f", df[[col]][1])
+g_fs_fb   <- .gpt(.grow("FS","H"),   "fb_est")
+g_fs_mr   <- .gpt(.grow("FS","H"),   "mr_est")
+g_dina_mr <- .gpt(.grow("DINA","H"), "mr_est")
+g_grf_mr  <- .gpt(.grow("GRF","H"),  "mr_est")
+
+```
+
+```{r}
+#| label: tbl-gbsg-multimethod
+#| tbl-cap: !expr cap_tbl
+#| echo: false
+#| message: false
+#| warning: false
+T1 <- P$table
+# Math renders inside LaTeX table cells, but kableExtra injects the HTML table
+# as raw HTML (Pandoc does not convert $...$ inside it, and Quarto's math
+# renderer only touches Pandoc-generated spans). So use real math for PDF and
+# Unicode glyphs for HTML.
+if (knitr::is_latex_output()) {
+  sg_H <- "$\\widehat{H}$"; sg_Hc <- "$\\widehat{H}^{c}$"; pct_hdr <- "$n$ (\\%)"
+} else {
+  sg_H <- "\u0124"; sg_Hc <- "\u0124<sup>c</sup>"; pct_hdr <- "<i>n</i> (%)"
+}
+sg <- ifelse(T1$region == "H", sg_H, sg_Hc)
+gbsg <- data.frame(
+  Method = ifelse(T1$region == "H", T1$method, ""),
+  SG     = sg,
+  n      = sprintf("%d (%d)", as.integer(T1$n), as.integer(T1$pct)),
+  Naive  = fci(T1$naive_est, T1$naive_lo, T1$naive_hi),
+  FB     = fci(T1$fb_est, T1$fb_lo, T1$fb_hi),
+  Mult   = fci(T1$mr_est, T1$mr_lo, T1$mr_hi),
+  check.names = FALSE
+)
+colnames(gbsg) <- c("Method", "SG", pct_hdr, "Naive", "Full bootstrap", "Multiplier")
+kbl(gbsg, booktabs = TRUE, escape = FALSE, align = "lccccc", linesep = "") |>
+  kable_styling() |>
+  row_spec(2, extra_latex_after = "\\midrule", extra_css = "border-bottom: 1px solid #adadad") |>
+  row_spec(4, extra_latex_after = "\\midrule", extra_css = "border-bottom: 1px solid #adadad")
+```

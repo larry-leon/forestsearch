@@ -1,0 +1,194 @@
+```{r setup-payload-actg}
+#| echo: false
+#| message: false
+#| warning: false
+library(kableExtra)
+
+# ---------------------------------------------------------------------------
+# Payload location: NULL (default) resolves to the directory of the document
+# being rendered (the manuscript when included; this fragment's folder for the
+# standalone QC wrapper). Set an absolute path to read from a fixed results dir.
+# ---------------------------------------------------------------------------
+payload_dir <- "_payloads/"
+
+.pdir <- if (is.null(payload_dir)) {
+  tryCatch(dirname(knitr::current_input(dir = TRUE)), error = function(e) getwd())
+} else {
+  payload_dir
+}
+P <- readRDS(file.path(.pdir, "actg175_table_payload.rds"))
+
+# ---- formatters -----------------------------------------------------------
+fci <- function(e, l, u, d = 2) {
+  ifelse(is.na(e), "\u2014", sprintf("%.*f (%.*f, %.*f)", d, e, d, l, d, u))
+}
+pt <- function(df, col) {
+  if (nrow(df) == 0L || is.na(df[[col]][1])) "\u2014" else sprintf("%.2f", df[[col]][1])
+}
+fmt_label <- function(s) {
+  if (is.null(s) || length(s) != 1L || is.na(s) || !nzchar(s)) return("\u2014")
+  opmap <- c("<=" = "\\le", ">=" = "\\ge", "<" = "<", ">" = ">", "==" = "=", "!=" = "\\ne")
+  flip  <- c("<=" = ">", ">=" = "<", "<" = ">=", ">" = "<=", "==" = "!=", "!=" = "==")
+  # round every numeric token (kills float-formatting noise, e.g. 84.369600000000005 -> 84.37)
+  rnums <- function(x, d = 2) {
+    g <- gregexpr("[0-9]+(?:\\.[0-9]+)?", x, perl = TRUE)
+    regmatches(x, g) <- lapply(regmatches(x, g), function(v)
+      vapply(v, function(z) format(round(as.numeric(z), d), trim = TRUE,
+                                   scientific = FALSE), character(1)))
+    x
+  }
+  fmt_cut <- function(p) {
+    p <- trimws(p); neg <- FALSE
+    if (grepl("^!", p)) { neg <- TRUE; p <- trimws(sub("^!", "", p)) }      # leading complement
+    p <- trimws(sub("\\}$", "", trimws(sub("^\\{", "", p))))            # strip one brace layer
+    m <- regmatches(p, regexec("^(.*?)\\s*(<=|>=|==|!=|<|>)\\s*(.*)$", p))[[1]]
+    if (length(m) == 4L && nzchar(trimws(m[2]))) {
+      op <- m[3]; if (neg) op <- flip[[op]]                                 # !{x <= c} -> {x > c}
+      sprintf("\\{%s %s %s\\}", trimws(m[2]), opmap[[op]], rnums(trimws(m[4])))
+    } else {
+      body <- rnums(p)
+      if (neg) paste0("\\overline{\\{", body, "\\}}") else paste0("\\{", body, "\\}")
+    }
+  }
+  parts <- trimws(unlist(strsplit(s, "\\s*(?:&|\u2229|\\\\cap|\\band\\b)\\s*", perl = TRUE)))
+  parts <- parts[nzchar(parts)]
+  paste0("$", paste(vapply(parts, fmt_cut, character(1)), collapse = " \\cap "), "$")
+}
+dur_bare <- function(sec) {
+  if (is.null(sec) || is.na(sec)) return("\u2014")
+  if (sec < 1)  return(sprintf("%.2f seconds", sec))
+  if (sec < 90) return(sprintf("%.1f seconds", sec))
+  sprintf("%.1f minutes", sec / 60)
+}
+
+# ---- precomputed fragments ------------------------------------------------
+fs_l   <- fmt_label(P$labels$fs)
+grf_l  <- fmt_label(P$labels$grf)
+dina_l <- fmt_label(P$labels$dina)
+
+cap_actg <- paste0(
+  "De-biased subgroup odds ratios for the ACTG175 trial (binary outcome, ",
+  "OR scale); parenthetical values are 95% confidence ",
+  "intervals. Here $\\widehat{H}$ is ", fs_l, " for FS, ", dina_l, " for DINA, and ",
+  grf_l, " for GRF.")
+
+B_txt     <- format(P$meta$B, big.mark = ",")
+n_txt     <- format(P$meta$n_total, big.mark = ",")
+# Cores ACTUALLY USED for the parallel sections, read from the analysis
+# machine's payload.  Prefer machine$cores_used (the worker count); fall back
+# to the older meta$cores = availableCores() for payloads written before the
+# machine block existed.
+.mi <- P$meta$machine
+.cores_used <- if (!is.null(.mi) && length(.mi$cores_used) && isTRUE(is.finite(.mi$cores_used))) {
+  .mi$cores_used
+} else if (length(P$meta$cores) && isTRUE(is.finite(P$meta$cores))) {
+  P$meta$cores
+} else NA_integer_
+cores_txt <- if (!is.na(.cores_used)) as.character(.cores_used) else "many"
+
+# Optional hardware detail (CPU model + BLAS backend) from the analysis
+# machine, to make the timing claim attributable.  Degrades to just the worker
+# count when the machine block is absent.
+.cpu_bits <- character(0)
+if (!is.null(.mi)) {
+  if (length(.mi$cpu_model) && !is.na(.mi$cpu_model)) .cpu_bits <- c(.cpu_bits, .mi$cpu_model)
+  if (length(.mi$blas) && !is.na(.mi$blas)) {
+    if (grepl("Accelerate|vecLib", .mi$blas))                 .cpu_bits <- c(.cpu_bits, "Accelerate BLAS")
+    else if (grepl("openblas", .mi$blas, ignore.case = TRUE)) .cpu_bits <- c(.cpu_bits, "OpenBLAS")
+    else if (grepl("mkl",      .mi$blas, ignore.case = TRUE)) .cpu_bits <- c(.cpu_bits, "MKL")
+  }
+}
+cores_phrase <- if (!is.na(.cores_used) && length(.cpu_bits)) {
+  sprintf("%d worker%s (%s)", .cores_used, if (.cores_used == 1L) "" else "s", paste(.cpu_bits, collapse = ", "))
+} else if (!is.na(.cores_used)) {
+  sprintf("%d worker%s", .cores_used, if (.cores_used == 1L) "" else "s")
+} else {
+  "many cores"
+}
+
+T1  <- P$table
+.row <- function(meth, reg) T1[T1$method == meth & T1$region == reg, , drop = FALSE]
+fsH   <- .row("FS", "H");   dinaH <- .row("DINA", "H"); grfH <- .row("GRF", "H")
+fs_naive  <- pt(fsH, "naive_est");  fs_fb  <- pt(fsH, "fb_est");  fs_mr  <- pt(fsH, "mr_est")
+dina_naive <- pt(dinaH, "naive_est"); dina_fb <- pt(dinaH, "fb_est"); dina_mr <- pt(dinaH, "mr_est")
+grf_fb <- pt(grfH, "fb_est"); grf_mr <- pt(grfH, "mr_est")
+
+cc <- P$extras$concordance
+conc_n     <- if (!is.null(cc)) format(cc$n_agree, big.mark = ",") else "\u2014"
+conc_pct   <- if (!is.null(cc)) sprintf("%.1f", cc$pct_agree) else "\u2014"
+conc_kappa <- if (!is.null(cc) && !is.na(cc$kappa)) sprintf("%.2f", cc$kappa) else "\u2014"
+
+hr <- P$extras$harm_rates
+treated_pct <- if (!is.null(hr) && !is.na(hr$treated_pct)) sprintf("%.1f", hr$treated_pct) else "\u2014"
+control_pct <- if (!is.null(hr) && !is.na(hr$control_pct)) sprintf("%.1f", hr$control_pct) else "\u2014"
+
+bs <- vapply(P$meta$timings, function(m) m$boot_sec, numeric(1)); bs <- bs[is.finite(bs)]
+gs <- vapply(P$meta$timings, function(m) m$mr_sec, numeric(1)); gs <- gs[is.finite(gs)]
+sp <- vapply(P$meta$timings, function(m) m$speedup, numeric(1)); sp <- sp[is.finite(sp)]
+boot_min <- if (length(bs)) dur_bare(min(bs)) else "\u2014"
+boot_max <- if (length(bs)) dur_bare(max(bs)) else "\u2014"
+gate_min <- if (length(gs)) dur_bare(min(gs)) else "\u2014"
+gate_max <- if (length(gs)) dur_bare(max(gs)) else "\u2014"
+speedup_phrase <- if (length(sp)) {
+  paste0("roughly ", format(round(min(sp)), big.mark = ","), " to ",
+         format(round(max(sp)), big.mark = ","), " times faster")
+} else {
+  "far faster"
+}
+```
+
+# ACTG175 application: the odds-ratio path {#sec-supp-actg175}
+
+The odds-ratio companion to the GBSG analysis exercises the GLM path of the same
+machinery (Section 1 of the main paper). AIDS Clinical Trials Group 175 [@hammer1996]
+randomized $n =$ `r n_txt` patients to zidovudine plus
+didanosine, the experimental arm, against didanosine monotherapy, the control; 
+the dataset is accessed here through the `speff2trial`
+package. The outcome here is an indicator of no CD4 improvement,
+coded so that an odds ratio above the threshold signals harm. The candidate covariates
+were the trial's baseline characteristics: age, weight (wtkg, $J=10$ cuts),
+Karnofsky performance score (karnof), days of prior antiretroviral therapy (preanti), and baseline CD4 (cd40, $J=10$ cuts)
+and CD8 (cd80) counts, together with binary indicators for hemophilia, homosexual activity, a
+history of intravenous drug use, race, sex, and symptomatic status.  
+
+
+```{r}
+#| label: tbl-actg175-multimethod
+#| tbl-cap: !expr cap_actg
+#| echo: false
+#| message: false
+#| warning: false
+if (knitr::is_latex_output()) {
+  sg_H <- "$\\widehat{H}$"; sg_Hc <- "$\\widehat{H}^{c}$"; pct_hdr <- "$n$ (\\%)"
+} else {
+  sg_H <- "\u0124"; sg_Hc <- "\u0124<sup>c</sup>"; pct_hdr <- "<i>n</i> (%)"
+}
+sg <- ifelse(T1$region == "H", sg_H, sg_Hc)
+actg <- data.frame(
+  Method = ifelse(T1$region == "H", T1$method, ""),
+  SG     = sg,
+  n      = sprintf("%d (%d)", as.integer(T1$n), as.integer(T1$pct)),
+  Naive  = fci(T1$naive_est, T1$naive_lo, T1$naive_hi),
+  FB     = fci(T1$fb_est, T1$fb_lo, T1$fb_hi),
+  Mult   = fci(T1$mr_est, T1$mr_lo, T1$mr_hi),
+  check.names = FALSE
+)
+colnames(actg) <- c("Method", "SG", pct_hdr, "Naive", "Full bootstrap", "Multiplier")
+kbl(actg, booktabs = TRUE, escape = FALSE, align = "lccccc", linesep = "") |>
+  kable_styling() |>
+  row_spec(2, extra_latex_after = "\\midrule", extra_css = "border-bottom: 1px solid #adadad") |>
+  row_spec(4, extra_latex_after = "\\midrule", extra_css = "border-bottom: 1px solid #adadad")
+```
+
+The results displayed in @tbl-actg175-multimethod are as follows. FS and GRF identify similar high-weight and high-CD4 regions `r fmt_label(P$labels$fs)` 
+and `r fmt_label(P$labels$grf)`, respectively — close but not
+identical cuts, agreeing on `r conc_n` of `r n_txt` patients (`r conc_pct`%, Cohen's
+$\kappa = `r conc_kappa`$) — where `r treated_pct`% of treated patients show no CD4
+improvement against `r control_pct`% on control, and the naive odds ratio of
+`r fs_naive` corrects to `r fs_fb` (full bootstrap) and `r fs_mr` (multiplier
+resampling) but stays well above the threshold. DINA selects `r dina_l`, whose apparent harm substantially diminishes under correction — naive `r dina_naive` to `r dina_fb` (full bootstrap) and `r dina_mr` (multiplier resampling).  
+
+As noted above there is considerable overlap between the identified subgroups of FS and GRF, and the MR corrections 
+are similar (`r fs_mr` vs `r grf_mr`, resp.) but there is lack of agreement in the FB corrections (`r fs_fb` vs `r grf_fb`).
+
+The same order-of-magnitude cost advantage holds for this larger study — the full bootstrap in minutes against the refit-free procedure in seconds (`r speedup_phrase` across the three identifiers).

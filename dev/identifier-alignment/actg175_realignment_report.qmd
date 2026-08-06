@@ -1,0 +1,463 @@
+---
+title: "ACTG175 Re-analysis Under the Realigned Identifier Defaults"
+subtitle: "Comparison against the manuscript-era payload, and consequences for reported claims"
+format:
+  pdf:
+    documentclass: scrartcl
+    papersize: letter
+    geometry: margin=1in
+    number-sections: true
+    toc: true
+    toc-depth: 2
+bibliography: []
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(knitr)
+
+# Used below for payloads that record the MR draw count under either the
+# current name (mr_draws) or the pre-rename one (gate_draws).
+`%||%` <- function(a, b) if (is.null(a)) b else a
+```
+
+# Purpose and scope
+
+This report compares the ACTG175 odds-ratio analysis as re-run under the
+realigned identifier defaults against the manuscript-era payload, and states
+which reported claims are affected.
+
+Two changes separate the runs. The first is deliberate: `use_lasso` and
+`use_grf` were set to `FALSE` in the forest search (FS) fit, so that the
+candidate family is fixed rather than estimated from the outcome data --- the
+condition multiplier resampling (MR) requires, and the configuration the GBSG
+analysis already used. The second was discovered during the comparison
+and is not a change to this project's code at all: R 4.6.0 corrected
+`stats::dfbeta()` for generalized linear model objects, and the manuscript-era
+payload was built under R 4.5.2.
+
+Everything below is computed from the two payload objects. No numbers are
+carried in from the surrounding conversation.
+
+```{r paths}
+# Adjust if rendering from elsewhere.  Defaults assume this document sits in
+# dev/identifier-alignment/.
+path_ref <- "sim_analyses/actg175_table_payload.rds"   # manuscript-era
+path_new <- "rerun/actg175_table_payload.rds"          # realigned re-run
+
+ref_obj <- readRDS(path_ref)
+new_obj <- readRDS(path_new)
+
+ref <- ref_obj$table
+new <- new_obj$table
+
+stopifnot(identical(dim(ref), dim(new)),
+          identical(ref$method, new$method),
+          identical(ref$region, new$region))
+
+row_id <- paste(ref$method, ref$region)
+```
+
+# Provenance
+
+```{r provenance}
+prov <- data.frame(
+  quantity = c("bootstrap replicates (B)", "MR draws", "n total",
+               "FS label", "FS MR family size"),
+  reference = c(ref_obj$meta$B,
+                ref_obj$meta$mr_draws %||% ref_obj$meta$gate_draws,
+                ref_obj$meta$n_total,
+                ref_obj$labels$fs,
+                ref_obj$meta$timings$fs$n_family),
+  new = c(new_obj$meta$B,
+          new_obj$meta$mr_draws %||% new_obj$meta$gate_draws,
+          new_obj$meta$n_total,
+          new_obj$labels$fs,
+          new_obj$meta$timings$fs$n_family)
+)
+kable(prov, caption = "Run provenance.")
+```
+
+The MR family size is identical. This is the decisive fact about the
+front-end change: the prognostic lasso and the generalized random forest (GRF)
+importance screen dropped nothing on the full ACTG175 sample, so the enumerated
+family was already complete. Removing them therefore could not alter the FS
+selection, and did not.
+
+# What is unchanged
+
+```{r unchanged}
+same <- data.frame(
+  row               = row_id,
+  n_ref             = ref$n,
+  n_new             = new$n,
+  naive_est         = ref$naive_est,
+  naive_est_reldiff = abs(new$naive_est - ref$naive_est) / abs(ref$naive_est)
+)
+kable(same, digits = c(0, 0, 0, 4, 16),
+      caption = "Subgroup sizes and naive point estimates.")
+
+labels_identical <- identical(unlist(ref_obj$labels[c("fs", "dina", "grf")]),
+                              unlist(new_obj$labels[c("fs", "dina", "grf")]))
+cat("All three identifier labels identical:", labels_identical, "\n")
+```
+
+Identification is untouched: labels, subgroup sizes, and the naive point
+estimates agree to floating-point precision. The FS subgroup did **not** change
+under the front-end removal, contrary to the expectation recorded before the
+run.
+
+# The naive interval discrepancy
+
+Both intervals are symmetric on the log scale, so the implied standard error is
+recoverable from the reported bounds.
+
+```{r implied-se}
+implied_se <- function(lo, hi) (log(hi) - log(lo)) / (2 * qnorm(0.975))
+
+se_tab <- data.frame(
+  row       = row_id,
+  n         = ref$n,
+  se_ref    = implied_se(ref$naive_lo, ref$naive_hi),
+  se_new    = implied_se(new$naive_lo, new$naive_hi)
+)
+se_tab$ratio <- se_tab$se_ref / se_tab$se_new
+kable(se_tab, digits = c(0, 0, 5, 5, 4),
+      caption = "Implied naive standard errors, and the ratio between runs.")
+```
+
+Two features matter.
+
+**The new values are the quantity the manuscript defines.** Section 4 of the
+main paper specifies the naive fixed-subgroup variance as
+$\sigma^2_{D,\hat{H}} = \sum_{i \in \hat{H}} \mathrm{db}^2_{\hat{H},i}$, the
+diagonal of the influence-function covariance. Computed independently from the
+raw `speff2trial::ACTG175` data, $\sqrt{\sum_i \mathrm{db}^2}$ equals the new
+run's implied standard error exactly in every region --- 0.51181 (FS $\hat{H}$),
+0.42753 (DINA $\hat{H}$), 0.42789 (GRF $\hat{H}$), 0.13098 (FS $\hat{H}^c$).
+
+**The inflation is not a constant factor.** The ratios span roughly 2.3% and
+are uncorrelated with subgroup size, which excludes any explanation in which
+$\sigma_D$ is scaled by a constant.
+
+## Root cause: an upstream change in base R {#sec-rootcause}
+
+The discrepancy does not originate in `forestsearch`. It originates in
+`stats::dfbeta()`.
+
+R 4.6.0, released 2026-04-24, records the following under significant
+user-visible changes:
+
+> `weighted.residuals()` now returns weighted working residuals for `"glm"`
+> objects. It used to return deviance residuals, but these do not give the
+> one-step approximated dfbeta values. [...] Several influence measures for
+> `"glm"` objects have been updated to use Pearson residuals rather than
+> deviance residuals (the latter are not unbiased).
+
+The manuscript-era payload was built under R 4.5.2; the re-run under R 4.6.1.
+Substituting the two residual definitions into the influence formula reproduces
+both runs, to five decimal places in all four regions:
+
+| region | $n$ | deviance (pre-4.6.0) | working (4.6.0+) | payload, June | payload, re-run |
+|---|---|---|---|---|---|
+| FS $\hat{H}$ | 72 | 0.58019 | 0.51181 | 0.58019 | 0.51181 |
+| DINA $\hat{H}$ | 98 | 0.49336 | 0.42753 | 0.49336 | 0.42753 |
+| GRF $\hat{H}$ | 95 | 0.49643 | 0.42789 | 0.49643 | 0.42789 |
+| FS $\hat{H}^c$ | 1011 | 0.15003 | 0.13098 | 0.15003 | 0.13098 |
+
+Three consequences follow.
+
+The `forestsearch` implementation is correct and was never changed:
+`R/consistency_resample.R`, where $\sigma_D = \sqrt{\sum_i \mathrm{db}_i^2}$ is
+formed, and `.consistency_glm_pieces()` are both byte-identical between the
+June commit and the current one.
+
+The manuscript's *definition* requires no revision. What changed is the base-R
+function that evaluates it, and the change was a correction: deviance residuals
+do not yield the one-step dfbeta approximation the definition intends. The
+re-run values are therefore the correct ones.
+
+The ratio's dependence on subgroup composition is explained. The ratio of
+deviance to weighted working residuals depends on the fitted probabilities
+within each subgroup, so it varies across regions rather than scaling
+uniformly. This is precisely why no constant-factor explanation fitted.
+
+## Demonstration
+
+The mechanism is reproducible without ACTG175. The chunk below fits a logistic
+model to simulated data and forms $\sigma_D$ under both residual definitions.
+
+```{r rootcause-demo}
+set.seed(11)
+n <- 200
+x <- rbinom(n, 1, 0.5)
+z <- rnorm(n)
+y <- rbinom(n, 1, plogis(-1 + 0.8 * x + 0.5 * z))
+fit <- glm(y ~ x + z, family = binomial())
+
+w <- fit$weights
+h <- lm.influence(fit, do.coef = FALSE)$hat
+X <- model.matrix(fit)
+A <- solve(t(X) %*% (w * X))
+
+# One-step dfbeta from an arbitrary residual vector.
+dfb <- function(res) {
+  t(sapply(seq_len(n), function(i) A %*% X[i, ] * sqrt(w[i]) * res[i] / (1 - h[i])))
+}
+
+res_working  <- sqrt(w) * (fit$y - fit$fitted.values) /
+                (fit$fitted.values * (1 - fit$fitted.values))
+res_deviance <- residuals(fit, type = "deviance")
+
+sigma_new <- sqrt(colSums(dfb(res_working)^2))[2]
+sigma_old <- sqrt(colSums(dfb(res_deviance)^2))[2]
+sigma_pkg <- sqrt(colSums(dfbeta(fit)^2))[2]
+
+data.frame(
+  quantity = c("working residuals (R >= 4.6.0)",
+               "deviance residuals (R < 4.6.0)",
+               "stats::dfbeta() under this R",
+               "ratio old / new"),
+  value = c(sigma_new, sigma_old, sigma_pkg, sigma_old / sigma_new),
+  row.names = NULL
+)
+cat("R version running this document:", as.character(getRversion()), "\n")
+```
+
+Under R 4.3.3 the third row equals the second (0.35054); under R 4.6.1 it
+equals the first. The ratio, 1.13 here, sits in the same range as the four
+ACTG175 regions.
+
+```{r ratio-spread}
+cat(sprintf("ratio range: %.4f to %.4f (spread %.1f%%)\n",
+            min(se_tab$ratio), max(se_tab$ratio),
+            100 * (max(se_tab$ratio) / min(se_tab$ratio) - 1)))
+cat(sprintf("correlation of ratio with log(n): %.3f\n",
+            cor(se_tab$ratio, log(se_tab$n))))
+```
+
+# Propagation to the multiplier-resampling estimates
+
+The per-candidate admission threshold is
+$t_g = \max(c_{\mathrm{screen}},\, c_{\mathrm{cons}} + z_{0.975}\,\sigma_{D,g})$.
+An inflated $\sigma_D$ therefore raises the screening threshold, changes which
+candidates survive on each multiplier draw, and shifts the estimated selection
+bias. The consequence is visible in every MR column.
+
+```{r mr-shift}
+pctchg <- function(a, b) 100 * (b - a) / a
+
+est_tab <- data.frame(
+  row        = row_id,
+  naive      = ref$naive_est,
+  fb_ref     = ref$fb_est,  fb_new  = new$fb_est,
+  fb_pct     = pctchg(ref$fb_est, new$fb_est),
+  mr_ref     = ref$mr_est,  mr_new  = new$mr_est,
+  mr_pct     = pctchg(ref$mr_est, new$mr_est)
+)
+kable(est_tab, digits = c(0, 4, 4, 4, 2, 4, 4, 2),
+      caption = "Point estimates on the odds-ratio scale.")
+```
+
+```{r selection-bias}
+sb <- data.frame(
+  identifier = c("FS", "DINA", "GRF"),
+  ref = sapply(c("fs", "dina", "grf"),
+               function(k) ref_obj$meta$timings[[k]]$selection_bias),
+  new = sapply(c("fs", "dina", "grf"),
+               function(k) new_obj$meta$timings[[k]]$selection_bias)
+)
+sb$change_pct <- pctchg(sb$ref, sb$new)
+kable(sb, digits = c(0, 4, 4, 1), row.names = FALSE,
+      caption = "Estimated selection bias on the log-odds scale.")
+```
+
+Less bias is subtracted, so the de-biased estimates move upward, toward the
+naive value and toward greater residual harm.
+
+## Interval widths
+
+```{r widths}
+logwidth <- function(lo, hi) log(hi) - log(lo)
+w_tab <- data.frame(
+  row         = row_id,
+  naive_ref   = logwidth(ref$naive_lo, ref$naive_hi),
+  naive_new   = logwidth(new$naive_lo, new$naive_hi),
+  naive_pct   = pctchg(logwidth(ref$naive_lo, ref$naive_hi),
+                       logwidth(new$naive_lo, new$naive_hi)),
+  mr_ref      = logwidth(ref$mr_lo, ref$mr_hi),
+  mr_new      = logwidth(new$mr_lo, new$mr_hi),
+  mr_pct      = pctchg(logwidth(ref$mr_lo, ref$mr_hi),
+                       logwidth(new$mr_lo, new$mr_hi))
+)
+kable(w_tab, digits = c(0, 3, 3, 1, 3, 3, 1),
+      caption = "Interval widths on the log scale.")
+```
+
+## Relation to the null
+
+```{r null-relation}
+classify <- function(lo, hi) ifelse(lo > 1, "excludes, harm",
+                            ifelse(hi < 1, "excludes, protective", "includes 1"))
+null_tab <- data.frame(
+  row        = row_id,
+  mr_ref     = sprintf("%.3f [%.3f, %.3f]", ref$mr_est, ref$mr_lo, ref$mr_hi),
+  rel_ref    = classify(ref$mr_lo, ref$mr_hi),
+  mr_new     = sprintf("%.3f [%.3f, %.3f]", new$mr_est, new$mr_lo, new$mr_hi),
+  rel_new    = classify(new$mr_lo, new$mr_hi),
+  sign_flip  = ifelse((ref$mr_est - 1) * (new$mr_est - 1) < 0, "YES", "")
+)
+kable(null_tab, caption = "MR estimates and intervals relative to OR = 1.")
+```
+
+No interval changes its relationship to the null: all six include $\mathrm{OR}
+= 1$ in both runs. One point estimate crosses it --- the DINA harm region moves
+from 0.956, on the protective side, to 1.072, on the harm side. This is the only
+sign change in the table.
+
+# Agreement between the full bootstrap and multiplier resampling
+
+The full bootstrap (FB) replays the entire pipeline on each resample and places
+no alignment requirement on the identifier. MR linearizes the selection event
+and requires both that selection rank on the inferential coefficient and that
+the candidate family be fixed. Section 4.2 states that MR reproduces the
+bootstrap to first order when those conditions hold; Section 5 describes the
+conditional-versus-marginal gap that opens when the family regenerates.
+
+After the front-end change, the ACTG175 FS rows satisfy both conditions. The
+DINA and GRF rows cannot: their families are generated by fitting a model to the
+same data, so they target the marginal quantity while MR conditions on the
+realized family.
+
+```{r fb-mr-agreement}
+disagree <- function(fb, mr) abs(log(fb / mr))
+
+agree_tab <- data.frame(
+  row    = row_id,
+  family = c("fixed", "fixed", rep("conditional-inherent", 4)),
+  d_ref  = disagree(ref$fb_est, ref$mr_est),
+  d_new  = disagree(new$fb_est, new$mr_est)
+)
+# Movements below 0.001 on the log scale are not meaningful at this precision.
+agree_tab$direction <- with(agree_tab,
+  ifelse(abs(d_new - d_ref) < 1e-3, "unchanged",
+  ifelse(d_new < d_ref, "closer to FB", "further from FB")))
+kable(agree_tab, digits = c(0, 0, 3, 3, 0),
+      caption = "Absolute log-ratio between the FB and MR point estimates. Zero is exact agreement.")
+```
+
+Both fixed-family rows move toward the bootstrap; the two regenerating-family
+harm rows move away from it. This is the direction the framework predicts, and
+it was produced by correcting $\sigma_D$ rather than by any adjustment made to
+obtain it.
+
+Three qualifications belong with this observation. Six rows is a small base.
+The complement rows move very little, so the signal rests on the FS harm row's
+substantial move in the predicted direction against the two model-based harm
+rows moving oppositely. And the ACTG175 FS rows became fixed-family cases only
+*because* of the front-end change made in this same re-run, so the comparison
+is not a clean before-and-after on a single configuration.
+
+# Consequences for reported claims
+
+Section 6 of the main paper makes four assertions about ACTG175. Three are
+unaffected or strengthened; one requires revision.
+
+```{r claims}
+claims <- data.frame(
+  claim = c(
+    "FS and GRF identify closely overlapping regions",
+    "Naive odds ratios correct downward under both routes",
+    "FS and GRF remain above the harm threshold",
+    "DINA's apparent harm largely diminishes under correction"),
+  status = c(
+    "Unaffected -- labels identical",
+    "Holds -- both routes below naive for FS and GRF",
+    "Strengthened -- MR moves further from the null",
+    "Requires revision -- see below")
+)
+kable(claims, caption = "Section 6 claims under the re-run.")
+```
+
+The fourth claim remains literally true: the DINA harm region's odds ratio falls
+from 1.936 to 1.072 under MR, a large reduction. Its character changes, however.
+In the manuscript-era payload, FB and MR agreed in placing the region below the
+null (0.862 and 0.956). They now disagree in sign: FB at 0.862, MR at 1.072.
+Since the paper's subject is the correspondence between the two routes, a
+divergence in the one row where it occurs is worth stating rather than leaving
+implicit --- particularly as Section 6 already frames the DINA and GRF results
+as empirical evaluations on regenerating families rather than as instances of
+Theorem 2.
+
+# Required revisions
+
+```{r revisions}
+rev_tab <- data.frame(
+  location = c("Supplement, ACTG175 table",
+               "Supplement, ACTG175 table",
+               "Supplement, ACTG175 table",
+               "Supplement, reproducibility statement",
+               "Main text, Section 6",
+               "Companion GLM paper"),
+  item     = c("naive_lo, naive_hi (all six rows)",
+               "mr_est, mr_lo, mr_hi (all six rows)",
+               "fb_est, fb_lo, fb_hi (FS rows only)",
+               "State R >= 4.6.0 for GLM outcomes",
+               "The DINA sentence",
+               "Binary/OR, RR, RD, IRR results only"),
+  cause    = c("stats::dfbeta() corrected in R 4.6.0",
+               "Propagated through the admission threshold t_g",
+               "Prefilter active within bootstrap replicates",
+               "sigma_D on GLM outcomes is R-version dependent",
+               "FB and MR now disagree in sign for DINA",
+               "Same upstream change; MD and HR unaffected")
+)
+kable(rev_tab, caption = "Locations requiring revision. No definition changes; no package change.")
+```
+
+## Scope of the upstream change
+
+The affected quantity is $\sigma_D$ on outcomes fitted with `stats::glm()`.
+Continuous outcomes dispatch to `stats::lm()`, where working, Pearson and
+deviance residuals coincide and the weights are unity, so the change is a
+no-op; survival outcomes use `coxph()` and never reach the affected code.
+
+| effect measure | fit | affected | ratio, old / new |
+|---|---|---|---|
+| Odds ratio, binomial logit | `glm` | yes | 1.165 |
+| Risk ratio, binomial log or Poisson | `glm` | yes | 1.164 |
+| Risk difference, binomial identity | `glm` | yes | 1.137 |
+| Incidence rate ratio, Poisson log | `glm` | yes | 1.054 |
+| Mean difference, continuous | `lm` | no | 1.000 |
+| Hazard ratio, survival | `coxph` | no | not applicable |
+
+For the companion generalized linear model paper this means the binary
+odds-ratio application requires regeneration and the continuous mean-difference
+application does not.
+
+The GBSG
+survival analysis reproduced to a maximum absolute difference of
+$1.8 \times 10^{-15}$ across all 54 estimate and bound cells, and the three
+simulation studies reproduced exactly --- FS and DINA at zero difference on
+every column, GRF to $1.3 \times 10^{-9}$, with identification bit-exact in all
+three. The evidence supporting Theorem 2, the alignment condition, and the
+FB-versus-MR comparison is therefore untouched.
+
+Two operational notes. The ACTG175 payload records no R version in its
+metadata, whereas the GBSG payload and the simulation bundles do; adding it
+would have made this difference visible at comparison time rather than after a
+diagnostic search. And the FS run reports a candidate-pool truncation ---
+`max_subgroups_search` limited evaluation to 20 of 37 enumerated candidates ---
+which did not alter the selection here, both runs returning the same label, but
+which is worth recording alongside the result.
+
+# Session information
+
+```{r session-info}
+sessionInfo()
+```
