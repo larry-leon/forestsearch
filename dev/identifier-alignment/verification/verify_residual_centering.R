@@ -8,9 +8,19 @@
 # the draws the IJ actually uses.
 #
 # This script checks that condition on the package's real code path.  The IJ
-# function is extracted VERBATIM from R/fs_mr_inference.R:195-206 (base R only,
-# no package dependencies) rather than re-implemented, so what is exercised is
-# the shipped computation.
+# computation is neither re-implemented nor copied: line 22 binds
+# forestsearch:::.fs_mr_ij_var (R/fs_mr_inference.R:195-206) directly, so what
+# is exercised IS the shipped function.  The script therefore REQUIRES
+# forestsearch to be installed; everything else in it is base R.
+#
+# It previously source()d a verbatim snapshot of that function, and was base-R
+# only.  The snapshot was accurate when written and would have stayed accurate
+# only by luck: a second copy of a package function is free to drift from the
+# original, and V7 would then have gone on passing against a computation the
+# package no longer uses -- a quantity defined once and reconstructed at a
+# second site, which is the failure the surrounding audit exists to catch.
+# Binding the real function makes "what is exercised is the shipped
+# computation" true permanently rather than only at the moment of writing.
 #
 # Reproduced from the source at lines 434-457:
 #   sel_bias[b]    <- P[s, b]  where a winner exists, else NA
@@ -107,4 +117,5 @@ for (ft in c(-Inf, 0.30, 0.42, 0.55, 0.70)) {
 }
 cat("\n  Note: the code/Wager gap at fixed convention is (n/B_ok)*mean(r)^2,\n")
 cat("  which is second order in mean(r); the CONVENTION gap in hat_V is\n")
-cat("  first order in Delta and is what V6 measured.\n")
+cat("  first order in Delta and is what V6 measured -- V6 is in the sibling\n")
+cat("  script verify_closedform_fixture.R, not this one.\n")

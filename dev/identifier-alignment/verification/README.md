@@ -60,16 +60,25 @@ has no package dependency.
 
 `verify_residual_centering.R` originally `source()`d `ij_var_verbatim.R`, a
 byte-for-byte snapshot of `.fs_mr_ij_var()` from `R/fs_mr_inference.R`. That
-snapshot was **deliberately not filed**, and the `source()` line now reads:
+snapshot was **deliberately not filed**; the script now binds the shipped
+function directly:
 
 ```r
 .fs_mr_ij_var <- forestsearch:::.fs_mr_ij_var   # the SHIPPED function, not a copy
 ```
 
-A second copy of a package function that can drift from the original is exactly
-the failure mode this audit exists to catch — a quantity defined once and
-reconstructed at a second site. Binding the shipped function directly means V7
-cannot silently verify a stale computation.
+The reasoning is in that script's own header and is not repeated here.
 
-This is the only edit made to either script when filing; their headers and
-caveats are as received.
+**Edits made when filing**, in full:
+
+| file | edit |
+|---|---|
+| `verify_residual_centering.R` | the `source()` line above |
+| `verify_residual_centering.R` | header corrected — it still described the function as extracted verbatim, base R only, with no package dependencies, all three of which the line above makes false |
+| `verify_residual_centering.R` | closing note qualified — it cites V6 without saying V6 is in the sibling script |
+| `verify_closedform_fixture.R` | none; as received |
+
+Line-range references in `verify_residual_centering.R`'s header were checked
+against the source rather than assumed: `.fs_mr_ij_var()` is at
+`R/fs_mr_inference.R:195-206`, and the five reproduced lines match `434-457`
+verbatim. Both were, and remain, accurate.
