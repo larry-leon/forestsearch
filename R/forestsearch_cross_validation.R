@@ -395,6 +395,25 @@ forestsearch_Kfold <- function(
   # ps_method and ps_adjust_method carry through via args_call_all.
   cv_args$ps_hat <- NULL
 
+  # CATEGORY 2: VARIABLE RE-SELECTION.  Identical to the bootstrap's block at
+  # bootstrap_analysis_dofuture.R:573-582, and stated as such here because the
+  # ABSENCE of this note is what let the two drift: the bootstrap nulled these
+  # four, CV nulled ps_hat on the same reasoning and left them, and nothing
+  # recorded that the difference was unintended.
+  cv_args$grf_res <- NULL
+  cv_args$grf_cuts <- NULL
+  # DINA inputs must also be nulled so each fold re-fits DINA and re-runs its
+  # selection from scratch -- otherwise a supplied/cached DINA fit (use_dina
+  # screening or subgroup_method = "dina") would be reused on every fold,
+  # defeating the out-of-sample estimate the cross-validation exists to
+  # provide.  These arrive via args_call_all's bulk mget() of forestsearch()'s
+  # formals, so they are present in cv_args whenever the original call supplied
+  # them; a cached fit would otherwise be estimated on ALL the data, including
+  # the held-out fold, making sensCV / ppvCV / exact-match optimistic by
+  # construction.
+  cv_args$dina_res <- NULL
+  cv_args$dina_cuts <- NULL
+
   # Post-selection inference inside the folds.  Same contract as the bootstrap:
   # mr_inference arrives via args_call_all, nothing downstream consumes a
   # fold's MR object, so under the default it is stripped rather than computed
@@ -865,6 +884,25 @@ forestsearch_tenfold <- function(
   # user-supplied ps_hat (wrong length for training fold).
   # ps_method and ps_adjust_method carry through via args_call_all.
   cv_args$ps_hat <- NULL
+
+  # CATEGORY 2: VARIABLE RE-SELECTION.  Identical to the bootstrap's block at
+  # bootstrap_analysis_dofuture.R:573-582, and stated as such here because the
+  # ABSENCE of this note is what let the two drift: the bootstrap nulled these
+  # four, CV nulled ps_hat on the same reasoning and left them, and nothing
+  # recorded that the difference was unintended.
+  cv_args$grf_res <- NULL
+  cv_args$grf_cuts <- NULL
+  # DINA inputs must also be nulled so each fold re-fits DINA and re-runs its
+  # selection from scratch -- otherwise a supplied/cached DINA fit (use_dina
+  # screening or subgroup_method = "dina") would be reused on every fold,
+  # defeating the out-of-sample estimate the cross-validation exists to
+  # provide.  These arrive via args_call_all's bulk mget() of forestsearch()'s
+  # formals, so they are present in cv_args whenever the original call supplied
+  # them; a cached fit would otherwise be estimated on ALL the data, including
+  # the held-out fold, making sensCV / ppvCV / exact-match optimistic by
+  # construction.
+  cv_args$dina_res <- NULL
+  cv_args$dina_cuts <- NULL
 
   # Post-selection inference inside the folds.  Same contract as
   # forestsearch_Kfold() and the bootstrap: mr_inference arrives via

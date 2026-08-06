@@ -458,6 +458,32 @@ re-record the selection.
 
 ## Bug Fixes
 
+* Fixed cross-validation reusing a cached `grf_res` / `dina_res` inside every
+  training fold.  `forestsearch_Kfold()` and `forestsearch_tenfold()` rebuild
+  each fold's call from `args_call_all`, which carries all of `forestsearch()`'s
+  formals -- including a user-supplied cached fit.  The bootstrap has always
+  nulled `grf_res`, `grf_cuts`, `dina_res` and `dina_cuts` for exactly this
+  reason, and CV nulled `ps_hat` on the same reasoning while leaving the other
+  four.  A fold therefore ranked over a candidate family estimated on **all**
+  the data, including the fold being held out, so `sensCV`, `ppvCV` and
+  exact-match were optimistic by construction.  All four are now nulled at both
+  entry points.
+
+  **This changes CV metrics for anyone passing a cached fit**, and the effect is
+  not small.  Measured on ACTG175 (binary, OR, `Kfolds = 3`), cached versus
+  uncached:
+
+  | method | metric | cached, before | uncached | cached, after |
+  |---|---|---:|---:|---:|
+  | GRF | `ppv_H` | 0.6486 | 0.4896 | 0.4896 |
+  | GRF | exact match | 0.3333 | 0.0000 | 0.0000 |
+  | DINA | `sens_H` | 0.4688 | 0.2188 | 0.2188 |
+  | DINA | `ppv_H` | 0.3000 | 0.1538 | 0.1538 |
+
+  After the fix the cached and uncached runs agree exactly on every metric.
+  Runs that passed `grf_res = NULL` / `dina_res = NULL` (the default) are
+  unaffected -- there was nothing to reuse.
+
 * Fixed the influence path erroring on every `lm()` fit, which disabled
   multiplier resampling (MR) for continuous outcomes entirely.  The internal
   one-step `dfbeta` read `fit$weights` unconditionally; an unweighted `lm()`
