@@ -4,8 +4,9 @@ Found while answering a different question: whether the disjunction defect
 corrected in `betaHhat_truth_glm.R` had ever fired in committed results. It had
 not. This had.
 
-Measurement only. Nothing is patched, and the fix proposed at the end is **not**
-implemented.
+Originally measurement only. The recommended fix has since been implemented and
+piloted — see **Status: implemented and piloted** at the end. The measurements
+and the mechanism below are unchanged and describe the state before that fix.
 
 ## Summary
 
@@ -153,7 +154,10 @@ not health, it is contamination.
 second.** It compares `n_eff` across targets, so a target that is finite-but-wrong
 is invisible to it. Recorded here so the guard is not over-trusted.
 
-## Proposed fix — not implemented
+## Proposed fix
+
+*(The recommended option below is now implemented and piloted; the narrower
+options (1)-(3) remain outstanding. See the status section at the end.)*
 
 ### Recommended: generate the noise once on `df_super`
 
@@ -275,3 +279,58 @@ Nothing above should be read as a defect in the identification methods. The
 sweeps' `detected`, `sens`, `ppv` and the oracle/naive/MR estimates are
 untouched — this is confined to the $\beta(\widehat H)$ target column and the
 `C_betaHhat` coverage row computed from it.
+
+## Status: implemented and piloted (2026-08-07)
+
+The recommended population-noise scheme above is **implemented**. Two documents
+changed, no `R/` change:
+
+```
+quarto/simulations/gbsg_redux/mr_coverage_sweep_h10_knoise3.qmd
+quarto/simulations/gbsg_redux/mr_coverage_sweep_h10_knoise6.qmd
+```
+
+Noise is drawn once on `dgm$df_super` at `noise_seed = 20260807L` — fixed,
+distinct from `eval_seed` (20260628L), outside the trial band
+`seed_base + sim_id` — immediately after `setup_gbsg_dgm()` and **before**
+`build_eval_frame()`. The per-replicate re-draw is removed, not kept as a
+fallback. Bundles record `noise_scheme = "population"` and `noise_seed`, so a
+reader can tell new bundles from old ones (which are implicitly
+`"replicate"`).
+
+### Mechanism, proven
+
+A `.pilot_id` column attached alongside the noise rides the same whole-row
+carry, so the id proves the mechanism twice. Joining on it, all three noise
+columns and the id are `identical()` across `df_super`, a drawn trial, and the
+evaluation frame. The `replace = TRUE` consequence was measured rather than
+assumed: 3 subjects were drawn twice into a 500-row trial and carried the same
+`noise1` at both rows. An independent redraw at a different seed correctly does
+not match.
+
+### Pilot: knoise3, one cell, n = 500, 30 replicates, 102 s
+
+| check | result |
+|---|---|
+| 1. leak | 11 of 21 detections name a `noise*` variable (52.4%) |
+| 2. `betaHhat_H` NA with a rule | **0** — including 0 of the 11 noise-referencing rules, which were **100% NA** under the old scheme |
+| 3. partition | exact on all 21 distinct rules, `nH + nHc = 100000` |
+| 4. `fs_betaHhat_neff_parity()` | **PASS**, `n_eff` 21 / 21 against `C_dagger` |
+| 5. contamination signature | **gone** — `betaHhat_Hc` 0.6768585260 vs the real-part-only complement 0.7211097134, differing by 4.4e-02 where the old bug forced equality to 7 dp; region sizes 17,395 vs 72,059, a factor of four |
+| 6. leak comparability | 52.4% vs the committed 54.1% at this cell, **-0.16 SE** — statistically indistinguishable, as expected since noise remains independent of outcome |
+
+Check 5 is the decisive one: under the old bug the noise clause was silently
+dropped, so the reported complement was the complement of the real part alone
+and the two agreed to 7 dp. They now differ, because the true complement
+includes the noise-excluded slice of the real region.
+
+The pilot bundle is scratch and is **not committed**. Full regeneration of the
+noise sweeps is a separate campaign and has not been run.
+
+### Still queued
+
+Sweep re-pointing at `fs_attach_betaHhat()` — which will also let partition
+checks read `nH_eval`/`nHc_eval` from the bundle rather than re-deriving them,
+as this pilot had to, because the shim strips those columns to preserve the
+pre-consolidation frame shape. Then the attach-ITT semantics change, then shim
+deletion.

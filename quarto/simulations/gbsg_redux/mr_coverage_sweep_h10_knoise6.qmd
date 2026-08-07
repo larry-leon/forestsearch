@@ -123,6 +123,33 @@ n_super        <- 100000L
 target_hr_harm <- 1.0           # calibrate k_inter to this Cox HR in the harm subgroup
 k_random_noise <- 6             # add k_random_noise standard-normal noise confounders
 
+# ── POPULATION-NOISE SCHEME ──────────────────────────────────────────────────
+# Design authority: dev/glm-continuous-sims/NOTE_survival_betaHhat_na.md
+# (recommended option).  A noise baseline factor is a patient ATTRIBUTE, so it
+# is drawn ONCE on dgm$df_super in build-dgm below and carried by sampling into
+# every trial and into the evaluation frame.  It is NOT re-drawn per replicate.
+#
+# Why: under the old per-replicate scheme the same df_super subject carried
+# different noise in different replicates -- replicate-level randomness wearing
+# a covariate's name -- so a realized rule naming noise1 had no population
+# counterpart and beta(Hhat) could not be computed for it.
+#
+# BEHAVIOURAL CHANGE.  simulate_from_dgm() defaults to replace = TRUE, so a
+# subject drawn twice into one trial now carries IDENTICAL noise both times.
+# That is correct for an attribute -- a patient's covariate does not change
+# because they were resampled -- but within-trial noise is no longer i.i.d.
+# across rows, and any analysis that assumed it was should be re-checked.
+#
+# noise_seed is fixed, distinct from eval_seed (20260628L) and outside the
+# trial band seed_base + sim_id, so the noise is a property of the DGM build
+# and of no replicate.
+noise_seed  <- 20260807L
+noise_names <- if (k_random_noise > 0) {
+  paste0("noise", seq_len(k_random_noise))
+} else {
+  character(0)
+}
+
 # ── Search configuration (León tuning; resample identification) ──────────────
 consistency_method <- "resample"
 # "maxcons" and "eff" are exact synonyms: .normalize_sg_focus() maps both to the
@@ -172,6 +199,20 @@ if (run_sweep) {
   dgm <- setup_gbsg_dgm(model = dgm_model, k_inter = k_inter,
                         n_super = n_super, seed = seed_base)
   dgm <- compute_dgm_cde(dgm)   # attaches CDE (θ‡) targets
+
+  # Population noise, drawn ONCE and carried by sampling.  simulate_from_dgm()
+  # subsets whole rows (R/simulate_from_dgm.R:174), so these columns reach every
+  # trial unchanged; build_eval_frame() draws the full pool with replace = FALSE,
+  # so the evaluation frame carries the identical per-subject values.  beta(Hhat)
+  # for a noise-referencing rule is then an exact finite computation over the
+  # population, not an estimate.
+  #
+  # ORDER IS LOAD-BEARING: this must run BEFORE build_eval_frame() below, or the
+  # evaluation frame is built without the columns the trials will carry.
+  if (k_random_noise > 0) {
+    set.seed(noise_seed)
+    for (nm in noise_names) dgm$df_super[[nm]] <- rnorm(nrow(dgm$df_super))
+  }
 
   truth <- list(
     hr_causal = dgm$hr_causal  %||% NA_real_,                 # overall causal HR
@@ -278,15 +319,13 @@ record_replicate <- function(sim_id, method, n_sample, nb_boots) {
   df[[id_name]] <- seq_len(nrow(df))
   confs <- intersect(confounders_base, names(df))
 
-  # Optional standard-normal noise confounders, seeded by sim_id (offset to stay
-  # disjoint from the DGM seed) so the full replicate is a deterministic function
-  # of sim_id, independent of batch/loop position.
-  if (k_random_noise > 0) {
-    noise_names <- paste0("noise", seq_len(k_random_noise))
-    set.seed(seed_base + sim_id + 1000000L)
-    for (nm in noise_names) df[[nm]] <- rnorm(nrow(df))
-    confs <- c(confs, noise_names)
-  }
+  # Noise confounders are POPULATION columns: drawn once on dgm$df_super in
+  # build-dgm and carried here by simulate_from_dgm()'s whole-row subsetting, so
+  # the same subject has the same noise in every trial and in the eval frame.
+  # The per-replicate re-draw that used to live here is REMOVED, not kept as a
+  # fallback -- two definitions of noise1 selected by whichever branch ran is the
+  # ambiguity that produced the beta(Hhat) NA defect.
+  if (k_random_noise > 0) confs <- c(confs, noise_names)
 
   rec$n_true <- sum(df[[harm_col]] == 1L, na.rm = TRUE)
 
@@ -452,6 +491,9 @@ run_cell <- function(method, n_sample, nb_boots = NULL, out = NULL,
                 dgm_model           = dgm_model,
                 target_hr_harm      = target_hr_harm,
                 k_random_noise      = k_random_noise,
+                noise_scheme        = "population",
+                noise_seed          = if (k_random_noise > 0) noise_seed
+                                      else NA_integer_,
                 analysis_time       = analysis_time,
                 cens_adjust         = cens_adjust,
                 sg_focus            = sg_focus,
