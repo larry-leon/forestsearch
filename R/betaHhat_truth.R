@@ -212,7 +212,7 @@
 #' This is the estimand Theorem 2 certifies coverage for, evaluated at the
 #' rule a detector actually returned -- not the marginal true-subgroup target.
 #'
-#' Membership is resolved once, by [.fs_resolve_membership()], and the same
+#' Membership is resolved once, by the internal `.fs_resolve_membership()`, and the same
 #' resolution serves every outcome family: membership is a property of the rule
 #' and the frame, not of the effect measure.
 #'
@@ -304,4 +304,263 @@ fs_betaHhat_one <- function(rule, frame, focus,
                                          effect_measure, outcome.name,
                                          event.name, treat.name)
   rec(eff(in_region), eff(!in_region), nH, nHc, "ok", character(0))
+}
+
+
+# --- LAYER 4: deduplicated table and the engine-facing attach ---------------
+
+#' Deduplicated `beta(Hhat)` targets over distinct realized rules
+#'
+#' Scores each **distinct** realized rule once. Deduplication is by rule, not
+#' by replicate: two replicates landing on the same rule score the same target,
+#' and the target does not depend on the trial.
+#'
+#' @section Resolution accounting:
+#'
+#' Six counters are attached to the result and are the fix for targets being
+#' dropped silently. `n_eff` reported beside a target is what makes a reduced
+#' denominator visible; a coverage figure computed on an unknown fraction of
+#' replicates is not interpretable, and the fraction has to travel with it.
+#'
+#' A seventh, `n_reps_undetected`, counts replicates with no rule at all, so
+#' that `n_reps_resolved + n_reps_unresolved + n_reps_undetected` closes
+#' against `n_reps_total`.
+#'
+#' @param sg_defs Character vector of realized rules, one entry per replicate.
+#'   `NA` or `""` marks a replicate where no subgroup was identified.
+#' @param frame Data frame. The fixed evaluation population.
+#' @param focus,outcome_type,effect_measure,outcome.name,event.name,treat.name
+#'   Passed to [fs_betaHhat_one()].
+#' @param sg_def_structs Optional named list of structured GRF definitions,
+#'   keyed by the rule string, used in preference to string parsing.
+#'
+#' @return A data frame keyed by `sg_def`, one row per distinct rule, with the
+#'   [fs_betaHhat_one()] schema. Resolution counters are attached as
+#'   attributes and retrievable with [fs_betaHhat_counts()].
+#'
+#' @keywords internal
+#' @export
+fs_betaHhat_table <- function(sg_defs, frame, focus,
+                              outcome_type = c("survival", "binary",
+                                               "continuous", "count"),
+                              effect_measure = NULL,
+                              outcome.name = "y_sim",
+                              event.name = "event_sim",
+                              treat.name = "treat_sim",
+                              sg_def_structs = NULL) {
+  .fs_check_focus(focus)
+  outcome_type <- match.arg(outcome_type)
+
+  empty <- data.frame(sg_def = character(0), betaHhat_H = numeric(0),
+                      betaHhat_Hc = numeric(0), nH_eval = integer(0),
+                      nHc_eval = integer(0), status = character(0),
+                      missing_cols = character(0), stringsAsFactors = FALSE)
+
+  has_rule <- !is.na(sg_defs) & nzchar(sg_defs)
+  u <- unique(sg_defs[has_rule])
+
+  out <- if (!length(u)) empty else do.call(rbind, lapply(u, function(g) {
+    r <- fs_betaHhat_one(g, frame, focus = focus, outcome_type = outcome_type,
+                         effect_measure = effect_measure,
+                         outcome.name = outcome.name, event.name = event.name,
+                         treat.name = treat.name,
+                         sg_def_struct = if (!is.null(sg_def_structs))
+                                           sg_def_structs[[g]] else NULL)
+    cbind(data.frame(sg_def = g, stringsAsFactors = FALSE), r)
+  }))
+
+  unres <- out$sg_def[out$status == "unresolved"]
+  attr(out, "betaHhat_counts") <- list(
+    n_rules_total      = length(u),
+    n_rules_resolved   = sum(out$status != "unresolved"),
+    n_rules_unresolved = sum(out$status == "unresolved"),
+    n_reps_total       = length(sg_defs),
+    n_reps_resolved    = sum(has_rule & !(sg_defs %in% unres)),
+    n_reps_unresolved  = sum(sg_defs %in% unres),
+    n_reps_undetected  = sum(!has_rule))
+  out
+}
+
+
+#' Resolution counters from a `beta(Hhat)` table or attached results
+#'
+#' @param x Output of [fs_betaHhat_table()] or [fs_attach_betaHhat()].
+#' @return A named list of counters, or `NULL` if none are attached.
+#' @keywords internal
+#' @export
+fs_betaHhat_counts <- function(x) attr(x, "betaHhat_counts")
+
+
+#' Attach `beta(Hhat)` targets to a results frame
+#'
+#' The one call each engine adds to its `run_cell()`, immediately before the
+#' bundle is assembled. Runs in the main process, after the replicate loop, so
+#' the evaluation frame stays in one place.
+#'
+#' Replicates with no realized rule receive `NA` targets, matching the
+#' behaviour of the modules this replaces. Their count is reported as
+#' `n_reps_undetected` rather than being folded into the resolved or
+#' unresolved tallies.
+#'
+#' @param results Data frame carrying an `sg_def` column.
+#' @param frame Data frame. The fixed evaluation population.
+#' @param focus,outcome_type,effect_measure,outcome.name,event.name,treat.name
+#'   Passed to [fs_betaHhat_one()].
+#' @param sg_def_structs Optional named list of structured GRF definitions.
+#'
+#' @return `results` with `betaHhat_H`, `betaHhat_Hc`, `betaHhat_status` and
+#'   `nH_eval` / `nHc_eval` columns added, and counters attached.
+#'
+#' @keywords internal
+#' @export
+fs_attach_betaHhat <- function(results, frame, focus,
+                               outcome_type = c("survival", "binary",
+                                                "continuous", "count"),
+                               effect_measure = NULL,
+                               outcome.name = "y_sim",
+                               event.name = "event_sim",
+                               treat.name = "treat_sim",
+                               sg_def_structs = NULL) {
+  .fs_check_focus(focus)
+  outcome_type <- match.arg(outcome_type)
+
+  if (is.null(results$sg_def)) {
+    results$betaHhat_H <- NA_real_
+    results$betaHhat_Hc <- NA_real_
+    results$betaHhat_status <- NA_character_
+    results$nH_eval <- NA_integer_
+    results$nHc_eval <- NA_integer_
+    attr(results, "betaHhat_counts") <- list(
+      n_rules_total = 0L, n_rules_resolved = 0L, n_rules_unresolved = 0L,
+      n_reps_total = nrow(results), n_reps_resolved = 0L,
+      n_reps_unresolved = 0L, n_reps_undetected = nrow(results))
+    return(results)
+  }
+
+  bt <- fs_betaHhat_table(results$sg_def, frame, focus = focus,
+                          outcome_type = outcome_type,
+                          effect_measure = effect_measure,
+                          outcome.name = outcome.name,
+                          event.name = event.name, treat.name = treat.name,
+                          sg_def_structs = sg_def_structs)
+  j <- match(results$sg_def, bt$sg_def)
+  results$betaHhat_H      <- bt$betaHhat_H[j]
+  results$betaHhat_Hc     <- bt$betaHhat_Hc[j]
+  results$betaHhat_status <- bt$status[j]
+  results$nH_eval         <- bt$nH_eval[j]
+  results$nHc_eval        <- bt$nHc_eval[j]
+  attr(results, "betaHhat_counts") <- attr(bt, "betaHhat_counts")
+  results
+}
+
+
+# --- LAYER 5: n_eff parity ---------------------------------------------------
+
+#' Refuse to print coverage targets computed on different denominators
+#'
+#' `.coverage_meta()`-style assembly computes
+#' `ok <- is.finite(target) & is.finite(lo) & is.finite(hi)` and
+#' `n_eff <- sum(ok)`, so a non-finite target is dropped with no error and no
+#' warning. Coverage is then computed over the replicates whose targets
+#' happened to score, which is not a random subset: whatever made a target
+#' non-finite is a property of the realized rule.
+#'
+#' Because a reference target that is a finite scalar is dropped only when the
+#' interval itself is non-finite, `n_eff` parity between the two is the exact
+#' check for a target-specific loss, and it is free -- `n_eff` is already in
+#' the table.
+#'
+#' @section Two causes, deliberately not distinguished:
+#'
+#' A parity break can mean an unresolvable rule, or a genuinely degenerate
+#' region whose per-family guard returned `NA` by design. Both make the two
+#' coverage figures incomparable as printed, so both stop. Use
+#' [fs_betaHhat_neff_report()] on the bundle to tell them apart before
+#' deciding.
+#'
+#' @param cov_df Coverage table with `target`, `n_eff`, `block` and
+#'   `estimator` columns.
+#' @param strict Logical. `TRUE` stops; `FALSE` warns, for a run whose cause is
+#'   known.
+#' @param target_beta,target_ref Character. The target to check and the
+#'   reference to check it against.
+#'
+#' @return `cov_df`, invisibly.
+#'
+#' @keywords internal
+#' @export
+fs_betaHhat_neff_parity <- function(cov_df, strict = TRUE,
+                                    target_beta = "C_betaHhat",
+                                    target_ref = "C_dagger") {
+  need <- c("target", "n_eff", "block", "estimator")
+  if (!all(need %in% names(cov_df))) return(invisible(cov_df))
+  keycols <- intersect(c("src", "subgroup_method", "n_sample", "block",
+                         "estimator"), names(cov_df))
+  key <- function(d) do.call(paste, c(d[keycols], sep = "|"))
+
+  ref  <- cov_df[cov_df$target == target_ref,  , drop = FALSE]
+  beta <- cov_df[cov_df$target == target_beta, , drop = FALSE]
+  if (!nrow(ref) || !nrow(beta)) return(invisible(cov_df))
+
+  ref$.k <- key(ref); beta$.k <- key(beta)
+  j <- match(ref$.k, beta$.k)
+  cmp <- data.frame(ref[keycols],
+                    n_eff_ref  = ref$n_eff,
+                    n_eff_beta = ifelse(is.na(j), NA_integer_, beta$n_eff[j]),
+                    stringsAsFactors = FALSE)
+  cmp$dropped <- cmp$n_eff_ref - cmp$n_eff_beta
+  bad <- cmp[is.na(cmp$n_eff_beta) | cmp$dropped != 0L, , drop = FALSE]
+
+  if (nrow(bad)) {
+    msg <- paste0(
+      sprintf("n_eff parity FAILED in %d of %d cells: %s is computed on a ",
+              nrow(bad), nrow(cmp), target_beta),
+      sprintf("smaller denominator than %s.\n", target_ref),
+      "  Its coverage is NOT comparable to the row beside it.\n",
+      paste(utils::capture.output(print(bad, row.names = FALSE)),
+            collapse = "\n"),
+      "\n  Run fs_betaHhat_neff_report() on the bundle to see which rules ",
+      "produced the\n  NA targets and whether they are unresolvable rules or ",
+      "degenerate regions.")
+    if (isTRUE(strict)) stop(msg, call. = FALSE) else warning(msg, call. = FALSE)
+  }
+  invisible(cov_df)
+}
+
+
+#' Which rules produced NA `beta(Hhat)` targets, and why
+#'
+#' Diagnostic companion to [fs_betaHhat_neff_parity()]. Separates the two
+#' causes of a parity break: a rule the evaluation frame cannot express, and a
+#' region small enough for a per-family guard to fire.
+#'
+#' @param bundle A results data frame, a bundle list with a `results` element,
+#'   or a path to an `.rds` holding either.
+#' @param block Character. `"H"` or `"Hc"`.
+#'
+#' @return A data frame of distinct offending rules with `is_disjunction`,
+#'   `nH_eval` and `status` where available, or `NULL` when there are none.
+#'
+#' @keywords internal
+#' @export
+fs_betaHhat_neff_report <- function(bundle, block = c("H", "Hc")) {
+  if (is.character(bundle)) bundle <- readRDS(bundle)
+  r <- if (is.data.frame(bundle)) bundle else bundle$results
+  block <- match.arg(block)
+  col <- paste0("betaHhat_", block)
+  if (is.null(r[[col]]) || is.null(r$sg_def)) return(invisible(NULL))
+  bad <- r[is.na(r[[col]]) & !is.na(r$sg_def) & nzchar(r$sg_def), ,
+           drop = FALSE]
+  if (!nrow(bad)) {
+    message(sprintf("no NA %s among rows with a realized rule", col))
+    return(invisible(NULL))
+  }
+  out <- data.frame(
+    sg_def = bad$sg_def,
+    is_disjunction = grepl("|", bad$sg_def, fixed = TRUE),
+    nH_eval = if (!is.null(bad$nH_eval)) bad$nH_eval else NA_integer_,
+    status = if (!is.null(bad$betaHhat_status)) bad$betaHhat_status
+             else NA_character_,
+    stringsAsFactors = FALSE)
+  out[!duplicated(out$sg_def), , drop = FALSE]
 }

@@ -54,7 +54,7 @@ This is the estimand Theorem 2 certifies coverage for, evaluated at the
 rule a detector actually returned -- not the marginal true-subgroup target.
 }
 \details{
-Membership is resolved once, by \code{\link[=.fs_resolve_membership]{.fs_resolve_membership()}}, and the same
+Membership is resolved once, by the internal \code{.fs_resolve_membership()}, and the same
 resolution serves every outcome family: membership is a property of the rule
 and the frame, not of the effect measure.
 }

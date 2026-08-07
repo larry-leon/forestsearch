@@ -610,6 +610,15 @@ accumulate_coverage <- function(paths, estimators = c("oracle", "naive", "MR"),
                      targets = targets, src = basename(paths[i]))))
   rownames(cov_df) <- NULL; rownames(len_df) <- NULL; rownames(bias_df) <- NULL
 
+  # Guard: C_betaHhat and C_dagger must be computed on the SAME denominator.
+  # .coverage_meta() drops non-finite targets from n_eff silently, so an NA
+  # betaHhat target biases C_betaHhat coverage instead of erroring.  The
+  # survival consumers never received this guard when it landed for the
+  # binary ones (e6f6024); fs_betaHhat_neff_parity() is the package-level
+  # generalisation.  Use fs_betaHhat_neff_report() on a bundle to separate
+  # an unresolvable rule from a legitimately degenerate region.
+  fs_betaHhat_neff_parity(cov_df)
+
   manifest <- do.call(rbind, lapply(seq_along(bundles), function(i) {
     m <- bundles[[i]]$meta; r <- bundles[[i]]$results
     data.frame(file = basename(paths[i]),

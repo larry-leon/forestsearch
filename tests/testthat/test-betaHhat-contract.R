@@ -237,3 +237,113 @@ test_that(".fs_rule_columns finds the referenced columns in every rule shape", {
   expect_setequal(.rulecols("(a > 1 & b <= 2) | (c > 3)"), c("a", "b", "c"))
   expect_setequal(.rulecols("{x1 > 50} & {x2 <= 50}"), c("x1", "x2"))
 })
+
+
+# --- T6: resolution accounting ----------------------------------------------
+test_that("T6: counters match the unresolvable rules in a synthetic bundle", {
+  fr <- .mk_frame()
+  # 10 replicates: 4 resolvable (2 distinct), 4 unresolvable (2 distinct),
+  # 2 undetected.
+  sg <- c("{x1 > 50}", "{x1 > 50}", "{x2 <= 50}", "{x2 <= 50}",
+          "{nosuch > 1}", "{nosuch > 1}", "{alsomissing <= 0}",
+          "{alsomissing <= 0}", NA_character_, NA_character_)
+  tb <- fs_betaHhat_table(sg, fr, focus = "harm",
+                          outcome_type = "continuous", effect_measure = "MD")
+  cnt <- fs_betaHhat_counts(tb)
+
+  expect_identical(cnt$n_rules_total,      4L)
+  expect_identical(cnt$n_rules_resolved,   2L)
+  expect_identical(cnt$n_rules_unresolved, 2L)
+  expect_identical(cnt$n_reps_total,      10L)
+  expect_identical(cnt$n_reps_resolved,    4L)
+  expect_identical(cnt$n_reps_unresolved,  4L)
+  expect_identical(cnt$n_reps_undetected,  2L)
+  # the accounting closes
+  expect_identical(cnt$n_reps_resolved + cnt$n_reps_unresolved +
+                     cnt$n_reps_undetected, cnt$n_reps_total)
+
+  # and it survives the attach
+  res <- data.frame(sim_id = seq_along(sg), sg_def = sg,
+                    stringsAsFactors = FALSE)
+  at <- fs_attach_betaHhat(res, fr, focus = "harm",
+                           outcome_type = "continuous", effect_measure = "MD")
+  expect_identical(fs_betaHhat_counts(at), cnt)
+  expect_identical(sum(at$betaHhat_status == "unresolved", na.rm = TRUE), 4L)
+  expect_identical(sum(is.na(at$betaHhat_H)), 6L)   # 4 unresolved + 2 undetected
+})
+
+test_that("T6 negative control: a clean bundle reports zero unresolved", {
+  fr <- .mk_frame()
+  sg <- rep(c("{x1 > 50}", "{x2 <= 50}"), 5)
+  cnt <- fs_betaHhat_counts(
+    fs_betaHhat_table(sg, fr, focus = "harm",
+                      outcome_type = "continuous", effect_measure = "MD"))
+  expect_identical(cnt$n_rules_unresolved, 0L)
+  expect_identical(cnt$n_reps_unresolved,  0L)
+  expect_identical(cnt$n_reps_resolved,   10L)
+})
+
+
+# --- T7: the parity guard ---------------------------------------------------
+.mk_cov <- function() {
+  base <- expand.grid(block = c("H", "Hc"),
+                      estimator = c("oracle", "naive", "MR"),
+                      target = c("C_dagger", "C_betaHhat"),
+                      stringsAsFactors = FALSE)
+  base$src <- "cell.rds"
+  base$subgroup_method <- "consistency"
+  base$n_sample <- 1000L
+  base$n_eff <- 95L
+  base$coverage <- 0.95
+  base
+}
+
+test_that("T7: the parity guard passes on a clean table", {
+  expect_silent(fs_betaHhat_neff_parity(.mk_cov()))
+  expect_identical(fs_betaHhat_neff_parity(.mk_cov()), .mk_cov())
+})
+
+test_that("T7: the guard FIRES on an injected dropped target", {
+  cv <- .mk_cov()
+  i <- which(cv$target == "C_betaHhat")[1]
+  cv$n_eff[i] <- cv$n_eff[i] - 1L          # one replicate silently dropped
+  expect_error(fs_betaHhat_neff_parity(cv), "n_eff parity FAILED")
+  expect_error(fs_betaHhat_neff_parity(cv), "1 of 6 cells")
+})
+
+test_that("T7: the guard FIRES when a C_betaHhat row is missing entirely", {
+  cv <- .mk_cov()
+  cv <- cv[-which(cv$target == "C_betaHhat")[1], , drop = FALSE]
+  expect_error(fs_betaHhat_neff_parity(cv), "n_eff parity FAILED")
+})
+
+test_that("T7: strict = FALSE warns without stopping", {
+  cv <- .mk_cov()
+  cv$n_eff[which(cv$target == "C_betaHhat")[1]] <- 0L
+  expect_warning(out <- fs_betaHhat_neff_parity(cv, strict = FALSE),
+                 "n_eff parity FAILED")
+  expect_s3_class(out, "data.frame")        # it returned rather than stopped
+})
+
+test_that("T7: a table without the required columns is a no-op, not an error", {
+  expect_silent(fs_betaHhat_neff_parity(data.frame(a = 1)))
+})
+
+test_that("T7 companion: the report separates unresolvable from degenerate", {
+  fr <- .mk_frame()
+  sg <- c("{x1 > 50}", "{nosuch > 1}", "{x1 > 1000}")
+  res <- data.frame(sim_id = 1:3, sg_def = sg, stringsAsFactors = FALSE)
+  at <- fs_attach_betaHhat(res, fr, focus = "harm",
+                           outcome_type = "continuous", effect_measure = "MD")
+  rep <- fs_betaHhat_neff_report(at, "H")
+  expect_setequal(rep$sg_def, c("{nosuch > 1}", "{x1 > 1000}"))
+  # the two causes are distinguishable by status
+  expect_identical(rep$status[rep$sg_def == "{nosuch > 1}"], "unresolved")
+  expect_identical(rep$status[rep$sg_def == "{x1 > 1000}"],  "ok")
+  # and a clean bundle reports nothing
+  at2 <- fs_attach_betaHhat(data.frame(sg_def = "{x1 > 50}"), fr,
+                            focus = "harm", outcome_type = "continuous",
+                            effect_measure = "MD")
+  expect_message(r2 <- fs_betaHhat_neff_report(at2, "H"), "no NA")
+  expect_null(r2)
+})
