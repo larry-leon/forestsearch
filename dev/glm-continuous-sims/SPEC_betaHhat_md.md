@@ -72,9 +72,34 @@ one call each engine adds to `run_cell()`". Deduplication is by distinct
     betaHhat_theta_dagger_check_md(df_super)
 
 `betaHhat_one_md()` accepts either the named `sg.harm` character vector or the
-`" & "`-joined `sg_def` string, and resolves membership through `get_dfpred()` —
-exactly as `betaHhat_one_or()` does. GRF disjunctions live inside a single
-element and survive the split.
+`" & "`-joined `sg_def` string, and resolves membership through `get_dfpred()`.
+
+**Corrected.** This section previously read "GRF disjunctions live inside a
+single element and survive the split", and instructed mirroring
+`betaHhat_one_or()`. Both were wrong. A GRF disjunction carries `" & "` inside
+each conjunct, so a `" & "` split shreds it:
+
+    "(age > 34 & preanti <= 744.5) | (wtkg <= 60)"
+      -> c("(age > 34", "preanti <= 744.5) | (wtkg <= 60)")
+
+`get_dfpred()` then fails to resolve it and the target comes back `NA` rather
+than erroring. The fix is dispatch order — test the disjunction form **first**,
+on the unsplit string, exactly as `get_dfpred()` itself does
+(`R/forestsearch_helpers.R:101`). Both `betaHhat_truth_md.R` and
+`betaHhat_truth_glm.R` now do this.
+
+The defect was **latent, not live**: `.grf_build_subgroup_definition()` emits
+the `" | "` form only for a multi-leaf policy tree, and 0 of 250,025 non-empty
+`sg_def` rows in committed artifacts under `quarto/` contain `"|"`. Multi-leaf
+selection is reachable at `maxdepth >= 2`, so no data repair was needed but the
+correction had to land before any sweep that produces one.
+
+The deeper fix remains open: the package's own answer is
+`.grf_evaluate_subgroup()` on the structured `sg_def`
+(`R/forestsearch_helpers.R:1778, 1781, 1784`), chosen precisely because
+`get_dfpred()` cannot evaluate the disjunction string (`:1772`). All three
+`betaHhat_truth_*.R` modules re-parse the label string instead, which is why
+this defect class exists at all.
 
 ## The membership convention is the one open line
 

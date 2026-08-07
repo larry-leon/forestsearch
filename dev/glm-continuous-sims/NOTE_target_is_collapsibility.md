@@ -109,7 +109,7 @@ fitted MD at $n = 4\times10^{5}$:
 | disjunction | 10.2819 | 10.2956 | 0.0137 | 3.7956 | 6.4863 |
 | disjoint from truth | 6.5193 | 6.5000 | 0.0193 | 0.0000 | 6.5193 |
 
-Every handoff difference is $\delta = 6.5$; every exact difference is Monte Carlo
+Every handoff difference is $\delta$; every exact difference is Monte Carlo
 error. The row the handoff called most important is the one most clearly wrong: a
 rule capturing none of the true subgroup has $\beta = \delta$, not $0$.
 `check_betaHhat_md.R` passed only because its synthetic DGM had a zero complement
@@ -117,6 +117,36 @@ effect — a control that passed because the quantity was easy.
 
 $\delta$ needs no new computation: it is the DGM's own complement effect,
 reproduced to `0.00e+00`.
+
+### The numbers above are fixture-specific; the identity is not
+
+**Correction.** The table was measured on a fixture with $\delta = 6.5$,
+$\beta_{\mathrm{inter}} = 40$ and $\text{effect}_Q = 46.5$. That is *not* the
+DGM the continuous vignette calibrates. Running
+`calibrate_glm_interaction()` with the vignette's own settings
+(`quarto/simulations/actg175/continuous/actg175_continuous_simulations.qmd`,
+target MD$(Q) = 40$, `n_super = 5000`) gives
+
+$$\delta = -26.255236, \qquad
+  \beta_{\mathrm{inter}} = +66.255236, \qquad
+  \text{effect}_Q = 40.$$
+
+Two consequences, one cosmetic and one not.
+
+- **$\delta$ is negative in the real fixture.** So the handoff's form does not
+  run *low*; it runs **high**, by $26.26$. The phrase "low by $\delta$" is an
+  artifact of the illustrative fixture's positive $\delta$ and should be read
+  as "**differs from the truth by exactly $\delta$, in whichever direction
+  $\delta$ points**". The same correction applies to the `design-checks` table
+  in `README.md`.
+- **The identity itself is untouched and now independently confirmed.** On the
+  calibrated fixture, $\text{exact} - \text{handoff} = \delta$ on all six test
+  regions to $0$ or $7.1\times10^{-15}$ — floating point, not method error.
+  See `verification/acceptance_betaHhat_md.qmd`, criterion 3.
+
+The structural claim of this section — that the handoff's formula omits the
+complement effect and is wrong by exactly $\delta$ — stands. Only the
+illustrative magnitudes and the direction word were fixture-specific.
 
 ## What remains unverified
 
