@@ -324,6 +324,14 @@ dropped, so the reported complement was the complement of the real part alone
 and the two agreed to 7 dp. They now differ, because the true complement
 includes the noise-excluded slice of the real region.
 
+**knoise6 smoke, 2026-08-07** — same settings (one cell, n = 500, 30
+replicates, 174 s), same six checks, all pass: leak 18 of 25 detections
+(72.0%) against the committed 74.1% at this cell (-0.23 SE); **0** NA
+`betaHhat_H` among rows with a rule, including 0 of the 18 noise-referencing
+ones; partition exact on all 25 distinct rules; parity PASS at `n_eff` 25/25;
+contamination signature gone (0.6804227928 vs 0.6865144474, differing by
+6.1e-03, regions 14,995 vs 30,113). Bundle is scratch, not committed.
+
 The pilot bundle is scratch and is **not committed**. Full regeneration of the
 noise sweeps is a separate campaign and has not been run.
 
