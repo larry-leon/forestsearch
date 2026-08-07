@@ -1,3 +1,12 @@
+# RESTORED 2026-08-07.  This file was absent from
+# dev/identifier-alignment/sim_analyses/ while
+# sim_fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_combine_1_500.qmd:85 sources it
+# by bare relative path ("Must sit in the render working directory"), so that
+# document could not render.  It was never tracked at this path in git history,
+# and nothing indicates it was meant to source ../rerun/'s copy.  Restored as a
+# verbatim copy of the current shim, which un-breaks the render without editing
+# the document.  See dev/identifier-alignment/rerun/FROZEN.md for the freeze
+# policy that applies here too.
 # betaHhat_truth.R -- SHIM
 # ---------------------------------------------------------------------------
 # This module is now a thin wrapper over the package implementation in

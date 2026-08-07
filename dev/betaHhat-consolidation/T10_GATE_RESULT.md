@@ -169,3 +169,31 @@ max(abs(diff), na.rm = TRUE) = 0.000000e+00  -> would have printed PASS
 ```
 
 which is precisely the failure being corrected.
+
+## Copies accounting
+
+The spec counted four near-identical copies of the betaHhat module. There were
+**eight**. Final disposition, none deleted:
+
+| disposition | count | where |
+|---|---|---|
+| package implementation | 1 | `R/betaHhat_truth.R` |
+| live shims | 3 | `gbsg_redux/`, `actg175/binary/`, `actg175/continuous/` |
+| archived, quarantined with `_legacy` names | 1 | `dev/betaHhat-consolidation/archive/betaHhat_truth_legacy_survival.R` |
+| frozen, **defective by design** | 4 | `dev/sim-check/{run_pre,run_post,fixcheck,setupcheck}/` — see `dev/sim-check/FROZEN.md` |
+| frozen **as a shim** | 1 | `dev/identifier-alignment/rerun/` — see its `FROZEN.md` |
+| restored **as a shim** | 1 | `dev/identifier-alignment/sim_analyses/` — was absent while sourced |
+| **deleted** | **0** | — |
+
+The two freezes are different in kind and have separate `FROZEN.md` files. The
+`sim-check` copies are pre-consolidation and carry D1 and D2 deliberately,
+because a before/after comparison is only valid if "before" stays what it was.
+The `identifier-alignment` copies are current shims that delegate to the
+package and carry no defect; they are frozen against churn, because three (now
+four) sibling documents source them by bare relative path.
+
+**That bare-path pattern is why nothing was deleted.** A grep for the
+containing directory finds no reference — the call is `source("betaHhat_truth.R")`
+resolving against each document's own working directory. The `rerun` copy was
+reported as unreferenced and queued for deletion on exactly that mistake; the
+`sim_analyses` copy was found missing by the same check that caught it.

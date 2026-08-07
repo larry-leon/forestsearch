@@ -13,8 +13,11 @@
 # dev/betaHhat-consolidation/T10_GATE_RESULT.md.
 #
 # Migration status: step 3 of 4.  Step 4 re-points the sweeps at the package
-# functions directly and deletes this file, together with the byte-identical
-# copy at dev/identifier-alignment/rerun/betaHhat_truth.R.
+# functions directly and deletes this file.  Two further copies of this shim
+# are FROZEN and are not deleted with it -- see their FROZEN.md:
+#   dev/identifier-alignment/rerun/betaHhat_truth.R
+#   dev/identifier-alignment/sim_analyses/betaHhat_truth.R
+# Each is sourced by sibling .qmd files via a bare relative path.
 #
 # BEHAVIOURAL CHANGE ON THIS PATHWAY -- read before comparing to old output.
 # D1 (the " & " split ahead of disjunction dispatch) was still live here when
