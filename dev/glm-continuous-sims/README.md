@@ -8,16 +8,21 @@ Design stage. No harness has been built.
 1. `HANDOFF_glm_continuous_simulations.md` — the originating handoff, committed
    verbatim. **Three of its claims are wrong**; read the NOTE before relying on
    any number in it.
-2. `NOTE_target_is_collapsibility.md` — what replaces them, with measurements.
-3. `SPEC_betaHhat_md.md` — the one specification implementable now.
-4. `design-checks/` — the scripts behind every number quoted above.
+2. `ADDENDUM_glm_pathway_context.md` — what the preceding audit session
+   established about this pathway. No new claims; context the workstream is
+   operating downstream of.
+3. `NOTE_target_is_collapsibility.md` — what replaces them, with measurements.
+4. `SPEC_betaHhat_md.md` — the one specification implementable now.
+5. `design-checks/` — the scripts behind every number quoted above.
+6. `verification/acceptance_betaHhat_md.qmd` — the six acceptance criteria run
+   against a calibrated DGM, with the rendered `.html` beside it.
 
 ## Status
 
 | item | state |
 |---|---|
 | conditional estimand $\beta(\widehat H)$ for MD | closed form established, exact |
-| `betaHhat_truth_md.R` | specified, not built |
+| `betaHhat_truth_md.R` | **built**; acceptance document passes 14/14 |
 | simulation aim | **open** |
 | harm vs benefit | **open** |
 
@@ -49,7 +54,7 @@ what the code returns is exactly where the errors live — that gap is still ope
 | `check_betaHhat_md.R` | closed-form $\beta(\widehat H)$ on a synthetic DGM | reproduces; premise too narrow |
 | `check_oracle_precision_claim.R` | is the oracle 24–32x sharper? | **no** — artifact of draw budgets |
 | `check_md_collapsibility.R` | why MD is special | collapsibility, not independence |
-| `check_md_target_exact.R` | exact target vs the handoff's formula | handoff's form low by $\delta$ |
+| `check_md_target_exact.R` | exact target vs the handoff's formula | handoff's form off by exactly $\delta$ |
 
 Two cautions carried from the preceding cycle.
 
