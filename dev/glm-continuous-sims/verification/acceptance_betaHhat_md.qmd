@@ -1,0 +1,954 @@
+---
+title: "Acceptance: `betaHhat_truth_md.R`"
+subtitle: "Six criteria from `SPEC_betaHhat_md.md`, run against a calibrated ACTG175 continuous DGM"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: true
+  message: true
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+options(width = 100)
+```
+
+# What this document is
+
+An integration-style living document, not a `testthat` suite. It runs the six
+acceptance criteria in `dev/glm-continuous-sims/SPEC_betaHhat_md.md` against
+the module at
+`quarto/simulations/actg175/continuous/betaHhat_truth_md.R`.
+
+The output that matters is the **numbers**, not "all assertions pass". Every
+criterion below prints its measured quantities before any assertion is
+evaluated, and the pass/fail gate is deferred to the last section so that a
+failure anywhere still leaves the full set of measurements visible.
+
+This is the first contact between these closed forms and `forestsearch()`.
+
+## Two structural facts this document leans on
+
+1. **The mean difference is collapsible.** Under randomisation, for any region
+   $R$, $\beta(R) = \mathbb E[\tau(X)\mid R]$. `df_super` is a fixed finite
+   population, so $\beta(\widehat H)$ is an exact finite mean over it — no
+   evaluation frame, no model fit, no residual Monte-Carlo noise.
+2. **The subject-level effect is two-valued.**
+   $\mu_{1,i} = \mu_{0,i} + \delta + \beta_{\mathrm{inter}}\mathbb 1\{i\in Q\}$,
+   with $\delta := k_{\mathrm{treat}}\beta_{\mathrm{treat}}$ constant because
+   the base fit is additive (`R/generate_glm_dgm.R:310-323`). Hence
+   $\beta(\widehat H) = \delta + \beta_{\mathrm{inter}}\,\mathbb P(Q\mid\widehat H)$,
+   and the originating handoff's $\beta_{\mathrm{inter}}\cdot\mathbb P(Q\mid\widehat H)$
+   is low by $\delta$ on every region.
+
+Both are established in `dev/glm-continuous-sims/NOTE_target_is_collapsibility.md`.
+**Do not take numbers from `HANDOFF_glm_continuous_simulations.md`.**
+
+## A tension in the SPEC, resolved here explicitly
+
+Criterion 3 requires a region **disjoint from $Q$**, whose target is exactly
+$\delta$. Criterion 5 requires that **every** region have a target
+distinguishable from $0$, from $\delta$, and from $\delta+\beta_{\mathrm{inter}}$.
+Taken literally these cannot both hold: the disjoint region's target *is*
+$\delta$, and a region equal to (or inside) $Q$ has target exactly
+$\delta+\beta_{\mathrm{inter}}$.
+
+Resolution used below, stated before running: criterion 5's distinguishability
+requirement is applied to the **interior** regions, those with
+$0 < \mathbb P(Q\mid R) < 1$. The two boundary cases are not accidents to be
+excluded but the pinned endpoints that criteria 3 and 4 exist to check. Both
+kinds are exercised; only the interior ones carry the distinguishability
+assertion.
+
+```{r load-packages}
+library(forestsearch)
+library(speff2trial)
+library(ggplot2)
+
+module_path <- "../../../quarto/simulations/actg175/continuous/betaHhat_truth_md.R"
+stopifnot(file.exists(module_path))
+source(module_path)
+
+results_log <- list()
+timings     <- list()
+```
+
+# The fixture
+
+## DGM settings
+
+Reused verbatim from
+`quarto/simulations/actg175/continuous/actg175_continuous_simulations.qmd`.
+This is a fixture, not a sweep: one calibrated DGM.
+
+The vignette's calibration-curve chunk (a 61-point `k_inter` sweep, each point
+a full `generate_glm_dgm()` fit) is **skipped**. It is presentational and
+scores no criterion.
+
+```{r dgm-settings}
+actg_arms         <- c(1L, 3L)
+actg_treat_arm    <- 1L
+actg_age_cut      <- 34
+actg_preanti_cut  <- 744.5
+
+dgm_factor_vars   <- paste0("z", 1:12)
+dgm_subgroup_vars <- c("z1", "z2")
+dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
+dgm_n_super       <- 5000L
+
+cal_target_md     <- 40
+cal_k_grid_range  <- c(0, 120)
+cal_grid_step     <- 2
+
+sim_seed          <- 8316951L
+
+analysis_continuous_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+analysis_binary_vars     <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
+```
+
+## ACTG175 data preparation
+
+```{r prepare-data}
+actg_df <- subset(speff2trial::ACTG175, arms %in% actg_arms)
+actg_df$id <- seq_len(nrow(actg_df))
+
+actg_df$treat_orig <- ifelse(actg_df$arms == actg_treat_arm, 1L, 0L)
+# SWITCHED roles: ddI = treat = 1 (benefit search via treatment switching)
+actg_df$treat      <- 1L - actg_df$treat_orig
+actg_df$cd4_change <- actg_df$cd420 - actg_df$cd40
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+
+actg_df$z1  <- as.factor(ifelse(actg_df$age > actg_age_cut, 1L, 0L))
+actg_df$z2  <- as.factor(ifelse(actg_df$preanti <= actg_preanti_cut, 1L, 0L))
+actg_df$z3  <- as.factor(ifelse(actg_df$wtkg <= 75, 1L, 0L))
+actg_df$z4  <- as.factor(ifelse(actg_df$karnof <= median(actg_df$karnof), 1L, 0L))
+actg_df$z5  <- as.factor(ifelse(actg_df$cd40 <= median(actg_df$cd40), 1L, 0L))
+actg_df$z6  <- as.factor(ifelse(actg_df$cd80 <= median(actg_df$cd80), 1L, 0L))
+actg_df$z7  <- as.factor(actg_df$hemo)
+actg_df$z8  <- as.factor(actg_df$homo)
+actg_df$z9  <- as.factor(actg_df$drugs)
+actg_df$z10 <- as.factor(actg_df$race)
+actg_df$z11 <- as.factor(actg_df$gender)
+actg_df$z12 <- as.factor(actg_df$symptom)
+
+for (v in analysis_binary_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
+confounders_analysis <- c(analysis_continuous_vars, analysis_binary_vars)
+
+cat(sprintf("ACTG175 (arms %s): n = %d\n",
+            paste(actg_arms, collapse = " vs "), nrow(actg_df)))
+cat(sprintf("  cd4_change: mean = %.2f, sd = %.2f\n",
+            mean(actg_df$cd4_change), sd(actg_df$cd4_change)))
+```
+
+## Calibrated DGM
+
+Built on every render. No cache: `calibrate_glm_interaction()` uses `uniroot()`
+with interval extension, not a grid search (`R/calibrate_glm_interaction.R:143-146`),
+and for MD the relation $\text{effect}_Q = \delta + k_{\mathrm{inter}}$ is
+affine, so it converges in a few steps. Measured build time is printed below;
+it does not justify a cache path.
+
+```{r build-dgm}
+t0 <- proc.time()[3]
+
+dgm_calibrated <- calibrate_glm_interaction(
+    data           = actg_df,
+    factor_vars    = dgm_factor_vars,
+    outcome_var    = "cd4_change",
+    treatment_var  = "treat",
+    target_effect  = cal_target_md,
+    outcome_type   = "continuous",
+    effect_measure = "MD",
+    subgroup_vars  = dgm_subgroup_vars,
+    subgroup_cuts  = dgm_subgroup_cuts,
+    k_inter_range  = cal_k_grid_range,
+    grid_step      = cal_grid_step,
+    n_super        = dgm_n_super,
+    seed           = sim_seed,
+    verbose        = TRUE
+)
+
+timings$dgm <- proc.time()[3] - t0
+cat(sprintf("\nDGM built in %.2f sec (no cache)\n", timings$dgm))
+
+df_super <- dgm_calibrated$df_super
+cat(sprintf("df_super: n = %d,  Q prevalence = %.4f\n",
+            nrow(df_super), mean(df_super$flag_harm == 1L)))
+cat(sprintf("NAs in mu0: %d,  NAs in mu1: %d\n",
+            sum(is.na(df_super$mu0)), sum(is.na(df_super$mu1))))
+```
+
+## Derived quantities
+
+All three are read off the calibrated object and `df_super`. **None is
+hard-coded.**
+
+```{r derived-quantities}
+inQ <- df_super$flag_harm == 1L
+
+# delta: the complement effect, via compute_aor() on Q^c
+delta <- compute_aor(df_super,
+                     subset_indicator = as.integer(!inQ),
+                     effect_measure   = "MD")
+
+# beta_inter: the calibrated interaction shift
+beta_inter <- dgm_calibrated$model_params$beta_inter
+k_inter    <- dgm_calibrated$model_params$k_inter
+
+# P(Q | region): counted on df_super (function; used per-region below)
+p_Q_given <- function(idx) mean(inQ[idx])
+
+effect_Q  <- dgm_calibrated$hazard_ratios$harm_subgroup
+effect_Qc <- dgm_calibrated$hazard_ratios$no_harm_subgroup
+
+cat(sprintf("delta       (compute_aor on Q^c) = %.6f\n", delta))
+cat(sprintf("beta_inter  (model_params)       = %.6f\n", beta_inter))
+cat(sprintf("k_inter     (model_params)       = %.6f\n", k_inter))
+cat(sprintf("effect_Q    (DGM .effect_one)    = %.6f\n", effect_Q))
+cat(sprintf("effect_Qc   (DGM .effect_one)    = %.6f\n", effect_Qc))
+cat(sprintf("delta + beta_inter               = %.6f\n", delta + beta_inter))
+cat(sprintf("  vs effect_Q, difference        = %.3e\n",
+            (delta + beta_inter) - effect_Q))
+```
+
+# The regions
+
+Six rules on `df_super`, built from the **raw** covariates (not the discretised
+`z` factors) so `get_dfpred()` resolves them by comparison. $Q$ is
+$\{ \texttt{age} > 34 \} \cap \{ \texttt{preanti} \le 744.5 \}$.
+
+Shapes covered, as criterion 5 requires: a conjunction, a strict subset of $Q$,
+a single cut, a **disjunction** in GRF form, a **negation**, and a region
+**disjoint from $Q$**.
+
+```{r define-regions}
+rules <- list(
+  exact_Q     = c("{age > 34}", "{preanti <= 744.5}"),
+  narrow      = c("{age > 34}", "{preanti <= 744.5}", "{wtkg <= 75}"),
+  one_cut     = c("{age > 34}"),
+  disjunction = "(age > 34 & preanti <= 744.5) | (wtkg <= 60)",
+  negation    = c("!{cd40 <= 400}"),
+  disjoint_Q  = c("{age <= 34}")
+)
+
+# Mirrors betaHhat_one_md()'s dispatch order exactly: disjunction form FIRST,
+# on the unsplit string.  See the module's comment and the discussion section.
+.resolve_rule <- function(r) {
+  if (length(r) == 1L && grepl("|", r, fixed = TRUE)) r
+  else if (length(r) == 1L && grepl(" & ", r, fixed = TRUE))
+    strsplit(r, " & ", fixed = TRUE)[[1L]]
+  else r
+}
+
+region_idx <- lapply(rules, function(r)
+  get_dfpred(df_super, .resolve_rule(r))$treat.recommend == 0L)
+
+region_tab <- data.frame(
+  region   = names(rules),
+  n        = vapply(region_idx, sum, integer(1)),
+  P_Q      = vapply(region_idx, p_Q_given, numeric(1)),
+  exact    = vapply(region_idx, function(i) .beta_region_md(df_super, i), numeric(1)),
+  row.names = NULL
+)
+region_tab$closed_form <- delta + beta_inter * region_tab$P_Q
+region_tab$handoff     <- beta_inter * region_tab$P_Q
+region_tab$interior    <- region_tab$P_Q > 0 & region_tab$P_Q < 1
+
+knitr::kable(region_tab, digits = 6,
+             caption = "Regions on df_super. `exact` is the module's target; `closed_form` is delta + beta_inter*P(Q|R); `handoff` is the originating handoff's form.")
+```
+
+# Criterion 1 — exactness
+
+Repeated evaluation of `.beta_region_md()` on one region must be
+**bit-identical**. Asserted as `max - min == 0`, not a tolerance.
+
+```{r criterion-1}
+reps <- vapply(1:25, function(i) .beta_region_md(df_super, region_idx$one_cut),
+               numeric(1))
+
+c1_spread <- max(reps) - min(reps)
+c1_unique <- length(unique(reps))
+
+cat(sprintf("25 evaluations of .beta_region_md() on region 'one_cut'\n"))
+cat(sprintf("  value          = %.15f\n", reps[1]))
+cat(sprintf("  max - min      = %.3e   (identical zero required)\n", c1_spread))
+cat(sprintf("  distinct values= %d\n", c1_unique))
+cat(sprintf("  identical()    = %s\n", identical(reps, rep(reps[1], 25))))
+
+results_log$c1 <- (c1_spread == 0) && (c1_unique == 1L)
+```
+
+# Criterion 2 — agreement with a fitted MD, shrinking at $n^{-1/2}$
+
+**20 independent draws per size**, pre-declared and all reported. Within each
+draw the fitted $\bar Y_1 - \bar Y_0$ on each interior region is compared
+against the module's target and the RMS taken across regions; the *mean* RMS
+across draws is then regressed on $\log n$. A single comparison at one $n$
+cannot distinguish Monte-Carlo error from a small systematic offset — the slope
+is the discriminating measurement.
+
+::: {.callout-important title="Why one draw per size was not enough"}
+The regions overlap and, within a draw, are scored on the **same** realization,
+so their per-region differences are strongly positively correlated. Averaging
+across regions therefore does **not** reduce draw-level noise: at one draw per
+size there were effectively six independent observations in total, not six
+times the number of regions.
+
+That design produced slope $-0.237$ with 95% CI $[-1.158, 0.684]$ and
+$R^2 = 0.11$. The interval contained $-0.5$, but it also contained $0$ — so the
+check could not reject "no decay at all", which makes it vacuous by this
+workstream's own standard. The band was **not** widened to accommodate it; the
+number of draws was raised, which changes the fixture's cost rather than the
+evidentiary bar. The band remains $(-0.85, -0.25)$.
+:::
+
+```{r criterion-2}
+t0 <- proc.time()[3]
+n_grid <- c(2000L, 4000L, 8000L, 16000L, 32000L, 64000L)
+
+fitted_md_region <- function(df_sim, rule) {
+  i <- get_dfpred(df_sim, .resolve_rule(rule))$treat.recommend == 0L
+  d  <- df_sim[i, , drop = FALSE]
+  if (sum(d$treat_sim == 1L) < 5L || sum(d$treat_sim == 0L) < 5L) return(NA_real_)
+  mean(d$y_sim[d$treat_sim == 1L]) - mean(d$y_sim[d$treat_sim == 0L])
+}
+
+n_draws <- 20L   # PRE-DECLARED: 20 independent draws per size, all reported
+
+interior_names <- region_tab$region[region_tab$interior]
+
+c2_draws <- do.call(rbind, lapply(seq_along(n_grid), function(j) {
+  n <- n_grid[j]
+  do.call(rbind, lapply(seq_len(n_draws), function(b) {
+    df_sim <- simulate_from_glm_dgm(dgm_calibrated, n = n,
+                                    seed = sim_seed + 1000L * j + b)
+    d2 <- vapply(interior_names, function(rn)
+      fitted_md_region(df_sim, rules[[rn]]) -
+        region_tab$exact[region_tab$region == rn], numeric(1))
+    data.frame(n = n, draw = b, rms = sqrt(mean(d2^2, na.rm = TRUE)))
+  }))
+}))
+
+agg <- aggregate(rms ~ n, data = c2_draws,
+                 FUN = function(x) c(mean = mean(x), se = sd(x) / sqrt(length(x))))
+c2_rms <- data.frame(n = agg$n, mean_rms = agg$rms[, "mean"], se = agg$rms[, "se"])
+
+c2_fit   <- lm(log(mean_rms) ~ log(n), data = c2_rms)
+c2_slope <- unname(coef(c2_fit)[2])
+c2_se    <- summary(c2_fit)$coefficients[2, 2]
+c2_ci    <- c2_slope + c(-1, 1) * qt(0.975, df = nrow(c2_rms) - 2) * c2_se
+
+knitr::kable(c2_rms, digits = 4,
+             caption = sprintf("Mean RMS |fitted - target| across interior regions, %d draws per size, with SE.",
+                               n_draws))
+
+cat(sprintf("\ndraws per size = %d (pre-declared), sizes = %d, total draws = %d\n",
+            n_draws, nrow(c2_rms), nrow(c2_draws)))
+cat(sprintf("slope of log(mean_rms) on log(n) = %.4f   (predicted -0.5)\n", c2_slope))
+cat(sprintf("  SE = %.4f,  95%% CI = [%.4f, %.4f],  R^2 = %.4f\n",
+            c2_se, c2_ci[1], c2_ci[2], summary(c2_fit)$r.squared))
+cat(sprintf("  CI excludes 0 (i.e. rejects 'no decay'): %s\n",
+            !(c2_ci[1] < 0 && c2_ci[2] > 0)))
+cat(sprintf("  monotone decreasing in n: %s\n", all(diff(c2_rms$mean_rms) < 0)))
+
+timings$c2 <- proc.time()[3] - t0
+
+results_log$c2 <- is.finite(c2_slope) && c2_slope < -0.25 && c2_slope > -0.85
+```
+
+## The pre-registered alternation check
+
+At one draw per size the six RMS values alternated cleanly — 8.51, 1.00, 5.44,
+1.11, 4.48, 1.51 — and the low subsequence (1.00, 1.11, 1.51) *increased* with
+$n$. That is more structure than one-draw noise should produce, so it was
+pre-registered as something to watch: **surviving 20 draws would make it a seed
+or design artifact and a finding in its own right; vanishing would make it
+noise.**
+
+```{r criterion-2-alternation}
+lo <- c2_rms$mean_rms[c2_rms$n %in% c(4000L, 16000L, 64000L)]
+hi <- c2_rms$mean_rms[c2_rms$n %in% c(2000L, 8000L, 32000L)]
+
+cat("Former LOW subsequence  (n = 4000, 16000, 64000):\n")
+cat(sprintf("  one draw : 1.0029, 1.1123, 1.5080   <- increasing in n\n"))
+cat(sprintf("  %2d draws : %.4f, %.4f, %.4f\n", n_draws, lo[1], lo[2], lo[3]))
+cat(sprintf("  still increasing? %s\n", all(diff(lo) > 0)))
+
+cat("\nFormer HIGH subsequence (n = 2000, 8000, 32000):\n")
+cat(sprintf("  one draw : 8.5094, 5.4433, 4.4819\n"))
+cat(sprintf("  %2d draws : %.4f, %.4f, %.4f\n", n_draws, hi[1], hi[2], hi[3]))
+
+cat(sprintf("\nAlternation gone (whole sequence monotone decreasing)? %s\n",
+            all(diff(c2_rms$mean_rms) < 0)))
+```
+
+**Verdict: it was noise.** At 20 draws per size the whole sequence is monotone
+decreasing, the former low subsequence decreases rather than increases, and the
+slope tightens onto $-1/2$. No seed or design artifact survives. The alternation
+was an artifact of scoring correlated regions on a single shared draw per size.
+
+# Criterion 3 — the wrong form fails
+
+The handoff's $\beta_{\mathrm{inter}}\cdot\mathbb P(Q\mid\widehat H)$ must differ
+from the exact target by $\delta$ on **every** region, including the region
+disjoint from $Q$ where it gives $0$ against a truth of $\delta$.
+
+```{r criterion-3}
+c3 <- data.frame(
+  region       = region_tab$region,
+  P_Q          = region_tab$P_Q,
+  exact        = region_tab$exact,
+  handoff      = region_tab$handoff,
+  gap          = region_tab$exact - region_tab$handoff,
+  gap_minus_d  = (region_tab$exact - region_tab$handoff) - delta,
+  stringsAsFactors = FALSE
+)
+
+knitr::kable(c3, digits = 6,
+             caption = "Every `gap` should equal delta; `gap_minus_d` should be identically zero.")
+
+cat(sprintf("\ndelta = %.6f\n", delta))
+cat(sprintf("max |gap - delta| over all regions = %.3e\n",
+            max(abs(c3$gap_minus_d))))
+
+dj <- c3[c3$region == "disjoint_Q", ]
+cat(sprintf("\ndisjoint-from-Q region: P(Q|R) = %.6f\n", dj$P_Q))
+cat(sprintf("  handoff form gives %.6f;  truth is %.6f (= delta)\n",
+            dj$handoff, dj$exact))
+
+results_log$c3 <- max(abs(c3$gap_minus_d)) < 1e-9 &&
+                  dj$P_Q == 0 && abs(dj$handoff) < 1e-12
+```
+
+# Criterion 4 — the $\theta^{\dagger}$ identity, plus an external anchor
+
+## Pre-registered failure mode
+
+Stated **before running**. The internal half of this criterion compares
+`compute_aor()` against the DGM's own `.effect_one()`
+(`R/generate_glm_dgm.R:568-594`). These are two package sites, so that half is
+package-against-package and cannot detect a shared error.
+
+The two sites differ in exactly one respect: `compute_aor()` uses
+`mean(..., na.rm = TRUE)` and subsets the extracted vectors, while
+`.effect_one()` uses bare `mean(df$mu1)` on a subset of the frame. Their
+arithmetic is otherwise the same expression. **Therefore a nonzero difference
+here points at `NA`s in `mu0`/`mu1`, not at the target logic.** If this
+criterion fails, look at the NA counts printed in the fixture section first.
+
+## External anchor
+
+Because of the above, the internal identity is paired with an anchor outside
+the package's own arithmetic: the calibrator was asked for
+MD$(Q) = `r cal_target_md`$ and stops if it cannot get within `tol_rel = 2.5`
+percent (`R/calibrate_glm_interaction.R:53-55,105`). So `effect_Q` must
+reproduce the calibration target within that band.
+
+::: {.callout-warning title="This anchor is weaker than it reads — stated before running"}
+The calibrator uses `uniroot()` with interval extension, not a grid snap
+(`R/calibrate_glm_interaction.R:143-146`). For MD the relation is **affine**,
+$\text{effect}_Q(k_{\mathrm{inter}}) = \delta + k_{\mathrm{inter}}$, so
+`uniroot` converges to machine precision in a few steps — and its objective
+function *is* `.effect_one()`. So "within 2.5 percent" measures the solver's
+convergence on the package's own arithmetic. It confirms the fixture realizes
+the analyst's stated target; it does **not** independently validate the MD
+computation.
+
+A second anchor is therefore added that touches none of the package's effect
+arithmetic: fit `stats::lm(y_sim ~ treat_sim)` on $Q$ in a large drawn trial
+and compare the coefficient to `cal_target_md`. That path goes through the
+simulator and base R least squares only. It carries Monte-Carlo error, so it is
+checked against the same 2.5 percent band rather than as an identity.
+:::
+
+```{r criterion-4}
+td <- betaHhat_theta_dagger_check_md(df_super)
+
+c4 <- data.frame(
+  quantity = c("theta_dagger_H", "theta_dagger_Hc"),
+  module   = c(unname(td["thetaDagger_H"]), unname(td["thetaDagger_Hc"])),
+  dgm      = c(effect_Q, effect_Qc),
+  stringsAsFactors = FALSE
+)
+c4$difference <- c4$module - c4$dgm
+
+knitr::kable(c4, digits = 10,
+             caption = "Internal identity: module vs the DGM's own effect_Q / effect_Qc. Exact zero required.")
+
+cat(sprintf("\nmax |difference| = %.3e   (exact identity required, not a tolerance)\n",
+            max(abs(c4$difference))))
+cat(sprintf("NA counts in mu0 / mu1: %d / %d\n",
+            sum(is.na(df_super$mu0)), sum(is.na(df_super$mu1))))
+
+# --- external anchor ---
+rel_err <- 100 * abs(effect_Q - cal_target_md) / abs(cal_target_md)
+cat(sprintf("\nExternal anchor:\n"))
+cat(sprintf("  calibration target MD(Q) = %.4f\n", cal_target_md))
+cat(sprintf("  realized      effect_Q   = %.6f\n", effect_Q))
+cat(sprintf("  relative error           = %.4f%%   (calibrator band: 2.5%%)\n",
+            rel_err))
+
+results_log$c4        <- max(abs(c4$difference)) == 0
+results_log$c4_anchor <- rel_err <= 2.5
+```
+
+```{r criterion-4-lm-anchor}
+n_anchor <- 200000L
+df_anchor <- simulate_from_glm_dgm(dgm_calibrated, n = n_anchor,
+                                   seed = sim_seed + 55L)
+fit_anchor <- stats::lm(y_sim ~ treat_sim,
+                        data = df_anchor[df_anchor$flag_harm == 1L, ])
+md_lm <- unname(stats::coef(fit_anchor)[["treat_sim"]])
+rel_err_lm <- 100 * abs(md_lm - cal_target_md) / abs(cal_target_md)
+
+cat(sprintf("External anchor #2 -- stats::lm, no package effect arithmetic:\n"))
+cat(sprintf("  n                        = %d\n", n_anchor))
+cat(sprintf("  lm MD(Q)                 = %.6f\n", md_lm))
+cat(sprintf("  calibration target       = %.4f\n", cal_target_md))
+cat(sprintf("  relative error           = %.4f%%   (band: 2.5%%)\n", rel_err_lm))
+cat(sprintf("  vs effect_Q, difference  = %.6f  (Monte-Carlo error)\n",
+            md_lm - effect_Q))
+
+results_log$c4_anchor_lm <- rel_err_lm <= 2.5
+```
+
+# Criterion 5 — rule shapes
+
+The closed form is shape-free; this demonstrates that rather than assuming it.
+Interior regions ($0 < \mathbb P(Q\mid R) < 1$) must have targets
+distinguishable from $0$, from $\delta$, and from $\delta+\beta_{\mathrm{inter}}$
+— see the resolution stated at the top of this document for why the two
+boundary regions are exempt.
+
+::: {.callout-note title="How the negation region was chosen"}
+The negation region is `!{cd40 <= 400}`, selected deliberately rather than
+taken as the first thing to hand. Three conjunctive negations were evaluated
+first and rejected **because their targets collided**, which would have made
+the assertion vacuous in exactly the way criterion 5 exists to prevent:
+
+| candidate | target | nearest other region |
+|---|---|---|
+| `!{cd40 <= 400} & {preanti <= 744.5}` | 1.87 | 1.87 from $0$ |
+| `!{cd40 <= 400} & !{age <= 34}` | 21.77 | **0.34** from `one_cut` |
+| `!{cd80 <= 900} & {age > 34}` | 20.65 | **0.78** from `one_cut` |
+| `!{cd40 <= 400}` (**used**) | −4.24 | 25.67 from `one_cut` |
+
+This is the caution the workstream README carries about
+`check_betaHhat_md.R`, whose negation row is byte-identical to its exact row
+and so discriminates nothing. A negation region whose target lands on top of
+another region's tests the arithmetic, not the negation handling.
+:::
+
+```{r criterion-5}
+sep <- function(x, y) abs(x - y)
+
+c5 <- data.frame(
+  region      = region_tab$region,
+  shape       = c("conjunction", "subset of Q", "single cut",
+                  "disjunction (GRF)", "negation", "disjoint from Q"),
+  P_Q         = region_tab$P_Q,
+  target      = region_tab$exact,
+  interior    = region_tab$interior,
+  d_from_0    = sep(region_tab$exact, 0),
+  d_from_delta= sep(region_tab$exact, delta),
+  d_from_full = sep(region_tab$exact, delta + beta_inter),
+  stringsAsFactors = FALSE
+)
+
+knitr::kable(c5, digits = 4,
+             caption = "Shape coverage and separation of each target from the three degenerate values.")
+
+int <- c5[c5$interior, ]
+min_sepn <- min(c(int$d_from_0, int$d_from_delta, int$d_from_full))
+cat(sprintf("\ninterior regions: %d of %d\n", nrow(int), nrow(c5)))
+cat(sprintf("minimum separation over interior regions = %.4f\n", min_sepn))
+cat(sprintf("shapes present: %s\n", paste(unique(c5$shape), collapse = "; ")))
+
+results_log$c5 <- nrow(int) >= 3 && min_sepn > 1 &&
+                  all(c("disjunction (GRF)", "negation", "disjoint from Q") %in% c5$shape)
+```
+
+# Criterion 6 — reachability
+
+At least one assertion must run on a region produced by an **actual
+`forestsearch()` call**, not a hand-constructed mask.
+
+The continuous vignette warns that at modest $n$ a single replicate may fail to
+retain the true subgroup-defining variables, because the analysis sees raw
+covariates and LASSO/GRF must rediscover `age`/`preanti` each time. A larger
+draw is used here for that reason. **The realized outcome is reported either
+way — no seed is retried until one detects.** A control that passes because the
+quantity is easy is not evidence the code path is reachable.
+
+::: {.callout-important title="`adverse_outcome` is required here, and both settings are reported"}
+`forestsearch()` takes `adverse_outcome`, defaulting to `NULL`, which resolves
+to `outcome_type %in% c("binary", "count")` — hence **`FALSE` for continuous**
+(`R/forestsearch_main.R:1220-1221`).
+
+The continuous vignette states at lines 138-162 that `adverse_outcome = TRUE`
+is **required** for this setup and that the default `FALSE` is "WRONG for
+benefit searches via treatment switching": the search maximises
+$\text{score} = -\text{CATE}$, so under switched roles the default looks in the
+direction *opposite* to $Q$.
+
+An earlier version of this document omitted the argument entirely, ran under
+the resolved default, and recorded the resulting inversion as an observation
+about the harm/benefit fork. That was a misconfigured call, not evidence.
+Both settings are now run and reported, with `TRUE` as the configured one.
+:::
+
+```{r criterion-6}
+t0 <- proc.time()[3]
+fs_n <- 4000L
+df_fs <- simulate_from_glm_dgm(dgm_calibrated, n = fs_n, seed = sim_seed + 7L)
+
+run_fs_once <- function(adverse) {
+  tryCatch(
+    suppressWarnings(forestsearch(
+      df.analysis            = df_fs,
+      confounders.name       = confounders_analysis,
+      outcome.name           = "y_sim",
+      treat.name             = "treat_sim",
+      id.name                = "id",
+      outcome_type           = "continuous",
+      effect_measure         = "MD",
+      effect.threshold       = 30,
+      consistency.threshold  = 10,
+      pconsistency.threshold = 0.90,
+      fs.splits              = 400L,
+      n.min                  = 60L,
+      d0.min                 = 12L,
+      d1.min                 = 12L,
+      maxk                   = 2L,
+      vi.grf.min             = -0.2,
+      use_lasso              = TRUE,
+      use_grf                = TRUE,
+      use_twostage           = TRUE,
+      is.RCT                 = TRUE,
+      adverse_outcome        = adverse,
+      details                = FALSE,
+      quiet                  = TRUE,
+      seedit                 = sim_seed,
+      parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE)
+    )),
+    error = function(e) { message("forestsearch() failed: ", e$message); NULL }
+  )
+}
+
+# Reported for contrast: the resolved default, which the vignette calls wrong.
+fs_default <- run_fs_once(FALSE)
+# The configured call.
+fs_run     <- run_fs_once(TRUE)
+
+timings$c6 <- proc.time()[3] - t0
+cat(sprintf("two forestsearch() calls on n = %d completed in %.1f sec\n",
+            fs_n, timings$c6))
+
+describe_run <- function(fsobj, label) {
+  sg <- if (!is.null(fsobj) && !is.null(fsobj$grp.consistency))
+          fsobj$grp.consistency$sg.harm else NULL
+  if (is.null(sg) || length(sg) == 0 || all(is.na(sg))) {
+    cat(sprintf("\n[%s] NO subgroup identified.\n", label)); return(invisible(NULL))
+  }
+  sd_ <- paste(sg, collapse = " & ")
+  v   <- betaHhat_one_md(sd_, df_super, focus = "harm")
+  idx <- get_dfpred(df_super, .resolve_rule(sd_))$treat.recommend == 0L
+  d   <- df_fs[get_dfpred(df_fs, .resolve_rule(sd_))$treat.recommend == 0L, ]
+  mdt <- mean(d$y_sim[d$treat_sim == 1L]) - mean(d$y_sim[d$treat_sim == 0L])
+  cat(sprintf("\n[%s]\n  rule            : %s\n", label, sd_))
+  cat(sprintf("  P(Q | region)   : %.6f%s\n", p_Q_given(idx),
+              if (p_Q_given(idx) %in% c(0, 1)) "   <- BOUNDARY region" else "   <- interior"))
+  cat(sprintf("  beta(Hhat)      : %.4f    beta(Hhat^c): %.4f\n",
+              v[["betaHhat_H"]], v[["betaHhat_Hc"]]))
+  cat(sprintf("  nH_eval         : %d\n", v[["nH_eval"]]))
+  cat(sprintf("  in-trial MD     : %.4f\n", mdt))
+  cat(sprintf("  selection effect: %.4f\n", mdt - v[["betaHhat_H"]]))
+  invisible(sd_)
+}
+
+cat(sprintf("reference: MD(Q) = %.4f, delta = %.4f, delta + beta_inter = %.4f\n",
+            effect_Q, delta, delta + beta_inter))
+describe_run(fs_default, "adverse_outcome = FALSE  (resolved default; vignette calls this wrong)")
+describe_run(fs_run,     "adverse_outcome = TRUE   (configured)")
+
+sg_found <- NULL
+if (!is.null(fs_run) && !is.null(fs_run$grp.consistency)) {
+  sg_found <- fs_run$grp.consistency$sg.harm
+}
+
+if (!is.null(sg_found) && length(sg_found) > 0 && !all(is.na(sg_found))) {
+  sg_def <- paste(sg_found, collapse = " & ")
+  cat(sprintf("\nRealized rule: %s\n", sg_def))
+
+  v_harm    <- betaHhat_one_md(sg_def, df_super, focus = "harm")
+  v_benefit <- betaHhat_one_md(sg_def, df_super, focus = "benefit")
+
+  c6 <- data.frame(
+    focus       = c("harm", "benefit"),
+    betaHhat_H  = c(v_harm[["betaHhat_H"]],  v_benefit[["betaHhat_H"]]),
+    betaHhat_Hc = c(v_harm[["betaHhat_Hc"]], v_benefit[["betaHhat_Hc"]]),
+    nH_eval     = c(v_harm[["nH_eval"]],     v_benefit[["nH_eval"]]),
+    nHc_eval    = c(v_harm[["nHc_eval"]],    v_benefit[["nHc_eval"]]),
+    stringsAsFactors = FALSE
+  )
+  knitr::kable(c6, digits = 6,
+               caption = "Module evaluated on a rule produced by forestsearch().")
+
+  # focus exercised both ways: complementary regions, differing targets
+  n_sum_ok  <- (v_harm[["nH_eval"]] + v_benefit[["nH_eval"]]) == nrow(df_super)
+  targets_differ <- isTRUE(v_harm[["betaHhat_H"]] != v_benefit[["betaHhat_H"]])
+
+  cat(sprintf("\nnH_eval(harm) + nH_eval(benefit) = %d + %d = %d   (nrow(df_super) = %d)\n",
+              v_harm[["nH_eval"]], v_benefit[["nH_eval"]],
+              v_harm[["nH_eval"]] + v_benefit[["nH_eval"]], nrow(df_super)))
+  cat(sprintf("targets differ: %s   (harm %.6f vs benefit %.6f)\n",
+              targets_differ, v_harm[["betaHhat_H"]], v_benefit[["betaHhat_H"]]))
+
+  # How informative is the region the configured run landed on?
+  idx_fs <- get_dfpred(df_super, .resolve_rule(sg_def))$treat.recommend == 0L
+  pq_fs  <- p_Q_given(idx_fs)
+  cat(sprintf("\nP(Q | realized region) = %.6f\n", pq_fs))
+  if (pq_fs == 0 || pq_fs == 1) {
+    cat("  This is a BOUNDARY region: its target is exactly ")
+    cat(if (pq_fs == 0) "delta" else "delta + beta_inter", "\n")
+    cat("  The reachability check therefore ran, but landed on the least\n")
+    cat("  informative possible region. Reported as-is; no seed retried.\n")
+  } else {
+    cat("  Interior region: target is strictly between delta and delta+beta_inter,\n")
+    cat("  so the check is not passing on a degenerate value.\n")
+  }
+
+  results_log$c6            <- all(is.finite(c(v_harm[["betaHhat_H"]],
+                                               v_harm[["betaHhat_Hc"]])))
+  results_log$focus_complement <- n_sum_ok
+  results_log$focus_differ     <- targets_differ
+} else {
+  cat("\nforestsearch() identified NO subgroup on this draw.\n")
+  cat("Reported as the measurement, not retried with another seed.\n")
+  cat("Criterion 6 is UNMET for this run.\n")
+  results_log$c6               <- FALSE
+  results_log$focus_complement <- NA
+  results_log$focus_differ     <- NA
+}
+```
+
+## `focus` on a hand-constructed rule
+
+The complementary-region and differing-target assertions are repeated on a
+hand-constructed rule so they are available regardless of whether
+`forestsearch()` detected anything above.
+
+```{r focus-hand}
+vh <- betaHhat_one_md(rules$one_cut, df_super, focus = "harm")
+vb <- betaHhat_one_md(rules$one_cut, df_super, focus = "benefit")
+
+cat(sprintf("rule 'one_cut':\n"))
+cat(sprintf("  harm:    betaHhat_H = %.6f,  nH_eval = %d\n",
+            vh[["betaHhat_H"]], vh[["nH_eval"]]))
+cat(sprintf("  benefit: betaHhat_H = %.6f,  nH_eval = %d\n",
+            vb[["betaHhat_H"]], vb[["nH_eval"]]))
+cat(sprintf("  nH_eval sum = %d  (nrow(df_super) = %d)\n",
+            vh[["nH_eval"]] + vb[["nH_eval"]], nrow(df_super)))
+cat(sprintf("  targets differ: %s\n", vh[["betaHhat_H"]] != vb[["betaHhat_H"]]))
+
+results_log$focus_complement_hand <-
+  (vh[["nH_eval"]] + vb[["nH_eval"]]) == nrow(df_super)
+results_log$focus_differ_hand <- vh[["betaHhat_H"]] != vb[["betaHhat_H"]]
+
+# harm/benefit are mirror images: H under one is H^c under the other
+cat(sprintf("  harm betaHhat_H == benefit betaHhat_Hc: %s\n",
+            identical(vh[["betaHhat_H"]], vb[["betaHhat_Hc"]])))
+```
+
+# Reported, not asserted
+
+Two things the task asks to be run and shown verbatim rather than folded into a
+pass/fail gate.
+
+## A missing `focus` — verbatim error
+
+Confirming the message is the **module's**, not R's standard
+missing-argument error.
+
+```{r missing-focus}
+err <- tryCatch(
+  betaHhat_one_md(rules$exact_Q, df_super),
+  error = function(e) conditionMessage(e)
+)
+cat(err, "\n")
+```
+
+## `.beta_region_md()` against the SPEC, and a `mu0`/`mu1` grep
+
+First: is the module's `.beta_region_md()` byte-identical to the code block in
+`SPEC_betaHhat_md.md`? Second: does `mu0` or `mu1` appear anywhere else in the
+module in an arithmetic context — which would mean a third site for
+`mean(mu1) - mean(mu0)`?
+
+```{r spec-fidelity}
+spec_lines   <- readLines("../SPEC_betaHhat_md.md")
+module_lines <- readLines(module_path)
+
+# Brace-counting extractor: the first "}" in this function is the inner one
+# closing the guard, so a naive scan for "}" would truncate the block.
+extract_fn <- function(lines) {
+  s <- grep("^\\.beta_region_md <- function", lines)[1]
+  depth <- 0L
+  for (e in seq(s, length(lines))) {
+    depth <- depth + lengths(regmatches(lines[e], gregexpr("\\{", lines[e]))) -
+                     lengths(regmatches(lines[e], gregexpr("\\}", lines[e])))
+    if (depth == 0L && e > s) return(lines[s:e])
+    if (depth == 0L && grepl("\\}", lines[e])) return(lines[s:e])
+  }
+  stop("could not delimit .beta_region_md()")
+}
+
+spec_fn <- extract_fn(spec_lines)
+mod_fn  <- extract_fn(module_lines)
+
+cat("SPEC block:\n"); cat(spec_fn, sep = "\n")
+cat("\n\nModule block:\n"); cat(mod_fn, sep = "\n")
+cat(sprintf("\n\nbyte-identical: %s\n", identical(spec_fn, mod_fn)))
+
+results_log$spec_identical <- identical(spec_fn, mod_fn)
+```
+
+```{r mu-grep}
+hits <- grep("mu0|mu1", module_lines, value = TRUE)
+cat(sprintf("grep 'mu0|mu1' over %s\n", basename(module_path)))
+cat(sprintf("  %d matching line(s)\n\n", length(hits)))
+if (length(hits)) cat(hits, sep = "\n") else cat("(empty)\n")
+
+# arithmetic context = a match outside a comment line
+code_hits <- hits[!grepl("^\\s*#", hits)]
+cat(sprintf("\n  of which outside comments: %d\n", length(code_hits)))
+if (length(code_hits)) cat(code_hits, sep = "\n") else cat("(empty)\n")
+
+results_log$no_third_site <- length(code_hits) == 0L
+```
+
+# Discussion — open items
+
+Recorded here, not acted on in this task.
+
+## The string-parsing defect class, and the package's own answer
+
+Criterion 5 was initially blocked. `SPEC_betaHhat_md.md` states under *Call
+surface* that "GRF disjunctions live inside a single element and survive the
+split". **They do not.** A GRF disjunction carries `" & "` inside each
+conjunct, so a `" & "` split shreds it:
+
+    input : "(age > 34 & preanti <= 744.5) | (wtkg <= 60)"
+    split : [1] "(age > 34"   [2] "preanti <= 744.5) | (wtkg <= 60)"
+    result: Column '(age' not found  ->  treat.recommend = NA  ->  NA target
+
+The immediate cause is dispatch order: `get_dfpred()` tests for the disjunction
+form **first**, on the unsplit string (`R/forestsearch_helpers.R:101`), while
+the module split first. This module now mirrors `get_dfpred()`'s order, which
+unblocks criterion 5.
+
+**That is a patch, not the fix.** The package's own answer for GRF membership
+is `.grf_evaluate_subgroup()` applied to the **structured** `sg_def`
+(`R/forestsearch_helpers.R:1778, 1781, 1784`), chosen explicitly because
+`get_dfpred()` cannot evaluate the disjunction string — see the comment at
+`R/forestsearch_helpers.R:1772`. All three `betaHhat_truth_*.R` modules
+re-parse the label string instead, which is why this defect exists at all.
+
+**Open item.** If `sg_def` structure is reachable at the `attach_betaHhat_*()`
+call site, the string handling should be replaced by the structured evaluator
+in all three modules. The defect class then disappears rather than being
+patched once per module. Not in scope here.
+
+**Also note:** the same split-first logic is live in the binary sibling,
+`quarto/simulations/actg175/binary/betaHhat_truth_glm.R:76-77`. Any GRF rule
+scored through `betaHhat_one_or()` today yields `NA` targets silently rather
+than erroring. Out of scope for this task; flagged for triage.
+
+## The SPEC and NOTE carry fixture-specific numbers
+
+Two documentation items, for the outstanding handoff-correction commit rather
+than for this one:
+
+1. The SPEC's "survive the split" sentence is wrong, as above.
+2. `NOTE_target_is_collapsibility.md` section 3 reports
+   $\delta = 6.5$, $\beta_{\mathrm{inter}} = 40$, $\text{effect}_Q = 46.5$.
+   This calibrated fixture gives $\delta = -26.26$,
+   $\beta_{\mathrm{inter}} = 66.26$, $\text{effect}_Q = 40$. The NOTE's
+   **structural** claim is untouched and is confirmed below — the gap is
+   exactly $\delta$ on every region — but $\delta$ is **negative** here, so
+   the handoff's form runs *high* by 26.26 rather than low. The NOTE's prose
+   ("low by $\delta$", "every handoff difference is $\delta = 6.5$") describes
+   a different fixture.
+
+## A withdrawn observation about search direction
+
+An earlier version of this document reported that `forestsearch()`, run on the
+vignette's own parameters and DGM, selected a region disjoint from $Q$ and in
+the opposite effect direction — and offered that as an observation bearing on
+the open harm/benefit fork.
+
+**That observation is withdrawn.** The call omitted `adverse_outcome`, so it
+ran under the resolved default `FALSE`
+(`R/forestsearch_main.R:1220-1221`), which the continuous vignette documents at
+lines 138-162 as *required to be* `TRUE` for this setup and explicitly "WRONG
+for benefit searches via treatment switching". The vignette predicts that exact
+inversion as the consequence of the wrong setting: the search maximises
+$\text{score} = -\text{CATE}$, so under switched roles the default looks
+opposite to $Q$.
+
+The inversion was therefore a misconfigured call reproducing a documented
+failure mode, not evidence about the fork. Criterion 6 now runs both settings;
+with `adverse_outcome = TRUE` the selected region overlaps $Q$ substantially
+and is **interior**, so the reachability check no longer passes on a degenerate
+target. The harm/benefit fork remains open, and nothing in this document speaks
+to it.
+
+The general lesson is worth keeping: a misconfigured call recorded as evidence
+is worse than no observation, because it looks like a finding.
+
+## What is still unverified
+
+Criterion 6 establishes that the module runs on a rule `forestsearch()`
+actually produced. It does **not** establish that the module is wired into any
+engine: no `attach_betaHhat_md()` call exists in a sweep yet, and the
+harm/benefit decision that fixes `focus` at that call site is still open.
+
+# Summary
+
+```{r summary}
+#| error: true
+summary_tab <- data.frame(
+  check  = names(results_log),
+  result = vapply(results_log, function(x)
+             if (is.na(x)) "NOT RUN" else if (isTRUE(x)) "pass" else "FAIL",
+             character(1)),
+  row.names = NULL
+)
+knitr::kable(summary_tab, caption = "Gate. Measurements above are the output; this is bookkeeping.")
+
+cat("\nTimings (sec):\n")
+print(unlist(timings))
+
+failed <- summary_tab$check[summary_tab$result == "FAIL"]
+if (length(failed)) {
+  cat(sprintf("\nFAILED: %s\n", paste(failed, collapse = ", ")))
+  stop("Acceptance gate not met. Do NOT widen a tolerance -- report the numbers.")
+} else {
+  cat("\nAll checks met.\n")
+}
+```
+
+```{r session}
+sessionInfo()
+```
