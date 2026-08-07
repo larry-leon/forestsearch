@@ -1,65 +1,47 @@
-# `legacy/` — archived `t1_t2`-generation combine documents
+# Superseded — retained as history, these do not render
 
-These 6 documents (each with its `.html` render, 12 files) belong to the
-`t1_t2` generation, superseded by the `sim_fs_maxcons_fb_mr_*` template one
-level up. They are archived for reference, not deleted, and nothing here is
-regenerated or maintained.
+The `.qmd` files here are the **superseded `t1_t2` combine generation**. They
+were archived out of the parent directory by `98115f3` ("adopt kappa-carrying
+maxcons template; archive 12 t1_t2 combine docs"), which adopted the revised
+`sim_fs_maxcons_fb_mr_*` template carrying the kappa / beta(H) treatment. That
+commit moved files only — *"No file deleted; every move is a git mv."*
 
-All six are `run_mode <- "combine"`. No batch document is archived here.
+The `.html` beside each `.qmd` is its output **as rendered from the parent
+directory, before the move**. That is the historical record; it is what these
+documents produced when they were current.
 
-## Why these six
+## They no longer render, and that is expected
 
-They lack the κ / β(H) treatment: the `beta-true-region` chunk, suppression of
-the oracle's `b_betaHhat` / `Cov_betaHhat` cells, and the identification-factor
-footnote `κ = β(H)/β(Ĥ)`. The split across the sixteen documents named
-`*_combine_*` is exactly binary — 1231 lines with no κ versus 1291 lines with
-κ. Rather than backfill a generation being retired, the κ treatment now lives
-in the `sim_fs_maxcons_*` template.
+Each sources a sibling by bare relative path:
 
-The four κ-carrying combine documents that stay at the parent level are
-`fs_t1_t2_m1_h10_knoise0_n500_combine_1_500`,
-`fs_t1_t2_m1_h15_knoise0_n1000_combine_1_500`,
-`dina_t1_t2_m1_h10_knoise0_n500_combine_1_500` and
-`grf_t1_t2_m1_h10_knoise0_n500_combine_1_500`.
+```r
+source("betaHhat_truth.R")     # line 82
+```
 
-## Not runnable in place
+That resolved in `quarto/simulations/gbsg_redux/`, which has the file. It does
+not resolve here, because the archiving move carried the documents but not the
+dependency. `betaHhat_truth.R` has **never** existed at
+`quarto/simulations/gbsg_redux/legacy/` in any commit.
 
-Every document here uses paths relative to its own directory:
+**Do not restore a copy here.** These were authored against a different layout
+and were correct in it. Adding a dependency they never had would resurrect a
+configuration that never existed, and would put a current shim inside an
+archive of a superseded generation. If one of these ever needs re-running, run
+it from the parent directory where it was written, or port it to the current
+template.
 
-* `source("betaHhat_truth.R")` — that file is one level up.
-* `combine_glob <- sprintf("%s_res_*.rds", rds_stem)` — the `.rds` they read
-  are one level up.
+## The lesson, stated plainly
 
-Re-rendering from `legacy/` would need those paths adjusted. Nothing in this
-directory is on a render path today.
+**A `git mv` of a `.qmd` that bare-path sources a sibling orphans the
+dependency. Check sourcers before archiving moves.**
 
-## Their outputs stay at the parent level
+A bare `source("x.R")` resolves against the render working directory, so moving
+the document changes what it resolves to — silently, with no diff to the
+document and nothing for a path-based grep to find. Six documents here were
+orphaned this way by a move that was otherwise clean and well documented.
 
-No `.rds` was moved. In particular the nine `*_combined_*.rds` are the outputs
-of these documents and remain beside their siblings, where the cross-directory
-consumers in `dev/sg-focus-work/` expect them.
-
-## Four cells now have no combine document at the parent level
-
-Intended. They are `h10_knoise0_n1000`, `h15_knoise0_n500`, `h15_knoise3_n1500`
-and `h20_knoise3_n1500`. Their pooled `*_combined_*.rds` are unaffected and
-still readable.
-
-## Two of these cannot produce the ranges they are named for
-
-`fs_t1_t2_m1_h20_knoise3_n1500_combine_1_250` and
-`fs_t1_t2_m1_h20_knoise3_n1500_combine_1_500` both have `combine_files <- NULL`,
-so the glob takes every `*_res_*.rds` for the stem — 500 replicates, not 250.
-The same applies to `fs_t1_t2_m1_h10_knoise0_n1000_combine_1_400`, which pools
-500 rather than 400.
-
-Consequently `fs_t1_t2_m1_h20_knoise3_n1500_combined_1_250.rds` at the parent
-level has no source that reproduces it. Preserve it; do not attempt to
-regenerate it.
-
-Several documents here also carry stale `sim_id_start` / `n_sims` values left
-over from a previous batch run. They are inert in combine mode, which derives
-its range from the pooled files, but they make the filename unverifiable from
-the setup chunk alone. **Treat the filenames here as labels of unknown
-accuracy** — the `run_mode` / `sim_id_start` / `n_sims` triple inside each file
-is the only reliable description of what it does.
+The same pattern has now bitten three times in this repository: these six, the
+`sim-check` top-level inputs, and `dev/identifier-alignment/sim_analyses/`,
+where a document sourced a file that was simply absent. Before any move or
+deletion involving a simulation document, grep for bare `source()` calls in the
+directory rather than for the directory's path.

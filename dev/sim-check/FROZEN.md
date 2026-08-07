@@ -56,3 +56,32 @@ should be.
 If the harness is ever re-run against the consolidated package, **that is a new
 investigation and belongs in a new directory.** Re-running it in place would
 overwrite the record that makes the original findings checkable.
+
+## Known-broken at freeze time: the three top-level sourcers
+
+These three call `source("betaHhat_truth.R")` and it does **not** resolve,
+because `dev/sim-check/betaHhat_truth.R` has never existed in any commit:
+
+```
+fs_t1_t2_m1_h10_knoise0_n500_batch_1_20.qmd:82
+sim_fs_maxcons_fb_mr_m1_h10_knoise0_n500_batch_1_100.qmd:85
+diag_probe.R:10
+```
+
+**This is not damage and must not be repaired.** These are the *inputs* the
+investigation copied in to compare, named as such in its own documents:
+
+- `CC_BRIEF_sim_integrity.md:27-28` designates
+  `fs_t1_t2_..._batch_1_20.qmd` as **pre-edit (the original)** and
+  `sim_fs_maxcons_..._batch_1_100.qmd` as **post-edit**.
+- `SIM_INTEGRITY_FINDINGS.md:4-5` names them Target and Comparator.
+- `SIM_INTEGRITY_FINDINGS.md:164-165` cites `diag_probe.R` as the script behind
+  a logged result.
+
+The renders that produced the findings were run from `run_pre/` and `run_post/`,
+which have their own `pre.qmd` / `post.qmd` **and** their own
+`betaHhat_truth.R`. That is why those resolve and these never needed to.
+
+Restoring a copy here would place a **current shim beside four deliberately
+pre-consolidation ones**, in a directory frozen precisely so that "before"
+stays what it was. Recorded as known-broken at freeze; left alone.
