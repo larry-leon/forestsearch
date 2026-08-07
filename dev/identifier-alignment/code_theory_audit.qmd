@@ -92,7 +92,7 @@ each finding afterwards.
 | **F6** | **open** | not addressed in this cycle |
 | **F7** | **open** | not addressed in this cycle |
 | **F8** | **open** | not addressed in this cycle |
-| **F9** | fixed | `7281868` --- the dispatch assert reads all five sites; site 3 checked for an exact shape, not completeness |
+| **F9** | fixed | `7281868` --- the dispatch assert reads all five sites; site 3 checked for an exact shape, not completeness. **A sixth site exists and is knowingly excluded:** `dina_subgroup_bootstrap.R:351` re-inlines `c("hr", "maxSG", "minSG", "hrMaxSG", "hrMinSG")`, omitting `maxeff`/`maxeffCons`, so it diverges from canonical *today*. It reads as a deliberate subset rather than a drifted copy --- its user-facing error message lists the same five and omits the two --- so adding it to the assert would raise a false failure. Recorded here so it is not rediscovered as a reopening of F9 |
 | **F10** | fixed | `9906f29` --- six dead assignments deleted after confirming no reads in `R/` or `tests/` |
 | **F11** | fixed | `30caac5` --- `subgroup.search()`'s roxygen now matches `forestsearch()`'s |
 | **F12** | fixed | `917e15d` --- CV nulls cached `grf_res`/`grf_cuts`/`dina_res`/`dina_cuts`, matching the bootstrap |
