@@ -60,6 +60,9 @@ default_sim_params <- function() {
     d0.min                   = 12,
     d1.min                   = 12,
     maxk                     = 2,
+    # Inert: no path consults max.minutes (see ?forestsearch).  Kept so this
+    # block still mirrors the documented call, but it imposes no time budget --
+    # reading it as one would be a mistake.
     max.minutes              = 5,
     by.risk                  = 12,
     vi.grf.min               = -0.2,

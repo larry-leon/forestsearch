@@ -22,7 +22,14 @@
 #' @param hr.threshold Numeric. Effect threshold for subgroup selection.
 #'   On the log scale for ratio measures (OR, HR), identity scale for
 #'   difference measures (RD, MD).
-#' @param max.minutes Numeric. Maximum minutes for search.
+#' @param max.minutes Numeric. \strong{Currently inert; scheduled for
+#'   deprecation in v0.3.0.} Previously intended as a wall-clock budget for
+#'   the combination search, it is threaded to
+#'   \code{search_combinations_parallel()} and no path consults it, so it has
+#'   no effect on behaviour. Search scope is governed by \code{maxk} and the
+#'   candidate-factor controls. Retained because it is part of a public
+#'   signature; this description now matches \code{\link{forestsearch}}'s,
+#'   which has documented it as inert for some time.
 #' @param minp Numeric. Minimum prevalence rate for each factor.
 #' @param rmin Integer. Minimum required reduction in sample size when adding a factor.
 #' @param details Logical. Print details during execution.
