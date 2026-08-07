@@ -76,6 +76,59 @@ All three phases are reported below.
 | **F13** | `bias_sel` averages over draws that produced a winner (`na.rm = TRUE`) while `bias_fix` averages over all draws. Manuscript Eq. 9 divides both by $B$. Divergence is exactly the draws where no candidate was admitted. | **low** |
 | **F14** | Both replay paths re-derive quantile cut locations from the resampled/training data, so $\mathcal{F}$ is not fixed across replicates. Recognised at the identifier level by `.fs_family_status()`; unrecorded at the replay level. | **noted** |
 
+### Final status {#sec-final-status}
+
+Added when the audit was closed. The verdicts above are the reading as
+recorded and are **not** revised here; this table records only what happened to
+each finding afterwards.
+
+| ID | Final state | Closed by |
+|---|---|---|
+| **F1** | fixed | `411a448` --- `.dfbeta_glm()` on `lm()` fits; the whole continuous influence path was down |
+| **F2** | fixed | `0302e8c` --- GRF admits on $\hat\beta \ge t_g$ from the resolved admission set, not `dmin = 1` |
+| **F3** | fixed | `0302e8c` --- DINA gains the same $\hat\beta$ floor, from the same object |
+| **F4** | **partly fixed, partly deferred by decision** | Q1 and Q4 recorded in `6f97d7c`. Q4's two `ps_hat` items measured and fixed in `e6013c6` (bootstrap carried a supplied score into replicates unaligned) and `c88e1c2` (survival + `ps_method != "none"` was a structural no-op). **Q2 and Q3 remain deferred** --- see below |
+| **F5** | **open** | not addressed in this cycle |
+| **F6** | **open** | not addressed in this cycle |
+| **F7** | **open** | not addressed in this cycle |
+| **F8** | **open** | not addressed in this cycle |
+| **F9** | fixed | `7281868` --- the dispatch assert reads all five sites; site 3 checked for an exact shape, not completeness |
+| **F10** | fixed | `9906f29` --- six dead assignments deleted after confirming no reads in `R/` or `tests/` |
+| **F11** | fixed | `30caac5` --- `subgroup.search()`'s roxygen now matches `forestsearch()`'s |
+| **F12** | fixed | `917e15d` --- CV nulls cached `grf_res`/`grf_cuts`/`dina_res`/`dina_cuts`, matching the bootstrap |
+| **F13** | fixed | `dad0415` --- one denominator across both MR bias terms, conditional on identification. Now asserted directly: `8694e3d` exposes `mean_r`, and the closed-form fixture (`b473257`) checks it |
+| **F14** | **settled --- not a defect** | The full bootstrap refits everything per resample by design, so re-derived cut locations are the intended behaviour rather than a departure. `.fs_family_status()` records the identifier-level status; `selection_criteria.qmd` (`de44f8e`, `@sec-freeze`) documents which configurations produce genuinely fixed cuts and which do not |
+
+**F4's deferral is a decision, not an oversight.** Q2 (how far apart the
+PS-adjusted and unadjusted effects are for the selected subgroup) and Q3
+(whether the *ranking* changes --- Spearman over the family, argmax agreement,
+admission-status changes) were both deprioritised deliberately.
+
+**Q3 is the load-bearing one.** It decides whether F4 is a
+variance-estimation problem or a selection problem, and those need different
+fixes. Until it is answered, the three candidate resolutions recorded for F4
+cannot be assessed --- the choice between them turns on that answer and on
+whether the manuscript's scope covers non-randomised data, which is also
+unresolved.
+
+::: {.callout-note}
+## Two findings surfaced after the audit, outside its numbering
+
+Neither was in the fourteen, and both are recorded here so the audit is not
+read as a complete inventory of what this cycle found.
+
+* **The MR family restriction.** `.fs_mr_restrict_native()` narrowed MR's
+  re-selection family to a band of the best *native* statistic, and received
+  `effect_neighborhood = 0.10` on every DINA and GRF run ever made. Removed in
+  `84203ed`. Its own claim that GBSG had "nothing to cut" was later measured
+  and found false --- corrected in `6c9ce9b`, with the ACTG175 half settled
+  separately in `045fcd0`.
+* **The MR admission set was reconstructed rather than resolved.** Fixed in
+  `8d60b1e`; it moved `selection_bias` and `selection_rate` while leaving
+  `n_family` and every label untouched, which is why it was invisible to a
+  label-level comparison.
+:::
+
 ---
 
 # Phase 1 -- identifier and MR paths
