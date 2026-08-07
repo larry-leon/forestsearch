@@ -789,39 +789,77 @@ err <- tryCatch(
 cat(err, "\n")
 ```
 
-## `.beta_region_md()` against the SPEC, and a `mu0`/`mu1` grep
+## Delegation fidelity, and a `mu0`/`mu1` grep
 
-First: is the module's `.beta_region_md()` byte-identical to the code block in
-`SPEC_betaHhat_md.md`? Second: does `mu0` or `mu1` appear anywhere else in the
-module in an arithmetic context — which would mean a third site for
-`mean(mu1) - mean(mu0)`?
+**Re-pointed, not weakened.** This check previously asserted that the module's
+`.beta_region_md()` was byte-identical to the code block in
+`SPEC_betaHhat_md.md`. The module is now a **shim** over the package
+implementation in `R/betaHhat_truth.R`
+(`dev/betaHhat-consolidation/SPEC_betaHhat_package_function.md`), so that
+string comparison no longer describes anything true — the SPEC block is not
+what the module contains, and asserting otherwise would fail for the right
+reason.
+
+The property that matters after consolidation is stronger than textual
+identity, and is what is asserted instead:
+
+1. the module **delegates** — every exported function's body calls into
+   `forestsearch`, and none of them carries effect arithmetic of its own;
+2. delegation is **behaviourally exact** — the shim and the package function
+   return identical values on the fixture regions, `identical()` not a
+   tolerance;
+3. there is still **no third site** for `mean(mu1) - mean(mu0)`.
+
+A shim that quietly reimplemented the arithmetic would pass (1) by accident and
+fail (3); one that delegated to the wrong family would pass (1) and (3) and
+fail (2).
 
 ```{r spec-fidelity}
-spec_lines   <- readLines("../SPEC_betaHhat_md.md")
 module_lines <- readLines(module_path)
 
-# Brace-counting extractor: the first "}" in this function is the inner one
-# closing the guard, so a naive scan for "}" would truncate the block.
-extract_fn <- function(lines) {
-  s <- grep("^\\.beta_region_md <- function", lines)[1]
-  depth <- 0L
-  for (e in seq(s, length(lines))) {
-    depth <- depth + lengths(regmatches(lines[e], gregexpr("\\{", lines[e]))) -
-                     lengths(regmatches(lines[e], gregexpr("\\}", lines[e])))
-    if (depth == 0L && e > s) return(lines[s:e])
-    if (depth == 0L && grepl("\\}", lines[e])) return(lines[s:e])
-  }
-  stop("could not delimit .beta_region_md()")
-}
+# (1) every exported name delegates into the package, and no arithmetic remains
+exported <- c(".beta_region_md", "betaHhat_one_md", "betaHhat_table_md",
+              "attach_betaHhat_md", "betaHhat_theta_dagger_check_md")
+delegates <- vapply(exported, function(fn) {
+  b <- paste(deparse(body(get(fn))), collapse = " ")
+  grepl("forestsearch", b, fixed = TRUE)
+}, logical(1))
+# theta_dagger delegates indirectly, via .beta_region_md
+delegates[["betaHhat_theta_dagger_check_md"]] <-
+  delegates[["betaHhat_theta_dagger_check_md"]] ||
+  grepl(".beta_region_md",
+        paste(deparse(body(betaHhat_theta_dagger_check_md)), collapse = " "),
+        fixed = TRUE)
+cat("delegation, by exported name:\n")
+print(delegates)
 
-spec_fn <- extract_fn(spec_lines)
-mod_fn  <- extract_fn(module_lines)
+# (2) the shim and the package function agree exactly on every fixture region
+agree <- vapply(names(rules), function(rn) {
+  a <- betaHhat_one_md(rules[[rn]], df_super, focus = "harm")
+  b <- forestsearch::fs_betaHhat_one(rules[[rn]], df_super, focus = "harm",
+                                     outcome_type = "continuous",
+                                     effect_measure = "MD")
+  identical(unname(a[["betaHhat_H"]]),  b$betaHhat_H) &&
+  identical(unname(a[["betaHhat_Hc"]]), b$betaHhat_Hc) &&
+  identical(as.integer(a[["nH_eval"]]),  b$nH_eval)
+}, logical(1))
+cat("\nshim == package on every fixture region (identical, not a tolerance):\n")
+print(agree)
 
-cat("SPEC block:\n"); cat(spec_fn, sep = "\n")
-cat("\n\nModule block:\n"); cat(mod_fn, sep = "\n")
-cat(sprintf("\n\nbyte-identical: %s\n", identical(spec_fn, mod_fn)))
+# negative control: delegating to the WRONG family must NOT agree
+wrong <- forestsearch::fs_betaHhat_one(rules$one_cut, df_super, focus = "harm",
+                                       outcome_type = "binary",
+                                       outcome.name = "y_sim",
+                                       treat.name = "treat_sim")
+right <- betaHhat_one_md(rules$one_cut, df_super, focus = "harm")
+cat(sprintf("\nnegative control -- binary dispatch on the same region: %s vs %s, agree: %s\n",
+            format(wrong$betaHhat_H), format(unname(right[["betaHhat_H"]])),
+            identical(wrong$betaHhat_H, unname(right[["betaHhat_H"]]))))
 
-results_log$spec_identical <- identical(spec_fn, mod_fn)
+results_log$spec_delegates <- all(delegates)
+results_log$spec_exact     <- all(agree)
+results_log$spec_neg_ctrl  <- !identical(wrong$betaHhat_H,
+                                         unname(right[["betaHhat_H"]]))
 ```
 
 ```{r mu-grep}

@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Larry F. León">
-<meta name="dcterms.date" content="2026-08-06">
+<meta name="dcterms.date" content="2026-08-07">
 
 <title>Acceptance: betaHhat_truth_md.R</title>
 <style>
@@ -2380,7 +2380,7 @@ window.Quarto = {
   <li><a href="#reported-not-asserted" id="toc-reported-not-asserted" class="nav-link" data-scroll-target="#reported-not-asserted"><span class="header-section-number">10</span> Reported, not asserted</a>
   <ul class="collapse">
   <li><a href="#a-missing-focus-verbatim-error" id="toc-a-missing-focus-verbatim-error" class="nav-link" data-scroll-target="#a-missing-focus-verbatim-error"><span class="header-section-number">10.1</span> A missing <code>focus</code> — verbatim error</a></li>
-  <li><a href="#beta_region_md-against-the-spec-and-a-mu0mu1-grep" id="toc-beta_region_md-against-the-spec-and-a-mu0mu1-grep" class="nav-link" data-scroll-target="#beta_region_md-against-the-spec-and-a-mu0mu1-grep"><span class="header-section-number">10.2</span> <code>.beta_region_md()</code> against the SPEC, and a <code>mu0</code>/<code>mu1</code> grep</a></li>
+  <li><a href="#delegation-fidelity-and-a-mu0mu1-grep" id="toc-delegation-fidelity-and-a-mu0mu1-grep" class="nav-link" data-scroll-target="#delegation-fidelity-and-a-mu0mu1-grep"><span class="header-section-number">10.2</span> Delegation fidelity, and a <code>mu0</code>/<code>mu1</code> grep</a></li>
   </ul></li>
   <li><a href="#discussion-open-items" id="toc-discussion-open-items" class="nav-link" data-scroll-target="#discussion-open-items"><span class="header-section-number">11</span> Discussion — open items</a>
   <ul class="collapse">
@@ -2415,7 +2415,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">August 6, 2026</p>
+      <p class="date">August 7, 2026</p>
     </div>
   </div>
   
@@ -2622,7 +2622,7 @@ window.Quarto = {
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; 
-#&gt; DGM built in 0.17 sec (no cache)</code></pre>
+#&gt; DGM built in 0.18 sec (no cache)</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -3675,7 +3675,7 @@ window.Quarto = {
 <span id="cb119-45"><a href="#cb119-45" aria-hidden="true" tabindex="-1"></a>            fs_n, timings<span class="sc">$</span>c6))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; two forestsearch() calls on n = 4000 completed in 56.8 sec</code></pre>
+<pre><code>#&gt; two forestsearch() calls on n = 4000 completed in 55.2 sec</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -3886,115 +3886,131 @@ window.Quarto = {
 <span id="cb141-5"><a href="#cb141-5" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(err, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; `focus` is required and has no default: supply &quot;harm&quot; or &quot;benefit&quot;.  The harm/benefit convention for the continuous pathway is an open decision; it must be stated at the call site.</code></pre>
+<pre><code>#&gt; `focus` is required and has no default: supply &quot;harm&quot; or &quot;benefit&quot;.  The harm/benefit convention is an open decision; it must be stated at the call site.</code></pre>
 </div>
 </div>
 </section>
-<section id="beta_region_md-against-the-spec-and-a-mu0mu1-grep" class="level2" data-number="10.2">
-<h2 data-number="10.2" class="anchored" data-anchor-id="beta_region_md-against-the-spec-and-a-mu0mu1-grep"><span class="header-section-number">10.2</span> <code>.beta_region_md()</code> against the SPEC, and a <code>mu0</code>/<code>mu1</code> grep</h2>
-<p>First: is the module’s <code>.beta_region_md()</code> byte-identical to the code block in <code>SPEC_betaHhat_md.md</code>? Second: does <code>mu0</code> or <code>mu1</code> appear anywhere else in the module in an arithmetic context — which would mean a third site for <code>mean(mu1) - mean(mu0)</code>?</p>
+<section id="delegation-fidelity-and-a-mu0mu1-grep" class="level2" data-number="10.2">
+<h2 data-number="10.2" class="anchored" data-anchor-id="delegation-fidelity-and-a-mu0mu1-grep"><span class="header-section-number">10.2</span> Delegation fidelity, and a <code>mu0</code>/<code>mu1</code> grep</h2>
+<p><strong>Re-pointed, not weakened.</strong> This check previously asserted that the module’s <code>.beta_region_md()</code> was byte-identical to the code block in <code>SPEC_betaHhat_md.md</code>. The module is now a <strong>shim</strong> over the package implementation in <code>R/betaHhat_truth.R</code> (<code>dev/betaHhat-consolidation/SPEC_betaHhat_package_function.md</code>), so that string comparison no longer describes anything true — the SPEC block is not what the module contains, and asserting otherwise would fail for the right reason.</p>
+<p>The property that matters after consolidation is stronger than textual identity, and is what is asserted instead:</p>
+<ol type="1">
+<li>the module <strong>delegates</strong> — every exported function’s body calls into <code>forestsearch</code>, and none of them carries effect arithmetic of its own;</li>
+<li>delegation is <strong>behaviourally exact</strong> — the shim and the package function return identical values on the fixture regions, <code>identical()</code> not a tolerance;</li>
+<li>there is still <strong>no third site</strong> for <code>mean(mu1) - mean(mu0)</code>.</li>
+</ol>
+<p>A shim that quietly reimplemented the arithmetic would pass (1) by accident and fail (3); one that delegated to the wrong family would pass (1) and (3) and fail (2).</p>
 <div class="cell" data-layout-align="center">
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb143"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb143-1"><a href="#cb143-1" aria-hidden="true" tabindex="-1"></a>spec_lines   <span class="ot">&lt;-</span> <span class="fu">readLines</span>(<span class="st">&quot;../SPEC_betaHhat_md.md&quot;</span>)</span>
-<span id="cb143-2"><a href="#cb143-2" aria-hidden="true" tabindex="-1"></a>module_lines <span class="ot">&lt;-</span> <span class="fu">readLines</span>(module_path)</span>
-<span id="cb143-3"><a href="#cb143-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb143-4"><a href="#cb143-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Brace-counting extractor: the first &quot;}&quot; in this function is the inner one</span></span>
-<span id="cb143-5"><a href="#cb143-5" aria-hidden="true" tabindex="-1"></a><span class="co"># closing the guard, so a naive scan for &quot;}&quot; would truncate the block.</span></span>
-<span id="cb143-6"><a href="#cb143-6" aria-hidden="true" tabindex="-1"></a>extract_fn <span class="ot">&lt;-</span> <span class="cf">function</span>(lines) {</span>
-<span id="cb143-7"><a href="#cb143-7" aria-hidden="true" tabindex="-1"></a>  s <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">&quot;^</span><span class="sc">\\</span><span class="st">.beta_region_md &lt;- function&quot;</span>, lines)[<span class="dv">1</span>]</span>
-<span id="cb143-8"><a href="#cb143-8" aria-hidden="true" tabindex="-1"></a>  depth <span class="ot">&lt;-</span> <span class="dv">0</span>L</span>
-<span id="cb143-9"><a href="#cb143-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (e <span class="cf">in</span> <span class="fu">seq</span>(s, <span class="fu">length</span>(lines))) {</span>
-<span id="cb143-10"><a href="#cb143-10" aria-hidden="true" tabindex="-1"></a>    depth <span class="ot">&lt;-</span> depth <span class="sc">+</span> <span class="fu">lengths</span>(<span class="fu">regmatches</span>(lines[e], <span class="fu">gregexpr</span>(<span class="st">&quot;</span><span class="sc">\\</span><span class="st">{&quot;</span>, lines[e]))) <span class="sc">-</span></span>
-<span id="cb143-11"><a href="#cb143-11" aria-hidden="true" tabindex="-1"></a>                     <span class="fu">lengths</span>(<span class="fu">regmatches</span>(lines[e], <span class="fu">gregexpr</span>(<span class="st">&quot;</span><span class="sc">\\</span><span class="st">}&quot;</span>, lines[e])))</span>
-<span id="cb143-12"><a href="#cb143-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (depth <span class="sc">==</span> <span class="dv">0</span>L <span class="sc">&amp;&amp;</span> e <span class="sc">&gt;</span> s) <span class="fu">return</span>(lines[s<span class="sc">:</span>e])</span>
-<span id="cb143-13"><a href="#cb143-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (depth <span class="sc">==</span> <span class="dv">0</span>L <span class="sc">&amp;&amp;</span> <span class="fu">grepl</span>(<span class="st">&quot;</span><span class="sc">\\</span><span class="st">}&quot;</span>, lines[e])) <span class="fu">return</span>(lines[s<span class="sc">:</span>e])</span>
-<span id="cb143-14"><a href="#cb143-14" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb143-15"><a href="#cb143-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stop</span>(<span class="st">&quot;could not delimit .beta_region_md()&quot;</span>)</span>
-<span id="cb143-16"><a href="#cb143-16" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb143-17"><a href="#cb143-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb143-18"><a href="#cb143-18" aria-hidden="true" tabindex="-1"></a>spec_fn <span class="ot">&lt;-</span> <span class="fu">extract_fn</span>(spec_lines)</span>
-<span id="cb143-19"><a href="#cb143-19" aria-hidden="true" tabindex="-1"></a>mod_fn  <span class="ot">&lt;-</span> <span class="fu">extract_fn</span>(module_lines)</span>
-<span id="cb143-20"><a href="#cb143-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb143-21"><a href="#cb143-21" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;SPEC block:</span><span class="sc">\n</span><span class="st">&quot;</span>); <span class="fu">cat</span>(spec_fn, <span class="at">sep =</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb143"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb143-1"><a href="#cb143-1" aria-hidden="true" tabindex="-1"></a>module_lines <span class="ot">&lt;-</span> <span class="fu">readLines</span>(module_path)</span>
+<span id="cb143-2"><a href="#cb143-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb143-3"><a href="#cb143-3" aria-hidden="true" tabindex="-1"></a><span class="co"># (1) every exported name delegates into the package, and no arithmetic remains</span></span>
+<span id="cb143-4"><a href="#cb143-4" aria-hidden="true" tabindex="-1"></a>exported <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;.beta_region_md&quot;</span>, <span class="st">&quot;betaHhat_one_md&quot;</span>, <span class="st">&quot;betaHhat_table_md&quot;</span>,</span>
+<span id="cb143-5"><a href="#cb143-5" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;attach_betaHhat_md&quot;</span>, <span class="st">&quot;betaHhat_theta_dagger_check_md&quot;</span>)</span>
+<span id="cb143-6"><a href="#cb143-6" aria-hidden="true" tabindex="-1"></a>delegates <span class="ot">&lt;-</span> <span class="fu">vapply</span>(exported, <span class="cf">function</span>(fn) {</span>
+<span id="cb143-7"><a href="#cb143-7" aria-hidden="true" tabindex="-1"></a>  b <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="fu">deparse</span>(<span class="fu">body</span>(<span class="fu">get</span>(fn))), <span class="at">collapse =</span> <span class="st">&quot; &quot;</span>)</span>
+<span id="cb143-8"><a href="#cb143-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">grepl</span>(<span class="st">&quot;forestsearch&quot;</span>, b, <span class="at">fixed =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb143-9"><a href="#cb143-9" aria-hidden="true" tabindex="-1"></a>}, <span class="fu">logical</span>(<span class="dv">1</span>))</span>
+<span id="cb143-10"><a href="#cb143-10" aria-hidden="true" tabindex="-1"></a><span class="co"># theta_dagger delegates indirectly, via .beta_region_md</span></span>
+<span id="cb143-11"><a href="#cb143-11" aria-hidden="true" tabindex="-1"></a>delegates[[<span class="st">&quot;betaHhat_theta_dagger_check_md&quot;</span>]] <span class="ot">&lt;-</span></span>
+<span id="cb143-12"><a href="#cb143-12" aria-hidden="true" tabindex="-1"></a>  delegates[[<span class="st">&quot;betaHhat_theta_dagger_check_md&quot;</span>]] <span class="sc">||</span></span>
+<span id="cb143-13"><a href="#cb143-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">grepl</span>(<span class="st">&quot;.beta_region_md&quot;</span>,</span>
+<span id="cb143-14"><a href="#cb143-14" aria-hidden="true" tabindex="-1"></a>        <span class="fu">paste</span>(<span class="fu">deparse</span>(<span class="fu">body</span>(betaHhat_theta_dagger_check_md)), <span class="at">collapse =</span> <span class="st">&quot; &quot;</span>),</span>
+<span id="cb143-15"><a href="#cb143-15" aria-hidden="true" tabindex="-1"></a>        <span class="at">fixed =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb143-16"><a href="#cb143-16" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;delegation, by exported name:</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; SPEC block:</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>#&gt; .beta_region_md &lt;- function(df_super, idx) {
-#&gt;   if (!length(idx) || !any(idx)) {
-#&gt;     return(NA_real_)
-#&gt;   }
-#&gt;   compute_aor(df_super,
-#&gt;               subset_indicator = as.integer(idx),
-#&gt;               effect_measure   = &quot;MD&quot;)
-#&gt; }</code></pre>
+<pre><code>#&gt; delegation, by exported name:</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb146"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb146-1"><a href="#cb146-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n\n</span><span class="st">Module block:</span><span class="sc">\n</span><span class="st">&quot;</span>); <span class="fu">cat</span>(mod_fn, <span class="at">sep =</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb145"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb145-1"><a href="#cb145-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(delegates)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; 
-#&gt; 
-#&gt; Module block:</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>#&gt; .beta_region_md &lt;- function(df_super, idx) {
-#&gt;   if (!length(idx) || !any(idx)) {
-#&gt;     return(NA_real_)
-#&gt;   }
-#&gt;   compute_aor(df_super,
-#&gt;               subset_indicator = as.integer(idx),
-#&gt;               effect_measure   = &quot;MD&quot;)
-#&gt; }</code></pre>
+<pre><code>#&gt;                .beta_region_md                betaHhat_one_md              betaHhat_table_md 
+#&gt;                           TRUE                           TRUE                           TRUE 
+#&gt;             attach_betaHhat_md betaHhat_theta_dagger_check_md 
+#&gt;                           TRUE                           TRUE</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb149"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb149-1"><a href="#cb149-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;</span><span class="sc">\n\n</span><span class="st">byte-identical: %s</span><span class="sc">\n</span><span class="st">&quot;</span>, <span class="fu">identical</span>(spec_fn, mod_fn)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb147"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb147-1"><a href="#cb147-1" aria-hidden="true" tabindex="-1"></a><span class="co"># (2) the shim and the package function agree exactly on every fixture region</span></span>
+<span id="cb147-2"><a href="#cb147-2" aria-hidden="true" tabindex="-1"></a>agree <span class="ot">&lt;-</span> <span class="fu">vapply</span>(<span class="fu">names</span>(rules), <span class="cf">function</span>(rn) {</span>
+<span id="cb147-3"><a href="#cb147-3" aria-hidden="true" tabindex="-1"></a>  a <span class="ot">&lt;-</span> <span class="fu">betaHhat_one_md</span>(rules[[rn]], df_super, <span class="at">focus =</span> <span class="st">&quot;harm&quot;</span>)</span>
+<span id="cb147-4"><a href="#cb147-4" aria-hidden="true" tabindex="-1"></a>  b <span class="ot">&lt;-</span> forestsearch<span class="sc">::</span><span class="fu">fs_betaHhat_one</span>(rules[[rn]], df_super, <span class="at">focus =</span> <span class="st">&quot;harm&quot;</span>,</span>
+<span id="cb147-5"><a href="#cb147-5" aria-hidden="true" tabindex="-1"></a>                                     <span class="at">outcome_type =</span> <span class="st">&quot;continuous&quot;</span>,</span>
+<span id="cb147-6"><a href="#cb147-6" aria-hidden="true" tabindex="-1"></a>                                     <span class="at">effect_measure =</span> <span class="st">&quot;MD&quot;</span>)</span>
+<span id="cb147-7"><a href="#cb147-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">identical</span>(<span class="fu">unname</span>(a[[<span class="st">&quot;betaHhat_H&quot;</span>]]),  b<span class="sc">$</span>betaHhat_H) <span class="sc">&amp;&amp;</span></span>
+<span id="cb147-8"><a href="#cb147-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">identical</span>(<span class="fu">unname</span>(a[[<span class="st">&quot;betaHhat_Hc&quot;</span>]]), b<span class="sc">$</span>betaHhat_Hc) <span class="sc">&amp;&amp;</span></span>
+<span id="cb147-9"><a href="#cb147-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">identical</span>(<span class="fu">as.integer</span>(a[[<span class="st">&quot;nH_eval&quot;</span>]]),  b<span class="sc">$</span>nH_eval)</span>
+<span id="cb147-10"><a href="#cb147-10" aria-hidden="true" tabindex="-1"></a>}, <span class="fu">logical</span>(<span class="dv">1</span>))</span>
+<span id="cb147-11"><a href="#cb147-11" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">shim == package on every fixture region (identical, not a tolerance):</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; 
-#&gt; 
-#&gt; byte-identical: TRUE</code></pre>
+#&gt; shim == package on every fixture region (identical, not a tolerance):</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb151"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb151-1"><a href="#cb151-1" aria-hidden="true" tabindex="-1"></a>results_log<span class="sc">$</span>spec_identical <span class="ot">&lt;-</span> <span class="fu">identical</span>(spec_fn, mod_fn)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb149"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb149-1"><a href="#cb149-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(agree)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>#&gt;     exact_Q      narrow     one_cut disjunction    negation  disjoint_Q 
+#&gt;        TRUE        TRUE        TRUE        TRUE        TRUE        TRUE</code></pre>
+</div>
+<details class="code-fold">
+<summary>Show code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb151"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb151-1"><a href="#cb151-1" aria-hidden="true" tabindex="-1"></a><span class="co"># negative control: delegating to the WRONG family must NOT agree</span></span>
+<span id="cb151-2"><a href="#cb151-2" aria-hidden="true" tabindex="-1"></a>wrong <span class="ot">&lt;-</span> forestsearch<span class="sc">::</span><span class="fu">fs_betaHhat_one</span>(rules<span class="sc">$</span>one_cut, df_super, <span class="at">focus =</span> <span class="st">&quot;harm&quot;</span>,</span>
+<span id="cb151-3"><a href="#cb151-3" aria-hidden="true" tabindex="-1"></a>                                       <span class="at">outcome_type =</span> <span class="st">&quot;binary&quot;</span>,</span>
+<span id="cb151-4"><a href="#cb151-4" aria-hidden="true" tabindex="-1"></a>                                       <span class="at">outcome.name =</span> <span class="st">&quot;y_sim&quot;</span>,</span>
+<span id="cb151-5"><a href="#cb151-5" aria-hidden="true" tabindex="-1"></a>                                       <span class="at">treat.name =</span> <span class="st">&quot;treat_sim&quot;</span>)</span>
+<span id="cb151-6"><a href="#cb151-6" aria-hidden="true" tabindex="-1"></a>right <span class="ot">&lt;-</span> <span class="fu">betaHhat_one_md</span>(rules<span class="sc">$</span>one_cut, df_super, <span class="at">focus =</span> <span class="st">&quot;harm&quot;</span>)</span>
+<span id="cb151-7"><a href="#cb151-7" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">negative control -- binary dispatch on the same region: %s vs %s, agree: %s</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb151-8"><a href="#cb151-8" aria-hidden="true" tabindex="-1"></a>            <span class="fu">format</span>(wrong<span class="sc">$</span>betaHhat_H), <span class="fu">format</span>(<span class="fu">unname</span>(right[[<span class="st">&quot;betaHhat_H&quot;</span>]])),</span>
+<span id="cb151-9"><a href="#cb151-9" aria-hidden="true" tabindex="-1"></a>            <span class="fu">identical</span>(wrong<span class="sc">$</span>betaHhat_H, <span class="fu">unname</span>(right[[<span class="st">&quot;betaHhat_H&quot;</span>]]))))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>#&gt; 
+#&gt; negative control -- binary dispatch on the same region: NA vs 21.42971, agree: FALSE</code></pre>
+</div>
+<details class="code-fold">
+<summary>Show code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb153"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb153-1"><a href="#cb153-1" aria-hidden="true" tabindex="-1"></a>results_log<span class="sc">$</span>spec_delegates <span class="ot">&lt;-</span> <span class="fu">all</span>(delegates)</span>
+<span id="cb153-2"><a href="#cb153-2" aria-hidden="true" tabindex="-1"></a>results_log<span class="sc">$</span>spec_exact     <span class="ot">&lt;-</span> <span class="fu">all</span>(agree)</span>
+<span id="cb153-3"><a href="#cb153-3" aria-hidden="true" tabindex="-1"></a>results_log<span class="sc">$</span>spec_neg_ctrl  <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">identical</span>(wrong<span class="sc">$</span>betaHhat_H,</span>
+<span id="cb153-4"><a href="#cb153-4" aria-hidden="true" tabindex="-1"></a>                                         <span class="fu">unname</span>(right[[<span class="st">&quot;betaHhat_H&quot;</span>]]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <div class="cell" data-layout-align="center">
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb152"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb152-1"><a href="#cb152-1" aria-hidden="true" tabindex="-1"></a>hits <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">&quot;mu0|mu1&quot;</span>, module_lines, <span class="at">value =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb152-2"><a href="#cb152-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;grep &#39;mu0|mu1&#39; over %s</span><span class="sc">\n</span><span class="st">&quot;</span>, <span class="fu">basename</span>(module_path)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb154"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb154-1"><a href="#cb154-1" aria-hidden="true" tabindex="-1"></a>hits <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">&quot;mu0|mu1&quot;</span>, module_lines, <span class="at">value =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb154-2"><a href="#cb154-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;grep &#39;mu0|mu1&#39; over %s</span><span class="sc">\n</span><span class="st">&quot;</span>, <span class="fu">basename</span>(module_path)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; grep &#39;mu0|mu1&#39; over betaHhat_truth_md.R</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb154"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb154-1"><a href="#cb154-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  %d matching line(s)</span><span class="sc">\n\n</span><span class="st">&quot;</span>, <span class="fu">length</span>(hits)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb156"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb156-1"><a href="#cb156-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  %d matching line(s)</span><span class="sc">\n\n</span><span class="st">&quot;</span>, <span class="fu">length</span>(hits)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   4 matching line(s)</code></pre>
+<pre><code>#&gt;   0 matching line(s)</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb156"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb156-1"><a href="#cb156-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(hits)) <span class="fu">cat</span>(hits, <span class="at">sep =</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>) <span class="cf">else</span> <span class="fu">cat</span>(<span class="st">&quot;(empty)</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb158"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb158-1"><a href="#cb158-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(hits)) <span class="fu">cat</span>(hits, <span class="at">sep =</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>) <span class="cf">else</span> <span class="fu">cat</span>(<span class="st">&quot;(empty)</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; #     mu1_i = mu0_i + k_treat * beta_treat + beta_inter * 1{i in Q},
-#&gt; # dispatches &quot;MD&quot; to mean(mu1) - mean(mu0).
-#&gt; # Do NOT restate mean(mu1) - mean(mu0) inline here.  Under the code-theory
-#&gt; # mu0/mu1 columns by the same compute_aor() dispatch, this is an EXACT</code></pre>
+<pre><code>#&gt; (empty)</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb158"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb158-1"><a href="#cb158-1" aria-hidden="true" tabindex="-1"></a><span class="co"># arithmetic context = a match outside a comment line</span></span>
-<span id="cb158-2"><a href="#cb158-2" aria-hidden="true" tabindex="-1"></a>code_hits <span class="ot">&lt;-</span> hits[<span class="sc">!</span><span class="fu">grepl</span>(<span class="st">&quot;^</span><span class="sc">\\</span><span class="st">s*#&quot;</span>, hits)]</span>
-<span id="cb158-3"><a href="#cb158-3" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">  of which outside comments: %d</span><span class="sc">\n</span><span class="st">&quot;</span>, <span class="fu">length</span>(code_hits)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb160"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb160-1"><a href="#cb160-1" aria-hidden="true" tabindex="-1"></a><span class="co"># arithmetic context = a match outside a comment line</span></span>
+<span id="cb160-2"><a href="#cb160-2" aria-hidden="true" tabindex="-1"></a>code_hits <span class="ot">&lt;-</span> hits[<span class="sc">!</span><span class="fu">grepl</span>(<span class="st">&quot;^</span><span class="sc">\\</span><span class="st">s*#&quot;</span>, hits)]</span>
+<span id="cb160-3"><a href="#cb160-3" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">  of which outside comments: %d</span><span class="sc">\n</span><span class="st">&quot;</span>, <span class="fu">length</span>(code_hits)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; 
@@ -4002,14 +4018,14 @@ window.Quarto = {
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb160"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb160-1"><a href="#cb160-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(code_hits)) <span class="fu">cat</span>(code_hits, <span class="at">sep =</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>) <span class="cf">else</span> <span class="fu">cat</span>(<span class="st">&quot;(empty)</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb162"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb162-1"><a href="#cb162-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(code_hits)) <span class="fu">cat</span>(code_hits, <span class="at">sep =</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>) <span class="cf">else</span> <span class="fu">cat</span>(<span class="st">&quot;(empty)</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; (empty)</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb162"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb162-1"><a href="#cb162-1" aria-hidden="true" tabindex="-1"></a>results_log<span class="sc">$</span>no_third_site <span class="ot">&lt;-</span> <span class="fu">length</span>(code_hits) <span class="sc">==</span> <span class="dv">0</span>L</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb164"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb164-1"><a href="#cb164-1" aria-hidden="true" tabindex="-1"></a>results_log<span class="sc">$</span>no_third_site <span class="ot">&lt;-</span> <span class="fu">length</span>(code_hits) <span class="sc">==</span> <span class="dv">0</span>L</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 </section>
@@ -4053,14 +4069,14 @@ result: Column &#39;(age&#39; not found  -&gt;  treat.recommend = NA  -&gt;  NA 
 <div class="cell" data-layout-align="center">
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb164"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb164-1"><a href="#cb164-1" aria-hidden="true" tabindex="-1"></a>summary_tab <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb164-2"><a href="#cb164-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">check  =</span> <span class="fu">names</span>(results_log),</span>
-<span id="cb164-3"><a href="#cb164-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">result =</span> <span class="fu">vapply</span>(results_log, <span class="cf">function</span>(x)</span>
-<span id="cb164-4"><a href="#cb164-4" aria-hidden="true" tabindex="-1"></a>             <span class="cf">if</span> (<span class="fu">is.na</span>(x)) <span class="st">&quot;NOT RUN&quot;</span> <span class="cf">else</span> <span class="cf">if</span> (<span class="fu">isTRUE</span>(x)) <span class="st">&quot;pass&quot;</span> <span class="cf">else</span> <span class="st">&quot;FAIL&quot;</span>,</span>
-<span id="cb164-5"><a href="#cb164-5" aria-hidden="true" tabindex="-1"></a>             <span class="fu">character</span>(<span class="dv">1</span>)),</span>
-<span id="cb164-6"><a href="#cb164-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">row.names =</span> <span class="cn">NULL</span></span>
-<span id="cb164-7"><a href="#cb164-7" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb164-8"><a href="#cb164-8" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(summary_tab, <span class="at">caption =</span> <span class="st">&quot;Gate. Measurements above are the output; this is bookkeeping.&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb166"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb166-1"><a href="#cb166-1" aria-hidden="true" tabindex="-1"></a>summary_tab <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb166-2"><a href="#cb166-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">check  =</span> <span class="fu">names</span>(results_log),</span>
+<span id="cb166-3"><a href="#cb166-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">result =</span> <span class="fu">vapply</span>(results_log, <span class="cf">function</span>(x)</span>
+<span id="cb166-4"><a href="#cb166-4" aria-hidden="true" tabindex="-1"></a>             <span class="cf">if</span> (<span class="fu">is.na</span>(x)) <span class="st">&quot;NOT RUN&quot;</span> <span class="cf">else</span> <span class="cf">if</span> (<span class="fu">isTRUE</span>(x)) <span class="st">&quot;pass&quot;</span> <span class="cf">else</span> <span class="st">&quot;FAIL&quot;</span>,</span>
+<span id="cb166-5"><a href="#cb166-5" aria-hidden="true" tabindex="-1"></a>             <span class="fu">character</span>(<span class="dv">1</span>)),</span>
+<span id="cb166-6"><a href="#cb166-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">row.names =</span> <span class="cn">NULL</span></span>
+<span id="cb166-7"><a href="#cb166-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb166-8"><a href="#cb166-8" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(summary_tab, <span class="at">caption =</span> <span class="st">&quot;Gate. Measurements above are the output; this is bookkeeping.&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
@@ -4121,7 +4137,15 @@ result: Column &#39;(age&#39; not found  -&gt;  treat.recommend = NA  -&gt;  NA 
 <td style="text-align: left;">pass</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">spec_identical</td>
+<td style="text-align: left;">spec_delegates</td>
+<td style="text-align: left;">pass</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">spec_exact</td>
+<td style="text-align: left;">pass</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">spec_neg_ctrl</td>
 <td style="text-align: left;">pass</td>
 </tr>
 <tr class="even">
@@ -4133,7 +4157,7 @@ result: Column &#39;(age&#39; not found  -&gt;  treat.recommend = NA  -&gt;  NA 
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb165"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb165-1"><a href="#cb165-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Timings (sec):</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb167"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb167-1"><a href="#cb167-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Timings (sec):</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; 
@@ -4141,21 +4165,21 @@ result: Column &#39;(age&#39; not found  -&gt;  treat.recommend = NA  -&gt;  NA 
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb167"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb167-1"><a href="#cb167-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">unlist</span>(timings))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb169"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb169-1"><a href="#cb169-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">unlist</span>(timings))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; dgm.elapsed  c2.elapsed  c6.elapsed 
-#&gt;       0.170       4.603      56.763</code></pre>
+#&gt;       0.177       5.221      55.165</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb169"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb169-1"><a href="#cb169-1" aria-hidden="true" tabindex="-1"></a>failed <span class="ot">&lt;-</span> summary_tab<span class="sc">$</span>check[summary_tab<span class="sc">$</span>result <span class="sc">==</span> <span class="st">&quot;FAIL&quot;</span>]</span>
-<span id="cb169-2"><a href="#cb169-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(failed)) {</span>
-<span id="cb169-3"><a href="#cb169-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">FAILED: %s</span><span class="sc">\n</span><span class="st">&quot;</span>, <span class="fu">paste</span>(failed, <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>)))</span>
-<span id="cb169-4"><a href="#cb169-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stop</span>(<span class="st">&quot;Acceptance gate not met. Do NOT widen a tolerance -- report the numbers.&quot;</span>)</span>
-<span id="cb169-5"><a href="#cb169-5" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
-<span id="cb169-6"><a href="#cb169-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">All checks met.</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb169-7"><a href="#cb169-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb171"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb171-1"><a href="#cb171-1" aria-hidden="true" tabindex="-1"></a>failed <span class="ot">&lt;-</span> summary_tab<span class="sc">$</span>check[summary_tab<span class="sc">$</span>result <span class="sc">==</span> <span class="st">&quot;FAIL&quot;</span>]</span>
+<span id="cb171-2"><a href="#cb171-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(failed)) {</span>
+<span id="cb171-3"><a href="#cb171-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">FAILED: %s</span><span class="sc">\n</span><span class="st">&quot;</span>, <span class="fu">paste</span>(failed, <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>)))</span>
+<span id="cb171-4"><a href="#cb171-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stop</span>(<span class="st">&quot;Acceptance gate not met. Do NOT widen a tolerance -- report the numbers.&quot;</span>)</span>
+<span id="cb171-5"><a href="#cb171-5" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb171-6"><a href="#cb171-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">All checks met.</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb171-7"><a href="#cb171-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; 
@@ -4165,7 +4189,7 @@ result: Column &#39;(age&#39; not found  -&gt;  treat.recommend = NA  -&gt;  NA 
 <div class="cell" data-layout-align="center">
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb171"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb171-1"><a href="#cb171-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb173"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb173-1"><a href="#cb173-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; R version 4.6.1 (2026-06-24)
