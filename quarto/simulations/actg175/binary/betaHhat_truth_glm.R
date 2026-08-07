@@ -68,13 +68,31 @@ build_eval_frame_glm <- function(dgm, eval_seed = 20260628L) {
 
 # beta(Hhat) and beta(Hhat^c) for ONE rule.  `rule` may be the named sg.harm
 # character vector OR the " & "-joined sg_def string (the inverse of
-# paste(sg.harm, collapse = " & ")); GRF "|" disjunctions live inside a single
-# element and so survive the split.  Membership convention matches get_dfpred():
-# treat.recommend == 0L  <=>  in Hhat (the harm region).
+# paste(sg.harm, collapse = " & ")).  Membership convention matches
+# get_dfpred(): treat.recommend == 0L  <=>  in Hhat (the harm region).
 betaHhat_one_or <- function(rule, eval_df,
                             outcome.name = "y_sim", treat.name = "treat_sim") {
-  sg <- if (length(rule) == 1L && grepl(" & ", rule, fixed = TRUE))
-          strsplit(rule, " & ", fixed = TRUE)[[1L]] else rule
+  # Dispatch order matters and mirrors get_dfpred() itself
+  # (R/forestsearch_helpers.R:101): the DISJUNCTION form is tested FIRST, on
+  # the UNSPLIT string.  A GRF disjunction contains " & " inside each
+  # conjunct, so splitting first shreds it --
+  #   "(age > 34 & preanti <= 744.5) | (wtkg <= 60)"
+  #     -> c("(age > 34", "preanti <= 744.5) | (wtkg <= 60)")
+  # which get_dfpred() then fails to resolve, yielding NA targets rather than
+  # a loud error.  An earlier version of this comment claimed disjunctions
+  # "live inside a single element and so survive the split"; they do not.
+  # The defect was latent, not live: .grf_build_subgroup_definition() emits the
+  # " | " form only for a multi-leaf policy tree, and every GRF selection in
+  # the committed mr_sweep bundles collapsed to a single leaf (0 of 250,025
+  # non-empty sg_def rows under quarto/ contain "|").  Multi-leaf selection is
+  # reachable at maxdepth >= 2, so this is a correction, not a repair.
+  sg <- if (length(rule) == 1L && grepl("|", rule, fixed = TRUE)) {
+          rule
+        } else if (length(rule) == 1L && grepl(" & ", rule, fixed = TRUE)) {
+          strsplit(rule, " & ", fixed = TRUE)[[1L]]
+        } else {
+          rule
+        }
   pred <- tryCatch(get_dfpred(eval_df, sg), error = function(e) NULL)
   if (is.null(pred) || is.null(pred$treat.recommend))
     return(c(betaHhat_H = NA_real_, betaHhat_Hc = NA_real_,
@@ -135,4 +153,93 @@ betaHhat_theta_dagger_check_or <- function(eval_df, harm.name = "flag_harm",
   inH <- eval_df[[harm.name]] == 1L
   c(thetaDagger_H  = .beta_region_or(eval_df,  inH, outcome.name, treat.name),
     thetaDagger_Hc = .beta_region_or(eval_df, !inH, outcome.name, treat.name))
+}
+
+
+# ---------------------------------------------------------------------------
+# n_eff PARITY GUARD
+#
+# betaHhat_H/_Hc enter the coverage tables as the C_betaHhat target.
+# .coverage_meta() computes  ok <- is.finite(target) & is.finite(lo) &
+# is.finite(hi);  n_eff <- sum(ok).  A non-finite target is therefore dropped
+# SILENTLY: no error, no warning.  Coverage is then computed over the subset of
+# replicates whose targets happened to score -- a non-random subset, since
+# whatever made the target NA is a property of the realized rule.
+#
+# C_dagger's target (truth$marg_H) is a finite scalar, so within any
+# (src, block, estimator) cell n_eff(C_dagger) counts exactly the replicates
+# with a finite interval, and n_eff(C_betaHhat) <= that.  Equality holds if and
+# only if no betaHhat target was dropped.  Parity is thus the exact check, and
+# it is free -- n_eff is already in the table.
+#
+# TWO causes break parity, and the guard deliberately does not distinguish
+# them, because both make C_betaHhat and C_dagger incomparable as printed:
+#   (1) a rule get_dfpred() could not resolve -> NA.  This is the class the
+#       disjunction defect above belonged to.
+#   (2) a genuinely degenerate region -> .beta_region_or() returns NA BY
+#       DESIGN (one treatment arm, or <5 in an outcome cell).
+# Cause (2) is legitimate behaviour, so a mismatch is not automatically a bug
+# -- but it is always a reason the printed coverage is computed on a different
+# denominator than the row beside it.  Use betaHhat_neff_report_or() on the
+# bundle to tell the two apart before deciding.
+#
+# `strict = TRUE` stops; set FALSE to warn and carry on once the cause is known.
+betaHhat_neff_parity_or <- function(cov_df, strict = TRUE,
+                                    target_beta = "C_betaHhat",
+                                    target_ref  = "C_dagger") {
+  need <- c("target", "n_eff", "block", "estimator")
+  if (!all(need %in% names(cov_df))) return(invisible(cov_df))
+  keycols <- intersect(c("src", "subgroup_method", "n_sample", "block", "estimator"),
+                       names(cov_df))
+  key <- function(d) do.call(paste, c(d[keycols], sep = "|"))
+
+  ref  <- cov_df[cov_df$target == target_ref,  , drop = FALSE]
+  beta <- cov_df[cov_df$target == target_beta, , drop = FALSE]
+  if (!nrow(ref) || !nrow(beta)) return(invisible(cov_df))
+
+  ref$.k <- key(ref); beta$.k <- key(beta)
+  j <- match(ref$.k, beta$.k)
+  cmp <- data.frame(ref[keycols],
+                    n_eff_ref  = ref$n_eff,
+                    n_eff_beta = ifelse(is.na(j), NA_integer_, beta$n_eff[j]),
+                    stringsAsFactors = FALSE)
+  cmp$dropped <- cmp$n_eff_ref - cmp$n_eff_beta
+  bad <- cmp[is.na(cmp$n_eff_beta) | cmp$dropped != 0L, , drop = FALSE]
+
+  if (nrow(bad)) {
+    msg <- paste0(
+      sprintf("n_eff parity FAILED in %d of %d cells: %s is computed on a ",
+              nrow(bad), nrow(cmp), target_beta),
+      sprintf("smaller denominator than %s.\n", target_ref),
+      "  Its coverage is therefore NOT comparable to the row beside it.\n",
+      paste(utils::capture.output(print(bad, row.names = FALSE)), collapse = "\n"),
+      "\n  Run betaHhat_neff_report_or(bundle) to see which rules produced the ",
+      "NA targets\n  and whether they are unresolvable rules or degenerate regions.")
+    if (isTRUE(strict)) stop(msg, call. = FALSE) else warning(msg, call. = FALSE)
+  }
+  invisible(cov_df)
+}
+
+
+# Diagnostic companion: for ONE bundle, list the realized rules whose betaHhat
+# target is NA, and flag whether each is a disjunction (cause 1 above) or a
+# region small enough for .beta_region_or()'s guards to fire (cause 2).
+betaHhat_neff_report_or <- function(bundle, block = c("H", "Hc")) {
+  if (is.character(bundle)) bundle <- readRDS(bundle)
+  r <- if (is.data.frame(bundle)) bundle else bundle$results
+  block <- match.arg(block)
+  col <- paste0("betaHhat_", block)
+  if (is.null(r[[col]]) || is.null(r$sg_def)) return(invisible(NULL))
+  bad <- r[is.na(r[[col]]) & !is.na(r$sg_def) & nzchar(r$sg_def), , drop = FALSE]
+  if (!nrow(bad)) { cat(sprintf("no NA %s among rows with a realized rule\n", col))
+                    return(invisible(NULL)) }
+  out <- data.frame(
+    sg_def         = bad$sg_def,
+    is_disjunction = grepl("|", bad$sg_def, fixed = TRUE),
+    nH_eval        = if (!is.null(bad$nH_eval)) bad$nH_eval else NA_integer_,
+    stringsAsFactors = FALSE)
+  out <- out[!duplicated(out$sg_def), , drop = FALSE]
+  cat(sprintf("%d distinct rule(s) with NA %s; %d are disjunctions\n",
+              nrow(out), col, sum(out$is_disjunction)))
+  out
 }
