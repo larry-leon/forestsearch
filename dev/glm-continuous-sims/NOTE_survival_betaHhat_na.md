@@ -155,32 +155,121 @@ is invisible to it. Recorded here so the guard is not over-trusted.
 
 ## Proposed fix — not implemented
 
-Four options, narrowest first.
+### Recommended: generate the noise once on `df_super`
+
+**A noise baseline factor is a patient attribute.** Today it is not one. The
+current code draws the trial and *then* attaches noise:
+
+```r
+df <- tryCatch(                                      #  :273-276
+  simulate_from_dgm(dgm, n = n_sample, ...), ...)
+...
+set.seed(seed_base + sim_id + 1000000L)              #  :286
+for (nm in noise_names) df[[nm]] <- rnorm(nrow(df))  #  :287
+```
+
+so the same `df_super` subject carries **different** noise in different
+replicates. That is replicate-level randomness wearing a covariate's name.
+Generating the noise once, on `dgm$df_super`, and letting the sampling carry it
+makes it an attribute, and everything else follows.
+
+Four facts establish that this works, all checked against source:
+
+1. **The insertion point exists and is upstream of the eval frame.**
+   `dgm$df_super` is assembled at `R/setup_gbsg_dgm.R:107-121` — `df_s <-
+   dgm$df_super_rand`, four `.rename()` calls, then `dgm$df_super <- df_s`. It
+   is an ordinary data frame. Noise can be attached in the sweep `.qmd`
+   immediately after `setup_gbsg_dgm()` and before `build_eval_frame()`, so
+   **no `R/` change is required**.
+2. **Arbitrary extra columns survive into the trial unchanged.**
+   `simulate_from_dgm()` subsets whole rows — `df_sim <- df_super[idx_sample, ]`
+   (`R/simulate_from_dgm.R:174`) — and returns `df_sim` with no column
+   whitelist. Anything on `df_super` arrives in the trial with the same values.
+3. **The evaluation frame gets the identical values by construction.**
+   `build_eval_frame()` is `simulate_from_dgm(dgm, n = nrow(dgm$df_super),
+   replace = FALSE, ...)`, i.e. every subject exactly once. Trial and eval frame
+   then read the same `noise1` for the same subject.
+4. **$\beta(\widehat H)$ becomes exact, not approximate.** With the noise a
+   fixed population column, a noise-referencing rule resolves on `df_super`
+   like any other, and the target is an exact finite computation over the
+   population rather than an estimate. This removes the Monte-Carlo-error
+   objection to the target entirely — so the separate question of whether the
+   eval frame is large enough to read as "population" is moot for these rules.
+
+**One behavioural change to note, correct under this scheme but a change.**
+`simulate_from_dgm()` defaults to `replace = TRUE` (`:135`, `:173`), so a
+subject drawn twice into one trial appears twice — and under the new scheme
+carries **identical** noise both times, because it is the same row copied.
+Today each row gets an independent draw. That is the right behaviour for an
+attribute (a patient's covariate does not change because they were resampled),
+but it means within-trial noise is no longer i.i.d. across rows, and any
+analysis that assumed it was should be re-checked.
+
+### The narrower options, still worth doing
 
 1. **Make partial resolution return all-NA.** In `betaHhat_one*()`, after
    `get_dfpred()`, reject any membership vector containing `NA` and return the
-   all-NA record. One condition per module. This does not recover any
-   replicate, but it converts 13,777 silently-wrong complement values into
-   honest NAs, which the parity guard then catches.
-2. **Report the exclusion rate.** Whatever else is done, the fraction of
-   replicates with no computable $\beta(\widehat H)$ belongs in the bundle
-   `meta` and in the coverage table, so a reader sees the denominator.
-3. **Make `get_dfpred()` loud on a missing column.** It currently warns and
-   yields `NA` membership. An error would have surfaced this the first time it
-   ran. This is an `R/` change with callers beyond these modules, so it needs
-   its own impact review.
-4. **Decide what $\beta(\widehat H)$ means for a per-replicate covariate.** The
-   estimand genuinely does not exist for these rules. Either the noise
-   covariates become population characteristics defined once on `df_super` and
-   subsetted into each trial — which makes the target well-defined and is the
-   principled fix — or noise-referencing replicates are excluded by design and
-   reported as such under (2). This is a DGM-contract decision, not a bug fix.
+   all-NA record. This does not recover any replicate, but it converts 13,777
+   silently-wrong complement values into honest NAs, which the parity guard
+   then catches. Worth keeping even after the recommended fix, as the guard
+   against the *next* unresolvable-rule cause. Note the MD sibling fails
+   differently on the same input: `betaHhat_one_md()` **errors** ("missing
+   value where TRUE/FALSE needed") because `any(idx)` on an all-NA vector is
+   `NA`. Loud beats silent, but an uncaught error aborts a sweep; neither
+   module currently returns the all-NA record it should.
+2. **Report the exclusion rate.** The fraction of replicates with no computable
+   $\beta(\widehat H)$ belongs in the bundle `meta` and the coverage table.
+   Under the recommended fix this should be zero, which makes it a useful
+   regression check rather than dead weight.
+3. **Make `get_dfpred()` loud on a missing column.** It warns and yields `NA`
+   membership; an error would have surfaced this the first time it ran. An
+   `R/` change with callers well beyond these modules, so it needs its own
+   impact review.
 
-**Recommendation: (1) and (2) now, (4) before these two grids are re-run or
-cited.** (1) is small and stops wrong numbers from being published; (2) makes
-the loss visible; (4) is the real question and should not be settled by whoever
-happens to touch the file next. (3) is worth doing but is a separate change
-with its own blast radius.
+**Recommendation: the population-noise scheme, then (1) and (2).** The scheme
+is the only option that makes the estimand exist — the others manage the
+symptom. It needs no `R/` change, and (1) and (2) then serve as guards rather
+than as the fix. (3) remains worth doing separately.
+
+## Blast radius, if the scheme is adopted
+
+**Sweep documents.** 56 `.qmd` files set `k_random_noise > 0` — 34 under
+`quarto/simulations/gbsg/`, 22 under `gbsg_redux/` (21 at `k = 3`, 34 at
+`k = 5`, 1 at `k = 6`). Only two of them are `mr_coverage_sweep_*` documents
+that produce $\beta(\widehat H)$ targets: `mr_coverage_sweep_h10_knoise3.qmd`
+and `mr_coverage_sweep_h10_knoise6.qmd`. The rest are batch/combine documents
+on other pipelines.
+
+The per-replicate noise block would be **removed, not kept as a fallback**.
+Keeping both paths would leave two definitions of what `noise1` means,
+selected by whichever branch ran — which is the ambiguity that produced this
+defect. `confs <- c(confs, noise_names)` stays; only the `set.seed()` +
+`rnorm()` pair goes.
+
+**Committed bundles needing regeneration.** Three directories carry affected
+rows:
+
+| directory | rows with a rule | NA targets | share |
+|---|---|---|---|
+| `gbsg_redux/mr_sweep/m1_h10_knoise3new_s1000` | 15,191 | 7,272 | 47.9% |
+| `gbsg_redux/mr_sweep/m1_h10_knoise6new_s1000` | 16,320 | 10,792 | 66.1% |
+| `gbsg_redux/results` | 10,632 | 85 | 0.8% |
+
+Totalling 18,149, matching the global count. In every directory the NA count
+equals the noise-referencing-rule count exactly.
+
+`gbsg/mr_sweep/m1_h20_knoise5_s1000` is the one other `k > 0` bundle directory
+and is **not** affected: its 22 bundles predate the machinery and carry neither
+`sg_def` nor `betaHhat_H`.
+
+## A second copy of the survival module
+
+`quarto/simulations/gbsg_redux/betaHhat_truth.R` and
+`dev/identifier-alignment/rerun/betaHhat_truth.R` are **byte-identical** — 160
+lines, 9057 bytes each. Both carry the split-first disjunction pattern
+corrected in the binary module at `e6f6024`, and both would need any fix
+applied. Worth resolving whether the `rerun/` copy should exist at all rather
+than fixing the same file twice.
 
 Nothing above should be read as a defect in the identification methods. The
 sweeps' `detected`, `sens`, `ppv` and the oracle/naive/MR estimates are
