@@ -86,7 +86,9 @@ $$\mu_{1,i} = \mu_{0,i} + k_{\mathrm{treat}}\beta_{\mathrm{treat}}
               + \beta_{\mathrm{inter}}\mathbb 1\{i \in Q\},$$
 
 with $\beta_{\mathrm{treat}}$ constant because the base fit carries no
-treatment-by-covariate interactions. The subject-level effect is therefore
+treatment-by-covariate interactions — `R/generate_glm_dgm.R:310–323`, where
+`rhs <- c(treatment_var, factor_vars, continuous_vars)` builds the additive
+formula. The subject-level effect is therefore
 two-valued: $\delta := k_{\mathrm{treat}}\beta_{\mathrm{treat}}$ outside $Q$, and
 $\delta + \beta_{\mathrm{inter}}$ inside. Hence
 
