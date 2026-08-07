@@ -2162,11 +2162,11 @@ forestsearch <- function(df.analysis,
                    else mr_inference_args$draws)
       .mr_df   <- dsel$df.est
       # Mirror SECTION 9B: survival -> effect_measure "HR" on log scale;
-      # GLM -> resolved effect_measure with the precomputed comparison-scale
-      # threshold (effect_measure is NULL for survival, so do NOT test it).
+      # GLM -> resolved effect_measure (effect_measure is NULL for survival, so
+      # do NOT test it).  The comparison-scale threshold is not rebuilt here:
+      # it comes from admission_resolved, which .fs_resolve_admission() builds
+      # once.
       .mr_em   <- if (identical(outcome_type, "survival")) "HR" else effect_measure
-      .mr_cscr <- if (identical(outcome_type, "survival")) log(hr.threshold)
-                  else effect_threshold
       .mr_spec <- .fs_mr_spec(
         outcome_type, .mr_em, treat.name, outcome.name, event.name,
         offset.name, adjust_covariates,
@@ -2338,12 +2338,11 @@ forestsearch <- function(df.analysis,
                    if (is.null(mr_inference_args$draws)) 2000L
                    else mr_inference_args$draws)
       .mr_df   <- gsel$df.est
-      # Mirror SECTION 9B (see DINA branch): survival uses "HR"/log(hr.threshold);
-      # GLM uses effect_measure/effect_threshold.  effect_measure is NULL for
-      # survival, so never test it directly.
+      # Mirror SECTION 9B (see DINA branch): survival uses "HR", GLM uses
+      # effect_measure.  effect_measure is NULL for survival, so never test it
+      # directly.  The comparison-scale threshold comes from
+      # admission_resolved, not from a second reconstruction here.
       .mr_em   <- if (identical(outcome_type, "survival")) "HR" else effect_measure
-      .mr_cscr <- if (identical(outcome_type, "survival")) log(hr.threshold)
-                  else effect_threshold
       .mr_spec <- .fs_mr_spec(
         outcome_type, .mr_em, treat.name, outcome.name, event.name,
         offset.name, adjust_covariates,
@@ -3208,16 +3207,12 @@ forestsearch <- function(df.analysis,
                       event.name = "Event", offset.name = NULL,
                       adjust_covariates = if (length(adj_mr)) adj_mr else NULL,
                       adverse_outcome = TRUE)
-        c_screen_mr      <- log(hr.threshold)
-        c_consistency_mr <- log(max(hr.consistency, 1e-3))
       } else {
         gspec <- list(outcome_type = outcome_type, effect_measure = effect_measure,
                       treat.name = treat.name, outcome.name = outcome.name,
                       event.name = event.name, offset.name = offset.name,
                       adjust_covariates = adjust_covariates,
                       adverse_outcome = adverse_outcome)
-        c_screen_mr      <- effect_threshold      # comparison scale (log for ratio)
-        c_consistency_mr <- consistency_threshold # comparison scale
       }
 
       fs_mr_inference(
