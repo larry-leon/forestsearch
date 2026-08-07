@@ -2042,20 +2042,37 @@ reset_workers <- function(workers   = NULL,
 
 #' Assert that every canonical sg_focus has a branch at every dispatch site
 #'
-#' Three sites decide behaviour from \code{sg_focus} after normalization:
+#' Five sites decide behaviour from \code{sg_focus} after normalization:
 #'
 #' \enumerate{
 #'   \item \code{forestsearch()}'s GRF \code{frontier_rule} map;
 #'   \item \code{dina_subgroup()}'s ordering-key map (\code{ord});
-#'   \item \code{dina_subgroup()}'s whitelist, which must be
-#'     \code{.FS_SG_FOCUS_CANONICAL} rather than a re-inlined literal.
+#'   \item \code{.dina_reselect_on_effect()}'s ordering-key map (\code{ord}),
+#'     which is \strong{deliberately incomplete} -- see below;
+#'   \item \code{dina_subgroup()}'s whitelist, and
+#'   \item \code{subgroup.consistency()}'s whitelist, both of which must be
+#'     assigned from \code{.FS_SG_FOCUS_CANONICAL} rather than re-inlined as a
+#'     literal.
 #' }
 #'
-#' A focus added to the whitelist without branches at (1) and (2) does not
+#' A focus added to a whitelist without branches at the ordering maps does not
 #' error -- it falls through to a default and silently selects under a rule
 #' the caller did not ask for. This assertion is what turns that into a
 #' failure. It is a developer-facing check with no runtime cost on any
 #' analysis path; it is exercised by the test suite.
+#'
+#' Site (3) is the exception and is checked for an exact shape rather than for
+#' completeness. DINA has no consistency screen, so \code{"maxeff"} and
+#' \code{"maxeffCons"} name the same rule there and both must fall through to
+#' the effect-argmax fallback; \code{selection_criteria.qmd} (\code{@sec-vocab})
+#' documents that synonymy. The assertion therefore requires the five gated
+#' foci to be present \emph{and} the two ungated ones to be absent, so that
+#' adding a branch for either is caught as the documentation contradiction it
+#' would be.
+#'
+#' Previously this read only sites (1), (2) and (4). A check that appears to
+#' cover five sites and covers three is worse than one that covers three and
+#' says so.
 #'
 #' @return Invisibly \code{TRUE}; otherwise \code{stop()}s naming the site and
 #'   the missing values.
@@ -2079,10 +2096,38 @@ reset_workers <- function(workers   = NULL,
     }
   }
 
-  # Site 3: dina_subgroup()'s whitelist must reference the shared constant.
-  # A re-inlined literal would compile and pass every functional test while
-  # reintroducing exactly the drift this guard exists to prevent.
-  uses_constant <- local({
+  # Site: .dina_reselect_on_effect()'s ordering map.
+  #
+  # THIS SITE IS DELIBERATELY INCOMPLETE and the assert must not demand
+  # otherwise.  DINA has no consistency screen, so "maxeff" and "maxeffCons"
+  # name the same rule there and both fall through the switch() to its plain
+  # effect-argmax fallback.  quarto/methodology/selection_criteria.qmd
+  # (@sec-vocab) documents that synonymy and validates it.  Adding branches for
+  # the two would break the documented behaviour, so what is checked is the
+  # exact shape: the five gated foci present, the two ungated ones ABSENT.
+  dre_branches <- .find_switch_branches(.dina_reselect_on_effect, "ord")
+  dre_expected <- setdiff(canonical, c("maxeff", "maxeffCons"))
+  dre_missing  <- setdiff(dre_expected, dre_branches)
+  if (length(dre_missing)) {
+    problems <- c(problems, sprintf(
+      "  .dina_reselect_on_effect(): ordering-key map (ord)\n    no branch for: %s",
+      paste(sprintf("\"%s\"", dre_missing), collapse = ", ")))
+  }
+  dre_unexpected <- intersect(c("maxeff", "maxeffCons"), dre_branches)
+  if (length(dre_unexpected)) {
+    problems <- c(problems, paste0(
+      "  .dina_reselect_on_effect(): ordering-key map (ord)\n",
+      sprintf("    unexpected branch for: %s\n",
+              paste(sprintf("\"%s\"", dre_unexpected), collapse = ", ")),
+      "    These must fall through to the effect-argmax fallback: DINA has no\n",
+      "    consistency screen, so the two are synonyms there.  A branch here\n",
+      "    contradicts selection_criteria.qmd (@sec-vocab)."))
+  }
+
+  # Whitelist sites: `valid_sg_focus` must be ASSIGNED FROM the shared
+  # constant.  A re-inlined literal would compile and pass every functional
+  # test while reintroducing exactly the drift this guard exists to prevent.
+  .assigns_constant <- function(fn_body) {
     ok <- FALSE
     walk <- function(e) {
       if (!is.call(e)) return(invisible(NULL))
@@ -2096,14 +2141,20 @@ reset_workers <- function(workers   = NULL,
       for (i in seq_along(e)) tryCatch(walk(e[[i]]), error = function(err) NULL)
       invisible(NULL)
     }
-    walk(body(dina_subgroup))
+    walk(fn_body)
     ok
-  })
-  if (!uses_constant) {
-    problems <- c(problems, paste0(
-      "  dina_subgroup(): whitelist\n",
-      "    `valid_sg_focus` is not assigned from .FS_SG_FOCUS_CANONICAL; a\n",
-      "    re-inlined literal can drift from the canonical set."))
+  }
+
+  whitelists <- list(
+    "dina_subgroup(): whitelist"        = body(dina_subgroup),
+    "subgroup.consistency(): whitelist" = body(subgroup.consistency))
+  for (nm in names(whitelists)) {
+    if (!.assigns_constant(whitelists[[nm]])) {
+      problems <- c(problems, sprintf(paste0(
+        "  %s\n",
+        "    `valid_sg_focus` is not assigned from .FS_SG_FOCUS_CANONICAL; a\n",
+        "    re-inlined literal can drift from the canonical set."), nm))
+    }
   }
 
   if (length(problems)) {

@@ -1064,8 +1064,11 @@ subgroup.consistency <- function(df,
     # Validate sg_focus.  Note: hrMaxSG and hrMinSG are passed through
     # unchanged (no longer collapsed to maxSG/minSG), so that the
     # neighborhood-based selection in sort_subgroups() is applied.
-    valid_sg_focus <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG",
-                        "maxeff", "maxeffCons")
+    # The canonical set has ONE definition.  A re-inlined literal here compiles
+    # and passes every functional test while being free to drift from it, which
+    # is the drift .assert_sg_focus_dispatch_complete() exists to prevent; that
+    # guard now reads this site too.
+    valid_sg_focus <- .FS_SG_FOCUS_CANONICAL
     if (!sg_focus %in% valid_sg_focus) {
       stop(sprintf("Unknown sg_focus value: %s", sg_focus))
     }
