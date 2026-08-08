@@ -73,14 +73,16 @@ library(future)
 
 # ── Run identity ─────────────────────────────────────────────────────────────
 run_sweep   <- TRUE
-run_tag     <- "md_harm_s50_pilot"      # pilot; full grid bumps this
+run_tag     <- "md_grid_s1000"          # STOP B full grid (STOP A was md_harm_s50_pilot)
 results_dir <- file.path("mr_sweep_md_harm", run_tag)
 grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
 
 # ── Cells ────────────────────────────────────────────────────────────────────
 methods_run <- "consistency"            # v1 scope: FS/consistency only
-n_grid_run  <- 1000L                    # STOP A pilot: one cell
-n_sims      <- 50L                      # STOP A pilot: 50 replicates
+# STOP B grid.  n = 500 runs FIRST so the linear-in-n cost assumption is
+# tested against the measured n = 1000 cell before the expensive cells run.
+n_grid_run  <- c(500L, 1000L, 2000L, 4000L)
+n_sims      <- 1000L                    # STOP B: s = 1000 per cell, no reduction
 mr_draws    <- 5000L
 nb_boots    <- NULL                     # MR-only; FB dormant
 
@@ -602,8 +604,12 @@ All three ingredients are **derived, never literal**: `delta` from
 check cannot pass by agreeing with a number someone copied in.
 
 ```{r check-A}
-if (length(bundles)) {
-  b <- bundles[[1]]; r <- b$results
+# STOP B: checks run PER CELL, not on the first bundle only.  With a four-cell
+# grid, `bundles[[1]]` would have certified n = 500 and silently left the other
+# three cells unchecked.
+for (.bn in names(bundles)) {
+  cat(sprintf("\n===== CHECK A -- cell %s =====\n", .bn))
+  b <- bundles[[.bn]]; r <- b$results
   rules <- unique(r$sg_def[!is.na(r$sg_def) & nzchar(r$sg_def)])
   # Empty-rule guard.  With zero detections `rules` is character(0), so the
   # do.call(rbind, lapply(...)) below returns NULL and `abs(A$diff)` raises
@@ -657,9 +663,10 @@ without consulting the gate, so this is a genuine second path rather than the
 same value read twice.
 
 ```{r check-C}
-if (length(bundles)) {
-  b <- bundles[[1]]
-  rd <- b$results[which(b$results$detected == 1L), , drop = FALSE]
+for (.bn in names(bundles)) {                     # STOP B: per cell
+  cat(sprintf("\n===== CHECK C -- cell %s =====\n", .bn))
+  b <- bundles[[.bn]]
+  rd <- b$results[which(b$results$detected %in% 1L), , drop = FALSE]
   # Empty-detection guard, same class as CHECK A's.  With no detected rows nb
   # and sm are both NaN and `if (!(abs(nb - sm) < 1e-8))` tests NA, which is
   # itself an error.  Report the count and skip rather than erroring the
@@ -691,7 +698,24 @@ if (length(bundles)) {
 # Timing and the proposed full grid {#sec-schedule}
 
 ```{r schedule}
+# STOP B: measured cost for EVERY cell, beside the linear-in-n projection
+# anchored at n = 1000 (the cell measured at STOP A).
 if (length(bundles)) {
+  meas <- do.call(rbind, lapply(bundles, function(bb) data.frame(
+    n = bb$meta$n_sample, s = bb$meta$n_sims,
+    elapsed_s = as.numeric(bb$meta$elapsed_sec),
+    s_per_rep_wall = as.numeric(bb$meta$elapsed_sec) / bb$meta$n_sims,
+    med_t2_secs = median(bb$results$t2_secs, na.rm = TRUE),
+    workers = bb$meta$n_workers)))
+  meas <- meas[order(meas$n), ]
+  anchor <- meas$med_t2_secs[meas$n == 1000L]
+  if (length(anchor) == 1L) {
+    meas$linear_proj <- anchor * meas$n / 1000
+    meas$ratio_meas_over_proj <- meas$med_t2_secs / meas$linear_proj
+  }
+  cat("\n--- MEASURED COST PER CELL vs the LINEAR-IN-n PROJECTION ---\n")
+  print(meas, row.names = FALSE, digits = 4)
+
   b <- bundles[[1]]
   per <- b$meta$elapsed_sec / b$meta$n_sims
   cat(sprintf("pilot cell: n=%d, %d replicates, %.0f s total, %.2f s/replicate (%d workers)\n",
