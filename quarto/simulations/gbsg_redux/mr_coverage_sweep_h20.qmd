@@ -431,8 +431,15 @@ run_cell <- function(method, n_sample, nb_boots = NULL, out = NULL,
   # Attach the per-replicate beta(Hhat)-HR / beta(Hhat^c)-HR targets (Theorem 2),
   # deduplicated over distinct realized rules, on the full-pool eval frame in THIS
   # (main) process -- not inside the workers.
-  results <- attach_betaHhat(results, eval_df, outcome.name = outcome_name,
-                             event.name = event_name, treat.name = treat_name)
+  # RE-POINTED at the package (migration step 4a).  focus = "harm" is exactly
+  # what the shim's hard-coded treat.recommend == 0L convention meant.  The
+  # richer columns -- betaHhat_status, nH_eval, nHc_eval -- are KEPT on the
+  # bundle: that is D4's visibility finally reaching the results, so a reader
+  # can see the resolution status and the partition without re-deriving them.
+  results <- forestsearch::fs_attach_betaHhat(
+    results, eval_df, focus = "harm", outcome_type = "survival",
+    outcome.name = outcome_name, event.name = event_name,
+    treat.name = treat_name)
 
   bundle <- list(
     results = results, truth = truth,
