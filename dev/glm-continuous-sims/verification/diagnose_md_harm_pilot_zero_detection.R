@@ -239,7 +239,8 @@ tB <- proc.time()[3]
 runB <- tryCatch(
   suppressWarnings(do.call(forestsearch,
                            c(fs_args_common,
-                             list(use_lasso = FALSE, use_grf = FALSE)))),
+                             list(use_lasso = FALSE, use_grf = FALSE,
+                                  use_dina = FALSE)))),
   error = function(e) structure(list(msg = conditionMessage(e)),
                                 class = "diag_error"))
 secsB <- proc.time()[3] - tB
@@ -341,8 +342,7 @@ if (is.list(fg)) cat("find.grps names : ", paste(names(fg), collapse = ", "),
 
 # subgroup.search() returns out.found = list(hr.subgroups = <data.table>), or
 # out.found = NULL when nothing qualified (format_search_results(), :858-868).
-.tbl <- if (is.list(fg) && is.list(fg$out.found)) fg$out.found$hr.subgroups
-        else NULL
+.tbl <- if (is.list(fg) && is.list(fg$out.found)) fg$out.found$hr.subgroups else NULL
 
 if (is.null(.tbl) || !nrow(.tbl)) {
   cat("\nout.found is NULL: NO candidate qualified. The surviving set is EMPTY.\n")
@@ -399,6 +399,31 @@ print(runB$admission)
 ## (e) the failure funnel
 ## ---------------------------------------------------------------------------
 .rule("STEP 2 (e) -- the failure funnel")
+
+## Status-code verification: which gate a status code corresponds to, read
+## from the source rather than assumed.  The status-6 rejection at
+## R/subgroup_search.R:626-630 is the EFFECT FLOOR, and it is conditional on
+## disable_effect_floor:
+##
+##   # Status 6: Check effect threshold.  Skipped when the effect floor is
+##   # disabled (sg_focus = "maxeff" retains the full estimable family so the
+##   # argmax is unconditional -- see forestsearch() search_overrides).
+##   if (!disable_effect_floor && glm_result$hr <= hr.threshold) {
+##     return(list(status = 6L, result = NULL))
+##   }
+##
+## So n_passed_hr counts candidates with oriented effect STRICTLY ABOVE
+## hr.threshold, and a candidate exactly AT the threshold is rejected.
+cat("effect floor comparison in force on this run:\n")
+cat("  site            : R/subgroup_search.R:626-630 (GLM path)\n")
+cat("  test            : !disable_effect_floor && glm_result$hr <= hr.threshold -> status 6\n")
+cat("  hr.threshold    : ", md_threshold, "\n", sep = "")
+cat("  sg_focus        : ", runB$sg_focus %||% "<NULL>", "\n", sep = "")
+cat("  admission$effect_floor : ",
+    if (is.null(runB$admission$effect_floor)) "NULL (floor NOT applied)"
+    else format(runB$admission$effect_floor), "\n", sep = "")
+cat("  => effect floor applied on this path : ",
+    !is.null(runB$admission$effect_floor), "\n\n", sep = "")
 
 fc <- if (is.list(fg)) fg$filter_counts else NULL
 if (is.null(fc)) {
