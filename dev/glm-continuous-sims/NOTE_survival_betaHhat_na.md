@@ -335,6 +335,37 @@ contamination signature gone (0.6804227928 vs 0.6865144474, differing by
 The pilot bundle is scratch and is **not committed**. Full regeneration of the
 noise sweeps is a separate campaign and has not been run.
 
+### Full-scale control: the detection shift is the package, not the noise scheme
+
+The 30-replicate pilots above compare leak rates and could not resolve the
+**detection rate**, whose SE at n = 30 is ~8 pp. Three full-scale runs of the
+same cell -- knoise3, `consistency`, n = 500, `n_sims = 1000`, 115 workers --
+do resolve it:
+
+| run | noise scheme | package | detected | wall |
+|---|---|---|---|---|
+| committed bundle | per-replicate | pre-audit | 653/1000 (65.3%) | 2086.3 s |
+| control | per-replicate | current | 831/1000 (83.1%) | 691.5 s |
+| population | **population** | current | 800/1000 (80.0%) | 720.0 s |
+
+The control isolates the two candidate causes, since it differs from the
+population run only in the noise scheme and from the committed bundle only in
+the package:
+
+| cause | contrast | effect | z | verdict |
+|---|---|---|---|---|
+| noise scheme | control to population | **-3.1 pp** | -1.79 | **not significant** |
+| package | committed to control | **+17.8 pp** | +9.29 | **significant** |
+
+The population-noise scheme costs about 3 pp of detection -- inside sampling
+noise -- and +4.1% runtime. The audit-era package changes account for +17.8 pp
+and a 3x speedup.
+
+**The committed knoise bundles predate package changes that move detection by
+roughly 18 points.** The regeneration campaign therefore runs for two reasons,
+not one, and its task document will carry these numbers as motivation rather
+than as a footnote.
+
 ### Still queued
 
 Sweep re-pointing at `fs_attach_betaHhat()` — which will also let partition
