@@ -181,6 +181,19 @@ test_that("T5: no subgroup gives nHc_eval == N and the ITT effect", {
   }
 })
 
+test_that("T5 (attach): a results frame with no sg_def column takes the ITT record", {
+  fr <- .mk_frame()
+  N  <- nrow(fr)
+  at <- fs_attach_betaHhat(data.frame(sim_id = 1:3), fr, focus = "harm",
+                           outcome_type = "continuous", effect_measure = "MD")
+  none <- fs_betaHhat_one(NULL, fr, focus = "harm",
+                          outcome_type = "continuous", effect_measure = "MD")
+  expect_true(all(at$nH_eval == 0L))
+  expect_true(all(at$nHc_eval == N))
+  expect_true(all(at$betaHhat_status == "ok"))
+  expect_identical(unique(at$betaHhat_Hc), none$betaHhat_Hc)
+})
+
 test_that("T5 negative control: a real subgroup must NOT give nHc_eval == N", {
   fr <- .mk_frame()
   r <- .one(c("{x1 > 50}"), fr, "continuous")
@@ -269,7 +282,31 @@ test_that("T6: counters match the unresolvable rules in a synthetic bundle", {
                            outcome_type = "continuous", effect_measure = "MD")
   expect_identical(fs_betaHhat_counts(at), cnt)
   expect_identical(sum(at$betaHhat_status == "unresolved", na.rm = TRUE), 4L)
-  expect_identical(sum(is.na(at$betaHhat_H)), 6L)   # 4 unresolved + 2 undetected
+
+  # ATTACH-ITT: undetected replicates are no longer all-NA.  They take the
+  # no-subgroup record -- the whole frame is the complement -- so only the 4
+  # unresolved rows have an NA complement target.
+  expect_identical(sum(is.na(at$betaHhat_Hc)), 4L)
+  und <- is.na(at$sg_def)
+  expect_identical(sum(und), 2L)
+  expect_true(all(at$betaHhat_status[und] == "ok"))
+  expect_true(all(at$nH_eval[und] == 0L))
+  expect_true(all(at$nHc_eval[und] == nrow(fr)))
+  # betaHhat_H stays NA there: an empty region has no target.
+  expect_true(all(is.na(at$betaHhat_H[und])))
+
+  # THE DISCRIMINATING ASSERTION: the undetected rows' complement target must
+  # be identical() to what fs_betaHhat_one() returns for no subgroup on the
+  # same frame -- not merely finite, and not merely close.
+  none <- fs_betaHhat_one(NULL, fr, focus = "harm",
+                          outcome_type = "continuous", effect_measure = "MD")
+  expect_identical(unique(at$betaHhat_Hc[und]), none$betaHhat_Hc)
+  expect_identical(unique(at$nHc_eval[und]),    none$nHc_eval)
+
+  # negative control: a DETECTED row must NOT carry the no-subgroup record
+  det <- !is.na(at$sg_def) & at$betaHhat_status == "ok"
+  expect_true(any(det))
+  expect_false(any(at$nHc_eval[det] == nrow(fr)))
 })
 
 test_that("T6 negative control: a clean bundle reports zero unresolved", {

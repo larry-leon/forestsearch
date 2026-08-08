@@ -397,10 +397,19 @@ fs_betaHhat_counts <- function(x) attr(x, "betaHhat_counts")
 #' bundle is assembled. Runs in the main process, after the replicate loop, so
 #' the evaluation frame stays in one place.
 #'
-#' Replicates with no realized rule receive `NA` targets, matching the
-#' behaviour of the modules this replaces. Their count is reported as
-#' `n_reps_undetected` rather than being folded into the resolved or
-#' unresolved tallies.
+#' @section Replicates with no realized rule:
+#'
+#' An undetected replicate is not a missing measurement -- it is a run in which
+#' the whole population is the complement. It therefore receives the
+#' no-subgroup record [fs_betaHhat_one()] already returns: `nH_eval = 0`,
+#' `nHc_eval = nrow(frame)`, `betaHhat_Hc` the ITT effect, `betaHhat_H` `NA`
+#' (an empty region has no target), and `status = "ok"`.
+#'
+#' This is the partition invariant reaching this layer: `nH_eval + nHc_eval`
+#' now equals `nrow(frame)` on **every** row that is not `"unresolved"`, not
+#' only on rows carrying a rule. Before this change such rows were all-`NA`,
+#' which silently excluded them from any consumer keying on a finite target.
+#' Their count is still reported separately as `n_reps_undetected`.
 #'
 #' @param results Data frame carrying an `sg_def` column.
 #' @param frame Data frame. The fixed evaluation population.
@@ -424,12 +433,20 @@ fs_attach_betaHhat <- function(results, frame, focus,
   .fs_check_focus(focus)
   outcome_type <- match.arg(outcome_type)
 
+  # The no-subgroup record: Hhat is empty, so Hhat^c IS the ITT population.
+  # Computed once -- it depends only on the frame, not on any replicate.
+  none <- fs_betaHhat_one(NULL, frame, focus = focus,
+                          outcome_type = outcome_type,
+                          effect_measure = effect_measure,
+                          outcome.name = outcome.name,
+                          event.name = event.name, treat.name = treat.name)
+
   if (is.null(results$sg_def)) {
-    results$betaHhat_H <- NA_real_
-    results$betaHhat_Hc <- NA_real_
-    results$betaHhat_status <- NA_character_
-    results$nH_eval <- NA_integer_
-    results$nHc_eval <- NA_integer_
+    results$betaHhat_H      <- none$betaHhat_H
+    results$betaHhat_Hc     <- none$betaHhat_Hc
+    results$betaHhat_status <- none$status
+    results$nH_eval         <- none$nH_eval
+    results$nHc_eval        <- none$nHc_eval
     attr(results, "betaHhat_counts") <- list(
       n_rules_total = 0L, n_rules_resolved = 0L, n_rules_unresolved = 0L,
       n_reps_total = nrow(results), n_reps_resolved = 0L,
@@ -449,6 +466,17 @@ fs_attach_betaHhat <- function(results, frame, focus,
   results$betaHhat_status <- bt$status[j]
   results$nH_eval         <- bt$nH_eval[j]
   results$nHc_eval        <- bt$nHc_eval[j]
+
+  # Undetected replicates (no realized rule) take the no-subgroup record, not
+  # all-NA: the whole frame is the complement, so the target exists.
+  und <- is.na(results$sg_def) | !nzchar(results$sg_def)
+  if (any(und)) {
+    results$betaHhat_H[und]      <- none$betaHhat_H
+    results$betaHhat_Hc[und]     <- none$betaHhat_Hc
+    results$betaHhat_status[und] <- none$status
+    results$nH_eval[und]         <- none$nH_eval
+    results$nHc_eval[und]        <- none$nHc_eval
+  }
   attr(results, "betaHhat_counts") <- attr(bt, "betaHhat_counts")
   results
 }

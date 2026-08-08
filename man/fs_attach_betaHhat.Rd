@@ -34,10 +34,20 @@ The one call each engine adds to its \code{run_cell()}, immediately before the
 bundle is assembled. Runs in the main process, after the replicate loop, so
 the evaluation frame stays in one place.
 }
-\details{
-Replicates with no realized rule receive \code{NA} targets, matching the
-behaviour of the modules this replaces. Their count is reported as
-\code{n_reps_undetected} rather than being folded into the resolved or
-unresolved tallies.
+\section{Replicates with no realized rule}{
+
+
+An undetected replicate is not a missing measurement -- it is a run in which
+the whole population is the complement. It therefore receives the
+no-subgroup record \code{\link[=fs_betaHhat_one]{fs_betaHhat_one()}} already returns: \code{nH_eval = 0},
+\code{nHc_eval = nrow(frame)}, \code{betaHhat_Hc} the ITT effect, \code{betaHhat_H} \code{NA}
+(an empty region has no target), and \code{status = "ok"}.
+
+This is the partition invariant reaching this layer: \code{nH_eval + nHc_eval}
+now equals \code{nrow(frame)} on \strong{every} row that is not \code{"unresolved"}, not
+only on rows carrying a rule. Before this change such rows were all-\code{NA},
+which silently excluded them from any consumer keying on a finite target.
+Their count is still reported separately as \code{n_reps_undetected}.
 }
+
 \keyword{internal}
