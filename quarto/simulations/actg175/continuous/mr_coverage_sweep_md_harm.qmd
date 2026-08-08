@@ -466,9 +466,28 @@ if (run_sweep) {
 ```{r readouts}
 summarise_cell <- function(b) {
   r <- b$results; tr <- b$truth
-  det <- r$detected == 1L
-  rd  <- r[det, , drop = FALSE]
+  det <- r$detected %in% 1L        # NA (CONFIG-ERROR) is not a detection
+  rd  <- r[which(det), , drop = FALSE]
   N   <- nrow(eval_df)
+
+  ## ---- ORIENTATION BRIDGE -------------------------------------------------
+  # The bundle carries TWO scales and they must never be subtracted from one
+  # another.  `nv_H_*` and `t2_H_*` come from the estimator, which under
+  # adverse_outcome = FALSE negates Y so that positive means harm; `betaHhat_*`
+  # and `md_trial_H` are on the raw outcome scale, where negative means harm.
+  #
+  # See REPORT_stopA_md_harm_pilot.md section 5.3.  CHECK C caught this: the
+  # gate's naive estimate and the recorder's in-trial MD are EXACT NEGATIVES,
+  # max |nv_H_est + md_trial_H| = 2.700e-13 over 50 replicates, so mixing them
+  # reported a "naive mean bias" of 131.3425 where the consistent value is
+  # 67.0722.  The conversion is therefore a sign flip, not a re-estimation, and
+  # it is applied ONCE here rather than at each use.
+  #
+  # Readouts 4 (classification) and 6 (theta-dagger vs beta(Hhat), both raw)
+  # compare like with like already and are untouched.
+  .orient <- if (isTRUE(adverse_outcome)) 1 else -1
+  bH_or   <- .orient * rd$betaHhat_H     # exact beta(Hhat) on H,  oriented
+  mdt_or  <- .orient * rd$md_trial_H     # recorder in-trial MD,   oriented
 
   cat(sprintf("\n================ %s, n = %d, %d replicates ================\n",
               b$meta$subgroup_method, b$meta$n_sample, b$meta$n_sims))
@@ -486,7 +505,9 @@ summarise_cell <- function(b) {
 
   ## ---- 3. selection ------------------------------------------------------
   sel_rate <- mean(det)
-  seff <- rd$md_trial_H - rd$betaHhat_H
+  # Oriented, so a POSITIVE selection effect reads as optimism: the selected
+  # region looks more harmful in-trial than it truly is.
+  seff <- mdt_or - bH_or
   cat("\n--- 3. SELECTION ---\n")
   cat(sprintf("  selection_rate: %d/%d = %.3f\n", sum(det), nrow(r), sel_rate))
   q <- quantile(seff, c(0, .25, .5, .75, 1), na.rm = TRUE)
@@ -496,8 +517,8 @@ summarise_cell <- function(b) {
               q[1], q[2], q[3], q[4], q[5]))
 
   ## ---- 1. bias, naive vs MR ---------------------------------------------
-  b_nv <- rd$nv_H_est - rd$betaHhat_H
-  b_mr <- rd$t2_H_est - rd$betaHhat_H
+  b_nv <- rd$nv_H_est - bH_or
+  b_mr <- rd$t2_H_est - bH_or
   se <- function(x) sd(x, na.rm = TRUE) / sqrt(sum(is.finite(x)))
   cat("\n--- 1. BIAS against the EXACT beta(Hhat) (zero MC error in the target) ---\n")
   bias <- data.frame(
@@ -514,10 +535,11 @@ summarise_cell <- function(b) {
     c(n_eff = sum(ok),
       coverage = if (sum(ok)) mean(tgt[ok] >= lo[ok] & tgt[ok] <= hi[ok]) else NA_real_)
   }
-  cH  <- cov1(rd$t2_H_lo,  rd$t2_H_hi,  rd$betaHhat_H)
-  cHn <- cov1(rd$nv_H_lo,  rd$nv_H_hi,  rd$betaHhat_H)
+  # Intervals are on the oriented scale, so the target must be too.
+  cH  <- cov1(rd$t2_H_lo,  rd$t2_H_hi,  bH_or)
+  cHn <- cov1(rd$nv_H_lo,  rd$nv_H_hi,  bH_or)
   rc  <- r[is.finite(r$t2_Hc_lo), , drop = FALSE]
-  cHc <- cov1(rc$t2_Hc_lo, rc$t2_Hc_hi, rc$betaHhat_Hc)
+  cHc <- cov1(rc$t2_Hc_lo, rc$t2_Hc_hi, .orient * rc$betaHhat_Hc)
   cat("\n--- 2. COVERAGE of beta(Hhat) ---\n")
   covt <- data.frame(
     block = c("H", "H", "Hc"),
@@ -646,12 +668,18 @@ if (length(bundles)) {
     cat("CHECK C: SKIPPED -- 0 detected replicates of", nrow(b$results), "\n")
     cat("  The two computations have nothing to compare; this is not a failure.\n")
   } else {
-  nb <- mean(rd$nv_H_est  - rd$betaHhat_H, na.rm = TRUE)
-  sm <- mean(rd$md_trial_H - rd$betaHhat_H, na.rm = TRUE)
+  # Both sides on the ORIENTED scale -- see the orientation bridge in
+  # summarise_cell() and REPORT_stopA_md_harm_pilot.md section 5.3.  Before
+  # this, the gate's term mixed an oriented estimate with a raw target and the
+  # recorder's did not, so the check compared two different quantities and
+  # failed by 1.984e+02 on a run where nothing was actually wrong.
+  .or <- if (isTRUE(adverse_outcome)) 1 else -1
+  nb <- mean(rd$nv_H_est   - .or * rd$betaHhat_H, na.rm = TRUE)
+  sm <- mean(.or * rd$md_trial_H - .or * rd$betaHhat_H, na.rm = TRUE)
   cat(sprintf("  naive mean bias        (gate)      : %.10f\n", nb))
   cat(sprintf("  mean selection effect  (recorder)  : %.10f\n", sm))
   cat(sprintf("  difference                         : %.3e\n", nb - sm))
-  pd <- max(abs(rd$nv_H_est - rd$md_trial_H), na.rm = TRUE)
+  pd <- max(abs(rd$nv_H_est - .or * rd$md_trial_H), na.rm = TRUE)
   cat(sprintf("  max per-replicate |gate naive - recorder MD| : %.3e\n", pd))
   if (!(abs(nb - sm) < 1e-8))
     stop(sprintf("CHECK C FAILED: %.3e — the two computations disagree.", nb - sm))
