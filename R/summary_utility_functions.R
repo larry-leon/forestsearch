@@ -728,7 +728,8 @@ filter_call_args <- function(source_args, target_func, override_args = NULL) {
 #' @param subgroup_notation Character or \code{NULL}.  When set to
 #'   \code{"harm"} or \code{"benefit"}, overrides the default
 #'   "Recommend"/"Questionable" labels with the Unicode labels from
-#'   \code{\link{get_sg_labels}} (e.g., \enc{Ĥ}{H-hat}/\enc{Ĥᶜ}{H-hat-c}
+#'   \code{\link{get_sg_labels}} (e.g., \eqn{\hat{H}}{H-hat} /
+#'   \eqn{\hat{H}^c}{H-hat^c}
 #'   for harm).  Default \code{NULL} (use "Recommend"/"Questionable").
 #' @param font_size Numeric. Font size in pixels for table text (default: 12).
 #'

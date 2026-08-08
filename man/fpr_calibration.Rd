@@ -155,7 +155,7 @@ threshold-independence.
 }
 \examples{
 \dontrun{
-# ── Binary example (permutation mode) ────────────────────────────
+# ---- Binary example (permutation mode) ----
 set.seed(1)
 df <- data.frame(
   id = 1:500, treat = rbinom(500, 1, 0.5),
