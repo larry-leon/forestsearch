@@ -1,0 +1,625 @@
+---
+title: "MR coverage sweep — continuous / MD, harm direction"
+subtitle: "Unbiasedness and interval coverage of the MR-corrected estimate against the EXACT beta(Hhat)"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: true
+  message: true
+---
+
+# What this document is
+
+The GLM/continuous counterpart of the binary MR coverage sweeps, in the **harm**
+direction. It measures two things from one set of replicates:
+
+1. **Unbiasedness** — mean (estimate − β(Ĥ)) for the naive in-trial MD and for
+   the MR-corrected estimate, side by side.
+2. **Interval coverage** — of the MR interval for β(Ĥ), with `n_eff` reported.
+
+## Why the continuous pathway makes this a clean measurement
+
+The mean difference is **collapsible**, so β(Ĥ) is an exact finite mean over
+`dgm$df_super` — no evaluation frame, no model fit, **zero Monte Carlo error in
+the target**. Every deviation of an estimate from β(Ĥ) is therefore the method,
+not the target. On the survival and binary pathways the target is itself a
+fitted quantity and the two sources are entangled.
+
+`fs_build_eval_frame(dgm, "continuous")` returns `df_super` unchanged for this
+reason: the scoring frame *is* the population.
+
+## Closed-form cross-checks
+
+Where a readout has a closed-form counterpart, the counterpart is computed
+independently and printed beside it, then asserted. The point is to confirm the
+machinery against **theory**, not only against itself. A failing assertion is a
+machinery defect by definition and stops the phase.
+
+- **A** — the two-valued CATE identity on the harness's own realized rules:
+  β(Ĥ) must equal δ + β_inter · P(Q | Ĥ).
+- **B** — θ† must reproduce the DGM's own `effect_Q` / `effect_Qc`, exactly.
+- **C** — the naive mean bias and the mean selection effect are the same
+  quantity computed two ways and must agree.
+
+## Decisions (closed — recorded, not revisited)
+
+`focus = "harm"`; harm-calibrated DGM at `cal_target_md = -40`;
+`adverse_outcome = FALSE` with positive thresholds per
+`dev/glm-continuous-sims/NOTE_threshold_sign_md.md`; FS/consistency identifier
+only. The selection rate at these settings is ≈ 1.0 and that is the
+phenomenon, on the record — it is not tuned away.
+
+```{r setup, message=FALSE, warning=FALSE}
+.t0_doc <- Sys.time()
+
+# forestsearch must be INSTALLED (devtools::install()), not load_all(): the
+# doFuture workers are separate R processes that see only the installed package.
+library(forestsearch)
+library(speff2trial)
+library(doFuture)
+library(foreach)
+library(future)
+
+`%||%` <- function(a, b) if (is.null(a)) b else a
+
+# ── Run identity ─────────────────────────────────────────────────────────────
+run_sweep   <- TRUE
+run_tag     <- "md_harm_s50_pilot"      # pilot; full grid bumps this
+results_dir <- file.path("mr_sweep_md_harm", run_tag)
+grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
+
+# ── Cells ────────────────────────────────────────────────────────────────────
+methods_run <- "consistency"            # v1 scope: FS/consistency only
+n_grid_run  <- 1000L                    # STOP A pilot: one cell
+n_sims      <- 50L                      # STOP A pilot: 50 replicates
+mr_draws    <- 5000L
+nb_boots    <- NULL                     # MR-only; FB dormant
+
+# ── Seeds: PRE-GENERATED, indexed by GLOBAL replicate id ─────────────────────
+# Results must be invariant to worker count and to batch position, so the seed
+# for replicate i is looked up, never derived from loop position.
+seed_base  <- 8316951L
+MAX_SIMS   <- 5000L
+set.seed(seed_base)
+SEED_TABLE <- sample.int(.Machine$integer.max - 1L, MAX_SIMS)
+seed_for <- function(sim_id) {
+  if (sim_id < 1L || sim_id > MAX_SIMS)
+    stop("sim_id ", sim_id, " outside the pre-generated seed table.")
+  SEED_TABLE[sim_id]
+}
+
+# ── DGM: the verified harm calibration ───────────────────────────────────────
+# Do NOT recalibrate.  cal_target_md = -40 converges at machine precision.
+actg_arms        <- c(1L, 3L)
+actg_treat_arm   <- 1L
+actg_age_cut     <- 34
+actg_preanti_cut <- 744.5
+dgm_factor_vars   <- paste0("z", 1:12)
+dgm_subgroup_vars <- c("z1", "z2")
+dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
+dgm_n_super       <- 5000L
+cal_target_md     <- -40                # HARM
+cal_k_grid_range  <- c(0, 120)
+cal_grid_step     <- 2
+
+# ── Search: the corrected harm orientation ───────────────────────────────────
+# adverse_outcome = FALSE negates Y internally so MD > 0 means harm; the
+# thresholds are therefore POSITIVE on that oriented scale.  See
+# dev/glm-continuous-sims/NOTE_threshold_sign_md.md -- a negative threshold here
+# is a near-vacuous floor, not a harm specifier.
+md_threshold    <- 30
+md_consistency  <- 10
+adverse_outcome <- FALSE
+pconsistency    <- 0.90
+fs_splits <- 400L; maxk <- 2L; n_min <- 60L; d0_min <- 12L; d1_min <- 12L
+vi_grf_min <- -0.2
+use_lasso <- TRUE; use_grf <- TRUE; use_twostage <- TRUE; is_rct <- TRUE
+
+analysis_continuous_vars <- c("age","preanti","wtkg","karnof","cd40","cd80")
+analysis_binary_vars     <- c("hemo","homo","drugs","race","gender","symptom")
+
+outcome_name <- "y_sim"; treat_name <- "treat_sim"
+id_name <- "id"; harm_col <- "flag_harm"
+
+# ── Parallel ─────────────────────────────────────────────────────────────────
+parallel_mode  <- "sims"
+n_workers      <- max(1L, ceiling(0.90 * (parallel::detectCores(logical = FALSE) - 1L)))
+inner_parallel <- list(plan = "sequential")
+
+cat(sprintf("run_tag=%s  cells: %s x n in {%s}  n_sims=%d  mr_draws=%d  workers=%d\n",
+            run_tag, paste(methods_run, collapse=","),
+            paste(n_grid_run, collapse=","), n_sims, mr_draws, n_workers))
+```
+
+# The DGM, the scoring frame, and theta-dagger {#sec-dgm}
+
+```{r build-dgm}
+dgm <- NULL; eval_df <- NULL; truth <- NULL
+if (run_sweep) {
+  actg_df <- subset(speff2trial::ACTG175, arms %in% actg_arms)
+  actg_df$id <- seq_len(nrow(actg_df))
+  actg_df$treat_orig <- ifelse(actg_df$arms == actg_treat_arm, 1L, 0L)
+  actg_df$treat      <- 1L - actg_df$treat_orig     # SWITCHED: ddI = 1
+  actg_df$cd4_change <- actg_df$cd420 - actg_df$cd40
+  actg_df <- actg_df[!is.na(actg_df$cd420), ]
+  actg_df$z1  <- as.factor(ifelse(actg_df$age > actg_age_cut, 1L, 0L))
+  actg_df$z2  <- as.factor(ifelse(actg_df$preanti <= actg_preanti_cut, 1L, 0L))
+  actg_df$z3  <- as.factor(ifelse(actg_df$wtkg <= 75, 1L, 0L))
+  actg_df$z4  <- as.factor(ifelse(actg_df$karnof <= median(actg_df$karnof), 1L, 0L))
+  actg_df$z5  <- as.factor(ifelse(actg_df$cd40 <= median(actg_df$cd40), 1L, 0L))
+  actg_df$z6  <- as.factor(ifelse(actg_df$cd80 <= median(actg_df$cd80), 1L, 0L))
+  actg_df$z7  <- as.factor(actg_df$hemo);  actg_df$z8  <- as.factor(actg_df$homo)
+  actg_df$z9  <- as.factor(actg_df$drugs); actg_df$z10 <- as.factor(actg_df$race)
+  actg_df$z11 <- as.factor(actg_df$gender);actg_df$z12 <- as.factor(actg_df$symptom)
+  for (v in analysis_binary_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
+  confounders_analysis <- c(analysis_continuous_vars, analysis_binary_vars)
+
+  dgm <- calibrate_glm_interaction(
+    data = actg_df, factor_vars = dgm_factor_vars,
+    outcome_var = "cd4_change", treatment_var = "treat",
+    target_effect = cal_target_md, outcome_type = "continuous",
+    effect_measure = "MD", subgroup_vars = dgm_subgroup_vars,
+    subgroup_cuts = dgm_subgroup_cuts, k_inter_range = cal_k_grid_range,
+    grid_step = cal_grid_step, n_super = dgm_n_super, seed = seed_base,
+    verbose = FALSE)
+
+  # The scoring frame.  For continuous this RETURNS df_super unchanged: the MD
+  # is collapsible, so the target is an exact finite mean over the population
+  # and no simulation occurs.
+  eval_df <- fs_build_eval_frame(dgm, outcome_type = "continuous")
+
+  inQ        <- eval_df[[harm_col]] == 1L
+  delta      <- compute_aor(eval_df, as.integer(!inQ), "MD")   # complement effect
+  beta_inter <- dgm$model_params$beta_inter
+  effect_Q   <- dgm$hazard_ratios$harm_subgroup
+  effect_Qc  <- dgm$hazard_ratios$no_harm_subgroup
+
+  td <- fs_betaHhat_theta_dagger_check(eval_df, outcome_type = "continuous",
+                                       harm.name = harm_col,
+                                       effect_measure = "MD")
+  truth <- list(marg_H = unname(td[["thetaDagger_H"]]),
+                marg_Hc = unname(td[["thetaDagger_Hc"]]),
+                effect_Q = effect_Q, effect_Qc = effect_Qc,
+                delta = delta, beta_inter = beta_inter,
+                prevalence_Q = mean(inQ))
+
+  cat(sprintf("df_super n=%d   P(Q)=%.4f\n", nrow(eval_df), mean(inQ)))
+  cat(sprintf("MD(Q)=%.6f  MD(Qc)=%.6f  delta=%.6f  beta_inter=%.6f\n",
+              effect_Q, effect_Qc, delta, beta_inter))
+  cat(sprintf("theta-dagger  H=%.10f  Hc=%.10f\n", truth$marg_H, truth$marg_Hc))
+  cat(sprintf("scoring frame IS df_super: %s\n",
+              identical(eval_df, dgm$df_super)))
+}
+```
+
+## Closed-form check B — θ† against the DGM's own effects {#sec-checkB}
+
+**Provenance:** criterion 4 of `acceptance_betaHhat_md.qmd`, ported to the
+package entry point `fs_betaHhat_theta_dagger_check()`.
+
+θ† and the DGM's `effect_Q`/`effect_Qc` are the same population quantity
+computed by the same `compute_aor()` dispatch on the same columns. This is an
+**exact identity**, not agreement to Monte Carlo error; a tolerance here would
+hide a real defect.
+
+Both sides are read off the calibrated object: the harness value from
+`fs_betaHhat_theta_dagger_check(eval_df, ...)`, the reference from
+`dgm$hazard_ratios$harm_subgroup` / `$no_harm_subgroup`.
+
+```{r check-B}
+if (run_sweep) {
+  chk <- data.frame(
+    quantity = c("theta_dagger_H", "theta_dagger_Hc"),
+    harness  = c(truth$marg_H, truth$marg_Hc),
+    dgm      = c(truth$effect_Q, truth$effect_Qc))
+  chk$difference <- chk$harness - chk$dgm
+  print(chk, row.names = FALSE, digits = 12)
+  ok_B <- identical(chk$harness, chk$dgm)
+  cat(sprintf("\nCHECK B: identical() = %s   max |difference| = %.3e\n",
+              ok_B, max(abs(chk$difference))))
+  if (!ok_B) stop("CHECK B FAILED: theta-dagger does not reproduce the DGM's own effects.")
+}
+```
+
+# The recorder {#sec-recorder}
+
+```{r recorder}
+.na_record <- function(sim_id) data.frame(
+  sim_id = sim_id, seed = NA_integer_, detected = 0L, mr_ok = 0L,
+  n_sel = NA_integer_, n_harm = NA_integer_, n_true = NA_integer_,
+  label = NA_character_, sg_def = NA_character_,
+  md_trial_H = NA_real_,                       # naive in-trial MD on Hhat
+  nv_H_est = NA_real_, nv_H_lo = NA_real_, nv_H_hi = NA_real_,
+  t2_H_est = NA_real_, t2_H_lo = NA_real_, t2_H_hi = NA_real_,
+  t2_H_se_ij = NA_real_,
+  nv_Hc_est = NA_real_, t2_Hc_est = NA_real_,
+  t2_Hc_lo = NA_real_, t2_Hc_hi = NA_real_,
+  t2_harm_flag = NA_integer_, ij_source = NA_character_,
+  sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_,
+  t2_secs = NA_real_, stringsAsFactors = FALSE)
+
+.classify <- function(sg_hat, truth_flag) {
+  out <- c(sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_)
+  if (is.null(sg_hat) || length(sg_hat) != length(truth_flag)) return(out)
+  sg_hat <- as.integer(sg_hat); truth_flag <- as.integer(truth_flag)
+  tp <- sum(sg_hat == 1 & truth_flag == 1); fp <- sum(sg_hat == 1 & truth_flag == 0)
+  fn <- sum(sg_hat == 0 & truth_flag == 1); tn <- sum(sg_hat == 0 & truth_flag == 0)
+  out["sens"] <- if (tp + fn > 0) tp / (tp + fn) else NA_real_
+  out["spec"] <- if (tn + fp > 0) tn / (tn + fp) else NA_real_
+  out["ppv"]  <- if (tp + fp > 0) tp / (tp + fp) else NA_real_
+  out["npv"]  <- if (tn + fn > 0) tn / (tn + fn) else NA_real_
+  out
+}
+
+record_replicate <- function(sim_id, method, n_sample, nb_boots) {
+  rec <- .na_record(sim_id)
+  sd_i <- seed_for(sim_id)                     # global-id lookup, not position
+  rec$seed <- sd_i
+
+  df <- tryCatch(simulate_from_glm_dgm(dgm, n = n_sample, seed = sd_i),
+                 error = function(e) NULL)
+  if (is.null(df)) return(rec)
+  df[[id_name]] <- seq_len(nrow(df))
+  rec$n_true <- sum(df[[harm_col]] == 1L, na.rm = TRUE)
+
+  t0 <- proc.time()[3]
+  fs.est <- tryCatch(suppressWarnings(forestsearch(
+    df.analysis = df, confounders.name = confounders_analysis,
+    outcome.name = outcome_name, treat.name = treat_name, id.name = id_name,
+    outcome_type = "continuous", effect_measure = "MD",
+    effect.threshold = md_threshold, consistency.threshold = md_consistency,
+    pconsistency.threshold = pconsistency, fs.splits = fs_splits,
+    n.min = n_min, d0.min = d0_min, d1.min = d1_min, maxk = maxk,
+    vi.grf.min = vi_grf_min, use_lasso = use_lasso, use_grf = use_grf,
+    use_twostage = use_twostage, is.RCT = is_rct,
+    adverse_outcome = adverse_outcome,
+    details = FALSE, quiet = TRUE, seedit = sd_i,
+    parallel_args = inner_parallel,
+    mr_inference = TRUE,
+    mr_inference_args = list(ci_method = "ij", draws = mr_draws,
+                             include_complement = TRUE))),
+    error = function(e) NULL)
+  rec$t2_secs <- proc.time()[3] - t0
+  if (is.null(fs.est)) return(rec)
+
+  found <- !is.null(fs.est$sg.harm) && length(fs.est$sg.harm) > 0 &&
+           !all(is.na(fs.est$sg.harm))
+  rec$detected <- as.integer(found)
+  if (!found) return(rec)
+  rec$sg_def <- paste(fs.est$sg.harm, collapse = " & ")
+
+  # naive in-trial MD on the realized region, computed HERE from the trial --
+  # an independent path to the same quantity the gate reports as `naive`.
+  pr <- tryCatch(get_dfpred(df, fs.est$sg.harm), error = function(e) NULL)
+  if (!is.null(pr) && !is.null(pr$treat.recommend)) {
+    inH <- pr$treat.recommend == 0L
+    rec$n_harm <- sum(inH, na.rm = TRUE)
+    d <- df[which(inH), , drop = FALSE]
+    if (sum(d[[treat_name]] == 1L) >= 2L && sum(d[[treat_name]] == 0L) >= 2L)
+      rec$md_trial_H <- mean(d[[outcome_name]][d[[treat_name]] == 1L]) -
+                        mean(d[[outcome_name]][d[[treat_name]] == 0L])
+    cl <- .classify(as.integer(inH), df[[harm_col]])
+    rec$sens <- cl[["sens"]]; rec$spec <- cl[["spec"]]
+    rec$ppv  <- cl[["ppv"]];  rec$npv  <- cl[["npv"]]
+  }
+
+  g <- fs.est$mr_inference
+  rec$mr_ok <- as.integer(!is.null(g))
+  if (!is.null(g)) {
+    rec$label <- g$selected_label %||% NA_character_
+    rec$n_sel <- g$n_selected %||% NA_integer_
+    rec$t2_harm_flag <- as.integer(isTRUE(g$harm_flag))
+    rec$ij_source <- g$debiased$ij_source %||% NA_character_
+    rec$nv_H_est <- g$naive$est; rec$nv_H_lo <- g$naive$lower; rec$nv_H_hi <- g$naive$upper
+    rec$t2_H_est <- g$debiased$est; rec$t2_H_lo <- g$debiased$lower
+    rec$t2_H_hi <- g$debiased$upper
+    rec$t2_H_se_ij <- g$debiased$se_ij %||% NA_real_
+    if (is.list(g$complement) && !is.null(g$complement$debiased)) {
+      rec$nv_Hc_est <- g$complement$naive$est
+      rec$t2_Hc_est <- g$complement$debiased$est
+      rec$t2_Hc_lo  <- g$complement$debiased$lower
+      rec$t2_Hc_hi  <- g$complement$debiased$upper
+    }
+  }
+  rec
+}
+```
+
+# The cell runner {#sec-runcell}
+
+```{r run-cell}
+run_cell <- function(method, n_sample, nb_boots = NULL, out = NULL,
+                     sim_id_start = 1L) {
+  sim_ids <- sim_id_start:(sim_id_start + n_sims - 1L)
+  t0 <- proc.time()[3]
+  if (identical(parallel_mode, "sims")) {
+    plan("sequential"); gc(); plan("multisession", workers = n_workers)
+    results <- foreach(
+      s = sim_ids, .combine = rbind, .errorhandling = "remove",
+      .options.future = list(packages = c("forestsearch"), seed = TRUE)
+    ) %dofuture% record_replicate(s, method, n_sample, nb_boots)
+    plan("sequential"); gc()
+  } else {
+    results <- do.call(rbind, lapply(sim_ids, function(s)
+      tryCatch(record_replicate(s, method, n_sample, nb_boots),
+               error = function(e) NULL)))
+  }
+  elapsed <- proc.time()[3] - t0
+  if (is.null(results) || !nrow(results)) results <- .na_record(0L)[0, , drop = FALSE]
+
+  # beta(Hhat) at the realized rules, on the EXACT frame.  Undetected rows take
+  # the ITT complement (0 + N), so they are part of the Hhat^c denominator.
+  results <- fs_attach_betaHhat(
+    results, eval_df, focus = "harm", outcome_type = "continuous",
+    effect_measure = "MD")
+
+  bundle <- list(
+    results = results, truth = truth,
+    meta = list(n_sample = n_sample, n_sims = n_sims, nb_boots = nb_boots,
+                mr_draws = mr_draws, subgroup_method = method,
+                sim_id_start = sim_id_start, sim_id_end = max(sim_ids),
+                seed_base = seed_base, parallel_mode = parallel_mode,
+                n_workers = n_workers, elapsed_sec = elapsed,
+                # --- provenance, RECORD ONLY ------------------------------
+                run_tag = run_tag,
+                direction = "harm",
+                focus = "harm",
+                outcome_type = "continuous", effect_measure = "MD",
+                cal_target_md = cal_target_md,
+                adverse_outcome = adverse_outcome,
+                effect_threshold = md_threshold,
+                consistency_threshold = md_consistency,
+                threshold_orientation = "positive on the adverse_outcome=FALSE oriented scale (NOTE_threshold_sign_md.md)",
+                n_super = dgm_n_super,
+                seed_scheme = "pre-generated table indexed by global sim_id",
+                pkg_version = as.character(utils::packageVersion("forestsearch")),
+                pkg_commit = tryCatch(
+                  system("git rev-parse --short HEAD", intern = TRUE)[1],
+                  error = function(e) NA_character_),
+                r_version = as.character(getRversion()),
+                built_at = Sys.time()))
+  if (!is.null(out)) saveRDS(bundle, out)
+  bundle
+}
+```
+
+# Run the cell {#sec-run}
+
+```{r run-sweep}
+dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
+cell_path <- function(method, n)
+  file.path(results_dir, sprintf("%s_md_harm_n%d_res.rds",
+            if (identical(method, "consistency")) "fs" else method, n))
+
+bundles <- list()
+if (run_sweep) {
+  for (m in methods_run) for (n in n_grid_run) {
+    out <- cell_path(m, n)
+    b <- run_cell(m, n, nb_boots = nb_boots, out = out)
+    bundles[[basename(out)]] <- b
+    cat(sprintf("[%s n=%d] %.0f s total, %.1f s/replicate, detected %d/%d\n",
+                m, n, b$meta$elapsed_sec, b$meta$elapsed_sec / n_sims,
+                sum(b$results$detected == 1L), nrow(b$results)))
+  }
+}
+```
+
+# Readouts {#sec-readouts}
+
+```{r readouts}
+summarise_cell <- function(b) {
+  r <- b$results; tr <- b$truth
+  det <- r$detected == 1L
+  rd  <- r[det, , drop = FALSE]
+  N   <- nrow(eval_df)
+
+  cat(sprintf("\n================ %s, n = %d, %d replicates ================\n",
+              b$meta$subgroup_method, b$meta$n_sample, b$meta$n_sims))
+
+  ## ---- 5. partition, from the bundle -------------------------------------
+  s <- r$nH_eval + r$nHc_eval
+  cat("\n--- 5. PARTITION (from the bundle, all rows incl. undetected) ---\n")
+  cat(sprintf("  rows: %d;  distinct nH+nHc: %s;  all == N (%d): %s\n",
+              nrow(r), paste(unique(s), collapse = ", "), N, all(s == N)))
+  cat(sprintf("  betaHhat_status: %s\n",
+              paste(names(table(r$betaHhat_status, useNA = "ifany")),
+                    table(r$betaHhat_status, useNA = "ifany"),
+                    sep = "=", collapse = "  ")))
+  if (!all(s == N)) stop("PARTITION FAILED — machinery defect, phase stops.")
+
+  ## ---- 3. selection ------------------------------------------------------
+  sel_rate <- mean(det)
+  seff <- rd$md_trial_H - rd$betaHhat_H
+  cat("\n--- 3. SELECTION ---\n")
+  cat(sprintf("  selection_rate: %d/%d = %.3f\n", sum(det), nrow(r), sel_rate))
+  q <- quantile(seff, c(0, .25, .5, .75, 1), na.rm = TRUE)
+  cat(sprintf("  selection effect (in-trial MD - beta(Hhat)):\n"))
+  cat(sprintf("    mean %.4f   SD %.4f   min %.4f   Q1 %.4f   median %.4f   Q3 %.4f   max %.4f\n",
+              mean(seff, na.rm=TRUE), sd(seff, na.rm=TRUE),
+              q[1], q[2], q[3], q[4], q[5]))
+
+  ## ---- 1. bias, naive vs MR ---------------------------------------------
+  b_nv <- rd$nv_H_est - rd$betaHhat_H
+  b_mr <- rd$t2_H_est - rd$betaHhat_H
+  se <- function(x) sd(x, na.rm = TRUE) / sqrt(sum(is.finite(x)))
+  cat("\n--- 1. BIAS against the EXACT beta(Hhat) (zero MC error in the target) ---\n")
+  bias <- data.frame(
+    estimator = c("naive (in-trial)", "MR-corrected"),
+    n         = c(sum(is.finite(b_nv)), sum(is.finite(b_mr))),
+    mean_bias = c(mean(b_nv, na.rm=TRUE), mean(b_mr, na.rm=TRUE)),
+    SE        = c(se(b_nv), se(b_mr)),
+    SD        = c(sd(b_nv, na.rm=TRUE), sd(b_mr, na.rm=TRUE)))
+  print(bias, row.names = FALSE, digits = 6)
+
+  ## ---- 2. coverage -------------------------------------------------------
+  cov1 <- function(lo, hi, tgt) {
+    ok <- is.finite(lo) & is.finite(hi) & is.finite(tgt)
+    c(n_eff = sum(ok),
+      coverage = if (sum(ok)) mean(tgt[ok] >= lo[ok] & tgt[ok] <= hi[ok]) else NA_real_)
+  }
+  cH  <- cov1(rd$t2_H_lo,  rd$t2_H_hi,  rd$betaHhat_H)
+  cHn <- cov1(rd$nv_H_lo,  rd$nv_H_hi,  rd$betaHhat_H)
+  rc  <- r[is.finite(r$t2_Hc_lo), , drop = FALSE]
+  cHc <- cov1(rc$t2_Hc_lo, rc$t2_Hc_hi, rc$betaHhat_Hc)
+  cat("\n--- 2. COVERAGE of beta(Hhat) ---\n")
+  covt <- data.frame(
+    block = c("H", "H", "Hc"),
+    interval = c("MR (IJ)", "naive", "MR (IJ)"),
+    n_eff = c(cH[["n_eff"]], cHn[["n_eff"]], cHc[["n_eff"]]),
+    coverage = c(cH[["coverage"]], cHn[["coverage"]], cHc[["coverage"]]))
+  covt$mc_se <- sqrt(covt$coverage * (1 - covt$coverage) / pmax(covt$n_eff, 1))
+  print(covt, row.names = FALSE, digits = 4)
+
+  ## ---- 4. identification vs Q -------------------------------------------
+  cat("\n--- 4. IDENTIFICATION vs Q (NPV, project convention) ---\n")
+  idt <- data.frame(
+    metric = c("sensitivity","specificity","PPV","NPV"),
+    mean = c(mean(rd$sens,na.rm=TRUE), mean(rd$spec,na.rm=TRUE),
+             mean(rd$ppv,na.rm=TRUE),  mean(rd$npv,na.rm=TRUE)),
+    SD   = c(sd(rd$sens,na.rm=TRUE), sd(rd$spec,na.rm=TRUE),
+             sd(rd$ppv,na.rm=TRUE),  sd(rd$npv,na.rm=TRUE)),
+    min  = c(min(rd$sens,na.rm=TRUE), min(rd$spec,na.rm=TRUE),
+             min(rd$ppv,na.rm=TRUE),  min(rd$npv,na.rm=TRUE)),
+    max  = c(max(rd$sens,na.rm=TRUE), max(rd$spec,na.rm=TRUE),
+             max(rd$ppv,na.rm=TRUE),  max(rd$npv,na.rm=TRUE)))
+  print(idt, row.names = FALSE, digits = 4)
+
+  ## ---- 6. theta-dagger reference ----------------------------------------
+  cat("\n--- 6. THETA-DAGGER reference (a DISTINCT estimand from beta(Hhat)) ---\n")
+  cat(sprintf("  theta_dagger_H  = %.10f   mean beta(Hhat)_H  = %.10f\n",
+              tr$marg_H, mean(rd$betaHhat_H, na.rm = TRUE)))
+  cat(sprintf("  theta_dagger_Hc = %.10f   mean beta(Hhat)_Hc = %.10f\n",
+              tr$marg_Hc, mean(r$betaHhat_Hc, na.rm = TRUE)))
+  cat("  theta-dagger is the marginal effect at the TRUE Q; beta(Hhat) is the\n")
+  cat("  population effect at the REALIZED region.  They are not comparable\n")
+  cat("  targets and are printed side by side only for reference.\n")
+
+  invisible(list(bias = bias, coverage = covt, ident = idt,
+                 sel_rate = sel_rate, seff = seff))
+}
+
+cell_summaries <- lapply(bundles, summarise_cell)
+```
+
+# Closed-form assertions {#sec-assertions}
+
+Every readout with a closed-form counterpart gets it computed independently and
+asserted. A failure is a machinery defect and stops the phase.
+
+## Check A — the two-valued CATE identity on realized rules
+
+**Provenance:** `dev/glm-continuous-sims/NOTE_target_is_collapsibility.md` §3,
+and criterion 3 of `dev/glm-continuous-sims/verification/acceptance_betaHhat_md.qmd`,
+whose ingredient discipline is reused verbatim.
+
+The continuous DGM gives a two-valued subject effect: `delta` outside Q and
+`delta + beta_inter` inside. For **any** region R it follows that
+β(R) = δ + β_inter · P(Q | R). This is evaluated on the harness's own realized
+rules, not on hand-constructed ones.
+
+All three ingredients are **derived, never literal**: `delta` from
+`compute_aor()` on Qᶜ, `beta_inter` from `dgm$model_params$beta_inter`, and
+`P(Q | R)` counted on `df_super`. Nothing here is a typed constant, so the
+check cannot pass by agreeing with a number someone copied in.
+
+```{r check-A}
+if (length(bundles)) {
+  b <- bundles[[1]]; r <- b$results
+  rules <- unique(r$sg_def[!is.na(r$sg_def) & nzchar(r$sg_def)])
+  inQ <- eval_df[[harm_col]] == 1L
+  resolve <- function(g) {
+    if (length(g) == 1L && grepl("|", g, fixed = TRUE)) g
+    else if (length(g) == 1L && grepl(" & ", g, fixed = TRUE))
+      strsplit(g, " & ", fixed = TRUE)[[1L]] else g
+  }
+  A <- do.call(rbind, lapply(rules, function(g) {
+    idx <- get_dfpred(eval_df, resolve(g))$treat.recommend == 0L
+    p   <- mean(inQ[idx])
+    ex  <- r$betaHhat_H[match(g, r$sg_def)]
+    cf  <- truth$delta + truth$beta_inter * p
+    data.frame(rule = g, nH = sum(idx), P_Q = p,
+               exact = ex, closed_form = cf, diff = ex - cf,
+               stringsAsFactors = FALSE)
+  }))
+  print(A[, c("nH","P_Q","exact","closed_form","diff")], row.names = FALSE,
+        digits = 12)
+  mx <- max(abs(A$diff), na.rm = TRUE)
+  cat(sprintf("\nCHECK A: distinct rules = %d;  max |exact - closed form| = %.3e\n",
+              nrow(A), mx))
+  cat(sprintf("  exactly 0 on %d of %d rules\n", sum(A$diff == 0), nrow(A)))
+  # The identity is exact in real arithmetic; in floating point the two orders
+  # of summation differ in the last bits.  Anything above ~1e-10 is a defect.
+  if (!(mx == 0 || mx < 1e-10))
+    stop(sprintf("CHECK A FAILED: max |diff| = %.3e — machinery defect.", mx))
+  cat("  PASS (exact, or within floating-point reassociation)\n")
+}
+```
+
+## Check C — naive bias and mean selection effect are one quantity
+
+**Provenance:** defined in the task kickoff — same quantity, two computations.
+
+The gate's `naive` estimate and the in-trial MD computed independently in the
+recorder are the same number, so their mean deviations from β(Ĥ) must agree.
+The recorder's version is computed from the trial frame in `record_replicate()`
+without consulting the gate, so this is a genuine second path rather than the
+same value read twice.
+
+```{r check-C}
+if (length(bundles)) {
+  b <- bundles[[1]]; rd <- b$results[b$results$detected == 1L, , drop = FALSE]
+  nb <- mean(rd$nv_H_est  - rd$betaHhat_H, na.rm = TRUE)
+  sm <- mean(rd$md_trial_H - rd$betaHhat_H, na.rm = TRUE)
+  cat(sprintf("  naive mean bias        (gate)      : %.10f\n", nb))
+  cat(sprintf("  mean selection effect  (recorder)  : %.10f\n", sm))
+  cat(sprintf("  difference                         : %.3e\n", nb - sm))
+  pd <- max(abs(rd$nv_H_est - rd$md_trial_H), na.rm = TRUE)
+  cat(sprintf("  max per-replicate |gate naive - recorder MD| : %.3e\n", pd))
+  if (!(abs(nb - sm) < 1e-8))
+    stop(sprintf("CHECK C FAILED: %.3e — the two computations disagree.", nb - sm))
+  cat("  PASS\n")
+}
+```
+
+# Timing and the proposed full grid {#sec-schedule}
+
+```{r schedule}
+if (length(bundles)) {
+  b <- bundles[[1]]
+  per <- b$meta$elapsed_sec / b$meta$n_sims
+  cat(sprintf("pilot cell: n=%d, %d replicates, %.0f s total, %.2f s/replicate (%d workers)\n",
+              b$meta$n_sample, b$meta$n_sims, b$meta$elapsed_sec, per, b$meta$n_workers))
+  grid_n <- c(500L, 1000L, 2000L, 4000L); s_full <- 1000L
+  # cost per replicate is assumed to grow with n; the pilot measures ONE n, so
+  # the other three are scaled linearly and flagged as unverified.
+  est <- data.frame(n = grid_n,
+                    scale = grid_n / b$meta$n_sample,
+                    est_s_per_rep = per * (grid_n / b$meta$n_sample))
+  est$cell_hours <- est$est_s_per_rep * s_full / 3600
+  print(est, row.names = FALSE, digits = 4)
+  cat(sprintf("\nproposed full grid: n in {500,1000,2000,4000}, s = %d\n", s_full))
+  cat(sprintf("estimated total: %.1f h  (LINEAR-IN-n ASSUMPTION, measured at n=%d only)\n",
+              sum(est$cell_hours), b$meta$n_sample))
+}
+```
+
+# Provenance {#sec-prov}
+
+```{r provenance}
+if (length(bundles)) str(bundles[[1]]$meta, max.level = 1)
+cat(sprintf("\ndocument elapsed: %.1f min\n",
+            as.numeric(difftime(Sys.time(), .t0_doc, units = "mins"))))
+```
+
+```{r session}
+sessionInfo()
+```
