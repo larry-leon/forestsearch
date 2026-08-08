@@ -282,13 +282,14 @@ test_that("the rule reaching fs_mr_inference() is the one sg_focus implies", {
 # 6. KNOWN DEFECT, pinned as present behaviour
 # ---------------------------------------------------------------------------
 
-test_that("GLM outcomes silently skip the step under the default consistency_method", {
+test_that("GLM outcomes silently skip the step under consistency_method = 'split'", {
   # PRESENT BEHAVIOUR, NOT DESIRED BEHAVIOUR. The consistency branch runs only
   # when `consistency_method == "resample" && !is.null(estimator_fn)` (GLM) or
   # `outcome_type == "survival" && is.null(estimator_fn)` (Cox). For a GLM
-  # outcome under the default consistency_method = "split", neither holds, so
-  # the user opts in, nothing runs, and nothing warns -- leaving the harm flag
-  # NA, which isTRUE() renders as "harm not confirmed".
+  # outcome under consistency_method = "split", neither holds, so the user opts
+  # in, nothing runs, and nothing warns -- leaving the harm flag NA, which
+  # isTRUE() renders as "harm not confirmed".  Both arms are passed explicitly
+  # below, so this test does not depend on which value is the formal default.
   #
   # This test exists so the rename can be shown to preserve behaviour. Fixing
   # the defect is separate work; when it is fixed, this test SHOULD fail and

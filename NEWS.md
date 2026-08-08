@@ -1,5 +1,19 @@
 # forestsearch 0.2.0
 
+## `consistency_method` now defaults to `"resample"`
+
+The default is `"resample"`; `"split"` is retained as the fallback. Resample is
+the intended method: it applies to the Cox path and to GLM outcomes whose
+effect is a single model coefficient, and it is the cheaper of the two --
+`"split"` costs `fs.splits * 2` refits per candidate evaluation.
+
+**Behavior note:** callers that omit the argument now get resample-consistency
+where they previously got split-consistency. Two consequences worth knowing:
+results are not bit-identical across the change, and on a GLM outcome
+multiplier-resampling inference (`mr_inference = TRUE`) now runs by default,
+having previously been skipped because it requires `"resample"`. Pass
+`consistency_method = "split"` explicitly to retain the old behavior.
+
 ## Breaking: `ps_method != "none"` is now an error for survival outcomes
 
 Propensity adjustment is **not implemented** for `outcome_type = "survival"`.

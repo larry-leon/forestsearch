@@ -194,13 +194,15 @@
 #'   \code{"x2"} for linear adjustment.  Referenced columns must be present
 #'   in \code{df}.  Ignored on the GLM path.  Default \code{NULL}
 #'   (treatment-only, unadjusted).
-#' @param consistency_method Character. \code{"split"} (default) for the literal
-#'   repeated 50/50 split-and-refit consistency calculation, or
-#'   \code{"resample"} for the multiplier (influence-function) approximation via
-#'   \code{\link{consistency_resample}}.  On the GLM path \code{"resample"}
-#'   requires a \code{glm_resample_spec}; without one (or when
-#'   \code{consistency_resample} is unavailable) it falls back to
-#'   \code{"split"}.
+#' @param consistency_method Character. \code{"resample"} (default) for the
+#'   multiplier (influence-function) approximation via
+#'   \code{\link{consistency_resample}}, or \code{"split"} -- the retained
+#'   fallback -- for the literal repeated 50/50 split-and-refit calculation,
+#'   which costs \code{fs.splits * 2} refits per candidate evaluation.  On the
+#'   GLM path \code{"resample"} requires a \code{glm_resample_spec}; without one
+#'   (or when \code{consistency_resample} is unavailable) it falls back to
+#'   \code{"split"} with a warning.  \code{\link{forestsearch}} builds that spec
+#'   automatically; a direct caller on a GLM outcome must supply it.
 #' @param glm_resample_spec List or \code{NULL}. GLM resampling specification
 #'   threaded from \code{\link{forestsearch}} when
 #'   \code{consistency_method = "resample"} on a GLM outcome: components
@@ -363,7 +365,7 @@ subgroup.consistency <- function(df,
                                  effect_label = "HR",
                                  effect_log_scale = FALSE,
                                  adjust_covariates = NULL,
-                                 consistency_method = c("split", "resample"),
+                                 consistency_method = c("resample", "split"),
                                  glm_resample_spec = NULL) {
 
   # ===========================================================================

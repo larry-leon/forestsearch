@@ -710,11 +710,12 @@
 #'     \item{\code{seed}}{Seed for the multiplier draws; defaults to
 #'       \code{seedit}.}
 #'   }
-#' @param consistency_method Character. \code{"split"} (default) runs the
-#'   literal repeated 50/50 split-and-refit consistency calculation;
-#'   \code{"resample"} uses the multiplier (influence-function / \code{dfbeta})
-#'   approximation (\code{\link{consistency_resample}}), returning the rate from
-#'   a single subgroup fit. Despite the name, \code{"resample"} performs no
+#' @param consistency_method Character. \code{"resample"} (default) uses the
+#'   multiplier (influence-function / \code{dfbeta}) approximation
+#'   (\code{\link{consistency_resample}}), returning the rate from a single
+#'   subgroup fit; \code{"split"} is retained as the fallback and runs the
+#'   literal repeated 50/50 split-and-refit calculation, which costs
+#'   \code{fs.splits * 2} refits per candidate evaluation. Despite the name, \code{"resample"} performs no
 #'   numerical resampling at evaluation time -- the rate is a closed-form
 #'   expression. The name reflects the method's derivation: the repeated-split
 #'   consistency rate admits an equivalent multiplier-resampling (MR)
@@ -1156,7 +1157,7 @@ forestsearch <- function(df.analysis,
                          # NEW: Two-stage consistency parameters
                          use_twostage = TRUE,
                          twostage_args = list(),
-                         consistency_method = c("split", "resample"),
+                         consistency_method = c("resample", "split"),
                          # NEW: GLM outcome support
                          outcome_type = c("survival", "binary", "continuous",
                                           "count"),
