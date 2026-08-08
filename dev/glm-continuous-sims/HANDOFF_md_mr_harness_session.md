@@ -39,8 +39,19 @@ GLM/continuous machinery.
 - UNCOMMITTED: `R/betaHhat_truth.R` (the two functions
   `fs_build_eval_frame()` / `fs_betaHhat_theta_dagger_check()` implemented),
   `tests/testthat/test-betaHhat-contract.R` (T11–T14 drafted), `NAMESPACE`,
-  untracked `man/` pages. **Test and check status UNKNOWN — treat as
-  unverified.** The full engine re-point (dropping shim `source()` for
+  untracked `man/` pages. **Test and check status: a clean result exists for
+  exactly this file state, but re-verify.** Filesystem evidence:
+  `/tmp/claude-1000/-home-larryleon-Documents-GitHub-forestsearch/c57cd555-9ef2-41ea-859a-e431519d800f/scratchpad/check5.log`,
+  mtime `2026-08-07 19:41:05 -0700`, final line verbatim:
+  `0 errors ✔ | 0 warnings ✔ | 0 notes ✔` (`Status: OK`,
+  `Duration: 14m 46.8s`, with `checking tests ... Running 'testthat.R'
+  [654s/484s] OK`). The log postdates all three uncommitted files —
+  `R/betaHhat_truth.R` (19:24:19), `test-betaHhat-contract.R` (19:25:29),
+  `NAMESPACE` (19:26:11) — so it certifies **this** tree state, not merely
+  some earlier one. It is scratch, outside the repo, and will not survive;
+  blocker 1 still runs the tests and check and commits the result. Treat a
+  *disagreement* with this line as a signal worth investigating, not as an
+  expected first run. The full engine re-point (dropping shim `source()` for
   frame/theta) NEVER HAPPENED; engines still source shims for those two
   pieces, which works.
 - Harness `quarto/simulations/actg175/continuous/mr_coverage_sweep_md_harm.qmd`
