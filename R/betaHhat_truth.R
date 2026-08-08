@@ -592,3 +592,144 @@ fs_betaHhat_neff_report <- function(bundle, block = c("H", "Hc")) {
     stringsAsFactors = FALSE)
   out[!duplicated(out$sg_def), , drop = FALSE]
 }
+
+
+# --- evaluation frame and theta-dagger, per family ---------------------------
+
+#' The frame `beta(Hhat)` is scored on
+#'
+#' One entry point per outcome family, dispatching on `outcome_type` rather
+#' than exposing a separate function per family. Defaults reproduce the
+#' simulation modules this replaces exactly.
+#'
+#' @section What each family returns:
+#'
+#' * **survival** -- the entire fixed super-population, every subject exactly
+#'   once (`replace = FALSE`), under the same randomized/censored analysis the
+#'   trials run.
+#' * **binary** -- the same construction on the GLM simulator: every subject
+#'   once, under one fixed treatment/outcome realization.
+#' * **continuous / count** -- `dgm$df_super` **unchanged**. No simulation
+#'   occurs. The mean difference is collapsible, so the target is an exact
+#'   finite mean over the super-population: the scoring frame *is* the
+#'   population. `eval_seed` is accepted and ignored here so that generic
+#'   harness code need not branch, and the target carries **zero Monte Carlo
+#'   error** -- uniformity of the call surface is not sameness of the object.
+#'
+#' @section Rejected arguments:
+#'
+#' `analysis_time`, `cens_adjust` and `n_eval` are survival-only. Supplying any
+#' of them on a non-survival path is an error rather than a silent no-op:
+#' quietly ignoring an argument that means something on another path is how
+#' conventions drift apart.
+#'
+#' @param dgm A DGM object carrying `df_super`.
+#' @param outcome_type Character. One of `"survival"`, `"binary"`,
+#'   `"continuous"`, `"count"`.
+#' @param eval_seed Integer. Fixes the single realization on the full pool.
+#'   Ignored for `"continuous"` and `"count"`.
+#' @param analysis_time,cens_adjust Survival only.
+#' @param n_eval Defunct. Non-`NULL` is a hard error: this always evaluates the
+#'   full super-population, so both engines score the identical target.
+#'
+#' @return A data frame: the evaluation population.
+#'
+#' @keywords internal
+#' @export
+fs_build_eval_frame <- function(dgm,
+                                outcome_type = c("survival", "binary",
+                                                 "continuous", "count"),
+                                eval_seed = 20260628L,
+                                analysis_time = 84,
+                                cens_adjust = log(1.5),
+                                n_eval = NULL) {
+  outcome_type <- match.arg(outcome_type)
+  if (is.null(dgm$df_super))
+    stop("`dgm` has no `df_super`.", call. = FALSE)
+
+  if (!is.null(n_eval))
+    stop("fs_build_eval_frame() evaluates the FULL super-population ",
+         "(each subject once); the legacy `n_eval` argument has been removed. ",
+         "Drop n_eval from the call so both engines score the identical ",
+         "full-pool beta(Hhat).", call. = FALSE)
+
+  if (!identical(outcome_type, "survival")) {
+    surv_only <- c(analysis_time = !missing(analysis_time),
+                   cens_adjust   = !missing(cens_adjust))
+    if (any(surv_only))
+      stop(sprintf(paste0("`%s` is survival-only and was supplied with ",
+                          "outcome_type = \"%s\".  Ignoring it silently is how ",
+                          "conventions drift; drop it from the call."),
+                   paste(names(surv_only)[surv_only], collapse = "`, `"),
+                   outcome_type), call. = FALSE)
+  }
+
+  if (identical(outcome_type, "survival")) {
+    return(simulate_from_dgm(dgm, n = nrow(dgm$df_super), replace = FALSE,
+                             analysis_time = analysis_time,
+                             cens_adjust = cens_adjust, seed = eval_seed))
+  }
+  if (identical(outcome_type, "binary")) {
+    return(simulate_from_glm_dgm(dgm, n = nrow(dgm$df_super),
+                                 replace = FALSE, seed = eval_seed))
+  }
+  # continuous / count: the super-population IS the scoring frame.
+  dgm$df_super
+}
+
+
+#' `theta-dagger` at the true subgroup flag, on the scoring frame
+#'
+#' The marginal target at the DGM's own harm flag, computed on the same frame
+#' `beta(Hhat)` is scored on. Use it as a sanity gate: it should reproduce the
+#' DGM's own subgroup effects.
+#'
+#' For `"continuous"` and `"count"` this is an **exact identity**, not
+#' agreement to Monte Carlo error -- the frame is the super-population and the
+#' arithmetic is the same [compute_aor()] dispatch the DGM used. A tolerance
+#' there would hide a real defect.
+#'
+#' This is a thin dispatch onto the same per-family effect used for every
+#' region; it introduces no arithmetic of its own.
+#'
+#' @param frame Data frame. The evaluation population, normally from
+#'   [fs_build_eval_frame()].
+#' @param outcome_type Character. One of `"survival"`, `"binary"`,
+#'   `"continuous"`, `"count"`.
+#' @param harm.name Character. The true-subgroup flag column; `== 1L` is in.
+#' @param outcome.name,event.name,treat.name Character. Column names in
+#'   `frame`. `event.name` is survival only.
+#' @param effect_measure Character. Required for `"continuous"` and
+#'   `"count"`; ignored for `"survival"` and `"binary"`, which keep their
+#'   fitted targets.
+#'
+#' @return A named numeric vector, `thetaDagger_H` and `thetaDagger_Hc`.
+#'
+#' @keywords internal
+#' @export
+fs_betaHhat_theta_dagger_check <- function(frame,
+                                           outcome_type = c("survival",
+                                                            "binary",
+                                                            "continuous",
+                                                            "count"),
+                                           harm.name = "flag_harm",
+                                           outcome.name = "y_sim",
+                                           event.name = "event_sim",
+                                           treat.name = "treat_sim",
+                                           effect_measure = NULL) {
+  outcome_type <- match.arg(outcome_type)
+  stopifnot(is.data.frame(frame))
+  if (is.null(frame[[harm.name]]))
+    stop("`frame` has no column \"", harm.name, "\".", call. = FALSE)
+  if (outcome_type %in% c("continuous", "count") && is.null(effect_measure))
+    stop("`effect_measure` is required for outcome_type = \"", outcome_type,
+         "\"; there is no default to guess at.", call. = FALSE)
+
+  inH <- frame[[harm.name]] == 1L
+  c(thetaDagger_H  = .fs_region_effect(frame,  inH, outcome_type,
+                                       effect_measure, outcome.name,
+                                       event.name, treat.name),
+    thetaDagger_Hc = .fs_region_effect(frame, !inH, outcome_type,
+                                       effect_measure, outcome.name,
+                                       event.name, treat.name))
+}

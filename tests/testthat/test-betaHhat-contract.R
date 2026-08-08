@@ -384,3 +384,123 @@ test_that("T7 companion: the report separates unresolvable from degenerate", {
   expect_message(r2 <- fs_betaHhat_neff_report(at2, "H"), "no NA")
   expect_null(r2)
 })
+
+
+# ---------------------------------------------------------------------------
+# T11-T14: fs_build_eval_frame() and fs_betaHhat_theta_dagger_check()
+#
+# These compare the package functions against the simulation modules they
+# replace.  The modules are sourced into throwaway environments; they are NOT
+# modified by this task and still serve the 74 batch documents.
+# ---------------------------------------------------------------------------
+
+.shim_env <- function(path) { e <- new.env(); sys.source(path, envir = e); e }
+.REPO <- function(...) testthat::test_path("..", "..", ...)
+
+.have_shims <- function() {
+  all(file.exists(
+    .REPO("quarto/simulations/gbsg_redux/betaHhat_truth.R"),
+    .REPO("quarto/simulations/actg175/binary/betaHhat_truth_glm.R"),
+    .REPO("quarto/simulations/actg175/continuous/betaHhat_truth_md.R")))
+}
+
+# A tiny survival-shaped DGM stand-in is not enough here: fs_build_eval_frame()
+# delegates to simulate_from_dgm(), which requires a real aft_dgm object.  The
+# GBSG fixture is the smallest real one available.
+# Built once and cached: the calibration is the expensive part and is identical
+# across these tests.  Its coxph "Loglik converged before variable 1" warnings
+# come from the DGM build, not from the code under test, so they are muffled
+# here rather than left to mask a real warning from the functions being tested.
+.surv_dgm_cache <- new.env(parent = emptyenv())
+.small_surv_dgm <- function(n_super = 3000L) {
+  key <- as.character(n_super)
+  if (is.null(.surv_dgm_cache[[key]])) {
+    .surv_dgm_cache[[key]] <- suppressWarnings({
+      k <- calibrate_k_inter(target_hr_harm = 1.0, model = "alt",
+                             use_ahr = FALSE)
+      setup_gbsg_dgm(model = "alt", k_inter = k, n_super = n_super,
+                     seed = 8316951L)
+    })
+  }
+  .surv_dgm_cache[[key]]
+}
+
+test_that("T11: frames are bitwise identical to the shims they replace", {
+  skip_if_not(.have_shims(), "simulation modules not present")
+  sv <- .shim_env(.REPO("quarto/simulations/gbsg_redux/betaHhat_truth.R"))
+
+  dgm <- .small_surv_dgm()
+  a <- sv$build_eval_frame(dgm, analysis_time = 84, cens_adjust = log(1.5),
+                           eval_seed = 20260628L)
+  b <- fs_build_eval_frame(dgm, outcome_type = "survival",
+                           eval_seed = 20260628L)
+  expect_identical(a, b)
+
+  # continuous: the frame IS df_super, no simulation
+  cf <- fs_build_eval_frame(dgm, outcome_type = "continuous")
+  expect_identical(cf, dgm$df_super)
+  # and calling it twice is bit-identical (nothing random happened)
+  expect_identical(cf, fs_build_eval_frame(dgm, outcome_type = "continuous"))
+  # eval_seed is accepted and ignored there
+  expect_identical(cf, fs_build_eval_frame(dgm, outcome_type = "continuous",
+                                           eval_seed = 1L))
+})
+
+test_that("T12: the n_eval trap fires; survival-only args error off-path", {
+  dgm <- .small_surv_dgm()
+  expect_error(fs_build_eval_frame(dgm, outcome_type = "survival",
+                                   n_eval = 100L), "n_eval")
+  expect_error(fs_build_eval_frame(dgm, outcome_type = "continuous",
+                                   analysis_time = 48), "survival-only")
+  expect_error(fs_build_eval_frame(dgm, outcome_type = "binary",
+                                   cens_adjust = 0), "survival-only")
+  # the same arguments at their defaults are fine off-path
+  expect_silent(fs_build_eval_frame(dgm, outcome_type = "continuous"))
+})
+
+test_that("T13: theta-dagger matches the shims exactly", {
+  skip_if_not(.have_shims(), "simulation modules not present")
+  sv <- .shim_env(.REPO("quarto/simulations/gbsg_redux/betaHhat_truth.R"))
+  md <- .shim_env(.REPO("quarto/simulations/actg175/continuous/betaHhat_truth_md.R"))
+
+  dgm <- .small_surv_dgm()
+  E <- fs_build_eval_frame(dgm, outcome_type = "survival")
+  expect_identical(sv$betaHhat_theta_dagger_check(E),
+                   fs_betaHhat_theta_dagger_check(E, "survival"))
+
+  # continuous: exact identity on a frame carrying mu0/mu1
+  fr <- .mk_frame()
+  fr$flag_harm <- as.integer(fr$x1 > 50)
+  expect_identical(
+    md$betaHhat_theta_dagger_check_md(fr),
+    fs_betaHhat_theta_dagger_check(fr, "continuous", effect_measure = "MD"))
+
+  # effect_measure is required there -- no guessed default
+  expect_error(fs_betaHhat_theta_dagger_check(fr, "continuous"),
+               "effect_measure.*required")
+})
+
+test_that("T14 negative control: the wrong outcome_type must NOT agree", {
+  fr <- .mk_frame()
+  fr$flag_harm <- as.integer(fr$x1 > 50)
+
+  right <- fs_betaHhat_theta_dagger_check(fr, "continuous",
+                                          effect_measure = "MD")
+  wrong <- fs_betaHhat_theta_dagger_check(fr, "binary",
+                                          outcome.name = "y_bin",
+                                          treat.name = "treat_sim")
+  expect_false(identical(unname(right[["thetaDagger_H"]]),
+                         unname(wrong[["thetaDagger_H"]])))
+
+  # and a frame lacking the flag errors rather than scoring something
+  expect_error(fs_betaHhat_theta_dagger_check(.mk_frame(), "continuous",
+                                              effect_measure = "MD"),
+               "flag_harm")
+
+  # frame identity is family-specific too: the continuous return is df_super,
+  # the survival return is a simulated frame, and they must differ
+  skip_if_not(.have_shims(), "simulation modules not present")
+  dgm <- .small_surv_dgm()
+  expect_false(identical(fs_build_eval_frame(dgm, outcome_type = "continuous"),
+                         fs_build_eval_frame(dgm, outcome_type = "survival")))
+})
