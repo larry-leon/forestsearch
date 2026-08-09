@@ -288,15 +288,23 @@ record_replicate <- function(sim_id) {
   }
   rec$status <- "DETECTED"; rec$detected <- 1L
 
-  # Exact beta(Hhat)/beta(Hhat^c) via the package eval API; naive + MR columns
-  # from the fit; classification on the analysis sample.
-  att <- fs_attach_betaHhat(fs.est, eval_df = eval_df,
-                            outcome_type = "continuous")
-  rec$betaHhat_H  <- att$betaHhat_H;  rec$betaHhat_Hc <- att$betaHhat_Hc
-  rec$sg_def <- att$sg_def %||% fs.est$sg.harm$definition %||% NA_character_
-  rec$n_sel  <- att$nH_eval %||% NA_integer_
-  sgv <- fs.est$sg.harm$flag %||% fs.est$df_flag$treat.recommend %||% NULL
-  if (!is.null(sgv)) {
+  # The realized rule, as a single string.  fs.est$sg.harm is a CHARACTER
+  # VECTOR of rule terms, not a list with a $definition element, so the
+  # as-received `att$sg_def %||% fs.est$sg.harm$definition` gave NA_character_.
+  # sg_def is the key fs_attach_betaHhat() joins on, so an NA here silently
+  # routes every detected replicate into the undetected branch and hands it the
+  # ITT complement as its target.  Collapse verbatim as both references do.
+  rec$sg_def <- paste(fs.est$sg.harm, collapse = " & ")
+  rec$covs   <- rec$sg_def
+
+  # Classification of Hhat against the true harm flag, on the ANALYSIS sample.
+  # fs.est$sg.harm$flag and fs.est$df_flag do not exist either; the per-subject
+  # 0/1 membership vector is grp.consistency$sg.harm.id (survival
+  # template:529-532), aligned to the rows of df.  Left as-received this block
+  # would have written NA to n_harm/sens/spec/ppv/npv on every replicate --
+  # readout 4 of the batch, gone, and gone quietly.
+  sgv <- fs.est$grp.consistency$sg.harm.id
+  if (!is.null(sgv) && length(sgv) == nrow(df)) {
     rec$n_harm <- sum(sgv == 1L, na.rm = TRUE)
     rec[c("sens","spec","ppv","npv")] <- as.list(.classify(sgv, df[[harm_col]]))
   }
@@ -385,6 +393,27 @@ if (identical(parallel_mode, "sims")) {
 } else {
   results <- do.call(rbind, lapply(sim_ids, record_replicate))
 }
+
+# Exact beta(Hhat) at the realized rules, on the fixed evaluation frame.
+# fs_attach_betaHhat() is a POST-LOOP, whole-frame call: its signature is
+# (results, frame, focus, ...) -- a results data.frame carrying an sg_def
+# column, keyed to the rules it finds there -- not a per-replicate call on an
+# fs.est object.  The as-received document called it inside record_replicate()
+# as fs_attach_betaHhat(fs.est, eval_df = eval_df, outcome_type = ...), which
+# fails three ways at once: `eval_df` is not a formal (the function takes no
+# ..., so R raises "unused argument" and the tryCatch-free call aborts the
+# replicate), `focus` has no default and was not supplied, and `fs.est` is not
+# a results frame.  Call signature and argument values follow the committed
+# mr_coverage_sweep_md_harm.qmd:411-413 exactly -- same DGM, same outcome type,
+# same focus.
+#
+# Undetected and CONFIG-ERROR rows carry sg_def = NA and take the no-subgroup
+# record (nH_eval = 0, betaHhat_Hc = the ITT effect), so they remain part of
+# the Hhat^c denominator instead of dropping out.
+results <- fs_attach_betaHhat(
+  results, eval_df, focus = "harm", outcome_type = "continuous",
+  effect_measure = "MD")
+
 out <- file.path(results_dir, sprintf("%s_res_%d_%d.rds", rds_stem,
                  min(sim_ids), max(sim_ids)))
 saveRDS(list(results = results, truth = truth,
