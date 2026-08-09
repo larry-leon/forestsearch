@@ -341,9 +341,32 @@ record_replicate <- function(sim_id) {
         parallel_args = inner_parallel),
       error = function(e) { rec$fb_err <<- conditionMessage(e); NULL })
     rec$fb_secs <- proc.time()[3] - tb
-    if (!is.null(fb))
-      for (nm in c("fb_H_est","fb_H_lo","fb_H_hi","fb_H_se"))
-        rec[[nm]] <- fb[[nm]] %||% fb$H2[[nm]] %||% rec[[nm]]
+    # forestsearch_bootstrap_dofuture() returns the bias-corrected estimates in
+    # `H_estimates`, a one-row data.table with columns H0/H1/H2 and, per
+    # correction order, sdH*/H*_lower/H*_upper (bootstrap_calculations_helpers.R
+    # get_dfRes()).  H2 is Leon Eq.7 -- both bias sources -- which is the FB
+    # comparator this document is built around.  There is no top-level fb_H_est
+    # and no fb$H2 list, so the as-received chain left all four columns NA.
+    #
+    # SCALE.  get_dfRes() is invoked with est.loghr = FALSE for identity-scale
+    # measures (bootstrap_dofuture_main.R:557-563 lists MD among them), so H2
+    # and sdH2 are already on the MD scale.  The survival template's
+    # .se_beta_hr(sdH2, H2) = sdH2/H2 is the delta-method step from an HR SD to
+    # a log-HR SE and is deliberately NOT carried over: on an identity scale
+    # sdH2 IS the standard error, and dividing by H2 would be meaningless.
+    #
+    # The per-column %||% NA_real_ is retained from the template for the reason
+    # given there: get_dfRes() omits H2 when the second-order adjustment is
+    # unavailable, and a bare NULL assignment would DELETE the column from rec.
+    # rbind() then errors on the short record and one malformed replicate takes
+    # down the whole batch -- neither run path survives it.
+    if (!is.null(fb) && !is.null(fb$H_estimates)) {
+      he <- fb$H_estimates
+      rec$fb_H_est <- he$H2       %||% NA_real_
+      rec$fb_H_lo  <- he$H2_lower %||% NA_real_
+      rec$fb_H_hi  <- he$H2_upper %||% NA_real_
+      rec$fb_H_se  <- he$sdH2     %||% NA_real_
+    }
   }
   rec
 }
