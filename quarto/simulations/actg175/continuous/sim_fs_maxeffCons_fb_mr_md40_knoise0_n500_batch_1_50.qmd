@@ -300,11 +300,37 @@ record_replicate <- function(sim_id) {
     rec$n_harm <- sum(sgv == 1L, na.rm = TRUE)
     rec[c("sens","spec","ppv","npv")] <- as.list(.classify(sgv, df[[harm_col]]))
   }
-  for (nm in c("nv_H_est","nv_H_lo","nv_H_hi","nv_H_se",
-               "mr_H_est","mr_H_lo","mr_H_hi","mr_H_se_ij",
-               "mr_Hc_est","mr_Hc_lo","mr_Hc_hi","mr_Hc_se_ij","ij_source"))
-    rec[[nm]] <- fs.est[[nm]] %||% fs.est$mr[[nm]] %||% rec[[nm]]
-  rec$mr_ok <- as.integer(!is.na(rec$mr_H_est))
+  # Naive and MR columns live under fs.est$mr_inference, in the naive/debiased/
+  # complement sub-lists -- NOT at the top level of fs.est and not under an
+  # `fs.est$mr` element (there is none).  The as-received `%||%` chain over
+  # fs.est[[nm]] therefore resolved to the NA seed on every replicate: a silent
+  # all-NA MR arm that mr_ok, keyed on is.na(mr_H_est), would have reported as
+  # a genuine MR failure.  Field paths taken verbatim from
+  # mr_coverage_sweep_md_harm.qmd:365-382 and the survival template:506-526.
+  #
+  # mr_ok is keyed on the PRESENCE of the gate, not on a non-NA estimate, so an
+  # MR that ran and legitimately returned NA is not confused with one that
+  # never ran.  Detection is already recorded above and is independent of it.
+  g <- fs.est$mr_inference
+  rec$mr_ok <- as.integer(!is.null(g))
+  if (!is.null(g)) {
+    rec$n_sel     <- g$n_selected %||% NA_integer_
+    rec$ij_source <- g$debiased$ij_source %||% NA_character_
+    rec$nv_H_est <- g$naive$est    %||% NA_real_
+    rec$nv_H_lo  <- g$naive$lower  %||% NA_real_
+    rec$nv_H_hi  <- g$naive$upper  %||% NA_real_
+    rec$nv_H_se  <- g$debiased$se_wald %||% NA_real_
+    rec$mr_H_est <- g$debiased$est   %||% NA_real_
+    rec$mr_H_lo  <- g$debiased$lower %||% NA_real_
+    rec$mr_H_hi  <- g$debiased$upper %||% NA_real_
+    rec$mr_H_se_ij <- g$debiased$se_ij %||% NA_real_
+    if (is.list(g$complement) && !is.null(g$complement$debiased)) {
+      rec$mr_Hc_est   <- g$complement$debiased$est   %||% NA_real_
+      rec$mr_Hc_lo    <- g$complement$debiased$lower %||% NA_real_
+      rec$mr_Hc_hi    <- g$complement$debiased$upper %||% NA_real_
+      rec$mr_Hc_se_ij <- g$complement$debiased$se_ij %||% NA_real_
+    }
+  }
 
   # FB: full bootstrap of the identical fitted procedure (Eq. 7, H2).
   if (run_fb) {
