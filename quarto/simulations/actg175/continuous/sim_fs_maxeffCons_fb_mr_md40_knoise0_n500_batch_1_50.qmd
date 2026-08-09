@@ -16,6 +16,9 @@ execute:
   message: true
 ---
 
+> **Presentation review.** This render uses quick-run settings (`n_sims = 20`,
+> `nb_boots = 20`) for presentation review; FB columns are illustrative only.
+
 # What this evaluates {#sec-intro}
 
 Per replicate, identify $\hat H$ with forest search (`sg_focus =
@@ -62,6 +65,7 @@ estimator set, the record schema — mirrors the template.
 
 ```{r setup-knobs}
 #| message: false
+.t0_doc <- Sys.time()   # start of document wall-clock (total reported at the end)
 # forestsearch must be INSTALLED (devtools::install()), not load_all(): the
 # doFuture workers spawn separate R processes that only see the installed
 # package.
@@ -81,9 +85,11 @@ parallel_mode <- "sims"
 n_workers     <- max(1L, parallel::detectCores() - 8L)
 
 # ── Smoke-test counts (the only knobs to change for production) ─────────────
-n_sims       <- 50L     # replicates in THIS batch          (prod: 500 -> 1000)
+n_sims       <- 20L     # QUICK RUN for review        (production: 50L per batch)
 diag_mode    <- FALSE   # TRUE caps to 5 reps and relays worker errors verbatim
-nb_boots     <- 300L    # FB bootstraps (manuscript Section 7). 0L/NULL => MR-only.
+nb_boots     <- 20L     # PRESENTATION REVIEW ONLY -- below any FB validity
+                        # floor (manuscript uses 300); do not quote FB numbers
+                        # from this render.            (production: 300L)
 mr_draws     <- 5000L   # MR multiplier draws
 k_random_noise <- 0     # add k standard-normal noise confounders (0 = none)
 
@@ -102,7 +108,7 @@ sg_focus        <- "maxeffCons"  # highest effect meeting the consistency rate
 target_md_harm <- -40     # calibrate k_inter to this MD in the harm region
                           # (raw scale; oriented +40). NULL-ANALOGUE CELL (D3):
                           # set this to the calibrator's no-interaction effect.
-n_sample       <- 500L
+n_sample       <- 500L    #                             (production: 500L)
 
 method_tag <- if (identical(subgroup_method, "consistency")) "fs" else subgroup_method
 focus_tag  <- switch(sg_focus,
@@ -113,6 +119,11 @@ focus_tag  <- switch(sg_focus,
 rds_stem <- sprintf("%s_%s_fb_mr_md%02d_knoise%d_n%d",
                     method_tag, focus_tag, abs(target_md_harm),
                     k_random_noise, n_sample)
+# Quick-run renders are stem-tagged so their bundle can NEVER pool with real
+# batches: combine globs match the untagged stem, and the tag also renames the
+# results directory.  Set FALSE for production batches.
+quickrun <- TRUE
+if (isTRUE(quickrun)) rds_stem <- paste0(rds_stem, "_quickrun")
 results_dir <- file.path("fb_mr_md_harm", sprintf("%s_s%d_d%d",
                          rds_stem, n_sims, mr_draws))
 dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
@@ -401,10 +412,20 @@ record_replicate <- function(sim_id) {
   # FB: full bootstrap of the identical fitted procedure (Eq. 7, H2).
   if (run_fb) {
     tb <- proc.time()[3]
-    fb <- tryCatch(
-      forestsearch_bootstrap_dofuture(
-        fs.est, nb_boots = nb_boots, seed = sd_i,
-        parallel_args = inner_parallel),
+    # SILENCED (summary-upgrade spec A2): the function's own verbosity knob is
+    # `details`, already FALSE by default and pinned here, but its progress
+    # lines are gated on the ORIGINAL call's quiet flag
+    # (bootstrap_dofuture_main.R:455-467), which this document sets FALSE --
+    # so stdout is additionally captured.  The fb_err tryCatch is preserved
+    # exactly as committed; on error fb stays NULL.
+    fb <- NULL
+    tryCatch(
+      invisible(utils::capture.output(
+        fb <- forestsearch_bootstrap_dofuture(
+          fs.est, nb_boots = nb_boots, seed = sd_i,
+          details = FALSE,
+          parallel_args = inner_parallel),
+        type = "output")),
       error = function(e) { rec$fb_err <<- conditionMessage(e); NULL })
     rec$fb_secs <- proc.time()[3] - tb
     # forestsearch_bootstrap_dofuture() returns the bias-corrected estimates in
@@ -501,7 +522,13 @@ record_replicate <- function(sim_id) {
 # Run the batch {#sec-run}
 
 ```{r run-batch}
+#| output: false
+#| message: false
+# Nothing from the replicate loop prints to the document (summary-upgrade spec
+# A1/A3): the batch-means kable now lives in the summary layer below, and this
+# chunk's only side effect is the saved bundle.
 sim_ids <- seq(sim_id_start, length.out = if (isTRUE(diag_mode)) 5L else n_sims)
+t_all <- proc.time()[3]
 if (identical(parallel_mode, "sims")) {
   registerDoFuture(); future::plan(future::multisession, workers = n_workers)
   results <- foreach(i = sim_ids, .combine = rbind,
@@ -511,6 +538,7 @@ if (identical(parallel_mode, "sims")) {
 } else {
   results <- do.call(rbind, lapply(sim_ids, record_replicate))
 }
+elapsed <- proc.time()[3] - t_all   # run-loop wall-clock, for the timing section
 
 # Exact beta(Hhat) at the realized rules, on the fixed evaluation frame.
 # fs_attach_betaHhat() is a POST-LOOP, whole-frame call: its signature is
@@ -548,14 +576,448 @@ saveRDS(list(results = results, truth = truth,
                          parallel_mode = parallel_mode, n_workers = n_workers,
                          pkg_version = as.character(utils::packageVersion("forestsearch")),
                          built_at = Sys.time())), out)
-cat("Saved:", out, "\n")
+```
+
+# Summary layer {#sec-summary}
+
+Mirrored section-for-section from the committed survival combine document
+(`quarto/simulations/gbsg_redux/sim_fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_combine_1_500.qmd`),
+adapted to the MD identity scale and this document's column schema
+(`or_/nv_/fb_/mr_H_*` oriented, positive = harm; `betaHhat_H` raw, negative =
+harm).  Pure consumer of `results` — no simulation happens below this line.
+
+```{r summary-prep}
+#| message: false
+suppressPackageStartupMessages({ library(gt); library(ggplot2); library(knitr) })
+
+rd <- results[results$status %in% "DETECTED", , drop = FALSE]
+
+# Orientation bridge (commit 1830ca92): estimator columns are ORIENTED
+# (positive = harm); betaHhat_H is RAW cd4_change (negative = harm).
+.orient <- if (isTRUE(adverse_outcome)) 1 else -1
+rd$bH_or   <- .orient * rd$betaHhat_H       # oriented exact beta(Hhat)
+oracle_ref <- .orient * truth$effect_Q      # oriented effect_Q = +40
+
+.mfin   <- function(x) { x <- x[is.finite(x)]; if (length(x)) mean(x) else NA_real_ }
+.sdfin  <- function(x) { x <- x[is.finite(x)]; if (length(x) > 1L) sd(x) else NA_real_ }
+.medfin <- function(x) { x <- x[is.finite(x)]; if (length(x)) stats::median(x) else NA_real_ }
+.cover  <- function(target, lo, hi) {
+  target <- rep_len(target, length(lo))
+  ok <- is.finite(target) & is.finite(lo) & is.finite(hi)
+  if (!any(ok)) return(NA_real_)
+  mean(target[ok] >= lo[ok] & target[ok] <= hi[ok])
+}
+est_keys <- c(oracle = "or", naive = "nv", FB = "fb", MR = "mr")
+if (!run_fb) est_keys <- est_keys[names(est_keys) != "FB"]
+# Referent per estimator: oracle vs the oriented effect_Q (+40, a scalar);
+# naive/FB/MR vs the oriented per-replicate exact beta(Hhat).
+.ref_for <- function(k) if (k == "or") oracle_ref else rd$bH_or
+.se_col  <- function(k) if (k == "mr") "mr_H_se_ij" else paste0(k, "_H_se")
+```
+
+## Counts {#sec-counts}
+
+```{r counts-header}
+n_batch <- length(sim_ids)
+cat(sprintf("Batch sim_id %d-%d: %d/%d detected in %.1f s (%.1f s/replicate; %s mode, %d workers).\n",
+            min(sim_ids), max(sim_ids), sum(results$detected %in% 1L), n_batch,
+            elapsed, elapsed / max(1L, n_batch), parallel_mode, n_workers))
+knitr::kable(as.data.frame(table(status = results$status, useNA = "ifany")),
+             caption = "Replicate status.")
+knitr::kable(data.frame(
+  n_replicates = n_batch,
+  detected     = sum(results$detected %in% 1L),
+  mr_ok        = sum(results$mr_ok %in% 1L),
+  fb_err       = sum(!is.na(results$fb_err))),
+  caption = "Counts.")
+# The batch-means kable, moved here from the run chunk (spec A3).
 knitr::kable(within(as.data.frame(t(colMeans(
-  results[results$status == "DETECTED",
-          c("nv_H_est","or_H_est","fb_H_est","mr_H_est","betaHhat_H")],
+  rd[, c("nv_H_est","or_H_est","fb_H_est","mr_H_est","betaHhat_H")],
   na.rm = TRUE))), {}), digits = 3,
   caption = sprintf("Batch means, detected replicates (%d/%d detected; %d mr_ok; %d FB errors).",
-                    sum(results$detected %in% 1L), length(sim_ids),
+                    sum(results$detected %in% 1L), n_batch,
                     sum(results$mr_ok %in% 1L), sum(!is.na(results$fb_err))))
+```
+
+## Identified subgroup sizes
+
+```{r subgroup-size-callout, results='asis'}
+nH <- rd$n_harm[is.finite(rd$n_harm)]
+if (length(nH)) {
+  nHc <- n_sample - nH
+  .fmt <- function(v) sprintf("mean %.0f (SD %.0f), range [%d, %d], %.1f%% of ITT",
+                              mean(v), stats::sd(v), as.integer(min(v)),
+                              as.integer(max(v)), 100 * mean(v) / n_sample)
+  cat(sprintf("\n::: {.callout-note title=\"Identified subgroup sizes (%d of %d replicates detected, N = %d each)\"}\n\n",
+              nrow(rd), nrow(results), n_sample))
+  cat(sprintf("- **Harm $\\widehat H$**: %s\n", .fmt(nH)))
+  cat(sprintf("- **Complement $\\widehat H^{c}$**: %s\n", .fmt(nHc)))
+  nT <- rd$n_true[is.finite(rd$n_true)]
+  if (length(nT)) cat(sprintf("- **True harm $Q$**: %s\n", .fmt(nT)))
+  cat("\n:::\n\n")
+} else {
+  cat("\n::: {.callout-note title=\"Identified subgroup sizes\"}\nNo subgroup was identified on any replicate.\n:::\n\n")
+}
+```
+
+## Estimation / coverage table {#sec-estimation}
+
+```{r estimation-table}
+if (nrow(rd)) {
+  rows <- lapply(names(est_keys), function(lab) {
+    k   <- est_keys[[lab]]
+    e   <- rd[[paste0(k, "_H_est")]]
+    lo  <- rd[[paste0(k, "_H_lo")]]
+    hi  <- rd[[paste0(k, "_H_hi")]]
+    se  <- rd[[.se_col(k)]] %||% rep(NA_real_, nrow(rd))
+    ref <- .ref_for(k)
+    data.frame(Estimator = lab,
+               n        = sum(is.finite(e)),
+               Avg      = .mfin(e),
+               Bias     = .mfin(e - ref),
+               SD_emp   = .sdfin(e),
+               SE_hat   = .mfin(se),
+               Coverage = .cover(ref, lo, hi),
+               Width    = .mfin(hi - lo),
+               stringsAsFactors = FALSE)
+  })
+  est_tab <- do.call(rbind, rows)
+  gt(est_tab) |>
+    tab_header(
+      title = if (run_fb) "MR vs FB bootstrap: estimation & coverage"
+              else "MR: estimation & coverage",
+      subtitle = sprintf(
+        "MD/harm cell, quick run - n=%d, %d sims, B=%s, draws=%d - resample identification",
+        n_sample, n_batch, if (run_fb) as.character(nb_boots) else "0 (skipped)",
+        mr_draws)) |>
+    fmt_number(columns = c(Avg, Bias, SD_emp, SE_hat, Width), decimals = 2) |>
+    fmt_number(columns = Coverage, decimals = 2) |>
+    cols_label(n = "n", Avg = "Mean est.", Bias = "Bias vs referent",
+               SD_emp = "SD (emp)", SE_hat = "Mean SE (model)",
+               Coverage = "95% cov.", Width = "Mean CI width") |>
+    tab_footnote(footnote = md(paste(
+      "All columns oriented (positive = harm).",
+      "Referents: **oracle** vs the oriented DGM effect in the TRUE region",
+      sprintf("($+%.0f$, the oriented `effect_Q`; the oracle refits on $Q$, so",
+              abs(truth$effect_Q)),
+      "$\\beta(\\widehat H)$ is not its target);",
+      "**naive/FB/MR** vs the oriented per-replicate exact $\\beta(\\widehat H)$",
+      "computed on the DGM super-population (zero Monte Carlo error)."))) |>
+    tab_footnote(footnote = md(paste(
+      "**FB row caveat (unconditional comparator).**  The candidate family",
+      "REGENERATES under bootstrap resampling even for the consistency engine",
+      "(quantile-derived cuts move with each resample;",
+      "`dev/glm-continuous-sims/V_fb_adjudication.md` section V3, corroborated by",
+      "`.fs_family_status()`).  FB therefore targets the *unconditional* estimand",
+      "while MR conditions on the fitted family, so the FB row's",
+      "$\\beta(\\widehat H)$ comparison is reported with that caveat -- an FB-MR",
+      "gap is a finding about the estimands, not an error in either."))) |>
+    tab_footnote(footnote = md(sprintf(paste(
+      "**Quick-run caveat:** B = %d is below any FB validity floor",
+      "(manuscript uses 300); FB numbers in this render are illustrative only."),
+      if (run_fb) nb_boots else 0L)))
+}
+```
+
+```{r estimation-table-medians}
+# Median companion, same detected replicates, location columns are medians;
+# SD, n, and coverage computed exactly as above (mirrors the combine document).
+if (nrow(rd)) {
+  rows_med <- lapply(names(est_keys), function(lab) {
+    k   <- est_keys[[lab]]
+    e   <- rd[[paste0(k, "_H_est")]]
+    lo  <- rd[[paste0(k, "_H_lo")]]
+    hi  <- rd[[paste0(k, "_H_hi")]]
+    se  <- rd[[.se_col(k)]] %||% rep(NA_real_, nrow(rd))
+    ref <- .ref_for(k)
+    data.frame(Estimator = lab,
+               n        = sum(is.finite(e)),
+               Med      = .medfin(e),
+               Bias_med = .medfin(e - ref),
+               SD_emp   = .sdfin(e),
+               SE_med   = .medfin(se),
+               Coverage = .cover(ref, lo, hi),
+               Width_med = .medfin(hi - lo),
+               stringsAsFactors = FALSE)
+  })
+  gt(do.call(rbind, rows_med)) |>
+    tab_header(title = "Median summary (companion to the table above)",
+               subtitle = "Same detected reps - location columns are medians") |>
+    fmt_number(columns = c(Med, Bias_med, SD_emp, SE_med, Width_med), decimals = 2) |>
+    fmt_number(columns = Coverage, decimals = 2) |>
+    cols_label(Med = "Median est.", Bias_med = "Median bias",
+               SD_emp = "SD (emp)", SE_med = "Median SE",
+               Coverage = "95% cov.", Width_med = "Median CI width") |>
+    tab_footnote(footnote = "Same referents as the mean-based table above.")
+}
+```
+
+## The conditional target beta(Hhat) vs the oracle
+
+```{r betaHhat-callout, results='asis'}
+ok <- is.finite(rd$bH_or)
+if (any(ok)) {
+  .relm <- function(e, tgt) .mfin(e - tgt)
+  keys <- est_keys[names(est_keys) != "oracle"]
+  erows <- vapply(names(keys), function(lab) {
+    k <- keys[[lab]]
+    e <- rd[[paste0(k, "_H_est")]]; lo <- rd[[paste0(k, "_H_lo")]]; hi <- rd[[paste0(k, "_H_hi")]]
+    sprintf("| %s | %.2f | %+.2f | %+.2f | %.0f%% | %.0f%% |",
+            lab, .mfin(e), .relm(e, rd$bH_or), .relm(e, oracle_ref),
+            100 * .cover(rd$bH_or, lo, hi), 100 * .cover(oracle_ref, lo, hi))
+  }, character(1))
+  cat(sprintf("\n::: {.callout-note title=\"The beta(Hhat) target vs the oracle - harm block, %d detections\"}\n\n", sum(ok)))
+  cat("$\\beta(\\widehat H)$ is the exact population MD at the **realized** region",
+      "$\\widehat H$ (oriented, positive = harm); the **oracle** refits on the",
+      "**true** region $Q$; their gap is the price of selecting the wrong region.\n\n")
+  cat(sprintf("- oriented $\\beta(\\widehat H)$: mean **%.2f** (median %.2f) - oriented $\\beta(\\widehat H^{c})$: mean %.2f\n",
+              .mfin(rd$bH_or), .medfin(rd$bH_or), .mfin(.orient * rd$betaHhat_Hc)))
+  cat(sprintf("- oracle referent (oriented `effect_Q`): **%+.0f** - oracle mean estimate: %.2f\n",
+              oracle_ref, .mfin(rd$or_H_est)))
+  cat(sprintf("- discovery gap, oracle referent minus mean $\\beta(\\widehat H)$: **%.2f**\n\n",
+              oracle_ref - .mfin(rd$bH_or)))
+  cat("| estimator | mean | bias vs beta(Hhat) | bias vs +40 | cov beta(Hhat) | cov +40 |\n")
+  cat("|:--|--:|--:|--:|--:|--:|\n")
+  cat(paste(erows, collapse = "\n"), "\n\n")
+  cat(sprintf("At %d detections these figures are indicative, not a coverage read.\n", sum(ok)))
+  cat("\n:::\n\n")
+}
+```
+
+## Paired FB <-> MR agreement panel {#sec-paired}
+
+```{r paired-panel, results='asis'}
+#| eval: !expr run_fb
+okp <- is.finite(rd$fb_H_est) & is.finite(rd$mr_H_est)
+if (sum(okp) >= 2L) {
+  dpt <- rd$mr_H_est[okp] - rd$fb_H_est[okp]
+  dlo <- rd$mr_H_lo[okp]  - rd$fb_H_lo[okp]
+  dhi <- rd$mr_H_hi[okp]  - rd$fb_H_hi[okp]
+  agree_tab <- data.frame(
+    Quantity = c("point estimate", "CI lower", "CI upper"),
+    mean_d = c(mean(dpt), .mfin(dlo), .mfin(dhi)),
+    sd_d   = c(sd(dpt),   .sdfin(dlo), .sdfin(dhi)))
+  cat(as_raw_html(
+    gt(agree_tab) |>
+      tab_header(title = "MR - FB (oriented MD scale)",
+                 subtitle = sprintf("Harm block: %d paired reps, corr %.3f",
+                                    sum(okp),
+                                    suppressWarnings(cor(rd$fb_H_est[okp], rd$mr_H_est[okp])))) |>
+      cols_label(mean_d = "Mean diff.", sd_d = "SD diff.") |>
+      fmt_number(columns = c(mean_d, sd_d), decimals = 3)))
+  p <- ggplot(data.frame(fb = rd$fb_H_est[okp], mr = rd$mr_H_est[okp]),
+              aes(x = fb, y = mr)) +
+    geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "grey50") +
+    geom_point(size = 2, alpha = 0.8) +
+    labs(x = "FB (Eq. 7 / H2, oriented)", y = "MR (debiased, oriented)",
+         title = "Per-replicate de-biased point estimates",
+         subtitle = "Identity (MD) scale; dashed = agreement line") +
+    theme_minimal(base_size = 12)
+  print(p)
+} else {
+  cat("Too few paired FB/MR replicates to draw the panel.\n")
+}
+```
+
+```{r fb-src-decomposition}
+#| eval: !expr run_fb
+# Twin-specific addition: the two-source decomposition of the Eq. 7 correction,
+# recorded per replicate as fb_src1/fb_src2 (RAW scale -- see the recorder).
+oks <- is.finite(rd$fb_src1) & is.finite(rd$fb_src2)
+if (any(oks)) {
+  dec <- stats::quantile(rd$fb_src2[oks], probs = seq(0.1, 0.9, 0.1), names = FALSE)
+  knitr::kable(data.frame(
+    quantity = c("fb_src1 (resampling noise, H_star - H_obs)",
+                 "fb_src2 (re-selection, Hstar_star - Hstar_obs)",
+                 "fb_nres (finite resamples)"),
+    mean = c(.mfin(rd$fb_src1[oks]), .mfin(rd$fb_src2[oks]), .mfin(rd$fb_nres[oks]))),
+    digits = 4, caption = "Two-source decomposition of the FB correction (RAW scale).")
+  knitr::kable(data.frame(decile = paste0("d", seq(10, 90, 10)), fb_src2 = dec),
+    digits = 4, caption = "Deciles of fb_src2 (the re-selection source, RAW scale).")
+}
+```
+
+## Estimate distributions {#sec-boxplots}
+
+```{r estimator-boxplots}
+if (nrow(rd)) {
+  long <- do.call(rbind, lapply(names(est_keys), function(lab)
+    data.frame(Estimator = lab, est = rd[[paste0(est_keys[[lab]], "_H_est")]])))
+  long$Estimator <- factor(long$Estimator, levels = names(est_keys))
+  bH_mean <- .mfin(rd$bH_or)
+  ggplot(long[is.finite(long$est), ], aes(x = Estimator, y = est)) +
+    geom_boxplot(outlier.alpha = 0.5) +
+    geom_hline(yintercept = bH_mean, linetype = 2, colour = "firebrick") +
+    geom_hline(yintercept = oracle_ref, linetype = 3, colour = "steelblue") +
+    annotate("text", x = 0.6, y = bH_mean, vjust = -0.5, hjust = 0, size = 3,
+             colour = "firebrick", label = sprintf("mean beta(Hhat) = %.1f", bH_mean)) +
+    annotate("text", x = 0.6, y = oracle_ref, vjust = -0.5, hjust = 0, size = 3,
+             colour = "steelblue", label = sprintf("oracle referent = %+.0f", oracle_ref)) +
+    labs(y = "Oriented MD estimate (positive = harm)", x = NULL,
+         title = "Estimator distributions over detected replicates",
+         subtitle = "Dashed = mean oriented exact beta(Hhat); dotted = oriented effect_Q (oracle referent)") +
+    theme_minimal(base_size = 12)
+}
+```
+
+## Identification {#sec-identification}
+
+```{r identification-block}
+if (nrow(rd)) {
+  knitr::kable(data.frame(
+    metric = c("sens", "spec", "ppv", "npv"),
+    mean   = c(.mfin(rd$sens), .mfin(rd$spec), .mfin(rd$ppv), .mfin(rd$npv)),
+    median = c(.medfin(rd$sens), .medfin(rd$spec), .medfin(rd$ppv), .medfin(rd$npv))),
+    digits = 3, caption = "Classification of the identified subgroup vs the true harm flag (detected reps).")
+}
+```
+
+```{r identification-figures}
+# Covariate-frequency figures via the combine document's rule_covs() pattern
+# (its enrichment block defines rule_covs() as a wrapper over the package
+# internal .fs_rule_columns(); ported minimally here).  The recorder leaves
+# `covs` NA by design (rule_covs is not a package export), so the covariates
+# are recovered from sg_def post hoc.
+if (nrow(rd)) {
+  rule_covs <- function(rule) forestsearch:::.fs_rule_columns(rule)
+  cov_list  <- lapply(rd$sg_def, rule_covs)
+  cov_all   <- unique(unlist(cov_list))
+  if (length(cov_all)) {
+    cf <- vapply(cov_all, function(v)
+      mean(vapply(cov_list, function(x) v %in% x, logical(1))), numeric(1))
+    cf_df <- data.frame(covariate = names(cf), share = unname(cf))
+    cf_df$true_region <- cf_df$covariate %in% c("age", "preanti")
+    print(
+      ggplot(cf_df, aes(x = reorder(covariate, share), y = share, fill = true_region)) +
+        geom_col() + coord_flip() +
+        scale_fill_manual(values = c(`TRUE` = "firebrick", `FALSE` = "grey60"),
+                          labels = c(`TRUE` = "true-region covariate", `FALSE` = "other"),
+                          name = NULL) +
+        labs(x = NULL, y = "Share of detected replicates selecting the covariate",
+             title = "Selected-covariate frequencies",
+             subtitle = "True harm region: age > 34 & preanti <= 744.5 (z1 = z2 = 1)") +
+        theme_minimal(base_size = 12))
+    rules <- sort(table(rd$sg_def), decreasing = TRUE)
+    knitr::kable(data.frame(rule = names(rules), n = as.integer(rules),
+                            share = as.numeric(rules) / nrow(rd)),
+      digits = 3, caption = "Realized rules (sg_def) by frequency, detected reps.")
+  }
+}
+```
+
+## Timing {#sec-timing}
+
+```{r timing-distributions}
+.dist_row <- function(x) {
+  x <- x[is.finite(x)]
+  if (!length(x)) return(rep(NA_real_, 14))
+  c(min = min(x), stats::quantile(x, probs = seq(0.1, 0.9, 0.1)),
+    median = stats::median(x), mean = mean(x), max = max(x), n = length(x))
+}
+tim <- rbind(fit_mr_secs = .dist_row(results$fit_mr_secs),
+             fb_secs     = .dist_row(results$fb_secs))
+knitr::kable(tim, digits = 2,
+  caption = sprintf("Per-replicate seconds (all replicates; %s mode, %d workers).",
+                    parallel_mode, n_workers))
+tl <- rbind(data.frame(component = "fit + MR", secs = results$fit_mr_secs),
+            data.frame(component = "FB bootstrap", secs = results$fb_secs))
+tl <- tl[is.finite(tl$secs), , drop = FALSE]
+if (nrow(tl)) {
+  ggplot(tl, aes(x = component, y = secs)) +
+    geom_boxplot(outlier.alpha = 0.6) +
+    labs(x = NULL, y = "Seconds per replicate", title = "Per-replicate wall costs") +
+    theme_minimal(base_size = 12)
+}
+```
+
+```{r timing-projection}
+# Scale-up projection, ported from the combine document: measured per-replicate
+# costs drive a busiest-worker wall model, calibrated by k = measured wall /
+# modelled wall on THIS run.  Scenario knob -- edit freely.
+proj_scenarios <- list(
+  c(n_sims = 500L,  nb_boots = 300L),
+  c(n_sims = 1000L, nb_boots = 300L),
+  c(n_sims = 500L,  nb_boots = 500L)
+)
+mr_mean  <- .mfin(results$fit_mr_secs)
+det_rate <- mean(results$detected %in% 1L)
+boots_disp <- if (run_fb) as.integer(nb_boots) else 0L
+fb_mean  <- if (run_fb) .mfin(results$fb_secs) else NA_real_
+per_boot <- if (run_fb && boots_disp > 0L) fb_mean / boots_disp else NA_real_
+fmt_hm <- function(sec) {
+  if (!is.finite(sec)) return("-")
+  h <- floor(sec / 3600); m <- round((sec - 3600 * h) / 60)
+  if (h >= 1) sprintf("%d h %02d m", h, m) else sprintf("%d m", round(sec / 60))
+}
+per_rep_total <- function(B) {
+  fb_rep <- if (run_fb && is.finite(per_boot)) per_boot * B else 0
+  mr_mean + det_rate * fb_rep
+}
+wall_model <- function(ns, B) {
+  if (identical(parallel_mode, "boots")) ns * per_rep_total(B)
+  else ceiling(ns / n_workers) * per_rep_total(B)
+}
+wall_model_cur <- wall_model(n_batch, boots_disp)
+k_cal <- if (is.finite(elapsed) && is.finite(wall_model_cur) && wall_model_cur > 0)
+  elapsed / wall_model_cur else NA_real_
+proj_row <- function(ns, B, actual_sec = NA_real_) {
+  fb_rep  <- if (run_fb && is.finite(per_boot)) per_boot * B else NA_real_
+  cpu_sec <- ns * per_rep_total(B)
+  w_model <- wall_model(ns, B)
+  data.frame(n_sims = ns, B = as.integer(B),
+             mr_rep_s = round(mr_mean, 1),
+             fb_rep_s = if (is.finite(fb_rep)) round(fb_rep, 0) else NA_real_,
+             cpu_hours = round(cpu_sec / 3600, 1),
+             wall_actual = fmt_hm(actual_sec),
+             wall_model  = fmt_hm(w_model),
+             wall_cal    = fmt_hm(if (is.finite(k_cal)) k_cal * w_model else NA_real_),
+             stringsAsFactors = FALSE)
+}
+tab <- rbind(cbind(Scenario = "current run", proj_row(n_batch, boots_disp, actual_sec = elapsed)),
+             cbind(Scenario = "projection",
+                   do.call(rbind, lapply(proj_scenarios, function(s)
+                     proj_row(s[["n_sims"]], s[["nb_boots"]])))))
+cat(sprintf("Current run: %d reps in %.0f s on %d workers. Per rep: fit+MR %.1f s%s. Detection %.0f%%.\n",
+            n_batch, elapsed, n_workers, mr_mean,
+            if (run_fb) sprintf(", FB %.0f s (B=%d, ~%.1f s/bootstrap)",
+                                fb_mean, boots_disp, per_boot) else " (FB skipped)",
+            100 * det_rate))
+if (is.finite(k_cal))
+  cat(sprintf("Realized overhead factor k = %.2f (measured wall / busiest-worker model).\n", k_cal))
+gt(tab) |>
+  tab_header(title = "Wall-clock projection",
+             subtitle = sprintf("%s mode - %d workers - detection %.0f%%%s",
+                                parallel_mode, n_workers, 100 * det_rate,
+                                if (is.finite(k_cal)) sprintf(" - k = %.2f", k_cal) else "")) |>
+  cols_label(n_sims = "sims", B = "boots", mr_rep_s = "fit+MR/rep (s)",
+             fb_rep_s = "FB/rep (s)", cpu_hours = "CPU-hours",
+             wall_actual = "wall (actual)", wall_model = "wall (modeled)",
+             wall_cal = "wall (calibrated)") |>
+  tab_footnote(footnote = md(paste(
+    "QUICK-RUN CAVEAT: per-bootstrap cost is measured at B =",
+    sprintf("%d,", boots_disp),
+    "well below production; fixed per-replicate FB overhead is amortized over",
+    "far fewer bootstraps here, so the projected FB/rep at B = 300-500 likely",
+    "OVERSTATES the true cost.  Model: `wall (modeled)` =",
+    if (identical(parallel_mode, "boots"))
+      "sims x per-rep cost (replicates sequential);"
+    else "ceil(sims / workers) x per-rep cost (replicates parallel, bootstrap sequential);",
+    "per-rep cost = fit+MR/rep + detection x FB/rep.",
+    "`wall (calibrated)` = k x modeled, with k fit on THIS run.")))
+```
+
+```{r session-info}
+.fmt_dur <- function(s) {
+  h <- s %/% 3600; m <- (s %% 3600) %/% 60; sec <- round(s %% 60)
+  if (h >= 1) sprintf("%d h %02d m %02d s", h, m, sec)
+  else if (m >= 1) sprintf("%d m %02d s", m, sec)
+  else sprintf("%.1f s", s)
+}
+.secs_total <- as.numeric(difftime(Sys.time(), .t0_doc, units = "secs"))
+cat(sprintf("TOTAL wall-clock, start to finish: %s  (= %.0f s; %d reps on %d workers)\n",
+            .fmt_dur(.secs_total), .secs_total, n_batch, n_workers))
+cat(sprintf("  of which the run loop: %s\n", .fmt_dur(elapsed)))
+sessionInfo()
 ```
 
 Combine across batches with the template's `run_mode = "combine"` pattern
