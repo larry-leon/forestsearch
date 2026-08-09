@@ -247,6 +247,7 @@ cat(sprintf("DGM: effect_Q = %.10f | effect_Qc = %.10f | prevalence(Q) = %.4f | 
   sg_def = NA_character_, covs = NA_character_,
   betaHhat_H = NA_real_, betaHhat_Hc = NA_real_,
   fb_secs = NA_real_, fit_mr_secs = NA_real_, fb_err = NA_character_,
+  fb_src1 = NA_real_, fb_src2 = NA_real_, fb_nres = NA_integer_,
   or_H_est = NA_real_, or_H_lo = NA_real_, or_H_hi = NA_real_, or_H_se = NA_real_,
   nv_H_est = NA_real_, nv_H_lo = NA_real_, nv_H_hi = NA_real_, nv_H_se = NA_real_,
   fb_H_est = NA_real_, fb_H_lo = NA_real_, fb_H_hi = NA_real_, fb_H_se = NA_real_,
@@ -440,6 +441,46 @@ record_replicate <- function(sim_id) {
       rec$fb_H_lo  <- fb_ci[1]
       rec$fb_H_hi  <- fb_ci[2]
       rec$fb_H_se  <- he$sdH2 %||% NA_real_   # scale-free, NOT negated
+
+      # ---- Two-source decomposition of the Eq.7 correction ------------------
+      # RAW scale (not oriented), so these compose additively with H0/H2 as
+      # written in the source rather than needing a sign map.
+      #
+      #   fb_src1 = H_star     - H_obs      (resampling noise on the ORIGINAL
+      #                                      subgroup: same rule, bootstrap data)
+      #   fb_src2 = Hstar_star - Hstar_obs  (RE-SELECTION: the resample's own
+      #                                      subgroup, scored on its own data
+      #                                      vs on the original data)
+      #
+      # forestsearch_bootstrap_dofuture() does NOT return the four constituents
+      # -- H_obs, H_star, Hstar_star, Hstar_obs are locals inside the resample
+      # loop (bootstrap_analysis_dofuture.R:488, :697, :712) and only the two
+      # combinations survive into boot$results. They are nonetheless EXACTLY
+      # recoverable, because the two combinations are linearly independent in
+      # the two unknowns:
+      #
+      #   H_biasadj_1 = H_obs - (Hstar_star - Hstar_obs)
+      #   H_biasadj_2 = 2*H_obs - (H_star + Hstar_star - Hstar_obs)
+      #
+      #   => fb_src2 = Hstar_star - Hstar_obs = H_obs - H_biasadj_1
+      #   => fb_src1 = H_star     - H_obs     = H_biasadj_1 - H_biasadj_2
+      #
+      # H_obs is the original-sample fit on the original subgroup, which is
+      # exactly H0 on the identity scale (est.loghr = FALSE for MD, so ci_est()
+      # is a pass-through; verified in V_fb_adjudication.md section V1, where
+      # H0 = -103.1366726933 is the exact negative of the gate's naive
+      # estimate). Averaged over resamples, na.rm because a failed draw sets
+      # both adjustments NA (bootstrap_analysis_dofuture.R:729-731).
+      br <- fb$results
+      if (!is.null(br) && all(c("H_biasadj_1","H_biasadj_2") %in% names(br))) {
+        b1 <- br$H_biasadj_1; b2 <- br$H_biasadj_2
+        ok <- is.finite(b1) & is.finite(b2)
+        rec$fb_nres <- sum(ok)
+        if (any(ok)) {
+          rec$fb_src1 <- mean(b1[ok] - b2[ok])
+          rec$fb_src2 <- mean((he$H0 %||% NA_real_) - b1[ok])
+        }
+      }
     }
   }
   rec
