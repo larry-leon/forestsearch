@@ -414,12 +414,32 @@ record_replicate <- function(sim_id) {
     # unavailable, and a bare NULL assignment would DELETE the column from rec.
     # rbind() then errors on the short record and one malformed replicate takes
     # down the whole batch -- neither run path survives it.
+    #
+    # ORIENTATION.  FB returns the RAW outcome scale (negative = harm); the MR
+    # gate returns the ORIENTED scale (positive = harm).  Verified directly on
+    # replicate 1: the FB uncorrected estimate and the gate's naive estimate
+    # are EXACT negatives,
+    #
+    #   H0            = -103.1366726933
+    #   g$naive$est   =  103.1366726933
+    #   |H0 + naive|  =  0.000e+00
+    #
+    # so this is a sign flip, not a re-estimation -- the same relationship, and
+    # the same hazard, that commit 1830ca92 documents between the estimator
+    # columns and betaHhat/md_trial_H.  fb_* is recorded ORIENTED here so that
+    # it matches its siblings or_H_*, nv_H_* and mr_H_* in this schema; left
+    # raw it would read as a sign error against them in every downstream table.
+    # Interval bounds are negated AND swapped (a lower bound on -X is minus the
+    # upper bound on X); sdH2 is a standard deviation and is unaffected.
     if (!is.null(fb) && !is.null(fb$H_estimates)) {
       he <- fb$H_estimates
-      rec$fb_H_est <- he$H2       %||% NA_real_
-      rec$fb_H_lo  <- he$H2_lower %||% NA_real_
-      rec$fb_H_hi  <- he$H2_upper %||% NA_real_
-      rec$fb_H_se  <- he$sdH2     %||% NA_real_
+      .orient <- if (isTRUE(adverse_outcome)) 1 else -1
+      rec$fb_H_est <- .orient * (he$H2 %||% NA_real_)
+      fb_ci <- sort(.orient * c(he$H2_lower %||% NA_real_,
+                                he$H2_upper %||% NA_real_), na.last = TRUE)
+      rec$fb_H_lo  <- fb_ci[1]
+      rec$fb_H_hi  <- fb_ci[2]
+      rec$fb_H_se  <- he$sdH2 %||% NA_real_   # scale-free, NOT negated
     }
   }
   rec
