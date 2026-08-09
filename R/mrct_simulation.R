@@ -1066,7 +1066,7 @@ create_dgm_for_mrct <- function(
 #' @seealso \code{\link{mrct_region_sims}} for generating simulation results,
 #'   \code{\link{summaryout_mrct}} for tabular summaries with trimming
 #'
-#' @importFrom data.table data.table rbindlist `:=`
+#' @importFrom data.table data.table rbindlist :=
 #' @importFrom stats quantile sd
 #' @importFrom ggplot2 ggplot aes geom_violin geom_boxplot geom_hline scale_fill_brewer labs theme_minimal theme element_text coord_cartesian scale_x_discrete
 #' @export
@@ -1364,7 +1364,7 @@ null_or <- function(x, y) {
 #'
 #' @seealso \code{\link{mrct_region_sims}} for generating simulation results
 #'
-#' @importFrom data.table as.data.table copy fifelse `:=`
+#' @importFrom data.table as.data.table copy fifelse :=
 #' @importFrom stats median sd quantile
 #' @importFrom gt gt tab_header tab_spanner tab_style cell_text cell_borders cells_body tab_source_note cols_label cols_width tab_options px md
 #' @export
