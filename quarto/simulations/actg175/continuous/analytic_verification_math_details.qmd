@@ -1,0 +1,221 @@
+---
+title: "Analytic Verification: Mathematical Details"
+subtitle: "What Closed Forms Can and Cannot Verify in the MD/Harm MR Simulations"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: true
+  message: true
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>")
+```
+
+# Setup and notation
+
+Fix the super-population $\mathcal{S}$ of size $N = 5000$ (the committed
+`df_super`), the designed region $Q \subset \mathcal{S}$ with
+$|Q| = 1723$, prevalence $\pi = |Q|/N = 0.3446$, and randomized treatment
+$A \in \{0,1\}$. The data-generating model on the raw outcome scale is
+
+$$
+Y \;=\; \mu(X) \;+\; A\,\tau(X) \;+\; \varepsilon,
+\qquad
+\tau(x) \;=\; \tau_{Q^c} + \beta_{\mathrm{int}}\,\mathbf{1}\{x \in Q\},
+$$
+
+with $\tau_Q = -40$ (the calibration target), $\tau_{Q^c} =
+-26.255235876$, and $\beta_{\mathrm{int}} = \tau_Q - \tau_{Q^c} =
+-13.744764124$. The CATE is **two-valued**. Under `adverse_outcome =
+FALSE` the estimator works on the oriented scale $o(t) = -t$ (positive =
+harm), and the orientation bridge applies this sign map once (REPORT_stopA
+§5.3). For a region $H \subseteq \mathcal{S}$, the conditional estimand is
+
+$$
+\beta(H) \;=\; \mathbb{E}\!\left[\,Y(1) - Y(0)\mid X \in H\,\right]
+\;=\; \mathbb{E}\!\left[\,\tau(X)\mid X \in H\,\right],
+$$
+
+the second equality by randomization and the identity link. $\beta(\hat H)$
+— the estimand at the *data-selected* rule — is the target MR is scored
+against; $\theta^\dagger(H)$ denotes the marginal true-subgroup effect and
+is never conflated with it.
+
+# Tier A — algebraic closed forms (exactly verifiable)
+
+**Proposition 1 (mixture identity; the content of CHECK A).** For every
+$H \subseteq \mathcal{S}$ with $|H| > 0$,
+
+$$
+\beta(H)
+\;=\; \frac{|H \cap Q|\,\tau_Q + |H \cap Q^c|\,\tau_{Q^c}}{|H|}
+\;=\; \tau_{Q^c} + \beta_{\mathrm{int}}\, P(Q \mid H).
+$$
+
+*Proof.* Identity link and randomization give collapsibility —
+$\beta(H)$ is the average CATE over $H$ — and a two-valued $\tau$ makes
+that average a two-point mixture determined by one overlap count. $\square$
+
+The force of Proposition 1 is its quantifier: it holds for **every** rule,
+including every data-selected $\hat H$, so the scoring target behind every
+bias and coverage figure reduces to counting on a fixed finite set —
+machine-exact. Operationally, CHECK A recomputes $\beta(\hat H)$ this way
+for each realized rule and demands agreement with the evaluation-frame
+computation; it held at $1.42\times 10^{-14}$ over 601–912 distinct rules
+per cell.
+
+**Corollaries.** (i) $\beta(H^c)$ by the same mixture on the complement.
+(ii) The ITT chain: $\beta(\mathcal{S}) = \tau_{Q^c} +
+\beta_{\mathrm{int}}\pi$, which the bundles reproduce as the complement
+effect on undetected rows ($-30.991681593$). (iii) Disjointness:
+$H \cap Q = \varnothing \Rightarrow \beta(H) = \tau_{Q^c}$ — observed
+verbatim when a replicate selected a region disjoint from $Q$ and scored
+exactly $26.255$ oriented. (iv) Calibration (CHECK B):
+$\theta^\dagger(Q) = \beta(Q) = \tau_Q = -40$ identically. (v)
+Classification identities: with $s = |\hat H \cap Q|$,
+$\mathrm{sens} = s/|Q|$, $\mathrm{PPV} = s/|\hat H|$, hence
+$\mathrm{PPV} \equiv \mathrm{sens}\cdot |Q|/|\hat H|$ — the four reported
+metrics carry one degree of freedom given the sizes, an exact internal
+consistency relation.
+
+```{r itt-live}
+pfile <- "mr_sweep_md_harm/md_harm_s50_pilot/fs_md_harm_n1000_res.rds"
+if (file.exists(pfile)) {
+  b <- readRDS(pfile); tr <- b$truth; r <- b$results
+  pred_itt <- tr$effect_Qc + tr$beta_inter * tr$prevalence_Q
+  obs_itt  <- unique(round(r$betaHhat_Hc[r$detected %in% 0L |
+                                         is.na(r$detected)], 9))
+  stopifnot(length(obs_itt) == 1L, abs(pred_itt - obs_itt) < 1e-8)
+  cat(sprintf("ITT chain: tau_Qc + beta_int*pi = %.9f; bundle records %.9f\n",
+              pred_itt, obs_itt))
+}
+```
+
+# Tier B — exact by computation, not by formula
+
+Quantities defined on $\mathcal{S}$ for a realized object are computable
+with **zero Monte Carlo error** by finite summation even when no algebraic
+form exists. Two members matter here. First, in the binary/OR port the
+mixture identity fails — for a link $g$, $g^{-1}$ of a mixture is not the
+mixture of $g^{-1}$'s, so the marginal odds ratio over $H$ is not a
+two-point formula — yet the exact OR over $H$ remains a deterministic
+function of the DGM's probability surfaces evaluated on $\mathcal{S}$:
+Tier A degrades to Tier B, the reference stays exact. (The risk-difference
+scale retains full Tier A.) Second, the covariance structure of the
+candidate estimators: conditional on a realized family and sample, the
+difference-in-means estimators over regions $H_j, H_k$ with arm-wise counts
+$n_{j,a}$ satisfy, under homoscedastic $\varepsilon$,
+
+$$
+\operatorname{Cov}\!\big(\hat\beta_j, \hat\beta_k\big)
+\;=\; \sigma^2 \sum_{a\in\{0,1\}}
+\frac{\,n_{jk,a}\,}{\,n_{j,a}\, n_{k,a}\,},
+\qquad n_{jk,a} = |H_j \cap H_k \cap \{A=a\}|,
+$$
+
+so the full family covariance is an exact overlap computation — the raw
+material for the semi-analytic predictions of §5. The caveat is stated
+rather than hidden: family membership and quantile cuts are
+data-dependent, so this exactness is conditional on the realized family.
+
+# Tier C — computational identities
+
+Determinism supplies a third class: dual-path equalities (two independent
+computations of one quantity must agree exactly — CHECK C), the partition
+$|H| + |H^c| = N$ on every row, and bit-level reproducibility (a replicate
+is a deterministic function of (seed, RNG kind), so the standard is
+equality, not tolerance). These verify the *implementation*, not the
+estimand, and their exactness is what makes failures self-diagnosing: CHECK
+C's two quantities disagreeing by $1.98\times 10^{2}$ while summing to
+$2.7\times 10^{-13}$ is uniquely the signature of a sign flip — a
+tolerance-based check could only have said "off."
+
+# What closed forms cannot verify — the boundary
+
+**(a) The selection-event distribution.** $\hat H$ is the argmax of a
+screened, correlated field over a data-dependent family. The naive bias
+$\mathbb{E}[\hat\beta(\hat H) - \beta(\hat H)]$ therefore involves the law
+of a maximum of $\sim\!1500$ correlated statistics — no closed form exists.
+What *is* exact is the Gaussian approximation's inputs: the means are
+mixture values (Tier A) and the covariance is the overlap formula (Tier B),
+so the max functional can be evaluated **semi-analytically** — numerical
+integration or simulation of a *known* Gaussian, in the framework of
+Gaussian approximation of maxima (Chernozhukov–Chetverikov–Kato 2015).
+This is the untapped prediction tier: the naive-bias column and
+winner-size drift were forecastable before the grid ran.
+
+**(b) MR's adequacy.** The *scaling* of a linearized correction is
+derivable — a smooth functional of multiplier averages weighted by
+influence contributions is $O_p(n^{-1/2})$, and the measured decay
+($n^{-0.60}$) matches a well-formed first-order term. Its *sufficiency* is
+not derivable and was settled empirically: the residual grows because the
+simulated selection event ranks on a different statistic than the real one
+(the fidelity gap of `5b4efb4`), not because linearization fails.
+
+**(c) Coverage.** Conditionally closed-form, unconditionally not: given
+bias $b$, half-width $w/2$, and estimator scale $\sigma$,
+$P(\text{cover}) = \Phi\!\big(\tfrac{w/2-b}{\sigma}\big) -
+\Phi\!\big(\tfrac{-w/2-b}{\sigma}\big)$ — the demonstration chunk in the
+simulation summary — but $b$ and $w$ themselves live behind boundary (a).
+
+**(d) Detection.** The *marginal* clearance of a fixed region is
+closed-form: $P(\hat\beta(H) > c) = \bar\Phi\!\big((c -
+\beta_o(H))/\sigma_H(n)\big)$ with $\sigma_H(n)$ from Tier B. The *joint*
+event — any candidate surviving every gate — requires the family law of
+(a). Worked example, checked against measurement:
+
+```{r clearance-example}
+z <- (40 - 30) / 13.6786          # oriented truth, floor, measured SE at n=1000
+pred <- pnorm(z)
+cat(sprintf("Marginal clearance of Q at n = 1000: Phi(%.3f) = %.3f;\n", z, pred),
+    "measured (overnight O1): 36/50 = 0.720, MC SE 0.064 — consistent.\n")
+```
+
+**(e) The identifier's limit.** Whether $\hat H \to$ anything as
+$n \to \infty$ is a property of the algorithm and its screens on a
+data-dependent cut lattice — characterizable in principle under limiting
+quantile cuts, not undertaken; the simulations carry it as the phenomenon
+on the record (sensitivity $0.208 \to 0.062$).
+
+**(f) Survival, forward.** Under the AFT formulation $\log Y_{\mathrm{unc}}$
+is linear, so Tier A transfers wholesale on the log-time scale for the
+uncensored outcome (two-valued location shift $\Rightarrow$ mixture
+identity for AFT contrasts), and the classification metrics transfer
+unchanged. The observed-data Cox log-HR is non-collapsible and
+censoring-dependent: Tier B at best, with the marginal-HR / AHR estimand
+distinctions maintained.
+
+# Summary: the verification boundary at a glance
+
+| Quantity | Tier A (formula) | Tier B (exact computation) | Approximation only |
+|---|---|---|---|
+| $\beta(H)$, any rule, continuous/MD | yes — mixture | — | — |
+| $\theta^\dagger(Q)$, calibration | yes | — | — |
+| ITT / complement / disjoint values | yes | — | — |
+| sens/spec/PPV/NPV + consistency relation | yes | — | — |
+| $\beta(H)$, binary/OR | no | yes | — |
+| Candidate covariance (given family) | — | yes — overlaps | — |
+| Naive selection bias; winner-size law | no | inputs only | semi-analytic (Gaussian max) |
+| MR correction: scale / sufficiency | scale $O(n^{-1/2})$ | — | sufficiency: empirical |
+| Coverage | given $(b,w,\sigma)$ | — | unconditional |
+| Detection: marginal / joint | marginal | $\sigma_H(n)$ | joint |
+| Implementation (dual-path, partition, bit-repro) | — | Tier C, exact | — |
+
+The working division of labor, stated once: closed forms certify **targets
+and implementations** exactly; the **selection layer** — the thing under
+study — is beyond exact verification by construction, and there the
+analytics contribute exact *inputs* to semi-analytic prediction rather
+than proofs. Everything the simulations measure about selection is
+therefore measured against certified references, which is what converts a
+simulation study into a verified one.

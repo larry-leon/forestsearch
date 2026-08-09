@@ -1,0 +1,240 @@
+---
+title: "Simulation Summary: MD/Harm MR Coverage Grid (ACTG175 Continuous)"
+subtitle: "Post-Selection Inference for the Data-Driven Harm Subgroup — Mean Difference in CD4 Change"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: true
+  message: true
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+library(knitr)
+```
+
+# Scope, provenance, and estimands
+
+This document summarizes the multiplier-resampling (MR) coverage simulations
+for the continuous/MD harm pathway, loading the committed result bundles
+rather than restating numbers: the STOP B grid (`md_grid_s1000`, four cells,
+committed at `c489c57`) and the STOP A pilot (`md_harm_s50_pilot`,
+`70c7913`). Findings cited in prose are from
+`dev/glm-continuous-sims/REPORT_stopA_md_harm_pilot.md`,
+`REPORT_stopB_md_harm_grid.md`, `REPORT_overnight_funnel50.md`, and
+`REPORT_mr_mechanism.md` (`5b4efb4`).
+
+Two estimands are kept strictly distinct throughout. β(Ĥ) denotes the
+conditional estimand — the exact treatment effect at the realized,
+data-selected rule Ĥ, computed on the fixed super-population `df_super` with
+zero Monte Carlo error. θ†(H) denotes the marginal true-subgroup effect at
+the designed region Q. MR conditions on the realized candidate family and
+targets β(Ĥ); it is scored against β(Ĥ), never θ†. Effects are reported on
+the oriented scale (positive = harm) under `adverse_outcome = FALSE`; the
+exact references `betaHhat_*` are stored on the raw outcome scale, and the
+orientation bridge below applies the sign conversion once
+(REPORT_stopA §5.3; CHECK C).
+
+```{r load-bundles}
+gdir <- "mr_sweep_md_harm/md_grid_s1000"
+pfile <- "mr_sweep_md_harm/md_harm_s50_pilot/fs_md_harm_n1000_res.rds"
+cells <- c(500L, 1000L, 2000L, 4000L)
+paths <- file.path(gdir, sprintf("fs_md_harm_n%d_res.rds", cells))
+if (!all(file.exists(paths)))
+  stop("Grid bundles not found under ", gdir,
+       " -- render from quarto/simulations/actg175/continuous/.")
+bundles <- lapply(paths, readRDS)
+names(bundles) <- paste0("n", cells)
+pilot <- if (file.exists(pfile)) readRDS(pfile) else NULL
+
+meta <- bundles$n1000$meta
+kable(data.frame(
+  field = c("outcome / measure", "direction", "cal_target_md",
+            "adverse_outcome", "effect_threshold", "consistency_threshold",
+            "subgroup_method", "mr_draws", "n_super", "seed scheme",
+            "pkg_commit"),
+  value = c(paste(meta$outcome_type, "/", meta$effect_measure),
+            meta$direction, meta$cal_target_md, meta$adverse_outcome,
+            meta$effect_threshold, meta$consistency_threshold,
+            meta$subgroup_method, meta$mr_draws, meta$n_super,
+            meta$seed_scheme, meta$pkg_commit)),
+  caption = "Configuration, from the committed n = 1000 bundle's meta block.")
+```
+
+# Operating characteristics
+
+```{r summarise-cells}
+summarise_cell <- function(b) {
+  r <- b$results
+  ao <- isTRUE(b$meta$adverse_outcome)
+  .orient <- if (ao) 1 else -1              # orientation bridge, applied ONCE
+  det <- r$detected %in% 1L                 # NA (CONFIG-ERROR) not a detection
+  rd  <- r[which(det), , drop = FALSE]
+  bH  <- .orient * rd$betaHhat_H            # exact beta(Hhat), oriented
+  data.frame(
+    n = b$meta$n_sample, s = b$meta$n_sims,
+    detected = sum(det), mr_ok = sum(r$mr_ok %in% 1L),
+    naive_bias = mean(rd$nv_H_est - bH),
+    mr_bias    = mean(rd$t2_H_est - bH),
+    mr_se      = sd(rd$t2_H_est - bH) / sqrt(nrow(rd)),
+    coverage   = mean(rd$t2_H_lo <= bH & bH <= rd$t2_H_hi),
+    width      = mean(rd$t2_H_hi - rd$t2_H_lo),
+    beta_Hhat  = mean(bH))
+}
+trend <- do.call(rbind, lapply(bundles, summarise_cell))
+trend$bias_over_se <- trend$mr_bias / trend$mr_se
+kable(trend[, c("n","s","detected","mr_ok","naive_bias","mr_bias","mr_se",
+                "bias_over_se","coverage","width","beta_Hhat")],
+      digits = c(0,0,0,0,3,3,4,1,3,2,2), row.names = FALSE,
+      caption = "MR operating characteristics against exact β(Ĥ), conditional on detection. Denominators: detected replicates per cell.")
+```
+
+The pre-registered question — whether the residual MR bias at n = 1000
+shrinks with n the way a leading-order approximation error should — is
+answered in the negative. Naive bias falls as expected while the MR residual
+rises and plateaus near 37 with `bias/SE` increasing monotonically to ~70;
+coverage degrades from ~0.957 toward ~0.731 against nominal 0.95. The
+mechanism is visible in the width column: intervals shrink while the bias
+they must absorb does not, so coverage at small n is purchased by width
+rather than centring. The correction magnitude (naive − MR) decays close to
+n^{-1/2}, the signature of a linearized influence-scale term; the naive bias
+decays far more slowly because the selected regions remain small. For
+balance, the naive interval covers 16–21% at every n: MR is a large, cheap
+improvement and an insufficient correction on this pathway.
+
+```{r identification}
+ident <- do.call(rbind, lapply(bundles, function(b) {
+  r <- b$results; rd <- r[which(r$detected %in% 1L), , drop = FALSE]
+  data.frame(n = b$meta$n_sample,
+             sens = mean(rd$sens, na.rm = TRUE),
+             spec = mean(rd$spec, na.rm = TRUE),
+             ppv  = mean(rd$ppv,  na.rm = TRUE),
+             npv  = mean(rd$npv,  na.rm = TRUE),
+             nH_super_med = median(rd$nH_eval, na.rm = TRUE))
+}))
+kable(ident, digits = c(0,3,3,3,3,0), row.names = FALSE,
+      caption = "Identification of Q by Ĥ (sensitivity, specificity, PPV, NPV) and the median super-population size of Ĥ.")
+```
+
+Sensitivity falls from ~0.21 to ~0.06 while PPV stays near 0.41: the
+identifier converges not on Q but on small, noise-maximal regions clearing
+the +30 floor, whose exact β(Ĥ) sits just above it. Identification and
+inference are separate axes — near-nominal coverage and low sensitivity
+coexist at n = 1000 — and the identification rate is reported as the
+phenomenon on the record, not tuned away.
+
+```{r detection-status}
+statuses <- do.call(rbind, lapply(bundles, function(b) {
+  r <- b$results
+  data.frame(n = b$meta$n_sample,
+             DETECTED = sum(r$status == "DETECTED", na.rm = TRUE),
+             NO_DETECTION = sum(r$status == "NO-DETECTION", na.rm = TRUE),
+             CONFIG_ERROR = sum(r$status == "CONFIG-ERROR", na.rm = TRUE))
+}))
+kable(statuses, row.names = FALSE,
+      caption = "Replicate status per cell. The trichotomy makes a scientific null (NO-DETECTION) loudly distinct from a configuration failure.")
+```
+
+```{r pilot-anchor}
+if (!is.null(pilot)) {
+  kable(summarise_cell(pilot)[, c("n","s","detected","mr_ok","naive_bias",
+                                  "mr_bias","mr_se","coverage","width")],
+        digits = c(0,0,0,0,3,3,3,3,2), row.names = FALSE,
+        caption = "STOP A pilot anchor (s = 50), recomputed from its committed bundle.")
+}
+```
+
+The pre-fix selection-optimism anchors (overnight O1, split consistency, MR
+off): the selected region's in-trial effect exceeded Q's on 50/50 replicates
+by a mean of 59.42 on a scale whose truth is 40, with 50 distinct rules in
+50 replicates and only 2/50 naming both true variables.
+
+# Verification: the closed-form layer, exercised in these runs
+
+```{r partition-live}
+part <- vapply(bundles, function(b)
+  all(b$results$nH_eval + b$results$nHc_eval == b$meta$n_super),
+  logical(1))
+stopifnot(all(part))
+cat("Partition identity nH + nHc = N holds on every row of every cell.\n")
+```
+
+The DGM's CATE takes exactly two values (−40 in Q, −26.2552 outside), so the
+true effect of any rule is a closed-form prevalence-weighted mixture. In the
+committed runs: CHECK A held to 1.421e-14 across 601–912 distinct realized
+rules per cell (the scoring target certified for every selected rule);
+CHECK B reproduced the −40 calibration to machine precision on every run;
+CHECK C — two independent computations of the naive bias — caught a real
+scale-convention defect on its first firing (a 1.984e+02 disagreement whose
+components summed to 2.7e-13) and now agrees to 0.000e+00; the bit-level
+reproduction standard isolated an RNG-kind dependence (341 vs 334) and the
+post-fix re-render reproduced the pilot on 35 of 35 scientific columns.
+Every defect of the campaign was caught by an exact expectation; none by a
+tolerance.
+
+# Analytic results: utilization, and whether they are at full potential
+
+**Current uses** are the verification tiers above: identities asserted
+in-run, exact zero-Monte-Carlo references that make statements like
+"residual 35.47, SE 2.70" free of reference noise, and bit-level standards.
+These are near-fully exploited.
+
+**Prediction is largely untapped**, and the gap is demonstrable inside this
+document. The same normal approximation that underlies the intervals
+predicts coverage from the bias and width alone:
+
+```{r predicted-coverage}
+z975 <- qnorm(0.975)
+pred <- within(trend, {
+  se_imp <- width / (2 * z975)
+  pred_cov <- pnorm((width/2 - mr_bias)/se_imp) -
+              pnorm((-width/2 - mr_bias)/se_imp)
+})
+kable(pred[, c("n","mr_bias","width","coverage","pred_cov")],
+      digits = c(0,2,2,3,3), row.names = FALSE,
+      caption = "Observed coverage vs the closed-form prediction from (bias, width) alone. Agreement means the coverage column was derivable before the grid ran.")
+```
+
+Untapped items, in priority order. (i) *Detection probability a priori*:
+per-region floor-clearance probabilities follow from the mixture means and
+closed-form MD standard errors — the 997/1000 at n = 500 was predictable
+before execution. (ii) *An extreme-value forecast of the naive-bias column*:
+candidate means are mixture values and candidate covariances are exact
+region overlaps on `df_super`, so E[max] approximations yield the naive
+bias and winner-size drift as functions of n without simulation. (iii) *A
+semi-analytic MR benchmark*: the exact Gaussian-max model of the correction
+— now the natural specification and cheap validation route for the
+re-selection fidelity fix, ahead of any grid re-run. (iv) *Design
+calculators*: choosing n, s, and floors with Monte Carlo error budgeted
+analytically rather than by convention.
+
+# Status and open items
+
+The mechanism behind the residual is resolved (`REPORT_mr_mechanism.md`,
+`5b4efb4`): a **re-selection fidelity gap**, not linearization inadequacy.
+MR's per-draw re-selection ranks by `maxcons` on unrounded `zcons`
+(`R/fs_mr_inference.R:169`), selecting on consistency significance and
+hence large subgroups — simulated winners 2.46× the realized size at
+n = 1000 and 10.29× at n = 4000, with every executing gate replayed
+faithfully (zero gate failures across 250 × 5000 draws) and the correction
+decaying at n^{-0.60}, consistent with a well-formed first-order term aimed
+at the wrong selection event. Not claimed: that closing the gap removes the
+residual. The full-bootstrap comparator is priced (~72.3 core-seconds per
+fit; 7.8–10 hours for an s = 100 pilot at n = 1000) and deferred as an
+overnight-scale arbiter. Pre-registered: closing the candidate-family
+superset gap should slightly increase, not decrease, the residual. Next
+decisions: the re-selection fidelity fix (an `R/` design change, with the
+falsifiable prediction that simulated-winner sizes collapse to the realized
+range), the FB overnight, and the binary/OR port of this pathway.
