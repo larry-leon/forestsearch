@@ -77,7 +77,7 @@ suppressPackageStartupMessages({
 #              out across workers WITHIN each replicate. Best for FB runs.
 # Bootstrap resample indices are seeded on the main process, so the two modes
 # differ in wall-clock only, not in detection/estimates.
-parallel_mode <- "boots"
+parallel_mode <- "sims"
 n_workers     <- max(1L, parallel::detectCores() - 8L)
 
 # ── Smoke-test counts (the only knobs to change for production) ─────────────
@@ -271,7 +271,18 @@ cat(sprintf("DGM: effect_Q = %.10f | effect_Qc = %.10f | prevalence(Q) = %.4f | 
   v
 }
 
-inner_parallel <- list(plan = "multisession", workers = n_workers)
+# Inner (within-replicate) plan.  MUST be sequential under parallel_mode =
+# "sims": the FB call at the bottom of record_replicate() passes inner_parallel
+# UNCONDITIONALLY, so with replicates already fanned out across n_workers an
+# unguarded multisession inner plan would nest n_workers x n_workers processes.
+# Under "boots" the replicate loop is sequential, so the inner plan is where all
+# the parallelism lives and multisession is correct. Same pattern as the
+# committed sweep (mr_coverage_sweep_md_harm.qmd:141-143).
+inner_parallel <- if (identical(parallel_mode, "sims")) {
+  list(plan = "sequential")
+} else {
+  list(plan = "multisession", workers = n_workers)
+}
 
 record_replicate <- function(sim_id) {
   rec  <- .na_record(sim_id)
