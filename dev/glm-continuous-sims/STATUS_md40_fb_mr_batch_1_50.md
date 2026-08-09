@@ -1,0 +1,5 @@
+# STATUS — fs/maxeffCons FB+MR, MD/harm −40, n=500, k_noise=0, batch 1–50
+
+Stopped with the qmd reconciled and smoked (5/5 DETECTED, 5/5 mr_ok, 0 fb_err) but the batch NOT finished: `quarto render sim_fs_maxeffCons_fb_mr_md40_knoise0_n500_batch_1_50.qmd` (PID 2966238) has been running 03:13 as of 2026-08-09 00:40 and is still live, so no bundle exists — `fb_mr_md_harm/fs_maxeffCons_fb_mr_md40_knoise0_n500_s50_d5000/` is empty and no HTML has been written.
+Waiting on: that render to write `..._res_1_50.rds` and emit the batch-means table; at the smoke's measured cost (fit_mr ≈ 14.4–15.7 s, fb ≈ 213–250 s per replicate, replicates sequential under the configured `parallel_mode = "boots"`) 50 replicates is ≈ 3.3–3.7 h, so it is roughly on schedule rather than hung.
+Left running deliberately, not killed; the only uncommitted trace is the transient `*.rmarkdown` render intermediate, which is not a deliverable — on resume, confirm the RDS, commit it as the bundle, push, and report the batch means plus `fb_secs`/`fit_mr_secs` verbatim.
