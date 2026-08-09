@@ -134,15 +134,32 @@ use_lasso <- FALSE; use_dina <- FALSE; use_grf <- FALSE; use_twostage <- TRUE
 is_rct <- TRUE; vi_grf_min <- -0.2
 adverse_outcome <- FALSE   # higher CD4 change = better; harm = negative MD
 
-# ── DGM knobs (transplanted verbatim from the committed harness) ────────────
+# ── DGM knobs (NOW transplanted verbatim from the committed harness) ────────
+# mr_coverage_sweep_md_harm.qmd:102-114.  Do NOT recalibrate: cal_target_md =
+# -40 converges at machine precision with exactly these values.
+#
+# The as-received document had the SURVIVAL template's DGM parameterisation
+# here, which cannot calibrate on this DGM -- see the commit message.  The
+# harm region is pre-binarised into z1/z2 and the cuts are plain factor
+# levels; `type = "less_eq"` is not a cutpoint type the package implements
+# (generate_aft_dgm_helpers.R:750-785 accepts "greater", "multiple", "custom"
+# only), and the k_inter search interval is [0, 120], not [-3, 0].
+actg_arms        <- c(1L, 3L)
+actg_treat_arm   <- 1L
+actg_age_cut     <- 34
+actg_preanti_cut <- 744.5
 dgm_n_super <- 5000L
-cal_k_grid_range <- c(-3, 0); cal_grid_step <- 0.05
-dgm_factor_vars <- c("hemo","homo","drugs","race","gender","symptom")
-dgm_subgroup_vars <- c("age","preanti")
-dgm_subgroup_cuts <- list(age    = list(type = "greater",  value = 34),
-                          preanti = list(type = "less_eq", value = 744.5))
-analysis_continuous_vars <- c("age","wtkg","karnof","cd40","cd80","preanti")
-analysis_binary_vars     <- dgm_factor_vars
+cal_k_grid_range <- c(0, 120); cal_grid_step <- 2
+dgm_factor_vars   <- paste0("z", 1:12)
+dgm_subgroup_vars <- c("z1", "z2")
+dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
+# The ANALYSIS covariates stay the raw ACTG175 variables -- they are NOT the
+# DGM's z-factors.  age and preanti enter continuous, so the search has to
+# recover the z1/z2 region through its own quartile cuts; that is the design,
+# and tying analysis_binary_vars to dgm_factor_vars (as received) would have
+# handed the search the answer pre-binarised.
+analysis_continuous_vars <- c("age","preanti","wtkg","karnof","cd40","cd80")
+analysis_binary_vars     <- c("hemo","homo","drugs","race","gender","symptom")
 outcome_name <- "y_sim"; treat_name <- "treat_sim"
 id_name <- "id"; harm_col <- "flag_harm"
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
@@ -155,12 +172,26 @@ cat(sprintf("Batch %d..%d | n=%d | FB=%s(nb=%s) | MR draws=%d | mode=%s x %d wor
 # Build the DGM once (n-invariant truth) {#sec-dgm}
 
 ```{r build-dgm}
-actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
-actg_df$id    <- seq_len(nrow(actg_df))
-actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
-actg_df <- actg_df[!is.na(actg_df$cd420), ]
+actg_df <- subset(speff2trial::ACTG175, arms %in% actg_arms)
+actg_df$id <- seq_len(nrow(actg_df))
+# TREATMENT IS SWITCHED (ddI = 1), verbatim from the committed harness
+# (mr_coverage_sweep_md_harm.qmd:157-158).  The -40 calibration is defined
+# against THIS coding; the as-received `treat <- (arms == 1)` is its negation
+# and would have calibrated a different cell under the same name.
+actg_df$treat_orig <- ifelse(actg_df$arms == actg_treat_arm, 1L, 0L)
+actg_df$treat      <- 1L - actg_df$treat_orig
 actg_df$cd4_change <- actg_df$cd420 - actg_df$cd40
-for (v in dgm_factor_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+actg_df$z1  <- as.factor(ifelse(actg_df$age > actg_age_cut, 1L, 0L))
+actg_df$z2  <- as.factor(ifelse(actg_df$preanti <= actg_preanti_cut, 1L, 0L))
+actg_df$z3  <- as.factor(ifelse(actg_df$wtkg <= 75, 1L, 0L))
+actg_df$z4  <- as.factor(ifelse(actg_df$karnof <= median(actg_df$karnof), 1L, 0L))
+actg_df$z5  <- as.factor(ifelse(actg_df$cd40 <= median(actg_df$cd40), 1L, 0L))
+actg_df$z6  <- as.factor(ifelse(actg_df$cd80 <= median(actg_df$cd80), 1L, 0L))
+actg_df$z7  <- as.factor(actg_df$hemo);  actg_df$z8  <- as.factor(actg_df$homo)
+actg_df$z9  <- as.factor(actg_df$drugs); actg_df$z10 <- as.factor(actg_df$race)
+actg_df$z11 <- as.factor(actg_df$gender);actg_df$z12 <- as.factor(actg_df$symptom)
+for (v in analysis_binary_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
 confounders_analysis <- c(analysis_continuous_vars, analysis_binary_vars)
 
 dgm <- calibrate_glm_interaction(
@@ -175,11 +206,21 @@ dgm <- calibrate_glm_interaction(
 # Exact scoring frame: for continuous, df_super passes through unchanged —
 # beta(Hhat) is an exact finite-population mean, zero Monte Carlo error.
 eval_df <- fs_build_eval_frame(dgm, outcome_type = "continuous")
-truth   <- dgm$truth %||% dgm
-stopifnot(abs((truth$effect_Q %||% target_md_harm) - target_md_harm) < 1e-8)
-n_true_super <- sum(eval_df[[harm_col]] == 1L)
-cat(sprintf("DGM: effect_Q = %.6f | prevalence(Q) = %.4f | N_super = %d\n",
-            target_md_harm, n_true_super / nrow(eval_df), nrow(eval_df)))
+
+# truth is ASSEMBLED from the calibrated object, as in the committed harness
+# (mr_coverage_sweep_md_harm.qmd:187-200).  There is no `dgm$truth` element, so
+# the as-received `dgm$truth %||% dgm` fell through to dgm itself, whose
+# $effect_Q is also absent -- which made the stopifnot below read
+# target_md_harm on both sides and assert -40 == -40.  A vacuous guard in the
+# exact position where the calibration is supposed to be verified.
+inQ        <- eval_df[[harm_col]] == 1L
+truth <- list(effect_Q     = dgm$hazard_ratios$harm_subgroup,
+              effect_Qc    = dgm$hazard_ratios$no_harm_subgroup,
+              beta_inter   = dgm$model_params$beta_inter,
+              prevalence_Q = mean(inQ))
+stopifnot(abs(truth$effect_Q - target_md_harm) < 1e-8)
+cat(sprintf("DGM: effect_Q = %.10f | effect_Qc = %.10f | prevalence(Q) = %.4f | N_super = %d\n",
+            truth$effect_Q, truth$effect_Qc, truth$prevalence_Q, nrow(eval_df)))
 ```
 
 # Per-replicate machinery {#sec-machinery}
