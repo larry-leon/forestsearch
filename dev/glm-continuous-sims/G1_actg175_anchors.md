@@ -9,6 +9,11 @@ G1 only. No DGM changes, no `R/` changes, no calibration. G2's picks wait.
 **Items 1–3 are reported. Items 4–5 could not be produced; § 4 and § 5 say why,
 and § 6 states what that blocks in G2.**
 
+> **SUPERSEDED IN PART — read § 8 first.** Items 4 and 5 were subsequently
+> obtained by executing § 6's Route 3 (add a `maxeffCons` arm and render). § 8
+> carries both anchor rows and lifts § 6's blocker. §§ 4–6 are left standing
+> as the record of what was and was not available before that run.
+
 ---
 
 ## 1. Analysis cohort N

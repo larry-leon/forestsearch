@@ -51,3 +51,10 @@ Everything else — maxeffCons, resample, MR 5000, FB 300 on the anchor
 runs, the batch/combine structure, four-estimator schema — is the
 committed twin verbatim. The −40 planted cell remains as the machinery-
 validation and comparison arm; this cell is the paper's scenario.
+
+G2 adopts the same J = 10 quantile grids on all six continuous covariates as
+Step 1's real-data arm (`age`, `preanti`, `wtkg`, `karnof`, `cd40`, `cd80`),
+with the FB-arm cost priced from a measured smoke before any batch schedule is
+set — and with `max_subgroups_search` reviewed alongside them, since at J = 10
+the committed cap of 30 discarded 98 of 128 candidate subgroups before
+evaluation (G1 § 8, finding 3).
