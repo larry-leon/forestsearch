@@ -1,0 +1,367 @@
+---
+title: "FS/maxeffCons on the MD/harm DGM — MR vs full-bootstrap, batchable"
+subtitle: "Estimation/coverage head-to-head against the full bootstrap (FB), continuous twin of the GBSG Table-2 design"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: true
+  message: true
+---
+
+# What this evaluates {#sec-intro}
+
+Per replicate, identify $\hat H$ with forest search (`sg_focus =
+"maxeffCons"`) and compute four estimates of the within-subgroup mean
+difference on the same data and selected subgroup:
+
+* **oracle** $\hat\theta(Q)$ — refit on the true region (the analysis one
+  would run had the subgroup been pre-specified);
+* **naive** $\hat\theta(\hat H)$ — the plug-in on the selected region;
+* **FB** $\hat\theta^{*}(\hat H)$ — full nonparametric bootstrap
+  bias-correction (`forestsearch_bootstrap_dofuture()`, León Eq. 7, H2)
+  with its IJ interval;
+* **MR** $\tilde\theta(\hat H)$ — refit-free multiplier resampling on the
+  fixed fitted family, with its IJ interval.
+
+For the consistency engine the candidate family is fixed, so FB and MR
+target the same estimand and should agree to leading order — the
+dfbeta-linearisation check; an FB↔MR gap here is a finding about the MR
+re-selection, adjudicated by FB. Scoring uses the exact conditional
+estimand β(Ĥ) computed on the DGM super-population (zero Monte Carlo
+error) alongside the θ† references, kept strictly distinct.
+
+**Swap ledger versus the survival template**
+(`sim_fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_batch_1_50.qmd`), every
+deviation named: (1) DGM = `calibrate_glm_interaction()` /
+`simulate_from_glm_dgm()` (package API; ACTG175 CD4 change, harm
+direction) in place of the AFT/GBSG builders; (2) the scenario knob
+`target_md_harm` defaults to −40 — the committed, verified alternative
+cell — where the template runs its null (h10 = HR 1.0); the MD null
+analogue is the same document with this knob changed (alignment D3);
+(3) thresholds are the committed MD values (30 / 10 / 0.90); the
+consistency floor sits below both CATE values — a documented open design
+question (alignment D2) — and is retained unchanged here so this run is
+comparable with the committed grid; (4) truth attachment uses the exported
+eval API (`fs_build_eval_frame()`, exact `betaHhat_H`/`betaHhat_Hc`)
+instead of a sourced script — the continuous path's package-resident
+improvement; (5) the per-replicate error handling keeps the CONFIG-ERROR /
+NO-DETECTION / DETECTED trichotomy and the RNG-kind pin from the committed
+harness (a configuration failure must never read as a scientific null);
+everything else — batching, seeding, parallel topology, stems, the
+estimator set, the record schema — mirrors the template.
+
+# Setup — all knobs {#sec-setup}
+
+```{r setup-knobs}
+#| message: false
+# forestsearch must be INSTALLED (devtools::install()), not load_all(): the
+# doFuture workers spawn separate R processes that only see the installed
+# package.
+library(forestsearch)
+suppressPackageStartupMessages({
+  library(doFuture); library(foreach); library(data.table)
+})
+
+# ── Parallelization topology ────────────────────────────────────────────────
+#   "sims"  -> replicates fan out across workers (search + bootstrap sequential
+#              within each). Best when n_sims >= n_workers.
+#   "boots" -> replicates sequential; the search AND the nb_boots bootstrap fan
+#              out across workers WITHIN each replicate. Best for FB runs.
+# Bootstrap resample indices are seeded on the main process, so the two modes
+# differ in wall-clock only, not in detection/estimates.
+parallel_mode <- "boots"
+n_workers     <- max(1L, parallel::detectCores() - 8L)
+
+# ── Smoke-test counts (the only knobs to change for production) ─────────────
+n_sims       <- 50L     # replicates in THIS batch          (prod: 500 -> 1000)
+diag_mode    <- FALSE   # TRUE caps to 5 reps and relays worker errors verbatim
+nb_boots     <- 300L    # FB bootstraps (manuscript Section 7). 0L/NULL => MR-only.
+mr_draws     <- 5000L   # MR multiplier draws
+k_random_noise <- 0     # add k standard-normal noise confounders (0 = none)
+
+# ── Batching across renders (seed-disjoint pieces; pool via combine) ────────
+# Every per-replicate seed is seed_base + sim_id (DGM, search, bootstrap, and
+# noise), so disjoint sim_id ranges across renders pool to exactly one big run.
+run_mode     <- "batch"   # "batch" (run + save one piece) | "combine" (merge)
+sim_id_start <- 1L
+seed_base    <- 8316951L
+
+# ── The identifier: engine + focus (these ARE the estimator; they feed the stem)
+subgroup_method <- "consistency"
+sg_focus        <- "maxeffCons"  # highest effect meeting the consistency rate
+
+# ── Scenario knob and sample size ───────────────────────────────────────────
+target_md_harm <- -40     # calibrate k_inter to this MD in the harm region
+                          # (raw scale; oriented +40). NULL-ANALOGUE CELL (D3):
+                          # set this to the calibrator's no-interaction effect.
+n_sample       <- 500L
+
+method_tag <- if (identical(subgroup_method, "consistency")) "fs" else subgroup_method
+focus_tag  <- switch(sg_focus,
+                     eff = , hr = , maxcons = "maxcons",
+                     effMaxSG = , hrMaxSG = "effMaxSG",
+                     effMinSG = , hrMinSG = "effMinSG",
+                     sg_focus)
+rds_stem <- sprintf("%s_%s_fb_mr_md%02d_knoise%d_n%d",
+                    method_tag, focus_tag, abs(target_md_harm),
+                    k_random_noise, n_sample)
+results_dir <- file.path("fb_mr_md_harm", sprintf("%s_s%d_d%d",
+                         rds_stem, n_sims, mr_draws))
+dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
+
+# ── Search configuration (committed MD values; resample identification) ─────
+consistency_method <- "resample"
+# MR's de-biasing rule is derived by forestsearch() from sg_focus — not set
+# here. Override only via mr_inference_args(reselection=) (advanced use).
+selection_rule      <- "neighborhood"  # band rule for effMaxSG/effMinSG arms;
+effect_neighborhood <- 0.10            # inert under maxcons-family foci; pinned
+stop_threshold      <- NULL            # pinned so the resolved setting is visible
+md_threshold   <- 30    # effect.threshold, oriented scale (true clearance
+                        # <=> P(Q|H) >= 27.2% — alignment doc section 2)
+md_consistency <- 10    # consistency.threshold. OPEN QUESTION D2: sits below
+                        # both CATE values, hence non-discriminating.
+pconsistency   <- 0.90
+fs_splits <- 400L; maxk <- 2L; n_min <- 60L; d0_min <- 12L; d1_min <- 12L
+use_lasso <- FALSE; use_dina <- FALSE; use_grf <- FALSE; use_twostage <- TRUE
+is_rct <- TRUE; vi_grf_min <- -0.2
+adverse_outcome <- FALSE   # higher CD4 change = better; harm = negative MD
+
+# ── DGM knobs (transplanted verbatim from the committed harness) ────────────
+dgm_n_super <- 5000L
+cal_k_grid_range <- c(-3, 0); cal_grid_step <- 0.05
+dgm_factor_vars <- c("hemo","homo","drugs","race","gender","symptom")
+dgm_subgroup_vars <- c("age","preanti")
+dgm_subgroup_cuts <- list(age    = list(type = "greater",  value = 34),
+                          preanti = list(type = "less_eq", value = 744.5))
+analysis_continuous_vars <- c("age","wtkg","karnof","cd40","cd80","preanti")
+analysis_binary_vars     <- dgm_factor_vars
+outcome_name <- "y_sim"; treat_name <- "treat_sim"
+id_name <- "id"; harm_col <- "flag_harm"
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
+run_fb <- !is.null(nb_boots) && nb_boots >= 1L
+cat(sprintf("Batch %d..%d | n=%d | FB=%s(nb=%s) | MR draws=%d | mode=%s x %d workers\n",
+            sim_id_start, sim_id_start + n_sims - 1L, n_sample,
+            run_fb, nb_boots %||% 0L, mr_draws, parallel_mode, n_workers))
+```
+
+# Build the DGM once (n-invariant truth) {#sec-dgm}
+
+```{r build-dgm}
+actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg_df$id    <- seq_len(nrow(actg_df))
+actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+actg_df$cd4_change <- actg_df$cd420 - actg_df$cd40
+for (v in dgm_factor_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
+confounders_analysis <- c(analysis_continuous_vars, analysis_binary_vars)
+
+dgm <- calibrate_glm_interaction(
+  data = actg_df, factor_vars = dgm_factor_vars,
+  outcome_var = "cd4_change", treatment_var = "treat",
+  target_effect = target_md_harm, outcome_type = "continuous",
+  effect_measure = "MD", subgroup_vars = dgm_subgroup_vars,
+  subgroup_cuts = dgm_subgroup_cuts, k_inter_range = cal_k_grid_range,
+  grid_step = cal_grid_step, n_super = dgm_n_super, seed = seed_base,
+  verbose = FALSE)
+
+# Exact scoring frame: for continuous, df_super passes through unchanged —
+# beta(Hhat) is an exact finite-population mean, zero Monte Carlo error.
+eval_df <- fs_build_eval_frame(dgm, outcome_type = "continuous")
+truth   <- dgm$truth %||% dgm
+stopifnot(abs((truth$effect_Q %||% target_md_harm) - target_md_harm) < 1e-8)
+n_true_super <- sum(eval_df[[harm_col]] == 1L)
+cat(sprintf("DGM: effect_Q = %.6f | prevalence(Q) = %.4f | N_super = %d\n",
+            target_md_harm, n_true_super / nrow(eval_df), nrow(eval_df)))
+```
+
+# Per-replicate machinery {#sec-machinery}
+
+```{r machinery}
+.classify <- function(sg_hat, tru) {
+  out <- c(sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_)
+  if (is.null(sg_hat) || length(sg_hat) != length(tru)) return(out)
+  sg_hat <- as.integer(sg_hat); tru <- as.integer(tru)
+  tp <- sum(sg_hat==1 & tru==1); fp <- sum(sg_hat==1 & tru==0)
+  fn <- sum(sg_hat==0 & tru==1); tn <- sum(sg_hat==0 & tru==0)
+  out["sens"] <- if (tp+fn>0) tp/(tp+fn) else NA_real_
+  out["spec"] <- if (tn+fp>0) tn/(tn+fp) else NA_real_
+  out["ppv"]  <- if (tp+fp>0) tp/(tp+fp) else NA_real_
+  out["npv"]  <- if (tn+fn>0) tn/(tn+fn) else NA_real_
+  out
+}
+
+# One record; status distinguishes CONFIG-ERROR / NO-DETECTION / DETECTED.
+.na_record <- function(sim_id) data.frame(
+  sim_id = sim_id, status = NA_character_, detected = NA_integer_,
+  mr_ok = NA_integer_, err_msg = NA_character_, mr_msg = NA_character_,
+  n_sel = NA_integer_, n_harm = NA_integer_, n_true = NA_integer_,
+  sg_def = NA_character_, covs = NA_character_,
+  betaHhat_H = NA_real_, betaHhat_Hc = NA_real_,
+  fb_secs = NA_real_, fit_mr_secs = NA_real_, fb_err = NA_character_,
+  or_H_est = NA_real_, or_H_lo = NA_real_, or_H_hi = NA_real_, or_H_se = NA_real_,
+  nv_H_est = NA_real_, nv_H_lo = NA_real_, nv_H_hi = NA_real_, nv_H_se = NA_real_,
+  fb_H_est = NA_real_, fb_H_lo = NA_real_, fb_H_hi = NA_real_, fb_H_se = NA_real_,
+  mr_H_est = NA_real_, mr_H_lo = NA_real_, mr_H_hi = NA_real_, mr_H_se_ij = NA_real_,
+  mr_Hc_est = NA_real_, mr_Hc_lo = NA_real_, mr_Hc_hi = NA_real_, mr_Hc_se_ij = NA_real_,
+  ij_source = NA_character_,
+  sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_,
+  stringsAsFactors = FALSE)
+
+# Oracle: difference in means refit on the TRUE region (identity link).
+.oracle_md <- function(df) {
+  h <- df[[harm_col]] == 1L
+  if (!any(h)) return(c(est=NA_real_, lo=NA_real_, hi=NA_real_, se=NA_real_))
+  fit <- stats::lm(stats::reformulate(treat_name, response = outcome_name),
+                   data = df[h, , drop = FALSE])
+  co <- summary(fit)$coefficients[treat_name, ]
+  est <- unname(co["Estimate"]); se <- unname(co["Std. Error"])
+  s <- if (isTRUE(adverse_outcome)) 1 else -1        # oriented: + = harm
+  c(est = s*est, lo = s*est - 1.96*se, hi = s*est + 1.96*se, se = se)[c(1,3,2,4)] -> v
+  if (s < 0) v[c("lo","hi")] <- sort(unname(v[c("lo","hi")]))
+  v
+}
+
+inner_parallel <- list(plan = "multisession", workers = n_workers)
+
+record_replicate <- function(sim_id) {
+  rec  <- .na_record(sim_id)
+  sd_i <- seed_base + sim_id
+  # Pin the RNG kind: simulate_from_glm_dgm() calls set.seed(seed) with
+  # kind = NULL, inheriting the ambient generator (addendum D.2).
+  RNGkind("L'Ecuyer-CMRG"); set.seed(sd_i)
+
+  df <- tryCatch(simulate_from_glm_dgm(dgm, n = n_sample, seed = sd_i),
+                 error = function(e) { rec$err_msg <<- conditionMessage(e); NULL })
+  if (is.null(df)) { rec$status <- "CONFIG-ERROR"; return(rec) }
+  df[[id_name]] <- df[[id_name]] %||% seq_len(nrow(df))
+  if (k_random_noise > 0) {
+    set.seed(sd_i + 10^7)
+    for (j in seq_len(k_random_noise))
+      df[[paste0("noise", j)]] <- stats::rnorm(nrow(df))
+  }
+  confs <- c(confounders_analysis,
+             if (k_random_noise > 0) paste0("noise", seq_len(k_random_noise)))
+  rec$n_true <- sum(df[[harm_col]] == 1L)
+  rec[c("or_H_est","or_H_lo","or_H_hi","or_H_se")] <- as.list(.oracle_md(df))
+
+  t0 <- proc.time()[3]; fs.est <- NULL
+  msgs <- tryCatch(utils::capture.output(
+    fs.est <- suppressWarnings(forestsearch(
+      df.analysis = df, confounders.name = confs,
+      outcome.name = outcome_name, treat.name = treat_name, id.name = id_name,
+      outcome_type = "continuous", effect_measure = "MD",
+      effect.threshold = md_threshold, consistency.threshold = md_consistency,
+      pconsistency.threshold = pconsistency, fs.splits = fs_splits,
+      n.min = n_min, d0.min = d0_min, d1.min = d1_min, maxk = maxk,
+      vi.grf.min = vi_grf_min, sg_focus = sg_focus,
+      selection_rule = selection_rule,
+      effect_neighborhood = effect_neighborhood,
+      stop_threshold = stop_threshold,
+      consistency_method = consistency_method,
+      use_lasso = use_lasso, use_dina = use_dina, use_grf = use_grf,
+      use_twostage = use_twostage, is.RCT = is_rct,
+      adverse_outcome = adverse_outcome,
+      details = FALSE, quiet = FALSE, seedit = sd_i,
+      parallel_args = if (identical(parallel_mode, "boots")) inner_parallel else NULL,
+      mr_inference = TRUE,
+      mr_inference_args = list(ci_method = "ij", draws = mr_draws,
+                               include_complement = TRUE))),
+    type = "message"),
+    error = function(e) {
+      if (isTRUE(diag_mode)) warning(sprintf("FS-ERR sim %d: %s",
+                                             sim_id, conditionMessage(e)))
+      rec$err_msg <<- conditionMessage(e); character(0) })
+  rec$fit_mr_secs <- proc.time()[3] - t0
+  mr_lines <- grep("multiplier resampling|mr_inference", msgs, value = TRUE)
+  if (length(mr_lines)) rec$mr_msg <- paste(mr_lines, collapse = " | ")
+  if (!is.na(rec$err_msg)) { rec$status <- "CONFIG-ERROR"; return(rec) }
+  if (is.null(fs.est) || is.null(fs.est$sg.harm)) {
+    rec$status <- "NO-DETECTION"; rec$detected <- 0L; return(rec)
+  }
+  rec$status <- "DETECTED"; rec$detected <- 1L
+
+  # Exact beta(Hhat)/beta(Hhat^c) via the package eval API; naive + MR columns
+  # from the fit; classification on the analysis sample.
+  att <- fs_attach_betaHhat(fs.est, eval_df = eval_df,
+                            outcome_type = "continuous")
+  rec$betaHhat_H  <- att$betaHhat_H;  rec$betaHhat_Hc <- att$betaHhat_Hc
+  rec$sg_def <- att$sg_def %||% fs.est$sg.harm$definition %||% NA_character_
+  rec$n_sel  <- att$nH_eval %||% NA_integer_
+  sgv <- fs.est$sg.harm$flag %||% fs.est$df_flag$treat.recommend %||% NULL
+  if (!is.null(sgv)) {
+    rec$n_harm <- sum(sgv == 1L, na.rm = TRUE)
+    rec[c("sens","spec","ppv","npv")] <- as.list(.classify(sgv, df[[harm_col]]))
+  }
+  for (nm in c("nv_H_est","nv_H_lo","nv_H_hi","nv_H_se",
+               "mr_H_est","mr_H_lo","mr_H_hi","mr_H_se_ij",
+               "mr_Hc_est","mr_Hc_lo","mr_Hc_hi","mr_Hc_se_ij","ij_source"))
+    rec[[nm]] <- fs.est[[nm]] %||% fs.est$mr[[nm]] %||% rec[[nm]]
+  rec$mr_ok <- as.integer(!is.na(rec$mr_H_est))
+
+  # FB: full bootstrap of the identical fitted procedure (Eq. 7, H2).
+  if (run_fb) {
+    tb <- proc.time()[3]
+    fb <- tryCatch(
+      forestsearch_bootstrap_dofuture(
+        fs.est, nb_boots = nb_boots, seed = sd_i,
+        parallel_args = inner_parallel),
+      error = function(e) { rec$fb_err <<- conditionMessage(e); NULL })
+    rec$fb_secs <- proc.time()[3] - tb
+    if (!is.null(fb))
+      for (nm in c("fb_H_est","fb_H_lo","fb_H_hi","fb_H_se"))
+        rec[[nm]] <- fb[[nm]] %||% fb$H2[[nm]] %||% rec[[nm]]
+  }
+  rec
+}
+```
+
+# Run the batch {#sec-run}
+
+```{r run-batch}
+sim_ids <- seq(sim_id_start, length.out = if (isTRUE(diag_mode)) 5L else n_sims)
+if (identical(parallel_mode, "sims")) {
+  registerDoFuture(); future::plan(future::multisession, workers = n_workers)
+  results <- foreach(i = sim_ids, .combine = rbind,
+                     .options.future = list(seed = TRUE)) %dofuture%
+    record_replicate(i)
+  future::plan(future::sequential)
+} else {
+  results <- do.call(rbind, lapply(sim_ids, record_replicate))
+}
+out <- file.path(results_dir, sprintf("%s_res_%d_%d.rds", rds_stem,
+                 min(sim_ids), max(sim_ids)))
+saveRDS(list(results = results, truth = truth,
+             meta = list(n_sample = n_sample, n_sims = length(sim_ids),
+                         nb_boots = nb_boots, mr_draws = mr_draws,
+                         sg_focus = sg_focus, selection_rule = selection_rule,
+                         consistency_method = consistency_method,
+                         subgroup_method = subgroup_method,
+                         target_md_harm = target_md_harm,
+                         effect_threshold = md_threshold,
+                         consistency_threshold = md_consistency,
+                         adverse_outcome = adverse_outcome,
+                         seed_base = seed_base, sim_id_start = sim_id_start,
+                         parallel_mode = parallel_mode, n_workers = n_workers,
+                         pkg_version = as.character(utils::packageVersion("forestsearch")),
+                         built_at = Sys.time())), out)
+cat("Saved:", out, "\n")
+knitr::kable(within(as.data.frame(t(colMeans(
+  results[results$status == "DETECTED",
+          c("nv_H_est","or_H_est","fb_H_est","mr_H_est","betaHhat_H")],
+  na.rm = TRUE))), {}), digits = 3,
+  caption = sprintf("Batch means, detected replicates (%d/%d detected; %d mr_ok; %d FB errors).",
+                    sum(results$detected %in% 1L), length(sim_ids),
+                    sum(results$mr_ok %in% 1L), sum(!is.na(results$fb_err))))
+```
+
+Combine across batches with the template's `run_mode = "combine"` pattern
+once multiple pieces exist; the combine-and-report twin (of
+`..._combine_1_500.qmd`) follows as the next document.
