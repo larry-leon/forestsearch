@@ -107,6 +107,31 @@ fs_effect_measure  <- "MD"
 fs_md_threshold    <- 10    # screening: MD >= 10 indicates harm
 fs_md_consistency  <- 5     # consistency: MD >= 5
 
+# Identification engine, pinned explicitly.  This document predates the
+# default flip in 269dc9aa ("consistency_method defaults to resample"); it was
+# written when the default was something else, so leaving it unpinned would
+# make the configuration depend on the package version that happens to render
+# it.  "resample" is the stated modern configuration and is what the committed
+# simulation twin runs.
+fs_consistency_method <- "resample"
+
+# Per-variable J-quantile grids on ALL SIX continuous covariates (the survival
+# template's `er = 10` pattern, widened).  For an entry X = J the default cut
+# set for X is replaced by J binary cut points at the (k/(J+1))-th quantiles,
+# k = 1..J.  Rationale: the default cut set is sparse (4 cuts per continuous
+# covariate on this data), so the fixed family cannot explore the range of any
+# continuous factor; at J = 10 each covariate contributes 10 candidate
+# thresholds spanning its distribution.
+# NOTE this REPLACES the previous list(cd40 = 10, wtkg = 10) at the call site,
+# which grid-refined two covariates and left four at the sparse default.
+fs_conf.cont_jcuts <- list(age = 10, preanti = 10, wtkg = 10,
+                           karnof = 10, cd40 = 10, cd80 = 10)
+
+# MR (multiplier resampling) settings for the maxeffCons anchor run.  See the
+# `maxeffcons-mr-anchor` chunk below for why MR cannot be switched on in the
+# main comparison call.
+fs_mr_draws        <- 5000L
+
 fs_pconsistency    <- 0.90
 fs_n_min           <- 60L
 fs_d0_min          <- 10L
@@ -167,8 +192,8 @@ using `"hrMaxSG"` continues to work without changes.
 :::
 
 ```{r comparison-axes}
-sg_focus_vec       <- c("effMaxSG", "effMaxSG", "effMinSG", "effMinSG", "eff", "maxSG","minSG")
-selection_rule_vec <- c("pareto",   "both", "pareto", "both", "neighborhood", "neighborhood", "neighborhood")
+sg_focus_vec       <- c("effMaxSG", "effMaxSG", "effMinSG", "effMinSG", "eff", "maxSG","minSG", "maxeffCons")
+selection_rule_vec <- c("pareto",   "both", "pareto", "both", "neighborhood", "neighborhood", "neighborhood", "neighborhood")
 
 # Pretty labels used in plot titles, list names, and prose
 combo_labels       <- paste(sg_focus_vec, selection_rule_vec, sep = " / ")
@@ -292,7 +317,8 @@ comparison <- compare_selection_rules(
   pconsistency.threshold = fs_pconsistency,
   max_subgroups_search = fs_max_subgroups,
   use_twostage     = TRUE,
-  conf.cont_jcuts  = list(cd40 = 10, wtkg = 10),
+  consistency_method = fs_consistency_method,
+  conf.cont_jcuts  = fs_conf.cont_jcuts,
   use_grf          = fs_use_grf,
   return_selected_cuts_only = TRUE,
   use_lasso        = fs_use_lasso,
@@ -330,6 +356,101 @@ cat("\nComparison completed in",
 
 ```{r comparison-summary}
 print(comparison)
+```
+
+
+## `maxeffCons` MR anchor {#sec-mr-anchor}
+
+The `maxeffCons` arm is re-run here on its own, with multiplier resampling on,
+to produce the de-biased estimate the grounded-cell design note needs
+(`dev/glm-continuous-sims/G1_actg175_anchors.md` § 8).
+
+**Why this is a second call rather than `mr_inference = TRUE` above.** Two
+independent obstacles, either sufficient:
+
+1. `compare_selection_rules()` forwards `...` identically to every combination
+   (`R/compare_selection_rules.R:561-566`), so MR cannot be scoped to one arm
+   through the wrapper — it would be all arms or none.
+2. More decisively, MR and this document's front end are mutually exclusive.
+   `.validate_mr_configuration()` (`R/forestsearch_helpers.R:1909-1927`)
+   `stop()`s under `subgroup_method = "consistency"` when any of `use_lasso`,
+   `use_grf`, `use_dina` is TRUE, on the ground that the candidate family is
+   then estimated from the same data the search runs on. This document sets
+   `fs_use_lasso <- TRUE` and `fs_use_grf <- TRUE`, so switching MR on in the
+   main call would abort all eight arms before fitting.
+
+So the anchor runs `maxeffCons` alone with the front ends off — the
+MR-compatible configuration the committed simulation sweep uses
+(`mr_coverage_sweep_md_harm.qmd:128-132`). The other eight arms above keep
+their original front-end configuration, unchanged.
+
+Note the package does not claim this makes the family *fixed*: with
+`cut_type = "default"` the cut locations are quantile-derived and move under
+resampling, which `.fs_family_status()` documents as `"no-front-end"` rather
+than "fixed". See `dev/glm-continuous-sims/V_fb_adjudication.md` § V3.
+
+```{r maxeffcons-mr-anchor}
+#| message: false
+#| warning: false
+
+t_anchor <- proc.time()
+
+fs_anchor <- forestsearch(
+  df.analysis      = actg_df,
+  confounders.name = confounders.name,
+  outcome.name     = adverse_outcome,
+  treat.name       = treat.name,
+  id.name          = id.name,
+  outcome_type     = fs_outcome_type,
+  effect_measure   = fs_effect_measure,
+  adverse_outcome  = TRUE,
+  seedit           = analysis_seed,
+
+  sg_focus         = "maxeffCons",
+  selection_rule   = "neighborhood",
+  consistency_method = fs_consistency_method,
+
+  effect.threshold       = fs_md_threshold,
+  consistency.threshold  = fs_md_consistency,
+  pconsistency.threshold = fs_pconsistency,
+  max_subgroups_search   = fs_max_subgroups,
+  use_twostage     = TRUE,
+  conf.cont_jcuts  = fs_conf.cont_jcuts,
+  cut_type         = "default",
+  maxk             = fs_maxk,
+  n.min            = fs_n_min,
+  d0.min           = fs_d0_min,
+  d1.min           = fs_d1_min,
+  fs.splits        = fs_splits,
+
+  # MR-compatible front end: required by .validate_mr_configuration()
+  use_lasso        = FALSE,
+  use_grf          = FALSE,
+  use_dina         = FALSE,
+
+  is.RCT           = fs_is_RCT,
+  parallel_args    = list(plan = "multisession", workers = n_cores),
+  details          = FALSE,
+  quiet            = FALSE,
+
+  mr_inference     = TRUE,
+  mr_inference_args = list(ci_method = "ij", draws = fs_mr_draws,
+                           include_complement = TRUE)
+)
+
+t_anchor <- (proc.time() - t_anchor)["elapsed"]
+cat(sprintf("maxeffCons MR anchor elapsed: %.1f s\n", t_anchor))
+```
+
+```{r maxeffcons-mr-anchor-report}
+g <- fs_anchor$mr_inference
+cat("=== selected region ===\n")
+cat(sprintf("definition : %s\n", paste(fs_anchor$sg.harm, collapse = " & ")))
+cat(sprintf("n selected : %s\n", g$n_selected %||% NA))
+cat("\n=== naive (plug-in on the selected region) ===\n")
+print(unlist(g$naive), digits = 10)
+cat("\n=== MR de-biased ===\n")
+print(unlist(g$debiased), digits = 10)
 ```
 
 
