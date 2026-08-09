@@ -336,7 +336,12 @@ record_replicate <- function(sim_id) {
   # routes every detected replicate into the undetected branch and hands it the
   # ITT complement as its target.  Collapse verbatim as both references do.
   rec$sg_def <- paste(fs.est$sg.harm, collapse = " & ")
-  rec$covs   <- rec$sg_def
+  # `covs` (variable names only, for the identification figures) stays NA as
+  # received: the survival template fills it with rule_covs(), which is not a
+  # package export -- it is sourced from a helper that must sit in the render
+  # working directory, and there is no such file here.  Putting the full rule
+  # string in a column that downstream code reads as a variable list would be
+  # worse than leaving it empty, so it is left empty and noted instead.
 
   # Classification of Hhat against the true harm flag, on the ANALYSIS sample.
   # fs.est$sg.harm$flag and fs.est$df_flag do not exist either; the per-subject
