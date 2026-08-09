@@ -169,3 +169,104 @@ call before fitting when either is `TRUE`, which produced the pilot's detected
 `FALSE`, the two reach the same harm orientation by two different routes. A
 threshold or sign copied between them is only valid because those two
 differences cancel.
+
+---
+
+## 8. Route 3 executed — the `maxeffCons` real-data anchors
+
+Step 1 of the 2026-08-09 overnight set. `maxeffCons` added to the document's
+axes; `consistency_method` pinned to `"resample"`; J-quantile grids specified on
+all six continuous covariates. Run at `413c61c6`.
+
+**Scoped render, not the full axes.** `compare_selection_rules()` accepts
+length-1 axis vectors, so the `maxeffCons` arm was run alone rather than
+re-running all eight. Wall time is per-arm and reported per row below.
+
+**MR required the front ends off.** `.validate_mr_configuration()`
+(`R/forestsearch_helpers.R:1909-1927`) `stop()`s under `consistency` when any of
+`use_lasso`/`use_grf`/`use_dina` is TRUE. The document sets `use_lasso` and
+`use_grf` TRUE, so the anchor runs with all three FALSE — the MR-compatible
+configuration of the committed sweep. This is a real difference from the
+document's other eight arms and is why these rows are labelled as their own
+configuration, not as "the compare_all result".
+
+### Both anchor rows, verbatim
+
+| | **J = 10 on all six** | **default cuts** |
+|---|---|---|
+| definition | `!{cd40 <= 507} & {age <= 37}` | `!{cd40 <= 421} & {age <= 34}` |
+| n (selected) | 66 | 137 |
+| naive MD | **87.916666667** | **52.156436488** |
+| naive 95% CI | 4.305358495, 171.527974839 | 1.805091251, 102.507781724 |
+| Pcons | **0.95** | **0.93** |
+| MR de-biased MD | **33.6147229870208** | **−3.59145136776183** |
+| MR 95% CI | −72.0371931311213, 139.266639105163 | −62.5877541865567, 55.404851451033 |
+| MR se_ij | 53.9050293533508 | 30.100707606951 |
+| MR se_wald | 42.6596145804699 | 25.6899339140523 |
+| ij_source / ij_draws | ij / 4858 | ij / 4176 |
+| `harm_flag` | TRUE | **FALSE** |
+| `selection_rate` | 0.9716 | 0.8352 |
+| MR `n_family` | 4935 | 1450 |
+| cut labels in family | 54 | 28 |
+| candidate subgroups | 128, **truncated to 30** | 23 |
+| candidates evaluated / passed | 1 / 1 | 2 / 1 |
+| wall time | 57.5 s | 18.6 s |
+
+Raw consistency rows:
+
+```
+##### J = 10 : n_cand_eval=1 n_cand_total=30 n_passed=1 #####
+  Pcons          hr  N  E   g m K            M.1         M.2
+1  0.95 87.91666667 66 66 121 1 2 !{cd40 <= 507} {age <= 37}
+
+##### default : n_cand_eval=2 n_cand_total=23 n_passed=1 #####
+  Pcons          hr   N   E  g m K            M.1         M.2
+1  0.93 52.15643649 137 137 65 2 2 !{cd40 <= 421} {age <= 34}
+```
+
+### Four things to read before picking a magnitude
+
+**(1) MR removes most of the effect, and under default cuts removes all of it.**
+87.92 → 33.61 and 52.16 → **−3.59**. Both MR intervals cover zero. Under default
+cuts the de-biased point estimate is *negative* and `harm_flag` is FALSE: after
+correcting for selection there is no harm in the selected region at all. The
+naive figures are the selection artefact the whole exercise is about.
+
+**(2) The two cut specs are not small perturbations of each other.** Different
+regions (`cd40 <= 507 / age <= 37` vs `cd40 <= 421 / age <= 34`), n 66 vs 137,
+and de-biased estimates on opposite sides of zero. The cut grid is not a tuning
+detail here; it selects a different scientific claim. Both rows are reported
+because neither is obviously the right one.
+
+**(3) The J = 10 family was truncated, so it did not do what it was for.**
+
+```
+Warning message:
+max_subgroups_search = 30 truncated the candidate pool from 128 to 30.
+Candidates ranked below 30 under the sg_focus = 'maxeffCons' preview ordering
+were not evaluated.
+```
+
+The grids widened the family from 28 cut labels to 54, and the subgroup pool
+from 23 to 128 — then `fs_max_subgroups <- 30` (`:116`, unchanged, as
+instructed) discarded 98 of the 128 before evaluation. The stated intent, "so
+the fixed family can explore the range of the continuous factors", is only
+partly served: the range is *generated* but not *evaluated*. Raising
+`max_subgroups_search` is a change nobody authorised, so it was not made.
+
+**(4) `karnof` gets one cut at J = 10, not ten.** Its grid is
+`karnof <= 90` alone, because the variable takes few distinct values (the
+default spec produced two, `<= 95` and `<= 90`). J = 10 is a request, not a
+guarantee; on near-discrete covariates the quantile grid collapses. So the
+"ten thresholds each" description holds for age/wtkg/cd40/cd80, gives seven for
+`preanti`, and one for `karnof`.
+
+### What this unblocks
+
+G1 item 5 now exists for the `maxeffCons` arm, so § 6's blocker is lifted: G2's
+`target_effect` can be anchored on a de-biased value as the spec intends. Which
+of the two — 33.61 or −3.59 — and on which cut spec, is the magnitude pick.
+Note that the default-cuts row cannot anchor a *harm* magnitude at all, since
+it is negative.
+
+G2 remains not started.
