@@ -1,0 +1,138 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Batch 1&ndash;20 vs pooled 1&ndash;500 &mdash; agreement report</title><style>
+:root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#e3e3e3;--ok:#0a7a3d;--bad:#b3261e;--warn:#8a5a00;--panel:#f7f7f8}
+@media(prefers-color-scheme:dark){:root{--bg:#16181c;--fg:#e8e8ea;--mut:#9aa0a6;--line:#2c3036;--ok:#4ade80;--bad:#ff6b60;--warn:#e0b050;--panel:#1e2126}}
+*{box-sizing:border-box}body{margin:0;padding:2.2rem 1.4rem;background:var(--bg);color:var(--fg);
+font:15px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+main{max-width:1000px;margin:0 auto}h1{font-size:1.5rem;margin:0 0 .3rem}
+h2{font-size:1.08rem;margin:2.2rem 0 .7rem;padding-bottom:.35rem;border-bottom:1px solid var(--line)}
+h3{font-size:.98rem;margin:1.3rem 0 .4rem}
+.sub{color:var(--mut);margin:0 0 1.6rem;font-size:.92rem}
+table{border-collapse:collapse;width:100%;font-size:.87rem;margin:.5rem 0 1rem}
+th,td{padding:.42rem .55rem;border-bottom:1px solid var(--line);text-align:left}
+th{font-weight:600;color:var(--mut);font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+tr.bad td{background:rgba(179,38,30,.09)}tr.und td{color:var(--mut)}
+code{font:12.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--panel);padding:.1rem .3rem;border-radius:3px}
+.box{background:var(--panel);border-left:3px solid var(--line);padding:.85rem 1rem;margin:1rem 0;border-radius:0 5px 5px 0}
+.box.g{border-left-color:var(--ok)}.box.r{border-left-color:var(--bad)}.box.w{border-left-color:var(--warn)}
+.box p{margin:.3rem 0}.tag{display:inline-block;font-size:.72rem;font-weight:600;padding:.1rem .45rem;border-radius:3px;
+background:var(--line);color:var(--fg);margin-right:.4rem}
+ul{padding-left:1.15rem}li{margin:.35rem 0}</style></head><body><main>
+<h1>Batch 1&ndash;20 vs pooled 1&ndash;500</h1>
+<p class="sub"><code>fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_res_1_20.rds</code> (new) compared against
+sim_id 1&ndash;20 extracted from <code>fs_t1_t2_m1_h10_knoise0_n500_combined_1_500.rds</code> (older).
+Both n=500, B=300, 5000 draws, seed_base 8316951, <code>subgroup_method = "consistency"</code>.</p>
+
+<div class="box g"><p><span class="tag">HEADLINE</span><b>Same data, same detections, same naive and same
+&beta;(&Ecirc;) &mdash; to machine precision.</b> The two runs diverge in exactly two places: the selected rule on
+2 of 12 detected replicates, and the MR arm, which is systematically ~10% lower with uniformly wider IJ SEs.
+FB is unchanged to within resampling noise.</p></div>
+
+<h2>Column mapping (the old bundle predates the rename)</h2>
+<p>The older file uses the <code>t1_</code>/<code>t2_</code> vocabulary of its stem. The mapping is confirmed on
+five independent grounds: <code>t2_*</code> carries the <code>_se_ij</code> suffix (IJ interval), <code>t1_secs</code>
+averages 113&nbsp;s against <code>t2_secs</code> 15.7&nbsp;s (only the 300-boot FB costs that), <code>gate_ok</code>
+matches <code>mr_ok</code> on 20/20, only <code>t1_err</code>/<code>fb_err</code> exist, and corr(t1,fb)=0.993.</p>
+<table><tr><th>old (1&ndash;500)</th><th>new (1&ndash;20)</th><th>meaning</th></tr>
+<tr><td><code>t1_H_*</code></td><td><code>fb_H_*</code></td><td>full bootstrap, Le&oacute;n Eq.7 / H2</td></tr>
+<tr><td><code>t2_H_*</code></td><td><code>mr_H_*</code></td><td>multiplier resampling, IJ interval</td></tr>
+<tr><td><code>gate_ok</code>, <code>gate_draws</code></td><td><code>mr_ok</code>, <code>mr_draws</code></td><td>the MR object ("gate")</td></tr>
+<tr><td><em>absent</em></td><td><code>err_msg</code>, <code>betaHhat_status</code>, <code>nH_eval</code>, <code>nHc_eval</code></td><td>new schema; 56 cols vs 52</td></tr></table>
+
+<h2>Where they agree &mdash; exactly</h2>
+<table><tr><th>quantity</th><th>result</th><th class="r">max |diff|</th></tr>
+<tr><td>DGM truth targets (hr_causal, marg, CDE)</td><td>identical</td><td class="r">0</td></tr>
+<tr><td><code>n_true</code> per replicate</td><td>identical (all 20)</td><td class="r">0</td></tr>
+<tr><td>oracle <code>or_H_*</code>, <code>or_Hc_*</code></td><td>identical (all 20)</td><td class="r">4.4e&minus;16</td></tr>
+<tr><td>detection flag</td><td>same 12 of 20 replicates</td><td class="r">0</td></tr>
+<tr><td>naive <code>nv_H_*</code> (10 same-rule reps)</td><td>identical</td><td class="r">2.2e&minus;16</td></tr>
+<tr><td><b>&beta;(&Ecirc;) &mdash; <code>betaHhat_H</code></b></td><td><b>identical</b></td><td class="r"><b>0</b></td></tr>
+<tr><td>sens / spec / n_sel</td><td>identical</td><td class="r">0</td></tr>
+<tr><td><code>mr_ok</code> vs <code>gate_ok</code>, <code>ij_source</code></td><td>identical (12 "ij", 8 NA)</td><td class="r">0</td></tr></table>
+<p>Because the oracle and <code>n_true</code> depend only on the simulated trial, their exact match proves both runs
+saw the <b>same 20 datasets</b>. Every difference below is therefore attributable to the search or the estimator,
+not to the DGM or the seeding. The zero difference on <code>betaHhat_H</code> also confirms the new
+<code>fs_attach_betaHhat()</code> reproduces the old <code>attach_betaHhat()</code> exactly.</p>
+
+<h2>Where they differ</h2>
+<h3>1. Selected rule &mdash; 2 of 12 detected replicates</h3>
+<div class="box w"><p><b>sim_id 17 &mdash; cosmetic, not a real disagreement.</b><br>
+new <code>{size &lt;= 21} &amp; {meno}</code> vs old <code>{size &lt;= 21} &amp; !{meno == 0}</code>. Logically the
+same set for a binary: identical <code>n_harm</code> (80), sens, spec, naive (1.9280) and &beta;(&Ecirc;) (0.6104).
+Only the label index moved (q28.1 &rarr; q30.0), which means the <b>candidate-cut enumeration changed</b> between
+package versions.</p></div>
+<div class="box r"><p><b>sim_id 15 &mdash; a genuine selection difference.</b><br>
+new <code>!{size &lt;= 27} &amp; {size &lt;= 30}</code> &mdash; n_harm 74, sens 0.21, naive 1.4445, &beta;(&Ecirc;) 0.7132<br>
+old <code>!{size &lt;= 27} &amp; {age &lt;= 53}</code> &mdash; n_harm 123, sens 0.54, naive 1.3071, &beta;(&Ecirc;) 0.7013<br>
+The new run picked the <b>narrower, higher-effect</b> region (1.4445 &gt; 1.3071) &mdash; the signature of
+<code>sg_focus = "maxeffCons"</code> (highest effect meeting the consistency rate) against a consistency-primary
+focus, which favours the larger, more stable region.</p></div>
+
+<h3>2. Estimator arms (10 same-rule replicates)</h3>
+<table><tr><th>arm</th><th class="r">mean diff (new&minus;old)</th><th class="r">max |diff|</th><th class="r">relative</th><th class="r">same sign</th><th>read</th></tr>
+<tr><td>FB point</td><td class="r">-0.00230</td><td class="r">0.0119</td><td class="r">-0.23%</td><td class="r">6/10</td><td>noise &mdash; mixed sign</td></tr>
+<tr class="bad"><td>MR point</td><td class="r">-0.09589</td><td class="r">0.2166</td><td class="r">-9.97%</td><td class="r">9/10</td><td><b>systematic, downward</b></td></tr>
+<tr class="bad"><td>MR IJ SE</td><td class="r">+0.03275</td><td class="r">&mdash;</td><td class="r">&mdash;</td><td class="r">10/10</td><td><b>systematic, wider</b></td></tr></table>
+<p>FB moves by 0.2% with mixed sign across replicates &mdash; consistent with RNG-stream ordering, not a change in
+the procedure. MR moves by ~10% in one direction on 9 of 10 replicates, and its IJ SE is larger on <b>10 of 10</b>.
+That is a change in the MR implementation, not resampling noise. The likely mechanism is documented in the setup
+chunk itself: MR&rsquo;s de-biasing rule is no longer set explicitly &mdash; <code>forestsearch()</code> now derives
+it from <code>sg_focus</code>, so a different focus yields a different re-selection family.</p>
+
+<h2>Practical impact &mdash; 12 detected replicates, target &beta;(&Ecirc;)</h2>
+<table><tr><th>estimator</th><th class="r">mean</th><th class="r">rel. bias</th><th class="r">coverage</th></tr>
+<tr><td>naive</td><td class="r">1.5404</td><td class="r">109.9%</td><td class="r">0.17</td></tr>
+<tr><td>FB &mdash; new</td><td class="r">1.1652</td><td class="r">58.6%</td><td class="r">0.83</td></tr>
+<tr><td>FB &mdash; old (t1)</td><td class="r">1.1589</td><td class="r">57.7%</td><td class="r">0.83</td></tr>
+<tr><td><b>MR &mdash; new</b></td><td class="r"><b>0.8794</b></td><td class="r"><b>19.5%</b></td><td class="r">1.00</td></tr>
+<tr><td>MR &mdash; old (t2)</td><td class="r">0.9550</td><td class="r">29.3%</td><td class="r">1.00</td></tr></table>
+<p>The MR shift moves <i>toward</i> the conditional target: relative bias falls from 29.3% to 19.5%, with coverage
+unchanged at 1.00 (both over-cover). So the change reads as an improvement, not a regression &mdash; but at
+12 detections these are indicative, not a coverage read.</p>
+
+<h2>Per-replicate detail</h2>
+<table><tr><th>sim</th><th>rule</th><th class="r">naive new</th><th class="r">naive old</th>
+<th class="r">&beta;(&Ecirc;) new</th><th class="r">&beta;(&Ecirc;) old</th><th class="r">FB diff</th>
+<th class="r">MR diff</th><th class="r">MR SE diff</th></tr>
+<tr class="ok"><td> 1</td><td>identical</td><td class="r">1.3394</td><td class="r">1.3394</td><td class="r">0.7212</td><td class="r">0.7212</td><td class="r">-0.00562</td><td class="r">-0.08117</td><td class="r">0.05454</td></tr>
+<tr class="ok"><td> 2</td><td>identical</td><td class="r">1.3751</td><td class="r">1.3751</td><td class="r">0.6596</td><td class="r">0.6596</td><td class="r">-0.01189</td><td class="r">-0.10282</td><td class="r">0.02891</td></tr>
+<tr class="ok"><td> 3</td><td>identical</td><td class="r">1.8113</td><td class="r">1.8113</td><td class="r">0.7954</td><td class="r">0.7954</td><td class="r">0.00135</td><td class="r">-0.21664</td><td class="r">0.02243</td></tr>
+<tr class="und"><td> 4</td><td>no detection</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td></tr>
+<tr class="und"><td> 5</td><td>no detection</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td></tr>
+<tr class="ok"><td> 6</td><td>identical</td><td class="r">1.7442</td><td class="r">1.7442</td><td class="r">0.9474</td><td class="r">0.9474</td><td class="r">0.00164</td><td class="r">-0.12314</td><td class="r">0.00393</td></tr>
+<tr class="und"><td> 7</td><td>no detection</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td></tr>
+<tr class="und"><td> 8</td><td>no detection</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td></tr>
+<tr class="ok"><td> 9</td><td>identical</td><td class="r">1.2534</td><td class="r">1.2534</td><td class="r">0.8123</td><td class="r">0.8123</td><td class="r">-0.00594</td><td class="r">-0.07496</td><td class="r">0.02065</td></tr>
+<tr class="ok"><td>10</td><td>identical</td><td class="r">1.2710</td><td class="r">1.2710</td><td class="r">0.6745</td><td class="r">0.6745</td><td class="r">0.00180</td><td class="r">-0.06849</td><td class="r">0.04629</td></tr>
+<tr class="und"><td>11</td><td>no detection</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td></tr>
+<tr class="ok"><td>12</td><td>identical</td><td class="r">1.2312</td><td class="r">1.2312</td><td class="r">0.6813</td><td class="r">0.6813</td><td class="r">-0.00105</td><td class="r">-0.07261</td><td class="r">0.06210</td></tr>
+<tr class="und"><td>13</td><td>no detection</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td></tr>
+<tr class="ok"><td>14</td><td>identical</td><td class="r">1.8609</td><td class="r">1.8609</td><td class="r">0.7216</td><td class="r">0.7216</td><td class="r">-0.00080</td><td class="r">0.02451</td><td class="r">0.04557</td></tr>
+<tr class="bad"><td>15</td><td><b>DIFFERS</b></td><td class="r">1.4445</td><td class="r">1.3071</td><td class="r">0.7132</td><td class="r">0.7013</td><td class="r">0.09734</td><td class="r">0.02448</td><td class="r">0.10388</td></tr>
+<tr class="ok"><td>16</td><td>identical</td><td class="r">1.7856</td><td class="r">1.7856</td><td class="r">0.7941</td><td class="r">0.7941</td><td class="r">-0.00564</td><td class="r">-0.15831</td><td class="r">0.02435</td></tr>
+<tr class="bad"><td>17</td><td><b>DIFFERS</b></td><td class="r">1.9280</td><td class="r">1.9280</td><td class="r">0.6104</td><td class="r">0.6104</td><td class="r">0.00040</td><td class="r">0.02780</td><td class="r">0.04849</td></tr>
+<tr class="ok"><td>18</td><td>identical</td><td class="r">1.4400</td><td class="r">1.4400</td><td class="r">0.7647</td><td class="r">0.7647</td><td class="r">0.00321</td><td class="r">-0.08531</td><td class="r">0.01878</td></tr>
+<tr class="und"><td>19</td><td>no detection</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td></tr>
+<tr class="und"><td>20</td><td>no detection</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td><td class="r">&ndash;</td></tr>
+</table>
+
+<h2>Caveats</h2>
+<ul>
+<li><b>The old bundle cannot confirm its own configuration.</b> Its meta has no <code>sg_focus</code>,
+<code>focus_tag</code>, <code>consistency_method</code>, <code>selection_rule</code> or package version &mdash; those
+provenance fields postdate it. The <code>fs_t1_t2_</code> stem predates focus-in-stem, which is precisely the
+condition the template warns about: runs under different foci silently shared one file. The focus attribution above
+is inference from behaviour, not a record.</li>
+<li><b>Two causes are confounded.</b> The sim_id 17 label shift proves the cut enumeration changed between versions,
+so sim_id 15 could be a focus difference <i>or</i> a re-enumeration tie-break. Re-running the old configuration under
+the current package would separate them.</li>
+<li><b>Timing is not comparable.</b> <code>fit_mr_secs</code> (4.7&nbsp;s) is the whole forestsearch fit including MR;
+<code>t2_secs</code> (15.7&nbsp;s) may be MR alone. FB 132&nbsp;s vs 113&nbsp;s reflects different hardware/topology.</li>
+<li><b>Sim 1&ndash;20 is a mild low outlier of the 500.</b> Detection 60% here vs 69.2% across all 500; mean old-MR
+0.955 vs 1.003 over the full pool. Conclusions about <i>agreement</i> hold regardless, but do not read the 20-rep
+aggregates as the cell&rsquo;s operating characteristics.</li>
+</ul>
+<p class="sub" style="margin-top:2rem">Per-replicate values also in the accompanying
+<code>compare_1_20_vs_1_500.csv</code>.</p></main></body></html>

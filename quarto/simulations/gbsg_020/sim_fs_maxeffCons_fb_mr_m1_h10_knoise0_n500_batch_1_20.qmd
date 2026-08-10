@@ -93,7 +93,7 @@ n_sims       <- 20L      # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
-nb_boots     <- 10L      # FB nonparametric bootstraps (prod: 200 -> 500).
+nb_boots     <- 300L      # FB nonparametric bootstraps (prod: 200 -> 500).
                           # Set 0L (or NULL) to SKIP FB entirely and run only
 k_random_noise <- 0       # Add k_random_noise confounders
 
@@ -159,6 +159,15 @@ focus_tag    <- switch(sg_focus,
 rds_stem     <- sprintf("%s_%s_fb_mr_m1_h%02d_knoise%d_n%d",
                         method_tag, focus_tag, round(10 * target_hr_harm),
                         k_random_noise, n_sample)
+
+# ADOPTED FROM THE CONTINUOUS TWIN: quick-run stem tagging.
+# Without this a smoke render (nb_boots = 10, n_sims = 20) writes to the SAME
+# stem as a production batch, and combine_glob then pools the two silently --
+# a handful of B = 10 replicates averaged in with B = 300 ones, with nothing in
+# the pooled bundle recording that it happened.  Tagging the stem puts quick
+# runs in a namespace combine can never match.  Set FALSE for production.
+quickrun     <- TRUE
+if (isTRUE(quickrun)) rds_stem <- paste0(rds_stem, "_quickrun")
 
 sim_id_end   <- sim_id_start + n_sims - 1L
 rds_path     <- file.path("results", sprintf("%s_res_%d_%d.rds", rds_stem, sim_id_start, sim_id_end))  # THIS batch's file
@@ -244,9 +253,17 @@ maxk               <- 2L
 n_min              <- NULL
 d0_min             <- 10L
 d1_min             <- 10L
-# use_lasso          <- FALSE
-# use_dina           <- FALSE
-# use_grf            <- FALSE         # FALSE = LASSO-only (fast, "FSl"); set TRUE for "FSlg"
+# RESTORED (were commented out): the consistency `method_args` block below
+# references all three UNCONDITIONALLY, and it is built OUTSIDE the tryCatch
+# around forestsearch(), so a missing symbol here escaped as an error from
+# record_replicate() itself.  Every replicate was then dropped
+# (.errorhandling = "remove" in "sims" mode, the outer tryCatch in "boots"),
+# leaving results = NULL -- a configuration failure reading as a scientific
+# null, and surfacing ~400 lines later as "incorrect number of dimensions".
+# Values are the package defaults and match the committed MD harness.
+use_lasso          <- FALSE
+use_dina           <- FALSE
+use_grf            <- FALSE         # FALSE = LASSO-only (fast, "FSl"); set TRUE for "FSlg"
 use_twostage       <- TRUE
 
 fs_conf_force      <- c("meno == 0", "er <= 0", "pgr <= 0")   # premenopausal (raw analog of z3 == 1)
@@ -409,8 +426,19 @@ rule_covs <- function(rule) forestsearch:::.fs_rule_columns(rule)
 # One all-NA record (returned on failure so the loop never aborts a cell).
 .na_record <- function(sim_id) data.frame(
   sim_id = sim_id, detected = 0L, mr_ok = 0L, n_sel = NA_integer_,
+  # ADOPTED FROM THE CONTINUOUS TWIN: the CONFIG-ERROR / NO-DETECTION /
+  # DETECTED trichotomy.  `detected` alone cannot distinguish "the search ran
+  # and found nothing" from "the replicate never got that far", so a broken
+  # configuration reads as a scientific null in every downstream rate.  Set at
+  # each exit point below, and by .safe_record() when the replicate itself
+  # errors.
+  status = NA_character_,
   n_harm = NA_integer_, n_true = NA_integer_,
   label = NA_character_, sg_def = NA_character_, covs = NA_character_,
+  err_msg = NA_character_,   # populated by .safe_record() on a replicate-level
+                             # error, so a CONFIG failure is visible in the
+                             # bundle instead of vanishing into a dropped row
+                             # (the md40 harness's CONFIG-ERROR arm).
   betaHhat_H = NA_real_, betaHhat_Hc = NA_real_,
   fb_secs = NA_real_, fit_mr_secs = NA_real_, fb_err = NA_character_,
   or_H_est = NA, or_H_lo = NA, or_H_hi = NA, or_H_se = NA,
@@ -432,7 +460,7 @@ record_replicate <- function(sim_id) {
     simulate_from_dgm(dgm, n = n_sample, analysis_time = analysis_time,
                       cens_adjust = cens_adjust, seed = seed_base + sim_id),
     error = function(e) NULL)
-  if (is.null(df)) return(rec)
+  if (is.null(df)) { rec$status <- "CONFIG-ERROR"; return(rec) }
   df[[id_name]] <- seq_len(nrow(df))
   
   confs <- intersect(confounders_base, names(df))
@@ -504,7 +532,7 @@ if (k_random_noise > 0) {
                        NULL
                      })
   rec$fit_mr_secs <- proc.time()[3] - mr_t0   # forestsearch fit INCLUDING MR
-  if (is.null(fs.est)) return(rec)
+  if (is.null(fs.est)) { rec$status <- "CONFIG-ERROR"; return(rec) }
 
   # Detection is METHOD-AGNOSTIC (a subgroup was identified), independent of
   # whether the MR produced a CI; MR availability is tracked
@@ -516,7 +544,8 @@ if (k_random_noise > 0) {
     rec$sg_def <- paste(fs.est$sg.harm, collapse = " & ")          # full rule -> beta(Hhat) scoring
     rec$covs   <- paste(rule_covs(fs.est$sg.harm), collapse = "+")  # variable names -> id figures
   }
-  if (!found) return(rec)
+  if (!found) { rec$status <- "NO-DETECTION"; return(rec) }
+  rec$status <- "DETECTED"
   rec$mr_ok <- as.integer(!is.null(g))
 
   if (!is.null(g)) {
@@ -605,6 +634,24 @@ if (k_random_noise > 0) {
 
   rec
 }
+
+# Replicate-level error firewall.  record_replicate() guards the forestsearch()
+# and simulate_from_dgm() calls internally, but everything else in its body --
+# notably the base_args/method_args construction -- runs unguarded, so a setup
+# mistake (an undefined knob, a bad argument name) escapes as an error from the
+# replicate itself.  Both run paths DISCARDED such a replicate silently
+# (.errorhandling = "remove"; the outer tryCatch), so an all-replicate config
+# failure produced results = NULL and read downstream as "no detections".
+# Returning the NA record WITH the message keeps the row -- and the reason -- in
+# the bundle.  Mirrors the md40 harness's CONFIG-ERROR / NO-DETECTION /
+# DETECTED trichotomy: a configuration failure must never read as a
+# scientific null.
+.safe_record <- function(s) {
+  tryCatch(record_replicate(s), error = function(e) {
+    rec <- .na_record(s); rec$err_msg <- conditionMessage(e)
+    rec$status <- "CONFIG-ERROR"; rec
+  })
+}
 ```
 
 # Run the simulation
@@ -629,7 +676,7 @@ if (run_smoke && identical(run_mode, "batch")) {
       .options.future = list(packages = c("forestsearch", "survival", "data.table"),
                              seed = TRUE)
     ) %dofuture% {
-      record_replicate(s)
+      .safe_record(s)   # keeps a failed replicate (with its message) as a row
     }
     elapsed <- proc.time()[3] - t_all
 
@@ -640,11 +687,30 @@ if (run_smoke && identical(run_mode, "batch")) {
     # (via inner_parallel).  No outer pool -> no nested parallelism.
     plan("sequential"); gc()
     t_all <- proc.time()[3]
-    results <- do.call(rbind, lapply(sim_ids, function(s)
-      tryCatch(record_replicate(s), error = function(e) NULL)))   # match "remove" semantics
+    results <- do.call(rbind, lapply(sim_ids, .safe_record))
     elapsed <- proc.time()[3] - t_all
     plan("sequential"); gc()
   }
+
+  # ---- Guard: the run loop must have produced a usable results frame --------
+  # Without this, an all-replicate failure leaves results = NULL, and the very
+  # next call (fs_attach_betaHhat) hits its `is.null(results$sg_def)` branch and
+  # assigns into NULL -- which R COERCES TO A LIST.  `results` then looks
+  # non-NULL to every `!is.null(results)` chunk guard downstream, and the first
+  # 2-D subset (results[results$detected == 1, , drop = FALSE]) fails with
+  # "incorrect number of dimensions" -- ~400 lines from the actual cause.
+  # Fail here instead, naming the real reason.
+  if (!is.data.frame(results) || !nrow(results))
+    stop(sprintf("run loop produced no usable records for sim_id %d-%d.",
+                 min(sim_ids), max(sim_ids)), call. = FALSE)
+  .cfg_err <- unique(stats::na.omit(results$err_msg))
+  if (length(.cfg_err) && all(!is.na(results$err_msg)))
+    stop("CONFIG ERROR -- every replicate failed before any search ran.\n",
+         "Distinct message(s):\n",
+         paste0("  - ", .cfg_err, collapse = "\n"), call. = FALSE)
+  if (length(.cfg_err))
+    warning(sprintf("%d of %d replicate(s) failed: %s", sum(!is.na(results$err_msg)),
+                    nrow(results), paste(.cfg_err, collapse = " | ")), call. = FALSE)
 
   # Conditional truth targets beta(Hhat)/beta(Hhat^c) for the realized rule of each
   # detected replicate -- deduplicated over distinct sg_def, computed in the main
@@ -666,6 +732,11 @@ if (run_smoke && identical(run_mode, "batch")) {
               min(sim_ids), max(sim_ids),
               sum(results$detected, na.rm = TRUE), length(sim_ids), elapsed,
               elapsed / max(1L, length(sim_ids))))
+  # Status trichotomy, printed so a CONFIG-ERROR run can never be mistaken for
+  # a low-detection one: those two produce the SAME `detected` count.
+  print(knitr::kable(as.data.frame(table(status = results$status,
+                                         useNA = "ifany")),
+                     caption = "Replicate status."))
   if (run_fb) {
     cat(sprintf("Mean wall-clock: fit+MR %.3f s vs FB bootstrap %.2f s (B=%d).\n",
                 mean(results$fit_mr_secs, na.rm = TRUE),
@@ -1334,6 +1405,62 @@ if (run_smoke && !is.null(results)) {
     cat("Too few paired replicates at smoke-test counts to draw the panel.\n")
   }
 }
+```
+
+# Identification structure {#sec-identification}
+
+The supplement's identification summary (its Figures/Table "FS identification
+structure"), computed here on this run rather than assembled separately. The
+engine is `fs_identification_summary()` in the package, so this document, the
+continuous twin, and the manuscript fragments all share one implementation.
+
+Each detected replicate's realized rule is classified against the planted
+triple: the **anchor** `er`, its true binary **partner** `meno`, and the
+correlated continuous **proxy** `age` that may substitute for the partner. The
+near-tie between $\{\mathrm{er} \cap \mathrm{meno}\}$ and its `age` proxy is the
+phenomenon these summaries exist to expose.
+
+```{r identification-structure}
+#| message: false
+#| warning: false
+# Sweep points are supplied as a NAMED list; a single batch has one point.  The
+# manuscript figures pass two or more (n = 500, 1000, ...) and the same call
+# draws the trend.  Bundles may be given as in-memory frames (as here) or as
+# paths to saved .rds files.
+#
+# Classification keys on `sg_def`, so this works whether or not `covs` was
+# populated -- the GLM/continuous harness leaves `covs` empty by design, and
+# reading it directly would classify every replicate as "anchor missed".
+id_run <- fs_identification_summary(
+  bundles = stats::setNames(list(results), as.character(n_sample)),
+  anchor  = "er",     # the factor FS recovers as the trial grows
+  partner = "meno",   # the true binary partner
+  proxy   = "age",    # correlated continuous covariate FS may substitute
+  confounders = confounders_base,
+  sweep_label = "Trial size (n)")
+id_run
+```
+
+```{r identification-involvement}
+#| fig-width: 6
+#| fig-height: 4.2
+#| message: false
+plot_fs_identification_involvement(id_run)
+```
+
+```{r identification-composition}
+#| fig-width: 6.4
+#| fig-height: 4.2
+#| message: false
+plot_fs_identification_structure(id_run)
+```
+
+```{r identification-table}
+#| message: false
+# as_gt = TRUE renders with gt, matching this document's other tables; the
+# manuscript fragment takes the plain data frame instead and styles it with
+# kableExtra for LaTeX.  Same numbers either way.
+fs_identification_table(id_run, as_gt = TRUE)
 ```
 
 # Notes for scale-up
