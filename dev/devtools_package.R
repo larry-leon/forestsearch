@@ -16,7 +16,7 @@ devtools::install(args = "--no-byte-compile")
 #source("rebuild_pkg.R")
 rebuild_pkg(fresh = TRUE)
 
-rebuild_pkg("/Users/larryleon/Documents/GitHub/forestsearch", fresh = TRUE)
+#rebuild_pkg("/Users/larryleon/Documents/GitHub/forestsearch", fresh = TRUE)
 
 
 library(forestsearch)

@@ -241,256 +241,222 @@ export(validate_mrct_data)
 export(wilson_ci)
 import(data.table)
 import(survival)
-importFrom(data.table,
-  ":=",
-  .GRP,
-  .I,
-  .N,
-  .SD,
-  as.data.table,
-  copy,
-  data.table,
-  fifelse,
-  is.data.table,
-  rbindlist,
-  setcolorder,
-  setkey,
-  setnames,
-  setorder
-)
+importFrom(data.table,":=")
+importFrom(data.table,.GRP)
+importFrom(data.table,.I)
+importFrom(data.table,.N)
+importFrom(data.table,.SD)
+importFrom(data.table,as.data.table)
+importFrom(data.table,copy)
+importFrom(data.table,data.table)
+importFrom(data.table,fifelse)
+importFrom(data.table,is.data.table)
+importFrom(data.table,rbindlist)
+importFrom(data.table,setcolorder)
+importFrom(data.table,setkey)
+importFrom(data.table,setnames)
+importFrom(data.table,setorder)
 importFrom(doFuture,"%dofuture%")
-importFrom(dplyr,
-  all_of,
-  arrange,
-  group_by,
-  mutate,
-  n,
-  row_number,
-  select,
-  summarise
-)
+importFrom(dplyr,all_of)
+importFrom(dplyr,arrange)
+importFrom(dplyr,group_by)
+importFrom(dplyr,mutate)
+importFrom(dplyr,n)
+importFrom(dplyr,row_number)
+importFrom(dplyr,select)
+importFrom(dplyr,summarise)
 importFrom(foreach,foreach)
-importFrom(future,
-  multicore,
-  multisession,
-  nbrOfWorkers,
-  plan,
-  sequential
-)
+importFrom(future,multicore)
+importFrom(future,multisession)
+importFrom(future,nbrOfWorkers)
+importFrom(future,plan)
+importFrom(future,sequential)
 importFrom(future.apply,future_lapply)
-importFrom(ggplot2,
-  aes,
-  annotate,
-  annotation_logticks,
-  coord_cartesian,
-  coord_flip,
-  element_blank,
-  element_line,
-  element_text,
-  expansion,
-  facet_wrap,
-  geom_boxplot,
-  geom_col,
-  geom_errorbarh,
-  geom_histogram,
-  geom_hline,
-  geom_point,
-  geom_segment,
-  geom_step,
-  geom_text,
-  geom_violin,
-  geom_vline,
-  ggplot,
-  labs,
-  margin,
-  position_dodge,
-  scale_colour_identity,
-  scale_colour_manual,
-  scale_fill_brewer,
-  scale_fill_identity,
-  scale_fill_manual,
-  scale_x_continuous,
-  scale_x_discrete,
-  scale_x_log10,
-  scale_y_continuous,
-  scale_y_discrete,
-  theme,
-  theme_bw,
-  theme_minimal,
-  theme_void,
-  xlim,
-  ylim
-)
-importFrom(glmnet,
-  cv.glmnet,
-  glmnet
-)
-importFrom(grDevices,
-  adjustcolor,
-  dev.copy,
-  dev.off,
-  jpeg,
-  pdf,
-  png,
-  rgb,
-  svg
-)
-importFrom(graphics,
-  abline,
-  axis,
-  barplot,
-  box,
-  grid,
-  hist,
-  legend,
-  lines,
-  mtext,
-  par,
-  plot,
-  plot.new,
-  plot.window,
-  points,
-  polygon,
-  rect,
-  rug,
-  text,
-  title
-)
-importFrom(grf,
-  causal_forest,
-  causal_survival_forest,
-  regression_forest,
-  variable_importance
-)
-importFrom(grid,
-  arrow,
-  gpar,
-  grid.draw,
-  grid.newpage,
-  unit
-)
-importFrom(gt,
-  cell_borders,
-  cell_fill,
-  cell_text,
-  cells_body,
-  cells_column_labels,
-  cells_row_groups,
-  cols_hide,
-  cols_label,
-  cols_width,
-  fmt_number,
-  gt,
-  md,
-  px,
-  tab_footnote,
-  tab_header,
-  tab_options,
-  tab_source_note,
-  tab_spanner,
-  tab_style
-)
+importFrom(ggplot2,aes)
+importFrom(ggplot2,annotate)
+importFrom(ggplot2,annotation_logticks)
+importFrom(ggplot2,coord_cartesian)
+importFrom(ggplot2,coord_flip)
+importFrom(ggplot2,element_blank)
+importFrom(ggplot2,element_line)
+importFrom(ggplot2,element_text)
+importFrom(ggplot2,expansion)
+importFrom(ggplot2,facet_wrap)
+importFrom(ggplot2,geom_boxplot)
+importFrom(ggplot2,geom_col)
+importFrom(ggplot2,geom_errorbarh)
+importFrom(ggplot2,geom_histogram)
+importFrom(ggplot2,geom_hline)
+importFrom(ggplot2,geom_point)
+importFrom(ggplot2,geom_segment)
+importFrom(ggplot2,geom_step)
+importFrom(ggplot2,geom_text)
+importFrom(ggplot2,geom_violin)
+importFrom(ggplot2,geom_vline)
+importFrom(ggplot2,ggplot)
+importFrom(ggplot2,labs)
+importFrom(ggplot2,margin)
+importFrom(ggplot2,position_dodge)
+importFrom(ggplot2,scale_colour_identity)
+importFrom(ggplot2,scale_colour_manual)
+importFrom(ggplot2,scale_fill_brewer)
+importFrom(ggplot2,scale_fill_identity)
+importFrom(ggplot2,scale_fill_manual)
+importFrom(ggplot2,scale_x_continuous)
+importFrom(ggplot2,scale_x_discrete)
+importFrom(ggplot2,scale_x_log10)
+importFrom(ggplot2,scale_y_continuous)
+importFrom(ggplot2,scale_y_discrete)
+importFrom(ggplot2,theme)
+importFrom(ggplot2,theme_bw)
+importFrom(ggplot2,theme_minimal)
+importFrom(ggplot2,theme_void)
+importFrom(ggplot2,xlim)
+importFrom(ggplot2,ylim)
+importFrom(glmnet,cv.glmnet)
+importFrom(glmnet,glmnet)
+importFrom(grDevices,adjustcolor)
+importFrom(grDevices,dev.copy)
+importFrom(grDevices,dev.off)
+importFrom(grDevices,jpeg)
+importFrom(grDevices,pdf)
+importFrom(grDevices,png)
+importFrom(grDevices,rgb)
+importFrom(grDevices,svg)
+importFrom(graphics,abline)
+importFrom(graphics,axis)
+importFrom(graphics,barplot)
+importFrom(graphics,box)
+importFrom(graphics,grid)
+importFrom(graphics,hist)
+importFrom(graphics,legend)
+importFrom(graphics,lines)
+importFrom(graphics,mtext)
+importFrom(graphics,par)
+importFrom(graphics,plot)
+importFrom(graphics,plot.new)
+importFrom(graphics,plot.window)
+importFrom(graphics,points)
+importFrom(graphics,polygon)
+importFrom(graphics,rect)
+importFrom(graphics,rug)
+importFrom(graphics,text)
+importFrom(graphics,title)
+importFrom(grf,causal_forest)
+importFrom(grf,causal_survival_forest)
+importFrom(grf,regression_forest)
+importFrom(grf,variable_importance)
+importFrom(grid,arrow)
+importFrom(grid,gpar)
+importFrom(grid,grid.draw)
+importFrom(grid,grid.newpage)
+importFrom(grid,unit)
+importFrom(gt,cell_borders)
+importFrom(gt,cell_fill)
+importFrom(gt,cell_text)
+importFrom(gt,cells_body)
+importFrom(gt,cells_column_labels)
+importFrom(gt,cells_row_groups)
+importFrom(gt,cols_hide)
+importFrom(gt,cols_label)
+importFrom(gt,cols_width)
+importFrom(gt,fmt_number)
+importFrom(gt,gt)
+importFrom(gt,md)
+importFrom(gt,px)
+importFrom(gt,tab_footnote)
+importFrom(gt,tab_header)
+importFrom(gt,tab_options)
+importFrom(gt,tab_source_note)
+importFrom(gt,tab_spanner)
+importFrom(gt,tab_style)
 importFrom(parallel,detectCores)
-importFrom(patchwork,
-  plot_annotation,
-  plot_layout,
-  wrap_plots
-)
-importFrom(policytree,
-  double_robust_scores,
-  policy_tree
-)
-importFrom(progressr,
-  handlers,
-  progressor,
-  with_progress
-)
+importFrom(patchwork,plot_annotation)
+importFrom(patchwork,plot_layout)
+importFrom(patchwork,wrap_plots)
+importFrom(policytree,double_robust_scores)
+importFrom(policytree,policy_tree)
+importFrom(progressr,handlers)
+importFrom(progressr,progressor)
+importFrom(progressr,with_progress)
 importFrom(randomForest,randomForest)
 importFrom(rlang,.data)
 importFrom(splines,ns)
-importFrom(stats,
-  AIC,
-  BIC,
-  aggregate,
-  approx,
-  as.formula,
-  binomial,
-  coef,
-  complete.cases,
-  confint,
-  cor,
-  density,
-  dfbeta,
-  dnorm,
-  fitted,
-  formula,
-  gaussian,
-  glm,
-  glm.fit,
-  integrate,
-  lm,
-  median,
-  model.frame,
-  model.matrix,
-  na.exclude,
-  na.omit,
-  optim,
-  pchisq,
-  plogis,
-  pnorm,
-  poisson,
-  predict,
-  printCoefmat,
-  pt,
-  qlogis,
-  qnorm,
-  qt,
-  quantile,
-  quasipoisson,
-  rbinom,
-  reformulate,
-  residuals,
-  rexp,
-  rgamma,
-  rnorm,
-  rpois,
-  runif,
-  sd,
-  setNames,
-  terms,
-  uniroot,
-  update,
-  var,
-  vcov,
-  weighted.mean
-)
-importFrom(survival,
-  Surv,
-  coxph,
-  coxph.control,
-  coxph.fit,
-  survdiff,
-  survfit,
-  survreg
-)
-importFrom(utils,
-  capture.output,
-  combn,
-  data,
-  hasName,
-  head,
-  modifyList,
-  object.size,
-  packageVersion,
-  read.table,
-  sessionInfo,
-  setTxtProgressBar,
-  str,
-  tail,
-  txtProgressBar,
-  write.table
-)
-importFrom(weightedsurv,
-  df_counting,
-  plot_weighted_km
-)
+importFrom(stats,AIC)
+importFrom(stats,BIC)
+importFrom(stats,aggregate)
+importFrom(stats,approx)
+importFrom(stats,as.formula)
+importFrom(stats,binomial)
+importFrom(stats,coef)
+importFrom(stats,complete.cases)
+importFrom(stats,confint)
+importFrom(stats,cor)
+importFrom(stats,density)
+importFrom(stats,dfbeta)
+importFrom(stats,dnorm)
+importFrom(stats,fitted)
+importFrom(stats,formula)
+importFrom(stats,gaussian)
+importFrom(stats,glm)
+importFrom(stats,glm.fit)
+importFrom(stats,integrate)
+importFrom(stats,lm)
+importFrom(stats,median)
+importFrom(stats,model.frame)
+importFrom(stats,model.matrix)
+importFrom(stats,na.exclude)
+importFrom(stats,na.omit)
+importFrom(stats,optim)
+importFrom(stats,pchisq)
+importFrom(stats,plogis)
+importFrom(stats,pnorm)
+importFrom(stats,poisson)
+importFrom(stats,predict)
+importFrom(stats,printCoefmat)
+importFrom(stats,pt)
+importFrom(stats,qlogis)
+importFrom(stats,qnorm)
+importFrom(stats,qt)
+importFrom(stats,quantile)
+importFrom(stats,quasipoisson)
+importFrom(stats,rbinom)
+importFrom(stats,reformulate)
+importFrom(stats,residuals)
+importFrom(stats,rexp)
+importFrom(stats,rgamma)
+importFrom(stats,rnorm)
+importFrom(stats,rpois)
+importFrom(stats,runif)
+importFrom(stats,sd)
+importFrom(stats,setNames)
+importFrom(stats,terms)
+importFrom(stats,uniroot)
+importFrom(stats,update)
+importFrom(stats,var)
+importFrom(stats,vcov)
+importFrom(stats,weighted.mean)
+importFrom(survival,Surv)
+importFrom(survival,coxph)
+importFrom(survival,coxph.control)
+importFrom(survival,coxph.fit)
+importFrom(survival,survdiff)
+importFrom(survival,survfit)
+importFrom(survival,survreg)
+importFrom(utils,capture.output)
+importFrom(utils,combn)
+importFrom(utils,data)
+importFrom(utils,hasName)
+importFrom(utils,head)
+importFrom(utils,modifyList)
+importFrom(utils,object.size)
+importFrom(utils,packageVersion)
+importFrom(utils,read.table)
+importFrom(utils,sessionInfo)
+importFrom(utils,setTxtProgressBar)
+importFrom(utils,str)
+importFrom(utils,tail)
+importFrom(utils,txtProgressBar)
+importFrom(utils,write.table)
+importFrom(weightedsurv,df_counting)
+importFrom(weightedsurv,plot_weighted_km)
