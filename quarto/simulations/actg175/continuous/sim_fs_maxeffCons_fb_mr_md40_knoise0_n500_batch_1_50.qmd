@@ -109,7 +109,7 @@ n_workers     <- ceiling(0.90 * max(1L, parallel::detectCores(logical = FALSE) -
 # ── Smoke-test counts (the only knobs to change for production) ─────────────
 n_sims       <- 20L     # QUICK RUN for review        (production: 50L per batch)
 diag_mode    <- FALSE   # TRUE caps to 5 reps and relays worker errors verbatim
-nb_boots     <- 300L     # PRESENTATION REVIEW ONLY -- below any FB validity
+nb_boots     <- 20L     # PRESENTATION REVIEW ONLY -- below any FB validity
                         # floor (manuscript uses 300); do not quote FB numbers
                         # from this render.            (production: 300L)
 mr_draws     <- 5000L   # MR multiplier draws
@@ -170,6 +170,43 @@ md_consistency <- 10    # consistency.threshold. OPEN QUESTION D2: sits below
                         # both CATE values, hence non-discriminating.
 pconsistency   <- 0.90
 fs_splits <- 400L; maxk <- 2L; n_min <- 60L; d0_min <- 12L; d1_min <- 12L
+
+# ── Candidate cuts on the true-region covariates (J-quantile grids) ──────────
+# THIS WAS MISSING, and the omission mattered more than it looks.  With no cut
+# arguments supplied at all, forestsearch() used its DEFAULT cut set -- q25,
+# median, q75 per continuous covariate -- and on this DGM those defaults contain
+# BOTH true boundaries EXACTLY:
+#
+#   age     default cuts 29.0 / 34.0 / 40.0    <- the median IS the true cut 34
+#   preanti default cuts  0.0 / 136.0 / 744.5  <- q75 IS the true cut 744.5
+#
+# That is not coincidence: actg_age_cut and actg_preanti_cut were themselves set
+# to those quantiles.  The search was therefore being handed the exact answer,
+# and could reach Jaccard 1.000 against the true region.
+#
+# The survival template deliberately avoids this.  Its true z1 cut is er's q25
+# (= 8), which is also a default cut, and `conf.cont_jcuts = list(er = 10)`
+# REPLACES er's defaults with a J-quantile grid (0, 3, 9, 17, 30, ...) that does
+# NOT contain 8.  The search must approximate the boundary rather than be given
+# it.  This restores that design symmetry on the continuous side.
+#
+# Cuts are placed at the k/(J+1) empirical quantiles, k = 1..J
+# (get_FSdata_helpers.R cut_var_jq), and jcuts REPLACE the default set for the
+# named variables (get_fsdata.R: names are stripped from conf.cont_medians).
+# Measured consequence on this DGM:
+#
+#   default cuts : best achievable Jaccard 1.000 (age > 34.0 & preanti <= 744.5)
+#   J = 10       : best achievable Jaccard 0.882 (age > 33.0 & preanti <= 677.9)
+#
+# CAVEAT on preanti.  Over 40% of patients are antiretroviral-naive
+# (preanti = 0), so the lower half of its J-grid collapses:
+#   0, 0, 0, 0, 55.8, 214.1, 432, 677.9, 872.8, 1070.5
+# Four of the ten cuts are the same "preanti <= 0" condition, so the effective
+# resolution is ~7 distinct cuts, concentrated above the median.  Raising J for
+# preanti buys resolution only in the upper tail.
+#
+# Set to NULL to revert to default cuts (and to the exactly-representable truth).
+fs_conf.cont_jcuts <- list(age = 10, preanti = 10)
 use_lasso <- FALSE; use_dina <- FALSE; use_grf <- FALSE; use_twostage <- TRUE
 is_rct <- TRUE; vi_grf_min <- -0.2
 adverse_outcome <- FALSE   # higher CD4 change = better; harm = negative MD
@@ -505,6 +542,7 @@ record_replicate <- function(sim_id) {
       effect_neighborhood = effect_neighborhood,
       stop_threshold = stop_threshold,
       consistency_method = consistency_method,
+      conf.cont_jcuts = fs_conf.cont_jcuts,
       use_lasso = use_lasso, use_dina = use_dina, use_grf = use_grf,
       use_twostage = use_twostage, is.RCT = is_rct,
       adverse_outcome = adverse_outcome,
