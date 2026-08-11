@@ -441,3 +441,157 @@ fs_identification_table <- function(x, as_gt = FALSE, digits = 1) {
                          x$anchor, x$partner, x$proxy)),
     footnote = attr(tab, "accuracy_note"))
 }
+
+
+# --- realized-rule structure, collapsed over cut values ----------------------
+
+#' Covariate signatures of the realized rules
+#'
+#' Collapses realized rules to the **set of covariates** they name, discarding
+#' the cut values. A rules-by-frequency table lists every distinct `sg_def`
+#' string and so is dominated by cut noise -- a 500-replicate survival run
+#' produced 583 rows, in which `{age <= 46} & {nodes <= 5}` and
+#' `{nodes <= 3} & {age <= 46}` are separate entries despite being the same
+#' pairing. This reports how often each covariate *combination* is selected,
+#' which is the structural question.
+#'
+#' @section What a signature is:
+#'
+#' The covariate names in the rule, de-duplicated and sorted, joined by `" & "`.
+#' Sorting is what makes the two orderings above collapse together. Two
+#' consequences worth knowing:
+#'
+#' * A rule naming one covariate twice --- a band such as
+#'   `!{nodes <= 3} & {nodes <= 5}` --- has signature `"nodes"`, of size 1. The
+#'   `k` column gives the number of distinct covariates, and `n_rules` the
+#'   number of distinct rule strings that collapsed into the row, so bands are
+#'   visible rather than hidden.
+#' * Logically equivalent spellings of the same condition (`!{meno}` versus
+#'   `{meno == 0}`) collapse together, which a raw rule table also splits.
+#'
+#' @param x A results data frame carrying `sg_def`, a bundle with `results`, a
+#'   path to an `.rds`, or a bare character vector of rules.
+#' @param true_covariates Character vector. The true-region covariates, used to
+#'   classify each signature as `"exact"` (the signature is exactly this set),
+#'   `"partial"` (overlaps it) or `"none"`. `NULL` skips the classification.
+#' @param detected_only Logical. Restrict to rows with `detected == 1` when a
+#'   results frame is supplied.
+#'
+#' @return A data frame ordered by frequency: `covariates`, `k`, `n`, `share`,
+#'   `n_rules`, and `match` when `true_covariates` is given.
+#'
+#' @export
+fs_rule_covariate_pairs <- function(x, true_covariates = NULL,
+                                    detected_only = TRUE) {
+  rules <- if (is.character(x)) {
+    x
+  } else {
+    r <- .fs_id_read(x)
+    if (isTRUE(detected_only) && !is.null(r$detected))
+      r <- r[r$detected %in% 1L, , drop = FALSE]
+    r$sg_def
+  }
+  rules <- rules[!is.na(rules) & nzchar(rules)]
+  if (!length(rules)) {
+    return(data.frame(covariates = character(0), k = integer(0),
+                      n = integer(0), share = numeric(0),
+                      n_rules = integer(0), stringsAsFactors = FALSE))
+  }
+
+  sig <- vapply(rules, function(rl) {
+    cv <- .fs_rule_columns(rl)
+    if (!length(cv)) return(NA_character_)
+    paste(sort(unique(cv)), collapse = " & ")
+  }, character(1), USE.NAMES = FALSE)
+
+  keep <- !is.na(sig)
+  sig <- sig[keep]; rules <- rules[keep]
+  tab <- table(sig)
+  out <- data.frame(
+    covariates = names(tab),
+    n = as.integer(tab),
+    stringsAsFactors = FALSE)
+  out$share <- out$n / length(sig)
+  out$k <- vapply(strsplit(out$covariates, " & ", fixed = TRUE), length,
+                  integer(1))
+  out$n_rules <- vapply(out$covariates, function(s)
+    length(unique(rules[sig == s])), integer(1), USE.NAMES = FALSE)
+
+  if (!is.null(true_covariates)) {
+    tset <- sort(unique(true_covariates))
+    out$match <- vapply(out$covariates, function(s) {
+      cs <- strsplit(s, " & ", fixed = TRUE)[[1L]]
+      if (setequal(cs, tset)) "exact"
+      else if (length(intersect(cs, tset))) "partial"
+      else "none"
+    }, character(1), USE.NAMES = FALSE)
+  }
+  out <- out[order(-out$n, out$covariates), c("covariates", "k", "n", "share",
+                                              "n_rules",
+                                              if (!is.null(true_covariates)) "match")]
+  rownames(out) <- NULL
+  out
+}
+
+#' Selected-covariate-pair frequencies
+#'
+#' Bar-chart companion to [fs_rule_covariate_pairs()], in the same idiom as the
+#' selected-covariate figure: horizontal bars, ordered by share, coloured by
+#' how the signature relates to the true region.
+#'
+#' @param x An `fs_identification` object, or anything
+#'   [fs_rule_covariate_pairs()] accepts.
+#' @param true_covariates Character vector; taken from `x` when it is an
+#'   `fs_identification` object.
+#' @param top_n Integer. Show only the most frequent `top_n` signatures; the
+#'   remainder are pooled into a single "other" bar so the shares still sum to
+#'   1 and nothing is silently dropped.
+#' @param detected_only Passed through.
+#'
+#' @return A `ggplot` object.
+#' @importFrom rlang .data
+#' @export
+plot_fs_rule_pairs <- function(x, true_covariates = NULL, top_n = 12L,
+                               detected_only = TRUE) {
+  if (inherits(x, "fs_identification")) {
+    if (is.null(true_covariates))
+      true_covariates <- c(x$anchor, x$partner)
+    stop("plot_fs_rule_pairs(): pass the results frame or bundle, not the ",
+         "fs_identification object -- signatures are built from `sg_def`, ",
+         "which that object does not retain.", call. = FALSE)
+  }
+  d <- fs_rule_covariate_pairs(x, true_covariates = true_covariates,
+                               detected_only = detected_only)
+  if (!nrow(d)) return(ggplot2::ggplot() + ggplot2::theme_void())
+
+  if (nrow(d) > top_n) {
+    head_d <- d[seq_len(top_n), , drop = FALSE]
+    tail_d <- d[-seq_len(top_n), , drop = FALSE]
+    pooled <- data.frame(
+      covariates = sprintf("other (%d signatures)", nrow(tail_d)),
+      k = NA_integer_, n = sum(tail_d$n), share = sum(tail_d$share),
+      n_rules = sum(tail_d$n_rules), stringsAsFactors = FALSE)
+    if (!is.null(true_covariates)) pooled$match <- "none"
+    d <- rbind(head_d, pooled[, names(head_d), drop = FALSE])
+  }
+
+  d$covariates <- factor(d$covariates, levels = rev(d$covariates))
+  p <- ggplot2::ggplot(d, ggplot2::aes(x = .data$covariates, y = .data$share))
+  if (!is.null(true_covariates)) {
+    p <- p + ggplot2::geom_col(ggplot2::aes(fill = .data$match)) +
+      ggplot2::scale_fill_manual(
+        values = c(exact = "#b3261e", partial = "#e0a030", none = "grey60"),
+        breaks = c("exact", "partial", "none"),
+        labels = c(exact = "exactly the true pair", partial = "overlaps it",
+                   none = "neither"),
+        name = NULL)
+  } else {
+    p <- p + ggplot2::geom_col(fill = "grey50")
+  }
+  p + ggplot2::coord_flip() +
+    ggplot2::scale_y_continuous(labels = function(v) .fs_id_pct(v, 0)) +
+    ggplot2::labs(x = NULL, y = "Share of detected replicates",
+                  title = "Selected-covariate-pair frequencies",
+                  subtitle = "Realized rules collapsed over cut values") +
+    ggplot2::theme_minimal(base_size = 12)
+}
