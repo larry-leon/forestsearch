@@ -1,0 +1,1166 @@
+---
+title: "GBSG subgroup analysis across selection foci: Naive, Full Bootstrap, Multiplier Resampling, and Guo & He"
+subtitle: "Survival (Cox / HR) outcome; `sg_focus` is a single knob"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-summary: "Show code"
+bibliography: []
+---
+
+<!--
+  analysis_gbsg_survival_sgfocus.qmd
+
+  Supersedes analysis_gbsg_survival_maxeff.qmd.  At fs_sg_focus <- "maxeff"
+  this document reproduces that analysis; the difference is that fs_sg_focus
+  now accepts ANY legal focus and the document adapts around it.
+
+  WHAT ADAPTS TO THE FOCUS
+    * Pareto frontier block (figure + CIs + table + narrative) runs only for
+      the banded foci effMaxSG / effMinSG (canonical hrMaxSG / hrMinSG),
+      where the (effect, N) frontier IS the selection geometry rather than a
+      post-hoc curiosity.
+    * Guo & He runs only under sg_focus = "maxeff".  This is a hard
+      constraint, not a stylistic choice: fs_export_maxeff_family()
+      (fs_to_guohe.R:141-143) stops unless fit$sg_focus == "maxeff", and it
+      needs the untruncated family that only maxeff guarantees.
+    * selection_rule is passed through only for the banded foci.  Elsewhere
+      .validate_selection_rule() RAISES AN ERROR for a non-default value
+      rather than ignoring it, so the document coerces it to "neighborhood".
+    * stop_threshold is supplied only for maxeffCons, the one focus whose
+      sort key contains no Pcons term.  Everywhere else forestsearch()
+      resets it to NULL; passing NULL up front keeps the render warning-free
+      and the provenance capture honest.
+    * Under maxeff the five engine-forced overrides are pre-resolved in the
+      call itself, so args_call_all records what the engine ran with rather
+      than what was typed.  The provenance table VERIFIES this rather than
+      assuming it.
+
+  VENUE.  The forestsearch fit, the full bootstrap, the Guo & He pair
+  bootstrap and the leave-one-out loop are compute-heavy and require the
+  forestsearch package installed (not load_all(): doFuture workers spawn
+  separate R processes).  Run on the analysis machine.
+-->
+
+```{r setup}
+#| message: false
+#| warning: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+library(forestsearch)
+library(survival)
+library(data.table)
+library(ggplot2)
+library(doFuture)
+library(kableExtra)
+
+timings <- list()
+
+# Guo & He comparator: guohe_algorithm3() / fs_to_guohe() are package API
+# (exported by forestsearch).  gh_dir is kept only for the LOO cache path.
+gh_dir <- Sys.getenv("GH_DIR", unset = "../../../quarto/GuoHe")
+```
+
+## Selection focus {#sec-focus}
+
+`sg_focus` is the single knob that decides which surviving candidate is
+returned. Two runs that differ only in `sg_focus` estimate different things, so
+the resolved focus is recorded in the table below and every downstream section
+keys off it.
+
+```{r focus-config}
+#| code-fold: false
+
+# ---------------------------------------------------------------------------
+# THE ONLY KNOB THAT CHANGES THE ESTIMAND.  Any legal value is accepted:
+#
+#   "maxcons" / "eff" / "hr"   consistency argmax, effect breaks ties
+#   "maxeff"                   effect argmax over ALL candidates, ungated
+#   "maxeffCons"               effect argmax among consistency qualifiers
+#   "maxSG" / "minSG"          size extremes among qualifiers, no band
+#   "effMaxSG" / "hrMaxSG"     largest N within the effect band
+#   "effMinSG" / "hrMinSG"     smallest N within the effect band
+#
+# Prefer the eff*/maxcons spellings: they name the rule and survive the move
+# to GLM outcomes.  Note maxSG/minSG are NOT spellings of effMaxSG/effMinSG.
+# ---------------------------------------------------------------------------
+fs_sg_focus            <- "effMaxSG"
+
+# selection_rule and effect_neighborhood shape the inclusion band.  They are
+# consulted ONLY for effMaxSG / effMinSG; the profile below coerces the rule
+# to "neighborhood" elsewhere, because forestsearch() treats a non-default
+# rule under a non-band focus as an error rather than a no-op.
+fs_selection_rule      <- "both"        # "neighborhood" | "pareto" | "both"
+fs_effect_neighborhood <- 0.10
+
+# Thresholds and search settings (inert under maxeff -- see the profile).
+fs_hr_threshold         <- 1.0
+fs_hr_consistency       <- 1.0
+fs_pconsistency         <- 0.90
+fs_max_subgroups_search <- Inf 
+fs_minp                 <- 0.025
+fs_use_twostage         <- TRUE
+fs_stop_threshold       <- 0.95   # consumed by maxeffCons only
+fs_consistency_method   <- "resample"
+```
+
+```{r focus-profile}
+#| code-fold: true
+
+# Mirror of the package's .normalize_sg_focus() (forestsearch_helpers.R:916).
+.fs_focus_canonical <- function(x) {
+  switch(x,
+         effMaxSG = "hrMaxSG",
+         effMinSG = "hrMinSG",
+         eff      = "hr",
+         maxcons  = "hr",
+         x)
+}
+
+#' Resolve a supplied sg_focus into the settings this document must honour
+#'
+#' Returns the canonical focus plus the derived flags every downstream chunk
+#' keys on, and pre-resolves the arguments forestsearch() would otherwise
+#' override internally.  Pre-resolving matters for provenance: the maxeff
+#' override block (forestsearch_main.R:1309) does NOT re-sync args_call_all,
+#' so a value typed into the call and then overridden is captured in its
+#' pre-override form.  Supplying the engine-forced value directly removes the
+#' discrepancy at source.
+.fs_focus_profile <- function(sg_focus,
+                              selection_rule,
+                              effect_neighborhood,
+                              hr_threshold,
+                              hr_consistency,
+                              pconsistency,
+                              max_subgroups_search,
+                              minp,
+                              use_twostage,
+                              stop_threshold) {
+
+  valid_user <- c("hr", "eff", "maxcons",
+                  "hrMaxSG", "effMaxSG", "hrMinSG", "effMinSG",
+                  "maxSG", "minSG", "maxeff", "maxeffCons")
+  if (!is.character(sg_focus) || length(sg_focus) != 1L ||
+      !sg_focus %in% valid_user) {
+    stop("fs_sg_focus must be one of: ",
+         paste(sQuote(valid_user), collapse = ", "),
+         ".  Got: ", paste(deparse(sg_focus), collapse = " "),
+         call. = FALSE)
+  }
+
+  canonical     <- .fs_focus_canonical(sg_focus)
+  is_banded     <- canonical %in% c("hrMaxSG", "hrMinSG")
+  is_maxeff     <- identical(canonical, "maxeff")
+  is_maxeffcons <- identical(canonical, "maxeffCons")
+
+  # selection_rule: ERROR (not a silent no-op) outside the banded foci.
+  rule <- if (is_banded) selection_rule else "neighborhood"
+  if (!is_banded && !identical(selection_rule, "neighborhood")) {
+    message("selection_rule = '", selection_rule, "' is inert for sg_focus = '",
+            sg_focus, "' and would be rejected by forestsearch(); ",
+            "coerced to 'neighborhood'.")
+  }
+
+  # stop_threshold is meaningful for maxeffCons alone.  forestsearch() resets
+  # it to NULL for hrMaxSG / hrMinSG / hr / maxSG / minSG (warning only when
+  # supplied explicitly) and under maxeff.  Passing NULL avoids the warning
+  # and records the operative value.
+  stop_thr <- if (is_maxeffcons) stop_threshold else NULL
+
+  # maxeff engine-forced settings (forestsearch_main.R:1309).  Supplying them
+  # directly suppresses the override warning AND keeps args_call_all truthful.
+  if (is_maxeff) {
+    pcons_out  <- 0
+    msg_out    <- Inf
+    minp_out   <- 0
+    twostg_out <- FALSE
+  } else {
+    pcons_out  <- pconsistency
+    msg_out    <- max_subgroups_search
+    minp_out   <- minp
+    twostg_out <- use_twostage
+  }
+
+  key <- switch(canonical,
+    hr         = "(-Pcons, -hr, K)",
+    maxeff     = "(-hr, K)",
+    maxeffCons = "(-hr, K)",
+    maxSG      = "(-N, -Pcons, K)",
+    minSG      = "(N, -Pcons, K)",
+    hrMaxSG    = "(-in_band, -N, -Pcons, -hr, K)",
+    hrMinSG    = "(-in_band, N, -Pcons, -hr, K)")
+
+  ranges_over <- switch(canonical,
+    maxeff     = "ALL candidates, ungated",
+    maxeffCons = "consistency-qualifying candidates only",
+    "all qualifiers")
+
+  list(
+    supplied              = sg_focus,
+    canonical             = canonical,
+    key                   = key,
+    ranges_over           = ranges_over,
+    is_banded             = is_banded,
+    is_maxeff             = is_maxeff,
+    is_maxeffcons         = is_maxeffcons,
+    run_pareto            = is_banded,
+    run_guohe             = is_maxeff,
+    thresholds_live       = !is_maxeff,
+    selection_rule        = rule,
+    effect_neighborhood   = effect_neighborhood,
+    hr_threshold          = hr_threshold,
+    hr_consistency        = hr_consistency,
+    pconsistency          = pcons_out,
+    max_subgroups_search  = msg_out,
+    minp                  = minp_out,
+    use_twostage          = twostg_out,
+    stop_threshold        = stop_thr
+  )
+}
+
+focus <- .fs_focus_profile(
+  sg_focus             = fs_sg_focus,
+  selection_rule       = fs_selection_rule,
+  effect_neighborhood  = fs_effect_neighborhood,
+  hr_threshold         = fs_hr_threshold,
+  hr_consistency       = fs_hr_consistency,
+  pconsistency         = fs_pconsistency,
+  max_subgroups_search = fs_max_subgroups_search,
+  minp                 = fs_minp,
+  use_twostage         = fs_use_twostage,
+  stop_threshold       = fs_stop_threshold
+)
+
+# Chunk-level gates (chunk options are evaluated in the global environment).
+run_pareto <- focus$run_pareto
+```
+
+```{r focus-record}
+#| echo: false
+.fmt1 <- function(x) if (is.null(x)) "NULL" else
+  paste(deparse(x, width.cutoff = 200L), collapse = " ")
+
+kbl(data.frame(
+  Item = c("sg_focus (supplied)", "sg_focus (canonical)", "Sort key",
+           "Ranges over", "selection_rule", "effect_neighborhood",
+           "Effect floor (hr.threshold)", "Consistency screen (pconsistency)",
+           "stop_threshold", "max_subgroups_search", "use_twostage",
+           "Pareto frontier section", "Guo & He section"),
+  Value = c(focus$supplied, focus$canonical, focus$key, focus$ranges_over,
+            focus$selection_rule, .fmt1(focus$effect_neighborhood),
+            if (focus$thresholds_live) .fmt1(focus$hr_threshold)
+              else "disabled under maxeff",
+            if (focus$thresholds_live) .fmt1(focus$pconsistency)
+              else "0 (screen admits everything)",
+            .fmt1(focus$stop_threshold),
+            .fmt1(focus$max_subgroups_search),
+            .fmt1(focus$use_twostage),
+            if (focus$run_pareto) "RUN (banded focus)"
+              else "skipped (band not the selection geometry)",
+            if (focus$run_guohe) "RUN (argmax primitive)"
+              else "skipped (requires sg_focus = 'maxeff')"),
+  check.names = FALSE),
+  booktabs = TRUE, align = "ll",
+  caption = "Resolved selection configuration for this render.") |>
+  kable_styling(full_width = FALSE)
+```
+
+```{r focus-narrative}
+#| echo: false
+#| results: asis
+cat(switch(focus$canonical,
+  hr = paste(
+    "The selected subgroup is the **consistency argmax**: the candidate with the",
+    "highest split-consistency probability, with effect size breaking ties. This is",
+    "the rule of León et al. (2024). Because enumeration proceeds by effect while",
+    "the key is led by consistency, the scan order carries no information about the",
+    "ranking -- every candidate must be scored, and a candidate far down the",
+    "enumeration can carry the highest `Pcons` and win.\n"),
+  maxeff = paste(
+    "The selected subgroup is the **effect maximiser** over the enumerated candidate",
+    "family -- the argmax primitive of Guo and He (2021), and the selection their",
+    "de-biasing is built to correct. No threshold can reject the winner: the",
+    "consistency screen is set to admit everything, the effect floor is disabled,",
+    "early stopping and two-stage narrowing are off, and the candidate pool is not",
+    "truncated. Consistency is computed for the winner and reported, but",
+    "descriptively -- so `prop_SG_found = 100%` is structural rather than an",
+    "empirical finding.\n"),
+  maxeffCons = paste(
+    "The selected subgroup is the **effect maximiser among consistency qualifiers**.",
+    "The sort key is identical to `maxeff`; what differs is the population it ranges",
+    "over, since only candidates clearing `pconsistency.threshold` reach the sort.",
+    "This is the one focus whose key contains no `Pcons` term, so early stopping is",
+    "sound and `stop_threshold` is live for this render.\n"),
+  maxSG = paste(
+    "The selected subgroup is the **largest qualifying candidate**, with consistency",
+    "breaking ties. There is no inclusion band and no effect term until the final",
+    "`K` tiebreak, so the rule can run out to a large but weak subgroup.\n"),
+  minSG = paste(
+    "The selected subgroup is the **smallest qualifying candidate**, with consistency",
+    "breaking ties. There is no inclusion band and no effect term until the final",
+    "`K` tiebreak.\n"),
+  hrMaxSG = paste(
+    "The selected subgroup is the **largest candidate inside the effect band**:",
+    "in-band candidates first, then size, then consistency, then effect. The band is",
+    "what stops a size-seeking rule from running out to the weak-but-large candidate",
+    "`maxSG` would take. Because the band is the selection geometry rather than a",
+    "post-hoc diagnostic, the (effect, N) Pareto frontier is reported below as a",
+    "**selection** diagnostic.\n"),
+  hrMinSG = paste(
+    "The selected subgroup is the **smallest candidate inside the effect band**:",
+    "in-band candidates first, then size ascending, then consistency, then effect.",
+    "Because this focus deliberately prefers small subgroups, the selected subgroup",
+    "may be N-dominated by a larger neighbour and therefore may not itself appear on",
+    "the frontier -- that is expected, not a defect. The frontier is reported below",
+    "as a **selection** diagnostic.\n")))
+```
+
+```{r parallel-setup}
+# PARALLELISM NOTES:
+#   * FB  -- forestsearch_bootstrap_dofuture() uses %dofuture%; it inherits the
+#            plan set here and restores the previous plan on exit.
+#   * MR  -- the de-biased gate is vectorized matrix algebra (a single crossprod
+#            over all draws), NOT a parallel loop; it needs no plan, only a
+#            threaded BLAS to benefit.  Do not wrap it in a future.
+#   * GH  -- guohe_algorithm3()'s pair bootstrap is parallelised via its own
+#            `parallel` argument; forked workers (Linux/Mac) are cheapest.
+n_cores <- max(1L, floor(0.80 * parallel::detectCores(logical = FALSE)))
+cat("Using", n_cores, "physical cores for parallel sections\n")
+
+NB          <- 1000L    # full-bootstrap resamples (production: 500-2000)
+mr_draws    <- 5000L    # MR multiplier draws
+GH_B        <- 2000L    # Guo & He pair-bootstrap resamples
+GH_r        <- 0.03     # Guo & He tuning parameter
+GH_PARALLEL <- .Platform$OS.type == "unix"
+
+# Guo & He is available only under the argmax focus; gate the request on both
+# the user toggle and the structural precondition.
+gh_requested <- TRUE
+run_gh       <- isTRUE(gh_requested) && focus$run_guohe
+
+run_loo      <- FALSE    # leave-one-out (N-fold) out-of-sample subgroup estimate
+run_cv_kfold <- FALSE    # repeated 10-fold cross-validation
+Ksims        <- 50L     # repeated 10-fold partitions (>= 50 for production)
+
+# LOO fold-loop workers.  No nested parallelism to guard against:
+# forestsearch_Kfold() pins each fold's inner refit to plan = "sequential".
+loo_workers <- n_cores
+
+# Pre-seed so the timing table is well-formed whichever sections run.
+timings$fit   <- NA_real_
+timings$fb    <- NA_real_
+timings$mr    <- NA_real_
+timings$gh    <- NA_real_
+timings$loo   <- NA_real_
+timings$kfold <- NA_real_
+timings$frontier <- NA_real_
+
+# ---------------------------------------------------------------------------
+# Pareto-frontier diagnostic parameters.  Consulted only when the focus is
+# banded.  compute_frontier_cis() is the expensive call (its cost scales with
+# frontier size x n_splits); set compute_cis <- FALSE to render the figure,
+# table and narrative without interval bars.
+# ---------------------------------------------------------------------------
+frontier_params <- list(
+  compute_cis = TRUE,
+  n_splits    = 1000L,
+  seed        = 1L,
+  xlim        = NULL,    # HR is a natural-scale measure; NULL lets it auto-fit
+  xlim_trim   = TRUE,    # zoom to point estimates, ignoring wide split-CI tails
+  digits      = 2L
+)
+```
+
+```{r data}
+df.analysis <- gbsg
+df.analysis <- within(df.analysis, {
+  id <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3 <- ifelse(grade == "3", 1, 0)
+})
+
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+outcome.name <- "time_months"
+event.name   <- "status"
+id.name      <- "id"
+treat.name   <- "hormon"
+
+cat("Sample size:", nrow(df.analysis), "\n")
+cat("Events:", sum(df.analysis[[event.name]]),
+    sprintf("(%.1f%%)\n", 100 * mean(df.analysis[[event.name]])))
+```
+
+## Parameter provenance {#sec-param}
+
+Each `forestsearch()` fit carries `args_call_all`: the argument list the call
+actually resolved to, kept in sync by the package's `.sync_args_call_all()`. The
+table below reconciles it against `formals(forestsearch)` at render time, so the
+values reported are the ones the fit used rather than restated comments that can
+drift.
+
+```{r param-provenance-helper}
+#| code-fold: false
+
+.fs_fmt_val <- function(v) {
+  if (is.null(v)) return("NULL")
+  if (is.data.frame(v)) return(sprintf("<data.frame %d x %d>", nrow(v), ncol(v)))
+  if (is.function(v)) return("<function>")
+  if (is.list(v)) {
+    if (length(v) == 0L) return("list()")
+    nms <- names(v); if (is.null(nms)) nms <- rep("", length(v))
+    inner <- vapply(seq_along(v), function(i) {
+      val <- tryCatch(paste(deparse(v[[i]], width.cutoff = 200L), collapse = " "),
+                      error = function(e) "<?>")
+      if (nzchar(nms[i])) paste0(nms[i], " = ", val) else val
+    }, character(1))
+    return(paste0("list(", paste(inner, collapse = ", "), ")"))
+  }
+  if (length(v) > 6L) return(sprintf("<%s[%d]>", class(v)[1], length(v)))
+  paste(deparse(v, width.cutoff = 200L), collapse = " ")
+}
+
+.fs_fmt_default <- function(x) {
+  if (identical(x, quote(expr = ))) return("<required; no default>")
+  paste(deparse(x, width.cutoff = 200L), collapse = " ")
+}
+
+# match.arg-style values resolve to their first element.  Applied to BOTH sides
+# of the comparison below: a value captured unresolved (grf_selection,
+# grf_select_statistic) still sits at its default and must not read as differing.
+.fs_collapse_matcharg <- function(x) {
+  ifelse(!is.na(x) & grepl('^c[(]"', x),
+         sub('^c[(]"([^"]*)".*$', '"\\1"', x), x)
+}
+
+#' Reconcile a fit's resolved arguments against forestsearch()'s formals
+fs_param_provenance <- function(fit, fn = forestsearch) {
+  stopifnot(!is.null(fit), !is.null(fit$args_call_all))
+  args <- fit$args_call_all
+  fm   <- formals(fn)
+  nm   <- setdiff(names(fm), "...")
+
+  defaults <- vapply(fm[nm], .fs_fmt_default, character(1), USE.NAMES = FALSE)
+  used <- vapply(nm, function(p) {
+    if (!p %in% names(args)) return(NA_character_)
+    .fs_fmt_val(args[[p]])
+  }, character(1), USE.NAMES = FALSE)
+
+  eff      <- .fs_collapse_matcharg(defaults)
+  eff_used <- .fs_collapse_matcharg(used)
+
+  out <- data.frame(
+    parameter  = nm,
+    default    = defaults,
+    value_used = ifelse(is.na(used), "(not captured)", used),
+    status     = ifelse(is.na(used), "not captured",
+                 ifelse(eff_used == eff, "at default", "differs from default")),
+    stringsAsFactors = FALSE
+  )
+
+  # forestsearch_main.R:1309 overrides five settings under sg_focus = "maxeff"
+  # and does NOT re-sync args_call_all afterwards (the package notes this
+  # itself at ~2763).  This document pre-resolves those five to the
+  # engine-forced values in the call, so the capture should already agree.
+  # VERIFY that rather than assuming it: a row that still carries a
+  # pre-override value is flagged loudly.
+  if (identical(args$sg_focus, "maxeff")) {
+    forced <- list(pconsistency.threshold = 0, stop_threshold = NULL,
+                   use_twostage = FALSE, max_subgroups_search = Inf, minp = 0)
+    for (p in names(forced)) {
+      i <- which(out$parameter == p)
+      if (!length(i)) next
+      agrees <- isTRUE(all.equal(args[[p]], forced[[p]]))
+      out$status[i] <- if (agrees)
+        "maxeff engine-forced value (pre-resolved in this call)" else
+        "STALE -- captured BEFORE the maxeff override; not what the engine used"
+    }
+  }
+
+  # stop_threshold is reset to NULL for these foci, but that branch DOES call
+  # .sync_args_call_all(), so the capture is already truthful; label it.
+  if (identical(args$sg_focus, "hrMaxSG") ||
+      identical(args$sg_focus, "hrMinSG") ||
+      args$sg_focus %in% c("hr", "maxSG", "minSG")) {
+    i <- which(out$parameter == "stop_threshold")
+    if (length(i) && is.null(args$stop_threshold))
+      out$status[i] <- "NULL: early stopping unsound for this key (re-synced)"
+  }
+
+  out
+}
+
+#' Render a provenance table for one fit
+fs_param_table <- function(fit, title) {
+  pv <- fs_param_provenance(fit)
+  n_diff <- sum(pv$status == "differs from default")
+  sub <- sprintf(
+    "%d of %d formals differ from their package default (forestsearch %s, read at render time).",
+    n_diff, nrow(pv),
+    tryCatch(as.character(utils::packageVersion("forestsearch")),
+             error = function(e) "version unknown"))
+  if (any(grepl("^STALE", pv$status))) {
+    sub <- paste(sub,
+      "WARNING: one or more rows were captured before the sg_focus = \"maxeff\"",
+      "override and do not report the value the engine used.")
+  }
+  knitr::kable(pv, caption = paste0(title, " -- ", sub))
+}
+```
+
+## Identification {#sec-fit}
+
+The receptor cuts $\{er \le 0\}$ and $\{pgr \le 0\}$ are pre-specified as forced
+candidates, and $J = 10$ cuts are used for the continuous `er` and `pgr`
+covariates. Candidate generation is the consistency search alone -- no LASSO,
+GRF or DINA screens contribute cuts -- so the family the selection ranges over is
+determined entirely by the cut construction above.
+
+```{r forestsearch-fit}
+#| fig-width: 10
+#| fig-height: 7
+t0 <- proc.time()
+
+fs <- forestsearch(
+  df.analysis,
+  outcome.name          = outcome.name,
+  event.name            = event.name,
+  treat.name            = treat.name,
+  id.name               = id.name,
+  confounders.name      = confounders.name,
+  is.RCT                = TRUE,
+  seedit                = 8316951,
+  est.scale             = "hr",
+  # candidate generation: consistency search only (no LASSO/GRF/DINA screens)
+  use_lasso             = FALSE,
+  use_grf               = FALSE,
+  use_dina              = FALSE,
+  # continuous-cut construction + pre-specified receptor candidates
+  conf.cont_jcuts       = list(er = 10, pgr = 10),
+  collapse_cuts         = TRUE,
+  conf_force            = c("er <= 0", "pgr <= 0"),
+  # selection: driven entirely by the focus profile
+  subgroup_method       = "consistency",
+  sg_focus              = focus$supplied,
+  selection_rule        = focus$selection_rule,
+  effect_neighborhood   = focus$effect_neighborhood,
+  # Tier-2 de-biased gate (MR) computed inside the fit.  MR re-selects under
+  # the SAME rule the search used -- .fs_mr_reselection_from_focus() maps
+  # hrMaxSG -> effMaxSG, hrMinSG -> effMinSG, hr -> maxcons, and so on -- so
+  # no reselection argument is needed here.
+  mr_inference          = TRUE,
+  mr_inference_args     = list(draws = mr_draws),
+  # subgroup constraints (retained under every focus: they define which
+  # candidates are ESTIMABLE, not which one wins)
+  n.min                 = 60, d0.min = 10, d1.min = 10, maxk = 2,
+  # thresholds + search settings, pre-resolved by the focus profile
+  hr.threshold          = focus$hr_threshold,
+  hr.consistency        = focus$hr_consistency,
+  pconsistency.threshold = focus$pconsistency,
+  max_subgroups_search  = focus$max_subgroups_search,
+  minp                  = focus$minp,
+  use_twostage          = focus$use_twostage,
+  stop_threshold        = focus$stop_threshold,
+  consistency_method    = fs_consistency_method,
+  fs.splits             = 1000,
+  max.minutes           = 3,
+  show_candidate_summary = TRUE, details = TRUE, quiet = FALSE,
+  plot.sg               = TRUE,
+  parallel_args = list(plan = "multisession", workers = n_cores,
+                       show_message = TRUE)
+)
+plan("sequential")
+timings$fit <- (proc.time() - t0)[["elapsed"]]
+
+stopifnot(!is.null(fs$sg.harm))
+cat("\nSelected subgroup:", paste(fs$sg.harm, collapse = " & "),
+    "\n  sg_focus (canonical):", fs$sg_focus,
+    "\n  fit:", round(timings$fit / 60, 1), "min\n")
+
+# The engine's canonical focus must agree with the profile; if it does not,
+# every gate below is keyed on the wrong value.
+stopifnot(identical(fs$sg_focus, focus$canonical))
+```
+
+```{r param-provenance}
+#| echo: false
+fs_param_table(fs, sprintf("Resolved parameters for the %s fit", focus$supplied))
+```
+
+### Identified subgroups and estimates
+
+```{r fs-results}
+res_tabs <- sg_tables(fs, ndecimals = 3, which_df = "est")
+res_tabs$sg10_out
+```
+
+```{r fs-estimates}
+res_tabs$tab_estimates
+```
+
+```{r fs-subgroup}
+cat("Identified subgroup (H):", paste(fs$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs$df.est$treat.recommend == 0)))
+```
+
+## Selection diagnostic: Pareto frontier {#sec-pareto}
+
+```{r pareto-skip-note, eval = !run_pareto}
+#| echo: false
+#| results: asis
+cat(sprintf(paste(
+  "_The Pareto section is skipped for `sg_focus = \"%s\"`._\n\n",
+  "The frontier block runs only for the banded foci `effMaxSG` / `effMinSG`",
+  "(canonical `hrMaxSG` / `hrMinSG`), where `.compute_inclusion_band()` makes",
+  "the (effect, N) geometry part of the **selection rule** -- `in_band` leads",
+  "the sort key, and `selection_rule` switches between the effect",
+  "neighbourhood, the frontier, and their intersection. Under `%s` the key",
+  "contains no `in_band` term, so a frontier plot would be a post-hoc curiosity",
+  "rather than a diagnostic of how the winner was chosen.\n\n",
+  "Under `maxeff` there is a second reason: the winner-only fast path scores",
+  "consistency for the argmax alone and carries every other candidate with",
+  "`Pcons = NA`, so the frontier can run to hundreds of members with an",
+  "all-missing consistency column, and `compute_frontier_cis()` costs scale",
+  "with frontier size x `n_splits`.\n"),
+  focus$supplied, focus$supplied))
+```
+
+```{r pareto-intro, eval = run_pareto}
+#| echo: false
+#| results: asis
+cat(sprintf(paste(
+  "The *Pareto frontier* on (effect, N) is the set of candidate subgroups not",
+  "dominated on both axes simultaneously: a candidate is dominated when another",
+  "has at least as large an effect **and** at least as large a sample size, with",
+  "at least one strict inequality.\n\n",
+  "For `sg_focus = \"%s\"` with `selection_rule = \"%s\"`, this is not a post-hoc",
+  "diagnostic -- it is the selection geometry. `.compute_inclusion_band()`",
+  "builds `in_nbhd` (effect within %.0f%% of the strongest surviving effect) and",
+  "`in_pareto` (non-dominated), and %s. The `in_band` indicator then **leads**",
+  "the sort key %s, so what the figure and table below display is the space the",
+  "rule actually chose within.%s\n"),
+  focus$supplied, focus$selection_rule, 100 * focus$effect_neighborhood,
+  switch(focus$selection_rule,
+    neighborhood = "the rule uses the effect band alone",
+    pareto       = "the rule uses the frontier alone",
+    both         = "the rule uses their intersection"),
+  focus$key,
+  if (identical(focus$canonical, "hrMinSG"))
+    paste(" Because this focus minimises size within the band, the selected",
+          "subgroup may itself be N-dominated by a larger in-band neighbour and",
+          "so may not appear on the frontier; that is the rule working as",
+          "specified.") else ""))
+```
+
+```{r pareto-cis, eval = run_pareto}
+# Split-derived CIs for the frontier members.  This is the expensive step; the
+# same intervals feed the figure, the table and the narrative, so it is
+# computed once.  Set frontier_params$compute_cis <- FALSE to skip.
+t0 <- proc.time()
+ci_tab <- if (isTRUE(frontier_params$compute_cis)) {
+  compute_frontier_cis(
+    fs,
+    n_splits = frontier_params$n_splits,
+    seed     = frontier_params$seed
+  )
+} else {
+  NULL
+}
+timings$frontier <- (proc.time() - t0)[["elapsed"]]
+cat("Frontier CIs:", if (is.null(ci_tab)) "skipped" else
+      sprintf("%d member(s) over %s splits in %.1f s",
+              nrow(ci_tab), format(frontier_params$n_splits, big.mark = ","),
+              timings$frontier), "\n")
+```
+
+```{r pareto-plot, eval = run_pareto}
+#| fig-width: 9
+#| fig-height: 6
+#| fig-cap: "Pareto frontier on (effect, N). The shaded region is the effect-size inclusion band; the selected subgroup is marked. Horizontal bars are split-derived intervals when computed."
+p_pareto <- plot_pareto_frontier(
+  fs,
+  ci_table            = ci_tab,
+  show_band           = TRUE,
+  effect_neighborhood = focus$effect_neighborhood,
+  xlim                = frontier_params$xlim,
+  xlim_trim           = frontier_params$xlim_trim
+)
+print(p_pareto)
+```
+
+```{r pareto-table, eval = run_pareto}
+# Formatted gt table; the selected subgroup is highlighted and marked with a
+# star.  Effect column label and scale derive from fs$effect_measure, so the
+# same call serves survival (HR) and GLM (OR, IRR, MD, ...) outcomes.
+pareto_frontier_table(
+  fs,
+  ci_table = ci_tab,
+  digits   = frontier_params$digits
+)
+```
+
+```{r pareto-explain, eval = run_pareto}
+#| results: asis
+# Narrative comparison of the winner against each non-dominated alternative,
+# phrased in terms of the focus's own lexicographic key.
+cat(explain_pareto_selection(fs, ci_table = ci_tab,
+                             digits = frontier_params$digits))
+```
+
+```{r pareto-data, eval = FALSE}
+# Programmatic access (effect on the natural scale, plus is_selected /
+# on_frontier / in_band flags):
+pareto_frontier_table(fs, format = "data.table", include_dominated = TRUE)
+```
+
+## Full bootstrap (FB)
+
+```{r bootstrap}
+t0 <- proc.time()
+fs_bc <- forestsearch_bootstrap_dofuture(
+  fs.est   = fs,
+  nb_boots = NB,
+  show_three = FALSE,
+  details  = FALSE,
+  parallel_args = list(plan = "multisession", workers = n_cores,
+                       show_message = TRUE)
+)
+plan("sequential")
+timings$fb <- (proc.time() - t0)[["elapsed"]]
+
+fb_sum <- summarize_bootstrap_results(
+  sgharm = fs$sg.harm, boot_results = fs_bc,
+  create_plots = FALSE, est.scale = "hr"
+)
+cat("FB completed in", round(timings$fb / 60, 1), "min\n")
+```
+
+FB re-runs the **entire** selection on each resample, so it inherits whatever
+focus this render uses without any further configuration -- and its cost scales
+with `NB`.
+
+## Multiplier resampling (MR)
+
+The Tier-2 de-biased gate is the MR correction, computed inside the fit above
+(vectorized over `r format(mr_draws, big.mark = ",")` draws). It is read from
+`fs$mr_inference`; no separate run is needed.
+
+MR re-selects under the same rule the search used. `sg_focus` is the single
+source of truth for that mapping, so the re-selection reported below should
+match this render's focus rather than a default.
+
+```{r mr}
+g <- fs$mr_inference
+stopifnot(!is.null(g))
+timings$mr <- g$timing_seconds
+cat("MR gate:", round(timings$mr, 2), "s over",
+    format(mr_draws, big.mark = ","), "draws\n")
+cat("MR re-selection rule:", g$settings$reselection,
+    sprintf("(search focus: %s / canonical %s)\n",
+            focus$supplied, focus$canonical))
+cat("Candidate family size:", g$n_family, "\n")
+
+# Scale cross-check: the gate's naive HR and the bootstrap's naive H0 are the
+# same quantity computed two ways.
+.h0 <- tryCatch(as.numeric(fs_bc$H_estimates$H0), error = function(e) NA_real_)
+if (is.finite(.h0) && is.finite(g$naive$est)) {
+  cat(sprintf("Scale cross-check (MR naive vs FB H0): %s (%.3f vs %.3f)\n",
+              if (abs(log(g$naive$est) - log(.h0)) < 1e-2) "PASS" else "CHECK",
+              g$naive$est, .h0))
+}
+```
+
+## Guo & He (GH)
+
+```{r gh-skip-note, eval = !run_gh}
+#| echo: false
+#| results: asis
+cat(if (!focus$run_guohe) sprintf(paste(
+  "_The Guo & He section is skipped for `sg_focus = \"%s\"`._\n\n",
+  "This is a structural constraint rather than a configuration choice.",
+  "`fs_to_guohe()` calls `fs_export_maxeff_family()`, which stops unless",
+  "`fit$sg_focus == \"maxeff\"` (`fs_to_guohe.R:141-143`), and it materializes",
+  "the **untruncated** deduplicated family that only `maxeff` guarantees",
+  "(`max_subgroups_search -> Inf`).\n\n",
+  "The deeper reason is that Guo & He's estimand is defined against the argmax",
+  "primitive: their correction removes the winner's-curse optimism of selecting",
+  "the maximiser of an estimated effect. A rule that optimises **size** subject",
+  "to an effect band is a different selection event, and their Theorems 4/5 say",
+  "nothing about it. Running a second `maxeff` fit purely to obtain a",
+  "comparator would report a correction for an estimator this document did not",
+  "use, and pooling across foci silently mixes estimators.\n\n",
+  "Set `fs_sg_focus <- \"maxeff\"` for the head-to-head with MR.\n"),
+  focus$supplied) else
+  "_Guo & He skipped by request (`gh_requested <- FALSE`)._\n")
+```
+
+```{r guohe, eval = run_gh}
+# The adapter exports the maxeff candidate family as membership columns and runs
+# Guo & He Algorithm 3 on the SAME selected subgroup forestsearch chose.  The
+# membership integrity check asserts that the exported selected-subgroup column
+# matches forestsearch's own sg.harm.id exactly before the estimator runs.
+t0 <- proc.time()
+gh <- fs_to_guohe(
+  fit       = fs,
+  time      = "time_months", event = "status", treatment = "hormon",
+  B         = GH_B, r = GH_r, level = 0.05, seed = 8316951,
+  parallel  = GH_PARALLEL, verify = TRUE
+)
+timings$gh <- (proc.time() - t0)[["elapsed"]]
+
+cat("GH family size:", length(gh$export$candidates),
+    " | selected:", gh$selected,
+    " | GH", round(timings$gh / 60, 1), "min\n")
+cat(sprintf("GH  naive HR %.3f  debiased HR %.3f  lower bound %.3f\n",
+            gh$naive_hr, gh$debiased_hr, gh$bound_hr))
+```
+
+## Repeated 10-fold cross-validation (stability diagnostics)
+
+Repeated 10-fold cross-validation partitions the data into ten folds, refits the
+selection on each nine-fold training set, and records which subgroup is
+identified -- repeated over `Ksims` random partitions. It is a **stability
+diagnostic on the subgroup _definition_**: across `Ksims` × 10 training splits,
+does the selection converge on a single dominant subgroup, or does it wander with
+the particular split?
+
+This is a fixed-family analysis with no GRF, DINA or LASSO screens, so the
+GRF-specific fold diagnostics are omitted; the universal ones -- identified-
+subgroup distribution, selected-candidate consistency, per-fold numerics, and
+agreement with the full-data selection -- are reported.
+
+```{r cv-kfold-skip-note, eval = !run_cv_kfold, results = "asis"}
+cat("> **10-fold CV skipped.** Set `run_cv_kfold <- TRUE` in the",
+    "configuration to enable.\n")
+```
+
+```{r kfold-cv, eval = run_cv_kfold}
+t0 <- proc.time()
+fs_kfold <- forestsearch_tenfold(
+  fs.est  = fs,
+  sims    = Ksims,
+  Kfolds  = 10,
+  details = FALSE,
+  parallel_args = list(plan = "multisession", workers = n_cores,
+                       show_message = FALSE)
+)
+plan("sequential")
+timings$kfold <- (proc.time() - t0)[["elapsed"]]
+cat("10-fold CV:", Ksims, "x 10 partitions in",
+    round(timings$kfold / 60, 1), "min\n")
+metrics_tables <- cv_metrics_tables(fs_kfold)
+metrics_tables
+```
+
+### Diagnostic tabulations
+
+```{r cv-diagnostics-run, eval = run_cv_kfold}
+cv_diag <- summarize_cv_results(
+  cv_output    = fs_kfold,
+  original_sg  = fs$sg.harm,
+  top_n        = 10L,
+  create_plots = TRUE
+)
+```
+
+**Which subgroups emerged across resamples?** A single dominant subgroup with
+high share indicates the selection converges; a long tail indicates it is
+sensitive to the training split.
+
+```{r cv-identification, eval = run_cv_kfold}
+cv_diag$identification_summary
+```
+
+**How confidently were the successful identifications made?** Among folds that
+identified a subgroup, `pconsistency_distribution` shows where the selected
+candidate's consistency probability landed.
+
+```{r cv-pcons-note}
+#| echo: false
+#| results: asis
+cat(if (focus$is_maxeff) paste(
+  "Under `maxeff` no consistency threshold is applied at selection, so this is",
+  "descriptive of the selected argmax rather than a gate.\n") else if (focus$is_banded) paste(
+  "Under a banded focus consistency is a **filter** at admission and then a",
+  "third-tier key after `in_band` and size, so the distribution reflects both",
+  "roles.\n") else paste(
+  "Consistency is a filter at admission for this focus, so every value shown",
+  "cleared `pconsistency.threshold`.\n"))
+```
+
+```{r cv-pcons, eval = run_cv_kfold}
+cv_diag$pconsistency_distribution
+```
+
+**How do the numeric fold-level diagnostics summarize?** Median / IQR / range for
+each numeric fold-level column: fold size (`n_test`), training-fold HR of the
+selected subgroup (`training_fs_hr`, in-sample and optimistically biased -- for
+diagnostic comparison only), and candidate count
+(`n_candidates_evaluated`).
+
+```{r cv-fold-numeric, eval = run_cv_kfold}
+cv_diag$fold_numeric_summary
+```
+
+**Agreement with the full-data analysis.** How often does a training fold
+reproduce the original full-data subgroup exactly, or share a factor with it?
+
+```{r cv-original-agreement, eval = run_cv_kfold}
+cv_diag$original_agreement
+```
+
+```{r cv-identification-plot, eval = run_cv_kfold}
+#| fig-width: 9
+#| fig-height: 5
+#| fig-cap: "Distribution of identified subgroups across repeated 10-fold training splits."
+if (!is.null(cv_diag$plots) && !is.null(cv_diag$plots$identification)) {
+  cv_diag$plots$identification
+}
+```
+
+## Leave-one-out (honest out-of-sample estimate)
+
+Leave-one-out re-runs the entire selection on each hold-out of one subject and
+predicts the held-out subject's subgroup membership from its covariates. It is an
+out-of-sample **stability check on the subgroup _definition_**, not a de-biasing
+correction of the _effect_: it asks whether the same subgroup is recovered when
+no subject informs its own label. This is `forestsearch_Kfold()` at N-fold
+(`Kfolds = nrow(df)`).
+
+```{r loo-focus-note}
+#| echo: false
+#| results: asis
+cat(sprintf(paste(
+  "How discriminating leave-one-out is depends on the focus. Under `%s` the key",
+  "is %s. %s\n"),
+  focus$supplied, focus$key,
+  switch(focus$canonical,
+    maxeff = paste(
+      "With the full, finer-grained candidate family and no auxiliary condition,",
+      "the argmax has genuine room to land on different definitions across folds,",
+      "so this is the discriminating comparison: whether the out-of-sample",
+      "estimate tracks Naive (definition perfectly stable) or one of the",
+      "corrections (definition varies fold to fold) is informative rather than",
+      "predetermined."),
+    maxeffCons = paste(
+      "The consistency filter removes the least replicable candidates before the",
+      "effect argmax runs, so the definition is typically steadier than under",
+      "`maxeff` -- but the winner can still move when a marginal qualifier drops",
+      "out of a fold."),
+    hrMaxSG = ,
+    hrMinSG = paste(
+      "The band restricts the competition to near-optimal candidates and size then",
+      "decides among them, which tends to make the definition steadier than a pure",
+      "effect argmax: fold-to-fold movement requires the band membership or the",
+      "size ordering to change, not merely the effect ranking."),
+    maxSG = ,
+    minSG = paste(
+      "Size leads the key and is the most stable quantity in the table, so the",
+      "definition is usually recovered exactly and leave-one-out will often",
+      "coincide with Naive by construction."),
+    paste(
+      "Consistency leads the key, and consistency is estimated from repeated",
+      "splits rather than a single fit, so the definition is usually steady;",
+      "coincidence with Naive should be read as stability, not as a failure to",
+      "correct."))))
+```
+
+Note this is the heaviest step: N-fold means one full forest search per subject.
+The fold loop is distributed across `r loo_workers` workers; `parallel_args`
+controls **fold-level** parallelism only -- each fold's inner `forestsearch()`
+refit is pinned to `plan = "sequential"`, so there is no nested oversubscription
+-- and the fold loop draws parallel-safe L'Ecuyer streams
+(`.options.future = list(seed = TRUE)`). In the frozen-family companion analysis
+the parallel fold loop was verified against a sequential run of the same
+analysis: identical per-subject predictions and an identical out-of-sample HR, at
+5.2x the speed on 11 workers.
+
+```{r loo-skipped-note, eval = !run_loo}
+cat("Leave-one-out skipped (run_loo = FALSE).",
+    "Set run_loo <- TRUE in parallel-setup to run it.\n")
+```
+
+```{r loo, eval = run_loo}
+# If a precomputed cv_out is available (LOO_CACHE env var, else the default
+# path in gh_dir) load it; otherwise run the N-fold search and cache it for
+# re-renders.  The cache key carries the focus, so switching fs_sg_focus does
+# NOT silently reuse another focus's leave-one-out result.
+loo_cache <- Sys.getenv(
+  "LOO_CACHE",
+  unset = file.path(gh_dir, sprintf("cv_out_%s.rds", focus$canonical)))
+if (file.exists(loo_cache)) {
+  cv_out <- readRDS(loo_cache)
+  timings$loo <- NA_real_
+  cat("LOO loaded from cache:", loo_cache, "\n")
+} else {
+  t0 <- proc.time()
+  fs_OOB <- forestsearch_Kfold(
+    fs.est  = fs,
+    details = FALSE,
+    Kfolds  = nrow(df.analysis),   # N-fold = leave-one-out
+    parallel_args = list(plan = "multisession", workers = loo_workers,
+                         show_message = TRUE)
+  )
+  plan("sequential")
+  timings$loo <- (proc.time() - t0)[["elapsed"]]
+  cv_out <- forestsearch_KfoldOut(res = fs_OOB, details = FALSE, outall = TRUE)
+  saveRDS(cv_out, loo_cache)
+}
+
+# Out-of-sample harm-subgroup HR, read BY IDENTITY (the harm row of the K-fold
+# table, matched on its subgroup label sg0.name = "Not recommend"), never
+# positionally -- the table layout depends on n_sgfound.  Two structural cases:
+#   (i)  stable subgroup: SG_tab_Kfold is a matrix whose harm row carries the
+#        sg0.name label -> its out-of-sample HR;
+#   (ii) ITT fallback: no stable subgroup survives out-of-sample
+#        (n_sgfound == 1) and SG_tab_Kfold collapses to the 1-D ITT vector.
+.loo_harm_row <- function(cv_out, harm_label = "Not recommend") {
+  sgk <- cv_out$SG_tab_Kfold
+  if (is.matrix(sgk) && "Subgroup" %in% colnames(sgk)) {
+    j <- which(sgk[, "Subgroup"] == harm_label)
+    if (length(j) == 1L)
+      return(list(case = "stable",
+                  hr   = as.character(sgk[j, "HR (95% CI)"]),
+                  n    = as.character(sgk[j, "n"])))
+  }
+  list(case = "itt_fallback",
+       hr   = "\u2014 (no stable subgroup out-of-sample; ITT)",
+       n    = NA_character_)
+}
+loo <- .loo_harm_row(cv_out)
+
+metr <- cv_out$sens_metrics_original
+cat(sprintf(
+  "LOO [%s]: out-of-sample harm HR %s (n = %s)\n  agreement: sens_H = %.2f, ppv_H = %.2f (exact-match = %.2f)\n",
+  loo$case, loo$hr, loo$n, metr[["sens_H"]], metr[["ppv_H"]],
+  cv_out$find_metrics[["Exact"]]))
+
+tables <- cv_summary_tables(cv_out)
+tables$combined_table
+tables$metrics_table
+```
+
+## Comparison: corrections on the selected subgroup {#sec-table}
+
+```{r table}
+#| echo: false
+fci <- function(e, l, u, d = 2) {
+  ifelse(is.na(e), "\u2014", sprintf("%.*f (%.*f, %.*f)", d, e, d, l, d, u))
+}
+
+# Naive is read from the bootstrap object's H_estimates ($H0 with
+# H0_lower/H0_upper), which exists under every focus.  Guo & He reports the
+# same quantity when it runs; cross-check rather than depend on it.
+naive_hr <- tryCatch(as.numeric(fs_bc$H_estimates$H0), error = function(e) NA_real_)
+if (isTRUE(run_gh) && exists("gh")) {
+  if (is.finite(naive_hr) && is.finite(gh$naive_hr) &&
+      abs(log(gh$naive_hr) - log(naive_hr)) > 1e-2) {
+    warning("Naive HR disagrees between FB H0 (", round(naive_hr, 4),
+            ") and Guo & He (", round(gh$naive_hr, 4), ").", call. = FALSE)
+  }
+}
+
+loo_row <- if (isTRUE(run_loo) && exists("loo")) loo$hr else "\u2014 (run_loo = FALSE)"
+
+method <- c("Naive", "Full bootstrap", "Multiplier resampling")
+estimate <- c(
+  sprintf("%.2f", naive_hr),
+  fci(fs_bc$H_estimates$H2, fs_bc$H_estimates$H2_lower, fs_bc$H_estimates$H2_upper),
+  fci(g$debiased$est, g$debiased$lower, g$debiased$upper)
+)
+if (isTRUE(run_gh) && exists("gh")) {
+  method   <- c(method, "Guo & He (2021)")
+  estimate <- c(estimate,
+                sprintf("%.2f (LB %.2f)", gh$debiased_hr, gh$bound_hr))
+}
+method   <- c(method, "Leave-one-out (out-of-sample)")
+estimate <- c(estimate, loo_row)
+
+kbl(data.frame(Method = method, Estimate = estimate, check.names = FALSE),
+    booktabs = TRUE, escape = FALSE, align = "ll",
+    caption = sprintf(paste(
+      "Subgroup hazard ratios for the GBSG selected subgroup under",
+      "sg_focus = '%s'. Parenthetical values are 95%% intervals%s.",
+      "Leave-one-out is NOT a de-biasing correction: it is an out-of-sample",
+      "stability check on the subgroup definition."),
+      focus$supplied,
+      if (isTRUE(run_gh)) "; Guo & He reports a one-sided lower bound" else "")) |>
+  kable_styling()
+```
+
+::: {.callout-note}
+## Reading the table
+
+Naive is the uncorrected subgroup hazard ratio. Full bootstrap and Multiplier
+resampling both target the conditional estimand and report two-sided intervals;
+they differ in that FB re-runs the entire selection on each resample (so its cost
+scales with the resample count) while MR holds the fitted family fixed and is
+vectorized (so its cost does not). FB and MR are a trade, not a strict ordering:
+FB marginalizes over family regeneration, MR conditions on the realized family.
+
+Leave-one-out is **not a de-biasing correction** and should not be read as one.
+It is an out-of-sample **stability check on the subgroup _definition_**. If every
+fold recovers the *identical* definition, out-of-sample membership equals
+in-sample membership and the leave-one-out HR is mechanically the naive one -- so
+`LOO = Naive` indicates a perfectly stable definition, not a failure to correct.
+If the selection instead lands on *different* definitions across folds,
+out-of-sample membership departs from in-sample and the leave-one-out HR moves
+away from Naive -- and *where* it moves is the informative signal. Read the
+leave-one-out row together with the agreement metrics (`sens_H`, `ppv_H`,
+exact-match). Leave-one-out validates the *definition*; the de-biasing
+corrections address the *effect* optimism -- distinct questions, so agreement or
+disagreement between them is not a contradiction.
+:::
+
+```{r gh-callout, eval = run_gh}
+#| echo: false
+#| results: asis
+# Built as a character vector rather than paste(): a fenced div and an ATX
+# heading must begin at column 1, and paste()'s default sep = " " would insert
+# a leading space before ':::' and '##'.
+cat(c(
+  "::: {.callout-note}",
+  "## Reading the Guo & He row",
+  "",
+  paste(
+    "Guo & He corrects the winner's-curse optimism of the argmax selection and",
+    "reports a de-biased point estimate with a one-sided lower confidence bound --",
+    "the object their Theorems 4/5 and simulations certify. They assume a fixed",
+    "candidate family; the maxeff family here is large (hundreds to ~1744",
+    "candidates depending on cut construction) and data-adjacent, which is outside",
+    "their stated small-fixed-$k$ regime. The Section 5 reproduction established",
+    "that their estimator is faithfully implemented on disjoint families up to",
+    "$k = 12$; its behaviour on a family this size is the open question, and is",
+    "exactly why the head-to-head with MR is of interest."),
+  ":::",
+  ""), sep = "\n")
+```
+
+```{r timing}
+#| echo: false
+td <- data.frame(
+  Step = c("Fit + MR gate", "Frontier CIs", "Full bootstrap",
+           "MR gate (within fit)", "Guo & He bootstrap", "10-fold CV",
+           sprintf("Leave-one-out (N-fold, %d workers)", loo_workers)),
+  Seconds = c(timings$fit, timings$frontier, timings$fb, timings$mr,
+              timings$gh, timings$kfold, timings$loo)
+)
+td$Minutes <- round(td$Seconds / 60, 2)
+kbl(td, booktabs = TRUE, align = "lrr",
+    caption = sprintf("Computational timing (sg_focus = '%s'). NA marks a step this focus or configuration did not run.",
+                      focus$supplied)) |>
+  kable_styling()
+```
+
+## Session information
+
+```{r session-info}
+#| code-fold: true
+sessionInfo()
+```
