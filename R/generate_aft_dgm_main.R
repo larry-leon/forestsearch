@@ -194,6 +194,12 @@
 #'     \item{\code{df_super}}{Data frame containing the super-population,
 #'       including covariates, treatment, counterfactual linear predictors,
 #'       and subgroup indicator \code{flag_harm}.}
+#'     \item{\code{df_source}}{Data frame with every source patient exactly
+#'       once (the prepared trial data), carrying the same counterfactual
+#'       outcome and censoring linear predictors as \code{df_super}.
+#'       Consumed by \code{simulate_from_dgm(baseline = "fixed")} to hold
+#'       baseline covariates -- and hence subgroup composition -- fixed
+#'       across simulated trials.}
 #'     \item{\code{model_params}}{List with AFT parameters \code{mu},
 #'       \code{tau}, \code{gamma}, \code{b0}, the fitted \code{censoring}
 #'       model, and optional \code{spline_info}.}
@@ -362,6 +368,40 @@ generate_aft_dgm_flex <- function(data,
   df_super   <- cens_result$df_super
 
   # ============================================================================
+  # Step 7b: Fixed-Baseline Source Frame (df_source)
+  # ============================================================================
+  # df_work holds every source patient exactly once (post covariate prep,
+  # flag_harm, and any spline columns).  Attaching the same potential-outcome
+  # and censoring linear predictors used for df_super makes it directly
+  # consumable by simulate_from_dgm(baseline = "fixed"), which holds baseline
+  # covariates -- and hence subgroup memberships and sizes -- fixed at the
+  # observed trial composition while re-drawing outcomes each simulation.
+  #
+  # The outcome linear predictors are computed with the same
+  # calculate_linear_predictors() call used for df_super.  The censoring
+  # linear predictors are attached via a second prepare_censoring_model()
+  # call: the refit is deterministic on identical df_work (AIC selection
+  # included), so lin_pred_cens_* are exactly consistent with cens_model;
+  # its returned model object is discarded.  This trades one redundant
+  # survreg fit at DGM-build time for zero duplication of the per-mode
+  # (weibull / lognormal / uniform / analytical) branch logic.
+  df_source    <- df_work
+  df_source$id <- seq_len(nrow(df_source))
+  covariate_cols_src <- grep("^z_", names(df_source), value = TRUE)
+  df_source <- calculate_linear_predictors(df_source, covariate_cols_src,
+                                           gamma, b0, spline_info)
+  cens_result_src <- prepare_censoring_model(
+    df_work             = df_work,
+    cens_type           = cens_type,
+    cens_params         = cens_params,
+    df_super            = df_source,      # attaches lin_pred_cens_0/1
+    select_censoring    = select_censoring,
+    cens_intercept_only = cens_intercept_only,
+    verbose             = FALSE           # already reported for df_super
+  )
+  df_source <- cens_result_src$df_super
+
+  # ============================================================================
   # Step 8: Assemble and Return Results
   # ============================================================================
   results <- assemble_results(
@@ -380,7 +420,8 @@ generate_aft_dgm_flex <- function(data,
     model                = model,
     n_super              = n_super,
     seed                 = seed,
-    spline_info          = spline_info
+    spline_info          = spline_info,
+    df_source            = df_source
   )
 
   return(results)

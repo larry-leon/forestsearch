@@ -142,6 +142,12 @@ An object of class \code{"aft_dgm_flex"} (a list) with components:
 \item{\code{df_super}}{Data frame containing the super-population,
 including covariates, treatment, counterfactual linear predictors,
 and subgroup indicator \code{flag_harm}.}
+\item{\code{df_source}}{Data frame with every source patient exactly
+once (the prepared trial data), carrying the same counterfactual
+outcome and censoring linear predictors as \code{df_super}.
+Consumed by \code{simulate_from_dgm(baseline = "fixed")} to hold
+baseline covariates -- and hence subgroup composition -- fixed
+across simulated trials.}
 \item{\code{model_params}}{List with AFT parameters \code{mu},
 \code{tau}, \code{gamma}, \code{b0}, the fitted \code{censoring}
 model, and optional \code{spline_info}.}

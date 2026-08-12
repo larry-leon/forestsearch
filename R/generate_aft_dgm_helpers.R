@@ -1277,7 +1277,8 @@ assemble_results <- function(df_super,
                              model,
                              n_super,
                              seed,
-                             spline_info = NULL) {  # DEFAULT = NULL
+                             spline_info = NULL,   # DEFAULT = NULL
+                             df_source   = NULL) { # DEFAULT = NULL (fixed-baseline frame)
 
   # Model parameters
   model_params <- list(
@@ -1312,8 +1313,13 @@ assemble_results <- function(df_super,
   )
 
   # Return comprehensive results
+  # df_source (possibly NULL for objects built by older package versions) is
+  # the fixed-baseline frame: every source patient exactly once, with the same
+  # potential-outcome and censoring linear predictors as df_super.  Consumed
+  # by simulate_from_dgm(baseline = "fixed").
   results <- list(
     df_super = df_super,
+    df_source = df_source,
     model_params = model_params,
     subgroup_info = subgroup_info,
     hazard_ratios = hr_results,
