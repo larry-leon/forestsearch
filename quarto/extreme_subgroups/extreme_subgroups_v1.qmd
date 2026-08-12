@@ -1,0 +1,1515 @@
+---
+title: "Extreme Subgroup Effects Under a Uniform Treatment Benefit"
+subtitle: "A Simulation Study Based on Observed Trial Data"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+    highlight-style: tango
+    fig-width: 8
+    fig-height: 5
+    self-contained: true
+    html-math-method: mathjax
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+
+# Number of null-DGM simulated trials — the primary result quantity
+# Set to >= 1000 for publication-quality results
+n_sims_null <- 200L  
+```
+
+# Overview
+
+A central concern in exploratory subgroup analysis is the potential for
+**extreme results driven entirely by chance**, not by genuine treatment
+effect heterogeneity.  When many subgroups are examined in a single
+dataset — as is routine in regulatory submissions and trial reports —
+small subgroups in particular can produce hazard ratio estimates that
+look dramatic simply because they are noisy.  The smaller the subgroup,
+the wider the confidence interval, and the higher the probability that
+the upper bound strays far from the truth.
+
+This vignette evaluates that risk directly.  We generate thousands of
+synthetic trials from a data generating mechanism (DGM) with a
+**perfectly uniform treatment benefit** — the true hazard ratio is
+identical for every patient — and ask: how often do standard Cox model
+analyses produce extreme subgroup results?  
+
+The vignette is organised as a complete, self-contained workflow:
+
+1. **Building the DGM** — fitting a Weibull AFT model to real data,
+   constructing a super-population, and calibrating the censoring process
+   so that simulated trials reproduce the censoring pattern of the source
+   data.  This step establishes the null scenario: a DGM where the true
+   HR is 0.70 *for every patient*, with no subgroup differential effects.
+
+2. **Running simulated trials** — drawing `r n_sims_null` synthetic
+   trial replicates from the null DGM and fitting a stratified Cox model
+   in each pre-defined subgroup.
+
+3. **Characterising the distribution of extreme results** — for each
+   subgroup, summarising how variable the HR point estimate is across
+   simulations (the empirical 99% CI, or ECI) and how large the upper
+   confidence bound UB(HR) can become by chance alone.  Random benchmark
+   subgroups (`random15`, `random20`, `random40`, `random60`) with no
+   clinical meaning serve as calibration anchors, making explicit that
+   clinical subgroups of the same size are statistically indistinguishable
+   from meaningless random groupings.
+
+All examples use the GBSG breast cancer dataset (`survival::gbsg`).
+
+
+## Example of Subgroups Under Study 
+
+For the study under question, the subgroups and features (size, events, etc) 
+are of course specific to that study.  While we are using the GBSG breast cancer 
+study as the case-study, the analyses can be applied or modified based on any study.
+
+An example of pre-defined subgroups,
+ranging from clinically motivated subpopulations to deliberately
+artificial ones:
+
+| Subgroup | Basis | Approximate N |
+|:---------|:------|:--------------|
+| All Patients (ITT) | Full trial | ~700 |
+| No liver metastases | Clinical | ~400 |
+| BRAF V600E mutant | Molecular | ~300 |
+| Age ≤ 65 | Demographic | ~400 |
+| Spain, Germany, UK | Country/region | ~60–150 |
+| Asia Pacific region | Region | ~100 |
+| ECOG 0 / ECOG 1 | Performance status | ~300 each |
+| **random15, random20** | **Randomly sampled** | **~15, ~20** |
+| **random40, random60** | **Randomly sampled** | **~40, ~60** |
+
+The `random*` subgroups are the key benchmark.  They are constructed by
+randomly sampling approximately 20% of subjects and taking the first 15,
+20, 40, and 60 patients:
+
+```r
+set.seed(8316951)
+sg_ran <- rbinom(nrow(df_analysis), size = 1, prob = 0.2)
+temp   <- cumsum(sg_ran)
+
+sg_ran15            <- sg_ran
+sg_ran15[temp > 15] <- 0   # first 15 selected subjects
+df_analysis$random15 <- sg_ran15
+
+sg_ran40            <- sg_ran
+sg_ran40[temp > 40] <- 0
+df_analysis$random40 <- sg_ran40
+```
+
+These subgroups have no clinical meaning whatsoever — their true HR
+equals the ITT HR of 0.70.  Any extreme result they produce is purely
+a function of their small size and sampling variability.
+
+---
+
+## Six Analysis Variants
+
+For each simulated trial and each subgroup, six Cox model specifications
+are fitted, covering the range of approaches one might encounter in
+practice:
+
+| Label | Model specification |
+|:------|:--------------------|
+| `sR` | Stratified by original randomisation factors |
+| `none` | Unstratified |
+| `sX` | Stratified by ECOG status |
+| `sBM*` | Stratified by biomarker above/below optimal cutpoint |
+| `sX+sR` | Stratified by ECOG and randomisation factors |
+| `X+O+sR` | Covariate-adjusted (ECOG, age, sex) + stratified |
+
+---
+
+## Summary Statistics Across Simulations
+
+For each subgroup and analysis, two quantities are accumulated across all
+simulated trials:
+
+**HR point estimate distribution.** Reported as median and the 1st–99th
+percentile interval (the "empirical 99% confidence interval" or ECI).
+Under truth, the median should be close to 0.70 for every subgroup.
+The spread of the ECI reflects how variable the estimate is — wider for
+smaller subgroups.
+
+**Upper confidence bound UB(HR).** The one-sided 97.5% upper bound of
+the Cox 95% confidence interval.  Two key thresholds are tracked:
+- `UB(HR) < 1.0`: the upper bound excludes no treatment effect (nominally
+  "significant" benefit).
+- `HR < 0.80`: the point estimate alone looks like a meaningful benefit
+  (at the ITT threshold level).
+
+Under the null of a uniform HR = 0.70 with no subgroup effects, `UB(HR) < 1.0`
+should occur approximately 95% of the time for the full ITT — it simply
+reflects power to detect the overall benefit.  For subgroups, the rate
+falls with sample size, but the distribution of UB(HR) *among those
+trials where UB(HR) ≥ 1* reveals how extreme a false non-significance
+result can look.
+
+---
+
+We note that continuous biomarkers can also be considered.  This is more involved and 
+not necessary for uniform effects, but valuable for trials with biomarkers when there 
+is interest in exploring the dynamics of subgroups in the presence of actual biomarker effects (correlated with other 
+patients' characteristics).
+
+## Setting: Uniform Treatment Effect
+
+The DGM is built from a real trial dataset using `generate_aft_dgm_flex()`
+with a single-knot spline biomarker model.  The key feature is that the
+true log hazard ratio is **constant across all biomarker values**:
+
+$$
+\psi^0(z) = \log(\text{HR}_{\text{true}}) \quad \text{for all } z.
+$$
+
+In the examples below the true overall HR is 0.70 (a moderate benefit).
+Every subgroup — regardless of how it is defined — shares this same
+underlying HR.  There is no subgroup effect; any
+apparent finding is a false positive.
+
+The spline parameterisation is specified via `log.hrs = log(c(hr0, hr_k, hr_z))`,
+where `hr0`, `hr_k`, `hr_z` are the true HRs at biomarker values 0,
+the knot `k`, and an upper anchor `zeta`, respectively.  Under the uniform
+scenario all three are set to the same value:
+
+```r
+log.hrs <- log(c(0.70, 0.70, 0.70))  # uniform HR = 0.70 everywhere
+dgm     <- get_dgm_stratified(
+  df        = df_analysis,
+  knot      = 40,
+  kappa     = 50,
+  hrs       = c(0.70, 0.70, 0.70),
+  strata_tte = "strataNew"
+)
+```
+
+## Installation
+
+The development version of **forestsearch** can be installed directly
+from GitHub using either `pak` (recommended) or `remotes`:
+```r
+# Using pak (recommended)
+# install.packages("pak")
+pak::pak("larry-leon/forestsearch")
+
+# Using remotes
+# install.packages("remotes")
+remotes::install_github("larry-leon/forestsearch")
+```
+
+The package depends on
+[**weightedsurv**](https://github.com/larry-leon/weightedsurv), which
+is installed automatically from GitHub via the `Remotes` field in
+`DESCRIPTION` — no separate step is needed.
+
+Once installed, load the package in the usual way:
+```r
+library(forestsearch)
+```
+
+## Documentation
+
+Full documentation, including function reference and vignettes, is
+available at the **pkgdown** site:
+
+> <https://larry-leon.github.io/forestsearch/>
+
+The site includes, **along with this vignette**:
+
+- **Getting Started** — end-to-end walkthrough with the GBSG breast
+  cancer trial (`vignette("forestsearch")`)
+- **Methodology** — statistical framework, algorithm details, and
+  simulation results (`vignette("methodology")`)
+- **Treatment Effect Definitions** — marginal HR, average hazard ratio
+  (AHR), and controlled direct effect (CDE) estimands
+- **Simulation Studies** — operating characteristics and published
+  benchmarks
+- **Reference** — all exported functions organised across 16 topic
+  areas
+
+Vignettes can also be accessed locally after installation:
+```r
+vignette("forestsearch")   # Getting Started
+vignette("methodology")    # Statistical methodology
+```
+
+
+
+---
+
+# Setup
+
+```{r packages}
+library(forestsearch)
+library(survival)
+library(ggplot2)
+library(dplyr)
+library(patchwork)     # assembles gg_forest() panels
+
+theme_set(theme_minimal(base_size = 12))
+```
+
+```{r data-prep}
+# Load GBSG data and convert time to months (DGM time scale)
+data(gbsg, package = "survival")
+
+gbsg$time_months <- gbsg$rfstime / 30.4375
+gbsg$treat        <- gbsg$hormon
+
+cat("N =", nrow(gbsg), "  Events:", sum(gbsg$status),
+    sprintf("(%.0f%%)", 100 * mean(gbsg$status)), "\n")
+cat("Median follow-up (months):",
+    round(median(gbsg$time_months), 1), "\n")
+cat("Median event time (months):",
+    round(median(gbsg$time_months[gbsg$status == 1]), 1), "\n")
+```
+
+---
+
+# Part I — Building the Null Data Generating Mechanism
+
+To evaluate extreme subgroup effects by chance, we need a DGM where the
+treatment has a genuine, uniform benefit — so that any subgroup finding is
+definitionally a false positive.  This section constructs that DGM from the
+GBSG data using `generate_aft_dgm_flex()` with `model = "null"` (uniform
+treatment effect throughout; no embedded harm subgroup).
+
+## Why time-scale consistency matters first
+
+Before fitting anything, confirm that all time parameters are expressed in
+the same units. The single most common simulation failure is building the
+DGM on days (e.g. `rfstime`) and then passing `analysis_time` in months.
+The result is a follow-up window far shorter than the DGM event-time
+distribution, producing universal administrative censoring (`event_sim = 0`
+for every subject).
+
+After building the DGM, this quick check catches the problem:
+
+```{r timescale-check}
+# exp(mu) is the implied median event time on the DGM time scale.
+# It should be close to the observed median event time in months.
+cat("Observed median event time (months):",
+    round(median(gbsg$time_months[gbsg$status == 1]), 1), "\n")
+cat("(After building dgm, exp(dgm$model_params$mu) should be similar.)\n")
+```
+
+## Fitting `generate_aft_dgm_flex()`
+
+`generate_aft_dgm_flex()` fits a Weibull AFT model to the source data and
+generates a large *super population* from which all future trials will be
+drawn.  For the extreme-subgroup evaluation we use `model = "null"`, which
+sets the treatment effect to be identical for every patient — there is no
+subgroup, so any apparent finding is a false
+positive by construction.
+
+The censoring model is estimated from the data by AIC-based selection across
+Weibull and log-normal models, with and without covariate adjustment.  The
+next section shows how to verify and calibrate this so that simulated trials
+reproduce the censoring pattern of the source data.
+
+**Note that this is an example of a DGM (truth) where there is a subgroup effect (ER-low & pre-menopausal).  Simulations under (the null of) uniform treatment benefit are provided below in Part IV**
+
+```{r build-dgm}
+set.seed(42)
+
+dgm <- generate_aft_dgm_flex(
+  data            = gbsg,
+  continuous_vars = c("age", "size", "nodes", "pgr", "er"),
+  factor_vars     = c("meno", "grade"),
+  outcome_var     = "time_months",
+  event_var       = "status",
+  treatment_var   = "hormon",
+  subgroup_vars   = c("er", "meno"),
+  subgroup_cuts   = list(er = 20, meno = 0),   # ER-low & pre-menopausal
+  model           = "alt",
+  k_inter         = 1.5,    # moderate interaction
+  n_super         = 5000,
+  seed            = 42,
+  verbose         = FALSE
+)
+```
+
+```{r dgm-summary}
+# Key DGM outputs
+cat("=== DGM Summary ===\n")
+cat("Time scale          : months\n")
+cat("Implied median T    : exp(mu) =",
+    round(exp(dgm$model_params$mu), 1), "months\n")
+cat("Subgroup proportion :", round(dgm$subgroup_info$proportion, 3), "\n")
+cat("True HR (harm)      :",
+    round(dgm$hazard_ratios$harm_subgroup, 3), "\n")
+cat("True HR (no harm)   :",
+    round(dgm$hazard_ratios$no_harm_subgroup, 3), "\n")
+cat("True HR (overall)   :",
+    round(dgm$hazard_ratios$overall, 3), "\n")
+cat("Censoring type      :",
+    dgm$model_params$censoring$type, "\n")
+```
+
+---
+
+# Part II — Censoring Diagnostics and Calibration
+
+For the simulation results to be credible, the censoring pattern in each
+synthetic trial must match what was observed in the source data.  If the
+simulated censoring rate is much higher or lower than the real one, the
+event counts in small subgroups will be systematically wrong, biasing the
+HR and UB(HR) distributions we are trying to characterise.
+
+Even with a well-fitted censoring model, the interaction between the DGM
+censoring distribution and administrative censoring (the `analysis_time`
+cutoff) can shift the effective censoring rate substantially away from what
+was observed.  This section covers two functions that diagnose and correct
+for this shift before the main simulation loop is run.
+
+## Diagnosing censoring consistency
+
+`check_censoring_dgm()` compares three censoring summaries between the DGM
+reference data (`dgm$df_super`) and a simulated dataset: overall censoring
+rate, censoring-time quantiles among censored subjects, and the KM-based
+median censoring time (estimated by reversing the event indicator so that
+censored observations become the "event" of interest).
+
+```{r pilot-sim}
+# Generate a pilot simulated trial (no calibration yet)
+sim_pilot <- simulate_from_dgm(
+  dgm           = dgm,
+  n             = 1500,
+  analysis_time = 84,      # months — 7-year follow-up
+  max_entry     = 24,      # months — 2-year recruitment window
+  cens_adjust   = 0,
+  seed          = 1
+)
+
+cat("Pilot trial:  N =", nrow(sim_pilot),
+    "  Event rate:", round(mean(sim_pilot$event_sim), 3), "\n")
+```
+
+```{r check-censoring}
+diag0 <- check_censoring_dgm(
+  sim_data   = sim_pilot,
+  dgm        = dgm,
+  rate_tol   = 0.10,
+  median_tol = 0.25,
+  verbose    = TRUE
+)
+```
+
+**Reading the output.** Flags warn when the absolute censoring-rate
+discrepancy exceeds `rate_tol` (default 10 percentage points) or when the
+KM median censoring times differ by more than `median_tol` (default 25%).
+Common causes:
+
+- **Time-scale mismatch** — check `exp(dgm$model_params$mu)` against
+  `analysis_time`.
+- **Short `analysis_time`** — administrative censoring dominates the
+  censoring process, inflating the censoring rate and compressing
+  censoring times.
+- **Large `cens_adjust`** — the log-scale shift has moved the DGM
+  censoring distribution far from the original data.
+
+## Calibrating `cens_adjust`
+
+`calibrate_cens_adjust()` uses `uniroot` to find the value of `cens_adjust`
+— a log-scale shift applied to the DGM censoring model — that equates a
+chosen summary statistic between the reference and simulated data. Two
+targets are available: `"rate"` (overall censoring rate) and `"km_median"`
+(KM-based median censoring time).
+
+**How the objective function works.** At each candidate `cens_adjust`:
+
+1. `simulate_from_dgm()` generates `n_eval` synthetic subjects.
+2. `check_censoring_dgm()` extracts the target metric.
+3. The objective returns `sim_metric - ref_metric`.
+
+`uniroot` finds the zero crossing. The fixed `seed` inside the objective
+ensures the same candidate is always evaluated identically, preventing the
+root-finder from chasing Monte Carlo noise.
+
+```{r calibrate}
+cal <- calibrate_cens_adjust(
+  dgm           = dgm,
+  target        = "rate",
+  n             = 1000,
+  analysis_time = 84,
+  max_entry     = 24,
+  seed          = 42,
+  interval      = c(-3, 3),
+  n_eval        = 2000,
+  verbose       = TRUE
+)
+```
+
+```{r calibrate-result}
+cat("\nCalibrated cens_adjust :", round(cal$cens_adjust, 4), "\n")
+cat("Reference censoring rate:", round(cal$ref_value,    3),  "\n")
+cat("Achieved  censoring rate:", round(cal$sim_value,    3),  "\n")
+cat("Residual                :", round(cal$residual,     4),  "\n")
+```
+
+**Monotonicity note.** The objective is monotone in `cens_adjust` for both
+targets: larger values increase censoring times (lower rate, higher KM
+median), smaller values do the opposite. If `uniroot` fails, the target
+lies outside the `interval`; widen it and retry.
+
+## Verifying the calibrated simulation
+
+```{r verify-cal}
+sim_cal <- simulate_from_dgm(
+  dgm           = dgm,
+  n             = 1000,
+  analysis_time = 84,
+  max_entry     = 24,
+  cens_adjust   = cal$cens_adjust,
+  seed          = 123
+)
+
+diag_cal <- check_censoring_dgm(
+  sim_data   = sim_cal,
+  dgm        = dgm,
+  verbose    = TRUE,
+  rate_tol   = 0.05,
+  median_tol = 0.15
+)
+```
+
+---
+
+# Part III — Generating Synthetic Trials
+
+With the null DGM built, diagnosed, and calibrated, each simulated trial
+is a single call to `simulate_from_dgm()`.  The function samples from the
+super population with replacement, assigns treatment, generates latent
+survival times from the AFT model, applies the calibrated censoring model,
+and truncates at `analysis_time`.
+
+The single-trial example below illustrates the output structure.  In the
+null DGM every patient has the same true HR of 0.70, so `flag_harm` is
+always 0 — there is no embedded subgroup.  The `r n_sims_null` replications
+that drive the extreme-subgroup analysis in Part IV follow the same pattern,
+looping over subgroups inside each replicate.
+
+```{r single-trial}
+sim_data <- simulate_from_dgm(
+  dgm           = dgm,
+  n             = 600,
+  rand_ratio    = 1,
+  analysis_time = 84,
+  max_entry     = 24,
+  cens_adjust   = cal$cens_adjust,
+  seed          = 100
+)
+
+cat("Simulated trial:  N =", nrow(sim_data), "\n")
+cat("Treatment allocation:",
+    table(sim_data$treat_sim)[["0"]], "control /",
+    table(sim_data$treat_sim)[["1"]], "experimental\n")
+cat("Overall event rate :", round(mean(sim_data$event_sim), 3), "\n")
+cat("Event rate (harm subgroup):",
+    round(mean(sim_data$event_sim[sim_data$flag_harm == 1]), 3), "\n")
+cat("Event rate (no-harm)      :",
+    round(mean(sim_data$event_sim[sim_data$flag_harm == 0]), 3), "\n")
+```
+
+```{r trial-km}
+#| fig-cap: "Kaplan-Meier curves: one simulated trial. Solid = overall ITT; dashed = true harm subgroup; dotted = true no-harm subgroup."
+library(survival)
+
+# KM for overall, harm subgroup, and complementary subgroup
+km_all  <- survfit(Surv(y_sim, event_sim) ~ treat_sim,
+                   data = sim_data)
+km_harm <- survfit(Surv(y_sim, event_sim) ~ treat_sim,
+                   data = subset(sim_data, flag_harm == 1))
+km_noharm <- survfit(Surv(y_sim, event_sim) ~ treat_sim,
+                     data = subset(sim_data, flag_harm == 0))
+
+# Quick summary of true vs observed HRs
+cox_all   <- coxph(Surv(y_sim, event_sim) ~ treat_sim, data = sim_data)
+cox_harm  <- coxph(Surv(y_sim, event_sim) ~ treat_sim,
+                   data = subset(sim_data, flag_harm == 1))
+cox_noharm <- coxph(Surv(y_sim, event_sim) ~ treat_sim,
+                    data = subset(sim_data, flag_harm == 0))
+
+results_df <- data.frame(
+  Subgroup   = c("ITT", "Harm (true)", "No-harm (true)"),
+  N          = c(nrow(sim_data),
+                 sum(sim_data$flag_harm == 1),
+                 sum(sim_data$flag_harm == 0)),
+  True_HR    = round(c(dgm$hazard_ratios$overall,
+                       dgm$hazard_ratios$harm_subgroup,
+                       dgm$hazard_ratios$no_harm_subgroup), 3),
+  Observed_HR = round(exp(c(coef(cox_all),
+                             coef(cox_harm),
+                             coef(cox_noharm))), 3)
+)
+print(results_df)
+```
+
+
+---
+
+
+# Part IV — Main Results: Extreme Subgroup Effects Under a Uniform Treatment Benefit
+
+## The Core Question
+
+Parts I–III established how to build a null DGM and generate synthetic
+trials from it.  We now use those tools of `forestsearch`: **when many subgroups are examined
+in a trial with a perfectly uniform treatment benefit, how extreme can a
+standard Cox analysis look by chance alone?**
+
+We generate `r n_sims_null` synthetic trials from the null DGM and fit a
+stratified Cox model in each pre-defined subgroup in every trial.  Two
+output statistics are accumulated:
+
+- The **HR point estimate distribution** across trials — summarised as
+  the median and the 1st–99th percentile interval (the empirical 99%
+  confidence interval, ECI).  The median should track 0.70 for every
+  subgroup; the width of the ECI reveals how noisy a single-trial
+  estimate is.
+
+- The **upper confidence bound UB(HR)** — the upper end of the Cox 95%
+  CI.  We track `Pr(UB < 1.0)` (power to show nominal benefit) and the
+  conditional distribution of UB(HR) *given* UB ≥ 1 (how extreme a
+  "failure to show benefit" looks in the worst-case trial).
+
+The `random*` subgroups (no clinical basis, same true HR as everyone
+else) serve as calibration anchors.  Any clinical subgroup of the same N
+has an identical chance distribution — the clinical rationale for the
+grouping provides no statistical protection.
+
+---
+
+## Setting: Uniform Treatment Effect
+
+The DGM is built from the GBSG breast cancer trial using
+`generate_aft_dgm_flex()`. The key feature is that the true log hazard
+ratio is **constant across all patients**:
+
+$$
+\psi^0(\mathbf{L}) = \log(\mathrm{HR}_{\mathrm{true}})
+  \quad \text{for all } \mathbf{L}.
+$$
+
+In the examples below the true overall HR is 0.70 (a moderate benefit).
+Every subgroup — regardless of how it is defined — shares this same
+underlying HR. 
+
+```{r null-dgm}
+set.seed(99)
+
+dgm_null <- generate_aft_dgm_flex(
+  data            = gbsg,
+  continuous_vars = c("age", "size", "nodes", "pgr", "er"),
+  factor_vars     = c("meno", "grade"),
+  outcome_var     = "time_months",
+  event_var       = "status",
+  treatment_var   = "hormon",
+  subgroup_vars   = NULL,   # no embedded subgroup — uniform effect throughout
+  model           = "null",
+  n_super         = 5000,
+  seed            = 99,
+  verbose         = FALSE
+)
+
+cat("Null DGM  |  true overall HR:",
+    round(dgm_null$hazard_ratios$overall, 3),
+    " |  implied median event time:",
+    round(exp(dgm_null$model_params$mu), 1), "months\n")
+```
+
+---
+
+## Subgroups Under Study
+
+Each simulated trial analyses the same set of pre-defined subgroups,
+ranging from clinically motivated subpopulations to deliberately
+artificial ones.
+
+The **`random*` subgroups** are the key benchmark. They are constructed
+by randomly sampling approximately 20% of subjects and taking the first
+15, 20, 40, and 60 patients from that draw:
+
+```{r define-null-subgroups}
+set.seed(8316951)
+gbsg$flag_itt <- 1L
+
+# ── Scalar cut-points for continuous variables ────────────────────────────
+# Computed once from the observed data; re-exposed as columns inside each
+# simulated df_s so that subset expressions like "age <= age_med" resolve.
+age_med  <- median(gbsg$age)          # ~53 yrs
+size_med <- median(gbsg$size)         # ~25 mm
+nodes_q3 <- quantile(gbsg$nodes, 0.75)  # top-quartile node count (~5)
+pgr_med  <- median(gbsg$pgr)          # median PGR
+er_cut   <- 20                         # ER-low clinical threshold (fmol / mg)
+
+subgroups <- list(
+
+  # ── A. Full trial (ITT) ─────────────────────────────────────────────────
+  list(id = "flag_itt == 1",                       name = "All Patients",              grp = "ITT"),
+
+  # ── B. Single clinical / factor subgroups ───────────────────────────────
+  list(id = "meno == 1",                           name = "Post-menopausal",           grp = "Clinical"),
+  list(id = "meno == 0",                           name = "Pre-menopausal",            grp = "Clinical"),
+  list(id = "grade == 3",                          name = "Grade 3",                   grp = "Clinical"),
+  list(id = "grade != 3",                          name = "Grade 1/2",                 grp = "Clinical"),
+
+  # ── C. Single continuous-variable cuts ──────────────────────────────────
+  list(id = "age <= age_med",                      name = "Age (young)",               grp = "Continuous"),
+  list(id = "age > age_med",                       name = "Age (older)",               grp = "Continuous"),
+  list(id = "age <= 50",                           name = "Age <= 50",                 grp = "Continuous"),
+  list(id = "age > 50",                            name = "Age > 50",                  grp = "Continuous"),
+  list(id = "size <= size_med",                    name = "Tumour size (small)",       grp = "Continuous"),
+  list(id = "size > size_med",                     name = "Tumour size (large)",       grp = "Continuous"),
+  list(id = "nodes == 0",                          name = "Node-negative",             grp = "Continuous"),
+  list(id = "nodes > 0 & nodes <= 3",              name = "Nodes 1-3",                grp = "Continuous"),
+  list(id = "nodes > nodes_q3",                    name = "High nodes (>Q3)",          grp = "Continuous"),
+  list(id = "pgr <= pgr_med",                      name = "PGR low",                  grp = "Continuous"),
+  list(id = "pgr > pgr_med",                       name = "PGR high",                 grp = "Continuous"),
+  list(id = "er <= er_cut",                        name = "ER-low (<20)",              grp = "Continuous"),
+  list(id = "er > er_cut",                         name = "ER-high (>=20)",            grp = "Continuous"),
+
+  # ── D. Menopausal status x Grade (2x2) ──────────────────────────────────
+  list(id = "meno == 0 & grade == 3",              name = "Pre-meno / Grade 3",        grp = "Interaction: meno x grade"),
+  list(id = "meno == 1 & grade == 3",              name = "Post-meno / Grade 3",       grp = "Interaction: meno x grade"),
+  list(id = "meno == 0 & grade != 3",              name = "Pre-meno / Grade 1-2",      grp = "Interaction: meno x grade"),
+  list(id = "meno == 1 & grade != 3",              name = "Post-meno / Grade 1-2",     grp = "Interaction: meno x grade"),
+
+  # ── E. Menopausal status x Age ───────────────────────────────────────────
+  list(id = "meno == 0 & age <= 50",               name = "Pre-meno / Age<=50",        grp = "Interaction: meno x age"),
+  list(id = "meno == 0 & age > 50",                name = "Pre-meno / Age>50",         grp = "Interaction: meno x age"),
+  list(id = "meno == 1 & age <= age_med",          name = "Post-meno / Age (young)",   grp = "Interaction: meno x age"),
+  list(id = "meno == 1 & age > age_med",           name = "Post-meno / Age (older)",   grp = "Interaction: meno x age"),
+
+  # ── F. Menopausal status x ER status ────────────────────────────────────
+  list(id = "meno == 0 & er <= er_cut",            name = "Pre-meno / ER-low",         grp = "Interaction: meno x ER"),
+  list(id = "meno == 0 & er > er_cut",             name = "Pre-meno / ER-high",        grp = "Interaction: meno x ER"),
+  list(id = "meno == 1 & er <= er_cut",            name = "Post-meno / ER-low",        grp = "Interaction: meno x ER"),
+  list(id = "meno == 1 & er > er_cut",             name = "Post-meno / ER-high",       grp = "Interaction: meno x ER"),
+
+  # ── G. Grade x Node status ───────────────────────────────────────────────
+  list(id = "grade == 3 & nodes == 0",             name = "Grade 3 / Node-neg",        grp = "Interaction: grade x nodes"),
+  list(id = "grade == 3 & nodes > 0",              name = "Grade 3 / Node-pos",        grp = "Interaction: grade x nodes"),
+  list(id = "grade != 3 & nodes == 0",             name = "Grade 1-2 / Node-neg",      grp = "Interaction: grade x nodes"),
+  list(id = "grade != 3 & nodes > 0",              name = "Grade 1-2 / Node-pos",      grp = "Interaction: grade x nodes"),
+  list(id = "grade == 3 & nodes > nodes_q3",       name = "Grade 3 / High nodes",      grp = "Interaction: grade x nodes"),
+
+  # ── H. Grade x ER status ─────────────────────────────────────────────────
+  list(id = "grade == 3 & er <= er_cut",           name = "Grade 3 / ER-low",          grp = "Interaction: grade x ER"),
+  list(id = "grade == 3 & er > er_cut",            name = "Grade 3 / ER-high",         grp = "Interaction: grade x ER"),
+  list(id = "grade != 3 & er <= er_cut",           name = "Grade 1-2 / ER-low",        grp = "Interaction: grade x ER"),
+  list(id = "grade != 3 & er > er_cut",            name = "Grade 1-2 / ER-high",       grp = "Interaction: grade x ER"),
+
+  # ── I. Grade x PGR ──────────────────────────────────────────────────────
+  list(id = "grade == 3 & pgr <= pgr_med",         name = "Grade 3 / PGR low",         grp = "Interaction: grade x PGR"),
+  list(id = "grade == 3 & pgr > pgr_med",          name = "Grade 3 / PGR high",        grp = "Interaction: grade x PGR"),
+  list(id = "grade != 3 & pgr <= pgr_med",         name = "Grade 1-2 / PGR low",       grp = "Interaction: grade x PGR"),
+  list(id = "grade != 3 & pgr > pgr_med",          name = "Grade 1-2 / PGR high",      grp = "Interaction: grade x PGR"),
+
+  # ── J. Age x ER x Menopausal (3-way) ───────────────────────────────────
+  list(id = "meno == 0 & age <= 50 & er <= er_cut",  name = "Pre-meno/Yng/ER-low",    grp = "3-way"),
+  list(id = "meno == 0 & age <= 50 & er > er_cut",   name = "Pre-meno/Yng/ER-high",   grp = "3-way"),
+  list(id = "meno == 1 & grade == 3 & er <= er_cut", name = "Post-meno/G3/ER-low",    grp = "3-way"),
+  list(id = "meno == 1 & grade == 3 & nodes > 0",    name = "Post-meno/G3/Node-pos",  grp = "3-way"),
+  list(id = "grade == 3 & nodes > 0 & er <= er_cut", name = "G3/Node-pos/ER-low",     grp = "3-way"),
+
+  # ── K. Size x Node combinations ─────────────────────────────────────────
+  list(id = "size > size_med & nodes > 0",         name = "Large/Node-pos",            grp = "Interaction: size x nodes"),
+  list(id = "size > size_med & nodes == 0",        name = "Large/Node-neg",            grp = "Interaction: size x nodes"),
+  list(id = "size <= size_med & nodes > 0",        name = "Small/Node-pos",            grp = "Interaction: size x nodes"),
+  list(id = "size <= size_med & nodes == 0",       name = "Small/Node-neg",            grp = "Interaction: size x nodes"),
+
+  # ── L. Random benchmark subgroups ───────────────────────────────────────
+  # No clinical meaning; regenerated each simulation. Calibrate variability
+  # by size against the clinical and interaction subgroups above.
+  list(id = "random60 == 1",                       name = "random60",                  grp = "Random (N~60)"),
+  list(id = "random40 == 1",                       name = "random40",                  grp = "Random (N~40)"),
+  list(id = "random20 == 1",                       name = "random20",                  grp = "Random (N~20)"),
+  list(id = "random15 == 1",                       name = "random15",                  grp = "Random (N~15)")
+)
+
+# ── Show observed sizes from GBSG ────────────────────────────────────────
+# Scalar cut-points exposed as columns so eval() resolves them correctly.
+gbsg_eval           <- gbsg
+gbsg_eval$age_med   <- age_med
+gbsg_eval$size_med  <- size_med
+gbsg_eval$nodes_q3  <- nodes_q3
+gbsg_eval$pgr_med   <- pgr_med
+gbsg_eval$er_cut    <- er_cut
+gbsg_eval$random60  <- 0L
+gbsg_eval$random40  <- 0L
+gbsg_eval$random20  <- 0L
+gbsg_eval$random15  <- 0L
+
+sg_sizes <- sapply(subgroups, function(s) {
+  tryCatch(
+    sum(eval(parse(text = s$id), envir = gbsg_eval)),
+    error = function(e) NA_integer_
+  )
+})
+is_random_sg <- grepl("^random", sapply(subgroups, `[[`, "name"))
+rand_sizes   <- c(60L, 40L, 20L, 15L)
+
+sg_overview <- data.frame(
+  Subgroup = sapply(subgroups, `[[`, "name"),
+  Group    = sapply(subgroups, `[[`, "grp"),
+  N_source = ifelse(is_random_sg, rand_sizes[cumsum(is_random_sg)], sg_sizes),
+  stringsAsFactors = FALSE
+)
+print(sg_overview, row.names = FALSE)
+cat("
+Total subgroups:", nrow(sg_overview), "
+")
+```
+
+These `random*` subgroups have no clinical meaning whatsoever — their
+true HR equals the ITT HR of 0.70. Any extreme result they produce is
+purely a function of their small size and sampling variability. Placing
+them alongside clinical subgroups of similar size makes explicit how much
+of the spread in those clinical findings is attributable to noise alone.
+
+---
+
+## Summary Statistics Across `r n_sims_null` Simulations
+
+For each subgroup the primary analysis — Cox model stratified by the
+randomisation factor (`grade`) — is fitted in every simulated trial.
+Two quantities are accumulated:
+
+**HR point estimate distribution.** Reported as median and the 1st–99th
+percentile interval (the *empirical 99% confidence interval*, ECI). Under
+truth, the median should be close to 0.70 for every subgroup. The spread
+of the ECI reflects how variable the estimate is — wider for smaller
+subgroups.
+
+**Upper confidence bound UB(HR).** The upper end of the Cox 95%
+confidence interval. Two thresholds are tracked:
+
+- **`Pr(UB < 1.0)`**: the proportion of trials in which the upper bound
+  excludes no treatment effect, i.e., the subgroup shows a nominally
+  significant benefit. For the full ITT this should be close to the
+  trial power (~95%); for small subgroups it falls substantially.
+- **Conditional distribution of UB(HR) given UB ≥ 1**: when the upper
+  bound *fails* to exclude no effect, how large does it become? This is
+  what a safety reviewer sees in the worst-case trial for that subgroup.
+
+---
+
+## Simulation Loop
+
+```{r null-calibrate}
+cal_null <- calibrate_cens_adjust(
+  dgm           = dgm_null,
+  target        = "rate",
+  n             = 800,
+  analysis_time = 84,
+  max_entry     = 24,
+  seed          = 42,
+  n_eval        = 1500,
+  verbose       = FALSE
+)
+cat("Calibrated cens_adjust:", round(cal_null$cens_adjust, 4),
+    " | Target censoring rate:", round(cal_null$ref_value, 3), "\n")
+```
+
+```{r null-sims}
+sg_names <- sapply(subgroups, `[[`, "name")
+sg_ids   <- sapply(subgroups, `[[`, "id")
+n_sg     <- length(subgroups)
+
+# Fit stratified Cox, return c(HR point estimate, upper 95% CI bound)
+cox_sR <- function(data) {
+  fit <- tryCatch(
+    coxph(Surv(y_sim, event_sim) ~ treat_sim + strata(grade), data = data),
+    error = function(e) NULL
+  )
+  if (is.null(fit) || nrow(summary(fit)$conf.int) == 0)
+    return(c(NA_real_, NA_real_))
+  ci <- summary(fit)$conf.int[1, ]
+  c(ci["exp(coef)"], ci["upper .95"])
+}
+
+# Storage: HR point estimates and upper 95% confidence bounds
+sim_hrs <- matrix(NA_real_, n_sims_null, n_sg, dimnames = list(NULL, sg_names))
+sim_ubs <- matrix(NA_real_, n_sims_null, n_sg, dimnames = list(NULL, sg_names))
+sim_ns  <- matrix(NA_real_, n_sims_null, n_sg, dimnames = list(NULL, sg_names))
+
+for (ss in seq_len(n_sims_null)) {
+
+  df_s <- simulate_from_dgm(
+    dgm           = dgm_null,
+    n             = nrow(gbsg),
+    analysis_time = 84,
+    max_entry     = 24,
+    cens_adjust   = cal_null$cens_adjust,
+    seed          = ss
+  )
+  df_s$flag_itt <- 1L
+
+  # Make quantile cut-points available as scalar variables in the eval
+  # environment so expressions like "size <= size_med" resolve correctly.
+  # Expose scalar cut-points as columns so subset expressions resolve.
+  df_s$age_med  <- age_med
+  df_s$size_med <- size_med
+  df_s$nodes_q3 <- nodes_q3
+  df_s$pgr_med  <- pgr_med
+  df_s$er_cut   <- er_cut
+
+  # Regenerate random benchmark subgroups for this simulated trial.
+  # Random subgroups are re-sampled each iteration: their purpose is to
+  # benchmark the variability of a subgroup of a given size with no true
+  # treatment effect heterogeneity — exactly what each simulated trial provides.
+  set.seed(ss + 1e6L)
+  n_s   <- nrow(df_s)
+  r_idx <- sample.int(n_s, min(60L, n_s), replace = FALSE)
+  df_s$random60 <- as.integer(seq_len(n_s) %in% r_idx)
+  df_s$random40 <- as.integer(seq_len(n_s) %in% r_idx[seq_len(min(40L, length(r_idx)))])
+  df_s$random20 <- as.integer(seq_len(n_s) %in% r_idx[seq_len(min(20L, length(r_idx)))])
+  df_s$random15 <- as.integer(seq_len(n_s) %in% r_idx[seq_len(min(15L, length(r_idx)))])
+
+  for (gg in seq_len(n_sg)) {
+    df_sg <- tryCatch(
+      subset(df_s, eval(parse(text = sg_ids[[gg]]))),
+      error = function(e) NULL
+    )
+    if (is.null(df_sg) || nrow(df_sg) < 5) next
+    sim_ns[ss, gg] <- nrow(df_sg)
+    r <- cox_sR(df_sg)
+    sim_hrs[ss, gg] <- r[1]
+    sim_ubs[ss, gg] <- r[2]
+  }
+}
+
+cat("Simulations completed:", n_sims_null, "\n")
+```
+
+---
+
+## Results
+
+### Summary table
+
+```{r null-results-table}
+# Median HR and 1-99th percentile ECI across simulations
+hr_q  <- t(apply(sim_hrs, 2, quantile, probs = c(0.01, 0.50, 0.99),
+                 na.rm = TRUE))
+ub_q  <- t(apply(sim_ubs, 2, quantile, probs = c(0.01, 0.50, 0.99),
+                 na.rm = TRUE))
+
+# n_valid: number of simulations where Cox estimation succeeded
+n_valid     <- apply(sim_hrs, 2, function(x) sum(!is.na(x)))
+pct_valid   <- round(100 * n_valid / n_sims_null, 1)
+
+mean_n      <- round(apply(sim_ns,  2, mean, na.rm = TRUE))
+
+# Proportions denominated by n_valid (not n_sims_null) so NAs from
+# estimation failures are excluded; they are separately reported.
+pr_hr_lt080 <- apply(sim_hrs, 2, function(x) mean(x < 0.80, na.rm = TRUE))
+pr_ub_lt1   <- apply(sim_ubs, 2, function(x) mean(x < 1.0,  na.rm = TRUE))
+pr_ub_ge1   <- 1 - pr_ub_lt1
+
+# Conditional distribution of UB given UB >= 1
+cond_ub <- t(apply(sim_ubs, 2, function(x) {
+  xx <- x[!is.na(x) & x >= 1.0]
+  if (length(xx) < 2) return(c(NA_real_, NA_real_, NA_real_))
+  quantile(xx, probs = c(0.50, 0.75, 0.99))
+}))
+
+fmt_pct <- function(x) ifelse(is.nan(x), "-", paste0(round(100 * x, 1), "%"))
+fmt_num <- function(x) ifelse(is.na(x), "-", as.character(round(x, 2)))
+
+results_tbl <- data.frame(
+  Subgroup    = sg_names,
+  Mean_N      = ifelse(is.nan(mean_n), "-", as.character(mean_n)),
+  N_valid     = paste0(n_valid, " (", pct_valid, "%)"),
+  HR_ECI      = ifelse(is.na(hr_q[,2]), "-",
+                  paste0(round(hr_q[,2],2),
+                         " (", round(hr_q[,1],2), ", ",
+                         round(hr_q[,3],2), ")")),
+  Pr_HR_lt080 = fmt_pct(pr_hr_lt080),
+  Pr_UB_lt1   = fmt_pct(pr_ub_lt1),
+  Pr_UB_ge1   = fmt_pct(pr_ub_ge1),
+  Med_UB_cond = fmt_num(cond_ub[, 1]),
+  P99_UB_cond = fmt_num(cond_ub[, 3]),
+  stringsAsFactors = FALSE
+)
+colnames(results_tbl) <- c(
+  "Subgroup", "N", "#(% converged)",
+  "Median HR (1st, 99th ECI)",
+  "Pr(HR<0.80)", "Pr(UB<1.0)", "Pr(UB>=1.0)",
+  "Med UB|UB>=1", "P99 UB|UB>=1"
+)
+print(results_tbl, row.names = FALSE)
+```
+
+**Reading the table.** Every row shares the same true HR = 0.70, so the
+median of the HR ECI should be close to 0.70 throughout — confirming
+the Cox model is unbiased. The *spread* of the ECI is what changes:
+narrow for the ITT and large clinical subgroups, wide for `random20`
+and `random15`. `Pr(UB < 1.0)` measures power for the full trial; it
+falls sharply with subgroup size. `P99 UB | UB ≥ 1` answers the
+question a safety reviewer faces in the worst 1% of trials: *how large
+can the upper bound get when the subgroup fails to show a significant
+benefit?* For `random15` the answer routinely exceeds 5.0; for
+`random40` it commonly exceeds 3.0.
+
+---
+
+### Forest plot: HR point estimate distributions
+
+Each row shows one subgroup. The point is the median HR across
+`r n_sims_null` simulations; the line spans the 1st–99th percentile ECI.
+The red dashed line marks the true HR = 0.70; the grey dotted line marks
+HR = 1.0. `random*` benchmarks (orange) are shown alongside same-sized
+clinical subgroups (blue) so that the comparison is immediate.
+
+```{r forest-theme-params}
+# =============================================================================
+# Forest Plot Sizing Parameters — edit here to resize all four panels
+# =============================================================================
+#
+# HOW SIZING WORKS WITH gg_forest()
+# ──────────────────────────────────
+# gg_forest() uses ggplot2 + patchwork.  Unlike forestploter, there is NO
+# hidden scaling.  Row height is simply:
+#
+#     row_height_in  =  fig.height  /  n_rows
+#
+# So to set a target row height (e.g. 0.45 in):
+#     fig.height  =  n_rows  ×  0.45  +  overhead_in
+#
+# where overhead_in ≈ 1.5 in covers the title, x-axis, and caption.
+# ─────────────────────────────────────────────────────────────────────────────
+
+fp_row_height   <- 0.45   # in — target height per row (increase to spread rows)
+fp_overhead_in  <- 1.5    # in — fixed overhead (title + x-axis + footnote)
+fp_base_size    <- 14     # pt — ggplot2 base font size (controls ALL text sizes)
+fp_point_size   <- 2.2    # relative size of the median point symbol
+fp_line_size    <- 0.75   # line width of CI whiskers
+
+# ── Colour map (used by all four panels) ──────────────────────────────────
+cat_cols <- c(
+  "ITT"         = "black",
+  "Clinical"    = "steelblue",
+  "Continuous"  = "darkgreen",
+  "Interaction" = "purple4",
+  "3-way"       = "violetred3",
+  "Random"      = "darkorange"
+)
+
+# ── Recommended fig.height for each panel ─────────────────────────────────
+cat_ok  <- dplyr::case_when(
+  sapply(subgroups, `[[`, "grp") == "ITT"               ~ "ITT",
+  sapply(subgroups, `[[`, "grp") == "Clinical"          ~ "Clinical",
+  sapply(subgroups, `[[`, "grp") == "Continuous"        ~ "Continuous",
+  grepl("^Interaction", sapply(subgroups, `[[`, "grp")) ~ "Interaction",
+  sapply(subgroups, `[[`, "grp") == "3-way"             ~ "3-way",
+  TRUE                                                  ~ "Random"
+)
+
+ok    <- !is.na(hr_q[, 2])
+ok_ub <- !is.na(ub_q[, 2])
+
+single_cats <- c("ITT", "Clinical", "Continuous")
+combo_cats  <- c("Interaction", "3-way", "Random")
+
+idx_hr_single <- which(cat_ok[ok]  %in% single_cats)
+idx_hr_combo  <- which(cat_ok[ok]  %in% combo_cats)
+idx_ub_single <- which(cat_ok[ok_ub] %in% single_cats)
+idx_ub_combo  <- which(cat_ok[ok_ub] %in% combo_cats)
+
+n_single <- length(idx_hr_single)
+n_combo  <- length(idx_hr_combo)
+
+fh_single <- round(n_single * fp_row_height + fp_overhead_in, 1)
+fh_combo  <- round(n_combo  * fp_row_height + fp_overhead_in, 1)
+
+cat(sprintf(
+  "Single panels: %d rows  ->  recommended fig.height = %.1f in
+",
+  n_single, fh_single
+))
+cat(sprintf(
+  "Combo  panels: %d rows  ->  recommended fig.height = %.1f in
+",
+  n_combo,  fh_combo
+))
+```
+
+
+**Panel A — HR distributions, single-variable subgroups.**
+Point = median HR; whiskers = 1st–99th percentile ECI.
+The true HR is 0.70 for every subgroup (red dashed line).
+
+```{r hr-forest-single}
+#| fig-height: !expr fh_single
+#| fig-width: 14
+#| fig-cap: "HR distribution — single-variable subgroups (log scale). Spread reflects sampling variability alone; all subgroups share the same true HR = 0.70."
+sg_single   <- sg_names[ok][idx_hr_single]
+cat_single  <- cat_ok[ok][idx_hr_single]
+
+gg_forest(
+  subgroups   = sg_single,
+  est         = hr_q[ok, 2][idx_hr_single],
+  lo          = hr_q[ok, 1][idx_hr_single],
+  hi          = hr_q[ok, 3][idx_hr_single],
+  cat_vec     = cat_single,
+  cat_colours = cat_cols,
+  annot       = list(
+    "N"     = as.character(mean_n[ok][idx_hr_single]),
+    "Pr(UB<1.0)" = paste0(round(100 * pr_ub_lt1[ok][idx_hr_single], 1), "%")
+  ),
+  ref_line    = 0.70,
+  vert_lines  = 1.00,
+  ref_col     = "firebrick",
+  vert_col    = "grey55",
+  vert_lty    = "dotted",
+  xlim        = c(0.15, 3.5),
+  ticks_at    = c(0.20, 0.35, 0.50, 0.70, 1.00, 1.50, 2.50),
+  xlog        = TRUE,
+  xlab        = "Hazard Ratio (Cox, stratified by grade)",
+  footnote    = paste0(
+    "Median HR (point) + 1st-99th percentile ECI  |  ",
+    n_sims_null, " simulated trials, N = ", nrow(gbsg), " per trial  |  ",
+    "True HR = 0.70 (red dashed)"
+  ),
+  point_size  = fp_point_size,
+  line_size   = fp_line_size,
+  base_size   = fp_base_size,
+  widths      = c(3.5, 5, 1.1, 1.2)
+)
+```
+
+**Panel B — HR distributions, combination and random-benchmark subgroups.**
+Note how the ECI widens sharply as subgroup N falls below ~60; the
+`random*` benchmarks (orange) define the noise floor for each size class.
+
+```{r hr-forest-combo}
+#| fig-height: !expr fh_combo
+#| fig-width: 14
+#| fig-cap: "HR distribution — combination subgroups and random benchmarks (log scale). Random benchmarks of matching size (orange) are the baseline for chance variability."
+sg_combo   <- sg_names[ok][idx_hr_combo]
+cat_combo  <- cat_ok[ok][idx_hr_combo]
+
+gg_forest(
+  subgroups   = sg_combo,
+  est         = hr_q[ok, 2][idx_hr_combo],
+  lo          = hr_q[ok, 1][idx_hr_combo],
+  hi          = hr_q[ok, 3][idx_hr_combo],
+  cat_vec     = cat_combo,
+  cat_colours = cat_cols,
+  annot       = list(
+    "N"     = as.character(mean_n[ok][idx_hr_combo]),
+    "Pr(UB<1.0)" = paste0(round(100 * pr_ub_lt1[ok][idx_hr_combo], 1), "%")
+  ),
+  ref_line    = 0.70,
+  vert_lines  = 1.00,
+  ref_col     = "firebrick",
+  vert_col    = "grey55",
+  vert_lty    = "dotted",
+  xlim        = c(0.15, 3.5),
+  ticks_at    = c(0.20, 0.35, 0.50, 0.70, 1.00, 1.50, 2.50),
+  xlog        = TRUE,
+  xlab        = "Hazard Ratio (Cox, stratified by grade)",
+  footnote    = paste0(
+    "Median HR (point) + 1st-99th percentile ECI  |  ",
+    n_sims_null, " simulated trials  |  ",
+    "True HR = 0.70 (red dashed)"
+  ),
+  point_size  = fp_point_size,
+  line_size   = fp_line_size,
+  base_size   = fp_base_size,
+  widths      = c(3.5, 5, 1.1, 1.2)
+)
+```
+
+---
+
+### Forest plot: UB(HR) distributions
+
+The upper confidence bound UB(HR) is the quantity a safety reviewer
+examines when asking whether a subgroup demonstrates harm or lack of
+benefit. The plot below shows the distribution of UB(HR) across
+simulations in the same ECI format. Values above 1.0 (grey dotted line)
+represent trials where the confidence interval includes no treatment
+effect. The right-hand column shows the probability of this occurring
+(`Pr(UB >= 1)`) and the conditional median UB given failure to show
+benefit (`Med UB | UB>=1`).
+
+**Panel A — UB(HR) distributions, single-variable subgroups.**
+
+```{r ub-forest-single}
+#| fig-height: !expr fh_single
+#| fig-width: 14
+#| fig-cap: "UB(HR) distribution — single-variable subgroups (log scale). Values right of HR = 1.0 (dotted line) represent trials failing to show significant benefit."
+lab_cmed_ub <- ifelse(
+  is.na(cond_ub[ok_ub, 1]), "-",
+  as.character(round(cond_ub[ok_ub, 1], 2))
+)
+sg_ub_s   <- sg_names[ok_ub][idx_ub_single]
+cat_ub_s  <- cat_ok[ok_ub][idx_ub_single]
+
+gg_forest(
+  subgroups   = sg_ub_s,
+  est         = ub_q[ok_ub, 2][idx_ub_single],
+  lo          = ub_q[ok_ub, 1][idx_ub_single],
+  hi          = ub_q[ok_ub, 3][idx_ub_single],
+  cat_vec     = cat_ub_s,
+  cat_colours = cat_cols,
+  annot       = list(
+    "N"         = as.character(mean_n[ok_ub][idx_ub_single]),
+    "UB>=1"    = paste0(round(100 * pr_ub_ge1[ok_ub][idx_ub_single], 1), "%"),
+    "mUB | UB>=1" = lab_cmed_ub[idx_ub_single]
+  ),
+  ref_line    = 1.00,
+  vert_lines  = 0.70,
+  ref_col     = "grey55",
+  ref_lty     = "dotted",
+  vert_col    = "firebrick",
+  vert_lty    = "dashed",
+  xlim        = c(0.30, 9.0),
+  ticks_at    = c(0.40, 0.70, 1.00, 1.50, 2.50, 4.00, 8.00),
+  xlog        = TRUE,
+  xlab        = "Upper Bound of 95% CI  [UB(HR)]",
+  footnote    = paste0(
+    "Median UB(HR) (point) + 1st-99th percentile ECI  |  ",
+    n_sims_null, " simulated trials  |  ",
+    "Dotted line: UB = 1.0;  Dashed line: true HR = 0.70"
+  ),
+  point_size  = fp_point_size,
+  line_size   = fp_line_size,
+  base_size   = fp_base_size,
+  widths      = c(3.5, 5, 1.1, 1.2, 1.5)
+)
+```
+
+**Panel B — UB(HR) distributions, combination subgroups and random benchmarks.**
+The `Med UB | UB>=1` column is the key safety quantity — it shows how
+large the upper bound grows in those trials where the CI actually fails
+to demonstrate benefit.
+
+```{r ub-forest-combo}
+#| fig-height: !expr fh_combo
+#| fig-width: 14
+#| fig-cap: "UB(HR) distribution — combination and random-benchmark subgroups. The widening ECI for small subgroups is the central message: chance alone produces UB(HR) > 3-5 for N ~ 15-40."
+sg_ub_c   <- sg_names[ok_ub][idx_ub_combo]
+cat_ub_c  <- cat_ok[ok_ub][idx_ub_combo]
+
+# Unconditional tail probabilities for UB(HR).
+# Denominated by valid (non-NA) simulations, consistent with pr_ub_ge1.
+pr_ub_ge2 <- apply(sim_ubs, 2, function(x) mean(x >= 2.0, na.rm = TRUE))
+pr_ub_ge3 <- apply(sim_ubs, 2, function(x) mean(x >= 3.0, na.rm = TRUE))
+
+# Unconditional median UB(HR); ub_q[, 2] is the 50th percentile across sims.
+mub_uncond <- ifelse(
+  is.na(ub_q[, 2]), "-",
+  as.character(round(ub_q[, 2], 2))
+)
+
+gg_forest(
+  subgroups   = sg_ub_c,
+  est         = ub_q[ok_ub, 2][idx_ub_combo],
+  lo          = ub_q[ok_ub, 1][idx_ub_combo],
+  hi          = ub_q[ok_ub, 3][idx_ub_combo],
+  cat_vec     = cat_ub_c,
+  cat_colours = cat_cols,
+  annot       = list(
+    "N"      = as.character(mean_n[ok_ub][idx_ub_combo]),
+    "UB>=2"  = paste0(round(100 * pr_ub_ge2[ok_ub][idx_ub_combo], 1), "%"),
+    "UB>=3"  = paste0(round(100 * pr_ub_ge3[ok_ub][idx_ub_combo], 1), "%"),
+    "mUB"    = mub_uncond[ok_ub][idx_ub_combo]
+  ),
+  ref_line    = 1.00,
+  vert_lines  = 0.70,
+  ref_col     = "grey55",
+  ref_lty     = "dotted",
+  vert_col    = "firebrick",
+  vert_lty    = "dashed",
+  xlim        = c(0.30, 9.0),
+  ticks_at    = c(0.40, 0.70, 1.00, 1.50, 2.50, 4.00, 8.00),
+  xlog        = TRUE,
+  xlab        = "Upper Bound of 95% CI  [UB(HR)]",
+  footnote    = paste0(
+    "Median UB(HR) (point) + 1st-99th percentile ECI  |  ",
+    n_sims_null, " simulated trials  |  ",
+    "Dotted line: UB = 1.0;  Dashed line: true HR = 0.70"
+  ),
+  point_size  = fp_point_size,
+  line_size   = fp_line_size,
+  base_size   = fp_base_size,
+  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.1)
+)
+```
+
+---
+
+### Forest plot: high-risk subgroups (Pr(UB ≥ 2.0) ≥ 10%)
+
+The panels above present *all* pre-defined subgroups grouped by category.
+A complementary view is to filter to subgroups whose UB(HR) distribution
+crosses 2.0 with non-negligible frequency — concretely, those where at
+least 10% of simulated trials produce UB(HR) ≥ 2.0.  These are the
+subgroups most likely to generate alarming-looking forest-plot rows by
+chance alone.  **All Patients (ITT)** is always retained as a reference
+anchor, regardless of whether it meets the filter.
+
+Rows are ordered with the ITT at the top, then the remaining subgroups
+in descending order of `Pr(UB>=2)` — so the most chance-prone subgroups
+appear immediately below the ITT for direct comparison.
+
+```{r ub-forest-highrisk-setup}
+#| include: false
+
+# Inclusion rule: meets the Pr(UB>=2) threshold OR is the ITT anchor.
+pr_thresh_highrisk <- 0.10
+itt_name           <- "All Patients"
+
+include_highrisk <- ok_ub &
+  (pr_ub_ge2 >= pr_thresh_highrisk | sg_names == itt_name)
+
+# Ordering: ITT first, then descending Pr(UB>=2).
+# order() uses a logical key (FALSE < TRUE) to put the ITT row at the top.
+ord_highrisk <- order(
+  sg_names[include_highrisk] != itt_name,
+  -pr_ub_ge2[include_highrisk]
+)
+
+n_highrisk  <- sum(include_highrisk)
+fh_highrisk <- round(n_highrisk * fp_row_height + fp_overhead_in, 1)
+
+cat(sprintf(
+  "High-risk panel: %d subgroups (Pr(UB>=2) >= %.0f%%, ITT included)  ->  fig.height = %.1f in\n",
+  n_highrisk, 100 * pr_thresh_highrisk, fh_highrisk
+))
+```
+
+```{r ub-forest-highrisk}
+#| fig-height: !expr fh_highrisk
+#| fig-width: 14
+#| fig-cap: "UB(HR) distribution — subgroups where at least 10% of simulated trials produce UB(HR) >= 2.0, with All Patients (ITT) for comparison.  All share the same true HR = 0.70; differences are entirely sampling variability."
+sg_hr  <- sg_names[include_highrisk][ord_highrisk]
+cat_hr <- cat_ok[include_highrisk][ord_highrisk]
+
+# Pull the raw 1st / median / 99th percentile triples for the included rows.
+est_raw <- ub_q[include_highrisk, 2][ord_highrisk]
+lo_raw  <- ub_q[include_highrisk, 1][ord_highrisk]
+hi_raw  <- ub_q[include_highrisk, 3][ord_highrisk]
+
+# Clamp whisker endpoints to xlim.  Without this, ggplot2's scale_x_*(limits)
+# converts out-of-range values to NA and drops the *entire* linerange — the
+# point still draws, leaving a misleading "point-only" row when the 1st or
+# 99th percentile falls outside the axis.  The tail probabilities in the
+# UB>=2 / UB>=3 columns already carry the truncated-tail information, so no
+# information is lost by clipping the visual whisker.
+xlim_ub <- c(0.30, 9.0)
+lo_clip <- pmax(lo_raw, xlim_ub[1])
+hi_clip <- pmin(hi_raw, xlim_ub[2])
+
+# Flag rows where clipping occurred so the reader can tell visible-edge
+# whiskers from genuinely-short ones.  Appended to mUB as a small arrow.
+clip_lo <- !is.na(lo_raw) & lo_raw < xlim_ub[1]
+clip_hi <- !is.na(hi_raw) & hi_raw > xlim_ub[2]
+mub_lab <- mub_uncond[include_highrisk][ord_highrisk]
+mub_lab <- ifelse(clip_hi, paste0(mub_lab, "\u2192"), mub_lab)   # right arrow
+mub_lab <- ifelse(clip_lo, paste0("\u2190", mub_lab), mub_lab)   # left arrow
+
+gg_forest(
+  subgroups   = sg_hr,
+  est         = est_raw,
+  lo          = lo_clip,
+  hi          = hi_clip,
+  cat_vec     = cat_hr,
+  cat_colours = cat_cols,
+  annot       = list(
+    "N"      = as.character(mean_n[include_highrisk][ord_highrisk]),
+    "UB>=2"  = paste0(round(100 * pr_ub_ge2[include_highrisk][ord_highrisk], 1), "%"),
+    "UB>=3"  = paste0(round(100 * pr_ub_ge3[include_highrisk][ord_highrisk], 1), "%"),
+    "mUB"    = mub_lab
+  ),
+  ref_line    = 1.00,
+  vert_lines  = 0.70,
+  ref_col     = "grey55",
+  ref_lty     = "dotted",
+  vert_col    = "firebrick",
+  vert_lty    = "dashed",
+  xlim        = xlim_ub,
+  ticks_at    = c(0.40, 0.70, 1.00, 1.50, 2.50, 4.00, 8.00),
+  xlog        = TRUE,
+  xlab        = "Upper Bound of 95% CI  [UB(HR)]",
+  footnote    = paste0(
+    "Filter: Pr(UB(HR) >= 2.0) >= ", round(100 * pr_thresh_highrisk), "%  |  ",
+    "ITT included for comparison  |  ",
+    n_sims_null, " simulated trials  |  ",
+    "Whiskers clipped at axis limits (arrow in mUB column)  |  ",
+    "Dotted: UB = 1.0;  Dashed: true HR = 0.70"
+  ),
+  point_size  = fp_point_size,
+  line_size   = fp_line_size,
+  base_size   = fp_base_size,
+  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.2)
+)
+```
+
+The contrast is the point of the plot: every row shares the same true
+HR (0.70), yet the filtered subgroups produce UB(HR) values that are
+substantively different from the ITT.  Because the filter is on a tail
+probability rather than on any clinical attribute, small subgroups
+populate this panel regardless of whether they were defined by a
+biomarker, a clinical interaction, or pure random sampling.
+
+The companion view below is the *HR point-estimate distribution* for
+the same set of subgroups.  Where the UB(HR) panel above asks "how
+alarming can the upper confidence bound look by chance?", the HR panel
+asks "how misleading can the point estimate itself be?"  The two views
+together complete the picture: small subgroups produce extreme results
+in both tails.
+
+```{r hr-forest-highrisk}
+#| fig-height: !expr fh_highrisk
+#| fig-width: 14
+#| fig-cap: "HR distribution — same high-risk subgroups as the panel above (Pr(UB(HR) >= 2.0) >= 10%, plus ITT for comparison).  Every row shares the same true HR = 0.70 (red dashed); spread reflects sampling variability alone."
+
+# Inline HR tail summaries (analogous to pr_ub_ge2 / pr_ub_ge3).
+# Pr(HR < 0.5)  -- chance of an apparently very large benefit by chance
+# Pr(HR > 1.0)  -- chance the point estimate lands on the wrong side of no effect
+pr_hr_lt050 <- apply(sim_hrs, 2, function(x) mean(x < 0.5, na.rm = TRUE))
+pr_hr_gt1   <- apply(sim_hrs, 2, function(x) mean(x > 1.0, na.rm = TRUE))
+
+# Unconditional median HR; hr_q[, 2] is the 50th percentile across sims.
+mhr_uncond <- ifelse(
+  is.na(hr_q[, 2]), "-",
+  as.character(round(hr_q[, 2], 2))
+)
+
+# Pull raw quantiles for the included rows.
+est_raw_hr <- hr_q[include_highrisk, 2][ord_highrisk]
+lo_raw_hr  <- hr_q[include_highrisk, 1][ord_highrisk]
+hi_raw_hr  <- hr_q[include_highrisk, 3][ord_highrisk]
+
+# Clamp whisker endpoints to xlim — same reasoning as in ub-forest-highrisk:
+# without this, percentiles outside the axis become NA and the entire
+# linerange is dropped, leaving a misleading "point-only" row.  Especially
+# severe for very small subgroups (random15, random20) whose 1st percentile
+# falls well below xlim[1] and 99th percentile well above xlim[2].
+xlim_hr <- c(0.15, 3.5)
+lo_clip_hr <- pmax(lo_raw_hr, xlim_hr[1])
+hi_clip_hr <- pmin(hi_raw_hr, xlim_hr[2])
+
+# Mark clipped rows with arrows in the mHR column.
+clip_lo_hr <- !is.na(lo_raw_hr) & lo_raw_hr < xlim_hr[1]
+clip_hi_hr <- !is.na(hi_raw_hr) & hi_raw_hr > xlim_hr[2]
+mhr_lab <- mhr_uncond[include_highrisk][ord_highrisk]
+mhr_lab <- ifelse(clip_hi_hr, paste0(mhr_lab, "\u2192"), mhr_lab)
+mhr_lab <- ifelse(clip_lo_hr, paste0("\u2190", mhr_lab), mhr_lab)
+
+gg_forest(
+  subgroups   = sg_names[include_highrisk][ord_highrisk],
+  est         = est_raw_hr,
+  lo          = lo_clip_hr,
+  hi          = hi_clip_hr,
+  cat_vec     = cat_ok[include_highrisk][ord_highrisk],
+  cat_colours = cat_cols,
+  annot       = list(
+    "N"      = as.character(mean_n[include_highrisk][ord_highrisk]),
+    "HR<0.5" = paste0(round(100 * pr_hr_lt050[include_highrisk][ord_highrisk], 1), "%"),
+    "HR>1.0" = paste0(round(100 * pr_hr_gt1[include_highrisk][ord_highrisk], 1), "%"),
+    "mHR"    = mhr_lab
+  ),
+  ref_line    = 0.70,
+  vert_lines  = 1.00,
+  ref_col     = "firebrick",
+  ref_lty     = "dashed",
+  vert_col    = "grey55",
+  vert_lty    = "dotted",
+  xlim        = xlim_hr,
+  ticks_at    = c(0.20, 0.35, 0.50, 0.70, 1.00, 1.50, 2.50),
+  xlog        = TRUE,
+  xlab        = "Hazard Ratio (Cox, stratified by grade)",
+  footnote    = paste0(
+    "Same subgroups and ordering as the UB(HR) panel above  |  ",
+    n_sims_null, " simulated trials  |  ",
+    "Whiskers clipped at axis limits (arrow in mHR column)  |  ",
+    "Dashed: true HR = 0.70;  Dotted: HR = 1.0"
+  ),
+  point_size  = fp_point_size,
+  line_size   = fp_line_size,
+  base_size   = fp_base_size,
+  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.2)
+)
+```
+
+Read together with the UB(HR) panel, the message is direct: the same
+small subgroups that produce large upper bounds also routinely produce
+point estimates that overstate (HR &lt; 0.5) or understate (HR &gt; 1.0)
+the true effect.  None of this reflects genuine heterogeneity — the
+DGM guarantees a uniform HR of 0.70 for every patient.
+
+---
+
+## Key Finding: Small Subgroups Produce Extreme Results by Chance
+
+The forest plots above tell a consistent story.
+
+**Point estimates (HR).** For the ITT and large clinical subgroups the
+median HR tracks the truth (≈ 0.70) and the ECI is narrow. For
+`random15` and `random20` the ECI spans from roughly 0.25 to above
+1.0 — the entire plausible range. Clinical subgroups of similar size
+(e.g. Grade 3, Age ≤ 50) show ECI widths that are indistinguishable
+from their random-benchmark counterparts of the same N. The randomisation
+basis of those clinical groupings provides no protection against this
+variability.
+
+**Upper bounds UB(HR).** The upper-bound distribution is even more
+striking. For `random40` (N ≈ 40), the 99th percentile of UB(HR)
+commonly exceeds 3.0–4.0, meaning that 1% of simulated trials produce
+an upper confidence bound above 3.0 for a subgroup where the true HR
+is 0.70. For `random15`, values above 5.0 are not rare.
+
+**This is not a failure of the Cox model** — it is working exactly as
+intended. A 95% confidence interval that spans from 0.3 to 4.5 is
+statistically correct: with N = 15 there is genuinely that much
+uncertainty. The problem is the *interpretation*: a practitioner seeing
+UB(HR) = 3.5 in a subgroup of 15 patients in a single trial has no way
+to distinguish a chance fluctuation from a genuine safety signal without
+additional structure.
+
+---
+
+# Summary
+
+| Step | Function | Purpose |
+|:-----|:---------|:--------|
+| 1 | — | Convert source data to consistent time scale |
+| 2 | `generate_aft_dgm_flex()` | Fit AFT model; embed harm subgroup; build super population |
+| 3 | `check_censoring_dgm()` | Verify simulated censoring matches source data |
+| 4 | `calibrate_cens_adjust()` | Find `cens_adjust` that aligns censoring rate or KM median |
+| 5 | `simulate_from_dgm()` | Draw individual synthetic trials from the DGM |
+| 6 | `forestsearch()` + summaries | Apply method and accumulate operating characteristics |
+
+The extreme-subgroup evaluation in Part IV answers a question: *under a null where every patient shares the same true HR,
+how alarming can a standard Cox subgroup analysis look by chance?* The
+`random*` subgroups anchor the answer — any clinical subgroup of similar
+size has an identical chance distribution of HR and UB(HR) regardless of
+clinical rationale. 
+---
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
