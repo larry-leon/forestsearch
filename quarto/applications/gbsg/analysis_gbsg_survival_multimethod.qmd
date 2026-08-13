@@ -184,7 +184,7 @@ mr_draws      <- 5000L    # multiplier-bootstrap draws for MR
 # ---------------------------------------------------------------------------
 # Output directory for the Section 6.2 reproducibility payload written at the
 # END of this document (manuscript Table + results overview).
-#   NULL (default) -> alongside this .qmd, resolved at render time
+#   NULL (default) -> <qmd dir>/_payloads
 #   or an explicit directory, e.g. "~/results" or "/abs/path/out"
 results_dir <- NULL
 
@@ -2428,11 +2428,11 @@ repeated; the output path, core count, and package version resolve at run time.
 #| echo: false
 #| message: false
 
-.out_dir <- if (is.null(results_dir)) {
-  tryCatch(dirname(knitr::current_input(dir = TRUE)), error = function(e) getwd())
-} else {
-  results_dir
-}
+.qmd_dir  <- tryCatch(dirname(knitr::current_input(dir = TRUE)),
+                      error = function(e) getwd())
+.qmd_stem <- tryCatch(tools::file_path_sans_ext(basename(knitr::current_input())),
+                      error = function(e) "gbsg_analysis")
+.out_dir  <- if (is.null(results_dir)) file.path(.qmd_dir, "_payloads") else results_dir
 dir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)
 
 .get <- function(nm) if (exists(nm, inherits = TRUE)) get(nm, inherits = TRUE) else NULL
@@ -2626,7 +2626,7 @@ payload <- list(
 
 # Payload filename -- analog of actg175's "actg175_table_payload.rds".
 # (If your gbsg reader/manuscript doc expects "gbsg_table1_payload.rds", change it here.)
-.payload_file <- file.path(.out_dir, "gbsg_survival_multimethod_payload.rds")
+.payload_file <- file.path(.out_dir, paste0(.qmd_stem, "_payload.rds"))
 saveRDS(payload, .payload_file)
 cat("Wrote Section 6.2 payload to:", .payload_file, "\n")
 ```
