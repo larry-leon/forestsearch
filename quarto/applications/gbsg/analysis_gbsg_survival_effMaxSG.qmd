@@ -95,7 +95,7 @@ fs_sg_focus            <- "effMaxSG"
 # consulted ONLY for effMaxSG / effMinSG; the profile below coerces the rule
 # to "neighborhood" elsewhere, because forestsearch() treats a non-default
 # rule under a non-band focus as an error rather than a no-op.
-fs_selection_rule      <- "both"        # "neighborhood" | "pareto" | "both"
+fs_selection_rule      <- "neighborhood"        # "neighborhood" | "pareto" | "both"
 fs_effect_neighborhood <- 0.10
 
 # Thresholds and search settings (inert under maxeff -- see the profile).
@@ -343,8 +343,8 @@ GH_PARALLEL <- .Platform$OS.type == "unix"
 gh_requested <- TRUE
 run_gh       <- isTRUE(gh_requested) && focus$run_guohe
 
-run_loo      <- FALSE    # leave-one-out (N-fold) out-of-sample subgroup estimate
-run_cv_kfold <- FALSE    # repeated 10-fold cross-validation
+run_loo      <- TRUE    # leave-one-out (N-fold) out-of-sample subgroup estimate
+run_cv_kfold <- TRUE    # repeated 10-fold cross-validation
 Ksims        <- 50L     # repeated 10-fold partitions (>= 50 for production)
 
 # LOO fold-loop workers.  No nested parallelism to guard against:
