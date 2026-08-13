@@ -58,7 +58,20 @@
 #'   \code{n <= nrow(dgm$df_super)}; with \code{n = nrow(dgm$df_super)} it
 #'   evaluates every super-population subject exactly once while still applying
 #'   randomisation and censoring (unlike the \code{n = NULL} path, which uses
-#'   the pool as-is and skips both). Default \code{TRUE}.
+#'   the pool as-is and skips both). Ignored when \code{baseline = "fixed"}.
+#'   Default \code{TRUE}.
+#' @param baseline Character; how baseline covariates are obtained per
+#'   simulated trial. \code{"resample"} (default -- the historical behaviour)
+#'   draws subjects from \code{dgm$df_super}, so covariates and therefore
+#'   subgroup composition and sizes vary across trials. \code{"fixed"} uses
+#'   \code{dgm$df_source} -- every source patient exactly once, in source
+#'   order -- so the baseline data and all covariate-defined subgroups are
+#'   identical in every simulated trial; only treatment assignment, entry
+#'   times, latent event times, and censoring are re-drawn per trial.
+#'   Requires a DGM built by a package version that stores \code{df_source}
+#'   (rebuild with \code{generate_aft_dgm_flex()} if absent). With
+#'   \code{baseline = "fixed"}, \code{n} must be \code{NULL} or equal
+#'   \code{nrow(dgm$df_source)}, and \code{replace} is ignored.
 #'
 #' @return A \code{data.frame} with columns: \describe{
 #'   \item{\code{id}}{Subject identifier.}
@@ -107,6 +120,24 @@
 #'   \item \code{cens_adjust = log(0.5)} halves expected censoring times.
 #' }
 #'
+#' ## Random-X vs fixed-X designs (\code{baseline})
+#'
+#' Under \code{baseline = "resample"} each simulated trial is a fresh draw
+#' of subjects, so between-trial variability reflects both covariate
+#' resampling and outcome generation -- the "what if this trial had enrolled
+#' a different sample from the same population?" interpretation. Subgroup
+#' sizes fluctuate across trials.
+#'
+#' Under \code{baseline = "fixed"} the covariate matrix is the observed
+#' trial data, identical in every simulated trial: subgroup definitions,
+#' memberships, and sizes are exactly those of the source data. Between-trial
+#' variability isolates the outcome-generation process (treatment
+#' assignment, latent event times, censoring, entry). This is the
+#' conditional-on-X (parametric-bootstrap-given-X) design. Note that entry
+#' times are still drawn \code{Uniform(0, max_entry)} per trial unless
+#' \code{entry_var} names a fixed column, and treatment is still
+#' re-randomised per trial unless \code{draw_treatment = FALSE}.
+#'
 #' @seealso
 #' \code{\link{generate_aft_dgm_flex}}, \code{\link{check_censoring_dgm}}
 #'
@@ -132,10 +163,27 @@ simulate_from_dgm <- function(dgm,
                               hrz_crit       = NULL,
                               keep_rand      = FALSE,
                               time_eos       = NULL,
-                              replace        = TRUE) {
+                              replace        = TRUE,
+                              baseline       = c("resample", "fixed")) {
 
   if (!inherits(dgm, c("aft_dgm_flex", "aft_dgm")))
     stop("dgm must be an object created by generate_aft_dgm_flex()")
+
+  baseline <- match.arg(baseline)
+
+  if (baseline == "fixed") {
+    # Fixed-baseline mode requires the source frame stored by the DGM
+    # constructor (Step 7b).  Objects saved by older package versions lack
+    # it -- fail early with an actionable message rather than downstream.
+    if (is.null(dgm$df_source))
+      stop("baseline = \"fixed\" requires dgm$df_source, which this DGM ",
+           "object does not contain (it was built by an older package ",
+           "version). Rebuild it with generate_aft_dgm_flex().")
+    if (!is.null(n) && n != nrow(dgm$df_source))
+      stop("baseline = \"fixed\" uses every source patient exactly once; ",
+           "n must be NULL or nrow(dgm$df_source) = ",
+           nrow(dgm$df_source), " (got n = ", n, ").")
+  }
 
   if (!is.null(seed)) set.seed(seed)
 
@@ -150,11 +198,13 @@ simulate_from_dgm <- function(dgm,
   # inside the else-branch, causing 'object not found' when n = NULL.
   # ===========================================================================
 
-  if (is.null(n)) {
+  if (is.null(n) && baseline == "resample") {
     # -------------------------------------------------------------------------
     # n = NULL path: use full super population as-is.
     # No staggered entry => no administrative censoring => follow_up = Inf.
     # Treatment and linear predictors already set in df_super.
+    # (baseline = "fixed" never takes this path: it must flow through the
+    #  entry / randomisation / censoring machinery below.)
     # -------------------------------------------------------------------------
     df_sim    <- df_super
     n         <- nrow(df_sim)
@@ -165,13 +215,22 @@ simulate_from_dgm <- function(dgm,
 
   } else {
     # -------------------------------------------------------------------------
-    # n != NULL path: sample with replacement and simulate staggered entry.
+    # Trial-simulation path: choose the baseline frame, then simulate
+    # staggered entry, randomisation, and censoring (shared code below).
     # -------------------------------------------------------------------------
-    if (!replace && n > nrow(df_super))
-      stop("replace = FALSE requires n <= nrow(dgm$df_super) (have ",
-           nrow(df_super), ", requested ", n, ").")
-    idx_sample <- sample(seq_len(nrow(df_super)), size = n, replace = replace)
-    df_sim     <- df_super[idx_sample, ]
+    if (baseline == "fixed") {
+      # Fixed-X design: every source patient exactly once, in source order.
+      # Covariates -- and hence all covariate-defined subgroups -- are
+      # identical across simulated trials; only outcomes are re-drawn.
+      df_sim <- dgm$df_source
+      n      <- nrow(df_sim)
+    } else {
+      if (!replace && n > nrow(df_super))
+        stop("replace = FALSE requires n <= nrow(dgm$df_super) (have ",
+             nrow(df_super), ", requested ", n, ").")
+      idx_sample <- sample(seq_len(nrow(df_super)), size = n, replace = replace)
+      df_sim     <- df_super[idx_sample, ]
+    }
 
     # Staggered entry times
     if (!is.null(entry_var)) {

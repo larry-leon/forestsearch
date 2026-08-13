@@ -18,7 +18,8 @@ simulate_from_dgm(
   hrz_crit = NULL,
   keep_rand = FALSE,
   time_eos = NULL,
-  replace = TRUE
+  replace = TRUE,
+  baseline = c("resample", "fixed")
 )
 }
 \arguments{
@@ -75,7 +76,21 @@ from \code{dgm$df_super}. \code{TRUE} (default) samples with replacement
 \code{n <= nrow(dgm$df_super)}; with \code{n = nrow(dgm$df_super)} it
 evaluates every super-population subject exactly once while still applying
 randomisation and censoring (unlike the \code{n = NULL} path, which uses
-the pool as-is and skips both). Default \code{TRUE}.}
+the pool as-is and skips both). Ignored when \code{baseline = "fixed"}.
+Default \code{TRUE}.}
+
+\item{baseline}{Character; how baseline covariates are obtained per
+simulated trial. \code{"resample"} (default -- the historical behaviour)
+draws subjects from \code{dgm$df_super}, so covariates and therefore
+subgroup composition and sizes vary across trials. \code{"fixed"} uses
+\code{dgm$df_source} -- every source patient exactly once, in source
+order -- so the baseline data and all covariate-defined subgroups are
+identical in every simulated trial; only treatment assignment, entry
+times, latent event times, and censoring are re-drawn per trial.
+Requires a DGM built by a package version that stores \code{df_source}
+(rebuild with \code{generate_aft_dgm_flex()} if absent). With
+\code{baseline = "fixed"}, \code{n} must be \code{NULL} or equal
+\code{nrow(dgm$df_source)}, and \code{replace} is ignored.}
 }
 \value{
 A \code{data.frame} with columns: \describe{
@@ -131,6 +146,25 @@ censoring distribution:
 \item \code{cens_adjust = log(2)} doubles expected censoring times.
 \item \code{cens_adjust = log(0.5)} halves expected censoring times.
 }
+}
+
+\subsection{Random-X vs fixed-X designs (\code{baseline})}{
+
+Under \code{baseline = "resample"} each simulated trial is a fresh draw
+of subjects, so between-trial variability reflects both covariate
+resampling and outcome generation -- the "what if this trial had enrolled
+a different sample from the same population?" interpretation. Subgroup
+sizes fluctuate across trials.
+
+Under \code{baseline = "fixed"} the covariate matrix is the observed
+trial data, identical in every simulated trial: subgroup definitions,
+memberships, and sizes are exactly those of the source data. Between-trial
+variability isolates the outcome-generation process (treatment
+assignment, latent event times, censoring, entry). This is the
+conditional-on-X (parametric-bootstrap-given-X) design. Note that entry
+times are still drawn \code{Uniform(0, max_entry)} per trial unless
+\code{entry_var} names a fixed column, and treatment is still
+re-randomised per trial unless \code{draw_treatment = FALSE}.
 }
 }
 \examples{

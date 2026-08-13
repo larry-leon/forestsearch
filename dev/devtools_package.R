@@ -32,6 +32,9 @@ help(forestsearch)
 
 #claude --dangerously-skip-permissions --model claude-opus-5
 
+#claude --dangerously-skip-permissions --model claude-fable-5
+
+
 
 
 

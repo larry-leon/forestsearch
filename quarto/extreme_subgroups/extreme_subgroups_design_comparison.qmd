@@ -1,0 +1,1147 @@
+---
+title: "Fixed vs Random Baseline: A Design Comparison"
+subtitle: "Extreme Subgroup Effects Under a Uniform Treatment Benefit — conditional-on-X vs population-resampling simulation"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    theme: cosmo
+    self-contained: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+library(gt)
+library(dplyr)
+
+# =========================================================================
+# Source of the numbers below
+# =========================================================================
+# Both quantities were extracted from the Section 6.6.1 summary tables of
+# the two rendered vignettes (10,000 simulated trials each, same DGM,
+# super-population seed 99, AHR-calibrated true HR = 0.70):
+#
+#   random-X : extreme_subgroups.html        (baseline = "resample")
+#   fixed-X  : extreme_subgroups_fixed.html  (baseline = "fixed")
+#
+# This document is a static comparison memo.  If the vignettes later adopt
+# save_sim_results() to persist sim_hrs/sim_ubs/sim_ns as RDS, this memo
+# can be upgraded to recompute everything programmatically — see the
+# Reproduction appendix.
+cmp <- data.frame(
+  subgroup = c(
+    "All Patients",
+    "Post-menopausal",
+    "Pre-menopausal",
+    "Grade 3",
+    "Grade 1/2",
+    "Age (young)",
+    "Age (older)",
+    "Age <= 50",
+    "Age > 50",
+    "Tumour size (small)",
+    "Tumour size (large)",
+    "Node-negative",
+    "Nodes 1-3",
+    "High nodes (>Q3)",
+    "PGR low",
+    "PGR high",
+    "ER-low (<20)",
+    "ER-high (>=20)",
+    "Pre-meno / Grade 3",
+    "Post-meno / Grade 3",
+    "Pre-meno / Grade 1-2",
+    "Post-meno / Grade 1-2",
+    "Pre-meno / Age<=50",
+    "Pre-meno / Age>50",
+    "Post-meno / Age (young)",
+    "Post-meno / Age (older)",
+    "Pre-meno / ER-low",
+    "Pre-meno / ER-high",
+    "Post-meno / ER-low",
+    "Post-meno / ER-high",
+    "Grade 3 / Node-neg",
+    "Grade 3 / Node-pos",
+    "Grade 1-2 / Node-neg",
+    "Grade 1-2 / Node-pos",
+    "Grade 3 / High nodes",
+    "Grade 3 / ER-low",
+    "Grade 3 / ER-high",
+    "Grade 1-2 / ER-low",
+    "Grade 1-2 / ER-high",
+    "Grade 3 / PGR low",
+    "Grade 3 / PGR high",
+    "Grade 1-2 / PGR low",
+    "Grade 1-2 / PGR high",
+    "Pre-meno/Yng/ER-low",
+    "Pre-meno/Yng/ER-high",
+    "Post-meno/G3/ER-low",
+    "Post-meno/G3/Node-pos",
+    "G3/Node-pos/ER-low",
+    "Large/Node-pos",
+    "Large/Node-neg",
+    "Small/Node-pos",
+    "Small/Node-neg",
+    "random60",
+    "random40",
+    "random20",
+    "random15"),
+  N_r = c(
+    686,
+    389,
+    297,
+    161,
+    525,
+    373,
+    313,
+    295,
+    391,
+    357,
+    329,
+    NA,
+    381,
+    135,
+    340,
+    346,
+    276,
+    410,
+    78,
+    83,
+    219,
+    306,
+    258,
+    38,
+    80,
+    309,
+    139,
+    157,
+    137,
+    252,
+    NA,
+    161,
+    NA,
+    525,
+    44,
+    110,
+    51,
+    167,
+    359,
+    127,
+    33,
+    213,
+    312,
+    120,
+    138,
+    57,
+    83,
+    110,
+    329,
+    NA,
+    357,
+    NA,
+    60,
+    40,
+    20,
+    15),
+  N_f = c(
+    686,
+    396,
+    290,
+    161,
+    525,
+    363,
+    323,
+    289,
+    397,
+    353,
+    333,
+    NA,
+    376,
+    143,
+    343,
+    343,
+    272,
+    414,
+    74,
+    87,
+    216,
+    309,
+    255,
+    35,
+    77,
+    319,
+    134,
+    156,
+    138,
+    258,
+    NA,
+    161,
+    NA,
+    525,
+    46,
+    106,
+    55,
+    166,
+    359,
+    127,
+    34,
+    216,
+    309,
+    116,
+    139,
+    58,
+    87,
+    106,
+    333,
+    NA,
+    353,
+    NA,
+    60,
+    40,
+    20,
+    15),
+  ub2_r = c(
+    0.0,
+    0.0,
+    0.0,
+    0.5,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    NA,
+    0.0,
+    0.7,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    13.1,
+    8.7,
+    0.5,
+    0.0,
+    0.1,
+    60.6,
+    15.1,
+    0.0,
+    2.2,
+    4.6,
+    1.5,
+    0.1,
+    NA,
+    0.5,
+    NA,
+    0.0,
+    25.0,
+    2.7,
+    33.3,
+    0.9,
+    0.0,
+    1.3,
+    56.9,
+    0.1,
+    0.1,
+    3.9,
+    6.6,
+    19.4,
+    8.7,
+    2.7,
+    0.0,
+    NA,
+    0.0,
+    NA,
+    31.6,
+    50.5,
+    80.5,
+    90.2),
+  ub2_f = c(
+    0.0,
+    0.0,
+    0.0,
+    0.3,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    NA,
+    0.0,
+    0.4,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    13.7,
+    6.6,
+    0.6,
+    0.0,
+    0.1,
+    62.3,
+    16.0,
+    0.0,
+    2.4,
+    4.2,
+    1.4,
+    0.1,
+    NA,
+    0.3,
+    NA,
+    0.0,
+    22.2,
+    2.8,
+    27.9,
+    1.0,
+    0.0,
+    1.1,
+    55.2,
+    0.1,
+    0.1,
+    4.1,
+    5.8,
+    17.3,
+    6.6,
+    2.8,
+    0.0,
+    NA,
+    0.0,
+    NA,
+    31.1,
+    50.6,
+    80.4,
+    90.1),
+  ub3_r = c(
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    NA,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.1,
+    0.5,
+    0.0,
+    0.0,
+    0.0,
+    34.2,
+    1.7,
+    0.0,
+    0.0,
+    0.1,
+    0.0,
+    0.0,
+    NA,
+    0.0,
+    NA,
+    0.0,
+    5.2,
+    0.0,
+    8.7,
+    0.0,
+    0.0,
+    0.0,
+    29.1,
+    0.0,
+    0.0,
+    0.1,
+    0.2,
+    3.3,
+    0.5,
+    0.0,
+    0.0,
+    NA,
+    0.0,
+    NA,
+    8.2,
+    23.1,
+    61.8,
+    77.4),
+  ub3_f = c(
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    NA,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.2,
+    0.2,
+    0.0,
+    0.0,
+    0.0,
+    36.0,
+    1.7,
+    0.0,
+    0.0,
+    0.1,
+    0.0,
+    0.0,
+    NA,
+    0.0,
+    NA,
+    0.0,
+    3.4,
+    0.0,
+    5.9,
+    0.0,
+    0.0,
+    0.0,
+    27.1,
+    0.0,
+    0.0,
+    0.1,
+    0.3,
+    2.2,
+    0.2,
+    0.0,
+    0.0,
+    NA,
+    0.0,
+    NA,
+    7.8,
+    22.8,
+    60.5,
+    76.7),
+  mUB_r = c(
+    0.90,
+    0.97,
+    1.03,
+    1.12,
+    0.94,
+    0.99,
+    1.01,
+    1.03,
+    0.98,
+    1.00,
+    1.00,
+    NA,
+    0.99,
+    1.14,
+    0.97,
+    1.03,
+    1.01,
+    0.99,
+    1.36,
+    1.31,
+    1.11,
+    1.02,
+    1.06,
+    2.32,
+    1.40,
+    1.01,
+    1.18,
+    1.24,
+    1.16,
+    1.07,
+    NA,
+    1.12,
+    NA,
+    0.94,
+    1.54,
+    1.20,
+    1.67,
+    1.13,
+    1.01,
+    1.15,
+    2.19,
+    1.05,
+    1.06,
+    1.22,
+    1.27,
+    1.46,
+    1.31,
+    1.20,
+    1.00,
+    NA,
+    1.00,
+    NA,
+    1.64,
+    2.01,
+    3.81,
+    6.05),
+  mUB_f = c(
+    0.90,
+    0.97,
+    1.03,
+    1.11,
+    0.94,
+    0.99,
+    1.00,
+    1.03,
+    0.97,
+    0.99,
+    0.99,
+    NA,
+    0.99,
+    1.12,
+    0.96,
+    1.03,
+    1.01,
+    0.98,
+    1.37,
+    1.28,
+    1.11,
+    1.02,
+    1.06,
+    2.41,
+    1.42,
+    1.00,
+    1.19,
+    1.23,
+    1.16,
+    1.06,
+    NA,
+    1.11,
+    NA,
+    0.94,
+    1.50,
+    1.20,
+    1.59,
+    1.14,
+    1.01,
+    1.14,
+    2.14,
+    1.05,
+    1.06,
+    1.23,
+    1.27,
+    1.43,
+    1.28,
+    1.20,
+    0.99,
+    NA,
+    0.99,
+    NA,
+    1.63,
+    2.01,
+    3.67,
+    5.83),
+  hr05_r = c(
+    0.2,
+    1.3,
+    3.0,
+    5.6,
+    0.6,
+    1.7,
+    2.2,
+    3.1,
+    1.2,
+    2.5,
+    1.5,
+    NA,
+    2.7,
+    6.3,
+    1.4,
+    3.0,
+    2.8,
+    1.4,
+    14.8,
+    11.9,
+    6.1,
+    2.9,
+    4.2,
+    28.7,
+    15.8,
+    2.3,
+    9.2,
+    10.8,
+    8.5,
+    3.9,
+    NA,
+    5.6,
+    NA,
+    0.6,
+    17.7,
+    9.6,
+    19.0,
+    7.7,
+    2.2,
+    7.6,
+    26.9,
+    4.6,
+    4.0,
+    10.9,
+    12.3,
+    16.9,
+    11.9,
+    9.6,
+    1.5,
+    NA,
+    2.5,
+    NA,
+    21.0,
+    26.5,
+    34.1,
+    36.8),
+  hr05_f = c(
+    0.1,
+    1.1,
+    3.2,
+    5.1,
+    0.7,
+    1.5,
+    1.8,
+    3.2,
+    1.0,
+    2.4,
+    1.3,
+    NA,
+    2.8,
+    5.1,
+    1.1,
+    3.3,
+    2.2,
+    1.4,
+    14.7,
+    11.1,
+    6.2,
+    2.5,
+    4.2,
+    29.9,
+    15.8,
+    1.9,
+    9.2,
+    10.2,
+    8.0,
+    3.6,
+    NA,
+    5.1,
+    NA,
+    0.7,
+    17.4,
+    9.7,
+    18.3,
+    7.4,
+    2.2,
+    6.8,
+    27.3,
+    4.1,
+    4.3,
+    10.4,
+    11.5,
+    17.1,
+    11.1,
+    9.7,
+    1.3,
+    NA,
+    2.4,
+    NA,
+    20.7,
+    25.7,
+    34.1,
+    37.6),
+  hr1_r = c(
+    0.2,
+    1.5,
+    3.8,
+    7.1,
+    0.9,
+    1.9,
+    2.8,
+    3.3,
+    1.6,
+    2.5,
+    2.3,
+    NA,
+    2.4,
+    7.9,
+    1.2,
+    3.8,
+    2.5,
+    2.1,
+    15.7,
+    14.8,
+    7.0,
+    3.1,
+    4.6,
+    28.4,
+    15.9,
+    2.8,
+    9.6,
+    11.6,
+    8.8,
+    5.0,
+    NA,
+    7.1,
+    NA,
+    0.9,
+    20.3,
+    9.9,
+    22.7,
+    7.4,
+    3.0,
+    8.4,
+    28.2,
+    4.0,
+    4.5,
+    11.2,
+    12.8,
+    17.8,
+    14.8,
+    9.9,
+    2.3,
+    NA,
+    2.5,
+    NA,
+    21.0,
+    26.0,
+    34.5,
+    36.9),
+  hr1_f = c(
+    0.3,
+    1.6,
+    3.7,
+    6.4,
+    1.0,
+    2.2,
+    2.8,
+    3.6,
+    1.6,
+    2.3,
+    2.1,
+    NA,
+    2.2,
+    7.2,
+    1.1,
+    3.8,
+    2.7,
+    2.1,
+    15.8,
+    12.9,
+    6.9,
+    3.2,
+    4.7,
+    28.7,
+    16.6,
+    2.8,
+    9.5,
+    11.5,
+    8.7,
+    4.6,
+    NA,
+    6.4,
+    NA,
+    1.0,
+    19.4,
+    10.1,
+    20.5,
+    7.5,
+    2.8,
+    8.1,
+    27.4,
+    4.2,
+    4.8,
+    11.3,
+    12.5,
+    17.2,
+    12.9,
+    10.1,
+    2.1,
+    NA,
+    2.3,
+    NA,
+    21.4,
+    25.9,
+    33.7,
+    35.7),
+  mHR_r = c(
+    0.72,
+    0.72,
+    0.72,
+    0.72,
+    0.72,
+    0.72,
+    0.72,
+    0.71,
+    0.72,
+    0.71,
+    0.72,
+    NA,
+    0.71,
+    0.72,
+    0.71,
+    0.71,
+    0.71,
+    0.72,
+    0.71,
+    0.73,
+    0.71,
+    0.71,
+    0.72,
+    0.71,
+    0.71,
+    0.72,
+    0.71,
+    0.71,
+    0.71,
+    0.72,
+    NA,
+    0.72,
+    NA,
+    0.72,
+    0.72,
+    0.72,
+    0.73,
+    0.71,
+    0.72,
+    0.72,
+    0.72,
+    0.71,
+    0.71,
+    0.71,
+    0.71,
+    0.71,
+    0.73,
+    0.72,
+    0.72,
+    NA,
+    0.71,
+    NA,
+    0.72,
+    0.71,
+    0.72,
+    0.71),
+  mHR_f = c(
+    0.72,
+    0.72,
+    0.71,
+    0.72,
+    0.72,
+    0.72,
+    0.72,
+    0.72,
+    0.72,
+    0.71,
+    0.72,
+    NA,
+    0.70,
+    0.72,
+    0.71,
+    0.71,
+    0.71,
+    0.72,
+    0.71,
+    0.72,
+    0.71,
+    0.71,
+    0.72,
+    0.71,
+    0.72,
+    0.71,
+    0.71,
+    0.71,
+    0.71,
+    0.72,
+    NA,
+    0.72,
+    NA,
+    0.72,
+    0.72,
+    0.71,
+    0.73,
+    0.71,
+    0.71,
+    0.71,
+    0.72,
+    0.71,
+    0.71,
+    0.71,
+    0.72,
+    0.71,
+    0.72,
+    0.71,
+    0.72,
+    NA,
+    0.71,
+    NA,
+    0.71,
+    0.72,
+    0.71,
+    0.69),
+  stringsAsFactors = FALSE
+)
+
+# Derived columns used throughout
+cmp <- cmp |>
+  mutate(
+    d_ub2 = ub2_f - ub2_r,          # fixed minus random, percentage points
+    d_ub3 = ub3_f - ub3_r,
+    d_N   = N_f - N_r,
+    empty = is.na(N_r) | is.na(N_f),
+    kind  = case_when(
+      subgroup == "All Patients"        ~ "ITT",
+      grepl("^random", subgroup)        ~ "Random benchmark",
+      TRUE                              ~ "Covariate-defined"
+    )
+  )
+valid <- cmp |> filter(!empty)
+```
+
+# Overview and provenance
+
+This memo compares the two companion simulation designs for the
+extreme-subgroups analysis, both run at **10,000 simulated trials** on the
+same AHR-calibrated uniform-effect DGM (true HR = 0.70 for every patient,
+GBSG source data, super-population seed 99):
+
+- **Random-X** (`extreme_subgroups.html`, `baseline = "resample"`): every
+  trial resamples 686 subjects with replacement from the super-population,
+  so covariates — and hence subgroup composition and sizes — vary across
+  trials.  This answers the *population-replication* question: what if the
+  trial had enrolled a different sample from the same population?
+- **Fixed-X** (`extreme_subgroups_fixed.html`, `baseline = "fixed"`): every
+  trial uses the observed GBSG panel — each source patient exactly once —
+  so subgroup composition and sizes are identical in every replicate.  This
+  answers the *conditional-on-X* question: given exactly these patients,
+  how variable are the subgroup analyses across re-runs of the trial?
+
+```{r headline-stats}
+#| results: asis
+mstat <- valid |> summarise(
+  mean_d   = mean(d_ub2),
+  med_d    = median(d_ub2),
+  min_d    = min(d_ub2),
+  max_d    = max(d_ub2)
+)
+cat(sprintf(
+  paste0("**Headline:** across all %d non-empty subgroups the mean ",
+         "difference in Pr(UB \u2265 2) is **%+.2f pp** (fixed minus ",
+         "random), median %+.2f pp, range [%+.1f, %+.1f].  Median HR is ",
+         "0.69\u20130.73 in every row of both designs.\n"),
+  nrow(valid), mstat$mean_d, mstat$med_d, mstat$min_d, mstat$max_d))
+```
+
+At 10,000 independent simulations per design, the Monte Carlo 95% noise
+band for a difference in two proportions is approximately
+$\pm 2\sqrt{2\,p(1-p)/10{,}000}$ — about **±2.0 pp at p = 50%** and
+±0.9 pp at p = 5%.  The vast majority of subgroup-level differences sit
+inside that band.  **The central message of both vignettes — extreme
+results are routine in small subgroups, and clinical rationale confers no
+statistical protection — is design-robust.**  A skeptic cannot attribute
+the findings to covariate-resampling artifacts.
+
+# Random benchmarks: the internal-consistency check
+
+A random draw of $k$ patients is distributionally almost unaffected by
+whether the panel it draws from was itself resampled.  The four random
+benchmarks are therefore predicted to be *invariant* across the two
+designs — and they are:
+
+```{r tbl-benchmarks}
+valid |>
+  filter(kind == "Random benchmark") |>
+  transmute(
+    Subgroup = subgroup,
+    `N (both)` = N_r,
+    `Pr(UB>=2), random-X` = sprintf("%.1f%%", ub2_r),
+    `Pr(UB>=2), fixed-X`  = sprintf("%.1f%%", ub2_f),
+    `Pr(UB>=3), random-X` = sprintf("%.1f%%", ub3_r),
+    `Pr(UB>=3), fixed-X`  = sprintf("%.1f%%", ub3_f),
+    `mUB, random-X` = sprintf("%.2f", mUB_r),
+    `mUB, fixed-X`  = sprintf("%.2f", mUB_f)
+  ) |>
+  gt() |>
+  tab_header(title = "Random benchmarks are design-invariant") |>
+  tab_options(table.font.size = px(13), column_labels.font.weight = "bold")
+```
+
+Under fixed-X these benchmarks isolate *pure membership noise at exactly
+fixed N* (sizes are 60/40/20/15 in every replicate by construction);
+under random-X they additionally inherit panel resampling.  The
+equivalence above shows that second component is negligible — which is
+precisely what makes the benchmarks valid calibration anchors in both
+documents.
+
+# Where the designs differ — and why
+
+Every covariate-defined subgroup that moved meaningfully moved in
+lockstep with its realized N: the sign of the change in Pr(UB ≥ 2) is
+opposite the sign of the change in N essentially everywhere in the
+high-risk panel.
+
+```{r tbl-movers}
+valid |>
+  filter(kind == "Covariate-defined", abs(d_ub2) >= 1.5) |>
+  # Drop exact-duplicate result rows here (the Node-pos duplicates,
+  # explained in the Data Quirks section below) so each mover appears once.
+  distinct(N_r, N_f, ub2_r, ub2_f, ub3_r, mUB_r, .keep_all = TRUE) |>
+  arrange(d_ub2) |>
+  transmute(
+    Subgroup = subgroup,
+    `N random-X` = N_r, `N fixed-X` = N_f,
+    `Pr(UB>=2) random-X` = sprintf("%.1f%%", ub2_r),
+    `Pr(UB>=2) fixed-X`  = sprintf("%.1f%%", ub2_f),
+    `Delta (pp)` = sprintf("%+.1f", d_ub2)
+  ) |>
+  gt() |>
+  tab_header(
+    title = "Subgroups with |Delta Pr(UB>=2)| >= 1.5 pp",
+    subtitle = "Direction tracks realized N: larger fixed panel => lower tail risk, and vice versa"
+  ) |>
+  tab_options(table.font.size = px(13), column_labels.font.weight = "bold")
+```
+
+**The mechanism has a twist worth understanding.**  The fixed-X N is the
+*true* GBSG count for each subgroup, while the random-X mean N inherits
+the drift of the one super-population realization (5,000 draws at
+seed 99).  Grade 3 / ER-high genuinely has 55 patients in GBSG; the
+super-population happened to under-represent it, so random-X simulated it
+at mean N ≈ 51 and correspondingly overstated its tail risk (33.3% vs
+27.9%).  The deltas above are therefore **not** purely the textbook
+"random-X adds denominator variance" effect — a substantial share is the
+super-population's own finite-sampling error, which fixed-X sidesteps
+entirely by conditioning on the exact source composition.  (If cleaner
+random-X numbers were ever needed, raising `n_super` from 5,000 to
+50,000 would shrink that component.)
+
+Beyond composition, the pure variance effect is visible but small:
+same-N rows (random40, random60, Grade 3 at N = 161) show whiskers and
+tail probabilities a touch tighter under fixed-X, well within one or two
+percentage points.
+
+# Section 6.6.4 high-risk panels
+
+The two rendered Section 6.6.4 panels are near-interchangeable: the same
+**11 subgroups** pass the Pr(UB ≥ 2) ≥ 10% filter in both designs, with a
+single ordering swap — Grade 3 / ER-high drops below random60 under
+fixed-X, driven by its larger (true) panel N of 55 vs the random-X mean
+of 51.  ECI whiskers for Grade 3 / High nodes and Post-meno/G3/ER-low are
+visibly slightly shorter under fixed-X; everything else is
+indistinguishable by eye.
+
+# Data quirks surfaced by the comparison
+
+Two artefacts of the subgroup list — present in **both** designs, and
+worth fixing in both vignettes:
+
+```{r quirks}
+#| results: asis
+empties <- cmp |> filter(empty) |> pull(subgroup)
+cat(sprintf(
+  paste0("1. **Five structurally empty subgroups.** `survival::gbsg` is an ",
+         "all-node-positive cohort (minimum nodes = 1), so `nodes == 0` ",
+         "never matches.  Empty in both designs: %s.\n"),
+  paste0("*", empties, "*", collapse = ", ")))
+```
+
+```{r dup-pairs}
+#| results: asis
+# Detect exact-duplicate result rows (same stats in BOTH designs):
+# a consequence of the same quirk -- "Node-pos" is every patient, so each
+# Node-pos subgroup duplicates its parent definition.
+key <- valid |>
+  mutate(k = paste(N_r, N_f, ub2_r, ub2_f, ub3_r, ub3_f, mUB_r, mUB_f,
+                   hr05_r, hr05_f, mHR_r, mHR_f))
+dups <- key |> group_by(k) |> filter(n() > 1) |>
+  summarise(pair = paste(subgroup, collapse = "  ==  "), .groups = "drop")
+cat("2. **Duplicate subgroup pairs** (identical results in both designs, ",
+    "because Node-pos is everyone):\n\n", sep = "")
+for (p in dups$pair) cat("   - ", p, "\n", sep = "")
+cat(sprintf("\nEffective count of distinct, populated subgroups: **%d**, not 56.\n",
+            nrow(valid) - nrow(dups)))
+```
+
+**Suggested fix** (both qmds): replace the `nodes == 0` / `nodes > 0`
+splits with `nodes <= 3` vs `nodes > 3` — both populated in GBSG — which
+removes the empties and the duplicates in one edit.
+
+# Practical guidance
+
+The **fixed-X** document answers the conditional question a regulatory
+reviewer implicitly asks — *given exactly this trial's enrolled patients
+and subgroup sizes, how extreme can chance make the analyses look?* — with
+subgroup Ns that match the actual submission table exactly.  The
+**random-X** document answers the population-replication question and is
+the right benchmark when generalizing beyond the specific trial.
+
+Since the results are near-identical, the suggestion is to **lead with
+fixed-X for the regulatory framing** (its exact-N property makes the
+forest-plot annotations directly comparable to the real trial) and cite
+the random-X version as the robustness companion, with the
+random-benchmark invariance table above as the bridge showing the
+calibration anchors are design-invariant.
+
+# Appendix A — full comparison table {.unnumbered}
+
+```{r tbl-full}
+cmp |>
+  arrange(desc(ifelse(is.na(ub2_r), -1, ub2_r))) |>
+  transmute(
+    Subgroup = subgroup,
+    `N r|f` = ifelse(empty, "-", paste0(N_r, " | ", N_f)),
+    `Pr(UB>=2) r|f` = ifelse(empty, "-", sprintf("%.1f | %.1f", ub2_r, ub2_f)),
+    `Pr(UB>=3) r|f` = ifelse(empty, "-", sprintf("%.1f | %.1f", ub3_r, ub3_f)),
+    `mUB r|f` = ifelse(empty, "-", sprintf("%.2f | %.2f", mUB_r, mUB_f)),
+    `Pr(HR<0.5) r|f` = ifelse(empty, "-", sprintf("%.1f | %.1f", hr05_r, hr05_f)),
+    `Pr(HR>1.0) r|f` = ifelse(empty, "-", sprintf("%.1f | %.1f", hr1_r, hr1_f)),
+    `mHR r|f` = ifelse(empty, "-", sprintf("%.2f | %.2f", mHR_r, mHR_f))
+  ) |>
+  gt() |>
+  tab_header(
+    title = "All 56 subgroups, random-X | fixed-X",
+    subtitle = "Sorted by random-X Pr(UB>=2); percentages in points; '-' = structurally empty"
+  ) |>
+  tab_options(table.font.size = px(11), data_row.padding = px(2),
+              column_labels.font.weight = "bold")
+```
+
+# Appendix B — reproduction notes {.unnumbered}
+
+The per-subgroup quantities in this memo were extracted verbatim from the
+printed Section 6.6.1 summary tables of the two rendered HTML vignettes
+(both at `n_sims_uniform = 10000`).  They are embedded here as a static
+data frame (`cmp`, first chunk) so the memo renders with no external
+dependencies.
+
+To make this memo fully programmatic, have both vignettes persist their
+raw simulation matrices, e.g.:
+
+```{r repro-code}
+#| echo: true
+#| eval: false
+# In each vignette, after the parallel loop:
+saveRDS(list(sim_hrs = sim_hrs, sim_ubs = sim_ubs, sim_ns = sim_ns,
+             n_sims = n_sims_uniform, design = sim_config$baseline),
+        file = sprintf("results/extreme_sims_%s_%d.rds",
+                       sim_config$baseline, n_sims_uniform))
+
+# Then this memo can load both RDS files and recompute every table above,
+# plus quantities not printed in the vignettes (full ECI endpoints,
+# per-subgroup quantile curves, paired design deltas with bootstrap CIs).
+```
