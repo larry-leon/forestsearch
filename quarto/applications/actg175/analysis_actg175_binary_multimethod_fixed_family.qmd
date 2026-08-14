@@ -101,9 +101,20 @@ run_mr <- TRUE     # add mr_inference = TRUE to the forestsearch call
 mr_draws      <- 5000L    # multiplier-bootstrap draws for the gate
 
 # ---------------------------------------------------------------------------
-# Output location for this document's results.
-#   results_dir = NULL -> <qmd dir>/_payloads/<dirout>
+# Output location for this document's results:  <base>/<dirout>/
+#   results_dir = NULL -> base is <qmd dir>/_payloads
 #   dirout      = NULL -> the .qmd stem
+# Setting results_dir redirects the base only; each run still gets its own
+# subdirectory named by dirout.
+#
+# Examples:
+#   results_dir <- NULL;  dirout <- NULL
+#     -> <qmd dir>/_payloads/<stem>/<stem>_payload.rds
+#   results_dir <- NULL;  dirout <- "gbsg_survival_multimethod"
+#     -> <qmd dir>/_payloads/gbsg_survival_multimethod/gbsg_survival_multimethod_payload.rds
+#   results_dir <- "~/GitHub/fs-post-selection-manuscript_jasa/_payloads"; dirout <- NULL
+#     -> ~/GitHub/fs-post-selection-manuscript_jasa/_payloads/<stem>/<stem>_payload.rds
+# ---------------------------------------------------------------------------
 results_dir <- NULL
 dirout      <- NULL
 
@@ -1920,7 +1931,8 @@ repeated; the output path, core count, and package version resolve at run time.
 .qmd_stem <- tryCatch(tools::file_path_sans_ext(basename(knitr::current_input())),
                       error = function(e) "analysis")
 .dirout   <- if (is.null(dirout)) .qmd_stem else dirout
-.out_dir  <- if (is.null(results_dir)) file.path(.qmd_dir, "_payloads", .dirout) else results_dir
+.base     <- if (is.null(results_dir)) file.path(.qmd_dir, "_payloads") else results_dir
+.out_dir  <- file.path(.base, .dirout)
 dir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)
 
 .get <- function(nm) if (exists(nm, inherits = TRUE)) get(nm, inherits = TRUE) else NULL

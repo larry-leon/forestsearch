@@ -65,12 +65,14 @@ suppressPackageStartupMessages({
 
 # Resolved relative to *this qmd's directory*, not the caller's getwd().
 # Matches the convention used by the comparison vignettes: artifacts
-# are saved into <qmd-dir>/_payloads/<stem>/ and this post-hoc document reads from
-# the same place.  Override `input_dir` here if your two comparison
-# qmds rendered into a different directory.
-qmd_input  <- knitr::current_input(dir = TRUE)
-qmd_dir    <- if (is.null(qmd_input)) getwd() else dirname(qmd_input)
-input_dir  <- file.path(qmd_dir, "_payloads", "analysis_actg175_continuous_compare_all")
+# are saved into <base>/<dirout>/ where base defaults to <qmd-dir>/_payloads
+# and dirout defaults to the writer's .qmd stem. Override `results_dir_base`
+# or `dirout_stem` here if the source qmd rendered into a different location.
+qmd_input        <- knitr::current_input(dir = TRUE)
+qmd_dir          <- if (is.null(qmd_input)) getwd() else dirname(qmd_input)
+results_dir_base <- file.path(qmd_dir, "_payloads")
+dirout_stem      <- "analysis_actg175_continuous_compare_all"
+input_dir        <- file.path(results_dir_base, dirout_stem)
 
 cat("Input directory: ", normalizePath(input_dir, mustWork = FALSE), "\n",
     sep = "")
