@@ -84,10 +84,10 @@ timings$oob   <- NA_real_
 # Main ForestSearch (consistency search)
 fs_sg_focus              <- "effMaxSG"   # GLM-natural alias of "hrMaxSG"
 fs_selection_rule        <- "both"       # neighborhood ∩ Pareto (effMaxSG/effMinSG)
-fs_or_threshold          <- 1.25
+fs_or_threshold          <- 1.0
 fs_or_consistency        <- 1.0
 fs_pconsistency          <- 0.90
-fs_max_subgroups_search  <- 20L
+fs_max_subgroups_search  <- 50L
 # IMPORTANT: the Tier-2 de-biased gate on the GLM path runs ONLY under the
 # resample-consistency engine (consistency_method = "resample").  Under the
 # default "split" engine the gate is silently skipped for GLM outcomes.
@@ -98,14 +98,28 @@ fs_consistency_method    <- "resample"
 # names, de-biasing against that engine's own candidate family (it re-derives
 # the per-candidate GLM dfbeta itself).
 run_mr <- TRUE     # add mr_inference = TRUE to the forestsearch call
-mr_draws      <- 2000L    # multiplier-bootstrap draws for the gate
+mr_draws      <- 5000L    # multiplier-bootstrap draws for the gate
 
 # ---------------------------------------------------------------------------
 # Output directory for the Section 6.2 reproducibility payload written at the
 # END of this document (manuscript Table + results overview).
-#   NULL (default) -> alongside this .qmd, resolved at render time
+#   NULL (default) -> <qmd dir>/_payloads (resolved at render time)
 #   or an explicit directory, e.g. "~/results" or "/abs/path/out"
 results_dir <- NULL
+
+# ---------------------------------------------------------------------------
+# FIXED-FAMILY CONFIGURATION (use_lasso = FALSE, use_grf = FALSE)
+# ---------------------------------------------------------------------------
+# This is the fixed-family configuration the method's Theorem 1 certifies.
+# The candidate family is fully enumerated (quartile splits only), not
+# model-screened, so the bias correction captures all selection optimism.
+#
+# Reproduces published supplement Table S11 exactly:
+#   FS subgroup: {wtkg>86} & {cd40>380}, n=72
+#   Naive OR 3.58, full bootstrap 2.43, multiplier 1.80
+#
+# Payload built 2026-07-08 on the 128-core machine, 5000 MR draws.
+# ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 # Selection engine for the MAIN analysis.  The headline fit, its bootstrap,
@@ -538,8 +552,8 @@ fs <- forestsearch(
   effect_measure            = fs_effect_measure,
   adverse_outcome           = TRUE,
   # --- Screening engines (candidate generation) ---------------------------
-  use_lasso                 = TRUE,
-  use_grf                   = TRUE,
+  use_lasso                 = FALSE,
+  use_grf                   = FALSE,
   grf_depth                 = fs_grf_depth,
   dmin.grf                  = fs_dmin_grf,
   frac.tau                  = 0.80,
@@ -1901,11 +1915,11 @@ repeated; the output path, core count, and package version resolve at run time.
 #| echo: false
 #| message: false
 
-.out_dir <- if (is.null(results_dir)) {
-  tryCatch(dirname(knitr::current_input(dir = TRUE)), error = function(e) getwd())
-} else {
-  results_dir
-}
+.qmd_dir  <- tryCatch(dirname(knitr::current_input(dir = TRUE)),
+                      error = function(e) getwd())
+.qmd_stem <- tryCatch(tools::file_path_sans_ext(basename(knitr::current_input())),
+                      error = function(e) "actg175_analysis")
+.out_dir  <- if (is.null(results_dir)) file.path(.qmd_dir, "_payloads") else results_dir
 dir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)
 
 .get <- function(nm) if (exists(nm, inherits = TRUE)) get(nm, inherits = TRUE) else NULL
@@ -1983,6 +1997,66 @@ dir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)
        control_pct = if (length(yc)) 100 * mean(yc) else NA_real_)
 }
 
+# Machine / hardware fingerprint of whatever computer ran this render, so that
+# timings pooled across different machines stay attributable. Pure base R plus
+# guarded platform calls (Linux / macOS / Windows); any field that cannot be
+# determined returns NA rather than erroring.
+.machine_info <- function(n_workers = NULL) {
+  si   <- Sys.info()
+  sn   <- unname(si[["sysname"]])               # "Linux" | "Darwin" | "Windows"
+  sess <- tryCatch(sessionInfo(), error = function(e) NULL)
+
+  .sys <- function(cmd) tryCatch(
+    trimws(paste(system(cmd, intern = TRUE, ignore.stderr = TRUE), collapse = " ")),
+    error = function(e) NA_character_)
+
+  cpu_model <- tryCatch({
+    if (sn == "Linux") {
+      ln <- grep("^model name", readLines("/proc/cpuinfo", warn = FALSE), value = TRUE)[1]
+      if (length(ln) && !is.na(ln)) trimws(sub("^model name\\s*:\\s*", "", ln)) else NA_character_
+    } else if (sn == "Darwin") {
+      .sys("sysctl -n machdep.cpu.brand_string")
+    } else if (sn == "Windows") {
+      out <- strsplit(.sys("wmic cpu get name"), "  +")[[1]]
+      out <- out[nzchar(out) & out != "Name"]
+      if (length(out)) out[length(out)] else NA_character_
+    } else NA_character_
+  }, error = function(e) NA_character_)
+
+  ram_gb <- tryCatch({
+    if (sn == "Linux") {
+      kb <- as.numeric(sub("\\D*(\\d+).*", "\\1",
+              grep("^MemTotal", readLines("/proc/meminfo", warn = FALSE), value = TRUE)[1]))
+      round(kb / 1024^2, 1)
+    } else if (sn == "Darwin") {
+      round(as.numeric(.sys("sysctl -n hw.memsize")) / 1024^3, 1)
+    } else if (sn == "Windows") {
+      round(as.numeric(gsub("\\D", "", .sys("wmic ComputerSystem get TotalPhysicalMemory"))) / 1024^3, 1)
+    } else NA_real_
+  }, error = function(e) NA_real_)
+
+  list(
+    hostname           = unname(si[["nodename"]]),
+    user               = unname(si[["user"]]),
+    os                 = if (!is.null(sess) && !is.null(sess$running)) sess$running else NA_character_,
+    sysname            = sn,
+    os_release         = unname(si[["release"]]),
+    arch               = unname(si[["machine"]]),
+    cpu_model          = if (length(cpu_model) == 1L) cpu_model else NA_character_,
+    cores_physical     = tryCatch(parallel::detectCores(logical = FALSE), error = function(e) NA_integer_),
+    cores_logical      = tryCatch(parallel::detectCores(logical = TRUE),  error = function(e) NA_integer_),
+    cores_used         = if (!is.null(n_workers)) as.integer(n_workers) else NA_integer_,
+    workers_registered = tryCatch(future::nbrOfWorkers(), error = function(e) NA_integer_),
+    future_plan        = tryCatch(class(future::plan())[1], error = function(e) NA_character_),
+    ram_gb             = if (length(ram_gb) == 1L) ram_gb else NA_real_,
+    r_version          = R.version.string,
+    r_platform         = R.version$platform,
+    blas               = if (!is.null(sess) && !is.null(sess$BLAS)) sess$BLAS else NA_character_,
+    lapack             = if (!is.null(sess) && !is.null(sess$LAPACK)) sess$LAPACK else NA_character_,
+    timestamp          = format(Sys.time(), tz = "UTC", usetz = TRUE)
+  )
+}
+
 .fs      <- .get("fs");      .fs_bc      <- .get("fs_bc")
 .fs_dina <- .get("fs_dina"); .fs_dina_bc <- .get("fs_dina_bc")
 .fs_grf  <- .get("fs_grf");  .fs_grf_bc  <- .get("fs_grf_bc")
@@ -2017,6 +2091,7 @@ payload <- list(
     mr_draws = if (exists("mr_draws")) mr_draws else NA_integer_,
     n_total    = if (!is.null(.fs)) nrow(.fs$df.est) else NA_integer_,
     cores      = tryCatch(unname(future::availableCores()), error = function(e) NA_integer_),
+    machine    = .machine_info(n_workers = if (exists("n_cores")) n_cores else NULL),
     covariates = if (exists("confounders.name")) confounders.name else NA_character_,
     timings    = list(fs = .meta_fs, dina = .meta_dina, grf = .meta_grf)),
   extras = list(
@@ -2026,7 +2101,7 @@ payload <- list(
   built_at  = Sys.time(),
   forestsearch_version = tryCatch(as.character(utils::packageVersion("forestsearch")), error = function(e) NA_character_))
 
-.payload_file <- file.path(.out_dir, "actg175_table_payload.rds")
+.payload_file <- file.path(.out_dir, paste0(.qmd_stem, "_payload.rds"))
 saveRDS(payload, .payload_file)
 cat("Wrote Section 6.2 payload to:", .payload_file, "\n")
 ```
