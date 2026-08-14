@@ -32,7 +32,7 @@ bundles produced by the per-outcome selection-rule comparison vignettes
 and renders a single side-by-side summary across all
 `(sg_focus, selection_rule)` configurations and both outcome scales.
 
-The expected source files (relative to this document's `_payloads/`
+The expected source files (relative to this document's `_payloads/analysis_actg175_continuous_compare_all/`
 directory) are:
 
 | File                                  | Produced by                                       |
@@ -65,12 +65,12 @@ suppressPackageStartupMessages({
 
 # Resolved relative to *this qmd's directory*, not the caller's getwd().
 # Matches the convention used by the comparison vignettes: artifacts
-# are saved into <qmd-dir>/_payloads/ and this post-hoc document reads from
+# are saved into <qmd-dir>/_payloads/<stem>/ and this post-hoc document reads from
 # the same place.  Override `input_dir` here if your two comparison
 # qmds rendered into a different directory.
 qmd_input  <- knitr::current_input(dir = TRUE)
 qmd_dir    <- if (is.null(qmd_input)) getwd() else dirname(qmd_input)
-input_dir  <- file.path(qmd_dir, "_payloads")
+input_dir  <- file.path(qmd_dir, "_payloads", "analysis_actg175_continuous_compare_all")
 
 cat("Input directory: ", normalizePath(input_dir, mustWork = FALSE), "\n",
     sep = "")

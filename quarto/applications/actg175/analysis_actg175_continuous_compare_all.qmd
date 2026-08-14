@@ -156,22 +156,17 @@ frontier_params <- list(
   digits        = 2L
 )
 
-# ─── Output directory for saved artifacts ───────────────────────────────
-# .rds bundles (tidy selected-subgroups + full comparison object) are
-# written by the "Selected Subgroups" section below.  Resolved relative
-# to *this qmd's directory*, not the caller's getwd() -- so the path is
-# the same whether the chunk is rendered by Quarto or executed
-# interactively from a different working directory.  Created if it
-# doesn't exist.  Matches the calibration-suite convention.
-#
-# Resolution: knitr::current_input(dir = TRUE) returns the full path
-# of the input document during a render; NULL otherwise.  When NULL
-# (e.g., interactive chunk execution), fall back to getwd(), which
-# matches Quarto's behavior of cd'ing to the qmd's directory before
-# rendering chunks.
+# ─── Output location for this document's results ────────────────────────
+#   results_dir = NULL -> <qmd dir>/_payloads/<dirout>
+#   dirout      = NULL -> the .qmd stem
+results_dir <- NULL
+dirout      <- NULL
+
 qmd_input  <- knitr::current_input(dir = TRUE)
 qmd_dir    <- if (is.null(qmd_input)) getwd() else dirname(qmd_input)
-output_dir <- file.path(qmd_dir, "_payloads")
+qmd_stem   <- if (is.null(qmd_input)) "analysis" else tools::file_path_sans_ext(basename(qmd_input))
+.dirout    <- if (is.null(dirout)) qmd_stem else dirout
+output_dir <- if (is.null(results_dir)) file.path(qmd_dir, "_payloads", .dirout) else results_dir
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 ```
 
