@@ -747,7 +747,10 @@ payload <- list(
     n_cores     = .get("n_cores"),
     loo_workers = .get("loo_workers"),
     n_total     = .try(nrow(.get("df.analysis"))),
-    n_events    = .try(sum(.get("df.analysis")[[.get("event.name")]])),
+    # sum(NULL) is 0, so guard on the data being present: a render that never
+    # reached the data chunk must store NULL, not a spurious zero.
+    n_events    = .try(if (is.null(.get("df.analysis"))) NULL else
+                       sum(.get("df.analysis")[[.get("event.name")]])),
     outcome     = .get("outcome.name"),
     event       = .get("event.name"),
     treat       = .get("treat.name"),

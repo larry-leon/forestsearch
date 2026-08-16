@@ -63,6 +63,24 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 timings <- list()
 t_vignette_start <- proc.time()
+
+# ---------------------------------------------------------------------------
+# Output location for this document's results:  <base>/<dirout>/
+#   results_dir = NULL -> base is <qmd dir>/_payloads
+#   dirout      = NULL -> the .qmd stem
+# Setting results_dir redirects the base only; each run still gets its own
+# subdirectory named by dirout.
+#
+# Examples:
+#   results_dir <- NULL;  dirout <- NULL
+#     -> <qmd dir>/_payloads/<stem>/<stem>_payload.rds
+#   results_dir <- NULL;  dirout <- "actg175_binary_sgfocus"
+#     -> <qmd dir>/_payloads/actg175_binary_sgfocus/actg175_binary_sgfocus_payload.rds
+#   results_dir <- "~/GitHub/fs-post-selection-manuscript_jasa/_payloads"; dirout <- NULL
+#     -> ~/GitHub/fs-post-selection-manuscript_jasa/_payloads/<stem>/<stem>_payload.rds
+# ---------------------------------------------------------------------------
+results_dir <- NULL
+dirout      <- NULL
 ```
 
 # Setup
@@ -1310,4 +1328,113 @@ cat(sprintf("\nTotal document time: %.1f min\n",
 ```{r session-info}
 #| code-fold: true
 sessionInfo()
+```
+
+# Reproducibility payload {#sec-export-payload}
+
+The chunk below harvests the objects this render already computed into a single
+small list and writes it as an `.rds`, so the results survive the HTML. No
+analysis is repeated. Every element is guarded, so a section this render skipped
+(`run_pareto`, `run_cv`, `run_loo`, `run_mr`) stores `NULL` rather than
+erroring, and the top-level names match the GBSG and ACTG175 payloads
+(`table`, `labels`, `meta`, `extras`, `est_scale`, `built_at`,
+`forestsearch_version`) so a reader can treat them uniformly. `est_scale` is
+`"or"` here, and there is no `gh` element: this document has no Guo & He
+section.
+
+```{r export-payload}
+#| echo: false
+#| message: false
+
+.qmd_dir  <- tryCatch(dirname(knitr::current_input(dir = TRUE)),
+                      error = function(e) getwd())
+.qmd_stem <- tryCatch(tools::file_path_sans_ext(basename(knitr::current_input())),
+                      error = function(e) "analysis")
+.dirout   <- if (is.null(dirout)) .qmd_stem else dirout
+.base     <- if (is.null(results_dir)) file.path(.qmd_dir, "_payloads") else results_dir
+.out_dir  <- file.path(.base, .dirout)
+dir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)
+.payload_file <- file.path(.out_dir, paste0(.dirout, "_payload.rds"))
+
+.get <- function(nm) if (exists(nm, inherits = TRUE)) get(nm, inherits = TRUE) else NULL
+.try <- function(expr) tryCatch(expr, error = function(e) NULL)
+
+.fs   <- .get("fs")
+.fsbc <- .get("fs_bc")
+.g    <- if (is.null(.fs)) NULL else .fs$mr_inference
+.cvd  <- .get("cv_diag")
+.cvo  <- .get("cv_out")
+.tabs <- .get("tables")
+
+# The comparison chunk passes its Method/Estimate vectors straight into kbl()
+# without binding a frame, so rebuild the frame here rather than re-deriving
+# any estimate.
+.method <- .get("method"); .estimate <- .get("estimate")
+.table <- if (is.character(.method) && is.character(.estimate) &&
+              length(.method) == length(.estimate))
+  data.frame(Method = .method, Estimate = .estimate,
+             check.names = FALSE, stringsAsFactors = FALSE) else NULL
+
+payload <- list(
+  table  = .table,
+  labels = list(
+    sg_harm  = if (is.null(.fs)) NULL else .fs$sg.harm,
+    sg_focus = if (is.null(.fs)) NULL else .fs$sg_focus,
+    focus    = .get("focus")),
+  meta = list(
+    NB          = .get("NB"),
+    mr_draws    = .get("mr_draws"),
+    Ksims       = .get("Ksims"),
+    n_cores     = .get("n_cores"),
+    n_total     = .try(nrow(.get("actg_df"))),
+    # sum(NULL) is 0, so guard on the data being present: a render that never
+    # reached the data chunk must store NULL, not a spurious zero.
+    n_events    = .try(if (is.null(.get("actg_df"))) NULL else
+                       sum(.get("actg_df")[[.get("outcome.name")]])),
+    outcome     = .get("outcome.name"),
+    event       = .get("outcome.name"),   # binary: the outcome IS the event
+    treat       = .get("treat.name"),
+    covariates  = .get("confounders.name"),
+    outcome_type   = .get("fs_outcome_type"),
+    effect_measure = .get("fs_effect_measure"),
+    timings     = .get("timings"),
+    provenance  = .try(fs_param_provenance(.fs))),
+  extras = list(
+    mr = if (is.null(.g)) NULL else list(
+      naive          = .g$naive,
+      debiased       = .g$debiased,
+      complement     = .g$complement,
+      settings       = .g$settings,
+      n_family       = .g$n_family,
+      selection_bias = .g$selection_bias,
+      timing_seconds = .g$timing_seconds),
+    fb = if (is.null(.fsbc)) NULL else list(
+      H_estimates  = .fsbc$H_estimates,
+      Hc_estimates = .fsbc$Hc_estimates),
+    pareto = if (isTRUE(.get("run_pareto"))) list(
+      frontier = .try(pareto_frontier_table(.fs, format = "data.table",
+                                            include_dominated = TRUE)),
+      ci_tab   = .get("ci_tab"),
+      params   = .get("frontier_params")) else NULL,
+    cv = if (isTRUE(.get("run_cv")) && !is.null(.cvd)) list(
+      metrics                    = .get("metrics_tables"),
+      identification_summary     = .cvd$identification_summary,
+      grf_cut_summary            = .cvd$grf_cut_summary,
+      no_subgroup_decomposition  = .cvd$no_subgroup_decomposition,
+      pconsistency_distribution  = .cvd$pconsistency_distribution,
+      fold_numeric_summary       = .cvd$fold_numeric_summary,
+      original_agreement         = .cvd$original_agreement) else NULL,
+    loo = if (isTRUE(.get("run_loo")) && !is.null(.cvo)) list(
+      sg_tab_kfold   = .cvo$SG_tab_Kfold,
+      sens_metrics   = .cvo$sens_metrics_original,
+      find_metrics   = .cvo$find_metrics,
+      combined_table = if (is.null(.tabs)) NULL else .tabs$combined_table,
+      metrics_table  = if (is.null(.tabs)) NULL else .tabs$metrics_table) else NULL),
+  est_scale = "or",
+  built_at  = Sys.time(),
+  forestsearch_version = tryCatch(as.character(utils::packageVersion("forestsearch")),
+                                  error = function(e) NA_character_))
+
+saveRDS(payload, .payload_file)
+cat("Wrote payload to:", .payload_file, "\n")
 ```
