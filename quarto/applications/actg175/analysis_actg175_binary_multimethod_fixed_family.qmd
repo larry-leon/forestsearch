@@ -120,15 +120,23 @@ dirout      <- NULL
 # ---------------------------------------------------------------------------
 # FIXED-FAMILY CONFIGURATION (use_lasso = FALSE, use_grf = FALSE)
 # ---------------------------------------------------------------------------
-# This is the fixed-family configuration the method's Theorem 1 certifies.
-# The candidate family is fully enumerated (quartile splits only), not
-# model-screened, so the bias correction captures all selection optimism.
+# Fully enumerated candidate family: no LASSO or GRF screening, and as of
+# 2026-08 no max_subgroups_search truncation.
 #
-# Reproduces published supplement Table S11 exactly:
-#   FS subgroup: {wtkg>86} & {cd40>380}, n=72
-#   Naive OR 3.58, full bootstrap 2.43, multiplier 1.80
+# This is the fixed-family configuration the method's Theorem 1 certifies:
+# the family is enumerated (default cuts, with J = 10 cuts for wtkg and
+# cd40) rather than model-screened, so the bias correction captures all
+# selection optimism.
 #
-# Payload built 2026-07-08 on the 128-core machine, 5000 MR draws.
+# The published supplement Table S11 ({wtkg>86} & {cd40>380}, n=72,
+# naive OR 3.58, FB 2.43, MR 1.80) came from an earlier run of this document
+# that capped candidate evaluation at 50 (max_subgroups_search = 50L). That
+# cap has been removed so the analysis follows the recommended specification
+# rather than the earlier run. Results may therefore differ from the
+# published table; the difference is intentional.
+#
+# Prior run (superseded): payload built 2026-07-08 on the 128-core machine,
+# 5000 MR draws, max_subgroups_search = 50L.
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
