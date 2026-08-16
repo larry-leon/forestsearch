@@ -164,7 +164,6 @@ timings$oob   <- NA_real_
 fs_sg_focus              <- "effMaxSG"
 fs_hr_threshold          <- 1.0
 fs_hr_consistency        <- 1.0
-fs_max_subgroups_search  <- Inf
 
 fs_conf_force <- c("er <= 0", "pgr <= 0")
 
@@ -237,7 +236,6 @@ fs_family_native_nbhd <- NULL
 dina_screen_sg_focus             <- "effMaxSG"
 dina_screen_hr_threshold         <- 0.9
 dina_screen_hr_consistency       <- 0.8
-dina_screen_max_subgroups_search <- Inf
 # Screening cut set: FALSE => full DINA frontier; TRUE => only the single
 # dina_subgroup()-selected cut (uses dina_screen_sg_focus / selection_rule).
 dina_screen_selected_only        <- TRUE
@@ -751,7 +749,6 @@ fs <- forestsearch(
   d0.min                    = 10,                       # default 10
   d1.min                    = 10,                       # default 10
   maxk                      = 2,                        # default 2
-  max_subgroups_search      = fs_max_subgroups_search,  # set in setup chunk
   # --- Thresholds (survival / HR scale) -----------------------------------
   hr.threshold              = fs_hr_threshold,    # set in setup chunk
   hr.consistency            = fs_hr_consistency,  # set in setup chunk
@@ -1318,7 +1315,6 @@ fs_dina_screen <- forestsearch(
   d0.min                    = 10,             # default 10
   d1.min                    = 10,             # default 10
   maxk                      = 2,              # default 2
-  max_subgroups_search      = dina_screen_max_subgroups_search,  # set in setup chunk
   # --- Thresholds (survival / HR scale) -----------------------------------
   hr.threshold              = dina_screen_hr_threshold,    # set in setup chunk
   hr.consistency            = dina_screen_hr_consistency,  # set in setup chunk
@@ -2639,7 +2635,7 @@ payload <- list(
 
 # Payload filename -- analog of actg175's "actg175_table_payload.rds".
 # (If your gbsg reader/manuscript doc expects "gbsg_table1_payload.rds", change it here.)
-.payload_file <- file.path(.out_dir, paste0(.qmd_stem, "_payload.rds"))
+.payload_file <- file.path(.out_dir, paste0(.dirout, "_payload.rds"))
 saveRDS(payload, .payload_file)
 cat("Wrote Section 6.2 payload to:", .payload_file, "\n")
 ```

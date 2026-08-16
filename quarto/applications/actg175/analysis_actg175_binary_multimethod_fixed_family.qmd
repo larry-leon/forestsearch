@@ -87,7 +87,6 @@ fs_selection_rule        <- "both"       # neighborhood ∩ Pareto (effMaxSG/eff
 fs_or_threshold          <- 1.0
 fs_or_consistency        <- 1.0
 fs_pconsistency          <- 0.90
-fs_max_subgroups_search  <- 50L
 # IMPORTANT: the Tier-2 de-biased gate on the GLM path runs ONLY under the
 # resample-consistency engine (consistency_method = "resample").  Under the
 # default "split" engine the gate is silently skipped for GLM outcomes.
@@ -171,7 +170,6 @@ fs_family_native_nbhd <- NULL
 dina_screen_sg_focus             <- "effMaxSG"
 dina_screen_or_threshold         <- 1.0
 dina_screen_or_consistency       <- 0.9
-dina_screen_max_subgroups_search <- 30L
 # Screening cut set: FALSE => full DINA frontier; TRUE => only the single
 # dina_subgroup()-selected cut (uses dina_screen_sg_focus / selection_rule).
 dina_screen_selected_only        <- TRUE
@@ -594,7 +592,6 @@ fs <- forestsearch(
   d0.min                    = 10L,
   d1.min                    = 10L,
   maxk                      = 2L,
-  max_subgroups_search      = fs_max_subgroups_search,
   # --- Thresholds (OR scale) ----------------------------------------------
   effect.threshold          = fs_or_threshold,
   consistency.threshold     = fs_or_consistency,
@@ -1055,7 +1052,6 @@ fs_dina_screen <- forestsearch(
   d0.min                    = 10L,
   d1.min                    = 10L,
   maxk                      = 2L,
-  max_subgroups_search      = dina_screen_max_subgroups_search,
   # --- Thresholds (OR scale) ----------------------------------------------
   effect.threshold          = dina_screen_or_threshold,
   consistency.threshold     = dina_screen_or_consistency,
@@ -2114,7 +2110,7 @@ payload <- list(
   built_at  = Sys.time(),
   forestsearch_version = tryCatch(as.character(utils::packageVersion("forestsearch")), error = function(e) NA_character_))
 
-.payload_file <- file.path(.out_dir, paste0(.qmd_stem, "_payload.rds"))
+.payload_file <- file.path(.out_dir, paste0(.dirout, "_payload.rds"))
 saveRDS(payload, .payload_file)
 cat("Wrote Section 6.2 payload to:", .payload_file, "\n")
 ```

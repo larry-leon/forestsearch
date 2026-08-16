@@ -124,7 +124,6 @@ fs_effect_neighborhood <- 0.10
 fs_or_threshold         <- 1.25
 fs_or_consistency       <- 1.0
 fs_pconsistency         <- 0.90
-fs_max_subgroups_search <- 20L
 fs_minp                 <- 0.025
 fs_use_twostage         <- TRUE
 fs_stop_threshold       <- 0.95   # consumed by maxeffCons only
@@ -161,7 +160,6 @@ fs_consistency_method   <- "resample"
                               effect_threshold,
                               consistency_threshold,
                               pconsistency,
-                              max_subgroups_search,
                               minp,
                               use_twostage,
                               stop_threshold) {
@@ -193,12 +191,10 @@ fs_consistency_method   <- "resample"
 
   if (is_maxeff) {
     pcons_out  <- 0
-    msg_out    <- Inf
     minp_out   <- 0
     twostg_out <- FALSE
   } else {
     pcons_out  <- pconsistency
-    msg_out    <- max_subgroups_search
     minp_out   <- minp
     twostg_out <- use_twostage
   }
@@ -232,7 +228,6 @@ fs_consistency_method   <- "resample"
     effect_threshold      = effect_threshold,
     consistency_threshold = consistency_threshold,
     pconsistency          = pcons_out,
-    max_subgroups_search  = msg_out,
     minp                  = minp_out,
     use_twostage          = twostg_out,
     stop_threshold        = stop_thr
@@ -246,7 +241,6 @@ focus <- .fs_focus_profile(
   effect_threshold      = fs_or_threshold,
   consistency_threshold = fs_or_consistency,
   pconsistency          = fs_pconsistency,
-  max_subgroups_search  = fs_max_subgroups_search,
   minp                  = fs_minp,
   use_twostage          = fs_use_twostage,
   stop_threshold        = fs_stop_threshold
@@ -266,7 +260,7 @@ kbl(data.frame(
            "Ranges over", "selection_rule", "effect_neighborhood",
            "Effect floor (effect.threshold, OR)",
            "Consistency screen (pconsistency)",
-           "stop_threshold", "max_subgroups_search", "use_twostage",
+           "stop_threshold", "use_twostage",
            "Pareto frontier section"),
   Value = c(focus$supplied, focus$canonical, focus$key, focus$ranges_over,
             focus$selection_rule, .fmt1(focus$effect_neighborhood),
@@ -275,7 +269,6 @@ kbl(data.frame(
             if (focus$thresholds_live) .fmt1(focus$pconsistency)
               else "0 (screen admits everything)",
             .fmt1(focus$stop_threshold),
-            .fmt1(focus$max_subgroups_search),
             .fmt1(focus$use_twostage),
             if (focus$run_pareto) "RUN (banded focus)"
               else "skipped (band not the selection geometry)"),
@@ -684,7 +677,6 @@ fs <- forestsearch(
   effect.threshold          = focus$effect_threshold,
   consistency.threshold     = focus$consistency_threshold,
   pconsistency.threshold    = focus$pconsistency,
-  max_subgroups_search      = focus$max_subgroups_search,
   minp                      = focus$minp,
   use_twostage              = focus$use_twostage,
   stop_threshold            = focus$stop_threshold,

@@ -46,6 +46,24 @@ timings <- list()
 # Guo & He comparator: guohe_algorithm3() / fs_to_guohe() are package API
 # (exported by forestsearch). gh_dir is kept only for the LOO cache path below.
 gh_dir <- Sys.getenv("GH_DIR", unset = "../../../quarto/GuoHe")
+
+# ---------------------------------------------------------------------------
+# Output location for this document's results:  <base>/<dirout>/
+#   results_dir = NULL -> base is <qmd dir>/_payloads
+#   dirout      = NULL -> the .qmd stem
+# Setting results_dir redirects the base only; each run still gets its own
+# subdirectory named by dirout.
+#
+# Examples:
+#   results_dir <- NULL;  dirout <- NULL
+#     -> <qmd dir>/_payloads/<stem>/<stem>_payload.rds
+#   results_dir <- NULL;  dirout <- "gbsg_survival_maxeff_mrconfirm"
+#     -> <qmd dir>/_payloads/gbsg_survival_maxeff_mrconfirm/gbsg_survival_maxeff_mrconfirm_payload.rds
+#   results_dir <- "~/GitHub/fs-post-selection-manuscript_jasa/_payloads"; dirout <- NULL
+#     -> ~/GitHub/fs-post-selection-manuscript_jasa/_payloads/<stem>/<stem>_payload.rds
+# ---------------------------------------------------------------------------
+results_dir <- NULL
+dirout      <- NULL
 ```
 
 ```{r parallel-setup}
@@ -624,4 +642,116 @@ td <- data.frame(
 )
 td$Minutes <- round(td$Seconds / 60, 2)
 kbl(td, booktabs = TRUE, align = "lrr") |> kable_styling()
+```
+
+# Reproducibility payload {#sec-export-payload}
+
+The chunk below harvests the objects this render already computed into a single
+small list and writes it as an `.rds`, so the results survive the HTML. No
+analysis is repeated. Every element is guarded, so a section this render skipped
+(`run_mr`, `run_mr_confirm`, `run_cv_kfold`, `run_loo`) stores `NULL` rather
+than erroring, and the top-level names match the other GBSG payloads
+(`table`, `labels`, `meta`, `extras`, `est_scale`, `built_at`,
+`forestsearch_version`) so a reader can treat them uniformly.
+
+```{r export-payload}
+#| echo: false
+#| message: false
+
+.qmd_dir  <- tryCatch(dirname(knitr::current_input(dir = TRUE)),
+                      error = function(e) getwd())
+.qmd_stem <- tryCatch(tools::file_path_sans_ext(basename(knitr::current_input())),
+                      error = function(e) "analysis")
+.dirout   <- if (is.null(dirout)) .qmd_stem else dirout
+.base     <- if (is.null(results_dir)) file.path(.qmd_dir, "_payloads") else results_dir
+.out_dir  <- file.path(.base, .dirout)
+dir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)
+.payload_file <- file.path(.out_dir, paste0(.dirout, "_payload.rds"))
+
+.get <- function(nm) if (exists(nm, inherits = TRUE)) get(nm, inherits = TRUE) else NULL
+.try <- function(expr) tryCatch(expr, error = function(e) NULL)
+
+.fs   <- .get("fs")
+.fsbc <- .get("fs_bc")
+.g    <- if (is.null(.fs)) NULL else .fs$mr_inference
+.fsc  <- .get("fs_confirm")
+.gc   <- .get("g_confirm")
+.gh   <- .get("gh")
+.cvd  <- .get("cv_diag")
+.cvo  <- .get("cv_out")
+.loo  <- .get("loo")
+
+payload <- list(
+  table  = .get("tab"),
+  labels = list(
+    sg_harm  = if (is.null(.fs)) NULL else .fs$sg.harm,
+    sg_focus = if (is.null(.fs)) NULL else .fs$sg_focus,
+    focus    = .get("focus")),   # no focus profile in this document: NULL
+  meta = list(
+    NB          = .get("NB"),
+    mr_draws    = .get("mr_draws"),
+    Ksims       = .get("Ksims"),
+    n_cores     = .get("n_cores"),
+    loo_workers = .get("loo_workers"),
+    n_total     = .try(nrow(.get("df.analysis"))),
+    n_events    = .try(sum(.get("df.analysis")[[.get("event.name")]])),
+    outcome     = .get("outcome.name"),
+    event       = .get("event.name"),
+    treat       = .get("treat.name"),
+    covariates  = .get("confounders.name"),
+    timings     = .get("timings"),
+    # This document carries no fs_param_provenance() helper; the fit's own
+    # captured argument list is the provenance record it does produce.
+    provenance  = .try(fs_param_provenance(.fs)),
+    args_call_all = if (is.null(.fs)) NULL else .fs$args_call_all),
+  extras = list(
+    mr = if (is.null(.g)) NULL else list(
+      naive          = .g$naive,
+      debiased       = .g$debiased,
+      settings       = .g$settings,
+      n_family       = .g$n_family,
+      selection_bias = .g$selection_bias,
+      timing_seconds = .g$timing_seconds),
+    # The independent confirmation fit -- this document's distinguishing result.
+    mr_confirm = if (is.null(.gc)) NULL else list(
+      naive          = .gc$naive,
+      debiased       = .gc$debiased,
+      settings       = .gc$settings,
+      n_family       = .gc$n_family,
+      selection_bias = .gc$selection_bias,
+      timing_seconds = .gc$timing_seconds,
+      sg_harm        = if (is.null(.fsc)) NULL else .fsc$sg.harm,
+      agrees_with_in_fit = .try(
+        all(vapply(c("est", "lower", "upper"), function(f)
+          isTRUE(all.equal(.g$debiased[[f]], .gc$debiased[[f]])), logical(1))))),
+    fb = if (is.null(.fsbc)) NULL else list(
+      H_estimates  = .fsbc$H_estimates,
+      Hc_estimates = .fsbc$Hc_estimates),
+    pareto = NULL,   # no banded focus here: the frontier block does not run
+    cv = if (isTRUE(.get("run_cv_kfold")) && !is.null(.cvd)) list(
+      metrics                   = .get("metrics_tables"),
+      identification_summary    = .cvd$identification_summary,
+      pconsistency_distribution = .cvd$pconsistency_distribution,
+      fold_numeric_summary      = .cvd$fold_numeric_summary,
+      original_agreement        = .cvd$original_agreement) else NULL,
+    loo = if (isTRUE(.get("run_loo")) && !is.null(.loo)) list(
+      row          = .loo,
+      sens_metrics = if (is.null(.cvo)) NULL else .cvo$sens_metrics_original,
+      find_metrics = if (is.null(.cvo)) NULL else .cvo$find_metrics,
+      cache        = .get("loo_cache")) else NULL,
+    gh = if (is.null(.gh)) NULL else list(
+      naive_hr    = .gh$naive_hr,
+      debiased_hr = .gh$debiased_hr,
+      bound_hr    = .gh$bound_hr,
+      selected    = .gh$selected,
+      n_family    = .try(length(.gh$export$candidates)),
+      B           = .get("GH_B"),
+      r           = .get("GH_r"))),
+  est_scale = "hr",
+  built_at  = Sys.time(),
+  forestsearch_version = tryCatch(as.character(utils::packageVersion("forestsearch")),
+                                  error = function(e) NA_character_))
+
+saveRDS(payload, .payload_file)
+cat("Wrote payload to:", .payload_file, "\n")
 ```

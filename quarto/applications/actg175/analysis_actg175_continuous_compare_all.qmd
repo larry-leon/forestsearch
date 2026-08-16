@@ -138,7 +138,6 @@ fs_d0_min          <- 10L
 fs_d1_min          <- 10L
 fs_splits          <- 500L
 
-fs_max_subgroups   <- 30
 
 fs_maxk            <- 2L
 fs_use_lasso       <- TRUE
@@ -323,7 +322,6 @@ comparison <- compare_selection_rules(
   effect.threshold       = fs_md_threshold,
   consistency.threshold  = fs_md_consistency,
   pconsistency.threshold = fs_pconsistency,
-  max_subgroups_search = fs_max_subgroups,
   use_twostage     = TRUE,
   consistency_method = fs_consistency_method,
   conf.cont_jcuts  = fs_conf.cont_jcuts,
@@ -421,7 +419,6 @@ fs_anchor <- forestsearch(
   effect.threshold       = fs_md_threshold,
   consistency.threshold  = fs_md_consistency,
   pconsistency.threshold = fs_pconsistency,
-  max_subgroups_search   = fs_max_subgroups,
   use_twostage     = TRUE,
   conf.cont_jcuts  = fs_conf.cont_jcuts,
   cut_type         = "default",
