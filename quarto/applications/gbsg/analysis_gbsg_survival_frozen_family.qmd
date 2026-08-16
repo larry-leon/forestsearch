@@ -540,8 +540,31 @@ cat("Leave-one-out skipped (run_loo = FALSE).",
 # the default path in gh_dir) load it; otherwise run the N-fold search and cache
 # it for re-renders. The fold loop runs in parallel on loo_workers workers;
 # each fold's inner search is pinned sequential by forestsearch_Kfold().
-loo_cache <- Sys.getenv("LOO_CACHE",
-                        unset = file.path(gh_dir, "cv_out_frozen_family.rds"))
+#
+# CACHE KEY.  The leave-one-out result is a function of the whole analysis, so
+# the filename discriminates three axes:
+#   * DOCUMENT (.qmd stem) -- this document and maxeff_mrconfirm both run
+#     sg_focus = "maxeff" under the default selection_rule and are told apart
+#     only by their candidate families (median-cut vs quantile-cut), which no
+#     setting in the key would capture;
+#   * canonical SG_FOCUS;
+#   * resolved SELECTION_RULE -- effMaxSG and sgfocus both canonicalize to
+#     "hrMaxSG" and differ ONLY here.
+# A focus-only key discriminated the second axis alone, so those two documents
+# shared one cache file and whichever rendered second silently reused the
+# other's leave-one-out result.  Focus and rule are read from the FITTED
+# object, so the key reports what the engine ran with, not what was typed.
+.cache_doc   <- tryCatch(tools::file_path_sans_ext(basename(knitr::current_input())),
+                         error = function(e) "analysis")
+.cache_focus <- if (is.null(fs$sg_focus)) "unknownfocus" else as.character(fs$sg_focus)[1]
+.cache_rule  <- {
+  .r <- fs$args_call_all$selection_rule
+  if (is.null(.r) || !nzchar(as.character(.r)[1])) "neighborhood" else as.character(.r)[1]
+}
+loo_cache <- Sys.getenv(
+  "LOO_CACHE",
+  unset = file.path(gh_dir, sprintf("cv_out_%s_%s_%s.rds",
+                                    .cache_doc, .cache_focus, .cache_rule)))
 if (file.exists(loo_cache)) {
   cv_out <- readRDS(loo_cache)
   timings$loo <- NA_real_
