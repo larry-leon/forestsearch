@@ -71,11 +71,14 @@ test_that("maxeff and the eff/maxcons aliases are accepted too", {
 
 test_that("the rejection message enumerates the seven spellings and maxcons", {
   df <- .dbs_demo_df(n = 100L)
+  # suppressWarnings() as in the sibling tests above: n_boot = 2L trips the
+  # "< 100, percentile CI unstable" advisory, which fires before the sg_focus
+  # whitelist rejects and is incidental to the message being asserted here.
   err <- tryCatch(
-    dina_subgroup_bootstrap(
+    suppressWarnings(dina_subgroup_bootstrap(
       df = df, outcome = "y", treatment = "w",
       covariates = c("x1", "x2"), family = "gaussian",
-      m_diff = 0.5, n_boot = 2L, seed = 1L, sg_focus = "not_a_focus"),
+      m_diff = 0.5, n_boot = 2L, seed = 1L, sg_focus = "not_a_focus")),
     error = conditionMessage)
   for (s in c("maxSG", "minSG", "eff", "effMaxSG", "effMinSG",
               "maxeff", "maxeffCons", "maxcons")) {
