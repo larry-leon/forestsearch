@@ -82,7 +82,7 @@ methods_run <- methods                           # e.g. "consistency"
 n_grid_run  <- n_grid                            # e.g. c(500L, 1000L)
 
 # ── Counts (the main knobs for smoke → production) ───────────────────────────
-n_sims    <- 1000L        # simulated trials per cell        (prod: 1000 → 20000)
+n_sims    <- 100L        # simulated trials per cell        (prod: 1000 → 20000)
 nb_boots  <- NULL       # FB nonparametric bootstraps; NULL/0 ⇒ MR-only (FB dormant)
 mr_draws <- 5000L     # MR multiplier draws              (keep ~2000–5000)
 diag_mode <- FALSE      # TRUE caps each cell to 5 reps and surfaces forestsearch errors
@@ -105,7 +105,7 @@ run_sweep   <- TRUE                       # FALSE ⇒ skip computation, just (re
 # configuration boundary.  Bump the v2 token for a fresh isolated run.
 fb_active   <- is.numeric(nb_boots) && length(nb_boots) == 1L && nb_boots >= 1L
 engine_tag  <- if (fb_active) "fbmr" else "mr"
-run_tag     <- sprintf("m1_h10_knoise0_%s_v2_s%d", engine_tag, n_sims)
+run_tag     <- sprintf("m1_h10_knoise0_%s_v3_s%d", engine_tag, n_sims)
 results_dir <- file.path("mr_sweep", run_tag)   # per-run folder: bundles + grid live here
 rds_tag     <- engine_tag                  # per-cell engine token; the method tag (fs/dina/grf) LEADS the filename
 grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
