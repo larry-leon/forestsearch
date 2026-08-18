@@ -64,9 +64,14 @@ adaptive \code{n_min} floor when \code{n_min = NULL}.  Default \code{0.10}.  Ign
 
 \item{sg_focus}{character; subgroup selection criterion, forwarded to
 \code{dina_subgroup()} for both the original-data point estimate and every
-bootstrap iteration.  One of \code{"maxSG"} (default), \code{"minSG"}, \code{"eff"},
-\code{"effMaxSG"}, \code{"effMinSG"} (canonical \code{"hr"}, \code{"hrMaxSG"},
-\code{"hrMinSG"} also accepted).  See \code{\link[=dina_subgroup]{dina_subgroup()}}.}
+bootstrap iteration.  Accepts the same set as \code{\link[=dina_subgroup]{dina_subgroup()}}: one of
+\code{"maxSG"} (default), \code{"minSG"}, \code{"eff"}, \code{"effMaxSG"}, \code{"effMinSG"},
+\code{"maxeff"}, \code{"maxeffCons"} (canonical \code{"hr"}, \code{"hrMaxSG"}, \code{"hrMinSG"}
+and the alias \code{"maxcons"} also accepted).  \code{"maxeff"} and \code{"maxeffCons"}
+were previously rejected here even though \code{\link[=dina_subgroup]{dina_subgroup()}} and
+\code{\link[=forestsearch]{forestsearch()}} both accept them.  On this path all five of \code{"eff"},
+\code{"hr"}, \code{"maxcons"}, \code{"maxeff"} and \code{"maxeffCons"} rank identically --
+see \code{\link[=dina_subgroup]{dina_subgroup()}} and \code{\link[=fs_focus_tag]{fs_focus_tag()}}.}
 
 \item{effect_neighborhood}{numeric in \verb{[0, 1)}; relative tolerance for
 the \code{"effMaxSG"} / \code{"effMinSG"} effect band, forwarded to

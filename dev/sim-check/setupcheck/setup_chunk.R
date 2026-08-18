@@ -86,7 +86,15 @@ method_tag   <- if (identical(subgroup_method, "consistency")) "fs" else subgrou
 # Aliases normalize FORWARD to the descriptive name rather than back through
 # .normalize_sg_focus(), which maps eff -> "hr": the Cox-flavoured internal
 # vocabulary.  "eff*" generalizes across GLM outcomes, "hr" does not.
-focus_tag    <- switch(sg_focus, eff = "maxcons", sg_focus)
+# One source of truth: fs_focus_tag() holds the (subgroup_method, sg_focus)
+# -> stem tag map for every driver.  It was pasted into each one and drifted;
+# the method-blind copies tagged DINA/GRF runs with the consistency name for a
+# rule those engines never ran.
+focus_tag <- forestsearch::fs_focus_tag(subgroup_method, sg_focus)
+if (!identical(focus_tag, sg_focus))
+  cat(sprintf("NOTE: sg_focus '%s' is an alias on the %s path; output stem uses focus tag '%s'.
+",
+              sg_focus, subgroup_method, focus_tag))
 
 rds_stem     <- sprintf("%s_%s_fb_mr_m1_h%02d_knoise%d_n%d",
                         method_tag, focus_tag, round(10 * target_hr_harm),

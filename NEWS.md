@@ -1,3 +1,88 @@
+# forestsearch 0.2.1
+
+## `sg_focus` alias resolution is now announced at run time
+
+Five spellings resolve to one rule, and on the DINA and GRF paths two more
+collapse onto the effect argmax. All of that was silent: a run requested as
+`sg_focus = "eff"` ranked by a rule the caller never named, and nothing in the
+transcript recorded the substitution.
+
+`forestsearch()` now emits exactly one `message()` -- suppressed by `quiet`,
+never `cat()` -- when the canonical rule differs from the spelling passed:
+
+```
+sg_focus 'eff' resolves to canonical rule 'hr' (aliases: eff, maxcons).
+sg_focus 'maxeffCons' ranks as the effect argmax on the dina path (no Pcons is computed).
+```
+
+The alias relation now lives in one table (`.FS_SG_FOCUS_ALIASES`) that both
+the normalizer and the announcement read, so the message cannot claim an alias
+set the normalizer does not implement.
+
+**No selection changes.** This is an announcement, not a rule change: the
+selected subgroup and every estimate are bit-identical across the change, for
+each of `subgroup_method` in `c("consistency", "dina")` crossed with `sg_focus`
+in `c("eff", "hr", "maxcons", "maxeffCons")`.
+
+## New: `fs_focus_tag()` -- one source of truth for stem tags
+
+The `(subgroup_method, sg_focus)` -> stem-tag map had been pasted into 51
+simulation drivers, and the copies were method-blind. On the DINA and GRF
+paths they tagged output with the consistency name for a rule those engines
+never ran: a `maxeffCons` DINA run wrote files stemmed `maxeffCons` when the
+run had ranked by `order(-eff)`. Files named for a rule that did not run are
+not recoverable after the fact.
+
+`fs_focus_tag(subgroup_method, sg_focus)` is exported and tested against the
+full 11 x 3 matrix, and every driver now calls it. Five drivers change the
+stem they write (the DINA and GRF ones); the other 46 are unaffected.
+
+## The DINA bootstrap `sg_focus` whitelist accepted only five of seven foci
+
+`dina_subgroup_bootstrap()` held a re-inlined literal subset, so `maxeff` and
+`maxeffCons` -- accepted by both `forestsearch()` and `dina_subgroup()` -- were
+rejected here and the bootstrap stopped before its first iteration. It now
+assigns from the shared `.FS_SG_FOCUS_CANONICAL`, and
+`.assert_sg_focus_dispatch_complete()` covers this site so the literal cannot
+come back. The rejection message enumerated five spellings for a whitelist of
+seven; `dina_subgroup()`'s enumerated seven but omitted the accepted alias
+`maxcons`. Both are corrected.
+
+## The GRF frontier rule map is exhaustive
+
+The `frontier_rule` switch had a default arm that silently ran `"effMaxSG"` for
+any unrecognised focus, and a `tryCatch` above it swallowed normalization
+errors. Both are gone: the map is exhaustive over `.FS_SG_FOCUS_CANONICAL` and
+errors otherwise. Unreachable from `forestsearch()`, which normalizes and
+whitelists first -- it exists so a focus added without a branch fails loudly
+rather than selecting under a rule nobody asked for.
+
+## Bug fix: MR harm confirmation wrote to stdout
+
+The per-replicate `MR harm confirmation:` line used `cat()`, violating the
+message()-only contract the MR messaging section states for itself, and
+flooding parallel simulation renders (116 blocks at `n_sims = 20`).
+`suppressMessages()` could not silence it because stdout is not the message
+stream. It now routes through `.mr_msg(quiet, ...)` like every other MR report.
+
+## Documentation
+
+- `?forestsearch` gains a per-engine `sg_focus` table giving, for every
+  spelling, the rule that actually runs -- and states the collapse sets
+  explicitly: three spellings are one rule on `"consistency"`, five are one
+  rule on `"dina"` and `"grf"`.
+- The synonym collapse is mirrored into `dina_subgroup()` and
+  `dina_subgroup_bootstrap()`, where it had lived only in a code comment.
+- `m_diff` is documented as the candidacy floor on the link scale
+  (`log(HR)`/`log(OR)`/`log(IRR)`, raw MD for gaussian), and as **derived**
+  from the resolved `effect.threshold` under `subgroup_method = "dina"` -- a
+  value supplied in `dina_args` is ignored there. Under
+  `dina_select_statistic = "effect"` it still fixes the qualifying family that
+  multiplier resampling de-biases over, while selection re-ranks on the refit
+  effect.
+- The `grf_selection` note warning that `maxeff`/`maxeffCons` "fall through
+  without a condition being raised" is removed; they now map explicitly.
+
 # forestsearch 0.2.0
 
 ## `consistency_method` now defaults to `"resample"`

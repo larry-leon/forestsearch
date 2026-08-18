@@ -127,9 +127,14 @@
 #' @param direction one of `"both"` (default), `"left"`, `"right"`.
 #' @param sg_focus character; subgroup selection criterion, forwarded to
 #'   `dina_subgroup()` for both the original-data point estimate and every
-#'   bootstrap iteration.  One of `"maxSG"` (default), `"minSG"`, `"eff"`,
-#'   `"effMaxSG"`, `"effMinSG"` (canonical `"hr"`, `"hrMaxSG"`,
-#'   `"hrMinSG"` also accepted).  See [dina_subgroup()].
+#'   bootstrap iteration.  Accepts the same set as [dina_subgroup()]: one of
+#'   `"maxSG"` (default), `"minSG"`, `"eff"`, `"effMaxSG"`, `"effMinSG"`,
+#'   `"maxeff"`, `"maxeffCons"` (canonical `"hr"`, `"hrMaxSG"`, `"hrMinSG"`
+#'   and the alias `"maxcons"` also accepted).  `"maxeff"` and `"maxeffCons"`
+#'   were previously rejected here even though [dina_subgroup()] and
+#'   [forestsearch()] both accept them.  On this path all five of `"eff"`,
+#'   `"hr"`, `"maxcons"`, `"maxeff"` and `"maxeffCons"` rank identically --
+#'   see [dina_subgroup()] and [fs_focus_tag()].
 #' @param effect_neighborhood numeric in `[0, 1)`; relative tolerance for
 #'   the `"effMaxSG"` / `"effMinSG"` effect band, forwarded to
 #'   `dina_subgroup()`.  Default `0.10`.  Ignored for the non-band foci.
@@ -348,12 +353,20 @@ dina_subgroup_bootstrap <- function(df,
   # (matches dina_subgroup()), then whitelist.  The per-iteration search
   # and the original-data point estimate both use the canonical value.
   sg_focus <- .normalize_sg_focus(sg_focus)
-  valid_sg_focus <- c("hr", "maxSG", "minSG", "hrMaxSG", "hrMinSG")
+  # Assigned from the shared constant, never re-inlined as a literal: this
+  # site had drifted to a five-element subset, so `maxeff` / `maxeffCons`
+  # were accepted by forestsearch() and dina_subgroup() but rejected here,
+  # and a bootstrap under either focus stopped at this check.  The
+  # per-iteration search does not switch on sg_focus itself -- it forwards
+  # the resolved value to dina_subgroup(), whose ordering switch carries the
+  # synonym arms -- so widening the whitelist is the whole fix.
+  valid_sg_focus <- .FS_SG_FOCUS_CANONICAL
   if (!is.character(sg_focus) || length(sg_focus) != 1L ||
       !sg_focus %in% valid_sg_focus) {
     stop("`sg_focus` must be one of \"maxSG\", \"minSG\", \"eff\", ",
-         "\"effMaxSG\", \"effMinSG\" (canonical forms \"hr\", ",
-         "\"hrMaxSG\", \"hrMinSG\" are also accepted).")
+         "\"effMaxSG\", \"effMinSG\", \"maxeff\", \"maxeffCons\" ",
+         "(canonical forms \"hr\", \"hrMaxSG\", \"hrMinSG\" and the alias ",
+         "\"maxcons\" for \"eff\" are also accepted).")
   }
   .validate_effect_neighborhood(effect_neighborhood)
 

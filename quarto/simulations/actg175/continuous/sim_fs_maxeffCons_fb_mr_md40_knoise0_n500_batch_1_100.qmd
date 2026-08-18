@@ -139,11 +139,15 @@ n_sample       <- 500L    #                             (production: 500L)
 null_cell      <- FALSE
 
 method_tag <- if (identical(subgroup_method, "consistency")) "fs" else subgroup_method
-focus_tag  <- switch(sg_focus,
-                     eff = , hr = , maxcons = "maxcons",
-                     effMaxSG = , hrMaxSG = "effMaxSG",
-                     effMinSG = , hrMinSG = "effMinSG",
-                     sg_focus)
+# One source of truth: fs_focus_tag() holds the (subgroup_method, sg_focus)
+# -> stem tag map for every driver.  It was pasted into each one and drifted;
+# the method-blind copies tagged DINA/GRF runs with the consistency name for a
+# rule those engines never ran.
+focus_tag <- forestsearch::fs_focus_tag(subgroup_method, sg_focus)
+if (!identical(focus_tag, sg_focus))
+  cat(sprintf("NOTE: sg_focus '%s' is an alias on the %s path; output stem uses focus tag '%s'.
+",
+              sg_focus, subgroup_method, focus_tag))
 rds_stem <- sprintf("%s_%s_fb_mr_md%02d_knoise%d_n%d",
                     method_tag, focus_tag, abs(target_md_harm),
                     k_random_noise, n_sample)

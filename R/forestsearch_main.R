@@ -295,7 +295,27 @@
 #'   this call's \code{sg_focus} / \code{selection_rule} /
 #'   \code{effect_neighborhood} / \code{n.min} / \code{hr.threshold}, i.e. the
 #'   same cut \code{subgroup_method = "dina"} would select. Set \code{FALSE} to
-#'   contribute the full frontier candidate set instead. Unknown keys raise
+#'   contribute the full frontier candidate set instead.
+#'
+#'   \strong{\code{m_diff} is the candidacy floor, on the link scale, and is
+#'   derived rather than taken from this list.}  It is the harm floor a
+#'   candidate must clear to enter the qualifying family that \code{sg_focus}
+#'   then ranks -- \code{log(HR)} for \code{cox}, \code{log(OR)} for
+#'   \code{binomial}, \code{log(IRR)} for \code{poisson}, and the raw mean
+#'   difference for \code{gaussian}.  Under \code{subgroup_method = "dina"}
+#'   (and under \code{selected_only = TRUE} screening) it is computed as
+#'   \code{log(hr.threshold)} -- identity for \code{gaussian} -- from the
+#'   resolved \code{effect.threshold}, and an \code{m_diff} supplied here is
+#'   \strong{ignored}.  Set the floor with \code{effect.threshold} /
+#'   \code{hr.threshold}.  The key remains meaningful only where the raw
+#'   \code{\link{dina_frontier}} candidate set is used directly.
+#'
+#'   Under \code{dina_select_statistic = "effect"} the floor still defines the
+#'   qualifying family on the tau-hat scale while selection re-ranks that
+#'   family on the refit inferential effect; because multiplier resampling
+#'   de-biases over the realized selection event, \code{m_diff} fixes the
+#'   family MR de-biases over.  See \code{\link{dina_subgroup}}.
+#'   Unknown keys raise
 #'   an error.
 #' @param dina_select_statistic Character, one of \code{"effect"} (default) or
 #'   \code{"dina"}, used only when \code{subgroup_method = "dina"}.  The DINA
@@ -343,11 +363,15 @@
 #'   \code{sg_focus} -- \code{"eff"}, \code{"effMaxSG"}, \code{"effMinSG"},
 #'   \code{"maxSG"} and \code{"minSG"} each map to the aligned frontier rule,
 #'   as in \code{dina_subgroup()} -- and the relative band from
-#'   \code{effect_neighborhood}. Note that \code{sg_focus} admits two further
-#'   values, \code{"maxeff"} and \code{"maxeffCons"}, which have no branch in
-#'   that mapping and fall through to the \code{"effMaxSG"} rule without a
-#'   condition being raised; avoid pairing either with
-#'   \code{grf_selection = "frontier"} until that gap is resolved.
+#'   \code{effect_neighborhood}.  \code{"maxeff"} and \code{"maxeffCons"} map
+#'   \strong{explicitly} to the plain effect-argmax rule (\code{"eff"}), the
+#'   same rule \code{"hr"} takes: GRF computes no \code{Pcons}, so the
+#'   \code{Cons} qualifier has nothing to bind to.  The mapping is exhaustive
+#'   over the canonical foci and raises an error rather than falling through,
+#'   so no focus can silently select under a rule the caller did not request.
+#'   (Earlier versions had no branch for these two and defaulted them to
+#'   \code{"effMaxSG"} silently; pairing them with
+#'   \code{grf_selection = "frontier"} is now well defined.)
 #'   \code{"frontier"} is the default
 #'   because it enumerates a family that can be ranked on the inferential
 #'   effect; the policy tree exposes no such family, so \code{"tree"} is
@@ -517,6 +541,42 @@
 #'   no DINA or GRF counterpart.  No floor is disabled by this on any path,
 #'   and the collapse raises no condition: it is intended behaviour, and a
 #'   warning would fire on every such run.
+#'
+#'   \strong{Per-engine resolution.}  Every accepted spelling, and the rule
+#'   that actually runs for it on each engine:
+#'
+#'   \tabular{lll}{
+#'     \strong{sg_focus} \tab \strong{consistency} \tab \strong{dina / grf} \cr
+#'     \code{eff}, \code{hr}, \code{maxcons} \tab consistency argmax
+#'       (\code{Pcons}-primary, effect breaks ties) \tab effect argmax,
+#'       \code{order(-eff)} \cr
+#'     \code{maxeff} \tab effect argmax, no floors \tab effect argmax,
+#'       \code{order(-eff)} \cr
+#'     \code{maxeffCons} \tab effect argmax with the consistency floor \tab
+#'       effect argmax, \code{order(-eff)} \cr
+#'     \code{effMaxSG}, \code{hrMaxSG} \tab largest N within the effect band,
+#'       per \code{selection_rule} \tab as documented in
+#'       \code{\link{dina_subgroup}} \cr
+#'     \code{effMinSG}, \code{hrMinSG} \tab smallest N within the effect band,
+#'       per \code{selection_rule} \tab as documented in
+#'       \code{\link{dina_subgroup}} \cr
+#'     \code{maxSG} \tab largest N among qualifiers \tab largest N \cr
+#'     \code{minSG} \tab smallest N among qualifiers \tab smallest N \cr
+#'   }
+#'
+#'   The collapse sets, stated explicitly.  On \code{"consistency"},
+#'   \{\code{eff}, \code{hr}, \code{maxcons}\} is one rule, and \code{maxeff}
+#'   and \code{maxeffCons} are two further \emph{distinct} rules.  On
+#'   \code{"dina"} and \code{"grf"}, \{\code{eff}, \code{hr}, \code{maxcons},
+#'   \code{maxeff}, \code{maxeffCons}\} is \strong{one} rule -- five spellings,
+#'   one \code{order(-eff)}.
+#'
+#'   \code{forestsearch()} announces both collapses at run time: when the
+#'   canonical rule differs from the spelling passed, it emits one
+#'   \code{message()} (suppressed by \code{quiet}) naming the rule that will
+#'   actually run.  \code{\link{fs_focus_tag}} returns the stem tag for each
+#'   cell of the table above, and is the supported way to label output files by
+#'   the rule that ran rather than by the spelling requested.
 #'
 #'   Default \code{"hr"}.  The \code{"eff*"} forms are aliases for the
 #'   \code{"hr*"} forms and read more naturally in GLM contexts
@@ -1381,6 +1441,14 @@ forestsearch <- function(df.analysis,
   # "effMaxSG" in args_call_all and downstream feature checks against
   # c("hrMaxSG", "hrMinSG") would silently fall through to "no band".
   args_call_all$sg_focus <- sg_focus
+
+  # Announce the substitution.  Both the alias collapse and the DINA/GRF
+  # effect-argmax collapse were previously silent, so a run requested as
+  # sg_focus = "eff" ranked under a rule the caller never named and the
+  # transcript recorded no trace of it.  subgroup_method is already resolved
+  # (match.arg, Section 1A above) and quiet is in scope, so this is the one
+  # site where both messages can be emitted from a single call.
+  .announce_sg_focus(sg_focus_user, sg_focus, subgroup_method, quiet)
 
   # 2. selection_rule / sg_focus / effect_neighborhood compatibility.
   .validate_selection_rule(selection_rule, sg_focus, effect_neighborhood)
@@ -2251,12 +2319,24 @@ forestsearch <- function(df.analysis,
     # `elig <- cand[cand$effect >= dmin, ]` filter regardless of rule.  The
     # collapse raises no condition: it is intended behaviour, and a warning
     # would fire on every GRF frontier run under either focus.
-    .sgf <- tryCatch(.normalize_sg_focus(sg_focus), error = function(e) sg_focus)
-    frontier_rule <- switch(as.character(.sgf),
+    # Exhaustive over .FS_SG_FOCUS_CANONICAL, with no default arm.  `sg_focus`
+    # is already normalized AND whitelisted by Section 1A above, so every
+    # reachable value has a branch and the stop() is unreachable from
+    # forestsearch() -- it exists so that a focus added to the canonical set
+    # without a branch here fails loudly instead of silently ranking by
+    # "effMaxSG", which is what the old default arm did.  The previous
+    # tryCatch(.normalize_sg_focus(...)) is gone with it: re-normalizing a
+    # value that is canonical by construction only served to swallow errors.
+    frontier_rule <- switch(sg_focus,
                             hr = "eff", hrMaxSG = "effMaxSG", hrMinSG = "effMinSG",
                             maxSG = "maxSG", minSG = "minSG",
                             maxeff = "eff", maxeffCons = "eff",
-                            "effMaxSG")
+                            stop(sprintf(
+                              paste0("GRF frontier rule: no branch for ",
+                                     "sg_focus = '%s'.  Every value in ",
+                                     ".FS_SG_FOCUS_CANONICAL must have one; ",
+                                     "see .assert_sg_focus_dispatch_complete()."),
+                              as.character(sg_focus)), call. = FALSE))
     gsel <- .forestsearch_grf_select(
       df = df, df.predict = df.predict, df.test = df.test,
       confounders.name = confounders.name, outcome.name = outcome.name,
@@ -3245,14 +3325,19 @@ forestsearch <- function(df.analysis,
     if (is.null(mr_out))
       .mr_skip(quiet, "the MR computation failed (see the warning above).")
 
-    if (!quiet && !is.null(mr_out) &&
-        !is.na(mr_out$harm_flag)) {
-      cat(sprintf("MR harm confirmation: %s = %.3f (%s rule vs %.2f) -> %s\n",
-                  .g_mr(mr_out$measure, "effect"),
-                  mr_out$debiased$est, mr_out$settings$confirm_rule,
-                  mr_out$settings$t_confirm,
-                  if (mr_out$harm_flag) "consistent with harm"
-                  else "not confirmed"))
+    # C.3 -- the confirmation result.  Routed through .mr_msg() like every
+    # other MR report: cat() writes to stdout, which suppressMessages() cannot
+    # silence and which floods parallel sim renders (116 blocks at
+    # n_sims = 20).  The MESSAGING (Part C) contract in
+    # fs_mr_inference_methods.R is message()-only for exactly this reason.
+    if (!is.null(mr_out) && !is.na(mr_out$harm_flag)) {
+      .mr_msg(quiet, sprintf(
+        "MR harm confirmation: %s = %.3f (%s rule vs %.2f) -> %s",
+        .g_mr(mr_out$measure, "effect"),
+        mr_out$debiased$est, mr_out$settings$confirm_rule,
+        mr_out$settings$t_confirm,
+        if (mr_out$harm_flag) "consistent with harm"
+        else "not confirmed"))
     }
   }
 

@@ -128,6 +128,33 @@
 #' @param m_diff scalar harm threshold on the natural-parameter scale
 #'   of `fit$family`.  Subgroups are kept only if their mean tau-hat
 #'   meets or exceeds this value.
+#'
+#'   **It is a candidacy floor, not a ranking key.**  It decides which
+#'   candidates enter the qualifying family; `sg_focus` then orders that
+#'   family.  Every focus ranks only over survivors of this floor, so
+#'   widening or tightening `m_diff` changes the selection by changing the
+#'   family, not by changing the sort.
+#'
+#'   **Scale.**  The link (tau) scale of `fit$family`, which is not the scale
+#'   the effect is usually reported on: `log(HR)` for `cox`, `log(OR)` for
+#'   `binomial`, `log(IRR)` for `poisson`, and the raw mean difference for
+#'   `gaussian`.  A harm threshold of HR 1.25 is therefore
+#'   `m_diff = log(1.25)`, not `1.25`.
+#'
+#'   **Under [forestsearch()] with `subgroup_method = "dina"` this argument is
+#'   derived, not passed through.**  It is computed as `log(hr.threshold)`
+#'   (identity for `gaussian`) from the resolved `effect.threshold`, and an
+#'   `m_diff` supplied in `dina_args` -- a `dina_frontier()` key -- is
+#'   **ignored** on that path.  Set the floor with `effect.threshold` /
+#'   `hr.threshold` instead.
+#'
+#'   **Under `dina_select_statistic = "effect"`** the floor still defines the
+#'   qualifying family on the tau-hat scale, while selection re-ranks that
+#'   family on the refit inferential effect.  The two scales therefore do
+#'   different jobs in one selection: `m_diff` shapes the family, the refit
+#'   effect orders it.  Since multiplier resampling de-biases over the
+#'   realized selection event, `m_diff` is what fixes the family MR de-biases
+#'   over -- changing it changes the inferential target, not just the winner.
 #' @param n_min positive integer, or `NULL`; minimum subgroup size. Default
 #'   `60L`. Supplying a value (or omitting it) uses that fixed floor. Passing
 #'   `n_min = NULL` opts into a sample-size-adaptive floor
@@ -159,8 +186,19 @@
 #'   qualifying candidates.  One of `"maxSG"` (default), `"minSG"`,
 #'   `"eff"`, `"effMaxSG"`, `"effMinSG"`, `"maxeff"`, `"maxeffCons"`.  The
 #'   canonical forms `"hr"`, `"hrMaxSG"`, `"hrMinSG"` (used internally by
-#'   [forestsearch()]) are also accepted.  See Description for the semantics
-#'   of each.
+#'   [forestsearch()]) and the alias `"maxcons"` for `"eff"` are also
+#'   accepted.  See Description for the semantics of each.
+#'
+#'   **Five spellings, one rule.**  On this path `"eff"`, `"hr"`, `"maxcons"`,
+#'   `"maxeff"` and `"maxeffCons"` all resolve to the same ordering,
+#'   `order(-eff)`.  Two separate collapses produce that: `"eff"` and
+#'   `"maxcons"` are aliases of `"hr"` everywhere (see
+#'   `.normalize_sg_focus()`), and `"maxeff"` / `"maxeffCons"` are behavioural
+#'   synonyms of `"hr"` here specifically.  Use [fs_focus_tag()] to label
+#'   output by the rule that ran; a hand-written tag reading `"maxeffCons"` on
+#'   this path names a rule that did not execute.  [forestsearch()] announces
+#'   the collapse at run time, gated on its `quiet` argument; `dina_subgroup()`
+#'   called directly does not, having no `quiet` of its own.
 #'
 #'   `"maxeff"` and `"maxeffCons"` are **synonyms here**, both ranking the
 #'   qualifying candidates by effect (ties broken by insertion order) exactly
@@ -326,10 +364,13 @@ dina_subgroup <- function(fit, df, covariates,
   valid_sg_focus <- .FS_SG_FOCUS_CANONICAL
   if (!is.character(sg_focus) || length(sg_focus) != 1L ||
       !sg_focus %in% valid_sg_focus) {
-    stop("`sg_focus` must be one of \"maxSG\", \"minSG\", \"eff\", ",
-         "\"effMaxSG\", \"effMinSG\", \"maxeff\", \"maxeffCons\" ",
-         "(canonical forms \"hr\", \"hrMaxSG\", \"hrMinSG\" are also ",
-         "accepted).")
+    # The canonical seven, then the accepted aliases.  "maxcons" was missing
+    # from the list while the whitelist accepted it, so a user who mistyped it
+    # was told a spelling that does work is not among the valid ones.
+    stop("`sg_focus` must be one of the canonical \"hr\", \"hrMaxSG\", ",
+         "\"hrMinSG\", \"maxSG\", \"minSG\", \"maxeff\", \"maxeffCons\" ",
+         "(accepted aliases: \"eff\" and \"maxcons\" for \"hr\", ",
+         "\"effMaxSG\" for \"hrMaxSG\", \"effMinSG\" for \"hrMinSG\").")
   }
   # Always range-check; only consulted for the band foci below.
   .validate_effect_neighborhood(effect_neighborhood)
