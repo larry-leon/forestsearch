@@ -84,7 +84,7 @@ methods_run <- methods                           # e.g. "consistency"
 n_grid_run  <- n_grid                            # e.g. c(500L, 1000L)
 
 # ── Counts (the main knobs for smoke → production) ───────────────────────────
-n_sims    <- 1000L        # simulated trials per cell        (prod: 1000 → 20000)
+n_sims    <- 500L        # simulated trials per cell        (prod: 1000 → 20000)
 nb_boots  <- NULL       # FB nonparametric bootstraps; NULL/0 ⇒ MR-only (FB dormant)
 mr_draws <- 5000L     # MR multiplier draws              (keep ~2000–5000)
 diag_mode <- FALSE      # TRUE caps each cell to 5 reps.  (Errors no longer need
@@ -147,7 +147,7 @@ consistency_method <- "resample"
 # does.  forestsearch() derives MR's de-biasing rule from the normalized value and
 # the engine -- "maxcons" for the consistency engine, "maxeff" for dina/grf -- so
 # the spelling change is inert on all three detector arms.
-sg_focus           <- "maxcons"
+sg_focus           <- "maxeffCons"
 selection_rule     <- "neighborhood"
 effect_neighborhood <- 0.10  # package default; band half-width for the eff*SG
                              # foci.  Pinned for visibility; inert under
@@ -195,6 +195,11 @@ dina_args <- list(); dina_select_statistic <- "effect"
                  effMaxSG = "effMaxSG", hrMaxSG = "effMaxSG",
                  effMinSG = "effMinSG", hrMinSG = "effMinSG",
                  maxeff   = "maxeff",
+                 # Distinct rule on the consistency engine (effect argmax with
+                 # the consistency floor; the one focus where early stopping is
+                 # sound).  On the dina/grf arms it ranks as the plain effect
+                 # argmax — same convention as the or075 binary sweep, which
+                 # also runs all three engines under this one sweep-level tag.
                  maxeffCons = "maxeffCons")
 # Self-explaining fail-loud: a bare [[ dies with "subscript out of bounds",
 # which cannot distinguish a typo ("effmaxCons") from a valid focus missing
