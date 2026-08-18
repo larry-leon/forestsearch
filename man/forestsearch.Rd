@@ -204,7 +204,27 @@ contributes the cut(s) chosen by \code{\link{dina_subgroup}} -- using
 this call's \code{sg_focus} / \code{selection_rule} /
 \code{effect_neighborhood} / \code{n.min} / \code{hr.threshold}, i.e. the
 same cut \code{subgroup_method = "dina"} would select. Set \code{FALSE} to
-contribute the full frontier candidate set instead. Unknown keys raise
+contribute the full frontier candidate set instead.
+
+\strong{\code{m_diff} is the candidacy floor, on the link scale, and is
+derived rather than taken from this list.}  It is the harm floor a
+candidate must clear to enter the qualifying family that \code{sg_focus}
+then ranks -- \code{log(HR)} for \code{cox}, \code{log(OR)} for
+\code{binomial}, \code{log(IRR)} for \code{poisson}, and the raw mean
+difference for \code{gaussian}.  Under \code{subgroup_method = "dina"}
+(and under \code{selected_only = TRUE} screening) it is computed as
+\code{log(hr.threshold)} -- identity for \code{gaussian} -- from the
+resolved \code{effect.threshold}, and an \code{m_diff} supplied here is
+\strong{ignored}.  Set the floor with \code{effect.threshold} /
+\code{hr.threshold}.  The key remains meaningful only where the raw
+\code{\link{dina_frontier}} candidate set is used directly.
+
+Under \code{dina_select_statistic = "effect"} the floor still defines the
+qualifying family on the tau-hat scale while selection re-ranks that
+family on the refit inferential effect; because multiplier resampling
+de-biases over the realized selection event, \code{m_diff} fixes the
+family MR de-biases over.  See \code{\link{dina_subgroup}}.
+Unknown keys raise
 an error.}
 
 \item{dina_select_statistic}{Character, one of \code{"effect"} (default) or
@@ -257,11 +277,15 @@ from the Pareto frontier of the doubly-robust scores (see
 \code{sg_focus} -- \code{"eff"}, \code{"effMaxSG"}, \code{"effMinSG"},
 \code{"maxSG"} and \code{"minSG"} each map to the aligned frontier rule,
 as in \code{dina_subgroup()} -- and the relative band from
-\code{effect_neighborhood}. Note that \code{sg_focus} admits two further
-values, \code{"maxeff"} and \code{"maxeffCons"}, which have no branch in
-that mapping and fall through to the \code{"effMaxSG"} rule without a
-condition being raised; avoid pairing either with
-\code{grf_selection = "frontier"} until that gap is resolved.
+\code{effect_neighborhood}.  \code{"maxeff"} and \code{"maxeffCons"} map
+\strong{explicitly} to the plain effect-argmax rule (\code{"eff"}), the
+same rule \code{"hr"} takes: GRF computes no \code{Pcons}, so the
+\code{Cons} qualifier has nothing to bind to.  The mapping is exhaustive
+over the canonical foci and raises an error rather than falling through,
+so no focus can silently select under a rule the caller did not request.
+(Earlier versions had no branch for these two and defaulted them to
+\code{"effMaxSG"} silently; pairing them with
+\code{grf_selection = "frontier"} is now well defined.)
 \code{"frontier"} is the default
 because it enumerates a family that can be ranked on the inferential
 effect; the policy tree exposes no such family, so \code{"tree"} is
@@ -453,6 +477,42 @@ comparison against the argmax primitive of Guo and He (2021), which has
 no DINA or GRF counterpart.  No floor is disabled by this on any path,
 and the collapse raises no condition: it is intended behaviour, and a
 warning would fire on every such run.
+
+\strong{Per-engine resolution.}  Every accepted spelling, and the rule
+that actually runs for it on each engine:
+
+\tabular{lll}{
+\strong{sg_focus} \tab \strong{consistency} \tab \strong{dina / grf} \cr
+\code{eff}, \code{hr}, \code{maxcons} \tab consistency argmax
+(\code{Pcons}-primary, effect breaks ties) \tab effect argmax,
+\code{order(-eff)} \cr
+\code{maxeff} \tab effect argmax, no floors \tab effect argmax,
+\code{order(-eff)} \cr
+\code{maxeffCons} \tab effect argmax with the consistency floor \tab
+effect argmax, \code{order(-eff)} \cr
+\code{effMaxSG}, \code{hrMaxSG} \tab largest N within the effect band,
+per \code{selection_rule} \tab as documented in
+\code{\link{dina_subgroup}} \cr
+\code{effMinSG}, \code{hrMinSG} \tab smallest N within the effect band,
+per \code{selection_rule} \tab as documented in
+\code{\link{dina_subgroup}} \cr
+\code{maxSG} \tab largest N among qualifiers \tab largest N \cr
+\code{minSG} \tab smallest N among qualifiers \tab smallest N \cr
+}
+
+The collapse sets, stated explicitly.  On \code{"consistency"},
+\{\code{eff}, \code{hr}, \code{maxcons}\} is one rule, and \code{maxeff}
+and \code{maxeffCons} are two further \emph{distinct} rules.  On
+\code{"dina"} and \code{"grf"}, \{\code{eff}, \code{hr}, \code{maxcons},
+\code{maxeff}, \code{maxeffCons}\} is \strong{one} rule -- five spellings,
+one \code{order(-eff)}.
+
+\code{forestsearch()} announces both collapses at run time: when the
+canonical rule differs from the spelling passed, it emits one
+\code{message()} (suppressed by \code{quiet}) naming the rule that will
+actually run.  \code{\link{fs_focus_tag}} returns the stem tag for each
+cell of the table above, and is the supported way to label output files by
+the rule that ran rather than by the spelling requested.
 
 Default \code{"hr"}.  The \code{"eff*"} forms are aliases for the
 \code{"hr*"} forms and read more naturally in GLM contexts

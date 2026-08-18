@@ -33,7 +33,34 @@ over.  All must be numeric.}
 
 \item{m_diff}{scalar harm threshold on the natural-parameter scale
 of \code{fit$family}.  Subgroups are kept only if their mean tau-hat
-meets or exceeds this value.}
+meets or exceeds this value.
+
+\strong{It is a candidacy floor, not a ranking key.}  It decides which
+candidates enter the qualifying family; \code{sg_focus} then orders that
+family.  Every focus ranks only over survivors of this floor, so
+widening or tightening \code{m_diff} changes the selection by changing the
+family, not by changing the sort.
+
+\strong{Scale.}  The link (tau) scale of \code{fit$family}, which is not the scale
+the effect is usually reported on: \code{log(HR)} for \code{cox}, \code{log(OR)} for
+\code{binomial}, \code{log(IRR)} for \code{poisson}, and the raw mean difference for
+\code{gaussian}.  A harm threshold of HR 1.25 is therefore
+\code{m_diff = log(1.25)}, not \code{1.25}.
+
+\strong{Under \code{\link[=forestsearch]{forestsearch()}} with \code{subgroup_method = "dina"} this argument is
+derived, not passed through.}  It is computed as \code{log(hr.threshold)}
+(identity for \code{gaussian}) from the resolved \code{effect.threshold}, and an
+\code{m_diff} supplied in \code{dina_args} -- a \code{dina_frontier()} key -- is
+\strong{ignored} on that path.  Set the floor with \code{effect.threshold} /
+\code{hr.threshold} instead.
+
+\strong{Under \code{dina_select_statistic = "effect"}} the floor still defines the
+qualifying family on the tau-hat scale, while selection re-ranks that
+family on the refit inferential effect.  The two scales therefore do
+different jobs in one selection: \code{m_diff} shapes the family, the refit
+effect orders it.  Since multiplier resampling de-biases over the
+realized selection event, \code{m_diff} is what fixes the family MR de-biases
+over -- changing it changes the inferential target, not just the winner.}
 
 \item{n_min}{positive integer, or \code{NULL}; minimum subgroup size. Default
 \code{60L}. Supplying a value (or omitting it) uses that fixed floor. Passing
@@ -71,8 +98,19 @@ instead.}
 qualifying candidates.  One of \code{"maxSG"} (default), \code{"minSG"},
 \code{"eff"}, \code{"effMaxSG"}, \code{"effMinSG"}, \code{"maxeff"}, \code{"maxeffCons"}.  The
 canonical forms \code{"hr"}, \code{"hrMaxSG"}, \code{"hrMinSG"} (used internally by
-\code{\link[=forestsearch]{forestsearch()}}) are also accepted.  See Description for the semantics
-of each.
+\code{\link[=forestsearch]{forestsearch()}}) and the alias \code{"maxcons"} for \code{"eff"} are also
+accepted.  See Description for the semantics of each.
+
+\strong{Five spellings, one rule.}  On this path \code{"eff"}, \code{"hr"}, \code{"maxcons"},
+\code{"maxeff"} and \code{"maxeffCons"} all resolve to the same ordering,
+\code{order(-eff)}.  Two separate collapses produce that: \code{"eff"} and
+\code{"maxcons"} are aliases of \code{"hr"} everywhere (see
+\code{.normalize_sg_focus()}), and \code{"maxeff"} / \code{"maxeffCons"} are behavioural
+synonyms of \code{"hr"} here specifically.  Use \code{\link[=fs_focus_tag]{fs_focus_tag()}} to label
+output by the rule that ran; a hand-written tag reading \code{"maxeffCons"} on
+this path names a rule that did not execute.  \code{\link[=forestsearch]{forestsearch()}} announces
+the collapse at run time, gated on its \code{quiet} argument; \code{dina_subgroup()}
+called directly does not, having no \code{quiet} of its own.
 
 \code{"maxeff"} and \code{"maxeffCons"} are \strong{synonyms here}, both ranking the
 qualifying candidates by effect (ties broken by insertion order) exactly

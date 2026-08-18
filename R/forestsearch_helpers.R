@@ -890,6 +890,24 @@ reset_workers <- function(workers   = NULL,
 # check produces its usual error message.
 # ----------------------------------------------------------------------------
 
+#' The alias -> canonical map, as data
+#'
+#' Single source of truth for the alias relation.  \code{.normalize_sg_focus()}
+#' reads it forwards; \code{.sg_focus_aliases_of()} reads it backwards to name
+#' the full alias class in the run-time announcement.  Keeping one table
+#' instead of two switch()es is what stops the announcement from claiming an
+#' alias set the normalizer does not actually implement.
+#'
+#' Order matters only cosmetically: \code{.sg_focus_aliases_of()} preserves it,
+#' so \code{"hr"} reports \code{"eff, maxcons"}.
+#'
+#' @noRd
+.FS_SG_FOCUS_ALIASES <- c(effMaxSG = "hrMaxSG",
+                          effMinSG = "hrMinSG",
+                          eff      = "hr",
+                          maxcons  = "hr")
+
+
 #' Translate the new effect-vocabulary `sg_focus` aliases to canonical form
 #'
 #' Accepts the GLM-natural vocabulary (\code{"effMaxSG"},
@@ -917,13 +935,67 @@ reset_workers <- function(workers   = NULL,
   if (!is.character(sg_focus) || length(sg_focus) != 1L) {
     return(sg_focus)  # downstream whitelist will reject
   }
-  switch(sg_focus,
-    effMaxSG = "hrMaxSG",
-    effMinSG = "hrMinSG",
-    eff      = "hr",
-    maxcons  = "hr",
-    sg_focus
-  )
+  i <- match(sg_focus, names(.FS_SG_FOCUS_ALIASES))
+  if (is.na(i)) sg_focus else unname(.FS_SG_FOCUS_ALIASES[[i]])
+}
+
+#' Every alias that resolves to a given canonical focus
+#'
+#' @param canonical Character scalar, a canonical focus name.
+#' @return Character vector of alias spellings, possibly empty.
+#' @noRd
+.sg_focus_aliases_of <- function(canonical) {
+  names(.FS_SG_FOCUS_ALIASES)[.FS_SG_FOCUS_ALIASES == canonical]
+}
+
+#' Announce sg_focus alias resolution and effect-argmax collapse (run time)
+#'
+#' Five spellings resolve to one rule and, on the DINA/GRF paths, two more
+#' collapse onto the effect argmax.  Before this, all of that was silent: a run
+#' requested as \code{sg_focus = "eff"} ranked by a rule the caller never named
+#' and left no trace of the substitution in the transcript.
+#'
+#' At most one message fires -- no alias resolves to \code{"maxeff"} or
+#' \code{"maxeffCons"}, so the two conditions are disjoint.
+#'
+#' \code{message()}, never \code{cat()}: the simulation cells run with
+#' \code{quiet = TRUE} and must stay silent, and stderr is suppressible with
+#' \code{suppressMessages()}.
+#'
+#' @param sg_focus_user The spelling the caller passed.
+#' @param sg_focus The canonical form after \code{.normalize_sg_focus()}.
+#' @param subgroup_method One of "consistency", "dina", "grf".
+#' @param quiet Logical. When TRUE nothing is emitted.
+#' @return `NULL`, invisibly. Called for its side effect.
+#' @noRd
+.announce_sg_focus <- function(sg_focus_user, sg_focus, subgroup_method,
+                               quiet = FALSE) {
+  if (isTRUE(quiet)) return(invisible(NULL))
+  if (!is.character(sg_focus_user) || length(sg_focus_user) != 1L) {
+    return(invisible(NULL))
+  }
+
+  if (!identical(sg_focus_user, sg_focus)) {
+    message(sprintf(
+      "sg_focus '%s' resolves to canonical rule '%s' (aliases: %s).",
+      sg_focus_user, sg_focus,
+      paste(.sg_focus_aliases_of(sg_focus), collapse = ", ")))
+  }
+
+  # DINA and GRF compute no Pcons, so the "Cons" qualifier has nothing to bind
+  # to and both spellings rank as the plain effect argmax.  Deliberate -- see
+  # the DELIBERATE SYNONYMS blocks in dina_subgroup() and forestsearch()'s
+  # frontier_rule switch -- but not something a caller can infer from the name.
+  if (identical(subgroup_method, "dina") || identical(subgroup_method, "grf")) {
+    if (sg_focus %in% c("maxeff", "maxeffCons")) {
+      message(sprintf(
+        paste0("sg_focus '%s' ranks as the effect argmax on the %s path ",
+               "(no Pcons is computed)."),
+        sg_focus_user, subgroup_method))
+    }
+  }
+
+  invisible(NULL)
 }
 
 
@@ -2147,7 +2219,12 @@ reset_workers <- function(workers   = NULL,
 
   whitelists <- list(
     "dina_subgroup(): whitelist"        = body(dina_subgroup),
-    "subgroup.consistency(): whitelist" = body(subgroup.consistency))
+    "subgroup.consistency(): whitelist" = body(subgroup.consistency),
+    # Added after this site was found holding a five-element literal subset:
+    # `maxeff` / `maxeffCons` were accepted by the two above and rejected
+    # here, so a DINA bootstrap under either focus stopped at the check.
+    "dina_subgroup_bootstrap(): whitelist" =
+      body(dina_subgroup_bootstrap))
   for (nm in names(whitelists)) {
     if (!.assigns_constant(whitelists[[nm]])) {
       problems <- c(problems, sprintf(paste0(
