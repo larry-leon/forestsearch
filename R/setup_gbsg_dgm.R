@@ -42,6 +42,19 @@
 #' \code{compute_dgm_cde()} and \code{print.gbsg_dgm} continue to work.
 #'
 #' @inheritParams create_gbsg_dgm
+#' @param k_random_noise Integer. Number of standard-normal noise columns
+#'   (\code{noise1}, \code{noise2}, ...) drawn once onto the super-population
+#'   at construction. Default \code{0L} (no noise columns; output identical
+#'   to previous versions).
+#' @param noise_seed Integer. Seed for the population-level noise draw, used
+#'   only when \code{k_random_noise > 0}. Default \code{20260807L}, the
+#'   committed population-noise seed (commit \code{2a4787bc}).
+#'
+#' @details Noise columns requested via \code{k_random_noise} are inert
+#'   N(0,1) population attributes intended as candidate confounders; the
+#'   builder never puts them in the outcome model. They are drawn once onto
+#'   the super-population (both \code{df_super_rand} and \code{df_super}),
+#'   so simulated trials and evaluation frames inherit them by row resampling.
 #'
 #' @return An object of class \code{c("aft_dgm_flex", "gbsg_dgm", "list")}
 #'   with all fields from \code{create_gbsg_dgm()} plus:
@@ -51,6 +64,12 @@
 #'     \item{\code{model_params$tau}}{Copy of \code{model_params$sigma}.}
 #'     \item{\code{model_params$censoring}}{Sub-list with
 #'       \code{type}, \code{mu}, \code{tau} for the censoring model.}
+#'     \item{\code{noise_names}}{Character vector of noise column names
+#'       (\code{character(0)} when \code{k_random_noise = 0}).}
+#'     \item{\code{noise_scheme}}{\code{"population"} when noise was drawn,
+#'       otherwise \code{"none"}.}
+#'     \item{\code{noise_seed}}{The seed used for the noise draw, or
+#'       \code{NA_integer_} when none was drawn.}
 #'   }
 #'
 #' @seealso \code{\link{create_gbsg_dgm}}, \code{\link{simulate_from_dgm}},
@@ -65,6 +84,7 @@
 #' }
 #'
 #' @export
+#' @importFrom stats rnorm
 setup_gbsg_dgm <- function(
     model           = c("alt", "null"),
     k_treat         = 1,
@@ -75,7 +95,9 @@ setup_gbsg_dgm <- function(
     cens_type       = c("weibull", "uniform"),
     use_rand_params = FALSE,
     seed            = 8316951L,
-    verbose         = FALSE
+    verbose         = FALSE,
+    k_random_noise  = 0L,
+    noise_seed      = 20260807L
 ) {
   model     <- match.arg(model)
   cens_type <- match.arg(cens_type)
@@ -93,6 +115,24 @@ setup_gbsg_dgm <- function(
     seed            = seed,
     verbose         = verbose
   )
+
+  # ── Step 1b: Population-level noise columns (scheme of commit 2a4787bc) ────
+  #
+  # Drawn once onto df_super_rand BEFORE the Step-2 copy, so df_super inherits
+  # the identical values and both frames stay consistent.  The global RNG
+  # state is saved/restored so a k_random_noise > 0 build leaves the caller's
+  # RNG stream exactly as a k_random_noise = 0 build does.
+  noise_names <- character(0)
+  if (k_random_noise > 0) {
+    noise_names <- paste0("noise", seq_len(k_random_noise))
+    has_seed <- exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+    if (has_seed) old_seed <- get(".Random.seed", envir = globalenv())
+    set.seed(noise_seed)
+    for (nm in noise_names)
+      dgm$df_super_rand[[nm]] <- stats::rnorm(nrow(dgm$df_super_rand))
+    if (has_seed) assign(".Random.seed", old_seed, envir = globalenv())
+    else rm(".Random.seed", envir = globalenv())
+  }
 
   # ── Step 2: Build df_super with simulate_from_dgm()-compatible column names ──
   #
@@ -140,6 +180,11 @@ setup_gbsg_dgm <- function(
 
   # ── Step 4: Promote class to aft_dgm_flex (keeps gbsg_dgm for dispatch) ────
   class(dgm) <- c("aft_dgm_flex", "gbsg_dgm", "list")
+
+  # ── Step 5: Record population-noise provenance ─────────────────────────────
+  dgm$noise_names  <- noise_names
+  dgm$noise_scheme <- if (k_random_noise > 0) "population" else "none"
+  dgm$noise_seed   <- if (k_random_noise > 0) noise_seed else NA_integer_
 
   dgm
 }

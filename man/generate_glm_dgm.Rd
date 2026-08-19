@@ -21,7 +21,9 @@ generate_glm_dgm(
   adverse_outcome = FALSE,
   n_super = 5000L,
   seed = 8316951L,
-  verbose = FALSE
+  verbose = FALSE,
+  k_random_noise = 0L,
+  noise_seed = 20260807L
 )
 }
 \arguments{
@@ -112,6 +114,15 @@ Default \code{8316951L}.}
 
 \item{verbose}{Logical. Print diagnostic information. Default
 \code{FALSE}.}
+
+\item{k_random_noise}{Integer. Number of standard-normal noise columns
+(\code{noise1}, \code{noise2}, ...) drawn once onto the super-population
+at construction. Default \code{0L} (no noise columns; output identical
+to previous versions).}
+
+\item{noise_seed}{Integer. Seed for the population-level noise draw, used
+only when \code{k_random_noise > 0}. Default \code{20260807L}, the
+committed population-noise seed (commit \code{2a4787bc}).}
 }
 \value{
 An object of class \code{c("glm_dgm", "list")} with:
@@ -134,6 +145,12 @@ name (count).}
 \item{\code{subgroup_info}}{List with subgroup definition,
 size, and proportion.}
 \item{\code{model_type}}{Character: \code{"alt"} or \code{"null"}.}
+\item{\code{noise_names}}{Character vector of noise column names
+(\code{character(0)} when \code{k_random_noise = 0}).}
+\item{\code{noise_scheme}}{\code{"population"} when noise was drawn,
+otherwise \code{"none"}.}
+\item{\code{noise_seed}}{The seed used for the noise draw, or
+\code{NA_integer_} when none was drawn.}
 }
 }
 \description{
@@ -146,6 +163,12 @@ individual-level potential outcomes, and stores true subgroup effects.
 The returned object can be passed to \code{\link{simulate_from_glm_dgm}}
 for simulation studies, and is compatible with
 \code{\link{run_simulation_analysis}} (which dispatches on class).
+
+Noise columns requested via \code{k_random_noise} are inert
+N(0,1) population attributes intended as candidate confounders; the
+builder never puts them in the outcome model. They are drawn once onto
+\code{df_super} after sampling, so simulated trials inherit them by
+row resampling.
 }
 \examples{
 \dontrun{

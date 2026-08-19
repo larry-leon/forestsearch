@@ -1,3 +1,12 @@
+# forestsearch 0.2.2
+
+## Builders own population noise
+
+setup_gbsg_dgm() and generate_glm_dgm() gain k_random_noise/noise_seed:
+population-level noise drawn once onto df_super at construction (scheme of
+2a4787bc, previously driver-local); recorded as noise_scheme='population'.
+Default k_random_noise = 0 is output-identical to 0.2.1.
+
 # forestsearch 0.2.1
 
 ## `sg_focus` alias resolution is now announced at run time

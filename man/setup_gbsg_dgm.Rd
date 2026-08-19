@@ -14,7 +14,9 @@ setup_gbsg_dgm(
   cens_type = c("weibull", "uniform"),
   use_rand_params = FALSE,
   seed = 8316951L,
-  verbose = FALSE
+  verbose = FALSE,
+  k_random_noise = 0L,
+  noise_seed = 20260807L
 )
 }
 \arguments{
@@ -50,6 +52,15 @@ using estimates from randomized subset (meno == 0). Default: FALSE}
 Default: 8316951}
 
 \item{verbose}{Logical. Print diagnostic information. Default: FALSE}
+
+\item{k_random_noise}{Integer. Number of standard-normal noise columns
+(\code{noise1}, \code{noise2}, ...) drawn once onto the super-population
+at construction. Default \code{0L} (no noise columns; output identical
+to previous versions).}
+
+\item{noise_seed}{Integer. Seed for the population-level noise draw, used
+only when \code{k_random_noise > 0}. Default \code{20260807L}, the
+committed population-noise seed (commit \code{2a4787bc}).}
 }
 \value{
 An object of class \code{c("aft_dgm_flex", "gbsg_dgm", "list")}
@@ -60,6 +71,12 @@ with all fields from \code{create_gbsg_dgm()} plus:
 \item{\code{model_params$tau}}{Copy of \code{model_params$sigma}.}
 \item{\code{model_params$censoring}}{Sub-list with
 \code{type}, \code{mu}, \code{tau} for the censoring model.}
+\item{\code{noise_names}}{Character vector of noise column names
+(\code{character(0)} when \code{k_random_noise = 0}).}
+\item{\code{noise_scheme}}{\code{"population"} when noise was drawn,
+otherwise \code{"none"}.}
+\item{\code{noise_seed}}{The seed used for the noise draw, or
+\code{NA_integer_} when none was drawn.}
 }
 }
 \description{
@@ -82,6 +99,12 @@ and a \code{model_params$censoring} sub-list.
 }
 The original \code{df_super_rand} field is kept so that
 \code{compute_dgm_cde()} and \code{print.gbsg_dgm} continue to work.
+
+Noise columns requested via \code{k_random_noise} are inert
+N(0,1) population attributes intended as candidate confounders; the
+builder never puts them in the outcome model. They are drawn once onto
+the super-population (both \code{df_super_rand} and \code{df_super}),
+so simulated trials and evaluation frames inherit them by row resampling.
 }
 \examples{
 \dontrun{

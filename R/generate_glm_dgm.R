@@ -98,6 +98,19 @@
 #'   Default \code{8316951L}.
 #' @param verbose Logical. Print diagnostic information. Default
 #'   \code{FALSE}.
+#' @param k_random_noise Integer. Number of standard-normal noise columns
+#'   (\code{noise1}, \code{noise2}, ...) drawn once onto the super-population
+#'   at construction. Default \code{0L} (no noise columns; output identical
+#'   to previous versions).
+#' @param noise_seed Integer. Seed for the population-level noise draw, used
+#'   only when \code{k_random_noise > 0}. Default \code{20260807L}, the
+#'   committed population-noise seed (commit \code{2a4787bc}).
+#'
+#' @details Noise columns requested via \code{k_random_noise} are inert
+#'   N(0,1) population attributes intended as candidate confounders; the
+#'   builder never puts them in the outcome model. They are drawn once onto
+#'   \code{df_super} after sampling, so simulated trials inherit them by
+#'   row resampling.
 #'
 #' @return An object of class \code{c("glm_dgm", "list")} with:
 #'   \describe{
@@ -119,6 +132,12 @@
 #'     \item{\code{subgroup_info}}{List with subgroup definition,
 #'       size, and proportion.}
 #'     \item{\code{model_type}}{Character: \code{"alt"} or \code{"null"}.}
+#'     \item{\code{noise_names}}{Character vector of noise column names
+#'       (\code{character(0)} when \code{k_random_noise = 0}).}
+#'     \item{\code{noise_scheme}}{\code{"population"} when noise was drawn,
+#'       otherwise \code{"none"}.}
+#'     \item{\code{noise_seed}}{The seed used for the noise draw, or
+#'       \code{NA_integer_} when none was drawn.}
 #'   }
 #'
 #' @seealso \code{\link{simulate_from_glm_dgm}},
@@ -149,7 +168,7 @@
 #' }
 #'
 #' @export
-#' @importFrom stats glm binomial coef predict qlogis plogis as.formula
+#' @importFrom stats glm binomial coef predict qlogis plogis as.formula rnorm
 generate_glm_dgm <- function(
     data,
     factor_vars,
@@ -167,7 +186,9 @@ generate_glm_dgm <- function(
     adverse_outcome = FALSE,
     n_super         = 5000L,
     seed            = 8316951L,
-    verbose         = FALSE
+    verbose         = FALSE,
+    k_random_noise  = 0L,
+    noise_seed      = 20260807L
 ) {
 
   # -- Argument matching -----------------------------------------------------
@@ -377,6 +398,23 @@ generate_glm_dgm <- function(
   df_super$id <- seq_len(n_super)
   rownames(df_super) <- NULL
 
+  # -- Population-level noise columns (scheme of commit 2a4787bc) -------------
+  # Drawn once onto df_super AFTER the set.seed(seed) sampling above, so the
+  # existing sampling stream is untouched.  The global RNG state is saved and
+  # restored so a k_random_noise > 0 build leaves the caller's RNG stream
+  # exactly as a k_random_noise = 0 build does.
+  noise_names <- character(0)
+  if (k_random_noise > 0) {
+    noise_names <- paste0("noise", seq_len(k_random_noise))
+    has_seed <- exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+    if (has_seed) old_seed <- get(".Random.seed", envir = globalenv())
+    set.seed(noise_seed)
+    for (nm in noise_names)
+      df_super[[nm]] <- stats::rnorm(nrow(df_super))
+    if (has_seed) assign(".Random.seed", old_seed, envir = globalenv())
+    else rm(".Random.seed", envir = globalenv())
+  }
+
   # -- Compute potential outcomes --------------------------------------------
   # All computation uses the linear predictor (link scale):
   #   binary:     logit scale
@@ -515,7 +553,12 @@ generate_glm_dgm <- function(
     model      = model,
     adverse_outcome = adverse_outcome,
     n_super    = n_super,
-    seed       = seed
+    seed       = seed,
+
+    # Population-noise provenance (scheme of commit 2a4787bc)
+    noise_names  = noise_names,
+    noise_scheme = if (k_random_noise > 0) "population" else "none",
+    noise_seed   = if (k_random_noise > 0) noise_seed else NA_integer_
   )
 
   class(result) <- c("glm_dgm", "list")
