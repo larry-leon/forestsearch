@@ -16,7 +16,7 @@ format:
 
 <!-- DERIVED (rev 3, standalone campaign) from the committed template
      maxeffCons_mr_coverage_sweep_h10_knoise3.qmd (repo commit e9caa8b3).
-     Knob deltas ONLY: knoise 3->0; FS-only; grid c(500,1000).
+     Knob deltas ONLY: FS-only; grid c(500,1000).
      Plus ONE structural knob: campaign_tag = "standalone1" appended to run_tag,
      so this campaign writes ONLY to *_standalone1 dirs and can neither touch nor
      reuse any pre-existing tag directory (knoise0 FB contents etc. untouched). -->
@@ -112,7 +112,7 @@ analysis_time  <- 84            # administrative censoring (months)
 cens_adjust    <- log(1.5)
 n_super        <- 100000L
 target_hr_harm <- 1.0           # calibrate k_inter to this Cox HR in the harm subgroup
-k_random_noise <- 0             # add k_random_noise standard-normal noise confounders
+k_random_noise <- 3             # add k_random_noise standard-normal noise confounders
 
 # ── Run identity (DERIVED — do not hand-edit) ────────────────────────────────
 # run_tag identifies THIS run.  results_dir AND the grid filename both derive
