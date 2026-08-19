@@ -16,7 +16,7 @@ format:
 
 <!-- DERIVED (rev 3, standalone campaign) from the committed template
      maxeffCons_mr_coverage_sweep_h10_knoise3.qmd (repo commit e9caa8b3).
-     Knob deltas ONLY: knoise 3->0; FS-only; grid c(500,1000).
+     Knob deltas ONLY: target 1.0->1.5; knoise 3->0; FS-only; grid c(500,1000).
      Plus ONE structural knob: campaign_tag = "standalone1" appended to run_tag,
      so this campaign writes ONLY to *_standalone1 dirs and can neither touch nor
      reuse any pre-existing tag directory (knoise0 FB contents etc. untouched). -->
@@ -88,7 +88,7 @@ n_grid   <- seq(500L, 2000L, by = 250L)         # sample-size axis: 500..2000 by
 # Subset these for a preliminary pass; restore to `methods` / `n_grid` for the
 # full grid.  (Resumable either way — see the run-sweep chunk.)
 methods_run <- "consistency"                     # FS-only: consuming fragments read only FS rows/cells
-n_grid_run  <- c(500L, 1000L, 1500L, 2000L)      # full prose grid for the null-sweep fragment
+n_grid_run  <- c(500L, 1000L)                    # exactly the cells the consuming fragments read
 
 # ── Counts (the main knobs for smoke → production) ───────────────────────────
 n_sims    <- 500L        # simulated trials per cell        (prod: 1000 → 20000)
@@ -111,7 +111,7 @@ dgm_model      <- "alt"
 analysis_time  <- 84            # administrative censoring (months)
 cens_adjust    <- log(1.5)
 n_super        <- 100000L
-target_hr_harm <- 1.0           # calibrate k_inter to this Cox HR in the harm subgroup
+target_hr_harm <- 1.5           # calibrate k_inter to this Cox HR in the harm subgroup
 k_random_noise <- 0             # add k_random_noise standard-normal noise confounders
 
 # ── Run identity (DERIVED — do not hand-edit) ────────────────────────────────

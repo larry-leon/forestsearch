@@ -14,12 +14,14 @@ format:
     code-fold: true
 ---
 
-<!-- DERIVED (rev 3, standalone campaign) from the committed template
+<!-- DERIVED (rev 4, standalone2 fresh restart) from the committed template
      maxeffCons_mr_coverage_sweep_h10_knoise3.qmd (repo commit e9caa8b3).
-     Knob deltas ONLY: knoise 3->0; FS-only; grid c(500,1000).
-     Plus ONE structural knob: campaign_tag = "standalone1" appended to run_tag,
-     so this campaign writes ONLY to *_standalone1 dirs and can neither touch nor
-     reuse any pre-existing tag directory (knoise0 FB contents etc. untouched). -->
+     Knob deltas ONLY: FS-only; grid c(500,1000).
+     Plus ONE structural knob: campaign_tag = "standalone2" appended to run_tag,
+     so this campaign writes ONLY to *_standalone2 dirs and can neither touch nor
+     reuse any pre-existing tag directory (knoise0 FB contents etc. untouched).
+     REV 4 / standalone2: fresh restart namespace; ships PILOT-first (n_sims = 20L).
+     Per-cell bundles carry mr_* estimator stems (mr_H_est/lo/hi, nv_*, or_*). -->
 
 > **One document, one sweep.** This renders the entire
 > `subgroup_method × n_sample` grid (3 methods × 7 sizes = 21 cells), writes one
@@ -91,7 +93,7 @@ methods_run <- "consistency"                     # FS-only: consuming fragments 
 n_grid_run  <- c(500L, 1000L, 1500L, 2000L)      # full prose grid for the null-sweep fragment
 
 # ── Counts (the main knobs for smoke → production) ───────────────────────────
-n_sims    <- 500L        # simulated trials per cell        (prod: 1000 → 20000)
+n_sims    <- 20L         # PILOT default — flip to 500L for production (s<n_sims> in the tag keeps pilot/production dirs separate)
 nb_boots  <- NULL       # FB nonparametric bootstraps; NULL/0 ⇒ MR-only (FB dormant)
 mr_draws <- 5000L     # MR multiplier draws              (keep ~2000–5000)
 diag_mode <- FALSE      # TRUE caps each cell to 5 reps.  (Errors no longer need
@@ -112,7 +114,7 @@ analysis_time  <- 84            # administrative censoring (months)
 cens_adjust    <- log(1.5)
 n_super        <- 100000L
 target_hr_harm <- 1.0           # calibrate k_inter to this Cox HR in the harm subgroup
-k_random_noise <- 0             # add k_random_noise standard-normal noise confounders
+k_random_noise <- 3             # add k_random_noise standard-normal noise confounders
 
 # ── Run identity (DERIVED — do not hand-edit) ────────────────────────────────
 # run_tag identifies THIS run.  results_dir AND the grid filename both derive
@@ -155,7 +157,7 @@ focus_tag <- .FOCUS_TAGS[[sg_focus]]
 fb_active    <- is.numeric(nb_boots) && length(nb_boots) == 1L && nb_boots >= 1L
 engine_tag   <- if (fb_active) "fbmr" else "mr"
 scenario_tag <- sprintf("m1_h%02d_knoise%d", round(10 * target_hr_harm), k_random_noise)
-campaign_tag <- "standalone1"  # NEW knob: namespaces this fresh standalone campaign into its own
+campaign_tag <- "standalone2"  # NEW knob: namespaces this fresh standalone campaign into its own
                                # run_tag/dir family; "" reproduces the legacy (pre-campaign) tag.
 run_tag      <- sprintf("%s_%s_%s_seedtab_s%d%s", scenario_tag, focus_tag, engine_tag, n_sims,
                         if (nzchar(campaign_tag)) paste0("_", campaign_tag) else "")
