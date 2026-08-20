@@ -90,10 +90,10 @@ n_grid   <- seq(500L, 2000L, by = 250L)         # sample-size axis: 500..2000 by
 # Subset these for a preliminary pass; restore to `methods` / `n_grid` for the
 # full grid.  (Resumable either way — see the run-sweep chunk.)
 methods_run <- "consistency"                     # FS-only: consuming fragments read only FS rows/cells
-n_grid_run  <- c(500L, 1000L)                    # exactly the cells the consuming fragments read
+n_grid_run  <- n_grid                            # FULL grid: seq(500L, 2000L, by = 250L) = 7 sizes
 
 # ── Counts (the main knobs for smoke → production) ───────────────────────────
-n_sims    <- 20L         # PILOT default — flip to 500L for production (s<n_sims> in the tag keeps pilot/production dirs separate)
+n_sims    <- 500L        # PRODUCTION (test copy uses 20L; s<n_sims> keeps dirs separate)
 nb_boots  <- NULL       # FB nonparametric bootstraps; NULL/0 ⇒ MR-only (FB dormant)
 mr_draws <- 5000L     # MR multiplier draws              (keep ~2000–5000)
 diag_mode <- FALSE      # TRUE caps each cell to 5 reps.  (Errors no longer need
