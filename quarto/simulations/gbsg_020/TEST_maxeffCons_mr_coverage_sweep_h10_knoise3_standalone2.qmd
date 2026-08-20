@@ -14,9 +14,11 @@ format:
     code-fold: true
 ---
 
-<!-- DERIVED (rev 4, standalone2 fresh restart) from the committed template
+<!-- TEST COPY (n_sims = 20) of maxeffCons_mr_coverage_sweep_h10_knoise3_standalone2.qmd.
+     Delete or ignore after the smoke test; production runs use the s500 file.
+     DERIVED (rev 4, standalone2 fresh restart) from the committed template
      maxeffCons_mr_coverage_sweep_h10_knoise3.qmd (repo commit e9caa8b3).
-     Knob deltas ONLY: target 1.0->2.0; FS-only; grid c(1500).
+     Knob deltas ONLY: FS-only; grid c(500,1000).
      Plus ONE structural knob: campaign_tag = "standalone2" appended to run_tag,
      so this campaign writes ONLY to *_standalone2 dirs and can neither touch nor
      reuse any pre-existing tag directory (knoise0 FB contents etc. untouched).
@@ -93,7 +95,7 @@ methods_run <- "consistency"                     # FS-only: consuming fragments 
 n_grid_run  <- n_grid                            # FULL grid: seq(500L, 2000L, by = 250L) = 7 sizes
 
 # ── Counts (the main knobs for smoke → production) ───────────────────────────
-n_sims    <- 500L        # PRODUCTION (test copy uses 20L; s<n_sims> keeps dirs separate)
+n_sims    <- 20L         # TEST COPY — pilot only; writes to *_s20_standalone2, never touches s500
 nb_boots  <- NULL       # FB nonparametric bootstraps; NULL/0 ⇒ MR-only (FB dormant)
 mr_draws <- 5000L     # MR multiplier draws              (keep ~2000–5000)
 diag_mode <- FALSE      # TRUE caps each cell to 5 reps.  (Errors no longer need
@@ -113,7 +115,7 @@ dgm_model      <- "alt"
 analysis_time  <- 84            # administrative censoring (months)
 cens_adjust    <- log(1.5)
 n_super        <- 100000L
-target_hr_harm <- 2.0           # calibrate k_inter to this Cox HR in the harm subgroup
+target_hr_harm <- 1.0           # calibrate k_inter to this Cox HR in the harm subgroup
 k_random_noise <- 3             # add k_random_noise standard-normal noise confounders
 
 # ── Run identity (DERIVED — do not hand-edit) ────────────────────────────────
