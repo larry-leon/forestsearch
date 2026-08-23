@@ -147,9 +147,10 @@ conditional on the family.
 
 ## 6. Checks and initial verification
 
-Sandbox run of record for this draft: R 4.3.3, mvtnorm 1.2.4, seed 20260823,
-Linux container, total runtime 3.2 s; **16 PASS / 0 FAIL**. The CC re-run on
-the primary machine becomes the on-record verification. Synthetic family:
+On-record verification: primary machine (pop-os), 2026-08-23, R 4.6.1 (2026-06-24), mvtnorm 1.4.2,
+seed 20260823, total runtime 2.4 s; **16 PASS / 0 FAIL** -- numerically
+identical line for line (runtime aside) to the drafting-stage sandbox run
+(R 4.3.3, mvtnorm 1.2.4, 3.2 s). Synthetic family:
 three binary covariates ($x_1, x_2$ dependent; $P(x_3{=}1) = 0.95$ to
 manufacture a near-duplicate), $M = 14$ after a 0.10 prevalence floor;
 $Q = \{x_1{=}1 \wedge x_2{=}1\}$, $\delta = -26.26$,
