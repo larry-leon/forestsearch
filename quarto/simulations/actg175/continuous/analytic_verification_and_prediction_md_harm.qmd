@@ -1,0 +1,542 @@
+---
+title: "The Analytic Layer for the MD/Harm Pathway: Verification and Prediction"
+subtitle: "Certified Identities, the Approximation Ladder, and Semi-Analytic Operating Characteristics (Continuous Outcomes)"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: true
+  message: true
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>")
+```
+
+# Scope and provenance
+
+This document consolidates the analytic materials for the continuous/MD harm
+pathway into a single reference. It combines, and is intended to supersede as
+the working reference, two committed documents in this directory:
+`analytic_verification_math_details.qmd` (the verification tiers: what closed
+forms certify exactly) and
+`analytic_derivations_mr_operating_characteristics.qmd` (the prediction
+layer: which MR operating characteristics are derivable before a grid runs).
+Both parents are left unchanged in the repository; this document adds the
+connective material between them — the explicit ladder from exact identities
+to each approximation actually carried out, including the population-level
+covariance decomposition previously deferred and now derived and verified.
+
+Supporting artifacts: `dev/detection-theory-continuous/`
+(`NOTE_declaration_gaussian_md.md`; `check_declaration_gaussian_md.R`,
+on-record 16 PASS / 0 FAIL, cross-stack identical output on
+R 4.6.1/mvtnorm 1.4.2 and R 4.3.3/mvtnorm 1.2.4; and
+`check_additive_covariance_md.R`, the additive-decomposition verification
+cited in @sec-ladder).
+
+Estimand language is strict throughout. $\beta(\hat H)$ is the conditional
+estimand — the exact treatment effect at the realized, data-selected rule,
+computed on the fixed super-population with zero Monte Carlo error.
+$\theta^\dagger(H)$ is the marginal true-subgroup effect at the designed
+region $Q$. MR conditions on the realized candidate family, targets
+$\beta(\hat H)$, and is scored against $\beta(\hat H)$, never
+$\theta^\dagger$. Effects are reported on the oriented scale
+(positive = harm) under `adverse_outcome = FALSE`; exact references are
+stored on the raw scale and the orientation bridge applies the sign map once.
+
+# Fixture, estimator, and event conventions
+
+The committed harm-pathway fixture (`df_super`, $N = 5000$;
+`actg175_continuous_simulations.qmd` lines 65, 100, 118–119): designed
+region $Q$ with $|Q| = 1723$, prevalence $\pi = 0.3446$; raw-scale effects
+$\tau_Q = -40$ (calibration target), $\tau_{Q^c} = -26.255235876$,
+$\beta_{\mathrm{int}} = \tau_Q - \tau_{Q^c} = -13.744764124$; oriented
+values $+40$, $+26.255235876$, $+13.744764124$. The CATE is two-valued.
+Screening floor $c_1 = 30$ and consistency floor $c_2 = 10$, oriented.
+
+Three conventions, verified against package source, govern everything below:
+the estimator is the within-subgroup OLS treatment coefficient of
+`lm(y ~ treat)` — the difference in arm means — on the oriented scale
+(`R/glm_effect_estimators.R:814-821`); the screening and consistency events
+compare **point estimates** to the floors
+(`R/subgroup_search.R:626`; `R/subgroup_consistency_main.R:528-531`), so
+estimated variance never enters an event definition; and thresholds are
+one-sided floors on the oriented scale, never direction switches
+(`dev/glm-continuous-sims/NOTE_threshold_sign_md.md`).
+
+# Part I — The certified layer
+
+## Tier A: algebraic closed forms (exactly verifiable)
+
+**Proposition 1 (mixture identity; the content of CHECK A).** For every
+$H \subseteq \mathcal{S}$ with $|H| > 0$,
+
+$$
+\beta(H)
+\;=\; \frac{|H \cap Q|\,\tau_Q + |H \cap Q^c|\,\tau_{Q^c}}{|H|}
+\;=\; \tau_{Q^c} + \beta_{\mathrm{int}}\, P(Q \mid H).
+$$
+
+*Proof.* Identity link and randomization give collapsibility —
+$\beta(H)$ is the average CATE over $H$ — and a two-valued $\tau$ makes
+that average a two-point mixture determined by one overlap count. $\square$
+
+The force of Proposition 1 is its quantifier: it holds for **every** rule,
+including every data-selected $\hat H$, so the scoring target behind every
+bias and coverage figure reduces to counting on a fixed finite set —
+machine-exact. In the committed runs, CHECK A recomputed $\beta(\hat H)$
+this way for each realized rule and held at $1.421\times 10^{-14}$ across
+601–912 distinct rules per cell.
+
+**Corollaries.** (i) $\beta(H^c)$ by the same mixture on the complement.
+(ii) The ITT chain: $\beta(\mathcal{S}) = \tau_{Q^c} +
+\beta_{\mathrm{int}}\pi = -30.991681593$ raw, which the bundles reproduce
+as the complement effect on undetected rows. (iii) Disjointness:
+$H \cap Q = \varnothing \Rightarrow \beta(H) = \tau_{Q^c}$ — observed
+verbatim when a replicate selected a region disjoint from $Q$ and scored
+exactly $26.255$ oriented. (iv) Calibration (CHECK B):
+$\theta^\dagger(Q) = \beta(Q) = \tau_Q$ identically. (v) Classification
+identities: with $s = |\hat H \cap Q|$, $\mathrm{sens} = s/|Q|$,
+$\mathrm{PPV} = s/|\hat H|$, hence $\mathrm{PPV} \equiv \mathrm{sens}\cdot
+|Q|/|\hat H|$ — the reported metrics carry one degree of freedom given the
+sizes, an exact internal consistency relation.
+
+```{r itt-live}
+pfile <- "mr_sweep_md_harm/md_harm_s50_pilot/fs_md_harm_n1000_res.rds"
+if (file.exists(pfile)) {
+  b <- readRDS(pfile); tr <- b$truth; r <- b$results
+  pred_itt <- tr$effect_Qc + tr$beta_inter * tr$prevalence_Q
+  obs_itt  <- unique(round(r$betaHhat_Hc[r$detected %in% 0L |
+                                         is.na(r$detected)], 9))
+  stopifnot(length(obs_itt) == 1L, abs(pred_itt - obs_itt) < 1e-8)
+  cat(sprintf("ITT chain: tau_Qc + beta_int*pi = %.9f; bundle records %.9f\n",
+              pred_itt, obs_itt))
+}
+```
+
+(The chunk is guarded: the `mr_sweep_md_harm` bundles are summary-era and
+machine-local; where absent, the chunk skips silently and the committed
+record above stands.)
+
+## Tier B: exact by computation, not by formula
+
+Quantities defined on $\mathcal{S}$ for a realized object are computable
+with zero Monte Carlo error by finite summation even when no algebraic form
+exists. First, in the binary/OR port the mixture identity fails — for a
+link $g$, $g^{-1}$ of a mixture is not the mixture of $g^{-1}$'s — yet the
+exact OR over $H$ remains a deterministic function of the DGM's probability
+surfaces evaluated on $\mathcal{S}$: Tier A degrades to Tier B, the
+reference stays exact (the risk-difference scale retains full Tier A).
+Second, the covariance structure of the candidate estimators: conditional
+on a realized family and sample, the difference-in-means estimators over
+regions $H_j, H_k$ with arm-wise counts $n_{j,a}$ satisfy, under
+homoscedastic $\varepsilon$,
+
+$$
+\operatorname{Cov}\!\big(\hat\beta_j, \hat\beta_k\big)
+\;=\; \sigma^2 \sum_{a\in\{0,1\}}
+\frac{\,n_{jk,a}\,}{\,n_{j,a}\, n_{k,a}\,},
+\qquad n_{jk,a} = |H_j \cap H_k \cap \{A=a\}|,
+$$
+
+an exact overlap computation; under balanced arms the correlation is the
+overlap fraction $P(H_j \cap H_k)/\sqrt{P(H_j)P(H_k)}$, free of $\sigma$.
+The caveat is stated rather than hidden: family membership and quantile
+cuts are data-dependent, so this exactness is conditional on the realized
+family.
+
+## Tier C: computational identities
+
+Dual-path equalities (two independent computations of one quantity must
+agree exactly — CHECK C), the partition $|H| + |H^c| = N$ on every row, and
+bit-level reproducibility (a replicate is a deterministic function of
+(seed, RNG kind), so the standard is equality, not tolerance). These verify
+the *implementation*, not the estimand, and their exactness makes failures
+self-diagnosing: CHECK C's two quantities disagreeing by
+$1.98\times 10^{2}$ while summing to $2.7\times 10^{-13}$ is uniquely the
+signature of a sign flip — a tolerance-based check could only have said
+"off."
+
+# Part II — From identities to approximations: the ladder {#sec-ladder}
+
+The connective structure of the analytic layer is a ladder of six levels.
+At each level, exactly one new source of error enters; everything below it
+remains exact. This ordering is what converts "Gaussian approximation" from
+a label into an audited chain.
+
+## Level 0–1: identities and exact computation
+
+Tier A supplies the mean structure exactly (mixture values for every rule);
+Tier B supplies the covariance structure exactly (overlap counts) and exact
+references where formulas fail. Error: none.
+
+## Level 2: the design-conditional law is an identity, not an approximation
+
+Fix a candidate family $\mathcal G = \{g_1, \dots, g_M\}$ and a design
+$D = \{(X_i, A_i)\}$. The estimator vector is linear in $Y$,
+$\hat\beta = C Y$ with $C$ the $M \times n$ coefficient matrix
+($c_i(g) = \mathbb 1\{i \in g\}(A_i/n_{g,1} - (1-A_i)/n_{g,0})$). Under
+Gaussian noise with known $\sigma^2$,
+
+$$
+\hat\beta \mid D \;\sim\; N_M\!\big(m(D),\ \sigma^2 C C^\top\big)
+$$
+
+**exactly** — a distributional identity. The conditional mean decomposes
+linearly in the DGM effect parameters,
+$m(D) = a_0 + \tau_{Q^c}\, a_1 + \beta_{\mathrm{int}}\, a_2$ (prognostic
+imbalance, treatment, and realized-$P(Q \mid g, \text{arm } 1)$
+components), so null, borderline, and alternative scenarios share one
+design geometry; and $\sigma^2 C C^\top$ coincides with the Tier B overlap
+formula (verified identical at $1.9\times 10^{-15}$). Declaration and
+selection events are then exact probabilities of a known law, and the only
+error at this level is numerical quadrature: `mvtnorm::pmvnorm`'s
+Genz–Bretz quasi–Monte Carlo, with a reported error estimate
+($3\times 10^{-8}$ observed at correlation $0.98$) and a stated requirement
+that tail rates use `abseps` $\le 10^{-5}$ (the default $10^{-3}$ is 40%+
+relative error at $P \approx 0.002$). Exact duplicates make the law
+singular; de-duplicate the family first.
+
+## Level 3: CLT and plug-in — where estimation error enters, and where it cannot
+
+Two departures from Level 2, each measured. **Non-Gaussian noise:** the
+same MVN law becomes a CLT approximation for the weighted sums $CY$;
+accuracy is governed by the smallest arm counts and the noise shape, and
+was measured at $0.016$ absolute rate error with minimum arm size 10 and
+noise skewness $\approx 6.2$ — the linear estimator's averaging does the
+work. **Estimated variance:** because the procedure's events are defined on
+point estimates, $\widehat\Sigma$ enters only the *computed probabilities*,
+never the events. The single-dataset plug-in (per-candidate `lm` standard
+errors with design-known overlap correlations) displaced the family rate by
+$0.012$. One structural observation connects this level to the next: the
+per-subgroup `lm` residual variance absorbs the within-region prognostic
+and CATE spread (measured inflation factors $0.94$–$1.09$ over
+$\sigma$-only truth), so the analyst's plug-in is a nearly unbiased
+estimate of the *population-level* effective variance of Level 4 rather
+than the conditional $\sigma^2$ — plug-in computations approximate the
+unconditional law, known-$\sigma$ computations the design-conditional one.
+
+## Level 4: population averaging — the additive covariance decomposition {#sec-additive}
+
+Averaging over designs, the means converge to the mixture values. The
+variances and covariances require care, and this is where a purely
+multiplicative repair fails. Write, for subject $i$ in region $g$, the
+centered prognostic and CATE contributions
+
+$$
+u^{(g)}_i = \mu_0(X_i) - \mathbb E[\mu_0 \mid g], \qquad
+t^{(g)}_i = \beta_{\mathrm{int}}\big(\mathbb 1\{X_i \in Q\} - P(Q \mid g)\big),
+$$
+
+so that, to leading order, the estimator's deviation from its target is a
+sum of independent per-subject influence contributions
+$\hat\beta(g) - \beta(g) \approx \sum_i \psi_i(g)$ with
+
+$$
+\psi_i(g) = \frac{2}{nP(g)}\,\mathbb 1\{i \in g\}
+\Big[A_i\big(u^{(g)}_i + t^{(g)}_i + \varepsilon_i\big)
+   - (1 - A_i)\big(u^{(g)}_i + \varepsilon_i\big)\Big].
+$$
+
+Taking expectations over $(A, \varepsilon)$ with $A \sim
+\mathrm{Bern}(1/2)$ independent of $X$ yields the **additive population
+covariance**: for any pair $(g, g')$,
+
+$$
+\Sigma_{\mathrm{pop}}(g, g')
+= \frac{4}{n}\cdot\frac{P(g \cap g')}{P(g)P(g')}
+\left(\sigma^2 \;+\;
+\mathbb E\!\left[\, u^{(g)} u^{(g')}
++ \tfrac{1}{2}\big(u^{(g)} t^{(g')} + t^{(g)} u^{(g')} + t^{(g)} t^{(g')}\big)
+\;\middle|\; g \cap g'\right]\right),
+$$
+
+with $\Sigma_{\mathrm{pop}}(g, g') = 0$ exactly for disjoint pairs. Every
+term is enumerable on `df_super`. Three structural facts follow. (i) The
+diagonal reproduces the variance correction
+$\sigma^2 + \operatorname{Var}(\mu_0 \mid g) +
+\operatorname{Var}(\tau \mid g)/2 + \operatorname{Cov}(\mu_0, \tau \mid g)$
+— verified identical at $5.9\times 10^{-16}$. (ii) $\Sigma_{\mathrm{pop}}$
+is a Gram matrix of the influence functions $\psi(g)$ in $L^2$, hence
+positive semi-definite; near-duplicate candidates place it close to
+singular, so numerical evaluation uses an eigenvalue floor. (iii) The
+off-diagonal is **not** the $\sigma$-overlap correlation applied to
+corrected variances: the imbalance components covary through their own
+intersection moments. This is precisely the mechanism behind the borderline
+residual — for the engineered near-duplicate (no prognostic variation along
+its differing coordinate), the additive law reduces
+$\operatorname{corr}(Q, \mathrm{dup})$ from the $\sigma$-overlap value
+$0.9747$ to $0.9385$, decorrelating exactly where both candidates sit at
+the threshold.
+
+**Verification** (`dev/detection-theory-continuous/check_additive_covariance_md.R`,
+sandbox R 4.3.3/mvtnorm 1.2.4, seed 46, fresh population Monte Carlo,
+$n_{\mathrm{rep}} = 6000$): at the adversarial borderline, MC $0.5580$
+(SE $0.0064$) against additive computation $0.5568$ — gap $-0.0012$,
+$0.2$ MC standard errors, where the naive and multiplicatively corrected
+computations both sat at $0.536$ ($\approx 3.4$ SEs off); at the
+alternative, MC $0.8507$ against additive $0.8511$ ($0.1$ SEs). The
+population layer is therefore exact to leading order with all terms
+enumerable; what remains outside it is second order — the $O(1/n)$
+ratio-estimator terms from random arm counts and the non-normality of
+small binomial pieces.
+
+## Level 5: idealization — the gaps between the computed procedure and forestsearch
+
+The computed functionals idealize the procedure in four named ways, each
+with a diagnostic signature rather than a hidden discrepancy. **Fixed
+versus regenerated family:** the computation conditions on an enumerated
+family; the real identifier regenerates $\sim$1500 candidates per replicate
+from data-dependent quantile cuts under `n.min` viability. Growth of a
+fitted $L_{\mathrm{eff}}$ with $N$, and the measured sensitivity decline
+($0.208 \to 0.062$) against a fixed-family law that concentrates on
+maximal-mean candidates, are regeneration signatures. **Single split versus
+$\hat p_{\mathrm{cons}}$:** the computed consistency rung is the idealized
+two-way split; the multi-split stability aggregation composes with the
+stability closed form and remains a deferred rung. **Argmax scope:** the
+computed selection is argmax-over-all; the procedure takes the maximum over
+*admitted* candidates under `sg_focus` — the same difference transform on a
+subset. **Nomination:** GRF/LASSO screening into the family is unmodeled,
+exactly as in the April $L_{\mathrm{eff}}$ document.
+
+## Level 6: MR-specific — the fidelity benchmark and the empirical core
+
+MR's per-draw re-selection ranks by `maxcons` on unrounded `zcons`
+(`R/fs_mr_inference.R:169`) — a different statistic than the realized
+selection. Both rankings are functionals of the same Gaussian object:
+effect-ranking uses the identity transform; consistency-ranking uses, to
+first order with design-known SEs, the diagonal rescaling
+$D = \mathrm{diag}(1/\mathrm{SE}_m)$, so the zcons-ranked argmax is the
+argmax of $D\hat\beta$ under the same difference-transform recipe.
+Consistency-ranking weights small-SE (large) regions — the computed
+counterpart of the measured $2.46\times$ ($n = 1000$) to $10.29\times$
+($n = 4000$) winner-size inflation — and the two computed selection laws
+give the semi-analytic benchmark for the fidelity fix, including the
+falsifiable prediction that simulated winner sizes collapse to the realized
+range, before any grid re-run. What stays empirical, by construction: MR's
+*sufficiency* — the residual plateau near 37 and the coverage decay
+$0.957 \to 0.731$ are measurements against certified references, and the
+resolved mechanism (`REPORT_mr_mechanism.md`, `5b4efb4`) is the fidelity
+gap, not linearization failure. The correction *scale* is derivable
+($O(n^{-1/2})$; measured decay $n^{-0.60}$).
+
+## The error ordering at a glance
+
+| Level | New error source | Enters | Measured magnitude | Control |
+|---|---|---|---|---|
+| 0–1 | none | — | $10^{-14}$–$10^{-15}$ | machine |
+| 2 | quadrature | computed probabilities | $3\times 10^{-8}$–$10^{-5}$ | `abseps` |
+| 3 | CLT; plug-in $\widehat\Sigma$ | law shape; scale | $0.016$; $0.012$ | arm sizes; pooling |
+| 4 | leading-order influence | population law | $0.001$ (additive); second order remains | enumerated moments |
+| 5 | idealization | procedure fidelity | regeneration signatures on record | conditioning; deferred rungs |
+| 6 | ranking statistic; MR sufficiency | re-selection; correction | winner-size $2.46$–$10.29\times$; residual $\sim 37$ | benchmark; empirical |
+
+# Part III — Prediction recipes {#sec-recipes}
+
+Every operating characteristic below is a functional of the one law of
+@sec-ladder, evaluated without data-level simulation or refits.
+
+## Marginal floor clearance of a fixed region
+
+$P\big(\hat\beta(H) \ge c_1\big) = \bar\Phi\big((c_1 - \beta_o(H))/
+\sigma_H(n)\big)$, with $\beta_o$ the oriented mixture value and
+$\sigma_H(n)$ from Tier B. The measured anchor:
+
+```{r clearance-example}
+z <- (40 - 30) / 13.6786          # oriented truth, floor, measured SE at n=1000
+pred <- pnorm(z)
+cat(sprintf("Marginal clearance of Q at n = 1000: Phi(%.3f) = %.3f;\n", z, pred),
+    "measured (overnight O1): 36/50 = 0.720, MC SE 0.064 -- consistent.\n")
+```
+
+The marginal recipe alone under-predicts *family* detection, and the gap is
+the point: at $n = 500$, $\sigma_Q$ scales to $13.6786\sqrt 2 = 19.34$,
+giving marginal clearance $\Phi(10/19.34) = 0.697$ for $Q$ — against a
+measured family detection rate of $997/1000$. The difference is candidate
+competition (Level 2, computed exactly) plus family regeneration (Level 5,
+isolated).
+
+## Family declaration (screening exceedance)
+
+$P(\max_m \hat\beta_m \ge c_1) = 1 - \Phi_M(c_1\mathbf 1;\ m, \Sigma)$ — a
+single rectangle probability. Verified design-conditionally at
+$0.8297/0.5281/0.0262$ computed against data-level Monte Carlo
+$0.8243/0.5400/0.0288$ (alternative / borderline / null).
+
+## Split-half consistency
+
+The idealized two-split screen
+$\{W_1 + W_2 \ge 2c_1,\ \min(W_1, W_2) \ge c_2\}$ lives on a $2M$-block
+Gaussian (disjoint halves, zero cross-half covariance). The per-candidate
+probability is a one-dimensional integral — the Leon et al. (2024, SIM
+§2.1) object per candidate with its own mean and scale — verified to
+$7.5\times 10^{-4}$; the family rate is Gaussian-level Monte Carlo on the
+exact law, verified $0.8206$ vs $0.8187$.
+
+## Selection distribution and its consequences
+
+For the effect-ranked argmax,
+$$
+P\big(\hat H = g_m,\ \text{declared}\big)
+= P\big(\hat\beta_m \ge c_1,\ \hat\beta_m - \hat\beta_j \ge 0\ \forall j\big),
+$$
+a rectangle in the difference transform — one `pmvnorm` call per candidate,
+with the internal identity
+$\sum_m P(\hat H = g_m, \text{declared}) = P(\text{family declaration})$
+verified to $3\times 10^{-7}$. Selection probabilities are what the naive
+per-candidate clearance is not: in the verification family, a
+near-duplicate at correlation $0.98$ splits $P_1(Q) = 0.808$ into
+$P(\text{select } Q) = 0.374$ and $P(\text{select dup}) = 0.455$. Two
+measured phenomena become predictable consequences: winner-size drift is
+the size-weighted selection distribution, and the naive-bias column is the
+selection-noise functional $\mathbb E[\text{noise of the argmax}]$ — the
+quantity `design-checks/oracle_design.R` already evaluates on the same law.
+The zcons-ranked variant of Level 6 uses the same recipe under the diagonal
+rescaling.
+
+## Coverage, composed
+
+Conditionally on $(b, w, \sigma)$, coverage is
+$\Phi\big((w/2 - b)/\sigma\big) - \Phi\big((-w/2 - b)/\sigma\big)$,
+demonstrated against the grid in the simulation summary. Unconditionally it
+composes over the selection law,
+$\sum_m P(\hat H = g_m)\,\mathrm{cov}_m$ — semi-analytic given MR's
+realized $(b_m, w_m)$, which remain empirical inputs (Level 6).
+
+## Implied $L_{\mathrm{eff}}$ as an output
+
+The family null rate from the joint law yields an implied count directly;
+with prevalence-heterogeneous candidate variances a single-$P_1$
+normalization is ill-defined in the deep tail, and the stable readout is
+against $\max_m P_1$: $2.33, 1.80, 1.08$ at $N = 300, 600, 1200$ in the
+verification family, with the family/union-bound ratio ($0.671 \to 0.989$)
+exhibiting the correlation discount. Growth of a fitted
+$L_{\mathrm{eff}}$ with $N$ is a Level 5 regeneration phenomenon.
+
+## Worked prediction at fixture scale
+
+A three-candidate illustrative geometry at the real fixture's means and
+measured scale — $Q$ itself, an overlapping proxy $P$, and a near-duplicate
+$D \subset Q$ — with SEs scaled from the measured
+$\sigma_Q(n{=}1000) = 13.6786$ by the balanced-arms prevalence rule
+$\sigma_H = \sigma_Q\sqrt{\pi_Q/\pi_H}$. Correlations here are the
+$\sigma$-overlap block (the Level 2 law at measured scale); the additive
+refinement of @sec-additive applies when the DGM moments are in hand. The
+geometry is illustrative; the recipe is the committed one.
+
+```{r worked-prediction}
+set.seed(20260824)   # pins pmvnorm's quasi-MC randomization for the gap readout
+library(mvtnorm)
+tauQc <- 26.255235876; bint <- 13.744764124   # oriented
+c1 <- 30; seQ <- 13.6786; piQ <- 0.3446
+cand <- data.frame(
+  name = c("Q", "P (overlap proxy)", "D (near-dup, subset of Q)"),
+  pi   = c(piQ, 0.45, 0.31),
+  piQg = c(1.00, 0.28/0.45, 1.00))          # P(Q | g)
+cand$beta <- tauQc + bint * cand$piQg
+cand$se   <- seQ * sqrt(piQ / cand$pi)
+ov <- matrix(c(piQ, 0.28, 0.31,
+               0.28, 0.45, 0.28*0.31/piQ,   # |P∩D| via D ⊂ Q composition
+               0.31, 0.28*0.31/piQ, 0.31), 3, 3)
+R  <- ov / sqrt(outer(cand$pi, cand$pi))
+Sg <- R * outer(cand$se, cand$se)
+p_marg <- pnorm(c1, cand$beta, cand$se, lower.tail = FALSE)
+p_fam  <- 1 - pmvnorm(upper = rep(c1, 3), mean = cand$beta, sigma = Sg,
+                      algorithm = GenzBretz(abseps = 1e-6))
+sel <- vapply(1:3, function(m) {
+  A <- rbind(diag(3)[m, ],
+             do.call(rbind, lapply(setdiff(1:3, m),
+                                   function(j) diag(3)[m, ] - diag(3)[j, ])))
+  as.numeric(pmvnorm(lower = c(c1, 0, 0), upper = rep(Inf, 3),
+                     mean = as.numeric(A %*% cand$beta),
+                     sigma = A %*% Sg %*% t(A),
+                     algorithm = GenzBretz(abseps = 1e-6)))
+}, numeric(1))
+out <- data.frame(candidate = cand$name,
+                  beta_oriented = round(cand$beta, 3),
+                  se = round(cand$se, 3),
+                  marginal_clearance = round(p_marg, 4),
+                  selection_prob = round(sel, 4))
+knitr::kable(out, caption = sprintf(
+  "Fixture-scale worked prediction at n = 1000: family declaration %.4f; selection identity gap %.1e.",
+  as.numeric(p_fam), abs(sum(sel) - as.numeric(p_fam))))
+```
+
+## Design calculators
+
+The recipes invert. Sample size for a target marginal clearance of $Q$:
+
+```{r design-calculator}
+n_for <- function(target, se_n1000 = 13.6786, mu = 40, c1 = 30)
+  1000 * (se_n1000 * qnorm(target) / (mu - c1))^2
+cat(sprintf("n for %d%% marginal clearance of Q at floor 30: %s\n",
+            c(80L, 90L, 95L),
+            format(round(n_for(c(.80, .90, .95))), big.mark = ",")), sep = "")
+```
+
+Family-level and selection-level counterparts invert the corresponding
+`pmvnorm` functionals by the same one-dimensional search; Monte Carlo error
+budgets for grid design follow from computed rates rather than convention.
+
+# Part IV — Consolidated verification record {#sec-accuracy}
+
+**Certified layer, exercised in the committed grid:** CHECK A at
+$1.421\times 10^{-14}$ across 601–912 realized rules per cell; CHECK B
+reproduced the calibration to machine precision on every run; CHECK C
+caught a real scale-convention defect on first firing and now agrees to
+$0.000$; the bit-level standard isolated an RNG-kind dependence and the
+post-fix re-render reproduced the pilot on 35 of 35 scientific columns.
+Every defect of the campaign was caught by an exact expectation; none by a
+tolerance.
+
+**Prediction layer:** the on-record suite
+(`dev/detection-theory-continuous/check_declaration_gaussian_md.R`)
+verified 16 PASS / 0 FAIL on the primary machine (R 4.6.1, mvtnorm 1.4.2,
+2.4 s), numerically identical line for line to the drafting-stage sandbox
+run (R 4.3.3, mvtnorm 1.2.4) — cross-stack bit-level reproduction. The
+additive population covariance of @sec-additive verified at $0.2$ / $0.1$
+MC standard errors (borderline / alternative). The document's own rendered
+chunks reconcile against the same record; the selection-identity gap
+readout fluctuates at the quadrature tolerance ($10^{-6}$) between
+platforms unless seeded, and the worked-prediction chunk pins the seed for
+that reason.
+
+The verification family is a synthetic $M = 14$ stressor whose complement
+effect is beneficial (oriented $-26.26$) — deliberately harder competition
+geometry than the fixture's harmful complement ($+26.2552$); the machinery
+checks are parameter-point-agnostic, and the fixture values used throughout
+this document are the committed ones of §2.
+
+# Part V — The boundary, restated {#sec-boundary}
+
+| Quantity | Status |
+|---|---|
+| $\beta(H)$ any rule; $\theta^\dagger(Q)$; ITT/complement/disjoint; classification identities | Tier A, exact |
+| $\beta(H)$, binary/OR | Tier B, exact computation (mixture identity fails; RD retains Tier A) |
+| Candidate covariance given family | Tier B, exact overlaps |
+| Design-conditional joint law; family declaration; split-half consistency; selection distribution; winner-size law; naive-bias forecast | Distributional identity + quadrature; **verified** on fixed families |
+| Population-level law | **Exact to leading order** — additive covariance decomposition derived, enumerable, verified ($0.2$ SEs at the adversarial point); second-order $O(1/n)$ terms remain |
+| Marginal clearance; design calculators | Closed form; measured anchors consistent |
+| Implied $L_{\mathrm{eff}}$ | Derived output; single-$P_1$ form requires variance homogeneity |
+| Coverage | Conditionally closed-form; unconditional composes over the selection law given MR's $(b, w)$ |
+| MR sufficiency | Empirical (mechanism resolved as the re-selection fidelity gap; the Level 6 benchmark specifies the fix's falsifiable prediction) |
+| Family regeneration; nomination; multi-split $\hat p_{\mathrm{cons}}$ composition | Beyond the fixed-family computation (conditioning caveat stated; regeneration signatures identified) |
+| Identifier's $n \to \infty$ limit | Property of the algorithm on a data-dependent cut lattice; carried as measurement |
+| Survival, forward | AFT log-time: Tier A transfers wholesale for the uncensored contrast; observed-data Cox log-HR non-collapsible and censoring-dependent — Tier B at best, estimand distinctions maintained |
+
+The division of labor, in one sentence: closed forms certify targets and
+implementations exactly; the selection layer is predictable on fixed
+families from certified inputs through an audited approximation ladder
+whose every rung carries a measured error; and family regeneration,
+nomination, and MR's sufficiency remain the empirical core the simulations
+exist to measure — now against both certified references and computed
+benchmarks.
