@@ -31,10 +31,15 @@ the working reference, two committed documents in this directory:
 forms certify exactly) and
 `analytic_derivations_mr_operating_characteristics.qmd` (the prediction
 layer: which MR operating characteristics are derivable before a grid runs).
-Both parents are left unchanged in the repository; this document adds the
-connective material between them — the explicit ladder from exact identities
-to each approximation actually carried out, including the population-level
-covariance decomposition previously deferred and now derived and verified.
+Both parents are left unchanged in the repository. Beyond consolidation, this
+document adds two things: the connective material between verification and
+prediction — the explicit ladder from exact identities to each approximation
+actually carried out, including the population-level covariance decomposition
+previously deferred and now derived and verified — and a detailed worked
+example (@sec-worked) that carries the machinery end to end against a
+specific committed simulation design, stating for every predicted quantity
+what is computed, from which inputs, and which column of the design's own
+report it should be compared against.
 
 Supporting artifacts: `dev/detection-theory-continuous/`
 (`NOTE_declaration_gaussian_md.md`; `check_declaration_gaussian_md.R`,
@@ -72,6 +77,21 @@ compare **point estimates** to the floors
 estimated variance never enters an event definition; and thresholds are
 one-sided floors on the oriented scale, never direction switches
 (`dev/glm-continuous-sims/NOTE_threshold_sign_md.md`).
+
+One translation is used repeatedly and is worth stating once in words. By
+the mixture identity of Part I, a region's true oriented effect exceeds the
+screening floor exactly when its purity does:
+$$
+\beta(g) \ge c_1
+\quad\Longleftrightarrow\quad
+P(Q \mid g) \;\ge\; \frac{c_1 - \tau_{Q^c}^{\mathrm{or}}}{\beta_{\mathrm{int}}^{\mathrm{or}}}
+= \frac{30 - 26.2552}{13.7448} = 0.2724.
+$$
+The floor $c_1 = 30$ is therefore a **27.2% purity requirement** — and since
+the marginal prevalence of $Q$ is 34.5%, even a rule carrying no information
+about $Q$ has a true effect above the floor. This single fact organizes much
+of what the simulations observe on this pathway, and the worked example
+returns to it.
 
 # Part I — The certified layer
 
@@ -171,7 +191,8 @@ signature of a sign flip — a tolerance-based check could only have said
 The connective structure of the analytic layer is a ladder of six levels.
 At each level, exactly one new source of error enters; everything below it
 remains exact. This ordering is what converts "Gaussian approximation" from
-a label into an audited chain.
+a label into an audited chain: when a computed rate and a measured rate
+disagree, the ladder localizes which rung the disagreement lives on.
 
 ## Level 0–1: identities and exact computation
 
@@ -191,8 +212,8 @@ $$
 \hat\beta \mid D \;\sim\; N_M\!\big(m(D),\ \sigma^2 C C^\top\big)
 $$
 
-**exactly** — a distributional identity. The conditional mean decomposes
-linearly in the DGM effect parameters,
+**exactly** — a distributional identity, not a limit theorem. The
+conditional mean decomposes linearly in the DGM effect parameters,
 $m(D) = a_0 + \tau_{Q^c}\, a_1 + \beta_{\mathrm{int}}\, a_2$ (prognostic
 imbalance, treatment, and realized-$P(Q \mid g, \text{arm } 1)$
 components), so null, borderline, and alternative scenarios share one
@@ -224,6 +245,9 @@ $\sigma$-only truth), so the analyst's plug-in is a nearly unbiased
 estimate of the *population-level* effective variance of Level 4 rather
 than the conditional $\sigma^2$ — plug-in computations approximate the
 unconditional law, known-$\sigma$ computations the design-conditional one.
+This has a practical corollary used in the worked example: **anchoring the
+scale to a fitted standard error already incorporates the Level 4 variance
+correction**, leaving only the covariance refinement below.
 
 ## Level 4: population averaging — the additive covariance decomposition {#sec-additive}
 
@@ -295,18 +319,22 @@ small binomial pieces.
 The computed functionals idealize the procedure in four named ways, each
 with a diagnostic signature rather than a hidden discrepancy. **Fixed
 versus regenerated family:** the computation conditions on an enumerated
-family; the real identifier regenerates $\sim$1500 candidates per replicate
-from data-dependent quantile cuts under `n.min` viability. Growth of a
-fitted $L_{\mathrm{eff}}$ with $N$, and the measured sensitivity decline
-($0.208 \to 0.062$) against a fixed-family law that concentrates on
-maximal-mean candidates, are regeneration signatures. **Single split versus
+family; the real identifier regenerates candidates per replicate from
+data-dependent quantile cuts under `n.min` viability. Growth of a fitted
+$L_{\mathrm{eff}}$ with $N$, and a measured sensitivity decline against a
+fixed-family law that concentrates on maximal-mean candidates, are
+regeneration signatures. **Single split versus
 $\hat p_{\mathrm{cons}}$:** the computed consistency rung is the idealized
-two-way split; the multi-split stability aggregation composes with the
-stability closed form and remains a deferred rung. **Argmax scope:** the
-computed selection is argmax-over-all; the procedure takes the maximum over
-*admitted* candidates under `sg_focus` — the same difference transform on a
-subset. **Nomination:** GRF/LASSO screening into the family is unmodeled,
-exactly as in the April $L_{\mathrm{eff}}$ document.
+two-way split; the real screen aggregates hundreds of random splits into
+$\hat p_{\mathrm{cons}}$ and gates on $\hat p_{\mathrm{cons}} \ge$ a
+threshold. The single-split event and the multi-split gate bracket one
+another in a definite direction discussed in the worked example; the exact
+composition uses the stability closed form and remains a deferred rung.
+**Argmax scope:** the computed selection is argmax-over-all; the procedure
+takes the maximum over *admitted* candidates under `sg_focus` — the same
+difference transform on a subset. **Nomination:** GRF/LASSO screening into
+the family is unmodeled, exactly as in the April $L_{\mathrm{eff}}$
+document.
 
 ## Level 6: MR-specific — the fidelity benchmark and the empirical core
 
@@ -342,14 +370,42 @@ gap, not linearization failure. The correction *scale* is derivable
 
 # Part III — Prediction recipes {#sec-recipes}
 
-Every operating characteristic below is a functional of the one law of
-@sec-ladder, evaluated without data-level simulation or refits.
+## What exactly is being predicted {#sec-what}
+
+Every recipe below computes a probability or expectation of the **candidate
+effect process** — the joint Gaussian law of the within-region estimators
+over a fixed family — and each corresponds to a specific quantity a
+simulation report tabulates. Before the individual recipes, the full map:
+
+| Recipe | Input required | Output (the predicted quantity) | Compares to (simulation column) | Exactness |
+|---|---|---|---|---|
+| Marginal clearance | $\beta(g)$, $\sigma_g(n)$, $c_1$ | $P(\hat\beta(g) \ge c_1)$ for one fixed $g$ | per-region clearance counts (e.g., how often $Q$'s refit exceeds the floor) | Level 2–4 |
+| Family declaration (Rung A) | means, $\Sigma$, $c_1$ | $P(\max_m \hat\beta_m \ge c_1)$ | detection rate if the procedure screened only | Level 2–4 |
+| Split-half consistency (Rung B) | means, $\Sigma$, $c_1$, $c_2$ | per-candidate $P_1$ and $P(\text{any pass})$ | `DETECTED` share of the status table | Level 2–4 + single-split idealization |
+| Selection distribution (Rung C) | means, $\Sigma$, gates, ranking rule | $P(\hat H = g_m)$ for each $m$ | realized-rule frequency table (`sg_def`); covariate-involvement shares | Levels 2–5 |
+| Winner size | selection distribution, $P(g)$ | $\mathbb E[\,|\hat H|\,]$ | `n_harm` mean (identified-subgroup-sizes callout) | Levels 2–5 |
+| Classification | selection distribution, overlaps with $Q$ | expected sens/spec/PPV/NPV | identification table | Levels 2–5 |
+| Conditional estimand | selection distribution, mixture means | $\mathbb E[\beta(\hat H)]$ | `betaHhat_H` mean (oriented) | Levels 2–5 |
+| Naive selection bias | selection distribution, winner noise | $\mathbb E[\hat\beta(\hat H) - \beta(\hat H)]$ | naive row, "vs $\beta(\hat H)$" bias column | Levels 2–5 |
+| Coverage (conditional) | $(b, w, \sigma)$ | interval coverage given bias and width | coverage columns, given measured $(b, w)$ | closed form |
+| Implied $L_{\mathrm{eff}}$ | null-family law | effective independent-candidate count | null-cell detection rate | Level 2–4 |
+| Design calculators | any recipe, inverted | $n$ (or floors) achieving a target rate | — (planning, not comparison) | as the recipe |
+
+Two global caveats attach to every row. First, the family is
+**conditioned on**: the recipes take $\mathcal G$ as given, while
+forestsearch regenerates it per replicate (Level 5) — so fixed-family
+predictions are structural benchmarks for the real design, exact for the
+scenario they define, and become replicate-faithful when fed a realized
+family (@sec-realized). Second, the consistency gate is idealized as a
+single split unless the $\hat p_{\mathrm{cons}}$ composition rung is added.
 
 ## Marginal floor clearance of a fixed region
 
-$P\big(\hat\beta(H) \ge c_1\big) = \bar\Phi\big((c_1 - \beta_o(H))/
-\sigma_H(n)\big)$, with $\beta_o$ the oriented mixture value and
-$\sigma_H(n)$ from Tier B. The measured anchor:
+In words: for one pre-specified region, the probability that its fitted
+effect clears the screening floor is a single normal tail probability,
+because the mean is the mixture value and the scale is the Tier B standard
+error. $P\big(\hat\beta(H) \ge c_1\big) = \bar\Phi\big((c_1 -
+\beta_o(H))/\sigma_H(n)\big)$. The measured anchor:
 
 ```{r clearance-example}
 z <- (40 - 30) / 13.6786          # oriented truth, floor, measured SE at n=1000
@@ -362,29 +418,34 @@ The marginal recipe alone under-predicts *family* detection, and the gap is
 the point: at $n = 500$, $\sigma_Q$ scales to $13.6786\sqrt 2 = 19.34$,
 giving marginal clearance $\Phi(10/19.34) = 0.697$ for $Q$ — against a
 measured family detection rate of $997/1000$. The difference is candidate
-competition (Level 2, computed exactly) plus family regeneration (Level 5,
-isolated).
+competition (Level 2, computed exactly by the next recipe) plus family
+regeneration (Level 5, isolated).
 
 ## Family declaration (screening exceedance)
 
-$P(\max_m \hat\beta_m \ge c_1) = 1 - \Phi_M(c_1\mathbf 1;\ m, \Sigma)$ — a
-single rectangle probability. Verified design-conditionally at
-$0.8297/0.5281/0.0262$ computed against data-level Monte Carlo
-$0.8243/0.5400/0.0288$ (alternative / borderline / null).
+In words: the probability that *some* candidate's fitted effect clears the
+floor. Because the joint law is known, this is one rectangle probability:
+$P(\max_m \hat\beta_m \ge c_1) = 1 - \Phi_M(c_1\mathbf 1;\ m, \Sigma)$.
+Verified design-conditionally at $0.8297/0.5281/0.0262$ computed against
+data-level Monte Carlo $0.8243/0.5400/0.0288$ (alternative / borderline /
+null).
 
 ## Split-half consistency
 
-The idealized two-split screen
-$\{W_1 + W_2 \ge 2c_1,\ \min(W_1, W_2) \ge c_2\}$ lives on a $2M$-block
-Gaussian (disjoint halves, zero cross-half covariance). The per-candidate
-probability is a one-dimensional integral — the Leon et al. (2024, SIM
-§2.1) object per candidate with its own mean and scale — verified to
-$7.5\times 10^{-4}$; the family rate is Gaussian-level Monte Carlo on the
-exact law, verified $0.8206$ vs $0.8187$.
+In words: the idealized consistency gate splits the sample in two and asks
+that the candidate clear the floor on average and a lower floor on each
+half. Per candidate the passing probability is a one-dimensional integral —
+the Leon et al. (2024, SIM §2.1) object with that candidate's own mean and
+scale — verified to $7.5\times 10^{-4}$; the family rate ("some candidate
+passes") is Gaussian-level Monte Carlo on the exact $2M$-block law,
+verified $0.8206$ vs $0.8187$. The real gate replaces the single split by
+$\hat p_{\mathrm{cons}} \ge$ threshold over hundreds of splits; the
+relation between the two is taken up concretely in the worked example.
 
 ## Selection distribution and its consequences
 
-For the effect-ranked argmax,
+In words: not just *whether* something is declared but *which* candidate
+wins. For the effect-ranked argmax,
 $$
 P\big(\hat H = g_m,\ \text{declared}\big)
 = P\big(\hat\beta_m \ge c_1,\ \hat\beta_m - \hat\beta_j \ge 0\ \forall j\big),
@@ -392,16 +453,16 @@ $$
 a rectangle in the difference transform — one `pmvnorm` call per candidate,
 with the internal identity
 $\sum_m P(\hat H = g_m, \text{declared}) = P(\text{family declaration})$
-verified to $3\times 10^{-7}$. Selection probabilities are what the naive
-per-candidate clearance is not: in the verification family, a
-near-duplicate at correlation $0.98$ splits $P_1(Q) = 0.808$ into
-$P(\text{select } Q) = 0.374$ and $P(\text{select dup}) = 0.455$. Two
-measured phenomena become predictable consequences: winner-size drift is
-the size-weighted selection distribution, and the naive-bias column is the
+verified to $3\times 10^{-7}$. Gated rules (such as maxeffCons: argmax of
+effect among consistency-passers) are the same functional with the gate
+event intersected, evaluated by Gaussian-level Monte Carlo. Selection
+probabilities are what per-candidate clearances are not, and the
+distinction drives every downstream prediction: winner size, expected
+$\beta(\hat H)$, classification metrics, and the naive-bias forecast (the
 selection-noise functional $\mathbb E[\text{noise of the argmax}]$ — the
-quantity `design-checks/oracle_design.R` already evaluates on the same law.
-The zcons-ranked variant of Level 6 uses the same recipe under the diagonal
-rescaling.
+quantity `design-checks/oracle_design.R` already evaluates on the same
+law). The zcons-ranked variant of Level 6 uses the same recipe under the
+diagonal rescaling.
 
 ## Coverage, composed
 
@@ -422,16 +483,19 @@ verification family, with the family/union-bound ratio ($0.671 \to 0.989$)
 exhibiting the correlation discount. Growth of a fitted
 $L_{\mathrm{eff}}$ with $N$ is a Level 5 regeneration phenomenon.
 
-## Worked prediction at fixture scale
+## A three-candidate warm-up, read line by line {#sec-warmup}
 
-A three-candidate illustrative geometry at the real fixture's means and
-measured scale — $Q$ itself, an overlapping proxy $P$, and a near-duplicate
-$D \subset Q$ — with SEs scaled from the measured
-$\sigma_Q(n{=}1000) = 13.6786$ by the balanced-arms prevalence rule
-$\sigma_H = \sigma_Q\sqrt{\pi_Q/\pi_H}$. Correlations here are the
-$\sigma$-overlap block (the Level 2 law at measured scale); the additive
-refinement of @sec-additive applies when the DGM moments are in hand. The
-geometry is illustrative; the recipe is the committed one.
+Before the full worked example, a minimal geometry that shows what the
+recipes return and how to read them. Three candidates at the fixture's
+means and measured scale: $Q$ itself; an overlapping proxy $P$
+(prevalence $0.45$, sharing probability mass $0.28$ with $Q$, hence purity
+$P(Q \mid P) = 0.28/0.45 = 0.622$); and a near-duplicate $D \subset Q$
+(prevalence $0.31$, purity $1$). SEs are anchored to the measured
+$\sigma_Q(n{=}1000) = 13.6786$ and scaled by the balanced-arms prevalence
+rule $\sigma_H = \sigma_Q\sqrt{\pi_Q/\pi_H}$; correlations are the
+$\sigma$-overlap block (per @sec-ladder Level 3, the fitted-SE anchor
+already carries the Level 4 variance component; the covariance refinement
+of @sec-additive applies when DGM moments are in hand).
 
 ```{r worked-prediction}
 set.seed(20260824)   # pins pmvnorm's quasi-MC randomization for the gap readout
@@ -467,9 +531,26 @@ out <- data.frame(candidate = cand$name,
                   marginal_clearance = round(p_marg, 4),
                   selection_prob = round(sel, 4))
 knitr::kable(out, caption = sprintf(
-  "Fixture-scale worked prediction at n = 1000: family declaration %.4f; selection identity gap %.1e.",
+  "Warm-up at n = 1000: family declaration %.4f; selection identity gap %.1e.",
   as.numeric(p_fam), abs(sum(sel) - as.numeric(p_fam))))
 ```
+
+Reading the table. **Column `beta_oriented`** is the mixture mean: $Q$ and
+$D$ both sit at $40$ (both have purity $1$), $P$ at $34.81$. **Column
+`se`** is the prevalence-scaled measured scale: smaller regions are
+noisier, so $D$ ($\pi = 0.31$) carries the largest SE. **Column
+`marginal_clearance`** treats each candidate alone: $Q$ clears the floor
+$76.8\%$ of the time, $D$ $75.6\%$, $P$ $65.6\%$. **Column
+`selection_prob`** is the joint answer, and it is *not* proportional to the
+marginals: $D$ takes the largest share ($0.360$) despite the smaller
+marginal clearance, because at equal means the *noisier* candidate wins the
+argmax more often — the Gaussian-level mechanism behind the observed
+tendency of the identifier to return small, noise-favored regions. The
+three selection probabilities sum to the family declaration rate ($0.8474$)
+up to the printed quadrature gap — an internal consistency identity, not a
+new assumption. Finally, family declaration ($0.847$) exceeds the best
+marginal ($0.768$): competition helps *declaration* even as it dilutes any
+single candidate's *selection*.
 
 ## Design calculators
 
@@ -484,8 +565,335 @@ cat(sprintf("n for %d%% marginal clearance of Q at floor 30: %s\n",
 ```
 
 Family-level and selection-level counterparts invert the corresponding
-`pmvnorm` functionals by the same one-dimensional search; Monte Carlo error
-budgets for grid design follow from computed rates rather than convention.
+functionals by the same one-dimensional search; Monte Carlo error budgets
+for grid design follow from computed rates rather than convention.
+
+# A detailed worked example: the maxeffCons MR design at n = 500 {#sec-worked}
+
+This section carries the machinery end to end against a specific committed
+design:
+`sim_fs_maxeffCons_mr_md40_knoise0_n500_batch_1_1000.qmd`. Every input is
+taken from that document's own setup chunks; every output is stated
+together with the report column it should be compared against.
+
+## Step 1 — the design under study
+
+From the driver's setup, verbatim: $n = 500$ per replicate; the committed
+alternative cell (`target_md_harm = -40` raw, oriented $+40$ in $Q$);
+floors `md_threshold = 30`, `md_consistency = 10`; consistency gate
+$\hat p_{\mathrm{cons}} \ge 0.90$ over `fs.splits = 400` random splits;
+`n.min = 60` (a $60/500 = 12\%$ prevalence floor on candidates);
+`maxk = 2` (conjunctions of at most two conditions);
+`sg_focus = "maxeffCons"` — in the driver's own words, "highest effect
+meeting the consistency rate"; MR with 5000 draws; no added noise
+covariates. The candidate cuts are the deliberate part of the design: J
+$= 10$ quantile grids on `age` and `preanti` **replace** the default cuts,
+so the true boundaries ($34$ and $744.5$) are *not representable*; the
+driver documents the best achievable rule as
+`age > 33 & preanti <= 677.9` at Jaccard $0.882$ against $Q$, and gives
+the grid quantile positions (the $33$ cut at the $5/11 = 45.5\%$ age
+quantile; the preanti grid $0, 0, 0, 0, 55.8, 214.1, 432, 677.9, 872.8,
+1070.5$ at the $k/11$ quantiles, so $677.9$ sits at $72.7\%$).
+
+Its report tabulates, per batch: the status trichotomy
+(`DETECTED / NO-DETECTION / CONFIG-ERROR`); identified-subgroup sizes
+(`n_harm`); the realized-rule frequency table (`sg_def`) and
+covariate-involvement shares; classification (sens/spec/PPV/NPV); and the
+estimation table scoring oracle/naive/MR against the exact
+$\beta(\hat H)$, the oracle refit, and the structural and fitted targets.
+Those are exactly the quantities the recipes predict.
+
+## Step 2 — what must be specified, and what the driver already supplies
+
+The recipes need five inputs. The driver supplies four directly: the
+oriented effects ($\tau_{Q^c} = +26.2552$, $\beta_{\mathrm{int}} =
++13.7448$, hence purity translation $P(Q \mid g) \ge 0.2724$ for true
+clearance — the driver's own "27.2%" remark); the sample size and floors;
+the selection rule (maxeffCons); and the scale anchor (the committed
+measured $\sigma_Q(n{=}1000) = 13.6786$, which the fitted-SE observation
+of Level 3 licenses as a population-effective scale, rescaled to $n = 500$
+by $\sqrt 2$). The fifth input — **the candidate family and the joint
+covariate law that determines every $P(g)$, $P(Q \mid g)$, and overlap** —
+is the one forestsearch regenerates per replicate, so a prediction must
+either condition on a realized family (@sec-realized) or construct a
+scenario satisfying the fixed-family requirements. This example does the
+latter, using only quantities the driver itself documents.
+
+## Step 3 — constructing the scenario from documented anchors
+
+Cross the two true-region axes at their *representable* resolutions. Age
+takes three categories $\{\le 33,\ (33, 34],\ > 34\}$ — the family can cut
+at $33$ (a grid cut) but not at $34$ (the true boundary, absent from the
+grid). Preanti takes three categories
+$\{\le 677.9,\ (677.9, 744.5],\ > 744.5\}$ — cut at $677.9$ representable,
+true boundary $744.5$ not. Marginals come from the documented quantile
+positions ($P(\text{age} > 33) = 1 - 5/11 = 0.545$;
+$P(\text{age} > 34) = 0.50$, the median;
+$P(\text{preanti} \le 677.9) = 8/11 = 0.727$;
+$P(\text{preanti} \le 744.5) = 0.75$, the q75 default). The $3 \times 3$
+joint below satisfies **all** the documented anchors simultaneously — the
+four marginals, $P(Q) = 0.3446$, and Jaccard of the best representable
+rule against $Q$ equal to $0.8820$ — and the chunk asserts each one. A
+third, stylized covariate $V$ (prevalence $0.42$, independent) stands in
+for the distractor pool; the driver's real distractors include `str2`,
+which nests inside the true partner condition and is *not* independent —
+the stylization is stated, not hidden. Candidates are all single
+conditions and cross-variable pairs over the three representable cuts
+(both sides), pruned at the $12\%$ `n.min` floor.
+
+```{r worked-scenario}
+library(mvtnorm)
+set.seed(20260825)
+tauQc <- 26.255235876; bint <- 13.744764124        # oriented
+c1 <- 30; c2 <- 10; n_rep <- 500; pcons_gate <- 0.90
+seQ1000 <- 13.6786; piQ_fix <- 0.3446
+# 3x3 joint: rows age (<=33, (33,34], >34); cols preanti (<=677.9,
+# (677.9,744.5], >744.5). Hand-solved to hit every documented anchor.
+J3 <- matrix(c(0.3553, 0.0121, 0.0876,
+               0.0360, 0.0020, 0.0070,
+               0.3357, 0.0089, 0.1554), 3, 3, byrow = TRUE)
+stopifnot(abs(sum(J3) - 1) < 1e-12,
+          abs(rowSums(J3) - c(0.455, 0.045, 0.500)) < 1e-12,
+          abs(colSums(J3) - c(0.727, 0.023, 0.250)) < 1e-12)
+PQ <- J3[3, 1] + J3[3, 2]                    # Q = age>34 & pre<=744.5
+stopifnot(abs(PQ - piQ_fix) < 1e-4)
+gstar_P <- J3[2, 1] + J3[3, 1]               # g* = age>33 & pre<=677.9
+jac <- J3[3, 1] / (gstar_P + PQ - J3[3, 1])
+stopifnot(abs(jac - 0.882) < 1e-3)
+cat(sprintf("Scenario anchors: P(Q) = %.4f; Jaccard(g*, Q) = %.4f (driver: 0.882)\n",
+            PQ, jac))
+# 18 cells: 9 (age x pre) x V in {1, 0}, V independent, P(V=1) = .42
+pV <- 0.42
+cells <- expand.grid(a = 1:3, p = 1:3, v = 1:0)
+cells$prob <- J3[cbind(cells$a, cells$p)] * ifelse(cells$v == 1, pV, 1 - pV)
+cells$inQ  <- cells$a == 3 & cells$p <= 2
+# Candidate conditions on representable cuts (both sides) + V
+conds <- list(`age>33` = cells$a >= 2, `age<=33` = cells$a == 1,
+              `pre<=677.9` = cells$p == 1, `pre>677.9` = cells$p >= 2,
+              `V=1` = cells$v == 1, `V=0` = cells$v == 0)
+fam <- c(lapply(names(conds), function(nm) list(nm = nm, m = conds[[nm]])),
+         unlist(lapply(list(c(1,3), c(1,4), c(2,3), c(2,4),
+                            c(1,5), c(1,6), c(2,5), c(2,6),
+                            c(3,5), c(3,6), c(4,5), c(4,6)),
+   function(ix) list(list(nm = paste(names(conds)[ix], collapse = " & "),
+                          m = conds[[ix[1]]] & conds[[ix[2]]]))),
+   recursive = FALSE))
+Pg  <- vapply(fam, function(f) sum(cells$prob[f$m]), numeric(1))
+keep <- Pg >= 0.12                                  # n.min = 60 of 500
+fam <- fam[keep]; Pg <- Pg[keep]; M <- length(fam)
+lab <- vapply(fam, `[[`, character(1), "nm")
+PQg <- vapply(fam, function(f) sum(cells$prob[f$m & cells$inQ]), numeric(1)) / Pg
+beta_g <- tauQc + bint * PQg
+se_g   <- seQ1000 * sqrt(2) * sqrt(piQ_fix / Pg)    # n = 500 anchor scaling
+sens_g <- vapply(fam, function(f) sum(cells$prob[f$m & cells$inQ]), numeric(1)) / PQ
+spec_g <- vapply(fam, function(f) 1 - sum(cells$prob[f$m & !cells$inQ]) / (1 - PQ),
+                 numeric(1))
+ovl <- outer(seq_len(M), seq_len(M), Vectorize(function(i, j)
+  sum(cells$prob[fam[[i]]$m & fam[[j]]$m])))
+Rho <- ovl / sqrt(outer(Pg, Pg))
+Sg  <- Rho * outer(se_g, se_g)
+tab3 <- data.frame(candidate = lab, prevalence = round(Pg, 4),
+                   purity_PQg = round(PQg, 4), beta = round(beta_g, 2),
+                   se_n500 = round(se_g, 1),
+                   clears_floor = ifelse(beta_g >= c1, "yes", "no"))
+knitr::kable(tab3[order(-tab3$beta), ], row.names = FALSE, caption = sprintf(
+  "The scenario family (M = %d after the 12%% floor): mixture means, anchored scales, and the purity translation of the floor.", M))
+```
+
+Reading the family table. The purity column *is* the mean column in
+disguise (Proposition 1), and the floor line falls at purity $0.2724$ —
+below the marginal prevalence $0.3446$, so **nine of the sixteen
+candidates have true effects above the floor, including the pure
+distractors** $V{=}1$ and $V{=}0$ at $\beta = 30.99$. On this pathway the
+screening floor does not separate signal from noise regions; it separates
+regions *depleted* of $Q$ from everything else. The best representable
+rule $g^\ast$ leads at $\beta = 38.67$ (purity $0.903$), $1.33$ units
+below the unrepresentable truth — the price of the J-grid design,
+quantified before any simulation.
+
+## Step 4 — predictions, each mapped to its report column
+
+The maxeffCons rule is: among candidates passing the consistency gate,
+select the one with the largest fitted effect; declare `NO-DETECTION` if
+none passes. The idealized computation below replaces the
+$\hat p_{\mathrm{cons}} \ge 0.90$ multi-split gate with the single-split
+event $\{W_1 + W_2 \ge 2c_1,\ \min(W_1, W_2) \ge c_2\}$ and evaluates
+everything on the known Gaussian law by Monte Carlo (Level 2 numerics;
+$2 \times 10^5$ draws, so rate SEs are $\approx 0.001$). Direction of the
+idealization, stated: with $c_2 = 10$ sitting far below every candidate
+mean (the driver's open question D2 — the consistency floor is
+non-discriminating on this cell), the per-split floor events are nearly
+always satisfied and both gates reduce to variants of "the effect
+replicates above threshold"; a demanding $\hat p_{\mathrm{cons}} \ge 0.90$
+over 400 splits is *stricter* than one split, so at fixed family the
+computed detection rate is an upper benchmark and the computed selection
+law shifts mass toward stable (larger, higher-mean) candidates relative to
+the real gate; the far larger real family pushes detection the other way
+and dominates it here.
+
+```{r worked-predictions}
+Rdraw <- 2e5
+# Complement pairs make the population law EXACTLY rank-deficient: for any
+# cut, P(g+)c(g+) + P(g-)c(g-) is the full-sample coefficient vector, so the
+# candidate covariance is a singular Gram matrix (the Level 4 PSD fact, made
+# concrete). Sample by eigendecomposition; degenerate directions get zero
+# variance, which enforces the linear constraints exactly.
+eS <- eigen((Sg + t(Sg)) / 2, symmetric = TRUE)
+root_half <- eS$vectors %*% diag(sqrt(pmax(2 * eS$values, 0)))  # cov = 2*Sg
+W1 <- matrix(rnorm(Rdraw * M), Rdraw, M) %*% t(root_half) +
+      rep(beta_g, each = Rdraw)
+W2 <- matrix(rnorm(Rdraw * M), Rdraw, M) %*% t(root_half) +
+      rep(beta_g, each = Rdraw)
+Bhat <- (W1 + W2) / 2                   # full-sample effects, exact law N(beta, Sg)
+pass <- (W1 + W2 >= 2 * c1) & (W1 >= c2) & (W2 >= c2)
+det  <- rowSums(pass) > 0
+Bmask <- Bhat; Bmask[!pass] <- -Inf
+winner <- max.col(Bmask, ties.method = "first"); winner[!det] <- NA_integer_
+P1 <- colMeans(pass)
+p_sel <- tabulate(winner[det], M) / Rdraw
+det_rate <- mean(det)
+sel_c <- p_sel / det_rate                       # selection | detection
+EnH   <- n_rep * sum(sel_c * Pg)                # expected |Hhat| | detection
+Esens <- sum(sel_c * sens_g); Espec <- sum(sel_c * spec_g)
+Eppv  <- sum(sel_c * PQg)
+Enpv  <- sum(sel_c * vapply(seq_len(M), function(m) {
+  pHc <- 1 - Pg[m]; (pHc - (PQ - PQg[m] * Pg[m])) / pHc }, numeric(1)))
+EbetaH <- sum(sel_c * beta_g)
+noise  <- Bhat - rep(beta_g, each = Rdraw)
+Enaive_bias <- mean(noise[cbind(which(det), winner[det])])
+mass_below <- sum(sel_c[beta_g < c1])          # selections on true-mean-below-floor rules
+top <- order(-p_sel)[1:6]
+knitr::kable(data.frame(candidate = lab[top],
+                        P1_single_split = round(P1[top], 3),
+                        P_selected = round(p_sel[top], 3),
+                        sel_given_det = round(sel_c[top], 3)),
+             row.names = FALSE, caption = sprintf(
+  "Top of the predicted selection distribution (detection rate %.3f). Compare P_selected against the driver's realized-rule (sg_def) frequency table.",
+  det_rate))
+knitr::kable(data.frame(
+  quantity = c("detection rate (DETECTED share)",
+               "E[|Hhat|] given detection (n_harm mean)",
+               "E[sens]", "E[spec]", "E[PPV]", "E[NPV]",
+               "E[beta(Hhat)] oriented (betaHhat_H mean)",
+               "E[naive - beta(Hhat)] (naive bias vs beta(Hhat))",
+               "selection mass on rules with true mean below the floor"),
+  predicted = round(c(det_rate, EnH, Esens, Espec, Eppv, Enpv,
+                      EbetaH, Enaive_bias, mass_below), 3)),
+  row.names = FALSE, caption =
+  "Scenario predictions with their driver-report comparison targets in parentheses.")
+```
+
+Reading the predictions, line by line.
+
+**Detection.** The computed rate is effectively $1$: with nine candidate
+means above the floor and half-sample SEs of $19$–$40$, *some* candidate
+clears on essentially every replicate — consistent with the committed
+$997/1000$ at $n = 500$ and with what the driver's status table should
+show. Detection on this cell is not evidence of finding $Q$; the
+interesting prediction is *what* gets selected.
+
+**The selection distribution** is the substantive output, and it inverts
+the marginal ordering. $g^\ast$ leads the gate ($P_1 = 0.63$, the largest)
+yet takes only the second-largest selection share: maxeffCons is an
+effect-ranked argmax over gate-passers, and *conditional on passing*, a
+high-variance candidate's fitted effect is inflated far above its mean —
+so noisy low-purity rules out-bid the leader whenever their noise draws
+large. The aggregate diagnostic in the second table makes this exact: a
+substantial fraction of all selections lands on rules whose **true** mean
+sits below the floor — rule-level false-harm declarations, predicted from
+the law, not discovered in a run. Each row of the selection table is
+comparable rule for rule against the driver's `sg_def` frequency table,
+and every share taken by a low-purity rule drags the classification and
+estimand predictions below their $g^\ast$ ceilings.
+
+**Winner size and classification.** $\mathbb E[\,|\hat H|\,]$ is the
+selection-weighted prevalence times $n$ — compare to the `n_harm` mean in
+the identified-subgroup-sizes callout — and expected sens/spec/PPV/NPV are
+selection-weighted overlaps with $Q$, comparable to the identification
+table. Because $g^\ast$ carries sens $= 0.974$ and PPV $= 0.903$, the
+predictions sit high exactly to the extent selection concentrates on it;
+the shortfall from those ceilings measures the noise-selection share.
+
+**The conditional estimand and the naive bias.** $\mathbb E[\beta(\hat
+H)]$ is the selection-weighted mixture mean (compare: oriented
+`betaHhat_H` mean over detected replicates), and the naive-bias forecast
+is the mean noise of the winner (compare: the naive row's "vs
+$\beta(\hat H)$" column). The latter is the winner's-curse functional of
+`oracle_design.R`, now with this design's own means and covariances as
+inputs.
+
+**What this scenario cannot predict** — stated as sharply as what it can.
+The real family is far larger (six continuous covariates at ten cuts each,
+both sides, plus seven binaries, under `maxk = 2` and the viability
+floors), so real selection mass is diluted across many more low-purity
+competitors: relative to this $M = 16$ scenario, expect *lower*
+concentration on $g^\ast$, *larger* naive bias, and classification
+metrics *below* these predictions — with the direction certain and the
+magnitude requiring either the realized family (@sec-realized) or a larger
+constructed one. And the multi-split gate strengthens the consistency
+requirement relative to the single split, filtering marginal passers; both
+idealizations are Level 5 rungs with signs attached, not silent gaps.
+
+## Step 5 — the null-cell twin, predicted before it runs
+
+The driver's `null_cell = TRUE` switch sets $\beta_{\mathrm{int}} = 0$, so
+every region's oriented mean collapses to the common treatment effect
+($\approx +26.26$, the complement value). The same machinery then predicts
+the null cell's operating characteristics — and the prediction is the
+useful kind of surprising: the floor sits only $(30 - 26.26)/\mathrm{SE}
+\approx 0.1$–$0.2$ SEs above every candidate mean, so this "null" is a
+**near-threshold null**, not a zero null.
+
+```{r worked-null}
+beta_null <- rep(tauQc, M)
+W1n <- matrix(rnorm(Rdraw * M), Rdraw, M) %*% t(root_half) +
+       rep(beta_null, each = Rdraw)
+W2n <- matrix(rnorm(Rdraw * M), Rdraw, M) %*% t(root_half) +
+       rep(beta_null, each = Rdraw)
+pass_n <- (W1n + W2n >= 2 * c1) & (W1n >= c2) & (W2n >= c2)
+cat(sprintf("Null-cell predicted detection (single-split gate): %.3f\n",
+            mean(rowSums(pass_n) > 0)))
+p1n <- colMeans(pass_n)
+cat(sprintf("  per-candidate P1 range: %.3f-%.3f; implied L_eff vs max(P1): %.2f\n",
+            min(p1n), max(p1n),
+            log(1 - mean(rowSums(pass_n) > 0)) / log(1 - max(p1n))))
+```
+
+The predicted null-cell detection rate is far above any conventional
+false-positive intuition, for a structural reason the mixture identity
+makes exact: with a nonzero common effect near the floor, declaration is a
+coin-flip per candidate and near-certain per family. This is the
+borderline-null regime of the manuscript's §7 anchors, derived rather than
+discovered — and it quantifies the driver's open question D2 from the
+other side: on the null cell it is the *screening* floor, not the
+consistency floor, that is barely discriminating.
+
+## Step 6 — inverting for design
+
+The same objects answer planning questions. For example: at what $n$ would
+the marginal clearance of the best representable rule $g^\ast$ reach
+$90\%$, and at what screening floor would the null-cell family detection
+fall to $10\%$? Both are one-dimensional inversions of computed rates —
+the first is the closed-form calculator of @sec-recipes applied at
+$\beta = 38.67$; the second solves $c_1$ in the null family functional.
+Floors chosen this way are calibrated to computed operating
+characteristics rather than convention — with the family-size caveat of
+Step 4 carried along.
+
+## Step 7 — doing it with the realized family {#sec-realized}
+
+For replicate-faithful numbers, replace the constructed scenario by a
+realized family: from a fitted `forestsearch` object, the evaluated
+candidate set with per-candidate membership (equivalently the arm-wise
+counts $n_{g,a}$ and pairwise intersections) determines the exact
+design-conditional law of Level 2 — means from the mixture identity
+evaluated on `df_super` at each candidate's rule, covariance from the
+overlap formula with no balanced-arms approximation. Every prediction of
+Step 4 then re-runs unchanged on that law, now exact-conditional rather
+than scenario-structural, with only the gate idealization and the
+quadrature error remaining between computation and the replicate's truth.
+That extraction is the natural next artifact on this thread; it is a
+consumer of existing objects and requires no package changes.
 
 # Part IV — Consolidated verification record {#sec-accuracy}
 
@@ -507,14 +915,16 @@ additive population covariance of @sec-additive verified at $0.2$ / $0.1$
 MC standard errors (borderline / alternative). The document's own rendered
 chunks reconcile against the same record; the selection-identity gap
 readout fluctuates at the quadrature tolerance ($10^{-6}$) between
-platforms unless seeded, and the worked-prediction chunk pins the seed for
-that reason.
+platforms unless seeded, and the warm-up chunk pins the seed for that
+reason. The worked example's Gaussian-level Monte Carlo uses $2 \times
+10^5$ draws (rate SEs $\approx 10^{-3}$) and a fixed seed.
 
-The verification family is a synthetic $M = 14$ stressor whose complement
-effect is beneficial (oriented $-26.26$) — deliberately harder competition
-geometry than the fixture's harmful complement ($+26.2552$); the machinery
-checks are parameter-point-agnostic, and the fixture values used throughout
-this document are the committed ones of §2.
+The verification family of the check suite is a synthetic $M = 14$
+stressor whose complement effect is beneficial (oriented $-26.26$) —
+deliberately harder competition geometry than the fixture's harmful
+complement ($+26.2552$); the machinery checks are parameter-point-agnostic,
+and the fixture values used throughout this document are the committed ones
+of §2.
 
 # Part V — The boundary, restated {#sec-boundary}
 
@@ -529,7 +939,7 @@ this document are the committed ones of §2.
 | Implied $L_{\mathrm{eff}}$ | Derived output; single-$P_1$ form requires variance homogeneity |
 | Coverage | Conditionally closed-form; unconditional composes over the selection law given MR's $(b, w)$ |
 | MR sufficiency | Empirical (mechanism resolved as the re-selection fidelity gap; the Level 6 benchmark specifies the fix's falsifiable prediction) |
-| Family regeneration; nomination; multi-split $\hat p_{\mathrm{cons}}$ composition | Beyond the fixed-family computation (conditioning caveat stated; regeneration signatures identified) |
+| Family regeneration; nomination; multi-split $\hat p_{\mathrm{cons}}$ composition | Beyond the fixed-family computation (conditioning caveat stated; regeneration signatures identified; gate direction stated in @sec-worked) |
 | Identifier's $n \to \infty$ limit | Property of the algorithm on a data-dependent cut lattice; carried as measurement |
 | Survival, forward | AFT log-time: Tier A transfers wholesale for the uncensored contrast; observed-data Cox log-HR non-collapsible and censoring-dependent — Tier B at best, estimand distinctions maintained |
 
