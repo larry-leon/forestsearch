@@ -1,8 +1,8 @@
 # B2: the log-OR candidate-effect process as a transform of the exact proportion core
 
 Companion script: `check_binary_logor_process.R` (this directory; base R +
-mvtnorm, standalone, seed 20260825, ~6 s, 14 PASS / 0 FAIL in the drafting
-sandbox). Fulfills the B2 rung specified in
+mvtnorm, standalone, seed 20260825, ~6 s, 14 PASS / 0 FAIL on both the
+drafting sandbox and the primary machine). Fulfills the B2 rung specified in
 `NOTE_crump_bridge_binary_survival.md` §5.
 
 ## 1. Claim and verdict
@@ -74,9 +74,12 @@ Carlo. Then (iii)$-$(ii) isolates the core's binomial-vs-Gaussian CLT and
 separately below; conflating them is how a good approximation gets
 misjudged.
 
-## 3. Verified results (drafting sandbox, seed 20260825, 14 PASS / 0 FAIL)
+## 3. Verified results (14 PASS / 0 FAIL)
 
-DGM and family identical to B1 (8 enumerable profiles, $M = 14$, logistic
+On-record verification: primary machine (pop-os), 2026-08-24, R 4.6.1 (2026-06-24), mvtnorm 1.4.2,
+seed 20260825, 3.3 s — output digit-identical (runtime aside) to the
+drafting sandbox (R 4.3.3, mvtnorm 1.2.4, 5.5 s). DGM and family
+identical to B1 (8 enumerable profiles, $M = 14$, logistic
 arm risks with benefit outside $Q$ and harm inside; region log-OR range
 $[-0.350, 0.900]$, $\theta(Q\text{-rule}) = 0.899$); floors
 $c_1 = \log 1.5$, $c_2 = \log 1.15$; $n = 600$, 4000 data replicates,
