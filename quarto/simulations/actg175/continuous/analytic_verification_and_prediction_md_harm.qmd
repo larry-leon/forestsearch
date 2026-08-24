@@ -126,7 +126,9 @@ verbatim when a replicate selected a region disjoint from $Q$ and scored
 exactly $26.255$ oriented. (iv) Calibration (CHECK B):
 $\theta^\dagger(Q) = \beta(Q) = \tau_Q$ identically. (v) Classification
 identities: with $s = |\hat H \cap Q|$, $\mathrm{sens} = s/|Q|$,
-$\mathrm{PPV} = s/|\hat H|$, hence $\mathrm{PPV} \equiv \mathrm{sens}\cdot
+$\mathrm{PPV} = s/|\hat H|$, and on the complement
+$\mathrm{spec} = |\hat H^c \cap Q^c|/|Q^c|$,
+$\mathrm{NPV} = |\hat H^c \cap Q^c|/|\hat H^c|$; hence $\mathrm{PPV} \equiv \mathrm{sens}\cdot
 |Q|/|\hat H|$ — the reported metrics carry one degree of freedom given the
 sizes, an exact internal consistency relation.
 
@@ -391,7 +393,9 @@ simulation report tabulates. Before the individual recipes, the full map:
 | Implied $L_{\mathrm{eff}}$ | null-family law | effective independent-candidate count | null-cell detection rate | Level 2–4 |
 | Design calculators | any recipe, inverted | $n$ (or floors) achieving a target rate | — (planning, not comparison) | as the recipe |
 
-Two global caveats attach to every row. First, the family is
+(The Rung A/B/C labels in the table are the names these functionals carry
+in the verification artifacts under `dev/detection-theory-continuous/`,
+kept for traceability.) Two global caveats attach to every row. First, the family is
 **conditioned on**: the recipes take $\mathcal G$ as given, while
 forestsearch regenerates it per replicate (Level 5) — so fixed-family
 predictions are structural benchmarks for the real design, exact for the
@@ -405,7 +409,8 @@ In words: for one pre-specified region, the probability that its fitted
 effect clears the screening floor is a single normal tail probability,
 because the mean is the mixture value and the scale is the Tier B standard
 error. $P\big(\hat\beta(H) \ge c_1\big) = \bar\Phi\big((c_1 -
-\beta_o(H))/\sigma_H(n)\big)$. The measured anchor:
+\beta_o(H))/\sigma_H(n)\big)$. The measured anchor (O1: the committed
+50-replicate overnight anchor run):
 
 ```{r clearance-example}
 z <- (40 - 30) / 13.6786          # oriented truth, floor, measured SE at n=1000
@@ -425,7 +430,8 @@ regeneration (Level 5, isolated).
 
 In words: the probability that *some* candidate's fitted effect clears the
 floor. Because the joint law is known, this is one rectangle probability:
-$P(\max_m \hat\beta_m \ge c_1) = 1 - \Phi_M(c_1\mathbf 1;\ m, \Sigma)$.
+$P(\max_m \hat\beta_m \ge c_1) = 1 - \Phi_M(c_1\mathbf 1;\ m, \Sigma)$,
+with $\Phi_M$ the $M$-variate normal distribution function.
 Verified design-conditionally at $0.8297/0.5281/0.0262$ computed against
 data-level Monte Carlo $0.8243/0.5400/0.0288$ (alternative / borderline /
 null).
@@ -434,9 +440,15 @@ null).
 
 In words: the idealized consistency gate splits the sample in two and asks
 that the candidate clear the floor on average and a lower floor on each
-half. Per candidate the passing probability is a one-dimensional integral —
-the Leon et al. (2024, SIM §2.1) object with that candidate's own mean and
-scale — verified to $7.5\times 10^{-4}$; the family rate ("some candidate
+half, with $W_1, W_2$ the candidate's fitted effects on the two halves. Per
+candidate the passing probability is a one-dimensional integral,
+$$
+P_1 \;=\; \int_{c_2}^{\infty} \phi_{m_1, s_1}(w)\,
+\bar\Phi_{m_2, s_2}\!\big(\max(c_2,\ 2c_1 - w)\big)\, dw,
+$$
+the Leon et al. (2024, SIM §2.1) object with $(m_j, s_j)$ that candidate's
+mean and standard deviation on half $j$ — verified to
+$7.5\times 10^{-4}$; the family rate ("some candidate
 passes") is Gaussian-level Monte Carlo on the exact $2M$-block law,
 verified $0.8206$ vs $0.8187$. The real gate replaces the single split by
 $\hat p_{\mathrm{cons}} \ge$ threshold over hundreds of splits; the
@@ -478,7 +490,9 @@ realized $(b_m, w_m)$, which remain empirical inputs (Level 6).
 The family null rate from the joint law yields an implied count directly;
 with prevalence-heterogeneous candidate variances a single-$P_1$
 normalization is ill-defined in the deep tail, and the stable readout is
-against $\max_m P_1$: $2.33, 1.80, 1.08$ at $N = 300, 600, 1200$ in the
+against $\max_m P_1$,
+$L_{\mathrm{eff}} = \log(1 - P_{\mathrm{fam}})/\log(1 - \max_m P_1)$:
+$2.33, 1.80, 1.08$ at $N = 300, 600, 1200$ in the
 verification family, with the family/union-bound ratio ($0.671 \to 0.989$)
 exhibiting the correlation discount. Growth of a fitted
 $L_{\mathrm{eff}}$ with $N$ is a Level 5 regeneration phenomenon.
@@ -593,7 +607,16 @@ driver documents the best achievable rule as
 `age > 33 & preanti <= 677.9` at Jaccard $0.882$ against $Q$, and gives
 the grid quantile positions (the $33$ cut at the $5/11 = 45.5\%$ age
 quantile; the preanti grid $0, 0, 0, 0, 55.8, 214.1, 432, 677.9, 872.8,
-1070.5$ at the $k/11$ quantiles, so $677.9$ sits at $72.7\%$).
+1070.5$ at the $k/11$ quantiles, so $677.9$ sits at $72.7\%$). Here and
+throughout, the **Jaccard index** of a rule $g$ against $Q$ is
+$$
+J(g, Q) \;=\; \frac{P(g \cap Q)}{P(g \cup Q)},
+$$
+the overlap as a fraction of the union — equal to $1$ exactly when
+$g = Q$, and tied to the classification identities of Part I,
+Corollary (v), by the exact relation
+$1/J = 1/\mathrm{sens} + 1/\mathrm{PPV} - 1$: the driver's rule-recovery
+metric is the harmonic composite of recovery and purity.
 
 Its report tabulates, per batch: the status trichotomy
 (`DETECTED / NO-DETECTION / CONFIG-ERROR`); identified-subgroup sizes
@@ -717,7 +740,8 @@ The maxeffCons rule is: among candidates passing the consistency gate,
 select the one with the largest fitted effect; declare `NO-DETECTION` if
 none passes. The idealized computation below replaces the
 $\hat p_{\mathrm{cons}} \ge 0.90$ multi-split gate with the single-split
-event $\{W_1 + W_2 \ge 2c_1,\ \min(W_1, W_2) \ge c_2\}$ and evaluates
+event $\{W_1 + W_2 \ge 2c_1,\ \min(W_1, W_2) \ge c_2\}$ — $W_1, W_2$
+again the half-sample fitted effects — and evaluates
 everything on the known Gaussian law by Monte Carlo (Level 2 numerics;
 $2 \times 10^5$ draws, so rate SEs are $\approx 0.001$). Direction of the
 idealization, stated: with $c_2 = 10$ sitting far below every candidate
@@ -785,12 +809,14 @@ knitr::kable(data.frame(
 
 Reading the predictions, line by line.
 
-**Detection.** The computed rate is effectively $1$: with nine candidate
-means above the floor and half-sample SEs of $19$–$40$, *some* candidate
-clears on essentially every replicate — consistent with the committed
-$997/1000$ at $n = 500$ and with what the driver's status table should
-show. Detection on this cell is not evidence of finding $Q$; the
-interesting prediction is *what* gets selected.
+**Detection.** The computed rate is $0.965$: with nine candidate means
+above the floor and half-sample SEs of $19$–$40$, *some* candidate clears
+on nearly every replicate. The committed real-family measurement at
+$n = 500$ is $997/1000$ — higher still, in exactly the direction the
+family-size caveat below predicts — and the driver's own status table is
+this prediction's comparison target. Detection on this cell is not
+evidence of finding $Q$; the interesting prediction is *what* gets
+selected.
 
 **The selection distribution** is the substantive output, and it inverts
 the marginal ordering. $g^\ast$ leads the gate ($P_1 = 0.63$, the largest)
@@ -841,7 +867,7 @@ every region's oriented mean collapses to the common treatment effect
 ($\approx +26.26$, the complement value). The same machinery then predicts
 the null cell's operating characteristics — and the prediction is the
 useful kind of surprising: the floor sits only $(30 - 26.26)/\mathrm{SE}
-\approx 0.1$–$0.2$ SEs above every candidate mean, so this "null" is a
+\approx 0.13$–$0.28$ SEs above every candidate mean, so this "null" is a
 **near-threshold null**, not a zero null.
 
 ```{r worked-null}
