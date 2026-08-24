@@ -94,7 +94,8 @@ $\beta_{\mathrm{int}} = +13.745$, $\tau_Q = \beta(Q) = +40$. Raw
 (stored) values appear only when quoting stored references, and the word
 *oriented* is never abbreviated to a super- or subscript — in this
 project the prefix `or_` belongs to the **oracle** estimator, and the two
-must not collide. Display convention: numeric constants are shown to
+must not collide. Likewise the letter $g$ is reserved for regions: where a
+GLM link function is needed it is written $\kappa$, never $g$. Display convention: numeric constants are shown to
 three decimals (four where a stored anchor is itself a four-decimal
 quantity, e.g., $\pi = 0.3446$ and Jaccard $0.882$); stored references
 retain full precision, and every exactness check compares at machine
@@ -141,9 +142,60 @@ $$
 \;=\; \tau_{Q^c} + \beta_{\mathrm{int}}\, P(Q \mid H).
 $$
 
-*Proof.* Identity link and randomization give collapsibility —
-$\beta(H)$ is the average CATE over $H$ — and a two-valued $\tau$ makes
-that average a two-point mixture determined by one overlap count. $\square$
+*Proof, in four steps, naming the assumption each step consumes.*
+
+**Step 1 (linearity of the effect scale $\Rightarrow$ collapsibility).**
+Write $\mu_w(x) = \mathbb E[Y(w) \mid X = x]$ for the DGM's stored arm
+surfaces and $\tau(x) = \mu_1(x) - \mu_0(x)$ for the row-level effect. By
+definition the region effect is a difference of region-averaged arm means,
+and because a difference is linear, averaging over $H$ commutes with
+forming the effect:
+$$
+\beta(H)
+= \frac{1}{|H|}\sum_{i \in H} \mu_1(X_i)
+- \frac{1}{|H|}\sum_{i \in H} \mu_0(X_i)
+= \frac{1}{|H|}\sum_{i \in H} \tau(X_i)
+= \mathbb E\big[\tau(X) \mid X \in H\big].
+$$
+This is collapsibility. The only property used is that the effect measure
+is a *difference of means* — the identity (collapsible) scale — and the
+step therefore holds for **every** region: no rectangle shape, no
+covariate independence, no restriction on how $H$ was chosen. It is
+exactly this step that fails on nonlinear scales (log-odds, log-hazard),
+which is why Tier A degrades to Tier B there.
+
+**Step 2 (randomization $\Rightarrow$ the estimand is what the estimator
+targets).** Under randomization, $W \perp (Y(0), Y(1), X)$, and since
+$\{X \in H\}$ is an event determined by $X$ alone, the independence
+survives the conditioning: $W \perp (Y(0), Y(1)) \mid X \in H$. Hence
+$\mathbb E[Y \mid X \in H, W = w] = \mathbb E[\mu_w(X) \mid X \in H]$
+for $w = 0, 1$, so the within-region difference in arm means — the
+estimator of §2 — targets $\beta(H)$, up to the finite-sample imbalance
+terms made exact in Part II, Level 2. This step is a design property,
+agnostic to the outcome type, and it is consumed here only to connect the
+algebraic estimand to the fitted quantity; the identity of Step 1 itself
+is pure arithmetic on `df_super`.
+
+**Step 3 (two-valued CATE $\Rightarrow$ two-point mixture).** The fixture
+sets $\tau(x) = \tau_{Q^c} + \beta_{\mathrm{int}}\,\mathbb 1\{x \in Q\}$,
+so $\tau$ takes the value $\tau_Q = \tau_{Q^c} + \beta_{\mathrm{int}}$ on
+$H \cap Q$ and $\tau_{Q^c}$ on $H \cap Q^c$. The Step 1 sum then splits
+on one overlap count:
+$$
+\sum_{i \in H} \tau(X_i)
+= |H \cap Q|\,\tau_Q + |H \cap Q^c|\,\tau_{Q^c},
+$$
+which is the first display; dividing by $|H|$ and writing
+$P(Q \mid H) = |H \cap Q|/|H|$ (the purity of §2, with
+$|H \cap Q^c|/|H| = 1 - P(Q \mid H)$) gives the second,
+$\beta(H) = \tau_{Q^c} + \beta_{\mathrm{int}}\, P(Q \mid H)$.
+
+**Step 4 (ledger).** Linearity bought Step 1 and is the piece lost on the
+OR/HR scales; randomization bought Step 2 and transfers to every outcome
+type; two-valuedness bought Step 3 and is a fixture choice — under a
+general $\tau$, $\beta(H) = \mathbb E[\tau(X) \mid H]$ still holds
+exactly, and only the reduction to a single overlap count is lost.
+$\square$
 
 The force of Proposition 1 is its quantifier: it holds for **every** rule,
 including every data-selected $\hat H$, so the scoring target behind every
@@ -188,8 +240,10 @@ record above stands.)
 
 Quantities defined on $\mathcal{S}$ for a realized object are computable
 with zero Monte Carlo error by finite summation even when no algebraic form
-exists. First, in the binary/OR port the mixture identity fails — for a
-link $g$, $g^{-1}$ of a mixture is not the mixture of $g^{-1}$'s — yet the
+exists. First, in the binary/OR port the mixture identity fails because
+averaging does not commute with a nonlinear scale: the log-odds of an
+average risk is not the average of the log-odds (for a GLM link $\kappa$,
+$\kappa^{-1}$ of a mixture is not the mixture of $\kappa^{-1}$'s) — yet the
 exact OR over $H$ remains a deterministic function of the DGM's probability
 surfaces evaluated on $\mathcal{S}$: Tier A degrades to Tier B, the
 reference stays exact (the risk-difference scale retains full Tier A).
