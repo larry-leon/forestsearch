@@ -587,6 +587,177 @@ verification family, with the family/union-bound ratio ($0.671 \to 0.989$)
 exhibiting the correlation discount. Growth of a fitted
 $L_{\mathrm{eff}}$ with $N$ is a Level 5 regeneration phenomenon.
 
+## The floors and family declaration: the single-candidate regime {#sec-floors}
+
+Before any competition enters, the cleanest question is the one a design
+must answer first: **with a single candidate — the designed region $Q$
+itself, well separated, no family — how do the screening floor $c_1$ and
+the consistency floor $c_2$ set the detection rate, and how does that
+rate depend on the ITT, $Q$, and $Q^c$ effects?** Everything here is
+closed-form or a one-dimensional integral, and the three-candidate
+warm-up below is this section plus competition.
+
+**How the triple enters.** The design's effect geometry is pinned by
+three numbers — the prevalence $\pi$ and any two of
+$(\tau_Q, \tau_{Q^c}, \mathrm{ITT})$ — through the mixture algebra of
+Proposition 1:
+$$
+\mathrm{ITT} = \tau_{Q^c} + \beta_{\mathrm{int}}\,\pi,
+\qquad
+\tau_Q = \tau_{Q^c} + \frac{\mathrm{ITT} - \tau_{Q^c}}{\pi}.
+$$
+At the fixture triple ($\pi = 0.3446$, $\tau_{Q^c} = 26.255$,
+$\beta_{\mathrm{int}} = 13.745$): $\tau_Q = 40$ and
+$\mathrm{ITT} = 30.992$. Three *channels* follow, one per ideal
+candidate, each with its mean fixed by the triple and its scale by the
+prevalence rule $\sigma_g(n) = \sigma_Q(n)\sqrt{\pi_Q/\pi_g}$: the $Q$
+channel (mean $\tau_Q$, the power channel); the **ITT channel** (the
+whole-sample rule: mean $\mathrm{ITT}$, the smallest scale,
+$\sigma = \sigma_Q\sqrt{\pi}$) — the canonical *uninformative* clearance
+route, since any rule carrying no information about $Q$ has this mean;
+and the **$Q^c$ channel** (mean $\tau_{Q^c}$, the mean *floor* over all
+rules, attained at zero purity). The complement therefore matters even
+when it is not a candidate: it sets both the lower end of every
+candidate's possible mean and, through the identity, how much of the ITT
+is "explained" by $Q$.
+
+**The exact single-candidate rate.** With half-sample effects
+$W_1, W_2 \stackrel{iid}{\sim} N\!\big(m,\ 2\sigma^2(n)\big)$ and the
+idealized gate $\{\bar W \ge c_1,\ \min(W_1, W_2) \ge c_2\}$,
+$$
+P_1(c_1, c_2; m, \sigma)
+= \int_{c_2}^{\infty} \phi_{m,\sigma\sqrt2}(w)\,
+  \bar\Phi_{m,\sigma\sqrt2}\!\big(\max(c_2,\ 2c_1 - w)\big)\, dw,
+$$
+monotone decreasing in both floors, with three instructive limits:
+$c_2 \to -\infty$ gives the screening-only rate
+$\Phi\!\big((m - c_1)/\sigma\big)$; $c_1 \to -\infty$ gives the pure
+replication rate $\bar\Phi\!\big((c_2 - m)/(\sigma\sqrt2)\big)^2$ —
+which is also the **attainable ceiling at fixed $c_2$**: no screening
+floor can push $P_1$ above it, and at the fixture ($c_2 = 10$, $m = 40$)
+that ceiling is $0.883$, so a $95\%$ single-candidate target is
+infeasible at these floors without lowering $c_2$; and
+$c_2 \ge c_1$ makes screening redundant (the minimum constraint implies
+the mean one). Between the limits, $c_2$ bites through a mechanism worth
+naming: the event lost relative to screening alone is
+$\{\bar W \ge c_1,\ \min W_j < c_2\}$ — **one low half forces the other
+half to carry the sum**, so even a $c_2$ far below $m$ removes the
+anti-correlated corner. At the fixture ($m = 40$,
+$\sigma_Q(1000) = 13.679$, floors $30/10$) this costs about two
+points: screening-only $0.768$ versus $P_1 = 0.745$ — the
+quantitative content behind the "non-discriminating $c_2$" reading of
+open question D2: non-discriminating *between candidates*, not free.
+
+**Can $(c_1, c_2)$ be tuned to a target rate? Yes — with a feasibility
+boundary once the ITT channel is watched.** For a single channel the
+inversion is immediate (closed form at non-binding $c_2$,
+$c_1 = m - z_{\rho}\,\sigma(n)$; one `uniroot` in general, done in the
+chunk). The design question with teeth is *joint*: power $\ge \rho$ at
+$Q$ while the uninformative ITT channel clears at most $\alpha$. To
+first order (screening-dominant regime) that requires
+$$
+c_1 \le \tau_Q - z_\rho\,\sigma_Q(n)
+\quad\text{and}\quad
+c_1 \ge \mathrm{ITT} + z_{1-\alpha}\,\sigma_{\mathrm{ITT}}(n),
+$$
+which is feasible iff the **separation inequality** holds:
+$$
+\tau_Q - \mathrm{ITT} \;=\; \beta_{\mathrm{int}}\,(1 - \pi)
+\;\ge\; z_\rho\,\sigma_Q(n) + z_{1-\alpha}\,\sigma_{\mathrm{ITT}}(n).
+$$
+The left side is pure geometry — the interaction times the complement
+share — and the right side shrinks as $\sqrt{1000/n}$, giving the sample
+size at which a $(\rho, \alpha)$ pair first becomes achievable. At the
+fixture triple the numbers are sobering and worth stating plainly:
+$(\rho, \alpha) = (0.90, 0.10)$ first becomes feasible near
+$n \approx 9{,}500$; at $n = 1000$ the floors can *trade* the two
+channels along the $c_1$ axis but cannot meet both — the borderline-null
+regime of the manuscript's §7 anchors, derived rather than observed. The
+$Q^c$ channel sits below both (mean $26.255$) and is the mild one at
+these floors; $c_2$ moves all three channels together (multiplicatively,
+through the replication factor) and is the secondary knob.
+
+```{r floors-single}
+#| fig-width: 7
+#| fig-height: 5
+# Exact single-candidate machinery, fixture triple, oriented scale.
+detect1 <- function(c1, c2, m, s) {
+  s2 <- s * sqrt(2)
+  integrate(function(w) dnorm(w, m, s2) *
+              pnorm(pmax(c2, 2*c1 - w), m, s2, lower.tail = FALSE),
+            lower = c2, upper = Inf, rel.tol = 1e-10)$value
+}
+c1_for <- function(rho, c2, m, s) {        # exact inversion in c1
+  ceiling <- pnorm(c2, m, s*sqrt(2), lower.tail = FALSE)^2
+  if (rho >= ceiling) return(NA_real_)     # target above the c2 ceiling
+  uniroot(function(c1) detect1(c1, c2, m, s) - rho,
+          interval = c(m - 8*s, m + 8*s), tol = 1e-8)$root
+}
+piQ <- 0.3446; tQc <- 26.255235876; bint <- 13.744764124
+tQ  <- tQc + bint; ITT <- tQc + bint*piQ
+sQ1 <- 13.6786
+chan <- data.frame(channel = c("Q (power)", "ITT (uninformative)",
+                               "Qc (complement)"),
+                   mean = c(tQ, ITT, tQc),
+                   prevalence = c(piQ, 1, 1 - piQ))
+chan$sigma_n1000 <- sQ1 * sqrt(piQ / chan$prevalence)
+res <- do.call(rbind, lapply(c(500, 700, 1000), function(n) {
+  sc <- sqrt(1000/n)
+  data.frame(n = n, channel = chan$channel,
+    screen_only = pnorm(30, chan$mean, chan$sigma_n1000*sc, lower.tail = FALSE),
+    P1_c2_10 = vapply(seq_len(3), function(i)
+      detect1(30, 10, chan$mean[i], chan$sigma_n1000[i]*sc), numeric(1)),
+    P1_c2_25 = vapply(seq_len(3), function(i)
+      detect1(30, 25, chan$mean[i], chan$sigma_n1000[i]*sc), numeric(1)))
+}))
+res[, 3:5] <- round(res[, 3:5], 3)
+knitr::kable(res, row.names = FALSE, caption = paste(
+  "The three ideal channels at floors (30, c2): screening-only vs the exact",
+  "single-split rate. The c2 = 10 column quantifies the sum-forcing penalty;",
+  "c2 = 25 shows the floor beginning to bind on its own."))
+zr <- function(x) qnorm(x)
+nstar <- function(rho, alpha)
+  1000 * ((zr(rho)*sQ1 + zr(1-alpha)*sQ1*sqrt(piQ)) / (bint*(1-piQ)))^2
+cat(sprintf("Separation: tau_Q - ITT = %.3f.  n* for (rho, alpha): (.90,.10) %s | (.80,.20) %s | (.95,.05) %s\n",
+    bint*(1-piQ),
+    format(round(nstar(.90,.10)), big.mark=","),
+    format(round(nstar(.80,.20)), big.mark=","),
+    format(round(nstar(.95,.05)), big.mark=",")))
+tr <- data.frame(c1 = seq(28, 42, 2))
+tr$power_Q   <- vapply(tr$c1, detect1, numeric(1), c2 = 10, m = tQ,  s = sQ1)
+tr$ITT_chan  <- vapply(tr$c1, detect1, numeric(1), c2 = 10, m = ITT, s = sQ1*sqrt(piQ))
+tr$Qc_chan   <- vapply(tr$c1, detect1, numeric(1), c2 = 10, m = tQc, s = sQ1*sqrt(piQ/(1-piQ)))
+tr[, 2:4] <- round(tr[, 2:4], 3)
+knitr::kable(tr, row.names = FALSE, caption = paste(
+  "The trade-off at n = 1000, c2 = 10: sliding c1 exchanges power at Q",
+  "against the ITT-channel clearance rate; no c1 meets (0.90, 0.10) jointly."))
+inv <- vapply(c(.80, .90, .95), c1_for, numeric(1), c2 = 10, m = tQ, s = sQ1)
+cat(sprintf("Exact inversions at n = 1000, c2 = 10: c1 for 80/90%% power at Q: %.2f / %.2f; 95%% infeasible (c2 ceiling %.3f)\n",
+    inv[1], inv[2], pnorm(10, tQ, sQ1*sqrt(2), lower.tail = FALSE)^2))
+g1 <- seq(22, 44, by = 0.5); g2 <- seq(0, 40, by = 0.5)
+Z <- outer(g1, g2, Vectorize(function(a, b)
+  if (b > a) NA_real_ else detect1(a, b, tQ, sQ1)))
+contour(g1, g2, Z, levels = c(.5, .6, .7, .743, .8, .9, .95),
+        xlab = "screening floor c1", ylab = "consistency floor c2",
+        main = "Single-candidate detection P1(c1, c2) for Q at n = 1000")
+points(30, 10, pch = 19); text(30, 10, "  fixture (30, 10)", adj = 0)
+abline(0, 1, lty = 3)
+```
+
+Reading the outputs. The channel table is the section's core: at the
+fixture floors the $Q$ channel detects at $0.745$ ($n = 1000$) while the
+uninformative ITT channel *also* clears at $0.55$ — the two rates a
+$(c_1, c_2)$ choice must trade, with $Q^c$ mild below both. The
+trade-off table walks $c_1$ across the gap and shows the exchange rate
+explicitly; the separation printout gives the $n$ at which chosen
+$(\rho, \alpha)$ pairs become jointly feasible; and the contour displays
+the full level sets of $P_1(c_1, c_2)$ with the fixture marked — flat in
+$c_2$ well below the diagonal, bending as $c_2$ approaches $c_1$ where
+replication takes over. Family declaration for a real family is this
+section composed with competition: each member is one channel with its
+purity-determined mean, and the family rate is the joint exceedance the
+next recipes compute.
+
 ## A three-candidate warm-up, read line by line {#sec-warmup}
 
 Before the full worked example, a minimal geometry that shows what the
@@ -655,6 +826,69 @@ up to the printed quadrature gap — an internal consistency identity, not a
 new assumption. Finally, family declaration ($0.847$) exceeds the best
 marginal ($0.768$): competition helps *declaration* even as it dilutes any
 single candidate's *selection*.
+
+### Adding the consistency floor, and the ITT and $Q^c$ channels {#sec-warmup-floors}
+
+The warm-up table above is screening-only. Two additions complete it in
+the direction of @sec-floors: the consistency floor, and the two ideal
+channels as explicit family members.
+
+```{r warmup-floors}
+set.seed(20260826)
+P1_3 <- vapply(seq_len(3), function(m)
+  detect1(c1, 10, cand$beta[m], cand$se[m]), numeric(1))
+e3 <- eigen(2 * Sg, symmetric = TRUE)
+rt3 <- e3$vectors %*% diag(sqrt(pmax(e3$values, 0)))
+Rg <- 2e5
+fam_split <- function(mu, root, Mloc, c2v) {
+  V1 <- matrix(rnorm(Rg*Mloc), Rg, Mloc) %*% t(root) + rep(mu, each = Rg)
+  V2 <- matrix(rnorm(Rg*Mloc), Rg, Mloc) %*% t(root) + rep(mu, each = Rg)
+  mean(rowSums((V1 + V2 >= 2*c1) & (V1 >= c2v) & (V2 >= c2v)) > 0)
+}
+fam10 <- fam_split(cand$beta, rt3, 3, 10)
+fam25 <- fam_split(cand$beta, rt3, 3, 25)
+# Augment with the ITT rule S (prevalence 1) and the complement Qc
+piQ <- 0.3446; sQ1 <- 13.6786
+beta5 <- c(cand$beta, 30.992, 26.255)
+prev5 <- c(cand$pi, 1, 1 - piQ)
+se5   <- c(cand$se, sQ1*sqrt(piQ), sQ1*sqrt(piQ/(1-piQ)))
+ov5 <- matrix(0, 5, 5)
+ov5[1:3, 1:3] <- ov
+ov5[4, ] <- ov5[, 4] <- prev5            # S overlaps everything at P(g)
+ov5[5, 1:3] <- ov5[1:3, 5] <- c(0, 0.45 - 0.28, 0)   # Qc: none with Q, D
+ov5[5, 4] <- ov5[4, 5] <- 1 - piQ; ov5[5, 5] <- 1 - piQ
+diag(ov5)[1:3] <- cand$pi
+R5 <- ov5 / sqrt(outer(prev5, prev5))
+S5 <- R5 * outer(se5, se5)
+e5 <- eigen(2 * S5, symmetric = TRUE)
+rt5 <- e5$vectors %*% diag(sqrt(pmax(e5$values, 0)))
+fam5_10 <- fam_split(beta5, rt5, 5, 10)
+scr5 <- pnorm(c1, beta5, se5, lower.tail = FALSE)
+P1_5 <- vapply(seq_len(5), function(m) detect1(c1, 10, beta5[m], se5[m]),
+               numeric(1))
+knitr::kable(data.frame(
+  member = c(as.character(cand$name), "S (ITT rule)", "Qc (complement)"),
+  beta = round(beta5, 3), se = round(se5, 3),
+  screen_only = round(scr5, 3), P1_c1_30_c2_10 = round(P1_5, 3)),
+  row.names = FALSE, caption =
+  "The warm-up family with the two ideal channels added, at floors (30, 10).")
+cat(sprintf("Family single-split declaration: 3-candidate %.4f (c2=10) / %.4f (c2=25); screening-only %.4f.\n",
+            fam10, fam25, as.numeric(p_fam)))
+cat(sprintf("5-member family with ITT and Qc channels, c2=10: %.4f.\n", fam5_10))
+```
+
+Reading the additions. The consistency floor at $c_2 = 10$ trims the
+three-candidate family from the screening-only $0.847$ by the
+sum-forcing mechanism of @sec-floors, and $c_2 = 25$ shows the floor
+biting in earnest. Adding the two ideal channels raises family
+declaration further — the ITT rule alone contributes a $0.55$-per-family
+clearance route at these floors — which is the warm-up-scale
+demonstration of the section's central point: **"overall detection" is a
+property of the channel set, and the $(c_1, c_2)$ pair prices every
+channel simultaneously through its purity-determined mean.** The
+three-class structure (truth, proxy, near-duplicate) governs *which*
+member is selected; the ITT and $Q^c$ channels govern how often
+*something* clears when the informative members are absent or weak.
 
 ## Design calculators
 
