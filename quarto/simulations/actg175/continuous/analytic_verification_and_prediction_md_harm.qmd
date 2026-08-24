@@ -104,7 +104,9 @@ precision regardless of display.
 Three conventions, verified against package source, govern everything below:
 the estimator is the within-subgroup OLS treatment coefficient of
 `lm(y ~ treat)` — the difference in arm means — on the oriented scale
-(`R/glm_effect_estimators.R:814-821`); the screening and consistency events
+(`R/glm_effect_estimators.R:814-821`), i.e., the difference-in-means
+estimator of Wager ([W] §1.1, eq. 1.4; see Appendix B, @sec-refwager)
+restricted to a region; the screening and consistency events
 compare **point estimates** to the floors
 (`R/subgroup_search.R:626`; `R/subgroup_consistency_main.R:528-531`), so
 estimated variance never enters an event definition; and thresholds are
@@ -174,7 +176,9 @@ estimator of §2 — targets $\beta(H)$, up to the finite-sample imbalance
 terms made exact in Part II, Level 2. This step is a design property,
 agnostic to the outcome type, and it is consumed here only to connect the
 algebraic estimand to the fitted quantity; the identity of Step 1 itself
-is pure arithmetic on `df_super`.
+is pure arithmetic on `df_super`. It is the region-restricted form of
+the randomization assumption and unbiasedness theorem of [W] §1.1
+(eq. 1.6, Theorem 1.1); see @sec-refwager-rct.
 
 **Step 3 (two-valued CATE $\Rightarrow$ two-point mixture).** The fixture
 sets $\tau(x) = \tau_{Q^c} + \beta_{\mathrm{int}}\,\mathbb 1\{x \in Q\}$,
@@ -260,7 +264,9 @@ $$
 $$
 
 an exact overlap computation; under balanced arms the correlation is the
-overlap fraction $P(H_j \cap H_k)/\sqrt{P(H_j)P(H_k)}$, free of $\sigma$.
+overlap fraction $P(H_j \cap H_k)/\sqrt{P(H_j)P(H_k)}$, free of $\sigma$;
+its diagonal is the classical Neyman/difference-in-means sampling
+variance of [W] §1.1, restricted to a region (@sec-refwager-rct).
 The caveat is stated rather than hidden: family membership and quantile
 cuts are data-dependent, so this exactness is conditional on the realized
 family.
@@ -335,7 +341,9 @@ and CATE spread (measured inflation factors $0.94$–$1.09$ over
 $\sigma$-only truth), so the analyst's plug-in is a nearly unbiased
 estimate of the *population-level* effective variance of Level 4 rather
 than the conditional $\sigma^2$ — plug-in computations approximate the
-unconditional law, known-$\sigma$ computations the design-conditional one.
+unconditional law, known-$\sigma$ computations the design-conditional one
+(the finite-population face of the variance-absorption phenomenon that
+motivates regression adjustment, [W] §1.2; @sec-refwager-adj).
 This has a practical corollary used in the worked example: **anchoring the
 scale to a fitted standard error already incorporates the Level 4 variance
 correction**, leaving only the covariance refinement below.
@@ -393,6 +401,34 @@ $\operatorname{corr}(Q, \mathrm{dup})$ from the $\sigma$-overlap value
 $0.9747$ to $0.9385$, decorrelating exactly where both candidates sit at
 the threshold.
 
+**The classical identity behind the diagonal, and what efficiency would
+buy.** The diagonal of $\Sigma_{\mathrm{pop}}$ is not merely analogous to
+classical theory — it *is* the Neyman superpopulation variance of [W]
+§1.1, restricted to the region at $e = 1/2$: with
+$\mathrm{Var}[Y(1)\mid g] = \sigma^2 + \mathrm{Var}(\mu_0+\tau\mid g)$
+and $\mathrm{Var}[Y(0)\mid g] = \sigma^2 + \mathrm{Var}(\mu_0\mid g)$,
+$$
+V_{\mathrm{DM}}(g)
+= 2\,\mathrm{Var}[Y(1)\mid g] + 2\,\mathrm{Var}[Y(0)\mid g]
+= 4\Big(\sigma^2 + \mathrm{Var}(\mu_0\mid g)
++ \tfrac12\mathrm{Var}(\tau\mid g) + \mathrm{Cov}(\mu_0,\tau\mid g)\Big),
+$$
+exactly the bracket above. The semiparametric efficiency bound of [W]
+§3.2 (eq. 3.20; Theorems 3.2 and 3.4), specialized to $e = 1/2$ and
+homoscedastic noise within $g$, is
+$V^\ast(g) = 4\sigma^2 + \mathrm{Var}(\tau\mid g)$, and the excess of
+the unadjusted estimator over the bound has an exact closed form:
+$$
+V_{\mathrm{DM}}(g) - V^\ast(g)
+= 4\,\mathrm{Var}(\mu_0\mid g) + \mathrm{Var}(\tau\mid g)
++ 4\,\mathrm{Cov}(\mu_0,\tau\mid g)
+= \mathrm{Var}\big(2\mu_0 + \tau \,\big|\, g\big) \;\ge\; 0,
+$$
+the adjustable prognostic component expressed as a single variance. The
+package's unadjusted within-region fit sits at $V_{\mathrm{DM}}$;
+Appendix B (@sec-refwager-eff) states the bound and the AIPW estimator
+that attains it.
+
 **Verification** (`dev/detection-theory-continuous/check_additive_covariance_md.R`,
 sandbox R 4.3.3/mvtnorm 1.2.4, seed 46, fresh population Monte Carlo,
 $n_{\mathrm{rep}} = 6000$): at the adversarial borderline, MC $0.5580$
@@ -424,7 +460,9 @@ composition uses the stability closed form and remains a deferred rung.
 **Argmax scope:** the computed selection is argmax-over-all; the procedure
 takes the maximum over *admitted* candidates under `sg_focus` — the same
 difference transform on a subset. **Nomination:** GRF/LASSO screening into
-the family is unmodeled, exactly as in the April $L_{\mathrm{eff}}$
+the family is unmodeled — its target is the CATE in the R-learner frame
+of [W] §4.1–4.2, instantiated by the causal forest
+(@sec-refwager-cate) — exactly as in the April $L_{\mathrm{eff}}$
 document.
 
 ## Level 6: MR-specific — the fidelity benchmark and the empirical core
@@ -564,7 +602,10 @@ $\beta(\hat H)$, classification metrics, and the naive-bias forecast (the
 selection-noise functional $\mathbb E[\text{noise of the argmax}]$ — the
 quantity `design-checks/oracle_design.R` already evaluates on the same
 law). The zcons-ranked variant of Level 6 uses the same recipe under the
-diagonal rescaling.
+diagonal rescaling. The formal relative of this layer in the causal
+inference literature is policy learning ([W] Ch. 5); the estimand
+contrast and the complexity/regret kinship are set out in
+@sec-refwager-policy.
 
 ## Coverage, composed
 
@@ -586,6 +627,9 @@ $2.33, 1.80, 1.08$ at $N = 300, 600, 1200$ in the
 verification family, with the family/union-bound ratio ($0.671 \to 0.989$)
 exhibiting the correlation discount. Growth of a fitted
 $L_{\mathrm{eff}}$ with $N$ is a Level 5 regeneration phenomenon.
+$L_{\mathrm{eff}}$ plays the role the policy-class complexity term
+plays in empirical-welfare-maximization regret bounds ([W] §5.2;
+@sec-refwager-policy) — the same object seen from the exact-law side.
 
 ## The floors and family declaration: the single-candidate regime {#sec-floors}
 
@@ -1303,7 +1347,7 @@ nomination, and MR's sufficiency remain the empirical core the simulations
 exist to measure — now against both certified references and computed
 benchmarks.
 
-# Appendix — Analytic calculations versus the simulations: the maxeffCons design at n = 700 {#sec-appendix}
+# Appendix A — Analytic calculations versus the simulations: the maxeffCons design at n = 700 {#sec-appendix}
 
 This appendix evaluates the document's recipes against a **completed**
 simulation of the Step 1 design: the rendered report
@@ -1491,3 +1535,185 @@ bias and $144.49$ mean width are inputs to the coverage composition
 above, not outputs of the analytic layer — the empirical core the
 simulations exist to measure, scored against references the certified
 layer supplies exactly.
+
+# Appendix B — Causal-inference reference results (Wager) {#sec-refwager}
+
+This appendix makes the document self-contained on its causal-inference
+foundations by restating, in this document's notation and with precise
+citations, the results it uses or parallels from Stefan Wager's *Causal
+Inference: A Statistical Learning Approach* (Stanford; draft dated
+November 26, 2025), cited throughout as **[W]** with the draft's equation
+and theorem numbers, and its ancestor, the STATS 361 lecture notes
+(Spring 2020), cited as **[W-notes]**. Because [W] is a dated draft,
+numbering may shift in print; the cited section titles are stable. Each
+subsection ends with the role the result plays here.
+
+## Potential outcomes, randomization, and difference in means {#sec-refwager-rct}
+
+**Setup ([W] §1.1).** Each unit carries potential outcomes
+$(Y_i(0), Y_i(1))$. SUTVA (eq. 1.5) states $Y_i = Y_i(W_i)$: the
+observed outcome is the potential outcome of the assigned arm, with no
+interference across units. Randomization (eq. 1.6) states that,
+conditionally on all potential outcomes and on the treated count $n_1$,
+every unit is treated with the same probability $n_1/n$. The
+difference-in-means estimator (eq. 1.4) is
+$\hat\tau_{\mathrm{DM}} = n_1^{-1}\sum_{W_i=1} Y_i -
+n_0^{-1}\sum_{W_i=0} Y_i$.
+
+**Theorem 1.1 ([W]).** Under SUTVA and randomization,
+$\hat\tau_{\mathrm{DM}}$ is finite-sample unbiased for the sample
+average treatment effect, conditionally on the potential outcomes and on
+both arms being non-empty. The proof is iterated expectation:
+assignment independence pulls through the sum.
+
+**Superpopulation CLT and the Neyman variance ([W] §1.1, around
+eqs. 1.9–1.10).** With units i.i.d. from a population and treated
+fraction $\pi_{\mathrm{tr}}$, define residuals
+$\varepsilon_i(w) = Y_i(w) - \mathbb E[Y_i(w)]$. The estimation error
+decomposes as
+$$
+\hat\tau_{\mathrm{DM}} - \tau
+= \frac{n}{n_1}\cdot\frac1n\sum_i W_i\,\varepsilon_i(1)
+- \frac{n}{n_0}\cdot\frac1n\sum_i (1-W_i)\,\varepsilon_i(0);
+$$
+the two per-arm sums are uncorrelated with variances
+$\pi_{\mathrm{tr}}\,\mathrm{Var}[\varepsilon(1)]$ and
+$(1-\pi_{\mathrm{tr}})\,\mathrm{Var}[\varepsilon(0)]$, and the CLT gives
+$\sqrt n\,(\hat\tau_{\mathrm{DM}} - \tau) \Rightarrow
+N(0, V_{\mathrm{DM}})$ with
+$$
+V_{\mathrm{DM}}
+= \frac{\mathrm{Var}[\varepsilon(1)]}{\pi_{\mathrm{tr}}}
++ \frac{\mathrm{Var}[\varepsilon(0)]}{1-\pi_{\mathrm{tr}}},
+$$
+consistently estimable by the arm-wise plug-in
+$\widehat V_{\mathrm{DM}}$.
+
+**Role here.** The §2 estimator is exactly this object restricted to a
+region ($\pi_{\mathrm{tr}} = 1/2$); Proposition 1's Step 2 is eq. 1.6
+surviving the conditioning on $\{X \in H\}$; the residual decomposition
+is the seed of the influence representation $\psi_i(g)$ of
+@sec-additive; the Neyman variance restricted to $g$ **is** the Level 4
+diagonal (the identity displayed in @sec-ladder, Level 4); and the
+consistent variance estimator is the ancestor of the Level 3 plug-in
+observation.
+
+## Regression adjustment in randomized trials {#sec-refwager-adj}
+
+**[W] §1.2.** Adjusting the difference in means by fitted per-arm
+outcome models leaves the estimator consistent under randomization
+regardless of model quality, and reduces the asymptotic variance by the
+portion of $\mathrm{Var}[\varepsilon(w)]$ explained by the covariates —
+the prognostic component. **Role here.** This is the population
+statement of two facts the ladder measures: the per-region `lm` residual
+variance absorbing within-region prognostic and CATE spread (inflation
+factors $0.94$–$1.09$, Level 3), and the $u^{(g)}$ prognostic terms of
+the additive decomposition (Level 4) being exactly the component an
+adjusted estimator could remove — quantified as
+$\mathrm{Var}(2\mu_0 + \tau \mid g)$ in the Level 4 identity.
+
+## AIPW, the efficient influence function, and the efficiency bound {#sec-refwager-eff}
+
+**AIPW ([W] §3.1–3.2).** Under unconfoundedness with propensity $e(x)$
+and outcome regressions $\mu_{(w)}(x)$, the augmented IPW estimator
+averages the scores
+$$
+\Gamma_i = \mu_{(1)}(X_i) - \mu_{(0)}(X_i)
++ \frac{W_i\,\big(Y_i - \mu_{(1)}(X_i)\big)}{e(X_i)}
+- \frac{(1-W_i)\,\big(Y_i - \mu_{(0)}(X_i)\big)}{1 - e(X_i)}.
+$$
+**Theorem 3.2 ([W]), with cross-fitting:** with nuisances estimated at
+$o(n^{-1/4})$ rates on held-out folds,
+$\sqrt n\,(\hat\tau_{\mathrm{AIPW}} - \tau) \Rightarrow N(0, V^\ast)$
+and the plug-in variance is consistent. **The bound (eq. 3.20) and
+Theorem 3.4 ([W]):**
+$$
+V^\ast = \mathrm{Var}[\tau(X)]
++ \mathbb E\!\left[\frac{\sigma^2_{(1)}(X)}{e(X)}\right]
++ \mathbb E\!\left[\frac{\sigma^2_{(0)}(X)}{1-e(X)}\right]
+$$
+is the *efficient* variance in the local asymptotic minimax sense of
+Hájek [1972], via the argument of Chamberlain [1992]: no estimator
+improves on it uniformly over a neighborhood of any $P$.
+
+**Role here.** Three uses. (i) Specialized to the fixture ($e = 1/2$,
+homoscedastic noise) within a region,
+$V^\ast(g) = 4\sigma^2 + \mathrm{Var}(\tau \mid g)$, and the Level 4
+identity gives the exact excess of the package's unadjusted estimator
+over the bound — $\mathrm{Var}(2\mu_0 + \tau \mid g)$, the adjustable
+prognostic component (display in @sec-ladder, Level 4). (ii) The score
+$\Gamma_i$, restricted to a region with known $e = 1/2$ and the
+regression pieces absorbed into the centering, reduces to the
+$\psi_i(g)$ of @sec-additive up to the $2/(nP(g))$ normalization; the
+Gram/PSD structure of $\Sigma_{\mathrm{pop}}$ is the second-moment
+structure of these scores. (iii) The Crump machinery's
+`sandwich_var_glm` (the B2 and survival lanes of the detection-theory
+NOTEs) is the empirical second moment of the same estimating-equation
+scores at the basis level — the Level 3 plug-in layer, pre-built.
+
+## The CATE, the R-learner frame, and the GRF identifier's target {#sec-refwager-cate}
+
+**[W] §4.1–4.2.** The estimand is the conditional average treatment
+effect $\tau(x) = \mu_{(1)}(x) - \mu_{(0)}(x)$. Estimating the two arm
+surfaces separately and differencing incurs *regularization bias* — the
+fits regularize differently and the difference inherits artifacts ([W]
+Fig. 4.1: an oscillatory control fit against a flat treated fit
+manufactures a spurious oscillatory CATE). The remedy targets $\tau$
+directly: the semiparametric specification $\tau(x) = \psi(x)\cdot\beta$
+with residual-on-residual regression, generalized in §4.2 to a loss
+function for treatment heterogeneity whose minimization over flexible
+classes defines the R-learner; the causal forest of Athey, Tibshirani,
+and Wager [2019] instantiates this framework with random forests.
+
+**Role here.** The GRF identifier's nominations target exactly this
+$\tau(\cdot)$; Proposition 1 is the identity-scale collapsibility that
+turns region means into linear functionals of $\tau$; and the fixture's
+two-valued $\tau$ is the piecewise-constant case in which thresholding
+rules are the natural optimal policies — the hinge to the next
+subsection. Nomination itself remains unmodeled in the ladder (Level 5);
+this subsection supplies its formal reference, not its law.
+
+## Policy learning, empirical welfare maximization, and regret {#sec-refwager-policy}
+
+**[W] §5.1–5.2.** A policy $\pi: x \mapsto \{0, 1\}$ has value
+$V(\pi)$; with a test set under unconfoundedness, $V(\pi)$ is estimable
+by IPW or AIPW value estimators (§5.1). Learning constrains $\pi$ to a
+class $\Pi$ (linear thresholds, fixed-depth trees, …); the optimum is
+$\pi^\ast \in \arg\max\{V(\pi'): \pi' \in \Pi\}$ (eq. 5.14), the regret
+of any acceptable $\pi$ is
+$R(\pi) = \sup_{\pi'} V(\pi') - V(\pi)$ (eq. 5.15), and
+empirical-welfare maximization [Kitagawa and Tetenov, 2018] learns
+$\hat\pi = \arg\max\{\widehat V(\pi): \pi \in \Pi\}$ (eq. 5.16). The
+regret of EWM scales with the square root of the policy-class
+complexity over $n$ ([W] §5.2, regret-bounds sketch), and the learning
+problem reduces to weighted classification.
+
+**Role here — kinship and contrast, with estimand discipline.** The
+selection layer of this document and EWM are two lenses on one object:
+an argmax over a rule class driven by noisy per-rule evaluations. The
+kinships are exact in kind: the policy-class complexity term is the
+bound-side face of what $L_{\mathrm{eff}}$ and the family joint law
+measure on the exact-law side, and the winner's-curse functional (the
+computed naive bias) is the finite-$n$ distributional content that
+regret bounds envelope in expectation. The contrasts matter equally:
+EWM targets the *value* $V(\pi)$ — a size-weighted welfare — with
+guarantees over $\Pi$; this document's procedure ranks by the
+*per-rule effect* under screening and consistency gates (maxeffCons is
+argmax of effect among gate-passers, not argmax of welfare), and its
+analytic layer computes the exact finite-$n$ law of that specific
+procedure, targeting $\beta(\hat H)$. Neither subsumes the other: the
+regret frame answers "how good a policy can learning guarantee"; the
+present frame answers "what will this identifier do, with what
+probabilities, on this design."
+
+## Source map and scope
+
+[W-notes] chapters 1–4 (RCTs; unconfoundedness; AIPW; heterogeneity)
+are the ancestors of [W] chapters 1–4, and [W] Ch. 5 extends the
+corresponding policy-learning lecture. Chapters of [W] beyond these —
+balancing estimators, regression discontinuity, instruments and LATE,
+interference, event studies, dynamic policies — are not used by this
+document and are named only to delimit scope. Full bibliographic
+entries for the works cited inside the restatements (Hájek 1972;
+Chamberlain 1992; Kitagawa and Tetenov 2018; Athey, Tibshirani, and
+Wager 2019) appear in [W]'s bibliography.
