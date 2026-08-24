@@ -61,12 +61,44 @@ stored on the raw scale and the orientation bridge applies the sign map once.
 # Fixture, estimator, and event conventions
 
 The committed harm-pathway fixture (`df_super`, $N = 5000$;
-`actg175_continuous_simulations.qmd` lines 65, 100, 118–119): designed
-region $Q$ with $|Q| = 1723$, prevalence $\pi = 0.3446$; raw-scale effects
-$\tau_Q = -40$ (calibration target), $\tau_{Q^c} = -26.255235876$,
-$\beta_{\mathrm{int}} = \tau_Q - \tau_{Q^c} = -13.744764124$; oriented
-values $+40$, $+26.255235876$, $+13.744764124$. The CATE is two-valued.
-Screening floor $c_1 = 30$ and consistency floor $c_2 = 10$, oriented.
+`actg175_continuous_simulations.qmd` lines 65, 100, 118–119): the designed
+harm region is the covariate rule
+$Q = \{\text{age} > 34 \ \wedge\ \text{preanti} \le 744.5\}$, with
+$|Q| = 1723$ members and prevalence $\pi = P(Q) = |Q|/N = 0.3446$.
+Raw-scale (stored) effects: $\tau_Q = -40$ (calibration target),
+$\tau_{Q^c} = -26.255$,
+$\beta_{\mathrm{int}} = \tau_Q - \tau_{Q^c} = -13.745$. The CATE is
+two-valued. Screening floor $c_1 = 30$ and consistency floor $c_2 = 10$,
+both on the oriented scale defined next.
+
+**Notation used throughout.** A *region* (equivalently a *rule*) $H$ or
+$g$ is a subset of the covariate space — in practice a conjunction of
+covariate conditions — identified with the subset of `df_super` rows it
+selects; $\hat H$ is the data-selected region. Its *prevalence* is
+$P(g) = |g|/N$, and its **purity** is
+$$
+P(Q \mid g) \;=\; \frac{|g \cap Q|}{|g|},
+$$
+the fraction of $g$'s members lying inside the designed region $Q$ — so
+$P(Q \mid Q) = 1$, and $P(Q \mid g) = \pi$ for any rule carrying no
+information about $Q$. The *effect* of a region,
+$$
+\beta(g) \;=\; \mathbb E\big[\,Y(1) - Y(0) \mid X \in g\,\big]
+\ \text{on the oriented scale},
+$$
+is its average treatment effect, computed exactly on `df_super`. **All
+effect symbols in this document are oriented by default** (positive =
+harm — the scale the estimator operates on under
+`adverse_outcome = FALSE`): $\tau_{Q^c} = +26.255$,
+$\beta_{\mathrm{int}} = +13.745$, $\tau_Q = \beta(Q) = +40$. Raw
+(stored) values appear only when quoting stored references, and the word
+*oriented* is never abbreviated to a super- or subscript — in this
+project the prefix `or_` belongs to the **oracle** estimator, and the two
+must not collide. Display convention: numeric constants are shown to
+three decimals (four where a stored anchor is itself a four-decimal
+quantity, e.g., $\pi = 0.3446$ and Jaccard $0.882$); stored references
+retain full precision, and every exactness check compares at machine
+precision regardless of display.
 
 Three conventions, verified against package source, govern everything below:
 the estimator is the within-subgroup OLS treatment coefficient of
@@ -79,16 +111,19 @@ one-sided floors on the oriented scale, never direction switches
 (`dev/glm-continuous-sims/NOTE_threshold_sign_md.md`).
 
 One translation is used repeatedly and is worth stating once in words. By
-the mixture identity of Part I, a region's true oriented effect exceeds the
-screening floor exactly when its purity does:
+the mixture identity of Part I (Proposition 1:
+$\beta(g) = \tau_{Q^c} + \beta_{\mathrm{int}}\, P(Q \mid g)$), a
+region's true effect exceeds the screening floor exactly when its purity
+does:
 $$
 \beta(g) \ge c_1
 \quad\Longleftrightarrow\quad
-P(Q \mid g) \;\ge\; \frac{c_1 - \tau_{Q^c}^{\mathrm{or}}}{\beta_{\mathrm{int}}^{\mathrm{or}}}
-= \frac{30 - 26.2552}{13.7448} = 0.2724.
+P(Q \mid g) \;\ge\; \frac{c_1 - \tau_{Q^c}}{\beta_{\mathrm{int}}}
+= \frac{30 - 26.255}{13.745} = 0.272.
 $$
 The floor $c_1 = 30$ is therefore a **27.2% purity requirement** — and since
-the marginal prevalence of $Q$ is 34.5%, even a rule carrying no information
+the marginal prevalence of $Q$ is $\pi = 0.3446$ (34.5%), even a rule
+carrying no information
 about $Q$ has a true effect above the floor. This single fact organizes much
 of what the simulations observe on this pathway, and the worked example
 returns to it.
@@ -119,7 +154,7 @@ this way for each realized rule and held at $1.421\times 10^{-14}$ across
 
 **Corollaries.** (i) $\beta(H^c)$ by the same mixture on the complement.
 (ii) The ITT chain: $\beta(\mathcal{S}) = \tau_{Q^c} +
-\beta_{\mathrm{int}}\pi = -30.991681593$ raw, which the bundles reproduce
+\beta_{\mathrm{int}}\pi = -30.992$ raw, which the bundles reproduce
 as the complement effect on undetected rows. (iii) Disjointness:
 $H \cap Q = \varnothing \Rightarrow \beta(H) = \tau_{Q^c}$ — observed
 verbatim when a replicate selected a region disjoint from $Q$ and scored
@@ -140,8 +175,8 @@ if (file.exists(pfile)) {
   obs_itt  <- unique(round(r$betaHhat_Hc[r$detected %in% 0L |
                                          is.na(r$detected)], 9))
   stopifnot(length(obs_itt) == 1L, abs(pred_itt - obs_itt) < 1e-8)
-  cat(sprintf("ITT chain: tau_Qc + beta_int*pi = %.9f; bundle records %.9f\n",
-              pred_itt, obs_itt))
+  cat(sprintf("ITT chain: tau_Qc + beta_int*pi = %.3f; bundle records %.3f; |difference| = %.1e\n",
+              pred_itt, obs_itt, abs(pred_itt - obs_itt)))
 }
 ```
 
@@ -409,7 +444,8 @@ In words: for one pre-specified region, the probability that its fitted
 effect clears the screening floor is a single normal tail probability,
 because the mean is the mixture value and the scale is the Tier B standard
 error. $P\big(\hat\beta(H) \ge c_1\big) = \bar\Phi\big((c_1 -
-\beta_o(H))/\sigma_H(n)\big)$. The measured anchor (O1: the committed
+\beta(H))/\sigma_H(n)\big)$, $\beta(H)$ the oriented mixture value of
+§2. The measured anchor (O1: the committed
 50-replicate overnight anchor run):
 
 ```{r clearance-example}
@@ -420,7 +456,7 @@ cat(sprintf("Marginal clearance of Q at n = 1000: Phi(%.3f) = %.3f;\n", z, pred)
 ```
 
 The marginal recipe alone under-predicts *family* detection, and the gap is
-the point: at $n = 500$, $\sigma_Q$ scales to $13.6786\sqrt 2 = 19.34$,
+the point: at $n = 500$, $\sigma_Q$ scales to $13.679\sqrt 2 = 19.34$,
 giving marginal clearance $\Phi(10/19.34) = 0.697$ for $Q$ — against a
 measured family detection rate of $997/1000$. The difference is candidate
 competition (Level 2, computed exactly by the next recipe) plus family
@@ -505,7 +541,7 @@ means and measured scale: $Q$ itself; an overlapping proxy $P$
 (prevalence $0.45$, sharing probability mass $0.28$ with $Q$, hence purity
 $P(Q \mid P) = 0.28/0.45 = 0.622$); and a near-duplicate $D \subset Q$
 (prevalence $0.31$, purity $1$). SEs are anchored to the measured
-$\sigma_Q(n{=}1000) = 13.6786$ and scaled by the balanced-arms prevalence
+$\sigma_Q(n{=}1000) = 13.679$ and scaled by the balanced-arms prevalence
 rule $\sigma_H = \sigma_Q\sqrt{\pi_Q/\pi_H}$; correlations are the
 $\sigma$-overlap block (per @sec-ladder Level 3, the fitted-SE anchor
 already carries the Level 4 variance component; the covariance refinement
@@ -629,11 +665,11 @@ Those are exactly the quantities the recipes predict.
 ## Step 2 — what must be specified, and what the driver already supplies
 
 The recipes need five inputs. The driver supplies four directly: the
-oriented effects ($\tau_{Q^c} = +26.2552$, $\beta_{\mathrm{int}} =
-+13.7448$, hence purity translation $P(Q \mid g) \ge 0.2724$ for true
+oriented effects ($\tau_{Q^c} = +26.255$, $\beta_{\mathrm{int}} =
++13.745$, hence purity translation $P(Q \mid g) \ge 0.272$ for true
 clearance — the driver's own "27.2%" remark); the sample size and floors;
 the selection rule (maxeffCons); and the scale anchor (the committed
-measured $\sigma_Q(n{=}1000) = 13.6786$, which the fitted-SE observation
+measured $\sigma_Q(n{=}1000) = 13.679$, which the fitted-SE observation
 of Level 3 licenses as a population-effective scale, rescaled to $n = 500$
 by $\sqrt 2$). The fifth input — **the candidate family and the joint
 covariate law that determines every $P(g)$, $P(Q \mid g)$, and overlap** —
@@ -948,7 +984,7 @@ reason. The worked example's Gaussian-level Monte Carlo uses $2 \times
 The verification family of the check suite is a synthetic $M = 14$
 stressor whose complement effect is beneficial (oriented $-26.26$) —
 deliberately harder competition geometry than the fixture's harmful
-complement ($+26.2552$); the machinery checks are parameter-point-agnostic,
+complement ($+26.255$); the machinery checks are parameter-point-agnostic,
 and the fixture values used throughout this document are the committed ones
 of §2.
 
