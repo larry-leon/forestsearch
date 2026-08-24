@@ -1068,6 +1068,7 @@ whose every rung carries a measured error; and family regeneration,
 nomination, and MR's sufficiency remain the empirical core the simulations
 exist to measure — now against both certified references and computed
 benchmarks.
+
 # Appendix — Analytic calculations versus the simulations: the maxeffCons design at n = 700 {#sec-appendix}
 
 This appendix evaluates the document's recipes against a **completed**
@@ -1119,17 +1120,18 @@ cov_formula <- function(b, w, s) pnorm((w/2 - b)/s) - pnorm((-w/2 - b)/s)
 lock3n <- cov_formula(meas$bias["naive"], meas$w_naive, meas$sd_naive)
 lock3m <- cov_formula(meas$bias["mr"],    meas$w_mr,    meas$sd_mr)
 knitr::kable(data.frame(
-  relation = c("E[beta(Hhat)]: Prop. 1 on measured PPV",
-               "  vs back-out, oracle row", "  vs back-out, naive row",
-               "  vs back-out, MR row",
+  relation = c("E[beta(Hhat)]: Prop. 1 vs oracle-row back-out",
+               "E[beta(Hhat)]: Prop. 1 vs naive-row back-out",
+               "E[beta(Hhat)]: Prop. 1 vs MR-row back-out",
                "PPV from sens (classification identity)",
                "naive coverage from (bias, width, SD)",
                "MR coverage from (bias, width, SD)"),
-  computed = round(c(lock1, backout, lock2, lock3n, lock3m), 3),
-  measured = c(NA, NA, NA, NA, meas$ppv, meas$cov_naive, meas$cov_mr)),
-  caption = paste("Identity locks: computed vs the report's own columns.",
-                  "The three back-outs are mutually consistent estimates of",
-                  "E[beta(Hhat)] that the Prop.-1 value must (and does) match."))
+  computed = round(c(lock1, lock1, lock1, lock2, lock3n, lock3m), 3),
+  measured = round(c(backout, meas$ppv, meas$cov_naive, meas$cov_mr), 3)),
+  caption = paste("Identity locks: the computed value of each relation",
+                  "against the report's own columns. The one Prop.-1",
+                  "prediction faces three mutually consistent measured",
+                  "back-outs of E[beta(Hhat)], one per estimator row."))
 ```
 
 Reading the locks. The mixture identity holds **per replicate** with the
@@ -1199,7 +1201,10 @@ pred <- c(detection = mean(det),
           EbH  = sum(selc * beta7),
           naive = mean((Bh - rep(beta7, each = R7))[cbind(which(det), win[det])]),
           below = sum(selc[beta7 < c1]))
-measd <- c(0.999, 74, 0.123, 0.904, 0.402, 0.662, 31.76, 77.09, NA)
+measd <- c(sprintf("%.3f", c(0.999, 74, 0.123, 0.904, 0.402, 0.662,
+                              31.76, 77.09)),
+           "not tabulated (bundle-computable)")
+measd[2] <- "74"
 knitr::kable(data.frame(
   quantity = c("detection rate", "E|Hhat| given detection",
                "E[sens]", "E[spec]", "E[PPV]", "E[NPV]",
