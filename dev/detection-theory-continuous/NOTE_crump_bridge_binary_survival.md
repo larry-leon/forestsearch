@@ -2,7 +2,8 @@
 
 Companion script: `check_binary_rd_process.R` (this directory; base R +
 mvtnorm, sources the package's `R/test_hte_crump.R` verbatim, seed
-20260824, ~5 s, 8 PASS / 0 FAIL in the drafting sandbox).
+20260824, ~5 s, 8 PASS / 0 FAIL on both the drafting sandbox and the
+primary machine).
 
 ## 1. Question and verdict
 
@@ -135,9 +136,10 @@ Cox-IF lane and the approximation-error measurement own that boundary.
 
 ## 5. Verified first rung (B1) and the remaining ladder
 
-`check_binary_rd_process.R`, drafting sandbox (R 4.3.3, mvtnorm 1.2.4,
-MASS present for the sourced file's fallbacks), seed 20260824, 8 PASS /
-0 FAIL, 4.4 s; family = the committed MD check's 8-profile geometry
+`check_binary_rd_process.R` — on-record verification: primary machine
+(pop-os), 2026-08-24, R 4.6.1 (2026-06-24), mvtnorm 1.4.2, seed 20260824, **8 PASS / 0 FAIL**,
+2.7 s, output digit-identical (runtime aside) to the drafting sandbox
+(R 4.3.3, mvtnorm 1.2.4, 4.4 s); family = the committed MD check's 8-profile geometry
 (M = 14 after the 0.10 floor); logistic DGM with benefit outside $Q$ and
 harm inside (RD means $[-0.086, 0.211]$, $\beta_{\mathrm{RD}}$ at the
 $Q$-rule $= 0.211$), floor $c_1 = 0.10$, $n = 600$, 4000 data-level
