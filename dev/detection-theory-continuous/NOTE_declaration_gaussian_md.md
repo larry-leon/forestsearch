@@ -154,8 +154,7 @@ identical line for line (runtime aside) to the drafting-stage sandbox run
 three binary covariates ($x_1, x_2$ dependent; $P(x_3{=}1) = 0.95$ to
 manufacture a near-duplicate), $M = 14$ after a 0.10 prevalence floor;
 $Q = \{x_1{=}1 \wedge x_2{=}1\}$, $\delta = -26.26$,
-$\beta_{\mathrm{inter}} = 66.26$ ($\tau_Q = +40$, the vignette-calibration
-shape), $\sigma = 70$ as an ACTG175-magnitude stand-in (the harness residual
+$\beta_{\mathrm{inter}} = 66.26$ ($\tau_Q = +40$, a synthetic stressor; the committed fixture complement is +26.2552 oriented, harmful), $\sigma = 70$ as an ACTG175-magnitude stand-in (the harness residual
 sd is data-fitted, not a quotable constant), $c_1/c_2 = 30/10$.
 
 | # | Derivation checked | Result (sandbox) |
