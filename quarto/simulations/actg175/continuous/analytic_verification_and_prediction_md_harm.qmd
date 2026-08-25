@@ -816,10 +816,14 @@ cat(sprintf("Marginal clearance of Q at n = 1000: Phi(%.3f) = %.3f;\n", z, pred)
 
 The marginal recipe alone under-predicts *family* detection, and the gap is
 the point: at $n = 500$, $\sigma_Q$ scales to $13.679\sqrt 2 = 19.34$,
-giving marginal clearance $\Phi(10/19.34) = 0.697$ for $Q$ — against a
-measured family detection rate of $997/1000$. The difference is candidate
-competition (Level 2, computed exactly by the next recipe) plus family
-regeneration (Level 5, isolated).
+giving marginal clearance $\Phi(10/19.34) = 0.697$ for $Q$ — against
+measured family detection of $1000/1000$ in this design's own run
+(@sec-appendix-n500, verified by tabulating the stored payload) and
+$997/1000$ in the earlier STOP B coverage grid (`md_grid_s1000`,
+2026-08-08: the same fixture under a different harness, driver and
+seed). Two independent runs, both far above the marginal rate; the
+difference is candidate competition (Level 2, computed exactly by the
+next recipe) plus family regeneration (Level 5, isolated).
 
 ## Family declaration (screening exceedance)
 
@@ -1500,10 +1504,11 @@ Reading the predictions, line by line.
 
 **Detection.** The computed rate is $0.965$: with nine candidate means
 above the floor and half-sample SEs of $19$–$40$, *some* candidate clears
-on nearly every replicate. The committed real-family measurement at
-$n = 500$ is $997/1000$ — higher still, in exactly the direction the
-family-size caveat below predicts — and the driver's own status table is
-this prediction's comparison target. Detection on this cell is not
+on nearly every replicate. The committed real-family measurement for
+this design at $n = 500$ is $1000/1000$ (@sec-appendix-n500, verified by
+tabulating the stored payload) — higher still, in exactly the direction
+the family-size caveat below predicts — and the driver's own status
+table is this prediction's comparison target. Detection on this cell is not
 evidence of finding $Q$; the interesting prediction is *what* gets
 selected.
 
@@ -1988,7 +1993,8 @@ identification summary.
 
 ```{r appendix-n500}
 # Deterministic: no random draws, so downstream chunks are unaffected.
-m500 <- list(nH = 72, sens = 0.17, spec = 0.87, ppv = 0.41, npv = 0.66,
+m500 <- list(detection = 1.000,      # 1000/1000, tabulated from the payload
+             nH = 72, sens = 0.17, spec = 0.87, ppv = 0.41, npv = 0.66,
              oracle = 39.43, oracle_bias = 7.67, oracle_sd = 20.21,
              oracle_se = 19.81,
              naive = 106.04, naive_bias = 74.27, naive_sd = 18.04,
@@ -2008,12 +2014,14 @@ knitr::kable(data.frame(
   measured = round(c(bH500, m500$ppv, m500$naive_cov), 3)),
   caption = "Tier 1 identity locks at n = 500 (same relations as above).")
 knitr::kable(data.frame(
-  quantity = c("E|Hhat| given detection", "E[sens]", "E[spec]", "E[PPV]",
-               "E[NPV]", "E[beta(Hhat)] oriented", "naive bias vs beta(Hhat)"),
-  predicted_Step4 = round(c(EnH, Esens, Espec, Eppv, Enpv, EbetaH,
+  quantity = c("detection rate", "E|Hhat| given detection", "E[sens]",
+               "E[spec]", "E[PPV]", "E[NPV]", "E[beta(Hhat)] oriented",
+               "naive bias vs beta(Hhat)"),
+  predicted_Step4 = round(c(det_rate, EnH, Esens, Espec, Eppv, Enpv, EbetaH,
                             Enaive_bias), 3),
-  measured_n500 = c(m500$nH, m500$sens, m500$spec, m500$ppv, m500$npv,
-                    round(unname(bH500["oracle"]), 2), m500$naive_bias)),
+  measured_n500 = c(m500$detection, m500$nH, m500$sens, m500$spec, m500$ppv,
+                    m500$npv, round(unname(bH500["oracle"]), 2),
+                    m500$naive_bias)),
   caption = "Step 4 predictions scored against the n = 500 run they describe.")
 ```
 
@@ -2026,7 +2034,9 @@ selection-induced composition bias predicts, here at a larger magnitude
 consistent with the coarser two-decimal PPV.
 
 The **attribution pattern replicates at the second sample size**, which
-is the substantive point: predicted winner size and sensitivity again sit
+is the substantive point: predicted detection again sits below measured
+($0.965$ against $1000/1000$, the same direction as $0.978$ against
+$999/1000$ at $n = 700$), predicted winner size and sensitivity again sit
 above the measured values ($133$ against $72$; $0.329$ against $0.17$),
 predicted specificity below ($0.768$ against $0.87$), predicted PPV again
 below ($0.360$ against $0.41$) — the honest directional miss of the
