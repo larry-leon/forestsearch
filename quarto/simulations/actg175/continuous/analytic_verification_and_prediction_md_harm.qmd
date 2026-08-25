@@ -80,11 +80,48 @@ $$
 P(Q \mid g) \;=\; \frac{|g \cap Q|}{|g|},
 $$
 the fraction of $g$'s members lying inside the designed region $Q$ — so
-$P(Q \mid Q) = 1$, and $P(Q \mid g) = \pi$ for any rule whose
-membership is **independent** of $Q$ (that is,
-$P(g \cap Q) = P(g)\,P(Q)$; the whole-sample rule is the canonical
-case — containment is neither necessary nor sufficient for this, a
-point made precise below). The *effect* of a region,
+$P(Q \mid Q) = 1$, and $P(Q \mid g) = \pi$ exactly when
+$|g \cap Q| = \pi\,|g|$ — when $g$ contains $Q$-members at the
+cohort's own rate. Such a rule is called **$Q$-neutral** here: neither
+enriched nor depleted relative to the baseline, the whole-sample rule
+being the canonical case. This is an arithmetic property of two fixed
+subsets of `df_super` — a coincidence of counts, not a probabilistic
+independence statement, since nothing is random once the cohort is
+fixed. The natural summary is the **enrichment ratio**
+$P(Q \mid g)/\pi$: greater than $1$ for enriched rules, exactly $1$
+for $Q$-neutral ones, less than $1$ for depleted ones. Containment is
+neither necessary nor sufficient for neutrality, a point made precise
+below.
+
+**Population versus sample, and what the super-population is for.** The
+counting interpretation transfers to a trial of size $n$ — conditionally
+on the drawn sample a rule's members are again just rows, and the sample
+purity $|g \cap Q|_n / |g|_n$ is again arithmetic — but the *status* of
+the two quantities differs, and the document depends on the difference.
+On `df_super` the purity $P(Q \mid g)$ is a **fixed constant**: it is
+what Proposition 1 converts into $\beta(g)$, with no sampling
+variability whatsoever. In a realized trial the sample purity is a
+**random variable**, fluctuating about the population value with
+standard deviation $\approx \sqrt{p(1-p)/n_g}$ at $p = P(Q \mid g)$
+and $n_g = nP(g)$. So a $Q$-neutral rule is neutral *exactly* at the
+cohort level and *in expectation* at the sample level — the same
+relation the stylized independent covariate of @sec-worked bears to the
+cohort, giving a three-level pattern in which each level's exact
+condition is the next level's expectation: DGM $\to$ cohort $\to$
+sample.
+
+Sample purity is therefore neither an estimand nor an error source
+here. Every mean this document computes is the population mixture
+value, and the sample-composition fluctuation is already carried by the
+covariance layers — the prognostic-imbalance component of the
+design-conditional mean decomposition (@sec-ladder, Level 2) and the
+$u^{(g)}, t^{(g)}$ moments of the additive population covariance
+(@sec-additive). This is precisely the role of the super-population:
+it fixes the estimand side exactly — $\beta(H)$ for every rule,
+including every realized $\hat H$ — so that all randomness lives in
+the estimator and none in the target. Writing sample purity into a mean
+would introduce an error term the ladder does not carry; the exactness
+of CHECK A depends on not doing so. The *effect* of a region,
 $$
 \beta(g) \;=\; \mathbb E\big[\,Y(1) - Y(0) \mid X \in g\,\big]
 \ \text{on the oriented scale},
@@ -141,8 +178,8 @@ P(Q \mid g) \;\ge\; \frac{c_1 - \tau_{Q^c}}{\beta_{\mathrm{int}}}
 = \frac{30 - 26.255}{13.745} = 0.272.
 $$
 The floor $c_1 = 30$ is therefore a **27.2% purity requirement** — and since
-the marginal prevalence of $Q$ is $\pi = 0.3446$ (34.5%), even a rule
-independent of $Q$ has a true effect above the floor. This single fact organizes much
+the marginal prevalence of $Q$ is $\pi = 0.3446$ (34.5%), even a
+$Q$-neutral rule has a true effect above the floor. This single fact organizes much
 of what the simulations observe on this pathway, and the worked example
 returns to it.
 
@@ -150,7 +187,7 @@ returns to it.
 *enrichment*, not *capture*, and the two must not be conflated: every
 superset of $Q$ captures all of $Q$ (sensitivity $1$) while its purity
 ranges over the whole interval $[\pi, 1]$ — from the whole-sample rule
-at $\pi$ (independent of $Q$) to $g = Q \cup \{\text{one subject}\}$
+at $\pi$ ($Q$-neutral) to $g = Q \cup \{\text{one subject}\}$
 at $1723/1724 = 0.9994$, whose effect is $39.992$: one misclassified
 subject costs $0.008$ on the effect scale. The general price is linear,
 by the mixture identity:
@@ -782,9 +819,9 @@ candidate, each with its mean fixed by the triple and its scale by the
 prevalence rule $\sigma_g(n) = \sigma_Q(n)\sqrt{\pi_Q/\pi_g}$: the $Q$
 channel (mean $\tau_Q$, the power channel); the **ITT channel** (the
 whole-sample rule: mean $\mathrm{ITT}$, the smallest scale,
-$\sigma = \sigma_Q\sqrt{\pi}$) — the canonical *independence* clearance
-route, since any rule whose membership is independent of $Q$ has this
-mean;
+$\sigma = \sigma_Q\sqrt{\pi}$) — the canonical *$Q$-neutral* clearance
+route, since every $Q$-neutral rule shares this mean, whatever its
+prevalence (only its scale differs);
 and the **$Q^c$ channel** (mean $\tau_{Q^c}$, the mean *floor* over all
 rules, attained at zero purity). The complement therefore matters even
 when it is not a candidate: it sets both the lower end of every
@@ -823,7 +860,7 @@ boundary once the ITT channel is watched.** For a single channel the
 inversion is immediate (closed form at non-binding $c_2$,
 $c_1 = m - z_{\rho}\,\sigma(n)$; one `uniroot` in general, done in the
 chunk). The design question with teeth is *joint*: power $\ge \rho$ at
-$Q$ while the independence (ITT) channel clears at most $\alpha$. To
+$Q$ while the $Q$-neutral (ITT) channel clears at most $\alpha$. To
 first order (screening-dominant regime) that requires
 $$
 c_1 \le \tau_Q - z_\rho\,\sigma_Q(n)
@@ -916,7 +953,7 @@ abline(0, 1, lty = 3)
 
 Reading the outputs. The channel table is the section's core: at the
 fixture floors the $Q$ channel detects at $0.745$ ($n = 1000$) while the
-independence (ITT) channel *also* clears at $0.55$ — the two rates a
+$Q$-neutral (ITT) channel *also* clears at $0.55$ — the two rates a
 $(c_1, c_2)$ choice must trade, with $Q^c$ mild below both. The
 trade-off table walks $c_1$ across the gap and shows the exchange rate
 explicitly; the separation printout gives the $n$ at which chosen
@@ -1156,10 +1193,16 @@ $P(\text{preanti} \le 744.5) = 0.75$, the q75 default). The $3 \times 3$
 joint below satisfies **all** the documented anchors simultaneously — the
 four marginals, $P(Q) = 0.3446$, and Jaccard of the best representable
 rule against $Q$ equal to $0.8820$ — and the chunk asserts each one. A
-third, stylized covariate $V$ (prevalence $0.42$, independent) stands in
-for the distractor pool; the driver's real distractors include `str2`,
-which nests inside the true partner condition and is *not* independent —
-the stylization is stated, not hidden. Candidates are all single
+third, stylized covariate $V$ (prevalence $0.42$, drawn independently of
+the $Q$-defining covariates) stands in for the distractor pool. The word
+*independent* is used advisedly here and only here: at the DGM level
+there is genuine randomness, and independent generation makes $V$'s
+regions $Q$-neutral **in expectation**, with sampling fluctuation about
+that value in any realized cohort — whereas on the fixed `df_super`
+neutrality is the exact count condition $|g \cap Q| = \pi |g|$ of §2.
+The distractors of the real design include `str2`, which nests inside
+the true partner condition and is *not* independently generated — the
+stylization is stated, not hidden. Candidates are all single
 conditions and cross-variable pairs over the three representable cuts
 (both sides), pruned at the $12\%$ `n.min` floor.
 
