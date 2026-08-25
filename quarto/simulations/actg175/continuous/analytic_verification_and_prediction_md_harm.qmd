@@ -212,8 +212,12 @@ $\sigma_g(n)$ is the standard deviation of $\hat\beta(g)$ in a trial of
 the region count, so every candidate in a design shares one argument and
 the design calculators move it. Region size enters through prevalence
 alone. With balanced arms, @sec-additive gives
-$\sigma_g^2(n) = V_{\mathrm{DM}}(g)/(n P(g))$, so **if** the effective
-variance $V_{\mathrm{DM}}$ is taken constant across candidates — the
+$\sigma_g^2(n) = V_{\mathrm{DM}}(g)/(n P(g))$, where the subscript
+$\mathrm{DM}$ denotes **difference in means**:
+$V_{\mathrm{DM}}(g)$ is the sampling variance of the
+difference-in-means estimator on region $g$ — the estimator of §2 above
+— derived in @sec-additive. So **if** that effective
+variance is taken constant across candidates — the
 standing assumption examined in @sec-warmup — the product
 $$
 V_{\mathrm{eff}} \;=\; \sigma_g^2(n)\; n\, P(g)
@@ -604,7 +608,12 @@ the threshold.
 **The classical identity behind the diagonal, and what efficiency would
 buy.** The diagonal of $\Sigma_{\mathrm{pop}}$ is not merely analogous to
 classical theory — it *is* the Neyman superpopulation variance of [W]
-§1.1, restricted to the region at $e = 1/2$: with
+§1.1, restricted to the region at $e = 1/2$. Throughout, a
+$\mathrm{DM}$ subscript marks the **difference-in-means** estimator and
+an $\mathrm{eff}$ subscript the efficient one, so $V_{\mathrm{DM}}$ and
+$V^\ast$ are the two estimators' variances and
+$\mathrm{IF}_{\mathrm{DM}}$, $\mathrm{IF}_{\mathrm{eff}}$ their
+influence functions. With
 $\mathrm{Var}[Y(1)\mid g] = \sigma^2 + \mathrm{Var}(\mu_0+\tau\mid g)$
 and $\mathrm{Var}[Y(0)\mid g] = \sigma^2 + \mathrm{Var}(\mu_0\mid g)$,
 $$
@@ -1533,10 +1542,14 @@ The real family is far larger (six continuous covariates at ten cuts each,
 both sides, plus seven binaries, under `maxk = 2` and the viability
 floors), so real selection mass is diluted across many more low-purity
 competitors: relative to this $M = 16$ scenario, expect *lower*
-concentration on $g^\ast$, *larger* naive bias, and classification
-metrics *below* these predictions — with the direction certain and the
-magnitude requiring either the realized family (@sec-realized) or a larger
-constructed one. And the multi-split gate strengthens the consistency
+concentration on $g^\ast$, *smaller* winners, and *larger* naive bias.
+The classification consequences do **not** move together, and it is
+worth resisting the natural guess that they do: smaller, purer winners
+push sensitivity and NPV *below* these predictions while pushing PPV and
+specificity *above* them. That split is what both completed runs record
+(@sec-appendix at $n = 700$, @sec-appendix-n500 at $n = 500$); the
+magnitudes require either the realized family (@sec-realized) or a
+larger constructed one. And the multi-split gate strengthens the consistency
 requirement relative to the single split, filtering marginal passers; both
 idealizations are Level 5 rungs with signs attached, not silent gaps.
 
@@ -1645,9 +1658,10 @@ attribution flips**. The sweep runs at this section's $n = 500$ while the
 Appendix compares at $n = 700$, so the comparison is of magnitudes rather
 than of rows: the spreads the interior induces here — about $0.006$ on
 detection, $0.03$ on PPV, $0.02$ on sensitivity, $9$ on $\mathbb E|\hat H|$
-and $1.5$ on the naive bias — are one to two orders of magnitude smaller
-than the Appendix's prediction-versus-measurement gaps ($0.021$, $0.090$,
-$0.164$, $89$, $47$ respectively). Every direction therefore survives the
+and $1.5$ on the naive bias — are three- to thirtyfold smaller than the
+Appendix's prediction-versus-measurement gaps ($0.021$, $0.090$,
+$0.164$, $89$, $47$ respectively; ratios $3.5$, $3.0$, $8.2$, $9.9$,
+$31$). Every direction therefore survives the
 whole sweep with room to spare, and the regeneration attributions of the
 Appendix, including the honest PPV miss, are properties of the
 fixed-family idealization rather than of the particular interior chosen
