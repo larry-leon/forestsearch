@@ -271,6 +271,25 @@ The caveat is stated rather than hidden: family membership and quantile
 cuts are data-dependent, so this exactness is conditional on the realized
 family.
 
+**Neyman's unidentifiable term, identified.** The design-based
+(finite-population) variance of the difference in means subtracts from
+the superpopulation form a term Neyman showed is unidentifiable in
+general: $S_\tau^2/n$, the finite-population variance of the unit-level
+effects, whose absence makes the classical variance estimator
+conservative ([W] §1.1 and the surrounding discussion). On `df_super`
+the term is not merely identifiable — it is closed-form: with a
+two-valued CATE, restricted to any region $g$ with purity
+$p = P(Q \mid g)$,
+$$
+S_\tau^2(g) \;=\; \beta_{\mathrm{int}}^2\, p\,(1 - p),
+$$
+maximal at $p = \tfrac12$ (value $\beta_{\mathrm{int}}^2/4 = 47.23$
+on the fixture) and vanishing at $p \in \{0, 1\}$. Both the
+superpopulation and the design-based variances are therefore exact
+here, and the conservativeness gap is largest exactly in the
+mixed-purity regions where the selection layer concentrates — a purity
+statement, like everything else on this pathway.
+
 ## Tier C: computational identities
 
 Dual-path equalities (two independent computations of one quantity must
@@ -427,7 +446,54 @@ $$
 the adjustable prognostic component expressed as a single variance. The
 package's unadjusted within-region fit sits at $V_{\mathrm{DM}}$;
 Appendix B (@sec-refwager-eff) states the bound and the AIPW estimator
-that attains it.
+that attains it. The design-calculator face of the gap: an
+oracle-adjusted design attains the same per-region detection at sample
+size $n \cdot V^\ast(g)/V_{\mathrm{DM}}(g) \le n$.
+
+**Relation to Theorem 2 of the manuscript.** The decomposition above is
+the constructive face of the covariance apparatus that Theorem 2 of the
+main paper ("Inference for Standard Trial Estimands after Data-Driven
+Subgroup Discovery") assumes, estimates, and constrains; the dictionary
+is worth stating precisely. (i) Theorem 2's local regime (A5-ii) posits
+the competition field $W = \mu + \zeta$, $\zeta \sim N(0, \Sigma)$,
+with $\Sigma$ the limiting covariance of the candidate effect process,
+estimated in the procedure by dfbeta inner products
+$\widehat\Sigma_{jk} = n\sum_i \mathrm{db}_{g_j,i}\,\mathrm{db}_{g_k,i}$;
+on the MD pathway the dfbetas are proportional to the $\psi_i(g)$ above,
+so $\Sigma_{\mathrm{pop}}$ **is** that $\Sigma$, derived rather than
+assumed, and the manuscript's $\widehat\Sigma$ is its Level 3 plug-in.
+(ii) The nondegeneracy half of (A5) ($\Sigma \succ 0$, unique argmax)
+is exactly what the complement-pair singularity of @sec-worked
+threatens; the manuscript's (A2)/(A5) guards — one-sided families,
+distinct cuts, size and event floors, de-duplication — exclude those
+directions, and the additive off-diagonal works *in favor* of (A5):
+the intersection imbalance moments decorrelate near-duplicates (the
+engineered pair moves from $0.9747$ under the $\sigma$-overlap law to
+$0.9385$), pushing $\Sigma$ away from singularity precisely where
+competition is tightest. (iii) Theorem 2's conservativeness condition
+(A6) — $\sum_g p_g\,\Sigma_{\hat H, g} \ge -\tfrac12
+\sigma^2_{D,\hat H}$, the sign control on the selection-weighted
+overlap covariance, computable in-procedure from re-selection
+frequencies and dfbeta products — becomes an exact *population*
+computation here: the $\Sigma_{\hat H, g}$ are the off-diagonals of
+$\Sigma_{\mathrm{pop}}$ and the $p_g$ are the Rung C selection law, so
+(A6) can be evaluated per design before any data. The decomposition also
+identifies the only channel through which (A6) can fail on this pathway:
+intersection prognostic/CATE moments negative enough to overwhelm
+$\sigma^2$ on a competitor carrying non-vanishing selection mass —
+disjoint competitors contribute exactly zero, never negatively.
+(iv) $\sigma^2_{D,g}$ of the separated regime (A5-i) is this section's
+diagonal — the Neyman/$V_{\mathrm{DM}}$ identity above. (v) The scope
+split is the estimand discipline itself: Theorem 2 characterizes
+*interval coverage* of $\beta(\hat H)$ conditionally on a fixed family,
+using $\Sigma$ inside uniform-linearization and argmax-uniqueness
+arguments (Supplement §S4); this section computes the *unconditional
+candidate law* for operating-characteristic prediction. Same matrix,
+two roles — with one corollary worth recording: Theorem 2's limiting
+error $\Lambda(\zeta) = \zeta_{\hat G} - m(\mu + \zeta)$ is an
+explicit functional of this law, so on a fixed family the machinery
+here can compute the theorem's limiting coverage exactly, rather than
+bounding it; that computation is a natural future rung, not yet built.
 
 **Verification** (`dev/detection-theory-continuous/check_additive_covariance_md.R`,
 sandbox R 4.3.3/mvtnorm 1.2.4, seed 46, fresh population Monte Carlo,
@@ -581,6 +647,10 @@ passes") is Gaussian-level Monte Carlo on the exact $2M$-block law,
 verified $0.8206$ vs $0.8187$. The real gate replaces the single split by
 $\hat p_{\mathrm{cons}} \ge$ threshold over hundreds of splits; the
 relation between the two is taken up concretely in the worked example.
+The independence device is the same sample-splitting principle that
+powers cross-fitting in [W] Theorem 3.2 — there decoupling nuisance
+estimation from evaluation, here decoupling selection from
+confirmation.
 
 ## Selection distribution and its consequences
 
@@ -800,7 +870,12 @@ $c_2$ well below the diagonal, bending as $c_2$ approaches $c_1$ where
 replication takes over. Family declaration for a real family is this
 section composed with competition: each member is one channel with its
 purity-determined mean, and the family rate is the joint exceedance the
-next recipes compute.
+next recipes compute. In policy-learning terms (@sec-refwager-policy)
+the floor thresholds the conditional mean $\beta(g)$, not the value
+$P(g)\,\beta(g)$ — and on this fixture the value is maximized by the
+whole sample, so value-ranking could not separate $Q$: the formal
+reason the procedure is mean-thresholding rather than welfare
+maximization.
 
 ## A three-candidate warm-up, read line by line {#sec-warmup}
 
@@ -1641,12 +1716,28 @@ homoscedastic noise) within a region,
 $V^\ast(g) = 4\sigma^2 + \mathrm{Var}(\tau \mid g)$, and the Level 4
 identity gives the exact excess of the package's unadjusted estimator
 over the bound — $\mathrm{Var}(2\mu_0 + \tau \mid g)$, the adjustable
-prognostic component (display in @sec-ladder, Level 4). (ii) The score
-$\Gamma_i$, restricted to a region with known $e = 1/2$ and the
-regression pieces absorbed into the centering, reduces to the
-$\psi_i(g)$ of @sec-additive up to the $2/(nP(g))$ normalization; the
-Gram/PSD structure of $\Sigma_{\mathrm{pop}}$ is the second-moment
-structure of these scores. (iii) The Crump machinery's
+prognostic component (display in @sec-ladder, Level 4). (ii) The reduction is worth carrying out explicitly, because it yields
+a second, independent proof of the Level 4 gap identity. Restricted to
+$g$ at $e = 1/2$ with the arm surfaces known, and writing
+$\tilde u = \mu_0 - \mathbb E[\mu_0 \mid g]$,
+$\tilde t = \tau - \mathbb E[\tau \mid g]$, the efficient score is
+$\Gamma - \beta(g) = \tilde t + 2(2W - 1)\varepsilon$, with variance
+$\mathrm{Var}(\tau \mid g) + 4\sigma^2 = V^\ast(g)$ — the bound,
+attained. The difference-in-means influence, by the same centering, is
+$2(2W-1)\tilde u + 2W\tilde t + 2(2W-1)\varepsilon$, and subtracting
+gives the exact decomposition
+$$
+\mathrm{IF}_{\mathrm{DM}} \;=\; \mathrm{IF}_{\mathrm{eff}}
+\;+\; (2W - 1)\,\big(2\tilde u + \tilde t\big),
+$$
+a pure random sign times the adjustable combination. The remainder is
+orthogonal to the efficient score (both cross-moments vanish under
+$W \perp X$ with $\mathbb E[2W{-}1] = 0$), so variances add:
+$V_{\mathrm{DM}} = V^\ast + \mathrm{Var}(2\mu_0 + \tau \mid g)$ —
+the Level 4 gap identity, re-derived from the score side. Up to the
+$2/(nP(g))$ normalization these are the $\psi_i(g)$ of @sec-additive,
+and the Gram/PSD structure of $\Sigma_{\mathrm{pop}}$ is their
+second-moment structure. (iii) The Crump machinery's
 `sandwich_var_glm` (the B2 and survival lanes of the detection-theory
 NOTEs) is the empirical second moment of the same estimating-equation
 scores at the basis level — the Level 3 plug-in layer, pre-built.
@@ -1687,6 +1778,27 @@ $\hat\pi = \arg\max\{\widehat V(\pi): \pi \in \Pi\}$ (eq. 5.16). The
 regret of EWM scales with the square root of the policy-class
 complexity over $n$ ([W] §5.2, regret-bounds sketch), and the learning
 problem reduces to weighted classification.
+
+**The value functional on region rules, computed.** For a rule
+$\pi = \mathbb 1_g$, the policy value collapses by Proposition 1 to
+$$
+V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
+\;=\; P(g)\,\beta(g)
+\;=\; \tau_{Q^c}\,P(g) + \beta_{\mathrm{int}}\,P(g \cap Q):
+$$
+prevalence times the mixture mean. On the fixture — where the
+complement effect is *also* harmful on the oriented scale — the
+maximizer over all regions is the whole sample:
+$V(\mathcal S) = \mathrm{ITT} = 30.992$ against
+$V(Q) = \pi\,\tau_Q = 13.784$. Value-ranking therefore cannot
+separate $Q$ here even in principle; the identification problem is
+*conditional-mean thresholding* — exactly what the screening floor
+$c_1$ implements — and effect-ranking under gates (maxeffCons) is the
+procedure that problem calls for. The converse delimits the regimes:
+$\arg\max_g V(g) = Q$ exactly when the complement effect has the
+opposite sign ($\tau_{Q^c} < 0 < \tau_Q$ oriented), the geometry of
+the detection-theory verification DGM (benefit outside, harm inside),
+where welfare and effect ranking agree on the target.
 
 **Role here — kinship and contrast, with estimand discipline.** The
 selection layer of this document and EWM are two lenses on one object:
