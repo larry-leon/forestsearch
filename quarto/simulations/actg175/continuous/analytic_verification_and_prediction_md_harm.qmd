@@ -54,9 +54,12 @@ computed on the fixed super-population with zero Monte Carlo error.
 $\theta^\dagger(H)$ is the marginal true-subgroup effect at the designed
 region $Q$. MR conditions on the realized candidate family, targets
 $\beta(\hat H)$, and is scored against $\beta(\hat H)$, never
-$\theta^\dagger$. Effects are reported on the oriented scale
-(positive = harm) under `adverse_outcome = FALSE`; exact references are
-stored on the raw scale and the orientation bridge applies the sign map once.
+$\theta^\dagger$. Effects are reported on the oriented scale, on which
+positive is the signal the procedure searches for; exact references are
+stored on the raw scale and the orientation bridge applies the sign map
+once. What that orientation means for this fixture is spelled out in
+§2 — it encodes a treatment switch, not a claim that larger CD4 change
+is worse.
 
 # Fixture, estimator, and event conventions
 
@@ -69,7 +72,53 @@ Raw-scale (stored) effects: $\tau_Q = -40$ (calibration target),
 $\tau_{Q^c} = -26.255$,
 $\beta_{\mathrm{int}} = \tau_Q - \tau_{Q^c} = -13.745$. The CATE is
 two-valued. Screening floor $c_1 = 30$ and consistency floor $c_2 = 10$,
-both on the oriented scale defined next.
+both on the oriented scale defined next. The outcome is CD4 change from
+baseline to week 20 (`cd420 - cd40`) in ACTG175 arms 1 and 3.
+
+Two DGM ingredients enter every variance formula below and are **not**
+free constants: the noise scale $\sigma$ and the control-arm mean
+surface $\mu_0$. Both are fitted from the trial rather than specified —
+`generate_glm_dgm()` builds the super-population from a Gaussian GLM on
+the discretised `z1`–`z12` factor formulation, and the residual standard
+deviation of that baseline fit is preserved as $\sigma$
+(`actg175_continuous_simulations.qmd`, Design Notes item 3), with
+$\mu_0$ the fitted control surface. They are therefore enumerable on
+`df_super` even though they have no closed form in terms of the design
+parameters, which is what makes the Level 4 diagonal of @sec-additive
+computable in principle and the measured scale anchor necessary in
+practice.
+
+This yields a falsifiable check on the anchor. The committed
+$\sigma_Q(1000) = 13.679$ implies
+$V_{\mathrm{eff}} = \sigma_Q^2(1000)\, n \pi_Q = 64{,}476$ and hence an
+effective bracket $\sigma^2 + \operatorname{Var}(\mu_0 \mid Q) =
+16{,}119$, an effective per-subject standard deviation of about $127$
+cells/$\mu$L.
+
+**The check, run against an independent measurement.** The oracle row of
+a committed report is the difference-in-means refit on the *true* region
+$Q$, so its replicate-to-replicate spread estimates $\sigma_Q(n)$
+directly. In the $n = 500$, $s = 1000$ run of the worked example's design
+(@sec-appendix-n500) the oracle records an empirical standard deviation
+of $20.21$ and a mean fitted standard error of $19.81$, against the
+anchor-implied $13.679\sqrt2 = 19.344$: the anchor is low by $2.4\%$
+against the fitted standard error and $4.5\%$ against the empirical
+spread — the latter $1.9$ Monte-Carlo standard errors, so the two agree
+at the edge of resolution. In bracket terms the effective per-subject
+standard deviation is $127.0$ from the anchor against $130.0$ and $132.6$
+from the two measurements. Part of the gap is identified and expected:
+the balanced-arms and fixed-region-size idealizations understate the
+scale, since $\mathbb E[1/n_1 + 1/n_0]$ and $\mathbb E[1/n_g]$ exceed
+their fixed-count counterparts by Jensen's inequality, worth about
+$1.15\%$ and $0.29\%$ in the standard deviation at this design — roughly
+half the discrepancy. The consequences are inside the tolerance already
+declared: adopting the fitted value would move the $Q$-channel clearance
+from $0.768$ to $0.762$ and the sample-size threshold $n^\ast$ of
+@sec-floors from $9{,}538$ to about $10{,}000$. What remains open is the
+direct evaluation: computing $\sigma$ and
+$\operatorname{Var}(\mu_0 \mid Q)$ on the stored super-population would
+separate anchor measurement error from the idealization terms, which the
+oracle comparison alone cannot.
 
 **Notation used throughout.** A *region* (equivalently a *rule*) $H$ or
 $g$ is a subset of the covariate space — in practice a conjunction of
@@ -127,10 +176,28 @@ $$
 \ \text{on the oriented scale},
 $$
 is its average treatment effect, computed exactly on `df_super`. **All
-effect symbols in this document are oriented by default** (positive =
-harm — the scale the estimator operates on under
-`adverse_outcome = FALSE`): $\tau_{Q^c} = +26.255$,
-$\beta_{\mathrm{int}} = +13.745$, $\tau_Q = \beta(Q) = +40$. Raw
+effect symbols in this document are oriented by default**:
+$\tau_{Q^c} = +26.255$, $\beta_{\mathrm{int}} = +13.745$,
+$\tau_Q = \beta(Q) = +40$.
+
+*What the orientation encodes.* The fixture is a **benefit search
+conducted by treatment switching**, and the two scales differ by which
+arm is labelled treated. On the trial's original coding (the combination
+arm ZDV+ddI as treated), $\mathrm{MD}(Q) = -40$: the combination
+produces $40$ cells/$\mu$L *less* CD4 improvement in $Q$ than ddI
+monotherapy — harm from the active combination, which is why this is the
+harm pathway and why the stored references are negative. The builder
+calibrates with the roles switched (ddI treated), on which the identical
+contrast reads $+40$, and that switched scale is what this document
+calls oriented. So "positive $=$ harm" is a statement about the searched
+signal, **not** a claim that a larger CD4 change is clinically worse.
+The effect estimator runs at the continuous-outcome default
+`adverse_outcome = FALSE`; the fixture separately sets
+`adverse_outcome = TRUE` for the standalone GRF identifier alone
+(`grf_adverse_outcome`, passed only to `grf.subg.harm.glm()`), because
+that routine maximizes $-\mathrm{CATE}$ and needs the internal negation
+to search in the same direction — a GRF-side convention with no bearing
+on the quantities computed here. Raw
 (stored) values appear only when quoting stored references, and the word
 *oriented* is never abbreviated to a super- or subscript — in this
 project the prefix `or_` belongs to the **oracle** estimator, and the two
@@ -143,13 +210,32 @@ precision regardless of display. **Scale notation:** for any region $g$,
 $\sigma_g(n)$ is the standard deviation of $\hat\beta(g)$ in a trial of
 **total** size $n$ — the argument is always the total sample size, never
 the region count, so every candidate in a design shares one argument and
-the design calculators move it. Region size enters through prevalence:
-with balanced arms and the measured anchor,
+the design calculators move it. Region size enters through prevalence
+alone. With balanced arms, @sec-additive gives
+$\sigma_g^2(n) = V_{\mathrm{DM}}(g)/(n P(g))$, so **if** the effective
+variance $V_{\mathrm{DM}}$ is taken constant across candidates — the
+standing assumption examined in @sec-warmup — the product
 $$
-\sigma_g(n) \;=\; \sigma_Q(1000)\,\sqrt{\frac{1000}{n}}\,
-\sqrt{\frac{\pi_Q}{P(g)}} \;\propto\; \frac{1}{\sqrt{n\,P(g)}},
+V_{\mathrm{eff}} \;=\; \sigma_g^2(n)\; n\, P(g)
+\qquad\text{is the same for every region,}
 $$
-so the region-count reading $\sigma_g \propto 1/\sqrt{n_g}$ with
+and the scale of any region follows from that one constant:
+$$
+\sigma_g(n) \;=\; \sqrt{\frac{V_{\mathrm{eff}}}{n\,P(g)}}
+\;=\; \frac{\sigma_{\mathcal S}(n)}{\sqrt{P(g)}},
+\qquad
+\sigma_{\mathcal S}(n) = \sigma_{\mathcal S}(1000)\sqrt{1000/n},
+$$
+where $\sigma_{\mathcal S}$ is the whole-sample (ITT-rule) standard
+deviation, $P(\mathcal S) = 1$. **No relationship between $g$ and $Q$ is
+being asserted**: the anchor is an arbitrary reference region, and the
+whole-sample form is used because its prevalence factor is $1$ and it is
+the most robustly estimable. The committed measurement happens to sit at
+$Q$, which fixes the constant:
+$\sigma_{\mathcal S}(1000) = \sigma_Q(1000)\sqrt{\pi_Q} =
+13.679\sqrt{0.3446} = 8.030$, and reading back gives
+$\sigma_Q(1000) = 8.030/\sqrt{0.3446} = 13.679$. The equivalent
+region-count reading $\sigma_g \propto 1/\sqrt{n_g}$ with
 $n_g = n P(g)$ is always available, but $n_g$ is never written as the
 argument. Where the trial size is fixed by the surrounding context the
 argument may be suppressed ($\sigma_g$).
@@ -1011,7 +1097,27 @@ $0.94$–$1.09$ of the $\sigma$-only value across regions, about $\pm4\%$
 in the standard deviation. The consequences are bounded and worth
 carrying: channel detection rates move by roughly one point and the
 sample-size threshold $n^\ast$ of @sec-floors by about $\pm 9\%$
-(it scales with the variance). Every computed rate in this document that
+(it scales with the variance).
+
+Two further points about that heterogeneity, both quantitative. First,
+under a non-constant bracket the *choice* of anchor region matters in
+principle, because the rule is exact where the anchor sits and drifts
+away from it — and $Q$ is atypical in one respect: at purity $1$,
+$\operatorname{Var}(\tau \mid Q) = 0$ (as at $Q^c$), while every
+mixed-purity region carries
+$\tfrac12\operatorname{Var}(\tau\mid g) =
+\tfrac12\beta_{\mathrm{int}}^2 p(1-p) > 0$, so a $Q$-anchored rule
+systematically *understates* mixed-purity scales. Second, the magnitude
+settles the matter here: back-solving the committed anchor gives
+$V_{\mathrm{eff}} = \sigma_Q^2(1000)\,n\pi_Q = 64{,}476$, an effective
+bracket of $16{,}119$ (per-subject effective standard deviation
+$\approx 127$), against a maximal CATE term of
+$\beta_{\mathrm{int}}^2/8 = 23.6$ — $0.15\%$ of the variance and
+$0.07\%$ of the standard deviation. The CATE contribution to the bracket
+is therefore negligible on this fixture, which means the measured
+$0.94$–$1.09$ spread is essentially all **prognostic**
+($\operatorname{Var}(\mu_0 \mid g)$), and the anchor choice is
+immaterial numerically even though it is not immaterial in principle. Every computed rate in this document that
 uses the prevalence rule inherits that tolerance; the exact alternative
 is to evaluate the Level 4 diagonal per candidate, which requires the
 fixture's noise scale and prognostic surface as enumerable inputs.
@@ -1854,6 +1960,70 @@ predicted below-floor selection mass ($0.544$) has no directly tabulated
 counterpart; its per-replicate analogue (share of detected replicates
 with $\beta(\hat H) < c_1$) is computable from the bundle and is a
 natural addition to the report.
+
+## A companion at n = 500: the worked example's own design {#sec-appendix-n500}
+
+The comparison above is at $n = 700$, which required re-evaluating the
+scenario at that size. The design the worked example actually describes
+has its own completed run —
+`sim_fs_maxeffCons_mr_md40_knoise0_n500_batch_1_1000` ($n = 500$,
+$s = 1000$, draws $= 5000$) — so the Step 4 predictions can be scored
+without re-computation, against a second sample size. Measured values
+below are from that report's estimation table (harm block) and its
+identification summary.
+
+```{r appendix-n500}
+# Deterministic: no random draws, so downstream chunks are unaffected.
+m500 <- list(nH = 72, sens = 0.17, spec = 0.87, ppv = 0.41, npv = 0.66,
+             oracle = 39.43, oracle_bias = 7.67, oracle_sd = 20.21,
+             oracle_se = 19.81,
+             naive = 106.04, naive_bias = 74.27, naive_sd = 18.04,
+             naive_w = 121.66, naive_cov = 0.23,
+             mr = 52.01, mr_bias = 20.25, mr_cov = 0.98)
+bH500 <- c(oracle = m500$oracle - m500$oracle_bias,
+           naive  = m500$naive  - m500$naive_bias)     # two back-outs
+knitr::kable(data.frame(
+  relation = c("E[beta(Hhat)]: Prop. 1 vs oracle-row back-out",
+               "E[beta(Hhat)]: Prop. 1 vs naive-row back-out",
+               "PPV from sens (classification identity)",
+               "naive coverage from (bias, width, SD)"),
+  computed = round(c(tauQc + bint*m500$ppv, tauQc + bint*m500$ppv,
+                     m500$sens * (500*piQ_fix) / m500$nH,
+                     pnorm((m500$naive_w/2 - m500$naive_bias)/m500$naive_sd) -
+                     pnorm((-m500$naive_w/2 - m500$naive_bias)/m500$naive_sd)), 3),
+  measured = round(c(bH500, m500$ppv, m500$naive_cov), 3)),
+  caption = "Tier 1 identity locks at n = 500 (same relations as above).")
+knitr::kable(data.frame(
+  quantity = c("E|Hhat| given detection", "E[sens]", "E[spec]", "E[PPV]",
+               "E[NPV]", "E[beta(Hhat)] oriented", "naive bias vs beta(Hhat)"),
+  predicted_Step4 = round(c(EnH, Esens, Espec, Eppv, Enpv, EbetaH,
+                            Enaive_bias), 3),
+  measured_n500 = c(m500$nH, m500$sens, m500$spec, m500$ppv, m500$npv,
+                    round(unname(bH500["oracle"]), 2), m500$naive_bias)),
+  caption = "Step 4 predictions scored against the n = 500 run they describe.")
+```
+
+Reading the companion. The **identity locks reproduce**: the coverage
+formula returns $0.228$ against the measured $0.23$; the classification
+identity returns $0.407$ against the tabulated PPV of $0.41$; and the
+Prop.-1 value computed from the measured PPV again *exceeds* the two
+back-outs ($31.89$ against $31.76$ and $31.77$), the same direction the
+selection-induced composition bias predicts, here at a larger magnitude
+consistent with the coarser two-decimal PPV.
+
+The **attribution pattern replicates at the second sample size**, which
+is the substantive point: predicted winner size and sensitivity again sit
+above the measured values ($133$ against $72$; $0.329$ against $0.17$),
+predicted specificity below ($0.768$ against $0.87$), predicted PPV again
+below ($0.360$ against $0.41$) — the honest directional miss of the
+$n = 700$ comparison, reproduced — predicted NPV close ($0.695$ against
+$0.66$), $\mathbb E[\beta(\hat H)]$ again near-quantitative ($31.20$
+against $31.76$, under two percent), and the naive bias again far below
+the measured value ($30.3$ against $74.3$, a factor of $2.45$ against the
+$2.6$ found at $n = 700$). Two independent runs at different sample sizes
+therefore produce the same signed attribution table, which is what
+distinguishes a structural property of the fixed-family idealization from
+a coincidence of one design.
 
 ## Tier 3 and the boundary
 
