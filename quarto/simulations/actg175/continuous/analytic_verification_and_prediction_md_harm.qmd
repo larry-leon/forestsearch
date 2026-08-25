@@ -450,6 +450,51 @@ that attains it. The design-calculator face of the gap: an
 oracle-adjusted design attains the same per-region detection at sample
 size $n \cdot V^\ast(g)/V_{\mathrm{DM}}(g) \le n$.
 
+**Relation to Theorem 2 of the manuscript.** The decomposition above is
+the constructive face of the covariance apparatus that Theorem 2 of the
+main paper ("Inference for Standard Trial Estimands after Data-Driven
+Subgroup Discovery") assumes, estimates, and constrains; the dictionary
+is worth stating precisely. (i) Theorem 2's local regime (A5-ii) posits
+the competition field $W = \mu + \zeta$, $\zeta \sim N(0, \Sigma)$,
+with $\Sigma$ the limiting covariance of the candidate effect process,
+estimated in the procedure by dfbeta inner products
+$\widehat\Sigma_{jk} = n\sum_i \mathrm{db}_{g_j,i}\,\mathrm{db}_{g_k,i}$;
+on the MD pathway the dfbetas are proportional to the $\psi_i(g)$ above,
+so $\Sigma_{\mathrm{pop}}$ **is** that $\Sigma$, derived rather than
+assumed, and the manuscript's $\widehat\Sigma$ is its Level 3 plug-in.
+(ii) The nondegeneracy half of (A5) ($\Sigma \succ 0$, unique argmax)
+is exactly what the complement-pair singularity of @sec-worked
+threatens; the manuscript's (A2)/(A5) guards — one-sided families,
+distinct cuts, size and event floors, de-duplication — exclude those
+directions, and the additive off-diagonal works *in favor* of (A5):
+the intersection imbalance moments decorrelate near-duplicates (the
+engineered pair moves from $0.9747$ under the $\sigma$-overlap law to
+$0.9385$), pushing $\Sigma$ away from singularity precisely where
+competition is tightest. (iii) Theorem 2's conservativeness condition
+(A6) — $\sum_g p_g\,\Sigma_{\hat H, g} \ge -\tfrac12
+\sigma^2_{D,\hat H}$, the sign control on the selection-weighted
+overlap covariance, computable in-procedure from re-selection
+frequencies and dfbeta products — becomes an exact *population*
+computation here: the $\Sigma_{\hat H, g}$ are the off-diagonals of
+$\Sigma_{\mathrm{pop}}$ and the $p_g$ are the Rung C selection law, so
+(A6) can be evaluated per design before any data. The decomposition also
+identifies the only channel through which (A6) can fail on this pathway:
+intersection prognostic/CATE moments negative enough to overwhelm
+$\sigma^2$ on a competitor carrying non-vanishing selection mass —
+disjoint competitors contribute exactly zero, never negatively.
+(iv) $\sigma^2_{D,g}$ of the separated regime (A5-i) is this section's
+diagonal — the Neyman/$V_{\mathrm{DM}}$ identity above. (v) The scope
+split is the estimand discipline itself: Theorem 2 characterizes
+*interval coverage* of $\beta(\hat H)$ conditionally on a fixed family,
+using $\Sigma$ inside uniform-linearization and argmax-uniqueness
+arguments (Supplement §S4); this section computes the *unconditional
+candidate law* for operating-characteristic prediction. Same matrix,
+two roles — with one corollary worth recording: Theorem 2's limiting
+error $\Lambda(\zeta) = \zeta_{\hat G} - m(\mu + \zeta)$ is an
+explicit functional of this law, so on a fixed family the machinery
+here can compute the theorem's limiting coverage exactly, rather than
+bounding it; that computation is a natural future rung, not yet built.
+
 **Verification** (`dev/detection-theory-continuous/check_additive_covariance_md.R`,
 sandbox R 4.3.3/mvtnorm 1.2.4, seed 46, fresh population Monte Carlo,
 $n_{\mathrm{rep}} = 6000$): at the adversarial borderline, MC $0.5580$
