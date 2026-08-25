@@ -80,8 +80,11 @@ $$
 P(Q \mid g) \;=\; \frac{|g \cap Q|}{|g|},
 $$
 the fraction of $g$'s members lying inside the designed region $Q$ — so
-$P(Q \mid Q) = 1$, and $P(Q \mid g) = \pi$ for any rule carrying no
-information about $Q$. The *effect* of a region,
+$P(Q \mid Q) = 1$, and $P(Q \mid g) = \pi$ for any rule whose
+membership is **independent** of $Q$ (that is,
+$P(g \cap Q) = P(g)\,P(Q)$; the whole-sample rule is the canonical
+case — containment is neither necessary nor sufficient for this, a
+point made precise below). The *effect* of a region,
 $$
 \beta(g) \;=\; \mathbb E\big[\,Y(1) - Y(0) \mid X \in g\,\big]
 \ \text{on the oriented scale},
@@ -99,7 +102,20 @@ GLM link function is needed it is written $\kappa$, never $g$. Display conventio
 three decimals (four where a stored anchor is itself a four-decimal
 quantity, e.g., $\pi = 0.3446$ and Jaccard $0.882$); stored references
 retain full precision, and every exactness check compares at machine
-precision regardless of display.
+precision regardless of display. **Scale notation:** for any region $g$,
+$\sigma_g(n)$ is the standard deviation of $\hat\beta(g)$ in a trial of
+**total** size $n$ — the argument is always the total sample size, never
+the region count, so every candidate in a design shares one argument and
+the design calculators move it. Region size enters through prevalence:
+with balanced arms and the measured anchor,
+$$
+\sigma_g(n) \;=\; \sigma_Q(1000)\,\sqrt{\frac{1000}{n}}\,
+\sqrt{\frac{\pi_Q}{P(g)}} \;\propto\; \frac{1}{\sqrt{n\,P(g)}},
+$$
+so the region-count reading $\sigma_g \propto 1/\sqrt{n_g}$ with
+$n_g = n P(g)$ is always available, but $n_g$ is never written as the
+argument. Where the trial size is fixed by the surrounding context the
+argument may be suppressed ($\sigma_g$).
 
 Three conventions, verified against package source, govern everything below:
 the estimator is the within-subgroup OLS treatment coefficient of
@@ -126,10 +142,49 @@ P(Q \mid g) \;\ge\; \frac{c_1 - \tau_{Q^c}}{\beta_{\mathrm{int}}}
 $$
 The floor $c_1 = 30$ is therefore a **27.2% purity requirement** — and since
 the marginal prevalence of $Q$ is $\pi = 0.3446$ (34.5%), even a rule
-carrying no information
-about $Q$ has a true effect above the floor. This single fact organizes much
+independent of $Q$ has a true effect above the floor. This single fact organizes much
 of what the simulations observe on this pathway, and the worked example
 returns to it.
+
+**Purity, capture, and the price of impurity.** Purity measures
+*enrichment*, not *capture*, and the two must not be conflated: every
+superset of $Q$ captures all of $Q$ (sensitivity $1$) while its purity
+ranges over the whole interval $[\pi, 1]$ — from the whole-sample rule
+at $\pi$ (independent of $Q$) to $g = Q \cup \{\text{one subject}\}$
+at $1723/1724 = 0.9994$, whose effect is $39.992$: one misclassified
+subject costs $0.008$ on the effect scale. The general price is linear,
+by the mixture identity:
+$$
+\beta(g) \;=\; \tau_Q - \beta_{\mathrm{int}}\,\big(1 - P(Q \mid g)\big)
+\qquad\text{— each unit of impurity costs } \beta_{\mathrm{int}}.
+$$
+The purity requirement therefore translates into an exact
+misclassification budget. Writing $\mathrm{TP} = |g \cap Q|$ and
+$\mathrm{FP} = |g \cap Q^c|$,
+$$
+P(Q \mid g) \ge p^\ast
+\quad\Longleftrightarrow\quad
+\frac{\mathrm{FP}}{\mathrm{TP}}
+\;\le\; \frac{1 - p^\ast}{p^\ast}
+\;=\; \frac{\tau_Q - c_1}{c_1 - \tau_{Q^c}}
+\;=\; \frac{10}{3.745} \;=\; 2.670:
+$$
+the floor's headroom above $Q$ over its clearance above the complement
+— about $2.7$ non-$Q$ admissions per captured $Q$ subject, and for a
+rule excluding $E$ subjects of $Q$ while admitting $F$ outsiders,
+$F \le (1723 - E) \times 2.670$. The two pure cases resolve
+instructively. *Supersets* ($\mathrm{TP} = 1723$): the budget is
+$\mathrm{FP} \le 4601$, which exceeds $|Q^c| = 3277$ — on this fixture
+**every containing rule meets the requirement**, vacuously, precisely
+because $\pi > p^\ast$, equivalently $c_1 < \mathrm{ITT}$ (the ITT
+channel of @sec-floors); the superset budget binds only in designs whose
+floor sits above the ITT. *Subsets* ($\mathrm{FP} = 0$): purity is $1$
+at every size, so the requirement never excludes them — what limits
+small pure rules is the viability floor and the noise scale, the
+mechanism by which the near-duplicate out-selects $Q$ in @sec-warmup.
+Purity is the population-level PPV; capture is sensitivity — the floor
+sees only the first, which is why the identification tables report both
+axes.
 
 # Part I — The certified layer
 
@@ -727,8 +782,9 @@ candidate, each with its mean fixed by the triple and its scale by the
 prevalence rule $\sigma_g(n) = \sigma_Q(n)\sqrt{\pi_Q/\pi_g}$: the $Q$
 channel (mean $\tau_Q$, the power channel); the **ITT channel** (the
 whole-sample rule: mean $\mathrm{ITT}$, the smallest scale,
-$\sigma = \sigma_Q\sqrt{\pi}$) — the canonical *uninformative* clearance
-route, since any rule carrying no information about $Q$ has this mean;
+$\sigma = \sigma_Q\sqrt{\pi}$) — the canonical *independence* clearance
+route, since any rule whose membership is independent of $Q$ has this
+mean;
 and the **$Q^c$ channel** (mean $\tau_{Q^c}$, the mean *floor* over all
 rules, attained at zero purity). The complement therefore matters even
 when it is not a candidate: it sets both the lower end of every
@@ -767,7 +823,7 @@ boundary once the ITT channel is watched.** For a single channel the
 inversion is immediate (closed form at non-binding $c_2$,
 $c_1 = m - z_{\rho}\,\sigma(n)$; one `uniroot` in general, done in the
 chunk). The design question with teeth is *joint*: power $\ge \rho$ at
-$Q$ while the uninformative ITT channel clears at most $\alpha$. To
+$Q$ while the independence (ITT) channel clears at most $\alpha$. To
 first order (screening-dominant regime) that requires
 $$
 c_1 \le \tau_Q - z_\rho\,\sigma_Q(n)
@@ -860,7 +916,7 @@ abline(0, 1, lty = 3)
 
 Reading the outputs. The channel table is the section's core: at the
 fixture floors the $Q$ channel detects at $0.745$ ($n = 1000$) while the
-uninformative ITT channel *also* clears at $0.55$ — the two rates a
+independence (ITT) channel *also* clears at $0.55$ — the two rates a
 $(c_1, c_2)$ choice must trade, with $Q^c$ mild below both. The
 trade-off table walks $c_1$ across the gap and shows the exchange rate
 explicitly; the separation printout gives the $n$ at which chosen
