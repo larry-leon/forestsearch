@@ -224,7 +224,17 @@ $$
 \frac{1}{n_{g,0}} \sum_{k:\, X_k \in g,\, W_k = 0} Y_k,
 $$
 the difference in arm means among the trial subjects who fall in $g$, on
-the oriented scale. The everyone rule gives the ITT contrast:
+the oriented scale. Two conventions attach to this display and are
+stated once. *Well-definedness*: the estimator exists on the event
+$\{n_{g,1} \wedge n_{g,0} \ge 1\}$, whose complement has probability
+decaying exponentially in $nP(g)$ and is ignored throughout.
+*Idealization*: every variance formula in this document is the value
+under the **balanced-arm idealization** $n_{g,1} = n_{g,0} = nP(g)/2$ —
+equivalently, the leading order in $1/n$ under the model — and the gap
+between idealized and exact, the Jensen terms from the random counts, is
+not waved away but measured: the anchor cross-check at the end of this
+section puts it at about one percent of the standard deviation at this
+design. The everyone rule gives the ITT contrast:
 $\hat\beta_n(\mathcal S)$ is the treated-arm mean of the $Y_k$ minus the
 control-arm mean over the whole trial. A symbol such as
 $\sigma[\hat\beta_{1000}(\mathcal S)]$ therefore has a complete
@@ -245,10 +255,11 @@ $\sigma[\hat\beta(g)]$ — the SD *of the estimator*, never of the
 outcomes within $g$ — and @sec-additive derives
 $\operatorname{Var}[\hat\beta(g)] = V_{\mathrm{DM}}(g)/(n P(g))$ —
 equivalently, the definition
-$V_{\mathrm{DM}}(g) := n\,P(g)\operatorname{Var}[\hat\beta_n(g)]$, a
-region functional taking the same value at every trial size under the
-model above — the subscript $\mathrm{DM}$ denoting
-**difference in means**. **If**
+$V_{\mathrm{DM}}(g) := n\,P(g)\operatorname{Var}[\hat\beta_n(g)]$
+evaluated under the balanced-arm idealization, where it is a region
+functional free of the trial size (under the exact model the product
+varies by the $O(1/n)$ Jensen terms the anchor cross-check measures) —
+the subscript $\mathrm{DM}$ denoting **difference in means**. **If**
 $V_{\mathrm{DM}}$ is taken constant across candidates — the standing
 assumption examined in @sec-warmup — the product
 $$
@@ -1005,9 +1016,10 @@ two disjoint halves of size $n/2$, and $\hat\beta^{[j]}(g)$ is the
 estimator displayed in §2 computed on half $j$ alone. Under the
 first-principles model each half is an independent copy of the
 generative process at size $n/2$, so $\hat\beta^{[1]}, \hat\beta^{[2]}$
-are i.i.d. with
+are i.i.d. copies at size $n/2$ — exact, from the model — with
 $\operatorname{Var}[\hat\beta^{[j]}(g)] =
-2\operatorname{Var}[\hat\beta_n(g)]$. Per
+2\operatorname{Var}[\hat\beta_n(g)]$ under the same balanced-arm
+idealization as the scaling law. Per
 candidate the passing probability is a one-dimensional integral,
 $$
 P_1 \;=\; \int_{c_2}^{\infty} \phi_{m_1, s_1}(w)\,
