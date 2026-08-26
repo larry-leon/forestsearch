@@ -111,6 +111,15 @@ Y_k(w) = \mu_0(X_k) + w\,\tau(X_k) + \varepsilon_k,
 $$
 one shared noise draw per subject across the two potential outcomes.
 
+**Index convention.** Two index letters run throughout and are never
+interchanged: $i$ ranges over the $N$ **cohort rows** (so $x_i$,
+$\mu_0(x_i)$, and every sum $\sum_{i \in g}$ in a region moment are
+cohort-level and fixed), while $k$ ranges over the $n$ **trial
+subjects** (so $X_k, W_k, \varepsilon_k, Y_k$ are random). Part II's
+Level 2 and Appendix B index trial subjects by $i$ instead, following
+the source notation of [W]; that local convention is flagged where it
+occurs and changes nothing.
+
 The triples $(X_k, W_k, \varepsilon_k)$, $k = 1, \dots, n$, are the
 **complete list of random quantities**; a *statistic* is any measurable
 function of them, and $\mathbb E[\cdot]$, $\operatorname{Var}[\cdot]$,
@@ -142,8 +151,8 @@ deviation of that baseline fit is preserved as $\sigma$
 $\mu_0$ the fitted control surface. They are therefore enumerable on
 `df_super` even though they have no closed form in terms of the design
 parameters, which is what makes the Level 4 diagonal of @sec-additive
-computable in principle and the measured scale anchor necessary in
-practice.
+computable in principle and the measured scale **anchor** — defined
+with the scale notation below — necessary in practice.
 
 The anchor and its cross-check are stated at the end of this
 section, after the notation they use is defined.
@@ -353,24 +362,55 @@ V_{\mathrm{eff}} \;=\; n\,P(g)\,\operatorname{Var}[\hat\beta(g)]
 $$
 and every scale follows from that one constant:
 $$
-\sigma[\hat\beta(g)] \;=\; \sqrt{\frac{V_{\mathrm{eff}}}{n\,P(g)}}
-\;=\; \frac{\sigma[\hat\beta(\mathcal S)]}{\sqrt{P(g)}},
-\qquad
-\sigma[\hat\beta_n(\mathcal S)]
-= \sigma[\hat\beta_{1000}(\mathcal S)]\sqrt{1000/n},
+\sigma[\hat\beta_n(g)] \;=\; \sqrt{\frac{V_{\mathrm{eff}}}{n\,P(g)}} ,
+\qquad\text{and in particular}\qquad
+\sigma[\hat\beta_n(\mathcal S)] \;=\; \sqrt{\frac{V_{\mathrm{eff}}}{n}}
+\quad\text{since } P(\mathcal S) = 1 ,
 $$
 with $\mathcal S$ the *everyone rule* — the region containing every
-subject, $P(\mathcal S) = 1$; it names a rule, never "the sample". Both
-$n$ and $1000$ are **trial sizes** ($1000$ the trial size at which the
-anchor was measured), and the cohort size $N = 5000$ appears in no scale
-formula: the cohort supplies the moments $V_g[\cdot]$, never a sample
-size. **No relationship between $g$ and $Q$ is being asserted**: the
-anchor is an arbitrary reference region, and the everyone-rule form is
-used because its prevalence factor is $1$. The committed measurement
-happens to sit at $Q$, which fixes the constant:
+subject; it names a rule, never "the sample". Two consequences follow by
+division, and are **derived from that display rather than posited**. The
+*prevalence rule* compares two regions at one trial size,
+$\sigma[\hat\beta_n(g)] = \sigma[\hat\beta_n(\mathcal S)]/\sqrt{P(g)}$;
+the *scaling law* compares one region at two trial sizes $n$ and $n'$,
+$$
+\frac{\sigma[\hat\beta_n(\mathcal S)]}%
+{\sigma[\hat\beta_{n'}(\mathcal S)]}
+\;=\; \sqrt{\frac{n'}{n}},
+\qquad\text{i.e.}\qquad
+\sigma[\hat\beta_n(\mathcal S)]
+\;=\; \sigma[\hat\beta_{n'}(\mathcal S)]\,\sqrt{n'/n}.
+$$
+The scaling law is not a re-labelling of a quantity as itself with a
+factor attached: its two sides are the standard deviations of **two
+different statistics** — the estimator in a trial of size $n$, and the
+estimator in a trial of size $n'$ — and the relation between them is a
+consequence of $V_{\mathrm{eff}}$ being free of the trial size, which is
+the assumption doing the work. Every size in these formulas is a *trial*
+size; the cohort size $N = 5000$ appears in none of them, the cohort
+supplying the moments $V_g[\cdot]$ and never a sample size.
+
+**What is anchored, and why the size is $1000$.** $V_{\mathrm{eff}}$ is
+the quantity the design calculations need, and it is *not* available in
+closed form: @sec-additive gives
+$V_{\mathrm{eff}} = 4\big(\sigma^2 + V_g[\mu_0] + \tfrac12 V_g[\tau]
++ C_g[\mu_0,\tau]\big)$, and $\sigma$ and $\mu_0$ are fitted from the
+trial (above), with no expression in the design parameters. The constant
+must therefore be **measured once**, from a completed run, after which
+the two displays above give every other scale. That single measured
+value is what this document calls the **anchor**. The trial size at
+which it was measured carries no significance: $1000$ is simply the size
+of the committed calibration run, and a run at any other size, rescaled
+by the law above, would pin the same constant. Concretely, the committed
+measurement is $\sigma[\hat\beta_{1000}(Q)] = 13.679$, which fixes
+$V_{\mathrm{eff}} = 1000\,\pi_Q\,\sigma[\hat\beta_{1000}(Q)]^2
+= 64{,}476$ and hence
 $\sigma[\hat\beta_{1000}(\mathcal S)] =
-\sigma[\hat\beta_{1000}(Q)]\sqrt{\pi_Q} = 13.679\sqrt{0.3446} = 8.030$,
-reading back to $\sigma[\hat\beta_{1000}(Q)] = 13.679$.
+\sqrt{V_{\mathrm{eff}}/1000} = 8.030$, agreeing with the prevalence
+rule's $13.679\sqrt{0.3446}$. **No relationship between $g$ and $Q$ is
+being asserted**: the region at which the measurement happens to sit is
+an arbitrary *reference region*, and the everyone-rule form is used
+because its prevalence factor is $1$.
 
 **Symbol table.** Every symbol used in the document, with the section
 that defines it where a definition is needed.
@@ -378,10 +418,13 @@ that defines it where a definition is needed.
 | Symbol | Meaning |
 |---|---|
 | $N$, `df_super` | fixed super-population cohort and its size ($5000$) |
-| $X_i$, $Y_i$, $Y_i(w)$ | covariates, observed outcome (CD4 change), potential outcomes |
-| $W_i$ | treatment indicator, randomized $\mathrm{Bern}(1/2)$ |
-| $\varepsilon_i$, $\sigma^2$ | outcome noise and its variance (fitted from the trial, §2) |
-| $D$ | design $\{(X_i, W_i)\}$ — covariates and assignments, outcomes excluded |
+| $i$, $k$ | index over the $N$ cohort rows / over the $n$ trial subjects (§2) |
+| $x_i$ | covariate vector of cohort row $i$ — fixed |
+| $I_k$, $X_k := x_{I_k}$ | drawn row index and the trial subject's covariates — random |
+| $Y_k$, $Y_k(w)$ | observed outcome (CD4 change) and potential outcomes |
+| $W_k$ | treatment indicator, randomized $\mathrm{Bern}(1/2)$ |
+| $\varepsilon_k$, $\sigma^2$ | outcome noise and its variance (fitted from the trial, §2) |
+| $D$ | design $\{(X_k, W_k)\}$ — covariates and assignments, outcomes excluded |
 | $n$, $n_g$, $n_{g,a}$ | trial size (total), region size $nP(g)$, region-by-arm counts |
 | $Q$, $Q^c$ | designed region $\{\text{age} > 34 \wedge \text{preanti} \le 744.5\}$ and complement |
 | $g$, $H$, $\hat H$ | a region/rule; $\hat H$ the data-selected one |
@@ -411,6 +454,7 @@ that defines it where a definition is needed.
 | $C$, $c_i(g)$ | coefficient matrix and weights, $\hat\beta = CY$ (@sec-ladder) |
 | $\Sigma$, $\Sigma_{\mathrm{pop}}$ | candidate covariance: design-conditional / population (@sec-additive) |
 | $c_1$, $c_2$ | screening and consistency floors, $30$ and $10$ oriented |
+| `n.min` | viability floor: minimum admissible subgroup size (a count, not an effect) |
 | $\hat p_{\mathrm{cons}}$ | multi-split consistency rate the procedure gates on |
 | $P_1$ | single-candidate split-half passing probability (@sec-floors) |
 | $L_{\mathrm{eff}}$ | effective independent-candidate count (@sec-recipes) |
@@ -715,7 +759,9 @@ references where formulas fail. Error: none.
 ## Level 2: the design-conditional law is an identity, not an approximation
 
 Fix a candidate family $\mathcal G = \{g_1, \dots, g_M\}$ and a design
-$D = \{(X_i, W_i)\}$. The estimator vector is linear in $Y$,
+$D = \{(X_i, W_i)\}$ — in this Part and in Appendix B, $i$ indexes
+trial subjects, following [W]'s notation. The estimator vector is
+linear in $Y$,
 $\hat\beta = C Y$ with $C$ the $M \times n$ coefficient matrix
 ($c_i(g) = \mathbb 1\{i \in g\}(W_i/n_{g,1} - (1-W_i)/n_{g,0})$). Under
 Gaussian noise with known $\sigma^2$,
