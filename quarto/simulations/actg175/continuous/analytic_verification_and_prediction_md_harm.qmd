@@ -244,6 +244,82 @@ $n_g = n P(g)$ is always available, but $n_g$ is never written as the
 argument. Where the trial size is fixed by the surrounding context the
 argument may be suppressed ($\sigma_g$).
 
+**Reference measure.** Every probability and moment operator in this
+document — $P(\cdot)$, $\mathbb E[\cdot \mid g]$,
+$\operatorname{Var}(\cdot \mid g)$, $\operatorname{Cov}(\cdot,\cdot \mid g)$
+— is taken with respect to the empirical (counting) measure on the fixed
+cohort `df_super`; equivalently, $X$ is a uniform draw from its $N$ rows.
+So $P(g) = |g|/N$ and $P(Q \mid g) = |g \cap Q|/|g|$ as above, and for
+covariate functions $a(\cdot), b(\cdot)$,
+$$
+\mathbb E[a \mid g] = \frac{1}{|g|}\sum_{i \in g} a(X_i),
+\quad
+\operatorname{Var}(a \mid g) = \frac{1}{|g|}\sum_{i \in g}
+  \big(a(X_i) - \mathbb E[a \mid g]\big)^2,
+$$
+and $\operatorname{Cov}$ correspondingly.
+
+Two consequences deserve stating, because the notation invites a
+misreading. First, $\mu_0$ and $\tau$ are **deterministic functions of
+the covariates**, not random quantities: $\operatorname{Var}(\tau \mid g)$
+and $\operatorname{Var}(\mu_0 \mid g)$ are *across-subject dispersions* of
+those surfaces over $g$'s members — summary statistics of the cohort,
+obtained by enumeration, carrying no sampling variability whatever. For
+the two-valued CATE the first has a closed form,
+$\operatorname{Var}(\tau \mid g) = \beta_{\mathrm{int}}^2\,p(1-p)$ at
+$p = P(Q \mid g)$, which is the $S_\tau^2(g)$ of Part I. Second, these are
+distinct from the noise variance $\sigma^2$, which *is* a variance over
+$\varepsilon$, and from the estimator variances $\sigma_g^2(n)$,
+$\Sigma_{\mathrm{pop}}$, $V_{\mathrm{DM}}$ and $V^\ast$, which are
+sampling variances of statistics. Where a quantity mixes the two the
+decomposition is written out, as in
+$\operatorname{Var}[Y(w) \mid g] = \sigma^2 +
+\operatorname{Var}(\mu_0 + w\tau \mid g)$.
+
+**Symbol table.** Every symbol used in the document, with the section
+that defines it where a definition is needed.
+
+| Symbol | Meaning |
+|---|---|
+| $N$, `df_super` | fixed super-population cohort and its size ($5000$) |
+| $X_i$, $Y_i$, $Y_i(w)$ | covariates, observed outcome (CD4 change), potential outcomes |
+| $W_i$ | treatment indicator, randomized $\mathrm{Bern}(1/2)$ |
+| $\varepsilon_i$, $\sigma^2$ | outcome noise and its variance (fitted from the trial, §2) |
+| $D$ | design $\{(X_i, W_i)\}$ — covariates and assignments, outcomes excluded |
+| $n$, $n_g$, $n_{g,a}$ | trial size (total), region size $nP(g)$, region-by-arm counts |
+| $Q$, $Q^c$ | designed region $\{\text{age} > 34 \wedge \text{preanti} \le 744.5\}$ and complement |
+| $g$, $H$, $\hat H$ | a region/rule; $\hat H$ the data-selected one |
+| $\mathcal S$ | the whole-sample (ITT) rule, $P(\mathcal S) = 1$ |
+| $\mathcal G$, $M$ | candidate family and its size |
+| $P(g)$, $\pi$ | prevalence $|g|/N$; $\pi = P(Q) = 0.3446$ |
+| $P(Q \mid g)$ | purity $|g \cap Q|/|g|$ (§2) |
+| $J(g, Q)$ | Jaccard index $P(g \cap Q)/P(g \cup Q)$ (@sec-worked) |
+| $\mu_w(x)$, $\mu_0$ | arm mean surfaces; $\mu_0$ the control surface (fitted, §2) |
+| $\tau(x)$ | CATE $\mu_1(x) - \mu_0(x)$ — deterministic |
+| $\beta(g)$ | region effect $\mathbb E[\tau \mid g]$, oriented scale |
+| $\tau_Q$, $\tau_{Q^c}$, $\beta_{\mathrm{int}}$ | $+40$, $+26.255$, $+13.745$ oriented (§2) |
+| $\mathrm{ITT}$ | $\beta(\mathcal S) = \tau_{Q^c} + \beta_{\mathrm{int}}\pi = 30.992$ |
+| $\theta^\dagger(H)$ | marginal true-subgroup effect (§1) |
+| $S_\tau^2(g)$ | $\operatorname{Var}(\tau \mid g) = \beta_{\mathrm{int}}^2 p(1-p)$ |
+| $u^{(g)}_i$, $t^{(g)}_i$ | centered prognostic and CATE contributions (@sec-additive) |
+| $\psi_i(g)$ | per-subject influence contribution (@sec-additive) |
+| $\hat\beta(g)$ | difference in arm means on $g$ — the estimator (§2) |
+| $\hat\beta^{[j]}$ | half-sample fitted effect, $j = 1, 2$ |
+| $\sigma_g(n)$, $\sigma_{\mathcal S}(n)$ | SD of $\hat\beta(g)$ / of $\hat\beta(\mathcal S)$ at trial size $n$ |
+| $V_{\mathrm{eff}}$ | region-free constant $\sigma_g^2(n)\,nP(g)$ (§2) |
+| $V_{\mathrm{DM}}(g)$, $V^\ast(g)$ | difference-in-means and efficient variances (@sec-additive) |
+| $\mathrm{IF}_{\mathrm{DM}}$, $\mathrm{IF}_{\mathrm{eff}}$ | the corresponding influence functions (@sec-refwager-eff) |
+| $C$, $c_i(g)$ | coefficient matrix and weights, $\hat\beta = CY$ (@sec-ladder) |
+| $\Sigma$, $\Sigma_{\mathrm{pop}}$ | candidate covariance: design-conditional / population (@sec-additive) |
+| $c_1$, $c_2$ | screening and consistency floors, $30$ and $10$ oriented |
+| $\hat p_{\mathrm{cons}}$ | multi-split consistency rate the procedure gates on |
+| $P_1$ | single-candidate split-half passing probability (@sec-floors) |
+| $L_{\mathrm{eff}}$ | effective independent-candidate count (@sec-recipes) |
+| sens, spec, PPV, NPV | classification metrics against $Q$ (Part I, Corollary (v)) |
+| $\Phi$, $\phi$, $\bar\Phi$ | standard normal CDF, density, upper tail $1 - \Phi$ |
+| $\Phi_{m,s}$, $\phi_{m,s}$, $\bar\Phi_{m,s}$ | the same at mean $m$, standard deviation $s$ |
+| $\Phi_M$ | $M$-variate normal distribution function |
+
 Three conventions, verified against package source, govern everything below:
 the estimator is the within-subgroup OLS treatment coefficient of
 `lm(y ~ treat)` — the difference in arm means — on the oriented scale
@@ -504,9 +580,9 @@ references where formulas fail. Error: none.
 ## Level 2: the design-conditional law is an identity, not an approximation
 
 Fix a candidate family $\mathcal G = \{g_1, \dots, g_M\}$ and a design
-$D = \{(X_i, A_i)\}$. The estimator vector is linear in $Y$,
+$D = \{(X_i, W_i)\}$. The estimator vector is linear in $Y$,
 $\hat\beta = C Y$ with $C$ the $M \times n$ coefficient matrix
-($c_i(g) = \mathbb 1\{i \in g\}(A_i/n_{g,1} - (1-A_i)/n_{g,0})$). Under
+($c_i(g) = \mathbb 1\{i \in g\}(W_i/n_{g,1} - (1-W_i)/n_{g,0})$). Under
 Gaussian noise with known $\sigma^2$,
 
 $$
@@ -570,11 +646,11 @@ $\hat\beta(g) - \beta(g) \approx \sum_i \psi_i(g)$ with
 
 $$
 \psi_i(g) = \frac{2}{nP(g)}\,\mathbb 1\{i \in g\}
-\Big[A_i\big(u^{(g)}_i + t^{(g)}_i + \varepsilon_i\big)
-   - (1 - A_i)\big(u^{(g)}_i + \varepsilon_i\big)\Big].
+\Big[W_i\big(u^{(g)}_i + t^{(g)}_i + \varepsilon_i\big)
+   - (1 - W_i)\big(u^{(g)}_i + \varepsilon_i\big)\Big].
 $$
 
-Taking expectations over $(A, \varepsilon)$ with $A \sim
+Taking expectations over $(W, \varepsilon)$ with $W \sim
 \mathrm{Bern}(1/2)$ independent of $X$ yields the **additive population
 covariance**: for any pair $(g, g')$,
 
@@ -645,7 +721,9 @@ the constructive face of the covariance apparatus that Theorem 2 of the
 main paper ("Inference for Standard Trial Estimands after Data-Driven
 Subgroup Discovery") assumes, estimates, and constrains; the dictionary
 is worth stating precisely. (i) Theorem 2's local regime (A5-ii) posits
-the competition field $W = \mu + \zeta$, $\zeta \sim N(0, \Sigma)$,
+the competition field — written $W$ in the manuscript, rendered
+$\mathcal{W}$ here because $W$ is this document's treatment indicator —
+$\mathcal{W} = \mu + \zeta$ with $\zeta \sim N(0, \Sigma)$,
 with $\Sigma$ the limiting covariance of the candidate effect process,
 estimated in the procedure by dfbeta inner products
 $\widehat\Sigma_{jk} = n\sum_i \mathrm{db}_{g_j,i}\,\mathrm{db}_{g_k,i}$;
@@ -839,7 +917,8 @@ null).
 
 In words: the idealized consistency gate splits the sample in two and asks
 that the candidate clear the floor on average and a lower floor on each
-half, with $W_1, W_2$ the candidate's fitted effects on the two halves. Per
+half, with $\hat\beta^{[1]}, \hat\beta^{[2]}$ the candidate's fitted
+effects on the two halves. Per
 candidate the passing probability is a one-dimensional integral,
 $$
 P_1 \;=\; \int_{c_2}^{\infty} \phi_{m_1, s_1}(w)\,
@@ -942,8 +1021,10 @@ candidate's possible mean and, through the identity, how much of the ITT
 is "explained" by $Q$.
 
 **The exact single-candidate rate.** With half-sample effects
-$W_1, W_2 \stackrel{iid}{\sim} N\!\big(m,\ 2\sigma^2(n)\big)$ and the
-idealized gate $\{\bar W \ge c_1,\ \min(W_1, W_2) \ge c_2\}$,
+$\hat\beta^{[1]}, \hat\beta^{[2]} \stackrel{iid}{\sim}
+N\!\big(m,\ 2\sigma^2(n)\big)$ and the idealized gate
+$\big\{\tfrac12(\hat\beta^{[1]} + \hat\beta^{[2]}) \ge c_1,\
+\min(\hat\beta^{[1]}, \hat\beta^{[2]}) \ge c_2\big\}$,
 $$
 P_1(c_1, c_2; m, \sigma)
 = \int_{c_2}^{\infty} \phi_{m,\sigma\sqrt2}(w)\,
@@ -960,7 +1041,8 @@ infeasible at these floors without lowering $c_2$; and
 $c_2 \ge c_1$ makes screening redundant (the minimum constraint implies
 the mean one). Between the limits, $c_2$ bites through a mechanism worth
 naming: the event lost relative to screening alone is
-$\{\bar W \ge c_1,\ \min W_j < c_2\}$ — **one low half forces the other
+$\big\{\tfrac12(\hat\beta^{[1]} + \hat\beta^{[2]}) \ge c_1,\
+\min_j \hat\beta^{[j]} < c_2\big\}$ — **one low half forces the other
 half to carry the sum**, so even a $c_2$ far below $m$ removes the
 anti-correlated corner. At the fixture ($m = 40$,
 $\sigma_Q(1000) = 13.679$, floors $30/10$) this costs about two
@@ -1433,8 +1515,9 @@ The maxeffCons rule is: among candidates passing the consistency gate,
 select the one with the largest fitted effect; declare `NO-DETECTION` if
 none passes. The idealized computation below replaces the
 $\hat p_{\mathrm{cons}} \ge 0.90$ multi-split gate with the single-split
-event $\{W_1 + W_2 \ge 2c_1,\ \min(W_1, W_2) \ge c_2\}$ — $W_1, W_2$
-again the half-sample fitted effects — and evaluates
+event $\{\hat\beta^{[1]} + \hat\beta^{[2]} \ge 2c_1,\
+\min(\hat\beta^{[1]}, \hat\beta^{[2]}) \ge c_2\}$ — again the
+half-sample fitted effects — and evaluates
 everything on the known Gaussian law by Monte Carlo (Level 2 numerics;
 $2 \times 10^5$ draws, so rate SEs are $\approx 0.001$). Direction of the
 idealization, stated: with $c_2 = 10$ sitting far below every candidate
