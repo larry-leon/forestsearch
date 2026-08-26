@@ -243,8 +243,12 @@ exactly the moments $m_g[\cdot]$, $V_g[\cdot]$, $\beta(g)$, which are
 constants, not statistics. So the scale of a candidate is written
 $\sigma[\hat\beta(g)]$ — the SD *of the estimator*, never of the
 outcomes within $g$ — and @sec-additive derives
-$\operatorname{Var}[\hat\beta(g)] = V_{\mathrm{DM}}(g)/(n P(g))$,
-the subscript $\mathrm{DM}$ denoting **difference in means**. **If**
+$\operatorname{Var}[\hat\beta(g)] = V_{\mathrm{DM}}(g)/(n P(g))$ —
+equivalently, the definition
+$V_{\mathrm{DM}}(g) := n\,P(g)\operatorname{Var}[\hat\beta_n(g)]$, a
+region functional taking the same value at every trial size under the
+model above — the subscript $\mathrm{DM}$ denoting
+**difference in means**. **If**
 $V_{\mathrm{DM}}$ is taken constant across candidates — the standing
 assumption examined in @sec-warmup — the product
 $$
@@ -279,11 +283,17 @@ distributional sense, and this document does not write one. For a
 covariate function $a(\cdot)$ and a region $g$, define the **indexed
 region moments**
 $$
-m_g[a] = \frac{1}{|g|}\sum_{i \in g} a(X_i),
+m_g[a] = \frac{1}{|g|}\sum_{i \in g} a(x_i),
 \qquad
-V_g[a] = \frac{1}{|g|}\sum_{i \in g}\big(a(X_i) - m_g[a]\big)^2,
+V_g[a] = \frac{1}{|g|}\sum_{i \in g}\big(a(x_i) - m_g[a]\big)^2,
 $$
-and $C_g[a, b]$ the corresponding cross-moment: finite-population
+and
+$$
+C_g[a, b] = \frac{1}{|g|}\sum_{i \in g}
+\big(a(x_i) - m_g[a]\big)\big(b(x_i) - m_g[b]\big),
+$$
+the sums running over the fixed cohort rows $x_i$ of the region:
+finite-population
 summary functionals of the cohort, indexed by the region, computed by
 enumeration, carrying no sampling variability whatever. If one
 introduces the uniform draw $X$ from the $N$ rows — the counting measure
@@ -304,7 +314,11 @@ Genuine randomness enters in exactly two places, and only there do
 distributional statements appear: the outcome noise $\varepsilon$
 (variance $\sigma^2$) and the treatment assignment $W$. Outcome
 variances therefore mix a distributional part and an indexed part,
-written with the event explicit:
+written with the event explicit, and the mix follows from the model
+rather than by assertion: since $Y(w) = \mu_0(X) + w\tau(X) +
+\varepsilon$ with $\varepsilon$ independent of $X$, conditioning on the
+event $\{X \in g\}$ leaves $\varepsilon$ untouched and reduces the
+$X$-part to the indexed moment, so
 $\operatorname{Var}(Y(w) \mid X \in g) = \sigma^2 + V_g[\mu_0 + w\tau]$.
 Estimator variances — $\operatorname{Var}[\hat\beta(g)]$, $\Sigma_{\mathrm{pop}}$,
 $V_{\mathrm{DM}}$, $V^\ast$ — are a third category again: sampling
