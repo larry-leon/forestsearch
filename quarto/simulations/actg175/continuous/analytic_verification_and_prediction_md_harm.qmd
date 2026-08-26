@@ -189,10 +189,15 @@ $i$ carries covariates $x_i$ and the two deterministic surfaces
 $\mu_0(x_i)$, $\tau(x_i)$. Nothing in it is random.
 
 2. *Trial draw.* The trial subjects' covariates $X_1, \dots, X_n$ are
-i.i.d. draws from the **empirical distribution of the cohort**:
-$P(X_k = x_i) = 1/N$ for each row $i$. This i.i.d. superpopulation model
-is the analytic model behind every formula in this document; with
-$n \ll N$ it is the standard idealization of sampling the cohort.
+i.i.d. draws from the **empirical distribution of the cohort**, defined
+on rows rather than values: row indices $I_1, \dots, I_n$ are i.i.d.
+uniform on $\{1, \dots, N\}$ and $X_k := x_{I_k}$, so that if distinct
+rows share a covariate value, $X_k$ takes that value with the
+corresponding multiplicity — the draw is of a row, never of a value.
+Membership statements such as $X_k \in g$ mean the drawn row lies in
+$g$. This i.i.d. superpopulation model is the analytic model behind
+every formula in this document; with $n \ll N$ it is the standard
+idealization of sampling the cohort.
 
 3. *Assignment.* $W_1, \dots, W_n$ are i.i.d.
 $\mathrm{Bernoulli}(1/2)$, independent of $(X_1, \dots, X_n)$.
@@ -233,7 +238,8 @@ under the **balanced-arm idealization** $n_{g,1} = n_{g,0} = nP(g)/2$ —
 equivalently, the leading order in $1/n$ under the model — and the gap
 between idealized and exact, the Jensen terms from the random counts, is
 not waved away but measured: the anchor cross-check at the end of this
-section puts it at about one percent of the standard deviation at this
+section puts it at about one and a half percent of the standard
+deviation at this
 design. The everyone rule gives the ITT contrast:
 $\hat\beta_n(\mathcal S)$ is the treated-arm mean of the $Y_k$ minus the
 control-arm mean over the whole trial. A symbol such as
