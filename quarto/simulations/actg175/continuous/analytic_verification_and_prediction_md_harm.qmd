@@ -127,7 +127,8 @@ Raw-scale (stored) effects: $\tau_Q = -40$ (calibration target),
 $\tau_{Q^c} = -26.255$,
 $\beta_{\mathrm{int}} = \tau_Q - \tau_{Q^c} = -13.745$. The CATE is
 two-valued. Screening floor $c_1 = 30$ and consistency floor $c_2 = 10$,
-both on the oriented scale defined next. The outcome is CD4 change from
+both on the oriented scale fixed later in this section, once the region
+effect $\beta(g)$ has been defined. The outcome is CD4 change from
 baseline to week 20 (`cd420 - cd40`) in ACTG175 arms 1 and 3.
 
 Two data-generating-mechanism (DGM) ingredients enter every variance
@@ -265,7 +266,7 @@ on the drawn sample a rule's members are again just rows, and the sample
 purity $|g \cap Q|_n / |g|_n$ is again arithmetic — but the *status* of
 the two quantities differs, and the document depends on the difference.
 On `df_super` the purity $P(Q \mid g)$ is a **fixed constant**: it is
-what Proposition 1 converts into $\beta(g)$, with no sampling
+what Proposition 1 (Part I) converts into $\beta(g)$, with no sampling
 variability whatsoever. In a realized trial the sample purity is a
 **random variable**, fluctuating about the population value with
 standard deviation $\approx \sqrt{p(1-p)/n_g}$ at $p = P(Q \mid g)$
@@ -286,8 +287,9 @@ $u^{(g)}, t^{(g)}$ moments of the additive population covariance
 it fixes the estimand side exactly — $\beta(H)$ for every rule,
 including every realized $\hat H$ — so that all randomness lives in
 the estimator and none in the target. Writing sample purity into a mean
-would introduce an error term the ladder does not carry; the exactness
-of CHECK A depends on not doing so. The *effect* of a region,
+would introduce an error term the ladder of @sec-ladder does not carry;
+the exactness of CHECK A — the mixture identity certified in
+Proposition 1 below — depends on not doing so. The *effect* of a region,
 $$
 \beta(g) \;=\; \mathbb E\big[\,Y(1) - Y(0) \mid X \in g\,\big]
 \ \text{on the oriented scale},
@@ -513,8 +515,11 @@ because $\pi > p^\ast$, equivalently $c_1 < \mathrm{ITT}$ (the ITT
 channel of @sec-floors); the superset budget binds only in designs whose
 floor sits above the ITT. *Subsets* ($\mathrm{FP} = 0$): purity is $1$
 at every size, so the requirement never excludes them — what limits
-small pure rules is the viability floor and the noise scale, the
-mechanism by which the near-duplicate out-selects $Q$ in @sec-warmup.
+small pure rules is the **viability floor** — the procedure's minimum
+admissible subgroup size `n.min`, a constraint on a rule's *count* and
+so distinct from the screening and consistency floors $c_1, c_2$, which
+constrain its *effect* — together with the noise scale, the mechanism by
+which the near-duplicate out-selects $Q$ in @sec-warmup.
 Purity is the population-level PPV; capture is sensitivity — the floor
 sees only the first, which is why the identification tables report both
 axes.
