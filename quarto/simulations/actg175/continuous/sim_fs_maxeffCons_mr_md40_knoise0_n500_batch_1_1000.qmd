@@ -872,19 +872,6 @@ out <- file.path(results_dir, sprintf("%s_res_%d_%d.rds", rds_stem,
 .payload$oc    <- fs_mr_oc_summary(.payload)
 saveRDS(.payload[c("results", "truth", "scale", "oc", "meta")], out)
 
-# Self-check.  The oracle refits on the TRUE region, so its replicate spread
-# estimates sigma[betahat_n(Q)] directly.  This is the comparison that was
-# missing while the anchor sat 2.4% low across two designs.
-if (sum(results$status %in% "DETECTED") > 1L) {
-  .pred <- fs_scale_se(dgm_scale, n = n_sample, region = "Q", jensen = TRUE)
-  .orow <- .payload$oc$estimation
-  .orow <- .orow[.orow$block == "H" & .orow$estimator == "oracle", ]
-  cat(sprintf(paste0("SCALE CHECK  predicted SD %.4f | measured SD %.4f (%+.2f%%)",
-                     " | mean fitted SE %.4f (%+.2f%%)\n"),
-              .pred, .orow$sd_emp, 100 * (.orow$sd_emp / .pred - 1),
-              .orow$se_hat, 100 * (.orow$se_hat / .pred - 1)))
-}
-
 } else if (identical(run_mode, "combine")) {
   # ---- Merge seed-disjoint batches ----------------------------------------
   # Ported from the survival template's combine branch, with the same three
@@ -1067,6 +1054,19 @@ n_batch <- length(sim_ids)
 cat(sprintf("Batch sim_id %d-%d: %d/%d detected in %.1f s (%.1f s/replicate; %s mode, %d workers).\n",
             min(sim_ids), max(sim_ids), sum(results$detected %in% 1L), n_batch,
             elapsed, elapsed / max(1L, n_batch), parallel_mode, n_workers))
+
+# Scale check.  The oracle refits on the TRUE region, so its replicate spread
+# estimates sigma[betahat_n(Q)] directly.  Printed HERE and not in run-batch,
+# which carries #| output: false -- a check that cannot be read is not a check.
+# Computed from rd rather than .payload so it also works in combine mode.
+if (nrow(rd) > 1L && exists("dgm_scale")) {
+  .pred <- fs_scale_se(dgm_scale, n = n_sample, region = "Q", jensen = TRUE)
+  .sd   <- stats::sd(rd$or_H_est[is.finite(rd$or_H_est)])
+  .se   <- mean(rd$or_H_se[is.finite(rd$or_H_se)])
+  cat(sprintf(paste0("SCALE CHECK  predicted SD %.4f | measured SD %.4f (%+.2f%%)",
+                     " | mean fitted SE %.4f (%+.2f%%)\n"),
+              .pred, .sd, 100 * (.sd / .pred - 1), .se, 100 * (.se / .pred - 1)))
+}
 knitr::kable(as.data.frame(table(status = results$status, useNA = "ifany")),
              caption = "Replicate status.")
 knitr::kable(data.frame(
