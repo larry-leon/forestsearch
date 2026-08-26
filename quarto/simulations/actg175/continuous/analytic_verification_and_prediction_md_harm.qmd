@@ -91,7 +91,7 @@ practice.
 This yields a falsifiable check on the anchor. The committed
 $\sigma_Q(1000) = 13.679$ implies
 $V_{\mathrm{eff}} = \sigma_Q^2(1000)\, n \pi_Q = 64{,}476$ and hence an
-effective bracket $\sigma^2 + \operatorname{Var}(\mu_0 \mid Q) =
+effective bracket $\sigma^2 + V_Q[\mu_0] =
 16{,}119$, an effective per-subject standard deviation of about $127$
 cells/$\mu$L.
 
@@ -116,7 +116,7 @@ declared: adopting the fitted value would move the $Q$-channel clearance
 from $0.768$ to $0.762$ and the sample-size threshold $n^\ast$ of
 @sec-floors from $9{,}538$ to about $10{,}000$. What remains open is the
 direct evaluation: computing $\sigma$ and
-$\operatorname{Var}(\mu_0 \mid Q)$ on the stored super-population would
+$V_Q[\mu_0]$ on the stored super-population would
 separate anchor measurement error from the idealization terms, which the
 oracle comparison alone cannot.
 
@@ -230,9 +230,15 @@ $$
 \qquad
 \sigma_{\mathcal S}(n) = \sigma_{\mathcal S}(1000)\sqrt{1000/n},
 $$
-where $\sigma_{\mathcal S}$ is the whole-sample (ITT-rule) standard
-deviation, $P(\mathcal S) = 1$. **No relationship between $g$ and $Q$ is
-being asserted**: the anchor is an arbitrary reference region, and the
+where $\sigma_{\mathcal S}$ is the standard deviation of the ITT
+contrast — $\mathcal S$ the *everyone rule*, the region containing every
+subject, $P(\mathcal S) = 1$; it names a rule, never "the sample". Both
+arguments in $\sigma_{\mathcal S}(n) =
+\sigma_{\mathcal S}(1000)\sqrt{1000/n}$ are **trial sizes** — $1000$ is
+the trial size at which the anchor was measured — and the cohort size
+$N = 5000$ appears in no scale formula: the cohort supplies the moments
+$V_g[\cdot]$, never a sample size. **No relationship between $g$ and $Q$
+is being asserted**: the anchor is an arbitrary reference region, and the
 whole-sample form is used because its prevalence factor is $1$ and it is
 the most robustly estimable. The committed measurement happens to sit at
 $Q$, which fixes the constant:
@@ -244,37 +250,43 @@ $n_g = n P(g)$ is always available, but $n_g$ is never written as the
 argument. Where the trial size is fixed by the surrounding context the
 argument may be suppressed ($\sigma_g$).
 
-**Reference measure.** Every probability and moment operator in this
-document — $P(\cdot)$, $\mathbb E[\cdot \mid g]$,
-$\operatorname{Var}(\cdot \mid g)$, $\operatorname{Cov}(\cdot,\cdot \mid g)$
-— is taken with respect to the empirical (counting) measure on the fixed
-cohort `df_super`; equivalently, $X$ is a uniform draw from its $N$ rows.
-So $P(g) = |g|/N$ and $P(Q \mid g) = |g \cap Q|/|g|$ as above, and for
-covariate functions $a(\cdot), b(\cdot)$,
+**Region moments: indexed, not conditioned.** The cohort `df_super` is
+fixed, and the surfaces $\mu_0, \tau$ are deterministic functions of the
+covariates — so no dispersion of theirs is a variance in the
+distributional sense, and this document does not write one. For a
+covariate function $a(\cdot)$ and a region $g$, define the **indexed
+region moments**
 $$
-\mathbb E[a \mid g] = \frac{1}{|g|}\sum_{i \in g} a(X_i),
-\quad
-\operatorname{Var}(a \mid g) = \frac{1}{|g|}\sum_{i \in g}
-  \big(a(X_i) - \mathbb E[a \mid g]\big)^2,
+m_g[a] = \frac{1}{|g|}\sum_{i \in g} a(X_i),
+\qquad
+V_g[a] = \frac{1}{|g|}\sum_{i \in g}\big(a(X_i) - m_g[a]\big)^2,
 $$
-and $\operatorname{Cov}$ correspondingly.
+and $C_g[a, b]$ the corresponding cross-moment: finite-population
+summary functionals of the cohort, indexed by the region, computed by
+enumeration, carrying no sampling variability whatever. If one
+introduces the uniform draw $X$ from the $N$ rows — the counting measure
+already underlying $P(g)$ and the purity — these coincide with moments
+conditioned on the *event* $\{X \in g\}$:
+$m_g[a] = \mathbb E[a(X) \mid X \in g]$ and so on. That event-conditional
+reading is available but never required, and a bare conditioning bar on
+a region is written nowhere. The literature's population forms are the
+$g = \mathcal S$ case with the random argument explicit —
+$\operatorname{Var}[\tau(X)]$ in [W] (eq. 3.20) and
+$\operatorname{Var}[\tau(X_i)]$ in [W-notes] — that is,
+$V_{\mathcal S}[\tau]$ here; the region-indexed forms are this
+document's, because its subject is regions. In particular
+$\beta(g) = m_g[\tau]$, and $S_\tau^2(g) = V_g[\tau] =
+\beta_{\mathrm{int}}^2\,p(1-p)$ at $p = P(Q \mid g)$.
 
-Two consequences deserve stating, because the notation invites a
-misreading. First, $\mu_0$ and $\tau$ are **deterministic functions of
-the covariates**, not random quantities: $\operatorname{Var}(\tau \mid g)$
-and $\operatorname{Var}(\mu_0 \mid g)$ are *across-subject dispersions* of
-those surfaces over $g$'s members — summary statistics of the cohort,
-obtained by enumeration, carrying no sampling variability whatever. For
-the two-valued CATE the first has a closed form,
-$\operatorname{Var}(\tau \mid g) = \beta_{\mathrm{int}}^2\,p(1-p)$ at
-$p = P(Q \mid g)$, which is the $S_\tau^2(g)$ of Part I. Second, these are
-distinct from the noise variance $\sigma^2$, which *is* a variance over
-$\varepsilon$, and from the estimator variances $\sigma_g^2(n)$,
-$\Sigma_{\mathrm{pop}}$, $V_{\mathrm{DM}}$ and $V^\ast$, which are
-sampling variances of statistics. Where a quantity mixes the two the
-decomposition is written out, as in
-$\operatorname{Var}[Y(w) \mid g] = \sigma^2 +
-\operatorname{Var}(\mu_0 + w\tau \mid g)$.
+Genuine randomness enters in exactly two places, and only there do
+distributional statements appear: the outcome noise $\varepsilon$
+(variance $\sigma^2$) and the treatment assignment $W$. Outcome
+variances therefore mix a distributional part and an indexed part,
+written with the event explicit:
+$\operatorname{Var}(Y(w) \mid X \in g) = \sigma^2 + V_g[\mu_0 + w\tau]$.
+Estimator variances — $\sigma_g^2(n)$, $\Sigma_{\mathrm{pop}}$,
+$V_{\mathrm{DM}}$, $V^\ast$ — are a third category again: sampling
+variances of statistics over $(W, \varepsilon)$ and the trial draw.
 
 **Symbol table.** Every symbol used in the document, with the section
 that defines it where a definition is needed.
@@ -289,18 +301,19 @@ that defines it where a definition is needed.
 | $n$, $n_g$, $n_{g,a}$ | trial size (total), region size $nP(g)$, region-by-arm counts |
 | $Q$, $Q^c$ | designed region $\{\text{age} > 34 \wedge \text{preanti} \le 744.5\}$ and complement |
 | $g$, $H$, $\hat H$ | a region/rule; $\hat H$ the data-selected one |
-| $\mathcal S$ | the whole-sample (ITT) rule, $P(\mathcal S) = 1$ |
+| $\mathcal S$ | the everyone rule (ITT): contains every subject, $P(\mathcal S) = 1$ |
 | $\mathcal G$, $M$ | candidate family and its size |
 | $P(g)$, $\pi$ | prevalence $|g|/N$; $\pi = P(Q) = 0.3446$ |
 | $P(Q \mid g)$ | purity $|g \cap Q|/|g|$ (§2) |
 | $J(g, Q)$ | Jaccard index $P(g \cap Q)/P(g \cup Q)$ (@sec-worked) |
 | $\mu_w(x)$, $\mu_0$ | arm mean surfaces; $\mu_0$ the control surface (fitted, §2) |
 | $\tau(x)$ | CATE $\mu_1(x) - \mu_0(x)$ — deterministic |
-| $\beta(g)$ | region effect $\mathbb E[\tau \mid g]$, oriented scale |
+| $m_g[a]$, $V_g[a]$, $C_g[a,b]$ | indexed region moments of covariate functions (§2) |
+| $\beta(g)$ | region effect $m_g[\tau]$, oriented scale |
 | $\tau_Q$, $\tau_{Q^c}$, $\beta_{\mathrm{int}}$ | $+40$, $+26.255$, $+13.745$ oriented (§2) |
 | $\mathrm{ITT}$ | $\beta(\mathcal S) = \tau_{Q^c} + \beta_{\mathrm{int}}\pi = 30.992$ |
 | $\theta^\dagger(H)$ | marginal true-subgroup effect (§1) |
-| $S_\tau^2(g)$ | $\operatorname{Var}(\tau \mid g) = \beta_{\mathrm{int}}^2 p(1-p)$ |
+| $S_\tau^2(g)$ | $V_g[\tau] = \beta_{\mathrm{int}}^2 p(1-p)$ |
 | $u^{(g)}_i$, $t^{(g)}_i$ | centered prognostic and CATE contributions (@sec-additive) |
 | $\psi_i(g)$ | per-subject influence contribution (@sec-additive) |
 | $\hat\beta(g)$ | difference in arm means on $g$ — the estimator (§2) |
@@ -636,7 +649,7 @@ multiplicative repair fails. Write, for subject $i$ in region $g$, the
 centered prognostic and CATE contributions
 
 $$
-u^{(g)}_i = \mu_0(X_i) - \mathbb E[\mu_0 \mid g], \qquad
+u^{(g)}_i = \mu_0(X_i) - m_g[\mu_0], \qquad
 t^{(g)}_i = \beta_{\mathrm{int}}\big(\mathbb 1\{X_i \in Q\} - P(Q \mid g)\big),
 $$
 
@@ -666,8 +679,7 @@ $$
 with $\Sigma_{\mathrm{pop}}(g, g') = 0$ exactly for disjoint pairs. Every
 term is enumerable on `df_super`. Three structural facts follow. (i) The
 diagonal reproduces the variance correction
-$\sigma^2 + \operatorname{Var}(\mu_0 \mid g) +
-\operatorname{Var}(\tau \mid g)/2 + \operatorname{Cov}(\mu_0, \tau \mid g)$
+$\sigma^2 + V_g[\mu_0] + V_g[\tau]/2 + C_g[\mu_0, \tau]$
 — verified identical at $5.9\times 10^{-16}$. (ii) $\Sigma_{\mathrm{pop}}$
 is a Gram matrix of the influence functions $\psi(g)$ in $L^2$, hence
 positive semi-definite; near-duplicate candidates place it close to
@@ -690,24 +702,24 @@ an $\mathrm{eff}$ subscript the efficient one, so $V_{\mathrm{DM}}$ and
 $V^\ast$ are the two estimators' variances and
 $\mathrm{IF}_{\mathrm{DM}}$, $\mathrm{IF}_{\mathrm{eff}}$ their
 influence functions. With
-$\mathrm{Var}[Y(1)\mid g] = \sigma^2 + \mathrm{Var}(\mu_0+\tau\mid g)$
-and $\mathrm{Var}[Y(0)\mid g] = \sigma^2 + \mathrm{Var}(\mu_0\mid g)$,
+$\operatorname{Var}(Y(1) \mid X \in g) = \sigma^2 + V_g[\mu_0+\tau]$
+and $\operatorname{Var}(Y(0) \mid X \in g) = \sigma^2 + V_g[\mu_0]$,
 $$
 V_{\mathrm{DM}}(g)
-= 2\,\mathrm{Var}[Y(1)\mid g] + 2\,\mathrm{Var}[Y(0)\mid g]
-= 4\Big(\sigma^2 + \mathrm{Var}(\mu_0\mid g)
-+ \tfrac12\mathrm{Var}(\tau\mid g) + \mathrm{Cov}(\mu_0,\tau\mid g)\Big),
+= 2\operatorname{Var}(Y(1) \mid X \in g)
++ 2\operatorname{Var}(Y(0) \mid X \in g)
+= 4\Big(\sigma^2 + V_g[\mu_0]
++ \tfrac12 V_g[\tau] + C_g[\mu_0,\tau]\Big),
 $$
 exactly the bracket above. The semiparametric efficiency bound of [W]
 §3.2 (eq. 3.20; Theorems 3.2 and 3.4), specialized to $e = 1/2$ and
 homoscedastic noise within $g$, is
-$V^\ast(g) = 4\sigma^2 + \mathrm{Var}(\tau\mid g)$, and the excess of
+$V^\ast(g) = 4\sigma^2 + V_g[\tau]$, and the excess of
 the unadjusted estimator over the bound has an exact closed form:
 $$
 V_{\mathrm{DM}}(g) - V^\ast(g)
-= 4\,\mathrm{Var}(\mu_0\mid g) + \mathrm{Var}(\tau\mid g)
-+ 4\,\mathrm{Cov}(\mu_0,\tau\mid g)
-= \mathrm{Var}\big(2\mu_0 + \tau \,\big|\, g\big) \;\ge\; 0,
+= 4\,V_g[\mu_0] + V_g[\tau] + 4\,C_g[\mu_0,\tau]
+= V_g[2\mu_0 + \tau] \;\ge\; 0,
 $$
 the adjustable prognostic component expressed as a single variance. The
 package's unadjusted within-region fit sits at $V_{\mathrm{DM}}$;
@@ -1182,9 +1194,8 @@ of @sec-additive applies when DGM moments are in hand).
 **The scale rule's standing assumption, stated.** The prevalence rule
 $\sigma_H = \sigma_Q\sqrt{\pi_Q/\pi_H}$ — used here, in @sec-floors,
 and in @sec-worked — is exact only if the Level 4 bracket
-$\sigma^2 + \operatorname{Var}(\mu_0 \mid g) +
-\tfrac12\operatorname{Var}(\tau \mid g) +
-\operatorname{Cov}(\mu_0, \tau \mid g)$ is **constant across
+$\sigma^2 + V_g[\mu_0] + \tfrac12 V_g[\tau] + C_g[\mu_0, \tau]$ is
+**constant across
 candidates**, since @sec-additive gives
 $\sigma_g^2(n) = V_{\mathrm{DM}}(g)/(nP(g))$ with a region-specific
 bracket. It is not constant: the Level 3 measurement puts it at
@@ -1198,10 +1209,10 @@ Two further points about that heterogeneity, both quantitative. First,
 under a non-constant bracket the *choice* of anchor region matters in
 principle, because the rule is exact where the anchor sits and drifts
 away from it — and $Q$ is atypical in one respect: at purity $1$,
-$\operatorname{Var}(\tau \mid Q) = 0$ (as at $Q^c$), while every
+$V_Q[\tau] = 0$ (as at $Q^c$), while every
 mixed-purity region carries
-$\tfrac12\operatorname{Var}(\tau\mid g) =
-\tfrac12\beta_{\mathrm{int}}^2 p(1-p) > 0$, so a $Q$-anchored rule
+$\tfrac12 V_g[\tau] = \tfrac12\beta_{\mathrm{int}}^2 p(1-p) > 0$,
+so a $Q$-anchored rule
 systematically *understates* mixed-purity scales. Second, the magnitude
 settles the matter here: back-solving the committed anchor gives
 $V_{\mathrm{eff}} = \sigma_Q^2(1000)\,n\pi_Q = 64{,}476$, an effective
@@ -1211,7 +1222,7 @@ $\beta_{\mathrm{int}}^2/8 = 23.6$ — $0.15\%$ of the variance and
 $0.07\%$ of the standard deviation. The CATE contribution to the bracket
 is therefore negligible on this fixture, which means the measured
 $0.94$–$1.09$ spread is essentially all **prognostic**
-($\operatorname{Var}(\mu_0 \mid g)$), and the anchor choice is
+($V_g[\mu_0]$), and the anchor choice is
 immaterial numerically even though it is not immaterial in principle. Every computed rate in this document that
 uses the prevalence rule inherits that tolerance; the exact alternative
 is to evaluate the Level 4 diagonal per candidate, which requires the
@@ -2221,7 +2232,7 @@ variance absorbing within-region prognostic and CATE spread (inflation
 factors $0.94$–$1.09$, Level 3), and the $u^{(g)}$ prognostic terms of
 the additive decomposition (Level 4) being exactly the component an
 adjusted estimator could remove — quantified as
-$\mathrm{Var}(2\mu_0 + \tau \mid g)$ in the Level 4 identity.
+$V_g[2\mu_0 + \tau]$ in the Level 4 identity.
 
 ## AIPW, the efficient influence function, and the efficiency bound {#sec-refwager-eff}
 
@@ -2249,16 +2260,16 @@ improves on it uniformly over a neighborhood of any $P$.
 
 **Role here.** Three uses. (i) Specialized to the fixture ($e = 1/2$,
 homoscedastic noise) within a region,
-$V^\ast(g) = 4\sigma^2 + \mathrm{Var}(\tau \mid g)$, and the Level 4
+$V^\ast(g) = 4\sigma^2 + V_g[\tau]$, and the Level 4
 identity gives the exact excess of the package's unadjusted estimator
-over the bound — $\mathrm{Var}(2\mu_0 + \tau \mid g)$, the adjustable
+over the bound — $V_g[2\mu_0 + \tau]$, the adjustable
 prognostic component (display in @sec-ladder, Level 4). (ii) The reduction is worth carrying out explicitly, because it yields
 a second, independent proof of the Level 4 gap identity. Restricted to
 $g$ at $e = 1/2$ with the arm surfaces known, and writing
-$\tilde u = \mu_0 - \mathbb E[\mu_0 \mid g]$,
-$\tilde t = \tau - \mathbb E[\tau \mid g]$, the efficient score is
+$\tilde u = \mu_0 - m_g[\mu_0]$,
+$\tilde t = \tau - m_g[\tau]$, the efficient score is
 $\Gamma - \beta(g) = \tilde t + 2(2W - 1)\varepsilon$, with variance
-$\mathrm{Var}(\tau \mid g) + 4\sigma^2 = V^\ast(g)$ — the bound,
+$V_g[\tau] + 4\sigma^2 = V^\ast(g)$ — the bound,
 attained. The difference-in-means influence, by the same centering, is
 $2(2W-1)\tilde u + 2W\tilde t + 2(2W-1)\varepsilon$, and subtracting
 gives the exact decomposition
@@ -2269,7 +2280,7 @@ $$
 a pure random sign times the adjustable combination. The remainder is
 orthogonal to the efficient score (both cross-moments vanish under
 $W \perp X$ with $\mathbb E[2W{-}1] = 0$), so variances add:
-$V_{\mathrm{DM}} = V^\ast + \mathrm{Var}(2\mu_0 + \tau \mid g)$ —
+$V_{\mathrm{DM}} = V^\ast + V_g[2\mu_0 + \tau]$ —
 the Level 4 gap identity, re-derived from the score side. Up to the
 $2/(nP(g))$ normalization these are the $\psi_i(g)$ of @sec-additive,
 and the Gram/PSD structure of $\Sigma_{\mathrm{pop}}$ is their
