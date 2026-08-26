@@ -189,15 +189,10 @@ $i$ carries covariates $x_i$ and the two deterministic surfaces
 $\mu_0(x_i)$, $\tau(x_i)$. Nothing in it is random.
 
 2. *Trial draw.* The trial subjects' covariates $X_1, \dots, X_n$ are
-i.i.d. draws from the **empirical distribution of the cohort**, defined
-on rows rather than values: row indices $I_1, \dots, I_n$ are i.i.d.
-uniform on $\{1, \dots, N\}$ and $X_k := x_{I_k}$, so that if distinct
-rows share a covariate value, $X_k$ takes that value with the
-corresponding multiplicity — the draw is of a row, never of a value.
-Membership statements such as $X_k \in g$ mean the drawn row lies in
-$g$. This i.i.d. superpopulation model is the analytic model behind
-every formula in this document; with $n \ll N$ it is the standard
-idealization of sampling the cohort.
+i.i.d. draws from the **empirical distribution of the cohort**:
+$P(X_k = x_i) = 1/N$ for each row $i$. This i.i.d. superpopulation model
+is the analytic model behind every formula in this document; with
+$n \ll N$ it is the standard idealization of sampling the cohort.
 
 3. *Assignment.* $W_1, \dots, W_n$ are i.i.d.
 $\mathrm{Bernoulli}(1/2)$, independent of $(X_1, \dots, X_n)$.
@@ -229,18 +224,7 @@ $$
 \frac{1}{n_{g,0}} \sum_{k:\, X_k \in g,\, W_k = 0} Y_k,
 $$
 the difference in arm means among the trial subjects who fall in $g$, on
-the oriented scale. Two conventions attach to this display and are
-stated once. *Well-definedness*: the estimator exists on the event
-$\{n_{g,1} \wedge n_{g,0} \ge 1\}$, whose complement has probability
-decaying exponentially in $nP(g)$ and is ignored throughout.
-*Idealization*: every variance formula in this document is the value
-under the **balanced-arm idealization** $n_{g,1} = n_{g,0} = nP(g)/2$ —
-equivalently, the leading order in $1/n$ under the model — and the gap
-between idealized and exact, the Jensen terms from the random counts, is
-not waved away but measured: the anchor cross-check at the end of this
-section puts it at about one and a half percent of the standard
-deviation at this
-design. The everyone rule gives the ITT contrast:
+the oriented scale. The everyone rule gives the ITT contrast:
 $\hat\beta_n(\mathcal S)$ is the treated-arm mean of the $Y_k$ minus the
 control-arm mean over the whole trial. A symbol such as
 $\sigma[\hat\beta_{1000}(\mathcal S)]$ therefore has a complete
@@ -259,12 +243,7 @@ exactly the moments $m_g[\cdot]$, $V_g[\cdot]$, $\beta(g)$, which are
 constants, not statistics. So the scale of a candidate is written
 $\sigma[\hat\beta(g)]$ — the SD *of the estimator*, never of the
 outcomes within $g$ — and @sec-additive derives
-$\operatorname{Var}[\hat\beta(g)] = V_{\mathrm{DM}}(g)/(n P(g))$ —
-equivalently, the definition
-$V_{\mathrm{DM}}(g) := n\,P(g)\operatorname{Var}[\hat\beta_n(g)]$
-evaluated under the balanced-arm idealization, where it is a region
-functional free of the trial size (under the exact model the product
-varies by the $O(1/n)$ Jensen terms the anchor cross-check measures) —
+$\operatorname{Var}[\hat\beta(g)] = V_{\mathrm{DM}}(g)/(n P(g))$,
 the subscript $\mathrm{DM}$ denoting **difference in means**. **If**
 $V_{\mathrm{DM}}$ is taken constant across candidates — the standing
 assumption examined in @sec-warmup — the product
@@ -300,17 +279,11 @@ distributional sense, and this document does not write one. For a
 covariate function $a(\cdot)$ and a region $g$, define the **indexed
 region moments**
 $$
-m_g[a] = \frac{1}{|g|}\sum_{i \in g} a(x_i),
+m_g[a] = \frac{1}{|g|}\sum_{i \in g} a(X_i),
 \qquad
-V_g[a] = \frac{1}{|g|}\sum_{i \in g}\big(a(x_i) - m_g[a]\big)^2,
+V_g[a] = \frac{1}{|g|}\sum_{i \in g}\big(a(X_i) - m_g[a]\big)^2,
 $$
-and
-$$
-C_g[a, b] = \frac{1}{|g|}\sum_{i \in g}
-\big(a(x_i) - m_g[a]\big)\big(b(x_i) - m_g[b]\big),
-$$
-the sums running over the fixed cohort rows $x_i$ of the region:
-finite-population
+and $C_g[a, b]$ the corresponding cross-moment: finite-population
 summary functionals of the cohort, indexed by the region, computed by
 enumeration, carrying no sampling variability whatever. If one
 introduces the uniform draw $X$ from the $N$ rows — the counting measure
@@ -331,11 +304,7 @@ Genuine randomness enters in exactly two places, and only there do
 distributional statements appear: the outcome noise $\varepsilon$
 (variance $\sigma^2$) and the treatment assignment $W$. Outcome
 variances therefore mix a distributional part and an indexed part,
-written with the event explicit, and the mix follows from the model
-rather than by assertion: since $Y(w) = \mu_0(X) + w\tau(X) +
-\varepsilon$ with $\varepsilon$ independent of $X$, conditioning on the
-event $\{X \in g\}$ leaves $\varepsilon$ untouched and reduces the
-$X$-part to the indexed moment, so
+written with the event explicit:
 $\operatorname{Var}(Y(w) \mid X \in g) = \sigma^2 + V_g[\mu_0 + w\tau]$.
 Estimator variances — $\operatorname{Var}[\hat\beta(g)]$, $\Sigma_{\mathrm{pop}}$,
 $V_{\mathrm{DM}}$, $V^\ast$ — are a third category again: sampling
@@ -1022,10 +991,9 @@ two disjoint halves of size $n/2$, and $\hat\beta^{[j]}(g)$ is the
 estimator displayed in §2 computed on half $j$ alone. Under the
 first-principles model each half is an independent copy of the
 generative process at size $n/2$, so $\hat\beta^{[1]}, \hat\beta^{[2]}$
-are i.i.d. copies at size $n/2$ — exact, from the model — with
+are i.i.d. with
 $\operatorname{Var}[\hat\beta^{[j]}(g)] =
-2\operatorname{Var}[\hat\beta_n(g)]$ under the same balanced-arm
-idealization as the scaling law. Per
+2\operatorname{Var}[\hat\beta_n(g)]$. Per
 candidate the passing probability is a one-dimensional integral,
 $$
 P_1 \;=\; \int_{c_2}^{\infty} \phi_{m_1, s_1}(w)\,
