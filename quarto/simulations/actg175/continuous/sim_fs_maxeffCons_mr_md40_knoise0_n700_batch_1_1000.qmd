@@ -339,6 +339,14 @@ dgm <- if (isTRUE(null_cell)) {
 # beta(Hhat) is an exact finite-population mean, zero Monte Carlo error.
 eval_df <- fs_build_eval_frame(dgm, outcome_type = "continuous")
 
+# Computed sampling scale, replacing the measured anchor.  fs_dgm_scale()
+# enumerates sigma^2 + V_g[mu_0] + C_g[mu_0, tau] + V_g[tau]/2 on df_super, so
+# the scale is a constant of the fixture rather than a number read off one run.
+# The anchor it replaces (13.6786 at n = 1000) implied a bracket of 16,119
+# against a residual variance of 16,256 -- below the noise floor, which on the
+# true region is impossible since the bracket there is sigma^2 + V_Q[mu_0].
+dgm_scale <- fs_dgm_scale(dgm)
+
 # truth is ASSEMBLED from the calibrated object, as in the committed harness
 # (mr_coverage_sweep_md_harm.qmd:187-200).  There is no `dgm$truth` element, so
 # the as-received `dgm$truth %||% dgm` fell through to dgm itself, whose
@@ -841,7 +849,7 @@ results <- fs_attach_betaHhat(
 
 out <- file.path(results_dir, sprintf("%s_res_%d_%d.rds", rds_stem,
                  min(sim_ids), max(sim_ids)))
-saveRDS(list(results = results, truth = truth,
+.payload <- list(results = results, truth = truth,
              meta = list(n_sample = n_sample, n_sims = length(sim_ids),
                          nb_boots = nb_boots, mr_draws = mr_draws,
                          sg_focus = sg_focus, selection_rule = selection_rule,
@@ -854,7 +862,28 @@ saveRDS(list(results = results, truth = truth,
                          seed_base = seed_base, sim_id_start = sim_id_start,
                          parallel_mode = parallel_mode, n_workers = n_workers,
                          pkg_version = as.character(utils::packageVersion("forestsearch")),
-                         built_at = Sys.time())), out)
+                         built_at = Sys.time()))
+
+# Scale and OC summary travel WITH the payload.  Computed here, where the DGM
+# and the results are both in hand, so a document's tables and its payload
+# cannot disagree and the analytic documents read numbers instead of
+# transcribing literals.
+.payload$scale <- dgm_scale
+.payload$oc    <- fs_mr_oc_summary(.payload)
+saveRDS(.payload[c("results", "truth", "scale", "oc", "meta")], out)
+
+# Self-check.  The oracle refits on the TRUE region, so its replicate spread
+# estimates sigma[betahat_n(Q)] directly.  This is the comparison that was
+# missing while the anchor sat 2.4% low across two designs.
+if (sum(results$status %in% "DETECTED") > 1L) {
+  .pred <- fs_scale_se(dgm_scale, n = n_sample, region = "Q", jensen = TRUE)
+  .orow <- .payload$oc$estimation
+  .orow <- .orow[.orow$block == "H" & .orow$estimator == "oracle", ]
+  cat(sprintf(paste0("SCALE CHECK  predicted SD %.4f | measured SD %.4f (%+.2f%%)",
+                     " | mean fitted SE %.4f (%+.2f%%)\n"),
+              .pred, .orow$sd_emp, 100 * (.orow$sd_emp / .pred - 1),
+              .orow$se_hat, 100 * (.orow$se_hat / .pred - 1)))
+}
 
 } else if (identical(run_mode, "combine")) {
   # ---- Merge seed-disjoint batches ----------------------------------------
@@ -929,7 +958,7 @@ saveRDS(list(results = results, truth = truth,
     cpath <- combined_path %||%
       file.path(results_dir, sprintf("%s_combined_%d_%d.rds",
                                      rds_stem, rng[1], rng[2]))
-    saveRDS(list(results = results, truth = truth,
+    .cpayload <- list(results = results, truth = truth,
                  meta = list(n_sample = n_sample, n_sims = n_sims,
                              nb_boots = nb_boots, mr_draws = mr_draws,
                              sg_focus = bundles[[1]]$meta$sg_focus %||% NA_character_,
@@ -941,7 +970,12 @@ saveRDS(list(results = results, truth = truth,
                              n_batches = length(files),
                              source_files = basename(files),
                              pkg_version = bundles[[1]]$meta$pkg_version %||% NA_character_,
-                             built_at = Sys.time())), cpath)
+                             built_at = Sys.time()))
+    # Pooled bundles carry scale and oc too; omitting them here would make a
+    # combined payload silently poorer than the batches it merges.
+    .cpayload$scale <- dgm_scale
+    .cpayload$oc    <- fs_mr_oc_summary(.cpayload)
+    saveRDS(.cpayload[c("results", "truth", "scale", "oc", "meta")], cpath)
     cat(sprintf("Saved pooled bundle (%d rows, %d batches) to %s\n",
                 nrow(results), length(files), cpath))
   }
