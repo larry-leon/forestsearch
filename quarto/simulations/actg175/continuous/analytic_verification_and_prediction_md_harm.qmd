@@ -88,37 +88,8 @@ parameters, which is what makes the Level 4 diagonal of @sec-additive
 computable in principle and the measured scale anchor necessary in
 practice.
 
-This yields a falsifiable check on the anchor. The committed
-$\sigma_Q(1000) = 13.679$ implies
-$V_{\mathrm{eff}} = \sigma_Q^2(1000)\, n \pi_Q = 64{,}476$ and hence an
-effective bracket $\sigma^2 + V_Q[\mu_0] =
-16{,}119$, an effective per-subject standard deviation of about $127$
-cells/$\mu$L.
-
-**The check, run against an independent measurement.** The oracle row of
-a committed report is the difference-in-means refit on the *true* region
-$Q$, so its replicate-to-replicate spread estimates $\sigma_Q(n)$
-directly. In the $n = 500$, $s = 1000$ run of the worked example's design
-(@sec-appendix-n500) the oracle records an empirical standard deviation
-of $20.21$ and a mean fitted standard error of $19.81$, against the
-anchor-implied $13.679\sqrt2 = 19.344$: the anchor is low by $2.4\%$
-against the fitted standard error and $4.5\%$ against the empirical
-spread — the latter $1.9$ Monte-Carlo standard errors, so the two agree
-at the edge of resolution. In bracket terms the effective per-subject
-standard deviation is $127.0$ from the anchor against $130.0$ and $132.6$
-from the two measurements. Part of the gap is identified and expected:
-the balanced-arms and fixed-region-size idealizations understate the
-scale, since $\mathbb E[1/n_1 + 1/n_0]$ and $\mathbb E[1/n_g]$ exceed
-their fixed-count counterparts by Jensen's inequality, worth about
-$1.15\%$ and $0.29\%$ in the standard deviation at this design — roughly
-half the discrepancy. The consequences are inside the tolerance already
-declared: adopting the fitted value would move the $Q$-channel clearance
-from $0.768$ to $0.762$ and the sample-size threshold $n^\ast$ of
-@sec-floors from $9{,}538$ to about $10{,}000$. What remains open is the
-direct evaluation: computing $\sigma$ and
-$V_Q[\mu_0]$ on the stored super-population would
-separate anchor measurement error from the idealization terms, which the
-oracle comparison alone cannot.
+The anchor and its cross-check are stated at the end of this
+section, after the notation they use is defined.
 
 **Notation used throughout.** A *region* (equivalently a *rule*) $H$ or
 $g$ is a subset of the covariate space — in practice a conjunction of
@@ -207,48 +178,51 @@ three decimals (four where a stored anchor is itself a four-decimal
 quantity, e.g., $\pi = 0.3446$ and Jaccard $0.882$); stored references
 retain full precision, and every exactness check compares at machine
 precision regardless of display. **Scale notation:** for any region $g$,
-$\sigma_g(n)$ is the standard deviation of $\hat\beta(g)$ in a trial of
-**total** size $n$ — the argument is always the total sample size, never
-the region count, so every candidate in a design shares one argument and
-the design calculators move it. Region size enters through prevalence
-alone. With balanced arms, @sec-additive gives
-$\sigma_g^2(n) = V_{\mathrm{DM}}(g)/(n P(g))$, where the subscript
-$\mathrm{DM}$ denotes **difference in means**:
-$V_{\mathrm{DM}}(g)$ is the sampling variance of the
-difference-in-means estimator on region $g$ — the estimator of §2 above
-— derived in @sec-additive. So **if** that effective
-variance is taken constant across candidates — the
-standing assumption examined in @sec-warmup — the product
+every expectation and variance names the statistic it belongs to.
+Write $\hat\beta_n(g)$ for the difference-in-means estimator of
+$\beta(g)$ in a trial of **total** size $n$ (the region receives
+$\approx nP(g)$ subjects; the subscript is always the trial size). For
+any statistic $T$, $\operatorname{Var}[T]$ and
+$\sigma[T] = \sqrt{\operatorname{Var}[T]}$ denote its sampling variance
+and standard deviation, the randomness being the assignment $W$, the
+noise $\varepsilon$, and the draw of the $n$ trial subjects from the
+cohort. **The trial-size subscript is suppressed under a single ambient
+$n$** — $\hat\beta(g) \equiv \hat\beta_n(g)$ — and written only when a
+specific size is meant (the anchor at $1000$) or two sizes are related
+(the scaling law); the only other size in this document, the cohort's
+$N = 5000$, indexes no estimator: the size-$N$ "population versions" are
+exactly the moments $m_g[\cdot]$, $V_g[\cdot]$, $\beta(g)$, which are
+constants, not statistics. So the scale of a candidate is written
+$\sigma[\hat\beta(g)]$ — the SD *of the estimator*, never of the
+outcomes within $g$ — and @sec-additive derives
+$\operatorname{Var}[\hat\beta(g)] = V_{\mathrm{DM}}(g)/(n P(g))$,
+the subscript $\mathrm{DM}$ denoting **difference in means**. **If**
+$V_{\mathrm{DM}}$ is taken constant across candidates — the standing
+assumption examined in @sec-warmup — the product
 $$
-V_{\mathrm{eff}} \;=\; \sigma_g^2(n)\; n\, P(g)
-\qquad\text{is the same for every region,}
+V_{\mathrm{eff}} \;=\; n\,P(g)\,\operatorname{Var}[\hat\beta(g)]
+\qquad\text{is the same for every region and every trial size,}
 $$
-and the scale of any region follows from that one constant:
+and every scale follows from that one constant:
 $$
-\sigma_g(n) \;=\; \sqrt{\frac{V_{\mathrm{eff}}}{n\,P(g)}}
-\;=\; \frac{\sigma_{\mathcal S}(n)}{\sqrt{P(g)}},
+\sigma[\hat\beta(g)] \;=\; \sqrt{\frac{V_{\mathrm{eff}}}{n\,P(g)}}
+\;=\; \frac{\sigma[\hat\beta(\mathcal S)]}{\sqrt{P(g)}},
 \qquad
-\sigma_{\mathcal S}(n) = \sigma_{\mathcal S}(1000)\sqrt{1000/n},
+\sigma[\hat\beta_n(\mathcal S)]
+= \sigma[\hat\beta_{1000}(\mathcal S)]\sqrt{1000/n},
 $$
-where $\sigma_{\mathcal S}$ is the standard deviation of the ITT
-contrast — $\mathcal S$ the *everyone rule*, the region containing every
+with $\mathcal S$ the *everyone rule* — the region containing every
 subject, $P(\mathcal S) = 1$; it names a rule, never "the sample". Both
-arguments in $\sigma_{\mathcal S}(n) =
-\sigma_{\mathcal S}(1000)\sqrt{1000/n}$ are **trial sizes** — $1000$ is
-the trial size at which the anchor was measured — and the cohort size
-$N = 5000$ appears in no scale formula: the cohort supplies the moments
-$V_g[\cdot]$, never a sample size. **No relationship between $g$ and $Q$
-is being asserted**: the anchor is an arbitrary reference region, and the
-whole-sample form is used because its prevalence factor is $1$ and it is
-the most robustly estimable. The committed measurement happens to sit at
-$Q$, which fixes the constant:
-$\sigma_{\mathcal S}(1000) = \sigma_Q(1000)\sqrt{\pi_Q} =
-13.679\sqrt{0.3446} = 8.030$, and reading back gives
-$\sigma_Q(1000) = 8.030/\sqrt{0.3446} = 13.679$. The equivalent
-region-count reading $\sigma_g \propto 1/\sqrt{n_g}$ with
-$n_g = n P(g)$ is always available, but $n_g$ is never written as the
-argument. Where the trial size is fixed by the surrounding context the
-argument may be suppressed ($\sigma_g$).
+$n$ and $1000$ are **trial sizes** ($1000$ the trial size at which the
+anchor was measured), and the cohort size $N = 5000$ appears in no scale
+formula: the cohort supplies the moments $V_g[\cdot]$, never a sample
+size. **No relationship between $g$ and $Q$ is being asserted**: the
+anchor is an arbitrary reference region, and the everyone-rule form is
+used because its prevalence factor is $1$. The committed measurement
+happens to sit at $Q$, which fixes the constant:
+$\sigma[\hat\beta_{1000}(\mathcal S)] =
+\sigma[\hat\beta_{1000}(Q)]\sqrt{\pi_Q} = 13.679\sqrt{0.3446} = 8.030$,
+reading back to $\sigma[\hat\beta_{1000}(Q)] = 13.679$.
 
 **Region moments: indexed, not conditioned.** The cohort `df_super` is
 fixed, and the surfaces $\mu_0, \tau$ are deterministic functions of the
@@ -284,7 +258,7 @@ distributional statements appear: the outcome noise $\varepsilon$
 variances therefore mix a distributional part and an indexed part,
 written with the event explicit:
 $\operatorname{Var}(Y(w) \mid X \in g) = \sigma^2 + V_g[\mu_0 + w\tau]$.
-Estimator variances — $\sigma_g^2(n)$, $\Sigma_{\mathrm{pop}}$,
+Estimator variances — $\operatorname{Var}[\hat\beta(g)]$, $\Sigma_{\mathrm{pop}}$,
 $V_{\mathrm{DM}}$, $V^\ast$ — are a third category again: sampling
 variances of statistics over $(W, \varepsilon)$ and the trial draw.
 
@@ -318,8 +292,10 @@ that defines it where a definition is needed.
 | $\psi_i(g)$ | per-subject influence contribution (@sec-additive) |
 | $\hat\beta(g)$ | difference in arm means on $g$ — the estimator (§2) |
 | $\hat\beta^{[j]}$ | half-sample fitted effect, $j = 1, 2$ |
-| $\sigma_g(n)$, $\sigma_{\mathcal S}(n)$ | SD of $\hat\beta(g)$ / of $\hat\beta(\mathcal S)$ at trial size $n$ |
-| $V_{\mathrm{eff}}$ | region-free constant $\sigma_g^2(n)\,nP(g)$ (§2) |
+| $\hat\beta(g)$, $\hat\beta_n(g)$ | the estimator; trial-size subscript written only when a specific $n$ matters |
+| $\operatorname{Var}[T]$, $\sigma[T]$ | sampling variance and SD of a statistic $T$ (over $W$, $\varepsilon$, trial draw) |
+| $\sigma[\hat\beta(g)]$ | the estimator's SD; anchor $\sigma[\hat\beta_{1000}(Q)] = 13.679$ |
+| $V_{\mathrm{eff}}$ | region- and $n$-free constant $nP(g)\operatorname{Var}[\hat\beta(g)]$ (§2) |
 | $V_{\mathrm{DM}}(g)$, $V^\ast(g)$ | difference-in-means and efficient variances (@sec-additive) |
 | $\mathrm{IF}_{\mathrm{DM}}$, $\mathrm{IF}_{\mathrm{eff}}$ | the corresponding influence functions (@sec-refwager-eff) |
 | $C$, $c_i(g)$ | coefficient matrix and weights, $\hat\beta = CY$ (@sec-ladder) |
@@ -332,6 +308,38 @@ that defines it where a definition is needed.
 | $\Phi$, $\phi$, $\bar\Phi$ | standard normal CDF, density, upper tail $1 - \Phi$ |
 | $\Phi_{m,s}$, $\phi_{m,s}$, $\bar\Phi_{m,s}$ | the same at mean $m$, standard deviation $s$ |
 | $\Phi_M$ | $M$-variate normal distribution function |
+
+This yields a falsifiable check on the anchor. The committed
+$\sigma[\hat\beta_{1000}(Q)] = 13.679$ implies
+$V_{\mathrm{eff}} = 1000 \cdot \pi_Q \cdot \operatorname{Var}[\hat\beta_{1000}(Q)] = 64{,}476$ and hence an
+effective bracket $\sigma^2 + V_Q[\mu_0] =
+16{,}119$, an effective per-subject standard deviation of about $127$
+cells/$\mu$L.
+
+**The check, run against an independent measurement.** The oracle row of
+a committed report is the difference-in-means refit on the *true* region
+$Q$, so its replicate-to-replicate spread estimates $\sigma[\hat\beta(Q)]$
+directly. In the $n = 500$, $s = 1000$ run of the worked example's design
+(@sec-appendix-n500) the oracle records an empirical standard deviation
+of $20.21$ and a mean fitted standard error of $19.81$, against the
+anchor-implied $13.679\sqrt2 = 19.344$: the anchor is low by $2.4\%$
+against the fitted standard error and $4.5\%$ against the empirical
+spread — the latter $1.9$ Monte-Carlo standard errors, so the two agree
+at the edge of resolution. In bracket terms the effective per-subject
+standard deviation is $127.0$ from the anchor against $130.0$ and $132.6$
+from the two measurements. Part of the gap is identified and expected:
+the balanced-arms and fixed-region-size idealizations understate the
+scale, since $\mathbb E[1/n_1 + 1/n_0]$ and $\mathbb E[1/n_g]$ exceed
+their fixed-count counterparts by Jensen's inequality, worth about
+$1.15\%$ and $0.29\%$ in the standard deviation at this design — roughly
+half the discrepancy. The consequences are inside the tolerance already
+declared: adopting the fitted value would move the $Q$-channel clearance
+from $0.768$ to $0.762$ and the sample-size threshold $n^\ast$ of
+@sec-floors from $9{,}538$ to about $10{,}000$. What remains open is the
+direct evaluation: computing $\sigma$ and
+$V_Q[\mu_0]$ on the stored super-population would
+separate anchor measurement error from the idealization terms, which the
+oracle comparison alone cannot.
 
 Three conventions, verified against package source, govern everything below:
 the estimator is the within-subgroup OLS treatment coefficient of
@@ -856,7 +864,7 @@ simulation report tabulates. Before the individual recipes, the full map:
 
 | Recipe | Input required | Output (the predicted quantity) | Compares to (simulation column) | Exactness |
 |---|---|---|---|---|
-| Marginal clearance | $\beta(g)$, $\sigma_g(n)$, $c_1$ | $P(\hat\beta(g) \ge c_1)$ for one fixed $g$ | per-region clearance counts (e.g., how often $Q$'s refit exceeds the floor) | Level 2–4 |
+| Marginal clearance | $\beta(g)$, $\sigma[\hat\beta(g)]$, $c_1$ | $P(\hat\beta(g) \ge c_1)$ for one fixed $g$ | per-region clearance counts (e.g., how often $Q$'s refit exceeds the floor) | Level 2–4 |
 | Family declaration (Rung A) | means, $\Sigma$, $c_1$ | $P(\max_m \hat\beta_m \ge c_1)$ | detection rate if the procedure screened only | Level 2–4 |
 | Split-half consistency (Rung B) | means, $\Sigma$, $c_1$, $c_2$ | per-candidate $P_1$ and $P(\text{any pass})$ | `DETECTED` share of the status table | Level 2–4 + single-split idealization |
 | Selection distribution (Rung C) | means, $\Sigma$, gates, ranking rule | $P(\hat H = g_m)$ for each $m$ | realized-rule frequency table (`sg_def`); covariate-involvement shares | Levels 2–5 |
@@ -893,7 +901,7 @@ In words: for one pre-specified region, the probability that its fitted
 effect clears the screening floor is a single normal tail probability,
 because the mean is the mixture value and the scale is the Tier B standard
 error. $P\big(\hat\beta(H) \ge c_1\big) = \bar\Phi\big((c_1 -
-\beta(H))/\sigma_H(n)\big)$, $\beta(H)$ the oriented mixture value of
+\beta(H))/\sigma[\hat\beta(H)]\big)$, $\beta(H)$ the oriented mixture value of
 §2. The measured anchor (O1: the committed
 50-replicate overnight anchor run):
 
@@ -905,7 +913,8 @@ cat(sprintf("Marginal clearance of Q at n = 1000: Phi(%.3f) = %.3f;\n", z, pred)
 ```
 
 The marginal recipe alone under-predicts *family* detection, and the gap is
-the point: at $n = 500$, $\sigma_Q$ scales to $13.679\sqrt 2 = 19.34$,
+the point: at $n = 500$, $\sigma[\hat\beta_{500}(Q)] =
+13.679\sqrt 2 = 19.34$,
 giving marginal clearance $\Phi(10/19.34) = 0.697$ for $Q$ — against
 measured family detection of $1000/1000$ in this design's own run
 (@sec-appendix-n500, verified by tabulating the stored payload) and
@@ -1020,10 +1029,12 @@ At the fixture triple ($\pi = 0.3446$, $\tau_{Q^c} = 26.255$,
 $\beta_{\mathrm{int}} = 13.745$): $\tau_Q = 40$ and
 $\mathrm{ITT} = 30.992$. Three *channels* follow, one per ideal
 candidate, each with its mean fixed by the triple and its scale by the
-prevalence rule $\sigma_g(n) = \sigma_Q(n)\sqrt{\pi_Q/\pi_g}$: the $Q$
+prevalence rule $\sigma[\hat\beta(g)] =
+\sigma[\hat\beta(Q)]\sqrt{\pi_Q/\pi_g}$: the $Q$
 channel (mean $\tau_Q$, the power channel); the **ITT channel** (the
 whole-sample rule: mean $\mathrm{ITT}$, the smallest scale,
-$\sigma = \sigma_Q\sqrt{\pi}$) — the canonical *$Q$-neutral* clearance
+$\sigma[\hat\beta(\mathcal S)] = \sigma[\hat\beta(Q)]\sqrt{\pi}$) —
+the canonical *$Q$-neutral* clearance
 route, since every $Q$-neutral rule shares this mean, whatever its
 prevalence (only its scale differs);
 and the **$Q^c$ channel** (mean $\tau_{Q^c}$, the mean *floor* over all
@@ -1057,7 +1068,8 @@ $\big\{\tfrac12(\hat\beta^{[1]} + \hat\beta^{[2]}) \ge c_1,\
 \min_j \hat\beta^{[j]} < c_2\big\}$ — **one low half forces the other
 half to carry the sum**, so even a $c_2$ far below $m$ removes the
 anti-correlated corner. At the fixture ($m = 40$,
-$\sigma_Q(1000) = 13.679$, floors $30/10$) this costs about two
+$s = \sigma[\hat\beta_{1000}(Q)] = 13.679$, floors $30/10$) this costs
+about two
 points: screening-only $0.768$ versus $P_1 = 0.745$ — the
 quantitative content behind the "non-discriminating $c_2$" reading of
 open question D2: non-discriminating *between candidates*, not free.
@@ -1065,19 +1077,21 @@ open question D2: non-discriminating *between candidates*, not free.
 **Can $(c_1, c_2)$ be tuned to a target rate? Yes — with a feasibility
 boundary once the ITT channel is watched.** For a single channel the
 inversion is immediate (closed form at non-binding $c_2$,
-$c_1 = m - z_{\rho}\,\sigma(n)$; one `uniroot` in general, done in the
+$c_1 = m - z_{\rho}\,s$ at the candidate's own scale
+$s = \sigma[\hat\beta(g)]$; one `uniroot` in general, done in the
 chunk). The design question with teeth is *joint*: power $\ge \rho$ at
 $Q$ while the $Q$-neutral (ITT) channel clears at most $\alpha$. To
 first order (screening-dominant regime) that requires
 $$
-c_1 \le \tau_Q - z_\rho\,\sigma_Q(n)
+c_1 \le \tau_Q - z_\rho\,\sigma[\hat\beta_n(Q)]
 \quad\text{and}\quad
 c_1 \ge \mathrm{ITT} + z_{1-\alpha}\,\sigma_{\mathrm{ITT}}(n),
 $$
 which is feasible iff the **separation inequality** holds:
 $$
 \tau_Q - \mathrm{ITT} \;=\; \beta_{\mathrm{int}}\,(1 - \pi)
-\;\ge\; z_\rho\,\sigma_Q(n) + z_{1-\alpha}\,\sigma_{\mathrm{ITT}}(n).
+\;\ge\; z_\rho\,\sigma[\hat\beta_n(Q)]
++ z_{1-\alpha}\,\sigma[\hat\beta_n(\mathcal S)].
 $$
 The left side is pure geometry — the interaction times the complement
 share — and the right side shrinks as $\sqrt{1000/n}$, giving the sample
@@ -1185,19 +1199,23 @@ means and measured scale: $Q$ itself; an overlapping proxy $P$
 (prevalence $0.45$, sharing probability mass $0.28$ with $Q$, hence purity
 $P(Q \mid P) = 0.28/0.45 = 0.622$); and a near-duplicate $D \subset Q$
 (prevalence $0.31$, purity $1$). SEs are anchored to the measured
-$\sigma_Q(n{=}1000) = 13.679$ and scaled by the balanced-arms prevalence
-rule $\sigma_H = \sigma_Q\sqrt{\pi_Q/\pi_H}$; correlations are the
+$\sigma[\hat\beta_{1000}(Q)] = 13.679$ and scaled by the balanced-arms
+prevalence
+rule $\sigma[\hat\beta(H)] = \sigma[\hat\beta(Q)]\sqrt{\pi_Q/\pi_H}$;
+correlations are the
 $\sigma$-overlap block (per @sec-ladder Level 3, the fitted-SE anchor
 already carries the Level 4 variance component; the covariance refinement
 of @sec-additive applies when DGM moments are in hand).
 
 **The scale rule's standing assumption, stated.** The prevalence rule
-$\sigma_H = \sigma_Q\sqrt{\pi_Q/\pi_H}$ — used here, in @sec-floors,
+$\sigma[\hat\beta(H)] = \sigma[\hat\beta(Q)]\sqrt{\pi_Q/\pi_H}$ —
+used here, in @sec-floors,
 and in @sec-worked — is exact only if the Level 4 bracket
 $\sigma^2 + V_g[\mu_0] + \tfrac12 V_g[\tau] + C_g[\mu_0, \tau]$ is
 **constant across
 candidates**, since @sec-additive gives
-$\sigma_g^2(n) = V_{\mathrm{DM}}(g)/(nP(g))$ with a region-specific
+$\operatorname{Var}[\hat\beta(g)] = V_{\mathrm{DM}}(g)/(nP(g))$ with a
+region-specific
 bracket. It is not constant: the Level 3 measurement puts it at
 $0.94$–$1.09$ of the $\sigma$-only value across regions, about $\pm4\%$
 in the standard deviation. The consequences are bounded and worth
@@ -1215,7 +1233,8 @@ $\tfrac12 V_g[\tau] = \tfrac12\beta_{\mathrm{int}}^2 p(1-p) > 0$,
 so a $Q$-anchored rule
 systematically *understates* mixed-purity scales. Second, the magnitude
 settles the matter here: back-solving the committed anchor gives
-$V_{\mathrm{eff}} = \sigma_Q^2(1000)\,n\pi_Q = 64{,}476$, an effective
+$V_{\mathrm{eff}} = 1000\cdot\pi_Q\cdot
+\operatorname{Var}[\hat\beta_{1000}(Q)] = 64{,}476$, an effective
 bracket of $16{,}119$ (per-subject effective standard deviation
 $\approx 127$), against a maximal CATE term of
 $\beta_{\mathrm{int}}^2/8 = 23.6$ — $0.15\%$ of the variance and
@@ -1413,7 +1432,8 @@ oriented effects ($\tau_{Q^c} = +26.255$, $\beta_{\mathrm{int}} =
 +13.745$, hence purity translation $P(Q \mid g) \ge 0.272$ for true
 clearance — the driver's own "27.2%" remark); the sample size and floors;
 the selection rule (maxeffCons); and the scale anchor (the committed
-measured $\sigma_Q(n{=}1000) = 13.679$, which the fitted-SE observation
+measured $\sigma[\hat\beta_{1000}(Q)] = 13.679$, which the fitted-SE
+observation
 of Level 3 licenses as a population-effective scale, rescaled to $n = 500$
 by $\sqrt 2$). The fifth input — **the candidate family and the joint
 covariate law that determines every $P(g)$, $P(Q \mid g)$, and overlap** —
