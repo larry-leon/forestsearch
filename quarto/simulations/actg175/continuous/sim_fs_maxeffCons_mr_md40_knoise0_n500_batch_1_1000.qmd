@@ -873,7 +873,8 @@ out <- file.path(results_dir, sprintf("%s_res_%d_%d.rds", rds_stem,
 # transcribing literals.
 if (!is.null(dgm_scale)) .payload$scale <- dgm_scale
 .payload$oc    <- fs_mr_oc_summary(.payload)
-saveRDS(.payload[c("results", "truth", "scale", "oc", "meta")], out)
+saveRDS(.payload[intersect(c("results", "truth", "scale", "oc", "meta"),
+                           names(.payload))], out)
 
 } else if (identical(run_mode, "combine")) {
   # ---- Merge seed-disjoint batches ----------------------------------------
@@ -965,7 +966,8 @@ saveRDS(.payload[c("results", "truth", "scale", "oc", "meta")], out)
     # combined payload silently poorer than the batches it merges.
     if (!is.null(dgm_scale)) .cpayload$scale <- dgm_scale
     .cpayload$oc    <- fs_mr_oc_summary(.cpayload)
-    saveRDS(.cpayload[c("results", "truth", "scale", "oc", "meta")], cpath)
+    saveRDS(.cpayload[intersect(c("results", "truth", "scale", "oc", "meta"),
+                              names(.cpayload))], cpath)
     cat(sprintf("Saved pooled bundle (%d rows, %d batches) to %s\n",
                 nrow(results), length(files), cpath))
   }
