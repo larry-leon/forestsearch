@@ -7,6 +7,44 @@ population-level noise drawn once onto df_super at construction (scheme of
 2a4787bc, previously driver-local); recorded as noise_scheme='population'.
 Default k_random_noise = 0 is output-identical to 0.2.1.
 
+## New: `fs_dgm_scale()` -- computed sampling scale of the difference-in-means estimator
+
+Enumerates the finite-population sampling scale of the within-region
+difference-in-means estimator directly from a DGM's potential outcomes:
+`Var[betahat(g)] = V_eff(g) / (n P(g))`, with every component column returned
+per region. Replaces the practice of anchoring the analytic documents on a
+single *measured* standard error -- the measured anchor of 13.6786 at
+n = 1000 implied an effective bracket of 16,119, below the fixture's residual
+variance of 16,256, a structurally impossible state that a computed scale
+cannot express. Exact for identity-scale effect measures (`MD`, `RD`, `IRD`);
+ratio measures are rejected rather than silently approximated.
+
+## New: `fs_scale_se()` -- estimator SD at a given sample size and region
+
+Companion to `fs_dgm_scale()`: the standard deviation of the estimator at
+sample size `n` on a named region, `jensen = TRUE` applying the
+finite-count (random region size and arm split) corrections for the
+unconditional standard deviation.
+
+## New: `fs_mr_oc_summary()` -- operating characteristics from a payload
+
+Summarizes estimation and identification operating characteristics directly
+from a saved simulation payload -- only the `results`, `truth`, and `meta`
+blocks are required, so no DGM argument is needed. The simulation drivers
+attach the summary to every saved bundle as `$oc`, so a document's tables and
+its payload cannot disagree.
+
+## New: `fs_sym_root()` -- symmetric, continuous matrix square root
+
+Promoted from the analytic prediction document's anchor chunk, where no test
+could assert the property that motivated it. Both the symmetric root
+`V D^{1/2} V'` and the asymmetric `V D^{1/2}` satisfy the covariance identity,
+but the asymmetric root depends on the eigenvector basis, which is not a
+continuous function of its input on the rank-deficient covariances that
+complement-pair candidate families produce. The test suite asserts the
+continuity difference directly: under a 1e-12 perturbation the symmetric root
+moves < 1e-6 where the asymmetric root jumps by order one.
+
 # forestsearch 0.2.1
 
 ## `sg_focus` alias resolution is now announced at run time
