@@ -401,14 +401,16 @@ the two displays above give every other scale. That single measured
 value is what this document calls the **anchor**. The trial size at
 which it was measured carries no significance: $1000$ is simply the size
 of the committed calibration run, and a run at any other size, rescaled
-by the law above, would pin the same constant. Concretely, the committed
-measurement is $\sigma[\hat\beta_{1000}(Q)] = 13.679$, which fixes
-$V_{\mathrm{eff}} = 1000\,\pi_Q\,\sigma[\hat\beta_{1000}(Q)]^2
-= 64{,}476$ and hence
+by the law above, would pin the same constant. The constant is not
+measured but *computed*: enumerating $\sigma^2 + V_Q[\mu_0]$ on the stored
+super-population gives an effective bracket of $16{,}863.44$, hence
+$V_{\mathrm{eff}} = 67{,}454$ and
+$\sigma[\hat\beta_{1000}(Q)] =
+\sqrt{V_{\mathrm{eff}}/(1000\,\pi_Q)} = 13.991$, and hence
 $\sigma[\hat\beta_{1000}(\mathcal S)] =
-\sqrt{V_{\mathrm{eff}}/1000} = 8.030$, agreeing with the prevalence
-rule's $13.679\sqrt{0.3446}$. **No relationship between $g$ and $Q$ is
-being asserted**: the region at which the measurement happens to sit is
+\sqrt{V_{\mathrm{eff}}/1000} = 8.213$, agreeing with the prevalence
+rule's $13.991\sqrt{0.3446}$. **No relationship between $g$ and $Q$ is
+being asserted**: the region at which the constant is evaluated is
 an arbitrary *reference region*, and the everyone-rule form is used
 because its prevalence factor is $1$.
 
@@ -447,7 +449,7 @@ that defines it where a definition is needed.
 | $\hat\beta^{[j]}$ | half-sample fitted effect, $j = 1, 2$ |
 | $\hat\beta(g)$, $\hat\beta_n(g)$ | the estimator; trial-size subscript written only when a specific $n$ matters |
 | $\operatorname{Var}[T]$, $\sigma[T]$ | sampling variance and SD of a statistic $T$ (over $W$, $\varepsilon$, trial draw) |
-| $\sigma[\hat\beta(g)]$ | the estimator's SD; anchor $\sigma[\hat\beta_{1000}(Q)] = 13.679$ |
+| $\sigma[\hat\beta(g)]$ | the estimator's SD; computed $\sigma[\hat\beta_{1000}(Q)] = 13.991$ |
 | $V_{\mathrm{eff}}$ | region- and $n$-free constant $nP(g)\operatorname{Var}[\hat\beta(g)]$ (§2) |
 | $V_{\mathrm{DM}}(g)$, $V^\ast(g)$ | difference-in-means and efficient variances (@sec-additive) |
 | $\mathrm{IF}_{\mathrm{DM}}$, $\mathrm{IF}_{\mathrm{eff}}$ | the corresponding influence functions (@sec-refwager-eff) |
@@ -463,12 +465,12 @@ that defines it where a definition is needed.
 | $\Phi_{m,s}$, $\phi_{m,s}$, $\bar\Phi_{m,s}$ | the same at mean $m$, standard deviation $s$ |
 | $\Phi_M$ | $M$-variate normal distribution function |
 
-This yields a falsifiable check on the anchor. The committed
-$\sigma[\hat\beta_{1000}(Q)] = 13.679$ implies
-$V_{\mathrm{eff}} = 1000 \cdot \pi_Q \cdot \operatorname{Var}[\hat\beta_{1000}(Q)] = 64{,}476$ and hence an
-effective bracket $\sigma^2 + V_Q[\mu_0] =
-16{,}119$, an effective per-subject standard deviation of about $127$
-cells/$\mu$L.
+This yields a falsifiable check on the scale, and the check has been run.
+Direct enumeration on the stored super-population gives $\sigma = 127.500$
+and $V_Q[\mu_0] = 607.158$, hence an effective bracket
+$\sigma^2 + V_Q[\mu_0] = 16{,}863.44$,
+$V_{\mathrm{eff}} = 4 \times 16{,}863.44 = 67{,}454$, and an effective
+per-subject standard deviation of $129.9$ cells/$\mu$L.
 
 **The check, run against an independent measurement.** The oracle row of
 a committed report is the difference-in-means refit on the *true* region
@@ -476,24 +478,25 @@ $Q$, so its replicate-to-replicate spread estimates $\sigma[\hat\beta(Q)]$
 directly. In the $n = 500$, $s = 1000$ run of the worked example's design
 (@sec-appendix-n500) the oracle records an empirical standard deviation
 of $20.21$ and a mean fitted standard error of $19.81$, against the
-anchor-implied $13.679\sqrt2 = 19.344$: the anchor is low by $2.4\%$
-against the fitted standard error and $4.5\%$ against the empirical
-spread — the latter $1.9$ Monte-Carlo standard errors, so the two agree
-at the edge of resolution. In bracket terms the effective per-subject
-standard deviation is $127.0$ from the anchor against $130.0$ and $132.6$
-from the two measurements. Part of the gap is identified and expected:
-the balanced-arms and fixed-region-size idealizations understate the
-scale, since $\mathbb E[1/n_1 + 1/n_0]$ and $\mathbb E[1/n_g]$ exceed
-their fixed-count counterparts by Jensen's inequality, worth about
-$1.15\%$ and $0.29\%$ in the standard deviation at this design — roughly
-half the discrepancy. The consequences are inside the tolerance already
-declared: adopting the fitted value would move the $Q$-channel clearance
-from $0.768$ to $0.762$ and the sample-size threshold $n^\ast$ of
-@sec-floors from $9{,}538$ to about $10{,}000$. What remains open is the
-direct evaluation: computing $\sigma$ and
-$V_Q[\mu_0]$ on the stored super-population would
-separate anchor measurement error from the idealization terms, which the
-oracle comparison alone cannot.
+computed $13.991\sqrt2 = 19.786$. The agreement is close and, more
+tellingly, scale-free: the same computation at $n = 700$ gives $16.722$
+against a measured mean fitted standard error of $16.752$. Applying the
+exact Jensen factor and the two concavity corrections a fitted standard
+error carries, the computed bracket reproduces the measured mean fitted
+standard error to $0.15\%$ at $n = 500$ and $0.03\%$ at $n = 700$, with
+both empirical standard deviations inside one Monte-Carlo standard error.
+
+An earlier version of this document anchored the scale on a *measured*
+$\sigma[\hat\beta_{1000}(Q)] = 13.679$, implying a bracket of
+$16{,}119$. That value lies below the fixture's residual variance of
+$16{,}256$; since the bracket on the true region is
+$\sigma^2 + V_Q[\mu_0]$ with $V_Q[\mu_0] \ge 0$, it was not merely
+imprecise but structurally impossible — a check available from $\sigma$
+alone. The idealizations are real but small: $\mathbb E[1/n_1 + 1/n_0]$
+and $\mathbb E[1/n_g]$ exceed their fixed-count counterparts by Jensen's
+inequality, worth $0.295\%$ and $0.192\%$ in the standard deviation at
+this design, $0.490\%$ jointly at $n = 500$ and $0.348\%$ at $n = 700$.
+Every rate below uses the computed constant.
 
 Three conventions, verified against package source, govern everything below:
 the estimator is the within-subgroup ordinary-least-squares (OLS)
@@ -1068,7 +1071,7 @@ error. $P\big(\hat\beta(H) \ge c_1\big) = \bar\Phi\big((c_1 -
 50-replicate overnight anchor run):
 
 ```{r clearance-example}
-z <- (40 - 30) / 13.6786          # oriented truth, floor, measured SE at n=1000
+z <- (40 - 30) / 13.9909          # oriented truth, floor, measured SE at n=1000
 pred <- pnorm(z)
 cat(sprintf("Marginal clearance of Q at n = 1000: Phi(%.3f) = %.3f;\n", z, pred),
     "measured (overnight O1): 36/50 = 0.720, MC SE 0.064 -- consistent.\n")
@@ -1076,8 +1079,8 @@ cat(sprintf("Marginal clearance of Q at n = 1000: Phi(%.3f) = %.3f;\n", z, pred)
 
 The marginal recipe alone under-predicts *family* detection, and the gap is
 the point: at $n = 500$, $\sigma[\hat\beta_{500}(Q)] =
-13.679\sqrt 2 = 19.34$,
-giving marginal clearance $\Phi(10/19.34) = 0.697$ for $Q$ — against
+13.991\sqrt 2 = 19.79$,
+giving marginal clearance $\Phi(10/19.79) = 0.693$ for $Q$ — against
 measured family detection of $1000/1000$ in this design's own run
 (@sec-appendix-n500, verified by tabulating the stored payload) and
 $997/1000$ in the earlier STOP B coverage grid (`md_grid_s1000`,
@@ -1237,9 +1240,9 @@ $\big\{\tfrac12(\hat\beta^{[1]} + \hat\beta^{[2]}) \ge c_1,\
 \min_j \hat\beta^{[j]} < c_2\big\}$ — **one low half forces the other
 half to carry the sum**, so even a $c_2$ far below $m$ removes the
 anti-correlated corner. At the fixture ($m = 40$,
-$s = \sigma[\hat\beta_{1000}(Q)] = 13.679$, floors $30/10$) this costs
+$s = \sigma[\hat\beta_{1000}(Q)] = 13.991$, floors $30/10$) this costs
 about two
-points: screening-only $0.768$ versus $P_1 = 0.745$ — the
+points: screening-only $0.763$ versus $P_1 = 0.738$ — the
 quantitative content behind the "non-discriminating $c_2$" reading of
 open question D2: non-discriminating *between candidates*, not free.
 
@@ -1292,7 +1295,7 @@ c1_for <- function(rho, c2, m, s) {        # exact inversion in c1
 }
 piQ <- 0.3446; tQc <- 26.255235876; bint <- 13.744764124
 tQ  <- tQc + bint; ITT <- tQc + bint*piQ
-sQ1 <- 13.6786
+sQ1 <- 13.9909
 chan <- data.frame(channel = c("Q (power)", "ITT (uninformative)",
                                "Qc (complement)"),
                    mean = c(tQ, ITT, tQc),
@@ -1342,7 +1345,7 @@ abline(0, 1, lty = 3)
 ```
 
 Reading the outputs. The channel table is the section's core: at the
-fixture floors the $Q$ channel detects at $0.745$ ($n = 1000$) while the
+fixture floors the $Q$ channel detects at $0.738$ ($n = 1000$) while the
 $Q$-neutral (ITT) channel *also* clears at $0.55$ — the two rates a
 $(c_1, c_2)$ choice must trade, with $Q^c$ mild below both. The
 trade-off table walks $c_1$ across the gap and shows the exchange rate
@@ -1367,8 +1370,8 @@ recipes return and how to read them. Three candidates at the fixture's
 means and measured scale: $Q$ itself; an overlapping proxy $P$
 (prevalence $0.45$, sharing probability mass $0.28$ with $Q$, hence purity
 $P(Q \mid P) = 0.28/0.45 = 0.622$); and a near-duplicate $D \subset Q$
-(prevalence $0.31$, purity $1$). SEs are anchored to the measured
-$\sigma[\hat\beta_{1000}(Q)] = 13.679$ and scaled by the balanced-arms
+(prevalence $0.31$, purity $1$). SEs use the computed
+$\sigma[\hat\beta_{1000}(Q)] = 13.991$ and are scaled by the balanced-arms
 prevalence
 rule $\sigma[\hat\beta(H)] = \sigma[\hat\beta(Q)]\sqrt{\pi_Q/\pi_H}$;
 correlations are the
@@ -1401,14 +1404,20 @@ mixed-purity region carries
 $\tfrac12 V_g[\tau] = \tfrac12\beta_{\mathrm{int}}^2 p(1-p) > 0$,
 so a $Q$-anchored rule
 systematically *understates* mixed-purity scales. Second, the magnitude
-settles the matter here: back-solving the committed anchor gives
-$V_{\mathrm{eff}} = 1000\cdot\pi_Q\cdot
-\operatorname{Var}[\hat\beta_{1000}(Q)] = 64{,}476$, an effective
-bracket of $16{,}119$ (per-subject effective standard deviation
-$\approx 127$), against a maximal CATE term of
-$\beta_{\mathrm{int}}^2/8 = 23.6$ — $0.15\%$ of the variance and
-$0.07\%$ of the standard deviation. The CATE contribution to the bracket
-is therefore negligible on this fixture, which means the measured
+settles the matter here: direct enumeration gives
+$V_{\mathrm{eff}} = 67{,}454$, an effective
+bracket of $16{,}863.44$ (per-subject effective standard deviation
+$129.9$). Two CATE-dependent terms enter that bracket, and only one of
+them is bounded. The variance term satisfies
+$\tfrac12 V_g[\tau] \le \beta_{\mathrm{int}}^2/8 = 23.6$, attained at
+$p = 1/2$; on $\mathcal S$ it equals $21.33$. The cross term
+$C_g[\mu_0,\tau]$ admits no such bound — it scales with
+$\beta_{\mathrm{int}}$ times the prognostic contrast between $Q$ and its
+complement — and on $\mathcal S$ it equals $-33.59$, larger in magnitude
+than the bound on the first and opposite in sign. Both are negligible
+against a bracket of $16{,}863$ ($0.13\%$ and $0.20\%$), and on $Q$ and
+$Q^c$ both vanish identically because $\tau$ is constant there. The CATE
+contribution is therefore negligible on this fixture, which means the measured
 $0.94$–$1.09$ spread is essentially all **prognostic**
 ($V_g[\mu_0]$), and the anchor choice is
 immaterial numerically even though it is not immaterial in principle. Every computed rate in this document that
@@ -1420,7 +1429,7 @@ fixture's noise scale and prognostic surface as enumerable inputs.
 set.seed(20260824)   # pins pmvnorm's quasi-MC randomization for the gap readout
 library(mvtnorm)
 tauQc <- 26.255235876; bint <- 13.744764124   # oriented
-c1 <- 30; seQ <- 13.6786; piQ <- 0.3446
+c1 <- 30; seQ <- 13.9909; piQ <- 0.3446
 cand <- data.frame(
   name = c("Q", "P (overlap proxy)", "D (near-dup, subset of Q)"),
   pi   = c(piQ, 0.45, 0.31),
@@ -1459,16 +1468,16 @@ $D$ both sit at $40$ (both have purity $1$), $P$ at $34.81$. **Column
 `se`** is the prevalence-scaled measured scale: smaller regions are
 noisier, so $D$ ($\pi = 0.31$) carries the largest SE. **Column
 `marginal_clearance`** treats each candidate alone: $Q$ clears the floor
-$76.8\%$ of the time, $D$ $75.6\%$, $P$ $65.6\%$. **Column
+$76.3\%$ of the time, $D$ $75.1\%$, $P$ $65.3\%$. **Column
 `selection_prob`** is the joint answer, and it is *not* proportional to the
-marginals: $D$ takes the largest share ($0.360$) despite the smaller
+marginals: $D$ takes the largest share ($0.358$) despite the smaller
 marginal clearance, because at equal means the *noisier* candidate wins the
 argmax more often — the Gaussian-level mechanism behind the observed
 tendency of the identifier to return small, noise-favored regions. The
-three selection probabilities sum to the family declaration rate ($0.8474$)
+three selection probabilities sum to the family declaration rate ($0.8439$)
 up to the printed quadrature gap — an internal consistency identity, not a
-new assumption. Finally, family declaration ($0.847$) exceeds the best
-marginal ($0.768$): competition helps *declaration* even as it dilutes any
+new assumption. Finally, family declaration ($0.844$) exceeds the best
+marginal ($0.763$): competition helps *declaration* even as it dilutes any
 single candidate's *selection*.
 
 ### Adding the consistency floor, and the ITT and $Q^c$ channels {#sec-warmup-floors}
@@ -1492,7 +1501,7 @@ fam_split <- function(mu, root, Mloc, c2v) {
 fam10 <- fam_split(cand$beta, rt3, 3, 10)
 fam25 <- fam_split(cand$beta, rt3, 3, 25)
 # Augment with the ITT rule S (prevalence 1) and the complement Qc
-piQ <- 0.3446; sQ1 <- 13.6786
+piQ <- 0.3446; sQ1 <- 13.9909
 beta5 <- c(cand$beta, 30.992, 26.255)
 prev5 <- c(cand$pi, 1, 1 - piQ)
 se5   <- c(cand$se, sQ1*sqrt(piQ), sQ1*sqrt(piQ/(1-piQ)))
@@ -1522,7 +1531,7 @@ cat(sprintf("5-member family with ITT and Qc channels, c2=10: %.4f.\n", fam5_10)
 ```
 
 Reading the additions. The consistency floor at $c_2 = 10$ trims the
-three-candidate family from the screening-only $0.847$ by the
+three-candidate family from the screening-only $0.844$ by the
 sum-forcing mechanism of @sec-floors, and $c_2 = 25$ shows the floor
 biting in earnest. Adding the two ideal channels raises family
 declaration further — the ITT rule alone contributes a $0.55$-per-family
@@ -1539,7 +1548,7 @@ member is selected; the ITT and $Q^c$ channels govern how often
 The recipes invert. Sample size for a target marginal clearance of $Q$:
 
 ```{r design-calculator}
-n_for <- function(target, se_n1000 = 13.6786, mu = 40, c1 = 30)
+n_for <- function(target, se_n1000 = 13.9909, mu = 40, c1 = 30)
   1000 * (se_n1000 * qnorm(target) / (mu - c1))^2
 cat(sprintf("n for %d%% marginal clearance of Q at floor 30: %s\n",
             c(80L, 90L, 95L),
@@ -1600,10 +1609,10 @@ The recipes need five inputs. The driver supplies four directly: the
 oriented effects ($\tau_{Q^c} = +26.255$, $\beta_{\mathrm{int}} =
 +13.745$, hence purity translation $P(Q \mid g) \ge 0.272$ for true
 clearance — the driver's own "27.2%" remark); the sample size and floors;
-the selection rule (maxeffCons); and the scale anchor (the committed
-measured $\sigma[\hat\beta_{1000}(Q)] = 13.679$, which the fitted-SE
+the selection rule (maxeffCons); and the scale (the computed
+$\sigma[\hat\beta_{1000}(Q)] = 13.991$, which the Level 3 fitted-SE
 observation
-of Level 3 licenses as a population-effective scale, rescaled to $n = 500$
+confirms as a population-effective scale, rescaled to $n = 500$
 by $\sqrt 2$). The fifth input — **the candidate family and the joint
 covariate law that determines every $P(g)$, $P(Q \mid g)$, and overlap** —
 is the one forestsearch regenerates per replicate, so a prediction must
@@ -1644,7 +1653,7 @@ library(mvtnorm)
 set.seed(20260825)
 tauQc <- 26.255235876; bint <- 13.744764124        # oriented
 c1 <- 30; c2 <- 10; n_rep <- 500; pcons_gate <- 0.90
-seQ1000 <- 13.6786; piQ_fix <- 0.3446
+seQ1000 <- 13.9909; piQ_fix <- 0.3446
 # 3x3 joint: rows age (<=33, (33,34], >34); cols preanti (<=677.9,
 # (677.9,744.5], >744.5). Hand-solved to hit every documented anchor.
 J3 <- matrix(c(0.3553, 0.0121, 0.0876,
@@ -1785,7 +1794,7 @@ knitr::kable(data.frame(
 
 Reading the predictions, line by line.
 
-**Detection.** The computed rate is $0.965$: with nine candidate means
+**Detection.** The computed rate is $0.963$: with nine candidate means
 above the floor and half-sample SEs of $19$–$40$, *some* candidate clears
 on nearly every replicate. The committed real-family measurement for
 this design at $n = 500$ is $1000/1000$ (@sec-appendix-n500, verified by
@@ -2239,26 +2248,26 @@ cat(sprintf("Top predicted selections: %s\n",
 ```
 
 Reading the comparison, row by row, with each residual assigned to its
-rung. **Detection** ($0.978$ predicted vs $0.999$): the real family is
+rung. **Detection** ($0.977$ predicted vs $0.999$): the real family is
 far larger; more candidates raise the family exceedance — the stated
 Level 5 direction. **Winner size and sensitivity** ($163$ vs $74$;
-$0.287$ vs $0.123$): the regenerated family's fine cuts supply many small
+$0.285$ vs $0.123$): the regenerated family's fine cuts supply many small
 candidates, and the noise-seeking argmax takes them — the scenario's own
 signature of this regime appears in its top predicted selections, where
-at the $8.6\%$ floor a **zero-purity** rule leads. **PPV** ($0.312$
+at the $8.6\%$ floor a **zero-purity** rule leads. **PPV** ($0.309$
 predicted vs $0.402$ measured) is the honest miss in direction: the real
 family's fine cuts also supply small *high-purity* slices of $Q$ that the
 coarse $M = 18$ scenario cannot represent, so measured purity beats the
 scenario ceiling — a regeneration effect with the opposite sign to the
 sensitivity one, and a caution against reading the scenario's
-classification rows as bounds. **E[$\beta(\hat H)$]** ($30.55$ vs
+classification rows as bounds. **E[$\beta(\hat H)$]** ($30.51$ vs
 $31.76$) is near-quantitative, for a reason the locks make plain: the
 quantity is pinned by the mixture identity to mean purity, and selection
-concentrates just above the floor in both worlds. **Naive bias** ($+29.7$
+concentrates just above the floor in both worlds. **Naive bias** ($+30.5$
 vs $+77.1$): regeneration multiplies the winner's curse roughly
-$2.6\times$ here — the direction stated in Step 4, its magnitude the
+$2.5\times$ here — the direction stated in Step 4, its magnitude the
 clearest single measure of what the fixed family cannot supply. The
-predicted below-floor selection mass ($0.544$) has no directly tabulated
+predicted below-floor selection mass ($0.548$) has no directly tabulated
 counterpart; its per-replicate analogue (share of detected replicates
 with $\beta(\hat H) < c_1$) is computable from the bundle and is a
 natural addition to the report.
@@ -2318,16 +2327,16 @@ consistent with the coarser two-decimal PPV.
 
 The **attribution pattern replicates at the second sample size**, which
 is the substantive point: predicted detection again sits below measured
-($0.965$ against $1000/1000$, the same direction as $0.978$ against
+($0.963$ against $1000/1000$, the same direction as $0.977$ against
 $999/1000$ at $n = 700$), predicted winner size and sensitivity again sit
-above the measured values ($133$ against $72$; $0.329$ against $0.17$),
-predicted specificity below ($0.768$ against $0.87$), predicted PPV again
-below ($0.360$ against $0.41$) — the honest directional miss of the
-$n = 700$ comparison, reproduced — predicted NPV close ($0.695$ against
-$0.66$), $\mathbb E[\beta(\hat H)]$ again near-quantitative ($31.20$
+above the measured values ($132$ against $72$; $0.326$ against $0.17$),
+predicted specificity below ($0.767$ against $0.87$), predicted PPV again
+below ($0.357$ against $0.41$) — the honest directional miss of the
+$n = 700$ comparison, reproduced — predicted NPV close ($0.694$ against
+$0.66$), $\mathbb E[\beta(\hat H)]$ again near-quantitative ($31.16$
 against $31.76$, under two percent), and the naive bias again far below
-the measured value ($30.3$ against $74.3$, a factor of $2.45$ against the
-$2.6$ found at $n = 700$). Two independent runs at different sample sizes
+the measured value ($31.0$ against $74.3$, a factor of $2.39$ against the
+$2.5$ found at $n = 700$). Two independent runs at different sample sizes
 therefore produce the same signed attribution table, which is what
 distinguishes a structural property of the fixed-family idealization from
 a coincidence of one design.
