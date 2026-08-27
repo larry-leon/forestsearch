@@ -2066,6 +2066,46 @@ discovered — and it quantifies the driver's open question D2 from the
 other side: on the null cell it is the *screening* floor, not the
 consistency floor, that is barely discriminating.
 
+::: {.callout-note}
+## Why $\beta(\hat H)$ is constant under a no-interaction null
+
+Under a null with no treatment-by-subgroup interaction, $\tau(X)$ is constant
+across the super-population. $\beta(\hat H)$ is the finite-population mean of
+$\tau$ over $\hat H$, so it returns that same constant for **any** $\hat H$ —
+including one the search identified wrongly, and however much $\hat H$ varies
+from replicate to replicate. Membership variation cannot move an average of a
+constant.
+
+Three conditions carry this, and they are worth naming separately because only
+some of them survive a change of scale.
+
+1. **No interaction**, so $\tau(X) \equiv \tau_0$.
+2. **Collapsibility of the mean difference.** A subgroup effect is the average
+   of individual effects over that subgroup and nothing else.
+3. **Nothing about prognosis.** Prognostic heterogeneity does not break the
+   result: $\mu_0(X)$ may vary freely, because $\beta(\hat H)$ averages $\tau$,
+   not $Y$. A subgroup that is prognostically extreme but effect-homogeneous
+   still returns $\tau_0$. This is the same separation that puts
+   $V_g[\mu_0]$ in the *bracket* while $m_g[\tau]$ alone sets the mean —
+   prognostic variation enters the noise, not the estimand.
+
+**This does not port to the binary/OR pathway.** The log odds ratio is
+non-collapsible, so a marginal subgroup OR is not the average of individual
+ORs, and prognostic variation shifts the subgroup effect even with the
+individual-level effect held fixed. A constancy check of this form would raise
+a false alarm on every replicate there. It is the same fault line as
+`fs_dgm_scale()`'s hard stop on ratio measures: a second consequence of
+non-collapsibility, appearing in the diagnostics rather than in the variance
+formula.
+
+*Confirmed empirically.* The $n = 500$ null cell run on 2026-08-26 (1000
+replicates, 998 declarations) gives
+$\mathrm{sd}\big[\beta(\hat H)\big] = 3.7 \times 10^{-15}$ across all declared
+subgroups, every replicate returning the common effect exactly. The figure is
+recorded here rather than read from a payload: that run was a one-off and its
+bundle is not tracked.
+:::
+
 ## Step 6 — inverting for design
 
 The same objects answer planning questions. For example: at what $n$ would
