@@ -1591,7 +1591,7 @@ fam10 <- fam_split(cand$beta, rt3, 3, 10)
 fam25 <- fam_split(cand$beta, rt3, 3, 25)
 # Augment with the ITT rule S (prevalence 1) and the complement Qc
 piQ <- .anchor$piQ; sQ1 <- .anchor$seQ1000
-beta5 <- c(cand$beta, 30.992, 26.255)
+beta5 <- c(cand$beta, .anchor$m_ITT, .anchor$m_Qc)
 prev5 <- c(cand$pi, 1, 1 - piQ)
 se5   <- c(cand$se, sQ1*sqrt(piQ), sQ1*sqrt(piQ/(1-piQ)))
 ov5 <- matrix(0, 5, 5)
