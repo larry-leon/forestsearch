@@ -63,6 +63,30 @@ stopifnot(!is.na(.iQc))
 .anchor$beta_int <- .anchor$m_Q - .anchor$m_Qc   # planted interaction, oriented
 .anchor$V_mu0_Q  <- .reg$V_mu0[.iQ]              # region variance of the control mean
 
+.iS <- match("S", .reg$region)
+stopifnot(!is.na(.iS))
+.anchor$m_ITT   <- abs(.reg$m_tau[.iS])    # marginal (ITT) effect, oriented
+.anchor$v_cond0 <- .reg$v_cond0[.iQ]       # fixture residual variance
+
+# The regions table must be internally coherent, or every figure below is
+# reading a table that does not mean what the derivations assume.
+stopifnot(
+  # S is the whole sample
+  isTRUE(all.equal(.reg$P_g[.iS], 1)),
+  isTRUE(all.equal(.reg$n_g[.iS], .scale$n_super)),
+  # Q and Qc partition it
+  isTRUE(all.equal(.reg$P_g[.iQ] + .reg$P_g[.iQc], 1)),
+  isTRUE(all.equal(.reg$n_g[.iQ] + .reg$n_g[.iQc], .reg$n_g[.iS])),
+  # common orientation, so abs() is a documented flip and not a swallowed sign
+  length(unique(sign(.reg$m_tau))) == 1L,
+  # S is the prevalence-weighted mixture -- this is what makes m_ITT the ITT
+  isTRUE(all.equal(
+    .reg$P_g[.iQ] * .reg$m_tau[.iQ] + .reg$P_g[.iQc] * .reg$m_tau[.iQc],
+    .reg$m_tau[.iS])),
+  # v_cond0 read at [.iQ] is only safe while it is region-invariant
+  isTRUE(all.equal(max(.reg$v_cond0), min(.reg$v_cond0)))
+)
+
 # The document writes thousands with the LaTeX separator, so a formatted number
 # has to match that style rather than R's default comma.
 .fmt_tex <- function(x, digits = 0) {
