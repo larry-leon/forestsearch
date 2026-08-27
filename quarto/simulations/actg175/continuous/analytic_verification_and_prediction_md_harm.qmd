@@ -223,8 +223,8 @@ is the covariate rule
 $Q = \{\text{age} > 34 \ \wedge\ \text{preanti} \le 744.5\}$, with
 $|Q| = 1723$ members and prevalence $\pi = P(Q) = |Q|/N = `r sprintf("%.4f", .anchor$piQ)`$.
 Raw-scale (stored) effects: $\tau_Q = -40$ (calibration target),
-$\tau_{Q^c} = -26.255$,
-$\beta_{\mathrm{int}} = \tau_Q - \tau_{Q^c} = -13.745$. The CATE is
+$\tau_{Q^c} = -`r sprintf("%.3f", .anchor$m_Qc)`$,
+$\beta_{\mathrm{int}} = \tau_Q - \tau_{Q^c} = -`r sprintf("%.3f", .anchor$beta_int)`$. The CATE is
 two-valued. Screening floor $c_1 = 30$ and consistency floor $c_2 = 10$,
 both on the oriented scale fixed later in this section, once the region
 effect $\beta(g)$ has been defined. The outcome is CD4 change from
@@ -395,7 +395,7 @@ $$
 $$
 is its average treatment effect, computed exactly on `df_super`. **All
 effect symbols in this document are oriented by default**:
-$\tau_{Q^c} = +26.255$, $\beta_{\mathrm{int}} = +13.745$,
+$\tau_{Q^c} = +`r sprintf("%.3f", .anchor$m_Qc)`$, $\beta_{\mathrm{int}} = +`r sprintf("%.3f", .anchor$beta_int)`$,
 $\tau_Q = \beta(Q) = +40$.
 
 *What the orientation encodes.* The fixture is a **benefit search
@@ -496,10 +496,10 @@ measured but *computed*: enumerating $\sigma^2 + V_Q[\mu_0]$ on the stored
 super-population gives an effective bracket of $`r .fmt_tex(.anchor$bracket, 2)`$, hence
 $V_{\mathrm{eff}} = `r .fmt_tex(.anchor$V_eff, 0)`$ and
 $\sigma[\hat\beta_{1000}(Q)] =
-\sqrt{V_{\mathrm{eff}}/(1000\,\pi_Q)} = 13.991$, and hence
+\sqrt{V_{\mathrm{eff}}/(1000\,\pi_Q)} = `r sprintf("%.3f", .anchor$seQ1000)`$, and hence
 $\sigma[\hat\beta_{1000}(\mathcal S)] =
 \sqrt{V_{\mathrm{eff}}/1000} = 8.213$, agreeing with the prevalence
-rule's $13.991\sqrt{`r sprintf("%.4f", .anchor$piQ)`}$. **No relationship between $g$ and $Q$ is
+rule's $`r sprintf("%.3f", .anchor$seQ1000)`\sqrt{`r sprintf("%.4f", .anchor$piQ)`}$. **No relationship between $g$ and $Q$ is
 being asserted**: the region at which the constant is evaluated is
 an arbitrary *reference region*, and the everyone-rule form is used
 because its prevalence factor is $1$.
@@ -529,8 +529,8 @@ that defines it where a definition is needed.
 | $\tau(x)$ | CATE $\mu_1(x) - \mu_0(x)$ — deterministic |
 | $m_g[a]$, $V_g[a]$, $C_g[a,b]$ | indexed region moments of covariate functions (§2) |
 | $\beta(g)$ | region effect $m_g[\tau]$, oriented scale |
-| $\tau_Q$, $\tau_{Q^c}$, $\beta_{\mathrm{int}}$ | $+40$, $+26.255$, $+13.745$ oriented (§2) |
-| $\mathrm{ITT}$ | $\beta(\mathcal S) = \tau_{Q^c} + \beta_{\mathrm{int}}\pi = 30.992$ |
+| $\tau_Q$, $\tau_{Q^c}$, $\beta_{\mathrm{int}}$ | $+40$, $+`r sprintf("%.3f", .anchor$m_Qc)`$, $+`r sprintf("%.3f", .anchor$beta_int)`$ oriented (§2) |
+| $\mathrm{ITT}$ | $\beta(\mathcal S) = \tau_{Q^c} + \beta_{\mathrm{int}}\pi = `r sprintf("%.3f", .anchor$m_ITT)`$ |
 | $\theta^\dagger(H)$ | marginal true-subgroup effect (§1) |
 | $S_\tau^2(g)$ | $V_g[\tau] = \beta_{\mathrm{int}}^2 p(1-p)$ |
 | $u^{(g)}_i$, $t^{(g)}_i$ | centered prognostic and CATE contributions (@sec-additive) |
@@ -539,7 +539,7 @@ that defines it where a definition is needed.
 | $\hat\beta^{[j]}$ | half-sample fitted effect, $j = 1, 2$ |
 | $\hat\beta(g)$, $\hat\beta_n(g)$ | the estimator; trial-size subscript written only when a specific $n$ matters |
 | $\operatorname{Var}[T]$, $\sigma[T]$ | sampling variance and SD of a statistic $T$ (over $W$, $\varepsilon$, trial draw) |
-| $\sigma[\hat\beta(g)]$ | the estimator's SD; computed $\sigma[\hat\beta_{1000}(Q)] = 13.991$ |
+| $\sigma[\hat\beta(g)]$ | the estimator's SD; computed $\sigma[\hat\beta_{1000}(Q)] = `r sprintf("%.3f", .anchor$seQ1000)`$ |
 | $V_{\mathrm{eff}}$ | region- and $n$-free constant $nP(g)\operatorname{Var}[\hat\beta(g)]$ (§2) |
 | $V_{\mathrm{DM}}(g)$, $V^\ast(g)$ | difference-in-means and efficient variances (@sec-additive) |
 | $\mathrm{IF}_{\mathrm{DM}}$, $\mathrm{IF}_{\mathrm{eff}}$ | the corresponding influence functions (@sec-refwager-eff) |
@@ -568,7 +568,7 @@ $Q$, so its replicate-to-replicate spread estimates $\sigma[\hat\beta(Q)]$
 directly. In the $n = 500$, $s = 1000$ run of the worked example's design
 (@sec-appendix-n500) the oracle records an empirical standard deviation
 of $20.21$ and a mean fitted standard error of $19.81$, against the
-computed $13.991\sqrt2 = 19.786$. The agreement is close and, more
+computed $`r sprintf("%.3f", .anchor$seQ1000)`\sqrt2 = 19.786$. The agreement is close and, more
 tellingly, scale-free: the same computation at $n = 700$ gives $16.722$
 against a measured mean fitted standard error of $16.752$. Applying the
 exact Jensen factor and the two concavity corrections a fitted standard
@@ -579,7 +579,7 @@ both empirical standard deviations inside one Monte-Carlo standard error.
 An earlier version of this document anchored the scale on a *measured*
 $\sigma[\hat\beta_{1000}(Q)] = 13.679$, implying a bracket of
 $16{,}119$. That value lies below the fixture's residual variance of
-$16{,}256$; since the bracket on the true region is
+$`r .fmt_tex(.anchor$v_cond0, 0)`$; since the bracket on the true region is
 $\sigma^2 + V_Q[\mu_0]$ with $V_Q[\mu_0] \ge 0$, it was not merely
 imprecise but structurally impossible — a check available from $\sigma$
 alone. The idealizations are real but small: $\mathbb E[1/n_1 + 1/n_0]$
@@ -610,7 +610,7 @@ $$
 \beta(g) \ge c_1
 \quad\Longleftrightarrow\quad
 P(Q \mid g) \;\ge\; \frac{c_1 - \tau_{Q^c}}{\beta_{\mathrm{int}}}
-= \frac{30 - 26.255}{13.745} = 0.272.
+= \frac{30 - `r sprintf("%.3f", .anchor$m_Qc)`}{`r sprintf("%.3f", .anchor$beta_int)`} = 0.272.
 $$
 The floor $c_1 = 30$ is therefore a **27.2% purity requirement** — and since
 the marginal prevalence of $Q$ is $\pi = `r sprintf("%.4f", .anchor$piQ)`$ (34.5%), even a
@@ -740,11 +740,11 @@ this way for each realized rule and held at $1.421\times 10^{-14}$ across
 
 **Corollaries.** (i) $\beta(H^c)$ by the same mixture on the complement.
 (ii) The ITT chain: $\beta(\mathcal{S}) = \tau_{Q^c} +
-\beta_{\mathrm{int}}\pi = -30.992$ raw, which the bundles reproduce
+\beta_{\mathrm{int}}\pi = -`r sprintf("%.3f", .anchor$m_ITT)`$ raw, which the bundles reproduce
 as the complement effect on undetected rows. (iii) Disjointness:
 $H \cap Q = \varnothing \Rightarrow \beta(H) = \tau_{Q^c}$ — observed
 verbatim when a replicate selected a region disjoint from $Q$ and scored
-exactly $26.255$ oriented. (iv) Calibration (CHECK B):
+exactly $`r sprintf("%.3f", .anchor$m_Qc)`$ oriented. (iv) Calibration (CHECK B):
 $\theta^\dagger(Q) = \beta(Q) = \tau_Q$ identically. (v) Classification
 identities: with $s = |\hat H \cap Q|$, $\mathrm{sens} = s/|Q|$,
 $\mathrm{PPV} = s/|\hat H|$, and on the complement
@@ -1169,7 +1169,7 @@ cat(sprintf("Marginal clearance of Q at n = 1000: Phi(%.3f) = %.3f;\n", z, pred)
 
 The marginal recipe alone under-predicts *family* detection, and the gap is
 the point: at $n = 500$, $\sigma[\hat\beta_{500}(Q)] =
-13.991\sqrt 2 = 19.79$,
+`r sprintf("%.3f", .anchor$seQ1000)`\sqrt 2 = 19.79$,
 giving marginal clearance $\Phi(10/19.79) = 0.693$ for $Q$ — against
 measured family detection of $1000/1000$ in this design's own run
 (@sec-appendix-n500, verified by tabulating the stored payload) and
@@ -1287,9 +1287,9 @@ $$
 \qquad
 \tau_Q = \tau_{Q^c} + \frac{\mathrm{ITT} - \tau_{Q^c}}{\pi}.
 $$
-At the fixture triple ($\pi = `r sprintf("%.4f", .anchor$piQ)`$, $\tau_{Q^c} = 26.255$,
-$\beta_{\mathrm{int}} = 13.745$): $\tau_Q = 40$ and
-$\mathrm{ITT} = 30.992$. Three *channels* follow, one per ideal
+At the fixture triple ($\pi = `r sprintf("%.4f", .anchor$piQ)`$, $\tau_{Q^c} = `r sprintf("%.3f", .anchor$m_Qc)`$,
+$\beta_{\mathrm{int}} = `r sprintf("%.3f", .anchor$beta_int)`$): $\tau_Q = 40$ and
+$\mathrm{ITT} = `r sprintf("%.3f", .anchor$m_ITT)`$. Three *channels* follow, one per ideal
 candidate, each with its mean fixed by the triple and its scale by the
 prevalence rule $\sigma[\hat\beta(g)] =
 \sigma[\hat\beta(Q)]\sqrt{\pi_Q/\pi_g}$: the $Q$
@@ -1330,7 +1330,7 @@ $\big\{\tfrac12(\hat\beta^{[1]} + \hat\beta^{[2]}) \ge c_1,\
 \min_j \hat\beta^{[j]} < c_2\big\}$ — **one low half forces the other
 half to carry the sum**, so even a $c_2$ far below $m$ removes the
 anti-correlated corner. At the fixture ($m = 40$,
-$s = \sigma[\hat\beta_{1000}(Q)] = 13.991$, floors $30/10$) this costs
+$s = \sigma[\hat\beta_{1000}(Q)] = `r sprintf("%.3f", .anchor$seQ1000)`$, floors $30/10$) this costs
 about two
 points: screening-only $`r sprintf("%.3f", .anchor$scr_clear_Q)`$ versus $P_1 = 0.738$ — the
 quantitative content behind the "non-discriminating $c_2$" reading of
@@ -1363,7 +1363,7 @@ $(\rho, \alpha) = (0.90, 0.10)$ first becomes feasible near
 $n \approx 9{,}500$; at $n = 1000$ the floors can *trade* the two
 channels along the $c_1$ axis but cannot meet both — the borderline-null
 regime of the manuscript's §7 anchors, derived rather than observed. The
-$Q^c$ channel sits below both (mean $26.255$) and is the mild one at
+$Q^c$ channel sits below both (mean $`r sprintf("%.3f", .anchor$m_Qc)`$) and is the mild one at
 these floors; $c_2$ moves all three channels together (multiplicatively,
 through the replication factor) and is the secondary knob.
 
@@ -1461,7 +1461,7 @@ means and measured scale: $Q$ itself; an overlapping proxy $P$
 (prevalence $0.45$, sharing probability mass $0.28$ with $Q$, hence purity
 $P(Q \mid P) = 0.28/0.45 = 0.622$); and a near-duplicate $D \subset Q$
 (prevalence $0.31$, purity $1$). SEs use the computed
-$\sigma[\hat\beta_{1000}(Q)] = 13.991$ and are scaled by the balanced-arms
+$\sigma[\hat\beta_{1000}(Q)] = `r sprintf("%.3f", .anchor$seQ1000)`$ and are scaled by the balanced-arms
 prevalence
 rule $\sigma[\hat\beta(H)] = \sigma[\hat\beta(Q)]\sqrt{\pi_Q/\pi_H}$;
 correlations are the
@@ -1694,11 +1694,11 @@ Those are exactly the quantities the recipes predict.
 ## Step 2 — what must be specified, and what the driver already supplies
 
 The recipes need five inputs. The driver supplies four directly: the
-oriented effects ($\tau_{Q^c} = +26.255$, $\beta_{\mathrm{int}} =
-+13.745$, hence purity translation $P(Q \mid g) \ge 0.272$ for true
+oriented effects ($\tau_{Q^c} = +`r sprintf("%.3f", .anchor$m_Qc)`$, $\beta_{\mathrm{int}} =
++`r sprintf("%.3f", .anchor$beta_int)`$, hence purity translation $P(Q \mid g) \ge 0.272$ for true
 clearance — the driver's own "27.2%" remark); the sample size and floors;
 the selection rule (maxeffCons); and the scale (the computed
-$\sigma[\hat\beta_{1000}(Q)] = 13.991$, which the Level 3 fitted-SE
+$\sigma[\hat\beta_{1000}(Q)] = `r sprintf("%.3f", .anchor$seQ1000)`$, which the Level 3 fitted-SE
 observation
 confirms as a population-effective scale, rescaled to $n = 500$
 by $\sqrt 2$). The fifth input — **the candidate family and the joint
@@ -1799,7 +1799,7 @@ Reading the family table. The purity column *is* the mean column in
 disguise (Proposition 1), and the floor line falls at purity $0.2724$ —
 below the marginal prevalence $`r sprintf("%.4f", .anchor$piQ)`$, so **nine of the sixteen
 candidates have true effects above the floor, including the pure
-distractors** $V{=}1$ and $V{=}0$ at $\beta = 30.99$. On this pathway the
+distractors** $V{=}1$ and $V{=}0$ at $\beta = `r sprintf("%.2f", .anchor$m_ITT)`$. On this pathway the
 screening floor does not separate signal from noise regions; it separates
 regions *depleted* of $Q$ from everything else. The best representable
 rule $g^\ast$ leads at $\beta = 38.67$ (purity $0.903$), $1.33$ units
@@ -2059,9 +2059,9 @@ scenario can address.
 
 The driver's `null_cell = TRUE` switch sets $\beta_{\mathrm{int}} = 0$, so
 every region's oriented mean collapses to the common treatment effect
-($\approx +26.26$, the complement value). The same machinery then predicts
+($\approx +`r sprintf("%.2f", .anchor$m_Qc)`$, the complement value). The same machinery then predicts
 the null cell's operating characteristics — and the prediction is the
-useful kind of surprising: the floor sits only $(30 - 26.26)/\mathrm{SE}
+useful kind of surprising: the floor sits only $(30 - `r sprintf("%.2f", .anchor$m_Qc)`)/\mathrm{SE}
 \approx 0.13$–$0.28$ SEs above every candidate mean, so this "null" is a
 **near-threshold null**, not a zero null.
 
@@ -2186,7 +2186,7 @@ reason. The worked example's Gaussian-level Monte Carlo uses $2 \times
 The verification family of the check suite is a synthetic $M = 14$
 stressor whose complement effect is beneficial (oriented $-26.26$) —
 deliberately harder competition geometry than the fixture's harmful
-complement ($+26.255$); the machinery checks are parameter-point-agnostic,
+complement ($+`r sprintf("%.3f", .anchor$m_Qc)`$); the machinery checks are parameter-point-agnostic,
 and the fixture values used throughout this document are the committed ones
 of §2.
 
@@ -2663,7 +2663,7 @@ $$
 prevalence times the mixture mean. On the fixture — where the
 complement effect is *also* harmful on the oriented scale — the
 maximizer over all regions is the whole sample:
-$V(\mathcal S) = \mathrm{ITT} = 30.992$ against
+$V(\mathcal S) = \mathrm{ITT} = `r sprintf("%.3f", .anchor$m_ITT)`$ against
 $V(Q) = \pi\,\tau_Q = 13.784$. Value-ranking therefore cannot
 separate $Q$ here even in principle; the identification problem is
 *conditional-mean thresholding* — exactly what the screening floor

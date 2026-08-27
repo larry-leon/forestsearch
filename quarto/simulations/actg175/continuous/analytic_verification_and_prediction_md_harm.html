@@ -5443,8 +5443,8 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-223"><a href="#cb36-223" aria-hidden="true" tabindex="-1"></a>$Q = <span class="sc">\{</span>\text{age} &gt; 34 \ \wedge\ \text{preanti} \le 744.5<span class="sc">\}</span>$, with</span>
 <span id="cb36-224"><a href="#cb36-224" aria-hidden="true" tabindex="-1"></a>$|Q| = 1723$ members and prevalence $\pi = P(Q) = |Q|/N = <span class="in">`r sprintf(&quot;%.4f&quot;, .anchor$piQ)`</span>$.</span>
 <span id="cb36-225"><a href="#cb36-225" aria-hidden="true" tabindex="-1"></a>Raw-scale (stored) effects: $\tau_Q = -40$ (calibration target),</span>
-<span id="cb36-226"><a href="#cb36-226" aria-hidden="true" tabindex="-1"></a>$\tau_{Q^c} = -26.255$,</span>
-<span id="cb36-227"><a href="#cb36-227" aria-hidden="true" tabindex="-1"></a>$\beta_{\mathrm{int}} = \tau_Q - \tau_{Q^c} = -13.745$. The CATE is</span>
+<span id="cb36-226"><a href="#cb36-226" aria-hidden="true" tabindex="-1"></a>$\tau_{Q^c} = -<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$m_Qc)`</span>$,</span>
+<span id="cb36-227"><a href="#cb36-227" aria-hidden="true" tabindex="-1"></a>$\beta_{\mathrm{int}} = \tau_Q - \tau_{Q^c} = -<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$beta_int)`</span>$. The CATE is</span>
 <span id="cb36-228"><a href="#cb36-228" aria-hidden="true" tabindex="-1"></a>two-valued. Screening floor $c_1 = 30$ and consistency floor $c_2 = 10$,</span>
 <span id="cb36-229"><a href="#cb36-229" aria-hidden="true" tabindex="-1"></a>both on the oriented scale fixed later in this section, once the region</span>
 <span id="cb36-230"><a href="#cb36-230" aria-hidden="true" tabindex="-1"></a>effect $\beta(g)$ has been defined. The outcome is CD4 change from</span>
@@ -5615,7 +5615,7 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-395"><a href="#cb36-395" aria-hidden="true" tabindex="-1"></a>$$</span>
 <span id="cb36-396"><a href="#cb36-396" aria-hidden="true" tabindex="-1"></a>is its average treatment effect, computed exactly on <span class="in">`df_super`</span>. **All</span>
 <span id="cb36-397"><a href="#cb36-397" aria-hidden="true" tabindex="-1"></a>effect symbols in this document are oriented by default**:</span>
-<span id="cb36-398"><a href="#cb36-398" aria-hidden="true" tabindex="-1"></a>$\tau_{Q^c} = +26.255$, $\beta_{\mathrm{int}} = +13.745$,</span>
+<span id="cb36-398"><a href="#cb36-398" aria-hidden="true" tabindex="-1"></a>$\tau_{Q^c} = +<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$m_Qc)`</span>$, $\beta_{\mathrm{int}} = +<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$beta_int)`</span>$,</span>
 <span id="cb36-399"><a href="#cb36-399" aria-hidden="true" tabindex="-1"></a>$\tau_Q = \beta(Q) = +40$.</span>
 <span id="cb36-400"><a href="#cb36-400" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb36-401"><a href="#cb36-401" aria-hidden="true" tabindex="-1"></a>*What the orientation encodes.* The fixture is a **benefit search</span>
@@ -5716,10 +5716,10 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-496"><a href="#cb36-496" aria-hidden="true" tabindex="-1"></a>super-population gives an effective bracket of $<span class="in">`r .fmt_tex(.anchor$bracket, 2)`</span>$, hence</span>
 <span id="cb36-497"><a href="#cb36-497" aria-hidden="true" tabindex="-1"></a>$V_{\mathrm{eff}} = <span class="in">`r .fmt_tex(.anchor$V_eff, 0)`</span>$ and</span>
 <span id="cb36-498"><a href="#cb36-498" aria-hidden="true" tabindex="-1"></a>$\sigma<span class="co">[</span><span class="ot">\hat\beta_{1000}(Q)</span><span class="co">]</span> =</span>
-<span id="cb36-499"><a href="#cb36-499" aria-hidden="true" tabindex="-1"></a>\sqrt{V_{\mathrm{eff}}/(1000\,\pi_Q)} = 13.991$, and hence</span>
+<span id="cb36-499"><a href="#cb36-499" aria-hidden="true" tabindex="-1"></a>\sqrt{V_{\mathrm{eff}}/(1000\,\pi_Q)} = <span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$seQ1000)`</span>$, and hence</span>
 <span id="cb36-500"><a href="#cb36-500" aria-hidden="true" tabindex="-1"></a>$\sigma<span class="co">[</span><span class="ot">\hat\beta_{1000}(\mathcal S)</span><span class="co">]</span> =</span>
 <span id="cb36-501"><a href="#cb36-501" aria-hidden="true" tabindex="-1"></a>\sqrt{V_{\mathrm{eff}}/1000} = 8.213$, agreeing with the prevalence</span>
-<span id="cb36-502"><a href="#cb36-502" aria-hidden="true" tabindex="-1"></a>rule&#39;s $13.991\sqrt{<span class="in">`r sprintf(&quot;%.4f&quot;, .anchor$piQ)`</span>}$. **No relationship between $g$ and $Q$ is</span>
+<span id="cb36-502"><a href="#cb36-502" aria-hidden="true" tabindex="-1"></a>rule&#39;s $<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$seQ1000)`</span>\sqrt{<span class="in">`r sprintf(&quot;%.4f&quot;, .anchor$piQ)`</span>}$. **No relationship between $g$ and $Q$ is</span>
 <span id="cb36-503"><a href="#cb36-503" aria-hidden="true" tabindex="-1"></a>being asserted**: the region at which the constant is evaluated is</span>
 <span id="cb36-504"><a href="#cb36-504" aria-hidden="true" tabindex="-1"></a>an arbitrary *reference region*, and the everyone-rule form is used</span>
 <span id="cb36-505"><a href="#cb36-505" aria-hidden="true" tabindex="-1"></a>because its prevalence factor is $1$.</span>
@@ -5749,8 +5749,8 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-529"><a href="#cb36-529" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\tau(x)$ <span class="pp">|</span> CATE $\mu_1(x) - \mu_0(x)$ — deterministic <span class="pp">|</span></span>
 <span id="cb36-530"><a href="#cb36-530" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $m_g<span class="co">[</span><span class="ot">a</span><span class="co">]</span>$, $V_g<span class="co">[</span><span class="ot">a</span><span class="co">]</span>$, $C_g<span class="co">[</span><span class="ot">a,b</span><span class="co">]</span>$ <span class="pp">|</span> indexed region moments of covariate functions (§2) <span class="pp">|</span></span>
 <span id="cb36-531"><a href="#cb36-531" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\beta(g)$ <span class="pp">|</span> region effect $m_g<span class="co">[</span><span class="ot">\tau</span><span class="co">]</span>$, oriented scale <span class="pp">|</span></span>
-<span id="cb36-532"><a href="#cb36-532" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\tau_Q$, $\tau_{Q^c}$, $\beta_{\mathrm{int}}$ <span class="pp">|</span> $+40$, $+26.255$, $+13.745$ oriented (§2) <span class="pp">|</span></span>
-<span id="cb36-533"><a href="#cb36-533" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\mathrm{ITT}$ <span class="pp">|</span> $\beta(\mathcal S) = \tau_{Q^c} + \beta_{\mathrm{int}}\pi = 30.992$ <span class="pp">|</span></span>
+<span id="cb36-532"><a href="#cb36-532" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\tau_Q$, $\tau_{Q^c}$, $\beta_{\mathrm{int}}$ <span class="pp">|</span> $+40$, $+<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$m_Qc)`</span>$, $+<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$beta_int)`</span>$ oriented (§2) <span class="pp">|</span></span>
+<span id="cb36-533"><a href="#cb36-533" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\mathrm{ITT}$ <span class="pp">|</span> $\beta(\mathcal S) = \tau_{Q^c} + \beta_{\mathrm{int}}\pi = <span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$m_ITT)`</span>$ <span class="pp">|</span></span>
 <span id="cb36-534"><a href="#cb36-534" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\theta^\dagger(H)$ <span class="pp">|</span> marginal true-subgroup effect (§1) <span class="pp">|</span></span>
 <span id="cb36-535"><a href="#cb36-535" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $S_\tau^2(g)$ <span class="pp">|</span> $V_g<span class="co">[</span><span class="ot">\tau</span><span class="co">]</span> = \beta_{\mathrm{int}}^2 p(1-p)$ <span class="pp">|</span></span>
 <span id="cb36-536"><a href="#cb36-536" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $u^{(g)}_i$, $t^{(g)}_i$ <span class="pp">|</span> centered prognostic and CATE contributions (@sec-additive) <span class="pp">|</span></span>
@@ -5759,7 +5759,7 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-539"><a href="#cb36-539" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\hat\beta^{<span class="co">[</span><span class="ot">j</span><span class="co">]</span>}$ <span class="pp">|</span> half-sample fitted effect, $j = 1, 2$ <span class="pp">|</span></span>
 <span id="cb36-540"><a href="#cb36-540" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\hat\beta(g)$, $\hat\beta_n(g)$ <span class="pp">|</span> the estimator; trial-size subscript written only when a specific $n$ matters <span class="pp">|</span></span>
 <span id="cb36-541"><a href="#cb36-541" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\operatorname{Var}<span class="co">[</span><span class="ot">T</span><span class="co">]</span>$, $\sigma<span class="co">[</span><span class="ot">T</span><span class="co">]</span>$ <span class="pp">|</span> sampling variance and SD of a statistic $T$ (over $W$, $\varepsilon$, trial draw) <span class="pp">|</span></span>
-<span id="cb36-542"><a href="#cb36-542" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\sigma<span class="co">[</span><span class="ot">\hat\beta(g)</span><span class="co">]</span>$ <span class="pp">|</span> the estimator&#39;s SD; computed $\sigma<span class="co">[</span><span class="ot">\hat\beta_{1000}(Q)</span><span class="co">]</span> = 13.991$ <span class="pp">|</span></span>
+<span id="cb36-542"><a href="#cb36-542" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\sigma<span class="co">[</span><span class="ot">\hat\beta(g)</span><span class="co">]</span>$ <span class="pp">|</span> the estimator&#39;s SD; computed $\sigma<span class="co">[</span><span class="ot">\hat\beta_{1000}(Q)</span><span class="co">]</span> = <span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$seQ1000)`</span>$ <span class="pp">|</span></span>
 <span id="cb36-543"><a href="#cb36-543" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $V_{\mathrm{eff}}$ <span class="pp">|</span> region- and $n$-free constant $nP(g)\operatorname{Var}<span class="co">[</span><span class="ot">\hat\beta(g)</span><span class="co">]</span>$ (§2) <span class="pp">|</span></span>
 <span id="cb36-544"><a href="#cb36-544" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $V_{\mathrm{DM}}(g)$, $V^\ast(g)$ <span class="pp">|</span> difference-in-means and efficient variances (@sec-additive) <span class="pp">|</span></span>
 <span id="cb36-545"><a href="#cb36-545" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\mathrm{IF}_{\mathrm{DM}}$, $\mathrm{IF}_{\mathrm{eff}}$ <span class="pp">|</span> the corresponding influence functions (@sec-refwager-eff) <span class="pp">|</span></span>
@@ -5788,7 +5788,7 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-568"><a href="#cb36-568" aria-hidden="true" tabindex="-1"></a>directly. In the $n = 500$, $s = 1000$ run of the worked example&#39;s design</span>
 <span id="cb36-569"><a href="#cb36-569" aria-hidden="true" tabindex="-1"></a>(@sec-appendix-n500) the oracle records an empirical standard deviation</span>
 <span id="cb36-570"><a href="#cb36-570" aria-hidden="true" tabindex="-1"></a>of $20.21$ and a mean fitted standard error of $19.81$, against the</span>
-<span id="cb36-571"><a href="#cb36-571" aria-hidden="true" tabindex="-1"></a>computed $13.991\sqrt2 = 19.786$. The agreement is close and, more</span>
+<span id="cb36-571"><a href="#cb36-571" aria-hidden="true" tabindex="-1"></a>computed $<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$seQ1000)`</span>\sqrt2 = 19.786$. The agreement is close and, more</span>
 <span id="cb36-572"><a href="#cb36-572" aria-hidden="true" tabindex="-1"></a>tellingly, scale-free: the same computation at $n = 700$ gives $16.722$</span>
 <span id="cb36-573"><a href="#cb36-573" aria-hidden="true" tabindex="-1"></a>against a measured mean fitted standard error of $16.752$. Applying the</span>
 <span id="cb36-574"><a href="#cb36-574" aria-hidden="true" tabindex="-1"></a>exact Jensen factor and the two concavity corrections a fitted standard</span>
@@ -5799,7 +5799,7 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-579"><a href="#cb36-579" aria-hidden="true" tabindex="-1"></a>An earlier version of this document anchored the scale on a *measured*</span>
 <span id="cb36-580"><a href="#cb36-580" aria-hidden="true" tabindex="-1"></a>$\sigma<span class="co">[</span><span class="ot">\hat\beta_{1000}(Q)</span><span class="co">]</span> = 13.679$, implying a bracket of</span>
 <span id="cb36-581"><a href="#cb36-581" aria-hidden="true" tabindex="-1"></a>$16{,}119$. That value lies below the fixture&#39;s residual variance of</span>
-<span id="cb36-582"><a href="#cb36-582" aria-hidden="true" tabindex="-1"></a>$16{,}256$; since the bracket on the true region is</span>
+<span id="cb36-582"><a href="#cb36-582" aria-hidden="true" tabindex="-1"></a>$<span class="in">`r .fmt_tex(.anchor$v_cond0, 0)`</span>$; since the bracket on the true region is</span>
 <span id="cb36-583"><a href="#cb36-583" aria-hidden="true" tabindex="-1"></a>$\sigma^2 + V_Q<span class="co">[</span><span class="ot">\mu_0</span><span class="co">]</span>$ with $V_Q<span class="co">[</span><span class="ot">\mu_0</span><span class="co">]</span> \ge 0$, it was not merely</span>
 <span id="cb36-584"><a href="#cb36-584" aria-hidden="true" tabindex="-1"></a>imprecise but structurally impossible — a check available from $\sigma$</span>
 <span id="cb36-585"><a href="#cb36-585" aria-hidden="true" tabindex="-1"></a>alone. The idealizations are real but small: $\mathbb E<span class="co">[</span><span class="ot">1/n_1 + 1/n_0</span><span class="co">]</span>$</span>
@@ -5830,7 +5830,7 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-610"><a href="#cb36-610" aria-hidden="true" tabindex="-1"></a>\beta(g) \ge c_1</span>
 <span id="cb36-611"><a href="#cb36-611" aria-hidden="true" tabindex="-1"></a>\quad\Longleftrightarrow\quad</span>
 <span id="cb36-612"><a href="#cb36-612" aria-hidden="true" tabindex="-1"></a>P(Q \mid g) \;\ge\; \frac{c_1 - \tau_{Q^c}}{\beta_{\mathrm{int}}}</span>
-<span id="cb36-613"><a href="#cb36-613" aria-hidden="true" tabindex="-1"></a>= \frac{30 - 26.255}{13.745} = 0.272.</span>
+<span id="cb36-613"><a href="#cb36-613" aria-hidden="true" tabindex="-1"></a>= \frac{30 - <span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$m_Qc)`</span>}{<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$beta_int)`</span>} = 0.272.</span>
 <span id="cb36-614"><a href="#cb36-614" aria-hidden="true" tabindex="-1"></a>$$</span>
 <span id="cb36-615"><a href="#cb36-615" aria-hidden="true" tabindex="-1"></a>The floor $c_1 = 30$ is therefore a **27.2% purity requirement** — and since</span>
 <span id="cb36-616"><a href="#cb36-616" aria-hidden="true" tabindex="-1"></a>the marginal prevalence of $Q$ is $\pi = <span class="in">`r sprintf(&quot;%.4f&quot;, .anchor$piQ)`</span>$ (34.5%), even a</span>
@@ -5960,11 +5960,11 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-740"><a href="#cb36-740" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb36-741"><a href="#cb36-741" aria-hidden="true" tabindex="-1"></a>**Corollaries.** (i) $\beta(H^c)$ by the same mixture on the complement.</span>
 <span id="cb36-742"><a href="#cb36-742" aria-hidden="true" tabindex="-1"></a>(ii) The ITT chain: $\beta(\mathcal{S}) = \tau_{Q^c} +</span>
-<span id="cb36-743"><a href="#cb36-743" aria-hidden="true" tabindex="-1"></a>\beta_{\mathrm{int}}\pi = -30.992$ raw, which the bundles reproduce</span>
+<span id="cb36-743"><a href="#cb36-743" aria-hidden="true" tabindex="-1"></a>\beta_{\mathrm{int}}\pi = -<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$m_ITT)`</span>$ raw, which the bundles reproduce</span>
 <span id="cb36-744"><a href="#cb36-744" aria-hidden="true" tabindex="-1"></a>as the complement effect on undetected rows. (iii) Disjointness:</span>
 <span id="cb36-745"><a href="#cb36-745" aria-hidden="true" tabindex="-1"></a>$H \cap Q = \varnothing \Rightarrow \beta(H) = \tau_{Q^c}$ — observed</span>
 <span id="cb36-746"><a href="#cb36-746" aria-hidden="true" tabindex="-1"></a>verbatim when a replicate selected a region disjoint from $Q$ and scored</span>
-<span id="cb36-747"><a href="#cb36-747" aria-hidden="true" tabindex="-1"></a>exactly $26.255$ oriented. (iv) Calibration (CHECK B):</span>
+<span id="cb36-747"><a href="#cb36-747" aria-hidden="true" tabindex="-1"></a>exactly $<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$m_Qc)`</span>$ oriented. (iv) Calibration (CHECK B):</span>
 <span id="cb36-748"><a href="#cb36-748" aria-hidden="true" tabindex="-1"></a>$\theta^\dagger(Q) = \beta(Q) = \tau_Q$ identically. (v) Classification</span>
 <span id="cb36-749"><a href="#cb36-749" aria-hidden="true" tabindex="-1"></a>identities: with $s = |\hat H \cap Q|$, $\mathrm{sens} = s/|Q|$,</span>
 <span id="cb36-750"><a href="#cb36-750" aria-hidden="true" tabindex="-1"></a>$\mathrm{PPV} = s/|\hat H|$, and on the complement</span>
@@ -6389,7 +6389,7 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-1169"><a href="#cb36-1169" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb36-1170"><a href="#cb36-1170" aria-hidden="true" tabindex="-1"></a>The marginal recipe alone under-predicts *family* detection, and the gap is</span>
 <span id="cb36-1171"><a href="#cb36-1171" aria-hidden="true" tabindex="-1"></a>the point: at $n = 500$, $\sigma<span class="co">[</span><span class="ot">\hat\beta_{500}(Q)</span><span class="co">]</span> =</span>
-<span id="cb36-1172"><a href="#cb36-1172" aria-hidden="true" tabindex="-1"></a>13.991\sqrt 2 = 19.79$,</span>
+<span id="cb36-1172"><a href="#cb36-1172" aria-hidden="true" tabindex="-1"></a><span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$seQ1000)`</span>\sqrt 2 = 19.79$,</span>
 <span id="cb36-1173"><a href="#cb36-1173" aria-hidden="true" tabindex="-1"></a>giving marginal clearance $\Phi(10/19.79) = 0.693$ for $Q$ — against</span>
 <span id="cb36-1174"><a href="#cb36-1174" aria-hidden="true" tabindex="-1"></a>measured family detection of $1000/1000$ in this design&#39;s own run</span>
 <span id="cb36-1175"><a href="#cb36-1175" aria-hidden="true" tabindex="-1"></a>(@sec-appendix-n500, verified by tabulating the stored payload) and</span>
@@ -6507,9 +6507,9 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-1287"><a href="#cb36-1287" aria-hidden="true" tabindex="-1"></a>\qquad</span>
 <span id="cb36-1288"><a href="#cb36-1288" aria-hidden="true" tabindex="-1"></a>\tau_Q = \tau_{Q^c} + \frac{\mathrm{ITT} - \tau_{Q^c}}{\pi}.</span>
 <span id="cb36-1289"><a href="#cb36-1289" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb36-1290"><a href="#cb36-1290" aria-hidden="true" tabindex="-1"></a>At the fixture triple ($\pi = <span class="in">`r sprintf(&quot;%.4f&quot;, .anchor$piQ)`</span>$, $\tau_{Q^c} = 26.255$,</span>
-<span id="cb36-1291"><a href="#cb36-1291" aria-hidden="true" tabindex="-1"></a>$\beta_{\mathrm{int}} = 13.745$): $\tau_Q = 40$ and</span>
-<span id="cb36-1292"><a href="#cb36-1292" aria-hidden="true" tabindex="-1"></a>$\mathrm{ITT} = 30.992$. Three *channels* follow, one per ideal</span>
+<span id="cb36-1290"><a href="#cb36-1290" aria-hidden="true" tabindex="-1"></a>At the fixture triple ($\pi = <span class="in">`r sprintf(&quot;%.4f&quot;, .anchor$piQ)`</span>$, $\tau_{Q^c} = <span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$m_Qc)`</span>$,</span>
+<span id="cb36-1291"><a href="#cb36-1291" aria-hidden="true" tabindex="-1"></a>$\beta_{\mathrm{int}} = <span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$beta_int)`</span>$): $\tau_Q = 40$ and</span>
+<span id="cb36-1292"><a href="#cb36-1292" aria-hidden="true" tabindex="-1"></a>$\mathrm{ITT} = <span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$m_ITT)`</span>$. Three *channels* follow, one per ideal</span>
 <span id="cb36-1293"><a href="#cb36-1293" aria-hidden="true" tabindex="-1"></a>candidate, each with its mean fixed by the triple and its scale by the</span>
 <span id="cb36-1294"><a href="#cb36-1294" aria-hidden="true" tabindex="-1"></a>prevalence rule $\sigma<span class="co">[</span><span class="ot">\hat\beta(g)</span><span class="co">]</span> =</span>
 <span id="cb36-1295"><a href="#cb36-1295" aria-hidden="true" tabindex="-1"></a>\sigma<span class="co">[</span><span class="ot">\hat\beta(Q)</span><span class="co">]</span>\sqrt{\pi_Q/\pi_g}$: the $Q$</span>
@@ -6550,7 +6550,7 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-1330"><a href="#cb36-1330" aria-hidden="true" tabindex="-1"></a>\min_j \hat\beta^{<span class="co">[</span><span class="ot">j</span><span class="co">]</span>} &lt; c_2\big<span class="sc">\}</span>$ — **one low half forces the other</span>
 <span id="cb36-1331"><a href="#cb36-1331" aria-hidden="true" tabindex="-1"></a>half to carry the sum**, so even a $c_2$ far below $m$ removes the</span>
 <span id="cb36-1332"><a href="#cb36-1332" aria-hidden="true" tabindex="-1"></a>anti-correlated corner. At the fixture ($m = 40$,</span>
-<span id="cb36-1333"><a href="#cb36-1333" aria-hidden="true" tabindex="-1"></a>$s = \sigma<span class="co">[</span><span class="ot">\hat\beta_{1000}(Q)</span><span class="co">]</span> = 13.991$, floors $30/10$) this costs</span>
+<span id="cb36-1333"><a href="#cb36-1333" aria-hidden="true" tabindex="-1"></a>$s = \sigma<span class="co">[</span><span class="ot">\hat\beta_{1000}(Q)</span><span class="co">]</span> = <span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$seQ1000)`</span>$, floors $30/10$) this costs</span>
 <span id="cb36-1334"><a href="#cb36-1334" aria-hidden="true" tabindex="-1"></a>about two</span>
 <span id="cb36-1335"><a href="#cb36-1335" aria-hidden="true" tabindex="-1"></a>points: screening-only $<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$scr_clear_Q)`</span>$ versus $P_1 = 0.738$ — the</span>
 <span id="cb36-1336"><a href="#cb36-1336" aria-hidden="true" tabindex="-1"></a>quantitative content behind the &quot;non-discriminating $c_2$&quot; reading of</span>
@@ -6583,7 +6583,7 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-1363"><a href="#cb36-1363" aria-hidden="true" tabindex="-1"></a>$n \approx 9{,}500$; at $n = 1000$ the floors can *trade* the two</span>
 <span id="cb36-1364"><a href="#cb36-1364" aria-hidden="true" tabindex="-1"></a>channels along the $c_1$ axis but cannot meet both — the borderline-null</span>
 <span id="cb36-1365"><a href="#cb36-1365" aria-hidden="true" tabindex="-1"></a>regime of the manuscript&#39;s §7 anchors, derived rather than observed. The</span>
-<span id="cb36-1366"><a href="#cb36-1366" aria-hidden="true" tabindex="-1"></a>$Q^c$ channel sits below both (mean $26.255$) and is the mild one at</span>
+<span id="cb36-1366"><a href="#cb36-1366" aria-hidden="true" tabindex="-1"></a>$Q^c$ channel sits below both (mean $<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$m_Qc)`</span>$) and is the mild one at</span>
 <span id="cb36-1367"><a href="#cb36-1367" aria-hidden="true" tabindex="-1"></a>these floors; $c_2$ moves all three channels together (multiplicatively,</span>
 <span id="cb36-1368"><a href="#cb36-1368" aria-hidden="true" tabindex="-1"></a>through the replication factor) and is the secondary knob.</span>
 <span id="cb36-1369"><a href="#cb36-1369" aria-hidden="true" tabindex="-1"></a></span>
@@ -6681,7 +6681,7 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-1461"><a href="#cb36-1461" aria-hidden="true" tabindex="-1"></a>(prevalence $0.45$, sharing probability mass $0.28$ with $Q$, hence purity</span>
 <span id="cb36-1462"><a href="#cb36-1462" aria-hidden="true" tabindex="-1"></a>$P(Q \mid P) = 0.28/0.45 = 0.622$); and a near-duplicate $D \subset Q$</span>
 <span id="cb36-1463"><a href="#cb36-1463" aria-hidden="true" tabindex="-1"></a>(prevalence $0.31$, purity $1$). SEs use the computed</span>
-<span id="cb36-1464"><a href="#cb36-1464" aria-hidden="true" tabindex="-1"></a>$\sigma<span class="co">[</span><span class="ot">\hat\beta_{1000}(Q)</span><span class="co">]</span> = 13.991$ and are scaled by the balanced-arms</span>
+<span id="cb36-1464"><a href="#cb36-1464" aria-hidden="true" tabindex="-1"></a>$\sigma<span class="co">[</span><span class="ot">\hat\beta_{1000}(Q)</span><span class="co">]</span> = <span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$seQ1000)`</span>$ and are scaled by the balanced-arms</span>
 <span id="cb36-1465"><a href="#cb36-1465" aria-hidden="true" tabindex="-1"></a>prevalence</span>
 <span id="cb36-1466"><a href="#cb36-1466" aria-hidden="true" tabindex="-1"></a>rule $\sigma<span class="co">[</span><span class="ot">\hat\beta(H)</span><span class="co">]</span> = \sigma<span class="co">[</span><span class="ot">\hat\beta(Q)</span><span class="co">]</span>\sqrt{\pi_Q/\pi_H}$;</span>
 <span id="cb36-1467"><a href="#cb36-1467" aria-hidden="true" tabindex="-1"></a>correlations are the</span>
@@ -6914,11 +6914,11 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-1694"><a href="#cb36-1694" aria-hidden="true" tabindex="-1"></a><span class="fu">## Step 2 — what must be specified, and what the driver already supplies</span></span>
 <span id="cb36-1695"><a href="#cb36-1695" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb36-1696"><a href="#cb36-1696" aria-hidden="true" tabindex="-1"></a>The recipes need five inputs. The driver supplies four directly: the</span>
-<span id="cb36-1697"><a href="#cb36-1697" aria-hidden="true" tabindex="-1"></a>oriented effects ($\tau_{Q^c} = +26.255$, $\beta_{\mathrm{int}} =</span>
-<span id="cb36-1698"><a href="#cb36-1698" aria-hidden="true" tabindex="-1"></a>+13.745$, hence purity translation $P(Q \mid g) \ge 0.272$ for true</span>
+<span id="cb36-1697"><a href="#cb36-1697" aria-hidden="true" tabindex="-1"></a>oriented effects ($\tau_{Q^c} = +<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$m_Qc)`</span>$, $\beta_{\mathrm{int}} =</span>
+<span id="cb36-1698"><a href="#cb36-1698" aria-hidden="true" tabindex="-1"></a>+<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$beta_int)`</span>$, hence purity translation $P(Q \mid g) \ge 0.272$ for true</span>
 <span id="cb36-1699"><a href="#cb36-1699" aria-hidden="true" tabindex="-1"></a>clearance — the driver&#39;s own &quot;27.2%&quot; remark); the sample size and floors;</span>
 <span id="cb36-1700"><a href="#cb36-1700" aria-hidden="true" tabindex="-1"></a>the selection rule (maxeffCons); and the scale (the computed</span>
-<span id="cb36-1701"><a href="#cb36-1701" aria-hidden="true" tabindex="-1"></a>$\sigma<span class="co">[</span><span class="ot">\hat\beta_{1000}(Q)</span><span class="co">]</span> = 13.991$, which the Level 3 fitted-SE</span>
+<span id="cb36-1701"><a href="#cb36-1701" aria-hidden="true" tabindex="-1"></a>$\sigma<span class="co">[</span><span class="ot">\hat\beta_{1000}(Q)</span><span class="co">]</span> = <span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$seQ1000)`</span>$, which the Level 3 fitted-SE</span>
 <span id="cb36-1702"><a href="#cb36-1702" aria-hidden="true" tabindex="-1"></a>observation</span>
 <span id="cb36-1703"><a href="#cb36-1703" aria-hidden="true" tabindex="-1"></a>confirms as a population-effective scale, rescaled to $n = 500$</span>
 <span id="cb36-1704"><a href="#cb36-1704" aria-hidden="true" tabindex="-1"></a>by $\sqrt 2$). The fifth input — **the candidate family and the joint</span>
@@ -7019,7 +7019,7 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-1799"><a href="#cb36-1799" aria-hidden="true" tabindex="-1"></a>disguise (Proposition 1), and the floor line falls at purity $0.2724$ —</span>
 <span id="cb36-1800"><a href="#cb36-1800" aria-hidden="true" tabindex="-1"></a>below the marginal prevalence $<span class="in">`r sprintf(&quot;%.4f&quot;, .anchor$piQ)`</span>$, so **nine of the sixteen</span>
 <span id="cb36-1801"><a href="#cb36-1801" aria-hidden="true" tabindex="-1"></a>candidates have true effects above the floor, including the pure</span>
-<span id="cb36-1802"><a href="#cb36-1802" aria-hidden="true" tabindex="-1"></a>distractors** $V{=}1$ and $V{=}0$ at $\beta = 30.99$. On this pathway the</span>
+<span id="cb36-1802"><a href="#cb36-1802" aria-hidden="true" tabindex="-1"></a>distractors** $V{=}1$ and $V{=}0$ at $\beta = <span class="in">`r sprintf(&quot;%.2f&quot;, .anchor$m_ITT)`</span>$. On this pathway the</span>
 <span id="cb36-1803"><a href="#cb36-1803" aria-hidden="true" tabindex="-1"></a>screening floor does not separate signal from noise regions; it separates</span>
 <span id="cb36-1804"><a href="#cb36-1804" aria-hidden="true" tabindex="-1"></a>regions *depleted* of $Q$ from everything else. The best representable</span>
 <span id="cb36-1805"><a href="#cb36-1805" aria-hidden="true" tabindex="-1"></a>rule $g^\ast$ leads at $\beta = 38.67$ (purity $0.903$), $1.33$ units</span>
@@ -7279,9 +7279,9 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-2059"><a href="#cb36-2059" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb36-2060"><a href="#cb36-2060" aria-hidden="true" tabindex="-1"></a>The driver&#39;s <span class="in">`null_cell = TRUE`</span> switch sets $\beta_{\mathrm{int}} = 0$, so</span>
 <span id="cb36-2061"><a href="#cb36-2061" aria-hidden="true" tabindex="-1"></a>every region&#39;s oriented mean collapses to the common treatment effect</span>
-<span id="cb36-2062"><a href="#cb36-2062" aria-hidden="true" tabindex="-1"></a>($\approx +26.26$, the complement value). The same machinery then predicts</span>
+<span id="cb36-2062"><a href="#cb36-2062" aria-hidden="true" tabindex="-1"></a>($\approx +<span class="in">`r sprintf(&quot;%.2f&quot;, .anchor$m_Qc)`</span>$, the complement value). The same machinery then predicts</span>
 <span id="cb36-2063"><a href="#cb36-2063" aria-hidden="true" tabindex="-1"></a>the null cell&#39;s operating characteristics — and the prediction is the</span>
-<span id="cb36-2064"><a href="#cb36-2064" aria-hidden="true" tabindex="-1"></a>useful kind of surprising: the floor sits only $(30 - 26.26)/\mathrm{SE}</span>
+<span id="cb36-2064"><a href="#cb36-2064" aria-hidden="true" tabindex="-1"></a>useful kind of surprising: the floor sits only $(30 - <span class="in">`r sprintf(&quot;%.2f&quot;, .anchor$m_Qc)`</span>)/\mathrm{SE}</span>
 <span id="cb36-2065"><a href="#cb36-2065" aria-hidden="true" tabindex="-1"></a>\approx 0.13$–$0.28$ SEs above every candidate mean, so this &quot;null&quot; is a</span>
 <span id="cb36-2066"><a href="#cb36-2066" aria-hidden="true" tabindex="-1"></a>**near-threshold null**, not a zero null.</span>
 <span id="cb36-2067"><a href="#cb36-2067" aria-hidden="true" tabindex="-1"></a></span>
@@ -7406,7 +7406,7 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-2186"><a href="#cb36-2186" aria-hidden="true" tabindex="-1"></a>The verification family of the check suite is a synthetic $M = 14$</span>
 <span id="cb36-2187"><a href="#cb36-2187" aria-hidden="true" tabindex="-1"></a>stressor whose complement effect is beneficial (oriented $-26.26$) —</span>
 <span id="cb36-2188"><a href="#cb36-2188" aria-hidden="true" tabindex="-1"></a>deliberately harder competition geometry than the fixture&#39;s harmful</span>
-<span id="cb36-2189"><a href="#cb36-2189" aria-hidden="true" tabindex="-1"></a>complement ($+26.255$); the machinery checks are parameter-point-agnostic,</span>
+<span id="cb36-2189"><a href="#cb36-2189" aria-hidden="true" tabindex="-1"></a>complement ($+<span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$m_Qc)`</span>$); the machinery checks are parameter-point-agnostic,</span>
 <span id="cb36-2190"><a href="#cb36-2190" aria-hidden="true" tabindex="-1"></a>and the fixture values used throughout this document are the committed ones</span>
 <span id="cb36-2191"><a href="#cb36-2191" aria-hidden="true" tabindex="-1"></a>of §2.</span>
 <span id="cb36-2192"><a href="#cb36-2192" aria-hidden="true" tabindex="-1"></a></span>
@@ -7883,7 +7883,7 @@ V(g) \;=\; \mathbb E\big[\tau(X)\,\mathbb 1\{X \in g\}\big]
 <span id="cb36-2663"><a href="#cb36-2663" aria-hidden="true" tabindex="-1"></a>prevalence times the mixture mean. On the fixture — where the</span>
 <span id="cb36-2664"><a href="#cb36-2664" aria-hidden="true" tabindex="-1"></a>complement effect is *also* harmful on the oriented scale — the</span>
 <span id="cb36-2665"><a href="#cb36-2665" aria-hidden="true" tabindex="-1"></a>maximizer over all regions is the whole sample:</span>
-<span id="cb36-2666"><a href="#cb36-2666" aria-hidden="true" tabindex="-1"></a>$V(\mathcal S) = \mathrm{ITT} = 30.992$ against</span>
+<span id="cb36-2666"><a href="#cb36-2666" aria-hidden="true" tabindex="-1"></a>$V(\mathcal S) = \mathrm{ITT} = <span class="in">`r sprintf(&quot;%.3f&quot;, .anchor$m_ITT)`</span>$ against</span>
 <span id="cb36-2667"><a href="#cb36-2667" aria-hidden="true" tabindex="-1"></a>$V(Q) = \pi\,\tau_Q = 13.784$. Value-ranking therefore cannot</span>
 <span id="cb36-2668"><a href="#cb36-2668" aria-hidden="true" tabindex="-1"></a>separate $Q$ here even in principle; the identification problem is</span>
 <span id="cb36-2669"><a href="#cb36-2669" aria-hidden="true" tabindex="-1"></a>*conditional-mean thresholding* — exactly what the screening floor</span>
