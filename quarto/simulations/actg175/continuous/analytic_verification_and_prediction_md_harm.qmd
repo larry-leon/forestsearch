@@ -56,6 +56,22 @@ stopifnot(!is.na(.iQ))
 # The floors are design constants, declared with the rest of the design below.
 .anchor$c2_ceiling  <- pnorm((.anchor$m_Q - 10) / (.anchor$seQ1000 * sqrt(2)))^2
 .anchor$scr_clear_Q <- pnorm((.anchor$m_Q - 30) / .anchor$seQ1000)
+
+# ── Matrix square root: symmetric, therefore continuous in its input ─────────
+# V D^{1/2} and V D^{1/2} V' give the same covariance, but the first depends on
+# the eigenvector basis, which is not continuous: signs flip and vectors rotate
+# freely inside degenerate subspaces -- which the candidate covariance has
+# exactly, since complement pairs make it rank-deficient by construction.  A
+# pinned seed fixes the draws Z; it cannot fix the basis Z is multiplied by, so
+# an arbitrarily small change to the anchor moved every Monte-Carlo figure in
+# 94fd4dad.  The symmetric root cancels both, and the sample becomes a
+# continuous function of the inputs.
+.sym_root <- function(S, scale = 2) {
+  eS <- eigen((S + t(S)) / 2, symmetric = TRUE)
+  V  <- eS$vectors
+  d  <- sqrt(pmax(scale * eS$values, 0))
+  V %*% diag(d, nrow = length(d)) %*% t(V)
+}
 ```
 
 # Scope and provenance
@@ -1528,8 +1544,7 @@ channels as explicit family members.
 set.seed(20260826)
 P1_3 <- vapply(seq_len(3), function(m)
   detect1(c1, 10, cand$beta[m], cand$se[m]), numeric(1))
-e3 <- eigen(2 * Sg, symmetric = TRUE)
-rt3 <- e3$vectors %*% diag(sqrt(pmax(e3$values, 0)))
+rt3 <- .sym_root(2 * Sg, scale = 1)
 Rg <- 2e5
 fam_split <- function(mu, root, Mloc, c2v) {
   V1 <- matrix(rnorm(Rg*Mloc), Rg, Mloc) %*% t(root) + rep(mu, each = Rg)
@@ -1551,8 +1566,7 @@ ov5[5, 4] <- ov5[4, 5] <- 1 - piQ; ov5[5, 5] <- 1 - piQ
 diag(ov5)[1:3] <- cand$pi
 R5 <- ov5 / sqrt(outer(prev5, prev5))
 S5 <- R5 * outer(se5, se5)
-e5 <- eigen(2 * S5, symmetric = TRUE)
-rt5 <- e5$vectors %*% diag(sqrt(pmax(e5$values, 0)))
+rt5 <- .sym_root(2 * S5, scale = 1)
 fam5_10 <- fam_split(beta5, rt5, 5, 10)
 scr5 <- pnorm(c1, beta5, se5, lower.tail = FALSE)
 P1_5 <- vapply(seq_len(5), function(m) detect1(c1, 10, beta5[m], se5[m]),
@@ -1786,8 +1800,7 @@ Rdraw <- 2e5
 # candidate covariance is a singular Gram matrix (the Level 4 PSD fact, made
 # concrete). Sample by eigendecomposition; degenerate directions get zero
 # variance, which enforces the linear constraints exactly.
-eS <- eigen((Sg + t(Sg)) / 2, symmetric = TRUE)
-root_half <- eS$vectors %*% diag(sqrt(pmax(2 * eS$values, 0)))  # cov = 2*Sg
+root_half <- .sym_root(Sg, scale = 2)  # cov = 2*Sg
 W1 <- matrix(rnorm(Rdraw * M), Rdraw, M) %*% t(root_half) +
       rep(beta_g, each = Rdraw)
 W2 <- matrix(rnorm(Rdraw * M), Rdraw, M) %*% t(root_half) +
@@ -1945,8 +1958,7 @@ predict_scn <- function(x, y, pV, R = 2e5) {
   ovl <- outer(seq_len(M), seq_len(M), Vectorize(function(i, j)
     sum(cel$prob[mem[[i]] & mem[[j]]])))
   Sg <- (ovl / sqrt(outer(Pg, Pg))) * outer(se, se)
-  ei <- eigen((Sg + t(Sg))/2, symmetric = TRUE)
-  rt <- ei$vectors %*% diag(sqrt(pmax(2 * ei$values, 0)))
+  rt <- .sym_root(Sg, scale = 2)
   A <- matrix(rnorm(R*M), R, M) %*% t(rt) + rep(bet, each = R)
   B <- matrix(rnorm(R*M), R, M) %*% t(rt) + rep(bet, each = R)
   Bh <- (A + B)/2; ps <- (A + B >= 2*c1) & (A >= c2) & (B >= c2)
@@ -2250,8 +2262,7 @@ spec7 <- vapply(fam7, function(f)
 ovl7 <- outer(seq_len(M7), seq_len(M7), Vectorize(function(i, j)
   sum(cells$prob[fam7[[i]]$m & fam7[[j]]$m])))
 Sg7 <- (ovl7 / sqrt(outer(Pg7, Pg7))) * outer(se7, se7)
-e7  <- eigen((Sg7 + t(Sg7))/2, symmetric = TRUE)
-rt7 <- e7$vectors %*% diag(sqrt(pmax(2 * e7$values, 0)))
+rt7 <- .sym_root(Sg7, scale = 2)
 R7  <- 2e5
 W1 <- matrix(rnorm(R7 * M7), R7, M7) %*% t(rt7) + rep(beta7, each = R7)
 W2 <- matrix(rnorm(R7 * M7), R7, M7) %*% t(rt7) + rep(beta7, each = R7)
