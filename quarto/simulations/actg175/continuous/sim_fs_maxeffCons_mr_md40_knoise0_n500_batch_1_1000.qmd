@@ -345,7 +345,7 @@ eval_df <- fs_build_eval_frame(dgm, outcome_type = "continuous")
 # The anchor it replaces (13.6786 at n = 1000) implied a bracket of 16,119
 # against a residual variance of 16,256 -- below the noise floor, which on the
 # true region is impossible since the bracket there is sigma^2 + V_Q[mu_0].
-dgm_scale <- fs_dgm_scale(dgm)
+dgm_scale <- if (isTRUE(null_cell)) NULL else fs_dgm_scale(dgm)
 
 # truth is ASSEMBLED from the calibrated object, as in the committed harness
 # (mr_coverage_sweep_md_harm.qmd:187-200).  There is no `dgm$truth` element, so
@@ -359,11 +359,14 @@ truth <- list(effect_Q     = dgm$hazard_ratios$harm_subgroup,
               beta_inter   = dgm$model_params$beta_inter,
               prevalence_Q = mean(inQ))
 # Calibration check applies to the ALTERNATIVE cell only; under model = "null"
-# there is no target, and the meaningful assertion is that the planted
-# interaction really is absent (all three effects coincide).
+# there is no target, and the meaningful assertion is that the null DGM is
+# what it claims: Q is empty, effect_Q is undefined on an empty region, and
+# the planted interaction is absent.
 if (isTRUE(null_cell)) {
-  stopifnot(abs(truth$effect_Q - truth$effect_Qc) < 1e-8)
-  cat("NULL CELL: effect_Q == effect_Qc (no treatment-by-subgroup interaction).\n")
+  stopifnot(sum(inQ) == 0L,
+            is.na(truth$effect_Q),
+            isTRUE(all.equal(truth$beta_inter, 0)))
+  cat("NULL CELL: Q empty; effect_Q undefined (NA); beta_inter == 0 (no treatment-by-subgroup interaction).\n")
 } else {
   stopifnot(abs(truth$effect_Q - target_md_harm) < 1e-8)
 }
@@ -868,7 +871,7 @@ out <- file.path(results_dir, sprintf("%s_res_%d_%d.rds", rds_stem,
 # and the results are both in hand, so a document's tables and its payload
 # cannot disagree and the analytic documents read numbers instead of
 # transcribing literals.
-.payload$scale <- dgm_scale
+if (!is.null(dgm_scale)) .payload$scale <- dgm_scale
 .payload$oc    <- fs_mr_oc_summary(.payload)
 saveRDS(.payload[c("results", "truth", "scale", "oc", "meta")], out)
 
@@ -960,7 +963,7 @@ saveRDS(.payload[c("results", "truth", "scale", "oc", "meta")], out)
                              built_at = Sys.time()))
     # Pooled bundles carry scale and oc too; omitting them here would make a
     # combined payload silently poorer than the batches it merges.
-    .cpayload$scale <- dgm_scale
+    if (!is.null(dgm_scale)) .cpayload$scale <- dgm_scale
     .cpayload$oc    <- fs_mr_oc_summary(.cpayload)
     saveRDS(.cpayload[c("results", "truth", "scale", "oc", "meta")], cpath)
     cat(sprintf("Saved pooled bundle (%d rows, %d batches) to %s\n",
@@ -1059,7 +1062,7 @@ cat(sprintf("Batch sim_id %d-%d: %d/%d detected in %.1f s (%.1f s/replicate; %s 
 # estimates sigma[betahat_n(Q)] directly.  Printed HERE and not in run-batch,
 # which carries #| output: false -- a check that cannot be read is not a check.
 # Computed from rd rather than .payload so it also works in combine mode.
-if (nrow(rd) > 1L && exists("dgm_scale")) {
+if (nrow(rd) > 1L && exists("dgm_scale") && !is.null(dgm_scale)) {
   .pred <- fs_scale_se(dgm_scale, n = n_sample, region = "Q", jensen = TRUE)
   .sd   <- stats::sd(rd$or_H_est[is.finite(rd$or_H_est)])
   .se   <- mean(rd$or_H_se[is.finite(rd$or_H_se)])
