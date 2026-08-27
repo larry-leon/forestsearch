@@ -93,6 +93,13 @@ stopifnot(
   formatC(x, format = "f", digits = digits, big.mark = "{,}")
 }
 
+# Monte-Carlo standard error of a proportion estimated from R independent
+# draws.  The document prints declaration and detection rates to three and four
+# decimals; without the SE beside them a reader cannot tell which digits the
+# draw count supports, and the predicted-vs-measured comparisons this document
+# exists to make are not interpretable without it.
+.mc_se_prop <- function(p, R) sqrt(p * (1 - p) / R)
+
 # ── Matrix square root: symmetric, therefore continuous in its input ─────────
 # V D^{1/2} and V D^{1/2} V' give the same covariance, but the first depends on
 # the eigenvector basis, which is not continuous: signs flip and vectors rotate
