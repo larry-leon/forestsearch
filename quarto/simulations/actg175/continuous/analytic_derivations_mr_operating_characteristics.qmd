@@ -15,7 +15,28 @@ format:
 execute:
   warning: true
   message: true
+  eval: false
 ---
+
+::: {.callout-important title="Superseded — retained for provenance"}
+This document is superseded by
+`analytic_verification_and_prediction_md_harm.qmd`, which consolidates its
+material. It is retained for provenance and is **not maintained**.
+
+Its numerical content predates the scale correction of 2026-08-26 (commit
+`8129ae8e`). The anchor used below, $\sigma[\hat\beta_{1000}(Q)] = 13.6786$,
+was measured from a single run and implied a Level 4 bracket of $16{,}119$ —
+below that fixture's own residual variance of $16{,}256$, and so structurally
+impossible. It was replaced by a value computed directly from the
+super-population. **Every figure in this document that derives from the old
+anchor is superseded**, including the marginal clearance $0.768$ and the
+product $13.6786\sqrt{2} = 19.34$.
+
+The superseded values are deliberately left in place: this document is the
+record of how the anchor was used before the correction. Executable chunks are
+disabled (`eval: false`) so that no superseded prediction can be regenerated
+from them. For current values, read the consolidated document.
+:::
 
 ```{r setup}
 #| include: false

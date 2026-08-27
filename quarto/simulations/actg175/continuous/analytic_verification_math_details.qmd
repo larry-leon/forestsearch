@@ -15,7 +15,24 @@ format:
 execute:
   warning: true
   message: true
+  eval: false
 ---
+
+::: {.callout-important title="Superseded — retained for provenance"}
+This document is superseded by
+`analytic_verification_and_prediction_md_harm.qmd`, which consolidates its
+material. It is retained for provenance and is **not maintained**.
+
+Its numerical content predates the scale correction of 2026-08-26 (commit
+`8129ae8e`). The chunk `clearance-example` uses the superseded anchor
+$\sigma[\hat\beta_{1000}(Q)] = 13.6786$ and would print a superseded marginal
+clearance of $0.768$ if executed. That anchor implied a Level 4 bracket below
+the fixture's own residual variance and was replaced by a computed value.
+
+The superseded value is deliberately left in place as the provenance record.
+Executable chunks are disabled (`eval: false`) so that no superseded prediction
+can be regenerated. For current values, read the consolidated document.
+:::
 
 ```{r setup}
 #| include: false
