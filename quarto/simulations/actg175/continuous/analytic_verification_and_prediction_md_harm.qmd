@@ -1109,7 +1109,7 @@ error. $P\big(\hat\beta(H) \ge c_1\big) = \bar\Phi\big((c_1 -
 50-replicate overnight anchor run):
 
 ```{r clearance-example}
-z <- (40 - 30) / 13.9909          # oriented truth, floor, measured SE at n=1000
+z <- (40 - 30) / .anchor$seQ1000  # oriented truth, floor, anchor SE at n=1000
 pred <- pnorm(z)
 cat(sprintf("Marginal clearance of Q at n = 1000: Phi(%.3f) = %.3f;\n", z, pred),
     "measured (overnight O1): 36/50 = 0.720, MC SE 0.064 -- consistent.\n")
@@ -1333,7 +1333,7 @@ c1_for <- function(rho, c2, m, s) {        # exact inversion in c1
 }
 piQ <- 0.3446; tQc <- 26.255235876; bint <- 13.744764124
 tQ  <- tQc + bint; ITT <- tQc + bint*piQ
-sQ1 <- 13.9909
+sQ1 <- .anchor$seQ1000
 chan <- data.frame(channel = c("Q (power)", "ITT (uninformative)",
                                "Qc (complement)"),
                    mean = c(tQ, ITT, tQc),
@@ -1467,7 +1467,7 @@ fixture's noise scale and prognostic surface as enumerable inputs.
 set.seed(20260824)   # pins pmvnorm's quasi-MC randomization for the gap readout
 library(mvtnorm)
 tauQc <- 26.255235876; bint <- 13.744764124   # oriented
-c1 <- 30; seQ <- 13.9909; piQ <- 0.3446
+c1 <- 30; seQ <- .anchor$seQ1000; piQ <- .anchor$piQ
 cand <- data.frame(
   name = c("Q", "P (overlap proxy)", "D (near-dup, subset of Q)"),
   pi   = c(piQ, 0.45, 0.31),
@@ -1539,7 +1539,7 @@ fam_split <- function(mu, root, Mloc, c2v) {
 fam10 <- fam_split(cand$beta, rt3, 3, 10)
 fam25 <- fam_split(cand$beta, rt3, 3, 25)
 # Augment with the ITT rule S (prevalence 1) and the complement Qc
-piQ <- 0.3446; sQ1 <- 13.9909
+piQ <- .anchor$piQ; sQ1 <- .anchor$seQ1000
 beta5 <- c(cand$beta, 30.992, 26.255)
 prev5 <- c(cand$pi, 1, 1 - piQ)
 se5   <- c(cand$se, sQ1*sqrt(piQ), sQ1*sqrt(piQ/(1-piQ)))
@@ -1586,7 +1586,7 @@ member is selected; the ITT and $Q^c$ channels govern how often
 The recipes invert. Sample size for a target marginal clearance of $Q$:
 
 ```{r design-calculator}
-n_for <- function(target, se_n1000 = 13.9909, mu = 40, c1 = 30)
+n_for <- function(target, se_n1000 = .anchor$seQ1000, mu = 40, c1 = 30)
   1000 * (se_n1000 * qnorm(target) / (mu - c1))^2
 cat(sprintf("n for %d%% marginal clearance of Q at floor 30: %s\n",
             c(80L, 90L, 95L),
@@ -1691,7 +1691,7 @@ library(mvtnorm)
 set.seed(20260825)
 tauQc <- 26.255235876; bint <- 13.744764124        # oriented
 c1 <- 30; c2 <- 10; n_rep <- 500; pcons_gate <- 0.90
-seQ1000 <- 13.9909; piQ_fix <- 0.3446
+seQ1000 <- .anchor$seQ1000; piQ_fix <- .anchor$piQ
 # 3x3 joint: rows age (<=33, (33,34], >34); cols preanti (<=677.9,
 # (677.9,744.5], >744.5). Hand-solved to hit every documented anchor.
 J3 <- matrix(c(0.3553, 0.0121, 0.0876,
