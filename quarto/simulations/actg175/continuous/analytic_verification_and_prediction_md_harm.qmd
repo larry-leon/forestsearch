@@ -1231,7 +1231,7 @@ $\Phi\!\big((m - c_1)/\sigma\big)$; $c_1 \to -\infty$ gives the pure
 replication rate $\bar\Phi\!\big((c_2 - m)/(\sigma\sqrt2)\big)^2$ —
 which is also the **attainable ceiling at fixed $c_2$**: no screening
 floor can push $P_1$ above it, and at the fixture ($c_2 = 10$, $m = 40$)
-that ceiling is $0.883$, so a $95\%$ single-candidate target is
+that ceiling is $0.875$, so a $95\%$ single-candidate target is
 infeasible at these floors without lowering $c_2$; and
 $c_2 \ge c_1$ makes screening redundant (the minimum constraint implies
 the mean one). Between the limits, $c_2$ bites through a mechanism worth
@@ -1741,6 +1741,7 @@ the real gate; the far larger real family pushes detection the other way
 and dominates it here.
 
 ```{r worked-predictions}
+set.seed(20260825)   # pinned: identical to the state formerly inherited from L1653
 Rdraw <- 2e5
 # Complement pairs make the population law EXACTLY rank-deficient: for any
 # cut, P(g+)c(g+) + P(g-)c(g-) is the full-sample coefficient vector, so the
@@ -1979,6 +1980,7 @@ useful kind of surprising: the floor sits only $(30 - 26.26)/\mathrm{SE}
 **near-threshold null**, not a zero null.
 
 ```{r worked-null}
+set.seed(20260828)   # pinned: was inheriting the advanced L1653 chain
 beta_null <- rep(tauQc, M)
 W1n <- matrix(rnorm(Rdraw * M), Rdraw, M) %*% t(root_half) +
        rep(beta_null, each = Rdraw)
