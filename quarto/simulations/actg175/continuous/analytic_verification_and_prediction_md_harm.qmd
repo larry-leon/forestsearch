@@ -22,6 +22,42 @@ execute:
 knitr::opts_chunk$set(comment = "#>")
 ```
 
+```{r anchor}
+#| include: false
+# ── The scale anchor is READ, not typed ─────────────────────────────────────
+# Every scale-dependent figure below derives from this block, which reads the
+# tracked n = 500 payload's fs_dgm_scale object.  The scale is a property of
+# the fixture rather than of a run: both production payloads carry the same
+# regions table.  Reading it means a change to the fixture propagates to every
+# downstream statement instead of stranding a hand-typed value -- which is how
+# the superseded anchor survived in six places and how 0.883 survived at the
+# c2 ceiling.
+.pay_path <- file.path("mr_md_harm",
+                       "fs_maxeffCons_mr_md40_knoise0_n500_s1000_d5000",
+                       "fs_maxeffCons_mr_md40_knoise0_n500_res_1_1000.rds")
+stopifnot(file.exists(.pay_path))
+.scale <- readRDS(.pay_path)$scale
+stopifnot(inherits(.scale, "fs_dgm_scale"))
+.reg <- .scale$regions
+.iQ  <- match("Q", .reg$region)
+stopifnot(!is.na(.iQ))
+
+.anchor <- list(
+  sigma   = .scale$sigma,          # per-subject residual SD on the fixture
+  piQ     = .reg$P_g[.iQ],         # prevalence of the true harm region Q
+  bracket = .reg$bracket[.iQ],     # Level 4 bracket on Q
+  V_eff   = .reg$V_eff[.iQ],       # effective variance on Q
+  m_Q     = abs(.reg$m_tau[.iQ])   # oriented truth on Q
+)
+# sigma[betahat_1000(Q)]: the effective variance spread over the n = 1000
+# subjects falling in Q.
+.anchor$seQ1000 <- sqrt(.anchor$V_eff / (1000 * .anchor$piQ))
+.anchor$sd_eff  <- sqrt(.anchor$bracket)
+# The floors are design constants, declared with the rest of the design below.
+.anchor$c2_ceiling  <- pnorm((.anchor$m_Q - 10) / (.anchor$seQ1000 * sqrt(2)))^2
+.anchor$scr_clear_Q <- pnorm((.anchor$m_Q - 30) / .anchor$seQ1000)
+```
+
 # Scope and provenance
 
 This document consolidates the analytic materials for the continuous/MD harm
@@ -468,11 +504,11 @@ that defines it where a definition is needed.
 | $\Phi_M$ | $M$-variate normal distribution function |
 
 This yields a falsifiable check on the scale, and the check has been run.
-Direct enumeration on the stored super-population gives $\sigma = 127.500$
+Direct enumeration on the stored super-population gives $\sigma = `r sprintf("%.3f", .anchor$sigma)`$
 and $V_Q[\mu_0] = 607.158$, hence an effective bracket
 $\sigma^2 + V_Q[\mu_0] = 16{,}863.44$,
 $V_{\mathrm{eff}} = 4 \times 16{,}863.44 = 67{,}454$, and an effective
-per-subject standard deviation of $129.9$ cells/$\mu$L.
+per-subject standard deviation of $`r sprintf("%.1f", .anchor$sd_eff)`$ cells/$\mu$L.
 
 **The check, run against an independent measurement.** The oracle row of
 a committed report is the difference-in-means refit on the *true* region
@@ -1233,7 +1269,7 @@ $\Phi\!\big((m - c_1)/\sigma\big)$; $c_1 \to -\infty$ gives the pure
 replication rate $\bar\Phi\!\big((c_2 - m)/(\sigma\sqrt2)\big)^2$ —
 which is also the **attainable ceiling at fixed $c_2$**: no screening
 floor can push $P_1$ above it, and at the fixture ($c_2 = 10$, $m = 40$)
-that ceiling is $0.875$, so a $95\%$ single-candidate target is
+that ceiling is $`r sprintf("%.3f", .anchor$c2_ceiling)`$, so a $95\%$ single-candidate target is
 infeasible at these floors without lowering $c_2$; and
 $c_2 \ge c_1$ makes screening redundant (the minimum constraint implies
 the mean one). Between the limits, $c_2$ bites through a mechanism worth
@@ -1244,7 +1280,7 @@ half to carry the sum**, so even a $c_2$ far below $m$ removes the
 anti-correlated corner. At the fixture ($m = 40$,
 $s = \sigma[\hat\beta_{1000}(Q)] = 13.991$, floors $30/10$) this costs
 about two
-points: screening-only $0.763$ versus $P_1 = 0.738$ — the
+points: screening-only $`r sprintf("%.3f", .anchor$scr_clear_Q)`$ versus $P_1 = 0.738$ — the
 quantitative content behind the "non-discriminating $c_2$" reading of
 open question D2: non-discriminating *between candidates*, not free.
 
@@ -1409,7 +1445,7 @@ systematically *understates* mixed-purity scales. Second, the magnitude
 settles the matter here: direct enumeration gives
 $V_{\mathrm{eff}} = 67{,}454$, an effective
 bracket of $16{,}863.44$ (per-subject effective standard deviation
-$129.9$). Two CATE-dependent terms enter that bracket, and only one of
+$`r sprintf("%.1f", .anchor$sd_eff)`$). Two CATE-dependent terms enter that bracket, and only one of
 them is bounded. The variance term satisfies
 $\tfrac12 V_g[\tau] \le \beta_{\mathrm{int}}^2/8 = 23.6$, attained at
 $p = 1/2$; on $\mathcal S$ it equals $21.33$. The cross term
@@ -1479,7 +1515,7 @@ tendency of the identifier to return small, noise-favored regions. The
 three selection probabilities sum to the family declaration rate ($0.8439$)
 up to the printed quadrature gap — an internal consistency identity, not a
 new assumption. Finally, family declaration ($0.844$) exceeds the best
-marginal ($0.763$): competition helps *declaration* even as it dilutes any
+marginal ($`r sprintf("%.3f", .anchor$scr_clear_Q)`$): competition helps *declaration* even as it dilutes any
 single candidate's *selection*.
 
 ### Adding the consistency floor, and the ITT and $Q^c$ channels {#sec-warmup-floors}
