@@ -95,4 +95,4 @@ Both comparison columns were obtained by **evaluating the document's own chunks*
 
 - Branch `feature/glm-extension`; HEAD before this work `438a2e81`; tree clean at start.
 - Package as installed and as loaded by the script: `0.2.3` (`devtools::load_all`).
-- Commit: __COMMIT__ (script, log, this report — explicit paths). No push.
+- Commit: 1334a6dd (this paragraph recorded in the follow-up commit) (script, log, this report — explicit paths). No push.
