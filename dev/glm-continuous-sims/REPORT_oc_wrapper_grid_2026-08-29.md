@@ -148,7 +148,7 @@ Duration: 10m 54.1s
 
 Version `0.2.4 → 0.2.5`; `NEWS.md` names both exports and states `fs_oc_predict()`'s results are unchanged. `devtools::install()`: `packageVersion("forestsearch")` → `0.2.5`, `fs_oc_grid` and `fs_oc_invert` exported.
 
-Commits (explicit paths; no push): `07aaab2a` task doc; __COMMITS__.
+Commits (explicit paths; no push): `07aaab2a` task doc; `d6b7d1ae` build, precompute, document and this report; the hash line in the follow-up commit.
 
 ---
 
