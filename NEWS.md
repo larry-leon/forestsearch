@@ -1,3 +1,36 @@
+# forestsearch 0.2.3
+
+## New: `fs_oc_family_enumerate()` and `fs_oc_predict()` -- predicted operating characteristics over a population-enumerated family
+
+`fs_oc_family_enumerate(dgm, forestsearch_args, n)` builds the candidate
+family the search ranks over as a **population enumeration under the
+`forestsearch()` cut specification**: the package's own cut machinery
+(`get_FSdata()`, `conf.cont_jcuts`, `cut_type`, `collapse_cuts`, ...) is run
+on the DGM's super-population frame `df_super`, so cuts land at population
+quantiles; both directions of every cut are enumerated to `maxk` with the
+search's own combination helpers; and only the structural floors are applied
+(`minp` per factor, the `rmin` redundancy rule, and `Pg >= n.min / n`).
+Every mean and standard error comes from `fs_dgm_scale(dgm)`.
+
+`fs_oc_predict(dgm, forestsearch_args, n, c1, c2, family, consistency_method,
+draws, seed)` is the `worked-predictions` assembly of the analytic prediction
+document with its family construction removed: joint-normal half-sample draws
+through `fs_sym_root()`, the declaration gate, the maxeffCons argmax, and the
+selection-weighted functionals (detection rate, E|Hhat|, sensitivity,
+specificity, PPV, NPV, E[beta(Hhat)], naive bias, mass below the floor), with
+Monte-Carlo SEs for the proportions.  Given the document's M = 16 family, seed
+and draw count it reproduces the document's figures bit-identically
+(`dev/glm-continuous-sims/fidelity_fs_oc_predict_2026-08-28.R`).
+
+`consistency_method` mirrors the package's own argument.  `"split"` is
+implemented (the document's single-split gate).  `"resample"` stops with an
+explanation: the package's closed-form screen uses `sigma_D`, the robust
+sandwich SE of the subgroup fit (`R/consistency_resample.R`), which has no
+expression in the population quantities the scale table carries; a stand-in
+would be a method decision, not a port.
+
+No existing function changes.
+
 # forestsearch 0.2.2
 
 ## Builders own population noise
