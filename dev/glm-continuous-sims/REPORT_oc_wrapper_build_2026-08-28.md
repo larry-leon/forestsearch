@@ -198,9 +198,9 @@ Duration: 10m 36.6s
 
 Version `0.2.2 → 0.2.3` (`DESCRIPTION`). `NEWS.md` entry names both exports, states the family is a population enumeration under the `forestsearch()` cut specification, and that `consistency_method` mirrors the package's (with `"resample"` refused and why).
 
-Commit (explicit paths only: `R/fs_oc_family.R`, `R/fs_oc_predict.R`, `tests/testthat/test-fs-oc-predict.R`, `man/fs_oc_family_enumerate.Rd`, `man/fs_oc_predict.Rd`, `NAMESPACE`, `DESCRIPTION`, `NEWS.md`, the fidelity script, this report): **`__COMMIT__`**. `git status --porcelain` after the commit: __DIRT__. **No push.**
+Commit (explicit paths only: `R/fs_oc_family.R`, `R/fs_oc_predict.R`, `tests/testthat/test-fs-oc-predict.R`, `man/fs_oc_family_enumerate.Rd`, `man/fs_oc_predict.Rd`, `NAMESPACE`, `DESCRIPTION`, `NEWS.md`, the fidelity script, this report): **`9e538ec2`**. `git status --porcelain` after the commit: empty (no pre-existing dirt: the tree was clean at start and is clean after). **No push.**
 
-`devtools::install()`: `packageVersion("forestsearch")` → __INSTALLED__.
+`devtools::install()`: `packageVersion("forestsearch")` → `0.2.3`, with `fs_oc_predict` and `fs_oc_family_enumerate` in `getNamespaceExports("forestsearch")`. (This report was committed in `9e538ec2` before its own hash was known; the hash, the post-commit `git status` and the install result are recorded in the follow-up commit that carries this paragraph.).
 
 No existing `R/` file was edited (`git diff --stat HEAD~2 -- R/` shows only the two additions).
 
