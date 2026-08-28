@@ -1,0 +1,69 @@
+fixture rebuild gate (|diff| vs committed truth):
+    effect_Q    effect_Qc prevalence_Q   beta_inter 
+           0            0            0            0 
+fs_dgm_scale regions identical to payload $scale$regions: TRUE 
+
+fs_oc_family_enumerate: cut columns 72 | enumerated 2628 | dropped: empty 119 minp 0 rmin 99 size 631 | kept 1779 | duplicates 178 | M = 1601 
+Population-enumerated candidate family (fs_oc_family)
+  M            : 1601 candidates (from 72 cut columns, maxk = 2)
+  n            : 500
+  floors       : n.min = 60 (Pg >= 0.1200), minp = 0.025, rmin = 5
+  prevalence   : 0.1200 to 0.9196
+  P(Q)         : 0.3446;  purity range 0.000 to 1.000
+  dropped      : empty 119, minp 0, rmin 99, size 631, duplicate 178
+
+--- floors evaluated independently on all 2628 combinations ---
+rmin alone (wrapper: shrink <= rmin/n = 0.01 in proportion) : 99  [singles 0, pairs 99]
+  of which also empty-intersection                       : 0
+  of which also below n.min/n                            : 22
+rmin alone (raw subject count on df_super, rmin = 5)      : 85
+n.min alone (Pg < 60/500 = 0.120)                         : 772  [singles 4, pairs 768]
+  of which also empty-intersection                       : 119
+empty-intersection alone                                 : 119
+minp alone                                               : 0
+sequential (empty -> minp -> rmin -> size), as the wrapper: 119 / 0 / 99 / 631; kept 1779
+
+fs_oc_predict on M = 1601: 634 s
+Predicted operating characteristics (fs_oc_predict)
+  family      : M = 1601;  n = 500;  gate = split (c1 = 30, c2 = 10);  draws = 2e+05;  seed = 20260825
+  detection rate (DETECTED share)            : 1.000  (MC SE 0.0000)
+  E[|Hhat|] given detection                  : 70.8
+  E[sens] / E[spec] / E[PPV] / E[NPV]        : 0.164 / 0.870 / 0.400 / 0.664
+  E[beta(Hhat)] oriented                     : 31.75
+  E[naive - beta(Hhat)]                      : 75.36
+  selection mass on rules with mean < c1     : 0.265
+  top selections (P_selected, sel | det):
+    preanti > 0 & preanti <= 188             0.012  0.012
+    age > 35 & wtkg > 83                     0.011  0.011
+    age > 33 & cd80 <= 645                   0.011  0.011
+    age > 35 & cd40 <= 260                   0.010  0.010
+    age > 39 & preanti <= 188                0.010  0.010
+
+=== fs_oc_predict on the MD40 fixture vs the document vs the n = 500 record ===
+wrapper: n = 500, c1 = 30, c2 = 10, gate = split, draws = 200000, seed = 20260825, MC SE(det_rate) = 0.0000
+document: worked-predictions chunk (M = 16, split, Rdraw = 2e5, seed 20260825)
+measured: appendix-n500 m500 block (driver: consistency_method = 'resample', pcons 0.90, fs.splits 400)
+
+    quantity wrapper_M1601_split document_M16_split measured_n500_resample
+    det_rate               1.000              0.964                   1.00
+         EnH              70.826            132.843                  72.00
+       Esens               0.164              0.329                   0.17
+       Espec               0.870              0.767                   0.87
+        Eppv               0.400              0.359                   0.41
+        Enpv               0.664              0.695                   0.66
+      EbetaH              31.748             31.193                  31.76
+ Enaive_bias              75.356             30.936                  74.27
+           M            1601.000             16.000                     NA
+
+wrapper top-8 selections (label, P_selected, sel | det, Pg, PQg, beta_g):
+                          lab  p_sel  sel_c    Pg   PQg beta
+ preanti > 0 & preanti <= 188 0.0124 0.0124 0.124 0.418 32.0
+         age > 35 & wtkg > 83 0.0114 0.0114 0.120 0.724 36.2
+       age > 33 & cd80 <= 645 0.0111 0.0111 0.124 0.715 36.1
+       age > 35 & cd40 <= 260 0.0102 0.0102 0.124 0.723 36.2
+    age > 39 & preanti <= 188 0.0101 0.0101 0.125 1.000 40.0
+         age > 35 & homo != 1 0.0097 0.0097 0.126 0.738 36.4
+        age > 33 & cd40 > 420 0.0096 0.0096 0.122 0.691 35.8
+      wtkg > 83 & cd80 <= 989 0.0092 0.0092 0.124 0.430 32.2
+
+selection mass on rules with true mean below c1: 0.265;  max P1 = 0.618;  candidates with P1 > 0.5: 333
