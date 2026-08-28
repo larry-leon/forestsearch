@@ -15,13 +15,19 @@
 #
 # Gate:
 #   "split"     (W1 + W2 >= 2*c1) & (W1 >= c2) & (W2 >= c2)   -- the document's
-#   "resample"  NOT IMPLEMENTED.  The package's resampling screen is
-#               rate = 2*Phi((beta_hat - c) / sigma_D) - 1 with
-#               sigma_D = sqrt(sum(dfbeta[i, treat]^2)) (R/consistency_resample.R
-#               L86, L318): the HC-sandwich SE of the subgroup fit, a sample
-#               statistic with no population expression among the inputs
-#               fs_dgm_scale() carries.  Mapping it onto (n, Pg) is a method
-#               choice; this function refuses rather than approximate.
+#               historical single-split gate: one half-sample pair.
+#   "resample"  the package's production screen (R/consistency_resample.R):
+#               rate = 2*Phi((beta_hat - c2) / sigma_D) - 1  >=  pconsistency
+#               <=>  beta_hat >= c2 + qnorm((1 + pconsistency)/2) * sigma_D,
+#               combined with the effect screen beta_hat >= c1.  sigma_D is
+#               sqrt(sum(dfbeta[i, treat]^2)) (L86, L318), the sandwich SE of
+#               the subgroup treatment coefficient; on one simulated MD40 trial
+#               it equals the direct dfbeta sum of squares to 1e-10 and sits
+#               within 4% of the model SE and within 7% of the wrapper's
+#               population se_g with no prevalence trend
+#               (dev/glm-continuous-sims/sigma_d_diagnostic_2026-08-29.R), so
+#               the wrapper identifies sigma_D = se_g with no extra factor.
+#               This branch draws only Bhat ~ N(beta_g, Sg): one matrix, not two.
 # =============================================================================
 
 
@@ -43,15 +49,37 @@
 #' are generated through \code{\link{fs_sym_root}}; the full-sample effect is
 #' \code{Bhat = (W1 + W2) / 2}.
 #'
-#' \strong{Gate.} With \code{consistency_method = "split"} a candidate declares
-#' when \code{(W1 + W2 >= 2 * c1) & (W1 >= c2) & (W2 >= c2)}: the screening
-#' floor \code{c1} on the full-sample effect and the consistency floor
-#' \code{c2} on each half.  Family declaration is any candidate declaring; the
+#' \strong{The two gates.} Family declaration is any candidate declaring; the
 #' selected rule is the effect maximiser among declaring candidates
-#' (maxeffCons).  \code{consistency_method = "resample"} is not implemented:
-#' the package's closed-form screen uses \code{sigma_D}, the robust sandwich
-#' standard error of the subgroup fit (\code{R/consistency_resample.R}), which
-#' has no expression in the population quantities the scale table provides.
+#' (maxeffCons).
+#' \describe{
+#'   \item{\code{"resample"} -- the package's production screen}{The
+#'     consistency stage of \code{\link{forestsearch}} (default
+#'     \code{consistency_method = "resample"}) represents the random 50/50
+#'     split's half effects as \eqn{\hat\beta \pm D} and computes the
+#'     consistency rate in closed form as
+#'     \eqn{2\Phi((\hat\beta - c_2)/\sigma_D) - 1}, a candidate passing when
+#'     that rate is at least \code{pconsistency}
+#'     (\code{R/consistency_resample.R}; \code{R/subgroup_consistency_helpers.R}
+#'     drops a candidate when \code{p.consistency < pconsistency.threshold}).
+#'     Inverting: \eqn{\hat\beta \ge c_2 + z_p \sigma_D} with
+#'     \eqn{z_p = \Phi^{-1}((1+p)/2)}.  \eqn{\sigma_D} is
+#'     \code{sqrt(sum(dfbeta[i, treat]^2))}, the sandwich standard error of the
+#'     subgroup treatment coefficient; in the draw model above the analogous
+#'     quantity is \code{se_g}, and on a simulated MD40 trial the two agree
+#'     within a few percent with no prevalence trend
+#'     (\code{dev/glm-continuous-sims/sigma_d_diagnostic_2026-08-29.R}), so the
+#'     wrapper identifies \eqn{\sigma_D = se_g}.  The gate is then a single
+#'     threshold on the full-sample draw,
+#'     \code{(Bhat >= c1) & (Bhat - c2 >= z_p * se_g)}, and only
+#'     \code{Bhat ~ N(beta_g, Sg)} is drawn -- one matrix, not two.}
+#'   \item{\code{"split"} -- the analytic document's historical gate}{One
+#'     half-sample pair \code{W1}, \code{W2} stands in for the consistency
+#'     rate: \code{(W1 + W2 >= 2 * c1) & (W1 >= c2) & (W2 >= c2)}, the
+#'     screening floor \code{c1} on the full-sample effect and the consistency
+#'     floor \code{c2} on each half.  Kept bit-identical to the document's
+#'     \code{worked-predictions} chunk.}
+#' }
 #'
 #' All expectations are selection-weighted population functionals of the
 #' family, conditional on declaration.  Monte-Carlo standard errors are given
@@ -74,8 +102,14 @@
 #' @param family \code{NULL} (enumerate with
 #'   \code{\link{fs_oc_family_enumerate}}) or an \code{fs_oc_family} object
 #'   used as-is.
-#' @param consistency_method \code{"split"} (implemented) or \code{"resample"}
-#'   (stops with an explanation; see Details).
+#' @param consistency_method \code{"resample"} (the package's production
+#'   closed-form screen, the default) or \code{"split"} (the analytic
+#'   document's single-split gate).  See Details.
+#' @param pconsistency Numeric in (0, 1).  Consistency-rate threshold for the
+#'   \code{"resample"} gate.  Default
+#'   \code{forestsearch_args$pconsistency.threshold}, itself defaulting to
+#'   \code{forestsearch()}'s default (0.90); an explicit value overrides.
+#'   Ignored by \code{"split"}.
 #' @param draws Integer.  Number of Monte-Carlo draws.
 #' @param seed Integer or \code{NULL}.  Passed to \code{set.seed()} before the
 #'   draws when non-\code{NULL}.
@@ -102,7 +136,8 @@
 #'       below \code{c1}.}
 #'     \item{\code{M}, \code{lab}}{Family size and labels.}
 #'     \item{\code{settings}}{\code{n}, \code{c1}, \code{c2},
-#'       \code{consistency_method}, \code{draws}.}
+#'       \code{consistency_method}, \code{pconsistency} (\code{NA} for
+#'       \code{"split"}), \code{draws}.}
 #'     \item{\code{seed}}{The seed used.}
 #'     \item{\code{family}}{The family object.}
 #'   }
@@ -122,24 +157,27 @@
 #' fam$beta_g <- 26 + 14 * fam$PQg
 #' fam$se_g   <- 13.7 * sqrt(2) * sqrt(piQ / fam$Pg)
 #' fs_oc_predict(family = fam, n = 500, c1 = 30, c2 = 10,
+#'               consistency_method = "resample", draws = 2e4, seed = 1)
+#' fs_oc_predict(family = fam, n = 500, c1 = 30, c2 = 10,
 #'               consistency_method = "split", draws = 2e4, seed = 1)
 #'
 #' @export
 fs_oc_predict <- function(dgm = NULL, forestsearch_args = list(), n,
                           c1 = NULL, c2 = NULL, family = NULL,
                           consistency_method = c("resample", "split"),
+                          pconsistency = NULL,
                           draws = 2e5, seed = NULL, ...) {
 
   consistency_method <- match.arg(consistency_method)
   if (identical(consistency_method, "resample")) {
-    stop(paste0(
-      "consistency_method = \"resample\" is not implemented in fs_oc_predict(). ",
-      "The package's closed-form screen is rate = 2*pnorm((beta_hat - c)/sigma_D) - 1 ",
-      "with sigma_D = sqrt(sum(dfbeta[i, treat]^2)), the robust sandwich SE of the ",
-      "subgroup fit (R/consistency_resample.R): a sample statistic with no ",
-      "population expression among the fs_dgm_scale() inputs.  Choosing a ",
-      "population stand-in for sigma_D is a method decision, not a port.  ",
-      "Use consistency_method = \"split\"."), call. = FALSE)
+    if (is.null(pconsistency)) pconsistency <- forestsearch_args$pconsistency.threshold
+    if (is.null(pconsistency)) pconsistency <- eval(formals(forestsearch)$pconsistency.threshold)
+    if (!is.numeric(pconsistency) || length(pconsistency) != 1L ||
+        is.na(pconsistency) || pconsistency <= 0 || pconsistency >= 1) {
+      stop("'pconsistency' must be a single number in (0, 1).", call. = FALSE)
+    }
+  } else {
+    pconsistency <- NA_real_
   }
 
   if (missing(n) || !is.numeric(n) || length(n) != 1L || is.na(n) || n <= 0) {
@@ -186,18 +224,29 @@ fs_oc_predict <- function(dgm = NULL, forestsearch_args = list(), n,
   Rho <- ovl / sqrt(outer(Pg, Pg))
   Sg  <- Rho * outer(se_g, se_g)
 
-  # ---- draws: two half-sample effects, cov = 2 * Sg each --------------------
   if (!is.null(seed)) set.seed(seed)
   Rdraw <- draws
-  root_half <- fs_sym_root(Sg, scale = 2)
-  W1 <- matrix(stats::rnorm(Rdraw * M), Rdraw, M) %*% t(root_half) +
-        rep(beta_g, each = Rdraw)
-  W2 <- matrix(stats::rnorm(Rdraw * M), Rdraw, M) %*% t(root_half) +
-        rep(beta_g, each = Rdraw)
-  Bhat <- (W1 + W2) / 2
+  if (identical(consistency_method, "resample")) {
+    # ---- production gate: one draw of the full-sample effects, cov = Sg ----
+    root_full <- fs_sym_root(Sg, scale = 1)
+    Bhat <- matrix(stats::rnorm(Rdraw * M), Rdraw, M) %*% t(root_full) +
+            rep(beta_g, each = Rdraw)
+    # rate = 2*Phi((Bhat - c2)/sigma_D) - 1 >= p  <=>  Bhat - c2 >= z_p*sigma_D,
+    # with sigma_D identified as se_g; combined with the effect screen at c1.
+    z_p  <- stats::qnorm((1 + pconsistency) / 2)
+    pass <- (Bhat >= c1) & (Bhat - c2 >= z_p * rep(se_g, each = Rdraw))
+  } else {
+    # ---- draws: two half-sample effects, cov = 2 * Sg each ----------------
+    root_half <- fs_sym_root(Sg, scale = 2)
+    W1 <- matrix(stats::rnorm(Rdraw * M), Rdraw, M) %*% t(root_half) +
+          rep(beta_g, each = Rdraw)
+    W2 <- matrix(stats::rnorm(Rdraw * M), Rdraw, M) %*% t(root_half) +
+          rep(beta_g, each = Rdraw)
+    Bhat <- (W1 + W2) / 2
 
-  # ---- S3: the gate ---------------------------------------------------------
-  pass <- (W1 + W2 >= 2 * c1) & (W1 >= c2) & (W2 >= c2)
+    # ---- S3: the gate -------------------------------------------------------
+    pass <- (W1 + W2 >= 2 * c1) & (W1 >= c2) & (W2 >= c2)
+  }
   det  <- rowSums(pass) > 0
 
   # ---- S4: maxeffCons selection ---------------------------------------------
@@ -239,6 +288,7 @@ fs_oc_predict <- function(dgm = NULL, forestsearch_args = list(), n,
     lab         = lab,
     settings    = list(n = n, c1 = c1, c2 = c2,
                        consistency_method = consistency_method,
+                       pconsistency = pconsistency,
                        draws = draws),
     seed        = seed,
     family      = family
@@ -252,9 +302,11 @@ fs_oc_predict <- function(dgm = NULL, forestsearch_args = list(), n,
 print.fs_oc_predict <- function(x, ...) {
   s <- x$settings
   cat("Predicted operating characteristics (fs_oc_predict)\n")
-  cat(sprintf("  family      : M = %d;  n = %s;  gate = %s (c1 = %s, c2 = %s);  draws = %s%s\n",
+  cat(sprintf("  family      : M = %d;  n = %s;  gate = %s (c1 = %s, c2 = %s%s);  draws = %s%s\n",
               x$M, format(s$n), s$consistency_method, format(s$c1),
-              format(s$c2), format(s$draws, big.mark = ","),
+              format(s$c2),
+              if (is.na(s$pconsistency)) "" else sprintf(", pcons = %s", format(s$pconsistency)),
+              format(s$draws, big.mark = ","),
               if (is.null(x$seed)) "" else sprintf(";  seed = %s", format(x$seed))))
   cat(sprintf("  detection rate (DETECTED share)            : %.3f  (MC SE %.4f)\n",
               x$det_rate, x$det_rate_se))

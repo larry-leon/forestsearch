@@ -1,0 +1,301 @@
+---
+title: "fs_oc_predict(): Verification and Methods Note"
+subtitle: "Predicted operating characteristics of the maxeffCons search over a population-enumerated candidate family, scored against the n = 500 and n = 700 MD40 runs"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: true
+  message: true
+---
+
+```{r setup}
+# This document reads one precomputed object and the two tracked payloads.  It
+# computes nothing heavy and types no number: every figure in prose is inline R.
+.grid_path <- file.path("..", "..", "..", "..", "dev", "glm-continuous-sims",
+                        "oc_wrapper_grid_2026-08-29.rds")
+stopifnot(file.exists(.grid_path))
+G <- readRDS(.grid_path)
+stopifnot(all(c("n500_resample", "n500_split", "n700_resample", "n700_split") %in% names(G$runs)))
+.pay <- lapply(G$payloads, function(p) readRDS(file.path("..", "..", "..", "..", p)))
+names(.pay) <- names(G$payloads)
+stopifnot(inherits(.pay[["500"]]$scale, "fs_dgm_scale"))
+.reg <- G$scale$regions
+.iQ <- match("Q", .reg$region); .iQc <- match("Qc", .reg$region)
+piQ     <- .reg$P_g[.iQ]
+tauQc   <- abs(.reg$m_tau[.iQc])
+bint    <- abs(.reg$m_tau[.iQ]) - tauQc
+seQ1000 <- sqrt(.reg$V_eff[.iQ] / (1000 * piQ))
+c1 <- G$fs_args$effect.threshold; c2 <- G$fs_args$consistency.threshold
+pcons <- G$fs_args$pconsistency.threshold
+z_p <- qnorm((1 + pcons) / 2)
+.f  <- function(x, d = 3) formatC(x, format = "f", digits = d)
+.fm <- function(x) formatC(x, format = "d", big.mark = ",")
+```
+
+# What the wrapper computes
+
+`fs_oc_predict()` predicts the operating characteristics of the maxeffCons
+search from the joint normal law of the candidates' fitted effects. It
+consumes a **candidate family** through a nine-field interface -- the label
+`lab`, prevalence `Pg`, purity `PQg`, mean `beta_g`, standard error `se_g`,
+classification vectors `sens_g` and `spec_g`, the overlap matrix `ovl`, and
+the count `M` (plus `P(Q)`, carried explicitly for the NPV) -- and returns
+declaration rates, the selection distribution and the selection-weighted
+functionals. Everything above the interface is **family-agnostic**: the draw
+model, the two gates, the argmax and the functionals do not look at how the
+family was built. The family in this document is the population enumeration of
+§2; a hand-built or stylized family (the analytic document's M = 16) goes
+through the same code, which is how the wrapper was gated for fidelity
+(bit-identical to the `worked-predictions` chunk at its own seed).
+
+# The family
+
+`fs_oc_family_enumerate()` builds the family the search ranks over as a
+**population enumeration under the `forestsearch()` cut specification**, on
+the DGM's super-population frame (`df_super`, `r .fm(G$scale$n_super)` rows)
+rather than on a sampled trial:
+
+1. **Cuts** from the package's own `get_FSdata()`: `conf.cont_jcuts`
+   (`age = 10`, `preanti = 10`) places J cuts at the k/(J+1) **population**
+   quantiles; the remaining continuous variables take the `cut_type = "default"`
+   set (q25 / median / q75); binary factors enter as themselves;
+   `collapse_cuts` merges coincident cuts. `r length(G$families[["500"]]$cuts)`
+   cut expressions result.
+2. **Both directions** of every cut, as the search's `dummy()` expansion does:
+   `r G$families[["500"]]$counts[["cut_columns"]]` indicator columns.
+3. **Combinations** to `maxk = 2` with the search's own combination helpers:
+   `r .fm(G$families[["500"]]$counts[["enumerated"]])`.
+4. **Structural floors only**, on the population frame and in the search's
+   order: empty pairwise intersections (the search's status 0); `minp` per
+   constituent factor; the `rmin` redundancy rule, read at trial size `n` as
+   "each added factor removes more than `rmin`/`n` of the population"; and the
+   size floor `Pg >= n.min/n`.
+5. Candidates with **identical population membership** collapse to one.
+
+Deliberately **excluded**: the GRF variable-importance pre-screen, the effect
+screen, the consistency screen and the statistics-keyed near-duplicate removal.
+The first is a sample-fitted ranking with no population counterpart; the second
+and third *are* the gate the wrapper evaluates; the fourth keys on sample
+statistics of candidates that have already passed the gate. Including any of
+them would put sample-realized screening into an object meant to be a fixed
+population law.
+
+```{r family-table}
+.fam_row <- function(n) {
+  f <- G$families[[as.character(n)]]; k <- f$counts
+  data.frame(n = n, `cut columns` = k[["cut_columns"]], enumerated = k[["enumerated"]],
+             empty = k[["empty"]], minp = k[["minp"]], rmin = k[["rmin"]],
+             `size (Pg < n.min/n)` = k[["size"]], kept = k[["kept"]],
+             duplicate = k[["duplicate"]], M = k[["M"]],
+             `floor n.min/n` = round(f$floor_Pg, 4), check.names = FALSE)
+}
+knitr::kable(rbind(.fam_row(500), .fam_row(700)), row.names = FALSE,
+  caption = "The population enumeration at each stage, for the two trial sizes. The only input that changes with n is the size floor n.min/n.")
+```
+
+The realized family is M = `r .fm(G$families[["500"]]$M)` at n = 500 and
+M = `r .fm(G$families[["700"]]$M)` at n = 700 -- two orders of magnitude above
+the analytic document's stylized 16, which is the reason the wrapper carries a
+size guard before any M-by-M allocation.
+
+# Means and standard errors
+
+Every mean and scale comes from `fs_dgm_scale(dgm)`, the computed
+finite-population sampling scale of the difference-in-means estimator, read
+from the fixture (and identical to the `$scale` object both payloads carry).
+With `Q` the true harm region, `P(Q)` = `r .f(piQ, 4)`,
+`tauQc` = |m_tau[Qc]| = `r .f(tauQc, 3)` and the planted interaction
+`bint` = |m_tau[Q]| − |m_tau[Qc]| = `r .f(bint, 3)`:
+
+- **Mixture identity.** A candidate `g` with purity `PQg = P(g ∩ Q)/P(g)` has
+  oriented mean `beta_g = tauQc + bint · PQg`, because the effect is constant
+  on `Q` and on `Qc` and `g` mixes the two in proportion `PQg`.
+- **Prevalence-scaled anchor SE.** `seQ1000` = sqrt(V_eff[Q] / (1000 · P(Q)))
+  = `r .f(seQ1000, 4)` is the estimator SD on `Q` at n = 1000; a candidate of
+  prevalence `Pg` at trial size `n` has
+  `se_g = seQ1000 · sqrt(1000/n) · sqrt(P(Q)/Pg)`.
+
+**Caveat.** `fs_dgm_scale()` is exact for identity-scale measures only (MD, RD,
+IRD); this document is MD. The SE identity treats the region size and arm split
+as fixed at their expectations and uses `V_eff[Q]` for every candidate, so a
+mixed candidate's within-arm variance inflation from the mixture is not
+carried in `se_g`. The `sigma_D` diagnostic of §5 is what checks that this
+approximation is adequate at the gate.
+
+# The covariance
+
+Candidates overlap, so their fitted effects are correlated. With `ovl` the
+M-by-M matrix of `P(g_i ∩ g_j)`,
+
+$$\rho_{ij} = \frac{P(g_i \cap g_j)}{\sqrt{P(g_i)\,P(g_j)}}, \qquad
+  S_g = \rho \circ (se_g\, se_g^{\top}),$$
+
+the correlation of two difference-in-means estimators sharing the overlap's
+subjects. `S_g` is exactly rank-deficient by construction: for every cut, the
+two directions' effects combine linearly into the full-sample effect. Draws are
+generated through `fs_sym_root()`, the **symmetric** root
+$V D^{1/2} V^{\top}$ with eigenvalues clamped at zero -- not $V D^{1/2}$ --
+because the eigenvector basis is not a continuous function of the matrix inside
+a degenerate subspace, and a pinned seed cannot fix the basis the draws are
+multiplied by. The symmetric root is basis-free, so the draws are a continuous
+and reproducible function of the inputs.
+
+# The two gates
+
+The package's consistency stage represents the random 50/50 split's two
+half-sample effects as $\hat\beta \pm D$, with
+$D = \sum_i G_i\, \mathrm{dfbeta}_i$ for mean-zero unit-variance multipliers
+$G_i$ (Rademacher = the 50/50 split) and
+$\sigma_D = \sqrt{\sum_i \mathrm{dfbeta}_i^2}$, the sandwich SE of the subgroup
+treatment coefficient. A split is consistent iff both halves clear `c2`, i.e.
+$|D| \le \hat\beta - c_2$, so the consistency rate is
+
+$$P(|D| \le \hat\beta - c_2) = 2\,\Phi\!\left(\frac{\hat\beta - c_2}{\sigma_D}\right) - 1 .$$
+
+**Production** (`consistency_method = "resample"`, the package default)
+thresholds this probability at `pconsistency` = `r pcons`; the search drops a
+candidate when `p.consistency < pconsistency.threshold`. Inverting,
+
+$$2\Phi\!\left(\tfrac{\hat\beta - c_2}{\sigma_D}\right) - 1 \ge p
+  \iff \hat\beta \ge c_2 + z_p\,\sigma_D, \qquad z_p = \Phi^{-1}\!\big(\tfrac{1+p}{2}\big) = `r .f(z_p, 4)`,$$
+
+combined with the effect screen $\hat\beta \ge c_1$. The **analytic document's
+historical gate** (`"split"`) instead realizes one `D`: it draws one
+half-sample pair `W1`, `W2` (each with covariance `2·S_g`) and declares when
+`(W1 + W2 >= 2·c1) & (W1 >= c2) & (W2 >= c2)`.
+
+**The `sigma_D = se_g` identification.** In the draw model,
+`Bhat = (W1 + W2)/2` has covariance `S_g` and `D = (W1 − W2)/2` has covariance
+`S_g` as well, so the natural stand-in for `sigma_D` is `se_g`. This was
+checked from source and on data rather than taken on trust
+(`dev/glm-continuous-sims/sigma_d_diagnostic_2026-08-29.R`, one simulated MD40
+trial at n = 500, ten candidates spanning prevalence 0.12–0.92): `sigma_D`
+equals the direct dfbeta sum of squares to 1e-10, sits within 4% of the
+classical model SE and within 7% of the population `se_g`, with no trend in
+prevalence (Spearman −0.07 and −0.12). No constant factor is carried. Under
+this identification the production gate is a single threshold on the
+full-sample draw, `(Bhat >= c1) & (Bhat − c2 >= z_p · se_g)`, and only
+`Bhat ~ N(beta_g, S_g)` is drawn.
+
+So: **`"resample"` is the production screen; `"split"` is the document's
+historical one.** Both are reported below.
+
+# Selection and the functionals
+
+Family declaration is any candidate declaring (`det`, rate `det_rate`). The
+selected rule is the effect maximiser among declaring candidates -- the
+maxeffCons argmax of `Bhat` with non-declaring entries masked to −∞. With
+`p_sel[m]` the unconditional selection probability and
+`sel_c = p_sel / det_rate` the selection distribution given declaration:
+
+| quantity | formula |
+|---|---|
+| `det_rate` | `mean(det)` |
+| `EnH` | `n · Σ sel_c · Pg` -- expected selected-subgroup size in subjects |
+| `Esens`, `Espec` | `Σ sel_c · sens_g`, `Σ sel_c · spec_g` |
+| `Eppv` | `Σ sel_c · PQg` |
+| `Enpv` | `Σ sel_c · (1 − Pg − (P(Q) − PQg·Pg)) / (1 − Pg)` |
+| `EbetaH` | `Σ sel_c · beta_g` -- oriented true effect on the selected rule |
+| `Enaive_bias` | mean over declaring draws of `Bhat[winner] − beta_g[winner]` |
+| `mass_below` | `Σ sel_c[beta_g < c1]` |
+
+All are selection-weighted **population** functionals conditional on
+declaration. Monte-Carlo SEs are `sqrt(p(1−p)/draws)` for the proportions.
+
+# The tables
+
+```{r tables}
+.rows <- c("det_rate", "EnH", "Esens", "Espec", "Eppv", "Enpv", "EbetaH", "Enaive_bias")
+.lab  <- c("detection rate", "E|Hhat| given detection", "E[sens]", "E[spec]",
+           "E[PPV]", "E[NPV]", "E[beta(Hhat)] oriented", "naive bias vs beta(Hhat)")
+.cell <- function(v, se, d = 3) {
+  ifelse(is.na(v), "—", ifelse(is.na(se) | se == 0, .f(v, d),
+                               paste0(.f(v, d), " (", .f(se, 4), ")")))
+}
+.table_n <- function(n) {
+  r  <- G$runs[[sprintf("n%d_resample", n)]]$pred
+  s  <- G$runs[[sprintf("n%d_split", n)]]$pred
+  m  <- G$measured[[as.character(n)]]
+  a_r <- unlist(r[.rows]); a_s <- unlist(s[.rows]); a_m <- unlist(m[.rows])
+  se_r <- c(r$det_rate_se, rep(NA, 7)); se_s <- c(s$det_rate_se, rep(NA, 7))
+  se_m <- unlist(m[paste0(.rows, "_se")])
+  d <- c(3, 1, 3, 3, 3, 3, 2, 2)
+  out <- data.frame(
+    quantity = c(.lab, "M"),
+    `analytic "resample"` = c(mapply(.cell, a_r, se_r, d), .fm(r$M)),
+    `analytic "split"`    = c(mapply(.cell, a_s, se_s, d), .fm(s$M)),
+    simulation            = c(mapply(.cell, a_m, se_m, d), "—"),
+    check.names = FALSE)
+  knitr::kable(out, row.names = FALSE, caption = sprintf(
+    "n = %d: analytic predictions under the two gates (M = %s, %s draws, seed %d) against the measured run (%d replicates; MC SE in parentheses where it exists on both sides).",
+    n, .fm(r$M), .fm(G$draws), G$seed, m$n_sims))
+}
+.table_n(500)
+```
+
+```{r tables-700}
+.table_n(700)
+```
+
+```{r timing}
+.tim <- do.call(rbind, lapply(G$runs, function(u)
+  data.frame(n = u$n, gate = u$gate, M = u$pred$M, seconds = round(u$secs),
+             `peak MB` = round(u$peak_MB), check.names = FALSE)))
+knitr::kable(.tim, row.names = FALSE,
+  caption = "Wall-clock and peak memory per evaluation. The resample branch draws one matrix; the split branch draws two.")
+```
+
+# Reading the comparison
+
+```{r reading}
+.r5 <- G$runs$n500_resample$pred; .s5 <- G$runs$n500_split$pred; .m5 <- G$measured[["500"]]
+.r7 <- G$runs$n700_resample$pred; .s7 <- G$runs$n700_split$pred; .m7 <- G$measured[["700"]]
+```
+
+What agreement **does** establish: that a fixed population enumeration of the
+driver's cut space, with the scale table's means and SEs and either gate,
+reproduces the measured selection functionals -- E|Ĥ| (`r .f(.r5$EnH, 1)` /
+`r .f(.s5$EnH, 1)` against `r .f(.m5$EnH, 1)` at n = 500;
+`r .f(.r7$EnH, 1)` / `r .f(.s7$EnH, 1)` against `r .f(.m7$EnH, 1)` at
+n = 700), sensitivity, specificity, PPV, NPV, the oriented effect on the
+selected rule and the naive selection bias -- to within the measured MC
+uncertainty or close to it. That is a statement about the *family*: the
+stylized M = 16 of the analytic document could not do this, and the difference
+between it and the enumeration is the family, not the gate or the scale.
+
+What agreement **does not** establish:
+
+- **The two gates cannot be discriminated on `det_rate` here.** Under the
+  alternative every candidate mean near the floor is many SEs above `c2`, so
+  family declaration saturates -- `r .f(.r5$det_rate, 4)` (`"resample"`) and
+  `r .f(.s5$det_rate, 4)` (`"split"`) against the measured
+  `r .f(.m5$det_rate, 3)` at n = 500; `r .f(.r7$det_rate, 4)` /
+  `r .f(.s7$det_rate, 4)` against `r .f(.m7$det_rate, 3)` at n = 700. A
+  quantity at its ceiling on all three sides carries no information about
+  which gate is right; the gates would separate under a null or near-null
+  DGM, which is out of scope here.
+- **The measured side is a sample-realized, screened family; the analytic side
+  is a fixed population enumeration.** The driver cuts at *sample* quantiles,
+  pre-screens with a causal forest, applies the effect screen and the
+  statistics-keyed near-duplicate removal, and evaluates the consistency rate
+  from the replicate's own dfbeta. The wrapper fixes the cuts at population
+  quantiles, keeps every structural candidate, and replaces `sigma_D` by
+  `se_g`. Agreement means these differences did not move the functionals at
+  this fixture and these floors; it does not mean they never would.
+- **The identification `sigma_D = se_g` was checked on one trial**, at ten
+  prevalences, on this DGM. It is an identity check that the closed-form gate
+  is computing what the production screen computes, not a general theorem.
+
+The wrapper's next uses -- a grid over (`c1`, `c2`, `n`), the inversion for a
+target rate, a null-DGM path where the gates do separate, and a ratio-measure
+path -- are all built on the seam this document verifies, and none is
+attempted here.

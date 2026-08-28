@@ -12,6 +12,7 @@ fs_oc_predict(
   c2 = NULL,
   family = NULL,
   consistency_method = c("resample", "split"),
+  pconsistency = NULL,
   draws = 2e+05,
   seed = NULL,
   ...
@@ -41,8 +42,15 @@ overrides.}
 \code{\link{fs_oc_family_enumerate}}) or an \code{fs_oc_family} object
 used as-is.}
 
-\item{consistency_method}{\code{"split"} (implemented) or \code{"resample"}
-(stops with an explanation; see Details).}
+\item{consistency_method}{\code{"resample"} (the package's production
+closed-form screen, the default) or \code{"split"} (the analytic
+document's single-split gate).  See Details.}
+
+\item{pconsistency}{Numeric in (0, 1).  Consistency-rate threshold for the
+\code{"resample"} gate.  Default
+\code{forestsearch_args$pconsistency.threshold}, itself defaulting to
+\code{forestsearch()}'s default (0.90); an explicit value overrides.
+Ignored by \code{"split"}.}
 
 \item{draws}{Integer.  Number of Monte-Carlo draws.}
 
@@ -73,7 +81,8 @@ selected rule.}
 below \code{c1}.}
 \item{\code{M}, \code{lab}}{Family size and labels.}
 \item{\code{settings}}{\code{n}, \code{c1}, \code{c2},
-\code{consistency_method}, \code{draws}.}
+\code{consistency_method}, \code{pconsistency} (\code{NA} for
+\code{"split"}), \code{draws}.}
 \item{\code{seed}}{The seed used.}
 \item{\code{family}}{The family object.}
 }
@@ -95,15 +104,37 @@ half-sample draws \code{W1}, \code{W2}, each with covariance \code{2 * Sg},
 are generated through \code{\link{fs_sym_root}}; the full-sample effect is
 \code{Bhat = (W1 + W2) / 2}.
 
-\strong{Gate.} With \code{consistency_method = "split"} a candidate declares
-when \code{(W1 + W2 >= 2 * c1) & (W1 >= c2) & (W2 >= c2)}: the screening
-floor \code{c1} on the full-sample effect and the consistency floor
-\code{c2} on each half.  Family declaration is any candidate declaring; the
+\strong{The two gates.} Family declaration is any candidate declaring; the
 selected rule is the effect maximiser among declaring candidates
-(maxeffCons).  \code{consistency_method = "resample"} is not implemented:
-the package's closed-form screen uses \code{sigma_D}, the robust sandwich
-standard error of the subgroup fit (\code{R/consistency_resample.R}), which
-has no expression in the population quantities the scale table provides.
+(maxeffCons).
+\describe{
+\item{\code{"resample"} -- the package's production screen}{The
+consistency stage of \code{\link{forestsearch}} (default
+\code{consistency_method = "resample"}) represents the random 50/50
+split's half effects as \eqn{\hat\beta \pm D} and computes the
+consistency rate in closed form as
+\eqn{2\Phi((\hat\beta - c_2)/\sigma_D) - 1}, a candidate passing when
+that rate is at least \code{pconsistency}
+(\code{R/consistency_resample.R}; \code{R/subgroup_consistency_helpers.R}
+drops a candidate when \code{p.consistency < pconsistency.threshold}).
+Inverting: \eqn{\hat\beta \ge c_2 + z_p \sigma_D} with
+\eqn{z_p = \Phi^{-1}((1+p)/2)}.  \eqn{\sigma_D} is
+\code{sqrt(sum(dfbeta[i, treat]^2))}, the sandwich standard error of the
+subgroup treatment coefficient; in the draw model above the analogous
+quantity is \code{se_g}, and on a simulated MD40 trial the two agree
+within a few percent with no prevalence trend
+(\code{dev/glm-continuous-sims/sigma_d_diagnostic_2026-08-29.R}), so the
+wrapper identifies \eqn{\sigma_D = se_g}.  The gate is then a single
+threshold on the full-sample draw,
+\code{(Bhat >= c1) & (Bhat - c2 >= z_p * se_g)}, and only
+\code{Bhat ~ N(beta_g, Sg)} is drawn -- one matrix, not two.}
+\item{\code{"split"} -- the analytic document's historical gate}{One
+half-sample pair \code{W1}, \code{W2} stands in for the consistency
+rate: \code{(W1 + W2 >= 2 * c1) & (W1 >= c2) & (W2 >= c2)}, the
+screening floor \code{c1} on the full-sample effect and the consistency
+floor \code{c2} on each half.  Kept bit-identical to the document's
+\code{worked-predictions} chunk.}
+}
 
 All expectations are selection-weighted population functionals of the
 family, conditional on declaration.  Monte-Carlo standard errors are given
@@ -121,6 +152,8 @@ fam <- structure(list(
   M = 3L, PQ = piQ), class = c("fs_oc_family", "list"))
 fam$beta_g <- 26 + 14 * fam$PQg
 fam$se_g   <- 13.7 * sqrt(2) * sqrt(piQ / fam$Pg)
+fs_oc_predict(family = fam, n = 500, c1 = 30, c2 = 10,
+              consistency_method = "resample", draws = 2e4, seed = 1)
 fs_oc_predict(family = fam, n = 500, c1 = 30, c2 = 10,
               consistency_method = "split", draws = 2e4, seed = 1)
 

@@ -198,15 +198,68 @@ test_that("max_M below the realized M raises the size guard", {
 })
 
 
-# ---- 7. the resample gate is refused, not approximated ----------------------
+# ---- 7. the resample gate: closed-form parity ----------------------------------
 
-test_that("consistency_method = 'resample' stops with the sigma_D explanation", {
-  fam <- make_hand_family()
-  expect_error(fs_oc_predict(family = fam, n = 500, c1 = 30, c2 = 10),
-               "sigma_D")
+test_that("'resample' on a one-candidate family matches the direct pnorm() threshold", {
+  # One candidate: Bhat ~ N(beta, se^2); declaration iff
+  # Bhat >= max(c1, c2 + z_p * se), the inversion of
+  # 2*pnorm((Bhat - c2)/sigma_D) - 1 >= p with sigma_D = se.
+  fam <- structure(list(lab = "Q", Pg = 0.34, PQg = 1, beta_g = 40, se_g = 14,
+                        sens_g = 1, spec_g = 1, ovl = matrix(0.34, 1, 1),
+                        M = 1L, PQ = 0.34), class = c("fs_oc_family", "list"))
+  for (pc in c(0.5, 0.9, 0.99)) {
+    p <- fs_oc_predict(family = fam, n = 500, c1 = 30, c2 = 10,
+                       consistency_method = "resample", pconsistency = pc,
+                       draws = 2e5, seed = 5)
+    thr <- max(30, 10 + stats::qnorm((1 + pc) / 2) * 14)
+    exact <- stats::pnorm(thr, mean = 40, sd = 14, lower.tail = FALSE)
+    expect_equal(p$det_rate, exact, tolerance = 4 * sqrt(exact * (1 - exact) / 2e5) / exact + 1e-8,
+                 info = paste("pconsistency =", pc))
+    expect_equal(p$settings$pconsistency, pc)
+    expect_equal(p$sel_c, 1)
+  }
+  # pconsistency default: forestsearch_args, then forestsearch()'s default 0.90
+  p_arg <- fs_oc_predict(forestsearch_args = list(pconsistency.threshold = 0.8),
+                         family = fam, n = 500, c1 = 30, c2 = 10,
+                         consistency_method = "resample", draws = 100, seed = 1)
+  expect_equal(p_arg$settings$pconsistency, 0.8)
+  p_def <- fs_oc_predict(family = fam, n = 500, c1 = 30, c2 = 10,
+                         consistency_method = "resample", draws = 100, seed = 1)
+  expect_equal(p_def$settings$pconsistency, 0.9)
+  p_spl <- fs_oc_predict(family = fam, n = 500, c1 = 30, c2 = 10,
+                         consistency_method = "split", draws = 100, seed = 1)
+  expect_true(is.na(p_spl$settings$pconsistency))
   expect_error(fs_oc_predict(family = fam, n = 500, c1 = 30, c2 = 10,
-                             consistency_method = "resample"),
-               "not implemented")
+                             consistency_method = "resample", pconsistency = 1.2,
+                             draws = 10), "pconsistency")
+})
+
+test_that("'resample' at a very small pconsistency approaches but does not equal 'split'", {
+  fam <- make_hand_family()
+  # As p -> 0, z_p -> 0 and the resample gate becomes Bhat >= max(c1, c2):
+  # the split gate additionally requires each half >= c2, so its rate is lower.
+  r_small <- fs_oc_predict(family = fam, n = 500, c1 = 30, c2 = 10,
+                           consistency_method = "resample", pconsistency = 1e-6,
+                           draws = 4e4, seed = 9)$det_rate
+  r_090   <- fs_oc_predict(family = fam, n = 500, c1 = 30, c2 = 10,
+                           consistency_method = "resample", pconsistency = 0.90,
+                           draws = 4e4, seed = 9)$det_rate
+  s_rate  <- fs_oc_predict(family = fam, n = 500, c1 = 30, c2 = 10,
+                           consistency_method = "split",
+                           draws = 4e4, seed = 9)$det_rate
+  expect_gt(r_small, r_090)
+  expect_gt(r_small, s_rate)             # approaches from above ...
+  expect_false(isTRUE(all.equal(r_small, s_rate)))   # ... without equalling
+  expect_lt(abs(r_small - s_rate), abs(r_090 - s_rate))
+})
+
+test_that("'resample' declares finite quantities and needs one draw matrix", {
+  fam <- make_hand_family()
+  p <- fs_oc_predict(family = fam, n = 500, c1 = 30, c2 = 10,
+                     consistency_method = "resample", draws = 5000, seed = 7)
+  for (nm in oc_quantities) expect_true(is.finite(p[[nm]]), info = nm)
+  expect_equal(sum(p$sel_c), 1)
+  expect_output(print(p), "pcons = 0.9")
 })
 
 

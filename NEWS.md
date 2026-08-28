@@ -1,3 +1,24 @@
+# forestsearch 0.2.4
+
+## `fs_oc_predict()`: the `"resample"` gate is implemented
+
+`consistency_method = "resample"` -- the package's production consistency
+screen -- now runs in `fs_oc_predict()` instead of stopping.  The gate is the
+closed-form inversion of `consistency_resample()`'s rate,
+`2*pnorm((beta_hat - c2)/sigma_D) - 1 >= pconsistency`, i.e.
+`Bhat >= c2 + qnorm((1 + pconsistency)/2) * sigma_D`, combined with the effect
+screen `Bhat >= c1`.  `sigma_D` -- `sqrt(sum(dfbeta[i, treat]^2))`, the
+sandwich SE of the subgroup treatment coefficient -- is identified with the
+family's `se_g`: on one simulated MD40 trial it equals the direct dfbeta sum of
+squares to 1e-10 and sits within 4% of the model SE and within 7% of the
+population `se_g` with no prevalence trend
+(`dev/glm-continuous-sims/sigma_d_diagnostic_2026-08-29.R`).  No constant
+factor is carried.  New argument `pconsistency` (default
+`forestsearch_args$pconsistency.threshold`, then `forestsearch()`'s 0.90).
+The branch draws only `Bhat ~ N(beta_g, Sg)` -- one draw matrix, not two.
+The `"split"` branch is untouched and remains bit-identical to the analytic
+document's `worked-predictions` chunk.
+
 # forestsearch 0.2.3
 
 ## New: `fs_oc_family_enumerate()` and `fs_oc_predict()` -- predicted operating characteristics over a population-enumerated family
