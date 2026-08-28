@@ -177,7 +177,7 @@ Duration: 10m 51.4s
 
 Version `0.2.3 → 0.2.4`; `NEWS.md` entry names the `"resample"` branch and the identification. `devtools::install()`: `packageVersion("forestsearch")` → `0.2.4`.
 
-Commits (explicit paths; no push): `aa83b3ea` task doc; __COMMITS__.
+Commits (explicit paths; no push): `aa83b3ea` task doc; `4a17641d` build, grid, document and this report; the hash line itself in the follow-up commit.
 
 ---
 
