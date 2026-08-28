@@ -65,6 +65,20 @@
 #' whose population membership vectors are identical are collapsed to the
 #' first one enumerated.
 #'
+#' \strong{Null DGMs.} A DGM whose \code{df_super$flag_harm} has no member
+#' (Q empty; \code{generate_glm_dgm(model = "null")}) is detected
+#' structurally, cross-checked against \code{dgm$model} when present.  Under
+#' the null every candidate has the same true effect, so the fields become:
+#' \code{beta_g} = the common effect (the DGM's \code{effect_Qc} =
+#' \code{effect_ITT}, oriented as the alternative path orients);
+#' \code{se_g} from the whole-population effective variance
+#' (\code{fs_dgm_scale(dgm, regions = list(S = ...))}, the S row) at
+#' \code{(n, Pg)} with the same prevalence scaling; \code{PQg = 0};
+#' \code{sens_g = NA} (0/0, undefined -- not zero); \code{spec_g = 1 - Pg};
+#' \code{PQ = 0} (from which NPV = 1 follows downstream).  Enumeration, floors,
+#' \code{ovl} and the covariance are unchanged.  The element \code{null}
+#' records the branch taken.
+#'
 #' \strong{Scale.} Every mean and standard error is derived from
 #' \code{\link{fs_dgm_scale}(dgm)}: with \code{Q} the true harm region,
 #' \code{tauQc = |m_tau[Qc]|}, \code{bint = |m_tau[Q]| - |m_tau[Qc]|},
@@ -101,6 +115,8 @@
 #'     \item{\code{PQ}}{\code{P(Q)}, the prevalence of the true region.}
 #'     \item{\code{memb}}{Logical matrix, \code{nrow(df_super)} by M, the
 #'       population membership of each candidate.}
+#'     \item{\code{null}}{Logical: \code{TRUE} when the null branch was
+#'       taken (Q empty).}
 #'     \item{\code{scale}}{The \code{fs_dgm_scale} object used.}
 #'     \item{\code{n}}{The trial size.}
 #'     \item{\code{args_used}}{The \code{forestsearch_args} entries consumed,
@@ -162,9 +178,21 @@ fs_oc_family_enumerate <- function(dgm, forestsearch_args, n,
   df_super <- dgm$df_super
   n_super  <- nrow(df_super)
   inQ      <- df_super$flag_harm == 1
-  if (!any(inQ)) {
-    stop("the true region Q is empty on df_super (no flag_harm == 1); ",
-         "the null DGM path is not implemented.", call. = FALSE)
+  # ---- null detection: structural, from the harm flag itself ---------------
+  # A null DGM has Q = {} -- generate_glm_dgm() zeroes flag_harm under
+  # model = "null" (R/generate_glm_dgm.R L316-319), and the driver asserts
+  # sum(inQ) == 0L, is.na(effect_Q), beta_inter == 0 for the null cell.  An
+  # alternative DGM always has a non-empty calibrated Q, so sum(flag_harm) == 0
+  # cannot misfire on one.  When the object declares dgm$model (exact match --
+  # `$` would partial-match model_params), it must agree.
+  is_null <- !any(inQ)
+  if (!is.null(dgm[["model"]]) && identical(dgm[["model"]], "null") && !is_null) {
+    stop("dgm$model is \"null\" but df_super$flag_harm has ", sum(inQ),
+         " members in Q; the object is inconsistent.", call. = FALSE)
+  }
+  if (!is.null(dgm[["model"]]) && !identical(dgm[["model"]], "null") && is_null) {
+    stop("df_super$flag_harm has no members in Q but dgm$model is \"",
+         dgm[["model"]], "\"; the object is inconsistent.", call. = FALSE)
   }
 
   # ---- the forestsearch() arguments consumed, with its defaults -------------
@@ -208,24 +236,44 @@ fs_oc_family_enumerate <- function(dgm, forestsearch_args, n,
   }
 
   # ---- 1. scale: every mean and se from fs_dgm_scale(dgm) -------------------
-  scale <- fs_dgm_scale(dgm)
-  reg   <- scale$regions
-  iQ  <- match("Q",  reg$region)
-  iQc <- match("Qc", reg$region)
-  if (is.na(iQ) || is.na(iQc)) {
-    stop("fs_dgm_scale(dgm) did not return both 'Q' and 'Qc' regions.",
-         call. = FALSE)
+  if (!is_null) {
+    scale <- fs_dgm_scale(dgm)
+    reg   <- scale$regions
+    iQ  <- match("Q",  reg$region)
+    iQc <- match("Qc", reg$region)
+    if (is.na(iQ) || is.na(iQc)) {
+      stop("fs_dgm_scale(dgm) did not return both 'Q' and 'Qc' regions.",
+           call. = FALSE)
+    }
+    if (length(unique(sign(reg$m_tau))) != 1L) {
+      stop("the region effects m_tau do not share a sign; the oriented ",
+           "(abs) reading of the scale table is not defined.", call. = FALSE)
+    }
+    piQ     <- reg$P_g[iQ]
+    m_Q     <- abs(reg$m_tau[iQ])
+    tauQc   <- abs(reg$m_tau[iQc])
+    bint    <- m_Q - tauQc
+    seQ1000 <- sqrt(reg$V_eff[iQ] / (1000 * piQ))
+    PQ      <- mean(inQ)
+  } else {
+    # ---- null branch: no Q/Qc partition; the whole-population row only ----
+    # fs_dgm_scale()'s default regions need a non-empty Q (it stops with
+    # "region 'Q' is empty"); its public `regions` argument computes the same
+    # columns on any region, so the S row is obtained without touching that
+    # file.  Every candidate has the same true effect (the DGM's effect_Qc =
+    # effect_ITT), oriented as the alternative path orients (abs of a common
+    # sign), and its se is the whole-population effective variance at (n, Pg):
+    #   se_g = sqrt(V_eff[S] / (1000 * 1)) * sqrt(1000 / n) * sqrt(1 / Pg),
+    # the alternative's prevalence scaling with P(Q) -> P(S) = 1.
+    scale <- fs_dgm_scale(dgm, regions = list(S = rep(TRUE, n_super)))
+    reg   <- scale$regions
+    iS    <- match("S", reg$region)
+    piQ     <- 1                      # the reference region is S, P(S) = 1
+    tauQc   <- abs(reg$m_tau[iS])     # the common effect, oriented
+    bint    <- 0
+    seQ1000 <- sqrt(reg$V_eff[iS] / (1000 * piQ))
+    PQ      <- 0
   }
-  if (length(unique(sign(reg$m_tau))) != 1L) {
-    stop("the region effects m_tau do not share a sign; the oriented ",
-         "(abs) reading of the scale table is not defined.", call. = FALSE)
-  }
-  piQ     <- reg$P_g[iQ]
-  m_Q     <- abs(reg$m_tau[iQ])
-  tauQc   <- abs(reg$m_tau[iQc])
-  bint    <- m_Q - tauQc
-  seQ1000 <- sqrt(reg$V_eff[iQ] / (1000 * piQ))
-  PQ      <- mean(inQ)
 
   # ---- 2. cuts on the population frame via get_FSdata() ---------------------
   # get_FSdata() validates an outcome and an event column; neither is used
@@ -350,11 +398,22 @@ fs_oc_family_enumerate <- function(dgm, forestsearch_args, n,
   Pg   <- colMeans(memb_mat)
   PgQ  <- colMeans(memb_mat & inQ)          # P(g & Q)
   PgQc <- colMeans(memb_mat & !inQ)         # P(g & Qc)
-  PQg    <- PgQ / Pg
-  beta_g <- tauQc + bint * PQg
-  se_g   <- seQ1000 * sqrt(1000 / n) * sqrt(piQ / Pg)
-  sens_g <- PgQ / PQ
-  spec_g <- 1 - PgQc / (1 - PQ)
+  if (!is_null) {
+    PQg    <- PgQ / Pg
+    beta_g <- tauQc + bint * PQg
+    se_g   <- seQ1000 * sqrt(1000 / n) * sqrt(piQ / Pg)
+    sens_g <- PgQ / PQ
+    spec_g <- 1 - PgQc / (1 - PQ)
+  } else {
+    # null: P(g & Q) = 0 for every g, P(Q) = 0
+    PQg    <- rep(0, M)                 # purity 0
+    beta_g <- rep(tauQc, M)             # the common effect
+    se_g   <- seQ1000 * sqrt(1000 / n) * sqrt(piQ / Pg)   # piQ = 1
+    sens_g <- rep(NA_real_, M)          # 0 / 0: undefined, not zero
+    spec_g <- 1 - Pg                    # Qc is the whole population
+    # npv = (1 - Pg - (PQ - PQg*Pg)) / (1 - Pg) = 1 follows from PQ = 0 in
+    # fs_oc_predict(); nothing to store.
+  }
   ovl    <- crossprod(memb_mat * 1) / n_super
   dimnames(ovl) <- NULL
 
@@ -363,6 +422,7 @@ fs_oc_family_enumerate <- function(dgm, forestsearch_args, n,
     se_g = unname(se_g), sens_g = unname(sens_g), spec_g = unname(spec_g),
     ovl = ovl, M = M, PQ = PQ,
     memb = memb_mat,
+    null = is_null,
     scale = scale, n = n,
     args_used = c(cut_args, list(maxk = maxk, minp = minp, rmin = rmin,
                                  n.min = n.min, n.min.frac = n.min.frac)),
@@ -384,8 +444,13 @@ print.fs_oc_family <- function(x, ...) {
               format(x$args_used$n.min), x$args_used$n.min / x$n,
               format(x$args_used$minp), format(x$args_used$rmin)))
   cat(sprintf("  prevalence   : %.4f to %.4f\n", min(x$Pg), max(x$Pg)))
-  cat(sprintf("  P(Q)         : %.4f;  purity range %.3f to %.3f\n",
-              x$PQ, min(x$PQg), max(x$PQg)))
+  if (isTRUE(x$null)) {
+    cat(sprintf("  NULL DGM     : Q empty; common effect %.4f; se from the S-row V_eff\n",
+                x$beta_g[1]))
+  } else {
+    cat(sprintf("  P(Q)         : %.4f;  purity range %.3f to %.3f\n",
+                x$PQ, min(x$PQg), max(x$PQg)))
+  }
   cat(sprintf("  dropped      : empty %d, minp %d, rmin %d, size %d, duplicate %d\n",
               x$counts[["empty"]], x$counts[["minp"]], x$counts[["rmin"]],
               x$counts[["size"]], x$counts[["duplicate"]]))

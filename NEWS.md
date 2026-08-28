@@ -1,3 +1,37 @@
+# forestsearch 0.2.6
+
+## `fs_oc_family_enumerate()`: a null branch
+
+A DGM whose `df_super$flag_harm` has no member (Q empty;
+`generate_glm_dgm(model = "null")`) is detected structurally -- the same
+fact the null driver asserts -- and cross-checked against `dgm$model`.
+Under the null every candidate has the same true effect, so the family's
+fields become `beta_g` = the common effect (oriented as the alternative
+orients), `se_g` from the whole-population effective variance
+(`fs_dgm_scale(dgm, regions = list(S = ...))`, the S row -- obtained through
+that function's public `regions` argument, without editing it) at `(n, Pg)`,
+`PQg = 0`, `sens_g = NA` (0/0, undefined), `spec_g = 1 - Pg`, `PQ = 0`.
+Enumeration, floors, overlaps and the covariance are unchanged; `NA`
+sensitivity propagates only to `E[sens]` downstream.
+
+## `fs_oc_grid()` / `fs_oc_invert()`: the exact order-statistic reduction
+
+At fixed `(n, gate, c2)` neither the eligible set nor the maxeffCons winner
+depends on `c1`: per draw, `T` = the winner's `Bhat` (`-Inf` if nothing is
+eligible) and declaration at `c1` is exactly `T >= c1`.  The one-block sweep
+now takes the argmax once per `c2` and reads every `c1` off the reduction,
+and `fs_oc_invert(solve_for = "c1")` returns the `k`-th largest `T`,
+`k = ceiling(target * draws)` -- an order statistic, no search; `target` may
+be a vector, served by one draw set.  Results are unchanged: a grid point is
+still `identical()` to `fs_oc_predict()`, and the twelve stored slow-path
+inversions are reproduced to the order-statistic step.
+
+## Alternative-cell results unchanged
+
+`fs_oc_predict()` at a fixed seed is `identical()` to the 0.2.4 reference on
+both gates, and the analytic document's `worked-predictions` chunk is still
+reproduced bit-identically.
+
 # forestsearch 0.2.5
 
 ## New: `fs_oc_grid()` and `fs_oc_invert()` -- threshold sweeps on one draw set, and the declaration-rate inversion

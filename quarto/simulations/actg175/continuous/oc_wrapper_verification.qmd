@@ -337,6 +337,124 @@ reaches `r .f(min(.c1_drop), 0)`–`r .f(max(.c1_drop), 0)`, so the interesting
 range of `c1` lies well above the driver's `r .c1_fix`, and the inverted
 values in the table are where the declaration rate actually begins to move.
 
+# The null cell
+
+```{r null-setup}
+.null_path <- file.path("..", "..", "..", "..", "dev", "glm-continuous-sims",
+                        "oc_wrapper_null_2026-08-29.rds")
+stopifnot(file.exists(.null_path))
+N0 <- readRDS(.null_path)
+.nr <- N0$runs$resample$pred; .ns <- N0$runs$split$pred; .nm <- N0$measured
+.nsw <- N0$sweep$table; .niv <- N0$invert$table
+```
+
+The null DGM (`generate_glm_dgm(model = "null")`: the same ACTG175 frame,
+factors and cut specification, `beta_inter = 0`, so Q is empty and every
+subject has the same treatment effect) is the one cell where the two gates
+can differ -- under the alternative both saturate -- and the one cell the
+analytic document could only address with its stylised M = 16 family.
+`fs_oc_family_enumerate()` detects the null structurally: `df_super$flag_harm`
+has no member, the fact the null driver itself asserts (`sum(inQ) == 0L`,
+`is.na(effect_Q)`, `beta_inter == 0`), cross-checked against `dgm$model`.
+`fs_dgm_scale()`'s default regions need a non-empty Q; its public `regions`
+argument computes the same columns on the whole population, which is what the
+null branch uses. The family's fields become:
+
+| field | null value | note |
+|---|---|---|
+| `beta_g` | `r .f(N0$family$beta_common, 3)` for every g | the common effect, |`effect_Qc`| = |`effect_ITT`|, oriented as the alternative orients |
+| `se_g` | `sqrt(V_eff[S] / (1000 · 1)) · sqrt(1000/n) · sqrt(1/Pg)` | the whole-population effective variance (`V_eff[S]` = `r .f(N0$family$scale$regions$V_eff, 1)`; the alternative's three regions spread 0.86%) at `(n, Pg)`, the same prevalence scaling |
+| `PQg` | 0 | `P(g ∩ Q) = 0` |
+| `sens_g` | `NA` | 0/0 -- undefined, not zero; `E[sens]` is `NA` downstream and nothing else is touched |
+| `spec_g` | `1 − Pg` | `Qc` is the whole population |
+| NPV | 1 | follows from `P(Q) = 0` |
+
+Enumeration, floors, overlaps and the covariance are unchanged: the null
+family has M = `r .fm(N0$family$M)` at n = `r N0$n`, against the
+alternative's `r .fm(G$families[["500"]]$M)`: the null DGM samples the same
+super-population frame under the same seed and only zeroes the harm flag, so
+the cut space and the candidate set are the same objects.
+
+```{r null-table}
+.nrows <- c("det_rate", "EnH", "Esens", "Espec", "Eppv", "Enpv", "EbetaH", "Enaive_bias", "mass_below")
+.nlab  <- c("false declaration rate", "E|Hhat| given declaration", "E[sens]", "E[spec]",
+            "E[PPV]", "E[NPV]", "E[beta(Hhat)] oriented", "naive bias vs beta(Hhat)",
+            "selection mass on rules with mean < c1")
+.ncell <- function(v, se, d) ifelse(is.na(v), "NA (0/0)", ifelse(is.na(se) | se == 0, .f(v, d),
+                                    paste0(.f(v, d), " (", .f(se, 4), ")")))
+.d <- c(4, 1, 3, 3, 3, 3, 3, 2, 3)
+.m_se <- c(.nm$det_rate_se, .nm$EnH_se, NA, .nm$Espec_se, NA, NA, .nm$EbetaH_se, .nm$Enaive_bias_se, NA)
+.m_v  <- c(.nm$det_rate, .nm$EnH, .nm$Esens, .nm$Espec, .nm$Eppv, .nm$Enpv, .nm$EbetaH, .nm$Enaive_bias, NA)
+knitr::kable(data.frame(
+  quantity = c(.nlab, "per-candidate rate range (min .. max P1)", "implied L_eff", "M"),
+  `analytic "resample"` = c(mapply(.ncell, unlist(.nr[.nrows]), c(.nr$det_rate_se, rep(NA, 8)), .d),
+                            sprintf("%s .. %s", .f(N0$runs$resample$p1_range[1], 4), .f(N0$runs$resample$p1_range[2], 4)),
+                            .f(N0$runs$resample$L_eff, 1), .fm(.nr$M)),
+  `analytic "split"`    = c(mapply(.ncell, unlist(.ns[.nrows]), c(.ns$det_rate_se, rep(NA, 8)), .d),
+                            sprintf("%s .. %s", .f(N0$runs$split$p1_range[1], 4), .f(N0$runs$split$p1_range[2], 4)),
+                            .f(N0$runs$split$L_eff, 1), .fm(.ns$M)),
+  simulation = c(mapply(.ncell, .m_v, .m_se, .d), "—", "—", "—"),
+  check.names = FALSE), row.names = FALSE,
+  caption = sprintf("The null cell at n = %d, c1 = %g, c2 = %g: analytic false-declaration and selection functionals under the two gates (%s draws, seed %d) against the measured null run (%d replicates, %d declaring). L_eff = log(1 − fam) / log(1 − max P1), the analytic document's definition.",
+                    N0$n, N0$fs_args$effect.threshold, N0$fs_args$consistency.threshold, .fm(N0$draws), N0$seed, .nm$n_sims, .nm$n_used))
+```
+
+```{r null-figure}
+#| fig-width: 7
+#| fig-height: 5
+plot(NA, xlim = range(N0$sweep$c1), ylim = c(0, 1),
+     xlab = "screening floor c1", ylab = "family false-declaration rate (type-I error)",
+     main = sprintf("Null cell: false declaration against c1 at c2 = %g, both gates, n = %d", N0$sweep$c2, N0$n))
+for (g in c("resample", "split")) {
+  r <- .nsw[.nsw$consistency_method == g, ]; r <- r[order(r$c1), ]
+  lines(r$c1, r$det_rate, lty = if (g == "resample") 1 else 2, lwd = if (g == "resample") 2 else 1)
+}
+abline(h = c(0.05, 0.10), lty = 3); abline(v = N0$fs_args$effect.threshold, lty = 3)
+points(N0$fs_args$effect.threshold, .nr$det_rate, pch = 19)
+text(N0$fs_args$effect.threshold, .nr$det_rate, "  driver (30, 10)", adj = c(0, 1.3))
+legend("topright", bty = "n", legend = c("resample (production)", "split (document)"),
+       lty = c(1, 2), lwd = c(2, 1))
+```
+
+```{r null-invert}
+.nivt <- .niv[order(.niv$consistency_method, .niv$target), ]
+knitr::kable(data.frame(
+  gate = .nivt$consistency_method, `target type-I error` = .nivt$target,
+  `c1 (inverted)` = ifelse(.nivt$attainable, .f(.nivt$value, 2), "NA"),
+  `achieved rate` = ifelse(.nivt$attainable, paste0(.f(.nivt$achieved, 4), " (", .f(.nivt$achieved_se, 4), ")"),
+                           paste0("infeasible (ceiling ", .f(.nivt$ceiling, 4), ")")),
+  check.names = FALSE), row.names = FALSE,
+  caption = sprintf("Null cell: the c1 at which the false-declaration rate equals each target at c2 = %g, per gate, by the order-statistic reduction on one draw set per gate.", N0$sweep$c2))
+```
+
+```{r null-reading}
+.gc <- N0$gate_compare
+.gap30 <- .gc$diff[.gc$c1 == N0$fs_args$effect.threshold]
+.gap_max <- .gc[which.max(abs(.gc$diff)), ]
+```
+
+**Do the gates differ here?** At the driver's `(30, 10)` the production
+`"resample"` screen gives a false-declaration rate of `r .f(.nr$det_rate, 4)`
+and the document's `"split"` gate `r .f(.ns$det_rate, 4)` -- a difference of
+`r .f(.gap30, 4)`, against MC SEs of `r .f(.nr$det_rate_se, 4)`; along the
+`c1` curve the largest gap is `r .f(.gap_max$diff, 4)` at `c1` =
+`r .gap_max$c1`. The measured null cell declared in
+`r .nm$n_used` of `r .nm$n_sims` replicates (`r .f(.nm$det_rate, 3)`).
+
+What the M = `r .fm(N0$family$M)` result says about the analytic document's
+stylised M = 16 figure: the document's `worked-null` chunk computes a
+near-threshold null on sixteen candidates whose means sit 0.13–0.28 SEs below
+the floor, and reports the implied effective family size from the largest
+per-candidate rate; here the same definition on the enumerated family gives
+`L_eff` = `r .f(N0$runs$resample$L_eff, 1)` (`"resample"`) /
+`r .f(N0$runs$split$L_eff, 1)` (`"split"`) against `r .fm(N0$family$M)`
+candidates whose per-candidate rates range
+`r .f(N0$runs$resample$p1_range[1], 3)`–`r .f(N0$runs$resample$p1_range[2], 3)`.
+The family-level false declaration the document could not reach with sixteen
+members is what the enumeration reaches; the stylised figure was a lower
+bound on a quantity set by the size and overlap of the real cut space, not
+by the sixteen it typed.
+
 # Reading the comparison
 
 ```{r reading}

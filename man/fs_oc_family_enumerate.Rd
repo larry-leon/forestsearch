@@ -47,6 +47,8 @@ An object of class \code{c("fs_oc_family", "list")} with elements
 \item{\code{PQ}}{\code{P(Q)}, the prevalence of the true region.}
 \item{\code{memb}}{Logical matrix, \code{nrow(df_super)} by M, the
 population membership of each candidate.}
+\item{\code{null}}{Logical: \code{TRUE} when the null branch was
+taken (Q empty).}
 \item{\code{scale}}{The \code{fs_dgm_scale} object used.}
 \item{\code{n}}{The trial size.}
 \item{\code{args_used}}{The \code{forestsearch_args} entries consumed,
@@ -95,6 +97,20 @@ The GRF variable-importance pre-screen, the effect screen, the consistency
 screen and the near-duplicate removal are \emph{not} applied.  Candidates
 whose population membership vectors are identical are collapsed to the
 first one enumerated.
+
+\strong{Null DGMs.} A DGM whose \code{df_super$flag_harm} has no member
+(Q empty; \code{generate_glm_dgm(model = "null")}) is detected
+structurally, cross-checked against \code{dgm$model} when present.  Under
+the null every candidate has the same true effect, so the fields become:
+\code{beta_g} = the common effect (the DGM's \code{effect_Qc} =
+\code{effect_ITT}, oriented as the alternative path orients);
+\code{se_g} from the whole-population effective variance
+(\code{fs_dgm_scale(dgm, regions = list(S = ...))}, the S row) at
+\code{(n, Pg)} with the same prevalence scaling; \code{PQg = 0};
+\code{sens_g = NA} (0/0, undefined -- not zero); \code{spec_g = 1 - Pg};
+\code{PQ = 0} (from which NPV = 1 follows downstream).  Enumeration, floors,
+\code{ovl} and the covariance are unchanged.  The element \code{null}
+records the branch taken.
 
 \strong{Scale.} Every mean and standard error is derived from
 \code{\link{fs_dgm_scale}(dgm)}: with \code{Q} the true harm region,

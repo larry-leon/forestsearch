@@ -32,7 +32,8 @@ specification and floors for \code{\link{fs_oc_family_enumerate}}.}
 
 \item{n}{Single trial size.}
 
-\item{target}{Numeric in (0, 1).  Target family declaration rate.}
+\item{target}{Numeric in (0, 1); may be a vector when
+\code{solve_for = "c1"}.  Target family declaration rate(s).}
 
 \item{solve_for}{\code{"c1"} (at fixed \code{c2}) or \code{"c2"} (at fixed
 \code{c1}).}
@@ -58,18 +59,22 @@ Ignored by \code{"split"}.}
 \item{seed}{Integer or \code{NULL}.  Passed to \code{set.seed()} before the
 draws when non-\code{NULL}.}
 
-\item{tol}{Bisection tolerance on the threshold scale.}
+\item{tol}{Bisection tolerance on the threshold scale (\code{solve_for =
+"c2"} only).}
 
 \item{...}{Passed to \code{\link{fs_oc_family_enumerate}} when
 \code{family = NULL}.}
 }
 \value{
-An object of class \code{c("fs_oc_invert", "list")}: \code{value}
-(the threshold, or \code{NA}), \code{achieved} (rate at \code{value}),
-\code{achieved_se}, \code{target}, \code{ceiling}, \code{ceiling_se},
-\code{binding} (which threshold sets the ceiling), \code{attainable},
-\code{solve_for}, \code{fixed} (the other threshold), \code{iterations},
-\code{bracket}, \code{settings}.
+For a single \code{target}, an object of class
+\code{c("fs_oc_invert", "list")}: \code{value} (the threshold, or
+\code{NA}), \code{achieved} (rate at \code{value}), \code{achieved_se},
+\code{target}, \code{ceiling}, \code{ceiling_se}, \code{binding} (which
+threshold sets the ceiling), \code{attainable}, \code{solve_for},
+\code{fixed}, \code{k} (the order-statistic rank, \code{solve_for = "c1"}),
+\code{next_step_rate}, \code{iterations} (bisections, \code{solve_for =
+  "c2"}), \code{settings}.  For a vector \code{target}, a list of such
+objects (class \code{fs_oc_invert_list}) with a \code{table} attribute.
 }
 \description{
 Finds the threshold -- \code{c1} at fixed \code{c2}, or \code{c2} at fixed
@@ -78,18 +83,32 @@ one fixed draw set: "the \code{c1} giving 80\\% power", the same quantity
 read as a type-I error under a null DGM.
 }
 \details{
-On fixed draws the rate is a monotone non-increasing step function of the
-threshold.  The function first evaluates the \strong{ceiling}: the rate as
-the solved-for threshold goes to \code{-Inf}, where only the other threshold
-binds (\code{c2 + z_p * se_g} for \code{"resample"}; both halves clearing
-\code{c2} for \code{"split"}; or the \code{c1} screen when solving for
-\code{c2}).  A \code{target} above the ceiling is \strong{unattainable}: the
-result is \code{NA} with the ceiling and the binding threshold named -- no
-extrapolation.  Otherwise a bracket is established from the draws' range and
-bisected to \code{tol} on the threshold scale; the returned value is the
-largest threshold whose rate is still at least \code{target} (the step the
-target falls on), reported with the achieved rate and its MC SE so the
-resolution the draw count supports is visible.
+\strong{Solving for \code{c1}: an order statistic.} At fixed
+\code{(n, gate, c2)} neither the eligible set nor the winner depends on
+\code{c1}: with \code{eligible_g = (Bhat_g - c2 >= z_p * se_g)}
+(\code{"resample"}) or \code{(W1_g >= c2) & (W2_g >= c2)} (\code{"split"}),
+each draw's winner is \code{w = argmax_{eligible} Bhat_g} and its statistic
+\code{T = Bhat_w} (\code{-Inf} when nothing is eligible).  Declaration at
+\code{c1} is exactly \code{T >= c1}, and \code{w} is the maxeffCons winner
+whenever anything declares.  So the reduction is computed once
+(\code{.fs_oc_reduce()}), the declaration rate at any \code{c1} is
+\code{mean(T >= c1)}, and the largest \code{c1} attaining a target is the
+\code{k}-th largest \code{T} with \code{k = ceiling(target * draws)}: an
+order statistic, no search.  The \strong{ceiling} is \code{mean(T > -Inf)},
+the fraction of draws with any eligible member, set by the consistency
+screen alone; a \code{target} above it is unattainable and returns
+\code{NA} with the ceiling and the binding threshold named -- no
+extrapolation.  \code{target} may be a vector: one reduction serves every
+target.
+
+\strong{Solving for \code{c2}} at fixed \code{c1}: the eligible set moves
+with \code{c2}, so the rate is bracketed from the draws' range and bisected
+to \code{tol} on fixed draws (a monotone non-increasing step function); the
+returned value is the largest threshold whose rate is still at least
+\code{target}.
+
+Every result reports the achieved rate and its MC SE, so the resolution the
+draw count supports is visible.
 }
 \examples{
 piQ <- 0.34

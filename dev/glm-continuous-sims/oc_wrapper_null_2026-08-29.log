@@ -1,0 +1,65 @@
+null rebuild gate:
+    Q_empty effect_Q_NA   effect_Qc  beta_inter  effect_ITT  model_null 
+       TRUE        TRUE        TRUE        TRUE        TRUE        TRUE 
+fs_oc_family_enumerate: cut columns 72 | enumerated 2628 | dropped: empty 119 minp 0 rmin 99 size 631 | kept 1779 | duplicates 178 | M = 1601 
+Population-enumerated candidate family (fs_oc_family)
+  M            : 1601 candidates (from 72 cut columns, maxk = 2)
+  n            : 500
+  floors       : n.min = 60 (Pg >= 0.1200), minp = 0.025, rmin = 5
+  prevalence   : 0.1200 to 0.9196
+  NULL DGM     : Q empty; common effect 26.2552; se from the S-row V_eff
+  dropped      : empty 119, minp 0, rmin 99, size 631, duplicate 178
+null family: M = 1601; common effect 26.255236; S-row V_eff 67940.0915; alt M at n = 500 was 1601
+measured (null payload): det 0.998  EnH 72.0481  spec 0.8559038  ppv 0  npv 1  EbetaH 26.25524  naive bias 74.8514 
+resample false declaration 0.9970 (SE 0.0001); P1 range 0.1211..0.3784; L_eff 12.22; EnH 71.0; EbetaH 26.255; naive 76.22; mass_below 1.000; 337 s
+split    false declaration 1.0000 (SE 0.0000); P1 range 0.3460..0.3778; L_eff 25.72; EnH 70.9; EbetaH 26.255; naive 76.05; mass_below 1.000; 648 s
+fs_oc_grid: n = 500  gate = resample  M = 1601  enumerate 0.0s  draw 315.0s  sweep 70.2s (21 points)
+fs_oc_grid: n = 500  gate = split     M = 1601  enumerate 0.0s  draw 625.7s  sweep 68.6s (21 points)
+sweep: 42 rows in 1080 s
+resample sweep point at c1 = 30 identical() to fs_oc_predict(): TRUE
+split    sweep point at c1 = 30 identical() to fs_oc_predict(): TRUE
+    n consistency_method    M enumerate_secs draw_secs sweep_secs
+1 500           resample 1601              0   314.954     70.174
+2 500              split 1601              0   625.683     68.557
+invert resample: 7 targets in 334 s (one draw set)
+invert split   : 7 targets in 628 s (one draw set)
+   consistency_method target   value achieved achieved_se ceiling attainable
+1            resample   0.05 133.114     0.05  0.00048734   0.997       TRUE
+2            resample   0.10 125.762     0.10  0.00067082   0.997       TRUE
+3            resample   0.20 117.109     0.20  0.00089443   0.997       TRUE
+4            resample   0.50 101.569     0.50  0.00111803   0.997       TRUE
+5            resample   0.80  87.151     0.80  0.00089443   0.997       TRUE
+6            resample   0.90  79.958     0.90  0.00067082   0.997       TRUE
+7            resample   0.95  74.214     0.95  0.00048734   0.997       TRUE
+8               split   0.05 133.241     0.05  0.00048734   1.000       TRUE
+9               split   0.10 125.710     0.10  0.00067082   1.000       TRUE
+10              split   0.20 117.013     0.20  0.00089443   1.000       TRUE
+11              split   0.50 101.538     0.50  0.00111803   1.000       TRUE
+12              split   0.80  87.070     0.80  0.00089443   1.000       TRUE
+13              split   0.90  79.810     0.90  0.00067082   1.000       TRUE
+14              split   0.95  74.036     0.95  0.00048734   1.000       TRUE
+
+split - resample false-declaration rate along c1:
+  c1 det_rate_resample det_rate_se det_rate_split      diff
+  20            0.9970   0.0001223         1.0000  0.003000
+  25            0.9970   0.0001223         1.0000  0.002995
+  30            0.9970   0.0001223         1.0000  0.002995
+  35            0.9970   0.0001225         1.0000  0.002990
+  40            0.9969   0.0001234         0.9999  0.002955
+  45            0.9968   0.0001266         0.9997  0.002905
+  50            0.9963   0.0001359         0.9993  0.002995
+  55            0.9955   0.0001500         0.9979  0.002420
+  60            0.9933   0.0001819         0.9946  0.001210
+  65            0.9876   0.0002478         0.9872 -0.000380
+  70            0.9723   0.0003668         0.9715 -0.000855
+  75            0.9448   0.0005107         0.9432 -0.001565
+  80            0.8995   0.0006722         0.8980 -0.001510
+  85            0.8344   0.0008312         0.8330 -0.001345
+  90            0.7488   0.0009698         0.7478 -0.000990
+  95            0.6463   0.0010691         0.6456 -0.000690
+ 100            0.5352   0.0011153         0.5349 -0.000295
+ 105            0.4242   0.0011051         0.4237 -0.000505
+ 110            0.3204   0.0010434         0.3202 -0.000245
+ 115            0.2325   0.0009446         0.2308 -0.001680
+ 120            0.1608   0.0008215         0.1601 -0.000690
+written: dev/glm-continuous-sims/oc_wrapper_null_2026-08-29.rds 
