@@ -1,3 +1,32 @@
+# forestsearch 0.2.5
+
+## New: `fs_oc_grid()` and `fs_oc_invert()` -- threshold sweeps on one draw set, and the declaration-rate inversion
+
+`fs_oc_grid(dgm, forestsearch_args, n, c1, c2, ...)` evaluates every
+`fs_oc_predict()` quantity over the full crossing of `n`, `c1` and `c2`,
+enumerating the family and drawing the candidates' fitted effects once per
+`n` (and per gate) and sweeping the thresholds against those draws: both
+gates are thresholds on draws that do not depend on `c1` or `c2`, so the
+sweep costs arithmetic, not draws.  A `block` argument generates the draws in
+row blocks and accumulates, making memory O(block x M); `block = Inf` is the
+exact one-block path, `identical()` to `fs_oc_predict()` at one grid point.
+
+`fs_oc_invert(dgm, forestsearch_args, n, target, solve_for = c("c1", "c2"))`
+finds the threshold at which the family declaration rate equals `target`
+by bracketing and bisection on fixed draws (a monotone step function),
+reporting the achieved rate with its MC SE, and returning `NA` with the
+ceiling and the binding threshold named when the target is unattainable.
+
+## `fs_oc_predict()`: results unchanged
+
+The draw, gate and selection/functional blocks of `fs_oc_predict()` were
+moved into internal helpers (`.fs_oc_draw`, `.fs_oc_gate`,
+`.fs_oc_functionals`, `.fs_oc_result`) so that `fs_oc_grid()` shares the
+gate rather than copying it.  This is a move-only refactor: `fs_oc_predict()`'s
+output at a fixed seed is `identical()` to 0.2.4's on both gates, and the
+analytic document's `worked-predictions` chunk is still reproduced
+bit-identically.
+
 # forestsearch 0.2.4
 
 ## `fs_oc_predict()`: the `"resample"` gate is implemented

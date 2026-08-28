@@ -226,15 +226,31 @@ fs_oc_predict <- function(dgm = NULL, forestsearch_args = list(), n,
 
   if (!is.null(seed)) set.seed(seed)
   Rdraw <- draws
+  dr   <- .fs_oc_draw(Sg, beta_g, M, Rdraw, consistency_method)
+  pass <- .fs_oc_gate(dr, c1, c2, se_g, pconsistency, consistency_method)
+  fx   <- .fs_oc_functionals(pass, dr$Bhat, family, n, c1, Rdraw)
+
+  .fs_oc_result(fx, family, n, c1, c2, consistency_method, pconsistency,
+                draws, seed)
+}
+
+
+# -----------------------------------------------------------------------------
+# The draw / gate / functional blocks, factored so that fs_oc_grid() runs the
+# same code on the same draws.  MOVE-ONLY: the bodies are the original
+# fs_oc_predict() statements in their original order; nothing is re-expressed.
+# -----------------------------------------------------------------------------
+
+# One draw set for a family at fixed n.  "resample": Bhat ~ N(beta_g, Sg), one
+# matrix.  "split": two half-sample effects W1, W2 with cov 2*Sg each, and
+# Bhat = (W1 + W2) / 2.  RNG: exactly the original consumption order.
+.fs_oc_draw <- function(Sg, beta_g, M, Rdraw, consistency_method) {
   if (identical(consistency_method, "resample")) {
     # ---- production gate: one draw of the full-sample effects, cov = Sg ----
     root_full <- fs_sym_root(Sg, scale = 1)
     Bhat <- matrix(stats::rnorm(Rdraw * M), Rdraw, M) %*% t(root_full) +
             rep(beta_g, each = Rdraw)
-    # rate = 2*Phi((Bhat - c2)/sigma_D) - 1 >= p  <=>  Bhat - c2 >= z_p*sigma_D,
-    # with sigma_D identified as se_g; combined with the effect screen at c1.
-    z_p  <- stats::qnorm((1 + pconsistency) / 2)
-    pass <- (Bhat >= c1) & (Bhat - c2 >= z_p * rep(se_g, each = Rdraw))
+    list(Bhat = Bhat, W1 = NULL, W2 = NULL, Rdraw = Rdraw)
   } else {
     # ---- draws: two half-sample effects, cov = 2 * Sg each ----------------
     root_half <- fs_sym_root(Sg, scale = 2)
@@ -243,10 +259,33 @@ fs_oc_predict <- function(dgm = NULL, forestsearch_args = list(), n,
     W2 <- matrix(stats::rnorm(Rdraw * M), Rdraw, M) %*% t(root_half) +
           rep(beta_g, each = Rdraw)
     Bhat <- (W1 + W2) / 2
-
-    # ---- S3: the gate -------------------------------------------------------
-    pass <- (W1 + W2 >= 2 * c1) & (W1 >= c2) & (W2 >= c2)
+    list(Bhat = Bhat, W1 = W1, W2 = W2, Rdraw = Rdraw)
   }
+}
+
+# The gate on a draw set: a logical Rdraw x M matrix.  Thresholds enter only
+# here, so one draw set serves every (c1, c2).
+.fs_oc_gate <- function(dr, c1, c2, se_g, pconsistency, consistency_method) {
+  if (identical(consistency_method, "resample")) {
+    # rate = 2*Phi((Bhat - c2)/sigma_D) - 1 >= p  <=>  Bhat - c2 >= z_p*sigma_D,
+    # with sigma_D identified as se_g; combined with the effect screen at c1.
+    z_p  <- stats::qnorm((1 + pconsistency) / 2)
+    (dr$Bhat >= c1) & (dr$Bhat - c2 >= z_p * rep(se_g, each = dr$Rdraw))
+  } else {
+    # ---- S3: the gate -------------------------------------------------------
+    (dr$W1 + dr$W2 >= 2 * c1) & (dr$W1 >= c2) & (dr$W2 >= c2)
+  }
+}
+
+# S4-S6 on a full pass matrix: maxeffCons selection and the functionals.
+.fs_oc_functionals <- function(pass, Bhat, family, n, c1, Rdraw) {
+  Pg     <- family$Pg
+  PQg    <- family$PQg
+  beta_g <- family$beta_g
+  sens_g <- family$sens_g
+  spec_g <- family$spec_g
+  M      <- family$M
+  PQ     <- family$PQ
   det  <- rowSums(pass) > 0
 
   # ---- S4: maxeffCons selection ---------------------------------------------
@@ -268,24 +307,34 @@ fs_oc_predict <- function(dgm = NULL, forestsearch_args = list(), n,
   Enaive_bias <- mean(noise[cbind(which(det), winner[det])])
   mass_below <- sum(sel_c[beta_g < c1])
 
+  list(det_rate = det_rate, P1 = P1, p_sel = p_sel, sel_c = sel_c,
+       EnH = EnH, Esens = Esens, Espec = Espec, Eppv = Eppv, Enpv = Enpv,
+       EbetaH = EbetaH, Enaive_bias = Enaive_bias, mass_below = mass_below,
+       Rdraw = Rdraw)
+}
+
+# The returned object, assembled from the functionals.
+.fs_oc_result <- function(fx, family, n, c1, c2, consistency_method,
+                          pconsistency, draws, seed) {
+  Rdraw <- fx$Rdraw
   out <- list(
-    det_rate    = det_rate,
-    det_rate_se = .fs_oc_mc_se_prop(det_rate, Rdraw),
-    P1          = P1,
-    P1_se       = .fs_oc_mc_se_prop(P1, Rdraw),
-    p_sel       = p_sel,
-    p_sel_se    = .fs_oc_mc_se_prop(p_sel, Rdraw),
-    sel_c       = sel_c,
-    EnH         = EnH,
-    Esens       = Esens,
-    Espec       = Espec,
-    Eppv        = Eppv,
-    Enpv        = Enpv,
-    EbetaH      = EbetaH,
-    Enaive_bias = Enaive_bias,
-    mass_below  = mass_below,
-    M           = M,
-    lab         = lab,
+    det_rate    = fx$det_rate,
+    det_rate_se = .fs_oc_mc_se_prop(fx$det_rate, Rdraw),
+    P1          = fx$P1,
+    P1_se       = .fs_oc_mc_se_prop(fx$P1, Rdraw),
+    p_sel       = fx$p_sel,
+    p_sel_se    = .fs_oc_mc_se_prop(fx$p_sel, Rdraw),
+    sel_c       = fx$sel_c,
+    EnH         = fx$EnH,
+    Esens       = fx$Esens,
+    Espec       = fx$Espec,
+    Eppv        = fx$Eppv,
+    Enpv        = fx$Enpv,
+    EbetaH      = fx$EbetaH,
+    Enaive_bias = fx$Enaive_bias,
+    mass_below  = fx$mass_below,
+    M           = family$M,
+    lab         = family$lab,
     settings    = list(n = n, c1 = c1, c2 = c2,
                        consistency_method = consistency_method,
                        pconsistency = pconsistency,
