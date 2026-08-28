@@ -201,7 +201,7 @@ Duration: 11m 24.8s
 
 Version `0.2.5 → 0.2.6`; `NEWS.md` names the null branch and the reduction and states alternative-cell results are unchanged. `devtools::install()`: `packageVersion("forestsearch")` → `0.2.6`.
 
-Commits (explicit paths; no push): `6574beb5` task doc; __COMMITS__.
+Commits (explicit paths; no push): `6574beb5` task doc; `e3725912` build, precompute, document and this report; the hash line in the follow-up commit.
 
 ---
 
