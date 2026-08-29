@@ -141,7 +141,7 @@ No recommendation.
 
 `git status --porcelain` before staging: the new files only. Staged by explicit path: `residual_quantiles_2026-08-30.R`; `residual_quantiles_stage1_{alt500,alt700,null500}_2026-08-30.rds` and `.log`; `residual_quantiles_gate_2026-08-30.rds` and `.log`; `residual_quantiles_stage2_{alt500,alt700,null500}_{located,full}_2026-08-30.rds` and `.log`; `residual_quantiles_summary_2026-08-30.log`; this report. **No push. No install** (nothing in `R/` changed; 0.3.0 stays installed).
 
-Commits: `d9ccc24c` task doc; scripts, outputs and this report in the next commit; its hash in the follow-up line.
+Commits: `d9ccc24c` task doc; `2a4c0126` scripts, outputs and this report; the hash line in the follow-up commit.
 
 ---
 
