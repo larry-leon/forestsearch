@@ -1,0 +1,721 @@
+══ Building ════════════════════════════════════════════════════════════════════
+Setting env vars:
+• CFLAGS    : -Wall -pedantic
+• CXXFLAGS  : -Wall -pedantic
+• CXX11FLAGS: -Wall -pedantic
+• CXX14FLAGS: -Wall -pedantic
+• CXX17FLAGS: -Wall -pedantic
+• CXX20FLAGS: -Wall -pedantic
+── R CMD build ─────────────────────────────────────────────────────────────────
+* checking for file ‘/home/larryleon/Documents/GitHub/forestsearch/DESCRIPTION’ ... OK
+* preparing ‘forestsearch’:
+* checking DESCRIPTION meta-information ... OK
+* installing the package (it is needed to build vignettes)
+* creating vignettes ... OK
+* checking for LF line-endings in source and make files and shell scripts
+* checking for empty or unneeded directories
+* building ‘forestsearch_0.3.1.tar.gz’
+
+══ Checking ════════════════════════════════════════════════════════════════════
+Setting env vars:
+• _R_CHECK_CRAN_INCOMING_USE_ASPELL_           : TRUE
+• _R_CHECK_CRAN_INCOMING_REMOTE_               : FALSE
+• _R_CHECK_CRAN_INCOMING_                      : FALSE
+• _R_CHECK_FORCE_SUGGESTS_                     : FALSE
+• _R_CHECK_PACKAGES_USED_IGNORE_UNUSED_IMPORTS_: FALSE
+• NOT_CRAN                                     : true
+── R CMD check ─────────────────────────────────────────────────────────────────
+* using log directory ‘/tmp/RtmpImldj9/file28b4c26b79c593/forestsearch.Rcheck’
+* using R version 4.6.1 (2026-06-24)
+* using platform: x86_64-pc-linux-gnu
+* R was compiled by
+    x86_64-linux-gnu-gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+    GNU Fortran (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+* running under: Pop!_OS 24.04 LTS
+* using session charset: UTF-8
+* current time: 2026-08-29 21:32:55 UTC
+* using options ‘--no-manual --as-cran’
+* checking for file ‘forestsearch/DESCRIPTION’ ... OK
+* this is package ‘forestsearch’ version ‘0.3.1’
+* package encoding: UTF-8
+* checking package namespace information ... OK
+* checking package dependencies ... OK
+* checking if this is a source package ... OK
+* checking if there is a namespace ... OK
+* checking for executable files ... OK
+* checking for hidden files and directories ... OK
+* checking for portable file names ... OK
+* checking for sufficient/correct file permissions ... OK
+* checking whether package ‘forestsearch’ can be installed ... [18s/18s] OK
+* checking installed package size ... INFO
+  installed size is  7.7Mb
+  sub-directories of 1Mb or more:
+    R      1.8Mb
+    doc    4.3Mb
+    help   1.3Mb
+* checking package directory ... OK
+* checking for future file timestamps ... OK
+* checking ‘build’ directory ... OK
+* checking DESCRIPTION meta-information ... OK
+* checking top-level files ... OK
+* checking for left-over files ... OK
+* checking index information ... OK
+* checking package subdirectories ... OK
+* checking code files for non-ASCII characters ... OK
+* checking R files for syntax errors ... OK
+* checking whether the package can be loaded ... OK
+* checking whether the package can be loaded with stated dependencies ... OK
+* checking whether the package can be unloaded cleanly ... OK
+* checking whether the namespace can be loaded with stated dependencies ... OK
+* checking whether the namespace can be unloaded cleanly ... OK
+* checking loading without being on the library search path ... OK
+* checking dependencies in R code ... OK
+* checking S3 generic/method consistency ... OK
+* checking replacement functions ... OK
+* checking foreign function calls ... OK
+* checking R code for possible problems ... [40s/40s] OK
+* checking Rd files ... OK
+* checking Rd metadata ... OK
+* checking Rd line widths ... OK
+* checking Rd cross-references ... OK
+* checking for missing documentation entries ... OK
+* checking for code/documentation mismatches ... OK
+* checking Rd \usage sections ... OK
+* checking Rd contents ... OK
+* checking for unstated dependencies in examples ... OK
+* checking installed files from ‘inst/doc’ ... OK
+* checking files in ‘vignettes’ ... OK
+* checking examples ... [30s/30s] OK
+* checking examples with --run-donttest ... [216s/99s] OK
+* checking for unstated dependencies in ‘tests’ ... OK
+* checking tests ...
+  Running ‘testthat.R’ [473s/299s]
+ [473s/300s] ERROR
+Running the tests in ‘tests/testthat.R’ failed.
+Last 13 lines of output:
+      actual$M.1     | expected$M.1      
+  [3] "!{x1 <= 0.6}" | "!{x1 <= 0.6}" [3]
+  [4] "!{x1 <= 0.6}" | "!{x1 <= 0.6}" [4]
+  [5] "!{x1 <= 0}"   | "!{x1 <= 0}"   [5]
+  [6] "!{x1 <= 0}"   -                   
+  [7] "{x3 <= 0}"    -                   
+  
+  `actual$M.2[3:7]`:   "{x2 <= 0.6}" "!{b2}" "{x2 <= 0.6}" "!{b2}" "{b1}"
+  `expected$M.2[3:5]`: "{x2 <= 0.6}" "!{b2}" "{x2 <= 0.6}"               
+  
+  
+  [ FAIL 1 | WARN 31 | SKIP 7 | PASS 4834 ]
+  Error:
+  ! Test failures.
+  Execution halted
+* checking for unstated dependencies in vignettes ... OK
+* checking package vignettes ... OK
+* checking re-building of vignette outputs ... [19s/26s] OK
+* checking for non-standard things in the check directory ... OK
+* checking for detritus in the temp directory ... OK
+* DONE
+
+Status: 1 ERROR
+See
+  ‘/tmp/RtmpImldj9/file28b4c26b79c593/forestsearch.Rcheck/00check.log’
+for details.
+
+── R CMD check results ───────────────────────────────── forestsearch 0.3.1 ────
+Duration: 9m 15.5s
+
+❯ checking tests ...
+  See below...
+
+── Test failures ───────────────────────────────────────────────── testthat ────
+
+> # This file is part of the standard setup for testthat.
+> # It is recommended that you do not modify it.
+> #
+> # Where should you do additional test configuration?
+> # Learn more about the roles of various files in:
+> # * https://r-pkgs.org/testing-design.html#sec-tests-files-overview
+> # * https://testthat.r-lib.org/articles/special-files.html
+> 
+> library(testthat)
+> library(forestsearch)
+> 
+> test_check("forestsearch")
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use: 1 workers with 'sequential' plan
+Bootstrap iteration 1/5
+Bootstrap iteration 5/5
+
+[forestsearch] Subgroup Identification Configuration
+  Outcome type:   binary
+  Effect measure: OR (Odds Ratio)
+  Scale:          log (ratio)
+
+  Screening:      OR >= 1.10 (log: 0.0953)
+  Consistency:    OR >= 1.00 (log: 0.0000)
+  Consistency rate threshold: 30%
+
+  Interpretation:
+    Candidates: subgroup OR >= 1.10
+    Splits:     each split OR >= 1.00
+
+
+[forestsearch] Subgroup Identification Configuration
+  Outcome type:   continuous
+  Effect measure: MD (Mean Difference)
+  Scale:          identity
+
+  Screening:      MD >= 0.0000
+  Consistency:    MD >= 0.0000
+  Consistency rate threshold: 30%
+
+  Interpretation:
+    Candidates: MD >= 0.0000
+    Splits:     MD >= 0.0000 per split
+
+
+[forestsearch] Subgroup Identification Configuration
+  Outcome type:   count
+  Effect measure: IRR (Incidence Rate Ratio)
+  Scale:          log (ratio)
+
+  Screening:      IRR >= 1.10 (log: 0.0953)
+  Consistency:    IRR >= 1.00 (log: 0.0000)
+  Consistency rate threshold: 30%
+
+  Interpretation:
+    Candidates: subgroup IRR >= 1.10
+    Splits:     each split IRR >= 1.00
+
+# of continuous/categorical characteristics 1 1 
+Continuous characteristics: age 
+Categorical characteristics: bm1 
+Default cuts included (1st 20) age <= mean(age) age <= median(age) age <= qlow(age) age <= qhigh(age) 
+Categorical: bm1 
+Factors per GRF: age <= 57 age <= 55 age <= 66 
+Initial GRF cuts included age <= 57 age <= 55 age <= 66 
+
+Cut coarsening: 7 -> 6 candidates  (c=1, safety_tol=0.05, digits=0)
+  age <= {55.1} -> age <= 55  (0 subj moved) 
+
+===== CONSOLIDATED CUT EVALUATION (IMPROVED) =====
+Evaluating 6 cut expressions once and caching...
+Cut evaluation summary:
+  Total cuts:  6 
+  Valid cuts:  6 
+  Errors:  0 
+✓ All 6 factors validated as 0/1
+===== END CONSOLIDATED CUT EVALUATION =====
+
+# of candidate subgroup factors= 6 
+[1] "age <= 57" "age <= 55" "age <= 66" "age <= 48" "age <= 62" "bm1"      
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use: 1 workers with 'sequential' plan
+Bootstrap iteration 1/2
+Bootstrap iteration 2/2
+
+[forestsearch] Subgroup Identification Configuration
+  Outcome type:   survival (Cox PH)
+  Effect measure: HR (hazard ratio)
+  Scale:          log (ratio)
+
+  Screening:      HR >= 1.25  (log: 0.2231)
+  Consistency:    HR >= 1.00  (log: 0.0000)
+  Consistency rate threshold: 80%
+
+  Interpretation:
+    Candidates: subgroup hazard ratio >= 1.25
+    Splits:     each split HR >= 1.00
+
+Multiplier resampling (MR): constructing de-biased estimates from 200 draws.
+  This is post-selection inference on the completed search; it cannot change the identified subgroup.
+MR harm confirmation: HR = 1.123 (point rule vs 1.00) -> consistent with harm
+
+[forestsearch] Subgroup Identification Configuration
+  Outcome type:   survival (Cox PH)
+  Effect measure: HR (hazard ratio)
+  Scale:          log (ratio)
+
+  Screening:      HR >= 1.25  (log: 0.2231)
+  Consistency:    HR >= 1.00  (log: 0.0000)
+  Consistency rate threshold: 80%
+
+  Interpretation:
+    Candidates: subgroup hazard ratio >= 1.25
+    Splits:     each split HR >= 1.00
+
+Multiplier resampling (MR): constructing de-biased estimates from 200 draws.
+  This is post-selection inference on the completed search; it cannot change the identified subgroup.
+MR harm confirmation: HR = 1.123 (point rule vs 1.00) -> consistent with harm
+Saving _problems/test-search-reproducibility-87.R
+[ FAIL 1 | WARN 31 | SKIP 7 | PASS 4834 ]
+
+══ Skipped tests (7) ═══════════════════════════════════════════════════════════
+• pre-refactor reference not present (dev/ not shipped) (2):
+  'test-fs-oc-grid.R:41:3', 'test-fs-oc-null.R:102:3'
+• primary fit did not identify; test N/A (2):
+  'test-cross-outcome-parity.R:262:3', 'test-cross-outcome-parity.R:358:3'
+• simulation modules not present (3): 'test-betaHhat-contract.R:429:3',
+  'test-betaHhat-contract.R:462:3', 'test-betaHhat-contract.R:502:3'
+
+══ Warnings ════════════════════════════════════════════════════════════════════
+── Warning ('test-cross-outcome-parity.R:45:5'): forestsearch() returns structurally equivalent objects across outcome types ──
+max_subgroups_search = 5 truncated the candidate pool from 6 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+     ▆
+  1. └─base::lapply(...) at test-cross-outcome-parity.R:42:3
+  2.   └─forestsearch (local) FUN(X[[i]], ...)
+  3.     ├─base::do.call(forestsearch, c(list(df.analysis = td$df), args)) at test-cross-outcome-parity.R:45:5
+  4.     └─forestsearch (local) `<fn>`(...)
+  5.       ├─base::tryCatch(...)
+  6.       │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+  7.       │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+  8.       │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+  9.       ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 10.       └─forestsearch (local) `<fn>`(...)
+── Warning ('test-cross-outcome-parity.R:45:5'): forestsearch() returns structurally equivalent objects across outcome types ──
+max_subgroups_search = 5 truncated the candidate pool from 35 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+     ▆
+  1. └─base::lapply(...) at test-cross-outcome-parity.R:42:3
+  2.   └─forestsearch (local) FUN(X[[i]], ...)
+  3.     ├─base::do.call(forestsearch, c(list(df.analysis = td$df), args)) at test-cross-outcome-parity.R:45:5
+  4.     └─forestsearch (local) `<fn>`(...)
+  5.       ├─base::tryCatch(...)
+  6.       │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+  7.       │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+  8.       │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+  9.       ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 10.       └─forestsearch (local) `<fn>`(...)
+── Warning ('test-cross-outcome-parity.R:45:5'): forestsearch() returns structurally equivalent objects across outcome types ──
+max_subgroups_search = 5 truncated the candidate pool from 64 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+     ▆
+  1. └─base::lapply(...) at test-cross-outcome-parity.R:42:3
+  2.   └─forestsearch (local) FUN(X[[i]], ...)
+  3.     ├─base::do.call(forestsearch, c(list(df.analysis = td$df), args)) at test-cross-outcome-parity.R:45:5
+  4.     └─forestsearch (local) `<fn>`(...)
+  5.       ├─base::tryCatch(...)
+  6.       │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+  7.       │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+  8.       │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+  9.       ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 10.       └─forestsearch (local) `<fn>`(...)
+── Warning ('test-cross-outcome-parity.R:83:5'): outcome_type and effect_measure round-trip for all GLM types ──
+max_subgroups_search = 5 truncated the candidate pool from 34 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-cross-outcome-parity.R:83:5
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-cross-outcome-parity.R:83:5'): outcome_type and effect_measure round-trip for all GLM types ──
+max_subgroups_search = 5 truncated the candidate pool from 53 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-cross-outcome-parity.R:83:5
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-cross-outcome-parity.R:113:5'): fold_summary columns are identical across outcome types ──
+max_subgroups_search = 5 truncated the candidate pool from 7 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+     ▆
+  1. └─base::lapply(c("survival", "binary"), run_cv_for) at test-cross-outcome-parity.R:126:3
+  2.   └─forestsearch (local) FUN(X[[i]], ...)
+  3.     ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-cross-outcome-parity.R:113:5
+  4.     └─forestsearch (local) `<fn>`(...)
+  5.       ├─base::tryCatch(...)
+  6.       │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+  7.       │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+  8.       │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+  9.       ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 10.       └─forestsearch (local) `<fn>`(...)
+── Warning ('test-cross-outcome-parity.R:113:5'): fold_summary columns are identical across outcome types ──
+max_subgroups_search = 5 truncated the candidate pool from 58 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+     ▆
+  1. └─base::lapply(c("survival", "binary"), run_cv_for) at test-cross-outcome-parity.R:126:3
+  2.   └─forestsearch (local) FUN(X[[i]], ...)
+  3.     ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-cross-outcome-parity.R:113:5
+  4.     └─forestsearch (local) `<fn>`(...)
+  5.       ├─base::tryCatch(...)
+  6.       │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+  7.       │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+  8.       │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+  9.       ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 10.       └─forestsearch (local) `<fn>`(...)
+── Warning ('test-cross-outcome-parity.R:193:3'): training_fs_hr is on natural scale for binary (OR) ──
+max_subgroups_search = 5 truncated the candidate pool from 34 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-cross-outcome-parity.R:193:3
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-cross-outcome-parity.R:231:3'): training_fs_hr is on natural scale for count (IRR) ──
+max_subgroups_search = 5 truncated the candidate pool from 92 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-cross-outcome-parity.R:231:3
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-cross-outcome-parity.R:309:5'): summarize_cv_results slots are identical across outcome types ──
+max_subgroups_search = 5 truncated the candidate pool from 7 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+     ▆
+  1. └─base::lapply(c("survival", "binary"), run_summary_for) at test-cross-outcome-parity.R:326:3
+  2.   └─forestsearch (local) FUN(X[[i]], ...)
+  3.     ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-cross-outcome-parity.R:309:5
+  4.     └─forestsearch (local) `<fn>`(...)
+  5.       ├─base::tryCatch(...)
+  6.       │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+  7.       │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+  8.       │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+  9.       ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 10.       └─forestsearch (local) `<fn>`(...)
+── Warning ('test-cross-outcome-parity.R:309:5'): summarize_cv_results slots are identical across outcome types ──
+max_subgroups_search = 5 truncated the candidate pool from 58 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+     ▆
+  1. └─base::lapply(c("survival", "binary"), run_summary_for) at test-cross-outcome-parity.R:326:3
+  2.   └─forestsearch (local) FUN(X[[i]], ...)
+  3.     ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-cross-outcome-parity.R:309:5
+  4.     └─forestsearch (local) `<fn>`(...)
+  5.       ├─base::tryCatch(...)
+  6.       │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+  7.       │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+  8.       │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+  9.       ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 10.       └─forestsearch (local) `<fn>`(...)
+── Warning ('test-cross-outcome-parity.R:357:3'): fold_numeric_summary row labels are outcome-agnostic ──
+max_subgroups_search = 5 truncated the candidate pool from 31 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-cross-outcome-parity.R:357:3
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-downstream-consumers.R:139:3'): summarize_cv_results() rejects non-fs_tenfold input with clear error ──
+Could not build metrics_table: cv_result must contain 'sens_summary' and 'find_summary' elements
+Backtrace:
+     ▆
+  1. ├─testthat::expect_warning(...) at test-downstream-consumers.R:139:3
+  2. │ └─testthat:::expect_condition_matching_(...)
+  3. │   └─testthat:::quasi_capture(...)
+  4. │     ├─testthat (local) .capture(...)
+  5. │     │ └─base::withCallingHandlers(...)
+  6. │     └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+  7. ├─base::tryCatch(...)
+  8. │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+  9. │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 10. │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 11. └─forestsearch::summarize_cv_results(fake_cv_ducktype, top_n = 5L)
+ 12.   └─forestsearch:::.cv_metrics_table_safe(cv_output, original_sg)
+ 13.     └─base::tryCatch(...)
+ 14.       └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 15.         └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 16.           └─value[[3L]](cond)
+── Warning ('test-downstream-consumers.R:215:3'): forestsearch_tenfold() returns valid shape on identified DGM ──
+max_subgroups_search = 5 truncated the candidate pool from 7 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-downstream-consumers.R:215:3
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-downstream-consumers.R:290:3'): summarize_cv_results() on real CV run works end-to-end ──
+max_subgroups_search = 5 truncated the candidate pool from 7 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-downstream-consumers.R:290:3
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-downstream-consumers.R:333:3'): forestsearch_bootstrap_dofuture() returns valid structure ──
+max_subgroups_search = 5 truncated the candidate pool from 8 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-downstream-consumers.R:333:3
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-downstream-consumers.R:336:3'): forestsearch_bootstrap_dofuture() returns valid structure ──
+nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+Backtrace:
+    ▆
+ 1. ├─base::tryCatch(...) at test-downstream-consumers.R:336:3
+ 2. │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 3. │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 4. │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 5. └─forestsearch::forestsearch_bootstrap_dofuture(...)
+── Warning ('test-get-fsdata-diagnostics.R:189:3'): all-continuous-covariate configuration works end-to-end ──
+max_subgroups_search = 5 truncated the candidate pool from 39 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-get-fsdata-diagnostics.R:189:3
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-get-fsdata-diagnostics.R:203:3'): mixed continuous + factor covariates work end-to-end ──
+max_subgroups_search = 5 truncated the candidate pool from 96 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-get-fsdata-diagnostics.R:203:3
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-get-fsdata-diagnostics.R:447:3'): use_grf = TRUE, use_lasso = FALSE works ──
+max_subgroups_search = 5 truncated the candidate pool from 19 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-get-fsdata-diagnostics.R:447:3
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-get-fsdata-diagnostics.R:471:3'): use_grf = FALSE, use_lasso = FALSE works (factor-only default cuts) ──
+max_subgroups_search = 5 truncated the candidate pool from 8 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-get-fsdata-diagnostics.R:471:3
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-input-validation.R:60:3'): summarize_cv_results top_n = Inf is accepted ──
+Could not build metrics_table: cv_result must contain 'sens_summary' and 'find_summary' elements
+Backtrace:
+     ▆
+  1. ├─base::tryCatch(summarize_cv_results(fake_cv, top_n = Inf), error = function(e) e) at test-input-validation.R:60:3
+  2. │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+  3. │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+  4. │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+  5. └─forestsearch::summarize_cv_results(fake_cv, top_n = Inf)
+  6.   └─forestsearch:::.cv_metrics_table_safe(cv_output, original_sg)
+  7.     └─base::tryCatch(...)
+  8.       └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+  9.         └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 10.           └─value[[3L]](cond)
+── Warning ('test-return-shape-contract.R:27:3'): survival happy path returns full consumer contract ──
+max_subgroups_search = 5 truncated the candidate pool from 19 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-return-shape-contract.R:27:3
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-return-shape-contract.R:40:3'): binary GLM happy path returns full consumer contract ──
+max_subgroups_search = 5 truncated the candidate pool from 49 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-return-shape-contract.R:40:3
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-return-shape-contract.R:66:3'): count GLM with offset happy path returns full consumer contract ──
+max_subgroups_search = 5 truncated the candidate pool from 64 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-return-shape-contract.R:66:3
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-return-shape-contract.R:149:3'): successful return has class 'forestsearch' ──
+max_subgroups_search = 5 truncated the candidate pool from 34 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-return-shape-contract.R:149:3
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-return-shape-contract.R:173:5'): outcome_type round-trips through forestsearch() ──
+max_subgroups_search = 5 truncated the candidate pool from 20 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-return-shape-contract.R:173:5
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-return-shape-contract.R:173:5'): outcome_type round-trips through forestsearch() ──
+max_subgroups_search = 5 truncated the candidate pool from 34 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-return-shape-contract.R:173:5
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-return-shape-contract.R:173:5'): outcome_type round-trips through forestsearch() ──
+max_subgroups_search = 5 truncated the candidate pool from 53 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-return-shape-contract.R:173:5
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-return-shape-contract.R:192:5'): effect_measure round-trips for GLM outcomes ──
+max_subgroups_search = 5 truncated the candidate pool from 34 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-return-shape-contract.R:192:5
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+── Warning ('test-return-shape-contract.R:192:5'): effect_measure round-trips for GLM outcomes ──
+max_subgroups_search = 5 truncated the candidate pool from 53 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(forestsearch, c(list(df.analysis = df), args)) at test-return-shape-contract.R:192:5
+ 2. └─forestsearch (local) `<fn>`(...)
+ 3.   ├─base::tryCatch(...)
+ 4.   │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.   │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.   │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 7.   ├─base::do.call(subgroup.consistency, sc_filtered_args)
+ 8.   └─forestsearch (local) `<fn>`(...)
+
+══ Failed tests ════════════════════════════════════════════════════════════════
+── Failure ('test-search-reproducibility.R:86:3'): search + consistency results are invariant to worker count ──
+Expected `.repro_flat(pc1)` to be identical to `.repro_flat(fs2$grp.consistency$out_sg$result)`.
+Differences:
+  `attr(actual, 'row.names')[3:7]`: 3 4 5 6 7
+`attr(expected, 'row.names')[3:5]`: 3 4 5    
+
+actual vs expected
+                Pcons       hr   N   E   g m K          M.1         M.2
+- actual[1, ]    0.90 6.269659  49  49 127 1 2 !{x1 <= 0.6} {b1}       
++ expected[1, ]  0.97 6.269659  49  49 127 1 2 !{x1 <= 0.6} {b1}       
+  actual[2, ]    1.00 4.999027  96  96 45  2 2 !{x1 <= 0}   {b1}       
+- actual[3, ]    0.80 3.868596  69  69 119 3 2 !{x1 <= 0.6} {x2 <= 0.6}
+- actual[4, ]    0.50 3.850444  52  52 128 4 2 !{x1 <= 0.6} !{b2}      
+- actual[5, ]    0.73 3.001019 126 126 37  5 2 !{x1 <= 0}   {x2 <= 0.6}
+- actual[6, ]    0.60 2.928538 108 108 46  6 2 !{x1 <= 0}   !{b2}      
+- actual[7, ]    0.50 2.748062  96  96 270 9 2 {x3 <= 0}    {b1}       
++ expected[3, ]  0.73 3.868596  69  69 119 3 2 !{x1 <= 0.6} {x2 <= 0.6}
++ expected[4, ]  0.57 3.850444  52  52 128 4 2 !{x1 <= 0.6} !{b2}      
+
+       `actual$Pcons`: 0.9    1  0.8 0.5 0.73 0.6  0.5
+`expected$Pcons[2:5]`:   1 0.73 0.57              0.73
+
+    actual$hr        | expected$hr         
+[3] 3.8685963101856  | 3.8685963101856  [3]
+[4] 3.85044350583734 | 3.85044350583734 [4]
+[5] 3.00101904623258 | 3.00101904623258 [5]
+[6] 2.92853775437703 -                     
+[7] 2.74806196595339 -                     
+
+  `actual$N[3:7]`: 69 52 126 108 96
+`expected$N[3:5]`: 69 52 126       
+
+  `actual$E[3:7]`: 69 52 126 108 96
+`expected$E[3:5]`: 69 52 126       
+
+`actual$g[3:7]`:   "119" "128" "37" "46" "270"
+`expected$g[3:5]`: "119" "128" "37"           
+
+`actual$m[3:7]`:   "3" "4" "5" "6" "9"
+`expected$m[3:5]`: "3" "4" "5"        
+
+  `actual$K[3:7]`: 2 2 2 2 2
+`expected$K[3:5]`: 2 2 2    
+
+    actual$M.1     | expected$M.1      
+[3] "!{x1 <= 0.6}" | "!{x1 <= 0.6}" [3]
+[4] "!{x1 <= 0.6}" | "!{x1 <= 0.6}" [4]
+[5] "!{x1 <= 0}"   | "!{x1 <= 0}"   [5]
+[6] "!{x1 <= 0}"   -                   
+[7] "{x3 <= 0}"    -                   
+
+`actual$M.2[3:7]`:   "{x2 <= 0.6}" "!{b2}" "{x2 <= 0.6}" "!{b2}" "{b1}"
+`expected$M.2[3:5]`: "{x2 <= 0.6}" "!{b2}" "{x2 <= 0.6}"               
+
+
+[ FAIL 1 | WARN 31 | SKIP 7 | PASS 4834 ]
+Error:
+! Test failures.
+Execution halted
+
+1 error ✖ | 0 warnings ✔ | 0 notes ✔
+Error: R CMD check found ERRORs
+Execution halted
+JOBDONE

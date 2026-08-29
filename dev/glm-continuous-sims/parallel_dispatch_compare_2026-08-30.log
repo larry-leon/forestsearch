@@ -1,0 +1,18 @@
+forestsearch 0.3.0; HEAD 1e45219f; vi.grf.min default NULL
+pre: HEAD 1e45219f (0.3.0) | post: HEAD 1e45219f (0.3.0)
+
+[C1] identical: sg.harm=T members=T treat.recommend=T hr.subgroups=T counters=T result=T top=T | wall 31.08 s -> 5.51 s (x5.64) | warnings pre: none | post: none
+
+[C2] identical: sg.harm=T members=T treat.recommend=T hr.subgroups=T counters=T result=T top=T | wall 4.44 s -> 4.28 s (x1.04) | warnings pre: none | post: none
+
+[C3] identical: sg.harm=T members=T treat.recommend=T hr.subgroups=T counters=F result=F top=F | wall 87.32 s -> 58.34 s (x1.50) | warnings pre: none | post: none
+  C3 characterisation: selected same membership: TRUE; result rows 348 vs 346
+  candidates in both: 296 (pre-only 52, post-only 50); Pcons diff: mean +0.0005, sd 0.0283, max|d| 0.1000; MC sd of a rate at fs.splits = 50 and p ~ 0.9: 0.0424
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+-0.080000 -0.020000  0.000000  0.000473  0.020000  0.100000 
+
+[C4] identical: sg.harm=T members=T treat.recommend=T hr.subgroups=T counters=T result=T top=T | wall 8.87 s -> 7.49 s (x1.18) | warnings pre: none | post: none
+
+[C5] identical: sg.harm=T members=T treat.recommend=T hr.subgroups=T counters=T result=T top=T | wall 26.04 s -> 28.18 s (x0.92) | warnings pre: none | post: none
+
+GATE (C1, C2, C4, C5 identical; C3 identical or same selection): PASS

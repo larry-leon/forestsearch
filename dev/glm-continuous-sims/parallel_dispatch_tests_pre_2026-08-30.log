@@ -1,0 +1,219 @@
+ℹ Testing forestsearch
+betaHhat-contract: ...............................................................................................................................................................
+cross-outcome-parity: WWW....................W....W..WW...W..W.SWW...WS
+cv-mixed-and-fatal: ....................................................
+cv-no-subgroup-dina-grf: ................................................
+cv-no-subgroup-edges: ............................................S
+dfbeta-lm-influence-path: ...............................
+dina-bootstrap-sg-focus-whitelist: ...............
+downstream-consumers: ...........W..........W............W..WWBootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use: 1 workers with 'sequential' plan
+Bootstrap iteration 1/5
+Bootstrap iteration 5/5
+...
+fs_dgm_scale: .............................................
+fs_mr_oc_summary: ...................................
+fs_sym_root: ................
+fs-family-report: ...........................................................................................................
+fs-focus-tag: .................................................
+fs-oc-grid: ..............................................................................
+fs-oc-null: ........................................................
+fs-oc-predict: .........................................................................................
+get-fsdata-diagnostics: ......................W..W...................W........W........
+glm-pipeline-integration: 
+[forestsearch] Subgroup Identification Configuration
+  Outcome type:   binary
+  Effect measure: OR (Odds Ratio)
+  Scale:          log (ratio)
+
+  Screening:      OR >= 1.10 (log: 0.0953)
+  Consistency:    OR >= 1.00 (log: 0.0000)
+  Consistency rate threshold: 30%
+
+  Interpretation:
+    Candidates: subgroup OR >= 1.10
+    Splits:     each split OR >= 1.00
+
+..
+[forestsearch] Subgroup Identification Configuration
+  Outcome type:   continuous
+  Effect measure: MD (Mean Difference)
+  Scale:          identity
+
+  Screening:      MD >= 0.0000
+  Consistency:    MD >= 0.0000
+  Consistency rate threshold: 30%
+
+  Interpretation:
+    Candidates: MD >= 0.0000
+    Splits:     MD >= 0.0000 per split
+
+..
+[forestsearch] Subgroup Identification Configuration
+  Outcome type:   count
+  Effect measure: IRR (Incidence Rate Ratio)
+  Scale:          log (ratio)
+
+  Screening:      IRR >= 1.10 (log: 0.0953)
+  Consistency:    IRR >= 1.00 (log: 0.0000)
+  Consistency rate threshold: 30%
+
+  Interpretation:
+    Candidates: subgroup IRR >= 1.10
+    Splits:     each split IRR >= 1.00
+
+....# of continuous/categorical characteristics 1 1 
+Continuous characteristics: age 
+Categorical characteristics: bm1 
+Default cuts included (1st 20) age <= mean(age) age <= median(age) age <= qlow(age) age <= qhigh(age) 
+Categorical: bm1 
+Factors per GRF: age <= 57 age <= 55 age <= 66 
+Initial GRF cuts included age <= 57 age <= 55 age <= 66 
+
+Cut coarsening: 7 -> 6 candidates  (c=1, safety_tol=0.05, digits=0)
+  age <= {55.1} -> age <= 55  (0 subj moved) 
+
+===== CONSOLIDATED CUT EVALUATION (IMPROVED) =====
+Evaluating 6 cut expressions once and caching...
+Cut evaluation summary:
+  Total cuts:  6 
+  Valid cuts:  6 
+  Errors:  0 
+✓ All 6 factors validated as 0/1
+===== END CONSOLIDATED CUT EVALUATION =====
+
+# of candidate subgroup factors= 6 
+[1] "age <= 57" "age <= 55" "age <= 66" "age <= 48" "age <= 62" "bm1"      
+..
+grf-inclusion-band: ...........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+input-validation: ..W................
+knoise-population: .........................................................
+mr-admission-set: ...........................................................................................................
+mr-closedform-fixture: .........................................
+mr-inclusion-band: .....................................................................................................................................................................................................................................................................................................................
+mr-inference: ................................................................................................................Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use: 1 workers with 'sequential' plan
+Bootstrap iteration 1/2
+Bootstrap iteration 2/2
+.....................
+[forestsearch] Subgroup Identification Configuration
+  Outcome type:   survival (Cox PH)
+  Effect measure: HR (hazard ratio)
+  Scale:          log (ratio)
+
+  Screening:      HR >= 1.25  (log: 0.2231)
+  Consistency:    HR >= 1.00  (log: 0.0000)
+  Consistency rate threshold: 80%
+
+  Interpretation:
+    Candidates: subgroup hazard ratio >= 1.25
+    Splits:     each split HR >= 1.00
+
+Multiplier resampling (MR): constructing de-biased estimates from 200 draws.
+  This is post-selection inference on the completed search; it cannot change the identified subgroup.
+MR harm confirmation: HR = 1.123 (point rule vs 1.00) -> consistent with harm
+.............
+[forestsearch] Subgroup Identification Configuration
+  Outcome type:   survival (Cox PH)
+  Effect measure: HR (hazard ratio)
+  Scale:          log (ratio)
+
+  Screening:      HR >= 1.25  (log: 0.2231)
+  Consistency:    HR >= 1.00  (log: 0.0000)
+  Consistency rate threshold: 80%
+
+  Interpretation:
+    Candidates: subgroup hazard ratio >= 1.25
+    Splits:     each split HR >= 1.00
+
+Multiplier resampling (MR): constructing de-biased estimates from 200 draws.
+  This is post-selection inference on the completed search; it cannot change the identified subgroup.
+MR harm confirmation: HR = 1.123 (point rule vs 1.00) -> consistent with harm
+..
+mr-residual-centering: ............
+no-subgroup-bootstrap: .............
+no-subgroup-cv: ........................................................................
+no-subgroup-dina-grf-plot: ......................
+no-subgroup-dina-grf-summary: .....................
+no-subgroup-unified-contract: .................
+return-shape-contract: W......W............W.................W.W.W..W.W..W..
+search-reproducibility: ......
+sg-focus-dispatch: ..........
+sg-focus-selection: ..........................................
+sg-focus-transparency: ................................................................
+
+══ Skipped ═════════════════════════════════════════════════════════════════════
+1. training_fs_hr for continuous (MD) is identity-scale, not exponentiated ('test-cross-outcome-parity.R:262:3') - Reason: primary fit did not identify; test N/A
+
+2. fold_numeric_summary row labels are outcome-agnostic ('test-cross-outcome-parity.R:358:3') - Reason: primary fit did not identify; test N/A
+
+3. multisession and sequential tenfold agree on the no-subgroup path ('test-cv-no-subgroup-edges.R:250:5') - Reason: multisession worker could not resolve package internals (dev-load artifact); lock verified on installed builds: could not find function ".fs_adjust_vars"
+
+══ Warnings ════════════════════════════════════════════════════════════════════
+1. forestsearch() returns structurally equivalent objects across outcome types ('test-cross-outcome-parity.R:45:5') - max_subgroups_search = 5 truncated the candidate pool from 6 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+2. forestsearch() returns structurally equivalent objects across outcome types ('test-cross-outcome-parity.R:45:5') - max_subgroups_search = 5 truncated the candidate pool from 35 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+3. forestsearch() returns structurally equivalent objects across outcome types ('test-cross-outcome-parity.R:45:5') - max_subgroups_search = 5 truncated the candidate pool from 64 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+4. outcome_type and effect_measure round-trip for all GLM types ('test-cross-outcome-parity.R:83:5') - max_subgroups_search = 5 truncated the candidate pool from 34 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+5. outcome_type and effect_measure round-trip for all GLM types ('test-cross-outcome-parity.R:83:5') - max_subgroups_search = 5 truncated the candidate pool from 53 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+6. fold_summary columns are identical across outcome types ('test-cross-outcome-parity.R:113:5') - max_subgroups_search = 5 truncated the candidate pool from 7 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+7. fold_summary columns are identical across outcome types ('test-cross-outcome-parity.R:113:5') - max_subgroups_search = 5 truncated the candidate pool from 58 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+8. training_fs_hr is on natural scale for binary (OR) ('test-cross-outcome-parity.R:193:3') - max_subgroups_search = 5 truncated the candidate pool from 34 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+9. training_fs_hr is on natural scale for count (IRR) ('test-cross-outcome-parity.R:231:3') - max_subgroups_search = 5 truncated the candidate pool from 92 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+10. summarize_cv_results slots are identical across outcome types ('test-cross-outcome-parity.R:309:5') - max_subgroups_search = 5 truncated the candidate pool from 7 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+11. summarize_cv_results slots are identical across outcome types ('test-cross-outcome-parity.R:309:5') - max_subgroups_search = 5 truncated the candidate pool from 58 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+12. fold_numeric_summary row labels are outcome-agnostic ('test-cross-outcome-parity.R:357:3') - max_subgroups_search = 5 truncated the candidate pool from 31 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+13. summarize_cv_results() rejects non-fs_tenfold input with clear error ('test-downstream-consumers.R:139:3') - Could not build metrics_table: cv_result must contain 'sens_summary' and 'find_summary' elements
+
+14. forestsearch_tenfold() returns valid shape on identified DGM ('test-downstream-consumers.R:215:3') - max_subgroups_search = 5 truncated the candidate pool from 7 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+15. summarize_cv_results() on real CV run works end-to-end ('test-downstream-consumers.R:290:3') - max_subgroups_search = 5 truncated the candidate pool from 7 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+16. forestsearch_bootstrap_dofuture() returns valid structure ('test-downstream-consumers.R:333:3') - max_subgroups_search = 5 truncated the candidate pool from 8 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+17. forestsearch_bootstrap_dofuture() returns valid structure ('test-downstream-consumers.R:336:3') - nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+
+18. all-continuous-covariate configuration works end-to-end ('test-get-fsdata-diagnostics.R:189:3') - max_subgroups_search = 5 truncated the candidate pool from 39 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+19. mixed continuous + factor covariates work end-to-end ('test-get-fsdata-diagnostics.R:203:3') - max_subgroups_search = 5 truncated the candidate pool from 96 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+20. use_grf = TRUE, use_lasso = FALSE works ('test-get-fsdata-diagnostics.R:447:3') - max_subgroups_search = 5 truncated the candidate pool from 19 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+21. use_grf = FALSE, use_lasso = FALSE works (factor-only default cuts) ('test-get-fsdata-diagnostics.R:471:3') - max_subgroups_search = 5 truncated the candidate pool from 8 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+22. summarize_cv_results top_n = Inf is accepted ('test-input-validation.R:60:3') - Could not build metrics_table: cv_result must contain 'sens_summary' and 'find_summary' elements
+
+23. survival happy path returns full consumer contract ('test-return-shape-contract.R:27:3') - max_subgroups_search = 5 truncated the candidate pool from 19 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+24. binary GLM happy path returns full consumer contract ('test-return-shape-contract.R:40:3') - max_subgroups_search = 5 truncated the candidate pool from 49 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+25. count GLM with offset happy path returns full consumer contract ('test-return-shape-contract.R:66:3') - max_subgroups_search = 5 truncated the candidate pool from 64 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+26. successful return has class 'forestsearch' ('test-return-shape-contract.R:149:3') - max_subgroups_search = 5 truncated the candidate pool from 34 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+27. outcome_type round-trips through forestsearch() ('test-return-shape-contract.R:173:5') - max_subgroups_search = 5 truncated the candidate pool from 20 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+28. outcome_type round-trips through forestsearch() ('test-return-shape-contract.R:173:5') - max_subgroups_search = 5 truncated the candidate pool from 34 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+29. outcome_type round-trips through forestsearch() ('test-return-shape-contract.R:173:5') - max_subgroups_search = 5 truncated the candidate pool from 53 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+30. effect_measure round-trips for GLM outcomes ('test-return-shape-contract.R:192:5') - max_subgroups_search = 5 truncated the candidate pool from 34 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+31. effect_measure round-trips for GLM outcomes ('test-return-shape-contract.R:192:5') - max_subgroups_search = 5 truncated the candidate pool from 53 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+
+[pre] FAIL 0 | WARN 31 | SKIP 3 | PASS 4844

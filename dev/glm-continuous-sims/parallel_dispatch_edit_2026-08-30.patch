@@ -1,0 +1,154 @@
+diff --git a/DESCRIPTION b/DESCRIPTION
+index 6993dc50..672fb6e5 100644
+--- a/DESCRIPTION
++++ b/DESCRIPTION
+@@ -1,6 +1,6 @@
+ Package: forestsearch
+ Title: Exploratory Subgroup Identification with Survival and GLM Outcomes
+-Version: 0.3.0
++Version: 0.3.1
+ Authors@R: person("Larry", "Leon", , "larry.leon.05@post.harvard.edu", role = c("aut", "cre"))
+ Description: Implements advanced statistical methods for exploratory subgroup 
+     identification in clinical trials. Provides tools for identifying patient 
+diff --git a/NEWS.md b/NEWS.md
+index 829320be..c076d499 100644
+--- a/NEWS.md
++++ b/NEWS.md
+@@ -1,3 +1,50 @@
++# forestsearch 0.3.1
++
++## The consistency screen no longer treats `plan = "sequential"` as a parallel configuration
++
++`subgroup.consistency()` validated `parallel_args` against `c("plan", "workers")`
++and, when both were present, took the future-backed batching path even for
++`plan = "sequential"` or `workers = 1`: the candidates were split into
++`future_lapply()` calls of `min(2 * workers, n)` -- two at a time on one
++worker -- and every call paid a full round of globals resolution around an
++evaluation costing a few milliseconds.  `forestsearch_bootstrap_dofuture()`
++forces exactly that configuration on the inner search of every replicate.
++Measured on the profiled fixture (`REPORT_bootstrap_profile_2026-08-30.md`):
++29.4 s per call, 86% of it in `future_lapply` globals resolution, against
++4.5 s for the identical search under the plain loop.
++
++1. **Dispatch.**  A sequential plan, or `workers <= 1` under any plan, now runs
++   the consistency screen as the plain in-process loop.  No future backend is
++   set up and no warning is emitted -- the code is doing what the caller asked.
++   The genuinely parallel path (`multisession` / `multicore` / `callr` with
++   `workers >= 2`) and the batch-size logic are untouched;
++   `parallel_args$batch_size` remains the knob for per-batch overhead on
++   parallel plans.
++2. **Measured effect.**  Continuous MD fixture (n = 500, 749 candidates
++   screened): 31.1 s -> 5.5 s per `forestsearch()` call (5.6x).  Survival gbsg
++   fixture (120 candidates screened): 8.9 s -> 7.5 s.  A 20-replicate
++   `forestsearch_bootstrap_dofuture()` on the continuous fixture: 32.2 s ->
++   4.97 s per replicate; B = 1000 projects to 83 min sequential
++   against 490-537 min before.
++3. **Results under `consistency_method = "resample"` are unchanged** -- the
++   closed form consumes no RNG, and five reference configurations (sequential
++   with and without early stopping, survival, and a two-worker multisession
++   control) are `identical()` before and after on the selected subgroup, its
++   membership, the candidate table, the consistency counters and the fitted
++   effect.
++4. **`consistency_method = "split"` users:** the plain loop seeds once
++   (`set.seed(seed)`) where the backend assigned one L'Ecuyer stream per
++   candidate, so the random splits are drawn in a different order.  Each
++   candidate's consistency rate moves within its own Monte-Carlo noise at the
++   chosen `fs.splits` (measured at 50 splits: sd of the per-candidate
++   difference 0.028 against a binomial sd of 0.042; the selected subgroup
++   unchanged).  Results are not bit-identical to 0.3.0 on that path; they are
++   equally valid draws.
++5. The driver-style `parallel_args = list(plan = "sequential")` (no `workers`)
++   now reaches the plain loop through this rule rather than by tripping the
++   `"parallel_args missing required elements. Using sequential."` warning,
++   which no longer fires for that input.
++
+ # forestsearch 0.3.0
+ 
+ ## Default change: `vi.grf.min = NULL` -- GRF variable-importance screening is off unless requested
+diff --git a/R/subgroup_consistency_main.R b/R/subgroup_consistency_main.R
+index ed5c543b..0b7bb618 100644
+--- a/R/subgroup_consistency_main.R
++++ b/R/subgroup_consistency_main.R
+@@ -230,9 +230,21 @@
+ #'   }
+ #' @param parallel_args List. Parallel processing configuration:
+ #'   \describe{
+-#'     \item{plan}{Future plan: "multisession", "multicore", or "sequential"}
+-#'     \item{workers}{Number of parallel workers}
+-#'     \item{batch_size}{Number of candidates to evaluate per batch. Smaller
++#'     \item{plan}{Future plan: "multisession", "multicore", "callr", or
++#'       "sequential".  A sequential plan -- or a single worker, whatever the
++#'       plan -- runs the consistency screen as a plain in-process loop; no
++#'       future backend is set up and no per-batch globals resolution is paid.
++#'       This is a performance property only: the plain loop and the batched
++#'       backend evaluate the same closure with the same per-candidate seeds,
++#'       so results under \code{consistency_method = "resample"} are
++#'       identical; under \code{"split"} the RNG stream is laid out
++#'       differently, which moves each candidate's consistency rate within its
++#'       own Monte-Carlo noise at the chosen \code{n.splits}.}
++#'     \item{workers}{Number of parallel workers.  \code{workers <= 1} is
++#'       treated as sequential (see \code{plan}).}
++#'     \item{batch_size}{Number of candidates to evaluate per batch on a
++#'       genuinely parallel plan -- the knob for the per-batch overhead
++#'       described above.  Smaller
+ #'       values provide finer-grained early stopping but may increase overhead.
+ #'       Default: When stop_threshold is set and sg_focus is "hr" or "minSG",
+ #'       defaults to 1 (stop immediately when first candidate passes). For other
+@@ -662,6 +674,28 @@ subgroup.consistency <- function(df,
+ 
+   use_parallel <- length(parallel_args) > 0 && !is.null(parallel_args[[1]])
+ 
++  # A sequential plan, or a single worker, is the caller asking NOT to
++  # parallelise: run the plain loop (Section 8, sequential branch) instead of
++  # standing up a one-worker future backend.  The backend path batches the
++  # candidates into future_lapply() calls of min(2 * workers, n) and pays a
++  # full round of globals resolution per call -- measured at 29.4 s against
++  # 4.5 s for the identical 749-candidate screen, 86% of a bootstrap replicate
++  # (REPORT_bootstrap_profile_2026-08-30.md).  Both branches evaluate the same
++  # closure with the same per-candidate seeds, so this is a performance
++  # property, not a results property.  No warning: this is the code doing what
++  # it was asked, once per replicate in a bootstrap.
++  if (use_parallel) {
++    w <- parallel_args$workers
++    single_worker <- !is.null(w) && is.numeric(w) && length(w) == 1L && !is.na(w) && w <= 1
++    if (identical(parallel_args$plan, "sequential") || single_worker) {
++      if (details) {
++        cat("Parallel config: sequential plan or a single worker -- ",
++            "running the consistency screen as a plain loop\n", sep = "")
++      }
++      use_parallel <- FALSE
++    }
++  }
++
+   if (use_parallel) {
+     required_parallel <- c("plan", "workers")
+     if (!all(required_parallel %in% names(parallel_args))) {
+diff --git a/man/subgroup.consistency.Rd b/man/subgroup.consistency.Rd
+index bc0cc4f0..cd80c85c 100644
+--- a/man/subgroup.consistency.Rd
++++ b/man/subgroup.consistency.Rd
+@@ -188,9 +188,21 @@ parallel execution (via future.seed).}
+ 
+ \item{parallel_args}{List. Parallel processing configuration:
+ \describe{
+-\item{plan}{Future plan: "multisession", "multicore", or "sequential"}
+-\item{workers}{Number of parallel workers}
+-\item{batch_size}{Number of candidates to evaluate per batch. Smaller
++\item{plan}{Future plan: "multisession", "multicore", "callr", or
++"sequential".  A sequential plan -- or a single worker, whatever the
++plan -- runs the consistency screen as a plain in-process loop; no
++future backend is set up and no per-batch globals resolution is paid.
++This is a performance property only: the plain loop and the batched
++backend evaluate the same closure with the same per-candidate seeds,
++so results under \code{consistency_method = "resample"} are
++identical; under \code{"split"} the RNG stream is laid out
++differently, which moves each candidate's consistency rate within its
++own Monte-Carlo noise at the chosen \code{n.splits}.}
++\item{workers}{Number of parallel workers.  \code{workers <= 1} is
++treated as sequential (see \code{plan}).}
++\item{batch_size}{Number of candidates to evaluate per batch on a
++genuinely parallel plan -- the knob for the per-batch overhead
++described above.  Smaller
+ values provide finer-grained early stopping but may increase overhead.
+ Default: When stop_threshold is set and sg_focus is "hr" or "minSG",
+ defaults to 1 (stop immediately when first candidate passes). For other
