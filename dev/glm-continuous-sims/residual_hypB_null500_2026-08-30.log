@@ -1,0 +1,23 @@
+fs_oc_family_enumerate: cut columns 74 | enumerated 2775 | dropped: empty 127 minp 0 rmin 107 size 656 | kept 1885 | duplicates 189 | M = 1696 
+[null500] corrected family re-enumerated and identical to the stored record: M = 1696
+[null500] v1 literal key: 348 groups of size > 1, 458 candidates removed -> M = 1238
+[null500] v1: Jaccard(dropped, representative): median 0.135, mean 0.175, min 0.000, max 0.813; share with Jaccard >= 0.99: 0.000
+[null500] v1 example collapsed pairs (least alike): 
+     keep 'age <= 28 & preanti <= 875' (n*Pg 100.9, beta 26.255)  drop 'age > 35 & cd80 <= 895' (Jaccard 0.000)
+     keep 'age <= 28 & preanti <= 875' (n*Pg 100.9, beta 26.255)  drop 'age > 39 & preanti <= 875' (Jaccard 0.000)
+     keep 'karnof > 95 & homo != 1' (n*Pg 101.4, beta 26.255)  drop 'karnof <= 95 & cd40 <= 339' (Jaccard 0.000)
+     keep 'age > 33 & preanti <= 0' (n*Pg 101.7, beta 26.255)  drop 'preanti > 402 & karnof > 95' (Jaccard 0.000)
+     keep 'preanti > 402 & cd40 <= 339' (n*Pg 102.7, beta 26.255)  drop 'preanti <= 402 & race' (Jaccard 0.000)
+[null500] v2 near-twin (d_max = 6 subjects of 5000, P(coincide in a sample of 500) >= 0.5): 10 pairs, 10 removed -> M = 1686
+[null500] v2 examples: 
+     drop 'age > 35 & str2 != 1' (n*Pg 85.4) ~ keep 'age > 35 & preanti <= 0' (n*Pg 84.8), symdiff 6
+     drop 'age > 35 & str2' (n*Pg 133.3) ~ keep 'age > 35 & preanti > 0' (n*Pg 133.9), symdiff 6
+     drop 'age > 37 & str2 != 1' (n*Pg 69.5) ~ keep 'age > 37 & preanti <= 0' (n*Pg 69.2), symdiff 3
+     drop 'age > 37 & str2' (n*Pg 108.3) ~ keep 'age > 37 & preanti > 0' (n*Pg 108.6), symdiff 3
+     drop 'age > 39 & str2' (n*Pg 84.3) ~ keep 'age > 39 & preanti > 0' (n*Pg 84.6), symdiff 3
+[null500] informational: pairs (within K) with symdiff <= 29 (P(coincide) >= 0.05): 102; minimum symdiff between any two distinct candidates: 3
+[null500] v1_literal   resample M 1696 -> 1238 | det 0.99694 -> 0.99494 | EnH 70.902 -> 73.133 | Esens NA -> NA | Eppv 0.0000 -> 0.0000 | naive 76.319 -> 72.730 | 223 s
+[null500] v1_literal   split    M 1696 -> 1238 | det 0.99999 -> 0.99999 | EnH 70.829 -> 72.989 | Esens NA -> NA | Eppv 0.0000 -> 0.0000 | naive 76.068 -> 72.473 | 424 s
+[null500] v2_neartwin  resample M 1696 -> 1686 | det 0.99694 -> 0.99697 | EnH 70.902 -> 70.958 | Esens NA -> NA | Eppv 0.0000 -> 0.0000 | naive 76.319 -> 76.260 | 402 s
+[null500] v2_neartwin  split    M 1696 -> 1686 | det 0.99999 -> 0.99997 | EnH 70.829 -> 70.899 | Esens NA -> NA | Eppv 0.0000 -> 0.0000 | naive 76.068 -> 76.097 | 771 s
+[null500] part written: /tmp/claude-1000/-home-larryleon-Downloads/4276d599-3127-4882-9603-03dc335fabbc/scratchpad/parts/residual_hypB_part_null500.rds
