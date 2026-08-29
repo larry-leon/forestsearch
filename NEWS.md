@@ -1,3 +1,31 @@
+# forestsearch 0.2.7
+
+## New: `fs_family_report()` -- what is, and is not, deterministic about the candidate family
+
+`fs_family_report(x, data = NULL, outcome_type = NULL)` takes a named list of
+`forestsearch()` arguments or a fitted `forestsearch` object and returns one
+row per stage of candidate-family construction -- cut construction, the LASSO
+/ DINA / GRF front ends, GRF variable-importance ordering and the
+`max_n_confounders` cap, dummy expansion, combination enumeration, the
+`minp` / `rmin` / `n.min` floors, the per-arm floors, the effect screen,
+near-duplicate removal, the `max_subgroups_search` cap, the `m1.threshold`
+filter, the consistency screen, early stopping, winner selection and the
+(inert) time cap -- each classified as `deterministic`, `disabled`, `inert`,
+`data-dependent` or `data-dependent (not disableable)`, with the governing
+arguments, their resolved values and a one-line note.  The `print()` method
+leads with a verdict and ends with the stages no argument switches off: cuts
+at sample quantiles, the `rmin` and `n.min` floors on sample counts, and the
+statistics-keyed near-duplicate removal.  With `data` supplied it also counts
+the cut columns and combinations on that data.
+
+It mirrors `forestsearch()`'s own argument resolution (`sg_focus` aliases; the
+`maxeff` overrides; `stop_threshold` reset to `NULL` for every focus other than
+`maxeffCons`; `max_n_confounders` inert when `vi.grf.min = NULL`; `d0.min` /
+`d1.min` skipped for continuous and count outcomes) and a drift-guard test
+holds it to the engine.  **It reports and changes nothing**: it fits no model,
+runs no search, and is called by nothing else in the package.  No default,
+driver or document changed.
+
 # forestsearch 0.2.6
 
 ## `fs_oc_family_enumerate()`: a null branch
