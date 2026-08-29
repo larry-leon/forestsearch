@@ -1,0 +1,419 @@
+DGMs gated. alt: tauQc 26.2552 bint 13.7448; null common effect 26.2552
+
+############ alt500: n = 500, detected 1000 of 1000
+distinct verbatim sg_def: 922; top 15:
+
+    !{age <= 35} & {age <= 39}          !{age <= 42} & {homo} 
+                             4                              4 
+                       {drugs} !{age <= 42} & !{preanti <= 0} 
+                             4                              3 
+        !{homo} & !{age <= 33}         !{homo} & !{age <= 36} 
+                             3                              3 
+        !{wtkg <= 82} & {str2}          {race} & !{age <= 32} 
+                             3                              3 
+         {race} & !{age <= 33}        {race} & {preanti <= 0} 
+                             3                              3 
+      {symptom} & !{age <= 30}       {symptom} & !{age <= 31} 
+                             3                              3 
+           {symptom} & !{race}             {symptom} & {homo} 
+                             3                              3 
+    !{age <= 28} & {age <= 32} 
+                             2 
+distinct signatures: 158; top 20:
+
+      age<= & age>   age> & preanti<=      age> & cd40<=       age> & cd80> 
+                36                 36                 33                 28 
+     age> & cd80<=      age> & wtkg<=       age> & cd40>   preanti> & wtkg> 
+                25                 24                 23                 20 
+  age<= & preanti>       age> & wtkg>   cd40> & preanti>     cd40<= & cd80> 
+                19                 19                 18                 16 
+cd40<= & preanti<=    age> & preanti>  cd80<= & preanti>  cd80> & preanti<= 
+                16                 15                 15                 15 
+     cd80> & wtkg>      age> & homo=0 cd80<= & preanti<=  preanti<= & wtkg> 
+                15                 14                 14                 14 
+K distribution:
+
+  1   2 
+  4 996 
+fraction of winners using each covariate:
+    age preanti    wtkg  karnof    cd40    cd80    hemo    homo   drugs    race 
+  0.440   0.310   0.238   0.068   0.259   0.281   0.000   0.095   0.015   0.089 
+ gender symptom    str2 
+  0.037   0.059   0.044 
+winners using age or preanti (the document's two axes): 0.670; using neither: 0.330
+§3: 922 distinct rules; resolved ok 922, empty 0, unresolved 0
+
+§4: signatures with >= 20 replicates: 8 (covering 225 of 1000 detected replicates)
+        signature  n size_real size_pop size_diff size_se ppv_real ppv_pop
+     age<= & age> 36     83.61    84.74   -1.1333   1.496   0.4101  0.4102
+ age> & preanti<= 36     72.11    73.13   -1.0194   1.015   0.9698  0.9679
+    age> & cd40<= 33     71.00    70.61    0.3879   1.358   0.6766  0.6715
+     age> & cd80> 28     69.29    68.87    0.4143   1.453   0.6661  0.6751
+    age> & cd80<= 25     69.92    70.61   -0.6920   1.422   0.7008  0.6982
+    age> & wtkg<= 24     72.46    71.32    1.1375   1.658   0.5751  0.5790
+     age> & cd40> 23     67.83    69.81   -1.9826   1.464   0.6960  0.6951
+ preanti> & wtkg> 20     67.55    68.50   -0.9550   1.259   0.1879  0.1701
+   ppv_diff   ppv_se
+ -4.806e-05 0.004781
+  1.810e-03 0.003750
+  5.139e-03 0.007901
+ -9.019e-03 0.011600
+  2.561e-03 0.010972
+ -3.897e-03 0.009909
+  8.771e-04 0.013509
+  1.777e-02 0.009405
+        signature  n  sens_diff  sens_se  spec_diff   spec_se beta_real
+     age<= & age> 36 -0.0035572 0.004058  0.0009136 0.0033888     31.89
+ age> & preanti<= 36  0.0032970 0.005345  0.0006265 0.0007927     39.56
+    age> & cd40<= 33  0.0068395 0.005637  0.0013207 0.0023404     35.48
+     age> & cd80> 28  0.0038523 0.005747 -0.0015704 0.0025265     35.53
+    age> & cd80<= 25 -0.0017919 0.006378  0.0011106 0.0029707     35.85
+    age> & wtkg<= 24  0.0068754 0.006473 -0.0010607 0.0032987     34.21
+     age> & cd40> 23  0.0003006 0.006114  0.0033062 0.0034327     35.81
+ preanti> & wtkg> 20  0.0049775 0.003226  0.0041469 0.0038762     28.59
+ beta_pop  beta_diff   beta_se naive_bias_real naive_bias_se
+    31.89  1.678e-15 5.570e-16           68.19         2.860
+    39.56  5.921e-16 3.319e-16           66.26         2.752
+    35.48 -1.077e-15 9.339e-16           71.96         3.041
+    35.53  1.776e-15 5.921e-16           76.92         3.575
+    35.85 -5.684e-16 9.981e-16           76.88         3.987
+    34.21 -2.072e-15 6.734e-16           71.60         3.576
+    35.81  1.236e-15 8.537e-16           70.62         4.154
+    28.59 -8.882e-16 7.233e-16           80.02         3.550
+pooled over ALL detected replicates (paired realized - population):
+ quantity    real     pop       diff        se
+     size 72.3350 72.8974 -5.624e-01 2.414e-01
+      ppv  0.4055  0.4008  4.654e-03 1.565e-03
+     sens  0.1706  0.1693  1.306e-03 8.101e-04
+     spec  0.8686  0.8665  2.057e-03 5.861e-04
+     beta 31.7645 31.7645  7.354e-16 1.241e-16
+pooled over the >= 20 signatures, weighted by count:
+ quantity diff_weighted n_reps n_sigs
+     size    -4.791e-01    225      8
+      ppv     1.451e-03    225      8
+     sens     2.448e-03    225      8
+     spec     9.616e-04    225      8
+     beta     1.895e-16    225      8
+naive bias: realized aggregate 74.273 (SE 0.577); analytic resample 75.439, split 75.356; within-signature realized minus analytic(resample): min -9.18, max 4.58, share of signatures above analytic 0.38
+by K (factors in the winner):
+ K   n size_real size_pop naive_bias ppv_real ppv_pop
+ 1   4     64.50    67.00      66.02   0.5413  0.5194
+ 2 996     72.37    72.92      74.31   0.4049  0.4004
+
+§5 top 15 analytic signatures (sel_c) beside measured frequency:
+            signature analytic_resample analytic_split measured measured_n
+     age> & preanti<=            0.0390         0.0394    0.036         36
+         age> & cd40>            0.0320         0.0318    0.023         23
+        age> & cd80<=            0.0319         0.0320    0.025         25
+         age<= & age>            0.0307         0.0306    0.036         36
+        age> & cd40<=            0.0290         0.0286    0.033         33
+         age> & cd80>            0.0229         0.0232    0.028         28
+         age> & wtkg>            0.0229         0.0230    0.019         19
+ preanti<= & preanti>            0.0205         0.0212    0.012         12
+        age> & wtkg<=            0.0198         0.0201    0.024         24
+     age<= & preanti>            0.0188         0.0188    0.019         19
+    cd80<= & preanti>            0.0184         0.0184    0.015         15
+     cd40> & preanti>            0.0178         0.0175    0.018         18
+        cd40> & wtkg>            0.0153         0.0155    0.008          8
+     cd80> & preanti>            0.0150         0.0151    0.009          9
+        age<= & wtkg>            0.0145         0.0148    0.011         11
+analytic mass on signatures the search never selected: resample 0.0139, split 0.0144
+measured frequency on signatures absent from the analytic family: 0.0460 (21 signatures; 19 of them use str2, carrying 0.0440; 2 others carry 0.0020)
+drugs=1 & symptom=0   karnof<= & race=1 
+              0.001               0.001 
+total variation distance over signatures: resample 0.1892, split 0.1905; excluding str2 signatures and renormalising: 0.1719
+top 15 measured signatures beside analytic:
+          signature measured measured_n analytic_resample
+       age<= & age>    0.036         36            0.0307
+   age> & preanti<=    0.036         36            0.0390
+      age> & cd40<=    0.033         33            0.0290
+       age> & cd80>    0.028         28            0.0229
+      age> & cd80<=    0.025         25            0.0319
+      age> & wtkg<=    0.024         24            0.0198
+       age> & cd40>    0.023         23            0.0320
+   preanti> & wtkg>    0.020         20            0.0063
+   age<= & preanti>    0.019         19            0.0188
+       age> & wtkg>    0.019         19            0.0229
+   cd40> & preanti>    0.018         18            0.0178
+     cd40<= & cd80>    0.016         16            0.0083
+ cd40<= & preanti<=    0.016         16            0.0142
+    age> & preanti>    0.015         15            0.0112
+  cd80<= & preanti>    0.015         15            0.0184
+
+############ alt700: n = 700, detected 999 of 1000
+distinct verbatim sg_def: 879; top 15:
+
+   !{age <= 37} & {age <= 39}    !{age <= 33} & {age <= 35} 
+                            7                             6 
+        {race} & !{age <= 35}    !{age <= 38} & {age <= 40} 
+                            6                             5 
+     !{gender} & !{age <= 30}        !{homo} & !{age <= 37} 
+                            5                             5 
+           !{gender} & {str2}    {age <= 37} & !{age <= 35} 
+                            4                             4 
+              {race} & {homo}         {race} & {wtkg <= 67} 
+                            4                             4 
+!{age <= 39} & {preanti <= 0}      !{gender} & !{age <= 31} 
+                            3                             3 
+  !{gender} & !{karnof <= 90}         !{homo} & {age <= 28} 
+                            3                             3 
+     !{homo} & {preanti <= 0} 
+                            3 
+distinct signatures: 153; top 20:
+
+        age<= & age> preanti<= & preanti>     age> & preanti<= 
+                  65                   57                   35 
+       age> & wtkg<=         age> & cd80>        age> & cd80<= 
+                  25                   23                   22 
+    age<= & preanti>        age<= & wtkg>        age> & cd40<= 
+                  19                   19                   19 
+        age> & cd40>      age> & preanti>       cd40<= & cd80> 
+                  17                   17                   16 
+      cd80<= & wtkg>       age<= & cd40<=         age> & wtkg> 
+                  16                   15                   15 
+      cd40> & cd80<=        age<= & cd80>      age> & gender=0 
+                  15                   14                   14 
+       age> & race=1       cd40<= & wtkg> 
+                  14                   13 
+K distribution:
+
+  1   2 
+ 13 986 
+fraction of winners using each covariate:
+    age preanti    wtkg  karnof    cd40    cd80    hemo    homo   drugs    race 
+  0.453   0.295   0.216   0.063   0.237   0.235   0.002   0.070   0.049   0.066 
+ gender symptom    str2 
+  0.067   0.074   0.031 
+winners using age or preanti (the document's two axes): 0.674; using neither: 0.326
+§3: 879 distinct rules; resolved ok 879, empty 0, unresolved 0
+
+§4: signatures with >= 20 replicates: 6 (covering 227 of 999 detected replicates)
+            signature  n size_real size_pop size_diff size_se ppv_real ppv_pop
+         age<= & age> 65     74.95    72.34    2.6126   1.005   0.5081  0.5033
+ preanti<= & preanti> 57     63.98    64.47   -0.4912   1.052   0.3505  0.3426
+     age> & preanti<= 35     71.37    72.89   -1.5206   1.444   0.9979  0.9977
+        age> & wtkg<= 25     74.20    72.96    1.2376   1.458   0.6371  0.6301
+         age> & cd80> 23     74.43    74.69   -0.2522   1.463   0.6854  0.7010
+        age> & cd80<= 22     76.05    75.59    0.4582   2.219   0.6911  0.7117
+   ppv_diff    ppv_se
+  0.0048314 0.0052702
+  0.0079041 0.0078155
+  0.0001435 0.0001435
+  0.0070505 0.0079570
+ -0.0156306 0.0115798
+ -0.0205864 0.0137663
+            signature  n sens_diff  sens_se  spec_diff   spec_se beta_real
+         age<= & age> 65  0.009576 0.002485 -7.390e-04 1.465e-03     33.17
+ preanti<= & preanti> 57  0.003560 0.002370  2.856e-03 1.958e-03     30.96
+     age> & preanti<= 35 -0.004210 0.005903 -2.166e-05 2.166e-05     39.97
+        age> & wtkg<= 25  0.004971 0.003683  4.471e-04 2.110e-03     34.92
+         age> & cd80> 23 -0.004450 0.004929 -2.088e-03 1.993e-03     35.89
+        age> & cd80<= 22 -0.002261 0.007801 -3.170e-03 2.083e-03     36.04
+ beta_pop  beta_diff   beta_se naive_bias_real naive_bias_se
+    33.17  1.093e-16 4.800e-16           74.94         2.172
+    30.96  5.610e-16 6.212e-16           78.60         2.477
+    39.97  6.090e-16 3.411e-16           69.69         2.807
+    34.92 -4.263e-15 7.105e-16           74.26         3.280
+    35.89 -3.089e-16 7.032e-16           73.45         3.474
+    36.04 -1.938e-15 1.162e-15           71.15         4.386
+pooled over ALL detected replicates (paired realized - population):
+ quantity    real     pop       diff        se
+     size 73.6276 73.6515 -2.386e-02 2.618e-01
+      ppv  0.4016  0.4007  8.462e-04 1.573e-03
+     sens  0.1229  0.1224  4.202e-04 6.767e-04
+     spec  0.9042  0.9038  3.455e-04 4.368e-04
+     beta 31.7632 31.7632  4.516e-16 1.253e-16
+pooled over the >= 20 signatures, weighted by count:
+ quantity diff_weighted n_reps n_sigs
+     size     5.455e-01    227      6
+      ppv     5.879e-04    227      6
+     sens     2.864e-03    227      6
+     spec     3.284e-05    227      6
+     beta    -4.226e-16    227      6
+naive bias: realized aggregate 77.085 (SE 0.564); analytic resample 75.532, split 75.487; within-signature realized minus analytic(resample): min -5.84, max 3.07, share of signatures above analytic 0.17
+by K (factors in the winner):
+ K   n size_real size_pop naive_bias ppv_real ppv_pop
+ 1  13     64.08    67.11      86.82   0.1458  0.1420
+ 2 986     73.75    73.74      76.96   0.4049  0.4041
+
+§5 top 15 analytic signatures (sel_c) beside measured frequency:
+            signature analytic_resample analytic_split measured measured_n
+         age<= & age>            0.0743         0.0742   0.0651         65
+ preanti<= & preanti>            0.0568         0.0558   0.0571         57
+     age> & preanti<=            0.0326         0.0327   0.0350         35
+         age> & cd80>            0.0240         0.0243   0.0230         23
+        age> & cd40<=            0.0236         0.0239   0.0190         19
+      age> & preanti>            0.0230         0.0227   0.0170         17
+        age> & wtkg<=            0.0215         0.0218   0.0250         25
+        age> & cd80<=            0.0212         0.0211   0.0220         22
+     age<= & preanti>            0.0199         0.0206   0.0190         19
+         age> & wtkg>            0.0191         0.0197   0.0150         15
+         age> & cd40>            0.0174         0.0182   0.0170         17
+       cd40> & cd80<=            0.0146         0.0146   0.0150         15
+   cd40<= & preanti<=            0.0144         0.0141   0.0120         12
+       cd40<= & cd80>            0.0142         0.0145   0.0160         16
+       cd40<= & wtkg>            0.0142         0.0141   0.0130         13
+analytic mass on signatures the search never selected: resample 0.0147, split 0.0141
+measured frequency on signatures absent from the analytic family: 0.0430 (21 signatures; 15 of them use str2, carrying 0.0310; 6 others carry 0.0120)
+                age>     drugs=1 & homo=0     gender=0 & wtkg> 
+         0.003003003          0.003003003          0.002002002 
+karnof<= & symptom=1    gender=0 & race=0      hemo=1 & race=0 
+         0.002002002          0.001001001          0.001001001 
+total variation distance over signatures: resample 0.1735, split 0.1734; excluding str2 signatures and renormalising: 0.1602
+top 15 measured signatures beside analytic:
+            signature measured measured_n analytic_resample
+         age<= & age>   0.0651         65            0.0743
+ preanti<= & preanti>   0.0571         57            0.0568
+     age> & preanti<=   0.0350         35            0.0326
+        age> & wtkg<=   0.0250         25            0.0215
+         age> & cd80>   0.0230         23            0.0240
+        age> & cd80<=   0.0220         22            0.0212
+     age<= & preanti>   0.0190         19            0.0199
+        age<= & wtkg>   0.0190         19            0.0117
+        age> & cd40<=   0.0190         19            0.0236
+         age> & cd40>   0.0170         17            0.0174
+      age> & preanti>   0.0170         17            0.0230
+       cd40<= & cd80>   0.0160         16            0.0142
+       cd80<= & wtkg>   0.0160         16            0.0123
+       age<= & cd40<=   0.0150         15            0.0107
+         age> & wtkg>   0.0150         15            0.0191
+
+############ null500: n = 500, detected 998 of 1000
+distinct verbatim sg_def: 912; top 15:
+
+   !{age <= 42} & {homo} !{homo} & {karnof <= 90}                  {drugs} 
+                       4                        4                        4 
+ {race} & {preanti <= 0}       {symptom} & {homo}   !{homo} & !{age <= 36} 
+                       4                        4                        3 
+  !{wtkg <= 82} & {str2}   !{wtkg <= 83} & {str2}       {gender} & !{homo} 
+                       3                        3                        3 
+   {race} & !{age <= 32} {race} & !{preanti <= 0}     {race} & {age <= 33} 
+                       3                        3                        3 
+         {race} & {homo}      {symptom} & !{race}  {wtkg <= 67} & {gender} 
+                       3                        3                        3 
+distinct signatures: 160; top 20:
+
+      age<= & age>   age<= & preanti>   cd40> & preanti>      age> & cd80<= 
+                27                 27                 24                 23 
+  preanti> & wtkg>      age> & cd40<=   age> & preanti<=   cd80> & preanti> 
+                23                 21                 21                 21 
+     age> & wtkg<=     age<= & cd80<=     cd40<= & cd80>  cd80<= & preanti> 
+                20                 19                 18                 17 
+    age<= & cd40<=      age<= & cd80>      age<= & wtkg>       age> & cd40> 
+                16                 16                 16                 16 
+   age> & preanti>  age<= & preanti<=       age> & cd80> cd40<= & preanti<= 
+                16                 15                 15                 15 
+K distribution:
+
+  1   2 
+  4 994 
+fraction of winners using each covariate:
+    age preanti    wtkg  karnof    cd40    cd80    hemo    homo   drugs    race 
+  0.404   0.328   0.240   0.068   0.267   0.283   0.002   0.103   0.014   0.088 
+ gender symptom    str2 
+  0.041   0.058   0.050 
+winners using age or preanti (the document's two axes): 0.652; using neither: 0.348
+§3: 912 distinct rules; resolved ok 912, empty 0, unresolved 0
+
+§4: signatures with >= 20 replicates: 9 (covering 207 of 998 detected replicates)
+        signature  n size_real size_pop size_diff size_se ppv_real ppv_pop
+     age<= & age> 27     79.04    80.16   -1.1222   1.839        0       0
+ age<= & preanti> 27     69.48    69.00    0.4852   1.554        0       0
+ cd40> & preanti> 24     66.71    66.52    0.1917   1.303        0       0
+    age> & cd80<= 23     70.17    71.00   -0.8217   1.480        0       0
+ preanti> & wtkg> 23     66.13    67.22   -1.0913   1.135        0       0
+    age> & cd40<= 21     69.33    67.50    1.8286   1.882        0       0
+ age> & preanti<= 21     68.81    70.34   -1.5333   1.482        0       0
+ cd80> & preanti> 21     69.19    68.80    0.3952   1.295        0       0
+    age> & wtkg<= 20     70.10    67.91    2.1850   1.817        0       0
+ ppv_diff ppv_se
+        0      0
+        0      0
+        0      0
+        0      0
+        0      0
+        0      0
+        0      0
+        0      0
+        0      0
+        signature  n sens_diff sens_se  spec_diff  spec_se beta_real beta_pop
+     age<= & age> 27       NaN      NA  0.0022444 0.003678     26.26    26.26
+ age<= & preanti> 27       NaN      NA -0.0009704 0.003109     26.26    26.26
+ cd40> & preanti> 24       NaN      NA -0.0003833 0.002607     26.26    26.26
+    age> & cd80<= 23       NaN      NA  0.0016435 0.002959     26.26    26.26
+ preanti> & wtkg> 23       NaN      NA  0.0021826 0.002270     26.26    26.26
+    age> & cd40<= 21       NaN      NA -0.0036571 0.003763     26.26    26.26
+ age> & preanti<= 21       NaN      NA  0.0030667 0.002964     26.26    26.26
+ cd80> & preanti> 21       NaN      NA -0.0007905 0.002590     26.26    26.26
+    age> & wtkg<= 20       NaN      NA -0.0043700 0.003634     26.26    26.26
+  beta_diff   beta_se naive_bias_real naive_bias_se
+  1.711e-15 3.481e-16           70.05         3.346
+ -2.237e-15 5.070e-16           74.40         4.050
+ -3.849e-15 2.961e-16           71.09         3.289
+  1.081e-15 9.590e-16           78.74         4.216
+ -6.179e-16 6.939e-16           76.69         3.510
+  8.459e-16 1.147e-15           77.33         3.902
+  3.045e-15 2.780e-16           72.99         3.600
+ -2.030e-15 5.787e-16           70.24         3.897
+ -3.553e-16 7.244e-16           74.08         3.945
+pooled over ALL detected replicates (paired realized - population):
+ quantity    real     pop       diff        se
+     size 72.0481 72.5505 -5.024e-01 2.406e-01
+      ppv  0.0000  0.0000  0.000e+00 0.000e+00
+     sens      NA      NA        NaN        NA
+     spec  0.8559  0.8549  1.005e-03 4.811e-04
+     beta 26.2552 26.2552  9.968e-16 1.115e-16
+pooled over the >= 20 signatures, weighted by count:
+ quantity diff_weighted n_reps n_sigs
+     size     7.729e-03    207      9
+      ppv     0.000e+00    207      9
+     sens           NaN    207      9
+     spec    -1.546e-05    207      9
+     beta    -3.089e-16    207      9
+naive bias: realized aggregate 74.851 (SE 0.567); analytic resample 76.224, split 76.048; within-signature realized minus analytic(resample): min -6.17, max 2.51, share of signatures above analytic 0.33
+by K (factors in the winner):
+ K   n size_real size_pop naive_bias ppv_real ppv_pop
+ 1   4     64.50    67.00      65.86        0       0
+ 2 994     72.08    72.57      74.89        0       0
+
+§5 top 15 analytic signatures (sel_c) beside measured frequency:
+            signature analytic_resample analytic_split measured measured_n
+         age<= & age>            0.0324         0.0325   0.0271         27
+     age<= & preanti>            0.0261         0.0257   0.0271         27
+         age> & cd40>            0.0237         0.0238   0.0160         16
+        age> & cd80<=            0.0236         0.0234   0.0230         23
+    cd80<= & preanti>            0.0234         0.0235   0.0170         17
+     cd40> & preanti>            0.0227         0.0226   0.0240         24
+        age> & cd40<=            0.0217         0.0214   0.0210         21
+     age> & preanti<=            0.0207         0.0204   0.0210         21
+        age<= & wtkg>            0.0195         0.0198   0.0160         16
+ preanti<= & preanti>            0.0193         0.0198   0.0080          8
+       age<= & cd80<=            0.0186         0.0187   0.0190         19
+     cd80> & preanti>            0.0179         0.0183   0.0210         21
+         age> & cd80>            0.0175         0.0174   0.0150         15
+         age> & wtkg>            0.0166         0.0163   0.0110         11
+        age<= & cd80>            0.0162         0.0162   0.0160         16
+analytic mass on signatures the search never selected: resample 0.0190, split 0.0194
+measured frequency on signatures absent from the analytic family: 0.0521 (23 signatures; 21 of them use str2, carrying 0.0501; 2 others carry 0.0020)
+drugs=1 & symptom=0   karnof<= & race=1 
+        0.001002004         0.001002004 
+total variation distance over signatures: resample 0.1977, split 0.1983; excluding str2 signatures and renormalising: 0.1775
+top 15 measured signatures beside analytic:
+         signature measured measured_n analytic_resample
+      age<= & age>   0.0271         27            0.0324
+  age<= & preanti>   0.0271         27            0.0261
+  cd40> & preanti>   0.0240         24            0.0227
+     age> & cd80<=   0.0230         23            0.0236
+  preanti> & wtkg>   0.0230         23            0.0085
+     age> & cd40<=   0.0210         21            0.0217
+  age> & preanti<=   0.0210         21            0.0207
+  cd80> & preanti>   0.0210         21            0.0179
+     age> & wtkg<=   0.0200         20            0.0160
+    age<= & cd80<=   0.0190         19            0.0186
+    cd40<= & cd80>   0.0180         18            0.0083
+ cd80<= & preanti>   0.0170         17            0.0234
+    age<= & cd40<=   0.0160         16            0.0117
+     age<= & cd80>   0.0160         16            0.0162
+     age<= & wtkg>   0.0160         16            0.0195
+
+written: dev/glm-continuous-sims/sgdef_selection_2026-08-29.rds 
