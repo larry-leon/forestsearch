@@ -168,7 +168,7 @@ No recommendation.
 
 `git status --porcelain` before staging: the two scripts, their `.log` and `.rds`, and this report. Staged by explicit path; committed; hash in the follow-up line. **No push. No install.**
 
-Commits: `01969fa2` task doc; the script/outputs/report commit and its hash-recording follow-up below.
+Commits: `01969fa2` task doc; `4bc2bc76` scripts, outputs and this report; the hash line in the follow-up commit.
 
 ---
 
