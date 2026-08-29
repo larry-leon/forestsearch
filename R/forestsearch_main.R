@@ -353,7 +353,13 @@
 #'   selected subgroup may be a single covariate or, where the method's depth
 #'   allows (DINA \code{max_depth = 2}; GRF \code{grf_depth >= 2}), an
 #'   AND-conjunction.
-#' @param max_n_confounders Integer. Maximum confounders to consider. Default 1000.
+#' @param max_n_confounders Integer. Maximum number of candidate cut columns
+#'   retained after GRF variable-importance screening, keeping the
+#'   highest-importance columns.  Default 1000.  \strong{Applied only when
+#'   \code{vi.grf.min} is numeric}: the truncation lives inside the
+#'   variable-importance block, so with \code{vi.grf.min = NULL} (the
+#'   default) this argument has no effect, and a finite value below the
+#'   number of cut columns triggers a warning saying so.
 #' @param grf_depth Integer. GRF tree depth. Default 2.
 #' @param grf_selection Character, one of \code{"frontier"} (default) or
 #'   \code{"tree"}, used only when \code{subgroup_method = "grf"}.
@@ -709,7 +715,26 @@
 #'
 #'   Set a finite value only to bound runtime, knowing it can change which
 #'   subgroup is selected.  The default was \code{200} in earlier versions.
-#' @param vi.grf.min Numeric. Minimum GRF variable importance. Default -0.2.
+#' @param vi.grf.min Numeric or \code{NULL}.  GRF variable-importance
+#'   screening of the candidate cut columns.  \code{NULL} (the default since
+#'   0.3.0) skips the screening entirely: no causal forest is fitted and the
+#'   cut columns are searched in the order \code{get_FSdata()} builds them.
+#'   A numeric value fits a causal forest (\code{grf::causal_forest()} for
+#'   GLM outcomes, \code{grf::causal_survival_forest()} for survival),
+#'   \strong{orders} the cut columns by variable importance, and retains those
+#'   with \code{vi_ratio > vi.grf.min}, where \code{vi_ratio} is each column's
+#'   importance divided by the maximum.  At values \code{<= 0} nothing is
+#'   filtered out -- \code{grf::variable_importance()} is non-negative and the
+#'   block is guarded by \code{vi_max > 0} -- so the effect is ordering only.
+#'   That ordering sets the candidate matrix's column order; it does
+#'   \strong{not} reach candidate selection, because the candidate table is
+#'   re-sorted by \code{(-HR, K)} before the consistency loop.  Measured effect
+#'   on \code{n_candidates_evaluated} and \code{early_stop_candidate}: zero;
+#'   the selected subgroup's subject membership is unchanged and only the
+#'   clause order of \code{sg.harm} may differ.  Versions before 0.3.0
+#'   defaulted to \code{-0.2}; pass \code{vi.grf.min = -0.2} explicitly to
+#'   reproduce their output.  \code{max_n_confounders} is applied
+#'   \strong{only when this screening runs} -- see that argument.
 #' @param use_twostage Logical. Use two-stage sequential consistency algorithm for
 #'   improved performance. Default FALSE for backward compatibility. When TRUE,
 #'   \code{fs.splits} becomes the maximum number of splits, and early stopping
@@ -1213,7 +1238,7 @@ forestsearch <- function(df.analysis,
                          plot.sg = FALSE,
                          plot.grf = FALSE,
                          max_subgroups_search = Inf,
-                         vi.grf.min = -0.2,
+                         vi.grf.min = NULL,
                          # NEW: Two-stage consistency parameters
                          use_twostage = TRUE,
                          twostage_args = list(),
@@ -2744,6 +2769,20 @@ forestsearch <- function(df.analysis,
   }
 
   if (is.null(df.predict)) df.predict <- df
+
+  # The max_n_confounders truncation is applied only inside the variable-
+  # importance block below (the `seq_len(min(..., max_n_confounders))` line
+  # under `if (vi_max > 0)`).  With vi.grf.min = NULL -- the default
+  # since 0.3.0 -- that block is skipped, so a finite cap below the number of
+  # cut columns silently does nothing.  Say so once, actionably.
+  if (is.null(vi.grf.min) && is.finite(max_n_confounders) &&
+      max_n_confounders < length(FSconfounders.name)) {
+    warning("max_n_confounders = ", max_n_confounders, " is inert: variable-",
+            "importance screening is off (vi.grf.min = NULL), so all ",
+            length(FSconfounders.name), " candidate cut columns are searched. ",
+            "Set vi.grf.min to a numeric value (e.g. -0.2, the pre-0.3.0 ",
+            "default) to apply the cap.", call. = FALSE)
+  }
 
   # ===========================================================================
   # SECTION 5: GRF VARIABLE IMPORTANCE SCREENING

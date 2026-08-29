@@ -1,3 +1,40 @@
+# forestsearch 0.3.0
+
+## Default change: `vi.grf.min = NULL` -- GRF variable-importance screening is off unless requested
+
+The default of `forestsearch(vi.grf.min = )` changed from `-0.2` to `NULL`.
+With `NULL`, Section 5 (the per-call causal forest and the importance
+ordering of the candidate cut columns) is skipped entirely; screening runs
+only when a numeric value is passed.
+
+1. **Screening is off by default.**  A numeric `vi.grf.min` fits the forest,
+   orders the cut columns by importance and retains those with
+   `vi_ratio > vi.grf.min`; at values `<= 0` nothing is filtered (importances
+   are non-negative and the block is guarded by `vi_max > 0`), so the
+   pre-0.3.0 default was an ordering only.
+2. **Reproducing results from versions before 0.3.0 requires passing
+   `vi.grf.min = -0.2` explicitly.**  Callers that never set the argument now
+   take the `NULL` path.
+3. **Measured effect where `max_n_confounders` does not bind** (260 paired
+   synthetic runs, `REPORT_vi_grf_smoke_2026-08-30.md`): the selected
+   subgroup's subject membership is identical, the fitted effect and `Pcons`
+   are identical, the candidate families are identical as sets of subject
+   memberships, and `n_candidates_evaluated` / `early_stop_candidate` are
+   identical -- the ordering never reached the scan, because the candidate
+   table is re-sorted by `(-HR, K)` before the consistency loop.  Only the
+   clause order of `sg.harm` may differ (e.g. `{age <= 47} {biomarker_hi}`
+   instead of `{biomarker_hi} {age <= 47}`), and each call is ~0.13 s faster.
+4. **`max_n_confounders` has no effect when `vi.grf.min` is `NULL`.**  The
+   truncation lives inside the variable-importance block.  A finite cap below
+   the number of cut columns now triggers one warning saying the cap is
+   inert and how to restore it (pass a numeric `vi.grf.min`); the cap's
+   placement is unchanged.
+
+`R/run_simulation_analysis.R` (`default_fs_params_*()`) still sets
+`vi.grf.min = -0.2` explicitly and is unaffected.  No driver, application
+document or payload was touched; results recorded under earlier versions
+stand as statements about those versions.
+
 # forestsearch 0.2.7
 
 ## New: `fs_family_report()` -- what is, and is not, deterministic about the candidate family
