@@ -342,7 +342,7 @@ Everything computed on the 12-variable family is **numerically superseded** by t
 
 **Concurrency check.** The merge and comparison steps were triggered twice, concurrently, by two waiters (an operator error, not a script property). Both steps are deterministic from stored inputs (`merge` from the three part files; `compare` from the three `.rds`), so the comparison was re-run alone afterwards: its log is **byte-identical** (`cmp`) to the one in the repository, its `.rds` is `identical()` to the committed one with the `built_at` timestamp stripped, and a fresh `merge` into a scratch directory is likewise `identical()` to the committed `oc_wrapper_grid_corrected_2026-08-30.rds` minus `built_at`. Nothing was replaced.
 
-Commits: `7e4a5dfd` task doc; the script/log/rds/report commit and its hash-recording follow-up below.
+Commits: `7e4a5dfd` task doc; `58024dfe` script, logs, rds and this report; the hash line in the follow-up commit.
 
 ---
 
