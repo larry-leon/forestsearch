@@ -170,7 +170,7 @@ alt700: the top three coincide exactly (`age<= & age>` 0.074 vs 0.065; `preanti<
 
 `git status --porcelain` before staging: the four new files only. Staged by explicit path: `sgdef_selection_2026-08-29.R`, `.log`, `.rds`, this report. Commit hash in the follow-up line below. **No push. No install** (nothing in `R/` changed).
 
-Commits: `69ccc84d` task doc; __COMMITS__.
+Commits: `69ccc84d` task doc; `b8bd0f0a` script, log, rds and this report; the hash line in the follow-up commit.
 
 ---
 
