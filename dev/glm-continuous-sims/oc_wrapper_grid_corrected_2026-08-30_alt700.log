@@ -1,0 +1,30 @@
+[alt700] fixture rebuilt and gated; scale identical to payload and to the 08-29 grid
+fs_oc_family_enumerate: cut columns 74 | enumerated 2775 | dropped: empty 127 minp 0 rmin 102 size 448 | kept 2098 | duplicates 208 | M = 1890 
+[alt700] corrected family: M = 1890 (08-29: 1784); cut columns 74 (08-29: 72); 11.1 s
+[alt700] gate = resample M = 1890 det_rate = 0.9998 EnH = 73.04 Esens = 0.1219 Eppv = 0.4034 naive = 75.57  503 s peak 13370 MB
+[alt700] gate = split    M = 1890 det_rate = 1.0000 EnH = 73.08 Esens = 0.1222 Eppv = 0.4038 naive = 75.49  973 s peak 17027 MB
+fs_oc_grid: n = 700  gate = resample  M = 1890  enumerate 0.0s  draw 474.7s  sweep 85.8s (21 points)
+fs_oc_grid: n = 700  gate = split     M = 1890  enumerate 0.0s  draw 944.6s  sweep 82.4s (21 points)
+[alt700] sweep: 42 rows in 1588 s
+[alt700] resample sweep point at c1 = 30 identical() to fs_oc_predict(): TRUE
+[alt700] split    sweep point at c1 = 30 identical() to fs_oc_predict(): TRUE
+    n consistency_method    M enumerate_secs draw_secs sweep_secs
+1 700           resample 1890              0   474.721     85.826
+2 700              split 1890              0   944.627     82.350
+[alt700] invert resample: 3 targets in 492 s
+[alt700] invert split   : 3 targets in 843 s
+  target  value achieved achieved_se next_step_rate ceiling attainable   n
+1   0.80 93.187     0.80  0.00089443        0.80000 0.99976       TRUE 700
+2   0.90 86.638     0.90  0.00067082        0.89999 0.99976       TRUE 700
+3   0.95 81.279     0.95  0.00048734        0.95000 0.99976       TRUE 700
+4   0.80 93.098     0.80  0.00089443        0.80000 1.00000       TRUE 700
+5   0.90 86.597     0.90  0.00067082        0.89999 1.00000       TRUE 700
+6   0.95 81.291     0.95  0.00048734        0.95000 1.00000       TRUE 700
+  consistency_method   secs
+1           resample 492.01
+2           resample 492.01
+3           resample 492.01
+4              split 842.56
+5              split 842.56
+6              split 842.56
+[alt700] part written: /tmp/claude-1000/-home-larryleon-Downloads/37668656-ab99-47a5-8bad-7a4d5132b4de/scratchpad/oc_corrected_part_alt700.rds

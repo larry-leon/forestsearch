@@ -1,0 +1,30 @@
+[alt500] fixture rebuilt and gated; scale identical to payload and to the 08-29 grid
+fs_oc_family_enumerate: cut columns 74 | enumerated 2775 | dropped: empty 127 minp 0 rmin 107 size 656 | kept 1885 | duplicates 189 | M = 1696 
+[alt500] corrected family: M = 1696 (08-29: 1601); cut columns 74 (08-29: 72); 9.5 s
+[alt500] gate = resample M = 1696 det_rate = 0.9991 EnH = 70.79 Esens = 0.1638 Eppv = 0.4000 naive = 75.53  408 s peak 12018 MB
+[alt500] gate = split    M = 1696 det_rate = 1.0000 EnH = 70.78 Esens = 0.1635 Eppv = 0.3994 naive = 75.38  785 s peak 17914 MB
+fs_oc_grid: n = 500  gate = resample  M = 1696  enumerate 0.0s  draw 381.0s  sweep 76.5s (21 points)
+fs_oc_grid: n = 500  gate = split     M = 1696  enumerate 0.0s  draw 766.5s  sweep 74.2s (21 points)
+[alt500] sweep: 42 rows in 1298 s
+[alt500] resample sweep point at c1 = 30 identical() to fs_oc_predict(): TRUE
+[alt500] split    sweep point at c1 = 30 identical() to fs_oc_predict(): TRUE
+    n consistency_method    M enumerate_secs draw_secs sweep_secs
+1 500           resample 1696              0   381.045     76.516
+2 500              split 1696              0   766.485     74.168
+[alt500] invert resample: 3 targets in 405 s
+[alt500] invert split   : 3 targets in 767 s
+  target  value achieved achieved_se next_step_rate ceiling attainable   n
+1   0.80 92.037     0.80  0.00089443        0.80000 0.99906       TRUE 500
+2   0.90 84.951     0.90  0.00067082        0.89999 0.99906       TRUE 500
+3   0.95 79.143     0.95  0.00048734        0.95000 0.99906       TRUE 500
+4   0.80 91.896     0.80  0.00089443        0.80000 1.00000       TRUE 500
+5   0.90 84.678     0.90  0.00067082        0.89999 1.00000       TRUE 500
+6   0.95 78.807     0.95  0.00048734        0.95000 1.00000       TRUE 500
+  consistency_method   secs
+1           resample 404.60
+2           resample 404.60
+3           resample 404.60
+4              split 767.13
+5              split 767.13
+6              split 767.13
+[alt500] part written: /tmp/claude-1000/-home-larryleon-Downloads/37668656-ab99-47a5-8bad-7a4d5132b4de/scratchpad/oc_corrected_part_alt500.rds

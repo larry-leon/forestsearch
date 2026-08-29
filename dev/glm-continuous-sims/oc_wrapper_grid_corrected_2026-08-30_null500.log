@@ -1,0 +1,48 @@
+[null500] rebuild gate:
+    Q_empty effect_Q_NA   effect_Qc  beta_inter  effect_ITT  model_null 
+       TRUE        TRUE        TRUE        TRUE        TRUE        TRUE 
+fs_oc_family_enumerate: cut columns 74 | enumerated 2775 | dropped: empty 127 minp 0 rmin 107 size 656 | kept 1885 | duplicates 189 | M = 1696 
+[null500] corrected null family: M = 1696 (08-29: 1601); common effect 26.255236; 9.4 s
+[null500] resample false declaration 0.9969 (SE 0.0001); P1 range 0.1215..0.3781; L_eff 12.19; EnH 70.90; EbetaH 26.255; naive 76.32; mass_below 1.000; 412 s
+[null500] split    false declaration 1.0000 (SE 0.0000); P1 range 0.3457..0.3774; L_eff 25.76; EnH 70.83; EbetaH 26.255; naive 76.07; mass_below 1.000; 789 s
+fs_oc_grid: n = 500  gate = resample  M = 1696  enumerate 0.0s  draw 385.7s  sweep 74.5s (21 points)
+fs_oc_grid: n = 500  gate = split     M = 1696  enumerate 0.0s  draw 770.4s  sweep 73.3s (21 points)
+[null500] sweep: 42 rows in 1304 s
+[null500] resample sweep point at c1 = 30 identical() to fs_oc_predict(): TRUE
+[null500] split    sweep point at c1 = 30 identical() to fs_oc_predict(): TRUE
+    n consistency_method    M enumerate_secs draw_secs sweep_secs
+1 500           resample 1696          0.001   385.714     74.550
+2 500              split 1696          0.001   770.431     73.341
+[null500] invert resample: 7 targets in 404 s
+[null500] invert split   : 7 targets in 770 s
+   target   value achieved achieved_se next_step_rate ceiling attainable
+1    0.05 133.235     0.05  0.00048734       0.049995 0.99694       TRUE
+2    0.10 125.700     0.10  0.00067082       0.099995 0.99694       TRUE
+3    0.20 117.114     0.20  0.00089443       0.199995 0.99694       TRUE
+4    0.50 101.640     0.50  0.00111803       0.499995 0.99694       TRUE
+5    0.80  87.292     0.80  0.00089443       0.799995 0.99694       TRUE
+6    0.90  80.167     0.90  0.00067082       0.899995 0.99694       TRUE
+7    0.95  74.433     0.95  0.00048734       0.949995 0.99694       TRUE
+8    0.05 133.042     0.05  0.00048734       0.049995 1.00000       TRUE
+9    0.10 125.688     0.10  0.00067082       0.099995 1.00000       TRUE
+10   0.20 117.054     0.20  0.00089443       0.199995 1.00000       TRUE
+11   0.50 101.596     0.50  0.00111803       0.499995 1.00000       TRUE
+12   0.80  87.117     0.80  0.00089443       0.799995 1.00000       TRUE
+13   0.90  79.854     0.90  0.00067082       0.899995 1.00000       TRUE
+14   0.95  74.042     0.95  0.00048734       0.949995 1.00000       TRUE
+   consistency_method   secs
+1            resample 403.97
+2            resample 403.97
+3            resample 403.97
+4            resample 403.97
+5            resample 403.97
+6            resample 403.97
+7            resample 403.97
+8               split 770.03
+9               split 770.03
+10              split 770.03
+11              split 770.03
+12              split 770.03
+13              split 770.03
+14              split 770.03
+[null500] part written: /tmp/claude-1000/-home-larryleon-Downloads/37668656-ab99-47a5-8bad-7a4d5132b4de/scratchpad/oc_corrected_part_null500.rds
