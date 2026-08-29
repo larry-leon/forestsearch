@@ -1,0 +1,44 @@
+[alt700] n = 700, M = 1890, population cut columns 74 (37 cuts); R = 200 replicates, seeds 20260825 + 1..200
+population continuous cut counts per variable: age=10 preanti=7 wtkg=3 karnof=2 cd40=4 cd80=4 
+[alt700] replicate 25: cut columns 70, candidates located 1762 / 1890, new replicate keys 2
+[alt700] replicate 50: cut columns 76, candidates located 1543 / 1890, new replicate keys 12
+[alt700] replicate 75: cut columns 74, candidates located 1890 / 1890, new replicate keys 4
+[alt700] replicate 100: cut columns 76, candidates located 1543 / 1890, new replicate keys 12
+[alt700] replicate 125: cut columns 70, candidates located 1037 / 1890, new replicate keys 16
+[alt700] replicate 150: cut columns 70, candidates located 856 / 1890, new replicate keys 22
+[alt700] replicate 175: cut columns 70, candidates located 1762 / 1890, new replicate keys 2
+[alt700] replicate 200: cut columns 74, candidates located 1890 / 1890, new replicate keys 4
+[alt700] label correspondence: candidates located in every replicate 563 / 1890; located in none 0; mean located per replicate 1579.0
+[alt700] candidates that disappear in some replicates (n = 1327); replicates missing, top 10:
+     wtkg > 75 & karnof > 95                  missing in 140 / 200
+     wtkg > 75 & karnof <= 95                 missing in 140 / 200
+     wtkg <= 75 & karnof > 95                 missing in 140 / 200
+     wtkg <= 75 & karnof <= 95                missing in 140 / 200
+     wtkg > 67 & karnof > 95                  missing in 140 / 200
+     wtkg > 67 & karnof <= 95                 missing in 140 / 200
+     wtkg <= 67 & karnof > 95                 missing in 140 / 200
+     wtkg <= 67 & karnof <= 95                missing in 140 / 200
+     wtkg > 83 & karnof > 95                  missing in 140 / 200
+     wtkg > 83 & karnof <= 95                 missing in 140 / 200
+[alt700] replicate keys with no population counterpart (key: var|op|rank|count, replicates):
+
+  age|>|10|10       hemo|=1 karnof|<=|1|2  karnof|>|1|2   wtkg|<=|1|4 
+          200           200           143           143           114 
+  wtkg|<=|2|4   wtkg|<=|3|4   wtkg|<=|4|4    wtkg|>|1|4    wtkg|>|2|4 
+          114           114           114           114           114 
+   wtkg|>|3|4    wtkg|>|4|4 
+          114           114 
+[alt700] replicate continuous cut counts per variable (mode, range) vs population:
+     age      pop 10 | rep mode 10, range 10..10, share equal to pop 1.000
+     preanti  pop 7 | rep mode 7, range 6..7, share equal to pop 0.909
+     wtkg     pop 3 | rep mode 4, range 3..4, share equal to pop 0.361
+     karnof   pop 2 | rep mode 2, range 2..2, share equal to pop 1.000
+     cd40     pop 4 | rep mode 4, range 3..4, share equal to pop 0.977
+     cd80     pop 4 | rep mode 4, range 4..4, share equal to pop 1.000
+[alt700] delta prevalence (replicate - population), per candidate mean over replicates: mean +0.00017, median -0.00009, sd 0.00618, range [-0.0236, +0.0352]
+[alt700] in subjects (x n): unweighted mean +0.116
+[alt700] by K: K=1 -0.00002 (n=70) | K=2 +0.00017 (n=1820)
+[alt700] by Pg quartile: [0.0862,0.168] -0.00119 | (0.168,0.266] -0.00093 | (0.266,0.411] +0.00064 | (0.411,0.92] +0.00215
+[alt700] cor(E[dP], Pg) = +0.208; lm slope of E[dP] on Pg = +0.0075 (SE 0.0008)
+[alt700] sel_c-weighted E[dP]: resample -0.00118 -> -0.824 subjects; split -0.00119 -> -0.830 subjects | between-rule gap +0.61 | share -135.0% / -136.1%
+written: dev/glm-continuous-sims/residual_quantiles_stage1_alt700_2026-08-30.rds 
