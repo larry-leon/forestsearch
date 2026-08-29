@@ -113,7 +113,7 @@ Status: OK
 
 `DESCRIPTION` 0.2.7 → **0.3.0**. `NEWS.md` states all four required items (default changed and screening off unless requested; **reproducing pre-0.3.0 results requires `vi.grf.min = -0.2` explicitly**; the measured effect where the cap does not bind — identical memberships, clause order may differ; `max_n_confounders` has no effect under `NULL`, now with a warning). Staged by explicit path (`R/forestsearch_main.R`, `man/forestsearch.Rd`, `DESCRIPTION`, `NEWS.md`, this report). **No push.** `devtools::install(upgrade = FALSE)`: `installed forestsearch 0.3.0`.
 
-Commits: `c946def6` task doc; the change/report commit and its hash-recording follow-up below.
+Commits: `c946def6` task doc; `202ef15b` the change, man, DESCRIPTION, NEWS and this report; the hash line in the follow-up commit.
 
 ---
 
