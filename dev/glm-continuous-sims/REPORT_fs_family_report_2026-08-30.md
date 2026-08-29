@@ -150,7 +150,7 @@ Status: OK
 
 `DESCRIPTION` 0.2.6 → **0.2.7**; `NEWS.md` entry states that it reports and changes nothing. Staged by explicit path (`R/fs_family_report.R`, `tests/testthat/test-fs-family-report.R`, `man/fs_family_report.Rd`, `NAMESPACE`, `DESCRIPTION`, `NEWS.md`, this report); `git status --porcelain` clean after. **No push.** `devtools::install()`: `Execution halted`.
 
-Commits: `424d27ba` task doc; the feature/report commit and its hash-recording follow-up below.
+Commits: `424d27ba` task doc; `d5ef8c7c` function, tests, man, NAMESPACE, DESCRIPTION, NEWS and this report; the hash line in the follow-up commit.
 
 ---
 
