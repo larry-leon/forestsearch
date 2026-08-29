@@ -178,7 +178,7 @@ MC SE of `EnH` from the `sel_c`-weighted spread of `n·Pg`: 0.028 (n = 500), 0.0
 
 `git status --porcelain` before staging: the new files only. Staged by explicit path: `residual_2026-08-30.R`, `residual_hypA_2026-08-30.rds`, `residual_hypA_2026-08-30.log`, `residual_hypB_alt500_2026-08-30.log`, `residual_hypB_alt700_2026-08-30.log`, `residual_hypB_null500_2026-08-30.log`, `residual_hypB_summary_2026-08-30.log`, `residual_hypB_2026-08-30.rds`, this report. The three per-cell part files live in the session scratch directory and are merged into `residual_hypB_2026-08-30.rds`. **No push. No install** (nothing in `R/` changed).
 
-Commits: `80544be1` task doc; scripts, outputs and this report in the next commit; its hash in the follow-up line.
+Commits: `80544be1` task doc; `243801e6` scripts, outputs and this report; the hash line in the follow-up commit.
 
 ---
 
