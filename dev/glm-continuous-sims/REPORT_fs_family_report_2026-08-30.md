@@ -148,7 +148,7 @@ Status: OK
 ```
 
 
-`DESCRIPTION` 0.2.6 → **0.2.7**; `NEWS.md` entry states that it reports and changes nothing. Staged by explicit path (`R/fs_family_report.R`, `tests/testthat/test-fs-family-report.R`, `man/fs_family_report.Rd`, `NAMESPACE`, `DESCRIPTION`, `NEWS.md`, this report); `git status --porcelain` clean after. **No push.** `devtools::install()`: `Execution halted`.
+`DESCRIPTION` 0.2.6 → **0.2.7**; `NEWS.md` entry states that it reports and changes nothing. Staged by explicit path (`R/fs_family_report.R`, `tests/testthat/test-fs-family-report.R`, `man/fs_family_report.Rd`, `NAMESPACE`, `DESCRIPTION`, `NEWS.md`, this report); `git status --porcelain` clean after. **No push.** `devtools::install(upgrade = FALSE)`: installed forestsearch 0.2.7 (a first attempt with the invalid `upgrade = "never"` halted and was re-run; the halted text was briefly committed here in `81c9568a` and is corrected in the follow-up).
 
 Commits: `424d27ba` task doc; `d5ef8c7c` function, tests, man, NAMESPACE, DESCRIPTION, NEWS and this report; the hash line in the follow-up commit.
 
