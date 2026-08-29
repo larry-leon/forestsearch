@@ -159,7 +159,7 @@ Post-change capture at the same HEAD with the edit in the working tree (`paralle
 - `DESCRIPTION` 0.3.1 and `NEWS.md`: written, in the patch, reverted. **No `devtools::install()`; installed remains 0.3.0.**
 - Tree after the revert: `git status --porcelain` shows only the new `dev/glm-continuous-sims/` files; `R/`, `man/`, `DESCRIPTION`, `NEWS.md` at `1e45219f`.
 
-Commits: `1e45219f` task doc; the capture script, its outputs and logs, the patch and this report in the next commit; its hash in the follow-up line.
+Commits: `1e45219f` task doc; `774d768c` the capture script, its outputs and logs, the patch and this report; the hash line in the follow-up commit.
 
 ---
 
