@@ -187,7 +187,7 @@ What is worth changing, ranked by the share of a **bootstrap replicate** it woul
 
 `git status --porcelain` before staging: the script, log, `.rds`, the five `.Rprof` files and this report; nothing else. Staged by explicit path. **No push. No install** (nothing in `R/` changed). Wall-clock of the clean run: 22 min (four continuous configurations 3 × 5–40 s each, gbsg 3 × 8.5 s, the 20-replicate bootstrap 645 s).
 
-Commits: `9d53f465` task doc; script, outputs and this report in the next commit; its hash in the follow-up line.
+Commits: `9d53f465` task doc; `b8daf89c` script, outputs and this report; the hash line in the follow-up commit.
 
 ---
 
