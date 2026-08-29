@@ -145,7 +145,7 @@ No change to `R/forestsearch_main.R`, roxygen, `man/`, `NAMESPACE`, `DESCRIPTION
 
 `git status --porcelain` before staging: this report only. Staged by explicit path; committed; hash in the follow-up line. **No push. No install** (nothing in `R/` changed; version stays 0.2.6).
 
-Commits: `5332f00f` task doc; this report's commit and its hash-recording follow-up below.
+Commits: `5332f00f` task doc; `06728783` this report; the hash line in the follow-up commit.
 
 ## 6. Verdict (ten lines)
 
