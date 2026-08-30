@@ -218,4 +218,4 @@ Combined SE = √(measured SE² + forecast MC SE²); "within noise" = |measured 
 7. **Type-I at c1\*: 40/1000 = 0.040 ± 0.006 vs 0.0387 — within noise.**
 8. At c1\*: E[β(Ĥ)] 98.8 vs 98.9, spec 0.951 vs 0.953, PPV (pop) 0.774 vs 0.775, naive 62.27 vs 62.26 — within noise; sensitivity +0.010 (2.1 SE); **E|Ĥ| +2.1 (sample) / +2.5 (pop)** — the between-rule gap is **+2.46 against +2.11** (held, 0.6 SE); PQg ≥ 0.95 mass 0.374 vs 0.345; TVD excess over the multinomial floor 0.027.
 9. Curves: alternative within 0.025 of the prediction on 0..300; null on the prediction at `c1_05`/c1\* but 0.03–0.045 under it over `c1 = 85–105`.
-10. Committed with the driver, both payloads (232 K / 204 K, tracked as the MD40 payloads are), scripts, logs and `.rds`; this line's commit hash is recorded in the following commit.
+10. Committed as `6504e0ea` with the driver, both payloads (232 K / 204 K, tracked as the MD40 payloads are), scripts, logs and `.rds`; this line was added in the immediately following commit.
