@@ -252,7 +252,15 @@
 #'   candidate family data-dependent, which multiplier resampling
 #'   (\code{mr_inference = TRUE}) requires be fixed.  Set \code{TRUE} to
 #'   restore the prognostic-lasso prefilter used in Leon et al. (2024).
-#' @param use_grf Logical. Use GRF for variable importance. Default FALSE.
+#' @param use_grf Logical.  Generate additional candidate cuts from a GRF
+#'   fit: tree-derived cutpoints are extracted via
+#'   \code{grf.subg.harm.survival()} / \code{grf.subg.harm.glm()} (or taken
+#'   from \code{grf_res} / \code{grf_cuts} when supplied) and enter the
+#'   candidate family through \code{\link{get_FSdata}} alongside the
+#'   quartile (and any DINA) cuts.  This flag governs candidate-cut
+#'   generation only: GRF variable-importance ordering of the cut columns
+#'   is a separate step controlled solely by \code{vi.grf.min} and runs,
+#'   or is skipped, regardless of \code{use_grf}.  Default FALSE.
 #'   The default changed from \code{TRUE} in an earlier release, for the same
 #'   fixed-candidate-family reason given under \code{use_lasso}.
 #' @param grf_res GRF results object (optional, for reuse).
@@ -687,8 +695,8 @@
 #'   deprecation in v0.3.0.} Previously intended as a wall-clock time
 #'   budget for the combination search, this argument is no longer
 #'   enforced in the parallelized search path and has no effect on
-#'   behavior. Search scope is governed by \code{maxk}, candidate-factor
-#'   screening (\code{use_grf}, \code{use_lasso}, \code{conf_force}),
+#'   behavior. Search scope is governed by \code{maxk}, the candidate-factor
+#'   front ends (\code{use_grf}, \code{use_lasso}, \code{conf_force}),
 #'   and the number of parallel workers. The default of 3 is retained
 #'   only for signature compatibility.
 #' @param minp Numeric. Minimum prevalence threshold. Default 0.025.

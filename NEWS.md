@@ -1,3 +1,11 @@
+# forestsearch (development version)
+
+* Documentation: corrected the `use_grf` `@param`, which described the
+  variable-importance role belonging to `vi.grf.min`. `use_grf` governs GRF
+  candidate-cut generation only; variable-importance ordering/screening of
+  the cut columns is controlled solely by `vi.grf.min` (`NULL` default since
+  0.3.0). No behavior change.
+
 # forestsearch 0.3.1
 
 ## The consistency screen treats `plan = "sequential"` as sequential

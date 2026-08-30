@@ -35,7 +35,8 @@ log scale for ratio measures, identity for others).}
 
 \item{use_lasso}{Logical.}
 
-\item{use_grf}{Logical.}
+\item{use_grf}{Logical.  Whether GRF candidate-cut generation is on;
+see \code{\link{forestsearch}}.}
 
 \item{outcome.name}{Character. Name of outcome column.}
 

@@ -28,7 +28,8 @@
 #'   log scale for ratio measures, identity for others).
 #' @param consistency_threshold Numeric. Resolved consistency threshold.
 #' @param use_lasso Logical.
-#' @param use_grf Logical.
+#' @param use_grf Logical.  Whether GRF candidate-cut generation is on;
+#'   see \code{\link{forestsearch}}.
 #' @param outcome.name Character. Name of outcome column.
 #' @param event.name Character. Name of event column.
 #' @param treat.name Character. Name of treatment column.
