@@ -62,7 +62,7 @@ The same keys formatted from the 08-29 objects give 46 superseded strings that d
 
 ## 7. Commits
 
-`4baa0be4` task doc · the `.qmd`, the render, the check script and log, the diff and this report by explicit path (hash in the ten-line summary's last line, added in the following commit). **No push. No install.**
+`4baa0be4` task doc · the `.qmd`, the render, the check script and log, the diff and this report by explicit path as `606a9352`. **No push. No install.**
 
 ## 8. Ten-line summary
 
@@ -75,4 +75,4 @@ The same keys formatted from the 08-29 objects give 46 superseded strings that d
 7. Render 8.1 s; 21 chunks; no warnings.
 8. §6 check: 103 / 103 corrected values present; 0 / 46 distinguishable superseded values present; `1601`/`1784` only in the historical note.
 9. Nothing drawn, enumerated or inverted; no `R/`, driver, payload or foreign `.rds` touched.
-10. Committed (hash recorded in the following commit).
+10. Committed as `606a9352`; this line was added in the immediately following commit.
