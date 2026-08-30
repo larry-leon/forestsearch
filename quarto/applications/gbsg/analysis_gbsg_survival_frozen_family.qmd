@@ -87,7 +87,7 @@ mr_draws <- 5000L     # MR multiplier draws
 GH_B       <- 1000L     # Guo & He pair-bootstrap resamples
 GH_r       <- 0.03      # Guo & He tuning parameter
 GH_PARALLEL <- .Platform$OS.type == "unix"   # forked GH bootstrap where available
-run_loo    <- TRUE      # leave-one-out (N-fold) honest out-of-sample subgroup estimate
+run_loo    <- FALSE     # leave-one-out (N-fold) honest out-of-sample subgroup estimate
 timings$loo <- NA_real_
 # LOO fold-loop workers: 80% of physical cores (the same rule as n_cores above),
 # so this adapts to whichever machine renders. There is no nested parallelism to
