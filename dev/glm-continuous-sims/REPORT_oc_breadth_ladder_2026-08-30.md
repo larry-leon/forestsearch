@@ -239,4 +239,4 @@ This is a sensitivity showing what the prevalence-scaling approximation costs at
 7. At c1\*: E|Ĥ| 72.8, sensitivity 0.333, specificity 0.953, PPV 0.775, E[β(Ĥ)] 98.9 (truth 120), naive bias 62.3; split gate within 0.001 of resample on every column.
 8. Q itself is not a family member (cuts at age 33/35, preanti 672/875); `sel_c` mass on PQg ≥ 0.95 candidates is 0.345, led by `age > 39 & preanti ≤ 188`.
 9. `se_g`/`se_direct` leaves MD40's 2% band from q = 80 and reaches a 2.0% median understatement at q = 120 (mixed-purity candidates only); the se_direct sensitivity moves power at c1\* from 0.800 to 0.810 and PPV from 0.775 to 0.763 — reported, not adopted.
-10. Lock: report commit hash — recorded in the follow-up commit below.
+10. Lock: the report was committed as `c9cb0ca2`; this line was added in the immediately following commit. Stage 2 is a separate go/no-go.
