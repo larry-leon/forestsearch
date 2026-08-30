@@ -188,7 +188,7 @@ Post-change capture `parallel_dispatch_post_narrow_2026-08-30.rds` (C1–C6) aga
 - `DESCRIPTION` → **0.3.1**; `NEWS.md` entry rewritten (sequential plan → plain loop regardless of `workers`; the measured effect from both runs; `resample` results unchanged; `split` under a sequential plan on a single stream — Monte-Carlo-scale differences from 0.3.0 only for callers who passed a sequential plan *with* `workers`; invariance to worker count unchanged within any plan; a parallel plan with `workers = 1` still parallel; `batch_size` for genuinely parallel runs).
 - Commit by explicit path; **no push**; `devtools::install(".", upgrade = FALSE)` — **installed 0.3.1**, confirmed by `packageVersion()`.
 
-Commits: `911d73ba` task doc; the `R/`, `man/`, `DESCRIPTION`, `NEWS.md` edit with the capture script, its outputs and logs and this report in the next commit; its hash in the follow-up line.
+Commits: `911d73ba` task doc; `fbd564de` the `R/`, `man/`, `DESCRIPTION`, `NEWS.md` edit with the capture script, its outputs and logs and this report; the hash line in the follow-up commit.
 
 ---
 
