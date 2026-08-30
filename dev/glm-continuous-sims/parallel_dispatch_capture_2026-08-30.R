@@ -25,7 +25,10 @@
 suppressPackageStartupMessages(devtools::load_all(".", quiet = TRUE))
 stopifnot(requireNamespace("speff2trial", quietly = TRUE))
 D <- "dev/glm-continuous-sims"
-tag <- commandArgs(trailingOnly = TRUE)[1]; stopifnot(tag %in% c("pre", "post", "compare", "boot"))
+tag <- commandArgs(trailingOnly = TRUE)[1]
+# narrow task (cc_task_parallel_dispatch_narrow_2026-08-30.md): "pre6" captures C6 alone pre-change,
+# "post_narrow" captures C1-C6 post-change, "compare_narrow" runs S5's gates, "boot_narrow" S6's check
+stopifnot(tag %in% c("pre", "post", "compare", "boot", "pre6", "post_narrow", "compare_narrow", "boot_narrow"))
 out_path <- function(t) file.path(D, sprintf("parallel_dispatch_%s_2026-08-30.rds", t))
 cat(sprintf("forestsearch %s; HEAD %s; vi.grf.min default %s\n", as.character(utils::packageVersion("forestsearch")),
             system("git rev-parse --short HEAD", intern = TRUE), deparse(formals(forestsearch)$vi.grf.min)))
@@ -98,7 +101,10 @@ CONFIGS <- list(
   C2 = list(args = args_cont(SEQ1, stop_threshold = 0.95), seed = NULL),
   C3 = list(args = args_cont(SEQ1, consistency_method = "split", fs.splits = 50L), seed = 20260830L),
   C4 = list(args = args_surv(SEQ1), seed = NULL),
-  C5 = list(args = args_cont(list(plan = "multisession", workers = 2L)), seed = NULL))
+  C5 = list(args = args_cont(list(plan = "multisession", workers = 2L)), seed = NULL),
+  C6 = list(args = args_cont(list(plan = "multisession", workers = 1L)), seed = NULL))   # narrow task S3: must stay on the batched path
+CONFIG_SET <- switch(tag, pre = , post = , compare = , boot = c("C1", "C2", "C3", "C4", "C5"),
+                     pre6 = "C6", post_narrow = , compare_narrow = , boot_narrow = c("C1", "C2", "C3", "C4", "C5", "C6"))
 
 capture <- function(fs, secs, warns) {
   gc <- fs$grp.consistency
@@ -116,7 +122,7 @@ capture <- function(fs, secs, warns) {
 }
 run_all <- function() {
   out <- list()
-  for (nm in names(CONFIGS)) {
+  for (nm in CONFIG_SET) {
     cf <- CONFIGS[[nm]]
     warns <- character(0)
     if (!is.null(cf$seed)) set.seed(cf$seed)
@@ -137,12 +143,13 @@ run_all <- function() {
   saveRDS(out, out_path(tag)); cat("written:", out_path(tag), "\n")
 }
 
-compare <- function() {
-  A <- readRDS(out_path("pre")); B <- readRDS(out_path("post"))
+compare <- function(pre_tag = "pre", post_tag = "post") {
+  A <- readRDS(out_path(pre_tag)); B <- readRDS(out_path(post_tag))
+  if (post_tag == "post_narrow") { A6 <- readRDS(out_path("pre6")); A$C6 <- A6$C6 }
   cat(sprintf("pre: HEAD %s (%s) | post: HEAD %s (%s)\n", A$meta$head, A$meta$pkg_version, B$meta$head, B$meta$pkg_version))
   comps <- c("sg.harm", "members", "treat.recommend", "hr.subgroups", "counters", "result", "top")
   gate <- TRUE
-  for (nm in names(CONFIGS)) {
+  for (nm in CONFIG_SET) {
     a <- A[[nm]]; b <- B[[nm]]
     id <- vapply(comps, function(k) identical(a[[k]], b[[k]]), logical(1))
     cat(sprintf("\n[%s] identical: %s | wall %.2f s -> %.2f s (x%.2f) | warnings pre: %s | post: %s\n", nm,
@@ -166,11 +173,24 @@ compare <- function() {
       if (!identical(a$members, b$members)) gate <- FALSE
     }
   }
-  cat(sprintf("\nGATE (C1, C2, C4, C5 identical; C3 identical or same selection): %s\n", if (gate) "PASS" else "FAIL"))
+  if (post_tag == "post_narrow") {
+    b6 <- B$C6; if (b6$secs < 15) { cat(sprintf("C6 post wall %.2f s: plain-loop order -- the short-circuit caught a parallel plan\n", b6$secs)); gate <- FALSE }
+    else cat(sprintf("C6 post wall %.2f s: batched-path order, as required\n", b6$secs))
+    # the first task's post-change capture: C1-C5 must be identical to it, C3 included
+    if (file.exists(out_path("post"))) {
+      P1 <- readRDS(out_path("post"))
+      for (nm in c("C1", "C2", "C3", "C4", "C5")) {
+        id <- vapply(comps, function(k) identical(P1[[nm]][[k]], B[[nm]][[k]]), logical(1))
+        cat(sprintf("[%s] narrow post vs first task's post: %s\n", nm, if (all(id)) "identical on all seven" else paste("DIFFERS:", paste(comps[!id], collapse = " "))))
+        if (!all(id)) gate <- FALSE
+      }
+    } else cat("first task's post-change capture not in the tree; comparison skipped\n")
+  }
+  cat(sprintf("\nGATE (%s): %s\n", if (post_tag == "post_narrow") "C1, C2, C4, C5, C6 identical; C3 identical or same selection; C6 batched-order; C1-C5 identical to the first post" else "C1, C2, C4, C5 identical; C3 identical or same selection", if (gate) "PASS" else "FAIL"))
   invisible(gate)
 }
 
-boot_check <- function() {
+boot_check <- function(out_tag = "boot") {
   NB <- 20L
   fs <- do.call(forestsearch, CONFIGS$C1$args)
   gc(); t0 <- proc.time()[["elapsed"]]
@@ -182,8 +202,9 @@ boot_check <- function() {
               NB, wall, wall / NB, 60 * mean(bt$tmins_search, na.rm = TRUE), 60 * median(bt$tmins_search, na.rm = TRUE), sum(!is.na(bt$tmins_search)), nrow(bt)))
   cat(sprintf("projection B = 1000, sequential: %.0f s = %.1f min (profile task: 32.2 s per replicate, 490-537 min)\n", 1000 * wall / NB, 1000 * wall / NB / 60))
   saveRDS(list(nb = NB, wall = wall, per_rep = wall / NB, results = bt, when = Sys.time(),
-               head = system("git rev-parse --short HEAD", intern = TRUE)), out_path("boot"))
-  cat("written:", out_path("boot"), "\n")
+               head = system("git rev-parse --short HEAD", intern = TRUE)), out_path(out_tag))
+  cat("written:", out_path(out_tag), "\n")
 }
 
-switch(tag, pre = run_all(), post = run_all(), compare = compare(), boot = boot_check())
+switch(tag, pre = run_all(), post = run_all(), compare = compare(), boot = boot_check(),
+       pre6 = run_all(), post_narrow = run_all(), compare_narrow = compare("pre", "post_narrow"), boot_narrow = boot_check("boot_narrow"))

@@ -1,0 +1,26 @@
+forestsearch 0.3.1; HEAD 911d73ba; vi.grf.min default NULL
+pre: HEAD 1e45219f (0.3.0) | post: HEAD 911d73ba (0.3.1)
+
+[C1] identical: sg.harm=T members=T treat.recommend=T hr.subgroups=T counters=T result=T top=T | wall 31.08 s -> 5.38 s (x5.78) | warnings pre: none | post: none
+
+[C2] identical: sg.harm=T members=T treat.recommend=T hr.subgroups=T counters=T result=T top=T | wall 4.44 s -> 4.29 s (x1.04) | warnings pre: none | post: none
+
+[C3] identical: sg.harm=T members=T treat.recommend=T hr.subgroups=T counters=F result=F top=F | wall 87.32 s -> 57.81 s (x1.51) | warnings pre: none | post: none
+  C3 characterisation: selected same membership: TRUE; result rows 348 vs 346
+  candidates in both: 296 (pre-only 52, post-only 50); Pcons diff: mean +0.0005, sd 0.0283, max|d| 0.1000; MC sd of a rate at fs.splits = 50 and p ~ 0.9: 0.0424
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+-0.080000 -0.020000  0.000000  0.000473  0.020000  0.100000 
+
+[C4] identical: sg.harm=T members=T treat.recommend=T hr.subgroups=T counters=T result=T top=T | wall 8.87 s -> 7.41 s (x1.20) | warnings pre: none | post: none
+
+[C5] identical: sg.harm=T members=T treat.recommend=T hr.subgroups=T counters=T result=T top=T | wall 26.04 s -> 30.27 s (x0.86) | warnings pre: none | post: none
+
+[C6] identical: sg.harm=T members=T treat.recommend=T hr.subgroups=T counters=T result=T top=T | wall 30.80 s -> 30.65 s (x1.00) | warnings pre: none | post: none
+C6 post wall 30.65 s: batched-path order, as required
+[C1] narrow post vs first task's post: identical on all seven
+[C2] narrow post vs first task's post: identical on all seven
+[C3] narrow post vs first task's post: identical on all seven
+[C4] narrow post vs first task's post: identical on all seven
+[C5] narrow post vs first task's post: identical on all seven
+
+GATE (C1, C2, C4, C5, C6 identical; C3 identical or same selection; C6 batched-order; C1-C5 identical to the first post): PASS

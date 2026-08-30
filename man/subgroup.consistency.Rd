@@ -188,9 +188,24 @@ parallel execution (via future.seed).}
 
 \item{parallel_args}{List. Parallel processing configuration:
 \describe{
-\item{plan}{Future plan: "multisession", "multicore", or "sequential"}
-\item{workers}{Number of parallel workers}
-\item{batch_size}{Number of candidates to evaluate per batch. Smaller
+\item{plan}{Future plan: "multisession", "multicore", "callr", or
+"sequential".  A sequential plan runs the consistency screen as a
+plain in-process loop regardless of \code{workers}: no future backend
+is set up and no per-batch globals resolution is paid.  A parallel
+plan with \code{workers = 1} is honoured as parallel (one-worker
+batched backend); pass \code{plan = "sequential"} to run the plain
+loop.  Results under \code{consistency_method = "resample"} are
+identical on every path (the closed form consumes no RNG).  Under
+\code{"split"} the plain loop draws from a single RNG stream seeded
+once, whereas the batched backend gives each candidate its own
+L'Ecuyer-CMRG stream indexed by global position, so a sequential
+plan's \code{p.consistency} values differ from a parallel plan's
+within Monte-Carlo noise at the stated \code{fs.splits}; invariance
+to worker count holds within any plan.}
+\item{workers}{Number of parallel workers on a parallel plan.}
+\item{batch_size}{Number of candidates to evaluate per batch on a
+genuinely parallel plan -- the knob for the per-batch overhead
+described above.  Smaller
 values provide finer-grained early stopping but may increase overhead.
 Default: When stop_threshold is set and sg_focus is "hr" or "minSG",
 defaults to 1 (stop immediately when first candidate passes). For other

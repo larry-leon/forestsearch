@@ -1,3 +1,52 @@
+# forestsearch 0.3.1
+
+## The consistency screen treats `plan = "sequential"` as sequential
+
+`subgroup.consistency()` validated `parallel_args` against `c("plan", "workers")`
+and, when both were present, took the future-backed batching path even for
+`plan = "sequential"`: the candidates were split into `future_lapply()` calls of
+`min(2 * workers, n)` -- two at a time on one worker -- and every call paid a
+full round of globals resolution around an evaluation costing a few
+milliseconds.  `forestsearch_bootstrap_dofuture()` forces exactly that
+configuration (`list(plan = "sequential", workers = 1L)`) on the inner search
+of every replicate.  Measured (`REPORT_bootstrap_profile_2026-08-30.md`):
+29.4 s per call, 86% of it in `future_lapply` globals resolution, against 4.5 s
+for the identical search under the plain loop.
+
+1. **Dispatch.**  A sequential plan now runs the consistency screen as the plain
+   in-process loop **regardless of `workers`**.  No future backend is set up
+   and no warning is emitted.  A parallel plan with `workers = 1` is still
+   parallel (the one-worker batched backend) -- pass `plan = "sequential"` to
+   run the plain loop.  The batch-size logic and `parallel_args$batch_size`,
+   the knob for per-batch overhead on genuinely parallel plans, are untouched.
+2. **Measured effect.**  Continuous MD fixture (n = 500, 749 candidates
+   screened): 31.1 s -> 5.5 s per `forestsearch()` call (5.6x).  Survival gbsg
+   fixture (120 candidates screened): 8.9 s -> 7.5 s.  A 20-replicate
+   `forestsearch_bootstrap_dofuture()` on the continuous fixture: 32.2 s ->
+   4.95 s per replicate; B = 1000 projects to 82 min sequential
+   against 490-537 min before.  A `multisession` plan with one worker is
+   unchanged (30.8 s -> 30.7 s).
+3. **Results under `consistency_method = "resample"` are unchanged** -- the
+   closed form consumes no RNG, and six reference configurations (sequential
+   with and without early stopping, survival, a two-worker multisession
+   control and a one-worker multisession control) are `identical()` before and
+   after on the selected subgroup, its membership, the candidate table, the
+   consistency counters and the fitted effect.
+4. **`consistency_method = "split"` under a sequential plan:** the plain loop
+   seeds a single stream once (`set.seed(seed)`) where the batched backend
+   assigned one L'Ecuyer-CMRG stream per candidate, so callers who passed
+   `plan = "sequential"` *together with* `workers` in 0.3.0 will see each
+   candidate's consistency rate move within its own Monte-Carlo noise at the
+   chosen `fs.splits` (measured at 50 splits: sd of the per-candidate
+   difference 0.028 against a binomial sd of 0.042; selected subgroup
+   unchanged).  Callers who passed `plan = "sequential"` without `workers`
+   were already on the plain loop and see no change.  Invariance to worker
+   count is unchanged within any plan.
+5. The driver-style `parallel_args = list(plan = "sequential")` (no `workers`)
+   now reaches the plain loop through this rule rather than by tripping the
+   `"parallel_args missing required elements. Using sequential."` warning,
+   which no longer fires for that input.
+
 # forestsearch 0.3.0
 
 ## Default change: `vi.grf.min = NULL` -- GRF variable-importance screening is off unless requested
