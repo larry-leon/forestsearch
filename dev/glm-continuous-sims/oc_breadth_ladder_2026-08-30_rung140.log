@@ -1,0 +1,23 @@
+[rung 140] k_inter = -113.7447641240 ; |m_tau[Q]| = 140.000000000000 (gate TRUE) ; |m_tau[Qc]| = 26.255235876036 vs MD40 26.255235876036 (gate TRUE)
+fs_oc_family_enumerate: cut columns 74 | enumerated 2775 | dropped: empty 127 minp 0 rmin 107 size 656 | kept 1885 | duplicates 189 | M = 1696 
+[rung 140] family gates (M = 1696): lab TRUE Pg TRUE PQg TRUE se_g TRUE sens_g TRUE spec_g TRUE M TRUE beta_shift TRUE ; max|beta_g - beta_g_MD40 - (q-40)PQg| = 1.421e-14
+fs_oc_grid: n = 500  gate = resample  M = 1696  enumerate 0.0s  draw 675.4s  sweep 876.4s (301 points)
+[rung 140] grid: 301 rows, 1553 s
+    n consistency_method    M enumerate_secs draw_secs sweep_secs
+1 500           resample 1696              0   675.367    876.438
+  target  value achieved achieved_se next_step_rate ceiling attainable   secs
+1   0.80 150.59     0.80  0.00089443        0.80000       1       TRUE 685.81
+2   0.90 141.68     0.90  0.00067082        0.89999       1       TRUE 685.81
+3   0.95 134.59     0.95  0.00048734        0.95000       1       TRUE 685.81
+  grid_c1_nearest grid_det_rate_nearest
+1             151               0.79422
+2             142               0.89727
+3             135               0.94761
+[rung 140] se_g diagnostic: ratio range [0.95394, 1.00600] median 0.96951; cor(ratio,Pg) = -0.3823; outside [0.992,1.015]: 1486 ; outside +/-2%: 1363
+                   min     q05     q25  median     q75    q95     max    n
+PQg<0.25       0.96740 0.97141 0.97735 0.98944 0.99747 1.0013 1.00600  436
+0.25<=PQg<0.95 0.95394 0.95734 0.96227 0.96636 0.97086 0.9766 0.99303 1245
+PQg>=0.95      0.99954 0.99961 1.00000 1.00024 1.00037 1.0006 1.00071   15
+[rung 140] at driver c1 = 30: det 1.0000 (se 0.0000) EnH 75.65 Esens 0.3668 Espec 0.9620 Eppv 0.8215 Enpv 0.7446 EbetaH 119.70 naive 50.10 mass_below 0.0010
+[rung 140] power at c1_05 = 133.235 (grid 133): 0.9580 ; at c1_10 = 125.700 (grid 126): 0.9820
+[rung 140] written dev/glm-continuous-sims/oc_breadth_ladder_2026-08-30_rung140.rds (2252 s)

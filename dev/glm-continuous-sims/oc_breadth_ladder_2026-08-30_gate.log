@@ -1,0 +1,19 @@
+[gate] driver frame: 1083 rows, 42 cols
+[gate] calibrated: k_inter = -13.7447641240  beta_inter = -13.7447641240  (2 s)
+             Q             Qc              S 
+-40.0000000000 -26.2552358760 -30.9916815932 
+[gate] payload truth beta_inter = -13.7447641240 ; |k40 - truth| = 0.000e+00
+[gate] k40 == payload truth$beta_inter (1e-9): TRUE
+[gate] identical(df_super calibrate, df_super direct): TRUE
+fs_oc_family_enumerate: cut columns 74 | enumerated 2775 | dropped: empty 127 minp 0 rmin 107 size 656 | kept 1885 | duplicates 189 | M = 1696 
+[gate] family M = 1696 (stored 1696), 9.0 s
+   lab     Pg    PQg beta_g   se_g sens_g spec_g      M 
+  TRUE   TRUE   TRUE   TRUE   TRUE   TRUE   TRUE   TRUE 
+[gate] NOTE: the stored family record (family_record() in the corrected script) holds no ovl/memb; those cannot be gated against the store
+[gate] fs_oc_predict(n=500, c1=30, c2=10, resample, pcons=0.9, draws=200000, seed=20260825) identical() to stored: TRUE  (366 s; det_rate 0.99906 vs 0.99906)
+[gate] se_g diagnostic MD40: ratio range [0.99226, 1.01062] median 0.99870; outside [0.992,1.015]: 0
+                   min     q05     q25  median     q75    q95    max    n
+PQg<0.25       0.99226 0.99450 0.99625 0.99767 0.99949 1.0053 1.0080  436
+0.25<=PQg<0.95 0.99304 0.99590 0.99768 0.99904 1.00312 1.0074 1.0106 1245
+PQg>=0.95      0.99954 0.99961 1.00000 1.00024 1.00037 1.0006 1.0007   15
+[gate] written dev/glm-continuous-sims/oc_breadth_ladder_2026-08-30_gate.rds  (total 378 s)
