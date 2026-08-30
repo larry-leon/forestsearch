@@ -1,0 +1,120 @@
+corrected values checked: 103 ; found in render: 103 ; missing: 0
+superseded values that differ from corrected at the document's precision: 46 ; of those still present in the render: 0
+raw greps (whole rendered text incl. folded code):
+  1601                   2
+  1,601                  0
+  1784                   1
+  1,784                  0
+  1,890                  5
+  1,696                  13
+  0.9970                 0
+  91.90                  1
+  133.11                 0
+  grid_2026-08-29        0
+  null_2026-08-29        0
+  corrected_2026-08-30   0
+historical note:  The family throughout is the corrected 13-confounder enumeration — the driver’s confounders.name , str2 included — read from oc_wrapper_grid_corrected_2026-08-30.rds : M = 1,696 at n = 500, M = 1,890 at n = 700 and M = 1,696 at the null. (The 08-29 build of this document read the 12-variable enumeration without str2 — M = 1601 / 1784 / 1601; against it every functional moved by ≤ 0.1 and every inverted c1 by &lt; 0.25, so the conclusions below are unchanged and the numbers are not.) 2 The family fs_oc_family_enumera 
+                           key corrected found    old old_differs old_hits
+    alt n500 resample det_rate     0.999  TRUE  0.999       FALSE       NA
+         alt n500 resample EnH      70.8  TRUE   70.9       FALSE       NA
+       alt n500 resample Esens     0.164  TRUE  0.164       FALSE       NA
+       alt n500 resample Espec     0.870  TRUE  0.870       FALSE       NA
+        alt n500 resample Eppv     0.400  TRUE  0.399       FALSE       NA
+        alt n500 resample Enpv     0.664  TRUE  0.664       FALSE       NA
+      alt n500 resample EbetaH     31.75  TRUE  31.75       FALSE       NA
+ alt n500 resample Enaive_bias     75.53  TRUE  75.44        TRUE        0
+           alt n500 resample M     1,696  TRUE  1,601        TRUE        0
+       alt n500 split det_rate     1.000  TRUE  1.000       FALSE       NA
+            alt n500 split EnH      70.8  TRUE   70.8       FALSE       NA
+          alt n500 split Esens     0.164  TRUE  0.164       FALSE       NA
+          alt n500 split Espec     0.870  TRUE  0.870       FALSE       NA
+           alt n500 split Eppv     0.399  TRUE  0.400       FALSE       NA
+           alt n500 split Enpv     0.664  TRUE  0.664       FALSE       NA
+         alt n500 split EbetaH     31.74  TRUE  31.75       FALSE       NA
+    alt n500 split Enaive_bias     75.38  TRUE  75.36        TRUE        0
+              alt n500 split M     1,696  TRUE  1,601        TRUE        0
+    alt n700 resample det_rate     1.000  TRUE  1.000       FALSE       NA
+         alt n700 resample EnH      73.0  TRUE   73.0       FALSE       NA
+       alt n700 resample Esens     0.122  TRUE  0.122       FALSE       NA
+       alt n700 resample Espec     0.905  TRUE  0.905       FALSE       NA
+        alt n700 resample Eppv     0.403  TRUE  0.403       FALSE       NA
+        alt n700 resample Enpv     0.662  TRUE  0.662       FALSE       NA
+      alt n700 resample EbetaH     31.80  TRUE  31.79        TRUE        0
+ alt n700 resample Enaive_bias     75.57  TRUE  75.53       FALSE       NA
+           alt n700 resample M     1,890  TRUE  1,784        TRUE        0
+       alt n700 split det_rate     1.000  TRUE  1.000       FALSE       NA
+            alt n700 split EnH      73.1  TRUE   73.1       FALSE       NA
+          alt n700 split Esens     0.122  TRUE  0.122       FALSE       NA
+          alt n700 split Espec     0.905  TRUE  0.905       FALSE       NA
+           alt n700 split Eppv     0.404  TRUE  0.403       FALSE       NA
+           alt n700 split Enpv     0.662  TRUE  0.662       FALSE       NA
+         alt n700 split EbetaH     31.81  TRUE  31.79        TRUE        0
+    alt n700 split Enaive_bias     75.49  TRUE  75.49       FALSE       NA
+              alt n700 split M     1,890  TRUE  1,784        TRUE        0
+                  family M 500     1,696  TRUE  1,601        TRUE        0
+         counts 500 enumerated      2775  TRUE   2628        TRUE        0
+               counts 500 kept      1885  TRUE   1779        TRUE        0
+          counts 500 duplicate       189  TRUE    178        TRUE        0
+               counts 500 size       656  TRUE    631        TRUE        0
+                  family M 700     1,890  TRUE  1,784        TRUE        0
+         counts 700 enumerated      2775  TRUE   2628        TRUE        0
+               counts 700 kept      2098  TRUE   1980        TRUE        0
+          counts 700 duplicate       208  TRUE    196        TRUE        0
+               counts 700 size       448  TRUE    435        TRUE        0
+ alt invert n500 resample 0.80     92.04  TRUE  91.90       FALSE       NA
+ alt invert n500 resample 0.90     84.95  TRUE  84.72        TRUE        0
+ alt invert n500 resample 0.95     79.14  TRUE  78.99        TRUE        0
+    alt invert n500 split 0.80     91.90  TRUE  91.85        TRUE        0
+    alt invert n500 split 0.90     84.68  TRUE  84.57        TRUE        0
+    alt invert n500 split 0.95     78.81  TRUE  78.83        TRUE        0
+ alt invert n700 resample 0.80     93.19  TRUE  93.11        TRUE        0
+ alt invert n700 resample 0.90     86.64  TRUE  86.52        TRUE        0
+ alt invert n700 resample 0.95     81.28  TRUE  81.28       FALSE       NA
+    alt invert n700 split 0.80     93.10  TRUE  93.14        TRUE        0
+    alt invert n700 split 0.90     86.60  TRUE  86.52        TRUE        0
+    alt invert n700 split 0.95     81.29  TRUE  81.31        TRUE        0
+        null resample det_rate    0.9969  TRUE 0.9970        TRUE        0
+           null split det_rate    1.0000  TRUE 1.0000       FALSE       NA
+             null resample EnH      70.9  TRUE   71.0        TRUE        0
+                null split EnH      70.8  TRUE   70.9       FALSE       NA
+           null resample Espec     0.858  TRUE  0.858       FALSE       NA
+              null split Espec     0.858  TRUE  0.858       FALSE       NA
+            null resample Enpv     1.000  TRUE  1.000       FALSE       NA
+               null split Enpv     1.000  TRUE  1.000       FALSE       NA
+          null resample EbetaH    26.255  TRUE 26.255       FALSE       NA
+             null split EbetaH    26.255  TRUE 26.255       FALSE       NA
+     null resample Enaive_bias     76.32  TRUE  76.22        TRUE        0
+        null split Enaive_bias     76.07  TRUE  76.05        TRUE        0
+                        null M     1,696  TRUE  1,601        TRUE        0
+           null L_eff resample      12.2  TRUE   12.2       FALSE       NA
+              null L_eff split      25.8  TRUE   25.7        TRUE        0
+     null invert resample 0.05    133.23  TRUE 133.11        TRUE        0
+     null invert resample 0.10    125.70  TRUE 125.76        TRUE        0
+     null invert resample 0.20    117.11  TRUE 117.11       FALSE       NA
+     null invert resample 0.50    101.64  TRUE 101.57        TRUE        0
+     null invert resample 0.80     87.29  TRUE  87.15        TRUE        0
+     null invert resample 0.90     80.17  TRUE  79.96        TRUE        0
+     null invert resample 0.95     74.43  TRUE  74.21        TRUE        0
+        null invert split 0.05    133.04  TRUE 133.24        TRUE        0
+        null invert split 0.10    125.69  TRUE 125.71        TRUE        0
+        null invert split 0.20    117.05  TRUE 117.01        TRUE        0
+        null invert split 0.50    101.60  TRUE 101.54        TRUE        0
+        null invert split 0.80     87.12  TRUE  87.07        TRUE        0
+        null invert split 0.90     79.85  TRUE  79.81        TRUE        0
+        null invert split 0.95     74.04  TRUE  74.04       FALSE       NA
+        measured n500 det_rate     1.000  TRUE   <NA>       FALSE       NA
+             measured n500 EnH      72.3  TRUE   <NA>       FALSE       NA
+           measured n500 Esens     0.171  TRUE   <NA>       FALSE       NA
+           measured n500 Espec     0.869  TRUE   <NA>       FALSE       NA
+            measured n500 Eppv     0.405  TRUE   <NA>       FALSE       NA
+            measured n500 Enpv     0.665  TRUE   <NA>       FALSE       NA
+          measured n500 EbetaH     31.76  TRUE   <NA>       FALSE       NA
+     measured n500 Enaive_bias     74.27  TRUE   <NA>       FALSE       NA
+        measured n700 det_rate     0.999  TRUE   <NA>       FALSE       NA
+             measured n700 EnH      73.6  TRUE   <NA>       FALSE       NA
+           measured n700 Esens     0.123  TRUE   <NA>       FALSE       NA
+           measured n700 Espec     0.904  TRUE   <NA>       FALSE       NA
+            measured n700 Eppv     0.402  TRUE   <NA>       FALSE       NA
+            measured n700 Enpv     0.662  TRUE   <NA>       FALSE       NA
+          measured n700 EbetaH     31.76  TRUE   <NA>       FALSE       NA
+     measured n700 Enaive_bias     77.09  TRUE   <NA>       FALSE       NA

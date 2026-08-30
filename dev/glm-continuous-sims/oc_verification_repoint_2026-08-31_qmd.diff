@@ -1,0 +1,190 @@
+diff --git a/quarto/simulations/actg175/continuous/oc_wrapper_verification.qmd b/quarto/simulations/actg175/continuous/oc_wrapper_verification.qmd
+index ef960730..f3da5ff0 100644
+--- a/quarto/simulations/actg175/continuous/oc_wrapper_verification.qmd
++++ b/quarto/simulations/actg175/continuous/oc_wrapper_verification.qmd
+@@ -18,12 +18,18 @@ execute:
+ ---
+ 
+ ```{r setup}
+-# This document reads one precomputed object and the two tracked payloads.  It
++# This document reads precomputed objects and the tracked payloads.  It
+ # computes nothing heavy and types no number: every figure in prose is inline R.
+-.grid_path <- file.path("..", "..", "..", "..", "dev", "glm-continuous-sims",
+-                        "oc_wrapper_grid_2026-08-29.rds")
++# Re-pointed (cc_task_oc_verification_repoint_2026-08-31) at the corrected
++# 13-confounder object, whose $alt and $null mirror the fields of the two
++# superseded 08-29 objects; the shared settings (fs_args, seed, draws) sit at
++# its top level and are copied onto the two aliases the chunks below use.
++.dev <- file.path("..", "..", "..", "..", "dev", "glm-continuous-sims")
++.grid_path <- file.path(.dev, "oc_wrapper_grid_corrected_2026-08-30.rds")
+ stopifnot(file.exists(.grid_path))
+-G <- readRDS(.grid_path)
++C <- readRDS(.grid_path)
++stopifnot(identical(unname(C$superseded[["alt"]]), "dev/glm-continuous-sims/oc_wrapper_grid_2026-08-29.rds"))
++G <- C$alt; G$fs_args <- C$fs_args; G$seed <- C$seed; G$draws <- C$draws
+ stopifnot(all(c("n500_resample", "n500_split", "n700_resample", "n700_split") %in% names(G$runs)))
+ .pay <- lapply(G$payloads, function(p) readRDS(file.path("..", "..", "..", "..", p)))
+ names(.pay) <- names(G$payloads)
+@@ -57,6 +63,15 @@ family was built. The family in this document is the population enumeration of
+ through the same code, which is how the wrapper was gated for fidelity
+ (bit-identical to the `worked-predictions` chunk at its own seed).
+ 
++The family throughout is the **corrected 13-confounder enumeration** — the
++driver's `confounders.name`, `str2` included — read from
++`oc_wrapper_grid_corrected_2026-08-30.rds`: M = `r .fm(G$families[["500"]]$M)`
++at n = 500, M = `r .fm(G$families[["700"]]$M)` at n = 700 and
++M = `r .fm(C$null$family$M)` at the null. (The 08-29 build of this document read
++the 12-variable enumeration without `str2` — M = 1601 / 1784 / 1601; against
++it every functional moved by ≤ 0.1 and every inverted `c1` by < 0.25, so the
++conclusions below are unchanged and the numbers are not.)
++
+ # The family
+ 
+ `fs_oc_family_enumerate()` builds the family the search ranks over as a
+@@ -311,7 +326,7 @@ legend("bottomleft", bty = "n",
+ .ivt <- .iv[order(.iv$n, .iv$consistency_method, .iv$target), ]
+ knitr::kable(data.frame(
+   n = .ivt$n, gate = .ivt$consistency_method, target = .ivt$target,
+-  `c1 (inverted)` = ifelse(.ivt$attainable, .f(.ivt$c1, 2), "NA"),
++  `c1 (inverted)` = ifelse(.ivt$attainable, .f(.ivt$value, 2), "NA"),
+   `achieved rate` = ifelse(.ivt$attainable,
+                            paste0(.f(.ivt$achieved, 4), " (", .f(.ivt$achieved_se, 4), ")"),
+                            paste0("infeasible (ceiling ", .f(.ivt$ceiling, 4), ")")),
+@@ -340,10 +355,9 @@ values in the table are where the declaration rate actually begins to move.
+ # The null cell
+ 
+ ```{r null-setup}
+-.null_path <- file.path("..", "..", "..", "..", "dev", "glm-continuous-sims",
+-                        "oc_wrapper_null_2026-08-29.rds")
+-stopifnot(file.exists(.null_path))
+-N0 <- readRDS(.null_path)
++# The null cell of the corrected object (mirrors the superseded oc_wrapper_null_2026-08-29.rds).
++stopifnot(identical(unname(C$superseded[["null"]]), "dev/glm-continuous-sims/oc_wrapper_null_2026-08-29.rds"))
++N0 <- C$null; N0$fs_args <- C$fs_args; N0$draws <- C$draws; N0$seed <- C$seed
+ .nr <- N0$runs$resample$pred; .ns <- N0$runs$split$pred; .nm <- N0$measured
+ .nsw <- N0$sweep$table; .niv <- N0$invert$table
+ ```
+@@ -455,6 +469,123 @@ members is what the enumeration reaches; the stylised figure was a lower
+ bound on a quantity set by the size and overlap of the real cut space, not
+ by the sixteen it typed.
+ 
++# Breadth: the effect regime
++
++```{r breadth-setup}
++.L <- function(s) readRDS(file.path(.dev, sprintf("oc_breadth_ladder_2026-08-30_%s.rds", s)))
++L0 <- .L("gate"); .rungs <- c(60, 80, 100, 120, 140, 160)
++LR <- lapply(.rungs, function(q) .L(sprintf("rung%d", q))); names(LR) <- .rungs
++FC <- .L("forecast120")
++S2 <- readRDS(file.path(.dev, "oc_breadth_stage2_2026-08-31_score.rds"))
++stopifnot(FC$q == 120, identical(S2$c1_star, FC$c1_star), S2$forecast_commit == "c9cb0ca2")
++.fr <- FC$star$resample; .fs <- FC$star$split; .fn <- FC$null_at_star
++```
++
++The ladder keeps the MD40 population and its true region `Q` and moves only
++`k_inter`, so that the oriented `Q` effect `q = |m_tau[Q]|` runs
++`r min(.rungs)`–`r max(.rungs)` against MD40's `r .f(abs(L0$m_tau[["Q"]]), 0)`
++(`k_inter(q) = k40 + s·(q − 40)`, `k40` = `r .f(L0$k40, 4)`, `s` = `r L0$s`);
++`|m_tau[Qc]|` = `r .f(abs(L0$m_tau[["Qc"]]), 3)` is unchanged on every rung.
++Because the family, `Pg`, `PQg`, `se_g` and the overlap are functions of
++`df_super`'s covariates and `Q` alone, they are `identical()` across rungs and
++**only `beta_g = tauQc + bint(q)·PQg` moves**; the draw set (`r .fm(C$draws)`
++draws, seed `r C$seed`) is the same on every rung, so the ladder is monotone in
++`q` by construction. The forecast rung is **q = `r FC$q`**, chosen as the
++smallest multiple of 5 above the interpolated harm with 80 % power at the
++null's 5 % threshold; there `c1*` = `r .f(FC$c1_star, 3)` (the `"resample"`
++inversion at target 0.80), the predicted power is `r .f(.fr$det_rate, 4)`
++(MC SE `r .f(.fr$det_rate_se, 4)`) and the predicted null false-declaration
++rate at the same `c1*` is `r .f(.fn$det_rate, 4)` (`r .f(.fn$det_rate_se, 4)`).
++The forecast was locked in commit `c9cb0ca2` before any replicate was drawn;
++the measured cell is
++`r if (S2$measured_cell == "run1_posthoc") "Stage 2's run 1 (effect.threshold = 30, the driver's own) scored post hoc at c1\\*, which its direct run 2 at effect.threshold = c1\\* reproduced replicate for replicate" else "Stage 2's direct run 2 (effect.threshold = c1\\*)"`
++(`r S2$run2$agree_decl` / `r S2$power$n` declarations agree; `r S2$run2$memb_same` / `r S2$run2$both` joint winners identical).
++
++```{r breadth-ladder}
++.c1_05 <- LR[[1]]$c1_05; .c1_10 <- LR[[1]]$c1_10
++.lad <- do.call(rbind, lapply(LR, function(r) {
++  iv <- r$invert$table
++  data.frame(q = r$q, k_inter = .f(r$k_inter, 4),
++             `power at c1_05` = paste0(.f(r$named$c1_05$det_rate, 4), " (", .f(r$named$c1_05$det_rate_se, 4), ")"),
++             `power at c1_10` = paste0(.f(r$named$c1_10$det_rate, 4), " (", .f(r$named$c1_10$det_rate_se, 4), ")"),
++             `c1 at 80%` = .f(iv$value[iv$target == 0.80], 2),
++             `c1 at 90%` = .f(iv$value[iv$target == 0.90], 2),
++             `c1 at 95%` = .f(iv$value[iv$target == 0.95], 2),
++             check.names = FALSE)
++}))
++knitr::kable(.lad, row.names = FALSE, caption = sprintf(
++  "The ladder (n = 500, c2 = %g, resample gate): power at the null's thresholds c1_05 = %s and c1_10 = %s (read at the nearest grid point, MC SE in parentheses) and the inverted c1 per target, from oc_breadth_ladder_2026-08-30_rung*.rds.",
++  FC$grid_settings$c2, .f(.c1_05, 3), .f(.c1_10, 3)))
++```
++
++```{r breadth-forecast-vs-measured}
++.q <- function(nm) S2$rule[S2$rule$quantity == nm, ]
++.rowfm <- function(label, pred_r, pred_s, meas, se, d, verdict)
++  data.frame(quantity = label, `predicted "resample"` = .f(pred_r, d), `predicted "split"` = ifelse(is.na(pred_s), "—", .f(pred_s, d)),
++             measured = paste0(.f(meas, d), " (", .f(se, 4), ")"), verdict = verdict, check.names = FALSE)
++# verdict words transcribed from REPORT_oc_breadth_stage2_2026-08-31.md §5
++.bt <- rbind(
++  .rowfm("power at c1*", S2$power$forecast, .fs$det_rate, S2$power$rate, S2$power$se, 4, "within noise"),
++  .rowfm("null type-I at c1*", S2$typeI$forecast, NA, S2$typeI$rate, S2$typeI$se, 4, "within noise"),
++  .rowfm("E|Hhat| (sample)", .fr$EnH, .fs$EnH, .q("EnH_sample")$measured, .q("EnH_sample")$se, 2, "a gap (+2.1 subjects)"),
++  .rowfm("E|Hhat| (population of the realized rules)", .fr$EnH, .fs$EnH, .q("EnH_pop")$measured, .q("EnH_pop")$se, 2, "a gap (+2.5 subjects)"),
++  .rowfm("E[PPV] (sample)", .fr$Eppv, .fs$Eppv, .q("Eppv_sample")$measured, .q("Eppv_sample")$se, 4, "population-versus-sample"),
++  .rowfm("E[PPV] (population)", .fr$Eppv, .fs$Eppv, .q("Eppv_pop")$measured, .q("Eppv_pop")$se, 4, "within noise"),
++  .rowfm("E[sens] (sample)", .fr$Esens, .fs$Esens, .q("Esens_sample")$measured, .q("Esens_sample")$se, 4, "population-versus-sample"),
++  .rowfm("E[sens] (population)", .fr$Esens, .fs$Esens, .q("Esens_pop")$measured, .q("Esens_pop")$se, 4, "a gap (+0.010)"),
++  .rowfm("E[spec] (sample)", .fr$Espec, .fs$Espec, .q("Espec_sample")$measured, .q("Espec_sample")$se, 4, "within noise"),
++  .rowfm("E[spec] (population)", .fr$Espec, .fs$Espec, .q("Espec_pop")$measured, .q("Espec_pop")$se, 4, "within noise"),
++  .rowfm("E[beta(Hhat)] oriented", .fr$EbetaH, .fs$EbetaH, .q("EbetaH_pop")$measured, .q("EbetaH_pop")$se, 2, "within noise"),
++  .rowfm("naive bias", .fr$Enaive_bias, .fs$Enaive_bias, .q("Enaive_bias")$measured, .q("Enaive_bias")$se, 2, "within noise"),
++  .rowfm("between-rule size gap at this harm (MD40: +2.11)", 2.11, 2.12, S2$between$between[1], S2$rule$se[S2$rule$quantity == "EnH_pop"], 2, "within noise of +2.11"))
++knitr::kable(.bt, row.names = FALSE, caption = sprintf(
++  "Forecast rung q = %d at c1* = %s (n = 500, c2 = %g): the locked prediction under both gates beside the measured cell (%d replicates, %d declaring at c1*; SE in parentheses), from oc_breadth_stage2_2026-08-31_score.rds. The between-rule gap is the population size of the realized rules minus the analytic sel_c-weighted E|Hhat|.",
++  FC$q, .f(FC$c1_star, 3), FC$grid_settings$c2, S2$power$n, S2$power$k))
++```
++
++```{r breadth-figure}
++#| fig-width: 8
++#| fig-height: 5.5
++.g40 <- .sw[.sw$n == 500 & .sw$consistency_method == "resample", ]; .g40 <- .g40[order(.g40$c1), ]
++.g120 <- FC$grid$resample$table
++.n0 <- .nsw[.nsw$consistency_method == "resample", ]; .n0 <- .n0[order(.n0$c1), ]
++plot(NA, xlim = c(0, 300), ylim = c(0, 1), xlab = "screening floor c1",
++     ylab = "declaration rate", main = sprintf("Declaration rate against c1 (production gate, n = 500, c2 = %g)", FC$grid_settings$c2))
++lines(.g120$c1, .g120$det_rate, lwd = 2)
++lines(S2$curve$c1, S2$curve$measured, col = "firebrick", lwd = 1.5)
++lines(.g40$c1, .g40$det_rate, col = "grey40", lwd = 2, lty = 2)
++lines(.n0$c1, .n0$det_rate, col = "steelblue", lwd = 2)
++lines(S2$null_curve$c1, S2$null_curve$measured, col = "steelblue", lwd = 1.5, lty = 3)
++abline(h = 0.80, lty = 3); abline(v = c(.c1_05, FC$c1_star), lty = 3)
++text(.c1_05, 0.02, "c1_05", adj = c(1.1, 0)); text(FC$c1_star, 0.02, "c1*", adj = c(-0.2, 0))
++legend("topright", bty = "n", lwd = c(2, 1.5, 2, 2, 1.5), lty = c(1, 1, 2, 1, 3),
++       col = c("black", "firebrick", "grey40", "steelblue", "steelblue"),
++       legend = c(sprintf("predicted, q = %d", FC$q), sprintf("measured, q = %d (Stage 2 run 1, post hoc)", FC$q),
++                  "predicted, MD40 (q = 40; grid 20-120)", "null, predicted (grid 20-120)", "null, measured (payload, post hoc)"))
++```
++
++```{r breadth-se-band}
++.sb <- rbind(
++  data.frame(q = 40, k_inter = .f(L0$k40, 4), min = .f(L0$se_diag$overall[["min"]], 4), median = .f(L0$se_diag$overall[["median"]], 4),
++             max = .f(L0$se_diag$overall[["max"]], 4), `outside ±2%` = L0$se_diag$outside_2pct, check.names = FALSE),
++  do.call(rbind, lapply(LR, function(r) data.frame(q = r$q, k_inter = .f(r$k_inter, 4), min = .f(r$se_diag$overall[["min"]], 4),
++    median = .f(r$se_diag$overall[["median"]], 4), max = .f(r$se_diag$overall[["max"]], 4), `outside ±2%` = r$se_diag$outside_2pct, check.names = FALSE))))
++knitr::kable(.sb, row.names = FALSE, caption = sprintf(
++  "The se_g / se_direct ratio over the M = %s family members per rung (se_direct = sqrt(V_eff[g] / (n·Pg)) from fs_dgm_scale on each candidate), from the ladder .rds.", .fm(L0$family$M)))
++```
++
++At the forecast rung the direct-`V_eff` sensitivity (the same family with
++`se_g` replaced by `se_direct`) moved the predicted power at `c1*` from
++`r .f(.fr$det_rate, 3)` to `r .f(FC$sens6$pred$det_rate, 3)` and PPV from
++`r .f(.fr$Eppv, 3)` to `r .f(FC$sens6$pred$Eppv, 3)`; the constructor is
++unchanged — the decision is recorded as open in the handoff.
++
++# Limitations
++
++**The size of the selected rule.** The prediction conditions on a fixed candidate family enumerated at population quantiles on the DGM's super-population. Within every covariate signature the realized subgroup size matches its population value, but the search selects rules that are on average larger than the analytic selection weights predict — by +2.11 subjects at n = 500 under the alternative, +0.61 at n = 700, and +1.65 at the n = 500 null (corrected 13-confounder family, 2 × 10⁵ draws, seed 20260825). `E|Ĥ|`, PPV, sensitivity and the naive bias inherit this gap; the declaration rate, specificity, `E[β(Ĥ)]` and the null false-declaration rate do not. Five mechanisms were tested and eliminated: sample realization within signature; the confounder list; the prevalence scaling of `se_g`, measured within [0.992, 1.015] across 5,282 family members; statistics-keyed near-duplicate removal, at most 5% of the gap; and cut placement at replicate rather than population quantiles, under which a replicate-averaged family moves the prediction away from measurement, widening the gap to +3.03 / +1.99 / +2.55. The realized family also differs from the enumerated one in structure: at this DGM `wtkg` retains a fourth default cut in most n = 500 samples that the population enumeration collapses, `karnof` falls below four distinct values and is handled as categorical in about 40% of samples, 71% of the selection mass sits on affected candidates, and only about a quarter of replicates realize the population label set exactly — variation the fixed-family framework cannot represent. The gap is recorded as a limitation of the fixed-family prediction and is not explained.
++
++**The true rule need not be a family member.** The enumeration cuts continuous covariates at a specified population quantile grid, so a true subgroup defined by thresholds off that grid is represented only by its nearest members. At this DGM, Q — defined by thresholds at age 34 and preanti 744.5 — is not a member of the enumerated family; the closest candidates have purity `PQg ≥ 0.95`, and at the breadth forecast rung 0.345 of the selection mass sits on them. Sensitivity and PPV of the selected rule are therefore bounded by the grid before any sampling enters, and "power" throughout this document is the probability of declaring some rule, whose composition the selection distribution reports.
++
+ # Reading the comparison
+ 
+ ```{r reading}
