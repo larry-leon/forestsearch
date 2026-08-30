@@ -1,0 +1,73 @@
+--- sim_fs_maxeffCons_mr_md40_knoise0_n500_batch_1_1000.qmd	2026-08-27 10:44:53.214696300 -0700
++++ sim_fs_maxeffCons_mr_md120_knoise0_n500_batch_1_1000.qmd	2026-08-29 22:48:46.263850573 -0700
+@@ -127,7 +127,9 @@
+ sg_focus        <- "maxeffCons"  # highest effect meeting the consistency rate
+ 
+ # ── Scenario knob and sample size ───────────────────────────────────────────
+-target_md_harm <- -40     # calibrate k_inter to this MD in the harm region
++target_md_harm <- -120    # STAGE 2 (cc_task_oc_breadth_stage2_2026-08-31): the
++                          # forecast rung q = 120; the DGM is built DIRECTLY at
++                          # the Stage 1 k_inter (below), not calibrated.
+                           # (raw scale; oriented +40). NULL-ANALOGUE CELL (D3):
+                           # set this to the calibrator's no-interaction effect.
+ n_sample       <- 500L    #                             (production: 500L)
+@@ -138,6 +140,16 @@
+ # what it does.  Pair with target_hr_harm = 1.0 on the survival side.
+ null_cell      <- FALSE
+ 
++# STAGE 2 -- the locked forecast (commit c9cb0ca2) supplies k_inter and c1*.
++# Run 1 (comparability): effect.threshold = 30, the driver's own.
++# Run 2 (direct):        FS_STAGE2_RUN=direct -> effect.threshold = c1* at full
++#                        precision and the output stem gains "_c1star".
++# Everything else is identical between the two runs, including the seed table.
++stage2_forecast <- readRDS(file.path("..", "..", "..", "..", "dev", "glm-continuous-sims",
++                                     "oc_breadth_ladder_2026-08-30_forecast120.rds"))
++stopifnot(stage2_forecast$q == 120, abs(stage2_forecast$k_inter + 93.7447641240) < 1e-9)
++stage2_direct <- identical(Sys.getenv("FS_STAGE2_RUN"), "direct")
++
+ method_tag <- if (identical(subgroup_method, "consistency")) "fs" else subgroup_method
+ # One source of truth: fs_focus_tag() holds the (subgroup_method, sg_focus)
+ # -> stem tag map for every driver.  It was pasted into each one and drifted;
+@@ -157,6 +169,7 @@
+ quickrun <- FALSE
+ if (isTRUE(null_cell)) rds_stem <- sub("_md[0-9]+_", "_mdnull_", rds_stem)
+ if (isTRUE(quickrun)) rds_stem <- paste0(rds_stem, "_quickrun")
++if (isTRUE(stage2_direct)) rds_stem <- paste0(rds_stem, "_c1star")
+ results_dir <- file.path("mr_md_harm", sprintf("%s_s%d_d%d",
+                          rds_stem, n_sims, mr_draws))
+ dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
+@@ -168,8 +181,10 @@
+ selection_rule      <- "neighborhood"  # band rule for effMaxSG/effMinSG arms;
+ effect_neighborhood <- 0.10            # inert under maxcons-family foci; pinned
+ stop_threshold      <- NULL            # pinned so the resolved setting is visible
+-md_threshold   <- 30    # effect.threshold, oriented scale (true clearance
+-                        # <=> P(Q|H) >= 27.2% — alignment doc section 2)
++md_threshold   <- if (isTRUE(stage2_direct)) stage2_forecast$c1_star else 30
++                        # effect.threshold, oriented scale: 30 (run 1, the
++                        # driver's own) or c1* = 135.7411624608 read from the
++                        # locked forecast (run 2, the direct run).
+ md_consistency <- 10    # consistency.threshold. OPEN QUESTION D2: sits below
+                         # both CATE values, hence non-discriminating.
+ pconsistency   <- 0.90
+@@ -325,13 +340,16 @@
+     subgroup_vars = dgm_subgroup_vars, subgroup_cuts = dgm_subgroup_cuts,
+     model = "null", n_super = dgm_n_super, seed = seed_base, verbose = FALSE)
+ } else {
+-  calibrate_glm_interaction(
++  # STAGE 2: the exact linear route Stage 1 used for the rung (build_direct in
++  # oc_breadth_ladder_2026-08-30.R) -- every argument of the MD40 build's direct
++  # form, with k_inter read from the locked forecast.
++  generate_glm_dgm(
+     data = actg_df, factor_vars = dgm_factor_vars,
+     outcome_var = "cd4_change", treatment_var = "treat",
+-    target_effect = target_md_harm, outcome_type = "continuous",
+-    effect_measure = "MD", subgroup_vars = dgm_subgroup_vars,
+-    subgroup_cuts = dgm_subgroup_cuts, k_inter_range = cal_k_grid_range,
+-    grid_step = cal_grid_step, n_super = dgm_n_super, seed = seed_base,
++    outcome_type = "continuous", effect_measure = "MD",
++    subgroup_vars = dgm_subgroup_vars, subgroup_cuts = dgm_subgroup_cuts,
++    model = "alt", k_treat = 1, k_inter = stage2_forecast$k_inter,
++    adverse_outcome = FALSE, n_super = dgm_n_super, seed = seed_base,
+     verbose = FALSE)
+ }
+ 

@@ -1,0 +1,47 @@
+[2a] forecast rung q = 120 ; k_inter = -93.744764 (= k40 -13.744764 + s(-1)*(120-40)) ; c1* = 135.741162 ; c1_05 = 133.234686 ; c1_10 = 125.700212
+[2a] forecast table at (n = 500, c1* = 135.741162, c2 = 10, pconsistency 0.9), both gates, and the null at c1*:
+    quantity     resample        split null_resample
+    det_rate 8.000000e-01 7.992050e-01  3.867500e-02
+ det_rate_se 8.944272e-04 8.957577e-04  4.311568e-04
+         EnH 7.283559e+01 7.281445e+01  6.655489e+01
+       Esens 3.326444e-01 3.326511e-01            NA
+       Espec 9.526367e-01 9.527047e-01  8.668902e-01
+        Eppv 7.752194e-01 7.755314e-01  0.000000e+00
+        Enpv 7.319919e-01 7.320069e-01  1.000000e+00
+      EbetaH 9.892799e+01 9.895724e+01  2.625524e+01
+ Enaive_bias 6.226370e+01 6.224182e+01  1.184103e+02
+  mass_below 1.000000e+00 1.000000e+00  1.000000e+00
+[2a] sel_c mass on PQg >= 0.95: resample 0.344819 split 0.344861 ; mass on Q: 0.000000 / 0.000000
+[2a] at the driver's c1 = 30 (resample): det 1.000000 EnH 73.577948 Esens 0.327692 Espec 0.947767 Eppv 0.755575 EbetaH 97.086444 naive 56.918245
+[2a] forecast rung resample grid: 301 rows, c1 0..300 ; det_rate at 30 1.000000, 133 0.837190, 136 0.796300
+[2a] null curve artefacts: corrected null sweep (resample) c1 20..120 ; null inversions (resample) at targets 0.05/0.1/0.2/0.5/0.8/0.9/0.95 -> c1 133.234686/125.700212/117.113793/101.640168/87.292147/80.167269/74.433141
+[3] fs_dgm_scale: |m_tau[Q]| = 120.000000000000 (gate 120: TRUE) ; |m_tau[Qc]| = 26.255235876036 vs MD40 26.255235876036 (gate: TRUE) ; effect_Q = -120.0000000000
+[3] family M = 1696 (18 s); identical() to the stored forecast-rung family (gate.rds fields + forecast120 beta_g): lab TRUE Pg TRUE PQg TRUE se_g TRUE sens_g TRUE spec_g TRUE M TRUE beta_g_forecast TRUE
+[3] df_super columns differing between MD40 and MD120: mu1
+[3] mu1 shift: on Q range [-80.0000000000, -80.0000000000] ; off Q max|.| = 0.000e+00 ; mu0 identical TRUE
+[3] pairing check on replicates 1..5 (seed_base + sim_id, RNGkind L'Ecuyer-CMRG as the driver):
+     sim_id rows_treat_identical max_abs_dy_offQ_or_control dy_Q_treated_min
+[1,]      1                    1                          0              -80
+[2,]      2                    1                          0              -80
+[3,]      3                    1                          0              -80
+[4,]      4                    1                          0              -80
+[5,]      5                    1                          0              -80
+     dy_Q_treated_max
+[1,]              -80
+[2,]              -80
+[3,]              -80
+[4,]              -80
+[5,]              -80
+[2c] rep 1 at c1 = 30: 39.55 s ; winner = {preanti <= 985} & !{age <= 42} ; n_harm = 66 ; mr naive est = 144.3730626617
+      consistency table row 1 (the winner):
+  Pcons            hr  N  E K              M.1          M.2
+1     1 144.373062662 66 66 2 {preanti <= 985} !{age <= 42}
+      recorder's nv_H_est minus the table's hr = 2.842e-14 ; candidates entering consistency: 1395
+[2c] rep 1 at c1 = c1* = 135.741162: 29.30 s ; declared TRUE (post-hoc rule says TRUE) ; winner = {preanti <= 985} & !{age <= 42} ; naive est = 144.373063 ; membership identical TRUE
+[2c] rep 2 at c1 = 30: 34.28 s ; winner = !{age <= 37} & {preanti <= 83} ; n_harm = 69 ; mr naive est = 173.7310377093
+      consistency table row 1 (the winner):
+  Pcons            hr  N  E K          M.1             M.2
+1     1 173.731037709 69 69 2 !{age <= 37} {preanti <= 83}
+      recorder's nv_H_est minus the table's hr = 3.126e-13 ; candidates entering consistency: 1248
+[2c] rep 2 at c1 = c1* = 135.741162: 25.25 s ; declared TRUE (post-hoc rule says TRUE) ; winner = !{age <= 37} & {preanti <= 83} ; naive est = 173.731038 ; membership identical TRUE
+[gate] written (total 148 s)
