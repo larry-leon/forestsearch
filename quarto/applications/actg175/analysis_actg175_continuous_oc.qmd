@@ -3,7 +3,7 @@ title: "ACTG175 Continuous Analysis: Applied Operating Characteristics, Self-Con
 format: html
 params:
   draws: 20000
-  n_workers: 12
+  n_workers: 14
   c2_ratio: 0.8
   seed: 8316951
 ---
@@ -32,7 +32,7 @@ dirout      <- NULL
 # c2_ratio, seed); the archived companion
 # analysis_actg175_continuous_oc_evaluation.qmd holds the deep fixed-c2 run.
 q_rungs   <- c(0.01, 10, 20, 40, 60, 87 + 11 / 12)   # primary rungs; last = T_obs, gated below
-q_shared  <- c(20, 40, 87 + 11 / 12)                 # rungs run for each Q superset
+q_shared  <- c(0.01, 20, 40, 87 + 11 / 12)           # rungs run for each Q superset, incl. its own sub-threshold null
 c1_ladder <- sort(c(5, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120, 87 + 11 / 12))
 c2_vec    <- sort(unique(c(5, params$c2_ratio * c1_ladder)))
 
@@ -171,7 +171,7 @@ dgm_at <- function(q, cuts) generate_glm_dgm(
   model           = "alt",
   k_treat         = 1,
   k_inter         = q - beta_treat,
-  adverse_outcome = TRUE,
+  adverse_outcome = TRUE,   # inert for a continuous outcome: the negation branch is binary-only
   n_super         = 5000L,
   seed            = params$seed,
   verbose         = FALSE
@@ -281,8 +281,9 @@ The primary rungs: q ∈ {`r paste(sapply(q_rungs, qlab), collapse = ", ")`}
 CD4 units — the sub-threshold-subgroup null (a true Q with zero effect
 against the beneficial background), the analyst's c1 floor, two
 intermediates, and the observed statistic.  Each superset variant runs
-q ∈ {`r paste(sapply(q_shared, qlab), collapse = ", ")`} — twelve
-(variant, rung) jobs in all.  Each job rebuilds the anchored DGM for its
+q ∈ {`r paste(sapply(q_shared, qlab), collapse = ", ")`} — each superset
+carrying its own sub-threshold rung — fourteen (variant, rung) jobs in
+all.  Each job rebuilds the anchored DGM for its
 variant, re-enumerates the family (gated identical in size and
 orientation; the Q-referencing fields are what change), and evaluates one
 `fs_oc_grid()` — the full
@@ -298,7 +299,10 @@ eval_job <- function(i) {
   v <- jobs$variant[i]
   fam_q <- fs_oc_family_enumerate(dgm_at(jobs$q[i], Q_variants[[v]]), fs_args,
                                   n = N, max_M = 10000L, verbose = FALSE)
-  stopifnot(fam_q$M == 4508L, fam_q$orientation$s == 1)
+  # per-rung truth gate: the planted within-Q effect must equal this job's q,
+  # so a mis-set k_inter fails loudly rather than only through its sign
+  stopifnot(fam_q$M == 4508L, fam_q$orientation$s == 1,
+            abs(abs(fam_q$orientation$m_tau_Q) - jobs$q[i]) < 1e-9)
   g <- fs_oc_grid(family = fam_q, n = N, c1 = c1_ladder, c2 = c2_vec,
                   consistency_method = "resample", pconsistency = 0.90,
                   draws = params$draws, block = 5e4, seed = params$seed)
@@ -331,24 +335,45 @@ fam_hom$beta_g <- rep(beta_treat, fam$M)   # homogeneous truth: no subgroup
 g_hom <- fs_oc_grid(family = fam_hom, n = N, c1 = c1_ladder, c2 = c2_vec,
                     consistency_method = "resample", pconsistency = 0.90,
                     draws = params$draws, block = 5e4, seed = params$seed)
+# fam_hom inherits PQg/sens_g/spec_g from the primary family, so the
+# Q-classification functionals are computed against a Q that does not exist
+# under this truth: NA them out (EnH, EbetaH, mass_below use only Pg/beta_g)
+g_hom$table[, c("Eppv", "Esens", "Espec", "Enpv")] <- NA_real_
 oc <- rbind(oc, cbind(variant = "homogeneous", q = NA_real_, g_hom$table))
 ```
 
-**The sub-threshold-subgroup null is shared across variants.**  At q =
-`r fmt(q_rungs[1], 2)` every candidate's oriented mean is within
-0.01·P(Q|g) ≤ 0.01 CD4 units of the exact-q-zero background for *any* Q,
-so the primary's grid at that rung stands as the sub-threshold null for
-all three variants rather than being re-run.  Verified numerically per
-variant:
+**The sub-threshold null is not shared across variants.**  At q → 0 a
+candidate's true mean is `beta_treat`·(1 − P(Q|g)), which depends on the
+planted Q through P(Q|g) — a candidate largely inside Q~broad~ but
+outside Q~primary~ has a mean near zero under broad against near
+`r fmt(beta_treat, 2)` under primary — so the sub-threshold null is a
+property of the planted Q and each variant runs its own
+q = `r fmt(q_rungs[1], 2)` rung.  An earlier draft read the primary's
+grid as every variant's left calibration endpoint under a shared-null
+shortcut whose check compared each family's means to its own
+Q-dependent background — an algebraic identity, unable to detect the
+between-variant difference — so that shortcut was invalid and is
+removed; the measured between-variant differences and each variant's own
+declaration rate at (T̂~obs~, `r fmt(params$c2_ratio * 10, 0)`) are:
 
-```{r null-shared}
-null_dev <- unlist(parallel::mclapply(Q_variants, function(cu) {
-  f0 <- fs_oc_family_enumerate(dgm_at(q_rungs[1], cu), fs_args, n = N,
-                               max_M = 10000L, verbose = FALSE)
-  max(abs(f0$beta_g - beta_treat * (1 - f0$PQg)))
-}, mc.cores = 3L))
-print(round(null_dev, 6))
-stopifnot(all(null_dev <= 0.01 + 1e-9))
+```{r null-not-shared}
+fam0 <- parallel::mclapply(Q_variants, function(cu)
+  fs_oc_family_enumerate(dgm_at(q_rungs[1], cu), fs_args, n = N,
+                         max_M = 10000L, verbose = FALSE), mc.cores = 3L)
+stopifnot(identical(fam0$wider$lab, fam0$primary$lab),
+          identical(fam0$broad$lab, fam0$primary$lab))  # member alignment
+dev_vs_primary <- sapply(fam0[c("wider", "broad")], function(f)
+  c(max = max(abs(f$beta_g - fam0$primary$beta_g)),
+    median = median(abs(f$beta_g - fam0$primary$beta_g))))
+print(round(dev_vs_primary, 3))
+det0 <- sapply(names(Q_variants), function(v) {
+  d <- oc[oc$variant == v, ]
+  at(d[d$q == q_rungs[1], ], T_obs, params$c2_ratio * 10)$det_rate
+})
+print(round(det0, 4))
+# gate: the sub-threshold null must actually differ between variants;
+# if no superset moves any member by > 1 CD4 unit the premise is wrong
+stopifnot(max(dev_vs_primary["max", ]) > 1)
 ```
 
 **Two nulls, bracketing the question.**  The q = `r fmt(q_rungs[1], 2)`
@@ -403,6 +428,15 @@ mrg <- merge(och[, c("c1", "c2", "det_rate")],
 stopifnot(nrow(mrg) == length(c1_ladder) * length(c2_vec),
           c1_05_hom <= c1_05_diag,
           all(mrg$det_rate_hom <= mrg$det_rate_sub + 1e-9))
+
+# each superset's own sub-threshold null, on the diagonal
+tIv <- lapply(c(wider = "wider", broad = "broad"), function(v) {
+  d0 <- oc[oc$variant == v & oc$q == q_rungs[1], ]
+  do.call(rbind, lapply(c1_ladder, function(c1v)
+    at(d0, c1v, params$c2_ratio * c1v)))
+})
+sub_w_10 <- at(tIv$wider, 10, params$c2_ratio * 10)
+sub_b_10 <- at(tIv$broad, 10, params$c2_ratio * 10)
 ```
 
 At the analyst's screening floor c1 = 10 (diagonal c2 =
@@ -427,7 +461,12 @@ under the no-subgroup null; at or below 0.10,
 **c1~10~^hom^ = `r fmt0(c1_10_hom)`**.  For the no-subgroup null only the
 declaration event is reported: with no true Q, `PQg`, sensitivity,
 specificity, PPV, and every other classification functional are
-undefined, so the homogeneous rows carry `det_rate` alone.
+undefined, so the homogeneous rows carry `det_rate` alone.  Each
+superset's own sub-threshold null carries its own type-I — at the
+analyst's (10, `r fmt(params$c2_ratio * 10, 0)`): wider
+`r pm(sub_w_10$det_rate, sub_w_10$det_rate_se)`, broad
+`r pm(sub_b_10$det_rate, sub_b_10$det_rate_se)`, with the full diagonal
+curves in the payload — and the headline above is the primary's.
 
 ```{r type1-diagonal-curve}
 #| fig-width: 7
@@ -624,19 +663,19 @@ on the fixed c2 = 5 row at the same ladder resolution.
 The primary evaluation plants Ĥ itself.  This section turns the knob of
 section 3: the same analysis, the same family, the same thresholds, scored
 against each variant's own Q — power at the diagonal fixed-type-I
-threshold for the shared rungs, the declared rule's overlap quality at the
+threshold for the common rungs (q = 20, 40, T̂~obs~), the declared rule's overlap quality at the
 analyst's (10, `r fmt(params$c2_ratio * 10, 0)`) on the observed-statistic
 rung, and the calibration crossings, read as in section 7.2 at
 c1 = T̂~obs~ with the analyst's operating c2 =
 `r fmt(params$c2_ratio * 10, 0)` and the archived comparator c2 = 5
-alongside.  The shared sub-threshold null point anchors every variant's
-calibration curve (section 6).
+alongside.  Each variant's calibration curve is anchored by its own
+sub-threshold null rung (section 6).
 
 ```{r knob-table}
 cal <- lapply(names(Q_variants), function(v) {
-  qs <- if (v == "primary") q_rungs else c(q_rungs[1], q_shared)
+  qs <- if (v == "primary") q_rungs else q_shared
   read_pT <- function(c2v) sapply(qs, function(qv) {
-    d <- if (qv == q_rungs[1]) ocp else oc[oc$variant == v, ]  # shared null
+    d <- oc[oc$variant == v, ]   # every rung is the variant's own, incl. 0.01
     at(d[d$q == qv, ], T_obs, c2v)$det_rate
   })
   list(qs = qs, pT = read_pT(params$c2_ratio * 10), pT5 = read_pT(5))
@@ -651,7 +690,7 @@ cross <- function(qs, pT, lev) {
 }
 knob <- do.call(rbind, lapply(names(Q_variants), function(v) {
   d   <- oc[oc$variant == v, ]
-  pow <- sapply(q_shared, function(qv)
+  pow <- sapply(c(20, 40, T_obs), function(qv)
     at(d[d$q == qv, ], c1_05_diag, params$c2_ratio * c1_05_diag)$det_rate)
   top <- at(d[abs(d$q - T_obs) < 1e-9, ], 10, params$c2_ratio * 10)
   data.frame(variant = v,
@@ -695,13 +734,13 @@ gt(data.frame(
     fmt(params$c2_ratio * 10, 0), ") on the q = T̂~obs~ rung; the last four ",
     "columns are the q where P(T ≥ T̂~obs~ | q, Q), read at c1 = T̂~obs~ ",
     "and the stated c2, crosses 0.05 / 0.5, interpolated linearly at ladder ",
-    "resolution with the shared sub-threshold null point.")))
+    "resolution with each variant's own sub-threshold null point.")))
 ```
 
 ```{r knob-figure}
 #| fig-width: 7
 #| fig-height: 4.5
-#| fig-cap: "Calibration curves P(T ≥ T̂_obs | q, Q) for the three Q-variants at the analyst's operating c2 = 8 (filled, solid) and the archived comparator c2 = 5 (open, dashed), sharing the sub-threshold null point. Dotted guides at 0.05 and 0.5; the vertical dashed line marks q = T̂_obs."
+#| fig-cap: "Calibration curves P(T ≥ T̂_obs | q, Q) for the three Q-variants at the analyst's operating c2 = 8 (filled, solid) and the archived comparator c2 = 5 (open, dashed), each anchored by its own sub-threshold null point. Dotted guides at 0.05 and 0.5; the vertical dashed line marks q = T̂_obs."
 cols3 <- c(primary = "grey20", wider = "steelblue", broad = "firebrick")
 op <- par(mar = c(4.2, 4.2, 1, 1))
 plot(NA, xlim = c(0, max(q_rungs)), ylim = c(0, 1),
@@ -821,7 +860,8 @@ payload <- list(
                                     c1_10_hom = c1_10_hom,
                                     at_analyst_diag = hom_at_10,
                                     at_comparator_c2_5 = hom_at_5,
-                                    surface = och)),
+                                    surface = och),
+                 subthreshold_variants = tIv),
     declared    = dec,
     comparator_c2_5 = cmp,
     calibration = lad[, c("q", "pT", "pTs", "pT5", "pT5s")],
@@ -841,7 +881,9 @@ payload <- list(
                          "so it is read at the analyst's operating",
                          "consistency floor, not on the policy diagonal")),
     q_variants  = list(defs = Q_variants, prevalence = prev,
-                       table = knob, curves = cal, null_dev = null_dev)),
+                       table = knob, curves = cal,
+                       null_not_shared = list(dev_vs_primary = dev_vs_primary,
+                                              det_at_Tobs = det0))),
   est_scale = "md",
   built_at  = Sys.time(),
   forestsearch_version = tryCatch(as.character(utils::packageVersion("forestsearch")),
