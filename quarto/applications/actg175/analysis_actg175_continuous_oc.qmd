@@ -278,7 +278,8 @@ print(pred)
 ## 6. The evaluation loop
 
 The primary rungs: q ∈ {`r paste(sapply(q_rungs, qlab), collapse = ", ")`}
-CD4 units — the zero-plus structural null, the analyst's c1 floor, two
+CD4 units — the sub-threshold-subgroup null (a true Q with zero effect
+against the beneficial background), the analyst's c1 floor, two
 intermediates, and the observed statistic.  Each superset variant runs
 q ∈ {`r paste(sapply(q_shared, qlab), collapse = ", ")`} — twelve
 (variant, rung) jobs in all.  Each job rebuilds the anchored DGM for its
@@ -313,11 +314,32 @@ cat(sprintf("evaluation loop: %.1f s (%.1f min) over %d jobs, %d workers\n",
 ocp <- oc[oc$variant == "primary", ]
 ```
 
-**The structural null is shared across variants.**  At q =
+**The no-subgroup null, by construction.**  Under a homogeneous truth
+every candidate's true mean *is* the common effect, so the no-subgroup
+null is built by direct substitution on the primary family object — the
+same object-level substitution the archived document's `se_direct`
+sensitivity used — and evaluated over the same (c1, c2) crossing with the
+same draws, block, and seed.  It cannot be reached through the generator
+at `k_inter = 0`: both region effects are then equal and negative, the
+orientation reads s = sign(m~τ~[Q]) = −1, and every candidate's oriented
+mean becomes +`r fmt(-beta_treat, 2)`, clearing c1 = 10 trivially
+(declaration ≈ 1 — the pathology stage 0 measured on the null branch).
+
+```{r homogeneous-null}
+fam_hom <- fam                             # the primary family, already built
+fam_hom$beta_g <- rep(beta_treat, fam$M)   # homogeneous truth: no subgroup
+g_hom <- fs_oc_grid(family = fam_hom, n = N, c1 = c1_ladder, c2 = c2_vec,
+                    consistency_method = "resample", pconsistency = 0.90,
+                    draws = params$draws, block = 5e4, seed = params$seed)
+oc <- rbind(oc, cbind(variant = "homogeneous", q = NA_real_, g_hom$table))
+```
+
+**The sub-threshold-subgroup null is shared across variants.**  At q =
 `r fmt(q_rungs[1], 2)` every candidate's oriented mean is within
-0.01·P(Q|g) ≤ 0.01 CD4 units of the exact-null background for *any* Q, so
-the primary's zero-plus grid stands as the null for all three variants
-rather than being re-run.  Verified numerically per variant:
+0.01·P(Q|g) ≤ 0.01 CD4 units of the exact-q-zero background for *any* Q,
+so the primary's grid at that rung stands as the sub-threshold null for
+all three variants rather than being re-run.  Verified numerically per
+variant:
 
 ```{r null-shared}
 null_dev <- unlist(parallel::mclapply(Q_variants, function(cu) {
@@ -329,14 +351,19 @@ print(round(null_dev, 6))
 stopifnot(all(null_dev <= 0.01 + 1e-9))
 ```
 
-**Why the zero-plus rung, not a null branch.**  Version 0.3.2 orients every
-candidate's mean by the harm direction, so benefit-direction rules carry
-oriented-negative means and a planted effect of exactly zero has no harm
-direction to orient by; on this population (fitted background
-`r fmt(beta_treat, 2)`, a benefit) the wrapper's null branch would read the
-common effect as a spurious harm.  The operational structural null is the
-alternative branch at q = `r fmt(q_rungs[1], 2)` — correctly signed, and
-the same truth as "no subgroup" to a hundredth of a CD4 unit.
+**Two nulls, bracketing the question.**  The q = `r fmt(q_rungs[1], 2)`
+rung is *not* the no-subgroup null: with `k_inter(q) = q − beta_treat` the
+within-Q effect is q ≈ 0 while Q^c^ keeps the fitted benefit
+`r fmt(beta_treat, 2)` — a true subgroup exists, carrying
+`r fmt(-beta_treat, 0)` CD4 units of genuine effect heterogeneity, and
+sits far below any threshold the analysis uses.  That is **the
+sub-threshold-subgroup null** (a true Q with zero effect against the
+beneficial background).  The homogeneous family above is **the
+no-subgroup null**.  Both of the analyst's nulls are therefore present,
+and they bracket the question — no subgroup at all, and a subgroup real
+but below the thresholds; the second is the more adversarial of the two,
+its Q-enriched candidates carrying elevated means, and is where the larger
+false-declaration rate comes from.
 
 ## 7. The diagonal: c2 = `r fmt(params$c2_ratio, 1)`·c1
 
@@ -344,48 +371,83 @@ The headline policy scales the consistency floor with the screening floor.
 All views in this section sit on the diagonal
 c2 = `r fmt(params$c2_ratio, 1)`·c1.
 
-### 7.1 Type-I under the structural null
+### 7.1 Type-I under the two nulls
 
 ```{r type1-diagonal}
 diag_of <- function(qv) do.call(rbind, lapply(c1_ladder, function(c1v)
   at(ocp[ocp$q == qv, ], c1v, params$c2_ratio * c1v)))
-tI <- diag_of(q_rungs[1])
+tI  <- diag_of(q_rungs[1])
+och <- oc[oc$variant == "homogeneous", ]
+tIh <- do.call(rbind, lapply(c1_ladder, function(c1v)
+  at(och, c1v, params$c2_ratio * c1v)))
 
 type1_at_10 <- at(tI, 10, params$c2_ratio * 10)
-stopifnot(is.finite(type1_at_10$det_rate))
+hom_at_10   <- at(tIh, 10, params$c2_ratio * 10)
+sub_at_5    <- at(ocp[ocp$q == q_rungs[1], ], 10, 5)
+hom_at_5    <- at(och, 10, 5)
+stopifnot(is.finite(type1_at_10$det_rate), is.finite(hom_at_10$det_rate))
 
 c1_05_diag <- suppressWarnings(min(tI$c1[tI$det_rate <= 0.05]))
 c1_10_diag <- suppressWarnings(min(tI$c1[tI$det_rate <= 0.10]))
-stopifnot(is.finite(c1_05_diag), is.finite(c1_10_diag))
+c1_05_hom  <- suppressWarnings(min(tIh$c1[tIh$det_rate <= 0.05]))
+c1_10_hom  <- suppressWarnings(min(tIh$c1[tIh$det_rate <= 0.10]))
+stopifnot(is.finite(c1_05_diag), is.finite(c1_10_diag),
+          is.finite(c1_05_hom), is.finite(c1_10_hom))
+
+# gate: the no-subgroup null can only declare less often than the
+# sub-threshold null, whose Q-enriched candidates carry elevated means —
+# c1_05^hom <= c1_05^sub-threshold and pointwise over the whole crossing
+mrg <- merge(och[, c("c1", "c2", "det_rate")],
+             ocp[ocp$q == q_rungs[1], c("c1", "c2", "det_rate")],
+             by = c("c1", "c2"), suffixes = c("_hom", "_sub"))
+stopifnot(nrow(mrg) == length(c1_ladder) * length(c2_vec),
+          c1_05_hom <= c1_05_diag,
+          all(mrg$det_rate_hom <= mrg$det_rate_sub + 1e-9))
 ```
 
 At the analyst's screening floor c1 = 10 (diagonal c2 =
 `r fmt(params$c2_ratio * 10, 0)`), the family-wise false-declaration rate
-under the structural null is
-**`r fmt(type1_at_10$det_rate, 5)`**
-(MC SE `r fmt(type1_at_10$det_rate_se, 5)`).  Read at the ladder's own
-resolution, the smallest ladder c1 holding type-I at or below 0.05 on the
-diagonal is **c1~05~^diag^ = `r fmt0(c1_05_diag)`**
+is **`r fmt(type1_at_10$det_rate, 5)`**
+(MC SE `r fmt(type1_at_10$det_rate_se, 5)`) under the
+sub-threshold-subgroup null and **`r fmt(hom_at_10$det_rate, 5)`**
+(MC SE `r fmt(hom_at_10$det_rate_se, 5)`) under the no-subgroup null; at
+the fixed comparator (10, 5) the two read
+`r pm(sub_at_5$det_rate, sub_at_5$det_rate_se)` and
+`r pm(hom_at_5$det_rate, hom_at_5$det_rate_se)`.  Read at the ladder's own
+resolution, the smallest ladder c1 holding the rate at or below 0.05 on
+the diagonal is **c1~05~^diag^ = `r fmt0(c1_05_diag)`**
 (rate `r pm(at(tI, c1_05_diag, params$c2_ratio * c1_05_diag)$det_rate,
-            at(tI, c1_05_diag, params$c2_ratio * c1_05_diag)$det_rate_se)`),
-and at or below 0.10 is **c1~10~^diag^ = `r fmt0(c1_10_diag)`**
-(rate `r pm(at(tI, c1_10_diag, params$c2_ratio * c1_10_diag)$det_rate,
-            at(tI, c1_10_diag, params$c2_ratio * c1_10_diag)$det_rate_se)`).
+            at(tI, c1_05_diag, params$c2_ratio * c1_05_diag)$det_rate_se)`)
+under the sub-threshold null against
+**c1~05~^hom^ = `r fmt0(c1_05_hom)`**
+(rate `r pm(at(tIh, c1_05_hom, params$c2_ratio * c1_05_hom)$det_rate,
+            at(tIh, c1_05_hom, params$c2_ratio * c1_05_hom)$det_rate_se)`)
+under the no-subgroup null; at or below 0.10,
+**c1~10~^diag^ = `r fmt0(c1_10_diag)`** against
+**c1~10~^hom^ = `r fmt0(c1_10_hom)`**.  For the no-subgroup null only the
+declaration event is reported: with no true Q, `PQg`, sensitivity,
+specificity, PPV, and every other classification functional are
+undefined, so the homogeneous rows carry `det_rate` alone.
 
 ```{r type1-diagonal-curve}
 #| fig-width: 7
 #| fig-height: 4.5
-#| fig-cap: "Type-I error of the search under the zero-plus structural null along the diagonal c2 = 0.8·c1, at ladder resolution. Guides: the analyst's c1 = 10, and c1_05/c1_10 at the 0.05/0.10 lines."
+#| fig-cap: "Type-I error of the search under the two nulls along the diagonal c2 = 0.8·c1, at ladder resolution: the sub-threshold-subgroup null (filled) and the no-subgroup null (open, dashed). Guides: the analyst's c1 = 10, and the sub-threshold c1_05/c1_10 at the 0.05/0.10 lines."
 op <- par(mar = c(4.2, 4.2, 1, 1))
 plot(tI$c1, tI$det_rate, type = "b", pch = 16, lwd = 2,
+     ylim = range(0, tI$det_rate, tIh$det_rate),
      xlab = "c1 (CD4 units, mean difference); c2 = 0.8·c1",
-     ylab = "P(any declaration | structural null)")
+     ylab = "P(any declaration | null)")
+lines(tIh$c1, tIh$det_rate, type = "b", pch = 1, lty = 2, lwd = 2)
 abline(h = c(0.05, 0.10), lty = 3, col = "grey40")
 abline(v = 10, lty = 2, col = "firebrick")
 abline(v = c(c1_05_diag, c1_10_diag), lty = 2, col = "steelblue")
 text(10, max(tI$det_rate), "analyst c1", pos = 4, cex = 0.8, col = "firebrick")
 text(c1_05_diag, 0.05, expression(c1[0.05]^diag), pos = 4, cex = 0.8,
      col = "steelblue")
+legend("topright", legend = c("sub-threshold-subgroup null",
+                              "no-subgroup null"),
+       pch = c(16, 1), lty = c(1, 2), lwd = 2, cex = 0.8, bg = "white")
 par(op)
 ```
 
@@ -393,13 +455,18 @@ par(op)
 
 Per rung: the declaration rate at the analyst's diagonal gate
 (c1 = 10, c2 = `r fmt(params$c2_ratio * 10, 0)`), the power at the
-diagonal fixed-type-I thresholds, and the calibration column
-P(T ≥ T̂~obs~ | q) — read off the grid at the diagonal point
-(c1 = T̂~obs~, c2 = `r fmt(params$c2_ratio, 1)`·T̂~obs~).
+diagonal fixed-type-I thresholds, and the calibration columns
+P(T ≥ T̂~obs~ | q) — read at c1 = T̂~obs~ with the analyst's operating
+consistency floor c2 = `r fmt(params$c2_ratio * 10, 0)` and, alongside,
+the archived comparator c2 = 5.  c2 sets candidate *eligibility*, and the
+calibration interrogates the analysis as actually conducted, so it is
+read at the analyst's own consistency floor while type-I and power are
+read on the policy diagonal.
 
 ```{r ladder-table}
 lad <- do.call(rbind, lapply(q_rungs, function(qv) {
-  d <- diag_of(qv)
+  d  <- diag_of(qv)
+  dq <- ocp[ocp$q == qv, ]
   data.frame(
     q      = qv,
     det10  = at(d, 10, params$c2_ratio * 10)$det_rate,
@@ -408,8 +475,10 @@ lad <- do.call(rbind, lapply(q_rungs, function(qv) {
     p05s   = at(d, c1_05_diag, params$c2_ratio * c1_05_diag)$det_rate_se,
     p10    = at(d, c1_10_diag, params$c2_ratio * c1_10_diag)$det_rate,
     p10s   = at(d, c1_10_diag, params$c2_ratio * c1_10_diag)$det_rate_se,
-    pT     = at(d, T_obs, params$c2_ratio * T_obs)$det_rate,
-    pTs    = at(d, T_obs, params$c2_ratio * T_obs)$det_rate_se)
+    pT     = at(dq, T_obs, params$c2_ratio * 10)$det_rate,
+    pTs    = at(dq, T_obs, params$c2_ratio * 10)$det_rate_se,
+    pT5    = at(dq, T_obs, 5)$det_rate,
+    pT5s   = at(dq, T_obs, 5)$det_rate_se)
 }))
 
 # gate: power columns monotone in q within 2 MC SEs
@@ -422,18 +491,23 @@ gt(data.frame(
   det10 = pm(lad$det10, lad$det10s),
   p05   = pm(lad$p05, lad$p05s),
   p10   = pm(lad$p10, lad$p10s),
-  pT    = pm(lad$pT, lad$pTs))) |>
+  pT    = pm(lad$pT, lad$pTs),
+  pT5   = pm(lad$pT5, lad$pT5s))) |>
   cols_label(q = "q (planted MD)",
              det10 = paste0("rate at (10, ", fmt(params$c2_ratio * 10, 0), ")"),
              p05 = html(paste0("power at c1<sub>05</sub><sup>diag</sup> = ",
                                fmt0(c1_05_diag))),
              p10 = html(paste0("power at c1<sub>10</sub><sup>diag</sup> = ",
                                fmt0(c1_10_diag))),
-             pT = html("P(T ≥ T̂<sub>obs</sub> | q)")) |>
+             pT = html(paste0("P(T ≥ T̂<sub>obs</sub> | q), c2 = ",
+                              fmt(params$c2_ratio * 10, 0))),
+             pT5 = html("P(T ≥ T̂<sub>obs</sub> | q), c2 = 5")) |>
   tab_source_note(md(paste0(
-    "All on the diagonal c2 = ", fmt(params$c2_ratio, 1), "·c1; one ",
-    format(params$draws, big.mark = ","), "-draw set per rung; ± is the ",
-    "Monte-Carlo SE.")))
+    "Rate and power columns on the diagonal c2 = ", fmt(params$c2_ratio, 1),
+    "·c1; the calibration columns at c1 = T̂~obs~ with c2 at the analyst's ",
+    "operating floor (", fmt(params$c2_ratio * 10, 0), ") and the archived ",
+    "comparator (5); one ", format(params$draws, big.mark = ","),
+    "-draw set per rung; ± is the Monte-Carlo SE.")))
 ```
 
 ### 7.3 What is declared at (c1 = 10, c2 = `r fmt(params$c2_ratio * 10, 0)`)
@@ -447,7 +521,7 @@ bias, and the selection mass on rules whose true mean is below c1.
 dec <- do.call(rbind, lapply(q_rungs, function(qv)
   at(ocp[ocp$q == qv, ], 10, params$c2_ratio * 10)))
 
-# gate: the zero-plus row's declared rules carry an oriented-NEGATIVE
+# gate: the sub-threshold row's declared rules carry an oriented-NEGATIVE
 # expected true effect (the honest false-positive reading)
 stopifnot(dec$EbetaH[1] < 0)
 
@@ -469,8 +543,8 @@ gt(data.frame(
     "delta-method MC SEs for these functionals at 2e5 draws.")))
 ```
 
-The zero-plus row is the honest false-positive reading: when the
-structural null declares (rate `r fmt(dec$det_rate[1], 4)`), the declared
+The sub-threshold row is the honest false-positive reading: when the
+sub-threshold-subgroup null declares (rate `r fmt(dec$det_rate[1], 4)`), the declared
 rule's expected true oriented effect is `r fmt(dec$EbetaH[1], 2)` — a
 *benefit*, not a harm, pulled up from the pure background
 `r fmt(beta_treat, 2)` only by the selection mass on
@@ -499,7 +573,7 @@ gt(data.frame(
   tab_source_note("The analyst's original fixed-c2 gate, at this document's draw count.")
 ```
 
-The zero-plus rate at (10, 5) here is
+The sub-threshold-null rate at (10, 5) here is
 `r pm(cmp$det_rate[1], cmp$det_rate_se[1])`, against the archived deep
 run's 0.5850 ± 0.0011 at 2e5 draws — the two agree to Monte-Carlo
 precision, and remaining differences across the tables are MC precision
@@ -507,14 +581,14 @@ and ladder-resolution effects, not configuration.
 
 ## 9. The type-I surface
 
-The false-declaration rate under the structural null over the full
-(c1, c2) crossing, with the fixed c2 = 5 row and the
+The false-declaration rate under the sub-threshold-subgroup null over the
+full (c1, c2) crossing, with the fixed c2 = 5 row and the
 c2 = `r fmt(params$c2_ratio, 1)`·c1 diagonal marked.
 
 ```{r type1-surface}
 #| fig-width: 7
 #| fig-height: 5.5
-#| fig-cap: "Type-I error of the search under the zero-plus structural null over the (c1, c2) crossing. White contour lines at 0.05 and 0.10; dashed lines mark the fixed c2 = 5 comparator row and the c2 = 0.8·c1 diagonal."
+#| fig-cap: "Type-I error of the search under the sub-threshold-subgroup null over the (c1, c2) crossing. White contour lines at 0.05 and 0.10; dashed lines mark the fixed c2 = 5 comparator row and the c2 = 0.8·c1 diagonal."
 z <- ocp[ocp$q == q_rungs[1], ]
 zm <- matrix(NA_real_, length(c1_ladder), length(c2_vec))
 for (i in seq_along(c1_ladder)) for (j in seq_along(c2_vec))
@@ -522,7 +596,7 @@ for (i in seq_along(c1_ladder)) for (j in seq_along(c2_vec))
 op <- par(mar = c(4.2, 4.2, 1.5, 1))
 image(c1_ladder, c2_vec, zm, col = hcl.colors(24, "YlOrRd", rev = TRUE),
       xlab = "c1 (CD4 units, mean difference)", ylab = "c2",
-      main = "P(any declaration | structural null)")
+      main = "P(any declaration | sub-threshold null)")
 contour(c1_ladder, c2_vec, zm, levels = c(0.05, 0.10), add = TRUE,
         col = "white", lwd = 2, labcex = 0.8)
 abline(h = 5, lty = 2, col = "grey25")
@@ -552,17 +626,20 @@ section 3: the same analysis, the same family, the same thresholds, scored
 against each variant's own Q — power at the diagonal fixed-type-I
 threshold for the shared rungs, the declared rule's overlap quality at the
 analyst's (10, `r fmt(params$c2_ratio * 10, 0)`) on the observed-statistic
-rung, and the calibration crossings.  The shared zero-plus point anchors
-every variant's calibration curve (section 6).
+rung, and the calibration crossings, read as in section 7.2 at
+c1 = T̂~obs~ with the analyst's operating c2 =
+`r fmt(params$c2_ratio * 10, 0)` and the archived comparator c2 = 5
+alongside.  The shared sub-threshold null point anchors every variant's
+calibration curve (section 6).
 
 ```{r knob-table}
 cal <- lapply(names(Q_variants), function(v) {
   qs <- if (v == "primary") q_rungs else c(q_rungs[1], q_shared)
-  pT <- sapply(qs, function(qv) {
+  read_pT <- function(c2v) sapply(qs, function(qv) {
     d <- if (qv == q_rungs[1]) ocp else oc[oc$variant == v, ]  # shared null
-    at(d[d$q == qv, ], T_obs, params$c2_ratio * T_obs)$det_rate
+    at(d[d$q == qv, ], T_obs, c2v)$det_rate
   })
-  list(qs = qs, pT = pT)
+  list(qs = qs, pT = read_pT(params$c2_ratio * 10), pT5 = read_pT(5))
 })
 names(cal) <- names(Q_variants)
 
@@ -585,7 +662,9 @@ knob <- do.call(rbind, lapply(names(Q_variants), function(v) {
              p20   = pow[1], p40 = pow[2], ptop = pow[3],
              ppv   = top$Eppv, sens = top$Esens,
              q05   = cross(cal[[v]]$qs, cal[[v]]$pT, 0.05),
-             q50   = cross(cal[[v]]$qs, cal[[v]]$pT, 0.50))
+             q50   = cross(cal[[v]]$qs, cal[[v]]$pT, 0.50),
+             q05c  = cross(cal[[v]]$qs, cal[[v]]$pT5, 0.05),
+             q50c  = cross(cal[[v]]$qs, cal[[v]]$pT5, 0.50))
 }))
 
 qfmt <- function(x) ifelse(is.na(x), "beyond the ladder",
@@ -598,26 +677,31 @@ gt(data.frame(
   p20  = fmt(knob$p20, 4), p40 = fmt(knob$p40, 4), ptop = fmt(knob$ptop, 4),
   ppv  = fmt(knob$ppv, 3), sens = fmt(knob$sens, 3),
   q05  = qfmt(knob$q05),
-  q50  = qfmt(knob$q50))) |>
+  q05c = qfmt(knob$q05c),
+  q50  = qfmt(knob$q50),
+  q50c = qfmt(knob$q50c))) |>
   cols_label(v = "Q variant", def = "definition", P = "P(Q)",
              p20 = "power, q = 20", p40 = "power, q = 40",
              ptop = html("power, q = T̂<sub>obs</sub>"),
              ppv = "E[PPV]", sens = "E[sens]",
-             q05 = "q at 0.05", q50 = "q at 0.5") |>
+             q05 = paste0("q at 0.05 (c2 = ", fmt(params$c2_ratio * 10, 0), ")"),
+             q05c = "q at 0.05 (c2 = 5)",
+             q50 = paste0("q at 0.5 (c2 = ", fmt(params$c2_ratio * 10, 0), ")"),
+             q50c = "q at 0.5 (c2 = 5)") |>
   tab_source_note(md(paste0(
     "Power columns at the diagonal (c1 = ", fmt0(c1_05_diag), ", c2 = ",
     fmt(params$c2_ratio * c1_05_diag, 1), "); E[PPV]/E[sens] scored against ",
     "the variant's own Q, conditional on declaration at (10, ",
-    fmt(params$c2_ratio * 10, 0), ") on the q = T̂~obs~ rung; the last two ",
-    "columns are the q where P(T ≥ T̂~obs~ | q, Q) crosses 0.05 / 0.5, ",
-    "interpolated linearly at ladder resolution with the shared zero-plus ",
-    "null point.")))
+    fmt(params$c2_ratio * 10, 0), ") on the q = T̂~obs~ rung; the last four ",
+    "columns are the q where P(T ≥ T̂~obs~ | q, Q), read at c1 = T̂~obs~ ",
+    "and the stated c2, crosses 0.05 / 0.5, interpolated linearly at ladder ",
+    "resolution with the shared sub-threshold null point.")))
 ```
 
 ```{r knob-figure}
 #| fig-width: 7
 #| fig-height: 4.5
-#| fig-cap: "Calibration curves P(T ≥ T̂_obs | q, Q) for the three Q-variants, sharing the zero-plus null point. Dotted guides at 0.05 and 0.5; the dashed line marks q = T̂_obs."
+#| fig-cap: "Calibration curves P(T ≥ T̂_obs | q, Q) for the three Q-variants at the analyst's operating c2 = 8 (filled, solid) and the archived comparator c2 = 5 (open, dashed), sharing the sub-threshold null point. Dotted guides at 0.05 and 0.5; the vertical dashed line marks q = T̂_obs."
 cols3 <- c(primary = "grey20", wider = "steelblue", broad = "firebrick")
 op <- par(mar = c(4.2, 4.2, 1, 1))
 plot(NA, xlim = c(0, max(q_rungs)), ylim = c(0, 1),
@@ -625,32 +709,53 @@ plot(NA, xlim = c(0, max(q_rungs)), ylim = c(0, 1),
      ylab = expression(P(T >= hat(T)[obs] ~ "|" ~ q, Q)))
 abline(h = c(0.05, 0.5), lty = 3, col = "grey40")
 abline(v = T_obs, lty = 2, col = "grey40")
-for (v in names(cal))
+for (v in names(cal)) {
   lines(cal[[v]]$qs, cal[[v]]$pT, type = "b", pch = 16, lwd = 1.6,
         col = cols3[v])
-legend("topleft", legend = sprintf("%s (P = %.3f)", names(cal), prev),
-       col = cols3, lwd = 1.6, pch = 16, cex = 0.8, bg = "white")
+  lines(cal[[v]]$qs, cal[[v]]$pT5, type = "b", pch = 1, lty = 2, lwd = 1.2,
+        col = cols3[v])
+}
+legend("bottomright",
+       legend = c(sprintf("%s (P = %.3f)", names(cal), prev),
+                  paste0("filled/solid: c2 = ", fmt(params$c2_ratio * 10, 0)),
+                  "open/dashed: c2 = 5"),
+       col = c(cols3, "grey40", "grey40"), lwd = c(rep(1.6, 3), NA, NA),
+       pch = c(rep(16, 3), NA, NA), cex = 0.8, bg = "white")
 par(op)
 ```
 
 The reading this section exists for: **the observed statistic constrains a
-trade between breadth and severity.**  Under the primary Q the calibration
-curve crosses 0.5 at q ≈ `r qfmt(knob$q50[1])` CD4 units of planted
-harm; under the `r fmt(knob$ratio[2], 1)`×-prevalence wider Q it crosses
-at q ≈ `r qfmt(knob$q50[2])`, and under the
+trade between breadth and severity.**  At the analyst's operating gate
+(c2 = `r fmt(params$c2_ratio * 10, 0)`), under the primary Q the
+calibration curve crosses 0.5 at q ≈ `r qfmt(knob$q50[1])` CD4 units of
+planted harm; under the `r fmt(knob$ratio[2], 1)`×-prevalence wider Q it
+crosses at q ≈ `r qfmt(knob$q50[2])`, and under the
 `r fmt(knob$ratio[3], 1)`×-prevalence broad Q at
-q ≈ `r qfmt(knob$q50[3])` — a narrow Q needs a large planted harm to
-make T̂~obs~ = `r fmt(T_obs, 1)` unsurprising, a broad Q a smaller one.
-"What harm is consistent with what we saw" has no single answer without
-fixing who is harmed; the table says what each choice implies.
+q ≈ `r qfmt(knob$q50[3])` — a narrow Q needs a large planted harm to make
+T̂~obs~ = `r fmt(T_obs, 1)` unsurprising, a broad Q a smaller one.  The
+c2 = 5 comparator columns should sit close to the c2 =
+`r fmt(params$c2_ratio * 10, 0)` columns, and the archived deep run
+(fixed c2 = 5, 2×10^5^ draws) put the primary 0.05 crossing at q ≈ 7.5.  "What harm is consistent with
+what we saw" has no single answer without fixing who is harmed; the table
+says what each choice implies.
 
 ## 11. Reading and limitations
 
 - **Three different questions.**  The declaration event (sections 7.1–7.2),
   the declared rule's quality and magnitude (7.3), and the calibration
-  column for the observed statistic (7.2, last column) answer different
-  questions; none is a posterior, and the calibration column is a
-  consonance statement inside the anchored model only.
+  columns for the observed statistic (7.2, last two columns) answer
+  different questions; none is a posterior, and the calibration columns
+  are consonance statements inside the anchored model only.  The c2
+  policy applies to the first two — type-I and power are threshold-policy
+  quantities read on the diagonal — and not to the calibration read-off,
+  which is taken at the analyst's operating consistency floor.
+- **Two nulls.**  The no-subgroup null (section 6, by substitution) and
+  the sub-threshold-subgroup null (the q = `r fmt(q_rungs[1], 2)` rung)
+  bracket the null question; the generator's `k_inter = 0` route to the
+  first is unusable under the 0.3.2 orientation (every oriented mean
+  flips to +`r fmt(-beta_treat, 2)`), a recorded limitation of the
+  orientation at a homogeneous truth, documented here in prose and not
+  patched.
 - **The mixture stylization.**  Truths are a two-point effect mixture on
   the data's own covariate rows with a GLM baseline surface; real
   heterogeneity is not two-valued.
@@ -711,17 +816,30 @@ payload <- list(
   extras = list(
     type1 = list(diagonal = tI, c1_05_diag = c1_05_diag,
                  c1_10_diag = c1_10_diag, at_analyst_diag = type1_at_10,
-                 surface = z, c1_05_fixed_c2_5 = c1_05_fix),
+                 surface = z, c1_05_fixed_c2_5 = c1_05_fix,
+                 homogeneous = list(diagonal = tIh, c1_05_hom = c1_05_hom,
+                                    c1_10_hom = c1_10_hom,
+                                    at_analyst_diag = hom_at_10,
+                                    at_comparator_c2_5 = hom_at_5,
+                                    surface = och)),
     declared    = dec,
     comparator_c2_5 = cmp,
-    calibration = lad[, c("q", "pT", "pTs")],
+    calibration = lad[, c("q", "pT", "pTs", "pT5", "pT5s")],
     anchor      = list(def = H_def, n_H = n_H, T_obs = T_obs,
                        p_cons = p_cons, beta_treat = beta_treat),
     purity      = list(nearest_lab = fam$lab[i_near],
                        nearest_purity = purity_near,
                        nearest_jaccard = jac[i_near]),
     c2_policy   = list(headline = "c2 = c2_ratio * c1",
-                       c2_ratio = params$c2_ratio, comparator_c2 = 5),
+                       c2_ratio = params$c2_ratio, comparator_c2 = 5,
+                       applies_to = "type-I and power (threshold policy)",
+                       calibration_read_at = c(analyst = params$c2_ratio * 10,
+                                               comparator = 5),
+                       reason = paste(
+                         "c2 sets candidate eligibility; the calibration",
+                         "interrogates the analysis as actually conducted,",
+                         "so it is read at the analyst's operating",
+                         "consistency floor, not on the policy diagonal")),
     q_variants  = list(defs = Q_variants, prevalence = prev,
                        table = knob, curves = cal, null_dev = null_dev)),
   est_scale = "md",
