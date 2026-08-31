@@ -1,0 +1,734 @@
+---
+title: "ACTG175 Continuous Analysis: Applied Operating Characteristics, Self-Contained"
+format: html
+params:
+  draws: 20000
+  n_workers: 12
+  c2_ratio: 0.8
+  seed: 8316951
+---
+
+```{r setup}
+#| message: false
+suppressPackageStartupMessages({
+  library(forestsearch)
+  library(speff2trial)
+  library(gt)
+})
+
+# ---------------------------------------------------------------------------
+# Output location for this document's results:  <base>/<dirout>/
+#   results_dir = NULL -> base is <qmd dir>/_payloads
+#   dirout      = NULL -> the .qmd stem
+# ---------------------------------------------------------------------------
+results_dir <- NULL
+dirout      <- NULL
+
+# Everything below is computed in this document: the analysis, the anchored
+# truths (the primary Q and its two supersets — the Q_variants knob, defined
+# visibly in section 3 once the population frame exists), the candidate
+# family, and the operating characteristics.  Nothing is read from disk.
+# Re-render at other precisions via the YAML params (draws, n_workers,
+# c2_ratio, seed); the archived companion
+# analysis_actg175_continuous_oc_evaluation.qmd holds the deep fixed-c2 run.
+q_rungs   <- c(0.01, 10, 20, 40, 60, 87 + 11 / 12)   # primary rungs; last = T_obs, gated below
+q_shared  <- c(20, 40, 87 + 11 / 12)                 # rungs run for each Q superset
+c1_ladder <- sort(c(5, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120, 87 + 11 / 12))
+c2_vec    <- sort(unique(c(5, params$c2_ratio * c1_ladder)))
+
+fmt  <- function(x, d = 3) formatC(x, format = "f", digits = d)
+fmt0 <- function(x) formatC(x, format = "d")
+pct  <- function(x, d = 1) paste0(fmt(100 * x, d), "%")
+pm   <- function(x, s, d = 4) paste0(fmt(x, d), " ± ", fmt(s, d))
+at   <- function(d, c1v, c2v) d[abs(d$c1 - c1v) < 1e-9 & abs(d$c2 - c2v) < 1e-9, ]
+qlab <- function(x) fmt(x, ifelse(x %% 1 == 0, 1, 2))
+t_doc <- proc.time()[["elapsed"]]
+```
+
+## 1. The data
+
+The analysis frame is the compare-all document's: ACTG175 arms 1 (ZDV+ddI)
+and 3 (ddI), outcome `y_decline` = CD4 decline from baseline to week 20
+(adverse scale), six continuous and six binary candidate confounders.
+
+```{r data-prep}
+cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
+confounders.name <- c(cont_vars, bin_vars)
+
+actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg_df$id <- seq_len(nrow(actg_df))
+actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+actg_df$y_decline <- actg_df$cd40 - actg_df$cd420
+for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
+
+N <- nrow(actg_df)
+stopifnot(N == 1083L)
+cat("Analysis N =", N, "\n")
+```
+
+## 2. The analysis
+
+The search whose operating characteristics this document evaluates is the
+fixed-family `maxeffCons` configuration — the compare-all document's
+MR-anchor arm.  Multiplier-resampling inference and the lasso/GRF front ends
+are mutually exclusive under `subgroup_method = "consistency"` (the family
+would be estimated from the same data the search runs on), so the
+inferential anchor runs with the front ends off, and the operating
+characteristics evaluated here are the operating characteristics of exactly
+that procedure.
+
+```{r anchor}
+fs_anchor <- forestsearch(
+  df.analysis      = actg_df,
+  confounders.name = confounders.name,
+  outcome.name     = "y_decline",
+  treat.name       = "treat",
+  id.name          = "id",
+  outcome_type     = "continuous",
+  effect_measure   = "MD",
+  adverse_outcome  = TRUE,
+  seedit           = params$seed,
+  sg_focus         = "maxeffCons",
+  selection_rule   = "neighborhood",
+  consistency_method = "resample",
+  effect.threshold       = 10,
+  consistency.threshold  = 5,
+  pconsistency.threshold = 0.90,
+  use_twostage     = TRUE,
+  conf.cont_jcuts  = list(age = 10, preanti = 10, wtkg = 10,
+                          karnof = 10, cd40 = 10, cd80 = 10),
+  cut_type         = "default",
+  maxk             = 2L,
+  n.min            = 60L,
+  d0.min           = 10L,
+  d1.min           = 10L,
+  fs.splits        = 500L,
+  use_lasso        = FALSE,
+  use_grf          = FALSE,
+  use_dina         = FALSE,
+  is.RCT           = TRUE,
+  parallel_args    = list(plan = "sequential"),
+  details          = FALSE,
+  quiet            = TRUE
+)
+
+H_def  <- paste(fs_anchor$sg.harm, collapse = " & ")
+n_H    <- sum(fs_anchor$df.est$treat.recommend == 0L)
+win    <- fs_anchor$grp.consistency$out_sg$result[1L, ]
+T_obs  <- as.numeric(win$hr)      # MD scale: the hr column holds the MD
+p_cons <- as.numeric(win$Pcons)
+cat(sprintf("H-hat = %s;  n(H-hat) = %d;  T_obs = %.6f;  p.consistency = %.2f\n",
+            H_def, n_H, T_obs, p_cons))
+
+# gates: the anchor must reproduce the compare-all / stage-0 result exactly
+stopifnot(setequal(fs_anchor$sg.harm, c("{age <= 37}", "!{cd40 <= 507}")),
+          n_H == 66L, abs(T_obs - (87 + 11 / 12)) < 5e-7)
+q_rungs[length(q_rungs)] <- T_obs
+q_shared[length(q_shared)] <- T_obs
+c1_ladder[abs(c1_ladder - (87 + 11 / 12)) < 1e-9] <- T_obs
+c2_vec <- sort(unique(c(5, params$c2_ratio * c1_ladder)))
+```
+
+The anchor: **Ĥ = `` `r H_def` ``**, n(Ĥ) = `r fmt0(n_H)` of `r fmt0(N)`,
+fitted mean difference **T̂~obs~ = `r fmt(T_obs, 6)`** CD4 units,
+consistency `r fmt(p_cons, 2)`.
+
+## 3. The anchored truth, and the Q knob
+
+Truths are anchored to the analysis data by a two-point mixture
+stylization: the super-population (draws of the covariate rows themselves)
+has exactly two treatment-effect values — the fitted background effect on
+Q^c^ and a planted effect q on Q — with the baseline outcome surface and
+residual scale taken from the baseline GLM fit to the analysis data.
+Nothing else about the joint covariate law is modeled.  The primary Q is Ĥ
+carried into the generator by its clause mapping (`age = 37`;
+`cd40 = list(type = "greater", value = 507)`), and on the identity link
+`k_inter(q) = q − beta_treat` — which is Q-independent, since the within-Q
+effect is `beta_treat + k_inter` for any Q.
+
+```{r anchored-truth}
+fml_base <- as.formula(paste("y_decline ~ treat +",
+                             paste(c(bin_vars, cont_vars), collapse = " + ")))
+beta_treat <- unname(coef(glm(fml_base, data = actg_df,
+                              family = gaussian()))["treat"])
+cat(sprintf("baseline GLM beta_treat = %.6f;  k_inter(q) = q + %.6f\n",
+            beta_treat, -beta_treat))
+
+Q_primary <- list(age = 37, cd40 = list(type = "greater", value = 507))
+
+dgm_at <- function(q, cuts) generate_glm_dgm(
+  data            = actg_df,
+  factor_vars     = bin_vars,
+  continuous_vars = cont_vars,
+  outcome_var     = "y_decline",
+  treatment_var   = "treat",
+  outcome_type    = "continuous",
+  effect_measure  = "MD",
+  subgroup_vars   = c("age", "cd40"),
+  subgroup_cuts   = cuts,
+  model           = "alt",
+  k_treat         = 1,
+  k_inter         = q - beta_treat,
+  adverse_outcome = TRUE,
+  n_super         = 5000L,
+  seed            = params$seed,
+  verbose         = FALSE
+)
+
+dgm_top <- dgm_at(T_obs, Q_primary)
+print(fs_dgm_scale(dgm_top))
+```
+
+**The knob.**  The true subgroup is a named list of cutpoint sets — this
+list is the document's knob.  The primary is Ĥ's exact clauses; the two
+supersets keep the same factors with more permissive thresholds, chosen
+from the family's own population cut grid (the J = 10 quantile cuts the
+enumeration uses) to land nearest 2× and 3× Ĥ's prevalence.  The truth is
+a modeling choice: the primary plants the found rule, the variants ask
+what the same analysis means if the truly harmed population is broader
+than the sharp rule the search returned.
+
+```{r q-knob}
+ds   <- dgm_top$df_super
+P_of <- function(cuts) mean(ds$age <= cuts$age & ds$cd40 > cuts$cd40$value)
+P0   <- P_of(Q_primary)
+
+# the family's population cut grid: quantile cuts at k/(J+1), k = 1..J = 10
+age_grid  <- unname(quantile(ds$age,  (1:10) / 11))
+cd40_grid <- unname(quantile(ds$cd40, (1:10) / 11))
+cand <- expand.grid(a = age_grid[age_grid > 37], c = cd40_grid[cd40_grid < 507])
+cand$P <- mapply(function(a, c) mean(ds$age <= a & ds$cd40 > c), cand$a, cand$c)
+pick <- function(target, ok) { d <- cand[ok, ]; d[which.min(abs(d$P - target)), ] }
+w <- pick(2 * P0, rep(TRUE, nrow(cand)))
+b <- pick(3 * P0, cand$a >= w$a & cand$c <= w$c & cand$P > w$P)
+
+Q_variants <- list(
+  primary = Q_primary,
+  wider   = list(age = w$a, cd40 = list(type = "greater", value = w$c)),
+  broad   = list(age = b$a, cd40 = list(type = "greater", value = b$c)))
+prev <- sapply(Q_variants, P_of)
+for (v in names(Q_variants)) cat(sprintf(
+  "%-8s age <= %-6s & cd40 > %-6s  P = %.4f  (%.2fx primary)\n", v,
+  format(Q_variants[[v]]$age), format(Q_variants[[v]]$cd40$value),
+  prev[v], prev[v] / P0))
+
+# gate: strict nesting Q_primary < Q_wider < Q_broad on df_super
+memb3 <- sapply(Q_variants, function(cu) ds$age <= cu$age & ds$cd40 > cu$cd40$value)
+stopifnot(all(memb3[, 1] <= memb3[, 2]), all(memb3[, 2] <= memb3[, 3]),
+          sum(memb3[, 1]) < sum(memb3[, 2]), sum(memb3[, 2]) < sum(memb3[, 3]))
+```
+
+## 4. The family
+
+The evaluation family is the analyst's own discovery grid at
+n = `r fmt0(N)`, enumerated on the super-population from the same
+covariates, quantile cuts, and floors the search uses.  It is kept pure —
+Q is not forced in.
+
+```{r family}
+fs_args <- list(
+  confounders.name = confounders.name,
+  conf.cont_jcuts  = list(age = 10, preanti = 10, wtkg = 10,
+                          karnof = 10, cd40 = 10, cd80 = 10),
+  cut_type         = "default",
+  cont.cutoff      = 4L,
+  maxk             = 2L,
+  n.min            = 60L
+)
+fam <- fs_oc_family_enumerate(dgm_top, fs_args, n = N, max_M = 10000L,
+                              verbose = FALSE)
+print(fam)
+stopifnot(fam$M == 4508L, fam$orientation$s == 1)
+
+# Q's representability: nearest member by Jaccard against H-hat on the
+# super-population rows
+H_super <- as.logical(dgm_top$df_super$flag_harm)
+inter   <- colMeans(fam$memb & H_super)
+jac     <- inter / (fam$Pg + mean(H_super) - inter)
+i_near  <- which.max(jac)
+purity_near <- inter[i_near] / fam$Pg[i_near]
+cat(sprintf("nearest member: %s  (purity %.4f, Jaccard %.4f)\n",
+            fam$lab[i_near], purity_near, jac[i_near]))
+```
+
+Ĥ's `cd40` threshold (507) lies just off the population quantile grid, so
+no family member is identical to Ĥ; the nearest member
+(`` `r fam$lab[i_near]` ``) matches it with purity
+`r fmt(purity_near, 4)`.  This is a feature of the evaluation, not a
+defect: the search is scored on the family it actually searches.
+
+## 5. The fundamental call
+
+This one call is the wrapper; everything below is this call swept over
+truths and thresholds.  It is evaluated at the analyst's screening floor
+c1 = 10 with the scaled consistency floor
+c2 = `r fmt(params$c2_ratio, 1)`·c1 = `r fmt(params$c2_ratio * 10, 0)`, on
+the top-rung family (planted q = T̂~obs~).
+
+```{r fundamental-call}
+pred <- fs_oc_predict(family = fam, n = N,
+                      c1 = 10, c2 = params$c2_ratio * 10,
+                      consistency_method = "resample", pconsistency = 0.90,
+                      draws = params$draws, seed = params$seed)
+print(pred)
+```
+
+## 6. The evaluation loop
+
+The primary rungs: q ∈ {`r paste(sapply(q_rungs, qlab), collapse = ", ")`}
+CD4 units — the zero-plus structural null, the analyst's c1 floor, two
+intermediates, and the observed statistic.  Each superset variant runs
+q ∈ {`r paste(sapply(q_shared, qlab), collapse = ", ")`} — twelve
+(variant, rung) jobs in all.  Each job rebuilds the anchored DGM for its
+variant, re-enumerates the family (gated identical in size and
+orientation; the Q-referencing fields are what change), and evaluates one
+`fs_oc_grid()` — the full
+`r fmt0(length(c1_ladder))` × `r fmt0(length(c2_vec))` =
+`r fmt0(length(c1_ladder) * length(c2_vec))`-point (c1, c2) crossing on one
+draw set of `r format(params$draws, big.mark = ",")`.
+
+```{r evaluation-loop}
+jobs <- rbind(data.frame(variant = "primary", q = q_rungs),
+              data.frame(variant = "wider",   q = q_shared),
+              data.frame(variant = "broad",   q = q_shared))
+eval_job <- function(i) {
+  v <- jobs$variant[i]
+  fam_q <- fs_oc_family_enumerate(dgm_at(jobs$q[i], Q_variants[[v]]), fs_args,
+                                  n = N, max_M = 10000L, verbose = FALSE)
+  stopifnot(fam_q$M == 4508L, fam_q$orientation$s == 1)
+  g <- fs_oc_grid(family = fam_q, n = N, c1 = c1_ladder, c2 = c2_vec,
+                  consistency_method = "resample", pconsistency = 0.90,
+                  draws = params$draws, block = 5e4, seed = params$seed)
+  cbind(variant = v, q = jobs$q[i], g$table)
+}
+t0 <- proc.time()[["elapsed"]]
+oc <- do.call(rbind, parallel::mclapply(seq_len(nrow(jobs)), eval_job,
+                                        mc.cores = params$n_workers))
+t_loop <- proc.time()[["elapsed"]] - t0
+stopifnot(nrow(oc) == nrow(jobs) * length(c1_ladder) * length(c2_vec))
+cat(sprintf("evaluation loop: %.1f s (%.1f min) over %d jobs, %d workers\n",
+            t_loop, t_loop / 60, nrow(jobs), params$n_workers))
+ocp <- oc[oc$variant == "primary", ]
+```
+
+**The structural null is shared across variants.**  At q =
+`r fmt(q_rungs[1], 2)` every candidate's oriented mean is within
+0.01·P(Q|g) ≤ 0.01 CD4 units of the exact-null background for *any* Q, so
+the primary's zero-plus grid stands as the null for all three variants
+rather than being re-run.  Verified numerically per variant:
+
+```{r null-shared}
+null_dev <- unlist(parallel::mclapply(Q_variants, function(cu) {
+  f0 <- fs_oc_family_enumerate(dgm_at(q_rungs[1], cu), fs_args, n = N,
+                               max_M = 10000L, verbose = FALSE)
+  max(abs(f0$beta_g - beta_treat * (1 - f0$PQg)))
+}, mc.cores = 3L))
+print(round(null_dev, 6))
+stopifnot(all(null_dev <= 0.01 + 1e-9))
+```
+
+**Why the zero-plus rung, not a null branch.**  Version 0.3.2 orients every
+candidate's mean by the harm direction, so benefit-direction rules carry
+oriented-negative means and a planted effect of exactly zero has no harm
+direction to orient by; on this population (fitted background
+`r fmt(beta_treat, 2)`, a benefit) the wrapper's null branch would read the
+common effect as a spurious harm.  The operational structural null is the
+alternative branch at q = `r fmt(q_rungs[1], 2)` — correctly signed, and
+the same truth as "no subgroup" to a hundredth of a CD4 unit.
+
+## 7. The diagonal: c2 = `r fmt(params$c2_ratio, 1)`·c1
+
+The headline policy scales the consistency floor with the screening floor.
+All views in this section sit on the diagonal
+c2 = `r fmt(params$c2_ratio, 1)`·c1.
+
+### 7.1 Type-I under the structural null
+
+```{r type1-diagonal}
+diag_of <- function(qv) do.call(rbind, lapply(c1_ladder, function(c1v)
+  at(ocp[ocp$q == qv, ], c1v, params$c2_ratio * c1v)))
+tI <- diag_of(q_rungs[1])
+
+type1_at_10 <- at(tI, 10, params$c2_ratio * 10)
+stopifnot(is.finite(type1_at_10$det_rate))
+
+c1_05_diag <- suppressWarnings(min(tI$c1[tI$det_rate <= 0.05]))
+c1_10_diag <- suppressWarnings(min(tI$c1[tI$det_rate <= 0.10]))
+stopifnot(is.finite(c1_05_diag), is.finite(c1_10_diag))
+```
+
+At the analyst's screening floor c1 = 10 (diagonal c2 =
+`r fmt(params$c2_ratio * 10, 0)`), the family-wise false-declaration rate
+under the structural null is
+**`r fmt(type1_at_10$det_rate, 5)`**
+(MC SE `r fmt(type1_at_10$det_rate_se, 5)`).  Read at the ladder's own
+resolution, the smallest ladder c1 holding type-I at or below 0.05 on the
+diagonal is **c1~05~^diag^ = `r fmt0(c1_05_diag)`**
+(rate `r pm(at(tI, c1_05_diag, params$c2_ratio * c1_05_diag)$det_rate,
+            at(tI, c1_05_diag, params$c2_ratio * c1_05_diag)$det_rate_se)`),
+and at or below 0.10 is **c1~10~^diag^ = `r fmt0(c1_10_diag)`**
+(rate `r pm(at(tI, c1_10_diag, params$c2_ratio * c1_10_diag)$det_rate,
+            at(tI, c1_10_diag, params$c2_ratio * c1_10_diag)$det_rate_se)`).
+
+```{r type1-diagonal-curve}
+#| fig-width: 7
+#| fig-height: 4.5
+#| fig-cap: "Type-I error of the search under the zero-plus structural null along the diagonal c2 = 0.8·c1, at ladder resolution. Guides: the analyst's c1 = 10, and c1_05/c1_10 at the 0.05/0.10 lines."
+op <- par(mar = c(4.2, 4.2, 1, 1))
+plot(tI$c1, tI$det_rate, type = "b", pch = 16, lwd = 2,
+     xlab = "c1 (CD4 units, mean difference); c2 = 0.8·c1",
+     ylab = "P(any declaration | structural null)")
+abline(h = c(0.05, 0.10), lty = 3, col = "grey40")
+abline(v = 10, lty = 2, col = "firebrick")
+abline(v = c(c1_05_diag, c1_10_diag), lty = 2, col = "steelblue")
+text(10, max(tI$det_rate), "analyst c1", pos = 4, cex = 0.8, col = "firebrick")
+text(c1_05_diag, 0.05, expression(c1[0.05]^diag), pos = 4, cex = 0.8,
+     col = "steelblue")
+par(op)
+```
+
+### 7.2 The effect ladder
+
+Per rung: the declaration rate at the analyst's diagonal gate
+(c1 = 10, c2 = `r fmt(params$c2_ratio * 10, 0)`), the power at the
+diagonal fixed-type-I thresholds, and the calibration column
+P(T ≥ T̂~obs~ | q) — read off the grid at the diagonal point
+(c1 = T̂~obs~, c2 = `r fmt(params$c2_ratio, 1)`·T̂~obs~).
+
+```{r ladder-table}
+lad <- do.call(rbind, lapply(q_rungs, function(qv) {
+  d <- diag_of(qv)
+  data.frame(
+    q      = qv,
+    det10  = at(d, 10, params$c2_ratio * 10)$det_rate,
+    det10s = at(d, 10, params$c2_ratio * 10)$det_rate_se,
+    p05    = at(d, c1_05_diag, params$c2_ratio * c1_05_diag)$det_rate,
+    p05s   = at(d, c1_05_diag, params$c2_ratio * c1_05_diag)$det_rate_se,
+    p10    = at(d, c1_10_diag, params$c2_ratio * c1_10_diag)$det_rate,
+    p10s   = at(d, c1_10_diag, params$c2_ratio * c1_10_diag)$det_rate_se,
+    pT     = at(d, T_obs, params$c2_ratio * T_obs)$det_rate,
+    pTs    = at(d, T_obs, params$c2_ratio * T_obs)$det_rate_se)
+}))
+
+# gate: power columns monotone in q within 2 MC SEs
+mono_ok <- function(p, s) all(diff(p) >= -2 * sqrt(s[-1]^2 + s[-length(s)]^2))
+stopifnot(mono_ok(lad$det10, lad$det10s), mono_ok(lad$p05, lad$p05s),
+          mono_ok(lad$p10, lad$p10s))
+
+gt(data.frame(
+  q     = sapply(lad$q, qlab),
+  det10 = pm(lad$det10, lad$det10s),
+  p05   = pm(lad$p05, lad$p05s),
+  p10   = pm(lad$p10, lad$p10s),
+  pT    = pm(lad$pT, lad$pTs))) |>
+  cols_label(q = "q (planted MD)",
+             det10 = paste0("rate at (10, ", fmt(params$c2_ratio * 10, 0), ")"),
+             p05 = html(paste0("power at c1<sub>05</sub><sup>diag</sup> = ",
+                               fmt0(c1_05_diag))),
+             p10 = html(paste0("power at c1<sub>10</sub><sup>diag</sup> = ",
+                               fmt0(c1_10_diag))),
+             pT = html("P(T ≥ T̂<sub>obs</sub> | q)")) |>
+  tab_source_note(md(paste0(
+    "All on the diagonal c2 = ", fmt(params$c2_ratio, 1), "·c1; one ",
+    format(params$draws, big.mark = ","), "-draw set per rung; ± is the ",
+    "Monte-Carlo SE.")))
+```
+
+### 7.3 What is declared at (c1 = 10, c2 = `r fmt(params$c2_ratio * 10, 0)`)
+
+Conditional on declaring at the analyst's diagonal gate: the expected size
+of the declared subgroup, its expected overlap quality against Q, the
+expected true oriented effect on the declared rule, the naive selection
+bias, and the selection mass on rules whose true mean is below c1.
+
+```{r declared-table}
+dec <- do.call(rbind, lapply(q_rungs, function(qv)
+  at(ocp[ocp$q == qv, ], 10, params$c2_ratio * 10)))
+
+# gate: the zero-plus row's declared rules carry an oriented-NEGATIVE
+# expected true effect (the honest false-positive reading)
+stopifnot(dec$EbetaH[1] < 0)
+
+gt(data.frame(
+  q     = sapply(dec$q, qlab),
+  EnH   = fmt(dec$EnH, 1),
+  Eppv  = fmt(dec$Eppv, 3),
+  Esens = fmt(dec$Esens, 3),
+  Espec = fmt(dec$Espec, 3),
+  Ebeta = fmt(dec$EbetaH, 2),
+  naive = fmt(dec$Enaive_bias, 2),
+  mb    = fmt(dec$mass_below, 3))) |>
+  cols_label(q = "q", EnH = md("E\\|Ĥ\\|"), Eppv = "E[PPV]",
+             Esens = "E[sens]", Espec = "E[spec]", Ebeta = md("E[β(Ĥ)]"),
+             naive = "naive bias", mb = "mass below c1") |>
+  tab_source_note(md(paste0(
+    "All conditional on declaration at (c1 = 10, c2 = ",
+    fmt(params$c2_ratio * 10, 0), "). The archived companion carries ",
+    "delta-method MC SEs for these functionals at 2e5 draws.")))
+```
+
+The zero-plus row is the honest false-positive reading: when the
+structural null declares (rate `r fmt(dec$det_rate[1], 4)`), the declared
+rule's expected true oriented effect is `r fmt(dec$EbetaH[1], 2)` — a
+*benefit*, not a harm, pulled up from the pure background
+`r fmt(beta_treat, 2)` only by the selection mass on
+partially-Q-overlapping rules (E[PPV] = `r fmt(dec$Eppv[1], 3)`).
+
+## 8. The c2 = 5 comparator
+
+The analyst's original gate held c2 fixed at 5 against c1 = 10 — and
+against every other c1, which is the configuration the archived deep run
+evaluates.  A fixed c2 = 5 against c1 = 50 makes no sense as practice — the
+consistency floor should grow with the claim being screened — so the fixed
+row is kept here only as the liberal comparator reconciling with the
+archived run.
+
+```{r comparator-table}
+cmp <- do.call(rbind, lapply(q_rungs, function(qv)
+  at(ocp[ocp$q == qv, ], 10, 5)))
+gt(data.frame(
+  q     = sapply(cmp$q, qlab),
+  det   = pm(cmp$det_rate, cmp$det_rate_se),
+  EnH   = fmt(cmp$EnH, 1),
+  Eppv  = fmt(cmp$Eppv, 3),
+  Ebeta = fmt(cmp$EbetaH, 2))) |>
+  cols_label(q = "q", det = "rate at (10, 5)", EnH = md("E\\|Ĥ\\|"),
+             Eppv = "E[PPV]", Ebeta = md("E[β(Ĥ)]")) |>
+  tab_source_note("The analyst's original fixed-c2 gate, at this document's draw count.")
+```
+
+The zero-plus rate at (10, 5) here is
+`r pm(cmp$det_rate[1], cmp$det_rate_se[1])`, against the archived deep
+run's 0.5850 ± 0.0011 at 2e5 draws — the two agree to Monte-Carlo
+precision, and remaining differences across the tables are MC precision
+and ladder-resolution effects, not configuration.
+
+## 9. The type-I surface
+
+The false-declaration rate under the structural null over the full
+(c1, c2) crossing, with the fixed c2 = 5 row and the
+c2 = `r fmt(params$c2_ratio, 1)`·c1 diagonal marked.
+
+```{r type1-surface}
+#| fig-width: 7
+#| fig-height: 5.5
+#| fig-cap: "Type-I error of the search under the zero-plus structural null over the (c1, c2) crossing. White contour lines at 0.05 and 0.10; dashed lines mark the fixed c2 = 5 comparator row and the c2 = 0.8·c1 diagonal."
+z <- ocp[ocp$q == q_rungs[1], ]
+zm <- matrix(NA_real_, length(c1_ladder), length(c2_vec))
+for (i in seq_along(c1_ladder)) for (j in seq_along(c2_vec))
+  zm[i, j] <- at(z, c1_ladder[i], c2_vec[j])$det_rate
+op <- par(mar = c(4.2, 4.2, 1.5, 1))
+image(c1_ladder, c2_vec, zm, col = hcl.colors(24, "YlOrRd", rev = TRUE),
+      xlab = "c1 (CD4 units, mean difference)", ylab = "c2",
+      main = "P(any declaration | structural null)")
+contour(c1_ladder, c2_vec, zm, levels = c(0.05, 0.10), add = TRUE,
+        col = "white", lwd = 2, labcex = 0.8)
+abline(h = 5, lty = 2, col = "grey25")
+abline(a = 0, b = params$c2_ratio, lty = 2, col = "grey25")
+text(max(c1_ladder) * 0.75, 5, "c2 = 5", pos = 3, cex = 0.8, col = "grey25")
+text(max(c1_ladder) * 0.8, params$c2_ratio * max(c1_ladder) * 0.8,
+     "c2 = 0.8·c1", pos = 3, srt = 33, cex = 0.8, col = "grey25")
+par(op)
+```
+
+```{r surface-reading}
+tI5 <- do.call(rbind, lapply(c1_ladder, function(c1v) at(z, c1v, 5)))
+c1_05_fix <- suppressWarnings(min(tI5$c1[tI5$det_rate <= 0.05]))
+```
+
+The picture is the point of the scaled policy: along the diagonal the
+consistency screen binds (for noisy candidates
+`r fmt(params$c2_ratio, 1)`·c1 + z~p~·se~g~ overtakes c1), so 5% type-I
+control arrives at c1~05~^diag^ = `r fmt0(c1_05_diag)` on the diagonal
+versus `r if (is.finite(c1_05_fix)) fmt0(c1_05_fix) else "beyond the ladder"`
+on the fixed c2 = 5 row at the same ladder resolution.
+
+## 10. Turning the true-subgroup knob
+
+The primary evaluation plants Ĥ itself.  This section turns the knob of
+section 3: the same analysis, the same family, the same thresholds, scored
+against each variant's own Q — power at the diagonal fixed-type-I
+threshold for the shared rungs, the declared rule's overlap quality at the
+analyst's (10, `r fmt(params$c2_ratio * 10, 0)`) on the observed-statistic
+rung, and the calibration crossings.  The shared zero-plus point anchors
+every variant's calibration curve (section 6).
+
+```{r knob-table}
+cal <- lapply(names(Q_variants), function(v) {
+  qs <- if (v == "primary") q_rungs else c(q_rungs[1], q_shared)
+  pT <- sapply(qs, function(qv) {
+    d <- if (qv == q_rungs[1]) ocp else oc[oc$variant == v, ]  # shared null
+    at(d[d$q == qv, ], T_obs, params$c2_ratio * T_obs)$det_rate
+  })
+  list(qs = qs, pT = pT)
+})
+names(cal) <- names(Q_variants)
+
+cross <- function(qs, pT, lev) {
+  i <- which(pT >= lev)[1]
+  if (is.na(i)) NA_real_
+  else if (i == 1) qs[1]
+  else qs[i - 1] + (lev - pT[i - 1]) * (qs[i] - qs[i - 1]) / (pT[i] - pT[i - 1])
+}
+knob <- do.call(rbind, lapply(names(Q_variants), function(v) {
+  d   <- oc[oc$variant == v, ]
+  pow <- sapply(q_shared, function(qv)
+    at(d[d$q == qv, ], c1_05_diag, params$c2_ratio * c1_05_diag)$det_rate)
+  top <- at(d[abs(d$q - T_obs) < 1e-9, ], 10, params$c2_ratio * 10)
+  data.frame(variant = v,
+             def   = sprintf("age ≤ %s & cd40 > %s",
+                             format(Q_variants[[v]]$age),
+                             format(Q_variants[[v]]$cd40$value)),
+             P     = prev[v], ratio = prev[v] / prev["primary"],
+             p20   = pow[1], p40 = pow[2], ptop = pow[3],
+             ppv   = top$Eppv, sens = top$Esens,
+             q05   = cross(cal[[v]]$qs, cal[[v]]$pT, 0.05),
+             q50   = cross(cal[[v]]$qs, cal[[v]]$pT, 0.50))
+}))
+
+qfmt <- function(x) ifelse(is.na(x), "beyond the ladder",
+                    ifelse(x <= q_rungs[1], paste0("≤ ", qlab(q_rungs[1])),
+                           fmt(x, 1)))
+gt(data.frame(
+  v    = knob$variant,
+  def  = knob$def,
+  P    = paste0(fmt(knob$P, 4), " (", fmt(knob$ratio, 2), "×)"),
+  p20  = fmt(knob$p20, 4), p40 = fmt(knob$p40, 4), ptop = fmt(knob$ptop, 4),
+  ppv  = fmt(knob$ppv, 3), sens = fmt(knob$sens, 3),
+  q05  = qfmt(knob$q05),
+  q50  = qfmt(knob$q50))) |>
+  cols_label(v = "Q variant", def = "definition", P = "P(Q)",
+             p20 = "power, q = 20", p40 = "power, q = 40",
+             ptop = html("power, q = T̂<sub>obs</sub>"),
+             ppv = "E[PPV]", sens = "E[sens]",
+             q05 = "q at 0.05", q50 = "q at 0.5") |>
+  tab_source_note(md(paste0(
+    "Power columns at the diagonal (c1 = ", fmt0(c1_05_diag), ", c2 = ",
+    fmt(params$c2_ratio * c1_05_diag, 1), "); E[PPV]/E[sens] scored against ",
+    "the variant's own Q, conditional on declaration at (10, ",
+    fmt(params$c2_ratio * 10, 0), ") on the q = T̂~obs~ rung; the last two ",
+    "columns are the q where P(T ≥ T̂~obs~ | q, Q) crosses 0.05 / 0.5, ",
+    "interpolated linearly at ladder resolution with the shared zero-plus ",
+    "null point.")))
+```
+
+```{r knob-figure}
+#| fig-width: 7
+#| fig-height: 4.5
+#| fig-cap: "Calibration curves P(T ≥ T̂_obs | q, Q) for the three Q-variants, sharing the zero-plus null point. Dotted guides at 0.05 and 0.5; the dashed line marks q = T̂_obs."
+cols3 <- c(primary = "grey20", wider = "steelblue", broad = "firebrick")
+op <- par(mar = c(4.2, 4.2, 1, 1))
+plot(NA, xlim = c(0, max(q_rungs)), ylim = c(0, 1),
+     xlab = "q: planted effect on Q (CD4 units, mean difference)",
+     ylab = expression(P(T >= hat(T)[obs] ~ "|" ~ q, Q)))
+abline(h = c(0.05, 0.5), lty = 3, col = "grey40")
+abline(v = T_obs, lty = 2, col = "grey40")
+for (v in names(cal))
+  lines(cal[[v]]$qs, cal[[v]]$pT, type = "b", pch = 16, lwd = 1.6,
+        col = cols3[v])
+legend("topleft", legend = sprintf("%s (P = %.3f)", names(cal), prev),
+       col = cols3, lwd = 1.6, pch = 16, cex = 0.8, bg = "white")
+par(op)
+```
+
+The reading this section exists for: **the observed statistic constrains a
+trade between breadth and severity.**  Under the primary Q the calibration
+curve crosses 0.5 at q ≈ `r qfmt(knob$q50[1])` CD4 units of planted
+harm; under the `r fmt(knob$ratio[2], 1)`×-prevalence wider Q it crosses
+at q ≈ `r qfmt(knob$q50[2])`, and under the
+`r fmt(knob$ratio[3], 1)`×-prevalence broad Q at
+q ≈ `r qfmt(knob$q50[3])` — a narrow Q needs a large planted harm to
+make T̂~obs~ = `r fmt(T_obs, 1)` unsurprising, a broad Q a smaller one.
+"What harm is consistent with what we saw" has no single answer without
+fixing who is harmed; the table says what each choice implies.
+
+## 11. Reading and limitations
+
+- **Three different questions.**  The declaration event (sections 7.1–7.2),
+  the declared rule's quality and magnitude (7.3), and the calibration
+  column for the observed statistic (7.2, last column) answer different
+  questions; none is a posterior, and the calibration column is a
+  consonance statement inside the anchored model only.
+- **The mixture stylization.**  Truths are a two-point effect mixture on
+  the data's own covariate rows with a GLM baseline surface; real
+  heterogeneity is not two-valued.
+- **Q is off the grid.**  No family member is identical to Ĥ (nearest
+  purity `r fmt(purity_near, 4)`); every "power" number is the power to
+  declare *some* rule.
+- **Fixed-family conditioning.**  The evaluation conditions on the
+  no-front-end family; the front-ends-on arms of the compare-all document
+  search a data-dependent family, a different estimand.  The cut locations
+  are quantile-derived and held at their population values.
+- **The E|Ĥ| machinery offset.**  In the verification fixtures the
+  wrapper's expected declared-subgroup size ran about two subjects from
+  the measured search's; assume that order of offset here.
+- **Precision.**  All rates carry MC SE ≈ √(p(1−p)/draws) ≈ 0.004 at the
+  default `r format(params$draws, big.mark = ",")` draws; the archived
+  companion holds the fixed-c2 analysis at 2e5 draws.
+
+```{r doc-clock}
+cat(sprintf("document compute wall-clock so far: %.1f min\n",
+            (proc.time()[["elapsed"]] - t_doc) / 60))
+```
+
+# Reproducibility payload {#sec-export-payload}
+
+```{r export-payload}
+#| echo: false
+#| message: false
+.qmd_dir  <- tryCatch(dirname(knitr::current_input(dir = TRUE)),
+                      error = function(e) getwd())
+.qmd_stem <- tryCatch(tools::file_path_sans_ext(basename(knitr::current_input())),
+                      error = function(e) "analysis")
+.dirout   <- if (is.null(dirout)) .qmd_stem else dirout
+.base     <- if (is.null(results_dir)) file.path(.qmd_dir, "_payloads") else results_dir
+.out_dir  <- file.path(.base, .dirout)
+dir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)
+.payload_file <- file.path(.out_dir, paste0(.dirout, "_payload.rds"))
+
+payload <- list(
+  table  = lad,
+  labels = list(
+    sg_harm  = H_def,
+    sg_focus = "maxeffCons",
+    focus    = NULL),
+  meta = list(
+    n_total    = N,
+    n_events   = NULL,
+    outcome    = "y_decline",
+    event      = NULL,
+    treat      = "treat",
+    covariates = confounders.name,
+    c1         = 10,
+    c2         = params$c2_ratio * 10,
+    args_call  = list(consistency_method = "resample", pconsistency = 0.90,
+                      draws = params$draws, block = 5e4, seed = params$seed,
+                      M = fam$M, q_rungs = q_rungs, q_shared = q_shared,
+                      T_obs = T_obs, c1_ladder = c1_ladder, c2_vec = c2_vec,
+                      n_workers = params$n_workers, t_loop_secs = t_loop)),
+  extras = list(
+    type1 = list(diagonal = tI, c1_05_diag = c1_05_diag,
+                 c1_10_diag = c1_10_diag, at_analyst_diag = type1_at_10,
+                 surface = z, c1_05_fixed_c2_5 = c1_05_fix),
+    declared    = dec,
+    comparator_c2_5 = cmp,
+    calibration = lad[, c("q", "pT", "pTs")],
+    anchor      = list(def = H_def, n_H = n_H, T_obs = T_obs,
+                       p_cons = p_cons, beta_treat = beta_treat),
+    purity      = list(nearest_lab = fam$lab[i_near],
+                       nearest_purity = purity_near,
+                       nearest_jaccard = jac[i_near]),
+    c2_policy   = list(headline = "c2 = c2_ratio * c1",
+                       c2_ratio = params$c2_ratio, comparator_c2 = 5),
+    q_variants  = list(defs = Q_variants, prevalence = prev,
+                       table = knob, curves = cal, null_dev = null_dev)),
+  est_scale = "md",
+  built_at  = Sys.time(),
+  forestsearch_version = tryCatch(as.character(utils::packageVersion("forestsearch")),
+                                  error = function(e) NA_character_))
+
+saveRDS(payload, .payload_file)
+cat("Wrote payload to:", .payload_file, "\n")
+```
