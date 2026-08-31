@@ -80,11 +80,21 @@
 #' records the branch taken.
 #'
 #' \strong{Scale.} Every mean and standard error is derived from
-#' \code{\link{fs_dgm_scale}(dgm)}: with \code{Q} the true harm region,
-#' \code{tauQc = |m_tau[Qc]|}, \code{bint = |m_tau[Q]| - |m_tau[Qc]|},
+#' \code{\link{fs_dgm_scale}(dgm)}.  The orientation is the harm direction
+#' \code{s = sign(m_tau[Q])}, so the planted effect is oriented positive:
+#' with \code{Q} the true harm region, \code{tauQc = s * m_tau[Qc]},
+#' \code{bint = s * (m_tau[Q] - m_tau[Qc])},
 #' \code{seQ1000 = sqrt(V_eff[Q] / (1000 * P(Q)))}, and for each candidate
-#' \code{beta_g = tauQc + bint * PQg} and
-#' \code{se_g = seQ1000 * sqrt(1000 / n) * sqrt(P(Q) / Pg)}.
+#' \code{beta_g = tauQc + bint * PQg} -- the signed mixture
+#' \code{s * (m_tau[Qc] + (m_tau[Q] - m_tau[Qc]) * PQg)} -- and
+#' \code{se_g = seQ1000 * sqrt(1000 / n) * sqrt(P(Q) / Pg)} (sign-free, from
+#' \code{V_eff[Q]}).  Opposite-sign families (\code{sign(m_tau[Qc]) != s})
+#' are supported: benefit-direction candidates carry oriented-negative
+#' \code{beta_g}, and \code{tauQc} may be negative for such families.  When
+#' both region effects share a sign the values coincide exactly with the
+#' former oriented-absolute reading.  A DGM with \code{m_tau[Q]} exactly zero
+#' is rejected (no harm direction to orient by): plant a nonzero Q effect or
+#' use the null path.
 #'
 #' @param dgm An object of class \code{"glm_dgm"} from
 #'   \code{\link{generate_glm_dgm}}, with the true-region indicator in
@@ -106,7 +116,9 @@
 #'     \item{\code{lab}}{Character, length M: the rule of each candidate.}
 #'     \item{\code{Pg}}{Population prevalence \code{P(g)}.}
 #'     \item{\code{PQg}}{Purity \code{P(g & Q) / P(g)}.}
-#'     \item{\code{beta_g}}{Mixture mean \code{tauQc + bint * PQg}.}
+#'     \item{\code{beta_g}}{Oriented mixture mean
+#'       \code{s * (m_tau[Qc] + (m_tau[Q] - m_tau[Qc]) * PQg)}, with
+#'       \code{s = sign(m_tau[Q])} the harm direction.}
 #'     \item{\code{se_g}}{Anchored standard error at \code{n}.}
 #'     \item{\code{sens_g}}{\code{P(g & Q) / P(Q)}.}
 #'     \item{\code{spec_g}}{\code{1 - P(g & Qc) / P(Qc)}.}
@@ -117,6 +129,12 @@
 #'       population membership of each candidate.}
 #'     \item{\code{null}}{Logical: \code{TRUE} when the null branch was
 #'       taken (Q empty).}
+#'     \item{\code{orientation}}{Alternative branch only: list with the
+#'       harm-direction sign \code{s}, the signed region effects
+#'       \code{m_tau_Q} and \code{m_tau_Qc}, and the oriented mixture
+#'       coefficients \code{tauQc = s * m_tau_Qc} (may be negative for
+#'       opposite-sign families) and \code{bint = s * (m_tau_Q - m_tau_Qc)}.
+#'       Absent on the null branch.}
 #'     \item{\code{scale}}{The \code{fs_dgm_scale} object used.}
 #'     \item{\code{n}}{The trial size.}
 #'     \item{\code{args_used}}{The \code{forestsearch_args} entries consumed,
@@ -245,14 +263,26 @@ fs_oc_family_enumerate <- function(dgm, forestsearch_args, n,
       stop("fs_dgm_scale(dgm) did not return both 'Q' and 'Qc' regions.",
            call. = FALSE)
     }
-    if (length(unique(sign(reg$m_tau))) != 1L) {
-      stop("the region effects m_tau do not share a sign; the oriented ",
-           "(abs) reading of the scale table is not defined.", call. = FALSE)
+    # Signed orientation: s is the harm direction sign(m_tau[Q]), so the
+    # planted effect is oriented positive and the general signed mixture
+    #   beta_g = s * (m_tau[Qc] + (m_tau[Q] - m_tau[Qc]) * PQg)
+    # applies.  When both region effects share the sign this is algebraically
+    # (and in IEEE arithmetic bit-) identical to the previous |.| reading
+    # (s*m_Qc = |m_Qc|, s*(m_Q - m_Qc) = |m_Q| - |m_Qc|); when they differ,
+    # benefit-direction candidates carry oriented-negative means, so tauQc
+    # may be negative.
+    m_Q_signed  <- reg$m_tau[iQ]
+    m_Qc_signed <- reg$m_tau[iQc]
+    s <- sign(m_Q_signed)
+    if (s == 0) {
+      stop("m_tau[Q] is exactly zero: there is no harm direction to orient ",
+           "by.  Plant a nonzero Q effect, or use the null path ",
+           "(generate_glm_dgm(model = \"null\")) for a homogeneous-effect ",
+           "family.", call. = FALSE)
     }
     piQ     <- reg$P_g[iQ]
-    m_Q     <- abs(reg$m_tau[iQ])
-    tauQc   <- abs(reg$m_tau[iQc])
-    bint    <- m_Q - tauQc
+    tauQc   <- s * m_Qc_signed
+    bint    <- s * (m_Q_signed - m_Qc_signed)
     seQ1000 <- sqrt(reg$V_eff[iQ] / (1000 * piQ))
     PQ      <- mean(inQ)
   } else {
@@ -429,6 +459,14 @@ fs_oc_family_enumerate <- function(dgm, forestsearch_args, n,
     cuts = cuts,
     counts = counts
   )
+  if (!is_null) {
+    # Orientation provenance (alternative branch only; the null branch is
+    # unchanged in structure): the harm-direction sign, the signed region
+    # effects, and the oriented mixture coefficients actually used.
+    out$orientation <- list(s = s, m_tau_Q = m_Q_signed,
+                            m_tau_Qc = m_Qc_signed,
+                            tauQc = tauQc, bint = bint)
+  }
   class(out) <- c("fs_oc_family", "list")
   out
 }

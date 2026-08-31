@@ -1,4 +1,23 @@
-# forestsearch (development version)
+# forestsearch 0.3.2
+
+## Signed orientation in `fs_oc_family_enumerate()`
+
+* Opposite-sign region effects are now supported in
+  `fs_oc_family_enumerate()` via the signed orientation
+  `s = sign(m_tau[Q])` (the harm direction): the candidate means are the
+  signed mixture `beta_g = s * (m_tau[Qc] + (m_tau[Q] - m_tau[Qc]) * PQg)`,
+  replacing the oriented-absolute reading, which was undefined when the two
+  regions' effects differed in sign and `stop()`ped. Benefit-direction
+  candidates carry oriented-negative `beta_g`.
+* Same-sign families are bit-identical to the previous reading (gated
+  `identical()` on every stored field against the MD40 corrected family).
+* The family object gains an `orientation` element (alternative branch
+  only): `s`, the signed `m_tau` pair, and the oriented `tauQc`, `bint`.
+  **`tauQc` may be negative** for opposite-sign families.
+* A planted effect with `m_tau[Q]` exactly zero is rejected with guidance
+  (no harm direction to orient by; plant a nonzero Q effect or use the
+  null path). The null branch, `se_g`, and all downstream consumers are
+  unchanged.
 
 * Documentation: corrected the `use_grf` `@param`, which described the
   variable-importance role belonging to `vi.grf.min`. `use_grf` governs GRF
