@@ -1,0 +1,100 @@
+forestsearch version: 0.3.1 
+R version: R version 4.6.1 (2026-06-24) 
+
+[§2.2] Analysis N = 1083 
+
+[§3.1] ITT MD on y_decline (adverse scale):
+        Estimate Std. Error    t value      Pr(>|t|)
+treat -27.590878  7.8888595 -3.4974483 0.00048882062
+
+[§2.3] Running the fixed-family maxeffCons anchor (sequential)...
+
+[forestsearch] Subgroup Identification Configuration
+  Outcome type:   continuous
+  Effect measure: MD (Mean Difference)
+  Scale:          identity
+
+  Screening:      MD >= 10.0000
+  Consistency:    MD >= 5.0000
+  Consistency rate threshold: 90%
+
+  Interpretation:
+    Candidates: MD >= 10.0000
+    Splits:     MD >= 5.0000 per split
+
+
+[§2.3] anchor wall-clock (sequential): 8.1 s
+[§2.3] anchor Ĥ definition: {age <= 37} & !{cd40 <= 507} 
+[§2.3] n(Ĥ) = 66;  T̂_obs (fitted MD) = 87.916667;  p.consistency = 0.9500
+
+[§3.2] clause -> subgroup_cuts mapping:
+  age <= 37  ->  age = 37
+  NOT cd40 <= 507  ->  cd40 = list(type='greater', value=507)
+[§3.2] reconstructed flag: n = 66;  matches anchor membership subject-for-subject: TRUE
+
+[§3.2] baseline GLM beta_treat = -26.978725;  k_inter(q) = q - beta_treat
+[§3.2] DGM at q = 20: fs_dgm_scale readback m_tau[Q] = 20.0000000000 (target 20)
+
+[§3.3] signed orientation table (last rung: q = T̂_obs):
+          q   m_tau_Q   m_tau_Qc same_sign
+1  2.500000  2.500000 -26.978725     FALSE
+2  5.000000  5.000000 -26.978725     FALSE
+3  7.500000  7.500000 -26.978725     FALSE
+4 10.000000 10.000000 -26.978725     FALSE
+5 15.000000 15.000000 -26.978725     FALSE
+6 20.000000 20.000000 -26.978725     FALSE
+7 30.000000 30.000000 -26.978725     FALSE
+8 40.000000 40.000000 -26.978725     FALSE
+9 87.916667 87.916667 -26.978725     FALSE
+
+[§3.4] enumeration attempt at differing-sign rung q = 20:
+[§3.4] captured message: the region effects m_tau do not share a sign; the oriented (abs) reading of the scale table is not defined.
+
+[§3.5] VERDICT: the sign gate BINDS (rungs:  2.50000,  5.00000,  7.50000, 10.00000, 15.00000, 20.00000, 30.00000, 40.00000, 87.91667)
+
+[§4] building the null DGM and enumerating the family...
+fs_oc_family_enumerate: cut columns 108 | enumerated 5886 | dropped: empty 255 minp 0 rmin 215 size 707 | kept 4709 | duplicates 201 | M = 4508 
+[§4] enumeration wall-clock: 43.42 s
+Population-enumerated candidate family (fs_oc_family)
+  M            : 4508 candidates (from 108 cut columns, maxk = 2)
+  n            : 1083
+  floors       : n.min = 60 (Pg >= 0.0554), minp = 0.025, rmin = 5
+  prevalence   : 0.0556 to 0.9196
+  NULL DGM     : Q empty; common effect 26.9787; se from the S-row V_eff
+  dropped      : empty 255, minp 0, rmin 215, size 707, duplicate 201
+
+[§4] Ĥ on df_super: 317 of 5000 (P = 0.0634)
+[§4] max purity  P(g∩Ĥ)/P(g) = 0.9969  at member 1210: age <= 37 & cd40 > 506 (Pg = 0.0636)
+[§4] max Jaccard              = 0.9969  at member 1210: age <= 37 & cd40 > 506 (Pg = 0.0636)
+[§4] member identical to Ĥ: none
+
+[§5] timing fs_oc_predict on the null family, draws = 2e4 ...
+[§5] fs_oc_predict wall-clock: 400.12 s;  peak memory (R gc): 3813 MB
+Predicted operating characteristics (fs_oc_predict)
+  family      : M = 4508;  n = 1083;  gate = resample (c1 = 10, c2 = 5, pcons = 0.9);  draws = 20,000;  seed = 8316951
+  detection rate (DETECTED share)            : 1.000  (MC SE 0.0000)
+  E[|Hhat|] given detection                  : 73.3
+  E[sens] / E[spec] / E[PPV] / E[NPV]        : NA / 0.932 / 0.000 / 1.000
+  E[beta(Hhat)] oriented                     : 26.98
+  E[naive - beta(Hhat)]                      : 82.56
+  selection mass on rules with mean < c1     : 0.000
+  top selections (P_selected, sel | det):
+    age > 30 & age <= 31                     0.009  0.009
+    wtkg > 70 & gender != 1                  0.006  0.006
+    age <= 30 & wtkg > 82                    0.006  0.006
+    wtkg > 78 & cd80 <= 574                  0.006  0.006
+    cd40 <= 269 & cd80 > 1169                0.006  0.006
+
+[§5] extrapolation: 2e5 draws ≈ 4001.2 s per set (linear).
+[§5] stage-2 projection: (11 ladder + 20 sweep + 20 inversion) sets ≈ 56.68 h
+[§5] M×M memory: M = 4508 -> 155.0 MB per M×M matrix (8B doubles)
+
+[§6] scale table at q = 20:
+  sigma = 122.810629 (sigma^2 = 15082.4505)
+  region  n_g    P_g      m_tau     V_eff
+1      Q  317 0.0634  20.000000 66739.290
+2     Qc 4683 0.9366 -26.978725 66423.382
+3      S 5000 1.0000 -24.000273 69277.855
+  V_eff[Q] / V_eff[S] = 0.963357
+
+[done] results saved to dev/glm-continuous-sims/stage0_oc_applied_2026-08-31.rds 
