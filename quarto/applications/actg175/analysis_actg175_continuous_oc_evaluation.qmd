@@ -1,0 +1,454 @@
+---
+title: "ACTG175 Continuous Analysis: Applied Operating-Characteristic Evaluation"
+format: html
+---
+
+```{r setup}
+#| message: false
+library(gt)
+
+# ---------------------------------------------------------------------------
+# Output location for this document's results:  <base>/<dirout>/
+#   results_dir = NULL -> base is <qmd dir>/_payloads
+#   dirout      = NULL -> the .qmd stem
+# ---------------------------------------------------------------------------
+results_dir <- NULL
+dirout      <- NULL
+
+# This document reads the stored evaluation objects only; it computes nothing
+# heavy and types no number.  The draw sets behind it were produced by
+# dev/glm-continuous-sims/oc_applied_eval_rung_2026-08-31.R (eleven rungs,
+# 2e5 draws each) and assembled by oc_applied_eval_summary_2026-08-31.R.
+.qmd_dir <- tryCatch(dirname(knitr::current_input(dir = TRUE)),
+                     error = function(e) getwd())
+repo_root <- normalizePath(file.path(.qmd_dir, "..", "..", ".."))
+S <- readRDS(file.path(repo_root, "dev", "glm-continuous-sims",
+                       "oc_applied_eval_summary_2026-08-31.rds"))
+
+fmt  <- function(x, d = 3) formatC(x, format = "f", digits = d)
+fmt0 <- function(x) formatC(x, format = "d")
+pct  <- function(x, d = 1) paste0(fmt(100 * x, d), "%")
+```
+
+## 1. The analysis and its anchor
+
+The applied analysis this evaluation attaches to is the ACTG175 continuous
+harm search of `analysis_actg175_continuous_compare_all.qmd`: outcome
+`y_decline` (CD4 decline, adverse scale) on the ZDV+ddI vs ddI arms
+(N = `r fmt0(S$meta$n)`), twelve confounders (six continuous with
+`jcuts = 10`, six binary), thresholds c1 = `r fmt0(S$meta$analyst_c1)` and
+c2 = `r fmt0(S$meta$analyst_c2)` on the mean-difference scale,
+`consistency_method = "`r S$meta$consistency_method`"` with
+`pconsistency = `r fmt(S$meta$pconsistency, 2)``, `n.min = 60`, `maxk = 2`.
+
+The evaluation attaches to the **fixed-family `maxeffCons` configuration** —
+the MR-anchor configuration of that document, with
+`use_lasso = use_grf = use_dina = FALSE`.  That is the document's own
+rationale for its anchor: multiplier-resampling inference and the lasso/GRF
+front ends are mutually exclusive under `subgroup_method = "consistency"`
+(the family would be estimated from the same data the search runs on), so
+the inferential anchor runs with the front ends off, and the operating
+characteristics evaluated here are the operating characteristics of exactly
+that procedure.  With the front ends off the candidate family is enumerated
+from the covariates and their quantile cuts alone; the cut locations are
+still quantile-derived ("no-front-end" rather than literally fixed), and the
+evaluation holds this family fixed — see the limitations.
+
+The anchor that analysis found:
+**Ĥ = `` `r S$meta$anchor$def` ``**, n(Ĥ) = `r fmt0(S$meta$anchor$n_H)`
+of `r fmt0(S$meta$n)`, fitted mean difference
+**T̂~obs~ = `r fmt(S$meta$anchor$T_obs, 6)`** CD4 units, consistency
+`r fmt(S$meta$anchor$p_cons, 2)`.  The ITT mean difference on `y_decline`
+is `r fmt(S$meta$itt[1, 1], 2)` (SE `r fmt(S$meta$itt[1, 2], 2)`) — on
+average the combination arm *reduces* CD4 decline, so a harm subgroup, if
+real, sits against a beneficial background.
+
+## 2. The anchored DGM
+
+Truths are anchored to the analysis data by a two-point mixture
+stylization, stated plainly: the super-population
+(n = `r fmt0(S$meta$scale$regions$n_g[3])` draws of the covariate rows) has
+exactly two treatment-effect values — the fitted background effect
+`r fmt(S$meta$beta_treat, 6)` on Q^c^ and a planted effect q on Q — with
+the baseline outcome surface and residual scale
+(σ = `r fmt(S$meta$scale$sigma, 2)`) taken from the baseline GLM fit to the
+analysis data.  Nothing else about the joint covariate law is modeled; the
+covariate rows are the data's own.
+
+Q is the found rule carried into the generator by its clause mapping
+(`age = 37`; `cd40 = list(type = "greater", value = 507)`), reproducing
+Ĥ's membership subject-for-subject on the analysis frame
+(`r fmt0(S$meta$anchor$n_H)`/`r fmt0(S$meta$anchor$n_H)`).  On the
+super-population Q has prevalence `r fmt(S$meta$scale$regions$P_g[1], 4)`.
+
+**Q's representability in the discovery family.**  The evaluation family is
+the analyst's own discovery grid at n = `r fmt0(S$meta$n)`
+(M = `r fmt0(S$meta$M)` candidate rules after floors and deduplication),
+kept pure: Q is *not* forced in.  Ĥ's `cd40` threshold (507) lies just off
+the population quantile grid (nearest grid cut 506), so no member is
+identical to Ĥ; the nearest member
+(`` `r S$meta$purity$nearest_lab` ``) matches it with purity and Jaccard
+`r fmt(S$meta$purity$nearest_purity, 4)` — the grid expresses the found
+rule to within about `r pct(1 - S$meta$purity$nearest_purity, 2)` of its
+membership.  This is reported as a feature of the evaluation: the search is
+scored on the family it actually searches.
+
+**The rungs.**  One effect ladder,
+q ∈ {`r paste(sapply(S$meta$q_rungs, function(x) fmt(x, ifelse(x %% 1 == 0, 0, 2))), collapse = ", ")`}
+CD4 units: from essentially zero (q = `r fmt(S$meta$q_rungs[1], 2)`, the
+zero-plus structural null) through the observed statistic
+(q = T̂~obs~ = `r fmt(S$meta$T_obs, 2)`).  Each rung is one
+`r format(S$meta$draws, big.mark = ",")`-draw set (seed
+`r fmt0(S$meta$seed)`) with every threshold c1 ∈ {0, 1, …, 200, T̂~obs~}
+swept against it at the analyst's c2 = `r fmt0(S$meta$analyst_c2)`.  Across
+rungs the family's memberships, prevalences, standard errors and overlap
+matrix are bit-identical (gated); only the planted effect moves, and each
+candidate's oriented mean moves linearly in q through its purity.
+
+## 3. Type-I under the structural null
+
+**Why the zero-plus rung, not the null branch.**  Version 0.3.2 orients
+every candidate's mean by the harm direction s = sign(m~τ~[Q]), so the
+oriented means are the signed mixture s·(m~τ~[Q^c^] + (m~τ~[Q] −
+m~τ~[Q^c^])·PQg): benefit-direction rules carry oriented-*negative* means,
+and a planted effect of exactly zero is rejected (no harm direction to
+orient by) — deliberately.  The wrapper's null *branch*, by contrast, keeps
+its pre-0.3.2 oriented-absolute reading of the single common effect: on
+this population it would turn the fitted −27 benefit into a +27 "harm",
+and stage 0 measured exactly that — false declaration
+`r fmt(S$meta$stage0_null_det, 3)` under the null branch at the analyst's
+gate.  That reading is nonsense here (it is correct for the MD40-style
+fixtures whose generators hand the search a positive-adverse outcome), so
+the null branch is not edited and not used.  The operational structural
+null is the alternative branch at q = `r fmt(S$meta$q_rungs[1], 2)` —
+correctly signed under 0.3.2, and the same truth as "no subgroup" to a
+hundredth of a CD4 unit.
+
+At the analyst's gate (c1 = `r fmt0(S$meta$analyst_c1)`,
+c2 = `r fmt0(S$meta$analyst_c2)`), the search's family-wise false-declaration
+rate under this structural null is
+**`r fmt(S$type1$at_analyst$det_rate, 5)`**
+(MC SE `r fmt(S$type1$at_analyst$det_rate_se, 5)`).
+
+Read at 1-unit resolution — the resolution of this document's integer c1
+grid — the smallest integer c1 holding type-I at or below 0.05 is
+**c1~05~ = `r fmt0(S$meta$c1_05)`**
+(rate `r fmt(S$type1$rate_at_c1_05$det_rate, 5)` ±
+`r fmt(S$type1$rate_at_c1_05$det_rate_se, 5)`), and at or below 0.10 is
+**c1~10~ = `r fmt0(S$meta$c1_10)`**
+(rate `r fmt(S$type1$rate_at_c1_10$det_rate, 5)` ±
+`r fmt(S$type1$rate_at_c1_10$det_rate_se, 5)`).
+
+```{r type1-curve}
+#| fig-width: 7
+#| fig-height: 4.5
+#| fig-cap: "Type-I error of the search under the zero-plus structural null, against the screening threshold c1 (c2 fixed at the analyst's value). Guides: the analyst's c1, and c1_05 / c1_10 at the 0.05 / 0.10 lines."
+tc <- S$type1$curve
+op <- par(mar = c(4.2, 4.2, 1, 1))
+plot(tc$c1, tc$det_rate, type = "l", lwd = 2,
+     xlab = "c1 (CD4 units, mean difference)",
+     ylab = "P(any declaration | structural null)")
+abline(h = c(0.05, 0.10), lty = 3, col = "grey40")
+abline(v = S$meta$analyst_c1, lty = 2, col = "firebrick")
+abline(v = c(S$meta$c1_05, S$meta$c1_10), lty = 2, col = "steelblue")
+text(S$meta$analyst_c1, max(tc$det_rate), "analyst c1", pos = 4, cex = 0.8,
+     col = "firebrick")
+text(S$meta$c1_05, 0.05, expression(c1[0.05]), pos = 4, cex = 0.8,
+     col = "steelblue")
+par(op)
+```
+
+## 4. The effect ladder: power at fixed type-I
+
+Per rung, the declaration rate at the analyst's c1 and the power at the
+fixed-type-I thresholds c1~05~ and c1~10~; the last three columns give the
+largest integer c1 at which the rung still holds 80 / 90 / 95% power (read
+from the grid at 1-unit resolution; no separate inversion calls).
+
+```{r ladder-table}
+ld <- S$ladder
+gt(data.frame(
+  q = sapply(ld$q, function(x) fmt(x, ifelse(x %% 1 == 0, 1, 2))),
+  det10 = paste0(fmt(ld$det_at_analyst, 4), " ± ",
+                 fmt(ld$det_at_analyst_se, 4)),
+  p05 = paste0(fmt(ld$power_at_c1_05, 4), " ± ",
+               fmt(ld$power_at_c1_05_se, 4)),
+  p10 = paste0(fmt(ld$power_at_c1_10, 4), " ± ",
+               fmt(ld$power_at_c1_10_se, 4)),
+  c80 = ifelse(is.na(ld$c1_pow80), "—", fmt0(ld$c1_pow80)),
+  c90 = ifelse(is.na(ld$c1_pow90), "—", fmt0(ld$c1_pow90)),
+  c95 = ifelse(is.na(ld$c1_pow95), "—", fmt0(ld$c1_pow95)))) |>
+  cols_label(q = "q (planted MD)",
+             det10 = md(paste0("rate at c1 = ",
+                               fmt0(S$meta$analyst_c1))),
+             p05 = md(paste0("power at c1&#8320;&#8325; = ",
+                             fmt0(S$meta$c1_05))),
+             p10 = md(paste0("power at c1&#8321;&#8320; = ",
+                             fmt0(S$meta$c1_10))),
+             c80 = "c1 at 80%", c90 = "c1 at 90%", c95 = "c1 at 95%") |>
+  tab_source_note(md(paste0(
+    "One ", format(S$meta$draws, big.mark = ","),
+    "-draw set per rung; ± is the Monte-Carlo SE. ",
+    "— = the target rate is not attained at any integer c1 ≥ 0.")))
+```
+
+```{r declaration-curves}
+#| fig-width: 7
+#| fig-height: 5
+#| fig-cap: "Declaration curves: the probability of any declaration against c1, one curve per rung (the zero-plus structural null lowest). Guides: c1_05, the analyst's c1, and the 0.80 power line."
+cv <- S$curves
+qs <- unique(cv$q)
+cols <- hcl.colors(length(qs), "Zissou 1")
+op <- par(mar = c(4.2, 4.2, 1, 1))
+plot(NA, xlim = range(cv$c1), ylim = c(0, 1),
+     xlab = "c1 (CD4 units, mean difference)", ylab = "P(any declaration)")
+abline(h = 0.80, lty = 3, col = "grey40")
+abline(v = c(S$meta$c1_05, S$meta$analyst_c1), lty = 2,
+       col = c("steelblue", "firebrick"))
+for (k in seq_along(qs)) {
+  d <- cv[cv$q == qs[k], ]
+  lines(d$c1, d$det_rate, lwd = 1.6, col = cols[k])
+}
+legend("topright", legend = sapply(qs, function(x) paste0("q = ", fmt(x, 2))),
+       col = cols, lwd = 1.6, cex = 0.7, bg = "white")
+par(op)
+```
+
+At the strict fixed-type-I threshold c1~05~ = `r fmt0(S$meta$c1_05)`,
+`r if (any(S$ladder$power_at_c1_05 >= 0.80)) paste0("the smallest rung reaching 80% power is q = ", fmt(min(S$ladder$q[S$ladder$power_at_c1_05 >= 0.80]), 2), " CD4 units of planted harm") else paste0("no rung on this ladder reaches 80% power — even the observed-statistic rung attains only ", pct(S$ladder$power_at_c1_05[nrow(S$ladder)], 1))`;
+at the analyst's own c1 = `r fmt0(S$meta$analyst_c1)`
+(type-I `r fmt(S$type1$at_analyst$det_rate, 3)`), the rate reaches
+`r pct(S$ladder$det_at_analyst[nrow(S$ladder)], 1)` at the observed-statistic
+rung.  The search as configured is liberal: its declaration threshold sits
+far below the level that would control the family-wise false-declaration
+rate, and holding that rate to 5% costs most of the power at every planted
+effect the ladder covers.
+
+## 5. What is declared, per rung
+
+Conditional on declaring at the analyst's gate: the expected size of the
+declared subgroup, its expected overlap quality against Q (PPV, sensitivity,
+specificity), the expected true oriented effect on the declared rule, the
+naive selection bias, and the selection mass on rules whose true mean is
+below c1.
+
+```{r declared-table}
+dc <- S$declared
+gt(data.frame(
+  q = sapply(dc$q, function(x) fmt(x, ifelse(x %% 1 == 0, 1, 2))),
+  EnH = paste0(fmt(dc$EnH, 1), " ± ", fmt(dc$EnH_se, 2)),
+  Eppv = paste0(fmt(dc$Eppv, 3), " ± ", fmt(dc$Eppv_se, 4)),
+  Esens = paste0(fmt(dc$Esens, 3), " ± ", fmt(dc$Esens_se, 4)),
+  Espec = paste0(fmt(dc$Espec, 3), " ± ", fmt(dc$Espec_se, 4)),
+  EbetaH = paste0(fmt(dc$EbetaH, 2), " ± ", fmt(dc$EbetaH_se, 3)),
+  naive = paste0(fmt(dc$Enaive_bias, 2), " ± ~",
+                 fmt(dc$Enaive_bias_se_approx, 3)),
+  mb = paste0(fmt(dc$mass_below, 3), " ± ", fmt(dc$mass_below_se, 4)))) |>
+  cols_label(q = "q", EnH = md("E\\|Ĥ\\|"), Eppv = "E[PPV]",
+             Esens = "E[sens]", Espec = "E[spec]",
+             EbetaH = md("E[β(Ĥ)]"), naive = "E[naive − β(Ĥ)]",
+             mb = "mass below c1") |>
+  tab_source_note(md(paste0(
+    "All conditional on declaration at (c1 = ", fmt0(S$meta$analyst_c1),
+    ", c2 = ", fmt0(S$meta$analyst_c2), "). ± is the delta-method MC SE ",
+    "from the multinomial selection counts; the naive-bias SE (marked ~) ",
+    "treats the winner's noise scale as se_g and is approximate.")))
+```
+
+The zero-plus rung's row is the honest false-positive reading: when the
+structural null declares (rate `r fmt(S$coherence$zero_plus_det, 4)`), the
+declared rule's expected true oriented effect is
+`r fmt(S$coherence$zero_plus_EbetaH, 2)` — a *benefit*, not a harm, pulled
+up from the pure background `r fmt(S$meta$beta_treat, 2)` only by the
+selection mass that lands on partially-Q-overlapping rules
+(E[PPV] = `r fmt(S$declared$Eppv[1], 3)`) — and the entire selection mass
+sits on rules whose true mean is below c1.
+
+## 6. The calibration curve for the observed statistic
+
+Per rung, P(T ≥ T̂~obs~ | q): the probability that the search's declared
+statistic reaches the observed `r fmt(S$meta$T_obs, 2)` when the true
+planted effect is q — read directly off each rung's grid at
+c1 = T̂~obs~.
+
+```{r calibration-table}
+cb <- S$calibration
+gt(data.frame(
+  q = sapply(cb$q, function(x) fmt(x, ifelse(x %% 1 == 0, 1, 2))),
+  p = paste0(fmt(cb$p_ge_Tobs, 4), " ± ", fmt(cb$p_ge_Tobs_se, 4)))) |>
+  cols_label(q = "q (planted MD)", p = md("P(T ≥ T̂~obs~ | q)")) |>
+  tab_source_note("Grid read-off at c1 = T̂obs; no extra machinery.")
+```
+
+Interpolating linearly between adjacent rungs (stated as interpolation, at
+the ladder's own resolution), the curve crosses
+0.05 near **q ≈ `r fmt(S$crossings$q_cross[1], 1)`**,
+0.5 near **q ≈ `r fmt(S$crossings$q_cross[2], 1)`**, and
+0.95 near **q ≈ `r fmt(S$crossings$q_cross[3], 1)`** CD4 units.
+
+```{r calibration-curve}
+#| fig-width: 7
+#| fig-height: 4.5
+#| fig-cap: "The calibration curve: P(T ≥ T̂_obs | q) against the planted effect q, with the observed statistic marked. Dotted guides at 0.05, 0.5, 0.95."
+op <- par(mar = c(4.2, 4.2, 1, 1))
+plot(cb$q, cb$p_ge_Tobs, type = "b", pch = 16, lwd = 1.6,
+     xlab = "q: planted effect on Q (CD4 units, mean difference)",
+     ylab = expression(P(T >= hat(T)[obs] ~ "|" ~ q)))
+abline(h = c(0.05, 0.5, 0.95), lty = 3, col = "grey40")
+abline(v = S$meta$T_obs, lty = 2, col = "firebrick")
+text(S$meta$T_obs, 0.1, expression(hat(T)[obs]), pos = 2, col = "firebrick",
+     cex = 0.9)
+par(op)
+```
+
+This is *a consonance curve for the planted effect under the anchored
+two-point mixture model; not a posterior, not adjusted for anything outside
+the model*.
+
+## 7. The `se_g` band
+
+The family's standard errors are the prevalence-scaled anchor
+se~g~ = √(V~eff~[Q]/(n·P~g~)); the direct per-member value replaces
+V~eff~[Q] with the member's own V~eff~[g].  The ratio
+se~direct~/se~g~ at three rungs, overall and by purity band:
+
+```{r seg-band-table}
+sb <- S$seg_band
+bands <- do.call(rbind, lapply(as.character(c(1L, 7L, 11L)), function(k) {
+  b <- sb[[k]]
+  data.frame(q = fmt(b$q, 2),
+             range = paste0("[", fmt(b$range[1], 4), ", ",
+                            fmt(b$range[2], 4), "]"),
+             median = fmt(b$median, 4),
+             hi  = fmt(b$by_band$median[b$by_band$band == "PQg >= 0.95"], 4),
+             mid = fmt(b$by_band$median[b$by_band$band == "mid"], 4),
+             lo  = fmt(b$by_band$median[b$by_band$band == "PQg < 0.25"], 4))
+}))
+gt(bands) |>
+  cols_label(q = "q", range = "ratio range", median = "median",
+             hi = md("median, PQg ≥ 0.95"), mid = "median, mid",
+             lo = md("median, PQg < 0.25")) |>
+  tab_source_note(md(paste0(
+    "se~direct~/se~g~ over the ", fmt0(S$meta$M), " members; purity bands ",
+    "PQg ≥ 0.95 / [0.25, 0.95) / < 0.25.")))
+```
+
+At the top rung the largest deviation of the ratio from 1 is
+`r pct(S$seg_band$max_dev_top, 2)` —
+`r if (isTRUE(S$seg_band$sensitivity_triggered)) "above" else "within"` the
+~5% reporting band, so the prevalence-scaled approximation is
+`r if (isTRUE(S$seg_band$sensitivity_triggered)) "accompanied by the sensitivity run below" else "reported, not acted on: no sensitivity run was required"`.
+
+```{r seg-sensitivity}
+#| eval: !expr (!is.null(S$sensitivity))
+#| include: !expr (!is.null(S$sensitivity))
+sv <- S$sensitivity$table
+gt(data.frame(
+  run = sv$run,
+  det10 = paste0(fmt(sv$det_at_analyst, 4), " ± ",
+                 fmt(sv$det_at_analyst_se, 4)),
+  p05 = paste0(fmt(sv$power_at_c1_05, 4), " ± ",
+               fmt(sv$power_at_c1_05_se, 4)),
+  p10 = paste0(fmt(sv$power_at_c1_10, 4), " ± ",
+               fmt(sv$power_at_c1_10_se, 4)),
+  pT = paste0(fmt(sv$p_ge_Tobs, 4), " ± ", fmt(sv$p_ge_Tobs_se, 4)),
+  EnH = fmt(sv$EnH, 1), EbetaH = fmt(sv$EbetaH, 2),
+  Eppv = fmt(sv$Eppv, 3))) |>
+  cols_label(run = "", det10 = md(paste0("rate at c1 = ",
+                                         fmt0(S$meta$analyst_c1))),
+             p05 = md(paste0("power at ", fmt0(S$meta$c1_05))),
+             p10 = md(paste0("power at ", fmt0(S$meta$c1_10))),
+             pT = md("P(T ≥ T̂~obs~)"),
+             EnH = md("E\\|Ĥ\\|"), EbetaH = md("E[β(Ĥ)]"),
+             Eppv = "E[PPV]") |>
+  tab_source_note(md(paste0(
+    "Top rung (q = T̂~obs~) re-evaluated with the family's se~g~ replaced ",
+    "by the member-direct se~direct~ — one draw set, same seed. Labeled as ",
+    "the breadth ladder labeled it: **a sensitivity, not a constructor, ",
+    "not adopted**.")))
+```
+
+## 8. Limitations
+
+- **The between-rule E|Ĥ| gap.**  In the MD40/MD120 verification fixtures
+  the wrapper's expected declared-subgroup size differed from the measured
+  search's by about two subjects, an offset that did not scale with the
+  planted harm.  The same wrapper machinery produces the E|Ĥ| column here;
+  a constant-order offset of that size should be assumed rather than
+  precision at the single-subject level.
+- **Q is not in the family.**  With this analysis's numbers: Ĥ's `cd40`
+  threshold (507) is off the population grid (nearest cut 506), the nearest
+  member matches with purity `r fmt(S$meta$purity$nearest_purity, 4)`, and
+  no member is identical.  Every "power" number is therefore the power to
+  declare *some* rule, scored against a Q the family can express only to
+  ~`r pct(1 - S$meta$purity$nearest_purity, 2)` of its membership — the
+  honest representation of the search as the analyst configured it.
+- **The mixture stylization.**  Truths are a two-point effect mixture on
+  the data's own covariate rows with a GLM baseline surface; real
+  heterogeneity is not two-valued.  The calibration curve inherits this:
+  it is a consonance statement inside the model, per the caveat above.
+- **Fixed-family conditioning.**  The evaluation conditions on the
+  no-front-end family (`use_lasso = use_grf = FALSE`, the MR-anchor
+  configuration).  The compare-all document's front-ends-on arms search a
+  data-dependent family; their operating characteristics are a different
+  (conditional-on-family) estimand and are not evaluated here.  The cut
+  locations themselves are quantile-derived and would move under
+  resampling; the evaluation holds them at their population values.
+
+# Reproducibility payload {#sec-export-payload}
+
+```{r export-payload}
+#| echo: false
+#| message: false
+
+.qmd_stem <- tryCatch(tools::file_path_sans_ext(basename(knitr::current_input())),
+                      error = function(e) "analysis")
+.dirout   <- if (is.null(dirout)) .qmd_stem else dirout
+.base     <- if (is.null(results_dir)) file.path(.qmd_dir, "_payloads") else results_dir
+.out_dir  <- file.path(.base, .dirout)
+dir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)
+.payload_file <- file.path(.out_dir, paste0(.dirout, "_payload.rds"))
+
+payload <- list(
+  table  = S$ladder,
+  labels = list(
+    sg_harm  = S$meta$anchor$def,
+    sg_focus = "maxeffCons",
+    focus    = NULL),
+  meta = list(
+    n_total    = S$meta$n,
+    n_events   = NULL,
+    outcome    = "y_decline",
+    event      = NULL,
+    treat      = "treat",
+    covariates = c("age", "preanti", "wtkg", "karnof", "cd40", "cd80",
+                   "hemo", "homo", "drugs", "race", "gender", "symptom"),
+    c1         = S$meta$analyst_c1,
+    c2         = S$meta$analyst_c2,
+    args_call  = list(consistency_method = S$meta$consistency_method,
+                      pconsistency = S$meta$pconsistency,
+                      draws = S$meta$draws, block = S$meta$block,
+                      seed = S$meta$seed, M = S$meta$M,
+                      q_rungs = S$meta$q_rungs, T_obs = S$meta$T_obs)),
+  extras = list(
+    type1 = list(at_analyst = S$type1$at_analyst,
+                 c1_05 = S$meta$c1_05, rate_at_c1_05 = S$type1$rate_at_c1_05,
+                 c1_10 = S$meta$c1_10, rate_at_c1_10 = S$type1$rate_at_c1_10),
+    declared    = S$declared,
+    calibration = S$calibration,
+    crossings   = S$crossings,
+    coherence   = S$coherence,
+    seg_band    = list(max_dev_top = S$seg_band$max_dev_top,
+                       triggered   = S$seg_band$sensitivity_triggered,
+                       by_band     = lapply(S$seg_band[
+                         as.character(c(1L, 7L, 11L))], `[[`, "by_band")),
+    anchor      = S$meta$anchor,
+    purity      = S$meta$purity),
+  est_scale = "md",
+  built_at  = Sys.time(),
+  forestsearch_version = tryCatch(as.character(utils::packageVersion("forestsearch")),
+                                  error = function(e) NA_character_))
+
+saveRDS(payload, .payload_file)
+cat("Wrote payload to:", .payload_file, "\n")
+```
