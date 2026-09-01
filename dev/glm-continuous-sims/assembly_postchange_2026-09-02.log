@@ -1,0 +1,81 @@
+stage output: postchange | installed forestsearch 0.3.5 | vi.grf.min default NULL | R version 4.6.1 (2026-06-24)
+git HEAD: f3975b99
+---- F2_surv_gbsg
+  wall 3.93 s; selected: {er <= 0} & {size <= 35}; fits 1410 (NULL 0); screen 120; dedup 121 -> 120; warnings 0; survfit 121
+---- F5_surv_adjusted
+  wall 38.35 s; selected: {er <= 0} & {pgr <= 8}; fits 1410 (NULL 0); screen 110; dedup 111 -> 110; warnings 0; survfit 111
+---- F1_cont
+  wall 1.98 s; selected: !{wtkg <= 84} & !{cd40 <= 320}; fits 1975 (NULL 0); screen 749; dedup 852 -> 749; warnings 0; survfit 0
+---- F3_anchor
+  wall 1.87 s; selected: {age <= 37} & !{cd40 <= 507}; fits 4702 (NULL 0); screen 1; dedup 146 -> 131; warnings 0; survfit 0
+---- Eties_heavy_ties
+  wall 0.08 s; selected: {z1}; fits 4 (NULL 0); screen 2; dedup 2 -> 2; warnings 0; survfit 2
+---- Enamed_na_median
+  wall 0.10 s; selected: {z1}; fits 5 (NULL 0); screen 3; dedup 3 -> 3; warnings 0; survfit 3
+---- Efinite_m1_60
+  wall 3.54 s; selected: {er <= 0} & {size <= 35}; fits 1410 (NULL 0); screen 115; dedup 116 -> 115; warnings 0; survfit 121
+---- Ezero_no_passers
+  wall 0.06 s; selected: <none>; fits 4 (NULL 0); screen 0; dedup NA -> NA; warnings 0; survfit 0
+---- Edegen_monotone
+  wall 0.10 s; selected: !{z2}; fits 4 (NULL 0); screen 4; dedup 4 -> 4; warnings 2; survfit 4
+check Enamed: NA median in a passer OK
+Efinite: m1.threshold = 60 excludes 5 screen-passing rows, keeps 116
+check Efinite: filter excludes >= 1 OK
+check Efinite: filter keeps >= 1   OK
+check Ezero: screen passes nobody  OK
+check Edegen: degenerate passer present OK
+check F1: continuous medians all NA OK
+check F1/F3: zero survfit calls    OK
+---- F2_selfcheck
+  wall 3.48 s; selected: {er <= 0} & {size <= 35}; fits 1410 (NULL 0); screen 120; dedup 121 -> 120; warnings 0; survfit 121
+---- Eties_selfcheck
+  wall 0.08 s; selected: {z1}; fits 4 (NULL 0); screen 2; dedup 2 -> 2; warnings 0; survfit 2
+self-consistency F2: TRUE
+self-consistency Eties: TRUE
+---- bootstrap first
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use: 1 workers with 'sequential' plan
+Bootstrap iteration 1/20
+Bootstrap iteration 10/20
+Bootstrap iteration 20/20
+  wall 83.6 s; per replicate 4.18 s
+---- bootstrap selfcheck
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use: 1 workers with 'sequential' plan
+Bootstrap iteration 1/20
+Bootstrap iteration 10/20
+Bootstrap iteration 20/20
+  wall 83.4 s; per replicate 4.17 s
+self-consistency bootstrap: TRUE
+
+dropped paths (26 unique):
+boot_first$results$tmins_iteration [column]
+boot_first$results$tmins_search [column]
+boot_selfcheck$results$tmins_iteration [column]
+boot_selfcheck$results$tmins_search [column]
+Edegen_monotone$find.grps$time_search [field]
+Edegen_monotone$minutes_all [field]
+Efinite_m1_60$find.grps$time_search [field]
+Efinite_m1_60$minutes_all [field]
+Enamed_na_median$find.grps$time_search [field]
+Enamed_na_median$minutes_all [field]
+Eties_heavy_ties$find.grps$time_search [field]
+Eties_heavy_ties$minutes_all [field]
+Eties_selfcheck$find.grps$time_search [field]
+Eties_selfcheck$minutes_all [field]
+Ezero_no_passers$find.grps$time_search [field]
+Ezero_no_passers$minutes_all [field]
+F1_cont$find.grps$time_search [field]
+F1_cont$minutes_all [field]
+F2_selfcheck$find.grps$time_search [field]
+F2_selfcheck$minutes_all [field]
+F2_surv_gbsg$find.grps$time_search [field]
+F2_surv_gbsg$minutes_all [field]
+F3_anchor$find.grps$time_search [field]
+F3_anchor$minutes_all [field]
+F5_surv_adjusted$find.grps$time_search [field]
+F5_surv_adjusted$minutes_all [field]
+
+written: dev/glm-continuous-sims/assembly_postchange_2026-09-02.rds 

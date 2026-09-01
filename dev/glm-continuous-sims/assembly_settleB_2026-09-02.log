@@ -1,0 +1,31 @@
+installed forestsearch 0.3.5 | R version 4.6.1 (2026-06-24)
+git HEAD: f3975b99
+---- anchor: default_stop_threshold (= pconsistency.threshold 0.90)
+  wall 1.96 s; selected: {age <= 37} & !{cd40 <= 507}; n_evaluated 1 of 131; early_stop TRUE (cand 1); consistency rows 1
+---- anchor: stop_threshold_NULL (all evaluated)
+  wall 2.11 s; selected: {age <= 37} & !{cd40 <= 507}; n_evaluated 131 of 131; early_stop FALSE (cand NA); consistency rows 8
+
+==== settlement ====
+selection (default stop):  {age <= 37} & !{cd40 <= 507} 
+selection (full eval):     {age <= 37} & !{cd40 <= 507} 
+selected subgroup identical: TRUE 
+
+consistency table (default stop): 1 rows 
+  Pcons          hr  N  E    g m K         M.1            M.2
+1  0.95 87.91666667 66 66 1482 1 2 {age <= 37} !{cd40 <= 507}
+
+consistency table (full eval): 8 rows 
+  Pcons          hr   N   E    g  m K            M.1            M.2
+1  0.95 87.91666667  66  66 1482  1 2    {age <= 37} !{cd40 <= 507}
+2  0.93 82.26881720  61  61 3773  2 2  !{wtkg <= 73} !{cd40 <= 507}
+3  0.93 78.70542636  76  76 1667  3 2    {age <= 40} !{cd40 <= 507}
+4  0.91 71.09551282  79  79 5356  4 2 !{cd40 <= 507}       {gender}
+5  0.95 68.59183673  98  98 1098  5 2    {age <= 33} !{cd40 <= 449}
+6  0.96 66.39589540 110 110 1291  6 2    {age <= 35} !{cd40 <= 449}
+7  0.90 62.66276596  87  87 5351  8 2 !{cd40 <= 507}       !{drugs}
+8  0.96 61.46530055 121 121 1480 10 2    {age <= 37} !{cd40 <= 449}
+
+selected row identical across runs (common columns): TRUE 
+identical(): TRUE 
+
+written: dev/glm-continuous-sims/assembly_settleB_2026-09-02.rds 

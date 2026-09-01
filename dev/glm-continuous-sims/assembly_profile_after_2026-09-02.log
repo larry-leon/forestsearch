@@ -1,0 +1,68 @@
+stage: postchange (after) | installed forestsearch 0.3.5 | R version 4.6.1 (2026-06-24)
+git HEAD: f3975b99
+          used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 2162118 115.5    4188130 223.7  3000602 160.3
+Vcells 3672161  28.1    8388608  64.0  5681968  43.4
+warm-up call: 3.61 s wall; selected: {er <= 0} & {size <= 35}
+          used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 2456187 131.2    4188130 223.7  3918481 209.3
+Vcells 4792933  36.6   10146329  77.5  8388608  64.0
+profiled call: 3.58 s wall; 356 samples x 0.010 s = 3.56 s sampled (99.6% of wall)
+bucket table (share of sampled time):
+            bucket samples secs    share
+           medians      23 0.23 0.064607
+               grf       0 0.00 0.000000
+               fit     229 2.29 0.643258
+              cuts       0 0.00 0.000000
+       consistency      59 0.59 0.165730
+   future_overhead      39 0.39 0.109551
+      dedup_select       1 0.01 0.002809
+       enumeration       0 0.00 0.000000
+ consistency_other       0 0.00 0.000000
+   everything_else       5 0.05 0.014045
+top 20 by SELF time:
+                      self.time self.pct total.time total.pct
+"survival::coxph"          0.15     4.21       2.38     66.85
+"vapply"                   0.14     3.93       0.37     10.39
+"NextMethod"               0.14     3.93       0.16      4.49
+"order"                    0.10     2.81       0.23      6.46
+"eval"                     0.09     2.53       2.93     82.30
+"coxph.fit"                0.09     2.53       0.32      8.99
+".deparseOpts"             0.08     2.25       0.20      5.62
+"FUN"                      0.07     1.97       2.91     81.74
+"concordancefit"           0.07     1.97       0.58     16.29
+"survival::Surv"           0.07     1.97       0.14      3.93
+"%in%"                     0.07     1.97       0.10      2.81
+"docount"                  0.06     1.69       0.34      9.55
+"colMeans"                 0.06     1.69       0.09      2.53
+"rowSums"                  0.06     1.69       0.08      2.25
+"pmatch"                   0.06     1.69       0.07      1.97
+".External"                0.06     1.69       0.06      1.69
+"model.frame.default"      0.05     1.40       0.33      9.27
+"[.Surv"                   0.05     1.40       0.22      6.18
+"match.arg"                0.05     1.40       0.17      4.78
+"is.na"                    0.05     1.40       0.10      2.81
+top 20 by TOTAL time:
+                                       total.time total.pct self.time self.pct
+"<Anonymous>"                                3.56    100.00      0.02     0.56
+"do.call"                                    3.56    100.00      0.00     0.00
+"doTryCatch"                                 3.55     99.72      0.02     0.56
+"tryCatch"                                   3.55     99.72      0.02     0.56
+"tryCatchList"                               3.55     99.72      0.00     0.00
+"tryCatchOne"                                3.55     99.72      0.00     0.00
+"withCallingHandlers"                        3.04     85.39      0.00     0.00
+"eval"                                       2.93     82.30      0.09     2.53
+"FUN"                                        2.91     81.74      0.07     1.97
+"future_xapply"                              2.91     81.74      0.00     0.00
+"future.apply::future_lapply"                2.91     81.74      0.00     0.00
+"search_combinations_parallel"               2.91     81.74      0.00     0.00
+"lapply"                                     2.90     81.46      0.01     0.28
+"evalFuture"                                 2.88     80.90      0.00     0.00
+"evalFutureInternal"                         2.88     80.90      0.00     0.00
+"future"                                     2.88     80.90      0.00     0.00
+"launchFuture.SequentialFutureBackend"       2.88     80.90      0.00     0.00
+"launchFuture"                               2.88     80.90      0.00     0.00
+"run.Future"                                 2.88     80.90      0.00     0.00
+"run"                                        2.88     80.90      0.00     0.00
+
+written: dev/glm-continuous-sims/assembly_profile_F2_after_2026-09-02.Rprof 
