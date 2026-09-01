@@ -66,6 +66,12 @@ for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
 N <- nrow(actg_df)
 stopifnot(N == 1083L)
 cat("Analysis N =", N, "\n")
+
+# the unadjusted ITT mean difference — distinct from the covariate-adjusted
+# GLM coefficient beta_treat the generator anchors to (section 3)
+itt <- coef(summary(lm(y_decline ~ treat, data = actg_df)))["treat", ]
+cat(sprintf("unadjusted ITT mean difference = %.3f (SE %.3f)\n",
+            itt["Estimate"], itt["Std. Error"]))
 ```
 
 ## 2. The analysis
@@ -437,6 +443,10 @@ tIv <- lapply(c(wider = "wider", broad = "broad"), function(v) {
 })
 sub_w_10 <- at(tIv$wider, 10, params$c2_ratio * 10)
 sub_b_10 <- at(tIv$broad, 10, params$c2_ratio * 10)
+
+# the no-subgroup null's tail probability at the observed statistic, read
+# at the analyst's operating c2 as in section 7.2 (previously unread)
+hom_at_Tobs <- at(och, T_obs, params$c2_ratio * 10)
 ```
 
 At the analyst's screening floor c1 = 10 (diagonal c2 =
@@ -812,6 +822,140 @@ says what each choice implies.
   default `r format(params$draws, big.mark = ",")` draws; the archived
   companion holds the fixed-c2 analysis at 2e5 draws.
 
+## 12. Interpretation: what the analysis may claim
+
+The analysis found **Ĥ = `` `r H_def` ``** — n(Ĥ) =
+`r fmt0(n_H)` of `r fmt0(N)`, fitted mean difference
+T̂~obs~ = `r fmt(T_obs, 1)` CD4 units, consistency `r fmt(p_cons, 2)` —
+against an unadjusted ITT mean difference of
+`r fmt(itt["Estimate"], 1)` CD4 units (SE `r fmt(itt["Std. Error"], 1)`),
+a benefit on average.  (The covariate-adjusted GLM coefficient
+`beta_treat` = `r fmt(beta_treat, 1)`, which the generator anchors to, is
+a related but distinct quantity; the two are not conflated here.)  The
+sections above ask what the procedure as configured does under truths
+anchored to this data; this section says what may therefore be claimed.
+The caveats governing all of it are section 11's and are not repeated
+here.
+
+### 12.1 The declaration event is close to uninformative
+
+At (c1 = 10, c2 = `r fmt(params$c2_ratio * 10, 0)`) the search declares
+*some* harm subgroup with probability `r fmt(hom_at_10$det_rate, 3)`
+under the no-subgroup null and `r fmt(type1_at_10$det_rate, 3)` under
+the sub-threshold-subgroup null; at the fixed (10, 5) gate the latter is
+`r fmt(sub_at_5$det_rate, 3)`.  Two consequences.  First, "ForestSearch
+identified a subgroup" carries almost no evidential weight at this
+configuration.  Second, because the two nulls differ by only
+`r fmt(type1_at_10$det_rate - hom_at_10$det_rate, 3)`, the rate is
+driven by multiplicity over M = `r fmt0(fam$M)` correlated candidates
+and a liberal threshold, not by a lurking weak subgroup.  The thresholds
+are clinical-relevance floors, not error controls.
+
+### 12.2 The observed magnitude — a range, not a p-value
+
+```{r interp-tail-table}
+tail_tab <- data.frame(
+  truth = c("no subgroup (homogeneous)",
+            "Q = H-hat (primary), zero effect",
+            "Q = wider, zero effect",
+            "Q = broad, zero effect"),
+  rate  = c(hom_at_Tobs$det_rate, unname(det0)),
+  se    = c(hom_at_Tobs$det_rate_se,
+            sapply(names(Q_variants), function(v) {
+              d <- oc[oc$variant == v, ]
+              at(d[d$q == q_rungs[1], ], T_obs,
+                 params$c2_ratio * 10)$det_rate_se
+            })))
+gt(data.frame(truth = tail_tab$truth, p = pm(tail_tab$rate, tail_tab$se))) |>
+  cols_label(truth = "truth", p = html("P(T ≥ T̂<sub>obs</sub>)")) |>
+  tab_source_note(md(paste0(
+    "Read at (c1 = T̂~obs~, c2 = ", fmt(params$c2_ratio * 10, 0),
+    ") as in section 7.2; ± is the Monte-Carlo SE.")))
+```
+
+This is the selection-honest tail probability of the observed statistic,
+computed against the distribution of the search's own maximum, so
+multiplicity is already inside it.  The answer is a **range** — from
+`r fmt(min(tail_tab$rate), 4)` with no subgroup at all to
+`r fmt(max(tail_tab$rate), 4)` under the broad reading — that depends on
+how broad the truly affected population may be, and under the broad
+reading the observation is not surprising even at zero harm.  As an
+external cross-check (computed in the archived
+`analysis_actg175_continuous_oc_evaluation` deep run, not here), the
+primary row's value at 2×10^5^ draws was 0.041.  The observed magnitude
+is suggestive, not decisive, under every null in the family.
+
+### 12.3 The magnitude of the harm is weakly identified
+
+The 0.05 consonance crossings of section 10 put the smallest planted
+harm consistent with T̂~obs~ at q ≈ `r qfmt(knob$q05[1])` CD4 units if
+the harmed population is exactly Ĥ, but q ≈ `r qfmt(knob$q05[2])` under
+the wider reading and `r qfmt(knob$q05[3])` under the broad one —
+collapsing toward the first rung — against the naive
+T̂~obs~ = `r fmt(T_obs, 1)` and the analysis's own floor c1 = 10.  If
+the harmed population is not exactly the rule the search returned, the
+data are consistent with arbitrarily small harm.  **Do not quote
+T̂~obs~ as an effect size**: the de-biased (multiplier-resampling /
+bootstrap) estimates are the estimation-side response, and this curve is
+the design-side statement of why they are needed.
+
+### 12.4 What error control costs
+
+Holding the family-wise false-declaration rate at 0.05 requires
+c1 = `r fmt0(c1_05_diag)` on the scaled diagonal
+(c1 = `r fmt0(c1_05_hom)` against the no-subgroup null alone, and
+`r if (is.finite(c1_05_fix)) fmt0(c1_05_fix) else "beyond the ladder"`
+on the fixed c2 = 5 row) — thresholds far above the clinical floor —
+and at that gate power is `r fmt(lad$p05[nrow(lad)], 2)` even at the
+observed-statistic rung and lower at every smaller planted effect
+(section 7.2).  No configuration on this ladder is a test: strict
+control costs most of the power at every planted effect examined, so
+the finding is hypothesis-generating and needs prespecified
+confirmation — which this same machinery can size.
+
+### 12.5 Breadth versus severity
+
+For T̂~obs~ to be *typical* (the 0.5 crossing), a subgroup exactly Ĥ
+must be harmed by q ≈ `r qfmt(knob$q50[1])` CD4 units, the wider
+population by q ≈ `r qfmt(knob$q50[2])`, the broad one by
+q ≈ `r qfmt(knob$q50[3])`; meanwhile top-rung power rises
+`r fmt(knob$ptop[1], 2)` → `r fmt(knob$ptop[3], 2)` across the variants
+as the declared rule's sensitivity to the true Q falls
+`r fmt(knob$sens[1], 2)` → `r fmt(knob$sens[3], 2)`.  A narrow true
+subgroup must be severely harmed to make T̂~obs~ typical; a broad one
+need only be mildly harmed — section 10's table carries the full
+statement.
+
+### 12.6 A draft results paragraph
+
+*A draft for the analyst to adapt — not a conclusion of this document:*
+
+> ForestSearch, configured with clinical-relevance floors rather than
+> error controls, identified Ĥ = `r H_def`
+> (n = `r fmt0(n_H)` of `r fmt0(N)`) with fitted mean difference
+> `r fmt(T_obs, 1)` CD4 units; since the procedure declares some
+> subgroup with probability
+> `r fmt(hom_at_10$det_rate, 2)`–`r fmt(type1_at_10$det_rate, 2)` under
+> nulls anchored to these data, the identification is
+> hypothesis-generating.  The observed statistic's
+> selection-honest tail probability ranges from
+> `r fmt(hom_at_Tobs$det_rate, 4)` (no subgroup) to
+> `r fmt(max(det0), 3)` (a broad mildly-affected population), and the
+> harm magnitude consistent with it at the 0.05 consonance level ranges
+> from `r qfmt(knob$q05[3])` to `r qfmt(knob$q05[1])` CD4 units
+> depending on the breadth of the truly affected population, so the
+> fitted magnitude should not be quoted as an effect estimate.  A
+> prespecified confirmation in independent data — sized with the same
+> operating-characteristic machinery — is required before any clinical
+> claim.
+
+Two external facts cited above and in section 11, named as external: the
+archived deep run's calibration values
+(`analysis_actg175_continuous_oc_evaluation`), and the ~2-subject
+E\|Ĥ\| machinery offset (the verification fixtures, section 11); the
+archived `se_direct` sensitivity's ≤ 1.4-point movement of the
+calibration column (same archived document) bounds the se-model choice.
+
 ```{r doc-clock}
 cat(sprintf("document compute wall-clock so far: %.1f min\n",
             (proc.time()[["elapsed"]] - t_doc) / 60))
@@ -883,7 +1027,11 @@ payload <- list(
     q_variants  = list(defs = Q_variants, prevalence = prev,
                        table = knob, curves = cal,
                        null_not_shared = list(dev_vs_primary = dev_vs_primary,
-                                              det_at_Tobs = det0))),
+                                              det_at_Tobs = det0)),
+    interpretation = list(
+      tail_table = tail_tab,
+      itt        = itt,
+      crossings  = knob[, c("variant", "P", "q05", "q05c", "q50", "q50c")])),
   est_scale = "md",
   built_at  = Sys.time(),
   forestsearch_version = tryCatch(as.character(utils::packageVersion("forestsearch")),
