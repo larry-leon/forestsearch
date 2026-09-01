@@ -1,0 +1,68 @@
+stage: baseline (before) | installed forestsearch 0.3.3 | R version 4.6.1 (2026-06-24)
+git HEAD: ff2f9ca2
+          used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 2161907 115.5    4187527 223.7  3000602 160.3
+Vcells 3671970  28.1    8388608  64.0  5681968  43.4
+warm-up call: 7.43 s wall; selected: {er <= 0} & {size <= 35}
+          used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 2371634 126.7    4187527 223.7  4187527 223.7
+Vcells 4196146  32.1   10146329  77.5  8388608  64.0
+profiled call: 7.50 s wall; 749 samples x 0.010 s = 7.49 s sampled (99.9% of wall)
+bucket table (share of sampled time):
+            bucket samples secs    share
+           medians     283 2.83 0.377837
+               grf       0 0.00 0.000000
+               fit     372 3.72 0.496662
+              cuts       0 0.00 0.000000
+       consistency      59 0.59 0.078772
+   future_overhead      29 0.29 0.038718
+      dedup_select       0 0.00 0.000000
+       enumeration       0 0.00 0.000000
+ consistency_other       0 0.00 0.000000
+   everything_else       6 0.06 0.008011
+top 20 by SELF time:
+                  self.time self.pct total.time total.pct
+"survfitKM"            0.25     3.34       0.58      7.74
+".shallow"             0.22     2.94       0.22      2.94
+"factor"               0.17     2.27       0.29      3.87
+"match.arg"            0.16     2.14       0.42      5.61
+"%in%"                 0.16     2.14       0.27      3.60
+"c"                    0.15     2.00       0.15      2.00
+"vapply"               0.14     1.87       0.59      7.88
+"deparse"              0.14     1.87       0.39      5.21
+"coxph.fit"            0.14     1.87       0.35      4.67
+"NextMethod"           0.14     1.87       0.14      1.87
+"survival::coxph"      0.13     1.74       2.35     31.38
+"[["                   0.12     1.60       0.35      4.67
+"ifelse"               0.12     1.60       0.17      2.27
+"paste"                0.11     1.47       0.44      5.87
+"order"                0.11     1.47       0.42      5.61
+"unique"               0.11     1.47       0.30      4.01
+"eval"                 0.10     1.34       6.91     92.26
+"[.data.table"         0.10     1.34       1.20     16.02
+"summary.survfit"      0.10     1.34       1.03     13.75
+"unique.default"       0.10     1.34       0.10      1.34
+top 20 by TOTAL time:
+                                       total.time total.pct self.time self.pct
+"<Anonymous>"                                7.49    100.00      0.05     0.67
+"do.call"                                    7.49    100.00      0.01     0.13
+"tryCatch"                                   7.48     99.87      0.04     0.53
+"doTryCatch"                                 7.48     99.87      0.02     0.27
+"tryCatchList"                               7.48     99.87      0.00     0.00
+"tryCatchOne"                                7.48     99.87      0.00     0.00
+"withCallingHandlers"                        7.00     93.46      0.00     0.00
+"eval"                                       6.91     92.26      0.10     1.34
+"FUN"                                        6.89     91.99      0.08     1.07
+"search_combinations_parallel"               6.85     91.46      0.01     0.13
+"future_xapply"                              6.84     91.32      0.00     0.00
+"future.apply::future_lapply"                6.84     91.32      0.00     0.00
+"lapply"                                     6.81     90.92      0.03     0.40
+"...future.FUN"                              6.81     90.92      0.02     0.27
+"eval.parent"                                6.81     90.92      0.01     0.13
+"evalFuture"                                 6.81     90.92      0.00     0.00
+"evalFutureInternal"                         6.81     90.92      0.00     0.00
+"future"                                     6.81     90.92      0.00     0.00
+"launchFuture.SequentialFutureBackend"       6.81     90.92      0.00     0.00
+"launchFuture"                               6.81     90.92      0.00     0.00
+
+written: dev/glm-continuous-sims/medians_profile_F2_before_2026-09-02.Rprof 
