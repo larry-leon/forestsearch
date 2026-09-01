@@ -1,0 +1,271 @@
+installed forestsearch 0.3.2; vi.grf.min default = NULL
+git HEAD: d7d5aae2
+cont fixture: n = 500
+surv fixture: gbsg n = 686, events 299
+anchor fixture: ACTG175 arms 1/3, N = 1083
+
+################ cont
+instrumented call: 5.21 s wall; selected: !{wtkg <= 84} & !{cd40 <= 320}
+  candidates reaching a fit: 1975 (fit returned NULL: 0); mean 0.0015 s, median 0.0010 s per fit; fits total 2.96 s (56.9% of wall)
+  hr.subgroups rows (passed the effect screen): 852; dedup rows before -> after: 852 -> 749
+  candidates reaching the consistency screen: 749 (passed: 319); consistency_resample() calls 749, closed form NA 0, literal-split fallbacks 0
+  medians computed (survival fits returning non-NULL): 1975; candidates reaching dedup: 852; ratio 2.3
+profiled call: 4.74 s wall; 473 samples x 0.010 s = 4.73 s sampled (99.8% of wall)
+bucket table (share of sampled time):
+            bucket samples secs    share
+           medians       0 0.00 0.000000
+               grf       0 0.00 0.000000
+               fit     293 2.93 0.619450
+              cuts       0 0.00 0.000000
+       consistency     140 1.40 0.295983
+   future_overhead      31 0.31 0.065539
+      dedup_select       1 0.01 0.002114
+       enumeration       1 0.01 0.002114
+ consistency_other       0 0.00 0.000000
+   everything_else       7 0.07 0.014799
+fit-bucket sub-split (section 4a):
+                 part samples secs share_of_fit
+                solve      14 0.14      0.04778
+   model_frame_matrix      57 0.57      0.19454
+         vcov_summary      24 0.24      0.08191
+ formula_construction       9 0.09      0.03072
+      subset_assembly     172 1.72      0.58703
+        wrapper_other      17 0.17      0.05802
+top 20 by SELF time:
+                self.time self.pct total.time total.pct
+"NextMethod"         0.35     7.40       0.41      8.67
+"[[.data.frame"      0.29     6.13       0.85     17.97
+"sys.call"           0.27     5.71       0.27      5.71
+"[.factor"           0.24     5.07       0.59     12.47
+"[.data.frame"       0.19     4.02       1.77     37.42
+"<Anonymous>"        0.16     3.38       4.73    100.00
+"[.data.table"       0.15     3.17       0.45      9.51
+"%in%"               0.12     2.54       0.44      9.30
+"[["                 0.11     2.33       0.96     20.30
+"lm.fit"             0.11     2.33       0.15      3.17
+"vapply"             0.10     2.11       0.56     11.84
+"dim"                0.09     1.90       0.10      2.11
+"names"              0.09     1.90       0.09      1.90
+"["                  0.08     1.69       2.22     46.93
+"summary.lm"         0.08     1.69       0.23      4.86
+".deparseOpts"       0.08     1.69       0.16      3.38
+"length"             0.07     1.48       0.07      1.48
+"FUN"                0.06     1.27       3.42     72.30
+"diag"               0.06     1.27       0.28      5.92
+"deparse"            0.06     1.27       0.22      4.65
+top 20 by TOTAL time:
+                                       total.time total.pct self.time self.pct
+"<Anonymous>"                                4.73    100.00      0.16     3.38
+"do.call"                                    4.73    100.00      0.00     0.00
+"run_config"                                 4.73    100.00      0.00     0.00
+"doTryCatch"                                 4.72     99.79      0.03     0.63
+"tryCatch"                                   4.72     99.79      0.00     0.00
+"tryCatchList"                               4.72     99.79      0.00     0.00
+"tryCatchOne"                                4.72     99.79      0.00     0.00
+"withCallingHandlers"                        3.49     73.78      0.01     0.21
+"FUN"                                        3.42     72.30      0.06     1.27
+"eval"                                       3.33     70.40      0.02     0.42
+"future.apply::future_lapply"                3.24     68.50      0.00     0.00
+"search_combinations_parallel"               3.24     68.50      0.00     0.00
+"lapply"                                     3.23     68.29      0.02     0.42
+"future_xapply"                              3.23     68.29      0.00     0.00
+"future"                                     3.16     66.81      0.00     0.00
+"...future.FUN"                              3.15     66.60      0.01     0.21
+"eval.parent"                                3.15     66.60      0.00     0.00
+"evalFuture"                                 3.15     66.60      0.00     0.00
+"evalFutureInternal"                         3.15     66.60      0.00     0.00
+"launchFuture.SequentialFutureBackend"       3.15     66.60      0.00     0.00
+
+################ surv
+instrumented call: 7.72 s wall; selected: {er <= 0} & {size <= 35}
+  candidates reaching a fit: 1410 (fit returned NULL: 0); mean 0.0048 s, median 0.0050 s per fit; fits total 6.76 s (87.5% of wall)
+  hr.subgroups rows (passed the effect screen): 121; dedup rows before -> after: 121 -> 120
+  candidates reaching the consistency screen: 120 (passed: 9); consistency_resample() calls 120, closed form NA 0, literal-split fallbacks 0
+  medians computed (survival fits returning non-NULL): 1410; candidates reaching dedup: 121; ratio 11.7
+profiled call: 7.59 s wall; 757 samples x 0.010 s = 7.57 s sampled (99.8% of wall)
+bucket table (share of sampled time):
+            bucket samples secs    share
+           medians     269 2.69 0.355350
+               grf       0 0.00 0.000000
+               fit     397 3.97 0.524439
+              cuts       0 0.00 0.000000
+       consistency      61 0.61 0.080581
+   future_overhead      26 0.26 0.034346
+      dedup_select       1 0.01 0.001321
+       enumeration       0 0.00 0.000000
+ consistency_other       0 0.00 0.000000
+   everything_else       3 0.03 0.003963
+fit-bucket sub-split (section 4a):
+                 part samples secs share_of_fit
+                solve      27 0.27     0.068010
+   model_frame_matrix      67 0.67     0.168766
+         vcov_summary     160 1.60     0.403023
+ formula_construction       2 0.02     0.005038
+      subset_assembly     103 1.03     0.259446
+        wrapper_other      38 0.38     0.095718
+top 20 by SELF time:
+                  self.time self.pct total.time total.pct
+"order"                0.21     2.77       0.45      5.94
+"ifelse"               0.18     2.38       0.26      3.43
+"vapply"               0.17     2.25       0.48      6.34
+"NextMethod"           0.17     2.25       0.18      2.38
+"eval"                 0.15     1.98       6.96     91.94
+"match.arg"            0.15     1.98       0.43      5.68
+"%in%"                 0.15     1.98       0.22      2.91
+"deparse"              0.14     1.85       0.36      4.76
+"survival::coxph"      0.13     1.72       2.69     35.54
+"coxph.fit"            0.12     1.59       0.30      3.96
+"factor"               0.12     1.59       0.19      2.51
+"FUN"                  0.11     1.45       6.95     91.81
+"unique"               0.11     1.45       0.22      2.91
+"forderv"              0.11     1.45       0.13      1.72
+"paste"                0.10     1.32       0.42      5.55
+"addto"                0.10     1.32       0.16      2.11
+"copy"                 0.10     1.32       0.12      1.59
+"<Anonymous>"          0.09     1.19       7.57    100.00
+".deparseOpts"         0.09     1.19       0.19      2.51
+"["                    0.08     1.06       1.53     20.21
+top 20 by TOTAL time:
+                                       total.time total.pct self.time self.pct
+"<Anonymous>"                                7.57    100.00      0.09     1.19
+"doTryCatch"                                 7.57    100.00      0.03     0.40
+"tryCatchList"                               7.57    100.00      0.01     0.13
+"do.call"                                    7.57    100.00      0.00     0.00
+"run_config"                                 7.57    100.00      0.00     0.00
+"tryCatch"                                   7.57    100.00      0.00     0.00
+"tryCatchOne"                                7.57    100.00      0.00     0.00
+"withCallingHandlers"                        7.05     93.13      0.01     0.13
+"eval"                                       6.96     91.94      0.15     1.98
+"FUN"                                        6.95     91.81      0.11     1.45
+"future.apply::future_lapply"                6.92     91.41      0.00     0.00
+"search_combinations_parallel"               6.92     91.41      0.00     0.00
+"future_xapply"                              6.91     91.28      0.00     0.00
+"future"                                     6.89     91.02      0.00     0.00
+"lapply"                                     6.88     90.89      0.07     0.92
+"evalFuture"                                 6.88     90.89      0.00     0.00
+"evalFutureInternal"                         6.88     90.89      0.00     0.00
+"launchFuture.SequentialFutureBackend"       6.88     90.89      0.00     0.00
+"launchFuture"                               6.88     90.89      0.00     0.00
+"run.Future"                                 6.88     90.89      0.00     0.00
+
+################ anchor
+instrumented call: 8.21 s wall; selected: {age <= 37} & !{cd40 <= 507}
+  candidates reaching a fit: 4702 (fit returned NULL: 0); mean 0.0015 s, median 0.0010 s per fit; fits total 7.26 s (88.4% of wall)
+  hr.subgroups rows (passed the effect screen): 146; dedup rows before -> after: 146 -> 131
+  candidates reaching the consistency screen: 1 (passed: 1); consistency_resample() calls 1, closed form NA 0, literal-split fallbacks 0
+  medians computed (survival fits returning non-NULL): 4702; candidates reaching dedup: 146; ratio 32.2
+profiled call: 8.19 s wall; 817 samples x 0.010 s = 8.17 s sampled (99.8% of wall)
+bucket table (share of sampled time):
+            bucket samples secs   share
+           medians       0 0.00 0.00000
+               grf       0 0.00 0.00000
+               fit     723 7.23 0.88494
+              cuts       0 0.00 0.00000
+       consistency       0 0.00 0.00000
+   future_overhead      85 0.85 0.10404
+      dedup_select       0 0.00 0.00000
+       enumeration       0 0.00 0.00000
+ consistency_other       0 0.00 0.00000
+   everything_else       9 0.09 0.01102
+fit-bucket sub-split (section 4a):
+                 part samples secs share_of_fit
+                solve      15 0.15     0.020747
+   model_frame_matrix     129 1.29     0.178423
+         vcov_summary      62 0.62     0.085754
+ formula_construction       7 0.07     0.009682
+      subset_assembly     462 4.62     0.639004
+        wrapper_other      48 0.48     0.066390
+top 20 by SELF time:
+                                   self.time self.pct total.time total.pct
+"NextMethod"                            1.04    12.73       1.04     12.73
+"[.data.frame"                          0.65     7.96       4.65     56.92
+"sys.call"                              0.59     7.22       0.59      7.22
+"[[.data.frame"                         0.56     6.85       1.89     23.13
+"[.factor"                              0.39     4.77       1.50     18.36
+"%in%"                                  0.38     4.65       1.02     12.48
+"[["                                    0.29     3.55       2.18     26.68
+"<Anonymous>"                           0.22     2.69       8.17    100.00
+"["                                     0.22     2.69       4.67     57.16
+"dim"                                   0.21     2.57       0.23      2.82
+"c"                                     0.18     2.20       0.18      2.20
+"evaluate_combination_with_status"      0.14     1.71       7.83     95.84
+"vapply"                                0.12     1.47       0.58      7.10
+".deparseOpts"                          0.11     1.35       0.20      2.45
+"extract_idx_flagredundancy"            0.11     1.35       0.13      1.59
+"stats::lm"                             0.10     1.22       1.66     20.32
+"%*%"                                   0.10     1.22       0.10      1.22
+"attr"                                  0.10     1.22       0.10      1.22
+"lm.fit"                                0.09     1.10       0.15      1.84
+"names"                                 0.09     1.10       0.09      1.10
+top 20 by TOTAL time:
+                                       total.time total.pct self.time self.pct
+"<Anonymous>"                                8.17    100.00      0.22     2.69
+"do.call"                                    8.17    100.00      0.00     0.00
+"run_config"                                 8.17    100.00      0.00     0.00
+"tryCatch"                                   8.16     99.88      0.05     0.61
+"doTryCatch"                                 8.16     99.88      0.04     0.49
+"tryCatchOne"                                8.16     99.88      0.01     0.12
+"tryCatchList"                               8.16     99.88      0.00     0.00
+"search_combinations_parallel"               8.09     99.02      0.01     0.12
+"future_xapply"                              8.08     98.90      0.00     0.00
+"future.apply::future_lapply"                8.08     98.90      0.00     0.00
+"FUN"                                        8.01     98.04      0.07     0.86
+"eval"                                       7.99     97.80      0.02     0.24
+"evalFuture"                                 7.99     97.80      0.00     0.00
+"evalFutureInternal"                         7.99     97.80      0.00     0.00
+"future"                                     7.99     97.80      0.00     0.00
+"launchFuture.SequentialFutureBackend"       7.99     97.80      0.00     0.00
+"launchFuture"                               7.99     97.80      0.00     0.00
+"run.Future"                                 7.99     97.80      0.00     0.00
+"run"                                        7.99     97.80      0.00     0.00
+"withCallingHandlers"                        7.99     97.80      0.00     0.00
+
+anchor selected subgroup: {age <= 37} & !{cd40 <= 507} (qmd gate expects {age <= 37} & !{cd40 <= 507}): TRUE
+
+---- then/now buckets: cont (replicate configuration) (0.3.0 wall 29.42 s -> 0.3.2 wall 4.74 s)
+            bucket secs_0830 secs_now share_0830 share_now
+           medians      0.00     0.00  0.0000000  0.000000
+               grf      0.00     0.00  0.0000000  0.000000
+               fit      2.60     2.93  0.0884354  0.619450
+              cuts      0.00     0.00  0.0000000  0.000000
+       consistency      1.56     1.40  0.0530612  0.295983
+   future_overhead     25.17     0.31  0.8561224  0.065539
+      dedup_select      0.01     0.01  0.0003401  0.002114
+       enumeration      0.01     0.01  0.0003401  0.002114
+ consistency_other      0.00     0.00  0.0000000  0.000000
+   everything_else      0.05     0.07  0.0017007  0.014799
+
+---- then/now buckets: surv gbsg (0.3.0 wall 8.19 s -> 0.3.2 wall 7.59 s)
+            bucket secs_0830 secs_now share_0830 share_now
+           medians      2.54     2.69   0.310894  0.355350
+               grf      0.00     0.00   0.000000  0.000000
+               fit      3.53     3.97   0.432069  0.524439
+              cuts      0.00     0.00   0.000000  0.000000
+       consistency      0.60     0.61   0.073439  0.080581
+   future_overhead      1.45     0.26   0.177479  0.034346
+      dedup_select      0.00     0.01   0.000000  0.001321
+       enumeration      0.01     0.00   0.001224  0.000000
+ consistency_other      0.00     0.00   0.000000  0.000000
+   everything_else      0.04     0.03   0.004896  0.003963
+
+################ bootstrap check: nb_boots = 20, plan = sequential, cont fixture, vi.grf.min = NULL
+          used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 2961644 158.2    5875482 313.8  5875482 313.8
+Vcells 8596648  65.6   16216178 123.8 16216178 123.8
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use: 1 workers with 'sequential' plan
+Bootstrap iteration 1/20
+Bootstrap iteration 10/20
+Bootstrap iteration 20/20
+bootstrap wall 100.4 s; per replicate 5.02 s; profiled single call 4.74 s; ratio per-rep / single = 1.059
+  bootstrap's own per-replicate search time: mean 4.86 s, median 4.95 s; iteration mean 4.87 s
+  replicates with an identified subgroup: 20 of 20
+vs the narrow-dispatch task's 4.95 s per replicate: ratio 1.015
+projection, nb_boots = 1000, sequential: 5022 s = 83.7 min (narrow-dispatch projected ~82 min)
+
+################ batch-size measurement: multisession, workers = 6; n candidates at the screen = 749
+default batch size (min(workers*2, n) = 12): wall 20.21 s, 63 future_lapply rounds; selected !{wtkg <= 84} & !{cd40 <= 320}
+batch_size = 125 (one batch per worker): wall 12.80 s, 6 future_lapply rounds; selected !{wtkg <= 84} & !{cd40 <= 320}
+
+written: dev/glm-continuous-sims/bootstrap_reprofile_2026-09-01.rds 
