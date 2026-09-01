@@ -31,8 +31,8 @@ dirout      <- NULL
 # Re-render at other precisions via the YAML params (draws, n_workers,
 # c2_ratio, seed); the archived companion
 # analysis_actg175_continuous_oc_evaluation.qmd holds the deep fixed-c2 run.
-q_rungs   <- c(0.01, 10, 20, 40, 60, 87 + 11 / 12)   # primary rungs; last = T_obs, gated below
-q_shared  <- c(0.01, 20, 40, 87 + 11 / 12)           # rungs run for each Q superset, incl. its own sub-threshold null
+q_rungs   <- c(0.01, 5, 10, 15, 20, 40, 60, 87 + 11 / 12)   # primary rungs; last = T_obs, gated below
+q_shared  <- c(0.01, 5, 10, 20, 40, 87 + 11 / 12)           # rungs run for each Q superset, incl. its own sub-threshold null
 c1_ladder <- sort(c(5, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120, 87 + 11 / 12))
 c2_vec    <- sort(unique(c(5, params$c2_ratio * c1_ladder)))
 
@@ -288,8 +288,9 @@ CD4 units — the sub-threshold-subgroup null (a true Q with zero effect
 against the beneficial background), the analyst's c1 floor, two
 intermediates, and the observed statistic.  Each superset variant runs
 q ∈ {`r paste(sapply(q_shared, qlab), collapse = ", ")`} — each superset
-carrying its own sub-threshold rung — fourteen (variant, rung) jobs in
-all.  Each job rebuilds the anchored DGM for its
+carrying its own sub-threshold rung — twenty (variant, rung) jobs in
+all, the ladder refined so every 0.05 consonance crossing is bracketed
+within five units.  Each job rebuilds the anchored DGM for its
 variant, re-enumerates the family (gated identical in size and
 orientation; the Q-referencing fields are what change), and evaluates one
 `fs_oc_grid()` — the full
@@ -716,6 +717,22 @@ knob <- do.call(rbind, lapply(names(Q_variants), function(v) {
              q50c  = cross(cal[[v]]$qs, cal[[v]]$pT5, 0.50))
 }))
 
+# report, not a gate: with rungs near the 0.05 level and MC SE ~ 0.004 a
+# calibration column can be non-monotone in q by chance, which would make
+# cross()'s first-crossing read noisy — check within 2 MC SEs and print
+cal_se <- lapply(names(Q_variants), function(v) {
+  qs <- if (v == "primary") q_rungs else q_shared
+  sapply(qs, function(qv) {
+    d <- oc[oc$variant == v, ]
+    at(d[d$q == qv, ], T_obs, params$c2_ratio * 10)$det_rate_se
+  })
+})
+names(cal_se) <- names(Q_variants)
+mono_cal <- sapply(names(Q_variants), function(v)
+  mono_ok(cal[[v]]$pT, cal_se[[v]]))
+cat("calibration column non-decreasing in q within 2 MC SEs:\n")
+print(mono_cal)
+
 qfmt <- function(x) ifelse(is.na(x), "beyond the ladder",
                     ifelse(x <= q_rungs[1], paste0("≤ ", qlab(q_rungs[1])),
                            fmt(x, 1)))
@@ -746,6 +763,8 @@ gt(data.frame(
     "and the stated c2, crosses 0.05 / 0.5, interpolated linearly at ladder ",
     "resolution with each variant's own sub-threshold null point.")))
 ```
+
+`r if (all(mono_cal)) "Each variant's calibration column is non-decreasing in q within 2 MC SEs, so the crossing reads are clean." else paste0("Note: the calibration column is non-monotone in q beyond 2 MC SEs for the ", paste(names(mono_cal)[!mono_cal], collapse = " and "), " variant(s); those crossings are first crossings of a noisy column and should be read with that in mind.")`
 
 ```{r knob-figure}
 #| fig-width: 7
@@ -876,8 +895,8 @@ gt(data.frame(truth = tail_tab$truth, p = pm(tail_tab$rate, tail_tab$se))) |>
 This is the selection-honest tail probability of the observed statistic,
 computed against the distribution of the search's own maximum, so
 multiplicity is already inside it.  The answer is a **range** — from
-`r fmt(min(tail_tab$rate), 4)` with no subgroup at all to
-`r fmt(max(tail_tab$rate), 4)` under the broad reading — that depends on
+`r fmt(tail_tab$rate[1], 4)` with no subgroup at all to
+`r fmt(tail_tab$rate[4], 4)` under the broad reading — that depends on
 how broad the truly affected population may be, and under the broad
 reading the observation is not surprising even at zero harm.  As an
 external cross-check (computed in the archived
@@ -942,14 +961,14 @@ statement.
 > `r fmt(hom_at_Tobs$det_rate, 4)` (no subgroup) to
 > `r fmt(max(det0), 3)` (a broad mildly-affected population), and the
 > harm magnitude consistent with it at the 0.05 consonance level ranges
-> from `r qfmt(knob$q05[3])` to `r qfmt(knob$q05[1])` CD4 units
-> depending on the breadth of the truly affected population, so the
-> fitted magnitude should not be quoted as an effect estimate.  A
+> from essentially zero if the affected population is the broad variant
+> to `r qfmt(knob$q05[1])` CD4 units if it is Ĥ itself, so the fitted
+> magnitude should not be quoted as an effect estimate.  A
 > prespecified confirmation in independent data — sized with the same
 > operating-characteristic machinery — is required before any clinical
 > claim.
 
-Two external facts cited above and in section 11, named as external: the
+Three external facts cited above and in section 11, named as external: the
 archived deep run's calibration values
 (`analysis_actg175_continuous_oc_evaluation`), and the ~2-subject
 E\|Ĥ\| machinery offset (the verification fixtures, section 11); the
