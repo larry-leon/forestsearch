@@ -1,0 +1,93 @@
+installed forestsearch 0.3.3 (expect 0.3.3) | git HEAD 4dbf9f26
+== GATE E-1 (fast-path fixtures) ==
+F1                     components 25/25 identical; warnings TRUE; counters TRUE
+F2                     components 25/25 identical; warnings TRUE; counters TRUE
+F3                     components 25/25 identical; warnings TRUE; counters TRUE
+== GATE E-2 (routing fixtures) ==
+F4                     components 25/25 identical; warnings TRUE; counters TRUE
+F5                     components 25/25 identical; warnings TRUE; counters TRUE
+F6                     components 25/25 identical; warnings TRUE; counters TRUE
+== GATE E-3 (edge fixtures) ==
+E1                     components 25/25 identical; warnings TRUE; counters TRUE
+E2                     components 25/25 identical; warnings TRUE; counters TRUE
+E3                     components 25/25 identical; warnings TRUE; counters TRUE
+E4                     components 25/25 identical; warnings TRUE; counters TRUE
+E5                     components 25/25 identical; warnings TRUE; counters TRUE
+E6                     components 25/25 identical; warnings TRUE; counters TRUE
+== GATE E-4 (bootstrap payload) ==
+bootstrap pruned payload identical: TRUE
+
+ALL EQUALITY GATES PASS: every retained component identical() across stages.
+
+F1       attr_on_search TRUE  fast_fit_calls  1975 slow_fit_calls     0 stats::lm   749 summary.coxph    0
+  lm callers:            eval 
+ 749 
+F2       attr_on_search FALSE fast_fit_calls     0 slow_fit_calls     0 stats::lm     0 summary.coxph    0
+F4       attr_on_search FALSE fast_fit_calls     0 slow_fit_calls  1975 stats::lm  2756 summary.coxph    0
+  lm callers:            eval 
+2756 
+F5       attr_on_search FALSE fast_fit_calls     0 slow_fit_calls     0 stats::lm     0 summary.coxph 1410
+  summary.coxph callers: eval 
+1410 
+F6       attr_on_search FALSE fast_fit_calls     0 slow_fit_calls  1975 stats::lm  1975 summary.coxph    0
+  lm callers:            eval 
+1975 
+F3       attr_on_search TRUE  fast_fit_calls  4702 slow_fit_calls     0 stats::lm     1 summary.coxph    0
+  lm callers:            eval 
+   1 
+
+F1 profiled: 1.91 s wall, 190 samples
+            bucket samples secs    share
+           medians       0 0.00 0.000000
+               grf       0 0.00 0.000000
+               fit      25 0.25 0.131579
+              cuts       0 0.00 0.000000
+       consistency     136 1.36 0.715789
+   future_overhead      22 0.22 0.115789
+      dedup_select       0 0.00 0.000000
+       enumeration       1 0.01 0.005263
+ consistency_other       0 0.00 0.000000
+   everything_else       6 0.06 0.031579
+
+F2 profiled: 7.47 s wall, 746 samples
+            bucket samples secs    share
+           medians     281 2.81 0.376676
+               grf       0 0.00 0.000000
+               fit     377 3.77 0.505362
+              cuts       0 0.00 0.000000
+       consistency      58 0.58 0.077748
+   future_overhead      26 0.26 0.034853
+      dedup_select       1 0.01 0.001340
+       enumeration       0 0.00 0.000000
+ consistency_other       0 0.00 0.000000
+   everything_else       3 0.03 0.004021
+
+---- F1 buckets: 0.3.2 (4.74 s) -> 0.3.3 (1.91 s)
+            bucket secs_032 secs_033 share_032 share_033
+           medians     0.00     0.00  0.000000  0.000000
+               grf     0.00     0.00  0.000000  0.000000
+               fit     2.93     0.25  0.619450  0.131579
+              cuts     0.00     0.00  0.000000  0.000000
+       consistency     1.40     1.36  0.295983  0.715789
+   future_overhead     0.31     0.22  0.065539  0.115789
+      dedup_select     0.01     0.00  0.002114  0.000000
+       enumeration     0.01     0.01  0.002114  0.005263
+ consistency_other     0.00     0.00  0.000000  0.000000
+   everything_else     0.07     0.06  0.014799  0.031579
+
+---- F2 buckets: 0.3.2 (7.59 s) -> 0.3.3 (7.47 s)
+            bucket secs_032 secs_033 share_032 share_033
+           medians     2.69     2.81  0.355350  0.376676
+               grf     0.00     0.00  0.000000  0.000000
+               fit     3.97     3.77  0.524439  0.505362
+              cuts     0.00     0.00  0.000000  0.000000
+       consistency     0.61     0.58  0.080581  0.077748
+   future_overhead     0.26     0.26  0.034346  0.034853
+      dedup_select     0.01     0.01  0.001321  0.001340
+       enumeration     0.00     0.00  0.000000  0.000000
+ consistency_other     0.00     0.00  0.000000  0.000000
+   everything_else     0.03     0.03  0.003963  0.004021
+
+Stage-C F1 bootstrap: wall 48.8 s, per replicate 2.441 s (0.3.2: 5.02 s); B = 1000 -> 40.7 min (0.3.2: 83.7 min)
+
+written: dev/glm-continuous-sims/fastpath_verify_2026-09-02.rds 

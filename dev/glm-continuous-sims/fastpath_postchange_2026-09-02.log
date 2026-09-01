@@ -1,0 +1,85 @@
+stage output: postchange | installed forestsearch 0.3.3 | vi.grf.min default NULL | R version 4.6.1 (2026-06-24)
+git HEAD: 4dbf9f26
+---- F1_cont
+  wall 2.29 s; selected: !{wtkg <= 84} & !{cd40 <= 320}; fits 1975 (NULL 0); screen 749; dedup 852 -> 749; warnings 0
+---- F2_surv
+  wall 7.59 s; selected: {er <= 0} & {size <= 35}; fits 1410 (NULL 0); screen 120; dedup 121 -> 120; warnings 0
+---- F3_anchor
+  wall 1.44 s; selected: {age <= 37} & !{cd40 <= 507}; fits 4702 (NULL 0); screen 1; dedup 146 -> 131; warnings 0
+---- F4_cont_adjusted
+  wall 4.98 s; selected: !{wtkg <= 84} & !{cd40 <= 320}; fits 1975 (NULL 0); screen 781; dedup 886 -> 781; warnings 0
+---- F5_surv_adjusted
+  wall 40.14 s; selected: {er <= 0} & {pgr <= 8}; fits 1410 (NULL 0); screen 110; dedup 111 -> 110; warnings 0
+---- F6_cont_iptw
+  wall 2.36 s; selected: <none>; fits 1975 (NULL 1975); screen 0; dedup NA -> NA; warnings 0
+---- E1_floor_boundary
+  wall 0.08 s; selected: {z1}; fits 3 (NULL 0); screen 2; dedup 2 -> 2; warnings 0
+---- E2_zero_variance
+  wall 0.09 s; selected: <none>; fits 3 (NULL 0); screen 1; dedup NA -> NA; warnings 0
+---- E3_rank_deficient
+  wall 0.08 s; selected: <none>; fits 4 (NULL 2); screen 0; dedup NA -> NA; warnings 0
+---- E4_heavy_ties
+  wall 0.08 s; selected: {z1}; fits 4 (NULL 0); screen 2; dedup 2 -> 2; warnings 0
+---- E5_cox_degenerate
+  wall 0.09 s; selected: !{z2}; fits 4 (NULL 0); screen 4; dedup 4 -> 4; warnings 2
+---- E6_floor_events
+  wall 0.08 s; selected: !{z1}; fits 4 (NULL 0); screen 1; dedup NA -> NA; warnings 0
+---- F1_cont_selfcheck
+  wall 2.02 s; selected: !{wtkg <= 84} & !{cd40 <= 320}; fits 1975 (NULL 0); screen 749; dedup 852 -> 749; warnings 0
+---- E1_selfcheck
+  wall 0.09 s; selected: {z1}; fits 3 (NULL 0); screen 2; dedup 2 -> 2; warnings 0
+self-consistency F1: TRUE
+self-consistency E1: TRUE
+---- bootstrap first
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use: 1 workers with 'sequential' plan
+Bootstrap iteration 1/20
+Bootstrap iteration 10/20
+Bootstrap iteration 20/20
+  wall 48.8 s; per replicate 2.44 s
+---- bootstrap selfcheck
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use: 1 workers with 'sequential' plan
+Bootstrap iteration 1/20
+Bootstrap iteration 10/20
+Bootstrap iteration 20/20
+  wall 48.0 s; per replicate 2.40 s
+self-consistency bootstrap: TRUE
+
+dropped paths (32 unique):
+boot_first$results$tmins_iteration [column]
+boot_first$results$tmins_search [column]
+boot_selfcheck$results$tmins_iteration [column]
+boot_selfcheck$results$tmins_search [column]
+E1_floor_boundary$find.grps$time_search [field]
+E1_floor_boundary$minutes_all [field]
+E1_selfcheck$find.grps$time_search [field]
+E1_selfcheck$minutes_all [field]
+E2_zero_variance$find.grps$time_search [field]
+E2_zero_variance$minutes_all [field]
+E3_rank_deficient$find.grps$time_search [field]
+E3_rank_deficient$minutes_all [field]
+E4_heavy_ties$find.grps$time_search [field]
+E4_heavy_ties$minutes_all [field]
+E5_cox_degenerate$find.grps$time_search [field]
+E5_cox_degenerate$minutes_all [field]
+E6_floor_events$find.grps$time_search [field]
+E6_floor_events$minutes_all [field]
+F1_cont_selfcheck$find.grps$time_search [field]
+F1_cont_selfcheck$minutes_all [field]
+F1_cont$find.grps$time_search [field]
+F1_cont$minutes_all [field]
+F2_surv$find.grps$time_search [field]
+F2_surv$minutes_all [field]
+F3_anchor$find.grps$time_search [field]
+F3_anchor$minutes_all [field]
+F4_cont_adjusted$find.grps$time_search [field]
+F4_cont_adjusted$minutes_all [field]
+F5_surv_adjusted$find.grps$time_search [field]
+F5_surv_adjusted$minutes_all [field]
+F6_cont_iptw$find.grps$time_search [field]
+F6_cont_iptw$minutes_all [field]
+
+written: dev/glm-continuous-sims/fastpath_postchange_2026-09-02.rds 
