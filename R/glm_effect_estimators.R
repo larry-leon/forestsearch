@@ -858,6 +858,129 @@ make_effect_estimator <- function(
 
 
 # ---------------------------------------------------------------------------
+# Unadjusted fast path (0.3.3)
+# ---------------------------------------------------------------------------
+
+#' Two-group OLS core, bit-identical to `lm()` + `coef()` + `vcov()`
+#'
+#' Fits `y ~ t` for an unadjusted, unweighted, offset-free two-group
+#' comparison via `stats::lm.fit()` on the explicit two-column model matrix,
+#' then extracts the treatment coefficient and its standard error by
+#' replicating `stats::summary.lm()` / `stats::vcov.lm()` operation for
+#' operation (R 4.6.1 sources), so the returned doubles are bit-identical to
+#' the slow chain `sqrt(diag(stats::vcov(stats::lm(...))))[[treat.name]]`:
+#'
+#'   - `rss <- sum(r^2)`; `resvar <- rss/rdf`; the "essentially perfect fit"
+#'     warning with `summary.lm()`'s exact condition and message;
+#'   - `p1 <- 1L:p`; `R <- chol2inv(Qr$qr[p1, p1, drop = FALSE])` with
+#'     `summary.lm()`'s pivot handling (`z$coefficients[Qr$pivot[p1]]` names
+#'     the rows/cols of `cov.unscaled`);
+#'   - `vcov.summary.lm()`: `sigma^2 * cov.unscaled` with
+#'     `sigma <- sqrt(resvar)` (NOT `resvar` directly -- `sqrt(x)^2` is not
+#'     `x` bitwise), expanded over aliased coefficients per
+#'     `stats:::.vcov.aliased()` (`complete = TRUE`);
+#'   - `sqrt(diag(vc))[[treat.name]]`.
+#'
+#' A rank-deficient fit (single treatment arm: `t` constant, the treatment
+#' column aliased) therefore returns `estimate = NA` and `se = NA` without
+#' error, exactly as the slow chain does.
+#'
+#' @param y Numeric vector. Outcome (already sliced, already sign-adjusted).
+#' @param t Numeric or integer vector. Treatment indicator (0/1), same length.
+#' @param treat.name Character. The treatment column name `model.matrix()`
+#'   would use, so coefficient extraction matches the slow path's
+#'   `[[treat.name]]`.
+#' @return List with `estimate` and `se` (doubles, possibly `NA`).
+#' @keywords internal
+#' @noRd
+.fs_lm_two_group <- function(y, t, treat.name) {
+  X <- cbind(1, t)
+  colnames(X) <- c("(Intercept)", treat.name)
+  z <- stats::lm.fit(X, y)
+  coef_val <- z$coefficients[[treat.name]]
+  p <- z$rank
+  rdf <- z$df.residual
+  r <- z$residuals
+  f <- z$fitted.values
+  rss <- sum(r^2)
+  resvar <- rss / rdf
+  if (is.finite(resvar) && resvar < (mean(f)^2 + stats::var(c(f))) * 1e-30)
+    warning("essentially perfect fit: summary may be unreliable")
+  p1 <- 1L:p
+  R <- chol2inv(z$qr$qr[p1, p1, drop = FALSE])
+  est_names <- names(z$coefficients[z$qr$pivot[p1]])
+  dimnames(R) <- list(est_names, est_names)
+  sigma <- sqrt(resvar)
+  aliased <- is.na(z$coefficients)
+  vc <- sigma^2 * R
+  if (NROW(vc) < (P <- length(aliased)) && any(aliased)) {
+    cn <- names(aliased)
+    VC <- matrix(NA_real_, P, P, dimnames = list(cn, cn))
+    j <- which(!aliased)
+    VC[j, j] <- vc
+    vc <- VC
+  }
+  list(estimate = coef_val, se = sqrt(diag(vc))[[treat.name]])
+}
+
+
+#' Fast unadjusted continuous (MD) estimator closure
+#'
+#' Drop-in replacement for the `.make_lm_estimator()` closure when there is
+#' no covariate adjustment, no propensity adjustment and no weighting: the
+#' routing predicate at the construction site (`forestsearch_main.R`) selects
+#' it, and every consumer of the closure (search loop, bootstrap H/Hc fits,
+#' consistency machinery, display helpers) works unchanged because the
+#' signature and the returned structure -- fields, names, types, failure
+#' behaviour -- are identical to the slow closure's, and the numbers are
+#' bit-identical (see `.fs_lm_two_group()`).
+#'
+#' @keywords internal
+#' @noRd
+.make_lm_estimator_fast <- function(treat.name, outcome.name,
+                                    adverse_outcome = TRUE, ...) {
+
+  force(treat.name)
+  force(outcome.name)
+  force(adverse_outcome)
+
+  function(data_slice) {
+    # Sign convention as in .make_lm_estimator(): negate Y when higher Y =
+    # better so that MD > 0 indicates treatment harm.
+    if (!adverse_outcome) {
+      data_slice[[outcome.name]] <- -data_slice[[outcome.name]]
+    }
+
+    n0 <- sum(data_slice[[treat.name]] == 0L, na.rm = TRUE)
+    n1 <- sum(data_slice[[treat.name]] == 1L, na.rm = TRUE)
+
+    result <- tryCatch({
+      core <- .fs_lm_two_group(data_slice[[outcome.name]],
+                               data_slice[[treat.name]], treat.name)
+      list(
+        estimate    = core$estimate,
+        se          = core$se,
+        converged   = TRUE,
+        n0          = n0,
+        n1          = n1,
+        measure     = "MD",
+        method_used = "ols"
+      )
+    },
+    error = function(e) {
+      list(
+        estimate = NA_real_, se = NA_real_, converged = FALSE,
+        n0 = n0, n1 = n1, measure = "MD",
+        method_used = "ols_failed"
+      )
+    })
+
+    result
+  }
+}
+
+
+# ---------------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------------
 

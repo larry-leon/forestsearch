@@ -614,8 +614,16 @@ evaluate_combination_with_status <- function(covs.in, yy, dd, tt, zz,
       return(list(status = 4L, result = NULL))
     }
 
-    # Status 5: Fit GLM via estimator closure
-    glm_result <- fit_glm_for_subgroup(df_clean, id.x, estimator_fn)
+    # Status 5: Fit GLM via estimator closure.  When the construction-time
+    # routing predicate tagged the closure (unadjusted continuous case), take
+    # the vector path: no per-candidate data-frame slice -- the profiled
+    # 58.7% of the fit bucket (REPORT_bootstrap_reprofile_2026-09-01.md,
+    # section 4a).  Both paths return the identical contract.
+    if (isTRUE(attr(estimator_fn, "fs_fast_unadjusted"))) {
+      glm_result <- fit_glm_for_subgroup_fast(yy, tt, id.x, estimator_fn)
+    } else {
+      glm_result <- fit_glm_for_subgroup(df_clean, id.x, estimator_fn)
+    }
     if (is.null(glm_result)) {
       return(list(status = 5L, result = NULL))
     }
@@ -742,10 +750,42 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x, df_clean = NULL,
 
   # Fit Cox model (treatment-only or adjusted)
   cox_fmla <- stats::as.formula(paste0("survival::Surv(Y, E) ~ ", rhs))
-  hr.cox <- try(
-    summary(survival::coxph(cox_fmla, data = df.x, robust = FALSE))$conf.int,
-    silent = TRUE
-  )
+  if (length(adj) == 0L) {
+    # Unadjusted fast branch (0.3.3): same coxph() fit, but the consumed
+    # $conf.int row is computed directly instead of through summary.coxph(),
+    # whose full summary table cost 40.3% of the fit bucket for one CI row
+    # (REPORT_bootstrap_reprofile_2026-09-01.md, section 4a).  The
+    # arithmetic replicates survival 3.8.9 summary.coxph() operation for
+    # operation, non-robust branch, conf.int = 0.95, scale = 1 (the
+    # `* scale` multiplications are omitted: x * 1 is exact in IEEE-754):
+    #   beta <- cox$coefficients * scale
+    #   se <- sqrt(diag(cox$var)) * scale
+    #   z <- qnorm((1 + conf.int)/2, 0, 1)
+    #   tmp <- cbind(exp(beta), exp(-beta), exp(beta - z*se), exp(beta + z*se))
+    #   dimnames(tmp) <- list(names(beta), c("exp(coef)", "exp(-coef)",
+    #     paste("lower .", round(100*conf.int, 2), sep = ""), ...))  # ".95"
+    # The try() wrapper and its NULL-on-error contract are unchanged; a
+    # degenerate fit (monotone likelihood) warns from coxph() exactly as
+    # before and produces the identical row.  The df.x assembly above is
+    # untouched: the medians computation below consumes it.
+    hr.cox <- try({
+      fit.cox <- survival::coxph(cox_fmla, data = df.x, robust = FALSE)
+      beta <- fit.cox$coefficients
+      se_beta <- sqrt(diag(fit.cox$var))
+      z_ci <- stats::qnorm((1 + 0.95) / 2, 0, 1)
+      ci <- cbind(exp(beta), exp(-beta),
+                  exp(beta - z_ci * se_beta), exp(beta + z_ci * se_beta))
+      dimnames(ci) <- list(names(beta),
+                           c("exp(coef)", "exp(-coef)",
+                             "lower .95", "upper .95"))
+      ci
+    }, silent = TRUE)
+  } else {
+    hr.cox <- try(
+      summary(survival::coxph(cox_fmla, data = df.x, robust = FALSE))$conf.int,
+      silent = TRUE
+    )
+  }
 
   if (inherits(hr.cox, "try-error")) return(NULL)
 
@@ -817,6 +857,56 @@ fit_glm_for_subgroup <- function(df_clean, id.x, estimator_fn) {
     lower = lower,
     upper = upper,
     med0  = NA_real_,        # no median survival for GLM outcomes
+    med1  = NA_real_
+  )
+}
+
+#' Fast Vector-Path GLM Fit for Subgroup
+#'
+#' Vector twin of \code{fit_glm_for_subgroup()} for the tagged unadjusted
+#' continuous closure: subsets the outcome and treatment VECTORS (no
+#' data-frame slice) and runs the bit-identical two-group OLS core
+#' \code{.fs_lm_two_group()}.  Contract identical to
+#' \code{fit_glm_for_subgroup()}: \code{NULL} when the slice has fewer than
+#' 6 rows, when the fit errors, or when the estimate is \code{NA} (the
+#' rank-deficient single-arm slice); otherwise the
+#' \code{hr/lower/upper/med0/med1} list with the same Wald CI arithmetic.
+#' The sign convention and treatment column name are read from the tagged
+#' closure's environment (\code{adverse_outcome}, \code{treat.name} are
+#' \code{force()}d there), so no signature beyond the vectors changes.
+#'
+#' @param yy,tt Numeric vectors: cleaned outcome and treatment, full length.
+#' @param id.x Integer vector. 1 = subject in this subgroup, 0 = not.
+#' @param estimator_fn The tagged fast closure (attribute
+#'   \code{fs_fast_unadjusted}).
+#' @keywords internal
+#' @noRd
+fit_glm_for_subgroup_fast <- function(yy, tt, id.x, estimator_fn) {
+  idx <- id.x == 1
+  if (sum(idx) < 6L) return(NULL)
+
+  fn_env <- environment(estimator_fn)
+  y <- yy[idx]
+  t <- tt[idx]
+  if (!isTRUE(fn_env$adverse_outcome)) y <- -y
+
+  res <- tryCatch(
+    .fs_lm_two_group(y, t, fn_env$treat.name),
+    error = function(e) NULL
+  )
+
+  if (is.null(res) || is.na(res$estimate)) return(NULL)
+
+  # Wald CI: estimate +/- 1.96 * SE (as in fit_glm_for_subgroup)
+  z_crit <- 1.96
+  lower  <- res$estimate - z_crit * res$se
+  upper  <- res$estimate + z_crit * res$se
+
+  list(
+    hr    = res$estimate,
+    lower = lower,
+    upper = upper,
+    med0  = NA_real_,
     med1  = NA_real_
   )
 }

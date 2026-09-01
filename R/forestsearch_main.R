@@ -1729,6 +1729,27 @@ forestsearch <- function(df.analysis,
       adjust_covariates = adjust_covariates
     )
 
+    # Unadjusted fast path (0.3.3): for the continuous/MD case with no
+    # regression adjustment and no propensity adjustment, swap in the
+    # bit-identical fast closure (.make_lm_estimator_fast: lm.fit + the
+    # summary.lm/vcov.lm extraction ops).  ps_adjust_method is still the
+    # unresolved formal here (possibly the length-3 default vector, whose
+    # first element is "none"); if PS adjustment later resolves active, the
+    # rebuild below (ps_adjust_resolved branch) replaces the closure with an
+    # untagged slow one, so the tag cannot leak onto a weighted path.  The
+    # attribute is the only signal that travels: the search loop routes its
+    # per-candidate fit to the vector path on it.
+    if (outcome_type == "continuous" &&
+        identical(ps_adjust_method[[1L]], "none") &&
+        length(.fs_adjust_terms(adjust_covariates)) == 0L) {
+      estimator_fn <- .make_lm_estimator_fast(
+        treat.name      = treat.name,
+        outcome.name    = outcome.name,
+        adverse_outcome = adverse_outcome
+      )
+      attr(estimator_fn, "fs_fast_unadjusted") <- TRUE
+    }
+
     # Resolve screening and consistency thresholds from effect_measure.
     #
     # The parameters hr.threshold and hr.consistency are named for the

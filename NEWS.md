@@ -1,3 +1,24 @@
+# forestsearch 0.3.3
+
+## Performance: unadjusted fast paths for the per-candidate fit
+
+* The per-candidate effect fit takes a fast path when the configuration is
+  unadjusted, routed by a construction-time predicate and verified
+  bit-identical (`identical()` on every retained result component across
+  twelve fixtures, plus a 20-replicate bootstrap payload):
+  * Continuous (MD): when there is no `adjust_covariates` and no propensity
+    adjustment, the estimator closure is the fast variant
+    (`lm.fit()` on the explicit two-column model matrix plus
+    `summary.lm()`/`vcov.lm()`'s own extraction operations), and the search
+    loop fits candidates from the outcome/treatment vectors directly -- no
+    per-candidate data-frame slice.
+  * Survival (Cox): the treatment-only branch of the per-candidate fit
+    computes the consumed `conf.int` row directly from the `coxph()` fit,
+    replicating `summary.coxph()`'s arithmetic (non-robust, 95%), instead of
+    building the full summary table.
+* Adjusted, weighted and propensity-adjusted paths are unchanged (preserved
+  verbatim as the `else` branches); binary/count outcomes are out of scope.
+
 # forestsearch 0.3.2
 
 ## Signed orientation in `fs_oc_family_enumerate()`
