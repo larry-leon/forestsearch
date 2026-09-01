@@ -87,7 +87,7 @@ mr_draws <- 5000L     # MR multiplier draws
 GH_B       <- 1000L     # Guo & He pair-bootstrap resamples
 GH_r       <- 0.03      # Guo & He tuning parameter
 GH_PARALLEL <- .Platform$OS.type == "unix"   # forked GH bootstrap where available
-run_loo    <- FALSE     # leave-one-out (N-fold) honest out-of-sample subgroup estimate
+run_loo    <- TRUE      # leave-one-out (N-fold) honest out-of-sample subgroup estimate
 timings$loo <- NA_real_
 # LOO fold-loop workers: 80% of physical cores (the same rule as n_cores above),
 # so this adapts to whichever machine renders. There is no nested parallelism to
@@ -95,7 +95,7 @@ timings$loo <- NA_real_
 # to plan = "sequential", workers = 1, so these are the ONLY workers in play.
 # Replace with a fixed integer to pin it.
 loo_workers <- n_cores
-run_cv_kfold <- FALSE    # repeated 10-fold cross-validation (stability diagnostics)
+run_cv_kfold <- TRUE     # repeated 10-fold cross-validation (stability diagnostics)
 Ksims       <- 50L      # repeated 10-fold partitions (>= 50 for production)
 timings$kfold <- NA_real_
 cat("Using", n_cores, "workers (80% of",
