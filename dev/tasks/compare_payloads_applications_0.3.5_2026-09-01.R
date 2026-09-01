@@ -29,7 +29,8 @@ OUT <- Sys.getenv("FS_COMPARE_OUT", "/tmp/fs_compare_A_2026-09-01.md")
 REPO <- "."
 
 vol_base <- c("built_at", "forestsearch_version", "time_search", "minutes_all",
-              "tmins_search", "tmins_iteration", "boot_sec", "mr_sec", "speedup")
+              "tmins_search", "tmins_iteration", "boot_sec", "mr_sec", "speedup",
+              "timing_seconds")
 vol_timing_leaves <- c("loo", "kfold", "fit", "fb", "mr", "gh")
 vol_line_rx <- paste0(
   "(second|minute|elapsed|Elapsed|completed in|workers|Workers|Batch |batch_size|",
@@ -111,8 +112,16 @@ atomic_diff <- function(a, b, path) {
       for (i in utils::head(idx, 10L)) diff_char_blob(a[i], b[i], sprintf("%s[%d]", path, i))
     } else {
       show <- utils::head(idx, 50L)
-      rec("diff", path, paste0(length(idx), " differing element(s):\n",
-          paste(sprintf("  [%d]: %s | %s", show, a[show], b[show]), collapse = "\n")))
+      lines <- paste(sprintf("  [%d]: %s | %s", show, a[show], b[show]), collapse = "\n")
+      # console text captured as a character vector: same triage as blob leaves —
+      # if every differing element (both sides) matches the volatile-line pattern,
+      # the leaf is a timing/session echo, enumerated with the lines printed
+      if (all(grepl(vol_line_rx, a[idx])) && all(grepl(vol_line_rx, b[idx]))) {
+        rec("volatile", path, paste0("console-text vector; ", length(idx),
+            " differing element(s), all volatile-pattern:\n", lines))
+      } else {
+        rec("diff", path, paste0(length(idx), " differing element(s):\n", lines))
+      }
     }
   } else {
     rec("diff", path, paste0("A: ", fmt(a, 1500), "\nB: ", fmt(b, 1500)))
@@ -171,6 +180,12 @@ cmp <- function(a, b, path, depth = 0L) {
       diff_char_blob(a, b, path); return(invisible())
     }
     atomic_diff(ua, ub, path); return(invisible())
+  }
+  if ((typeof(a) == "object" && typeof(b) == "object") || (isS4(a) && isS4(b))) {
+    # S7 (ggplot2 >= 4) and S4 objects: properties/slots live in attributes —
+    # decompose and compare those recursively rather than falling through
+    cmp(attributes(a), attributes(b), paste0(path, "@obj"), depth + 1L)
+    return(invisible())
   }
   rec("diff", path, paste0("type/class mismatch: ", typeof(a), "/", paste(class(a), collapse = ","),
                            " vs ", typeof(b), "/", paste(class(b), collapse = ","),
