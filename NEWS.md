@@ -1,3 +1,17 @@
+# forestsearch 0.3.5
+
+## Performance: unadjusted survival fits run on subset vectors
+
+* The unadjusted arm of the per-candidate Cox fit no longer builds the
+  per-candidate data frame: `coxph()` runs on three subset vectors
+  (`Y`, `E`, `Treat`) resolved from the fitting environment, with the
+  identical formula, solver, coefficient name, and 0.3.3 CI arithmetic.
+  The frame assembly is relocated verbatim into the adjusted arm -- the
+  only arm that still needs covariate columns.  A relocation plus
+  substitution verified bit-identical (`identical()` on every retained
+  result component across nine fixtures, plus a 20-replicate gbsg
+  bootstrap payload, against the committed 0.3.4 baseline).
+
 # forestsearch 0.3.4
 
 ## Performance: survival candidate medians computed only for effect-screen survivors

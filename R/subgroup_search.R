@@ -754,25 +754,9 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x, df_clean = NULL,
                                  adjust_covariates = NULL) {
 
   adj <- .fs_adjust_terms(adjust_covariates)
-
-  # Create subgroup data
-  data.x <- data.table::data.table(Y = yy, E = dd, Treat = tt, id.x = id.x)
-
-  # Attach raw adjustment columns (row-aligned with the vectors) when present
-  rhs <- "Treat"
-  if (length(adj) > 0L && !is.null(df_clean)) {
-    adj_vars <- intersect(.fs_adjust_vars(adjust_covariates), names(df_clean))
-    if (length(adj_vars) > 0L) {
-      adj_cols <- as.data.frame(df_clean)[, adj_vars, drop = FALSE]
-      data.x <- cbind(data.x, adj_cols)
-    }
-    rhs <- paste(c("Treat", adj), collapse = " + ")
-  }
-
-  df.x <- data.x[id.x == 1]
+  idx <- id.x == 1
 
   # Fit Cox model (treatment-only or adjusted)
-  cox_fmla <- stats::as.formula(paste0("survival::Surv(Y, E) ~ ", rhs))
   if (length(adj) == 0L) {
     # Unadjusted fast branch (0.3.3): same coxph() fit, but the consumed
     # $conf.int row is computed directly instead of through summary.coxph(),
@@ -789,10 +773,17 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x, df_clean = NULL,
     #     paste("lower .", round(100*conf.int, 2), sep = ""), ...))  # ".95"
     # The try() wrapper and its NULL-on-error contract are unchanged; a
     # degenerate fit (monotone likelihood) warns from coxph() exactly as
-    # before and produces the identical row.  The df.x assembly above is
-    # untouched: the coxph() fit consumes it.
+    # before and produces the identical row.  The fit runs on the three
+    # subset locals below, resolved from the function environment (0.3.5):
+    # the medians move (0.3.4) left the two coxph() calls as the frame's
+    # only consumers, so the per-candidate frame is now built only for
+    # adjusted fits.  Same values, same row order, same variable names --
+    # the coefficient is named "Treat" exactly as with the frame-based fit.
+    Y <- yy[idx]
+    E <- dd[idx]
+    Treat <- tt[idx]
     hr.cox <- try({
-      fit.cox <- survival::coxph(cox_fmla, data = df.x, robust = FALSE)
+      fit.cox <- survival::coxph(survival::Surv(Y, E) ~ Treat, robust = FALSE)
       beta <- fit.cox$coefficients
       se_beta <- sqrt(diag(fit.cox$var))
       z_ci <- stats::qnorm((1 + 0.95) / 2, 0, 1)
@@ -804,6 +795,26 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x, df_clean = NULL,
       ci
     }, silent = TRUE)
   } else {
+    # Adjusted arm: the only arm that still needs a frame (covariate
+    # columns).  The df.x assembly relocated here verbatim (0.3.5).
+
+    # Create subgroup data
+    data.x <- data.table::data.table(Y = yy, E = dd, Treat = tt, id.x = id.x)
+
+    # Attach raw adjustment columns (row-aligned with the vectors) when present
+    rhs <- "Treat"
+    if (!is.null(df_clean)) {
+      adj_vars <- intersect(.fs_adjust_vars(adjust_covariates), names(df_clean))
+      if (length(adj_vars) > 0L) {
+        adj_cols <- as.data.frame(df_clean)[, adj_vars, drop = FALSE]
+        data.x <- cbind(data.x, adj_cols)
+      }
+      rhs <- paste(c("Treat", adj), collapse = " + ")
+    }
+
+    df.x <- data.x[id.x == 1]
+
+    cox_fmla <- stats::as.formula(paste0("survival::Surv(Y, E) ~ ", rhs))
     hr.cox <- try(
       summary(survival::coxph(cox_fmla, data = df.x, robust = FALSE))$conf.int,
       silent = TRUE
