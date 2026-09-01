@@ -676,7 +676,30 @@ evaluate_combination_with_status <- function(covs.in, yy, dd, tt, zz,
     return(list(status = 6L, result = NULL))
   }
 
-  # Status 7: Passed all criteria - return result
+  # Status 7: passed all criteria.  Compute median survival for this
+  # effect-screen survivor before building the row (0.3.4): the survfit call
+  # and extraction relocated from fit_cox_for_subgroup() operation for
+  # operation, on a rebuilt frame with the same column names so the
+  # "Treat=0"/"Treat=1" strata labels (and hence the extraction) are
+  # identical.  Non-passers never produce a row, so no output surface
+  # consumed their medians -- computing them only here elides ~11.7x
+  # redundant survfit calls on the gbsg application without changing any
+  # output value (REPORT_bootstrap_reprofile_2026-09-01.md, section 4b).
+  idx <- id.x == 1
+  med_df <- data.frame(Y = yy[idx], E = dd[idx], Treat = tt[idx])
+  meds <- try(
+    summary(survival::survfit(survival::Surv(Y, E) ~ Treat, data = med_df))$table[, "median"],
+    silent = TRUE
+  )
+  # Pre-move contract, replicated: a survfit failure inside
+  # fit_cox_for_subgroup() made it return NULL, i.e. status 5 (failed
+  # model fit).
+  if (inherits(meds, "try-error")) {
+    return(list(status = 5L, result = NULL))
+  }
+  cox_result$med0 <- meds[1]
+  cox_result$med1 <- meds[2]
+
   result_row <- create_result_row(kk, covs.in, nx, event_counts, cox_result)
   return(list(status = 7L, result = result_row))
 }
@@ -767,7 +790,7 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x, df_clean = NULL,
     # The try() wrapper and its NULL-on-error contract are unchanged; a
     # degenerate fit (monotone likelihood) warns from coxph() exactly as
     # before and produces the identical row.  The df.x assembly above is
-    # untouched: the medians computation below consumes it.
+    # untouched: the coxph() fit consumes it.
     hr.cox <- try({
       fit.cox <- survival::coxph(cox_fmla, data = df.x, robust = FALSE)
       beta <- fit.cox$coefficients
@@ -797,20 +820,17 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x, df_clean = NULL,
   }
   trow <- if ("Treat" %in% rownames(hr.cox)) hr.cox["Treat", ] else hr.cox[1, ]
 
-  # Get median survival times (descriptive; treatment-only by design)
-  meds <- try(
-    summary(survival::survfit(survival::Surv(Y, E) ~ Treat, data = df.x))$table[, "median"],
-    silent = TRUE
-  )
-
-  if (inherits(meds, "try-error")) return(NULL)
-
+  # Median survival times are no longer computed here (0.3.4): the survfit
+  # call moved to the post-screen point of the per-candidate iteration in
+  # evaluate_combination_with_status(), so only effect-screen survivors pay
+  # for it.  The return contract is unchanged; med0/med1 are patched there
+  # for passing candidates before the row is built.
   list(
     hr = trow[1],
     lower = trow[3],
     upper = trow[4],
-    med0 = meds[1],
-    med1 = meds[2]
+    med0 = NA_real_,
+    med1 = NA_real_
   )
 }
 

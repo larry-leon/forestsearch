@@ -1,3 +1,20 @@
+# forestsearch 0.3.4
+
+## Performance: survival candidate medians computed only for effect-screen survivors
+
+* The per-candidate median survival computation (`survfit()` +
+  `summary.survfit()`) is relocated from inside the per-candidate Cox fit to
+  the post-screen point of the same iteration, so it runs only for
+  candidates that pass the effect screen -- the only candidates whose
+  medians reach any output surface (`hr.subgroups` consumers and display
+  tables for the selected subgroup).  A relocation of the existing
+  computation, not a change to it: verified bit-identical (`identical()` on
+  every retained result component across nine fixtures, plus a 20-replicate
+  gbsg bootstrap payload).  ~11.7x fewer `survfit` calls on the gbsg
+  application (1,410 fitted candidates vs 121 screen survivors).  Adjusted
+  and unadjusted survival arms both take the relocated path; continuous and
+  binary outcomes never computed medians and are untouched.
+
 # forestsearch 0.3.3
 
 ## Performance: unadjusted fast paths for the per-candidate fit
