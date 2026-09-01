@@ -1,0 +1,60 @@
+baseline:   pkg 0.3.3 @ ff2f9ca2
+postchange: pkg 0.3.4 @ 3921ffdd
+
+equality matrix:
+ gate                 case component identical
+  E-1                   F2    pruned      TRUE
+  E-1                   F2  warnings      TRUE
+  E-1                   F2  counters      TRUE
+  E-1                   F2   sg.harm      TRUE
+  E-1                   F5    pruned      TRUE
+  E-1                   F5  warnings      TRUE
+  E-1                   F5  counters      TRUE
+  E-1                   F5   sg.harm      TRUE
+  E-2                   F1    pruned      TRUE
+  E-2                   F1  warnings      TRUE
+  E-2                   F1  counters      TRUE
+  E-2                   F1   sg.harm      TRUE
+  E-2                   F3    pruned      TRUE
+  E-2                   F3  warnings      TRUE
+  E-2                   F3  counters      TRUE
+  E-2                   F3   sg.harm      TRUE
+  E-3                Eties    pruned      TRUE
+  E-3                Eties  warnings      TRUE
+  E-3                Eties  counters      TRUE
+  E-3                Eties   sg.harm      TRUE
+  E-3               Enamed    pruned      TRUE
+  E-3               Enamed  warnings      TRUE
+  E-3               Enamed  counters      TRUE
+  E-3               Enamed   sg.harm      TRUE
+  E-3              Efinite    pruned      TRUE
+  E-3              Efinite  warnings      TRUE
+  E-3              Efinite  counters      TRUE
+  E-3              Efinite   sg.harm      TRUE
+  E-3                Ezero    pruned      TRUE
+  E-3                Ezero  warnings      TRUE
+  E-3                Ezero  counters      TRUE
+  E-3                Ezero   sg.harm      TRUE
+  E-3               Edegen    pruned      TRUE
+  E-3               Edegen  warnings      TRUE
+  E-3               Edegen  counters      TRUE
+  E-3               Edegen   sg.harm      TRUE
+  E-4 gbsg_bootstrap_20rep    pruned      TRUE
+
+self-consistency  A: F2 TRUE, Eties TRUE, boot TRUE | C: F2 TRUE, Eties TRUE, boot TRUE
+bootstrap per-replicate: A 7.47 s -> C 5.49 s (B = 1000 projection: 124.5 -> 91.5 min)
+
+survfit dispatch counts (elision proof, section 6):
+  F2       A: n=1410 [fit_cox_for_subgroup 1410] | C: n= 121 [evaluate_combination_with_status 121]
+  F5       A: n=1410 [fit_cox_for_subgroup 1410] | C: n= 111 [evaluate_combination_with_status 111]
+  F1       A: n=   0 [] | C: n=   0 []
+  F3       A: n=   0 [] | C: n=   0 []
+  Eties    A: n=   4 [fit_cox_for_subgroup 4] | C: n=   2 [evaluate_combination_with_status 2]
+  Enamed   A: n=   5 [fit_cox_for_subgroup 5] | C: n=   3 [evaluate_combination_with_status 3]
+  Efinite  A: n=1410 [fit_cox_for_subgroup 1410] | C: n= 121 [evaluate_combination_with_status 121]
+  Ezero    A: n=   4 [fit_cox_for_subgroup 4] | C: n=   0 []
+  Edegen   A: n=   4 [fit_cox_for_subgroup 4] | C: n=   4 [evaluate_combination_with_status 4]
+
+walls (s): F2 8.10->5.38 | F5 40.42->38.14 | F1 1.98->1.98 | F3 1.47->1.65 | Eties 0.08->0.07 | Enamed 0.10->0.10 | Efinite 7.90->4.91 | Ezero 0.07->0.06 | Edegen 0.09->0.09
+
+ALL EQUALITY GATES PASS

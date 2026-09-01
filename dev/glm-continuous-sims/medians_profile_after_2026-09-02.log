@@ -1,0 +1,68 @@
+stage: postchange (after) | installed forestsearch 0.3.4 | R version 4.6.1 (2026-06-24)
+git HEAD: 3921ffdd
+          used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 2162118 115.5    4188130 223.7  3000602 160.3
+Vcells 3672161  28.1    8388608  64.0  5681968  43.4
+warm-up call: 5.16 s wall; selected: {er <= 0} & {size <= 35}
+          used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 2461051 131.5    4188130 223.7  4188130 223.7
+Vcells 4804877  36.7   10146532  77.5 10146089  77.5
+profiled call: 4.82 s wall; 481 samples x 0.010 s = 4.81 s sampled (99.8% of wall)
+bucket table (share of sampled time):
+            bucket samples secs   share
+           medians      22 0.22 0.04574
+               grf       0 0.00 0.00000
+               fit     369 3.69 0.76715
+              cuts       0 0.00 0.00000
+       consistency      58 0.58 0.12058
+   future_overhead      26 0.26 0.05405
+      dedup_select       0 0.00 0.00000
+       enumeration       0 0.00 0.00000
+ consistency_other       0 0.00 0.00000
+   everything_else       6 0.06 0.01247
+top 20 by SELF time:
+                  self.time self.pct total.time total.pct
+"survival::coxph"      0.16     3.33       2.52     52.39
+"order"                0.14     2.91       0.31      6.44
+"coxph.fit"            0.13     2.70       0.26      5.41
+"sys.calls"            0.13     2.70       0.13      2.70
+"vapply"               0.10     2.08       0.34      7.07
+"copy"                 0.10     2.08       0.12      2.49
+"docount"              0.09     1.87       0.48      9.98
+"deparse"              0.09     1.87       0.22      4.57
+"[.Surv"               0.09     1.87       0.18      3.74
+"forderv"              0.09     1.87       0.10      2.08
+"NextMethod"           0.09     1.87       0.09      1.87
+"FUN"                  0.08     1.66       4.16     86.49
+"paste"                0.08     1.66       0.23      4.78
+"[["                   0.08     1.66       0.21      4.37
+"setalloccol"          0.08     1.66       0.12      2.49
+".shallow"             0.08     1.66       0.08      1.66
+"[.data.table"         0.07     1.46       1.09     22.66
+"unique"               0.07     1.46       0.17      3.53
+"survival::Surv"       0.07     1.46       0.10      2.08
+"sort.int"             0.06     1.25       0.25      5.20
+top 20 by TOTAL time:
+                                       total.time total.pct self.time self.pct
+"<Anonymous>"                                4.81    100.00      0.05     1.04
+"do.call"                                    4.81    100.00      0.01     0.21
+"doTryCatch"                                 4.79     99.58      0.03     0.62
+"tryCatch"                                   4.79     99.58      0.01     0.21
+"tryCatchList"                               4.79     99.58      0.00     0.00
+"tryCatchOne"                                4.79     99.58      0.00     0.00
+"withCallingHandlers"                        4.31     89.60      0.02     0.42
+"lapply"                                     4.18     86.90      0.05     1.04
+"eval"                                       4.17     86.69      0.05     1.04
+"future_xapply"                              4.17     86.69      0.00     0.00
+"future.apply::future_lapply"                4.17     86.69      0.00     0.00
+"search_combinations_parallel"               4.17     86.69      0.00     0.00
+"FUN"                                        4.16     86.49      0.08     1.66
+"eval.parent"                                4.14     86.07      0.00     0.00
+"evalFuture"                                 4.14     86.07      0.00     0.00
+"evalFutureInternal"                         4.14     86.07      0.00     0.00
+"future"                                     4.14     86.07      0.00     0.00
+"launchFuture.SequentialFutureBackend"       4.14     86.07      0.00     0.00
+"launchFuture"                               4.14     86.07      0.00     0.00
+"local"                                      4.14     86.07      0.00     0.00
+
+written: dev/glm-continuous-sims/medians_profile_F2_after_2026-09-02.Rprof 
