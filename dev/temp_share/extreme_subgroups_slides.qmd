@@ -70,11 +70,9 @@ library(dplyr)
 library(patchwork)
 theme_set(theme_minimal(base_size = 10))
 
-# Source the standalone utilities file (must be in same directory)
-# Provides: summarize_extreme_sims(), plot_hr_forest(), plot_ub_forest(),
-#           save_sim_results(), load_sim_results(), compare_extreme_sims(),
-#           forest_fig_height()
-source("summarize_extreme_sims.R")
+# All simulation, summary, and figure machinery now comes from the
+# forestsearch package wrappers (run_subgroup_sims(), summary(), plot(),
+# forest_height()) -- the standalone sidecar script is no longer used.
 ```
 
 
@@ -91,12 +89,19 @@ source("summarize_extreme_sims.R")
 
 loaded_from_rds <- FALSE
 if (!is.null(results_rds) && file.exists(results_rds)) {
-  saved <- load_sim_results(results_rds)
-  sim_hrs <- saved$sim_hrs; sim_ubs <- saved$sim_ubs
-  sim_ns  <- saved$sim_ns;  subgroups <- saved$subgroups
-  n_sims_null <- saved$n_sims
-  if (!is.null(saved$hr_true)) hr_true <- saved$hr_true
-  loaded_from_rds <- TRUE; rm(saved)
+  # Payload round-trip: the runner's return object IS the on-disk
+  # format, shared with the HTML vignettes' results/*.rds payloads.
+  # A legacy sidecar-era file (same matrices, no design label) is
+  # upgraded in place.
+  sims_uniform <- readRDS(results_rds)
+  stopifnot(all(c("sim_hrs", "sim_ubs", "sim_ns", "subgroups",
+                  "n_sims") %in% names(sims_uniform)))
+  if (is.null(sims_uniform$design)) sims_uniform$design <- "resample"
+  class(sims_uniform) <- c("subgroup_sims", "list")
+  subgroups   <- sims_uniform$subgroups
+  n_sims_null <- sims_uniform$n_sims
+  if (!is.null(sims_uniform$hr_true)) hr_true <- sims_uniform$hr_true
+  loaded_from_rds <- TRUE
 }
 
 if (!loaded_from_rds) {
@@ -181,51 +186,38 @@ if (!loaded_from_rds) {
     list(id="random20==1", name="random20", grp="Random (N~20)"),
     list(id="random15==1", name="random15", grp="Random (N~15)"))
 
-  cox_sR <- function(data) {
-    fit <- tryCatch(
-      coxph(Surv(y_sim, event_sim) ~ treat_sim + strata(grade), data = data),
-      error = function(e) NULL)
-    if (is.null(fit) || nrow(summary(fit)$conf.int) == 0)
-      return(c(NA_real_, NA_real_))
-    ci <- summary(fit)$conf.int[1, ]
-    c(ci["exp(coef)"], ci["upper .95"])
-  }
+  # Scalar cut-points, bundled for the runner (formerly injected as
+  # per-trial columns by the inline loop)
+  cut_points <- list(age_med = age_med, size_med = size_med,
+                      nodes_q3 = nodes_q3, pgr_med = pgr_med,
+                      er_cut = er_cut)
 
-  sg_names <- sapply(subgroups, `[[`, "name")
-  sg_ids <- sapply(subgroups, `[[`, "id")
-  n_sg <- length(subgroups)
-  sim_hrs <- matrix(NA_real_, n_sims_null, n_sg, dimnames=list(NULL, sg_names))
-  sim_ubs <- matrix(NA_real_, n_sims_null, n_sg, dimnames=list(NULL, sg_names))
-  sim_ns  <- matrix(NA_real_, n_sims_null, n_sg, dimnames=list(NULL, sg_names))
+  # Per-subgroup fit: identical to the former inline cox_sR()
+  fit_uniform <- subgroup_cox(
+    Surv(y_sim, event_sim) ~ treat_sim + strata(grade)
+  )
 
-  for (ss in seq_len(n_sims_null)) {
-    df_s <- simulate_from_dgm(dgm=dgm_null, n=nrow(gbsg),
-      analysis_time=84, max_entry=24,
-      cens_adjust=cal_null$cens_adjust, seed=ss)
-    df_s$flag_itt <- 1L
-    df_s$age_med <- age_med; df_s$size_med <- size_med
-    df_s$nodes_q3 <- nodes_q3; df_s$pgr_med <- pgr_med; df_s$er_cut <- er_cut
-    set.seed(ss + 1e6L)
-    n_s <- nrow(df_s)
-    r_idx <- sample.int(n_s, min(60L, n_s), replace=FALSE)
-    df_s$random60 <- as.integer(seq_len(n_s) %in% r_idx)
-    df_s$random40 <- as.integer(seq_len(n_s) %in% r_idx[seq_len(min(40,length(r_idx)))])
-    df_s$random20 <- as.integer(seq_len(n_s) %in% r_idx[seq_len(min(20,length(r_idx)))])
-    df_s$random15 <- as.integer(seq_len(n_s) %in% r_idx[seq_len(min(15,length(r_idx)))])
-    for (gg in seq_len(n_sg)) {
-      df_sg <- tryCatch(subset(df_s, eval(parse(text=sg_ids[[gg]]))),
-                        error=function(e) NULL)
-      if (is.null(df_sg) || nrow(df_sg) < 5) next
-      sim_ns[ss,gg] <- nrow(df_sg)
-      r <- cox_sR(df_sg)
-      sim_hrs[ss,gg] <- r[1]; sim_ubs[ss,gg] <- r[2]
-    }
-  }
+  # One call replaces the former sequential loop.  Per-iteration seeding
+  # (seed_base + ss for the trial draw; + 1e6 for benchmark membership)
+  # reproduces that loop bit-identically -- dev/accept_slides_bitident.R
+  # verifies -- on any worker count; workers = NULL uses (or creates) a
+  # multisession plan.
+  sims_uniform <- run_subgroup_sims(
+    dgm           = dgm_null,
+    subgroups     = subgroups,
+    n_sims        = n_sims_null,
+    fit           = fit_uniform,
+    baseline      = "resample",
+    n             = nrow(gbsg),
+    analysis_time = 84,
+    max_entry     = 24,
+    cens_adjust   = cal_null$cens_adjust,
+    cutpoints     = cut_points,
+    workers       = NULL,
+    hr_true       = hr_true
+  )
 
-  if (!is.null(results_rds))
-    save_sim_results(sim_hrs, sim_ubs, sim_ns, subgroups,
-                     file=results_rds, hr_true=hr_true,
-                     metadata=list(dgm_seed=99, cens_adjust=cal_null$cens_adjust))
+  if (!is.null(results_rds)) saveRDS(sims_uniform, results_rds)
 }
 ```
 
@@ -233,14 +225,13 @@ if (!loaded_from_rds) {
 ```{r compute-summaries}
 #| include: false
 
-# One call produces everything for tables and plots.
-S <- summarize_extreme_sims(sim_hrs, sim_ubs, sim_ns, subgroups,
-                             hr_true = hr_true)
+# summary() is the package-level source of every table/panel statistic
+# (the tail metrics are framed as Pr(UB>=2) / Pr(UB>=3) and the
+# unconditional median mUB).
+S <- summary(sims_uniform, hr_true = hr_true)
 
-fh_ub_single <- forest_fig_height(S, "single", "ub", fp_row_height, fp_overhead_in)
-fh_ub_combo  <- forest_fig_height(S, "combo",  "ub", fp_row_height, fp_overhead_in)
-fh_hr_single <- forest_fig_height(S, "single", "hr", fp_row_height, fp_overhead_in)
-fh_hr_combo  <- forest_fig_height(S, "combo",  "hr", fp_row_height, fp_overhead_in)
+fh_single <- forest_height(S, "single", fp_row_height, fp_overhead_in)
+fh_combo  <- forest_height(S, "combo",  fp_row_height, fp_overhead_in)
 ```
 
 
@@ -400,6 +391,8 @@ knitr::include_graphics("sim_flow_part1.pdf")
 
 ## Workflow: Simulation Loop & Results
 ```{r flow-diagram-part2-create, eval=FALSE}
+# NOTE: the committed sim_flow_part2.pdf predates the wrapper-era label
+# updates below; re-run this chunk (DiagrammeR toolchain) to refresh it.
 g2 <- grViz('
 digraph part2 {
   graph [rankdir = TB, fontname = Helvetica, fontsize = 14,
@@ -424,7 +417,7 @@ digraph part2 {
   ]
 
   Results [
-    label     = "Results — Empirical CI Distributions\\n\\nMedian HR + 1st–99th percentile ECI\\nPr(UB ≥ 1.0)  |  Med UB | UB ≥ 1\\n\\nECI width driven entirely by subgroup N",
+    label     = "Results — Empirical CI Distributions\\n\\nMedian HR + 1st–99th percentile ECI\\nPr(UB ≥ 2)  |  Pr(UB ≥ 3)  |  mUB\\n\\nECI width driven entirely by subgroup N",
     shape     = rectangle,
     style     = "filled,rounded",
     fillcolor = "#e8f8f5",
@@ -443,8 +436,8 @@ digraph part2 {
   { rank = same; Results; Plots }
 
   PartIII -> PartIV  [label = " repeat × 5,000"]
-  PartIV  -> Results [label = " summarize_extreme_sims()"]
-  Results -> Plots   [label = " plot_ub_forest()"]
+  PartIV  -> Results [label = " summary()"]
+  Results -> Plots   [label = " plot(S, ...)"]
 
   # Loop arrow
   PartIV -> PartIII  [label = "next trial ",
@@ -756,8 +749,8 @@ Size $\times$ Nodes & Large/Node-pos, \ldots \\
 \begin{block}{Upper confidence bound UB(HR)}
 \begin{itemize}\small
 \item Upper end of the Cox 95\% CI
-\item $\Pr(\text{UB} < 1.0)$: power to show benefit
-\item Med UB $|$ UB$\ge$1: worst-case for the safety reviewer
+\item $\Pr(\text{UB} \ge 2)$, $\Pr(\text{UB} \ge 3)$: tail-risk rates a reviewer would flag
+\item mUB: median upper bound --- the typical worst case per subgroup
 \end{itemize}
 \end{block}
 :::
@@ -777,8 +770,8 @@ cat(sprintf("- Subgroup sizes range from $N \\approx 15$ (random15) to $N \\appr
 
 \begin{alertblock}{Re-use with new results}
 \footnotesize
-\texttt{res <- load\_sim\_results("new\_file.rds")}\\
-\texttt{S <- summarize\_extreme\_sims(res\$sim\_hrs, res\$sim\_ubs, res\$sim\_ns, res\$subgroups)}\\
+\texttt{res <- readRDS("new\_file.rds")}\\
+\texttt{S~~~<- summary(res, hr\_true = 0.70)}\\
 All downstream tables and plots update automatically.
 \end{alertblock}
 
@@ -789,12 +782,12 @@ All downstream tables and plots update automatically.
 
 ```{r hr-forest-single}
 #| fig.width: 10
-#| fig.height: !expr fh_hr_single
+#| fig.height: !expr fh_single
 #| fig.cap: "HR distribution — single-variable subgroups. True HR = 0.70 (red dashed)."
 #| out.height: "85%"
-plot_hr_forest(S, panel = "single",
-               base_size = fp_base_size, point_size = fp_point_size,
-               line_size = fp_line_size)
+plot(S, metric = "hr", panel = "single",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
 ```
 
 
@@ -802,12 +795,12 @@ plot_hr_forest(S, panel = "single",
 
 ```{r hr-forest-combo}
 #| fig.width: 10
-#| fig.height: !expr fh_hr_combo
+#| fig.height: !expr fh_combo
 #| fig.cap: "HR distribution — combination and random-benchmark subgroups."
 #| out.height: "85%"
-plot_hr_forest(S, panel = "combo",
-               base_size = fp_base_size, point_size = fp_point_size,
-               line_size = fp_line_size)
+plot(S, metric = "hr", panel = "combo",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
 ```
 
 
@@ -815,12 +808,12 @@ plot_hr_forest(S, panel = "combo",
 
 ```{r ub-forest-single}
 #| fig.width: 10
-#| fig.height: !expr fh_ub_single
+#| fig.height: !expr fh_single
 #| fig.cap: "UB(HR) — single-variable subgroups. Dotted: UB=1.0; Dashed: true HR=0.70."
 #| out.height: "82%"
-plot_ub_forest(S, panel = "single",
-               base_size = fp_base_size, point_size = fp_point_size,
-               line_size = fp_line_size)
+plot(S, metric = "ub", panel = "single",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
 ```
 
 
@@ -828,12 +821,12 @@ plot_ub_forest(S, panel = "single",
 
 ```{r ub-forest-combo}
 #| fig.width: 10
-#| fig.height: !expr fh_ub_combo
+#| fig.height: !expr fh_combo
 #| fig.cap: "UB(HR) — combination and random-benchmark subgroups."
 #| out.height: "82%"
-plot_ub_forest(S, panel = "combo",
-               base_size = fp_base_size, point_size = fp_point_size,
-               line_size = fp_line_size)
+plot(S, metric = "ub", panel = "combo",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
 ```
 
 
@@ -967,30 +960,27 @@ random15 & $>5.0$ \\
 #| echo: true
 #| eval: false
 
-source("summarize_extreme_sims.R")
+library(forestsearch)
 
-# ── Option A: Load existing results ─────────────────────────────
-res <- load_sim_results("results/extreme_sims_5000.rds")
+# ── Option A: Load existing results (payload format) ─────────────
+res <- readRDS("results/extreme_sims_5000.rds")
 
-# ── Option B: After running a new simulation loop ────────────────
-save_sim_results(sim_hrs, sim_ubs, sim_ns, subgroups,
-                 file = "results/extreme_sims_new.rds",
-                 hr_true = 0.70,
-                 metadata = list(dgm_seed = 99, n_per_trial = 686))
+# ── Option B: After a fresh run ──────────────────────────────────
+# run_subgroup_sims() returns the payload object directly:
+saveRDS(sims_uniform, "results/extreme_sims_new.rds")
 
 # ── Summarize (works with either option) ─────────────────────────
-S <- summarize_extreme_sims(res$sim_hrs, res$sim_ubs,
-                             res$sim_ns, res$subgroups)
+S <- summary(res, hr_true = 0.70)
 
 # ── All plots driven by S ────────────────────────────────────────
-plot_hr_forest(S, panel = "single")
-plot_hr_forest(S, panel = "combo")
-plot_ub_forest(S, panel = "single")   # <-- ub-forest-single
-plot_ub_forest(S, panel = "combo")    # <-- ub-forest-combo
+plot(S, metric = "hr", panel = "single")
+plot(S, metric = "hr", panel = "combo")
+plot(S, metric = "ub", panel = "single")   # <-- ub-forest-single
+plot(S, metric = "ub", panel = "combo")    # <-- ub-forest-combo
 ```
 
 
-## `summarize_extreme_sims()` API
+## `summary()` Fields
 
 \footnotesize
 
@@ -999,14 +989,14 @@ plot_ub_forest(S, panel = "combo")    # <-- ub-forest-combo
 \textbf{Field} & \textbf{Description} \\
 \midrule
 \texttt{hr\_q}, \texttt{ub\_q} & Quantile matrices [\texttt{n\_sg} $\times$ 3]: 1st, median, 99th \\
-\texttt{mean\_n} & Mean subgroup $N$ across simulations \\
-\texttt{pr\_ub\_lt1}, \texttt{pr\_ub\_ge1} & Power / failure rate per subgroup \\
-\texttt{cond\_ub} & Conditional UB quantiles given UB $\ge$ 1 \\
+\texttt{mean\_n}, \texttt{n\_per\_trial} & Mean subgroup $N$; per-trial N (footnotes) \\
+\texttt{pr\_hr\_lt050}, \texttt{pr\_hr\_gt1} & HR tail probabilities per subgroup \\
+\texttt{pr\_ub\_ge2}, \texttt{pr\_ub\_ge3} & UB tail-risk rates per subgroup \\
 \texttt{results\_tbl} & Formatted \texttt{data.frame} for printing \\
 \texttt{ok}, \texttt{ok\_ub} & Logical: valid subgroups \\
 \texttt{idx\_hr\_single}, \texttt{idx\_ub\_combo}, \ldots & Index vectors for forest panels \\
-\texttt{cat\_ok}, \texttt{cat\_cols} & Category labels and colour map \\
-\texttt{lab\_cmed\_ub} & Pre-formatted conditional median labels \\
+\texttt{cat}, \texttt{cat\_cols} & Category labels and colour map \\
+\texttt{highrisk} & High-risk panel: threshold, membership, ordering \\
 \bottomrule
 \end{tabular}
 
@@ -1019,15 +1009,15 @@ plot_ub_forest(S, panel = "combo")    # <-- ub-forest-combo
 #| echo: true
 #| eval: false
 
-S_old <- summarize_extreme_sims(...)   # e.g. n_sims = 1000
-S_new <- summarize_extreme_sims(...)   # e.g. n_sims = 5000
+res_1k <- readRDS("results/extreme_sims_1000.rds")   # payload objects
+res_5k <- readRDS("results/extreme_sims_5000.rds")
 
-comp <- compare_extreme_sims(S_old, S_new,
-                              metric = "both",
-                              label1 = "1000 sims",
-                              label2 = "5000 sims")
-print(comp, row.names = FALSE)
-# Subgroup | N | MedHR | Delta_MedHR | PrUBge1 | Delta_PrUBge1 | MedUBcond
+cmp <- compare_subgroup_sims(res_1k, res_5k,
+                             suffixes = c("_1k", "_5k"))
+head(cmp[, c("subgroup", "N_1k", "N_5k", "ub2_1k", "ub2_5k",
+             "mHR_1k", "mHR_5k")])
+# Same function the fixed-vs-random design-comparison memo uses
+# (expect_designs = c("resample", "fixed") guards that pairing).
 ```
 
 Useful for verifying convergence, comparing DGM variants, or assessing
@@ -1043,17 +1033,14 @@ sensitivity to censoring calibration.
 #| eval: false
 
 # ── Optimal figure height ────────────────────────────────────────
-fh <- forest_fig_height(S, panel = "combo", type = "ub",
-                         row_height = 0.45, overhead = 1.5)
+fh <- forest_height(S, panel = "combo",
+                    row_height = 0.45, overhead = 1.5)
 
-# ── Save / load round-trip ───────────────────────────────────────
-save_sim_results(sim_hrs, sim_ubs, sim_ns, subgroups,
-                 file = "results/my_run.rds", hr_true = 0.70,
-                 metadata = list(cens_adjust = 0.42))
-
-res <- load_sim_results("results/my_run.rds")
-# prints: Loaded: ... (5000 sims x 56 subgroups, saved ...)
+# ── Save / load round-trip (payload format) ──────────────────────
+saveRDS(sims_uniform, "results/my_run.rds")
+res <- readRDS("results/my_run.rds")   # class "subgroup_sims" intact
+print(res)  # design, n_sims, subgroups, fit, provenance
 
 # ── Print method ──────────────────────────────────────────────────
-print(S)   # shows n_sims, n_sg, hr_true, then results_tbl
+print(S)   # header (design | n_sims | true HR), then results_tbl
 ```
