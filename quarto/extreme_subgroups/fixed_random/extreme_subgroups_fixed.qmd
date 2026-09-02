@@ -161,6 +161,49 @@ The vignette is organised as a complete, self-contained workflow:
 All examples use the GBSG breast cancer dataset (`survival::gbsg`).
 
 
+## Simulation Workflow at a Glance
+
+The full pipeline has two halves.  **Build & calibrate** turns the
+observed GBSG data into a uniform-effect DGM whose censoring matches the
+source; **simulate & analyze** draws trials from it, applies the
+pre-specified analysis in every subgroup, and summarizes the resulting
+sampling distributions.
+
+```{mermaid}
+%%| fig-cap: "Part I-II: build the uniform-effect DGM and calibrate censoring."
+flowchart LR
+  A["GBSG source data<br/>N = 686, time in months"]
+    --> B["generate_aft_dgm_flex()<br/>Weibull AFT + censoring model<br/>super-population N = 5,000"]
+  B --> C["calibrate_k_treat()<br/>target AHR = 0.70"]
+  C --> D["check_censoring_dgm()<br/>pilot diagnostics"]
+  D --> E{"censoring matches<br/>source data?"}
+  E -- no --> F["calibrate_cens_adjust()<br/>uniroot on cens_adjust"]
+  F --> D
+  E -- yes --> G["calibrated DGM<br/>baseline = fixed"]
+```
+
+```{mermaid}
+%%| fig-cap: "Part III-IV: simulate trials, analyze every subgroup, summarize."
+flowchart LR
+  G["calibrated DGM"] -->
+    H["run_subgroup_sims()<br/>n_sims trials x 56 subgroups<br/>fit_uniform in each"]
+  H --> I["sims_uniform<br/>sim_hrs / sim_ubs / sim_ns"]
+  I --> J["summary()<br/>ECI quantiles, tail probabilities,<br/>panel membership"]
+  J --> K["plot() forest panels<br/>heights via forest_height()"]
+  I --> L["saveRDS() payload<br/>consumed by the<br/>design-comparison memo"]
+```
+
+| Step | Function | Purpose |
+|---|---|---|
+| 1 | — | Convert source data to the DGM time scale (months) |
+| 2 | `generate_aft_dgm_flex()` | Fit Weibull AFT; build the super-population |
+| 3 | `calibrate_k_treat()` | Set the treatment effect so AHR = 0.70 exactly |
+| 4 | `check_censoring_dgm()` / `calibrate_cens_adjust()` | Match simulated censoring to the source |
+| 5 | `run_subgroup_sims()` | Draw trials; fit `fit_uniform` in all 56 subgroups |
+| 6 | `summary()` | Every table/panel statistic from the raw matrices |
+| 7 | `plot()` + `forest_height()` | HR / UB(HR) forest panels |
+| 8 | `saveRDS()` | Persist the payload for the fixed-vs-random memo |
+
 ## Example of Subgroups Under Study 
 
 For the study under question, the subgroups and features (size, events, etc) 
@@ -1257,6 +1300,23 @@ cat(sprintf(
 ))
 ```
 
+`fit_uniform` below is the **analysis approach** — chosen to match the
+analysis used at the data-analysis stage (here, a Cox model stratified
+by `grade`).  It is *not* the data-generating model, and it does not
+have to be: every simulated trial comes exclusively from
+`simulate_from_dgm()` under the Weibull-AFT DGM built in Part I, in
+which `grade` enters as a covariate, and `fit_uniform` only ever
+receives data that already exist.  The practical consequence concerns
+the **estimand**, not the trials: the grade-stratified, otherwise
+unadjusted Cox targets a grade-conditional treatment effect, marginal
+over the remaining covariates — numerically distinct from both the
+fully conditional and the fully marginal HR under Cox
+non-collapsibility (see the `k_treat` calibration note in Part I).
+Swapping `fit` — an unstratified Cox, a covariate-adjusted one —
+changes which estimator's sampling distribution the study
+characterizes, while the simulated trials remain bit-for-bit
+identical.
+
 ```{r sim-helpers}
 # ── Per-subgroup analysis function ────────────────────────────────────────
 # subgroup_cox() builds the analysis function applied inside every
@@ -1270,6 +1330,9 @@ cat(sprintf(
 # document's original loop by dev/accept_phase1_bitident.R.  Swap the
 # formula, or pass any function(data) returning c(estimate, upper), for
 # sensitivity analyses without touching the simulation machinery.
+# NOTE: this is the ANALYSIS model (the estimator under study), matched
+# to the data-analysis stage; it plays no role in generating the data
+# and need not equal the DGM -- see the paragraph above.
 fit_uniform <- subgroup_cox(
   Surv(y_sim, event_sim) ~ treat_sim + strata(grade)
 )
@@ -1317,13 +1380,35 @@ cat("Simulations completed:", n_sims_uniform,
 
 ### Persisting the payload (optional)
 
-When `save_payload = TRUE` (see the run controls in the setup chunk for
-the on/off knob, directory, and naming conventions) the chunk below
-writes the raw simulation matrices plus run metadata to a single RDS
-file.  This is what the companion memo
-`extreme_subgroups_design_comparison.qmd` consumes to recompute the
-fixed-vs-random design comparison from raw results.  With
+The payload requires no assembly step: **the runner's return object is
+the on-disk format**, so persistence is a single `saveRDS()`.  The
+knobs (`save_payload`, `payload_dir`, `payload_file`, all overridable
+with `-P` at render time) are documented in the run controls at the top
+of this file; recall that `payload_dir` must already exist — the render
+stops in seconds rather than discovering an unmounted drive after the
+simulation loop.  The default file name encodes design and size
+(`extreme_sims_fixed_`\ `r n_sims_uniform`\ `_payload.rds`), so smoke
+runs and full runs never overwrite each other.  With
 `save_payload = FALSE` the chunk is a no-op and nothing touches disk.
+
+One RDS file carries everything a consumer needs:
+
+| Field | Contents |
+|---|---|
+| `design`, `n_sims` | `"fixed"` here; the trial count of this run |
+| `sim_hrs`, `sim_ubs`, `sim_ns` | `n_sims` × 56 matrices; columns named by subgroup |
+| `subgroups` | the 56 definitions (`id` / `name` / `grp`) |
+| `sim_config` | baseline, per-trial N, `analysis_time` / `max_entry`, the seed scheme (`seed_base`, `rand_seed_offset`), `min_n`, the benchmark spec, workers / `plan_reused`, loop timings, and the deparsed fit formula |
+| `cens_adjust`, `k_treat`, `hr_true` | calibration provenance |
+| `created`, `r_version`, `forestsearch_version` | reproducibility stamp |
+
+Consumers: `readRDS()` returns the classed `"subgroup_sims"` object, so
+`summary()` and `plot()` apply directly; the companion memo
+`extreme_subgroups_design_comparison.qmd` loads this payload and the
+random-X one and hands both to `compare_subgroup_sims()`.  The field
+names and matrix layout are byte-compatible with the pre-wrapper
+hand-built payloads (the class attribute and the richer `sim_config`
+are additive), so older files and older consumers interoperate.
 
 ```{r save-payload}
 if (isTRUE(save_payload)) {
@@ -1338,6 +1423,21 @@ if (isTRUE(save_payload)) {
 } else {
   cat("Payload persistence disabled (save_payload = FALSE); nothing written.\n")
 }
+```
+
+```{r reload-example}
+#| echo: true
+#| eval: false
+
+# Reloading later -- the object round-trips with its class intact:
+res <- readRDS(payload_path)
+print(res)                        # design | n_sims | subgroups | fit | stamp
+S   <- summary(res, hr_true = 0.70)
+plot(S, metric = "ub", panel = "combo")
+
+# Pairing with the random-X payload, as the design-comparison memo does:
+# cmp <- compare_subgroup_sims(readRDS("<resample payload>"), res,
+#                              expect_designs = c("resample", "fixed"))
 ```
 
 ---
