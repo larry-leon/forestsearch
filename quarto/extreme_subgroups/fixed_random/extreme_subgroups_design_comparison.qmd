@@ -17,6 +17,11 @@ execute:
   echo: false
   warning: false
   message: false
+params:
+  use_payloads: null
+  payload_dir: null
+  payload_random: null
+  payload_fixed: null
 ---
 
 ```{r setup}
@@ -25,19 +30,118 @@ library(gt)
 library(dplyr)
 
 # =========================================================================
-# Source of the numbers below
+# SOURCE-OF-NUMBERS KNOB -- live payloads vs embedded static transcription
 # =========================================================================
-# Both quantities were extracted from the Section 6.6.1 summary tables of
-# the two rendered vignettes (10,000 simulated trials each, same DGM,
-# super-population seed 99, AHR-calibrated true HR = 0.70):
+# use_payloads = TRUE (default) -> load the two RDS payloads written by
+#     the companion vignettes with save_payload = TRUE
+#     (extreme_subgroups.qmd -> design "resample";
+#      extreme_subgroups_fixed.qmd -> design "fixed") and RECOMPUTE every
+#     number in this memo from the raw simulation matrices.  If either
+#     file is missing the render STOPS with fix-it instructions -- there
+#     is no silent fallback to stale numbers.
+# use_payloads = FALSE -> render entirely from the static `cmp` frame
+#     embedded below (transcribed from the original 10,000-simulation
+#     reference renders).  Zero external dependencies.
 #
-#   random-X : extreme_subgroups.html        (baseline = "resample")
-#   fixed-X  : extreme_subgroups_fixed.html  (baseline = "fixed")
+# Override at render time without editing this file:
+#   quarto render extreme_subgroups_design_comparison.qmd -P use_payloads:false
+#   quarto render extreme_subgroups_design_comparison.qmd \
+#     -P payload_random:results/extreme_sims_resample_50_payload.rds \
+#     -P payload_fixed:results/extreme_sims_fixed_50_payload.rds
 #
-# This document is a static comparison memo.  If the vignettes later adopt
-# save_sim_results() to persist sim_hrs/sim_ubs/sim_ns as RDS, this memo
-# can be upgraded to recompute everything programmatically — see the
-# Reproduction appendix.
+# payload_dir feeds only the two DEFAULT file names below; explicit
+# payload_random / payload_fixed paths always win.  Relative paths
+# resolve against this file's folder at render time.
+.param_or <- function(name, default) {
+  if (exists("params", inherits = TRUE) && !is.null(params[[name]]))
+    params[[name]] else default
+}
+use_payloads   <- as.logical(.param_or("use_payloads", TRUE))
+payload_dir    <- .param_or("payload_dir", "results")
+payload_random <- .param_or("payload_random",
+  file.path(payload_dir, "extreme_sims_resample_10000_payload.rds"))
+payload_fixed  <- .param_or("payload_fixed",
+  file.path(payload_dir, "extreme_sims_fixed_10000_payload.rds"))
+
+if (isTRUE(use_payloads)) {
+  # -- LIVE MODE: load payloads, validate, recompute the comparison ------
+  miss <- c(payload_random, payload_fixed)
+  miss <- miss[!file.exists(miss)]
+  if (length(miss) > 0) {
+    stop("use_payloads = TRUE but payload file(s) not found:\n  ",
+         paste(miss, collapse = "\n  "), "\n",
+         "Fix one of:\n",
+         "  (a) render both vignettes first (their default save_payload = TRUE\n",
+         "      writes results/extreme_sims_<design>_<n_sims>_payload.rds)\n",
+         "  (b) point at existing files: -P payload_random:<path> -P payload_fixed:<path>\n",
+         "  (c) render the static memo:  -P use_payloads:false")
+  }
+  pl_r <- readRDS(payload_random)   # random-X  (design "resample")
+  pl_f <- readRDS(payload_fixed)    # fixed-X   (design "fixed")
+
+  # Guard 1: payloads must come from the intended designs.
+  if (!identical(pl_r$design, "resample") || !identical(pl_f$design, "fixed")) {
+    stop("Design labels are not ('resample', 'fixed'): got ('",
+         pl_r$design, "', '", pl_f$design, "').  Check the payload paths.")
+  }
+  # Guard 2: identical subgroup panels, or the row-wise comparison below
+  # would be silently misaligned.
+  if (!identical(colnames(pl_r$sim_hrs), colnames(pl_f$sim_hrs))) {
+    stop("Subgroup names differ between the two payloads; re-run both ",
+         "vignettes from the same subgroup definitions.")
+  }
+
+  # Per-design summary statistics.  Definitions replicate the vignettes'
+  # Section 6.6.1 results table exactly: tail probabilities use
+  # na.rm = TRUE (denominated over converged Cox fits), medians are
+  # unconditional, N is the across-trial mean subgroup size.
+  # Structurally empty subgroups (all-NA columns) come out NaN and are
+  # mapped to NA to match the static frame's convention.
+  .col_stats <- function(pl) {
+    nan_to_na <- function(x) { x[is.nan(x)] <- NA_real_; x }
+    data.frame(
+      subgroup = colnames(pl$sim_hrs),
+      N    = nan_to_na(round(colMeans(pl$sim_ns, na.rm = TRUE))),
+      ub2  = nan_to_na(100 * apply(pl$sim_ubs, 2, function(x) mean(x >= 2.0, na.rm = TRUE))),
+      ub3  = nan_to_na(100 * apply(pl$sim_ubs, 2, function(x) mean(x >= 3.0, na.rm = TRUE))),
+      mUB  = suppressWarnings(apply(pl$sim_ubs, 2, median, na.rm = TRUE)),
+      hr05 = nan_to_na(100 * apply(pl$sim_hrs, 2, function(x) mean(x < 0.5, na.rm = TRUE))),
+      hr1  = nan_to_na(100 * apply(pl$sim_hrs, 2, function(x) mean(x > 1.0, na.rm = TRUE))),
+      mHR  = suppressWarnings(apply(pl$sim_hrs, 2, median, na.rm = TRUE)),
+      stringsAsFactors = FALSE
+    )
+  }
+  .st_r <- .col_stats(pl_r)
+  .st_f <- .col_stats(pl_f)
+
+  cmp <- data.frame(
+    subgroup = .st_r$subgroup,
+    N_r    = .st_r$N,    N_f    = .st_f$N,
+    ub2_r  = .st_r$ub2,  ub2_f  = .st_f$ub2,
+    ub3_r  = .st_r$ub3,  ub3_f  = .st_f$ub3,
+    mUB_r  = .st_r$mUB,  mUB_f  = .st_f$mUB,
+    hr05_r = .st_r$hr05, hr05_f = .st_f$hr05,
+    hr1_r  = .st_r$hr1,  hr1_f  = .st_f$hr1,
+    mHR_r  = .st_r$mHR,  mHR_f  = .st_f$mHR,
+    stringsAsFactors = FALSE
+  )
+
+  n_sims_r <- pl_r$n_sims
+  n_sims_f <- pl_f$n_sims
+  provenance_mode <- "live"
+} else {
+  # -- STATIC MODE: the embedded transcription (reference renders) -------
+  n_sims_r <- 10000L
+  n_sims_f <- 10000L
+  provenance_mode <- "static"
+
+  # Both quantities were extracted from the Section 6.6.1 summary tables
+  # of the two rendered reference vignettes (10,000 simulated trials
+  # each, same DGM, super-population seed 99, AHR-calibrated true
+  # HR = 0.70):
+  #
+  #   random-X : extreme_subgroups.html        (baseline = "resample")
+  #   fixed-X  : extreme_subgroups_fixed.html  (baseline = "fixed")
 cmp <- data.frame(
   subgroup = c(
     "All Patients",
@@ -895,7 +999,23 @@ cmp <- data.frame(
     0.71,
     0.69),
   stringsAsFactors = FALSE
-)
+  )
+}
+
+# -- Quantities shared by both modes --------------------------------------
+# n_sims label + Monte Carlo noise band referenced in the narrative.
+n_sims_label <- if (n_sims_r == n_sims_f) {
+  sprintf("**%s simulated trials**", format(n_sims_r, big.mark = ","))
+} else {
+  sprintf("**%s (random-X) / %s (fixed-X) simulated trials**",
+          format(n_sims_r, big.mark = ","), format(n_sims_f, big.mark = ","))
+}
+n_mc     <- min(n_sims_r, n_sims_f)
+.mc_band <- function(p) 2 * sqrt(2 * p * (1 - p) / n_mc)  # ~95% band for a
+                                                          # difference of two
+                                                          # proportions
+mc_50_pp <- 100 * .mc_band(0.50)
+mc_05_pp <- 100 * .mc_band(0.05)
 
 # Derived columns used throughout
 cmp <- cmp |>
@@ -911,12 +1031,16 @@ cmp <- cmp |>
     )
   )
 valid <- cmp |> filter(!empty)
+
+# Row behind the mechanism example in "Where the designs differ".
+.g3eh <- cmp[cmp$subgroup == "Grade 3 / ER-high", , drop = FALSE]
+if (nrow(.g3eh) == 0) .g3eh <- cmp[NA_integer_, , drop = FALSE]
 ```
 
 # Overview and provenance
 
 This memo compares the two companion simulation designs for the
-extreme-subgroups analysis, both run at **10,000 simulated trials** on the
+extreme-subgroups analysis, both run at `r n_sims_label` on the
 same AHR-calibrated uniform-effect DGM (true HR = 0.70 for every patient,
 GBSG source data, super-population seed 99):
 
@@ -930,6 +1054,34 @@ GBSG source data, super-population seed 99):
   so subgroup composition and sizes are identical in every replicate.  This
   answers the *conditional-on-X* question: given exactly these patients,
   how variable are the subgroup analyses across re-runs of the trial?
+
+```{r provenance}
+#| results: asis
+if (provenance_mode == "live") {
+  cat(sprintf(paste0(
+    "::: {.callout-note title=\"Provenance: recomputed from live payloads\"}\n",
+    "Every table in this memo is computed from the raw simulation matrices:\n\n",
+    "- **random-X**: `%s` -- %s sims, forestsearch %s, written %s\n",
+    "- **fixed-X**: `%s` -- %s sims, forestsearch %s, written %s\n\n",
+    "Narrative commentary was written against the 10,000-sim reference runs; ",
+    "prose that cites specific values draws them from the loaded payloads, but ",
+    "qualitative statements should be cross-checked against the recomputed ",
+    "tables whenever the payloads change.\n",
+    ":::\n\n"),
+    payload_random, format(n_sims_r, big.mark = ","),
+    pl_r$forestsearch_version, format(pl_r$created, "%Y-%m-%d %H:%M"),
+    payload_fixed,  format(n_sims_f, big.mark = ","),
+    pl_f$forestsearch_version, format(pl_f$created, "%Y-%m-%d %H:%M")))
+} else {
+  cat(paste0(
+    "::: {.callout-note title=\"Provenance: embedded static transcription\"}\n",
+    "`use_payloads = FALSE`: every number below is the embedded transcription ",
+    "from the original 10,000-simulation reference renders; no external files ",
+    "were read.  Drop `-P use_payloads:false` (or set the knob back to TRUE) ",
+    "to recompute from live payloads.\n",
+    ":::\n\n"))
+}
+```
 
 ```{r headline-stats}
 #| results: asis
@@ -947,10 +1099,11 @@ cat(sprintf(
   nrow(valid), mstat$mean_d, mstat$med_d, mstat$min_d, mstat$max_d))
 ```
 
-At 10,000 independent simulations per design, the Monte Carlo 95% noise
-band for a difference in two proportions is approximately
-$\pm 2\sqrt{2\,p(1-p)/10{,}000}$ — about **±2.0 pp at p = 50%** and
-±0.9 pp at p = 5%.  The vast majority of subgroup-level differences sit
+At `r format(n_mc, big.mark = ",")` independent simulations per design
+(the smaller of the two runs), the Monte Carlo 95% noise band for a
+difference in two proportions is approximately
+$\pm 2\sqrt{2\,p(1-p)/n}$ — about **±`r sprintf("%.1f", mc_50_pp)` pp at
+p = 50%** and ±`r sprintf("%.1f", mc_05_pp)` pp at p = 5%.  The vast majority of subgroup-level differences sit
 inside that band.  **The central message of both vignettes — extreme
 results are routine in small subgroups, and clinical rationale confers no
 statistical protection — is design-robust.**  A skeptic cannot attribute
@@ -1020,10 +1173,10 @@ valid |>
 **The mechanism has a twist worth understanding.**  The fixed-X N is the
 *true* GBSG count for each subgroup, while the random-X mean N inherits
 the drift of the one super-population realization (5,000 draws at
-seed 99).  Grade 3 / ER-high genuinely has 55 patients in GBSG; the
+seed 99).  Grade 3 / ER-high genuinely has `r .g3eh$N_f` patients in GBSG; the
 super-population happened to under-represent it, so random-X simulated it
-at mean N ≈ 51 and correspondingly overstated its tail risk (33.3% vs
-27.9%).  The deltas above are therefore **not** purely the textbook
+at mean N ≈ `r .g3eh$N_r` and correspondingly overstated its tail risk
+(`r sprintf("%.1f%%", .g3eh$ub2_r)` vs `r sprintf("%.1f%%", .g3eh$ub2_f)`).  The deltas above are therefore **not** purely the textbook
 "random-X adds denominator variance" effect — a substantial share is the
 super-population's own finite-sampling error, which fixed-X sidesteps
 entirely by conditioning on the exact source composition.  (If cleaner
@@ -1121,27 +1274,59 @@ cmp |>
               column_labels.font.weight = "bold")
 ```
 
-# Appendix B — reproduction notes {.unnumbered}
+# Appendix B — payload knob and reproduction notes {.unnumbered}
 
-The per-subgroup quantities in this memo were extracted verbatim from the
-printed Section 6.6.1 summary tables of the two rendered HTML vignettes
-(both at `n_sims_uniform = 10000`).  They are embedded here as a static
-data frame (`cmp`, first chunk) so the memo renders with no external
-dependencies.
+This memo renders in one of two modes, controlled by a single knob in the
+setup chunk (`use_payloads`, default `TRUE`):
 
-To make this memo fully programmatic, have both vignettes persist their
-raw simulation matrices, e.g.:
+- **Live mode** (`use_payloads = TRUE`, the default).  The memo loads two
+  RDS *payloads* — one per design — and recomputes every table from the
+  raw `n_sims × n_subgroups` matrices.  Payloads are written by the
+  companion vignettes when their own knob `save_payload = TRUE` (also the
+  default): `extreme_subgroups.qmd` writes the `resample` payload and
+  `extreme_subgroups_fixed.qmd` the `fixed` payload, by default to
+  `results/extreme_sims_<design>_<n_sims>_payload.rds` next to the
+  vignettes.  Missing files stop the render with fix-it instructions —
+  there is no silent fallback to stale numbers.
+- **Static mode** (`use_payloads = FALSE`).  The memo renders entirely
+  from the static `cmp` data frame embedded in the setup chunk
+  (transcribed from the original 10,000-simulation reference renders) and
+  reads no external files.
 
-```{r repro-code}
-#| echo: true
-#| eval: false
-# In each vignette, after the parallel loop:
-saveRDS(list(sim_hrs = sim_hrs, sim_ubs = sim_ubs, sim_ns = sim_ns,
-             n_sims = n_sims_uniform, design = sim_config$baseline),
-        file = sprintf("results/extreme_sims_%s_%d.rds",
-                       sim_config$baseline, n_sims_uniform))
+All knobs can be overridden at render time without editing any file:
 
-# Then this memo can load both RDS files and recompute every table above,
-# plus quantities not printed in the vignettes (full ECI endpoints,
-# per-subgroup quantile curves, paired design deltas with bootstrap CIs).
+```bash
+# Static memo (no payloads read):
+quarto render extreme_subgroups_design_comparison.qmd -P use_payloads:false
+
+# Custom payload locations / names (e.g. the external sims drive):
+quarto render extreme_subgroups_design_comparison.qmd \
+  -P payload_random:/media/larryleon/bigstorage/forestsearch_sims/fixed_random/extreme_sims_resample_10000_payload.rds \
+  -P payload_fixed:/media/larryleon/bigstorage/forestsearch_sims/fixed_random/extreme_sims_fixed_10000_payload.rds
+
+# The vignettes carry the mirror-image knobs: save_payload, payload_dir,
+# payload_file (plus n_sims).  A 50-sim smoke run of the whole pipeline:
+quarto render extreme_subgroups.qmd       -P n_sims:50
+quarto render extreme_subgroups_fixed.qmd -P n_sims:50
+quarto render extreme_subgroups_design_comparison.qmd \
+  -P payload_random:results/extreme_sims_resample_50_payload.rds \
+  -P payload_fixed:results/extreme_sims_fixed_50_payload.rds
 ```
+
+Each payload is a plain named list:
+
+```r
+str(readRDS("results/extreme_sims_fixed_10000_payload.rds"), max.level = 1)
+# $ design               : chr "fixed"            ("resample" for random-X)
+# $ n_sims               : int 10000
+# $ sim_hrs, sim_ubs, sim_ns : num [n_sims x n_subgroups], colnames = subgroup names
+# $ subgroups            : list of list(id, name, grp)
+# $ sim_config           : the vignette's simulation configuration
+# $ cens_adjust, k_treat, hr_true : calibration constants
+# $ created, r_version, forestsearch_version : provenance stamps
+```
+
+Beyond the tables shown here, the raw matrices support paired
+design-delta summaries, full ECI endpoints, and per-subgroup quantile
+curves — natural extensions now that payloads are the standard
+interchange between the vignettes and this memo.

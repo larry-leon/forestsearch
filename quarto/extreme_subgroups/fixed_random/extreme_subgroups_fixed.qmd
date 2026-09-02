@@ -21,14 +21,86 @@ execute:
   echo: true
   warning: false
   message: false
+params:
+  n_sims: null
+  save_payload: null
+  payload_dir: null
+  payload_file: null
 ---
 
 ```{r setup}
 #| include: false
 
-# Number of uniform-DGM simulated trials — the primary result quantity
-# Set to >= 1000 for publication-quality results
-n_sims_uniform <- 10000L  
+# =========================================================================
+# RUN CONTROLS
+# =========================================================================
+# Defaults live HERE (single source of truth).  Every control below can
+# also be overridden at render time -- without editing this file -- via
+# Quarto params, e.g.:
+#
+#   quarto render extreme_subgroups_fixed.qmd -P n_sims:50
+#   quarto render extreme_subgroups_fixed.qmd -P save_payload:false
+#   quarto render extreme_subgroups_fixed.qmd \
+#     -P payload_dir:/media/larryleon/bigstorage/forestsearch_sims/fixed_random
+#
+# Precedence: -P value > in-file default (a param left at its YAML
+# default of `null` means "use the in-file default").  The exists()
+# guard in .param_or() keeps interactive chunk execution in RStudio
+# (where no `params` object exists) identical to a default render.
+.param_or <- function(name, default) {
+  if (exists("params", inherits = TRUE) && !is.null(params[[name]]))
+    params[[name]] else default
+}
+
+# Design label: stored in the payload metadata and used in the default
+# payload file name.  "fixed" = conditional-on-X (the
+# observed GBSG panel); the random-X companion vignette uses "resample".
+design_label <- "fixed"
+
+# Number of uniform-DGM simulated trials -- the primary result quantity.
+# Set to >= 1000 for publication-quality results.
+n_sims_uniform <- as.integer(.param_or("n_sims", 10000L))
+
+# =========================================================================
+# PAYLOAD (RDS) PERSISTENCE -- one knob, off-switchable, fully relocatable
+# =========================================================================
+# save_payload = TRUE  -> after the Part IV simulation loop, a chunk
+#     writes the raw result matrices (sim_hrs / sim_ubs / sim_ns), the
+#     subgroup list, and run metadata as ONE RDS file ("payload") to
+#     file.path(payload_dir, payload_file).  The companion memo
+#     extreme_subgroups_design_comparison.qmd loads one payload from
+#     this vignette and one from its companion and recomputes the full
+#     fixed-vs-random design comparison from raw results.
+# save_payload = FALSE -> nothing is written anywhere; the vignette
+#     renders exactly as it did before payloads existed.
+#
+# payload_dir : any writable directory (a relative path resolves
+#     against this file's folder at render time).  It is NOT created
+#     automatically: if missing, the render STOPS here -- in seconds,
+#     not after the simulation loop.  This is deliberate.  Silently
+#     dir.create()-ing a path like /media/<user>/<drive>/... while the
+#     external drive is unmounted would write to the empty mount point
+#     on the root filesystem.  Create the directory yourself
+#     (mkdir -p) or point payload_dir somewhere else.
+#
+# payload_file: the default name encodes design + n_sims
+#     (e.g. extreme_sims_fixed_10000_payload.rds), so smoke
+#     runs and full runs never overwrite each other.  Override freely.
+save_payload <- as.logical(.param_or("save_payload", TRUE))
+payload_dir  <- .param_or("payload_dir", "results")
+payload_file <- .param_or(
+  "payload_file",
+  sprintf("extreme_sims_%s_%d_payload.rds", design_label, n_sims_uniform)
+)
+payload_path <- file.path(payload_dir, payload_file)
+
+if (isTRUE(save_payload) && !dir.exists(payload_dir)) {
+  stop("save_payload = TRUE but payload_dir does not exist: '", payload_dir,
+       "'.\n  Fix one of:\n",
+       "  (a) create it:            mkdir -p ", payload_dir, "\n",
+       "  (b) relocate it:          -P payload_dir:<existing-dir>\n",
+       "  (c) disable persistence:  -P save_payload:false")
+}
 ```
 
 # Overview
@@ -1303,6 +1375,44 @@ cat("Simulations completed:", n_sims_uniform,
     " |  Parallel workers used:", n_workers, "\n")
 
 t_sims <- as.numeric(difftime(Sys.time(), .t_sims_start, units = "secs"))
+```
+
+### Persisting the payload (optional)
+
+When `save_payload = TRUE` (see the run controls in the setup chunk for
+the on/off knob, directory, and naming conventions) the chunk below
+writes the raw simulation matrices plus run metadata to a single RDS
+file.  This is what the companion memo
+`extreme_subgroups_design_comparison.qmd` consumes to recompute the
+fixed-vs-random design comparison from raw results.  With
+`save_payload = FALSE` the chunk is a no-op and nothing touches disk.
+
+```{r save-payload}
+if (isTRUE(save_payload)) {
+  payload <- list(
+    design               = design_label,          # "resample" | "fixed"
+    n_sims               = n_sims_uniform,
+    sim_hrs              = sim_hrs,               # n_sims x n_subgroups
+    sim_ubs              = sim_ubs,
+    sim_ns               = sim_ns,
+    subgroups            = subgroups,             # list(id, name, grp)
+    sim_config           = sim_config,
+    cens_adjust          = cal_uniform$cens_adjust,
+    k_treat              = k_treat_uniform,
+    hr_true              = 0.70,                  # AHR calibration target
+    created              = Sys.time(),
+    r_version            = R.version.string,
+    forestsearch_version = tryCatch(
+      as.character(utils::packageVersion("forestsearch")),
+      error = function(e) NA_character_)
+  )
+  saveRDS(payload, payload_path)
+  cat(sprintf("Payload written: %s  (%.1f MB, forestsearch %s)\n",
+              payload_path, file.size(payload_path) / 1024^2,
+              payload$forestsearch_version))
+} else {
+  cat("Payload persistence disabled (save_payload = FALSE); nothing written.\n")
+}
 ```
 
 ---
