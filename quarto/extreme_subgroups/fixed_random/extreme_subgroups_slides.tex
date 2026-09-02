@@ -124,6 +124,7 @@
 \newcommand{\WarningTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{\textit{#1}}}
 
 \usepackage{longtable,booktabs,array}
+\newcounter{none} % for unnumbered tables
 \usepackage{calc} % for calculating minipage widths
 \usepackage{caption}
 % Make caption package work with longtable
@@ -236,10 +237,13 @@
   pdfcreator={LaTeX via pandoc}}
 
 
-\title{Extreme Subgroup Effects Under a Uniform Treatment Benefit}
-\subtitle{A Simulation Study Based on Observed Trial Data}
+\title{\texorpdfstring{Extreme Subgroup Effects Under a Uniform
+Treatment
+Benefit}{Extreme Subgroup Effects Under a Uniform Treatment Benefit}}
+\subtitle{\texorpdfstring{A Simulation Study Based on Observed Trial
+Data}{A Simulation Study Based on Observed Trial Data}}
 \author{Larry F. León}
-\date{2026-02-23}
+\date{2026-09-02}
 
 \begin{document}
 \frame{\titlepage}
@@ -257,7 +261,7 @@
 \section{Motivation \& Overview}\label{motivation-overview}
 
 \begin{frame}{The Core Question}
-\phantomsection\label{the-core-question}
+\protect\phantomsection\label{the-core-question}
 \begin{block}{Subgroup analysis in regulatory submissions}
 When many subgroups are examined in a single trial, small subgroups can
 produce hazard ratio estimates that look dramatic \emph{purely by chance}.
@@ -284,7 +288,7 @@ analyses produce extreme subgroup results?
 \end{frame}
 
 \begin{frame}[fragile]{Setting: Uniform Treatment Effect}
-\phantomsection\label{setting-uniform-treatment-effect}
+\protect\phantomsection\label{setting-uniform-treatment-effect}
 The DGM is built from a real trial (GBSG breast cancer, \(N = 686\))
 using \texttt{generate\_aft\_dgm\_flex()}.
 
@@ -311,7 +315,7 @@ values $0$, knot $k$, and upper anchor $\zeta$.
 \section{Simulation Workflow}\label{simulation-workflow}
 
 \begin{frame}{Pipeline Overview}
-\phantomsection\label{pipeline-overview}
+\protect\phantomsection\label{pipeline-overview}
 \small
 \begin{center}
 \begin{tabular}{clp{7cm}}
@@ -332,7 +336,7 @@ values $0$, knot $k$, and upper anchor $\zeta$.
 \end{frame}
 
 \begin{frame}{Workflow: DGM Setup \& Calibration}
-\phantomsection\label{workflow-dgm-setup-calibration}
+\protect\phantomsection\label{workflow-dgm-setup-calibration}
 \begin{figure}[H]
 
 {\centering \includegraphics[width=0.95\linewidth,height=0.85\textheight]{sim_flow_part1.pdf}
@@ -345,7 +349,7 @@ values $0$, knot $k$, and upper anchor $\zeta$.
 \end{frame}
 
 \begin{frame}{Workflow: Simulation Loop \& Results}
-\phantomsection\label{workflow-simulation-loop-results}
+\protect\phantomsection\label{workflow-simulation-loop-results}
 \begin{figure}[H]
 
 {\centering \includegraphics[width=0.95\linewidth,height=0.85\textheight]{sim_flow_part2.pdf}
@@ -358,7 +362,7 @@ values $0$, knot $k$, and upper anchor $\zeta$.
 \end{frame}
 
 \begin{frame}{Subgroup Definitions (1/3): ITT, Clinical, Continuous}
-\phantomsection\label{subgroup-definitions-13-itt-clinical-continuous}
+\protect\phantomsection\label{subgroup-definitions-13-itt-clinical-continuous}
 \begin{table}
 \fontsize{8.0pt}{10.0pt}\selectfont
 \begin{tabular*}{1\linewidth}{@{\extracolsep{\fill}}>{\raggedleft\arraybackslash}p{\dimexpr 22.50pt -2\tabcolsep-1.5\arrayrulewidth}>{\raggedright\arraybackslash}p{\dimexpr 120.00pt -2\tabcolsep-1.5\arrayrulewidth}>{\raggedright\arraybackslash}p{\dimexpr 120.00pt -2\tabcolsep-1.5\arrayrulewidth}}
@@ -397,7 +401,7 @@ values $0$, knot $k$, and upper anchor $\zeta$.
 \end{frame}
 
 \begin{frame}{Subgroup Definitions (2/3): Two-Way Interactions}
-\phantomsection\label{subgroup-definitions-23-two-way-interactions}
+\protect\phantomsection\label{subgroup-definitions-23-two-way-interactions}
 \small
 
 \begin{table}
@@ -469,7 +473,7 @@ values $0$, knot $k$, and upper anchor $\zeta$.
 \end{frame}
 
 \begin{frame}{Subgroup Definitions (3/3): Random Benchmarks}
-\phantomsection\label{subgroup-definitions-33-random-benchmarks}
+\protect\phantomsection\label{subgroup-definitions-33-random-benchmarks}
 \begin{table}
 \fontsize{9.0pt}{11.0pt}\selectfont
 \begin{tabular*}{0.9\linewidth}{@{\extracolsep{\fill}}rlll}
@@ -493,7 +497,7 @@ Re-sampled every simulation. Nested: random15 ⊂ random20 ⊂ random40 ⊂ rand
 DGM}\label{part-i-building-the-null-dgm}
 
 \begin{frame}[fragile]{Fitting \texttt{generate\_aft\_dgm\_flex()}}
-\phantomsection\label{fitting-generate_aft_dgm_flex}
+\protect\phantomsection\label{fitting-generate_aft_dgm_flex}
 \begin{itemize}
 \tightlist
 \item
@@ -520,7 +524,7 @@ dgm\_null <- generate\_aft\_dgm\_flex(\\
 Calibration}\label{part-ii-censoring-diagnostics-calibration}
 
 \begin{frame}[fragile]{Censoring Consistency}
-\phantomsection\label{censoring-consistency}
+\protect\phantomsection\label{censoring-consistency}
 \begin{itemize}
 \tightlist
 \item
@@ -544,7 +548,7 @@ Calibration}\label{part-ii-censoring-diagnostics-calibration}
 \end{frame}
 
 \begin{frame}[fragile]{Calibrating \texttt{cens\_adjust}}
-\phantomsection\label{calibrating-cens_adjust}
+\protect\phantomsection\label{calibrating-cens_adjust}
 \texttt{calibrate\_cens\_adjust()} uses \texttt{uniroot} to find the
 log-scale shift that equates a target statistic between reference and
 simulated data.
@@ -575,7 +579,7 @@ longer censoring times.
 Trials}\label{part-iii-generating-synthetic-trials}
 
 \begin{frame}[fragile]{\texttt{simulate\_from\_dgm()}}
-\phantomsection\label{simulate_from_dgm}
+\protect\phantomsection\label{simulate_from_dgm}
 With the null DGM calibrated, each simulated trial is a single function
 call:
 
@@ -600,7 +604,7 @@ Under the null DGM: \texttt{flag\_harm} \(\equiv\) 0 for every subject.
 Results}\label{part-iv-simulation-results}
 
 \begin{frame}{Subgroups Under Study (56 total)}
-\phantomsection\label{subgroups-under-study-56-total}
+\protect\phantomsection\label{subgroups-under-study-56-total}
 \footnotesize
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
@@ -637,7 +641,7 @@ Size $\times$ Nodes & Large/Node-pos, \ldots \\
 \end{frame}
 
 \begin{frame}{Summary Statistics}
-\phantomsection\label{summary-statistics}
+\protect\phantomsection\label{summary-statistics}
 \begin{columns}[T]
 \begin{column}{0.48\linewidth}
 \begin{block}{HR point estimate distribution}
@@ -653,8 +657,8 @@ Size $\times$ Nodes & Large/Node-pos, \ldots \\
 \begin{block}{Upper confidence bound UB(HR)}
 \begin{itemize}\small
 \item Upper end of the Cox 95\% CI
-\item $\Pr(\text{UB} < 1.0)$: power to show benefit
-\item Med UB $|$ UB$\ge$1: worst-case for the safety reviewer
+\item $\Pr(\text{UB} \ge 2)$, $\Pr(\text{UB} \ge 3)$: tail-risk rates a reviewer would flag
+\item mUB: median upper bound --- the typical worst case per subgroup
 \end{itemize}
 \end{block}
 \end{column}
@@ -662,7 +666,7 @@ Size $\times$ Nodes & Large/Node-pos, \ldots \\
 \end{frame}
 
 \begin{frame}{Simulation: 1000 trials completed}
-\phantomsection\label{simulation-1000-trials-completed}
+\protect\phantomsection\label{simulation-1000-trials-completed}
 \begin{itemize}
 \tightlist
 \item
@@ -676,8 +680,8 @@ Size $\times$ Nodes & Large/Node-pos, \ldots \\
 
 \begin{alertblock}{Re-use with new results}
 \footnotesize
-\texttt{res <- load\_sim\_results("new\_file.rds")}\\
-\texttt{S <- summarize\_extreme\_sims(res\$sim\_hrs, res\$sim\_ubs, res\$sim\_ns, res\$subgroups)}\\
+\texttt{res <- readRDS("new\_file.rds")}\\
+\texttt{S~~~<- summary(res, hr\_true = 0.70)}\\
 All downstream tables and plots update automatically.
 \end{alertblock}
 \end{frame}
@@ -685,7 +689,7 @@ All downstream tables and plots update automatically.
 \section{Results --- Forest Plots}\label{results-forest-plots}
 
 \begin{frame}{HR Distributions: Single-Variable Subgroups}
-\phantomsection\label{hr-distributions-single-variable-subgroups}
+\protect\phantomsection\label{hr-distributions-single-variable-subgroups}
 \begin{figure}[H]
 
 {\centering \includegraphics[width=\linewidth,height=0.85\textheight,keepaspectratio]{extreme_subgroups_slides_files/figure-beamer/hr-forest-single-1.pdf}
@@ -699,7 +703,7 @@ All downstream tables and plots update automatically.
 \end{frame}
 
 \begin{frame}{HR Distributions: Combinations + Random Benchmarks}
-\phantomsection\label{hr-distributions-combinations-random-benchmarks}
+\protect\phantomsection\label{hr-distributions-combinations-random-benchmarks}
 \begin{figure}[H]
 
 {\centering \includegraphics[width=\linewidth,height=0.85\textheight,keepaspectratio]{extreme_subgroups_slides_files/figure-beamer/hr-forest-combo-1.pdf}
@@ -714,7 +718,7 @@ subgroups.}
 
 \begin{frame}{UB(HR) Distributions: Single-Variable Subgroups
 \{.shrink=5\}}
-\phantomsection\label{ubhr-distributions-single-variable-subgroups-.shrink5}
+\protect\phantomsection\label{ubhr-distributions-single-variable-subgroups-.shrink5}
 \begin{figure}[H]
 
 {\centering \includegraphics[width=\linewidth,height=0.82\textheight,keepaspectratio]{extreme_subgroups_slides_files/figure-beamer/ub-forest-single-1.pdf}
@@ -729,7 +733,7 @@ true HR=0.70.}
 
 \begin{frame}{UB(HR) Distributions: Combinations + Random Benchmarks
 \{.shrink=5\}}
-\phantomsection\label{ubhr-distributions-combinations-random-benchmarks-.shrink5}
+\protect\phantomsection\label{ubhr-distributions-combinations-random-benchmarks-.shrink5}
 \begin{figure}[H]
 
 {\centering \includegraphics[width=\linewidth,height=0.82\textheight,keepaspectratio]{extreme_subgroups_slides_files/figure-beamer/ub-forest-combo-1.pdf}
@@ -744,7 +748,7 @@ true HR=0.70.}
 \section{Key Findings}\label{key-findings}
 
 \begin{frame}{HR Point Estimates}
-\phantomsection\label{hr-point-estimates}
+\protect\phantomsection\label{hr-point-estimates}
 \begin{block}{Large subgroups ($N > 200$)}
 Median HR tracks truth ($\approx 0.70$) closely; ECI is narrow.
 \end{block}
@@ -766,7 +770,7 @@ indistinguishable from meaningless random groupings of the same size.}
 \end{frame}
 
 \begin{frame}{Upper Bounds UB(HR)}
-\phantomsection\label{upper-bounds-ubhr}
+\protect\phantomsection\label{upper-bounds-ubhr}
 \begin{columns}[T]
 \begin{column}{0.55\linewidth}
 \begin{block}{The upper-bound distribution}
@@ -800,7 +804,7 @@ random15 & $>5.0$ \\
 \end{frame}
 
 \begin{frame}{Cox Model Works Correctly}
-\phantomsection\label{cox-model-works-correctly}
+\protect\phantomsection\label{cox-model-works-correctly}
 \begin{block}{What the simulation confirms}
 \begin{enumerate}
 \item Cox model is \textbf{unbiased} --- median HR $\approx$ 0.70 for every subgroup
@@ -821,7 +825,7 @@ random15 & $>5.0$ \\
 \section{Conclusions}\label{conclusions}
 
 \begin{frame}[fragile]{Conclusions}
-\phantomsection\label{conclusions-1}
+\protect\phantomsection\label{conclusions-1}
 \begin{enumerate}
 \item
   \textbf{Small subgroups produce extreme results by chance.} Under
@@ -845,7 +849,7 @@ random15 & $>5.0$ \\
 \end{frame}
 
 \begin{frame}[plain]{}
-\phantomsection\label{section}
+\protect\phantomsection\label{section}
 \vfill
 \begin{center}
 {\Large\bfseries\color{UBCblue} Thank You}
@@ -869,37 +873,34 @@ random15 & $>5.0$ \\
 \addcontentsline{toc}{section}{Appendix}
 
 \begin{frame}[fragile]{New-Results Workflow}
-\phantomsection\label{new-results-workflow}
+\protect\phantomsection\label{new-results-workflow}
 \footnotesize
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\FunctionTok{source}\NormalTok{(}\StringTok{"summarize\_extreme\_sims.R"}\NormalTok{)}
+\FunctionTok{library}\NormalTok{(forestsearch)}
 
-\CommentTok{\# ── Option A: Load existing results ─────────────────────────────}
-\NormalTok{res }\OtherTok{\textless{}{-}} \FunctionTok{load\_sim\_results}\NormalTok{(}\StringTok{"results/extreme\_sims\_5000.rds"}\NormalTok{)}
+\CommentTok{\# ── Option A: Load existing results (payload format) ─────────────}
+\NormalTok{res }\OtherTok{\textless{}{-}} \FunctionTok{readRDS}\NormalTok{(}\StringTok{"results/extreme\_sims\_5000.rds"}\NormalTok{)}
 
-\CommentTok{\# ── Option B: After running a new simulation loop ────────────────}
-\FunctionTok{save\_sim\_results}\NormalTok{(sim\_hrs, sim\_ubs, sim\_ns, subgroups,}
-                 \AttributeTok{file =} \StringTok{"results/extreme\_sims\_new.rds"}\NormalTok{,}
-                 \AttributeTok{hr\_true =} \FloatTok{0.70}\NormalTok{,}
-                 \AttributeTok{metadata =} \FunctionTok{list}\NormalTok{(}\AttributeTok{dgm\_seed =} \DecValTok{99}\NormalTok{, }\AttributeTok{n\_per\_trial =} \DecValTok{686}\NormalTok{))}
+\CommentTok{\# ── Option B: After a fresh run ──────────────────────────────────}
+\CommentTok{\# run\_subgroup\_sims() returns the payload object directly:}
+\FunctionTok{saveRDS}\NormalTok{(sims\_uniform, }\StringTok{"results/extreme\_sims\_new.rds"}\NormalTok{)}
 
 \CommentTok{\# ── Summarize (works with either option) ─────────────────────────}
-\NormalTok{S }\OtherTok{\textless{}{-}} \FunctionTok{summarize\_extreme\_sims}\NormalTok{(res}\SpecialCharTok{$}\NormalTok{sim\_hrs, res}\SpecialCharTok{$}\NormalTok{sim\_ubs,}
-\NormalTok{                             res}\SpecialCharTok{$}\NormalTok{sim\_ns, res}\SpecialCharTok{$}\NormalTok{subgroups)}
+\NormalTok{S }\OtherTok{\textless{}{-}} \FunctionTok{summary}\NormalTok{(res, }\AttributeTok{hr\_true =} \FloatTok{0.70}\NormalTok{)}
 
 \CommentTok{\# ── All plots driven by S ────────────────────────────────────────}
-\FunctionTok{plot\_hr\_forest}\NormalTok{(S, }\AttributeTok{panel =} \StringTok{"single"}\NormalTok{)}
-\FunctionTok{plot\_hr\_forest}\NormalTok{(S, }\AttributeTok{panel =} \StringTok{"combo"}\NormalTok{)}
-\FunctionTok{plot\_ub\_forest}\NormalTok{(S, }\AttributeTok{panel =} \StringTok{"single"}\NormalTok{)   }\CommentTok{\# \textless{}{-}{-} ub{-}forest{-}single}
-\FunctionTok{plot\_ub\_forest}\NormalTok{(S, }\AttributeTok{panel =} \StringTok{"combo"}\NormalTok{)    }\CommentTok{\# \textless{}{-}{-} ub{-}forest{-}combo}
+\FunctionTok{plot}\NormalTok{(S, }\AttributeTok{metric =} \StringTok{"hr"}\NormalTok{, }\AttributeTok{panel =} \StringTok{"single"}\NormalTok{)}
+\FunctionTok{plot}\NormalTok{(S, }\AttributeTok{metric =} \StringTok{"hr"}\NormalTok{, }\AttributeTok{panel =} \StringTok{"combo"}\NormalTok{)}
+\FunctionTok{plot}\NormalTok{(S, }\AttributeTok{metric =} \StringTok{"ub"}\NormalTok{, }\AttributeTok{panel =} \StringTok{"single"}\NormalTok{)   }\CommentTok{\# \textless{}{-}{-} ub{-}forest{-}single}
+\FunctionTok{plot}\NormalTok{(S, }\AttributeTok{metric =} \StringTok{"ub"}\NormalTok{, }\AttributeTok{panel =} \StringTok{"combo"}\NormalTok{)    }\CommentTok{\# \textless{}{-}{-} ub{-}forest{-}combo}
 \end{Highlighting}
 \end{Shaded}
 \end{frame}
 
-\begin{frame}{\texttt{summarize\_extreme\_sims()} API}
-\phantomsection\label{summarize_extreme_sims-api}
+\begin{frame}{\texttt{summary()} Fields}
+\protect\phantomsection\label{summary-fields}
 \footnotesize
 
 \begin{tabular}{lp{8.5cm}}
@@ -907,33 +908,33 @@ random15 & $>5.0$ \\
 \textbf{Field} & \textbf{Description} \\
 \midrule
 \texttt{hr\_q}, \texttt{ub\_q} & Quantile matrices [\texttt{n\_sg} $\times$ 3]: 1st, median, 99th \\
-\texttt{mean\_n} & Mean subgroup $N$ across simulations \\
-\texttt{pr\_ub\_lt1}, \texttt{pr\_ub\_ge1} & Power / failure rate per subgroup \\
-\texttt{cond\_ub} & Conditional UB quantiles given UB $\ge$ 1 \\
+\texttt{mean\_n}, \texttt{n\_per\_trial} & Mean subgroup $N$; per-trial N (footnotes) \\
+\texttt{pr\_hr\_lt050}, \texttt{pr\_hr\_gt1} & HR tail probabilities per subgroup \\
+\texttt{pr\_ub\_ge2}, \texttt{pr\_ub\_ge3} & UB tail-risk rates per subgroup \\
 \texttt{results\_tbl} & Formatted \texttt{data.frame} for printing \\
 \texttt{ok}, \texttt{ok\_ub} & Logical: valid subgroups \\
 \texttt{idx\_hr\_single}, \texttt{idx\_ub\_combo}, \ldots & Index vectors for forest panels \\
-\texttt{cat\_ok}, \texttt{cat\_cols} & Category labels and colour map \\
-\texttt{lab\_cmed\_ub} & Pre-formatted conditional median labels \\
+\texttt{cat}, \texttt{cat\_cols} & Category labels and colour map \\
+\texttt{highrisk} & High-risk panel: threshold, membership, ordering \\
 \bottomrule
 \end{tabular}
 \end{frame}
 
 \begin{frame}[fragile]{Comparing Two Simulation Runs}
-\phantomsection\label{comparing-two-simulation-runs}
+\protect\phantomsection\label{comparing-two-simulation-runs}
 \footnotesize
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{S\_old }\OtherTok{\textless{}{-}} \FunctionTok{summarize\_extreme\_sims}\NormalTok{(...)   }\CommentTok{\# e.g. n\_sims = 1000}
-\NormalTok{S\_new }\OtherTok{\textless{}{-}} \FunctionTok{summarize\_extreme\_sims}\NormalTok{(...)   }\CommentTok{\# e.g. n\_sims = 5000}
+\NormalTok{res\_1k }\OtherTok{\textless{}{-}} \FunctionTok{readRDS}\NormalTok{(}\StringTok{"results/extreme\_sims\_1000.rds"}\NormalTok{)   }\CommentTok{\# payload objects}
+\NormalTok{res\_5k }\OtherTok{\textless{}{-}} \FunctionTok{readRDS}\NormalTok{(}\StringTok{"results/extreme\_sims\_5000.rds"}\NormalTok{)}
 
-\NormalTok{comp }\OtherTok{\textless{}{-}} \FunctionTok{compare\_extreme\_sims}\NormalTok{(S\_old, S\_new,}
-                              \AttributeTok{metric =} \StringTok{"both"}\NormalTok{,}
-                              \AttributeTok{label1 =} \StringTok{"1000 sims"}\NormalTok{,}
-                              \AttributeTok{label2 =} \StringTok{"5000 sims"}\NormalTok{)}
-\FunctionTok{print}\NormalTok{(comp, }\AttributeTok{row.names =} \ConstantTok{FALSE}\NormalTok{)}
-\CommentTok{\# Subgroup | N | MedHR | Delta\_MedHR | PrUBge1 | Delta\_PrUBge1 | MedUBcond}
+\NormalTok{cmp }\OtherTok{\textless{}{-}} \FunctionTok{compare\_subgroup\_sims}\NormalTok{(res\_1k, res\_5k,}
+                             \AttributeTok{suffixes =} \FunctionTok{c}\NormalTok{(}\StringTok{"\_1k"}\NormalTok{, }\StringTok{"\_5k"}\NormalTok{))}
+\FunctionTok{head}\NormalTok{(cmp[, }\FunctionTok{c}\NormalTok{(}\StringTok{"subgroup"}\NormalTok{, }\StringTok{"N\_1k"}\NormalTok{, }\StringTok{"N\_5k"}\NormalTok{, }\StringTok{"ub2\_1k"}\NormalTok{, }\StringTok{"ub2\_5k"}\NormalTok{,}
+             \StringTok{"mHR\_1k"}\NormalTok{, }\StringTok{"mHR\_5k"}\NormalTok{)])}
+\CommentTok{\# Same function the fixed{-}vs{-}random design{-}comparison memo uses}
+\CommentTok{\# (expect\_designs = c("resample", "fixed") guards that pairing).}
 \end{Highlighting}
 \end{Shaded}
 
@@ -942,25 +943,22 @@ sensitivity to censoring calibration.
 \end{frame}
 
 \begin{frame}[fragile]{Helper Utilities}
-\phantomsection\label{helper-utilities}
+\protect\phantomsection\label{helper-utilities}
 \footnotesize
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \CommentTok{\# ── Optimal figure height ────────────────────────────────────────}
-\NormalTok{fh }\OtherTok{\textless{}{-}} \FunctionTok{forest\_fig\_height}\NormalTok{(S, }\AttributeTok{panel =} \StringTok{"combo"}\NormalTok{, }\AttributeTok{type =} \StringTok{"ub"}\NormalTok{,}
-                         \AttributeTok{row\_height =} \FloatTok{0.45}\NormalTok{, }\AttributeTok{overhead =} \FloatTok{1.5}\NormalTok{)}
+\NormalTok{fh }\OtherTok{\textless{}{-}} \FunctionTok{forest\_height}\NormalTok{(S, }\AttributeTok{panel =} \StringTok{"combo"}\NormalTok{,}
+                    \AttributeTok{row\_height =} \FloatTok{0.45}\NormalTok{, }\AttributeTok{overhead =} \FloatTok{1.5}\NormalTok{)}
 
-\CommentTok{\# ── Save / load round{-}trip ───────────────────────────────────────}
-\FunctionTok{save\_sim\_results}\NormalTok{(sim\_hrs, sim\_ubs, sim\_ns, subgroups,}
-                 \AttributeTok{file =} \StringTok{"results/my\_run.rds"}\NormalTok{, }\AttributeTok{hr\_true =} \FloatTok{0.70}\NormalTok{,}
-                 \AttributeTok{metadata =} \FunctionTok{list}\NormalTok{(}\AttributeTok{cens\_adjust =} \FloatTok{0.42}\NormalTok{))}
-
-\NormalTok{res }\OtherTok{\textless{}{-}} \FunctionTok{load\_sim\_results}\NormalTok{(}\StringTok{"results/my\_run.rds"}\NormalTok{)}
-\CommentTok{\# prints: Loaded: ... (5000 sims x 56 subgroups, saved ...)}
+\CommentTok{\# ── Save / load round{-}trip (payload format) ──────────────────────}
+\FunctionTok{saveRDS}\NormalTok{(sims\_uniform, }\StringTok{"results/my\_run.rds"}\NormalTok{)}
+\NormalTok{res }\OtherTok{\textless{}{-}} \FunctionTok{readRDS}\NormalTok{(}\StringTok{"results/my\_run.rds"}\NormalTok{)   }\CommentTok{\# class "subgroup\_sims" intact}
+\FunctionTok{print}\NormalTok{(res)  }\CommentTok{\# design, n\_sims, subgroups, fit, provenance}
 
 \CommentTok{\# ── Print method ──────────────────────────────────────────────────}
-\FunctionTok{print}\NormalTok{(S)   }\CommentTok{\# shows n\_sims, n\_sg, hr\_true, then results\_tbl}
+\FunctionTok{print}\NormalTok{(S)   }\CommentTok{\# header (design | n\_sims | true HR), then results\_tbl}
 \end{Highlighting}
 \end{Shaded}
 \end{frame}
