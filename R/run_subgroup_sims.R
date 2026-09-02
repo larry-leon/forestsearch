@@ -67,16 +67,41 @@ benchmark_spec <- function(sizes = c(60L, 40L, 20L, 15L),
 #' workers, so they should reference non-base functions by
 #' `pkg::fun` or rely on packages listed in `future_packages`.
 #'
+#' @section Formula environment (`lean`):
+#' A formula captures the environment where it was created. In a script
+#' or a knitr chunk that is the global environment, and `future`'s
+#' globals machinery gives formulas special treatment: a fit whose
+#' formula points at a populated environment imposes a multi-second
+#' per-future cost on parallel runs (measured ~2-4 s x ~116 futures in
+#' the Phase 2 timing diagnostic), independent of the serialized size.
+#' With `lean = TRUE` (default) the formula is re-homed into a fresh,
+#' empty environment parented on the survival namespace, cutting the
+#' costly chain while keeping [survival::Surv()], [survival::strata()],
+#' and base/stats symbols resolvable. Consequence: the formula must
+#' reference only data columns and functions reachable from the
+#' survival namespace (use `pkg::` prefixes for anything else). Set
+#' `lean = FALSE` to retain the calling environment -- restoring
+#' arbitrary-symbol resolution at that parallel cost. Independently of
+#' `lean`, the returned closure is stripped of source references and
+#' given a minimal environment holding only the formula (keep-source
+#' installs otherwise attach ~250 KB of package-source baggage to every
+#' worker shipment).
+#'
 #' @param formula A model formula for [survival::coxph()], evaluated
 #'   against each subgroup's data.
+#' @param lean Re-home the formula environment as described above
+#'   (default `TRUE`).
 #'
 #' @return A function of one argument (`data`) returning
 #'   `c(hr, ub)`; carries the formula in `attr(, "formula")`.
 #' @export
 #' @examples
 #' fit <- subgroup_cox(survival::Surv(y_sim, event_sim) ~ treat_sim)
-subgroup_cox <- function(formula) {
+subgroup_cox <- function(formula, lean = TRUE) {
   stopifnot(inherits(formula, "formula"))
+  if (isTRUE(lean)) {
+    environment(formula) <- new.env(parent = asNamespace("survival"))
+  }
   f <- function(data) {
     fit <- tryCatch(
       survival::coxph(formula, data = data),
@@ -88,6 +113,19 @@ subgroup_cox <- function(formula) {
     ci <- summary(fit)$conf.int[1, ]
     c(ci["exp(coef)"], ci["upper .95"])
   }
+  attr(f, "formula") <- formula
+  # Regardless of `lean`, ship a minimal artifact: strip source
+  # references (keep-source installs -- devtools' default -- attach a
+  # srcref whose srcfile drags the package source, ~250 KB measured, and
+  # the execution frame's self-binding of `f` would re-drag it), and
+  # rebuild the closure environment to hold exactly `formula`, parented
+  # on the survival namespace.  Caller-symbol resolution in the formula
+  # is governed by the FORMULA's environment (the `lean` switch above),
+  # not the closure's, so this is behavior-neutral.
+  f <- utils::removeSource(f)
+  env_f <- new.env(parent = asNamespace("survival"))
+  assign("formula", formula, envir = env_f)
+  environment(f) <- env_f
   attr(f, "formula") <- formula
   f
 }
@@ -383,7 +421,10 @@ run_subgroup_sims <- function(dgm, subgroups, n_sims,
   t0_plan     <- Sys.time()
   plan_reused <- FALSE
   if (is.null(workers)) {
-    if (!inherits(future::plan(), "sequential")) {
+    if (future::nbrOfWorkers() > 1L) {
+      # A caller-established parallel plan is in place -- reuse it.
+      # (nbrOfWorkers() rather than class-sniffing: future versions
+      # differ in how plan() objects are classed, e.g. "FutureStrategy".)
       plan_reused <- TRUE
     } else {
       old_plan <- future::plan()
@@ -408,6 +449,29 @@ run_subgroup_sims <- function(dgm, subgroups, n_sims,
   }
   n_workers <- as.integer(future::nbrOfWorkers())
   t_plan    <- as.numeric(difftime(Sys.time(), t0_plan, units = "secs"))
+
+  # Guard against the formula-environment trap diagnosed in Phase 2:
+  # a fit whose formula is bound to the (populated) global environment,
+  # or that serializes large, imposes a multi-second per-future cost.
+  # subgroup_cox(lean = TRUE) -- the default -- avoids both conditions.
+  if (n_workers > 1L) {
+    fml <- attr(fit, "formula")
+    fit_bytes <- tryCatch(length(serialize(fit, NULL)),
+                          error = function(e) NA_integer_)
+    if ((!is.null(fml) && identical(environment(fml), globalenv())) ||
+        isTRUE(fit_bytes > 512 * 1024)) {
+      warning(sprintf(
+        paste0("`fit` will be shipped to every parallel worker and %s; ",
+               "this slowed the Phase 2 renders ~8x. Build it with ",
+               "subgroup_cox() (lean = TRUE) or give the formula a ",
+               "minimal environment -- see ?subgroup_cox."),
+        if (!is.null(fml) && identical(environment(fml), globalenv())) {
+          "its formula is bound to the global environment"
+        } else {
+          sprintf("serializes to %.1f MB", fit_bytes / 1024^2)
+        }), call. = FALSE)
+    }
+  }
   if (verbose) {
     message(sprintf(
       "run_subgroup_sims: %s design, %d trials, %d worker(s) [%s, %.1f s]",

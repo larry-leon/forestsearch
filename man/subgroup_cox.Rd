@@ -4,11 +4,14 @@
 \alias{subgroup_cox}
 \title{Cox per-subgroup fit function}
 \usage{
-subgroup_cox(formula)
+subgroup_cox(formula, lean = TRUE)
 }
 \arguments{
 \item{formula}{A model formula for \code{\link[survival:coxph]{survival::coxph()}}, evaluated
 against each subgroup's data.}
+
+\item{lean}{Re-home the formula environment as described above
+(default \code{TRUE}).}
 }
 \value{
 A function of one argument (\code{data}) returning
@@ -30,6 +33,28 @@ function of a data frame returning a length-2 numeric
 workers, so they should reference non-base functions by
 \code{pkg::fun} or rely on packages listed in \code{future_packages}.
 }
+\section{Formula environment (\code{lean})}{
+
+A formula captures the environment where it was created. In a script
+or a knitr chunk that is the global environment, and \code{future}'s
+globals machinery gives formulas special treatment: a fit whose
+formula points at a populated environment imposes a multi-second
+per-future cost on parallel runs (measured ~2-4 s x ~116 futures in
+the Phase 2 timing diagnostic), independent of the serialized size.
+With \code{lean = TRUE} (default) the formula is re-homed into a fresh,
+empty environment parented on the survival namespace, cutting the
+costly chain while keeping \code{\link[survival:Surv]{survival::Surv()}}, \code{\link[survival:strata]{survival::strata()}},
+and base/stats symbols resolvable. Consequence: the formula must
+reference only data columns and functions reachable from the
+survival namespace (use \verb{pkg::} prefixes for anything else). Set
+\code{lean = FALSE} to retain the calling environment -- restoring
+arbitrary-symbol resolution at that parallel cost. Independently of
+\code{lean}, the returned closure is stripped of source references and
+given a minimal environment holding only the formula (keep-source
+installs otherwise attach ~250 KB of package-source baggage to every
+worker shipment).
+}
+
 \examples{
 fit <- subgroup_cox(survival::Surv(y_sim, event_sim) ~ treat_sim)
 }

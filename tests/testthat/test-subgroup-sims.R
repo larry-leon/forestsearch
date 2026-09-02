@@ -215,3 +215,62 @@ test_that("plot() requires hr_true", {
   S <- .make_S(); S$hr_true <- NULL
   expect_error(plot(S, "hr", "single"), "hr_true")
 })
+
+# ── Phase 2.1: lean formula environment in subgroup_cox() ────────────────
+
+test_that("subgroup_cox lean re-homes the formula off the calling env", {
+  f <- subgroup_cox(survival::Surv(y_sim, event_sim) ~ treat_sim)
+  e <- environment(attr(f, "formula"))
+  expect_false(identical(e, globalenv()))
+  expect_identical(parent.env(e), asNamespace("survival"))
+  # The closure itself is srcref-stripped with a minimal environment,
+  # so its serialized size is install-flag independent (getSrcref would
+  # otherwise be non-NULL under devtools' keep-source installs).
+  expect_null(utils::getSrcref(f))
+  expect_identical(parent.env(environment(f)), asNamespace("survival"))
+  expect_identical(ls(environment(f)), "formula")
+  # lean = FALSE preserves capture
+  f2 <- subgroup_cox(survival::Surv(y_sim, event_sim) ~ treat_sim,
+                     lean = FALSE)
+  expect_identical(environment(attr(f2, "formula")), environment())
+})
+
+test_that("lean and non-lean fits are numerically identical (incl. strata)", {
+  set.seed(21)
+  m <- 150L
+  d <- data.frame(treat_sim = rbinom(m, 1, 0.5),
+                  grade = sample(1:3, m, TRUE),
+                  age = rnorm(m, 55, 8))
+  tt <- rexp(m, exp(-0.5 * d$treat_sim - 1)); cc <- rexp(m, 1 / 25)
+  d$y_sim <- pmin(tt, cc); d$event_sim <- as.integer(tt <= cc)
+  fml <- survival::Surv(y_sim, event_sim) ~ treat_sim +
+    survival::strata(grade)
+  expect_identical(subgroup_cox(fml)(d),
+                   subgroup_cox(fml, lean = FALSE)(d))
+})
+
+test_that("lean trades caller-symbol resolution, gracefully", {
+  set.seed(22)
+  m <- 150L
+  d <- data.frame(treat_sim = rbinom(m, 1, 0.5), age = rnorm(m, 55, 8))
+  tt <- rexp(m, exp(-0.5 * d$treat_sim - 1)); cc <- rexp(m, 1 / 25)
+  d$y_sim <- pmin(tt, cc); d$event_sim <- as.integer(tt <= cc)
+  cutoff <- 50
+  fml <- survival::Surv(y_sim, event_sim) ~ treat_sim + I(age > cutoff)
+  # lean = FALSE resolves `cutoff` from here; lean = TRUE cannot, and the
+  # tryCatch fallback returns the NA pair rather than erroring.
+  expect_true(all(is.finite(subgroup_cox(fml, lean = FALSE)(d))))
+  expect_identical(unname(subgroup_cox(fml)(d)),
+                   c(NA_real_, NA_real_))
+})
+
+test_that("lean fit serializes small even when the formula was born heavy", {
+  heavy <- new.env(parent = globalenv())
+  assign("ballast", matrix(rnorm(4e5), 500), envir = heavy)
+  fml <- eval(quote(survival::Surv(y_sim, event_sim) ~ treat_sim),
+              envir = heavy)
+  lean_b  <- length(serialize(subgroup_cox(fml), NULL))
+  heavy_b <- length(serialize(subgroup_cox(fml, lean = FALSE), NULL))
+  expect_lt(lean_b, 100 * 1024)
+  expect_gt(heavy_b, 1024 * 1024)
+})
