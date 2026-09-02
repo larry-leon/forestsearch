@@ -374,17 +374,17 @@ cat("first-workload warm-up (run_subgroup_sims) ...\n")
 # rate confirmed across three independent runs) and triggers only on a
 # real runner-shaped shipment.  n_sims = 2 x nbrOfWorkers() covers every
 # worker even under scheduling variation -- n_sims = 8 warmed exactly 8
-# of 116 and left A holding the other 108.  suppressWarnings: the
-# warm-up's RNG-misuse notes are cosmetic (explicit per-iteration
-# seeding inside the runner); silencing them package-side via
-# seed handling is deferred to its own gated change.
+# of 116 and left A holding the other 108.  RNG-misuse notes formerly
+# suppressed locally here are now silenced package-side: the runner
+# scopes future.rng.onMisuse around its loop, so this diagnostic's full
+# log doubles as the gate (zero UNRELIABLE lines expected).
 n_warm <- max(8L, 2L * as.integer(future::nbrOfWorkers()))
 t0 <- Sys.time()
-suppressWarnings(invisible(run_subgroup_sims(
+invisible(run_subgroup_sims(
   dgm = dgm_uniform, subgroups = subgroups, n_sims = n_warm, fit = fit_C,
   baseline = "fixed", analysis_time = 84, max_entry = 24,
   cens_adjust = cal_uniform$cens_adjust, cutpoints = cut_points,
-  workers = NULL, hr_true = 0.70)))
+  workers = NULL, hr_true = 0.70))
 cat(sprintf(
   "first-workload warm-up (n_sims = %d, covers every worker): %.1f s  (one-time per fresh pool)\n",
   n_warm, as.numeric(difftime(Sys.time(), t0, units = "secs"))))

@@ -479,6 +479,20 @@ run_subgroup_sims <- function(dgm, subgroups, n_sims,
       if (plan_reused) "plan reused" else "plan created", t_plan))
   }
 
+  # Scoped RNG-misuse silencing.  Seeding is explicit per iteration
+  # (seed_base + ss for the DGM draw; + rand_seed_offset for benchmark
+  # membership), so future's misuse check is a false alarm here -- but
+  # the fix must NOT be seed = TRUE: future would install an
+  # L'Ecuyer-CMRG .Random.seed per future, switching the active RNG
+  # kind, and set.seed(x, kind = NULL) seeds the CURRENT kind.
+  # Demonstrated: set.seed(1000001); sample.int(686, 5) gives
+  # 196 191 606 419 507 under Mersenne-Twister but 417 682 50 132 4
+  # under L'Ecuyer -- every benchmark draw and DGM simulation inside
+  # workers would silently change.  Ignoring the check changes no RNG
+  # state at all; the option is saved and restored on exit.
+  old_opt <- options(future.rng.onMisuse = "ignore")
+  on.exit(options(old_opt), add = TRUE)
+
   # Simulation loop -- structure mirrors the vignettes' uniform-sims
   # chunk; per-iteration seeding is explicit, so seed = NULL here.
   t0 <- Sys.time()
