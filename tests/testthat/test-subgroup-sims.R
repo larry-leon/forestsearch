@@ -274,3 +274,69 @@ test_that("lean fit serializes small even when the formula was born heavy", {
   expect_lt(lean_b, 100 * 1024)
   expect_gt(heavy_b, 1024 * 1024)
 })
+
+# ── Phase 3: compare_subgroup_sims() ─────────────────────────────────────
+
+.make_pair <- function() {
+  mk <- function(design, shift) {
+    sg <- c("All Patients", "Cl", "EmptySG")
+    hr <- matrix(c(0.7, 0.8, 0.6, 0.9,
+                   0.4 + shift, 0.6, 1.2, 0.5,
+                   NA, NA, NA, NA), 4, 3, dimnames = list(NULL, sg))
+    list(design = design, n_sims = 4L, sim_hrs = hr, sim_ubs = hr * 2.5,
+         sim_ns = matrix(rep(c(90, 45, NA), each = 4), 4, 3,
+                         dimnames = dimnames(hr)))
+  }
+  list(r = mk("resample", 0), f = mk("fixed", 0.05))
+}
+
+test_that("compare_subgroup_sims reproduces the memo statistics", {
+  p <- .make_pair()
+  cmp <- compare_subgroup_sims(p$r, p$f,
+                               expect_designs = c("resample", "fixed"))
+  expect_identical(
+    names(cmp),
+    c("subgroup", "N_r", "N_f", "ub2_r", "ub2_f", "ub3_r", "ub3_f",
+      "mUB_r", "mUB_f", "hr05_r", "hr05_f", "hr1_r", "hr1_f",
+      "mHR_r", "mHR_f"))
+  expect_identical(cmp$ub2_f[2],
+                   100 * mean(p$f$sim_ubs[, "Cl"] >= 2, na.rm = TRUE))
+  expect_identical(cmp$mHR_r[1], median(p$r$sim_hrs[, 1]))
+  # Structurally empty: NaN -> NA in N and tail columns, NA medians
+  expect_true(is.na(cmp$N_r[3]) && is.na(cmp$ub2_f[3]) &&
+                is.na(cmp$mUB_r[3]))
+  expect_identical(attr(cmp, "designs"),
+                   c(x = "resample", y = "fixed"))
+  expect_identical(attr(cmp, "n_sims"), c(x = 4L, y = 4L))
+  expect_s3_class(cmp, "data.frame")   # plain frame, static-mode type
+})
+
+test_that("compare_subgroup_sims agrees with summary() fields", {
+  p <- .make_pair()
+  obj <- structure(c(p$f, list(subgroups = list(
+    list(id = "a", name = "All Patients", grp = "ITT"),
+    list(id = "b", name = "Cl", grp = "Clinical"),
+    list(id = "c", name = "EmptySG", grp = "Continuous")))),
+    class = c("subgroup_sims", "list"))
+  S <- summary(obj, hr_true = 0.7)
+  cmp <- compare_subgroup_sims(p$r, p$f)
+  nn <- function(v) { v[is.nan(v)] <- NA_real_; unname(v) }
+  expect_equal(cmp$ub2_f, nn(100 * S$pr_ub_ge2))
+  expect_equal(cmp$hr05_f, nn(100 * S$pr_hr_lt050))
+  expect_equal(cmp$mUB_f, unname(S$ub_q[, 2]))   # median == type-7 Q(.5)
+})
+
+test_that("compare_subgroup_sims guards alignment and designs", {
+  p <- .make_pair()
+  bad <- p$f
+  colnames(bad$sim_hrs)[2] <- "Renamed"
+  expect_error(compare_subgroup_sims(p$r, bad), "Subgroup names differ")
+  expect_error(
+    compare_subgroup_sims(p$f, p$r,
+                          expect_designs = c("resample", "fixed")),
+    "Design labels")
+  expect_error(compare_subgroup_sims(list(sim_hrs = 1), p$f),
+               "sim_hrs / sim_ubs / sim_ns")
+  cmp2 <- compare_subgroup_sims(p$r, p$f, suffixes = c(".x", ".y"))
+  expect_true(all(c("N.x", "mHR.y") %in% names(cmp2)))
+})

@@ -28,6 +28,7 @@ params:
 #| include: false
 library(gt)
 library(dplyr)
+library(forestsearch)   # compare_subgroup_sims() (live mode)
 
 # =========================================================================
 # SOURCE-OF-NUMBERS KNOB -- live payloads vs embedded static transcription
@@ -79,52 +80,17 @@ if (isTRUE(use_payloads)) {
   pl_r <- readRDS(payload_random)   # random-X  (design "resample")
   pl_f <- readRDS(payload_fixed)    # fixed-X   (design "fixed")
 
-  # Guard 1: payloads must come from the intended designs.
-  if (!identical(pl_r$design, "resample") || !identical(pl_f$design, "fixed")) {
-    stop("Design labels are not ('resample', 'fixed'): got ('",
-         pl_r$design, "', '", pl_f$design, "').  Check the payload paths.")
-  }
-  # Guard 2: identical subgroup panels, or the row-wise comparison below
-  # would be silently misaligned.
-  if (!identical(colnames(pl_r$sim_hrs), colnames(pl_f$sim_hrs))) {
-    stop("Subgroup names differ between the two payloads; re-run both ",
-         "vignettes from the same subgroup definitions.")
-  }
+  # Guards (design labels, identical subgroup panels) and the per-design
+  # statistics now live in forestsearch::compare_subgroup_sims() -- the
+  # single package-level implementation of this comparison, lifted
+  # verbatim from this document's former inline .col_stats() block and
+  # verified column-identical against it in the Phase 3 acceptance gate
+  # (dev/accept_phase3_memo_compare.R).  Definitions are unchanged: tail
+  # probabilities in percent over converged fits, unconditional medians,
+  # across-trial mean N, structurally empty subgroups NaN -> NA.
+  cmp <- compare_subgroup_sims(pl_r, pl_f,
+                               expect_designs = c("resample", "fixed"))
 
-  # Per-design summary statistics.  Definitions replicate the vignettes'
-  # Section 6.6.1 results table exactly: tail probabilities use
-  # na.rm = TRUE (denominated over converged Cox fits), medians are
-  # unconditional, N is the across-trial mean subgroup size.
-  # Structurally empty subgroups (all-NA columns) come out NaN and are
-  # mapped to NA to match the static frame's convention.
-  .col_stats <- function(pl) {
-    nan_to_na <- function(x) { x[is.nan(x)] <- NA_real_; x }
-    data.frame(
-      subgroup = colnames(pl$sim_hrs),
-      N    = nan_to_na(round(colMeans(pl$sim_ns, na.rm = TRUE))),
-      ub2  = nan_to_na(100 * apply(pl$sim_ubs, 2, function(x) mean(x >= 2.0, na.rm = TRUE))),
-      ub3  = nan_to_na(100 * apply(pl$sim_ubs, 2, function(x) mean(x >= 3.0, na.rm = TRUE))),
-      mUB  = suppressWarnings(apply(pl$sim_ubs, 2, median, na.rm = TRUE)),
-      hr05 = nan_to_na(100 * apply(pl$sim_hrs, 2, function(x) mean(x < 0.5, na.rm = TRUE))),
-      hr1  = nan_to_na(100 * apply(pl$sim_hrs, 2, function(x) mean(x > 1.0, na.rm = TRUE))),
-      mHR  = suppressWarnings(apply(pl$sim_hrs, 2, median, na.rm = TRUE)),
-      stringsAsFactors = FALSE
-    )
-  }
-  .st_r <- .col_stats(pl_r)
-  .st_f <- .col_stats(pl_f)
-
-  cmp <- data.frame(
-    subgroup = .st_r$subgroup,
-    N_r    = .st_r$N,    N_f    = .st_f$N,
-    ub2_r  = .st_r$ub2,  ub2_f  = .st_f$ub2,
-    ub3_r  = .st_r$ub3,  ub3_f  = .st_f$ub3,
-    mUB_r  = .st_r$mUB,  mUB_f  = .st_f$mUB,
-    hr05_r = .st_r$hr05, hr05_f = .st_f$hr05,
-    hr1_r  = .st_r$hr1,  hr1_f  = .st_f$hr1,
-    mHR_r  = .st_r$mHR,  mHR_f  = .st_f$mHR,
-    stringsAsFactors = FALSE
-  )
 
   n_sims_r <- pl_r$n_sims
   n_sims_f <- pl_f$n_sims
