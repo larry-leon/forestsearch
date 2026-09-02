@@ -145,8 +145,21 @@ summary.subgroup_sims <- function(object,
     -pr_ub_ge2[include_highrisk]
   )
 
+  # Per-trial N for footnotes: from the runner's sim_config when present;
+  # legacy payloads (pre-wrapper, or fixed-design hand-built lists) fall
+  # back to the ITT mean N, which equals the panel size by construction.
+  n_per_trial <- object$sim_config$n_per_trial
+  if (is.null(n_per_trial)) {
+    n_per_trial <- if (itt_name %in% names(mean_n) &&
+                       is.finite(mean_n[[itt_name]])) {
+      as.integer(mean_n[[itt_name]])
+    } else NA_integer_
+  }
+  n_per_trial <- as.integer(n_per_trial)
+
   out <- list(
     hr_q = hr_q, ub_q = ub_q,
+    n_per_trial = n_per_trial,
     n_valid = n_valid, pct_valid = pct_valid, mean_n = mean_n,
     pr_hr_lt050 = pr_hr_lt050, pr_hr_gt1 = pr_hr_gt1,
     pr_ub_ge2 = pr_ub_ge2, pr_ub_ge3 = pr_ub_ge3,

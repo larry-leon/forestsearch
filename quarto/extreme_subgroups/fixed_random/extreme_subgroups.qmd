@@ -1203,77 +1203,21 @@ cat(sprintf(
 ```
 
 ```{r sim-helpers}
-# ── Per-iteration helpers ──────────────────────────────────────────────────
-# Two pure functions.  Nothing is captured from the outer scope — every
-# input is passed explicitly — so the %dofuture% body below is a single
-# line dispatching into run_one_sim().
-
-# Fit a stratified Cox model and return c(HR point estimate, upper 95% CI).
-cox_sR <- function(data) {
-  fit <- tryCatch(
-    coxph(Surv(y_sim, event_sim) ~ treat_sim + strata(grade), data = data),
-    error = function(e) NULL
-  )
-  if (is.null(fit) || nrow(summary(fit)$conf.int) == 0) {
-    return(c(NA_real_, NA_real_))
-  }
-  ci <- summary(fit)$conf.int[1, ]
-  c(ci["exp(coef)"], ci["upper .95"])
-}
-
-# Run one simulated trial and return per-subgroup (HR, UB, N) row vectors.
-# `cut_points`   list of scalars exposed as columns of df_s so subgroup
-#                expressions like "age <= age_med" resolve correctly.
-# `cox_fn`       per-subgroup analysis function — swap for sensitivity
-#                analyses (unstratified, X+sR, etc.) without touching
-#                the loop.
-run_one_sim <- function(ss, dgm, cens_adjust, sim_config,
-                         subgroups, cut_points, cox_fn) {
-
-  # 1. Draw one synthetic trial from the calibrated DGM
-  df_s <- simulate_from_dgm(
-    dgm           = dgm,
-    n             = sim_config$n_per_trial,
-    analysis_time = sim_config$analysis_time,
-    max_entry     = sim_config$max_entry,
-    cens_adjust   = cens_adjust,
-    seed          = sim_config$seed_base + ss
-  )
-
-  # 2. Expose flag_itt and scalar cut-points as columns
-  df_s$flag_itt <- 1L
-  for (nm in names(cut_points)) df_s[[nm]] <- cut_points[[nm]]
-
-  # 3. Regenerate random-benchmark subgroups for this trial
-  set.seed(sim_config$seed_base + ss + sim_config$rand_seed_offset)
-  n_s   <- nrow(df_s)
-  r_idx <- sample.int(n_s, min(60L, n_s), replace = FALSE)
-  df_s$random60 <- as.integer(seq_len(n_s) %in% r_idx)
-  df_s$random40 <- as.integer(seq_len(n_s) %in% r_idx[seq_len(min(40L, length(r_idx)))])
-  df_s$random20 <- as.integer(seq_len(n_s) %in% r_idx[seq_len(min(20L, length(r_idx)))])
-  df_s$random15 <- as.integer(seq_len(n_s) %in% r_idx[seq_len(min(15L, length(r_idx)))])
-
-  # 4. Fit cox_fn() in every pre-defined subgroup
-  sg_ids <- vapply(subgroups, `[[`, character(1L), "id")
-  n_sg   <- length(subgroups)
-  hr_row <- rep(NA_real_, n_sg)
-  ub_row <- rep(NA_real_, n_sg)
-  n_row  <- rep(NA_real_, n_sg)
-
-  for (gg in seq_len(n_sg)) {
-    df_sg <- tryCatch(
-      subset(df_s, eval(parse(text = sg_ids[[gg]]))),
-      error = function(e) NULL
-    )
-    if (is.null(df_sg) || nrow(df_sg) < 5) next
-    n_row[gg]  <- nrow(df_sg)
-    r          <- cox_fn(df_sg)
-    hr_row[gg] <- r[1]
-    ub_row[gg] <- r[2]
-  }
-
-  list(hr = hr_row, ub = ub_row, n = n_row)
-}
+# ── Per-subgroup analysis function ────────────────────────────────────────
+# subgroup_cox() builds the analysis function applied inside every
+# subgroup of every simulated trial: a stratified Cox fit returning the
+# HR point estimate and upper 95% bound from the first conf.int row,
+# with c(NA, NA) on estimation failure.  The rest of the former inline
+# machinery -- one synthetic trial via simulate_from_dgm(), flag_itt and
+# cut-point columns, nested random-benchmark regeneration, and the
+# per-subgroup subset/fit loop with its < 5 skip rule -- now lives in
+# forestsearch::run_subgroup_sims(), verified bit-identical to this
+# document's original loop by dev/accept_phase1_bitident.R.  Swap the
+# formula, or pass any function(data) returning c(estimate, upper), for
+# sensitivity analyses without touching the simulation machinery.
+fit_uniform <- subgroup_cox(
+  Surv(y_sim, event_sim) ~ treat_sim + strata(grade)
+)
 ```
 
 ```{r uniform-sims}
@@ -1283,36 +1227,36 @@ run_one_sim <- function(ss, dgm, cens_adjust, sim_config,
 cut_points <- list(age_med = age_med, size_med = size_med,
                     nodes_q3 = nodes_q3, pgr_med = pgr_med, er_cut = er_cut)
 
-# ── Parallel simulation loop ──────────────────────────────────────────────
-# Each iteration is one call to run_one_sim().  Per-iteration seeding is
-# handled inside the helper, so .options.future declares seed = NULL.
-sim_results <- foreach::foreach(
-  ss = seq_len(n_sims_uniform),
-  .options.future = list(
-    seed     = NULL,
-    packages = c("forestsearch", "survival")
-  )
-) %dofuture% {
-  run_one_sim(ss, dgm_uniform, cal_uniform$cens_adjust, sim_config,
-              subgroups, cut_points, cox_sR)
-}
+# ── Simulation study ──────────────────────────────────────────────────────
+# One call replaces the former helper + %dofuture% loop.  Per-iteration
+# seeding is explicit inside the runner (trial ss: seed_base + ss for the
+# DGM draw, + rand_seed_offset for benchmark membership), so results are
+# independent of the parallel schedule.  workers = NULL reuses the
+# multisession plan established in the parallel-setup chunk above instead
+# of spawning a fresh worker pool.
+sims_uniform <- run_subgroup_sims(
+  dgm              = dgm_uniform,
+  subgroups        = subgroups,
+  n_sims           = n_sims_uniform,
+  fit              = fit_uniform,
+  baseline         = "resample",
+  n                = sim_config$n_per_trial,
+  analysis_time    = sim_config$analysis_time,
+  max_entry        = sim_config$max_entry,
+  cens_adjust      = cal_uniform$cens_adjust,
+  cutpoints        = cut_points,
+  benchmarks       = benchmark_spec(),      # random15 in 20 in 40 in 60
+  seed_base        = sim_config$seed_base,
+  rand_seed_offset = sim_config$rand_seed_offset,
+  workers          = NULL,
+  hr_true          = 0.70,
+  k_treat          = k_treat_uniform
+)
 
-# ── Recombine per-iteration results into matrices ─────────────────────────
-sg_names <- vapply(subgroups, `[[`, character(1L), "name")
-sim_hrs  <- do.call(rbind, lapply(sim_results, `[[`, "hr"))
-sim_ubs  <- do.call(rbind, lapply(sim_results, `[[`, "ub"))
-sim_ns   <- do.call(rbind, lapply(sim_results, `[[`, "n"))
-colnames(sim_hrs) <- sg_names
-colnames(sim_ubs) <- sg_names
-colnames(sim_ns)  <- sg_names
-
-# Release workers (memory hygiene; not strictly required)
-future::plan(future::sequential)
+t_sims <- as.numeric(difftime(Sys.time(), .t_sims_start, units = "secs"))
 
 cat("Simulations completed:", n_sims_uniform,
     " |  Parallel workers used:", n_workers, "\n")
-
-t_sims <- as.numeric(difftime(Sys.time(), .t_sims_start, units = "secs"))
 ```
 
 ### Persisting the payload (optional)
@@ -1327,27 +1271,14 @@ fixed-vs-random design comparison from raw results.  With
 
 ```{r save-payload}
 if (isTRUE(save_payload)) {
-  payload <- list(
-    design               = design_label,          # "resample" | "fixed"
-    n_sims               = n_sims_uniform,
-    sim_hrs              = sim_hrs,               # n_sims x n_subgroups
-    sim_ubs              = sim_ubs,
-    sim_ns               = sim_ns,
-    subgroups            = subgroups,             # list(id, name, grp)
-    sim_config           = sim_config,
-    cens_adjust          = cal_uniform$cens_adjust,
-    k_treat              = k_treat_uniform,
-    hr_true              = 0.70,                  # AHR calibration target
-    created              = Sys.time(),
-    r_version            = R.version.string,
-    forestsearch_version = tryCatch(
-      as.character(utils::packageVersion("forestsearch")),
-      error = function(e) NA_character_)
-  )
-  saveRDS(payload, payload_path)
+  # The runner's return object IS the payload: field names and matrix
+  # layout are byte-compatible with the former hand-built list (plus a
+  # "subgroup_sims" class attribute and a richer sim_config), so the
+  # design-comparison memo loads it unchanged.
+  saveRDS(sims_uniform, payload_path)
   cat(sprintf("Payload written: %s  (%.1f MB, forestsearch %s)\n",
               payload_path, file.size(payload_path) / 1024^2,
-              payload$forestsearch_version))
+              sims_uniform$forestsearch_version))
 } else {
   cat("Payload persistence disabled (save_payload = FALSE); nothing written.\n")
 }
@@ -1360,54 +1291,15 @@ if (isTRUE(save_payload)) {
 ### Summary table
 
 ```{r uniform-results-table}
-# Median HR and 1-99th percentile ECI across simulations
-hr_q  <- t(apply(sim_hrs, 2, quantile, probs = c(0.01, 0.50, 0.99),
-                 na.rm = TRUE))
-ub_q  <- t(apply(sim_ubs, 2, quantile, probs = c(0.01, 0.50, 0.99),
-                 na.rm = TRUE))
-
-# n_valid: number of simulations where Cox estimation succeeded
-n_valid     <- apply(sim_hrs, 2, function(x) sum(!is.na(x)))
-pct_valid   <- round(100 * n_valid / n_sims_uniform, 1)
-
-mean_n      <- round(apply(sim_ns,  2, mean, na.rm = TRUE))
-
-# Tail probabilities and unconditional medians used across the results
-# table and every forest panel.  Computed here once so every downstream
-# chunk references the same vector — denominated by n_valid (not
-# n_sims_uniform) so NAs from estimation failures are excluded.
-pr_hr_lt050 <- apply(sim_hrs, 2, function(x) mean(x < 0.5, na.rm = TRUE))
-pr_hr_gt1   <- apply(sim_hrs, 2, function(x) mean(x > 1.0, na.rm = TRUE))
-pr_ub_ge2   <- apply(sim_ubs, 2, function(x) mean(x >= 2.0, na.rm = TRUE))
-pr_ub_ge3   <- apply(sim_ubs, 2, function(x) mean(x >= 3.0, na.rm = TRUE))
-
-# Unconditional median displays (formatted as character for annotation columns)
-mhr_uncond <- ifelse(is.na(hr_q[, 2]), "-",
-                     as.character(round(hr_q[, 2], 2)))
-mub_uncond <- ifelse(is.na(ub_q[, 2]), "-",
-                     as.character(round(ub_q[, 2], 2)))
-
-fmt_pct <- function(x) ifelse(is.nan(x), "-", paste0(round(100 * x, 1), "%"))
-
-results_tbl <- data.frame(
-  Subgroup    = sg_names,
-  Mean_N      = ifelse(is.nan(mean_n), "-", as.character(mean_n)),
-  N_valid     = paste0(n_valid, " (", pct_valid, "%)"),
-  # ── HR-panel columns ────────────────────────────────────────────────────
-  Pr_HR_lt050 = fmt_pct(pr_hr_lt050),
-  Pr_HR_gt1   = fmt_pct(pr_hr_gt1),
-  mHR         = mhr_uncond,
-  # ── UB-panel columns ────────────────────────────────────────────────────
-  Pr_UB_ge2   = fmt_pct(pr_ub_ge2),
-  Pr_UB_ge3   = fmt_pct(pr_ub_ge3),
-  mUB         = mub_uncond,
-  stringsAsFactors = FALSE
-)
-colnames(results_tbl) <- c(
-  "Subgroup", "N", "#(% converged)",
-  "Pr(HR<0.5)", "Pr(HR>1.0)", "mHR",
-  "Pr(UB>=2)", "Pr(UB>=3)", "mUB"
-)
+# ── Section 6.6 statistics ────────────────────────────────────────────────
+# summary() is the single package-level source of truth for every
+# statistic in the results table and forest panels: ECI quantiles, tail
+# probabilities, convergence counts, category mapping, panel membership,
+# and the high-risk panel.  Definitions were lifted verbatim from this
+# document's former inline chunk and verified character-identical in the
+# Phase 1 acceptance gate.
+S_uniform   <- summary(sims_uniform, hr_true = 0.70)
+results_tbl <- S_uniform$results_tbl
 print(results_tbl, row.names = FALSE)
 ```
 
@@ -1465,53 +1357,19 @@ fp_base_size    <- 14     # pt — ggplot2 base font size (controls ALL text siz
 fp_point_size   <- 2.2    # relative size of the median point symbol
 fp_line_size    <- 0.75   # line width of CI whiskers
 
-# ── Colour map (used by all four panels) ──────────────────────────────────
-cat_cols <- c(
-  "ITT"         = "black",
-  "Clinical"    = "steelblue",
-  "Continuous"  = "darkgreen",
-  "Interaction" = "purple4",
-  "3-way"       = "violetred3",
-  "Random"      = "darkorange"
-)
-
-# ── Recommended fig.height for each panel ─────────────────────────────────
-cat_ok  <- dplyr::case_when(
-  sapply(subgroups, `[[`, "grp") == "ITT"               ~ "ITT",
-  sapply(subgroups, `[[`, "grp") == "Clinical"          ~ "Clinical",
-  sapply(subgroups, `[[`, "grp") == "Continuous"        ~ "Continuous",
-  grepl("^Interaction", sapply(subgroups, `[[`, "grp")) ~ "Interaction",
-  sapply(subgroups, `[[`, "grp") == "3-way"             ~ "3-way",
-  TRUE                                                  ~ "Random"
-)
-
-ok    <- !is.na(hr_q[, 2])
-ok_ub <- !is.na(ub_q[, 2])
-
-single_cats <- c("ITT", "Clinical", "Continuous")
-combo_cats  <- c("Interaction", "3-way", "Random")
-
-idx_hr_single <- which(cat_ok[ok]  %in% single_cats)
-idx_hr_combo  <- which(cat_ok[ok]  %in% combo_cats)
-idx_ub_single <- which(cat_ok[ok_ub] %in% single_cats)
-idx_ub_combo  <- which(cat_ok[ok_ub] %in% combo_cats)
-
-n_single <- length(idx_hr_single)
-n_combo  <- length(idx_hr_combo)
-
-fh_single <- round(n_single * fp_row_height + fp_overhead_in, 1)
-fh_combo  <- round(n_combo  * fp_row_height + fp_overhead_in, 1)
+# ── Panel membership, colours, and validity masks ─────────────────────────
+# Category labels, the colour map, ok/ok_ub masks, and the single/combo
+# index vectors now live on S_uniform (see summary()); forest_height()
+# converts panel row counts to the fig.height values used below.
+fh_single <- forest_height(S_uniform, "single", fp_row_height, fp_overhead_in)
+fh_combo  <- forest_height(S_uniform, "combo",  fp_row_height, fp_overhead_in)
 
 cat(sprintf(
-  "Single panels: %d rows  ->  recommended fig.height = %.1f in
-",
-  n_single, fh_single
-))
+  "Single panels: %d rows  ->  recommended fig.height = %.1f in\n",
+  S_uniform$n_single, fh_single))
 cat(sprintf(
-  "Combo  panels: %d rows  ->  recommended fig.height = %.1f in
-",
-  n_combo,  fh_combo
-))
+  "Combo  panels: %d rows  ->  recommended fig.height = %.1f in\n",
+  S_uniform$n_combo,  fh_combo))
 ```
 
 
@@ -1523,42 +1381,9 @@ The true HR is 0.70 for every subgroup (red dashed line).
 #| fig-height: !expr fh_single
 #| fig-width: 14
 #| fig-cap: "HR distribution — single-variable subgroups (log scale). Spread reflects sampling variability alone; all subgroups share the same true HR = 0.70."
-sg_single   <- sg_names[ok][idx_hr_single]
-cat_single  <- cat_ok[ok][idx_hr_single]
-
-gg_forest(
-  subgroups   = sg_single,
-  est         = hr_q[ok, 2][idx_hr_single],
-  lo          = hr_q[ok, 1][idx_hr_single],
-  hi          = hr_q[ok, 3][idx_hr_single],
-  cat_vec     = cat_single,
-  cat_colours = cat_cols,
-  annot       = list(
-    "N"      = as.character(mean_n[ok][idx_hr_single]),
-    "HR<0.5" = paste0(round(100 * pr_hr_lt050[ok][idx_hr_single], 1), "%"),
-    "HR>1.0" = paste0(round(100 * pr_hr_gt1[ok][idx_hr_single],   1), "%"),
-    "mHR"    = mhr_uncond[ok][idx_hr_single]
-  ),
-  ref_line    = 0.70,
-  vert_lines  = 1.00,
-  ref_col     = "firebrick",
-  vert_col    = "grey55",
-  vert_lty    = "dotted",
-  xlim        = c(0.15, 3.5),
-  ticks_at    = c(0.20, 0.35, 0.50, 0.70, 1.00, 1.50, 2.50),
-  xlog        = TRUE,
-  xlab        = "Hazard Ratio (Cox, stratified by grade)",
-  footnote    = paste0(
-    "Median HR (point) + 1st-99th percentile ECI  |  ",
-    n_sims_uniform, " simulated trials, N = ", nrow(gbsg), " per trial  |  ",
-    "True HR = 0.70 (red dashed)"
-  ),
-  point_size  = fp_point_size,
-  line_size   = fp_line_size,
-  base_size   = fp_base_size,
-  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.1),
-  clip_marker = "arrow"
-)
+plot(S_uniform, metric = "hr", panel = "single",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
 ```
 
 **Panel B — HR distributions, combination and random-benchmark subgroups.**
@@ -1569,42 +1394,9 @@ Note how the ECI widens sharply as subgroup N falls below ~60; the
 #| fig-height: !expr fh_combo
 #| fig-width: 14
 #| fig-cap: "HR distribution — combination subgroups and random benchmarks (log scale). Random benchmarks of matching size (orange) are the baseline for chance variability."
-sg_combo   <- sg_names[ok][idx_hr_combo]
-cat_combo  <- cat_ok[ok][idx_hr_combo]
-
-gg_forest(
-  subgroups   = sg_combo,
-  est         = hr_q[ok, 2][idx_hr_combo],
-  lo          = hr_q[ok, 1][idx_hr_combo],
-  hi          = hr_q[ok, 3][idx_hr_combo],
-  cat_vec     = cat_combo,
-  cat_colours = cat_cols,
-  annot       = list(
-    "N"      = as.character(mean_n[ok][idx_hr_combo]),
-    "HR<0.5" = paste0(round(100 * pr_hr_lt050[ok][idx_hr_combo], 1), "%"),
-    "HR>1.0" = paste0(round(100 * pr_hr_gt1[ok][idx_hr_combo],   1), "%"),
-    "mHR"    = mhr_uncond[ok][idx_hr_combo]
-  ),
-  ref_line    = 0.70,
-  vert_lines  = 1.00,
-  ref_col     = "firebrick",
-  vert_col    = "grey55",
-  vert_lty    = "dotted",
-  xlim        = c(0.15, 3.5),
-  ticks_at    = c(0.20, 0.35, 0.50, 0.70, 1.00, 1.50, 2.50),
-  xlog        = TRUE,
-  xlab        = "Hazard Ratio (Cox, stratified by grade)",
-  footnote    = paste0(
-    "Median HR (point) + 1st-99th percentile ECI  |  ",
-    n_sims_uniform, " simulated trials  |  ",
-    "True HR = 0.70 (red dashed)"
-  ),
-  point_size  = fp_point_size,
-  line_size   = fp_line_size,
-  base_size   = fp_base_size,
-  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.1),
-  clip_marker = "arrow"
-)
+plot(S_uniform, metric = "hr", panel = "combo",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
 ```
 
 ---
@@ -1627,43 +1419,9 @@ trials (`mUB`).
 #| fig-height: !expr fh_single
 #| fig-width: 14
 #| fig-cap: "UB(HR) distribution — single-variable subgroups (log scale). Values right of HR = 1.0 (dotted line) represent trials failing to show significant benefit."
-sg_ub_s   <- sg_names[ok_ub][idx_ub_single]
-cat_ub_s  <- cat_ok[ok_ub][idx_ub_single]
-
-gg_forest(
-  subgroups   = sg_ub_s,
-  est         = ub_q[ok_ub, 2][idx_ub_single],
-  lo          = ub_q[ok_ub, 1][idx_ub_single],
-  hi          = ub_q[ok_ub, 3][idx_ub_single],
-  cat_vec     = cat_ub_s,
-  cat_colours = cat_cols,
-  annot       = list(
-    "N"     = as.character(mean_n[ok_ub][idx_ub_single]),
-    "UB>=2" = paste0(round(100 * pr_ub_ge2[ok_ub][idx_ub_single], 1), "%"),
-    "UB>=3" = paste0(round(100 * pr_ub_ge3[ok_ub][idx_ub_single], 1), "%"),
-    "mUB"   = mub_uncond[ok_ub][idx_ub_single]
-  ),
-  ref_line    = 1.00,
-  vert_lines  = 0.70,
-  ref_col     = "grey55",
-  ref_lty     = "dotted",
-  vert_col    = "firebrick",
-  vert_lty    = "dashed",
-  xlim        = c(0.30, 9.0),
-  ticks_at    = c(0.40, 0.70, 1.00, 1.50, 2.50, 4.00, 8.00),
-  xlog        = TRUE,
-  xlab        = "Upper Bound of 95% CI  [UB(HR)]",
-  footnote    = paste0(
-    "Median UB(HR) (point) + 1st-99th percentile ECI  |  ",
-    n_sims_uniform, " simulated trials  |  ",
-    "Dotted line: UB = 1.0;  Dashed line: true HR = 0.70"
-  ),
-  point_size  = fp_point_size,
-  line_size   = fp_line_size,
-  base_size   = fp_base_size,
-  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.1),
-  clip_marker = "arrow"
-)
+plot(S_uniform, metric = "ub", panel = "single",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
 ```
 
 **Panel B — UB(HR) distributions, combination subgroups and random benchmarks.**
@@ -1676,43 +1434,9 @@ though the true HR is 0.70 throughout.
 #| fig-height: !expr fh_combo
 #| fig-width: 14
 #| fig-cap: "UB(HR) distribution — combination and random-benchmark subgroups. The widening ECI for small subgroups is the central message: chance alone produces UB(HR) > 3-5 for N ~ 15-40."
-sg_ub_c   <- sg_names[ok_ub][idx_ub_combo]
-cat_ub_c  <- cat_ok[ok_ub][idx_ub_combo]
-
-gg_forest(
-  subgroups   = sg_ub_c,
-  est         = ub_q[ok_ub, 2][idx_ub_combo],
-  lo          = ub_q[ok_ub, 1][idx_ub_combo],
-  hi          = ub_q[ok_ub, 3][idx_ub_combo],
-  cat_vec     = cat_ub_c,
-  cat_colours = cat_cols,
-  annot       = list(
-    "N"      = as.character(mean_n[ok_ub][idx_ub_combo]),
-    "UB>=2"  = paste0(round(100 * pr_ub_ge2[ok_ub][idx_ub_combo], 1), "%"),
-    "UB>=3"  = paste0(round(100 * pr_ub_ge3[ok_ub][idx_ub_combo], 1), "%"),
-    "mUB"    = mub_uncond[ok_ub][idx_ub_combo]
-  ),
-  ref_line    = 1.00,
-  vert_lines  = 0.70,
-  ref_col     = "grey55",
-  ref_lty     = "dotted",
-  vert_col    = "firebrick",
-  vert_lty    = "dashed",
-  xlim        = c(0.30, 9.0),
-  ticks_at    = c(0.40, 0.70, 1.00, 1.50, 2.50, 4.00, 8.00),
-  xlog        = TRUE,
-  xlab        = "Upper Bound of 95% CI  [UB(HR)]",
-  footnote    = paste0(
-    "Median UB(HR) (point) + 1st-99th percentile ECI  |  ",
-    n_sims_uniform, " simulated trials  |  ",
-    "Dotted line: UB = 1.0;  Dashed line: true HR = 0.70"
-  ),
-  point_size  = fp_point_size,
-  line_size   = fp_line_size,
-  base_size   = fp_base_size,
-  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.1),
-  clip_marker = "arrow"
-)
+plot(S_uniform, metric = "ub", panel = "combo",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
 ```
 
 ---
@@ -1734,72 +1458,23 @@ appear immediately below the ITT for direct comparison.
 ```{r ub-forest-highrisk-setup}
 #| include: false
 
-# Inclusion rule: meets the Pr(UB>=2) threshold OR is the ITT anchor.
-pr_thresh_highrisk <- 0.10
-itt_name           <- "All Patients"
-
-include_highrisk <- ok_ub &
-  (pr_ub_ge2 >= pr_thresh_highrisk | sg_names == itt_name)
-
-# Ordering: ITT first, then descending Pr(UB>=2).
-# order() uses a logical key (FALSE < TRUE) to put the ITT row at the top.
-ord_highrisk <- order(
-  sg_names[include_highrisk] != itt_name,
-  -pr_ub_ge2[include_highrisk]
-)
-
-n_highrisk  <- sum(include_highrisk)
-fh_highrisk <- round(n_highrisk * fp_row_height + fp_overhead_in, 1)
-
+# High-risk membership (Pr(UB>=2) >= threshold, ITT anchored first) is
+# computed by summary(); only the recommended figure height remains
+# document-side.
+fh_highrisk <- forest_height(S_uniform, "highrisk",
+                              fp_row_height, fp_overhead_in)
 cat(sprintf(
   "High-risk panel: %d subgroups (Pr(UB>=2) >= %.0f%%, ITT included)  ->  fig.height = %.1f in\n",
-  n_highrisk, 100 * pr_thresh_highrisk, fh_highrisk
-))
+  S_uniform$highrisk$n, 100 * S_uniform$highrisk$threshold, fh_highrisk))
 ```
 
 ```{r ub-forest-highrisk}
 #| fig-height: !expr fh_highrisk
 #| fig-width: 14
 #| fig-cap: "UB(HR) distribution — subgroups where at least 10% of simulated trials produce UB(HR) >= 2.0, with All Patients (ITT) for comparison.  All share the same true HR = 0.70; differences are entirely sampling variability."
-sg_hr  <- sg_names[include_highrisk][ord_highrisk]
-cat_hr <- cat_ok[include_highrisk][ord_highrisk]
-
-gg_forest(
-  subgroups   = sg_hr,
-  est         = ub_q[include_highrisk, 2][ord_highrisk],
-  lo          = ub_q[include_highrisk, 1][ord_highrisk],
-  hi          = ub_q[include_highrisk, 3][ord_highrisk],
-  cat_vec     = cat_hr,
-  cat_colours = cat_cols,
-  annot       = list(
-    "N"      = as.character(mean_n[include_highrisk][ord_highrisk]),
-    "UB>=2"  = paste0(round(100 * pr_ub_ge2[include_highrisk][ord_highrisk], 1), "%"),
-    "UB>=3"  = paste0(round(100 * pr_ub_ge3[include_highrisk][ord_highrisk], 1), "%"),
-    "mUB"    = mub_uncond[include_highrisk][ord_highrisk]
-  ),
-  ref_line    = 1.00,
-  vert_lines  = 0.70,
-  ref_col     = "grey55",
-  ref_lty     = "dotted",
-  vert_col    = "firebrick",
-  vert_lty    = "dashed",
-  xlim        = c(0.30, 9.0),
-  ticks_at    = c(0.40, 0.70, 1.00, 1.50, 2.50, 4.00, 8.00),
-  xlog        = TRUE,
-  xlab        = "Upper Bound of 95% CI  [UB(HR)]",
-  footnote    = paste0(
-    "Filter: Pr(UB(HR) >= 2.0) >= ", round(100 * pr_thresh_highrisk), "%  |  ",
-    "ITT included for comparison  |  ",
-    n_sims_uniform, " simulated trials  |  ",
-    "Arrowheads mark whiskers extending beyond the axis  |  ",
-    "Dotted: UB = 1.0;  Dashed: true HR = 0.70"
-  ),
-  point_size  = fp_point_size,
-  line_size   = fp_line_size,
-  base_size   = fp_base_size,
-  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.1),
-  clip_marker = "arrow"
-)
+plot(S_uniform, metric = "ub", panel = "highrisk",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
 ```
 
 The contrast is the point of the plot: every row shares the same true
@@ -1821,41 +1496,9 @@ in both tails.
 #| fig-width: 14
 #| fig-cap: "HR distribution — same high-risk subgroups as the panel above (Pr(UB(HR) >= 2.0) >= 10%, plus ITT for comparison).  Every row shares the same true HR = 0.70 (red dashed); spread reflects sampling variability alone."
 
-gg_forest(
-  subgroups   = sg_names[include_highrisk][ord_highrisk],
-  est         = hr_q[include_highrisk, 2][ord_highrisk],
-  lo          = hr_q[include_highrisk, 1][ord_highrisk],
-  hi          = hr_q[include_highrisk, 3][ord_highrisk],
-  cat_vec     = cat_ok[include_highrisk][ord_highrisk],
-  cat_colours = cat_cols,
-  annot       = list(
-    "N"      = as.character(mean_n[include_highrisk][ord_highrisk]),
-    "HR<0.5" = paste0(round(100 * pr_hr_lt050[include_highrisk][ord_highrisk], 1), "%"),
-    "HR>1.0" = paste0(round(100 * pr_hr_gt1[include_highrisk][ord_highrisk], 1), "%"),
-    "mHR"    = mhr_uncond[include_highrisk][ord_highrisk]
-  ),
-  ref_line    = 0.70,
-  vert_lines  = 1.00,
-  ref_col     = "firebrick",
-  ref_lty     = "dashed",
-  vert_col    = "grey55",
-  vert_lty    = "dotted",
-  xlim        = c(0.15, 3.5),
-  ticks_at    = c(0.20, 0.35, 0.50, 0.70, 1.00, 1.50, 2.50),
-  xlog        = TRUE,
-  xlab        = "Hazard Ratio (Cox, stratified by grade)",
-  footnote    = paste0(
-    "Same subgroups and ordering as the UB(HR) panel above  |  ",
-    n_sims_uniform, " simulated trials  |  ",
-    "Arrowheads mark whiskers extending beyond the axis  |  ",
-    "Dashed: true HR = 0.70;  Dotted: HR = 1.0"
-  ),
-  point_size  = fp_point_size,
-  line_size   = fp_line_size,
-  base_size   = fp_base_size,
-  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.1),
-  clip_marker = "arrow"
-)
+plot(S_uniform, metric = "hr", panel = "highrisk",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
 ```
 
 Read together with the UB(HR) panel, the message is direct: the same

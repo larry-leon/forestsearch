@@ -17,7 +17,7 @@ run_subgroup_sims(
   cutpoints = list(),
   benchmarks = benchmark_spec(),
   min_n = 5L,
-  workers = 0.9,
+  workers = NULL,
   seed_base = 0L,
   rand_seed_offset = 1000000L,
   hr_true = NULL,
@@ -63,10 +63,16 @@ generation entirely (no RNG is consumed for it).}
 \item{min_n}{Subgroups with fewer rows are skipped for that trial
 (row stays \code{NA}), default \code{5L} as in the vignettes.}
 
-\item{workers}{Parallel workers: a fraction in (0, 1) of
-\code{future::availableCores()} (default \code{0.90}, ceiling as in the
-vignettes), an integer count, or \code{1} for sequential. The previous
-\code{\link[future:plan]{future::plan()}} is restored on exit.}
+\item{workers}{Parallel workers. \code{NULL} (default) reuses a
+caller-established non-sequential \code{\link[future:plan]{future::plan()}} when one exists
+-- no worker-pool spawn or teardown, the mode the vignettes use
+after their \code{parallel-setup} chunk -- and otherwise creates a
+multisession plan on \code{ceiling(0.90 * availableCores())}, restored
+on exit. A numeric value forces a plan for this call (restored on
+exit): a fraction in (0, 1) of \code{availableCores()}, an integer
+count, or \code{1} for sequential. Results are identical under every
+setting (seeding is per-iteration); only wall time differs.
+\code{sim_config} records \code{workers}, \code{plan_reused}, and \code{t_plan_secs}.}
 
 \item{seed_base, rand_seed_offset}{Seed scheme; defaults (\code{0L},
 \code{1e6L}) reproduce the vignettes.}

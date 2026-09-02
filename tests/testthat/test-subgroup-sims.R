@@ -156,3 +156,62 @@ test_that("summary.subgroup_sims reproduces the vignette statistics", {
   expect_output(print(S), "subgroup_sims_summary")
   expect_output(print(obj), "subgroup_sims")
 })
+
+# ── Phase 2: plot method and forest_height ───────────────────────────────
+# Exact argument assembly per (metric, panel) is verified against the
+# vignette chunk formulas in the development harness; here we cover the
+# arithmetic, the summary field, real gg_forest() execution, and guards.
+
+.make_S <- function() {
+  sg <- list(
+    list(id = "a", name = "All Patients", grp = "ITT"),
+    list(id = "b", name = "Cl",           grp = "Clinical"),
+    list(id = "c", name = "Ix",           grp = "Interaction: meno x grade"),
+    list(id = "d", name = "3w",           grp = "3-way"),
+    list(id = "e", name = "random60",     grp = "Random (N~60)"),
+    list(id = "f", name = "EmptySG",      grp = "Continuous"))
+  hr <- matrix(c(0.7, 0.8, 0.6, 0.9,  0.4, 0.6, 1.2, 0.5,
+                 0.3, 1.1, 0.45, 0.9, 0.55, 0.65, 0.75, 0.85,
+                 1.4, 0.2, 0.9, NA,   NA, NA, NA, NA), 4, 6,
+               dimnames = list(NULL, vapply(sg, `[[`, "", "name")))
+  obj <- structure(
+    list(design = "fixed", n_sims = 4L, sim_hrs = hr, sim_ubs = hr * 2.5,
+         sim_ns = matrix(rep(c(90, 45, 20, 12, 60, NA), each = 4), 4, 6,
+                         dimnames = dimnames(hr)),
+         subgroups = sg, hr_true = 0.7),
+    class = c("subgroup_sims", "list"))
+  summary(obj)
+}
+
+test_that("summary exposes n_per_trial (sim_config or ITT fallback)", {
+  S <- .make_S()
+  expect_identical(S$n_per_trial, 90L)   # legacy object -> ITT mean N
+})
+
+test_that("forest_height converts panel rows to inches", {
+  S <- .make_S()
+  expect_identical(forest_height(S, "single"),
+                   round(S$n_single * 0.45 + 1.5, 1))
+  expect_identical(forest_height(S, "combo", 0.32, 1.2),
+                   round(S$n_combo * 0.32 + 1.2, 1))
+  expect_identical(forest_height(S, "highrisk"),
+                   round(S$highrisk$n * 0.45 + 1.5, 1))
+  expect_error(forest_height(S, "nope"))
+})
+
+test_that("plot() renders every (metric, panel) with real gg_forest", {
+  S <- .make_S()
+  for (mm in c("hr", "ub")) for (pp in c("single", "combo", "highrisk")) {
+    p <- plot(S, metric = mm, panel = pp)
+    expect_true(inherits(p, "gg") || inherits(p, "patchwork"),
+                info = paste(mm, pp))
+  }
+  # Overrides merge over defaults without duplicate-argument errors
+  expect_no_error(plot(S, "ub", "combo", ref_col = "black",
+                       footnote = "custom", base_size = 9))
+})
+
+test_that("plot() requires hr_true", {
+  S <- .make_S(); S$hr_true <- NULL
+  expect_error(plot(S, "hr", "single"), "hr_true")
+})

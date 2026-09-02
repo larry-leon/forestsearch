@@ -272,10 +272,16 @@ validate_subgroups <- function(subgroups, data,
 #'   generation entirely (no RNG is consumed for it).
 #' @param min_n Subgroups with fewer rows are skipped for that trial
 #'   (row stays `NA`), default `5L` as in the vignettes.
-#' @param workers Parallel workers: a fraction in (0, 1) of
-#'   `future::availableCores()` (default `0.90`, ceiling as in the
-#'   vignettes), an integer count, or `1` for sequential. The previous
-#'   [future::plan()] is restored on exit.
+#' @param workers Parallel workers. `NULL` (default) reuses a
+#'   caller-established non-sequential [future::plan()] when one exists
+#'   -- no worker-pool spawn or teardown, the mode the vignettes use
+#'   after their `parallel-setup` chunk -- and otherwise creates a
+#'   multisession plan on `ceiling(0.90 * availableCores())`, restored
+#'   on exit. A numeric value forces a plan for this call (restored on
+#'   exit): a fraction in (0, 1) of `availableCores()`, an integer
+#'   count, or `1` for sequential. Results are identical under every
+#'   setting (seeding is per-iteration); only wall time differs.
+#'   `sim_config` records `workers`, `plan_reused`, and `t_plan_secs`.
 #' @param seed_base,rand_seed_offset Seed scheme; defaults (`0L`,
 #'   `1e6L`) reproduce the vignettes.
 #' @param hr_true,k_treat Optional provenance values stored verbatim in
@@ -319,7 +325,7 @@ run_subgroup_sims <- function(dgm, subgroups, n_sims,
                               cutpoints = list(),
                               benchmarks = benchmark_spec(),
                               min_n = 5L,
-                              workers = 0.90,
+                              workers = NULL,
                               seed_base = 0L,
                               rand_seed_offset = 1e6L,
                               hr_true = NULL,
@@ -369,24 +375,44 @@ run_subgroup_sims <- function(dgm, subgroups, n_sims,
     }
   }
 
-  # Parallel plan: fraction-of-cores default matching the vignettes
-  # (ceiling(0.90 * cores)); previous plan restored on exit.
-  if (is.null(workers)) workers <- 0.90
-  n_workers <- if (workers < 1) {
-    max(1L, as.integer(ceiling(workers * future::availableCores())))
+  # Parallel plan.  workers = NULL: reuse a caller-established
+  # non-sequential plan when one exists (no per-call worker-pool spawn/
+  # teardown -- the multisession setup cost dominated the Phase 1
+  # acceptance timings); otherwise, and for any numeric `workers`, set a
+  # plan for this call and restore the previous one on exit.
+  t0_plan     <- Sys.time()
+  plan_reused <- FALSE
+  if (is.null(workers)) {
+    if (!inherits(future::plan(), "sequential")) {
+      plan_reused <- TRUE
+    } else {
+      old_plan <- future::plan()
+      on.exit(future::plan(old_plan), add = TRUE)
+      future::plan(future::multisession,
+                   workers = max(1L, as.integer(
+                     ceiling(0.90 * future::availableCores()))))
+    }
   } else {
-    as.integer(workers)
+    n_set <- if (workers < 1) {
+      max(1L, as.integer(ceiling(workers * future::availableCores())))
+    } else {
+      as.integer(workers)
+    }
+    old_plan <- future::plan()
+    on.exit(future::plan(old_plan), add = TRUE)
+    if (n_set <= 1L) {
+      future::plan(future::sequential)
+    } else {
+      future::plan(future::multisession, workers = n_set)
+    }
   }
-  old_plan <- future::plan()
-  on.exit(future::plan(old_plan), add = TRUE)
-  if (n_workers <= 1L) {
-    future::plan(future::sequential)
-  } else {
-    future::plan(future::multisession, workers = n_workers)
-  }
+  n_workers <- as.integer(future::nbrOfWorkers())
+  t_plan    <- as.numeric(difftime(Sys.time(), t0_plan, units = "secs"))
   if (verbose) {
-    message(sprintf("run_subgroup_sims: %s design, %d trials, %d worker(s)",
-                    baseline, n_sims, n_workers))
+    message(sprintf(
+      "run_subgroup_sims: %s design, %d trials, %d worker(s) [%s, %.1f s]",
+      baseline, n_sims, n_workers,
+      if (plan_reused) "plan reused" else "plan created", t_plan))
   }
 
   # Simulation loop -- structure mirrors the vignettes' uniform-sims
@@ -437,6 +463,8 @@ run_subgroup_sims <- function(dgm, subgroups, n_sims,
       min_n            = min_n,
       benchmarks       = benchmarks,
       workers          = n_workers,
+      plan_reused      = plan_reused,
+      t_plan_secs      = t_plan,
       t_sims_secs      = t_sims,
       fit              = if (!is.null(fit_formula)) {
         paste(deparse(fit_formula), collapse = " ")
