@@ -28,8 +28,9 @@ run_subgroup_sims(
 )
 }
 \arguments{
-\item{dgm}{A DGM from \code{\link[=generate_aft_dgm_flex]{generate_aft_dgm_flex()}}. For
-\code{baseline = "fixed"} it must carry \code{df_source}.}
+\item{dgm}{A DGM from \code{\link[=generate_aft_dgm_flex]{generate_aft_dgm_flex()}} (survival) or
+\code{\link[=generate_glm_dgm]{generate_glm_dgm()}} (GLM). For \code{baseline = "fixed"} (survival
+only) it must carry \code{df_source}.}
 
 \item{subgroups}{List of subgroup definitions, each a list with
 character scalars \code{id} (an expression over trial columns, exposed
@@ -39,19 +40,22 @@ cut-points, \code{flag_itt}, and benchmark columns), \code{name}, and \code{grp}
 
 \item{fit}{Per-subgroup analysis function \code{data -> c(estimate, upper)};
 see \code{\link[=subgroup_cox]{subgroup_cox()}}. Default is an unstratified Cox fit on the
-simulated columns; the vignettes pass a grade-stratified formula.}
+simulated columns (the vignettes pass a grade-stratified formula);
+for a \code{"glm_dgm"} the default is \code{\link[=subgroup_glm]{subgroup_glm()}}.}
 
 \item{baseline}{\code{"resample"} (random-X: draw \code{n} patients from the
 super-population per trial) or \code{"fixed"} (conditional-on-X: every
-trial is the \code{df_source} panel).}
+trial is the \code{df_source} panel). Survival only; a \code{"glm_dgm"}
+always resamples.}
 
-\item{n}{Patients per trial. Required for \code{"resample"}; must be
-\code{NULL} for \code{"fixed"}, where N is \code{nrow(dgm$df_source)} by
-construction.}
+\item{n}{Patients per trial. Required for \code{"resample"} and for a
+\code{"glm_dgm"}; must be \code{NULL} for \code{"fixed"}, where N is
+\code{nrow(dgm$df_source)} by construction.}
 
 \item{analysis_time, max_entry, cens_adjust}{Passed to
 \code{\link[=simulate_from_dgm]{simulate_from_dgm()}} (administrative censoring time, recruitment
-window, calibrated censoring shift).}
+window, calibrated censoring shift). Survival-only: supplying any
+of them with a \code{"glm_dgm"} is an error.}
 
 \item{cutpoints}{Named list of scalars exposed as columns of each
 simulated trial so \code{id} expressions like \code{"age <= age_med"}
@@ -79,7 +83,9 @@ setting (seeding is per-iteration); only wall time differs.
 
 \item{hr_true, k_treat}{Optional provenance values stored verbatim in
 the result (the vignettes store \code{0.70} and the calibrated
-\code{k_treat}).}
+\code{k_treat}). \code{hr_true} is the true effect on the fitter's estimate
+scale: a hazard ratio for Cox fits, a mean difference for
+\code{\link[=subgroup_glm]{subgroup_glm()}} fits.}
 
 \item{future_packages}{Packages loaded on workers, default
 \code{c("forestsearch", "survival")} as in the vignettes.}
@@ -93,7 +99,11 @@ An object of class \code{"subgroup_sims"}: a named list with
 \code{design}, \code{n_sims}, matrices \code{sim_hrs} / \code{sim_ubs} / \code{sim_ns}
 (\code{n_sims} x subgroups, columns named by subgroup \code{name}),
 \code{subgroups}, \code{sim_config}, \code{cens_adjust}, \code{k_treat}, \code{hr_true},
-\code{created}, \code{r_version}, and \code{forestsearch_version}.
+\code{created}, \code{r_version}, and \code{forestsearch_version}. For a
+\code{"glm_dgm"}: \code{design = "glm"}, \code{cens_adjust = NULL}, and an
+additional \code{effect} field holding the fitter's scale metadata (see
+\code{\link[=subgroup_glm]{subgroup_glm()}}); survival results are constructed exactly as
+before, with no new fields.
 }
 \description{
 Draws \code{n_sims} synthetic trials from a calibrated DGM via
@@ -112,6 +122,17 @@ Per-iteration seeding is explicit (trial \code{ss} uses
 \code{seed_base + ss + rand_seed_offset} for benchmark membership), so
 results are independent of the parallel schedule: any \code{workers}
 setting, including sequential, gives identical matrices.
+
+GLM dispatch: when \code{dgm} inherits \code{"glm_dgm"} (\code{\link[=generate_glm_dgm]{generate_glm_dgm()}}),
+trials are drawn by \code{\link[=simulate_from_glm_dgm]{simulate_from_glm_dgm()}} (\code{n} is required; the
+survival-only \code{analysis_time} / \code{max_entry} / \code{cens_adjust} must not
+be supplied, and \code{baseline = "fixed"} is unavailable), the default
+\code{fit} becomes \code{\link[=subgroup_glm]{subgroup_glm()}}, and the result additionally carries
+the fitter's \code{effect} scale metadata with \code{design = "glm"}. The
+\code{sim_hrs} / \code{sim_ubs} matrices then hold that fitter's
+\verb{(estimate, upper bound)} pairs -- the field names are retained for
+structural compatibility, exactly as \code{hr.threshold} serves
+generic-threshold duty for GLM outcomes in \code{\link[=forestsearch]{forestsearch()}}.
 }
 \examples{
 \dontrun{
@@ -130,5 +151,5 @@ saveRDS(sims, "results/extreme_sims_fixed_1000_payload.rds")
 }
 \seealso{
 \code{\link[=summary.subgroup_sims]{summary.subgroup_sims()}}, \code{\link[=benchmark_spec]{benchmark_spec()}},
-\code{\link[=subgroup_cox]{subgroup_cox()}}, \code{\link[=validate_subgroups]{validate_subgroups()}}
+\code{\link[=subgroup_cox]{subgroup_cox()}}, \code{\link[=subgroup_glm]{subgroup_glm()}}, \code{\link[=validate_subgroups]{validate_subgroups()}}
 }
