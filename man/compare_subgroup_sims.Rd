@@ -4,7 +4,14 @@
 \alias{compare_subgroup_sims}
 \title{Compare two extreme-subgroups simulation studies}
 \usage{
-compare_subgroup_sims(x, y, expect_designs = NULL, suffixes = c("_r", "_f"))
+compare_subgroup_sims(
+  x,
+  y,
+  expect_designs = NULL,
+  suffixes = c("_r", "_f"),
+  est_thresholds = NULL,
+  ub_thresholds = NULL
+)
 }
 \arguments{
 \item{x, y}{The two studies to compare, in display order (the memo
@@ -17,14 +24,25 @@ labels for \code{x} and \code{y} respectively (e.g.
 \item{suffixes}{Length-2 character appended to each statistic's
 column for \code{x} and \code{y}; the default \code{c("_r", "_f")} reproduces the
 memo's column names (\code{N_r}, \code{N_f}, \code{ub2_r}, ...).}
+
+\item{est_thresholds}{Length-2 numeric \code{c(low, high)} for the
+\code{hr05}-style (\code{est < low}) and \code{hr1}-style (\code{est > high})
+percentages; \code{NULL} resolves via \code{effect} metadata, then the HR
+legacy \code{c(0.5, 1.0)}.}
+
+\item{ub_thresholds}{Length-2 numeric for the \code{ub2}-style and
+\code{ub3}-style (\code{UB >= t}) percentages; resolution as above (HR
+legacy \code{c(2, 3)}).}
 }
 \value{
 A plain \code{data.frame} (one row per subgroup, matching the
 memo's static-mode frame type) with columns \code{subgroup}, then for
 each of \code{N}, \code{ub2}, \code{ub3}, \code{mUB}, \code{hr05}, \code{hr1}, \code{mHR} the \code{x} and
 \code{y} columns interleaved. The inputs' \code{n_sims} and \code{design} values
-are attached as attributes \code{"n_sims"} and \code{"designs"}
-(informational; dropped by most transformations).
+are attached as attributes \code{"n_sims"} and \code{"designs"}; when the
+inputs carry effect metadata it is attached as attribute
+\code{"effect"} (informational; attributes are dropped by most
+transformations).
 }
 \description{
 Builds the per-subgroup comparison frame between two
@@ -38,6 +56,18 @@ the across-trial mean subgroup size, and structurally empty
 subgroups (all-\code{NA} columns) are mapped from \code{NaN} to \code{NA}.
 }
 \details{
+Column names are structural and retained across outcome types
+(\code{hr05}, \code{hr1}, \code{ub2}, \code{ub3}, \code{mHR}, \code{mUB}), exactly as \code{sim_hrs}
+serves generic duty on GLM results: for \code{\link[=subgroup_glm]{subgroup_glm()}} fits they
+hold estimate-scale statistics at the resolved thresholds. Threshold
+resolution: explicit arguments win; otherwise the inputs' \code{effect}
+metadata supplies them; otherwise the HR legacy \code{c(0.5, 1.0)} /
+\code{c(2, 3)}. An \code{NA} threshold yields an all-\code{NA} column. The two
+inputs must carry compatible metadata (both none, or the same
+effect measure) -- comparing an MD study against an HR study is a
+hard error, raised before the panel-alignment guard so the
+categorical incompatibility is reported first.
+
 Two validations guard the row-wise alignment (formerly the memo's
 Guard 1 and Guard 2): the subgroup panels must be identical, and,
 when \code{expect_designs} is supplied, each input's \code{design} label must
@@ -58,5 +88,6 @@ cmp <- compare_subgroup_sims(pl_r, pl_f,
 }
 }
 \seealso{
-\code{\link[=run_subgroup_sims]{run_subgroup_sims()}}, \code{\link[=summary.subgroup_sims]{summary.subgroup_sims()}}
+\code{\link[=run_subgroup_sims]{run_subgroup_sims()}}, \code{\link[=summary.subgroup_sims]{summary.subgroup_sims()}},
+\code{\link[=subgroup_glm]{subgroup_glm()}}
 }

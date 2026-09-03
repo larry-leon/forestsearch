@@ -6,6 +6,14 @@
 # (.col_stats) and the interleaved comparison frame are lifted verbatim
 # from that document, so live-mode memo renders are column-identical by
 # construction (verified by dev/accept_phase3_memo_compare.R).
+#
+# Phase 4.2 (effect-aware summaries): tail thresholds resolve explicit
+# arguments -> the inputs' `effect` metadata -> the HR legacy values;
+# with legacy inputs and no overrides the computed frame and attributes
+# are identical to the pre-4.2 output (same threshold values flow
+# through the same expressions).  Guard order (4.2r2): metadata
+# compatibility runs before panel alignment, so the categorical
+# incompatibility (MD vs HR) is reported first.
 
 #' Compare two extreme-subgroups simulation studies
 #'
@@ -18,6 +26,18 @@
 #' converged fits (`na.rm = TRUE`), medians are unconditional, `N` is
 #' the across-trial mean subgroup size, and structurally empty
 #' subgroups (all-`NA` columns) are mapped from `NaN` to `NA`.
+#'
+#' Column names are structural and retained across outcome types
+#' (`hr05`, `hr1`, `ub2`, `ub3`, `mHR`, `mUB`), exactly as `sim_hrs`
+#' serves generic duty on GLM results: for [subgroup_glm()] fits they
+#' hold estimate-scale statistics at the resolved thresholds. Threshold
+#' resolution: explicit arguments win; otherwise the inputs' `effect`
+#' metadata supplies them; otherwise the HR legacy `c(0.5, 1.0)` /
+#' `c(2, 3)`. An `NA` threshold yields an all-`NA` column. The two
+#' inputs must carry compatible metadata (both none, or the same
+#' effect measure) -- comparing an MD study against an HR study is a
+#' hard error, raised before the panel-alignment guard so the
+#' categorical incompatibility is reported first.
 #'
 #' Two validations guard the row-wise alignment (formerly the memo's
 #' Guard 1 and Guard 2): the subgroup panels must be identical, and,
@@ -38,14 +58,24 @@
 #' @param suffixes Length-2 character appended to each statistic's
 #'   column for `x` and `y`; the default `c("_r", "_f")` reproduces the
 #'   memo's column names (`N_r`, `N_f`, `ub2_r`, ...).
+#' @param est_thresholds Length-2 numeric `c(low, high)` for the
+#'   `hr05`-style (`est < low`) and `hr1`-style (`est > high`)
+#'   percentages; `NULL` resolves via `effect` metadata, then the HR
+#'   legacy `c(0.5, 1.0)`.
+#' @param ub_thresholds Length-2 numeric for the `ub2`-style and
+#'   `ub3`-style (`UB >= t`) percentages; resolution as above (HR
+#'   legacy `c(2, 3)`).
 #'
 #' @return A plain `data.frame` (one row per subgroup, matching the
 #'   memo's static-mode frame type) with columns `subgroup`, then for
 #'   each of `N`, `ub2`, `ub3`, `mUB`, `hr05`, `hr1`, `mHR` the `x` and
 #'   `y` columns interleaved. The inputs' `n_sims` and `design` values
-#'   are attached as attributes `"n_sims"` and `"designs"`
-#'   (informational; dropped by most transformations).
-#' @seealso [run_subgroup_sims()], [summary.subgroup_sims()]
+#'   are attached as attributes `"n_sims"` and `"designs"`; when the
+#'   inputs carry effect metadata it is attached as attribute
+#'   `"effect"` (informational; attributes are dropped by most
+#'   transformations).
+#' @seealso [run_subgroup_sims()], [summary.subgroup_sims()],
+#'   [subgroup_glm()]
 #' @export
 #' @examples
 #' \dontrun{
@@ -56,7 +86,9 @@
 #' }
 compare_subgroup_sims <- function(x, y,
                                   expect_designs = NULL,
-                                  suffixes = c("_r", "_f")) {
+                                  suffixes = c("_r", "_f"),
+                                  est_thresholds = NULL,
+                                  ub_thresholds = NULL) {
   for (o in list(x, y)) {
     if (!is.list(o) ||
         !all(c("sim_hrs", "sim_ubs", "sim_ns") %in% names(o)) ||
@@ -65,6 +97,18 @@ compare_subgroup_sims <- function(x, y,
            "with subgroup column names (a run_subgroup_sims() result ",
            "or a vignette payload).")
     }
+  }
+  # Effect-metadata compatibility guard -- runs BEFORE the panel guard:
+  # comparing an MD study against an HR study is categorically wrong,
+  # and re-running with aligned subgroups (the panel guard's advice)
+  # could not fix it. Legacy inputs (both NULL) pass trivially.
+  ex <- x$effect; ey <- y$effect
+  if (xor(is.null(ex), is.null(ey)) ||
+      (!is.null(ex) && !identical(ex$measure, ey$measure))) {
+    stop("The two results carry incompatible effect metadata (",
+         if (is.null(ex)) "none" else ex$measure, " vs ",
+         if (is.null(ey)) "none" else ey$measure,
+         "); compare like with like.")
   }
   if (!identical(colnames(x$sim_hrs), colnames(y$sim_hrs))) {
     stop("Subgroup names differ between the two result sets; re-run ",
@@ -82,22 +126,44 @@ compare_subgroup_sims <- function(x, y,
   stopifnot(is.character(suffixes), length(suffixes) == 2L,
             !anyDuplicated(suffixes))
 
-  # Per-design statistics -- verbatim from the memo's .col_stats().
+  # Threshold resolution (explicit -> metadata -> HR legacy); ex/ey were
+  # validated by the metadata guard above.
+  if (is.null(est_thresholds)) {
+    est_thresholds <- if (!is.null(ex$est_thresholds)) {
+      ex$est_thresholds
+    } else c(0.5, 1.0)
+  }
+  if (is.null(ub_thresholds)) {
+    ub_thresholds <- if (!is.null(ex$ub_thresholds)) {
+      ex$ub_thresholds
+    } else c(2, 3)
+  }
+  stopifnot(is.numeric(est_thresholds), length(est_thresholds) == 2L,
+            is.numeric(ub_thresholds),  length(ub_thresholds)  == 2L)
+
+  # Per-design statistics -- verbatim from the memo's .col_stats(), with
+  # the thresholds flowing in as values (legacy values reproduce the
+  # memo's numbers identically; an NA threshold propagates to an all-NA
+  # column via the NaN -> NA mapping).
   nan_to_na <- function(v) { v[is.nan(v)] <- NA_real_; v }
   .cs <- function(pl) {
     data.frame(
       subgroup = colnames(pl$sim_hrs),
       N    = nan_to_na(round(colMeans(pl$sim_ns, na.rm = TRUE))),
       ub2  = nan_to_na(100 * apply(pl$sim_ubs, 2,
-                                   function(v) mean(v >= 2.0, na.rm = TRUE))),
+                                   function(v) mean(v >= ub_thresholds[1],
+                                                    na.rm = TRUE))),
       ub3  = nan_to_na(100 * apply(pl$sim_ubs, 2,
-                                   function(v) mean(v >= 3.0, na.rm = TRUE))),
+                                   function(v) mean(v >= ub_thresholds[2],
+                                                    na.rm = TRUE))),
       mUB  = suppressWarnings(apply(pl$sim_ubs, 2, stats::median,
                                     na.rm = TRUE)),
       hr05 = nan_to_na(100 * apply(pl$sim_hrs, 2,
-                                   function(v) mean(v < 0.5, na.rm = TRUE))),
+                                   function(v) mean(v < est_thresholds[1],
+                                                    na.rm = TRUE))),
       hr1  = nan_to_na(100 * apply(pl$sim_hrs, 2,
-                                   function(v) mean(v > 1.0, na.rm = TRUE))),
+                                   function(v) mean(v > est_thresholds[2],
+                                                    na.rm = TRUE))),
       mHR  = suppressWarnings(apply(pl$sim_hrs, 2, stats::median,
                                     na.rm = TRUE)),
       stringsAsFactors = FALSE
@@ -119,5 +185,6 @@ compare_subgroup_sims <- function(x, y,
                                   x$design,
                             y = if (is.null(y$design)) NA_character_ else
                                   y$design)
+  if (!is.null(ex)) attr(out, "effect") <- ex
   out
 }

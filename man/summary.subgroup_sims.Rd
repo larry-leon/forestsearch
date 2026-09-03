@@ -8,6 +8,10 @@
   object,
   hr_true = object$hr_true,
   probs = c(0.01, 0.5, 0.99),
+  est_thresholds = NULL,
+  ub_thresholds = NULL,
+  est_label = NULL,
+  ub_label = NULL,
   single_cats = c("ITT", "Clinical", "Continuous"),
   combo_cats = c("Interaction", "3-way", "Random"),
   pr_thresh_highrisk = 0.1,
@@ -20,18 +24,33 @@
 \arguments{
 \item{object}{A \code{"subgroup_sims"} object.}
 
-\item{hr_true}{True hazard ratio for reference lines; defaults to the
-value stored on \code{object}.}
+\item{hr_true}{True effect on the fitter's estimate scale, for
+reference lines (a hazard ratio for Cox fits, a mean difference
+for \code{\link[=subgroup_glm]{subgroup_glm()}} fits); defaults to the value stored on
+\code{object}.}
 
 \item{probs}{Quantile probabilities for the ECI matrices; the default
 \code{c(0.01, 0.50, 0.99)} matches the vignettes and downstream code
 indexes column 2 as the median.}
 
+\item{est_thresholds}{Length-2 numeric \code{c(low, high)}: the estimate
+tails are \code{Pr(est < low)} and \code{Pr(est > high)}. \code{NULL} resolves
+via the \code{effect} metadata, then the HR legacy \code{c(0.5, 1.0)}. \code{NA}
+entries disable that tail (see above).}
+
+\item{ub_thresholds}{Length-2 numeric: the upper-bound tails are
+\code{Pr(UB >= ub_thresholds[1])} and \code{Pr(UB >= ub_thresholds[2])};
+the first also drives the high-risk panel. Resolution as for
+\code{est_thresholds} (HR legacy \code{c(2, 3)}).}
+
+\item{est_label, ub_label}{Display labels for the estimate and its
+upper bound in the table headers (legacy \code{"HR"} / \code{"UB"}).}
+
 \item{single_cats, combo_cats}{Category labels routed to the
 single-variable and combination forest panels.}
 
 \item{pr_thresh_highrisk}{High-risk panel inclusion threshold on
-\code{Pr(UB>=2)}, default \code{0.10}.}
+the first upper-bound tail probability, default \code{0.10}.}
 
 \item{itt_name}{Name of the ITT row, always included in and anchored
 at the top of the high-risk panel.}
@@ -47,25 +66,43 @@ fields named as in the vignettes (\code{hr_q}, \code{ub_q}, \code{n_valid},
 \code{pr_ub_ge3}, \code{mhr_uncond}, \code{mub_uncond}, \code{results_tbl},
 \code{sg_names}, \code{cat}, \code{cat_cols}, \code{ok}, \code{ok_ub}, \code{idx_hr_single},
 \code{idx_hr_combo}, \code{idx_ub_single}, \code{idx_ub_combo}, \code{n_single},
-\code{n_combo}, \code{highrisk}, \code{n_sims}, \code{design}, \code{hr_true}).
+\code{n_combo}, \code{highrisk}, \code{n_sims}, \code{design}, \code{hr_true}). Legacy
+calls return exactly this set; effect-aware calls append \code{effect}
+(the result's metadata, possibly \code{NULL} when only explicit
+overrides were given), \code{thresholds} (\code{list(est =, ub =)} as
+resolved), and \code{labels} (\code{list(est =, ub =)}).
 }
 \description{
 Computes, from the raw matrices of a \code{\link[=run_subgroup_sims]{run_subgroup_sims()}} result (or
 a loaded RDS payload coerced with \verb{class<-}), every statistic used by
 the vignettes' results table and forest panels: 1st/50th/99th
-percentile matrices for HR and UB(HR), convergence counts, mean
-subgroup N, tail probabilities \code{Pr(HR<0.5)}, \code{Pr(HR>1.0)},
-\code{Pr(UB>=2)}, \code{Pr(UB>=3)} (denominated over converged fits,
-\code{na.rm = TRUE}), unconditional median display strings, the formatted
-\code{results_tbl}, category labels and colours, validity masks, the
-single/combination panel index vectors, and the high-risk panel
-(threshold filter, ITT anchor, ordering).
+percentile matrices for the estimate and its upper bound, convergence
+counts, mean subgroup N, tail probabilities, unconditional median
+display strings, the formatted \code{results_tbl}, category labels and
+colours, validity masks, the single/combination panel index vectors,
+and the high-risk panel (threshold filter, ITT anchor, ordering).
 }
 \details{
+Field names are structural and retained across outcome types
+(\code{hr_q}, \code{pr_hr_lt050}, \code{pr_ub_ge2}, ...), exactly as \code{sim_hrs} and
+\code{hr.threshold} serve generic duty elsewhere in the package: on a GLM
+result they hold the fitter's estimate-scale statistics. Estimates
+follow the estimator layer's harm-positive normalization, so the
+upper tail (\code{Pr(est > null)}, \code{Pr(UB >= t)}) always points toward
+harm whatever the raw outcome's direction.
+
+Threshold and label resolution: explicit arguments win; otherwise the
+result's \code{effect} metadata supplies them (for \code{\link[=subgroup_glm]{subgroup_glm()}} fits:
+\code{est_thresholds = c(NA, null_value)}, \code{ub_thresholds = c(NA, NA)},
+labels from the effect measure); otherwise the HR legacy values
+\code{c(0.5, 1.0)} / \code{c(2, 3)} with the vignettes' literal headers. An
+\code{NA} threshold degrades gracefully: its probability field is \code{NA}
+and its table column renders \code{"-"} under a placeholder header.
+
 Structurally empty subgroups (all-\code{NA} columns) yield \code{NA} medians
 and \code{NaN} means/proportions, exactly as in the vignettes; the
 formatted table renders them as \code{"-"}.
 }
 \seealso{
-\code{\link[=run_subgroup_sims]{run_subgroup_sims()}}
+\code{\link[=run_subgroup_sims]{run_subgroup_sims()}}, \code{\link[=subgroup_glm]{subgroup_glm()}}
 }
