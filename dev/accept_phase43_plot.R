@@ -1,10 +1,11 @@
 # accept_phase43_plot.R -----------------------------------------------------
-# SENTINEL: P43-ACC-v1-2026-09-02
+# SENTINEL: P43-ACC-v2-2026-09-03 [delivery sentinel: p44r2-51b6d40b]
 #
-# Phase 4.3 acceptance gate, run AFTER the 4.3 install. Three sections:
-#   A. Legacy byte-identity: the pre-4.3 plot code is taken from
-#      `git show HEAD:R/plot_subgroup_sims.R` (HEAD = the 4.2 commit at
-#      run time) and sourced beside the placed 4.3 file, each with
+# Phase 4.3 acceptance gate (v2: standing at any HEAD >= 4.3). Sections:
+#   A. Legacy byte-identity: the pre-4.3 plot code is PINNED to the 4.2
+#      commit -- `git show 310039f6:R/plot_subgroup_sims.R` -- with the
+#      extracted bytes asserted against a recorded sha256, then sourced
+#      beside the repo's plot file, each with
 #      gg_forest replaced by a capture stub (function(...) list(...)).
 #      For a reference survival study, all twelve (baseline x metric x
 #      panel) argument lists and forest_height() must be identical().
@@ -25,10 +26,31 @@ if (!any(grepl("Phase 4.3 (scale-aware plots)", readLines(new_path),
                fixed = TRUE)))
   fail("repo plot file is not the placed 4.3 version")
 old_path <- tempfile(fileext = ".R")
-writeLines(system2("git", c("show", "HEAD:R/plot_subgroup_sims.R"),
-                   stdout = TRUE), old_path)
-if (any(grepl("Phase 4.3", readLines(old_path), fixed = TRUE)))
-  fail("HEAD already contains 4.3 -- expected the 4.2 commit")
+# v2 (p44r2): the legacy reference is pinned to the Phase 4.2 commit
+# instead of asserting HEAD == 4.2 (structurally unrunnable at any HEAD
+# past the 4.3 commit). The extraction writes raw bytes (stdout = file,
+# no readLines round trip) and is self-verifying: the recorded sha256
+# arbitrates even under an abbreviated-hash collision or a history
+# rewrite, and strictly subsumes the old "no Phase 4.3 marker" check.
+legacy_commit <- "310039f6"
+legacy_sha256 <-
+  "4b472d2f198d0c0a929e8a1bf3dc0616f4c973f306005ce6d8da2e4f857b3406"
+full_hash <- suppressWarnings(system2(
+  "git", c("rev-parse", "--verify", paste0(legacy_commit, "^{commit}")),
+  stdout = TRUE, stderr = TRUE))
+if (!is.null(attr(full_hash, "status")) || length(full_hash) != 1L)
+  fail("legacy commit %s not found in this repository", legacy_commit)
+cat("legacy reference commit:", full_hash, "\n")
+st <- system2("git",
+              c("show", paste0(legacy_commit, ":R/plot_subgroup_sims.R")),
+              stdout = old_path)
+if (!identical(st, 0L)) fail("git show failed for the legacy reference")
+if (!requireNamespace("digest", quietly = TRUE))
+  fail("the 'digest' package is required for the legacy content check")
+got_sha <- digest::digest(file = old_path, algo = "sha256")
+if (!identical(got_sha, legacy_sha256))
+  fail("legacy reference content hash mismatch: got %s", got_sha)
+ok("legacy reference pinned to %s (sha256 verified)", full_hash)
 
 mk_env <- function(path) {
   e <- new.env(parent = globalenv())
