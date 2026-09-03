@@ -66,6 +66,20 @@ default can be overridden through the named arguments or \code{...},
 which is merged over the assembled argument list before the
 \code{\link[=gg_forest]{gg_forest()}} call (so e.g. \code{ref_col = "black"} or
 \code{widths = ...} in \code{...} win).
+
+Summaries carrying effect metadata (the generic path of
+\code{\link[=summary.subgroup_sims]{summary.subgroup_sims()}}, e.g. from \code{\link[=subgroup_glm]{subgroup_glm()}} fits) take a
+scale-aware branch instead: identity-scale measures (MD) plot with
+\code{xlog = FALSE}, the null line at 0, and limits/ticks delegated to
+\code{\link[=gg_forest]{gg_forest()}}'s data-driven defaults, while ratio-scale measures
+keep the HR panel constants with the null line at 1; annotation
+columns and footnotes are built from the resolved labels and
+threshold strings (legacy literals preserved when a pair equals the
+legacy pair), and columns for disabled (\code{NA}) thresholds are dropped
+(the default \code{widths} shrink to match; an explicit \code{widths} is used
+as given). \code{hr_true} is interpreted on the fitter's estimate scale
+throughout. Legacy summaries produce byte-identical \code{\link[=gg_forest]{gg_forest()}}
+calls.
 }
 \examples{
 \dontrun{
