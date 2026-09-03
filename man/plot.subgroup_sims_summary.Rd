@@ -70,9 +70,11 @@ which is merged over the assembled argument list before the
 Summaries carrying effect metadata (the generic path of
 \code{\link[=summary.subgroup_sims]{summary.subgroup_sims()}}, e.g. from \code{\link[=subgroup_glm]{subgroup_glm()}} fits) take a
 scale-aware branch instead: identity-scale measures (MD) plot with
-\code{xlog = FALSE}, the null line at 0, and limits/ticks delegated to
-\code{\link[=gg_forest]{gg_forest()}}'s data-driven defaults, while ratio-scale measures
-keep the HR panel constants with the null line at 1; annotation
+\code{xlog = FALSE} and the null line at 0, ratio-scale measures (OR)
+with \code{xlog = TRUE} and the null line at 1, and both delegate
+limits/ticks to \code{\link[=gg_forest]{gg_forest()}}'s data-driven defaults (the HR panel
+constants can hide binary medians and remain available via
+\verb{xlim=}/\verb{ticks_at=}); annotation
 columns and footnotes are built from the resolved labels and
 threshold strings (legacy literals preserved when a pair equals the
 legacy pair), and columns for disabled (\code{NA}) thresholds are dropped

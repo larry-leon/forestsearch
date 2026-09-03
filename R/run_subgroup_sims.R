@@ -1,4 +1,5 @@
 # run_subgroup_sims.R -----------------------------------------------------
+# [delivery sentinel: p44r1-1b80a7b0]
 # Package-level runner for the extreme-subgroups simulation study.
 #
 # The per-iteration computation is lifted verbatim from the committed
@@ -165,10 +166,15 @@ subgroup_cox <- function(formula, lean = TRUE) {
 #' 1 (ratio measures), whatever the raw outcome's direction.
 #'
 #' @section Supported settings:
-#' Phase 4 validates the continuous/MD setting; `outcome_type = "binary"`
-#' or `"count"` stop with an informative error. The estimator layer
-#' already supports them, and the gate lifts once their wrapper parity
-#' phases land -- no interface change.
+#' Phase 4.4 validates `outcome_type = "continuous"` (MD) and
+#' `outcome_type = "binary"` (`"OR"` -- the binary default -- and
+#' `"RD"`). Binary `"RR"` (estimator-supported; wrapper parity pending)
+#' and the rate measures `"IRR"`/`"IRD"` (Phase 4.5 count-arc
+#' territory, with `offset.name` plumbing), as well as
+#' `outcome_type = "count"`, stop with informative errors. The
+#' estimator layer ([make_effect_estimator()]) already supports all of
+#' them; the gates lift with their parity phases -- no interface
+#' change.
 #'
 #' @section Serialization (`lean`):
 #' The returned closure is stripped of source references and given a
@@ -188,15 +194,25 @@ subgroup_cox <- function(formula, lean = TRUE) {
 #' @param outcome.name,treat.name Column names of the outcome and the
 #'   0/1 treatment indicator; defaults match [simulate_from_glm_dgm()]'s
 #'   `y_sim` / `treat_sim`.
-#' @param outcome_type `"continuous"` (validated), `"binary"` or
-#'   `"count"` (reserved; currently stop).
-#' @param effect_measure `NULL` resolves to the package default for the
-#'   outcome type (`"MD"` for continuous).
+#' @param outcome_type `"continuous"` or `"binary"` (validated);
+#'   `"count"` (reserved; currently stops).
+#' @param effect_measure `NULL` resolves to the wrapper default for the
+#'   outcome type: `"MD"` (continuous) or `"OR"` (binary -- the
+#'   [generate_glm_dgm()] default and the calibration target; note that
+#'   [make_effect_estimator()]'s own binary default is `"RD"`). Binary
+#'   also accepts `"RD"`; see the supported-settings section for the
+#'   gated measures.
 #' @param adverse_outcome Higher outcome = harm (`TRUE`, default). See
 #'   the direction convention above.
 #' @param robust_se,offset.name,adjust_covariates Passed to
-#'   [make_effect_estimator()]. Supplying `adjust_covariates` disables
-#'   the unadjusted fast path (matching `forestsearch()`'s routing).
+#'   [make_effect_estimator()]. `robust_se` is consulted only where the
+#'   estimator layer uses sandwich-style SEs (the RR modified-Poisson
+#'   fallback and the rate estimators); the unadjusted OR path and the
+#'   RD tiers use model-based/analytic SEs, so the flag is a no-op for
+#'   the Phase 4.4 validated measures (asserted in
+#'   `dev/accept_phase44_binary_parity.R`). Supplying
+#'   `adjust_covariates` disables the unadjusted fast path (matching
+#'   `forestsearch()`'s routing).
 #' @param level Confidence level for the upper bound (default `0.95`).
 #' @param lean Re-home the provenance formula's environment (default
 #'   `TRUE`).
@@ -217,6 +233,10 @@ subgroup_cox <- function(formula, lean = TRUE) {
 #' \dontrun{
 #' fit <- subgroup_glm()                      # y_sim ~ treat_sim, MD
 #' fit(simulate_from_glm_dgm(dgm, n = 500, seed = 1))
+#'
+#' # Binary (Phase 4.4): OR by default, RD available
+#' fit_or <- subgroup_glm(outcome_type = "binary")
+#' fit_rd <- subgroup_glm(outcome_type = "binary", effect_measure = "RD")
 #' }
 subgroup_glm <- function(outcome.name      = "y_sim",
                          treat.name        = "treat_sim",
@@ -230,17 +250,45 @@ subgroup_glm <- function(outcome.name      = "y_sim",
                          lean              = TRUE) {
   outcome_type <- match.arg(outcome_type,
                             c("continuous", "binary", "count"))
-  if (outcome_type != "continuous") {
-    stop("subgroup_glm(): Phase 4 validates the continuous/MD setting ",
-         "only. The estimator layer (make_effect_estimator) already ",
-         "supports binary and count outcomes; the wrapper gate lifts ",
-         "once their parity phases land.", call. = FALSE)
+  if (outcome_type == "count") {
+    stop("subgroup_glm(): outcome_type = \"count\" is not yet ",
+         "wrapper-validated. The estimator layer ",
+         "(make_effect_estimator) already supports count outcomes; the ",
+         "gate lifts with the Phase 4.5 count arc (IRR/IRD parity and ",
+         "offset.name plumbing).", call. = FALSE)
   }
-  if (is.null(effect_measure)) effect_measure <- "MD"
-  if (!identical(effect_measure, "MD")) {
-    stop("subgroup_glm(): effect_measure = '", effect_measure,
-         "' is not available for outcome_type = \"continuous\" ",
-         "(the continuous estimator is MD).", call. = FALSE)
+  if (outcome_type == "continuous") {
+    if (is.null(effect_measure)) effect_measure <- "MD"
+    if (!identical(effect_measure, "MD")) {
+      stop("subgroup_glm(): effect_measure = '", effect_measure,
+           "' is not available for outcome_type = \"continuous\" ",
+           "(the continuous estimator is MD).", call. = FALSE)
+    }
+  } else {
+    # Binary (Phase 4.4). NULL resolves to "OR" -- the
+    # generate_glm_dgm() default and the calibration target -- rather
+    # than make_effect_estimator()'s "RD"; the divergence is documented
+    # in the Rd. Validated: OR, RD. Gated with distinct messages: RR
+    # (estimator-supported, wrapper parity pending) and the rate
+    # measures IRR/IRD (Phase 4.5 count-arc territory).
+    if (is.null(effect_measure)) effect_measure <- "OR"
+    if (effect_measure %in% c("IRR", "IRD")) {
+      stop("subgroup_glm(): effect_measure = '", effect_measure,
+           "' is a rate measure (requires offset.name) and arrives ",
+           "with the Phase 4.5 count arc, not via ",
+           "outcome_type = \"binary\".", call. = FALSE)
+    }
+    if (identical(effect_measure, "RR")) {
+      stop("subgroup_glm(): effect_measure = \"RR\" is supported by ",
+           "the estimator layer but not yet wrapper-validated ",
+           "(log-binomial -> modified-Poisson chain); Phase 4.4 ",
+           "validates \"OR\" and \"RD\".", call. = FALSE)
+    }
+    if (!effect_measure %in% c("OR", "RD")) {
+      stop("subgroup_glm(): effect_measure = '", effect_measure,
+           "' is not available for outcome_type = \"binary\" ",
+           "(Phase 4.4 validates \"OR\" and \"RD\").", call. = FALSE)
+    }
   }
   stopifnot(is.numeric(level), length(level) == 1L,
             level > 0, level < 1)
@@ -321,8 +369,14 @@ subgroup_glm <- function(outcome.name      = "y_sim",
     adverse_outcome = isTRUE(adverse_outcome),
     est_label       = effect_measure,
     ub_label        = paste0("UB(", effect_measure, ")"),
-    est_thresholds  = c(NA_real_, if (log_scale) 1 else 0),
-    ub_thresholds   = c(NA_real_, NA_real_),
+    # Scale-aware stamps (Phase 4.4): ratio measures inherit the HR
+    # legacy tails c(0.5, 1) / c(2, 3) -- summary() then reuses the
+    # exact legacy header strings and the high-risk panel works out of
+    # the box. Identity measures keep the 4.1 stamps (no universal
+    # tails exist); the identity branch evaluates to the pre-4.4
+    # values, so continuous output is unchanged.
+    est_thresholds  = if (log_scale) c(0.5, 1) else c(NA_real_, 0),
+    ub_thresholds   = if (log_scale) c(2, 3) else c(NA_real_, NA_real_),
     level           = level
   )
   f
@@ -492,7 +546,10 @@ validate_subgroups <- function(subgroups, data,
 #' trials are drawn by [simulate_from_glm_dgm()] (`n` is required; the
 #' survival-only `analysis_time` / `max_entry` / `cens_adjust` must not
 #' be supplied, and `baseline = "fixed"` is unavailable), the default
-#' `fit` becomes [subgroup_glm()], and the result additionally carries
+#' `fit` becomes [subgroup_glm()] constructed from the DGM's own
+#' `outcome_type` and `effect_measure` (binary DGMs also pass their
+#' `adverse_outcome`; a continuous DGM resolves to the same fitter as
+#' before), and the result additionally carries
 #' the fitter's `effect` scale metadata with `design = "glm"`. The
 #' `sim_hrs` / `sim_ubs` matrices then hold that fitter's
 #' `(estimate, upper bound)` pairs -- the field names are retained for
@@ -509,7 +566,9 @@ validate_subgroups <- function(subgroups, data,
 #' @param fit Per-subgroup analysis function `data -> c(estimate, upper)`;
 #'   see [subgroup_cox()]. Default is an unstratified Cox fit on the
 #'   simulated columns (the vignettes pass a grade-stratified formula);
-#'   for a `"glm_dgm"` the default is [subgroup_glm()].
+#'   for a `"glm_dgm"` the default is [subgroup_glm()] constructed from
+#'   the DGM's `outcome_type` / `effect_measure` (and, for binary, its
+#'   `adverse_outcome`).
 #' @param baseline `"resample"` (random-X: draw `n` patients from the
 #'   super-population per trial) or `"fixed"` (conditional-on-X: every
 #'   trial is the `df_source` panel). Survival only; a `"glm_dgm"`
@@ -604,7 +663,19 @@ run_subgroup_sims <- function(dgm, subgroups, n_sims,
   # survival default (Surv(y_sim, event_sim) ~ treat_sim) would be
   # wrong, and because default arguments are promises, assigning here
   # means that default is never evaluated on the GLM path.
-  if (is_glm && missing(fit)) fit <- subgroup_glm()
+  # DGM-aware construction (Phase 4.4): carry the DGM's own
+  # outcome_type / effect_measure so a binary DGM analyzes on its own
+  # scale instead of the continuous/MD defaults. A continuous DGM
+  # resolves to exactly the pre-4.4 values ("continuous", "MD",
+  # adverse_outcome = TRUE), so the default path is behavior-identical
+  # there. adverse_outcome is read from the DGM only for binary -- the
+  # one type where generate_glm_dgm() defines it.
+  if (is_glm && missing(fit)) fit <- subgroup_glm(
+    outcome_type    = dgm$outcome_type,
+    effect_measure  = dgm$effect_measure,
+    adverse_outcome = if (identical(dgm$outcome_type, "binary"))
+                        isTRUE(dgm$adverse_outcome) else TRUE
+  )
   if (!is.function(fit)) stop("`fit` must be a function of a data frame.")
   if (!is.null(benchmarks) && !inherits(benchmarks, "benchmark_spec")) {
     stop("`benchmarks` must be a benchmark_spec() or NULL.")

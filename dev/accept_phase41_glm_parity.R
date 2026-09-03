@@ -1,5 +1,5 @@
 # accept_phase41_glm_parity.R ---------------------------------------------
-# SENTINEL: P41-GLMPAR-v1-2026-09-02
+# SENTINEL: P41-GLMPAR-v2-2026-09-03 [delivery sentinel: p44r2-a80cd1b3]
 #
 # Phase 4.1 GLM acceptance gate, run against the INSTALLED Phase-4.1
 # build (library(forestsearch); never load_all -- doFuture workers need
@@ -172,19 +172,37 @@ expect_err(run_subgroup_sims(dgm, sgs, 2L, n = 50L, analysis_time = 84,
            "survival-only arguments", "glm + analysis_time")
 expect_err(run_subgroup_sims(dgm, sgs, 2L, workers = 1),
            "required for a \"glm_dgm\"", "glm + n=NULL")
-expect_err(subgroup_glm(outcome_type = "binary"),
-           "continuous/MD setting", "subgroup_glm binary gate")
+# v2 (p44r2): Phase 4.4 lifts the binary gate -- the former error
+# expectation becomes a constructs-assertion (measure/log_scale only;
+# threshold stamps are accept_phase44 G6's territory).
+fb <- subgroup_glm(outcome_type = "binary")
+if (!is.function(fb) ||
+    !identical(attr(fb, "effect")$measure, "OR") ||
+    !isTRUE(attr(fb, "effect")$log_scale))
+  fail("subgroup_glm(binary) must construct an OR/log-scale fitter")
+ok("E. subgroup_glm binary constructs (OR, log-scale) per Phase 4.4")
 expect_err(subgroup_glm(effect_measure = "OR"),
            "not available", "subgroup_glm OR-on-continuous")
-w <- tryCatch({
+# E-v2 (p44r2): under the Phase 4.4 DGM-aware default fit, a DGM/fitter
+# measure mismatch on the DEFAULT path can no longer reach the runner's
+# warning -- construction stops at subgroup_glm() validation. Both
+# halves are asserted: the default path stops, and the runner's
+# "fitter/DGM pairing" warning still fires for an EXPLICITLY passed
+# mismatched fitter.
+expect_err({
   dgm2 <- dgm; dgm2$effect_measure <- "OR"
   run_subgroup_sims(dgm2, sgs, 2L, n = 50L, workers = 1,
                     cutpoints = cuts, benchmarks = bench)
+}, "not available for outcome_type", "default-fit measure mismatch stops")
+w <- tryCatch({
+  dgm2 <- dgm; dgm2$effect_measure <- "OR"
+  run_subgroup_sims(dgm2, sgs, 2L, n = 50L, fit = subgroup_glm(),
+                    workers = 1, cutpoints = cuts, benchmarks = bench)
   NULL
 }, warning = function(w) conditionMessage(w))
 if (is.null(w) || !grepl("fitter/DGM pairing", w))
   fail("DGM/fitter measure-mismatch warning missing")
-ok("E. DGM/fitter measure mismatch warns")
+ok("E. default-fit mismatch stops; explicit-fitter mismatch warns")
 
 # --- F. shipment sanity ---------------------------------------------------
 fg <- subgroup_glm()

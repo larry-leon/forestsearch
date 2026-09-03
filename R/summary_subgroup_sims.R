@@ -1,4 +1,5 @@
 # summary_subgroup_sims.R -------------------------------------------------
+# [delivery sentinel: p44r1-c474d633]
 # Single source of truth for the extreme-subgroups summary statistics.
 #
 # Definitions are lifted verbatim from the committed vignettes (commit
@@ -39,9 +40,11 @@
 #' harm whatever the raw outcome's direction.
 #'
 #' Threshold and label resolution: explicit arguments win; otherwise the
-#' result's `effect` metadata supplies them (for [subgroup_glm()] fits:
-#' `est_thresholds = c(NA, null_value)`, `ub_thresholds = c(NA, NA)`,
-#' labels from the effect measure); otherwise the HR legacy values
+#' result's `effect` metadata supplies them ([subgroup_glm()] stamps
+#' scale-aware defaults from Phase 4.4 -- ratio measures carry the
+#' legacy tails `c(0.5, 1)` / `c(2, 3)`, identity measures
+#' `c(NA, null_value)` / `c(NA, NA)` -- with labels from the effect
+#' measure); otherwise the HR legacy values
 #' `c(0.5, 1.0)` / `c(2, 3)` with the vignettes' literal headers. An
 #' `NA` threshold degrades gracefully: its probability field is `NA`
 #' and its table column renders `"-"` under a placeholder header.

@@ -41,7 +41,9 @@ cut-points, \code{flag_itt}, and benchmark columns), \code{name}, and \code{grp}
 \item{fit}{Per-subgroup analysis function \code{data -> c(estimate, upper)};
 see \code{\link[=subgroup_cox]{subgroup_cox()}}. Default is an unstratified Cox fit on the
 simulated columns (the vignettes pass a grade-stratified formula);
-for a \code{"glm_dgm"} the default is \code{\link[=subgroup_glm]{subgroup_glm()}}.}
+for a \code{"glm_dgm"} the default is \code{\link[=subgroup_glm]{subgroup_glm()}} constructed from
+the DGM's \code{outcome_type} / \code{effect_measure} (and, for binary, its
+\code{adverse_outcome}).}
 
 \item{baseline}{\code{"resample"} (random-X: draw \code{n} patients from the
 super-population per trial) or \code{"fixed"} (conditional-on-X: every
@@ -127,7 +129,10 @@ GLM dispatch: when \code{dgm} inherits \code{"glm_dgm"} (\code{\link[=generate_g
 trials are drawn by \code{\link[=simulate_from_glm_dgm]{simulate_from_glm_dgm()}} (\code{n} is required; the
 survival-only \code{analysis_time} / \code{max_entry} / \code{cens_adjust} must not
 be supplied, and \code{baseline = "fixed"} is unavailable), the default
-\code{fit} becomes \code{\link[=subgroup_glm]{subgroup_glm()}}, and the result additionally carries
+\code{fit} becomes \code{\link[=subgroup_glm]{subgroup_glm()}} constructed from the DGM's own
+\code{outcome_type} and \code{effect_measure} (binary DGMs also pass their
+\code{adverse_outcome}; a continuous DGM resolves to the same fitter as
+before), and the result additionally carries
 the fitter's \code{effect} scale metadata with \code{design = "glm"}. The
 \code{sim_hrs} / \code{sim_ubs} matrices then hold that fitter's
 \verb{(estimate, upper bound)} pairs -- the field names are retained for

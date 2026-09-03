@@ -1,4 +1,5 @@
 # plot_subgroup_sims.R ----------------------------------------------------
+# [delivery sentinel: p44r1-3d0fe35f]
 # Figure construction for the extreme-subgroups study: a plot() method
 # assembling the gg_forest() calls of the committed vignettes (commit
 # 002f4f37) parameter-for-parameter, and forest_height() converting
@@ -13,11 +14,20 @@
 #
 # Phase 4.3 (scale-aware plots): summaries carrying effect metadata
 # (Phase 4.2) take a generic branch -- identity scale (xlog = FALSE,
-# null line at 0, engine-computed data-driven limits/ticks) for MD-style
-# measures, ratio scale (null at 1) otherwise, with annotation columns
-# and footnotes built from the resolved labels/thresholds and
-# NA-threshold columns dropped.  Legacy summaries take the verbatim
-# pre-4.3 branch: every gg_forest() argument is byte-identical.
+# null line at 0) for MD-style measures, ratio scale (null at 1)
+# otherwise, with annotation columns and footnotes built from the
+# resolved labels/thresholds and NA-threshold columns dropped.  Legacy
+# summaries take the verbatim pre-4.3 branch: every gg_forest()
+# argument is byte-identical.
+#
+# Phase 4.4 axis policy: metadata-carrying results delegate limits and
+# ticks to gg_forest()'s data-driven defaults on BOTH scales -- the
+# fixed HR constants can hide binary medians (median UB(OR) at small N
+# sits at or beyond 9.0, and clip arrows mark whiskers only).
+# Metadata-less generic summaries (survival results summarised with
+# explicit threshold overrides) keep the HR panel constants, and the
+# legacy branch is untouched, so every pre-4.4 path renders unchanged.
+# The constants remain one argument away via xlim= / ticks_at=.
 
 #' Recommended figure height for a forest panel
 #'
@@ -156,9 +166,11 @@ forest_height <- function(x, panel = c("single", "combo", "highrisk"),
 #' Summaries carrying effect metadata (the generic path of
 #' [summary.subgroup_sims()], e.g. from [subgroup_glm()] fits) take a
 #' scale-aware branch instead: identity-scale measures (MD) plot with
-#' `xlog = FALSE`, the null line at 0, and limits/ticks delegated to
-#' [gg_forest()]'s data-driven defaults, while ratio-scale measures
-#' keep the HR panel constants with the null line at 1; annotation
+#' `xlog = FALSE` and the null line at 0, ratio-scale measures (OR)
+#' with `xlog = TRUE` and the null line at 1, and both delegate
+#' limits/ticks to [gg_forest()]'s data-driven defaults (the HR panel
+#' constants can hide binary medians and remain available via
+#' `xlim=`/`ticks_at=`); annotation
 #' columns and footnotes are built from the resolved labels and
 #' threshold strings (legacy literals preserved when a pair equals the
 #' legacy pair), and columns for disabled (`NA`) thresholds are dropped
@@ -379,13 +391,17 @@ plot.subgroup_sims_summary <- function(x,
     args$vert_col   <- "grey55"
     args$vert_lty   <- "dotted"
     if (panel == "highrisk") args$ref_lty <- "dashed"
-    # Ratio scale keeps the HR panel constants; identity scale delegates
-    # limits/ticks to gg_forest()'s data-driven defaults (NULL).
+    # Axis policy (Phase 4.4): metadata-carrying results delegate
+    # limits/ticks to gg_forest()'s data-driven defaults (NULL) on both
+    # scales; metadata-less ratio summaries (survival with explicit
+    # threshold overrides) keep the HR panel constants. See the file
+    # header for the rationale and the reachable-path table.
     args$xlim <- if (is.null(xlim)) {
-      if (log_scale) c(0.15, 3.5) else NULL
+      if (log_scale && is.null(eff)) c(0.15, 3.5) else NULL
     } else xlim
     args$ticks_at <- if (is.null(ticks_at)) {
-      if (log_scale) c(0.20, 0.35, 0.50, 0.70, 1.00, 1.50, 2.50) else NULL
+      if (log_scale && is.null(eff))
+        c(0.20, 0.35, 0.50, 0.70, 1.00, 1.50, 2.50) else NULL
     } else ticks_at
     args$xlab <- if (is.null(xlab)) est_label else xlab
   } else {
@@ -396,10 +412,11 @@ plot.subgroup_sims_summary <- function(x,
     args$vert_col   <- "firebrick"
     args$vert_lty   <- "dashed"
     args$xlim <- if (is.null(xlim)) {
-      if (log_scale) c(0.30, 9.0) else NULL
+      if (log_scale && is.null(eff)) c(0.30, 9.0) else NULL
     } else xlim
     args$ticks_at <- if (is.null(ticks_at)) {
-      if (log_scale) c(0.40, 0.70, 1.00, 1.50, 2.50, 4.00, 8.00) else NULL
+      if (log_scale && is.null(eff))
+        c(0.40, 0.70, 1.00, 1.50, 2.50, 4.00, 8.00) else NULL
     } else ticks_at
     args$xlab <- if (is.null(xlab)) ub_label else xlab
   }

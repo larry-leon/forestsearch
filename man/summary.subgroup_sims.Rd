@@ -92,9 +92,11 @@ upper tail (\code{Pr(est > null)}, \code{Pr(UB >= t)}) always points toward
 harm whatever the raw outcome's direction.
 
 Threshold and label resolution: explicit arguments win; otherwise the
-result's \code{effect} metadata supplies them (for \code{\link[=subgroup_glm]{subgroup_glm()}} fits:
-\code{est_thresholds = c(NA, null_value)}, \code{ub_thresholds = c(NA, NA)},
-labels from the effect measure); otherwise the HR legacy values
+result's \code{effect} metadata supplies them (\code{\link[=subgroup_glm]{subgroup_glm()}} stamps
+scale-aware defaults from Phase 4.4 -- ratio measures carry the
+legacy tails \code{c(0.5, 1)} / \code{c(2, 3)}, identity measures
+\code{c(NA, null_value)} / \code{c(NA, NA)} -- with labels from the effect
+measure); otherwise the HR legacy values
 \code{c(0.5, 1.0)} / \code{c(2, 3)} with the vignettes' literal headers. An
 \code{NA} threshold degrades gracefully: its probability field is \code{NA}
 and its table column renders \code{"-"} under a placeholder header.
