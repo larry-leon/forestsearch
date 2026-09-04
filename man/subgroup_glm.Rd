@@ -22,28 +22,35 @@ subgroup_glm(
 0/1 treatment indicator; defaults match \code{\link[=simulate_from_glm_dgm]{simulate_from_glm_dgm()}}'s
 \code{y_sim} / \code{treat_sim}.}
 
-\item{outcome_type}{\code{"continuous"} or \code{"binary"} (validated);
-\code{"count"} (reserved; currently stops).}
+\item{outcome_type}{\code{"continuous"}, \code{"binary"}, or \code{"count"} (all
+validated; count requires \code{offset.name}).}
 
 \item{effect_measure}{\code{NULL} resolves to the wrapper default for the
-outcome type: \code{"MD"} (continuous) or \code{"OR"} (binary -- the
+outcome type: \code{"MD"} (continuous), \code{"OR"} (binary -- the
 \code{\link[=generate_glm_dgm]{generate_glm_dgm()}} default and the calibration target; note that
-\code{\link[=make_effect_estimator]{make_effect_estimator()}}'s own binary default is \code{"RD"}). Binary
-also accepts \code{"RD"}; see the supported-settings section for the
-gated measures.}
+\code{\link[=make_effect_estimator]{make_effect_estimator()}}'s own binary default is \code{"RD"}), or
+\code{"IRR"} (count -- all layers agree). Binary also accepts \code{"RD"};
+count also accepts \code{"IRD"}; see the supported-settings section for
+the gated measures.}
 
 \item{adverse_outcome}{Higher outcome = harm (\code{TRUE}, default). See
 the direction convention above.}
 
 \item{robust_se, offset.name, adjust_covariates}{Passed to
 \code{\link[=make_effect_estimator]{make_effect_estimator()}}. \code{robust_se} is consulted only where the
-estimator layer uses sandwich-style SEs (the RR modified-Poisson
-fallback and the rate estimators); the unadjusted OR path and the
-RD tiers use model-based/analytic SEs, so the flag is a no-op for
-the Phase 4.4 validated measures (asserted in
-\code{dev/accept_phase44_binary_parity.R}). Supplying
-\code{adjust_covariates} disables the unadjusted fast path (matching
-\code{forestsearch()}'s routing).}
+estimator layer uses sandwich-style SEs (the count IRR path, the
+RR modified-Poisson fallback, and other rate estimators); the
+unadjusted OR path, the RD tiers, the unadjusted IRD delta chain,
+and MD use model-based/analytic SEs, so the flag is a no-op for
+those measures (asserted in the phase gates). \code{offset.name} is
+REQUIRED for \code{outcome_type = "count"}: it names a strictly
+positive exposure / follow-up time column in the analysis data
+(the estimator adds an internal \code{.log_offset} column, clamping
+non-positive values at \code{.Machine$double.eps}); for plain counts
+supply a unit column of 1s -- \code{log(1) = 0} reproduces the
+no-offset Poisson model exactly. Supplying \code{adjust_covariates}
+disables the unadjusted fast path (matching \code{forestsearch()}'s
+routing).}
 
 \item{level}{Confidence level for the upper bound (default \code{0.95}).}
 
@@ -90,15 +97,14 @@ harm. Consequently the null value is always 0 (identity measures) or
 
 \section{Supported settings}{
 
-Phase 4.4 validates \code{outcome_type = "continuous"} (MD) and
+Phase 4.5 validates \code{outcome_type = "continuous"} (MD),
 \code{outcome_type = "binary"} (\code{"OR"} -- the binary default -- and
-\code{"RD"}). Binary \code{"RR"} (estimator-supported; wrapper parity pending)
-and the rate measures \code{"IRR"}/\code{"IRD"} (Phase 4.5 count-arc
-territory, with \code{offset.name} plumbing), as well as
-\code{outcome_type = "count"}, stop with informative errors. The
-estimator layer (\code{\link[=make_effect_estimator]{make_effect_estimator()}}) already supports all of
-them; the gates lift with their parity phases -- no interface
-change.
+\code{"RD"}), and \code{outcome_type = "count"} (\code{"IRR"} -- the count default
+-- and \code{"IRD"}; \code{offset.name} is required, see below). Binary
+\code{"RR"} (estimator-supported; wrapper parity pending) still stops
+with an informative error; the estimator layer
+(\code{\link[=make_effect_estimator]{make_effect_estimator()}}) already supports it and the gate lifts
+with its parity phase -- no interface change.
 }
 
 \section{Serialization (\code{lean})}{
@@ -126,6 +132,11 @@ fit(simulate_from_glm_dgm(dgm, n = 500, seed = 1))
 # Binary (Phase 4.4): OR by default, RD available
 fit_or <- subgroup_glm(outcome_type = "binary")
 fit_rd <- subgroup_glm(outcome_type = "binary", effect_measure = "RD")
+
+# Count (Phase 4.5): IRR by default, IRD available; offset required
+fit_irr <- subgroup_glm(outcome_type = "count", offset.name = "t_exp")
+fit_ird <- subgroup_glm(outcome_type = "count", offset.name = "t_exp",
+                        effect_measure = "IRD")
 }
 }
 \seealso{
