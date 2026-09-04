@@ -24,7 +24,7 @@ execute:
 #   quarto render actg175_extreme_subgroups_continuous_fixed.qmd -P n_sims:50
 # Precedence: -P value > in-file default (YAML null = use in-file default).
 # =========================================================================
-# [delivery sentinel: c2r1-f64d0856]
+# [delivery sentinel: c2r4-77aa3c19]
 .param_or <- function(nm, default) {
   if (exists("params", inherits = TRUE) && !is.null(params[[nm]]))
     params[[nm]] else default
@@ -32,9 +32,10 @@ execute:
 design_label   <- "fixed"            # conditional-on-X; twin of the gbsg doc
 n_sims_uniform <- as.integer(.param_or("n_sims", 10000L))
 save_payload   <- isTRUE(.param_or("save_payload", TRUE))
-payload_dir    <- .param_or(
-  "payload_dir",
-  "/media/larryleon/bigstorage/forestsearch_sims/fixed_random")
+# Default: the document's own folder (repo home of this workstream,
+# matching the gbsg twin's relative-path default); overridable via
+# -P payload_dir:... for any other destination.
+payload_dir    <- .param_or("payload_dir", ".")
 payload_file <- sprintf("actg175_extreme_sims_continuous_%s_%d_payload.rds",
                         design_label, n_sims_uniform)
 if (save_payload && !dir.exists(payload_dir)) {
@@ -128,7 +129,7 @@ cat(sprintf("ITT-scale MD SE at N = %d: %.3f  (UB tails below use the\n",
 cat("round values 10 and 20, bracketing ~1x and ~2x this SE: 7.889/15.78)\n")
 ```
 
-# Part III --- Subgroup Catalog (`r 47 + 4` total)
+# Part III --- Subgroup Catalog (`r 46 + 4` total)
 
 ```{r subgroups}
 subgroups <- list(
@@ -186,8 +187,14 @@ subgroups <- list(
        name = "NW/Sympt/CD4-low", grp = "3-way"),
   list(id = "hemo == 1 & cd40 <= cd40_med & karnof <= kar_med",
        name = "Hemo/CD4-low/KarnLow", grp = "3-way")
+,
+  # Random benchmarks: columns injected per replicate by benchmark_spec();
+  # the catalog must NAME them to analyze them (the gbsg twin's pattern)
+  list(id = "random60 == 1", name = "random60", grp = "Random"),
+  list(id = "random40 == 1", name = "random40", grp = "Random"),
+  list(id = "random20 == 1", name = "random20", grp = "Random"),
+  list(id = "random15 == 1", name = "random15", grp = "Random")
 )
-# + random60/40/20/15 via benchmark_spec() (nested, re-drawn per replicate)
 ```
 
 # Part IV --- Simulation and Results
