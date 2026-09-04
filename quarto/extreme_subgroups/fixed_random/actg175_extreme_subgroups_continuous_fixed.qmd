@@ -1,0 +1,255 @@
+---
+title: "Extreme Subgroup Effects Under a Uniform Treatment Effect: ACTG 175, Continuous Outcome"
+subtitle: "Fixed-baseline (conditional-on-X) simulation on the observed panel"
+author: "Larry F. León"
+date: today
+params:
+  n_sims: null
+  save_payload: null
+  payload_dir: null
+format:
+  html:
+    embed-resources: true
+    toc: true
+    number-sections: true
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+# =========================================================================
+# RUN CONTROLS -- single source of truth; -P overrides without editing:
+#   quarto render actg175_extreme_subgroups_continuous_fixed.qmd -P n_sims:50
+# Precedence: -P value > in-file default (YAML null = use in-file default).
+# =========================================================================
+# [delivery sentinel: c2r1-f64d0856]
+.param_or <- function(nm, default) {
+  if (exists("params", inherits = TRUE) && !is.null(params[[nm]]))
+    params[[nm]] else default
+}
+design_label   <- "fixed"            # conditional-on-X; twin of the gbsg doc
+n_sims_uniform <- as.integer(.param_or("n_sims", 10000L))
+save_payload   <- isTRUE(.param_or("save_payload", TRUE))
+payload_dir    <- .param_or(
+  "payload_dir",
+  "/media/larryleon/bigstorage/forestsearch_sims/fixed_random")
+payload_file <- sprintf("actg175_extreme_sims_continuous_%s_%d_payload.rds",
+                        design_label, n_sims_uniform)
+if (save_payload && !dir.exists(payload_dir)) {
+  stop("payload_dir does not exist: ", payload_dir,
+       "\nDeliberately NOT created automatically (unmounted-drive guard, ",
+       "as in the gbsg twin). mkdir -p it or pass -P payload_dir:...")
+}
+library(forestsearch)
+library(ggplot2)
+seed_dgm  <- 175L
+seed_base <- 0L
+```
+
+# Motivation
+
+The gbsg twin of this document asks: under a data-generating mechanism
+with a **perfectly uniform treatment effect**, how often do standard
+subgroup analyses of a time-to-event outcome produce extreme-looking
+results purely by chance? This document asks the identical question for
+a **continuous endpoint** -- the ACTG 175 CD4 decline -- analyzed by
+mean differences (MD) with the identical fixed-baseline design: the
+observed patient panel is frozen across every replicate
+(conditional-on-X), so all variability comes from treatment assignment
+and outcome noise, never from covariate resampling. Every subgroup
+shares exactly the same true MD by construction; any apparent
+heterogeneity is a false positive.
+
+# Part I --- Data and the Uniform DGM
+
+```{r data-prep}
+# ACTG 175 (speff2trial), arms {1, 3}: ZDV+ddI vs ddC+ZDV comparison used
+# by the continuous OC documents. Outcome is CD4 DECLINE (baseline minus
+# week 20+/-5), so LARGER = WORSE -- harm-positive with subgroup_glm()'s
+# defaults, no overrides anywhere downstream.
+actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg_df$treat     <- ifelse(actg_df$arms == 1L, 1L, 0L)
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+actg_df$y_decline <- actg_df$cd40 - actg_df$cd420
+actg_df$id        <- seq_len(nrow(actg_df))
+cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
+stopifnot(nrow(actg_df) == 1083L)      # 522 treated / 561 control
+# Panel-frozen cut constants (computed ONCE on the observed panel).
+cuts <- list(
+  age_med  = stats::median(actg_df$age),
+  wtkg_med = stats::median(actg_df$wtkg),
+  kar_med  = stats::median(actg_df$karnof),
+  cd40_med = stats::median(actg_df$cd40),
+  cd40_q1  = unname(stats::quantile(actg_df$cd40, 0.25)),
+  cd80_med = stats::median(actg_df$cd80),
+  pre_med  = stats::median(actg_df$preanti)
+)
+```
+
+```{r build-dgm}
+# model = "null": beta_inter is forced to 0 and flag_harm is identically
+# zero -- there is no embedded subgroup. Truth bookkeeping under the
+# null: effect_Qc = effect_ITT (Q is the empty region, so effect_Q is NA
+# by construction and is never printed anywhere in this document). The
+# reference truth is the FITTED overall treatment effect, k_treat = 1:
+# the continuous analogue of the twin's imposed HR = 0.70 anchors to the
+# data's own MD.
+dgm_uniform <- generate_glm_dgm(
+  data = actg_df,
+  factor_vars = bin_vars, continuous_vars = cont_vars,
+  outcome_var = "y_decline", treatment_var = "treat",
+  outcome_type = "continuous", effect_measure = "MD",
+  subgroup_vars = NULL, model = "null",
+  n_super = 5000L, seed = seed_dgm, verbose = FALSE)
+md_true <- dgm_uniform$hazard_ratios$overall
+stopifnot(!is.null(dgm_uniform$df_source),
+          nrow(dgm_uniform$df_source) == nrow(actg_df))
+cat(sprintf("Uniform true MD (decline scale, fitted) = %.3f\n", md_true))
+```
+
+# Part II --- Fixed-Panel Diagnostics
+
+Where the survival twin spends this part on censoring calibration --
+machinery a fully observed outcome does not have -- the fixed-baseline
+design's analogous obligation is to display the frozen panel itself.
+
+```{r panel-diagnostics}
+src <- dgm_uniform$df_source
+cat(sprintf("Frozen panel: N = %d (every replicate; arms redrawn 1:1)\n",
+            nrow(src)))
+cat(sprintf("y_decline: mean = %.2f, sd = %.2f\n",
+            mean(src$y_decline), stats::sd(src$y_decline)))
+se_itt <- stats::sd(src$y_decline) * sqrt(4 / nrow(src))
+cat(sprintf("ITT-scale MD SE at N = %d: %.3f  (UB tails below use the\n",
+            nrow(src), se_itt))
+cat("round values 10 and 20, bracketing ~1x and ~2x this SE: 7.889/15.78)\n")
+```
+
+# Part III --- Subgroup Catalog (`r 47 + 4` total)
+
+```{r subgroups}
+subgroups <- list(
+  list(id = "flag_itt == 1",              name = "All Patients",        grp = "ITT"),
+  # Clinical binaries (both levels each)
+  list(id = "hemo == 1",    name = "Hemophilia",        grp = "Clinical"),
+  list(id = "hemo == 0",    name = "No hemophilia",     grp = "Clinical"),
+  list(id = "homo == 1",    name = "MSM",               grp = "Clinical"),
+  list(id = "homo == 0",    name = "Non-MSM",           grp = "Clinical"),
+  list(id = "drugs == 1",   name = "IVDU history",      grp = "Clinical"),
+  list(id = "drugs == 0",   name = "No IVDU",           grp = "Clinical"),
+  list(id = "race == 1",    name = "Non-white",         grp = "Clinical"),
+  list(id = "race == 0",    name = "White",             grp = "Clinical"),
+  list(id = "gender == 0",  name = "Female",            grp = "Clinical"),
+  list(id = "gender == 1",  name = "Male",              grp = "Clinical"),
+  list(id = "symptom == 1", name = "Symptomatic",       grp = "Clinical"),
+  list(id = "symptom == 0", name = "Asymptomatic",      grp = "Clinical"),
+  # Continuous splits (panel-frozen cuts)
+  list(id = "age <= age_med",   name = "Age (young)",     grp = "Continuous"),
+  list(id = "age > age_med",    name = "Age (older)",     grp = "Continuous"),
+  list(id = "age <= 35",        name = "Age <= 35",       grp = "Continuous"),
+  list(id = "age > 35",         name = "Age > 35",        grp = "Continuous"),
+  list(id = "wtkg <= wtkg_med", name = "Weight (low)",    grp = "Continuous"),
+  list(id = "wtkg > wtkg_med",  name = "Weight (high)",   grp = "Continuous"),
+  list(id = "karnof <= kar_med", name = "Karnofsky low",  grp = "Continuous"),
+  list(id = "karnof > kar_med",  name = "Karnofsky high", grp = "Continuous"),
+  list(id = "cd40 <= cd40_med", name = "CD4 low",         grp = "Continuous"),
+  list(id = "cd40 > cd40_med",  name = "CD4 high",        grp = "Continuous"),
+  list(id = "cd40 <= cd40_q1",  name = "CD4 lowest quartile", grp = "Continuous"),
+  list(id = "cd80 <= cd80_med", name = "CD8 low",         grp = "Continuous"),
+  list(id = "cd80 > cd80_med",  name = "CD8 high",        grp = "Continuous"),
+  list(id = "preanti <= pre_med", name = "Short prior ART", grp = "Continuous"),
+  list(id = "preanti > pre_med",  name = "Long prior ART",  grp = "Continuous"),
+  # Two-way interactions
+  list(id = "symptom == 1 & cd40 <= cd40_med", name = "Sympt/CD4-low",   grp = "Interaction"),
+  list(id = "symptom == 1 & cd40 > cd40_med",  name = "Sympt/CD4-high",  grp = "Interaction"),
+  list(id = "symptom == 0 & cd40 <= cd40_med", name = "Asympt/CD4-low",  grp = "Interaction"),
+  list(id = "age <= age_med & cd40 <= cd40_med", name = "Young/CD4-low", grp = "Interaction"),
+  list(id = "age > age_med & cd40 <= cd40_med",  name = "Older/CD4-low", grp = "Interaction"),
+  list(id = "age > age_med & symptom == 1",      name = "Older/Sympt",   grp = "Interaction"),
+  list(id = "gender == 0 & drugs == 1",   name = "Female/IVDU",     grp = "Interaction"),
+  list(id = "gender == 0 & race == 1",    name = "Female/Non-white",grp = "Interaction"),
+  list(id = "karnof <= kar_med & cd40 <= cd40_med", name = "KarnLow/CD4-low", grp = "Interaction"),
+  list(id = "hemo == 1 & age <= age_med", name = "Hemo/Young",      grp = "Interaction"),
+  list(id = "drugs == 1 & symptom == 1",  name = "IVDU/Sympt",      grp = "Interaction"),
+  list(id = "race == 1 & cd40 <= cd40_med", name = "Non-white/CD4-low", grp = "Interaction"),
+  list(id = "wtkg <= wtkg_med & karnof <= kar_med", name = "LowWt/KarnLow", grp = "Interaction"),
+  list(id = "preanti > pre_med & cd40 <= cd40_med", name = "LongART/CD4-low", grp = "Interaction"),
+  # Three-way
+  list(id = "symptom == 1 & cd40 <= cd40_med & age > age_med",
+       name = "Sympt/CD4-low/Older", grp = "3-way"),
+  list(id = "gender == 0 & drugs == 1 & cd40 <= cd40_med",
+       name = "Fem/IVDU/CD4-low", grp = "3-way"),
+  list(id = "race == 1 & symptom == 1 & cd40 <= cd40_med",
+       name = "NW/Sympt/CD4-low", grp = "3-way"),
+  list(id = "hemo == 1 & cd40 <= cd40_med & karnof <= kar_med",
+       name = "Hemo/CD4-low/KarnLow", grp = "3-way")
+)
+# + random60/40/20/15 via benchmark_spec() (nested, re-drawn per replicate)
+```
+
+# Part IV --- Simulation and Results
+
+```{r run-simulations}
+n_cores_total <- future::availableCores()
+n_workers     <- max(1L, ceiling(0.90 * n_cores_total))
+future::plan(future::multisession, workers = n_workers)
+sims_uniform <- run_subgroup_sims(
+  dgm        = dgm_uniform,
+  subgroups  = subgroups,
+  n_sims     = n_sims_uniform,
+  baseline   = "fixed",                 # frozen observed panel, N = 1083
+  benchmarks = benchmark_spec(),        # random15 in 20 in 40 in 60
+  cutpoints  = cuts,
+  workers    = NULL,                    # reuse the plan above
+  seed_base  = seed_base,
+  hr_true    = md_true)
+future::plan(future::sequential)
+```
+
+```{r save-payload}
+#| eval: !expr save_payload
+saveRDS(list(sim_hrs = sims_uniform$sim_hrs, sim_ubs = sims_uniform$sim_ubs,
+             sim_ns = sims_uniform$sim_ns, subgroups = subgroups,
+             effect = sims_uniform$effect, md_true = md_true,
+             design = design_label, n_sims = n_sims_uniform,
+             seed_dgm = seed_dgm, seed_base = seed_base,
+             created = Sys.time()),
+        file.path(payload_dir, payload_file))
+```
+
+```{r summaries}
+# UB(MD) tails c(10, 20): round decline values bracketing ~1x / ~2x the
+# ITT-scale SE (7.889 / 15.78) on the frozen panel -- the identity-scale
+# analogue of the twin's UB(HR) >= 2 / >= 3.
+S <- summary(sims_uniform, ub_thresholds = c(10, 20))
+print(S)
+```
+
+```{r forest-panels}
+#| fig-width: 10
+plot(S, metric = "hr", panel = "single")
+plot(S, metric = "hr", panel = "combo")
+plot(S, metric = "ub", panel = "single")
+plot(S, metric = "ub", panel = "combo")
+plot(S, metric = "ub", panel = "highrisk")
+```
+
+# Findings
+
+Written after the first full run, mirroring the twin's structure: the
+MD point-estimate distributions center on the uniform truth in every
+subgroup; ECI width is driven entirely by subgroup N; the clinical
+subgroups of a given size are statistically indistinguishable from the
+random benchmarks of that size; and UB(MD) exceedances of the c(10, 20)
+tails in the smallest cells are expected under the uniform effect --
+the calibration a reviewer needs before reading any single forest plot.
+
+# Appendix: New-Results Workflow
+
+Re-render with `-P n_sims:...` for a different scale; payloads load in
+the design-comparison pattern established by the gbsg twins
+(`readRDS(file.path(payload_dir, payload_file))` recovers the raw
+matrices, subgroup list, and metadata).
