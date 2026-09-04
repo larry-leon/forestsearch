@@ -1,0 +1,1953 @@
+---
+title: "Extreme Subgroup Effects Under a Uniform Treatment Benefit"
+subtitle: "A Fixed-Baseline (Conditional-on-X) Simulation Study Based on Observed Trial Data"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+    highlight-style: tango
+    fig-width: 8
+    fig-height: 5
+    self-contained: true
+    html-math-method: mathjax
+execute:
+  echo: true
+  warning: false
+  message: false
+params:
+  n_sims: null
+  save_payload: null
+  payload_dir: null
+  payload_file: null
+---
+
+```{r setup}
+#| include: false
+
+# =========================================================================
+# RUN CONTROLS
+# =========================================================================
+# Defaults live HERE (single source of truth).  Every control below can
+# also be overridden at render time -- without editing this file -- via
+# Quarto params, e.g.:
+#
+#   quarto render extreme_subgroups_fixed.qmd -P n_sims:50
+#   quarto render extreme_subgroups_fixed.qmd -P save_payload:false
+#   quarto render extreme_subgroups_fixed.qmd \
+#     -P payload_dir:/media/larryleon/bigstorage/forestsearch_sims/fixed_random
+#
+# Precedence: -P value > in-file default (a param left at its YAML
+# default of `null` means "use the in-file default").  The exists()
+# guard in .param_or() keeps interactive chunk execution in RStudio
+# (where no `params` object exists) identical to a default render.
+.param_or <- function(name, default) {
+  if (exists("params", inherits = TRUE) && !is.null(params[[name]]))
+    params[[name]] else default
+}
+
+# Design label: stored in the payload metadata and used in the default
+# payload file name.  "fixed" = conditional-on-X (the
+# observed GBSG panel); the random-X companion vignette uses "resample".
+design_label <- "fixed"
+
+# Number of uniform-DGM simulated trials -- the primary result quantity.
+# Set to >= 1000 for publication-quality results.
+n_sims_uniform <- as.integer(.param_or("n_sims", 10000L))
+
+# =========================================================================
+# PAYLOAD (RDS) PERSISTENCE -- one knob, off-switchable, fully relocatable
+# =========================================================================
+# save_payload = TRUE  -> after the Part IV simulation loop, a chunk
+#     writes the raw result matrices (sim_hrs / sim_ubs / sim_ns), the
+#     subgroup list, and run metadata as ONE RDS file ("payload") to
+#     file.path(payload_dir, payload_file).  The companion memo
+#     extreme_subgroups_design_comparison.qmd loads one payload from
+#     this vignette and one from its companion and recomputes the full
+#     fixed-vs-random design comparison from raw results.
+# save_payload = FALSE -> nothing is written anywhere; the vignette
+#     renders exactly as it did before payloads existed.
+#
+# payload_dir : any writable directory (a relative path resolves
+#     against this file's folder at render time).  It is NOT created
+#     automatically: if missing, the render STOPS here -- in seconds,
+#     not after the simulation loop.  This is deliberate.  Silently
+#     dir.create()-ing a path like /media/<user>/<drive>/... while the
+#     external drive is unmounted would write to the empty mount point
+#     on the root filesystem.  Create the directory yourself
+#     (mkdir -p) or point payload_dir somewhere else.
+#
+# payload_file: the default name encodes design + n_sims
+#     (e.g. extreme_sims_fixed_10000_payload.rds), so smoke
+#     runs and full runs never overwrite each other.  Override freely.
+save_payload <- as.logical(.param_or("save_payload", TRUE))
+payload_dir  <- .param_or("payload_dir", "results")
+payload_file <- .param_or(
+  "payload_file",
+  sprintf("extreme_sims_%s_%d_payload.rds", design_label, n_sims_uniform)
+)
+payload_path <- file.path(payload_dir, payload_file)
+
+if (isTRUE(save_payload) && !dir.exists(payload_dir)) {
+  stop("save_payload = TRUE but payload_dir does not exist: '", payload_dir,
+       "'.\n  Fix one of:\n",
+       "  (a) create it:            mkdir -p ", payload_dir, "\n",
+       "  (b) relocate it:          -P payload_dir:<existing-dir>\n",
+       "  (c) disable persistence:  -P save_payload:false")
+}
+```
+
+# Overview
+
+A central concern in exploratory subgroup analysis is the potential for
+**extreme results driven entirely by chance**, not by genuine treatment
+effect heterogeneity.  When many subgroups are examined in a single
+dataset — as is routine in regulatory submissions and trial reports —
+small subgroups in particular can produce hazard ratio estimates that
+look dramatic simply because they are noisy.  The smaller the subgroup,
+the wider the confidence interval, and the higher the probability that
+the upper bound strays far from the truth.
+
+This vignette evaluates that risk directly.  We generate thousands of
+synthetic trials from a data generating mechanism (DGM) with a
+**perfectly uniform treatment benefit** — the true hazard ratio is
+identical for every patient — and ask: how often do standard Cox model
+analyses produce extreme subgroup results?  
+
+**Design note — fixed baseline (conditional-on-X).**  This is the
+*fixed-baseline* companion to the random-X vignette
+(`extreme_subgroups.qmd`).  Every simulated trial here uses
+`simulate_from_dgm(baseline = "fixed")`: the covariate matrix is the
+observed GBSG trial data itself — every source patient exactly once —
+so subgroup definitions, memberships, and sizes are *identical in every
+replicate*.  Only treatment assignment, entry times, latent event times,
+and censoring are re-drawn per trial.  Between-trial variability
+therefore isolates the outcome-generation process, conditional on the
+enrolled patient panel: the question shifts from *"what if this trial
+had enrolled a different sample from the same population?"* to *"given
+exactly these patients, how variable are the subgroup analyses across
+re-runs of the trial?"*  The random benchmark subgroups still re-draw
+their *membership* each replicate — but now over a fixed panel, with
+sizes exactly 60/40/20/15 by construction.
+
+The vignette is organised as a complete, self-contained workflow:
+
+1. **Building the DGM** — fitting a Weibull AFT model to real data,
+   constructing a super-population, and calibrating the censoring process
+   so that simulated trials reproduce the censoring pattern of the source
+   data.  This step establishes the uniform-effect scenario: a DGM where the true
+   HR is 0.70 *for every patient*, with no subgroup differential effects.
+
+2. **Running simulated trials** — drawing `r n_sims_uniform` synthetic
+   trial replicates from the uniform DGM and fitting a stratified Cox model
+   in each pre-defined subgroup.
+
+3. **Characterising the distribution of extreme results** — for each
+   subgroup, summarising how variable the Cox HR estimate is across
+   simulations (the empirical 99% interval, or "ECI" — defined in
+   Section 1.3 below) and how large the upper confidence bound UB(HR)
+   can become by chance alone.  Random benchmark
+   subgroups (`random15`, `random20`, `random40`, `random60`) with no
+   clinical meaning serve as calibration anchors, making explicit that
+   clinical subgroups of the same size can exhibit distributional patterns
+   similar to (meaningless) random groupings.
+
+All examples use the GBSG breast cancer dataset (`survival::gbsg`).
+
+
+## Simulation Workflow at a Glance
+
+The full pipeline has two halves.  **Build & calibrate** turns the
+observed GBSG data into a uniform-effect DGM whose censoring matches the
+source; **simulate & analyze** draws trials from it, applies the
+pre-specified analysis in every subgroup, and summarizes the resulting
+sampling distributions.
+
+```{mermaid}
+%%| fig-cap: "Part I-II: build the uniform-effect DGM and calibrate censoring."
+flowchart LR
+  A["GBSG source data<br/>N = 686, time in months"]
+    --> B["generate_aft_dgm_flex()<br/>Weibull AFT + censoring model<br/>super-population N = 5,000"]
+  B --> C["calibrate_k_treat()<br/>target AHR = 0.70"]
+  C --> D["check_censoring_dgm()<br/>pilot diagnostics"]
+  D --> E{"censoring matches<br/>source data?"}
+  E -- no --> F["calibrate_cens_adjust()<br/>uniroot on cens_adjust"]
+  F --> D
+  E -- yes --> G["calibrated DGM<br/>baseline = fixed"]
+```
+
+```{mermaid}
+%%| fig-cap: "Part III-IV: simulate trials, analyze every subgroup, summarize."
+flowchart LR
+  G["calibrated DGM"] -->
+    H["run_subgroup_sims()<br/>n_sims trials x 56 subgroups<br/>fit_uniform in each"]
+  H --> I["sims_uniform<br/>sim_hrs / sim_ubs / sim_ns"]
+  I --> J["summary()<br/>ECI quantiles, tail probabilities,<br/>panel membership"]
+  J --> K["plot() forest panels<br/>heights via forest_height()"]
+  I --> L["saveRDS() payload<br/>consumed by the<br/>design-comparison memo"]
+```
+
+| Step | Function | Purpose |
+|---|---|---|
+| 1 | — | Convert source data to the DGM time scale (months) |
+| 2 | `generate_aft_dgm_flex()` | Fit Weibull AFT; build the super-population |
+| 3 | `calibrate_k_treat()` | Set the treatment effect so AHR = 0.70 exactly |
+| 4 | `check_censoring_dgm()` / `calibrate_cens_adjust()` | Match simulated censoring to the source |
+| 5 | `run_subgroup_sims()` | Draw trials; fit `fit_uniform` in all 56 subgroups |
+| 6 | `summary()` | Every table/panel statistic from the raw matrices |
+| 7 | `plot()` + `forest_height()` | HR / UB(HR) forest panels |
+| 8 | `saveRDS()` | Persist the payload for the fixed-vs-random memo |
+
+## Example of Subgroups Under Study 
+
+For the study under question, the subgroups and features (size, events, etc) 
+are of course specific to that study.  While we are using the GBSG breast cancer 
+study as the case-study, the analyses can be applied or modified based on any study.
+
+An example of pre-defined subgroups,
+ranging from clinically motivated subpopulations to deliberately
+artificial ones:
+
+| Subgroup | Basis | Approximate N |
+|:---------|:------|:--------------|
+| All Patients (ITT) | Full trial | ~700 |
+| No liver metastases | Clinical | ~400 |
+| BRAF V600E mutant | Molecular | ~300 |
+| Age ≤ 65 | Demographic | ~400 |
+| Spain, Germany, UK | Country/region | ~60–150 |
+| Asia Pacific region | Region | ~100 |
+| ECOG 0 / ECOG 1 | Performance status | ~300 each |
+| **random15, random20** | **Randomly sampled** | **~15, ~20** |
+| **random40, random60** | **Randomly sampled** | **~40, ~60** |
+
+The `random*` subgroups are the key benchmark.  They are constructed by
+randomly sampling (15, 20, 40, and 60 patients).  Such subgroups have no clinical meaning whatsoever — their true HR
+equals the ITT HR of 0.70.  Any extreme result they produce is purely
+a function of their small size and sampling variability.
+
+
+## Summary Statistics Across Simulations
+
+For each subgroup, each simulated trial produces two per-trial values:
+the **Cox HR point estimate** (stratified by `grade`) and the
+**upper bound of the 95% confidence interval, UB(HR)**.  Across the
+`r n_sims_uniform` simulated trials these per-trial values form an
+empirical distribution for each subgroup.  All downstream summaries —
+the results table and every forest panel — operate on this empirical
+distribution.
+
+### 99% empirical confidence interval (ECI)
+
+The **99% ECI** is the **1st–99th percentile range** of the per-trial
+values accumulated across all simulated trials — computed separately for
+the Cox HR and for UB(HR).  It is a description of how much these
+quantities vary from one synthetic trial to the next under the same
+DGM.
+
+The 99% ECI is **not** a confidence interval in the inferential sense.
+A standard confidence interval is built from a single sample and is
+designed to cover the unknown true parameter with a stated probability.
+The ECI here is a different object: the true parameter is fixed and
+known by construction (true HR = 0.70 everywhere), and what is being
+summarised is the empirical spread of *estimates* across repeated
+trials drawn from the DGM.  It answers "how variable is this estimator
+in repeated draws?", not "what range of parameter values is consistent
+with the data?".  The terminology ("empirical confidence interval") is
+chosen to evoke the visual similarity to a forest-plot CI line — point
+in the middle, whiskers spanning the range — not equivalence of
+meaning.
+
+### Six summary statistics (table + forest panels)
+
+The results table and the forest-panel annotation columns report the
+same six summary statistics for each subgroup.
+
+**For the Cox HR point-estimate distribution:**
+
+- **`Pr(HR<0.5)`** — fraction of simulated trials whose point estimate
+  is below 0.5.  Measures how often the HR alone looks like an extreme
+  benefit by chance.
+- **`Pr(HR>1.0)`** — fraction of simulated trials whose point estimate
+  is above 1.0.  Measures how often the estimate lands on the wrong
+  side of no effect.
+- **`mHR`** — unconditional median of the HR point estimate across all
+  simulated trials.  Under the uniform DGM (true HR = 0.70) `mHR`
+  should track 0.70 for every subgroup, confirming the Cox model is
+  unbiased.
+
+**For the upper 95% confidence bound UB(HR):**
+
+- **`Pr(UB>=2)`** — fraction of simulated trials whose upper bound is
+  at or above 2.0.  Measures how often a forest-plot row looks alarming
+  to a safety reviewer at a moderately-strict threshold.
+- **`Pr(UB>=3)`** — same, at a stricter threshold.
+- **`mUB`** — unconditional median of the upper bound across all
+  simulated trials.
+
+The forest plots in the Results section visualise the median + 99% ECI
+graphically; the annotation columns and the results table give the
+same six summary statistics as numbers.
+
+---
+
+We note that continuous biomarkers can also be considered.  This is more involved and 
+not necessary for uniform effects, but valuable for trials with biomarkers when there 
+is interest in exploring the dynamics of subgroups in the presence of actual biomarker effects (correlated with other 
+patients' characteristics).
+
+## Setting: Uniform Treatment Effect
+
+The DGM is built from a real trial dataset using `generate_aft_dgm_flex()`
+with `model = "null"`.  The fitted Weibull AFT treatment coefficient is
+then rescaled via `k_treat`, with the multiplier calibrated by `uniroot`
+so that the **average hazard ratio (AHR)** matches a chosen target.
+Under `model = "null"` the AHR equals the patient-level individual HR,
+so calibrating the AHR fixes the true HR for every patient.  The key
+feature of the resulting DGM is that the true log hazard ratio is
+**constant across all patients**:
+
+$$
+\psi^0(\mathbf{L}) = \log(\text{HR}_{\text{true}}) \quad \text{for all } \mathbf{L}.
+$$
+
+In the examples below the target AHR is 0.70 (a moderate benefit).
+Every subgroup — regardless of how it is defined — shares this same
+underlying HR.  There is no subgroup effect; any apparent finding is
+a false positive.
+
+The calibration is performed in Part I via the helper function
+`calibrate_k_treat()`, the natural sibling of the package's
+`calibrate_k_inter()` (which targets the harm-subgroup HR under
+`model = "alt"`) and `calibrate_cens_adjust()` (which targets the
+censoring rate).  See the **Appendix: DGM with Heterogeneous Treatment
+Effects** for a contrasting setup where one subgroup has a different
+treatment effect than the rest of the population.
+
+## Installation
+
+The **forestsearch** package can be installed directly from GitHub using
+either `pak` (recommended) or `remotes`.
+
+### Stable development version (default branch)
+
+```r
+# Using pak (recommended)
+# install.packages("pak")
+pak::pak("larry-leon/forestsearch")
+
+# Using remotes
+# install.packages("remotes")
+remotes::install_github("larry-leon/forestsearch")
+```
+
+### `feature/glm-extension` branch (optional)
+
+As of **May 19, 2026**, the most up-to-date functionality is available on
+the **`feature/glm-extension`** branch.  This branch extends the survival
+simulation framework to binary, continuous, and count outcomes (logistic,
+Gaussian, and Poisson GLMs) and includes additional functions such as
+`generate_glm_dgm()`, `simulate_from_glm_dgm()`,
+`calibrate_glm_interaction()`, and GLM dispatch in
+`run_simulation_analysis()`.  Users who want access to the latest features
+can install from this branch:
+
+```r
+# Using pak (recommended)
+pak::pak("larry-leon/forestsearch@feature/glm-extension")
+
+# Using remotes
+remotes::install_github("larry-leon/forestsearch",
+                        ref = "feature/glm-extension")
+```
+
+To verify the branch is loaded after installation:
+```r
+packageVersion("forestsearch")
+# Confirm that GLM functions are exported:
+exists("generate_glm_dgm", where = asNamespace("forestsearch"))
+```
+
+The package depends on
+[**weightedsurv**](https://github.com/larry-leon/weightedsurv), which
+is installed automatically from GitHub via the `Remotes` field in
+`DESCRIPTION` — no separate step is needed.
+
+Once installed, load the package in the usual way:
+```r
+library(forestsearch)
+```
+
+## Documentation
+
+Full documentation, including function reference and vignettes, is
+available at the **pkgdown** site:
+
+> <https://larry-leon.github.io/forestsearch/>
+
+The site includes, **along with this vignette**:
+
+- **Getting Started** — end-to-end walkthrough with the GBSG breast
+  cancer trial (`vignette("forestsearch")`)
+- **Methodology** — statistical framework, algorithm details, and
+  simulation results (`vignette("methodology")`)
+- **Treatment Effect Definitions** — marginal HR, average hazard ratio
+  (AHR), and controlled direct effect (CDE) estimands
+- **Simulation Studies** — operating characteristics and published
+  benchmarks
+- **Reference** — all exported functions organised across 16 topic
+  areas
+
+Vignettes can also be accessed locally after installation:
+```r
+vignette("forestsearch")   # Getting Started
+vignette("methodology")    # Statistical methodology
+```
+
+
+
+---
+
+# Setup
+
+```{r packages}
+library(forestsearch)
+library(survival)
+library(ggplot2)
+library(dplyr)
+library(patchwork)     # assembles gg_forest() panels
+
+theme_set(theme_minimal(base_size = 12))
+```
+
+```{r data-prep}
+# Load GBSG data and convert time to months (DGM time scale)
+data(gbsg, package = "survival")
+
+gbsg$time_months <- gbsg$rfstime / 30.4375
+gbsg$treat        <- gbsg$hormon
+
+# Kaplan–Meier median event time.  The naive median over events only —
+# median(time[event == 1]) — is biased downward in the presence of
+# censoring, since the KM curve accounts for the at-risk set at each
+# event time.  If the KM curve does not cross 0.5 the median is
+# returned as NA (event time "not reached").
+km_overall <- survfit(Surv(time_months, status) ~ 1, data = gbsg)
+km_median  <- summary(km_overall)$table[["median"]]
+
+cat("N =", nrow(gbsg), "  Events:", sum(gbsg$status),
+    sprintf("(%.0f%%)", 100 * mean(gbsg$status)), "\n")
+cat("Median follow-up, (months):",
+    round(median(gbsg$time_months), 1), "\n")
+cat("Median event time, KM (months)  :",
+    if (is.na(km_median)) "not reached" else round(km_median, 1), "\n")
+```
+
+## Baseline characteristics
+
+The table below summarises the cohort by treatment arm for the
+variables used later to define subgroups in Part IV: the continuous
+covariates (`age`, `size`, `nodes`, `pgr`, `er`), tumour `grade`, and
+menopausal status (`meno`).  This is the source data — the
+super-population in the DGM is sampled from it, so any baseline
+imbalance carries through.
+
+```{r baseline-table}
+create_summary_table(
+  data             = gbsg,
+  treat_var        = "treat",
+  vars_continuous  = c("age", "size", "nodes", "pgr", "er"),
+  vars_categorical = c("grade"),
+  vars_binary      = c("meno"),
+  var_labels       = list(
+    age   = "Age (years)",
+    size  = "Tumour size (mm)",
+    nodes = "Positive lymph nodes",
+    pgr   = "Progesterone receptor (fmol)",
+    er    = "Estrogen receptor (fmol)",
+    grade = "Tumour grade (1 / 2 / 3)",
+    meno  = "Post-menopausal"
+  ),
+  digits         = 1,
+  show_pvalue    = TRUE,
+  show_smd       = TRUE,
+  show_missing   = TRUE,
+  table_title    = "GBSG baseline characteristics — variables used to define subgroups",
+  table_subtitle = paste0("Source: survival::gbsg  |  N = ", nrow(gbsg)),
+  compact_mode   = TRUE
+)
+```
+
+---
+
+# Part I — Building the Uniform-Effect Data Generating Mechanism
+
+To evaluate extreme subgroup effects by chance, we need a DGM where the
+treatment has a genuine, uniform benefit — so that any subgroup finding is
+definitionally a false positive.  This section constructs that DGM from the
+GBSG data using `generate_aft_dgm_flex()` with `model = "null"` (uniform
+treatment effect throughout; no embedded harm subgroup).
+
+## How `generate_aft_dgm_flex()` works
+
+The function fits **two parametric models** to the source data — one
+for the event times, one for the censoring times — and uses them
+jointly to build a "super population" from which all later synthetic
+trials are drawn.
+
+### Outcome model — Weibull AFT
+
+A Weibull accelerated failure time (AFT) model is fitted to the
+observed event times via `survival::survreg()`:
+
+$$
+\log T_i = \mu + \mathbf{x}_i^\top \boldsymbol{\beta} + \tau \, \varepsilon_i,
+\qquad \varepsilon_i \sim \text{Extreme Value}.
+$$
+
+(Standard *minimum* extreme-value distribution with density
+$f_\varepsilon(x) = \exp(x - e^x)$ — generated in the package via
+`log(rexp(n_super))`.  See the companion vignettes
+**treatment_effect_definitions.Rmd** and **biomarker_effects.Rmd** for
+the AFT–Cox parameterisation linkage.)
+
+The linear predictor includes treatment, the user-specified
+`continuous_vars` and `factor_vars`, and — when `model = "alt"` — a
+treatment-by-subgroup interaction term.  The treatment coefficient
+and the interaction coefficient can be rescaled before sampling via
+the `k_treat` and `k_inter` arguments, allowing the marginal
+treatment effect and HTE strength to be set independently of the
+fitted values.  Under `model = "null"` the interaction is removed
+entirely, producing a uniform treatment effect across all patients.
+
+### Censoring model — AFT with AIC selection (default)
+
+With `select_censoring = TRUE` (the default), the censoring
+distribution is fitted *symmetrically* by reversing the event
+indicator: censored observations become the "event" of interest in
+the reversed survival problem.  The function fits **four candidate
+AFT models** to these reversed data and picks the best by AIC:
+
+| Candidate    | Distribution | Covariates                       |
+|:-------------|:-------------|:---------------------------------|
+| `Weibull`    | Weibull      | `treat` + censoring covariates   |
+| `LogNormal`  | Log-normal   | `treat` + censoring covariates   |
+| `Weibull0`   | Weibull      | intercept only                   |
+| `LogNormal0` | Log-normal   | intercept only                   |
+
+The censoring covariates default to the outcome model's covariates,
+which can be overridden via `continuous_vars_cens` / `factor_vars_cens`.
+The intercept-only candidates (`*0`) guard against overfitting when
+the censoring process is genuinely unrelated to baseline covariates —
+in that case AIC will favour them.  The selected model's parameters
+are stored in `dgm$model_params$censoring` (`mu`, `tau`, `gamma`, and
+`type`).
+
+Alternative censoring-model modes (set `select_censoring = FALSE`):
+
+- **Analytical**: supply `cens_params$mu` and `cens_params$tau`
+  directly — no model is fitted.
+- **Force-fit**: leave `cens_params` empty — a single AFT model is
+  fitted with the user-specified family (`cens_type`) and formula
+  (`cens_intercept_only` toggles between intercept-only and
+  covariate-adjusted).
+
+### Super-population construction
+
+Once both models are in hand, the function draws `n_super` rows from
+the source data with replacement, attaches per-row linear predictors
+for both outcome and censoring under each treatment counterfactual,
+and returns the result as `dgm$df_super`.  It also stores
+`dgm$df_source` — the prepared source data with every patient exactly
+once, carrying the same linear predictors — which is the frame this
+vignette simulates from via `baseline = "fixed"`.  Downstream,
+`simulate_from_dgm()` re-draws outcomes over that fixed panel
+without re-fitting anything — each call is a quantile-transform draw
+from the fitted distributions.
+
+### Marginal censoring rate is not yet calibrated
+
+Even with the AIC-selected censoring model, the interaction between
+the fitted censoring distribution and the administrative cutoff
+`analysis_time` shifts the *realised* censoring rate in simulated
+trials away from the observed rate in the source data.  Part II
+addresses this directly: `check_censoring_dgm()` diagnoses the
+discrepancy, and `calibrate_cens_adjust()` finds a log-scale shift
+(`cens_adjust`) that aligns the simulated censoring rate (or KM
+median censoring time) with the observed value.
+
+## Why time-scale consistency matters first
+
+Before fitting anything, confirm that all time parameters are expressed in
+the same units. The single most common simulation failure is building the
+DGM on days (e.g. `rfstime`) and then passing `analysis_time` in months.
+The result is a follow-up window far shorter than the DGM event-time
+distribution, producing universal administrative censoring (`event_sim = 0`
+for every subject).
+
+After building the DGM, this quick check catches the problem:
+
+```{r timescale-check}
+# exp(mu) is the implied median event time on the DGM time scale.
+# It should be close to the KM-based observed median event time.
+# We use the KM estimator (computed in Section 2 as km_median) rather
+# than the naive median over events, which is biased by censoring.
+cat("Observed median event time, KM (months):",
+    if (is.na(km_median)) "not reached" else round(km_median, 1), "\n")
+cat("(After building dgm_uniform, exp(dgm_uniform$model_params$mu) should be similar.)\n")
+```
+
+## Fitting `generate_aft_dgm_flex()`
+
+`generate_aft_dgm_flex()` fits a Weibull AFT model to the source data and
+generates a large *super population* from which all future trials will be
+drawn.  For the extreme-subgroup evaluation we use `model = "null"`, which
+sets the treatment effect to be identical for every patient — there is no
+subgroup, so any apparent finding is a false
+positive by construction.
+
+The censoring model is estimated from the data by AIC-based selection across
+Weibull and log-normal models, with and without covariate adjustment.  The
+next section shows how to verify and calibrate this so that simulated trials
+reproduce the censoring pattern of the source data.
+
+**Note.** The DGM built here has a uniform treatment effect — no embedded subgroup. For a contrasting example with a true HTE (a harm subgroup defined by ER-low & pre-menopausal status), see the **Appendix: DGM with Heterogeneous Treatment Effects** at the end of this document.
+
+### Calibrating `k_treat` to a target AHR
+
+`generate_aft_dgm_flex()` fits a Weibull AFT to the source data and uses
+the *fitted* treatment coefficient as the simulation truth.  With
+`k_treat = 1` (default), the resulting hazard ratio summaries are
+whatever the GBSG fit happens to produce — not exactly-specified targets.
+
+To set the true treatment effect to **exactly HR = 0.70**, we rescale
+the fitted treatment coefficient via `k_treat`, with the multiplier
+chosen by `uniroot` so that a target summary of the DGM hits 0.70.  The
+package function `calibrate_k_treat()` performs this calibration; it is
+the natural sibling of `calibrate_k_inter()` (which calibrates the
+harm-subgroup HR under `model = "alt"`) and `calibrate_cens_adjust()`
+(which calibrates the censoring rate).  All three follow the same
+`uniroot`-based pattern.
+
+**Which target?** `calibrate_k_treat()` can target either of two HR
+summaries computed on the super-population of potential outcomes:
+
+- `dgm$hazard_ratios$overall` — the **marginal Cox HR** from a
+  no-covariate Cox fit on stacked potential outcomes (default,
+  `use_ahr = FALSE`)
+- `dgm$hazard_ratios$AHR` — the **average hazard ratio**,
+  $\exp(\overline{\log\text{HR}_{\text{p.o.}}})$ across the
+  super-population (`use_ahr = TRUE`)
+
+Under `model = "null"` (uniform effect) the AHR equals the
+patient-level individual HR — the same number for every subject.  The
+**marginal Cox HR** is attenuated toward 1 relative to the AHR because
+the Cox model is non-collapsible: a no-covariate fit on heterogeneous
+covariate distributions does not recover the patient-level HR.
+
+The simulation analyses below fit Cox models *stratified by `grade`*,
+which is closer to a covariate-adjusted fit than to a marginal fit.
+Under proportional hazards (which the Weibull AFT satisfies), a
+sufficiently-adjusted Cox model estimates the patient-level HR — i.e.,
+the AHR — not the attenuated marginal HR.  We therefore calibrate
+against the AHR (`use_ahr = TRUE`) so that the median across simulations
+of the stratified Cox HR estimate tracks 0.70 closely.  Calibrating
+against `hazard_ratios$overall` instead would force the marginal Cox
+HR to 0.70 and pull the simulation median below 0.70 by the same
+non-collapsibility shift.
+
+See `?calibrate_k_treat` for full documentation.
+
+### Build the DGM (calibrated `k_treat`)
+
+The full argument list to `generate_aft_dgm_flex()` is laid out as a
+single named list `base_args_uniform`.  This list is then used twice —
+once inside `calibrate_k_treat()` to find the right `k_treat`, and once
+to build the final calibrated DGM — so every knob of the constructor
+appears exactly once.
+
+```{r build-dgm}
+.t_dgm_start <- Sys.time()
+
+# ── All arguments to generate_aft_dgm_flex() except k_treat ───────────────
+# k_treat is the calibration parameter; everything else is fixed up front.
+base_args_uniform <- list(
+  # ── Required: source data & outcome ─────────────────────────────────────
+  data                = gbsg,
+  continuous_vars     = c("age", "size", "nodes", "pgr", "er"),
+  factor_vars         = c("meno", "grade"),
+  outcome_var         = "time_months",
+  event_var           = "status",
+  # ── Treatment ───────────────────────────────────────────────────────────
+  treatment_var       = "hormon",
+  draw_treatment      = FALSE,                                  # default
+  # ── HTE specification — uniform treatment effect, no embedded subgroup ──
+  model               = "null",                                 # uniform HR throughout
+  subgroup_vars       = NULL,                                   # default — no embedded HTE
+  subgroup_cuts       = NULL,                                   # default
+  k_inter             = 1,                                      # default (irrelevant under "null")
+  spline_spec         = NULL,                                   # default
+  set_beta_spec       = list(set_var = NULL, beta_var = NULL),  # default
+  # ── Censoring model (independent of treatment effect) ───────────────────
+  continuous_vars_cens = NULL,                                  # default → inherit
+  factor_vars_cens     = NULL,                                  # default → inherit
+  select_censoring     = TRUE,                                  # default — AIC select
+  cens_type            = "weibull",                             # default
+  cens_params          = list(),                                # default
+  cens_intercept_only  = FALSE,                                 # default
+  # ── Super population & misc ─────────────────────────────────────────────
+  n_super             = 5000,
+  standardize         = FALSE,                                  # default
+  seed                = 99,
+  verbose             = FALSE
+)
+
+# ── Step 1: calibrate k_treat so that the AHR is exactly 0.70 ─────────────
+# We calibrate to the AHR (average hazard ratio over the super-population),
+# not the marginal Cox HR, because the simulation analyses below fit a Cox
+# model stratified by `grade` — and under Cox non-collapsibility the
+# marginal Cox HR on fully-observed potential outcomes is attenuated toward
+# 1 relative to both the AHR and the stratified Cox HR.  Calibrating to the
+# AHR makes the simulation median HR track 0.70 closely; calibrating to the
+# marginal Cox HR (`use_ahr = FALSE`, the default) would pull the simulation
+# median below 0.70.  See `?calibrate_k_treat` for both options.
+k_treat_uniform <- calibrate_k_treat(
+  target_hr_overall = 0.70,
+  base_args         = base_args_uniform,
+  k_treat_range     = c(-5, 5),
+  tol               = 1e-6,
+  use_ahr           = TRUE,
+  verbose           = TRUE
+)
+
+# ── Step 2: build the DGM with the calibrated k_treat ─────────────────────
+dgm_uniform <- do.call(
+  generate_aft_dgm_flex,
+  c(base_args_uniform, list(k_treat = k_treat_uniform))
+)
+
+t_dgm <- as.numeric(difftime(Sys.time(), .t_dgm_start, units = "secs"))
+
+cat("Uniform DGM (AHR-calibrated)\n",
+    "  k_treat calibrated to       : ", round(k_treat_uniform, 4), "\n",
+    "  AHR (target 0.70)           : ",
+    round(dgm_uniform$hazard_ratios$AHR, 4), "\n",
+    "  marginal Cox HR (attenuated): ",
+    round(dgm_uniform$hazard_ratios$overall, 4), "\n",
+    "  implied median event T      : ",
+    round(exp(dgm_uniform$model_params$mu), 1), " months\n", sep = "")
+
+# ── Hard stop: fixed-baseline mode requires dgm$df_source ─────────────────
+# The whole vignette simulates via baseline = "fixed", which reads the
+# source frame stored by the constructor (forestsearch versions that
+# include Step 7b).  Fail here, at build time, rather than 1,000 lines
+# later inside the parallel loop.
+if (is.null(dgm_uniform$df_source)) {
+  stop("dgm_uniform$df_source is missing: this forestsearch version does ",
+       "not store the fixed-baseline frame. Update the package ",
+       "(baseline = \"fixed\" support) and rebuild the DGM.")
+}
+cat("Fixed-baseline panel  : nrow(df_source) =",
+    nrow(dgm_uniform$df_source), "patients (the GBSG trial data)\n")
+```
+
+```{r dgm-summary}
+# Key DGM outputs.
+#
+# Terminology note: dgm$hazard_ratios$overall is the *marginal* Cox HR
+# from a no-covariate fit on stacked potential outcomes — not the
+# "true HR" in the patient-level sense.  Under Cox non-collapsibility
+# it is attenuated toward 1 relative to the AHR (which equals the
+# patient-level individual HR under model = "null").  See Section 3.3.1
+# and the companion vignette `treatment_effect_definitions.Rmd`.
+cat("=== Uniform DGM Summary ===\n")
+cat("Time scale          : months\n")
+cat("Implied median T    : exp(mu) =",
+    round(exp(dgm_uniform$model_params$mu), 1), "months\n")
+cat("Marginal HR         :",
+    round(dgm_uniform$hazard_ratios$overall, 3), "\n")
+cat("Causal AHR          :",
+    round(dgm_uniform$hazard_ratios$AHR, 3), "\n")
+cat("Censoring type      :",
+    dgm_uniform$model_params$censoring$type, "\n")
+```
+
+---
+
+# Part II — Censoring Diagnostics and Calibration
+
+For the simulation results to be credible, the censoring pattern in each
+synthetic trial must match what was observed in the source data.  If the
+simulated censoring rate is much higher or lower than the real one, the
+event counts in small subgroups will be systematically wrong, biasing the
+HR and UB(HR) distributions we are trying to characterise.
+
+Even with a well-fitted censoring model, the interaction between the DGM
+censoring distribution and administrative censoring (the `analysis_time`
+cutoff) can shift the effective censoring rate substantially away from what
+was observed.  This section covers two functions that diagnose and correct
+for this shift before the main simulation loop is run.
+
+## Simulation pipeline configuration
+
+The simulation pipeline has a small number of parameters that govern every
+per-trial draw: the baseline mode, the administrative analysis time,
+the recruitment window, and the iteration-seed scheme. Defining them
+**once**, in a single `sim_config` list, means the calibration step (below),
+the single-trial demonstration in Part III, and the main parallel loop
+in Part IV all use exactly the same values — no duplication, no risk of
+drift. Change a field here and every downstream chunk reacts automatically.
+Under `baseline = "fixed"` the per-trial N is not a free parameter — it
+is `nrow(dgm_uniform$df_source)` by construction.
+
+```{r sim-config}
+# ── Simulation pipeline configuration ──────────────────────────────────────
+# Single source of truth for every per-trial parameter.  Every downstream
+# call to simulate_from_dgm() and calibrate_cens_adjust() references this
+# list — nothing is hard-coded twice.
+#
+# baseline = "fixed": every simulated trial uses dgm$df_source (each GBSG
+# patient exactly once), so per-trial N is nrow(df_source) rather than a
+# free n_per_trial parameter — n is deliberately absent from this list.
+sim_config <- list(
+  baseline         = "fixed",     # conditional-on-X: covariates fixed at trial data
+  analysis_time    = 84,          # months — administrative censoring time
+  max_entry        = 24,          # months — uniform recruitment window
+  seed_base        = 0L,          # per-trial seed = seed_base + iter
+  rand_seed_offset = 1e6L         # random-subgroup seed = seed + offset
+)
+
+cat("Per-trial simulation parameters\n",
+    "  baseline      : ", sim_config$baseline,
+    "  (N per trial = ", nrow(dgm_uniform$df_source),
+    ", fixed by construction)\n",
+    "  analysis_time :", sim_config$analysis_time, "months\n",
+    "  max_entry     :", sim_config$max_entry,     "months\n",
+    "  seed scheme   : iter seed = ", sim_config$seed_base,
+    " + ss\n", sep = "")
+```
+
+## Diagnosing censoring consistency
+
+`check_censoring_dgm()` compares three censoring summaries between the DGM
+reference data (`dgm$df_super`) and a simulated dataset: overall censoring
+rate, censoring-time quantiles among censored subjects, and the KM-based
+median censoring time (estimated by reversing the event indicator so that
+censored observations become the "event" of interest).
+
+```{r pilot-sim}
+# Generate a pilot simulated trial (no calibration yet).
+# baseline = "fixed" => the panel is dgm$df_source; n is implied (not passed).
+sim_pilot <- simulate_from_dgm(
+  dgm            = dgm_uniform,
+  baseline       = sim_config$baseline,
+  rand_ratio     = 1,                          # default (1:1 randomisation)
+  entry_var      = NULL,                       # default (synthetic entry times)
+  max_entry      = sim_config$max_entry,
+  analysis_time  = sim_config$analysis_time,
+  cens_adjust    = 0,                          # pilot: no calibration shift
+  draw_treatment = TRUE,                       # default
+  seed           = 1,
+  strata_rand    = NULL,                       # default
+  hrz_crit       = NULL,                       # default
+  keep_rand      = FALSE,                      # default
+  time_eos       = NULL                        # default
+)
+
+cat("Pilot trial:  N =", nrow(sim_pilot),
+    "  Event rate:", round(mean(sim_pilot$event_sim), 3), "\n")
+```
+
+```{r check-censoring}
+diag0 <- check_censoring_dgm(
+  sim_data   = sim_pilot,
+  dgm        = dgm_uniform,
+  treat_var  = "treat_sim",   # default
+  rate_tol   = 0.10,
+  median_tol = 0.25,
+  verbose    = TRUE
+)
+```
+
+**Reading the output.** Flags warn when the absolute censoring-rate
+discrepancy exceeds `rate_tol` (default 10 percentage points) or when the
+KM median censoring times differ by more than `median_tol` (default 25%).
+Common causes:
+
+- **Time-scale mismatch** — check `exp(dgm$model_params$mu)` against
+  `analysis_time`.
+- **Short `analysis_time`** — administrative censoring dominates the
+  censoring process, inflating the censoring rate and compressing
+  censoring times.
+- **Large `cens_adjust`** — the log-scale shift has moved the DGM
+  censoring distribution far from the original data.
+
+## Calibrating `cens_adjust`
+
+`calibrate_cens_adjust()` uses `uniroot` to find the value of `cens_adjust`
+— a log-scale shift applied to the DGM censoring model — that equates a
+chosen summary statistic between the reference and simulated data. Two
+targets are available: `"rate"` (overall censoring rate) and `"km_median"`
+(KM-based median censoring time).
+
+**How the objective function works.** At each candidate `cens_adjust`:
+
+1. `simulate_from_dgm()` generates `n_eval` synthetic subjects.
+2. `check_censoring_dgm()` extracts the target metric.
+3. The objective returns `sim_metric - ref_metric`.
+
+`uniroot` finds the zero crossing. The fixed `seed` inside the objective
+ensures the same candidate is always evaluated identically, preventing the
+root-finder from chasing Monte Carlo noise.
+
+```{r calibrate}
+.t_cal_start <- Sys.time()
+
+# Calibrate under the same fixed-baseline design as the main loop.
+# calibrate_cens_adjust() forwards `...` to simulate_from_dgm(), so
+# baseline = "fixed" applies inside the objective — but that mode requires
+# n == nrow(df_source), hence n and n_eval are pinned to the panel size
+# (they are NOT free Monte Carlo sizes here, unlike the random-X vignette).
+n_panel <- nrow(dgm_uniform$df_source)
+
+cal_uniform <- calibrate_cens_adjust(
+  dgm           = dgm_uniform,
+  target        = "rate",                       # "rate" | "km_median"
+  n             = n_panel,                      # pinned: fixed panel size
+  rand_ratio    = 1,                            # default
+  analysis_time = sim_config$analysis_time,
+  max_entry     = sim_config$max_entry,
+  seed          = 42,
+  interval      = c(-3, 3),                     # default — uniroot search interval
+  tol           = 1e-4,                         # default — uniroot tolerance
+  n_eval        = n_panel,                      # pinned: must equal n under "fixed"
+  verbose       = TRUE,
+  baseline      = sim_config$baseline           # forwarded to simulate_from_dgm()
+)
+
+t_cal <- as.numeric(difftime(Sys.time(), .t_cal_start, units = "secs"))
+```
+
+```{r calibrate-result}
+cat("\nCalibrated cens_adjust :", round(cal_uniform$cens_adjust, 4), "\n")
+cat("Reference censoring rate:", round(cal_uniform$ref_value,    3),  "\n")
+cat("Achieved  censoring rate:", round(cal_uniform$sim_value,    3),  "\n")
+cat("Residual                :", round(cal_uniform$residual,     4),  "\n")
+```
+
+**Monotonicity note.** The objective is monotone in `cens_adjust` for both
+targets: larger values increase censoring times (lower rate, higher KM
+median), smaller values do the opposite. If `uniroot` fails, the target
+lies outside the `interval`; widen it and retry.
+
+## Verifying the calibrated simulation
+
+```{r verify-cal}
+sim_cal <- simulate_from_dgm(
+  dgm            = dgm_uniform,
+  baseline       = sim_config$baseline,        # fixed panel; n implied
+  rand_ratio     = 1,                          # default
+  entry_var      = NULL,                       # default
+  max_entry      = sim_config$max_entry,
+  analysis_time  = sim_config$analysis_time,
+  cens_adjust    = cal_uniform$cens_adjust,
+  draw_treatment = TRUE,                       # default
+  seed           = 123,
+  strata_rand    = NULL,                       # default
+  hrz_crit       = NULL,                       # default
+  keep_rand      = FALSE,                      # default
+  time_eos       = NULL                        # default
+)
+
+diag_cal <- check_censoring_dgm(
+  sim_data   = sim_cal,
+  dgm        = dgm_uniform,
+  treat_var  = "treat_sim",   # default
+  rate_tol   = 0.05,
+  median_tol = 0.15,
+  verbose    = TRUE
+)
+```
+
+---
+
+# Part III — Generating Synthetic Trials
+
+With the uniform DGM built, diagnosed, and calibrated, each simulated trial
+is a single call to `simulate_from_dgm()`.  Under `baseline = "fixed"` the
+function takes the source panel as-is — every GBSG patient exactly once,
+in source order — then assigns treatment, generates latent survival times
+from the AFT model, applies the calibrated censoring model, and truncates
+at `analysis_time`.  No row sampling occurs: the covariates, and therefore
+every covariate-defined subgroup, are identical in every trial.
+
+The single-trial example below illustrates the output structure.  In the
+uniform DGM every patient has the same true HR of 0.70, so `flag_harm` is
+always 0 — there is no embedded subgroup.  The `r n_sims_uniform` replications
+that drive the extreme-subgroup analysis in Part IV follow the same pattern,
+looping over subgroups inside each replicate.
+
+```{r single-trial}
+sim_data <- simulate_from_dgm(
+  dgm            = dgm_uniform,
+  baseline       = sim_config$baseline,        # fixed panel; N = nrow(df_source)
+  rand_ratio     = 1,
+  entry_var      = NULL,                       # default
+  max_entry      = sim_config$max_entry,
+  analysis_time  = sim_config$analysis_time,
+  cens_adjust    = cal_uniform$cens_adjust,
+  draw_treatment = TRUE,                       # default
+  seed           = 100,
+  strata_rand    = NULL,                       # default
+  hrz_crit       = NULL,                       # default
+  keep_rand      = FALSE,                      # default
+  time_eos       = NULL                        # default
+)
+
+cat("Simulated trial:  N =", nrow(sim_data), "\n")
+cat("Treatment allocation:",
+    table(sim_data$treat_sim)[["0"]], "control /",
+    table(sim_data$treat_sim)[["1"]], "experimental\n")
+cat("Overall event rate :", round(mean(sim_data$event_sim), 3), "\n")
+cat("flag_harm range    :", paste(range(sim_data$flag_harm), collapse = "–"),
+    "  (always 0 under the uniform DGM)\n")
+```
+
+**Cox specification — marginal here, stratified in Part IV.**  The
+single-trial sanity check below fits an *unstratified* Cox model
+(`treat_sim` only).  This deliberately matches the no-covariate fit
+behind `dgm_uniform$hazard_ratios$overall` (the marginal HR reported
+above), so that the observed and DGM-implied HRs are directly
+comparable.  The full simulation loop in Part IV uses a *stratified*
+Cox model (`treat_sim + strata(grade)`), which under Cox
+non-collapsibility recovers a quantity closer to the AHR / patient-level
+true HR — i.e., 0.70 — and which reflects how the user's analysis plan
+specifies the primary subgroup analysis.
+
+```{r trial-cox}
+# Fit overall Cox model on this single simulated trial
+cox_all <- coxph(Surv(y_sim, event_sim) ~ treat_sim, data = sim_data)
+hr_obs  <- exp(coef(cox_all))
+ci_obs  <- exp(confint(cox_all))
+
+cat("Single-trial Cox analysis (one realisation):\n")
+cat("  Marginal HR (DGM) :",
+    round(dgm_uniform$hazard_ratios$overall, 3), "\n")
+cat("  Observed HR       :", round(hr_obs, 3), "\n")
+cat("  95% CI            : (",
+    round(ci_obs[1], 3), ", ", round(ci_obs[2], 3), ")\n", sep = "")
+```
+
+
+---
+
+
+# Part IV — Main Results: Extreme Subgroup Effects Under a Uniform Treatment Benefit
+
+## The Core Question
+
+Parts I–III established how to build a uniform DGM and generate synthetic
+trials from it.  We now use those tools of `forestsearch` to answer the
+question this vignette is built around: **when many subgroups are
+examined in a trial with a perfectly uniform treatment benefit, how
+extreme can a standard Cox subgroup analysis look by chance alone?**
+
+We generate `r n_sims_uniform` synthetic trials from `dgm_uniform` and
+fit a Cox model (stratified by `grade`) in each pre-defined subgroup of
+every trial.  For each subgroup we accumulate the per-trial HR estimate
+and the upper 95% confidence bound.  The resulting empirical
+distributions are summarised using the six statistics defined in
+Section 1.3 (Summary Statistics Across Simulations) — `Pr(HR<0.5)`,
+`Pr(HR>1.0)`, `mHR`, `Pr(UB>=2)`, `Pr(UB>=3)`, `mUB` — and visualised
+as median + 99% ECI ranges in the forest panels.  As discussed in
+Section 1.3, the 99% ECI describes empirical spread across simulated
+trials; it is not a confidence interval in the inferential sense.
+
+The `random*` subgroups (no clinical basis, same true HR as everyone
+else) serve as calibration anchors: any clinical subgroup of the same N
+has an identical chance distribution, so clinical rationale provides no
+statistical protection against the extreme results that small samples
+naturally produce.
+
+---
+
+## Setting: Uniform Treatment Effect (recap)
+
+The DGM built in Part I (`dgm_uniform`) sets the true log hazard ratio
+constant across all patients:
+
+$$
+\psi^0(\mathbf{L}) = \log(\mathrm{HR}_{\mathrm{true}})
+  \quad \text{for all } \mathbf{L}.
+$$
+
+With true HR = 0.70, every subgroup — regardless of how it is
+defined — shares this same underlying HR.  Any apparent subgroup finding
+in the analysis below is, by construction, a false positive.
+
+---
+
+## Subgroups Under Study
+
+Each simulated trial analyses the same set of pre-defined subgroups,
+ranging from clinically motivated subpopulations to deliberately
+artificial ones.
+
+The **`random*` subgroups** are the key benchmark. They are constructed
+by randomly sampling approximately 20% of subjects and taking the first
+15, 20, 40, and 60 patients from that draw:
+
+```{r define-uniform-subgroups}
+set.seed(8316951)
+gbsg$flag_itt <- 1L
+
+# ── Scalar cut-points for continuous variables ────────────────────────────
+# Computed once from the observed data; re-exposed as columns inside each
+# simulated df_s so that subset expressions like "age <= age_med" resolve.
+age_med  <- median(gbsg$age)          # ~53 yrs
+size_med <- median(gbsg$size)         # ~25 mm
+nodes_q3 <- quantile(gbsg$nodes, 0.75)  # top-quartile node count (~5)
+pgr_med  <- median(gbsg$pgr)          # median PGR
+er_cut   <- 20                         # ER-low clinical threshold (fmol / mg)
+
+subgroups <- list(
+
+  # ── A. Full trial (ITT) ─────────────────────────────────────────────────
+  list(id = "flag_itt == 1",                       name = "All Patients",              grp = "ITT"),
+
+  # ── B. Single clinical / factor subgroups ───────────────────────────────
+  list(id = "meno == 1",                           name = "Post-menopausal",           grp = "Clinical"),
+  list(id = "meno == 0",                           name = "Pre-menopausal",            grp = "Clinical"),
+  list(id = "grade == 3",                          name = "Grade 3",                   grp = "Clinical"),
+  list(id = "grade != 3",                          name = "Grade 1/2",                 grp = "Clinical"),
+
+  # ── C. Single continuous-variable cuts ──────────────────────────────────
+  list(id = "age <= age_med",                      name = "Age (young)",               grp = "Continuous"),
+  list(id = "age > age_med",                       name = "Age (older)",               grp = "Continuous"),
+  list(id = "age <= 50",                           name = "Age <= 50",                 grp = "Continuous"),
+  list(id = "age > 50",                            name = "Age > 50",                  grp = "Continuous"),
+  list(id = "size <= size_med",                    name = "Tumour size (small)",       grp = "Continuous"),
+  list(id = "size > size_med",                     name = "Tumour size (large)",       grp = "Continuous"),
+  list(id = "nodes == 0",                          name = "Node-negative",             grp = "Continuous"),
+  list(id = "nodes > 0 & nodes <= 3",              name = "Nodes 1-3",                grp = "Continuous"),
+  list(id = "nodes > nodes_q3",                    name = "High nodes (>Q3)",          grp = "Continuous"),
+  list(id = "pgr <= pgr_med",                      name = "PGR low",                  grp = "Continuous"),
+  list(id = "pgr > pgr_med",                       name = "PGR high",                 grp = "Continuous"),
+  list(id = "er <= er_cut",                        name = "ER-low (<20)",              grp = "Continuous"),
+  list(id = "er > er_cut",                         name = "ER-high (>=20)",            grp = "Continuous"),
+
+  # ── D. Menopausal status x Grade (2x2) ──────────────────────────────────
+  list(id = "meno == 0 & grade == 3",              name = "Pre-meno / Grade 3",        grp = "Interaction: meno x grade"),
+  list(id = "meno == 1 & grade == 3",              name = "Post-meno / Grade 3",       grp = "Interaction: meno x grade"),
+  list(id = "meno == 0 & grade != 3",              name = "Pre-meno / Grade 1-2",      grp = "Interaction: meno x grade"),
+  list(id = "meno == 1 & grade != 3",              name = "Post-meno / Grade 1-2",     grp = "Interaction: meno x grade"),
+
+  # ── E. Menopausal status x Age ───────────────────────────────────────────
+  list(id = "meno == 0 & age <= 50",               name = "Pre-meno / Age<=50",        grp = "Interaction: meno x age"),
+  list(id = "meno == 0 & age > 50",                name = "Pre-meno / Age>50",         grp = "Interaction: meno x age"),
+  list(id = "meno == 1 & age <= age_med",          name = "Post-meno / Age (young)",   grp = "Interaction: meno x age"),
+  list(id = "meno == 1 & age > age_med",           name = "Post-meno / Age (older)",   grp = "Interaction: meno x age"),
+
+  # ── F. Menopausal status x ER status ────────────────────────────────────
+  list(id = "meno == 0 & er <= er_cut",            name = "Pre-meno / ER-low",         grp = "Interaction: meno x ER"),
+  list(id = "meno == 0 & er > er_cut",             name = "Pre-meno / ER-high",        grp = "Interaction: meno x ER"),
+  list(id = "meno == 1 & er <= er_cut",            name = "Post-meno / ER-low",        grp = "Interaction: meno x ER"),
+  list(id = "meno == 1 & er > er_cut",             name = "Post-meno / ER-high",       grp = "Interaction: meno x ER"),
+
+  # ── G. Grade x Node status ───────────────────────────────────────────────
+  list(id = "grade == 3 & nodes == 0",             name = "Grade 3 / Node-neg",        grp = "Interaction: grade x nodes"),
+  list(id = "grade == 3 & nodes > 0",              name = "Grade 3 / Node-pos",        grp = "Interaction: grade x nodes"),
+  list(id = "grade != 3 & nodes == 0",             name = "Grade 1-2 / Node-neg",      grp = "Interaction: grade x nodes"),
+  list(id = "grade != 3 & nodes > 0",              name = "Grade 1-2 / Node-pos",      grp = "Interaction: grade x nodes"),
+  list(id = "grade == 3 & nodes > nodes_q3",       name = "Grade 3 / High nodes",      grp = "Interaction: grade x nodes"),
+
+  # ── H. Grade x ER status ─────────────────────────────────────────────────
+  list(id = "grade == 3 & er <= er_cut",           name = "Grade 3 / ER-low",          grp = "Interaction: grade x ER"),
+  list(id = "grade == 3 & er > er_cut",            name = "Grade 3 / ER-high",         grp = "Interaction: grade x ER"),
+  list(id = "grade != 3 & er <= er_cut",           name = "Grade 1-2 / ER-low",        grp = "Interaction: grade x ER"),
+  list(id = "grade != 3 & er > er_cut",            name = "Grade 1-2 / ER-high",       grp = "Interaction: grade x ER"),
+
+  # ── I. Grade x PGR ──────────────────────────────────────────────────────
+  list(id = "grade == 3 & pgr <= pgr_med",         name = "Grade 3 / PGR low",         grp = "Interaction: grade x PGR"),
+  list(id = "grade == 3 & pgr > pgr_med",          name = "Grade 3 / PGR high",        grp = "Interaction: grade x PGR"),
+  list(id = "grade != 3 & pgr <= pgr_med",         name = "Grade 1-2 / PGR low",       grp = "Interaction: grade x PGR"),
+  list(id = "grade != 3 & pgr > pgr_med",          name = "Grade 1-2 / PGR high",      grp = "Interaction: grade x PGR"),
+
+  # ── J. Age x ER x Menopausal (3-way) ───────────────────────────────────
+  list(id = "meno == 0 & age <= 50 & er <= er_cut",  name = "Pre-meno/Yng/ER-low",    grp = "3-way"),
+  list(id = "meno == 0 & age <= 50 & er > er_cut",   name = "Pre-meno/Yng/ER-high",   grp = "3-way"),
+  list(id = "meno == 1 & grade == 3 & er <= er_cut", name = "Post-meno/G3/ER-low",    grp = "3-way"),
+  list(id = "meno == 1 & grade == 3 & nodes > 0",    name = "Post-meno/G3/Node-pos",  grp = "3-way"),
+  list(id = "grade == 3 & nodes > 0 & er <= er_cut", name = "G3/Node-pos/ER-low",     grp = "3-way"),
+
+  # ── K. Size x Node combinations ─────────────────────────────────────────
+  list(id = "size > size_med & nodes > 0",         name = "Large/Node-pos",            grp = "Interaction: size x nodes"),
+  list(id = "size > size_med & nodes == 0",        name = "Large/Node-neg",            grp = "Interaction: size x nodes"),
+  list(id = "size <= size_med & nodes > 0",        name = "Small/Node-pos",            grp = "Interaction: size x nodes"),
+  list(id = "size <= size_med & nodes == 0",       name = "Small/Node-neg",            grp = "Interaction: size x nodes"),
+
+  # ── L. Random benchmark subgroups ───────────────────────────────────────
+  # No clinical meaning; regenerated each simulation. Calibrate variability
+  # by size against the clinical and interaction subgroups above.
+  list(id = "random60 == 1",                       name = "random60",                  grp = "Random (N~60)"),
+  list(id = "random40 == 1",                       name = "random40",                  grp = "Random (N~40)"),
+  list(id = "random20 == 1",                       name = "random20",                  grp = "Random (N~20)"),
+  list(id = "random15 == 1",                       name = "random15",                  grp = "Random (N~15)")
+)
+
+# ── Show observed sizes from GBSG ────────────────────────────────────────
+# Scalar cut-points exposed as columns so eval() resolves them correctly.
+gbsg_eval           <- gbsg
+gbsg_eval$age_med   <- age_med
+gbsg_eval$size_med  <- size_med
+gbsg_eval$nodes_q3  <- nodes_q3
+gbsg_eval$pgr_med   <- pgr_med
+gbsg_eval$er_cut    <- er_cut
+gbsg_eval$random60  <- 0L
+gbsg_eval$random40  <- 0L
+gbsg_eval$random20  <- 0L
+gbsg_eval$random15  <- 0L
+
+sg_sizes <- sapply(subgroups, function(s) {
+  tryCatch(
+    sum(eval(parse(text = s$id), envir = gbsg_eval)),
+    error = function(e) NA_integer_
+  )
+})
+is_random_sg <- grepl("^random", sapply(subgroups, `[[`, "name"))
+rand_sizes   <- c(60L, 40L, 20L, 15L)
+
+sg_overview <- data.frame(
+  Subgroup = sapply(subgroups, `[[`, "name"),
+  Group    = sapply(subgroups, `[[`, "grp"),
+  N_source = ifelse(is_random_sg, rand_sizes[cumsum(is_random_sg)], sg_sizes),
+  stringsAsFactors = FALSE
+)
+print(sg_overview, row.names = FALSE)
+cat("
+Total subgroups:", nrow(sg_overview), "
+")
+```
+
+These `random*` subgroups have no clinical meaning whatsoever — their
+true HR equals the ITT HR of 0.70. Any extreme result they produce is
+purely a function of their small size and sampling variability. Placing
+them alongside clinical subgroups of similar size makes explicit how much
+of the spread in those clinical findings is attributable to noise alone.
+Under the fixed-baseline design, the `N_source` column above is not
+merely descriptive: it is *exactly* the per-trial size of every
+covariate-defined subgroup in every one of the `r n_sims_uniform`
+replicates.
+
+---
+
+## Summary Statistics
+
+For each subgroup the primary analysis — Cox model stratified by the
+randomisation factor (`grade`) — is fitted in every simulated trial.
+The accumulated per-trial HR estimates and 95% upper bounds are
+summarised using the six statistics defined in Section 1.3 (Summary
+Statistics Across Simulations): `Pr(HR<0.5)`, `Pr(HR>1.0)`, `mHR`,
+`Pr(UB>=2)`, `Pr(UB>=3)`, and `mUB`.  The Results section below
+presents these in tabular form and visualises the underlying
+distributions as median + 99% ECI ranges in the forest panels.
+
+---
+
+## Simulation Loop
+
+The DGM (`dgm_uniform`), calibrated censoring shift (`cal_uniform`), and
+simulation pipeline configuration (`sim_config`) were all built in
+Parts I–II.  The Part IV loop reuses them directly — there is no
+re-build, no re-calibration, no duplication of parameters.
+
+### Parallel backend
+
+The simulation loop below is embarrassingly parallel — every iteration
+is independent and uses iteration-local seeds derived from `sim_config`
+(`seed_base + ss` for `simulate_from_dgm()`, and
+`seed_base + ss + rand_seed_offset` for the random-subgroup re-draw) —
+so bit-for-bit reproducibility is preserved regardless of execution
+order.  We use `doFuture` with a `multisession` plan (portable across
+Windows / macOS / Linux) and target **at least 90% of available cores**,
+so a 5,000-sim run scales close to the number of physical cores
+available.
+
+```{r parallel-setup}
+#| message: false
+
+library(future)
+library(doFuture)
+library(foreach)
+
+# Target at least 90% of available cores; ceiling() guarantees the
+# 90% floor on machines where 0.9 * cores is non-integer.
+.t_par_start  <- Sys.time()
+n_cores_total <- future::availableCores()
+n_workers     <- max(1L, ceiling(0.90 * n_cores_total))
+
+future::plan(future::multisession, workers = n_workers)
+t_par_setup   <- as.numeric(difftime(Sys.time(), .t_par_start, units = "secs"))
+
+cat(sprintf(
+  "Parallel plan: multisession with %d workers (%.0f%% of %d available cores).\n",
+  n_workers, 100 * n_workers / n_cores_total, n_cores_total
+))
+```
+
+`fit_uniform` below is the **analysis approach** — chosen to match the
+analysis used at the data-analysis stage (here, a Cox model stratified
+by `grade`).  It is *not* the data-generating model, and it does not
+have to be: every simulated trial comes exclusively from
+`simulate_from_dgm()` under the Weibull-AFT DGM built in Part I, in
+which `grade` enters as a covariate, and `fit_uniform` only ever
+receives data that already exist.  The practical consequence concerns
+the **estimand**, not the trials: the grade-stratified, otherwise
+unadjusted Cox targets a grade-conditional treatment effect, marginal
+over the remaining covariates — numerically distinct from both the
+fully conditional and the fully marginal HR under Cox
+non-collapsibility (see the `k_treat` calibration note in Part I).
+Swapping `fit` — an unstratified Cox, a covariate-adjusted one —
+changes which estimator's sampling distribution the study
+characterizes, while the simulated trials remain bit-for-bit
+identical.
+
+```{r sim-helpers}
+# ── Per-subgroup analysis function ────────────────────────────────────────
+# subgroup_cox() builds the analysis function applied inside every
+# subgroup of every simulated trial: a stratified Cox fit returning the
+# HR point estimate and upper 95% bound from the first conf.int row,
+# with c(NA, NA) on estimation failure.  The rest of the former inline
+# machinery -- one synthetic trial via simulate_from_dgm(), flag_itt and
+# cut-point columns, nested random-benchmark regeneration, and the
+# per-subgroup subset/fit loop with its < 5 skip rule -- now lives in
+# forestsearch::run_subgroup_sims(), verified bit-identical to this
+# document's original loop by dev/accept_phase1_bitident.R.  Swap the
+# formula, or pass any function(data) returning c(estimate, upper), for
+# sensitivity analyses without touching the simulation machinery.
+# NOTE: this is the ANALYSIS model (the estimator under study), matched
+# to the data-analysis stage; it plays no role in generating the data
+# and need not equal the DGM -- see the paragraph above.
+fit_uniform <- subgroup_cox(
+  Surv(y_sim, event_sim) ~ treat_sim + strata(grade)
+)
+```
+
+```{r uniform-sims}
+.t_sims_start <- Sys.time()
+
+# Bundle scalar cut-points into a single argument
+cut_points <- list(age_med = age_med, size_med = size_med,
+                    nodes_q3 = nodes_q3, pgr_med = pgr_med, er_cut = er_cut)
+
+# ── Simulation study ──────────────────────────────────────────────────────
+# One call replaces the former helper + %dofuture% loop.  Per-iteration
+# seeding is explicit inside the runner (trial ss: seed_base + ss for the
+# DGM draw, + rand_seed_offset for benchmark membership), so results are
+# independent of the parallel schedule.  workers = NULL reuses the
+# multisession plan established in the parallel-setup chunk above instead
+# of spawning a fresh worker pool.
+# Under baseline = "fixed", n is implied by the df_source panel and
+# deliberately not passed.
+sims_uniform <- run_subgroup_sims(
+  dgm              = dgm_uniform,
+  subgroups        = subgroups,
+  n_sims           = n_sims_uniform,
+  fit              = fit_uniform,
+  baseline         = "fixed",
+  analysis_time    = sim_config$analysis_time,
+  max_entry        = sim_config$max_entry,
+  cens_adjust      = cal_uniform$cens_adjust,
+  cutpoints        = cut_points,
+  benchmarks       = benchmark_spec(),      # random15 in 20 in 40 in 60
+  seed_base        = sim_config$seed_base,
+  rand_seed_offset = sim_config$rand_seed_offset,
+  workers          = NULL,
+  hr_true          = 0.70,
+  k_treat          = k_treat_uniform
+)
+
+t_sims <- as.numeric(difftime(Sys.time(), .t_sims_start, units = "secs"))
+
+cat("Simulations completed:", n_sims_uniform,
+    " |  Parallel workers used:", n_workers, "\n")
+```
+
+### Persisting the payload (optional)
+
+The payload requires no assembly step: **the runner's return object is
+the on-disk format**, so persistence is a single `saveRDS()`.  The
+knobs (`save_payload`, `payload_dir`, `payload_file`, all overridable
+with `-P` at render time) are documented in the run controls at the top
+of this file; recall that `payload_dir` must already exist — the render
+stops in seconds rather than discovering an unmounted drive after the
+simulation loop.  The default file name encodes design and size
+(`extreme_sims_fixed_`\ `r n_sims_uniform`\ `_payload.rds`), so smoke
+runs and full runs never overwrite each other.  With
+`save_payload = FALSE` the chunk is a no-op and nothing touches disk.
+
+One RDS file carries everything a consumer needs:
+
+| Field | Contents |
+|---|---|
+| `design`, `n_sims` | `"fixed"` here; the trial count of this run |
+| `sim_hrs`, `sim_ubs`, `sim_ns` | `n_sims` × 56 matrices; columns named by subgroup |
+| `subgroups` | the 56 definitions (`id` / `name` / `grp`) |
+| `sim_config` | baseline, per-trial N, `analysis_time` / `max_entry`, the seed scheme (`seed_base`, `rand_seed_offset`), `min_n`, the benchmark spec, workers / `plan_reused`, loop timings, and the deparsed fit formula |
+| `cens_adjust`, `k_treat`, `hr_true` | calibration provenance |
+| `created`, `r_version`, `forestsearch_version` | reproducibility stamp |
+
+Consumers: `readRDS()` returns the classed `"subgroup_sims"` object, so
+`summary()` and `plot()` apply directly; the companion memo
+`extreme_subgroups_design_comparison.qmd` loads this payload and the
+random-X one and hands both to `compare_subgroup_sims()`.  The field
+names and matrix layout are byte-compatible with the pre-wrapper
+hand-built payloads (the class attribute and the richer `sim_config`
+are additive), so older files and older consumers interoperate.
+
+```{r save-payload}
+if (isTRUE(save_payload)) {
+  # The runner's return object IS the payload: field names and matrix
+  # layout are byte-compatible with the former hand-built list (plus a
+  # "subgroup_sims" class attribute and a richer sim_config), so the
+  # design-comparison memo loads it unchanged.
+  saveRDS(sims_uniform, payload_path)
+  cat(sprintf("Payload written: %s  (%.1f MB, forestsearch %s)\n",
+              payload_path, file.size(payload_path) / 1024^2,
+              sims_uniform$forestsearch_version))
+} else {
+  cat("Payload persistence disabled (save_payload = FALSE); nothing written.\n")
+}
+```
+
+```{r reload-example}
+#| echo: true
+#| eval: false
+
+# Reloading later -- the object round-trips with its class intact:
+res <- readRDS(payload_path)
+print(res)                        # design | n_sims | subgroups | fit | stamp
+S   <- summary(res, hr_true = 0.70)
+plot(S, metric = "ub", panel = "combo")
+
+# Pairing with the random-X payload, as the design-comparison memo does:
+# cmp <- compare_subgroup_sims(readRDS("<resample payload>"), res,
+#                              expect_designs = c("resample", "fixed"))
+```
+
+---
+
+## Results
+
+### Summary table
+
+```{r uniform-results-table}
+# ── Section 6.6 statistics ────────────────────────────────────────────────
+# summary() is the single package-level source of truth for every
+# statistic in the results table and forest panels: ECI quantiles, tail
+# probabilities, convergence counts, category mapping, panel membership,
+# and the high-risk panel.  Definitions were lifted verbatim from this
+# document's former inline chunk and verified character-identical in the
+# Phase 1 acceptance gate.
+# Under baseline = "fixed" subgroup sizes are constant across trials,
+# so the N column is the exact per-trial N for every covariate-defined
+# subgroup (and exactly 60/40/20/15 for the random benchmarks, whose
+# membership -- not size -- is re-drawn each replicate).
+S_uniform   <- summary(sims_uniform, hr_true = 0.70)
+results_tbl <- S_uniform$results_tbl
+print(results_tbl, row.names = FALSE)
+```
+
+**Reading the table.** The columns mirror the annotation columns of the
+forest plots below. Every row shares the same true HR = 0.70, so `mHR`
+(the unconditional median HR across simulations) should track 0.70
+throughout — confirming the Cox model is unbiased. The tail-probability
+columns are what move with subgroup size:
+
+- **`Pr(HR<0.5)`** and **`Pr(HR>1.0)`** measure how often the point
+  estimate alone looks extremely favorable or lands on the wrong side
+  of no effect by chance — relevant when a forest-plot row is read as
+  evidence of differential benefit or harm.
+- **`Pr(UB>=2)`** and **`Pr(UB>=3)`** measure how often the upper 95%
+  confidence bound crosses thresholds a safety reviewer would treat as
+  alarming.
+
+For `random15`, these probabilities are substantial — the small-N
+subgroup routinely produces upper bounds far above 1.0 even though the
+true HR is 0.70. For the ITT they are negligible. The forest plots
+below show the full ECI structure visually; this table gives the
+underlying numbers per subgroup.
+
+---
+
+### Forest plot: HR point estimate distributions
+
+Each row shows one subgroup. The point is the median HR across
+`r n_sims_uniform` simulations; the line spans the 1st–99th percentile ECI.
+The red dashed line marks the true HR = 0.70; the grey dotted line marks
+HR = 1.0. `random*` benchmarks (orange) are shown alongside same-sized
+clinical subgroups (blue) so that the comparison is immediate.
+
+```{r forest-theme-params}
+# =============================================================================
+# Forest Plot Sizing Parameters — edit here to resize all four panels
+# =============================================================================
+#
+# HOW SIZING WORKS WITH gg_forest()
+# ──────────────────────────────────
+# gg_forest() uses ggplot2 + patchwork.  Unlike forestploter, there is NO
+# hidden scaling.  Row height is simply:
+#
+#     row_height_in  =  fig.height  /  n_rows
+#
+# So to set a target row height (e.g. 0.45 in):
+#     fig.height  =  n_rows  ×  0.45  +  overhead_in
+#
+# where overhead_in ≈ 1.5 in covers the title, x-axis, and caption.
+# ─────────────────────────────────────────────────────────────────────────────
+
+fp_row_height   <- 0.45   # in — target height per row (increase to spread rows)
+fp_overhead_in  <- 1.5    # in — fixed overhead (title + x-axis + footnote)
+fp_base_size    <- 14     # pt — ggplot2 base font size (controls ALL text sizes)
+fp_point_size   <- 2.2    # relative size of the median point symbol
+fp_line_size    <- 0.75   # line width of CI whiskers
+
+# ── Panel membership, colours, and validity masks ─────────────────────────
+# Category labels, the colour map, ok/ok_ub masks, and the single/combo
+# index vectors now live on S_uniform (see summary()); forest_height()
+# converts panel row counts to the fig.height values used below.
+fh_single <- forest_height(S_uniform, "single", fp_row_height, fp_overhead_in)
+fh_combo  <- forest_height(S_uniform, "combo",  fp_row_height, fp_overhead_in)
+
+cat(sprintf(
+  "Single panels: %d rows  ->  recommended fig.height = %.1f in\n",
+  S_uniform$n_single, fh_single))
+cat(sprintf(
+  "Combo  panels: %d rows  ->  recommended fig.height = %.1f in\n",
+  S_uniform$n_combo,  fh_combo))
+```
+
+
+**Panel A — HR distributions, single-variable subgroups.**
+Point = median HR; whiskers = 1st–99th percentile ECI.
+The true HR is 0.70 for every subgroup (red dashed line).
+
+```{r hr-forest-single}
+#| fig-height: !expr fh_single
+#| fig-width: 14
+#| fig-cap: "HR distribution — single-variable subgroups (log scale). Spread reflects sampling variability alone; all subgroups share the same true HR = 0.70."
+plot(S_uniform, metric = "hr", panel = "single",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
+```
+
+**Panel B — HR distributions, combination and random-benchmark subgroups.**
+Note how the ECI widens sharply as subgroup N falls below ~60; the
+`random*` benchmarks (orange) define the noise floor for each size class.
+
+```{r hr-forest-combo}
+#| fig-height: !expr fh_combo
+#| fig-width: 14
+#| fig-cap: "HR distribution — combination subgroups and random benchmarks (log scale). Random benchmarks of matching size (orange) are the baseline for chance variability."
+plot(S_uniform, metric = "hr", panel = "combo",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
+```
+
+---
+
+### Forest plot: UB(HR) distributions
+
+The upper confidence bound UB(HR) is the quantity a safety reviewer
+examines when asking whether a subgroup demonstrates harm or lack of
+benefit. The plots below show the distribution of UB(HR) across
+simulations in the same ECI format. Values above 1.0 (grey dotted line)
+represent trials where the confidence interval includes no treatment
+effect. The right-hand annotation columns show: the proportion of trials
+in which UB(HR) reaches each of two clinically meaningful thresholds
+(`UB>=2`, `UB>=3`), and the unconditional median UB(HR) across all
+trials (`mUB`).
+
+**Panel A — UB(HR) distributions, single-variable subgroups.**
+
+```{r ub-forest-single}
+#| fig-height: !expr fh_single
+#| fig-width: 14
+#| fig-cap: "UB(HR) distribution — single-variable subgroups (log scale). Values right of HR = 1.0 (dotted line) represent trials failing to show significant benefit."
+plot(S_uniform, metric = "ub", panel = "single",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
+```
+
+**Panel B — UB(HR) distributions, combination subgroups and random benchmarks.**
+The `UB>=2` and `UB>=3` columns are the key safety quantities — they
+show how often a randomly-defined subgroup's upper confidence bound
+crosses thresholds that a reviewer would treat as concerning, even
+though the true HR is 0.70 throughout.
+
+```{r ub-forest-combo}
+#| fig-height: !expr fh_combo
+#| fig-width: 14
+#| fig-cap: "UB(HR) distribution — combination and random-benchmark subgroups. The widening ECI for small subgroups is the central message: chance alone produces UB(HR) > 3-5 for N ~ 15-40."
+plot(S_uniform, metric = "ub", panel = "combo",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
+```
+
+---
+
+### Forest plot: high-risk subgroups (Pr(UB ≥ 2.0) ≥ 10%)
+
+The panels above present *all* pre-defined subgroups grouped by category.
+A complementary view is to filter to subgroups whose UB(HR) distribution
+crosses 2.0 with non-negligible frequency — concretely, those where at
+least 10% of simulated trials produce UB(HR) ≥ 2.0.  These are the
+subgroups most likely to generate alarming-looking forest-plot rows by
+chance alone.  **All Patients (ITT)** is always retained as a reference
+anchor, regardless of whether it meets the filter.
+
+Rows are ordered with the ITT at the top, then the remaining subgroups
+in descending order of `Pr(UB>=2)` — so the most chance-prone subgroups
+appear immediately below the ITT for direct comparison.
+
+```{r ub-forest-highrisk-setup}
+#| include: false
+
+# High-risk membership (Pr(UB>=2) >= threshold, ITT anchored first) is
+# computed by summary(); only the recommended figure height remains
+# document-side.
+fh_highrisk <- forest_height(S_uniform, "highrisk",
+                              fp_row_height, fp_overhead_in)
+cat(sprintf(
+  "High-risk panel: %d subgroups (Pr(UB>=2) >= %.0f%%, ITT included)  ->  fig.height = %.1f in\n",
+  S_uniform$highrisk$n, 100 * S_uniform$highrisk$threshold, fh_highrisk))
+```
+
+```{r ub-forest-highrisk}
+#| fig-height: !expr fh_highrisk
+#| fig-width: 14
+#| fig-cap: "UB(HR) distribution — subgroups where at least 10% of simulated trials produce UB(HR) >= 2.0, with All Patients (ITT) for comparison.  All share the same true HR = 0.70; differences are entirely sampling variability."
+plot(S_uniform, metric = "ub", panel = "highrisk",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
+```
+
+The contrast is the point of the plot: every row shares the same true
+HR (0.70), yet the filtered subgroups produce UB(HR) values that are
+substantively different from the ITT.  Because the filter is on a tail
+probability rather than on any clinical attribute, small subgroups
+populate this panel regardless of whether they were defined by a
+biomarker, a clinical interaction, or pure random sampling.
+
+The companion view below is the *HR point-estimate distribution* for
+the same set of subgroups.  Where the UB(HR) panel above asks "how
+alarming can the upper confidence bound look by chance?", the HR panel
+asks "how misleading can the point estimate itself be?"  The two views
+together complete the picture: small subgroups produce extreme results
+in both tails.
+
+```{r hr-forest-highrisk}
+#| fig-height: !expr fh_highrisk
+#| fig-width: 14
+#| fig-cap: "HR distribution — same high-risk subgroups as the panel above (Pr(UB(HR) >= 2.0) >= 10%, plus ITT for comparison).  Every row shares the same true HR = 0.70 (red dashed); spread reflects sampling variability alone."
+
+plot(S_uniform, metric = "hr", panel = "highrisk",
+     base_size  = fp_base_size, point_size = fp_point_size,
+     line_size  = fp_line_size)
+```
+
+Read together with the UB(HR) panel, the message is direct: the same
+small subgroups that produce large upper bounds also routinely produce
+point estimates that overstate (HR &lt; 0.5) or understate (HR &gt; 1.0)
+the true effect.  None of this reflects genuine heterogeneity — the
+DGM guarantees a uniform HR of 0.70 for every patient.
+
+---
+
+
+# Summary
+
+| Step | Function | Purpose |
+|:-----|:---------|:--------|
+| 1 | — | Convert source data to consistent time scale |
+| 2 | `generate_aft_dgm_flex()` | Fit AFT model; embed harm subgroup; build super population |
+| 3 | `check_censoring_dgm()` | Verify simulated censoring matches source data |
+| 4 | `calibrate_cens_adjust()` | Find `cens_adjust` that aligns censoring rate or KM median |
+| 5 | `simulate_from_dgm()` | Draw synthetic trials over the fixed source panel (`baseline = "fixed"`) |
+| 6 | `forestsearch()` + summaries | Apply method and accumulate operating characteristics |
+
+The extreme-subgroup evaluation in Part IV answers a question: *under a null where every patient shares the same true HR,
+how alarming can a standard Cox subgroup analysis look by chance?* The
+`random*` subgroups anchor the answer — any clinical subgroup of similar
+size has an identical chance distribution of HR and UB(HR) regardless of
+clinical rationale. Because the baseline panel is held fixed, this
+document gives the *conditional-on-X* version of that answer: all
+between-trial spread is outcome-generation noise for exactly the
+enrolled GBSG patients, with no covariate-resampling contribution.
+---
+
+### Timing summary
+
+Wall-clock time for each computational stage and a projection for larger
+simulation budgets.  The simulation loop dominates and scales linearly
+in `n_sims_uniform`; the DGM and censoring-calibration steps are one-time
+costs that don't change with replicate count.
+
+```{r timing-summary}
+#| echo: false
+
+# Per-trial breakdown and projections
+t_total       <- t_dgm + t_cal + t_sims
+t_per_trial   <- t_sims / n_sims_uniform
+trials_per_s  <- if (t_per_trial > 0) 1 / t_per_trial else NA_real_
+
+fmt_time <- function(s) {
+  if (is.na(s) || !is.finite(s))      "-"
+  else if (s < 1)                     sprintf("%.0f ms", s * 1000)
+  else if (s < 60)                    sprintf("%.2f sec", s)
+  else if (s < 3600)                  sprintf("%.1f min", s / 60)
+  else                                sprintf("%.2f hr", s / 3600)
+}
+
+# Projected total time for a future budget = one-time costs + linear sim cost.
+# Per-trial cost is the *parallel* per-trial cost (wall-clock / n_sims), so
+# projections assume the same parallel plan is used.
+proj_for <- function(n_target) fmt_time(t_dgm + t_cal + n_target * t_per_trial)
+
+timing_df <- data.frame(
+  Step = c(
+    "DGM construction (generate_aft_dgm_flex)",
+    "Censoring calibration (calibrate_cens_adjust)",
+    sprintf("Simulation loop (%d trials \u00d7 %d subgroups, %d workers)",
+            n_sims_uniform, length(subgroups), n_workers),
+    "Total"
+  ),
+  Elapsed = c(fmt_time(t_dgm),
+              fmt_time(t_cal),
+              fmt_time(t_sims),
+              fmt_time(t_total)),
+  `Per trial` = c("\u2014", "\u2014",
+                  fmt_time(t_per_trial), "\u2014"),
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+
+knitr::kable(timing_df,
+             align   = c("l", "r", "r"),
+             caption = sprintf(
+               "Timing for n_sims_uniform = %d, parallel across %d of %d cores.",
+               n_sims_uniform, n_workers, n_cores_total))
+
+cat(sprintf(
+  "\nThroughput: %.1f trials/sec (wall-clock, %d workers)  |  Projected total time:  1,000 sims \u2192 %s    \u2502    5,000 sims \u2192 %s\n",
+  trials_per_s, n_workers, proj_for(1000), proj_for(5000)
+))
+```
+
+
+# Appendix: DGM with Heterogeneous Treatment Effects
+
+The main vignette uses a **uniform-effect DGM** (`model = "null"`): every
+patient shares the same true HR = 0.70, and any apparent subgroup finding
+is a false positive.  This appendix illustrates the alternative case — a
+DGM with **genuine heterogeneous treatment effects (HTE)**, where a
+specific subgroup of patients experiences a different (smaller or
+larger) treatment effect than the rest of the population.
+
+`generate_aft_dgm_flex()` supports HTE via `model = "alt"` combined with
+`subgroup_vars`, `subgroup_cuts`, and the interaction modifier `k_inter`.
+The example below embeds a **harm subgroup** defined by ER-low (`er ≤ 20`)
+and pre-menopausal (`meno == 0`) status, with the interaction strength
+chosen so the within-harm-subgroup HR is materially attenuated relative
+to the no-harm complement.
+
+```{r hte-build-dgm}
+set.seed(42)
+
+dgm_hte <- generate_aft_dgm_flex(
+  # ── Required: source data & outcome ─────────────────────────────────────
+  data                = gbsg,
+  continuous_vars     = c("age", "size", "nodes", "pgr", "er"),
+  factor_vars         = c("meno", "grade"),
+  outcome_var         = "time_months",
+  event_var           = "status",
+  # ── Treatment ───────────────────────────────────────────────────────────
+  treatment_var       = "hormon",
+  draw_treatment      = FALSE,                                  # default
+  # ── HTE specification — embedded harm subgroup ──────────────────────────
+  model               = "alt",                                  # alternative DGM (HTE)
+  subgroup_vars       = c("er", "meno"),
+  subgroup_cuts       = list(er = 20, meno = 0),                # ER-low & pre-menopausal
+  k_treat             = 1,                                      # default
+  k_inter             = 1.5,                                    # moderate interaction
+  spline_spec         = NULL,                                   # default
+  set_beta_spec       = list(set_var = NULL, beta_var = NULL),  # default
+  # ── Censoring model ─────────────────────────────────────────────────────
+  continuous_vars_cens = NULL,                                  # default → inherit
+  factor_vars_cens     = NULL,                                  # default → inherit
+  select_censoring     = TRUE,                                  # default — AIC select
+  cens_type            = "weibull",                             # default
+  cens_params          = list(),                                # default
+  cens_intercept_only  = FALSE,                                 # default
+  # ── Super population & misc ─────────────────────────────────────────────
+  n_super             = 5000,
+  standardize         = FALSE,                                  # default
+  seed                = 42,
+  verbose             = FALSE
+)
+```
+
+```{r hte-summary}
+# Terminology: dgm_hte$hazard_ratios$harm_subgroup,
+# $no_harm_subgroup, and $overall are all *marginal* Cox HRs from
+# no-covariate fits on the corresponding potential-outcomes subsets.
+# Under Cox non-collapsibility these are attenuated toward 1 relative
+# to the corresponding AHRs (which equal the patient-level individual
+# HRs within each subgroup).  See Section 3.3.1.
+cat("=== HTE DGM Summary ===\n")
+cat("Time scale            : months\n")
+cat("Implied median T      : exp(mu) =",
+    round(exp(dgm_hte$model_params$mu), 1), "months\n")
+cat("Subgroup proportion   :", round(dgm_hte$subgroup_info$proportion, 3), "\n")
+cat("Marginal HR (harm)    :",
+    round(dgm_hte$hazard_ratios$harm_subgroup, 3), "\n")
+cat("Marginal HR (no harm) :",
+    round(dgm_hte$hazard_ratios$no_harm_subgroup, 3), "\n")
+cat("Marginal HR (overall) :",
+    round(dgm_hte$hazard_ratios$overall, 3), "\n")
+cat("Censoring type        :",
+    dgm_hte$model_params$censoring$type, "\n")
+```
+
+## Calibration and a single trial
+
+Calibration follows the same procedure as in Part II — only the DGM
+object changes.  We reuse `sim_config` so the per-trial pipeline
+parameters (`analysis_time`, `max_entry`) are identical to the main
+analysis.
+
+```{r hte-calibrate}
+# Same fixed-baseline design as the main analysis: n / n_eval pinned to
+# the panel (dgm_hte$df_source has the same source rows as dgm_uniform's).
+n_panel_hte <- nrow(dgm_hte$df_source)
+
+cal_hte <- calibrate_cens_adjust(
+  dgm           = dgm_hte,
+  target        = "rate",
+  n             = n_panel_hte,                  # pinned: fixed panel size
+  rand_ratio    = 1,                            # default
+  analysis_time = sim_config$analysis_time,
+  max_entry     = sim_config$max_entry,
+  seed          = 42,
+  interval      = c(-3, 3),                     # default
+  tol           = 1e-4,                         # default
+  n_eval        = n_panel_hte,                  # pinned: must equal n under "fixed"
+  verbose       = FALSE,
+  baseline      = sim_config$baseline           # forwarded to simulate_from_dgm()
+)
+
+cat("Calibrated cens_adjust :", round(cal_hte$cens_adjust, 4), "\n")
+cat("Achieved censoring rate:", round(cal_hte$sim_value,   3), "\n")
+```
+
+```{r hte-single-trial}
+sim_hte <- simulate_from_dgm(
+  dgm            = dgm_hte,
+  baseline       = sim_config$baseline,        # fixed panel; n implied
+  rand_ratio     = 1,
+  entry_var      = NULL,                       # default
+  max_entry      = sim_config$max_entry,
+  analysis_time  = sim_config$analysis_time,
+  cens_adjust    = cal_hte$cens_adjust,
+  draw_treatment = TRUE,                       # default
+  seed           = 100,
+  strata_rand    = NULL,                       # default
+  hrz_crit       = NULL,                       # default
+  keep_rand      = FALSE,                      # default
+  time_eos       = NULL                        # default
+)
+
+cat("Simulated HTE trial:  N =", nrow(sim_hte), "\n")
+cat("Harm-subgroup size :", sum(sim_hte$flag_harm == 1),
+    " (", round(100 * mean(sim_hte$flag_harm), 1), "% of trial)\n", sep = "")
+cat("Overall event rate :", round(mean(sim_hte$event_sim), 3), "\n")
+cat("Event rate (harm subgroup):",
+    round(mean(sim_hte$event_sim[sim_hte$flag_harm == 1]), 3), "\n")
+cat("Event rate (no-harm)      :",
+    round(mean(sim_hte$event_sim[sim_hte$flag_harm == 0]), 3), "\n")
+```
+
+## True vs observed HR by subgroup
+
+Fitting unstratified Cox models within each true subgroup recovers the
+embedded heterogeneity — the harm subgroup's observed HR is materially
+higher than the no-harm complement's.
+
+```{r hte-results}
+cox_all_hte    <- coxph(Surv(y_sim, event_sim) ~ treat_sim, data = sim_hte)
+cox_harm_hte   <- coxph(Surv(y_sim, event_sim) ~ treat_sim,
+                        data = subset(sim_hte, flag_harm == 1))
+cox_noharm_hte <- coxph(Surv(y_sim, event_sim) ~ treat_sim,
+                        data = subset(sim_hte, flag_harm == 0))
+
+results_hte <- data.frame(
+  Subgroup    = c("ITT", "Harm (true)", "No-harm (true)"),
+  N           = c(nrow(sim_hte),
+                  sum(sim_hte$flag_harm == 1),
+                  sum(sim_hte$flag_harm == 0)),
+  Marginal_HR = round(c(dgm_hte$hazard_ratios$overall,
+                        dgm_hte$hazard_ratios$harm_subgroup,
+                        dgm_hte$hazard_ratios$no_harm_subgroup), 3),
+  Observed_HR = round(exp(c(coef(cox_all_hte),
+                            coef(cox_harm_hte),
+                            coef(cox_noharm_hte))), 3)
+)
+print(results_hte, row.names = FALSE)
+```
+
+## Kaplan–Meier curves by subgroup
+
+```{r hte-km}
+#| fig-cap: "Kaplan–Meier curves for one simulated HTE trial. Harm-subgroup curves diverge less between arms than the no-harm complement, reflecting the embedded HTE."
+#| fig-width: 9
+#| fig-height: 4
+
+op <- par(mfrow = c(1, 3), mar = c(4, 4, 3, 1))
+
+plot(survfit(Surv(y_sim, event_sim) ~ treat_sim, data = sim_hte),
+     col = c("black", "red"), lwd = 2,
+     xlab = "Time (months)", ylab = "Survival",
+     main = "ITT")
+plot(survfit(Surv(y_sim, event_sim) ~ treat_sim,
+             data = subset(sim_hte, flag_harm == 1)),
+     col = c("black", "red"), lwd = 2,
+     xlab = "Time (months)", ylab = "Survival",
+     main = "Harm subgroup")
+plot(survfit(Surv(y_sim, event_sim) ~ treat_sim,
+             data = subset(sim_hte, flag_harm == 0)),
+     col = c("black", "red"), lwd = 2,
+     xlab = "Time (months)", ylab = "Survival",
+     main = "No-harm complement")
+
+par(op)
+```
+
+This appendix DGM is a useful target for evaluating subgroup-discovery
+methods (such as `forestsearch()`): we know the true harm subgroup by
+construction and can measure whether the method recovers it.
+
+---
+
+
+
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
