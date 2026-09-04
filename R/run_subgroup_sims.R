@@ -1,5 +1,5 @@
 # run_subgroup_sims.R -----------------------------------------------------
-# [delivery sentinel: p44r1-1b80a7b0]
+# [delivery sentinel: p45r1-c394ff46]
 # Package-level runner for the extreme-subgroups simulation study.
 #
 # The per-iteration computation is lifted verbatim from the committed
@@ -166,15 +166,14 @@ subgroup_cox <- function(formula, lean = TRUE) {
 #' 1 (ratio measures), whatever the raw outcome's direction.
 #'
 #' @section Supported settings:
-#' Phase 4.4 validates `outcome_type = "continuous"` (MD) and
+#' Phase 4.5 validates `outcome_type = "continuous"` (MD),
 #' `outcome_type = "binary"` (`"OR"` -- the binary default -- and
-#' `"RD"`). Binary `"RR"` (estimator-supported; wrapper parity pending)
-#' and the rate measures `"IRR"`/`"IRD"` (Phase 4.5 count-arc
-#' territory, with `offset.name` plumbing), as well as
-#' `outcome_type = "count"`, stop with informative errors. The
-#' estimator layer ([make_effect_estimator()]) already supports all of
-#' them; the gates lift with their parity phases -- no interface
-#' change.
+#' `"RD"`), and `outcome_type = "count"` (`"IRR"` -- the count default
+#' -- and `"IRD"`; `offset.name` is required, see below). Binary
+#' `"RR"` (estimator-supported; wrapper parity pending) still stops
+#' with an informative error; the estimator layer
+#' ([make_effect_estimator()]) already supports it and the gate lifts
+#' with its parity phase -- no interface change.
 #'
 #' @section Serialization (`lean`):
 #' The returned closure is stripped of source references and given a
@@ -194,25 +193,32 @@ subgroup_cox <- function(formula, lean = TRUE) {
 #' @param outcome.name,treat.name Column names of the outcome and the
 #'   0/1 treatment indicator; defaults match [simulate_from_glm_dgm()]'s
 #'   `y_sim` / `treat_sim`.
-#' @param outcome_type `"continuous"` or `"binary"` (validated);
-#'   `"count"` (reserved; currently stops).
+#' @param outcome_type `"continuous"`, `"binary"`, or `"count"` (all
+#'   validated; count requires `offset.name`).
 #' @param effect_measure `NULL` resolves to the wrapper default for the
-#'   outcome type: `"MD"` (continuous) or `"OR"` (binary -- the
+#'   outcome type: `"MD"` (continuous), `"OR"` (binary -- the
 #'   [generate_glm_dgm()] default and the calibration target; note that
-#'   [make_effect_estimator()]'s own binary default is `"RD"`). Binary
-#'   also accepts `"RD"`; see the supported-settings section for the
-#'   gated measures.
+#'   [make_effect_estimator()]'s own binary default is `"RD"`), or
+#'   `"IRR"` (count -- all layers agree). Binary also accepts `"RD"`;
+#'   count also accepts `"IRD"`; see the supported-settings section for
+#'   the gated measures.
 #' @param adverse_outcome Higher outcome = harm (`TRUE`, default). See
 #'   the direction convention above.
 #' @param robust_se,offset.name,adjust_covariates Passed to
 #'   [make_effect_estimator()]. `robust_se` is consulted only where the
-#'   estimator layer uses sandwich-style SEs (the RR modified-Poisson
-#'   fallback and the rate estimators); the unadjusted OR path and the
-#'   RD tiers use model-based/analytic SEs, so the flag is a no-op for
-#'   the Phase 4.4 validated measures (asserted in
-#'   `dev/accept_phase44_binary_parity.R`). Supplying
-#'   `adjust_covariates` disables the unadjusted fast path (matching
-#'   `forestsearch()`'s routing).
+#'   estimator layer uses sandwich-style SEs (the count IRR path, the
+#'   RR modified-Poisson fallback, and other rate estimators); the
+#'   unadjusted OR path, the RD tiers, the unadjusted IRD delta chain,
+#'   and MD use model-based/analytic SEs, so the flag is a no-op for
+#'   those measures (asserted in the phase gates). `offset.name` is
+#'   REQUIRED for `outcome_type = "count"`: it names a strictly
+#'   positive exposure / follow-up time column in the analysis data
+#'   (the estimator adds an internal `.log_offset` column, clamping
+#'   non-positive values at `.Machine$double.eps`); for plain counts
+#'   supply a unit column of 1s -- `log(1) = 0` reproduces the
+#'   no-offset Poisson model exactly. Supplying `adjust_covariates`
+#'   disables the unadjusted fast path (matching `forestsearch()`'s
+#'   routing).
 #' @param level Confidence level for the upper bound (default `0.95`).
 #' @param lean Re-home the provenance formula's environment (default
 #'   `TRUE`).
@@ -237,6 +243,11 @@ subgroup_cox <- function(formula, lean = TRUE) {
 #' # Binary (Phase 4.4): OR by default, RD available
 #' fit_or <- subgroup_glm(outcome_type = "binary")
 #' fit_rd <- subgroup_glm(outcome_type = "binary", effect_measure = "RD")
+#'
+#' # Count (Phase 4.5): IRR by default, IRD available; offset required
+#' fit_irr <- subgroup_glm(outcome_type = "count", offset.name = "t_exp")
+#' fit_ird <- subgroup_glm(outcome_type = "count", offset.name = "t_exp",
+#'                         effect_measure = "IRD")
 #' }
 subgroup_glm <- function(outcome.name      = "y_sim",
                          treat.name        = "treat_sim",
@@ -251,11 +262,25 @@ subgroup_glm <- function(outcome.name      = "y_sim",
   outcome_type <- match.arg(outcome_type,
                             c("continuous", "binary", "count"))
   if (outcome_type == "count") {
-    stop("subgroup_glm(): outcome_type = \"count\" is not yet ",
-         "wrapper-validated. The estimator layer ",
-         "(make_effect_estimator) already supports count outcomes; the ",
-         "gate lifts with the Phase 4.5 count arc (IRR/IRD parity and ",
-         "offset.name plumbing).", call. = FALSE)
+    # Count (Phase 4.5). NULL resolves to "IRR" -- the estimator-layer
+    # and generate_glm_dgm() defaults agree. Validated: IRR, IRD.
+    # offset.name is required at construction: make_effect_estimator()
+    # already errors without it for rate measures; this wrapper-level
+    # stop pre-empts that terser message and names the unit-exposure
+    # convention for plain counts.
+    if (is.null(effect_measure)) effect_measure <- "IRR"
+    if (!effect_measure %in% c("IRR", "IRD")) {
+      stop("subgroup_glm(): effect_measure = '", effect_measure,
+           "' is not available for outcome_type = \"count\" ",
+           "(Phase 4.5 validates \"IRR\" and \"IRD\").", call. = FALSE)
+    }
+    if (is.null(offset.name)) {
+      stop("subgroup_glm(): outcome_type = \"count\" requires ",
+           "offset.name (an exposure / follow-up time column). For ",
+           "plain counts without exposure, supply a unit column of 1s ",
+           "-- log(1) = 0 reproduces the no-offset Poisson model ",
+           "exactly.", call. = FALSE)
+    }
   }
   if (outcome_type == "continuous") {
     if (is.null(effect_measure)) effect_measure <- "MD"
@@ -264,7 +289,7 @@ subgroup_glm <- function(outcome.name      = "y_sim",
            "' is not available for outcome_type = \"continuous\" ",
            "(the continuous estimator is MD).", call. = FALSE)
     }
-  } else {
+  } else if (outcome_type == "binary") {
     # Binary (Phase 4.4). NULL resolves to "OR" -- the
     # generate_glm_dgm() default and the calibration target -- rather
     # than make_effect_estimator()'s "RD"; the divergence is documented
@@ -673,6 +698,14 @@ run_subgroup_sims <- function(dgm, subgroups, n_sims,
   if (is_glm && missing(fit)) fit <- subgroup_glm(
     outcome_type    = dgm$outcome_type,
     effect_measure  = dgm$effect_measure,
+    # NOTE the nesting asymmetry (do not "normalize" these two):
+    # adverse_outcome is a TOP-LEVEL glm_dgm field; offset_var lives in
+    # model_params. offset_var is NULL for continuous/binary DGMs --
+    # identical to the pre-4.5 default argument, so those default paths
+    # are byte-identical. A count DGM built without offset_var hits the
+    # count offset requirement at construction (unit-exposure
+    # convention; see subgroup_glm()'s Rd).
+    offset.name     = dgm$model_params$offset_var,
     adverse_outcome = if (identical(dgm$outcome_type, "binary"))
                         isTRUE(dgm$adverse_outcome) else TRUE
   )

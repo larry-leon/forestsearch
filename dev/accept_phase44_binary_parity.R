@@ -1,5 +1,5 @@
 # accept_phase44_binary_parity.R ------------------------------------------
-# [delivery sentinel: p44r1-6e2e3f60]
+# [delivery sentinel: p45r1-1c1ff4f5]
 # Phase 4.4 acceptance gate: binary gate-lift for subgroup_glm().
 #
 # Proves, against the INSTALLED forestsearch build:
@@ -212,10 +212,10 @@ for (m in c("OR", "RD")) {
 cat("== G5: support-gate messages ================================\n")
 msg_of <- function(expr) tryCatch({ expr; NA_character_ },
                                   error = function(e) conditionMessage(e))
-m1 <- msg_of(subgroup_glm(outcome_type = "count"))
-gate("G5/count", grepl('outcome_type = "count" is not yet wrapper-validated',
-                       m1, fixed = TRUE) &&
-       grepl("Phase 4.5 count arc", m1, fixed = TRUE), m1)
+# v2 (p45r1): the count-stop assertion is removed -- Phase 4.5 lifts the
+# count gate, and count policing (offset requirement, measure set) is
+# owned by dev/accept_phase45_count_parity.R G5. This gate's scope is
+# binary.
 m2 <- msg_of(subgroup_glm(outcome_type = "binary", effect_measure = "RR"))
 gate("G5/RR", grepl("log-binomial -> modified-Poisson chain", m2,
                     fixed = TRUE), m2)
