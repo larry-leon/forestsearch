@@ -24,7 +24,7 @@ execute:
 #   quarto render actg175_extreme_subgroups_continuous_fixed.qmd -P n_sims:50
 # Precedence: -P value > in-file default (YAML null = use in-file default).
 # =========================================================================
-# [delivery sentinel: c2r4-77aa3c19]
+# [delivery sentinel: c2r6-8c07b511]
 .param_or <- function(nm, default) {
   if (exists("params", inherits = TRUE) && !is.null(params[[nm]]))
     params[[nm]] else default
@@ -82,7 +82,6 @@ stopifnot(nrow(actg_df) == 1083L)      # 522 treated / 561 control
 cuts <- list(
   age_med  = stats::median(actg_df$age),
   wtkg_med = stats::median(actg_df$wtkg),
-  kar_med  = stats::median(actg_df$karnof),
   cd40_med = stats::median(actg_df$cd40),
   cd40_q1  = unname(stats::quantile(actg_df$cd40, 0.25)),
   cd80_med = stats::median(actg_df$cd80),
@@ -154,8 +153,8 @@ subgroups <- list(
   list(id = "age > 35",         name = "Age > 35",        grp = "Continuous"),
   list(id = "wtkg <= wtkg_med", name = "Weight (low)",    grp = "Continuous"),
   list(id = "wtkg > wtkg_med",  name = "Weight (high)",   grp = "Continuous"),
-  list(id = "karnof <= kar_med", name = "Karnofsky low",  grp = "Continuous"),
-  list(id = "karnof > kar_med",  name = "Karnofsky high", grp = "Continuous"),
+  list(id = "karnof < 100",  name = "Karnofsky < 100", grp = "Continuous"),
+  list(id = "karnof == 100", name = "Karnofsky 100",   grp = "Continuous"),
   list(id = "cd40 <= cd40_med", name = "CD4 low",         grp = "Continuous"),
   list(id = "cd40 > cd40_med",  name = "CD4 high",        grp = "Continuous"),
   list(id = "cd40 <= cd40_q1",  name = "CD4 lowest quartile", grp = "Continuous"),
@@ -172,11 +171,11 @@ subgroups <- list(
   list(id = "age > age_med & symptom == 1",      name = "Older/Sympt",   grp = "Interaction"),
   list(id = "gender == 0 & drugs == 1",   name = "Female/IVDU",     grp = "Interaction"),
   list(id = "gender == 0 & race == 1",    name = "Female/Non-white",grp = "Interaction"),
-  list(id = "karnof <= kar_med & cd40 <= cd40_med", name = "KarnLow/CD4-low", grp = "Interaction"),
+  list(id = "karnof < 100 & cd40 <= cd40_med", name = "Karn<100/CD4-low", grp = "Interaction"),
   list(id = "hemo == 1 & age <= age_med", name = "Hemo/Young",      grp = "Interaction"),
   list(id = "drugs == 1 & symptom == 1",  name = "IVDU/Sympt",      grp = "Interaction"),
   list(id = "race == 1 & cd40 <= cd40_med", name = "Non-white/CD4-low", grp = "Interaction"),
-  list(id = "wtkg <= wtkg_med & karnof <= kar_med", name = "LowWt/KarnLow", grp = "Interaction"),
+  list(id = "wtkg <= wtkg_med & karnof < 100", name = "LowWt/Karn<100", grp = "Interaction"),
   list(id = "preanti > pre_med & cd40 <= cd40_med", name = "LongART/CD4-low", grp = "Interaction"),
   # Three-way
   list(id = "symptom == 1 & cd40 <= cd40_med & age > age_med",
@@ -185,8 +184,8 @@ subgroups <- list(
        name = "Fem/IVDU/CD4-low", grp = "3-way"),
   list(id = "race == 1 & symptom == 1 & cd40 <= cd40_med",
        name = "NW/Sympt/CD4-low", grp = "3-way"),
-  list(id = "hemo == 1 & cd40 <= cd40_med & karnof <= kar_med",
-       name = "Hemo/CD4-low/KarnLow", grp = "3-way")
+  list(id = "hemo == 1 & cd40 <= cd40_med & karnof < 100",
+       name = "Hemo/CD4-low/Karn<100", grp = "3-way")
 ,
   # Random benchmarks: columns injected per replicate by benchmark_spec();
   # the catalog must NAME them to analyze them (the gbsg twin's pattern)
@@ -246,13 +245,25 @@ plot(S, metric = "ub", panel = "highrisk")
 
 # Findings
 
-Written after the first full run, mirroring the twin's structure: the
-MD point-estimate distributions center on the uniform truth in every
-subgroup; ECI width is driven entirely by subgroup N; the clinical
-subgroups of a given size are statistically indistinguishable from the
-random benchmarks of that size; and UB(MD) exceedances of the c(10, 20)
-tails in the smallest cells are expected under the uniform effect --
-the calibration a reviewer needs before reading any single forest plot.
+Across 10,000 fixed-panel replicates the uniform truth is recovered in
+every subgroup: the median MD sits at approximately -27 CD4 cells of
+decline regardless of N (from -27.2 at the full panel of 1,083 to
+-26.5 at random15's fifteen patients). All dispersion is sample-size:
+the median UB(MD) climbs monotonically from -11.6 (ITT; 99th
+percentile 6.6, so the full panel essentially never even reaches the
+null) to +107.7 at random15, whose 99th percentile is 288 -- more than
+ten times the true benefit in the harmful direction -- with
+Pr(UB >= 20) rising from 0.000 to 0.881 along the same curve.
+
+Clinical labels confer no protection. Hemophilia (N = 92) shows
+Pr(UB >= 20) = 0.598 and Female/Non-white (N = 100) 0.545, bracketed
+by the meaningless random60 (0.713); IVDU/Symptomatic (N = 27) at
+0.837 sits between random20 (0.865) and random40 (0.789); the
+three-way cells at N = 15-23 are statistically indistinguishable from
+random15. A reviewer seeing UB(MD) of +20, +50, or even +100 CD4
+cells in a two-digit subgroup is looking at the expected behavior of a
+uniformly beneficial treatment -- the calibration these benchmarks
+exist to provide before any single forest plot is read.
 
 # Appendix: New-Results Workflow
 
