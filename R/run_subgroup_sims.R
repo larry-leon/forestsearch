@@ -1,5 +1,5 @@
 # run_subgroup_sims.R -----------------------------------------------------
-# [delivery sentinel: p45r1-c394ff46]
+# [delivery sentinel: c1r1-640c8ccc]
 # Package-level runner for the extreme-subgroups simulation study.
 #
 # The per-iteration computation is lifted verbatim from the committed
@@ -570,7 +570,7 @@ validate_subgroups <- function(subgroups, data,
 #' GLM dispatch: when `dgm` inherits `"glm_dgm"` ([generate_glm_dgm()]),
 #' trials are drawn by [simulate_from_glm_dgm()] (`n` is required; the
 #' survival-only `analysis_time` / `max_entry` / `cens_adjust` must not
-#' be supplied, and `baseline = "fixed"` is unavailable), the default
+#' be supplied; `baseline = "fixed"` uses the stored df_source panel), the default
 #' `fit` becomes [subgroup_glm()] constructed from the DGM's own
 #' `outcome_type` and `effect_measure` (binary DGMs also pass their
 #' `adverse_outcome`; a continuous DGM resolves to the same fitter as
@@ -730,18 +730,34 @@ run_subgroup_sims <- function(dgm, subgroups, n_sims,
            "entry process.")
     }
     if (baseline == "fixed") {
-      stop('baseline = "fixed" is survival-only: a "glm_dgm" carries no ',
-           'df_source panel. Omit `baseline` (it defaults to "resample").')
+      # Arc C': GLM fixed-baseline. The wrapper-layer contract mirrors the
+      # survival branch verbatim -- strict n = NULL here (the simulator
+      # layer additionally accepts n == nrow(df_source); the wrapper
+      # polices the stricter rule on both outcome families).
+      if (!is.null(n)) {
+        stop('`n` must be NULL when baseline = "fixed": per-trial N is ',
+             "nrow(dgm$df_source) by construction.")
+      }
+      if (is.null(dgm$df_source)) {
+        stop("dgm$df_source is missing: this glm_dgm was built by a ",
+             "package version that does not store the fixed-baseline ",
+             "panel. Rebuild it with generate_glm_dgm() (current ",
+             "versions store df_source automatically).")
+      }
+      sim_fun     <- simulate_from_glm_dgm
+      sim_args    <- list(baseline = "fixed")
+      n_per_trial <- nrow(dgm$df_source)
+    } else {
+      if (is.null(n)) {
+        stop('`n` (patients per trial) is required for a "glm_dgm". ',
+             "(simulate_from_glm_dgm(n = NULL) means the full ",
+             "super-population -- an evaluation-frame convenience, not a ",
+             "trial size.)")
+      }
+      sim_fun     <- simulate_from_glm_dgm
+      sim_args    <- list(n = n)
+      n_per_trial <- as.integer(n)
     }
-    if (is.null(n)) {
-      stop('`n` (patients per trial) is required for a "glm_dgm". ',
-           "(simulate_from_glm_dgm(n = NULL) means the full ",
-           "super-population -- an evaluation-frame convenience, not a ",
-           "trial size.)")
-    }
-    sim_fun     <- simulate_from_glm_dgm
-    sim_args    <- list(n = n)
-    n_per_trial <- as.integer(n)
     eff <- attr(fit, "effect")
     if (!is.null(eff) && !is.null(dgm$effect_measure) &&
         !identical(eff$measure, dgm$effect_measure)) {

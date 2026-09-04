@@ -1,4 +1,5 @@
 # =============================================================================
+# [delivery sentinel: c1r1-640c8ccc]
 # generate_glm_dgm() -- GLM Data Generating Mechanism
 # =============================================================================
 #
@@ -493,9 +494,45 @@ generate_glm_dgm <- function(
   }
 
   # -- Assemble result -------------------------------------------------------
+  # -- Fixed-baseline source panel (Arc C'): the observed analysis frame
+  # -- in observed order, carrying the same potential-outcome columns as
+  # -- df_super via the identical prediction calls (deterministic per row;
+  # -- no RNG consumed, so df_super is byte-unchanged).  Enables
+  # -- simulate_from_glm_dgm(baseline = "fixed").  flag_harm and the
+  # -- discretised covariates already live on `data` (computed before the
+  # -- super-population draw) and carry over unchanged.
+  df_source <- data
+  src_Q <- if ("flag_harm" %in% names(df_source))
+    df_source$flag_harm == 1L else rep(FALSE, nrow(df_source))
+  src_0 <- df_source; src_0[[treatment_var]] <- 0L
+  src_1 <- df_source; src_1[[treatment_var]] <- 1L
+  if (outcome_type == "binary") {
+    s_eta0 <- stats::predict(fit_base, newdata = src_0, type = "link")
+    s_eta1 <- stats::predict(fit_base, newdata = src_1, type = "link")
+    s_eta1 <- s_eta0 + k_treat * (s_eta1 - s_eta0)
+    s_eta1[src_Q] <- s_eta1[src_Q] + beta_inter
+    df_source$p0 <- stats::plogis(s_eta0)
+    df_source$p1 <- stats::plogis(s_eta1)
+  } else if (outcome_type == "continuous") {
+    s_mu0 <- stats::predict(fit_base, newdata = src_0, type = "response")
+    s_mu1 <- stats::predict(fit_base, newdata = src_1, type = "response")
+    s_mu1 <- s_mu0 + k_treat * (s_mu1 - s_mu0)
+    s_mu1[src_Q] <- s_mu1[src_Q] + beta_inter
+    df_source$mu0 <- s_mu0
+    df_source$mu1 <- s_mu1
+  } else {
+    s_eta0 <- stats::predict(fit_base, newdata = src_0, type = "link")
+    s_eta1 <- stats::predict(fit_base, newdata = src_1, type = "link")
+    s_eta1 <- s_eta0 + k_treat * (s_eta1 - s_eta0)
+    s_eta1[src_Q] <- s_eta1[src_Q] + beta_inter
+    df_source$mu0 <- exp(s_eta0)
+    df_source$mu1 <- exp(s_eta1)
+  }
+
   result <- list(
     # Super-population
     df_super = df_super,
+    df_source = df_source,
 
     # True effects (named for reporting compatibility)
     hazard_ratios = list(

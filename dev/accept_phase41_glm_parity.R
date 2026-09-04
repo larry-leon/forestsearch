@@ -1,5 +1,5 @@
 # accept_phase41_glm_parity.R ---------------------------------------------
-# SENTINEL: P41-GLMPAR-v2-2026-09-03 [delivery sentinel: p44r2-a80cd1b3]
+# SENTINEL: P41-GLMPAR-v3-2026-09-03 [delivery sentinel: c1r1-483d82b8]
 #
 # Phase 4.1 GLM acceptance gate, run against the INSTALLED Phase-4.1
 # build (library(forestsearch); never load_all -- doFuture workers need
@@ -164,9 +164,10 @@ expect_err <- function(expr, pat, what) {
     fail("%s: expected error /%s/, got: %s", what, pat, e %||% "<none>")
   ok("E. %s errors as specced", what)
 }
-expect_err(run_subgroup_sims(dgm, sgs, 2L, n = 50L, baseline = "fixed",
-                             workers = 1),
-           "survival-only", "glm + baseline=fixed")
+# v3 (arc C' step C1): the "glm + baseline=fixed is survival-only"
+# assertion is retired -- C1 implements fixed for glm_dgm, and the
+# fixed-baseline contract (strict wrapper n-rule, df_source guards,
+# panel invariants) is owned by dev/accept_glm_fixed_baseline.R.
 expect_err(run_subgroup_sims(dgm, sgs, 2L, n = 50L, analysis_time = 84,
                              workers = 1),
            "survival-only arguments", "glm + analysis_time")

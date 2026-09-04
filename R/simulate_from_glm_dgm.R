@@ -1,4 +1,5 @@
 # =============================================================================
+# [delivery sentinel: c1r1-640c8ccc]
 # simulate_from_glm_dgm() -- Generate trial data from a GLM DGM
 # =============================================================================
 #
@@ -59,18 +60,36 @@
 #'
 #' @export
 #' @importFrom stats rbinom rnorm rpois runif
+#' @param baseline \"resample\" (default; draw the trial panel from the
+#'   super-population) or \"fixed\" (use dgm$df_source -- the observed
+#'   panel, every patient exactly once, observed order; requires a DGM
+#'   built by a version that stores df_source; n must be NULL or
+#'   nrow(df_source)).
 simulate_from_glm_dgm <- function(
     dgm,
     n               = NULL,
     rand_ratio      = 1,
     seed            = NULL,
     draw_treatment  = TRUE,
-    replace         = TRUE
+    replace         = TRUE,
+    baseline        = c("resample", "fixed")
 ) {
 
   # -- Validate --------------------------------------------------------------
   if (!inherits(dgm, "glm_dgm")) {
     stop("'dgm' must be an object of class 'glm_dgm'.")
+  }
+  baseline <- match.arg(baseline)
+  if (baseline == "fixed") {
+    if (is.null(dgm$df_source))
+      stop('baseline = "fixed" requires dgm$df_source. This glm_dgm was ',
+           "built by a package version that does not store the ",
+           "fixed-baseline panel -- rebuild it with generate_glm_dgm() ",
+           "(current versions store df_source automatically).")
+    if (!is.null(n) && n != nrow(dgm$df_source))
+      stop('baseline = "fixed" uses every source patient exactly once; ',
+           "n must be NULL or nrow(dgm$df_source) = ",
+           nrow(dgm$df_source), " (got n = ", n, ").")
   }
 
   df_super <- dgm$df_super
@@ -78,7 +97,13 @@ simulate_from_glm_dgm <- function(
   if (!is.null(seed)) set.seed(seed)
 
   # -- Sample ----------------------------------------------------------------
-  if (is.null(n)) {
+  if (baseline == "fixed") {
+    # Fixed-baseline (Arc C'): the observed panel, every patient once,
+    # observed order -- covariates, discretised z's, and flag_harm frozen
+    # across replicates.  Treatment and outcomes are redrawn below as
+    # usual (the survival semantics, minus censoring).
+    df_sim <- dgm$df_source
+  } else if (is.null(n)) {
     df_sim <- df_super
   } else {
     if (!replace && n > nrow(df_super))

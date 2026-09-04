@@ -128,7 +128,7 @@ setting, including sequential, gives identical matrices.
 GLM dispatch: when \code{dgm} inherits \code{"glm_dgm"} (\code{\link[=generate_glm_dgm]{generate_glm_dgm()}}),
 trials are drawn by \code{\link[=simulate_from_glm_dgm]{simulate_from_glm_dgm()}} (\code{n} is required; the
 survival-only \code{analysis_time} / \code{max_entry} / \code{cens_adjust} must not
-be supplied, and \code{baseline = "fixed"} is unavailable), the default
+be supplied; \code{baseline = "fixed"} uses the stored df_source panel), the default
 \code{fit} becomes \code{\link[=subgroup_glm]{subgroup_glm()}} constructed from the DGM's own
 \code{outcome_type} and \code{effect_measure} (binary DGMs also pass their
 \code{adverse_outcome}; a continuous DGM resolves to the same fitter as

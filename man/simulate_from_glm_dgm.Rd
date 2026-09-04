@@ -10,7 +10,8 @@ simulate_from_glm_dgm(
   rand_ratio = 1,
   seed = NULL,
   draw_treatment = TRUE,
-  replace = TRUE
+  replace = TRUE,
+  baseline = c("resample", "fixed")
 )
 }
 \arguments{
@@ -37,6 +38,12 @@ replacement and so requires \code{n <= nrow(dgm$df_super)}; treatment is
 still re-randomised and the outcome re-drawn.  Used to draw the full pool
 once (\code{n = nrow(dgm$df_super)}, \code{replace = FALSE}) for the
 beta(Hhat) evaluation frame.  Ignored on the \code{n = NULL} path.}
+
+\item{baseline}{\"resample\" (default; draw the trial panel from the
+super-population) or \"fixed\" (use dgm$df_source -- the observed
+panel, every patient exactly once, observed order; requires a DGM
+built by a version that stores df_source; n must be NULL or
+nrow(df_source)).}
 }
 \value{
 A data frame with columns:
