@@ -131,6 +131,12 @@ An object of class \code{c("glm_dgm", "list")} with:
 outcome columns: \code{p0}, \code{p1} (binary probabilities),
 or \code{mu0}, \code{mu1} (conditional means for continuous /
 count outcomes), and \code{flag_harm}.}
+\item{\code{df_source}}{The observed analysis frame in observed
+order (every source patient exactly once), carrying the same
+potential-outcome columns as \code{df_super} computed by the
+identical prediction calls, plus \code{flag_harm} and the
+discretised covariates.  This is the frozen panel consumed by
+\code{simulate_from_glm_dgm(baseline = "fixed")}.}
 \item{\code{hazard_ratios}}{Named list with \code{harm_subgroup},
 \code{no_harm_subgroup}, and \code{overall} -- effect estimates
 on the scale determined by \code{effect_measure}.  Field name
