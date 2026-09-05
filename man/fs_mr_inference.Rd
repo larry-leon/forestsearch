@@ -127,7 +127,11 @@ the IJ SE under the default \code{ci_method = "ij"} (the FB analogue) and the
 robust SE under \code{"wald"}.
 When \code{include_complement = TRUE}, a \code{complement} element carries the
 complement subgroup's \code{naive}/\code{debiased} estimates and bias terms in the
-same form, including its own IJ variance.
+same form, including its own IJ variance.  The complement's de-biased CI
+follows the same SE convention as the winner's: the IJ SE under
+\code{ci_method = "ij"} and \code{"field"} (under \code{"field"} the complement, like the
+\code{debiased} element, is identical to the \code{"ij"} output), the robust SE
+under \code{"wald"}.
 
 \code{mean_r} is the mean of the IJ residual \eqn{r_b} over \code{ok_H} -- exactly
 the draws entering the variance, not all \code{draws}, since on an excluded

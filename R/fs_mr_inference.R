@@ -325,7 +325,11 @@
 #'   robust SE under `"wald"`.
 #'   When `include_complement = TRUE`, a `complement` element carries the
 #'   complement subgroup's `naive`/`debiased` estimates and bias terms in the
-#'   same form, including its own IJ variance.
+#'   same form, including its own IJ variance.  The complement's de-biased CI
+#'   follows the same SE convention as the winner's: the IJ SE under
+#'   `ci_method = "ij"` and `"field"` (under `"field"` the complement, like the
+#'   `debiased` element, is identical to the `"ij"` output), the robust SE
+#'   under `"wald"`.
 #'
 #'   `mean_r` is the mean of the IJ residual \eqn{r_b} over `ok_H` -- exactly
 #'   the draws entering the variance, not all `draws`, since on an excluded
@@ -604,7 +608,7 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
       mean_r_c <- mean(r_c[use_c])          # exposure only; see mean_r above
       ijC   <- .fs_mr_ij_var(Xi, r_c, use_c)
       se_ijc <- .fs_mr_se_from_ij(ijC, sec)
-      sec_used <- if (ci_method == "ij") se_ijc$se else sec
+      sec_used <- if (ci_method %in% c("ij", "field")) se_ijc$se else sec
       complement <- list(
         naive    = list(est = to_eff(bnc),
                         lower = to_eff(bnc - z975 * sec),
