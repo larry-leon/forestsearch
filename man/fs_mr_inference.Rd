@@ -18,9 +18,11 @@ fs_mr_inference(
   draws = 2000L,
   multiplier = c("poisson", "gaussian", "rademacher"),
   include_complement = FALSE,
-  ci_method = c("ij", "wald"),
+  ci_method = c("ij", "wald", "field"),
   seed = NULL,
-  return_reselection = FALSE
+  return_reselection = FALSE,
+  field_R_out = 1000L,
+  field_R_in = 500L
 )
 }
 \arguments{
@@ -87,7 +89,18 @@ the extra cost is small.  Default \code{FALSE}.}
 infinitesimal-jackknife variance (Leon et al. 2024, Eq. VInfJ_bc), computed
 from the same multiplier draws -- the leading-order analogue of the FB
 interval.  \code{"wald"} uses the subgroup robust SE (\code{sigma_D}).  The naive CI
-always uses the robust SE.}
+always uses the robust SE.  \code{"field"} computes everything the \code{"ij"} path
+computes -- the \code{debiased} element is identical -- and additionally runs
+the field-calibrated interval (method proposal,
+\verb{dev/tasks/TASK_mr_field_vs_guohe_2026-09-05.md}), returned as a \code{field}
+element: Gaussian-multiplier perturbations of the shrunk candidate-effect
+field (\code{w = beta_hat} with the winner's entry replaced by the de-biased
+estimate) are pushed through the configured re-selection map, with an
+inner Monte Carlo estimating the selection drift, and the resulting
+\verb{Lambda*} distribution is inverted around the de-biased estimate
+(basic-bootstrap form).  Drawn under \code{seed + 900000L} when \code{seed} is
+given, after -- never inside -- the main multiplier stream, so \code{"ij"} and
+\code{"wald"} output is unaffected byte-for-byte.}
 
 \item{return_reselection}{Logical. When \code{TRUE}, the return list gains a
 \code{reselection} element exposing the per-draw re-selection already computed
@@ -98,6 +111,10 @@ no draw winner exists) and \code{p_hat} (named numeric over the kept family,
 frequencies sum to 1 exactly when every draw produced a winner). The
 default \code{FALSE} reproduces the previous return object exactly; nothing in
 the arithmetic depends on this switch.}
+
+\item{field_R_out, field_R_in}{Outer and inner Monte Carlo sizes for
+\code{ci_method = "field"} (defaults 1000 / 500); ignored otherwise.  The
+inner draws are shared across outer draws.}
 }
 \value{
 List with the selected index/label, \code{naive} and \code{debiased} estimates
@@ -138,6 +155,17 @@ consumers must tolerate that shape.
 
 Under \code{return_reselection = TRUE} the full return additionally carries a
 \code{reselection} element (see that argument); the short variant never does.
+
+Under \code{ci_method = "field"} the full return additionally carries a
+\code{field} element: \code{lambda_mean}, \code{lambda_sd}/\code{se_field} and the
+\verb{Lambda*} quantiles \code{q05/q25/q50/q75/q95/q025/q975} on the \strong{working}
+scale; \code{n_out_used}, \code{n_in_used_mean}, \code{R_out}, \code{R_in}, \code{seed_offset},
+\code{timing_seconds}; and, on the \strong{effect} scale (the \code{debiased}
+convention), the second-order point estimate \code{est2} (de-biased estimate
+minus \code{lambda_mean}), the primary one-sided 95\% bound \code{lower_1s}
+(de-biased minus \code{q95}), the two-sided quantile interval
+\code{lower_2s}/\code{upper_2s}, and the supplementary SE-type interval
+\code{lower_se}/\code{upper_se} around \code{est2}.
 }
 \description{
 Computes a multiplier-bootstrap approximation of the bootstrap

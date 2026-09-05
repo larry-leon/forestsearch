@@ -300,7 +300,21 @@
 #'   infinitesimal-jackknife variance (Leon et al. 2024, Eq. VInfJ_bc), computed
 #'   from the same multiplier draws -- the leading-order analogue of the FB
 #'   interval.  `"wald"` uses the subgroup robust SE (`sigma_D`).  The naive CI
-#'   always uses the robust SE.
+#'   always uses the robust SE.  `"field"` computes everything the `"ij"` path
+#'   computes -- the `debiased` element is identical -- and additionally runs
+#'   the field-calibrated interval (method proposal,
+#'   `dev/tasks/TASK_mr_field_vs_guohe_2026-09-05.md`), returned as a `field`
+#'   element: Gaussian-multiplier perturbations of the shrunk candidate-effect
+#'   field (`w = beta_hat` with the winner's entry replaced by the de-biased
+#'   estimate) are pushed through the configured re-selection map, with an
+#'   inner Monte Carlo estimating the selection drift, and the resulting
+#'   `Lambda*` distribution is inverted around the de-biased estimate
+#'   (basic-bootstrap form).  Drawn under `seed + 900000L` when `seed` is
+#'   given, after -- never inside -- the main multiplier stream, so `"ij"` and
+#'   `"wald"` output is unaffected byte-for-byte.
+#' @param field_R_out,field_R_in Outer and inner Monte Carlo sizes for
+#'   `ci_method = "field"` (defaults 1000 / 500); ignored otherwise.  The
+#'   inner draws are shared across outer draws.
 #' @return List with the selected index/label, `naive` and `debiased` estimates
 #'   (effect scale, with approximate 95% CIs), `selection_bias`, `fixed_bias`,
 #'   `selection_rate`, `mean_r`, `mean_r_c`, the `settings` actually used (`t_confirm`,
@@ -339,6 +353,17 @@
 #'
 #'   Under `return_reselection = TRUE` the full return additionally carries a
 #'   `reselection` element (see that argument); the short variant never does.
+#'
+#'   Under `ci_method = "field"` the full return additionally carries a
+#'   `field` element: `lambda_mean`, `lambda_sd`/`se_field` and the
+#'   `Lambda*` quantiles `q05/q25/q50/q75/q95/q025/q975` on the **working**
+#'   scale; `n_out_used`, `n_in_used_mean`, `R_out`, `R_in`, `seed_offset`,
+#'   `timing_seconds`; and, on the **effect** scale (the `debiased`
+#'   convention), the second-order point estimate `est2` (de-biased estimate
+#'   minus `lambda_mean`), the primary one-sided 95% bound `lower_1s`
+#'   (de-biased minus `q95`), the two-sided quantile interval
+#'   `lower_2s`/`upper_2s`, and the supplementary SE-type interval
+#'   `lower_se`/`upper_se` around `est2`.
 #' @section Alignment is assumed, not checked here:
 #' This is an engine-level entry point. Its arguments are a candidate family,
 #' a specification, and a selected membership vector -- the identifier
@@ -371,9 +396,11 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                            draws = 2000L,
                            multiplier = c("poisson", "gaussian", "rademacher"),
                            include_complement = FALSE,
-                           ci_method = c("ij", "wald"),
+                           ci_method = c("ij", "wald", "field"),
                            seed = NULL,
-                           return_reselection = FALSE) {
+                           return_reselection = FALSE,
+                           field_R_out = 1000L,
+                           field_R_in = 500L) {
   confirm_rule <- match.arg(confirm_rule); reselection <- match.arg(reselection)
   selection_rule <- match.arg(selection_rule)
   multiplier <- match.arg(multiplier); ci_method <- match.arg(ci_method)
@@ -509,7 +536,9 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   mean_r <- mean(r_H[ok_H])
   ijH   <- .fs_mr_ij_var(Xi, r_H, ok_H)
   se_ij <- .fs_mr_se_from_ij(ijH, se_wald)
-  se    <- if (ci_method == "ij") se_ij$se else se_wald
+  # "field" keeps the debiased element on the IJ interval (identical to "ij");
+  # only "wald" switches it to the robust SE.
+  se    <- if (ci_method == "wald") se_wald else se_ij$se
 
   t_cmp    <- if (log_scale) log(t_confirm) else t_confirm
   ci_lo_1s <- beta_deb - stats::qnorm(0.95) * se
@@ -594,6 +623,89 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
     }
   }
 
+  # ---------------------------------------------------------------------------
+  # Field-calibrated interval (ci_method = "field") -- method proposal,
+  # TASK_mr_field_vs_guohe_2026-09-05.  Add-only: this block runs only when
+  # requested, after the main multiplier stream is fully consumed, under a
+  # derived seed -- so the "ij"/"wald" paths above are untouched, RNG stream
+  # included.
+  #
+  # Shrunk field w = beta_hat with the winner's entry replaced by the two-term
+  # de-biased estimate (E1).  Gaussian-multiplier perturbations zeta = B' xi,
+  # xi ~ N(0, I_n) -- no Cholesky, no explicit Sigma.  Per outer draw r:
+  #   v_r = w + zeta*_r;  G_r = S(v_r);
+  #   m-hat(v_r) = mean_j zeta'_{j, S(v_r + zeta'_j)}  (shared inner draws,
+  #                draws with no winner skipped, the bias_sel convention);
+  #   Lambda*_r  = zeta*_{r, G_r} - m-hat(v_r).
+  # The interval inverts Lambda* around beta_deb (basic-bootstrap form).
+  # S is the gate's own re-selection: under maxeff with no admission floor it
+  # is a plain argmax (vectorized over inner draws; ties.method = "first"
+  # matches which.max); any other configuration goes through .fs_mr_select
+  # per draw, identically to the main loop above.
+  # ---------------------------------------------------------------------------
+  field <- NULL
+  if (ci_method == "field") {
+    t0f <- proc.time()
+    if (!is.null(seed)) set.seed(as.integer(seed) + 900000L)
+    Np <- nrow(B)
+    Zo <- crossprod(B, matrix(stats::rnorm(Np * field_R_out), Np, field_R_out))
+    Zi <- crossprod(B, matrix(stats::rnorm(Np * field_R_in), Np, field_R_in))
+    w <- bh; w[sel] <- beta_deb
+    fast <- identical(reselection, "maxeff") && is.null(t_g)
+    sel_one <- function(v) {
+      pass <- .admit(v)
+      if (!length(pass)) return(NA_integer_)
+      .fs_mr_select(v, .zcons(v), sz, pass, reselection,
+                    effect_neighborhood, selection_rule, log_scale)
+    }
+    lam <- rep(NA_real_, field_R_out)
+    n_in_used <- rep(NA_real_, field_R_out)
+    ii <- seq_len(field_R_in)
+    for (r in seq_len(field_R_out)) {
+      v <- w + Zo[, r]
+      G <- if (fast) which.max(v) else sel_one(v)
+      if (is.na(G)) next
+      if (fast) {
+        win <- max.col(t(v + Zi), ties.method = "first")
+        lam[r] <- Zo[G, r] - mean(Zi[cbind(win, ii)])
+        n_in_used[r] <- field_R_in
+      } else {
+        wi <- vapply(ii, function(j) sel_one(v + Zi[, j]), integer(1))
+        ok_in <- which(!is.na(wi))
+        if (!length(ok_in)) next
+        lam[r] <- Zo[G, r] - mean(Zi[cbind(wi[ok_in], ok_in)])
+        n_in_used[r] <- length(ok_in)
+      }
+    }
+    ok_f <- which(is.finite(lam))
+    if (length(ok_f) >= 2L) {
+      lf <- lam[ok_f]
+      qs <- stats::quantile(lf, c(.05, .25, .50, .75, .95, .025, .975),
+                            names = FALSE, type = 7)
+      est2_w <- beta_deb - mean(lf)
+      sd_f <- stats::sd(lf)
+      field <- list(
+        lambda_mean = mean(lf), lambda_sd = sd_f,
+        q05 = qs[1], q25 = qs[2], q50 = qs[3], q75 = qs[4], q95 = qs[5],
+        q025 = qs[6], q975 = qs[7],
+        n_out_used = length(ok_f), n_in_used_mean = mean(n_in_used[ok_f]),
+        est2 = to_eff(est2_w),
+        lower_1s = to_eff(beta_deb - qs[5]),
+        lower_2s = to_eff(beta_deb - qs[7]), upper_2s = to_eff(beta_deb - qs[6]),
+        se_field = sd_f,
+        lower_se = to_eff(est2_w - z975 * sd_f),
+        upper_se = to_eff(est2_w + z975 * sd_f),
+        R_out = as.integer(field_R_out), R_in = as.integer(field_R_in),
+        seed_offset = 900000L,
+        timing_seconds = as.numeric((proc.time() - t0f)["elapsed"]))
+    } else {
+      field <- list(note = "fewer than 2 usable outer draws",
+                    n_out_used = length(ok_f),
+                    R_out = as.integer(field_R_out),
+                    R_in = as.integer(field_R_in))
+    }
+  }
+
   out <- list(
     selected_index = sel, selected_label = asm$names[sel],
     measure = spec$effect_measure, log_scale = log_scale,
@@ -620,5 +732,6 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
     names(p_hat) <- asm$names
     out$reselection <- list(winner = winner, p_hat = p_hat)
   }
+  if (!is.null(field)) out$field <- field
   out
 }
