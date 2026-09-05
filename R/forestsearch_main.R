@@ -3383,6 +3383,9 @@ forestsearch <- function(df.analysis,
         multiplier    = .g_mr(mr_inference_args$multiplier,  "poisson"),
         include_complement = .g_mr(mr_inference_args$include_complement, TRUE),
         ci_method     = .g_mr(mr_inference_args$ci_method,   "ij"),
+        # Add-only pass-through (TASK_mr_field_uniform_2026-09-05, Larry's
+        # classification: no behaviour change; FALSE is the gate's default).
+        field_uniform = .g_mr(mr_inference_args$field_uniform, FALSE),
         seed          = .g_mr(mr_inference_args$seed,        seedit))
     }, error = function(e) {
       warning("mr_inference failed: ", conditionMessage(e)); NULL

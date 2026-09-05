@@ -22,7 +22,8 @@ fs_mr_inference(
   seed = NULL,
   return_reselection = FALSE,
   field_R_out = 1000L,
-  field_R_in = 500L
+  field_R_in = 500L,
+  field_uniform = FALSE
 )
 }
 \arguments{
@@ -115,6 +116,27 @@ the arithmetic depends on this switch.}
 \item{field_R_out, field_R_in}{Outer and inner Monte Carlo sizes for
 \code{ci_method = "field"} (defaults 1000 / 500); ignored otherwise.  The
 inner draws are shared across outer draws.}
+
+\item{field_uniform}{Logical (default \code{FALSE}); only consulted under
+\code{ci_method = "field"}.  When \code{TRUE}, after the field block completes the
+gate additionally runs the uniform (kappa) calibration
+(\code{fs_mr_field_uniform()}, method proposal
+\verb{dev/tasks/TASK_mr_field_uniform_2026-09-05.md}) and attaches its result
+as \code{field$uniform}: the smallest widening factor \code{kappa} in \verb{[1, 2]}
+such that the widened two-sided interval attains 95\% coverage uniformly
+over the \strong{winner-profile protection family} -- hypothetical true
+fields equal to the shrunk field \code{w} with the winner's entry set to the
+runner-up level plus \code{delta} winner-SEs, \code{delta} on a 0-4 grid --
+computed from the trial's own influence structure (\code{Sigma_hat} via
+\code{B_eff}), restricted to the \strong{mass-carrying candidate set} (smallest
+\code{M <= 12} candidates holding >= 99\% of the re-selection mass, winner
+always included).  Guarantee as documented there: the one-sided field
+bound is uniformly valid; the two-sided interval widened by the
+reported \code{kappa} is uniformly valid over the winner-profile family; the
+plain quantile interval is approximate.  The sweep draws under
+\code{seed + 910000L} after -- never inside -- the field's own stream, so
+every other output, the field block included, is byte-identical whether
+or not it runs.}
 }
 \value{
 List with the selected index/label, \code{naive} and \code{debiased} estimates

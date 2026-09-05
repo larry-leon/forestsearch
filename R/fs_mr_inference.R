@@ -315,6 +315,26 @@
 #' @param field_R_out,field_R_in Outer and inner Monte Carlo sizes for
 #'   `ci_method = "field"` (defaults 1000 / 500); ignored otherwise.  The
 #'   inner draws are shared across outer draws.
+#' @param field_uniform Logical (default `FALSE`); only consulted under
+#'   `ci_method = "field"`.  When `TRUE`, after the field block completes the
+#'   gate additionally runs the uniform (kappa) calibration
+#'   (`fs_mr_field_uniform()`, method proposal
+#'   `dev/tasks/TASK_mr_field_uniform_2026-09-05.md`) and attaches its result
+#'   as `field$uniform`: the smallest widening factor `kappa` in `[1, 2]`
+#'   such that the widened two-sided interval attains 95% coverage uniformly
+#'   over the **winner-profile protection family** -- hypothetical true
+#'   fields equal to the shrunk field `w` with the winner's entry set to the
+#'   runner-up level plus `delta` winner-SEs, `delta` on a 0-4 grid --
+#'   computed from the trial's own influence structure (`Sigma_hat` via
+#'   `B_eff`), restricted to the **mass-carrying candidate set** (smallest
+#'   `M <= 12` candidates holding >= 99% of the re-selection mass, winner
+#'   always included).  Guarantee as documented there: the one-sided field
+#'   bound is uniformly valid; the two-sided interval widened by the
+#'   reported `kappa` is uniformly valid over the winner-profile family; the
+#'   plain quantile interval is approximate.  The sweep draws under
+#'   `seed + 910000L` after -- never inside -- the field's own stream, so
+#'   every other output, the field block included, is byte-identical whether
+#'   or not it runs.
 #' @return List with the selected index/label, `naive` and `debiased` estimates
 #'   (effect scale, with approximate 95% CIs), `selection_bias`, `fixed_bias`,
 #'   `selection_rate`, `mean_r`, `mean_r_c`, the `settings` actually used (`t_confirm`,
@@ -404,7 +424,8 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                            seed = NULL,
                            return_reselection = FALSE,
                            field_R_out = 1000L,
-                           field_R_in = 500L) {
+                           field_R_in = 500L,
+                           field_uniform = FALSE) {
   confirm_rule <- match.arg(confirm_rule); reselection <- match.arg(reselection)
   selection_rule <- match.arg(selection_rule)
   multiplier <- match.arg(multiplier); ci_method <- match.arg(ci_method)
@@ -702,6 +723,39 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
         R_out = as.integer(field_R_out), R_in = as.integer(field_R_in),
         seed_offset = 900000L,
         timing_seconds = as.numeric((proc.time() - t0f)["elapsed"]))
+
+      # -- Uniform (kappa) calibration -- add-only, after the field's stream
+      # is fully consumed; its own derived seed (+910000L) mirrors the field
+      # block's (+900000L), so nothing above changes byte-for-byte whether or
+      # not the sweep runs (TASK_mr_field_uniform_2026-09-05).
+      if (isTRUE(field_uniform)) {
+        p_hat_u <- tabulate(winner[!is.na(winner)],
+                            nbins = length(asm$names)) / draws
+        uni <- tryCatch(
+          fs_mr_field_uniform(
+            B = B, w = w, sel = sel, sigma_sel = sdv[sel],
+            p_hat = p_hat_u, t_g = t_g,
+            reselection = reselection, sz = sz,
+            effect_neighborhood = effect_neighborhood,
+            selection_rule = selection_rule, log_scale = log_scale,
+            sdv = sdv, zcons_c = c_cons,
+            seed = if (!is.null(seed)) as.integer(seed) + 910000L else NULL),
+          error = function(e)
+            list(note = paste("uniform sweep failed:", conditionMessage(e))))
+        field$uniform <- if (is.null(uni$note)) list(
+          kappa = uni$kappa, kappa_mcse = uni$kappa_mcse,
+          M = uni$M, mass_covered = uni$mass_covered,
+          minC1 = uni$minC1, C1 = uni$C1, C2_k1 = uni$C2_k1,
+          C2_kstar = uni$C2_kstar, delta_grid = uni$delta_grid,
+          n_kept = uni$n_kept,
+          # The uniform two-sided interval for THIS analysis: the real
+          # field's quantiles widened about its own mean (task step 6).
+          lower_2u = to_eff(beta_deb - mean(lf) - uni$kappa * (qs[7] - mean(lf))),
+          upper_2u = to_eff(beta_deb - mean(lf) - uni$kappa * (qs[6] - mean(lf))),
+          R_rep = uni$R_rep, R_out = uni$R_out, R_in = uni$R_in,
+          seed_offset = 910000L,
+          timing_seconds = uni$timing_seconds) else uni
+      }
     } else {
       field <- list(note = "fewer than 2 usable outer draws",
                     n_out_used = length(ok_f),

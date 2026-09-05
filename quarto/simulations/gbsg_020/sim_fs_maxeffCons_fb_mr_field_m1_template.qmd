@@ -485,12 +485,17 @@ fs_conf.cont_jcuts <- list(er = 10)     # J-quantile grid on raw ER (analog of z
 mr_ci_method    <- "field"    # "ij" | "wald" | "field"
 mr_t_confirm    <- NULL       # NULL -> near-null default for this measure
 mr_confirm_rule <- "point"    # "point" | "ci"
+# Uniform (kappa) calibration knob (TASK_mr_field_uniform_2026-09-05): when
+# TRUE the gate additionally runs the kappa(Sigma-hat) sweep and the recorder
+# captures the fld_H_kappa/... columns below.  FALSE leaves every output
+# byte-identical to a pre-uniform render (add-only, default off).
+mr_field_uniform <- identical(.env_chr("FS_S7_UNIFORM", "FALSE"), "TRUE")
 
 # t_confirm is omitted from the list when NULL so the package resolves its own
 # measure-aware default rather than receiving an explicit NULL.
 mr_inference_args <- c(
   list(ci_method = mr_ci_method, draws = mr_draws, include_complement = TRUE,
-       confirm_rule = mr_confirm_rule),
+       confirm_rule = mr_confirm_rule, field_uniform = mr_field_uniform),
   if (!is.null(mr_t_confirm)) list(t_confirm = mr_t_confirm))
 
 # ── Column names emitted by simulate_from_dgm() ────────────────────────────
@@ -528,8 +533,8 @@ cat(sprintf("Run config: method=%s%s, n_sims=%d, nb_boots=%s, mr_draws=%d, worke
             n_sims, if (is.null(nb_boots)) "0 (skip)" else as.character(nb_boots),
             mr_draws, n_workers))
 # Resolved template knobs -- the render's audit line (env overrides included).
-cat(sprintf("Template knobs: hr=%.2f n=%d ci_method=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
-            target_hr_harm, n_sample, mr_ci_method, fb_mode, campaign_tag,
+cat(sprintf("Template knobs: hr=%.2f n=%d ci_method=%s uniform=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
+            target_hr_harm, n_sample, mr_ci_method, mr_field_uniform, fb_mode, campaign_tag,
             run_mode, sim_id_start, sim_id_start + n_sims - 1L, quickrun))
 cat(sprintf("Output stem: %s\n", rds_stem))
 ```
@@ -699,6 +704,11 @@ rule_covs <- function(rule) forestsearch:::.fs_rule_columns(rule)
   fld_H_nout = NA_integer_, fld_H_nin_mean = NA_real_,     # draw-usage counts (outer used; mean inner used)
   fld_H_secs = NA_real_,                                   # field block's own wall (timing_seconds)
   fld_H_note = NA_character_,                              # degenerate-case note (< 2 usable outer draws)
+  # Uniform (kappa) calibration block (field_uniform = TRUE; else all NA).
+  # lo2u/hi2u are the kappa*-widened two-sided interval on the HR scale.
+  fld_H_kappa = NA_real_, fld_H_M = NA_integer_, fld_H_mass = NA_real_,
+  fld_H_minC1 = NA_real_, fld_H_lo2u = NA_real_, fld_H_hi2u = NA_real_,
+  fld_H_kappa_mcse = NA_real_, fld_H_uniform_secs = NA_real_,
   mr_harm_flag = NA_integer_, ij_source = NA_character_,
   sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_,
   stringsAsFactors = FALSE)
@@ -843,6 +853,18 @@ if (k_random_noise > 0) {
         rec$fld_H_q025 <- f$q025; rec$fld_H_q975 <- f$q975
         rec$fld_H_nin_mean <- f$n_in_used_mean
         rec$fld_H_secs     <- f$timing_seconds %||% NA_real_
+        # Uniform block (field_uniform = TRUE; absent or note-carrying -> NA).
+        if (is.list(f$uniform) && is.null(f$uniform$note)) {
+          u <- f$uniform
+          rec$fld_H_kappa        <- u$kappa
+          rec$fld_H_M            <- u$M
+          rec$fld_H_mass         <- u$mass_covered
+          rec$fld_H_minC1        <- u$minC1
+          rec$fld_H_lo2u         <- u$lower_2u
+          rec$fld_H_hi2u         <- u$upper_2u
+          rec$fld_H_kappa_mcse   <- u$kappa_mcse
+          rec$fld_H_uniform_secs <- u$timing_seconds
+        }
       }
       rec$fld_H_nout <- f$n_out_used %||% NA_integer_
     }
@@ -1009,7 +1031,8 @@ if (run_smoke && identical(run_mode, "batch")) {
     }
     # Field intervals obey the same invariant: the quantile interval AND the
     # SE-type interval (both to_eff()'d, so monotone-transform safe).
-    for (pr in list(c("fld_H_lo2s", "fld_H_hi2s"), c("fld_H_lo_se", "fld_H_hi_se"))) {
+    for (pr in list(c("fld_H_lo2s", "fld_H_hi2s"), c("fld_H_lo_se", "fld_H_hi_se"),
+                    c("fld_H_lo2u", "fld_H_hi2u"))) {
       lo <- r[[pr[1]]]; hi <- r[[pr[2]]]
       if (is.null(lo) || is.null(hi)) next
       ok <- is.finite(lo) & is.finite(hi)
@@ -1133,6 +1156,7 @@ if (run_smoke && identical(run_mode, "batch")) {
                              consistency_method  = consistency_method,
                              # --- template provenance (fb_mr_field) ---------
                              ci_method           = mr_ci_method,
+                             field_uniform       = mr_field_uniform,
                              fb_mode             = fb_mode,
                              fb_join_source      = if (identical(fb_mode, "join"))
                                                      basename(fb_join_path) else NA_character_,
