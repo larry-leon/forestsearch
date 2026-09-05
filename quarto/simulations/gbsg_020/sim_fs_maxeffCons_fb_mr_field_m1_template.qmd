@@ -254,6 +254,20 @@ fb_mode      <- .env_chr("FS_S7_FB", "none")     # "run" | "join" | "none"
 stopifnot(fb_mode %in% c("run", "join", "none"))
 fb_join_path <- .env_chr("FS_S7_FB_PATH",
   "results/fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_combined_1_500.rds")
+# GATE 2 AMENDMENT (Larry, 2026-09-05, Stage 2 STOP resolution -- the
+# authorized one-knob change): enumerated cross-vintage selection-flip
+# replicates.  The committed h10 bundles (forestsearch 0.2.0/0.2.1) and the
+# current package (0.3.5) select a different near-tie rule on exactly these
+# sim_ids (REPORT_mr_field_s7_stage2_2026-09-05.md: sims 393, 780; data and
+# oracle identical, selection flips at the consistency screen).  The FB-join
+# identity assertion still STOPS on any replicate NOT in this list; listed
+# replicates are skipped -- never joined, recorded FB-absent -- with both
+# selections (committed and fresh) printed.  Recorded in meta.  h175 has no
+# flips; the list is inert there (fb_mode is never "join" for h175).
+fb_join_skip <- local({
+  v <- .env_chr("FS_S7_JOIN_SKIP", "393,780")
+  if (nzchar(v)) sort(unique(as.integer(strsplit(v, ",", fixed = TRUE)[[1]]))) else integer(0)
+})
 nb_boots     <- if (identical(fb_mode, "run")) .env_int("FS_S7_NB_BOOTS", 300L) else 0L
 k_random_noise <- .env_int("FS_S7_KNOISE", 0L)   # Add k_random_noise confounders
 
@@ -1039,6 +1053,14 @@ if (run_smoke && identical(run_mode, "batch")) {
       stop("fb_mode = 'join': committed FB bundle not found at ", fb_join_path)
     .fbb <- readRDS(fb_join_path)$results
     .idx <- match(results$sim_id, .fbb$sim_id)          # NA -> outside the bundle
+    # Gate 2 amendment: enumerated flip replicates are excluded from the join
+    # BEFORE any copy -- their fb_* stay NA (FB-absent) -- and both selections
+    # are printed so the exclusion is self-documenting in the render.
+    .skip <- intersect(fb_join_skip, results$sim_id[!is.na(.idx)])
+    for (s in .skip)
+      cat(sprintf("FB join: sim %d SKIPPED per join_skip (cross-vintage selection flip) -- committed selection [%s] vs this run [%s]; recorded FB-absent.\n",
+                  s, .fbb$sg_def[.fbb$sim_id == s], results$sg_def[results$sim_id == s]))
+    .idx[results$sim_id %in% fb_join_skip] <- NA_integer_
     .hit <- which(!is.na(.idx))
     for (cc in c("fb_H_est","fb_H_lo","fb_H_hi","fb_H_se",
                  "fb_Hc_est","fb_Hc_lo","fb_Hc_hi","fb_Hc_se",
@@ -1114,6 +1136,8 @@ if (run_smoke && identical(run_mode, "batch")) {
                              fb_mode             = fb_mode,
                              fb_join_source      = if (identical(fb_mode, "join"))
                                                      basename(fb_join_path) else NA_character_,
+                             fb_join_skip        = if (identical(fb_mode, "join"))
+                                                     paste(fb_join_skip, collapse = ",") else NA_character_,
                              campaign_tag        = campaign_tag,
                              target_hr_harm      = target_hr_harm,
                              field_R             = "R_out=1000/R_in=500 (package defaults; not forwarded by forestsearch())",
@@ -1217,6 +1241,8 @@ if (run_smoke && identical(run_mode, "batch")) {
                              target_hr_harm = bundles[[1]]$meta$target_hr_harm %||% NA_real_,
                              fb_mode_by_batch = vapply(bundles, function(b)
                                b$meta$fb_mode %||% NA_character_, character(1)),
+                             fb_join_skip_by_batch = vapply(bundles, function(b)
+                               b$meta$fb_join_skip %||% NA_character_, character(1)),
                              consistency_method =
                                bundles[[1]]$meta$consistency_method %||% NA_character_,
                              stop_threshold =
