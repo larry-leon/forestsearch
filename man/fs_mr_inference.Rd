@@ -19,7 +19,8 @@ fs_mr_inference(
   multiplier = c("poisson", "gaussian", "rademacher"),
   include_complement = FALSE,
   ci_method = c("ij", "wald"),
-  seed = NULL
+  seed = NULL,
+  return_reselection = FALSE
 )
 }
 \arguments{
@@ -87,6 +88,16 @@ infinitesimal-jackknife variance (Leon et al. 2024, Eq. VInfJ_bc), computed
 from the same multiplier draws -- the leading-order analogue of the FB
 interval.  \code{"wald"} uses the subgroup robust SE (\code{sigma_D}).  The naive CI
 always uses the robust SE.}
+
+\item{return_reselection}{Logical. When \code{TRUE}, the return list gains a
+\code{reselection} element exposing the per-draw re-selection already computed
+for the bias term: \code{winner} (integer vector of length \code{draws}, the index
+of the re-selected candidate in the kept family on each draw, \code{NA} where
+no draw winner exists) and \code{p_hat} (named numeric over the kept family,
+\code{tabulate(winner) / draws} -- so \code{sum(p_hat) == selection_rate}, and the
+frequencies sum to 1 exactly when every draw produced a winner). The
+default \code{FALSE} reproduces the previous return object exactly; nothing in
+the arithmetic depends on this switch.}
 }
 \value{
 List with the selected index/label, \code{naive} and \code{debiased} estimates
@@ -124,6 +135,9 @@ When the selected subgroup cannot be fit in the reconstructed family the
 return is a short variant carrying only \code{selected_index} (\code{NA}),
 \code{selected_label}, \code{harm_flag} (\code{NA}), \code{settings}, \code{note} and \code{n_family};
 consumers must tolerate that shape.
+
+Under \code{return_reselection = TRUE} the full return additionally carries a
+\code{reselection} element (see that argument); the short variant never does.
 }
 \description{
 Computes a multiplier-bootstrap approximation of the bootstrap

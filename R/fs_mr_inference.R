@@ -287,6 +287,15 @@
 #'   tracked and de-biased with the complement's own influence.  Complements are
 #'   fit only for candidates that win across draws (plus the selected one), so
 #'   the extra cost is small.  Default `FALSE`.
+#' @param return_reselection Logical. When `TRUE`, the return list gains a
+#'   `reselection` element exposing the per-draw re-selection already computed
+#'   for the bias term: `winner` (integer vector of length `draws`, the index
+#'   of the re-selected candidate in the kept family on each draw, `NA` where
+#'   no draw winner exists) and `p_hat` (named numeric over the kept family,
+#'   `tabulate(winner) / draws` -- so `sum(p_hat) == selection_rate`, and the
+#'   frequencies sum to 1 exactly when every draw produced a winner). The
+#'   default `FALSE` reproduces the previous return object exactly; nothing in
+#'   the arithmetic depends on this switch.
 #' @param ci_method `"ij"` (default) bases the **de-biased** CI on the
 #'   infinitesimal-jackknife variance (Leon et al. 2024, Eq. VInfJ_bc), computed
 #'   from the same multiplier draws -- the leading-order analogue of the FB
@@ -327,6 +336,9 @@
 #'   return is a short variant carrying only `selected_index` (`NA`),
 #'   `selected_label`, `harm_flag` (`NA`), `settings`, `note` and `n_family`;
 #'   consumers must tolerate that shape.
+#'
+#'   Under `return_reselection = TRUE` the full return additionally carries a
+#'   `reselection` element (see that argument); the short variant never does.
 #' @section Alignment is assumed, not checked here:
 #' This is an engine-level entry point. Its arguments are a candidate family,
 #' a specification, and a selected membership vector -- the identifier
@@ -360,7 +372,8 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                            multiplier = c("poisson", "gaussian", "rademacher"),
                            include_complement = FALSE,
                            ci_method = c("ij", "wald"),
-                           seed = NULL) {
+                           seed = NULL,
+                           return_reselection = FALSE) {
   confirm_rule <- match.arg(confirm_rule); reselection <- match.arg(reselection)
   selection_rule <- match.arg(selection_rule)
   multiplier <- match.arg(multiplier); ci_method <- match.arg(ci_method)
@@ -581,7 +594,7 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
     }
   }
 
-  list(
+  out <- list(
     selected_index = sel, selected_label = asm$names[sel],
     measure = spec$effect_measure, log_scale = log_scale,
     ci_method = ci_method,
@@ -602,4 +615,10 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
     settings = mr_settings, harm_flag = isTRUE(flag),
     n_family = length(asm$names), n_selected = sz[sel],
     timing_seconds = timing)
+  if (isTRUE(return_reselection)) {
+    p_hat <- tabulate(winner[!is.na(winner)], nbins = length(asm$names)) / draws
+    names(p_hat) <- asm$names
+    out$reselection <- list(winner = winner, p_hat = p_hat)
+  }
+  out
 }
