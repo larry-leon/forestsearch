@@ -122,14 +122,21 @@ mv_spec51 <- utils::modifyList(mv_spec52, list(treat.name = "treat_flip"))
 # ---- the MR call (pure argmax, no screen; D2/D3 defaults) ------------------
 
 mv_mr <- function(df, cands, sel_label, spec, draws = MV_DRAWS,
-                  multiplier = MV_MULTIPLIER, seed = NULL) {
-  forestsearch:::fs_mr_inference(
+                  multiplier = MV_MULTIPLIER, seed = NULL,
+                  ci_method = "ij", field_R_out = 1000L, field_R_in = 500L) {
+  # ci_method = "field" (TASK_mr_field_vs_guohe_2026-09-05, E2 defaults) adds
+  # the field element; the debiased element is identical to the "ij" path, so
+  # one call yields both MR rows.  Default "ij" keeps the 2026-09-04 behavior.
+  args <- list(
     df = df, candidates = cands, spec = spec,
     selected_members = cands[[sel_label]],
     admission = list(effect_floor = NULL, consistency = NULL),
     reselection = "maxeff",
     draws = draws, multiplier = multiplier,
-    ci_method = "ij", seed = seed, return_reselection = TRUE)
+    ci_method = ci_method, seed = seed, return_reselection = TRUE)
+  if (identical(ci_method, "field"))
+    args <- c(args, list(field_R_out = field_R_out, field_R_in = field_R_in))
+  do.call(forestsearch:::fs_mr_inference, args)
 }
 
 #' Engine-identical influence assembly (read-only use of the internal)
