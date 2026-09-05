@@ -1,0 +1,330 @@
+---
+title: "MR de-biased gate vs Guo & He (2021) on the replicated Guo–He simulations"
+subtitle: "Paired comparison of naive, Guo–He (as replicated), and multiplier-resampling estimates of $\\theta_{\\hat k}$, Sections 5.1–5.2"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: false
+  message: false
+bibliography: []
+---
+
+```{r setup}
+#| include: false
+# All adapter functions, MR settings and addendum-A machinery live in
+# mr_vs_guohe_sim.R (sourced -- never retyped); the per-replicate records are
+# read from the Stage 2 bundles written by mr_vs_guohe_run.R. The Guo & He
+# columns inside those bundles are ARITHMETIC ON THE STORED replication
+# bundles (debiased = r*_bias + theta, lower = theta - r*_dist): no Guo & He
+# code was re-run anywhere in this comparison. Task record:
+# dev/tasks/TASK_mr_vs_guohe_2026-09-04.md + addendum A.
+source("mr_vs_guohe_sim.R")
+
+CELLS <- c(sprintf("t35_beta2_%02d", 0:5),
+           sprintf("t6_k%02d", c(2L, 6L, 10L, 12L)),
+           sprintf("t7_beta2_%02d", 0:5))
+CELL_GROUP <- c(rep("Tables 3–5 (k = 2, disjoint)", 6),
+                rep("Table 6 (k, disjoint, all null)", 4),
+                rep("Table 7 (nested, ~151 candidates)", 6))
+
+bun <- lapply(CELLS, function(id) readRDS(sprintf("mr_vs_guohe_%s.rds", id)))
+names(bun) <- CELLS
+src <- lapply(CELLS, function(id) readRDS(sprintf("guohe_repro_%s.rds", id)))
+names(src) <- CELLS
+
+# ---- load-time Gate 2 guard: refuse to render on an incomplete or failed run
+for (b in bun) {
+  g <- b$gate2
+  if (g$n_rep_done != g$n_rep_expected || g$n_errored > 0L ||
+      g$naive_mismatch > 0L) {
+    stop("Gate 2 violation in ", b$id, ": done ", g$n_rep_done, "/",
+         g$n_rep_expected, ", errored ", g$n_errored,
+         ", naive_mismatch ", g$naive_mismatch, call. = FALSE)
+  }
+}
+
+NREP  <- bun[[1]]$gate2$n_rep_done
+DRAWS <- bun[[1]]$draws
+
+z95 <- qnorm(0.95)
+
+wilson <- function(x, n, z = 1.959964) {
+  p <- x / n
+  den <- 1 + z^2 / n
+  ctr <- (p + z^2 / (2 * n)) / den
+  hw  <- z * sqrt(p * (1 - p) / n + z^2 / (4 * n^2)) / den
+  c(lo = ctr - hw, hi = ctr + hw)
+}
+
+METHODS <- c("Naive", "G&H r=1/3", "G&H r=1/12", "G&H r=1/21", "G&H r=1/30", "MR")
+
+# est / model-scale SE / one-sided lower / cover, per method, from one cell's
+# per-replicate results. G&H publishes a bound, not an SE; its "SE" here is
+# the implied one-sided margin (deb - low)/z_0.95 -- stated wherever shown.
+method_cols <- function(res, meth) {
+  switch(meth,
+    "Naive" = list(est = res$naive_est, se = res$naive_se,
+                   low = res$naive_lower, cov = res$naive_cover),
+    "MR"    = list(est = res$mr_est, se = res$mr_se_ij,
+                   low = res$mr_lower_1s, cov = res$mr_cover),
+    { i <- match(meth, METHODS) - 1L
+      list(est = res[[sprintf("gh_r%d_deb", i)]],
+           se  = (res[[sprintf("gh_r%d_deb", i)]] - res[[sprintf("gh_r%d_low", i)]]) / z95,
+           low = res[[sprintf("gh_r%d_low", i)]],
+           cov = res[[sprintf("gh_r%d_cov", i)]]) })
+}
+
+cell_summary <- function(id) {
+  res <- bun[[id]]$results
+  do.call(rbind, lapply(METHODS, function(meth) {
+    v <- method_cols(res, meth)
+    n <- length(v$est)
+    w <- wilson(sum(v$cov), n)
+    data.frame(
+      cell = id, method = meth,
+      mean_est = mean(v$est), bias = mean(v$est - res$theta),
+      sd_emp = sd(v$est), mean_se = mean(v$se),
+      se_sd = mean(v$se) / sd(v$est),
+      cover = mean(v$cov), cover_lo = w["lo"], cover_hi = w["hi"],
+      mean_len = mean(v$est - v$low), med_len = median(v$est - v$low),
+      row.names = NULL)
+  }))
+}
+
+SUM <- do.call(rbind, lapply(CELLS, cell_summary))
+
+fmt_cell <- function(id) {
+  s <- SUM[SUM$cell == id, ]
+  data.frame(
+    Method = s$method,
+    `Mean est.` = sprintf("%.4f", s$mean_est),
+    `Bias` = sprintf("%+.4f", s$bias),
+    `Emp. SD` = sprintf("%.4f", s$sd_emp),
+    `Mean SE` = sprintf("%.4f", s$mean_se),
+    `SE/SD` = sprintf("%.2f", s$se_sd),
+    `Coverage (Wilson 95%)` = sprintf("%.3f (%.3f, %.3f)", s$cover, s$cover_lo, s$cover_hi),
+    `Len mean/med` = sprintf("%.3f / %.3f", s$mean_len, s$med_len),
+    check.names = FALSE)
+}
+```
+
+# What this document is
+
+A paired, per-replicate comparison — on the **identical simulated replicates** of the committed Guo & He (2021) replication (Sections 5.1 and 5.2; 16 cells $\times$ `r NREP` replicates) — of three estimates of $\theta_{\hat k}$, the true effect of the subgroup actually selected:
+
+1. **Naive**: the replication's own naive column, recomputed and asserted `identical()` to the stored values on every replicate of every cell (the Gate 2 pairing proof).
+2. **Guo & He (as replicated)**: the four fixed-$r$ columns, reconstructed by exact arithmetic on the stored per-replicate bundles (`debiased` $= r_i$-bias $+\ \theta$, `lower` $= \theta -$ $r_i$-dist). **No Guo & He code was re-run.** The Section 5.1 adaptive column exists in the source bundles but is not a comparison row (the replication's fixed-$r$ columns are the proposed estimator; Table 7 has no adaptive column at all).
+3. **MR**: the package's multiplier-resampling two-term de-biased estimate with its infinitesimal-jackknife interval (`fs_mr_inference`, `reselection = "maxeff"`, unrestricted admission, $B = `r DRAWS`$ centred-Poisson draws, IJ one-sided 95% bound), run on the replication's selected candidate with the family supplied externally.
+
+All values are on the oriented log-HR scale (Section 5.1 via the treatment-flip adapter; Section 5.2 raw). Coverage is one-sided ($\Pr[\text{lower} \le \theta_{\hat k}]$) for all three methods; "length" is the one-sided margin est $-$ lower; the G&H "SE" column is the implied margin $(\text{deb} - \text{low})/z_{0.95}$ since the method publishes a bound, not an SE.
+
+::: {.callout-note}
+## The comparison target is the *replicated* Guo & He, not the printed tables
+Per addendum A3: the Section 5.2 replication record documents a $\approx 0.010$ one-sided conservatism deficit in the replicated proposed-method coverage (4 of 30 cells beyond 2 combined SE, mechanism unresolved, $B$ excluded by experiment). MR-vs-G&H coverage differences of that order in Section 5.2 should not be over-read.
+:::
+
+# Gate 2 record
+
+```{r gate2}
+g2 <- do.call(rbind, lapply(bun, function(b) data.frame(
+  cell = b$id, section = b$section,
+  reps = sprintf("%d/%d", b$gate2$n_rep_done, b$gate2$n_rep_expected),
+  errored = b$gate2$n_errored, naive_mismatch = b$gate2$naive_mismatch,
+  mr_na = b$gate2$mr_na, mr_argmax_agree = b$gate2$sel_agree_mr,
+  row.names = NULL)))
+knitr::kable(g2, caption = paste(
+  "Gate 2 per cell: replicate completeness; naive column identical() to the",
+  "stored replication values; MR non-finite count; MR-side argmax agreement",
+  "with the replication's selection (the render aborts unless completeness",
+  "and the naive identity hold everywhere)."))
+```
+
+```{r theta-consistency}
+# Section 5.2: the engine and naive selections agree on every stored
+# replicate (sel_agree 2000/2000 in all six source bundles), so a single
+# theta per replicate scores all three methods; verified here.
+mx <- max(vapply(CELLS[grepl("^t7", CELLS)], function(id)
+  max(abs(bun[[id]]$results$gamma_s_naive - bun[[id]]$results$theta)), numeric(1)))
+cat(sprintf("max |gamma_s(naive c-hat) - gamma_s(engine c-hat)| over Sec 5.2: %g\n", mx))
+stopifnot(mx == 0)
+```
+
+# Per-scenario operating characteristics
+
+```{r tables}
+#| output: asis
+for (grp in unique(CELL_GROUP)) {
+  cat(sprintf("\n## %s\n\n", grp))
+  for (id in CELLS[CELL_GROUP == grp]) {
+    lab <- if (grepl("^t35", id)) sprintf("$\\beta_2 = %.1f$", as.integer(sub(".*_", "", id)) / 10)
+      else if (grepl("^t6", id)) sprintf("$k = %d$", as.integer(sub("t6_k", "", id)))
+      else sprintf("$\\beta_2 = %.1f$", as.integer(sub(".*_", "", id)) / 10)
+    print(knitr::kable(fmt_cell(id),
+      caption = sprintf("%s — %s (%d paired replicates; bias against $\\theta_{\\hat k}$)",
+                        id, lab, NREP)))
+    cat("\n")
+  }
+}
+```
+
+```{r coverage-overview}
+#| fig-width: 9
+#| fig-height: 5
+op <- par(mar = c(8, 4, 2, 1))
+cv <- reshape(SUM[, c("cell", "method", "cover")], idvar = "cell",
+              timevar = "method", direction = "wide")
+matplot(seq_len(nrow(cv)), cv[, -1], type = "b", pch = 1:6, lty = 1,
+        xaxt = "n", xlab = "", ylab = "one-sided coverage",
+        ylim = range(cv[, -1], 0.95))
+abline(h = 0.95, lty = 3)
+axis(1, at = seq_len(nrow(cv)), labels = cv$cell, las = 2, cex.axis = 0.8)
+legend("bottomleft", METHODS, pch = 1:6, col = 1:6, cex = 0.8, ncol = 2)
+par(op)
+```
+
+# Naive optimism retained by MR, and the tie theory
+
+Tie scenarios (every candidate's true effect equal): `t35_beta2_00`, all four Table 6 cells, `t7_beta2_00`. The fraction of the naive optimism MR retains is $\mathrm{mean}(\hat\beta_{MR} - \theta)/\mathrm{mean}(\hat\beta_{naive} - \theta)$; the task's reference tie constant is $1 - 2^{-1/2} = 0.293$ (the two-candidate tie; $k = 2$ cells are its direct read). The addendum-A theory prediction for the absolute retained bias is $\overline{\text{tie\_resid\_implied}} = (1 - 2^{-1/2})\,\hat m(0)\,\hat\sigma_{D,\hat H}$ per replicate.
+
+```{r ties}
+tie_cells <- c("t35_beta2_00", "t6_k02", "t6_k06", "t6_k10", "t6_k12", "t7_beta2_00")
+tie <- do.call(rbind, lapply(tie_cells, function(id) {
+  r <- bun[[id]]$results
+  d_mr <- r$mr_est - r$theta; d_nv <- r$naive_est - r$theta
+  n <- length(d_mr)
+  ratio <- mean(d_mr) / mean(d_nv)
+  # delta-method MC se of the ratio of paired means
+  se_r <- abs(ratio) * sqrt(var(d_mr) / (n * mean(d_mr)^2) +
+                            var(d_nv) / (n * mean(d_nv)^2) -
+                            2 * cov(d_mr, d_nv) / (n * mean(d_mr) * mean(d_nv)))
+  data.frame(cell = id, k_mean = mean(r$k_family),
+             naive_bias = mean(d_nv), mr_bias = mean(d_mr),
+             mr_bias_mcse = sd(d_mr) / sqrt(n),
+             retained = ratio, retained_mcse = se_r,
+             implied = mean(r$tie_resid_implied),
+             M_eff = mean(r$M_eff), row.names = NULL)
+}))
+knitr::kable(
+  data.frame(Cell = tie$cell,
+             `mean K` = sprintf("%.0f", tie$k_mean),
+             `Naive bias` = sprintf("%.4f", tie$naive_bias),
+             `MR bias (MCSE)` = sprintf("%.4f (%.4f)", tie$mr_bias, tie$mr_bias_mcse),
+             `Retained fraction (MCSE)` = sprintf("%.3f (%.3f)", tie$retained, tie$retained_mcse),
+             `Implied tie resid.` = sprintf("%.4f", tie$implied),
+             `mean M_eff` = sprintf("%.2f", tie$M_eff),
+             check.names = FALSE),
+  caption = paste("Tie scenarios: observed MR retained bias vs the addendum-A",
+                  "implied tie residual; retained fraction vs the k = 2 tie",
+                  "constant 0.293. Log-HR scale."))
+```
+
+# Effective competition and the (A6) diagnostic
+
+```{r meff}
+af <- do.call(rbind, lapply(CELLS, function(id) {
+  r <- bun[[id]]$results
+  data.frame(cell = id, K_mean = mean(r$k_family),
+             M_eff = mean(r$M_eff), M_eff_sd = sd(r$M_eff),
+             p_hat_H = mean(r$p_hat_H),
+             A6_std_mean = mean(r$A6_mass_std), A6_std_min = min(r$A6_mass_std),
+             ij_share = mean(r$mr_ij_source == "ij"), row.names = NULL)
+}))
+knitr::kable(
+  data.frame(Cell = af$cell,
+             `mean K` = sprintf("%.0f", af$K_mean),
+             `mean M_eff (SD)` = sprintf("%.2f (%.2f)", af$M_eff, af$M_eff_sd),
+             `mean p-hat_H` = sprintf("%.3f", af$p_hat_H),
+             `A6 std mean / min` = sprintf("%.2f / %.2f", af$A6_std_mean, af$A6_std_min),
+             `IJ source = ij` = sprintf("%.3f", af$ij_share),
+             check.names = FALSE),
+  caption = paste("Per scenario: effective competition M_eff (addendum A1.4;",
+                  "scale-free, unit-diagonal correlation normalization),",
+                  "winner re-selection frequency, the (A6) retained-mass",
+                  "diagnostic (structurally >= 1 on these families; minimum",
+                  "shown as the empirical check), and the share of replicates",
+                  "whose MR interval used the bias-corrected IJ variance."))
+```
+
+# Per-replicate scatter: MR vs Guo & He
+
+```{r scatter}
+#| fig-width: 10
+#| fig-height: 7
+op <- par(mfrow = c(2, 3), mar = c(4, 4, 2, 1))
+for (id in CELLS[grepl("^t7", CELLS)]) {
+  r <- bun[[id]]$results
+  plot(r$gh_r4_deb, r$mr_est, pch = ".", cex = 2,
+       xlab = "G&H debiased (r = 1/30)", ylab = "MR debiased",
+       main = id)
+  abline(0, 1, lty = 3)
+}
+par(op)
+```
+
+```{r scatter51}
+#| fig-width: 10
+#| fig-height: 8
+op <- par(mfrow = c(3, 4), mar = c(4, 4, 2, 1))
+for (id in CELLS[!grepl("^t7", CELLS)]) {
+  r <- bun[[id]]$results
+  plot(r$gh_r4_deb, r$mr_est, pch = ".", cex = 2,
+       xlab = "G&H debiased (r = 1/30)", ylab = "MR debiased",
+       main = id)
+  abline(0, 1, lty = 3)
+}
+par(op)
+```
+
+(The $r$ columns share common random numbers in the replication and differ by little; $r = 1/30$ is shown. The same scatters at the other $r$ values are visually indistinguishable.)
+
+# Cost
+
+```{r cost}
+cost <- do.call(rbind, lapply(CELLS, function(id) {
+  b <- bun[[id]]; r <- b$results
+  data.frame(cell = id,
+             mr_s = mean(r$t_mr_s), arec_s = mean(r$t_arec_s),
+             cell_wall_min = b$elapsed_sec / 60,
+             gh_repl_wall_min = src[[id]]$elapsed_sec / 60, row.names = NULL)
+}))
+knitr::kable(
+  data.frame(Cell = cost$cell,
+             `MR s/rep` = sprintf("%.2f", cost$mr_s),
+             `A-record s/rep` = sprintf("%.2f", cost$arec_s),
+             `This run wall (min)` = sprintf("%.1f", cost$cell_wall_min),
+             `G&H replication wall (min)` = sprintf("%.1f", cost$gh_repl_wall_min),
+             check.names = FALSE),
+  caption = paste("Cost per cell: mean per-replicate MR pass (regeneration +",
+                  "naive + assemble + MR at B = 5000) and addendum-A record",
+                  "(M_eff Monte Carlo dominant), this run's wall-clock, and",
+                  "the original Guo & He replication run's wall-clock from",
+                  "its own bundle (both at ~120 workers on this host)."))
+```
+
+# Provenance
+
+```{r prov}
+pv <- do.call(rbind, lapply(bun, function(b) data.frame(
+  cell = b$id, source = b$source_bundle, draws = b$draws,
+  multiplier = b$multiplier, m0_draws = b$m0_draws, m0_seed = b$m0_seed,
+  seed_base = b$seed_base, mr_seed_offset = b$mr_seed_offset,
+  row.names = NULL)))
+knitr::kable(pv, caption = paste(
+  "Per-cell provenance. Replicate m regenerates from seed_base + m; MR draws",
+  "under seed_base + m + mr_seed_offset; each mr_vs_guohe_*.rds carries its",
+  "full sessionInfo. Every value in this document derives from those bundles",
+  "and the committed replication bundles they pair against."))
+```
+
+```{r sessioninfo}
+cat(bun[[length(bun)]]$sessionInfo, sep = "\n")
+```
