@@ -1,0 +1,340 @@
+---
+title: "MR (field) vs MR (IJ) vs Guo & He (2021) on the replicated Guo–He simulations"
+subtitle: "Paired three-way comparison of de-biased estimates and intervals for $\\theta_{\\hat k}$, Sections 5.1–5.2"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: false
+  message: false
+bibliography: []
+---
+
+```{r setup}
+#| include: false
+# Adapter and settings live in mr_vs_guohe_sim.R (sourced, never retyped);
+# per-replicate records come from the mr_field_vs_guohe_*.rds bundles written
+# by mr_field_vs_guohe_run.R.  The Guo & He columns are arithmetic on the
+# stored replication bundles (no re-run); the MR (current) columns are
+# asserted identical() to the 2026-09-04 mr_vs_guohe_*.rds values on every
+# replicate (cur_mismatch in the gate block); the addendum-A diagnostics are
+# joined from those bundles per decision E5.  Task:
+# dev/tasks/TASK_mr_field_vs_guohe_2026-09-05.md (E1-E5 defaults).  PoC
+# provenance: dev/tasks/POC_mr_interval_alternatives_2026-09-05.md and
+# dev/tasks/poc2_results_2026-09-05.csv.
+source("mr_vs_guohe_sim.R")
+
+CELLS <- c(sprintf("t35_beta2_%02d", 0:5),
+           sprintf("t6_k%02d", c(2L, 6L, 10L, 12L)),
+           sprintf("t7_beta2_%02d", 0:5))
+CELL_GROUP <- c(rep("Tables 3–5 (k = 2, disjoint)", 6),
+                rep("Table 6 (k, disjoint, all null)", 4),
+                rep("Table 7 (nested, ~151 candidates)", 6))
+
+bun <- lapply(CELLS, function(id) readRDS(sprintf("mr_field_vs_guohe_%s.rds", id)))
+names(bun) <- CELLS
+
+# ---- load-time Gate 2 guard
+for (b in bun) {
+  g <- b$gate2
+  if (g$n_rep_done != g$n_rep_expected || g$n_errored > 0L ||
+      g$naive_mismatch > 0L || g$cur_mismatch > 0L) {
+    stop("Gate 2 violation in ", b$id, ": done ", g$n_rep_done, "/",
+         g$n_rep_expected, ", errored ", g$n_errored, ", naive_mismatch ",
+         g$naive_mismatch, ", cur_mismatch ", g$cur_mismatch, call. = FALSE)
+  }
+}
+
+NREP  <- bun[[1]]$gate2$n_rep_done
+DRAWS <- bun[[1]]$draws
+R_OUT <- bun[[1]]$field_R_out
+R_IN  <- bun[[1]]$field_R_in
+
+z95 <- qnorm(0.95)
+
+wilson <- function(x, n, z = 1.959964) {
+  p <- x / n
+  den <- 1 + z^2 / n
+  ctr <- (p + z^2 / (2 * n)) / den
+  hw  <- z * sqrt(p * (1 - p) / n + z^2 / (4 * n^2)) / den
+  c(lo = ctr - hw, hi = ctr + hw)
+}
+
+METHODS <- c("Naive", "G&H r=1/3", "G&H r=1/12", "G&H r=1/21", "G&H r=1/30",
+             "MR (IJ)", "MR (field)")
+
+# est / SE / one-sided lower / cover per method.  G&H "SE" = implied margin
+# (deb - low)/z_.95 (the method publishes a bound); MR (field) est = est2,
+# SE = lambda_sd, lower = beta_deb - q95 (E3/E4).
+method_cols <- function(res, meth) {
+  switch(meth,
+    "Naive"      = list(est = res$naive_est, se = res$naive_se,
+                        low = res$naive_lower, cov = res$naive_cover),
+    "MR (IJ)"    = list(est = res$mr_est, se = res$mr_se_ij,
+                        low = res$mr_lower_1s, cov = res$mr_cover),
+    "MR (field)" = list(est = res$fld_est2, se = res$fld_lambda_sd,
+                        low = res$fld_lower_1s, cov = res$fld_cover_1s),
+    { i <- match(meth, METHODS) - 1L
+      list(est = res[[sprintf("gh_r%d_deb", i)]],
+           se  = (res[[sprintf("gh_r%d_deb", i)]] - res[[sprintf("gh_r%d_low", i)]]) / z95,
+           low = res[[sprintf("gh_r%d_low", i)]],
+           cov = res[[sprintf("gh_r%d_cov", i)]]) })
+}
+
+cell_summary <- function(id) {
+  res <- bun[[id]]$results
+  do.call(rbind, lapply(METHODS, function(meth) {
+    v <- method_cols(res, meth)
+    n <- length(v$est)
+    w <- wilson(sum(v$cov), n)
+    data.frame(
+      cell = id, method = meth,
+      mean_est = mean(v$est), bias = mean(v$est - res$theta),
+      sd_emp = sd(v$est), mean_se = mean(v$se),
+      se_sd = mean(v$se) / sd(v$est),
+      cover = mean(v$cov), cover_lo = w["lo"], cover_hi = w["hi"],
+      mean_len = mean(v$est - v$low), med_len = median(v$est - v$low),
+      row.names = NULL)
+  }))
+}
+
+SUM <- do.call(rbind, lapply(CELLS, cell_summary))
+
+fmt_cell <- function(id) {
+  s <- SUM[SUM$cell == id, ]
+  data.frame(
+    Method = s$method,
+    `Mean est.` = sprintf("%.4f", s$mean_est),
+    `Bias` = sprintf("%+.4f", s$bias),
+    `Emp. SD` = sprintf("%.4f", s$sd_emp),
+    `Mean SE` = sprintf("%.4f", s$mean_se),
+    `SE/SD` = sprintf("%.2f", s$se_sd),
+    `Coverage (Wilson 95%)` = sprintf("%.3f (%.3f, %.3f)", s$cover, s$cover_lo, s$cover_hi),
+    `Len mean/med` = sprintf("%.3f / %.3f", s$mean_len, s$med_len),
+    check.names = FALSE)
+}
+```
+
+# What this document is
+
+The 2026-09-04 paired comparison (`mr_vs_guohe.qmd`) extended by one row: **MR (field)**, the field-calibrated interval added to the gate as `ci_method = "field"` (add-only; method proposal per the task; PoC provenance in `dev/tasks/`). On the identical replicates (16 cells $\times$ `r NREP`, the replication's own seeds):
+
+- **Naive** — recomputed, `identical()` to the stored replication values on every replicate.
+- **Guo & He (as replicated)** — four fixed-$r$ columns, exact arithmetic on the stored bundles; never re-run.
+- **MR (IJ)** — the current gate: two-term $\tilde\beta$ with the infinitesimal-jackknife interval ($B = `r DRAWS`$ centred Poisson). Asserted `identical()` to the 2026-09-04 bundles on every replicate (the new run's pairing proof).
+- **MR (field)** — same gate call: shrunk field $w$ ($\hat\beta$ with the winner's entry replaced by $\tilde\beta$), Gaussian-multiplier perturbations $\zeta = B_{\mathrm{eff}}^\top\xi$, $R_{out} = `r R_OUT`$ / $R_{in} = `r R_IN`$ shared inner draws, $\Lambda^*_r = \zeta^*_{r,G_r} - \hat m(v_r)$; point estimate $\hat\beta_2 = \tilde\beta - \bar\Lambda^*$ (E3), primary one-sided bound $\tilde\beta - q_{.95}(\Lambda^*)$ (E4), two-sided quantile interval supplementary.
+
+All values on the oriented log-HR scale; coverage one-sided in the main tables ("length" = est $-$ lower); the §5.2 replicated-G&H $\approx 0.010$ conservatism deficit noted on 2026-09-04 applies unchanged. Addendum-A diagnostics (M_eff, p̂, Σ̂, A6) are **joined** from the 2026-09-04 bundles by `(id, m)` (E5) — same seeds, so they describe these replicates exactly.
+
+# Gate 2 record
+
+```{r gate2}
+g2 <- do.call(rbind, lapply(bun, function(b) data.frame(
+  cell = b$id, reps = sprintf("%d/%d", b$gate2$n_rep_done, b$gate2$n_rep_expected),
+  errored = b$gate2$n_errored, naive_mismatch = b$gate2$naive_mismatch,
+  cur_mismatch = b$gate2$cur_mismatch,
+  mr_na = b$gate2$mr_na, fld_na = b$gate2$fld_na, row.names = NULL)))
+knitr::kable(g2, caption = paste(
+  "Gate 2 per cell: completeness; naive identical() to the replication",
+  "bundles; MR (IJ) identical() to the 2026-09-04 comparison bundles",
+  "(cur_mismatch); NA counts for both MR intervals. The render aborts on any",
+  "violation."))
+```
+
+# Per-scenario operating characteristics
+
+```{r tables}
+#| output: asis
+for (grp in unique(CELL_GROUP)) {
+  cat(sprintf("\n## %s\n\n", grp))
+  for (id in CELLS[CELL_GROUP == grp]) {
+    print(knitr::kable(fmt_cell(id),
+      caption = sprintf("%s (%d paired replicates; bias against $\\theta_{\\hat k}$; one-sided 95%%)",
+                        id, NREP)))
+    cat("\n")
+  }
+}
+```
+
+```{r coverage-overview}
+#| fig-width: 9
+#| fig-height: 5
+op <- par(mar = c(8, 4, 2, 1))
+keep <- METHODS[c(1, 5, 6, 7)]
+cv <- reshape(SUM[SUM$method %in% keep, c("cell", "method", "cover")],
+              idvar = "cell", timevar = "method", direction = "wide")
+matplot(seq_len(nrow(cv)), cv[, -1], type = "b", pch = 1:4, lty = 1,
+        xaxt = "n", xlab = "", ylab = "one-sided coverage",
+        ylim = range(cv[, -1], 0.95))
+abline(h = 0.95, lty = 3)
+axis(1, at = seq_len(nrow(cv)), labels = cv$cell, las = 2, cex.axis = 0.8)
+legend("bottomleft", keep, pch = 1:4, col = 1:4, cex = 0.8, ncol = 2)
+par(op)
+```
+
+# Supplementary: two-sided 95% intervals for both MR rows
+
+```{r twosided}
+ts <- do.call(rbind, lapply(CELLS, function(id) {
+  r <- bun[[id]]$results
+  ij_cov <- as.integer(r$mr_lower_2s <= r$theta & r$theta <= r$mr_upper_2s)
+  w1 <- wilson(sum(ij_cov), length(ij_cov))
+  w2 <- wilson(sum(r$fld_cover_2s), nrow(r))
+  data.frame(cell = id,
+             ij_cover = mean(ij_cov), ij_lo = w1["lo"], ij_hi = w1["hi"],
+             ij_hw = mean(r$mr_upper_2s - r$mr_lower_2s) / 2,
+             fld_cover = mean(r$fld_cover_2s), fld_lo = w2["lo"], fld_hi = w2["hi"],
+             fld_hw = mean(r$fld_upper_2s - r$fld_lower_2s) / 2, row.names = NULL)
+}))
+knitr::kable(
+  data.frame(Cell = ts$cell,
+             `MR (IJ) cover (Wilson)` = sprintf("%.3f (%.3f, %.3f)", ts$ij_cover, ts$ij_lo, ts$ij_hi),
+             `MR (IJ) half-width` = sprintf("%.3f", ts$ij_hw),
+             `MR (field) cover (Wilson)` = sprintf("%.3f (%.3f, %.3f)", ts$fld_cover, ts$fld_lo, ts$fld_hi),
+             `MR (field) half-width` = sprintf("%.3f", ts$fld_hw),
+             check.names = FALSE),
+  caption = paste("Two-sided 95% coverage of theta and mean half-width:",
+                  "MR (IJ) Wald interval around beta-tilde vs the MR (field)",
+                  "quantile interval (E4 supplementary)."))
+```
+
+# Tie scenarios: retained optimism, before and after the second-order correction
+
+```{r ties}
+tie_cells <- c("t35_beta2_00", "t6_k02", "t6_k06", "t6_k10", "t6_k12", "t7_beta2_00")
+ratio_se <- function(dm, dn) {
+  n <- length(dm); ratio <- mean(dm) / mean(dn)
+  abs(ratio) * sqrt(var(dm) / (n * mean(dm)^2) + var(dn) / (n * mean(dn)^2) -
+                    2 * cov(dm, dn) / (n * mean(dm) * mean(dn)))
+}
+tie <- do.call(rbind, lapply(tie_cells, function(id) {
+  r <- bun[[id]]$results
+  d_ij <- r$mr_est - r$theta; d_f <- r$fld_est2 - r$theta
+  d_nv <- r$naive_est - r$theta
+  data.frame(cell = id, k_mean = mean(r$k_family),
+             naive_bias = mean(d_nv),
+             ij_bias = mean(d_ij), ij_mcse = sd(d_ij) / sqrt(length(d_ij)),
+             ret_ij = mean(d_ij) / mean(d_nv), ret_ij_se = ratio_se(d_ij, d_nv),
+             fld_bias = mean(d_f), fld_mcse = sd(d_f) / sqrt(length(d_f)),
+             ret_fld = mean(d_f) / mean(d_nv), ret_fld_se = ratio_se(d_f, d_nv),
+             implied = mean(r$tie_resid_implied), M_eff = mean(r$M_eff),
+             row.names = NULL)
+}))
+knitr::kable(
+  data.frame(Cell = tie$cell, `mean K` = sprintf("%.0f", tie$k_mean),
+             `Naive bias` = sprintf("%.4f", tie$naive_bias),
+             `MR (IJ) bias (MCSE)` = sprintf("%.4f (%.4f)", tie$ij_bias, tie$ij_mcse),
+             `Retained (IJ)` = sprintf("%.3f (%.3f)", tie$ret_ij, tie$ret_ij_se),
+             `MR (field) est2 bias (MCSE)` = sprintf("%.4f (%.4f)", tie$fld_bias, tie$fld_mcse),
+             `Retained after 2nd order` = sprintf("%.3f (%.3f)", tie$ret_fld, tie$ret_fld_se),
+             `Implied tie resid.` = sprintf("%.4f", tie$implied),
+             `mean M_eff` = sprintf("%.2f", tie$M_eff),
+             check.names = FALSE),
+  caption = paste("Tie scenarios (log-HR): retained fraction of the naive",
+                  "optimism for beta-tilde and for the second-order est2;",
+                  "the k = 2 tie constant is 0.293; the implied residual is",
+                  "the addendum-A prediction for beta-tilde, joined per E5."))
+```
+
+# Diagnostics (joined from the 2026-09-04 bundles, E5)
+
+```{r meff}
+af <- do.call(rbind, lapply(CELLS, function(id) {
+  r <- bun[[id]]$results
+  data.frame(cell = id, K_mean = mean(r$k_family),
+             M_eff = mean(r$M_eff), p_hat_H = mean(r$p_hat_H),
+             A6_std_mean = mean(r$A6_mass_std), A6_std_min = min(r$A6_mass_std),
+             lam_sd_over_sD = mean(r$fld_lambda_sd) / mean(r$mr_se_wald),
+             n_out_ok = mean(r$fld_n_out_used == bun[[id]]$field_R_out),
+             row.names = NULL)
+}))
+knitr::kable(
+  data.frame(Cell = af$cell, `mean K` = sprintf("%.0f", af$K_mean),
+             `mean M_eff` = sprintf("%.2f", af$M_eff),
+             `mean p-hat_H` = sprintf("%.3f", af$p_hat_H),
+             `A6 std mean / min` = sprintf("%.2f / %.2f", af$A6_std_mean, af$A6_std_min),
+             `mean lambda_sd / sigma_D` = sprintf("%.3f", af$lam_sd_over_sD),
+             `all outer draws used` = sprintf("%.3f", af$n_out_ok),
+             check.names = FALSE),
+  caption = paste("Joined diagnostics plus two field-run health columns:",
+                  "the field SD relative to the winner's robust SE, and the",
+                  "fraction of replicates using every outer draw (1.000 =",
+                  "no skipped outer draws anywhere)."))
+```
+
+# Per-replicate scatter: MR (field) est2 vs Guo & He (r = 1/30)
+
+```{r scatter}
+#| fig-width: 10
+#| fig-height: 7
+op <- par(mfrow = c(2, 3), mar = c(4, 4, 2, 1))
+for (id in CELLS[grepl("^t7", CELLS)]) {
+  r <- bun[[id]]$results
+  plot(r$gh_r4_deb, r$fld_est2, pch = ".", cex = 2,
+       xlab = "G&H debiased (r = 1/30)", ylab = "MR (field) est2", main = id)
+  abline(0, 1, lty = 3)
+}
+par(op)
+```
+
+```{r scatter51}
+#| fig-width: 10
+#| fig-height: 8
+op <- par(mfrow = c(3, 4), mar = c(4, 4, 2, 1))
+for (id in CELLS[!grepl("^t7", CELLS)]) {
+  r <- bun[[id]]$results
+  plot(r$gh_r4_deb, r$fld_est2, pch = ".", cex = 2,
+       xlab = "G&H debiased (r = 1/30)", ylab = "MR (field) est2", main = id)
+  abline(0, 1, lty = 3)
+}
+par(op)
+```
+
+(The $\tilde\beta$-vs-G&H scatters are unchanged from `mr_vs_guohe.qmd` — the MR (IJ) values here are `identical()` to that run's.)
+
+# Cost
+
+```{r cost}
+cost <- do.call(rbind, lapply(CELLS, function(id) {
+  b <- bun[[id]]; r <- b$results
+  data.frame(cell = id, mr_s = mean(r$t_mr_s), fld_s = mean(r$t_field_s),
+             cell_wall_min = b$elapsed_sec / 60, row.names = NULL)
+}))
+knitr::kable(
+  data.frame(Cell = cost$cell,
+             `Gate call s/rep (incl. field)` = sprintf("%.2f", cost$mr_s),
+             `of which field pass` = sprintf("%.2f", cost$fld_s),
+             `Cell wall (min)` = sprintf("%.1f", cost$cell_wall_min),
+             check.names = FALSE),
+  caption = paste("Per-cell cost of this run (120 workers). The 2026-09-04",
+                  "run's cells and the G&H replication's are tabulated in",
+                  "mr_vs_guohe.qmd; no M_eff pass ran here (E5)."))
+```
+
+# Provenance
+
+```{r prov}
+pv <- do.call(rbind, lapply(bun, function(b) data.frame(
+  cell = b$id, source = b$source_bundle, join = b$join_bundle,
+  draws = b$draws, R_out = b$field_R_out, R_in = b$field_R_in,
+  field_seed_offset = b$field_seed_offset,
+  seed_base = b$seed_base, mr_seed_offset = b$mr_seed_offset, row.names = NULL)))
+knitr::kable(pv, caption = paste(
+  "Per-cell provenance: replicate m regenerates from seed_base + m, the gate",
+  "draws under seed_base + m + mr_seed_offset, the field block under that",
+  "seed + field_seed_offset; joined columns come from the join bundle by",
+  "(id, m) with row-wise seed equality asserted. Each bundle carries its",
+  "full sessionInfo."))
+```
+
+```{r sessioninfo}
+cat(bun[[length(bun)]]$sessionInfo, sep = "\n")
+```
