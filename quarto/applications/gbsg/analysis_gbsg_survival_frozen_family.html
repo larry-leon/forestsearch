@@ -3092,7 +3092,7 @@ Selected subgroup Pcons (consistency probability): 0.990
 Legend: OF = on Pareto frontier; S = selected.
 ==============================================================================================================
 
-Seconds and minutes forestsearch overall = 0.819 0.0136 
+Seconds and minutes forestsearch overall = 0.992 0.0165 
 Consistency algorithm used: fixed 
 Subgroup identified: {pgr &lt;= 32.5} &amp; {er &lt;= 0} </code></pre>
 </div>
@@ -3113,7 +3113,7 @@ Subgroup identified: {pgr &lt;= 32.5} &amp; {er &lt;= 0} </code></pre>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>
-Selected subgroup: {pgr &lt;= 32.5} &amp; {er &lt;= 0}   |  fit 1.4 min</code></pre>
+Selected subgroup: {pgr &lt;= 32.5} &amp; {er &lt;= 0}   |  fit 1.3 min</code></pre>
 </div>
 </div>
 <div class="cell">
@@ -3772,7 +3772,7 @@ GATE 0 PASS -- every continuous-factor cut is a fixed threshold; the family cann
 <span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;FB completed in&quot;</span>, <span class="fu">round</span>(timings<span class="sc">$</span>fb <span class="sc">/</span> <span class="dv">60</span>, <span class="dv">1</span>), <span class="st">&quot;min</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>FB completed in 2.5 min</code></pre>
+<pre><code>FB completed in 2.4 min</code></pre>
 </div>
 </div>
 </section>
@@ -3788,7 +3788,7 @@ GATE 0 PASS -- every continuous-factor cut is a fixed threshold; the family cann
 <span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">format</span>(mr_draws, <span class="at">big.mark =</span> <span class="st">&quot;,&quot;</span>), <span class="st">&quot;draws</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>MR gate: 0.6 s over 5,000 draws</code></pre>
+<pre><code>MR gate: 0.58 s over 5,000 draws</code></pre>
 </div>
 </div>
 </section>
@@ -7480,7 +7480,7 @@ height: 0px !important;
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>What each guarantee is.</strong> The IJ interval is conservative by construction (its SE tracks the full bootstrap’s, which over-covers the conditional target when re-selection mass is spread). The field’s one-sided bound is uniformly at nominal in the fixed-family limit experiment and across the simulation cells except the tie regime at larger <span class="math inline">\(n\)</span> under the screen (<code>REPORT_mr_field_ocmap_2026-09-05.md</code>, finding 1). The field’s plain two-sided interval is approximate, with a known worst case near moderate separation (~0.88–0.90). The uniform (κ-widened) two-sided interval restores 95% coverage uniformly over the winner-profile protection family, at the price of width (<code>REPORT_mr_field_uniform_2026-09-06.md</code>). Guo &amp; He is one-sided by design. The κ row here is computed on this trial’s own <span class="math inline">\(\widehat\Sigma\)</span> with the mass-carrying cap lifted to the full family.</p>
+<p><strong>What each guarantee is.</strong> The IJ interval is conservative by construction (its SE tracks the full bootstrap’s, which over-covers the conditional target when re-selection mass is spread). The field’s one-sided bound is uniformly at nominal in the fixed-family limit experiment and across the simulation cells except the tie regime at larger <span class="math inline">\(n\)</span> under the screen (<code>REPORT_mr_field_ocmap_2026-09-05.md</code>, finding 1). The field’s plain two-sided interval is approximate, with a known worst case near moderate separation (~0.88–0.90). At <span class="math inline">\(\hat p(\widehat H) \approx 0.7\)</span> this analysis sits in exactly that moderate-separation regime, where the plain field two-sided interval’s simulated coverage was 0.88–0.92 (<code>REPORT_mr_field_s7_2026-09-05.md</code>, <code>REPORT_mr_field_ocmap_2026-09-05.md</code>), so the reportable intervals from this analysis are the one-sided field bound and the IJ two-sided; the plain field two-sided is shown for comparison. The uniform (κ-widened) two-sided interval restores 95% coverage uniformly over the winner-profile protection family, at the price of width (<code>REPORT_mr_field_uniform_2026-09-06.md</code>). Guo &amp; He is one-sided by design. The κ row here is computed on this trial’s own <span class="math inline">\(\widehat\Sigma\)</span> with the mass-carrying cap lifted to the full family; the sweep cost 82 s with M = 17 of 133 (the cap did not bind) — the cost is configuration-dependent.</p>
 <p><strong>The reading for this subgroup</strong> is generated from the numbers above at render time:</p>
 <ul>
 <li>The naive estimate is 2.22; every selection-adjusted point estimate sits below it (FB 1.96, MR (IJ) 1.75, field est2 1.79, G&amp;H 1.36) — the corrections agree that part of the naive effect is winner’s curse.</li>
@@ -7503,38 +7503,38 @@ height: 0px !important;
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">Fit + MR gate</td>
-<td style="text-align: right;">84.902</td>
-<td style="text-align: right;">1.42</td>
+<td style="text-align: right;">79.617</td>
+<td style="text-align: right;">1.33</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Full bootstrap</td>
-<td style="text-align: right;">147.685</td>
-<td style="text-align: right;">2.46</td>
+<td style="text-align: right;">145.995</td>
+<td style="text-align: right;">2.43</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">MR gate (within fit)</td>
-<td style="text-align: right;">0.598</td>
+<td style="text-align: right;">0.582</td>
 <td style="text-align: right;">0.01</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">MR field block (within gate)</td>
-<td style="text-align: right;">0.433</td>
+<td style="text-align: right;">0.545</td>
 <td style="text-align: right;">0.01</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">MR uniform (kappa) sweep (within gate)</td>
-<td style="text-align: right;">82.056</td>
-<td style="text-align: right;">1.37</td>
+<td style="text-align: right;">76.490</td>
+<td style="text-align: right;">1.27</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Guo &amp; He bootstrap</td>
-<td style="text-align: right;">27.947</td>
-<td style="text-align: right;">0.47</td>
+<td style="text-align: right;">28.754</td>
+<td style="text-align: right;">0.48</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">10-fold CV</td>
-<td style="text-align: right;">12.897</td>
-<td style="text-align: right;">0.21</td>
+<td style="text-align: right;">13.085</td>
+<td style="text-align: right;">0.22</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Leave-one-out (N-fold, 102 workers)</td>
@@ -8834,184 +8834,191 @@ height: 0px !important;
 <span id="cb83-816"><a href="#cb83-816" aria-hidden="true" tabindex="-1"></a>except the tie regime at larger $n$ under the screen</span>
 <span id="cb83-817"><a href="#cb83-817" aria-hidden="true" tabindex="-1"></a>(<span class="in">`REPORT_mr_field_ocmap_2026-09-05.md`</span>, finding 1). The field&#39;s plain two-sided</span>
 <span id="cb83-818"><a href="#cb83-818" aria-hidden="true" tabindex="-1"></a>interval is approximate, with a known worst case near moderate separation</span>
-<span id="cb83-819"><a href="#cb83-819" aria-hidden="true" tabindex="-1"></a>(~0.88–0.90). The uniform (κ-widened) two-sided interval restores 95% coverage</span>
-<span id="cb83-820"><a href="#cb83-820" aria-hidden="true" tabindex="-1"></a>uniformly over the winner-profile protection family, at the price of width</span>
-<span id="cb83-821"><a href="#cb83-821" aria-hidden="true" tabindex="-1"></a>(<span class="in">`REPORT_mr_field_uniform_2026-09-06.md`</span>). Guo &amp; He is one-sided by design.</span>
-<span id="cb83-822"><a href="#cb83-822" aria-hidden="true" tabindex="-1"></a>The κ row here is computed on this trial&#39;s own $\widehat\Sigma$ with the</span>
-<span id="cb83-823"><a href="#cb83-823" aria-hidden="true" tabindex="-1"></a>mass-carrying cap lifted to the full family.</span>
-<span id="cb83-824"><a href="#cb83-824" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb83-825"><a href="#cb83-825" aria-hidden="true" tabindex="-1"></a>**The reading for this subgroup** is generated from the numbers above at render</span>
-<span id="cb83-826"><a href="#cb83-826" aria-hidden="true" tabindex="-1"></a>time:</span>
-<span id="cb83-827"><a href="#cb83-827" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb83-828"><a href="#cb83-828" aria-hidden="true" tabindex="-1"></a><span class="in">```{r intervals-reading, results = &quot;asis&quot;}</span></span>
-<span id="cb83-829"><a href="#cb83-829" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
-<span id="cb83-830"><a href="#cb83-830" aria-hidden="true" tabindex="-1"></a>bounds <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">`</span><span class="at">MR (IJ)</span><span class="st">`</span> <span class="ot">=</span> g<span class="sc">$</span>debiased<span class="sc">$</span>lower_1s, <span class="st">`</span><span class="at">MR (field)</span><span class="st">`</span> <span class="ot">=</span> f<span class="sc">$</span>lower_1s,</span>
-<span id="cb83-831"><a href="#cb83-831" aria-hidden="true" tabindex="-1"></a>            <span class="st">`</span><span class="at">Guo &amp; He</span><span class="st">`</span> <span class="ot">=</span> gh<span class="sc">$</span>bound_hr)</span>
-<span id="cb83-832"><a href="#cb83-832" aria-hidden="true" tabindex="-1"></a>above <span class="ot">&lt;-</span> <span class="fu">names</span>(bounds)[bounds <span class="sc">&gt;</span> <span class="dv">1</span>]</span>
-<span id="cb83-833"><a href="#cb83-833" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
-<span id="cb83-834"><a href="#cb83-834" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;- The naive estimate is %.2f; every selection-adjusted point estimate sits &quot;</span>,</span>
-<span id="cb83-835"><a href="#cb83-835" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;below it (FB %.2f, MR (IJ) %.2f, field est2 %.2f, G&amp;H %.2f) — the &quot;</span>,</span>
-<span id="cb83-836"><a href="#cb83-836" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;corrections agree that part of the naive effect is winner&#39;s curse.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
-<span id="cb83-837"><a href="#cb83-837" aria-hidden="true" tabindex="-1"></a>  g<span class="sc">$</span>naive<span class="sc">$</span>est, fs_bc<span class="sc">$</span>H_estimates<span class="sc">$</span>H2, g<span class="sc">$</span>debiased<span class="sc">$</span>est, f<span class="sc">$</span>est2, gh<span class="sc">$</span>debiased_hr))</span>
-<span id="cb83-838"><a href="#cb83-838" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(above)) {</span>
-<span id="cb83-839"><a href="#cb83-839" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
-<span id="cb83-840"><a href="#cb83-840" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;- Selection-adjusted one-sided 95%% lower bounds above 1: **%s** &quot;</span>,</span>
-<span id="cb83-841"><a href="#cb83-841" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;(%s). The harm claim survives those constructions at the one-sided level.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
-<span id="cb83-842"><a href="#cb83-842" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste</span>(above, <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>),</span>
-<span id="cb83-843"><a href="#cb83-843" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%.2f&quot;</span>, bounds[above]), <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>)))</span>
-<span id="cb83-844"><a href="#cb83-844" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
-<span id="cb83-845"><a href="#cb83-845" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
-<span id="cb83-846"><a href="#cb83-846" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;- **No selection-adjusted one-sided 95%% lower bound exceeds 1** &quot;</span>,</span>
-<span id="cb83-847"><a href="#cb83-847" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;(MR (IJ) %.2f, field %.2f, G&amp;H %.2f): after accounting for selection, &quot;</span>,</span>
-<span id="cb83-848"><a href="#cb83-848" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;the evidence does not establish harm at the one-sided 95%% level.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
-<span id="cb83-849"><a href="#cb83-849" aria-hidden="true" tabindex="-1"></a>    bounds[<span class="dv">1</span>], bounds[<span class="dv">2</span>], bounds[<span class="dv">3</span>]))</span>
-<span id="cb83-850"><a href="#cb83-850" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb83-851"><a href="#cb83-851" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
-<span id="cb83-852"><a href="#cb83-852" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;- p̂(Ĥ) = %.2f says the selection was %s: the selected subgroup &quot;</span>,</span>
-<span id="cb83-853"><a href="#cb83-853" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;wins the re-selection on %.0f%% of multiplier draws%s.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
-<span id="cb83-854"><a href="#cb83-854" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unname</span>(p_hat[sel_i]),</span>
-<span id="cb83-855"><a href="#cb83-855" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">unname</span>(p_hat[sel_i]) <span class="sc">&gt;=</span> <span class="fl">0.5</span>) <span class="st">&quot;dominant&quot;</span> <span class="cf">else</span> <span class="st">&quot;competitive&quot;</span>,</span>
-<span id="cb83-856"><a href="#cb83-856" aria-hidden="true" tabindex="-1"></a>  <span class="dv">100</span> <span class="sc">*</span> <span class="fu">unname</span>(p_hat[sel_i]),</span>
-<span id="cb83-857"><a href="#cb83-857" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">unname</span>(p_hat[sel_i]) <span class="sc">&lt;</span> <span class="fl">0.5</span>) <span class="st">&quot; — the tie regime, where the second-order (field) correction matters most&quot;</span> <span class="cf">else</span> <span class="st">&quot;&quot;</span>))</span>
-<span id="cb83-858"><a href="#cb83-858" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb83-859"><a href="#cb83-859" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb83-860"><a href="#cb83-860" aria-hidden="true" tabindex="-1"></a>No claim is made beyond these numbers.</span>
-<span id="cb83-861"><a href="#cb83-861" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb83-862"><a href="#cb83-862" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb83-863"><a href="#cb83-863" aria-hidden="true" tabindex="-1"></a><span class="in">```{r timing}</span></span>
-<span id="cb83-864"><a href="#cb83-864" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
-<span id="cb83-865"><a href="#cb83-865" aria-hidden="true" tabindex="-1"></a>td <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb83-866"><a href="#cb83-866" aria-hidden="true" tabindex="-1"></a>  <span class="at">Step =</span> <span class="fu">c</span>(<span class="st">&quot;Fit + MR gate&quot;</span>, <span class="st">&quot;Full bootstrap&quot;</span>, <span class="st">&quot;MR gate (within fit)&quot;</span>,</span>
-<span id="cb83-867"><a href="#cb83-867" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;MR field block (within gate)&quot;</span>, <span class="st">&quot;MR uniform (kappa) sweep (within gate)&quot;</span>,</span>
-<span id="cb83-868"><a href="#cb83-868" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Guo &amp; He bootstrap&quot;</span>, <span class="st">&quot;10-fold CV&quot;</span>,</span>
-<span id="cb83-869"><a href="#cb83-869" aria-hidden="true" tabindex="-1"></a>           <span class="fu">sprintf</span>(<span class="st">&quot;Leave-one-out (N-fold, %d workers)&quot;</span>, loo_workers)),</span>
-<span id="cb83-870"><a href="#cb83-870" aria-hidden="true" tabindex="-1"></a>  <span class="at">Seconds =</span> <span class="fu">c</span>(timings<span class="sc">$</span>fit, timings<span class="sc">$</span>fb, timings<span class="sc">$</span>mr,</span>
-<span id="cb83-871"><a href="#cb83-871" aria-hidden="true" tabindex="-1"></a>              g<span class="sc">$</span>field<span class="sc">$</span>timing_seconds, g<span class="sc">$</span>field<span class="sc">$</span>uniform<span class="sc">$</span>timing_seconds,</span>
-<span id="cb83-872"><a href="#cb83-872" aria-hidden="true" tabindex="-1"></a>              timings<span class="sc">$</span>gh, timings<span class="sc">$</span>kfold, timings<span class="sc">$</span>loo)</span>
-<span id="cb83-873"><a href="#cb83-873" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb83-874"><a href="#cb83-874" aria-hidden="true" tabindex="-1"></a>td<span class="sc">$</span>Minutes <span class="ot">&lt;-</span> <span class="fu">round</span>(td<span class="sc">$</span>Seconds <span class="sc">/</span> <span class="dv">60</span>, <span class="dv">2</span>)</span>
-<span id="cb83-875"><a href="#cb83-875" aria-hidden="true" tabindex="-1"></a><span class="fu">kbl</span>(td, <span class="at">booktabs =</span> <span class="cn">TRUE</span>, <span class="at">align =</span> <span class="st">&quot;lrr&quot;</span>) <span class="sc">|&gt;</span> <span class="fu">kable_styling</span>()</span>
-<span id="cb83-876"><a href="#cb83-876" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb83-877"><a href="#cb83-877" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb83-878"><a href="#cb83-878" aria-hidden="true" tabindex="-1"></a><span class="fu"># Reproducibility payload {#sec-export-payload}</span></span>
-<span id="cb83-879"><a href="#cb83-879" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb83-880"><a href="#cb83-880" aria-hidden="true" tabindex="-1"></a>The chunk below harvests the objects this render already computed into a single</span>
-<span id="cb83-881"><a href="#cb83-881" aria-hidden="true" tabindex="-1"></a>small list and writes it as an <span class="in">`.rds`</span>, so the results survive the HTML. No</span>
-<span id="cb83-882"><a href="#cb83-882" aria-hidden="true" tabindex="-1"></a>analysis is repeated. Every element is guarded, so a section this render skipped</span>
-<span id="cb83-883"><a href="#cb83-883" aria-hidden="true" tabindex="-1"></a>(<span class="in">`run_cv_kfold`</span>, <span class="in">`run_loo`</span>) stores <span class="in">`NULL`</span> rather than erroring, and the</span>
-<span id="cb83-884"><a href="#cb83-884" aria-hidden="true" tabindex="-1"></a>top-level names match the other GBSG payloads (<span class="in">`table`</span>, <span class="in">`labels`</span>, <span class="in">`meta`</span>,</span>
-<span id="cb83-885"><a href="#cb83-885" aria-hidden="true" tabindex="-1"></a><span class="in">`extras`</span>, <span class="in">`est_scale`</span>, <span class="in">`built_at`</span>, <span class="in">`forestsearch_version`</span>) so a reader can treat</span>
-<span id="cb83-886"><a href="#cb83-886" aria-hidden="true" tabindex="-1"></a>them uniformly. Schema note (2026-09-06, <span class="in">`TASK_gbsg_frozen_intervals`</span>):</span>
-<span id="cb83-887"><a href="#cb83-887" aria-hidden="true" tabindex="-1"></a><span class="in">`extras$mr`</span> additionally carries the <span class="in">`field`</span> block (the field-calibrated</span>
-<span id="cb83-888"><a href="#cb83-888" aria-hidden="true" tabindex="-1"></a>interval, including its <span class="in">`uniform`</span> κ sub-block) and <span class="in">`reselection`</span> (the</span>
-<span id="cb83-889"><a href="#cb83-889" aria-hidden="true" tabindex="-1"></a>re-selection frequencies <span class="in">`p_hat`</span>; the per-draw <span class="in">`winner`</span> vector is deliberately</span>
-<span id="cb83-890"><a href="#cb83-890" aria-hidden="true" tabindex="-1"></a>dropped — <span class="in">`sum(p_hat)`</span> equals the selection rate and reproduces it).</span>
-<span id="cb83-891"><a href="#cb83-891" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb83-892"><a href="#cb83-892" aria-hidden="true" tabindex="-1"></a><span class="in">```{r export-payload}</span></span>
-<span id="cb83-893"><a href="#cb83-893" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
-<span id="cb83-894"><a href="#cb83-894" aria-hidden="true" tabindex="-1"></a><span class="co">#| message: false</span></span>
-<span id="cb83-895"><a href="#cb83-895" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb83-896"><a href="#cb83-896" aria-hidden="true" tabindex="-1"></a>.qmd_dir  <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(<span class="fu">dirname</span>(knitr<span class="sc">::</span><span class="fu">current_input</span>(<span class="at">dir =</span> <span class="cn">TRUE</span>)),</span>
-<span id="cb83-897"><a href="#cb83-897" aria-hidden="true" tabindex="-1"></a>                      <span class="at">error =</span> <span class="cf">function</span>(e) <span class="fu">getwd</span>())</span>
-<span id="cb83-898"><a href="#cb83-898" aria-hidden="true" tabindex="-1"></a>.qmd_stem <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(tools<span class="sc">::</span><span class="fu">file_path_sans_ext</span>(<span class="fu">basename</span>(knitr<span class="sc">::</span><span class="fu">current_input</span>())),</span>
-<span id="cb83-899"><a href="#cb83-899" aria-hidden="true" tabindex="-1"></a>                      <span class="at">error =</span> <span class="cf">function</span>(e) <span class="st">&quot;analysis&quot;</span>)</span>
-<span id="cb83-900"><a href="#cb83-900" aria-hidden="true" tabindex="-1"></a>.dirout   <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(dirout)) .qmd_stem <span class="cf">else</span> dirout</span>
-<span id="cb83-901"><a href="#cb83-901" aria-hidden="true" tabindex="-1"></a>.base     <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(results_dir)) <span class="fu">file.path</span>(.qmd_dir, <span class="st">&quot;_payloads&quot;</span>) <span class="cf">else</span> results_dir</span>
-<span id="cb83-902"><a href="#cb83-902" aria-hidden="true" tabindex="-1"></a>.out_dir  <span class="ot">&lt;-</span> <span class="fu">file.path</span>(.base, .dirout)</span>
-<span id="cb83-903"><a href="#cb83-903" aria-hidden="true" tabindex="-1"></a><span class="fu">dir.create</span>(.out_dir, <span class="at">recursive =</span> <span class="cn">TRUE</span>, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb83-904"><a href="#cb83-904" aria-hidden="true" tabindex="-1"></a>.payload_file <span class="ot">&lt;-</span> <span class="fu">file.path</span>(.out_dir, <span class="fu">paste0</span>(.dirout, <span class="st">&quot;_payload.rds&quot;</span>))</span>
-<span id="cb83-905"><a href="#cb83-905" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb83-906"><a href="#cb83-906" aria-hidden="true" tabindex="-1"></a>.get <span class="ot">&lt;-</span> <span class="cf">function</span>(nm) <span class="cf">if</span> (<span class="fu">exists</span>(nm, <span class="at">inherits =</span> <span class="cn">TRUE</span>)) <span class="fu">get</span>(nm, <span class="at">inherits =</span> <span class="cn">TRUE</span>) <span class="cf">else</span> <span class="cn">NULL</span></span>
-<span id="cb83-907"><a href="#cb83-907" aria-hidden="true" tabindex="-1"></a>.try <span class="ot">&lt;-</span> <span class="cf">function</span>(expr) <span class="fu">tryCatch</span>(expr, <span class="at">error =</span> <span class="cf">function</span>(e) <span class="cn">NULL</span>)</span>
-<span id="cb83-908"><a href="#cb83-908" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb83-909"><a href="#cb83-909" aria-hidden="true" tabindex="-1"></a>.fs   <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;fs&quot;</span>)</span>
-<span id="cb83-910"><a href="#cb83-910" aria-hidden="true" tabindex="-1"></a>.fsbc <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;fs_bc&quot;</span>)</span>
-<span id="cb83-911"><a href="#cb83-911" aria-hidden="true" tabindex="-1"></a>.g    <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fs)) <span class="cn">NULL</span> <span class="cf">else</span> .fs<span class="sc">$</span>mr_inference</span>
-<span id="cb83-912"><a href="#cb83-912" aria-hidden="true" tabindex="-1"></a>.gh   <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;gh&quot;</span>)</span>
-<span id="cb83-913"><a href="#cb83-913" aria-hidden="true" tabindex="-1"></a>.cvd  <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;cv_diag&quot;</span>)</span>
-<span id="cb83-914"><a href="#cb83-914" aria-hidden="true" tabindex="-1"></a>.cvo  <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;cv_out&quot;</span>)</span>
-<span id="cb83-915"><a href="#cb83-915" aria-hidden="true" tabindex="-1"></a>.loo  <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;loo&quot;</span>)</span>
-<span id="cb83-916"><a href="#cb83-916" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb83-917"><a href="#cb83-917" aria-hidden="true" tabindex="-1"></a>payload <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb83-918"><a href="#cb83-918" aria-hidden="true" tabindex="-1"></a>  <span class="at">table  =</span> <span class="fu">.get</span>(<span class="st">&quot;tab&quot;</span>),</span>
-<span id="cb83-919"><a href="#cb83-919" aria-hidden="true" tabindex="-1"></a>  <span class="at">labels =</span> <span class="fu">list</span>(</span>
-<span id="cb83-920"><a href="#cb83-920" aria-hidden="true" tabindex="-1"></a>    <span class="at">sg_harm  =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fs)) <span class="cn">NULL</span> <span class="cf">else</span> .fs<span class="sc">$</span>sg.harm,</span>
-<span id="cb83-921"><a href="#cb83-921" aria-hidden="true" tabindex="-1"></a>    <span class="at">sg_focus =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fs)) <span class="cn">NULL</span> <span class="cf">else</span> .fs<span class="sc">$</span>sg_focus,</span>
-<span id="cb83-922"><a href="#cb83-922" aria-hidden="true" tabindex="-1"></a>    <span class="at">focus    =</span> <span class="fu">.get</span>(<span class="st">&quot;focus&quot;</span>)),   <span class="co"># no focus profile in this document: NULL</span></span>
-<span id="cb83-923"><a href="#cb83-923" aria-hidden="true" tabindex="-1"></a>  <span class="at">meta =</span> <span class="fu">list</span>(</span>
-<span id="cb83-924"><a href="#cb83-924" aria-hidden="true" tabindex="-1"></a>    <span class="at">NB          =</span> <span class="fu">.get</span>(<span class="st">&quot;NB&quot;</span>),</span>
-<span id="cb83-925"><a href="#cb83-925" aria-hidden="true" tabindex="-1"></a>    <span class="at">mr_draws    =</span> <span class="fu">.get</span>(<span class="st">&quot;mr_draws&quot;</span>),</span>
-<span id="cb83-926"><a href="#cb83-926" aria-hidden="true" tabindex="-1"></a>    <span class="at">Ksims       =</span> <span class="fu">.get</span>(<span class="st">&quot;Ksims&quot;</span>),</span>
-<span id="cb83-927"><a href="#cb83-927" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_cores     =</span> <span class="fu">.get</span>(<span class="st">&quot;n_cores&quot;</span>),</span>
-<span id="cb83-928"><a href="#cb83-928" aria-hidden="true" tabindex="-1"></a>    <span class="at">loo_workers =</span> <span class="fu">.get</span>(<span class="st">&quot;loo_workers&quot;</span>),</span>
-<span id="cb83-929"><a href="#cb83-929" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_total     =</span> <span class="fu">.try</span>(<span class="fu">nrow</span>(<span class="fu">.get</span>(<span class="st">&quot;df.analysis&quot;</span>))),</span>
-<span id="cb83-930"><a href="#cb83-930" aria-hidden="true" tabindex="-1"></a>    <span class="co"># sum(NULL) is 0, so guard on the data being present: a render that never</span></span>
-<span id="cb83-931"><a href="#cb83-931" aria-hidden="true" tabindex="-1"></a>    <span class="co"># reached the data chunk must store NULL, not a spurious zero.</span></span>
-<span id="cb83-932"><a href="#cb83-932" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_events    =</span> <span class="fu">.try</span>(<span class="cf">if</span> (<span class="fu">is.null</span>(<span class="fu">.get</span>(<span class="st">&quot;df.analysis&quot;</span>))) <span class="cn">NULL</span> <span class="cf">else</span></span>
-<span id="cb83-933"><a href="#cb83-933" aria-hidden="true" tabindex="-1"></a>                       <span class="fu">sum</span>(<span class="fu">.get</span>(<span class="st">&quot;df.analysis&quot;</span>)[[<span class="fu">.get</span>(<span class="st">&quot;event.name&quot;</span>)]])),</span>
-<span id="cb83-934"><a href="#cb83-934" aria-hidden="true" tabindex="-1"></a>    <span class="at">outcome     =</span> <span class="fu">.get</span>(<span class="st">&quot;outcome.name&quot;</span>),</span>
-<span id="cb83-935"><a href="#cb83-935" aria-hidden="true" tabindex="-1"></a>    <span class="at">event       =</span> <span class="fu">.get</span>(<span class="st">&quot;event.name&quot;</span>),</span>
-<span id="cb83-936"><a href="#cb83-936" aria-hidden="true" tabindex="-1"></a>    <span class="at">treat       =</span> <span class="fu">.get</span>(<span class="st">&quot;treat.name&quot;</span>),</span>
-<span id="cb83-937"><a href="#cb83-937" aria-hidden="true" tabindex="-1"></a>    <span class="at">covariates  =</span> <span class="fu">.get</span>(<span class="st">&quot;confounders.name&quot;</span>),</span>
-<span id="cb83-938"><a href="#cb83-938" aria-hidden="true" tabindex="-1"></a>    <span class="at">timings     =</span> <span class="fu">.get</span>(<span class="st">&quot;timings&quot;</span>),</span>
-<span id="cb83-939"><a href="#cb83-939" aria-hidden="true" tabindex="-1"></a>    <span class="at">provenance  =</span> <span class="fu">.try</span>(<span class="fu">fs_param_provenance</span>(.fs))),</span>
-<span id="cb83-940"><a href="#cb83-940" aria-hidden="true" tabindex="-1"></a>  <span class="at">extras =</span> <span class="fu">list</span>(</span>
-<span id="cb83-941"><a href="#cb83-941" aria-hidden="true" tabindex="-1"></a>    <span class="at">mr =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.g)) <span class="cn">NULL</span> <span class="cf">else</span> <span class="fu">list</span>(</span>
-<span id="cb83-942"><a href="#cb83-942" aria-hidden="true" tabindex="-1"></a>      <span class="at">naive          =</span> .g<span class="sc">$</span>naive,</span>
-<span id="cb83-943"><a href="#cb83-943" aria-hidden="true" tabindex="-1"></a>      <span class="at">debiased       =</span> .g<span class="sc">$</span>debiased,</span>
-<span id="cb83-944"><a href="#cb83-944" aria-hidden="true" tabindex="-1"></a>      <span class="at">settings       =</span> .g<span class="sc">$</span>settings,</span>
-<span id="cb83-945"><a href="#cb83-945" aria-hidden="true" tabindex="-1"></a>      <span class="at">n_family       =</span> .g<span class="sc">$</span>n_family,</span>
-<span id="cb83-946"><a href="#cb83-946" aria-hidden="true" tabindex="-1"></a>      <span class="at">selection_bias =</span> .g<span class="sc">$</span>selection_bias,</span>
-<span id="cb83-947"><a href="#cb83-947" aria-hidden="true" tabindex="-1"></a>      <span class="at">timing_seconds =</span> .g<span class="sc">$</span>timing_seconds,</span>
-<span id="cb83-948"><a href="#cb83-948" aria-hidden="true" tabindex="-1"></a>      <span class="co"># Schema 2026-09-06 (TASK_gbsg_frozen_intervals): the field block</span></span>
-<span id="cb83-949"><a href="#cb83-949" aria-hidden="true" tabindex="-1"></a>      <span class="co"># (with its uniform kappa sub-block) and the re-selection frequencies.</span></span>
-<span id="cb83-950"><a href="#cb83-950" aria-hidden="true" tabindex="-1"></a>      <span class="at">field          =</span> .g<span class="sc">$</span>field,</span>
-<span id="cb83-951"><a href="#cb83-951" aria-hidden="true" tabindex="-1"></a>      <span class="at">reselection    =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.g<span class="sc">$</span>reselection)) <span class="cn">NULL</span> <span class="cf">else</span></span>
-<span id="cb83-952"><a href="#cb83-952" aria-hidden="true" tabindex="-1"></a>                         <span class="fu">list</span>(<span class="at">p_hat =</span> .g<span class="sc">$</span>reselection<span class="sc">$</span>p_hat)),</span>
-<span id="cb83-953"><a href="#cb83-953" aria-hidden="true" tabindex="-1"></a>    <span class="at">fb =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fsbc)) <span class="cn">NULL</span> <span class="cf">else</span> <span class="fu">list</span>(</span>
-<span id="cb83-954"><a href="#cb83-954" aria-hidden="true" tabindex="-1"></a>      <span class="at">H_estimates  =</span> .fsbc<span class="sc">$</span>H_estimates,</span>
-<span id="cb83-955"><a href="#cb83-955" aria-hidden="true" tabindex="-1"></a>      <span class="at">Hc_estimates =</span> .fsbc<span class="sc">$</span>Hc_estimates),</span>
-<span id="cb83-956"><a href="#cb83-956" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Gate 0: the fixed cut set supplied, and the cut forms the realized family</span></span>
-<span id="cb83-957"><a href="#cb83-957" aria-hidden="true" tabindex="-1"></a>    <span class="co"># actually contained -- the evidence that the family cannot regenerate.</span></span>
-<span id="cb83-958"><a href="#cb83-958" aria-hidden="true" tabindex="-1"></a>    <span class="at">frozen_gate =</span> <span class="fu">list</span>(</span>
-<span id="cb83-959"><a href="#cb83-959" aria-hidden="true" tabindex="-1"></a>      <span class="at">frozen_cuts   =</span> <span class="fu">.get</span>(<span class="st">&quot;frozen_cuts&quot;</span>),</span>
-<span id="cb83-960"><a href="#cb83-960" aria-hidden="true" tabindex="-1"></a>      <span class="at">medians       =</span> <span class="fu">.get</span>(<span class="st">&quot;med&quot;</span>),</span>
-<span id="cb83-961"><a href="#cb83-961" aria-hidden="true" tabindex="-1"></a>      <span class="at">realized_cuts =</span> <span class="fu">.get</span>(<span class="st">&quot;inner&quot;</span>)),</span>
-<span id="cb83-962"><a href="#cb83-962" aria-hidden="true" tabindex="-1"></a>    <span class="co"># The quantity of interest in this document: the FB-MR gap within the</span></span>
-<span id="cb83-963"><a href="#cb83-963" aria-hidden="true" tabindex="-1"></a>    <span class="co"># frozen family.</span></span>
-<span id="cb83-964"><a href="#cb83-964" aria-hidden="true" tabindex="-1"></a>    <span class="at">fb_mr_gap =</span> <span class="fu">.try</span>(<span class="fu">list</span>(</span>
-<span id="cb83-965"><a href="#cb83-965" aria-hidden="true" tabindex="-1"></a>      <span class="at">fb_hr     =</span> <span class="fu">.get</span>(<span class="st">&quot;fb_hr&quot;</span>),</span>
-<span id="cb83-966"><a href="#cb83-966" aria-hidden="true" tabindex="-1"></a>      <span class="at">mr_hr     =</span> <span class="fu">.get</span>(<span class="st">&quot;mr_hr&quot;</span>),</span>
-<span id="cb83-967"><a href="#cb83-967" aria-hidden="true" tabindex="-1"></a>      <span class="at">log_diff  =</span> <span class="fu">log</span>(<span class="fu">.get</span>(<span class="st">&quot;fb_hr&quot;</span>)) <span class="sc">-</span> <span class="fu">log</span>(<span class="fu">.get</span>(<span class="st">&quot;mr_hr&quot;</span>)),</span>
-<span id="cb83-968"><a href="#cb83-968" aria-hidden="true" tabindex="-1"></a>      <span class="at">hr_ratio  =</span> <span class="fu">.get</span>(<span class="st">&quot;fb_hr&quot;</span>) <span class="sc">/</span> <span class="fu">.get</span>(<span class="st">&quot;mr_hr&quot;</span>))),</span>
-<span id="cb83-969"><a href="#cb83-969" aria-hidden="true" tabindex="-1"></a>    <span class="at">pareto =</span> <span class="cn">NULL</span>,   <span class="co"># no banded focus here: the frontier block does not run</span></span>
-<span id="cb83-970"><a href="#cb83-970" aria-hidden="true" tabindex="-1"></a>    <span class="at">cv =</span> <span class="cf">if</span> (<span class="fu">isTRUE</span>(<span class="fu">.get</span>(<span class="st">&quot;run_cv_kfold&quot;</span>)) <span class="sc">&amp;&amp;</span> <span class="sc">!</span><span class="fu">is.null</span>(.cvd)) <span class="fu">list</span>(</span>
-<span id="cb83-971"><a href="#cb83-971" aria-hidden="true" tabindex="-1"></a>      <span class="at">metrics                   =</span> <span class="fu">.get</span>(<span class="st">&quot;metrics_tables&quot;</span>),</span>
-<span id="cb83-972"><a href="#cb83-972" aria-hidden="true" tabindex="-1"></a>      <span class="at">identification_summary    =</span> .cvd<span class="sc">$</span>identification_summary,</span>
-<span id="cb83-973"><a href="#cb83-973" aria-hidden="true" tabindex="-1"></a>      <span class="at">pconsistency_distribution =</span> .cvd<span class="sc">$</span>pconsistency_distribution,</span>
-<span id="cb83-974"><a href="#cb83-974" aria-hidden="true" tabindex="-1"></a>      <span class="at">fold_numeric_summary      =</span> .cvd<span class="sc">$</span>fold_numeric_summary,</span>
-<span id="cb83-975"><a href="#cb83-975" aria-hidden="true" tabindex="-1"></a>      <span class="at">original_agreement        =</span> .cvd<span class="sc">$</span>original_agreement) <span class="cf">else</span> <span class="cn">NULL</span>,</span>
-<span id="cb83-976"><a href="#cb83-976" aria-hidden="true" tabindex="-1"></a>    <span class="at">loo =</span> <span class="cf">if</span> (<span class="fu">isTRUE</span>(<span class="fu">.get</span>(<span class="st">&quot;run_loo&quot;</span>)) <span class="sc">&amp;&amp;</span> <span class="sc">!</span><span class="fu">is.null</span>(.loo)) <span class="fu">list</span>(</span>
-<span id="cb83-977"><a href="#cb83-977" aria-hidden="true" tabindex="-1"></a>      <span class="at">row          =</span> .loo,</span>
-<span id="cb83-978"><a href="#cb83-978" aria-hidden="true" tabindex="-1"></a>      <span class="at">sens_metrics =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.cvo)) <span class="cn">NULL</span> <span class="cf">else</span> .cvo<span class="sc">$</span>sens_metrics_original,</span>
-<span id="cb83-979"><a href="#cb83-979" aria-hidden="true" tabindex="-1"></a>      <span class="at">find_metrics =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.cvo)) <span class="cn">NULL</span> <span class="cf">else</span> .cvo<span class="sc">$</span>find_metrics,</span>
-<span id="cb83-980"><a href="#cb83-980" aria-hidden="true" tabindex="-1"></a>      <span class="at">cache        =</span> <span class="fu">.get</span>(<span class="st">&quot;loo_cache&quot;</span>)) <span class="cf">else</span> <span class="cn">NULL</span>,</span>
-<span id="cb83-981"><a href="#cb83-981" aria-hidden="true" tabindex="-1"></a>    <span class="at">gh =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.gh)) <span class="cn">NULL</span> <span class="cf">else</span> <span class="fu">list</span>(</span>
-<span id="cb83-982"><a href="#cb83-982" aria-hidden="true" tabindex="-1"></a>      <span class="at">naive_hr    =</span> .gh<span class="sc">$</span>naive_hr,</span>
-<span id="cb83-983"><a href="#cb83-983" aria-hidden="true" tabindex="-1"></a>      <span class="at">debiased_hr =</span> .gh<span class="sc">$</span>debiased_hr,</span>
-<span id="cb83-984"><a href="#cb83-984" aria-hidden="true" tabindex="-1"></a>      <span class="at">bound_hr    =</span> .gh<span class="sc">$</span>bound_hr,</span>
-<span id="cb83-985"><a href="#cb83-985" aria-hidden="true" tabindex="-1"></a>      <span class="at">selected    =</span> .gh<span class="sc">$</span>selected,</span>
-<span id="cb83-986"><a href="#cb83-986" aria-hidden="true" tabindex="-1"></a>      <span class="at">n_family    =</span> <span class="fu">.try</span>(<span class="fu">length</span>(.gh<span class="sc">$</span>export<span class="sc">$</span>candidates)),</span>
-<span id="cb83-987"><a href="#cb83-987" aria-hidden="true" tabindex="-1"></a>      <span class="at">B           =</span> <span class="fu">.get</span>(<span class="st">&quot;GH_B&quot;</span>),</span>
-<span id="cb83-988"><a href="#cb83-988" aria-hidden="true" tabindex="-1"></a>      <span class="at">r           =</span> <span class="fu">.get</span>(<span class="st">&quot;GH_r&quot;</span>))),</span>
-<span id="cb83-989"><a href="#cb83-989" aria-hidden="true" tabindex="-1"></a>  <span class="at">est_scale =</span> <span class="st">&quot;hr&quot;</span>,</span>
-<span id="cb83-990"><a href="#cb83-990" aria-hidden="true" tabindex="-1"></a>  <span class="at">built_at  =</span> <span class="fu">Sys.time</span>(),</span>
-<span id="cb83-991"><a href="#cb83-991" aria-hidden="true" tabindex="-1"></a>  <span class="at">forestsearch_version =</span> <span class="fu">tryCatch</span>(<span class="fu">as.character</span>(utils<span class="sc">::</span><span class="fu">packageVersion</span>(<span class="st">&quot;forestsearch&quot;</span>)),</span>
-<span id="cb83-992"><a href="#cb83-992" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">error =</span> <span class="cf">function</span>(e) <span class="cn">NA_character_</span>))</span>
-<span id="cb83-993"><a href="#cb83-993" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb83-994"><a href="#cb83-994" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(payload, .payload_file)</span>
-<span id="cb83-995"><a href="#cb83-995" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Wrote payload to:&quot;</span>, .payload_file, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb83-996"><a href="#cb83-996" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal><i class="bi"></i></button></div>
+<span id="cb83-819"><a href="#cb83-819" aria-hidden="true" tabindex="-1"></a>(~0.88–0.90). At $\hat p(\widehat H) \approx 0.7$ this analysis sits in</span>
+<span id="cb83-820"><a href="#cb83-820" aria-hidden="true" tabindex="-1"></a>exactly that moderate-separation regime, where the plain field two-sided</span>
+<span id="cb83-821"><a href="#cb83-821" aria-hidden="true" tabindex="-1"></a>interval&#39;s simulated coverage was 0.88–0.92</span>
+<span id="cb83-822"><a href="#cb83-822" aria-hidden="true" tabindex="-1"></a>(<span class="in">`REPORT_mr_field_s7_2026-09-05.md`</span>, <span class="in">`REPORT_mr_field_ocmap_2026-09-05.md`</span>),</span>
+<span id="cb83-823"><a href="#cb83-823" aria-hidden="true" tabindex="-1"></a>so the reportable intervals from this analysis are the one-sided field bound</span>
+<span id="cb83-824"><a href="#cb83-824" aria-hidden="true" tabindex="-1"></a>and the IJ two-sided; the plain field two-sided is shown for comparison.</span>
+<span id="cb83-825"><a href="#cb83-825" aria-hidden="true" tabindex="-1"></a>The uniform (κ-widened) two-sided interval restores 95% coverage</span>
+<span id="cb83-826"><a href="#cb83-826" aria-hidden="true" tabindex="-1"></a>uniformly over the winner-profile protection family, at the price of width</span>
+<span id="cb83-827"><a href="#cb83-827" aria-hidden="true" tabindex="-1"></a>(<span class="in">`REPORT_mr_field_uniform_2026-09-06.md`</span>). Guo &amp; He is one-sided by design.</span>
+<span id="cb83-828"><a href="#cb83-828" aria-hidden="true" tabindex="-1"></a>The κ row here is computed on this trial&#39;s own $\widehat\Sigma$ with the</span>
+<span id="cb83-829"><a href="#cb83-829" aria-hidden="true" tabindex="-1"></a>mass-carrying cap lifted to the full family; the sweep cost 82 s with</span>
+<span id="cb83-830"><a href="#cb83-830" aria-hidden="true" tabindex="-1"></a>M = 17 of 133 (the cap did not bind) — the cost is configuration-dependent.</span>
+<span id="cb83-831"><a href="#cb83-831" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-832"><a href="#cb83-832" aria-hidden="true" tabindex="-1"></a>**The reading for this subgroup** is generated from the numbers above at render</span>
+<span id="cb83-833"><a href="#cb83-833" aria-hidden="true" tabindex="-1"></a>time:</span>
+<span id="cb83-834"><a href="#cb83-834" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-835"><a href="#cb83-835" aria-hidden="true" tabindex="-1"></a><span class="in">```{r intervals-reading, results = &quot;asis&quot;}</span></span>
+<span id="cb83-836"><a href="#cb83-836" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb83-837"><a href="#cb83-837" aria-hidden="true" tabindex="-1"></a>bounds <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">`</span><span class="at">MR (IJ)</span><span class="st">`</span> <span class="ot">=</span> g<span class="sc">$</span>debiased<span class="sc">$</span>lower_1s, <span class="st">`</span><span class="at">MR (field)</span><span class="st">`</span> <span class="ot">=</span> f<span class="sc">$</span>lower_1s,</span>
+<span id="cb83-838"><a href="#cb83-838" aria-hidden="true" tabindex="-1"></a>            <span class="st">`</span><span class="at">Guo &amp; He</span><span class="st">`</span> <span class="ot">=</span> gh<span class="sc">$</span>bound_hr)</span>
+<span id="cb83-839"><a href="#cb83-839" aria-hidden="true" tabindex="-1"></a>above <span class="ot">&lt;-</span> <span class="fu">names</span>(bounds)[bounds <span class="sc">&gt;</span> <span class="dv">1</span>]</span>
+<span id="cb83-840"><a href="#cb83-840" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
+<span id="cb83-841"><a href="#cb83-841" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;- The naive estimate is %.2f; every selection-adjusted point estimate sits &quot;</span>,</span>
+<span id="cb83-842"><a href="#cb83-842" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;below it (FB %.2f, MR (IJ) %.2f, field est2 %.2f, G&amp;H %.2f) — the &quot;</span>,</span>
+<span id="cb83-843"><a href="#cb83-843" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;corrections agree that part of the naive effect is winner&#39;s curse.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
+<span id="cb83-844"><a href="#cb83-844" aria-hidden="true" tabindex="-1"></a>  g<span class="sc">$</span>naive<span class="sc">$</span>est, fs_bc<span class="sc">$</span>H_estimates<span class="sc">$</span>H2, g<span class="sc">$</span>debiased<span class="sc">$</span>est, f<span class="sc">$</span>est2, gh<span class="sc">$</span>debiased_hr))</span>
+<span id="cb83-845"><a href="#cb83-845" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(above)) {</span>
+<span id="cb83-846"><a href="#cb83-846" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
+<span id="cb83-847"><a href="#cb83-847" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;- Selection-adjusted one-sided 95%% lower bounds above 1: **%s** &quot;</span>,</span>
+<span id="cb83-848"><a href="#cb83-848" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;(%s). The harm claim survives those constructions at the one-sided level.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
+<span id="cb83-849"><a href="#cb83-849" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste</span>(above, <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>),</span>
+<span id="cb83-850"><a href="#cb83-850" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%.2f&quot;</span>, bounds[above]), <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>)))</span>
+<span id="cb83-851"><a href="#cb83-851" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb83-852"><a href="#cb83-852" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
+<span id="cb83-853"><a href="#cb83-853" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;- **No selection-adjusted one-sided 95%% lower bound exceeds 1** &quot;</span>,</span>
+<span id="cb83-854"><a href="#cb83-854" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;(MR (IJ) %.2f, field %.2f, G&amp;H %.2f): after accounting for selection, &quot;</span>,</span>
+<span id="cb83-855"><a href="#cb83-855" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;the evidence does not establish harm at the one-sided 95%% level.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
+<span id="cb83-856"><a href="#cb83-856" aria-hidden="true" tabindex="-1"></a>    bounds[<span class="dv">1</span>], bounds[<span class="dv">2</span>], bounds[<span class="dv">3</span>]))</span>
+<span id="cb83-857"><a href="#cb83-857" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb83-858"><a href="#cb83-858" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
+<span id="cb83-859"><a href="#cb83-859" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;- p̂(Ĥ) = %.2f says the selection was %s: the selected subgroup &quot;</span>,</span>
+<span id="cb83-860"><a href="#cb83-860" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;wins the re-selection on %.0f%% of multiplier draws%s.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
+<span id="cb83-861"><a href="#cb83-861" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unname</span>(p_hat[sel_i]),</span>
+<span id="cb83-862"><a href="#cb83-862" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">unname</span>(p_hat[sel_i]) <span class="sc">&gt;=</span> <span class="fl">0.5</span>) <span class="st">&quot;dominant&quot;</span> <span class="cf">else</span> <span class="st">&quot;competitive&quot;</span>,</span>
+<span id="cb83-863"><a href="#cb83-863" aria-hidden="true" tabindex="-1"></a>  <span class="dv">100</span> <span class="sc">*</span> <span class="fu">unname</span>(p_hat[sel_i]),</span>
+<span id="cb83-864"><a href="#cb83-864" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">unname</span>(p_hat[sel_i]) <span class="sc">&lt;</span> <span class="fl">0.5</span>) <span class="st">&quot; — the tie regime, where the second-order (field) correction matters most&quot;</span> <span class="cf">else</span> <span class="st">&quot;&quot;</span>))</span>
+<span id="cb83-865"><a href="#cb83-865" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb83-866"><a href="#cb83-866" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-867"><a href="#cb83-867" aria-hidden="true" tabindex="-1"></a>No claim is made beyond these numbers.</span>
+<span id="cb83-868"><a href="#cb83-868" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb83-869"><a href="#cb83-869" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-870"><a href="#cb83-870" aria-hidden="true" tabindex="-1"></a><span class="in">```{r timing}</span></span>
+<span id="cb83-871"><a href="#cb83-871" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb83-872"><a href="#cb83-872" aria-hidden="true" tabindex="-1"></a>td <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb83-873"><a href="#cb83-873" aria-hidden="true" tabindex="-1"></a>  <span class="at">Step =</span> <span class="fu">c</span>(<span class="st">&quot;Fit + MR gate&quot;</span>, <span class="st">&quot;Full bootstrap&quot;</span>, <span class="st">&quot;MR gate (within fit)&quot;</span>,</span>
+<span id="cb83-874"><a href="#cb83-874" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;MR field block (within gate)&quot;</span>, <span class="st">&quot;MR uniform (kappa) sweep (within gate)&quot;</span>,</span>
+<span id="cb83-875"><a href="#cb83-875" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Guo &amp; He bootstrap&quot;</span>, <span class="st">&quot;10-fold CV&quot;</span>,</span>
+<span id="cb83-876"><a href="#cb83-876" aria-hidden="true" tabindex="-1"></a>           <span class="fu">sprintf</span>(<span class="st">&quot;Leave-one-out (N-fold, %d workers)&quot;</span>, loo_workers)),</span>
+<span id="cb83-877"><a href="#cb83-877" aria-hidden="true" tabindex="-1"></a>  <span class="at">Seconds =</span> <span class="fu">c</span>(timings<span class="sc">$</span>fit, timings<span class="sc">$</span>fb, timings<span class="sc">$</span>mr,</span>
+<span id="cb83-878"><a href="#cb83-878" aria-hidden="true" tabindex="-1"></a>              g<span class="sc">$</span>field<span class="sc">$</span>timing_seconds, g<span class="sc">$</span>field<span class="sc">$</span>uniform<span class="sc">$</span>timing_seconds,</span>
+<span id="cb83-879"><a href="#cb83-879" aria-hidden="true" tabindex="-1"></a>              timings<span class="sc">$</span>gh, timings<span class="sc">$</span>kfold, timings<span class="sc">$</span>loo)</span>
+<span id="cb83-880"><a href="#cb83-880" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb83-881"><a href="#cb83-881" aria-hidden="true" tabindex="-1"></a>td<span class="sc">$</span>Minutes <span class="ot">&lt;-</span> <span class="fu">round</span>(td<span class="sc">$</span>Seconds <span class="sc">/</span> <span class="dv">60</span>, <span class="dv">2</span>)</span>
+<span id="cb83-882"><a href="#cb83-882" aria-hidden="true" tabindex="-1"></a><span class="fu">kbl</span>(td, <span class="at">booktabs =</span> <span class="cn">TRUE</span>, <span class="at">align =</span> <span class="st">&quot;lrr&quot;</span>) <span class="sc">|&gt;</span> <span class="fu">kable_styling</span>()</span>
+<span id="cb83-883"><a href="#cb83-883" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb83-884"><a href="#cb83-884" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-885"><a href="#cb83-885" aria-hidden="true" tabindex="-1"></a><span class="fu"># Reproducibility payload {#sec-export-payload}</span></span>
+<span id="cb83-886"><a href="#cb83-886" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-887"><a href="#cb83-887" aria-hidden="true" tabindex="-1"></a>The chunk below harvests the objects this render already computed into a single</span>
+<span id="cb83-888"><a href="#cb83-888" aria-hidden="true" tabindex="-1"></a>small list and writes it as an <span class="in">`.rds`</span>, so the results survive the HTML. No</span>
+<span id="cb83-889"><a href="#cb83-889" aria-hidden="true" tabindex="-1"></a>analysis is repeated. Every element is guarded, so a section this render skipped</span>
+<span id="cb83-890"><a href="#cb83-890" aria-hidden="true" tabindex="-1"></a>(<span class="in">`run_cv_kfold`</span>, <span class="in">`run_loo`</span>) stores <span class="in">`NULL`</span> rather than erroring, and the</span>
+<span id="cb83-891"><a href="#cb83-891" aria-hidden="true" tabindex="-1"></a>top-level names match the other GBSG payloads (<span class="in">`table`</span>, <span class="in">`labels`</span>, <span class="in">`meta`</span>,</span>
+<span id="cb83-892"><a href="#cb83-892" aria-hidden="true" tabindex="-1"></a><span class="in">`extras`</span>, <span class="in">`est_scale`</span>, <span class="in">`built_at`</span>, <span class="in">`forestsearch_version`</span>) so a reader can treat</span>
+<span id="cb83-893"><a href="#cb83-893" aria-hidden="true" tabindex="-1"></a>them uniformly. Schema note (2026-09-06, <span class="in">`TASK_gbsg_frozen_intervals`</span>):</span>
+<span id="cb83-894"><a href="#cb83-894" aria-hidden="true" tabindex="-1"></a><span class="in">`extras$mr`</span> additionally carries the <span class="in">`field`</span> block (the field-calibrated</span>
+<span id="cb83-895"><a href="#cb83-895" aria-hidden="true" tabindex="-1"></a>interval, including its <span class="in">`uniform`</span> κ sub-block) and <span class="in">`reselection`</span> (the</span>
+<span id="cb83-896"><a href="#cb83-896" aria-hidden="true" tabindex="-1"></a>re-selection frequencies <span class="in">`p_hat`</span>; the per-draw <span class="in">`winner`</span> vector is deliberately</span>
+<span id="cb83-897"><a href="#cb83-897" aria-hidden="true" tabindex="-1"></a>dropped — <span class="in">`sum(p_hat)`</span> equals the selection rate and reproduces it).</span>
+<span id="cb83-898"><a href="#cb83-898" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-899"><a href="#cb83-899" aria-hidden="true" tabindex="-1"></a><span class="in">```{r export-payload}</span></span>
+<span id="cb83-900"><a href="#cb83-900" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb83-901"><a href="#cb83-901" aria-hidden="true" tabindex="-1"></a><span class="co">#| message: false</span></span>
+<span id="cb83-902"><a href="#cb83-902" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-903"><a href="#cb83-903" aria-hidden="true" tabindex="-1"></a>.qmd_dir  <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(<span class="fu">dirname</span>(knitr<span class="sc">::</span><span class="fu">current_input</span>(<span class="at">dir =</span> <span class="cn">TRUE</span>)),</span>
+<span id="cb83-904"><a href="#cb83-904" aria-hidden="true" tabindex="-1"></a>                      <span class="at">error =</span> <span class="cf">function</span>(e) <span class="fu">getwd</span>())</span>
+<span id="cb83-905"><a href="#cb83-905" aria-hidden="true" tabindex="-1"></a>.qmd_stem <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(tools<span class="sc">::</span><span class="fu">file_path_sans_ext</span>(<span class="fu">basename</span>(knitr<span class="sc">::</span><span class="fu">current_input</span>())),</span>
+<span id="cb83-906"><a href="#cb83-906" aria-hidden="true" tabindex="-1"></a>                      <span class="at">error =</span> <span class="cf">function</span>(e) <span class="st">&quot;analysis&quot;</span>)</span>
+<span id="cb83-907"><a href="#cb83-907" aria-hidden="true" tabindex="-1"></a>.dirout   <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(dirout)) .qmd_stem <span class="cf">else</span> dirout</span>
+<span id="cb83-908"><a href="#cb83-908" aria-hidden="true" tabindex="-1"></a>.base     <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(results_dir)) <span class="fu">file.path</span>(.qmd_dir, <span class="st">&quot;_payloads&quot;</span>) <span class="cf">else</span> results_dir</span>
+<span id="cb83-909"><a href="#cb83-909" aria-hidden="true" tabindex="-1"></a>.out_dir  <span class="ot">&lt;-</span> <span class="fu">file.path</span>(.base, .dirout)</span>
+<span id="cb83-910"><a href="#cb83-910" aria-hidden="true" tabindex="-1"></a><span class="fu">dir.create</span>(.out_dir, <span class="at">recursive =</span> <span class="cn">TRUE</span>, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb83-911"><a href="#cb83-911" aria-hidden="true" tabindex="-1"></a>.payload_file <span class="ot">&lt;-</span> <span class="fu">file.path</span>(.out_dir, <span class="fu">paste0</span>(.dirout, <span class="st">&quot;_payload.rds&quot;</span>))</span>
+<span id="cb83-912"><a href="#cb83-912" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-913"><a href="#cb83-913" aria-hidden="true" tabindex="-1"></a>.get <span class="ot">&lt;-</span> <span class="cf">function</span>(nm) <span class="cf">if</span> (<span class="fu">exists</span>(nm, <span class="at">inherits =</span> <span class="cn">TRUE</span>)) <span class="fu">get</span>(nm, <span class="at">inherits =</span> <span class="cn">TRUE</span>) <span class="cf">else</span> <span class="cn">NULL</span></span>
+<span id="cb83-914"><a href="#cb83-914" aria-hidden="true" tabindex="-1"></a>.try <span class="ot">&lt;-</span> <span class="cf">function</span>(expr) <span class="fu">tryCatch</span>(expr, <span class="at">error =</span> <span class="cf">function</span>(e) <span class="cn">NULL</span>)</span>
+<span id="cb83-915"><a href="#cb83-915" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-916"><a href="#cb83-916" aria-hidden="true" tabindex="-1"></a>.fs   <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;fs&quot;</span>)</span>
+<span id="cb83-917"><a href="#cb83-917" aria-hidden="true" tabindex="-1"></a>.fsbc <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;fs_bc&quot;</span>)</span>
+<span id="cb83-918"><a href="#cb83-918" aria-hidden="true" tabindex="-1"></a>.g    <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fs)) <span class="cn">NULL</span> <span class="cf">else</span> .fs<span class="sc">$</span>mr_inference</span>
+<span id="cb83-919"><a href="#cb83-919" aria-hidden="true" tabindex="-1"></a>.gh   <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;gh&quot;</span>)</span>
+<span id="cb83-920"><a href="#cb83-920" aria-hidden="true" tabindex="-1"></a>.cvd  <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;cv_diag&quot;</span>)</span>
+<span id="cb83-921"><a href="#cb83-921" aria-hidden="true" tabindex="-1"></a>.cvo  <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;cv_out&quot;</span>)</span>
+<span id="cb83-922"><a href="#cb83-922" aria-hidden="true" tabindex="-1"></a>.loo  <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;loo&quot;</span>)</span>
+<span id="cb83-923"><a href="#cb83-923" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-924"><a href="#cb83-924" aria-hidden="true" tabindex="-1"></a>payload <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb83-925"><a href="#cb83-925" aria-hidden="true" tabindex="-1"></a>  <span class="at">table  =</span> <span class="fu">.get</span>(<span class="st">&quot;tab&quot;</span>),</span>
+<span id="cb83-926"><a href="#cb83-926" aria-hidden="true" tabindex="-1"></a>  <span class="at">labels =</span> <span class="fu">list</span>(</span>
+<span id="cb83-927"><a href="#cb83-927" aria-hidden="true" tabindex="-1"></a>    <span class="at">sg_harm  =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fs)) <span class="cn">NULL</span> <span class="cf">else</span> .fs<span class="sc">$</span>sg.harm,</span>
+<span id="cb83-928"><a href="#cb83-928" aria-hidden="true" tabindex="-1"></a>    <span class="at">sg_focus =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fs)) <span class="cn">NULL</span> <span class="cf">else</span> .fs<span class="sc">$</span>sg_focus,</span>
+<span id="cb83-929"><a href="#cb83-929" aria-hidden="true" tabindex="-1"></a>    <span class="at">focus    =</span> <span class="fu">.get</span>(<span class="st">&quot;focus&quot;</span>)),   <span class="co"># no focus profile in this document: NULL</span></span>
+<span id="cb83-930"><a href="#cb83-930" aria-hidden="true" tabindex="-1"></a>  <span class="at">meta =</span> <span class="fu">list</span>(</span>
+<span id="cb83-931"><a href="#cb83-931" aria-hidden="true" tabindex="-1"></a>    <span class="at">NB          =</span> <span class="fu">.get</span>(<span class="st">&quot;NB&quot;</span>),</span>
+<span id="cb83-932"><a href="#cb83-932" aria-hidden="true" tabindex="-1"></a>    <span class="at">mr_draws    =</span> <span class="fu">.get</span>(<span class="st">&quot;mr_draws&quot;</span>),</span>
+<span id="cb83-933"><a href="#cb83-933" aria-hidden="true" tabindex="-1"></a>    <span class="at">Ksims       =</span> <span class="fu">.get</span>(<span class="st">&quot;Ksims&quot;</span>),</span>
+<span id="cb83-934"><a href="#cb83-934" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_cores     =</span> <span class="fu">.get</span>(<span class="st">&quot;n_cores&quot;</span>),</span>
+<span id="cb83-935"><a href="#cb83-935" aria-hidden="true" tabindex="-1"></a>    <span class="at">loo_workers =</span> <span class="fu">.get</span>(<span class="st">&quot;loo_workers&quot;</span>),</span>
+<span id="cb83-936"><a href="#cb83-936" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_total     =</span> <span class="fu">.try</span>(<span class="fu">nrow</span>(<span class="fu">.get</span>(<span class="st">&quot;df.analysis&quot;</span>))),</span>
+<span id="cb83-937"><a href="#cb83-937" aria-hidden="true" tabindex="-1"></a>    <span class="co"># sum(NULL) is 0, so guard on the data being present: a render that never</span></span>
+<span id="cb83-938"><a href="#cb83-938" aria-hidden="true" tabindex="-1"></a>    <span class="co"># reached the data chunk must store NULL, not a spurious zero.</span></span>
+<span id="cb83-939"><a href="#cb83-939" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_events    =</span> <span class="fu">.try</span>(<span class="cf">if</span> (<span class="fu">is.null</span>(<span class="fu">.get</span>(<span class="st">&quot;df.analysis&quot;</span>))) <span class="cn">NULL</span> <span class="cf">else</span></span>
+<span id="cb83-940"><a href="#cb83-940" aria-hidden="true" tabindex="-1"></a>                       <span class="fu">sum</span>(<span class="fu">.get</span>(<span class="st">&quot;df.analysis&quot;</span>)[[<span class="fu">.get</span>(<span class="st">&quot;event.name&quot;</span>)]])),</span>
+<span id="cb83-941"><a href="#cb83-941" aria-hidden="true" tabindex="-1"></a>    <span class="at">outcome     =</span> <span class="fu">.get</span>(<span class="st">&quot;outcome.name&quot;</span>),</span>
+<span id="cb83-942"><a href="#cb83-942" aria-hidden="true" tabindex="-1"></a>    <span class="at">event       =</span> <span class="fu">.get</span>(<span class="st">&quot;event.name&quot;</span>),</span>
+<span id="cb83-943"><a href="#cb83-943" aria-hidden="true" tabindex="-1"></a>    <span class="at">treat       =</span> <span class="fu">.get</span>(<span class="st">&quot;treat.name&quot;</span>),</span>
+<span id="cb83-944"><a href="#cb83-944" aria-hidden="true" tabindex="-1"></a>    <span class="at">covariates  =</span> <span class="fu">.get</span>(<span class="st">&quot;confounders.name&quot;</span>),</span>
+<span id="cb83-945"><a href="#cb83-945" aria-hidden="true" tabindex="-1"></a>    <span class="at">timings     =</span> <span class="fu">.get</span>(<span class="st">&quot;timings&quot;</span>),</span>
+<span id="cb83-946"><a href="#cb83-946" aria-hidden="true" tabindex="-1"></a>    <span class="at">provenance  =</span> <span class="fu">.try</span>(<span class="fu">fs_param_provenance</span>(.fs))),</span>
+<span id="cb83-947"><a href="#cb83-947" aria-hidden="true" tabindex="-1"></a>  <span class="at">extras =</span> <span class="fu">list</span>(</span>
+<span id="cb83-948"><a href="#cb83-948" aria-hidden="true" tabindex="-1"></a>    <span class="at">mr =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.g)) <span class="cn">NULL</span> <span class="cf">else</span> <span class="fu">list</span>(</span>
+<span id="cb83-949"><a href="#cb83-949" aria-hidden="true" tabindex="-1"></a>      <span class="at">naive          =</span> .g<span class="sc">$</span>naive,</span>
+<span id="cb83-950"><a href="#cb83-950" aria-hidden="true" tabindex="-1"></a>      <span class="at">debiased       =</span> .g<span class="sc">$</span>debiased,</span>
+<span id="cb83-951"><a href="#cb83-951" aria-hidden="true" tabindex="-1"></a>      <span class="at">settings       =</span> .g<span class="sc">$</span>settings,</span>
+<span id="cb83-952"><a href="#cb83-952" aria-hidden="true" tabindex="-1"></a>      <span class="at">n_family       =</span> .g<span class="sc">$</span>n_family,</span>
+<span id="cb83-953"><a href="#cb83-953" aria-hidden="true" tabindex="-1"></a>      <span class="at">selection_bias =</span> .g<span class="sc">$</span>selection_bias,</span>
+<span id="cb83-954"><a href="#cb83-954" aria-hidden="true" tabindex="-1"></a>      <span class="at">timing_seconds =</span> .g<span class="sc">$</span>timing_seconds,</span>
+<span id="cb83-955"><a href="#cb83-955" aria-hidden="true" tabindex="-1"></a>      <span class="co"># Schema 2026-09-06 (TASK_gbsg_frozen_intervals): the field block</span></span>
+<span id="cb83-956"><a href="#cb83-956" aria-hidden="true" tabindex="-1"></a>      <span class="co"># (with its uniform kappa sub-block) and the re-selection frequencies.</span></span>
+<span id="cb83-957"><a href="#cb83-957" aria-hidden="true" tabindex="-1"></a>      <span class="at">field          =</span> .g<span class="sc">$</span>field,</span>
+<span id="cb83-958"><a href="#cb83-958" aria-hidden="true" tabindex="-1"></a>      <span class="at">reselection    =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.g<span class="sc">$</span>reselection)) <span class="cn">NULL</span> <span class="cf">else</span></span>
+<span id="cb83-959"><a href="#cb83-959" aria-hidden="true" tabindex="-1"></a>                         <span class="fu">list</span>(<span class="at">p_hat =</span> .g<span class="sc">$</span>reselection<span class="sc">$</span>p_hat)),</span>
+<span id="cb83-960"><a href="#cb83-960" aria-hidden="true" tabindex="-1"></a>    <span class="at">fb =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fsbc)) <span class="cn">NULL</span> <span class="cf">else</span> <span class="fu">list</span>(</span>
+<span id="cb83-961"><a href="#cb83-961" aria-hidden="true" tabindex="-1"></a>      <span class="at">H_estimates  =</span> .fsbc<span class="sc">$</span>H_estimates,</span>
+<span id="cb83-962"><a href="#cb83-962" aria-hidden="true" tabindex="-1"></a>      <span class="at">Hc_estimates =</span> .fsbc<span class="sc">$</span>Hc_estimates),</span>
+<span id="cb83-963"><a href="#cb83-963" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Gate 0: the fixed cut set supplied, and the cut forms the realized family</span></span>
+<span id="cb83-964"><a href="#cb83-964" aria-hidden="true" tabindex="-1"></a>    <span class="co"># actually contained -- the evidence that the family cannot regenerate.</span></span>
+<span id="cb83-965"><a href="#cb83-965" aria-hidden="true" tabindex="-1"></a>    <span class="at">frozen_gate =</span> <span class="fu">list</span>(</span>
+<span id="cb83-966"><a href="#cb83-966" aria-hidden="true" tabindex="-1"></a>      <span class="at">frozen_cuts   =</span> <span class="fu">.get</span>(<span class="st">&quot;frozen_cuts&quot;</span>),</span>
+<span id="cb83-967"><a href="#cb83-967" aria-hidden="true" tabindex="-1"></a>      <span class="at">medians       =</span> <span class="fu">.get</span>(<span class="st">&quot;med&quot;</span>),</span>
+<span id="cb83-968"><a href="#cb83-968" aria-hidden="true" tabindex="-1"></a>      <span class="at">realized_cuts =</span> <span class="fu">.get</span>(<span class="st">&quot;inner&quot;</span>)),</span>
+<span id="cb83-969"><a href="#cb83-969" aria-hidden="true" tabindex="-1"></a>    <span class="co"># The quantity of interest in this document: the FB-MR gap within the</span></span>
+<span id="cb83-970"><a href="#cb83-970" aria-hidden="true" tabindex="-1"></a>    <span class="co"># frozen family.</span></span>
+<span id="cb83-971"><a href="#cb83-971" aria-hidden="true" tabindex="-1"></a>    <span class="at">fb_mr_gap =</span> <span class="fu">.try</span>(<span class="fu">list</span>(</span>
+<span id="cb83-972"><a href="#cb83-972" aria-hidden="true" tabindex="-1"></a>      <span class="at">fb_hr     =</span> <span class="fu">.get</span>(<span class="st">&quot;fb_hr&quot;</span>),</span>
+<span id="cb83-973"><a href="#cb83-973" aria-hidden="true" tabindex="-1"></a>      <span class="at">mr_hr     =</span> <span class="fu">.get</span>(<span class="st">&quot;mr_hr&quot;</span>),</span>
+<span id="cb83-974"><a href="#cb83-974" aria-hidden="true" tabindex="-1"></a>      <span class="at">log_diff  =</span> <span class="fu">log</span>(<span class="fu">.get</span>(<span class="st">&quot;fb_hr&quot;</span>)) <span class="sc">-</span> <span class="fu">log</span>(<span class="fu">.get</span>(<span class="st">&quot;mr_hr&quot;</span>)),</span>
+<span id="cb83-975"><a href="#cb83-975" aria-hidden="true" tabindex="-1"></a>      <span class="at">hr_ratio  =</span> <span class="fu">.get</span>(<span class="st">&quot;fb_hr&quot;</span>) <span class="sc">/</span> <span class="fu">.get</span>(<span class="st">&quot;mr_hr&quot;</span>))),</span>
+<span id="cb83-976"><a href="#cb83-976" aria-hidden="true" tabindex="-1"></a>    <span class="at">pareto =</span> <span class="cn">NULL</span>,   <span class="co"># no banded focus here: the frontier block does not run</span></span>
+<span id="cb83-977"><a href="#cb83-977" aria-hidden="true" tabindex="-1"></a>    <span class="at">cv =</span> <span class="cf">if</span> (<span class="fu">isTRUE</span>(<span class="fu">.get</span>(<span class="st">&quot;run_cv_kfold&quot;</span>)) <span class="sc">&amp;&amp;</span> <span class="sc">!</span><span class="fu">is.null</span>(.cvd)) <span class="fu">list</span>(</span>
+<span id="cb83-978"><a href="#cb83-978" aria-hidden="true" tabindex="-1"></a>      <span class="at">metrics                   =</span> <span class="fu">.get</span>(<span class="st">&quot;metrics_tables&quot;</span>),</span>
+<span id="cb83-979"><a href="#cb83-979" aria-hidden="true" tabindex="-1"></a>      <span class="at">identification_summary    =</span> .cvd<span class="sc">$</span>identification_summary,</span>
+<span id="cb83-980"><a href="#cb83-980" aria-hidden="true" tabindex="-1"></a>      <span class="at">pconsistency_distribution =</span> .cvd<span class="sc">$</span>pconsistency_distribution,</span>
+<span id="cb83-981"><a href="#cb83-981" aria-hidden="true" tabindex="-1"></a>      <span class="at">fold_numeric_summary      =</span> .cvd<span class="sc">$</span>fold_numeric_summary,</span>
+<span id="cb83-982"><a href="#cb83-982" aria-hidden="true" tabindex="-1"></a>      <span class="at">original_agreement        =</span> .cvd<span class="sc">$</span>original_agreement) <span class="cf">else</span> <span class="cn">NULL</span>,</span>
+<span id="cb83-983"><a href="#cb83-983" aria-hidden="true" tabindex="-1"></a>    <span class="at">loo =</span> <span class="cf">if</span> (<span class="fu">isTRUE</span>(<span class="fu">.get</span>(<span class="st">&quot;run_loo&quot;</span>)) <span class="sc">&amp;&amp;</span> <span class="sc">!</span><span class="fu">is.null</span>(.loo)) <span class="fu">list</span>(</span>
+<span id="cb83-984"><a href="#cb83-984" aria-hidden="true" tabindex="-1"></a>      <span class="at">row          =</span> .loo,</span>
+<span id="cb83-985"><a href="#cb83-985" aria-hidden="true" tabindex="-1"></a>      <span class="at">sens_metrics =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.cvo)) <span class="cn">NULL</span> <span class="cf">else</span> .cvo<span class="sc">$</span>sens_metrics_original,</span>
+<span id="cb83-986"><a href="#cb83-986" aria-hidden="true" tabindex="-1"></a>      <span class="at">find_metrics =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.cvo)) <span class="cn">NULL</span> <span class="cf">else</span> .cvo<span class="sc">$</span>find_metrics,</span>
+<span id="cb83-987"><a href="#cb83-987" aria-hidden="true" tabindex="-1"></a>      <span class="at">cache        =</span> <span class="fu">.get</span>(<span class="st">&quot;loo_cache&quot;</span>)) <span class="cf">else</span> <span class="cn">NULL</span>,</span>
+<span id="cb83-988"><a href="#cb83-988" aria-hidden="true" tabindex="-1"></a>    <span class="at">gh =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.gh)) <span class="cn">NULL</span> <span class="cf">else</span> <span class="fu">list</span>(</span>
+<span id="cb83-989"><a href="#cb83-989" aria-hidden="true" tabindex="-1"></a>      <span class="at">naive_hr    =</span> .gh<span class="sc">$</span>naive_hr,</span>
+<span id="cb83-990"><a href="#cb83-990" aria-hidden="true" tabindex="-1"></a>      <span class="at">debiased_hr =</span> .gh<span class="sc">$</span>debiased_hr,</span>
+<span id="cb83-991"><a href="#cb83-991" aria-hidden="true" tabindex="-1"></a>      <span class="at">bound_hr    =</span> .gh<span class="sc">$</span>bound_hr,</span>
+<span id="cb83-992"><a href="#cb83-992" aria-hidden="true" tabindex="-1"></a>      <span class="at">selected    =</span> .gh<span class="sc">$</span>selected,</span>
+<span id="cb83-993"><a href="#cb83-993" aria-hidden="true" tabindex="-1"></a>      <span class="at">n_family    =</span> <span class="fu">.try</span>(<span class="fu">length</span>(.gh<span class="sc">$</span>export<span class="sc">$</span>candidates)),</span>
+<span id="cb83-994"><a href="#cb83-994" aria-hidden="true" tabindex="-1"></a>      <span class="at">B           =</span> <span class="fu">.get</span>(<span class="st">&quot;GH_B&quot;</span>),</span>
+<span id="cb83-995"><a href="#cb83-995" aria-hidden="true" tabindex="-1"></a>      <span class="at">r           =</span> <span class="fu">.get</span>(<span class="st">&quot;GH_r&quot;</span>))),</span>
+<span id="cb83-996"><a href="#cb83-996" aria-hidden="true" tabindex="-1"></a>  <span class="at">est_scale =</span> <span class="st">&quot;hr&quot;</span>,</span>
+<span id="cb83-997"><a href="#cb83-997" aria-hidden="true" tabindex="-1"></a>  <span class="at">built_at  =</span> <span class="fu">Sys.time</span>(),</span>
+<span id="cb83-998"><a href="#cb83-998" aria-hidden="true" tabindex="-1"></a>  <span class="at">forestsearch_version =</span> <span class="fu">tryCatch</span>(<span class="fu">as.character</span>(utils<span class="sc">::</span><span class="fu">packageVersion</span>(<span class="st">&quot;forestsearch&quot;</span>)),</span>
+<span id="cb83-999"><a href="#cb83-999" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">error =</span> <span class="cf">function</span>(e) <span class="cn">NA_character_</span>))</span>
+<span id="cb83-1000"><a href="#cb83-1000" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-1001"><a href="#cb83-1001" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(payload, .payload_file)</span>
+<span id="cb83-1002"><a href="#cb83-1002" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Wrote payload to:&quot;</span>, .payload_file, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb83-1003"><a href="#cb83-1003" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 
