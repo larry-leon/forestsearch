@@ -39,7 +39,11 @@
 #'   estimator is dropped with a message when the block's field columns are
 #'   absent (`fld_Hc_*` exist only for bundles run with
 #'   `field_complement = TRUE`).
-#' @param estimators Subset of `c("naive", "mr", "fld")`.
+#' @param estimators Subset of `c("naive", "mr", "fld", "mr_w", "mr_wf")`
+#'   (default the first three).  `"mr_w"` / `"mr_wf"` are MR (IJ) with the
+#'   winner-only / winner-floor SE (`mr_<block>_se_w` / `_se_wf` and their
+#'   `_lo_w/_hi_w` / `_lo_wf/_hi_wf` bounds; TASK_complement_refinements_2026-09-06),
+#'   available only on bundles that recorded them.
 #' @param level Coverage level (default 0.95).
 #' @param target `"betaHhat"` (default; the per-replicate conditional target
 #'   `betaHhat_<block>`), `"oracle"` (the per-replicate oracle estimate
@@ -62,7 +66,7 @@ fs_sim_bias_coverage <- function(results,
                                  side = c("lower", "upper")) {
   block <- match.arg(block)
   side  <- match.arg(side)
-  estimators <- match.arg(estimators, c("naive", "mr", "fld"),
+  estimators <- match.arg(estimators, c("naive", "mr", "fld", "mr_w", "mr_wf"),
                           several.ok = TRUE)
   r <- results[results$detected %in% 1L, , drop = FALSE]
   if (!nrow(r)) stop("fs_sim_bias_coverage: no detected replicates")
@@ -73,6 +77,14 @@ fs_sim_bias_coverage <- function(results,
             "these results; dropping estimator 'fld' for block = \"",
             block, "\".")
     estimators <- setdiff(estimators, "fld")
+  }
+  for (k in intersect(c("mr_w", "mr_wf"), estimators)) {
+    sfx <- if (k == "mr_w") "w" else "wf"
+    if (is.null(r[[paste0("mr_", block, "_se_", sfx)]])) {
+      message("fs_sim_bias_coverage: no mr_", block, "_se_", sfx,
+              " column in these results; dropping estimator '", k, "'.")
+      estimators <- setdiff(estimators, k)
+    }
   }
 
   tgt <- if (is.numeric(target)) rep_len(target, nrow(r))
@@ -100,13 +112,18 @@ fs_sim_bias_coverage <- function(results,
       list(e = f("est2"), lo = f("lo2s"), hi = f("hi2s"), se = f("se"),
            b1 = if (side == "lower") f("lo1s") else f("up1s"))
     } else {
-      e  <- r[[paste0(if (k == "mr") "mr" else "nv", "_", block, "_est")]]
-      se <- r[[if (k == "mr") paste0("mr_", block, "_se_ij")
-               else paste0("nv_", block, "_se")]]
+      # mr_w / mr_wf share MR (IJ)'s point estimate; only the SE and bounds
+      # come from the winner-only / winner-floor columns.
+      pre <- if (k == "naive") "nv" else "mr"
+      vs  <- switch(k, mr_w = "_w", mr_wf = "_wf", "")
+      e  <- r[[paste0(pre, "_", block, "_est")]]
+      se <- r[[if (k == "naive") paste0("nv_", block, "_se")
+               else if (k == "mr") paste0("mr_", block, "_se_ij")
+               else paste0("mr_", block, "_se", vs)]]
       sgn <- if (side == "lower") -1 else 1
       list(e = e,
-           lo = r[[paste0(if (k == "mr") "mr" else "nv", "_", block, "_lo")]],
-           hi = r[[paste0(if (k == "mr") "mr" else "nv", "_", block, "_hi")]],
+           lo = r[[paste0(pre, "_", block, "_lo", vs)]],
+           hi = r[[paste0(pre, "_", block, "_hi", vs)]],
            se = se,
            b1 = ifelse(is.finite(e) & is.finite(se) & e > 0,
                        exp(log(e) + sgn * z1 * se), NA_real_))

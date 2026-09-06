@@ -504,13 +504,21 @@ mr_field_uniform <- identical(.env_chr("FS_S7_UNIFORM", "FALSE"), "TRUE")
 # below.  FALSE leaves every output byte-identical to a pre-complement render
 # (add-only, default off).
 mr_field_complement <- identical(.env_chr("FS_S7_FIELD_COMPLEMENT", "FALSE"), "TRUE")
+# IJ residual knob (TASK_complement_refinements_2026-09-06): which residual
+# populates the REPORTED mr_*_se_ij / mr_*_lo / mr_*_hi.  "two_term" (default)
+# keeps those columns byte-identical; the winner-only and winner-floor SEs
+# are recorded alongside (mr_*_se_w / _se_wf and their bounds) whatever the
+# knob, so one run evaluates all three.  The joint (H lower, Hc upper) pair
+# (fld_joint_*) needs the complement field on.
+mr_ij_residual <- .env_chr("FS_S7_IJ_RESIDUAL", "two_term")
+stopifnot(mr_ij_residual %in% c("two_term", "winner", "winner_floor"))
 
 # t_confirm is omitted from the list when NULL so the package resolves its own
 # measure-aware default rather than receiving an explicit NULL.
 mr_inference_args <- c(
   list(ci_method = mr_ci_method, draws = mr_draws, include_complement = TRUE,
        confirm_rule = mr_confirm_rule, field_uniform = mr_field_uniform,
-       field_complement = mr_field_complement),
+       field_complement = mr_field_complement, ij_residual = mr_ij_residual),
   if (!is.null(mr_t_confirm)) list(t_confirm = mr_t_confirm))
 
 # ── Column names emitted by simulate_from_dgm() ────────────────────────────
@@ -548,8 +556,8 @@ cat(sprintf("Run config: method=%s%s, n_sims=%d, nb_boots=%s, mr_draws=%d, worke
             n_sims, if (is.null(nb_boots)) "0 (skip)" else as.character(nb_boots),
             mr_draws, n_workers))
 # Resolved template knobs -- the render's audit line (env overrides included).
-cat(sprintf("Template knobs: hr=%.2f n=%d ci_method=%s uniform=%s field_complement=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
-            target_hr_harm, n_sample, mr_ci_method, mr_field_uniform, mr_field_complement, fb_mode, campaign_tag,
+cat(sprintf("Template knobs: hr=%.2f n=%d ci_method=%s uniform=%s field_complement=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
+            target_hr_harm, n_sample, mr_ci_method, mr_field_uniform, mr_field_complement, mr_ij_residual, fb_mode, campaign_tag,
             run_mode, sim_id_start, sim_id_start + n_sims - 1L, quickrun))
 cat(sprintf("Output stem: %s\n", rds_stem))
 ```
@@ -744,6 +752,23 @@ rule_covs <- function(rule) forestsearch:::.fs_rule_columns(rule)
   fld_Hc_share_newfit = NA_real_,                          # share of draw-winner readings needing a new fit
   fld_Hc_secs = NA_real_,
   fld_Hc_note = NA_character_,
+  # Winner-only IJ variants (TASK_complement_refinements_2026-09-06, method A):
+  # SE (log-HR) and two-sided bounds (HR scale) for the winner-only residual
+  # (_w) and its naive-variance floor (_wf); the point estimate is mr_*_est.
+  # Recorded whatever FS_S7_IJ_RESIDUAL selects for the reported columns.
+  mr_H_se_w = NA_real_,  mr_H_lo_w = NA_real_,  mr_H_hi_w = NA_real_,
+  mr_H_se_wf = NA_real_, mr_H_lo_wf = NA_real_, mr_H_hi_wf = NA_real_,
+  mr_Hc_se_w = NA_real_,  mr_Hc_lo_w = NA_real_,  mr_Hc_hi_w = NA_real_,
+  mr_Hc_se_wf = NA_real_, mr_Hc_lo_wf = NA_real_, mr_Hc_hi_wf = NA_real_,
+  # Joint (H lower, Hc upper) pair from the aligned field draws (method B;
+  # field_complement = TRUE renders only): equal-tail gamma, achieved joint
+  # probability, the calibrated pair, the Bonferroni pair (gamma = 0.025) and
+  # its probability, the draws' correlation and count.
+  fld_joint_gamma = NA_real_, fld_joint_prob = NA_real_,
+  fld_joint_loH = NA_real_, fld_joint_upHc = NA_real_,
+  fld_joint_bonf_loH = NA_real_, fld_joint_bonf_upHc = NA_real_,
+  fld_joint_bonf_prob = NA_real_,
+  fld_joint_corr = NA_real_, fld_joint_n = NA_integer_,
   mr_harm_flag = NA_integer_, ij_source = NA_character_,
   sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_,
   stringsAsFactors = FALSE)
@@ -859,6 +884,13 @@ if (k_random_noise > 0) {
     rec$nv_H_est <- g$naive$est;    rec$nv_H_lo <- g$naive$lower;    rec$nv_H_hi <- g$naive$upper;    rec$nv_H_se <- g$debiased$se_wald %||% NA_real_
     rec$mr_H_est <- g$debiased$est; rec$mr_H_lo <- g$debiased$lower; rec$mr_H_hi <- g$debiased$upper
     rec$mr_H_se_ij <- g$debiased$se_ij %||% NA_real_
+    # Winner-only variants (absent on pre-refinement packages -> NA).
+    rec$mr_H_se_w  <- g$debiased$se_ij_winner %||% NA_real_
+    rec$mr_H_lo_w  <- g$debiased$lower_w %||% NA_real_
+    rec$mr_H_hi_w  <- g$debiased$upper_w %||% NA_real_
+    rec$mr_H_se_wf <- g$debiased$se_ij_winner_floor %||% NA_real_
+    rec$mr_H_lo_wf <- g$debiased$lower_wf %||% NA_real_
+    rec$mr_H_hi_wf <- g$debiased$upper_wf %||% NA_real_
     if (is.list(g$complement) && !is.null(g$complement$debiased)) {
       rec$nv_Hc_est <- g$complement$naive$est
       rec$nv_Hc_lo  <- g$complement$naive$lower
@@ -868,6 +900,12 @@ if (k_random_noise > 0) {
       rec$mr_Hc_lo  <- g$complement$debiased$lower
       rec$mr_Hc_hi  <- g$complement$debiased$upper
       rec$mr_Hc_se_ij <- g$complement$debiased$se_ij %||% NA_real_
+      rec$mr_Hc_se_w  <- g$complement$debiased$se_ij_winner %||% NA_real_
+      rec$mr_Hc_lo_w  <- g$complement$debiased$lower_w %||% NA_real_
+      rec$mr_Hc_hi_w  <- g$complement$debiased$upper_w %||% NA_real_
+      rec$mr_Hc_se_wf <- g$complement$debiased$se_ij_winner_floor %||% NA_real_
+      rec$mr_Hc_lo_wf <- g$complement$debiased$lower_wf %||% NA_real_
+      rec$mr_Hc_hi_wf <- g$complement$debiased$upper_wf %||% NA_real_
     }
     # ---- MR (field) block (ci_method = "field"; Hhat only, decision F3) ----
     # g$field is absent under ci_method "ij"/"wald" and degenerates to a bare
@@ -923,6 +961,19 @@ if (k_random_noise > 0) {
         rec$fld_Hc_nout         <- fc$n_out_used %||% NA_integer_
         rec$fld_Hc_nfit         <- fc$n_complement_fits %||% NA_integer_
         rec$fld_Hc_share_newfit <- fc$share_draws_new_fit %||% NA_real_
+      }
+      # ---- Joint (H lower, Hc upper) pair (absent -> all NA) ----
+      if (is.list(f$joint) && is.null(f$joint$note)) {
+        jj <- f$joint
+        rec$fld_joint_gamma     <- jj$gamma
+        rec$fld_joint_prob      <- jj$joint_prob
+        rec$fld_joint_loH       <- jj$lower_H
+        rec$fld_joint_upHc      <- jj$upper_Hc
+        rec$fld_joint_bonf_loH  <- jj$bonf_lower_H
+        rec$fld_joint_bonf_upHc <- jj$bonf_upper_Hc
+        rec$fld_joint_bonf_prob <- jj$bonf_joint_prob
+        rec$fld_joint_corr      <- jj$corr
+        rec$fld_joint_n         <- as.integer(jj$n_joint_draws)
       }
     }
   }
@@ -1091,7 +1142,9 @@ if (run_smoke && identical(run_mode, "batch")) {
     for (pr in list(c("fld_H_lo2s", "fld_H_hi2s"), c("fld_H_lo_se", "fld_H_hi_se"),
                     c("fld_H_lo2u", "fld_H_hi2u"),
                     c("fld_Hc_lo2s", "fld_Hc_hi2s"), c("fld_Hc_lo_se", "fld_Hc_hi_se"),
-                    c("fld_Hc_lo1s", "fld_Hc_up1s"))) {
+                    c("fld_Hc_lo1s", "fld_Hc_up1s"),
+                    c("mr_H_lo_w", "mr_H_hi_w"), c("mr_H_lo_wf", "mr_H_hi_wf"),
+                    c("mr_Hc_lo_w", "mr_Hc_hi_w"), c("mr_Hc_lo_wf", "mr_Hc_hi_wf"))) {
       lo <- r[[pr[1]]]; hi <- r[[pr[2]]]
       if (is.null(lo) || is.null(hi)) next
       ok <- is.finite(lo) & is.finite(hi)
@@ -1217,6 +1270,7 @@ if (run_smoke && identical(run_mode, "batch")) {
                              ci_method           = mr_ci_method,
                              field_uniform       = mr_field_uniform,
                              field_complement    = mr_field_complement,
+                             ij_residual         = mr_ij_residual,
                              fb_mode             = fb_mode,
                              fb_join_source      = if (identical(fb_mode, "join"))
                                                      basename(fb_join_path) else NA_character_,
@@ -1322,6 +1376,7 @@ if (run_smoke && identical(run_mode, "batch")) {
                              focus_tag  = bundles[[1]]$meta$focus_tag %||% NA_character_,
                              ci_method  = bundles[[1]]$meta$ci_method %||% NA_character_,
                              field_complement = bundles[[1]]$meta$field_complement %||% NA,
+                             ij_residual = bundles[[1]]$meta$ij_residual %||% NA_character_,
                              campaign_tag = bundles[[1]]$meta$campaign_tag %||% NA_character_,
                              target_hr_harm = bundles[[1]]$meta$target_hr_harm %||% NA_real_,
                              fb_mode_by_batch = vapply(bundles, function(b)
@@ -1349,11 +1404,12 @@ if (run_smoke && identical(run_mode, "batch")) {
 # because the knobs and `results` are both in scope only after @sec-setup.
 knitr::kable(data.frame(
   setting = c("ci_method", "draws", "confirm_rule", "t_confirm (as set)",
-              "include_complement", "field_complement",
+              "include_complement", "field_complement", "ij_residual (reported)",
               "replicates with an MR harm decision"),
   value = c(mr_ci_method, format(mr_draws), mr_confirm_rule,
             if (is.null(mr_t_confirm)) "NULL -> package near-null default"
             else format(mr_t_confirm), "TRUE", as.character(mr_field_complement),
+            mr_ij_residual,
             sprintf("%d of %d detected",
                     sum(!is.na(results$mr_harm_flag)),
                     sum(results$detected %in% 1L)))),
@@ -1596,6 +1652,8 @@ if (run_smoke && !is.null(results)) {
 .get_se <- function(r, k, suffix) {
   col <- if (k == "fld") paste0("fld_", suffix, "_se")
          else if (k == "mr") paste0(k, "_", suffix, "_se_ij")
+         else if (k == "mrw") paste0("mr_", suffix, "_se_w")
+         else if (k == "mrwf") paste0("mr_", suffix, "_se_wf")
          else paste0(k, "_", suffix, "_se")
   v <- r[[col]]
   if (is.null(v)) rep(NA_real_, nrow(r)) else v
@@ -1607,18 +1665,30 @@ if (run_smoke && !is.null(results)) {
 # block only when the render ran with field_complement = TRUE
 # (TASK_mr_field_complement_2026-09-06) -- and uses est2 with the two-sided
 # quantile interval as its primary interval (decision F4).
+# The two winner-only IJ rows (TASK_complement_refinements_2026-09-06) share
+# MR (IJ)'s point estimate and differ only in SE/bounds; they appear when
+# the bundle recorded mr_<block>_se_w.
 est_keys_for <- function(r, suffix) {
   keys <- c(oracle = "or", naive = "nv", FB = "fb",
-            `MR (IJ)` = "mr", `MR (field)` = "fld")
+            `MR (IJ)` = "mr", `MR (IJ, winner)` = "mrw",
+            `MR (IJ, winner-floor)` = "mrwf", `MR (field)` = "fld")
   if (!any(is.finite(r$fb_H_est))) keys <- keys[names(keys) != "FB"]
   if (!any(is.finite(r[[paste0("fld_", suffix, "_est2")]] %||% NA_real_)))
     keys <- keys[names(keys) != "MR (field)"]
+  if (!any(is.finite(r[[paste0("mr_", suffix, "_se_w")]] %||% NA_real_)))
+    keys <- keys[!names(keys) %in% c("MR (IJ, winner)", "MR (IJ, winner-floor)")]
   keys
 }
 .est_cols <- function(r, k, suffix) {
   if (k == "fld") list(e  = r[[paste0("fld_", suffix, "_est2")]],
                        lo = r[[paste0("fld_", suffix, "_lo2s")]],
                        hi = r[[paste0("fld_", suffix, "_hi2s")]])
+  else if (k %in% c("mrw", "mrwf")) {
+    vs <- if (k == "mrw") "_w" else "_wf"
+    list(e  = r[[paste0("mr_", suffix, "_est")]],
+         lo = r[[paste0("mr_", suffix, "_lo", vs)]],
+         hi = r[[paste0("mr_", suffix, "_hi", vs)]])
+  }
   else list(e  = r[[paste0(k, "_", suffix, "_est")]],
             lo = r[[paste0(k, "_", suffix, "_lo")]],
             hi = r[[paste0(k, "_", suffix, "_hi")]])
@@ -2089,7 +2159,9 @@ if (run_smoke && !is.null(results) && any(is.finite(results$fld_H_est2))) {
 # one point per estimator against the Gaussian bookkeeping reference.  The
 # cross-cell version lives in summary_bias_coverage.qmd.
 if (run_smoke && !is.null(results) && any(is.finite(results$fld_H_est2))) {
-  bc <- fs_sim_bias_coverage(results, block = "H", estimators = c("mr", "fld"))
+  .ests_H <- if ("mr_H_se_w" %in% names(results) && any(is.finite(results$mr_H_se_w)))
+    c("mr", "mr_w", "mr_wf", "fld") else c("mr", "fld")
+  bc <- fs_sim_bias_coverage(results, block = "H", estimators = .ests_H)
   bc$cell <- sprintf("hr=%.2f, n=%d%s", target_hr_harm, n_sample,
                      if (k_random_noise > 0) sprintf(", +%d noise", k_random_noise) else "")
   print(knitr::kable(bc[, c("cell", "estimator", "n", "b", "r", "cov1", "cov2",
@@ -2222,7 +2294,9 @@ if (run_smoke && !is.null(results) && "fld_Hc_est2" %in% names(results) &&
 # the Gaussian bookkeeping reference Phi(1.645 r + b) for the UPPER bound.
 if (run_smoke && !is.null(results) && "fld_Hc_est2" %in% names(results) &&
     any(is.finite(results$fld_Hc_est2))) {
-  bcc <- fs_sim_bias_coverage(results, block = "Hc", estimators = c("mr", "fld"),
+  .ests_Hc <- if ("mr_Hc_se_w" %in% names(results) && any(is.finite(results$mr_Hc_se_w)))
+    c("mr", "mr_w", "mr_wf", "fld") else c("mr", "fld")
+  bcc <- fs_sim_bias_coverage(results, block = "Hc", estimators = .ests_Hc,
                               side = "upper")
   bcc$cell <- sprintf("hr=%.2f, n=%d%s", target_hr_harm, n_sample,
                       if (k_random_noise > 0) sprintf(", +%d noise", k_random_noise) else "")
@@ -2230,6 +2304,43 @@ if (run_smoke && !is.null(results) && "fld_Hc_est2" %in% names(results) &&
                              "cov1_ref", "cov2_ref")], digits = 3,
     caption = "Bias vs coverage, complement block (one-sided = UPPER bound): b = retained bias / empirical SD, r = mean SE / empirical SD (log scale); *_ref = Gaussian bookkeeping prediction at (b, r)."))
   print(fs_plot_bias_coverage(bcc, side = "upper"))
+}
+```
+
+```{r field-joint-pair}
+# Simultaneous (H lower, Hc upper) pair (TASK_complement_refinements_2026-09-06,
+# method B; field_complement = TRUE renders only).  Joint coverage
+# beta(Hhat) >= lower_H  AND  beta(Hhat^c) <= upper_Hc for (i) the two separate
+# 95% field bounds, (ii) the Bonferroni pair, (iii) the calibrated pair;
+# the two margins (log scale) for each; mean gamma, achieved joint probability
+# and the draws' correlation.
+if (run_smoke && !is.null(results) && "fld_joint_gamma" %in% names(results) &&
+    any(is.finite(results$fld_joint_gamma))) {
+  rJ <- results[results$detected == 1, , drop = FALSE]
+  okj <- is.finite(rJ$betaHhat_H) & is.finite(rJ$betaHhat_Hc) & is.finite(rJ$fld_joint_gamma)
+  rJ <- rJ[okj, , drop = FALSE]
+  .wl <- function(x, n, z = qnorm(0.975)) {
+    ctr <- (x + z^2/(2*n))/(1 + z^2/n); hw <- z*sqrt(x*(1-x)/n + z^2/(4*n^2))/(1 + z^2/n)
+    sprintf("%.3f (%.3f, %.3f)", x, ctr - hw, ctr + hw)
+  }
+  pairs <- list(
+    `separate 95% field bounds` = list(lo = rJ$fld_H_lo1s, up = rJ$fld_Hc_up1s),
+    `Bonferroni (gamma = 0.025)` = list(lo = rJ$fld_joint_bonf_loH, up = rJ$fld_joint_bonf_upHc),
+    `calibrated gamma`           = list(lo = rJ$fld_joint_loH, up = rJ$fld_joint_upHc))
+  jt <- do.call(rbind, lapply(names(pairs), function(nm) {
+    p <- pairs[[nm]]
+    covH  <- rJ$betaHhat_H >= p$lo; covC <- rJ$betaHhat_Hc <= p$up
+    data.frame(pair = nm, n = nrow(rJ),
+               joint_cov = .wl(mean(covH & covC), nrow(rJ)),
+               cov_H = mean(covH), cov_Hc = mean(covC),
+               margin_H = mean(log(rJ$mr_H_est) - log(p$lo)),
+               margin_Hc = mean(log(p$up) - log(rJ$mr_Hc_est)),
+               stringsAsFactors = FALSE)
+  }))
+  print(knitr::kable(jt, digits = 3,
+    caption = sprintf("Joint (Hhat lower, Hhat^c upper) coverage of (beta(Hhat), beta(Hhat^c)) with Wilson intervals; margins on the log scale from the two-term de-biased estimates. Mean gamma = %.4f (achieved joint prob. %.3f; Bonferroni %.3f); mean corr(Lambda*, Lambda*c) = %+.3f; n_joint_draws mean %.0f.",
+                      mean(rJ$fld_joint_gamma), mean(rJ$fld_joint_prob), mean(rJ$fld_joint_bonf_prob),
+                      mean(rJ$fld_joint_corr), mean(rJ$fld_joint_n))))
 }
 ```
 

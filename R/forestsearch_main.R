@@ -817,6 +817,12 @@
 #'       bound as its primary product (the benefit-claim orientation; see
 #'       \code{\link{fs_mr_inference}}).  Add-only pass-through: the default
 #'       reproduces prior output exactly.}
+#'     \item{\code{ij_residual}}{\code{"two_term"} (default), \code{"winner"}
+#'       or \code{"winner_floor"}: which infinitesimal-jackknife residual
+#'       populates the reported de-biased SE and interval (both blocks); all
+#'       three SEs are returned side by side regardless (see
+#'       \code{\link{fs_mr_inference}}).  Add-only pass-through: the default
+#'       reproduces prior output exactly.}
 #'   }
 #' @param consistency_method Character. \code{"resample"} (default) uses the
 #'   multiplier (influence-function / \code{dfbeta}) approximation
@@ -3408,6 +3414,10 @@ forestsearch <- function(df.analysis,
         # Add-only pass-through (TASK_mr_field_complement_2026-09-06): the
         # complement's field block; FALSE is the gate's default.
         field_complement = .g_mr(mr_inference_args$field_complement, FALSE),
+        # Add-only pass-through (TASK_complement_refinements_2026-09-06):
+        # which IJ residual populates the reported SE; "two_term" is the
+        # gate's default and reproduces prior output exactly.
+        ij_residual   = .g_mr(mr_inference_args$ij_residual, "two_term"),
         seed          = .g_mr(mr_inference_args$seed,        seedit))
     }, error = function(e) {
       warning("mr_inference failed: ", conditionMessage(e)); NULL

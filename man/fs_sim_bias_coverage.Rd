@@ -22,7 +22,11 @@ estimator is dropped with a message when the block's field columns are
 absent (\verb{fld_Hc_*} exist only for bundles run with
 \code{field_complement = TRUE}).}
 
-\item{estimators}{Subset of \code{c("naive", "mr", "fld")}.}
+\item{estimators}{Subset of \code{c("naive", "mr", "fld", "mr_w", "mr_wf")}
+(default the first three).  \code{"mr_w"} / \code{"mr_wf"} are MR (IJ) with the
+winner-only / winner-floor SE (\verb{mr_<block>_se_w} / \verb{_se_wf} and their
+\verb{_lo_w/_hi_w} / \verb{_lo_wf/_hi_wf} bounds; TASK_complement_refinements_2026-09-06),
+available only on bundles that recorded them.}
 
 \item{level}{Coverage level (default 0.95).}
 

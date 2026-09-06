@@ -125,7 +125,7 @@ mv_mr <- function(df, cands, sel_label, spec, draws = MV_DRAWS,
                   multiplier = MV_MULTIPLIER, seed = NULL,
                   ci_method = "ij", field_R_out = 1000L, field_R_in = 500L,
                   field_uniform = FALSE, field_complement = FALSE,
-                  include_complement = FALSE) {
+                  include_complement = FALSE, ij_residual = "two_term") {
   # ci_method = "field" (TASK_mr_field_vs_guohe_2026-09-05, E2 defaults) adds
   # the field element; the debiased element is identical to the "ij" path, so
   # one call yields both MR rows.  Default "ij" keeps the 2026-09-04 behavior.
@@ -136,7 +136,10 @@ mv_mr <- function(df, cands, sel_label, spec, draws = MV_DRAWS,
     reselection = "maxeff",
     draws = draws, multiplier = multiplier,
     ci_method = ci_method, seed = seed, return_reselection = TRUE,
-    include_complement = include_complement)
+    include_complement = include_complement,
+    # winner-only IJ variants (TASK_complement_refinements_2026-09-06);
+    # "two_term" keeps the reported interval byte-identical.
+    ij_residual = ij_residual)
   if (identical(ci_method, "field"))
     args <- c(args, list(field_R_out = field_R_out, field_R_in = field_R_in,
                          # kappa(Sigma-hat) sweep (TASK_mr_field_uniform_2026-09-05);

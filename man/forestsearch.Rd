@@ -878,6 +878,12 @@ as \code{field$complement} with the one-sided 95\\% \emph{upper}
 bound as its primary product (the benefit-claim orientation; see
 \code{\link{fs_mr_inference}}).  Add-only pass-through: the default
 reproduces prior output exactly.}
+\item{\code{ij_residual}}{\code{"two_term"} (default), \code{"winner"}
+or \code{"winner_floor"}: which infinitesimal-jackknife residual
+populates the reported de-biased SE and interval (both blocks); all
+three SEs are returned side by side regardless (see
+\code{\link{fs_mr_inference}}).  Add-only pass-through: the default
+reproduces prior output exactly.}
 }}
 }
 \value{

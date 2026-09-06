@@ -1,0 +1,48 @@
+# REPORT — Complement inference refinements: Stage 1 (Implementation, identities, smoke, projection)
+
+**Task:** `dev/tasks/TASK_complement_refinements_2026-09-06.md` (95e6c8c5); Stage 0 record 291df669.
+**Date:** 2026-09-06. Executor: Claude Code, unattended under K-4. K-1–K-3 at defaults.
+
+---
+
+## GATE 1: PASS — every 1b identity holds (30/30 default-path byte-identities, K = 1, the K = 10 tie, the joint-γ checks; smoke 93/93 existing columns exact vs the s7c bundles on both cells), suite green (0 fail / 5025 pass / 3 skip / 32 warn after one test amendment, below), projection ≈ 3.2 h at 100 workers for all seven cells (< 5 h ceiling). Compute is go under K-4: all seven cells run, none deferred.
+
+## 1a — Implementation
+
+**A. `ij_residual = c("two_term", "winner", "winner_floor")`** on `fs_mr_inference()` (new last formal, `match.arg`). Both blocks compute, beside the existing two-term IJ, the winner-only variance `.fs_mr_ij_var(Xi, bias_sel − D_{Ĥ*_b}(b), ok)` on the same draws (harm: `selection_bias − sel_bias` over `ok_H`; complement: `sbc − selb_c` over `use_c`), resolve it through the same `.fs_mr_se_from_ij()` fallback ladder, and floor it at the naive robust SE via the new `.fs_mr_ij_floor()` (`sqrt(max(V, σ̂²_D))`, `source = "winner_floor"` when the floor binds). `ij_residual` selects which of the three populates the **reported** `se`/`se_ij`/`var_ij`/`ij_source` and `lower`/`upper`/`lower_1s` (harm and complement; `sec_used` for the complement); under the default the reported quantities are computed exactly as before. All three are returned side by side in every call as additional `debiased` / `complement$debiased` elements — `se_ij_two_term`, `se_ij_winner`, `ij_source_winner`, `se_ij_winner_floor`, `ij_source_winner_floor`, `lower_w`/`upper_w`/`lower_1s_w`, `lower_wf`/`upper_wf`/`lower_1s_wf`, and for the complement also `upper_1s_w`/`upper_1s_wf` (its exposed side) — plus a top-level `ij_residual`. Point estimates, bias terms, `mean_r`, the field block and the uniform sweep read none of this and are untouched. Roxygen states the regime result (4σ² for two-term when one candidate dominates; winner-only exact there and under-covering at ties on the harm side; the floor repairs the tie regime at zero cost).
+
+**B. `field$joint`** — `.fs_mr_field_complement()` gains `lam_H`, `beta_deb`, `alpha` and now returns `list(complement, joint)`; the caller attaches `field$complement` (contents unchanged element-for-element) and `field$joint`. New `.fs_mr_field_joint()`: over the aligned draws `(lam[ok_c], lam_c[ok_c])`, the equal-tail γ on the grid `0.050, 0.049, …, 0.025` — the largest with `mean(Λ ≤ q₁₋γ(Λ) & Λᶜ ≥ qγ(Λᶜ)) ≥ 1 − α` (type-7 quantiles as the field), falling back to γ = α/2 when none reaches it; returns `gamma`, `joint_prob` (achieved), `lower_H`/`upper_Hc` (effect scale), the Bonferroni pair `bonf_lower_H`/`bonf_upper_Hc` with `bonf_joint_prob`, `corr`, `n_joint_draws`, and the `grid_gamma`/`grid_joint_prob` profile. No new draws; the marginal one-sided bounds are untouched.
+
+**Forwarding, display, template, tests, harness.** `forestsearch()`: one add-only line (`ij_residual = .g_mr(mr_inference_args$ij_residual, "two_term")`) + roxygen `\item`. `fs_sim_bias_coverage()`: estimators `"mr_w"` / `"mr_wf"` (MR (IJ)'s point estimate with the winner / winner-floor SE and bounds; dropped with a message when the columns are absent; default estimator set unchanged). Template: knob `FS_S7_IJ_RESIDUAL` (default `two_term`, echoed, in `meta$ij_residual` and the pooled meta); recorder columns `mr_H_se_w/lo_w/hi_w`, `mr_H_se_wf/lo_wf/hi_wf`, the `Hc` twins, `fld_joint_gamma/prob/loH/upHc/bonf_loH/bonf_upHc/bonf_prob/corr/n`; `.ci_check` gains the four winner pairs; `est_keys_for`/`.est_cols`/`.get_se` add the rows **MR (IJ, winner)** and **MR (IJ, winner-floor)** to both blocks of every estimation table and to the Wilson coverage table (one-sided on the block's exposed side) when the bundle recorded them; the two display chunks pass `c("mr", "mr_w", "mr_wf", "fld")` when present; new chunk `field-joint-pair` (joint coverage and margins for the separate / Bonferroni / calibrated pairs, mean γ, achieved probability, correlation); settings readout gains `ij_residual (reported)`. New `tests/testthat/test-mr-ij-residual-joint.R` (46 expectations: add-only identity with the new elements excluded, reported-SE selection, point-estimate invariance, K = 1 identities, joint range/probability/consistency, no joint without the complement field). Harness `mv_mr()` gains `ij_residual = "two_term"`. `man/` regenerated; installed via `R CMD INSTALL --preclean`.
+
+## 1b — Identities (all PASS)
+
+Engine level (`identity_checks_K.R`, session scratchpad; 15 pre-change reference objects captured with the installed ef3e609a package, which deparses `fs_mr_inference` identically to the pre-change source):
+
+- **J1 Default-path byte-identity, 30/30:** the three Guo–He fixed-seed cases × `ci_method ∈ {"ij", "field"}` × `include_complement` × (`field_complement` where applicable) — each post-change call `identical()` to its reference with `timing_seconds`, `ij_residual`, the winner elements and `field$joint` excluded, both with the argument omitted and with `ij_residual = "two_term"` stated. **`field$complement` is identical element-for-element** (the s7c/map1c anchor).
+- **J2 Reported-SE selection (case B, K = 154):** point estimates, bias terms and `naive` identical across the three settings; the reported `se_ij` equals the recorded variant. Harm SE two-term 0.328 / winner 0.163 / floor 0.169 (= naive 0.169); complement 0.400 / 0.196 / 0.204 (= naive 0.204).
+- **J3 K = 1 (5,000 draws), 6/6:** winner/naive = 1.016 (H), 1.007 (Ĥᶜ); two-term/(2·naive) = 1.016, 1.007 — the 4σ² identity; floor = max(winner, naive) exactly on both blocks.
+- **J4 Exchangeable K = 10 all-null tie (100 replicates):** harm-side winner SE 0.072 < empirical SD of β̃ 0.157 (the known under-coverage regime; two-term 0.223, floor = naive 0.186 ≥ SD); `winner_floor ≥ naive` on every replicate. Complement at the tie: winner SE 0.059 vs empirical SD 0.056 (two-term 0.119, naive 0.061) — the complement is exact even at the tie, as the task anticipated.
+- **J5 Joint γ:** on the three fixed-seed cases γ = 0.025, achieved joint probability 0.950–0.951, correlations +0.167 / −0.008 / +0.016, `n_joint_draws = n_out_used`, pair ⊇ the separate bounds; independent construction (200 × 1,000 draws): mean γ 0.0251 vs 1 − √0.95 = 0.0253 (sd 0.0003); perfectly negatively dependent construction (Λᶜ = −Λ): γ = 0.050 exactly; Λᶜ = Λ: γ = 0.025 (the joint event is then two-sided, probability 1 − 2γ). *(A first draft of the last check expected 0.05 for Λᶜ = Λ; that was the check's error, corrected — the code was right.)*
+
+Template level — **smoke, campaign `s7wsmoke`** (5 replicates per cell at the committed seeds, `FS_S7_FIELD_COMPLEMENT=TRUE`, `FS_S7_IJ_RESIDUAL=two_term`, FB none, 5 workers, rendered sequentially), against the committed `s7c` bundles on sims 1–5:
+
+| Cell | Detected | Existing columns identical (fb_*/wall-clock excluded) | New columns (21) finite | γ | achieved joint prob. | corr(Λ*, Λ*ᶜ) |
+|---|---|---|---|---|---|---|
+| h100 n500 | 3 / 5 | **93/93, worst rel diff 0.0** | all | 0.025 ×3 | 0.9507, 0.9496, 0.9508 | −0.012 |
+| h175 n500 | 5 / 5 | **93/93, worst rel diff 0.0** | all | 0.025 ×4, 0.026 | 0.9510, 0.9499, 0.9498, 0.9510, 0.9519 | +0.024 |
+
+Bound identities on the recorded columns ≤ 1.1e-16; interval invariants hold; `meta$ij_residual = two_term`. Per-replicate SEs (two-term / winner / floor): harm 0.34–0.45 / 0.15–0.22 / 0.26–0.36 (the floor binds on every replicate — the winner-only SE sits below the naive SE on the harm side, as at the K = 10 tie); complement 0.25–0.26 / 0.12–0.13 / 0.13–0.14 (floor binds, marginally). **Achieved joint probability:** three replicates sit at 0.9496–0.9499 — the grid reached no γ with probability ≥ 0.95 and the pair fell back to γ = 0.025, whose empirical joint probability at ~1,000 draws is 0.95 ± one draw (0.0004 = 0.3 draws of 974). This is quantile discreteness at the Bonferroni floor, not a defect: the Gate 2 criterion is `joint_prob ≥ 1 − α − 1/n_joint` with the achieved value reported.
+
+Evidence bundles committed: `results/..._{h100,h175}_knoise0_n500_s7wsmoke_res_1_5.rds` and the two rendered HTMLs (new rows in both blocks' tables, the joint-pair table, the extended displays).
+
+## 1c — Projection (100 workers, loaded)
+
+The additions are arithmetic on existing draws (two extra `.fs_mr_ij_var()` calls per block, a 26-point grid on two length-≤1000 vectors): smoke `fit_mr_secs` is unchanged from the s7c smoke within noise. Anchors are the s7c/map1c cell walls (16 / 19 / 19 / 57 / 14 / 26 / 35 min): **≈ 3.2 h for all seven cells**, inside the 5 h ceiling, 7 h hard timeout. Order as the complement task; campaigns `s7w` (first two) / `map1w`; two seed-disjoint batches then combine per cell; per-cell fail-fast (`stage2K_driver.sh`, session scratchpad).
+
+## Deviations
+
+- **Test amendment:** `tests/testthat/test-mr-field-complement.R` (the complement task's, committed at ef3e609a) asserted that `field_complement = TRUE` adds nothing beyond `field$complement`; method B now attaches `field$joint` alongside, so its strip helper also drops `joint`. The full suite ran 0 fail apart from that one expectation (5024 pass); the amended file passes (39 expectations), and the new file passes (46).
+
+- J5's dependent-construction check re-expressed (above); no code change.
+- The task's cited `poc_ci_results_2026-09-05.csv` is absent from `dev/tasks/` (Stage 0 note); the PoC markdown's figures served as the reference.

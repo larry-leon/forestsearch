@@ -25,7 +25,8 @@ fs_mr_inference(
   field_R_in = 500L,
   field_uniform = FALSE,
   field_M_cap = NULL,
-  field_complement = FALSE
+  field_complement = FALSE,
+  ij_residual = c("two_term", "winner", "winner_floor")
 )
 }
 \arguments{
@@ -168,6 +169,27 @@ multiplier stage did not fit are fit lazily.  The block draws nothing, so
 every other output -- the harm \code{field} block and its \code{uniform} sub-block
 included -- is byte-identical whether or not it runs; the default
 reproduces prior output exactly.}
+
+\item{ij_residual}{Which IJ residual populates the \strong{reported} de-biased
+SE and interval (\code{debiased$se_ij}/\code{lower}/\code{upper}/\code{lower_1s}, and the
+complement's), method proposal
+\verb{dev/tasks/TASK_complement_refinements_2026-09-06.md}.  \code{"two_term"}
+(default) is the paper's residual
+\eqn{r_b = (bias_{sel} + bias_{fix}) - D_{H^*_b}(b) - D_{\hat H}(b)},
+whose limit variance is \eqn{(p + e_{\hat H})' \Sigma (p + e_{\hat H})} --
+\eqn{4\sigma^2} when one candidate dominates, a doubled SE exactly where
+there is least to correct (the complement is effectively always in that
+regime).  \code{"winner"} uses the winner-only (total-derivative) residual
+\eqn{r^w_b = bias_{sel} - D_{H^*_b}(b)}, exact when one candidate
+dominates but under-covering at ties on the harm side (the delta method
+does not hold in the local regime); \code{"winner_floor"} floors it at the
+naive robust variance, \eqn{\max(V^w, \hat\sigma^2_D)}, which repairs the
+tie regime at zero cost.  All three SEs are computed from the same draws
+and returned side by side in every call (\code{se_ij_two_term},
+\code{se_ij_winner}, \code{se_ij_winner_floor} with their bounds \verb{*_w} / \verb{*_wf});
+the argument only selects the reported one, and the point estimates
+never change.  Add-only: the default reproduces prior output exactly
+(the new elements aside).}
 }
 \value{
 List with the selected index/label, \code{naive} and \code{debiased} estimates
@@ -238,6 +260,20 @@ included), \code{n_new_fits}, \code{share_draws_new_fit} (share of outer + inner
 draw-winner readings whose candidate the multiplier stage had not fit);
 \code{R_out}, \code{R_in}, \code{timing_seconds}.  A \code{note} replaces the numbers when
 the selected complement is unfit or fewer than 2 outer draws survive.
+
+With the complement field on, \code{field} also carries \code{joint}: the
+simultaneous (harm lower, complement upper) pair from the aligned outer
+draws \eqn{(\Lambda^*_r, \Lambda^{*c}_r)} -- same multipliers, same
+winners, no new draws.  \code{gamma} is the equal-tail level (grid from
+\code{alpha} down to \code{alpha / 2}, step 0.001; the largest value whose joint
+probability \eqn{P^*(\Lambda^* \le q_{1-\gamma}, \Lambda^{*c} \ge
+  q_\gamma) \ge 1 - \alpha}), \code{joint_prob} the achieved probability,
+\code{lower_H}/\code{upper_Hc} the calibrated pair (effect scale),
+\code{bonf_lower_H}/\code{bonf_upper_Hc} the Bonferroni pair at \code{gamma = alpha/2}
+with its \code{bonf_joint_prob}, \code{corr} the draws' correlation,
+\code{n_joint_draws}, and the \code{grid_gamma}/\code{grid_joint_prob} profile.  The
+marginal one-sided bounds are unchanged.  The top-level \code{ij_residual}
+records the residual that populated the reported IJ SEs.
 }
 \description{
 Computes a multiplier-bootstrap approximation of the bootstrap

@@ -362,6 +362,26 @@
 #'   every other output -- the harm `field` block and its `uniform` sub-block
 #'   included -- is byte-identical whether or not it runs; the default
 #'   reproduces prior output exactly.
+#' @param ij_residual Which IJ residual populates the **reported** de-biased
+#'   SE and interval (`debiased$se_ij`/`lower`/`upper`/`lower_1s`, and the
+#'   complement's), method proposal
+#'   `dev/tasks/TASK_complement_refinements_2026-09-06.md`.  `"two_term"`
+#'   (default) is the paper's residual
+#'   \eqn{r_b = (bias_{sel} + bias_{fix}) - D_{H^*_b}(b) - D_{\hat H}(b)},
+#'   whose limit variance is \eqn{(p + e_{\hat H})' \Sigma (p + e_{\hat H})} --
+#'   \eqn{4\sigma^2} when one candidate dominates, a doubled SE exactly where
+#'   there is least to correct (the complement is effectively always in that
+#'   regime).  `"winner"` uses the winner-only (total-derivative) residual
+#'   \eqn{r^w_b = bias_{sel} - D_{H^*_b}(b)}, exact when one candidate
+#'   dominates but under-covering at ties on the harm side (the delta method
+#'   does not hold in the local regime); `"winner_floor"` floors it at the
+#'   naive robust variance, \eqn{\max(V^w, \hat\sigma^2_D)}, which repairs the
+#'   tie regime at zero cost.  All three SEs are computed from the same draws
+#'   and returned side by side in every call (`se_ij_two_term`,
+#'   `se_ij_winner`, `se_ij_winner_floor` with their bounds `*_w` / `*_wf`);
+#'   the argument only selects the reported one, and the point estimates
+#'   never change.  Add-only: the default reproduces prior output exactly
+#'   (the new elements aside).
 #' @return List with the selected index/label, `naive` and `debiased` estimates
 #'   (effect scale, with approximate 95% CIs), `selection_bias`, `fixed_bias`,
 #'   `selection_rate`, `mean_r`, `mean_r_c`, the `settings` actually used (`t_confirm`,
@@ -430,6 +450,20 @@
 #'   draw-winner readings whose candidate the multiplier stage had not fit);
 #'   `R_out`, `R_in`, `timing_seconds`.  A `note` replaces the numbers when
 #'   the selected complement is unfit or fewer than 2 outer draws survive.
+#'
+#'   With the complement field on, `field` also carries `joint`: the
+#'   simultaneous (harm lower, complement upper) pair from the aligned outer
+#'   draws \eqn{(\Lambda^*_r, \Lambda^{*c}_r)} -- same multipliers, same
+#'   winners, no new draws.  `gamma` is the equal-tail level (grid from
+#'   `alpha` down to `alpha / 2`, step 0.001; the largest value whose joint
+#'   probability \eqn{P^*(\Lambda^* \le q_{1-\gamma}, \Lambda^{*c} \ge
+#'   q_\gamma) \ge 1 - \alpha}), `joint_prob` the achieved probability,
+#'   `lower_H`/`upper_Hc` the calibrated pair (effect scale),
+#'   `bonf_lower_H`/`bonf_upper_Hc` the Bonferroni pair at `gamma = alpha/2`
+#'   with its `bonf_joint_prob`, `corr` the draws' correlation,
+#'   `n_joint_draws`, and the `grid_gamma`/`grid_joint_prob` profile.  The
+#'   marginal one-sided bounds are unchanged.  The top-level `ij_residual`
+#'   records the residual that populated the reported IJ SEs.
 #' @section Alignment is assumed, not checked here:
 #' This is an engine-level entry point. Its arguments are a candidate family,
 #' a specification, and a selected membership vector -- the identifier
@@ -469,8 +503,10 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                            field_R_in = 500L,
                            field_uniform = FALSE,
                            field_M_cap = NULL,
-                           field_complement = FALSE) {
+                           field_complement = FALSE,
+                           ij_residual = c("two_term", "winner", "winner_floor")) {
   confirm_rule <- match.arg(confirm_rule); reselection <- match.arg(reselection)
+  ij_residual <- match.arg(ij_residual)
   selection_rule <- match.arg(selection_rule)
   multiplier <- match.arg(multiplier); ci_method <- match.arg(ci_method)
   if (!is.null(seed)) set.seed(seed)
@@ -605,9 +641,21 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   mean_r <- mean(r_H[ok_H])
   ijH   <- .fs_mr_ij_var(Xi, r_H, ok_H)
   se_ij <- .fs_mr_se_from_ij(ijH, se_wald)
+  # Winner-only IJ variants (TASK_complement_refinements_2026-09-06, method A):
+  # the total-derivative residual r_b^w = bias_sel - D_{H*_b}(b) drops the
+  # same-draws term (exact when one candidate dominates; under-covers at ties
+  # on the harm side unless floored at the naive variance).  Always computed
+  # from the same draws -- add-only elements -- and ij_residual chooses which
+  # variance populates the REPORTED se_ij / bounds; the default "two_term"
+  # reports se_ij exactly as before.
+  ijH_win   <- .fs_mr_ij_var(Xi, selection_bias - sel_bias, ok_H)
+  se_ij_win <- .fs_mr_se_from_ij(ijH_win, se_wald)
+  se_ij_wfl <- .fs_mr_ij_floor(se_ij_win, se_wald)
+  se_ij_rep <- switch(ij_residual, two_term = se_ij, winner = se_ij_win,
+                      winner_floor = se_ij_wfl)
   # "field" keeps the debiased element on the IJ interval (identical to "ij");
   # only "wald" switches it to the robust SE.
-  se    <- if (ci_method == "wald") se_wald else se_ij$se
+  se    <- if (ci_method == "wald") se_wald else se_ij_rep$se
 
   t_cmp    <- if (log_scale) log(t_confirm) else t_confirm
   ci_lo_1s <- beta_deb - stats::qnorm(0.95) * se
@@ -676,7 +724,15 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
       mean_r_c <- mean(r_c[use_c])          # exposure only; see mean_r above
       ijC   <- .fs_mr_ij_var(Xi, r_c, use_c)
       se_ijc <- .fs_mr_se_from_ij(ijC, sec)
-      sec_used <- if (ci_method %in% c("ij", "field")) se_ijc$se else sec
+      # Winner-only variants for the complement (see the harm block above):
+      # residual sbc - selb_c over the same use_c draws; floor = naive SE.
+      ijC_win    <- .fs_mr_ij_var(Xi, sbc - selb_c, use_c)
+      se_ijc_win <- .fs_mr_se_from_ij(ijC_win, sec)
+      se_ijc_wfl <- .fs_mr_ij_floor(se_ijc_win, sec)
+      se_ijc_rep <- switch(ij_residual, two_term = se_ijc, winner = se_ijc_win,
+                           winner_floor = se_ijc_wfl)
+      sec_used <- if (ci_method %in% c("ij", "field")) se_ijc_rep$se else sec
+      z95c <- stats::qnorm(0.95)
       complement <- list(
         naive    = list(est = to_eff(bnc),
                         lower = to_eff(bnc - z975 * sec),
@@ -685,9 +741,24 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                         lower = to_eff(bdc - z975 * sec_used),
                         upper = to_eff(bdc + z975 * sec_used),
                         lower_1s = to_eff(bdc - stats::qnorm(0.95) * sec_used),
-                        se = sec_used, se_ij = se_ijc$se, se_wald = sec,
-                        var_ij = se_ijc$var, ij_source = se_ijc$source,
-                        ij_draws = ijC$B_ok),
+                        se = sec_used, se_ij = se_ijc_rep$se, se_wald = sec,
+                        var_ij = se_ijc_rep$var, ij_source = se_ijc_rep$source,
+                        ij_draws = ijC$B_ok,
+                        # Add-only: the winner-only variants, both recorded
+                        # regardless of ij_residual (method A).
+                        se_ij_two_term = se_ijc$se,
+                        se_ij_winner = se_ijc_win$se,
+                        ij_source_winner = se_ijc_win$source,
+                        se_ij_winner_floor = se_ijc_wfl$se,
+                        ij_source_winner_floor = se_ijc_wfl$source,
+                        lower_w  = to_eff(bdc - z975 * se_ijc_win$se),
+                        upper_w  = to_eff(bdc + z975 * se_ijc_win$se),
+                        lower_1s_w = to_eff(bdc - z95c * se_ijc_win$se),
+                        upper_1s_w = to_eff(bdc + z95c * se_ijc_win$se),
+                        lower_wf = to_eff(bdc - z975 * se_ijc_wfl$se),
+                        upper_wf = to_eff(bdc + z975 * se_ijc_wfl$se),
+                        lower_1s_wf = to_eff(bdc - z95c * se_ijc_wfl$se),
+                        upper_1s_wf = to_eff(bdc + z95c * se_ijc_wfl$se)),
         selection_bias = selbias_c, fixed_bias = fixed_c,
         n = Nall - sz[sel])
     } else {
@@ -794,11 +865,17 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
       # (TASK_mr_field_complement_2026-09-06).  Needs the gate's complement
       # path: Bc / bh_c / winset exist only under include_complement = TRUE.
       if (fc) {
-        field$complement <- .fs_mr_field_complement(
+        fcres <- .fs_mr_field_complement(
           df = df, spec = spec, kept = kept, Bc = Bc, bh_c = bh_c,
           winset = winset, sel = sel, bdc = bdc_w,
           G_out = G_out, W_in = W_in, Xo = Xo, Xi_f = Xi_f,
-          to_eff = to_eff, z975 = z975)
+          to_eff = to_eff, z975 = z975,
+          # Joint (H lower, Hc upper) pair from the aligned outer draws
+          # (TASK_complement_refinements_2026-09-06, method B); add-only,
+          # attached as field$joint, no new draws.
+          lam_H = lam, beta_deb = beta_deb)
+        field$complement <- fcres$complement
+        if (!is.null(fcres$joint)) field$joint <- fcres$joint
       }
 
       # -- Uniform (kappa) calibration -- add-only, after the field's stream
@@ -854,9 +931,22 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                     lower = to_eff(beta_deb - z975 * se),
                     upper = to_eff(beta_deb + z975 * se),
                     lower_1s = to_eff(ci_lo_1s),
-                    se = se, se_ij = se_ij$se, se_wald = se_wald,
-                    var_ij = se_ij$var, ij_source = se_ij$source,
-                    ij_draws = ijH$B_ok),
+                    se = se, se_ij = se_ij_rep$se, se_wald = se_wald,
+                    var_ij = se_ij_rep$var, ij_source = se_ij_rep$source,
+                    ij_draws = ijH$B_ok,
+                    # Add-only: the winner-only variants (method A), both
+                    # recorded regardless of ij_residual.
+                    se_ij_two_term = se_ij$se,
+                    se_ij_winner = se_ij_win$se,
+                    ij_source_winner = se_ij_win$source,
+                    se_ij_winner_floor = se_ij_wfl$se,
+                    ij_source_winner_floor = se_ij_wfl$source,
+                    lower_w  = to_eff(beta_deb - z975 * se_ij_win$se),
+                    upper_w  = to_eff(beta_deb + z975 * se_ij_win$se),
+                    lower_1s_w = to_eff(beta_deb - stats::qnorm(0.95) * se_ij_win$se),
+                    lower_wf = to_eff(beta_deb - z975 * se_ij_wfl$se),
+                    upper_wf = to_eff(beta_deb + z975 * se_ij_wfl$se),
+                    lower_1s_wf = to_eff(beta_deb - stats::qnorm(0.95) * se_ij_wfl$se)),
     selection_bias = selection_bias, fixed_bias = fixed_bias,
     selection_rate = selection_rate,
     mean_r = mean_r, mean_r_c = mean_r_c,
@@ -870,6 +960,7 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
     out$reselection <- list(winner = winner, p_hat = p_hat)
   }
   if (!is.null(field)) out$field <- field
+  out$ij_residual <- ij_residual   # add-only: the residual behind the reported IJ SEs
   out
 }
 
@@ -896,13 +987,16 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
 #'   complement is unfit or fewer than 2 outer draws survive.
 #' @noRd
 .fs_mr_field_complement <- function(df, spec, kept, Bc, bh_c, winset, sel, bdc,
-                                    G_out, W_in, Xo, Xi_f, to_eff, z975) {
+                                    G_out, W_in, Xo, Xi_f, to_eff, z975,
+                                    lam_H = NULL, beta_deb = NA_real_,
+                                    alpha = 0.05) {
   t0c <- proc.time()
   R_out <- length(G_out); R_in <- ncol(W_in)
   if (!is.finite(bdc))
-    return(list(note = "complement of the selected subgroup could not be fit",
-                n_out_used = 0L, R_out = as.integer(R_out),
-                R_in = as.integer(R_in)))
+    return(list(complement = list(
+      note = "complement of the selected subgroup could not be fit",
+      n_out_used = 0L, R_out = as.integer(R_out), R_in = as.integer(R_in)),
+      joint = NULL))
   Nall <- nrow(Bc)
   # Lazy complement fits: every candidate winning on any outer or inner draw
   # that the multiplier stage did not already fit -- the same loop body as the
@@ -943,14 +1037,19 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                  share_draws_new_fit = mean(!(readings %in% winset)),
                  R_out = as.integer(R_out), R_in = as.integer(R_in))
   if (length(ok_c) < 2L)
-    return(c(list(note = "fewer than 2 usable outer draws (complement)"),
-             counts))
+    return(list(complement = c(list(note = "fewer than 2 usable outer draws (complement)"),
+                               counts), joint = NULL))
   lf <- lam_c[ok_c]
   qs <- stats::quantile(lf, c(.05, .25, .50, .75, .95, .025, .975),
                         names = FALSE, type = 7)
   est2_w <- bdc - mean(lf)
   sd_c <- stats::sd(lf)
-  c(list(
+  # Joint (H lower, Hc upper) pair (method B): the harm field's lam and this
+  # block's lam_c are indexed by the same outer draw r, so the aligned pairs
+  # over ok_c need no re-drawing.
+  joint <- if (!is.null(lam_H) && is.finite(beta_deb))
+    .fs_mr_field_joint(lam_H[ok_c], lf, beta_deb, bdc, to_eff, alpha) else NULL
+  complement <- c(list(
     lambda_mean = mean(lf), lambda_sd = sd_c,
     q05 = qs[1], q25 = qs[2], q50 = qs[3], q75 = qs[4], q95 = qs[5],
     q025 = qs[6], q975 = qs[7],
@@ -965,4 +1064,56 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
     upper_se = to_eff(est2_w + z975 * sd_c)),
     counts,
     list(timing_seconds = as.numeric((proc.time() - t0c)["elapsed"])))
+  list(complement = complement, joint = joint)
+}
+
+
+#' Floor an IJ SE at the naive (robust) SE -- the "winner_floor" variant
+#'
+#' `sqrt(max(V, se_floor^2))`; `source` becomes `"winner_floor"` when the floor
+#' binds, otherwise the resolved IJ source is kept.
+#' @noRd
+.fs_mr_ij_floor <- function(ij_se, se_floor) {
+  if (is.finite(se_floor) && (!is.finite(ij_se$se) || ij_se$se < se_floor))
+    return(list(se = se_floor, var = se_floor^2, source = "winner_floor"))
+  ij_se
+}
+
+
+#' Simultaneous (H lower, Hc upper) bounds from the aligned field draws
+#'
+#' Equal-tail level `gamma` on a grid from `alpha` down to `alpha / 2` (step
+#' 0.001): the largest `gamma` with
+#' `mean(Lambda <= q_{1-gamma}(Lambda) & Lambda_c >= q_gamma(Lambda_c)) >= 1 - alpha`
+#' (the harm lower bound inverts the upper tail of `Lambda*`, the complement
+#' upper bound the lower tail of `Lambda*c`).  Returns the calibrated pair, the
+#' Bonferroni pair (`gamma = alpha / 2`) for reference, the achieved joint
+#' probability, the correlation of the draws and their count.
+#' (TASK_complement_refinements_2026-09-06, method B.)
+#' @noRd
+.fs_mr_field_joint <- function(lam_H, lam_c, beta_deb, bdc, to_eff,
+                               alpha = 0.05) {
+  ok <- is.finite(lam_H) & is.finite(lam_c)
+  lh <- lam_H[ok]; lc <- lam_c[ok]; n <- length(lh)
+  if (n < 2L) return(list(note = "fewer than 2 aligned draws", n_joint_draws = n))
+  grid <- seq(alpha, alpha / 2, by = -0.001)
+  probs <- vapply(grid, function(g) {
+    qh <- stats::quantile(lh, 1 - g, names = FALSE, type = 7)
+    qc <- stats::quantile(lc, g, names = FALSE, type = 7)
+    mean(lh <= qh & lc >= qc)
+  }, numeric(1))
+  hit <- which(probs >= 1 - alpha)
+  gamma <- if (length(hit)) grid[hit[1]] else alpha / 2   # largest gamma meeting the target
+  jp    <- if (length(hit)) probs[hit[1]] else probs[length(probs)]
+  qh_g  <- stats::quantile(lh, 1 - gamma, names = FALSE, type = 7)
+  qc_g  <- stats::quantile(lc, gamma, names = FALSE, type = 7)
+  qh_b  <- stats::quantile(lh, 1 - alpha / 2, names = FALSE, type = 7)
+  qc_b  <- stats::quantile(lc, alpha / 2, names = FALSE, type = 7)
+  list(gamma = gamma, joint_prob = jp, alpha = alpha,
+       lower_H = to_eff(beta_deb - qh_g), upper_Hc = to_eff(bdc - qc_g),
+       bonf_gamma = alpha / 2,
+       bonf_lower_H = to_eff(beta_deb - qh_b), bonf_upper_Hc = to_eff(bdc - qc_b),
+       bonf_joint_prob = mean(lh <= qh_b & lc >= qc_b),
+       corr = stats::cor(lh, lc), n_joint_draws = n,
+       grid_gamma = grid, grid_joint_prob = probs)
 }

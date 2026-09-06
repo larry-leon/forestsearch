@@ -32,7 +32,10 @@
 .strip_t <- function(x) {
   x$timing_seconds <- NULL
   if (is.list(x$field)) { x$field$timing_seconds <- NULL
-                          x$field$complement <- NULL }
+                          x$field$complement <- NULL
+                          # field$joint attaches with the complement field
+                          # (TASK_complement_refinements_2026-09-06, method B).
+                          x$field$joint <- NULL }
   x
 }
 
