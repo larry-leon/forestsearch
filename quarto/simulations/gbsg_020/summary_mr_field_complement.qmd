@@ -1,0 +1,90 @@
+---
+title: "The complement's field block across the MR simulation cells"
+subtitle: "One-sided UPPER-bound and two-sided coverage of β(Ĥᶜ) against residual bias, with the Gaussian reference (TASK_mr_field_complement_2026-09-06)"
+author: "Larry León"
+date: today
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+---
+
+Selection acts on the harm-subgroup effects; the complement $\widehat H^{c}$
+is its by-product, and its naive estimate is pushed toward *benefit*. For a
+benefit claim ("HR in $\widehat H^{c}$ is at most $U$") the exposed limit is
+the **upper** bound on the complement's log-HR, so the one-sided read here is
+$\beta(\widehat H^{c}) \le U$ and the Gaussian bookkeeping reference is
+$\Phi(z_{0.95} r + b)$ (a positive retained bias helps an upper bound where
+it hurts a lower one); two-sided coverage keeps
+$\Phi(z_{0.975} r - b) - \Phi(-z_{0.975} r - b)$. Cells are the
+`field_complement = TRUE` campaigns `s7c` / `map1c`, the same replicates as
+the committed `s7` / `map1` bundles (every non-complement-field column
+identical; Gate 2 record).
+
+# Knobs
+
+```{r setup, message=FALSE}
+library(forestsearch)
+library(ggplot2)
+library(kableExtra)
+globs <- strsplit(Sys.getenv("FS_SUMC_GLOBS",
+                  "results/fs_*_s7c_combined_1_2000.rds;results/fs_*_map1c_combined_1_2000.rds"),
+                  ";", fixed = TRUE)[[1]]
+estimators <- c("mr", "fld")
+curves     <- c(1, 1.25, 1.5, 2)
+cell_label <- function(meta, f) {
+  hr <- meta$target_hr_harm
+  base <- if (hr < 1) sprintf("protective %.2f", hr)
+  else if (hr == 1) "null 1.0" else sprintf("harm %.4g", hr)
+  kn <- as.integer(sub("^.*_knoise(\\d+)_.*$", "\\1", basename(f)))
+  nn <- if (meta$n_sample == 500) if (kn > 0 || hr < 1) "" else ", n=500" else sprintf(", n=%d", meta$n_sample)
+  paste0(base, nn, if (kn > 0) sprintf(", %d noise", kn) else "")
+}
+```
+
+# Cells
+
+```{r read}
+files <- sort(unlist(lapply(globs, Sys.glob)))
+stopifnot(length(files) > 0)
+tab <- do.call(rbind, lapply(files, function(f) {
+  b <- readRDS(f)
+  s <- fs_sim_bias_coverage(b$results, block = "Hc", estimators = estimators,
+                            side = "upper")
+  s$cell <- cell_label(b$meta, f); s$bundle <- basename(f); s
+}))
+tab$estimator <- factor(tab$estimator, levels = c("naive", "mr", "fld"),
+                        labels = c("naive", "IJ", "field"))
+kbl(tab[, c("cell", "estimator", "n", "b", "r", "cov1", "cov1_wilson_lo",
+            "cov1_wilson_hi", "cov2", "cov2_wilson_lo", "cov2_wilson_hi",
+            "cov1_ref", "cov2_ref")],
+    digits = 3, booktabs = TRUE, row.names = FALSE,
+    caption = "Complement block; cov1 = one-sided 95% UPPER-bound coverage of beta(Hhat^c).") |>
+  kable_styling(font_size = 12)
+```
+
+# The display (block Ĥᶜ, side upper)
+
+```{r plot}
+#| fig-width: 13
+#| fig-height: 4.6
+fs_plot_bias_coverage(tab, curves = curves, side = "upper")
+```
+
+# Reading
+
+```{r reading, results='asis'}
+#| echo: false
+d1 <- tab$cov1 - tab$cov1_ref; d2 <- tab$cov2 - tab$cov2_ref
+fl <- tab[tab$estimator == "field", ]; ij <- tab[tab$estimator == "IJ", ]
+cat(sprintf(paste0(
+  "Across the %d (cell, estimator) points the Gaussian reference at each point's own (b, r) ",
+  "explains the one-sided upper coverage to within %.3f (mean |gap| %.3f) and the two-sided ",
+  "coverage to within %.3f (mean |gap| %.3f). Field rows: one-sided upper coverage %s ",
+  "(Wilson intervals in the table), r = %s; IJ rows: coverage %s, r = %s.\n"),
+  nrow(tab), max(abs(d1)), mean(abs(d1)), max(abs(d2)), mean(abs(d2)),
+  paste(sprintf("%.3f", fl$cov1), collapse = "/"), paste(sprintf("%.2f", fl$r), collapse = "/"),
+  paste(sprintf("%.3f", ij$cov1), collapse = "/"), paste(sprintf("%.2f", ij$r), collapse = "/")))
+```
