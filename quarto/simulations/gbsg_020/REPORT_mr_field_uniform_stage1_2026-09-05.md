@@ -54,3 +54,11 @@ Lightly loaded (5 workers, smoke): 78–83 s/rep — load inflation ≈ ×2–3,
 - The K2 reference computes m(·) in closed form; this implementation (and the K10 reference) uses inner Monte Carlo — the stated tolerances absorbed it everywhere except the flagged K10-disjoint δ = 3 point discussed above.
 
 **Parked at Gate 1.** Awaiting H6 (compute go, possibly with H3/H4 adjustments) and the K10-δ=3 adjudication.
+
+---
+
+## GATE 1 ADJUDICATION (Larry, 2026-09-05): PASS
+
+- K10-disjoint C₂(3;1) accepted: the reference value's own Monte Carlo SE (≈0.015 at 800 replicates) makes the ±0.025 band tighter than the combined error. **Band recorded as ±0.04**; the three converging estimates on record: 0.7829 (R_rep = 2,400, seed 101), 0.7921 (2,400, seed 202), 0.7975 (800, seed 21) vs reference 0.766.
+- Scope adjustments for Stage 2: **H3** M cap raised to 40 (target: covered re-selection mass ≥ 0.99 on every replicate; M and mass recorded per replicate as before); **κ grid extended to [1, 3]**; **H4 unchanged** (300/300/150, mcse(κ*) recorded); **H5** Stage 2a on sim_id 1–500 of h100/h175 (campaign `s7u`), Guo–He check set as specified (campaign `uniform`).
+- **H6**: per-replicate κ cost re-measured at the raised cap on 5 replicates per cell; compute pre-authorized if projection ≤ 6 h wall at 100 workers (hard timeout 8 h); fallback H4 = 200/200/100 with one re-projection; STOP if still above.
