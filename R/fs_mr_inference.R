@@ -340,6 +340,28 @@
 #'   function's default.  Pass a value at least the family size to lift the
 #'   cap to the full family (the GBSG frozen-intervals illustration does).
 #'   Consulted only when `field_uniform = TRUE`; add-only, default-inert.
+#' @param field_complement Logical (default `FALSE`); consulted only under
+#'   `ci_method = "field"` with `include_complement = TRUE`.  When `TRUE`,
+#'   after the harm field block completes, the same field procedure is
+#'   evaluated for the complement subgroup (method proposal
+#'   `dev/tasks/TASK_mr_field_complement_2026-09-06.md`) and attached as
+#'   `field$complement`.  **Orientation:** selection acts on the harm-subgroup
+#'   effects; the complement is its by-product, and its naive estimate is
+#'   pushed toward *benefit*.  For a benefit claim ("the effect in the
+#'   complement is at most U") the exposed limit is therefore the **upper**
+#'   bound on the complement's working-scale effect, and the primary product
+#'   here is the one-sided 95% upper bound `upper_1s`.  The guarantee is the
+#'   mirror of the harm side's: an upper bound is vulnerable to
+#'   under-correction of the beneficial optimism (U too low over-claims) and
+#'   immune to over-correction.  Selection is the harm field's own -- every
+#'   outer and inner draw's winner is re-read, never re-selected -- and the
+#'   complement's perturbations use the harm field's own multipliers projected
+#'   through the complement's influence, so its noise carries its correct
+#'   correlation with every candidate's noise; complements of draw winners the
+#'   multiplier stage did not fit are fit lazily.  The block draws nothing, so
+#'   every other output -- the harm `field` block and its `uniform` sub-block
+#'   included -- is byte-identical whether or not it runs; the default
+#'   reproduces prior output exactly.
 #' @return List with the selected index/label, `naive` and `debiased` estimates
 #'   (effect scale, with approximate 95% CIs), `selection_bias`, `fixed_bias`,
 #'   `selection_rate`, `mean_r`, `mean_r_c`, the `settings` actually used (`t_confirm`,
@@ -393,6 +415,21 @@
 #'   (de-biased minus `q95`), the two-sided quantile interval
 #'   `lower_2s`/`upper_2s`, and the supplementary SE-type interval
 #'   `lower_se`/`upper_se` around `est2`.
+#'
+#'   Under `field_complement = TRUE` (with `include_complement = TRUE`) the
+#'   `field` element additionally carries `complement`, the complement's own
+#'   field block in the same form and scales, inverted around the complement's
+#'   two-term de-biased estimate: `lambda_mean`, `lambda_sd`/`se_field`, the
+#'   seven `Lambda*c` quantiles; on the effect scale `est2`, the **primary**
+#'   one-sided 95% upper bound `upper_1s` (de-biased minus `q05`), the
+#'   one-sided lower bound `lower_1s`, the two-sided `lower_2s`/`upper_2s`
+#'   and the SE-type `lower_se`/`upper_se`; the draw accounting
+#'   `n_out_used`, `n_in_used_mean`, `n_out_dropped_unfit`; the fit accounting
+#'   `n_complement_fits` (distinct complement fits, the multiplier stage's
+#'   included), `n_new_fits`, `share_draws_new_fit` (share of outer + inner
+#'   draw-winner readings whose candidate the multiplier stage had not fit);
+#'   `R_out`, `R_in`, `timing_seconds`.  A `note` replaces the numbers when
+#'   the selected complement is unfit or fewer than 2 outer draws survive.
 #' @section Alignment is assumed, not checked here:
 #' This is an engine-level entry point. Its arguments are a candidate family,
 #' a specification, and a selected membership vector -- the identifier
@@ -431,7 +468,8 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                            field_R_out = 1000L,
                            field_R_in = 500L,
                            field_uniform = FALSE,
-                           field_M_cap = NULL) {
+                           field_M_cap = NULL,
+                           field_complement = FALSE) {
   confirm_rule <- match.arg(confirm_rule); reselection <- match.arg(reselection)
   selection_rule <- match.arg(selection_rule)
   multiplier <- match.arg(multiplier); ci_method <- match.arg(ci_method)
@@ -583,6 +621,8 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   # ---------------------------------------------------------------------------
   complement <- NULL
   mean_r_c   <- NA_real_        # stays NA when no complement is fit
+  bdc_w      <- NA_real_        # beta-tilde^c on the working scale, read by the
+                                # complement field block; NA when unfit
   if (isTRUE(include_complement)) {
     kept   <- candidates[asm$keep]              # aligns with asm columns
     Ncol   <- length(asm$names)
@@ -630,6 +670,7 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
       sbc <- if (is.finite(selbias_c)) selbias_c else 0
       fcc <- if (is.finite(fixed_c)) fixed_c else 0
       bdc <- bnc - sbc - fcc
+      bdc_w <- bdc
       sec <- sdv_c[sel]
       r_c   <- (sbc + fcc) - selb_c - Pc[sel, ]
       mean_r_c <- mean(r_c[use_c])          # exposure only; see mean_r above
@@ -679,8 +720,15 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
     t0f <- proc.time()
     if (!is.null(seed)) set.seed(as.integer(seed) + 900000L)
     Np <- nrow(B)
-    Zo <- crossprod(B, matrix(stats::rnorm(Np * field_R_out), Np, field_R_out))
-    Zi <- crossprod(B, matrix(stats::rnorm(Np * field_R_in), Np, field_R_in))
+    # The raw N(0, I) multipliers are held in Xo / Xi_f so the complement
+    # field (field_complement, TASK_mr_field_complement_2026-09-06) can
+    # project the SAME xi through the complement's own influence.  Two rnorm
+    # calls of the same sizes in the same order as before: the stream, Zo and
+    # Zi are byte-identical whether or not the complement block runs.
+    Xo   <- matrix(stats::rnorm(Np * field_R_out), Np, field_R_out)
+    Xi_f <- matrix(stats::rnorm(Np * field_R_in), Np, field_R_in)
+    Zo <- crossprod(B, Xo)
+    Zi <- crossprod(B, Xi_f)
     w <- bh; w[sel] <- beta_deb
     fast <- identical(reselection, "maxeff") && is.null(t_g)
     sel_one <- function(v) {
@@ -692,6 +740,13 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
     lam <- rep(NA_real_, field_R_out)
     n_in_used <- rep(NA_real_, field_R_out)
     ii <- seq_len(field_R_in)
+    # Winner record for the complement field: the outer winner G_r and the
+    # inner winners G(v_r + zeta'_j) (NA where the inner draw had none), taken
+    # as this loop computes them -- the complement re-reads them, it never
+    # re-selects.  Side assignments only; lam / n_in_used are untouched.
+    fc <- isTRUE(field_complement) && isTRUE(include_complement)
+    G_out <- if (fc) rep(NA_integer_, field_R_out) else NULL
+    W_in  <- if (fc) matrix(NA_integer_, field_R_out, field_R_in) else NULL
     for (r in seq_len(field_R_out)) {
       v <- w + Zo[, r]
       G <- if (fast) which.max(v) else sel_one(v)
@@ -700,12 +755,14 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
         win <- max.col(t(v + Zi), ties.method = "first")
         lam[r] <- Zo[G, r] - mean(Zi[cbind(win, ii)])
         n_in_used[r] <- field_R_in
+        if (fc) { G_out[r] <- as.integer(G); W_in[r, ] <- as.integer(win) }
       } else {
         wi <- vapply(ii, function(j) sel_one(v + Zi[, j]), integer(1))
         ok_in <- which(!is.na(wi))
         if (!length(ok_in)) next
         lam[r] <- Zo[G, r] - mean(Zi[cbind(wi[ok_in], ok_in)])
         n_in_used[r] <- length(ok_in)
+        if (fc) { G_out[r] <- as.integer(G); W_in[r, ] <- wi }
       }
     }
     ok_f <- which(is.finite(lam))
@@ -729,6 +786,20 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
         R_out = as.integer(field_R_out), R_in = as.integer(field_R_in),
         seed_offset = 900000L,
         timing_seconds = as.numeric((proc.time() - t0f)["elapsed"]))
+
+      # -- Complement field (field_complement = TRUE) -- add-only and drawn
+      # from NOTHING: it re-reads the harm field's xi (Xo / Xi_f) and winners
+      # (G_out / W_in), so the harm field above and the uniform sweep below
+      # are byte-identical whether or not it runs
+      # (TASK_mr_field_complement_2026-09-06).  Needs the gate's complement
+      # path: Bc / bh_c / winset exist only under include_complement = TRUE.
+      if (fc) {
+        field$complement <- .fs_mr_field_complement(
+          df = df, spec = spec, kept = kept, Bc = Bc, bh_c = bh_c,
+          winset = winset, sel = sel, bdc = bdc_w,
+          G_out = G_out, W_in = W_in, Xo = Xo, Xi_f = Xi_f,
+          to_eff = to_eff, z975 = z975)
+      }
 
       # -- Uniform (kappa) calibration -- add-only, after the field's stream
       # is fully consumed; its own derived seed (+910000L) mirrors the field
@@ -800,4 +871,98 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   }
   if (!is.null(field)) out$field <- field
   out
+}
+
+
+#' Complement field block for `fs_mr_inference(field_complement = TRUE)`
+#'
+#' The one-sided **upper** bound for a benefit claim on the complement
+#' (TASK_mr_field_complement_2026-09-06).  Selection is the harm field's:
+#' each outer draw's winner `G_r` and each inner draw's winner are re-read from
+#' `G_out` / `W_in`, never re-selected.  The complement enters only through its
+#' own effects and influences: `zeta^c = Bc' xi` with the harm field's own
+#' `xi` (`Xo`, `Xi_f`), so the complement's noise carries its correct
+#' correlation with every candidate's noise; complements of candidates that
+#' win on any draw but were not fit by the multiplier stage are fit lazily
+#' into the same `Bc` / `bh_c` cache.  `Lambda*c_r = zeta^c_{r, G_r} -
+#' mean_j zeta'^c_{j, G(v_r + zeta'_j)}` over the inner draws with a winner
+#' whose complement is fit; outer draws are dropped when the harm block
+#' dropped them, when `G_r`'s complement is unfit, or when no inner draw
+#' survives.  The interval inverts `Lambda*c` around `bdc` (the two-term
+#' de-biased complement estimate on the working scale).
+#'
+#' @return List as documented under `field$complement` in
+#'   [fs_mr_inference()], or a `note`-carrying list when the selected
+#'   complement is unfit or fewer than 2 outer draws survive.
+#' @noRd
+.fs_mr_field_complement <- function(df, spec, kept, Bc, bh_c, winset, sel, bdc,
+                                    G_out, W_in, Xo, Xi_f, to_eff, z975) {
+  t0c <- proc.time()
+  R_out <- length(G_out); R_in <- ncol(W_in)
+  if (!is.finite(bdc))
+    return(list(note = "complement of the selected subgroup could not be fit",
+                n_out_used = 0L, R_out = as.integer(R_out),
+                R_in = as.integer(R_in)))
+  Nall <- nrow(Bc)
+  # Lazy complement fits: every candidate winning on any outer or inner draw
+  # that the multiplier stage did not already fit -- the same loop body as the
+  # gate's own complement fits (an unfit column stays all-zero with bh_c NA).
+  readings <- c(G_out[!is.na(G_out)], W_in[!is.na(W_in)])
+  need     <- sort(unique(readings))
+  new_fit  <- setdiff(need, winset)
+  for (w in new_fit) {
+    comp_idx <- setdiff(seq_len(Nall), kept[[w]])
+    if (length(comp_idx) < 6L) next
+    pcc <- tryCatch(.fs_mr_pieces(df[comp_idx, , drop = FALSE], spec),
+                    error = function(e) NULL)
+    if (is.null(pcc) || length(pcc$dfbeta) != length(comp_idx)) next
+    Bc[comp_idx, w] <- pcc$dfbeta
+    bh_c[w] <- pcc$beta_hat
+  }
+  fit_ok <- is.finite(bh_c)
+  Zo_c <- crossprod(Bc, Xo)                  # Ncol x R_out : zeta^c (outer)
+  Zi_c <- crossprod(Bc, Xi_f)                # Ncol x R_in  : zeta'^c (inner)
+  lam_c  <- rep(NA_real_, R_out)
+  n_in_c <- rep(NA_real_, R_out)
+  n_drop_unfit <- 0L
+  for (r in which(!is.na(G_out))) {
+    G <- G_out[r]
+    if (!fit_ok[G]) { n_drop_unfit <- n_drop_unfit + 1L; next }
+    wi <- W_in[r, ]
+    ok_in <- which(!is.na(wi))
+    ok_in <- ok_in[fit_ok[wi[ok_in]]]
+    if (!length(ok_in)) { n_drop_unfit <- n_drop_unfit + 1L; next }
+    lam_c[r]  <- Zo_c[G, r] - mean(Zi_c[cbind(wi[ok_in], ok_in)])
+    n_in_c[r] <- length(ok_in)
+  }
+  ok_c <- which(is.finite(lam_c))
+  counts <- list(n_out_used = length(ok_c),
+                 n_out_dropped_unfit = n_drop_unfit,
+                 n_complement_fits = sum(fit_ok),
+                 n_new_fits = length(new_fit),
+                 share_draws_new_fit = mean(!(readings %in% winset)),
+                 R_out = as.integer(R_out), R_in = as.integer(R_in))
+  if (length(ok_c) < 2L)
+    return(c(list(note = "fewer than 2 usable outer draws (complement)"),
+             counts))
+  lf <- lam_c[ok_c]
+  qs <- stats::quantile(lf, c(.05, .25, .50, .75, .95, .025, .975),
+                        names = FALSE, type = 7)
+  est2_w <- bdc - mean(lf)
+  sd_c <- stats::sd(lf)
+  c(list(
+    lambda_mean = mean(lf), lambda_sd = sd_c,
+    q05 = qs[1], q25 = qs[2], q50 = qs[3], q75 = qs[4], q95 = qs[5],
+    q025 = qs[6], q975 = qs[7],
+    n_in_used_mean = mean(n_in_c[ok_c]),
+    est2 = to_eff(est2_w),
+    # Primary: the one-sided 95% UPPER bound (benefit claim "at most U").
+    upper_1s = to_eff(bdc - qs[1]),
+    lower_1s = to_eff(bdc - qs[5]),
+    lower_2s = to_eff(bdc - qs[7]), upper_2s = to_eff(bdc - qs[6]),
+    se_field = sd_c,
+    lower_se = to_eff(est2_w - z975 * sd_c),
+    upper_se = to_eff(est2_w + z975 * sd_c)),
+    counts,
+    list(timing_seconds = as.numeric((proc.time() - t0c)["elapsed"])))
 }

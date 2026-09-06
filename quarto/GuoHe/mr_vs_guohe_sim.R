@@ -124,7 +124,8 @@ mv_spec51 <- utils::modifyList(mv_spec52, list(treat.name = "treat_flip"))
 mv_mr <- function(df, cands, sel_label, spec, draws = MV_DRAWS,
                   multiplier = MV_MULTIPLIER, seed = NULL,
                   ci_method = "ij", field_R_out = 1000L, field_R_in = 500L,
-                  field_uniform = FALSE) {
+                  field_uniform = FALSE, field_complement = FALSE,
+                  include_complement = FALSE) {
   # ci_method = "field" (TASK_mr_field_vs_guohe_2026-09-05, E2 defaults) adds
   # the field element; the debiased element is identical to the "ij" path, so
   # one call yields both MR rows.  Default "ij" keeps the 2026-09-04 behavior.
@@ -134,12 +135,16 @@ mv_mr <- function(df, cands, sel_label, spec, draws = MV_DRAWS,
     admission = list(effect_floor = NULL, consistency = NULL),
     reselection = "maxeff",
     draws = draws, multiplier = multiplier,
-    ci_method = ci_method, seed = seed, return_reselection = TRUE)
+    ci_method = ci_method, seed = seed, return_reselection = TRUE,
+    include_complement = include_complement)
   if (identical(ci_method, "field"))
     args <- c(args, list(field_R_out = field_R_out, field_R_in = field_R_in,
                          # kappa(Sigma-hat) sweep (TASK_mr_field_uniform_2026-09-05);
                          # FALSE keeps the 2026-09-05 field output byte-identical.
-                         field_uniform = field_uniform))
+                         field_uniform = field_uniform,
+                         # complement field (TASK_mr_field_complement_2026-09-06);
+                         # FALSE keeps the field output byte-identical.
+                         field_complement = field_complement))
   do.call(forestsearch:::fs_mr_inference, args)
 }
 

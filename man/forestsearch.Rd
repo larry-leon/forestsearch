@@ -871,6 +871,13 @@ add-only pass-through, the default reproduces prior output exactly.}
 sweep's mass-carrying cap; \code{NULL} (default) keeps
 \code{fs_mr_field_uniform()}'s default.  Consulted only when
 \code{field_uniform = TRUE}.}
+\item{\code{field_complement}}{Logical, default \code{FALSE}.  Under
+\code{ci_method = "field"} with \code{include_complement = TRUE},
+also evaluate the field block for the complement subgroup, attached
+as \code{field$complement} with the one-sided 95\\% \emph{upper}
+bound as its primary product (the benefit-claim orientation; see
+\code{\link{fs_mr_inference}}).  Add-only pass-through: the default
+reproduces prior output exactly.}
 }}
 }
 \value{

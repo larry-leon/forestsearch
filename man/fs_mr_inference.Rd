@@ -24,7 +24,8 @@ fs_mr_inference(
   field_R_out = 1000L,
   field_R_in = 500L,
   field_uniform = FALSE,
-  field_M_cap = NULL
+  field_M_cap = NULL,
+  field_complement = FALSE
 )
 }
 \arguments{
@@ -144,6 +145,29 @@ cap (\code{fs_mr_field_uniform()}'s \code{M_cap}); \code{NULL} (default) uses th
 function's default.  Pass a value at least the family size to lift the
 cap to the full family (the GBSG frozen-intervals illustration does).
 Consulted only when \code{field_uniform = TRUE}; add-only, default-inert.}
+
+\item{field_complement}{Logical (default \code{FALSE}); consulted only under
+\code{ci_method = "field"} with \code{include_complement = TRUE}.  When \code{TRUE},
+after the harm field block completes, the same field procedure is
+evaluated for the complement subgroup (method proposal
+\verb{dev/tasks/TASK_mr_field_complement_2026-09-06.md}) and attached as
+\code{field$complement}.  \strong{Orientation:} selection acts on the harm-subgroup
+effects; the complement is its by-product, and its naive estimate is
+pushed toward \emph{benefit}.  For a benefit claim ("the effect in the
+complement is at most U") the exposed limit is therefore the \strong{upper}
+bound on the complement's working-scale effect, and the primary product
+here is the one-sided 95\% upper bound \code{upper_1s}.  The guarantee is the
+mirror of the harm side's: an upper bound is vulnerable to
+under-correction of the beneficial optimism (U too low over-claims) and
+immune to over-correction.  Selection is the harm field's own -- every
+outer and inner draw's winner is re-read, never re-selected -- and the
+complement's perturbations use the harm field's own multipliers projected
+through the complement's influence, so its noise carries its correct
+correlation with every candidate's noise; complements of draw winners the
+multiplier stage did not fit are fit lazily.  The block draws nothing, so
+every other output -- the harm \code{field} block and its \code{uniform} sub-block
+included -- is byte-identical whether or not it runs; the default
+reproduces prior output exactly.}
 }
 \value{
 List with the selected index/label, \code{naive} and \code{debiased} estimates
@@ -199,6 +223,21 @@ minus \code{lambda_mean}), the primary one-sided 95\% bound \code{lower_1s}
 (de-biased minus \code{q95}), the two-sided quantile interval
 \code{lower_2s}/\code{upper_2s}, and the supplementary SE-type interval
 \code{lower_se}/\code{upper_se} around \code{est2}.
+
+Under \code{field_complement = TRUE} (with \code{include_complement = TRUE}) the
+\code{field} element additionally carries \code{complement}, the complement's own
+field block in the same form and scales, inverted around the complement's
+two-term de-biased estimate: \code{lambda_mean}, \code{lambda_sd}/\code{se_field}, the
+seven \code{Lambda*c} quantiles; on the effect scale \code{est2}, the \strong{primary}
+one-sided 95\% upper bound \code{upper_1s} (de-biased minus \code{q05}), the
+one-sided lower bound \code{lower_1s}, the two-sided \code{lower_2s}/\code{upper_2s}
+and the SE-type \code{lower_se}/\code{upper_se}; the draw accounting
+\code{n_out_used}, \code{n_in_used_mean}, \code{n_out_dropped_unfit}; the fit accounting
+\code{n_complement_fits} (distinct complement fits, the multiplier stage's
+included), \code{n_new_fits}, \code{share_draws_new_fit} (share of outer + inner
+draw-winner readings whose candidate the multiplier stage had not fit);
+\code{R_out}, \code{R_in}, \code{timing_seconds}.  A \code{note} replaces the numbers when
+the selected complement is unfit or fewer than 2 outer draws survive.
 }
 \description{
 Computes a multiplier-bootstrap approximation of the bootstrap

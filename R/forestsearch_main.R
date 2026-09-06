@@ -810,6 +810,13 @@
 #'       sweep's mass-carrying cap; \code{NULL} (default) keeps
 #'       \code{fs_mr_field_uniform()}'s default.  Consulted only when
 #'       \code{field_uniform = TRUE}.}
+#'     \item{\code{field_complement}}{Logical, default \code{FALSE}.  Under
+#'       \code{ci_method = "field"} with \code{include_complement = TRUE},
+#'       also evaluate the field block for the complement subgroup, attached
+#'       as \code{field$complement} with the one-sided 95\% \emph{upper}
+#'       bound as its primary product (the benefit-claim orientation; see
+#'       \code{\link{fs_mr_inference}}).  Add-only pass-through: the default
+#'       reproduces prior output exactly.}
 #'   }
 #' @param consistency_method Character. \code{"resample"} (default) uses the
 #'   multiplier (influence-function / \code{dfbeta}) approximation
@@ -3398,6 +3405,9 @@ forestsearch <- function(df.analysis,
         # resolution, same classification: defaults reproduce prior output).
         return_reselection = .g_mr(mr_inference_args$return_reselection, FALSE),
         field_M_cap   = .g_mr(mr_inference_args$field_M_cap, NULL),
+        # Add-only pass-through (TASK_mr_field_complement_2026-09-06): the
+        # complement's field block; FALSE is the gate's default.
+        field_complement = .g_mr(mr_inference_args$field_complement, FALSE),
         seed          = .g_mr(mr_inference_args$seed,        seedit))
     }, error = function(e) {
       warning("mr_inference failed: ", conditionMessage(e)); NULL

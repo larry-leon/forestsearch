@@ -28,7 +28,10 @@ format:
 > environment variables (see @sec-setup), so batches run from ONE committed
 > file. `run_mode` and `sim_id_start` split a long run into seed-disjoint
 > batches that combine later; `run_mode = "combine"` renders every table on
-> the pooled set.
+> the pooled set. `FS_S7_FIELD_COMPLEMENT=TRUE` adds the complement's field
+> block (`fld_Hc_*`, one-sided **upper** bound primary;
+> `TASK_mr_field_complement_2026-09-06`); off by default, in which case the
+> bundle is byte-identical to a pre-complement render.
 
 # What this evaluates {#sec-intro}
 
@@ -493,12 +496,21 @@ mr_confirm_rule <- "point"    # "point" | "ci"
 # captures the fld_H_kappa/... columns below.  FALSE leaves every output
 # byte-identical to a pre-uniform render (add-only, default off).
 mr_field_uniform <- identical(.env_chr("FS_S7_UNIFORM", "FALSE"), "TRUE")
+# Complement field knob (TASK_mr_field_complement_2026-09-06): when TRUE the
+# gate additionally evaluates the field block for the complement Hhat^c --
+# same outer/inner draws and winners as the harm field, the complement's own
+# influence -- with the one-sided UPPER bound as the primary product (the
+# benefit-claim orientation), and the recorder captures the fld_Hc_* columns
+# below.  FALSE leaves every output byte-identical to a pre-complement render
+# (add-only, default off).
+mr_field_complement <- identical(.env_chr("FS_S7_FIELD_COMPLEMENT", "FALSE"), "TRUE")
 
 # t_confirm is omitted from the list when NULL so the package resolves its own
 # measure-aware default rather than receiving an explicit NULL.
 mr_inference_args <- c(
   list(ci_method = mr_ci_method, draws = mr_draws, include_complement = TRUE,
-       confirm_rule = mr_confirm_rule, field_uniform = mr_field_uniform),
+       confirm_rule = mr_confirm_rule, field_uniform = mr_field_uniform,
+       field_complement = mr_field_complement),
   if (!is.null(mr_t_confirm)) list(t_confirm = mr_t_confirm))
 
 # ── Column names emitted by simulate_from_dgm() ────────────────────────────
@@ -536,8 +548,8 @@ cat(sprintf("Run config: method=%s%s, n_sims=%d, nb_boots=%s, mr_draws=%d, worke
             n_sims, if (is.null(nb_boots)) "0 (skip)" else as.character(nb_boots),
             mr_draws, n_workers))
 # Resolved template knobs -- the render's audit line (env overrides included).
-cat(sprintf("Template knobs: hr=%.2f n=%d ci_method=%s uniform=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
-            target_hr_harm, n_sample, mr_ci_method, mr_field_uniform, fb_mode, campaign_tag,
+cat(sprintf("Template knobs: hr=%.2f n=%d ci_method=%s uniform=%s field_complement=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
+            target_hr_harm, n_sample, mr_ci_method, mr_field_uniform, mr_field_complement, fb_mode, campaign_tag,
             run_mode, sim_id_start, sim_id_start + n_sims - 1L, quickrun))
 cat(sprintf("Output stem: %s\n", rds_stem))
 ```
@@ -712,6 +724,26 @@ rule_covs <- function(rule) forestsearch:::.fs_rule_columns(rule)
   fld_H_kappa = NA_real_, fld_H_M = NA_integer_, fld_H_mass = NA_real_,
   fld_H_minC1 = NA_real_, fld_H_lo2u = NA_real_, fld_H_hi2u = NA_real_,
   fld_H_kappa_mcse = NA_real_, fld_H_uniform_secs = NA_real_,
+  # Complement field block (field_complement = TRUE; else all NA;
+  # TASK_mr_field_complement_2026-09-06).  Same scales as the fld_H_* block,
+  # inverted around the complement's two-term de-biased estimate mr_Hc_est.
+  # PRIMARY product: fld_Hc_up1s, the one-sided 95% UPPER bound (benefit
+  # claim "HR in Hhat^c is at most U").
+  fld_Hc_est2 = NA_real_,
+  fld_Hc_up1s = NA_real_,                                  # one-sided 95% upper bound (primary)
+  fld_Hc_lo1s = NA_real_,                                  # one-sided 95% lower bound
+  fld_Hc_lo2s = NA_real_, fld_Hc_hi2s = NA_real_,          # two-sided 95% quantile interval
+  fld_Hc_lo_se = NA_real_, fld_Hc_hi_se = NA_real_,        # SE-type interval about est2
+  fld_Hc_se = NA_real_,                                    # lambda_sd (log-HR scale)
+  fld_Hc_lam_mean = NA_real_,
+  fld_Hc_q05 = NA_real_, fld_Hc_q25 = NA_real_, fld_Hc_q50 = NA_real_,
+  fld_Hc_q75 = NA_real_, fld_Hc_q95 = NA_real_,
+  fld_Hc_q025 = NA_real_, fld_Hc_q975 = NA_real_,
+  fld_Hc_nout = NA_integer_, fld_Hc_nin_mean = NA_real_,
+  fld_Hc_nfit = NA_integer_,                               # distinct complement fits (multiplier stage's included)
+  fld_Hc_share_newfit = NA_real_,                          # share of draw-winner readings needing a new fit
+  fld_Hc_secs = NA_real_,
+  fld_Hc_note = NA_character_,
   mr_harm_flag = NA_integer_, ij_source = NA_character_,
   sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_,
   stringsAsFactors = FALSE)
@@ -870,6 +902,28 @@ if (k_random_noise > 0) {
         }
       }
       rec$fld_H_nout <- f$n_out_used %||% NA_integer_
+      # ---- Complement field (field_complement = TRUE; absent -> all NA) ----
+      if (is.list(f$complement)) {
+        fc <- f$complement
+        rec$fld_Hc_note <- fc$note %||% NA_character_
+        if (is.null(fc$note)) {
+          rec$fld_Hc_est2     <- fc$est2
+          rec$fld_Hc_up1s     <- fc$upper_1s
+          rec$fld_Hc_lo1s     <- fc$lower_1s
+          rec$fld_Hc_lo2s     <- fc$lower_2s;  rec$fld_Hc_hi2s <- fc$upper_2s
+          rec$fld_Hc_lo_se    <- fc$lower_se;  rec$fld_Hc_hi_se <- fc$upper_se
+          rec$fld_Hc_se       <- fc$se_field
+          rec$fld_Hc_lam_mean <- fc$lambda_mean
+          rec$fld_Hc_q05  <- fc$q05;  rec$fld_Hc_q25  <- fc$q25;  rec$fld_Hc_q50 <- fc$q50
+          rec$fld_Hc_q75  <- fc$q75;  rec$fld_Hc_q95  <- fc$q95
+          rec$fld_Hc_q025 <- fc$q025; rec$fld_Hc_q975 <- fc$q975
+          rec$fld_Hc_nin_mean <- fc$n_in_used_mean
+          rec$fld_Hc_secs     <- fc$timing_seconds %||% NA_real_
+        }
+        rec$fld_Hc_nout         <- fc$n_out_used %||% NA_integer_
+        rec$fld_Hc_nfit         <- fc$n_complement_fits %||% NA_integer_
+        rec$fld_Hc_share_newfit <- fc$share_draws_new_fit %||% NA_real_
+      }
     }
   }
 
@@ -1035,7 +1089,9 @@ if (run_smoke && identical(run_mode, "batch")) {
     # Field intervals obey the same invariant: the quantile interval AND the
     # SE-type interval (both to_eff()'d, so monotone-transform safe).
     for (pr in list(c("fld_H_lo2s", "fld_H_hi2s"), c("fld_H_lo_se", "fld_H_hi_se"),
-                    c("fld_H_lo2u", "fld_H_hi2u"))) {
+                    c("fld_H_lo2u", "fld_H_hi2u"),
+                    c("fld_Hc_lo2s", "fld_Hc_hi2s"), c("fld_Hc_lo_se", "fld_Hc_hi_se"),
+                    c("fld_Hc_lo1s", "fld_Hc_up1s"))) {
       lo <- r[[pr[1]]]; hi <- r[[pr[2]]]
       if (is.null(lo) || is.null(hi)) next
       ok <- is.finite(lo) & is.finite(hi)
@@ -1160,6 +1216,7 @@ if (run_smoke && identical(run_mode, "batch")) {
                              # --- template provenance (fb_mr_field) ---------
                              ci_method           = mr_ci_method,
                              field_uniform       = mr_field_uniform,
+                             field_complement    = mr_field_complement,
                              fb_mode             = fb_mode,
                              fb_join_source      = if (identical(fb_mode, "join"))
                                                      basename(fb_join_path) else NA_character_,
@@ -1264,6 +1321,7 @@ if (run_smoke && identical(run_mode, "batch")) {
                              sg_focus   = bundles[[1]]$meta$sg_focus %||% NA_character_,
                              focus_tag  = bundles[[1]]$meta$focus_tag %||% NA_character_,
                              ci_method  = bundles[[1]]$meta$ci_method %||% NA_character_,
+                             field_complement = bundles[[1]]$meta$field_complement %||% NA,
                              campaign_tag = bundles[[1]]$meta$campaign_tag %||% NA_character_,
                              target_hr_harm = bundles[[1]]$meta$target_hr_harm %||% NA_real_,
                              fb_mode_by_batch = vapply(bundles, function(b)
@@ -1291,10 +1349,11 @@ if (run_smoke && identical(run_mode, "batch")) {
 # because the knobs and `results` are both in scope only after @sec-setup.
 knitr::kable(data.frame(
   setting = c("ci_method", "draws", "confirm_rule", "t_confirm (as set)",
-              "include_complement", "replicates with an MR harm decision"),
+              "include_complement", "field_complement",
+              "replicates with an MR harm decision"),
   value = c(mr_ci_method, format(mr_draws), mr_confirm_rule,
             if (is.null(mr_t_confirm)) "NULL -> package near-null default"
-            else format(mr_t_confirm), "TRUE",
+            else format(mr_t_confirm), "TRUE", as.character(mr_field_complement),
             sprintf("%d of %d detected",
                     sum(!is.na(results$mr_harm_flag)),
                     sum(results$detected %in% 1L)))),
@@ -1535,7 +1594,7 @@ if (run_smoke && !is.null(results)) {
 # SE, mr_*_se_ij).  A missing column (results saved before SEs were stored)
 # yields all-NA so the table still renders.
 .get_se <- function(r, k, suffix) {
-  col <- if (k == "fld") "fld_H_se"
+  col <- if (k == "fld") paste0("fld_", suffix, "_se")
          else if (k == "mr") paste0(k, "_", suffix, "_se_ij")
          else paste0(k, "_", suffix, "_se")
   v <- r[[col]]
@@ -1543,19 +1602,23 @@ if (run_smoke && !is.null(results)) {
 }
 
 # Estimator rows for one block.  FB appears whenever fb_* data exist (run OR
-# joined); MR (field) appears in the Hhat block only (decision F3 -- the gate
-# computes no complement field) and uses est2 with the two-sided quantile
-# interval as its primary interval (decision F4).
+# joined); MR (field) appears wherever that block's field columns are present
+# and finite -- the Hhat block always under ci_method = "field", the Hhat^c
+# block only when the render ran with field_complement = TRUE
+# (TASK_mr_field_complement_2026-09-06) -- and uses est2 with the two-sided
+# quantile interval as its primary interval (decision F4).
 est_keys_for <- function(r, suffix) {
   keys <- c(oracle = "or", naive = "nv", FB = "fb",
             `MR (IJ)` = "mr", `MR (field)` = "fld")
   if (!any(is.finite(r$fb_H_est))) keys <- keys[names(keys) != "FB"]
-  if (!identical(suffix, "H") || !any(is.finite(r$fld_H_est2)))
+  if (!any(is.finite(r[[paste0("fld_", suffix, "_est2")]] %||% NA_real_)))
     keys <- keys[names(keys) != "MR (field)"]
   keys
 }
 .est_cols <- function(r, k, suffix) {
-  if (k == "fld") list(e = r$fld_H_est2, lo = r$fld_H_lo2s, hi = r$fld_H_hi2s)
+  if (k == "fld") list(e  = r[[paste0("fld_", suffix, "_est2")]],
+                       lo = r[[paste0("fld_", suffix, "_lo2s")]],
+                       hi = r[[paste0("fld_", suffix, "_hi2s")]])
   else list(e  = r[[paste0(k, "_", suffix, "_est")]],
             lo = r[[paste0(k, "_", suffix, "_lo")]],
             hi = r[[paste0(k, "_", suffix, "_hi")]])
@@ -1936,6 +1999,15 @@ $\tilde\beta$ and the shrunk-field `est2` against the conditional target
 $\beta(\widehat H)$ (log-HR and SD units), the $\lambda$-SD/SD calibration
 ratio, and the Monte Carlo draw-usage counts.
 
+When the render ran with `field_complement = TRUE`
+(`FS_S7_FIELD_COMPLEMENT=TRUE`; `TASK_mr_field_complement_2026-09-06`) the
+same summaries follow for the complement $\widehat H^{c}$, evaluated on the
+same outer/inner draws and winners as the harm field with the complement's own
+influence. Its exposed limit is the **upper** bound (a benefit claim "HR in
+$\widehat H^{c}$ is at most $U$"): the one-sided coverage in the complement
+block is $\beta(\widehat H^{c}) \le U$ for every estimator, and the display
+uses `side = "upper"`.
+
 ```{r field-coverage-wilson}
 if (run_smoke && !is.null(results) && any(is.finite(results$fld_H_est2))) {
   rF <- results[results$detected == 1, , drop = FALSE]
@@ -1953,11 +2025,12 @@ if (run_smoke && !is.null(results) && any(is.finite(results$fld_H_est2))) {
     if (!any(ok)) return(c(NA_real_, 0L))
     c(mean(target[ok] >= lo[ok] & target[ok] <= hi[ok]), sum(ok))
   }
-  .cov1_n <- function(target, lo1s) {            # one-sided: target >= lower bound
-    target <- rep_len(target, length(lo1s))
-    ok <- is.finite(target) & is.finite(lo1s)
+  .cov1_n <- function(target, b1, side = "lower") {   # one-sided: target >= lower bound,
+    target <- rep_len(target, length(b1))               # or target <= upper bound
+    ok <- is.finite(target) & is.finite(b1)
     if (!any(ok)) return(c(NA_real_, 0L))
-    c(mean(target[ok] >= lo1s[ok]), sum(ok))
+    c(if (identical(side, "upper")) mean(target[ok] <= b1[ok])
+      else mean(target[ok] >= b1[ok]), sum(ok))
   }
   z95 <- qnorm(0.95)
 
@@ -1969,22 +2042,26 @@ if (run_smoke && !is.null(results) && any(is.finite(results$fld_H_est2))) {
     do.call(rbind, lapply(names(keys), function(lab) {
       k  <- keys[[lab]]
       ec <- .est_cols(rF, k, suffix)
-      # One-sided 95% lower bound: the field stores its own (lambda q95); the
-      # normal-based estimators derive exp(log est - z95 * se_beta) -- the
-      # same construction as their two-sided bounds, so this is a convention,
-      # not a new model.  Documented as the supplementary read (F4).
-      lo1s <- if (k == "fld") rF$fld_H_lo1s
-              else { seb <- .get_se(rF, k, suffix)
-                     ifelse(is.finite(ec$e) & is.finite(seb) & ec$e > 0,
-                            exp(log(ec$e) - z95 * seb), NA_real_) }
+      # One-sided 95% bound, on the block's exposed side: the harm block's
+      # LOWER bound (harm claim), the complement's UPPER bound (benefit claim
+      # "at most U"; TASK_mr_field_complement_2026-09-06).  The field stores
+      # its own (lambda q95 / q05 inversion); the normal-based estimators
+      # derive exp(log est -/+ z95 * se_beta) -- the same construction as
+      # their two-sided bounds, so this is a convention, not a new model.
+      side <- if (identical(suffix, "Hc")) "upper" else "lower"
+      sgn  <- if (identical(side, "upper")) 1 else -1
+      b1 <- if (k == "fld") rF[[paste0("fld_", suffix, if (side == "upper") "_up1s" else "_lo1s")]]
+            else { seb <- .get_se(rF, k, suffix)
+                   ifelse(is.finite(ec$e) & is.finite(seb) & ec$e > 0,
+                          exp(log(ec$e) + sgn * z95 * seb), NA_real_) }
       do.call(rbind, lapply(names(tgt), function(tn) {
         c2 <- .cov_n(tgt[[tn]], ec$lo, ec$hi)
         w  <- .wilson(c2[1], c2[2])
-        c1 <- .cov1_n(tgt[[tn]], lo1s)
+        c1 <- .cov1_n(tgt[[tn]], b1, side)
         data.frame(Block = if (suffix == "H") "Harm Ĥ" else "Complement Ĥᶜ",
                    Estimator = lab, Target = tn,
                    n = as.integer(c2[2]), Cov2s = c2[1],
-                   W_lo = w[1], W_hi = w[2], Cov1s = c1[1],
+                   W_lo = w[1], W_hi = w[2], Cov1s = c1[1], Side = side,
                    stringsAsFactors = FALSE)
       }))
     }))
@@ -1996,11 +2073,12 @@ if (run_smoke && !is.null(results) && any(is.finite(results$fld_H_est2))) {
                subtitle = "Targets: per-replicate oracle; beta(Hhat) (conditional, primary); CDE; marginal") |>
     fmt_number(columns = c(Cov2s, W_lo, W_hi, Cov1s), decimals = 3) |>
     cols_label(Cov2s = "2-sided cov", W_lo = "Wilson lo", W_hi = "Wilson hi",
-               Cov1s = "1-sided cov") |>
+               Cov1s = "1-sided cov", Side = "1-sided bound") |>
     tab_footnote(footnote = md(paste(
       "Wilson interval on the two-sided coverage proportion (paper convention, primary; F4).",
-      "One-sided coverage = share of replicates with target >= the 95% lower bound:",
-      "the field row uses its stored `lower_1s` (lambda q95 inversion); the normal-based rows use exp(log est - 1.645 se).")))
+      "One-sided coverage on the block's exposed side -- harm block: share of replicates with target >= the 95% LOWER bound;",
+      "complement block: share with target <= the 95% UPPER bound (benefit claim; TASK_mr_field_complement_2026-09-06).",
+      "The field rows use their stored `lower_1s` / `upper_1s` (lambda q95 / q05 inversion); the normal-based rows use exp(log est -/+ 1.645 se).")))
 }
 ```
 
@@ -2068,6 +2146,90 @@ if (run_smoke && !is.null(results) && any(is.finite(results$fld_H_est2))) {
               sprintf("%.2f / %.2f", .mfin(rF$fld_H_secs), .medfin(rF$fld_H_secs)),
               sprintf("%d of %d detected", sum(!is.na(rF$fld_H_note)), nrow(rF)))),
     caption = "MR (field) Monte Carlo draw usage and cost (detected replicates).")
+}
+```
+
+```{r field-complement-diagnostics}
+# Complement field block (field_complement = TRUE renders only;
+# TASK_mr_field_complement_2026-09-06).  Retained bias of naive / MR (IJ) /
+# MR (field) est2 against beta(Hhat^c), the complement's lambda-SD/SD and
+# IJ-SE/SD calibration ratios, the one-sided UPPER margin and log half-width
+# beside IJ's, and the complement-fit accounting and cost.
+if (run_smoke && !is.null(results) && "fld_Hc_est2" %in% names(results) &&
+    any(is.finite(results$fld_Hc_est2))) {
+  rC <- results[results$detected == 1, , drop = FALSE]
+  okc <- is.finite(rC$betaHhat_Hc) & rC$betaHhat_Hc > 0
+  .retc <- function(est) {
+    d <- log(est[okc]) - log(rC$betaHhat_Hc[okc]); d <- d[is.finite(d)]
+    c(mean = mean(d), sd_est = stats::sd(d), n = length(d))
+  }
+  rbc_nv  <- .retc(rC$nv_Hc_est)
+  rbc_mr  <- .retc(rC$mr_Hc_est)
+  rbc_fld <- .retc(rC$fld_Hc_est2)
+  sdc_fld <- .sd_log(rC$fld_Hc_est2)
+  sdc_mr  <- .sd_log(rC$mr_Hc_est)
+  lamc_ratio <- .mfin(rC$fld_Hc_se) / sdc_fld
+  ijc_ratio  <- .mfin(rC$mr_Hc_se_ij) / sdc_mr
+  # One-sided upper margin (log scale): field = log up1s - log(mr_Hc_est)
+  # (the field inverts about beta-tilde^c); IJ = 1.645 * se_ij.
+  marg_fld <- .mfin(log(rC$fld_Hc_up1s) - log(rC$mr_Hc_est))
+  marg_ij  <- .mfin(qnorm(0.95) * rC$mr_Hc_se_ij)
+  hw_fld   <- .mfin((log(rC$fld_Hc_hi2s) - log(rC$fld_Hc_lo2s)) / 2)
+  hw_ij    <- .mfin((log(rC$mr_Hc_hi) - log(rC$mr_Hc_lo)) / 2)
+  print(knitr::kable(data.frame(
+    quantity = c("naive retained bias vs beta(Hhat^c)  [log-HR]",
+                 "MR (IJ) retained bias vs beta(Hhat^c)  [log-HR]",
+                 "MR (field) est2 retained bias vs beta(Hhat^c)  [log-HR]",
+                 "naive retained bias  [SD units]",
+                 "MR (IJ) retained bias  [SD units]",
+                 "MR (field) est2 retained bias  [SD units]",
+                 "IJ SE / empirical SD  (MR (IJ), complement)",
+                 "lambda-SD / empirical SD  (MR (field), complement)",
+                 "one-sided UPPER margin, log scale: MR (IJ)",
+                 "one-sided UPPER margin, log scale: MR (field)",
+                 "two-sided log half-width: MR (IJ)",
+                 "two-sided log half-width: MR (field)"),
+    value = c(rbc_nv["mean"], rbc_mr["mean"], rbc_fld["mean"],
+              rbc_nv["mean"] / .sd_log(rC$nv_Hc_est), rbc_mr["mean"] / sdc_mr,
+              rbc_fld["mean"] / sdc_fld, ijc_ratio, lamc_ratio,
+              marg_ij, marg_fld, hw_ij, hw_fld),
+    n = c(rbc_nv["n"], rbc_mr["n"], rbc_fld["n"], rbc_nv["n"], rbc_mr["n"],
+          rbc_fld["n"], NA, NA, NA, NA, NA, NA)),
+    digits = 4,
+    caption = "Complement Hhat^c: retained bias against beta(Hhat^c), SE-calibration ratios, and one-sided upper margins (log-HR scale)."))
+
+  print(knitr::kable(data.frame(
+    metric = c("outer draws used (mean / min, of R_out = 1000)",
+               "inner draws used per outer (mean, of R_in = 500)",
+               "distinct complement fits per replicate (mean / max)",
+               "share of draw-winner readings needing a new complement fit (mean / max)",
+               "complement field block seconds (mean / median)",
+               "replicates with a degenerate complement field (note set)"),
+    value = c(sprintf("%.1f / %d", .mfin(rC$fld_Hc_nout), suppressWarnings(min(rC$fld_Hc_nout, na.rm = TRUE))),
+              sprintf("%.1f", .mfin(rC$fld_Hc_nin_mean)),
+              sprintf("%.1f / %d", .mfin(rC$fld_Hc_nfit), suppressWarnings(max(rC$fld_Hc_nfit, na.rm = TRUE))),
+              sprintf("%.3f / %.3f", .mfin(rC$fld_Hc_share_newfit), suppressWarnings(max(rC$fld_Hc_share_newfit, na.rm = TRUE))),
+              sprintf("%.2f / %.2f", .mfin(rC$fld_Hc_secs), .medfin(rC$fld_Hc_secs)),
+              sprintf("%d of %d detected", sum(!is.na(rC$fld_Hc_note)), nrow(rC)))),
+    caption = "Complement field: Monte Carlo draw usage, complement-fit accounting and cost (detected replicates)."))
+}
+```
+
+```{r field-bias-coverage-complement}
+#| fig-width: 13
+#| fig-height: 4.6
+# Complement display (block Hc, side upper): one point per estimator against
+# the Gaussian bookkeeping reference Phi(1.645 r + b) for the UPPER bound.
+if (run_smoke && !is.null(results) && "fld_Hc_est2" %in% names(results) &&
+    any(is.finite(results$fld_Hc_est2))) {
+  bcc <- fs_sim_bias_coverage(results, block = "Hc", estimators = c("mr", "fld"),
+                              side = "upper")
+  bcc$cell <- sprintf("hr=%.2f, n=%d%s", target_hr_harm, n_sample,
+                      if (k_random_noise > 0) sprintf(", +%d noise", k_random_noise) else "")
+  print(knitr::kable(bcc[, c("cell", "estimator", "n", "b", "r", "cov1", "cov2",
+                             "cov1_ref", "cov2_ref")], digits = 3,
+    caption = "Bias vs coverage, complement block (one-sided = UPPER bound): b = retained bias / empirical SD, r = mean SE / empirical SD (log scale); *_ref = Gaussian bookkeeping prediction at (b, r)."))
+  print(fs_plot_bias_coverage(bcc, side = "upper"))
 }
 ```
 

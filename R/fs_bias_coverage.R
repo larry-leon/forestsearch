@@ -22,23 +22,33 @@
 #' reference coverages at (b, r).
 #'
 #' Conventions follow the committed template's diagnostics section: the
-#' one-sided lower bound is the stored `fld_H_lo1s` for the field row and
-#' `exp(log est - qnorm(level) * SE)` for naive and MR (IJ); two-sided
+#' one-sided lower bound is the stored `fld_<block>_lo1s` for the field row
+#' and `exp(log est - qnorm(level) * SE)` for naive and MR (IJ); two-sided
 #' coverage uses each estimator's stored bounds; the field estimator is the
-#' shrunk-field `est2` with the two-sided Lambda-quantile interval, and it
-#' exists for the harm block only.
+#' shrunk-field `est2` with the two-sided Lambda-quantile interval.  Under
+#' `side = "upper"` (the complement's benefit-claim orientation,
+#' TASK_mr_field_complement_2026-09-06) the one-sided coverage is
+#' `truth <= upper bound`, with the field's stored `fld_<block>_up1s` and
+#' `exp(log est + qnorm(level) * SE)` for naive and MR (IJ), and the Gaussian
+#' reference is `Phi(z_level * r + b)` -- a positive retained bias helps an
+#' upper bound where it hurts a lower one.
 #'
 #' @param results Data frame of per-replicate records from a combined bundle
 #'   (`readRDS(...)$results`).
-#' @param block `"H"` (harm, default) or `"Hc"` (complement; the `"fld"`
-#'   estimator is dropped there with a message -- the gate computes no
-#'   complement field).
+#' @param block `"H"` (harm, default) or `"Hc"` (complement).  The `"fld"`
+#'   estimator is dropped with a message when the block's field columns are
+#'   absent (`fld_Hc_*` exist only for bundles run with
+#'   `field_complement = TRUE`).
 #' @param estimators Subset of `c("naive", "mr", "fld")`.
 #' @param level Coverage level (default 0.95).
 #' @param target `"betaHhat"` (default; the per-replicate conditional target
 #'   `betaHhat_<block>`), `"oracle"` (the per-replicate oracle estimate
 #'   `or_<block>_est`), or a numeric scalar on the HR scale (e.g. a CDE or
 #'   marginal truth value from the bundle's `truth` element).
+#' @param side `"lower"` (default; one-sided coverage of the lower bound,
+#'   the harm-claim orientation) or `"upper"` (one-sided coverage of the
+#'   upper bound, the benefit-claim orientation).  Two-sided quantities are
+#'   unaffected.
 #' @return Data frame, one row per estimator: `estimator`, `n`, `bias_log`,
 #'   `sd_emp`, `se_mean`, `b`, `r`, `cov1`, `cov1_wilson_lo`,
 #'   `cov1_wilson_hi`, `cov2`, `cov2_wilson_lo`, `cov2_wilson_hi`,
@@ -48,16 +58,20 @@ fs_sim_bias_coverage <- function(results,
                                  block = c("H", "Hc"),
                                  estimators = c("naive", "mr", "fld"),
                                  level = 0.95,
-                                 target = "betaHhat") {
+                                 target = "betaHhat",
+                                 side = c("lower", "upper")) {
   block <- match.arg(block)
+  side  <- match.arg(side)
   estimators <- match.arg(estimators, c("naive", "mr", "fld"),
                           several.ok = TRUE)
   r <- results[results$detected %in% 1L, , drop = FALSE]
   if (!nrow(r)) stop("fs_sim_bias_coverage: no detected replicates")
 
-  if (identical(block, "Hc") && "fld" %in% estimators) {
-    message("fs_sim_bias_coverage: the field block exists for the harm ",
-            "block only; dropping estimator 'fld' for block = \"Hc\".")
+  fld_pre <- paste0("fld_", block, "_")
+  if ("fld" %in% estimators && is.null(r[[paste0(fld_pre, "est2")]])) {
+    message("fs_sim_bias_coverage: no field columns (", fld_pre, "*) in ",
+            "these results; dropping estimator 'fld' for block = \"",
+            block, "\".")
     estimators <- setdiff(estimators, "fld")
   }
 
@@ -78,20 +92,24 @@ fs_sim_bias_coverage <- function(results,
     c(ctr - hw, ctr + hw)
   }
 
+  # `b1` is the one-sided bound on the requested side: the field's stored
+  # lo1s / up1s; the Gaussian bound exp(log est -/+ z1 * SE) otherwise.
   cols <- function(k) {
-    if (k == "fld") list(e = r$fld_H_est2, lo = r$fld_H_lo2s,
-                         hi = r$fld_H_hi2s, se = r$fld_H_se,
-                         lo1 = r$fld_H_lo1s)
-    else {
+    if (k == "fld") {
+      f <- function(s) r[[paste0(fld_pre, s)]]
+      list(e = f("est2"), lo = f("lo2s"), hi = f("hi2s"), se = f("se"),
+           b1 = if (side == "lower") f("lo1s") else f("up1s"))
+    } else {
       e  <- r[[paste0(if (k == "mr") "mr" else "nv", "_", block, "_est")]]
       se <- r[[if (k == "mr") paste0("mr_", block, "_se_ij")
                else paste0("nv_", block, "_se")]]
+      sgn <- if (side == "lower") -1 else 1
       list(e = e,
            lo = r[[paste0(if (k == "mr") "mr" else "nv", "_", block, "_lo")]],
            hi = r[[paste0(if (k == "mr") "mr" else "nv", "_", block, "_hi")]],
            se = se,
-           lo1 = ifelse(is.finite(e) & is.finite(se) & e > 0,
-                        exp(log(e) - z1 * se), NA_real_))
+           b1 = ifelse(is.finite(e) & is.finite(se) & e > 0,
+                       exp(log(e) + sgn * z1 * se), NA_real_))
     }
   }
 
@@ -105,8 +123,10 @@ fs_sim_bias_coverage <- function(results,
     ok2 <- is.finite(lt) & is.finite(cc$lo) & is.finite(cc$hi)
     cov2 <- if (any(ok2)) mean(tgt[ok2] >= cc$lo[ok2] & tgt[ok2] <= cc$hi[ok2]) else NA_real_
     n2 <- sum(ok2)
-    ok1 <- is.finite(lt) & is.finite(cc$lo1)
-    cov1 <- if (any(ok1)) mean(tgt[ok1] >= cc$lo1[ok1]) else NA_real_
+    ok1 <- is.finite(lt) & is.finite(cc$b1)
+    cov1 <- if (!any(ok1)) NA_real_
+            else if (side == "lower") mean(tgt[ok1] >= cc$b1[ok1])
+            else mean(tgt[ok1] <= cc$b1[ok1])
     n1 <- sum(ok1)
     w1 <- wilson(cov1, n1); w2 <- wilson(cov2, n2)
     b <- bias_log / sd_emp
@@ -117,7 +137,8 @@ fs_sim_bias_coverage <- function(results,
       b = b, r = rr,
       cov1 = cov1, cov1_wilson_lo = w1[1], cov1_wilson_hi = w1[2],
       cov2 = cov2, cov2_wilson_lo = w2[1], cov2_wilson_hi = w2[2],
-      cov1_ref = stats::pnorm(z1 * rr - b),
+      cov1_ref = if (side == "lower") stats::pnorm(z1 * rr - b)
+                 else stats::pnorm(z1 * rr + b),
       cov2_ref = stats::pnorm(z2 * rr - b) - stats::pnorm(-z2 * rr - b),
       stringsAsFactors = FALSE)
   })
@@ -142,17 +163,24 @@ fs_sim_bias_coverage <- function(results,
 #' @param curves Gaussian-reference `r` values for panels 1-2
 #'   (default `c(1, 1.25, 1.5, 2)`).
 #' @param level Nominal level for the reference lines (default 0.95).
+#' @param side `"lower"` (default) or `"upper"`: which one-sided bound the
+#'   table's `cov1` was computed for (pass the same value given to
+#'   [fs_sim_bias_coverage()]).  Only panel 1's reference curves and title
+#'   change: `Phi(z1 * r + b)` under `"upper"`.
 #' @return A patchwork object of the three ggplot panels.
 #' @export
 fs_plot_bias_coverage <- function(tbl, labels = TRUE,
                                   curves = c(1, 1.25, 1.5, 2),
-                                  level = 0.95) {
+                                  level = 0.95,
+                                  side = c("lower", "upper")) {
   stopifnot(is.data.frame(tbl), "cell" %in% names(tbl))
+  side <- match.arg(side)
   z1 <- stats::qnorm(level)
   z2 <- stats::qnorm(1 - (1 - level) / 2)
   bg <- seq(min(tbl$b, -0.5) - 0.3, max(tbl$b, 0.5) + 0.3, length.out = 201)
+  sgn1 <- if (side == "lower") -1 else 1
   cur1 <- do.call(rbind, lapply(curves, function(rv)
-    data.frame(b = bg, cov = stats::pnorm(z1 * rv - bg), r = factor(rv))))
+    data.frame(b = bg, cov = stats::pnorm(z1 * rv + sgn1 * bg), r = factor(rv))))
   cur2 <- do.call(rbind, lapply(curves, function(rv)
     data.frame(b = bg, cov = stats::pnorm(z2 * rv - bg) -
                              stats::pnorm(-z2 * rv - bg), r = factor(rv))))
@@ -168,10 +196,12 @@ fs_plot_bias_coverage <- function(tbl, labels = TRUE,
     ggplot2::geom_hline(yintercept = level, linetype = 2) +
     ggplot2::geom_point(ggplot2::aes(shape = estimator), size = 2.4) +
     lab_layer(ggplot2::aes(label = cell)) +
-    ggplot2::labs(title = sprintf("One-sided %d%% lower-bound coverage", round(100 * level)),
+    ggplot2::labs(title = sprintf("One-sided %d%% %s-bound coverage",
+                                  round(100 * level), side),
                   x = "residual bias b (SD units)", y = "coverage",
-                  caption = sprintf("curves: Φ(%.3f·r − b), r ∈ {%s}",
-                                    z1, paste(curves, collapse = ", "))) +
+                  caption = sprintf("curves: Φ(%.3f·r %s b), r ∈ {%s}",
+                                    z1, if (side == "lower") "−" else "+",
+                                    paste(curves, collapse = ", "))) +
     base_th
 
   p2 <- ggplot2::ggplot(tbl, ggplot2::aes(x = b, y = cov2)) +

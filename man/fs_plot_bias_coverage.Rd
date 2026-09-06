@@ -8,7 +8,8 @@ fs_plot_bias_coverage(
   tbl,
   labels = TRUE,
   curves = c(1, 1.25, 1.5, 2),
-  level = 0.95
+  level = 0.95,
+  side = c("lower", "upper")
 )
 }
 \arguments{
@@ -21,6 +22,11 @@ fs_plot_bias_coverage(
 (default \code{c(1, 1.25, 1.5, 2)}).}
 
 \item{level}{Nominal level for the reference lines (default 0.95).}
+
+\item{side}{\code{"lower"} (default) or \code{"upper"}: which one-sided bound the
+table's \code{cov1} was computed for (pass the same value given to
+\code{\link[=fs_sim_bias_coverage]{fs_sim_bias_coverage()}}).  Only panel 1's reference curves and title
+change: \code{Phi(z1 * r + b)} under \code{"upper"}.}
 }
 \value{
 A patchwork object of the three ggplot panels.

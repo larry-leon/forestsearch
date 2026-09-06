@@ -9,16 +9,18 @@ fs_sim_bias_coverage(
   block = c("H", "Hc"),
   estimators = c("naive", "mr", "fld"),
   level = 0.95,
-  target = "betaHhat"
+  target = "betaHhat",
+  side = c("lower", "upper")
 )
 }
 \arguments{
 \item{results}{Data frame of per-replicate records from a combined bundle
 (\code{readRDS(...)$results}).}
 
-\item{block}{\code{"H"} (harm, default) or \code{"Hc"} (complement; the \code{"fld"}
-estimator is dropped there with a message -- the gate computes no
-complement field).}
+\item{block}{\code{"H"} (harm, default) or \code{"Hc"} (complement).  The \code{"fld"}
+estimator is dropped with a message when the block's field columns are
+absent (\verb{fld_Hc_*} exist only for bundles run with
+\code{field_complement = TRUE}).}
 
 \item{estimators}{Subset of \code{c("naive", "mr", "fld")}.}
 
@@ -28,6 +30,11 @@ complement field).}
 \verb{betaHhat_<block>}), \code{"oracle"} (the per-replicate oracle estimate
 \verb{or_<block>_est}), or a numeric scalar on the HR scale (e.g. a CDE or
 marginal truth value from the bundle's \code{truth} element).}
+
+\item{side}{\code{"lower"} (default; one-sided coverage of the lower bound,
+the harm-claim orientation) or \code{"upper"} (one-sided coverage of the
+upper bound, the benefit-claim orientation).  Two-sided quantities are
+unaffected.}
 }
 \value{
 Data frame, one row per estimator: \code{estimator}, \code{n}, \code{bias_log},
@@ -47,9 +54,14 @@ reference coverages at (b, r).
 }
 \details{
 Conventions follow the committed template's diagnostics section: the
-one-sided lower bound is the stored \code{fld_H_lo1s} for the field row and
-\verb{exp(log est - qnorm(level) * SE)} for naive and MR (IJ); two-sided
+one-sided lower bound is the stored \verb{fld_<block>_lo1s} for the field row
+and \verb{exp(log est - qnorm(level) * SE)} for naive and MR (IJ); two-sided
 coverage uses each estimator's stored bounds; the field estimator is the
-shrunk-field \code{est2} with the two-sided Lambda-quantile interval, and it
-exists for the harm block only.
+shrunk-field \code{est2} with the two-sided Lambda-quantile interval.  Under
+\code{side = "upper"} (the complement's benefit-claim orientation,
+TASK_mr_field_complement_2026-09-06) the one-sided coverage is
+\verb{truth <= upper bound}, with the field's stored \verb{fld_<block>_up1s} and
+\verb{exp(log est + qnorm(level) * SE)} for naive and MR (IJ), and the Gaussian
+reference is \code{Phi(z_level * r + b)} -- a positive retained bias helps an
+upper bound where it hurts a lower one.
 }
