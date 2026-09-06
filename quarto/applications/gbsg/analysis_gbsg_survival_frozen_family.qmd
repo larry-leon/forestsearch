@@ -273,7 +273,17 @@ fs <- forestsearch(
   sg_focus           = "maxeff",
   n.min              = 60, d0.min = 10, d1.min = 10, maxk = 2,
   mr_inference        = TRUE,
-  mr_inference_args   = list(draws = mr_draws),
+  # TASK_gbsg_frozen_intervals_2026-09-05 (+ its Gate 0 resolution): under
+  # ci_method = "field" the de-biased (IJ) block is identical to the previous
+  # render, so every existing MR number reproduces; the field block and the
+  # re-selection frequencies are additive.  I1 as revised by Larry: the
+  # uniform (kappa) calibration runs with the mass-carrying cap lifted to the
+  # full family (field_M_cap = 1000L >= K), and its kappa-widened two-sided
+  # interval is reported in @sec-intervals as the conservative uniformly-valid
+  # option per REPORT_mr_field_uniform_2026-09-06.md.
+  mr_inference_args   = list(draws = mr_draws, ci_method = "field",
+                             return_reselection = TRUE,
+                             field_uniform = TRUE, field_M_cap = 1000L),
   consistency_method = "resample",
   # stop_threshold: INERT here.  forestsearch_main.R:1304 sets it to NULL under
   # sg_focus = "maxeff", together with pconsistency.threshold -> 0,
@@ -709,14 +719,157 @@ included for completeness; the discriminating comparison is the headline maxeff
 family, where family regeneration separates FB (marginal) from MR (conditional).
 :::
 
+## Interval constructions for the selected subgroup {#sec-intervals}
+
+Every interval construction available for the selected subgroup
+$\{pgr \le 32.5\} \cap \{er \le 0\}$, side by side, on the same fit
+(`TASK_gbsg_frozen_intervals_2026-09-05`). The target throughout is the effect
+in the region the search found, **with the candidate family held fixed** — the
+conditional estimand this frozen-family document is built around.
+
+```{r intervals-table}
+#| tbl-cap: "Interval constructions for the selected subgroup (HR scale; SE on the log-HR scale). One-sided conventions per row: Naive and MR (IJ) use exp(log est − 1.645·SE) (MR (IJ)'s is the gate's stored selection-adjusted bound); FB uses exp(log H2 − 1.645·SE_boot) with SE_boot = sdH2/H2 (delta method — the bootstrap object carries an SE, not the draws); MR (field)'s one-sided bound exp(β̃ − q95(Λ*)) is built on the de-biased estimate β̃, NOT on est2; Guo & He reports its own bound and is one-sided by design. The uniform row widens the field's Λ-quantiles by κ(Σ̂) about their mean — the conservative uniformly-valid option (REPORT_mr_field_uniform_2026-09-06.md), computed here with the mass-carrying cap lifted to the full family."
+#| echo: false
+f  <- g$field
+u  <- f$uniform
+rs <- g$reselection
+stopifnot(!is.null(f), !is.null(u), !is.null(rs))
+
+.se_fb_log <- fs_bc$H_estimates$sdH2 / fs_bc$H_estimates$H2   # delta method
+.one <- function(est, se) exp(log(est) - qnorm(0.95) * se)
+fmt2 <- function(l, h) sprintf("(%.2f, %.2f)", l, h)
+
+tab_int <- data.frame(
+  Method = c("Naive", "Full bootstrap", "MR (IJ)", "MR (field)",
+             "MR (field, uniform 2s)", "Guo & He (2021)"),
+  `Point est.` = sprintf("%.2f", c(g$naive$est, fs_bc$H_estimates$H2,
+                                   g$debiased$est, f$est2, f$est2,
+                                   gh$debiased_hr)),
+  `Two-sided 95%` = c(
+    fmt2(g$naive$lower, g$naive$upper),
+    fmt2(fs_bc$H_estimates$H2_lower, fs_bc$H_estimates$H2_upper),
+    fmt2(g$debiased$lower, g$debiased$upper),
+    fmt2(f$lower_2s, f$upper_2s),
+    fmt2(u$lower_2u, u$upper_2u),
+    "— (one-sided by design)"),
+  `One-sided 95% lower` = sprintf("%.2f", c(
+    .one(g$naive$est, g$debiased$se_wald),
+    .one(fs_bc$H_estimates$H2, .se_fb_log),
+    g$debiased$lower_1s,
+    f$lower_1s,
+    f$lower_1s,
+    gh$bound_hr)),
+  `SE (log-HR)` = c(sprintf("%.3f", c(g$debiased$se_wald, .se_fb_log,
+                                      g$debiased$se_ij, f$se_field, f$se_field)),
+                    "—"),
+  check.names = FALSE
+)
+kbl(tab_int, booktabs = TRUE, escape = FALSE, align = "lllll") |> kable_styling()
+```
+
+```{r reselection-table}
+#| tbl-cap: "Re-selection and field diagnostics: which regime this analysis sits in. p-hat entries are the share of multiplier draws on which each candidate wins the re-selection; lambda quantities are on the log-HR scale."
+#| echo: false
+p_hat <- rs$p_hat
+sel_i <- g$selected_index
+top3  <- sort(p_hat, decreasing = TRUE)[1:3]
+
+tab_rs <- data.frame(
+  Quantity = c(
+    sprintf("p-hat(H-hat)  [selected: %s]", g$selected_label),
+    sprintf("Top re-selected: %s", names(top3)[1]),
+    sprintf("2nd: %s", names(top3)[2]),
+    sprintf("3rd: %s", names(top3)[3]),
+    "Selection rate (draws with a winner)",
+    "Field lambda-bar (second-order term, log scale)",
+    "Field lambda-SD vs se_ij (ratio)",
+    "Field lambda-SD vs naive SE (ratio)",
+    "Field draw usage (outer used / R_out; mean inner / R_in)",
+    "Uniform kappa* (mcse)",
+    "Uniform M / family size; mass covered; min C1"),
+  Value = c(
+    sprintf("%.3f", unname(p_hat[sel_i])),
+    sprintf("%.3f", top3[1]),
+    sprintf("%.3f", top3[2]),
+    sprintf("%.3f", top3[3]),
+    sprintf("%.3f", g$selection_rate),
+    sprintf("%+.4f", f$lambda_mean),
+    sprintf("%.3f / %.3f = %.2f", f$lambda_sd, g$debiased$se_ij,
+            f$lambda_sd / g$debiased$se_ij),
+    sprintf("%.3f / %.3f = %.2f", f$lambda_sd, g$debiased$se_wald,
+            f$lambda_sd / g$debiased$se_wald),
+    sprintf("%d / %d; %.0f / %d", f$n_out_used, f$R_out, f$n_in_used_mean, f$R_in),
+    sprintf("%.2f (%.3f)", u$kappa, u$kappa_mcse),
+    sprintf("%d / %d; %.3f; %.3f", u$M, g$n_family, u$mass_covered, u$minC1)),
+  check.names = FALSE
+)
+kbl(tab_rs, booktabs = TRUE, escape = TRUE, align = "ll") |> kable_styling()
+```
+
+::: {.callout-note}
+## Reading the interval constructions
+
+**What each guarantee is.** The IJ interval is conservative by construction
+(its SE tracks the full bootstrap's, which over-covers the conditional target
+when re-selection mass is spread). The field's one-sided bound is uniformly at
+nominal in the fixed-family limit experiment and across the simulation cells
+except the tie regime at larger $n$ under the screen
+(`REPORT_mr_field_ocmap_2026-09-05.md`, finding 1). The field's plain two-sided
+interval is approximate, with a known worst case near moderate separation
+(~0.88–0.90). The uniform (κ-widened) two-sided interval restores 95% coverage
+uniformly over the winner-profile protection family, at the price of width
+(`REPORT_mr_field_uniform_2026-09-06.md`). Guo & He is one-sided by design.
+The κ row here is computed on this trial's own $\widehat\Sigma$ with the
+mass-carrying cap lifted to the full family.
+
+**The reading for this subgroup** is generated from the numbers above at render
+time:
+
+```{r intervals-reading, results = "asis"}
+#| echo: false
+bounds <- c(`MR (IJ)` = g$debiased$lower_1s, `MR (field)` = f$lower_1s,
+            `Guo & He` = gh$bound_hr)
+above <- names(bounds)[bounds > 1]
+cat(sprintf(paste0(
+  "- The naive estimate is %.2f; every selection-adjusted point estimate sits ",
+  "below it (FB %.2f, MR (IJ) %.2f, field est2 %.2f, G&H %.2f) — the ",
+  "corrections agree that part of the naive effect is winner's curse.\n"),
+  g$naive$est, fs_bc$H_estimates$H2, g$debiased$est, f$est2, gh$debiased_hr))
+if (length(above)) {
+  cat(sprintf(paste0(
+    "- Selection-adjusted one-sided 95%% lower bounds above 1: **%s** ",
+    "(%s). The harm claim survives those constructions at the one-sided level.\n"),
+    paste(above, collapse = ", "),
+    paste(sprintf("%.2f", bounds[above]), collapse = ", ")))
+} else {
+  cat(sprintf(paste0(
+    "- **No selection-adjusted one-sided 95%% lower bound exceeds 1** ",
+    "(MR (IJ) %.2f, field %.2f, G&H %.2f): after accounting for selection, ",
+    "the evidence does not establish harm at the one-sided 95%% level.\n"),
+    bounds[1], bounds[2], bounds[3]))
+}
+cat(sprintf(paste0(
+  "- p̂(Ĥ) = %.2f says the selection was %s: the selected subgroup ",
+  "wins the re-selection on %.0f%% of multiplier draws%s.\n"),
+  unname(p_hat[sel_i]),
+  if (unname(p_hat[sel_i]) >= 0.5) "dominant" else "competitive",
+  100 * unname(p_hat[sel_i]),
+  if (unname(p_hat[sel_i]) < 0.5) " — the tie regime, where the second-order (field) correction matters most" else ""))
+```
+
+No claim is made beyond these numbers.
+:::
+
 ```{r timing}
 #| echo: false
 td <- data.frame(
   Step = c("Fit + MR gate", "Full bootstrap", "MR gate (within fit)",
+           "MR field block (within gate)", "MR uniform (kappa) sweep (within gate)",
            "Guo & He bootstrap", "10-fold CV",
            sprintf("Leave-one-out (N-fold, %d workers)", loo_workers)),
-  Seconds = c(timings$fit, timings$fb, timings$mr, timings$gh,
-              timings$kfold, timings$loo)
+  Seconds = c(timings$fit, timings$fb, timings$mr,
+              g$field$timing_seconds, g$field$uniform$timing_seconds,
+              timings$gh, timings$kfold, timings$loo)
 )
 td$Minutes <- round(td$Seconds / 60, 2)
 kbl(td, booktabs = TRUE, align = "lrr") |> kable_styling()
@@ -730,7 +883,11 @@ analysis is repeated. Every element is guarded, so a section this render skipped
 (`run_cv_kfold`, `run_loo`) stores `NULL` rather than erroring, and the
 top-level names match the other GBSG payloads (`table`, `labels`, `meta`,
 `extras`, `est_scale`, `built_at`, `forestsearch_version`) so a reader can treat
-them uniformly.
+them uniformly. Schema note (2026-09-06, `TASK_gbsg_frozen_intervals`):
+`extras$mr` additionally carries the `field` block (the field-calibrated
+interval, including its `uniform` κ sub-block) and `reselection` (the
+re-selection frequencies `p_hat`; the per-draw `winner` vector is deliberately
+dropped — `sum(p_hat)` equals the selection rate and reproduces it).
 
 ```{r export-payload}
 #| echo: false
@@ -787,7 +944,12 @@ payload <- list(
       settings       = .g$settings,
       n_family       = .g$n_family,
       selection_bias = .g$selection_bias,
-      timing_seconds = .g$timing_seconds),
+      timing_seconds = .g$timing_seconds,
+      # Schema 2026-09-06 (TASK_gbsg_frozen_intervals): the field block
+      # (with its uniform kappa sub-block) and the re-selection frequencies.
+      field          = .g$field,
+      reselection    = if (is.null(.g$reselection)) NULL else
+                         list(p_hat = .g$reselection$p_hat)),
     fb = if (is.null(.fsbc)) NULL else list(
       H_estimates  = .fsbc$H_estimates,
       Hc_estimates = .fsbc$Hc_estimates),

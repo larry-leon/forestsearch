@@ -1,26 +1,55 @@
-# REPORT — GBSG frozen-family interval constructions: STOPPED AT GATE 0
+# REPORT — GBSG frozen-family interval constructions (final)
 
-**Task:** `dev/tasks/TASK_gbsg_frozen_intervals_2026-09-05.md` (084ec961). I1–I6 at defaults.
-**Date:** 2026-09-06. Executor: Claude Code.
+**Task:** `dev/tasks/TASK_gbsg_frozen_intervals_2026-09-05.md` (084ec961). Gate 0 STOP (878d13c2 — `return_reselection` not forwarded) resolved by Larry: add-only pass-throughs committed at **c1b957b2** (`return_reselection` + `field_M_cap` on `forestsearch()`, defaults FALSE/NULL, no behaviour change; Rd regenerated; suite 0/4941/3/32; fixed-seed spot byte-identity ij + field both exact). **I1 revised:** `field_uniform = TRUE` with the mass-carrying cap lifted to the full family (`field_M_cap = 1000L ≥ K = 133`); I2–I6 at defaults.
+**Date:** 2026-09-06. Render: LOO from the committed cache (`LOO_CACHE` env → `_payloads_2026-09-01_complete/...`); the render is the compute.
 
----
+## Stage 1 — Identities: ALL PASS (12/12)
 
-## GATE 0: STOP — Table 2's source element cannot exist under the wrapper without an `R/` change, which this task forbids
+Against the committed payload `_payloads_2026-09-01_complete/analysis_gbsg_survival_frozen_family/analysis_gbsg_survival_frozen_family_payload.rds`:
 
-**The finding (0a, verified from source).** The task's change 1 prescribes the gate call
-`mr_inference_args = list(draws = mr_draws, ci_method = "field", return_reselection = TRUE, field_uniform = FALSE)`
-and Table 2 reads "re-selection diagnostics from `fs$mr_inference$reselection`: p̂_Ĥ; the top three re-selected candidates …". But `forestsearch()` does **not** forward `return_reselection` — zero occurrences in `R/forestsearch_main.R` (the gate call at `:3368–3390` forwards `t_confirm`, `confirm_rule`, `reselection`, `effect_neighborhood`, `selection_rule`, `draws`, `multiplier`, `include_complement`, `ci_method`, `field_uniform`, `seed` and nothing else) and zero in `R/fs_mr_inference_methods.R`. The argument would be silently dropped, `fs_mr_inference()` would run at its `return_reselection = FALSE` default (`R/fs_mr_inference.R:405`), and `fs$mr_inference$reselection` would be `NULL`. Same pass-through gap class as `field_R_out`/`field_R_in` (s7 Stage 0) and `field_uniform` (uniform Stage 0 — closed there by an authorized add-only line).
+- Selected subgroup identical: `{pgr <= 32.5} {er <= 0}`.
+- Naive est/lower/upper ≤ 1e-12. **MR (IJ)** est/lower/upper/lower_1s/se/se_ij/se_wald/var_ij ≤ 1e-12 (STOP gate — est 1.753114 reproduced exactly under `ci_method = "field"`); n_family (133) and selection_bias identical. **G&H** naive/debiased/bound ≤ 1e-12 (STOP gate — 2.22 / 1.3605 / 0.9617). **FB** H_estimates identical at 1e-12 (seed-reproducible via the formal default `seed = 8316951L`, as recorded at Gate 0).
+- 1c: field block finite, no degenerate note, `lower_2s ≤ upper_2s`, `lower_1s ≤ est` (log scale); p̂ sums to the selection rate (1.000 — every multiplier draw produced a winner under the plain maxeff argmax); uniform block finite with the κ-widened interval containing the plain quantile interval.
 
-**Why no workaround is faithful:**
-- A document-side replay of the gate with `return_reselection = TRUE` cannot reproduce the wrapper's call: `df.fs`, the enumerated candidate family and the resolved admission are internal to `forestsearch()`. The one exportable family — `fs_to_guohe()`'s — has **116** candidates versus the gate's own **133** (committed payload `extras$mr$n_family`), so p̂ computed on it would describe a different selection problem.
-- Omitting p̂_Ĥ and the top-3 frequencies guts Table 2 (the fit does retain `selection_rate` and the field's λ diagnostics, but the task's regime-reading rests on p̂_Ĥ).
+## Table 1 — Interval constructions for the selected subgroup (HR scale; SE log-HR)
 
-**Candidate fix (NOT applied — `R/` is frozen for this task):** one add-only line in the `forestsearch()` gate call, `return_reselection = .g_mr(mr_inference_args$return_reselection, FALSE),` — identical in kind to the `field_uniform` forwarding Larry classified on 2026-09-05 as "add-only pass-through, no behaviour change" (default `FALSE` reproduces today's output byte-for-byte; the element is additive on the return). With it, the task proceeds as written. Alternatives: (a) authorize the line under this task with the usual guards (suite + a fixed-seed ij/field byte-identity spot-check); (b) amend Table 2 to drop p̂ diagnostics (weakens the illustration's stated purpose); (c) defer.
+| Method | Point est. | Two-sided 95% | One-sided 95% lower | SE (log) |
+|---|---|---|---|---|
+| Naive | 2.22 | (1.17, 4.22) | 1.30 | 0.327 |
+| Full bootstrap | 1.96 | (0.81, 4.74) | 0.93 | 0.451 |
+| MR (IJ) | 1.75 | (0.68, 4.52) | 0.79 | 0.484 |
+| MR (field) | 1.79 | (0.76, 3.78) | 0.88 | 0.417 |
+| MR (field, uniform 2s) | 1.79 | (0.46, 5.89) | 0.88 | 0.417 |
+| Guo & He (2021) | 1.36 | — (one-sided by design) | 0.96 | — |
 
-## What Stage 0 established before the stop (for reuse on resumption)
+One-sided conventions: naive and MR (IJ) `exp(log est − 1.645·SE)` (IJ's is the gate's stored selection-adjusted bound); FB `exp(log H2 − 1.645·sdH2/H2)` (I2 middle option — the object carries an SE, not draws); the field's bound is built on β̃, not est2; the uniform row is the conservative uniformly-valid option (κ* widening of the field quantiles about their mean), computed on this trial's own Σ̂ with the cap lifted to the full family.
 
-- **0a.** `fs$mr_inference$field` under the wrapper carries `lambda_mean, lambda_sd, q05, q25, q50, q75, q95, q025, q975, n_out_used, n_in_used_mean, est2, lower_1s, lower_2s, upper_2s, se_field, lower_se, upper_se, R_out, R_in, seed_offset, timing_seconds` (source `R/fs_mr_inference.R:691–709`; degenerate case a `note`). `reselection` (when returned) is `list(winner, p_hat)` with `sum(p_hat) == selection_rate` (`:738–742`). `fs_bc$H_estimates` is a 1-row table `H0, sdH0, H0_lower, H0_upper, H1, sdH1, …, H2, sdH2, H2_lower, H2_upper` — **an SE but no draws**, so decision I2 lands on its middle option: FB one-sided `exp(log H2 − 1.645 · sdH2/H2)`.
-- **0b.** Committed payload (identity anchor): `_payloads_2026-09-01_complete/analysis_gbsg_survival_frozen_family/analysis_gbsg_survival_frozen_family_payload.rds` — `extras$mr` (naive est/lower/upper 2.22/1.17/4.22; debiased est/lower/upper/lower_1s 1.75/0.68/4.52/0.79, se_ij 0.484, ij_source "ij", n_family 133), `extras$fb$H_estimates` (H2 1.96 [0.81, 4.74], sdH2 0.883), `extras$gh` (naive 2.22, debiased 1.36, bound 0.962, n_family 116), selected subgroup `{pgr <= 32.5} {er <= 0}`. **FB is seed-reproducible:** `forestsearch_bootstrap_dofuture()` has formal default `seed = 8316951L` (the document omits the argument, so the fixed default applies; plan-invariance is the document's own verified note).
-- **0c.** LOO cache present (committed): `_payloads_2026-09-01_complete/analysis_gbsg_survival_frozen_family/cv_out_analysis_gbsg_survival_frozen_family_maxeff_neighborhood.rds`; the document's default path looks in `gh_dir` (`quarto/GuoHe/`, where the file no longer lives), so the re-render sets the `LOO_CACHE` env var to the committed path (read-only) — or recomputes in ~18 s (memory-recorded, seeded).
+## Table 2 — Re-selection and field diagnostics
 
-Nothing was rendered, edited, or recomputed; committed payloads untouched. **Stopped at Gate 0.** Decision needed from Larry on the `return_reselection` pass-through.
+| Quantity | Value |
+|---|---|
+| p̂(Ĥ)  [selected: q6.1 & q8.1] | **0.678** |
+| Top re-selected: q6.1 & q8.1 | 0.678 |
+| 2nd: q8.1 | 0.106 |
+| 3rd: q1.0 & q2.1 | 0.092 |
+| Selection rate | 1.000 |
+| Field λ̄ (second-order term, log) | −0.0181 |
+| λ-SD vs se_ij | 0.417 / 0.484 = 0.86 |
+| λ-SD vs naive SE | 0.417 / 0.327 = 1.27 |
+| Draw usage | 1000/1000 outer; 500/500 inner |
+| Uniform κ* (mcse) | 1.59 (0.054) |
+| Uniform M / family; mass; minC₁ | 17 / 133; 0.991; 0.930 |
+
+(The full-family cap was inert in the best way: the ≥ 0.99 mass target was reached at M = 17 — the cap never bound.)
+
+## Timing
+
+Fit + gate 85 s · FB 148 s · MR gate 0.6 s (field block 0.43 s; **κ sweep 82.1 s**) · G&H 28 s · LOO from cache. Whole render ≈ 6 min.
+
+## What the illustration shows (three sentences)
+
+Every selection-adjusted construction pulls the naive HR of 2.22 down (FB 1.96, MR (IJ) 1.75, field est2 1.79, G&H 1.36), and all four selection-adjusted one-sided 95% lower bounds fall below 1 (0.93, 0.79, 0.88, 0.96) while the naive bound sits at 1.30 — so the one-sided harm claim survives only the analysis that ignores selection. The re-selection diagnostics place this analysis in the dominant-selection regime (p̂(Ĥ) = 0.68 against a runner-up at 0.11), where the second-order field term is small (λ̄ = −0.018) and the constructions differ mostly in width, not location. The κ(Σ̂)-widened interval (κ* = 1.59, mass 0.991 at M = 17 of 133) prices the uniformly-valid two-sided statement at (0.46, 5.89) against the field's (0.76, 3.78) — width bought as a guarantee, changing no conclusion here.
+
+## Committed with this report
+
+Document (`analysis_gbsg_survival_frozen_family.qmd` — gate-call knobs, the new `@sec-intervals` section with both tables and the generated reading, payload schema bump, timing rows), refreshed tracked HTML, and the new payload under `_payloads/analysis_gbsg_survival_frozen_family/` (committed payloads under `_payloads_2026-09-01_complete/` untouched). No task proposed; nothing blocked after the Gate 0 resolution.
