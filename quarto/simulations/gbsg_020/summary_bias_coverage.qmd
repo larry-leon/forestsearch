@@ -1,0 +1,104 @@
+---
+title: "Bias vs coverage across the MR simulation cells"
+subtitle: "One-sided and two-sided coverage of β(Ĥ) against residual bias, with the Gaussian reference (TASK_bias_coverage_display_2026-09-06)"
+author: "Larry León"
+date: today
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+---
+
+The display reads each simulation cell's (estimator, coverage) pair against a
+Gaussian bookkeeping reference: with `b` = mean log error / empirical SD and
+`r` = mean reported SE / empirical SD (both from the cell's own replicates), a
+Gaussian error model predicts one-sided coverage $\Phi(z_{0.95} r - b)$ and
+two-sided coverage $\Phi(z_{0.975} r - b) - \Phi(-z_{0.975} r - b)$. The
+reference is bookkeeping, not theory: it says how much of each observed
+coverage is explained by the (bias, SE-calibration) pair alone.
+
+# Knobs
+
+```{r setup, message=FALSE}
+library(forestsearch)
+library(ggplot2)
+library(kableExtra)
+
+# Campaign glob: which combined bundles to read (committed s7 + map1 cells).
+# Self-contained: reads results/ beside this document only.
+globs <- c("results/fs_*_s7_combined_1_2000.rds",
+           "results/fs_*_map1_combined_1_2000.rds")
+block      <- "H"                  # J1 default: harm block
+estimators <- c("mr", "fld")       # IJ and field (naive available by knob)
+curves     <- c(1, 1.25, 1.5, 2)   # J2 default
+
+# Human-readable cell label from a bundle's meta.
+cell_label <- function(meta) {
+  hr <- meta$target_hr_harm
+  base <- if (hr < 1) sprintf("protective %.2f", hr)
+  else if (hr == 1) "null 1.0" else sprintf("harm %.4g", hr)
+  kn <- if (!is.null(meta$k_random_noise) && meta$k_random_noise > 0)
+    sprintf(", %d noise", meta$k_random_noise) else ""
+  nn <- if (is.null(meta$n_sample) || meta$n_sample == 500)
+    if (nzchar(kn) || hr < 1) "" else ", n=500" else sprintf(", n=%d", meta$n_sample)
+  paste0(base, nn, kn)
+}
+```
+
+# Cells
+
+```{r read}
+files <- sort(unlist(lapply(globs, Sys.glob)))
+stopifnot(length(files) > 0)
+tab <- do.call(rbind, lapply(files, function(f) {
+  b <- readRDS(f)
+  # meta may not carry target_hr_harm/k_random_noise (s7-era bundles); recover
+  # them from the stem, which always does.
+  m <- b$meta
+  if (is.null(m$target_hr_harm))
+    m$target_hr_harm <- as.numeric(sub("^.*_m1_h(\\d{3})_.*$", "\\1", basename(f))) / 100
+  if (is.null(m$k_random_noise))
+    m$k_random_noise <- as.integer(sub("^.*_knoise(\\d+)_.*$", "\\1", basename(f)))
+  s <- fs_sim_bias_coverage(b$results, block = block, estimators = estimators)
+  s$cell <- cell_label(m)
+  s$bundle <- basename(f)
+  s
+}))
+tab$estimator <- factor(tab$estimator, levels = c("naive", "mr", "fld"),
+                        labels = c("naive", "IJ", "field"))
+kbl(tab[, c("cell", "estimator", "n", "b", "r", "cov1", "cov1_wilson_lo",
+            "cov1_wilson_hi", "cov2", "cov2_wilson_lo", "cov2_wilson_hi",
+            "cov1_ref", "cov2_ref")],
+    digits = 3, booktabs = TRUE, row.names = FALSE) |>
+  kable_styling(font_size = 12)
+```
+
+# The display
+
+```{r plot}
+#| fig-width: 13
+#| fig-height: 4.6
+fs_plot_bias_coverage(tab, curves = curves)
+```
+
+# Reading
+
+```{r reading, results='asis'}
+#| echo: false
+d1 <- tab$cov1 - tab$cov1_ref
+d2 <- tab$cov2 - tab$cov2_ref
+cat(sprintf(paste0(
+  "Across the %d (cell, estimator) points, the Gaussian reference at each ",
+  "point's own (b, r) explains the observed coverage to within %.3f ",
+  "(one-sided, mean |gap| %.3f) and %.3f (two-sided, mean |gap| %.3f): the ",
+  "coverage patterns in these cells are the arithmetic of retained bias and ",
+  "SE calibration, not distributional exotica. Points below the nominal line ",
+  "in the two-sided panel sit there because b is large relative to r (the ",
+  "field rows at moderate separation), or because r has fallen to ~1 while b ",
+  "remains (h1.5 at n=1500 -- the IJ row too); the one-sided panel's points ",
+  "hug nominal because every estimator's (b, r) pair lands where ",
+  "Φ(1.645r − b) ≈ 0.95.\n"),
+  nrow(tab), max(abs(d1)), mean(abs(d1)), max(abs(d2)), mean(abs(d2))))
+```

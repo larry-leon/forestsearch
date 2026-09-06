@@ -363,7 +363,10 @@ sim_id_end   <- sim_id_start + n_sims - 1L
 rds_path     <- file.path("results", sprintf("%s_res_%d_%d.rds", rds_stem, sim_id_start, sim_id_end))  # THIS batch's file
 combine_glob <- file.path("results", sprintf("%s_res_*.rds", rds_stem))   # combine mode: which batch files to merge
 combine_files <- NULL   # optional explicit character vector; NULL -> use combine_glob
-save_combined <- TRUE   # combine mode: ALSO write the pooled bundle to disk
+# FS_S7_SAVE_COMBINED=FALSE lets a verification combine render run every
+# table WITHOUT rewriting an already-committed pooled bundle (the committed
+# bundles are read-only inputs; TASK_bias_coverage_display_2026-09-06).
+save_combined <- !identical(.env_chr("FS_S7_SAVE_COMBINED", "TRUE"), "FALSE")   # combine mode: ALSO write the pooled bundle to disk
 combined_path <- NULL   # NULL -> auto "results/<rds_stem>_combined_<min>_<max>.rds" (deliberately
                         # outside combine_glob, so a re-combine never re-ingests the pool)
 
@@ -1998,6 +2001,23 @@ if (run_smoke && !is.null(results) && any(is.finite(results$fld_H_est2))) {
       "Wilson interval on the two-sided coverage proportion (paper convention, primary; F4).",
       "One-sided coverage = share of replicates with target >= the 95% lower bound:",
       "the field row uses its stored `lower_1s` (lambda q95 inversion); the normal-based rows use exp(log est - 1.645 se).")))
+}
+```
+
+```{r field-bias-coverage}
+#| fig-width: 13
+#| fig-height: 4.6
+# Bias-vs-coverage display for THIS cell (TASK_bias_coverage_display_2026-09-06):
+# one point per estimator against the Gaussian bookkeeping reference.  The
+# cross-cell version lives in summary_bias_coverage.qmd.
+if (run_smoke && !is.null(results) && any(is.finite(results$fld_H_est2))) {
+  bc <- fs_sim_bias_coverage(results, block = "H", estimators = c("mr", "fld"))
+  bc$cell <- sprintf("hr=%.2f, n=%d%s", target_hr_harm, n_sample,
+                     if (k_random_noise > 0) sprintf(", +%d noise", k_random_noise) else "")
+  print(knitr::kable(bc[, c("cell", "estimator", "n", "b", "r", "cov1", "cov2",
+                            "cov1_ref", "cov2_ref")], digits = 3,
+    caption = "Bias vs coverage, harm block: b = retained bias / empirical SD, r = mean SE / empirical SD (log scale); *_ref = Gaussian bookkeeping prediction at (b, r)."))
+  print(fs_plot_bias_coverage(bc))
 }
 ```
 
