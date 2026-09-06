@@ -23,7 +23,8 @@ fs_mr_inference(
   return_reselection = FALSE,
   field_R_out = 1000L,
   field_R_in = 500L,
-  field_uniform = FALSE
+  field_uniform = FALSE,
+  field_M_cap = NULL
 )
 }
 \arguments{
@@ -137,6 +138,12 @@ plain quantile interval is approximate.  The sweep draws under
 \code{seed + 910000L} after -- never inside -- the field's own stream, so
 every other output, the field block included, is byte-identical whether
 or not it runs.}
+
+\item{field_M_cap}{Optional override of the uniform sweep's mass-carrying
+cap (\code{fs_mr_field_uniform()}'s \code{M_cap}); \code{NULL} (default) uses that
+function's default.  Pass a value at least the family size to lift the
+cap to the full family (the GBSG frozen-intervals illustration does).
+Consulted only when \code{field_uniform = TRUE}; add-only, default-inert.}
 }
 \value{
 List with the selected index/label, \code{naive} and \code{debiased} estimates

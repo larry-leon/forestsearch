@@ -802,6 +802,14 @@
 #'       Passed as \code{TRUE} by every internal caller.}
 #'     \item{\code{seed}}{Seed for the multiplier draws; defaults to
 #'       \code{seedit}.}
+#'     \item{\code{return_reselection}}{Logical, default \code{FALSE}.  When
+#'       \code{TRUE} the gate's return gains the \code{reselection} element
+#'       (per-draw winners and the re-selection frequencies \code{p_hat});
+#'       add-only pass-through, the default reproduces prior output exactly.}
+#'     \item{\code{field_M_cap}}{Optional override of the uniform (kappa)
+#'       sweep's mass-carrying cap; \code{NULL} (default) keeps
+#'       \code{fs_mr_field_uniform()}'s default.  Consulted only when
+#'       \code{field_uniform = TRUE}.}
 #'   }
 #' @param consistency_method Character. \code{"resample"} (default) uses the
 #'   multiplier (influence-function / \code{dfbeta}) approximation
@@ -3386,6 +3394,10 @@ forestsearch <- function(df.analysis,
         # Add-only pass-through (TASK_mr_field_uniform_2026-09-05, Larry's
         # classification: no behaviour change; FALSE is the gate's default).
         field_uniform = .g_mr(mr_inference_args$field_uniform, FALSE),
+        # Add-only pass-throughs (TASK_gbsg_frozen_intervals_2026-09-05 Gate 0
+        # resolution, same classification: defaults reproduce prior output).
+        return_reselection = .g_mr(mr_inference_args$return_reselection, FALSE),
+        field_M_cap   = .g_mr(mr_inference_args$field_M_cap, NULL),
         seed          = .g_mr(mr_inference_args$seed,        seedit))
     }, error = function(e) {
       warning("mr_inference failed: ", conditionMessage(e)); NULL

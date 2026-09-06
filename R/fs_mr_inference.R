@@ -335,6 +335,11 @@
 #'   `seed + 910000L` after -- never inside -- the field's own stream, so
 #'   every other output, the field block included, is byte-identical whether
 #'   or not it runs.
+#' @param field_M_cap Optional override of the uniform sweep's mass-carrying
+#'   cap (`fs_mr_field_uniform()`'s `M_cap`); `NULL` (default) uses that
+#'   function's default.  Pass a value at least the family size to lift the
+#'   cap to the full family (the GBSG frozen-intervals illustration does).
+#'   Consulted only when `field_uniform = TRUE`; add-only, default-inert.
 #' @return List with the selected index/label, `naive` and `debiased` estimates
 #'   (effect scale, with approximate 95% CIs), `selection_bias`, `fixed_bias`,
 #'   `selection_rate`, `mean_r`, `mean_r_c`, the `settings` actually used (`t_confirm`,
@@ -425,7 +430,8 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                            return_reselection = FALSE,
                            field_R_out = 1000L,
                            field_R_in = 500L,
-                           field_uniform = FALSE) {
+                           field_uniform = FALSE,
+                           field_M_cap = NULL) {
   confirm_rule <- match.arg(confirm_rule); reselection <- match.arg(reselection)
   selection_rule <- match.arg(selection_rule)
   multiplier <- match.arg(multiplier); ci_method <- match.arg(ci_method)
@@ -739,6 +745,8 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
             effect_neighborhood = effect_neighborhood,
             selection_rule = selection_rule, log_scale = log_scale,
             sdv = sdv, zcons_c = c_cons,
+            M_cap = if (is.null(field_M_cap))
+              eval(formals(fs_mr_field_uniform)$M_cap) else as.integer(field_M_cap),
             seed = if (!is.null(seed)) as.integer(seed) + 910000L else NULL),
           error = function(e)
             list(note = paste("uniform sweep failed:", conditionMessage(e))))
