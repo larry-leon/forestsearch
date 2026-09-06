@@ -17,7 +17,7 @@
 #' Uniform (kappa) calibration of the field interval
 #'
 #' Computes, at analysis time and from the trial's own influence structure,
-#' the smallest widening factor `kappa` in `[1, 2]` such that the two-sided
+#' the smallest widening factor `kappa` on `kappa_grid` such that the two-sided
 #' field interval `c + kappa * (q - c)` attains `1 - alpha` coverage
 #' uniformly over a winner-profile protection family: hypothetical true
 #' fields equal to the gate's shrunk field `w` with the winner's entry set to
@@ -60,10 +60,13 @@
 #' @param sdv Numeric K per-candidate SEs (needed only for `maxcons`).
 #' @param zcons_c Consistency centre `c_cons`, or `NULL`.
 #' @param delta_grid Winner-separation grid in SE units (H2 default 0-4 by 0.5).
-#' @param mass,M_cap Mass-carrying reduction controls (H3 defaults 0.99, 12).
+#' @param mass,M_cap Mass-carrying reduction controls (H3 as adjusted at the
+#'   Gate 1 adjudication, 2026-09-05: cap 40, so the >= 0.99 mass target is
+#'   reachable on enumerated forestsearch families; original default was 12).
 #' @param R_rep,R_out,R_in Monte Carlo sizes per delta (H4 defaults 300/300/150).
 #' @param alpha Two-sided miscoverage target (0.05).
-#' @param kappa_grid Candidate widening factors (default 1 to 2 by 0.01).
+#' @param kappa_grid Candidate widening factors (default 1 to 3 by 0.01; the
+#'   grid was extended past 2 at the Gate 1 adjudication after ceiling hits).
 #' @param seed Optional integer; drawn once at entry.
 #' @return List: `kappa` (kappa*), `kappa_mcse` (Monte Carlo SE of kappa*
 #'   from the binding profile's binomial error and the local slope of
@@ -81,10 +84,10 @@ fs_mr_field_uniform <- function(B = NULL, Sigma = NULL, w, sel, sigma_sel,
                                 log_scale = TRUE,
                                 sdv = NULL, zcons_c = NULL,
                                 delta_grid = seq(0, 4, by = 0.5),
-                                mass = 0.99, M_cap = 12L,
+                                mass = 0.99, M_cap = 40L,
                                 R_rep = 300L, R_out = 300L, R_in = 150L,
                                 alpha = 0.05,
-                                kappa_grid = seq(1, 2, by = 0.01),
+                                kappa_grid = seq(1, 3, by = 0.01),
                                 seed = NULL) {
   t0 <- proc.time()
   if (!is.null(seed)) set.seed(as.integer(seed))

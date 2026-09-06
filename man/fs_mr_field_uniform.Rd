@@ -21,12 +21,12 @@ fs_mr_field_uniform(
   zcons_c = NULL,
   delta_grid = seq(0, 4, by = 0.5),
   mass = 0.99,
-  M_cap = 12L,
+  M_cap = 40L,
   R_rep = 300L,
   R_out = 300L,
   R_in = 150L,
   alpha = 0.05,
-  kappa_grid = seq(1, 2, by = 0.01),
+  kappa_grid = seq(1, 3, by = 0.01),
   seed = NULL
 )
 }
@@ -61,13 +61,16 @@ consistency centre \code{c_cons} and \code{sdv} the per-candidate SEs so the
 
 \item{delta_grid}{Winner-separation grid in SE units (H2 default 0-4 by 0.5).}
 
-\item{mass, M_cap}{Mass-carrying reduction controls (H3 defaults 0.99, 12).}
+\item{mass, M_cap}{Mass-carrying reduction controls (H3 as adjusted at the
+Gate 1 adjudication, 2026-09-05: cap 40, so the >= 0.99 mass target is
+reachable on enumerated forestsearch families; original default was 12).}
 
 \item{R_rep, R_out, R_in}{Monte Carlo sizes per delta (H4 defaults 300/300/150).}
 
 \item{alpha}{Two-sided miscoverage target (0.05).}
 
-\item{kappa_grid}{Candidate widening factors (default 1 to 2 by 0.01).}
+\item{kappa_grid}{Candidate widening factors (default 1 to 3 by 0.01; the
+grid was extended past 2 at the Gate 1 adjudication after ceiling hits).}
 
 \item{seed}{Optional integer; drawn once at entry.}
 }
@@ -82,7 +85,7 @@ profile over \code{kappa_grid}), \code{n_kept} (trials with a winner per delta),
 }
 \description{
 Computes, at analysis time and from the trial's own influence structure,
-the smallest widening factor \code{kappa} in \verb{[1, 2]} such that the two-sided
+the smallest widening factor \code{kappa} on \code{kappa_grid} such that the two-sided
 field interval \code{c + kappa * (q - c)} attains \code{1 - alpha} coverage
 uniformly over a winner-profile protection family: hypothetical true
 fields equal to the gate's shrunk field \code{w} with the winner's entry set to
