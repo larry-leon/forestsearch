@@ -10,7 +10,8 @@ fs_sim_bias_coverage(
   estimators = c("naive", "mr", "fld"),
   level = 0.95,
   target = "betaHhat",
-  side = c("lower", "upper")
+  side = c("lower", "upper"),
+  scale = c("log", "identity")
 )
 }
 \arguments{
@@ -39,6 +40,17 @@ marginal truth value from the bundle's \code{truth} element).}
 the harm-claim orientation) or \code{"upper"} (one-sided coverage of the
 upper bound, the benefit-claim orientation).  Two-sided quantities are
 unaffected.}
+
+\item{scale}{\code{"log"} (default) or \code{"identity"}.  The working scale of the
+estimate columns: \code{"log"} for ratio measures (HR/OR/RR; bias, SD and the
+normal-based one-sided bound \verb{exp(log est -/+ z * SE)} are computed on
+the log scale, and non-positive estimates are dropped), \code{"identity"}
+for difference measures (MD/RD; bias, SD and the bound \verb{est -/+ z * SE}
+on the natural scale, no positivity guard).  Add-only
+(TASK_continuous_field_mac_2026-09-07): the default reproduces the
+previous output exactly.  Under \code{"identity"} the \code{bias_log} column
+holds the identity-scale bias (the column name is kept so stacked
+tables and \code{\link[=fs_plot_bias_coverage]{fs_plot_bias_coverage()}} read either scale unchanged).}
 }
 \value{
 Data frame, one row per estimator: \code{estimator}, \code{n}, \code{bias_log},
