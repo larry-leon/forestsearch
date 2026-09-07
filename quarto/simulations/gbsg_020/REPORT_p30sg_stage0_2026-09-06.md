@@ -46,6 +46,25 @@ pick <- switch(rule, ..., effMaxSG = { b <- .inband(); b[which.max(sizes[b])] },
 
 **Same functional: yes, with one residual on exact ties.** Effect ordering (HR, natural scale), band (`≥ 0.9·max`), size rule (largest N), domain (screened family; floors fixed) all coincide. The identifier breaks *exact ties in N among in-band candidates* on `−Pcons, −hr, K`; the gate's `which.max(sizes[b])` takes the first such candidate in family order. Sizes are integers and do not change across draws, so the event "two in-band candidates with identical N" is possible; Pcons is not available per draw, so the gate cannot mirror that tie-break. This is a property of the existing gate under `effMaxSG` (not introduced here) and is measure-zero for the *effect* ordering; Stage 1b's check — the gate's map applied to the unperturbed effect vector reproduces the observed Ĥ — is the test in numbers, and the frequency of in-band size ties on the observed data will be reported. If it reproduces Ĥ on the smoke replicates, the correction runs as aligned; an R/ mirror of the Pcons tie-break would be a separate proposal for Larry.
 
+## 0a′ — The band as implemented (recorded at Larry's request, 2026-09-07)
+
+Both sides call the one helper `.compute_inclusion_band()` (`R/subgroup_consistency_helpers.R:781–785`):
+
+```r
+in_nbhd <- if (selection_rule %in% c("neighborhood", "both")) {
+  hr_max   <- max(hr_vec, na.rm = TRUE)
+  hr_floor <- (1 - effect_neighborhood) * hr_max
+  as.integer(!is.na(hr_vec) & hr_vec >= hr_floor)
+}
+```
+
+The identifier hands it `hr_vec <- as.numeric(result_new$hr)` with `effect_log_scale = FALSE` on the Cox path (`sort_subgroups()`, `:588–590`; `subgroup_consistency_main.R:381`) — the natural HR; the gate hands it `eff <- if (log_scale) exp(beta[passers]) else beta[passers]` (`R/fs_mr_inference.R:136`) and `nbhd = effect_neighborhood` (`:147–149`) — the same natural HR.
+
+- **Scale:** natural HR on both sides (the gate exponentiates its working-scale β before the call).
+- **Form:** multiplicative, `hr ≥ (1 − ε)·max(hr)` — not an absolute margin, not a band on log-HR. Equivalently a constant width of `log(1 − ε) = log(0.9) ≈ −0.105` on the log-HR scale below the maximum, wherever the maximum sits.
+- **Width:** `effect_neighborhood = ε`, default **0.10** (`forestsearch()` formal, `forestsearch_main.R:1247`; pinned to 0.10 in the template at `:484`; forwarded to the gate unchanged).
+- **Example:** with maximal HR 2.0 the floor is 0.9 × 2.0 = **1.80** — every consistency-qualifying candidate with HR ≥ 1.80 (1.80 itself included, `>=`) is in the band, and `effMaxSG` returns the largest N among them. With maximal HR 1.2 the floor is 1.08 (the same −0.105 log-HR margin).
+
 ## 0b — The template's focus lines and the proposed knob
 
 Quoted: `sg_focus <- "maxeffCons"` (`:298`, with the comment that it and `subgroup_method` are "the identifier" and feed the stem); `method_tag <- if (identical(subgroup_method, "consistency")) "fs" else subgroup_method` (`:330`); `focus_tag <- forestsearch::fs_focus_tag(subgroup_method, sg_focus)` (`:351`) with the alias NOTE (`:352–355`); the stem `sprintf("%s_%s_fb_mr_field_m1_h%03d_knoise%d_n%d%s_%s", method_tag, focus_tag, …)` (`:371–373`), so the focus already names the stem (`fs_maxeffCons_…` → `fs_effMaxSG_…`); `sg_focus`/`focus_tag` are in the batch meta (`:1310–1311`) and the pooled meta (`:1422–1423`); `subgroup_method` is in the poolability gate, `sg_focus` is not (different foci already cannot pool because their stems differ).
