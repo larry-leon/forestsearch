@@ -300,6 +300,23 @@ sg_focus           <- "maxeffCons" # consistency argmax: highest effect meeting 
 
 target_hr_harm  <- .env_num("FS_S7_HR", 1.0)   # calibrate k_inter to this Cox HR in the harm subgroup
 n_sample        <- .env_int("FS_S7_N", 500L)   # M1 sample size
+# ── Harm-subgroup prevalence knob (TASK_prevalence30_2026-09-06) ─────────────
+# z1_quantile is the engine's own formal: the harm rule is
+#   {er <= quantile(er, z1_quantile)} & {meno == 0}
+# (the same form at every value).  0.25 is M1 (er <= 8, prevalence 12.4%) and
+# the package default, so a render without FS_S7_Z1Q is byte-identical to the
+# committed s7/s7c/map1/map1c bundles; 0.60 is the ~30% cell (er <= 59,
+# prevalence 0.3065 on the super-population).  Passed to BOTH the calibration
+# and the DGM build, so k_inter is calibrated under the same rule it plants.
+# Caution recorded at Gate 0: at 0.60 the 30% region is planted rather than
+# data-supported (the GBSG-fitted zh interaction is ~0 there), with effective
+# interaction sizes comparable to M1's.
+harm_z1_quantile <- .env_num("FS_S7_Z1Q", 0.25)
+stopifnot(harm_z1_quantile > 0, harm_z1_quantile < 1)
+# Winner-only / winner-floor IJ rows (TASK_complement_refinements): rejected
+# on theoretical grounds and not evaluated going forward; excluded from every
+# table and figure unless FS_S7_WINNER_ROWS=TRUE (the recorder columns stay).
+show_winner_rows <- identical(.env_chr("FS_S7_WINNER_ROWS", "FALSE"), "TRUE")
 
 # Output stem derives from the knobs above, so changing n_sample / target_hr_harm /
 # k_random_noise / subgroup_method / sg_focus renames every saved file automatically
@@ -347,9 +364,13 @@ if (!identical(focus_tag, sg_focus))
 #      production vs any rerun), so combine_glob can never pool across them.
 campaign_tag <- .env_chr("FS_S7_CAMPAIGN", "c1")
 stopifnot(grepl("^[A-Za-z0-9]+$", campaign_tag))
-rds_stem     <- sprintf("%s_%s_fb_mr_field_m1_h%03d_knoise%d_n%d_%s",
+# Prevalence tag only when the knob is non-default, so every committed M1 stem
+# is unchanged (TASK_prevalence30_2026-09-06).
+z1q_tag      <- if (abs(harm_z1_quantile - 0.25) < 1e-12) "" else
+                  sprintf("_z1q%02d", round(100 * harm_z1_quantile))
+rds_stem     <- sprintf("%s_%s_fb_mr_field_m1_h%03d_knoise%d_n%d%s_%s",
                         method_tag, focus_tag, round(100 * target_hr_harm),
-                        k_random_noise, n_sample, campaign_tag)
+                        k_random_noise, n_sample, z1q_tag, campaign_tag)
 
 # ADOPTED FROM THE CONTINUOUS TWIN: quick-run stem tagging.
 # Without this a smoke render (nb_boots = 10, n_sims = 20) writes to the SAME
@@ -387,6 +408,23 @@ proj_scenarios <- list(
 mr_draws   <- 5000L     # MR multiplier draws         (keep ~2000)
 
 save_rds <- identical(run_mode, "batch") && !is.null(rds_path)  # write only when running a batch
+# Refuse to overwrite a git-tracked bundle (committed bundles are read-only;
+# guard from the cell-7 campaign-tag incident,
+# REPORT_complement_refinements_gate2_2026-09-06.md).  git ls-files
+# --error-unmatch exits 1 for an untracked path and non-zero outside a
+# repository; both fall through to "not tracked", so an untracked batch
+# behaves exactly as before.
+.refuse_if_tracked <- function(path) {
+  tracked <- tryCatch(
+    system2("git", c("ls-files", "--error-unmatch", shQuote(path)),
+            stdout = FALSE, stderr = FALSE) == 0L,
+    error = function(e) FALSE)
+  if (isTRUE(tracked))
+    stop("refusing to overwrite the git-tracked bundle '", path,
+         "': committed bundles are read-only -- use a new campaign_tag.",
+         call. = FALSE)
+  invisible(path)
+}
 
 # FB is the wall-clock bottleneck.  forestsearch_bootstrap_dofuture() itself
 # requires nb_boots >= 1 (it errors otherwise), so a skip is enforced HERE -- the
@@ -556,8 +594,8 @@ cat(sprintf("Run config: method=%s%s, n_sims=%d, nb_boots=%s, mr_draws=%d, worke
             n_sims, if (is.null(nb_boots)) "0 (skip)" else as.character(nb_boots),
             mr_draws, n_workers))
 # Resolved template knobs -- the render's audit line (env overrides included).
-cat(sprintf("Template knobs: hr=%.2f n=%d ci_method=%s uniform=%s field_complement=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
-            target_hr_harm, n_sample, mr_ci_method, mr_field_uniform, mr_field_complement, mr_ij_residual, fb_mode, campaign_tag,
+cat(sprintf("Template knobs: hr=%.2f n=%d z1q=%.2f ci_method=%s uniform=%s field_complement=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
+            target_hr_harm, n_sample, harm_z1_quantile, mr_ci_method, mr_field_uniform, mr_field_complement, mr_ij_residual, fb_mode, campaign_tag,
             run_mode, sim_id_start, sim_id_start + n_sims - 1L, quickrun))
 cat(sprintf("Output stem: %s\n", rds_stem))
 ```
@@ -569,10 +607,15 @@ cat(sprintf("Output stem: %s\n", rds_stem))
 
 if (identical(run_mode, "batch")) {
   k_inter <- calibrate_k_inter(target_hr_harm = target_hr_harm,
-                               model = dgm_model, use_ahr = FALSE)
+                               model = dgm_model, use_ahr = FALSE,
+                               z1_quantile = harm_z1_quantile)
 
   dgm <- setup_gbsg_dgm(model = dgm_model, k_inter = k_inter,
+                        z1_quantile = harm_z1_quantile,
                         n_super = n_super, seed = seed_base)
+  harm_prevalence_super <- mean(dgm$df_super$flag_harm)
+  cat(sprintf("Harm rule: er <= quantile(er, %.2f) & meno == 0; super-population prevalence %.4f; k_inter %.5f\n",
+              harm_z1_quantile, harm_prevalence_super, k_inter))
   dgm <- compute_dgm_cde(dgm)   # attaches CDE (theta-ddagger) targets
 
   # Fixed (population) truth targets, read defensively from the DGM object.
@@ -1248,6 +1291,7 @@ if (run_smoke && identical(run_mode, "batch")) {
   # tables can be regenerated downstream without re-running the simulation.
   if (isTRUE(save_rds) && !is.null(results)) {
     dir.create(dirname(rds_path), showWarnings = FALSE, recursive = TRUE)
+    .refuse_if_tracked(rds_path)
     saveRDS(list(results = results, truth = truth,
                  meta = list(n_sample = n_sample, n_sims = n_sims,
                              nb_boots = nb_boots, mr_draws = mr_draws,
@@ -1278,6 +1322,8 @@ if (run_smoke && identical(run_mode, "batch")) {
                                                      paste(fb_join_skip, collapse = ",") else NA_character_,
                              campaign_tag        = campaign_tag,
                              target_hr_harm      = target_hr_harm,
+                             harm_z1_quantile    = harm_z1_quantile,
+                             harm_prevalence_super = harm_prevalence_super,
                              field_R             = "R_out=1000/R_in=500 (package defaults; not forwarded by forestsearch())",
                              stop_threshold      = paste(deparse(stop_threshold),
                                                          collapse = " "),
@@ -1315,7 +1361,7 @@ if (run_smoke && identical(run_mode, "batch")) {
   # deliberately NOT gated -- one campaign legitimately mixes "join" (the
   # committed FB range) with "none" (beyond it).
   for (k in c("n_sample", "nb_boots", "mr_draws", "subgroup_method", "seed_base",
-              "ci_method", "campaign_tag", "target_hr_harm")) {
+              "ci_method", "campaign_tag", "target_hr_harm", "harm_z1_quantile")) {
     vals <- unique(lapply(bundles, .meta_get, k = k))
     if (length(vals) > 1L)
       stop(sprintf("combine mode: batches disagree on meta$%s (%s).",
@@ -1361,6 +1407,7 @@ if (run_smoke && identical(run_mode, "batch")) {
     cpath <- combined_path %||%
       file.path("results", sprintf("%s_combined_%d_%d.rds", rds_stem, rng[1], rng[2]))
     dir.create(dirname(cpath), showWarnings = FALSE, recursive = TRUE)
+    .refuse_if_tracked(cpath)
     saveRDS(list(results = results, truth = truth,
                  meta = list(n_sample = n_sample, n_sims = n_sims,
                              nb_boots = nb_boots, mr_draws = mr_draws,
@@ -1379,6 +1426,8 @@ if (run_smoke && identical(run_mode, "batch")) {
                              ij_residual = bundles[[1]]$meta$ij_residual %||% NA_character_,
                              campaign_tag = bundles[[1]]$meta$campaign_tag %||% NA_character_,
                              target_hr_harm = bundles[[1]]$meta$target_hr_harm %||% NA_real_,
+                             harm_z1_quantile = bundles[[1]]$meta$harm_z1_quantile %||% NA_real_,
+                             harm_prevalence_super = bundles[[1]]$meta$harm_prevalence_super %||% NA_real_,
                              fb_mode_by_batch = vapply(bundles, function(b)
                                b$meta$fb_mode %||% NA_character_, character(1)),
                              fb_join_skip_by_batch = vapply(bundles, function(b)
@@ -1675,7 +1724,8 @@ est_keys_for <- function(r, suffix) {
   if (!any(is.finite(r$fb_H_est))) keys <- keys[names(keys) != "FB"]
   if (!any(is.finite(r[[paste0("fld_", suffix, "_est2")]] %||% NA_real_)))
     keys <- keys[names(keys) != "MR (field)"]
-  if (!any(is.finite(r[[paste0("mr_", suffix, "_se_w")]] %||% NA_real_)))
+  if (!isTRUE(show_winner_rows) ||
+      !any(is.finite(r[[paste0("mr_", suffix, "_se_w")]] %||% NA_real_)))
     keys <- keys[!names(keys) %in% c("MR (IJ, winner)", "MR (IJ, winner-floor)")]
   keys
 }
@@ -2159,7 +2209,8 @@ if (run_smoke && !is.null(results) && any(is.finite(results$fld_H_est2))) {
 # one point per estimator against the Gaussian bookkeeping reference.  The
 # cross-cell version lives in summary_bias_coverage.qmd.
 if (run_smoke && !is.null(results) && any(is.finite(results$fld_H_est2))) {
-  .ests_H <- if ("mr_H_se_w" %in% names(results) && any(is.finite(results$mr_H_se_w)))
+  .ests_H <- if (isTRUE(show_winner_rows) && "mr_H_se_w" %in% names(results) &&
+                 any(is.finite(results$mr_H_se_w)))
     c("mr", "mr_w", "mr_wf", "fld") else c("mr", "fld")
   bc <- fs_sim_bias_coverage(results, block = "H", estimators = .ests_H)
   bc$cell <- sprintf("hr=%.2f, n=%d%s", target_hr_harm, n_sample,
@@ -2294,7 +2345,8 @@ if (run_smoke && !is.null(results) && "fld_Hc_est2" %in% names(results) &&
 # the Gaussian bookkeeping reference Phi(1.645 r + b) for the UPPER bound.
 if (run_smoke && !is.null(results) && "fld_Hc_est2" %in% names(results) &&
     any(is.finite(results$fld_Hc_est2))) {
-  .ests_Hc <- if ("mr_Hc_se_w" %in% names(results) && any(is.finite(results$mr_Hc_se_w)))
+  .ests_Hc <- if (isTRUE(show_winner_rows) && "mr_Hc_se_w" %in% names(results) &&
+                  any(is.finite(results$mr_Hc_se_w)))
     c("mr", "mr_w", "mr_wf", "fld") else c("mr", "fld")
   bcc <- fs_sim_bias_coverage(results, block = "Hc", estimators = .ests_Hc,
                               side = "upper")
