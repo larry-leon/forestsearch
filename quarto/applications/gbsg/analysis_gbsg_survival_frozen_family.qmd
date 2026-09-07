@@ -287,8 +287,8 @@ fs <- forestsearch(
   # TASK_gbsg_frozen_complement_2026-09-06: the complement's field block
   # (field_complement = TRUE; include_complement is forestsearch()'s default
   # and is stated for the record) and, with it, field$joint.  ij_residual is
-  # left at its default ("two_term") so every reported harm-side number is
-  # unchanged; the winner-only SEs are read from the additional elements.
+  # left at its default ("two_term") so every reported number is computed as
+  # before; the reported complement construction is MR (field).
   mr_inference_args   = list(draws = mr_draws, ci_method = "field",
                              return_reselection = TRUE,
                              field_uniform = TRUE, field_M_cap = 1000L,
@@ -884,13 +884,12 @@ $\widehat H^{c}$ is its by-product, and its naive estimate is pushed toward
 exposed limit is the **upper** bound, so Table 3 reports the one-sided 95%
 upper bound as the primary column (`TASK_gbsg_frozen_complement_2026-09-06`;
 constructions from `TASK_mr_field_complement` and
-`TASK_complement_refinements`). The MR (IJ, winner-floor) row uses the
-winner-only IJ residual floored at the naive variance — the construction the
-refinements evaluation found to match the field on the complement at no cost —
-while the reported harm-side numbers above stay on the two-term residual.
+`TASK_complement_refinements`). The reported complement construction is
+**MR (field)**; naive, the full bootstrap and MR (IJ, two-term) are the
+comparators.
 
 ```{r complement-table}
-#| tbl-cap: "Table 3 — Complement (benefit claim): interval constructions for the complement of the selected subgroup (HR scale; SE on the log-HR scale). The one-sided 95% UPPER bound is the primary column: for a benefit claim the exposed limit is the upper bound (under-correction of the beneficial optimism pushes it too low and over-claims; over-correction cannot). Naive and IJ rows use exp(log est + 1.645·SE); FB uses exp(log H2 + 1.645·SE_boot) with SE_boot = sdH2/H2; MR (field) reports the gate's stored upper_1s = exp(β̃ᶜ − q05(Λ*ᶜ)), built on the de-biased complement estimate β̃ᶜ, not on est2. MR (IJ, winner-floor): the winner-only IJ residual floored at the naive variance."
+#| tbl-cap: "Table 3 — Complement (benefit claim): interval constructions for the complement of the selected subgroup (HR scale; SE on the log-HR scale). The one-sided 95% UPPER bound is the primary column: for a benefit claim the exposed limit is the upper bound (under-correction of the beneficial optimism pushes it too low and over-claims; over-correction cannot). Naive and IJ rows use exp(log est + 1.645·SE); FB uses exp(log H2 + 1.645·SE_boot) with SE_boot = sdH2/H2; MR (field) — the reported construction — is the gate's stored upper_1s = exp(β̃ᶜ − q05(Λ*ᶜ)), built on the de-biased complement estimate β̃ᶜ, not on est2."
 #| echo: false
 gc <- g$complement
 fc <- g$field$complement
@@ -898,25 +897,21 @@ stopifnot(is.list(gc), !is.null(gc$debiased), is.list(fc), is.null(fc$note))
 .up <- function(est, se) exp(log(est) + qnorm(0.95) * se)
 .se_fbc_log <- fs_bc$Hc_estimates$sdH2 / fs_bc$Hc_estimates$H2
 tab_c <- data.frame(
-  Method = c("Naive", "Full bootstrap", "MR (IJ, two-term)",
-             "MR (IJ, winner-floor)", "MR (field)"),
+  Method = c("Naive", "Full bootstrap", "MR (IJ, two-term)", "MR (field)"),
   `Point est.` = sprintf("%.2f", c(gc$naive$est, fs_bc$Hc_estimates$H2,
-                                   gc$debiased$est, gc$debiased$est, fc$est2)),
+                                   gc$debiased$est, fc$est2)),
   `Two-sided 95%` = c(
     fmt2(gc$naive$lower, gc$naive$upper),
     fmt2(fs_bc$Hc_estimates$H2_lower, fs_bc$Hc_estimates$H2_upper),
     fmt2(gc$debiased$lower, gc$debiased$upper),
-    fmt2(gc$debiased$lower_wf, gc$debiased$upper_wf),
     fmt2(fc$lower_2s, fc$upper_2s)),
   `One-sided 95% upper` = sprintf("%.2f", c(
     .up(gc$naive$est, gc$debiased$se_wald),
     .up(fs_bc$Hc_estimates$H2, .se_fbc_log),
     .up(gc$debiased$est, gc$debiased$se_ij),
-    gc$debiased$upper_1s_wf,
     fc$upper_1s)),
   `SE (log-HR)` = sprintf("%.3f", c(gc$debiased$se_wald, .se_fbc_log,
-                                    gc$debiased$se_ij,
-                                    gc$debiased$se_ij_winner_floor, fc$se_field)),
+                                    gc$debiased$se_ij, fc$se_field)),
   check.names = FALSE
 )
 kbl(tab_c, booktabs = TRUE, escape = FALSE, align = "lllll") |> kable_styling()
@@ -951,10 +946,9 @@ at HR = 1.0. Generated from the numbers above at render time:
 
 ```{r complement-reading, results = "asis"}
 #| echo: false
-ups <- c(`Full bootstrap` = .up(fs_bc$Hc_estimates$H2, .se_fbc_log),
-         `MR (IJ, two-term)` = .up(gc$debiased$est, gc$debiased$se_ij),
-         `MR (IJ, winner-floor)` = gc$debiased$upper_1s_wf,
-         `MR (field)` = fc$upper_1s)
+ups <- c(`MR (field)` = fc$upper_1s,
+         `Full bootstrap` = .up(fs_bc$Hc_estimates$H2, .se_fbc_log),
+         `MR (IJ, two-term)` = .up(gc$debiased$est, gc$debiased$se_ij))
 nv_up <- .up(gc$naive$est, gc$debiased$se_wald)
 cat(sprintf(paste0(
   "- Complement point estimates: naive %.2f; selection-adjusted FB %.2f, MR (IJ) %.2f, ",
@@ -963,13 +957,10 @@ cat(sprintf(paste0(
   if (gc$debiased$est > gc$naive$est) "toward the null (the naive estimate carried beneficial optimism)"
   else "away from the null"))
 cat(sprintf(paste0(
-  "- One-sided 95%% upper bounds: naive %.2f; selection-adjusted %s. ",
-  "Every selection-adjusted upper bound sits %s 1: %s. Against a 0.85 benefit ",
-  "threshold, %s; against 0.80, %s.\n"),
-  nv_up, paste(sprintf("%s %.2f", names(ups), ups), collapse = ", "),
-  if (all(ups < 1)) "below" else "at or above (at least one)",
-  if (all(ups < 1)) "the complement's benefit claim survives every construction at the one-sided level"
-  else "the benefit claim does not survive every construction",
+  "- One-sided 95%% upper bounds, by location: the reported MR (field) %.2f; comparators ",
+  "FB %.2f and MR (IJ, two-term) %.2f (the price of its doubled SE); naive %.2f. ",
+  "Read against 0.80 / 0.85 as reading aids: against 0.85, %s; against 0.80, %s.\n"),
+  ups[1], ups[2], ups[3], nv_up,
   if (all(ups < 0.85)) "every adjusted bound rules out a benefit weaker than 0.85"
   else if (any(ups < 0.85)) sprintf("%s rule out a benefit weaker than 0.85; %s do not",
                                      paste(names(ups)[ups < 0.85], collapse = " and "),
@@ -979,13 +970,13 @@ cat(sprintf(paste0(
 cat(sprintf(paste0(
   "- The spread across the adjusted upper bounds (%.2f to %.2f, %.2f log-HR) is what the ",
   "constructions pay for selection: the two-term IJ SE %.3f is %.2fx the naive SE %.3f ",
-  "(the doubled same-draws term), the winner-floor SE %.3f and the field's lambda-SD %.3f ",
-  "sit at %.2fx and %.2fx the naive SE — p-hat(H-hat) = %.2f, the dominant-selection regime ",
-  "in which the winner-only variance is exact.\n"),
+  "(the doubled same-draws term), while the field's complement lambda-SD %.3f is %.2fx the ",
+  "naive SE. That the field's complement SE coincides with the naive SE is a diagnosis, not ",
+  "a rule: with p-hat(H-hat) = %.2f this analysis sits in the dominated-selection regime, ",
+  "where the complement's identity barely changes across re-selection.\n"),
   min(ups), max(ups), log(max(ups)) - log(min(ups)),
   gc$debiased$se_ij, gc$debiased$se_ij / gc$debiased$se_wald, gc$debiased$se_wald,
-  gc$debiased$se_ij_winner_floor, fc$se_field,
-  gc$debiased$se_ij_winner_floor / gc$debiased$se_wald, fc$se_field / gc$debiased$se_wald,
+  fc$se_field, fc$se_field / gc$debiased$se_wald,
   unname(p_hat[sel_i])))
 cat(sprintf(paste0(
   "- The joint pair: stating both the harm lower bound and the benefit upper bound from ",
@@ -998,11 +989,12 @@ cat(sprintf(paste0(
   if (abs(jt$gamma - 0.025) < 1e-9) "too weak a dependence to lift gamma off the Bonferroni floor on the 0.001 grid"
   else "enough dependence to lift gamma off the Bonferroni floor"))
 cat(sprintf(paste0(
-  "- Set beside the harm-side reading: the harm claim in H-hat does not survive selection ",
-  "adjustment (adjusted lower bounds %.2f-%.2f against a naive %.2f), while the benefit claim ",
-  "in H-hat^c %s.\n"),
+  "- Set beside the harm-side reading: in H-hat the adjusted lower bounds sit at %.2f-%.2f ",
+  "against the naive %.2f — no clinically meaningful harm is established once selection is ",
+  "accounted for; in H-hat^c the reported field upper bound is %.2f (FB %.2f, IJ two-term %.2f), ",
+  "and the joint pair is (%.2f, %.2f).\n"),
   min(bounds), max(bounds), .one(g$naive$est, g$debiased$se_wald),
-  if (all(ups < 1)) "does (every adjusted upper bound below 1)" else "does not on every construction"))
+  ups[1], ups[2], ups[3], jt$lower_H, jt$upper_Hc))
 ```
 :::
 

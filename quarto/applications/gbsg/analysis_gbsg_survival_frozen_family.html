@@ -2928,8 +2928,8 @@ window.Quarto = {
 <span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>  <span class="co"># TASK_gbsg_frozen_complement_2026-09-06: the complement&#39;s field block</span></span>
 <span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>  <span class="co"># (field_complement = TRUE; include_complement is forestsearch()&#39;s default</span></span>
 <span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>  <span class="co"># and is stated for the record) and, with it, field$joint.  ij_residual is</span></span>
-<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>  <span class="co"># left at its default (&quot;two_term&quot;) so every reported harm-side number is</span></span>
-<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>  <span class="co"># unchanged; the winner-only SEs are read from the additional elements.</span></span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>  <span class="co"># left at its default (&quot;two_term&quot;) so every reported number is computed as</span></span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>  <span class="co"># before; the reported complement construction is MR (field).</span></span>
 <span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">mr_inference_args   =</span> <span class="fu">list</span>(<span class="at">draws =</span> mr_draws, <span class="at">ci_method =</span> <span class="st">&quot;field&quot;</span>,</span>
 <span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>                             <span class="at">return_reselection =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>                             <span class="at">field_uniform =</span> <span class="cn">TRUE</span>, <span class="at">field_M_cap =</span> <span class="dv">1000</span>L,</span>
@@ -3104,7 +3104,7 @@ Selected subgroup Pcons (consistency probability): 0.990
 Legend: OF = on Pareto frontier; S = selected.
 ==============================================================================================================
 
-Seconds and minutes forestsearch overall = 0.785 0.0131 
+Seconds and minutes forestsearch overall = 0.813 0.0136 
 Consistency algorithm used: fixed 
 Subgroup identified: {pgr &lt;= 32.5} &amp; {er &lt;= 0} </code></pre>
 </div>
@@ -3784,7 +3784,7 @@ GATE 0 PASS -- every continuous-factor cut is a fixed threshold; the family cann
 <span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;FB completed in&quot;</span>, <span class="fu">round</span>(timings<span class="sc">$</span>fb <span class="sc">/</span> <span class="dv">60</span>, <span class="dv">1</span>), <span class="st">&quot;min</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>FB completed in 2.4 min</code></pre>
+<pre><code>FB completed in 2.5 min</code></pre>
 </div>
 </div>
 </section>
@@ -3800,7 +3800,7 @@ GATE 0 PASS -- every continuous-factor cut is a fixed threshold; the family cann
 <span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">format</span>(mr_draws, <span class="at">big.mark =</span> <span class="st">&quot;,&quot;</span>), <span class="st">&quot;draws</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>MR gate: 0.62 s over 5,000 draws</code></pre>
+<pre><code>MR gate: 0.59 s over 5,000 draws</code></pre>
 </div>
 </div>
 </section>
@@ -7504,11 +7504,11 @@ height: 0px !important;
 </div>
 <section id="the-complement-benefit-claim-and-the-joint-pair" class="level3" data-number="0.9.1">
 <h3 data-number="0.9.1" class="anchored" data-anchor-id="the-complement-benefit-claim-and-the-joint-pair"><span class="header-section-number">0.9.1</span> The complement (benefit claim) and the joint pair</h3>
-<p>Selection acts on the harm-subgroup effects; the complement <span class="math inline">\(\widehat H^{c}\)</span> is its by-product, and its naive estimate is pushed toward <em>benefit</em>. For a benefit claim (“HR in <span class="math inline">\(\widehat H^{c}\)</span> is at most <span class="math inline">\(U\)</span>”) the exposed limit is the <strong>upper</strong> bound, so Table 3 reports the one-sided 95% upper bound as the primary column (<code>TASK_gbsg_frozen_complement_2026-09-06</code>; constructions from <code>TASK_mr_field_complement</code> and <code>TASK_complement_refinements</code>). The MR (IJ, winner-floor) row uses the winner-only IJ residual floored at the naive variance — the construction the refinements evaluation found to match the field on the complement at no cost — while the reported harm-side numbers above stay on the two-term residual.</p>
-<div class="cell" data-tbl-cap="Table 3 — Complement (benefit claim): interval constructions for the complement of the selected subgroup (HR scale; SE on the log-HR scale). The one-sided 95% UPPER bound is the primary column: for a benefit claim the exposed limit is the upper bound (under-correction of the beneficial optimism pushes it too low and over-claims; over-correction cannot). Naive and IJ rows use exp(log est + 1.645·SE); FB uses exp(log H2 + 1.645·SE_boot) with SE_boot = sdH2/H2; MR (field) reports the gate&#39;s stored upper_1s = exp(β̃ᶜ − q05(Λ*ᶜ)), built on the de-biased complement estimate β̃ᶜ, not on est2. MR (IJ, winner-floor): the winner-only IJ residual floored at the naive variance.">
+<p>Selection acts on the harm-subgroup effects; the complement <span class="math inline">\(\widehat H^{c}\)</span> is its by-product, and its naive estimate is pushed toward <em>benefit</em>. For a benefit claim (“HR in <span class="math inline">\(\widehat H^{c}\)</span> is at most <span class="math inline">\(U\)</span>”) the exposed limit is the <strong>upper</strong> bound, so Table 3 reports the one-sided 95% upper bound as the primary column (<code>TASK_gbsg_frozen_complement_2026-09-06</code>; constructions from <code>TASK_mr_field_complement</code> and <code>TASK_complement_refinements</code>). The reported complement construction is <strong>MR (field)</strong>; naive, the full bootstrap and MR (IJ, two-term) are the comparators.</p>
+<div class="cell" data-tbl-cap="Table 3 — Complement (benefit claim): interval constructions for the complement of the selected subgroup (HR scale; SE on the log-HR scale). The one-sided 95% UPPER bound is the primary column: for a benefit claim the exposed limit is the upper bound (under-correction of the beneficial optimism pushes it too low and over-claims; over-correction cannot). Naive and IJ rows use exp(log est + 1.645·SE); FB uses exp(log H2 + 1.645·SE_boot) with SE_boot = sdH2/H2; MR (field) — the reported construction — is the gate&#39;s stored upper_1s = exp(β̃ᶜ − q05(Λ*ᶜ)), built on the de-biased complement estimate β̃ᶜ, not on est2.">
 <div class="cell-output-display">
 <table class="table caption-top table-sm table-striped small">
-<caption>Table 3 — Complement (benefit claim): interval constructions for the complement of the selected subgroup (HR scale; SE on the log-HR scale). The one-sided 95% UPPER bound is the primary column: for a benefit claim the exposed limit is the upper bound (under-correction of the beneficial optimism pushes it too low and over-claims; over-correction cannot). Naive and IJ rows use exp(log est + 1.645·SE); FB uses exp(log H2 + 1.645·SE_boot) with SE_boot = sdH2/H2; MR (field) reports the gate’s stored upper_1s = exp(β̃ᶜ − q05(Λ*ᶜ)), built on the de-biased complement estimate β̃ᶜ, not on est2. MR (IJ, winner-floor): the winner-only IJ residual floored at the naive variance.</caption>
+<caption>Table 3 — Complement (benefit claim): interval constructions for the complement of the selected subgroup (HR scale; SE on the log-HR scale). The one-sided 95% UPPER bound is the primary column: for a benefit claim the exposed limit is the upper bound (under-correction of the beneficial optimism pushes it too low and over-claims; over-correction cannot). Naive and IJ rows use exp(log est + 1.645·SE); FB uses exp(log H2 + 1.645·SE_boot) with SE_boot = sdH2/H2; MR (field) — the reported construction — is the gate’s stored upper_1s = exp(β̃ᶜ − q05(Λ*ᶜ)), built on the de-biased complement estimate β̃ᶜ, not on est2.</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;" data-quarto-table-cell-role="th">Method</th>
@@ -7541,13 +7541,6 @@ height: 0px !important;
 <td style="text-align: left;">0.249</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">MR (IJ, winner-floor)</td>
-<td style="text-align: left;">0.62</td>
-<td style="text-align: left;">(0.48, 0.81)</td>
-<td style="text-align: left;">0.78</td>
-<td style="text-align: left;">0.134</td>
-</tr>
-<tr class="odd">
 <td style="text-align: left;">MR (field)</td>
 <td style="text-align: left;">0.62</td>
 <td style="text-align: left;">(0.48, 0.82)</td>
@@ -7609,10 +7602,10 @@ height: 0px !important;
 <p>Read by bound location against clinically meaningful effect sizes (0.80 / 0.85 named as reading aids for a benefit, not decision rules), not as significance at HR = 1.0. Generated from the numbers above at render time:</p>
 <ul>
 <li>Complement point estimates: naive 0.61; selection-adjusted FB 0.62, MR (IJ) 0.62, field est2 0.62 — the corrections move the complement toward the null (the naive estimate carried beneficial optimism).</li>
-<li>One-sided 95% upper bounds: naive 0.76; selection-adjusted Full bootstrap 0.88, MR (IJ, two-term) 0.94, MR (IJ, winner-floor) 0.78, MR (field) 0.79. Every selection-adjusted upper bound sits below 1: the complement’s benefit claim survives every construction at the one-sided level. Against a 0.85 benefit threshold, MR (IJ, winner-floor) and MR (field) rule out a benefit weaker than 0.85; Full bootstrap and MR (IJ, two-term) do not; against 0.80, only MR (IJ, winner-floor) and MR (field).</li>
-<li>The spread across the adjusted upper bounds (0.78 to 0.94, 0.19 log-HR) is what the constructions pay for selection: the two-term IJ SE 0.249 is 1.85x the naive SE 0.134 (the doubled same-draws term), the winner-floor SE 0.134 and the field’s lambda-SD 0.139 sit at 1.00x and 1.03x the naive SE — p-hat(H-hat) = 0.68, the dominant-selection regime in which the winner-only variance is exact.</li>
+<li>One-sided 95% upper bounds, by location: the reported MR (field) 0.79; comparators FB 0.88 and MR (IJ, two-term) 0.94 (the price of its doubled SE); naive 0.76. Read against 0.80 / 0.85 as reading aids: against 0.85, MR (field) rule out a benefit weaker than 0.85; Full bootstrap and MR (IJ, two-term) do not; against 0.80, only MR (field).</li>
+<li>The spread across the adjusted upper bounds (0.79 to 0.94, 0.18 log-HR) is what the constructions pay for selection: the two-term IJ SE 0.249 is 1.85x the naive SE 0.134 (the doubled same-draws term), while the field’s complement lambda-SD 0.139 is 1.03x the naive SE. That the field’s complement SE coincides with the naive SE is a diagnosis, not a rule: with p-hat(H-hat) = 0.68 this analysis sits in the dominated-selection regime, where the complement’s identity barely changes across re-selection.</li>
 <li>The joint pair: stating both the harm lower bound and the benefit upper bound from the two separate 95% field constructions (0.88, 0.79) carries a joint guarantee below 95%; the calibrated pair (0.76, 0.82) at gamma = 0.025 coincides with the Bonferroni pair (0.76, 0.82): corr(Lambda<em>, Lambda</em>c) = -0.104, too weak a dependence to lift gamma off the Bonferroni floor on the 0.001 grid.</li>
-<li>Set beside the harm-side reading: the harm claim in H-hat does not survive selection adjustment (adjusted lower bounds 0.79-0.96 against a naive 1.30), while the benefit claim in H-hat^c does (every adjusted upper bound below 1).</li>
+<li>Set beside the harm-side reading: in H-hat the adjusted lower bounds sit at 0.79-0.96 against the naive 1.30 — no clinically meaningful harm is established once selection is accounted for; in H-hat^c the reported field upper bound is 0.79 (FB 0.88, IJ two-term 0.94), and the joint pair is (0.76, 0.82).</li>
 </ul>
 </div>
 </div>
@@ -7629,42 +7622,42 @@ height: 0px !important;
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">Fit + MR gate</td>
-<td style="text-align: right;">78.685</td>
-<td style="text-align: right;">1.31</td>
+<td style="text-align: right;">79.221</td>
+<td style="text-align: right;">1.32</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Full bootstrap</td>
-<td style="text-align: right;">145.299</td>
-<td style="text-align: right;">2.42</td>
+<td style="text-align: right;">147.047</td>
+<td style="text-align: right;">2.45</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">MR gate (within fit)</td>
-<td style="text-align: right;">0.625</td>
+<td style="text-align: right;">0.589</td>
 <td style="text-align: right;">0.01</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">MR field block (within gate)</td>
-<td style="text-align: right;">0.564</td>
+<td style="text-align: right;">0.600</td>
 <td style="text-align: right;">0.01</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">MR complement field block (within gate)</td>
-<td style="text-align: right;">0.262</td>
+<td style="text-align: right;">0.286</td>
 <td style="text-align: right;">0.00</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">MR uniform (kappa) sweep (within gate)</td>
-<td style="text-align: right;">75.335</td>
+<td style="text-align: right;">75.833</td>
 <td style="text-align: right;">1.26</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Guo &amp; He bootstrap</td>
-<td style="text-align: right;">28.201</td>
+<td style="text-align: right;">28.236</td>
 <td style="text-align: right;">0.47</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">10-fold CV</td>
-<td style="text-align: right;">12.947</td>
+<td style="text-align: right;">13.032</td>
 <td style="text-align: right;">0.22</td>
 </tr>
 <tr class="odd">
@@ -8437,8 +8430,8 @@ height: 0px !important;
 <span id="cb84-287"><a href="#cb84-287" aria-hidden="true" tabindex="-1"></a>  <span class="co"># TASK_gbsg_frozen_complement_2026-09-06: the complement&#39;s field block</span></span>
 <span id="cb84-288"><a href="#cb84-288" aria-hidden="true" tabindex="-1"></a>  <span class="co"># (field_complement = TRUE; include_complement is forestsearch()&#39;s default</span></span>
 <span id="cb84-289"><a href="#cb84-289" aria-hidden="true" tabindex="-1"></a>  <span class="co"># and is stated for the record) and, with it, field$joint.  ij_residual is</span></span>
-<span id="cb84-290"><a href="#cb84-290" aria-hidden="true" tabindex="-1"></a>  <span class="co"># left at its default (&quot;two_term&quot;) so every reported harm-side number is</span></span>
-<span id="cb84-291"><a href="#cb84-291" aria-hidden="true" tabindex="-1"></a>  <span class="co"># unchanged; the winner-only SEs are read from the additional elements.</span></span>
+<span id="cb84-290"><a href="#cb84-290" aria-hidden="true" tabindex="-1"></a>  <span class="co"># left at its default (&quot;two_term&quot;) so every reported number is computed as</span></span>
+<span id="cb84-291"><a href="#cb84-291" aria-hidden="true" tabindex="-1"></a>  <span class="co"># before; the reported complement construction is MR (field).</span></span>
 <span id="cb84-292"><a href="#cb84-292" aria-hidden="true" tabindex="-1"></a>  <span class="at">mr_inference_args   =</span> <span class="fu">list</span>(<span class="at">draws =</span> mr_draws, <span class="at">ci_method =</span> <span class="st">&quot;field&quot;</span>,</span>
 <span id="cb84-293"><a href="#cb84-293" aria-hidden="true" tabindex="-1"></a>                             <span class="at">return_reselection =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb84-294"><a href="#cb84-294" aria-hidden="true" tabindex="-1"></a>                             <span class="at">field_uniform =</span> <span class="cn">TRUE</span>, <span class="at">field_M_cap =</span> <span class="dv">1000</span>L,</span>
@@ -9034,275 +9027,267 @@ height: 0px !important;
 <span id="cb84-884"><a href="#cb84-884" aria-hidden="true" tabindex="-1"></a>exposed limit is the **upper** bound, so Table 3 reports the one-sided 95%</span>
 <span id="cb84-885"><a href="#cb84-885" aria-hidden="true" tabindex="-1"></a>upper bound as the primary column (<span class="in">`TASK_gbsg_frozen_complement_2026-09-06`</span>;</span>
 <span id="cb84-886"><a href="#cb84-886" aria-hidden="true" tabindex="-1"></a>constructions from <span class="in">`TASK_mr_field_complement`</span> and</span>
-<span id="cb84-887"><a href="#cb84-887" aria-hidden="true" tabindex="-1"></a><span class="in">`TASK_complement_refinements`</span>). The MR (IJ, winner-floor) row uses the</span>
-<span id="cb84-888"><a href="#cb84-888" aria-hidden="true" tabindex="-1"></a>winner-only IJ residual floored at the naive variance — the construction the</span>
-<span id="cb84-889"><a href="#cb84-889" aria-hidden="true" tabindex="-1"></a>refinements evaluation found to match the field on the complement at no cost —</span>
-<span id="cb84-890"><a href="#cb84-890" aria-hidden="true" tabindex="-1"></a>while the reported harm-side numbers above stay on the two-term residual.</span>
-<span id="cb84-891"><a href="#cb84-891" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb84-892"><a href="#cb84-892" aria-hidden="true" tabindex="-1"></a><span class="in">```{r complement-table}</span></span>
-<span id="cb84-893"><a href="#cb84-893" aria-hidden="true" tabindex="-1"></a><span class="co">#| tbl-cap: &quot;Table 3 — Complement (benefit claim): interval constructions for the complement of the selected subgroup (HR scale; SE on the log-HR scale). The one-sided 95% UPPER bound is the primary column: for a benefit claim the exposed limit is the upper bound (under-correction of the beneficial optimism pushes it too low and over-claims; over-correction cannot). Naive and IJ rows use exp(log est + 1.645·SE); FB uses exp(log H2 + 1.645·SE_boot) with SE_boot = sdH2/H2; MR (field) reports the gate&#39;s stored upper_1s = exp(β̃ᶜ − q05(Λ*ᶜ)), built on the de-biased complement estimate β̃ᶜ, not on est2. MR (IJ, winner-floor): the winner-only IJ residual floored at the naive variance.&quot;</span></span>
-<span id="cb84-894"><a href="#cb84-894" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
-<span id="cb84-895"><a href="#cb84-895" aria-hidden="true" tabindex="-1"></a>gc <span class="ot">&lt;-</span> g<span class="sc">$</span>complement</span>
-<span id="cb84-896"><a href="#cb84-896" aria-hidden="true" tabindex="-1"></a>fc <span class="ot">&lt;-</span> g<span class="sc">$</span>field<span class="sc">$</span>complement</span>
-<span id="cb84-897"><a href="#cb84-897" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">is.list</span>(gc), <span class="sc">!</span><span class="fu">is.null</span>(gc<span class="sc">$</span>debiased), <span class="fu">is.list</span>(fc), <span class="fu">is.null</span>(fc<span class="sc">$</span>note))</span>
-<span id="cb84-898"><a href="#cb84-898" aria-hidden="true" tabindex="-1"></a>.up <span class="ot">&lt;-</span> <span class="cf">function</span>(est, se) <span class="fu">exp</span>(<span class="fu">log</span>(est) <span class="sc">+</span> <span class="fu">qnorm</span>(<span class="fl">0.95</span>) <span class="sc">*</span> se)</span>
-<span id="cb84-899"><a href="#cb84-899" aria-hidden="true" tabindex="-1"></a>.se_fbc_log <span class="ot">&lt;-</span> fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>sdH2 <span class="sc">/</span> fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2</span>
-<span id="cb84-900"><a href="#cb84-900" aria-hidden="true" tabindex="-1"></a>tab_c <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb84-901"><a href="#cb84-901" aria-hidden="true" tabindex="-1"></a>  <span class="at">Method =</span> <span class="fu">c</span>(<span class="st">&quot;Naive&quot;</span>, <span class="st">&quot;Full bootstrap&quot;</span>, <span class="st">&quot;MR (IJ, two-term)&quot;</span>,</span>
-<span id="cb84-902"><a href="#cb84-902" aria-hidden="true" tabindex="-1"></a>             <span class="st">&quot;MR (IJ, winner-floor)&quot;</span>, <span class="st">&quot;MR (field)&quot;</span>),</span>
-<span id="cb84-903"><a href="#cb84-903" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Point est.</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.2f&quot;</span>, <span class="fu">c</span>(gc<span class="sc">$</span>naive<span class="sc">$</span>est, fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2,</span>
-<span id="cb84-904"><a href="#cb84-904" aria-hidden="true" tabindex="-1"></a>                                   gc<span class="sc">$</span>debiased<span class="sc">$</span>est, gc<span class="sc">$</span>debiased<span class="sc">$</span>est, fc<span class="sc">$</span>est2)),</span>
-<span id="cb84-905"><a href="#cb84-905" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Two-sided 95%</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(</span>
-<span id="cb84-906"><a href="#cb84-906" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt2</span>(gc<span class="sc">$</span>naive<span class="sc">$</span>lower, gc<span class="sc">$</span>naive<span class="sc">$</span>upper),</span>
-<span id="cb84-907"><a href="#cb84-907" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt2</span>(fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2_lower, fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2_upper),</span>
-<span id="cb84-908"><a href="#cb84-908" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt2</span>(gc<span class="sc">$</span>debiased<span class="sc">$</span>lower, gc<span class="sc">$</span>debiased<span class="sc">$</span>upper),</span>
-<span id="cb84-909"><a href="#cb84-909" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt2</span>(gc<span class="sc">$</span>debiased<span class="sc">$</span>lower_wf, gc<span class="sc">$</span>debiased<span class="sc">$</span>upper_wf),</span>
-<span id="cb84-910"><a href="#cb84-910" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt2</span>(fc<span class="sc">$</span>lower_2s, fc<span class="sc">$</span>upper_2s)),</span>
-<span id="cb84-911"><a href="#cb84-911" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">One-sided 95% upper</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.2f&quot;</span>, <span class="fu">c</span>(</span>
-<span id="cb84-912"><a href="#cb84-912" aria-hidden="true" tabindex="-1"></a>    <span class="fu">.up</span>(gc<span class="sc">$</span>naive<span class="sc">$</span>est, gc<span class="sc">$</span>debiased<span class="sc">$</span>se_wald),</span>
-<span id="cb84-913"><a href="#cb84-913" aria-hidden="true" tabindex="-1"></a>    <span class="fu">.up</span>(fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2, .se_fbc_log),</span>
-<span id="cb84-914"><a href="#cb84-914" aria-hidden="true" tabindex="-1"></a>    <span class="fu">.up</span>(gc<span class="sc">$</span>debiased<span class="sc">$</span>est, gc<span class="sc">$</span>debiased<span class="sc">$</span>se_ij),</span>
-<span id="cb84-915"><a href="#cb84-915" aria-hidden="true" tabindex="-1"></a>    gc<span class="sc">$</span>debiased<span class="sc">$</span>upper_1s_wf,</span>
-<span id="cb84-916"><a href="#cb84-916" aria-hidden="true" tabindex="-1"></a>    fc<span class="sc">$</span>upper_1s)),</span>
-<span id="cb84-917"><a href="#cb84-917" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">SE (log-HR)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, <span class="fu">c</span>(gc<span class="sc">$</span>debiased<span class="sc">$</span>se_wald, .se_fbc_log,</span>
-<span id="cb84-918"><a href="#cb84-918" aria-hidden="true" tabindex="-1"></a>                                    gc<span class="sc">$</span>debiased<span class="sc">$</span>se_ij,</span>
-<span id="cb84-919"><a href="#cb84-919" aria-hidden="true" tabindex="-1"></a>                                    gc<span class="sc">$</span>debiased<span class="sc">$</span>se_ij_winner_floor, fc<span class="sc">$</span>se_field)),</span>
-<span id="cb84-920"><a href="#cb84-920" aria-hidden="true" tabindex="-1"></a>  <span class="at">check.names =</span> <span class="cn">FALSE</span></span>
-<span id="cb84-921"><a href="#cb84-921" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb84-922"><a href="#cb84-922" aria-hidden="true" tabindex="-1"></a><span class="fu">kbl</span>(tab_c, <span class="at">booktabs =</span> <span class="cn">TRUE</span>, <span class="at">escape =</span> <span class="cn">FALSE</span>, <span class="at">align =</span> <span class="st">&quot;lllll&quot;</span>) <span class="sc">|&gt;</span> <span class="fu">kable_styling</span>()</span>
-<span id="cb84-923"><a href="#cb84-923" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb84-924"><a href="#cb84-924" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb84-925"><a href="#cb84-925" aria-hidden="true" tabindex="-1"></a><span class="in">```{r joint-table}</span></span>
-<span id="cb84-926"><a href="#cb84-926" aria-hidden="true" tabindex="-1"></a><span class="co">#| tbl-cap: &quot;Table 4 — Joint pair (Ĥ lower bound, Ĥᶜ upper bound), HR scale. (i) the two separate one-sided 95% field bounds, whose joint guarantee is below 95%; (ii) the Bonferroni pair (each tail at 2.5%); (iii) the calibrated pair from field$joint: the equal-tail level γ found on the aligned outer draws (Λ*, Λ*ᶜ) — same multipliers, same winners — such that the joint probability P*(Λ* ≤ q₁₋γ, Λ*ᶜ ≥ qγ) reaches 95%. A joint 95% guarantee is what a development claim that states BOTH bounds actually needs; with near-independent draws the calibrated pair coincides with Bonferroni, and the gain over the separate bounds is the guarantee, not the width.&quot;</span></span>
-<span id="cb84-927"><a href="#cb84-927" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
-<span id="cb84-928"><a href="#cb84-928" aria-hidden="true" tabindex="-1"></a>jt <span class="ot">&lt;-</span> g<span class="sc">$</span>field<span class="sc">$</span>joint</span>
-<span id="cb84-929"><a href="#cb84-929" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">is.list</span>(jt), <span class="fu">is.null</span>(jt<span class="sc">$</span>note))</span>
-<span id="cb84-930"><a href="#cb84-930" aria-hidden="true" tabindex="-1"></a>tab_j <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb84-931"><a href="#cb84-931" aria-hidden="true" tabindex="-1"></a>  <span class="at">Pair =</span> <span class="fu">c</span>(<span class="st">&quot;Separate one-sided 95% field bounds&quot;</span>, <span class="st">&quot;Bonferroni (gamma = 0.025)&quot;</span>,</span>
-<span id="cb84-932"><a href="#cb84-932" aria-hidden="true" tabindex="-1"></a>           <span class="fu">sprintf</span>(<span class="st">&quot;Calibrated (gamma = %.3f)&quot;</span>, jt<span class="sc">$</span>gamma)),</span>
-<span id="cb84-933"><a href="#cb84-933" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Ĥ lower</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.2f&quot;</span>, <span class="fu">c</span>(f<span class="sc">$</span>lower_1s, jt<span class="sc">$</span>bonf_lower_H, jt<span class="sc">$</span>lower_H)),</span>
-<span id="cb84-934"><a href="#cb84-934" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Ĥᶜ upper</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.2f&quot;</span>, <span class="fu">c</span>(fc<span class="sc">$</span>upper_1s, jt<span class="sc">$</span>bonf_upper_Hc, jt<span class="sc">$</span>upper_Hc)),</span>
-<span id="cb84-935"><a href="#cb84-935" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Joint prob. (field draws)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;&lt; 0.95 by construction&quot;</span>,</span>
-<span id="cb84-936"><a href="#cb84-936" aria-hidden="true" tabindex="-1"></a>                                  <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, jt<span class="sc">$</span>bonf_joint_prob),</span>
-<span id="cb84-937"><a href="#cb84-937" aria-hidden="true" tabindex="-1"></a>                                  <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, jt<span class="sc">$</span>joint_prob)),</span>
-<span id="cb84-938"><a href="#cb84-938" aria-hidden="true" tabindex="-1"></a>  <span class="at">check.names =</span> <span class="cn">FALSE</span></span>
-<span id="cb84-939"><a href="#cb84-939" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb84-940"><a href="#cb84-940" aria-hidden="true" tabindex="-1"></a><span class="fu">kbl</span>(tab_j, <span class="at">booktabs =</span> <span class="cn">TRUE</span>, <span class="at">escape =</span> <span class="cn">FALSE</span>, <span class="at">align =</span> <span class="st">&quot;llll&quot;</span>) <span class="sc">|&gt;</span> <span class="fu">kable_styling</span>()</span>
-<span id="cb84-941"><a href="#cb84-941" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;gamma = %.3f on the %.3f-%.3f grid; corr(Lambda*, Lambda*c) = %+.3f over %d aligned draws.</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
-<span id="cb84-942"><a href="#cb84-942" aria-hidden="true" tabindex="-1"></a>            jt<span class="sc">$</span>gamma, jt<span class="sc">$</span>alpha <span class="sc">/</span> <span class="dv">2</span>, jt<span class="sc">$</span>alpha, jt<span class="sc">$</span>corr, jt<span class="sc">$</span>n_joint_draws))</span>
-<span id="cb84-943"><a href="#cb84-943" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb84-944"><a href="#cb84-944" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb84-945"><a href="#cb84-945" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb84-946"><a href="#cb84-946" aria-hidden="true" tabindex="-1"></a><span class="fu">## Reading the complement and the pair</span></span>
-<span id="cb84-947"><a href="#cb84-947" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb84-948"><a href="#cb84-948" aria-hidden="true" tabindex="-1"></a>Read by bound location against clinically meaningful effect sizes (0.80 / 0.85</span>
-<span id="cb84-949"><a href="#cb84-949" aria-hidden="true" tabindex="-1"></a>named as reading aids for a benefit, not decision rules), not as significance</span>
-<span id="cb84-950"><a href="#cb84-950" aria-hidden="true" tabindex="-1"></a>at HR = 1.0. Generated from the numbers above at render time:</span>
-<span id="cb84-951"><a href="#cb84-951" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb84-952"><a href="#cb84-952" aria-hidden="true" tabindex="-1"></a><span class="in">```{r complement-reading, results = &quot;asis&quot;}</span></span>
-<span id="cb84-953"><a href="#cb84-953" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
-<span id="cb84-954"><a href="#cb84-954" aria-hidden="true" tabindex="-1"></a>ups <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">`</span><span class="at">Full bootstrap</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">.up</span>(fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2, .se_fbc_log),</span>
-<span id="cb84-955"><a href="#cb84-955" aria-hidden="true" tabindex="-1"></a>         <span class="st">`</span><span class="at">MR (IJ, two-term)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">.up</span>(gc<span class="sc">$</span>debiased<span class="sc">$</span>est, gc<span class="sc">$</span>debiased<span class="sc">$</span>se_ij),</span>
-<span id="cb84-956"><a href="#cb84-956" aria-hidden="true" tabindex="-1"></a>         <span class="st">`</span><span class="at">MR (IJ, winner-floor)</span><span class="st">`</span> <span class="ot">=</span> gc<span class="sc">$</span>debiased<span class="sc">$</span>upper_1s_wf,</span>
-<span id="cb84-957"><a href="#cb84-957" aria-hidden="true" tabindex="-1"></a>         <span class="st">`</span><span class="at">MR (field)</span><span class="st">`</span> <span class="ot">=</span> fc<span class="sc">$</span>upper_1s)</span>
-<span id="cb84-958"><a href="#cb84-958" aria-hidden="true" tabindex="-1"></a>nv_up <span class="ot">&lt;-</span> <span class="fu">.up</span>(gc<span class="sc">$</span>naive<span class="sc">$</span>est, gc<span class="sc">$</span>debiased<span class="sc">$</span>se_wald)</span>
+<span id="cb84-887"><a href="#cb84-887" aria-hidden="true" tabindex="-1"></a><span class="in">`TASK_complement_refinements`</span>). The reported complement construction is</span>
+<span id="cb84-888"><a href="#cb84-888" aria-hidden="true" tabindex="-1"></a>**MR (field)**; naive, the full bootstrap and MR (IJ, two-term) are the</span>
+<span id="cb84-889"><a href="#cb84-889" aria-hidden="true" tabindex="-1"></a>comparators.</span>
+<span id="cb84-890"><a href="#cb84-890" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb84-891"><a href="#cb84-891" aria-hidden="true" tabindex="-1"></a><span class="in">```{r complement-table}</span></span>
+<span id="cb84-892"><a href="#cb84-892" aria-hidden="true" tabindex="-1"></a><span class="co">#| tbl-cap: &quot;Table 3 — Complement (benefit claim): interval constructions for the complement of the selected subgroup (HR scale; SE on the log-HR scale). The one-sided 95% UPPER bound is the primary column: for a benefit claim the exposed limit is the upper bound (under-correction of the beneficial optimism pushes it too low and over-claims; over-correction cannot). Naive and IJ rows use exp(log est + 1.645·SE); FB uses exp(log H2 + 1.645·SE_boot) with SE_boot = sdH2/H2; MR (field) — the reported construction — is the gate&#39;s stored upper_1s = exp(β̃ᶜ − q05(Λ*ᶜ)), built on the de-biased complement estimate β̃ᶜ, not on est2.&quot;</span></span>
+<span id="cb84-893"><a href="#cb84-893" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb84-894"><a href="#cb84-894" aria-hidden="true" tabindex="-1"></a>gc <span class="ot">&lt;-</span> g<span class="sc">$</span>complement</span>
+<span id="cb84-895"><a href="#cb84-895" aria-hidden="true" tabindex="-1"></a>fc <span class="ot">&lt;-</span> g<span class="sc">$</span>field<span class="sc">$</span>complement</span>
+<span id="cb84-896"><a href="#cb84-896" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">is.list</span>(gc), <span class="sc">!</span><span class="fu">is.null</span>(gc<span class="sc">$</span>debiased), <span class="fu">is.list</span>(fc), <span class="fu">is.null</span>(fc<span class="sc">$</span>note))</span>
+<span id="cb84-897"><a href="#cb84-897" aria-hidden="true" tabindex="-1"></a>.up <span class="ot">&lt;-</span> <span class="cf">function</span>(est, se) <span class="fu">exp</span>(<span class="fu">log</span>(est) <span class="sc">+</span> <span class="fu">qnorm</span>(<span class="fl">0.95</span>) <span class="sc">*</span> se)</span>
+<span id="cb84-898"><a href="#cb84-898" aria-hidden="true" tabindex="-1"></a>.se_fbc_log <span class="ot">&lt;-</span> fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>sdH2 <span class="sc">/</span> fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2</span>
+<span id="cb84-899"><a href="#cb84-899" aria-hidden="true" tabindex="-1"></a>tab_c <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb84-900"><a href="#cb84-900" aria-hidden="true" tabindex="-1"></a>  <span class="at">Method =</span> <span class="fu">c</span>(<span class="st">&quot;Naive&quot;</span>, <span class="st">&quot;Full bootstrap&quot;</span>, <span class="st">&quot;MR (IJ, two-term)&quot;</span>, <span class="st">&quot;MR (field)&quot;</span>),</span>
+<span id="cb84-901"><a href="#cb84-901" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Point est.</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.2f&quot;</span>, <span class="fu">c</span>(gc<span class="sc">$</span>naive<span class="sc">$</span>est, fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2,</span>
+<span id="cb84-902"><a href="#cb84-902" aria-hidden="true" tabindex="-1"></a>                                   gc<span class="sc">$</span>debiased<span class="sc">$</span>est, fc<span class="sc">$</span>est2)),</span>
+<span id="cb84-903"><a href="#cb84-903" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Two-sided 95%</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(</span>
+<span id="cb84-904"><a href="#cb84-904" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt2</span>(gc<span class="sc">$</span>naive<span class="sc">$</span>lower, gc<span class="sc">$</span>naive<span class="sc">$</span>upper),</span>
+<span id="cb84-905"><a href="#cb84-905" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt2</span>(fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2_lower, fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2_upper),</span>
+<span id="cb84-906"><a href="#cb84-906" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt2</span>(gc<span class="sc">$</span>debiased<span class="sc">$</span>lower, gc<span class="sc">$</span>debiased<span class="sc">$</span>upper),</span>
+<span id="cb84-907"><a href="#cb84-907" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt2</span>(fc<span class="sc">$</span>lower_2s, fc<span class="sc">$</span>upper_2s)),</span>
+<span id="cb84-908"><a href="#cb84-908" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">One-sided 95% upper</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.2f&quot;</span>, <span class="fu">c</span>(</span>
+<span id="cb84-909"><a href="#cb84-909" aria-hidden="true" tabindex="-1"></a>    <span class="fu">.up</span>(gc<span class="sc">$</span>naive<span class="sc">$</span>est, gc<span class="sc">$</span>debiased<span class="sc">$</span>se_wald),</span>
+<span id="cb84-910"><a href="#cb84-910" aria-hidden="true" tabindex="-1"></a>    <span class="fu">.up</span>(fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2, .se_fbc_log),</span>
+<span id="cb84-911"><a href="#cb84-911" aria-hidden="true" tabindex="-1"></a>    <span class="fu">.up</span>(gc<span class="sc">$</span>debiased<span class="sc">$</span>est, gc<span class="sc">$</span>debiased<span class="sc">$</span>se_ij),</span>
+<span id="cb84-912"><a href="#cb84-912" aria-hidden="true" tabindex="-1"></a>    fc<span class="sc">$</span>upper_1s)),</span>
+<span id="cb84-913"><a href="#cb84-913" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">SE (log-HR)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, <span class="fu">c</span>(gc<span class="sc">$</span>debiased<span class="sc">$</span>se_wald, .se_fbc_log,</span>
+<span id="cb84-914"><a href="#cb84-914" aria-hidden="true" tabindex="-1"></a>                                    gc<span class="sc">$</span>debiased<span class="sc">$</span>se_ij, fc<span class="sc">$</span>se_field)),</span>
+<span id="cb84-915"><a href="#cb84-915" aria-hidden="true" tabindex="-1"></a>  <span class="at">check.names =</span> <span class="cn">FALSE</span></span>
+<span id="cb84-916"><a href="#cb84-916" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb84-917"><a href="#cb84-917" aria-hidden="true" tabindex="-1"></a><span class="fu">kbl</span>(tab_c, <span class="at">booktabs =</span> <span class="cn">TRUE</span>, <span class="at">escape =</span> <span class="cn">FALSE</span>, <span class="at">align =</span> <span class="st">&quot;lllll&quot;</span>) <span class="sc">|&gt;</span> <span class="fu">kable_styling</span>()</span>
+<span id="cb84-918"><a href="#cb84-918" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb84-919"><a href="#cb84-919" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb84-920"><a href="#cb84-920" aria-hidden="true" tabindex="-1"></a><span class="in">```{r joint-table}</span></span>
+<span id="cb84-921"><a href="#cb84-921" aria-hidden="true" tabindex="-1"></a><span class="co">#| tbl-cap: &quot;Table 4 — Joint pair (Ĥ lower bound, Ĥᶜ upper bound), HR scale. (i) the two separate one-sided 95% field bounds, whose joint guarantee is below 95%; (ii) the Bonferroni pair (each tail at 2.5%); (iii) the calibrated pair from field$joint: the equal-tail level γ found on the aligned outer draws (Λ*, Λ*ᶜ) — same multipliers, same winners — such that the joint probability P*(Λ* ≤ q₁₋γ, Λ*ᶜ ≥ qγ) reaches 95%. A joint 95% guarantee is what a development claim that states BOTH bounds actually needs; with near-independent draws the calibrated pair coincides with Bonferroni, and the gain over the separate bounds is the guarantee, not the width.&quot;</span></span>
+<span id="cb84-922"><a href="#cb84-922" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb84-923"><a href="#cb84-923" aria-hidden="true" tabindex="-1"></a>jt <span class="ot">&lt;-</span> g<span class="sc">$</span>field<span class="sc">$</span>joint</span>
+<span id="cb84-924"><a href="#cb84-924" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">is.list</span>(jt), <span class="fu">is.null</span>(jt<span class="sc">$</span>note))</span>
+<span id="cb84-925"><a href="#cb84-925" aria-hidden="true" tabindex="-1"></a>tab_j <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb84-926"><a href="#cb84-926" aria-hidden="true" tabindex="-1"></a>  <span class="at">Pair =</span> <span class="fu">c</span>(<span class="st">&quot;Separate one-sided 95% field bounds&quot;</span>, <span class="st">&quot;Bonferroni (gamma = 0.025)&quot;</span>,</span>
+<span id="cb84-927"><a href="#cb84-927" aria-hidden="true" tabindex="-1"></a>           <span class="fu">sprintf</span>(<span class="st">&quot;Calibrated (gamma = %.3f)&quot;</span>, jt<span class="sc">$</span>gamma)),</span>
+<span id="cb84-928"><a href="#cb84-928" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Ĥ lower</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.2f&quot;</span>, <span class="fu">c</span>(f<span class="sc">$</span>lower_1s, jt<span class="sc">$</span>bonf_lower_H, jt<span class="sc">$</span>lower_H)),</span>
+<span id="cb84-929"><a href="#cb84-929" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Ĥᶜ upper</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.2f&quot;</span>, <span class="fu">c</span>(fc<span class="sc">$</span>upper_1s, jt<span class="sc">$</span>bonf_upper_Hc, jt<span class="sc">$</span>upper_Hc)),</span>
+<span id="cb84-930"><a href="#cb84-930" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Joint prob. (field draws)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;&lt; 0.95 by construction&quot;</span>,</span>
+<span id="cb84-931"><a href="#cb84-931" aria-hidden="true" tabindex="-1"></a>                                  <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, jt<span class="sc">$</span>bonf_joint_prob),</span>
+<span id="cb84-932"><a href="#cb84-932" aria-hidden="true" tabindex="-1"></a>                                  <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, jt<span class="sc">$</span>joint_prob)),</span>
+<span id="cb84-933"><a href="#cb84-933" aria-hidden="true" tabindex="-1"></a>  <span class="at">check.names =</span> <span class="cn">FALSE</span></span>
+<span id="cb84-934"><a href="#cb84-934" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb84-935"><a href="#cb84-935" aria-hidden="true" tabindex="-1"></a><span class="fu">kbl</span>(tab_j, <span class="at">booktabs =</span> <span class="cn">TRUE</span>, <span class="at">escape =</span> <span class="cn">FALSE</span>, <span class="at">align =</span> <span class="st">&quot;llll&quot;</span>) <span class="sc">|&gt;</span> <span class="fu">kable_styling</span>()</span>
+<span id="cb84-936"><a href="#cb84-936" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;gamma = %.3f on the %.3f-%.3f grid; corr(Lambda*, Lambda*c) = %+.3f over %d aligned draws.</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb84-937"><a href="#cb84-937" aria-hidden="true" tabindex="-1"></a>            jt<span class="sc">$</span>gamma, jt<span class="sc">$</span>alpha <span class="sc">/</span> <span class="dv">2</span>, jt<span class="sc">$</span>alpha, jt<span class="sc">$</span>corr, jt<span class="sc">$</span>n_joint_draws))</span>
+<span id="cb84-938"><a href="#cb84-938" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb84-939"><a href="#cb84-939" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb84-940"><a href="#cb84-940" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb84-941"><a href="#cb84-941" aria-hidden="true" tabindex="-1"></a><span class="fu">## Reading the complement and the pair</span></span>
+<span id="cb84-942"><a href="#cb84-942" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb84-943"><a href="#cb84-943" aria-hidden="true" tabindex="-1"></a>Read by bound location against clinically meaningful effect sizes (0.80 / 0.85</span>
+<span id="cb84-944"><a href="#cb84-944" aria-hidden="true" tabindex="-1"></a>named as reading aids for a benefit, not decision rules), not as significance</span>
+<span id="cb84-945"><a href="#cb84-945" aria-hidden="true" tabindex="-1"></a>at HR = 1.0. Generated from the numbers above at render time:</span>
+<span id="cb84-946"><a href="#cb84-946" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb84-947"><a href="#cb84-947" aria-hidden="true" tabindex="-1"></a><span class="in">```{r complement-reading, results = &quot;asis&quot;}</span></span>
+<span id="cb84-948"><a href="#cb84-948" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb84-949"><a href="#cb84-949" aria-hidden="true" tabindex="-1"></a>ups <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">`</span><span class="at">MR (field)</span><span class="st">`</span> <span class="ot">=</span> fc<span class="sc">$</span>upper_1s,</span>
+<span id="cb84-950"><a href="#cb84-950" aria-hidden="true" tabindex="-1"></a>         <span class="st">`</span><span class="at">Full bootstrap</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">.up</span>(fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2, .se_fbc_log),</span>
+<span id="cb84-951"><a href="#cb84-951" aria-hidden="true" tabindex="-1"></a>         <span class="st">`</span><span class="at">MR (IJ, two-term)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">.up</span>(gc<span class="sc">$</span>debiased<span class="sc">$</span>est, gc<span class="sc">$</span>debiased<span class="sc">$</span>se_ij))</span>
+<span id="cb84-952"><a href="#cb84-952" aria-hidden="true" tabindex="-1"></a>nv_up <span class="ot">&lt;-</span> <span class="fu">.up</span>(gc<span class="sc">$</span>naive<span class="sc">$</span>est, gc<span class="sc">$</span>debiased<span class="sc">$</span>se_wald)</span>
+<span id="cb84-953"><a href="#cb84-953" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
+<span id="cb84-954"><a href="#cb84-954" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;- Complement point estimates: naive %.2f; selection-adjusted FB %.2f, MR (IJ) %.2f, &quot;</span>,</span>
+<span id="cb84-955"><a href="#cb84-955" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;field est2 %.2f — the corrections move the complement %s.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
+<span id="cb84-956"><a href="#cb84-956" aria-hidden="true" tabindex="-1"></a>  gc<span class="sc">$</span>naive<span class="sc">$</span>est, fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2, gc<span class="sc">$</span>debiased<span class="sc">$</span>est, fc<span class="sc">$</span>est2,</span>
+<span id="cb84-957"><a href="#cb84-957" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (gc<span class="sc">$</span>debiased<span class="sc">$</span>est <span class="sc">&gt;</span> gc<span class="sc">$</span>naive<span class="sc">$</span>est) <span class="st">&quot;toward the null (the naive estimate carried beneficial optimism)&quot;</span></span>
+<span id="cb84-958"><a href="#cb84-958" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span> <span class="st">&quot;away from the null&quot;</span>))</span>
 <span id="cb84-959"><a href="#cb84-959" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
-<span id="cb84-960"><a href="#cb84-960" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;- Complement point estimates: naive %.2f; selection-adjusted FB %.2f, MR (IJ) %.2f, &quot;</span>,</span>
-<span id="cb84-961"><a href="#cb84-961" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;field est2 %.2f — the corrections move the complement %s.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
-<span id="cb84-962"><a href="#cb84-962" aria-hidden="true" tabindex="-1"></a>  gc<span class="sc">$</span>naive<span class="sc">$</span>est, fs_bc<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2, gc<span class="sc">$</span>debiased<span class="sc">$</span>est, fc<span class="sc">$</span>est2,</span>
-<span id="cb84-963"><a href="#cb84-963" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (gc<span class="sc">$</span>debiased<span class="sc">$</span>est <span class="sc">&gt;</span> gc<span class="sc">$</span>naive<span class="sc">$</span>est) <span class="st">&quot;toward the null (the naive estimate carried beneficial optimism)&quot;</span></span>
-<span id="cb84-964"><a href="#cb84-964" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span> <span class="st">&quot;away from the null&quot;</span>))</span>
-<span id="cb84-965"><a href="#cb84-965" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
-<span id="cb84-966"><a href="#cb84-966" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;- One-sided 95%% upper bounds: naive %.2f; selection-adjusted %s. &quot;</span>,</span>
-<span id="cb84-967"><a href="#cb84-967" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;Every selection-adjusted upper bound sits %s 1: %s. Against a 0.85 benefit &quot;</span>,</span>
-<span id="cb84-968"><a href="#cb84-968" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;threshold, %s; against 0.80, %s.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
-<span id="cb84-969"><a href="#cb84-969" aria-hidden="true" tabindex="-1"></a>  nv_up, <span class="fu">paste</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%s %.2f&quot;</span>, <span class="fu">names</span>(ups), ups), <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>),</span>
-<span id="cb84-970"><a href="#cb84-970" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">all</span>(ups <span class="sc">&lt;</span> <span class="dv">1</span>)) <span class="st">&quot;below&quot;</span> <span class="cf">else</span> <span class="st">&quot;at or above (at least one)&quot;</span>,</span>
-<span id="cb84-971"><a href="#cb84-971" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">all</span>(ups <span class="sc">&lt;</span> <span class="dv">1</span>)) <span class="st">&quot;the complement&#39;s benefit claim survives every construction at the one-sided level&quot;</span></span>
-<span id="cb84-972"><a href="#cb84-972" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span> <span class="st">&quot;the benefit claim does not survive every construction&quot;</span>,</span>
-<span id="cb84-973"><a href="#cb84-973" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">all</span>(ups <span class="sc">&lt;</span> <span class="fl">0.85</span>)) <span class="st">&quot;every adjusted bound rules out a benefit weaker than 0.85&quot;</span></span>
-<span id="cb84-974"><a href="#cb84-974" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span> <span class="cf">if</span> (<span class="fu">any</span>(ups <span class="sc">&lt;</span> <span class="fl">0.85</span>)) <span class="fu">sprintf</span>(<span class="st">&quot;%s rule out a benefit weaker than 0.85; %s do not&quot;</span>,</span>
-<span id="cb84-975"><a href="#cb84-975" aria-hidden="true" tabindex="-1"></a>                                     <span class="fu">paste</span>(<span class="fu">names</span>(ups)[ups <span class="sc">&lt;</span> <span class="fl">0.85</span>], <span class="at">collapse =</span> <span class="st">&quot; and &quot;</span>),</span>
-<span id="cb84-976"><a href="#cb84-976" aria-hidden="true" tabindex="-1"></a>                                     <span class="fu">paste</span>(<span class="fu">names</span>(ups)[ups <span class="sc">&gt;=</span> <span class="fl">0.85</span>], <span class="at">collapse =</span> <span class="st">&quot; and &quot;</span>))</span>
-<span id="cb84-977"><a href="#cb84-977" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span> <span class="st">&quot;no adjusted bound rules out a benefit weaker than 0.85&quot;</span>,</span>
-<span id="cb84-978"><a href="#cb84-978" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">all</span>(ups <span class="sc">&lt;</span> <span class="fl">0.80</span>)) <span class="st">&quot;all do&quot;</span> <span class="cf">else</span> <span class="cf">if</span> (<span class="fu">any</span>(ups <span class="sc">&lt;</span> <span class="fl">0.80</span>)) <span class="fu">sprintf</span>(<span class="st">&quot;only %s&quot;</span>, <span class="fu">paste</span>(<span class="fu">names</span>(ups)[ups <span class="sc">&lt;</span> <span class="fl">0.80</span>], <span class="at">collapse =</span> <span class="st">&quot; and &quot;</span>)) <span class="cf">else</span> <span class="st">&quot;none does&quot;</span>))</span>
-<span id="cb84-979"><a href="#cb84-979" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
-<span id="cb84-980"><a href="#cb84-980" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;- The spread across the adjusted upper bounds (%.2f to %.2f, %.2f log-HR) is what the &quot;</span>,</span>
-<span id="cb84-981"><a href="#cb84-981" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;constructions pay for selection: the two-term IJ SE %.3f is %.2fx the naive SE %.3f &quot;</span>,</span>
-<span id="cb84-982"><a href="#cb84-982" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;(the doubled same-draws term), the winner-floor SE %.3f and the field&#39;s lambda-SD %.3f &quot;</span>,</span>
-<span id="cb84-983"><a href="#cb84-983" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;sit at %.2fx and %.2fx the naive SE — p-hat(H-hat) = %.2f, the dominant-selection regime &quot;</span>,</span>
-<span id="cb84-984"><a href="#cb84-984" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;in which the winner-only variance is exact.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
-<span id="cb84-985"><a href="#cb84-985" aria-hidden="true" tabindex="-1"></a>  <span class="fu">min</span>(ups), <span class="fu">max</span>(ups), <span class="fu">log</span>(<span class="fu">max</span>(ups)) <span class="sc">-</span> <span class="fu">log</span>(<span class="fu">min</span>(ups)),</span>
-<span id="cb84-986"><a href="#cb84-986" aria-hidden="true" tabindex="-1"></a>  gc<span class="sc">$</span>debiased<span class="sc">$</span>se_ij, gc<span class="sc">$</span>debiased<span class="sc">$</span>se_ij <span class="sc">/</span> gc<span class="sc">$</span>debiased<span class="sc">$</span>se_wald, gc<span class="sc">$</span>debiased<span class="sc">$</span>se_wald,</span>
-<span id="cb84-987"><a href="#cb84-987" aria-hidden="true" tabindex="-1"></a>  gc<span class="sc">$</span>debiased<span class="sc">$</span>se_ij_winner_floor, fc<span class="sc">$</span>se_field,</span>
-<span id="cb84-988"><a href="#cb84-988" aria-hidden="true" tabindex="-1"></a>  gc<span class="sc">$</span>debiased<span class="sc">$</span>se_ij_winner_floor <span class="sc">/</span> gc<span class="sc">$</span>debiased<span class="sc">$</span>se_wald, fc<span class="sc">$</span>se_field <span class="sc">/</span> gc<span class="sc">$</span>debiased<span class="sc">$</span>se_wald,</span>
-<span id="cb84-989"><a href="#cb84-989" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unname</span>(p_hat[sel_i])))</span>
-<span id="cb84-990"><a href="#cb84-990" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
-<span id="cb84-991"><a href="#cb84-991" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;- The joint pair: stating both the harm lower bound and the benefit upper bound from &quot;</span>,</span>
-<span id="cb84-992"><a href="#cb84-992" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;the two separate 95%% field constructions (%.2f, %.2f) carries a joint guarantee below 95%%; &quot;</span>,</span>
-<span id="cb84-993"><a href="#cb84-993" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;the calibrated pair (%.2f, %.2f) at gamma = %.3f %s the Bonferroni pair (%.2f, %.2f): &quot;</span>,</span>
-<span id="cb84-994"><a href="#cb84-994" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;corr(Lambda*, Lambda*c) = %+.3f, %s.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
-<span id="cb84-995"><a href="#cb84-995" aria-hidden="true" tabindex="-1"></a>  f<span class="sc">$</span>lower_1s, fc<span class="sc">$</span>upper_1s, jt<span class="sc">$</span>lower_H, jt<span class="sc">$</span>upper_Hc, jt<span class="sc">$</span>gamma,</span>
-<span id="cb84-996"><a href="#cb84-996" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">abs</span>(jt<span class="sc">$</span>gamma <span class="sc">-</span> <span class="fl">0.025</span>) <span class="sc">&lt;</span> <span class="fl">1e-9</span>) <span class="st">&quot;coincides with&quot;</span> <span class="cf">else</span> <span class="st">&quot;is tighter than&quot;</span>,</span>
-<span id="cb84-997"><a href="#cb84-997" aria-hidden="true" tabindex="-1"></a>  jt<span class="sc">$</span>bonf_lower_H, jt<span class="sc">$</span>bonf_upper_Hc, jt<span class="sc">$</span>corr,</span>
-<span id="cb84-998"><a href="#cb84-998" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">abs</span>(jt<span class="sc">$</span>gamma <span class="sc">-</span> <span class="fl">0.025</span>) <span class="sc">&lt;</span> <span class="fl">1e-9</span>) <span class="st">&quot;too weak a dependence to lift gamma off the Bonferroni floor on the 0.001 grid&quot;</span></span>
-<span id="cb84-999"><a href="#cb84-999" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span> <span class="st">&quot;enough dependence to lift gamma off the Bonferroni floor&quot;</span>))</span>
-<span id="cb84-1000"><a href="#cb84-1000" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
-<span id="cb84-1001"><a href="#cb84-1001" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;- Set beside the harm-side reading: the harm claim in H-hat does not survive selection &quot;</span>,</span>
-<span id="cb84-1002"><a href="#cb84-1002" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;adjustment (adjusted lower bounds %.2f-%.2f against a naive %.2f), while the benefit claim &quot;</span>,</span>
-<span id="cb84-1003"><a href="#cb84-1003" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;in H-hat^c %s.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
-<span id="cb84-1004"><a href="#cb84-1004" aria-hidden="true" tabindex="-1"></a>  <span class="fu">min</span>(bounds), <span class="fu">max</span>(bounds), <span class="fu">.one</span>(g<span class="sc">$</span>naive<span class="sc">$</span>est, g<span class="sc">$</span>debiased<span class="sc">$</span>se_wald),</span>
-<span id="cb84-1005"><a href="#cb84-1005" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">all</span>(ups <span class="sc">&lt;</span> <span class="dv">1</span>)) <span class="st">&quot;does (every adjusted upper bound below 1)&quot;</span> <span class="cf">else</span> <span class="st">&quot;does not on every construction&quot;</span>))</span>
-<span id="cb84-1006"><a href="#cb84-1006" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb84-1007"><a href="#cb84-1007" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb84-1008"><a href="#cb84-1008" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb84-1009"><a href="#cb84-1009" aria-hidden="true" tabindex="-1"></a><span class="in">```{r timing}</span></span>
-<span id="cb84-1010"><a href="#cb84-1010" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
-<span id="cb84-1011"><a href="#cb84-1011" aria-hidden="true" tabindex="-1"></a>td <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb84-1012"><a href="#cb84-1012" aria-hidden="true" tabindex="-1"></a>  <span class="at">Step =</span> <span class="fu">c</span>(<span class="st">&quot;Fit + MR gate&quot;</span>, <span class="st">&quot;Full bootstrap&quot;</span>, <span class="st">&quot;MR gate (within fit)&quot;</span>,</span>
-<span id="cb84-1013"><a href="#cb84-1013" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;MR field block (within gate)&quot;</span>, <span class="st">&quot;MR complement field block (within gate)&quot;</span>,</span>
-<span id="cb84-1014"><a href="#cb84-1014" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;MR uniform (kappa) sweep (within gate)&quot;</span>,</span>
-<span id="cb84-1015"><a href="#cb84-1015" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Guo &amp; He bootstrap&quot;</span>, <span class="st">&quot;10-fold CV&quot;</span>,</span>
-<span id="cb84-1016"><a href="#cb84-1016" aria-hidden="true" tabindex="-1"></a>           <span class="fu">sprintf</span>(<span class="st">&quot;Leave-one-out (N-fold, %d workers)&quot;</span>, loo_workers)),</span>
-<span id="cb84-1017"><a href="#cb84-1017" aria-hidden="true" tabindex="-1"></a>  <span class="at">Seconds =</span> <span class="fu">c</span>(timings<span class="sc">$</span>fit, timings<span class="sc">$</span>fb, timings<span class="sc">$</span>mr,</span>
-<span id="cb84-1018"><a href="#cb84-1018" aria-hidden="true" tabindex="-1"></a>              g<span class="sc">$</span>field<span class="sc">$</span>timing_seconds, g<span class="sc">$</span>field<span class="sc">$</span>complement<span class="sc">$</span>timing_seconds,</span>
-<span id="cb84-1019"><a href="#cb84-1019" aria-hidden="true" tabindex="-1"></a>              g<span class="sc">$</span>field<span class="sc">$</span>uniform<span class="sc">$</span>timing_seconds,</span>
-<span id="cb84-1020"><a href="#cb84-1020" aria-hidden="true" tabindex="-1"></a>              timings<span class="sc">$</span>gh, timings<span class="sc">$</span>kfold, timings<span class="sc">$</span>loo)</span>
-<span id="cb84-1021"><a href="#cb84-1021" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb84-1022"><a href="#cb84-1022" aria-hidden="true" tabindex="-1"></a>td<span class="sc">$</span>Minutes <span class="ot">&lt;-</span> <span class="fu">round</span>(td<span class="sc">$</span>Seconds <span class="sc">/</span> <span class="dv">60</span>, <span class="dv">2</span>)</span>
-<span id="cb84-1023"><a href="#cb84-1023" aria-hidden="true" tabindex="-1"></a><span class="fu">kbl</span>(td, <span class="at">booktabs =</span> <span class="cn">TRUE</span>, <span class="at">align =</span> <span class="st">&quot;lrr&quot;</span>) <span class="sc">|&gt;</span> <span class="fu">kable_styling</span>()</span>
-<span id="cb84-1024"><a href="#cb84-1024" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb84-1025"><a href="#cb84-1025" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb84-1026"><a href="#cb84-1026" aria-hidden="true" tabindex="-1"></a><span class="fu"># Reproducibility payload {#sec-export-payload}</span></span>
-<span id="cb84-1027"><a href="#cb84-1027" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb84-1028"><a href="#cb84-1028" aria-hidden="true" tabindex="-1"></a>The chunk below harvests the objects this render already computed into a single</span>
-<span id="cb84-1029"><a href="#cb84-1029" aria-hidden="true" tabindex="-1"></a>small list and writes it as an <span class="in">`.rds`</span>, so the results survive the HTML. No</span>
-<span id="cb84-1030"><a href="#cb84-1030" aria-hidden="true" tabindex="-1"></a>analysis is repeated. Every element is guarded, so a section this render skipped</span>
-<span id="cb84-1031"><a href="#cb84-1031" aria-hidden="true" tabindex="-1"></a>(<span class="in">`run_cv_kfold`</span>, <span class="in">`run_loo`</span>) stores <span class="in">`NULL`</span> rather than erroring, and the</span>
-<span id="cb84-1032"><a href="#cb84-1032" aria-hidden="true" tabindex="-1"></a>top-level names match the other GBSG payloads (<span class="in">`table`</span>, <span class="in">`labels`</span>, <span class="in">`meta`</span>,</span>
-<span id="cb84-1033"><a href="#cb84-1033" aria-hidden="true" tabindex="-1"></a><span class="in">`extras`</span>, <span class="in">`est_scale`</span>, <span class="in">`built_at`</span>, <span class="in">`forestsearch_version`</span>) so a reader can treat</span>
-<span id="cb84-1034"><a href="#cb84-1034" aria-hidden="true" tabindex="-1"></a>them uniformly. Schema note (2026-09-06, <span class="in">`TASK_gbsg_frozen_intervals`</span>):</span>
-<span id="cb84-1035"><a href="#cb84-1035" aria-hidden="true" tabindex="-1"></a><span class="in">`extras$mr`</span> additionally carries the <span class="in">`field`</span> block (the field-calibrated</span>
-<span id="cb84-1036"><a href="#cb84-1036" aria-hidden="true" tabindex="-1"></a>interval, including its <span class="in">`uniform`</span> κ sub-block) and <span class="in">`reselection`</span> (the</span>
-<span id="cb84-1037"><a href="#cb84-1037" aria-hidden="true" tabindex="-1"></a>re-selection frequencies <span class="in">`p_hat`</span>; the per-draw <span class="in">`winner`</span> vector is deliberately</span>
-<span id="cb84-1038"><a href="#cb84-1038" aria-hidden="true" tabindex="-1"></a>dropped — <span class="in">`sum(p_hat)`</span> equals the selection rate and reproduces it). Schema</span>
-<span id="cb84-1039"><a href="#cb84-1039" aria-hidden="true" tabindex="-1"></a>note (2026-09-06, <span class="in">`TASK_gbsg_frozen_complement`</span>): <span class="in">`extras$mr`</span> additionally</span>
-<span id="cb84-1040"><a href="#cb84-1040" aria-hidden="true" tabindex="-1"></a>carries <span class="in">`complement`</span> (the complement&#39;s naive/de-biased block with the</span>
-<span id="cb84-1041"><a href="#cb84-1041" aria-hidden="true" tabindex="-1"></a>winner-only SE elements), <span class="in">`ij_residual`</span>, and — inside <span class="in">`field`</span> — the</span>
-<span id="cb84-1042"><a href="#cb84-1042" aria-hidden="true" tabindex="-1"></a><span class="in">`complement`</span> field block and the <span class="in">`joint`</span> pair.</span>
-<span id="cb84-1043"><a href="#cb84-1043" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb84-1044"><a href="#cb84-1044" aria-hidden="true" tabindex="-1"></a><span class="in">```{r export-payload}</span></span>
-<span id="cb84-1045"><a href="#cb84-1045" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
-<span id="cb84-1046"><a href="#cb84-1046" aria-hidden="true" tabindex="-1"></a><span class="co">#| message: false</span></span>
-<span id="cb84-1047"><a href="#cb84-1047" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb84-1048"><a href="#cb84-1048" aria-hidden="true" tabindex="-1"></a>.qmd_dir  <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(<span class="fu">dirname</span>(knitr<span class="sc">::</span><span class="fu">current_input</span>(<span class="at">dir =</span> <span class="cn">TRUE</span>)),</span>
-<span id="cb84-1049"><a href="#cb84-1049" aria-hidden="true" tabindex="-1"></a>                      <span class="at">error =</span> <span class="cf">function</span>(e) <span class="fu">getwd</span>())</span>
-<span id="cb84-1050"><a href="#cb84-1050" aria-hidden="true" tabindex="-1"></a>.qmd_stem <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(tools<span class="sc">::</span><span class="fu">file_path_sans_ext</span>(<span class="fu">basename</span>(knitr<span class="sc">::</span><span class="fu">current_input</span>())),</span>
-<span id="cb84-1051"><a href="#cb84-1051" aria-hidden="true" tabindex="-1"></a>                      <span class="at">error =</span> <span class="cf">function</span>(e) <span class="st">&quot;analysis&quot;</span>)</span>
-<span id="cb84-1052"><a href="#cb84-1052" aria-hidden="true" tabindex="-1"></a>.dirout   <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(dirout)) .qmd_stem <span class="cf">else</span> dirout</span>
-<span id="cb84-1053"><a href="#cb84-1053" aria-hidden="true" tabindex="-1"></a>.base     <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(results_dir)) <span class="fu">file.path</span>(.qmd_dir, <span class="st">&quot;_payloads&quot;</span>) <span class="cf">else</span> results_dir</span>
-<span id="cb84-1054"><a href="#cb84-1054" aria-hidden="true" tabindex="-1"></a>.out_dir  <span class="ot">&lt;-</span> <span class="fu">file.path</span>(.base, .dirout)</span>
-<span id="cb84-1055"><a href="#cb84-1055" aria-hidden="true" tabindex="-1"></a><span class="fu">dir.create</span>(.out_dir, <span class="at">recursive =</span> <span class="cn">TRUE</span>, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb84-1056"><a href="#cb84-1056" aria-hidden="true" tabindex="-1"></a>.payload_file <span class="ot">&lt;-</span> <span class="fu">file.path</span>(.out_dir, <span class="fu">paste0</span>(.dirout, <span class="st">&quot;_payload.rds&quot;</span>))</span>
-<span id="cb84-1057"><a href="#cb84-1057" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb84-1058"><a href="#cb84-1058" aria-hidden="true" tabindex="-1"></a>.get <span class="ot">&lt;-</span> <span class="cf">function</span>(nm) <span class="cf">if</span> (<span class="fu">exists</span>(nm, <span class="at">inherits =</span> <span class="cn">TRUE</span>)) <span class="fu">get</span>(nm, <span class="at">inherits =</span> <span class="cn">TRUE</span>) <span class="cf">else</span> <span class="cn">NULL</span></span>
-<span id="cb84-1059"><a href="#cb84-1059" aria-hidden="true" tabindex="-1"></a>.try <span class="ot">&lt;-</span> <span class="cf">function</span>(expr) <span class="fu">tryCatch</span>(expr, <span class="at">error =</span> <span class="cf">function</span>(e) <span class="cn">NULL</span>)</span>
+<span id="cb84-960"><a href="#cb84-960" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;- One-sided 95%% upper bounds, by location: the reported MR (field) %.2f; comparators &quot;</span>,</span>
+<span id="cb84-961"><a href="#cb84-961" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;FB %.2f and MR (IJ, two-term) %.2f (the price of its doubled SE); naive %.2f. &quot;</span>,</span>
+<span id="cb84-962"><a href="#cb84-962" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;Read against 0.80 / 0.85 as reading aids: against 0.85, %s; against 0.80, %s.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
+<span id="cb84-963"><a href="#cb84-963" aria-hidden="true" tabindex="-1"></a>  ups[<span class="dv">1</span>], ups[<span class="dv">2</span>], ups[<span class="dv">3</span>], nv_up,</span>
+<span id="cb84-964"><a href="#cb84-964" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">all</span>(ups <span class="sc">&lt;</span> <span class="fl">0.85</span>)) <span class="st">&quot;every adjusted bound rules out a benefit weaker than 0.85&quot;</span></span>
+<span id="cb84-965"><a href="#cb84-965" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span> <span class="cf">if</span> (<span class="fu">any</span>(ups <span class="sc">&lt;</span> <span class="fl">0.85</span>)) <span class="fu">sprintf</span>(<span class="st">&quot;%s rule out a benefit weaker than 0.85; %s do not&quot;</span>,</span>
+<span id="cb84-966"><a href="#cb84-966" aria-hidden="true" tabindex="-1"></a>                                     <span class="fu">paste</span>(<span class="fu">names</span>(ups)[ups <span class="sc">&lt;</span> <span class="fl">0.85</span>], <span class="at">collapse =</span> <span class="st">&quot; and &quot;</span>),</span>
+<span id="cb84-967"><a href="#cb84-967" aria-hidden="true" tabindex="-1"></a>                                     <span class="fu">paste</span>(<span class="fu">names</span>(ups)[ups <span class="sc">&gt;=</span> <span class="fl">0.85</span>], <span class="at">collapse =</span> <span class="st">&quot; and &quot;</span>))</span>
+<span id="cb84-968"><a href="#cb84-968" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span> <span class="st">&quot;no adjusted bound rules out a benefit weaker than 0.85&quot;</span>,</span>
+<span id="cb84-969"><a href="#cb84-969" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">all</span>(ups <span class="sc">&lt;</span> <span class="fl">0.80</span>)) <span class="st">&quot;all do&quot;</span> <span class="cf">else</span> <span class="cf">if</span> (<span class="fu">any</span>(ups <span class="sc">&lt;</span> <span class="fl">0.80</span>)) <span class="fu">sprintf</span>(<span class="st">&quot;only %s&quot;</span>, <span class="fu">paste</span>(<span class="fu">names</span>(ups)[ups <span class="sc">&lt;</span> <span class="fl">0.80</span>], <span class="at">collapse =</span> <span class="st">&quot; and &quot;</span>)) <span class="cf">else</span> <span class="st">&quot;none does&quot;</span>))</span>
+<span id="cb84-970"><a href="#cb84-970" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
+<span id="cb84-971"><a href="#cb84-971" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;- The spread across the adjusted upper bounds (%.2f to %.2f, %.2f log-HR) is what the &quot;</span>,</span>
+<span id="cb84-972"><a href="#cb84-972" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;constructions pay for selection: the two-term IJ SE %.3f is %.2fx the naive SE %.3f &quot;</span>,</span>
+<span id="cb84-973"><a href="#cb84-973" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;(the doubled same-draws term), while the field&#39;s complement lambda-SD %.3f is %.2fx the &quot;</span>,</span>
+<span id="cb84-974"><a href="#cb84-974" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;naive SE. That the field&#39;s complement SE coincides with the naive SE is a diagnosis, not &quot;</span>,</span>
+<span id="cb84-975"><a href="#cb84-975" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;a rule: with p-hat(H-hat) = %.2f this analysis sits in the dominated-selection regime, &quot;</span>,</span>
+<span id="cb84-976"><a href="#cb84-976" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;where the complement&#39;s identity barely changes across re-selection.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
+<span id="cb84-977"><a href="#cb84-977" aria-hidden="true" tabindex="-1"></a>  <span class="fu">min</span>(ups), <span class="fu">max</span>(ups), <span class="fu">log</span>(<span class="fu">max</span>(ups)) <span class="sc">-</span> <span class="fu">log</span>(<span class="fu">min</span>(ups)),</span>
+<span id="cb84-978"><a href="#cb84-978" aria-hidden="true" tabindex="-1"></a>  gc<span class="sc">$</span>debiased<span class="sc">$</span>se_ij, gc<span class="sc">$</span>debiased<span class="sc">$</span>se_ij <span class="sc">/</span> gc<span class="sc">$</span>debiased<span class="sc">$</span>se_wald, gc<span class="sc">$</span>debiased<span class="sc">$</span>se_wald,</span>
+<span id="cb84-979"><a href="#cb84-979" aria-hidden="true" tabindex="-1"></a>  fc<span class="sc">$</span>se_field, fc<span class="sc">$</span>se_field <span class="sc">/</span> gc<span class="sc">$</span>debiased<span class="sc">$</span>se_wald,</span>
+<span id="cb84-980"><a href="#cb84-980" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unname</span>(p_hat[sel_i])))</span>
+<span id="cb84-981"><a href="#cb84-981" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
+<span id="cb84-982"><a href="#cb84-982" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;- The joint pair: stating both the harm lower bound and the benefit upper bound from &quot;</span>,</span>
+<span id="cb84-983"><a href="#cb84-983" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;the two separate 95%% field constructions (%.2f, %.2f) carries a joint guarantee below 95%%; &quot;</span>,</span>
+<span id="cb84-984"><a href="#cb84-984" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;the calibrated pair (%.2f, %.2f) at gamma = %.3f %s the Bonferroni pair (%.2f, %.2f): &quot;</span>,</span>
+<span id="cb84-985"><a href="#cb84-985" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;corr(Lambda*, Lambda*c) = %+.3f, %s.</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
+<span id="cb84-986"><a href="#cb84-986" aria-hidden="true" tabindex="-1"></a>  f<span class="sc">$</span>lower_1s, fc<span class="sc">$</span>upper_1s, jt<span class="sc">$</span>lower_H, jt<span class="sc">$</span>upper_Hc, jt<span class="sc">$</span>gamma,</span>
+<span id="cb84-987"><a href="#cb84-987" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">abs</span>(jt<span class="sc">$</span>gamma <span class="sc">-</span> <span class="fl">0.025</span>) <span class="sc">&lt;</span> <span class="fl">1e-9</span>) <span class="st">&quot;coincides with&quot;</span> <span class="cf">else</span> <span class="st">&quot;is tighter than&quot;</span>,</span>
+<span id="cb84-988"><a href="#cb84-988" aria-hidden="true" tabindex="-1"></a>  jt<span class="sc">$</span>bonf_lower_H, jt<span class="sc">$</span>bonf_upper_Hc, jt<span class="sc">$</span>corr,</span>
+<span id="cb84-989"><a href="#cb84-989" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">abs</span>(jt<span class="sc">$</span>gamma <span class="sc">-</span> <span class="fl">0.025</span>) <span class="sc">&lt;</span> <span class="fl">1e-9</span>) <span class="st">&quot;too weak a dependence to lift gamma off the Bonferroni floor on the 0.001 grid&quot;</span></span>
+<span id="cb84-990"><a href="#cb84-990" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span> <span class="st">&quot;enough dependence to lift gamma off the Bonferroni floor&quot;</span>))</span>
+<span id="cb84-991"><a href="#cb84-991" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="fu">paste0</span>(</span>
+<span id="cb84-992"><a href="#cb84-992" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;- Set beside the harm-side reading: in H-hat the adjusted lower bounds sit at %.2f-%.2f &quot;</span>,</span>
+<span id="cb84-993"><a href="#cb84-993" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;against the naive %.2f — no clinically meaningful harm is established once selection is &quot;</span>,</span>
+<span id="cb84-994"><a href="#cb84-994" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;accounted for; in H-hat^c the reported field upper bound is %.2f (FB %.2f, IJ two-term %.2f), &quot;</span>,</span>
+<span id="cb84-995"><a href="#cb84-995" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;and the joint pair is (%.2f, %.2f).</span><span class="sc">\n</span><span class="st">&quot;</span>),</span>
+<span id="cb84-996"><a href="#cb84-996" aria-hidden="true" tabindex="-1"></a>  <span class="fu">min</span>(bounds), <span class="fu">max</span>(bounds), <span class="fu">.one</span>(g<span class="sc">$</span>naive<span class="sc">$</span>est, g<span class="sc">$</span>debiased<span class="sc">$</span>se_wald),</span>
+<span id="cb84-997"><a href="#cb84-997" aria-hidden="true" tabindex="-1"></a>  ups[<span class="dv">1</span>], ups[<span class="dv">2</span>], ups[<span class="dv">3</span>], jt<span class="sc">$</span>lower_H, jt<span class="sc">$</span>upper_Hc))</span>
+<span id="cb84-998"><a href="#cb84-998" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb84-999"><a href="#cb84-999" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb84-1000"><a href="#cb84-1000" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb84-1001"><a href="#cb84-1001" aria-hidden="true" tabindex="-1"></a><span class="in">```{r timing}</span></span>
+<span id="cb84-1002"><a href="#cb84-1002" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb84-1003"><a href="#cb84-1003" aria-hidden="true" tabindex="-1"></a>td <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb84-1004"><a href="#cb84-1004" aria-hidden="true" tabindex="-1"></a>  <span class="at">Step =</span> <span class="fu">c</span>(<span class="st">&quot;Fit + MR gate&quot;</span>, <span class="st">&quot;Full bootstrap&quot;</span>, <span class="st">&quot;MR gate (within fit)&quot;</span>,</span>
+<span id="cb84-1005"><a href="#cb84-1005" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;MR field block (within gate)&quot;</span>, <span class="st">&quot;MR complement field block (within gate)&quot;</span>,</span>
+<span id="cb84-1006"><a href="#cb84-1006" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;MR uniform (kappa) sweep (within gate)&quot;</span>,</span>
+<span id="cb84-1007"><a href="#cb84-1007" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Guo &amp; He bootstrap&quot;</span>, <span class="st">&quot;10-fold CV&quot;</span>,</span>
+<span id="cb84-1008"><a href="#cb84-1008" aria-hidden="true" tabindex="-1"></a>           <span class="fu">sprintf</span>(<span class="st">&quot;Leave-one-out (N-fold, %d workers)&quot;</span>, loo_workers)),</span>
+<span id="cb84-1009"><a href="#cb84-1009" aria-hidden="true" tabindex="-1"></a>  <span class="at">Seconds =</span> <span class="fu">c</span>(timings<span class="sc">$</span>fit, timings<span class="sc">$</span>fb, timings<span class="sc">$</span>mr,</span>
+<span id="cb84-1010"><a href="#cb84-1010" aria-hidden="true" tabindex="-1"></a>              g<span class="sc">$</span>field<span class="sc">$</span>timing_seconds, g<span class="sc">$</span>field<span class="sc">$</span>complement<span class="sc">$</span>timing_seconds,</span>
+<span id="cb84-1011"><a href="#cb84-1011" aria-hidden="true" tabindex="-1"></a>              g<span class="sc">$</span>field<span class="sc">$</span>uniform<span class="sc">$</span>timing_seconds,</span>
+<span id="cb84-1012"><a href="#cb84-1012" aria-hidden="true" tabindex="-1"></a>              timings<span class="sc">$</span>gh, timings<span class="sc">$</span>kfold, timings<span class="sc">$</span>loo)</span>
+<span id="cb84-1013"><a href="#cb84-1013" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb84-1014"><a href="#cb84-1014" aria-hidden="true" tabindex="-1"></a>td<span class="sc">$</span>Minutes <span class="ot">&lt;-</span> <span class="fu">round</span>(td<span class="sc">$</span>Seconds <span class="sc">/</span> <span class="dv">60</span>, <span class="dv">2</span>)</span>
+<span id="cb84-1015"><a href="#cb84-1015" aria-hidden="true" tabindex="-1"></a><span class="fu">kbl</span>(td, <span class="at">booktabs =</span> <span class="cn">TRUE</span>, <span class="at">align =</span> <span class="st">&quot;lrr&quot;</span>) <span class="sc">|&gt;</span> <span class="fu">kable_styling</span>()</span>
+<span id="cb84-1016"><a href="#cb84-1016" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb84-1017"><a href="#cb84-1017" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb84-1018"><a href="#cb84-1018" aria-hidden="true" tabindex="-1"></a><span class="fu"># Reproducibility payload {#sec-export-payload}</span></span>
+<span id="cb84-1019"><a href="#cb84-1019" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb84-1020"><a href="#cb84-1020" aria-hidden="true" tabindex="-1"></a>The chunk below harvests the objects this render already computed into a single</span>
+<span id="cb84-1021"><a href="#cb84-1021" aria-hidden="true" tabindex="-1"></a>small list and writes it as an <span class="in">`.rds`</span>, so the results survive the HTML. No</span>
+<span id="cb84-1022"><a href="#cb84-1022" aria-hidden="true" tabindex="-1"></a>analysis is repeated. Every element is guarded, so a section this render skipped</span>
+<span id="cb84-1023"><a href="#cb84-1023" aria-hidden="true" tabindex="-1"></a>(<span class="in">`run_cv_kfold`</span>, <span class="in">`run_loo`</span>) stores <span class="in">`NULL`</span> rather than erroring, and the</span>
+<span id="cb84-1024"><a href="#cb84-1024" aria-hidden="true" tabindex="-1"></a>top-level names match the other GBSG payloads (<span class="in">`table`</span>, <span class="in">`labels`</span>, <span class="in">`meta`</span>,</span>
+<span id="cb84-1025"><a href="#cb84-1025" aria-hidden="true" tabindex="-1"></a><span class="in">`extras`</span>, <span class="in">`est_scale`</span>, <span class="in">`built_at`</span>, <span class="in">`forestsearch_version`</span>) so a reader can treat</span>
+<span id="cb84-1026"><a href="#cb84-1026" aria-hidden="true" tabindex="-1"></a>them uniformly. Schema note (2026-09-06, <span class="in">`TASK_gbsg_frozen_intervals`</span>):</span>
+<span id="cb84-1027"><a href="#cb84-1027" aria-hidden="true" tabindex="-1"></a><span class="in">`extras$mr`</span> additionally carries the <span class="in">`field`</span> block (the field-calibrated</span>
+<span id="cb84-1028"><a href="#cb84-1028" aria-hidden="true" tabindex="-1"></a>interval, including its <span class="in">`uniform`</span> κ sub-block) and <span class="in">`reselection`</span> (the</span>
+<span id="cb84-1029"><a href="#cb84-1029" aria-hidden="true" tabindex="-1"></a>re-selection frequencies <span class="in">`p_hat`</span>; the per-draw <span class="in">`winner`</span> vector is deliberately</span>
+<span id="cb84-1030"><a href="#cb84-1030" aria-hidden="true" tabindex="-1"></a>dropped — <span class="in">`sum(p_hat)`</span> equals the selection rate and reproduces it). Schema</span>
+<span id="cb84-1031"><a href="#cb84-1031" aria-hidden="true" tabindex="-1"></a>note (2026-09-06, <span class="in">`TASK_gbsg_frozen_complement`</span>): <span class="in">`extras$mr`</span> additionally</span>
+<span id="cb84-1032"><a href="#cb84-1032" aria-hidden="true" tabindex="-1"></a>carries <span class="in">`complement`</span> (the complement&#39;s naive/de-biased block with the</span>
+<span id="cb84-1033"><a href="#cb84-1033" aria-hidden="true" tabindex="-1"></a>winner-only SE elements), <span class="in">`ij_residual`</span>, and — inside <span class="in">`field`</span> — the</span>
+<span id="cb84-1034"><a href="#cb84-1034" aria-hidden="true" tabindex="-1"></a><span class="in">`complement`</span> field block and the <span class="in">`joint`</span> pair.</span>
+<span id="cb84-1035"><a href="#cb84-1035" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb84-1036"><a href="#cb84-1036" aria-hidden="true" tabindex="-1"></a><span class="in">```{r export-payload}</span></span>
+<span id="cb84-1037"><a href="#cb84-1037" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb84-1038"><a href="#cb84-1038" aria-hidden="true" tabindex="-1"></a><span class="co">#| message: false</span></span>
+<span id="cb84-1039"><a href="#cb84-1039" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb84-1040"><a href="#cb84-1040" aria-hidden="true" tabindex="-1"></a>.qmd_dir  <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(<span class="fu">dirname</span>(knitr<span class="sc">::</span><span class="fu">current_input</span>(<span class="at">dir =</span> <span class="cn">TRUE</span>)),</span>
+<span id="cb84-1041"><a href="#cb84-1041" aria-hidden="true" tabindex="-1"></a>                      <span class="at">error =</span> <span class="cf">function</span>(e) <span class="fu">getwd</span>())</span>
+<span id="cb84-1042"><a href="#cb84-1042" aria-hidden="true" tabindex="-1"></a>.qmd_stem <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(tools<span class="sc">::</span><span class="fu">file_path_sans_ext</span>(<span class="fu">basename</span>(knitr<span class="sc">::</span><span class="fu">current_input</span>())),</span>
+<span id="cb84-1043"><a href="#cb84-1043" aria-hidden="true" tabindex="-1"></a>                      <span class="at">error =</span> <span class="cf">function</span>(e) <span class="st">&quot;analysis&quot;</span>)</span>
+<span id="cb84-1044"><a href="#cb84-1044" aria-hidden="true" tabindex="-1"></a>.dirout   <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(dirout)) .qmd_stem <span class="cf">else</span> dirout</span>
+<span id="cb84-1045"><a href="#cb84-1045" aria-hidden="true" tabindex="-1"></a>.base     <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(results_dir)) <span class="fu">file.path</span>(.qmd_dir, <span class="st">&quot;_payloads&quot;</span>) <span class="cf">else</span> results_dir</span>
+<span id="cb84-1046"><a href="#cb84-1046" aria-hidden="true" tabindex="-1"></a>.out_dir  <span class="ot">&lt;-</span> <span class="fu">file.path</span>(.base, .dirout)</span>
+<span id="cb84-1047"><a href="#cb84-1047" aria-hidden="true" tabindex="-1"></a><span class="fu">dir.create</span>(.out_dir, <span class="at">recursive =</span> <span class="cn">TRUE</span>, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb84-1048"><a href="#cb84-1048" aria-hidden="true" tabindex="-1"></a>.payload_file <span class="ot">&lt;-</span> <span class="fu">file.path</span>(.out_dir, <span class="fu">paste0</span>(.dirout, <span class="st">&quot;_payload.rds&quot;</span>))</span>
+<span id="cb84-1049"><a href="#cb84-1049" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb84-1050"><a href="#cb84-1050" aria-hidden="true" tabindex="-1"></a>.get <span class="ot">&lt;-</span> <span class="cf">function</span>(nm) <span class="cf">if</span> (<span class="fu">exists</span>(nm, <span class="at">inherits =</span> <span class="cn">TRUE</span>)) <span class="fu">get</span>(nm, <span class="at">inherits =</span> <span class="cn">TRUE</span>) <span class="cf">else</span> <span class="cn">NULL</span></span>
+<span id="cb84-1051"><a href="#cb84-1051" aria-hidden="true" tabindex="-1"></a>.try <span class="ot">&lt;-</span> <span class="cf">function</span>(expr) <span class="fu">tryCatch</span>(expr, <span class="at">error =</span> <span class="cf">function</span>(e) <span class="cn">NULL</span>)</span>
+<span id="cb84-1052"><a href="#cb84-1052" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb84-1053"><a href="#cb84-1053" aria-hidden="true" tabindex="-1"></a>.fs   <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;fs&quot;</span>)</span>
+<span id="cb84-1054"><a href="#cb84-1054" aria-hidden="true" tabindex="-1"></a>.fsbc <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;fs_bc&quot;</span>)</span>
+<span id="cb84-1055"><a href="#cb84-1055" aria-hidden="true" tabindex="-1"></a>.g    <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fs)) <span class="cn">NULL</span> <span class="cf">else</span> .fs<span class="sc">$</span>mr_inference</span>
+<span id="cb84-1056"><a href="#cb84-1056" aria-hidden="true" tabindex="-1"></a>.gh   <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;gh&quot;</span>)</span>
+<span id="cb84-1057"><a href="#cb84-1057" aria-hidden="true" tabindex="-1"></a>.cvd  <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;cv_diag&quot;</span>)</span>
+<span id="cb84-1058"><a href="#cb84-1058" aria-hidden="true" tabindex="-1"></a>.cvo  <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;cv_out&quot;</span>)</span>
+<span id="cb84-1059"><a href="#cb84-1059" aria-hidden="true" tabindex="-1"></a>.loo  <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;loo&quot;</span>)</span>
 <span id="cb84-1060"><a href="#cb84-1060" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb84-1061"><a href="#cb84-1061" aria-hidden="true" tabindex="-1"></a>.fs   <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;fs&quot;</span>)</span>
-<span id="cb84-1062"><a href="#cb84-1062" aria-hidden="true" tabindex="-1"></a>.fsbc <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;fs_bc&quot;</span>)</span>
-<span id="cb84-1063"><a href="#cb84-1063" aria-hidden="true" tabindex="-1"></a>.g    <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fs)) <span class="cn">NULL</span> <span class="cf">else</span> .fs<span class="sc">$</span>mr_inference</span>
-<span id="cb84-1064"><a href="#cb84-1064" aria-hidden="true" tabindex="-1"></a>.gh   <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;gh&quot;</span>)</span>
-<span id="cb84-1065"><a href="#cb84-1065" aria-hidden="true" tabindex="-1"></a>.cvd  <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;cv_diag&quot;</span>)</span>
-<span id="cb84-1066"><a href="#cb84-1066" aria-hidden="true" tabindex="-1"></a>.cvo  <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;cv_out&quot;</span>)</span>
-<span id="cb84-1067"><a href="#cb84-1067" aria-hidden="true" tabindex="-1"></a>.loo  <span class="ot">&lt;-</span> <span class="fu">.get</span>(<span class="st">&quot;loo&quot;</span>)</span>
-<span id="cb84-1068"><a href="#cb84-1068" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb84-1069"><a href="#cb84-1069" aria-hidden="true" tabindex="-1"></a>payload <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb84-1070"><a href="#cb84-1070" aria-hidden="true" tabindex="-1"></a>  <span class="at">table  =</span> <span class="fu">.get</span>(<span class="st">&quot;tab&quot;</span>),</span>
-<span id="cb84-1071"><a href="#cb84-1071" aria-hidden="true" tabindex="-1"></a>  <span class="at">labels =</span> <span class="fu">list</span>(</span>
-<span id="cb84-1072"><a href="#cb84-1072" aria-hidden="true" tabindex="-1"></a>    <span class="at">sg_harm  =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fs)) <span class="cn">NULL</span> <span class="cf">else</span> .fs<span class="sc">$</span>sg.harm,</span>
-<span id="cb84-1073"><a href="#cb84-1073" aria-hidden="true" tabindex="-1"></a>    <span class="at">sg_focus =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fs)) <span class="cn">NULL</span> <span class="cf">else</span> .fs<span class="sc">$</span>sg_focus,</span>
-<span id="cb84-1074"><a href="#cb84-1074" aria-hidden="true" tabindex="-1"></a>    <span class="at">focus    =</span> <span class="fu">.get</span>(<span class="st">&quot;focus&quot;</span>)),   <span class="co"># no focus profile in this document: NULL</span></span>
-<span id="cb84-1075"><a href="#cb84-1075" aria-hidden="true" tabindex="-1"></a>  <span class="at">meta =</span> <span class="fu">list</span>(</span>
-<span id="cb84-1076"><a href="#cb84-1076" aria-hidden="true" tabindex="-1"></a>    <span class="at">NB          =</span> <span class="fu">.get</span>(<span class="st">&quot;NB&quot;</span>),</span>
-<span id="cb84-1077"><a href="#cb84-1077" aria-hidden="true" tabindex="-1"></a>    <span class="at">mr_draws    =</span> <span class="fu">.get</span>(<span class="st">&quot;mr_draws&quot;</span>),</span>
-<span id="cb84-1078"><a href="#cb84-1078" aria-hidden="true" tabindex="-1"></a>    <span class="at">Ksims       =</span> <span class="fu">.get</span>(<span class="st">&quot;Ksims&quot;</span>),</span>
-<span id="cb84-1079"><a href="#cb84-1079" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_cores     =</span> <span class="fu">.get</span>(<span class="st">&quot;n_cores&quot;</span>),</span>
-<span id="cb84-1080"><a href="#cb84-1080" aria-hidden="true" tabindex="-1"></a>    <span class="at">loo_workers =</span> <span class="fu">.get</span>(<span class="st">&quot;loo_workers&quot;</span>),</span>
-<span id="cb84-1081"><a href="#cb84-1081" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_total     =</span> <span class="fu">.try</span>(<span class="fu">nrow</span>(<span class="fu">.get</span>(<span class="st">&quot;df.analysis&quot;</span>))),</span>
-<span id="cb84-1082"><a href="#cb84-1082" aria-hidden="true" tabindex="-1"></a>    <span class="co"># sum(NULL) is 0, so guard on the data being present: a render that never</span></span>
-<span id="cb84-1083"><a href="#cb84-1083" aria-hidden="true" tabindex="-1"></a>    <span class="co"># reached the data chunk must store NULL, not a spurious zero.</span></span>
-<span id="cb84-1084"><a href="#cb84-1084" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_events    =</span> <span class="fu">.try</span>(<span class="cf">if</span> (<span class="fu">is.null</span>(<span class="fu">.get</span>(<span class="st">&quot;df.analysis&quot;</span>))) <span class="cn">NULL</span> <span class="cf">else</span></span>
-<span id="cb84-1085"><a href="#cb84-1085" aria-hidden="true" tabindex="-1"></a>                       <span class="fu">sum</span>(<span class="fu">.get</span>(<span class="st">&quot;df.analysis&quot;</span>)[[<span class="fu">.get</span>(<span class="st">&quot;event.name&quot;</span>)]])),</span>
-<span id="cb84-1086"><a href="#cb84-1086" aria-hidden="true" tabindex="-1"></a>    <span class="at">outcome     =</span> <span class="fu">.get</span>(<span class="st">&quot;outcome.name&quot;</span>),</span>
-<span id="cb84-1087"><a href="#cb84-1087" aria-hidden="true" tabindex="-1"></a>    <span class="at">event       =</span> <span class="fu">.get</span>(<span class="st">&quot;event.name&quot;</span>),</span>
-<span id="cb84-1088"><a href="#cb84-1088" aria-hidden="true" tabindex="-1"></a>    <span class="at">treat       =</span> <span class="fu">.get</span>(<span class="st">&quot;treat.name&quot;</span>),</span>
-<span id="cb84-1089"><a href="#cb84-1089" aria-hidden="true" tabindex="-1"></a>    <span class="at">covariates  =</span> <span class="fu">.get</span>(<span class="st">&quot;confounders.name&quot;</span>),</span>
-<span id="cb84-1090"><a href="#cb84-1090" aria-hidden="true" tabindex="-1"></a>    <span class="at">timings     =</span> <span class="fu">.get</span>(<span class="st">&quot;timings&quot;</span>),</span>
-<span id="cb84-1091"><a href="#cb84-1091" aria-hidden="true" tabindex="-1"></a>    <span class="at">provenance  =</span> <span class="fu">.try</span>(<span class="fu">fs_param_provenance</span>(.fs))),</span>
-<span id="cb84-1092"><a href="#cb84-1092" aria-hidden="true" tabindex="-1"></a>  <span class="at">extras =</span> <span class="fu">list</span>(</span>
-<span id="cb84-1093"><a href="#cb84-1093" aria-hidden="true" tabindex="-1"></a>    <span class="at">mr =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.g)) <span class="cn">NULL</span> <span class="cf">else</span> <span class="fu">list</span>(</span>
-<span id="cb84-1094"><a href="#cb84-1094" aria-hidden="true" tabindex="-1"></a>      <span class="at">naive          =</span> .g<span class="sc">$</span>naive,</span>
-<span id="cb84-1095"><a href="#cb84-1095" aria-hidden="true" tabindex="-1"></a>      <span class="at">debiased       =</span> .g<span class="sc">$</span>debiased,</span>
-<span id="cb84-1096"><a href="#cb84-1096" aria-hidden="true" tabindex="-1"></a>      <span class="at">settings       =</span> .g<span class="sc">$</span>settings,</span>
-<span id="cb84-1097"><a href="#cb84-1097" aria-hidden="true" tabindex="-1"></a>      <span class="at">n_family       =</span> .g<span class="sc">$</span>n_family,</span>
-<span id="cb84-1098"><a href="#cb84-1098" aria-hidden="true" tabindex="-1"></a>      <span class="at">selection_bias =</span> .g<span class="sc">$</span>selection_bias,</span>
-<span id="cb84-1099"><a href="#cb84-1099" aria-hidden="true" tabindex="-1"></a>      <span class="at">timing_seconds =</span> .g<span class="sc">$</span>timing_seconds,</span>
-<span id="cb84-1100"><a href="#cb84-1100" aria-hidden="true" tabindex="-1"></a>      <span class="co"># Schema 2026-09-06 (TASK_gbsg_frozen_intervals): the field block</span></span>
-<span id="cb84-1101"><a href="#cb84-1101" aria-hidden="true" tabindex="-1"></a>      <span class="co"># (with its uniform kappa sub-block) and the re-selection frequencies.</span></span>
-<span id="cb84-1102"><a href="#cb84-1102" aria-hidden="true" tabindex="-1"></a>      <span class="at">field          =</span> .g<span class="sc">$</span>field,</span>
-<span id="cb84-1103"><a href="#cb84-1103" aria-hidden="true" tabindex="-1"></a>      <span class="at">reselection    =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.g<span class="sc">$</span>reselection)) <span class="cn">NULL</span> <span class="cf">else</span></span>
-<span id="cb84-1104"><a href="#cb84-1104" aria-hidden="true" tabindex="-1"></a>                         <span class="fu">list</span>(<span class="at">p_hat =</span> .g<span class="sc">$</span>reselection<span class="sc">$</span>p_hat),</span>
-<span id="cb84-1105"><a href="#cb84-1105" aria-hidden="true" tabindex="-1"></a>      <span class="co"># Schema 2026-09-06 (TASK_gbsg_frozen_complement): the complement block</span></span>
-<span id="cb84-1106"><a href="#cb84-1106" aria-hidden="true" tabindex="-1"></a>      <span class="co"># (with its winner-only SE elements; the harm-side winner elements</span></span>
-<span id="cb84-1107"><a href="#cb84-1107" aria-hidden="true" tabindex="-1"></a>      <span class="co"># travel inside `debiased` above), the complement field and the joint</span></span>
-<span id="cb84-1108"><a href="#cb84-1108" aria-hidden="true" tabindex="-1"></a>      <span class="co"># pair travel inside `field` above; ij_residual records the residual</span></span>
-<span id="cb84-1109"><a href="#cb84-1109" aria-hidden="true" tabindex="-1"></a>      <span class="co"># behind the reported IJ SEs.</span></span>
-<span id="cb84-1110"><a href="#cb84-1110" aria-hidden="true" tabindex="-1"></a>      <span class="at">complement     =</span> .g<span class="sc">$</span>complement,</span>
-<span id="cb84-1111"><a href="#cb84-1111" aria-hidden="true" tabindex="-1"></a>      <span class="at">ij_residual    =</span> .g<span class="sc">$</span>ij_residual),</span>
-<span id="cb84-1112"><a href="#cb84-1112" aria-hidden="true" tabindex="-1"></a>    <span class="at">fb =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fsbc)) <span class="cn">NULL</span> <span class="cf">else</span> <span class="fu">list</span>(</span>
-<span id="cb84-1113"><a href="#cb84-1113" aria-hidden="true" tabindex="-1"></a>      <span class="at">H_estimates  =</span> .fsbc<span class="sc">$</span>H_estimates,</span>
-<span id="cb84-1114"><a href="#cb84-1114" aria-hidden="true" tabindex="-1"></a>      <span class="at">Hc_estimates =</span> .fsbc<span class="sc">$</span>Hc_estimates),</span>
-<span id="cb84-1115"><a href="#cb84-1115" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Gate 0: the fixed cut set supplied, and the cut forms the realized family</span></span>
-<span id="cb84-1116"><a href="#cb84-1116" aria-hidden="true" tabindex="-1"></a>    <span class="co"># actually contained -- the evidence that the family cannot regenerate.</span></span>
-<span id="cb84-1117"><a href="#cb84-1117" aria-hidden="true" tabindex="-1"></a>    <span class="at">frozen_gate =</span> <span class="fu">list</span>(</span>
-<span id="cb84-1118"><a href="#cb84-1118" aria-hidden="true" tabindex="-1"></a>      <span class="at">frozen_cuts   =</span> <span class="fu">.get</span>(<span class="st">&quot;frozen_cuts&quot;</span>),</span>
-<span id="cb84-1119"><a href="#cb84-1119" aria-hidden="true" tabindex="-1"></a>      <span class="at">medians       =</span> <span class="fu">.get</span>(<span class="st">&quot;med&quot;</span>),</span>
-<span id="cb84-1120"><a href="#cb84-1120" aria-hidden="true" tabindex="-1"></a>      <span class="at">realized_cuts =</span> <span class="fu">.get</span>(<span class="st">&quot;inner&quot;</span>)),</span>
-<span id="cb84-1121"><a href="#cb84-1121" aria-hidden="true" tabindex="-1"></a>    <span class="co"># The quantity of interest in this document: the FB-MR gap within the</span></span>
-<span id="cb84-1122"><a href="#cb84-1122" aria-hidden="true" tabindex="-1"></a>    <span class="co"># frozen family.</span></span>
-<span id="cb84-1123"><a href="#cb84-1123" aria-hidden="true" tabindex="-1"></a>    <span class="at">fb_mr_gap =</span> <span class="fu">.try</span>(<span class="fu">list</span>(</span>
-<span id="cb84-1124"><a href="#cb84-1124" aria-hidden="true" tabindex="-1"></a>      <span class="at">fb_hr     =</span> <span class="fu">.get</span>(<span class="st">&quot;fb_hr&quot;</span>),</span>
-<span id="cb84-1125"><a href="#cb84-1125" aria-hidden="true" tabindex="-1"></a>      <span class="at">mr_hr     =</span> <span class="fu">.get</span>(<span class="st">&quot;mr_hr&quot;</span>),</span>
-<span id="cb84-1126"><a href="#cb84-1126" aria-hidden="true" tabindex="-1"></a>      <span class="at">log_diff  =</span> <span class="fu">log</span>(<span class="fu">.get</span>(<span class="st">&quot;fb_hr&quot;</span>)) <span class="sc">-</span> <span class="fu">log</span>(<span class="fu">.get</span>(<span class="st">&quot;mr_hr&quot;</span>)),</span>
-<span id="cb84-1127"><a href="#cb84-1127" aria-hidden="true" tabindex="-1"></a>      <span class="at">hr_ratio  =</span> <span class="fu">.get</span>(<span class="st">&quot;fb_hr&quot;</span>) <span class="sc">/</span> <span class="fu">.get</span>(<span class="st">&quot;mr_hr&quot;</span>))),</span>
-<span id="cb84-1128"><a href="#cb84-1128" aria-hidden="true" tabindex="-1"></a>    <span class="at">pareto =</span> <span class="cn">NULL</span>,   <span class="co"># no banded focus here: the frontier block does not run</span></span>
-<span id="cb84-1129"><a href="#cb84-1129" aria-hidden="true" tabindex="-1"></a>    <span class="at">cv =</span> <span class="cf">if</span> (<span class="fu">isTRUE</span>(<span class="fu">.get</span>(<span class="st">&quot;run_cv_kfold&quot;</span>)) <span class="sc">&amp;&amp;</span> <span class="sc">!</span><span class="fu">is.null</span>(.cvd)) <span class="fu">list</span>(</span>
-<span id="cb84-1130"><a href="#cb84-1130" aria-hidden="true" tabindex="-1"></a>      <span class="at">metrics                   =</span> <span class="fu">.get</span>(<span class="st">&quot;metrics_tables&quot;</span>),</span>
-<span id="cb84-1131"><a href="#cb84-1131" aria-hidden="true" tabindex="-1"></a>      <span class="at">identification_summary    =</span> .cvd<span class="sc">$</span>identification_summary,</span>
-<span id="cb84-1132"><a href="#cb84-1132" aria-hidden="true" tabindex="-1"></a>      <span class="at">pconsistency_distribution =</span> .cvd<span class="sc">$</span>pconsistency_distribution,</span>
-<span id="cb84-1133"><a href="#cb84-1133" aria-hidden="true" tabindex="-1"></a>      <span class="at">fold_numeric_summary      =</span> .cvd<span class="sc">$</span>fold_numeric_summary,</span>
-<span id="cb84-1134"><a href="#cb84-1134" aria-hidden="true" tabindex="-1"></a>      <span class="at">original_agreement        =</span> .cvd<span class="sc">$</span>original_agreement) <span class="cf">else</span> <span class="cn">NULL</span>,</span>
-<span id="cb84-1135"><a href="#cb84-1135" aria-hidden="true" tabindex="-1"></a>    <span class="at">loo =</span> <span class="cf">if</span> (<span class="fu">isTRUE</span>(<span class="fu">.get</span>(<span class="st">&quot;run_loo&quot;</span>)) <span class="sc">&amp;&amp;</span> <span class="sc">!</span><span class="fu">is.null</span>(.loo)) <span class="fu">list</span>(</span>
-<span id="cb84-1136"><a href="#cb84-1136" aria-hidden="true" tabindex="-1"></a>      <span class="at">row          =</span> .loo,</span>
-<span id="cb84-1137"><a href="#cb84-1137" aria-hidden="true" tabindex="-1"></a>      <span class="at">sens_metrics =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.cvo)) <span class="cn">NULL</span> <span class="cf">else</span> .cvo<span class="sc">$</span>sens_metrics_original,</span>
-<span id="cb84-1138"><a href="#cb84-1138" aria-hidden="true" tabindex="-1"></a>      <span class="at">find_metrics =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.cvo)) <span class="cn">NULL</span> <span class="cf">else</span> .cvo<span class="sc">$</span>find_metrics,</span>
-<span id="cb84-1139"><a href="#cb84-1139" aria-hidden="true" tabindex="-1"></a>      <span class="at">cache        =</span> <span class="fu">.get</span>(<span class="st">&quot;loo_cache&quot;</span>)) <span class="cf">else</span> <span class="cn">NULL</span>,</span>
-<span id="cb84-1140"><a href="#cb84-1140" aria-hidden="true" tabindex="-1"></a>    <span class="at">gh =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.gh)) <span class="cn">NULL</span> <span class="cf">else</span> <span class="fu">list</span>(</span>
-<span id="cb84-1141"><a href="#cb84-1141" aria-hidden="true" tabindex="-1"></a>      <span class="at">naive_hr    =</span> .gh<span class="sc">$</span>naive_hr,</span>
-<span id="cb84-1142"><a href="#cb84-1142" aria-hidden="true" tabindex="-1"></a>      <span class="at">debiased_hr =</span> .gh<span class="sc">$</span>debiased_hr,</span>
-<span id="cb84-1143"><a href="#cb84-1143" aria-hidden="true" tabindex="-1"></a>      <span class="at">bound_hr    =</span> .gh<span class="sc">$</span>bound_hr,</span>
-<span id="cb84-1144"><a href="#cb84-1144" aria-hidden="true" tabindex="-1"></a>      <span class="at">selected    =</span> .gh<span class="sc">$</span>selected,</span>
-<span id="cb84-1145"><a href="#cb84-1145" aria-hidden="true" tabindex="-1"></a>      <span class="at">n_family    =</span> <span class="fu">.try</span>(<span class="fu">length</span>(.gh<span class="sc">$</span>export<span class="sc">$</span>candidates)),</span>
-<span id="cb84-1146"><a href="#cb84-1146" aria-hidden="true" tabindex="-1"></a>      <span class="at">B           =</span> <span class="fu">.get</span>(<span class="st">&quot;GH_B&quot;</span>),</span>
-<span id="cb84-1147"><a href="#cb84-1147" aria-hidden="true" tabindex="-1"></a>      <span class="at">r           =</span> <span class="fu">.get</span>(<span class="st">&quot;GH_r&quot;</span>))),</span>
-<span id="cb84-1148"><a href="#cb84-1148" aria-hidden="true" tabindex="-1"></a>  <span class="at">est_scale =</span> <span class="st">&quot;hr&quot;</span>,</span>
-<span id="cb84-1149"><a href="#cb84-1149" aria-hidden="true" tabindex="-1"></a>  <span class="at">built_at  =</span> <span class="fu">Sys.time</span>(),</span>
-<span id="cb84-1150"><a href="#cb84-1150" aria-hidden="true" tabindex="-1"></a>  <span class="at">forestsearch_version =</span> <span class="fu">tryCatch</span>(<span class="fu">as.character</span>(utils<span class="sc">::</span><span class="fu">packageVersion</span>(<span class="st">&quot;forestsearch&quot;</span>)),</span>
-<span id="cb84-1151"><a href="#cb84-1151" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">error =</span> <span class="cf">function</span>(e) <span class="cn">NA_character_</span>))</span>
-<span id="cb84-1152"><a href="#cb84-1152" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb84-1153"><a href="#cb84-1153" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(payload, .payload_file)</span>
-<span id="cb84-1154"><a href="#cb84-1154" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Wrote payload to:&quot;</span>, .payload_file, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb84-1155"><a href="#cb84-1155" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal><i class="bi"></i></button></div>
+<span id="cb84-1061"><a href="#cb84-1061" aria-hidden="true" tabindex="-1"></a>payload <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb84-1062"><a href="#cb84-1062" aria-hidden="true" tabindex="-1"></a>  <span class="at">table  =</span> <span class="fu">.get</span>(<span class="st">&quot;tab&quot;</span>),</span>
+<span id="cb84-1063"><a href="#cb84-1063" aria-hidden="true" tabindex="-1"></a>  <span class="at">labels =</span> <span class="fu">list</span>(</span>
+<span id="cb84-1064"><a href="#cb84-1064" aria-hidden="true" tabindex="-1"></a>    <span class="at">sg_harm  =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fs)) <span class="cn">NULL</span> <span class="cf">else</span> .fs<span class="sc">$</span>sg.harm,</span>
+<span id="cb84-1065"><a href="#cb84-1065" aria-hidden="true" tabindex="-1"></a>    <span class="at">sg_focus =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fs)) <span class="cn">NULL</span> <span class="cf">else</span> .fs<span class="sc">$</span>sg_focus,</span>
+<span id="cb84-1066"><a href="#cb84-1066" aria-hidden="true" tabindex="-1"></a>    <span class="at">focus    =</span> <span class="fu">.get</span>(<span class="st">&quot;focus&quot;</span>)),   <span class="co"># no focus profile in this document: NULL</span></span>
+<span id="cb84-1067"><a href="#cb84-1067" aria-hidden="true" tabindex="-1"></a>  <span class="at">meta =</span> <span class="fu">list</span>(</span>
+<span id="cb84-1068"><a href="#cb84-1068" aria-hidden="true" tabindex="-1"></a>    <span class="at">NB          =</span> <span class="fu">.get</span>(<span class="st">&quot;NB&quot;</span>),</span>
+<span id="cb84-1069"><a href="#cb84-1069" aria-hidden="true" tabindex="-1"></a>    <span class="at">mr_draws    =</span> <span class="fu">.get</span>(<span class="st">&quot;mr_draws&quot;</span>),</span>
+<span id="cb84-1070"><a href="#cb84-1070" aria-hidden="true" tabindex="-1"></a>    <span class="at">Ksims       =</span> <span class="fu">.get</span>(<span class="st">&quot;Ksims&quot;</span>),</span>
+<span id="cb84-1071"><a href="#cb84-1071" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_cores     =</span> <span class="fu">.get</span>(<span class="st">&quot;n_cores&quot;</span>),</span>
+<span id="cb84-1072"><a href="#cb84-1072" aria-hidden="true" tabindex="-1"></a>    <span class="at">loo_workers =</span> <span class="fu">.get</span>(<span class="st">&quot;loo_workers&quot;</span>),</span>
+<span id="cb84-1073"><a href="#cb84-1073" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_total     =</span> <span class="fu">.try</span>(<span class="fu">nrow</span>(<span class="fu">.get</span>(<span class="st">&quot;df.analysis&quot;</span>))),</span>
+<span id="cb84-1074"><a href="#cb84-1074" aria-hidden="true" tabindex="-1"></a>    <span class="co"># sum(NULL) is 0, so guard on the data being present: a render that never</span></span>
+<span id="cb84-1075"><a href="#cb84-1075" aria-hidden="true" tabindex="-1"></a>    <span class="co"># reached the data chunk must store NULL, not a spurious zero.</span></span>
+<span id="cb84-1076"><a href="#cb84-1076" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_events    =</span> <span class="fu">.try</span>(<span class="cf">if</span> (<span class="fu">is.null</span>(<span class="fu">.get</span>(<span class="st">&quot;df.analysis&quot;</span>))) <span class="cn">NULL</span> <span class="cf">else</span></span>
+<span id="cb84-1077"><a href="#cb84-1077" aria-hidden="true" tabindex="-1"></a>                       <span class="fu">sum</span>(<span class="fu">.get</span>(<span class="st">&quot;df.analysis&quot;</span>)[[<span class="fu">.get</span>(<span class="st">&quot;event.name&quot;</span>)]])),</span>
+<span id="cb84-1078"><a href="#cb84-1078" aria-hidden="true" tabindex="-1"></a>    <span class="at">outcome     =</span> <span class="fu">.get</span>(<span class="st">&quot;outcome.name&quot;</span>),</span>
+<span id="cb84-1079"><a href="#cb84-1079" aria-hidden="true" tabindex="-1"></a>    <span class="at">event       =</span> <span class="fu">.get</span>(<span class="st">&quot;event.name&quot;</span>),</span>
+<span id="cb84-1080"><a href="#cb84-1080" aria-hidden="true" tabindex="-1"></a>    <span class="at">treat       =</span> <span class="fu">.get</span>(<span class="st">&quot;treat.name&quot;</span>),</span>
+<span id="cb84-1081"><a href="#cb84-1081" aria-hidden="true" tabindex="-1"></a>    <span class="at">covariates  =</span> <span class="fu">.get</span>(<span class="st">&quot;confounders.name&quot;</span>),</span>
+<span id="cb84-1082"><a href="#cb84-1082" aria-hidden="true" tabindex="-1"></a>    <span class="at">timings     =</span> <span class="fu">.get</span>(<span class="st">&quot;timings&quot;</span>),</span>
+<span id="cb84-1083"><a href="#cb84-1083" aria-hidden="true" tabindex="-1"></a>    <span class="at">provenance  =</span> <span class="fu">.try</span>(<span class="fu">fs_param_provenance</span>(.fs))),</span>
+<span id="cb84-1084"><a href="#cb84-1084" aria-hidden="true" tabindex="-1"></a>  <span class="at">extras =</span> <span class="fu">list</span>(</span>
+<span id="cb84-1085"><a href="#cb84-1085" aria-hidden="true" tabindex="-1"></a>    <span class="at">mr =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.g)) <span class="cn">NULL</span> <span class="cf">else</span> <span class="fu">list</span>(</span>
+<span id="cb84-1086"><a href="#cb84-1086" aria-hidden="true" tabindex="-1"></a>      <span class="at">naive          =</span> .g<span class="sc">$</span>naive,</span>
+<span id="cb84-1087"><a href="#cb84-1087" aria-hidden="true" tabindex="-1"></a>      <span class="at">debiased       =</span> .g<span class="sc">$</span>debiased,</span>
+<span id="cb84-1088"><a href="#cb84-1088" aria-hidden="true" tabindex="-1"></a>      <span class="at">settings       =</span> .g<span class="sc">$</span>settings,</span>
+<span id="cb84-1089"><a href="#cb84-1089" aria-hidden="true" tabindex="-1"></a>      <span class="at">n_family       =</span> .g<span class="sc">$</span>n_family,</span>
+<span id="cb84-1090"><a href="#cb84-1090" aria-hidden="true" tabindex="-1"></a>      <span class="at">selection_bias =</span> .g<span class="sc">$</span>selection_bias,</span>
+<span id="cb84-1091"><a href="#cb84-1091" aria-hidden="true" tabindex="-1"></a>      <span class="at">timing_seconds =</span> .g<span class="sc">$</span>timing_seconds,</span>
+<span id="cb84-1092"><a href="#cb84-1092" aria-hidden="true" tabindex="-1"></a>      <span class="co"># Schema 2026-09-06 (TASK_gbsg_frozen_intervals): the field block</span></span>
+<span id="cb84-1093"><a href="#cb84-1093" aria-hidden="true" tabindex="-1"></a>      <span class="co"># (with its uniform kappa sub-block) and the re-selection frequencies.</span></span>
+<span id="cb84-1094"><a href="#cb84-1094" aria-hidden="true" tabindex="-1"></a>      <span class="at">field          =</span> .g<span class="sc">$</span>field,</span>
+<span id="cb84-1095"><a href="#cb84-1095" aria-hidden="true" tabindex="-1"></a>      <span class="at">reselection    =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.g<span class="sc">$</span>reselection)) <span class="cn">NULL</span> <span class="cf">else</span></span>
+<span id="cb84-1096"><a href="#cb84-1096" aria-hidden="true" tabindex="-1"></a>                         <span class="fu">list</span>(<span class="at">p_hat =</span> .g<span class="sc">$</span>reselection<span class="sc">$</span>p_hat),</span>
+<span id="cb84-1097"><a href="#cb84-1097" aria-hidden="true" tabindex="-1"></a>      <span class="co"># Schema 2026-09-06 (TASK_gbsg_frozen_complement): the complement block</span></span>
+<span id="cb84-1098"><a href="#cb84-1098" aria-hidden="true" tabindex="-1"></a>      <span class="co"># (with its winner-only SE elements; the harm-side winner elements</span></span>
+<span id="cb84-1099"><a href="#cb84-1099" aria-hidden="true" tabindex="-1"></a>      <span class="co"># travel inside `debiased` above), the complement field and the joint</span></span>
+<span id="cb84-1100"><a href="#cb84-1100" aria-hidden="true" tabindex="-1"></a>      <span class="co"># pair travel inside `field` above; ij_residual records the residual</span></span>
+<span id="cb84-1101"><a href="#cb84-1101" aria-hidden="true" tabindex="-1"></a>      <span class="co"># behind the reported IJ SEs.</span></span>
+<span id="cb84-1102"><a href="#cb84-1102" aria-hidden="true" tabindex="-1"></a>      <span class="at">complement     =</span> .g<span class="sc">$</span>complement,</span>
+<span id="cb84-1103"><a href="#cb84-1103" aria-hidden="true" tabindex="-1"></a>      <span class="at">ij_residual    =</span> .g<span class="sc">$</span>ij_residual),</span>
+<span id="cb84-1104"><a href="#cb84-1104" aria-hidden="true" tabindex="-1"></a>    <span class="at">fb =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.fsbc)) <span class="cn">NULL</span> <span class="cf">else</span> <span class="fu">list</span>(</span>
+<span id="cb84-1105"><a href="#cb84-1105" aria-hidden="true" tabindex="-1"></a>      <span class="at">H_estimates  =</span> .fsbc<span class="sc">$</span>H_estimates,</span>
+<span id="cb84-1106"><a href="#cb84-1106" aria-hidden="true" tabindex="-1"></a>      <span class="at">Hc_estimates =</span> .fsbc<span class="sc">$</span>Hc_estimates),</span>
+<span id="cb84-1107"><a href="#cb84-1107" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Gate 0: the fixed cut set supplied, and the cut forms the realized family</span></span>
+<span id="cb84-1108"><a href="#cb84-1108" aria-hidden="true" tabindex="-1"></a>    <span class="co"># actually contained -- the evidence that the family cannot regenerate.</span></span>
+<span id="cb84-1109"><a href="#cb84-1109" aria-hidden="true" tabindex="-1"></a>    <span class="at">frozen_gate =</span> <span class="fu">list</span>(</span>
+<span id="cb84-1110"><a href="#cb84-1110" aria-hidden="true" tabindex="-1"></a>      <span class="at">frozen_cuts   =</span> <span class="fu">.get</span>(<span class="st">&quot;frozen_cuts&quot;</span>),</span>
+<span id="cb84-1111"><a href="#cb84-1111" aria-hidden="true" tabindex="-1"></a>      <span class="at">medians       =</span> <span class="fu">.get</span>(<span class="st">&quot;med&quot;</span>),</span>
+<span id="cb84-1112"><a href="#cb84-1112" aria-hidden="true" tabindex="-1"></a>      <span class="at">realized_cuts =</span> <span class="fu">.get</span>(<span class="st">&quot;inner&quot;</span>)),</span>
+<span id="cb84-1113"><a href="#cb84-1113" aria-hidden="true" tabindex="-1"></a>    <span class="co"># The quantity of interest in this document: the FB-MR gap within the</span></span>
+<span id="cb84-1114"><a href="#cb84-1114" aria-hidden="true" tabindex="-1"></a>    <span class="co"># frozen family.</span></span>
+<span id="cb84-1115"><a href="#cb84-1115" aria-hidden="true" tabindex="-1"></a>    <span class="at">fb_mr_gap =</span> <span class="fu">.try</span>(<span class="fu">list</span>(</span>
+<span id="cb84-1116"><a href="#cb84-1116" aria-hidden="true" tabindex="-1"></a>      <span class="at">fb_hr     =</span> <span class="fu">.get</span>(<span class="st">&quot;fb_hr&quot;</span>),</span>
+<span id="cb84-1117"><a href="#cb84-1117" aria-hidden="true" tabindex="-1"></a>      <span class="at">mr_hr     =</span> <span class="fu">.get</span>(<span class="st">&quot;mr_hr&quot;</span>),</span>
+<span id="cb84-1118"><a href="#cb84-1118" aria-hidden="true" tabindex="-1"></a>      <span class="at">log_diff  =</span> <span class="fu">log</span>(<span class="fu">.get</span>(<span class="st">&quot;fb_hr&quot;</span>)) <span class="sc">-</span> <span class="fu">log</span>(<span class="fu">.get</span>(<span class="st">&quot;mr_hr&quot;</span>)),</span>
+<span id="cb84-1119"><a href="#cb84-1119" aria-hidden="true" tabindex="-1"></a>      <span class="at">hr_ratio  =</span> <span class="fu">.get</span>(<span class="st">&quot;fb_hr&quot;</span>) <span class="sc">/</span> <span class="fu">.get</span>(<span class="st">&quot;mr_hr&quot;</span>))),</span>
+<span id="cb84-1120"><a href="#cb84-1120" aria-hidden="true" tabindex="-1"></a>    <span class="at">pareto =</span> <span class="cn">NULL</span>,   <span class="co"># no banded focus here: the frontier block does not run</span></span>
+<span id="cb84-1121"><a href="#cb84-1121" aria-hidden="true" tabindex="-1"></a>    <span class="at">cv =</span> <span class="cf">if</span> (<span class="fu">isTRUE</span>(<span class="fu">.get</span>(<span class="st">&quot;run_cv_kfold&quot;</span>)) <span class="sc">&amp;&amp;</span> <span class="sc">!</span><span class="fu">is.null</span>(.cvd)) <span class="fu">list</span>(</span>
+<span id="cb84-1122"><a href="#cb84-1122" aria-hidden="true" tabindex="-1"></a>      <span class="at">metrics                   =</span> <span class="fu">.get</span>(<span class="st">&quot;metrics_tables&quot;</span>),</span>
+<span id="cb84-1123"><a href="#cb84-1123" aria-hidden="true" tabindex="-1"></a>      <span class="at">identification_summary    =</span> .cvd<span class="sc">$</span>identification_summary,</span>
+<span id="cb84-1124"><a href="#cb84-1124" aria-hidden="true" tabindex="-1"></a>      <span class="at">pconsistency_distribution =</span> .cvd<span class="sc">$</span>pconsistency_distribution,</span>
+<span id="cb84-1125"><a href="#cb84-1125" aria-hidden="true" tabindex="-1"></a>      <span class="at">fold_numeric_summary      =</span> .cvd<span class="sc">$</span>fold_numeric_summary,</span>
+<span id="cb84-1126"><a href="#cb84-1126" aria-hidden="true" tabindex="-1"></a>      <span class="at">original_agreement        =</span> .cvd<span class="sc">$</span>original_agreement) <span class="cf">else</span> <span class="cn">NULL</span>,</span>
+<span id="cb84-1127"><a href="#cb84-1127" aria-hidden="true" tabindex="-1"></a>    <span class="at">loo =</span> <span class="cf">if</span> (<span class="fu">isTRUE</span>(<span class="fu">.get</span>(<span class="st">&quot;run_loo&quot;</span>)) <span class="sc">&amp;&amp;</span> <span class="sc">!</span><span class="fu">is.null</span>(.loo)) <span class="fu">list</span>(</span>
+<span id="cb84-1128"><a href="#cb84-1128" aria-hidden="true" tabindex="-1"></a>      <span class="at">row          =</span> .loo,</span>
+<span id="cb84-1129"><a href="#cb84-1129" aria-hidden="true" tabindex="-1"></a>      <span class="at">sens_metrics =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.cvo)) <span class="cn">NULL</span> <span class="cf">else</span> .cvo<span class="sc">$</span>sens_metrics_original,</span>
+<span id="cb84-1130"><a href="#cb84-1130" aria-hidden="true" tabindex="-1"></a>      <span class="at">find_metrics =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.cvo)) <span class="cn">NULL</span> <span class="cf">else</span> .cvo<span class="sc">$</span>find_metrics,</span>
+<span id="cb84-1131"><a href="#cb84-1131" aria-hidden="true" tabindex="-1"></a>      <span class="at">cache        =</span> <span class="fu">.get</span>(<span class="st">&quot;loo_cache&quot;</span>)) <span class="cf">else</span> <span class="cn">NULL</span>,</span>
+<span id="cb84-1132"><a href="#cb84-1132" aria-hidden="true" tabindex="-1"></a>    <span class="at">gh =</span> <span class="cf">if</span> (<span class="fu">is.null</span>(.gh)) <span class="cn">NULL</span> <span class="cf">else</span> <span class="fu">list</span>(</span>
+<span id="cb84-1133"><a href="#cb84-1133" aria-hidden="true" tabindex="-1"></a>      <span class="at">naive_hr    =</span> .gh<span class="sc">$</span>naive_hr,</span>
+<span id="cb84-1134"><a href="#cb84-1134" aria-hidden="true" tabindex="-1"></a>      <span class="at">debiased_hr =</span> .gh<span class="sc">$</span>debiased_hr,</span>
+<span id="cb84-1135"><a href="#cb84-1135" aria-hidden="true" tabindex="-1"></a>      <span class="at">bound_hr    =</span> .gh<span class="sc">$</span>bound_hr,</span>
+<span id="cb84-1136"><a href="#cb84-1136" aria-hidden="true" tabindex="-1"></a>      <span class="at">selected    =</span> .gh<span class="sc">$</span>selected,</span>
+<span id="cb84-1137"><a href="#cb84-1137" aria-hidden="true" tabindex="-1"></a>      <span class="at">n_family    =</span> <span class="fu">.try</span>(<span class="fu">length</span>(.gh<span class="sc">$</span>export<span class="sc">$</span>candidates)),</span>
+<span id="cb84-1138"><a href="#cb84-1138" aria-hidden="true" tabindex="-1"></a>      <span class="at">B           =</span> <span class="fu">.get</span>(<span class="st">&quot;GH_B&quot;</span>),</span>
+<span id="cb84-1139"><a href="#cb84-1139" aria-hidden="true" tabindex="-1"></a>      <span class="at">r           =</span> <span class="fu">.get</span>(<span class="st">&quot;GH_r&quot;</span>))),</span>
+<span id="cb84-1140"><a href="#cb84-1140" aria-hidden="true" tabindex="-1"></a>  <span class="at">est_scale =</span> <span class="st">&quot;hr&quot;</span>,</span>
+<span id="cb84-1141"><a href="#cb84-1141" aria-hidden="true" tabindex="-1"></a>  <span class="at">built_at  =</span> <span class="fu">Sys.time</span>(),</span>
+<span id="cb84-1142"><a href="#cb84-1142" aria-hidden="true" tabindex="-1"></a>  <span class="at">forestsearch_version =</span> <span class="fu">tryCatch</span>(<span class="fu">as.character</span>(utils<span class="sc">::</span><span class="fu">packageVersion</span>(<span class="st">&quot;forestsearch&quot;</span>)),</span>
+<span id="cb84-1143"><a href="#cb84-1143" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">error =</span> <span class="cf">function</span>(e) <span class="cn">NA_character_</span>))</span>
+<span id="cb84-1144"><a href="#cb84-1144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb84-1145"><a href="#cb84-1145" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(payload, .payload_file)</span>
+<span id="cb84-1146"><a href="#cb84-1146" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Wrote payload to:&quot;</span>, .payload_file, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb84-1147"><a href="#cb84-1147" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 
