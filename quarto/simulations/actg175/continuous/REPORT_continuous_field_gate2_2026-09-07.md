@@ -92,3 +92,51 @@ GATE 2 md=120 n=500: PASS
 ```
 
 Enumerated rows: the same two mechanisms as cell 1 (label ties on duplicate-membership cuts, five of them the `{preanti <= 0}` / `!{str2}` pair whose super-population target moves; sims 267 and 668 with identical selection and MR columns differing at the 1e-4 level). **No selection flip.** Committed: the three bundles, `gate2_flips.txt`, and `fs_maxeffCons_mr_field_md120_knoise0_n500_mdf1_combine_1_2000.html`.
+
+## Cell 3 — null n = 500 (priority 3; no FB)
+
+Wall: batch 1 **1,200 s** (20.0 min; projection 20 min, stop threshold 30 min), batch 2 1,163 s, combine 23 s; cumulative 7,543 s (126 min). Per replicate: fit + MR + field 15.0 s mean (max 20.9). Detection 1,993 of 2,000 (the null DGM still yields a screened winner on almost every replicate: the consistency screen is non-discriminating at these thresholds, as the twin's D2 note records). Under the null, β(Ĥ) is constant (−26.26 raw, the ITT effect) for every rule, so a label tie can never move the target here.
+
+Gate 2 output (verbatim; the checker was made NA-safe for the NO-DETECTION rows before this run):
+
+```
+== GATE 2: md=null n=500 ==
+  [PASS] exists: fs_maxeffCons_mr_field_mdnull_knoise0_n500_mdf1_res_1_1000.rds
+  [PASS] exists: fs_maxeffCons_mr_field_mdnull_knoise0_n500_mdf1_res_1001_2000.rds
+  [PASS] exists: fs_maxeffCons_mr_field_mdnull_knoise0_n500_mdf1_combined_1_2000.rds
+  [PASS] save guard: all three bundle paths untracked at save time (guard cannot have been bypassed)
+  [PASS] completeness: sim_id 1-1000, 1001-2000, combined 1-2000
+  [PASS] no CONFIG-ERROR rows (status table: DETECTED 1993, NO-DETECTION 7)
+  pairing proof: 984 of 1000 sim_ids identical on 38 pre-existing numeric cols (max rel diff among identical rows 2.54e-10); rule-string-order-only differences on 12 sim_ids
+  ENUMERATED FLIPS (16): 8, 9, 38, 95, 98, 226, 267, 331, 403, 412, 491, 549, 560, 615, 825, 868
+    sim 8 -> label tie, no numeric consequence
+    sim 9 -> label tie, no numeric consequence
+    sim 38 -> label tie, no numeric consequence
+    sim 95 -> same selection, MR numerics differ
+    sim 98 -> label tie, no numeric consequence
+    sim 226 -> label tie, no numeric consequence
+    sim 267 -> same selection, MR numerics differ
+    sim 331 -> label tie, no numeric consequence
+    sim 403 -> label tie, no numeric consequence
+    sim 412 -> label tie, no numeric consequence
+    sim 491 -> label tie, no numeric consequence
+    sim 549 -> label tie, no numeric consequence
+    sim 560 -> label tie, no numeric consequence
+    sim 615 -> same selection, MR numerics differ
+    sim 825 -> label tie, no numeric consequence
+    sim 868 -> label tie, no numeric consequence
+  classification: 0 selection flips; 3 MR-numerics; 0 label ties with target move; 13 pure label ties
+  [PASS] pairing proof: all 984 non-flip rows identical (<= 1e-8); 16 enumerated and excluded (0 selection flips)
+  [PASS] new columns present
+  finite share on 1993 detected reps: min 1.0000 (fld_H_est2); field notes set on 0 (H) / 0 (Hc)
+  [PASS] fields finite on >= 99% of detected replicates
+  [PASS] interval invariants lo <= hi
+  [PASS] bound identities (max abs 0.0e+00)
+  [PASS] gamma in [0.025, 0.05] (range 0.025-0.027; mean 0.0251)
+  [PASS] p_hat(Hhat) finite in [0,1] (mean 0.155, share < 0.5: 0.987)
+  meta: pkg 0.3.5 | workers 13/13 | ci field | complement TRUE | ij_residual two_term | built 2026-09-07 14:53:58
+  timing: batch1 fit+MR mean 15.0 s (max 20.9), batch2 14.5 s; detection 0.997
+GATE 2 md=null n=500: PASS
+```
+
+Enumerated rows: 13 pure label ties; sims 95, 267, 615 identical rule and naive estimate with the MR columns differing at ≤ 4.5e-5 relative. **No selection or detection flip.** Committed: the three bundles, `gate2_flips.txt`, and `fs_maxeffCons_mr_field_mdnull_knoise0_n500_mdf1_combine_1_2000.html`.
