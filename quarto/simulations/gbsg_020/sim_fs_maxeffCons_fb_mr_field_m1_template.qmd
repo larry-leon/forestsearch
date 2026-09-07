@@ -303,6 +303,17 @@ subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
 # functional (REPORT_p30sg_stage0); the stem follows focus_tag as it always has.
 sg_focus           <- .env_chr("FS_S7_FOCUS", "maxeffCons")
 stopifnot(sg_focus %in% c("maxeffCons", "effMaxSG"))
+# Band-width and er-grid knobs (TASK_p30sg_nb20_2026-09-07; document-level,
+# add-only, defaults reproduce p30sg exactly).  effect_neighborhood is the
+# identifier's band half-width (hr >= (1 - eps) * max hr among the
+# consistency-qualifying candidates; REPORT_p30sg_stage0 0a'), forwarded to
+# the gate unchanged by forestsearch() as `nbhd`; er_jcuts is the J of the
+# J-quantile grid on raw ER (conf.cont_jcuts = list(er = J)).  Both are read
+# HERE, before the stem, because non-default values tag the stem below.
+effect_neighborhood <- .env_num("FS_S7_NBHD", 0.10)
+stopifnot(is.finite(effect_neighborhood), effect_neighborhood >= 0, effect_neighborhood < 1)
+er_jcuts            <- .env_int("FS_S7_ER_JCUTS", 10L)
+stopifnot(is.finite(er_jcuts), er_jcuts >= 1L)
 
 target_hr_harm  <- .env_num("FS_S7_HR", 1.0)   # calibrate k_inter to this Cox HR in the harm subgroup
 n_sample        <- .env_int("FS_S7_N", 500L)   # M1 sample size
@@ -374,9 +385,15 @@ stopifnot(grepl("^[A-Za-z0-9]+$", campaign_tag))
 # is unchanged (TASK_prevalence30_2026-09-06).
 z1q_tag      <- if (abs(harm_z1_quantile - 0.25) < 1e-12) "" else
                   sprintf("_z1q%02d", round(100 * harm_z1_quantile))
-rds_stem     <- sprintf("%s_%s_fb_mr_field_m1_h%03d_knoise%d_n%d%s_%s",
+# Band / grid tags only when non-default, so every committed stem (p30sg
+# included) is unchanged (TASK_p30sg_nb20_2026-09-07).
+nbhd_tag     <- if (abs(effect_neighborhood - 0.10) < 1e-12) "" else
+                  sprintf("_nb%02d", round(100 * effect_neighborhood))
+jcuts_tag    <- if (er_jcuts == 10L) "" else sprintf("_j%d", er_jcuts)
+rds_stem     <- sprintf("%s_%s_fb_mr_field_m1_h%03d_knoise%d_n%d%s%s%s_%s",
                         method_tag, focus_tag, round(100 * target_hr_harm),
-                        k_random_noise, n_sample, z1q_tag, campaign_tag)
+                        k_random_noise, n_sample, z1q_tag, nbhd_tag, jcuts_tag,
+                        campaign_tag)
 
 # ADOPTED FROM THE CONTINUOUS TWIN: quick-run stem tagging.
 # Without this a smoke render (nb_boots = 10, n_sims = 20) writes to the SAME
@@ -481,10 +498,9 @@ stop_threshold     <- NULL            # early stopping.  NULL is what this confi
                                       # "maxcons" normalizes to, and does so WITHOUT
                                       # warning unless supplied explicitly.  Named
                                       # here so the setting is inspectable.
-effect_neighborhood <- 0.10           # package default; band half-width for
-                                      # effMaxSG/effMinSG.  Pinned rather than
-                                      # inherited so the value is visible; inert
-                                      # under sg_focus = "maxcons".
+# effect_neighborhood: read above (FS_S7_NBHD, default 0.10 = the package
+# default) next to the stem it tags; band half-width for effMaxSG/effMinSG,
+# inert under sg_focus = "maxcons"/"maxeffCons".
 hr_threshold       <- 0.90
 hr_consistency     <- 0.80
 pconsistency       <- 0.90
@@ -507,7 +523,7 @@ use_grf            <- FALSE         # FALSE = LASSO-only (fast, "FSl"); set TRUE
 use_twostage       <- TRUE
 
 fs_conf_force      <- c("meno == 0", "er <= 0", "pgr <= 0")   # premenopausal (raw analog of z3 == 1)
-fs_conf.cont_jcuts <- list(er = 10)     # J-quantile grid on raw ER (analog of z1; now meaningful, ER is continuous)
+fs_conf.cont_jcuts <- list(er = er_jcuts)   # J-quantile grid on raw ER (analog of z1; now meaningful, ER is continuous); J from FS_S7_ER_JCUTS (default 10)
 
 # ── MR inference controls (mr_inference_args) ───────────────────────────────
 # Exposed as explicit knobs rather than an inline list, so the harm-confirmation
@@ -559,10 +575,16 @@ stopifnot(mr_ij_residual %in% c("two_term", "winner", "winner_floor"))
 
 # t_confirm is omitted from the list when NULL so the package resolves its own
 # measure-aware default rather than receiving an explicit NULL.
+# return_reselection = TRUE (TASK_p30sg_nb20_2026-09-07): the gate's return
+# gains its per-draw re-selection frequencies p-hat over the kept family
+# (fs_mr_inference.R, `reselection` element); nothing in the arithmetic
+# depends on the switch, so every computed value is unchanged.  Recorded
+# below as the p_hat_* columns.
 mr_inference_args <- c(
   list(ci_method = mr_ci_method, draws = mr_draws, include_complement = TRUE,
        confirm_rule = mr_confirm_rule, field_uniform = mr_field_uniform,
-       field_complement = mr_field_complement, ij_residual = mr_ij_residual),
+       field_complement = mr_field_complement, ij_residual = mr_ij_residual,
+       return_reselection = TRUE),
   if (!is.null(mr_t_confirm)) list(t_confirm = mr_t_confirm))
 
 # ── Column names emitted by simulate_from_dgm() ────────────────────────────
@@ -600,8 +622,8 @@ cat(sprintf("Run config: method=%s%s, n_sims=%d, nb_boots=%s, mr_draws=%d, worke
             n_sims, if (is.null(nb_boots)) "0 (skip)" else as.character(nb_boots),
             mr_draws, n_workers))
 # Resolved template knobs -- the render's audit line (env overrides included).
-cat(sprintf("Template knobs: hr=%.2f n=%d z1q=%.2f focus=%s ci_method=%s uniform=%s field_complement=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
-            target_hr_harm, n_sample, harm_z1_quantile, sg_focus, mr_ci_method, mr_field_uniform, mr_field_complement, mr_ij_residual, fb_mode, campaign_tag,
+cat(sprintf("Template knobs: hr=%.2f n=%d z1q=%.2f focus=%s nbhd=%.2f er_jcuts=%d ci_method=%s uniform=%s field_complement=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
+            target_hr_harm, n_sample, harm_z1_quantile, sg_focus, effect_neighborhood, er_jcuts, mr_ci_method, mr_field_uniform, mr_field_complement, mr_ij_residual, fb_mode, campaign_tag,
             run_mode, sim_id_start, sim_id_start + n_sims - 1L, quickrun))
 cat(sprintf("Output stem: %s\n", rds_stem))
 ```
@@ -820,6 +842,17 @@ rule_covs <- function(rule) forestsearch:::.fs_rule_columns(rule)
   fld_joint_corr = NA_real_, fld_joint_n = NA_integer_,
   mr_harm_flag = NA_integer_, ij_source = NA_character_,
   sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_,
+  # Re-selection regime and family/band sizes (TASK_p30sg_nb20_2026-09-07;
+  # add-only).  n_family = the gate's kept family K; n_cons_qual = the
+  # consistency-qualifying candidates the identifier sorted; band_n = those
+  # within the band hr >= (1 - effect_neighborhood) * max hr on the OBSERVED
+  # effects; p_hat_H = the gate's re-selection frequency of the selected
+  # candidate; p_hat_sum = sum over the family (= selection rate);
+  # p_hat_top1..3 = the three largest frequencies, labels "|"-joined.
+  n_family = NA_integer_, n_cons_qual = NA_integer_, band_n = NA_integer_,
+  p_hat_H = NA_real_, p_hat_sum = NA_real_,
+  p_hat_top1 = NA_real_, p_hat_top2 = NA_real_, p_hat_top3 = NA_real_,
+  p_hat_top_labels = NA_character_,
   stringsAsFactors = FALSE)
 
 record_replicate <- function(sim_id) {
@@ -919,6 +952,31 @@ if (k_random_noise > 0) {
   if (!is.null(g)) {
     rec$label <- g$selected_label %||% NA_character_
     rec$n_sel <- g$n_selected      %||% NA_integer_
+    # Re-selection regime (return_reselection = TRUE; absent -> NA).
+    rec$n_family <- g$n_family %||% NA_integer_
+    if (is.list(g$reselection) && length(g$reselection$p_hat)) {
+      ph <- g$reselection$p_hat
+      rec$p_hat_sum <- sum(ph, na.rm = TRUE)
+      rec$p_hat_H   <- if (!is.na(rec$label) && rec$label %in% names(ph))
+        unname(ph[[rec$label]]) else NA_real_
+      top <- ph[order(-ph)][seq_len(min(3L, length(ph)))]
+      rec$p_hat_top1 <- unname(top[1])
+      rec$p_hat_top2 <- if (length(top) >= 2L) unname(top[2]) else NA_real_
+      rec$p_hat_top3 <- if (length(top) >= 3L) unname(top[3]) else NA_real_
+      rec$p_hat_top_labels <- paste(names(top), collapse = " | ")
+    }
+    # Consistency-qualifying candidates and the observed-effect band (the
+    # identifier's own table, grp.consistency$out_sg$result: hr on the natural
+    # scale, N, Pcons, K), so band_n is the count the identifier's
+    # order(-in_band, -N, ...) key saw.  Absent table -> NA.
+    ctab <- fs.est$grp.consistency$out_sg$result
+    if (is.data.frame(ctab) && all(c("hr", "N") %in% names(ctab)) && nrow(ctab)) {
+      rec$n_cons_qual <- nrow(ctab)
+      hr_c <- as.numeric(ctab$hr)
+      if (any(is.finite(hr_c)))
+        rec$band_n <- sum(is.finite(hr_c) &
+                          hr_c >= (1 - effect_neighborhood) * max(hr_c, na.rm = TRUE))
+    }
     # THREE-VALUED, deliberately.  `harm_flag` is NA when MR ran but bailed
     # before it could compute one (fs_mr_inference.R:391), and the package's own
     # documentation is explicit that NA here is "absence of evidence, not
@@ -1335,6 +1393,7 @@ if (run_smoke && identical(run_mode, "batch")) {
                                                          collapse = " "),
                              selection_rule      = selection_rule,
                              effect_neighborhood = effect_neighborhood,
+                             er_jcuts            = er_jcuts,
                              forestsearch_version =
                                as.character(utils::packageVersion("forestsearch")),
                              n_workers           = n_workers,
@@ -1368,7 +1427,7 @@ if (run_smoke && identical(run_mode, "batch")) {
   # committed FB range) with "none" (beyond it).
   for (k in c("n_sample", "nb_boots", "mr_draws", "subgroup_method", "seed_base",
               "ci_method", "campaign_tag", "target_hr_harm", "harm_z1_quantile",
-              "sg_focus")) {
+              "sg_focus", "effect_neighborhood", "er_jcuts")) {
     vals <- unique(lapply(bundles, .meta_get, k = k))
     if (length(vals) > 1L)
       stop(sprintf("combine mode: batches disagree on meta$%s (%s).",
@@ -1676,6 +1735,29 @@ if (run_smoke && !is.null(results)) {
     cat("\n:::\n\n")
   } else {
     cat("\n::: {.callout-note title=\"Identified subgroup sizes\"}\nNo subgroup was identified on any replicate, so no $\\widehat H$ sizes are available.\n:::\n\n")
+  }
+}
+```
+
+```{r reselection-regime-callout, results='asis'}
+#| code-fold: true
+# Re-selection regime and family/band sizes (TASK_p30sg_nb20_2026-09-07;
+# add-only: renders nothing on bundles recorded before the p_hat_* columns).
+if (run_smoke && !is.null(results) && "p_hat_H" %in% names(results)) {
+  rD <- results[results$detected == 1 & is.finite(results$p_hat_H), , drop = FALSE]
+  if (nrow(rD)) {
+    .q <- function(v) { v <- v[is.finite(v)]; q <- stats::quantile(v, c(.25, .5, .75))
+      sprintf("mean %.3f, quartiles %.3f / %.3f / %.3f", mean(v), q[1], q[2], q[3]) }
+    .qi <- function(v) { v <- v[is.finite(v)]; q <- stats::quantile(v, c(.25, .5, .75))
+      sprintf("mean %.1f, quartiles %.0f / %.0f / %.0f, range [%d, %d]", mean(v), q[1], q[2], q[3], as.integer(min(v)), as.integer(max(v))) }
+    top3 <- rowSums(cbind(rD$p_hat_top1, rD$p_hat_top2, rD$p_hat_top3), na.rm = TRUE)
+    cat(sprintf("\n::: {.callout-note title=\"Re-selection regime (gate p-hat over the kept family; %d detected replicates with p-hat recorded)\"}\n\n", nrow(rD)))
+    cat(sprintf("- **p-hat($\\widehat H$)** (re-selection frequency of the selected candidate): %s; share with p-hat($\\widehat H$) = the family argmax: %.3f\n", .q(rD$p_hat_H), mean(abs(rD$p_hat_H - rD$p_hat_top1) < 1e-12)))
+    cat(sprintf("- **top-3 mass** (three largest frequencies): %s; sum over the family (= selection rate): mean %.3f\n", .q(top3), mean(rD$p_hat_sum, na.rm = TRUE)))
+    if (any(is.finite(rD$n_family)))    cat(sprintf("- **family size K** (gate's kept family): %s\n", .qi(rD$n_family)))
+    if (any(is.finite(rD$n_cons_qual))) cat(sprintf("- **consistency-qualifying candidates**: %s\n", .qi(rD$n_cons_qual)))
+    if (any(is.finite(rD$band_n)))      cat(sprintf("- **band size** (candidates with hr >= (1 - %.2f) x max hr on the observed effects): %s\n", effect_neighborhood, .qi(rD$band_n)))
+    cat("\n:::\n\n")
   }
 }
 ```
