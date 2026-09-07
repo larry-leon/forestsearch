@@ -140,3 +140,63 @@ GATE 2 md=null n=500: PASS
 ```
 
 Enumerated rows: 13 pure label ties; sims 95, 267, 615 identical rule and naive estimate with the MR columns differing at ≤ 4.5e-5 relative. **No selection or detection flip.** Committed: the three bundles, `gate2_flips.txt`, and `fs_maxeffCons_mr_field_mdnull_knoise0_n500_mdf1_combine_1_2000.html`.
+
+## Cell 4 — md40 n = 700 (priority 4; no FB)
+
+Wall: batch 1 **1,391 s** (23.2 min; projection 24 min, stop threshold 36 min), batch 2 1,415 s, combine 22 s; cumulative **10,371 s = 172.8 min** of the 240 min ceiling. Per replicate: fit + MR + field 17.5 s mean (max 22.1). Detection 1,999 of 2,000.
+
+Gate 2 output (verbatim):
+
+```
+== GATE 2: md=40 n=700 ==
+  [PASS] exists: fs_maxeffCons_mr_field_md40_knoise0_n700_mdf1_res_1_1000.rds
+  [PASS] exists: fs_maxeffCons_mr_field_md40_knoise0_n700_mdf1_res_1001_2000.rds
+  [PASS] exists: fs_maxeffCons_mr_field_md40_knoise0_n700_mdf1_combined_1_2000.rds
+  [PASS] save guard: all three bundle paths untracked at save time (guard cannot have been bypassed)
+  [PASS] completeness: sim_id 1-1000, 1001-2000, combined 1-2000
+  [PASS] no CONFIG-ERROR rows (status table: DETECTED 1999, NO-DETECTION 1)
+  pairing proof: 983 of 1000 sim_ids identical on 38 pre-existing numeric cols (max rel diff among identical rows 1.56e-10); rule-string-order-only differences on 9 sim_ids
+  ENUMERATED FLIPS (17): 82, 176, 184, 249, 303, 486, 499, 527, 571, 654, 663, 716, 758, 791, 795, 943, 956
+    sim 82 -> same selection, MR numerics differ
+    sim 176 -> same selection, MR numerics differ
+    sim 184 -> same selection, MR numerics differ
+    sim 249 -> same selection, MR numerics differ
+    sim 303 -> label tie, no numeric consequence
+    sim 486 -> label tie, no numeric consequence
+    sim 499 -> label tie, no numeric consequence
+    sim 527 -> label tie, super-population target moves
+    sim 571 -> label tie, no numeric consequence
+    sim 654 -> same selection, MR numerics differ
+    sim 663 -> same selection, MR numerics differ
+    sim 716 -> label tie, super-population target moves
+    sim 758 -> label tie, super-population target moves
+    sim 791 -> label tie, super-population target moves
+    sim 795 -> label tie, no numeric consequence
+    sim 943 -> label tie, no numeric consequence
+    sim 956 -> label tie, super-population target moves
+  classification: 0 selection flips; 6 MR-numerics; 5 label ties with target move; 6 pure label ties
+  [PASS] pairing proof: all 983 non-flip rows identical (<= 1e-8); 17 enumerated and excluded (0 selection flips)
+  [PASS] new columns present
+  finite share on 1999 detected reps: min 1.0000 (fld_H_est2); field notes set on 0 (H) / 0 (Hc)
+  [PASS] fields finite on >= 99% of detected replicates
+  [PASS] interval invariants lo <= hi
+  [PASS] bound identities (max abs 0.0e+00)
+  [PASS] gamma in [0.025, 0.05] (range 0.025-0.027; mean 0.0251)
+  [PASS] p_hat(Hhat) finite in [0,1] (mean 0.163, share < 0.5: 0.986)
+  meta: pkg 0.3.5 | workers 13/13 | ci field | complement TRUE | ij_residual two_term | built 2026-09-07 15:41:22
+  timing: batch1 fit+MR mean 17.5 s (max 22.1), batch2 17.8 s; detection 1.000
+GATE 2 md=40 n=700: PASS
+```
+
+Enumerated rows: 6 pure label ties, 5 label ties with a super-population target move (the `{preanti <= 0}` / `!{str2}` pair), 6 with identical selection and MR columns differing at the 1e-5 to 1e-4 level. **No selection flip.** Committed: the three bundles, `gate2_flips.txt`, and `fs_maxeffCons_mr_field_md40_knoise0_n700_mdf1_combine_1_2000.html`.
+
+## Campaign close
+
+| cell | batch 1 wall | batch 2 wall | combine | per-replicate mean | Gate 2 | identical / enumerated (selection flips) |
+|---|---|---|---|---|---|---|
+| md40 n500 | 1,189 s | 1,209 s | 24 s | 14.9 s | PASS | 986 / 14 (0) |
+| md120 n500 | 1,371 s | 1,344 s | 20 s | 17.3 s | PASS | 992 / 8 (0) |
+| null n500 | 1,200 s | 1,163 s | 23 s | 15.0 s | PASS | 984 / 16 (0) |
+| md40 n700 | 1,391 s | 1,415 s | 22 s | 17.5 s | PASS | 983 / 17 (0) |
+
+8,000 replicates in 172.8 min cumulative wall on 13 workers; peak memory 17.5 GB (first render); no render exceeded 1.5× its projection; no cell deferred; every save went through `.refuse_if_tracked()` into untracked campaign paths. Across the four cells the pairing proof holds on 3,945 of 4,000 anchored replicates at ≤ 4.3e-10 relative; the 55 enumerated rows are 35 pure label ties, 10 label ties whose super-population target moves (`str2` vs `preanti > 0`, 7 of 1,083 patients), and 12 replicates with identical selection and MR columns differing at ≤ 2.4e-4 (0.2.2/0.3.1 → 0.3.5); **zero selection flips**.
