@@ -1,3 +1,11 @@
+# forestsearch (development version)
+
+* `fs_mr_inference()` gains `field_decompose` (default `FALSE`): add-only
+  complement-field scale diagnostics attached as `field$complement$decomp_fields`
+  when the complement field block runs; forwarded through
+  `forestsearch(mr_inference_args = list(field_decompose = TRUE))`.  Defaults
+  are byte-identical (PROPOSAL_complement_field_scale_2026-09-08_v2, Stage 1).
+
 # forestsearch 0.3.5
 
 ## Performance: unadjusted survival fits run on subset vectors

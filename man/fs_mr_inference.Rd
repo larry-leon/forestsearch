@@ -26,6 +26,7 @@ fs_mr_inference(
   field_uniform = FALSE,
   field_M_cap = NULL,
   field_complement = FALSE,
+  field_decompose = FALSE,
   ij_residual = c("two_term", "winner", "winner_floor")
 )
 }
@@ -169,6 +170,15 @@ multiplier stage did not fit are fit lazily.  The block draws nothing, so
 every other output -- the harm \code{field} block and its \code{uniform} sub-block
 included -- is byte-identical whether or not it runs; the default
 reproduces prior output exactly.}
+
+\item{field_decompose}{Logical (default \code{FALSE}); consulted only when the
+complement field block runs.  When \code{TRUE}, \code{field$complement} gains a
+\code{decomp_fields} list of add-only scale diagnostics (the selected
+complement's influence-norm scale, the draw-weighted mean and CV of the
+outer winners' scales, their ratio \code{scale_ratio_c}, and the variance /
+covariance of the two pieces of \code{Lambda*c}; PROPOSAL_complement_field_scale
+2026-09-08 v2, Stage 1); it reads existing objects only, so every
+pre-existing output is unchanged whether or not it runs.}
 
 \item{ij_residual}{Which IJ residual populates the \strong{reported} de-biased
 SE and interval (\code{debiased$se_ij}/\code{lower}/\code{upper}/\code{lower_1s}, and the

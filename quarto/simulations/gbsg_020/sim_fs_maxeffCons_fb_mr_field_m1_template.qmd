@@ -585,6 +585,14 @@ mr_field_complement <- identical(.env_chr("FS_S7_FIELD_COMPLEMENT", "FALSE"), "T
 # (fld_joint_*) needs the complement field on.
 mr_ij_residual <- .env_chr("FS_S7_IJ_RESIDUAL", "two_term")
 stopifnot(mr_ij_residual %in% c("two_term", "winner", "winner_floor"))
+# Complement-field scale decomposition knob (TASK_field_studentize_stage1_e0_
+# 2026-09-08, Stage 1): when TRUE the gate attaches the add-only
+# field$complement$decomp_fields scalars (selected complement's influence-norm
+# scale, the outer winners' mean scale and CV, their ratio rho^c) and the
+# recorder captures the fld_Hc_scale_* columns below.  FALSE (default) leaves
+# every pre-existing column byte-identical; TRUE leaves every pre-existing
+# column identical too (the block reads existing objects only).
+mr_field_decompose <- identical(.env_chr("FS_S7_FIELD_DECOMP", "FALSE"), "TRUE")
 
 # t_confirm is omitted from the list when NULL so the package resolves its own
 # measure-aware default rather than receiving an explicit NULL.
@@ -597,6 +605,7 @@ mr_inference_args <- c(
   list(ci_method = mr_ci_method, draws = mr_draws, include_complement = TRUE,
        confirm_rule = mr_confirm_rule, field_uniform = mr_field_uniform,
        field_complement = mr_field_complement, ij_residual = mr_ij_residual,
+       field_decompose = mr_field_decompose,
        return_reselection = TRUE),
   if (!is.null(mr_t_confirm)) list(t_confirm = mr_t_confirm))
 
@@ -635,8 +644,8 @@ cat(sprintf("Run config: method=%s%s, n_sims=%d, nb_boots=%s, mr_draws=%d, worke
             n_sims, if (is.null(nb_boots)) "0 (skip)" else as.character(nb_boots),
             mr_draws, n_workers))
 # Resolved template knobs -- the render's audit line (env overrides included).
-cat(sprintf("Template knobs: hr=%.2f n=%d z1q=%.2f focus=%s nbhd=%.2f er_jcuts=%d ci_method=%s uniform=%s field_complement=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
-            target_hr_harm, n_sample, harm_z1_quantile, sg_focus, effect_neighborhood, er_jcuts, mr_ci_method, mr_field_uniform, mr_field_complement, mr_ij_residual, fb_mode, campaign_tag,
+cat(sprintf("Template knobs: hr=%.2f n=%d z1q=%.2f focus=%s nbhd=%.2f er_jcuts=%d ci_method=%s uniform=%s field_complement=%s field_decompose=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
+            target_hr_harm, n_sample, harm_z1_quantile, sg_focus, effect_neighborhood, er_jcuts, mr_ci_method, mr_field_uniform, mr_field_complement, mr_field_decompose, mr_ij_residual, fb_mode, campaign_tag,
             run_mode, sim_id_start, sim_id_start + n_sims - 1L, quickrun))
 cat(sprintf("Output stem: %s\n", rds_stem))
 ```
@@ -827,6 +836,13 @@ rule_covs <- function(rule) forestsearch:::.fs_rule_columns(rule)
   fld_Hc_lo2s = NA_real_, fld_Hc_hi2s = NA_real_,          # two-sided 95% quantile interval
   fld_Hc_lo_se = NA_real_, fld_Hc_hi_se = NA_real_,        # SE-type interval about est2
   fld_Hc_se = NA_real_,                                    # lambda_sd (log-HR scale)
+  # Scale decomposition (field_decompose = TRUE; else all NA;
+  # TASK_field_studentize_stage1_e0_2026-09-08): s_sel = the selected
+  # complement's influence-norm scale sqrt(sum(Bc[, sel]^2)); s_win = the
+  # draw-weighted mean over the used outer winners' scales, with its CV;
+  # scale_ratio = s_sel / s_win (rho^c).
+  fld_Hc_scale_sel = NA_real_, fld_Hc_scale_win = NA_real_,
+  fld_Hc_scale_cv = NA_real_, fld_Hc_scale_ratio = NA_real_,
   fld_Hc_lam_mean = NA_real_,
   fld_Hc_q05 = NA_real_, fld_Hc_q25 = NA_real_, fld_Hc_q50 = NA_real_,
   fld_Hc_q75 = NA_real_, fld_Hc_q95 = NA_real_,
@@ -1071,6 +1087,11 @@ if (k_random_noise > 0) {
           rec$fld_Hc_lo2s     <- fc$lower_2s;  rec$fld_Hc_hi2s <- fc$upper_2s
           rec$fld_Hc_lo_se    <- fc$lower_se;  rec$fld_Hc_hi_se <- fc$upper_se
           rec$fld_Hc_se       <- fc$se_field
+          # ---- Scale decomposition (field_decompose = TRUE; absent -> NA) ----
+          rec$fld_Hc_scale_sel   <- fc$decomp_fields$scale_sel      %||% NA_real_
+          rec$fld_Hc_scale_win   <- fc$decomp_fields$scale_win_mean %||% NA_real_
+          rec$fld_Hc_scale_cv    <- fc$decomp_fields$scale_win_cv   %||% NA_real_
+          rec$fld_Hc_scale_ratio <- fc$decomp_fields$scale_ratio_c  %||% NA_real_
           rec$fld_Hc_lam_mean <- fc$lambda_mean
           rec$fld_Hc_q05  <- fc$q05;  rec$fld_Hc_q25  <- fc$q25;  rec$fld_Hc_q50 <- fc$q50
           rec$fld_Hc_q75  <- fc$q75;  rec$fld_Hc_q95  <- fc$q95
@@ -1540,11 +1561,13 @@ if (run_smoke && identical(run_mode, "batch")) {
 # because the knobs and `results` are both in scope only after @sec-setup.
 knitr::kable(data.frame(
   setting = c("ci_method", "draws", "confirm_rule", "t_confirm (as set)",
-              "include_complement", "field_complement", "ij_residual (reported)",
+              "include_complement", "field_complement", "field_decompose",
+              "ij_residual (reported)",
               "replicates with an MR harm decision"),
   value = c(mr_ci_method, format(mr_draws), mr_confirm_rule,
             if (is.null(mr_t_confirm)) "NULL -> package near-null default"
             else format(mr_t_confirm), "TRUE", as.character(mr_field_complement),
+            as.character(mr_field_decompose),
             mr_ij_residual,
             sprintf("%d of %d detected",
                     sum(!is.na(results$mr_harm_flag)),

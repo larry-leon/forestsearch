@@ -3414,6 +3414,9 @@ forestsearch <- function(df.analysis,
         # Add-only pass-through (TASK_mr_field_complement_2026-09-06): the
         # complement's field block; FALSE is the gate's default.
         field_complement = .g_mr(mr_inference_args$field_complement, FALSE),
+        # Add-only pass-through (TASK_field_studentize_stage1_e0_2026-09-08):
+        # the complement field's scale diagnostics; FALSE is the gate's default.
+        field_decompose = .g_mr(mr_inference_args$field_decompose, FALSE),
         # Add-only pass-through (TASK_complement_refinements_2026-09-06):
         # which IJ residual populates the reported SE; "two_term" is the
         # gate's default and reproduces prior output exactly.

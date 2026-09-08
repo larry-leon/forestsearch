@@ -362,6 +362,14 @@
 #'   every other output -- the harm `field` block and its `uniform` sub-block
 #'   included -- is byte-identical whether or not it runs; the default
 #'   reproduces prior output exactly.
+#' @param field_decompose Logical (default `FALSE`); consulted only when the
+#'   complement field block runs.  When `TRUE`, `field$complement` gains a
+#'   `decomp_fields` list of add-only scale diagnostics (the selected
+#'   complement's influence-norm scale, the draw-weighted mean and CV of the
+#'   outer winners' scales, their ratio `scale_ratio_c`, and the variance /
+#'   covariance of the two pieces of `Lambda*c`; PROPOSAL_complement_field_scale
+#'   2026-09-08 v2, Stage 1); it reads existing objects only, so every
+#'   pre-existing output is unchanged whether or not it runs.
 #' @param ij_residual Which IJ residual populates the **reported** de-biased
 #'   SE and interval (`debiased$se_ij`/`lower`/`upper`/`lower_1s`, and the
 #'   complement's), method proposal
@@ -504,6 +512,7 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                            field_uniform = FALSE,
                            field_M_cap = NULL,
                            field_complement = FALSE,
+                           field_decompose = FALSE,
                            ij_residual = c("two_term", "winner", "winner_floor")) {
   confirm_rule <- match.arg(confirm_rule); reselection <- match.arg(reselection)
   ij_residual <- match.arg(ij_residual)
@@ -870,6 +879,7 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
           winset = winset, sel = sel, bdc = bdc_w,
           G_out = G_out, W_in = W_in, Xo = Xo, Xi_f = Xi_f,
           to_eff = to_eff, z975 = z975,
+          field_decompose = field_decompose,
           # Joint (H lower, Hc upper) pair from the aligned outer draws
           # (TASK_complement_refinements_2026-09-06, method B); add-only,
           # attached as field$joint, no new draws.
@@ -989,7 +999,7 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
 .fs_mr_field_complement <- function(df, spec, kept, Bc, bh_c, winset, sel, bdc,
                                     G_out, W_in, Xo, Xi_f, to_eff, z975,
                                     lam_H = NULL, beta_deb = NA_real_,
-                                    alpha = 0.05) {
+                                    alpha = 0.05, field_decompose = FALSE) {
   t0c <- proc.time()
   R_out <- length(G_out); R_in <- ncol(W_in)
   if (!is.finite(bdc))
@@ -1044,6 +1054,34 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                         names = FALSE, type = 7)
   est2_w <- bdc - mean(lf)
   sd_c <- stats::sd(lf)
+  # -- Scale decomposition (field_decompose = TRUE; PROPOSAL_complement_field_
+  # scale_2026-09-08_v2, Stage 1) -- add-only and drawn from NOTHING: it reads
+  # Bc / Zo_c / lam_c / G_out as the loop above left them.  The lazy fit of
+  # the selected complement (only when the multiplier stage left it unfit)
+  # runs AFTER lam_c is final, so it cannot alter lam_c, lf, the quantiles,
+  # est2 or any existing output; s[g] = sqrt(sum(Bc[, g]^2)) is candidate g's
+  # complement influence-norm scale (0 for an unfit column).
+  decomp_fields <- NULL
+  if (isTRUE(field_decompose)) {
+    if (!fit_ok[sel]) {                      # ensure the selected complement's column is populated
+      comp_idx <- setdiff(seq_len(Nall), kept[[sel]])
+      if (length(comp_idx) >= 6L) {
+        pcc <- tryCatch(.fs_mr_pieces(df[comp_idx, , drop = FALSE], spec), error = function(e) NULL)
+        if (!is.null(pcc) && length(pcc$dfbeta) == length(comp_idx)) {
+          Bc[comp_idx, sel] <- pcc$dfbeta; bh_c[sel] <- pcc$beta_hat; fit_ok[sel] <- TRUE
+        }
+      }
+    }
+    s  <- sqrt(colSums(Bc * Bc))             # per-candidate complement noise scale; 0 for unfit
+    gG <- G_out[ok_c]; s_win <- s[gG]
+    zg <- Zo_c[cbind(gG, ok_c)]; mi <- zg - lf
+    decomp_fields <- list(
+      scale_sel      = if (fit_ok[sel]) s[sel] else NA_real_,
+      scale_win_mean = mean(s_win),
+      scale_win_cv   = stats::sd(s_win) / mean(s_win),
+      scale_ratio_c  = if (fit_ok[sel]) s[sel] / mean(s_win) else NA_real_,
+      var_zeta_G = stats::var(zg), var_m_in = stats::var(mi), cov_zeta_m = stats::cov(zg, mi))
+  }
   # Joint (H lower, Hc upper) pair (method B): the harm field's lam and this
   # block's lam_c are indexed by the same outer draw r, so the aligned pairs
   # over ok_c need no re-drawing.
@@ -1064,6 +1102,7 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
     upper_se = to_eff(est2_w + z975 * sd_c)),
     counts,
     list(timing_seconds = as.numeric((proc.time() - t0c)["elapsed"])))
+  if (!is.null(decomp_fields)) complement$decomp_fields <- decomp_fields   # add-only; absent when FALSE
   list(complement = complement, joint = joint)
 }
 
