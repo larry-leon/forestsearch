@@ -1,0 +1,238 @@
+---
+title: "Decomposition of the complement's error variance across the regime sequence"
+subtitle: "Naive error a, two-term correction c, de-biased error e = a − c, and the field's λ-SDᶜ, on the committed s7c / p30 / p30sg / nb20 bundles (TASK_complement_variance_banddial_2026-09-07, Part A)"
+author: "Larry León"
+date: today
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+---
+
+Per detected replicate, on the log scale: $a = \log(\hat\beta^c_{\text{nv}}) - \log\beta(\widehat H^c)$
+(the naive error of the complement's Cox estimate against its own realized target),
+$c = \log(\hat\beta^c_{\text{nv}}) - \log(\hat\beta^c_{\text{MR}})$ (the two-term correction the gate
+subtracted), and $e = a - c = \log(\hat\beta^c_{\text{MR}}) - \log\beta(\widehat H^c)$ (the de-biased error).
+Then $\mathrm{Var}(e) = \mathrm{Var}(a) + \mathrm{Var}(c) - 2\,\mathrm{Cov}(a, c)$, checked per cell, against the
+three variances an analysis reports: the mean naive $\mathrm{SE}^2$, the mean field $\lambda\text{-SD}^{c\,2}$
+(`fld_Hc_se`, the SD of $\Lambda^{*c}$ over the outer draws) and the mean IJ two-term $\mathrm{se}_{ij}^2$.
+The complement's `selection_bias` / `fixed_bias` split of $c$ is not recorded in any bundle (the gate
+returns the two components for the harm block only), so $c$ is read whole. Winner-only and winner-floor
+rows are excluded (standing convention). Everything here reads the committed pooled bundles; nothing is
+re-computed.
+
+# Bundles and definitions
+
+```{r setup, message=FALSE}
+library(kableExtra)
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
+globs <- strsplit(Sys.getenv("FS_SUMCV_GLOBS", paste(
+  "results/fs_maxeffCons_fb_mr_field_m1_h*_knoise0_n500_s7c_combined_1_2000.rds",
+  "results/fs_maxeffCons_fb_mr_field_m1_h*_z1q60_p30_combined_1_2000.rds",
+  "results/fs_effMaxSG_fb_mr_field_m1_h*_z1q60_p30sg_combined_1_2000.rds",
+  "results/fs_effMaxSG_fb_mr_field_m1_h*_z1q60_nb20_p30sgnb20_combined_1_2000.rds",
+  "results/fs_effMaxSG_fb_mr_field_m1_h*_z1q60_nb20_j20_p30sgnb20j20_combined_1_2000.rds",
+  sep = ";")), ";", fixed = TRUE)[[1]]
+files <- unlist(lapply(globs, Sys.glob))
+stopifnot(length(files) > 0)
+bundles <- lapply(files, readRDS)
+# Regime label from the campaign tag; eps / J from the batch metas where the
+# pooled meta predates the knob fields (nb20; REPORT_nb20 side issue 1).
+knob <- function(b, k, d) {
+  v <- b$meta[[k]]
+  if (is.null(v) && length(b$meta$source_files)) {
+    bm <- lapply(b$meta$source_files, function(f) if (file.exists(file.path("results", f)))
+      readRDS(file.path("results", f))$meta[[k]] else NULL)
+    bm <- unique(unlist(bm)); if (length(bm) == 1L) v <- bm
+  }
+  v %||% d
+}
+regime <- function(b) {
+  tag <- b$meta$campaign_tag; f <- b$meta$sg_focus %||% "maxeffCons"
+  eps <- knob(b, "effect_neighborhood", 0.10); J <- knob(b, "er_jcuts", 10L)
+  z <- b$meta$harm_z1_quantile %||% 0.25
+  sprintf("%s (%s%s, J %d, prev %.0f%%)", tag, f,
+          if (f %in% c("effMaxSG", "effMinSG")) sprintf(" eps %.2f", eps) else "", J,
+          100 * (b$meta$harm_prevalence_super %||% if (z == 0.25) 0.124 else NA)) }
+cell <- function(b) sprintf("HR %.2f n%d", b$meta$target_hr_harm, b$meta$n_sample)
+order_key <- c(s7c = 1, p30 = 2, p30sg = 3, p30sgnb20 = 4, p30sgnb20j20 = 5)
+meta_tab <- data.frame(regime = vapply(bundles, regime, ""), cell = vapply(bundles, cell, ""),
+                       tag = vapply(bundles, function(b) b$meta$campaign_tag, ""),
+                       hr = vapply(bundles, function(b) b$meta$target_hr_harm, 0),
+                       n = vapply(bundles, function(b) b$meta$n_sample, 0L),
+                       file = basename(files), stringsAsFactors = FALSE)
+ord <- order(meta_tab$hr, meta_tab$n, order_key[meta_tab$tag])
+bundles <- bundles[ord]; meta_tab <- meta_tab[ord, ]; files <- files[ord]
+kbl(meta_tab[, c("cell", "regime", "file")], booktabs = TRUE, row.names = FALSE,
+    caption = "Bundles read (committed pooled bundles; regime = campaign, focus, band, grid, prevalence).") |>
+  kable_styling(font_size = 11)
+```
+
+```{r fns}
+# The per-replicate objects on the detected replicates with every input finite.
+abc <- function(r) {
+  d <- r[r$detected %in% 1L & is.finite(r$nv_Hc_est) & is.finite(r$mr_Hc_est) &
+           is.finite(r$betaHhat_Hc) & is.finite(r$nv_Hc_se) & is.finite(r$fld_Hc_se) &
+           is.finite(r$mr_Hc_se_ij), , drop = FALSE]
+  d$a <- log(d$nv_Hc_est) - log(d$betaHhat_Hc)
+  d$c <- log(d$nv_Hc_est) - log(d$mr_Hc_est)
+  d$e <- d$a - d$c
+  d$ratio_H <- d$n_harm / d$n_true
+  d
+}
+decomp <- function(d) {
+  Va <- var(d$a); Vc <- var(d$c); Cac <- cov(d$a, d$c); Ve <- var(d$e)
+  nse2 <- mean(d$nv_Hc_se^2); lam2 <- mean(d$fld_Hc_se^2); ij2 <- mean(d$mr_Hc_se_ij^2)
+  data.frame(n = nrow(d),
+             mean_a = mean(d$a), mean_c = mean(d$c), mean_e = mean(d$e),
+             Var_a = Va, Var_c = Vc, Cov_ac = Cac, corr_ac = Cac / sqrt(Va * Vc), Var_e = Ve,
+             check = (Va + Vc - 2 * Cac) - Ve,
+             naive_SE2 = nse2, lam_SD2 = lam2, ij_se2 = ij2,
+             Va_over_nSE2 = Va / nse2,
+             excess_c = Vc - 2 * Cac,                # Var(e) - Var(a)
+             Ve_over_nSE2 = Ve / nse2, r = sqrt(Ve / nse2),
+             lam2_over_Ve = lam2 / Ve, lam2_over_Va = lam2 / Va, lam2_over_nSE2 = lam2 / nse2,
+             ij2_over_Ve = ij2 / Ve,
+             SD_a = sqrt(Va), SD_c = sqrt(Vc), SD_e = sqrt(Ve),
+             naive_SE = sqrt(nse2), lam_SD = sqrt(lam2), ij_se = sqrt(ij2),
+             Hhat_mean = mean(d$n_harm), Hhat_over_H = mean(d$ratio_H),
+             p_hat_mean = if ("p_hat_H" %in% names(d)) mean(d$p_hat_H, na.rm = TRUE) else NA_real_)
+}
+D <- lapply(bundles, function(b) abc(b$results))
+A1 <- do.call(rbind, lapply(seq_along(D), function(i) cbind(cell = meta_tab$cell[i], regime = meta_tab$regime[i], decomp(D[[i]]))))
+```
+
+# A1 — Per cell: the three components, the reported variances, the ratios
+
+Variances on the log-HR scale. `check` is $[\mathrm{Var}(a) + \mathrm{Var}(c) - 2\mathrm{Cov}(a,c)] - \mathrm{Var}(e)$
+(zero up to floating point). `excess_c` $= \mathrm{Var}(c) - 2\mathrm{Cov}(a,c) = \mathrm{Var}(e) - \mathrm{Var}(a)$: the
+part of the de-biased error's variance the correction adds (positive) or removes (negative).
+
+```{r a1-var}
+kbl(A1[, c("cell", "regime", "n", "mean_a", "mean_c", "mean_e", "Var_a", "Var_c", "Cov_ac", "corr_ac", "Var_e", "check", "excess_c")],
+    digits = c(0, 0, 0, 4, 4, 4, 5, 5, 5, 3, 5, 8, 5), booktabs = TRUE, row.names = FALSE,
+    caption = "Means and variances of a (naive error), c (two-term correction) and e = a - c (de-biased error) on the complement, per cell.") |>
+  kable_styling(font_size = 11)
+```
+
+```{r a1-ratio}
+kbl(A1[, c("cell", "regime", "naive_SE2", "lam_SD2", "ij_se2", "Var_a", "Var_e", "Va_over_nSE2", "Ve_over_nSE2", "r", "lam2_over_Ve", "lam2_over_Va", "lam2_over_nSE2", "ij2_over_Ve")],
+    digits = c(0, 0, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3), booktabs = TRUE, row.names = FALSE,
+    caption = "Reported variances (means of the squared per-replicate SEs) against the realized ones. r = sqrt(Var(e) / naive SE^2) is the regime diagnostic SD(beta-tilde^c) / naive SE; lam2_over_Ve = lambda-SD^c2 / Var(e); lam2_over_Va = lambda-SD^c2 / Var(a).") |>
+  kable_styling(font_size = 11)
+```
+
+```{r a1-sd}
+kbl(A1[, c("cell", "regime", "Hhat_mean", "Hhat_over_H", "p_hat_mean", "SD_a", "SD_c", "SD_e", "naive_SE", "lam_SD", "ij_se")],
+    digits = c(0, 0, 1, 3, 3, 4, 4, 4, 4, 4, 4), booktabs = TRUE, row.names = FALSE,
+    caption = "The same on the SD scale, with the region size and p-hat(Hhat) where recorded.") |>
+  kable_styling(font_size = 11)
+```
+
+# The reported SD is marginal; the decomposition is on the error
+
+The constructions tables of every report (`fs_sim_bias_coverage()`, `sd_emp = sd(log est)`; the template's
+`.sd_log()`) take the SD of the **log estimate across replicates**, so their "SD_β", "SE/SD", "bias in SD units"
+and the regime diagnostic "SD(β̃ᶜ)/naive SE" all carry the spread of the per-replicate target β(Ĥᶜ) as well as
+the error: $\mathrm{Var}(\log\hat\beta^c_{\text{MR}}) = \mathrm{Var}(e) + \mathrm{Var}(\log\beta(\widehat H^c)) + 2\mathrm{Cov}(e, \log\beta(\widehat H^c))$.
+The decomposition above is on $e$. Both are shown here so the two readings can be placed side by side.
+
+```{r marginal}
+M <- do.call(rbind, lapply(seq_along(D), function(i) { d <- D[[i]]
+  lt <- log(d$betaHhat_Hc); lm <- log(d$mr_Hc_est); ln <- log(d$nv_Hc_est)
+  data.frame(cell = meta_tab$cell[i], regime = meta_tab$regime[i], n = nrow(d),
+             SD_log_mr = sd(lm), SD_log_nv = sd(ln), SD_log_target = sd(lt), SD_e = sd(d$e), SD_a = sd(d$a),
+             corr_e_target = cor(d$e, lt), corr_a_target = cor(d$a, lt),
+             naive_SE = sqrt(mean(d$nv_Hc_se^2)), lam_SD = sqrt(mean(d$fld_Hc_se^2)),
+             reported_ratio = sd(lm) / sqrt(mean(d$nv_Hc_se^2)),   # SD(beta-tilde^c)/naive SE as reported
+             error_ratio = sd(d$e) / sqrt(mean(d$nv_Hc_se^2)),      # sqrt(Var(e)/naive SE^2)
+             lam_over_SDe = sqrt(mean(d$fld_Hc_se^2)) / sd(d$e),
+             lam_over_SDmr = sqrt(mean(d$fld_Hc_se^2)) / sd(lm)) }))
+kbl(M, digits = c(0, 0, 0, 4, 4, 4, 4, 4, 3, 3, 4, 4, 3, 3, 3, 3), booktabs = TRUE, row.names = FALSE,
+    caption = "Marginal SD of the log estimates vs the error SDs. reported_ratio = SD(log MR est)/naive SE (the regime diagnostic as printed in the p30sg / nb20 reports); error_ratio = SD(e)/naive SE (this document's r); lam_over_SDe = lambda-SD^c / SD(e); lam_over_SDmr = lambda-SD^c / SD(log MR est) (the reports' 'lambda-SD^c / SD(beta-tilde^c)').") |>
+  kable_styling(font_size = 10)
+```
+
+# A2 — Stratified by p̂(Ĥ) tertile (nb20 cells) and by |Ĥ|/|H| tertile (all cells)
+
+```{r a2}
+strat <- function(i, var, what) {
+  d <- D[[i]]; v <- d[[var]]; if (!any(is.finite(v))) return(NULL)
+  br <- stats::quantile(v, c(0, 1/3, 2/3, 1), na.rm = TRUE, names = FALSE)
+  g <- cut(v, breaks = unique(br), include.lowest = TRUE, labels = FALSE)
+  do.call(rbind, lapply(sort(unique(g)), function(k) {
+    dk <- d[g == k, , drop = FALSE]
+    cbind(cell = meta_tab$cell[i], regime = meta_tab$regime[i], stratum = sprintf("%s T%d [%.3f, %.3f]", what, k, min(v[g == k]), max(v[g == k])),
+          decomp(dk)) }))
+}
+cols2 <- c("cell", "regime", "stratum", "n", "Hhat_over_H", "Var_a", "Var_c", "Cov_ac", "Var_e", "naive_SE2", "lam_SD2", "Va_over_nSE2", "r", "lam2_over_Ve", "lam2_over_Va")
+dg2 <- c(0, 0, 0, 0, 3, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3)
+A2p <- do.call(rbind, lapply(which(vapply(D, function(d) "p_hat_H" %in% names(d) && any(is.finite(d$p_hat_H)), TRUE)), strat, var = "p_hat_H", what = "p-hat"))
+kbl(A2p[, cols2], digits = dg2, booktabs = TRUE, row.names = FALSE,
+    caption = "By p-hat(Hhat) tertile (nb20 cells, where p-hat is recorded): the decomposition within each tertile.") |>
+  kable_styling(font_size = 10)
+```
+
+```{r a2b}
+A2h <- do.call(rbind, lapply(seq_along(D), strat, var = "ratio_H", what = "|Hhat|/|H|"))
+kbl(A2h[, cols2], digits = dg2, booktabs = TRUE, row.names = FALSE,
+    caption = "By |Hhat|/|H| tertile (all cells).") |>
+  kable_styling(font_size = 10)
+```
+
+# A3 — Across the regime sequence
+
+Rows in the order the complement's variability grew: `s7c` (M1 prevalence 12.4%, `maxeffCons`) →
+`p30` (31%, `maxeffCons`) → `p30sg` (`effMaxSG` ε 0.10) → nb20 arm A (ε 0.20, J 10) → nb20 arm B (ε 0.20, J 20).
+`excess_total` $= \mathrm{Var}(e) - \text{naive SE}^2$ splits into `excess_a` $= \mathrm{Var}(a) - \text{naive SE}^2$
+(the naive estimate's own variance beyond its reported SE: the complement's identity varying with the winner)
+and `excess_c` $= \mathrm{Var}(c) - 2\mathrm{Cov}(a,c)$ (what the correction adds). `shortfall` $= \mathrm{Var}(e) - \lambda\text{-SD}^{c\,2}$,
+and its share of `excess_total`.
+
+```{r a3}
+seq_tab <- function(hr, n) {
+  S <- A1[A1$cell == sprintf("HR %.2f n%d", hr, n), ]
+  S$excess_total <- S$Var_e - S$naive_SE2
+  S$excess_a <- S$Var_a - S$naive_SE2
+  S$shortfall <- S$Var_e - S$lam_SD2
+  S$shortfall_share <- S$shortfall / S$excess_total
+  S$lam_minus_nSE2 <- S$lam_SD2 - S$naive_SE2
+  S[, c("regime", "n", "Hhat_mean", "p_hat_mean", "Var_a", "Var_c", "Cov_ac", "Var_e", "naive_SE2", "lam_SD2",
+        "excess_a", "excess_c", "excess_total", "lam_minus_nSE2", "shortfall", "shortfall_share", "r", "lam2_over_Ve", "lam2_over_Va")]
+}
+dg3 <- c(0, 0, 1, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3)
+kbl(seq_tab(1.75, 500), digits = dg3, booktabs = TRUE, row.names = FALSE,
+    caption = "HR 1.75 n500: the regime sequence.") |> kable_styling(font_size = 10)
+kbl(seq_tab(1.50, 500), digits = dg3, booktabs = TRUE, row.names = FALSE,
+    caption = "HR 1.50 n500: the regime sequence (no s7c cell at this HR).") |> kable_styling(font_size = 10)
+kbl(seq_tab(1.00, 500), digits = dg3, booktabs = TRUE, row.names = FALSE,
+    caption = "HR 1.00 n500: the null sequence.") |> kable_styling(font_size = 10)
+kbl(rbind(seq_tab(1.50, 1000), seq_tab(1.00, 1000)), digits = dg3, booktabs = TRUE, row.names = FALSE,
+    caption = "n = 1000 cells.") |> kable_styling(font_size = 10)
+```
+
+```{r a3-plot, fig.width = 11, fig.height = 4.5}
+library(ggplot2)
+P <- A1[A1$n > 0, ]; P$regime_short <- sub(" \\(.*$", "", P$regime); P$idx <- order_key[meta_tab$tag]
+L <- rbind(data.frame(cell = P$cell, regime = P$regime_short, idx = P$idx, component = "Var(a)", value = P$Var_a),
+           data.frame(cell = P$cell, regime = P$regime_short, idx = P$idx, component = "Var(c) - 2Cov(a,c)", value = P$excess_c),
+           data.frame(cell = P$cell, regime = P$regime_short, idx = P$idx, component = "Var(e)", value = P$Var_e),
+           data.frame(cell = P$cell, regime = P$regime_short, idx = P$idx, component = "naive SE^2", value = P$naive_SE2),
+           data.frame(cell = P$cell, regime = P$regime_short, idx = P$idx, component = "lambda-SD^c2", value = P$lam_SD2))
+L$regime <- factor(L$regime, levels = names(order_key))
+ggplot(L, aes(x = regime, y = value, colour = component, group = component)) +
+  geom_point(size = 2) + geom_line() + facet_wrap(~ cell, scales = "free_y", nrow = 1) +
+  labs(x = NULL, y = "variance (log-HR)^2", colour = NULL) + theme_bw(base_size = 10) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1), legend.position = "bottom")
+```
+
+# Numbers for the record
+
+```{r reading, results='asis'}
+#| echo: false
+for (i in seq_len(nrow(A1))) with(A1[i, ], cat(sprintf(
+  "- **%s, %s** (n %d, |Hhat| %.0f): Var(a) %.5f vs naive SE^2 %.5f (ratio %.3f); Var(c) %.5f, Cov(a,c) %.5f (corr %.3f), Var(c) - 2Cov %.5f; Var(e) %.5f (r %.3f, check %.1e); lambda-SD^c2 %.5f = %.3f Var(e) = %.3f Var(a) = %.3f naive SE^2; IJ se^2 %.5f = %.2f Var(e).\n",
+  cell, regime, n, Hhat_mean, Var_a, naive_SE2, Va_over_nSE2, Var_c, Cov_ac, corr_ac, excess_c, Var_e, r, check, lam_SD2, lam2_over_Ve, lam2_over_Va, lam2_over_nSE2, ij_se2, ij2_over_Ve)))
+```
