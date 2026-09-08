@@ -593,6 +593,14 @@ stopifnot(mr_ij_residual %in% c("two_term", "winner", "winner_floor"))
 # every pre-existing column byte-identical; TRUE leaves every pre-existing
 # column identical too (the block reads existing objects only).
 mr_field_decompose <- identical(.env_chr("FS_S7_FIELD_DECOMP", "FALSE"), "TRUE")
+# Studentized complement field knob (TASK_field_studentize_e1_2026-09-08):
+# "none" (default) or "selected" -> fs_mr_inference(field_scale_complement).
+# Under "selected" the gate attaches the field-s companions (est2_s,
+# upper_1s_s, ... , se_field_s; joint_s) beside the unscaled complement field
+# and the recorder captures the fld_Hc_*_s / fld_joint_s_* columns below.
+# Add-beside: every pre-existing column is identical under either value.
+mr_field_scalec <- .env_chr("FS_S7_FIELD_SCALEC", "none")
+stopifnot(mr_field_scalec %in% c("none", "selected"))
 
 # t_confirm is omitted from the list when NULL so the package resolves its own
 # measure-aware default rather than receiving an explicit NULL.
@@ -606,6 +614,7 @@ mr_inference_args <- c(
        confirm_rule = mr_confirm_rule, field_uniform = mr_field_uniform,
        field_complement = mr_field_complement, ij_residual = mr_ij_residual,
        field_decompose = mr_field_decompose,
+       field_scale_complement = mr_field_scalec,
        return_reselection = TRUE),
   if (!is.null(mr_t_confirm)) list(t_confirm = mr_t_confirm))
 
@@ -644,8 +653,8 @@ cat(sprintf("Run config: method=%s%s, n_sims=%d, nb_boots=%s, mr_draws=%d, worke
             n_sims, if (is.null(nb_boots)) "0 (skip)" else as.character(nb_boots),
             mr_draws, n_workers))
 # Resolved template knobs -- the render's audit line (env overrides included).
-cat(sprintf("Template knobs: hr=%.2f n=%d z1q=%.2f focus=%s nbhd=%.2f er_jcuts=%d ci_method=%s uniform=%s field_complement=%s field_decompose=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
-            target_hr_harm, n_sample, harm_z1_quantile, sg_focus, effect_neighborhood, er_jcuts, mr_ci_method, mr_field_uniform, mr_field_complement, mr_field_decompose, mr_ij_residual, fb_mode, campaign_tag,
+cat(sprintf("Template knobs: hr=%.2f n=%d z1q=%.2f focus=%s nbhd=%.2f er_jcuts=%d ci_method=%s uniform=%s field_complement=%s field_decompose=%s field_scale_complement=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
+            target_hr_harm, n_sample, harm_z1_quantile, sg_focus, effect_neighborhood, er_jcuts, mr_ci_method, mr_field_uniform, mr_field_complement, mr_field_decompose, mr_field_scalec, mr_ij_residual, fb_mode, campaign_tag,
             run_mode, sim_id_start, sim_id_start + n_sims - 1L, quickrun))
 cat(sprintf("Output stem: %s\n", rds_stem))
 ```
@@ -844,6 +853,15 @@ rule_covs <- function(rule) forestsearch:::.fs_rule_columns(rule)
   fld_Hc_scale_sel = NA_real_, fld_Hc_scale_win = NA_real_,
   fld_Hc_scale_cv = NA_real_, fld_Hc_scale_ratio = NA_real_,
   fld_Hc_lam_mean = NA_real_,
+  # field-s companions (field_scale_complement = "selected"; else all NA;
+  # TASK_field_studentize_e1_2026-09-08): the studentized complement field's
+  # bounds, each the _s twin of the column above it, inverted around the
+  # same mr_Hc_est.  PRIMARY: fld_Hc_up1s_s, the one-sided 95% upper bound.
+  fld_Hc_est2_s = NA_real_,
+  fld_Hc_up1s_s = NA_real_, fld_Hc_lo1s_s = NA_real_,
+  fld_Hc_lo2s_s = NA_real_, fld_Hc_hi2s_s = NA_real_,
+  fld_Hc_lo_se_s = NA_real_, fld_Hc_hi_se_s = NA_real_,
+  fld_Hc_se_s = NA_real_, fld_Hc_lam_mean_s = NA_real_,
   fld_Hc_q05 = NA_real_, fld_Hc_q25 = NA_real_, fld_Hc_q50 = NA_real_,
   fld_Hc_q75 = NA_real_, fld_Hc_q95 = NA_real_,
   fld_Hc_q025 = NA_real_, fld_Hc_q975 = NA_real_,
@@ -869,6 +887,12 @@ rule_covs <- function(rule) forestsearch:::.fs_rule_columns(rule)
   fld_joint_bonf_loH = NA_real_, fld_joint_bonf_upHc = NA_real_,
   fld_joint_bonf_prob = NA_real_,
   fld_joint_corr = NA_real_, fld_joint_n = NA_integer_,
+  # joint_s mirrors (field-s; else all NA).
+  fld_joint_s_gamma = NA_real_, fld_joint_s_prob = NA_real_,
+  fld_joint_s_loH = NA_real_, fld_joint_s_upHc = NA_real_,
+  fld_joint_s_bonf_loH = NA_real_, fld_joint_s_bonf_upHc = NA_real_,
+  fld_joint_s_bonf_prob = NA_real_,
+  fld_joint_s_corr = NA_real_, fld_joint_s_n = NA_integer_,
   mr_harm_flag = NA_integer_, ij_source = NA_character_,
   sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_,
   # Re-selection regime and family/band sizes (TASK_p30sg_nb20_2026-09-07;
@@ -1093,6 +1117,16 @@ if (k_random_noise > 0) {
           rec$fld_Hc_scale_cv    <- fc$decomp_fields$scale_win_cv   %||% NA_real_
           rec$fld_Hc_scale_ratio <- fc$decomp_fields$scale_ratio_c  %||% NA_real_
           rec$fld_Hc_lam_mean <- fc$lambda_mean
+          # ---- field-s companions (field_scale_complement = "selected"; absent -> NA) ----
+          rec$fld_Hc_est2_s     <- fc$est2_s      %||% NA_real_
+          rec$fld_Hc_up1s_s     <- fc$upper_1s_s  %||% NA_real_
+          rec$fld_Hc_lo1s_s     <- fc$lower_1s_s  %||% NA_real_
+          rec$fld_Hc_lo2s_s     <- fc$lower_2s_s  %||% NA_real_
+          rec$fld_Hc_hi2s_s     <- fc$upper_2s_s  %||% NA_real_
+          rec$fld_Hc_lo_se_s    <- fc$lower_se_s  %||% NA_real_
+          rec$fld_Hc_hi_se_s    <- fc$upper_se_s  %||% NA_real_
+          rec$fld_Hc_se_s       <- fc$se_field_s  %||% NA_real_
+          rec$fld_Hc_lam_mean_s <- fc$lambda_mean_s %||% NA_real_
           rec$fld_Hc_q05  <- fc$q05;  rec$fld_Hc_q25  <- fc$q25;  rec$fld_Hc_q50 <- fc$q50
           rec$fld_Hc_q75  <- fc$q75;  rec$fld_Hc_q95  <- fc$q95
           rec$fld_Hc_q025 <- fc$q025; rec$fld_Hc_q975 <- fc$q975
@@ -1115,6 +1149,19 @@ if (k_random_noise > 0) {
         rec$fld_joint_bonf_prob <- jj$bonf_joint_prob
         rec$fld_joint_corr      <- jj$corr
         rec$fld_joint_n         <- as.integer(jj$n_joint_draws)
+      }
+      # ---- joint_s (field-s; absent -> all NA) ----
+      if (is.list(f$joint_s) && is.null(f$joint_s$note)) {
+        js <- f$joint_s
+        rec$fld_joint_s_gamma     <- js$gamma
+        rec$fld_joint_s_prob      <- js$joint_prob
+        rec$fld_joint_s_loH       <- js$lower_H
+        rec$fld_joint_s_upHc      <- js$upper_Hc
+        rec$fld_joint_s_bonf_loH  <- js$bonf_lower_H
+        rec$fld_joint_s_bonf_upHc <- js$bonf_upper_Hc
+        rec$fld_joint_s_bonf_prob <- js$bonf_joint_prob
+        rec$fld_joint_s_corr      <- js$corr
+        rec$fld_joint_s_n         <- as.integer(js$n_joint_draws)
       }
     }
   }
@@ -1412,6 +1459,8 @@ if (run_smoke && identical(run_mode, "batch")) {
                              ci_method           = mr_ci_method,
                              field_uniform       = mr_field_uniform,
                              field_complement    = mr_field_complement,
+                             field_decompose     = mr_field_decompose,       # record only (E1)
+                             field_scale_complement = mr_field_scalec,       # record only (E1)
                              ij_residual         = mr_ij_residual,
                              fb_mode             = fb_mode,
                              fb_join_source      = if (identical(fb_mode, "join"))
@@ -1523,6 +1572,8 @@ if (run_smoke && identical(run_mode, "batch")) {
                              focus_tag  = bundles[[1]]$meta$focus_tag %||% NA_character_,
                              ci_method  = bundles[[1]]$meta$ci_method %||% NA_character_,
                              field_complement = bundles[[1]]$meta$field_complement %||% NA,
+                             field_decompose = bundles[[1]]$meta$field_decompose %||% NA,               # record only (E1)
+                             field_scale_complement = bundles[[1]]$meta$field_scale_complement %||% NA_character_,
                              ij_residual = bundles[[1]]$meta$ij_residual %||% NA_character_,
                              campaign_tag = bundles[[1]]$meta$campaign_tag %||% NA_character_,
                              target_hr_harm = bundles[[1]]$meta$target_hr_harm %||% NA_real_,
@@ -1562,12 +1613,13 @@ if (run_smoke && identical(run_mode, "batch")) {
 knitr::kable(data.frame(
   setting = c("ci_method", "draws", "confirm_rule", "t_confirm (as set)",
               "include_complement", "field_complement", "field_decompose",
-              "ij_residual (reported)",
+              "field_scale_complement", "ij_residual (reported)",
               "replicates with an MR harm decision"),
   value = c(mr_ci_method, format(mr_draws), mr_confirm_rule,
             if (is.null(mr_t_confirm)) "NULL -> package near-null default"
             else format(mr_t_confirm), "TRUE", as.character(mr_field_complement),
             as.character(mr_field_decompose),
+            mr_field_scalec,
             mr_ij_residual,
             sprintf("%d of %d detected",
                     sum(!is.na(results$mr_harm_flag)),

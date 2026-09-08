@@ -27,6 +27,7 @@ fs_mr_inference(
   field_M_cap = NULL,
   field_complement = FALSE,
   field_decompose = FALSE,
+  field_scale_complement = c("none", "selected"),
   ij_residual = c("two_term", "winner", "winner_floor")
 )
 }
@@ -179,6 +180,19 @@ outer winners' scales, their ratio \code{scale_ratio_c}, and the variance /
 covariance of the two pieces of \code{Lambda*c}; PROPOSAL_complement_field_scale
 2026-09-08 v2, Stage 1); it reads existing objects only, so every
 pre-existing output is unchanged whether or not it runs.}
+
+\item{field_scale_complement}{\code{"none"} (default) or \code{"selected"}; consulted
+only when the complement field block runs.  Under \code{"selected"} the
+complement's field readings are studentized to the selected complement's
+own scale before differencing -- each outer reading \verb{zeta^c_\{r, G_r\}} is
+multiplied by \verb{s_sel / s_\{G_r\}} and each inner reading by \verb{s_sel / s_\{G(v_r + zeta'_j)\}}, with \code{s_g = sqrt(sum(Bc[, g]^2))} the candidate's
+complement influence-norm scale (the percentile-t root; PROPOSAL_complement_
+field_scale_2026-09-08_v2 s5, variant R1) -- and \code{field$complement} gains
+the \verb{_s} companions of its bounds (\code{est2_s}, \code{upper_1s_s}, \code{lower_1s_s},
+\code{lower_2s_s}, \code{upper_2s_s}, \code{lower_se_s}, \code{upper_se_s}, \code{se_field_s},
+\code{lambda_mean_s}) with \code{field$joint_s} beside \code{field$joint}.  Add-beside:
+no existing field changes under either setting; the default reproduces
+prior output exactly.}
 
 \item{ij_residual}{Which IJ residual populates the \strong{reported} de-biased
 SE and interval (\code{debiased$se_ij}/\code{lower}/\code{upper}/\code{lower_1s}, and the

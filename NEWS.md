@@ -5,6 +5,13 @@
   when the complement field block runs; forwarded through
   `forestsearch(mr_inference_args = list(field_decompose = TRUE))`.  Defaults
   are byte-identical (PROPOSAL_complement_field_scale_2026-09-08_v2, Stage 1).
+* `fs_mr_inference()` gains `field_scale_complement = c("none", "selected")`:
+  under `"selected"` the complement field is studentized to the selected
+  complement's influence-norm scale (the percentile-t root, variant R1) and
+  `field$complement` gains the `_s` companions of its bounds with
+  `field$joint_s` beside `field$joint`; add-beside, no existing field
+  changes, the default reproduces prior output exactly
+  (PROPOSAL_complement_field_scale_2026-09-08_v2 s5; TASK_field_studentize_e1).
 
 # forestsearch 0.3.5
 

@@ -370,6 +370,19 @@
 #'   covariance of the two pieces of `Lambda*c`; PROPOSAL_complement_field_scale
 #'   2026-09-08 v2, Stage 1); it reads existing objects only, so every
 #'   pre-existing output is unchanged whether or not it runs.
+#' @param field_scale_complement `"none"` (default) or `"selected"`; consulted
+#'   only when the complement field block runs.  Under `"selected"` the
+#'   complement's field readings are studentized to the selected complement's
+#'   own scale before differencing -- each outer reading `zeta^c_{r, G_r}` is
+#'   multiplied by `s_sel / s_{G_r}` and each inner reading by `s_sel /
+#'   s_{G(v_r + zeta'_j)}`, with `s_g = sqrt(sum(Bc[, g]^2))` the candidate's
+#'   complement influence-norm scale (the percentile-t root; PROPOSAL_complement_
+#'   field_scale_2026-09-08_v2 s5, variant R1) -- and `field$complement` gains
+#'   the `_s` companions of its bounds (`est2_s`, `upper_1s_s`, `lower_1s_s`,
+#'   `lower_2s_s`, `upper_2s_s`, `lower_se_s`, `upper_se_s`, `se_field_s`,
+#'   `lambda_mean_s`) with `field$joint_s` beside `field$joint`.  Add-beside:
+#'   no existing field changes under either setting; the default reproduces
+#'   prior output exactly.
 #' @param ij_residual Which IJ residual populates the **reported** de-biased
 #'   SE and interval (`debiased$se_ij`/`lower`/`upper`/`lower_1s`, and the
 #'   complement's), method proposal
@@ -513,9 +526,11 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                            field_M_cap = NULL,
                            field_complement = FALSE,
                            field_decompose = FALSE,
+                           field_scale_complement = c("none", "selected"),
                            ij_residual = c("two_term", "winner", "winner_floor")) {
   confirm_rule <- match.arg(confirm_rule); reselection <- match.arg(reselection)
   ij_residual <- match.arg(ij_residual)
+  field_scale_complement <- match.arg(field_scale_complement)
   selection_rule <- match.arg(selection_rule)
   multiplier <- match.arg(multiplier); ci_method <- match.arg(ci_method)
   if (!is.null(seed)) set.seed(seed)
@@ -880,12 +895,14 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
           G_out = G_out, W_in = W_in, Xo = Xo, Xi_f = Xi_f,
           to_eff = to_eff, z975 = z975,
           field_decompose = field_decompose,
+          field_scale_complement = field_scale_complement,
           # Joint (H lower, Hc upper) pair from the aligned outer draws
           # (TASK_complement_refinements_2026-09-06, method B); add-only,
           # attached as field$joint, no new draws.
           lam_H = lam, beta_deb = beta_deb)
         field$complement <- fcres$complement
         if (!is.null(fcres$joint)) field$joint <- fcres$joint
+        if (!is.null(fcres$joint_s)) field$joint_s <- fcres$joint_s   # field-s (add-beside)
       }
 
       # -- Uniform (kappa) calibration -- add-only, after the field's stream
@@ -999,14 +1016,16 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
 .fs_mr_field_complement <- function(df, spec, kept, Bc, bh_c, winset, sel, bdc,
                                     G_out, W_in, Xo, Xi_f, to_eff, z975,
                                     lam_H = NULL, beta_deb = NA_real_,
-                                    alpha = 0.05, field_decompose = FALSE) {
+                                    alpha = 0.05, field_decompose = FALSE,
+                                    field_scale_complement = "none") {
   t0c <- proc.time()
+  scale_on <- identical(field_scale_complement, "selected")
   R_out <- length(G_out); R_in <- ncol(W_in)
   if (!is.finite(bdc))
     return(list(complement = list(
       note = "complement of the selected subgroup could not be fit",
       n_out_used = 0L, R_out = as.integer(R_out), R_in = as.integer(R_in)),
-      joint = NULL))
+      joint = NULL, joint_s = NULL))
   Nall <- nrow(Bc)
   # Lazy complement fits: every candidate winning on any outer or inner draw
   # that the multiplier stage did not already fit -- the same loop body as the
@@ -1024,9 +1043,33 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
     bh_c[w] <- pcc$beta_hat
   }
   fit_ok <- is.finite(bh_c)
+  # -- Selected complement's ensure-fit and the per-candidate scale s (E1,
+  # TASK_field_studentize_e1_2026-09-08; the ensure-fit relocated unchanged
+  # from the Stage 1 decompose block).  Runs only under field_scale_complement
+  # = "selected" or field_decompose = TRUE.  Output invariance: sel is in
+  # winset, so the multiplier stage already attempted its fit and the lazy
+  # loop above never touches it; this block can only populate Bc[, sel] when
+  # that fit failed -- but then bdc (the complement's de-biased estimate,
+  # which needs bh_c[sel]) is NA and the function returned above.  So on every
+  # path that reaches here Bc / fit_ok are exactly what the loop left, and
+  # Zo_c / Zi_c / lam_c below are unchanged (gates G2a-G2c).
+  s <- NULL
+  if (scale_on || isTRUE(field_decompose)) {
+    if (!fit_ok[sel]) {                      # ensure the selected complement's column is populated
+      comp_idx <- setdiff(seq_len(Nall), kept[[sel]])
+      if (length(comp_idx) >= 6L) {
+        pcc <- tryCatch(.fs_mr_pieces(df[comp_idx, , drop = FALSE], spec), error = function(e) NULL)
+        if (!is.null(pcc) && length(pcc$dfbeta) == length(comp_idx)) {
+          Bc[comp_idx, sel] <- pcc$dfbeta; bh_c[sel] <- pcc$beta_hat; fit_ok[sel] <- TRUE
+        }
+      }
+    }
+    s <- sqrt(colSums(Bc * Bc))              # per-candidate complement noise scale; 0 for unfit
+  }
   Zo_c <- crossprod(Bc, Xo)                  # Ncol x R_out : zeta^c (outer)
   Zi_c <- crossprod(Bc, Xi_f)                # Ncol x R_in  : zeta'^c (inner)
   lam_c  <- rep(NA_real_, R_out)
+  lam_cs <- rep(NA_real_, R_out)            # field-s (studentized) root; NA unless scale_on
   n_in_c <- rep(NA_real_, R_out)
   n_drop_unfit <- 0L
   for (r in which(!is.na(G_out))) {
@@ -1037,6 +1080,11 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
     ok_in <- ok_in[fit_ok[wi[ok_in]]]
     if (!length(ok_in)) { n_drop_unfit <- n_drop_unfit + 1L; next }
     lam_c[r]  <- Zo_c[G, r] - mean(Zi_c[cbind(wi[ok_in], ok_in)])
+    # field-s (R1): the same draws, winners and drop logic, each reading
+    # rescaled candidate-wise to the selected complement's scale s[sel].
+    if (scale_on)
+      lam_cs[r] <- (s[sel] / s[G]) * Zo_c[G, r] -
+        mean((s[sel] / s[wi[ok_in]]) * Zi_c[cbind(wi[ok_in], ok_in)])
     n_in_c[r] <- length(ok_in)
   }
   ok_c <- which(is.finite(lam_c))
@@ -1048,31 +1096,32 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                  R_out = as.integer(R_out), R_in = as.integer(R_in))
   if (length(ok_c) < 2L)
     return(list(complement = c(list(note = "fewer than 2 usable outer draws (complement)"),
-                               counts), joint = NULL))
+                               counts), joint = NULL, joint_s = NULL))
   lf <- lam_c[ok_c]
   qs <- stats::quantile(lf, c(.05, .25, .50, .75, .95, .025, .975),
                         names = FALSE, type = 7)
   est2_w <- bdc - mean(lf)
   sd_c <- stats::sd(lf)
+  # -- field-s (field_scale_complement = "selected"): the studentized root's
+  # quantiles, the exact analogue of the block above, inverted around the
+  # same bdc; add-beside, nothing above is read differently.
+  if (scale_on) {
+    lfs <- lam_cs[ok_c]
+    qss <- stats::quantile(lfs, c(.05, .25, .50, .75, .95, .025, .975),
+                           names = FALSE, type = 7)
+    est2s_w <- bdc - mean(lfs)
+    sd_cs <- stats::sd(lfs)
+  }
   # -- Scale decomposition (field_decompose = TRUE; PROPOSAL_complement_field_
   # scale_2026-09-08_v2, Stage 1) -- add-only and drawn from NOTHING: it reads
-  # Bc / Zo_c / lam_c / G_out as the loop above left them.  The lazy fit of
-  # the selected complement (only when the multiplier stage left it unfit)
-  # runs AFTER lam_c is final, so it cannot alter lam_c, lf, the quantiles,
-  # est2 or any existing output; s[g] = sqrt(sum(Bc[, g]^2)) is candidate g's
-  # complement influence-norm scale (0 for an unfit column).
+  # Bc / Zo_c / lam_c / G_out as the loop above left them, and s[g] =
+  # sqrt(sum(Bc[, g]^2)), candidate g's complement influence-norm scale (0
+  # for an unfit column), computed before crossprod (E1 relocation; see the
+  # invariance note there).  Nothing here alters lam_c, lf, the quantiles,
+  # est2 or any existing output.
   decomp_fields <- NULL
   if (isTRUE(field_decompose)) {
-    if (!fit_ok[sel]) {                      # ensure the selected complement's column is populated
-      comp_idx <- setdiff(seq_len(Nall), kept[[sel]])
-      if (length(comp_idx) >= 6L) {
-        pcc <- tryCatch(.fs_mr_pieces(df[comp_idx, , drop = FALSE], spec), error = function(e) NULL)
-        if (!is.null(pcc) && length(pcc$dfbeta) == length(comp_idx)) {
-          Bc[comp_idx, sel] <- pcc$dfbeta; bh_c[sel] <- pcc$beta_hat; fit_ok[sel] <- TRUE
-        }
-      }
-    }
-    s  <- sqrt(colSums(Bc * Bc))             # per-candidate complement noise scale; 0 for unfit
+    # (ensure-fit and s computed above, before crossprod; E1 relocation)
     gG <- G_out[ok_c]; s_win <- s[gG]
     zg <- Zo_c[cbind(gG, ok_c)]; mi <- zg - lf
     decomp_fields <- list(
@@ -1087,6 +1136,8 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   # over ok_c need no re-drawing.
   joint <- if (!is.null(lam_H) && is.finite(beta_deb))
     .fs_mr_field_joint(lam_H[ok_c], lf, beta_deb, bdc, to_eff, alpha) else NULL
+  joint_s <- if (scale_on && !is.null(lam_H) && is.finite(beta_deb))
+    .fs_mr_field_joint(lam_H[ok_c], lfs, beta_deb, bdc, to_eff, alpha) else NULL
   complement <- c(list(
     lambda_mean = mean(lf), lambda_sd = sd_c,
     q05 = qs[1], q25 = qs[2], q50 = qs[3], q75 = qs[4], q95 = qs[5],
@@ -1103,7 +1154,14 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
     counts,
     list(timing_seconds = as.numeric((proc.time() - t0c)["elapsed"])))
   if (!is.null(decomp_fields)) complement$decomp_fields <- decomp_fields   # add-only; absent when FALSE
-  list(complement = complement, joint = joint)
+  if (scale_on) complement <- c(complement, list(                        # field-s companions (add-beside)
+    lambda_mean_s = mean(lfs), se_field_s = sd_cs,
+    est2_s = to_eff(est2s_w),
+    upper_1s_s = to_eff(bdc - qss[1]), lower_1s_s = to_eff(bdc - qss[5]),
+    lower_2s_s = to_eff(bdc - qss[7]), upper_2s_s = to_eff(bdc - qss[6]),
+    lower_se_s = to_eff(est2s_w - z975 * sd_cs),
+    upper_se_s = to_eff(est2s_w + z975 * sd_cs)))
+  list(complement = complement, joint = joint, joint_s = joint_s)
 }
 
 
