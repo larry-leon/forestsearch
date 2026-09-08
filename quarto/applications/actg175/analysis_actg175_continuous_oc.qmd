@@ -22,7 +22,10 @@ suppressPackageStartupMessages({
 #   dirout      = NULL -> the .qmd stem
 # ---------------------------------------------------------------------------
 results_dir <- NULL
-dirout      <- NULL
+# TASK_actg175_continuous_intervals_2026-09-07: committed payloads are read-only, so
+# this render writes beside the committed OC payload rather than over it (the
+# tracked HTML is refreshed per the directory's convention).
+dirout      <- "analysis_actg175_continuous_oc_intervals"
 
 # Everything below is computed in this document: the analysis, the anchored
 # truths (the primary Q and its two supersets — the Q_variants knob, defined
@@ -117,7 +120,15 @@ fs_anchor <- forestsearch(
   is.RCT           = TRUE,
   parallel_args    = list(plan = "sequential"),
   details          = FALSE,
-  quiet            = TRUE
+  quiet            = TRUE,
+  # TASK_actg175_continuous_intervals_2026-09-07: the MR gate on this call --
+  # ci_method = "field", the complement field and the re-selection frequencies
+  # (add-only in the gate; the search is untouched).  mr_inference = TRUE and
+  # draws = 5000L (the compare-all anchor's value) are the enabling settings.
+  mr_inference     = TRUE,
+  mr_inference_args = list(ci_method = "field", draws = 5000L,
+                           include_complement = TRUE, field_complement = TRUE,
+                           return_reselection = TRUE)
 )
 
 H_def  <- paste(fs_anchor$sg.harm, collapse = " & ")
@@ -140,6 +151,243 @@ c2_vec <- sort(unique(c(5, params$c2_ratio * c1_ladder)))
 The anchor: **Ĥ = `` `r H_def` ``**, n(Ĥ) = `r fmt0(n_H)` of `r fmt0(N)`,
 fitted mean difference **T̂~obs~ = `r fmt(T_obs, 6)`** CD4 units,
 consistency `r fmt(p_cons, 2)`.
+
+### 2.1 Post-selection intervals for the found subgroup and its complement {#sec-intervals}
+
+The gate call above now runs multiplier resampling with `ci_method = "field"`,
+`field_complement = TRUE` and `return_reselection = TRUE`
+(`TASK_actg175_continuous_intervals_2026-09-07`; the mirror of the GBSG
+frozen-family intervals section), so the fitted object carries, for Ĥ and its
+complement Ĥᶜ, the interval constructions currently in use: naive, MR (IJ
+two-term), MR (field) with its **one-sided bounds as the directional
+products**, and the Bonferroni / calibrated pair for a claim on both. The
+target throughout is the effect in the region the search found, with the
+candidate family held fixed. Two scales are shown side by side: the gate's
+working scale `y_decline` (positive = harm; the search's own scale, on which
+T̂~obs~ above is read) and the raw `cd4_change` scale, its sign flip. Every
+bound is read by its **location** against mean-difference thresholds — the
+simulation design's reference points, not decision rules: for Ĥ's lower bound
+0 (no harm), 10 (the design's consistency threshold), 20, 30 (the search's
+effect threshold), 40 (the planted MD of the simulation design); for Ĥᶜ's
+upper bound 0, 10, 20, 30. No full bootstrap exists for this document and
+none is run here, so that row is absent.
+
+```{r intervals-objects}
+g  <- fs_anchor$mr_inference
+stopifnot(is.list(g), identical(g$ci_method, "field"),
+          is.list(g$field), is.null(g$field$note),
+          is.list(g$field$complement), is.null(g$field$complement$note),
+          is.list(g$field$joint), is.null(g$field$joint$note),
+          is.list(g$reselection), is.list(g$complement), !is.null(g$complement$debiased))
+f  <- g$field; fc <- f$complement; jt <- f$joint; gc <- g$complement; rs <- g$reselection
+z95 <- qnorm(0.95)
+# Family labels are cut codes q<k>.<level>: k indexes fs_anchor$confounders.evaluated,
+# level 1 = the cut holds, level 0 = its negation -- decoded here for display.
+cuts <- fs_anchor$confounders.evaluated
+lab_of <- function(code) paste(vapply(strsplit(code, " & ", fixed = TRUE)[[1]], function(t) {
+  m <- regmatches(t, regexec("^q([0-9]+)\\.([01])$", t))[[1]]
+  if (length(m) < 3L) return(t)
+  paste0(if (m[3] == "0") "!" else "", "{", cuts[as.integer(m[2])], "}") }, character(1)),
+  collapse = " & ")
+# Gates inside the document: the gate's selected family member IS the found subgroup, its
+# naive estimate IS T_obs, and the field's bounds are the stated inversions about beta-tilde.
+stopifnot(setequal(strsplit(lab_of(g$selected_label), " & ", fixed = TRUE)[[1]], fs_anchor$sg.harm),
+          g$n_selected == n_H, abs(g$naive$est - T_obs) < 1e-9,
+          abs(f$lower_1s - (g$debiased$est - f$q95)) < 1e-9,
+          abs(fc$upper_1s - (gc$debiased$est - fc$q05)) < 1e-9)
+thr_H <- c(0, 10, 20, 30, 40); thr_Hc <- c(0, 10, 20, 30)
+p_hat_H <- unname(rs$p_hat[g$selected_index])
+top3    <- sort(rs$p_hat, decreasing = TRUE)[1:3]
+# one-sided bounds on the oriented scale (harm block: lower; complement: upper)
+lo1 <- c(naive = g$naive$est - z95 * g$debiased$se_wald, ij = g$debiased$lower_1s, field = f$lower_1s)
+up1 <- c(naive = gc$naive$est + z95 * gc$debiased$se_wald, ij = gc$debiased$est + z95 * gc$debiased$se_ij,
+         field = fc$upper_1s)
+fmt2 <- function(l, h) sprintf("(%.2f, %.2f)", l, h)
+# the payload element (schema: TASK_actg175_continuous_intervals_2026-09-07)
+iv <- list(
+  scale = "oriented y_decline (positive = harm); raw cd4_change = sign flip",
+  thresholds = list(H_lower = thr_H, Hc_upper = thr_Hc,
+                    note = "simulation design's reference points (0/10/30/40 = no harm / consistency threshold / effect threshold / planted MD)"),
+  settings = list(ci_method = g$ci_method, draws = g$settings$draws, multiplier = g$settings$multiplier,
+                  reselection = g$settings$reselection, ij_residual = g$ij_residual, seed = params$seed,
+                  field_R_out = f$R_out, field_R_in = f$R_in, n_family = g$n_family, n_selected = g$n_selected),
+  H = list(naive = list(est = g$naive$est, lower = g$naive$lower, upper = g$naive$upper,
+                        se_wald = g$debiased$se_wald, lower_1s = unname(lo1["naive"])),
+           ij = list(est = g$debiased$est, lower = g$debiased$lower, upper = g$debiased$upper,
+                     se_ij = g$debiased$se_ij, lower_1s = g$debiased$lower_1s,
+                     selection_bias = g$selection_bias, fixed_bias = g$fixed_bias),
+           field = list(est2 = f$est2, lower_1s = f$lower_1s, lower_2s = f$lower_2s, upper_2s = f$upper_2s,
+                        lambda_sd = f$lambda_sd, lambda_mean = f$lambda_mean, q05 = f$q05, q95 = f$q95,
+                        n_out_used = f$n_out_used, n_in_used_mean = f$n_in_used_mean,
+                        timing_seconds = f$timing_seconds)),
+  Hc = list(naive = list(est = gc$naive$est, lower = gc$naive$lower, upper = gc$naive$upper,
+                         se_wald = gc$debiased$se_wald, upper_1s = unname(up1["naive"])),
+            ij = list(est = gc$debiased$est, lower = gc$debiased$lower, upper = gc$debiased$upper,
+                      se_ij = gc$debiased$se_ij, upper_1s = unname(up1["ij"])),
+            field = list(est2 = fc$est2, upper_1s = fc$upper_1s, lower_1s = fc$lower_1s,
+                         lower_2s = fc$lower_2s, upper_2s = fc$upper_2s, lambda_sd = fc$se_field,
+                         lambda_mean = fc$lambda_mean, q05 = fc$q05, q95 = fc$q95,
+                         n_out_used = fc$n_out_used, n_complement_fits = fc$n_complement_fits,
+                         timing_seconds = fc$timing_seconds)),
+  joint = list(gamma = jt$gamma, lower_H = jt$lower_H, upper_Hc = jt$upper_Hc, joint_prob = jt$joint_prob,
+               bonf_lower_H = jt$bonf_lower_H, bonf_upper_Hc = jt$bonf_upper_Hc,
+               bonf_joint_prob = jt$bonf_joint_prob, corr = jt$corr, n_joint_draws = jt$n_joint_draws),
+  reselection = list(p_hat_H = p_hat_H, selection_rate = g$selection_rate,
+                     top3_labels = vapply(names(top3), lab_of, character(1)), top3_codes = names(top3),
+                     top3_p_hat = unname(top3)),
+  timing_seconds = list(multiplier_stage = g$timing_seconds, field = f$timing_seconds,
+                        complement_field = fc$timing_seconds))
+```
+
+```{r intervals-table-H}
+tab1 <- data.frame(
+  Method = c("Naive", "MR (IJ two-term)", "MR (field)"),
+  `Point est. (oriented)` = c(sprintf("%.2f", g$naive$est), sprintf("%.2f (β̃)", g$debiased$est),
+                              sprintf("%.2f (est₂); β̃ %.2f", f$est2, g$debiased$est)),
+  `SE` = c(sprintf("%.2f (robust)", g$debiased$se_wald), sprintf("%.2f (IJ)", g$debiased$se_ij),
+           sprintf("%.2f (λ-SD)", f$lambda_sd)),
+  `Two-sided 95% (oriented)` = c(fmt2(g$naive$lower, g$naive$upper), fmt2(g$debiased$lower, g$debiased$upper),
+                                 fmt2(f$lower_2s, f$upper_2s)),
+  `One-sided 95% LOWER (oriented)` = sprintf("%.2f", lo1),
+  `Point est. (cd4_change)` = sprintf("%.2f", -c(g$naive$est, g$debiased$est, f$est2)),
+  `Two-sided 95% (cd4_change)` = c(fmt2(-g$naive$upper, -g$naive$lower), fmt2(-g$debiased$upper, -g$debiased$lower),
+                                   fmt2(-f$upper_2s, -f$lower_2s)),
+  `One-sided 95% bound (cd4_change): change ≤` = sprintf("%.2f", -lo1),
+  check.names = FALSE)
+gt(tab1) |>
+  tab_header(title = "Table 1 — Ĥ: interval constructions for the found subgroup",
+             subtitle = sprintf("Ĥ = %s, n = %d of %d; oriented = y_decline (positive = harm); cd4_change = sign flip",
+                                H_def, n_H, N)) |>
+  tab_footnote(footnote = paste(
+    "One-sided conventions: naive est − 1.645·SE(robust); MR (IJ) the gate's stored selection-adjusted lower_1s (β̃ − 1.645·SE_IJ);",
+    "MR (field) β̃ − q₀.₉₅(Λ*), built on the de-biased estimate β̃, not on est₂ (est₂ = β̃ − mean Λ*). The field's SE column is the Λ*-SD.",
+    "On the cd4_change scale the harm lower bound L becomes an upper bound on the change: change ≤ −L."))
+```
+
+```{r intervals-spread, results = "asis"}
+cat(sprintf(paste0(
+  "Retained-optimism spread on the oriented scale: naive %.2f → MR (IJ) %.2f → MR (field) est₂ %.2f, ",
+  "i.e. the corrections remove %.2f (IJ) and %.2f (field) CD4 cells/mm³ of the naive estimate ",
+  "(selection term %.2f, fixed term %.2f in the two-term correction).\n\n"),
+  g$naive$est, g$debiased$est, f$est2, g$naive$est - g$debiased$est, g$naive$est - f$est2,
+  g$selection_bias, g$fixed_bias))
+```
+
+```{r intervals-table-Hc}
+tab2 <- data.frame(
+  Method = c("Naive", "MR (IJ two-term)", "MR (field)"),
+  `Point est. (oriented)` = c(sprintf("%.2f", gc$naive$est), sprintf("%.2f (β̃ᶜ)", gc$debiased$est),
+                              sprintf("%.2f (est₂); β̃ᶜ %.2f", fc$est2, gc$debiased$est)),
+  `SE` = c(sprintf("%.2f (robust)", gc$debiased$se_wald), sprintf("%.2f (IJ)", gc$debiased$se_ij),
+           sprintf("%.2f (λ-SDᶜ)", fc$se_field)),
+  `Two-sided 95% (oriented)` = c(fmt2(gc$naive$lower, gc$naive$upper), fmt2(gc$debiased$lower, gc$debiased$upper),
+                                 fmt2(fc$lower_2s, fc$upper_2s)),
+  `One-sided 95% UPPER (oriented)` = sprintf("%.2f", up1),
+  `Point est. (cd4_change)` = sprintf("%.2f", -c(gc$naive$est, gc$debiased$est, fc$est2)),
+  `Two-sided 95% (cd4_change)` = c(fmt2(-gc$naive$upper, -gc$naive$lower), fmt2(-gc$debiased$upper, -gc$debiased$lower),
+                                   fmt2(-fc$upper_2s, -fc$lower_2s)),
+  `One-sided 95% bound (cd4_change): change ≥` = sprintf("%.2f", -up1),
+  check.names = FALSE)
+gt(tab2) |>
+  tab_header(title = "Table 2 — Ĥᶜ: interval constructions for the complement (benefit claim)",
+             subtitle = sprintf("Ĥᶜ: n = %d; the one-sided UPPER bound is the exposed limit for a benefit claim (\"harm at most U\" = \"benefit at least −U\")",
+                                N - n_H)) |>
+  tab_footnote(footnote = sprintf(paste(
+    "One-sided conventions: naive est + 1.645·SE(robust); MR (IJ) β̃ᶜ + 1.645·SE_IJ; MR (field) the gate's stored upper_1s = β̃ᶜ − q₀.₀₅(Λ*ᶜ).",
+    "Regime diagnostic: λ-SDᶜ / naive SE = %.3f (the IJ SE / naive SE = %.3f)."),
+    fc$se_field / gc$debiased$se_wald, gc$debiased$se_ij / gc$debiased$se_wald))
+```
+
+```{r intervals-table-joint}
+tab3 <- data.frame(
+  Pair = c("Separate one-sided 95% field bounds", "Bonferroni (γ = 0.025 each)",
+           sprintf("Calibrated from field$joint (γ = %.3f)", jt$gamma)),
+  `Ĥ lower (oriented)` = sprintf("%.2f", c(f$lower_1s, jt$bonf_lower_H, jt$lower_H)),
+  `Ĥᶜ upper (oriented)` = sprintf("%.2f", c(fc$upper_1s, jt$bonf_upper_Hc, jt$upper_Hc)),
+  `Ĥ: change ≤ (cd4_change)` = sprintf("%.2f", -c(f$lower_1s, jt$bonf_lower_H, jt$lower_H)),
+  `Ĥᶜ: change ≥ (cd4_change)` = sprintf("%.2f", -c(fc$upper_1s, jt$bonf_upper_Hc, jt$upper_Hc)),
+  `Joint prob. on the aligned draws` = c("< 0.95 by construction", sprintf("%.3f", jt$bonf_joint_prob),
+                                         sprintf("%.3f", jt$joint_prob)),
+  check.names = FALSE)
+gt(tab3) |>
+  tab_header(title = "Table 3 — the joint pair (Ĥ lower bound, Ĥᶜ upper bound)",
+             subtitle = sprintf("γ = %.3f on the 0.025–0.050 grid; corr(Λ*, Λ*ᶜ) = %+.3f over %d aligned draws",
+                                jt$gamma, jt$corr, jt$n_joint_draws))
+```
+
+```{r intervals-diagnostics}
+tab4 <- data.frame(
+  Quantity = c(sprintf("p̂(Ĥ)  [selected: %s]", lab_of(g$selected_label)),
+               sprintf("Top re-selected: %s", lab_of(names(top3)[1])),
+               sprintf("2nd: %s", lab_of(names(top3)[2])),
+               sprintf("3rd: %s", lab_of(names(top3)[3])),
+               "Selection rate (draws with a winner); family size",
+               "Field Λ*-mean (second-order term, oriented)",
+               "Field λ-SD vs IJ SE; vs naive SE (Ĥ)",
+               "Field draw usage (outer used / R_out; mean inner / R_in)",
+               "Complement fits per gate call; λ-SDᶜ vs naive SE (Ĥᶜ)"),
+  Value = c(sprintf("%.3f", p_hat_H), sprintf("%.3f", top3[1]), sprintf("%.3f", top3[2]), sprintf("%.3f", top3[3]),
+            sprintf("%.3f; %d candidates", g$selection_rate, g$n_family),
+            sprintf("%+.3f", f$lambda_mean),
+            sprintf("%.2f / %.2f = %.2f; %.2f / %.2f = %.2f", f$lambda_sd, g$debiased$se_ij, f$lambda_sd / g$debiased$se_ij,
+                    f$lambda_sd, g$debiased$se_wald, f$lambda_sd / g$debiased$se_wald),
+            sprintf("%d / %d; %.0f / %d", f$n_out_used, f$R_out, f$n_in_used_mean, f$R_in),
+            sprintf("%d; %.2f / %.2f = %.3f", fc$n_complement_fits, fc$se_field, gc$debiased$se_wald,
+                    fc$se_field / gc$debiased$se_wald)),
+  check.names = FALSE)
+gt(tab4) |> tab_header(title = "Re-selection and field diagnostics",
+                       subtitle = "p̂ near 1 = settled selection; below ~0.5 = tie regime (the second-order field correction matters most)")
+```
+
+::: {.callout-note}
+## Reading the intervals (generated from the numbers above at render time)
+
+```{r intervals-reading, results = "asis"}
+U <- fc$upper_1s; L <- f$lower_1s
+sup_Hc <- thr_Hc[U <= thr_Hc]; not_Hc <- thr_Hc[U > thr_Hc]
+sup_H  <- thr_H[L >= thr_H];  not_H  <- thr_H[L < thr_H]
+say <- function(v) if (length(v)) paste(v, collapse = ", ") else "none"
+cat(sprintf(paste0(
+  "- **Complement first (the benefit claim).** The field's one-sided 95%% upper bound on Ĥᶜ is %.2f on the oriented scale ",
+  "(a CD4 change of at least %.2f on the raw scale). Against the reading thresholds, \"harm at most τ on Ĥᶜ\" is supported for τ = %s ",
+  "and not supported for τ = %s. Comparators: MR (IJ) upper %.2f (change ≥ %.2f), naive upper %.2f (change ≥ %.2f).\n"),
+  U, -U, say(sup_Hc), say(not_Hc), up1["ij"], -up1["ij"], up1["naive"], -up1["naive"]))
+cat(sprintf(paste0(
+  "- **Ĥ (the harm claim).** The field's one-sided 95%% lower bound is %.2f on the oriented scale (a CD4 change of at most %.2f). ",
+  "\"Harm at least τ on Ĥ\" is supported for τ = %s and not supported for τ = %s. The naive lower bound is %.2f.\n"),
+  L, -L, say(sup_H), say(not_H), lo1["naive"]))
+cat(sprintf(paste0(
+  "- **MR (IJ two-term) as the conservative reference:** lower bound on Ĥ %.2f (SE %.2f, %.2f× the naive SE), upper bound on Ĥᶜ %.2f ",
+  "(SE %.2f, %.2f× the naive SE); its bounds sit %s the field's on both blocks.\n"),
+  lo1["ij"], g$debiased$se_ij, g$debiased$se_ij / g$debiased$se_wald, up1["ij"], gc$debiased$se_ij,
+  gc$debiased$se_ij / gc$debiased$se_wald,
+  if (lo1["ij"] <= L && up1["ij"] >= U) "outside" else "not uniformly outside"))
+cat(sprintf(paste0(
+  "- **A claim on both subgroups** uses the Bonferroni pair (Ĥ lower %.2f, Ĥᶜ upper %.2f; on the cd4_change scale: Ĥ change ≤ %.2f, ",
+  "Ĥᶜ change ≥ %.2f); the calibrated pair at γ = %.3f %s it (corr(Λ*, Λ*ᶜ) = %+.3f).\n"),
+  jt$bonf_lower_H, jt$bonf_upper_Hc, -jt$bonf_lower_H, -jt$bonf_upper_Hc, jt$gamma,
+  if (abs(jt$gamma - 0.025) < 1e-9) "coincides with" else "is tighter than", jt$corr))
+cat(sprintf(paste0(
+  "- **The price of selection:** on Ĥ the adjusted one-sided lower bounds span %.2f (field) to %.2f (IJ) against the naive %.2f; ",
+  "on Ĥᶜ the adjusted upper bounds span %.2f (field) to %.2f (IJ) against the naive %.2f. The point estimates move from the naive %.2f ",
+  "to %.2f (IJ) and %.2f (field est₂) on Ĥ.\n"),
+  L, lo1["ij"], lo1["naive"], U, up1["ij"], up1["naive"], g$naive$est, g$debiased$est, f$est2))
+cat(sprintf(paste0(
+  "- **Regime:** p̂(Ĥ) = %.3f — the selected subgroup wins the re-selection on %.1f%% of multiplier draws, %s. ",
+  "λ-SDᶜ / naive SE = %.3f on the complement.\n"),
+  p_hat_H, 100 * p_hat_H,
+  if (p_hat_H >= 0.5) "a settled selection" else "the tie regime (family labels with near-identical membership compete; the simulation campaign mdf1 found the field's one-sided bounds at nominal in exactly this regime on this DGM family)",
+  fc$se_field / gc$debiased$se_wald))
+cat(sprintf(paste0(
+  "\nProvenance: forestsearch %s; ci_method = %s, %d multiplier draws (%s), field R_out/R_in = %d/%d, ij_residual = %s, seed = %d; ",
+  "gate wall %.1f s (multiplier stage %.1f s, field %.1f s, complement field %.1f s).\n"),
+  as.character(utils::packageVersion("forestsearch")), g$ci_method, g$settings$draws, g$settings$multiplier,
+  f$R_out, f$R_in, g$ij_residual, params$seed,
+  g$timing_seconds + f$timing_seconds + fc$timing_seconds, g$timing_seconds, f$timing_seconds, fc$timing_seconds))
+```
+
+No claim is made beyond these numbers; the thresholds are the simulation design's reference points and may be replaced.
+:::
 
 ## 3. The anchored truth, and the Q knob
 
@@ -366,7 +614,7 @@ declaration rate at (T̂~obs~, `r fmt(params$c2_ratio * 10, 0)`) are:
 ```{r null-not-shared}
 fam0 <- parallel::mclapply(Q_variants, function(cu)
   fs_oc_family_enumerate(dgm_at(q_rungs[1], cu), fs_args, n = N,
-                         max_M = 10000L, verbose = FALSE), mc.cores = 3L)
+                         max_M = 10000L, verbose = FALSE), mc.cores = min(3L, params$n_workers))
 stopifnot(identical(fam0$wider$lab, fam0$primary$lab),
           identical(fam0$broad$lab, fam0$primary$lab))  # member alignment
 dev_vs_primary <- sapply(fam0[c("wider", "broad")], function(f)
@@ -978,6 +1226,9 @@ calibration column (same archived document) bounds the se-model choice.
 ```{r doc-clock}
 cat(sprintf("document compute wall-clock so far: %.1f min\n",
             (proc.time()[["elapsed"]] - t_doc) / 60))
+# TASK_actg175_continuous_intervals_2026-09-07: the OC loop needs about 11 GB per worker
+cat(sprintf("rendered with n_workers = %d (the OC loop needs about 11 GB per worker: one fs_oc_grid() job on %s draws x M = %d in one block)\n",
+            params$n_workers, format(params$draws, big.mark = ","), fam$M))
 ```
 
 # Reproducibility payload {#sec-export-payload}
@@ -1030,6 +1281,8 @@ payload <- list(
     calibration = lad[, c("q", "pT", "pTs", "pT5", "pT5s")],
     anchor      = list(def = H_def, n_H = n_H, T_obs = T_obs,
                        p_cons = p_cons, beta_treat = beta_treat),
+    # TASK_actg175_continuous_intervals_2026-09-07: the interval constructions
+    intervals   = iv,
     purity      = list(nearest_lab = fam$lab[i_near],
                        nearest_purity = purity_near,
                        nearest_jaccard = jac[i_near]),
