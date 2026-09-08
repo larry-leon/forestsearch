@@ -9,6 +9,8 @@
 # b = mean log error / empirical SD and r = mean reported SE / empirical SD,
 # a Gaussian error model predicts one-sided coverage Phi(z_0.95 * r - b) and
 # two-sided coverage Phi(z_0.975 * r - b) - Phi(-z_0.975 * r - b).
+# `scale = "identity"` (add-only, TASK_continuous_field_mac_2026-09-07) runs
+# the same bookkeeping on the natural scale for difference measures (MD/RD).
 
 #' Bias and coverage summary for one simulation cell
 #'
@@ -53,6 +55,16 @@
 #'   the harm-claim orientation) or `"upper"` (one-sided coverage of the
 #'   upper bound, the benefit-claim orientation).  Two-sided quantities are
 #'   unaffected.
+#' @param scale `"log"` (default) or `"identity"`.  The working scale of the
+#'   estimate columns: `"log"` for ratio measures (HR/OR/RR; bias, SD and the
+#'   normal-based one-sided bound `exp(log est -/+ z * SE)` are computed on
+#'   the log scale, and non-positive estimates are dropped), `"identity"`
+#'   for difference measures (MD/RD; bias, SD and the bound `est -/+ z * SE`
+#'   on the natural scale, no positivity guard).  Add-only
+#'   (TASK_continuous_field_mac_2026-09-07): the default reproduces the
+#'   previous output exactly.  Under `"identity"` the `bias_log` column
+#'   holds the identity-scale bias (the column name is kept so stacked
+#'   tables and [fs_plot_bias_coverage()] read either scale unchanged).
 #' @return Data frame, one row per estimator: `estimator`, `n`, `bias_log`,
 #'   `sd_emp`, `se_mean`, `b`, `r`, `cov1`, `cov1_wilson_lo`,
 #'   `cov1_wilson_hi`, `cov2`, `cov2_wilson_lo`, `cov2_wilson_hi`,
@@ -63,9 +75,13 @@ fs_sim_bias_coverage <- function(results,
                                  estimators = c("naive", "mr", "fld"),
                                  level = 0.95,
                                  target = "betaHhat",
-                                 side = c("lower", "upper")) {
+                                 side = c("lower", "upper"),
+                                 scale = c("log", "identity")) {
   block <- match.arg(block)
   side  <- match.arg(side)
+  scale <- match.arg(scale)
+  # Working-scale transform: log for ratio measures, identity for differences.
+  .tr <- if (scale == "log") log else identity
   estimators <- match.arg(estimators, c("naive", "mr", "fld", "mr_w", "mr_wf"),
                           several.ok = TRUE)
   r <- results[results$detected %in% 1L, , drop = FALSE]
@@ -92,7 +108,7 @@ fs_sim_bias_coverage <- function(results,
     betaHhat = r[[paste0("betaHhat_", block)]],
     oracle   = r[[paste0("or_", block, "_est")]],
     stop("unknown target: ", target))
-  lt <- log(tgt)
+  lt <- .tr(tgt)
 
   z1 <- stats::qnorm(level)
   z2 <- stats::qnorm(1 - (1 - level) / 2)
@@ -125,14 +141,17 @@ fs_sim_bias_coverage <- function(results,
            lo = r[[paste0(pre, "_", block, "_lo", vs)]],
            hi = r[[paste0(pre, "_", block, "_hi", vs)]],
            se = se,
-           b1 = ifelse(is.finite(e) & is.finite(se) & e > 0,
-                       exp(log(e) + sgn * z1 * se), NA_real_))
+           b1 = if (scale == "log")
+                  ifelse(is.finite(e) & is.finite(se) & e > 0,
+                         exp(log(e) + sgn * z1 * se), NA_real_)
+                else ifelse(is.finite(e) & is.finite(se),
+                            e + sgn * z1 * se, NA_real_))
     }
   }
 
   out <- lapply(estimators, function(k) {
     cc <- cols(k)
-    le <- log(cc$e)
+    le <- .tr(cc$e)
     okb <- is.finite(le) & is.finite(lt)
     bias_log <- mean(le[okb] - lt[okb])
     sd_emp   <- stats::sd(le[is.finite(le)])
