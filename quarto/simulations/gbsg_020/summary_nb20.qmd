@@ -1,0 +1,156 @@
+---
+title: "effMaxSG band 0.20 at 31% prevalence: constructions across the p30sgnb20 (J = 10) and p30sgnb20j20 (J = 20) cells"
+subtitle: "Naive, MR (IJ two-term) and MR (field) for both blocks, the joint pair, and the re-selection regime, under effMaxSG with effect_neighborhood = 0.20 (TASK_p30sg_nb20_2026-09-07)"
+author: "Larry León"
+date: today
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+---
+
+Arm A (`p30sgnb20`: the two harm cells HR 1.50 / 1.75 at n = 500, J = 10) and arm B
+(`p30sgnb20j20`: HR 1.00 / 1.50 / 1.75 at n = 500, HR 1.50 / 1.00 at n = 1,000, J = 20)
+re-run the `p30sg` design (harm planted in `{er ≤ q₀.₆₀(er)} ∩ {meno = 0}`, prevalence
+0.3065, `effMaxSG`) with the band widened to `effect_neighborhood = 0.20` — the largest
+subgroup within 20% of the maximal effect among the consistency-qualifying candidates —
+on identical replicates where the cell is shared. Constructions: naive and oracle as
+references, MR (IJ, two-term) and MR (field), and the joint pair; the winner-only and
+winner-floor variants are excluded (standing convention). Displays use the Gaussian
+bookkeeping reference (harm block: lower bound, $\Phi(z_{0.95} r - b)$; complement
+block: upper bound, $\Phi(z_{0.95} r + b)$). The last section reads the gate's
+re-selection frequencies p-hat, the band and the family sizes recorded per replicate.
+
+# Knobs
+
+```{r setup, message=FALSE}
+library(forestsearch)
+library(ggplot2)
+library(kableExtra)
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
+globs <- strsplit(Sys.getenv("FS_SUMSG_GLOBS",
+                  "results/fs_effMaxSG_*_z1q60_nb20_p30sgnb20_combined_1_2000.rds;results/fs_effMaxSG_*_z1q60_nb20_j20_p30sgnb20j20_combined_1_2000.rds"),
+                  ";", fixed = TRUE)[[1]]
+estimators <- c("naive", "mr", "fld")
+curves     <- c(1, 1.25, 1.5, 2)
+cell_label <- function(meta, f) {
+  hr <- meta$target_hr_harm
+  base <- if (hr < 1) sprintf("protective %.2f", hr)
+  else if (hr == 1) "null 1.0" else sprintf("harm %.4g", hr)
+  base <- paste0(base, sprintf(", prev %.0f%%", 100 * (meta$harm_prevalence_super %||% NA)))
+  base <- paste0(base, sprintf(", J=%d", meta$er_jcuts %||% 10L))
+  kn <- as.integer(sub("^.*_knoise(\\d+)_.*$", "\\1", basename(f)))
+  nn <- if (meta$n_sample == 500) if (kn > 0 || hr < 1) "" else ", n=500" else sprintf(", n=%d", meta$n_sample)
+  paste0(base, nn, if (kn > 0) sprintf(", %d noise", kn) else "")
+}
+files <- sort(unlist(lapply(globs, Sys.glob)))
+stopifnot(length(files) > 0)
+bundles <- lapply(files, readRDS)
+labels  <- mapply(cell_label, lapply(bundles, `[[`, "meta"), files)
+```
+
+# Complement block (one-sided = upper bound)
+
+```{r hc}
+tabC <- do.call(rbind, lapply(seq_along(bundles), function(i) {
+  s <- fs_sim_bias_coverage(bundles[[i]]$results, block = "Hc", estimators = estimators, side = "upper")
+  s$cell <- labels[i]; s
+}))
+tabC$estimator <- factor(tabC$estimator, levels = c("naive", "mr", "fld"),
+                         labels = c("naive", "IJ two-term", "field"))
+kbl(tabC[, c("cell", "estimator", "n", "b", "r", "cov1", "cov1_wilson_lo", "cov1_wilson_hi",
+             "cov2", "cov2_wilson_lo", "cov2_wilson_hi", "cov1_ref", "cov2_ref")],
+    digits = 3, booktabs = TRUE, row.names = FALSE,
+    caption = "Complement block; cov1 = one-sided 95% UPPER-bound coverage of beta(Hhat^c).") |>
+  kable_styling(font_size = 12)
+```
+
+```{r hc-plot}
+#| fig-width: 13
+#| fig-height: 4.6
+fs_plot_bias_coverage(tabC, curves = curves, side = "upper")
+```
+
+# Harm block (one-sided = lower bound)
+
+```{r h}
+tabH <- do.call(rbind, lapply(seq_along(bundles), function(i) {
+  s <- fs_sim_bias_coverage(bundles[[i]]$results, block = "H", estimators = estimators, side = "lower")
+  s$cell <- labels[i]; s
+}))
+tabH$estimator <- factor(tabH$estimator, levels = c("naive", "mr", "fld"),
+                         labels = c("naive", "IJ two-term", "field"))
+kbl(tabH[, c("cell", "estimator", "n", "b", "r", "cov1", "cov1_wilson_lo", "cov1_wilson_hi",
+             "cov2", "cov2_wilson_lo", "cov2_wilson_hi", "cov1_ref", "cov2_ref")],
+    digits = 3, booktabs = TRUE, row.names = FALSE,
+    caption = "Harm block; cov1 = one-sided 95% LOWER-bound coverage of beta(Hhat).") |>
+  kable_styling(font_size = 12)
+```
+
+```{r h-plot}
+#| fig-width: 13
+#| fig-height: 4.6
+fs_plot_bias_coverage(tabH, curves = curves, side = "lower")
+```
+
+# The simultaneous pair
+
+```{r joint}
+wil <- function(x, n, z = qnorm(.975)) { c <- (x + z^2/(2*n))/(1+z^2/n); h <- z*sqrt(x*(1-x)/n + z^2/(4*n^2))/(1+z^2/n); c(c - h, c + h) }
+tabJ <- do.call(rbind, lapply(seq_along(bundles), function(i) {
+  r <- bundles[[i]]$results; d <- r[r$detected %in% 1L, ]
+  d <- d[is.finite(d$betaHhat_H) & is.finite(d$betaHhat_Hc) & is.finite(d$fld_joint_gamma), ]
+  pairs <- list(`separate 95%` = list(lo = d$fld_H_lo1s, up = d$fld_Hc_up1s),
+                `Bonferroni`   = list(lo = d$fld_joint_bonf_loH, up = d$fld_joint_bonf_upHc),
+                `calibrated`   = list(lo = d$fld_joint_loH, up = d$fld_joint_upHc))
+  do.call(rbind, lapply(names(pairs), function(nm) { p <- pairs[[nm]]
+    cH <- d$betaHhat_H >= p$lo; cC <- d$betaHhat_Hc <= p$up; jc <- mean(cH & cC); w <- wil(jc, nrow(d))
+    data.frame(cell = labels[i], pair = nm, n = nrow(d), joint_cov = jc, wilson_lo = w[1], wilson_hi = w[2],
+               cov_H = mean(cH), cov_Hc = mean(cC),
+               margin_H = mean(log(d$mr_H_est) - log(p$lo)), margin_Hc = mean(log(p$up) - log(d$mr_Hc_est)),
+               mean_gamma = mean(d$fld_joint_gamma), mean_corr = mean(d$fld_joint_corr), stringsAsFactors = FALSE) }))
+}))
+kbl(tabJ, digits = 3, booktabs = TRUE, row.names = FALSE,
+    caption = "Joint coverage of (beta(Hhat) >= lower_H, beta(Hhat^c) <= upper_Hc) with Wilson intervals; margins on the log scale from the two-term de-biased estimates.") |>
+  kable_styling(font_size = 12)
+```
+
+# Re-selection regime, band and family sizes
+
+```{r regime}
+tabR <- do.call(rbind, lapply(seq_along(bundles), function(i) {
+  r <- bundles[[i]]$results; d <- r[r$detected %in% 1L & is.finite(r$p_hat_H), ]
+  top3 <- rowSums(cbind(d$p_hat_top1, d$p_hat_top2, d$p_hat_top3), na.rm = TRUE)
+  q <- function(v) stats::quantile(v, c(.25, .5, .75), na.rm = TRUE)
+  data.frame(cell = labels[i], n = nrow(d), Hhat_mean = mean(d$n_harm), Hhat_over_H = mean(d$n_harm / d$n_true),
+             p_hat_H_mean = mean(d$p_hat_H), p_hat_H_q25 = q(d$p_hat_H)[1], p_hat_H_q50 = q(d$p_hat_H)[2], p_hat_H_q75 = q(d$p_hat_H)[3],
+             share_argmax = mean(abs(d$p_hat_H - d$p_hat_top1) < 1e-12),
+             top3_mean = mean(top3), band_mean = mean(d$band_n), band_q50 = q(d$band_n)[2], cons_qual_mean = mean(d$n_cons_qual),
+             K_mean = mean(d$n_family), nfit_mean = mean(d$fld_Hc_nfit), stringsAsFactors = FALSE)
+}))
+kbl(tabR, digits = 3, booktabs = TRUE, row.names = FALSE,
+    caption = "Per cell: p-hat(Hhat) = the gate's re-selection frequency of the selected candidate (mean, quartiles), the share of replicates where it is the family argmax, the top-3 mass, the band size on the observed effects, the consistency-qualifying count, the kept family K, and complement fits per replicate.") |>
+  kable_styling(font_size = 12)
+```
+
+# Reading
+
+```{r reading, results='asis'}
+#| echo: false
+fC <- function(k) tabC[tabC$estimator == k, ]; fH <- function(k) tabH[tabH$estimator == k, ]
+cal <- tabJ[tabJ$pair == "calibrated", ]; bon <- tabJ[tabJ$pair == "Bonferroni", ]; sep <- tabJ[tabJ$pair == "separate 95%", ]
+cat(sprintf(paste0(
+  "Complement, one-sided upper coverage: naive %s (r = %s); IJ two-term %s (r = %s); field %s (r = %s). ",
+  "Harm, one-sided lower coverage: naive %s; IJ two-term %s (r = %s); field %s (r = %s). ",
+  "Joint pair: calibrated coverage %s (mean gamma %s, mean corr %s) vs Bonferroni %s vs separate 95%% bounds %s.\n"),
+  paste(sprintf("%.3f", fC("naive")$cov1), collapse = "/"), paste(sprintf("%.2f", fC("naive")$r), collapse = "/"),
+  paste(sprintf("%.3f", fC("IJ two-term")$cov1), collapse = "/"), paste(sprintf("%.2f", fC("IJ two-term")$r), collapse = "/"),
+  paste(sprintf("%.3f", fC("field")$cov1), collapse = "/"), paste(sprintf("%.2f", fC("field")$r), collapse = "/"),
+  paste(sprintf("%.3f", fH("naive")$cov1), collapse = "/"),
+  paste(sprintf("%.3f", fH("IJ two-term")$cov1), collapse = "/"), paste(sprintf("%.2f", fH("IJ two-term")$r), collapse = "/"),
+  paste(sprintf("%.3f", fH("field")$cov1), collapse = "/"), paste(sprintf("%.2f", fH("field")$r), collapse = "/"),
+  paste(sprintf("%.3f", cal$joint_cov), collapse = "/"), paste(sprintf("%.4f", cal$mean_gamma), collapse = "/"), paste(sprintf("%+.3f", cal$mean_corr), collapse = "/"),
+  paste(sprintf("%.3f", bon$joint_cov), collapse = "/"), paste(sprintf("%.3f", sep$joint_cov), collapse = "/")))
+```
