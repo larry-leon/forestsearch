@@ -380,7 +380,12 @@ if (!identical(focus_tag, sg_focus))
 #   3. a mandatory campaign_tag suffix namespaces every campaign (smoke vs
 #      production vs any rerun), so combine_glob can never pool across them.
 campaign_tag <- .env_chr("FS_S7_CAMPAIGN", "c1")
-stopifnot(grepl("^[A-Za-z0-9]+$", campaign_tag))
+# Alphanumerics and underscores (TASK_complement_variance_banddial_2026-09-07,
+# C2, decision T-3): the tag is the stem's final token and combine_glob is
+# "<stem>_res_*", so an underscore inside the tag cannot make one campaign's
+# glob match another's.  Every committed tag (s7, s7c, map1, p30, p30sg,
+# p30sgnb20, p30sgnb20j20, ...) is alphanumeric and unchanged.
+stopifnot(grepl("^[A-Za-z0-9_]+$", campaign_tag))
 # Prevalence tag only when the knob is non-default, so every committed M1 stem
 # is unchanged (TASK_prevalence30_2026-09-06).
 z1q_tag      <- if (abs(harm_z1_quantile - 0.25) < 1e-12) "" else
@@ -1494,6 +1499,14 @@ if (run_smoke && identical(run_mode, "batch")) {
                              target_hr_harm = bundles[[1]]$meta$target_hr_harm %||% NA_real_,
                              harm_z1_quantile = bundles[[1]]$meta$harm_z1_quantile %||% NA_real_,
                              harm_prevalence_super = bundles[[1]]$meta$harm_prevalence_super %||% NA_real_,
+                             # Band / grid knobs carried from the first batch
+                             # (TASK_complement_variance_banddial_2026-09-07, C1;
+                             # the nb20 pooled bundles predate this line and
+                             # carry them in their batch metas only).  Both are
+                             # already in the poolability key vector above, as
+                             # are harm_z1_quantile and sg_focus.
+                             effect_neighborhood = bundles[[1]]$meta$effect_neighborhood %||% NA_real_,
+                             er_jcuts = bundles[[1]]$meta$er_jcuts %||% NA_integer_,
                              fb_mode_by_batch = vapply(bundles, function(b)
                                b$meta$fb_mode %||% NA_character_, character(1)),
                              fb_join_skip_by_batch = vapply(bundles, function(b)
