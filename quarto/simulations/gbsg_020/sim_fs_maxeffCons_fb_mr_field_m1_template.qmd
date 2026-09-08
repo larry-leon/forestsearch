@@ -302,7 +302,15 @@ subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
 # re-selection rule from sg_focus, so the gate re-selects under the same
 # functional (REPORT_p30sg_stage0); the stem follows focus_tag as it always has.
 sg_focus           <- .env_chr("FS_S7_FOCUS", "maxeffCons")
-stopifnot(sg_focus %in% c("maxeffCons", "effMaxSG"))
+# "maxSG" / "minSG" (TASK_complement_variance_banddial_2026-09-07, Part B): the
+# pure size rules over the same consistency-qualifying candidates -- the
+# identifier sorts (-N, -Pcons, K) / (N, -Pcons, K), the gate re-selects
+# which.max / which.min of size among the passers (the aligned maps quoted at
+# nb20 Stage 0 0d and re-confirmed at banddial Stage 0).  effect_neighborhood
+# is inert under both (band_n below is then the eps-band on the observed
+# effects, recorded for information only).  Guard widened; nothing else keys
+# on the value.
+stopifnot(sg_focus %in% c("maxeffCons", "effMaxSG", "maxSG", "minSG"))
 # Band-width and er-grid knobs (TASK_p30sg_nb20_2026-09-07; document-level,
 # add-only, defaults reproduce p30sg exactly).  effect_neighborhood is the
 # identifier's band half-width (hr >= (1 - eps) * max hr among the
@@ -1769,7 +1777,8 @@ if (run_smoke && !is.null(results) && "p_hat_H" %in% names(results)) {
     cat(sprintf("- **top-3 mass** (three largest frequencies): %s; sum over the family (= selection rate): mean %.3f\n", .q(top3), mean(rD$p_hat_sum, na.rm = TRUE)))
     if (any(is.finite(rD$n_family)))    cat(sprintf("- **family size K** (gate's kept family): %s\n", .qi(rD$n_family)))
     if (any(is.finite(rD$n_cons_qual))) cat(sprintf("- **consistency-qualifying candidates**: %s\n", .qi(rD$n_cons_qual)))
-    if (any(is.finite(rD$band_n)))      cat(sprintf("- **band size** (candidates with hr >= (1 - %.2f) x max hr on the observed effects): %s\n", effect_neighborhood, .qi(rD$band_n)))
+    if (any(is.finite(rD$band_n)))      cat(sprintf("- **band size** (candidates with hr >= (1 - %.2f) x max hr on the observed effects%s): %s\n", effect_neighborhood,
+                                                    if (sg_focus %in% c("maxSG", "minSG")) "; informational under this focus, whose sort key has no band term" else "", .qi(rD$band_n)))
     cat("\n:::\n\n")
   }
 }
