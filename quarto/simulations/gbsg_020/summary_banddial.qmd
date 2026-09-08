@@ -1,0 +1,152 @@
+---
+title: "The identifier band dial on the J = 10 harm cells: minSG, effMaxSG at ε = 0.10 / 0.20 / 0.30, maxSG"
+subtitle: "Identification and the constructions on identical replicates (p30sg, nb20 arm A, banddial; TASK_complement_variance_banddial_2026-09-07, Part B)"
+author: "Larry León"
+date: today
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+---
+
+Five settings of the identifier on the same replicates of the two harm cells (HR 1.50 n500, HR 1.75 n500; 31%
+prevalence, J = 10, seeds 8316951 + sim_id): `minSG` (the smallest consistency-qualifying candidate of at least 60),
+`effMaxSG` at ε = 0.10 (`p30sg`), 0.20 (nb20 arm A `p30sgnb20`) and 0.30 (`banddial`), and `maxSG` (the largest
+consistency-qualifying candidate; `banddial`). The screened family and the consistency-qualifying set are identical
+across the five (same data, same J = 10 grid, same floors); only the pick changes. Constructions: naive as reference,
+MR (IJ two-term) and MR (field) on both blocks, the joint pair; winner-only and winner-floor excluded. "SD units" and
+"SD(β̃ᶜ)/naive SE" follow the reports' convention (marginal SD of the log estimate); the error-scale ratio of
+`REPORT_complement_variance_2026-09-07` is shown beside it.
+
+# Bundles
+
+```{r setup, message=FALSE}
+library(forestsearch)
+library(ggplot2)
+library(kableExtra)
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
+settings <- list(
+  list(key = "minSG",  label = "minSG",              glob = "results/fs_minSG_fb_mr_field_m1_%s_knoise0_n500_z1q60_banddial_combined_1_2000.rds"),
+  list(key = "eps10",  label = "effMaxSG eps 0.10",  glob = "results/fs_effMaxSG_fb_mr_field_m1_%s_knoise0_n500_z1q60_p30sg_combined_1_2000.rds"),
+  list(key = "eps20",  label = "effMaxSG eps 0.20",  glob = "results/fs_effMaxSG_fb_mr_field_m1_%s_knoise0_n500_z1q60_nb20_p30sgnb20_combined_1_2000.rds"),
+  list(key = "eps30",  label = "effMaxSG eps 0.30",  glob = "results/fs_effMaxSG_fb_mr_field_m1_%s_knoise0_n500_z1q60_nb30_banddial_combined_1_2000.rds"),
+  list(key = "maxSG",  label = "maxSG",              glob = "results/fs_maxSG_fb_mr_field_m1_%s_knoise0_n500_z1q60_banddial_combined_1_2000.rds"))
+cells <- c(h150 = "HR 1.50 n500", h175 = "HR 1.75 n500")
+B <- lapply(names(cells), function(h) { out <- lapply(settings, function(s) { f <- sprintf(s$glob, h); if (file.exists(f)) readRDS(f) else NULL }); names(out) <- vapply(settings, `[[`, "", "key"); out })
+names(B) <- names(cells)
+avail <- do.call(rbind, lapply(names(B), function(h) data.frame(cell = cells[[h]], setting = vapply(settings, `[[`, "", "label"), present = !vapply(B[[h]], is.null, TRUE),
+  n_true_identical = vapply(B[[h]], function(b) if (is.null(b)) NA else all(b$results$n_true[order(b$results$sim_id)] == B[[h]]$eps20$results$n_true[order(B[[h]]$eps20$results$sim_id)]), NA),
+  truth_identical = vapply(B[[h]], function(b) if (is.null(b)) NA else identical(b$truth, B[[h]]$eps20$truth), NA))))
+kbl(avail, booktabs = TRUE, row.names = FALSE, caption = "Bundles read; same draws asserted against nb20 arm A (n_true and truth identical).") |> kable_styling(font_size = 11)
+```
+
+# The dial table (identical replicates)
+
+```{r dial}
+wil <- function(x, n, z = qnorm(.975)) { c <- (x + z^2/(2*n))/(1+z^2/n); h <- z*sqrt(x*(1-x)/n + z^2/(4*n^2))/(1+z^2/n); c(c - h, c + h) }
+dial_one <- function(b, common_ids) {
+  r <- b$results; r <- r[order(r$sim_id), ]; d <- r[r$detected %in% 1L & r$sim_id %in% common_ids, ]
+  tr <- b$truth; thH <- as.numeric(tr$marg_H); thHc <- as.numeric(tr$marg_Hc)
+  rt <- d$n_harm / d$n_true
+  col <- function(nm) if (is.null(d[[nm]])) rep(NA_real_, nrow(d)) else d[[nm]]   # p-hat / band / family columns are absent on p30sg
+  for (nm in c("p_hat_H", "p_hat_top1", "p_hat_top2", "p_hat_top3", "band_n", "n_cons_qual", "n_family")) d[[nm]] <- col(nm)
+  optH <- log(d$nv_H_est) - log(d$betaHhat_H); optC <- log(d$nv_Hc_est) - log(d$betaHhat_Hc)
+  e_c <- log(d$mr_Hc_est) - log(d$betaHhat_Hc); nse <- sqrt(mean(d$nv_Hc_se^2))
+  top3 <- rowSums(cbind(d$p_hat_top1, d$p_hat_top2, d$p_hat_top3), na.rm = TRUE)
+  q <- function(v, p) unname(stats::quantile(v, p, na.rm = TRUE))
+  c(`detection (all replicates)` = mean(r$detected %in% 1L),
+    `n (common detected)` = nrow(d),
+    `mean |Hhat|` = mean(d$n_harm), `|Hhat|/|H| median` = q(rt, .5), `|Hhat|/|H| q10` = q(rt, .1), `|Hhat|/|H| q90` = q(rt, .9),
+    `share |Hhat| >= |H| (planted size)` = mean(d$n_harm >= d$n_true), `share |Hhat| >= 0.9|H|` = mean(rt >= 0.9),
+    sens = mean(d$sens, na.rm = TRUE), spec = mean(d$spec, na.rm = TRUE), ppv = mean(d$ppv, na.rm = TRUE), npv = mean(d$npv, na.rm = TRUE),
+    `naive optimism Hhat: log-HR` = mean(optH), `naive optimism Hhat: SD units (marginal)` = mean(optH) / sd(log(d$nv_H_est)), `naive optimism Hhat: error-SD units` = mean(optH) / sd(optH),
+    `naive optimism Hhat^c: log-HR` = mean(optC), `naive optimism Hhat^c: SD units (marginal)` = mean(optC) / sd(log(d$nv_Hc_est)),
+    `mean beta(Hhat)` = mean(d$betaHhat_H), `theta-dagger(H)` = thH, `mean beta(Hhat^c)` = mean(d$betaHhat_Hc), `theta-dagger(H^c)` = thHc,
+    `SD(beta-tilde^c)/naive SE (marginal)` = sd(log(d$mr_Hc_est)) / nse, `SD(e^c)/naive SE (error)` = sd(e_c) / nse, `lambda-SD^c/naive SE` = sqrt(mean(d$fld_Hc_se^2)) / nse,
+    `SD(beta-tilde)/naive SE (marginal, Hhat)` = sd(log(d$mr_H_est)) / sqrt(mean(d$nv_H_se^2)), `SD(e)/naive SE (error, Hhat)` = sd(log(d$mr_H_est) - log(d$betaHhat_H)) / sqrt(mean(d$nv_H_se^2)),
+    `p-hat(Hhat) mean` = mean(d$p_hat_H, na.rm = TRUE), `p-hat(Hhat) median` = q(d$p_hat_H, .5), `share p-hat = argmax` = mean(abs(d$p_hat_H - d$p_hat_top1) < 1e-12, na.rm = TRUE), `top-3 mass` = mean(top3),
+    `band size (eps of the bundle)` = mean(d$band_n, na.rm = TRUE), `consistency-qualifying` = mean(d$n_cons_qual, na.rm = TRUE), `family K` = mean(d$n_family, na.rm = TRUE),
+    `complement fits/rep` = mean(d$fld_Hc_nfit, na.rm = TRUE), `fit+MR s/rep` = mean(d$fit_mr_secs, na.rm = TRUE))
+}
+DIAL <- list()
+for (h in names(B)) {
+  bs <- B[[h]][!vapply(B[[h]], is.null, TRUE)]
+  common <- Reduce(intersect, lapply(bs, function(b) b$results$sim_id[b$results$detected %in% 1L]))
+  M <- sapply(bs, dial_one, common_ids = common)
+  colnames(M) <- vapply(settings[match(names(bs), vapply(settings, `[[`, "", "key"))], `[[`, "", "label")
+  DIAL[[h]] <- M
+  print(kbl(M, digits = 3, booktabs = TRUE, caption = sprintf("%s: the dial on the %d replicates detected under every setting (p-hat, band and family columns are NA where the bundle predates their recording).", cells[[h]], length(common))) |> kable_styling(font_size = 11))
+}
+```
+
+# Constructions: one-sided coverage on both blocks at each setting
+
+```{r cov}
+estimators <- c("naive", "mr", "fld")
+lab_of <- function(key) settings[[match(key, vapply(settings, `[[`, "", "key"))]]$label
+COV <- do.call(rbind, lapply(names(B), function(h) do.call(rbind, lapply(names(B[[h]]), function(k) { b <- B[[h]][[k]]; if (is.null(b)) return(NULL)
+  rbind(cbind(cell = cells[[h]], setting = lab_of(k), block = "Hhat (lower)", fs_sim_bias_coverage(b$results, block = "H", estimators = estimators, side = "lower")),
+        cbind(cell = cells[[h]], setting = lab_of(k), block = "Hhat^c (upper)", fs_sim_bias_coverage(b$results, block = "Hc", estimators = estimators, side = "upper"))) }))))
+COV$estimator <- factor(COV$estimator, levels = c("naive", "mr", "fld"), labels = c("naive", "IJ two-term", "field"))
+COV$setting <- factor(COV$setting, levels = vapply(settings, `[[`, "", "label"))
+COV <- COV[order(COV$cell, COV$block, COV$setting, COV$estimator), ]
+kbl(COV[, c("cell", "block", "setting", "estimator", "n", "bias_log", "sd_emp", "se_mean", "b", "r", "cov1", "cov1_wilson_lo", "cov1_wilson_hi", "cov2", "cov1_ref")],
+    digits = 3, booktabs = TRUE, row.names = FALSE,
+    caption = "cov1 = one-sided 95% coverage of beta(Hhat) by the lower bound / of beta(Hhat^c) by the upper bound, Wilson limits; b = bias / marginal SD, r = mean SE / marginal SD; cov1_ref = Gaussian reference.") |>
+  kable_styling(font_size = 10)
+```
+
+```{r cov-plot, fig.width = 13, fig.height = 4.6}
+tabH <- COV[COV$block == "Hhat (lower)", ]; tabH$cell <- paste(tabH$cell, tabH$setting)
+fs_plot_bias_coverage(tabH, curves = c(1, 1.25, 1.5, 2), side = "lower")
+```
+
+```{r cov-plot-c, fig.width = 13, fig.height = 4.6}
+tabC <- COV[COV$block == "Hhat^c (upper)", ]; tabC$cell <- paste(tabC$cell, tabC$setting)
+fs_plot_bias_coverage(tabC, curves = c(1, 1.25, 1.5, 2), side = "upper")
+```
+
+# Bound locations and the joint pair
+
+```{r loc}
+LOC <- do.call(rbind, lapply(names(B), function(h) do.call(rbind, lapply(names(B[[h]]), function(k) { b <- B[[h]][[k]]; if (is.null(b)) return(NULL)
+  d <- b$results[b$results$detected %in% 1L, ]
+  rows <- list(naive = list(lo = exp(log(d$nv_H_est) - qnorm(.95) * d$nv_H_se), up = exp(log(d$nv_Hc_est) + qnorm(.95) * d$nv_Hc_se)),
+               `IJ two-term` = list(lo = exp(log(d$mr_H_est) - qnorm(.95) * d$mr_H_se_ij), up = exp(log(d$mr_Hc_est) + qnorm(.95) * d$mr_Hc_se_ij)),
+               field = list(lo = d$fld_H_lo1s, up = d$fld_Hc_up1s))
+  do.call(rbind, lapply(names(rows), function(nm) { p <- rows[[nm]]; ok <- is.finite(p$lo) & is.finite(p$up)
+    data.frame(cell = cells[[h]], setting = lab_of(k), construction = nm, mean_betaH = mean(d$betaHhat_H), mean_betaHc = mean(d$betaHhat_Hc),
+               H_lower_mean = mean(p$lo[ok]), share_ge_085 = mean(p$lo[ok] >= 0.85), share_ge_095 = mean(p$lo[ok] >= 0.95),
+               Hc_upper_mean = mean(p$up[ok]), share_lt_085 = mean(p$up[ok] < 0.85), share_lt_080 = mean(p$up[ok] < 0.80), stringsAsFactors = FALSE) })) }))))
+kbl(LOC, digits = 3, booktabs = TRUE, row.names = FALSE, caption = "Bound locations (HR scale): the harm lower bound against 0.85 / 0.95, the complement upper bound against 0.85 / 0.80.") |> kable_styling(font_size = 10)
+```
+
+```{r joint}
+JNT <- do.call(rbind, lapply(names(B), function(h) do.call(rbind, lapply(names(B[[h]]), function(k) { b <- B[[h]][[k]]; if (is.null(b)) return(NULL)
+  r <- b$results; d <- r[r$detected %in% 1L & is.finite(r$betaHhat_H) & is.finite(r$betaHhat_Hc) & is.finite(r$fld_joint_gamma), ]
+  pairs <- list(`separate 95%` = list(lo = d$fld_H_lo1s, up = d$fld_Hc_up1s), Bonferroni = list(lo = d$fld_joint_bonf_loH, up = d$fld_joint_bonf_upHc), calibrated = list(lo = d$fld_joint_loH, up = d$fld_joint_upHc))
+  do.call(rbind, lapply(names(pairs), function(nm) { p <- pairs[[nm]]; cH <- d$betaHhat_H >= p$lo; cC <- d$betaHhat_Hc <= p$up; jc <- mean(cH & cC); w <- wil(jc, nrow(d))
+    data.frame(cell = cells[[h]], setting = lab_of(k), pair = nm, n = nrow(d), joint_cov = jc, wilson_lo = w[1], wilson_hi = w[2], cov_H = mean(cH), cov_Hc = mean(cC),
+               margin_H = mean(log(d$mr_H_est) - log(p$lo)), margin_Hc = mean(log(p$up) - log(d$mr_Hc_est)), mean_gamma = mean(d$fld_joint_gamma), mean_corr = mean(d$fld_joint_corr), stringsAsFactors = FALSE) })) }))))
+kbl(JNT, digits = 3, booktabs = TRUE, row.names = FALSE, caption = "Joint coverage of (beta(Hhat) >= lower_H, beta(Hhat^c) <= upper_Hc), Wilson limits.") |> kable_styling(font_size = 10)
+```
+
+# The size distribution across the dial
+
+```{r sizes, fig.width = 11, fig.height = 4.2}
+SZ <- do.call(rbind, lapply(names(B), function(h) do.call(rbind, lapply(names(B[[h]]), function(k) { b <- B[[h]][[k]]; if (is.null(b)) return(NULL)
+  d <- b$results[b$results$detected %in% 1L, ]; data.frame(cell = cells[[h]], setting = lab_of(k), ratio = d$n_harm / d$n_true) }))))
+SZ$setting <- factor(SZ$setting, levels = vapply(settings, `[[`, "", "label"))
+ggplot(SZ, aes(x = setting, y = ratio)) + geom_boxplot(outlier.size = 0.5) + geom_hline(yintercept = 1, linetype = 2) + facet_wrap(~ cell) +
+  labs(x = NULL, y = "|Hhat| / |H|") + theme_bw(base_size = 11) + theme(axis.text.x = element_text(angle = 20, hjust = 1))
+```
+
+# Numbers for the record
+
+```{r reading, results='asis'}
+#| echo: false
+for (h in names(DIAL)) { M <- DIAL[[h]]; cat(sprintf("\n**%s** (n common %d)\n\n", cells[[h]], M["n (common detected)", 1]))
+  for (q in rownames(M)) cat(sprintf("- %s: %s\n", q, paste(sprintf("%.3f", M[q, ]), collapse = " | "))) }
+```
