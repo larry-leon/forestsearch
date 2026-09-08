@@ -1,0 +1,62 @@
+# PROPOSAL v2 — Studentizing the complement field to the selected complement's scale (instrumentation + a "field-s" construction)
+
+**Date:** 2026-09-08 (v2; supersedes `PROPOSAL_complement_field_scale_2026-09-08.md` — changes: new §2 theoretical basis, κ_c renamed to the studentizing scale ratio ρᶜ throughout with the closed-κ distinction stated, P-2 default flipped to R1 as the canonical studentized form; stages, gates, costs, and the kill switch unchanged). Author: the Linux MR-field chat. **Status: proposal for Larry's decision — not a task document; nothing goes to CC and no code changes anywhere until approval.** Upon approval, the chat writes the task documents (one CC session for Stage 1 + E0; a second for E1); compute remains a separate go/no-go inside those documents.
+**Provenance:** diagnosis from `REPORT_complement_variance_2026-09-07.md` (A0–A4) and `REPORT_banddial_2026-09-07.md` (§2–3, the two-end corroboration); source quotes from `fs_mr_inference.R` (snapshot 2026-09-08) — **CC re-verifies every quoted line against HEAD at Stage 0.** Closed lines untouched: no κ variants or hybrid κ, no winner-only/winner-floor revival, no covariate adjustment, nothing touching the submitted paper. `ci_method = "ij"` remains the reported two-sided default throughout.
+
+## 1. Diagnosis (settled)
+
+The complement field draws each outer replicate's complement noise at the **re-selected** winner: `Zo_c <- crossprod(Bc, Xo)` (line 1017), `Zi_c <- crossprod(Bc, Xi_f)` (1018), `lam_c[r] <- Zo_c[G, r] - mean(Zi_c[cbind(wi[ok_in], ok_in)])` (1029). Λ*ᶜ therefore carries a **family-average complement scale**, not the selected complement's own. λ²/naive SE² falls 0.965 → 0.936–0.939 → 0.894–0.897 along s7c/p30 → p30sg → nb20; λ²/Var(e) reaches 0.77–0.85 in the low-p̂ / large-Ĥ tertile; `fld_Hc_se` is flat across |Ĥ| tertiles while `nv_Hc_se` and Var(e) grow. Banddial corroborated the mechanism from both ends of the dial: wherever the pick stops varying, λ-SDᶜ returns to the naive SE and the complement's upper coverage recovers to 0.92–0.93, while the band settings sit at 0.90–0.91. The error side is healthy everywhere (Var(a)/naive SE² 0.98–1.01 in harm cells; SD(e)/naive SE 1.00–1.05): a per-replicate **scale** mismatch in the simulator, nothing else.
+
+## 2. Theoretical basis: this is studentization (bootstrap-t), not calibration
+
+**What the field already justifies.** By the Gaussian-multiplier CLT for influence-function linearizations (Kosorok 2008; van der Vaart–Wellner; for selection/max functionals over many candidates, the Chernozhukov–Chetverikov–Kato multiplier results), the field {ζ_g, ζᶜ_g} = {Bᵀξ, Bcᵀξ} approximates the joint limiting Gaussian law of all candidates' harm and complement estimates with the correct cross-candidate covariance. The selection side (re-selection G_r from the perturbed harm field) is untouched by this proposal.
+
+**Where the current complement bound exits that justification.** The realized error process is heteroscedastic in the selection: A2 shows Var(e) tracks the selected complement's own SE² across |Ĥ| tertiles, with the error ratio r ≈ 1.0 *within* every tertile — approximately e ≈ s_sel · Z with Z near-pivotal, where s_g² = Σᵢ Bc[i, g]² is candidate g's complement influence-norm (its sandwich-variance building block). The field deploys a bound at the realized selection while drawing noise at the re-selected candidate's scale s_{G_r} — a mixture scale. Quantiles of a scale mixture, applied to realizations whose scale exceeds the mixture mean, under-cover exactly there. That is the observed failure, located.
+
+**The fix is the percentile-t prescription, verbatim.** Form the unit-scale (studentized) field ζ̃ᶜ_g = ζᶜ_g / s_g; take quantiles of the studentized root Λ̃*ᶜ; re-attach the observed selected scale: interval = bdc − s_sel · q(Λ̃*ᶜ). Since (s_sel/s_g) · ζᶜ_g = s_sel · ζ̃ᶜ_g, the per-draw rescale (R1 below) **is** bootstrapping the pivot — the classical second-order argument for resampling asymptotically pivotal roots (Hall's pivoting results; bootstrap-t), with its force largest precisely when non-pivotality is driven by an estimable scale, as here. Internal coherence: the construction already evaluates the **first** moment at the selected candidate (the two-term correction de-biases the selected winner); referencing the **second** moment to the realized selection completes the construction's own logic.
+
+**The studentizing scale ratio and the closed κ line.** Define ρᶜ = s_sel / s̄_G (s̄_G the draw-weighted mean winner scale over used outer draws). ρᶜ has no free parameter and is fixed by the estimator's linearization before any coverage number is consulted — *derived-then-tested*, with E0/E1 as the falsification tests and R0 as the kill switch. It is categorically distinct from the rejected κ variants, which belonged to the critical-value / multiplicity-calibration family (κ, M_eff) — factors adjusted so that coverage comes out right — a line this program closed when the field replaced calibration with direct simulation of the selection. This proposal neither uses nor revives any κ-variant machinery; the earlier working name "κ_c" is retired for exactly this reason.
+
+**What the theory does not claim.** (i) It corrects scale, not shape — E1's coverage-by-tertile is the direct shape test. (ii) s_g is a plug-in with second-order sampling error (standard studentization caveat); E0 checks its per-draw stability. (iii) The 2–3-point residual at the concentrated-pick ends, where the scale is already right, is explicitly out of scope — the handoff §5 level-dimension item; the target is 0.90–0.91 → 0.92–0.93, not 0.95. (iv) No formal conditional-coverage theorem is claimed; the epistemic status equals the field's own at its admission — a construction with a standard second-order rationale, required to earn its keep in the campaign record.
+
+## 3. The analysis-time scale objects (already in the function; no new draws)
+
+For fitted candidate g, `s_g² = colSums(Bc²)[g]`; `s_sel` from `Bc[, sel]` (both available inside `.fs_mr_field_complement()`, signature line 989, which already receives `sel`). Over the used outer draws: s̄_G and **ρᶜ = s_sel / s̄_G**. Mechanism predictions, testable per replicate: ρᶜ ≈ 1 where the pick is concentrated (high p̂; the minSG/maxSG regimes) and ρᶜ > 1 on the low-p̂ / large-Ĥ replicates where `fld_Hc_se`/`nv_Hc_se` sits at 0.79–0.89. The field's own error decomposition — Var(ζᶜ_G), Var(m̂ᶜ), Cov — comes as scalars from the existing loop. RNG discipline per lines 794–800 (raw ξ held in `Xo`/`Xi_f`); everything above is deterministic given ξ — **no new random draws anywhere in this proposal.**
+
+## 4. Stage 1 — Instrumentation (add-only)
+
+New argument `field_decompose = FALSE` on `fs_mr_inference()`, forwarded to `.fs_mr_field_complement()`. When TRUE, `field$complement` gains scalars: `scale_sel`, `scale_win_mean`, `scale_ratio_c` (ρᶜ), `var_zeta_G`, `var_m_in`, `cov_zeta_m`; an optional analysis-only flag returns per-draw vectors (never in campaigns). Template recorder (document change, separate): bundle columns `fld_Hc_scale_sel`, `fld_Hc_scale_win`, `fld_Hc_scale_ratio`.
+
+**Classification: adds code; byte-identical defaults.** Identity gate: with `field_decompose = FALSE`, all outputs byte-identical on the standing identity cells (all columns); with TRUE, every existing field unchanged, only new fields added. Cost ≈ `colSums` over fitted columns — negligible.
+
+## 5. Stage 2 — The studentized bound ("field-s"), a new construction beside the old
+
+New argument `field_scale_complement = c("none", "selected")`, default `"none"` (byte-identical). Under `"selected"`, **no existing field changes**; the complement list gains studentized companions (`est2_s`, `upper_1s_s`, `lower_1s_s`, `lower_2s_s`, `upper_2s_s`, `se_field_s`) and `field$joint_s` beside `field$joint` — the same add-beside pattern by which the field itself entered (block at line 770, "method proposal, TASK_mr_field_vs_guohe_2026-09-05"). Reports print field-s as its own row; **nothing committed is ever redefined.** Variants:
+
+- **R1 (canonical studentized form; default candidate).** Replace the readings with scale-normalized versions — `(s_sel/s_G) · Zo_c[G, r]` and `(s_sel/s_{wi_j}) · Zi_c[wi_j, j]` — before differencing: exactly the percentile-t root of §2, every draw carrying the selected complement's scale while keeping its realized sign and correlation with ξ. The correction estimate moves with the studentization (composition re-weighting), consistently with the pivot.
+- **R2 (first-order economy).** `lf' = mean(lf) + ρᶜ · (lf − mean(lf))`: spread-only global rescale, correction estimate preserved exactly; equals R1 to first order when per-draw s_G dispersion is small. Fallback if E0 shows the per-draw plug-in s_g too noisy.
+- **R0 (kill switch).** Stage 1 only: ρᶜ reported as an analysis-time flag beside p̂ and λ-SDᶜ/naive SEᶜ; bounds unchanged; the documented interim rule stands.
+
+**Classification: a method proposal** (new construction on the enabled path; defaults byte-identical). Honest expectation restated: target 0.90–0.91 → 0.92–0.93 in the band settings; the end residual is out of scope.
+
+## 6. Evaluation design (sketch; compute is a separate go/no-go in the eventual task documents)
+
+- **E0 — instrumented smoke (decisive, cheap; report-and-wait).** Stage 1 code + recorder on ~100–200 replicates of nb20-A HR 1.75 n500, same seeds. Checks: (i) per-replicate ρᶜ > 1 concentrates in the low-p̂ / large-Ĥ stratum and correlates with the `fld_Hc_se`/`nv_Hc_se` deficit (A2's 1.00/0.92/0.79 tertile pattern); (ii) ρᶜ · `fld_Hc_se` restores tracking of `nv_Hc_se` across tertiles; (iii) per-draw s_G stability adequate for R1 (else R2). If (i)–(ii) fail → R0 and stop. Cost: minutes at 100 workers. Analysis layer exists: `summary_complement_variance.qmd` ingests any bundle set via `FS_SUMCV_GLOBS` unmodified.
+- **E1 — four-cell campaign (six with the ends).** Chosen variant, recorder on, same seeds as committed: nb20-A ε 0.20 (HR 1.50/1.75 n500) and banddial ε 0.30 (HR 1.50/1.75 n500); optionally minSG and maxSG HR 1.75 as no-regression ends (mechanism's own prediction: field-s ≈ field there, ρᶜ ≈ 1). Gates: unscaled columns **identical to the committed bundles** (pairing proof = Stage-2 identity, since studentized fields are add-beside); harm block untouched by construction. Success: field-s complement 1s-upper coverage ≥ 0.92 with Wilson support in all four band cells; coverage-by-tertile flattened (the shape test); no end regression; tables show field / field-s / IJ two-term. Cost: 4 × ≈ 31 min ≈ **2 h**; +2 ends ≈ +46 min; suggested ceiling 3.5 h at 100 workers, hard timeout 5 h. **Stated, not requested.**
+
+Independent of the band decision, the ε 0.35/0.40 question, and the table-convention question.
+
+## 7. Decisions for Larry (defaults in brackets)
+
+- **P-1** Approve Stage 1 instrumentation (add-only, default off) + the three recorder columns. [yes]
+- **P-2** Variant to evaluate: [E0 first, then **R1** — the canonical studentized form per §2; **R2** if E0's per-draw stability check fails; **R0** if E0 falsifies the scale story]. E0 is report-and-wait either way.
+- **P-3** Output shape: studentized fields and `joint_s` added beside the unscaled; no existing field redefined. [yes]
+- **P-4** E1 scope: [six cells — four band cells plus the two no-regression ends].
+- **P-5** Compute authorization: [E0 report-and-wait; E1 pre-authorizable only after Larry reads E0; ceiling 3.5 h / timeout 5 h].
+- **P-6** Construction label: ["field-s" (studentized complement field)]. Code name for the ratio: `scale_ratio_c`; prose: ρᶜ. The name κ_c is retired.
+
+## 8. What this proposal does not do
+
+No change to the harm-side field, the IJ paths, the gate, the identifier, or any default behaviour; no κ-variant or hybrid-κ machinery in any form; no re-running of committed work (E1's identity to committed bundles is the pairing proof); no bearing on the submitted paper or the headline analyses until the construction proves out and Larry chooses to roll it in (handoff §5). If rejected at any point, the interim rule on record carries real analyses: field bound with its shortfall stated against p̂ and the per-replicate λ-SDᶜ/naive SEᶜ ratio; two-term IJ when the complement is not dominated.
+
+**Done means:** Larry returns P-1…P-6 (or edits/rejects); the chat then writes the Stage-1+E0 task document for a fresh CC session, and, after E0 is read, the E1 document.
