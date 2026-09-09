@@ -299,6 +299,13 @@ if (!HAVE_COMPLEMENT) {
 
 ```{r b5}
 #| output: asis
+# N7: report the closed forms plus c-hat's distribution and the per-cell means
+# of the two NON-degenerate metrics. Specificity and PPV are functions of c-hat
+# alone on this design, so they are computed from c-hat, not re-estimated.
+# NPV is degenerate by construction and is stated, never tabulated.
+spec_of <- function(ch) (80 - ch) / 50      # P(W > c-hat | W > 30)
+ppv_of  <- function(ch) 30 / ch             # P(W <= 30 | W <= c-hat)
+
 b5 <- do.call(rbind, lapply(seq_along(CELLS), function(k) {
   r <- bun[[CELLS[k]]]$results
   err_sd <- sd(r$fld_est2 - r$theta)
@@ -307,6 +314,8 @@ b5 <- do.call(rbind, lapply(seq_along(CELLS), function(k) {
     `$\\hat c$ median (IQR)` = sprintf("%.1f (%.1f, %.1f)",
       median(r$c_hat), quantile(r$c_hat, .25), quantile(r$c_hat, .75)),
     `$\\hat c$ min/max` = sprintf("%.1f / %.1f", min(r$c_hat), max(r$c_hat)),
+    `Mean specificity` = sprintf("%.3f", mean(spec_of(r$c_hat))),
+    `Mean PPV` = sprintf("%.3f", mean(ppv_of(r$c_hat))),
     `$\\hat p(\\hat H)$ median (IQR)` = sprintf("%.3f (%.3f, %.3f)",
       median(r$p_hat_H), quantile(r$p_hat_H, .25), quantile(r$p_hat_H, .75)),
     `$M_{\\mathrm{eff}}$ median` = sprintf("%.1f", median(r$M_eff)),
@@ -315,9 +324,12 @@ b5 <- do.call(rbind, lapply(seq_along(CELLS), function(k) {
     check.names = FALSE, row.names = NULL)
 }))
 print(knitr::kable(b5, row.names = FALSE, caption = paste(
-  "Selection and stability per cell. Marginal SD is $\\mathrm{sd}(\\hat\\beta_2)$",
-  "across replicates; error SD is $\\mathrm{sd}(\\hat\\beta_2 - \\gamma_{\\hat c})$",
-  "— they differ because $\\gamma_{\\hat c}$ itself moves with the selection.")))
+  "Selection and stability per cell. Specificity $= (80 - \\hat c)/50$ and",
+  "PPV $= 30/\\hat c$ are exact functions of $\\hat c$ on this design and are",
+  "computed as such; sensitivity and NPV are degenerate at 1 by nesting and are",
+  "not tabulated. Marginal SD is $\\mathrm{sd}(\\hat\\beta_2)$ across replicates;",
+  "error SD is $\\mathrm{sd}(\\hat\\beta_2 - \\gamma_{\\hat c})$ — they differ",
+  "because $\\gamma_{\\hat c}$ itself moves with the selection.")))
 cat("\n")
 ```
 
@@ -328,13 +340,17 @@ $S(c) = \{W \le c\}$ with $\hat c \ge 30$, so $H = S(30) \subseteq S(\hat c)$
 for every replicate. With $W \sim \mathrm{Unif}(0, 80)$ the classification
 operating characteristics are therefore closed forms in $\hat c$ alone:
 
-- **Sensitivity $\equiv 1$** and **NPV $\equiv 1$**, by nesting — not by merit.
-- **Specificity** $= (80 - \hat c)/50$.
-- **PPV** $= 30/\hat c$.
+- **Sensitivity $\equiv 1$** and **NPV $\equiv 1$** — *identically*, by nesting,
+  not by merit. Both are degenerate by construction on this design, so neither
+  is tabulated: a column of ones would read as a result when it is an artefact
+  of $H \subseteq S(\hat c)$.
+- **Specificity** $= (80 - \hat c)/50$ — reported per cell above.
+- **PPV** $= 30/\hat c$ — reported per cell above.
 
-Sensitivity carries no information here; the whole of the identification story
-is in how far $\hat c$ overshoots $30$, which the $\hat c$ column above reports
-directly.
+Sensitivity carries no information in this design. The whole of the
+identification story is how far $\hat c$ overshoots $30$, which the $\hat c$
+distribution above reports directly and which specificity and PPV then restate
+as monotone functions of it.
 :::
 
 ```{r b5-chat-plot}
@@ -354,18 +370,23 @@ par(op)
 
 ```{r b6}
 #| output: asis
-# The field's coverage range is COMPUTED from the rendered bundles, never
+# The field's coverage figures are COMPUTED from the rendered bundles, never
 # transcribed, so this paragraph cannot go stale against the tables above.
+# N7: lead with the MINIMUM, then give the span of the three lowest cells --
+# quoting the span alone reads as if its upper end were a low point when it is
+# mid-pack.
 fld_cov <- SUM$cover[SUM$method == "MR (field)"]
 fld_lo3 <- sort(fld_cov)[1:3]
+fld_min <- sprintf("%.3f", min(fld_lo3))
 fld_range <- sprintf("%.3f–%.3f", min(fld_lo3), max(fld_lo3))
 
 cat(sprintf(paste0(
 "Four limits belong on the record, stated plainly.\n\n",
 
 "1. **The field's low points are ours, and they are under-correction, not ",
-"noise.** Across these cells the MR (field) one-sided coverage bottoms out at ",
-"%s. That shortfall is the stable-pick regime — replicates where ",
+"noise.** Across these cells the MR (field) one-sided coverage **bottoms out ",
+"at %s**, with the three lowest cells spanning %s. That shortfall is the ",
+"stable-pick regime — replicates where ",
 "$\\hat p(\\hat H)$ is high and the selection barely moves — and it is a ",
 "design that does not flatter us: a nested, data-built family of ~151 ",
 "candidates differing by one subject at a time is close to the worst case for ",
@@ -386,7 +407,7 @@ cat(sprintf(paste0(
 "4. **Everything here is one-sided.** Every construction compared in this ",
 "section is a one-sided bound, so none of it depends on the open question of ",
 "the two-sided `ci_method` default.\n"),
-fld_range, cert_upper, cert_joint))
+fld_min, fld_range, cert_upper, cert_joint))
 ```
 
 ```{r b6-cert-note}
