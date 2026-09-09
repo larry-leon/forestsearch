@@ -406,3 +406,172 @@ if (!is.null(A5p)) {
   for (i in seq_len(nrow(L3))) with(L3[i, ], cat(sprintf("| %s | %s | %s | %s | %s | %s | %s |\n", cell, regime, quantity, f4(all), f4(T1), f4(T2), f4(T3))))
 }
 ```
+
+# A6 — Harm-side location by stratum
+
+`TASK_harm_location_2026-09-08`: the A5 chunk with the **harm-block** columns substituted, on the same
+detected replicates (the A5 rows with the harm-block field inputs also finite). Per replicate, on the log
+scale: $a_H = \log(\texttt{nv\_H\_est}) - \log\beta(\widehat H)$ (the naive error on $\widehat H$; positive =
+harm over-estimated), $c_H = \log(\texttt{nv\_H\_est}) - \log(\texttt{mr\_H\_est})$ (the two-term
+correction), $e_H = a_H - c_H$, $\lambda_H = $ `fld_H_lam_mean` (the harm field's own correction, the mean of
+$\Lambda^*$ over the outer draws) and $e_{f,H} = \log(\texttt{fld\_H\_est2}) - \log\beta(\widehat H)$. In
+`fs_mr_inference.R` the harm field sets `est2_w <- beta_deb - mean(lf)` and `est2 = to_eff(est2_w)` with
+`mr_H_est = to_eff(beta_deb)`, so $e_{f,H} = e_H - \lambda_H$ on the working scale; asserted below to
+$10^{-12}$. Observed coverage is that of the harm-side one-sided **lower** bounds: the field's stored
+`fld_H_lo1s` ($= $ `to_eff(beta_deb - q95(Lambda*))`, the quantile form), $\mathbb 1\{\beta(\widehat H) \ge
+\texttt{fld\_H\_lo1s}\}$, and the IJ two-term's $\exp(\log \texttt{mr\_H\_est} - z_{0.95}\,\texttt{mr\_H\_se\_ij})$
+(the `e1stud_findings.R` construction); Wilson 95% limits. The Gaussian-implied field coverage is
+$\Phi(z_{0.95}\, r - b)$ with $b = \bar e_{f,H} / \mathrm{SD}(e_{f,H})$ and
+$r = \overline{\texttt{fld\_H\_se}} / \mathrm{SD}(e_{f,H})$ from the stratum's own numbers (the error SD; the
+marginal SD of $\log \texttt{fld\_H\_est2}$ is shown beside it). No `_s` companion exists on the harm block
+(`field_scale_complement` acts on the complement only). Tertiles within the cell as in A5.
+
+```{r a6-setup}
+h_cols <- c("nv_H_est", "nv_H_se", "mr_H_est", "mr_H_se_ij", "betaHhat_H", "fld_H_est2", "fld_H_lam_mean",
+            "fld_H_se", "fld_H_lo1s")
+has_h <- vapply(seq_along(bundles), function(i) has_s[i] && all(h_cols %in% names(bundles[[i]]$results)), TRUE)
+# The A5 rows (loc()) with the harm-block inputs also finite, plus the harm-side quantities.
+loch <- function(r) {
+  d <- loc(r)
+  d <- d[Reduce(`&`, lapply(h_cols, function(cn) is.finite(d[[cn]]))), , drop = FALSE]
+  d$a_H  <- log(d$nv_H_est) - log(d$betaHhat_H)
+  d$c_H  <- log(d$nv_H_est) - log(d$mr_H_est)
+  d$e_H  <- d$a_H - d$c_H
+  d$lam_H <- d$fld_H_lam_mean
+  d$ef_H <- log(d$fld_H_est2) - log(d$betaHhat_H)
+  d$cov_fH  <- d$betaHhat_H >= d$fld_H_lo1s
+  d$cov_ijH <- d$betaHhat_H >= exp(log(d$mr_H_est) - stats::qnorm(0.95) * d$mr_H_se_ij)
+  d
+}
+D6 <- lapply(which(has_h), function(i) loch(bundles[[i]]$results)); names(D6) <- which(has_h)
+D6 <- D6[match(names(D5), names(D6))]; D6 <- D6[!is.na(names(D6))]   # A5's regime order
+ident6 <- do.call(rbind, lapply(seq_along(D6), function(j) { d <- D6[[j]]; i <- as.integer(names(D6)[j])
+  data.frame(cell = meta_tab$cell[i], regime = meta_tab$regime[i],
+             n_detected = sum(bundles[[i]]$results$detected %in% 1L), n_A5 = nrow(D5[[as.character(i)]]), n = nrow(d),
+             max_abs_efH_minus_eH_lamH = max(abs(d$ef_H - (d$e_H - d$lam_H)))) }))
+stopifnot(length(D6) == 0 || all(ident6$max_abs_efH_minus_eH_lamH <= 1e-12))
+if (length(D6)) kbl(ident6, digits = c(0, 0, 0, 0, 0, 16), booktabs = TRUE, row.names = FALSE,
+    caption = "Identity check (harm block): max |ef_H - (e_H - lam_H)| per cell (asserted <= 1e-12); n = A5's replicates with the harm-block inputs also finite.") |>
+  kable_styling(font_size = 10)
+```
+
+```{r a6-fns}
+# locate() of A5 with the harm-block columns.
+locate6 <- function(d) {
+  m <- function(v) mean(v); s <- function(v) stats::sd(v) / sqrt(length(v))
+  z1 <- stats::qnorm(0.95)
+  b <- mean(d$ef_H) / stats::sd(d$ef_H); rr <- mean(d$fld_H_se) / stats::sd(d$ef_H)
+  wf <- wil(mean(d$cov_fH), nrow(d)); wi <- wil(mean(d$cov_ijH), nrow(d))
+  data.frame(n = nrow(d), Hhat_over_H = mean(d$ratio_H), p_hat_mean = mean(d$p_hat_H),
+             mean_aH = m(d$a_H), se_aH = s(d$a_H), mean_cH = m(d$c_H), se_cH = s(d$c_H), mean_eH = m(d$e_H), se_eH = s(d$e_H),
+             mean_lamH = m(d$lam_H), se_lamH = s(d$lam_H), mean_efH = m(d$ef_H), se_efH = s(d$ef_H),
+             SD_efH = stats::sd(d$ef_H), SD_marg_fldH = stats::sd(log(d$fld_H_est2)),
+             naive_SE_H = mean(d$nv_H_se), se_field_H = mean(d$fld_H_se), se_ij_H = mean(d$mr_H_se_ij),
+             cov_field_H = mean(d$cov_fH), wf_lo = wf[1], wf_hi = wf[2],
+             cov_ij_H = mean(d$cov_ijH), wi_lo = wi[1], wi_hi = wi[2],
+             b_H = b, r_H = rr, gauss_H = stats::pnorm(z1 * rr - b),
+             # the complement's A5 quantities on the same rows, for H3
+             mean_a = m(d$a), mean_ef_s = m(d$ef_s))
+}
+strat6 <- function(j, var, what) {
+  d <- D6[[j]]; i <- as.integer(names(D6)[j]); v <- d[[var]]; if (!any(is.finite(v))) return(NULL)
+  br <- stats::quantile(v, c(0, 1/3, 2/3, 1), na.rm = TRUE, names = FALSE)
+  g <- cut(v, breaks = unique(br), include.lowest = TRUE, labels = FALSE)
+  rbind(cbind(cell = meta_tab$cell[i], regime = meta_tab$regime[i], stratum = sprintf("%s all", what), locate6(d)),
+        do.call(rbind, lapply(sort(unique(g)), function(k) {
+          dk <- d[g == k, , drop = FALSE]
+          cbind(cell = meta_tab$cell[i], regime = meta_tab$regime[i],
+                stratum = sprintf("%s T%d [%.3f, %.3f]", what, k, min(v[g == k]), max(v[g == k])),
+                locate6(dk)) })))
+}
+cols6a <- c("cell", "regime", "stratum", "n", "p_hat_mean", "Hhat_over_H",
+            "mean_aH", "se_aH", "mean_cH", "se_cH", "mean_eH", "se_eH", "mean_lamH", "se_lamH", "mean_efH", "se_efH")
+dg6a <- c(0, 0, 0, 0, 3, 3, rep(4, 10))
+cols6b <- c("cell", "regime", "stratum", "n", "naive_SE_H", "se_field_H", "se_ij_H", "SD_efH", "SD_marg_fldH", "mean_efH", "b_H", "r_H",
+            "cov_field_H", "wf_lo", "wf_hi", "cov_ij_H", "wi_lo", "wi_hi", "gauss_H")
+dg6b <- c(0, 0, 0, 0, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3)
+A6p <- if (length(D6)) do.call(rbind, lapply(seq_along(D6), strat6, var = "p_hat_H", what = "p-hat")) else NULL
+A6h <- if (length(D6)) do.call(rbind, lapply(seq_along(D6), strat6, var = "ratio_H", what = "|Hhat|/|H|")) else NULL
+```
+
+## H1 — Harm-block means by p̂(Ĥ) tertile, per cell
+
+```{r a6-h1}
+if (!is.null(A6p)) {
+  kbl(A6p[, cols6a], digits = dg6a, booktabs = TRUE, row.names = FALSE,
+      caption = "H1 (location, harm block): by p-hat(Hhat) tertile. Means with their SEs of a_H (naive error on Hhat), c_H (two-term correction), e_H = a_H - c_H, lam_H (harm field correction), ef_H = e_H - lam_H; mean p-hat and |Hhat|/|H|.") |>
+    kable_styling(font_size = 9)
+}
+```
+
+```{r a6-h1-cov}
+if (!is.null(A6p)) {
+  kbl(A6p[, cols6b], digits = dg6b, booktabs = TRUE, row.names = FALSE,
+      caption = "H1 (coverage, harm block): mean naive SE, mean fld_H_se, mean mr_H_se_ij; the error SD of ef_H and the marginal SD of log fld_H_est2; observed one-sided lower coverage of the field bound fld_H_lo1s (Wilson) and of the IJ two-term bound exp(log mr_H_est - z mr_H_se_ij) (Wilson); the Gaussian-implied field coverage Phi(z r - b) from the stratum's own (mean ef_H, SD ef_H, mean fld_H_se).") |>
+    kable_styling(font_size = 9)
+}
+```
+
+## H2 — The same by |Ĥ|/|H| tertile, per cell
+
+```{r a6-h2}
+if (!is.null(A6h)) {
+  kbl(A6h[, cols6a], digits = dg6a, booktabs = TRUE, row.names = FALSE,
+      caption = "H2 (location, harm block): by |Hhat|/|H| tertile.") |> kable_styling(font_size = 9)
+  kbl(A6h[, cols6b], digits = dg6b, booktabs = TRUE, row.names = FALSE,
+      caption = "H2 (coverage, harm block): by |Hhat|/|H| tertile.") |> kable_styling(font_size = 9)
+}
+```
+
+## H3 — The paradox test on both blocks
+
+Per cell, on the same replicates: the correlation of $\hat p$ with the harm-side naive error $a_H$ and with
+the complement's naive error $a$ (Pearson and Spearman), and the uncorrected fractions
+$\bar e_{f,H} / \bar a_H$ (harm block) and $\bar e_{f,s} / \bar a$ (complement, A5's L3) by $\hat p$ tertile.
+
+```{r a6-h3}
+if (!is.null(A6p)) {
+  H3c <- do.call(rbind, lapply(seq_along(D6), function(j) { d <- D6[[j]]; i <- as.integer(names(D6)[j])
+    data.frame(cell = meta_tab$cell[i], regime = meta_tab$regime[i], n = nrow(d),
+               pearson_p_aH = stats::cor(d$p_hat_H, d$a_H), spearman_p_aH = stats::cor(d$p_hat_H, d$a_H, method = "spearman"),
+               pearson_p_a = stats::cor(d$p_hat_H, d$a), spearman_p_a = stats::cor(d$p_hat_H, d$a, method = "spearman")) }))
+  kbl(H3c, digits = c(0, 0, 0, 3, 3, 3, 3), booktabs = TRUE, row.names = FALSE,
+      caption = "H3 (correlations): corr(p-hat, a_H) [harm block] and corr(p-hat, a) [complement], Pearson and Spearman, per cell.") |> kable_styling(font_size = 10)
+  H3f <- do.call(rbind, lapply(seq_along(D6), function(j) { i <- as.integer(names(D6)[j])
+    S <- A6p[A6p$cell == meta_tab$cell[i] & A6p$regime == meta_tab$regime[i], ]
+    pick <- function(col) { v <- S[[col]]; names(v) <- sub("^p-hat ", "", sub(" \\[.*$", "", S$stratum)); v }
+    q <- list(`a_H (harm)` = pick("mean_aH"), `ef_H (harm)` = pick("mean_efH"), `ef_H / a_H (harm)` = pick("mean_efH") / pick("mean_aH"),
+              `a (complement)` = pick("mean_a"), `ef_s (complement)` = pick("mean_ef_s"), `ef_s / a (complement)` = pick("mean_ef_s") / pick("mean_a"))
+    do.call(rbind, lapply(names(q), function(nm) { v <- q[[nm]]
+      data.frame(cell = meta_tab$cell[i], regime = meta_tab$regime[i], quantity = nm,
+                 all = v[["all"]], T1 = v[["T1"]], T2 = v[["T2"]], T3 = v[["T3"]]) })) }))
+  kbl(H3f, digits = c(0, 0, 0, 4, 4, 4, 4), booktabs = TRUE, row.names = FALSE,
+      caption = "H3 (uncorrected fractions): harm block ef_H / a_H beside the complement's ef_s / a, by p-hat tertile (T1 low ... T3 high p-hat); the means they are ratios of shown above them.") |> kable_styling(font_size = 10)
+}
+```
+
+## Numbers for the record (A6)
+
+```{r a6-record, results='asis'}
+#| echo: false
+if (!is.null(A6p)) {
+  f3 <- function(x) formatC(x, digits = 3, format = "f"); f4 <- function(x) formatC(x, digits = 4, format = "f")
+  ms <- function(m, s) sprintf("%s (%s)", f4(m), f4(s))
+  st <- function(s) gsub("|Hhat|/|H|", "Hhat/H", s, fixed = TRUE)
+  cat("**Identity check (harm block)** (max |ef_H - (e_H - lam_H)|; n detected / n in A5 / n analysed):\n\n| cell | regime | detected | n A5 | n | max abs ef_H |\n|---|---|---|---|---|---|\n")
+  for (i in seq_len(nrow(ident6))) with(ident6[i, ], cat(sprintf("| %s | %s | %d | %d | %d | %.1e |\n", cell, regime, n_detected, n_A5, n, max_abs_efH_minus_eH_lamH)))
+  for (what in c("p-hat", "|Hhat|/|H|")) { A <- if (what == "p-hat") A6p else A6h
+    cat(sprintf("\n**%s -- harm-block location by %s tertile** (mean (SE) on the log scale):\n\n| cell | regime | stratum | n | mean p-hat | mean Hhat/H | a_H | c_H | e_H | lam_H | ef_H |\n|---|---|---|---|---|---|---|---|---|---|---|\n",
+                if (what == "p-hat") "H1" else "H2", what))
+    for (i in seq_len(nrow(A))) with(A[i, ], cat(sprintf("| %s | %s | %s | %d | %s | %s | %s | %s | %s | %s | %s |\n", cell, regime, st(stratum), n, f3(p_hat_mean), f3(Hhat_over_H),
+      ms(mean_aH, se_aH), ms(mean_cH, se_cH), ms(mean_eH, se_eH), ms(mean_lamH, se_lamH), ms(mean_efH, se_efH))))
+    cat(sprintf("\n**%s -- harm-block coverage by %s tertile** (one-sided lower bounds; Gaussian-implied from the stratum's own mean ef_H, SD ef_H, mean fld_H_se):\n\n| cell | regime | stratum | n | mean naive SE | mean fld_H_se | mean se_ij | SD ef_H (error) | SD log fld_H_est2 (marginal) | mean ef_H | b | r | field cov [Wilson] | IJ cov [Wilson] | Gaussian-implied (field) |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n",
+                if (what == "p-hat") "H1" else "H2", what))
+    for (i in seq_len(nrow(A))) with(A[i, ], cat(sprintf("| %s | %s | %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s [%s, %s] | %s [%s, %s] | %s |\n", cell, regime, st(stratum), n, f4(naive_SE_H), f4(se_field_H), f4(se_ij_H), f4(SD_efH), f4(SD_marg_fldH), f4(mean_efH), f3(b_H), f3(r_H),
+      f3(cov_field_H), f3(wf_lo), f3(wf_hi), f3(cov_ij_H), f3(wi_lo), f3(wi_hi), f3(gauss_H)))) }
+  cat("\n**H3 -- correlations of p-hat with the naive errors** (Pearson / Spearman):\n\n| cell | regime | n | corr(p-hat, a_H) Pearson | Spearman | corr(p-hat, a) Pearson | Spearman |\n|---|---|---|---|---|---|---|\n")
+  for (i in seq_len(nrow(H3c))) with(H3c[i, ], cat(sprintf("| %s | %s | %d | %s | %s | %s | %s |\n", cell, regime, n, f3(pearson_p_aH), f3(spearman_p_aH), f3(pearson_p_a), f3(spearman_p_a))))
+  cat("\n**H3 -- uncorrected fractions, p-hat tertiles** (T1 low ... T3 high p-hat):\n\n| cell | regime | quantity | all | T1 | T2 | T3 |\n|---|---|---|---|---|---|---|\n")
+  for (i in seq_len(nrow(H3f))) with(H3f[i, ], cat(sprintf("| %s | %s | %s | %s | %s | %s | %s |\n", cell, regime, quantity, f4(all), f4(T1), f4(T2), f4(T3))))
+}
+```
