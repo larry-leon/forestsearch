@@ -37,6 +37,12 @@ report.
    reads them, and nothing is reconstructed.
 6. **No Quarto render is attempted in this report.** The T3 render is N10 item 5 and is recorded
    separately.
+7. **Line numbers for `R/fs_mr_inference.R` were refreshed on 2026-09-09** against merge
+   `f221f75e`, which expanded the `ci_method` roxygen block and shifted everything from line
+   298 onward by +8. §6's quotes were re-verified **by content**, not by offset, and are
+   unchanged; quoted content unchanged; no result affected. The same merge flipped the
+   `ci_method` default from `"ij"` to `"field"`; the T1 driver passes `ci_method` explicitly,
+   so the six bundles and every number in this report are unaffected.
 
 ---
 
@@ -137,7 +143,7 @@ columns `identical()`, both probe cells, all three replicates** — is the proof
 complement perturbs nothing. It is a stronger proof than the cross-machine comparison A3
 specified, and it is cited here with its commit: **`7b2ed976`** (appended to
 `REPORT_guohe_supp_stage0_2026-09-09_v2.md`). It matches the engine's own design claim at
-`R/fs_mr_inference.R:820-826` and `:889-910`.
+`R/fs_mr_inference.R:828-834` and `:897-918`.
 
 ## 4. Per-cell results
 
@@ -239,7 +245,7 @@ The probe guards only columns with stored counterparts; the complement and joint
 none. These quotes, read from this tree, show the emitted values are **read from the engine, not
 reconstructed in the driver**. No `R/` change was made or needed (A2).
 
-**Complement one-sided 95% upper bound** — `R/fs_mr_inference.R:1150-1152`:
+**Complement one-sided 95% upper bound** — `R/fs_mr_inference.R:1158-1160`:
 
 ```r
     est2 = to_eff(est2_w),
@@ -247,7 +253,7 @@ reconstructed in the driver**. No `R/` change was made or needed (A2).
     upper_1s = to_eff(bdc - qs[1]),
 ```
 
-and its studentized companion, `:1163-1164`:
+and its studentized companion, `:1171-1172`:
 
 ```r
     est2_s = to_eff(est2s_w),
@@ -255,7 +261,7 @@ and its studentized companion, `:1163-1164`:
 ```
 
 **Joint Bonferroni pair and the both-correct indicator** — `.fs_mr_field_joint`, defined at
-`R/fs_mr_inference.R:1195`, returning at `:1215-1218`:
+`R/fs_mr_inference.R:1203`, returning at `:1223-1226`:
 
 ```r
        bonf_gamma = alpha / 2,
@@ -264,7 +270,7 @@ and its studentized companion, `:1163-1164`:
        corr = stats::cor(lh, lc), n_joint_draws = n,
 ```
 
-**Where they attach to the returned object** — `R/fs_mr_inference.R:907-909` and `:1168`:
+**Where they attach to the returned object** — `R/fs_mr_inference.R:915-917` and `:1176`:
 
 ```r
         field$complement <- fcres$complement

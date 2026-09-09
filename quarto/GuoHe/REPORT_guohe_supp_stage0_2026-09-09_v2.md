@@ -13,6 +13,8 @@ scripts/`R/` sources present; every Q1–Q6 line number re-verified; `REVIEW_cer
 still absent, which under A2 is no longer a STOP and routes to the `[certification citation pending sync]`
 marker in T3/B6.
 
+> **2026-09-09 (post-merge `f221f75e`):** line numbers for `R/fs_mr_inference.R` refreshed (+8 throughout, from the expanded `ci_method` roxygen block) in this record and in both appendices below; quoted content unchanged, re-verified by content; no result affected. The Q1–Q6 comparison table in §3 is left as written: it is a dated snapshot of the v1 → v2 reading, and its `fs_mr_inference` entries are the pre-merge offsets. Add 8 to each for the current tree.
+
 ---
 
 ## 1. Provenance
@@ -198,12 +200,12 @@ mv_mr <- function(df, cands, sel_label, spec, draws = MV_DRAWS,
                          field_complement = field_complement))
 ```
 
-**Q2** — `R/fs_mr_inference.R:523, 526, 531, 533, 537`; the three defaults A2 depends on are
+**Q2** — `R/fs_mr_inference.R:531, 534, 539, 541, 545`; the three defaults A2 depends on are
 unchanged and still match the recorded adoption (`field_complement = TRUE`,
 `field_scale_complement` → `"selected"`, `return_reselection = TRUE`).
 
-**A2's transplant source** — `R/fs_mr_inference.R:1211-1219`, inside `.fs_mr_field_joint`
-(definition at `:1195`, closing brace `:1220`):
+**A2's transplant source** — `R/fs_mr_inference.R:1219-1227`, inside `.fs_mr_field_joint`
+(definition at `:1203`, closing brace `:1228`):
 
 ```r
   qh_b  <- stats::quantile(lh, 1 - alpha / 2, names = FALSE, type = 7)
@@ -218,7 +220,7 @@ unchanged and still match the recorded adoption (`field_complement = TRUE`,
 }
 ```
 
-wired for both scalings at `R/fs_mr_inference.R:1141-1144`:
+wired for both scalings at `R/fs_mr_inference.R:1149-1152`:
 
 ```r
   joint <- if (!is.null(lam_H) && is.finite(beta_deb))
@@ -418,10 +420,10 @@ compared between the two calls:
 ```
 
 **Enabling the complement perturbs no stored column.** This is the substantive proof A3 wanted,
-and it matches the engine's own design claim at `R/fs_mr_inference.R:822-826` — the field block
-re-seeds at `seed + 900000L` (`:820`) and draws `Xo`/`Xi_f` in the same order and sizes whether
-or not the complement runs; the complement block re-reads them (`:889-910`) and consumes no RNG
-of its own (`:702-725` is Cox fits and matrix algebra on already-drawn `Xi`).
+and it matches the engine's own design claim at `R/fs_mr_inference.R:830-834` — the field block
+re-seeds at `seed + 900000L` (`:828`) and draws `Xo`/`Xi_f` in the same order and sizes whether
+or not the complement runs; the complement block re-reads them (`:897-918`) and consumes no RNG
+of its own (`:710-733` is Cox fits and matrix algebra on already-drawn `Xi`).
 
 **There is no RNG-stream finding.** The v1 §4 phrasing ("the engine's complement block precedes
 the field block") is also inverted on this reading: the complement block *follows* the harm field
@@ -530,11 +532,11 @@ Re-verified against the current tree. **The correction stands, with one refineme
 two distinct complement blocks, and the v1 §4 error is a conflation of them, not a stale
 description.**
 
-- **The gate complement block** (`include_complement`), `R/fs_mr_inference.R:702-795`, **does
+- **The gate complement block** (`include_complement`), `R/fs_mr_inference.R:710-803`, **does
   precede** the field block. It consumes no RNG: Cox fits on complement row-sets and matrix
   algebra on the already-drawn `Xi`.
-- **The complement *field* block** (`field_complement`), `R/fs_mr_inference.R:889-910`,
-  **follows** the harm field's construction (`:874-887`) and re-reads its draws:
+- **The complement *field* block** (`field_complement`), `R/fs_mr_inference.R:897-918`,
+  **follows** the harm field's construction (`:882-895`) and re-reads its draws:
 
 ```r
       # -- Complement field (field_complement = TRUE) -- add-only and drawn
@@ -543,8 +545,8 @@ description.**
       # are byte-identical whether or not it runs
 ```
 
-- The field block re-seeds before drawing, `R/fs_mr_inference.R:820`, and its comment states the
-  invariance directly (`:822-826`):
+- The field block re-seeds before drawing, `R/fs_mr_inference.R:828`, and its comment states the
+  invariance directly (`:830-834`):
 
 ```r
     if (!is.null(seed)) set.seed(as.integer(seed) + 900000L)

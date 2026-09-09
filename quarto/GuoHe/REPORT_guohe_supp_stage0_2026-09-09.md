@@ -8,6 +8,8 @@ Machine: Mac Studio. No `git fetch` and no `git pull` were run at any point in t
 no fetch was attempted. Everything else in Stage 0 verified clean and is recorded below,
 so T1 can start on the same reading the moment the input arrives.**
 
+> **2026-09-09 (post-merge `f221f75e`):** line numbers for `R/fs_mr_inference.R` refreshed (+8 throughout, from the expanded `ci_method` roxygen block); quoted content unchanged, re-verified by content; no result affected.
+
 ---
 
 ## 1. Provenance (verbatim)
@@ -172,7 +174,7 @@ for Larry: T1 as specified needs either a new formal on `mv_mr()` or a bypass ca
 
 ### Q2 — engine signature for `fs_mr_inference` — VERIFIED, NO CONTRADICTION
 
-Defining file: `R/fs_mr_inference.R`, definition begins at line 514. Signature lines 514-534:
+Defining file: `R/fs_mr_inference.R`, definition begins at line 522. Signature lines 522-542:
 
 ```r
 fs_mr_inference <- function(df, candidates, spec, selected_members,
@@ -202,9 +204,9 @@ Against the task's check:
 
 | argument | required by task | read at this tree | verdict |
 |---|---|---|---|
-| `field_complement` | `TRUE` | `TRUE` (line 531) | match |
-| `field_scale_complement` | `"selected"` | `c("selected", "none")`, `match.arg` at line 537 → `"selected"` | match |
-| `return_reselection` | `TRUE` | `TRUE` (line 526) | match |
+| `field_complement` | `TRUE` | `TRUE` (line 539) | match |
+| `field_scale_complement` | `"selected"` | `c("selected", "none")`, `match.arg` at line 545 → `"selected"` | match |
+| `return_reselection` | `TRUE` | `TRUE` (line 534) | match |
 
 **No contradiction with the recorded adoption. Q2 does not trigger its STOP.**
 
@@ -216,12 +218,12 @@ it is what the tree has. Recorded because it bears on byte-reproducibility of ol
 
 **Interface for one-sided bounds at 0.95 and 0.975 — available with no `R/` change required.**
 
-- Harm side, 0.95 one-sided lower: `field$lower_1s` (`R/fs_mr_inference.R:880`,
+- Harm side, 0.95 one-sided lower: `field$lower_1s` (`R/fs_mr_inference.R:888`,
   `lower_1s = to_eff(beta_deb - qs[5])`).
-- Complement side, 0.95 one-sided upper: `complement$upper_1s` (line 1152,
-  `upper_1s = to_eff(bdc - qs[1])`); studentized companion `upper_1s_s` (line 1164).
+- Complement side, 0.95 one-sided upper: `complement$upper_1s` (line 1160,
+  `upper_1s = to_eff(bdc - qs[1])`); studentized companion `upper_1s_s` (line 1172).
 - **Both 0.975 bounds and the joint indicator already exist as a matched pair** in the joint
-  element, `R/fs_mr_inference.R:1211-1218`, `gamma = alpha/2 = 0.025`:
+  element, `R/fs_mr_inference.R:1219-1226`, `gamma = alpha/2 = 0.025`:
 
 ```r
   qh_b  <- stats::quantile(lh, 1 - alpha / 2, names = FALSE, type = 7)
@@ -235,7 +237,7 @@ it is what the tree has. Recorded because it bears on byte-reproducibility of ol
        grid_gamma = grid, grid_joint_prob = probs)
 ```
 
-  computed at lines 1138-1144 for both the unscaled (`joint`) and studentized (`joint_s`) fields:
+  computed at lines 1146-1152 for both the unscaled (`joint`) and studentized (`joint_s`) fields:
 
 ```r
   # Joint (H lower, Hc upper) pair (method B): the harm field's lam and this
@@ -363,8 +365,8 @@ That document does not exist in this tree (§2c), so the driver set it names can
 and the lines T1 is to transplant cannot be quoted from the authority the task specifies.
 
 The engine-level pair T1 would ultimately be transplanting is quoted under Q2 above
-(`R/fs_mr_inference.R:1195-1220`, `.fs_mr_field_joint()`), and the `joint` / `joint_s` wiring at
-`:1138-1144`. That is recorded as orientation only. **It is not a substitute for Q5** — the task
+(`R/fs_mr_inference.R:1203-1228`, `.fs_mr_field_joint()`), and the `joint` / `joint_s` wiring at
+`:1146-1152`. That is recorded as orientation only. **It is not a substitute for Q5** — the task
 is explicit that the certification harness's lines are transplanted and not re-derived, and
 identifying them by inference from the engine would be exactly the re-derivation the task forbids.
 **No transplant was attempted.**

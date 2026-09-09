@@ -20,9 +20,12 @@
 #   5. Output mr_field_complement_vs_guohe_<id>.rds.
 #
 # The 0.975 pair and the both-correct indicator are the engine's own, per A2:
-# .fs_mr_field_joint (R/fs_mr_inference.R:1195-1220) returns bonf_lower_H,
+# .fs_mr_field_joint (R/fs_mr_inference.R:1203-1228) returns bonf_lower_H,
 # bonf_upper_Hc and bonf_joint_prob at gamma = alpha/2 = 0.025, wired for both
-# scalings at :1141-1144. Nothing under R/ is changed or needed.
+# scalings at :1149-1152. Nothing under R/ is changed or needed.
+# 2026-09-09 (post-merge f221f75e): line numbers for R/fs_mr_inference.R
+# refreshed (+8, from the expanded ci_method roxygen block); quoted content
+# unchanged, re-verified by content; no result affected.
 #
 # Truth for the complement is EXACTLY 0: guohe_sec52_truth.R:75 sets
 # b <- ifelse(w <= GH52_C_LO, beta2, 0) with GH52_C_LO = 30, and the cutpoint
