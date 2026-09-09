@@ -194,6 +194,35 @@ Kept: one `R/` change in exactly two files, plus `man/`, `NEWS.md` and the NOTE.
 
 Flagged, not fixed:
 
+0. **Four test failures in the three `ci_method` test files** — one caused by this change (a stale assertion pinning the old default, `test-mr-inference.R:85`), three predating it from Part D's `field_complement` flip. Detailed in the section above; no test was edited.
 1. **`.fs_apply_mr()` still defaults `ci_method` to `"ij"`** (`R/fs_mr_inference_methods.R:141`), so the DINA and GRF hooks do not inherit the new default while the consistency engine does. Out of scope here (third file); needs its own decision.
 2. **The template has no `ci_method` knob.** Left as directed. Every arm of a future campaign that wants a non-`"field"` value must edit line 567 or use a driver copy, as this gate did.
 3. **`NEWS.md`'s Part D bullet was amended**, not only appended to, because its "the `ci_method` default is unchanged" clause described the same unreleased version and is now false.
+
+## Test suite (run after the gate; not part of the task's file list)
+
+`devtools::test(filter = "mr-inference|mr-field-complement|mr-ij-residual-joint")` — the three test files that mention `ci_method` — reports **FAIL 4 | WARN 0 | SKIP 0 | PASS 228**. Both the cause and the provenance of each failure were established before writing this; **no test was edited**, because tests are outside this task's enumerated file list and this is a report-and-wait task.
+
+**One failure is caused by this change, and is the change.**
+
+```
+── 4. Failure ('test-mr-inference.R:85:3'): enabled on the Cox/consistency path
+Expected `g$ci_method` to be identical to "ij".
+Differences:
+`actual`:   "field"
+`expected`: "ij"
+```
+
+Line 85 is `expect_identical(g$ci_method, "ij")` on a `forestsearch()` call that passes no `ci_method`, i.e. it pins the old default. The assertion is stale by construction: flipping that default is what the task approved, classified *changes behaviour*. The fix is the one-token edit `expect_identical(g$ci_method, "field")`, left for the approver.
+
+**The other three predate this task and come from Part D's `field_complement` flip.**
+
+```
+── 1. Failure ('test-mr-field-complement.R:59:3'): Expected `off$field$complement` to be NULL.
+── 2. Failure ('test-mr-field-complement.R:60:3'): Expected `.strip_t(off)` to be identical to `.strip_t(off0)`.
+     names(actual$field)[19:22]:   "R_out" "R_in" "seed_offset" "joint_s"
+── 3. Failure ('test-mr-ij-residual-joint.R:128:3'): Expected `no$field$joint` to be NULL.
+```
+
+All three call the gate with `ci_method = "field"` **explicitly**, so the default flip cannot reach them; they fail because they omit `field_complement` and expect the "off" shape, while `field_complement` has defaulted to `TRUE` since `TASK_cert20_2026-09-08` Part D. Confirmed empirically rather than argued: the same three fail identically in a clean worktree at `ab9afb20`, the commit immediately before this change (`── 1./2./3.` reproduced verbatim, failure 4 absent). They were left behind by Part D and are not this task's to fix.
+
