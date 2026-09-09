@@ -443,3 +443,27 @@ knitr::kable(prov, row.names = FALSE, caption = paste(
   "columns are arithmetic on the stored replication bundles and are never",
   "re-run."))
 ```
+
+```{r provenance-platform}
+#| output: asis
+# N7 item 3: one provenance sentence on the two build platforms. The N3 tally is
+# reported here and, being zero, closes the matter -- no further caveat appears
+# anywhere else in this section.
+if (HAVE_COMPLEMENT) {
+  n3 <- sum(vapply(CMP, function(b) b$gate2$sel_mismatch, numeric(1)))
+  n3n <- sum(vapply(CMP, function(b) b$gate2$n_rep_done, numeric(1)))
+  wa <- max(vapply(CMP, function(b) b$gate2$worst_abs, numeric(1)))
+  cat(sprintf(paste0(
+    "The complement and joint bundles in @sec-b3 were produced on arm64 with ",
+    "Accelerate, while the head-to-head bundles behind the B2 tables were ",
+    "produced on x86_64 with reference BLAS; across every column with a ",
+    "counterpart in both, the worst absolute deviation is %.2e (all within ",
+    "`all.equal` at 1e-8), and the selected cutpoint agreed on %d of %d ",
+    "replicates.\n\n"), wa, n3n - n3, n3n))
+  if (n3 > 0) cat(sprintf(paste0(
+    "::: {.callout-warning appearance='simple'}\n",
+    "**%d selection mismatch(es)** between the two builds. Every comparison ",
+    "involving the complement columns is affected and is caveated accordingly.\n",
+    ":::\n\n"), n3))
+}
+```
