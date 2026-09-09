@@ -20,6 +20,47 @@ Displays a concise summary of ForestSearch results including the
 identified subgroup definition, consistency metrics, algorithm details,
 and computation time.
 }
+\section{Post-selection inference}{
+
+When the fit carries multiplier-resampling results (\code{mr_inference = TRUE},
+which attaches the \code{\link[=fs_mr_inference]{fs_mr_inference()}} return as \code{x$mr_inference}) and the
+field block ran, a further block reports the \strong{certified} survival
+post-selection products of
+\verb{dev/notes/NOTE_survival_products_2026-09-09.md}, in that document's order
+of standing: the one-sided 95\% \strong{lower} bound on the harm subgroup
+\eqn{\beta(\widehat H)} (the field) and the one-sided 95\% \strong{upper} bound
+on the complement \eqn{\beta(\widehat H^c)} (\strong{field-s}, the studentized
+complement field) first; the Bonferroni \strong{joint} pair at
+\eqn{\gamma = 0.025} each side second; the IJ two-term \strong{two-sided}
+interval third, explicitly labelled secondary because no two-sided interval
+is certified; and the re-selection frequency \eqn{\hat p(\widehat H)}
+last, as a recorded diagnostic that no construction reads.
+
+The field and field-s bounds exist only under \code{ci_method = "field"}, which
+is the default; \code{ci_method = "ij"} omits the field block and with it this
+entire section apart from the two-sided line.  When MR results are absent
+the printed output is unchanged from a build without this section.
+
+Caveat lines are printed only when they apply and are compressions of the
+NOTE, not of the analysis: a two-sided caveat whenever a two-sided interval
+is shown, and one of two directional \eqn{\hat p} notes at the poles of
+the harm-block bias.  At \eqn{\hat p(\widehat H) \ge 0.5} -- the
+stable-pick regime -- the correction under-corrects, so the bounds are
+somewhat optimistic.  At \eqn{\hat p(\widehat H) < 0.20} the correction
+runs the other way and over-corrects, which makes the one-sided lower bound
+on \eqn{\widehat H} the conservative product and leaves the two-sided
+interval as the exposed one.
+
+\strong{0.20 and 0.5 are descriptive band edges taken from the NOTE, not
+calibrated thresholds.} 0.5 is where the NOTE puts the bias crossing zero;
+0.20 is the top of the band it characterises as low.  They say which pole an
+analysis sits at, and the flag is directional, not a decision rule.
+\eqn{\hat p} in \eqn{[0.20, 0.5)} prints no note at all, because the NOTE
+supports no claim there.  Bounds are reported by location and must be read
+against a clinically meaningful effect size, never as significance at the
+null.
+}
+
 \examples{
 \dontrun{
 fs <- forestsearch(df.analysis = mydata, ...)

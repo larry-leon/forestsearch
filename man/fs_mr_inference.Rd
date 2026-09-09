@@ -18,7 +18,7 @@ fs_mr_inference(
   draws = 2000L,
   multiplier = c("poisson", "gaussian", "rademacher"),
   include_complement = FALSE,
-  ci_method = c("ij", "wald", "field"),
+  ci_method = c("field", "ij", "wald"),
   seed = NULL,
   return_reselection = TRUE,
   field_R_out = 1000L,
@@ -91,14 +91,22 @@ tracked and de-biased with the complement's own influence.  Complements are
 fit only for candidates that win across draws (plus the selected one), so
 the extra cost is small.  Default \code{FALSE}.}
 
-\item{ci_method}{\code{"ij"} (default) bases the \strong{de-biased} CI on the
-infinitesimal-jackknife variance (Leon et al. 2024, Eq. VInfJ_bc), computed
-from the same multiplier draws -- the leading-order analogue of the FB
-interval.  \code{"wald"} uses the subgroup robust SE (\code{sigma_D}).  The naive CI
-always uses the robust SE.  \code{"field"} computes everything the \code{"ij"} path
-computes -- the \code{debiased} element is identical -- and additionally runs
-the field-calibrated interval (method proposal,
-\verb{dev/tasks/TASK_mr_field_vs_guohe_2026-09-05.md}), returned as a \code{field}
+\item{ci_method}{\code{"field"} (default, the recommendation) computes everything
+the \code{"ij"} path computes -- the \code{debiased} element, its IJ SE and its IJ
+intervals are identical, and are returned in every call regardless of this
+argument -- and \strong{additionally} runs the field-calibrated interval, whose
+one-sided products are the certified ones (the lower bound on the harm
+subgroup, the studentized complement's upper bound, and the Bonferroni
+joint pair).  Nothing is removed by choosing it; it adds a per-fit Monte
+Carlo cost (\code{field_R_out} x \code{field_R_in}, defaults 1000 / 500, plus the
+complement's own block under \code{field_complement = TRUE}).  \code{"ij"} restores
+the previous default: the \strong{de-biased} CI from the infinitesimal-jackknife
+variance (Leon et al. 2024, Eq. VInfJ_bc), computed from the same
+multiplier draws -- the leading-order analogue of the FB interval -- with
+the field block omitted.  \code{"wald"} uses the subgroup robust SE
+(\code{sigma_D}) for the de-biased CI and also omits the field block.  The
+naive CI always uses the robust SE.  The field block (method proposal,
+\verb{dev/tasks/TASK_mr_field_vs_guohe_2026-09-05.md}) is returned as a \code{field}
 element: Gaussian-multiplier perturbations of the shrunk candidate-effect
 field (\code{w = beta_hat} with the winner's entry replaced by the de-biased
 estimate) are pushed through the configured re-selection map, with an
@@ -226,8 +234,8 @@ List with the selected index/label, \code{naive} and \code{debiased} estimates
 \code{confirm_rule}, \code{reselection}, \code{selection_rule}, \code{multiplier}, \code{draws}),
 \code{harm_flag}, family/subgroup sizes, and \code{timing_seconds}. The \code{debiased}
 element carries \code{se_ij}, \code{se_wald}, \code{var_ij}, and \code{ij_source}; its CI uses
-the IJ SE under the default \code{ci_method = "ij"} (the FB analogue) and the
-robust SE under \code{"wald"}.
+the IJ SE under \code{ci_method = "field"} (the default) and \code{"ij"} (the FB
+analogue in both cases) and the robust SE under \code{"wald"}.
 When \code{include_complement = TRUE}, a \code{complement} element carries the
 complement subgroup's \code{naive}/\code{debiased} estimates and bias terms in the
 same form, including its own IJ variance.  The complement's de-biased CI

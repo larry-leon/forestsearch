@@ -122,8 +122,10 @@ test_that("field$joint: gamma in range, achieved probability >= 1 - alpha, pairs
   expect_equal(j$n_joint_draws, off$field$complement$n_out_used)
   # The complement field list is unchanged by the joint addition.
   expect_false("joint" %in% names(off$field$complement))
-  # No joint without the complement field.
+  # No joint without the complement field.  field_complement is set explicitly
+  # here: it has defaulted to TRUE since TASK_cert20_2026-09-08 Part D, so
+  # omitting it no longer produces the "without" condition this checks.
   no <- .mrj_call(df, cands, sel, ci_method = "field", include_complement = TRUE,
-                  field_R_out = 400L, field_R_in = 100L)
+                  field_R_out = 400L, field_R_in = 100L, field_complement = FALSE)
   expect_null(no$field$joint)
 })

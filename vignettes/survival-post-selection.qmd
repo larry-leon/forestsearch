@@ -1,0 +1,235 @@
+---
+title: "Survival post-selection inference: the certified products"
+subtitle: "A worked GBSG analysis, end to end"
+author: "Larry Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
+vignette: >
+  %\VignetteIndexEntry{Survival post-selection inference: the certified products}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup}
+#| message: false
+#| warning: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+library(forestsearch)
+library(survival)
+```
+
+`forestsearch()` identifies a subgroup by searching; anything estimated on that
+subgroup afterwards is estimated on a subgroup the data chose. This vignette
+runs the pipeline end to end on a public dataset and shows what the package
+reports about that selection, and -- as importantly -- what it declines to
+certify.
+
+Every claim about coverage below comes from
+`dev/notes/NOTE_survival_products_2026-09-09.md`, which is the source of truth
+for the certified products; the simulation evidence behind it is named at the
+end. Nothing here is new methodology, and no number in this document is
+computed by it: the reporting block reads elements the fit already carries.
+
+## The data and the fit
+
+The GBSG node-positive breast-cancer trial shipped with **survival**: 686
+patients, hormonal therapy against none, recurrence-free survival. The
+covariate set is the usual seven; `er` and `pgr` are forced in as candidate
+receptor cutpoints, and continuous covariates get 10 quantile cuts each.
+
+```{r data}
+df.analysis <- gbsg
+df.analysis <- within(df.analysis, {
+  id          <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3      <- ifelse(grade == "3", 1, 0)
+})
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+cat("Sample size:", nrow(df.analysis),
+    "| events:", sum(df.analysis$status),
+    sprintf("(%.1f%%)\n", 100 * mean(df.analysis$status)))
+```
+
+The fit below is the applications configuration cut to vignette size: the
+consistency search with no LASSO/GRF/DINA screen, `sg_focus = "effMaxSG"`
+(largest subgroup within a 20% band of the strongest observed effect), 200
+split-sample replicates and 500 multiplier draws. `mr_inference = TRUE` turns
+on the post-selection gate, whose result is attached to the fit as
+`fs$mr_inference`; no separate run is needed. There is no bootstrap, no
+cross-validation and no leave-one-out here -- those live in the applications
+documents, not in a vignette.
+
+```{r fit}
+t0 <- proc.time()
+fs <- forestsearch(
+  df.analysis,
+  outcome.name = "time_months", event.name = "status",
+  treat.name = "hormon", id.name = "id",
+  confounders.name = confounders.name,
+  is.RCT = TRUE, seedit = 8316951, est.scale = "hr",
+  use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE,
+  conf.cont_jcuts = list(er = 10, pgr = 10), collapse_cuts = TRUE,
+  conf_force = c("er <= 0", "pgr <= 0"),
+  subgroup_method = "consistency", sg_focus = "effMaxSG",
+  selection_rule = "neighborhood", effect_neighborhood = 0.20,
+  mr_inference = TRUE, mr_inference_args = list(draws = 500L),
+  n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
+  hr.threshold = 1.0, hr.consistency = 1.0, pconsistency.threshold = 0.80,
+  fs.splits = 200, max.minutes = 3,
+  details = FALSE, quiet = TRUE, plot.sg = FALSE,
+  parallel_args = list(plan = "sequential"))
+cat(sprintf("fit time: %.1f seconds\n", (proc.time() - t0)[["elapsed"]]))
+```
+
+## The identified subgroup
+
+```{r subgroup}
+cat("Selected subgroup:", paste(fs$sg.harm, collapse = " & "), "\n")
+```
+
+The subgroup is a conjunction of at most `maxk = 2` binary cutpoints drawn from
+the candidate family. `family_status` records how that family was built --
+`"no-front-end"` here, meaning no fitted model on the observed data shaped it,
+which is the weakest form of selection the package will report on.
+
+## The certified products
+
+`print()` reports them; nothing extra needs to be called.
+
+```{r print}
+print(fs)
+```
+
+Read top to bottom, this is the package's order of standing.
+
+**The harm subgroup's one-sided lower bound** on `HR(Hhat)` is the *field*
+construction. Its coverage is 0.944--0.974 across ten harm cells at 12.4% and
+31% prevalence, n = 500 / 1000 / 1500, and it is flat in n.
+
+**The complement's one-sided upper bound** on `HR(Hhat^c)` is *field-s*, the
+studentized complement field. Its small-sample shortfall closes with n:
+0.912 -> 0.942 -> 0.947 at 31% prevalence with HR 1.50, and 0.919 -> 0.942 ->
+0.946 at HR 1.75; it is at or above 0.94 at every cell of the 12.4% regime.
+field-s is at or above the unscaled field in all thirteen certification cells.
+
+**The joint two-subgroup claim** is the Bonferroni pair at gamma = 0.025 each
+side, covering 0.939--0.963 at every cell. Use it when both statements are
+made together.
+
+Both field bounds exist only under `ci_method = "field"`. That is the default;
+`ci_method = "ij"` omits the field block entirely and leaves only the
+two-sided interval.
+
+`summary()` adds the standard errors, the re-selection mass and the
+certified/not-certified paragraph:
+
+```{r summary}
+summary(fs)
+```
+
+## How to read a bound: by location
+
+These bounds are read **by location against a clinically meaningful effect
+size**, never as significance at the null.
+
+The harm-side question is *how much harm the data can rule out*. A one-sided
+lower bound in the high 0.8s or above, against a naive subgroup estimate well
+above 1, says the adjusted evidence does not establish clinically meaningful
+harm -- the naive estimate was largely selection.
+
+The complement-side question is a benefit claim: *is the one-sided upper bound
+below a threshold that would matter?* Name the threshold you are reading
+against -- 0.80 and 0.85 are the usual reading aids in these records -- and say
+whether the bound clears it. A threshold quoted this way is a reading aid, not
+a decision rule.
+
+```{r locations}
+g <- fs$mr_inference
+cat(sprintf("naive HR on Hhat            %.3f\n", g$naive$est))
+cat(sprintf("de-biased HR on Hhat        %.3f\n", g$debiased$est))
+cat(sprintf("field one-sided lower       %.3f\n", g$field$lower_1s))
+cat(sprintf("field-s one-sided upper Hc  %.3f  (vs 0.80 / 0.85)\n",
+            g$field$complement$upper_1s_s))
+```
+
+The distance between the naive estimate and the de-biased one is what
+selection cost; the spread across the constructions is what the adjustments
+pay for it.
+
+## p-hat as a diagnostic
+
+`p_hat(Hhat)` is the frequency with which the gate's own re-selection map
+picks the same subgroup across the multiplier draws. It is a **recorded
+diagnostic**: it is computed after the bounds are formed, and **no construction
+reads it**. It is also estimated from the same draws that build the bound, so
+it is a flag, not an independent instrument -- which is a reason not to let any
+interval depend on it.
+
+```{r phat}
+ph  <- g$reselection$p_hat
+lab <- g$selected_label
+cat(sprintf("p-hat(Hhat) = %.3f over a family of %d candidates\n",
+            unname(ph[[lab]]), g$n_family))
+print(round(sort(ph, decreasing = TRUE)[1:5], 3))
+```
+
+Harm-block bias is a monotone increasing function of p-hat, crossing zero near
+p-hat ~ 0.5:
+
+- **Low p-hat, below 0.20** -- the pick is unstable and the correction runs the
+  other way, *over*-correcting (bias -0.11 to -0.28 log units at 12.4%
+  prevalence, n = 1500). The one-sided lower bound on Hhat is the conservative
+  product here; the two-sided interval is the exposed one. `print()` says so.
+- **High p-hat, 0.5 and above** -- the stable-pick regime, where the correction
+  *under*-corrects (+0.02 log units) and the bounds are somewhat optimistic.
+  `print()` says so.
+- **In between, 0.20 to 0.5** -- no line is printed, because the NOTE supports
+  no claim there.
+
+Those two edges come from the NOTE: 0.5 is where it puts the bias crossing
+zero, and 0.20 is the top of the band it characterises as low. They are
+**descriptive band edges, not calibrated thresholds** -- they tell you which
+pole an analysis sits at, and the flag is directional, not a decision rule.
+The complement's coverage, by contrast, is a stable function of p-hat.
+
+This fit sits at the low pole (p-hat = 0.006), so the printed output carries
+the unstable-pick line and not the stable-pick one, and the harm-side lower
+bound should be read as the conservative product.
+
+## What is not certified
+
+**No two-sided interval is certified.** The IJ two-term two-sided interval is
+retained and reported as the secondary, conservative option, and it is the only
+two-sided construction offered -- but its harm-block coverage falls to
+0.913--0.917 at 12.4% prevalence once n is 1000 or more (against 0.971--0.981
+at 31%). The field's own two-sided interval is lower still, 0.878--0.930. Read
+two-sided statements at low prevalence and large n with that caveat.
+
+Also on record: `effect_neighborhood > 0.25` is not adoptable; under a pure-size
+pick (`sg_focus = "maxSG"`) the naive SE mis-calibrates, at 0.876 of the error
+SD, and field-s inherits that.
+
+The one-sided products certify and the two-sided one does not for a reason
+worth stating: each one-sided bound is exposed to one pole of the p-hat bias
+only, and in the conservative direction. A two-sided interval is exposed to
+both.
+
+## Where the evidence lives
+
+- `dev/notes/NOTE_survival_products_2026-09-09.md` -- the certified products
+  and their caveats; the source of truth for every claim above.
+- `REPORT_cert20_2026-09-08.md` -- the 31%-prevalence sample-size profile.
+- `REPORT_tier2_2026-09-08.md` -- the 12.4% dominated regime.
+- `REPORT_fixedphat_ij2s_2026-09-09.md` -- the fixed-p-hat diagnostics, the
+  harm-block two-sided decay and detection conditioning.
+- `REPORT_cimethod_flip_2026-09-09.md` -- why `ci_method = "field"` is the
+  default.
+
+```{r session}
+sessionInfo()
+```

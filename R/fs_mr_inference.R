@@ -298,14 +298,22 @@
 #'   (they carry the stable-pick frequency the coverage caveat is read by).
 #'   Nothing in the arithmetic depends on this switch, so `FALSE` reproduces
 #'   the previous, smaller return object exactly.
-#' @param ci_method `"ij"` (default) bases the **de-biased** CI on the
-#'   infinitesimal-jackknife variance (Leon et al. 2024, Eq. VInfJ_bc), computed
-#'   from the same multiplier draws -- the leading-order analogue of the FB
-#'   interval.  `"wald"` uses the subgroup robust SE (`sigma_D`).  The naive CI
-#'   always uses the robust SE.  `"field"` computes everything the `"ij"` path
-#'   computes -- the `debiased` element is identical -- and additionally runs
-#'   the field-calibrated interval (method proposal,
-#'   `dev/tasks/TASK_mr_field_vs_guohe_2026-09-05.md`), returned as a `field`
+#' @param ci_method `"field"` (default, the recommendation) computes everything
+#'   the `"ij"` path computes -- the `debiased` element, its IJ SE and its IJ
+#'   intervals are identical, and are returned in every call regardless of this
+#'   argument -- and **additionally** runs the field-calibrated interval, whose
+#'   one-sided products are the certified ones (the lower bound on the harm
+#'   subgroup, the studentized complement's upper bound, and the Bonferroni
+#'   joint pair).  Nothing is removed by choosing it; it adds a per-fit Monte
+#'   Carlo cost (`field_R_out` x `field_R_in`, defaults 1000 / 500, plus the
+#'   complement's own block under `field_complement = TRUE`).  `"ij"` restores
+#'   the previous default: the **de-biased** CI from the infinitesimal-jackknife
+#'   variance (Leon et al. 2024, Eq. VInfJ_bc), computed from the same
+#'   multiplier draws -- the leading-order analogue of the FB interval -- with
+#'   the field block omitted.  `"wald"` uses the subgroup robust SE
+#'   (`sigma_D`) for the de-biased CI and also omits the field block.  The
+#'   naive CI always uses the robust SE.  The field block (method proposal,
+#'   `dev/tasks/TASK_mr_field_vs_guohe_2026-09-05.md`) is returned as a `field`
 #'   element: Gaussian-multiplier perturbations of the shrunk candidate-effect
 #'   field (`w = beta_hat` with the winner's entry replaced by the de-biased
 #'   estimate) are pushed through the configured re-selection map, with an
@@ -413,8 +421,8 @@
 #'   `confirm_rule`, `reselection`, `selection_rule`, `multiplier`, `draws`),
 #'   `harm_flag`, family/subgroup sizes, and `timing_seconds`. The `debiased`
 #'   element carries `se_ij`, `se_wald`, `var_ij`, and `ij_source`; its CI uses
-#'   the IJ SE under the default `ci_method = "ij"` (the FB analogue) and the
-#'   robust SE under `"wald"`.
+#'   the IJ SE under `ci_method = "field"` (the default) and `"ij"` (the FB
+#'   analogue in both cases) and the robust SE under `"wald"`.
 #'   When `include_complement = TRUE`, a `complement` element carries the
 #'   complement subgroup's `naive`/`debiased` estimates and bias terms in the
 #'   same form, including its own IJ variance.  The complement's de-biased CI
@@ -521,7 +529,7 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                            draws = 2000L,
                            multiplier = c("poisson", "gaussian", "rademacher"),
                            include_complement = FALSE,
-                           ci_method = c("ij", "wald", "field"),
+                           ci_method = c("field", "ij", "wald"),
                            seed = NULL,
                            return_reselection = TRUE,
                            field_R_out = 1000L,

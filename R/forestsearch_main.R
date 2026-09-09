@@ -794,10 +794,16 @@
 #'       \code{"poisson"} (centred Poisson(1) weights, the multiplier-bootstrap
 #'       analogue of nonparametric-bootstrap multiplicities); also
 #'       \code{"gaussian"}, \code{"rademacher"}.}
-#'     \item{\code{ci_method}}{\code{"ij"} (default) takes the de-biased
-#'       interval from the infinitesimal-jackknife variance, the leading-order
-#'       analogue of the full-bootstrap interval; \code{"wald"} uses the
-#'       subgroup robust SE.  The naive interval always uses the robust SE.}
+#'     \item{\code{ci_method}}{\code{"field"} (default) additionally runs the
+#'       field-calibrated block, whose one-sided products are the certified
+#'       ones; the de-biased element, its infinitesimal-jackknife SE and its
+#'       IJ intervals are returned in every call regardless, so nothing is
+#'       removed -- only a per-fit Monte Carlo cost is added.  \code{"ij"}
+#'       restores the previous default: the de-biased interval from the
+#'       infinitesimal-jackknife variance, the leading-order analogue of the
+#'       full-bootstrap interval, with the field block omitted.
+#'       \code{"wald"} uses the subgroup robust SE and also omits the field
+#'       block.  The naive interval always uses the robust SE.}
 #'     \item{\code{include_complement}}{Also de-bias the complement subgroup.
 #'       Passed as \code{TRUE} by every internal caller.}
 #'     \item{\code{seed}}{Seed for the multiplier draws; defaults to
@@ -969,8 +975,9 @@
 #'       \code{settings}, \code{harm_flag}, \code{timing_seconds}).  MR
 #'       approximates the full bootstrap (FB) to leading order; its interval is
 #'       the infinitesimal-jackknife analogue of the FB interval under the
-#'       default \code{ci_method = "ij"}, and the subgroup robust-SE interval
-#'       under \code{"wald"}.}
+#'       default \code{ci_method = "field"} and under \code{"ij"}, and the
+#'       subgroup robust-SE interval under \code{"wald"}.  Under the default
+#'       the return also carries the \code{field} element.}
 #'     \item{mr_harm_confirmed}{Logical, three-valued.  \code{TRUE} when MR ran
 #'       and the de-biased estimate still indicates harm under
 #'       \code{confirm_rule}; \code{FALSE} when MR ran and it does not;
@@ -3403,7 +3410,15 @@ forestsearch <- function(df.analysis,
         draws         = .g_mr(mr_inference_args$draws,       2000L),
         multiplier    = .g_mr(mr_inference_args$multiplier,  "poisson"),
         include_complement = .g_mr(mr_inference_args$include_complement, TRUE),
-        ci_method     = .g_mr(mr_inference_args$ci_method,   "ij"),
+        # ci_method defaults to "field" from TASK_cimethod_note_2026-09-09
+        # Part D2 -- the field block's one-sided products are the certified
+        # ones, and Part D's field_complement / field_scale_complement /
+        # return_reselection flips are inert without it.  Nothing is
+        # removed: the IJ SE and its intervals are computed before and
+        # independent of the field gate and are returned either way.
+        # ci_method = "ij" restores the previous default (field block
+        # omitted, and with it the per-fit Monte Carlo cost).
+        ci_method     = .g_mr(mr_inference_args$ci_method,   "field"),
         # Add-only pass-through (TASK_mr_field_uniform_2026-09-05, Larry's
         # classification: no behaviour change; FALSE is the gate's default).
         field_uniform = .g_mr(mr_inference_args$field_uniform, FALSE),

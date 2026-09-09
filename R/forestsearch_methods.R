@@ -56,6 +56,174 @@
 }
 
 
+
+#' Assemble the certified post-selection products from an MR result
+#'
+#' Reads \code{x$mr_inference} -- the \code{\link{fs_mr_inference}} return that
+#' \code{\link{forestsearch}} attaches under \code{mr_inference = TRUE} -- and
+#' returns the quantities \code{print}/\code{summary} report, or \code{NULL}
+#' when MR did not run or produced no field block.  Every element is read, none
+#' is recomputed.  The complement's certified bound is \strong{field-s}
+#' (\code{upper_1s_s}, present under the default
+#' \code{field_scale_complement = "selected"}); the unscaled \code{upper_1s} is
+#' the documented fallback and is labelled as such.  The joint pair is taken
+#' from \code{field$joint_s} when field-s is what is being reported, so the
+#' pair and the marginal bound come from the same field.
+#'
+#' Note on names: the joint element's members are \code{bonf_lower_H} /
+#' \code{bonf_upper_Hc} / \code{bonf_gamma} (\code{fs_mr_inference.R}); the
+#' \code{bonf_loH} / \code{bonf_upHc} spellings belong to the simulation
+#' template's recorder columns, not to the object.
+#'
+#' @param x A forestsearch object.
+#' @return A list, or NULL when there is nothing certified to report.
+#' @keywords internal
+#' @noRd
+.fs_mr_products <- function(x) {
+  g <- x$mr_inference
+  if (is.null(g) || !is.list(g)) return(NULL)
+  f <- g$field
+  if (!is.list(f) || !is.null(f$note)) return(NULL)
+  fc <- f$complement
+  scaled <- is.list(fc) && is.null(fc$note) && !is.null(fc$upper_1s_s)
+  comp_up <- if (scaled) fc$upper_1s_s else if (is.list(fc)) fc$upper_1s else NULL
+  jt <- if (scaled && is.list(f$joint_s)) f$joint_s else f$joint
+  ph <- if (is.list(g$reselection)) g$reselection$p_hat else NULL
+  lab <- g$selected_label
+  p_hat_H <- if (!is.null(ph) && !is.null(lab) && lab %in% names(ph))
+    unname(ph[[lab]]) else NA_real_
+  top <- if (!is.null(ph) && length(ph))
+    ph[order(-ph)][seq_len(min(3L, length(ph)))] else NULL
+  list(
+    measure   = g$measure %||% "HR",
+    label     = lab,
+    harm_lo   = f$lower_1s,
+    comp_up   = comp_up,
+    comp_tag  = if (scaled) "field-s" else "field (unscaled; field-s absent)",
+    joint_lo  = if (is.list(jt)) jt$bonf_lower_H  else NULL,
+    joint_up  = if (is.list(jt)) jt$bonf_upper_Hc else NULL,
+    joint_gam = if (is.list(jt)) jt$bonf_gamma    else NULL,
+    joint_tag = if (scaled && is.list(f$joint_s)) "field-s" else "field",
+    ij_lo     = g$debiased$lower,
+    ij_hi     = g$debiased$upper,
+    se_ij     = g$debiased$se_ij,
+    se_field  = f$se_field,
+    se_comp_s = if (scaled) fc$se_field_s else if (is.list(fc)) fc$se_field else NULL,
+    se_comp_naive = g$complement$debiased$se_wald,
+    p_hat_H   = p_hat_H,
+    p_hat_sum = if (!is.null(ph)) sum(ph, na.rm = TRUE) else NA_real_,
+    p_hat_top = top,
+    n_family  = g$n_family,
+    ci_method = g$ci_method)
+}
+
+
+#' The caveat lines, worded from dev/notes/NOTE_survival_products_2026-09-09.md
+#'
+#' Each string is a faithful compression of a sentence of that NOTE and nothing
+#' else; no claim here is generated from the analysis at hand.
+#'
+#' The two p-hat band edges, 0.20 and 0.5, are the NOTE's own and are
+#' \strong{descriptive band edges, not calibrated thresholds}.  0.5 is where
+#' the NOTE puts the harm-block bias crossing zero; 0.20 is the top of the band
+#' the NOTE characterises as low ("replicates below p-hat = 0.20").  Neither is
+#' a decision rule: they say which pole an analysis sits at, and the flag is
+#' directional.  The interval between them carries no line, because the NOTE
+#' supports no claim there.
+#' @keywords internal
+#' @noRd
+.fs_mr_caveats <- function(p) {
+  out <- character(0)
+  # NOTE, "Two-sided intervals are not certified.": "... its harm-block
+  # coverage falls to 0.913-0.917 at 12.4% prevalence with n >= 1000
+  # (0.971-0.981 at 31%).  Read two-sided statements at low prevalence and
+  # large n with that caveat."
+  if (!is.null(p$ij_lo) && is.finite(p$ij_lo))
+    out <- c(out, paste(
+      "Two-sided intervals are not certified: the IJ two-term interval's",
+      "harm-block coverage falls to 0.913-0.917 at 12.4% prevalence with",
+      "n >= 1000 (0.971-0.981 at 31%).  Read two-sided statements at low",
+      "prevalence and large n with that caveat."))
+  # NOTE, "Analysis-time diagnostic.": bias "crossing zero near p-hat ~ 0.5:
+  # ... under-correction at high p-hat (the stable-pick regime, +0.02)" and
+  # "its p-hat flag is directional, not calibrated".
+  if (is.finite(p$p_hat_H) && p$p_hat_H >= 0.5)
+    out <- c(out, paste(
+      "p-hat(H) >= 0.5 is the stable-pick regime, where the harm-block",
+      "correction is under-corrected (+0.02 log units).  The flag is",
+      "directional, not calibrated."))
+  # NOTE, "Analysis-time diagnostic.": "over-correction at low p-hat (bias
+  # -0.11 to -0.28 log units at 12.4%, n = 1500)"; and "The one-sided products
+  # are each exposed to one pole only, and in the conservative direction ...
+  # while the two-sided interval -- exposed to both -- does not [certify]."
+  # 0.20 is the NOTE's own low-band edge ("replicates below p-hat = 0.20");
+  # nothing is printed on [0.20, 0.5), where the NOTE supports no claim.
+  if (is.finite(p$p_hat_H) && p$p_hat_H < 0.20)
+    out <- c(out, paste(
+      "p-hat(H) < 0.20 is the unstable-pick pole, where the harm-block",
+      "correction runs the other way -- over-correction, -0.11 to -0.28 log",
+      "units at 12.4% prevalence with n = 1500 -- so the one-sided lower bound",
+      "on H is conservative here and the two-sided interval is the exposed",
+      "one.  See dev/notes/NOTE_survival_products_2026-09-09.md."))
+  out
+}
+
+
+#' Wrap and print the caveat lines under a hanging indent
+#' @keywords internal
+#' @noRd
+.fs_cat_caveat <- function(txt, indent = "  ") {
+  for (s in txt)
+    cat(paste0(indent, strwrap(s, width = 76, prefix = ""), collapse = "\n"), "\n")
+}
+
+
+#' The shared certified-products block used by print() and summary()
+#'
+#' @param p The list from \code{.fs_mr_products()}.
+#' @param long Logical; \code{TRUE} adds the SEs, the re-selection mass and the
+#'   certified/not-certified paragraph (the \code{summary} form).
+#' @keywords internal
+#' @noRd
+.fs_print_mr_products <- function(p, long = FALSE) {
+  m <- p$measure
+  f3 <- function(v) if (is.null(v) || !is.finite(v)) "NA" else formatC(v, format = "f", digits = 3)
+  cat("\nPost-selection inference (certified products):\n")
+  cat(sprintf("  Harm subgroup H:        one-sided 95%% lower bound on %s   %s\n", m, f3(p$harm_lo)))
+  cat(sprintf("  Complement Hc:          one-sided 95%% upper bound on %s   %s   [%s]\n",
+              m, f3(p$comp_up), p$comp_tag))
+  if (!is.null(p$joint_lo))
+    cat(sprintf("  Joint (Bonferroni):     H lower %s, Hc upper %s  (gamma %s each side) [%s]\n",
+                f3(p$joint_lo), f3(p$joint_up), f3(p$joint_gam), p$joint_tag))
+  cat(sprintf("  Two-sided (IJ, secondary): H (%s, %s)\n", f3(p$ij_lo), f3(p$ij_hi)))
+  if (long) {
+    cat("\n  Standard errors (log scale):\n")
+    cat(sprintf("    field (H)                 se_field    %s\n", f3(p$se_field)))
+    cat(sprintf("    field-s (Hc)              se_field_s  %s   (naive complement SE %s)\n",
+                f3(p$se_comp_s), f3(p$se_comp_naive)))
+    cat(sprintf("    IJ two-term (H)           se_ij       %s\n", f3(p$se_ij)))
+  }
+  cat(sprintf("  Re-selection frequency  p-hat(H) = %s\n", f3(p$p_hat_H)))
+  if (long) {
+    if (!is.null(p$p_hat_top)) {
+      cat(sprintf("    top-3 re-selection mass:  %s\n",
+                  paste(sprintf("%s %s", names(p$p_hat_top),
+                                vapply(unname(p$p_hat_top), f3, "")), collapse = " | ")))
+    }
+    cat(sprintf("    p_hat_sum = %s over a family of %s candidates\n",
+                f3(p$p_hat_sum), if (is.null(p$n_family)) "NA" else p$n_family))
+    cat("\n  Certified: the one-sided lower bound on H (field) and the one-sided\n")
+    cat("  upper bound on Hc (field-s), and the Bonferroni joint pair at gamma =\n")
+    cat("  0.025 each side.  Not certified: any two-sided interval.  p-hat(H) is a\n")
+    cat("  recorded diagnostic -- no construction reads it.  Read every bound by\n")
+    cat("  location against a clinically meaningful effect size, never as\n")
+    cat("  significance at the null.  Source: dev/notes/NOTE_survival_products_2026-09-09.md.\n")
+  }
+  cv <- .fs_mr_caveats(p)
+  if (length(cv)) { cat("\n"); .fs_cat_caveat(cv) }
+  invisible(NULL)
+}
+
 # =============================================================================
 # print.forestsearch
 # =============================================================================
@@ -65,6 +233,45 @@
 #' Displays a concise summary of ForestSearch results including the
 #' identified subgroup definition, consistency metrics, algorithm details,
 #' and computation time.
+#'
+#' @section Post-selection inference:
+#' When the fit carries multiplier-resampling results (`mr_inference = TRUE`,
+#' which attaches the [fs_mr_inference()] return as `x$mr_inference`) and the
+#' field block ran, a further block reports the **certified** survival
+#' post-selection products of
+#' `dev/notes/NOTE_survival_products_2026-09-09.md`, in that document's order
+#' of standing: the one-sided 95% **lower** bound on the harm subgroup
+#' \eqn{\beta(\widehat H)} (the field) and the one-sided 95% **upper** bound
+#' on the complement \eqn{\beta(\widehat H^c)} (**field-s**, the studentized
+#' complement field) first; the Bonferroni **joint** pair at
+#' \eqn{\gamma = 0.025} each side second; the IJ two-term **two-sided**
+#' interval third, explicitly labelled secondary because no two-sided interval
+#' is certified; and the re-selection frequency \eqn{\hat p(\widehat H)}
+#' last, as a recorded diagnostic that no construction reads.
+#'
+#' The field and field-s bounds exist only under `ci_method = "field"`, which
+#' is the default; `ci_method = "ij"` omits the field block and with it this
+#' entire section apart from the two-sided line.  When MR results are absent
+#' the printed output is unchanged from a build without this section.
+#'
+#' Caveat lines are printed only when they apply and are compressions of the
+#' NOTE, not of the analysis: a two-sided caveat whenever a two-sided interval
+#' is shown, and one of two directional \eqn{\hat p} notes at the poles of
+#' the harm-block bias.  At \eqn{\hat p(\widehat H) \ge 0.5} -- the
+#' stable-pick regime -- the correction under-corrects, so the bounds are
+#' somewhat optimistic.  At \eqn{\hat p(\widehat H) < 0.20} the correction
+#' runs the other way and over-corrects, which makes the one-sided lower bound
+#' on \eqn{\widehat H} the conservative product and leaves the two-sided
+#' interval as the exposed one.
+#'
+#' **0.20 and 0.5 are descriptive band edges taken from the NOTE, not
+#' calibrated thresholds.** 0.5 is where the NOTE puts the bias crossing zero;
+#' 0.20 is the top of the band it characterises as low.  They say which pole an
+#' analysis sits at, and the flag is directional, not a decision rule.
+#' \eqn{\hat p} in \eqn{[0.20, 0.5)} prints no note at all, because the NOTE
+#' supports no claim there.  Bounds are reported by location and must be read
+#' against a clinically meaningful effect size, never as significance at the
+#' null.
 #'
 #' @param x A \code{forestsearch} object returned by
 #'   \code{\link{forestsearch}}.
@@ -144,6 +351,14 @@ print.forestsearch <- function(x, ...) {
     cat("  Candidates passed:", n_pass, "\n")
   }
 
+  # --- Post-selection inference (MR / field), when present ---------------
+  # Absent MR results (mr_inference = FALSE, or a fit whose field block did
+  # not run) leave every line above untouched: .fs_mr_products() returns NULL
+  # and nothing is printed, so output is byte-identical to a pre-extension
+  # build.  See dev/notes/NOTE_survival_products_2026-09-09.md.
+  mrp <- .fs_mr_products(x)
+  if (!is.null(mrp)) .fs_print_mr_products(mrp, long = FALSE)
+
   # --- Timing ---
   if (!is.null(x$minutes_all)) {
     cat("\nComputation time:", round(x$minutes_all, 2), "minutes\n")
@@ -162,6 +377,18 @@ print.forestsearch <- function(x, ...) {
 #' Provides a detailed summary of a ForestSearch analysis including input
 #' parameters, variable selection results, consistency evaluation, and
 #' the selected subgroup with key metrics.
+#'
+#' @section Post-selection inference:
+#' Carries the same certified-products block as [print.forestsearch()] -- see
+#' its documentation for the ordering, the `ci_method = "field"` requirement,
+#' the by-location reading convention and the descriptive (not calibrated)
+#' \eqn{\hat p} threshold -- and adds, on the log scale, the field SE for the
+#' harm block, the field-s SE for the complement with the naive complement SE
+#' beside it, and the IJ two-term SE; the three largest re-selection
+#' frequencies with their labels; `p_hat_sum` over the re-selection family;
+#' and one paragraph naming what is certified and what is not, sourced from
+#' `dev/notes/NOTE_survival_products_2026-09-09.md`.  Absent MR results, the
+#' output is unchanged from a build without this section.
 #'
 #' @param object A \code{forestsearch} object returned by
 #'   \code{\link{forestsearch}}.
@@ -318,6 +545,13 @@ summary.forestsearch <- function(object, ...) {
   } else {
     cat("No subgroup identified.\n")
   }
+
+  # -------------------------------------------------------------------------
+  # Post-selection inference (MR / field), when present
+  # -------------------------------------------------------------------------
+  # As in print(): NULL when MR did not run, so the output above is unchanged.
+  mrp <- .fs_mr_products(object)
+  if (!is.null(mrp)) .fs_print_mr_products(mrp, long = TRUE)
 
   # -------------------------------------------------------------------------
   # Timing

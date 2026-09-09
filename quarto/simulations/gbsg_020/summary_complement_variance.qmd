@@ -57,7 +57,8 @@ regime <- function(b) {
           if (f %in% c("effMaxSG", "effMinSG")) sprintf(" eps %.2f", eps) else "", J,
           100 * (b$meta$harm_prevalence_super %||% if (z == 0.25) 0.124 else NA)) }
 cell <- function(b) sprintf("HR %.2f n%d", b$meta$target_hr_harm, b$meta$n_sample)
-order_key <- c(s7c = 1, p30 = 2, p30sg = 3, p30sgnb20 = 4, p30sgnb20j20 = 5)
+order_key <- c(s7c = 1, p30 = 2, p30sg = 3, p30sgnb20 = 4, p30sgnb20j20 = 5,
+               e1stud = 6, cert20 = 7, tier2 = 8)
 meta_tab <- data.frame(regime = vapply(bundles, regime, ""), cell = vapply(bundles, cell, ""),
                        tag = vapply(bundles, function(b) b$meta$campaign_tag, ""),
                        hr = vapply(bundles, function(b) b$meta$target_hr_harm, 0),
@@ -574,4 +575,427 @@ if (!is.null(A6p)) {
   cat("\n**H3 -- uncorrected fractions, p-hat tertiles** (T1 low ... T3 high p-hat):\n\n| cell | regime | quantity | all | T1 | T2 | T3 |\n|---|---|---|---|---|---|---|\n")
   for (i in seq_len(nrow(H3f))) with(H3f[i, ], cat(sprintf("| %s | %s | %s | %s | %s | %s | %s |\n", cell, regime, quantity, f4(all), f4(T1), f4(T2), f4(T3))))
 }
+```
+
+# A7 — Coverage at fixed p̂ bands (Part F)
+
+`TASK_fixedphat_ij2s_2026-09-09`, Part F. **p̂(Ĥ) is a recorded diagnostic, computed from draws already
+made after the bounds are formed; no construction in this package reads it, and nothing in this section
+proposes that any should.** The bands below are a re-cut of the committed replicates for analysis only, with
+edges that mean the same thing at every $n$ and prevalence — the per-cell tertiles of A2/A5/A6 move their
+boundaries with $n$ and so cannot answer an $n$-comparison. p̂ is estimated from the same draws that build
+the bound, so it is not an independent instrument: adequate as an analysis-time flag and for diagnostics,
+and a reason not to let any interval depend on it.
+
+Bands: **[0, 0.05), [0.05, 0.10), [0.10, 0.20), [0.20, 0.35), [0.35, 0.55), [0.55, 1.0]**. A band with
+fewer than 30 replicates is flagged (`small`) and kept in the tables, but excluded from the trend readings.
+
+Quantities, all on A6's rows (detected, every complement, field-s and harm-block input finite) with the
+harm block's two-sided bounds also finite:
+
+- **harm field one-sided lower** $\mathbb 1\{\beta(\widehat H) \ge \texttt{fld\_H\_lo1s}\}$ (A6's `cov_field_H`);
+- **complement field-s one-sided upper** $\mathbb 1\{\beta(\widehat H^c) \le \texttt{fld\_Hc\_up1s\_s}\}$ (A5's `cov_field_s`);
+- **IJ two-term two-sided on the harm block** $\mathbb 1\{\texttt{mr\_H\_lo} \le \beta(\widehat H) \le \texttt{mr\_H\_hi}\}$,
+  the stored bounds (asserted below to equal $\exp(\log \texttt{mr\_H\_est} \pm z_{0.975}\,\texttt{mr\_H\_se\_ij})$ to $10^{-12}$);
+- **field two-sided on the harm block** $\mathbb 1\{\texttt{fld\_H\_lo2s} \le \beta(\widehat H) \le \texttt{fld\_H\_hi2s}\}$ (the quantile form), carried for Part G.
+
+Wilson 95% limits on every observed rate. The Gaussian-implied value beside each is computed **from the
+band's own numbers**: with $b = \bar e / \mathrm{SD}(e)$ and $r = \overline{\mathrm{SE}} / \mathrm{SD}(e)$
+on the relevant error $e$ and its reported SE, the one-sided lower reference is $\Phi(z_{0.95} r - b)$, the
+one-sided upper $\Phi(z_{0.95} r + b)$, and the two-sided $\Phi(z_{0.975} r - b) - \Phi(-z_{0.975} r - b)$.
+The errors are $e_{f,H} = \log(\texttt{fld\_H\_est2}) - \log\beta(\widehat H)$ (harm field),
+$e_{f,s} = \log(\texttt{fld\_Hc\_est2\_s}) - \log\beta(\widehat H^c)$ (complement field-s) and
+$e_H = \log(\texttt{mr\_H\_est}) - \log\beta(\widehat H)$ (IJ). SDs are **error** SDs, not the marginal SDs
+of the constructions tables. The field's bounds are quantile-form, so its Gaussian-implied value is a
+reference, not an identity.
+
+```{r a7-setup}
+BR7   <- c(0, 0.05, 0.10, 0.20, 0.35, 0.55, 1.0)
+BLAB7 <- c("[0,0.05)", "[0.05,0.10)", "[0.10,0.20)", "[0.20,0.35)", "[0.35,0.55)", "[0.55,1.0]")
+band7 <- function(p) cut(p, breaks = BR7, labels = BLAB7, right = FALSE, include.lowest = TRUE)
+MINN7 <- 30L                       # bands below this are flagged, never dropped
+z95 <- stats::qnorm(0.95); z975 <- stats::qnorm(0.975)
+
+# A6's cells, re-ordered for this part: prevalence (high first), then HR, then n.
+i7    <- as.integer(names(D6))
+prev7 <- vapply(bundles[i7], function(b) b$meta$harm_prevalence_super %||% NA_real_, 0)
+plab7 <- ifelse(prev7 > 0.2, "31%", "12.4%")
+foc7  <- vapply(bundles[i7], function(b) b$meta$sg_focus %||% "maxeffCons", "")
+eps7  <- vapply(bundles[i7], function(b) knob(b, "effect_neighborhood", 0.10), 0)
+host7 <- vapply(bundles[i7], function(b) {
+  h <- unique(unlist(lapply(b$meta$source_files, function(f)
+    if (file.exists(file.path("results", f))) readRDS(file.path("results", f))$meta$hostname else NULL)))
+  if (length(h)) paste(h, collapse = ",") else NA_character_ }, "")
+ord7 <- order(-round(prev7, 4), meta_tab$hr[i7], meta_tab$n[i7])
+
+# Per-cell augmentation: the two-sided bounds and the miss split by side, on A6's rows.
+aug7 <- function(d) {
+  d <- d[is.finite(d$mr_H_lo) & is.finite(d$mr_H_hi) &
+         is.finite(d$fld_H_lo2s) & is.finite(d$fld_H_hi2s), , drop = FALSE]
+  d$e_ijH    <- log(d$mr_H_est) - log(d$betaHhat_H)      # A6's e_H, the IJ two-term error
+  d$cov2_ij  <- d$betaHhat_H >= d$mr_H_lo & d$betaHhat_H <= d$mr_H_hi
+  d$above_ij <- d$mr_H_lo  >  d$betaHhat_H               # interval entirely above beta(Hhat)
+  d$below_ij <- d$mr_H_hi  <  d$betaHhat_H               # interval entirely below
+  d$cov2_fl  <- d$betaHhat_H >= d$fld_H_lo2s & d$betaHhat_H <= d$fld_H_hi2s
+  d$above_fl <- d$fld_H_lo2s > d$betaHhat_H
+  d$below_fl <- d$fld_H_hi2s < d$betaHhat_H
+  d$band     <- band7(d$p_hat_H)
+  d
+}
+D7 <- lapply(D6[ord7], aug7)
+CM <- data.frame(
+  cell       = sprintf("%s HR %.2f n%d", plab7[ord7], meta_tab$hr[i7][ord7], meta_tab$n[i7][ord7]),
+  campaign   = meta_tab$tag[i7][ord7], prevalence = plab7[ord7],
+  focus      = ifelse(foc7[ord7] == "effMaxSG", sprintf("effMaxSG eps %.2f", eps7[ord7]), foc7[ord7]),
+  hr         = meta_tab$hr[i7][ord7], n = meta_tab$n[i7][ord7],
+  rows       = vapply(bundles[i7][ord7], function(b) nrow(b$results), 0L),
+  detected   = vapply(bundles[i7][ord7], function(b) sum(b$results$detected %in% 1L), 0L),
+  n_A6       = vapply(D6[ord7], nrow, 0L), analysed = vapply(D7, nrow, 0L),
+  machine    = host7[ord7], stringsAsFactors = FALSE)
+CM$detection <- CM$detected / CM$rows
+lab7 <- CM$cell; names(D7) <- lab7
+# Assertion: the stored IJ two-sided bounds are the Wald form on the log scale.
+id7 <- vapply(D7, function(d) max(abs(log(d$mr_H_lo) - (log(d$mr_H_est) - z975 * d$mr_H_se_ij)),
+                                  abs(log(d$mr_H_hi) - (log(d$mr_H_est) + z975 * d$mr_H_se_ij))), 0)
+stopifnot(all(id7 <= 1e-12))
+kbl(CM[, c("cell", "campaign", "prevalence", "focus", "hr", "n", "rows", "detected", "detection",
+           "n_A6", "analysed", "machine")],
+    digits = c(0, 0, 0, 0, 2, 0, 0, 0, 4, 0, 0, 0), booktabs = TRUE, row.names = FALSE,
+    caption = "The thirteen committed cells: campaign, prevalence, focus, HR, n; rows and detections; n at A6's filter and after requiring the harm block's two-sided bounds finite; machine (from the batch bundles). tier2 was produced on the Mac -- comparisons across campaigns are of rates and summaries, never identical() on fitted values.") |>
+  kable_styling(font_size = 10)
+```
+
+```{r a7-fns}
+# One band's (or one pooled group's) row: observed coverage with Wilson, Gaussian-implied beside.
+bandrow <- function(d) {
+  n <- nrow(d)
+  gz <- function(e, se, side) {
+    if (n < 2L || !is.finite(stats::sd(e)) || stats::sd(e) == 0) return(NA_real_)
+    b <- mean(e) / stats::sd(e); r <- mean(se) / stats::sd(e)
+    switch(side, lower = stats::pnorm(z95 * r - b), upper = stats::pnorm(z95 * r + b),
+           two = stats::pnorm(z975 * r - b) - stats::pnorm(-z975 * r - b)) }
+  W <- function(p) if (n > 0L) wil(p, n) else c(NA_real_, NA_real_)
+  cH <- if (n) mean(d$cov_fH) else NA_real_; cS <- if (n) mean(d$cov_s) else NA_real_
+  cI <- if (n) mean(d$cov2_ij) else NA_real_; cF <- if (n) mean(d$cov2_fl) else NA_real_
+  wH <- W(cH); wS <- W(cS); wI <- W(cI); wF <- W(cF)
+  data.frame(n = n, small = n < MINN7,
+             p_hat_mean = if (n) mean(d$p_hat_H) else NA_real_,
+             harm_field = cH, harm_lo = wH[1], harm_hi = wH[2], harm_gauss = gz(d$ef_H, d$fld_H_se, "lower"),
+             comp_field_s = cS, comp_lo = wS[1], comp_hi = wS[2], comp_gauss = gz(d$ef_s, d$fld_Hc_se_s, "upper"),
+             ij2 = cI, ij2_lo = wI[1], ij2_hi = wI[2], ij2_gauss = gz(d$e_ijH, d$mr_H_se_ij, "two"),
+             fld2 = cF, fld2_lo = wF[1], fld2_hi = wF[2], fld2_gauss = gz(d$ef_H, d$fld_H_se, "two"),
+             stringsAsFactors = FALSE)
+}
+byband <- function(d, key) do.call(rbind, lapply(BLAB7, function(bl) {
+  dk <- d[!is.na(d$band) & d$band == bl, , drop = FALSE]
+  cbind(key, band = bl, bandrow(dk), stringsAsFactors = FALSE) }))
+cols7 <- c("band", "n", "small", "p_hat_mean", "harm_field", "harm_lo", "harm_hi", "harm_gauss",
+           "comp_field_s", "comp_lo", "comp_hi", "comp_gauss", "ij2", "ij2_lo", "ij2_hi", "ij2_gauss")
+dg7   <- c(0, 0, 0, 4, rep(3, 12))
+F1 <- do.call(rbind, lapply(seq_along(D7), function(j)
+  byband(D7[[j]], data.frame(cell = lab7[j], campaign = CM$campaign[j], stringsAsFactors = FALSE))))
+```
+
+## F1 — Per cell × band
+
+```{r a7-f1}
+kbl(F1[, c("cell", cols7)], digits = c(0, dg7), booktabs = TRUE, row.names = FALSE,
+    caption = "F1: per cell and fixed p-hat band -- n, mean p-hat, harm field one-sided lower coverage [Wilson], complement field-s one-sided upper [Wilson], IJ two-term two-sided on the harm block [Wilson], each with the band's own Gaussian-implied value beside. small = fewer than 30 replicates (kept, excluded from the trend readings).") |>
+  kable_styling(font_size = 9)
+```
+
+## F2 — Pooled within prevalence and HR
+
+```{r a7-f2}
+grp7 <- sprintf("%s HR %.2f", CM$prevalence, CM$hr)
+F2 <- do.call(rbind, lapply(unique(grp7), function(g) {
+  js <- which(grp7 == g)
+  d  <- do.call(rbind, lapply(D7[js], function(x) x[, c("p_hat_H", "band", "cov_fH", "cov_s", "cov2_ij",
+    "cov2_fl", "ef_H", "ef_s", "e_ijH", "fld_H_se", "fld_Hc_se_s", "mr_H_se_ij")]))
+  byband(d, data.frame(group = g, cells = paste(sprintf("n%d", CM$n[js]), collapse = "+"), stringsAsFactors = FALSE)) }))
+kbl(F2[, c("group", "cells", cols7)], digits = c(0, 0, dg7), booktabs = TRUE, row.names = FALSE,
+    caption = "F2: the same quantities pooled across the cells of each prevalence x HR series (the n's pooled are named), so the shape of coverage as a function of p-hat is visible with usable n.") |>
+  kable_styling(font_size = 9)
+```
+
+## F3 — The n-comparison at fixed band
+
+```{r a7-f3}
+nsF <- c(500, 1000, 1500)
+f3tab <- function(what) {
+  qn <- switch(what, harm = "harm_field", comp = "comp_field_s", ij2 = "ij2")
+  do.call(rbind, lapply(unique(grp7), function(g) do.call(rbind, lapply(BLAB7, function(bl) {
+    row <- data.frame(group = g, band = bl, stringsAsFactors = FALSE)
+    for (nn in nsF) { j <- which(grp7 == g & CM$n == nn)
+      if (!length(j)) { row[[sprintf("n%d_n", nn)]] <- NA_integer_; row[[sprintf("n%d_cov", nn)]] <- NA_real_
+      } else { s <- F1[F1$cell == lab7[j] & F1$band == bl, ]
+        row[[sprintf("n%d_n", nn)]] <- s$n; row[[sprintf("n%d_cov", nn)]] <- s[[qn]] } }
+    row$delta_1500_500 <- row$n1500_cov - row$n500_cov
+    row$usable <- isTRUE(row$n500_n >= MINN7) && isTRUE(row$n1000_n >= MINN7) && isTRUE(row$n1500_n >= MINN7)
+    row }))))
+}
+F3harm <- f3tab("harm"); F3comp <- f3tab("comp"); F3ij <- f3tab("ij2")
+capF3 <- ": coverage against n at fixed band, within prevalence and HR. usable = every n in the series has at least 30 replicates in the band."
+dgF3 <- c(0, 0, 0, 3, 0, 3, 0, 3, 3, 0)
+kbl(F3harm, digits = dgF3, booktabs = TRUE, row.names = FALSE,
+    caption = paste0("F3 (harm field one-sided lower)", capF3)) |> kable_styling(font_size = 9)
+kbl(F3comp, digits = dgF3, booktabs = TRUE, row.names = FALSE,
+    caption = paste0("F3 (complement field-s one-sided upper)", capF3)) |> kable_styling(font_size = 9)
+kbl(F3ij, digits = dgF3, booktabs = TRUE, row.names = FALSE,
+    caption = paste0("F3 (IJ two-term two-sided on the harm block)", capF3)) |> kable_styling(font_size = 9)
+```
+
+## F4 — Composition: the share of replicates per band
+
+```{r a7-f4}
+F4 <- do.call(rbind, lapply(seq_along(D7), function(j) { d <- D7[[j]]
+  sh <- vapply(BLAB7, function(bl) mean(!is.na(d$band) & d$band == bl), 0)
+  data.frame(cell = lab7[j], campaign = CM$campaign[j], n = nrow(d), p_hat_mean = mean(d$p_hat_H),
+             p_hat_median = stats::median(d$p_hat_H),
+             as.list(setNames(sh, BLAB7)), check.names = FALSE, stringsAsFactors = FALSE) }))
+kbl(F4, digits = c(0, 0, 0, 4, 4, rep(3, 6)), booktabs = TRUE, row.names = FALSE,
+    caption = "F4: per cell, the share of analysed replicates in each fixed p-hat band, with the mean and median p-hat -- the movement of the p-hat distribution with n and prevalence, beside the coverage-versus-band shape of F1.") |>
+  kable_styling(font_size = 10)
+```
+
+## Numbers for the record (A7)
+
+```{r a7-record, results='asis'}
+#| echo: false
+f3n <- function(x) ifelse(is.na(x), "-", formatC(x, digits = 3, format = "f"))
+f4n <- function(x) ifelse(is.na(x), "-", formatC(x, digits = 4, format = "f"))
+in3 <- function(p, lo, hi) if (is.na(p)) "-" else sprintf("%s [%s, %s]", f3n(p), f3n(lo), f3n(hi))
+cat("**Cell metadata** (the thirteen committed cells):\n\n| cell | campaign | prevalence | focus | HR | n | rows | detected | detection | n at A6 | n analysed | machine |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n")
+for (i in seq_len(nrow(CM))) with(CM[i, ], cat(sprintf("| %s | %s | %s | %s | %.2f | %d | %d | %d | %s | %d | %d | %s |\n",
+  cell, campaign, prevalence, focus, hr, n, rows, detected, f4n(detection), n_A6, analysed, machine)))
+cat(sprintf("\nIJ two-sided bound identity, max over the thirteen cells of max |log(mr_H_lo) - (log(mr_H_est) - z*se_ij)| and the upper analogue: %.1e (asserted <= 1e-12).\n", max(id7)))
+
+cat("\n**F1 -- coverage at fixed p-hat bands, per cell** (observed [Wilson 95%]; Gaussian-implied from the band's own error mean, error SD and mean SE):\n\n| cell | campaign | band | n | small | mean p-hat | harm field lower [Wilson] | Gauss | complement field-s upper [Wilson] | Gauss | IJ two-sided (harm) [Wilson] | Gauss |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n")
+for (i in seq_len(nrow(F1))) with(F1[i, ], cat(sprintf("| %s | %s | %s | %d | %s | %s | %s | %s | %s | %s | %s | %s |\n",
+  cell, campaign, band, n, ifelse(small, "small", ""), f4n(p_hat_mean),
+  in3(harm_field, harm_lo, harm_hi), f3n(harm_gauss), in3(comp_field_s, comp_lo, comp_hi), f3n(comp_gauss),
+  in3(ij2, ij2_lo, ij2_hi), f3n(ij2_gauss))))
+
+cat("\n**F2 -- pooled within prevalence and HR**:\n\n| group | cells pooled | band | n | small | mean p-hat | harm field lower [Wilson] | Gauss | complement field-s upper [Wilson] | Gauss | IJ two-sided (harm) [Wilson] | Gauss |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n")
+for (i in seq_len(nrow(F2))) with(F2[i, ], cat(sprintf("| %s | %s | %s | %d | %s | %s | %s | %s | %s | %s | %s | %s |\n",
+  group, cells, band, n, ifelse(small, "small", ""), f4n(p_hat_mean),
+  in3(harm_field, harm_lo, harm_hi), f3n(harm_gauss), in3(comp_field_s, comp_lo, comp_hi), f3n(comp_gauss),
+  in3(ij2, ij2_lo, ij2_hi), f3n(ij2_gauss))))
+
+for (w in c("harm", "comp", "ij2")) { T3 <- switch(w, harm = F3harm, comp = F3comp, ij2 = F3ij)
+  cat(sprintf("\n**F3 -- %s, coverage against n at fixed band**:\n\n| group | band | n500 (n) | n500 cov | n1000 (n) | n1000 cov | n1500 (n) | n1500 cov | n1500 - n500 | usable |\n|---|---|---|---|---|---|---|---|---|---|\n",
+    switch(w, harm = "harm field one-sided lower", comp = "complement field-s one-sided upper", ij2 = "IJ two-term two-sided on the harm block")))
+  for (i in seq_len(nrow(T3))) with(T3[i, ], cat(sprintf("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n", group, band,
+    ifelse(is.na(n500_n), "-", as.character(n500_n)), f3n(n500_cov), ifelse(is.na(n1000_n), "-", as.character(n1000_n)), f3n(n1000_cov),
+    ifelse(is.na(n1500_n), "-", as.character(n1500_n)), f3n(n1500_cov), f3n(delta_1500_500), ifelse(usable, "yes", "no")))) }
+
+cat("\n**F4 -- composition: the share of analysed replicates per band**:\n\n| cell | campaign | n | mean p-hat | median p-hat | ", paste(BLAB7, collapse = " | "), " |\n|---|---|---|---|---|---|---|---|---|---|---|\n", sep = "")
+for (i in seq_len(nrow(F4))) cat(sprintf("| %s | %s | %d | %s | %s | %s |\n", F4$cell[i], F4$campaign[i], F4$n[i],
+  f4n(F4$p_hat_mean[i]), f4n(F4$p_hat_median[i]), paste(vapply(BLAB7, function(bl) f3n(F4[[bl]][i]), ""), collapse = " | ")))
+```
+
+# A8 — The harm-block two-sided decay (Part G)
+
+`TASK_fixedphat_ij2s_2026-09-09`, Part G. The two-sided miss on the harm block is split **by side**: the
+share of replicates whose interval lies entirely **above** $\beta(\widehat H)$ (`lower bound > target`) and
+entirely **below** (`upper bound < target`), for the IJ two-term ($\texttt{mr\_H\_lo}, \texttt{mr\_H\_hi}$)
+and for the field's two-sided quantile interval ($\texttt{fld\_H\_lo2s}, \texttt{fld\_H\_hi2s}$), beside the
+bias on the log scale, the marginal SD of the log estimate, the **error** SD against the per-replicate
+target, the mean SE and SE / error-SD. The hypothesis on record is a harm-block bias that does not shrink
+with $n$ while the SE does, consuming a two-sided interval from one side. Same rows as A7.
+
+```{r a8-setup}
+g1row <- function(d, what) {
+  n <- nrow(d)
+  if (what == "IJ two-term") { e <- d$e_ijH; lm <- log(d$mr_H_est); se <- d$mr_H_se_ij
+    cv <- d$cov2_ij; ab <- d$above_ij; bl <- d$below_ij
+  } else { e <- d$ef_H; lm <- log(d$fld_H_est2); se <- d$fld_H_se
+    cv <- d$cov2_fl; ab <- d$above_fl; bl <- d$below_fl }
+  w <- if (n) wil(mean(cv), n) else c(NA_real_, NA_real_)
+  data.frame(construction = what, n = n, bias_log = mean(e), sd_marg = stats::sd(lm), sd_err = stats::sd(e),
+             se_mean = mean(se), se_over_sd_err = mean(se) / stats::sd(e),
+             bias_over_se = mean(e) / mean(se),
+             cov2 = mean(cv), cov2_lo = w[1], cov2_hi = w[2],
+             miss2 = 1 - mean(cv), miss_above = mean(ab), miss_below = mean(bl), stringsAsFactors = FALSE)
+}
+G1 <- do.call(rbind, lapply(seq_along(D7), function(j) do.call(rbind, lapply(c("IJ two-term", "field"),
+  function(w) cbind(cell = lab7[j], campaign = CM$campaign[j], prevalence = CM$prevalence[j],
+                    hr = CM$hr[j], n_samp = CM$n[j], g1row(D7[[j]], w), stringsAsFactors = FALSE)))))
+cols8 <- c("cell", "construction", "n", "bias_log", "sd_marg", "sd_err", "se_mean", "se_over_sd_err",
+           "bias_over_se", "cov2", "cov2_lo", "cov2_hi", "miss_above", "miss_below")
+dg8 <- c(0, 0, 0, 4, 4, 4, 4, 3, 3, 4, 4, 4, 4, 4)
+```
+
+## G1 — Per cell, harm block: the two-sided miss split by side
+
+```{r a8-g1}
+kbl(G1[, cols8], digits = dg8, booktabs = TRUE, row.names = FALSE,
+    caption = "G1: harm block, per cell and construction -- bias (log), marginal SD of the log estimate, error SD against beta(Hhat), mean SE, SE/error-SD, bias/SE, two-sided coverage [Wilson], and the miss split by side (miss_above = interval entirely above the target, miss_below = entirely below).") |>
+  kable_styling(font_size = 9)
+```
+
+## G2 — Trajectory against n within prevalence
+
+```{r a8-g2}
+G2 <- G1[order(G1$construction, as.numeric(factor(G1$prevalence, levels = c("31%", "12.4%"))), G1$hr, G1$n_samp),
+         c("prevalence", "hr", "n_samp", "construction", "n", "bias_log", "se_mean", "bias_over_se",
+           "sd_err", "se_over_sd_err", "cov2", "miss_above", "miss_below")]
+kbl(G2, digits = c(0, 2, 0, 0, 0, 4, 4, 3, 4, 3, 4, 4, 4), booktabs = TRUE, row.names = FALSE,
+    caption = "G2: bias, mean SE, bias/SE, error SD, SE/error-SD, two-sided coverage and the miss by side against n, within each prevalence and HR, one block per construction. bias/SE growing with n is the signature of a bias that does not shrink while the SE does.") |>
+  kable_styling(font_size = 9)
+```
+
+## G3 — The miss by side at fixed p̂ band
+
+```{r a8-g3}
+G3 <- do.call(rbind, lapply(seq_along(D7), function(j) { d <- D7[[j]]
+  do.call(rbind, lapply(BLAB7, function(bl) { dk <- d[!is.na(d$band) & d$band == bl, , drop = FALSE]
+    if (!nrow(dk)) return(NULL)
+    do.call(rbind, lapply(c("IJ two-term", "field"), function(w)
+      cbind(cell = lab7[j], band = bl, small = nrow(dk) < MINN7, g1row(dk, w), stringsAsFactors = FALSE))) })) }))
+kbl(G3[, c("cell", "band", "small", "construction", "n", "bias_log", "se_mean", "bias_over_se",
+           "cov2", "miss_above", "miss_below")],
+    digits = c(0, 0, 0, 0, 0, 4, 4, 3, 4, 4, 4), booktabs = TRUE, row.names = FALSE,
+    caption = "G3: the harm-block two-sided miss by side within each fixed p-hat band -- whether the decay lives in the stable-pick (high p-hat) bands or is uniform across p-hat.") |>
+  kable_styling(font_size = 9)
+```
+
+## Numbers for the record (A8)
+
+```{r a8-record, results='asis'}
+#| echo: false
+cat("**G1 -- harm block, the two-sided miss split by side, per cell**:\n\n| cell | construction | n | bias (log) | marginal SD | error SD | mean SE | SE/error SD | bias/SE | two-sided cov [Wilson] | miss above | miss below |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n")
+for (i in seq_len(nrow(G1))) with(G1[i, ], cat(sprintf("| %s | %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n",
+  cell, construction, n, f4n(bias_log), f4n(sd_marg), f4n(sd_err), f4n(se_mean), f3n(se_over_sd_err),
+  f3n(bias_over_se), in3(cov2, cov2_lo, cov2_hi), f4n(miss_above), f4n(miss_below))))
+
+cat("\n**G2 -- trajectory against n within prevalence and HR**:\n\n| prevalence | HR | n | construction | reps | bias (log) | mean SE | bias/SE | error SD | SE/error SD | two-sided cov | miss above | miss below |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n")
+for (i in seq_len(nrow(G2))) with(G2[i, ], cat(sprintf("| %s | %.2f | %d | %s | %d | %s | %s | %s | %s | %s | %s | %s | %s |\n",
+  prevalence, hr, n_samp, construction, n, f4n(bias_log), f4n(se_mean), f3n(bias_over_se), f4n(sd_err),
+  f3n(se_over_sd_err), f4n(cov2), f4n(miss_above), f4n(miss_below))))
+
+cat("\n**G3 -- the miss by side at fixed p-hat band**:\n\n| cell | band | small | construction | n | bias (log) | mean SE | bias/SE | two-sided cov | miss above | miss below |\n|---|---|---|---|---|---|---|---|---|---|---|\n")
+for (i in seq_len(nrow(G3))) with(G3[i, ], cat(sprintf("| %s | %s | %s | %s | %d | %s | %s | %s | %s | %s | %s |\n",
+  cell, band, ifelse(small, "small", ""), construction, n, f4n(bias_log), f4n(se_mean), f3n(bias_over_se),
+  f4n(cov2), f4n(miss_above), f4n(miss_below))))
+```
+
+# A9 — Detection conditioning (Part H)
+
+`TASK_fixedphat_ij2s_2026-09-09`, Part H. All coverage is computed on detected replicates and the detection
+rate moves with $n$, so the analysed set's composition changes with $n$ independently of anything the
+constructions do. Every cell was run with the same `seed_base` (8316951) over the same `sim_id` range
+(1–2000), and `simulate_from_dgm()` draws its subjects as `sample(nrow(df_super), n, replace = TRUE)` under
+`set.seed(seed_base + sim_id)`, so within a prevalence × HR series replicate $i$ is the **same seed** at
+every $n$ and its n = 500 subject draw is the leading block of its n = 1500 draw (the treatment allocation,
+drawn afterwards at the cell's own $n$, is not shared). "Always-detected" is the set of `sim_id`s with
+`detected == 1` at **every** $n$ in the series; coverage restricted to it is the like-for-like comparison
+across $n$.
+
+```{r a9-setup}
+ser9 <- sprintf("%s HR %.2f", CM$prevalence, CM$hr)
+series <- split(seq_len(nrow(CM)), ser9)
+series <- series[order(match(vapply(series, function(j) CM$prevalence[j[1]], ""), c("31%", "12.4%")),
+                       vapply(series, function(j) CM$hr[j[1]], 0))]
+det_ids <- lapply(bundles[i7][ord7], function(b) b$results$sim_id[b$results$detected %in% 1L])
+always  <- lapply(series, function(js) Reduce(intersect, det_ids[js]))
+H1 <- do.call(rbind, lapply(names(series), function(g) { js <- series[[g]]
+  data.frame(series = g, cell = CM$cell[js], campaign = CM$campaign[js], n_samp = CM$n[js],
+             rows = CM$rows[js], detected = CM$detected[js], detection = CM$detection[js],
+             series_n = length(js), always_detected = length(always[[g]]),
+             always_share = length(always[[g]]) / CM$rows[js], stringsAsFactors = FALSE) }))
+```
+
+## H1 — Detection rates and the always-detected sets
+
+```{r a9-h1}
+kbl(H1, digits = c(0, 0, 0, 0, 0, 0, 4, 0, 0, 4), booktabs = TRUE, row.names = FALSE,
+    caption = "H1: per cell, the detection rate; per series (prevalence x HR, cells sharing seed_base and sim_id range), the number of sim_ids detected at every n in the series. A series with one n has its own detected set as the always-detected set.") |>
+  kable_styling(font_size = 10)
+```
+
+## H2 — Coverage and harm bias: all detected vs always-detected
+
+```{r a9-h2}
+h2row <- function(d) data.frame(
+  n = nrow(d),
+  harm_field = mean(d$cov_fH), comp_field_s = mean(d$cov_s), ij2_harm = mean(d$cov2_ij),
+  fld2_harm = mean(d$cov2_fl),
+  bias_ij_H = mean(d$e_ijH), bias_fld_H = mean(d$ef_H),
+  se_ij_H = mean(d$mr_H_se_ij), miss_above_ij = mean(d$above_ij), miss_below_ij = mean(d$below_ij),
+  p_hat_mean = mean(d$p_hat_H), stringsAsFactors = FALSE)
+H2 <- do.call(rbind, lapply(names(series), function(g) { js <- series[[g]]; ids <- always[[g]]
+  do.call(rbind, lapply(js, function(j) { d <- D7[[j]]
+    rbind(cbind(series = g, cell = CM$cell[j], n_samp = CM$n[j], set = "all detected", h2row(d), stringsAsFactors = FALSE),
+          cbind(series = g, cell = CM$cell[j], n_samp = CM$n[j], set = "always-detected",
+                h2row(d[d$sim_id %in% ids, , drop = FALSE]), stringsAsFactors = FALSE)) })) }))
+kbl(H2, digits = c(0, 0, 0, 0, 0, rep(4, 10)), booktabs = TRUE, row.names = FALSE,
+    caption = "H2: per series and n, coverage (harm field one-sided lower, complement field-s one-sided upper, IJ two-term two-sided on the harm block, field two-sided on the harm block), the harm-block bias of the IJ and field estimates, the mean IJ SE, the IJ miss by side and the mean p-hat -- on all detected replicates as reported so far, and restricted to the always-detected set.") |>
+  kable_styling(font_size = 9)
+```
+
+## H3 — What the screen removes
+
+Only `sim_id`, `detected`, `status`, `n_true`, `betaHhat_Hc`, `nH_eval`, `nHc_eval`, `mr_ok` and
+`fit_mr_secs` carry values on a non-detected replicate: the template's `record_replicate()` returns the
+`.na_record()` with `status = "NO-DETECTION"`, and there is no $\widehat H$ to fit, so **the naive harm
+effect and its SE are not recorded for undetected replicates** and the detected-vs-undetected comparison
+the task asks for can be made on `n_true` (and the realized prevalence, $\beta(\widehat H^c)$ and
+`nHc_eval`) only. H3b substitutes the nearest thing the committed bundles do carry: the replicates
+undetected at n = 500 but detected at n = 1000 in the same series, read at n = 1000.
+
+```{r a9-h3}
+H3 <- do.call(rbind, lapply(seq_len(nrow(CM)), function(j) { b <- bundles[i7][ord7][[j]]; r <- b$results
+  ns <- b$meta$n_sample
+  f <- function(x) { u <- r[x, , drop = FALSE]
+    data.frame(reps = nrow(u), n_true_mean = mean(u$n_true), n_true_sd = stats::sd(u$n_true),
+               prevalence_realized = mean(u$n_true) / ns,
+               betaHhat_Hc_mean = mean(u$betaHhat_Hc, na.rm = TRUE),
+               nHc_eval_mean = mean(u$nHc_eval, na.rm = TRUE), stringsAsFactors = FALSE) }
+  rbind(cbind(cell = CM$cell[j], set = "detected", f(r$detected %in% 1L), stringsAsFactors = FALSE),
+        cbind(cell = CM$cell[j], set = "undetected", f(!(r$detected %in% 1L)), stringsAsFactors = FALSE)) }))
+H3 <- H3[H3$reps > 0, ]
+kbl(H3, digits = c(0, 0, 0, 2, 2, 4, 4, 1), booktabs = TRUE, row.names = FALSE,
+    caption = "H3: detected vs undetected replicates on the quantities the bundles record for both -- n_true, the realized prevalence n_true/n, beta(Hhat^c) (the whole-cohort target when Hhat is empty) and nHc_eval. The naive harm effect and its SE exist only on detected replicates.") |>
+  kable_styling(font_size = 10)
+H3b <- do.call(rbind, lapply(names(series), function(g) { js <- series[[g]]
+  j5 <- js[CM$n[js] == 500]; j10 <- js[CM$n[js] == 1000]
+  if (!length(j5) || !length(j10)) return(NULL)
+  miss5 <- setdiff(bundles[i7][ord7][[j10]]$results$sim_id, det_ids[[j5]])
+  d10 <- D7[[j10]]
+  f <- function(x) { u <- d10[x, , drop = FALSE]
+    data.frame(reps = nrow(u), n_true = mean(u$n_true), n_harm = mean(u$n_harm),
+               nv_H_est = mean(u$nv_H_est), nv_H_se = mean(u$nv_H_se), betaHhat_H = mean(u$betaHhat_H),
+               p_hat_H = mean(u$p_hat_H), harm_field_cov = mean(u$cov_fH), ij2_cov = mean(u$cov2_ij),
+               stringsAsFactors = FALSE) }
+  rbind(cbind(series = g, read_at = "n1000", set = "detected at n500", f(!(d10$sim_id %in% miss5)), stringsAsFactors = FALSE),
+        cbind(series = g, read_at = "n1000", set = "undetected at n500", f(d10$sim_id %in% miss5), stringsAsFactors = FALSE)) }))
+if (!is.null(H3b)) kbl(H3b[H3b$reps > 0, ], digits = c(0, 0, 0, 0, 1, 1, 4, 4, 4, 4, 4, 4), booktabs = TRUE, row.names = FALSE,
+    caption = "H3b (substitute): the same series read at n = 1000, split by whether the replicate was detected at n = 500 -- the naive harm effect and its SE, n_true, |Hhat|, p-hat and coverage of the replicates the n = 500 screen removed.") |>
+  kable_styling(font_size = 10)
+```
+
+## Numbers for the record (A9)
+
+```{r a9-record, results='asis'}
+#| echo: false
+cat("**H1 -- detection rates and the always-detected sets**:\n\n| series | cell | campaign | n | rows | detected | detection | cells in series | always-detected | share |\n|---|---|---|---|---|---|---|---|---|---|\n")
+for (i in seq_len(nrow(H1))) with(H1[i, ], cat(sprintf("| %s | %s | %s | %d | %d | %d | %s | %d | %d | %s |\n",
+  series, cell, campaign, n_samp, rows, detected, f4n(detection), series_n, always_detected, f4n(always_share))))
+
+cat("\n**H2 -- coverage and harm bias, all detected vs always-detected**:\n\n| series | cell | n | set | reps | harm field lower | complement field-s upper | IJ two-sided (harm) | field two-sided (harm) | bias IJ (harm) | bias field (harm) | mean SE IJ | IJ miss above | IJ miss below | mean p-hat |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n")
+for (i in seq_len(nrow(H2))) with(H2[i, ], cat(sprintf("| %s | %s | %d | %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n",
+  series, cell, n_samp, set, n, f4n(harm_field), f4n(comp_field_s), f4n(ij2_harm), f4n(fld2_harm),
+  f4n(bias_ij_H), f4n(bias_fld_H), f4n(se_ij_H), f4n(miss_above_ij), f4n(miss_below_ij), f4n(p_hat_mean))))
+
+cat("\n**H3 -- detected vs undetected on the quantities recorded for both**:\n\n| cell | set | reps | mean n_true | SD n_true | realized prevalence | mean beta(Hhat^c) | mean nHc_eval |\n|---|---|---|---|---|---|---|---|\n")
+for (i in seq_len(nrow(H3))) with(H3[i, ], cat(sprintf("| %s | %s | %d | %s | %s | %s | %s | %s |\n",
+  cell, set, reps, formatC(n_true_mean, digits = 2, format = "f"), formatC(n_true_sd, digits = 2, format = "f"),
+  f4n(prevalence_realized), f4n(betaHhat_Hc_mean), formatC(nHc_eval_mean, digits = 1, format = "f"))))
+
+if (!is.null(H3b)) { Hb <- H3b[H3b$reps > 0, ]
+  cat("\n**H3b -- the n = 500 screen read at n = 1000** (substitute for the unrecorded pre-selection quantities):\n\n| series | read at | set | reps | mean n_true | mean Hhat size | naive harm effect | naive SE | beta(Hhat) | mean p-hat | harm field cov | IJ two-sided cov |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n")
+  for (i in seq_len(nrow(Hb))) with(Hb[i, ], cat(sprintf("| %s | %s | %s | %d | %s | %s | %s | %s | %s | %s | %s | %s |\n",
+    series, read_at, set, reps, formatC(n_true, digits = 1, format = "f"), formatC(n_harm, digits = 1, format = "f"),
+    f4n(nv_H_est), f4n(nv_H_se), f4n(betaHhat_H), f4n(p_hat_H), f4n(harm_field_cov), f4n(ij2_cov)))) }
 ```

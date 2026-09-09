@@ -82,7 +82,9 @@ test_that("enabled on the Cox/consistency path it returns the documented fields"
 
   expect_identical(g$measure, "HR")
   expect_true(g$log_scale)
-  expect_identical(g$ci_method, "ij")
+  # The call passes no ci_method, so this pins the package default, which is
+  # "field" since TASK_cimethod_note_2026-09-09 Part D2 (was "ij").
+  expect_identical(g$ci_method, "field")
   expect_true(is.finite(g$selection_bias))
   expect_true(is.finite(g$fixed_bias))
   expect_true(g$selection_rate >= 0 && g$selection_rate <= 1)
