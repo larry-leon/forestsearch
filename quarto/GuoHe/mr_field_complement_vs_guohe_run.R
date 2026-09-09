@@ -326,11 +326,24 @@ MFC_PROBE_FIELD <- c("fld_lambda_mean", "fld_lambda_sd", "fld_q05", "fld_q25",
 MFC_DISCRETE <- c("sel", "c_hat", "n_sel", "seed_data", "seed_mr", "m",
                   "k_family", "naive_cover", "mr_cover", "fld_cover_1s",
                   "fld_cover_2s", "fld_n_out_used", "mr_ij_source",
-                  "mr_ij_draws", "theta", "gamma_s_naive",
+                  "mr_ij_draws",
                   paste0("gh_r", 1:4, "_cov"))
+# RECLASSIFIED (Larry, 2026-09-09): `theta` and `gamma_s_naive` moved from the
+# discrete class to the float class. N1's discrete class exists to prove the
+# SELECTION is unchanged, not to constrain computed continuous values. The
+# selection keys -- c_hat, c_hat_naive, sel, n_sel and the seeds -- are verified
+# identical at 24,000/24,000. The truth lookups are NOT labels: gh52_truth_at()
+# is stats::approx(truth$c_grid, y, xout = c_hat, rule = 2)$y
+# (guohe_sec52_truth.R:314), i.e. linear interpolation, so its return is
+# computed arithmetic and belongs to the float class. Measured residual across
+# all six cells: 24/24,000 values differ (0.10%), worst |diff| 5.55e-17,
+# all.equal at 1e-8 TRUE throughout. At beta2 = 0 the truth curve is identically
+# zero, so interpolation returns exact 0 and that cell shows 0/2000 -- which is
+# why the six-replicate probe never surfaced this.
 MFC_FLOAT <- c(setdiff(MFC_PROBE_NAIVE, MFC_DISCRETE),
                setdiff(MFC_PROBE_IJ, MFC_DISCRETE),
-               setdiff(MFC_PROBE_FIELD, MFC_DISCRETE))
+               setdiff(MFC_PROBE_FIELD, MFC_DISCRETE),
+               "theta", "gamma_s_naive")
 MFC_TOL <- 1e-8
 
 # Compare one recomputed cell against the stored bundle under N1.
