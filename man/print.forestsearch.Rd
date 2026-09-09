@@ -20,6 +20,38 @@ Displays a concise summary of ForestSearch results including the
 identified subgroup definition, consistency metrics, algorithm details,
 and computation time.
 }
+\section{Post-selection inference}{
+
+When the fit carries multiplier-resampling results (\code{mr_inference = TRUE},
+which attaches the \code{\link[=fs_mr_inference]{fs_mr_inference()}} return as \code{x$mr_inference}) and the
+field block ran, a further block reports the \strong{certified} survival
+post-selection products of
+\verb{dev/notes/NOTE_survival_products_2026-09-09.md}, in that document's order
+of standing: the one-sided 95\% \strong{lower} bound on the harm subgroup
+\eqn{\beta(\widehat H)} (the field) and the one-sided 95\% \strong{upper} bound
+on the complement \eqn{\beta(\widehat H^c)} (\strong{field-s}, the studentized
+complement field) first; the Bonferroni \strong{joint} pair at
+\eqn{\gamma = 0.025} each side second; the IJ two-term \strong{two-sided}
+interval third, explicitly labelled secondary because no two-sided interval
+is certified; and the re-selection frequency \eqn{\hat p(\widehat H)}
+last, as a recorded diagnostic that no construction reads.
+
+The field and field-s bounds exist only under \code{ci_method = "field"}, which
+is the default; \code{ci_method = "ij"} omits the field block and with it this
+entire section apart from the two-sided line.  When MR results are absent
+the printed output is unchanged from a build without this section.
+
+Caveat lines are printed only when they apply and are compressions of the
+NOTE, not of the analysis: a two-sided caveat whenever a two-sided interval
+is shown, and a stable-pick note when
+\eqn{\hat p(\widehat H) \ge 0.5}.  That threshold is the NOTE's own
+description of where the harm-block bias crosses zero and is
+\strong{descriptive, not calibrated} -- it says which side of the crossing the
+analysis sits on, it is not a decision rule.  Bounds are reported by
+location and must be read against a clinically meaningful effect size,
+never as significance at the null.
+}
+
 \examples{
 \dontrun{
 fs <- forestsearch(df.analysis = mydata, ...)
