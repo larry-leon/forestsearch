@@ -3407,19 +3407,26 @@ forestsearch <- function(df.analysis,
         # Add-only pass-through (TASK_mr_field_uniform_2026-09-05, Larry's
         # classification: no behaviour change; FALSE is the gate's default).
         field_uniform = .g_mr(mr_inference_args$field_uniform, FALSE),
-        # Add-only pass-throughs (TASK_gbsg_frozen_intervals_2026-09-05 Gate 0
-        # resolution, same classification: defaults reproduce prior output).
-        return_reselection = .g_mr(mr_inference_args$return_reselection, FALSE),
+        # Pass-throughs (TASK_gbsg_frozen_intervals_2026-09-05 Gate 0
+        # resolution).  return_reselection defaults to TRUE from
+        # TASK_cert20_2026-09-08 Part D -- the re-selection diagnostics are
+        # part of the recommended output; nothing in the arithmetic depends
+        # on it, and FALSE restores the smaller return object.
+        return_reselection = .g_mr(mr_inference_args$return_reselection, TRUE),
         field_M_cap   = .g_mr(mr_inference_args$field_M_cap, NULL),
-        # Add-only pass-through (TASK_mr_field_complement_2026-09-06): the
-        # complement's field block; FALSE is the gate's default.
-        field_complement = .g_mr(mr_inference_args$field_complement, FALSE),
+        # Pass-through (TASK_mr_field_complement_2026-09-06): the complement's
+        # field block.  TRUE is the gate's default from
+        # TASK_cert20_2026-09-08 Part D -- the recommended construction;
+        # FALSE restores the prior behaviour.
+        field_complement = .g_mr(mr_inference_args$field_complement, TRUE),
         # Add-only pass-through (TASK_field_studentize_stage1_e0_2026-09-08):
         # the complement field's scale diagnostics; FALSE is the gate's default.
         field_decompose = .g_mr(mr_inference_args$field_decompose, FALSE),
-        # Add-only pass-through (TASK_field_studentize_e1_2026-09-08): the
-        # studentized complement field (field-s); "none" is the gate's default.
-        field_scale_complement = .g_mr(mr_inference_args$field_scale_complement, "none"),
+        # Pass-through (TASK_field_studentize_e1_2026-09-08): the studentized
+        # complement field (field-s).  "selected" is the gate's default from
+        # TASK_cert20_2026-09-08 Part D -- the recommended construction;
+        # "none" restores the prior behaviour.
+        field_scale_complement = .g_mr(mr_inference_args$field_scale_complement, "selected"),
         # Add-only pass-through (TASK_complement_refinements_2026-09-06):
         # which IJ residual populates the reported SE; "two_term" is the
         # gate's default and reproduces prior output exactly.

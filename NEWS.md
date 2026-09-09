@@ -1,5 +1,15 @@
 # forestsearch (development version)
 
+* `fs_mr_inference()` defaults are now the recommended constructions (field
+  complement bound, studentized field-s, re-selection diagnostics):
+  `field_complement = TRUE`, `field_scale_complement = "selected"`,
+  `return_reselection = TRUE`, mirrored in the `forestsearch()` pass-through
+  fallbacks.  Prior behaviour is reachable by setting the arguments
+  explicitly (`FALSE` / `"none"` / `FALSE`).  `field_decompose` stays `FALSE`
+  and the `ci_method` default is unchanged, so the complement field block
+  still runs only under `ci_method = "field"`
+  (TASK_cert20_2026-09-08, Part D).
+
 * `fs_mr_inference()` gains `field_decompose` (default `FALSE`): add-only
   complement-field scale diagnostics attached as `field$complement$decomp_fields`
   when the complement field block runs; forwarded through

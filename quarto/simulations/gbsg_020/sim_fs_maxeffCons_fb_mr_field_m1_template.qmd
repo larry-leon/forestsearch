@@ -28,10 +28,13 @@ format:
 > environment variables (see @sec-setup), so batches run from ONE committed
 > file. `run_mode` and `sim_id_start` split a long run into seed-disjoint
 > batches that combine later; `run_mode = "combine"` renders every table on
-> the pooled set. `FS_S7_FIELD_COMPLEMENT=TRUE` adds the complement's field
-> block (`fld_Hc_*`, one-sided **upper** bound primary;
-> `TASK_mr_field_complement_2026-09-06`); off by default, in which case the
-> bundle is byte-identical to a pre-complement render.
+> the pooled set. `FS_S7_FIELD_COMPLEMENT` adds the complement's
+> field block (`fld_Hc_*`, one-sided **upper** bound primary;
+> `TASK_mr_field_complement_2026-09-06`) and `FS_S7_FIELD_SCALEC` selects its
+> studentized companion (field-s). Both default to the recommended
+> constructions as of `TASK_cert20_2026-09-08` Part D (`TRUE` / `selected`);
+> `FALSE` / `none` restore the prior behaviour, in which case the bundle is
+> byte-identical to a pre-complement render.
 
 # What this evaluates {#sec-intro}
 
@@ -574,9 +577,11 @@ mr_field_uniform <- identical(.env_chr("FS_S7_UNIFORM", "FALSE"), "TRUE")
 # same outer/inner draws and winners as the harm field, the complement's own
 # influence -- with the one-sided UPPER bound as the primary product (the
 # benefit-claim orientation), and the recorder captures the fld_Hc_* columns
-# below.  FALSE leaves every output byte-identical to a pre-complement render
-# (add-only, default off).
-mr_field_complement <- identical(.env_chr("FS_S7_FIELD_COMPLEMENT", "FALSE"), "TRUE")
+# below.  FALSE leaves every output byte-identical to a pre-complement render.
+# DEFAULT ON from TASK_cert20_2026-09-08 Part D: the complement bound is one
+# of the recommended constructions, so unset = recommended; set
+# FS_S7_FIELD_COMPLEMENT=FALSE for the prior behaviour.
+mr_field_complement <- identical(.env_chr("FS_S7_FIELD_COMPLEMENT", "TRUE"), "TRUE")
 # IJ residual knob (TASK_complement_refinements_2026-09-06): which residual
 # populates the REPORTED mr_*_se_ij / mr_*_lo / mr_*_hi.  "two_term" (default)
 # keeps those columns byte-identical; the winner-only and winner-floor SEs
@@ -599,7 +604,10 @@ mr_field_decompose <- identical(.env_chr("FS_S7_FIELD_DECOMP", "FALSE"), "TRUE")
 # upper_1s_s, ... , se_field_s; joint_s) beside the unscaled complement field
 # and the recorder captures the fld_Hc_*_s / fld_joint_s_* columns below.
 # Add-beside: every pre-existing column is identical under either value.
-mr_field_scalec <- .env_chr("FS_S7_FIELD_SCALEC", "none")
+# DEFAULT "selected" from TASK_cert20_2026-09-08 Part D: field-s is the
+# recommended complement construction, so unset = recommended; set
+# FS_S7_FIELD_SCALEC=none for the prior behaviour.
+mr_field_scalec <- .env_chr("FS_S7_FIELD_SCALEC", "selected")
 stopifnot(mr_field_scalec %in% c("none", "selected"))
 
 # t_confirm is omitted from the list when NULL so the package resolves its own
@@ -608,14 +616,20 @@ stopifnot(mr_field_scalec %in% c("none", "selected"))
 # gains its per-draw re-selection frequencies p-hat over the kept family
 # (fs_mr_inference.R, `reselection` element); nothing in the arithmetic
 # depends on the switch, so every computed value is unchanged.  Recorded
-# below as the p_hat_* columns.
+# below as the p_hat_* columns.  As of TASK_cert20_2026-09-08 Part D this is
+# also the package default, so the setting below restates the recommendation
+# rather than overriding it; it is kept explicit so a render is pinned
+# whatever the installed package's default happens to be.  FS_S7_RETURN_RESEL
+# exists so the pre-flip behaviour stays reachable from the committed template
+# by env alone (Gate D(iii) of TASK_cert20_2026-09-08); unset = recommended.
+mr_return_reselection <- !identical(.env_chr("FS_S7_RETURN_RESEL", "TRUE"), "FALSE")
 mr_inference_args <- c(
   list(ci_method = mr_ci_method, draws = mr_draws, include_complement = TRUE,
        confirm_rule = mr_confirm_rule, field_uniform = mr_field_uniform,
        field_complement = mr_field_complement, ij_residual = mr_ij_residual,
        field_decompose = mr_field_decompose,
        field_scale_complement = mr_field_scalec,
-       return_reselection = TRUE),
+       return_reselection = mr_return_reselection),
   if (!is.null(mr_t_confirm)) list(t_confirm = mr_t_confirm))
 
 # ── Column names emitted by simulate_from_dgm() ────────────────────────────
@@ -653,8 +667,8 @@ cat(sprintf("Run config: method=%s%s, n_sims=%d, nb_boots=%s, mr_draws=%d, worke
             n_sims, if (is.null(nb_boots)) "0 (skip)" else as.character(nb_boots),
             mr_draws, n_workers))
 # Resolved template knobs -- the render's audit line (env overrides included).
-cat(sprintf("Template knobs: hr=%.2f n=%d z1q=%.2f focus=%s nbhd=%.2f er_jcuts=%d ci_method=%s uniform=%s field_complement=%s field_decompose=%s field_scale_complement=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
-            target_hr_harm, n_sample, harm_z1_quantile, sg_focus, effect_neighborhood, er_jcuts, mr_ci_method, mr_field_uniform, mr_field_complement, mr_field_decompose, mr_field_scalec, mr_ij_residual, fb_mode, campaign_tag,
+cat(sprintf("Template knobs: hr=%.2f n=%d z1q=%.2f focus=%s nbhd=%.2f er_jcuts=%d ci_method=%s uniform=%s field_complement=%s field_decompose=%s field_scale_complement=%s return_reselection=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
+            target_hr_harm, n_sample, harm_z1_quantile, sg_focus, effect_neighborhood, er_jcuts, mr_ci_method, mr_field_uniform, mr_field_complement, mr_field_decompose, mr_field_scalec, mr_return_reselection, mr_ij_residual, fb_mode, campaign_tag,
             run_mode, sim_id_start, sim_id_start + n_sims - 1L, quickrun))
 cat(sprintf("Output stem: %s\n", rds_stem))
 ```

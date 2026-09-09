@@ -293,9 +293,11 @@
 #'   of the re-selected candidate in the kept family on each draw, `NA` where
 #'   no draw winner exists) and `p_hat` (named numeric over the kept family,
 #'   `tabulate(winner) / draws` -- so `sum(p_hat) == selection_rate`, and the
-#'   frequencies sum to 1 exactly when every draw produced a winner). The
-#'   default `FALSE` reproduces the previous return object exactly; nothing in
-#'   the arithmetic depends on this switch.
+#'   frequencies sum to 1 exactly when every draw produced a winner). Default
+#'   `TRUE`: the re-selection diagnostics are part of the recommended output
+#'   (they carry the stable-pick frequency the coverage caveat is read by).
+#'   Nothing in the arithmetic depends on this switch, so `FALSE` reproduces
+#'   the previous, smaller return object exactly.
 #' @param ci_method `"ij"` (default) bases the **de-biased** CI on the
 #'   infinitesimal-jackknife variance (Leon et al. 2024, Eq. VInfJ_bc), computed
 #'   from the same multiplier draws -- the leading-order analogue of the FB
@@ -340,7 +342,8 @@
 #'   function's default.  Pass a value at least the family size to lift the
 #'   cap to the full family (the GBSG frozen-intervals illustration does).
 #'   Consulted only when `field_uniform = TRUE`; add-only, default-inert.
-#' @param field_complement Logical (default `FALSE`); consulted only under
+#' @param field_complement Logical (default `TRUE`, the recommended
+#'   construction); consulted only under
 #'   `ci_method = "field"` with `include_complement = TRUE`.  When `TRUE`,
 #'   after the harm field block completes, the same field procedure is
 #'   evaluated for the complement subgroup (method proposal
@@ -360,8 +363,8 @@
 #'   correlation with every candidate's noise; complements of draw winners the
 #'   multiplier stage did not fit are fit lazily.  The block draws nothing, so
 #'   every other output -- the harm `field` block and its `uniform` sub-block
-#'   included -- is byte-identical whether or not it runs; the default
-#'   reproduces prior output exactly.
+#'   included -- is byte-identical whether or not it runs, so `FALSE`
+#'   reproduces the pre-complement output exactly.
 #' @param field_decompose Logical (default `FALSE`); consulted only when the
 #'   complement field block runs.  When `TRUE`, `field$complement` gains a
 #'   `decomp_fields` list of add-only scale diagnostics (the selected
@@ -370,8 +373,9 @@
 #'   covariance of the two pieces of `Lambda*c`; PROPOSAL_complement_field_scale
 #'   2026-09-08 v2, Stage 1); it reads existing objects only, so every
 #'   pre-existing output is unchanged whether or not it runs.
-#' @param field_scale_complement `"none"` (default) or `"selected"`; consulted
-#'   only when the complement field block runs.  Under `"selected"` the
+#' @param field_scale_complement `"selected"` (default, the recommended
+#'   construction: the studentized complement field, "field-s") or `"none"`;
+#'   consulted only when the complement field block runs.  Under `"selected"` the
 #'   complement's field readings are studentized to the selected complement's
 #'   own scale before differencing -- each outer reading `zeta^c_{r, G_r}` is
 #'   multiplied by `s_sel / s_{G_r}` and each inner reading by `s_sel /
@@ -519,14 +523,14 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                            include_complement = FALSE,
                            ci_method = c("ij", "wald", "field"),
                            seed = NULL,
-                           return_reselection = FALSE,
+                           return_reselection = TRUE,
                            field_R_out = 1000L,
                            field_R_in = 500L,
                            field_uniform = FALSE,
                            field_M_cap = NULL,
-                           field_complement = FALSE,
+                           field_complement = TRUE,
                            field_decompose = FALSE,
-                           field_scale_complement = c("none", "selected"),
+                           field_scale_complement = c("selected", "none"),
                            ij_residual = c("two_term", "winner", "winner_floor")) {
   confirm_rule <- match.arg(confirm_rule); reselection <- match.arg(reselection)
   ij_residual <- match.arg(ij_residual)
