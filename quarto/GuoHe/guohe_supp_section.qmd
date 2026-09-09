@@ -1,0 +1,424 @@
+---
+title: "Guo & He (2021) comparison for the post-selection supplement"
+subtitle: "Table 7 (nested, data-built family): the fixed-$r$ and Adaptive columns against MR, and the complement/joint capability"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: false
+  message: false
+bibliography: []
+---
+
+```{r setup}
+#| include: false
+# T3 assembly document for the fs-post-selection supplement.
+# Task: dev/tasks/claude_cc_task_guohe_supplement_2026-09-09.md section 6, as
+# amended by ..._v2.md (A2 for the B6 citations, A5 for the Adaptive B).
+#
+# TRANSPLANTED from mr_field_vs_guohe.qmd (50d6b641): structure, bundle
+# reading, and the Wilson machinery. Never re-authored, never format-converted.
+#
+# Scope decision D1: t7 only (six cells), with one cross-reference sentence to
+# the committed 16-cell record.
+#
+# Bundle sources, all read-only:
+#   B2  guohe_repro_t7_*.rds        (G&H fixed-r, arithmetic only, never re-run)
+#       mr_field_vs_guohe_t7_*.rds  (Naive, MR (IJ), MR (field))
+#       guohe_adaptive_t7_*.rds     (Adaptive column -- PHASE B, may be absent)
+#   B3  mr_field_complement_vs_guohe_t7_*.rds  (T1 -- may be absent)
+#   B5  mr_field_vs_guohe_t7_*.rds  (c-hat, p-hat, M_eff, SDs)
+#
+# RENDERING: render with RStudio's bundled Quarto binary on the executing
+# machine and record the binary path used in the render record. Preserve
+# embed-resources: true. The HTML is untracked per the GuoHe/*.html convention.
+source("mr_vs_guohe_sim.R")
+
+CELLS <- sprintf("t7_beta2_%02d", 0:5)
+BETA2 <- (0:5) / 10
+
+have <- function(f) file.exists(f)
+read_if <- function(f) if (have(f)) readRDS(f) else NULL
+
+# ---- B2 / B5 inputs: committed, present ------------------------------------
+bun <- lapply(CELLS, function(id) readRDS(sprintf("mr_field_vs_guohe_%s.rds", id)))
+names(bun) <- CELLS
+
+for (b in bun) {
+  g <- b$gate2
+  if (g$n_rep_done != g$n_rep_expected || g$n_errored > 0L ||
+      g$naive_mismatch > 0L || g$cur_mismatch > 0L) {
+    stop("Gate 2 violation in ", b$id, ": done ", g$n_rep_done, "/",
+         g$n_rep_expected, ", errored ", g$n_errored, ", naive_mismatch ",
+         g$naive_mismatch, ", cur_mismatch ", g$cur_mismatch, call. = FALSE)
+  }
+}
+
+NREP  <- bun[[1]]$gate2$n_rep_done
+DRAWS <- bun[[1]]$draws
+R_OUT <- bun[[1]]$field_R_out
+R_IN  <- bun[[1]]$field_R_in
+
+# ---- Phase-dependent inputs -------------------------------------------------
+ADA <- lapply(CELLS, function(id) read_if(sprintf("guohe_adaptive_%s.rds", id)))
+names(ADA) <- CELLS
+HAVE_ADAPTIVE <- all(!vapply(ADA, is.null, logical(1)))
+
+CMP <- lapply(CELLS, function(id)
+  read_if(sprintf("mr_field_complement_vs_guohe_%s.rds", id)))
+names(CMP) <- CELLS
+HAVE_COMPLEMENT <- all(!vapply(CMP, is.null, logical(1)))
+
+# ---- certification citations (A2) ------------------------------------------
+# Present -> quote with path and line numbers. Absent -> the literal marker.
+CERT_FILE <- "REVIEW_certification_2026-09-09.md"
+CERT_PATHS <- c(CERT_FILE, file.path("..", "..", "dev", "notes", CERT_FILE))
+CERT_PRESENT <- any(vapply(CERT_PATHS, file.exists, logical(1)))
+CERT_MARK <- "[certification citation pending sync]"
+cert_upper <- if (CERT_PRESENT) "0.912-0.960" else CERT_MARK
+cert_joint <- if (CERT_PRESENT) "0.939-0.963" else CERT_MARK
+
+z95 <- qnorm(0.95)
+
+wilson <- function(x, n, z = 1.959964) {
+  p <- x / n
+  den <- 1 + z^2 / n
+  ctr <- (p + z^2 / (2 * n)) / den
+  hw  <- z * sqrt(p * (1 - p) / n + z^2 / (4 * n^2)) / den
+  c(lo = ctr - hw, hi = ctr + hw)
+}
+fmt_cov <- function(x, n) {
+  w <- wilson(x, n); sprintf("%.3f (%.3f, %.3f)", x / n, w["lo"], w["hi"])
+}
+MCSE <- sqrt(0.95 * 0.05 / NREP)
+```
+
+# What this section is
+
+A paired comparison of selection-adjusted one-sided lower bounds for
+$\gamma_{\hat c}$ — the true effect in the *selected* subgroup — on the Guo & He
+(2021) Section 5.2 / Table 7 design: $W \sim \mathrm{Unif}(0, 80)$, a treatment
+effect of $\beta_2$ on $\{W \le 30\}$ and $0$ elsewhere, $n = 400$, and a
+**nested, data-built** candidate family $S(c) = \{W \le c\}$ with $c$ running
+over $30$ and every observed $w \in (30, 60]$ — roughly 151 candidates per
+replicate. Six cells, $\beta_2 = 0.0, \ldots, 0.5$, `r NREP` paired replicates
+each, all on the replication's own seeds.
+
+The same three-way comparison across all sixteen replicated cells (Tables 3–5,
+Table 6 and Table 7) is recorded in `mr_field_vs_guohe.qmd` and
+`REPORT_mr_field_vs_guohe_2026-09-05.md`; this section restricts to Table 7,
+the only design whose candidate family is nested and data-built and therefore
+the only one that speaks to the post-selection setting of interest (D1).
+
+All values are on the oriented log-hazard-ratio scale. Coverage is one-sided
+unless stated. Monte Carlo standard error at `r NREP` replicates and coverage
+near $0.95$ is $\approx `r sprintf("%.3f", MCSE)`$.
+
+# B2 — Coverage, margin, and point-estimate bias for $\gamma_{\hat c}$
+
+```{r b2-build}
+METHODS <- c("Naive", "G&H r=1/3", "G&H r=1/12", "G&H r=1/21", "G&H r=1/30",
+             "Adaptive", "MR (field)", "MR (IJ)")
+
+# est / SE / one-sided lower / cover per method. G&H "SE" = implied margin
+# (deb - low)/z_.95 (the method publishes a bound); MR (field) est = est2,
+# lower = beta_deb - q95.
+method_cols <- function(res, meth, ada) {
+  switch(meth,
+    "Naive"      = list(est = res$naive_est, se = res$naive_se,
+                        low = res$naive_lower, cov = res$naive_cover),
+    "MR (IJ)"    = list(est = res$mr_est, se = res$mr_se_ij,
+                        low = res$mr_lower_1s, cov = res$mr_cover),
+    "MR (field)" = list(est = res$fld_est2, se = res$fld_lambda_sd,
+                        low = res$fld_lower_1s, cov = res$fld_cover_1s),
+    "Adaptive"   = if (is.null(ada)) NULL else
+                     list(est = ada$results$gamma_s - ada$results$ad_dist_primary +
+                            ada$results$ad_bias_primary,
+                          se = ada$results$ad_dist_primary / z95,
+                          low = ada$results$ad_lower_primary,
+                          cov = ada$results$ad_cover_primary),
+    { i <- match(meth, METHODS) - 1L
+      list(est = res[[sprintf("gh_r%d_deb", i)]],
+           se  = (res[[sprintf("gh_r%d_deb", i)]] - res[[sprintf("gh_r%d_low", i)]]) / z95,
+           low = res[[sprintf("gh_r%d_low", i)]],
+           cov = res[[sprintf("gh_r%d_cov", i)]]) })
+}
+
+cell_summary <- function(id) {
+  res <- bun[[id]]$results
+  do.call(rbind, lapply(METHODS, function(meth) {
+    v <- method_cols(res, meth, ADA[[id]])
+    if (is.null(v)) return(data.frame(
+      cell = id, method = meth, mean_est = NA_real_, bias = NA_real_,
+      sd_emp = NA_real_, mean_margin = NA_real_, cover = NA_real_,
+      cover_lo = NA_real_, cover_hi = NA_real_, n = NA_integer_,
+      row.names = NULL))
+    n <- length(v$est); w <- wilson(sum(v$cov), n)
+    data.frame(
+      cell = id, method = meth,
+      mean_est = mean(v$est), bias = mean(v$est - res$theta),
+      sd_emp = sd(v$est), mean_margin = mean(v$est - v$low),
+      cover = mean(v$cov), cover_lo = w["lo"], cover_hi = w["hi"], n = n,
+      row.names = NULL)
+  }))
+}
+SUM <- do.call(rbind, lapply(CELLS, cell_summary))
+```
+
+```{r b2-table}
+#| output: asis
+for (k in seq_along(CELLS)) {
+  id <- CELLS[k]
+  s <- SUM[SUM$cell == id, ]
+  tab <- data.frame(
+    Method = s$method,
+    `Coverage of the 95% lower bound (Wilson)` = ifelse(
+      is.na(s$cover), "*pending Phase B*",
+      sprintf("%.3f (%.3f, %.3f)", s$cover, s$cover_lo, s$cover_hi)),
+    `Mean margin` = ifelse(is.na(s$mean_margin), "—",
+                           sprintf("%.3f", s$mean_margin)),
+    `Point-estimate bias` = ifelse(is.na(s$bias), "—",
+                                   sprintf("%+.4f", s$bias)),
+    check.names = FALSE)
+  # MR (IJ) is context, not a comparator: gray it.
+  tab$Method[tab$Method == "MR (IJ)"] <- "*MR (IJ), context*"
+  print(knitr::kable(
+    tab, row.names = FALSE,
+    caption = sprintf(
+      paste("**%s** ($\\beta_2 = %.1f$, %d paired replicates).",
+            "Coverage of the one-sided 95%% lower bound for $\\gamma_{\\hat c}$;",
+            "mean margin = mean(est $-$ lower); point-estimate bias against",
+            "$\\gamma_{\\hat c}$ (naive $\\hat\\beta$; G&H bias-reduced;",
+            "MR $\\hat\\beta_2$ = est2)."),
+      id, BETA2[k], NREP)))
+  cat("\n")
+}
+```
+
+::: {.callout-note appearance="simple"}
+**Two qualifications on the G&H columns.**
+
+1. The replicated fixed-$r$ columns run $\approx 0.010$ *below* the published
+   Table 7 values — a replication deficit recorded on 2026-09-04 and carried
+   here unchanged. The published columns are themselves conservative
+   ($0.947$–$0.973$ against a nominal $0.95$), because adjacent nested
+   candidates differ by a single subject and the effective number of
+   independent comparisons is far below the family size.
+2. Monte Carlo standard error at `r NREP` replicates is
+   $\approx `r sprintf("%.3f", MCSE)`$, so differences smaller than about one
+   percentage point are not resolvable here.
+:::
+
+```{r b2-adaptive-note}
+#| output: asis
+if (!HAVE_ADAPTIVE) cat(paste0(
+  "::: {.callout-important appearance='simple'}\n",
+  "**Adaptive column: pending Phase B.** `guohe_adaptive_t7_*.rds` are not ",
+  "present. The Adaptive row renders as *pending Phase B* above and the ",
+  "column is excluded from every comparison in this document. It is produced ",
+  "by `guohe_sec52_adaptive_run.R` on the Linux box under Gate 1b, at ",
+  "$B = 2000$ (A5), $r$-grid $\\{1/3, 1/12, 1/21, 1/30\\}$, $v = 5$, ",
+  "$\\mathrm{orient} = +1$.\n\n",
+  "Two caveats will accompany it when it lands: Guo & He's own Table 6 ",
+  "caution on the adaptive procedure, and the fact that `guohe_adaptive_r()` ",
+  "draws **independently across $r$** (no common random numbers on the grid), ",
+  "which inflates $\\mathrm{Var}(\\hat r)$ — and the Adaptive column is ",
+  "precisely a measurement of $\\hat r$.\n",
+  ":::\n\n"))
+```
+
+# B3 — Complement and joint bounds {#sec-b3}
+
+::: {.callout-tip appearance="simple"}
+## Capability, not comparison
+
+**This section is a capability demonstration, not a comparison.** Nothing in it
+is scored against Guo & He, because their framework does not define the
+quantities involved. The two paragraphs below say why, and they are the
+substance of the section — the numbers merely show that our construction
+delivers what it claims on this design.
+
+> Table 8 of Guo and He (2021) reports an upper confidence bound on the
+> hazard-ratio scale; this is the identical one-sided lower-bound construction
+> under their Section 4 convention βᵢ = −log HR, applied to the argmax-selected
+> subgroup, and does not constitute an upper-bound capability for a second,
+> complementary subgroup.
+
+> The Guo–He correction is defined through the maximum functional over the
+> supplied candidate family. The complement Ĥᶜ is not a member of that family
+> and is not the argmax of any functional, so no analogous correction exists
+> within their framework; the absence of a complement bound, and hence of a
+> joint two-subgroup claim, is structural rather than an implementation gap.
+:::
+
+```{r b3-table}
+#| output: asis
+if (!HAVE_COMPLEMENT) {
+  cat(paste0(
+    "::: {.callout-important appearance='simple'}\n",
+    "**Pending: T1 bundles absent.** `mr_field_complement_vs_guohe_t7_*.rds` ",
+    "have not been produced, so the field-s complement upper coverage, its ",
+    "mean bound location, and the joint coverage are *pending*. The two ",
+    "paragraphs above stand on their own and are not contingent on them.\n\n",
+    "On this design the complement's true effect is **exactly 0**: the DGM ",
+    "sets $b(W) = \\beta_2$ on $\\{W \\le 30\\}$ and $0$ elsewhere ",
+    "(`guohe_sec52_truth.R:75`), and the cutpoint grid starts at $30$, so ",
+    "every $\\hat H^c = \\{W > \\hat c\\}$ lies inside the null region. ",
+    "Complement coverage is therefore $\\text{upper} \\ge 0$, with no ",
+    "dilution term.\n",
+    ":::\n\n"))
+} else {
+  tab <- do.call(rbind, lapply(seq_along(CELLS), function(k) {
+    r <- CMP[[CELLS[k]]]$results; n <- nrow(r)
+    data.frame(
+      Cell = CELLS[k], `$\\beta_2$` = sprintf("%.1f", BETA2[k]),
+      `Complement upper coverage vs 0 (field-s, Wilson)` =
+        fmt_cov(sum(r$c_cover_95_s), n),
+      `Mean upper-bound location` = sprintf("%.3f", mean(r$c_upper_95_s, na.rm = TRUE)),
+      `Joint coverage (Bonferroni, Wilson)` = fmt_cov(sum(r$joint_cover_s), n),
+      check.names = FALSE, row.names = NULL)
+  }))
+  print(knitr::kable(tab, row.names = FALSE, caption = paste(
+    "Capability, not comparison. Field-s one-sided 95% upper bound on",
+    "$\\beta(\\hat H^c)$ against a truth of exactly 0, and the joint",
+    "(0.975 lower on $\\hat H$, 0.975 upper on $\\hat H^c$) Bonferroni pair.",
+    "Guo & He columns are absent by construction, not by omission.")))
+  cat("\n")
+}
+```
+
+# B5 — What was selected, and how stably
+
+```{r b5}
+#| output: asis
+b5 <- do.call(rbind, lapply(seq_along(CELLS), function(k) {
+  r <- bun[[CELLS[k]]]$results
+  err_sd <- sd(r$fld_est2 - r$theta)
+  data.frame(
+    Cell = CELLS[k], `$\\beta_2$` = sprintf("%.1f", BETA2[k]),
+    `$\\hat c$ median (IQR)` = sprintf("%.1f (%.1f, %.1f)",
+      median(r$c_hat), quantile(r$c_hat, .25), quantile(r$c_hat, .75)),
+    `$\\hat c$ min/max` = sprintf("%.1f / %.1f", min(r$c_hat), max(r$c_hat)),
+    `$\\hat p(\\hat H)$ median (IQR)` = sprintf("%.3f (%.3f, %.3f)",
+      median(r$p_hat_H), quantile(r$p_hat_H, .25), quantile(r$p_hat_H, .75)),
+    `$M_{\\mathrm{eff}}$ median` = sprintf("%.1f", median(r$M_eff)),
+    `Marginal SD` = sprintf("%.3f", sd(r$fld_est2)),
+    `Error SD` = sprintf("%.3f", err_sd),
+    check.names = FALSE, row.names = NULL)
+}))
+print(knitr::kable(b5, row.names = FALSE, caption = paste(
+  "Selection and stability per cell. Marginal SD is $\\mathrm{sd}(\\hat\\beta_2)$",
+  "across replicates; error SD is $\\mathrm{sd}(\\hat\\beta_2 - \\gamma_{\\hat c})$",
+  "— they differ because $\\gamma_{\\hat c}$ itself moves with the selection.")))
+cat("\n")
+```
+
+::: {.callout-note appearance="simple"}
+**Classification is not the right lens on this design, and its arithmetic says
+why.** The true harm region is $H = \{W \le 30\}$ and every candidate is
+$S(c) = \{W \le c\}$ with $\hat c \ge 30$, so $H = S(30) \subseteq S(\hat c)$
+for every replicate. With $W \sim \mathrm{Unif}(0, 80)$ the classification
+operating characteristics are therefore closed forms in $\hat c$ alone:
+
+- **Sensitivity $\equiv 1$** and **NPV $\equiv 1$**, by nesting — not by merit.
+- **Specificity** $= (80 - \hat c)/50$.
+- **PPV** $= 30/\hat c$.
+
+Sensitivity carries no information here; the whole of the identification story
+is in how far $\hat c$ overshoots $30$, which the $\hat c$ column above reports
+directly.
+:::
+
+```{r b5-chat-plot}
+#| fig-width: 9
+#| fig-height: 4.2
+op <- par(mar = c(4, 4, 2, 1))
+cl <- lapply(CELLS, function(id) bun[[id]]$results$c_hat)
+boxplot(cl, names = sprintf("%.1f", BETA2), outline = FALSE,
+        xlab = expression(beta[2]), ylab = expression(hat(c)),
+        main = expression("Selected cutpoint " * hat(c) * " by " * beta[2]))
+abline(h = 30, lty = 3)
+mtext("dotted line: the true boundary c = 30", side = 3, line = -1.2, cex = 0.8)
+par(op)
+```
+
+# B6 — Honest limits
+
+```{r b6}
+#| output: asis
+# The field's coverage range is COMPUTED from the rendered bundles, never
+# transcribed, so this paragraph cannot go stale against the tables above.
+fld_cov <- SUM$cover[SUM$method == "MR (field)"]
+fld_lo3 <- sort(fld_cov)[1:3]
+fld_range <- sprintf("%.3f–%.3f", min(fld_lo3), max(fld_lo3))
+
+cat(sprintf(paste0(
+"Four limits belong on the record, stated plainly.\n\n",
+
+"1. **The field's low points are ours, and they are under-correction, not ",
+"noise.** Across these cells the MR (field) one-sided coverage bottoms out at ",
+"%s. That shortfall is the stable-pick regime — replicates where ",
+"$\\hat p(\\hat H)$ is high and the selection barely moves — and it is a ",
+"design that does not flatter us: a nested, data-built family of ~151 ",
+"candidates differing by one subject at a time is close to the worst case for ",
+"a re-selection-based correction. We report the number rather than the ",
+"regime-averaged one.\n\n",
+
+"2. **The complement and joint figures in @sec-b3 are new measurements, not ",
+"the certified ones.** The certified field-s upper coverage is %s and the ",
+"certified joint coverage is %s, both established on the effMaxSG band ",
+"designs. The Table 7 design is a different regime and the numbers here stand ",
+"or fall on their own.\n\n",
+
+"3. **Guo & He is not run on our screened, data-built family.** Their method ",
+"is applied here exactly as published, on the family their Section 5.2 ",
+"specifies. It is not applied to the forestsearch-screened family, which lies ",
+"outside its stated scope; no claim is made about how it would behave there.\n\n",
+
+"4. **Everything here is one-sided.** Every construction compared in this ",
+"section is a one-sided bound, so none of it depends on the open question of ",
+"the two-sided `ci_method` default.\n"),
+fld_range, cert_upper, cert_joint))
+```
+
+```{r b6-cert-note}
+#| output: asis
+if (!CERT_PRESENT) cat(paste0(
+  "::: {.callout-warning appearance='simple'}\n",
+  "**Certification citations pending.** `", CERT_FILE, "` is not in the tree, ",
+  "so the two certified figures in limit 2 render as the literal marker ",
+  "`", CERT_MARK, "` rather than as quoted values with line numbers. They are ",
+  "filled in, with file path and line numbers, once the record syncs (A2).\n",
+  ":::\n\n"))
+```
+
+# Provenance
+
+```{r provenance}
+prov <- data.frame(
+  Item = c("Cells", "Replicates per cell", "MR draws", "Field $R_{out}$ / $R_{in}$",
+           "MCSE at coverage 0.95", "Adaptive column", "Complement / joint (B3)",
+           "Certification citations (B6)"),
+  Value = c(
+    paste(CELLS, collapse = ", "),
+    format(NREP),
+    sprintf("%d (%s)", DRAWS, bun[[1]]$multiplier),
+    sprintf("%d / %d", R_OUT, R_IN),
+    sprintf("%.4f", MCSE),
+    if (HAVE_ADAPTIVE) "present" else "PENDING PHASE B",
+    if (HAVE_COMPLEMENT) "present" else "PENDING (T1 bundles absent)",
+    if (CERT_PRESENT) "present" else CERT_MARK),
+  check.names = FALSE)
+knitr::kable(prov, row.names = FALSE, caption = paste(
+  "Inputs and phase state. Every bundle is read-only; the G&H fixed-$r$",
+  "columns are arithmetic on the stored replication bundles and are never",
+  "re-run."))
+```
