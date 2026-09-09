@@ -275,7 +275,32 @@ Kept: `R/` changes confined to `R/forestsearch_methods.R`; `man/` regenerated fo
 
 Flagged, not done:
 
-1. **`print()` carries only the two caveats the task enumerates** — the two-sided one and the high-p̂ stable-pick note. The NOTE also describes the **low**-p̂ pole (over-correction, bias −0.11 to −0.28), which is where this worked example actually sits and where a user is therefore quite likely to land. A third line, printed when p̂ < 0.5, would be equally NOTE-sourced. Not added, because the task enumerated two; the low pole is covered in `summary()`'s context and in the vignette's p-hat section. **Recommend deciding whether `print()` should carry it.**
+1. ~~**`print()` carries only the two caveats the task enumerates**~~ — **RESOLVED**, see the addendum below: Larry approved the low-p̂ caveat with a tighter band edge than the one recommended here.
 2. **`quarto` is now a vignette-building dependency.** `VignetteBuilder: knitr, quarto` means any machine running `R CMD check` needs the `quarto` R package and the quarto CLI. That is the cost of a `.qmd` vignette and the task directed a `.qmd`; it is recorded here because it is a CRAN-facing change to the package's build requirements, not merely a Suggests addition.
 3. **The task's Stage 0 assumptions were wrong in two places** — `vignettes/` exists, and the joint members are `bonf_lower_H` / `bonf_upper_Hc`. Both are recorded above; neither blocked the work.
 4. **`.fs_apply_mr()`'s `ci_method` default** remains `"ij"` (`R/fs_mr_inference_methods.R:141`), so a DINA or GRF fit attaches an MR object with no field block and the new section prints nothing for it. Explicitly out of scope here; carried over from `REPORT_cimethod_flip_2026-09-09.md` side issue 1.
+
+## Addendum (2026-09-09) — the low-p̂ caveat
+
+Side issue 1 above recommended deciding whether `print()` should carry a third caveat for the low-p̂ pole. Larry approved it and **tightened the band edge**: the line prints at **p̂ < 0.20**, the top of the NOTE's own low band ("replicates below p̂ = 0.20"), not at p̂ < 0.5 as the recommendation had loosely implied. The interval **[0.20, 0.5) prints nothing**, because the NOTE supports no claim there — a directional flag either side of a pole is not a statement about the middle.
+
+The line, as it prints:
+
+> p-hat(H) < 0.20 is the unstable-pick pole, where the harm-block correction runs the other way -- over-correction, -0.11 to -0.28 log units at 12.4% prevalence with n = 1500 -- so the one-sided lower bound on H is conservative here and the two-sided interval is the exposed one. See dev/notes/NOTE_survival_products_2026-09-09.md.
+
+Against its NOTE source line (**Analysis-time diagnostic.**), fragment by fragment:
+
+| printed fragment | NOTE phrase it compresses |
+|---|---|
+| `p-hat(H) < 0.20 ... unstable-pick pole` | "replicates below p̂ = 0.20 are 52% of the 12.4% HR 1.75 cell at n = 500 and 8% at n = 1500" (Caveats on record) |
+| `over-correction, -0.11 to -0.28 log units at 12.4% prevalence with n = 1500` | "**over-correction at low p̂** (bias −0.11 to −0.28 log units at 12.4%, n = 1500)" |
+| `the one-sided lower bound on H is conservative here` | "The one-sided products are each exposed to one pole only, and in the conservative direction" |
+| `the two-sided interval is the exposed one` | "while the two-sided interval — exposed to both — does not" |
+
+Both band edges are the NOTE's: 0.5 is "crossing zero near p̂ ≈ 0.5", 0.20 is the low band's top. The roxygen on `print.forestsearch()` now states explicitly that **0.20 and 0.5 are descriptive band edges from the NOTE, not calibrated thresholds** — they say which pole an analysis sits at, the flag is directional, and [0.20, 0.5) carries no line.
+
+**Gates re-run.** **Pa PASS** — on the `mr_inference = FALSE` fit, `print()` is still 16 lines and `summary()` 41, both `identical()` to the pre-Part-P baseline captures, zero differing lines; adding a caveat branch cannot reach the absent-MR path. **Pc PASS** — every fragment traced to a NOTE line, both band edges NOTE-sourced, and the `[0.20, 0.5)` silence holds by construction (the two conditions are `p_hat_H < 0.20` and `p_hat_H >= 0.5`, with nothing in between). Pb was not re-run: no printed *number* changed, only the caveat text.
+
+The GBSG worked example has p̂(Ĥ) = 0.006, so it now prints the low-pole line and not the stable-pick line — the first live demonstration of the branch.
+
+**Full suite after the change: FAIL 0 | WARN 32 | SKIP 3 | PASS 5051**, unchanged.

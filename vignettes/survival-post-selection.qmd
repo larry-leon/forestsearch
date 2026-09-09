@@ -181,20 +181,25 @@ print(round(sort(ph, decreasing = TRUE)[1:5], 3))
 Harm-block bias is a monotone increasing function of p-hat, crossing zero near
 p-hat ~ 0.5:
 
-- **Low p-hat** -- the pick is unstable, and the correction *over*-corrects
-  (bias -0.11 to -0.28 log units at 12.4% prevalence, n = 1500). The harm-side
-  lower bound is conservative here.
-- **High p-hat** -- the stable-pick regime, where the correction
+- **Low p-hat, below 0.20** -- the pick is unstable and the correction runs the
+  other way, *over*-correcting (bias -0.11 to -0.28 log units at 12.4%
+  prevalence, n = 1500). The one-sided lower bound on Hhat is the conservative
+  product here; the two-sided interval is the exposed one. `print()` says so.
+- **High p-hat, 0.5 and above** -- the stable-pick regime, where the correction
   *under*-corrects (+0.02 log units) and the bounds are somewhat optimistic.
-  `print()` says so when p-hat is at or above 0.5.
+  `print()` says so.
+- **In between, 0.20 to 0.5** -- no line is printed, because the NOTE supports
+  no claim there.
 
-That 0.5 is the NOTE's description of where the bias crosses zero. It is
-**descriptive, not calibrated**: it tells you which side of the crossing an
-analysis sits on, and the flag is directional, not a decision rule. The
-complement's coverage, by contrast, is a stable function of p-hat.
+Those two edges come from the NOTE: 0.5 is where it puts the bias crossing
+zero, and 0.20 is the top of the band it characterises as low. They are
+**descriptive band edges, not calibrated thresholds** -- they tell you which
+pole an analysis sits at, and the flag is directional, not a decision rule.
+The complement's coverage, by contrast, is a stable function of p-hat.
 
-This fit sits at the low pole, so the printed output carries no stable-pick
-line and the harm-side bound should be read as the conservative one.
+This fit sits at the low pole (p-hat = 0.006), so the printed output carries
+the unstable-pick line and not the stable-pick one, and the harm-side lower
+bound should be read as the conservative product.
 
 ## What is not certified
 

@@ -121,10 +121,15 @@
 #' The caveat lines, worded from dev/notes/NOTE_survival_products_2026-09-09.md
 #'
 #' Each string is a faithful compression of a sentence of that NOTE and nothing
-#' else; no claim here is generated from the analysis at hand.  The p-hat
-#' threshold is the NOTE's own "crossing zero near p-hat ~ 0.5" and is
-#' \strong{descriptive, not calibrated}: it marks which side of the bias
-#' crossing the analysis sits on, not a decision rule.
+#' else; no claim here is generated from the analysis at hand.
+#'
+#' The two p-hat band edges, 0.20 and 0.5, are the NOTE's own and are
+#' \strong{descriptive band edges, not calibrated thresholds}.  0.5 is where
+#' the NOTE puts the harm-block bias crossing zero; 0.20 is the top of the band
+#' the NOTE characterises as low ("replicates below p-hat = 0.20").  Neither is
+#' a decision rule: they say which pole an analysis sits at, and the flag is
+#' directional.  The interval between them carries no line, because the NOTE
+#' supports no claim there.
 #' @keywords internal
 #' @noRd
 .fs_mr_caveats <- function(p) {
@@ -147,6 +152,19 @@
       "p-hat(H) >= 0.5 is the stable-pick regime, where the harm-block",
       "correction is under-corrected (+0.02 log units).  The flag is",
       "directional, not calibrated."))
+  # NOTE, "Analysis-time diagnostic.": "over-correction at low p-hat (bias
+  # -0.11 to -0.28 log units at 12.4%, n = 1500)"; and "The one-sided products
+  # are each exposed to one pole only, and in the conservative direction ...
+  # while the two-sided interval -- exposed to both -- does not [certify]."
+  # 0.20 is the NOTE's own low-band edge ("replicates below p-hat = 0.20");
+  # nothing is printed on [0.20, 0.5), where the NOTE supports no claim.
+  if (is.finite(p$p_hat_H) && p$p_hat_H < 0.20)
+    out <- c(out, paste(
+      "p-hat(H) < 0.20 is the unstable-pick pole, where the harm-block",
+      "correction runs the other way -- over-correction, -0.11 to -0.28 log",
+      "units at 12.4% prevalence with n = 1500 -- so the one-sided lower bound",
+      "on H is conservative here and the two-sided interval is the exposed",
+      "one.  See dev/notes/NOTE_survival_products_2026-09-09.md."))
   out
 }
 
@@ -238,13 +256,22 @@
 #'
 #' Caveat lines are printed only when they apply and are compressions of the
 #' NOTE, not of the analysis: a two-sided caveat whenever a two-sided interval
-#' is shown, and a stable-pick note when
-#' \eqn{\hat p(\widehat H) \ge 0.5}.  That threshold is the NOTE's own
-#' description of where the harm-block bias crosses zero and is
-#' **descriptive, not calibrated** -- it says which side of the crossing the
-#' analysis sits on, it is not a decision rule.  Bounds are reported by
-#' location and must be read against a clinically meaningful effect size,
-#' never as significance at the null.
+#' is shown, and one of two directional \eqn{\hat p} notes at the poles of
+#' the harm-block bias.  At \eqn{\hat p(\widehat H) \ge 0.5} -- the
+#' stable-pick regime -- the correction under-corrects, so the bounds are
+#' somewhat optimistic.  At \eqn{\hat p(\widehat H) < 0.20} the correction
+#' runs the other way and over-corrects, which makes the one-sided lower bound
+#' on \eqn{\widehat H} the conservative product and leaves the two-sided
+#' interval as the exposed one.
+#'
+#' **0.20 and 0.5 are descriptive band edges taken from the NOTE, not
+#' calibrated thresholds.** 0.5 is where the NOTE puts the bias crossing zero;
+#' 0.20 is the top of the band it characterises as low.  They say which pole an
+#' analysis sits at, and the flag is directional, not a decision rule.
+#' \eqn{\hat p} in \eqn{[0.20, 0.5)} prints no note at all, because the NOTE
+#' supports no claim there.  Bounds are reported by location and must be read
+#' against a clinically meaningful effect size, never as significance at the
+#' null.
 #'
 #' @param x A \code{forestsearch} object returned by
 #'   \code{\link{forestsearch}}.

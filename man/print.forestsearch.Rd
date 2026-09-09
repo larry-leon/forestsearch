@@ -43,13 +43,22 @@ the printed output is unchanged from a build without this section.
 
 Caveat lines are printed only when they apply and are compressions of the
 NOTE, not of the analysis: a two-sided caveat whenever a two-sided interval
-is shown, and a stable-pick note when
-\eqn{\hat p(\widehat H) \ge 0.5}.  That threshold is the NOTE's own
-description of where the harm-block bias crosses zero and is
-\strong{descriptive, not calibrated} -- it says which side of the crossing the
-analysis sits on, it is not a decision rule.  Bounds are reported by
-location and must be read against a clinically meaningful effect size,
-never as significance at the null.
+is shown, and one of two directional \eqn{\hat p} notes at the poles of
+the harm-block bias.  At \eqn{\hat p(\widehat H) \ge 0.5} -- the
+stable-pick regime -- the correction under-corrects, so the bounds are
+somewhat optimistic.  At \eqn{\hat p(\widehat H) < 0.20} the correction
+runs the other way and over-corrects, which makes the one-sided lower bound
+on \eqn{\widehat H} the conservative product and leaves the two-sided
+interval as the exposed one.
+
+\strong{0.20 and 0.5 are descriptive band edges taken from the NOTE, not
+calibrated thresholds.} 0.5 is where the NOTE puts the bias crossing zero;
+0.20 is the top of the band it characterises as low.  They say which pole an
+analysis sits at, and the flag is directional, not a decision rule.
+\eqn{\hat p} in \eqn{[0.20, 0.5)} prints no note at all, because the NOTE
+supports no claim there.  Bounds are reported by location and must be read
+against a clinically meaningful effect size, never as significance at the
+null.
 }
 
 \examples{
