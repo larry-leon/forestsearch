@@ -1,0 +1,31 @@
+# REVIEW — Parts A and C: formal close
+
+**Date:** 2026-09-08. Reviewer: the Linux MR-field chat (per `HANDOFF_mr_field_linux_2026-09-07.md`). Chat-side review record; companion to `REVIEW_partB_banddial_2026-09-08.md`.
+**Sources:** committed `REPORT_complement_variance_2026-09-07.md` (Part A, fe5eeaf5) and `REPORT_template_hygiene_2026-09-07.md` (Part C, b49be1a6), read in full; `dev/tasks/TASK_complement_variance_banddial_2026-09-07.md` (4b245516); the `R/` snapshot of 2026-09-08 (`fs_mr_inference.R`) for source verification of the record's named objects; `REPORT_banddial_gate2_2026-09-07.md` for C's forward verification.
+
+## Part A — PASS, review closed
+
+Every task requirement is on the record:
+
+- **A1** — the three components, reported variances, and ratios for all 17 cells; the identity **Var(e) = Var(a) + Var(c) − 2Cov(a, c) holds to ≤ 4e-18 in every cell** (the item pending at the provisional review, now sighted); means of a, c, e and the IJ two-term at 3.1–3.7 × Var(e).
+- **A2** — both stratifications present: by p̂(Ĥ) tertile (nb20 cells; T1 λ²/Var(e) 0.80–0.85) and by |Ĥ|/|H| tertile (all cells), with the unifying finding that low p̂ and large Ĥ are the same axis (|Ĥ|/|H| ≈ 1.0 in T1 vs ≈ 0.7 in T3).
+- **A3** — the regime sequence with the component decomposition of the shortfall's growth: excess_a within ±0.0003, excess_c a minor and shrinking share (29% → 22% at 31% prevalence), λ² − naive SE² growing −0.0006 → −0.0022 and carrying 55–70% of it.
+- **A4** — all three branches addressed; the previously truncated (i) tail now sighted, ending correctly at the protocol boundary: "A repair that scales Λ*ᶜ by the selected complement's SE relative to the field's mean winner SE would be a document-level or `R/` change for the Linux chat to propose; this record does not."
+- The complement `selection_bias` / `fixed_bias` sub-item is marked **not recorded** with the reason traced to source (the gate returns the split for the harm block only; the template records neither) — the task's "if recorded separately" conditional is satisfied by the finding.
+- **Source verification of the mechanism's objects:** the record's `Zo_c[G, r]`, `mean(Zi_c[cbind(wi, ok_in)])`, `Bc[, sel]`, and the lazy-fit cache match `fs_mr_inference.R` (snapshot 2026-09-08) at lines 1004–1029 and 989 verbatim. The mechanism claim — ζᶜ evaluated at the re-selected winner G_r, hence a family-average complement scale — is what the executing code does.
+
+**The A4 decision (delegated to this chat): a repair proposal is warranted.** Criterion met — the shortfall is not a stable fraction of the diagnostic (1 − λ²/Var(e): 0.066 → 0.144–0.146 at HR 1.75 while the error-ratio diagnostic sits at 1.01–1.05); the mechanism is identified and narrow; banddial corroborated it from both ends of the dial (λ-SDᶜ back at the naive SE and coverage at 0.92–0.93 wherever the pick stops varying). The proposal is delivered separately (`PROPOSAL_complement_field_scale_2026-09-08.md`); until Larry approves anything, the documented interim rule stands, restated in error terms per A4(iii): field bound with λ-SDᶜ read against SD(e) (0.92–0.97 campaign-wide, 0.77–0.85 in the low-p̂/large-Ĥ stratum), flagged at analysis time by p̂(Ĥ) and the per-replicate λ-SDᶜ/naive SEᶜ ratio; two-term IJ as the conservative option when the complement is not dominated; `ci_method = "ij"` remains the reported two-sided default.
+
+**Standing interpretive note carried forward (A0 / side observation 1):** every "SD units", "SE/SD", and "SD(β̃ᶜ)/naive SE" in the p30/p30sg/nb20/banddial reports is on the marginal SD, which carries the target's spread on both blocks; no coverage number is affected. Whether the standard tables adopt error-scale columns is Larry's open decision item (listed in the Part B review, §6.3).
+
+## Part C — PASS, review closed
+
+- **C1.** The finding that the combine-mode poolability keys already gated all four fields confirms the nb20 Gate 2 root cause was the pooled `meta = list(...)` alone; the edit is the minimal two lines, carried from the first batch exactly as `seed_base` / `sg_focus` / `harm_z1_quantile` are, under a gate that already forces batch agreement.
+- **Identity check, with a disclosed and endorsed adaptation.** The task's literal criterion — re-combine under `FS_S7_SAVE_COMBINED=FALSE` and reproduce the committed pooled `results` — is unsatisfiable as written (FALSE writes nothing to compare, and `.refuse_if_tracked()` forbids overwriting the committed bundle). CC split it into the two checks that jointly satisfy the intent: (1) the template's own combine code verbatim via `knitr::purl()`, with the single disclosed redirection of `combined_path` to scratch — `results` (2000 × 136, row order and all columns) and `truth` `identical()` on **all seven nb20 cells**, pooled meta 24 → 26 fields carrying the four knobs equal to the batch metas, every other shared field identical except `n_workers` / `built_at`; and (2) the full document in combine mode under `FS_S7_SAVE_COMBINED=FALSE` rendering clean and writing **nothing**. This is the right resolution of an unsatisfiable-as-written criterion: verbatim code path, one named deviation, both halves recorded.
+- **C2.** Guard `^[A-Za-z0-9]+$` → `^[A-Za-z0-9_]+$` (T-3 default), the glob-safety rationale in the template comment (the tag is the stem's final token; `_res_*` cannot cross campaigns), positive and negative test cases quoted, every committed tag and stem unchanged.
+- **Forward verification:** the banddial pooled bundles record `effect_neighborhood` / `er_jcuts` (its Gate 2 record) — C1 live in production one campaign later.
+- **Side issue logged, not proposed** (the record's, seconded): `combined_path` is a literal `NULL` rather than an `FS_S7_COMBINED_PATH` knob, so a keep-the-bundle verification combine requires a document edit. A Larry decision item, low priority.
+
+## Review-set status
+
+All three reviews of `TASK_complement_variance_banddial_2026-09-07` are now closed: Part A (this record), Part B (`REVIEW_partB_banddial_2026-09-08.md`), Part C (this record). The task's "no new tasks until both reviews are done" condition is satisfied. Open decision items consolidated in the Part B review §6 plus the repair proposal's decision list; nothing goes to CC until Larry approves.
