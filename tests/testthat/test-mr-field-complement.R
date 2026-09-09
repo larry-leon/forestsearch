@@ -34,8 +34,12 @@
   if (is.list(x$field)) { x$field$timing_seconds <- NULL
                           x$field$complement <- NULL
                           # field$joint attaches with the complement field
-                          # (TASK_complement_refinements_2026-09-06, method B).
-                          x$field$joint <- NULL }
+                          # (TASK_complement_refinements_2026-09-06, method B),
+                          # and field$joint_s with it under the studentized
+                          # complement (field_scale_complement = "selected",
+                          # the default since TASK_cert20_2026-09-08 Part D).
+                          x$field$joint <- NULL
+                          x$field$joint_s <- NULL }
   x
 }
 
@@ -56,9 +60,14 @@ test_that("field_complement is add-only: everything else is byte-identical", {
   on   <- .mfc_call(df, cands, sel, ci_method = "field",
                     include_complement = TRUE, field_R_out = 300L,
                     field_R_in = 100L, field_complement = TRUE)
-  expect_null(off$field$complement)
-  expect_identical(.strip_t(off), .strip_t(off0))
-  expect_identical(.strip_t(on), .strip_t(off))
+  # `off` omits the argument and therefore takes the package default, which is
+  # TRUE since TASK_cert20_2026-09-08 Part D; `off0` is the explicit flag-off
+  # arm, and it is the one that carries no complement field.
+  expect_null(off0$field$complement)
+  # Add-only: flag on vs explicit flag off, everything but the added elements.
+  expect_identical(.strip_t(on), .strip_t(off0))
+  # The omitted-argument call reproduces the default, now the flag-on call.
+  expect_identical(.strip_t(off), .strip_t(on))
   expect_identical(names(on), names(off))
   # The complement field itself.
   fc <- on$field$complement
