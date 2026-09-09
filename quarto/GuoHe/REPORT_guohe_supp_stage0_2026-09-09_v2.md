@@ -334,3 +334,150 @@ then T3. T2's driver is authored and committed but not executed on this Mac.
 ```
 
 Untracked: none, unchanged from the opening. No network git was invoked.
+
+---
+
+# APPENDED — Stage 1 identity probe (A3), 2026-09-09
+
+**OUTCOME: STOP. The probe's `identical()` assertion fails, which is a retained A8 STOP
+condition. The cause is NOT the T1 driver and NOT the complement: the stored bundles were
+built on Linux/x86_64/reference-BLAS and this Mac is arm64/Accelerate, so byte-identity to
+them is unattainable here by any code path. Production T1 was not launched. Larry decides.**
+
+## 1. What was run
+
+- `devtools::install()` first, per A3 (workers see only the installed package): forestsearch
+  0.3.5 installed from this tree, `* DONE (forestsearch)`.
+- `Rscript quarto/GuoHe/mr_field_complement_vs_guohe_run.R --probe --cells=t7_beta2_00,t7_beta2_05 --reps=3`
+- Columns compared by `identical()` against the stored `mr_field_vs_guohe_<id>.rds` rows:
+  4 naive, 11 IJ, 19 field.
+
+## 2. The literal result
+
+| cell | naive | IJ | field | `naive_ok` | `cur_ok` |
+|---|---|---|---|---|---|
+| `t7_beta2_00` | IDENTICAL | MISMATCH | MISMATCH | 3/3 | 0/3 |
+| `t7_beta2_05` | IDENTICAL | MISMATCH | MISMATCH | 3/3 | 0/3 |
+
+- 46 column instances differ. Every difference is in the last one or two bits of the double.
+  Examples as printed:
+  - `IJ/mr_est`, `t7_beta2_05`, m = 1 — new `0.66115334364706191` vs stored `0.6611533436470618`.
+  - `field/fld_lower_1s`, `t7_beta2_00`, m = 1 — new `-0.13077819374229155` vs stored `-0.13077819374229166`.
+- **The naive columns are bit-identical in both cells.** They are computed by an independent
+  `coxph` loop with no multiplier draws and no IJ algebra.
+
+## 3. Diagnosis — three tests, in the order they were run
+
+### 3a. Provenance of the stored bundles
+
+`readRDS("mr_field_vs_guohe_t7_beta2_00.rds")$sessionInfo`:
+
+```
+R version 4.6.1 (2026-06-24)
+Platform: x86_64-pc-linux-gnu
+Running under: Pop!_OS 24.04 LTS
+BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.12.0
+LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.12.0  LAPACK version 3.12.0
+```
+
+This Mac: arm64, R 4.5.2, Accelerate. Different architecture, different BLAS/LAPACK,
+different R minor version.
+
+### 3b. Control — the ORIGINAL complement-disabled path, on this Mac
+
+The untouched `mv_mr()` (its own `field_complement = FALSE, include_complement = FALSE`
+defaults), same seeds, same 3 replicates, same two cells — i.e. exactly what the committed
+`mr_field_vs_guohe_run.R` does:
+
+```
+=== CONTROL (complement DISABLED, original mv_mr) t7_beta2_00 ===
+  m=1 naive_est     identical=TRUE  reldiff=0
+  m=1 mr_se_ij      identical=FALSE reldiff=3.39e-16
+  m=1 fld_lower_1s  identical=FALSE reldiff=8.49e-16
+  m=1 fld_lambda_sd identical=FALSE reldiff=6.4e-16
+  ...
+```
+
+**The complement-disabled path fails `identical()` against the stored bundle too, at the same
+~1e-16.** The probe's failure is therefore not attributable to enabling the complement, and
+not to the hand-assembled call: no code path on this machine reproduces those bundles bit-for-bit.
+
+### 3c. Isolation — complement enabled vs disabled, SAME machine, SAME seeds
+
+The test that actually answers A3's question. 29 shared columns (naive, IJ, field, `p_hat_H`)
+compared between the two calls:
+
+```
+=== ISOLATION t7_beta2_00 ===        === ISOLATION t7_beta2_05 ===
+  m=1  29/29 shared columns identical    m=1  29/29 shared columns identical
+  m=2  29/29 shared columns identical    m=2  29/29 shared columns identical
+  m=3  29/29 shared columns identical    m=3  29/29 shared columns identical
+
+=== ISOLATION VERDICT: enabling the complement perturbs NOTHING
+    (all shared columns identical()) ===
+```
+
+**Enabling the complement perturbs no stored column.** This is the substantive proof A3 wanted,
+and it matches the engine's own design claim at `R/fs_mr_inference.R:822-826` — the field block
+re-seeds at `seed + 900000L` (`:820`) and draws `Xo`/`Xi_f` in the same order and sizes whether
+or not the complement runs; the complement block re-reads them (`:889-910`) and consumes no RNG
+of its own (`:702-725` is Cox fits and matrix algebra on already-drawn `Xi`).
+
+**There is no RNG-stream finding.** The v1 §4 phrasing ("the engine's complement block precedes
+the field block") is also inverted on this reading: the complement block *follows* the harm field
+and re-reads its draws.
+
+## 4. Magnitude of the cross-machine deviation
+
+Over 180 compared values (6 replicates × 30 columns), new Mac run vs stored Linux bundle:
+
+| statistic | value |
+|---|---|
+| compared values | 180 |
+| bit-identical | 63 (35.0%) |
+| max relative deviation | **9.51e-14** (`fld_q50`, `t7_beta2_05`, m = 1 — a quantile whose value is 7.3e-4, so the relative figure is inflated by a small denominator) |
+| typical deviation | ~1e-16 relative |
+| `all.equal` at 1e-8 | **TRUE** |
+
+`mr_mean_r` is excluded from the relative figure and scored on absolute difference: it is ~0 by
+construction (`-2.2e-17` vs `1.2e-18`, both numerical noise about zero; the engine documents it
+as "exposure only").
+
+## 5. Why this is Larry's call, not CC's
+
+- A8 retains "any `identical()` failure in probe or production pairing" as a STOP. The literal
+  condition is met, so CC stops.
+- But the condition as written cannot be satisfied on this machine for any code, and D2 places
+  Phase A on the Mac. That is a conflict between the spec and the hardware, not a defect in the
+  work — and resolving it is a decision about evidentiary standard.
+- Precedent exists in this repo: `TASK_tier2_mac_2026-09-08` hit the same wall and Larry gated
+  truth at `~1e-8` with `all.equal` while keeping `identical()` for integer-valued quantities
+  ("truth `identical()` FALSE but `all.equal` TRUE … the cross-machine BLAS difference").
+
+### Options, costed — CC does not choose among them
+
+1. **Gate the T1 pairing at a tolerance and run Phase A on the Mac as planned (recommended).**
+   Adopt the tier2 precedent: `identical()` for the integer/selection columns (`naive_cover`,
+   `sel`, `c_hat`, `n_sel`, `fld_n_out_used`), `all.equal` at 1e-8 for the floating-point ones.
+   The measured worst case is 9.5e-14, six orders inside that. Requires a named-line change to
+   the driver's probe/pairing check and Larry's word on the tolerance. Cost: minutes, then
+   Gate 1a proceeds.
+2. **Move Phase A to the Linux box.** Byte-identity to the stored bundles is then achievable
+   and A3's assertion stands as literally written. Cost: T1 waits for the Linux box, which
+   currently holds the Phase-B queue; no code change.
+3. **Accept §3c as the pairing proof and record the cross-machine deviation as a quantified
+   caveat.** No tolerance is introduced; the T1 record states that the isolation test, not
+   byte-identity, is the evidence. Cost: none, but the T1 bundles are then not byte-comparable
+   to the committed 16-cell record, which weakens D1's cross-reference sentence.
+
+## 6. State at the STOP
+
+- T1 driver `quarto/GuoHe/mr_field_complement_vs_guohe_run.R` authored and committed
+  (`2e427309`); it parses, runs, and produces every required column. The probe's new columns
+  computed cleanly, e.g. `t7_beta2_05`: `c_upper_95` 0.3357 / 0.6201 / −0.0704,
+  `c_upper_975` 0.3875 / 0.6750 / −0.0299, `joint_cover` 1 / 1 / 0.
+- **Gate 1a was not run. No production bundle was written. No T1 REPORT was written.**
+- T2 driver and T3 qmd are downstream of this STOP in the A7 order and were not authored.
+  Neither depends on the resolution above; both can proceed on Larry's word.
+- Nothing under `R/` was changed. `mr_vs_guohe_sim.R` was not modified.
+- No `git fetch`, `git pull` or `git push` at any point.
