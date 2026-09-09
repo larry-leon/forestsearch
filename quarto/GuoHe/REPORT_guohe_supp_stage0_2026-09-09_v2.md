@@ -481,3 +481,110 @@ as "exposure only").
   Neither depends on the resolution above; both can proceed on Larry's word.
 - Nothing under `R/` was changed. `mr_vs_guohe_sim.R` was not modified.
 - No `git fetch`, `git pull` or `git push` at any point.
+
+---
+
+# APPENDED — v4 addendum, 2026-09-09: probe scored PASS under N1, and two corrections to the record
+
+Governing amendment: `dev/tasks/claude_cc_task_guohe_supplement_2026-09-09_v4.md` (`fb65b4a3`),
+N10 item 2. Nothing above this line is modified.
+
+## 1. Stage 1 probe — PASS under the N1 standard
+
+The probe was **not re-run** (N2: its outcome is determined by evidence already recorded). Scored
+against N1:
+
+| N1 requirement | measured | verdict |
+|---|---|---|
+| integer / selection / flag / seed columns `identical()`, every replicate | **120/120** discrete comparisons across the six probe replicates | **PASS** |
+| floating-point columns `all.equal()` at 1e-8 | worst absolute deviation **4.44e-16** (`mr_upper_2s`, `t7_beta2_00`, m = 1); worst relative **9.51e-14** (`fld_q50`, `t7_beta2_05`, m = 1, on a value of 7.3e-4); 63/180 (35.0%) bit-identical | **PASS** — six orders inside tolerance |
+| complement exoneration | isolation test: complement enabled vs disabled, same machine, same seeds, **29/29 shared columns `identical()`**, both probe cells, all three replicates | **PASS** |
+
+The 120 discrete comparisons cover: the selected cutpoint (`sel`, `c_hat` against both the repro
+and stored-T1 bundles, `c_hat_naive`, `n_sel`), the engine's selection (`selected_index`,
+`selected_label`, `sel_agree_mr`), admission/reselection indicators (`mr_ij_source`,
+`mr_ij_draws`, `fld_n_out_used`), the coverage flags (`naive_cover`, `mr_cover`, `fld_cover_1s`,
+`fld_cover_2s`, `gh_r1..r4_cover`), the seeds (`seed_data`, `seed_mr`), and the truth lookups
+keyed by the selection (`gamma_s`, `gamma_s_naive`).
+
+**Isolation-test citation for the T1 REPORT (N1):** recorded in the Stage 1 probe note appended
+to this file, committed at **`7b2ed976`**.
+
+**The cross-machine comparison is a provenance measurement, not a gate** (N1). Stored bundles:
+`x86_64-pc-linux-gnu`, R 4.6.1, reference BLAS/LAPACK 3.12.0. This Mac: arm64, R 4.5.2,
+Accelerate.
+
+**Selection-stability margin (N3), for the record.** Top-1 minus top-2 oriented-score gap at
+selection over 106 selections (the six probe replicates plus 100 fresh `t7_beta2_00` draws at
+m = 2001–2100, disjoint from the stored 2000): minimum **1.438e-04**, 1st percentile
+**3.961e-04**, median **5.205e-03**. Against the worst absolute float deviation of 4.44e-16 that
+is a ratio of **3.2 × 10¹¹** (1st percentile **8.9 × 10¹¹**). The floating-point deviations
+cannot reach a selection boundary, which is why every discrete column is bit-identical across the
+two platforms while the continuous ones differ in the last bits.
+
+**Verdict: Stage 1 probe PASSES under N1. Proceeding to Gate 1a.**
+
+## 2. Correction 1 — block ordering (N6)
+
+Re-verified against the current tree. **The correction stands, with one refinement: there are
+two distinct complement blocks, and the v1 §4 error is a conflation of them, not a stale
+description.**
+
+- **The gate complement block** (`include_complement`), `R/fs_mr_inference.R:702-795`, **does
+  precede** the field block. It consumes no RNG: Cox fits on complement row-sets and matrix
+  algebra on the already-drawn `Xi`.
+- **The complement *field* block** (`field_complement`), `R/fs_mr_inference.R:889-910`,
+  **follows** the harm field's construction (`:874-887`) and re-reads its draws:
+
+```r
+      # -- Complement field (field_complement = TRUE) -- add-only and drawn
+      # from NOTHING: it re-reads the harm field's xi (Xo / Xi_f) and winners
+      # (G_out / W_in), so the harm field above and the uniform sweep below
+      # are byte-identical whether or not it runs
+```
+
+- The field block re-seeds before drawing, `R/fs_mr_inference.R:820`, and its comment states the
+  invariance directly (`:822-826`):
+
+```r
+    if (!is.null(seed)) set.seed(as.integer(seed) + 900000L)
+```
+```r
+    # The raw N(0, I) multipliers are held in Xo / Xi_f so the complement
+    # field (field_complement, TASK_mr_field_complement_2026-09-06) can
+    # project the SAME xi through the complement's own influence.  Two rnorm
+    # calls of the same sizes in the same order as before: the stream, Zo and
+    # Zi are byte-identical whether or not the complement block runs.
+```
+
+**On the attributed source.** `quarto/GuoHe/REPORT_mr_field_stage1_2026-09-05.md:15` reads:
+
+> The field block sits after the complement block, before the return assembly, and runs only
+> under `ci_method == "field"`, drawing under the derived seed `seed + 900000L` **after** the
+> main multiplier stream is fully consumed
+
+That sentence is **accurate**, then and now — it refers to the *gate* complement block, which was
+the only complement block in existence on 2026-09-05 (`field_complement` arrives with
+`TASK_mr_field_complement_2026-09-06`). The defect is not in the 09-05 record but in v1 §4's
+reading of it: applying a true statement about the gate complement block to the 09-06 complement
+field block, and inferring a perturbation risk that the code forecloses. The executing code
+governs; the isolation test measured the consequence and found none.
+
+**The 09-05 work is not reopened. Its numbers are unaffected.**
+
+## 3. Correction 2 — sync state (N6)
+
+Re-verified:
+
+- `git log -1 --format='%H %ci' origin/feature/glm-extension` →
+  `a9c0d5e531d5a6d9d17c93340c24e830b9e2f4cc 2026-09-09 10:12:49 -0700` — still the same merge.
+- The reflog's most recent network operation remains `HEAD@{...}: pull ... a9c0d5e5`; every entry
+  since is this session's own commit.
+
+**v2's "post-merge" framing is void**: no merge landed between the v1 and v2 readings, which is
+why every line number and byte size re-verified unchanged.
+
+`REVIEW_certification_2026-09-09.md` **remains absent** from the tree. The **A2 pending-citation
+marker path is live** for B6, and `guohe_supp_section.qmd` already renders
+`[certification citation pending sync]` at both figures (verified by executing its chunks:
+`CERT_PRESENT` is `FALSE`).
