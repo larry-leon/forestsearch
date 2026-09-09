@@ -194,7 +194,7 @@ Kept: one `R/` change in exactly two files, plus `man/`, `NEWS.md` and the NOTE.
 
 Flagged, not fixed:
 
-0. **Four test failures in the three `ci_method` test files** — one caused by this change (a stale assertion pinning the old default, `test-mr-inference.R:85`), three predating it from Part D's `field_complement` flip. Detailed in the section above; no test was edited.
+0. ~~**Four test failures in the three `ci_method` test files**~~ — **RESOLVED in `f4664aed`** (Larry put tests in scope for this fix, 2026-09-09, after this report was written). One was caused by this change (a stale assertion pinning the old default, `test-mr-inference.R:85`), three predated it from Part D's `field_complement` flip. Detailed in the section above; the resolution is recorded at the end of it. Full suite now **FAIL 0 | WARN 32 | SKIP 3 | PASS 5051**.
 1. **`.fs_apply_mr()` still defaults `ci_method` to `"ij"`** (`R/fs_mr_inference_methods.R:141`), so the DINA and GRF hooks do not inherit the new default while the consistency engine does. Out of scope here (third file); needs its own decision.
 2. **The template has no `ci_method` knob.** Left as directed. Every arm of a future campaign that wants a non-`"field"` value must edit line 567 or use a driver copy, as this gate did.
 3. **`NEWS.md`'s Part D bullet was amended**, not only appended to, because its "the `ci_method` default is unchanged" clause described the same unreleased version and is now false.
@@ -225,4 +225,16 @@ Line 85 is `expect_identical(g$ci_method, "ij")` on a `forestsearch()` call that
 ```
 
 All three call the gate with `ci_method = "field"` **explicitly**, so the default flip cannot reach them; they fail because they omit `field_complement` and expect the "off" shape, while `field_complement` has defaulted to `TRUE` since `TASK_cert20_2026-09-08` Part D. Confirmed empirically rather than argued: the same three fail identically in a clean worktree at `ab9afb20`, the commit immediately before this change (`── 1./2./3.` reproduced verbatim, failure 4 absent). They were left behind by Part D and are not this task's to fix.
+
+### Resolution (added 2026-09-09, after the above was written)
+
+Larry put tests in scope for this fix alone; all four are repaired in **`f4664aed`**, committed separately from the D2/N2 commit. Per test, chosen from the intent rather than by a blanket rule:
+
+- `test-mr-inference.R:85` — **expectation updated** to `"field"`. The assertion's job is to pin the package default and it still does, now the current one.
+- `test-mr-ij-residual-joint.R:128` — **condition restored** with an explicit `field_complement = FALSE`. Its comment states the intent outright ("No joint without the complement field") and the variable is named `no`, so passing the flag is the only way to reach what the test exists to check; the expectation is untouched.
+- `test-mr-field-complement.R:59–60` — **expectation updated on the assertion that is about the default**, and the add-only comparison re-pointed at the explicit flag-off arm (`off0`) the test already builds. `expect_null` moved from `off` (omitted, now complement-on) to `off0`; the add-only claim is now `.strip_t(on)` vs `.strip_t(off0)` and the default-identity claim `.strip_t(off)` vs `.strip_t(on)`. Assertion count unchanged at four.
+
+One latent staleness surfaced by that re-point and fixed with it: `.strip_t()` nulled `field$timing_seconds`, `field$complement` and `field$joint` but not `field$joint_s`, which attaches alongside `field$joint` under the studentized complement (`field_scale_complement = "selected"`, also a Part D default) — the `names(actual$field)[19:22]` line in failure 2 above. It is now stripped with the others; the structural checks are untouched.
+
+The three files go **FAIL 4 | PASS 228 → FAIL 0 | PASS 232** and the full suite is **FAIL 0 | WARN 32 | SKIP 3 | PASS 5051**; all 32 warnings and 3 skips are pre-existing and in unrelated files. No `R/` change in that commit — tests only.
 
