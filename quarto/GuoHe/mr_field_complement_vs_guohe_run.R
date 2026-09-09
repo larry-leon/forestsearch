@@ -276,6 +276,13 @@ mfc_rep_52 <- function(id, m, row_r, row_c, base, tru) {
   sel <- which.max(replace(fits$est, !is.finite(fits$est), -Inf))
   sel_ok <- identical(cand$cuts[sel], row_r$c_hat_gh) &&
     identical(gh52_truth_at(tru, cand$cuts[sel]), row_r$gamma_s)
+  # N3 (v4): the top-1 minus top-2 oriented-score gap at selection. orient = +1
+  # on t7, so the oriented score is fits$est and the selection is which.max().
+  # Recorded per replicate so any selection mismatch can be reported with the
+  # margin it crossed. Measured floor over 106 selections is 1.438e-04 against
+  # a worst float deviation of 4.44e-16 -- a ratio of 3.2e11.
+  .e <- fits$est[is.finite(fits$est)]
+  sel_gap <- if (length(.e) >= 2L) { .s <- sort(.e, decreasing = TRUE); .s[1] - .s[2] } else NA_real_
   theta <- row_r$gamma_s
   t0 <- proc.time()[["elapsed"]]
   mr <- mfc_mr(cand$df, mv_cand_idx_52(cand), cand$names[sel], mv_spec52,
@@ -284,7 +291,7 @@ mfc_rep_52 <- function(id, m, row_r, row_c, base, tru) {
   as.data.frame(c(list(
     id = id, m = m, seed_data = base + m, seed_mr = base + m + MV_SEED_MR,
     k_family = length(cand$cuts), theta = theta, sel = sel,
-    c_hat = cand$cuts[sel], n_sel = row_r$n_sel,
+    c_hat = cand$cuts[sel], n_sel = row_r$n_sel, sel_gap = sel_gap,
     naive_ok = as.integer(naive_ok && sel_ok),
     naive_est = nv$point, naive_se = (nv$point - nv$lower) / stats::qnorm(0.95),
     naive_lower = nv$lower, naive_cover = nv$cover,
@@ -308,6 +315,65 @@ MFC_PROBE_FIELD <- c("fld_lambda_mean", "fld_lambda_sd", "fld_q05", "fld_q25",
                      "fld_est2", "fld_lower_1s", "fld_lower_2s", "fld_upper_2s",
                      "fld_lower_se", "fld_upper_se", "fld_cover_1s",
                      "fld_cover_2s")
+
+# ---- N1 pairing standard (v4; replaces A3's plain identical()) -------------
+# Integer / selection / flag / seed columns: identical() REQUIRED, every
+# replicate; any failure is a STOP. Floating-point columns: all.equal() at
+# 1e-8, with the worst absolute and relative deviation and the bit-identical
+# fraction recorded per cell. The cross-machine comparison is a provenance
+# measurement, not a gate: stored bundles are x86_64 / R 4.6.1 / reference
+# BLAS, this Mac is arm64 / R 4.5.2 / Accelerate.
+MFC_DISCRETE <- c("sel", "c_hat", "n_sel", "seed_data", "seed_mr", "m",
+                  "k_family", "naive_cover", "mr_cover", "fld_cover_1s",
+                  "fld_cover_2s", "fld_n_out_used", "mr_ij_source",
+                  "mr_ij_draws", "theta", "gamma_s_naive",
+                  paste0("gh_r", 1:4, "_cov"))
+MFC_FLOAT <- c(setdiff(MFC_PROBE_NAIVE, MFC_DISCRETE),
+               setdiff(MFC_PROBE_IJ, MFC_DISCRETE),
+               setdiff(MFC_PROBE_FIELD, MFC_DISCRETE))
+MFC_TOL <- 1e-8
+
+# Compare one recomputed cell against the stored bundle under N1.
+# Returns the discrete failures (STOP-worthy) and the float deviation summary.
+.mfc_pair_n1 <- function(res, st) {
+  disc_bad <- character(0)
+  for (nm in intersect(MFC_DISCRETE, intersect(names(res), names(st)))) {
+    a <- res[[nm]]; b <- st[[nm]]
+    if (!identical(a, b)) {
+      first <- which(!mapply(identical, as.list(a), as.list(b)))[1]
+      disc_bad <- c(disc_bad, sprintf("%s (first differing replicate m = %s)",
+                                      nm, res$m[first]))
+    }
+  }
+  worst_abs <- 0; worst_abs_at <- ""; worst_rel <- 0; worst_rel_at <- ""
+  n_val <- 0L; n_id <- 0L; ae_bad <- character(0)
+  for (nm in intersect(MFC_FLOAT, intersect(names(res), names(st)))) {
+    a <- as.numeric(res[[nm]]); b <- as.numeric(st[[nm]])
+    ok <- is.finite(a) & is.finite(b)
+    if (!any(ok)) next
+    n_val <- n_val + sum(ok); n_id <- n_id + sum(a[ok] == b[ok] &
+                                                  mapply(identical, as.list(a[ok]), as.list(b[ok])))
+    ad <- abs(a[ok] - b[ok])
+    # near-zero values scored on absolute difference only (mr_mean_r is ~0 by
+    # construction, so a relative figure there is meaningless)
+    rl <- ifelse(abs(b[ok]) > 1e-10, ad / abs(b[ok]), ad)
+    if (max(ad) > worst_abs) {
+      worst_abs <- max(ad)
+      worst_abs_at <- sprintf("%s / m=%s", nm, res$m[ok][which.max(ad)])
+    }
+    if (max(rl) > worst_rel) {
+      worst_rel <- max(rl)
+      worst_rel_at <- sprintf("%s / m=%s", nm, res$m[ok][which.max(rl)])
+    }
+    if (!isTRUE(all.equal(a[ok], b[ok], tolerance = MFC_TOL)))
+      ae_bad <- c(ae_bad, nm)
+  }
+  list(disc_bad = disc_bad, ae_bad = ae_bad,
+       worst_abs = worst_abs, worst_abs_at = worst_abs_at,
+       worst_rel = worst_rel, worst_rel_at = worst_rel_at,
+       n_val = n_val, n_identical = n_id,
+       frac_identical = if (n_val) n_id / n_val else NA_real_)
+}
 
 mfc_probe_cell <- function(id, n_probe) {
   f_old <- file.path(.mfc_dir, paste0("mr_field_vs_guohe_", id, ".rds"))
@@ -394,24 +460,60 @@ mfc_run_cell <- function(id) {
   old <- cmp_bun$results[res$m, ]
   stopifnot(identical(old$seed_data, res$seed_data))
   res <- cbind(res, old[, MF_JOIN_COLS])
-  # Production pairing check against the stored field bundle (A3): the same
-  # identical() proof the Stage 1 probe ran, over every replicate computed.
+  # Production pairing check against the stored field bundle under the N1
+  # standard (v4): discrete columns identical() -- any failure is a STOP;
+  # floats at all.equal 1e-8, with the deviation summary recorded per cell.
   f_old <- file.path(.mfc_dir, paste0("mr_field_vs_guohe_", id, ".rds"))
-  pair_mismatch <- NA_integer_
+  pair <- NULL; sel_mismatch <- NA_integer_; sel_mismatch_detail <- NULL
   if (file.exists(f_old)) {
     st <- readRDS(f_old)$results[res$m, ]
-    cols <- c(MFC_PROBE_NAIVE, MFC_PROBE_IJ, MFC_PROBE_FIELD)
-    pair_mismatch <- sum(vapply(cols, function(nm)
-      !identical(res[[nm]], st[[nm]]), logical(1)))
+    pair <- .mfc_pair_n1(res, st)
+    # N3: per-replicate selected-cutpoint tally against the stored row.
+    smm <- which(res$c_hat != st$c_hat)
+    sel_mismatch <- length(smm)
+    if (sel_mismatch)
+      sel_mismatch_detail <- data.frame(
+        id = id, m = res$m[smm], c_hat_new = res$c_hat[smm],
+        c_hat_stored = st$c_hat[smm], sel_gap = res$sel_gap[smm])
   }
   el <- proc.time()[["elapsed"]] - t0
   gate2 <- list(n_rep_expected = n_rep, n_rep_done = nrow(res),
                 n_errored = sum(bad),
                 naive_mismatch = sum(res$naive_ok == 0L),
                 cur_mismatch = sum(res$cur_ok == 0L),
-                stored_col_mismatch = pair_mismatch,
+                # N1
+                discrete_mismatch = if (is.null(pair)) NA_integer_ else length(pair$disc_bad),
+                discrete_detail = if (is.null(pair)) NULL else pair$disc_bad,
+                float_allequal_fail = if (is.null(pair)) NA_integer_ else length(pair$ae_bad),
+                worst_abs = if (is.null(pair)) NA_real_ else pair$worst_abs,
+                worst_abs_at = if (is.null(pair)) NA_character_ else pair$worst_abs_at,
+                worst_rel = if (is.null(pair)) NA_real_ else pair$worst_rel,
+                worst_rel_at = if (is.null(pair)) NA_character_ else pair$worst_rel_at,
+                frac_identical = if (is.null(pair)) NA_real_ else pair$frac_identical,
+                n_float_values = if (is.null(pair)) NA_integer_ else pair$n_val,
+                # N3
+                sel_mismatch = sel_mismatch,
+                sel_mismatch_detail = sel_mismatch_detail,
+                sel_gap_min = min(res$sel_gap, na.rm = TRUE),
+                sel_gap_p01 = unname(quantile(res$sel_gap, 0.01, na.rm = TRUE, type = 7)),
+                sel_gap_median = median(res$sel_gap, na.rm = TRUE),
                 mr_na = sum(res$mr_na), fld_na = sum(res$fld_na),
                 c_na = sum(res$c_na))
+  # N1 / N3 STOP conditions, enforced at the cell boundary
+  if (isTRUE(gate2$discrete_mismatch > 0L))
+    stop("N1 STOP in ", id, ": discrete/selection/seed column(s) not identical(): ",
+         paste(gate2$discrete_detail, collapse = "; "), call. = FALSE)
+  if (isTRUE(gate2$float_allequal_fail > 0L))
+    stop("N1 STOP in ", id, ": float column(s) outside all.equal tolerance ",
+         MFC_TOL, ": ", paste(pair$ae_bad, collapse = ", "), call. = FALSE)
+  if (isTRUE(gate2$sel_mismatch > 0L))
+    stop("N3 STOP in ", id, ": ", gate2$sel_mismatch,
+         " selected-cutpoint mismatch(es) vs the stored bundle. Detail: ",
+         paste(sprintf("m=%s new=%.6f stored=%.6f gap=%.6g",
+                       sel_mismatch_detail$m, sel_mismatch_detail$c_hat_new,
+                       sel_mismatch_detail$c_hat_stored,
+                       sel_mismatch_detail$sel_gap), collapse = "; "),
+         call. = FALSE)
   saveRDS(list(
     id = id, section = if (sec52) "5.2" else "5.1",
     source_bundle = paste0("guohe_repro_", id, ".rds"),
@@ -423,13 +525,17 @@ mfc_run_cell <- function(id) {
     field_complement = TRUE, include_complement = TRUE,
     field_scale_complement = "selected", return_reselection = TRUE,
     complement_truth = 0,
+    pair_standard = list(rule = "v4 N1", discrete = "identical()",
+                         float = "all.equal", tolerance = MFC_TOL,
+                         discrete_cols = MFC_DISCRETE, float_cols = MFC_FLOAT),
     seed_base = base, mr_seed_offset = MV_SEED_MR, pilot = pilot,
     gate2 = gate2, elapsed_sec = el,
     sessionInfo = utils::capture.output(utils::sessionInfo()),
     results = res), f_out)
-  cat(sprintf("[done] %s  %d/%d reps in %.1f min  naive_mm %d  cur_mm %d  stored_mm %s  mr_na %d  fld_na %d  c_na %d  -> %s\n",
+  cat(sprintf("[done] %s  %d/%d reps in %.1f min  naive_mm %d  cur_mm %d  disc_mm %s  sel_mm %s  worst_abs %.3g  frac_id %.3f  mr_na %d  fld_na %d  c_na %d  -> %s\n",
               id, gate2$n_rep_done, n_rep, el / 60, gate2$naive_mismatch,
-              gate2$cur_mismatch, gate2$stored_col_mismatch, gate2$mr_na,
+              gate2$cur_mismatch, gate2$discrete_mismatch, gate2$sel_mismatch,
+              gate2$worst_abs, gate2$frac_identical, gate2$mr_na,
               gate2$fld_na, gate2$c_na, basename(f_out)))
   utils::flush.console()
   invisible(res)
@@ -474,9 +580,10 @@ if (pilot) {
     f <- file.path(.mfc_dir, paste0("mr_field_complement_vs_guohe_", id, ".rds"))
     if (!file.exists(f)) { cat(sprintf("%-16s MISSING\n", id)); next }
     g <- readRDS(f)$gate2
-    cat(sprintf("%-16s reps %d/%d  errored %d  naive_mm %d  cur_mm %d  stored_mm %s  mr_na %d  fld_na %d  c_na %d\n",
+    cat(sprintf("%-16s reps %d/%d  err %d  naive_mm %d  cur_mm %d  disc_mm %s  sel_mm %s  ae_fail %s  worst_abs %.3g  worst_rel %.3g  frac_id %.3f  mr_na %d  fld_na %d  c_na %d\n",
                 id, g$n_rep_done, g$n_rep_expected, g$n_errored,
-                g$naive_mismatch, g$cur_mismatch, g$stored_col_mismatch,
-                g$mr_na, g$fld_na, g$c_na))
+                g$naive_mismatch, g$cur_mismatch, g$discrete_mismatch,
+                g$sel_mismatch, g$float_allequal_fail, g$worst_abs,
+                g$worst_rel, g$frac_identical, g$mr_na, g$fld_na, g$c_na))
   }
 }
