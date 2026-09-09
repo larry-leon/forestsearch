@@ -83,16 +83,27 @@ HAVE_COMPLEMENT <- all(!vapply(CMP, is.null, logical(1)))
 # marker would be misleading -- it implies a document that is merely late.
 # The certified ranges actually on record are in REVIEW_E1_fields_2026-09-08.md:
 #   :78  | Ĥᶜ (upper) | **field-s** | **0.912 / 0.921 / 0.929** | ...
-#        (Standard table 2, "1s cov min / mean / max" across the six cells)
-#   :86  Joint Bonferroni pair: `joint_s` 0.942 / 0.939 / 0.949 / 0.951–0.952
-#        (the four ε band cells)
+#        Standard table 2 is headed "across cells (six cells)" (:69) and this
+#        column is "1s cov min / mean / max", so 0.912-0.929 is the min-to-max
+#        across ALL SIX cells. No subset.
+#   :86  The sentence is prefixed "Band cells:", so its four-value lists are the
+#        four epsilon cells: joint_s 0.942 / 0.939 / 0.949 / 0.951-0.952 vs
+#        joint 0.932 / 0.933 / 0.935 / 0.935. The trailing clause
+#        "ends unchanged (0.939 vs 0.941-0.942; 0.930 vs 0.929-0.930)" adds the
+#        two END cells (maxSG HR 1.75, minSG HR 1.75), following the sentence's
+#        own "joint_s ... vs joint ..." order: joint_s ends are 0.939 and 0.930.
+#        => joint_s across ALL SIX cells is 0.930-0.952; the four band cells
+#           alone span the narrower 0.939-0.952. Citing 0.939-0.952 as the
+#           certified range would silently drop the 0.930 end cell.
+#        (Under the opposite reading of that clause the low end would be 0.929
+#         rather than 0.930; either way it lies below the band-cell minimum.)
 # The wider 0.912-0.960 / 0.939-0.963 quoted in the task documents appear only
 # in an uncommitted handoff and are not reproducible from this repository.
 CERT_FILE  <- "REVIEW_E1_fields_2026-09-08.md"
 CERT_PATH  <- file.path("..", "..", "dev", "notes", CERT_FILE)
 CERT_PRESENT <- file.exists(CERT_PATH)
 cert_upper <- sprintf("0.912-0.929 (`%s:78`)", CERT_FILE)
-cert_joint <- sprintf("0.939-0.952 (`%s:86`)", CERT_FILE)
+cert_joint <- sprintf("0.930-0.952 (`%s:86`)", CERT_FILE)
 
 z95 <- qnorm(0.95)
 
@@ -414,10 +425,13 @@ cat(sprintf(paste0(
 
 "2. **The complement and joint figures in @sec-b3 are new measurements, not ",
 "the certified ones.** The certified ranges on record are field-s one-sided ",
-"upper coverage **%s** and joint Bonferroni coverage **%s**, established on ",
-"the `e1stud` effMaxSG band designs at n = 500 — six cells for the complement ",
-"range (four ε band cells plus the maxSG and minSG ends) and the four ε band ",
-"cells for the joint pair. The wider figures 0.912–0.960 and 0.939–0.963, ",
+"upper coverage **%s** and joint Bonferroni coverage **%s**, both across all ",
+"six cells of campaign `e1stud` at n = 500 (four ε band cells plus the maxSG ",
+"and minSG ends), the joint pair's four band cells alone spanning the narrower ",
+"0.939–0.952. That is a single design at one sample size — the cells vary the ",
+"band width ε, the hazard ratio and the selection focus, not the prevalence or ",
+"n — so it certifies those constructions on that design, not across ",
+"prevalences or sample sizes. The wider figures 0.912–0.960 and 0.939–0.963, ",
 "quoted in the task documents, appear only in an uncommitted handoff and are ",
 "not reproducible from anything in this repository. Measured here on Table 7, ",
 "for contrast: field-s upper **%s**, joint **%s**. The Table 7 design is a ",
