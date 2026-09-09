@@ -855,10 +855,16 @@ perturbed draw when forming the bias term.  Defaults to the rule
 \code{"poisson"} (centred Poisson(1) weights, the multiplier-bootstrap
 analogue of nonparametric-bootstrap multiplicities); also
 \code{"gaussian"}, \code{"rademacher"}.}
-\item{\code{ci_method}}{\code{"ij"} (default) takes the de-biased
-interval from the infinitesimal-jackknife variance, the leading-order
-analogue of the full-bootstrap interval; \code{"wald"} uses the
-subgroup robust SE.  The naive interval always uses the robust SE.}
+\item{\code{ci_method}}{\code{"field"} (default) additionally runs the
+field-calibrated block, whose one-sided products are the certified
+ones; the de-biased element, its infinitesimal-jackknife SE and its
+IJ intervals are returned in every call regardless, so nothing is
+removed -- only a per-fit Monte Carlo cost is added.  \code{"ij"}
+restores the previous default: the de-biased interval from the
+infinitesimal-jackknife variance, the leading-order analogue of the
+full-bootstrap interval, with the field block omitted.
+\code{"wald"} uses the subgroup robust SE and also omits the field
+block.  The naive interval always uses the robust SE.}
 \item{\code{include_complement}}{Also de-bias the complement subgroup.
 Passed as \code{TRUE} by every internal caller.}
 \item{\code{seed}}{Seed for the multiplier draws; defaults to
@@ -942,8 +948,9 @@ when MR did not run.  See \code{\link{fs_mr_inference}} for fields
 \code{settings}, \code{harm_flag}, \code{timing_seconds}).  MR
 approximates the full bootstrap (FB) to leading order; its interval is
 the infinitesimal-jackknife analogue of the FB interval under the
-default \code{ci_method = "ij"}, and the subgroup robust-SE interval
-under \code{"wald"}.}
+default \code{ci_method = "field"} and under \code{"ij"}, and the
+subgroup robust-SE interval under \code{"wald"}.  Under the default
+the return also carries the \code{field} element.}
 \item{mr_harm_confirmed}{Logical, three-valued.  \code{TRUE} when MR ran
 and the de-biased estimate still indicates harm under
 \code{confirm_rule}; \code{FALSE} when MR ran and it does not;

@@ -1,14 +1,31 @@
 # forestsearch (development version)
 
+* The `ci_method` default is now `"field"` (was `"ij"`), in
+  `fs_mr_inference()` and in the `forestsearch()` pass-through fallback, so a
+  default call produces the recommended constructions: the field-calibrated
+  one-sided lower bound on the harm subgroup, the studentized field-s
+  one-sided upper bound on the complement, and the Bonferroni joint pair.
+  **The IJ SE and its intervals are unchanged and still returned in every
+  call** -- the IJ variance is computed before and independent of the field
+  gate, so `"field"` adds the field block without removing anything, and the
+  `debiased` element is identical to what `"ij"` returns.  Prior behaviour is
+  `ci_method = "ij"`, which omits the field block.  The new default adds a
+  per-fit Monte Carlo cost: `field_R_out` x `field_R_in` (defaults 1000 / 500)
+  outer/inner draws, plus the complement's own block under the (also default)
+  `field_complement = TRUE`.  Together with the Part D flips this makes the
+  certified products reachable from a default call
+  (TASK_cimethod_note_2026-09-09, Part D2).
+
 * `fs_mr_inference()` defaults are now the recommended constructions (field
   complement bound, studentized field-s, re-selection diagnostics):
   `field_complement = TRUE`, `field_scale_complement = "selected"`,
   `return_reselection = TRUE`, mirrored in the `forestsearch()` pass-through
   fallbacks.  Prior behaviour is reachable by setting the arguments
-  explicitly (`FALSE` / `"none"` / `FALSE`).  `field_decompose` stays `FALSE`
-  and the `ci_method` default is unchanged, so the complement field block
-  still runs only under `ci_method = "field"`
-  (TASK_cert20_2026-09-08, Part D).
+  explicitly (`FALSE` / `"none"` / `FALSE`).  `field_decompose` stays `FALSE`.
+  Part D left the `ci_method` default at `"ij"`, so the complement field block
+  still ran only when `ci_method = "field"` was set explicitly; that default
+  was flipped in the bullet above (TASK_cert20_2026-09-08, Part D;
+  superseded on this point by TASK_cimethod_note_2026-09-09, Part D2).
 
 * `fs_mr_inference()` gains `field_decompose` (default `FALSE`): add-only
   complement-field scale diagnostics attached as `field$complement$decomp_fields`
