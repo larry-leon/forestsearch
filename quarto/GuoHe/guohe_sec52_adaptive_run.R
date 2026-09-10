@@ -113,6 +113,18 @@ force <- flag("force")
 out_dir <- opt("out", .gha_dir)
 truth_dir <- opt("truth-dir", out_dir)
 cells_opt <- opt("cells", "")
+# Gate 1b measurement flags (2026-09-09). BOTH default to the committed
+# behaviour: the full published grid and the CV path. Nothing is changed
+# permanently -- omit them and the driver runs exactly as committed.
+.parse_r <- function(txt) vapply(strsplit(txt, ",")[[1]], function(z) {
+  z <- trimws(z)
+  if (grepl("/", z)) { ab <- as.numeric(strsplit(z, "/")[[1]]); ab[1] / ab[2] }
+  else as.numeric(z)
+}, numeric(1), USE.NAMES = FALSE)
+rgrid_opt <- opt("r-grid", "")
+GHA_RUN_GRID <- if (nzchar(rgrid_opt)) .parse_r(rgrid_opt) else GH52_R_GRID
+fixed_r_opt <- opt("fixed-r", "")
+GHA_FIXED_R <- if (nzchar(fixed_r_opt)) .parse_r(fixed_r_opt)[1] else NA_real_
 n_cores <- as.integer(opt(
   "cores",
   as.character(max(1L, floor(0.80 * parallel::detectCores(logical = FALSE))))
@@ -130,7 +142,10 @@ cat("Guo & He Section 5.2 / Table 7 -- ADAPTIVE-r column (T2)\n")
 cat(sprintf("  mode      : %s\n", if (pilot) "PILOT (projection only)" else "production"))
 cat(sprintf("  cells     : %s\n", paste(GHA_CELLS, collapse = ", ")))
 cat(sprintf("  B         : %d   (A5: one B serves inner CV and final refit)\n", b_boot))
-cat(sprintf("  r_grid    : %s\n", paste(sprintf("%.6f", GH52_R_GRID), collapse = ", ")))
+cat(sprintf("  r_grid    : %s%s\n", paste(sprintf("%.6f", GHA_RUN_GRID), collapse = ", "),
+            if (!identical(GHA_RUN_GRID, GH52_R_GRID)) "   [--r-grid override]" else ""))
+if (is.finite(GHA_FIXED_R))
+  cat(sprintf("  MODE      : FIXED r = %.6f (no CV; Algorithm 3 only)\n", GHA_FIXED_R))
 cat(sprintf("  v         : %d   orient : %+d\n", GHA_V, GHA_ORIENT))
 cat(sprintf("  cores     : %d\n", n_cores))
 cat(sprintf("  out       : %s\n", out_dir))
@@ -186,12 +201,27 @@ gha_one_rep <- function(id, m, row_r, truth, base, B) {
   # (2) the adaptive fit, under its own recorded derived seed
   seed_ad <- seed + GHA_SEED_OFFSET
   t0 <- proc.time()[["elapsed"]]
-  ar <- try(suppressWarnings(guohe_adaptive_r(
-    data = cand$df, outcome = "survival", treatment = "treat",
-    candidates = cand$names, time = "time", event = "event",
-    orient = GHA_ORIENT, r_grid = GH52_R_GRID, v = GHA_V, B = B,
-    level = 0.05, seed = seed_ad, min_events = 5L, refit = TRUE
-  )), silent = TRUE)
+  if (is.finite(GHA_FIXED_R)) {
+    # (a) FIXED r -- Algorithm 3 at one r, no cross-validation. A single r
+    # leaves the CV objective nothing to select over, so the CV path is skipped
+    # entirely rather than run degenerately.
+    .fit <- try(suppressWarnings(guohe_algorithm3(
+      data = cand$df, outcome = "survival", treatment = "treat",
+      candidates = cand$names, time = "time", event = "event",
+      orient = GHA_ORIENT, B = B, r = GHA_FIXED_R, level = 0.05,
+      seed = seed_ad, min_events = 5L, diagnostics = FALSE
+    )), silent = TRUE)
+    ar <- if (inherits(.fit, "try-error")) .fit else
+      list(r_hat = GHA_FIXED_R, r_grid = GHA_FIXED_R,
+           objective = NA_real_, per_candidate = NA_real_, fit = .fit)
+  } else {
+    ar <- try(suppressWarnings(guohe_adaptive_r(
+      data = cand$df, outcome = "survival", treatment = "treat",
+      candidates = cand$names, time = "time", event = "event",
+      orient = GHA_ORIENT, r_grid = GHA_RUN_GRID, v = GHA_V, B = B,
+      level = 0.05, seed = seed_ad, min_events = 5L, refit = TRUE
+    )), silent = TRUE)
+  }
   t_ad <- proc.time()[["elapsed"]] - t0
 
   out <- data.frame(
@@ -212,7 +242,7 @@ gha_one_rep <- function(id, m, row_r, truth, base, B) {
     out$ad_dist_primary <- NA_real_
     out$ad_lower_secondary <- NA_real_; out$ad_cover_secondary <- NA_integer_
     out$ad_dist_secondary <- NA_real_; out$ad_bias_secondary <- NA_real_
-    for (i in seq_along(GH52_R_GRID)) out[[sprintf("obj_r%d", i)]] <- NA_real_
+    for (i in seq_along(GHA_RUN_GRID)) out[[sprintf("obj_r%d", i)]] <- NA_real_
     out$obj_min <- NA_real_
     out$t_adaptive_sec <- t_ad
     out$ad_note <- as.character(ar)
@@ -258,7 +288,7 @@ gha_one_rep <- function(id, m, row_r, truth, base, B) {
   out$ad_bias_secondary <- deb_s - gamma_s
 
   # per-candidate / per-r objective values
-  for (i in seq_along(GH52_R_GRID))
+  for (i in seq_along(GHA_RUN_GRID))
     out[[sprintf("obj_r%d", i)]] <- if (length(ar$objective) >= i)
       ar$objective[i] else NA_real_
   out$obj_min <- suppressWarnings(min(ar$objective, na.rm = TRUE))
@@ -273,6 +303,10 @@ gha_one_rep <- function(id, m, row_r, truth, base, B) {
 # ---- one cell (transplant: guohe_sec52_run.R:141-207) ----------------------
 gha_run_cell <- function(id) {
   f_out <- file.path(out_dir, paste0("guohe_adaptive_", id,
+                                     if (is.finite(GHA_FIXED_R))
+                                       sprintf("_fixedr%s", sub("[.]", "", sprintf("%.4f", GHA_FIXED_R)))
+                                     else if (length(GHA_RUN_GRID) != length(GH52_R_GRID))
+                                       sprintf("_grid%d", length(GHA_RUN_GRID)) else "",
                                      if (pilot) "_pilot" else "", ".rds"))
   if (file.exists(f_out) && !force) {
     cat(sprintf("[skip] %s (exists)\n", id))
@@ -324,7 +358,9 @@ gha_run_cell <- function(id) {
   saveRDS(list(
     id = id, target = "Table 7 -- Adaptive column", beta2 = rep_bun$beta2,
     n = 400L, n_rep_requested = n_rep, n_rep_used = nrow(res),
-    B = b_boot, r_grid = GH52_R_GRID, v = GHA_V, orient = GHA_ORIENT,
+    B = b_boot, r_grid = GHA_RUN_GRID, r_grid_stored = GH52_R_GRID,
+    fixed_r = GHA_FIXED_R, mode = if (is.finite(GHA_FIXED_R)) "fixed-r" else "adaptive-CV",
+    v = GHA_V, orient = GHA_ORIENT,
     one_B_serves_cv_and_refit = TRUE,
     adaptive_seed_offset = GHA_SEED_OFFSET,
     source_bundle = paste0("guohe_repro_", id, ".rds"),
