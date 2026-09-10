@@ -37,6 +37,11 @@ report.
    reads them, and nothing is reconstructed.
 6. **No Quarto render is attempted in this report.** The T3 render is N10 item 5 and is recorded
    separately.
+7. **Joint range, scaling named (2026-09-10).** §7 previously read "0.931–0.947" while §4b's
+   headline column was `joint_s`. Both figures are correct and neither was recomputed wrongly:
+   **0.931–0.947 is the unscaled `joint` pair and 0.933–0.946 is the studentized `joint_s` pair.**
+   The cause was reporting one range in prose while tabulating the other, without naming the
+   scaling. §7 now leads with `joint_s`, the documented product, and gives `joint` beside it.
 7. **Line numbers for `R/fs_mr_inference.R` were refreshed on 2026-09-09** against merge
    `f221f75e`, which expanded the `ci_method` roxygen block and shifted everything from line
    298 onward by +8. §6's quotes were re-verified **by content**, not by offset, and are
@@ -151,7 +156,9 @@ Complement truth on this design is **exactly 0**: `guohe_sec52_truth.R:75` sets
 `b <- ifelse(w <= GH52_C_LO, beta2, 0)` with `GH52_C_LO = 30`, and the cutpoint grid starts at 30,
 so every Ĥᶜ = {W > ĉ} lies inside the null region. Complement coverage is `upper >= 0`, with no
 dilution term. All values on the oriented log-hazard-ratio scale. Wilson 95% intervals; MCSE at
-coverage 0.95 and 2000 replicates is ≈ 0.0049.
+coverage 0.95 and 2000 replicates is ≈ 0.0049. **Margin** means **estimate minus lower bound**
+throughout this report and its companions; for the Guo & He columns that is identically
+bias + dist.
 
 ### 4a. Complement one-sided 95% upper bound against truth 0
 
@@ -292,8 +299,9 @@ harm draws are common to `joint` and `joint_s`, so `bonf_lower_H` is identical i
   against a nominal 0.95, its mean location sitting at 0.27–0.29 log-HR above a truth of 0. The
   one cell below 0.93 is the null, where the selection is loosest and ĉ ranges over the whole
   grid.
-- **The joint two-subgroup claim holds at 0.931–0.947**, against 0.95, and improves as β₂ grows.
-  With corr(Λ*, Λ*ᶜ) ≤ +0.021 the Bonferroni pair is essentially the calibrated one.
+- **The joint two-subgroup claim holds at 0.933–0.946** (`joint_s`, the documented studentized
+  pair) against 0.95, and improves as β₂ grows; the unscaled `joint` comparator spans
+  0.931–0.947. With corr(Λ*, Λ*ᶜ) ≤ +0.021 the Bonferroni pair is essentially the calibrated one.
 - **Nothing here is a comparison with Guo & He.** Their correction is defined through the maximum
   functional over the supplied family; Ĥᶜ is not in that family and is not the argmax of any
   functional, so no analogous bound exists in their framework. This section is a capability
