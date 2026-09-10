@@ -61,10 +61,17 @@ quantity:
 
 | cell | β₂ | coverage, primary (Wilson) | coverage, secondary (Wilson) | mean margin | bias |
 |---|---|---|---|---|---|
-| `t7_beta2_00` | 0.0 | **0.9515 (0.9412, 0.9601)** | 0.9515 (0.9412, 0.9601) | 0.2922 / 0.2925 | +0.01376 / +0.01379 |
-| `t7_beta2_03` | 0.3 | **0.9610 (0.9516, 0.9686)** | 0.9620 (0.9527, 0.9695) | 0.3121 / 0.3121 | −0.00734 / −0.00726 |
+| `t7_beta2_00` | 0.0 | **0.9515 (0.9412, 0.9601)** | 0.9515 (0.9412, 0.9601) | 0.3060 / 0.3063 | +0.01376 / +0.01379 |
+| `t7_beta2_03` | 0.3 | **0.9610 (0.9516, 0.9686)** | 0.9620 (0.9527, 0.9695) | 0.3048 / 0.3048 | −0.00734 / −0.00726 |
 
 Margin and bias are given primary / secondary. MCSE at 2000 replicates near 0.95 is ≈ 0.0049.
+
+**Margin convention (corrected 2026-09-10).** **Margin means estimate minus lower bound**, the
+definition used in `guohe_supp_section.qmd`, in `REPORT_mr_field_vs_guohe_2026-09-05.md` and in
+the T1 complement report. This table originally reported `dist` alone — 0.2922 / 0.2925 and
+0.3121 / 0.3121 — which is the distance from the truth to the bound, not from the estimate to the
+bound. The values above are restated on the single convention; **no other number in this report
+changes**, and for these columns margin = bias + dist identically.
 
 Both cells sit at or slightly above nominal, consistent with the published Table 7 columns running
 conservative (0.947–0.973): adjacent nested candidates differ by a single subject, so the effective

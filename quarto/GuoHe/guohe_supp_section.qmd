@@ -68,6 +68,12 @@ R_OUT <- bun[[1]]$field_R_out
 R_IN  <- bun[[1]]$field_R_in
 
 # ---- Phase-dependent inputs -------------------------------------------------
+# Committed Guo & He reproduction bundles: the source of the naive column and
+# every fixed-r column, uniformly across all six cells (ITEM 1). Verified to
+# carry r{1..4}_cover/_dist/_bias and naive_point/_lower/_cover on all six.
+REPRO <- lapply(CELLS, function(id) readRDS(sprintf("guohe_repro_%s.rds", id)))
+names(REPRO) <- CELLS
+
 # Fixed r = 1/12 production bundles (REPORT_guohe_fixedr_t7_2026-09-09.md).
 # Present for t7_beta2_00 and t7_beta2_03 only; other cells fall back to the
 # committed reproduction's stored r = 1/12 column.
@@ -142,7 +148,10 @@ the only design whose candidate family is nested and data-built and therefore
 the only one that speaks to the post-selection setting of interest (D1).
 
 All values are on the oriented log-hazard-ratio scale. Coverage is one-sided
-unless stated. Monte Carlo standard error at `r NREP` replicates and coverage
+unless stated. **Margin** means **estimate minus lower bound**, throughout this
+document and its companion reports; for the Guo & He columns that is identically
+bias $+$ dist, since $\hat\gamma = \gamma + \mathrm{bias}$ and
+$L = \gamma - \mathrm{dist}$. Monte Carlo standard error at `r NREP` replicates and coverage
 near $0.95$ is $\approx `r sprintf("%.3f", MCSE)`$.
 
 # B2 — Coverage, margin, and point-estimate bias for $\gamma_{\hat c}$
@@ -154,10 +163,17 @@ METHODS <- c("Naive", "G&H r=1/3", "G&H r=1/12", "G&H r=1/21", "G&H r=1/30",
 # est / SE / one-sided lower / cover per method. G&H "SE" = implied margin
 # (deb - low)/z_.95 (the method publishes a bound); MR (field) est = est2,
 # lower = beta_deb - q95.
-method_cols <- function(res, meth, fx) {
+# MARGIN CONVENTION (single definition, used everywhere in this document and in
+# the companion reports): margin = estimate - lower bound. For the G&H columns
+# this equals bias + dist identically, since est = gamma + bias and
+# low = gamma - dist; verified equal to all.equal on all six cells.
+method_cols <- function(res, meth, rp, fx) {
+  gs <- rp$results$gamma_s
   switch(meth,
-    "Naive"      = list(est = res$naive_est, se = res$naive_se,
-                        low = res$naive_lower, cov = res$naive_cover),
+    # ITEM 1: naive read from the committed reproduction bundle, all six cells.
+    "Naive"      = list(est = rp$results$naive_point,
+                        se  = (rp$results$naive_point - rp$results$naive_lower) / z95,
+                        low = rp$results$naive_lower, cov = rp$results$naive_cover),
     "MR (IJ)"    = list(est = res$mr_est, se = res$mr_se_ij,
                         low = res$mr_lower_1s, cov = res$mr_cover),
     "MR (field)" = list(est = res$fld_est2, se = res$fld_lambda_sd,
@@ -165,27 +181,20 @@ method_cols <- function(res, meth, fx) {
     # r = 1/12 comes from the fixed-r production run where that bundle exists
     # (its OWN Algorithm-3 refit, not the stored lookup), otherwise from the
     # committed reproduction's stored column.
-    "G&H r=1/12" = if (!is.null(fx)) {
-      fr <- fx$results
-      stopifnot(identical(fr$m, seq_len(nrow(fr))), nrow(fr) == nrow(res))
-      list(est = fr$gamma_s + fr$ad_bias_secondary,
-           se  = fr$ad_dist_secondary / z95,
-           low = fr$ad_lower_secondary,
-           cov = fr$ad_cover_secondary)
-    } else list(est = res$gh_r2_deb,
-                se  = (res$gh_r2_deb - res$gh_r2_low) / z95,
-                low = res$gh_r2_low, cov = res$gh_r2_cov),
+    # ITEM 1: every fixed-r column read from the committed reproduction bundle,
+    # uniformly across all six cells, so the head-to-head is on one footing.
     { i <- match(meth, METHODS) - 1L
-      list(est = res[[sprintf("gh_r%d_deb", i)]],
-           se  = (res[[sprintf("gh_r%d_deb", i)]] - res[[sprintf("gh_r%d_low", i)]]) / z95,
-           low = res[[sprintf("gh_r%d_low", i)]],
-           cov = res[[sprintf("gh_r%d_cov", i)]]) })
+      rw <- rp$results
+      est <- gs + rw[[sprintf("r%d_bias", i)]]
+      low <- gs - rw[[sprintf("r%d_dist", i)]]
+      list(est = est, se = (est - low) / z95, low = low,
+           cov = rw[[sprintf("r%d_cover", i)]]) })
 }
 
 cell_summary <- function(id) {
   res <- bun[[id]]$results
   do.call(rbind, lapply(METHODS, function(meth) {
-    v <- method_cols(res, meth, FIXR[[id]])
+    v <- method_cols(res, meth, REPRO[[id]], FIXR[[id]])
     if (is.null(v)) return(data.frame(
       cell = id, method = meth, mean_est = NA_real_, bias = NA_real_,
       sd_emp = NA_real_, mean_margin = NA_real_, cover = NA_real_,
@@ -194,7 +203,7 @@ cell_summary <- function(id) {
     n <- length(v$est); w <- wilson(sum(v$cov), n)
     data.frame(
       cell = id, method = meth,
-      mean_est = mean(v$est), bias = mean(v$est - res$theta),
+      mean_est = mean(v$est), bias = mean(v$est - REPRO[[id]]$results$gamma_s),
       sd_emp = sd(v$est), mean_margin = mean(v$est - v$low),
       cover = mean(v$cov), cover_lo = w["lo"], cover_hi = w["hi"], n = n,
       row.names = NULL)
@@ -234,12 +243,20 @@ for (k in seq_along(CELLS)) {
 ```
 
 ::: {.callout-note appearance="simple"}
-**Source of the $r = 1/12$ column.** For `t7_beta2_00` and `t7_beta2_03` the
-$r = 1/12$ row is the **fixed-$r$ production run** — its own Algorithm-3 refit at
+**Source of the naive and Guo & He columns.** Both are read from the **committed
+reproduction bundles** `guohe_repro_t7_beta2_0{0..5}.rds`, uniformly across all
+six cells, so the head-to-head sits on one footing across the whole $r$ grid.
+Those bundles were verified to carry `r{1..4}_cover/_dist/_bias` and
+`naive_point/_lower/_cover` on every cell, all at $B = 2000$.
+
+`t7_beta2_00` and `t7_beta2_03` were **additionally confirmed by an
+independent-stream production run** at $r = 1/12$ — its own Algorithm-3 refit at
 $B = 2000$, $\mathrm{orient} = +1$, 2000 replicates per cell
-(`REPORT_guohe_fixedr_t7_2026-09-09.md`). It agrees with the committed
-reproduction's stored $r = 1/12$ column on 99.0% and 99.7% of replicates. The
-remaining four cells use the stored column.
+(`REPORT_guohe_fixedr_t7_2026-09-09.md`). The produced bound reproduces the
+stored column **identically** (`identical()` on 2000/2000 replicates in both
+cells), and an independent bootstrap stream at the same $B$ reaches the same
+coverage decision on 99.0% and 99.7% of replicates. No cell was re-run for this
+table.
 
 **Two qualifications on the G&H columns.**
 
@@ -271,6 +288,32 @@ cat(paste0(
   "seed-determined rather than data-driven ",
   "(`REPORT_guohe_adaptive_gate1b_2026-09-09.md`; ",
   "`dev/notes/NOTE_adaptive_seed_parity_2026-09-09.md`).\n\n"))
+```
+
+## Consolidated operating characteristics
+
+```{r b2-consolidated}
+#| output: asis
+KEEP <- c("Naive", "G&H r=1/12", "MR (field)", "MR (IJ)")
+con <- do.call(rbind, lapply(seq_along(CELLS), function(k) {
+  s6 <- SUM[SUM$cell == CELLS[k] & SUM$method %in% KEEP, ]
+  s6 <- s6[match(KEEP, s6$method), ]
+  data.frame(
+    `$\\beta_2$` = sprintf("%.1f", BETA2[k]),
+    Method = ifelse(s6$method == "MR (IJ)", "MR (IJ), context", s6$method),
+    Coverage = sprintf("%.3f (%.3f, %.3f)", s6$cover, s6$cover_lo, s6$cover_hi),
+    Margin = sprintf("%.3f", s6$mean_margin),
+    Bias = sprintf("%+.4f", s6$bias),
+    check.names = FALSE, row.names = NULL)
+}))
+print(knitr::kable(con, row.names = FALSE, caption = paste(
+  "Operating characteristics across all six cells: one-sided 95% coverage of",
+  "$\\gamma_{\\hat c}$ with Wilson intervals, margin (estimate $-$ lower) and",
+  "point-estimate bias, for the naive bound, Guo & He at $r = 1/12$, MR (field)",
+  "and MR (IJ) as context. Naive and Guo & He are read from the committed",
+  "reproduction bundles on all six cells; MR columns from the paired",
+  "`mr_field_vs_guohe_t7_*` bundles on the same replicates.")))
+cat("\n")
 ```
 
 # B3 — Complement and joint bounds {#sec-b3}
@@ -318,17 +361,21 @@ if (!HAVE_COMPLEMENT) {
     r <- CMP[[CELLS[k]]]$results; n <- nrow(r)
     data.frame(
       Cell = CELLS[k], `$\\beta_2$` = sprintf("%.1f", BETA2[k]),
-      `Complement upper coverage vs 0 (field-s, Wilson)` =
+      `Complement upper coverage vs 0, field-s (Wilson)` =
         fmt_cov(sum(r$c_cover_95_s), n),
-      `Mean upper-bound location` = sprintf("%.3f", mean(r$c_upper_95_s, na.rm = TRUE)),
-      `Joint coverage (Bonferroni, Wilson)` = fmt_cov(sum(r$joint_cover_s), n),
+      `Mean complement bound location, field-s` =
+        sprintf("%.4f", mean(r$c_upper_95_s, na.rm = TRUE)),
+      `Joint Bonferroni coverage, joint_s (Wilson)` = fmt_cov(sum(r$joint_cover_s), n),
+      `Joint, unscaled (Wilson)` = fmt_cov(sum(r$joint_cover), n),
       check.names = FALSE, row.names = NULL)
   }))
   print(knitr::kable(tab, row.names = FALSE, caption = paste(
-    "Capability, not comparison. Field-s one-sided 95% upper bound on",
-    "$\\beta(\\hat H^c)$ against a truth of exactly 0, and the joint",
-    "(0.975 lower on $\\hat H$, 0.975 upper on $\\hat H^c$) Bonferroni pair.",
-    "Guo & He columns are absent by construction, not by omission.")))
+    "Capability, not comparison. Per cell: the field-s one-sided 95% upper bound",
+    "on $\\beta(\\hat H^c)$ against a truth of exactly 0, its mean location, and",
+    "the joint (0.975 lower on $\\hat H$, 0.975 upper on $\\hat H^c$) Bonferroni",
+    "pair in both scalings — `joint_s` is the documented product, `joint` the",
+    "unscaled comparator. Guo & He columns are absent by construction, not by",
+    "omission.")))
   cat("\n")
 }
 ```
@@ -418,10 +465,13 @@ par(op)
 if (HAVE_COMPLEMENT) {
   .cu <- vapply(CMP, function(b) mean(b$results$c_cover_95_s), numeric(1))
   .cj <- vapply(CMP, function(b) mean(b$results$joint_cover_s), numeric(1))
+  .cju <- vapply(CMP, function(b) mean(b$results$joint_cover), numeric(1))
   cert_upper_meas <- sprintf("%.3f-%.3f", min(.cu), max(.cu))
   cert_joint_meas <- sprintf("%.3f-%.3f", min(.cj), max(.cj))
+  cert_joint_unscaled <- sprintf("%.3f-%.3f", min(.cju), max(.cju))
 } else {
   cert_upper_meas <- "pending"; cert_joint_meas <- "pending"
+  cert_joint_unscaled <- "pending"
 }
 
 fld_cov <- SUM$cover[SUM$method == "MR (field)"]
@@ -444,8 +494,8 @@ cat(sprintf(paste0(
 
 "2. **The complement and joint figures in @sec-b3 are new measurements, not ",
 "the certified ones.** The certified ranges on record are field-s one-sided ",
-"upper coverage **%s** and joint Bonferroni coverage **%s**, both across all ",
-"six cells of campaign `e1stud` at n = 500 (four ε band cells plus the maxSG ",
+"upper coverage **%s** and joint Bonferroni coverage **%s** (the studentized `joint_s` pair), both ",
+"across all six cells of campaign `e1stud` at n = 500 (four ε band cells plus the maxSG ",
 "and minSG ends), the joint pair's four band cells alone spanning the narrower ",
 "0.939–0.952. That is a single design at one sample size — the cells vary the ",
 "band width ε, the hazard ratio and the selection focus, not the prevalence or ",
@@ -453,7 +503,8 @@ cat(sprintf(paste0(
 "prevalences or sample sizes. The wider figures 0.912–0.960 and 0.939–0.963, ",
 "quoted in the task documents, appear only in an uncommitted handoff and are ",
 "not reproducible from anything in this repository. Measured here on Table 7, ",
-"for contrast: field-s upper **%s**, joint **%s**. The Table 7 design is a ",
+"for contrast: field-s upper **%s**, joint_s **%s** (the unscaled `joint` pair ",
+"spans %s). The Table 7 design is a ",
 "different regime and the numbers here stand or fall on their own.\n\n",
 
 "3. **Guo & He is not run on our screened, data-built family.** Their method ",
@@ -464,7 +515,8 @@ cat(sprintf(paste0(
 "4. **Everything here is one-sided.** Every construction compared in this ",
 "section is one-sided, so none of it depends on the choice of two-sided ",
 "interval method.\n"),
-fld_min, fld_range, cert_upper, cert_joint, cert_upper_meas, cert_joint_meas))
+fld_min, fld_range, cert_upper, cert_joint, cert_upper_meas, cert_joint_meas,
+cert_joint_unscaled))
 ```
 
 ```{r b6-cert-note}
