@@ -1,0 +1,236 @@
+---
+title: "Extending the 12.4% prevalence grid: naive / field / field-s / IJ two-term on nine cells"
+subtitle: "Campaign p12ext (HR 1.50 at n = 500/1000/1500; the null at n = 1000/1500) beside the four committed tier2 cells; TASK_p12ext_2026-09-09; transplanted from summary_tier2.qmd (globs and labels only)"
+author: "Larry Leon"
+date: today
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+---
+
+Nine cells of the J = 10 harm design at the **M1 default prevalence** (`harm_z1_quantile = 0.25`, super-population
+12.4%; `FS_S7_Z1Q` deliberately unset, so the committed `s7c` / `map1c` / `tier2` configuration is reproduced), focus
+`maxeffCons`, seeds 8316951 + sim_id. **Five new (`p12ext`)**: HR 1.50 at n = 500 / 1000 / 1500 and the null
+HR 1.00 at n = 1000 / 1500. **Four committed (`tier2`), read as they stand**: HR 1.75 at n = 500 / 1000 / 1500 and
+the null HR 1.00 at n = 500. The HR 1.50 row against the HR 1.75 row at each n is the discriminator this campaign
+was run for; the two new nulls extend the level dimension past n = 500.
+Comparators on record (unscaled field, campaigns `s7c` / `map1c`) exist at four of the nine cells.
+Every cell runs with `field_decompose = TRUE` and `field_scale_complement = "selected"`, so the studentized
+complement field ("field-s", the percentile-t root
+`(s_sel/s_G) zeta^c_{r,G} - mean_j (s_sel/s_{G_j}) zeta'^c_{j,G_j}`) sits beside the unscaled one; the five
+`p12ext` cells additionally carry `field_recovery = TRUE` (the `fld_recov_*` block; not read by this document).
+Constructions on both blocks: naive (reference), MR (IJ two-term), MR (field), MR (field-s) -- the harm block is
+untouched by construction, so field-s = field there; winner-only and winner-floor excluded. "SD units" and
+"SD(beta~^c)/naive SE" follow the reports' convention (marginal SD of the log estimate); the error-scale SD
+(`REPORT_complement_variance_2026-09-07`, A0) is shown beside it.
+
+**Cross-machine note.** The four `tier2` bundles are Mac-produced (`Mac-Studio-3.local`, forestsearch 0.3.5); the
+five `p12ext` bundles and every `s7c` / `map1c` comparator are `pop-os` (forestsearch 0.3.5). DGM draws are
+seed-determined and identical across machines, so the pairing below is by **`n_true` (exact) and `truth` (to
+tolerance)** -- never by `identical()` on fitted values.
+
+# Bundles and the pairing identity
+
+```{r setup, message=FALSE}
+library(forestsearch)
+library(ggplot2)
+library(kableExtra)
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
+cells <- list(
+  list(key = "h150_n500", label = "HR 1.50, n = 500 [p12ext]", kind = "harm",
+       comp = "results/fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n500_map1c_combined_1_2000.rds",
+       comp_tag = "map1c",
+       e1   = "results/fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n500_p12ext_combined_1_2000.rds"),
+  list(key = "h150_n1000", label = "HR 1.50, n = 1000 [p12ext]", kind = "harm",
+       comp = NA_character_, comp_tag = "none at this cell",
+       e1   = "results/fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n1000_p12ext_combined_1_2000.rds"),
+  list(key = "h150_n1500", label = "HR 1.50, n = 1500 [p12ext]", kind = "harm",
+       comp = "results/fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n1500_map1c_combined_1_2000.rds",
+       comp_tag = "map1c",
+       e1   = "results/fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n1500_p12ext_combined_1_2000.rds"),
+  list(key = "h175_n500", label = "HR 1.75, n = 500 [tier2]", kind = "harm",
+       comp = "results/fs_maxeffCons_fb_mr_field_m1_h175_knoise0_n500_s7c_combined_1_2000.rds",
+       comp_tag = "s7c",
+       e1   = "results/fs_maxeffCons_fb_mr_field_m1_h175_knoise0_n500_tier2_combined_1_2000.rds"),
+  list(key = "h175_n1000", label = "HR 1.75, n = 1000 [tier2]", kind = "harm",
+       comp = NA_character_, comp_tag = "none at this cell",
+       e1   = "results/fs_maxeffCons_fb_mr_field_m1_h175_knoise0_n1000_tier2_combined_1_2000.rds"),
+  list(key = "h175_n1500", label = "HR 1.75, n = 1500 [tier2]", kind = "harm",
+       comp = NA_character_, comp_tag = "none exact (map1c h150 n1500 is a different HR)",
+       e1   = "results/fs_maxeffCons_fb_mr_field_m1_h175_knoise0_n1500_tier2_combined_1_2000.rds"),
+  list(key = "h100_n500", label = "HR 1.00, n = 500 (null) [tier2]", kind = "null",
+       comp = "results/fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n500_s7c_combined_1_2000.rds",
+       comp_tag = "s7c null",
+       e1   = "results/fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n500_tier2_combined_1_2000.rds"),
+  list(key = "h100_n1000", label = "HR 1.00, n = 1000 (null) [p12ext]", kind = "null",
+       comp = "results/fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n1000_map1c_combined_1_2000.rds",
+       comp_tag = "map1c null",
+       e1   = "results/fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n1000_p12ext_combined_1_2000.rds"),
+  list(key = "h100_n1500", label = "HR 1.00, n = 1500 (null) [p12ext]", kind = "null",
+       comp = NA_character_, comp_tag = "none at this cell",
+       e1   = "results/fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n1500_p12ext_combined_1_2000.rds"))
+timing_cols <- c("fb_secs", "fit_mr_secs", "fld_H_secs", "fld_Hc_secs", "fld_H_uniform_secs")
+B <- lapply(cells, function(cl) if (file.exists(cl$e1)) list(e1 = readRDS(cl$e1), comp = if (!is.na(cl$comp) && file.exists(cl$comp)) readRDS(cl$comp) else NULL) else NULL)
+names(B) <- vapply(cells, `[[`, "", "key")
+labs <- setNames(vapply(cells, `[[`, "", "label"), names(B))
+kind <- setNames(vapply(cells, `[[`, "", "kind"), names(B))
+comptag <- setNames(vapply(cells, `[[`, "", "comp_tag"), names(B))
+pair <- do.call(rbind, lapply(names(B), function(k) { b <- B[[k]]
+  if (is.null(b)) return(data.frame(cell = labs[[k]], comparator = comptag[[k]], present = FALSE, n_rows = NA,
+    n_detected = NA, n_true_identical = NA, truth_all_equal = NA, truth_max_reldiff = NA))
+  rf <- b$e1$results[order(b$e1$results$sim_id), ]
+  if (is.null(b$comp)) return(data.frame(cell = labs[[k]], comparator = comptag[[k]], present = TRUE,
+    n_rows = nrow(rf), n_detected = sum(rf$detected %in% 1L), n_true_identical = NA,
+    truth_all_equal = NA, truth_max_reldiff = NA))
+  rc <- b$comp$results[order(b$comp$results$sim_id), ]
+  rd <- max(vapply(names(b$comp$truth), function(nm)
+    abs(as.numeric(b$e1$truth[[nm]]) - as.numeric(b$comp$truth[[nm]])) / abs(as.numeric(b$comp$truth[[nm]])), 0))
+  data.frame(cell = labs[[k]], comparator = comptag[[k]], present = TRUE, n_rows = nrow(rf),
+             n_detected = sum(rf$detected %in% 1L),
+             n_true_identical = identical(as.integer(rc$n_true), as.integer(rf$n_true)),
+             truth_all_equal = isTRUE(all.equal(b$comp$truth, b$e1$truth)), truth_max_reldiff = rd) }))
+kbl(pair, booktabs = TRUE, row.names = FALSE, digits = 20, caption = "Bundles read; the pairing by DGM draws: n_true identical() to the committed comparator on every row, and truth equal to tolerance (the residual is the cross-machine BLAS difference; identical() on fitted values is never asserted across machines).") |> kable_styling(font_size = 11)
+B <- B[!vapply(B, is.null, TRUE)]
+```
+
+# Constructions on both blocks: naive / field / field-s / IJ two-term (identical replicates)
+
+```{r cov}
+# field-s rows come from the same function on a column-substituted copy of the results
+# (fld_Hc_* <- fld_Hc_*_s); the harm block has no _s twin (field-s = field there by construction).
+subst_s <- function(r) { for (s in c("est2", "up1s", "lo1s", "lo2s", "hi2s", "lo_se", "hi_se", "se", "lam_mean")) r[[paste0("fld_Hc_", s)]] <- r[[paste0("fld_Hc_", s, "_s")]]; r }
+err_sd <- function(r, block, est) { d <- r[r$detected %in% 1L, ]
+  e <- switch(est, naive = d[[paste0("nv_", block, "_est")]], mr = d[[paste0("mr_", block, "_est")]], fld = d[[paste0("fld_", block, "_est2")]])
+  ok <- is.finite(e) & is.finite(d[[paste0("betaHhat_", block)]]); sd(log(e[ok]) - log(d[[paste0("betaHhat_", block)]][ok])) }
+cov_block <- function(r, block, side) {
+  t1 <- fs_sim_bias_coverage(r, block = block, estimators = c("naive", "mr", "fld"), side = side)
+  t1$sd_err <- vapply(as.character(t1$estimator), function(e) err_sd(r, block, e), 0)
+  t1$construction <- c(naive = "naive", mr = "IJ two-term", fld = "field")[as.character(t1$estimator)]
+  if (block == "Hc") { rs <- subst_s(r); t2 <- fs_sim_bias_coverage(rs, block = "Hc", estimators = "fld", side = side)
+    t2$sd_err <- err_sd(rs, "Hc", "fld"); t2$construction <- "field-s"; t1 <- rbind(t1, t2) }
+  t1$se_over_sd_err <- t1$se_mean / t1$sd_err
+  t1 }
+COV <- do.call(rbind, lapply(names(B), function(k) { r <- B[[k]]$e1$results
+  rbind(cbind(cell = labs[[k]], block = "Hhat (lower)", cov_block(r, "H", "lower")),
+        cbind(cell = labs[[k]], block = "Hhat^c (upper)", cov_block(r, "Hc", "upper"))) }))
+COV$construction <- factor(COV$construction, levels = c("naive", "field", "field-s", "IJ two-term"))
+COV <- COV[order(match(COV$cell, labs), COV$block, COV$construction), ]
+kbl(COV[, c("cell", "block", "construction", "n", "bias_log", "sd_emp", "sd_err", "se_mean", "b", "r", "se_over_sd_err", "cov1", "cov1_wilson_lo", "cov1_wilson_hi", "cov2", "cov1_ref")],
+    digits = 3, booktabs = TRUE, row.names = FALSE,
+    caption = "Per cell: bias (log), marginal SD (sd_emp), error-scale SD (sd_err = SD of log est - log target), mean SE, b = bias / marginal SD, r = mean SE / marginal SD, SE / error SD; cov1 = one-sided 95% coverage of beta(Hhat) by the lower bound / of beta(Hhat^c) by the upper bound with Wilson limits; cov2 = two-sided; cov1_ref = Gaussian reference. The harm block has no field-s row: it is untouched by construction.") |>
+  kable_styling(font_size = 10)
+```
+
+```{r cov-across}
+ACR <- do.call(rbind, lapply(split(COV, list(COV$block, COV$construction), drop = TRUE), function(d)
+  data.frame(block = d$block[1], construction = d$construction[1], cells = nrow(d), cov1_min = min(d$cov1), cov1_mean = mean(d$cov1), cov1_max = max(d$cov1),
+             cov2_mean = mean(d$cov2), b_mean = mean(d$b), r_mean = mean(d$r), se_over_sd_err_mean = mean(d$se_over_sd_err))))
+ACR <- ACR[order(ACR$block, ACR$construction), ]
+kbl(ACR, digits = 3, booktabs = TRUE, row.names = FALSE, caption = "Across cells: range and mean of the one-sided coverage, mean two-sided coverage, mean b and r.") |> kable_styling(font_size = 10)
+```
+
+```{r cov-plot-c, fig.width = 13, fig.height = 5}
+tabC <- COV[COV$block == "Hhat^c (upper)", ]; tabC$estimator <- tabC$construction
+fs_plot_bias_coverage(tabC, curves = c(1, 1.25, 1.5, 2), side = "upper")
+```
+
+# Finding 1 - Complement upper coverage: field vs field-s (Wilson), per cell
+
+```{r f1}
+wil <- function(x, n, z = qnorm(.975)) { c <- (x + z^2/(2*n))/(1+z^2/n); h <- z*sqrt(x*(1-x)/n + z^2/(4*n^2))/(1+z^2/n); c(c - h, c + h) }
+F1 <- do.call(rbind, lapply(names(B), function(k) { r <- B[[k]]$e1$results; d <- r[r$detected %in% 1L & is.finite(r$betaHhat_Hc) & is.finite(r$fld_Hc_up1s_s), ]
+  cf <- mean(d$betaHhat_Hc <= d$fld_Hc_up1s); cs <- mean(d$betaHhat_Hc <= d$fld_Hc_up1s_s); ci <- mean(d$betaHhat_Hc <= exp(log(d$mr_Hc_est) + qnorm(.95) * d$mr_Hc_se_ij))
+  wf <- wil(cf, nrow(d)); ws <- wil(cs, nrow(d)); wi <- wil(ci, nrow(d))
+  data.frame(cell = labs[[k]], kind = kind[[k]], n = nrow(d), field = cf, field_lo = wf[1], field_hi = wf[2], field_s = cs, field_s_lo = ws[1], field_s_hi = ws[2],
+             ij = ci, ij_lo = wi[1], ij_hi = wi[2], field_s_minus_field = cs - cf, share_flipped_to_cover = mean(d$betaHhat_Hc > d$fld_Hc_up1s & d$betaHhat_Hc <= d$fld_Hc_up1s_s),
+             share_flipped_to_miss = mean(d$betaHhat_Hc <= d$fld_Hc_up1s & d$betaHhat_Hc > d$fld_Hc_up1s_s), mean_rho_c = mean(d$fld_Hc_scale_ratio), lamSD_over_nSE = sqrt(mean(d$fld_Hc_se^2)) / sqrt(mean(d$nv_Hc_se^2)),
+             lamSDs_over_nSE = sqrt(mean(d$fld_Hc_se_s^2)) / sqrt(mean(d$nv_Hc_se^2)), field_s_ge_093 = ws[1] >= 0.93, field_s_point_ge_093 = cs >= 0.93) }))
+kbl(F1, digits = 3, booktabs = TRUE, row.names = FALSE, caption = "One-sided 95% upper coverage of beta(Hhat^c): field, field-s, IJ two-term with Wilson limits; the replicates that flip; mean rho^c and the lambda-SD / naive SE ratios (unscaled and studentized). field_s_ge_093: the Wilson lower limit reaches the tier2 bar 0.93 (reference line only; no criterion is pre-registered for p12ext); field_s_point_ge_093: the point estimate does.") |> kable_styling(font_size = 10)
+```
+
+# Finding 2 - The shape test: complement upper coverage by |Hhat|/|H| tertile and by p-hat tertile
+
+```{r f2}
+tert <- function(v) { br <- quantile(v, c(0, 1/3, 2/3, 1), names = FALSE); cut(v, breaks = unique(br), include.lowest = TRUE, labels = FALSE) }
+F2 <- do.call(rbind, lapply(names(B), function(k) { r <- B[[k]]$e1$results; d <- r[r$detected %in% 1L & is.finite(r$betaHhat_Hc) & is.finite(r$fld_Hc_up1s_s), ]
+  do.call(rbind, lapply(c("|Hhat|/|H|", "p-hat"), function(what) { v <- if (what == "p-hat") d$p_hat_H else d$n_harm / d$n_true; g <- tert(v)
+    do.call(rbind, lapply(sort(unique(g)), function(t) { dk <- d[g == t, ]; cf <- mean(dk$betaHhat_Hc <= dk$fld_Hc_up1s); cs <- mean(dk$betaHhat_Hc <= dk$fld_Hc_up1s_s)
+      wf <- wil(cf, nrow(dk)); ws <- wil(cs, nrow(dk))
+      data.frame(cell = labs[[k]], stratum = sprintf("%s T%d [%.2f, %.2f]", what, t, min(v[g == t]), max(v[g == t])), n = nrow(dk), mean_rho_c = mean(dk$fld_Hc_scale_ratio),
+                 fld_over_nv = mean(dk$fld_Hc_se / dk$nv_Hc_se), flds_over_nv = mean(dk$fld_Hc_se_s / dk$nv_Hc_se),
+                 field = cf, field_lo = wf[1], field_hi = wf[2], field_s = cs, field_s_lo = ws[1], field_s_hi = ws[2]) })) })) }))
+kbl(F2, digits = 3, booktabs = TRUE, row.names = FALSE, caption = "Within each cell, by |Hhat|/|H| tertile and by p-hat(Hhat) tertile: mean rho^c, the per-replicate SE ratios, and the field / field-s upper coverage of beta(Hhat^c) with Wilson limits.") |> kable_styling(font_size = 9)
+```
+
+```{r f2-plot, fig.width = 12, fig.height = 6}
+P2 <- F2[grepl("^\\|Hhat", F2$stratum), ]; P2$tertile <- sub(" \\[.*", "", sub("^\\|Hhat\\|/\\|H\\| ", "", P2$stratum))
+P2l <- rbind(data.frame(cell = P2$cell, tertile = P2$tertile, construction = "field", cov = P2$field, lo = P2$field_lo, hi = P2$field_hi),
+             data.frame(cell = P2$cell, tertile = P2$tertile, construction = "field-s", cov = P2$field_s, lo = P2$field_s_lo, hi = P2$field_s_hi))
+ggplot(P2l, aes(x = tertile, y = cov, colour = construction, group = construction)) + geom_hline(yintercept = 0.95, linetype = 2) +
+  geom_pointrange(aes(ymin = lo, ymax = hi), position = position_dodge(width = 0.4)) + geom_line(position = position_dodge(width = 0.4)) +
+  facet_wrap(~ cell, ncol = 3) + labs(x = "|Hhat|/|H| tertile", y = "one-sided upper coverage of beta(Hhat^c)") + theme_bw(base_size = 11)
+```
+
+# Finding 3 - The null cells (HR 1.00)
+
+```{r f3}
+kbl(F1[F1$kind == "null", c("cell", "n", "field", "field_lo", "field_hi", "field_s", "field_s_lo", "field_s_hi", "field_s_minus_field", "share_flipped_to_cover", "share_flipped_to_miss", "mean_rho_c", "lamSD_over_nSE", "lamSDs_over_nSE")],
+    digits = 3, booktabs = TRUE, row.names = FALSE, caption = "The null cells: field-s against field where there is no planted harm subgroup (recorded without criterion).") |> kable_styling(font_size = 10)
+```
+
+# Finding 4 - Bound locations and the joint pair
+
+```{r loc}
+LOC <- do.call(rbind, lapply(names(B), function(k) { d <- B[[k]]$e1$results; d <- d[d$detected %in% 1L, ]
+  rows <- list(naive = list(lo = exp(log(d$nv_H_est) - qnorm(.95) * d$nv_H_se), up = exp(log(d$nv_Hc_est) + qnorm(.95) * d$nv_Hc_se)),
+               `IJ two-term` = list(lo = exp(log(d$mr_H_est) - qnorm(.95) * d$mr_H_se_ij), up = exp(log(d$mr_Hc_est) + qnorm(.95) * d$mr_Hc_se_ij)),
+               field = list(lo = d$fld_H_lo1s, up = d$fld_Hc_up1s), `field-s` = list(lo = d$fld_H_lo1s, up = d$fld_Hc_up1s_s))
+  do.call(rbind, lapply(names(rows), function(nm) { p <- rows[[nm]]; ok <- is.finite(p$lo) & is.finite(p$up)
+    data.frame(cell = labs[[k]], construction = nm, mean_betaH = mean(d$betaHhat_H), mean_betaHc = mean(d$betaHhat_Hc),
+               H_lower_mean = mean(p$lo[ok]), share_ge_085 = mean(p$lo[ok] >= 0.85), share_ge_095 = mean(p$lo[ok] >= 0.95),
+               Hc_upper_mean = mean(p$up[ok]), share_lt_085 = mean(p$up[ok] < 0.85), share_lt_080 = mean(p$up[ok] < 0.80),
+               margin_Hc = mean(log(p$up[ok]) - log(d$mr_Hc_est[ok])), stringsAsFactors = FALSE) })) }))
+kbl(LOC, digits = 3, booktabs = TRUE, row.names = FALSE, caption = "Bound locations (HR scale): the harm lower bound against 0.85 / 0.95 (field-s = field there), the complement upper bound against 0.85 / 0.80; margin_Hc = mean log(upper) - log(mr_Hc_est).") |> kable_styling(font_size = 10)
+```
+
+```{r joint}
+JNT <- do.call(rbind, lapply(names(B), function(k) { r <- B[[k]]$e1$results
+  d <- r[r$detected %in% 1L & is.finite(r$betaHhat_H) & is.finite(r$betaHhat_Hc) & is.finite(r$fld_joint_gamma) & is.finite(r$fld_joint_s_gamma), ]
+  pairs <- list(`separate 95% (field)` = list(lo = d$fld_H_lo1s, up = d$fld_Hc_up1s, g = NA, cr = NA), `separate 95% (field-s)` = list(lo = d$fld_H_lo1s, up = d$fld_Hc_up1s_s, g = NA, cr = NA),
+                `Bonferroni (joint)` = list(lo = d$fld_joint_bonf_loH, up = d$fld_joint_bonf_upHc, g = 0.025, cr = d$fld_joint_corr), `Bonferroni (joint_s)` = list(lo = d$fld_joint_s_bonf_loH, up = d$fld_joint_s_bonf_upHc, g = 0.025, cr = d$fld_joint_s_corr),
+                `calibrated (joint)` = list(lo = d$fld_joint_loH, up = d$fld_joint_upHc, g = d$fld_joint_gamma, cr = d$fld_joint_corr), `calibrated (joint_s)` = list(lo = d$fld_joint_s_loH, up = d$fld_joint_s_upHc, g = d$fld_joint_s_gamma, cr = d$fld_joint_s_corr))
+  do.call(rbind, lapply(names(pairs), function(nm) { p <- pairs[[nm]]; cH <- d$betaHhat_H >= p$lo; cC <- d$betaHhat_Hc <= p$up; jc <- mean(cH & cC); w <- wil(jc, nrow(d))
+    data.frame(cell = labs[[k]], pair = nm, n = nrow(d), joint_cov = jc, wilson_lo = w[1], wilson_hi = w[2], cov_H = mean(cH), cov_Hc = mean(cC),
+               margin_H = mean(log(d$mr_H_est) - log(p$lo)), margin_Hc = mean(log(p$up) - log(d$mr_Hc_est)), mean_gamma = mean(p$g), mean_corr = mean(p$cr), stringsAsFactors = FALSE) })) }))
+kbl(JNT, digits = 3, booktabs = TRUE, row.names = FALSE, caption = "Joint coverage of (beta(Hhat) >= lower_H, beta(Hhat^c) <= upper_Hc), Wilson limits: the separate 95% bounds, the Bonferroni pair and the calibrated pair, from the unscaled joint and from joint_s.") |> kable_styling(font_size = 9)
+```
+
+# Finding 5 - R1 vs the global rescale: `se_field_s / (rho^c x se_field)` per cell (informational)
+
+```{r f5}
+F5 <- do.call(rbind, lapply(names(B), function(k) { r <- B[[k]]$e1$results; d <- r[r$detected %in% 1L & is.finite(r$fld_Hc_se_s) & is.finite(r$fld_Hc_scale_ratio), ]
+  v <- d$fld_Hc_se_s / (d$fld_Hc_scale_ratio * d$fld_Hc_se); q <- quantile(v, c(.01, .10, .50, .90, .99))
+  data.frame(cell = labs[[k]], n = nrow(d), mean = mean(v), sd = sd(v), q01 = q[1], q10 = q[2], q50 = q[3], q90 = q[4], q99 = q[5], min = min(v), max = max(v),
+             mean_scale_cv = mean(d$fld_Hc_scale_cv), q90_scale_cv = quantile(d$fld_Hc_scale_cv, .9), mean_rho_c = mean(d$fld_Hc_scale_ratio), share_rho_gt_1 = mean(d$fld_Hc_scale_ratio > 1),
+             corr_flds_nv = cor(d$fld_Hc_se_s, d$nv_Hc_se), corr_fld_nv = cor(d$fld_Hc_se, d$nv_Hc_se)) }))
+kbl(F5, digits = 4, booktabs = TRUE, row.names = FALSE, caption = "The per-draw (R1) studentized SD against the global rescale rho^c x lambda-SD^c, per cell; the winner-scale CV; rho^c; and the per-replicate correlation of each field SD with the naive SE.") |> kable_styling(font_size = 9)
+```
+
+# Numbers for the record
+
+```{r reading, results='asis'}
+#| echo: false
+cat("\n**Finding 1 (complement upper coverage; field / field-s / IJ, Wilson):**\n\n")
+for (i in seq_len(nrow(F1))) cat(sprintf("- %s (n %d): field %.3f [%.3f, %.3f]; field-s %.3f [%.3f, %.3f]; IJ %.3f [%.3f, %.3f]; flips to cover %.3f, to miss %.3f; mean rho^c %.3f; lambda-SD/nSE %.3f -> %.3f\n",
+  F1$cell[i], F1$n[i], F1$field[i], F1$field_lo[i], F1$field_hi[i], F1$field_s[i], F1$field_s_lo[i], F1$field_s_hi[i], F1$ij[i], F1$ij_lo[i], F1$ij_hi[i], F1$share_flipped_to_cover[i], F1$share_flipped_to_miss[i], F1$mean_rho_c[i], F1$lamSD_over_nSE[i], F1$lamSDs_over_nSE[i]))
+cat("\n**Finding 2 (shape; |Hhat|/|H| tertiles T1/T2/T3, field -> field-s):**\n\n")
+for (k in names(B)) { x <- F2[F2$cell == labs[[k]] & grepl("^\\|Hhat", F2$stratum), ]
+  cat(sprintf("- %s: field %s; field-s %s; rho^c %s\n", labs[[k]], paste(sprintf("%.3f", x$field), collapse = " / "), paste(sprintf("%.3f", x$field_s), collapse = " / "), paste(sprintf("%.3f", x$mean_rho_c), collapse = " / "))) }
+cat("\n**Finding 4 (complement upper bound mean; shares < 0.85 / < 0.80):**\n\n")
+for (i in seq_len(nrow(LOC))) cat(sprintf("- %s, %s: Hc upper mean %.3f; < 0.85 %.3f; < 0.80 %.3f; margin %.3f\n", LOC$cell[i], LOC$construction[i], LOC$Hc_upper_mean[i], LOC$share_lt_085[i], LOC$share_lt_080[i], LOC$margin_Hc[i]))
+cat("\n**Finding 5 (R1 vs global):**\n\n")
+for (i in seq_len(nrow(F5))) cat(sprintf("- %s: mean %.4f sd %.4f [q01 %.4f, q99 %.4f]; scale CV mean %.3f q90 %.3f; corr(se_s, nSE) %.3f vs corr(se, nSE) %.3f\n", F5$cell[i], F5$mean[i], F5$sd[i], F5$q01[i], F5$q99[i], F5$mean_scale_cv[i], F5$q90_scale_cv[i], F5$corr_flds_nv[i], F5$corr_fld_nv[i]))
+```
