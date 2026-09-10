@@ -247,3 +247,67 @@ Re-run the same 10 replicates of `t7_beta2_03` with a different seed offset (e.g
 `GHA_SEED_OFFSET` 600000 → 600001, or a stride of 7 instead of 1). If the parity alignment moves
 with the offset, it is the seed grid; if r̂ is unchanged, it is the data. Cost: ~6 min wall at 12
 workers, one cell, no production implications. **Not run — awaiting instruction.**
+
+---
+
+# APPENDED — seed-offset test: the parity IS a seed-grid artefact (CONFIRMED)
+
+The discriminating test proposed above was authorized and run. **Cell `t7_beta2_03`, the same 10
+replicates, everything identical except the adaptive seed offset: `+600000L` → `+700000L`.**
+
+The committed driver was **not modified**. The test replicates its per-replicate logic in a
+scratch script — same data regeneration from `base + m`, same `guohe_adaptive_r()` call at
+`orient = +1`, `r_grid = c(1/3, 1/12)`, `v = 5`, `B = 2000`, `min_events = 5`, `refit = TRUE` —
+changing only the offset. Output: `guohe_adaptive_t7_beta2_03_grid2_seed700k.rds`.
+
+## Result
+
+| m | seed (+600000) | r̂ @ 600k | seed (+700000) | r̂ @ 700k | same? |
+|---|---|---|---|---|---|
+| 1 | 93802767 | 0.3333 | 93902767 | **0.0833** | no |
+| 2 | 93802768 | 0.0833 | 93902768 | **0.3333** | no |
+| 3 | 93802769 | 0.3333 | 93902769 | **0.0833** | no |
+| 4 | 93802770 | 0.0833 | 93902770 | 0.0833 | YES |
+| 5 | 93802771 | 0.3333 | 93902771 | 0.3333 | YES |
+| 6 | 93802772 | 0.0833 | 93902772 | 0.0833 | YES |
+| 7 | 93802773 | 0.3333 | 93902773 | **0.0833** | no |
+| 8 | 93802774 | 0.0833 | 93902774 | 0.0833 | YES |
+| 9 | 93802775 | 0.3333 | 93902775 | **0.0833** | no |
+| 10 | 93802776 | 0.0833 | 93902776 | 0.0833 | YES |
+
+| | r̂ = 1/12 on even m | r̂ = 1/12 on odd m |
+|---|---|---|
+| offset **+600000L** | **5/5** | **0/5** |
+| offset **+700000L** | 4/5 | 4/5 |
+
+- **The parity alignment moved with the offset.** Perfect at +600000L, gone at +700000L.
+- **r̂ changed on 5 of 10 replicates from a seed change alone** — the data, the candidate family
+  and the selection were untouched.
+- Selection keys reproduced 10/10 (`c_hat_naive`, `naive_cover`), so the data regeneration is
+  unaffected; only the CV's internal draws moved.
+- Cost unchanged: mean 367.9 s per replicate (vs 357.3 s at the committed offset).
+
+## Verdict
+
+**Seed-grid artefact, confirmed.** r̂ on this design and grid is substantially determined by the
+adaptive seed rather than by the data. The parity pattern was the visible symptom; the
+5-of-10 flip is the direct measurement.
+
+This does not change the Gate 1b recommendation — it sharpens it. §5 read r̂ as "close to a coin
+flip"; the test shows the coin is weighted by the seed. Recorded in full at
+`dev/notes/NOTE_adaptive_seed_parity_2026-09-09.md`. **No repair made; the seed derivation in the
+committed driver is untouched; disposition is Larry's.**
+
+## Bundle naming
+
+The four pilot bundles were renamed to carry an explicit `_pilot` suffix before the fixed-r
+production run, so production output at the canonical `..._fixedr00833.rds` names cannot
+overwrite the pilot evidence:
+
+- `guohe_adaptive_t7_beta2_00_fixedr00833_pilot.rds`
+- `guohe_adaptive_t7_beta2_03_fixedr00833_pilot.rds`
+- `guohe_adaptive_t7_beta2_00_grid2_pilot.rds`
+- `guohe_adaptive_t7_beta2_03_grid2_pilot.rds`
+- `guohe_adaptive_t7_beta2_03_grid2_seed700k.rds` (this test)
+
+All five sit outside the T3 Adaptive-column glob.
