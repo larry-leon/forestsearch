@@ -3442,6 +3442,10 @@ forestsearch <- function(df.analysis,
         # TASK_cert20_2026-09-08 Part D -- the recommended construction;
         # "none" restores the prior behaviour.
         field_scale_complement = .g_mr(mr_inference_args$field_scale_complement, "selected"),
+        # Add-only pass-through (TASK_field_recovery_2026-09-09): the field's
+        # membership-agreement diagnostics; FALSE is the default and the block
+        # is default-inert (nothing reads it, and it draws nothing).
+        field_recovery = .g_mr(mr_inference_args$field_recovery, FALSE),
         # Add-only pass-through (TASK_complement_refinements_2026-09-06):
         # which IJ residual populates the reported SE; "two_term" is the
         # gate's default and reproduces prior output exactly.

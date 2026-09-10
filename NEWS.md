@@ -1,5 +1,26 @@
 # forestsearch (development version)
 
+* `fs_mr_inference()` gains `field_recovery` (default `FALSE`): add-only,
+  default-inert **membership-agreement diagnostics** for the field's
+  re-selection, attached as `field$recovery`.  Over the outer draws that
+  produced a winner, each re-selected candidate's patient set is compared with
+  the observed subgroup's and averaged, giving `sens_H` (the mean share of the
+  identified patients the re-selections retain -- the primary quantity),
+  `ppv_H`, `sens_Hc`, `ppv_Hc`/`npv_Hc`, the containment quantiles
+  `q10`/`q50`/`q90`, `share_equal_1`, and the draw accounting.  The four
+  classification metrics reuse the cross-validation membership cross-tab's
+  definitions (`forestsearch_Kfold()`'s `sens_H`/`sens_Hc`/`ppv_H`/`ppv_Hc`)
+  rather than parallel ones.  They exist because the previously reported
+  exact-match frequency `p_hat` cannot distinguish re-selecting near-twins of
+  the observed subgroup from re-selecting unrelated regions.  Computed from
+  draws already made -- no new fits, no new randomness, no RNG consumption --
+  and **no construction reads them**, so every bound, bias and SE is identical
+  whether or not the block runs.  They answer a narrower question than the
+  bootstrap or cross-validation recovery diagnostics: re-selection within the
+  fixed kept family under perturbation, not re-discovery from scratch; the two
+  are related but not interchangeable.  `summary.forestsearch()` reports
+  `sens_H` beside `p_hat` when present (TASK_field_recovery_2026-09-09).
+
 * The `ci_method` default is now `"field"` (was `"ij"`), in
   `fs_mr_inference()` and in the `forestsearch()` pass-through fallback, so a
   default call produces the recommended constructions: the field-calibrated

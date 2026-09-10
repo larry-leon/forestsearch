@@ -415,6 +415,24 @@
 #'   the argument only selects the reported one, and the point estimates
 #'   never change.  Add-only: the default reproduces prior output exactly
 #'   (the new elements aside).
+#' @param field_recovery Logical (default `FALSE`); consulted only under
+#'   `ci_method = "field"`.  When `TRUE`, `field` gains a `recovery` list of
+#'   **descriptive membership-agreement diagnostics**
+#'   (`dev/tasks/TASK_field_recovery_2026-09-09.md`, R-1): over the outer
+#'   draws that produced a winner, each re-selected candidate's patient set
+#'   `kept[[G_r]]` is compared with the observed pick's `kept[[sel]]`, and the
+#'   four classification metrics of the CV membership cross-tab
+#'   (`forestsearch_Kfold()`'s `sens_H` / `sens_Hc` / `ppv_H` / `ppv_Hc`) are
+#'   averaged over draws, with `npv_Hc` reported as the standing-convention
+#'   name of the same quantity as `ppv_Hc`.  These are computed **from draws
+#'   already made**: no new fits, no new randomness, no RNG consumption, and
+#'   **no construction reads them** -- every bound, bias and SE is
+#'   byte-identical whether or not the block runs.  They answer a narrower
+#'   question than the full bootstrap (FB) or cross-validation (CV) recovery
+#'   diagnostics: re-selection *within the fixed kept family* under
+#'   multiplier perturbation, not re-discovery of a subgroup from scratch on
+#'   resampled data.  The two are related but not interchangeable, and a
+#'   report that quotes one should say which.
 #' @return List with the selected index/label, `naive` and `debiased` estimates
 #'   (effect scale, with approximate 95% CIs), `selection_bias`, `fixed_bias`,
 #'   `selection_rate`, `mean_r`, `mean_r_c`, the `settings` actually used (`t_confirm`,
@@ -468,6 +486,15 @@
 #'   (de-biased minus `q95`), the two-sided quantile interval
 #'   `lower_2s`/`upper_2s`, and the supplementary SE-type interval
 #'   `lower_se`/`upper_se` around `est2`.
+#'
+#'   Under `field_recovery = TRUE` the `field` element additionally carries
+#'   `recovery`: `sens_H` (the primary quantity -- the mean share of the
+#'   identified patients that the re-selections retain), `ppv_H`, `sens_Hc`,
+#'   `ppv_Hc` and its alias `npv_Hc`; the containment quantiles `q10`, `q50`,
+#'   `q90` and `share_equal_1` (the share of draws whose re-selection contains
+#'   all of the observed subgroup); and the accounting `n_draws`, `n_used`,
+#'   `n_skipped`, `n_selected`, `n_all`, `timing_seconds`.  Descriptive only;
+#'   absent when `field_recovery = FALSE`.
 #'
 #'   Under `field_complement = TRUE` (with `include_complement = TRUE`) the
 #'   `field` element additionally carries `complement`, the complement's own
@@ -539,7 +566,8 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                            field_complement = TRUE,
                            field_decompose = FALSE,
                            field_scale_complement = c("selected", "none"),
-                           ij_residual = c("two_term", "winner", "winner_floor")) {
+                           ij_residual = c("two_term", "winner", "winner_floor"),
+                           field_recovery = FALSE) {
   confirm_rule <- match.arg(confirm_rule); reselection <- match.arg(reselection)
   ij_residual <- match.arg(ij_residual)
   field_scale_complement <- match.arg(field_scale_complement)
@@ -707,10 +735,18 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   mean_r_c   <- NA_real_        # stays NA when no complement is fit
   bdc_w      <- NA_real_        # beta-tilde^c on the working scale, read by the
                                 # complement field block; NA when unfit
+  # HOIST (TASK_field_recovery_2026-09-09, R1).  These three were built inside
+  # the include_complement branch below; the field-recovery diagnostics need
+  # `kept` and `Nall` whether or not that branch runs.  The hoist is
+  # byte-identical: all three are pure functions of objects already fixed above
+  # (`candidates` and `asm` at the top of the function, `df` unchanged since),
+  # with no fitting, no drawing, no RNG consumption and no side effects --
+  # a list subset, a length and a row count.  Nothing between here and the
+  # branch reads or writes them.
+  kept   <- candidates[asm$keep]              # aligns with asm columns
+  Ncol   <- length(asm$names)
+  Nall   <- nrow(df)
   if (isTRUE(include_complement)) {
-    kept   <- candidates[asm$keep]              # aligns with asm columns
-    Ncol   <- length(asm$names)
-    Nall   <- nrow(df)
     winset <- sort(unique(c(winner[!is.na(winner)], sel)))
     Bc   <- matrix(0, Nall, Ncol)
     bh_c <- rep(NA_real_, Ncol); sdv_c <- rep(NA_real_, Ncol)
@@ -852,7 +888,13 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
     # as this loop computes them -- the complement re-reads them, it never
     # re-selects.  Side assignments only; lam / n_in_used are untouched.
     fc <- isTRUE(field_complement) && isTRUE(include_complement)
-    G_out <- if (fc) rep(NA_integer_, field_R_out) else NULL
+    # The recovery diagnostics (TASK_field_recovery_2026-09-09) read the same
+    # outer-winner record, so G_out is allocated when EITHER consumer wants it.
+    # W_in is the complement's alone.  With field_recovery = FALSE, rec_g is
+    # fc and both allocations are exactly as before.
+    rec_on <- isTRUE(field_recovery)
+    rec_g  <- fc || rec_on
+    G_out <- if (rec_g) rep(NA_integer_, field_R_out) else NULL
     W_in  <- if (fc) matrix(NA_integer_, field_R_out, field_R_in) else NULL
     for (r in seq_len(field_R_out)) {
       v <- w + Zo[, r]
@@ -862,14 +904,16 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
         win <- max.col(t(v + Zi), ties.method = "first")
         lam[r] <- Zo[G, r] - mean(Zi[cbind(win, ii)])
         n_in_used[r] <- field_R_in
-        if (fc) { G_out[r] <- as.integer(G); W_in[r, ] <- as.integer(win) }
+        if (rec_g) G_out[r] <- as.integer(G)
+        if (fc) W_in[r, ] <- as.integer(win)
       } else {
         wi <- vapply(ii, function(j) sel_one(v + Zi[, j]), integer(1))
         ok_in <- which(!is.na(wi))
         if (!length(ok_in)) next
         lam[r] <- Zo[G, r] - mean(Zi[cbind(wi[ok_in], ok_in)])
         n_in_used[r] <- length(ok_in)
-        if (fc) { G_out[r] <- as.integer(G); W_in[r, ] <- wi }
+        if (rec_g) G_out[r] <- as.integer(G)
+        if (fc) W_in[r, ] <- wi
       }
     }
     ok_f <- which(is.finite(lam))
@@ -957,6 +1001,14 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                     R_out = as.integer(field_R_out),
                     R_in = as.integer(field_R_in))
     }
+    # -- Re-selection recovery (field_recovery = TRUE) -- add-only and drawn
+    # from NOTHING: it re-reads the outer winners G_out recorded above and the
+    # fixed kept family, and compares memberships.  Attached last, after every
+    # construction is complete, because no construction reads it
+    # (TASK_field_recovery_2026-09-09).  Runs on both branches above: when
+    # fewer than 2 outer draws were usable, every metric comes back NA.
+    if (rec_on)
+      field$recovery <- .fs_mr_field_recovery(kept, G_out, sel, Nall)
   }
 
   out <- list(
@@ -1001,6 +1053,94 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   if (!is.null(field)) out$field <- field
   out$ij_residual <- ij_residual   # add-only: the residual behind the reported IJ SEs
   out
+}
+
+
+#' Field re-selection recovery: membership agreement against the observed pick
+#'
+#' Descriptive diagnostics for `fs_mr_inference(field_recovery = TRUE)`
+#' (TASK_field_recovery_2026-09-09, R-1).  Computed entirely from draws
+#' already made: the outer winners `G_out` recorded by the field loop and the
+#' fixed `kept` family.  Nothing is fit, nothing is drawn, no RNG is consumed,
+#' and no construction reads the result.
+#'
+#' The metrics are the field analogues of the cross-validation membership
+#' cross-tab in `forestsearch_cross_validation.R`
+#' (`table(treat.recommend, treat.recommend.original)`), with the observed
+#' pick `kept[[sel]]` in the role of `treat.recommend.original` and each
+#' draw's re-selection `kept[[G_r]]` in the role of `treat.recommend`.  Per
+#' draw, with `n = n_all`, `a = |G_r & Hhat|`, `b = |G_r|`, `c = |Hhat|` and
+#' `d = n - b - c + a`:
+#' `sens_H = a / c`, `ppv_H = a / b`, `sens_Hc = d / (n - c)`,
+#' `ppv_Hc = d / (n - b)`.  Each is averaged over the used draws.  `npv_Hc`
+#' is returned as an alias of `ppv_Hc`: read with `Hhat` as the positive
+#' class, CV's `ppv_Hc` *is* the negative predictive value, and the standing
+#' convention names sensitivity, specificity, PPV and NPV together.
+#'
+#' Guards: a draw is used when it recorded a winner that indexes the kept
+#' family and that candidate is non-empty; the rest are counted in
+#' `n_skipped`.  With no usable draw every metric is `NA_real_`.
+#'
+#' @param kept List of integer patient-index vectors, the kept candidate
+#'   family (aligned with the `asm` columns).
+#' @param G_out Integer vector of outer-draw winners (`NA` where a draw had
+#'   none), or `NULL` when no winner record exists.
+#' @param sel Integer index of the observed selected subgroup within `kept`.
+#' @param n_all Integer, the number of patients in the analysis set.
+#' @return Named list of the metrics, quantiles and draw accounting described
+#'   in [fs_mr_inference()]'s `field_recovery` argument.
+#' @keywords internal
+#' @noRd
+.fs_mr_field_recovery <- function(kept, G_out, sel, n_all) {
+  t0  <- proc.time()
+  n_all <- as.integer(n_all)
+  out <- list(sens_H = NA_real_, ppv_H = NA_real_,
+              sens_Hc = NA_real_, ppv_Hc = NA_real_, npv_Hc = NA_real_,
+              q10 = NA_real_, q50 = NA_real_, q90 = NA_real_,
+              share_equal_1 = NA_real_,
+              n_draws = 0L, n_used = 0L, n_skipped = 0L,
+              n_selected = NA_integer_, n_all = n_all,
+              timing_seconds = NA_real_)
+  .stamp <- function(o) {
+    o$timing_seconds <- as.numeric((proc.time() - t0)[["elapsed"]]); o
+  }
+  if (is.null(G_out) || !length(kept) || length(sel) != 1L || is.na(sel) ||
+      sel < 1L || sel > length(kept))
+    return(.stamp(out))
+
+  Hh  <- kept[[sel]]
+  c_r <- length(Hh)
+  out$n_selected <- as.integer(c_r)
+  g <- G_out[!is.na(G_out)]
+  out$n_draws <- length(g)
+  if (!length(g) || c_r < 1L || n_all < 1L) return(.stamp(out))
+
+  # Membership indicator once; sizes and intersections once per DISTINCT
+  # re-selected candidate, then mapped back to draws.
+  memb <- logical(n_all); memb[Hh] <- TRUE
+  ok   <- g >= 1L & g <= length(kept)
+  ug   <- sort(unique(g[ok]))
+  bu   <- vapply(ug, function(w) length(kept[[w]]), numeric(1))
+  au   <- vapply(ug, function(w) sum(memb[kept[[w]]]), numeric(1))
+  use  <- ok & !is.na(match(g, ug[bu >= 1]))
+  out$n_used    <- sum(use)
+  out$n_skipped <- length(g) - out$n_used
+  if (!out$n_used) return(.stamp(out))
+
+  i <- match(g[use], ug)
+  a <- au[i]; b <- bu[i]
+  d <- n_all - b - c_r + a
+  contain <- a / c_r
+  .m <- function(x) if (all(is.na(x))) NA_real_ else mean(x, na.rm = TRUE)
+  out$sens_H  <- mean(contain)
+  out$ppv_H   <- mean(a / b)
+  out$sens_Hc <- if (n_all > c_r) .m(d / (n_all - c_r)) else NA_real_
+  out$ppv_Hc  <- .m(ifelse(n_all > b, d / (n_all - b), NA_real_))
+  out$npv_Hc  <- out$ppv_Hc
+  qs <- stats::quantile(contain, c(0.10, 0.50, 0.90), names = FALSE, type = 7)
+  out$q10 <- qs[1]; out$q50 <- qs[2]; out$q90 <- qs[3]
+  out$share_equal_1 <- mean(contain >= 1 - 1e-12)
+  .stamp(out)
 }
 
 

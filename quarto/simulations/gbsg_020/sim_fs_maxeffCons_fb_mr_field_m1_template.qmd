@@ -609,6 +609,15 @@ mr_field_decompose <- identical(.env_chr("FS_S7_FIELD_DECOMP", "FALSE"), "TRUE")
 # FS_S7_FIELD_SCALEC=none for the prior behaviour.
 mr_field_scalec <- .env_chr("FS_S7_FIELD_SCALEC", "selected")
 stopifnot(mr_field_scalec %in% c("none", "selected"))
+# Field re-selection recovery knob (TASK_field_recovery_2026-09-09): when TRUE
+# the gate attaches the add-only field$recovery list -- membership agreement of
+# each outer draw's re-selection against the OBSERVED subgroup, in the CV
+# cross-tab vocabulary (sens_H / ppv_H / sens_Hc / npv_Hc) plus the containment
+# quantiles -- and the recorder captures the fld_recov_* columns below.  These
+# are descriptive: computed from draws already made, no new fits, no new
+# randomness, and no construction reads them, so every pre-existing column is
+# identical under either value.  FALSE (default) leaves the columns all NA.
+mr_field_recovery <- identical(.env_chr("FS_S7_FIELD_RECOV", "FALSE"), "TRUE")
 
 # t_confirm is omitted from the list when NULL so the package resolves its own
 # measure-aware default rather than receiving an explicit NULL.
@@ -629,6 +638,7 @@ mr_inference_args <- c(
        field_complement = mr_field_complement, ij_residual = mr_ij_residual,
        field_decompose = mr_field_decompose,
        field_scale_complement = mr_field_scalec,
+       field_recovery = mr_field_recovery,
        return_reselection = mr_return_reselection),
   if (!is.null(mr_t_confirm)) list(t_confirm = mr_t_confirm))
 
@@ -667,8 +677,8 @@ cat(sprintf("Run config: method=%s%s, n_sims=%d, nb_boots=%s, mr_draws=%d, worke
             n_sims, if (is.null(nb_boots)) "0 (skip)" else as.character(nb_boots),
             mr_draws, n_workers))
 # Resolved template knobs -- the render's audit line (env overrides included).
-cat(sprintf("Template knobs: hr=%.2f n=%d z1q=%.2f focus=%s nbhd=%.2f er_jcuts=%d ci_method=%s uniform=%s field_complement=%s field_decompose=%s field_scale_complement=%s return_reselection=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
-            target_hr_harm, n_sample, harm_z1_quantile, sg_focus, effect_neighborhood, er_jcuts, mr_ci_method, mr_field_uniform, mr_field_complement, mr_field_decompose, mr_field_scalec, mr_return_reselection, mr_ij_residual, fb_mode, campaign_tag,
+cat(sprintf("Template knobs: hr=%.2f n=%d z1q=%.2f focus=%s nbhd=%.2f er_jcuts=%d ci_method=%s uniform=%s field_complement=%s field_decompose=%s field_scale_complement=%s field_recovery=%s return_reselection=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
+            target_hr_harm, n_sample, harm_z1_quantile, sg_focus, effect_neighborhood, er_jcuts, mr_ci_method, mr_field_uniform, mr_field_complement, mr_field_decompose, mr_field_scalec, mr_field_recovery, mr_return_reselection, mr_ij_residual, fb_mode, campaign_tag,
             run_mode, sim_id_start, sim_id_start + n_sims - 1L, quickrun))
 cat(sprintf("Output stem: %s\n", rds_stem))
 ```
@@ -884,6 +894,17 @@ rule_covs <- function(rule) forestsearch:::.fs_rule_columns(rule)
   fld_Hc_share_newfit = NA_real_,                          # share of draw-winner readings needing a new fit
   fld_Hc_secs = NA_real_,
   fld_Hc_note = NA_character_,
+  # Field re-selection recovery (field_recovery = TRUE; else all NA;
+  # TASK_field_recovery_2026-09-09): membership agreement of each outer draw's
+  # re-selection kept[[G_r]] against the OBSERVED subgroup kept[[sel]],
+  # averaged over used draws, in the CV cross-tab vocabulary.  sens_H -- the
+  # mean share of the identified patients the re-selections retain -- is the
+  # primary quantity; q10/q50/q90 and share1 describe the per-draw containment
+  # a_r / |Hhat| behind that mean.  Descriptive: no construction reads them.
+  fld_recov_sens_H = NA_real_, fld_recov_ppv_H = NA_real_,
+  fld_recov_sens_Hc = NA_real_, fld_recov_npv_Hc = NA_real_,
+  fld_recov_q10 = NA_real_, fld_recov_q50 = NA_real_, fld_recov_q90 = NA_real_,
+  fld_recov_share1 = NA_real_, fld_recov_n_used = NA_real_,
   # Winner-only IJ variants (TASK_complement_refinements_2026-09-06, method A):
   # SE (log-HR) and two-sided bounds (HR scale) for the winner-only residual
   # (_w) and its naive-variance floor (_wf); the point estimate is mr_*_est.
@@ -1150,6 +1171,19 @@ if (k_random_noise > 0) {
         rec$fld_Hc_nout         <- fc$n_out_used %||% NA_integer_
         rec$fld_Hc_nfit         <- fc$n_complement_fits %||% NA_integer_
         rec$fld_Hc_share_newfit <- fc$share_draws_new_fit %||% NA_real_
+      }
+      # ---- Field re-selection recovery (field_recovery = TRUE; absent -> NA)
+      if (is.list(f$recovery)) {
+        fr <- f$recovery
+        rec$fld_recov_sens_H  <- fr$sens_H  %||% NA_real_
+        rec$fld_recov_ppv_H   <- fr$ppv_H   %||% NA_real_
+        rec$fld_recov_sens_Hc <- fr$sens_Hc %||% NA_real_
+        rec$fld_recov_npv_Hc  <- fr$npv_Hc  %||% NA_real_
+        rec$fld_recov_q10     <- fr$q10     %||% NA_real_
+        rec$fld_recov_q50     <- fr$q50     %||% NA_real_
+        rec$fld_recov_q90     <- fr$q90     %||% NA_real_
+        rec$fld_recov_share1  <- fr$share_equal_1 %||% NA_real_
+        rec$fld_recov_n_used  <- fr$n_used  %||% NA_real_
       }
       # ---- Joint (H lower, Hc upper) pair (absent -> all NA) ----
       if (is.list(f$joint) && is.null(f$joint$note)) {
@@ -1475,6 +1509,7 @@ if (run_smoke && identical(run_mode, "batch")) {
                              field_complement    = mr_field_complement,
                              field_decompose     = mr_field_decompose,       # record only (E1)
                              field_scale_complement = mr_field_scalec,       # record only (E1)
+                             field_recovery      = mr_field_recovery,        # record only (R)
                              ij_residual         = mr_ij_residual,
                              fb_mode             = fb_mode,
                              fb_join_source      = if (identical(fb_mode, "join"))
@@ -1588,6 +1623,7 @@ if (run_smoke && identical(run_mode, "batch")) {
                              field_complement = bundles[[1]]$meta$field_complement %||% NA,
                              field_decompose = bundles[[1]]$meta$field_decompose %||% NA,               # record only (E1)
                              field_scale_complement = bundles[[1]]$meta$field_scale_complement %||% NA_character_,
+                             field_recovery = bundles[[1]]$meta$field_recovery %||% NA,                 # record only (R)
                              ij_residual = bundles[[1]]$meta$ij_residual %||% NA_character_,
                              campaign_tag = bundles[[1]]$meta$campaign_tag %||% NA_character_,
                              target_hr_harm = bundles[[1]]$meta$target_hr_harm %||% NA_real_,
@@ -1627,13 +1663,14 @@ if (run_smoke && identical(run_mode, "batch")) {
 knitr::kable(data.frame(
   setting = c("ci_method", "draws", "confirm_rule", "t_confirm (as set)",
               "include_complement", "field_complement", "field_decompose",
-              "field_scale_complement", "ij_residual (reported)",
+              "field_scale_complement", "field_recovery", "ij_residual (reported)",
               "replicates with an MR harm decision"),
   value = c(mr_ci_method, format(mr_draws), mr_confirm_rule,
             if (is.null(mr_t_confirm)) "NULL -> package near-null default"
             else format(mr_t_confirm), "TRUE", as.character(mr_field_complement),
             as.character(mr_field_decompose),
             mr_field_scalec,
+            as.character(mr_field_recovery),
             mr_ij_residual,
             sprintf("%d of %d detected",
                     sum(!is.na(results$mr_harm_flag)),
