@@ -60,7 +60,9 @@ consistency search with no LASSO/GRF/DINA screen, `sg_focus = "effMaxSG"`
 (largest subgroup within a 20% band of the strongest observed effect), 200
 split-sample replicates and 500 multiplier draws. `mr_inference = TRUE` turns
 on the post-selection gate, whose result is attached to the fit as
-`fs$mr_inference`; no separate run is needed. There is no bootstrap, no
+`fs$mr_inference`; no separate run is needed. `field_recovery = TRUE` adds the
+membership-agreement diagnostics used in the p-hat section below -- descriptive
+only, computed from draws the gate has already made. There is no bootstrap, no
 cross-validation and no leave-one-out here -- those live in the applications
 documents, not in a vignette.
 
@@ -77,7 +79,8 @@ fs <- forestsearch(
   conf_force = c("er <= 0", "pgr <= 0"),
   subgroup_method = "consistency", sg_focus = "effMaxSG",
   selection_rule = "neighborhood", effect_neighborhood = 0.20,
-  mr_inference = TRUE, mr_inference_args = list(draws = 500L),
+  mr_inference = TRUE,
+  mr_inference_args = list(draws = 500L, field_recovery = TRUE),
   n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
   hr.threshold = 1.0, hr.consistency = 1.0, pconsistency.threshold = 0.80,
   fs.splits = 200, max.minutes = 3,
@@ -200,6 +203,48 @@ The complement's coverage, by contrast, is a stable function of p-hat.
 This fit sits at the low pole (p-hat = 0.006), so the printed output carries
 the unstable-pick line and not the stable-pick one, and the harm-side lower
 bound should be read as the conservative product.
+
+### What p-hat alone cannot say
+
+p-hat counts **exact** re-selections of `Hhat`. Over a family of 1,744
+candidates, most of which differ from `Hhat` by one cutpoint, an exact-match
+rate of 0.006 is compatible with two very different situations: the draws
+re-selected near-twins of `Hhat`, or they re-selected unrelated regions. p-hat
+does not distinguish them. **Membership agreement** does, and it is computable
+from the same draws. Each draw's re-selection is compared with `Hhat` as a set
+of patients, in the vocabulary of the cross-validation agreement metrics
+(`forestsearch_Kfold()`'s `sens_H` / `ppv_H`).
+
+```{r recovery}
+rc <- g$field$recovery
+cat(sprintf("sens_H  = %.3f   mean share of Hhat retained by a re-selection
+", rc$sens_H))
+cat(sprintf("ppv_H   = %.3f   mean share of a re-selection that lies in Hhat
+", rc$ppv_H))
+cat(sprintf("containment q10 / q50 / q90 = %.3f / %.3f / %.3f
+", rc$q10, rc$q50, rc$q90))
+cat(sprintf("share of draws containing all of Hhat = %.3f  (over %d draws)
+",
+            rc$share_equal_1, rc$n_used))
+```
+
+So the two numbers say different things about the same draws: exact
+re-selection is rare (0.006), while the typical re-selection still retains
+**more than half** of the identified patients, and about a quarter of the draws
+contain all of `Hhat`. Reported alone, p-hat = 0.006 invites the reading that
+the search found nothing reproducible; the membership numbers say the pick is
+unstable *in its exact boundary*, not in the region it points at. Both readings
+matter -- the low-p-hat caveat on the bounds still stands, because the bias
+correction is driven by the exact re-selection map.
+
+One limit, stated plainly. These diagnostics measure re-selection **within the
+fixed candidate family**, under multiplier perturbation of the candidate
+effects. The bootstrap (`forestsearch_bootstrap_dofuture()`) and
+cross-validation (`forestsearch_Kfold()`) recovery rates measure something
+stronger: re-**discovery** of a subgroup from resampled data, with the search
+re-run and the family rebuilt each time. The two are related but neither
+substitutes for the other, and this one is free in every analysis while those
+cost a full re-run.
 
 ## What is not certified
 

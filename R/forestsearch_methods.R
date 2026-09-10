@@ -113,6 +113,11 @@
     p_hat_H   = p_hat_H,
     p_hat_sum = if (!is.null(ph)) sum(ph, na.rm = TRUE) else NA_real_,
     p_hat_top = top,
+    # Membership-agreement diagnostics, present only under
+    # fs_mr_inference(field_recovery = TRUE) (TASK_field_recovery_2026-09-09).
+    # NULL when absent, and summary() prints the line only when it is not.
+    recov_sens_H = if (is.list(f$recovery)) f$recovery$sens_H else NULL,
+    recov_n_used = if (is.list(f$recovery)) f$recovery$n_used else NULL,
     n_family  = g$n_family,
     ci_method = g$ci_method)
 }
@@ -212,6 +217,16 @@
     }
     cat(sprintf("    p_hat_sum = %s over a family of %s candidates\n",
                 f3(p$p_hat_sum), if (is.null(p$n_family)) "NA" else p$n_family))
+    # Membership agreement beside p-hat: p-hat counts EXACT re-selections of
+    # Hhat, sens_H measures how much of Hhat the re-selections retain, so a low
+    # p-hat with a high sens_H says the re-selections were near-twins rather
+    # than unrelated regions.  Printed only when field_recovery = TRUE put it
+    # there; summary() only, and no construction reads it.
+    if (!is.null(p$recov_sens_H) && is.finite(p$recov_sens_H))
+      cat(sprintf(
+        "    membership recovery: sens_H = %s (mean share of Hhat retained over %s draws)\n",
+        f3(p$recov_sens_H),
+        if (is.null(p$recov_n_used)) "NA" else format(p$recov_n_used)))
     cat("\n  Certified: the one-sided lower bound on H (field) and the one-sided\n")
     cat("  upper bound on Hc (field-s), and the Bonferroni joint pair at gamma =\n")
     cat("  0.025 each side.  Not certified: any two-sided interval.  p-hat(H) is a\n")
@@ -389,6 +404,21 @@ print.forestsearch <- function(x, ...) {
 #' and one paragraph naming what is certified and what is not, sourced from
 #' `dev/notes/NOTE_survival_products_2026-09-09.md`.  Absent MR results, the
 #' output is unchanged from a build without this section.
+#'
+#' When the fit carries the membership-agreement diagnostics -- that is, under
+#' `mr_inference_args = list(field_recovery = TRUE)` -- one further line
+#' reports `sens_H`, the mean share of the identified subgroup that the field's
+#' re-selections retain, beside \eqn{\hat p}.  The pair separates two very
+#' different low-\eqn{\hat p} situations: \eqn{\hat p} counts *exact*
+#' re-selections of \eqn{\hat H}, so a low \eqn{\hat p} with a high `sens_H`
+#' says the draws re-selected near-twins of \eqn{\hat H}, while a low
+#' \eqn{\hat p} with a low `sens_H` says they re-selected unrelated regions.
+#' Like \eqn{\hat p} it is descriptive and no construction reads it, and it
+#' answers a narrower question than a bootstrap or cross-validation recovery
+#' rate: re-selection within the fixed candidate family under perturbation, not
+#' re-discovery from resampled data.  The line is absent -- and the rest of the
+#' output byte-identical -- when the diagnostics were not requested.
+#' [print.forestsearch()] does not report it.
 #'
 #' @param object A \code{forestsearch} object returned by
 #'   \code{\link{forestsearch}}.

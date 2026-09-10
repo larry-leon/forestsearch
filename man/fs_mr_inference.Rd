@@ -28,7 +28,8 @@ fs_mr_inference(
   field_complement = TRUE,
   field_decompose = FALSE,
   field_scale_complement = c("selected", "none"),
-  ij_residual = c("two_term", "winner", "winner_floor")
+  ij_residual = c("two_term", "winner", "winner_floor"),
+  field_recovery = FALSE
 )
 }
 \arguments{
@@ -226,6 +227,25 @@ and returned side by side in every call (\code{se_ij_two_term},
 the argument only selects the reported one, and the point estimates
 never change.  Add-only: the default reproduces prior output exactly
 (the new elements aside).}
+
+\item{field_recovery}{Logical (default \code{FALSE}); consulted only under
+\code{ci_method = "field"}.  When \code{TRUE}, \code{field} gains a \code{recovery} list of
+\strong{descriptive membership-agreement diagnostics}
+(\verb{dev/tasks/TASK_field_recovery_2026-09-09.md}, R-1): over the outer
+draws that produced a winner, each re-selected candidate's patient set
+\code{kept[[G_r]]} is compared with the observed pick's \code{kept[[sel]]}, and the
+four classification metrics of the CV membership cross-tab
+(\code{forestsearch_Kfold()}'s \code{sens_H} / \code{sens_Hc} / \code{ppv_H} / \code{ppv_Hc}) are
+averaged over draws, with \code{npv_Hc} reported as the standing-convention
+name of the same quantity as \code{ppv_Hc}.  These are computed \strong{from draws
+already made}: no new fits, no new randomness, no RNG consumption, and
+\strong{no construction reads them} -- every bound, bias and SE is
+byte-identical whether or not the block runs.  They answer a narrower
+question than the full bootstrap (FB) or cross-validation (CV) recovery
+diagnostics: re-selection \emph{within the fixed kept family} under
+multiplier perturbation, not re-discovery of a subgroup from scratch on
+resampled data.  The two are related but not interchangeable, and a
+report that quotes one should say which.}
 }
 \value{
 List with the selected index/label, \code{naive} and \code{debiased} estimates
@@ -281,6 +301,15 @@ minus \code{lambda_mean}), the primary one-sided 95\% bound \code{lower_1s}
 (de-biased minus \code{q95}), the two-sided quantile interval
 \code{lower_2s}/\code{upper_2s}, and the supplementary SE-type interval
 \code{lower_se}/\code{upper_se} around \code{est2}.
+
+Under \code{field_recovery = TRUE} the \code{field} element additionally carries
+\code{recovery}: \code{sens_H} (the primary quantity -- the mean share of the
+identified patients that the re-selections retain), \code{ppv_H}, \code{sens_Hc},
+\code{ppv_Hc} and its alias \code{npv_Hc}; the containment quantiles \code{q10}, \code{q50},
+\code{q90} and \code{share_equal_1} (the share of draws whose re-selection contains
+all of the observed subgroup); and the accounting \code{n_draws}, \code{n_used},
+\code{n_skipped}, \code{n_selected}, \code{n_all}, \code{timing_seconds}.  Descriptive only;
+absent when \code{field_recovery = FALSE}.
 
 Under \code{field_complement = TRUE} (with \code{include_complement = TRUE}) the
 \code{field} element additionally carries \code{complement}, the complement's own
