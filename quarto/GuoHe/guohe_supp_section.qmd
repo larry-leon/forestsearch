@@ -68,9 +68,13 @@ R_OUT <- bun[[1]]$field_R_out
 R_IN  <- bun[[1]]$field_R_in
 
 # ---- Phase-dependent inputs -------------------------------------------------
-ADA <- lapply(CELLS, function(id) read_if(sprintf("guohe_adaptive_%s.rds", id)))
-names(ADA) <- CELLS
-HAVE_ADAPTIVE <- all(!vapply(ADA, is.null, logical(1)))
+# Fixed r = 1/12 production bundles (REPORT_guohe_fixedr_t7_2026-09-09.md).
+# Present for t7_beta2_00 and t7_beta2_03 only; other cells fall back to the
+# committed reproduction's stored r = 1/12 column.
+FIXR <- lapply(CELLS, function(id)
+  read_if(sprintf("guohe_adaptive_%s_fixedr00833.rds", id)))
+names(FIXR) <- CELLS
+FIXR_CELLS <- CELLS[!vapply(FIXR, is.null, logical(1))]
 
 CMP <- lapply(CELLS, function(id)
   read_if(sprintf("mr_field_complement_vs_guohe_%s.rds", id)))
@@ -145,12 +149,12 @@ near $0.95$ is $\approx `r sprintf("%.3f", MCSE)`$.
 
 ```{r b2-build}
 METHODS <- c("Naive", "G&H r=1/3", "G&H r=1/12", "G&H r=1/21", "G&H r=1/30",
-             "Adaptive", "MR (field)", "MR (IJ)")
+             "MR (field)", "MR (IJ)")
 
 # est / SE / one-sided lower / cover per method. G&H "SE" = implied margin
 # (deb - low)/z_.95 (the method publishes a bound); MR (field) est = est2,
 # lower = beta_deb - q95.
-method_cols <- function(res, meth, ada) {
+method_cols <- function(res, meth, fx) {
   switch(meth,
     "Naive"      = list(est = res$naive_est, se = res$naive_se,
                         low = res$naive_lower, cov = res$naive_cover),
@@ -158,12 +162,19 @@ method_cols <- function(res, meth, ada) {
                         low = res$mr_lower_1s, cov = res$mr_cover),
     "MR (field)" = list(est = res$fld_est2, se = res$fld_lambda_sd,
                         low = res$fld_lower_1s, cov = res$fld_cover_1s),
-    "Adaptive"   = if (is.null(ada)) NULL else
-                     list(est = ada$results$gamma_s - ada$results$ad_dist_primary +
-                            ada$results$ad_bias_primary,
-                          se = ada$results$ad_dist_primary / z95,
-                          low = ada$results$ad_lower_primary,
-                          cov = ada$results$ad_cover_primary),
+    # r = 1/12 comes from the fixed-r production run where that bundle exists
+    # (its OWN Algorithm-3 refit, not the stored lookup), otherwise from the
+    # committed reproduction's stored column.
+    "G&H r=1/12" = if (!is.null(fx)) {
+      fr <- fx$results
+      stopifnot(identical(fr$m, seq_len(nrow(fr))), nrow(fr) == nrow(res))
+      list(est = fr$gamma_s + fr$ad_bias_secondary,
+           se  = fr$ad_dist_secondary / z95,
+           low = fr$ad_lower_secondary,
+           cov = fr$ad_cover_secondary)
+    } else list(est = res$gh_r2_deb,
+                se  = (res$gh_r2_deb - res$gh_r2_low) / z95,
+                low = res$gh_r2_low, cov = res$gh_r2_cov),
     { i <- match(meth, METHODS) - 1L
       list(est = res[[sprintf("gh_r%d_deb", i)]],
            se  = (res[[sprintf("gh_r%d_deb", i)]] - res[[sprintf("gh_r%d_low", i)]]) / z95,
@@ -174,7 +185,7 @@ method_cols <- function(res, meth, ada) {
 cell_summary <- function(id) {
   res <- bun[[id]]$results
   do.call(rbind, lapply(METHODS, function(meth) {
-    v <- method_cols(res, meth, ADA[[id]])
+    v <- method_cols(res, meth, FIXR[[id]])
     if (is.null(v)) return(data.frame(
       cell = id, method = meth, mean_est = NA_real_, bias = NA_real_,
       sd_emp = NA_real_, mean_margin = NA_real_, cover = NA_real_,
@@ -200,7 +211,7 @@ for (k in seq_along(CELLS)) {
   tab <- data.frame(
     Method = s$method,
     `Coverage of the 95% lower bound (Wilson)` = ifelse(
-      is.na(s$cover), "*pending Phase B*",
+      is.na(s$cover), "—",
       sprintf("%.3f (%.3f, %.3f)", s$cover, s$cover_lo, s$cover_hi)),
     `Mean margin` = ifelse(is.na(s$mean_margin), "—",
                            sprintf("%.3f", s$mean_margin)),
@@ -223,6 +234,13 @@ for (k in seq_along(CELLS)) {
 ```
 
 ::: {.callout-note appearance="simple"}
+**Source of the $r = 1/12$ column.** For `t7_beta2_00` and `t7_beta2_03` the
+$r = 1/12$ row is the **fixed-$r$ production run** — its own Algorithm-3 refit at
+$B = 2000$, $\mathrm{orient} = +1$, 2000 replicates per cell
+(`REPORT_guohe_fixedr_t7_2026-09-09.md`). It agrees with the committed
+reproduction's stored $r = 1/12$ column on 99.0% and 99.7% of replicates. The
+remaining four cells use the stored column.
+
 **Two qualifications on the G&H columns.**
 
 1. The replicated fixed-$r$ columns run $\approx 0.010$ *below* the published
@@ -238,20 +256,21 @@ for (k in seq_along(CELLS)) {
 
 ```{r b2-adaptive-note}
 #| output: asis
-if (!HAVE_ADAPTIVE) cat(paste0(
-  "::: {.callout-important appearance='simple'}\n",
-  "**Adaptive column: pending Phase B.** `guohe_adaptive_t7_*.rds` are not ",
-  "present. The Adaptive row renders as *pending Phase B* above and the ",
-  "column is excluded from every comparison in this document. It is produced ",
-  "by `guohe_sec52_adaptive_run.R` on the Linux box under Gate 1b, at ",
-  "$B = 2000$ (A5), $r$-grid $\\{1/3, 1/12, 1/21, 1/30\\}$, $v = 5$, ",
-  "$\\mathrm{orient} = +1$.\n\n",
-  "Two caveats will accompany it when it lands: Guo & He's own Table 6 ",
-  "caution on the adaptive procedure, and the fact that `guohe_adaptive_r()` ",
-  "draws **independently across $r$** (no common random numbers on the grid), ",
-  "which inflates $\\mathrm{Var}(\\hat r)$ — and the Adaptive column is ",
-  "precisely a measurement of $\\hat r$.\n",
-  ":::\n\n"))
+# The Adaptive column is not produced and is not pending: it was measured on a
+# pilot and deliberately not adopted.
+cat(paste0(
+  "**On the Adaptive column.** The adaptive choice of $r$ was measured on a ",
+  "pilot rather than reported: it cost **10.3×** the fixed-$r$ bound ",
+  "(356.5 against 34.7 core-seconds per replicate) and selected between ",
+  "candidates whose cross-validation objective gaps were **within 2% of the ",
+  "objective's own spread** across replicates (median gap 2.18e-03 against a ",
+  "spread of $\\approx$ 0.28) — so the fixed-$r$ column at $r = 1/12$ is ",
+  "reported instead. A seed-offset test sharpened this: changing only the ",
+  "adaptive seed offset flipped $\\hat r$ on 5 of 10 replicates with the data ",
+  "and the selection untouched, so $\\hat r$ on this design is substantially ",
+  "seed-determined rather than data-driven ",
+  "(`REPORT_guohe_adaptive_gate1b_2026-09-09.md`; ",
+  "`dev/notes/NOTE_adaptive_seed_parity_2026-09-09.md`).\n\n"))
 ```
 
 # B3 — Complement and joint bounds {#sec-b3}
@@ -471,7 +490,8 @@ prov <- data.frame(
     sprintf("%d (%s)", DRAWS, bun[[1]]$multiplier),
     sprintf("%d / %d", R_OUT, R_IN),
     sprintf("%.4f", MCSE),
-    if (HAVE_ADAPTIVE) "present" else "PENDING PHASE B",
+    if (length(FIXR_CELLS)) sprintf("not adopted; fixed r = 1/12 on %s",
+      paste(FIXR_CELLS, collapse = ", ")) else "not adopted",
     if (HAVE_COMPLEMENT) "present" else "PENDING (T1 bundles absent)",
     if (CERT_PRESENT) sprintf("%s (present)", CERT_FILE) else
       sprintf("%s (MISSING)", CERT_FILE)),
