@@ -189,3 +189,61 @@ picked up by the T3 qmd's Adaptive-column glob, which still reads "pending Phase
 One cosmetic defect noted, not fixed: the driver's closing `=== T2 GATE TALLY ===` block looks for
 the un-suffixed production filename and therefore prints `MISSING` for both cells after a
 mode-suffixed run. The per-cell `[done]` lines above it carry the real tallies.
+
+---
+
+# APPENDED — OPEN ITEM: r̂ tracks the parity of the replicate index
+
+Found while checking the r̂ sequences before closing the record. **Recorded as an observation with
+a plausible mechanism; the mechanism is not proven, and no further compute was spent on it.**
+
+## The observation
+
+`t7_beta2_03`, r̂ against replicate index m:
+
+| m | r̂ | obj(1/3) | obj(1/12) | diff (1/12 − 1/3) |
+|---|---|---|---|---|
+| 1 | 0.3333 | +0.052039 | +0.054375 | +2.337e-03 |
+| 2 | **0.0833** | −0.178419 | −0.180367 | −1.948e-03 |
+| 3 | 0.3333 | −0.136588 | −0.129679 | +6.909e-03 |
+| 4 | **0.0833** | −0.032957 | −0.041704 | −8.747e-03 |
+| 5 | 0.3333 | +0.104624 | +0.108071 | +3.447e-03 |
+| 6 | **0.0833** | −0.159534 | −0.161324 | −1.790e-03 |
+| 7 | 0.3333 | −0.128499 | −0.124991 | +3.509e-03 |
+| 8 | **0.0833** | −0.130256 | −0.130703 | −4.473e-04 |
+| 9 | 0.3333 | −0.053566 | −0.053285 | +2.813e-04 |
+| 10 | **0.0833** | −0.168341 | −0.170355 | −2.014e-03 |
+
+**r̂ = 1/12 on 5/5 even m and 0/5 odd m — perfect alternation.** Under an even coin that split has
+probability ≈ 0.2% (two-sided). `t7_beta2_00` leans the same way without being perfect: 1/12 on
+4/5 even and 2/5 odd.
+
+The objective differences driving these flips are tiny — median |diff| 2.18e-03, max 8.75e-03,
+against an objective whose spread across replicates is ≈ 0.28. Every selection is a near-tie, and
+**the sign of the near-tie tracks the parity of m.**
+
+## Plausible mechanism, not verified
+
+The adaptive call is seeded `seed_ad = base + m + 600000L`, so consecutive replicates differ by 1
+in the seed. `guohe_adaptive_r()` draws its v-fold assignment from that seed. Consecutive
+Mersenne-Twister seeds are a well-known source of correlated early draws, so a parity-linked fold
+assignment feeding a near-tied CV comparison is a credible explanation. **This was not tested** —
+doing so means more runs, and this is a pilot.
+
+## Why it matters for the decision
+
+§5 read r̂ as "close to a coin flip". This is worse than a coin flip: if the association holds, r̂
+is **partly a deterministic function of the replicate index rather than of the data.** An Adaptive
+column at 2000 replicates would then return ≈ 50/50 r̂ by construction, and its coverage would be a
+blend of the two fixed-r columns in a ratio set by the seed grid — not a measurement of adaptive
+selection.
+
+That strengthens, rather than changes, §5's conclusion: the ×10.28 buys a selection that on this
+design and grid is close to arbitrary.
+
+## Cheapest test, if Larry wants it
+
+Re-run the same 10 replicates of `t7_beta2_03` with a different seed offset (e.g.
+`GHA_SEED_OFFSET` 600000 → 600001, or a stride of 7 instead of 1). If the parity alignment moves
+with the offset, it is the seed grid; if r̂ is unchanged, it is the data. Cost: ~6 min wall at 12
+workers, one cell, no production implications. **Not run — awaiting instruction.**
