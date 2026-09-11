@@ -173,6 +173,17 @@ cov_block <- function(r, block, side) {
     t2$sd_err <- err_sd(rs, "Hc", "fld"); t2$construction <- "field-s"; t1 <- rbind(t1, t2) }
   t1$se_over_sd_err <- t1$se_mean / t1$sd_err
   t1$b_err <- t1$bias_log / t1$sd_err
+  # SECOND GAUSSIAN REFERENCE, on the ERROR SD.  cov1_ref (from
+  # fs_sim_bias_coverage) is built on the MARGINAL SD; this twin uses the error
+  # SD of the de-biased residual, which is the SD the interval is actually
+  # trying to cover.  Formulae, stated here and in every caption that shows it:
+  #   lower bounds (harm block Hhat):        cov1_ref_err = Phi(1.645 * SE/sd_err - b_err)
+  #   upper bounds (complement block Hhat^c): cov1_ref_err = Phi(1.645 * SE/sd_err + b_err)
+  # with SE/sd_err = se_over_sd_err and b_err = bias_log / sd_err.
+  z95_ <- stats::qnorm(0.95)
+  t1$cov1_ref_err <- if (identical(side, "lower"))
+      stats::pnorm(z95_ * t1$se_over_sd_err - t1$b_err) else
+      stats::pnorm(z95_ * t1$se_over_sd_err + t1$b_err)
   t1 }
 ```
 
@@ -190,9 +201,9 @@ for (blk in c("A","B")) {
   if (!have(sub)) { skip_note(sprintf("the standard table for Block %s", blk)); next }
   print(kbl(sub[, c("cell","block","construction","n_sample","n","bias_log","sd_emp","sd_err",
                     "b","b_err","se_mean","r","se_over_sd_err","cov1","cov1_wilson_lo",
-                    "cov1_wilson_hi","cov2","cov1_ref")],
+                    "cov1_wilson_hi","cov2","cov1_ref","cov1_ref_err")],
       digits = 3, booktabs = TRUE, row.names = FALSE,
-      caption = sprintf("BLOCK %s (%s prevalence). Per cell and block: bias on the log scale; marginal SD (sd_emp) and error SD (sd_err) side by side; b = bias / marginal SD, b_err = bias / error SD; mean SE; r = SE / marginal SD and SE / error SD; cov1 = one-sided 95%% coverage on the exposed side (lower for beta(Hhat), upper for beta(Hhat^c)) with Wilson limits; cov2 = two-sided; cov1_ref = Gaussian reference. EVERY COVERAGE COLUMN (cov1, cov1_wilson_lo, cov1_wilson_hi, cov2) IS COVERAGE OF THE CONDITIONAL-ON-PROPOSED-FAMILY ESTIMAND, on detected replicates only. The harm block has no field-s row (field-s = field there by construction). naive is a reference, never a product.",
+      caption = sprintf("BLOCK %s (%s prevalence). Per cell and block: bias on the log scale; marginal SD (sd_emp) and error SD (sd_err) side by side; b = bias / marginal SD, b_err = bias / error SD; mean SE; r = SE / marginal SD and SE / error SD; cov1 = one-sided 95%% coverage on the exposed side (lower for beta(Hhat), upper for beta(Hhat^c)) with Wilson limits; cov2 = two-sided; cov1_ref = the Gaussian reference on the MARGINAL SD, cov1_ref_err its twin on the ERROR SD -- cov1_ref_err = Phi(1.645 * se_over_sd_err - b_err) for the harm block's LOWER bound and Phi(1.645 * se_over_sd_err + b_err) for the complement block's UPPER bound, where b_err = bias_log / sd_err. EVERY COVERAGE COLUMN (cov1, cov1_wilson_lo, cov1_wilson_hi, cov2) IS COVERAGE OF THE CONDITIONAL-ON-PROPOSED-FAMILY ESTIMAND, on detected replicates only. The harm block has no field-s row (field-s = field there by construction). naive is a reference, never a product.",
                           blk, if (blk == "A") "12.4%" else "31%")) |>
       kable_styling(font_size = 9))
 }
@@ -229,6 +240,28 @@ for (sd_ in list(list(bl = "Hhat^c (upper)", side = "upper"), list(bl = "Hhat (l
 ```
 
 # Coverage versus n, both prevalences {#sec-vsn}
+
+```{r fs-comparator-map}
+# THE FS COMPARATOR THAT SHARES THE DGM DRAWS, per cell, with its OWN criterion.
+# Block A (12.4%): p12ext at HR 1.50/1.00 and tier2 at HR 1.75 -- maxeffCons, eps 0.10.
+# Block B (31%)  : cert20 at n 1000/1500 and e1stud at n 500  -- effMaxSG, eps 0.20.
+# The criterion therefore MATCHES DINA's at 31% and DIFFERS at 12.4%; every FS
+# number below carries its own sg_focus and eps so the reader never has to
+# remember which.
+fs_file <- function(blk, hr, n) {
+  if (blk == "A") {
+    camp <- if (abs(hr - 1.75) < 1e-9) "tier2" else if (abs(hr - 1.00) < 1e-9 && n == 500L) "tier2" else "p12ext"
+    sprintf("%sfs_maxeffCons_fb_mr_field_m1_h%03d_knoise0_n%d_%s_combined_1_2000.rds", R, round(100*hr), n, camp)
+  } else {
+    camp <- if (n == 500L) "e1stud" else "cert20"
+    sprintf("%sfs_effMaxSG_fb_mr_field_m1_h%03d_knoise0_n%d_z1q60_nb20_%s_combined_1_2000.rds", R, round(100*hr), n, camp)
+  } }
+fs_for <- function(k) { f <- fs_file(BLK[[k]], HR[[k]], NN[[k]])
+  if (!file.exists(f)) return(NULL); b <- readRDS(f)
+  list(b = b, file = basename(f), campaign = b$meta$campaign_tag %||% NA,
+       focus = b$meta$sg_focus %||% NA, eps = b$meta$effect_neighborhood %||% NA_real_) }
+fs_crit <- function(x) sprintf("%s / %s / eps %s", x$campaign, x$focus, format(x$eps))
+```
 
 ```{r wilson-fn}
 wil <- function(p, n, z = stats::qnorm(0.975)) {
@@ -316,16 +349,20 @@ read as they stand). The same trajectory is computed here on DINA, with the miss
 
 ```{r twosided}
 FS_REF <- data.frame(HR = c(1.50,1.50,1.50,1.75,1.75,1.75), n = c(500,1000,1500,500,1000,1500),
-                     fs_ij2_H = c(0.977,0.932,0.901,0.961,0.917,0.913))
+                     fs_ij2_H = c(0.977,0.932,0.901,0.961,0.917,0.913),
+                     # the criterion each FS number was produced under -- NOT DINA's
+                     fs_criterion = c(rep("p12ext / maxeffCons / eps 0.1", 3),
+                                      rep("tier2 / maxeffCons / eps 0.1", 3)),
+                     stringsAsFactors = FALSE)
 if (!have(VSN)) skip_note("the two-sided comparison") else {
 TS <- VSN[VSN$arm == "harm" & VSN$block == "A", c("cell","n","HR","n_eval","ij2_H","ij2_H_lo","ij2_H_hi","miss_below","miss_above")]
 if (!have(TS)) skip_note("the two-sided comparison at 12.4% (Block A not on disk)") else {
 TS <- merge(TS, FS_REF, by = c("HR","n"), all.x = TRUE)
 TS <- TS[order(TS$HR, TS$n), ]
 TS$dina_minus_fs <- TS$ij2_H - TS$fs_ij2_H
-kbl(TS[, c("cell","n","HR","n_eval","ij2_H","ij2_H_lo","ij2_H_hi","miss_below","miss_above","fs_ij2_H","dina_minus_fs")],
+kbl(TS[, c("cell","n","HR","n_eval","ij2_H","ij2_H_lo","ij2_H_hi","miss_below","miss_above","fs_ij2_H","fs_criterion","dina_minus_fs")],
     digits = 4, booktabs = TRUE, row.names = FALSE,
-    caption = "BLOCK A (12.4%), harm cells: DINA's two-sided IJ two-term coverage of beta(Hhat) against n, with the miss split by side, beside the committed FS trajectory (fs_ij2_H, from p12ext / tier2 read as they stand). DINA's column is coverage of the conditional-on-proposed-family estimand; FS's is its own -- see the confound in @sec-fsgrid. Descriptive, not a contest.") |>
+    caption = "BLOCK A (12.4%), harm cells: DINA's two-sided IJ two-term coverage of beta(Hhat) against n, with the miss split by side, beside the committed FS trajectory (fs_ij2_H, from p12ext / tier2 read as they stand). DINA's column is coverage of the conditional-on-proposed-family estimand at effMaxSG / eps 0.20; FS's is its own, produced under the criterion named in fs_criterion -- maxeffCons at eps 0.10, which is NOT DINA's, so at 12.4% the criterion is a fourth confounded difference. See @sec-fsgrid. Descriptive, not a contest.") |>
   kable_styling(font_size = 10)
 }
 }
@@ -340,7 +377,8 @@ ggplot(TP2, aes(n, cov, colour = who, group = who)) +
   geom_hline(yintercept = 0.95, linetype = 2) +
   geom_pointrange(aes(ymin = lo, ymax = hi), na.rm = TRUE) + geom_line() + facet_wrap(~ HR) +
   labs(x = "n", y = "two-sided coverage of beta(Hhat)", colour = NULL,
-       title = "Two-sided harm-block coverage versus n at 12.4%: DINA beside FS") +
+       title = "Two-sided harm-block coverage versus n at 12.4%: DINA beside FS",
+       subtitle = "DINA effMaxSG eps 0.20; FS maxeffCons eps 0.10 (p12ext / tier2) -- the criterion differs here, unlike at 31%") +
   theme_bw(base_size = 11)
 }
 ```
@@ -436,13 +474,28 @@ print(ggplot(FAM, aes(n, K_iqr_over_med, colour = factor(HR), group = interactio
 
 # Beside the FS grid, with the confound stated {#sec-fsgrid}
 
-> **The confound.** FS and DINA differ in **the identifier** *and* in **how the family is
-> constructed**, and each conditions on **a different detection set**. FS's family is the
-> consistency-screened candidate table, fixed for a given fit; DINA's is a qualifying candidate
-> table read off a cross-fit surface, which a bootstrap would regenerate. FS's coverage is of
-> its own estimand; DINA's is of the conditional-on-proposed-family estimand. A row-by-row gap
-> is therefore **not** attributable to either difference alone. What follows is **descriptive,
-> not a contest**, and the FS numbers are reference lines, not a bar.
+> **The confound, and it is not the same in the two blocks.**
+>
+> FS and DINA always differ in **the identifier** *and* in **how the family is constructed**, and
+> each conditions on **a different detection set**. FS's family is the consistency-screened
+> candidate table, fixed for a given fit; DINA's is a qualifying candidate table read off a
+> cross-fit surface that a bootstrap would regenerate. FS's coverage is of its own estimand;
+> DINA's is of the conditional-on-proposed-family estimand.
+>
+> **A third difference applies at 12.4% only — the criterion itself.**
+>
+> - **Block B (31%).** The FS comparators are `cert20` and `e1stud`, both **`effMaxSG` at
+>   ε = 0.20** — **DINA's own criterion, exactly**. Here the comparison is at a matched criterion,
+>   and the confound is identifier + family construction + detection set.
+> - **Block A (12.4%).** The FS comparators are `p12ext` and `tier2`, both **`maxeffCons` at
+>   ε = 0.10** — a **different selection functional** (the consistency-screened effect argmax, not
+>   the largest subgroup within an ε-band) at **half the band width**. Here the criterion is a
+>   **fourth** confounded difference, and a Block A gap cannot be read as engine behaviour even
+>   in part.
+>
+> Every FS number in this document therefore carries its own `campaign / sg_focus / eps`. A
+> row-by-row gap is **not** attributable to any one difference alone. What follows is
+> **descriptive, not a contest**, and the FS numbers are reference lines, not a bar.
 
 ```{r fsgrid}
 FSC <- list(
@@ -467,7 +520,10 @@ FSG <- do.call(rbind, lapply(FSC, function(x) {
   d <- r[r$detected %in% 1L & is.finite(r$betaHhat_H) & is.finite(r$betaHhat_Hc) &
          is.finite(r$fld_H_lo1s) & is.finite(r$fld_Hc_up1s_s), , drop = FALSE]
   data.frame(cell = x$lab, engine = "FS (consistency)", block = x$blk, n = x$n, HR = x$hr,
+             criterion = sprintf("%s / %s / eps %s", b$meta$campaign_tag %||% NA,
+                                 b$meta$sg_focus %||% NA, format(b$meta$effect_neighborhood %||% NA)),
              campaign = b$meta$campaign_tag %||% NA, focus = b$meta$sg_focus %||% NA,
+             eps = b$meta$effect_neighborhood %||% NA_real_,
              detection = mean(r$detected %in% 1L), n_eval = nrow(d),
              K_med = stats::median(r$n_family, na.rm = TRUE),
              harm_field = mean(d$betaHhat_H >= d$fld_H_lo1s),
@@ -479,7 +535,8 @@ DNG <- if (have(VSN)) do.call(rbind, lapply(which(VSN$arm == "harm"), function(i
   k <- VSN$cell[i]; d <- B[[k]]$results
   dd <- d[d$detected %in% 1L, , drop = FALSE]
   data.frame(cell = k, engine = "DINA (dinamr)", block = VSN$block[i], n = VSN$n[i], HR = VSN$HR[i],
-             campaign = "dinamr", focus = "effMaxSG",
+             criterion = "dinamr / effMaxSG / eps 0.2",
+             campaign = "dinamr", focus = "effMaxSG", eps = 0.20,
              detection = mean(d$detected %in% 1L), n_eval = VSN$n_eval[i],
              K_med = stats::median(d$n_family, na.rm = TRUE),
              harm_field = VSN$harm_field[i], comp_field_s = VSN$comp_field_s[i],
@@ -488,7 +545,7 @@ DNG <- if (have(VSN)) do.call(rbind, lapply(which(VSN$arm == "harm"), function(i
 SIDE <- rbind(FSG, DNG)
 SIDE <- SIDE[order(SIDE$block, SIDE$HR, SIDE$n, SIDE$engine), ]
 kbl(SIDE, digits = 4, booktabs = TRUE, row.names = FALSE,
-    caption = "DINA beside the committed FS grid (cert20 / tier2 / p12ext read AS THEY STAND, not re-run), matched on prevalence block, HR and n. DIFFERENT IDENTIFIER AND DIFFERENT FAMILY CONSTRUCTION, each conditioning on a different detection set -- see the confound above. DINA's coverage columns are the conditional-on-proposed-family estimand; FS's are its own. Descriptive, not a contest; no criterion is applied.") |>
+    caption = "DINA beside the committed FS grid (cert20 / tier2 / p12ext read AS THEY STAND, not re-run), matched on prevalence block, HR and n. DIFFERENT IDENTIFIER AND DIFFERENT FAMILY CONSTRUCTION, each conditioning on a different detection set -- AND, at 12.4% ONLY, a DIFFERENT CRITERION: the `criterion` column carries each row's campaign / sg_focus / eps, which is effMaxSG / eps 0.20 on both engines in Block B but maxeffCons / eps 0.10 for FS in Block A. See the confound above. DINA's coverage columns are the conditional-on-proposed-family estimand; FS's are its own. Descriptive, not a contest; no criterion is applied.") |>
   kable_styling(font_size = 9)
 }
 ```
@@ -562,7 +619,7 @@ if (!have(TERT)) skip_note("the p-hat tertile tables (no cell with >= 30 usable 
 print(kbl(TERT[, c("cell","stratum","n","p_hat_mean","Hhat_over_H","mean_ef_H","SD_ef_H",
                    "b_H","r_H","cov_field_H","wH_lo","wH_hi","gauss_H")],
     digits = 4, booktabs = TRUE, row.names = FALSE,
-    caption = "Harm block by p-hat(Hhat) tertile within each cell: the field's residual error ef_H = log(fld_H_est2) - log(beta(Hhat)), its ERROR SD, b and r, the observed one-sided lower coverage with Wilson limits, and the Gaussian-implied coverage from the stratum's own numbers. Conditional-on-proposed-family estimand.") |>
+    caption = "Harm block by p-hat(Hhat) tertile within each cell: the field's residual error ef_H = log(fld_H_est2) - log(beta(Hhat)), its ERROR SD, b and r, the observed one-sided lower coverage with Wilson limits, and the Gaussian-implied coverage from the stratum's own numbers. gauss_H = Phi(1.645 * r_H - b_H) with r_H = mean(fld_H_se)/SD(ef_H) and b_H = mean(ef_H)/SD(ef_H): these are ALREADY built on the ERROR SD, not the marginal SD. Conditional-on-proposed-family estimand.") |>
   kable_styling(font_size = 8))
 print(kbl(TERT[, c("cell","stratum","n","p_hat_mean","rho_c","mean_ef_s","SD_ef_s",
                    "b_C","r_C","cov_field_C","cov_field_s_C","wC_lo","wC_hi","gauss_C")],
@@ -782,6 +839,69 @@ GM$joint_s_wilson_lo <- gw[, 1]; GM$joint_s_wilson_hi <- gw[, 2]
 kbl(GM, digits = 4, booktabs = TRUE, row.names = FALSE,
     caption = "Per cell: the SHARE OF ROWS WITH gamma AT ITS 0.025 FLOOR (for the joint and joint-s pairs) beside the Bonferroni joint coverage from both pairs, with Wilson limits on joint_s. gamma is the per-replicate joint level the Bonferroni bound is built at; where it sits at the floor the Bonferroni bound coincides exactly with the raw joint bound, and where it does not the two differ -- which is why the Gate 2 identity is gated on the floor rows. Conditional-on-proposed-family estimand.") |>
   kable_styling(font_size = 8)
+}
+```
+
+## The same p&#770; tertile table on the FS comparator, and the two bias curves overlaid {#sec-fsphat}
+
+The identical construction, computed on each cell's **committed FS comparator bundle** — the one
+that shares the DGM draws — so the two bias-versus-p&#770; curves can be overlaid on **median
+p&#770;**. Bins are each bundle's **own** within-cell empirical tertiles, the FS `tert()` definition,
+so each engine is binned on its own p&#770; distribution rather than on the other's cut-points.
+
+**The criterion is carried on every row.** At **31% the FS comparator runs DINA's own criterion**
+(`effMaxSG`, ε 0.20 — `cert20` / `e1stud`); at **12.4% it does not** (`maxeffCons`, ε 0.10 —
+`p12ext` / `tier2`). See @sec-fsgrid for what that does to the comparison.
+
+```{r fs-phat}
+if (!have(labs)) skip_note("the FS p-hat tertile table") else {
+phat_tert <- function(r, tag, cell, crit) {
+  d <- r[r$detected %in% 1L & is.finite(r$betaHhat_H) & is.finite(r$fld_H_lo1s) &
+         is.finite(r$p_hat_H) & is.finite(r$fld_H_est2) & is.finite(r$nv_H_est), , drop = FALSE]
+  if (nrow(d) < 30L) return(NULL)
+  g <- tert_fs(d$p_hat_H)
+  do.call(rbind, lapply(sort(unique(g[!is.na(g)])), function(t) {
+    dk <- d[!is.na(g) & g == t, , drop = FALSE]
+    cv <- mean(dk$betaHhat_H >= dk$fld_H_lo1s); w <- wil(cv, nrow(dk))
+    data.frame(cell = cell, engine = tag, criterion = crit,
+               stratum = sprintf("p-hat T%d [%.4f, %.4f]", t, min(dk$p_hat_H), max(dk$p_hat_H)),
+               count = nrow(dk), p_hat_med = stats::median(dk$p_hat_H),
+               K_med = stats::median(dk$n_family, na.rm = TRUE),
+               fldH_cov = cv, wilson_lo = w[1], wilson_hi = w[2],
+               retained_bias_log = mean(log(dk$fld_H_est2) - log(dk$betaHhat_H)),
+               naive_bias_log = mean(log(dk$nv_H_est) - log(dk$betaHhat_H)),
+               stringsAsFactors = FALSE) })) }
+FSP <- do.call(rbind, lapply(labs, function(k) {
+  x <- fs_for(k)
+  rbind(phat_tert(B[[k]]$results, "DINA (dinamr)", k, "dinamr / effMaxSG / eps 0.2"),
+        if (is.null(x)) NULL else phat_tert(x$b$results, "FS", k, fs_crit(x))) }))
+if (!have(FSP)) skip_note("the FS p-hat tertile table") else
+kbl(FSP, digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "The p-hat tertile table computed IDENTICALLY on DINA and on each cell's committed FS comparator (which shares the DGM draws): count, median p-hat, median family size, field one-sided LOWER coverage of beta(Hhat) with Wilson limits, the retained log-scale bias mean(log(fld_H_est2) - log(beta(Hhat))), and the naive bias beside it. Each bundle is binned on ITS OWN within-cell empirical tertiles (the FS tert() definition), not on the other's cut-points. The `criterion` column carries each FS bundle's campaign / sg_focus / eps: at 31% the FS comparator runs DINA's own criterion (effMaxSG, eps 0.20); at 12.4% it does not (maxeffCons, eps 0.10). Coverage is the conditional-on-proposed-family estimand for DINA and FS's own estimand for FS. Descriptive.") |>
+  kable_styling(font_size = 7) |> scroll_box(height = "600px")
+}
+```
+
+```{r fs-phat-overlay, fig.width = 12, fig.height = 7}
+if (!have(labs) || !exists("FSP") || !have(FSP)) skip_note("the bias-versus-p-hat overlay") else {
+OV <- FSP
+OV$cellf <- factor(OV$cell, levels = labs)
+print(ggplot(OV, aes(p_hat_med, retained_bias_log, colour = engine, group = engine)) +
+  geom_hline(yintercept = 0, linetype = 2, colour = "grey40") +
+  geom_point(size = 2) + geom_line() +
+  facet_wrap(~ cellf, scales = "free") +
+  labs(x = "median p-hat(Hhat) in the tertile", y = "retained bias, log scale", colour = NULL,
+       title = "Retained bias versus p-hat, DINA and its FS comparator overlaid on median p-hat",
+       subtitle = "Each engine binned on its own within-cell tertiles; see the criterion column for what differs per block") +
+  theme_bw(base_size = 10))
+print(ggplot(OV, aes(p_hat_med, fldH_cov, colour = engine, group = engine)) +
+  geom_hline(yintercept = 0.95, linetype = 2, colour = "grey40") +
+  geom_pointrange(aes(ymin = wilson_lo, ymax = wilson_hi), size = 0.3) + geom_line() +
+  facet_wrap(~ cellf, scales = "free_x") +
+  labs(x = "median p-hat(Hhat) in the tertile", y = "field one-sided lower coverage", colour = NULL,
+       title = "Field lower-bound coverage versus p-hat, DINA and its FS comparator overlaid",
+       subtitle = "Wilson 95% limits; dashed line nominal 0.95") +
+  theme_bw(base_size = 10))
 }
 ```
 
