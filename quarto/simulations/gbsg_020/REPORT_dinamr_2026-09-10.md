@@ -399,3 +399,62 @@ Three facts, stated without interpretation beyond the record:
 FS additionally records `n_cons_qual` — the consistency-qualifying count the identifier sorts —
 which is **structurally NA on DINA** (@sec-structna). For reference it is 17 / 25 / 31 at Block A
 HR 1.50 and 174 / 292 / 357 at Block B HR 1.50. There is no DINA counterpart to place beside it.
+
+---
+
+## `summary_dinamr.qmd`, chunk by chunk against `summary_cert20.qmd`
+
+### The 13 retained chunks — globs, labels and guards, **plus the following**
+
+They do **not** differ only in globs, labels and absent-cell guards. Every additional change is
+listed; there are no others.
+
+| chunk | globs / labels / guards | anything else |
+|---|---|---|
+| `setup` | ✓ | Adds `BLK`, `A_labs`, `B_labs` — the two-prevalence-block grid the 9-cell original had no need of. **The inventory table was moved out** of this chunk into the new `inventory` chunk. |
+| `cov` | ✓ | **The three helpers `subst_s` / `err_sd` / `cov_block` were moved out** into the new `cov-fns` chunk, unchanged in body. Adds a `block_grp` column; the single table becomes a per-block `for` loop over A and B. |
+| `cov-across` | ✓ | `split()` now also keys on `block_grp`; a `prevalence_block` column is added to the output. |
+| `wilson-fn` | ✓ | **Adds `miss_below` and `miss_above`** — the two-sided miss split by side, which Stage 3 item 5 asks for and `cert20` does not compute. Adds a `block` column; adds `if (!nrow(d)) return(NULL)`. |
+| `vsn-h` | ✓ | Adds `block`, `miss_below`, `miss_above` to the displayed columns. |
+| `vsn-h-plot` | ✓ | `facet_wrap(~ construction)` → `facet_grid(blk ~ construction)`, so both prevalence blocks show. |
+| `vsn-c` | ✓ | **Nothing else.** |
+| `tert` | ✓ | `need` is intersected with `names(r)` and five columns dropped from the requirement (`fld_H_lam_mean`, `mr_H_se_ij`, `mr_Hc_se_ij`, `nv_H_se`, `nv_Hc_se`) — they are *required* by `cert20`'s filter but never *used* in the chunk, and requiring them would drop replicates for no reason. Adds an "all (p-hat not splittable)" fallback for a degenerate p̂ distribution. Drops the unused intermediate `d$ef`. `sd()` → `stats::sd()`. |
+| `tert-plot` | ✓ | Local `block` renamed `blk` (it collided with the prevalence block); filters out the "not splittable" row; x-axis labels angled, since 12 cells do not fit where 9 did. |
+| `ident` | ✓ | Adds `block` and `K_med`. **Drops `qual_mean`** (mean `n_cons_qual`) — *deliberate and stated in the caption*: it is structurally NA on DINA, so the column would be a row of NAs. |
+| `ident-plot` | ✓ | **Adds PPV and NPV panels** (4 panels → 6), per the standing convention that NPV sits beside sens/spec/PPV; adds a prevalence-block linetype. |
+| `null` | ✓ | Adds `block` and `K_med`; adds `if (!nrow(d)) return(NULL)`. |
+| `record` | ✓ | Adds a **detection-and-family-size headline** block first; adds the **two-sided miss split by side**; adds a **family-size / stabilization** block; adds the closing "no acceptance criteria" paragraph. The `cert20` acceptance-criteria loop is removed with the `accept` chunk. |
+
+> **Two unforced losses found by this accounting and restored.** The first draft of `tert` had
+> dropped `cov_field_C` (the *unscaled* field's upper coverage, which `cert20` reports beside
+> field-s) and `ident` had dropped `absHtrue_mean` (mean `n_true`). Neither had a reason — they were
+> transplant slips, not decisions. Both are **restored**, so the only column `dinamr` drops relative
+> to `cert20` is `qual_mean`, and that one has a reason.
+
+### The 3 dropped chunks, with reasons
+
+| chunk | reason |
+|---|---|
+| `accept` | **The acceptance-criteria section.** The task states "No acceptance criteria. Exploratory. FS certified ranges as reference lines only; no recommendation." None was pre-registered for this campaign, so there is nothing to evaluate and the chunk is removed rather than left to score against `cert20`'s bars. |
+| `cov-plot-c` | Merged into the single guarded `cov-plots`, which loops over the complement and harm sides. Same two figures, one guard. |
+| `cov-plot-h` | As above. |
+
+### The 12 added chunks, each mapped to the Stage 3 item it serves
+
+| chunk | Stage 3 item served |
+|---|---|
+| `inventory` | Gate 2 record carried into the document — bundle provenance, knobs from the pooled meta, realized prevalence. (Split out of `setup`.) |
+| `detection` | **"the detection rate … recorded prominently"** — Gate 2, and the framing that every summary conditions on it. |
+| `detection-plot` | Same, against n and prevalence. |
+| `structna` | **"the structurally-NA columns (`n_cons_qual`, `band_n`, `p_star`) reported as such rather than as failures."** |
+| `cov-fns` | Mechanical: the helpers `cov` used, split out so the per-block loop and the guard read cleanly. Serves item 1. |
+| `cov-plots` | Item 1, the standard tables' figures (merge of `cov-plot-c` / `cov-plot-h`). |
+| `twosided` | **Item 5** — "does the harm-block two-sided decay with n at 12.4% appear on DINA as it does on FS … with the miss split by side", with the committed FS trajectory (0.977/0.932/0.901; 0.961/0.917/0.913) beside it. |
+| `twosided-plot` | Item 5, the same comparison as a figure. |
+| `family` | **Item 3** — "the proposed family: size distribution per cell, and whether it stabilizes with n — the mechanism Supplementary S8.3 offers." |
+| `family-plot` | Item 3, the distribution and the relative-spread-versus-n read. |
+| `fsgrid` | **Item 4** — "beside the FS grid (`cert20` / `tier2` / `p12ext` read as they stand), with the confound stated." |
+| `recov` | **Item 6** — "p̂ and the recovery diagnostics on a model-generated family: distributions per cell … `sens_H` and containment quantiles." |
+
+Item 2 (classification vs n **and prevalence**) is served by the retained `ident` / `ident-plot`
+widened to two blocks; item 7 (no acceptance criteria) is served by the removal of `accept`.

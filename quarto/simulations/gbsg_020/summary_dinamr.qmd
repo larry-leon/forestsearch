@@ -45,7 +45,7 @@ winner-only and winner-floor excluded throughout.
 ```{r setup, message=FALSE, warning=FALSE}
 library(forestsearch)
 library(ggplot2)
-library(kableExtra)
+library(kableExtra)   # kbl(), kable_styling(), scroll_box()
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
 R <- "results/"
 mk <- function(block, prev, n, hr, arm) {
@@ -359,7 +359,7 @@ IDENT <- do.call(rbind, lapply(labs, function(k) {
   data.frame(cell = k, block = BLK[[k]], n = NN[[k]], HR = HR[[k]], arm = ARM[[k]],
              detection = mean(r$detected %in% 1L), n_det = nrow(d),
              sens = mean(d$sens), spec = mean(d$spec), ppv = mean(d$ppv), npv = mean(d$npv),
-             absH_mean = mean(d$n_sel),
+             absH_mean = mean(d$n_sel), absHtrue_mean = mean(d$n_true),
              Hhat_over_H_med = stats::median(rat), Hhat_over_H_q90 = unname(stats::quantile(rat, .9)),
              beta_H_mean = mean(d$betaHhat_H), planted_H = unname(tr$marg_H),
              beta_Hc_mean = mean(d$betaHhat_Hc), planted_Hc = unname(tr$marg_Hc),
@@ -538,13 +538,14 @@ strat_row <- function(d, cell, stratum) {
   bC <- mean(d$ef_s)/stats::sd(d$ef_s); rC <- mean(d$fld_Hc_se_s)/stats::sd(d$ef_s)
   cfH <- mean(d$betaHhat_H  >= d$fld_H_lo1s);    wH <- wil(cfH, nrow(d))
   cfC <- mean(d$betaHhat_Hc <= d$fld_Hc_up1s_s); wC <- wil(cfC, nrow(d))
+  cfCu <- mean(d$betaHhat_Hc <= d$fld_Hc_up1s)   # unscaled field, beside field-s (cert20 parity)
   data.frame(cell = cell, stratum = stratum, n = nrow(d), p_hat_mean = mean(d$p_hat_H),
              Hhat_over_H = mean(d$ratio_H), rho_c = mean(d$fld_Hc_scale_ratio),
              mean_ef_H = mean(d$ef_H), SD_ef_H = stats::sd(d$ef_H), b_H = bH, r_H = rH,
              cov_field_H = cfH, wH_lo = wH[1], wH_hi = wH[2],
              gauss_H = stats::pnorm(z95 * rH - bH),
              mean_ef_s = mean(d$ef_s), SD_ef_s = stats::sd(d$ef_s), b_C = bC, r_C = rC,
-             cov_field_s_C = cfC, wC_lo = wC[1], wC_hi = wC[2],
+             cov_field_C = cfCu, cov_field_s_C = cfC, wC_lo = wC[1], wC_hi = wC[2],
              gauss_C = stats::pnorm(z95 * rC + bC)) }
 TERT <- if (length(labs)) do.call(rbind, lapply(labs, function(k) {
   d <- prep(B[[k]]$results); if (nrow(d) < 30L) return(NULL)
@@ -562,9 +563,9 @@ print(kbl(TERT[, c("cell","stratum","n","p_hat_mean","Hhat_over_H","mean_ef_H","
     caption = "Harm block by p-hat(Hhat) tertile within each cell: the field's residual error ef_H = log(fld_H_est2) - log(beta(Hhat)), its ERROR SD, b and r, the observed one-sided lower coverage with Wilson limits, and the Gaussian-implied coverage from the stratum's own numbers. Conditional-on-proposed-family estimand.") |>
   kable_styling(font_size = 8))
 print(kbl(TERT[, c("cell","stratum","n","p_hat_mean","rho_c","mean_ef_s","SD_ef_s",
-                   "b_C","r_C","cov_field_s_C","wC_lo","wC_hi","gauss_C")],
+                   "b_C","r_C","cov_field_C","cov_field_s_C","wC_lo","wC_hi","gauss_C")],
     digits = 4, booktabs = TRUE, row.names = FALSE,
-    caption = "Complement block by p-hat tertile: ef_s = log(fld_Hc_est2_s) - log(beta(Hhat^c)), its error SD, b and r, observed field-s upper coverage (Wilson) and the Gaussian-implied value. Conditional-on-proposed-family estimand.") |>
+    caption = "Complement block by p-hat tertile: ef_s = log(fld_Hc_est2_s) - log(beta(Hhat^c)), its error SD, b and r, the UNSCALED field's observed upper coverage (cov_field_C) beside field-s (cov_field_s_C, Wilson), and the Gaussian-implied field-s value. Conditional-on-proposed-family estimand.") |>
   kable_styling(font_size = 8))
 }
 ```
@@ -586,6 +587,197 @@ ggplot(TP, aes(tertile, cov, group = 1)) + geom_hline(yintercept = 0.95, linetyp
        title = "Observed (points, Wilson) and Gaussian-implied (crosses) coverage by stable-pick stratum") +
   theme_bw(base_size = 9) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
 }
+}
+```
+
+# Stratified tables: by proposed-family size and by p&#770; {#sec-strat}
+
+Everything in this section is **descriptive**. No acceptance criterion is applied, and every
+coverage figure is coverage of the **conditional-on-proposed-family** estimand on detected
+replicates.
+
+**The two stratifications.**
+
+- **Proposed-family size.** Within-cell empirical tertiles of `n_family`, plus **two extra rows that
+  deliberately overlap them**: `K = 1` (the family is a single candidate, so the "family" imposes no
+  choice at all) and `K <= 5`. Overlapping rows are marked; they are not a partition and must not be
+  summed.
+- **p&#770;(Ĥ).** The bins **the FS summaries use**, stated so the comparison is like-for-like:
+  `summary_cert20.qmd` (§tert), `summary_tier2.qmd`, `summary_p12ext.qmd`, `summary_e1stud.qmd`
+  (all as `tert()`) and `summary_complement_variance.qmd` (§A2/A5/A6 as `strat()`) every one use
+  **within-cell empirical tertiles** — `quantile(v, c(0, 1/3, 2/3, 1))` cut with
+  `include.lowest = TRUE` — **not fixed cut-points**. The same definition is used here.
+
+**Retained bias** is the bias that survives the correction, on the log scale:
+`mean(log(est) - log(beta(Hhat)))` within the stratum, for each product.
+
+```{r strat-fns}
+tert_fs <- function(v) {                     # the FS summaries' own binning, verbatim in form
+  br <- stats::quantile(v, c(0, 1/3, 2/3, 1), na.rm = TRUE, names = FALSE)
+  cut(v, breaks = unique(br), include.lowest = TRUE, labels = FALSE) }
+det_rows <- function(k) { r <- B[[k]]$results
+  d <- r[r$detected %in% 1L, , drop = FALSE]
+  keep <- is.finite(d$betaHhat_H) & is.finite(d$betaHhat_Hc) & is.finite(d$n_family) &
+          is.finite(d$p_hat_H) & is.finite(d$fld_H_lo1s) & is.finite(d$fld_Hc_up1s_s)
+  d[keep, , drop = FALSE] }
+# Coverage of every product, Wilson, plus retained bias, on one stratum.
+prod_rows <- function(d, cell, stratum, overlap = FALSE) {
+  if (!nrow(d)) return(NULL)
+  w <- function(p) wil(p, nrow(d))
+  bias <- function(e) mean(log(e) - log(d$betaHhat_H))
+  biasC <- function(e) mean(log(e) - log(d$betaHhat_Hc))
+  mk <- function(block, product, cov, side, bi) {
+    ww <- w(cov)
+    data.frame(cell = cell, stratum = stratum, overlapping = overlap, n = nrow(d),
+               block = block, product = product, side = side, coverage = cov,
+               wilson_lo = ww[1], wilson_hi = ww[2], retained_bias_log = bi,
+               stringsAsFactors = FALSE) }
+  rbind(
+    mk("Hhat",   "naive",       mean(d$betaHhat_H >= d$nv_H_lo & d$betaHhat_H <= d$nv_H_hi),
+       "two-sided", bias(d$nv_H_est)),
+    mk("Hhat",   "field",       mean(d$betaHhat_H >= d$fld_H_lo1s), "one-sided lower",
+       bias(d$fld_H_est2)),
+    mk("Hhat",   "field 2s",    mean(d$betaHhat_H >= d$fld_H_lo2s & d$betaHhat_H <= d$fld_H_hi2s),
+       "two-sided", bias(d$fld_H_est2)),
+    mk("Hhat",   "IJ two-term", mean(d$betaHhat_H >= d$mr_H_lo & d$betaHhat_H <= d$mr_H_hi),
+       "two-sided", bias(d$mr_H_est)),
+    mk("Hhat^c", "naive",       mean(d$betaHhat_Hc >= d$nv_Hc_lo & d$betaHhat_Hc <= d$nv_Hc_hi),
+       "two-sided", biasC(d$nv_Hc_est)),
+    mk("Hhat^c", "field",       mean(d$betaHhat_Hc <= d$fld_Hc_up1s), "one-sided upper",
+       biasC(d$fld_Hc_est2)),
+    mk("Hhat^c", "field-s",     mean(d$betaHhat_Hc <= d$fld_Hc_up1s_s), "one-sided upper",
+       biasC(d$fld_Hc_est2_s)),
+    mk("Hhat^c", "IJ two-term", mean(d$betaHhat_Hc >= d$mr_Hc_lo & d$betaHhat_Hc <= d$mr_Hc_hi),
+       "two-sided", biasC(d$mr_Hc_est)),
+    mk("joint",  "Bonferroni",  mean(d$betaHhat_H >= d$fld_joint_bonf_loH &
+                                     d$betaHhat_Hc <= d$fld_joint_bonf_upHc), "joint", NA_real_),
+    mk("joint",  "Bonferroni-s",mean(d$betaHhat_H >= d$fld_joint_s_bonf_loH &
+                                     d$betaHhat_Hc <= d$fld_joint_s_bonf_upHc), "joint", NA_real_))
+}
+# The IJ two-sided miss, split by side, per stratum.
+miss_rows <- function(d, cell, stratum, overlap = FALSE) {
+  if (!nrow(d)) return(NULL)
+  data.frame(cell = cell, stratum = stratum, overlapping = overlap, n = nrow(d),
+             ij2_H = mean(d$betaHhat_H >= d$mr_H_lo & d$betaHhat_H <= d$mr_H_hi),
+             miss_below_H = mean(d$betaHhat_H < d$mr_H_lo),
+             miss_above_H = mean(d$betaHhat_H > d$mr_H_hi),
+             ij2_Hc = mean(d$betaHhat_Hc >= d$mr_Hc_lo & d$betaHhat_Hc <= d$mr_Hc_hi),
+             miss_below_Hc = mean(d$betaHhat_Hc < d$mr_Hc_lo),
+             miss_above_Hc = mean(d$betaHhat_Hc > d$mr_Hc_hi),
+             stringsAsFactors = FALSE) }
+strata_of <- function(d, by) {
+  v <- if (by == "K") d$n_family else d$p_hat_H
+  g <- tert_fs(v); out <- list()
+  for (t in sort(unique(g[!is.na(g)]))) {
+    dk <- d[!is.na(g) & g == t, , drop = FALSE]
+    out[[length(out)+1]] <- list(d = dk, ov = FALSE,
+      lab = sprintf("%s T%d [%s, %s]", if (by == "K") "K" else "p-hat", t,
+                    format(min(v[!is.na(g) & g==t])), format(max(v[!is.na(g) & g==t])))) }
+  if (by == "K") {
+    out[[length(out)+1]] <- list(d = d[d$n_family == 1L, , drop = FALSE], ov = TRUE, lab = "K = 1 (overlapping)")
+    out[[length(out)+1]] <- list(d = d[d$n_family <= 5L, , drop = FALSE], ov = TRUE, lab = "K <= 5 (overlapping)") }
+  out[[length(out)+1]] <- list(d = d, ov = TRUE, lab = "all detected (overlapping)")
+  out }
+```
+
+## Every product by proposed-family-size stratum {#sec-strat-k}
+
+```{r strat-k}
+if (!have(labs)) skip_note("the family-size stratified tables") else {
+SK <- do.call(rbind, lapply(labs, function(k) { d <- det_rows(k)
+  if (!nrow(d)) return(NULL)
+  do.call(rbind, lapply(strata_of(d, "K"), function(S) prod_rows(S$d, k, S$lab, S$ov))) }))
+if (!have(SK)) skip_note("the family-size stratified tables") else
+kbl(SK, digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "EVERY PRODUCT by within-cell proposed-family-size (n_family) stratum: coverage with Wilson 95% limits, and the RETAINED BIAS on the log scale, mean(log(est) - log(beta(Hhat))). K tertiles are a partition; the K = 1, K <= 5 and 'all detected' rows OVERLAP them and each other and must not be summed (the `overlapping` column flags this). Conditional-on-proposed-family estimand throughout. Descriptive; no criterion applied.") |>
+  kable_styling(font_size = 7) |> scroll_box(height = "600px")
+}
+```
+
+## Every product by p&#770; bin (the FS summaries' within-cell tertiles) {#sec-strat-p}
+
+```{r strat-p}
+if (!have(labs)) skip_note("the p-hat stratified tables") else {
+SP <- do.call(rbind, lapply(labs, function(k) { d <- det_rows(k)
+  if (!nrow(d)) return(NULL)
+  do.call(rbind, lapply(strata_of(d, "p"), function(S) prod_rows(S$d, k, S$lab, S$ov))) }))
+if (!have(SP)) skip_note("the p-hat stratified tables") else
+kbl(SP, digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "EVERY PRODUCT by p-hat(Hhat) bin. The bins are the within-cell empirical tertiles the FS summaries use -- quantile(v, c(0, 1/3, 2/3, 1)) cut with include.lowest = TRUE, as in summary_cert20 (sec-tert), summary_tier2, summary_p12ext, summary_e1stud and summary_complement_variance -- NOT fixed cut-points. Coverage with Wilson 95% limits and the retained log-scale bias. The 'all detected' row overlaps the tertiles. Conditional-on-proposed-family estimand. Descriptive; no criterion applied.") |>
+  kable_styling(font_size = 7) |> scroll_box(height = "600px")
+}
+```
+
+## Family-size stratum by p&#770; bin: counts {#sec-strat-xtab}
+
+```{r strat-xtab}
+if (!have(labs)) skip_note("the stratum cross-tabulation") else {
+XT <- do.call(rbind, lapply(labs, function(k) { d <- det_rows(k)
+  if (nrow(d) < 9L) return(NULL)
+  gk <- tert_fs(d$n_family); gp <- tert_fs(d$p_hat_H)
+  base <- do.call(rbind, lapply(sort(unique(gk[!is.na(gk)])), function(a)
+    do.call(rbind, lapply(sort(unique(gp[!is.na(gp)])), function(b)
+      data.frame(cell = k, K_stratum = sprintf("K T%d", a), p_hat_bin = sprintf("p-hat T%d", b),
+                 count = sum(!is.na(gk) & !is.na(gp) & gk == a & gp == b),
+                 stringsAsFactors = FALSE)))))
+  extra <- do.call(rbind, lapply(list(c("K = 1", "1"), c("K <= 5", "5")), function(x)
+    do.call(rbind, lapply(sort(unique(gp[!is.na(gp)])), function(b)
+      data.frame(cell = k, K_stratum = paste0(x[1], " (overlapping)"),
+                 p_hat_bin = sprintf("p-hat T%d", b),
+                 count = sum(d$n_family <= as.integer(x[2]) &
+                             (if (x[2] == "1") d$n_family == 1L else TRUE) &
+                             !is.na(gp) & gp == b),
+                 stringsAsFactors = FALSE)))))
+  rbind(base, extra) }))
+if (!have(XT)) skip_note("the stratum cross-tabulation") else {
+XW <- reshape(XT, idvar = c("cell", "K_stratum"), timevar = "p_hat_bin", direction = "wide")
+names(XW) <- sub("^count\\.", "", names(XW))
+kbl(XW, booktabs = TRUE, row.names = FALSE,
+    caption = "Counts: proposed-family-size stratum by p-hat bin, within each cell. The K = 1 and K <= 5 rows OVERLAP the K tertiles. This is the table that says whether the two stratifications are measuring the same thing or different things -- a strongly diagonal count pattern means p-hat and family size carry the same information in this design.") |>
+  kable_styling(font_size = 8) |> scroll_box(height = "500px")
+}
+}
+```
+
+## IJ two-sided misses, split by side, within both stratifications {#sec-strat-miss}
+
+```{r strat-miss}
+if (!have(labs)) skip_note("the stratified miss tables") else {
+for (by in c("K", "p")) {
+  MS <- do.call(rbind, lapply(labs, function(k) { d <- det_rows(k)
+    if (!nrow(d)) return(NULL)
+    do.call(rbind, lapply(strata_of(d, by), function(S) miss_rows(S$d, k, S$lab, S$ov))) }))
+  if (!have(MS)) { skip_note(sprintf("the stratified miss table by %s", by)); next }
+  print(kbl(MS, digits = 4, booktabs = TRUE, row.names = FALSE,
+      caption = sprintf("IJ two-term TWO-SIDED coverage and its MISS SPLIT BY SIDE, by %s stratum. miss_below = beta(Hhat) under the lower limit; miss_above = over the upper limit; the three sum to 1 within a row. Overlapping rows flagged. Conditional-on-proposed-family estimand.",
+                        if (by == "K") "proposed-family-size" else "p-hat")) |>
+    kable_styling(font_size = 7) |> scroll_box(height = "500px"))
+}
+}
+```
+
+## &#947; at its floor, beside the Bonferroni joint coverage {#sec-strat-gamma}
+
+```{r strat-gamma}
+if (!have(labs)) skip_note("the gamma-at-floor table") else {
+GM <- do.call(rbind, lapply(labs, function(k) { d <- det_rows(k)
+  if (!nrow(d)) return(NULL)
+  data.frame(cell = k, block = BLK[[k]], n = NN[[k]], HR = HR[[k]], arm = ARM[[k]], n_eval = nrow(d),
+             share_gamma_at_floor = mean(d$fld_joint_gamma == 0.025),
+             gamma_min = min(d$fld_joint_gamma), gamma_max = max(d$fld_joint_gamma),
+             gamma_mean = mean(d$fld_joint_gamma),
+             share_gamma_s_at_floor = mean(d$fld_joint_s_gamma == 0.025),
+             joint_bonf = mean(d$betaHhat_H >= d$fld_joint_bonf_loH &
+                               d$betaHhat_Hc <= d$fld_joint_bonf_upHc),
+             joint_s_bonf = mean(d$betaHhat_H >= d$fld_joint_s_bonf_loH &
+                                 d$betaHhat_Hc <= d$fld_joint_s_bonf_upHc),
+             stringsAsFactors = FALSE) }))
+GM <- GM[order(GM$arm, GM$block, GM$HR, GM$n), ]
+gw <- t(vapply(seq_len(nrow(GM)), function(i) wil(GM$joint_s_bonf[i], GM$n_eval[i]), numeric(2)))
+GM$joint_s_wilson_lo <- gw[, 1]; GM$joint_s_wilson_hi <- gw[, 2]
+kbl(GM, digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "Per cell: the SHARE OF ROWS WITH gamma AT ITS 0.025 FLOOR (for the joint and joint-s pairs) beside the Bonferroni joint coverage from both pairs, with Wilson limits on joint_s. gamma is the per-replicate joint level the Bonferroni bound is built at; where it sits at the floor the Bonferroni bound coincides exactly with the raw joint bound, and where it does not the two differ -- which is why the Gate 2 identity is gated on the floor rows. Conditional-on-proposed-family estimand.") |>
+  kable_styling(font_size = 8)
 }
 ```
 
