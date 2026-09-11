@@ -1,6 +1,6 @@
 ---
-title: "Guo & He (2021) comparison for the post-selection supplement"
-subtitle: "Table 7 (nested, data-built family): the fixed-$r$ and Adaptive columns against MR, and the complement/joint capability"
+title: "Guo & He (2021) comparison: analysis record"
+subtitle: "Table 7 (a nested family cut at every observed value): Guo & He at fixed $r$ against MR, identification by the argmax, and the complement/joint capability"
 author: "Larry F. León"
 date: today
 format:
@@ -20,6 +20,9 @@ bibliography: []
 
 ```{r setup}
 #| include: false
+# Analysis record for the Guo & He comparison. The manuscript section is
+# drafted separately, from the payload written in "Manuscript payload" below
+# (dev/tasks/claude_cc_task_guohe_record_payload_2026-09-11.md). Originally the
 # T3 assembly document for the fs-post-selection supplement.
 # Task: dev/tasks/claude_cc_task_guohe_supplement_2026-09-09.md section 6, as
 # amended by ..._v2.md (A2 for the B6 citations, A5 for the Adaptive B).
@@ -87,33 +90,8 @@ CMP <- lapply(CELLS, function(id)
 names(CMP) <- CELLS
 HAVE_COMPLEMENT <- all(!vapply(CMP, is.null, logical(1)))
 
-# ---- certified ranges: cite the record that EXISTS ---------------------------
-# REVIEW_certification_2026-09-09.md is in no reachable commit (verified against
-# find, git ls-files and git log --all at merge f221f75e), so a "pending sync"
-# marker would be misleading -- it implies a document that is merely late.
-# The certified ranges actually on record are in REVIEW_E1_fields_2026-09-08.md:
-#   :78  | Ĥᶜ (upper) | **field-s** | **0.912 / 0.921 / 0.929** | ...
-#        Standard table 2 is headed "across cells (six cells)" (:69) and this
-#        column is "1s cov min / mean / max", so 0.912-0.929 is the min-to-max
-#        across ALL SIX cells. No subset.
-#   :86  The sentence is prefixed "Band cells:", so its four-value lists are the
-#        four epsilon cells: joint_s 0.942 / 0.939 / 0.949 / 0.951-0.952 vs
-#        joint 0.932 / 0.933 / 0.935 / 0.935. The trailing clause
-#        "ends unchanged (0.939 vs 0.941-0.942; 0.930 vs 0.929-0.930)" adds the
-#        two END cells (maxSG HR 1.75, minSG HR 1.75), following the sentence's
-#        own "joint_s ... vs joint ..." order: joint_s ends are 0.939 and 0.930.
-#        => joint_s across ALL SIX cells is 0.930-0.952; the four band cells
-#           alone span the narrower 0.939-0.952. Citing 0.939-0.952 as the
-#           certified range would silently drop the 0.930 end cell.
-#        (Under the opposite reading of that clause the low end would be 0.929
-#         rather than 0.930; either way it lies below the band-cell minimum.)
-# The wider 0.912-0.960 / 0.939-0.963 quoted in the task documents appear only
-# in an uncommitted handoff and are not reproducible from this repository.
-CERT_FILE  <- "REVIEW_E1_fields_2026-09-08.md"
-CERT_PATH  <- file.path("..", "..", "dev", "notes", CERT_FILE)
-CERT_PRESENT <- file.exists(CERT_PATH)
-cert_upper <- sprintf("0.912-0.929 (`%s:78`)", CERT_FILE)
-cert_joint <- sprintf("0.930-0.952 (`%s:86`)", CERT_FILE)
+# The E1 range citations and their read from dev/notes/ were removed on
+# 2026-09-11 (see B6, limit 2, and the task document named above).
 
 z95 <- qnorm(0.95)
 
@@ -136,15 +114,16 @@ A paired comparison of selection-adjusted one-sided lower bounds for
 $\gamma_{\hat c}$ — the true effect in the *selected* subgroup — on the Guo & He
 (2021) Section 5.2 / Table 7 design: $W \sim \mathrm{Unif}(0, 80)$, a treatment
 effect of $\beta_2$ on $\{W \le 30\}$ and $0$ elsewhere, $n = 400$, and a
-**nested, data-built** candidate family $S(c) = \{W \le c\}$ with $c$ running
-over $30$ and every observed $w \in (30, 60]$ — roughly 151 candidates per
-replicate. Six cells, $\beta_2 = 0.0, \ldots, 0.5$, `r NREP` paired replicates
+**nested** candidate family $S(c) = \{W \le c\}$ with $c$ running
+over $30$ and every observed $w \in (30, 60]$ — the distinct members of Guo and
+He's continuum $c \in [30, 60]$, since the estimate changes only at observed
+values; roughly 151 candidates per replicate. Six cells, $\beta_2 = 0.0, \ldots, 0.5$, `r NREP` paired replicates
 each, all on the replication's own seeds.
 
 The same three-way comparison across all sixteen replicated cells (Tables 3–5,
 Table 6 and Table 7) is recorded in `mr_field_vs_guohe.qmd` and
 `REPORT_mr_field_vs_guohe_2026-09-05.md`; this section restricts to Table 7,
-the only design whose candidate family is nested and data-built and therefore
+the only design whose candidate family is a nested continuum of cutpoints and therefore
 the only one that speaks to the post-selection setting of interest (D1).
 
 All values are on the oriented log-hazard-ratio scale. Coverage is one-sided
@@ -263,9 +242,10 @@ table.
 1. The replicated fixed-$r$ columns run $\approx 0.010$ *below* the published
    Table 7 values — a replication deficit recorded on 2026-09-04 and carried
    here unchanged. The published columns are themselves conservative
-   ($0.947$–$0.973$ against a nominal $0.95$), because adjacent nested
-   candidates differ by a single subject and the effective number of
-   independent comparisons is far below the family size.
+   ($0.947$–$0.973$ against a nominal $0.95$), and increasingly so as $r$
+   falls ($0.947$–$0.964$ at $r = 1/3$; $0.961$–$0.973$ at $r = 1/12$ to
+   $1/30$) — the finite-sample behaviour Guo and He describe for small $r$
+   (their Section 2.5).
 2. Monte Carlo standard error at `r NREP` replicates is
    $\approx `r sprintf("%.3f", MCSE)`$, so differences smaller than about one
    percentage point are not resolvable here.
@@ -328,7 +308,7 @@ substance of the section — the numbers merely show that our construction
 delivers what it claims on this design.
 
 > Table 8 of Guo and He (2021) reports an upper confidence bound on the
-> hazard-ratio scale; this is the identical one-sided lower-bound construction
+> log-hazard-ratio scale; this is the identical one-sided lower-bound construction
 > under their Section 4 convention βᵢ = −log HR, applied to the argmax-selected
 > subgroup, and does not constitute an upper-bound capability for a second,
 > complementary subgroup.
@@ -339,6 +319,17 @@ delivers what it claims on this design.
 > within their framework; the absence of a complement bound, and hence of a
 > joint two-subgroup claim, is structural rather than an implementation gap.
 :::
+
+On this design the complement's true effect is **exactly 0**: the DGM sets
+$b(W) = \beta_2$ on $\{W \le 30\}$ and $0$ elsewhere
+(`guohe_sec52_truth.R:75`), and the family starts at $30$, so every
+$\hat H^c = \{W > \hat c\}$ lies inside the null region and complement
+coverage is simply upper $\ge 0$. The structural argument above concerns this
+design's nested family, in which $\hat H^c$ is never a candidate. It is not
+claimed for Guo and He's two-subgroup design (their Section 5.1), where the
+complement of the selected subgroup is the other candidate — with two
+candidates, the argmin — nor for their MONET1 families (their Section 4), which
+contain each subgroup and its complement.
 
 ```{r b3-table}
 #| output: asis
@@ -399,8 +390,11 @@ b5 <- do.call(rbind, lapply(seq_along(CELLS), function(k) {
     `$\\hat c$ median (IQR)` = sprintf("%.1f (%.1f, %.1f)",
       median(r$c_hat), quantile(r$c_hat, .25), quantile(r$c_hat, .75)),
     `$\\hat c$ min/max` = sprintf("%.1f / %.1f", min(r$c_hat), max(r$c_hat)),
-    `Mean specificity` = sprintf("%.3f", mean(spec_of(r$c_hat))),
-    `Mean PPV` = sprintf("%.3f", mean(ppv_of(r$c_hat))),
+    `Mean specificity` = if (BETA2[k] == 0) "—" else
+      sprintf("%.3f", mean(spec_of(r$c_hat))),
+    `Mean PPV` = if (BETA2[k] == 0) "—" else
+      sprintf("%.3f", mean(ppv_of(r$c_hat))),
+    `Mean $\\gamma_{\\hat c}$` = sprintf("%.3f", mean(r$theta)),
     `$\\hat p(\\hat H)$ median (IQR)` = sprintf("%.3f (%.3f, %.3f)",
       median(r$p_hat_H), quantile(r$p_hat_H, .25), quantile(r$p_hat_H, .75)),
     `$M_{\\mathrm{eff}}$ median` = sprintf("%.1f", median(r$M_eff)),
@@ -412,30 +406,40 @@ print(knitr::kable(b5, row.names = FALSE, caption = paste(
   "Selection and stability per cell. Specificity $= (80 - \\hat c)/50$ and",
   "PPV $= 30/\\hat c$ are exact functions of $\\hat c$ on this design and are",
   "computed as such; sensitivity and NPV are degenerate at 1 by nesting and are",
-  "not tabulated. Marginal SD is $\\mathrm{sd}(\\hat\\beta_2)$ across replicates;",
+  "not tabulated. At $\\beta_2 = 0$ there is no harm region, so specificity and",
+  "PPV are shown as —. Mean $\\gamma_{\\hat c}$ is the true effect in the",
+  "selected subgroup, averaged over replicates.",
+  "Marginal SD is $\\mathrm{sd}(\\hat\\beta_2)$ across replicates;",
   "error SD is $\\mathrm{sd}(\\hat\\beta_2 - \\gamma_{\\hat c})$ — they differ",
   "because $\\gamma_{\\hat c}$ itself moves with the selection.")))
 cat("\n")
 ```
 
 ::: {.callout-note appearance="simple"}
-**Classification is not the right lens on this design, and its arithmetic says
+**On this design identification has one dimension, and its arithmetic says
 why.** The true harm region is $H = \{W \le 30\}$ and every candidate is
 $S(c) = \{W \le c\}$ with $\hat c \ge 30$, so $H = S(30) \subseteq S(\hat c)$
 for every replicate. With $W \sim \mathrm{Unif}(0, 80)$ the classification
 operating characteristics are therefore closed forms in $\hat c$ alone:
 
-- **Sensitivity $\equiv 1$** and **NPV $\equiv 1$** — *identically*, by nesting,
-  not by merit. Both are degenerate by construction on this design, so neither
-  is tabulated: a column of ones would read as a result when it is an artefact
-  of $H \subseteq S(\hat c)$.
+- **Sensitivity $\equiv 1$** and **NPV $\equiv 1$** (for $\beta_2 > 0$) —
+  *identically*, by nesting, not by merit. Both are degenerate by construction
+  on this design, so neither is tabulated: a column of ones would read as a
+  result when it is an artefact of $H \subseteq S(\hat c)$.
 - **Specificity** $= (80 - \hat c)/50$ — reported per cell above.
 - **PPV** $= 30/\hat c$ — reported per cell above.
 
-Sensitivity carries no information in this design. The whole of the
-identification story is how far $\hat c$ overshoots $30$, which the $\hat c$
-distribution above reports directly and which specificity and PPV then restate
-as monotone functions of it.
+The whole of the identification story is how far $\hat c$ overshoots $30$,
+which the $\hat c$ distribution above reports directly and which specificity
+and PPV then restate as monotone functions of it. Two further readings follow
+from the same arithmetic. At $\beta_2 = 0$ there is no harm region: every
+selection is a false identification, specificity and PPV are not defined as
+accuracy there, and that cell's $\hat c$ distribution is the reference for the
+argmax's own pull toward the smallest candidate, $c = 30$ — where the true
+boundary of the other cells sits. And overshoot reaches the estimand:
+$\gamma_{\hat c} = \beta(\hat c)$ is a weighted average of $b(\cdot)$ over
+$[0, \hat c]$ (Guo and He, Section 5.2), so it falls below $\beta_2$ as
+$\hat c$ overshoots, which the mean $\gamma_{\hat c}$ column shows.
 :::
 
 ```{r b5-chat-plot}
@@ -457,77 +461,230 @@ par(op)
 #| output: asis
 # The field's coverage figures are COMPUTED from the rendered bundles, never
 # transcribed, so this paragraph cannot go stale against the tables above.
-# N7: lead with the MINIMUM, then give the span of the three lowest cells --
-# quoting the span alone reads as if its upper end were a low point when it is
-# mid-pack.
-# Measured T1 ranges, computed from the committed complement bundles so the
-# contrast in B6 limit 2 cannot drift from @sec-b3.
-if (HAVE_COMPLEMENT) {
-  .cu <- vapply(CMP, function(b) mean(b$results$c_cover_95_s), numeric(1))
-  .cj <- vapply(CMP, function(b) mean(b$results$joint_cover_s), numeric(1))
-  .cju <- vapply(CMP, function(b) mean(b$results$joint_cover), numeric(1))
-  cert_upper_meas <- sprintf("%.3f-%.3f", min(.cu), max(.cu))
-  cert_joint_meas <- sprintf("%.3f-%.3f", min(.cj), max(.cj))
-  cert_joint_unscaled <- sprintf("%.3f-%.3f", min(.cju), max(.cju))
-} else {
-  cert_upper_meas <- "pending"; cert_joint_meas <- "pending"
-  cert_joint_unscaled <- "pending"
-}
-
-fld_cov <- SUM$cover[SUM$method == "MR (field)"]
-fld_lo3 <- sort(fld_cov)[1:3]
-fld_min <- sprintf("%.3f", min(fld_lo3))
+# Rewritten 2026-09-11 (dev/tasks/claude_cc_task_guohe_record_payload_2026-09-11.md):
+# limit 1 is grounded on this design's own records (its earlier regime
+# attribution came from campaign e1stud, not from this design); the E1 range
+# citations and the dev/notes read are removed; limit 3 acknowledges Guo & He
+# Section 6.
+fld_cov   <- SUM$cover[SUM$method == "MR (field)"]
+fld_bias  <- SUM$bias[SUM$method == "MR (field)"]
+fld_lo3   <- sort(fld_cov)[1:3]
+fld_min   <- sprintf("%.3f", min(fld_lo3))
 fld_range <- sprintf("%.3f–%.3f", min(fld_lo3), max(fld_lo3))
+fld_bias_range <- sprintf("%+.3f to %+.3f", min(fld_bias), max(fld_bias))
+stopifnot(all(fld_bias > 0))  # limit 1 states the bias is positive in every cell
+phat_med   <- vapply(CELLS, function(id) median(bun[[id]]$results$p_hat_H), numeric(1))
+phat_range <- sprintf("%.3f–%.3f", min(phat_med), max(phat_med))
+.cu <- vapply(CMP, function(b) mean(b$results$c_cover_95_s), numeric(1))
+stopifnot(BETA2[which.min(.cu)] == 0)  # limit 1 places the complement's low point at the null cell
+cmp_low <- sprintf("%.3f", min(.cu))
 
 cat(sprintf(paste0(
-"Four limits belong on the record, stated plainly.\n\n",
+"Five limits belong on the record, stated plainly.\n\n",
 
-"1. **The field's low points are ours, and they are under-correction, not ",
-"noise.** Across these cells the MR (field) one-sided coverage **bottoms out ",
-"at %s**, with the three lowest cells spanning %s. That shortfall is the ",
-"stable-pick regime — replicates where ",
-"$\\hat p(\\hat H)$ is high and the selection barely moves — and it is a ",
-"design that does not flatter us: a nested, data-built family of ~151 ",
-"candidates differing by one subject at a time is close to the worst case for ",
-"a re-selection-based correction. We report the number rather than the ",
-"regime-averaged one.\n\n",
+"1. **The field's low points are under-correction on a nested family.** ",
+"Across these cells the MR (field) one-sided coverage **bottoms out at %s**, ",
+"with the three lowest cells spanning %s, and its point estimate est2 keeps a ",
+"positive bias in every cell (%s). The committed 16-cell record reads the ",
+"nested family as the hardest case for the second-order correction, ",
+"consistent with the first proof-of-concept's reading that the excess is a ",
+"property of unequal candidate variances under nesting ",
+"(`REPORT_mr_field_vs_guohe_2026-09-05.md:34`). The complement bound's low ",
+"point, %s, is the null cell, where the selection is loosest ",
+"(`REPORT_mr_complement_vs_guohe_2026-09-09.md:174`), and re-selection is ",
+"spread thin throughout (median $\\hat p(\\hat H)$ %s; B5): these shortfalls ",
+"sit where the pick is least settled. The design is also Guo and He's own ",
+"ground. It illustrates their continuum results (their Section 3, Theorems ",
+"4–5), whereas its ~151 candidates, each differing from its neighbour by one ",
+"subject, are the near-duplicate case that strains the no-tie condition (A5) ",
+"behind our construction's theory (supplement Section S5, \"No-tie ",
+"regularity\"). The field's calibration here is an empirical finding on this ",
+"design, not a consequence of that theory.\n\n",
 
-"2. **The complement and joint figures in @sec-b3 are new measurements, not ",
-"the certified ones.** The certified ranges on record are field-s one-sided ",
-"upper coverage **%s** and joint Bonferroni coverage **%s** (the studentized `joint_s` pair), both ",
-"across all six cells of campaign `e1stud` at n = 500 (four ε band cells plus the maxSG ",
-"and minSG ends), the joint pair's four band cells alone spanning the narrower ",
-"0.939–0.952. That is a single design at one sample size — the cells vary the ",
-"band width ε, the hazard ratio and the selection focus, not the prevalence or ",
-"n — so it certifies those constructions on that design, not across ",
-"prevalences or sample sizes. The wider figures 0.912–0.960 and 0.939–0.963, ",
-"quoted in the task documents, appear only in an uncommitted handoff and are ",
-"not reproducible from anything in this repository. Measured here on Table 7, ",
-"for contrast: field-s upper **%s**, joint_s **%s** (the unscaled `joint` pair ",
-"spans %s). The Table 7 design is a ",
-"different regime and the numbers here stand or fall on their own.\n\n",
+"2. **The complement and joint figures in @sec-b3 belong to this design ",
+"alone.** They say nothing about forestsearch's own screened identifier, ",
+"which is evaluated separately (campaign `e1stud`, ",
+"`REVIEW_E1_fields_2026-09-08.md`, whose pre-registered complement criterion ",
+"was not met, `:10`).\n\n",
 
-"3. **Guo & He is not run on our screened, data-built family.** Their method ",
-"is applied here exactly as published, on the family their Section 5.2 ",
-"specifies. It is not applied to the forestsearch-screened family, which lies ",
-"outside its stated scope; no claim is made about how it would behave there.\n\n",
+"3. **Guo & He is not run on forestsearch's screened family.** Their method ",
+"is applied exactly as published, on the family their Section 5.2 specifies. ",
+"Guo and He suggest (their Section 6) that when identification involves other ",
+"considerations their bound serves as a conservative approach; that ",
+"suggestion is not tested here, and no claim is made either way.\n\n",
 
 "4. **Everything here is one-sided.** Every construction compared in this ",
 "section is one-sided, so none of it depends on the choice of two-sided ",
-"interval method.\n"),
-fld_min, fld_range, cert_upper, cert_joint, cert_upper_meas, cert_joint_meas,
-cert_joint_unscaled))
+"interval method.\n\n",
+
+"5. **Identification is flattered by construction.** The true boundary is ",
+"the family's smallest member, toward which the argmax is drawn even at ",
+"$\\beta_2 = 0$; ",
+"sensitivity and NPV are identically 1 for $\\beta_2 > 0$, and overshoot is ",
+"the only identification error (B5). The screen and forestsearch's family ",
+"construction are not exercised, the complement's truth is 0 in every cell ",
+"(so a benefit claim is never tested), and everything is at $n = 400$.\n"),
+fld_min, fld_range, fld_bias_range, cmp_low, phat_range))
 ```
 
-```{r b6-cert-note}
+# Manuscript payload
+
+The manuscript section is drafted from this payload, not from the tables above.
+It is a superset, so trimming the section never forces a rebuild, and every
+element is computed here from the committed bundles: nothing is re-run and
+nothing is typed. Bounds are on the oriented log-hazard-ratio scale; each `_hr`
+column is $\exp$ of the corresponding mean log-scale bound.
+
+```{r export-payload}
 #| output: asis
-if (!CERT_PRESENT) cat(paste0(
-  "::: {.callout-warning appearance='simple'}\n",
-  "**Certified-range source missing.** `", CERT_FILE, "` is not in the tree, so ",
-  "the two certified figures in limit 2 could not be verified against their ",
-  "source at render time.\n",
-  ":::\n\n"))
+# TASK dev/tasks/claude_cc_task_guohe_record_payload_2026-09-11.md.
+# Location pattern transplanted from the export-payload chunk of
+# quarto/applications/actg175/analysis_actg175_continuous_oc.qmd:
+# <qmd dir>/_payloads/<stem>/<stem>_payload.rds.
+.qmd_dir  <- tryCatch(dirname(knitr::current_input(dir = TRUE)),
+                      error = function(e) getwd())
+.qmd_stem <- tryCatch(tools::file_path_sans_ext(basename(knitr::current_input())),
+                      error = function(e) "guohe_supp_section")
+.out_dir  <- file.path(.qmd_dir, "_payloads", .qmd_stem)
+dir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)
+.payload_file <- file.path(.out_dir, paste0(.qmd_stem, "_payload.rds"))
+
+# (1) The bound for gamma_c-hat on t7: SUM (B2, unchanged) plus the mean bound.
+.low <- do.call(rbind, lapply(CELLS, function(id) data.frame(
+  cell = id, method = METHODS,
+  mean_lower = vapply(METHODS, function(m)
+    mean(method_cols(bun[[id]]$results, m, REPRO[[id]], FIXR[[id]])$low),
+    numeric(1)),
+  row.names = NULL)))
+bound_t7 <- merge(SUM, .low, by = c("cell", "method"), sort = FALSE)
+bound_t7 <- bound_t7[order(match(bound_t7$cell, CELLS),
+                           match(bound_t7$method, METHODS)), ]
+bound_t7$beta2 <- BETA2[match(bound_t7$cell, CELLS)]
+bound_t7$mean_lower_hr <- exp(bound_t7$mean_lower)
+rownames(bound_t7) <- NULL
+
+# (2) Identification on t7 (H = {W <= 30}; no harm region at beta2 = 0).
+ident_t7 <- do.call(rbind, lapply(seq_along(CELLS), function(k) {
+  r <- bun[[CELLS[k]]]$results; ch <- r$c_hat
+  data.frame(cell = CELLS[k], beta2 = BETA2[k],
+    chat_min = min(ch), chat_q25 = unname(quantile(ch, 0.25)),
+    chat_med = median(ch), chat_q75 = unname(quantile(ch, 0.75)),
+    chat_max = max(ch), p_chat_30 = mean(abs(ch - 30) < 1e-9),
+    spec_mean = if (BETA2[k] == 0) NA_real_ else mean((80 - ch) / 50),
+    ppv_mean  = if (BETA2[k] == 0) NA_real_ else mean(30 / ch),
+    n_sel_mean = mean(r$n_sel), n_sel_med = median(r$n_sel),
+    gamma_mean = mean(r$theta), dilution = BETA2[k] - mean(r$theta),
+    phat_med = median(r$p_hat_H), phat_q25 = unname(quantile(r$p_hat_H, 0.25)),
+    phat_q75 = unname(quantile(r$p_hat_H, 0.75)), phat_mean = mean(r$p_hat_H),
+    M_eff_med = median(r$M_eff),
+    sd_marg = sd(r$fld_est2), sd_err = sd(r$fld_est2 - r$theta),
+    row.names = NULL)
+}))
+
+# (3) Complement and joint on t7 (complement truth exactly 0: cover = upper >= 0).
+#     naive = cgate_naive_est + z95 * cgate_se_wald, the engine's own naive
+#     convention (se_wald = the candidate SE; R/fs_mr_inference.R naive block);
+#     IJ two-term = cgate_est + z95 * cgate_se_ij, mirroring the harm side's
+#     lower_1s. Definitions are quoted in the Stage 0 record.
+.up_row <- function(u, n) { x <- sum(u >= 0); w <- wilson(x, n)
+  c(cover = x / n, lo = unname(w["lo"]), hi = unname(w["hi"])) }
+comp_t7 <- do.call(rbind, lapply(seq_along(CELLS), function(k) {
+  r <- CMP[[CELLS[k]]]$results; n <- nrow(r)
+  up <- list(naive   = r$cgate_naive_est + z95 * r$cgate_se_wald,
+             ij      = r$cgate_est + z95 * r$cgate_se_ij,
+             field   = r$c_upper_95,
+             field_s = r$c_upper_95_s)
+  do.call(rbind, lapply(names(up), function(m) {
+    cv <- .up_row(up[[m]], n)
+    data.frame(cell = CELLS[k], beta2 = BETA2[k], method = m,
+      cover = cv[["cover"]], cover_lo = cv[["lo"]], cover_hi = cv[["hi"]],
+      mean_upper = mean(up[[m]]), mean_upper_hr = exp(mean(up[[m]])),
+      row.names = NULL)
+  }))
+}))
+joint_t7 <- do.call(rbind, lapply(seq_along(CELLS), function(k) {
+  r <- CMP[[CELLS[k]]]$results; n <- nrow(r)
+  ws <- wilson(sum(r$joint_cover_s), n); wu <- wilson(sum(r$joint_cover), n)
+  data.frame(cell = CELLS[k], beta2 = BETA2[k],
+    joint_s = mean(r$joint_cover_s), joint_s_lo = unname(ws["lo"]),
+    joint_s_hi = unname(ws["hi"]),
+    joint = mean(r$joint_cover), joint_lo = unname(wu["lo"]),
+    joint_hi = unname(wu["hi"]),
+    corr_mean = mean(r$joint_corr), corr_s_mean = mean(r$joint_corr_s),
+    pair_lower_H = mean(r$h_lower_975),
+    pair_lower_H_hr = exp(mean(r$h_lower_975)),
+    pair_upper_Hc_s = mean(r$c_upper_975_s),
+    pair_upper_Hc_s_hr = exp(mean(r$c_upper_975_s)),
+    row.names = NULL)
+}))
+
+# (3b) The naive convention on the harm side: the section's naive row is the
+#      replication's (Cox SE); the complement's naive row uses the engine's SE.
+#      Both conventions on the harm side, so the difference is on record.
+naive_convention <- do.call(rbind, lapply(seq_along(CELLS), function(k) {
+  r <- bun[[CELLS[k]]]$results
+  data.frame(cell = CELLS[k], beta2 = BETA2[k],
+    cover_replication_se = mean(r$naive_cover),
+    cover_engine_se = mean(r$naive_est - z95 * r$mr_se_wald <= r$theta),
+    mean_se_replication = mean(r$naive_se), mean_se_engine = mean(r$mr_se_wald),
+    row.names = NULL)
+}))
+
+# (4) The committed 16-cell paired record, harm side only, at r = 1/12 and 1/30.
+#     Column reads transplanted from mr_field_vs_guohe.qmd (method_cols).
+P16 <- c(sprintf("t35_beta2_%02d", 0:5), sprintf("t6_k%02d", c(2L, 6L, 10L, 12L)),
+         CELLS)
+.b16 <- c(lapply(stats::setNames(P16[1:10], P16[1:10]), function(id)
+  readRDS(sprintf("mr_field_vs_guohe_%s.rds", id))), bun)
+.m16 <- c("Naive", "G&H r=1/12", "G&H r=1/30", "MR (field)", "MR (IJ)")
+.c16 <- function(res, meth) switch(meth,
+  "Naive"      = list(est = res$naive_est, low = res$naive_lower, cov = res$naive_cover),
+  "G&H r=1/12" = list(est = res$gh_r2_deb, low = res$gh_r2_low, cov = res$gh_r2_cov),
+  "G&H r=1/30" = list(est = res$gh_r4_deb, low = res$gh_r4_low, cov = res$gh_r4_cov),
+  "MR (field)" = list(est = res$fld_est2,  low = res$fld_lower_1s, cov = res$fld_cover_1s),
+  "MR (IJ)"    = list(est = res$mr_est,    low = res$mr_lower_1s,  cov = res$mr_cover))
+pre16 <- do.call(rbind, lapply(P16, function(id) {
+  res <- .b16[[id]]$results
+  do.call(rbind, lapply(.m16, function(meth) {
+    v <- .c16(res, meth); n <- length(v$est); w <- wilson(sum(v$cov), n)
+    data.frame(cell = id, method = meth, cover = mean(v$cov),
+      cover_lo = unname(w["lo"]), cover_hi = unname(w["hi"]),
+      margin = mean(v$est - v$low), bias = mean(v$est - res$theta), n = n,
+      row.names = NULL)
+  }))
+}))
+pre16$design <- ifelse(grepl("^t35", pre16$cell), "Tables 3-5: two complementary subgroups",
+                ifelse(grepl("^t6", pre16$cell), "Table 6: k disjoint null subgroups",
+                       "Table 7: nested continuum"))
+
+payload <- list(
+  bound_t7 = bound_t7, ident_t7 = ident_t7, comp_t7 = comp_t7,
+  joint_t7 = joint_t7, naive_convention = naive_convention, pre16 = pre16,
+  meta = list(
+    nrep = NREP, mcse = MCSE, draws = DRAWS, field_R_out = R_OUT,
+    field_R_in = R_IN, r_fixed = "1/12 (G&H r=1/12: r2 / gh_r2 columns)",
+    scale = "oriented log-HR; *_hr = exp(mean log-scale bound)",
+    complement_truth = 0,
+    head_at_render = tryCatch(system("git rev-parse HEAD", intern = TRUE),
+                              error = function(e) NA_character_),
+    inputs_md5 = tools::md5sum(c(sprintf("mr_field_vs_guohe_%s.rds", P16),
+                                 sprintf("guohe_repro_%s.rds", CELLS),
+                                 sprintf("mr_field_complement_vs_guohe_%s.rds", CELLS))),
+    built_at = Sys.time(), R = R.version.string,
+    forestsearch_version = tryCatch(as.character(utils::packageVersion("forestsearch")),
+                                    error = function(e) NA_character_)))
+saveRDS(payload, .payload_file)
+
+for (nm in c("bound_t7", "ident_t7", "comp_t7", "joint_t7", "naive_convention",
+             "pre16")) {
+  print(knitr::kable(payload[[nm]], digits = 4, row.names = FALSE,
+                     caption = sprintf("Payload element `%s`.", nm)))
+  cat("\n")
+}
+cat("Payload written to `", file.path("_payloads", .qmd_stem,
+    paste0(.qmd_stem, "_payload.rds")), "`.\n\n", sep = "")
 ```
+
 
 # Provenance
 
@@ -535,7 +692,7 @@ if (!CERT_PRESENT) cat(paste0(
 prov <- data.frame(
   Item = c("Cells", "Replicates per cell", "MR draws", "Field $R_{out}$ / $R_{in}$",
            "MCSE at coverage 0.95", "Adaptive column", "Complement / joint (B3)",
-           "Certified-range source (B6)"),
+           "Manuscript payload"),
   Value = c(
     paste(CELLS, collapse = ", "),
     format(NREP),
@@ -545,8 +702,7 @@ prov <- data.frame(
     if (length(FIXR_CELLS)) sprintf("not adopted; fixed r = 1/12 on %s",
       paste(FIXR_CELLS, collapse = ", ")) else "not adopted",
     if (HAVE_COMPLEMENT) "present" else "PENDING (T1 bundles absent)",
-    if (CERT_PRESENT) sprintf("%s (present)", CERT_FILE) else
-      sprintf("%s (MISSING)", CERT_FILE)),
+    file.path("_payloads", .qmd_stem, paste0(.qmd_stem, "_payload.rds"))),
   check.names = FALSE)
 knitr::kable(prov, row.names = FALSE, caption = paste(
   "Inputs and phase state. Every bundle is read-only; the G&H fixed-$r$",
