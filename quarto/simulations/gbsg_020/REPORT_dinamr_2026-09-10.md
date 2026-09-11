@@ -458,3 +458,107 @@ listed; there are no others.
 
 Item 2 (classification vs n **and prevalence**) is served by the retained `ident` / `ident-plot`
 widened to two blocks; item 7 (no acceptance criteria) is served by the removal of `accept`.
+
+---
+
+## Gate 2 — Block A, all six cells: **PASS**, 204 checks, **zero failures**
+
+Checker `gate2.R`; full per-cell record in the campaign log. Gated on the pooled 2,000-row bundle:
+completeness (2,000 rows, `sim_id` 1–2000 with no duplicates, no `CONFIG-ERROR`, every campaign knob
+as set in the pooled meta including `subgroup_method = "dina"`, two seed-disjoint batches,
+`n_workers = 12` and `forestsearch_version = 0.3.5` in **each batch** meta); detection rate; family
+distribution; realized prevalence; finiteness over 38 constructions on every detected replicate; ten
+interval invariants; γ ∈ [0.025, 0.05]; the bound↔quantile identities; p̂ validity; the
+structurally-NA columns reported as such; and the Amendment 3 same-draws assertions.
+
+| cell | rows | detection | family K: min / med / q90 / max (CV) | realized prevalence | γ range (share at floor) | field-s bdc identity | same draws |
+|---|---|---|---|---|---|---|---|
+| HR 1.50 n 500 | 2000 | **0.8750** | 1 / 253.5 / 1111 / 3229 (1.201) | 0.12363 | 0.0250–0.0280 (0.925) | 2.22e-16 | **yes** |
+| HR 1.50 n 1000 | 2000 | **0.8385** | 1 / 156 / 628 / 2596 (1.185) | 0.12388 | at floor 0.93 | ≤ 2.3e-16 | **yes** |
+| HR 1.50 n 1500 | 2000 | **0.7985** | 1 / 103 / 394 / 1954 (1.142) | 0.12401 | at floor 0.93 | ≤ 2.3e-16 | **yes** |
+| HR 1.75 n 500 | 2000 | **0.9080** | 1 / 332 / 1273 / 3246 (1.105) | 0.12363 | at floor 0.92 | ≤ 2.3e-16 | **yes** |
+| HR 1.75 n 1000 | 2000 | **0.9065** | 1 / 232 / 807 / 2721 (1.059) | 0.12388 | at floor 0.92 | ≤ 2.3e-16 | **yes** |
+| HR 1.75 n 1500 | 2000 | **0.8980** | 1 / 177 / 526 / 2315 (1.001) | 0.12401 | at floor 0.92 | ≤ 2.3e-16 | **yes** |
+
+**Amendment 3 holds on all six.** `n_true` `identical()` on all 2,000 rows of every cell; `truth`
+`all.equal` at **tolerance 1e-8** TRUE on every cell. `identical()` is FALSE on the three HR 1.50
+cells at **max abs 6.66e-16 / max rel 3.99e-16** and **exactly TRUE (0 / 0) on all three HR 1.75
+cells** — the HR 1.75 comparators are `tier2`, whose `truth` reproduces bit-for-bit here, while the
+HR 1.50 comparators are `p12ext`, whose two CDE components do not. **No mismatch anywhere**, so
+nothing had to be recorded as a DGM-path finding.
+
+**Classification, and the finding that matters most.**
+
+| cell | sens | spec | PPV | NPV | mean \|Ĥ\| | non-detections |
+|---|---|---|---|---|---|---|
+| HR 1.50 n 500 | 0.530 | 0.852 | 0.349 | 0.929 | 97.9 | 250 |
+| HR 1.50 n 1000 | 0.650 | 0.895 | 0.492 | 0.948 | 173.1 | 323 |
+| HR 1.50 n 1500 | 0.727 | 0.903 | 0.546 | 0.959 | 263.1 | 403 |
+| HR 1.75 n 500 | 0.593 | 0.867 | 0.408 | 0.939 | 95.7 | 184 |
+| HR 1.75 n 1000 | 0.726 | 0.916 | 0.582 | 0.960 | 164.5 | 187 |
+| HR 1.75 n 1500 | 0.804 | 0.928 | 0.643 | 0.971 | 245.0 | 204 |
+
+**Classification improves with n on every axis while detection falls.** At HR 1.50 sensitivity goes
+0.530 → 0.650 → 0.727 and PPV 0.349 → 0.492 → 0.546, yet detection goes 0.875 → 0.839 → **0.799**.
+More data makes DINA *better at describing the region it finds* and *less likely to return one at
+all*. Every non-detection is a genuine no-selection — `err_msg` is set on none of the 1,551 across
+the six cells.
+
+---
+
+## The Block A checkpoint (Amendment 2) — run once
+
+> **Pinned:** Block C stays deferred to a follow-up session **whatever this re-projection shows**
+> (Larry). This checkpoint decides **Block B's cells only**.
+
+| Block A cell | projected (Gate 1) | **realized** | ratio |
+|---|---|---|---|
+| HR 1.50 n 500 | 24.7 min | **30.7 min** | 1.240 |
+| HR 1.50 n 1000 | 22.4 min | **23.3 min** | 1.040 |
+| HR 1.50 n 1500 | 16.5 min | **19.8 min** | 1.196 |
+| HR 1.75 n 500 | 24.7 min | **34.4 min** | 1.389 |
+| HR 1.75 n 1000 | 22.4 min | **28.2 min** | 1.257 |
+| HR 1.75 n 1500 | 16.5 min | **25.7 min** | 1.556 |
+| **total** | **2.123 h** | **2.701 h** | **1.272** |
+
+Gate 1 under-projected Block A by **27%** overall, with a per-cell spread of 1.040–1.556 — outside
+the +16%/−29% FS band that Amendment 1 quoted, and in the costly direction. The re-projection is
+calibrated **by n**, since Block B's cost is n-driven: K₅₀₀ = 1.314, K₁₀₀₀ = 1.149, K₁₅₀₀ = 1.376.
+
+| Block B cell | Gate 1 | **re-projected** |
+|---|---|---|
+| HR 1.50 n 500 | 70.1 min | **92.1 min** (1.535 h) |
+| HR 1.50 n 1000 | 88.8 min | **102.0 min** (1.699 h) |
+| HR 1.50 n 1500 | 97.0 min | **133.5 min** (2.226 h) |
+| HR 1.75 n 500 | 70.1 min | **92.1 min** (1.535 h) |
+| HR 1.75 n 1000 | 88.8 min | **102.0 min** (1.699 h) |
+| HR 1.75 n 1500 | 97.0 min | **133.5 min** (2.226 h) |
+| **total** | 8.529 h | **10.919 h** |
+
+```
+Ceiling 13 h  −  Block A realized 2.701 h  =  remaining budget 10.299 h
+Block B re-projected in full                                  10.919 h
+A + B in full                                                 13.620 h   -> OVER by 0.620 h (6.0%)
+```
+
+### Checkpoint decision
+
+**Block B does not fit in full. One cell is deferred, per the stated order (B's n = 1500 first).**
+
+- **RUN (5 cells, 8.694 h re-projected):** HR 1.50 at n 500 / 1000 / **1500**, HR 1.75 at n 500 /
+  1000. With Block A's 2.701 h that is **11.395 h against the 13 h ceiling — 12% headroom**.
+- **DEFER (1 cell):** **HR 1.75, n 1500** at 31%.
+- **DEFER (6 cells, pinned):** all of **Block C**.
+
+**Which n = 1500 cell to defer is a judgment the stated order does not settle**, so it is recorded
+here. Deferring **HR 1.75** rather than HR 1.50 keeps the **complete HR 1.50 n-trajectory
+(500 / 1000 / 1500) at both prevalences**, which is exactly what the Stage 3 two-sided decay question
+needs — it is asked first at HR 1.50, and Block A already supplies the full HR 1.75 trajectory at
+12.4%. Deferring HR 1.50 instead would have left the primary trajectory broken at 31% while
+preserving a secondary one.
+
+Dropping the **minimum** that makes it fit, rather than both n = 1500 cells, follows Amendment 4's
+stated intent that Block B complete as far as it can; both would have cost a further 2.226 h of
+science for no budget reason.
+
+Block B launched immediately on this result. Hard timeout stands at 16 h.
