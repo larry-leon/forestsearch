@@ -1,0 +1,127 @@
+{
+ "target": "quarto/GuoHe/guohe_supp_section.qmd",
+ "result_sha256": "15abd1209a4ea42432389a6e8d8c7ece1972c4a39f7f4632ac0d65a7b33c6866",
+ "target_blob_git": "4afa7e42d8c23b335fe8c06ff720cdbc1389d5a3",
+ "target_sha256": "0058800765baa846721e562b59756be2cf875fd9b2e23d319cd65e0b00f12a4a",
+ "base_commit": "482068bce868e87b73aba1ae591326095bd43464",
+ "edits": [
+  {
+   "id": "E01",
+   "kind": "replace",
+   "purpose": "YAML title/subtitle: analysis record; no 'data-built' for the t7 family; Adaptive not a reported column",
+   "old": "title: \"Guo & He (2021) comparison for the post-selection supplement\"\nsubtitle: \"Table 7 (nested, data-built family): the fixed-$r$ and Adaptive columns against MR, and the complement/joint capability\"\n",
+   "new": "title: \"Guo & He (2021) comparison: analysis record\"\nsubtitle: \"Table 7 (a nested family cut at every observed value): Guo & He at fixed $r$ against MR, identification by the argmax, and the complement/joint capability\"\n"
+  },
+  {
+   "id": "E02",
+   "kind": "replace",
+   "purpose": "setup comment: this is the analysis record; the manuscript section is drafted from its payload",
+   "old": "# T3 assembly document for the fs-post-selection supplement.\n",
+   "new": "# Analysis record for the Guo & He comparison. The manuscript section is\n# drafted separately, from the payload written in \"Manuscript payload\" below\n# (dev/tasks/claude_cc_task_guohe_record_payload_2026-09-11.md). Originally the\n# T3 assembly document for the fs-post-selection supplement.\n"
+  },
+  {
+   "id": "E03",
+   "kind": "span",
+   "purpose": "setup: remove the E1 range-citation block and the dev/notes read (span verified by SHA-256)",
+   "start": "# ---- certified ranges: cite the record that EXISTS",
+   "end": "z95 <- qnorm(0.95)",
+   "span_sha256": "767cb45eb60438101a64f5d46419d68cbdc589db9b07eebbde29bbef2b279f8f",
+   "span_lines": 28,
+   "new": "# The E1 range citations and their read from dev/notes/ were removed on\n# 2026-09-11 (see B6, limit 2, and the task document named above).\n\n"
+  },
+  {
+   "id": "E04",
+   "kind": "replace",
+   "purpose": "opening: 'nested, data-built' -> 'nested'",
+   "old": "**nested, data-built** candidate family",
+   "new": "**nested** candidate family"
+  },
+  {
+   "id": "E05",
+   "kind": "replace",
+   "purpose": "opening: say what the order-statistic family is",
+   "old": "over $30$ and every observed $w \\in (30, 60]$ — roughly 151 candidates per\nreplicate.",
+   "new": "over $30$ and every observed $w \\in (30, 60]$ — the distinct members of Guo and\nHe's continuum $c \\in [30, 60]$, since the estimate changes only at observed\nvalues; roughly 151 candidates per replicate."
+  },
+  {
+   "id": "E06",
+   "kind": "replace",
+   "purpose": "opening: D1 rationale without 'data-built'",
+   "old": "is nested and data-built and therefore",
+   "new": "is a nested continuum of cutpoints and therefore"
+  },
+  {
+   "id": "E07",
+   "kind": "replace",
+   "purpose": "B2 callout: replace the unsupported adjacency mechanism with Guo & He's own Section 2.5 reading",
+   "old": "   here unchanged. The published columns are themselves conservative\n   ($0.947$–$0.973$ against a nominal $0.95$), because adjacent nested\n   candidates differ by a single subject and the effective number of\n   independent comparisons is far below the family size.\n",
+   "new": "   here unchanged. The published columns are themselves conservative\n   ($0.947$–$0.973$ against a nominal $0.95$), and increasingly so as $r$\n   falls ($0.947$–$0.964$ at $r = 1/3$; $0.961$–$0.973$ at $r = 1/12$ to\n   $1/30$) — the finite-sample behaviour Guo and He describe for small $r$\n   (their Section 2.5).\n"
+  },
+  {
+   "id": "E08",
+   "kind": "replace",
+   "purpose": "B3 fixed sentence 1, D1: 'hazard-ratio scale' -> 'log-hazard-ratio scale' (Guo & He Table 8 caption)",
+   "old": "> hazard-ratio scale; this is the identical one-sided lower-bound construction\n",
+   "new": "> log-hazard-ratio scale; this is the identical one-sided lower-bound construction\n"
+  },
+  {
+   "id": "E09",
+   "kind": "replace",
+   "purpose": "B3: render the complement-truth explanation (was only in the never-taken branch) and scope the structural argument",
+   "old": "```{r b3-table}\n",
+   "new": "On this design the complement's true effect is **exactly 0**: the DGM sets\n$b(W) = \\beta_2$ on $\\{W \\le 30\\}$ and $0$ elsewhere\n(`guohe_sec52_truth.R:75`), and the family starts at $30$, so every\n$\\hat H^c = \\{W > \\hat c\\}$ lies inside the null region and complement\ncoverage is simply upper $\\ge 0$. The structural argument above concerns this\ndesign's nested family, in which $\\hat H^c$ is never a candidate. It is not\nclaimed for Guo and He's two-subgroup design (their Section 5.1), where the\ncomplement of the selected subgroup is the other candidate — with two\ncandidates, the argmin — nor for their MONET1 families (their Section 4), which\ncontain each subgroup and its complement.\n\n```{r b3-table}\n"
+  },
+  {
+   "id": "E10",
+   "kind": "replace",
+   "purpose": "B5 table: specificity/PPV shown as '—' at beta2 = 0 (no harm region); add mean gamma_c-hat",
+   "old": "    `Mean specificity` = sprintf(\"%.3f\", mean(spec_of(r$c_hat))),\n    `Mean PPV` = sprintf(\"%.3f\", mean(ppv_of(r$c_hat))),\n",
+   "new": "    `Mean specificity` = if (BETA2[k] == 0) \"—\" else\n      sprintf(\"%.3f\", mean(spec_of(r$c_hat))),\n    `Mean PPV` = if (BETA2[k] == 0) \"—\" else\n      sprintf(\"%.3f\", mean(ppv_of(r$c_hat))),\n    `Mean $\\\\gamma_{\\\\hat c}$` = sprintf(\"%.3f\", mean(r$theta)),\n"
+  },
+  {
+   "id": "E11",
+   "kind": "replace",
+   "purpose": "B5 caption: say why beta2 = 0 shows '—' and what mean gamma_c-hat is",
+   "old": "  \"not tabulated. Marginal SD is $\\\\mathrm{sd}(\\\\hat\\\\beta_2)$ across replicates;\",\n",
+   "new": "  \"not tabulated. At $\\\\beta_2 = 0$ there is no harm region, so specificity and\",\n  \"PPV are shown as —. Mean $\\\\gamma_{\\\\hat c}$ is the true effect in the\",\n  \"selected subgroup, averaged over replicates.\",\n  \"Marginal SD is $\\\\mathrm{sd}(\\\\hat\\\\beta_2)$ across replicates;\",\n"
+  },
+  {
+   "id": "E12",
+   "kind": "replace",
+   "purpose": "B5 callout: identification has one dimension here; the null cell as reference; overshoot reaches the estimand",
+   "old": "::: {.callout-note appearance=\"simple\"}\n**Classification is not the right lens on this design, and its arithmetic says\nwhy.** The true harm region is $H = \\{W \\le 30\\}$ and every candidate is\n$S(c) = \\{W \\le c\\}$ with $\\hat c \\ge 30$, so $H = S(30) \\subseteq S(\\hat c)$\nfor every replicate. With $W \\sim \\mathrm{Unif}(0, 80)$ the classification\noperating characteristics are therefore closed forms in $\\hat c$ alone:\n\n- **Sensitivity $\\equiv 1$** and **NPV $\\equiv 1$** — *identically*, by nesting,\n  not by merit. Both are degenerate by construction on this design, so neither\n  is tabulated: a column of ones would read as a result when it is an artefact\n  of $H \\subseteq S(\\hat c)$.\n- **Specificity** $= (80 - \\hat c)/50$ — reported per cell above.\n- **PPV** $= 30/\\hat c$ — reported per cell above.\n\nSensitivity carries no information in this design. The whole of the\nidentification story is how far $\\hat c$ overshoots $30$, which the $\\hat c$\ndistribution above reports directly and which specificity and PPV then restate\nas monotone functions of it.\n:::\n\n",
+   "new": "::: {.callout-note appearance=\"simple\"}\n**On this design identification has one dimension, and its arithmetic says\nwhy.** The true harm region is $H = \\{W \\le 30\\}$ and every candidate is\n$S(c) = \\{W \\le c\\}$ with $\\hat c \\ge 30$, so $H = S(30) \\subseteq S(\\hat c)$\nfor every replicate. With $W \\sim \\mathrm{Unif}(0, 80)$ the classification\noperating characteristics are therefore closed forms in $\\hat c$ alone:\n\n- **Sensitivity $\\equiv 1$** and **NPV $\\equiv 1$** (for $\\beta_2 > 0$) —\n  *identically*, by nesting, not by merit. Both are degenerate by construction\n  on this design, so neither is tabulated: a column of ones would read as a\n  result when it is an artefact of $H \\subseteq S(\\hat c)$.\n- **Specificity** $= (80 - \\hat c)/50$ — reported per cell above.\n- **PPV** $= 30/\\hat c$ — reported per cell above.\n\nThe whole of the identification story is how far $\\hat c$ overshoots $30$,\nwhich the $\\hat c$ distribution above reports directly and which specificity\nand PPV then restate as monotone functions of it. Two further readings follow\nfrom the same arithmetic. At $\\beta_2 = 0$ there is no harm region: every\nselection is a false identification, specificity and PPV are not defined as\naccuracy there, and that cell's $\\hat c$ distribution is the reference for the\nargmax's own pull toward the smallest candidate, $c = 30$ — where the true\nboundary of the other cells sits. And overshoot reaches the estimand:\n$\\gamma_{\\hat c} = \\beta(\\hat c)$ is a weighted average of $b(\\cdot)$ over\n$[0, \\hat c]$ (Guo and He, Section 5.2), so it falls below $\\beta_2$ as\n$\\hat c$ overshoots, which the mean $\\gamma_{\\hat c}$ column shows.\n:::\n\n"
+  },
+  {
+   "id": "E13",
+   "kind": "span",
+   "purpose": "B6: limit 1 re-grounded on this design's records; E1 ranges and dev/notes read removed; limit 3 acknowledges G&H Section 6; limit 5 added; cert-note chunk removed",
+   "start": "```{r b6}\n",
+   "end": "# Provenance\n",
+   "span_sha256": "ce0078f0cf9aa22bf266c696332cca7bcff44b19441e3a98185d8abae4e3017e",
+   "span_lines": 76,
+   "new": "```{r b6}\n#| output: asis\n# The field's coverage figures are COMPUTED from the rendered bundles, never\n# transcribed, so this paragraph cannot go stale against the tables above.\n# Rewritten 2026-09-11 (dev/tasks/claude_cc_task_guohe_record_payload_2026-09-11.md):\n# limit 1 is grounded on this design's own records (its earlier regime\n# attribution came from campaign e1stud, not from this design); the E1 range\n# citations and the dev/notes read are removed; limit 3 acknowledges Guo & He\n# Section 6.\nfld_cov   <- SUM$cover[SUM$method == \"MR (field)\"]\nfld_bias  <- SUM$bias[SUM$method == \"MR (field)\"]\nfld_lo3   <- sort(fld_cov)[1:3]\nfld_min   <- sprintf(\"%.3f\", min(fld_lo3))\nfld_range <- sprintf(\"%.3f–%.3f\", min(fld_lo3), max(fld_lo3))\nfld_bias_range <- sprintf(\"%+.3f to %+.3f\", min(fld_bias), max(fld_bias))\nstopifnot(all(fld_bias > 0))  # limit 1 states the bias is positive in every cell\nphat_med   <- vapply(CELLS, function(id) median(bun[[id]]$results$p_hat_H), numeric(1))\nphat_range <- sprintf(\"%.3f–%.3f\", min(phat_med), max(phat_med))\n.cu <- vapply(CMP, function(b) mean(b$results$c_cover_95_s), numeric(1))\nstopifnot(BETA2[which.min(.cu)] == 0)  # limit 1 places the complement's low point at the null cell\ncmp_low <- sprintf(\"%.3f\", min(.cu))\n\ncat(sprintf(paste0(\n\"Five limits belong on the record, stated plainly.\\n\\n\",\n\n\"1. **The field's low points are under-correction on a nested family.** \",\n\"Across these cells the MR (field) one-sided coverage **bottoms out at %s**, \",\n\"with the three lowest cells spanning %s, and its point estimate est2 keeps a \",\n\"positive bias in every cell (%s). The committed 16-cell record reads the \",\n\"nested family as the hardest case for the second-order correction, \",\n\"consistent with the first proof-of-concept's reading that the excess is a \",\n\"property of unequal candidate variances under nesting \",\n\"(`REPORT_mr_field_vs_guohe_2026-09-05.md:34`). The complement bound's low \",\n\"point, %s, is the null cell, where the selection is loosest \",\n\"(`REPORT_mr_complement_vs_guohe_2026-09-09.md:174`), and re-selection is \",\n\"spread thin throughout (median $\\\\hat p(\\\\hat H)$ %s; B5): these shortfalls \",\n\"sit where the pick is least settled. The design is also Guo and He's own \",\n\"ground. It illustrates their continuum results (their Section 3, Theorems \",\n\"4–5), whereas its ~151 candidates, each differing from its neighbour by one \",\n\"subject, are the near-duplicate case that strains the no-tie condition (A5) \",\n\"behind our construction's theory (supplement Section S5, \\\"No-tie \",\n\"regularity\\\"). The field's calibration here is an empirical finding on this \",\n\"design, not a consequence of that theory.\\n\\n\",\n\n\"2. **The complement and joint figures in @sec-b3 belong to this design \",\n\"alone.** They say nothing about forestsearch's own screened identifier, \",\n\"which is evaluated separately (campaign `e1stud`, \",\n\"`REVIEW_E1_fields_2026-09-08.md`, whose pre-registered complement criterion \",\n\"was not met, `:10`).\\n\\n\",\n\n\"3. **Guo & He is not run on forestsearch's screened family.** Their method \",\n\"is applied exactly as published, on the family their Section 5.2 specifies. \",\n\"Guo and He suggest (their Section 6) that when identification involves other \",\n\"considerations their bound serves as a conservative approach; that \",\n\"suggestion is not tested here, and no claim is made either way.\\n\\n\",\n\n\"4. **Everything here is one-sided.** Every construction compared in this \",\n\"section is one-sided, so none of it depends on the choice of two-sided \",\n\"interval method.\\n\\n\",\n\n\"5. **Identification is flattered by construction.** The true boundary is \",\n\"the family's smallest member, toward which the argmax is drawn even at \",\n\"$\\\\beta_2 = 0$; \",\n\"sensitivity and NPV are identically 1 for $\\\\beta_2 > 0$, and overshoot is \",\n\"the only identification error (B5). The screen and forestsearch's family \",\n\"construction are not exercised, the complement's truth is 0 in every cell \",\n\"(so a benefit claim is never tested), and everything is at $n = 400$.\\n\"),\nfld_min, fld_range, fld_bias_range, cmp_low, phat_range))\n```\n\n"
+  },
+  {
+   "id": "E14",
+   "kind": "replace",
+   "purpose": "insert the 'Manuscript payload' section (export-payload chunk) before Provenance",
+   "old": "\n# Provenance\n",
+   "new": "\n# Manuscript payload\n\nThe manuscript section is drafted from this payload, not from the tables above.\nIt is a superset, so trimming the section never forces a rebuild, and every\nelement is computed here from the committed bundles: nothing is re-run and\nnothing is typed. Bounds are on the oriented log-hazard-ratio scale; each `_hr`\ncolumn is $\\exp$ of the corresponding mean log-scale bound.\n\n```{r export-payload}\n#| output: asis\n# TASK dev/tasks/claude_cc_task_guohe_record_payload_2026-09-11.md.\n# Location pattern transplanted from the export-payload chunk of\n# quarto/applications/actg175/analysis_actg175_continuous_oc.qmd:\n# <qmd dir>/_payloads/<stem>/<stem>_payload.rds.\n.qmd_dir  <- tryCatch(dirname(knitr::current_input(dir = TRUE)),\n                      error = function(e) getwd())\n.qmd_stem <- tryCatch(tools::file_path_sans_ext(basename(knitr::current_input())),\n                      error = function(e) \"guohe_supp_section\")\n.out_dir  <- file.path(.qmd_dir, \"_payloads\", .qmd_stem)\ndir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)\n.payload_file <- file.path(.out_dir, paste0(.qmd_stem, \"_payload.rds\"))\n\n# (1) The bound for gamma_c-hat on t7: SUM (B2, unchanged) plus the mean bound.\n.low <- do.call(rbind, lapply(CELLS, function(id) data.frame(\n  cell = id, method = METHODS,\n  mean_lower = vapply(METHODS, function(m)\n    mean(method_cols(bun[[id]]$results, m, REPRO[[id]], FIXR[[id]])$low),\n    numeric(1)),\n  row.names = NULL)))\nbound_t7 <- merge(SUM, .low, by = c(\"cell\", \"method\"), sort = FALSE)\nbound_t7 <- bound_t7[order(match(bound_t7$cell, CELLS),\n                           match(bound_t7$method, METHODS)), ]\nbound_t7$beta2 <- BETA2[match(bound_t7$cell, CELLS)]\nbound_t7$mean_lower_hr <- exp(bound_t7$mean_lower)\nrownames(bound_t7) <- NULL\n\n# (2) Identification on t7 (H = {W <= 30}; no harm region at beta2 = 0).\nident_t7 <- do.call(rbind, lapply(seq_along(CELLS), function(k) {\n  r <- bun[[CELLS[k]]]$results; ch <- r$c_hat\n  data.frame(cell = CELLS[k], beta2 = BETA2[k],\n    chat_min = min(ch), chat_q25 = unname(quantile(ch, 0.25)),\n    chat_med = median(ch), chat_q75 = unname(quantile(ch, 0.75)),\n    chat_max = max(ch), p_chat_30 = mean(abs(ch - 30) < 1e-9),\n    spec_mean = if (BETA2[k] == 0) NA_real_ else mean((80 - ch) / 50),\n    ppv_mean  = if (BETA2[k] == 0) NA_real_ else mean(30 / ch),\n    n_sel_mean = mean(r$n_sel), n_sel_med = median(r$n_sel),\n    gamma_mean = mean(r$theta), dilution = BETA2[k] - mean(r$theta),\n    phat_med = median(r$p_hat_H), phat_q25 = unname(quantile(r$p_hat_H, 0.25)),\n    phat_q75 = unname(quantile(r$p_hat_H, 0.75)), phat_mean = mean(r$p_hat_H),\n    M_eff_med = median(r$M_eff),\n    sd_marg = sd(r$fld_est2), sd_err = sd(r$fld_est2 - r$theta),\n    row.names = NULL)\n}))\n\n# (3) Complement and joint on t7 (complement truth exactly 0: cover = upper >= 0).\n#     naive = cgate_naive_est + z95 * cgate_se_wald, the engine's own naive\n#     convention (se_wald = the candidate SE; R/fs_mr_inference.R naive block);\n#     IJ two-term = cgate_est + z95 * cgate_se_ij, mirroring the harm side's\n#     lower_1s. Definitions are quoted in the Stage 0 record.\n.up_row <- function(u, n) { x <- sum(u >= 0); w <- wilson(x, n)\n  c(cover = x / n, lo = unname(w[\"lo\"]), hi = unname(w[\"hi\"])) }\ncomp_t7 <- do.call(rbind, lapply(seq_along(CELLS), function(k) {\n  r <- CMP[[CELLS[k]]]$results; n <- nrow(r)\n  up <- list(naive   = r$cgate_naive_est + z95 * r$cgate_se_wald,\n             ij      = r$cgate_est + z95 * r$cgate_se_ij,\n             field   = r$c_upper_95,\n             field_s = r$c_upper_95_s)\n  do.call(rbind, lapply(names(up), function(m) {\n    cv <- .up_row(up[[m]], n)\n    data.frame(cell = CELLS[k], beta2 = BETA2[k], method = m,\n      cover = cv[[\"cover\"]], cover_lo = cv[[\"lo\"]], cover_hi = cv[[\"hi\"]],\n      mean_upper = mean(up[[m]]), mean_upper_hr = exp(mean(up[[m]])),\n      row.names = NULL)\n  }))\n}))\njoint_t7 <- do.call(rbind, lapply(seq_along(CELLS), function(k) {\n  r <- CMP[[CELLS[k]]]$results; n <- nrow(r)\n  ws <- wilson(sum(r$joint_cover_s), n); wu <- wilson(sum(r$joint_cover), n)\n  data.frame(cell = CELLS[k], beta2 = BETA2[k],\n    joint_s = mean(r$joint_cover_s), joint_s_lo = unname(ws[\"lo\"]),\n    joint_s_hi = unname(ws[\"hi\"]),\n    joint = mean(r$joint_cover), joint_lo = unname(wu[\"lo\"]),\n    joint_hi = unname(wu[\"hi\"]),\n    corr_mean = mean(r$joint_corr), corr_s_mean = mean(r$joint_corr_s),\n    pair_lower_H = mean(r$h_lower_975),\n    pair_lower_H_hr = exp(mean(r$h_lower_975)),\n    pair_upper_Hc_s = mean(r$c_upper_975_s),\n    pair_upper_Hc_s_hr = exp(mean(r$c_upper_975_s)),\n    row.names = NULL)\n}))\n\n# (3b) The naive convention on the harm side: the section's naive row is the\n#      replication's (Cox SE); the complement's naive row uses the engine's SE.\n#      Both conventions on the harm side, so the difference is on record.\nnaive_convention <- do.call(rbind, lapply(seq_along(CELLS), function(k) {\n  r <- bun[[CELLS[k]]]$results\n  data.frame(cell = CELLS[k], beta2 = BETA2[k],\n    cover_replication_se = mean(r$naive_cover),\n    cover_engine_se = mean(r$naive_est - z95 * r$mr_se_wald <= r$theta),\n    mean_se_replication = mean(r$naive_se), mean_se_engine = mean(r$mr_se_wald),\n    row.names = NULL)\n}))\n\n# (4) The committed 16-cell paired record, harm side only, at r = 1/12 and 1/30.\n#     Column reads transplanted from mr_field_vs_guohe.qmd (method_cols).\nP16 <- c(sprintf(\"t35_beta2_%02d\", 0:5), sprintf(\"t6_k%02d\", c(2L, 6L, 10L, 12L)),\n         CELLS)\n.b16 <- c(lapply(stats::setNames(P16[1:10], P16[1:10]), function(id)\n  readRDS(sprintf(\"mr_field_vs_guohe_%s.rds\", id))), bun)\n.m16 <- c(\"Naive\", \"G&H r=1/12\", \"G&H r=1/30\", \"MR (field)\", \"MR (IJ)\")\n.c16 <- function(res, meth) switch(meth,\n  \"Naive\"      = list(est = res$naive_est, low = res$naive_lower, cov = res$naive_cover),\n  \"G&H r=1/12\" = list(est = res$gh_r2_deb, low = res$gh_r2_low, cov = res$gh_r2_cov),\n  \"G&H r=1/30\" = list(est = res$gh_r4_deb, low = res$gh_r4_low, cov = res$gh_r4_cov),\n  \"MR (field)\" = list(est = res$fld_est2,  low = res$fld_lower_1s, cov = res$fld_cover_1s),\n  \"MR (IJ)\"    = list(est = res$mr_est,    low = res$mr_lower_1s,  cov = res$mr_cover))\npre16 <- do.call(rbind, lapply(P16, function(id) {\n  res <- .b16[[id]]$results\n  do.call(rbind, lapply(.m16, function(meth) {\n    v <- .c16(res, meth); n <- length(v$est); w <- wilson(sum(v$cov), n)\n    data.frame(cell = id, method = meth, cover = mean(v$cov),\n      cover_lo = unname(w[\"lo\"]), cover_hi = unname(w[\"hi\"]),\n      margin = mean(v$est - v$low), bias = mean(v$est - res$theta), n = n,\n      row.names = NULL)\n  }))\n}))\npre16$design <- ifelse(grepl(\"^t35\", pre16$cell), \"Tables 3-5: two complementary subgroups\",\n                ifelse(grepl(\"^t6\", pre16$cell), \"Table 6: k disjoint null subgroups\",\n                       \"Table 7: nested continuum\"))\n\npayload <- list(\n  bound_t7 = bound_t7, ident_t7 = ident_t7, comp_t7 = comp_t7,\n  joint_t7 = joint_t7, naive_convention = naive_convention, pre16 = pre16,\n  meta = list(\n    nrep = NREP, mcse = MCSE, draws = DRAWS, field_R_out = R_OUT,\n    field_R_in = R_IN, r_fixed = \"1/12 (G&H r=1/12: r2 / gh_r2 columns)\",\n    scale = \"oriented log-HR; *_hr = exp(mean log-scale bound)\",\n    complement_truth = 0,\n    head_at_render = tryCatch(system(\"git rev-parse HEAD\", intern = TRUE),\n                              error = function(e) NA_character_),\n    inputs_md5 = tools::md5sum(c(sprintf(\"mr_field_vs_guohe_%s.rds\", P16),\n                                 sprintf(\"guohe_repro_%s.rds\", CELLS),\n                                 sprintf(\"mr_field_complement_vs_guohe_%s.rds\", CELLS))),\n    built_at = Sys.time(), R = R.version.string,\n    forestsearch_version = tryCatch(as.character(utils::packageVersion(\"forestsearch\")),\n                                    error = function(e) NA_character_)))\nsaveRDS(payload, .payload_file)\n\nfor (nm in c(\"bound_t7\", \"ident_t7\", \"comp_t7\", \"joint_t7\", \"naive_convention\",\n             \"pre16\")) {\n  print(knitr::kable(payload[[nm]], digits = 4, row.names = FALSE,\n                     caption = sprintf(\"Payload element `%s`.\", nm)))\n  cat(\"\\n\")\n}\ncat(\"Payload written to `\", file.path(\"_payloads\", .qmd_stem,\n    paste0(.qmd_stem, \"_payload.rds\")), \"`.\\n\\n\", sep = \"\")\n```\n\n\n# Provenance\n"
+  },
+  {
+   "id": "E15",
+   "kind": "replace",
+   "purpose": "provenance: item label",
+   "old": "           \"Certified-range source (B6)\"),\n",
+   "new": "           \"Manuscript payload\"),\n"
+  },
+  {
+   "id": "E16",
+   "kind": "replace",
+   "purpose": "provenance: item value",
+   "old": "    if (CERT_PRESENT) sprintf(\"%s (present)\", CERT_FILE) else\n      sprintf(\"%s (MISSING)\", CERT_FILE)),\n",
+   "new": "    file.path(\"_payloads\", .qmd_stem, paste0(.qmd_stem, \"_payload.rds\"))),\n"
+  }
+ ]
+}
