@@ -1,0 +1,681 @@
+---
+title: "DINA at the FS-analogous criterion: naive / field / field-s / IJ two-term across both prevalences"
+subtitle: "Campaign dinamr (effMaxSG eps 0.20, J 10, n 500 / 1000 / 1500 at HR 1.50 / 1.75 / 1.00, 12.4% and 31% prevalence); TASK_dinamr_campaign_2026-09-10; transplanted from summary_cert20.qmd"
+author: "Larry Leon"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+---
+
+> **This does not certify DINA.** DINA's candidates are read off a cross-fit surface that a
+> bootstrap would regenerate, so the manuscript's fixed-family condition (§2.1) does not hold.
+> After the alignment repair the estimate and interval are first-order exact **conditional on
+> the proposed family**. **Every coverage number in this document is coverage of that
+> conditional-on-proposed-family estimand**, and every table says so in its caption. Nothing
+> here is scored against an acceptance criterion; none was pre-registered and none is proposed.
+> The FS ranges quoted in @sec-fsgrid are reference lines, not a bar.
+
+**The criterion is FS-analogous by construction.** `effMaxSG` at ε = 0.20 reuses
+`.compute_inclusion_band()` — the one band helper shared with `forestsearch()` — with DINA's
+effect floor log(0.90) = −0.105361 and **no consistency term**. That absent consistency term is
+the one structural difference from FS, because neither DINA nor GRF has a consistency floor
+(`REPORT_o1_forwarding_2026-09-10` §V2). DINA applies the band as a **sort key**, so it never
+empties. `dina_select_statistic = "effect"`, which is also the package default.
+`FS_S7_ER_JCUTS` is **inert on DINA** — it feeds the consistency-only `method_args`, and DINA's
+candidate grid does not read it — so it was deliberately not set; the `er_jcuts` recorded in
+meta is the template default 10 and governs nothing on this path.
+
+**Grid.** Two prevalence blocks at ε = 0.20: **Block A** = 12.4% (`harm_z1_quantile` at the
+template default 0.25) and **Block B** = 31% (`FS_S7_Z1Q = 0.60`), each at HR 1.50 and 1.75 for
+n = 500 / 1000 / 1500; **Block C** = the HR 1.00 null cells at both prevalences. Seeds
+8316951 + sim_id, sim_id 1–2000 as two seed-disjoint batches of 1,000, then combined.
+**GRF is out of scope.**
+
+**Standing conventions.** Bounds read by location, never as significance at the null; Wilson
+95% limits everywhere; marginal and error SDs side by side; NPV beside sens/spec/PPV;
+winner-only and winner-floor excluded throughout.
+
+# Bundles and the Gate 2 record {#sec-bundles}
+
+```{r setup, message=FALSE, warning=FALSE}
+library(forestsearch)
+library(ggplot2)
+library(kableExtra)
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
+R <- "results/"
+mk <- function(block, prev, n, hr, arm) {
+  z <- if (block == "A") "" else "_z1q60"
+  list(label = sprintf("%s: HR %.2f, n %d", block, hr, n),
+       block = block, prev = prev, n = n, hr = hr, arm = arm,
+       file = sprintf("%sdina_effMaxSG_fb_mr_field_m1_h%03d_knoise0_n%d%s_nb20_dinamr_combined_1_2000.rds",
+                      R, round(100 * hr), n, z))
+}
+cells <- c(
+  lapply(list(c(1.50,500),c(1.50,1000),c(1.50,1500),c(1.75,500),c(1.75,1000),c(1.75,1500)),
+         function(x) mk("A", 0.124, as.integer(x[2]), x[1], "harm")),
+  lapply(list(c(1.50,500),c(1.50,1000),c(1.50,1500),c(1.75,500),c(1.75,1000),c(1.75,1500)),
+         function(x) mk("B", 0.31,  as.integer(x[2]), x[1], "harm")),
+  lapply(list(c(1.00,500),c(1.00,1000),c(1.00,1500)),
+         function(x) mk("A", 0.124, as.integer(x[2]), x[1], "null")),
+  lapply(list(c(1.00,500),c(1.00,1000),c(1.00,1500)),
+         function(x) mk("B", 0.31,  as.integer(x[2]), x[1], "null")))
+names(cells) <- vapply(cells, `[[`, "", "label")
+
+present <- vapply(cells, function(cl) file.exists(cl$file), TRUE)
+B  <- lapply(cells[present], function(cl) readRDS(cl$file))
+CL <- cells[present]; labs <- names(CL)
+NN  <- vapply(CL, `[[`, 0L, "n");   HR  <- vapply(CL, `[[`, 0, "hr")
+ARM <- vapply(CL, `[[`, "", "arm"); BLK <- vapply(CL, `[[`, "", "block")
+harm_labs <- labs[ARM == "harm"]; null_labs <- labs[ARM == "null"]
+A_labs <- labs[BLK == "A"]; B_labs <- labs[BLK == "B"]
+
+# THE ABSENT-CELL GUARD (the A3 behaviour on the e1stud set: a per-cell chunk
+# rendered an empty table rather than being skipped).  Every chunk below that
+# could produce an empty artifact is wrapped in have() / skip_note().
+have <- function(x) length(x) > 0L && nrow(as.data.frame(x)) > 0L
+skip_note <- function(what) cat(sprintf("\n*Skipped: %s. Not rendered empty -- the cell(s) it needs are absent from this render.*\n\n", what))
+
+missing_cells <- names(cells)[!present]
+cat(sprintf("Cells on disk: %d of %d.\n", sum(present), length(cells)))
+if (length(missing_cells))
+  cat("DEFERRED / NOT ON DISK (omitted from every table below, not rendered empty):\n  - ",
+      paste(missing_cells, collapse = "\n  - "), "\n", sep = "")
+```
+
+```{r inventory}
+if (!length(labs)) { skip_note("the whole document: no dinamr bundle is on disk") } else {
+INV <- do.call(rbind, lapply(labs, function(k) {
+  b <- B[[k]]; r <- b$results; m <- b$meta
+  data.frame(cell = k, block = BLK[[k]], n = NN[[k]], HR = HR[[k]], arm = ARM[[k]], rows = nrow(r),
+             engine = m$subgroup_method %||% NA, campaign = m$campaign_tag %||% NA,
+             focus = m$sg_focus %||% NA, eps = m$effect_neighborhood %||% NA,
+             z1q = m$harm_z1_quantile %||% NA, prev_super = m$harm_prevalence_super %||% NA,
+             prev_trial = mean(r$n_true) / NN[[k]],
+             scale_c = m$field_scale_complement %||% NA, decomp = m$field_decompose %||% NA,
+             recov = m$field_recovery %||% NA, ij = m$ij_residual %||% NA,
+             fsver = m$forestsearch_version %||% NA,
+             detected = sum(r$detected %in% 1L),
+             detection = mean(r$detected %in% 1L),
+             K_med = stats::median(r$n_family), K_q90 = unname(stats::quantile(r$n_family, .9)),
+             marg_H = unname(b$truth$marg_H), marg_Hc = unname(b$truth$marg_Hc)) }))
+kbl(INV, digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "The cells on disk: engine and knobs as recorded in the pooled meta, realized prevalence (super-population and trial mean), DETECTION RATE, proposed-family size (median, q90), and the marginal Cox targets. Cells absent from disk are omitted here and everywhere below.") |>
+  kable_styling(font_size = 9)
+}
+```
+
+## Detection rate, recorded prominently {#sec-detect}
+
+Every summary in this document conditions on detection, and DINA's detection rate differs from
+FS's. It is therefore stated before any coverage number.
+
+```{r detection}
+if (!have(labs)) skip_note("the detection table") else {
+DET <- INV[, c("cell", "block", "n", "HR", "arm", "detected", "detection", "K_med", "K_q90", "prev_trial")]
+DET <- DET[order(DET$arm, DET$block, DET$HR, DET$n), ]
+kbl(DET, digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "DETECTION RATE per cell out of 2,000 replicates, with the proposed-family size (median and q90) and the realized trial prevalence beside it. Every coverage number in this document is computed on the detected replicates of the cell named in its row, and is coverage of the conditional-on-proposed-family estimand.") |>
+  kable_styling(font_size = 10)
+}
+```
+
+```{r detection-plot, fig.width = 10, fig.height = 3.6}
+if (!have(labs)) skip_note("the detection plot") else {
+DP <- INV[, c("n", "HR", "block", "detection")]
+DP$HR <- factor(DP$HR); DP$block <- factor(DP$block, levels = c("A","B"),
+                                           labels = c("A: 12.4%", "B: 31%"))
+ggplot(DP, aes(n, detection, colour = HR, group = HR)) +
+  geom_point() + geom_line() + facet_wrap(~ block) + ylim(0, 1) +
+  labs(x = "n", y = "detection rate", title = "DINA detection versus n, by prevalence block") +
+  theme_bw(base_size = 11)
+}
+```
+
+## Structurally-NA columns {#sec-structna}
+
+```{r structna}
+if (!have(labs)) skip_note("the structural-NA table") else {
+SN <- do.call(rbind, lapply(labs, function(k) {
+  r <- B[[k]]$results
+  f <- function(cn) if (!cn %in% names(r)) "not a recorder column" else
+                    if (all(is.na(r[[cn]]))) "all-NA (structural)" else "POPULATED"
+  data.frame(cell = k, n_cons_qual = f("n_cons_qual"), band_n = f("band_n"),
+             p_star = if ("p_star" %in% names(r)) f("p_star") else "not a recorder column") }))
+kbl(SN, booktabs = TRUE, row.names = FALSE,
+    caption = "n_cons_qual and band_n are STRUCTURALLY NA on DINA: both read grp.consistency$out_sg$result, which the DINA branch never produces. p_star is not a recorder column at all -- it is the admission set's consistency term, NULL on DINA by the branch's own design. These are reported as structural, NOT as failures.") |>
+  kable_styling(font_size = 10)
+}
+```
+
+# Standard tables: constructions on both blocks {#sec-std}
+
+```{r cov-fns}
+subst_s <- function(r) { for (s in c("est2","up1s","lo1s","lo2s","hi2s","lo_se","hi_se","se","lam_mean"))
+  r[[paste0("fld_Hc_", s)]] <- r[[paste0("fld_Hc_", s, "_s")]]; r }
+err_sd <- function(r, block, est) { d <- r[r$detected %in% 1L, ]
+  e <- switch(est, naive = d[[paste0("nv_", block, "_est")]],
+                   mr    = d[[paste0("mr_", block, "_est")]],
+                   fld   = d[[paste0("fld_", block, "_est2")]])
+  ok <- is.finite(e) & is.finite(d[[paste0("betaHhat_", block)]])
+  stats::sd(log(e[ok]) - log(d[[paste0("betaHhat_", block)]][ok])) }
+cov_block <- function(r, block, side) {
+  t1 <- fs_sim_bias_coverage(r, block = block, estimators = c("naive","mr","fld"), side = side)
+  t1$sd_err <- vapply(as.character(t1$estimator), function(e) err_sd(r, block, e), 0)
+  t1$construction <- c(naive="naive", mr="IJ two-term", fld="field")[as.character(t1$estimator)]
+  if (block == "Hc") { rs <- subst_s(r)
+    t2 <- fs_sim_bias_coverage(rs, block = "Hc", estimators = "fld", side = side)
+    t2$sd_err <- err_sd(rs, "Hc", "fld"); t2$construction <- "field-s"; t1 <- rbind(t1, t2) }
+  t1$se_over_sd_err <- t1$se_mean / t1$sd_err
+  t1$b_err <- t1$bias_log / t1$sd_err
+  t1 }
+```
+
+```{r cov}
+if (!have(labs)) skip_note("the standard construction tables") else {
+COV <- do.call(rbind, lapply(labs, function(k) { r <- B[[k]]$results
+  rbind(cbind(cell = k, block_grp = BLK[[k]], n_sample = NN[[k]], hr_cell = HR[[k]], arm = ARM[[k]],
+              block = "Hhat (lower)",   cov_block(r, "H",  "lower")),
+        cbind(cell = k, block_grp = BLK[[k]], n_sample = NN[[k]], hr_cell = HR[[k]], arm = ARM[[k]],
+              block = "Hhat^c (upper)", cov_block(r, "Hc", "upper"))) }))
+COV$construction <- factor(COV$construction, levels = c("naive","field","field-s","IJ two-term"))
+COV <- COV[order(match(COV$cell, labs), COV$block, COV$construction), ]
+for (blk in c("A","B")) {
+  sub <- COV[COV$block_grp == blk, ]
+  if (!have(sub)) { skip_note(sprintf("the standard table for Block %s", blk)); next }
+  print(kbl(sub[, c("cell","block","construction","n_sample","n","bias_log","sd_emp","sd_err",
+                    "b","b_err","se_mean","r","se_over_sd_err","cov1","cov1_wilson_lo",
+                    "cov1_wilson_hi","cov2","cov1_ref")],
+      digits = 3, booktabs = TRUE, row.names = FALSE,
+      caption = sprintf("BLOCK %s (%s prevalence). Per cell and block: bias on the log scale; marginal SD (sd_emp) and error SD (sd_err) side by side; b = bias / marginal SD, b_err = bias / error SD; mean SE; r = SE / marginal SD and SE / error SD; cov1 = one-sided 95%% coverage on the exposed side (lower for beta(Hhat), upper for beta(Hhat^c)) with Wilson limits; cov2 = two-sided; cov1_ref = Gaussian reference. EVERY COVERAGE COLUMN (cov1, cov1_wilson_lo, cov1_wilson_hi, cov2) IS COVERAGE OF THE CONDITIONAL-ON-PROPOSED-FAMILY ESTIMAND, on detected replicates only. The harm block has no field-s row (field-s = field there by construction). naive is a reference, never a product.",
+                          blk, if (blk == "A") "12.4%" else "31%")) |>
+      kable_styling(font_size = 9))
+}
+}
+```
+
+```{r cov-across}
+if (!have(labs)) skip_note("the across-cell summary") else {
+ACR <- do.call(rbind, lapply(split(COV, list(COV$block, COV$construction, COV$arm, COV$block_grp),
+                                   drop = TRUE), function(d)
+  data.frame(prevalence_block = d$block_grp[1], arm = d$arm[1], block = d$block[1],
+             construction = d$construction[1], cells = nrow(d),
+             cov1_min = min(d$cov1), cov1_mean = mean(d$cov1), cov1_max = max(d$cov1),
+             cov2_mean = mean(d$cov2), b_mean = mean(d$b), r_mean = mean(d$r),
+             se_over_sd_err_mean = mean(d$se_over_sd_err))))
+ACR <- ACR[order(ACR$prevalence_block, ACR$arm, ACR$block, ACR$construction), ]
+kbl(ACR, digits = 3, booktabs = TRUE, row.names = FALSE,
+    caption = "Across cells within each prevalence block and arm: range and mean of the one-sided coverage, mean two-sided coverage, mean b and r. All coverages are of the conditional-on-proposed-family estimand.") |>
+  kable_styling(font_size = 9)
+}
+```
+
+```{r cov-plots, fig.width = 13, fig.height = 5}
+if (!length(harm_labs)) skip_note("the bias/coverage panels (no harm cell on disk)") else {
+for (sd_ in list(list(bl = "Hhat^c (upper)", side = "upper"), list(bl = "Hhat (lower)", side = "lower"))) {
+  tab <- COV[COV$block == sd_$bl & COV$arm == "harm", ]
+  if (!have(tab)) { skip_note(sprintf("the %s panel", sd_$bl)); next }
+  tab$estimator <- tab$construction
+  tab <- tab[, setdiff(names(tab), c("n_sample","hr_cell","arm","block","block_grp",
+                                     "sd_err","se_over_sd_err","b_err","construction"))]
+  print(fs_plot_bias_coverage(tab, curves = c(1, 1.25, 1.5, 2), side = sd_$side))
+}
+}
+```
+
+# Coverage versus n, both prevalences {#sec-vsn}
+
+```{r wilson-fn}
+wil <- function(p, n, z = stats::qnorm(0.975)) {
+  ctr <- (p + z^2 / (2 * n)) / (1 + z^2 / n)
+  hw  <- z * sqrt(p * (1 - p) / n + z^2 / (4 * n^2)) / (1 + z^2 / n)
+  c(ctr - hw, ctr + hw) }
+z95 <- stats::qnorm(0.95); z975 <- stats::qnorm(0.975)
+covs_cell <- function(k) {
+  r <- B[[k]]$results
+  d <- r[r$detected %in% 1L & is.finite(r$betaHhat_H) & is.finite(r$betaHhat_Hc) &
+         is.finite(r$fld_H_lo1s) & is.finite(r$fld_Hc_up1s_s), , drop = FALSE]
+  if (!nrow(d)) return(NULL)
+  cH  <- mean(d$betaHhat_H  >= d$fld_H_lo1s)
+  cC  <- mean(d$betaHhat_Hc <= d$fld_Hc_up1s_s)
+  cCf <- mean(d$betaHhat_Hc <= d$fld_Hc_up1s)
+  ij_H  <- mean(d$betaHhat_H  >= d$mr_H_lo  & d$betaHhat_H  <= d$mr_H_hi)
+  ij_Hc <- mean(d$betaHhat_Hc >= d$mr_Hc_lo & d$betaHhat_Hc <= d$mr_Hc_hi)
+  # the two-sided miss, split by side -- the question in Stage 3 item 5
+  miss_lo <- mean(d$betaHhat_H < d$mr_H_lo)     # truth below the interval
+  miss_hi <- mean(d$betaHhat_H > d$mr_H_hi)     # truth above the interval
+  jt  <- mean(d$betaHhat_H >= d$fld_joint_bonf_loH   & d$betaHhat_Hc <= d$fld_joint_bonf_upHc)
+  jts <- mean(d$betaHhat_H >= d$fld_joint_s_bonf_loH & d$betaHhat_Hc <= d$fld_joint_s_bonf_upHc)
+  g <- function(p) { w <- wil(p, nrow(d)); c(p, w) }
+  data.frame(cell = k, block = BLK[[k]], n = NN[[k]], HR = HR[[k]], arm = ARM[[k]], n_eval = nrow(d),
+             harm_field = cH, harm_field_lo = g(cH)[2], harm_field_hi = g(cH)[3],
+             comp_field_s = cC, comp_field_s_lo = g(cC)[2], comp_field_s_hi = g(cC)[3],
+             comp_field = cCf, comp_field_lo = g(cCf)[2], comp_field_hi = g(cCf)[3],
+             ij2_H = ij_H, ij2_H_lo = g(ij_H)[2], ij2_H_hi = g(ij_H)[3],
+             miss_below = miss_lo, miss_above = miss_hi,
+             ij2_Hc = ij_Hc, ij2_Hc_lo = g(ij_Hc)[2], ij2_Hc_hi = g(ij_Hc)[3],
+             joint_bonf = jt, joint_bonf_lo = g(jt)[2], joint_bonf_hi = g(jt)[3],
+             joint_s_bonf = jts, joint_s_bonf_lo = g(jts)[2], joint_s_bonf_hi = g(jts)[3]) }
+VSN <- if (length(labs)) do.call(rbind, lapply(labs, covs_cell)) else NULL
+if (have(VSN)) VSN <- VSN[order(VSN$arm, VSN$block, VSN$HR, VSN$n), ]
+```
+
+```{r vsn-h}
+if (!have(VSN)) skip_note("coverage versus n") else {
+vh <- VSN[VSN$arm == "harm", ]
+if (!have(vh)) skip_note("the harm-block coverage table") else
+kbl(vh[, c("cell","block","n","HR","n_eval","harm_field","harm_field_lo","harm_field_hi",
+           "ij2_H","ij2_H_lo","ij2_H_hi","miss_below","miss_above")],
+    digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "Harm cells, both prevalence blocks: one-sided 95% LOWER coverage of beta(Hhat) by the field bound, and TWO-SIDED coverage by the IJ two-term interval, with Wilson limits, against n at each HR; the two-sided miss split by side (miss_below = truth under the lower limit, miss_above = truth over the upper limit). All coverages are of the conditional-on-proposed-family estimand, on detected replicates.") |>
+  kable_styling(font_size = 9)
+}
+```
+
+```{r vsn-h-plot, fig.width = 12, fig.height = 5}
+if (!have(VSN) || !have(VSN[VSN$arm == "harm", ])) skip_note("the harm-block coverage plot") else {
+ph <- VSN[VSN$arm == "harm", ]
+PH <- rbind(
+  data.frame(n = ph$n, HR = factor(ph$HR), blk = ph$block,
+             construction = "field lower (one-sided)", cov = ph$harm_field,
+             lo = ph$harm_field_lo, hi = ph$harm_field_hi),
+  data.frame(n = ph$n, HR = factor(ph$HR), blk = ph$block,
+             construction = "IJ two-term (two-sided)", cov = ph$ij2_H,
+             lo = ph$ij2_H_lo, hi = ph$ij2_H_hi))
+PH$blk <- factor(PH$blk, levels = c("A","B"), labels = c("A: 12.4%", "B: 31%"))
+ggplot(PH, aes(n, cov, colour = HR, group = HR)) +
+  geom_hline(yintercept = 0.95, linetype = 2) + geom_hline(yintercept = 0.94, linetype = 3) +
+  geom_pointrange(aes(ymin = lo, ymax = hi), position = position_dodge(width = 60)) +
+  geom_line(position = position_dodge(width = 60)) +
+  facet_grid(blk ~ construction) +
+  labs(x = "n", y = "coverage of beta(Hhat) | proposed family",
+       title = "Harm block versus n (dashed 0.95, dotted 0.94)") + theme_bw(base_size = 11)
+}
+```
+
+```{r vsn-c}
+if (!have(VSN) || !have(VSN[VSN$arm == "harm", ])) skip_note("the complement-block table") else
+kbl(VSN[VSN$arm == "harm", c("cell","block","n","HR","n_eval","comp_field_s","comp_field_s_lo",
+                             "comp_field_s_hi","comp_field","ij2_Hc","ij2_Hc_lo","ij2_Hc_hi",
+                             "joint_bonf","joint_s_bonf","joint_s_bonf_lo","joint_s_bonf_hi")],
+    digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "Harm cells: one-sided 95% UPPER coverage of beta(Hhat^c) by field-s (Wilson) with the unscaled field beside it; two-sided IJ two-term coverage; and the Bonferroni joint pair from the unscaled joint and from joint_s. Conditional-on-proposed-family estimand throughout.") |>
+  kable_styling(font_size = 9)
+```
+
+# The two-sided question: does FS's harm-block decay with n at 12.4% appear on DINA? {#sec-twosided}
+
+On FS at 12.4% the harm-block **two-sided** IJ coverage decays with n — 0.977 → 0.932 → 0.901 at
+HR 1.50 and 0.961 → 0.917 → 0.913 at HR 1.75, across n = 500 / 1000 / 1500 (`p12ext` / `tier2`,
+read as they stand). The same trajectory is computed here on DINA, with the miss split by side.
+
+```{r twosided}
+FS_REF <- data.frame(HR = c(1.50,1.50,1.50,1.75,1.75,1.75), n = c(500,1000,1500,500,1000,1500),
+                     fs_ij2_H = c(0.977,0.932,0.901,0.961,0.917,0.913))
+if (!have(VSN)) skip_note("the two-sided comparison") else {
+TS <- VSN[VSN$arm == "harm" & VSN$block == "A", c("cell","n","HR","n_eval","ij2_H","ij2_H_lo","ij2_H_hi","miss_below","miss_above")]
+if (!have(TS)) skip_note("the two-sided comparison at 12.4% (Block A not on disk)") else {
+TS <- merge(TS, FS_REF, by = c("HR","n"), all.x = TRUE)
+TS <- TS[order(TS$HR, TS$n), ]
+TS$dina_minus_fs <- TS$ij2_H - TS$fs_ij2_H
+kbl(TS[, c("cell","n","HR","n_eval","ij2_H","ij2_H_lo","ij2_H_hi","miss_below","miss_above","fs_ij2_H","dina_minus_fs")],
+    digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "BLOCK A (12.4%), harm cells: DINA's two-sided IJ two-term coverage of beta(Hhat) against n, with the miss split by side, beside the committed FS trajectory (fs_ij2_H, from p12ext / tier2 read as they stand). DINA's column is coverage of the conditional-on-proposed-family estimand; FS's is its own -- see the confound in @sec-fsgrid. Descriptive, not a contest.") |>
+  kable_styling(font_size = 10)
+}
+}
+```
+
+```{r twosided-plot, fig.width = 9, fig.height = 4}
+if (!have(VSN) || !have(VSN[VSN$arm == "harm" & VSN$block == "A", ])) skip_note("the two-sided plot") else {
+TP2 <- rbind(
+  data.frame(n = TS$n, HR = factor(TS$HR), who = "DINA (dinamr)", cov = TS$ij2_H, lo = TS$ij2_H_lo, hi = TS$ij2_H_hi),
+  data.frame(n = TS$n, HR = factor(TS$HR), who = "FS (p12ext / tier2)", cov = TS$fs_ij2_H, lo = NA, hi = NA))
+ggplot(TP2, aes(n, cov, colour = who, group = who)) +
+  geom_hline(yintercept = 0.95, linetype = 2) +
+  geom_pointrange(aes(ymin = lo, ymax = hi), na.rm = TRUE) + geom_line() + facet_wrap(~ HR) +
+  labs(x = "n", y = "two-sided coverage of beta(Hhat)", colour = NULL,
+       title = "Two-sided harm-block coverage versus n at 12.4%: DINA beside FS") +
+  theme_bw(base_size = 11)
+}
+```
+
+# Classification versus n and prevalence {#sec-ident}
+
+```{r ident}
+if (!have(labs)) skip_note("the classification table") else {
+IDENT <- do.call(rbind, lapply(labs, function(k) {
+  r <- B[[k]]$results; d <- r[r$detected %in% 1L, , drop = FALSE]; tr <- B[[k]]$truth
+  if (!nrow(d)) return(NULL)
+  rat <- d$n_harm / d$n_true
+  onv_H  <- mean(log(d$nv_H_est)  - log(d$betaHhat_H))
+  onv_Hc <- mean(log(d$nv_Hc_est) - log(d$betaHhat_Hc))
+  sdm_H  <- stats::sd(log(d$nv_H_est));  sde_H  <- stats::sd(log(d$nv_H_est)  - log(d$betaHhat_H))
+  sdm_Hc <- stats::sd(log(d$nv_Hc_est)); sde_Hc <- stats::sd(log(d$nv_Hc_est) - log(d$betaHhat_Hc))
+  data.frame(cell = k, block = BLK[[k]], n = NN[[k]], HR = HR[[k]], arm = ARM[[k]],
+             detection = mean(r$detected %in% 1L), n_det = nrow(d),
+             sens = mean(d$sens), spec = mean(d$spec), ppv = mean(d$ppv), npv = mean(d$npv),
+             absH_mean = mean(d$n_sel),
+             Hhat_over_H_med = stats::median(rat), Hhat_over_H_q90 = unname(stats::quantile(rat, .9)),
+             beta_H_mean = mean(d$betaHhat_H), planted_H = unname(tr$marg_H),
+             beta_Hc_mean = mean(d$betaHhat_Hc), planted_Hc = unname(tr$marg_Hc),
+             naive_opt_H_marg = onv_H / sdm_H, naive_opt_H_err = onv_H / sde_H,
+             naive_opt_Hc_marg = onv_Hc / sdm_Hc, naive_opt_Hc_err = onv_Hc / sde_Hc,
+             p_hat_mean = mean(d$p_hat_H[is.finite(d$p_hat_H)]),
+             K_mean = mean(d$n_family), K_med = stats::median(d$n_family)) }))
+IDENT <- IDENT[order(IDENT$arm, IDENT$block, IDENT$HR, IDENT$n), ]
+kbl(IDENT, digits = 3, booktabs = TRUE, row.names = FALSE,
+    caption = "Classification against n and prevalence: detection; sens / spec / PPV / NPV; mean |Hhat|; |Hhat|/|H| median and q90; the realized beta(Hhat) and beta(Hhat^c) against the PLANTED marginal Cox targets; the naive optimism in marginal-SD and error-SD units on both blocks; mean p-hat; and the proposed-family size K. n_cons_qual is omitted -- it is structurally NA on DINA (@sec-structna).") |>
+  kable_styling(font_size = 8)
+}
+```
+
+```{r ident-plot, fig.width = 12, fig.height = 6}
+if (!have(labs) || !length(harm_labs)) skip_note("the classification plot") else {
+ID <- IDENT[IDENT$arm == "harm", ]
+if (!have(ID)) skip_note("the classification plot") else {
+IP <- do.call(rbind, lapply(list(
+  c("sensitivity","sens"), c("specificity","spec"), c("PPV","ppv"), c("NPV","npv"),
+  c("|Hhat|/|H| median","Hhat_over_H_med"), c("mean p-hat(Hhat)","p_hat_mean")),
+  function(x) data.frame(n = ID$n, HR = factor(ID$HR), blk = ID$block, what = x[1], v = ID[[x[2]]])))
+IP$blk <- factor(IP$blk, levels = c("A","B"), labels = c("A: 12.4%","B: 31%"))
+ggplot(IP, aes(n, v, colour = HR, linetype = blk, group = interaction(HR, blk))) +
+  geom_point() + geom_line() + facet_wrap(~ what, scales = "free_y", nrow = 2) +
+  labs(x = "n", y = NULL, linetype = "prevalence",
+       title = "Classification versus n and prevalence, harm cells") + theme_bw(base_size = 10)
+}
+}
+```
+
+# The proposed family {#sec-family}
+
+Size distribution per cell, and whether it stabilizes with n — the mechanism Supplementary
+S8.3 offers for conditional coverage recovering with n.
+
+```{r family}
+if (!have(labs)) skip_note("the family-size table") else {
+FAM <- do.call(rbind, lapply(labs, function(k) {
+  r <- B[[k]]$results; K <- r$n_family[is.finite(r$n_family)]
+  q <- stats::quantile(K, c(0, .1, .25, .5, .75, .9, 1), names = FALSE)
+  data.frame(cell = k, block = BLK[[k]], n = NN[[k]], HR = HR[[k]], arm = ARM[[k]], reps = length(K),
+             K_min = q[1], K_q10 = q[2], K_q25 = q[3], K_med = q[4], K_q75 = q[5],
+             K_q90 = q[6], K_max = q[7], K_mean = mean(K), K_sd = stats::sd(K),
+             K_cv = stats::sd(K) / mean(K), K_iqr_over_med = (q[5] - q[3]) / q[4]) }))
+FAM <- FAM[order(FAM$arm, FAM$block, FAM$HR, FAM$n), ]
+kbl(FAM, digits = 3, booktabs = TRUE, row.names = FALSE,
+    caption = "The PROPOSED-FAMILY SIZE (n_family) distribution per cell: min, q10, q25, median, q75, q90, max, mean, SD, coefficient of variation, and the IQR relative to the median. K_cv and K_iqr_over_med are the stabilization read: a family whose relative spread shrinks with n is the S8.3 mechanism; one whose spread does not is not.") |>
+  kable_styling(font_size = 9)
+}
+```
+
+```{r family-plot, fig.width = 11, fig.height = 7}
+if (!have(labs)) skip_note("the family-size plots") else {
+FK <- do.call(rbind, lapply(labs, function(k) {
+  r <- B[[k]]$results
+  data.frame(cell = k, block = BLK[[k]], n = factor(NN[[k]]), HR = factor(HR[[k]]),
+             arm = ARM[[k]], K = r$n_family[is.finite(r$n_family)]) }))
+FK$blk <- factor(FK$block, levels = c("A","B"), labels = c("A: 12.4%","B: 31%"))
+print(ggplot(FK, aes(n, K, fill = HR)) + geom_boxplot(outlier.alpha = 0.15, outlier.size = 0.5) +
+  scale_y_log10() + facet_wrap(~ blk) +
+  labs(x = "n", y = "proposed-family size (log scale)",
+       title = "Proposed-family size versus n and prevalence") + theme_bw(base_size = 11))
+print(ggplot(FAM, aes(n, K_iqr_over_med, colour = factor(HR), group = interaction(HR, block),
+                      linetype = block)) +
+  geom_point() + geom_line() +
+  labs(x = "n", y = "IQR / median of the family size", colour = "HR", linetype = "block",
+       title = "Does the proposed family stabilize with n? (relative spread versus n)") +
+  theme_bw(base_size = 11))
+}
+```
+
+# Beside the FS grid, with the confound stated {#sec-fsgrid}
+
+> **The confound.** FS and DINA differ in **the identifier** *and* in **how the family is
+> constructed**, and each conditions on **a different detection set**. FS's family is the
+> consistency-screened candidate table, fixed for a given fit; DINA's is a qualifying candidate
+> table read off a cross-fit surface, which a bootstrap would regenerate. FS's coverage is of
+> its own estimand; DINA's is of the conditional-on-proposed-family estimand. A row-by-row gap
+> is therefore **not** attributable to either difference alone. What follows is **descriptive,
+> not a contest**, and the FS numbers are reference lines, not a bar.
+
+```{r fsgrid}
+FSC <- list(
+  # 31% -- cert20 (n 1000/1500) and e1stud (n 500), read as they stand
+  list(lab="FS B: HR 1.50, n 500",  blk="B", n=500L,  hr=1.50, f="fs_effMaxSG_fb_mr_field_m1_h150_knoise0_n500_z1q60_nb20_e1stud_combined_1_2000.rds"),
+  list(lab="FS B: HR 1.50, n 1000", blk="B", n=1000L, hr=1.50, f="fs_effMaxSG_fb_mr_field_m1_h150_knoise0_n1000_z1q60_nb20_cert20_combined_1_2000.rds"),
+  list(lab="FS B: HR 1.50, n 1500", blk="B", n=1500L, hr=1.50, f="fs_effMaxSG_fb_mr_field_m1_h150_knoise0_n1500_z1q60_nb20_cert20_combined_1_2000.rds"),
+  list(lab="FS B: HR 1.75, n 500",  blk="B", n=500L,  hr=1.75, f="fs_effMaxSG_fb_mr_field_m1_h175_knoise0_n500_z1q60_nb20_e1stud_combined_1_2000.rds"),
+  list(lab="FS B: HR 1.75, n 1000", blk="B", n=1000L, hr=1.75, f="fs_effMaxSG_fb_mr_field_m1_h175_knoise0_n1000_z1q60_nb20_cert20_combined_1_2000.rds"),
+  list(lab="FS B: HR 1.75, n 1500", blk="B", n=1500L, hr=1.75, f="fs_effMaxSG_fb_mr_field_m1_h175_knoise0_n1500_z1q60_nb20_cert20_combined_1_2000.rds"),
+  # 12.4% -- tier2 (n 500 HR 1.75, n 1000/1500 HR 1.75) and p12ext
+  list(lab="FS A: HR 1.50, n 500",  blk="A", n=500L,  hr=1.50, f="fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n500_p12ext_combined_1_2000.rds"),
+  list(lab="FS A: HR 1.50, n 1000", blk="A", n=1000L, hr=1.50, f="fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n1000_p12ext_combined_1_2000.rds"),
+  list(lab="FS A: HR 1.50, n 1500", blk="A", n=1500L, hr=1.50, f="fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n1500_p12ext_combined_1_2000.rds"),
+  list(lab="FS A: HR 1.75, n 500",  blk="A", n=500L,  hr=1.75, f="fs_maxeffCons_fb_mr_field_m1_h175_knoise0_n500_tier2_combined_1_2000.rds"),
+  list(lab="FS A: HR 1.75, n 1000", blk="A", n=1000L, hr=1.75, f="fs_maxeffCons_fb_mr_field_m1_h175_knoise0_n1000_tier2_combined_1_2000.rds"),
+  list(lab="FS A: HR 1.75, n 1500", blk="A", n=1500L, hr=1.75, f="fs_maxeffCons_fb_mr_field_m1_h175_knoise0_n1500_tier2_combined_1_2000.rds"))
+FSC <- Filter(function(x) file.exists(paste0(R, x$f)), FSC)
+if (!length(FSC)) skip_note("the FS comparator grid (no committed FS bundle on disk)") else {
+FSG <- do.call(rbind, lapply(FSC, function(x) {
+  b <- readRDS(paste0(R, x$f)); r <- b$results
+  d <- r[r$detected %in% 1L & is.finite(r$betaHhat_H) & is.finite(r$betaHhat_Hc) &
+         is.finite(r$fld_H_lo1s) & is.finite(r$fld_Hc_up1s_s), , drop = FALSE]
+  data.frame(cell = x$lab, engine = "FS (consistency)", block = x$blk, n = x$n, HR = x$hr,
+             campaign = b$meta$campaign_tag %||% NA, focus = b$meta$sg_focus %||% NA,
+             detection = mean(r$detected %in% 1L), n_eval = nrow(d),
+             K_med = stats::median(r$n_family),
+             harm_field = mean(d$betaHhat_H >= d$fld_H_lo1s),
+             comp_field_s = mean(d$betaHhat_Hc <= d$fld_Hc_up1s_s),
+             ij2_H = mean(d$betaHhat_H >= d$mr_H_lo & d$betaHhat_H <= d$mr_H_hi),
+             ij2_Hc = mean(d$betaHhat_Hc >= d$mr_Hc_lo & d$betaHhat_Hc <= d$mr_Hc_hi),
+             sens = mean(d$sens), ppv = mean(d$ppv)) }))
+DNG <- if (have(VSN)) do.call(rbind, lapply(which(VSN$arm == "harm"), function(i) {
+  k <- VSN$cell[i]; d <- B[[k]]$results
+  dd <- d[d$detected %in% 1L, , drop = FALSE]
+  data.frame(cell = k, engine = "DINA (dinamr)", block = VSN$block[i], n = VSN$n[i], HR = VSN$HR[i],
+             campaign = "dinamr", focus = "effMaxSG",
+             detection = mean(d$detected %in% 1L), n_eval = VSN$n_eval[i],
+             K_med = stats::median(d$n_family),
+             harm_field = VSN$harm_field[i], comp_field_s = VSN$comp_field_s[i],
+             ij2_H = VSN$ij2_H[i], ij2_Hc = VSN$ij2_Hc[i],
+             sens = mean(dd$sens), ppv = mean(dd$ppv)) })) else NULL
+SIDE <- rbind(FSG, DNG)
+SIDE <- SIDE[order(SIDE$block, SIDE$HR, SIDE$n, SIDE$engine), ]
+kbl(SIDE, digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "DINA beside the committed FS grid (cert20 / tier2 / p12ext read AS THEY STAND, not re-run), matched on prevalence block, HR and n. DIFFERENT IDENTIFIER AND DIFFERENT FAMILY CONSTRUCTION, each conditioning on a different detection set -- see the confound above. DINA's coverage columns are the conditional-on-proposed-family estimand; FS's are its own. Descriptive, not a contest; no criterion is applied.") |>
+  kable_styling(font_size = 9)
+}
+```
+
+# p-hat and the recovery diagnostics on a model-generated family {#sec-recov}
+
+```{r recov}
+recov_cols <- c("fld_recov_sens_H","fld_recov_ppv_H","fld_recov_sens_Hc","fld_recov_npv_Hc",
+                "fld_recov_q10","fld_recov_q50","fld_recov_q90","fld_recov_share1","fld_recov_n_used")
+if (!have(labs)) skip_note("the recovery diagnostics") else {
+RCV <- do.call(rbind, lapply(labs, function(k) {
+  r <- B[[k]]$results; d <- r[r$detected %in% 1L, , drop = FALSE]
+  if (!nrow(d) || !all(recov_cols %in% names(d))) return(NULL)
+  qq <- function(x) stats::quantile(x[is.finite(x)], c(.1,.5,.9), names = FALSE)
+  ph <- d$p_hat_H[is.finite(d$p_hat_H)]
+  data.frame(cell = k, block = BLK[[k]], n = NN[[k]], HR = HR[[k]], arm = ARM[[k]], n_det = nrow(d),
+             p_hat_q10 = qq(ph)[1], p_hat_med = qq(ph)[2], p_hat_q90 = qq(ph)[3], p_hat_mean = mean(ph),
+             rho_c_med = stats::median(d$fld_Hc_scale_ratio),
+             scale_cv_med = stats::median(d$fld_Hc_scale_cv),
+             sens_H = mean(d$fld_recov_sens_H), ppv_H = mean(d$fld_recov_ppv_H),
+             sens_Hc = mean(d$fld_recov_sens_Hc), npv_Hc = mean(d$fld_recov_npv_Hc),
+             cont_q10 = mean(d$fld_recov_q10), cont_q50 = mean(d$fld_recov_q50),
+             cont_q90 = mean(d$fld_recov_q90), share1 = mean(d$fld_recov_share1),
+             n_used = mean(d$fld_recov_n_used)) }))
+RCV <- RCV[order(RCV$arm, RCV$block, RCV$HR, RCV$n), ]
+kbl(RCV, digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "p-hat and the recovery diagnostics on DINA's MODEL-GENERATED family: the p-hat(Hhat) distribution (q10 / median / q90 / mean); rho-c = the complement scale ratio and the within-replicate scale CV; and the nine recovery columns -- sens_H / ppv_H / sens_Hc / npv_Hc and the containment quantiles q10 / q50 / q90 with the share at exactly 1 and the evaluation count. Described, not interpreted beyond the record.") |>
+  kable_styling(font_size = 8)
+}
+```
+
+## Does the low-p̂ / high-p̂ bias structure found for FS appear on DINA? {#sec-tert}
+
+```{r tert}
+prep <- function(r) {
+  need <- c("betaHhat_H","betaHhat_Hc","fld_H_est2","fld_H_lo1s","fld_H_se",
+            "fld_Hc_est2","fld_Hc_est2_s","fld_Hc_up1s","fld_Hc_up1s_s","fld_Hc_se_s",
+            "fld_Hc_scale_ratio","p_hat_H","mr_H_est","mr_Hc_est","n_harm","n_true")
+  need <- need[need %in% names(r)]
+  d <- r[r$detected %in% 1L, , drop = FALSE]
+  d <- d[Reduce(`&`, lapply(need, function(cn) is.finite(d[[cn]]))), , drop = FALSE]
+  if (!nrow(d)) return(d)
+  d$ef_H <- log(d$fld_H_est2)    - log(d$betaHhat_H)
+  d$ef_s <- log(d$fld_Hc_est2_s) - log(d$betaHhat_Hc)
+  d$ratio_H <- d$n_harm / d$n_true
+  d }
+strat_row <- function(d, cell, stratum) {
+  bH <- mean(d$ef_H)/stats::sd(d$ef_H); rH <- mean(d$fld_H_se)/stats::sd(d$ef_H)
+  bC <- mean(d$ef_s)/stats::sd(d$ef_s); rC <- mean(d$fld_Hc_se_s)/stats::sd(d$ef_s)
+  cfH <- mean(d$betaHhat_H  >= d$fld_H_lo1s);    wH <- wil(cfH, nrow(d))
+  cfC <- mean(d$betaHhat_Hc <= d$fld_Hc_up1s_s); wC <- wil(cfC, nrow(d))
+  data.frame(cell = cell, stratum = stratum, n = nrow(d), p_hat_mean = mean(d$p_hat_H),
+             Hhat_over_H = mean(d$ratio_H), rho_c = mean(d$fld_Hc_scale_ratio),
+             mean_ef_H = mean(d$ef_H), SD_ef_H = stats::sd(d$ef_H), b_H = bH, r_H = rH,
+             cov_field_H = cfH, wH_lo = wH[1], wH_hi = wH[2],
+             gauss_H = stats::pnorm(z95 * rH - bH),
+             mean_ef_s = mean(d$ef_s), SD_ef_s = stats::sd(d$ef_s), b_C = bC, r_C = rC,
+             cov_field_s_C = cfC, wC_lo = wC[1], wC_hi = wC[2],
+             gauss_C = stats::pnorm(z95 * rC + bC)) }
+TERT <- if (length(labs)) do.call(rbind, lapply(labs, function(k) {
+  d <- prep(B[[k]]$results); if (nrow(d) < 30L) return(NULL)
+  br <- stats::quantile(d$p_hat_H, c(0, 1/3, 2/3, 1), names = FALSE)
+  if (length(unique(br)) < 3L) return(strat_row(d, k, "all (p-hat not splittable)"))
+  g <- cut(d$p_hat_H, breaks = unique(br), include.lowest = TRUE, labels = FALSE)
+  rbind(strat_row(d, k, "all"),
+        do.call(rbind, lapply(sort(unique(g)), function(t) {
+          dk <- d[g == t, , drop = FALSE]
+          strat_row(dk, k, sprintf("p-hat T%d [%.3f, %.3f]", t, min(dk$p_hat_H), max(dk$p_hat_H))) }))) })) else NULL
+if (!have(TERT)) skip_note("the p-hat tertile tables (no cell with >= 30 usable replicates)") else {
+print(kbl(TERT[, c("cell","stratum","n","p_hat_mean","Hhat_over_H","mean_ef_H","SD_ef_H",
+                   "b_H","r_H","cov_field_H","wH_lo","wH_hi","gauss_H")],
+    digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "Harm block by p-hat(Hhat) tertile within each cell: the field's residual error ef_H = log(fld_H_est2) - log(beta(Hhat)), its ERROR SD, b and r, the observed one-sided lower coverage with Wilson limits, and the Gaussian-implied coverage from the stratum's own numbers. Conditional-on-proposed-family estimand.") |>
+  kable_styling(font_size = 8))
+print(kbl(TERT[, c("cell","stratum","n","p_hat_mean","rho_c","mean_ef_s","SD_ef_s",
+                   "b_C","r_C","cov_field_s_C","wC_lo","wC_hi","gauss_C")],
+    digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "Complement block by p-hat tertile: ef_s = log(fld_Hc_est2_s) - log(beta(Hhat^c)), its error SD, b and r, observed field-s upper coverage (Wilson) and the Gaussian-implied value. Conditional-on-proposed-family estimand.") |>
+  kable_styling(font_size = 8))
+}
+```
+
+```{r tert-plot, fig.width = 13, fig.height = 7}
+if (!have(TERT) || !length(harm_labs)) skip_note("the tertile plot") else {
+TT <- TERT[TERT$stratum != "all" & !grepl("not splittable", TERT$stratum) & TERT$cell %in% harm_labs, ]
+if (!have(TT)) skip_note("the tertile plot") else {
+TT$tertile <- sub(" \\[.*", "", TT$stratum)
+TP <- rbind(data.frame(cell = TT$cell, tertile = TT$tertile, blk = "Hhat (field lower)",
+                       cov = TT$cov_field_H,   lo = TT$wH_lo, hi = TT$wH_hi, implied = TT$gauss_H),
+            data.frame(cell = TT$cell, tertile = TT$tertile, blk = "Hhat^c (field-s upper)",
+                       cov = TT$cov_field_s_C, lo = TT$wC_lo, hi = TT$wC_hi, implied = TT$gauss_C))
+ggplot(TP, aes(tertile, cov, group = 1)) + geom_hline(yintercept = 0.95, linetype = 2) +
+  geom_pointrange(aes(ymin = lo, ymax = hi)) + geom_line() +
+  geom_point(aes(y = implied), shape = 4, colour = "firebrick", size = 2) +
+  facet_grid(blk ~ cell) +
+  labs(x = "p-hat(Hhat) tertile", y = "one-sided coverage | proposed family",
+       title = "Observed (points, Wilson) and Gaussian-implied (crosses) coverage by stable-pick stratum") +
+  theme_bw(base_size = 9) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+}
+```
+
+# The null cells (HR 1.00) {#sec-null}
+
+At the null there is no planted harm effect to find. What is recorded is the detection rate under
+the screen and, among detections, where the two bounds sit relative to the realized β(Ĥ) and
+β(Ĥᶜ) of whatever region DINA returned. Nothing here is scored.
+
+```{r null}
+if (!length(null_labs)) skip_note("the null-cell table (no HR 1.00 cell on disk)") else {
+NUL <- do.call(rbind, lapply(null_labs, function(k) {
+  r <- B[[k]]$results; d <- prep(r)
+  if (!nrow(d)) return(NULL)
+  data.frame(cell = k, block = BLK[[k]], n = NN[[k]], detection = mean(r$detected %in% 1L),
+             n_eval = nrow(d), K_med = stats::median(r$n_family),
+             beta_H_mean = mean(d$betaHhat_H), beta_Hc_mean = mean(d$betaHhat_Hc),
+             harm_field_1s = mean(d$betaHhat_H >= d$fld_H_lo1s),
+             comp_field_s_1s = mean(d$betaHhat_Hc <= d$fld_Hc_up1s_s),
+             comp_field_1s = mean(d$betaHhat_Hc <= d$fld_Hc_up1s),
+             H_lower_mean = mean(d$fld_H_lo1s),
+             share_H_lower_ge_100 = mean(d$fld_H_lo1s >= 1.00),
+             share_H_lower_ge_085 = mean(d$fld_H_lo1s >= 0.85),
+             Hc_upper_mean = mean(d$fld_Hc_up1s_s),
+             share_Hc_upper_lt_085 = mean(d$fld_Hc_up1s_s < 0.85),
+             share_Hc_upper_lt_080 = mean(d$fld_Hc_up1s_s < 0.80)) }))
+if (!have(NUL)) skip_note("the null-cell table") else
+kbl(NUL, digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "Null cells, both prevalence blocks: detection under the screen; the median proposed-family size; among detections the realized beta on both blocks, the one-sided rates of each bound against its own block's realized beta (conditional-on-proposed-family), and the bounds BY LOCATION (share of the harm lower bound at or above 1.00 and 0.85; share of the complement upper bound below 0.85 and 0.80). Recorded, not scored.") |>
+  kable_styling(font_size = 9)
+}
+```
+
+# Numbers for the record {#sec-record}
+
+```{r record, results='asis'}
+#| echo: false
+f3 <- function(x) sprintf("%.3f", x)
+if (!have(labs)) { cat("\n*No dinamr bundle on disk; nothing to record.*\n") } else {
+cat("\n**Detection and proposed-family size (the headline):**\n\n")
+for (i in order(INV$arm, INV$block, INV$HR, INV$n))
+  cat(sprintf("- %s: detection %s (%d/2000); family size median %g, q90 %g; realized trial prevalence %s\n",
+      INV$cell[i], f3(INV$detection[i]), INV$detected[i], INV$K_med[i], INV$K_q90[i],
+      f3(INV$prev_trial[i])))
+if (have(VSN)) {
+cat("\n**Coverage versus n (harm cells; field lower / field-s upper / IJ two-sided H / IJ two-sided Hc / joint_s Bonferroni) -- conditional-on-proposed-family throughout:**\n\n")
+for (i in which(VSN$arm == "harm"))
+  cat(sprintf("- %s (n_eval %d): harm field %s [%s, %s]; complement field-s %s [%s, %s] (field %s); IJ two-sided %s / %s; joint_s Bonferroni %s [%s, %s]\n",
+    VSN$cell[i], VSN$n_eval[i], f3(VSN$harm_field[i]), f3(VSN$harm_field_lo[i]), f3(VSN$harm_field_hi[i]),
+    f3(VSN$comp_field_s[i]), f3(VSN$comp_field_s_lo[i]), f3(VSN$comp_field_s_hi[i]), f3(VSN$comp_field[i]),
+    f3(VSN$ij2_H[i]), f3(VSN$ij2_Hc[i]), f3(VSN$joint_s_bonf[i]), f3(VSN$joint_s_bonf_lo[i]), f3(VSN$joint_s_bonf_hi[i])))
+cat("\n**The two-sided harm-block trajectory at 12.4%, miss split by side:**\n\n")
+for (i in which(VSN$arm == "harm" & VSN$block == "A"))
+  cat(sprintf("- %s: IJ two-sided %s [%s, %s]; miss below %s, miss above %s\n", VSN$cell[i],
+      f3(VSN$ij2_H[i]), f3(VSN$ij2_H_lo[i]), f3(VSN$ij2_H_hi[i]),
+      f3(VSN$miss_below[i]), f3(VSN$miss_above[i])))
+}
+if (have(IDENT)) {
+cat("\n**Classification versus n and prevalence:**\n\n")
+for (i in seq_len(nrow(IDENT)))
+  cat(sprintf("- %s: detection %s; sens %s spec %s ppv %s npv %s; |Hhat|/|H| median %s q90 %s; beta(Hhat) %s vs planted %s; beta(Hhat^c) %s vs planted %s; naive optimism %s marginal-SD / %s error-SD (H), %s / %s (Hc); mean p-hat %s; family median %g\n",
+    IDENT$cell[i], f3(IDENT$detection[i]), f3(IDENT$sens[i]), f3(IDENT$spec[i]), f3(IDENT$ppv[i]), f3(IDENT$npv[i]),
+    f3(IDENT$Hhat_over_H_med[i]), f3(IDENT$Hhat_over_H_q90[i]), f3(IDENT$beta_H_mean[i]), f3(IDENT$planted_H[i]),
+    f3(IDENT$beta_Hc_mean[i]), f3(IDENT$planted_Hc[i]), f3(IDENT$naive_opt_H_marg[i]), f3(IDENT$naive_opt_H_err[i]),
+    f3(IDENT$naive_opt_Hc_marg[i]), f3(IDENT$naive_opt_Hc_err[i]), f3(IDENT$p_hat_mean[i]), IDENT$K_med[i]))
+}
+if (have(FAM)) {
+cat("\n**Proposed-family size and its stabilization:**\n\n")
+for (i in seq_len(nrow(FAM)))
+  cat(sprintf("- %s: K min %g, q10 %g, median %g, q90 %g, max %g; mean %s, SD %s, CV %s, IQR/median %s\n",
+      FAM$cell[i], FAM$K_min[i], FAM$K_q10[i], FAM$K_med[i], FAM$K_q90[i], FAM$K_max[i],
+      f3(FAM$K_mean[i]), f3(FAM$K_sd[i]), f3(FAM$K_cv[i]), f3(FAM$K_iqr_over_med[i])))
+}
+if (have(TERT)) {
+cat("\n**The stable-pick stratum (p-hat tertiles, observed -> Gaussian-implied):**\n\n")
+for (k in labs) { x <- TERT[TERT$cell == k & TERT$stratum != "all", ]
+  if (!nrow(x)) next
+  cat(sprintf("- %s: harm field %s (implied %s); complement field-s %s (implied %s); mean ef_s %s\n", k,
+      paste(f3(x$cov_field_H), collapse = " / "), paste(f3(x$gauss_H), collapse = " / "),
+      paste(f3(x$cov_field_s_C), collapse = " / "), paste(f3(x$gauss_C), collapse = " / "),
+      paste(sprintf("%+.4f", x$mean_ef_s), collapse = " / "))) }
+}
+if (exists("NUL") && have(NUL)) {
+cat("\n**Null cells (recorded, not scored):**\n\n")
+for (i in seq_len(nrow(NUL)))
+  cat(sprintf("- %s: detection %s; beta(Hhat) %s, beta(Hhat^c) %s; harm lower one-sided rate %s, complement field-s upper %s; harm lower mean %s (share >= 1.00 %s); complement upper mean %s (share < 0.80 %s)\n",
+    NUL$cell[i], f3(NUL$detection[i]), f3(NUL$beta_H_mean[i]), f3(NUL$beta_Hc_mean[i]),
+    f3(NUL$harm_field_1s[i]), f3(NUL$comp_field_s_1s[i]), f3(NUL$H_lower_mean[i]),
+    f3(NUL$share_H_lower_ge_100[i]), f3(NUL$Hc_upper_mean[i]), f3(NUL$share_Hc_upper_lt_080[i])))
+}
+cat("\n**No acceptance criteria.** None was pre-registered for this campaign and none is proposed. The FS ranges in @sec-fsgrid are reference lines only. Exploratory; report and wait.\n")
+}
+```
