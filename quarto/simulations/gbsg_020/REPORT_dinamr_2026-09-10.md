@@ -561,4 +561,9 @@ Dropping the **minimum** that makes it fit, rather than both n = 1500 cells, fol
 stated intent that Block B complete as far as it can; both would have cost a further 2.226 h of
 science for no budget reason.
 
-Block B launched immediately on this result. Hard timeout stands at 16 h.
+> **Ratified (Larry, after the checkpoint):** *"Keep HR 1.50 n1500 as you have it, continue."* The
+> deferred Block B cell is therefore **HR 1.75, n 1500**, and the complete HR 1.50 n-trajectory at
+> 31% is retained.
+
+Block B launched immediately on this result, without waiting for the ratification. Hard timeout
+stands at 16 h.
