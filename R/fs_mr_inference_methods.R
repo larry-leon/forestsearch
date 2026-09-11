@@ -115,6 +115,28 @@
 #'
 #' @param reselection_default Method-appropriate default re-selection rule
 #'   (`"maxcons"` for consistency; [.fs_mr_reselection_from_focus()] otherwise).
+#'
+#' @section Forwarded argument set:
+#' The wrapper forwards the \emph{full} [fs_mr_inference()] argument set, so the
+#' DINA and GRF branches are controllable through `mr_inference_args` exactly as
+#' the consistency branch is through its own direct call.  Before this, ten
+#' arguments were dropped here -- `return_reselection`, `field_R_out`,
+#' `field_R_in`, `field_uniform`, `field_M_cap`, `field_complement`,
+#' `field_decompose`, `field_scale_complement`, `ij_residual`, `field_recovery`
+#' -- which left `field_decompose` and `field_recovery` \strong{unreachable} on
+#' those engines and the other three \strong{inert while their defaults happened
+#' to coincide} with the intended values: a run's meta recorded them as set while
+#' they controlled nothing.
+#'
+#' \strong{Defaults are unchanged on every branch.}  Each newly forwarded
+#' argument defaults to [fs_mr_inference()]'s own formal default, read from
+#' `formals(fs_mr_inference)` at call time rather than restated here, so the two
+#' cannot drift and a call that asks for nothing is byte-identical to the same
+#' call before the change.  `match.arg()`-style defaults are forwarded as their
+#' whole candidate vector, which `fs_mr_inference()` resolves exactly as it would
+#' have resolved a missing argument.  `ci_method` keeps this wrapper's own
+#' `"ij"` default, which is deliberately \emph{not} the consistency branch's
+#' `"field"`; changing it is a separate decision.
 #' @keywords internal
 .fs_apply_mr <- function(df, candidates, selected_members, spec,
                                   admission,
@@ -123,6 +145,14 @@
                                   mr_inference_args = list(), seedit = NULL) {
   .g <- function(a, b) if (is.null(a)) b else a
   if (is.null(mr_inference_args)) mr_inference_args <- list()
+  # Defaults for the newly forwarded arguments are READ FROM fs_mr_inference()'s
+  # own formals, never restated here: restating them is what let the two drift
+  # in the first place, and a hand-copied default would silently become a
+  # default CHANGE on these branches the next time the engine's own default
+  # moved.  `field_M_cap` defaults to NULL, which .g() forwards as NULL -- the
+  # same thing the argument's absence meant.
+  .mr_fml <- formals(fs_mr_inference)
+  .d <- function(nm) eval(.mr_fml[[nm]], envir = environment(fs_mr_inference))
   tryCatch(
     fs_mr_inference(
       df               = df,
@@ -139,7 +169,25 @@
       multiplier       = .g(mr_inference_args$multiplier,  "poisson"),
       include_complement = .g(mr_inference_args$include_complement, TRUE),
       ci_method        = .g(mr_inference_args$ci_method,   "ij"),
-      seed             = .g(mr_inference_args$seed,        seedit)),
+      seed             = .g(mr_inference_args$seed,        seedit),
+      # The ten arguments this wrapper used to drop (O-1).  Add-only: every
+      # default below is fs_mr_inference()'s own, so omitting them all
+      # reproduces the pre-change call exactly.
+      return_reselection = .g(mr_inference_args$return_reselection,
+                              .d("return_reselection")),
+      field_R_out      = .g(mr_inference_args$field_R_out,  .d("field_R_out")),
+      field_R_in       = .g(mr_inference_args$field_R_in,   .d("field_R_in")),
+      field_uniform    = .g(mr_inference_args$field_uniform, .d("field_uniform")),
+      field_M_cap      = .g(mr_inference_args$field_M_cap,  .d("field_M_cap")),
+      field_complement = .g(mr_inference_args$field_complement,
+                            .d("field_complement")),
+      field_decompose  = .g(mr_inference_args$field_decompose,
+                            .d("field_decompose")),
+      field_scale_complement = .g(mr_inference_args$field_scale_complement,
+                                  .d("field_scale_complement")),
+      ij_residual      = .g(mr_inference_args$ij_residual,  .d("ij_residual")),
+      field_recovery   = .g(mr_inference_args$field_recovery,
+                            .d("field_recovery"))),
     error = function(e) {
       warning("mr_inference (", spec$outcome_type, ") failed: ",
               conditionMessage(e), call. = FALSE)

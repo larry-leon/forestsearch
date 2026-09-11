@@ -27,4 +27,28 @@ GRF branches so the call (and \code{mr_inference_args} overrides) stays identica
 across methods.  Wrapped in tryCatch so a reconstruction failure yields
 \code{NULL} (the branch's normal output is unaffected) rather than aborting.
 }
+\section{Forwarded argument set}{
+
+The wrapper forwards the \emph{full} \code{\link[=fs_mr_inference]{fs_mr_inference()}} argument set, so the
+DINA and GRF branches are controllable through \code{mr_inference_args} exactly as
+the consistency branch is through its own direct call.  Before this, ten
+arguments were dropped here -- \code{return_reselection}, \code{field_R_out},
+\code{field_R_in}, \code{field_uniform}, \code{field_M_cap}, \code{field_complement},
+\code{field_decompose}, \code{field_scale_complement}, \code{ij_residual}, \code{field_recovery}
+-- which left \code{field_decompose} and \code{field_recovery} \strong{unreachable} on
+those engines and the other three \strong{inert while their defaults happened
+to coincide} with the intended values: a run's meta recorded them as set while
+they controlled nothing.
+
+\strong{Defaults are unchanged on every branch.}  Each newly forwarded
+argument defaults to \code{\link[=fs_mr_inference]{fs_mr_inference()}}'s own formal default, read from
+\code{formals(fs_mr_inference)} at call time rather than restated here, so the two
+cannot drift and a call that asks for nothing is byte-identical to the same
+call before the change.  \code{match.arg()}-style defaults are forwarded as their
+whole candidate vector, which \code{fs_mr_inference()} resolves exactly as it would
+have resolved a missing argument.  \code{ci_method} keeps this wrapper's own
+\code{"ij"} default, which is deliberately \emph{not} the consistency branch's
+\code{"field"}; changing it is a separate decision.
+}
+
 \keyword{internal}

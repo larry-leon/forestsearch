@@ -1,5 +1,23 @@
 # forestsearch (development version)
 
+* The internal MR wrapper `.fs_apply_mr()` -- which carries the **DINA** and
+  **GRF** branches into `fs_mr_inference()` -- now forwards the **full**
+  argument set.  It previously forwarded 15 of 25, dropping
+  `return_reselection`, `field_R_out`, `field_R_in`, `field_uniform`,
+  `field_M_cap`, `field_complement`, `field_decompose`,
+  `field_scale_complement`, `ij_residual` and `field_recovery`.  Two field
+  products (`field_decompose`, `field_recovery`) were therefore **unreachable**
+  on those two engines, and three more were **inert while their defaults
+  coincided** with the intended values -- so a run's meta recorded them as set
+  while they controlled nothing, and flipping one to test the alternative did
+  nothing.  `mr_inference_args` now controls the DINA and GRF branches exactly
+  as it controls the consistency branch.  **Add-only: no default changes on any
+  branch.**  Each forwarded default is read from `formals(fs_mr_inference)` at
+  call time rather than restated in the wrapper, so a call that asks for nothing
+  is byte-identical to the same call before the change (verified on both engines
+  against captures from the pre-change install).  `ci_method` is unchanged and
+  keeps the wrapper's own `"ij"` default.
+
 * `fs_mr_inference()` gains `field_recovery` (default `FALSE`): add-only,
   default-inert **membership-agreement diagnostics** for the field's
   re-selection, attached as `field$recovery`.  Over the outer draws that
