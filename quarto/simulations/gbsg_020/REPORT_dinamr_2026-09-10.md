@@ -567,3 +567,45 @@ science for no budget reason.
 
 Block B launched immediately on this result, without waiting for the ratification. Hard timeout
 stands at 16 h.
+
+---
+
+## The p̂ overlay: DINA against its FS comparator, described per cell
+
+`@sec-fsphat` of `summary_dinamr.qmd` computes the p̂ tertile table **identically** on DINA and on
+each cell's committed FS comparator — the bundle that shares the DGM draws — and overlays the two
+retained-bias curves on **median p̂**. Each bundle is binned on **its own** within-cell empirical
+tertiles (the FS `tert()` definition), so neither engine is forced onto the other's p̂ cut-points;
+FS's p̂ distribution sits materially higher than DINA's, which is why the overlay must be read
+against median p̂ rather than tertile index.
+
+**The relationship changes with n, so it is described per cell rather than as one shape offset by a
+constant.** At HR 1.50, 12.4%:
+
+| | | p̂ T1 | p̂ T2 | p̂ T3 |
+|---|---|---|---|---|
+| **n = 500** | DINA median p̂ | 0.049 | 0.134 | 0.356 |
+| | DINA retained bias | **+0.034** | **+0.145** | **+0.275** |
+| | FS median p̂ | 0.072 | 0.166 | 0.325 |
+| | FS retained bias | **−0.073** | **−0.118** | **+0.127** |
+| | DINA − FS, by tertile index | +0.107 | +0.263 | +0.148 |
+| **n = 1500** | DINA median p̂ | 0.079 | 0.213 | 0.504 |
+| | DINA retained bias | **+0.027** | **+0.047** | **+0.056** |
+| | FS median p̂ | 0.195 | 0.362 | 0.595 |
+| | FS retained bias | **−0.239** | **−0.089** | **+0.069** |
+| | DINA − FS, by tertile index | +0.266 | +0.136 | −0.013 |
+
+- **At n = 500**, DINA's retained bias sits **above** FS's in **every** tertile, by **+0.11 to
+  +0.26** read by tertile index.
+- **At n = 1500**, DINA's curve is **nearly flat** — **+0.03 to +0.06** across median p̂ **0.08 to
+  0.50** — while FS's **rises from −0.24 to +0.07** across median p̂ **0.20 to 0.60**. Read against
+  median p̂, the gap is about **+0.29 near p̂ ≈ 0.2** and **closes near p̂ ≈ 0.5–0.6**.
+
+> **At 12.4% this overlay is criterion-confounded**, and cannot be read as engine behaviour. The FS
+> side is `maxeffCons` at ε 0.10 against DINA's `effMaxSG` at ε 0.20 — a different selection
+> functional at half the band width, on top of the identifier, family-construction and
+> detection-set differences that always apply (@sec-fsgrid).
+>
+> **Block B's overlay is the comparison to read.** There the FS comparators (`cert20` / `e1stud`)
+> run **DINA's own criterion** — `effMaxSG` at ε 0.20 — so the criterion drops out and only the
+> identifier, the family construction and the detection set remain.

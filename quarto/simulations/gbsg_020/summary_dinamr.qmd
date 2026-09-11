@@ -853,6 +853,24 @@ so each engine is binned on its own p&#770; distribution rather than on the othe
 (`effMaxSG`, ε 0.20 — `cert20` / `e1stud`); at **12.4% it does not** (`maxeffCons`, ε 0.10 —
 `p12ext` / `tier2`). See @sec-fsgrid for what that does to the comparison.
 
+**What the overlay shows, cell by cell.** The two curves are not one shape offset by a constant,
+and they are not described here as such — the relationship changes with n, so it is given per cell
+at HR 1.50.
+
+- **n = 500.** DINA's retained bias sits **above** FS's in **every** tertile, by **+0.11 to +0.26**
+  read by tertile index (T1 +0.107, T2 +0.263, T3 +0.148). DINA runs +0.034 / +0.145 / +0.275
+  against FS's −0.073 / −0.118 / +0.127.
+- **n = 1500.** DINA's curve is **nearly flat** — **+0.03 to +0.06** across median p̂ **0.08 to
+  0.50** — while FS's **rises from −0.24 to +0.07** across median p̂ **0.20 to 0.60**. Read against
+  median p̂ rather than tertile index, the gap is therefore about **+0.29 near p̂ ≈ 0.2** and
+  **closes near p̂ ≈ 0.5–0.6**.
+
+> **At 12.4% this overlay is criterion-confounded.** The FS side is `maxeffCons` at ε 0.10 against
+> DINA's `effMaxSG` at ε 0.20 — a different selection functional at half the band width — so the
+> Block A gap is not attributable to the engines. **Block B's overlay is the one to read for that**,
+> because there the FS comparator runs DINA's own criterion (`effMaxSG`, ε 0.20) and the criterion
+> drops out of the comparison.
+
 ```{r fs-phat}
 if (!have(labs)) skip_note("the FS p-hat tertile table") else {
 phat_tert <- function(r, tag, cell, crit) {
@@ -892,7 +910,7 @@ print(ggplot(OV, aes(p_hat_med, retained_bias_log, colour = engine, group = engi
   facet_wrap(~ cellf, scales = "free") +
   labs(x = "median p-hat(Hhat) in the tertile", y = "retained bias, log scale", colour = NULL,
        title = "Retained bias versus p-hat, DINA and its FS comparator overlaid on median p-hat",
-       subtitle = "Each engine binned on its own within-cell tertiles; see the criterion column for what differs per block") +
+       subtitle = "Each engine binned on its own within-cell tertiles. At 12.4% the criterion is confounded (FS maxeffCons eps 0.10 vs DINA effMaxSG eps 0.20); read Block B's matched overlay for the engine comparison.") +
   theme_bw(base_size = 10))
 print(ggplot(OV, aes(p_hat_med, fldH_cov, colour = engine, group = engine)) +
   geom_hline(yintercept = 0.95, linetype = 2, colour = "grey40") +
