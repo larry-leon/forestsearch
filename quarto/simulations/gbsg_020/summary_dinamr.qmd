@@ -101,7 +101,8 @@ INV <- do.call(rbind, lapply(labs, function(k) {
              fsver = m$forestsearch_version %||% NA,
              detected = sum(r$detected %in% 1L),
              detection = mean(r$detected %in% 1L),
-             K_med = stats::median(r$n_family), K_q90 = unname(stats::quantile(r$n_family, .9)),
+             K_med = stats::median(r$n_family, na.rm = TRUE),
+             K_q90 = unname(stats::quantile(r$n_family, .9, na.rm = TRUE)),
              marg_H = unname(b$truth$marg_H), marg_Hc = unname(b$truth$marg_Hc)) }))
 kbl(INV, digits = 4, booktabs = TRUE, row.names = FALSE,
     caption = "The cells on disk: engine and knobs as recorded in the pooled meta, realized prevalence (super-population and trial mean), DETECTION RATE, proposed-family size (median, q90), and the marginal Cox targets. Cells absent from disk are omitted here and everywhere below.") |>
@@ -366,7 +367,8 @@ IDENT <- do.call(rbind, lapply(labs, function(k) {
              naive_opt_H_marg = onv_H / sdm_H, naive_opt_H_err = onv_H / sde_H,
              naive_opt_Hc_marg = onv_Hc / sdm_Hc, naive_opt_Hc_err = onv_Hc / sde_Hc,
              p_hat_mean = mean(d$p_hat_H[is.finite(d$p_hat_H)]),
-             K_mean = mean(d$n_family), K_med = stats::median(d$n_family)) }))
+             K_mean = mean(d$n_family, na.rm = TRUE),
+             K_med = stats::median(d$n_family, na.rm = TRUE)) }))
 IDENT <- IDENT[order(IDENT$arm, IDENT$block, IDENT$HR, IDENT$n), ]
 kbl(IDENT, digits = 3, booktabs = TRUE, row.names = FALSE,
     caption = "Classification against n and prevalence: detection; sens / spec / PPV / NPV; mean |Hhat|; |Hhat|/|H| median and q90; the realized beta(Hhat) and beta(Hhat^c) against the PLANTED marginal Cox targets; the naive optimism in marginal-SD and error-SD units on both blocks; mean p-hat; and the proposed-family size K. n_cons_qual is omitted -- it is structurally NA on DINA (@sec-structna).") |>
@@ -467,7 +469,7 @@ FSG <- do.call(rbind, lapply(FSC, function(x) {
   data.frame(cell = x$lab, engine = "FS (consistency)", block = x$blk, n = x$n, HR = x$hr,
              campaign = b$meta$campaign_tag %||% NA, focus = b$meta$sg_focus %||% NA,
              detection = mean(r$detected %in% 1L), n_eval = nrow(d),
-             K_med = stats::median(r$n_family),
+             K_med = stats::median(r$n_family, na.rm = TRUE),
              harm_field = mean(d$betaHhat_H >= d$fld_H_lo1s),
              comp_field_s = mean(d$betaHhat_Hc <= d$fld_Hc_up1s_s),
              ij2_H = mean(d$betaHhat_H >= d$mr_H_lo & d$betaHhat_H <= d$mr_H_hi),
@@ -479,7 +481,7 @@ DNG <- if (have(VSN)) do.call(rbind, lapply(which(VSN$arm == "harm"), function(i
   data.frame(cell = k, engine = "DINA (dinamr)", block = VSN$block[i], n = VSN$n[i], HR = VSN$HR[i],
              campaign = "dinamr", focus = "effMaxSG",
              detection = mean(d$detected %in% 1L), n_eval = VSN$n_eval[i],
-             K_med = stats::median(d$n_family),
+             K_med = stats::median(d$n_family, na.rm = TRUE),
              harm_field = VSN$harm_field[i], comp_field_s = VSN$comp_field_s[i],
              ij2_H = VSN$ij2_H[i], ij2_Hc = VSN$ij2_Hc[i],
              sens = mean(dd$sens), ppv = mean(dd$ppv)) })) else NULL
@@ -613,7 +615,9 @@ replicates.
 
 ```{r strat-fns}
 tert_fs <- function(v) {                     # the FS summaries' own binning, verbatim in form
+  if (!any(is.finite(v))) return(rep(NA_integer_, length(v)))
   br <- stats::quantile(v, c(0, 1/3, 2/3, 1), na.rm = TRUE, names = FALSE)
+  if (length(unique(br)) < 2L) return(rep(1L, length(v)))
   cut(v, breaks = unique(br), include.lowest = TRUE, labels = FALSE) }
 det_rows <- function(k) { r <- B[[k]]$results
   d <- r[r$detected %in% 1L, , drop = FALSE]
@@ -793,7 +797,7 @@ NUL <- do.call(rbind, lapply(null_labs, function(k) {
   r <- B[[k]]$results; d <- prep(r)
   if (!nrow(d)) return(NULL)
   data.frame(cell = k, block = BLK[[k]], n = NN[[k]], detection = mean(r$detected %in% 1L),
-             n_eval = nrow(d), K_med = stats::median(r$n_family),
+             n_eval = nrow(d), K_med = stats::median(r$n_family, na.rm = TRUE),
              beta_H_mean = mean(d$betaHhat_H), beta_Hc_mean = mean(d$betaHhat_Hc),
              harm_field_1s = mean(d$betaHhat_H >= d$fld_H_lo1s),
              comp_field_s_1s = mean(d$betaHhat_Hc <= d$fld_Hc_up1s_s),
