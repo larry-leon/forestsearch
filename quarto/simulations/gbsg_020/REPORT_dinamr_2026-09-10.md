@@ -65,7 +65,17 @@ recording the four kickoff amendments. Committed. **Commit only; not pushed.**
 **Install.** The installed `forestsearch` did **not** match HEAD: `.fs_apply_mr()` was the
 pre-O-1 version (it did not forward `field_recovery`, so the nine recovery columns could not have
 been produced on the DINA path). `devtools::install(dependencies = FALSE)` was run, as the protocol
-authorizes. Verified afterwards on the **installed** package:
+authorizes.
+
+> **The package was reinstalled from commit `50bdeb8a`** (`dinamr: task document as received, with
+> the kickoff amendments appended`) — HEAD at the moment the install ran. That commit touches only
+> `dev/tasks/`, so **the `R/` tree it installed is byte-identical to the O-1 commit `1d9401cb`**:
+> `git rev-parse 1d9401cb^{tree}:R` and `git rev-parse 50bdeb8a^{tree}:R` both give
+> `aa9c3393eebcfb908895727f1eb8abee37ac487b`, and `git diff 1d9401cb 50bdeb8a -- R/ DESCRIPTION
+> NAMESPACE` is empty. Every campaign cell was produced by that build; no commit since has touched
+> `R/`.
+
+Verified afterwards on the **installed** package:
 `identical(deparse(installed .fs_apply_mr), deparse(source))` is **TRUE**, and all **25** of
 `fs_mr_inference()`'s formals are forwarded (**none** missing).
 
@@ -87,7 +97,15 @@ key vector. That was verified against the committed `cert20` and `e1stud` bundle
 assumed. `method_tag`, `focus_tag` and the output stem already key on `subgroup_method`, so a DINA
 run cannot overwrite a consistency bundle.
 
-### Gate T — **PASS**, in its decisive form
+### Gate T — **PASS as a gate substitution, ratified by Larry**
+
+**Recorded as a substitution, not as a literal pass.** The literal criterion — every non-timing
+column and `truth` `identical()` to the committed `e1stud` rows 1–5 — is **unevaluable across
+architectures**: 80 of 153 shared non-timing columns differ, all numerically, at **≤ 8.34e-15**,
+while **every discrete and identification column is `identical()`**. The **same-Mac pre/post form**
+was used instead — the HEAD template against the edited template, same host, same environment —
+giving **162 of 162 non-timing columns, `truth`, and all 34 meta keys `identical()`**. Larry
+ratified this substitution. The evidence for both halves follows.
 
 5 replicates at the standing identity cell (`effMaxSG` ε 0.20, HR 1.50, n 500, `FS_S7_Z1Q=0.60`,
 seeds 8316951 + sim_id, sim_id 1–5, tag `methknob`), `FS_S7_METHOD` **unset**.
@@ -115,7 +133,12 @@ Mac-Studio-3 (arm64, R 4.5.2, Accelerate). Measured:
 - **Every discrete and identification column is exactly `identical()`**: `sim_id`, `n_true`,
   `detected`, `status`, `sg_def`, `n_sel`, `n_family`, `n_cons_qual`, `band_n`, `mr_ok`,
   `mr_harm_flag`, `covs`.
-- `truth` differs only below `all.equal`'s default tolerance (`all.equal` TRUE, `identical` FALSE).
+- **`truth`, with the magnitudes beside the verdicts:** `all.equal` at tolerance 1e-8 **TRUE**,
+  `all.equal` at default tolerance **TRUE**, `identical()` **FALSE**. **Maximum absolute
+  discrepancy 5.55e-15; maximum relative discrepancy 3.25e-15.** Only **2 of the 5** truth
+  components move at all — `cde_H` (abs 5.55e-15, rel 3.25e-15) and `cde_Hc` (abs 1.44e-15, rel
+  2.20e-15), the two that come from numerical integration. The three marginal Cox targets
+  (`hr_causal`, `marg_H`, `marg_Hc`) are **exactly `identical()`** to all 17 digits.
 - The bundle has **167** columns against `e1stud`'s 158: the nine `fld_recov_*` columns postdate
   `e1stud`, exactly as `REPORT_o1_forwarding_2026-09-10` §V4 records.
 
@@ -257,3 +280,122 @@ was thinned.
 
 Hard timeout: **16 h**.
 
+
+---
+
+## Where each instruction is recorded
+
+Every instruction that governed this campaign, and the artifact that carries it. Nothing was
+followed from conversation alone.
+
+| Instruction | Source | Recorded in |
+|---|---|---|
+| The campaign as specified (Parts T and C, blocks, defer order, Stage 1/Gate 1/Gate 2/Stage 3, "Done means") | Task document `TASK_dinamr_campaign_2026-09-10.md` | `dev/tasks/TASK_dinamr_campaign_2026-09-10.md`, committed verbatim at `50bdeb8a` |
+| **Amendment 1** — Gate 1 ceiling 9 h (not 10 h), hard timeout 12 h, with its source (FS projections ran +16% `cert20` to −29% `p12ext`; DINA's ~100× family skew less predictable) | Kickoff paste | Task-file **Appendix**, committed at `50bdeb8a`; and @Gate 1 of this report |
+| **Amendment 2** — one post-Block-A checkpoint re-projecting B and C from A's realized walls; once, not per cell | Kickoff paste | Task-file **Appendix** (`50bdeb8a`); @Block A checkpoint below |
+| **Amendment 3** — same-draws assertions vs the committed FS comparator; a mismatch is a DGM-path finding, not a cell failure | Kickoff paste | Task-file **Appendix** (`50bdeb8a`); @Gate 1 and the Gate 2 records |
+| **Mac correction 1** — Amendment 3 refined: `n_true` stays `identical()`, but `truth` by `all.equal` at ~1e-8, **not** `identical()`, because the FS comparators are Linux-produced and cross-machine BLAS moves `truth` at 1e-16 (as tier2's own Stage 1 recorded); report the tolerance used | Larry, mid-run message | @Gate 1 "Amendments carried"; implemented in `gate2.R` as `TOL_TRUTH <- 1e-8`; **the tolerance is printed in every Gate 2 cell record** |
+| **Mac correction 2** — 12 workers, not 100, matching tier2's headroom choice here (19.3 GB RSS over 13 processes); `VECLIB_MAXIMUM_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1` as tier2 did | Larry, mid-run message | @Gate 1 "The host"; the three vars are exported by the render driver; `n_workers = 12` is in **every batch meta** and gated at Gate 2 |
+| **Mac correction 3** — note that the 9 h ceiling was calibrated for Linux at 100 workers; re-project from this machine's measured walls; expect B and C to defer per the stated order; **a partial campaign is the expected outcome, not a failure** | Larry, mid-run message | @Gate 1 "The host, and why the ceiling needed re-projecting" |
+| **Amendment 4** — ceiling raised to 13 h, hard timeout to 16 h, applied to the projection and every per-cell re-projection including the checkpoint; intent that A and B complete and C defers to a follow-up; stated defer order stands; **2,000 replicates per cell is not tradeable for cell count**; re-instate any cell deferred under 9 h if it now fits | Larry, mid-run message | Task-file **Appendix**; @Gate 1 "Amendments carried" and the Gate 1 decision |
+| **Checkpoint pin** — at the post-Block-A checkpoint, **Block C stays deferred whatever the re-projection shows**; the checkpoint decides Block B's cells only | Larry, mid-run message | @Block A checkpoint below |
+| **Gate T substitution ratified** — the literal `e1stud` identity is unevaluable across architectures; the same-Mac pre/post form stands as the gate | Larry, mid-run message | @Gate T, headed "PASS as a gate substitution, ratified by Larry" |
+| Additional record items (install SHA; truth discrepancy magnitudes; non-detection split; FS family beside DINA's; the `summary_dinamr` diffstat; this table) | Larry, mid-run message | This section and the four that follow |
+
+---
+
+## The `summary_dinamr.qmd` transplant, diffstat against `summary_cert20.qmd`
+
+```
+git diff --no-index --stat summary_cert20.qmd summary_dinamr.qmd
+ summary_cert20.qmd => summary_dinamr.qmd | 794 ++++++++++++++++++-----------
+ 1 file changed, 542 insertions(+), 252 deletions(-)
+```
+
+391 lines → **681 lines**. Chunk inventory, 17 → **25**:
+
+| | chunks |
+|---|---|
+| **Retained** (13, same label and same machinery) | `setup` `cov` `cov-across` `wilson-fn` `vsn-h` `vsn-h-plot` `vsn-c` `ident` `ident-plot` `tert` `tert-plot` `null` `record` |
+| **Dropped** (3) | `accept` — **the acceptance-criteria section, removed because this campaign has none**; `cov-plot-c` and `cov-plot-h`, merged into one guarded `cov-plots` |
+| **Added** (12) | `inventory` `detection` `detection-plot` `structna` `cov-fns` `cov-plots` `twosided` `twosided-plot` `family` `family-plot` `fsgrid` `recov` |
+
+The transplant is globs, labels and comparator names, plus: the grid widened from 9 cells at one
+prevalence to **18 across two**; every coverage caption relabelled as the **conditional-on-proposed-
+family** estimand; the acceptance-criteria section removed; and four sections the task asks for that
+`cert20` has no counterpart to — detection stated before any coverage number (@sec-detect), the
+structurally-NA columns named as such (@sec-structna), the proposed-family size distribution and its
+stabilization (@sec-family), the FS grid beside with the confound stated (@sec-fsgrid), and the
+two-sided decay question with the miss split by side (@sec-twosided).
+
+**The absent-cell guard.** Every chunk that could render empty is wrapped in `have()` /
+`skip_note()`. Verified by rendering `summary_dinamr.qmd` with **zero** campaign cells on disk: all
+20 guarded chunks skipped with a named note, **none rendered empty** — the A3 behaviour seen on the
+`e1stud` set does not recur — while the committed FS comparator grid still rendered, because those
+bundles do exist.
+
+---
+
+## Non-detections: the split the task asks for is **not available from the bundle**
+
+The instruction is to split non-detections into *empty proposed family* versus *candidates proposed
+but none admitted*, **where the bundle allows**. It does not allow it, and the mechanism is exact
+rather than inferred:
+
+```r
+  if (!found) { rec$status <- "NO-DETECTION"; return(rec) }   # template line 1049
+  ...
+  rec$n_family <- g$n_family %||% NA_integer_                  # template line 1055
+```
+
+The recorder **returns its all-NA record before `n_family` is ever written**, and `n_family` is read
+off `g`, the MR gate object, which does not exist when nothing is selected. So on a non-detection
+`n_family` is **NA — never 0, never positive** — and the two causes are indistinguishable.
+
+Measured, not assumed. Across the ten 36-replicate probes: **52 non-detections, `n_family` NA on all
+52, `== 0` on none, `> 0` on none, `err_msg` set on none** (so these are genuine no-selections, not
+errors), `status` `NO-DETECTION` throughout. The same holds on every campaign cell — e.g. Block A
+HR 1.50 n 500: 250 non-detections, `n_family` NA on all 250. Each Gate 2 cell record prints this
+split with the reason.
+
+**Separating the two would need an `R/` or recorder change, which this task forbids.** Flagged, not
+fixed.
+
+---
+
+## FS's enumerated family beside DINA's — the sharpest contrast in the campaign
+
+Both engines record `n_family`, so the comparison is read off committed bundles with no new
+machinery. FS's numbers are from `p12ext` / `tier2` / `cert20` / `e1stud` **as they stand**.
+
+| block | HR | n | FS campaign / focus / ε | FS K: min / med / q90 / max, **CV** | FS detection | DINA K: min / med / q90 / max, **CV** | DINA detection |
+|---|---|---|---|---|---|---|---|
+| A (12.4%) | 1.50 | 500 | p12ext, maxeffCons, 0.10 | 1037 / 1223 / 1318 / 1380, **0.053** | 0.9110 | 1 / 253.5 / 1111 / 3229, **1.201** | 0.8750 |
+| A (12.4%) | 1.50 | 1000 | p12ext, maxeffCons, 0.10 | 1119 / 1299 / 1398 / 1418, **0.041** | 0.9740 | 1 / 156 / 628 / 2596, **1.185** | 0.8385 |
+| A (12.4%) | 1.50 | 1500 | p12ext, maxeffCons, 0.10 | 1195 / 1297 / 1396 / 1412, **0.036** | 0.9880 | 1 / 103 / 394 / 1954, **1.142** | 0.7985 |
+| A (12.4%) | 1.75 | 500 | tier2, maxeffCons, 0.10 | 1037 / 1223 / 1318 / 1380, **0.054** | 0.9500 | *(pending)* | |
+| A (12.4%) | 1.75 | 1000 | tier2, maxeffCons, 0.10 | 1119 / 1299 / 1398 / 1418, **0.041** | 0.9950 | *(pending)* | |
+| A (12.4%) | 1.75 | 1500 | tier2, maxeffCons, 0.10 | 1195 / 1297 / 1396 / 1412, **0.036** | 0.9990 | *(pending)* | |
+| B (31%) | 1.50 | 500 | e1stud, effMaxSG, 0.20 | 1036 / 1223 / 1318 / 1380, **0.054** | 0.9995 | *(pending)* | |
+| B (31%) | 1.50 | 1000 | cert20, effMaxSG, 0.20 | 1119 / 1299 / 1398 / 1418, **0.041** | 1.0000 | *(pending)* | |
+| B (31%) | 1.50 | 1500 | cert20, effMaxSG, 0.20 | 1195 / 1297 / 1396 / 1412, **0.036** | 1.0000 | *(pending)* | |
+| B (31%) | 1.75 | 500 | e1stud, effMaxSG, 0.20 | 1036 / 1223 / 1318 / 1380, **0.054** | 0.9995 | *(pending)* | |
+| B (31%) | 1.75 | 1000 | cert20, effMaxSG, 0.20 | 1119 / 1299 / 1398 / 1418, **0.041** | 1.0000 | *(pending)* | |
+| B (31%) | 1.75 | 1500 | cert20, effMaxSG, 0.20 | 1195 / 1297 / 1396 / 1412, **0.036** | 1.0000 | *(pending)* | |
+
+Three facts, stated without interpretation beyond the record:
+
+1. **FS's family is nearly deterministic and prevalence-invariant.** Its CV is 0.036–0.054, and its
+   quantiles are **identical across the two prevalence blocks at matched n** (1037/1223/1318/1380 at
+   n 500 in both A and B; the one-unit min difference at B is the only movement). It is a
+   combinatorial enumeration off the covariate grid, so only **n** moves it — and it **grows**
+   slightly with n.
+2. **DINA's family is data-adaptive, ~25× more variable, and moves the other way.** CV 1.14–1.20, a
+   floor of **1**, a ceiling of 3229, and a median that **shrinks with n** (253.5 → 156 → 103 at
+   HR 1.50 in Block A) while FS's grows.
+3. **Detection moves in opposite directions with n.** FS at 12.4%/HR 1.50: 0.911 → 0.974 → 0.988,
+   **rising**. DINA at the same cells: 0.875 → 0.839 → **0.799, falling**.
+
+FS additionally records `n_cons_qual` — the consistency-qualifying count the identifier sorts —
+which is **structurally NA on DINA** (@sec-structna). For reference it is 17 / 25 / 31 at Block A
+HR 1.50 and 174 / 292 / 357 at Block B HR 1.50. There is no DINA counterpart to place beside it.
