@@ -277,10 +277,24 @@ The `gate2.R` comparator fix is **accepted and recorded** (Larry, 2026-09-11).
 gate below used `gate2.R`'s corrected identity
 (`log(fld_Hc_est2_s) + fld_Hc_lam_mean_s == log(fld_Hc_est2) + fld_Hc_lam_mean`).
 
-One side issue, **not fixed**: the committed `render.sh` reads `$SP` for its log directory but
-`campaign.sh` sets `SP` without exporting it, so a clean-environment run would `mkdir -p /logs`
-and fail under `set -e`. The Part A run exported `SP` explicitly rather than editing either
-script.
+**The `SP` export defect, since fixed.** `render.sh` reads `$SP` for its log directory and its own
+header states the caller exports what it needs, but `campaign.sh`, `probe.sh` **and** `grfprobe.sh`
+all set `SP` as a plain shell variable. In a clean environment `$SP` reached `render.sh` empty and
+it died on `mkdir -p /logs` under `set -e`. The Part A and Part B runs in this session exported
+`SP` around the scripts; all three callers are now fixed in the tree (`render.sh` unchanged — its
+contract puts the export on the caller).
+
+Verified by **execution**, not by reading, in `env -i` with `DINAMR_SCRATCH` unset and a stub
+template of the expected filename under `DINAMR_QMD_DIR`:
+
+| | result |
+|---|---|
+| `campaign.sh` **before** | `mkdir: /logs: Read-only file system` → `CELL FAILED` |
+| `campaign.sh` **after** | `batch_1`, `batch_1001`, `combine_1` all `RC=0`, `CELL DONE  wall=4s`, three logs under `<scripts>/logs/` |
+| `probe.sh` after | `RC=0`, `PROBE DONE`, `probe_p124_h150_n500.log` written |
+| `grfprobe.sh` after | `RC=0`, `GRF PROBE DONE`, plus its `rss_*.txt` sampler and `time_*.txt` sidecars resolved into the same directory |
+
+Nothing was written to `/logs` in any run.
 
 ---
 
@@ -415,6 +429,196 @@ two-term two-sided interval is conservative on both blocks (0.989–0.997 on the
 the complement); the joint_s Bonferroni pair runs 0.882–0.941. **These are absolute levels,
 recorded, not scored** — no acceptance criterion applies and the FS column is a reference line
 carrying its own criterion, not a bar.
+
+### The Block C coverage numbers
+
+These are the reason Block C was run. All from the rendered summary's own definitions
+(`cov-fns`, `strat-fns`, `strat-xtab`) applied to the committed bundles. **Absolute levels; every
+column is coverage of the conditional-on-proposed-family estimand, on selected replicates only.
+Block C is differentially null against a benefiting complement — HR 1.00 in the planted region,
+0.657 (12.4%) / 0.721 (31%) in its complement.**
+
+`bias_log` is the retained bias on the log scale; `sd_emp` the marginal SD; `sd_err` the error SD;
+`se_mean` the mean SE; `cov1` the one-sided 95% coverage on the exposed side with Wilson limits.
+
+**12.4%, β(Ĥ) on the identified region — one-sided lower**
+
+| cell | construction | n | bias_log | sd_emp | sd_err | se_mean | cov1 [Wilson] |
+|---|---|---|---|---|---|---|---|
+| n 500  | naive | 1427 | 0.6711 | 0.2808 | 0.3016 | 0.3114 | 0.2649 [0.2426, 0.2884] |
+| n 500  | field | 1427 | 0.2311 | 0.3016 | 0.3095 | 0.3138 | 0.8746 [0.8564, 0.8907] |
+| n 500  | IJ two-term | 1427 | 0.2995 | 0.2851 | 0.2951 | 0.4490 | 0.9650 [0.9541, 0.9733] |
+| n 1000 | naive | 1049 | 0.4725 | 0.1899 | 0.2021 | 0.2247 | 0.3041 [0.2770, 0.3326] |
+| n 1000 | field | 1049 | 0.1872 | 0.2388 | 0.2330 | 0.2290 | 0.8494 [0.8265, 0.8697] |
+| n 1000 | IJ two-term | 1049 | 0.2315 | 0.2148 | 0.2111 | 0.3249 | 0.9647 [0.9518, 0.9743] |
+| n 1500 | naive | 687 | 0.3676 | 0.1391 | 0.1519 | 0.1832 | 0.2969 [0.2640, 0.3322] |
+| n 1500 | field | 687 | 0.1616 | 0.1976 | 0.1945 | 0.1821 | 0.8253 [0.7951, 0.8519] |
+| n 1500 | IJ two-term | 687 | 0.1947 | 0.1731 | 0.1702 | 0.2595 | 0.9738 [0.9590, 0.9834] |
+
+**12.4%, β(Ĥᶜ) on the complement — one-sided upper**
+
+| cell | construction | bias_log | sd_emp | sd_err | se_mean | cov1 [Wilson] |
+|---|---|---|---|---|---|---|
+| n 500  | naive | −0.09331 | 0.1271 | 0.1254 | 0.1425 | 0.8641 [0.8453, 0.8809] |
+| n 500  | field | −0.02388 | 0.1389 | 0.1373 | 0.1399 | 0.9271 [0.9125, 0.9395] |
+| n 500  | field-s | −0.02399 | 0.1387 | 0.1371 | 0.1416 | 0.9299 [0.9155, 0.9420] |
+| n 500  | IJ two-term | −0.03607 | 0.1358 | 0.1343 | 0.2691 | 1.0000 [0.9973, 1.0000] |
+| n 1000 | naive | −0.04397 | 0.0894 | 0.0868 | 0.0993 | 0.9180 [0.8999, 0.9331] |
+| n 1000 | field | −0.00755 | 0.0967 | 0.0948 | 0.0978 | 0.9438 [0.9281, 0.9561] |
+| n 1000 | field-s | −0.00759 | 0.0966 | 0.0947 | 0.0989 | 0.9466 [0.9313, 0.9587] |
+| n 1000 | IJ two-term | −0.01341 | 0.0948 | 0.0928 | 0.1908 | 0.9981 [0.9931, 0.9995] |
+| n 1500 | naive | −0.02630 | 0.0725 | 0.0717 | 0.0809 | 0.9374 [0.9168, 0.9532] |
+| n 1500 | field | −0.00407 | 0.0769 | 0.0770 | 0.0800 | 0.9520 [0.9333, 0.9656] |
+| n 1500 | field-s | −0.00407 | 0.0769 | 0.0770 | 0.0808 | 0.9534 [0.9350, 0.9668] |
+| n 1500 | IJ two-term | −0.00755 | 0.0757 | 0.0757 | 0.1570 | 1.0000 [0.9944, 1.0000] |
+
+**31% — field lower on β(Ĥ), field-s upper on β(Ĥᶜ), Bonferroni joint, IJ, naive**
+
+| cell | field lower [Wilson] | field-s upper [Wilson] | joint Bonferroni [Wilson] | joint-s Bonferroni [Wilson] |
+|---|---|---|---|---|
+| n 500  | 0.9059 [0.8918, 0.9184] | 0.9027 [0.8884, 0.9153] | 0.8957 [0.8810, 0.9088] | 0.9027 [0.8884, 0.9153] |
+| n 1000 | 0.9330 [0.9207, 0.9436] | 0.9320 [0.9196, 0.9426] | 0.9255 [0.9126, 0.9366] | 0.9325 [0.9202, 0.9431] |
+| n 1500 | 0.9471 [0.9357, 0.9566] | 0.9358 [0.9234, 0.9463] | 0.9381 [0.9259, 0.9484] | 0.9414 [0.9295, 0.9514] |
+
+**Joint and naive, all six cells**
+
+| cell | joint Bonferroni | joint-s Bonferroni | naive β(Ĥ) two-sided | naive β(Ĥᶜ) two-sided |
+|---|---|---|---|---|
+| 12.4% n 500  | 0.9026 [0.8861, 0.9169] | 0.9075 [0.8914, 0.9215] | 0.4205 [0.3951, 0.4463] | 0.9285 [0.9140, 0.9408] |
+| 12.4% n 1000 | 0.8856 [0.8649, 0.9035] | 0.8875 [0.8670, 0.9052] | 0.4681 [0.4380, 0.4983] | 0.9561 [0.9420, 0.9670] |
+| 12.4% n 1500 | 0.8821 [0.8558, 0.9041] | 0.8821 [0.8558, 0.9041] | 0.4789 [0.4418, 0.5163] | 0.9651 [0.9485, 0.9764] |
+| 31% n 500    | 0.8957 [0.8810, 0.9088] | 0.9027 [0.8884, 0.9153] | 0.4210 [0.3987, 0.4435] | 0.8726 [0.8567, 0.8870] |
+| 31% n 1000   | 0.9255 [0.9126, 0.9366] | 0.9325 [0.9202, 0.9431] | 0.5221 [0.4994, 0.5448] | 0.9055 [0.8913, 0.9180] |
+| 31% n 1500   | 0.9381 [0.9259, 0.9484] | 0.9414 [0.9295, 0.9514] | 0.6368 [0.6142, 0.6589] | 0.9150 [0.9011, 0.9271] |
+
+**IJ two-term two-sided, miss split by side**
+
+| cell | IJ β(Ĥ) [Wilson] | miss below | miss above | IJ β(Ĥᶜ) [Wilson] | miss below | miss above |
+|---|---|---|---|---|---|---|
+| 12.4% n 500  | 0.9916 [0.9854, 0.9952] | 0.00771 | 0.00070 | 1.0000 [0.9973, 1.0000] | 0 | 0 |
+| 12.4% n 1000 | 0.9886 [0.9801, 0.9934] | 0.01144 | 0 | 1.0000 [0.9964, 1.0000] | 0 | 0 |
+| 12.4% n 1500 | 0.9898 [0.9791, 0.9951] | 0.01019 | 0 | 1.0000 [0.9944, 1.0000] | 0 | 0 |
+| 31% n 500    | 0.9919 [0.9867, 0.9951] | 0.00807 | 0 | 1.0000 [0.9979, 1.0000] | 0 | 0 |
+| 31% n 1000   | 0.9941 [0.9894, 0.9967] | 0.00594 | 0 | 0.9989 [0.9961, 0.9997] | 0 | 0.00108 |
+| 31% n 1500   | 0.9966 [0.9926, 0.9985] | 0.00282 | 0.00056 | 1.0000 [0.9978, 1.0000] | 0 | 0 |
+
+**What these say.** The naive interval on the identified region is the outlier: 0.42–0.64 two-sided
+against a retained bias of +0.368 to +0.671 log units — the optimism the correction exists to
+remove. The field lower bound runs **0.825–0.947**, below nominal at every cell, rising with n at
+31% (0.906 → 0.933 → 0.947) and *falling* with n at 12.4% (0.875 → 0.849 → 0.825). The field-s
+complement upper bound runs 0.903–0.953. Both Bonferroni joints run 0.882–0.941. The IJ two-term
+interval is conservative on the region (0.989–0.997) and essentially saturated on the complement,
+its mean SE running 1.5–2.0× the error SD; its misses are almost entirely **below**, i.e. the
+interval sits above the realized target.
+
+### Field lower bound by family-size tertile and by p̂ bin
+
+Block C has the most volatile family in the grid (CV 1.008–1.458), so this is where the
+stratification matters. Coverage of β(Ĥ) by the field lower bound with Wilson limits; retained bias
+is `mean(log(fld_H_est2) − log(betaHhat_H))` within the stratum. K tertiles partition; `K = 1`,
+`K <= 5` and `all detected` **overlap** them and must not be summed.
+
+**By `n_family` tertile**
+
+| cell | stratum | n | field cov [Wilson] | retained bias |
+|---|---|---|---|---|
+| 12.4% n 500 | K T1 [1, 58] | 476 | 0.8824 [0.8503, 0.9083] | 0.1491 |
+| | K T2 [59, 268] | 476 | 0.8824 [0.8503, 0.9083] | 0.2427 |
+| | K T3 [269, 3224] | 475 | 0.8589 [0.8248, 0.8874] | 0.3018 |
+| | K = 1 *(ov)* | 24 | 0.9583 [0.7976, 0.9926] | **−0.0767** |
+| | K ≤ 5 *(ov)* | 82 | 0.8902 [0.8044, 0.9412] | 0.0551 |
+| 12.4% n 1000 | K T1 [1, 36] | 357 | 0.8908 [0.8541, 0.9191] | 0.1216 |
+| | K T2 [37, 125] | 342 | 0.8450 [0.8029, 0.8795] | 0.1971 |
+| | K T3 [127, 1611] | 350 | 0.8114 [0.7672, 0.8489] | 0.2443 |
+| | K = 1 *(ov)* | 32 | 0.9062 [0.7578, 0.9676] | **−0.0864** |
+| 12.4% n 1500 | K T1 [1, 18] | 231 | 0.8225 [0.7681, 0.8664] | 0.1006 |
+| | K T2 [19, 73] | 229 | 0.8253 [0.7709, 0.8690] | 0.1779 |
+| | K T3 [74, 1186] | 227 | 0.8282 [0.7738, 0.8717] | 0.2073 |
+| | K = 1 *(ov)* | 43 | 0.8372 [0.7003, 0.9188] | **−0.0038** |
+| 31% n 500 | K T1 [1, 272] | 620 | 0.9403 [0.9188, 0.9564] | 0.0650 |
+| | K T2 [273, 872] | 620 | 0.9097 [0.8845, 0.9298] | 0.1744 |
+| | K T3 [873, 3476] | 620 | 0.8677 [0.8388, 0.8922] | 0.2536 |
+| | K = 1 *(ov)* | 7 | 1.0000 [0.6457, 1.0000] | **−0.2044** |
+| 31% n 1000 | K T1 [1, 201] | 619 | 0.9661 [0.9487, 0.9777] | 0.0069 |
+| | K T2 [202, 593] | 617 | 0.9481 [0.9277, 0.9630] | 0.0639 |
+| | K T3 [594, 3739] | 616 | 0.8847 [0.8571, 0.9076] | 0.1533 |
+| 31% n 1500 | K T1 [1, 167] | 593 | 0.9747 [0.9587, 0.9846] | **−0.0124** |
+| | K T2 [168, 407] | 591 | 0.9560 [0.9363, 0.9698] | 0.0283 |
+| | K T3 [408, 3364] | 592 | 0.9105 [0.8848, 0.9309] | 0.0921 |
+
+**By p̂ tertile**
+
+| cell | stratum | n | field cov [Wilson] | retained bias |
+|---|---|---|---|---|
+| 12.4% n 500 | p̂ T1 [0.0018, 0.0904] | 477 | 0.9853 [0.9700, 0.9929] | 0.1282 |
+| | p̂ T2 [0.091, 0.2284] | 474 | 0.9241 [0.8966, 0.9446] | 0.2207 |
+| | p̂ T3 [0.229, 0.9886] | 476 | **0.7143 [0.6721, 0.7530]** | 0.3446 |
+| 12.4% n 1000 | p̂ T1 | 350 | 0.9400 [0.9100, 0.9604] | 0.1498 |
+| | p̂ T2 | 349 | 0.8539 [0.8130, 0.8871] | 0.1980 |
+| | p̂ T3 | 350 | **0.7543 [0.7066, 0.7965]** | 0.2136 |
+| 12.4% n 1500 | p̂ T1 | 229 | 0.8908 [0.8438, 0.9250] | 0.1496 |
+| | p̂ T2 | 229 | 0.8472 [0.7949, 0.8880] | 0.1610 |
+| | p̂ T3 | 229 | **0.7380 [0.6774, 0.7907]** | 0.1742 |
+| 31% n 500 | p̂ T1 [2e-04, 0.066] | 622 | 0.9936 [0.9836, 0.9975] | 0.0058 |
+| | p̂ T2 | 618 | 0.9612 [0.9429, 0.9738] | 0.1529 |
+| | p̂ T3 | 620 | **0.7629 [0.7279, 0.7947]** | 0.3348 |
+| 31% n 1000 | p̂ T1 | 618 | 0.9935 [0.9835, 0.9975] | −0.0085 |
+| | p̂ T2 | 617 | 0.9708 [0.9544, 0.9815] | 0.0648 |
+| | p̂ T3 | 617 | **0.8347 [0.8033, 0.8619]** | 0.1675 |
+| 31% n 1500 | p̂ T1 | 595 | 0.9983 [0.9905, 0.9997] | −0.0133 |
+| | p̂ T2 | 589 | 0.9626 [0.9441, 0.9752] | 0.0517 |
+| | p̂ T3 | 592 | **0.8801 [0.8514, 0.9038]** | 0.0697 |
+
+**The p̂ stratification separates far more sharply than the family-size one.** By K the spread
+across tertiles is 2–7 points; by p̂ it is **17–27 points** at every cell, monotone, with the
+high-p̂ tertile at 0.714–0.880 and the low-p̂ tertile at 0.891–0.998. Retained bias moves with it
+in the same direction. Small families are where the correction over-shoots: at `K = 1` the retained
+bias turns **negative** at every cell that has such rows (−0.0038 to −0.2044) and coverage rises
+above nominal, on 5–43 replicates.
+
+**Joint count table, K stratum × p̂ bin** — the table that says whether the two stratifications are
+measuring the same thing. They are **strongly anti-diagonal**, not diagonal: small families carry
+high p̂ and large families carry low p̂.
+
+| cell | K T1: p T1/T2/T3 | K T2: p T1/T2/T3 | K T3: p T1/T2/T3 | K=1 *(ov)* | K≤5 *(ov)* |
+|---|---|---|---|---|---|
+| 12.4% n 500  | 43 / 142 / 291 | 170 / 180 / 126 | 264 / 152 / 59 | 24 | 82 |
+| 12.4% n 1000 | 22 / 92 / 243 | 103 / 157 / 82 | 225 / 100 / 25 | 32 | 105 |
+| 12.4% n 1500 | 13 / 51 / 167 | 67 / 109 / 53 | 149 / 69 / 9 | 43 | 113 |
+| 31% n 500    | 106 / 194 / 320 | 235 / 225 / 160 | 281 / 199 / 140 | 7 | 36 |
+| 31% n 1000   | 85 / 165 / 369 | 241 / 238 / 138 | 292 / 214 / 110 | 5 | 27 |
+| 31% n 1500   | 60 / 142 / 391 | 226 / 246 / 119 | 309 / 201 / 82 | 9 | 45 |
+
+### Beside the FS comparator — absolute levels, criterion stated
+
+**At 31% the FS comparator is criterion-matched** (`cert20`, `effMaxSG`, ε 0.20 — DINA's own
+criterion exactly). **At 12.4% it is not** (`tier2` at n 500, `p12ext` at n 1000/1500, both
+`maxeffCons` at ε 0.10 — a different selection functional at half the band width), so at 12.4% the
+criterion is a fourth confounded difference on top of identifier, family construction and detection
+set, and a gap there cannot be read as engine behaviour even in part.
+
+| cell | matched | FS criterion | DINA field lower | FS field lower |
+|---|---|---|---|---|
+| 12.4% n 500  | no | tier2 / maxeffCons / 0.1 | 0.8746 [0.8564, 0.8907] | 0.9625 [0.9511, 0.9714] |
+| 12.4% n 1000 | no | p12ext / maxeffCons / 0.1 | 0.8494 [0.8265, 0.8697] | 0.9204 [0.9045, 0.9338] |
+| 12.4% n 1500 | no | p12ext / maxeffCons / 0.1 | 0.8253 [0.7951, 0.8519] | 0.9303 [0.9148, 0.9431] |
+| **31% n 500**  | **yes** | cert20 / effMaxSG / 0.2 | 0.9059 [0.8918, 0.9184] | 0.9734 [0.9650, 0.9798] |
+| **31% n 1000** | **yes** | cert20 / effMaxSG / 0.2 | 0.9330 [0.9207, 0.9436] | 0.9560 [0.9458, 0.9643] |
+| **31% n 1500** | **yes** | cert20 / effMaxSG / 0.2 | 0.9471 [0.9357, 0.9566] | 0.9666 [0.9576, 0.9738] |
+
+| cell | DINA field-s upper | FS field-s upper | DINA joint-s | FS joint-s | DINA IJ | FS IJ |
+|---|---|---|---|---|---|---|
+| 12.4% n 500  | 0.9299 [0.9155, 0.9420] | 0.9398 [0.9258, 0.9512] | 0.9075 | 0.9566 | 0.9916 | 0.9860 |
+| 12.4% n 1000 | 0.9466 [0.9313, 0.9587] | 0.9560 [0.9436, 0.9658] | 0.8875 | 0.9416 | 0.9886 | 0.9803 |
+| 12.4% n 1500 | 0.9534 [0.9350, 0.9668] | 0.9495 [0.9359, 0.9603] | 0.8821 | 0.9431 | 0.9898 | 0.9824 |
+| **31% n 500**  | 0.9027 [0.8884, 0.9153] | 0.9115 [0.8976, 0.9236] | 0.9027 | 0.9430 | 0.9919 | 0.9946 |
+| **31% n 1000** | 0.9320 [0.9196, 0.9426] | 0.9277 [0.9152, 0.9385] | 0.9325 | 0.9371 | 0.9941 | 0.9948 |
+| **31% n 1500** | 0.9358 [0.9234, 0.9463] | 0.9270 [0.9145, 0.9378] | 0.9414 | 0.9526 | 0.9966 | 0.9964 |
+
+At the **criterion-matched** 31% cells the field lower bound is 6.8, 2.3 and 2.0 points below FS's
+and closing with n; the field-s upper bound is within ±0.9 points and crosses over at n 1000; the
+IJ interval is indistinguishable. At 12.4% the field gap is 8.8, 7.1 and 10.5 points, but the
+criterion differs there, so it is not a like-for-like reading.
 
 ### Amendment 3 — same draws, all six cells
 
@@ -676,6 +880,61 @@ property read off the source — a non-negative eligible set cannot have a negat
 which held on 180 of 180 replicates regardless of which context produced the fit. It does mean the
 mechanism split is measured on the diagnostic's fits, and that the pipeline's own single
 no-selection has no mechanism assigned to it.
+
+### Are GRF's candidate LISTS identical across prevalences, or only their sizes?
+
+**The lists are not stored per replicate.** The probe bundles hold 167 columns, all atomic scalars;
+none is a list, `AsIs` or matrix column. The only candidate-related fields are `n_family` (the
+*size*), the **selected** rule (`sg_def`, `label`, `covs`) and `p_hat_top_labels` (the top three
+by p̂). **A symmetric difference therefore cannot be computed from the committed bundles, and no
+recorder change was made to obtain one.**
+
+What the bundles do support is a strong necessary condition, and it holds exactly:
+
+| matched pair | `sim_id` aligned | `n_true` identical | **`n_family` identical on all 36** | max abs difference | selected rule identical | `p_hat_top_labels` identical |
+|---|---|---|---|---|---|---|
+| n 500, 12.4% vs 31%  | yes | **no** | **yes — 36 of 36** | **0** | no — 8 of 36 | no — 0 of 36 |
+| n 1500, 12.4% vs 31% | yes | **no** | **yes — 36 of 36** | **0** | no — 3 of 36 | no — 1 of 36 |
+
+`n_true` differs, so the two blocks really are different data-generating mechanisms — same GBSG
+covariates and same trial seeds, different `k_inter`, therefore different outcomes and different
+planted regions. Against that, the family size is identical **replicate by replicate**, not merely
+in distribution, while the selected rule almost always differs:
+
+| sim | K (12.4% / 31%) | selected at 12.4% | selected at 31% |
+|---|---|---|---|
+| 1 (n 500) | 779 / 779 | `{age > 45} & {meno <= 0}` | `{age > 45} & {meno <= 0}` |
+| 2 (n 500) | 776 / 776 | `{er > 162}` | `{er <= 52.4} & {meno <= 0}` |
+| 3 (n 500) | 784 / 784 | `{age <= 45} & {size <= 38.4}` | `{meno <= 0} & {nodes <= 2}` |
+| 1 (n 1500) | 830 / 830 | `{er <= 5} & {nodes > 1}` | `{er <= 60} & {meno <= 0}` |
+| 2 (n 1500) | 827 / 827 | `{pgr <= 19} & {nodes <= 4}` | `{er <= 58} & {size > 19}` |
+
+**The source settles what the sizes can only be consistent with.** `.grf_dr_candidates()`
+(`R/grf_subgroup_labels.R:255-277`) builds each candidate from `X` alone: the cut points are
+`stats::quantile(xj, probs = grid_probs)` per covariate column, and admission is
+`if (nS < n_min || nS > n - 1L) next`. The DR scores enter **only** the `effect` column,
+`mean(ctrl[S]) - mean(trt[S])`, computed *after* the candidate has been admitted — they never
+decide which candidates exist. `.grf_dr_candidates_d2()` (`:281` onward) has the same shape. And
+`n_min` is outcome-free too: with `n.min = NULL` it resolves to
+`max(60L, ceiling(n.min.frac * N_analysis))` (`R/forestsearch_main.R:1368-1377`), a function of the
+analysis sample size only.
+
+**Finding: GRF's proposed family does not depend on the outcome.** The candidate *list* is a
+deterministic function of `(X, grid_probs, n_min)`; only the per-candidate `effect` attached to it,
+and hence the selection, is outcome-driven. That is established from source and is consistent with
+identical sizes on 36 of 36 replicates in both matched pairs; it is **not** established by
+enumerating the sets, which the bundles do not permit.
+
+**How this bears on the family caveat.** DINA's family is read off a cross-fit surface a bootstrap
+would regenerate, which is why the fixed-family condition fails and why every DINA number in this
+record is conditional-on-proposed-family. GRF's family is **not** that kind of object: it is fixed
+by the covariates and the sample size before any outcome is seen, so on this axis — and only this
+axis — GRF is closer to the fixed-family condition than DINA is. Measured against DINA's Block C
+families (median 36–485, CV 1.008–1.458, minimum 1) GRF's are 776–830 with the size pinned exactly
+across two different DGMs. **This is a characterisation of the family, not a coverage claim, not a
+comparison of products, and not a recommendation** — GRF's selection is still outcome-driven, and
+everything else separating GRF from FS and DINA (identifier, detection set, selection criterion,
+and the scale of that criterion) is unchanged.
 
 ### Bearing on the open decision
 
