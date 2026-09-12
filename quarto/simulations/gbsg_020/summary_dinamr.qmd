@@ -1,6 +1,6 @@
 ---
 title: "DINA at the FS-analogous criterion: naive / field / field-s / IJ two-term across both prevalences"
-subtitle: "Campaign dinamr (effMaxSG eps 0.20, J 10, n 500 / 1000 / 1500 at HR 1.50 / 1.75 / 1.00, 12.4% and 31% prevalence); TASK_dinamr_campaign_2026-09-10; transplanted from summary_cert20.qmd"
+subtitle: "Campaign dinamr (effMaxSG eps 0.20, J 10, n 500 / 1000 / 1500 at HR 1.50 / 1.75 / 1.00, 12.4% and 31% prevalence); TASK_dinamr_campaign_2026-09-10 and TASK_dinamr_blockC_grfprobe_2026-09-11 (Block C and the deferred Block B cell); transplanted from summary_cert20.qmd"
 author: "Larry Leon"
 date: today
 format:
@@ -244,7 +244,8 @@ for (sd_ in list(list(bl = "Hhat^c (upper)", side = "upper"), list(bl = "Hhat (l
 ```{r fs-comparator-map}
 # THE FS COMPARATOR THAT SHARES THE DGM DRAWS, per cell, with its OWN criterion.
 # Block A (12.4%): p12ext at HR 1.50/1.00 and tier2 at HR 1.75 -- maxeffCons, eps 0.10.
-# Block B (31%)  : cert20 at n 1000/1500 and e1stud at n 500  -- effMaxSG, eps 0.20.
+# Block B (31%)  : cert20 at n 1000/1500 and e1stud at n 500  -- effMaxSG, eps 0.20;
+#                  at HR 1.00 (Block C's 31% cells) cert20 at all three n.
 # The criterion therefore MATCHES DINA's at 31% and DIFFERS at 12.4%; every FS
 # number below carries its own sg_focus and eps so the reader never has to
 # remember which.
@@ -253,7 +254,11 @@ fs_file <- function(blk, hr, n) {
     camp <- if (abs(hr - 1.75) < 1e-9) "tier2" else if (abs(hr - 1.00) < 1e-9 && n == 500L) "tier2" else "p12ext"
     sprintf("%sfs_maxeffCons_fb_mr_field_m1_h%03d_knoise0_n%d_%s_combined_1_2000.rds", R, round(100*hr), n, camp)
   } else {
-    camp <- if (n == 500L) "e1stud" else "cert20"
+    # e1stud was run only at HR 1.50 and 1.75.  At HR 1.00 the n = 500 / 31%
+    # comparator is cert20, which IS on disk and is likewise effMaxSG at
+    # eps 0.20 -- so the null cells at 31% stay criterion-matched
+    # (TASK_dinamr_blockC_grfprobe_2026-09-11).
+    camp <- if (n == 500L && abs(hr - 1.00) > 1e-9) "e1stud" else "cert20"
     sprintf("%sfs_effMaxSG_fb_mr_field_m1_h%03d_knoise0_n%d_z1q60_nb20_%s_combined_1_2000.rds", R, round(100*hr), n, camp)
   } }
 fs_for <- function(k) { f <- fs_file(BLK[[k]], HR[[k]], NN[[k]])
@@ -925,16 +930,58 @@ print(ggplot(OV, aes(p_hat_med, fldH_cov, colour = engine, group = engine)) +
 
 # The null cells (HR 1.00) {#sec-null}
 
-At the null there is no planted harm effect to find. What is recorded is the detection rate under
-the screen and, among detections, where the two bounds sit relative to the realized β(Ĥ) and
-β(Ĥᶜ) of whatever region DINA returned. Nothing here is scored.
+> **What HR 1.00 is on this path, verified from source (Gate 0,
+> `TASK_dinamr_blockC_grfprobe_2026-09-11`).** It is **a planted region with HR 1.00 inside it,
+> not a global null.** `FS_S7_HR` sets `target_hr_harm`, which
+> "calibrate[s] `k_inter` to this Cox HR **in the harm subgroup**"
+> (`sim_fs_maxeffCons_fb_mr_field_m1_template.qmd:340`). The harm rule itself is
+> `{er <= quantile(er, z1_quantile)} & {meno == 0}` (template lines 344--346), **the same form at
+> every HR** and a function of `FS_S7_Z1Q` alone -- HR does not enter it. The DGM is pinned at
+> `dgm_model <- "alt"` (template line 488), a literal with no environment override; the harness's
+> genuine global-null path (`model = "null"`, "uniform treatment effect",
+> `R/sim_aft_gbsg.R:93`) is unreachable from this template. So `HR 1.00` names the calibration
+> target inside a region that is planted regardless, and the calibration confirms it: `k_inter` is
+> **not** zero (+0.567917 at 12.4%, -8.579297 at 31%), and the planted contrast is
+> **HR(H) = 1.00 against HR(Hᶜ) = 0.657 (12.4%) and 0.721 (31%)**, with overall causal HR 0.685
+> and 0.792. The treatment effect is heterogeneous at these cells; what is absent is **harm**
+> (HR > 1), not the region.
+>
+> **Which quantities are structurally undefined here: none of the classification set.** Because
+> `flag_harm` is planted by the rule and not by the effect size, `harm_col <- "flag_harm"`
+> (template line 661) resolves at HR 1.00 exactly as it does at HR 1.50, with super-population
+> prevalence 0.1242 and 0.3065. The per-replicate **oracle** θ̂(H) is a Cox fit on that same
+> planted region and is defined (its target is simply log 1.00 = 0); **sens, spec, PPV and NPV**
+> are defined against the same planted H and are finite on every detected replicate. The only
+> columns that are structurally absent here are the ones already structurally absent on **every**
+> DINA cell -- `n_cons_qual`, `band_n` (present, all-NA: no consistency screen) and `p_star` (not
+> a recorder column at all) -- and they are reported as such in @sec-structna, never as failures.
+> No quantity in this document is dropped, NA-ed or suppressed on account of HR 1.00.
+>
+> **On calling detection here a "false-selection rate".** The kickoff asks that detection at a
+> null be labelled a false-selection rate rather than a detection rate. That label is **recorded
+> as instructed and flagged**, because the Gate 0 finding does not support it as stated: the
+> planted H has HR 1.00, and DINA's effect floor is log(0.90), so **the planted region itself
+> clears DINA's own admission floor** at these cells. A replicate that returns H is making an
+> admissible selection under the criterion in force, not a false one. The column below is
+> therefore named `selection_rate` and carries the requested reading beside it; **which of the
+> two names is right is Larry's call, not this document's.**
+
+What is recorded is the selection rate under the screen and, among selections, where every bound
+sits relative to the realized β(Ĥ) and β(Ĥᶜ) of whatever region DINA returned. Nothing here is
+scored.
+
+**Criterion match at the null, as everywhere else.** The FS comparator is `cert20`
+(`effMaxSG`, ε 0.20) at all three n at **31% -- criterion-matched to DINA**; and `tier2` at
+n 500 / `p12ext` at n 1000 and 1500 (`maxeffCons`, ε 0.10) at **12.4% -- not matched**, where the
+criterion is the fourth confounded difference set out in @sec-fsgrid. Every FS number below
+carries its own `campaign / sg_focus / eps`.
 
 ```{r null}
 if (!length(null_labs)) skip_note("the null-cell table (no HR 1.00 cell on disk)") else {
 NUL <- do.call(rbind, lapply(null_labs, function(k) {
   r <- B[[k]]$results; d <- prep(r)
   if (!nrow(d)) return(NULL)
-  data.frame(cell = k, block = BLK[[k]], n = NN[[k]], detection = mean(r$detected %in% 1L),
+  data.frame(cell = k, block = BLK[[k]], n = NN[[k]], selection_rate = mean(r$detected %in% 1L),
              n_eval = nrow(d), K_med = stats::median(r$n_family, na.rm = TRUE),
              beta_H_mean = mean(d$betaHhat_H), beta_Hc_mean = mean(d$betaHhat_Hc),
              harm_field_1s = mean(d$betaHhat_H >= d$fld_H_lo1s),
@@ -948,7 +995,54 @@ NUL <- do.call(rbind, lapply(null_labs, function(k) {
              share_Hc_upper_lt_080 = mean(d$fld_Hc_up1s_s < 0.80)) }))
 if (!have(NUL)) skip_note("the null-cell table") else
 kbl(NUL, digits = 4, booktabs = TRUE, row.names = FALSE,
-    caption = "Null cells, both prevalence blocks: detection under the screen; the median proposed-family size; among detections the realized beta on both blocks, the one-sided rates of each bound against its own block's realized beta (conditional-on-proposed-family), and the bounds BY LOCATION (share of the harm lower bound at or above 1.00 and 0.85; share of the complement upper bound below 0.85 and 0.80). Recorded, not scored.") |>
+    caption = "Null cells, both prevalence blocks: the SELECTION RATE under the screen (see the Gate 0 record above: HR 1.00 is a planted region with HR 1.00 inside it, and that region clears DINA's own log(0.90) floor, so this document does not call the rate a false-selection rate without flagging the label); the median proposed-family size; among detections the realized beta on both blocks, the one-sided rates of each bound against its own block's realized beta (conditional-on-proposed-family), and the bounds BY LOCATION (share of the harm lower bound at or above 1.00 and 0.85; share of the complement upper bound below 0.85 and 0.80). Recorded, not scored.") |>
+  kable_styling(font_size = 9)
+}
+```
+
+## Every product at the null, absolute levels {#sec-null-products}
+
+```{r null-products}
+if (!have(VSN) || !have(VSN[VSN$arm == "null", ])) skip_note("the null-cell product table") else {
+vn <- VSN[VSN$arm == "null", ]
+kbl(vn[, c("cell","block","n","n_eval","harm_field","harm_field_lo","harm_field_hi",
+           "ij2_H","ij2_H_lo","ij2_H_hi","miss_below","miss_above",
+           "comp_field_s","comp_field_s_lo","comp_field_s_hi","comp_field",
+           "ij2_Hc","ij2_Hc_lo","ij2_Hc_hi",
+           "joint_bonf","joint_s_bonf","joint_s_bonf_lo","joint_s_bonf_hi")],
+    digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "NULL CELLS (HR 1.00), both prevalence blocks, EVERY PRODUCT AT ITS ABSOLUTE LEVEL -- not a difference from FS. One-sided 95% LOWER coverage of beta(Hhat) by the field bound; two-sided IJ two-term on the harm block with the miss split by side; one-sided UPPER coverage of beta(Hhat^c) by field-s with the unscaled field beside it; two-sided IJ two-term on the complement; and both Bonferroni joint pairs. Wilson limits throughout. EVERY COLUMN IS COVERAGE OF THE CONDITIONAL-ON-PROPOSED-FAMILY ESTIMAND, on selected replicates only. HR 1.00 is a planted region with HR 1.00 inside it, NOT a global null (see the Gate 0 record above): beta(Hhat) and beta(Hhat^c) are the realized targets of whatever region DINA returned, and the planted contrast is HR(H) = 1.00 against HR(Hc) = 0.657 / 0.721.") |>
+  kable_styling(font_size = 8) |> scroll_box(width = "100%")
+}
+```
+
+## The null cells beside their FS comparator, with the criterion named {#sec-null-fs}
+
+```{r null-fs}
+if (!length(null_labs)) skip_note("the null-cell FS comparison") else {
+NFS <- do.call(rbind, lapply(null_labs, function(k) {
+  x <- fs_for(k); r <- B[[k]]$results
+  dn <- r[r$detected %in% 1L & is.finite(r$betaHhat_H) & is.finite(r$fld_H_lo1s), , drop = FALSE]
+  row <- data.frame(cell = k, block = BLK[[k]], n = NN[[k]],
+    dina_criterion = "dinamr / effMaxSG / eps 0.2",
+    dina_selection = mean(r$detected %in% 1L),
+    dina_K_med = stats::median(r$n_family, na.rm = TRUE),
+    dina_field_H = if (nrow(dn)) mean(dn$betaHhat_H >= dn$fld_H_lo1s) else NA_real_,
+    dina_ij2_H = if (nrow(dn)) mean(dn$betaHhat_H >= dn$mr_H_lo & dn$betaHhat_H <= dn$mr_H_hi) else NA_real_)
+  if (is.null(x)) return(cbind(row, fs_criterion = "not on disk", fs_matched = NA,
+                               fs_selection = NA_real_, fs_K_med = NA_real_,
+                               fs_field_H = NA_real_, fs_ij2_H = NA_real_))
+  fr <- x$b$results
+  fd <- fr[fr$detected %in% 1L & is.finite(fr$betaHhat_H) & is.finite(fr$fld_H_lo1s), , drop = FALSE]
+  cbind(row, fs_criterion = fs_crit(x),
+        fs_matched = identical(x$focus, "effMaxSG") && isTRUE(all.equal(x$eps, 0.20)),
+        fs_selection = mean(fr$detected %in% 1L),
+        fs_K_med = stats::median(fr$n_family, na.rm = TRUE),
+        fs_field_H = if (nrow(fd)) mean(fd$betaHhat_H >= fd$fld_H_lo1s) else NA_real_,
+        fs_ij2_H = if (nrow(fd)) mean(fd$betaHhat_H >= fd$mr_H_lo & fd$betaHhat_H <= fd$mr_H_hi) else NA_real_) }))
+if (!have(NFS)) skip_note("the null-cell FS comparison") else
+kbl(NFS, digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = "Null cells beside the committed FS comparator that shares the DGM draws, read as it stands. ABSOLUTE LEVELS on both sides; no difference column, and no contest. fs_matched is TRUE only where the FS comparator's own sg_focus and eps equal DINA's (effMaxSG, 0.20) -- TRUE at 31% (cert20), FALSE at 12.4% (tier2 / p12ext, maxeffCons at eps 0.10), where the criterion is a fourth confounded difference on top of identifier, family construction and detection set. dina_selection / fs_selection are selection rates at a planted region carrying HR 1.00; see the Gate 0 record in @sec-null on why this document does not call them false-selection rates without flagging the label.") |>
   kable_styling(font_size = 9)
 }
 ```
@@ -1005,10 +1099,32 @@ for (k in labs) { x <- TERT[TERT$cell == k & TERT$stratum != "all", ]
 if (exists("NUL") && have(NUL)) {
 cat("\n**Null cells (recorded, not scored):**\n\n")
 for (i in seq_len(nrow(NUL)))
-  cat(sprintf("- %s: detection %s; beta(Hhat) %s, beta(Hhat^c) %s; harm lower one-sided rate %s, complement field-s upper %s; harm lower mean %s (share >= 1.00 %s); complement upper mean %s (share < 0.80 %s)\n",
-    NUL$cell[i], f3(NUL$detection[i]), f3(NUL$beta_H_mean[i]), f3(NUL$beta_Hc_mean[i]),
+  cat(sprintf("- %s: selection rate %s; beta(Hhat) %s, beta(Hhat^c) %s; harm lower one-sided rate %s, complement field-s upper %s; harm lower mean %s (share >= 1.00 %s); complement upper mean %s (share < 0.80 %s)\n",
+    NUL$cell[i], f3(NUL$selection_rate[i]), f3(NUL$beta_H_mean[i]), f3(NUL$beta_Hc_mean[i]),
     f3(NUL$harm_field_1s[i]), f3(NUL$comp_field_s_1s[i]), f3(NUL$H_lower_mean[i]),
     f3(NUL$share_H_lower_ge_100[i]), f3(NUL$Hc_upper_mean[i]), f3(NUL$share_Hc_upper_lt_080[i])))
+}
+if (have(VSN) && have(VSN[VSN$arm == "null", ])) {
+cat("\n**Null cells, every product at its absolute level (conditional-on-proposed-family throughout):**\n\n")
+vnr <- VSN[VSN$arm == "null", ]
+for (i in seq_len(nrow(vnr)))
+  cat(sprintf("- %s (n_eval %d): harm field %s [%s, %s]; IJ two-sided H %s [%s, %s] (miss below %s, above %s); complement field-s %s [%s, %s] (field %s); IJ two-sided Hc %s [%s, %s]; joint Bonferroni %s; joint_s Bonferroni %s [%s, %s]\n",
+    vnr$cell[i], vnr$n_eval[i],
+    f3(vnr$harm_field[i]), f3(vnr$harm_field_lo[i]), f3(vnr$harm_field_hi[i]),
+    f3(vnr$ij2_H[i]), f3(vnr$ij2_H_lo[i]), f3(vnr$ij2_H_hi[i]),
+    f3(vnr$miss_below[i]), f3(vnr$miss_above[i]),
+    f3(vnr$comp_field_s[i]), f3(vnr$comp_field_s_lo[i]), f3(vnr$comp_field_s_hi[i]), f3(vnr$comp_field[i]),
+    f3(vnr$ij2_Hc[i]), f3(vnr$ij2_Hc_lo[i]), f3(vnr$ij2_Hc_hi[i]),
+    f3(vnr$joint_bonf[i]), f3(vnr$joint_s_bonf[i]), f3(vnr$joint_s_bonf_lo[i]), f3(vnr$joint_s_bonf_hi[i])))
+cat("\n*HR 1.00 is a planted region with HR 1.00 inside it, not a global null (Gate 0, @sec-null): k_inter is nonzero and HR(H) = 1.00 sits against HR(Hc) = 0.657 at 12.4% and 0.721 at 31%. The selection rate at these cells is recorded as a selection rate; the kickoff's \"false-selection rate\" reading is noted in @sec-null and left to Larry, because the planted region clears DINA's own log(0.90) floor.*\n")
+}
+if (exists("NFS") && have(NFS)) {
+cat("\n**Null cells beside the FS comparator, absolute levels, criterion named:**\n\n")
+for (i in seq_len(nrow(NFS)))
+  cat(sprintf("- %s: DINA selection %s, family median %g, field %s, IJ two-sided %s | FS (%s, criterion-matched %s) selection %s, family median %g, field %s, IJ two-sided %s\n",
+    NFS$cell[i], f3(NFS$dina_selection[i]), NFS$dina_K_med[i], f3(NFS$dina_field_H[i]), f3(NFS$dina_ij2_H[i]),
+    NFS$fs_criterion[i], as.character(NFS$fs_matched[i]), f3(NFS$fs_selection[i]),
+    NFS$fs_K_med[i], f3(NFS$fs_field_H[i]), f3(NFS$fs_ij2_H[i])))
 }
 cat("\n**No acceptance criteria.** None was pre-registered for this campaign and none is proposed. The FS ranges in @sec-fsgrid are reference lines only. Exploratory; report and wait.\n")
 }
