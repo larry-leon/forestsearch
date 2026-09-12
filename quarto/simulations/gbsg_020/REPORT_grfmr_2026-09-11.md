@@ -515,11 +515,10 @@ bundles; the tooling (`projectG.R`, `gate2G.R`, `gate3.R`, `grfmr.sh`, `grfmr.ce
 blob 1.5 MB); `summary_grfmr.qmd`; and both reports. **Commit range `a451230d..6765c372`. Not
 pushed.**
 
-**Left untracked, for Larry to decide:** the **30 batch and combine renders**
-(`grfmr_*_batch_*.html`, `grfmr_*_combine_*.html`), **131 MB**. The `dinamr` convention *does*
-track these — 55 such files are already in history. They were not committed here because 131 MB
-is not trivially removable from history afterwards (it would need the kind of rewrite
-`REPORT_push_size_fix_2026-08-31` documents), so the reversible choice was taken and the decision
-surfaced instead of made. No individual file approaches the 50 MB blob limit; the constraint is
-cumulative repository size at push, not any one blob. `git add quarto/simulations/gbsg_020/grfmr_*.html`
-completes the convention if that is the call.
+**Also committed, on Larry's instruction (2026-09-12):** the **30 batch and combine renders**
+(`grfmr_*_batch_*.html`, `grfmr_*_combine_*.html`) and **`summary_grfmr.html`** — 31 files,
+138 MB, largest blob 6.7 MB. This completes the `dinamr` convention, under which 55 such renders
+and `summary_dinamr.html` are already tracked. No blob approaches the 50 MB limit that
+`REPORT_push_size_fix_2026-08-31` documents; the constraint that remains is cumulative repository
+size at push, which is Larry's to weigh at push time. **Nothing from this campaign is left
+untracked.**
