@@ -27,7 +27,10 @@
 
 - All 18 grid cells covered; all 18 designated comparator bundles verified present. The table names the **designated** comparator — the one `gate2G.R` and `fs_extraction.R` resolve to. Earlier FS campaigns (`map1`, `s7`, and others) also hold bundles at some of these cells; those are not the comparator and must not be substituted.
 - **Criterion is matched to DINA and GRF at 31% and not at 12.4%.** Any 12.4% cross-identifier gap carries a criterion confound on top of identifier, family construction and detection set.
-- FS one-sided products, across the 12 harm cells and both prevalences: field lower on β(Ĥ) 0.941–0.975; field-s upper on β(Ĥᶜ) 0.913–0.961; Bonferroni joint 0.932–0.964.
+- FS one-sided products, recomputed from the committed bundles across **all 12 harm cells**, both prevalences:
+  - **field lower on β(Ĥ): 0.941–0.975.** The certification record's 0.944–0.974 is the same quantity on a **smaller cell set** — it predates `p12ext`, which supplies the three 12.4% HR 1.50 cells, and 12.4% HR 1.50 n 1000 (0.9410) is the only harm cell below 0.944. Both are right for their set; quote the cell set with the range.
+  - **field-s upper on β(Ĥᶜ): 0.9125–0.9605.** Identical to the record's "0.912–0.960" — the endpoints are the same numbers under a different rounding convention, not a disagreement.
+  - **Bonferroni joint: unscaled `joint` 0.932–0.964; studentized `joint_s` 0.940–0.964.** The record's "0.939–0.963" is **`joint_s`**, whose 9-cell range is 0.9395–0.9640. `joint` and `joint_s` are different constructions and must be named when quoted.
 - Classification and bound-location extraction: `REPORT_fs_extraction_2026-09-11.md` (all 18 cells; reading of committed bundles, no re-run).
 
 ### 2.2 `dinamr` — DINA, complete
@@ -56,33 +59,44 @@
 
 ## 3. Payload inventory
 
-| path pattern | tracked/disk | total | largest single file | what it is |
+| path pattern (first match wins) | tracked/disk | total | largest single file | what it is |
 |---|---|---|---|---|
 | `results/*dinamr*.rds` | 66/66 | 50.54 MB | `dina_effMaxSG_fb_mr_field_m1_h150_knoise0_n500_z1q60_nb20_dinamr_combined_1_2000.rds` 1.54 MB | `dinamr` per-replicate bundles + metas (batch and combined) |
 | `results/*grfmr*.rds` | 30/30 | 30.78 MB | `grf_effMaxSG_fb_mr_field_m1_h150_knoise0_n500_nb20_grfmr_combined_1_2000.rds` 1.54 MB | `grfmr` per-replicate bundles + metas (batch and combined) |
 | `results/*grfprobe*.rds` | 5/5 | 155 KB | `grf_effMaxSG_fb_mr_field_m1_h150_knoise0_n500_nb20_grfprobe_res_1_36.rds` 31 KB | `grfprobe` cost probes, 36 replicates each |
 | `results/fs_*.rds` | 315/315 | 149.12 MB | `fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n1000_p12ext_combined_1_2000.rds` 1.51 MB | FS bundles — the comparator grid plus every earlier FS campaign |
-| `results/*.rds` | 430/430 | 231.53 MB | `dina_effMaxSG_fb_mr_field_m1_h150_knoise0_n500_z1q60_nb20_dinamr_combined_1_2000.rds` 1.54 MB | **all bundles**, every campaign in this directory |
+| `results/*.rds` | 14/14 | 960 KB | `grf_eff_fb_mr_m1_h10_knoise0_n500_combined_1_500.rds` 150 KB | other bundles in `results/` |
+| `mr_sweep/**` | 210/210 | 15.19 MB | `grf_mr_n500_res.rds` 130 KB | `mr_sweep/` — an earlier seed-table sweep, superseded, kept for provenance |
+| `scripts_dinamr/logs/*` | 40/40 | 122 KB | `grfmr_A124_h150_n1000_batch_1001.log` 3 KB | per-render and driver logs — `WALL_SECONDS` / `CELL DONE wall=` |
 | `scripts_dinamr/*.R` | 20/20 | 148 KB | `gate2G.R` 16 KB | drivers, checkers, projections, extractions (R) |
-| `scripts_dinamr/*.sh` | 8/8 | 12 KB | `grfprobe.sh` 3 KB | render and campaign drivers, and the closeout checker (shell) |
+| `scripts_dinamr/*.sh` | 8/8 | 12 KB | `grfprobe.sh` 3 KB | render/campaign drivers and the closeout checker (shell) |
 | `scripts_dinamr/*.py` | 2/2 | 13 KB | `transplant_grfmr.py` 12 KB | transplant / chunk-diff helpers (Python) |
 | `scripts_dinamr/*.cells` | 6/6 | 1 KB | `grfmr.cells` 0 KB | cell lists, one line per cell |
 | `scripts_dinamr/*.rds` | 5/5 | 44 KB | `grfmr_tables.rds` 35 KB | saved derived objects (projections, extracted tables) |
 | `scripts_dinamr/*.md` | 1/1 | 7 KB | `README.md` 7 KB | `README.md` — the standing rules, and what each script is |
 | `scripts_dinamr/*.txt` | 1/1 | 5 KB | `grf_mechanism_output.txt` 5 KB | captured script output (GRF mechanism probe) |
-| `scripts_dinamr/logs/*` | 40/40 | 122 KB | `grfmr_A124_h150_n1000_batch_1001.log` 3 KB | per-render and driver logs — `WALL_SECONDS` / `CELL DONE wall=` |
 | `dinamr_*.html` | 54/54 | 235.69 MB | `dinamr_C31_h100_n500_combine_1.html` 4.39 MB | `dinamr` batch and combine renders |
 | `grfmr_*.html` | 30/30 | 130.99 MB | `grfmr_A124_h150_n500_combine_1.html` 4.38 MB | `grfmr` batch and combine renders |
-| `summary_*.qmd` | 14/14 | 371 KB | `summary_grfmr.qmd` 87 KB | summary sources, all campaigns |
+| `grfprobe_*.html` | 5/5 | 21.56 MB | `grfprobe_g_p124_h150_n1500.html` 4.33 MB | `grfprobe` renders |
+| `probe_*.html` | 10/10 | 43.14 MB | `probe_p31_h100_n500.html` 4.33 MB | Gate 1 cost-probe renders (`dinamr` era) |
 | `summary_*.html` | 14/14 | 49.89 MB | `summary_dinamr.html` 7.62 MB | summary rendered outputs, all campaigns |
+| `summary_*.qmd` | 14/14 | 371 KB | `summary_grfmr.qmd` 87 KB | summary sources, all campaigns |
 | `sim_fs_maxeffCons_fb_mr_field_m1_template.qmd` | 1/1 | 159 KB | `sim_fs_maxeffCons_fb_mr_field_m1_template.qmd` 159 KB | **the** template `dinamr` / `grfmr` / the FS grid all render |
-| `sim_fs_*.qmd` | 43/43 | 3.48 MB | `sim_fs_maxeffCons_fb_mr_field_m1_template.qmd` 159 KB | all simulation templates in the directory, the above included |
+| `sim_*.qmd` | 53/53 | 4.19 MB | `sim_fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_batch_1_100.qmd` 98 KB | other simulation templates (earlier campaigns and variants) |
+| `sim_*.html` | 52/52 | 150.72 MB | `sim_fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_batch_1_1000.html` 3.33 MB | renders of those other templates |
+| `fs_*.html` | 245/245 | 973.62 MB | `fs_maxeffCons_fb_mr_field_m1_h175_knoise0_n1000_tier2_combine_1_2000.html` 4.34 MB | FS campaign batch/combine renders (`p12ext`, `tier2`, `e1stud`, `cert20`, earlier) |
+| `*.html` | 29/29 | 87.87 MB | `smoke_p124_h150_n500_batch_1_5.html` 4.27 MB | remaining renders (smoke, gate, dflt, compare) |
 | `REPORT_*.md` | 63/63 | 1.06 MB | `REPORT_fixedphat_ij2s_2026-09-09.md` 79 KB | REPORT documents |
 | `TABLES_*.md` | 1/1 | 30 KB | `TABLES_grfmr_percell_2026-09-12.md` 30 KB | TABLES documents |
 | `REVIEW_*.md` | 2/2 | 23 KB | `REVIEW_dinamr_blockC_2026-09-11.md` 13 KB | REVIEW documents |
 | `current_status.md` | 1/1 | 13 KB | `current_status.md` 13 KB | this file — the directory's catalog at a pin |
+| `*.md` | 1/1 | 2 KB | `payload_runbook_mr_only_20260819.md` 2 KB | other notes in the directory |
+| `*.qmd` | 21/21 | 1.44 MB | `gate_d2_cim_unset.qmd` 156 KB | remaining `.qmd` |
+| `*.R` | 4/4 | 63 KB | `p12ext_findings.R` 24 KB | top-level ad-hoc R scripts |
+| `*` | 1/1 | 5 KB | `compare_1_20_vs_1_500.csv` 5 KB | everything else |
+| **total** | **1324/1324** | **1948 MB** | `summary_dinamr.html` 7.62 MB | every file, each counted once |
 
-**Totals** — **1324 of 1324 files tracked**, 1948 MB, excluding the gitignored `_gateT_pre_template_files/` and `.DS_Store`. Largest single file `summary_dinamr.html` at 7.62 MB. **Files over 50 MB: 0; over 100 MB: 0.**
+Sizes are **apparent size** (`st_size`), not disk usage; `du` reports block-allocated size and reads larger for many small files. **Every file is counted exactly once** — the rules above are applied first-match-wins, and the rows sum to the total. **Files over 50 MB: 0; over 100 MB: 0.** The gitignored `_gateT_pre_template_files/` (1.7 MB) and `.DS_Store` are excluded throughout.
 
 **Where to start, by question**
 
@@ -114,6 +128,11 @@ The first three entries name files that live **outside this repository** (the `f
 - Supplement §8.3 prose describing DINA/GRF conditional coverage as lower than FS's or recovering with n: does not agree with the adjacent tables and Figures S5/S7. Quote the tables and figures, not the prose.
 - `BRIEF_dinamr_for_fs_glms_interpretable_2026-09-11.md` (v1): §8 listed FS classification metrics and bound-location shares as unavailable; both exist. Superseded by `BRIEF_fs_identifier_for_fs_glms_interpretable_2026-09-12.md`.
 - `REVIEW_grfmr_2026-09-12.md` v1 framed its §2 as a blocking decision; withdrawn in the committed version.
+- **A reconciliation of the FS one-sided product ranges (2026-09-12).** An earlier pass of this file "corrected" the certification figures; **two of those corrections were wrong and are withdrawn**. The certification records are correct as written and were not edited. What actually differs:
+  - **field lower on β(Ĥ)** — a genuine **cell-set** difference. `NOTE_survival_products_2026-09-09.md` reports 0.944–0.974 over its harm cells; its evidence list is `cert20` / `tier2` / `fixedphat_ij2s` / `field_studentize_e1` / `cimethod_flip` and does **not** include `REPORT_p12ext_2026-09-09`, the campaign that supplies the three 12.4% HR 1.50 cells. Excluding those, the committed bundles give exactly 0.944–0.974; including them gives 0.941–0.975, the 0.9410 coming from 12.4% HR 1.50 n 1000. *(The note says "ten harm cells"; nine is what reproduces the range, and no tenth bundle on disk carries field columns. Unreconciled, and it does not move the range.)*
+  - **field-s upper on β(Ĥᶜ)** — **no difference at all.** The value is 0.9125–0.9605; "0.912–0.960" and "0.913–0.961" are the same endpoints rounded differently. The note's per-cell quotes reproduce exactly: 0.912 / 0.942 / 0.947 at 31% HR 1.50, 0.919 / 0.942 / 0.946 at HR 1.75, 0.941 / 0.956 / 0.961 at 12.4% HR 1.75.
+  - **Bonferroni joint** — **different construction, not a different number.** The record's 0.939–0.963 is the **studentized** pair `fld_joint_s_bonf_*` (9-cell range 0.9395–0.9640). The 0.932–0.964 quoted against it was the **unscaled** pair `fld_joint_bonf_*`. Always name which.
+  - Neither `SUMMARY_survival_properties_2026-09-10.md` nor `REVIEW_certification_2026-09-09.md` is in this repository, so the "0.941–0.980" attributed to them could not be checked; **0.980 does not reproduce from any field-lower computation on the committed bundles** (the nearest 0.98 in the record is the IJ two-sided at 31%, 0.971–0.981).
 
 ## 6. Not derivable from the committed columns
 
