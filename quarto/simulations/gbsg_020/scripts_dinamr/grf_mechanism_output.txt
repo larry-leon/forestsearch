@@ -1,0 +1,90 @@
+
+===== MECHANISM: g_p124_h150_n500 (HR 1.50, n 500, 12.4%) =====
+  probe: 36 replicates, 36 detected, 0 NOT detected -> re-running 36
+
+  mechanism split over ALL replicates (probe detection beside it):
+              mechanism detected Freq
+ ADMITTED_BAND_NONEMPTY     TRUE   36
+
+  >> FRONTIER BAND EMPTY on 0 of 36 replicates (0.0000)
+  >> effect-admission empty on 0 (0.0000); admitted_n == 0 recorded on 0
+  >> band cardinality where the admission set is non-empty: min 1 q10 1.5 med 5 q90 13 max 23
+  >> DR-candidate pool size : min 760 med 776 max 789 ; admitted (HR >= 0.90): min 4 med 92 max 247
+  >> admitted_n agrees with the recomputed eligible count on 36 of 36 rows
+  >> identification-only re-run wall: median 1.52 s, p90 1.61 s, max 1.66 s
+
+===== MECHANISM: g_p124_h150_n1500 (HR 1.50, n 1500, 12.4%) =====
+  probe: 36 replicates, 36 detected, 0 NOT detected -> re-running 36
+
+  mechanism split over ALL replicates (probe detection beside it):
+              mechanism detected Freq
+ ADMITTED_BAND_NONEMPTY     TRUE   36
+
+  >> FRONTIER BAND EMPTY on 0 of 36 replicates (0.0000)
+  >> effect-admission empty on 0 (0.0000); admitted_n == 0 recorded on 0
+  >> band cardinality where the admission set is non-empty: min 1 q10 2 med 5.5 q90 12 max 17
+  >> DR-candidate pool size : min 946 med 950.5 max 955 ; admitted (HR >= 0.90): min 18 med 93.5 max 383
+  >> admitted_n agrees with the recomputed eligible count on 36 of 36 rows
+  >> identification-only re-run wall: median 2.26 s, p90 2.31 s, max 2.38 s
+
+===== MECHANISM: g_p31_h150_n500 (HR 1.50, n 500, 31%) =====
+  probe: 36 replicates, 36 detected, 0 NOT detected -> re-running 36
+
+  mechanism split over ALL replicates (probe detection beside it):
+              mechanism detected Freq
+ ADMITTED_BAND_NONEMPTY     TRUE   36
+
+  >> FRONTIER BAND EMPTY on 0 of 36 replicates (0.0000)
+  >> effect-admission empty on 0 (0.0000); admitted_n == 0 recorded on 0
+  >> band cardinality where the admission set is non-empty: min 1 q10 1 med 5 q90 13.5 max 18
+  >> DR-candidate pool size : min 760 med 776 max 789 ; admitted (HR >= 0.90): min 63 med 355 max 601
+  >> admitted_n agrees with the recomputed eligible count on 36 of 36 rows
+  >> identification-only re-run wall: median 1.42 s, p90 1.45 s, max 1.50 s
+
+===== MECHANISM: g_p31_h150_n1500 (HR 1.50, n 1500, 31%) =====
+  probe: 36 replicates, 36 detected, 0 NOT detected -> re-running 36
+
+  mechanism split over ALL replicates (probe detection beside it):
+              mechanism detected Freq
+ ADMITTED_BAND_NONEMPTY     TRUE   36
+
+  >> FRONTIER BAND EMPTY on 0 of 36 replicates (0.0000)
+  >> effect-admission empty on 0 (0.0000); admitted_n == 0 recorded on 0
+  >> band cardinality where the admission set is non-empty: min 1 q10 2 med 6.5 q90 21.5 max 36
+  >> DR-candidate pool size : min 946 med 950.5 max 955 ; admitted (HR >= 0.90): min 103 med 464.5 max 792
+  >> admitted_n agrees with the recomputed eligible count on 36 of 36 rows
+  >> identification-only re-run wall: median 2.13 s, p90 2.18 s, max 2.22 s
+
+===== MECHANISM: g_p124_h100_n500 (HR 1.00, n 500, 12.4%) =====
+  probe: 36 replicates, 35 detected, 1 NOT detected -> re-running 36
+
+  mechanism split over ALL replicates (probe detection beside it):
+              mechanism detected Freq
+ ADMITTED_BAND_NONEMPTY    FALSE    1
+ ADMITTED_BAND_NONEMPTY     TRUE   35
+
+  >> FRONTIER BAND EMPTY on 0 of 36 replicates (0.0000)
+  >> effect-admission empty on 0 (0.0000); admitted_n == 0 recorded on 0
+  >> band cardinality where the admission set is non-empty: min 1 q10 1.5 med 4 q90 11.5 max 18
+  >> DR-candidate pool size : min 760 med 776 max 789 ; admitted (HR >= 0.90): min 3 med 45.5 max 190
+  >> admitted_n agrees with the recomputed eligible count on 36 of 36 rows
+  >> identification-only re-run wall: median 1.35 s, p90 1.39 s, max 1.43 s
+There were 18 warnings (use warnings() to see them)
+
+
+===== ALL CORNERS, MECHANISM SPLIT =====
+                   
+                    ADMITTED_BAND_NONEMPTY
+  g_p124_h100_n500                      36
+  g_p124_h150_n1500                     36
+  g_p124_h150_n500                      36
+  g_p31_h150_n1500                      36
+  g_p31_h150_n500                       36
+
+FRONTIER BAND EMPTY, ALL CORNERS: 0 of 180 replicates (0.0000)
+
+What a replicate records when nothing is selected: the template returns at
+`if (!found) { rec$status <- "NO-DETECTION"; return(rec) }` BEFORE n_family is
+written, so every no-selection replicate is the all-NA NO-DETECTION row and the
+three mechanisms are indistinguishable from the committed columns.  That is why
+this diagnostic re-runs the identifier rather than reading the bundle.

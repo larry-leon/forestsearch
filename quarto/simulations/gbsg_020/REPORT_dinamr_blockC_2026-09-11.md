@@ -566,4 +566,124 @@ three-replicate check its recomputed eligible count reproduced the code's own `g
 exactly (**50, 36, 114**), with band cardinalities 3, 11, 1 — never zero — at ~2.2 s per
 identification.
 
-*(probe results filled in below)*
+## The cost surface
+
+Five 36-replicate probes, 12 workers, tag `grfprobe`. **Whole of Part B ran in 5.7 minutes
+(00:36:27 → 00:42:11), against a 1.5 h cap** — the cap never came close to binding, and Part A had
+left 7.2 h under the 12 h timeout in any case.
+
+| prevalence | HR | n | wall/replicate: med, p90, max (s) | family: med, q90, max | selection [Wilson 95%] | peak tree RSS |
+|---|---|---|---|---|---|---|
+| 12.4% | 1.50 | 500  | 14.18, 15.64, 16.70 | 776, 784, 853 | 36/36 = 1.0000 [0.9036, 1.0000] | 16.2 GB |
+| 12.4% | 1.50 | 1500 | 16.96, 18.96, 21.48 | 828, 834, 838 | 36/36 = 1.0000 [0.9036, 1.0000] | 19.2 GB |
+| 31%   | 1.50 | 500  | 16.00, 17.23, 18.33 | 776, 784, 853 | 36/36 = 1.0000 [0.9036, 1.0000] | 15.8 GB |
+| 31%   | 1.50 | 1500 | 19.79, 22.10, 22.87 | 828, 834, 838 | 36/36 = 1.0000 [0.9036, 1.0000] | 19.7 GB |
+| 12.4% | 1.00 | 500  | 13.50, 15.27, 16.35 | 776, 784, 853 | 35/36 = 0.9722 [0.8583, 0.9951] | 16.0 GB |
+
+Per-render walls 63, 73, 67, 79, 62 s.
+
+**Wall against family size: essentially flat.** Spearman ρ over the 36 replicates is 0.062,
+−0.113, 0.084, −0.171, 0.123 — none of them meaningful at this n. Split at the family median, the
+median wall differs by at most 0.2 s (e.g. 14.17 s vs 14.31 s at the first corner). GRF's cost is
+driven by the forest fit and the per-candidate Cox re-scoring of an almost-constant family, not by
+family size, which is the opposite of DINA's ~100× right-skewed cost profile.
+
+**The proposed family is nearly constant, and identical across prevalences at matched n.** 776 /
+784 / 853 (med / q90 / max) at n 500 at *both* prevalences, and 828 / 834 / 838 at n 1500 at both.
+That is a consequence of how the family is built: `.grf_dr_candidates(X, dr_scores, n_min)`
+enumerates threshold and pair candidates **on the covariate matrix subject to `n.min`**, so the
+candidate *set* is a function of `(X, n_min)` and not of the outcome. The two prevalence blocks
+share the same GBSG covariates and the same trial seeds and differ only in `k_inter`, i.e. only in
+the outcome — hence identical families. For contrast, on the same design DINA's Block C family
+runs median 36–485 with CV 1.008–1.458.
+
+**Peak memory.** Two measures, both reported because they mean different things. `/usr/bin/time -l`
+maximum resident set size covers the **parent quarto process only**: 1721–1877 MB. The 5-second
+sampler sums RSS across the **whole quarto/R process tree**: median 12.7–18.7 GB, peak
+**15.8–19.7 GB** against 36 GB physical at 12 workers. The summed figure **over-counts shared
+pages** — forked workers share the parent's pages — so the true footprint is lower than 19.7 GB;
+it is the right number for judging worker headroom, not for judging absolute footprint.
+
+**Recorder columns on the GRF path: all present and populated.** At every one of the five probes,
+p̂ (`p_hat_H`, `p_hat_sum`, `p_hat_top1`) present and populated, ρᶜ (`fld_Hc_scale_ratio`) present
+and populated, and **9 of 9 recovery columns present, 9 of 9 populated**.
+
+## The empty-band question, measured
+
+`grf_mechanism.R` re-ran the identifier on **all 36 replicates of all five corners (180 in total)**
+and recomputed each filter cardinality the way `.grf_frontier_select()` does.
+
+| corner | band empty | admission empty | band size where admitted: min, med, max | DR pool: min, med, max | admitted (HR ≥ 0.90): min, med, max |
+|---|---|---|---|---|---|
+| 12.4% HR 1.50 n 500  | **0 / 36** | 0 | 1, 5, 23 | 760, 776, 789 | 4, 92, 247 |
+| 12.4% HR 1.50 n 1500 | **0 / 36** | 0 | 1, 5.5, 17 | 946, 950.5, 955 | 18, 93.5, 383 |
+| 31% HR 1.50 n 500    | **0 / 36** | 0 | 1, 5, 18 | 760, 776, 789 | 63, 355, 601 |
+| 31% HR 1.50 n 1500   | **0 / 36** | 0 | 1, 6.5, 36 | 946, 950.5, 955 | 103, 464.5, 792 |
+| 12.4% HR 1.00 n 500  | **0 / 36** | 0 | 1, 4, 18 | 760, 776, 789 | 3, 45.5, 190 |
+
+**FRONTIER BAND EMPTY: 0 of 180 replicates (0.0000).** The source prediction holds exactly. The
+band size is **never zero and frequently one** — its minimum is 1 at every corner, which is the
+signature of the mechanism: the maximum of a non-negative eligible set always passes its own
+`(1 − 0.20) × max` test, so the band retains at least the maximiser and can retain only that.
+
+**The diagnostic reproduces the code's own bookkeeping exactly**: the recomputed eligible count
+equals `grf_res$admitted_n` on **36 of 36 rows at every corner — 180 of 180**.
+
+Identification-only re-run wall: median 1.35–2.26 s per replicate.
+
+### What a replicate records when nothing is selected
+
+The template returns its all-NA record at
+`if (!found) { rec$status <- "NO-DETECTION"; return(rec) }`, **before** `n_family` is written, so
+`n_family` is NA on every no-selection row — never 0, never positive — and an empty DR pool cannot
+be told from an empty admission set in the committed columns. **A `forestsearch` error is
+distinct**, and the recorder does separate it: `if (is.null(fs.est)) { rec$status <- "CONFIG-ERROR"; return(rec) }`
+one branch earlier.
+
+**No error, and no malformed record, on any of the 180 probe replicates.** Every row is either
+`DETECTED` or a well-formed all-NA `NO-DETECTION`; there were **zero** `CONFIG-ERROR` rows. There
+is nothing here to stop on.
+
+### One pipeline no-selection that the diagnostic could not classify — stated, not resolved
+
+The probes recorded exactly **one** no-selection in 180 replicates: sim_id 21 at
+(12.4%, HR 1.00, n 500), `status = NO-DETECTION`, `mr_ok = 0`, `n_family` NA, `sg_def` NA.
+**Its status is `NO-DETECTION`, not `CONFIG-ERROR`, so `forestsearch()` returned normally with no
+subgroup — nothing errored.**
+
+The diagnostic cannot assign it a mechanism, because **its fits are not bit-identical to the
+pipeline's**. On the diagnostic's own fit that replicate selects cleanly (DR pool 771, admitted 68,
+band 8, max HR 1.740). Checked while running this down:
+
+- GRF **is** reproducible within a session — three consecutive standalone runs of the same
+  replicate returned identical candidate counts, `admitted_n` and selected rule (772 / 50 /
+  `{meno <= 0} & {pgr > 61.8}`).
+- `seedit` **does** reach the forest: `fit_causal_forest()` passes `seed = seedit` to
+  `grf::causal_survival_forest()` (`R/grf_helpers.R:74-85`).
+- Yet across the two contexts the per-replicate families differ on **every** detected row —
+  0 of 179 match — by up to 75 (n 500) and 131 (n 1500), while the *distributions* are nearly
+  identical (median 776 in both at the null corner; pipeline range 729–853 against the
+  diagnostic's 760–789).
+
+So the two contexts produce statistically equivalent but not identical GRF fits, and the single
+pipeline no-selection sits inside that difference. Candidate causes not chased further: the
+`future` worker context the template's replicate loop runs in, and how `n.min = NULL` resolves.
+**Chasing it further would risk an `R/` change, which this task forbids, and it is outside Part B's
+cost-and-mechanism scope, so it is recorded here and left.**
+
+**What this does and does not affect.** It does not affect the band finding, which is a structural
+property read off the source — a non-negative eligible set cannot have a negative maximum — and
+which held on 180 of 180 replicates regardless of which context produced the fit. It does mean the
+mechanism split is measured on the diagnostic's fits, and that the pipeline's own single
+no-selection has no mechanism assigned to it.
+
+### Bearing on the open decision
+
+The frontier-filter asymmetry — GRF applying the band frontier-only with no empty-band fallback
+where DINA uses it as a sort key, and MR's `.inband()` carrying a "never empty" fallback that GRF
+does not — **has no reachable consequence at `dmin.grf = 0.0`**, because the branch it protects
+cannot be entered. That is the evidence, and **the decision is left open.** Nothing was changed on
+account of it, and no recommendation follows from it.
+
+**No coverage table, no FS or DINA comparison, no acceptance criterion, no recommendation** appears
+anywhere in Part B.
