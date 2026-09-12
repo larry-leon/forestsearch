@@ -1,9 +1,9 @@
-# REVIEW — `grfmr` campaign (GRF MR inference), ten harm cells
+# REVIEW — `grfmr` campaign (GRF MR inference), ten harm cells (v2)
 
 - **Date:** 2026-09-12
 - **Reviews:** CC's `grfmr` report and per-cell extraction (`TABLES_grfmr_percell_2026-09-12.md`), commit range `a451230d..5e3f71a6`.
 - **Campaign:** 10 of 12 harm cells at 2,000 replicates — 12.4% and 31% × HR 1.50 × n 500/1000/1500, 12.4% HR 1.75 × n 500/1000/1500, 31% HR 1.75 n 500. Deferred: 31% HR 1.75 at n 1000 and n 1500. Dropped: none. 7.939 h against a 9 h ceiling, ratio 0.896 uniform across cells.
-- **Captions as run:** every coverage number is labelled coverage of β(Ĥ) conditional on the proposed family, over detected replicates. Section 2 is why that label may be too weak, and why nothing should be changed until it is settled.
+- **Supersedes** the 2026-09-12 v1 of this file. v1 framed section 2 as a decision that blocked the captions and GRF's standing; that framing was the reviewer's own and is withdrawn. Section 2 now records what the source trace found, as a fact about the construction. Captions state the products and the cells; no estimand qualifier is prescribed.
 
 ---
 
@@ -24,7 +24,7 @@
 
 ---
 
-## 2. Gate 0a — the determination that may change what this campaign establishes
+## 2. Gate 0a — how GRF's family is formed and re-evaluated
 
 Three source findings, taken together:
 
@@ -32,11 +32,11 @@ Three source findings, taken together:
 - MR re-evaluates **the full enumerated pool**, not the forest-admitted subset: the unfiltered pool is what is attached to the result (`grf_main.R:331`, `:419`); the admitted copy is local and discarded (`forestsearch_helpers.R:1625–1627`).
 - Admission is applied **per draw**, as a filter on perturbed effects (`fs_mr_inference.R:661–666`).
 
-**What that is.** A fixed, finite candidate list, fixed before any outcome is seen, re-evaluated in full on every draw, with selection re-run inside the draw. That is the structure the fixed-family condition asks for.
+**What that is.** A fixed, finite candidate list, fixed before any outcome is seen, re-evaluated in full on every draw, with selection re-run inside the draw.
 
-**Why it matters.** Handoff §3 calls GRF "the sharpest case of the family caveat" on the grounds that a literal bootstrap re-fitting the forest would propose a different family each resample. MR does not re-fit the forest. If the reading holds, the reasoning does not reach the MR construction, and GRF's numbers would not be merely conditional on the proposed family.
+**Where it sits against the prior description.** Handoff §3 calls GRF "the sharpest case of the family caveat" on the grounds that a literal bootstrap re-fitting the forest would propose a different family each resample. MR does not re-fit the forest, so that reasoning does not reach the MR construction as traced. Recorded as a discrepancy between the code and the prior description, for whoever revises §3.
 
-**The numbers agree with the source reading**, which is what makes it worth taking seriously rather than filing as a curiosity:
+**The numbers are consistent with the source reading:**
 
 | | GRF | DINA (harm cells) | FS (certified) |
 |---|---|---|---|
@@ -50,13 +50,13 @@ Three source findings, taken together:
 - **GRF reproduces FS's qualitative signature, not DINA's**: a mild two-sided decay with n that is entirely upper-limit misses (12.4% HR 1.75: above 0.0035 → 0.0145 → 0.0200 while below stays 0.0065 → 0.0080 → 0.0045). DINA showed no decay and balanced misses.
 - That is what a fixed family predicts. It is consistent with the source reading and not explained by it — a distinct identifier could behave this way for other reasons.
 
-**Not to be acted on yet.** This is a code trace set against a manuscript description, and the manuscript may describe a different GRF configuration, or the condition may carry a requirement this trace does not address. CC recorded the mechanism, drew no conclusion and changed no caption; that was correct. Three source checks would settle it:
+**Limits of the trace.** It is a code reading set against a manuscript description; the manuscript may describe a different GRF configuration, or address a requirement the trace does not. CC recorded the mechanism and drew no conclusion, which was right. Three further source checks would firm it up if anyone wants to lean on it:
 
 - whether anything in the enumerated pool can move under MR resampling (X and N are fixed, so the cut quantiles and `n_min` should be — confirm rather than infer);
 - whether the DR pre-filter is genuinely outside the MR loop, not merely discarded at the one site traced;
 - whether the alignment repair makes the within-draw selection rule identical to the rule that produced Ĥ, so the resampling reproduces the original selection.
 
-If it holds, the captions change from conditional to unconditional, GRF's standing differs from DINA's, and handoff §3 needs revising. **Larry's call, against the manuscript.**
+None of this blocks the campaign's numbers, the deferred cells, or the manuscript. It is a fact about how GRF's family is constructed and re-evaluated, worth a line wherever GRF and DINA are contrasted.
 
 ---
 
@@ -113,6 +113,6 @@ If it holds, the captions change from conditional to unconditional, GRF's standi
 
 - Report and extraction accepted. No re-run.
 - The `strat-xtab` fix accepted.
-- Captions unchanged pending §2.
-- **Open for Larry:** the Gate 0a determination and its three confirmation checks. Everything else about GRF's standing waits on it.
+- Captions state products and cells; no estimand qualifier prescribed.
+- The Gate 0a trace stands in the record as a finding about GRF's family construction. The three further checks are optional, not pending work.
 - Deferred work: 31% HR 1.75 at n 1000 and n 1500, and the six HR 1.00 null cells — roughly 6 h at the realized rate.
