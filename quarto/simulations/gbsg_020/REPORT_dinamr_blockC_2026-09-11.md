@@ -330,9 +330,130 @@ failures** over all six Block B cells, none missing.
 - family contrast at this cell: FS enumerated min 1195, med 1297, q90 1396, max 1412, CV 0.0357;
   DINA min 384, med 2355.5, q90 3108, max 3726, CV 0.2958. Both detect 1.0000.
 
-## Cells 2–7 — Block C
+## Cells 2–7 — Block C: all six complete, Gate 2 204 passes / 0 failures
 
-*(filled in as they land)*
+`Rscript gate2.R C` reads **204 passes, 0 failures, 0 cells not on disk**. Every check that passed
+on the deferred B cell passes on all six: completeness, every meta knob, all 38 products finite on
+selected replicates, the nine recovery columns / p̂ block / ρᶜ present and populated, every interval
+invariant, γ inside [0.025, 0.028] on both joints, and the corrected identity
+`log(est2_s) + lam_mean_s == log(est2) + lam_mean` at **1.67e-16 to 3.33e-16**. `n_cons_qual` and
+`band_n` are reported present-and-all-NA and `p_star` as not-a-recorder-column, structural on DINA
+at every HR and never as failures.
+
+### Selection, family, classification
+
+| cell | wall | selection rate | family: med (q90, max), CV | sens / spec / PPV / NPV | mean \|Ĥ\| |
+|---|---|---|---|---|---|
+| 12.4% n 500  | 1183 s | 0.7135 | 137 (746, 3224), 1.422 | 0.346 / 0.825 / 0.218 / 0.900 | 98.4 |
+| 12.4% n 1000 | 712 s  | 0.5245 | 66 (355, 1611), 1.422 | 0.378 / 0.852 / 0.269 / 0.907 | 176.3 |
+| 12.4% n 1500 | 445 s  | 0.3435 | 36 (211, 1186), 1.458 | 0.421 / 0.866 / 0.314 / 0.914 | 255.3 |
+| 31% n 500    | 2710 s | 0.9300 | 485.5 (1965, 3476), 1.008 | 0.356 / 0.849 / 0.497 / 0.753 | 106.9 |
+| 31% n 1000   | 2290 s | 0.9260 | 349 (1348, 3739), 1.083 | 0.457 / 0.870 / 0.593 / 0.791 | 229.9 |
+| 31% n 1500   | 1876 s | 0.8880 | 278.5 (896, 3364), 1.078 | 0.578 / 0.871 / 0.656 / 0.833 | 399.6 |
+
+Realized trial prevalence tracks the super-population at every cell (0.12363–0.12401 against
+0.12418; 0.30591–0.30646 against 0.30655). Non-detections are 573 / 951 / 1313 and 140 / 148 / 224,
+all recorded `NO-DETECTION` with `n_family` NA — never 0, never positive — so the two causes are
+not separable from the committed columns, as `gate2.R` states.
+
+### Bound location — the columns that carry the question
+
+| cell | median lower bound | median θ(Ĥ) | bound / θ | paired-ratio med | **share ≥ 1.00** | **share ≥ 1.25** |
+|---|---|---|---|---|---|---|
+| 12.4% n 500  | 0.4924 | 0.6833 | 0.721 | 0.716 | **0.0189** | **0.0035** |
+| 12.4% n 1000 | 0.5721 | 0.7096 | 0.806 | 0.806 | **0.0162** | **0.0010** |
+| 12.4% n 1500 | 0.6119 | 0.7267 | 0.842 | 0.860 | **0.0087** | **0.0015** |
+| 31% n 500    | 0.5556 | 0.8320 | 0.668 | 0.665 | **0.0301** | **0.0086** |
+| 31% n 1000   | 0.6206 | 0.8767 | 0.708 | 0.716 | **0.0157** | **0.0032** |
+| 31% n 1500   | 0.6705 | 0.9016 | 0.744 | 0.762 | **0.0096** | **0.0017** |
+
+**This is the Block C headline.** Selection is frequent and admissible — the region clears the
+sub-null floor — but the lower bound almost never reaches a level that would assert anything the
+data do not carry. The share at or above 1.00 runs **0.9%–3.0%** and the share at or above 1.25
+runs **0.10%–0.86%**, and **both fall monotonically with n at both prevalences**. The two
+quantities move independently and in opposite directions at 12.4%: the selection rate collapses
+0.7135 → 0.5245 → 0.3435 while the bound tightens toward the realized target (0.721 → 0.806 →
+0.842); at 31% selection is roughly flat (0.9300 → 0.9260 → 0.8880) while the location shares
+still fall by a factor of three. **Selection rate and bound location are not interchangeable
+readings, and only the second speaks to a claim the data do not support.**
+
+### The proposed family
+
+DINA's family at these cells is small and extremely volatile — **CV 1.008 to 1.458** — and it
+**shrinks with n** (12.4%: 137 → 66 → 36; 31%: 485.5 → 349 → 278.5), with a minimum of 1 at every
+cell. FS's family on the **identical draws** is an order of magnitude larger, essentially flat in
+n, and two orders of magnitude steadier: median 1223–1300 with **CV 0.036–0.054**. This is the
+family-construction difference the confound statement names, measured.
+
+### Coverage of every product, absolute levels, beside the FS comparator
+
+Conditional-on-proposed-family throughout; Block C is differentially null against a benefiting
+complement. FS is read as it stands, with its own criterion named — **criterion-matched at 31%,
+not at 12.4%**.
+
+| cell | matched | FS criterion | DINA sel / FS sel | DINA field / FS field | DINA IJ 2-sided [Wilson] / FS IJ |
+|---|---|---|---|---|---|
+| 12.4% n 500  | no  | tier2 / maxeffCons / 0.1  | 0.7135 / 0.6805 | 0.8746 / 0.9625 | 0.9916 [0.9854, 0.9952] / 0.9860 |
+| 12.4% n 1000 | no  | p12ext / maxeffCons / 0.1 | 0.5245 / 0.6595 | 0.8494 / 0.9204 | 0.9886 [0.9801, 0.9934] / 0.9803 |
+| 12.4% n 1500 | no  | p12ext / maxeffCons / 0.1 | 0.3435 / 0.6240 | 0.8253 / 0.9303 | 0.9898 [0.9791, 0.9951] / 0.9824 |
+| 31% n 500    | **yes** | cert20 / effMaxSG / 0.2 | 0.9300 / 0.9205 | 0.9059 / 0.9734 | 0.9919 [0.9867, 0.9951] / 0.9946 |
+| 31% n 1000   | **yes** | cert20 / effMaxSG / 0.2 | 0.9260 / 0.9545 | 0.9330 / 0.9560 | 0.9941 [0.9894, 0.9967] / 0.9948 |
+| 31% n 1500   | **yes** | cert20 / effMaxSG / 0.2 | 0.8880 / 0.9590 | 0.9471 / 0.9666 | 0.9966 [0.9926, 0.9985] / 0.9964 |
+
+| cell | DINA field-s upper / FS | DINA IJ 2-sided complement / FS | DINA joint_s Bonferroni / FS |
+|---|---|---|---|
+| 12.4% n 500  | 0.9299 / 0.9398 | 1.0000 / 1.0000 | 0.9075 / 0.9566 |
+| 12.4% n 1000 | 0.9466 / 0.9560 | 1.0000 / 1.0000 | 0.8875 / 0.9416 |
+| 12.4% n 1500 | 0.9534 / 0.9495 | 1.0000 / 1.0000 | 0.8821 / 0.9431 |
+| 31% n 500    | 0.9027 / 0.9115 | 1.0000 / 0.9989 | 0.9027 / 0.9430 |
+| 31% n 1000   | 0.9320 / 0.9277 | 0.9989 / 1.0000 | 0.9325 / 0.9371 |
+| 31% n 1500   | 0.9358 / 0.9270 | 1.0000 / 1.0000 | 0.9414 / 0.9526 |
+
+The one-sided field lower bound sits below its nominal 0.95 on the region at every Block C cell
+(0.825–0.947) and rises with n; the field-s complement upper bound sits at 0.903–0.953; the IJ
+two-term two-sided interval is conservative on both blocks (0.989–0.997 on the region, ~1.000 on
+the complement); the joint_s Bonferroni pair runs 0.882–0.941. **These are absolute levels,
+recorded, not scored** — no acceptance criterion applies and the FS column is a reference line
+carrying its own criterion, not a bar.
+
+### Amendment 3 — same draws, all six cells
+
+`n_true` `identical()` on all 2,000 rows: **YES at every cell.** `truth` `all.equal(tol = 1e-8)`:
+**YES at every cell.** Maximum absolute discrepancy **0** (12.4% n 500, where `identical()` is also
+TRUE), **2.22e-16** (12.4% n 1000 and n 1500) and **1.443e-15** (all three 31% cells); maximum
+relative discrepancy at most **2.199e-15**. These are the cross-machine BLAS differences the
+checker documents, not mismatches, and no cell is treated as failing on their account.
+
+## Part A walls — realized against projection
+
+The driver's own per-render and per-cell walls; no reconstruction is used.
+
+| cell | driver wall | compute | batch renders | combine | overhead/batch | projected | realized/projected |
+|---|---|---|---|---|---|---|---|
+| B HR 1.75 n 1500, 31% | 7190 s | 6830.0 | 7181 | 9 | 175.5 | 1.9780 h | **1.010** |
+| C 12.4% n 500  | 1183 s | 923.5  | 1174 | 9 | 125.3 | 0.3462 h | 0.949 |
+| C 12.4% n 1000 | 712 s  | 521.6  | 703  | 9 | 90.7  | 0.2690 h | 0.735 |
+| C 12.4% n 1500 | 445 s  | 296.8  | 436  | 9 | 69.6  | 0.1920 h | 0.644 |
+| C 31% n 500    | 2710 s | 2238.0 | 2701 | 9 | 231.5 | 0.7084 h | 1.063 |
+| C 31% n 1000   | 2290 s | 1922.2 | 2281 | 9 | 179.4 | 0.6716 h | 0.947 |
+| C 31% n 1500   | 1876 s | 1573.2 | 1867 | 9 | 146.9 | 0.6347 h | 0.821 |
+
+**Part A total: 4.557 h realized against 4.800 h projected — ratio 0.949 — inside a 9 h ceiling,
+with all seven cells run and none deferred or dropped.** Start 20:02, finish 00:36.
+
+The overhead model's **shape** is corrected by these numbers, though its total was right: the
+combine render is a flat **9 s** on every cell and the whole of the overhead sits in the two batch
+renders (the `n_super = 1e5` DGM build), at 69.6–231.5 s each, scaling with prevalence and
+inversely with n. `projectC.R` charged 3 × a uniform per-render figure. `partA_accounting.R`
+(committed) records this and reconciles exactly: compute + batch overhead + 9 = the driver wall,
+to the second, at every cell.
+
+## Stage 3 — the summary
+
+`summary_dinamr.qmd` rendered clean: **"Cells on disk: 18 of 18"**, no chunk skipped, no deferred
+cell. The absent-cell guard now skips nothing. The three new sections — `@sec-null-products`,
+`@sec-null-location`, `@sec-null-fs` — are present, and the Block C tables carry `region_*` /
+`compl_*` column names with the differentially-null statement in every caption.
 
 ---
 
