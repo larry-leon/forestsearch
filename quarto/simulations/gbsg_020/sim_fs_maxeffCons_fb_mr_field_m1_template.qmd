@@ -949,6 +949,15 @@ rule_covs <- function(rule) forestsearch:::.fs_rule_columns(rule)
   # candidate; p_hat_sum = sum over the family (= selection rate);
   # p_hat_top1..3 = the three largest frequencies, labels "|"-joined.
   n_family = NA_integer_, n_cons_qual = NA_integer_, band_n = NA_integer_,
+  # admitted_n (TASK_grfmr_campaign_2026-09-11, Part T2; ADD-ONLY).  The
+  # forest-qualified candidate count on the GRF path -- the number of enumerated
+  # candidates whose inferential effect clears the resolved admission floor
+  # (R/forestsearch_helpers.R:1651 and :1654).  It is the GRF analogue of the
+  # family-size stratifier: GRF's n_family is the enumerated pool, which comes
+  # from quantiles of X subject to n_min and so does not depend on the outcome,
+  # whereas admitted_n does.  NA_integer_ on every non-GRF path, so consistency
+  # and DINA records are unchanged in every column they already had.
+  admitted_n = NA_integer_,
   p_hat_H = NA_real_, p_hat_sum = NA_real_,
   p_hat_top1 = NA_real_, p_hat_top2 = NA_real_, p_hat_top3 = NA_real_,
   p_hat_top_labels = NA_character_,
@@ -1038,6 +1047,14 @@ if (k_random_noise > 0) {
   # whether the MR produced a CI; MR availability is tracked
   # separately in mr_ok so an MR failure never masks a true detection.
   g     <- fs.est$mr_inference
+  # admitted_n, recorded HERE -- before the no-detection return below -- because
+  # an empty admitted set is written as 0L (R/forestsearch_helpers.R:1651) and is
+  # exactly the reason that replicate did not detect; recording it only on
+  # detected rows would drop the informative zeros.  GRF path only; every other
+  # method leaves the .na_record() NA_integer_ in place.
+  .adm <- if (identical(subgroup_method, "grf")) fs.est$grf_res$admitted_n else NULL
+  if (!is.null(.adm) && length(.adm) >= 1L && is.finite(.adm[1]))
+    rec$admitted_n <- as.integer(.adm[1])
   found <- !is.null(fs.est$sg.harm)
   rec$detected <- as.integer(found)
   if (found) {
