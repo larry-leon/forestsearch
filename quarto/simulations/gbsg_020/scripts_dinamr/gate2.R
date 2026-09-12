@@ -23,7 +23,10 @@ fscomp <- function(hr, n, blk) {
     camp <- if (abs(hr - 1.75) < 1e-9) "tier2" else if (abs(hr - 1.00) < 1e-9 && n == 500L) "tier2" else "p12ext"
     sprintf("%sfs_maxeffCons_fb_mr_field_m1_h%03d_knoise0_n%d_%s_combined_1_2000.rds", R, round(100*hr), n, camp)
   } else {
-    camp <- if (n == 500L) "e1stud" else "cert20"
+    # Block C addendum (TASK_dinamr_blockC_grfprobe_2026-09-11): e1stud was run
+    # only at HR 1.50 and 1.75, so at HR 1.00 the n = 500 / 31% comparator is
+    # cert20, which IS on disk and is criterion-matched (effMaxSG, eps 0.20).
+    camp <- if (n == 500L && abs(hr - 1.00) > 1e-9) "e1stud" else "cert20"
     sprintf("%sfs_effMaxSG_fb_mr_field_m1_h%03d_knoise0_n%d_z1q60_nb20_%s_combined_1_2000.rds", R, round(100*hr), n, camp)
   }
 }
