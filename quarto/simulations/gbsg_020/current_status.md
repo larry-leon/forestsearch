@@ -1,6 +1,6 @@
 # current_status — `quarto/simulations/gbsg_020`
 
-- **Pin:** `1b16718a` on `feature/glm-extension` — HEAD at the time this file was committed; the closeout commit that adds this file is its child.
+- **Pin:** `ca9b0a62` on `feature/glm-extension` — HEAD at the time this file was committed; the closeout commit that adds this file is its child.
 - **Updated:** 2026-09-12
 - **Purpose:** a catalog of what has been run in this directory and where the payloads are, so a chat or workstream on another machine can be brought up to speed by attaching this one file. It points at authoritative files; it does not restate their numbers.
 - **Maintenance:** regenerated as the closeout step of every task that touches this directory. The pin above must equal HEAD at commit time.
@@ -86,17 +86,17 @@
 | `sim_*.html` | 52/52 | 150.72 MB | `sim_fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_batch_1_1000.html` 3.33 MB | renders of those other templates |
 | `fs_*.html` | 245/245 | 973.62 MB | `fs_maxeffCons_fb_mr_field_m1_h175_knoise0_n1000_tier2_combine_1_2000.html` 4.34 MB | FS campaign batch/combine renders (`p12ext`, `tier2`, `e1stud`, `cert20`, earlier) |
 | `*.html` | 29/29 | 87.87 MB | `smoke_p124_h150_n500_batch_1_5.html` 4.27 MB | remaining renders (smoke, gate, dflt, compare) |
-| `REPORT_*.md` | 63/63 | 1.06 MB | `REPORT_fixedphat_ij2s_2026-09-09.md` 79 KB | REPORT documents |
+| `REPORT_*.md` | 64/64 | 1.07 MB | `REPORT_fixedphat_ij2s_2026-09-09.md` 79 KB | REPORT documents |
 | `TABLES_*.md` | 1/1 | 30 KB | `TABLES_grfmr_percell_2026-09-12.md` 30 KB | TABLES documents |
 | `REVIEW_*.md` | 2/2 | 23 KB | `REVIEW_dinamr_blockC_2026-09-11.md` 13 KB | REVIEW documents |
-| `current_status.md` | 1/1 | 13 KB | `current_status.md` 13 KB | this file — the directory's catalog at a pin |
+| `current_status.md` | 1/1 | 18 KB | `current_status.md` 18 KB | this file — the directory's catalog at a pin |
 | `*.md` | 1/1 | 2 KB | `payload_runbook_mr_only_20260819.md` 2 KB | other notes in the directory |
 | `*.qmd` | 21/21 | 1.44 MB | `gate_d2_cim_unset.qmd` 156 KB | remaining `.qmd` |
 | `*.R` | 4/4 | 63 KB | `p12ext_findings.R` 24 KB | top-level ad-hoc R scripts |
 | `*` | 1/1 | 5 KB | `compare_1_20_vs_1_500.csv` 5 KB | everything else |
-| **total** | **1324/1324** | **1948 MB** | `summary_dinamr.html` 7.62 MB | every file, each counted once |
+| **total** | **1325/1325** | **1948 MB** | `summary_dinamr.html` 7.62 MB | every file, each counted once |
 
-Sizes are **apparent size** (`st_size`), not disk usage; `du` reports block-allocated size and reads larger for many small files. **Every file is counted exactly once** — the rules above are applied first-match-wins, and the rows sum to the total. **Files over 50 MB: 0; over 100 MB: 0.** The gitignored `_gateT_pre_template_files/` (1.7 MB) and `.DS_Store` are excluded throughout.
+Sizes are **apparent size** (`st_size`), not disk usage; `du` reports block-allocated size and reads larger for many small files. **Every file is counted exactly once** — the rules are applied first-match-wins and the rows sum to the total. **Files over 50 MB: 0; over 100 MB: 0.** The gitignored `_gateT_pre_template_files/` (1.7 MB) and `.DS_Store` are excluded throughout.
 
 **Where to start, by question**
 
@@ -105,6 +105,7 @@ Sizes are **apparent size** (`st_size`), not disk usage; `du` reports block-allo
 | Per-cell coverage, bias, SDs, misses — DINA | `summary_dinamr.html`, or the Block reports |
 | Per-cell numbers — GRF | `TABLES_grfmr_percell_2026-09-12.md` |
 | FS classification and bound location | `REPORT_fs_extraction_2026-09-11.md` |
+| Why a quoted FS range differs from the certification record | `REPORT_fs_products_reconciliation_2026-09-12.md` |
 | How a number was computed | `scripts_dinamr/` — the summary's own chunks are authoritative over any re-implementation |
 | Cost and wall provenance | `scripts_dinamr/logs/`, `projectC.R`, `walls.R` |
 | Raw per-replicate rows | `results/*<campaign>*.rds` |
@@ -128,7 +129,7 @@ The first three entries name files that live **outside this repository** (the `f
 - Supplement §8.3 prose describing DINA/GRF conditional coverage as lower than FS's or recovering with n: does not agree with the adjacent tables and Figures S5/S7. Quote the tables and figures, not the prose.
 - `BRIEF_dinamr_for_fs_glms_interpretable_2026-09-11.md` (v1): §8 listed FS classification metrics and bound-location shares as unavailable; both exist. Superseded by `BRIEF_fs_identifier_for_fs_glms_interpretable_2026-09-12.md`.
 - `REVIEW_grfmr_2026-09-12.md` v1 framed its §2 as a blocking decision; withdrawn in the committed version.
-- **A reconciliation of the FS one-sided product ranges (2026-09-12).** An earlier pass of this file "corrected" the certification figures; **two of those corrections were wrong and are withdrawn**. The certification records are correct as written and were not edited. What actually differs:
+- **A reconciliation of the FS one-sided product ranges (2026-09-12; per-cell values in `REPORT_fs_products_reconciliation_2026-09-12.md`).** An earlier pass of this file "corrected" the certification figures; **two of those corrections were wrong and are withdrawn**. The certification records are correct as written and were not edited. What actually differs:
   - **field lower on β(Ĥ)** — a genuine **cell-set** difference. `NOTE_survival_products_2026-09-09.md` reports 0.944–0.974 over its harm cells; its evidence list is `cert20` / `tier2` / `fixedphat_ij2s` / `field_studentize_e1` / `cimethod_flip` and does **not** include `REPORT_p12ext_2026-09-09`, the campaign that supplies the three 12.4% HR 1.50 cells. Excluding those, the committed bundles give exactly 0.944–0.974; including them gives 0.941–0.975, the 0.9410 coming from 12.4% HR 1.50 n 1000. *(The note says "ten harm cells"; nine is what reproduces the range, and no tenth bundle on disk carries field columns. Unreconciled, and it does not move the range.)*
   - **field-s upper on β(Ĥᶜ)** — **no difference at all.** The value is 0.9125–0.9605; "0.912–0.960" and "0.913–0.961" are the same endpoints rounded differently. The note's per-cell quotes reproduce exactly: 0.912 / 0.942 / 0.947 at 31% HR 1.50, 0.919 / 0.942 / 0.946 at HR 1.75, 0.941 / 0.956 / 0.961 at 12.4% HR 1.75.
   - **Bonferroni joint** — **different construction, not a different number.** The record's 0.939–0.963 is the **studentized** pair `fld_joint_s_bonf_*` (9-cell range 0.9395–0.9640). The 0.932–0.964 quoted against it was the **unscaled** pair `fld_joint_bonf_*`. Always name which.
