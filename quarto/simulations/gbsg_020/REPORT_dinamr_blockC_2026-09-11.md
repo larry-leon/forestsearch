@@ -102,16 +102,30 @@ effect size, it resolves at HR 1.00 exactly as at HR 1.50 (super-population prev
 The three structural columns are structural on **every** DINA cell, at every HR; HR 1.00 adds
 nothing to the list. **No quantity is dropped, NA-ed or suppressed on account of HR 1.00.**
 
-## The "false-selection rate" label — recorded, and flagged
+## Naming, settled — the rate is a `selection_rate` (Larry, 2026-09-11)
 
-The kickoff asks that detection at a null be labelled a false-selection rate. That label is
-**recorded as instructed and flagged**, because the Gate 0 finding does not support it as stated:
-the planted region carries HR 1.00 and **DINA's effect floor is log(0.90)**, so the planted region
-itself clears DINA's own admission floor at these cells. A replicate that returns H is making an
-**admissible** selection under the criterion in force, not a false one. The document therefore
-names the column `selection_rate` and carries the requested reading beside it.
-**Which of the two names is right is Larry's call, not this report's** — it is recorded here and
-in `summary_dinamr.qmd` @sec-null, and nothing was decided on it.
+The planted region carries HR 1.00 and DINA's effect floor is log(0.90), **deliberately
+sub-null**. A replicate that returns that region is therefore making an **admissible selection**
+under the criterion in force; naming the rate for an error would mislabel correct behaviour. The
+column is `selection_rate`, it is read as nothing more, and no other reading is carried in the
+tables, the captions or this report.
+
+**What speaks to a claim the data do not support is bound location, not selection.**
+`summary_dinamr.qmd` @sec-null-location reports, per Block C cell, the **share of field lower
+bounds at or above 1.00 and at or above 1.25**, with the rest of the columns of the Block A
+location table (`scripts_dinamr/blockA_rest.R:63–76`): the median field lower bound against the
+median realized θ(Ĥ) on the HR scale, the field point estimate and the naive estimate, the
+bound-to-target gap in difference / ratio / paired-ratio form, and the planted marginal target.
+Those columns carry the question. The `NUL` summary table's second share column moves from 0.85
+to 1.25 to match.
+
+## Vocabulary in Block C
+
+These cells carry **no planted harm**, so no harm vocabulary is used for them anywhere. The
+planted region is described as **differentially null against a benefiting complement** — HR 1.00
+inside it, HR 0.657 (12.4%) / 0.721 (31%) outside it — and **every Block C caption states this
+beside the conditional-on-proposed-family label**. The shared recorder columns built for the harm
+blocks (`harm_*`, `comp_*`) are renamed to `region_*` / `compl_*` in the Block C tables.
 
 ---
 
@@ -155,60 +169,87 @@ measured per-replicate seconds** 4,000 times, so the projection carries an inter
 multiplying a mean. n = 1000 is not probed at HR 1.00 and is interpolated by **pooling the n 500
 and n 1500 draws**, which interpolates the distribution rather than only its centre.
 
-Calibration is on the campaign's **realized** Block A / Block B walls, reconstructed from the
-committed bundles' mtimes (cell wall = batch 1 + batch 1001 + combine):
+### Realized walls come from the bundles' timing columns, not from mtimes
 
-| block | HR | n | realized (h) | Gate 1 (h) | ratio |
-|---|---|---|---|---|---|
-| A | 1.50 | 500  | 0.518 | 0.412 | 1.256 |
-| A | 1.50 | 1000 | 0.389 | 0.374 | 1.040 |
-| A | 1.50 | 1500 | 0.330 | 0.275 | 1.196 |
-| A | 1.75 | 500  | 0.572 | 0.412 | 1.388 |
-| A | 1.75 | 1000 | 0.470 | 0.374 | 1.257 |
-| A | 1.75 | 1500 | 0.429 | 0.275 | 1.556 |
-| B | 1.50 | 500  | 1.395 | 1.168 | 1.195 |
-| B | 1.50 | 1000 | 1.547 | 1.479 | 1.046 |
-| B | 1.50 | 1500 | 1.627 | 1.617 | 1.006 |
-| B | 1.75 | 500  | 1.581 | 1.168 | 1.354 |
-| B | 1.75 | 1000 | 1.836 | 1.479 | 1.241 |
+The first pass reconstructed realized walls by differencing result-file mtimes. **The bundles
+carry per-replicate timing, so that was never necessary**, and `walls.R` (committed) replaces it.
+Verified on the committed bundles before using them:
 
-K over the **measured** corners (the HR 1.50 cells; the HR 1.75 cells were costed at the HR 1.50
-corner and their ratio absorbs that assumption) is **1.090**, per-cell 1.006–1.256. Block A 1.275,
-Block B 1.155, all eleven 1.184. The kickoff's prior ratios — A 1.27, B 0.92 — are
-realized-over-**checkpoint** for B; realized-over-**Gate 1** is what is tabulated here, and A's
-1.275 reproduces the quoted 1.27. **K = 1.275 (Block A's, the largest block-level value) is the
-conservative multiplier used below.**
+- `fit_mr_secs` is the **top-level per-replicate worker timer** and is **finite on all 2,000 rows
+  of every cell** (1000/1000 per batch), selected or not.
+- `fld_H_secs` and `fld_Hc_secs` are **nested inside it** — `fld_H_secs <= fit_mr_secs` on **878 of
+  878** rows where both are finite (median ratio 0.829, max 0.940), and
+  `fld_H_secs + fld_Hc_secs <= fit_mr_secs` on all of them. They must **not** be added.
+- `fb_secs` and `fld_H_uniform_secs` are identically zero on this campaign (`FS_S7_FB=none`).
+- `meta$n_workers` = **12** is recorded in every **batch** meta (the combined meta does not carry
+  it).
+
+There is no per-replicate *wall* column, so the compute wall is
+`sum(fit_mr_secs) / n_workers`. The mtime span is kept beside it **labelled a proxy**, and its
+residual over the compute wall is reported rather than absorbed.
+
+| block | HR | n | compute wall (h) | mtime proxy (h) | residual (s) | per render (s) |
+|---|---|---|---|---|---|---|
+| A | 1.50 | 500  | 0.4154 | 0.5177 | 368.5 | 122.8 |
+| A | 1.50 | 1000 | 0.3185 | 0.3888 | 253.1 | 84.4 |
+| A | 1.50 | 1500 | 0.2650 | 0.3295 | 232.5 | 77.5 |
+| A | 1.75 | 500  | 0.4783 | 0.5723 | 338.5 | 112.8 |
+| A | 1.75 | 1000 | 0.3980 | 0.4700 | 259.5 | 86.5 |
+| A | 1.75 | 1500 | 0.3652 | 0.4285 | 227.8 | 75.9 |
+| B | 1.50 | 500  | 1.2314 | 1.3952 | 589.8 | 196.6 |
+| B | 1.50 | 1000 | 1.4453 | 1.5471 | 366.7 | 122.2 |
+| B | 1.50 | 1500 | 1.5038 | 1.6268 | 442.5 | 147.5 |
+| B | 1.75 | 500  | 1.4410 | 1.5812 | 504.5 | 168.2 |
+| B | 1.75 | 1000 | 1.7438 | 1.8361 | 332.3 | 110.8 |
+
+Totals over the eleven cells: **compute 9.606 h**, mtime proxy 10.693 h, residual **1.088 h**.
+
+**The residual is the finding.** `project.R` assumed **30 s** of per-render overhead; the measured
+value is a **median of 112.8 s, range 75.9–196.6** — about four times the assumption. It is
+render / DGM-build / table cost plus the makespan slack over the `sum/W` bound. Once it is
+accounted for, **Gate 1's compute model turns out to have been near-exact**: on the measured
+HR 1.50 corners `sum(compute)/sum(gate1) = 0.972`, while the mtime-based multiplier of **1.090**
+on those same corners **was overhead, not compute**. (The HR 1.75 cells are excluded from that
+reading — they were costed at the HR 1.50 corner, so their ratio absorbs that assumption rather
+than measuring anything.)
+
+`projectC.R` therefore **drops the blanket multiplier entirely** and projects
+compute-from-distribution **plus the measured per-block overhead**, taken at the largest realized
+value per block (12.4% → 122.8 s, 31% → 196.6 s), which is the conservative choice.
 
 ## Part A projection
 
-| cell | basis | median (h) | 90% band | calibrated ×1.275 (h) |
-|---|---|---|---|---|
-| C 12.4% n 500  | measured | 0.2688 | 0.2611–0.2770 | 0.3427 |
-| C 12.4% n 1000 | pooled draws | 0.1917 | 0.1843–0.1988 | 0.2443 |
-| C 12.4% n 1500 | measured | 0.1146 | 0.1099–0.1195 | 0.1462 |
-| C 31% n 500    | measured | 0.5696 | 0.5549–0.5840 | 0.7262 |
-| C 31% n 1000   | pooled draws | 0.5328 | 0.5202–0.5454 | 0.6793 |
-| C 31% n 1500   | measured | 0.4958 | 0.4849–0.5067 | 0.6322 |
-| **Block C, six cells** | | **2.173** | 2.115–2.231 | **2.771** |
+| cell | basis | overhead/render | median (h) | 90% band | at project.R's 30 s |
+|---|---|---|---|---|---|
+| C 12.4% n 500  | measured | 122.8 s | 0.3462 | 0.3384–0.3543 | 0.2690 |
+| C 12.4% n 1000 | pooled draws | 122.8 s | 0.2690 | 0.2616–0.2762 | 0.1918 |
+| C 12.4% n 1500 | measured | 122.8 s | 0.1920 | 0.1872–0.1968 | 0.1147 |
+| C 31% n 500    | measured | 196.6 s | 0.7084 | 0.6937–0.7228 | 0.5698 |
+| C 31% n 1000   | pooled draws | 196.6 s | 0.6716 | 0.6591–0.6842 | 0.5327 |
+| C 31% n 1500   | measured | 196.6 s | 0.6347 | 0.6238–0.6455 | 0.4956 |
+| **Block C, six cells** | | | **2.822** | 2.764–2.880 | **2.174** |
 
-Reference to correct: the original Gate 1 put Block C at **2.17 h** — reproduced exactly on the
-uncalibrated median, and revised up to **2.77 h** once Block A's realized calibration is applied.
+The final column reproduces the original Gate 1's **2.17 h** for Block C exactly — confirming that
+the correction is entirely in the overhead constant, not in the compute model.
 
-**The deferred Block B cell (HR 1.75, n 1500, 31%)** is anchored on realized Block B walls two
+**The deferred Block B cell (HR 1.75, n 1500, 31%)** is anchored on realized **compute** walls two
 ways, which agree to the second: (a) the n-profile within HR 1.75,
-`wall(1.75,1500) = wall(1.75,1000) × wall(1.50,1500)/wall(1.50,1000)` = 6950 s; (b) the HR-profile
-within n = 1500, `wall(1.50,1500) × wall(1.75,1000)/wall(1.50,1000)` = 6950 s. **1.931 h.**
-References: the checkpoint's by-n re-projection 2.225 h (corrected down), the original Gate 1
-1.617 h (corrected up).
+`compute(1.75,1000) × compute(1.50,1500)/compute(1.50,1000)` = 6532 s; (b) the HR-profile within
+n = 1500, `compute(1.50,1500) × compute(1.75,1000)/compute(1.50,1000)` = 6532 s. Plus
+3 × 196.6 s = **7122 s = 1.978 h**. References: the checkpoint's by-n re-projection 2.225 h
+(corrected down), the original Gate 1 1.617 h (corrected up).
 
 | | h |
 |---|---|
-| deferred Block B cell | 1.931 |
-| Block C, six cells (calibrated) | 2.771 |
-| **PART A TOTAL** | **4.701** |
+| deferred Block B cell | 1.978 |
+| Block C, six cells | 2.822 |
+| **PART A TOTAL** | **4.800** |
 | ceiling | 9.000 |
-| headroom | 4.299 (48%) |
-| room left under the 12 h timeout for Part B's 1.5 h cap | 7.299 |
+| headroom | 4.200 (47%) |
+| room left under the 12 h timeout for Part B's 1.5 h cap | 7.200 |
+
+Under the superseded mtime calibration this read 4.701 h. **Gate 1 is GO either way and no cell is
+deferred**, so the running campaign is unaffected by the correction.
 
 **GATE 1: GO — all seven cells run, none deferred.**
 
@@ -230,6 +271,8 @@ the session scratchpad. The committed drivers were reused verbatim (`campaign.sh
 | `grf_mechanism.R` | **new** | the empty-band diagnostic (below) |
 | `gate2.R` | **one-line correction** | `fscomp()` sent Block B's n = 500 cell to `e1stud` unconditionally; `e1stud` was run only at HR 1.50 and 1.75, so at HR 1.00 that named a nonexistent file and the Amendment 3 assertion would have gone unevaluated on one of the six Block C cells. Now `cert20` there, which is on disk and criterion-matched. Regression: `gate2.R A` still reads **204 passes, 0 failures**. |
 
+The `gate2.R` comparator fix is **accepted and recorded** (Larry, 2026-09-11).
+
 `stage1_checks.R` still carries the superseded bonf-vs-raw comparison, labelled as such; every
 gate below used `gate2.R`'s corrected identity
 (`log(fld_Hc_est2_s) + fld_Hc_lam_mean_s == log(fld_Hc_est2) + fld_Hc_lam_mean`).
@@ -249,4 +292,111 @@ script.
 
 # PART B — GRF cost probes
 
-*(filled in below)*
+## GATE 3 — alignment: PASS
+
+Both knobs are template **literals** with no `.env_*` read anywhere in the document, so they
+resolve to whatever the source says; `grfprobe.R` reads them back out of the source rather than
+asserting them.
+
+| knob | resolves to | template line |
+|---|---|---|
+| `grf_selection` | `"frontier"` | 503 |
+| `grf_select_statistic` | `"effect"` | 504 |
+| `dmin.grf` | `0.0` | 506 |
+
+Environment overrides for either knob: **none**.
+
+## `dmin.grf = 0.0` — the recorded rationale, and what tracing the path adds
+
+**The decision (Larry, 2026-09-11), recorded as given.** GRF's DR-scores target RMST for survival
+outcomes, whereas FS and DINA both target the Cox hazard ratio. FS's and DINA's floors are
+alignable with each other; GRF's is not alignable with either, so there is no GRF value that
+reproduces DINA's sub-null log(0.90) floor. 0.0 is the null point on GRF's own scale and
+reproduces the setting used in the manuscript's GRF runs.
+
+**Consequence for every GRF record, unchanged:** GRF must **not** be called "FS-analogous". A
+GRF-to-FS or GRF-to-DINA comparison differs in identifier, family construction, detection set,
+selection criterion **and the scale of the selection criterion**. Unchanged also: the inference
+products are computed on β(Ĥ) via the Cox model on the identified region whichever identifier
+proposed it, so the estimand is the same kind of object across all three.
+
+**What the path actually does — recorded so the rationale is not left unqualified.** Under this
+configuration there are **two floors, on two scales**, and `dmin.grf` is only the first.
+
+1. **`dmin.grf = 0.0` is a DR-score PRE-FILTER on the eligible set.** It is consumed only by the
+   *native* frontier select inside the identifier — `R/grf_main.R:291` (survival) and
+   `R/grf_subg_harm_glm.R:523` (GLM), both passing `dmin = dmin.grf` into
+   `.grf_frontier_select()`, whose eligibility test is
+   `elig <- cand[cand$effect >= dmin, , drop = FALSE]` at **`R/grf_subgroup_labels.R:358`**. On
+   that call `effect` is the mean DR-score contrast, in RMST units. **The decision's premise is
+   exactly right for this filter**: it is on GRF's own scale and not alignable with a log-HR floor.
+
+2. **The binding effect-scale floor on the re-selection path is `hr.threshold = 0.90` — the same
+   floor DINA carries, not `dmin.grf`.** With `grf_select_statistic = "effect"` and
+   `grf_selection = "frontier"`, `.grf_reselect_on_effect()` re-scores the DR-candidate family on
+   the Cox effect MR de-biases and re-selects on that. Its floor comes from the resolved admission
+   set, not from `dmin.grf`:
+   - **`R/forestsearch_helpers.R:1632–1635`** — `floor_cmp <- admission$effect_floor`, then
+     `dmin_eff <- ... } else if (log_scale) exp(floor_cmp) else floor_cmp`.
+   - **`R/forestsearch_main.R:2026–2030`** — the admission set is built once from
+     `hr.threshold = threshold_config$screening`, which the comment at
+     **`R/forestsearch_main.R:2020–2021`** states is *"already on the comparison scale (log for
+     ratio measures)"*.
+   - **`R/forestsearch_helpers.R:2345`** — `.fs_resolve_admission()` stores it verbatim as
+     `effect_floor <- as.numeric(hr.threshold)`.
+   - **`R/forestsearch_main.R:2442`** — it reaches the GRF selector as `admission = admission_resolved`.
+   - **template line 531** — `hr_threshold <- 0.90`.
+
+   So `dmin_eff = exp(log 0.90) = 0.90`.
+
+**What this does to the recorded claim.** The claim that GRF's floor is **not alignable** with
+DINA's is **true of `dmin.grf`, and only of `dmin.grf`**. It is **not** true of the floor that
+decides the final selection here: on the effect re-selection path GRF and DINA apply the **same
+numeric floor, HR ≥ 0.90**, from the same `hr.threshold`, because that floor is a property of the
+admission set rather than of the engine. `dmin.grf = 0.0` therefore does **not** leave GRF
+"unfloored" relative to DINA — it makes the DR pre-filter maximally permissive (every candidate
+with a non-negative DR contrast survives) and leaves the binding decision to the shared 0.90.
+**The decision stands as made; what changes is only what it is a decision about.** Nothing is
+acted on here.
+
+## The frontier band cannot come back empty under this configuration
+
+`.compute_inclusion_band()` applies `hr_floor <- (1 - effect_neighborhood) * hr_max` then
+`hr_vec >= hr_floor` (**`R/subgroup_consistency_helpers.R:784–785`**). The documented way the band
+empties is recorded in-source at **`R/grf_subgroup_labels.R:377–383`**:
+
+> "No empty-band fallback here, deliberately. The band CAN empty: when the maximum effect is
+> negative, `(1 - nbhd) * emax` exceeds `emax`, so even the maximum fails its own test."
+
+That requires a **negative maximum over the eligible set**, and the eligible set is
+`{effect >= dmin}` (`R/grf_subgroup_labels.R:358`):
+
+- on the **native DR path**, `dmin = dmin.grf = 0.0`, so every eligible effect is ≥ 0 and the
+  maximum cannot be negative;
+- on the **effect re-selection path** the scored column is a **hazard ratio**, `exp(beta_hat)`,
+  strictly positive whatever the floor.
+
+In both applications the maximum passes its own test, so **the band is non-empty whenever the
+eligible set is**. What can empty is the **floor**, and on the re-selection path that is recorded
+explicitly: `.grf_reselect_on_effect()` sets `grf_res$admitted_n <- 0L` and `sg_def <- NULL`
+(**`R/forestsearch_helpers.R:1642–1650`**).
+
+**This bears on Larry's open decision about the frontier-filter asymmetry** — GRF applies the band
+frontier-only with no empty-band fallback where DINA uses it as a sort key, and MR's `.inband()`
+carries a "never empty" fallback that GRF does not. The finding is that **at `dmin.grf = 0.0` the
+asymmetry has no reachable consequence, because the branch it protects cannot be entered.**
+**That decision is not resolved here** and nothing is changed on account of it; the frequency is
+measured and reported, and the decision remains open.
+
+## Measuring it
+
+`grf_mechanism.R` separates the three no-selection mechanisms, which the bundle cannot: the
+template returns its all-NA `NO-DETECTION` row at
+`if (!found) { rec$status <- "NO-DETECTION"; return(rec) }` **before** `n_family` is written, so
+all three collapse into one indistinguishable record. It re-runs the identifier on every replicate
+of each corner and recomputes each cardinality the way `.grf_frontier_select()` does. On a
+three-replicate check its recomputed eligible count reproduced the code's own `grf_res$admitted_n`
+exactly (**50, 36, 114**), with band cardinalities 3, 11, 1 — never zero — at ~2.2 s per
+identification.
+
+*(probe results filled in below)*
