@@ -1,14 +1,13 @@
-# Portability header added when this script was committed: the campaign ran with
+# Portability header added when this script was committed.  The campaign ran with
 # SCRATCH = the session scratchpad and QMD_DIR = quarto/simulations/gbsg_020.
-SCRATCH <- Sys.getenv("DINAMR_SCRATCH", unset = dirname(normalizePath(sys.frame(1)$ofile %||% ".", mustWork = FALSE)))
-if (!nzchar(SCRATCH) || is.na(SCRATCH)) SCRATCH <- "."
+# Both are overridable; the defaults work from a clone.
+SCRATCH <- Sys.getenv("DINAMR_SCRATCH", unset = ".")
 QMD_DIR <- Sys.getenv("DINAMR_QMD_DIR", unset = "..")
-`%||%` <- function(a, b) if (is.null(a)) b else a
 
 # Gate 1 projection from the probe corners.
 # Cost model: per-replicate WORKER-seconds (fit_mr_secs) is what parallelises;
 # the document overhead (DGM build, tables, render) is a fixed per-render cost.
-R <- file.path(QMD_DIR, "results/")
+R <- file.path(QMD_DIR, "results")
 stem <- function(hr, n, z1q) sprintf("%sdina_effMaxSG_fb_mr_field_m1_h%03d_knoise0_n%d%s_nb20_dinamrprobe_res_1_36.rds",
                                      R, round(100*hr), n, if (z1q) "_z1q60" else "")
 grid <- expand.grid(hr = c(1.50, 1.00), n = c(500L, 1000L, 1500L), z1q = c(FALSE, TRUE),
@@ -63,4 +62,4 @@ cat(sprintf("A + B only (12 cells)     : %.2f h\n", sum(ALL$wall_h[ALL$campaign_
 cat(sprintf("A only (6 cells)          : %.2f h\n", sum(ALL$wall_h[ALL$campaign_block == "A"])))
 cat(sprintf("B only (6 cells)          : %.2f h\n", sum(ALL$wall_h[ALL$campaign_block == "B"])))
 cat(sprintf("C only (6 cells)          : %.2f h\n", sum(ALL$wall_h[ALL$campaign_block == "C"])))
-saveRDS(ALL, file.path(SCRATCH, "projection.rds")
+saveRDS(ALL, file.path(SCRATCH, "projection.rds"))

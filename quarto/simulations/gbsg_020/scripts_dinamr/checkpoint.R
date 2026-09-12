@@ -1,16 +1,17 @@
-# Portability header added when this script was committed: the campaign ran with
+# Portability header added when this script was committed.  The campaign ran with
 # SCRATCH = the session scratchpad and QMD_DIR = quarto/simulations/gbsg_020.
-SCRATCH <- Sys.getenv("DINAMR_SCRATCH", unset = dirname(normalizePath(sys.frame(1)$ofile %||% ".", mustWork = FALSE)))
-if (!nzchar(SCRATCH) || is.na(SCRATCH)) SCRATCH <- "."
+# Both are overridable; the defaults work from a clone.
+SCRATCH <- Sys.getenv("DINAMR_SCRATCH", unset = ".")
 QMD_DIR <- Sys.getenv("DINAMR_QMD_DIR", unset = "..")
-`%||%` <- function(a, b) if (is.null(a)) b else a
 
 # ===== AMENDMENT 2 CHECKPOINT, run ONCE after Block A ========================
 # Re-project Block B from Block A's REALIZED walls against the remaining budget
 # to the 13 h ceiling (Amendment 4).  Block C is PINNED DEFERRED regardless of
 # what this shows (Larry, checkpoint pin) -- this decides Block B's cells only.
 CEILING_H <- 13; TIMEOUT_H <- 16
-log <- "/private/tmp/claude-501/-Users-larryleon-Documents-GitHub-forestsearch/c9c94bd3-80ce-4b91-9acd-4d47ca95cfaa/tasks/bft741io9.output"
+# The campaign driver's stdout, which carries the "CELL DONE: <cell>  wall=<n>s" lines.
+# Point DINAMR_BLOCKA_LOG at it, or save campaign.sh's output as blockA_walls.log here.
+log <- Sys.getenv("DINAMR_BLOCKA_LOG", unset = file.path(SCRATCH, "blockA_walls.log"))
 L <- readLines(log)
 done <- grep("^CELL DONE", L, value = TRUE)
 realized <- data.frame(
@@ -65,10 +66,10 @@ if (!fits) {
   cat("\nDEFER PER THE STATED ORDER (B's n = 1500 first, then n = 1000):\n")
   cat("  DEFER: ", if (length(dropped)) paste(dropped, collapse=", ") else "none", "\n")
   cat("  RUN  : ", paste(keep$cell, collapse=", "), sprintf("  (%.3f h)\n", sum(keep$reproj_h)))
-  writeLines(keep$cell, file.path(SCRATCH, "blockB.run")
+  writeLines(keep$cell, file.path(SCRATCH, "blockB.run"))
 } else {
   cat("\nRUN ALL SIX BLOCK B CELLS.\n")
-  writeLines(BB$cell, file.path(SCRATCH, "blockB.run")
+  writeLines(BB$cell, file.path(SCRATCH, "blockB.run"))
 }
 cat(sprintf("\nBLOCK C: PINNED DEFERRED to a follow-up session, whatever this shows (Larry, checkpoint pin).\n"))
 cat(sprintf("Hard timeout stands at %.0f h.\n", TIMEOUT_H))
