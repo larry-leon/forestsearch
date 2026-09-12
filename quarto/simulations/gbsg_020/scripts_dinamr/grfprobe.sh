@@ -22,7 +22,10 @@
 # Peak memory: each render runs under /usr/bin/time -l, whose "maximum resident
 # set size" line is appended to the probe's own log, and a 5-second sampler
 # records the summed RSS of the whole quarto process tree beside it.
-SP="${DINAMR_SCRATCH:-$(cd "$(dirname "$0")" && pwd)}"
+export SP="${DINAMR_SCRATCH:-$(cd "$(dirname "$0")" && pwd)}"   # override with DINAMR_SCRATCH
+   # EXPORTED: render.sh reads $SP for its log directory and its header
+   # states the caller exports what it needs.  Unexported, a clean-environment
+   # run resolved $SP to empty and died on `mkdir -p /logs`.
 cd $SP
 mkdir -p logs
 sample () {  # $1 = label; writes total-RSS samples (KB) until killed

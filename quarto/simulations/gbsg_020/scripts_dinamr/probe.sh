@@ -1,6 +1,9 @@
 #!/bin/zsh
 # Gate 1 cost probes: 36 replicates per (prevalence, n, HR) corner, 12 workers.
-SP="${DINAMR_SCRATCH:-$(cd "$(dirname "$0")" && pwd)}"   # override with DINAMR_SCRATCH
+export SP="${DINAMR_SCRATCH:-$(cd "$(dirname "$0")" && pwd)}"   # override with DINAMR_SCRATCH
+   # EXPORTED: render.sh reads $SP for its log directory and its header
+   # states the caller exports what it needs.  Unexported, a clean-environment
+   # run resolved $SP to empty and died on `mkdir -p /logs`.
 cd $SP
 run () {  # $1=z1q ("" = unset/12.4%)  $2=n  $3=hr  $4=label
   local Z=$1 N=$2 H=$3 L=$4

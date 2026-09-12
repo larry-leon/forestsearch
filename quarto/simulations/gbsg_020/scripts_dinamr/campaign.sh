@@ -1,7 +1,10 @@
 #!/bin/zsh
 # dinamr campaign driver.  usage: campaign.sh <block-letter> <cellspec-file>
 # cellspec lines: "<z1q-or-empty> <n> <hr> <tag>"
-SP="${DINAMR_SCRATCH:-$(cd "$(dirname "$0")" && pwd)}"   # override with DINAMR_SCRATCH
+export SP="${DINAMR_SCRATCH:-$(cd "$(dirname "$0")" && pwd)}"   # override with DINAMR_SCRATCH
+   # EXPORTED: render.sh reads $SP for its log directory and its header
+   # states the caller exports what it needs.  Unexported, a clean-environment
+   # run resolved $SP to empty and died on `mkdir -p /logs`.
 cd $SP
 KN=(FS_S7_METHOD=dina FS_S7_FOCUS=effMaxSG FS_S7_NBHD=0.20 FS_S7_FIELD_COMPLEMENT=TRUE
     FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE
