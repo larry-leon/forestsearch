@@ -286,7 +286,53 @@ script.
 
 # PART A — results
 
-*(filled in below as the cells land)*
+## A note on walls, now that the driver's own figure is available
+
+The campaign driver prints `CELL DONE: <cell>  wall=<n>s` — a **directly measured** wall, better
+than either reconstruction. For the seven cells of this task that figure is used, and it also
+gives a ground-truth check on the timing-column method used at Gate 1. On the deferred B cell:
+
+| | s | h |
+|---|---|---|
+| compute wall, `sum(fit_mr_secs)/12` | 6830.0 | 1.8972 |
+| residual (3 renders) | 360.0 | |
+| **driver wall** | **7190** | **1.9972** |
+
+Compute + residual = 7190 s **exactly**, at **120.0 s per render** — squarely on the 112.8 s median
+measured across the eleven earlier cells, and comfortably inside the conservative 196.6 s the
+projection used for the 31% block. The timing-column reconstruction is confirmed.
+
+## Cell 1 of 7 — the deferred Block B cell (HR 1.75, n 1500, 31%)
+
+**Wall 7190 s = 1.997 h against a projected 1.978 h — realized/projected 1.010.**
+
+**Gate 2: PASS on every check.** With this cell in place `Rscript gate2.R B` reads **204 passes, 0
+failures** over all six Block B cells, none missing.
+
+- completeness: 2,000 rows, `sim_id` 1–2000 no duplicates, no CONFIG-ERROR, two seed-disjoint
+  batches, `n_workers` 12 and `forestsearch_version` 0.3.5 recorded in both, seed_base 8316951,
+  host Mac-Studio-3.local, R 4.5.2; every campaign knob as set.
+- **detection 1.0000 (2000/2000)**; **proposed-family size** min 384, q10 1341.9, med 2355.5,
+  q90 3108, max 3726 (mean 2276.6, CV 0.296); realized prevalence 0.30646 trial against 0.30655
+  super-population.
+- all 38 products finite on detected replicates; nine recovery columns, the p̂ block and ρᶜ all
+  present and populated; every interval invariant holds; γ ∈ [0.02500, 0.02700] on both joints.
+- **the corrected identity** `log(est2_s) + lam_mean_s == log(est2) + lam_mean`: max |diff|
+  **2.78e-16**. The `bonf == raw` identity, gated on the γ-at-floor rows: max |diff| **0**, share
+  at floor 0.890 / 0.795.
+- classification: sens 0.8215, spec 0.9548, PPV 0.8886, NPV 0.9314, mean |Ĥ| 424.5.
+- structurally-NA reported as such: `n_cons_qual` and `band_n` present all-NA, `p_star` not a
+  recorder column. **Non-detections: none.**
+- **Amendment 3, same draws vs `cert20` (effMaxSG, ε 0.2 — criterion-matched):** `n_true`
+  `identical()` on all 2,000 rows **YES**; `truth` `all.equal(tol = 1e-8)` **YES**;
+  `identical()` FALSE with max |abs diff| **8.882e-15**, max |rel diff| **4.253e-15** — the
+  cross-machine BLAS difference the checker documents, not a mismatch.
+- family contrast at this cell: FS enumerated min 1195, med 1297, q90 1396, max 1412, CV 0.0357;
+  DINA min 384, med 2355.5, q90 3108, max 3726, CV 0.2958. Both detect 1.0000.
+
+## Cells 2–7 — Block C
+
+*(filled in as they land)*
 
 ---
 
