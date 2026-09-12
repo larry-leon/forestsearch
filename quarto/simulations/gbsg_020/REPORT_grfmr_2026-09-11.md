@@ -9,8 +9,9 @@
 ## Framing, for the record
 
 - **This does not certify GRF.** Every coverage number produced by this campaign is coverage of
-  **β(Ĥ) conditional on the proposed family, over selected replicates**, and every table says so.
-  Gate 0a's finding below does not change that: no caption moves on account of it.
+  **β(Ĥ), computed over the detected replicates of the cell it names**, and every table says so.
+  Gate 0a's finding below is recorded as a fact about how GRF's family is constructed; no
+  coverage number is qualified either way on account of it.
 - **GRF is not "FS-analogous".** A GRF-to-FS or GRF-to-DINA comparison differs in **identifier**,
   in **family construction**, in **detection set**, and — **at the DR pre-filter only, not at
   admission** — in the **scale of the selection criterion**.
@@ -48,9 +49,9 @@ admission floor is a **per-draw filter on perturbed effects** (13), not a fixed 
 on the observed data. The deciding lines are **(5)**, which puts the unfiltered pool on the result;
 **(7)**, where the filtered copy is local and discarded; and **(13)**, where admission happens.
 
-**No conclusion is drawn here about whether GRF satisfies a fixed-family condition, and no caption
-in this campaign changes on account of this finding.** Every table stays labelled
-conditional-on-proposed-family. The determination is recorded for Larry.
+**No conclusion is drawn here about whether GRF satisfies a fixed-family condition.** The
+determination is recorded as a finding about GRF's family construction; no coverage number in
+this campaign is qualified either way on account of it.
 
 The answer is readable unambiguously from source, so this is not a STOP.
 
@@ -368,7 +369,7 @@ cells are bit-identical.
 
 ### Coverage of every product, absolute levels [Wilson]
 
-Conditional-on-proposed-family estimand throughout, on detected replicates.
+Over detected replicates throughout.
 
 | cell | naive H | field H (1-sided) | field-s Hc (1-sided) | IJ 2-sided H | IJ 2-sided Hc |
 |---|---|---|---|---|---|
@@ -449,7 +450,7 @@ fired; the 21 non-detections across the ten cells all carry `admitted_n` NA, whi
 re-selection returned before reaching the admission step rather than admitting nothing. Part T2
 makes that distinction visible, and DINA's columns could not draw it.
 
-**Coverage, absolute levels, conditional on the proposed family throughout.** Field H runs
+**Coverage, absolute levels, over detected replicates throughout.** Field H runs
 0.9295-0.9690 over the ten cells and rises with n at both prevalences (0.9434 / 0.9404 / 0.9579 at
 12.4% HR 1.50; 0.9295 / 0.9525 / 0.9690 at 31% HR 1.50). Field-s Hc runs 0.9185-0.9560, also
 rising with n. IJ two-sided H runs 0.9670-0.9900 and **decays mildly with n at 12.4%** (0.9890 /
@@ -496,7 +497,7 @@ from `summary_dinamr.qmd` by
 `admitted_n` substitutes for `n_family` as the strata-section stratifier with the reason in every
 caption it touches; `n_family` is kept in the descriptive tables with an `admitted_n` table and
 plot beside it. Per-cell chunks stay guarded, so the two deferred cells skip rather than render
-empty. Every coverage column is labelled as the conditional-on-proposed-family estimand.
+empty. Every coverage column states that it is computed over detected replicates.
 
 The render confirms the guards: **"Cells on disk: 10 of 12 harm cells (the HR 1.00 null cells are
 out of scope for this task)"**, the two deferred cells listed under "DEFERRED / NOT ON DISK

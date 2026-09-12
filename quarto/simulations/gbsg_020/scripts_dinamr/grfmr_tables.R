@@ -6,8 +6,8 @@
 # reimplementation that could drift from it.  The only thing added is markdown
 # formatting of the resulting data frames.
 #
-# EVERY coverage figure is coverage of beta(Hhat) CONDITIONAL ON THE PROPOSED
-# FAMILY, over selected replicates.  Nothing certifies GRF; no acceptance
+# EVERY coverage figure is coverage of beta(Hhat), computed OVER THE DETECTED
+# REPLICATES of the cell it names.  Nothing certifies GRF; no acceptance
 # criterion is applied; no recommendation is made.
 QMD <- normalizePath(file.path(Sys.getenv("DINAMR_QMD_DIR", unset = ".."),
                                "summary_grfmr.qmd"), mustWork = TRUE)
