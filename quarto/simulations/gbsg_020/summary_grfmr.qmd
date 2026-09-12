@@ -874,26 +874,30 @@ kbl(SP, digits = 4, booktabs = TRUE, row.names = FALSE,
 if (!have(labs)) skip_note("the stratum cross-tabulation") else {
 XT <- do.call(rbind, lapply(labs, function(k) { d <- det_rows(k)
   if (nrow(d) < 9L) return(NULL)
-  gk <- tert_fs(d$n_family); gp <- tert_fs(d$p_hat_H)
+  # admitted_n, NOT n_family -- the same substitution strata_of() makes.  This
+  # chunk builds its own tertiles rather than calling strata_of(), so it has to
+  # make the substitution itself; keying it on n_family would cross-tabulate
+  # p-hat against the outcome-independent enumerated pool and say nothing.
+  gk <- tert_fs(d$admitted_n); gp <- tert_fs(d$p_hat_H)
   base <- do.call(rbind, lapply(sort(unique(gk[!is.na(gk)])), function(a)
     do.call(rbind, lapply(sort(unique(gp[!is.na(gp)])), function(b)
-      data.frame(cell = k, K_stratum = sprintf("K T%d", a), p_hat_bin = sprintf("p-hat T%d", b),
+      data.frame(cell = k, adm_stratum = sprintf("adm T%d", a), p_hat_bin = sprintf("p-hat T%d", b),
                  count = sum(!is.na(gk) & !is.na(gp) & gk == a & gp == b),
                  stringsAsFactors = FALSE)))))
-  extra <- do.call(rbind, lapply(list(c("K = 1", "1"), c("K <= 5", "5")), function(x)
+  extra <- do.call(rbind, lapply(list(c("admitted_n = 1", "1"), c("admitted_n <= 5", "5")), function(x)
     do.call(rbind, lapply(sort(unique(gp[!is.na(gp)])), function(b)
-      data.frame(cell = k, K_stratum = paste0(x[1], " (overlapping)"),
+      data.frame(cell = k, adm_stratum = paste0(x[1], " (overlapping)"),
                  p_hat_bin = sprintf("p-hat T%d", b),
-                 count = sum(d$n_family <= as.integer(x[2]) &
-                             (if (x[2] == "1") d$n_family == 1L else TRUE) &
+                 count = sum(d$admitted_n <= as.integer(x[2]) &
+                             (if (x[2] == "1") d$admitted_n == 1L else TRUE) &
                              !is.na(gp) & gp == b),
                  stringsAsFactors = FALSE)))))
   rbind(base, extra) }))
 if (!have(XT)) skip_note("the stratum cross-tabulation") else {
-XW <- reshape(XT, idvar = c("cell", "K_stratum"), timevar = "p_hat_bin", direction = "wide")
+XW <- reshape(XT, idvar = c("cell", "adm_stratum"), timevar = "p_hat_bin", direction = "wide")
 names(XW) <- sub("^count\\.", "", names(XW))
 kbl(XW, booktabs = TRUE, row.names = FALSE,
-    caption = "Counts: proposed-family-size stratum by p-hat bin, within each cell. The K = 1 and K <= 5 rows OVERLAP the K tertiles. This is the table that says whether the two stratifications are measuring the same thing or different things -- a strongly diagonal count pattern means p-hat and family size carry the same information in this design.") |>
+    caption = "Counts: ADMITTED-CANDIDATE-COUNT (admitted_n) stratum by p-hat bin, within each cell. admitted_n and NOT n_family, the same substitution the strata section makes: n_family on GRF is the outcome-independent enumerated pool, so cross-tabulating p-hat against it would say nothing. The admitted_n = 1 and admitted_n <= 5 rows OVERLAP the tertiles. This is the table that says whether the two stratifications are measuring the same thing or different things -- a strongly diagonal count pattern means p-hat and the admitted count carry the same information in this design.") |>
   kable_styling(font_size = 8) |> scroll_box(height = "500px")
 }
 }
