@@ -10,7 +10,14 @@
 #
 # dmin.grf = 0.0 is the template's own value (line 506) and is Larry's decision
 # of 2026-09-11; it is not overridable from the environment, so this driver
-# does not set it.  Rationale recorded in the task document and the report.
+# does not set it.  The rationale, AND the qualification tracing the path adds
+# to it, are recorded in full at the head of grfprobe.R: dmin.grf is a DR-score
+# PRE-FILTER (grf_main.R:291, grf_subg_harm_glm.R:523 ->
+# grf_subgroup_labels.R:358), while the BINDING effect-scale floor on the
+# re-selection path is hr.threshold = 0.90 -- the same floor DINA carries
+# (forestsearch_helpers.R:1632-1635, forestsearch_main.R:2026-2030, template
+# line 531).  So "GRF's floor is not alignable with DINA's" is true of
+# dmin.grf and only of dmin.grf.
 #
 # Peak memory: each render runs under /usr/bin/time -l, whose "maximum resident
 # set size" line is appended to the probe's own log, and a 5-second sampler

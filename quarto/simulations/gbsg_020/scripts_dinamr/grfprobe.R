@@ -8,6 +8,83 @@
 # scale of the selection criterion (Larry, 2026-09-11).
 #
 # Gate 3 (alignment) is asserted here from the resolved template values.
+#
+# =============================================================================
+# dmin.grf = 0.0 -- THE RECORDED RATIONALE, AND WHAT TRACING THE PATH ADDS TO IT
+# =============================================================================
+# THE DECISION (Larry, 2026-09-11), recorded as given:
+#   GRF's DR-scores target RMST for survival outcomes, whereas FS and DINA both
+#   target the Cox hazard ratio.  FS's and DINA's floors are alignable with each
+#   other; GRF's is not alignable with either, so there is no GRF value that
+#   reproduces DINA's sub-null log(0.90) floor.  0.0 is the null point on GRF's
+#   own scale and reproduces the setting used in the manuscript's GRF runs.
+#
+# WHAT THE PATH ACTUALLY DOES -- recorded so the rationale is not left
+# unqualified.  Under this configuration there are TWO floors, on two scales,
+# and dmin.grf is only the first of them:
+#
+#   (1) dmin.grf = 0.0 is a DR-SCORE PRE-FILTER on the eligible set.  It is
+#       consumed only by the NATIVE frontier select inside the identifier --
+#       grf_main.R:291 (survival) and grf_subg_harm_glm.R:523 (GLM), both
+#       passing dmin = config$dmin.grf / dmin.grf into .grf_frontier_select(),
+#       whose eligibility test is `elig <- cand[cand$effect >= dmin, ]` at
+#       grf_subgroup_labels.R:358.  On that call `effect` is the mean DR-score
+#       contrast, in RMST units.  So the decision's premise is exactly right
+#       for this filter: it is on GRF's own scale and not alignable with a
+#       log-HR floor.
+#
+#   (2) THE BINDING EFFECT-SCALE FLOOR ON THE RE-SELECTION PATH IS
+#       hr.threshold = 0.90 -- THE SAME FLOOR DINA CARRIES, NOT dmin.grf.
+#       With grf_select_statistic = "effect" and grf_selection = "frontier",
+#       .grf_reselect_on_effect() re-scores the DR-candidate family on the Cox
+#       effect MR de-biases and re-selects on THAT.  Its floor is not dmin.grf:
+#       forestsearch_helpers.R:1632-1635 reads floor_cmp from
+#       admission$effect_floor and converts it with
+#       `} else if (log_scale) exp(floor_cmp) else floor_cmp`.  That admission
+#       set is built once at forestsearch_main.R:2026-2030 from
+#       hr.threshold = threshold_config$screening -- already on the COMPARISON
+#       scale (log for ratio measures), per the comment at
+#       forestsearch_main.R:2020-2021 -- and stored verbatim by
+#       .fs_resolve_admission() at forestsearch_helpers.R:2345.  It reaches the
+#       GRF selector at forestsearch_main.R:2442.  The template sets
+#       hr_threshold <- 0.90 at line 531, so dmin_eff = exp(log 0.90) = 0.90.
+#
+# WHAT THIS DOES TO THE RECORDED CLAIM.  The claim that GRF's floor is not
+# alignable with DINA's is TRUE OF dmin.grf AND ONLY OF dmin.grf.  It is NOT
+# true of the floor that decides the final selection here: on the effect
+# re-selection path GRF and DINA apply the SAME numeric floor, HR >= 0.90, from
+# the same hr.threshold, because that floor is a property of the admission set
+# rather than of the engine.  dmin.grf = 0.0 therefore does not leave GRF
+# "unfloored" relative to DINA -- it makes the DR pre-filter maximally
+# permissive (every candidate with a non-negative DR contrast survives) and
+# leaves the binding decision to the shared 0.90.  The decision stands as made;
+# what changes is only what it is a decision ABOUT.  Nothing here is acted on.
+#
+# THE FRONTIER BAND CANNOT COME BACK EMPTY UNDER THIS CONFIGURATION.
+# .compute_inclusion_band() applies `hr_floor <- (1 - effect_neighborhood) *
+# hr_max` then `hr_vec >= hr_floor` (subgroup_consistency_helpers.R:784-785).
+# The documented way the band empties is recorded at
+# grf_subgroup_labels.R:377-383: "The band CAN empty: when the maximum effect is
+# NEGATIVE, (1 - nbhd) * emax exceeds emax, so even the maximum fails its own
+# test."  That requires a negative maximum over the ELIGIBLE set -- and the
+# eligible set is `{effect >= dmin}` (grf_subgroup_labels.R:358):
+#   * on the native DR path, dmin = dmin.grf = 0.0, so every eligible effect is
+#     >= 0 and the maximum cannot be negative;
+#   * on the effect re-selection path the scored column is a HAZARD RATIO,
+#     exp(beta_hat), which is strictly positive whatever the floor.
+# In both applications the maximum passes its own test, so the band is
+# non-empty whenever the eligible set is.  What can empty is the FLOOR, and on
+# the re-selection path that is recorded explicitly: .grf_reselect_on_effect()
+# sets grf_res$admitted_n <- 0L and sg_def <- NULL
+# (forestsearch_helpers.R:1642-1650).  grf_mechanism.R measures the split.
+#
+# THIS BEARS ON LARRY'S OPEN DECISION about the frontier-filter asymmetry --
+# GRF applies the band frontier-only with no empty-band fallback where DINA
+# uses it as a sort key, and MR's .inband() carries a "never empty" fallback
+# that GRF does not.  The finding is that at dmin.grf = 0.0 the asymmetry has
+# no reachable consequence, because the branch it protects cannot be entered.
+# THAT DECISION IS NOT RESOLVED HERE and nothing is changed on account of it;
+# the frequency is measured and reported, and the decision remains open.
 SCRATCH <- Sys.getenv("DINAMR_SCRATCH", unset = ".")
 QMD_DIR <- Sys.getenv("DINAMR_QMD_DIR", unset = "..")
 RES     <- file.path(QMD_DIR, "results")

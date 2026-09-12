@@ -943,11 +943,12 @@ print(ggplot(OV, aes(p_hat_med, fldH_cov, colour = engine, group = engine)) +
 > target inside a region that is planted regardless, and the calibration confirms it: `k_inter` is
 > **not** zero (+0.567917 at 12.4%, -8.579297 at 31%), and the planted contrast is
 > **HR(H) = 1.00 against HR(Hᶜ) = 0.657 (12.4%) and 0.721 (31%)**, with overall causal HR 0.685
-> and 0.792. The treatment effect is heterogeneous at these cells; what is absent is **harm**
-> (HR > 1), not the region.
+> and 0.792. The treatment effect is heterogeneous at these cells: the planted region is
+> **differentially null against a benefiting complement**, not harmed. Because there is no planted
+> harm at these cells, this section uses no harm vocabulary for them.
 >
 > **Which quantities are structurally undefined here: none of the classification set.** Because
-> `flag_harm` is planted by the rule and not by the effect size, `harm_col <- "flag_harm"`
+> the region indicator is planted by the rule and not by the effect size, `harm_col <- "flag_harm"`
 > (template line 661) resolves at HR 1.00 exactly as it does at HR 1.50, with super-population
 > prevalence 0.1242 and 0.3065. The per-replicate **oracle** θ̂(H) is a Cox fit on that same
 > planted region and is defined (its target is simply log 1.00 = 0); **sens, spec, PPV and NPV**
@@ -957,14 +958,21 @@ print(ggplot(OV, aes(p_hat_med, fldH_cov, colour = engine, group = engine)) +
 > a recorder column at all) -- and they are reported as such in @sec-structna, never as failures.
 > No quantity in this document is dropped, NA-ed or suppressed on account of HR 1.00.
 >
-> **On calling detection here a "false-selection rate".** The kickoff asks that detection at a
-> null be labelled a false-selection rate rather than a detection rate. That label is **recorded
-> as instructed and flagged**, because the Gate 0 finding does not support it as stated: the
-> planted H has HR 1.00, and DINA's effect floor is log(0.90), so **the planted region itself
-> clears DINA's own admission floor** at these cells. A replicate that returns H is making an
-> admissible selection under the criterion in force, not a false one. The column below is
-> therefore named `selection_rate` and carries the requested reading beside it; **which of the
-> two names is right is Larry's call, not this document's.**
+> **The rate here is a `selection_rate`, and nothing more is read into it (Larry, 2026-09-11).**
+> The planted region carries HR 1.00 and DINA's effect floor is log(0.90), **deliberately
+> sub-null**, so a replicate that returns that region is making an **admissible selection** under
+> the criterion in force. Naming the rate for an error would mislabel correct behaviour, so it is
+> named for what it counts and read as nothing else.
+>
+> **What speaks to a false claim is bound location, not selection.** @sec-null-location reports,
+> per Block C cell, the share of field lower bounds **at or above 1.00** and **at or above 1.25** —
+> the same columns as the Block A location table (`scripts_dinamr/blockA_rest.R:74-75`) — and those
+> columns carry the question. The selection rate does not.
+>
+> **Vocabulary in Block C.** These cells have no planted harm, so no harm vocabulary is used for
+> them anywhere in this section. The planted region is described as **differentially null against
+> a benefiting complement**: HR = 1.00 inside it, HR = 0.657 (12.4%) / 0.721 (31%) outside it.
+> Every Block C caption states this beside the conditional-on-proposed-family label.
 
 What is recorded is the selection rate under the screen and, among selections, where every bound
 sits relative to the realized β(Ĥ) and β(Ĥᶜ) of whatever region DINA returned. Nothing here is
@@ -989,13 +997,14 @@ NUL <- do.call(rbind, lapply(null_labs, function(k) {
              comp_field_1s = mean(d$betaHhat_Hc <= d$fld_Hc_up1s),
              H_lower_mean = mean(d$fld_H_lo1s),
              share_H_lower_ge_100 = mean(d$fld_H_lo1s >= 1.00),
-             share_H_lower_ge_085 = mean(d$fld_H_lo1s >= 0.85),
+             share_H_lower_ge_125 = mean(d$fld_H_lo1s >= 1.25),
              Hc_upper_mean = mean(d$fld_Hc_up1s_s),
              share_Hc_upper_lt_085 = mean(d$fld_Hc_up1s_s < 0.85),
              share_Hc_upper_lt_080 = mean(d$fld_Hc_up1s_s < 0.80)) }))
 if (!have(NUL)) skip_note("the null-cell table") else
 kbl(NUL, digits = 4, booktabs = TRUE, row.names = FALSE,
-    caption = "Null cells, both prevalence blocks: the SELECTION RATE under the screen (see the Gate 0 record above: HR 1.00 is a planted region with HR 1.00 inside it, and that region clears DINA's own log(0.90) floor, so this document does not call the rate a false-selection rate without flagging the label); the median proposed-family size; among detections the realized beta on both blocks, the one-sided rates of each bound against its own block's realized beta (conditional-on-proposed-family), and the bounds BY LOCATION (share of the harm lower bound at or above 1.00 and 0.85; share of the complement upper bound below 0.85 and 0.80). Recorded, not scored.") |>
+    caption = paste("Null cells, both prevalence blocks: the SELECTION RATE under the screen -- a selection rate and nothing more, since the planted region clears DINA's deliberately sub-null log(0.90) floor and returning it is an admissible selection; the median proposed-family size; among selections the realized beta on the region and on its complement, the one-sided rate of each bound against its own realized beta, and THE BOUNDS BY LOCATION (share of the region's lower bound at or above 1.00 and at or above 1.25; share of the complement upper bound below 0.85 and 0.80). Bound location, not the selection rate, is what speaks to a false claim -- see @sec-null-location. Recorded, not scored.",
+                    "Conditional-on-proposed-family estimand throughout, on selected replicates only. BLOCK C CELLS ARE DIFFERENTIALLY NULL AGAINST A BENEFITING COMPLEMENT -- the planted region carries HR 1.00 and its complement HR 0.657 (12.4%) / 0.721 (31%) -- so there is no planted harm here and no harm vocabulary is used.")) |>
   kable_styling(font_size = 9)
 }
 ```
@@ -1005,14 +1014,54 @@ kbl(NUL, digits = 4, booktabs = TRUE, row.names = FALSE,
 ```{r null-products}
 if (!have(VSN) || !have(VSN[VSN$arm == "null", ])) skip_note("the null-cell product table") else {
 vn <- VSN[VSN$arm == "null", ]
-kbl(vn[, c("cell","block","n","n_eval","harm_field","harm_field_lo","harm_field_hi",
-           "ij2_H","ij2_H_lo","ij2_H_hi","miss_below","miss_above",
-           "comp_field_s","comp_field_s_lo","comp_field_s_hi","comp_field",
-           "ij2_Hc","ij2_Hc_lo","ij2_Hc_hi",
-           "joint_bonf","joint_s_bonf","joint_s_bonf_lo","joint_s_bonf_hi")],
-    digits = 4, booktabs = TRUE, row.names = FALSE,
-    caption = "NULL CELLS (HR 1.00), both prevalence blocks, EVERY PRODUCT AT ITS ABSOLUTE LEVEL -- not a difference from FS. One-sided 95% LOWER coverage of beta(Hhat) by the field bound; two-sided IJ two-term on the harm block with the miss split by side; one-sided UPPER coverage of beta(Hhat^c) by field-s with the unscaled field beside it; two-sided IJ two-term on the complement; and both Bonferroni joint pairs. Wilson limits throughout. EVERY COLUMN IS COVERAGE OF THE CONDITIONAL-ON-PROPOSED-FAMILY ESTIMAND, on selected replicates only. HR 1.00 is a planted region with HR 1.00 inside it, NOT a global null (see the Gate 0 record above): beta(Hhat) and beta(Hhat^c) are the realized targets of whatever region DINA returned, and the planted contrast is HR(H) = 1.00 against HR(Hc) = 0.657 / 0.721.") |>
+# Block C carries no planted harm, so the shared column names -- built for the
+# harm blocks -- are renamed here to region / complement vocabulary.
+vn2 <- vn[, c("cell","block","n","n_eval","harm_field","harm_field_lo","harm_field_hi",
+              "ij2_H","ij2_H_lo","ij2_H_hi","miss_below","miss_above",
+              "comp_field_s","comp_field_s_lo","comp_field_s_hi","comp_field",
+              "ij2_Hc","ij2_Hc_lo","ij2_Hc_hi",
+              "joint_bonf","joint_s_bonf","joint_s_bonf_lo","joint_s_bonf_hi")]
+names(vn2) <- c("cell","block","n","n_eval","region_field","region_field_lo","region_field_hi",
+                "region_ij2","region_ij2_lo","region_ij2_hi","miss_below","miss_above",
+                "compl_field_s","compl_field_s_lo","compl_field_s_hi","compl_field",
+                "compl_ij2","compl_ij2_lo","compl_ij2_hi",
+                "joint_bonf","joint_s_bonf","joint_s_bonf_lo","joint_s_bonf_hi")
+kbl(vn2, digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = paste("BLOCK C (HR 1.00), both prevalence blocks, EVERY PRODUCT AT ITS ABSOLUTE LEVEL -- not a difference from FS. One-sided 95% LOWER coverage of beta(Hhat) on the identified region by the field bound; two-sided IJ two-term on the region with the miss split by side; one-sided UPPER coverage of beta(Hhat^c) by field-s with the unscaled field beside it; two-sided IJ two-term on the complement; and both Bonferroni joint pairs. Wilson limits throughout.",
+                    "Conditional-on-proposed-family estimand throughout, on selected replicates only. BLOCK C CELLS ARE DIFFERENTIALLY NULL AGAINST A BENEFITING COMPLEMENT -- the planted region carries HR 1.00 and its complement HR 0.657 (12.4%) / 0.721 (31%) -- so there is no planted harm here and no harm vocabulary is used.",
+                    "beta(Hhat) and beta(Hhat^c) are the realized targets of whatever region DINA returned.")) |>
   kable_styling(font_size = 8) |> scroll_box(width = "100%")
+}
+```
+
+## Bound location in Block C {#sec-null-location}
+
+This is the table that speaks to a false claim. The selection rate does not: returning a region
+that clears a deliberately sub-null floor is admissible. **Where the lower bound sits** is the
+question, and it is asked with the same columns as the Block A location table
+(`scripts_dinamr/blockA_rest.R:63-76`), including the two share columns at **1.00** and **1.25**.
+
+```{r null-location}
+if (!length(null_labs)) skip_note("the Block C location table") else {
+LOC <- do.call(rbind, lapply(null_labs, function(k) {
+  b <- B[[k]]; d <- prep(b$results)
+  if (!nrow(d)) return(NULL)
+  data.frame(cell = k, block = BLK[[k]], n = NN[[k]], n_eval = nrow(d),
+             med_fld_H_lo1s   = stats::median(d$fld_H_lo1s),
+             med_theta_Hhat   = stats::median(d$betaHhat_H),
+             med_fld_H_est2   = stats::median(d$fld_H_est2),
+             med_naive_H      = stats::median(d$nv_H_est),
+             bound_minus_theta = stats::median(d$fld_H_lo1s) - stats::median(d$betaHhat_H),
+             bound_over_theta  = stats::median(d$fld_H_lo1s) / stats::median(d$betaHhat_H),
+             med_paired_ratio  = stats::median(d$fld_H_lo1s / d$betaHhat_H),
+             planted_marg_H    = unname(b$truth$marg_H),
+             share_bound_ge_1.00 = mean(d$fld_H_lo1s >= 1.00),
+             share_bound_ge_1.25 = mean(d$fld_H_lo1s >= 1.25)) }))
+if (!have(LOC)) skip_note("the Block C location table") else
+kbl(LOC, digits = 4, booktabs = TRUE, row.names = FALSE,
+    caption = paste("BLOCK C, BOUND LOCATION -- the same columns as the Block A location table (scripts_dinamr/blockA_rest.R:63-76). The median field lower bound against the median realized theta(Hhat) on the HR scale, the field point estimate and the naive estimate beside them, the bound-to-target gap in difference, ratio and paired-ratio form, the planted marginal target, and THE TWO SHARE COLUMNS: the share of field lower bounds at or above 1.00 and at or above 1.25. These shares are what speak to a claim the data do not support; the selection rate does not, since the planted region clears DINA's deliberately sub-null log(0.90) floor and returning it is admissible.",
+                    "Conditional-on-proposed-family estimand throughout, on selected replicates only. BLOCK C CELLS ARE DIFFERENTIALLY NULL AGAINST A BENEFITING COMPLEMENT -- the planted region carries HR 1.00 and its complement HR 0.657 (12.4%) / 0.721 (31%) -- so there is no planted harm here and no harm vocabulary is used.")) |>
+  kable_styling(font_size = 9)
 }
 ```
 
@@ -1042,7 +1091,8 @@ NFS <- do.call(rbind, lapply(null_labs, function(k) {
         fs_ij2_H = if (nrow(fd)) mean(fd$betaHhat_H >= fd$mr_H_lo & fd$betaHhat_H <= fd$mr_H_hi) else NA_real_) }))
 if (!have(NFS)) skip_note("the null-cell FS comparison") else
 kbl(NFS, digits = 4, booktabs = TRUE, row.names = FALSE,
-    caption = "Null cells beside the committed FS comparator that shares the DGM draws, read as it stands. ABSOLUTE LEVELS on both sides; no difference column, and no contest. fs_matched is TRUE only where the FS comparator's own sg_focus and eps equal DINA's (effMaxSG, 0.20) -- TRUE at 31% (cert20), FALSE at 12.4% (tier2 / p12ext, maxeffCons at eps 0.10), where the criterion is a fourth confounded difference on top of identifier, family construction and detection set. dina_selection / fs_selection are selection rates at a planted region carrying HR 1.00; see the Gate 0 record in @sec-null on why this document does not call them false-selection rates without flagging the label.") |>
+    caption = paste("Block C beside the committed FS comparator that shares the DGM draws, read as it stands. ABSOLUTE LEVELS on both sides; no difference column, and no contest. fs_matched is TRUE only where the FS comparator's own sg_focus and eps equal DINA's (effMaxSG, 0.20) -- TRUE at 31% (cert20), FALSE at 12.4% (tier2 / p12ext, maxeffCons at eps 0.10), where the criterion is a fourth confounded difference on top of identifier, family construction and detection set. dina_selection / fs_selection are selection rates and nothing more: the planted region clears DINA's sub-null log(0.90) floor, so returning it is an admissible selection.",
+                    "Conditional-on-proposed-family estimand throughout, on selected replicates only. BLOCK C CELLS ARE DIFFERENTIALLY NULL AGAINST A BENEFITING COMPLEMENT -- the planted region carries HR 1.00 and its complement HR 0.657 (12.4%) / 0.721 (31%) -- so there is no planted harm here and no harm vocabulary is used.")) |>
   kable_styling(font_size = 9)
 }
 ```
@@ -1116,7 +1166,15 @@ for (i in seq_len(nrow(vnr)))
     f3(vnr$comp_field_s[i]), f3(vnr$comp_field_s_lo[i]), f3(vnr$comp_field_s_hi[i]), f3(vnr$comp_field[i]),
     f3(vnr$ij2_Hc[i]), f3(vnr$ij2_Hc_lo[i]), f3(vnr$ij2_Hc_hi[i]),
     f3(vnr$joint_bonf[i]), f3(vnr$joint_s_bonf[i]), f3(vnr$joint_s_bonf_lo[i]), f3(vnr$joint_s_bonf_hi[i])))
-cat("\n*HR 1.00 is a planted region with HR 1.00 inside it, not a global null (Gate 0, @sec-null): k_inter is nonzero and HR(H) = 1.00 sits against HR(Hc) = 0.657 at 12.4% and 0.721 at 31%. The selection rate at these cells is recorded as a selection rate; the kickoff's \"false-selection rate\" reading is noted in @sec-null and left to Larry, because the planted region clears DINA's own log(0.90) floor.*\n")
+cat("\n*Block C is differentially null against a benefiting complement, not a global null (Gate 0, @sec-null): k_inter is nonzero and HR(region) = 1.00 sits against HR(complement) = 0.657 at 12.4% and 0.721 at 31%. The rate at these cells is a selection rate and nothing more -- the planted region clears DINA's deliberately sub-null log(0.90) floor, so returning it is an admissible selection. What speaks to a false claim is bound location, below.*\n")
+}
+if (exists("LOC") && have(LOC)) {
+cat("\n**Block C bound location -- the columns that speak to a claim the data do not support:**\n\n")
+for (i in seq_len(nrow(LOC)))
+  cat(sprintf("- %s: median field lower bound %s against median theta(Hhat) %s (ratio %s, paired-ratio median %s); planted marginal target %s; SHARE OF LOWER BOUNDS >= 1.00 %s, >= 1.25 %s\n",
+    LOC$cell[i], f3(LOC$med_fld_H_lo1s[i]), f3(LOC$med_theta_Hhat[i]),
+    f3(LOC$bound_over_theta[i]), f3(LOC$med_paired_ratio[i]), f3(LOC$planted_marg_H[i]),
+    f3(LOC$`share_bound_ge_1.00`[i]), f3(LOC$`share_bound_ge_1.25`[i])))
 }
 if (exists("NFS") && have(NFS)) {
 cat("\n**Null cells beside the FS comparator, absolute levels, criterion named:**\n\n")
