@@ -1,6 +1,6 @@
 # current_status — `quarto/simulations/gbsg_020`
 
-- **Pin:** `084f6fd4` on `feature/glm-extension` — HEAD at the time this file was committed; the closeout commit that adds this file is its child.
+- **Pin:** `1b16718a` on `feature/glm-extension` — HEAD at the time this file was committed; the closeout commit that adds this file is its child.
 - **Updated:** 2026-09-12
 - **Purpose:** a catalog of what has been run in this directory and where the payloads are, so a chat or workstream on another machine can be brought up to speed by attaching this one file. It points at authoritative files; it does not restate their numbers.
 - **Maintenance:** regenerated as the closeout step of every task that touches this directory. The pin above must equal HEAD at commit time.
@@ -64,11 +64,11 @@
 | `results/fs_*.rds` | 315/315 | 149.12 MB | `fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n1000_p12ext_combined_1_2000.rds` 1.51 MB | FS bundles — the comparator grid plus every earlier FS campaign |
 | `results/*.rds` | 430/430 | 231.53 MB | `dina_effMaxSG_fb_mr_field_m1_h150_knoise0_n500_z1q60_nb20_dinamr_combined_1_2000.rds` 1.54 MB | **all bundles**, every campaign in this directory |
 | `scripts_dinamr/*.R` | 20/20 | 148 KB | `gate2G.R` 16 KB | drivers, checkers, projections, extractions (R) |
-| `scripts_dinamr/*.sh` | 7/7 | 11 KB | `grfprobe.sh` 3 KB | render and campaign drivers (shell) |
+| `scripts_dinamr/*.sh` | 8/8 | 12 KB | `grfprobe.sh` 3 KB | render and campaign drivers, and the closeout checker (shell) |
 | `scripts_dinamr/*.py` | 2/2 | 13 KB | `transplant_grfmr.py` 12 KB | transplant / chunk-diff helpers (Python) |
 | `scripts_dinamr/*.cells` | 6/6 | 1 KB | `grfmr.cells` 0 KB | cell lists, one line per cell |
 | `scripts_dinamr/*.rds` | 5/5 | 44 KB | `grfmr_tables.rds` 35 KB | saved derived objects (projections, extracted tables) |
-| `scripts_dinamr/*.md` | 1/1 | 5 KB | `README.md` 5 KB | `README.md` — what each script is and how to rerun |
+| `scripts_dinamr/*.md` | 1/1 | 7 KB | `README.md` 7 KB | `README.md` — the standing rules, and what each script is |
 | `scripts_dinamr/*.txt` | 1/1 | 5 KB | `grf_mechanism_output.txt` 5 KB | captured script output (GRF mechanism probe) |
 | `scripts_dinamr/logs/*` | 40/40 | 122 KB | `grfmr_A124_h150_n1000_batch_1001.log` 3 KB | per-render and driver logs — `WALL_SECONDS` / `CELL DONE wall=` |
 | `dinamr_*.html` | 54/54 | 235.69 MB | `dinamr_C31_h100_n500_combine_1.html` 4.39 MB | `dinamr` batch and combine renders |
@@ -80,8 +80,9 @@
 | `REPORT_*.md` | 63/63 | 1.06 MB | `REPORT_fixedphat_ij2s_2026-09-09.md` 79 KB | REPORT documents |
 | `TABLES_*.md` | 1/1 | 30 KB | `TABLES_grfmr_percell_2026-09-12.md` 30 KB | TABLES documents |
 | `REVIEW_*.md` | 2/2 | 23 KB | `REVIEW_dinamr_blockC_2026-09-11.md` 13 KB | REVIEW documents |
+| `current_status.md` | 1/1 | 13 KB | `current_status.md` 13 KB | this file — the directory's catalog at a pin |
 
-**Totals** — **1322 of 1322 files tracked**, 1948 MB, excluding the gitignored `_gateT_pre_template_files/` and `.DS_Store`. Largest single file `summary_dinamr.html` at 7.62 MB. **Files over 50 MB: 0; over 100 MB: 0.**
+**Totals** — **1324 of 1324 files tracked**, 1948 MB, excluding the gitignored `_gateT_pre_template_files/` and `.DS_Store`. Largest single file `summary_dinamr.html` at 7.62 MB. **Files over 50 MB: 0; over 100 MB: 0.**
 
 **Where to start, by question**
 
