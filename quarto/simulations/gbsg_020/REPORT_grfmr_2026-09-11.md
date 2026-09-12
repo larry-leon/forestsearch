@@ -253,7 +253,226 @@ Cell lists committed as `scripts_dinamr/grfmr.cells` (ten) and
 
 # PART A — the ten cells
 
-*(Gate 2 records per cell are appended below as cells complete.)*
+**All ten cells completed. Part A wall 7.939 h (28,579 s) against the 9 h ceiling — headroom
+1.061 h, and 2.061 h unused under the 10 h hard timeout.** Started 03:05:42, finished 11:02:01;
+the realized span equals the sum of the per-cell walls, so there was no inter-cell slack to
+account for. Driver `scripts_dinamr/grfmr.sh` with `scripts_dinamr/grfmr.cells`.
+
+## Walls, realized against the Gate 1 projection
+
+| order | cell | realized | projected | ratio |
+|---|---|---|---|---|
+| 1 | 12.4% HR 1.50 n 500 | 0.7044 h (2536 s) | 0.7561 h | 0.932 |
+| 2 | 12.4% HR 1.50 n 1000 | 0.7511 h (2704 s) | 0.8264 h | 0.909 |
+| 3 | 12.4% HR 1.50 n 1500 | 0.8086 h (2911 s) | 0.8968 h | 0.902 |
+| 4 | 31% HR 1.50 n 500 | 0.7883 h (2838 s) | 0.9066 h | 0.870 |
+| 5 | 31% HR 1.50 n 1000 | 0.8778 h (3160 s) | 0.9978 h | 0.880 |
+| 6 | 31% HR 1.50 n 1500 | 0.9403 h (3385 s) | 1.0888 h | 0.864 |
+| 7 | 12.4% HR 1.75 n 500 | 0.6986 h (2515 s) | 0.7560 h | 0.924 |
+| 8 | 12.4% HR 1.75 n 1000 | 0.7625 h (2745 s) | 0.8264 h | 0.923 |
+| 9 | 12.4% HR 1.75 n 1500 | 0.8119 h (2923 s) | 0.8968 h | 0.905 |
+| 10 | 31% HR 1.75 n 500 | 0.7950 h (2862 s) | 0.9067 h | 0.877 |
+| | **TOTAL** | **7.939 h** | **8.858 h** | **0.8962** |
+
+**The projection ran 10.4% high, and it ran high uniformly** — every cell between 0.864 and 0.932,
+no outlier. That sits just below the `dinamr` Block B anchor of 0.92 and below the corrected Block
+A anchor of 0.949. The projection method — bootstrap over the per-replicate cost distribution plus
+measured per-render overhead — therefore carried over from DINA to GRF without re-tuning, which is
+the one thing a projection method has to do.
+
+**The HR 1.75 cells validate their own cost basis.** They were costed from the HR 1.50 pool at
+matched prevalence and n because HR 1.75 was unprobed. Their realized ratios — 0.924, 0.923,
+0.905, 0.877 — are indistinguishable from the HR 1.50 ratios at the same coordinates (0.932,
+0.909, 0.902, 0.870). The assumption was sound and is now measured.
+
+**The deferral was correct.** At the realized ratio the two deferred cells would have cost 1.870 h,
+putting all twelve at **9.809 h — 0.809 h over the 9 h ceiling**. Deferring them was not merely
+defensible on the projection; it was necessary on the realized cost.
+
+## Deferred, not dropped
+
+| cell | Gate 1 projection | at the realized 0.8962 |
+|---|---|---|
+| 31% HR 1.75 n 1000 | 0.9978 h | 0.894 h |
+| 31% HR 1.75 n 1500 | 1.0888 h | 0.976 h |
+
+Committed as `scripts_dinamr/grfmr_deferred.cells`. **No cell was dropped and no cell's replicate
+count was reduced**; every completed cell is 2,000 replicates in two seed-disjoint batches of
+1,000, combined.
+
+## Gate 3 — alignment, per batch
+
+**Run on all twenty batches (ten cells x two batches). 7 passes, 0 failures every time.**
+`grf_select_statistic` resolved to `"effect"`, `grf_selection` to `"frontier"`, `dmin.grf` to `0`,
+on every batch, by all three resolutions described above.
+
+## Gate 2 — per cell
+
+**Every check PASS on all ten cells.** No failure, no warning, nothing deferred to judgement.
+
+- **Completeness**: 2,000 rows, `sim_id` 1..2000 with no duplicates, no CONFIG-ERROR, both batches
+  present, `n_workers` 12 and `forestsearch_version` 0.3.5 recorded in every batch meta, host
+  `Mac-Studio-3.local`, R 4.5.2, `seed_base` 8316951.
+- **Knobs in meta**: `subgroup_method` grf, `sg_focus` effMaxSG, `effect_neighborhood` 0.20,
+  `field_complement` / `field_decompose` / `field_recovery` TRUE, `field_scale_complement`
+  selected, `ij_residual` two_term, `campaign_tag` grfmr — all ten cells.
+- **Finiteness**: all 38 gated quantities finite on every detected replicate, all ten cells. The
+  nine recovery columns, the p-hat block and rho-c present and populated throughout.
+- **Interval invariants**: all eleven hold on all ten cells, including the added
+  `admitted_n >= 1 on every detected replicate`.
+- **The corrected identity** `log(fld_Hc_est2_s) + fld_Hc_lam_mean_s == log(fld_Hc_est2) +
+  fld_Hc_lam_mean`: **max |diff| 2.22e-16 to 3.33e-16** across the ten cells.
+- **The Bonferroni identity**, gated on the gamma-at-floor rows: **max |diff| exactly 0** on every
+  cell. Share at the floor 0.876-0.911 (joint) and 0.812-0.866 (joint-s).
+- **gamma** within [0.02500, 0.02800] on every cell — inside [0.025, 0.05] throughout.
+- **Realized prevalence**: 0.12363-0.12401 against a super-population 0.12418 at 12.4%;
+  0.30591-0.30625 against 0.30655 at 31%.
+- **Structurally-NA columns, reported as such and never as failures**: `n_cons_qual` and `band_n`
+  are present and all-NA on every cell — structural on GRF, which has no consistency screen —
+  and `p_star` is not a recorder column at all (an admission-set term, NULL on GRF).
+
+### Amendment 3 — the same-draws assertion, all ten cells
+
+**`n_true` `identical()` on all 2,000 rows of every cell. `truth` `all.equal()` at 1e-8 YES on
+every cell.** No cell shows a DGM-path mismatch, so there is no finding to record under that head.
+
+| cells | `truth` `identical()` | max abs diff | max rel diff |
+|---|---|---|---|
+| 12.4%, HR 1.75 (all three) | **TRUE** | **0** | **0** |
+| 12.4%, HR 1.50 (all three) | FALSE | 6.661e-16 | 3.986e-16 |
+| 31%, HR 1.50 (all three) | FALSE | 5.551e-15 | 3.249e-15 |
+| 31%, HR 1.75 n 500 | FALSE | 8.882e-15 | 4.253e-15 |
+
+`identical()` is reported and not asserted, as the predecessor's gate specifies: the FS comparator
+bundles are Linux-produced and cross-machine BLAS moves `truth` at the 1e-16 level. Every
+discrepancy above is at least seven orders inside the 1e-8 tolerance. The three 12.4% HR 1.75
+cells are bit-identical.
+
+## The per-cell record
+
+
+### Detection, admitted_n and the enumerated pool
+
+| cell | detection | n_eval | **admitted_n** min / q25 / **med** / q75 / p90 / max | adm CV | adm = 0 | adm NA | n_family min / **med** / max | K CV | med share |
+|---|---|---|---|---|---|---|---|---|---|
+| 12.4% HR 1.50 n 500 | 0.9985 [0.9956, 0.9995] | 1997 | 2 / 65 / **115** / 179 / 260.4 / 600 | 0.706 | 0 | 3 | 712 / **776** / 870 | 0.0181 | 0.1469 |
+| 12.4% HR 1.50 n 1000 | 0.9975 [0.9942, 0.9989] | 1995 | 3 / 57 / **93** / 145 / 198 / 471 | 0.634 | 0 | 5 | 779 / **830** / 914 | 0.0111 | 0.1122 |
+| 12.4% HR 1.50 n 1500 | 0.9975 [0.9942, 0.9989] | 1995 | 2 / 47 / **76** / 114 / 156.6 / 369 | 0.618 | 0 | 5 | 780 / **830** / 913 | 0.0081 | 0.0910 |
+| 12.4% HR 1.75 n 500 | 0.9995 [0.9972, 0.9999] | 1999 | 3 / 81.5 / **136** / 208 / 293 / 624 | 0.646 | 0 | 1 | 712 / **776** / 870 | 0.0181 | 0.1746 |
+| 12.4% HR 1.75 n 1000 | 0.9990 [0.9964, 0.9997] | 1998 | 6 / 78 / **121** / 176 / 234 / 510 | 0.558 | 0 | 2 | 779 / **830** / 914 | 0.0111 | 0.1464 |
+| 12.4% HR 1.75 n 1500 | 1.0000 [0.9981, 1.0000] | 2000 | 5 / 69 / **105** / 147 / 191 / 439 | 0.525 | 0 | 0 | 780 / **830** / 913 | 0.0081 | 0.1260 |
+| 31% HR 1.50 n 500 | 1.0000 [0.9981, 1.0000] | 2000 | 16 / 269 / **383** / 497 / 578.1 / 752 | 0.382 | 0 | 0 | 712 / **776** / 870 | 0.0181 | 0.4932 |
+| 31% HR 1.50 n 1000 | 1.0000 [0.9981, 1.0000] | 2000 | 52 / 310 / **406** / 504 / 586 / 758 | 0.323 | 0 | 0 | 779 / **830** / 914 | 0.0111 | 0.4898 |
+| 31% HR 1.50 n 1500 | 1.0000 [0.9981, 1.0000] | 2000 | 96 / 309 / **400.5** / 491 / 555 / 734 | 0.297 | 0 | 0 | 780 / **830** / 913 | 0.0081 | 0.4818 |
+| 31% HR 1.75 n 500 | 1.0000 [0.9981, 1.0000] | 2000 | 53 / 341 / **449** / 545.25 / 609.1 / 755 | 0.309 | 0 | 0 | 712 / **776** / 870 | 0.0181 | 0.5782 |
+
+### Coverage of every product, absolute levels [Wilson]
+
+Conditional-on-proposed-family estimand throughout, on detected replicates.
+
+| cell | naive H | field H (1-sided) | field-s Hc (1-sided) | IJ 2-sided H | IJ 2-sided Hc |
+|---|---|---|---|---|---|
+| 12.4% HR 1.50 n 500 | 0.4982 [0.4763, 0.5202] | 0.9434 [0.9324, 0.9527] | 0.9319 [0.9200, 0.9421] | 0.9890 [0.9834, 0.9927] | 0.9995 [0.9972, 0.9999] |
+| 12.4% HR 1.50 n 1000 | 0.6561 [0.6350, 0.6767] | 0.9404 [0.9291, 0.9499] | 0.9519 [0.9416, 0.9604] | 0.9870 [0.9810, 0.9911] | 1.0000 [0.9981, 1.0000] |
+| 12.4% HR 1.50 n 1500 | 0.7830 [0.7643, 0.8005] | 0.9579 [0.9482, 0.9659] | 0.9529 [0.9427, 0.9613] | 0.9799 [0.9728, 0.9852] | 0.9995 [0.9972, 0.9999] |
+| 12.4% HR 1.75 n 500 | 0.5648 [0.5429, 0.5864] | 0.9415 [0.9303, 0.9509] | 0.9335 [0.9217, 0.9436] | 0.9900 [0.9846, 0.9935] | 0.9995 [0.9972, 0.9999] |
+| 12.4% HR 1.75 n 1000 | 0.7297 [0.7098, 0.7487] | 0.9364 [0.9249, 0.9463] | 0.9540 [0.9439, 0.9623] | 0.9775 [0.9700, 0.9831] | 1.0000 [0.9981, 1.0000] |
+| 12.4% HR 1.75 n 1500 | 0.8385 [0.8217, 0.8540] | 0.9535 [0.9434, 0.9619] | 0.9560 [0.9461, 0.9641] | 0.9755 [0.9678, 0.9814] | 1.0000 [0.9981, 1.0000] |
+| 31% HR 1.50 n 500 | 0.6065 [0.5849, 0.6277] | 0.9295 [0.9174, 0.9399] | 0.9185 [0.9057, 0.9297] | 0.9840 [0.9775, 0.9886] | 1.0000 [0.9981, 1.0000] |
+| 31% HR 1.50 n 1000 | 0.7545 [0.7352, 0.7729] | 0.9525 [0.9423, 0.9610] | 0.9460 [0.9352, 0.9551] | 0.9670 [0.9582, 0.9740] | 0.9990 [0.9964, 0.9997] |
+| 31% HR 1.50 n 1500 | 0.8570 [0.8410, 0.8717] | 0.9690 [0.9605, 0.9757] | 0.9480 [0.9374, 0.9569] | 0.9730 [0.9649, 0.9792] | 0.9995 [0.9972, 0.9999] |
+| 31% HR 1.75 n 500 | 0.6515 [0.6303, 0.6721] | 0.9300 [0.9180, 0.9404] | 0.9210 [0.9084, 0.9320] | 0.9730 [0.9649, 0.9792] | 1.0000 [0.9981, 1.0000] |
+
+### Classification and bound location
+
+| cell | sens | spec | PPV | NPV | mean \|Hhat\| | med bound | med theta(Hhat) | share >= 1.00 | share >= 1.25 |
+|---|---|---|---|---|---|---|---|---|---|
+| 12.4% HR 1.50 n 500 | 0.5158 | 0.8364 | 0.3187 | 0.9255 | 103.8 | 0.4665 | 0.8373 | 0.0230 [0.0173, 0.0306] | 0.0045 [0.0024, 0.0085] |
+| 12.4% HR 1.50 n 1000 | 0.6438 | 0.8855 | 0.4806 | 0.9466 | 180.2 | 0.6053 | 0.9777 | 0.0612 [0.0515, 0.0725] | 0.0160 [0.0114, 0.0226] |
+| 12.4% HR 1.50 n 1500 | 0.7448 | 0.8959 | 0.5515 | 0.9617 | 275.5 | 0.6977 | 1.0451 | 0.1083 [0.0954, 0.1227] | 0.0296 [0.0230, 0.0380] |
+| 12.4% HR 1.75 n 500 | 0.5746 | 0.8499 | 0.3661 | 0.9349 | 101.6 | 0.5073 | 0.9260 | 0.0420 [0.0341, 0.0517] | 0.0095 [0.0061, 0.0148] |
+| 12.4% HR 1.75 n 1000 | 0.6975 | 0.9078 | 0.5634 | 0.9552 | 167.2 | 0.7054 | 1.1497 | 0.1582 [0.1428, 0.1748] | 0.0561 [0.0468, 0.0670] |
+| 12.4% HR 1.75 n 1500 | 0.7770 | 0.9207 | 0.6394 | 0.9671 | 248.7 | 0.8301 | 1.2468 | 0.2775 [0.2583, 0.2975] | 0.1080 [0.0951, 0.1224] |
+| 31% HR 1.50 n 500 | 0.5219 | 0.8986 | 0.6785 | 0.8162 | 115.0 | 0.6787 | 1.2627 | 0.1365 [0.1221, 0.1522] | 0.0480 [0.0395, 0.0583] |
+| 31% HR 1.50 n 1000 | 0.6831 | 0.9305 | 0.8053 | 0.8785 | 257.5 | 0.8314 | 1.3308 | 0.2160 [0.1985, 0.2346] | 0.0605 [0.0509, 0.0718] |
+| 31% HR 1.50 n 1500 | 0.8176 | 0.9342 | 0.8520 | 0.9282 | 444.4 | 0.9596 | 1.4254 | 0.4050 [0.3837, 0.4267] | 0.0825 [0.0712, 0.0954] |
+| 31% HR 1.75 n 500 | 0.5823 | 0.9217 | 0.7493 | 0.8404 | 116.2 | 0.7997 | 1.4710 | 0.2645 [0.2456, 0.2843] | 0.1100 [0.0970, 0.1245] |
+
+### Beside the FS comparator, with its criterion named
+
+| cell | matched? | FS comparator | GRF det / FS det | GRF field / FS field | GRF IJ2 / FS IJ2 | GRF pool / FS family (med) |
+|---|---|---|---|---|---|---|
+| 12.4% HR 1.50 n 500 | no | p12ext / maxeffCons / eps 0.1 | 0.9985 / 0.9110 | 0.9434 / 0.9654 | 0.9890 / 0.9769 | 776 / 1223 |
+| 12.4% HR 1.50 n 1000 | no | p12ext / maxeffCons / eps 0.1 | 0.9975 / 0.9740 | 0.9404 / 0.9410 | 0.9870 / 0.9322 | 830 / 1299 |
+| 12.4% HR 1.50 n 1500 | no | p12ext / maxeffCons / eps 0.1 | 0.9975 / 0.9880 | 0.9579 / 0.9565 | 0.9799 / 0.9008 | 830 / 1297 |
+| 12.4% HR 1.75 n 500 | no | tier2 / maxeffCons / eps 0.1 | 0.9995 / 0.9500 | 0.9415 / 0.9663 | 0.9900 / 0.9611 | 776 / 1223 |
+| 12.4% HR 1.75 n 1000 | no | tier2 / maxeffCons / eps 0.1 | 0.9990 / 0.9950 | 0.9364 / 0.9437 | 0.9775 / 0.9166 | 830 / 1299 |
+| 12.4% HR 1.75 n 1500 | no | tier2 / maxeffCons / eps 0.1 | 1.0000 / 0.9990 | 0.9535 / 0.9600 | 0.9755 / 0.9129 | 830 / 1297 |
+| 31% HR 1.50 n 500 | **yes** | e1stud / effMaxSG / eps 0.2 | 1.0000 / 0.9995 | 0.9295 / 0.9745 | 0.9840 / 0.9810 | 776 / 1223 |
+| 31% HR 1.50 n 1000 | **yes** | cert20 / effMaxSG / eps 0.2 | 1.0000 / 1.0000 | 0.9525 / 0.9585 | 0.9670 / 0.9710 | 830 / 1299 |
+| 31% HR 1.50 n 1500 | **yes** | cert20 / effMaxSG / eps 0.2 | 1.0000 / 1.0000 | 0.9690 / 0.9615 | 0.9730 / 0.9755 | 830 / 1297 |
+| 31% HR 1.75 n 500 | **yes** | e1stud / effMaxSG / eps 0.2 | 1.0000 / 0.9995 | 0.9300 / 0.9700 | 0.9730 / 0.9720 | 776 / 1223 |
+
+Confound, with every comparison: FS and GRF differ in identifier, in family construction and
+in detection set; at 12.4% they differ in the selection criterion as well (maxeffCons eps 0.10
+against effMaxSG eps 0.20), so a 12.4% gap cannot be read as engine behaviour even in part.
+
+
+## What the Part A numbers say, descriptively
+
+**Detection.** **1.0000 at all four 31% cells and at 12.4% HR 1.75 n 1500; 0.9975-0.9995 at the
+other five.** GRF's probe result of 1.0000 holds at full cell size at 31% and is within 0.0025 of
+it at 12.4%. **The operative property is that it is flat in n** — 0.9985 / 0.9975 / 0.9975 at
+12.4% HR 1.50 and 0.9995 / 0.9990 / 1.0000 at 12.4% HR 1.75, against DINA's 0.7135 / 0.5245 /
+0.3435 on the same 12.4% draws. **A detection rate that does not move with n cannot be the reason
+a coverage or bias figure moves with n, so the detection-conditioning confound that qualifies
+every DINA n-trend does not qualify these.** At 31% it is removed outright. This is a statement
+about what a comparison may be read as; it is not a claim about GRF's performance.
+
+**The enumerated pool is outcome-independent, measured.** At each n the `n_family` distribution is
+**identical quantile for quantile across both prevalences and both hazard ratios**: 712 / 771 /
+776 / 780 / 784 / 870 at n 500 on all four such cells, and 780 / 826 / 830 / 833 / 836 / 913 at n
+1500. Its CV is 0.0181 / 0.0111 / 0.0081 at n 500 / 1000 / 1500 and depends on n alone. Meanwhile
+`admitted_n` at n 500 runs median 115 (12.4% HR 1.50), 136 (12.4% HR 1.75), 383 (31% HR 1.50) and
+449 (31% HR 1.75) — **a factor of 3.9 across cells whose enumerated pool is the same object.**
+rho(`admitted_n`, `n_family`) is +0.018 to +0.042 on every cell. **This is the whole justification
+for the Part T2 recorder change and the Stage 3 stratifier substitution, and it is measured rather
+than argued.**
+
+**`admitted_n` moves differently by prevalence.** It **falls** with n at 12.4% (115 / 93 / 76 at
+HR 1.50; 136 / 121 / 105 at HR 1.75) and is **flat** at 31% (383 / 406 / 400 at HR 1.50). Its
+median share of the pool falls 0.147 / 0.112 / 0.091 at 12.4% and holds at 0.493 / 0.490 / 0.482
+at 31%. Its CV falls with n everywhere (0.71 -> 0.62 at 12.4% HR 1.50; 0.38 -> 0.30 at 31% HR
+1.50), so the admitted set does stabilize in relative spread even where its level does not.
+**`admitted_n` is never 0 on any of the 20,000 replicates**, so the empty-admitted-set path never
+fired; the 21 non-detections across the ten cells all carry `admitted_n` NA, which means the
+re-selection returned before reaching the admission step rather than admitting nothing. Part T2
+makes that distinction visible, and DINA's columns could not draw it.
+
+**Coverage, absolute levels, conditional on the proposed family throughout.** Field H runs
+0.9295-0.9690 over the ten cells and rises with n at both prevalences (0.9434 / 0.9404 / 0.9579 at
+12.4% HR 1.50; 0.9295 / 0.9525 / 0.9690 at 31% HR 1.50). Field-s Hc runs 0.9185-0.9560, also
+rising with n. IJ two-sided H runs 0.9670-0.9900 and **decays mildly with n at 12.4%** (0.9890 /
+0.9870 / 0.9799 at HR 1.50; 0.9900 / 0.9775 / 0.9755 at HR 1.75), which is the same direction FS
+shows on those draws. IJ two-sided Hc is 0.9990-1.0000 everywhere. Naive H runs 0.4982-0.8570 and
+rises steeply with n, which is the optimism the correction addresses.
+
+**Classification and bound location.** Sensitivity and PPV rise with n and with HR at both
+prevalences. The share of field lower bounds at or above 1.00 rises with n and HR at both — 0.0230
+/ 0.0612 / 0.1083 at 12.4% HR 1.50 up to 0.4050 at 31% HR 1.50 n 1500 — and the share at or above
+1.25 follows at a third to a quarter of the level.
+
+**Beside FS, and the confound.** On the **four criterion-matched 31% rows** (`effMaxSG`, eps 0.20)
+GRF's field bound reads 0.9295 / 0.9525 / 0.9690 / 0.9300 against FS's 0.9745 / 0.9585 / 0.9615 /
+0.9700, and IJ two-sided 0.9840 / 0.9670 / 0.9730 / 0.9730 against 0.9810 / 0.9710 / 0.9755 /
+0.9720. On the **six 12.4% rows the criterion is not matched** (FS is `maxeffCons` at eps 0.10),
+and the confound sentence travels with every one of them: FS and GRF differ in identifier, in
+family construction and in detection set, and at 12.4% in the selection criterion as well, so a
+12.4% gap cannot be read as engine behaviour even in part. GRF's enumerated pool is consistently
+smaller than FS's family (776 / 830 against 1223 / 1297-1299) and three to six times steadier
+(CV 0.0081-0.0181 against 0.0357-0.0536).
+
+**No acceptance criterion is applied and no recommendation is made.**
 
 ---
 
@@ -271,9 +490,16 @@ cell the same share stays at 0.003–0.011 and does not rise with n.
 
 # STAGE 3 — the summary
 
-`summary_grfmr.qmd`, transplanted from `summary_dinamr.qmd` by
+**Rendered: `summary_grfmr.html`** (7.1 MB, all 79 chunks). `summary_grfmr.qmd`, transplanted
+from `summary_dinamr.qmd` by
 `scripts_dinamr/transplant_grfmr.py` with every structural edit asserted to match exactly once.
 `admitted_n` substitutes for `n_family` as the strata-section stratifier with the reason in every
 caption it touches; `n_family` is kept in the descriptive tables with an `admitted_n` table and
 plot beside it. Per-cell chunks stay guarded, so the two deferred cells skip rather than render
 empty. Every coverage column is labelled as the conditional-on-proposed-family estimand.
+
+The render confirms the guards: **"Cells on disk: 10 of 12 harm cells (the HR 1.00 null cells are
+out of scope for this task)"**, the two deferred cells listed under "DEFERRED / NOT ON DISK
+(omitted from every table below, not rendered empty)", six guarded chunks emitting a skip note
+rather than an empty artifact, and the strata section keyed on `adm T1` / `adm T2` / `adm T3`
+rather than on `n_family`.
