@@ -37,7 +37,9 @@ gstem <- function(hr, n, blk) sprintf("%sgrf_effMaxSG_fb_mr_field_m1_h%03d_knois
 # The committed FS comparator that shares the DGM draws, per cell -- gate2.R's
 # map, unchanged.  12.4%: p12ext at HR 1.50, tier2 at HR 1.75 (maxeffCons, eps
 # 0.10 -- NOT criterion-matched).  31%: e1stud at n 500, cert20 at n 1000/1500
-# (effMaxSG, eps 0.20 -- criterion-matched).
+# (effMaxSG, eps 0.20 -- criterion-matched).  HR 1.00 (grfmr completion): tier2
+# at 12.4% n 500, p12ext at 12.4% n 1000/1500; cert20 at 31% for all three n,
+# because e1stud has no HR 1.00 bundle.
 fscomp <- function(hr, n, blk) {
   if (blk == "A") {
     camp <- if (abs(hr - 1.75) < 1e-9) "tier2" else if (abs(hr - 1.00) < 1e-9 && n == 500L) "tier2" else "p12ext"
@@ -87,7 +89,12 @@ gate2 <- function(hr, n, blk) {
   det <- mean(r$detected %in% 1L)
   K <- r$n_family[is.finite(r$n_family)]
   A <- r$admitted_n[is.finite(r$admitted_n)]
-  cat(sprintf("  >> DETECTION RATE           : %.4f (%d / %d)\n", det, sum(r$detected %in% 1L), nrow(r)))
+  # At HR 1.00 the rate is a SELECTION RATE and nothing more: the planted region
+  # is differentially null against a benefiting complement and clears the
+  # sub-null log(0.90) floor, so returning it is an admissible selection.
+  cat(sprintf("  >> %-26s: %.4f (%d / %d)\n",
+      if (abs(hr - 1.00) < 1e-9) "SELECTION RATE" else "DETECTION RATE",
+      det, sum(r$detected %in% 1L), nrow(r)))
   if (length(A)) {
     q <- stats::quantile(A, c(.25,.50,.75,.90), names = FALSE)
     cat(sprintf("  >> ADMITTED_N (qualified)   : min %g  q25 %g  MED %g  q75 %g  p90 %g  max %g  (mean %.1f, CV %.3f, n %d)\n",
@@ -198,6 +205,14 @@ gate2 <- function(hr, n, blk) {
   # --- AMENDMENT 3: same-draws assertions ---
   fp <- fscomp(hr, n, blk)
   cat("  --- Amendment 3 (same-draws vs the committed FS comparator) ---\n")
+  # The DESIGNATED comparator must resolve before the assertion runs: e1stud
+  # has no HR 1.00 bundle, and map1 / s7 bundles at these coordinates are not
+  # the comparator and must never be substituted.
+  camp_res <- sub("^.*_(tier2|p12ext|e1stud|cert20)_combined_1_2000[.]rds$", "\\1", basename(fp))
+  P("designated FS comparator resolves (tier2/p12ext/e1stud/cert20, on disk)",
+    camp_res %in% c("tier2","p12ext","e1stud","cert20") && file.exists(fp) &&
+      !grepl("_(map1|map1c|map1w|s7|s7c|s7u|s7w)_", basename(fp)),
+    sprintf("(%s)", basename(fp)))
   cat("      n_true and truth come from the DGM (simulate_from_dgm / setup_gbsg_dgm),\n")
   cat("      never from GRF, so GRF's cross-context irreproducibility does not touch this.\n")
   if (!file.exists(fp)) {
@@ -242,3 +257,6 @@ args <- commandArgs(trailingOnly = TRUE)
 blocks <- if (length(args)) args else c("A","B")
 if ("A" %in% blocks) for (hr in c(1.50,1.75)) for (n in c(500L,1000L,1500L)) gate2(hr, n, "A")
 if ("B" %in% blocks) for (hr in c(1.50,1.75)) for (n in c(500L,1000L,1500L)) gate2(hr, n, "B")
+# TASK_grfmr_completion_2026-09-12: "C" = the six HR 1.00 cells, 12.4% then 31%
+# (the prevalence letter passed to gate2() stays A / B, as for the harm cells).
+if ("C" %in% blocks) for (blk in c("A","B")) for (n in c(500L,1000L,1500L)) gate2(1.00, n, blk)

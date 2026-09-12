@@ -1,6 +1,6 @@
 ---
 title: "GRF: naive / field / field-s / IJ two-term across both prevalences"
-subtitle: "Campaign grfmr (GRF frontier, effMaxSG eps 0.20, n 500 / 1000 / 1500 at HR 1.50 / 1.75, 12.4% and 31% prevalence); TASK_grfmr_campaign_2026-09-11; transplanted from summary_dinamr.qmd"
+subtitle: "Campaign grfmr (GRF frontier, effMaxSG eps 0.20, n 500 / 1000 / 1500 at HR 1.50 / 1.75 / 1.00, 12.4% and 31% prevalence); TASK_grfmr_campaign_2026-09-11 and TASK_grfmr_completion_2026-09-12 (the two deferred HR 1.75 cells and the six HR 1.00 cells); transplanted from summary_dinamr.qmd"
 author: "Larry Leon"
 date: today
 format:
@@ -41,11 +41,13 @@ clears the resolved admission floor (`R/forestsearch_helpers.R:1654`) — is the
 stratifier used in @sec-strat**, and it is the analogue of GRF's family-size stratifier.
 `n_family` is kept in the descriptive tables of @sec-family, beside it.
 
-**Grid.** Twelve harm cells at ε = 0.20: **Block A** = 12.4% (`harm_z1_quantile` at the template
-default 0.25) and **Block B** = 31% (`FS_S7_Z1Q = 0.60`), each at HR 1.50 and 1.75 for
-n = 500 / 1000 / 1500. Seeds 8316951 + sim_id, sim_id 1–2000 as two seed-disjoint batches of
-1,000, then combined. **The HR 1.00 null cells are not in this task** — they go to a follow-up
-session, so they are absent by design and are not listed as deferred.
+**Grid.** Eighteen cells at ε = 0.20, matching the DINA grid cell for cell: **Block A** = 12.4%
+(`harm_z1_quantile` at the template default 0.25) and **Block B** = 31% (`FS_S7_Z1Q = 0.60`), each
+at HR 1.50 and 1.75 for n = 500 / 1000 / 1500; **Block C** = the HR 1.00 cells at both
+prevalences and the same three n, which are differentially null against a benefiting complement
+(@sec-null). Seeds 8316951 + sim_id, sim_id 1–2000 as two seed-disjoint batches of 1,000, then
+combined. Ten harm cells ran under `TASK_grfmr_campaign_2026-09-11`; the two deferred 31% HR 1.75
+cells and the six HR 1.00 cells under `TASK_grfmr_completion_2026-09-12`.
 
 **Standing conventions.** Bounds read by location, never as significance at the null; Wilson
 95% limits everywhere; marginal and error SDs side by side; NPV beside sens/spec/PPV;
@@ -71,11 +73,12 @@ cells <- Filter(Negate(is.null), c(
          function(x) mk("A", 0.124, as.integer(x[2]), x[1], "harm")),
   lapply(list(c(1.50,500),c(1.50,1000),c(1.50,1500),c(1.75,500),c(1.75,1000),c(1.75,1500)),
          function(x) mk("B", 0.31,  as.integer(x[2]), x[1], "harm")),
-  # The HR 1.00 null cells are NOT in this task (kickoff: "The HR 1.00 null
-  # cells are NOT in this task").  They are removed from the cell list rather
-  # than left to the absent-cell guard, so that the render reports them as out
-  # of scope instead of as deferred.
-  NULL))
+  # Block C, the HR 1.00 cells (TASK_grfmr_completion_2026-09-12).  Back on the
+  # cell list, so an absent one is reported by the guard as deferred.
+  lapply(list(c(1.00,500),c(1.00,1000),c(1.00,1500)),
+         function(x) mk("A", 0.124, as.integer(x[2]), x[1], "null")),
+  lapply(list(c(1.00,500),c(1.00,1000),c(1.00,1500)),
+         function(x) mk("B", 0.31,  as.integer(x[2]), x[1], "null"))))
 names(cells) <- vapply(cells, `[[`, "", "label")
 
 present <- vapply(cells, function(cl) file.exists(cl$file), TRUE)
@@ -93,7 +96,7 @@ have <- function(x) length(x) > 0L && nrow(as.data.frame(x)) > 0L
 skip_note <- function(what) cat(sprintf("\n*Skipped: %s. Not rendered empty -- the cell(s) it needs are absent from this render.*\n\n", what))
 
 missing_cells <- names(cells)[!present]
-cat(sprintf("Cells on disk: %d of %d harm cells (the HR 1.00 null cells are out of scope for this task).\n", sum(present), length(cells)))
+cat(sprintf("Cells on disk: %d of %d (12 harm cells, 6 HR 1.00 cells).\n", sum(present), length(cells)))
 if (length(missing_cells))
   cat("DEFERRED / NOT ON DISK (omitted from every table below, not rendered empty):\n  - ",
       paste(missing_cells, collapse = "\n  - "), "\n", sep = "")
@@ -137,13 +140,19 @@ reason a coverage or bias figure moves with n. Where it does not hold, the condi
 again and the qualification returns. This is a statement about what a comparison may be read as,
 not a claim about GRF's performance.
 
+**At the HR 1.00 cells (`arm = null`) the same column is a `selection_rate` and nothing more.**
+The planted region there is differentially null against a benefiting complement and clears the
+deliberately sub-null log(0.90) floor, so returning it is an admissible selection. It is reported
+beside the location shares of @sec-null-location as a separate quantity, and is not read as an
+error rate.
+
 ```{r detection}
 if (!have(labs)) skip_note("the detection table") else {
 DET <- INV[, c("cell", "block", "n", "HR", "arm", "detected", "detection",
                "K_med", "K_q90", "adm_med", "adm_q90", "prev_trial")]
 DET <- DET[order(DET$arm, DET$block, DET$HR, DET$n), ]
 kbl(DET, digits = 4, booktabs = TRUE, row.names = FALSE,
-    caption = "DETECTION RATE per cell out of 2,000 replicates, with the ENUMERATED POOL n_family (median, q90), the ADMITTED count admitted_n (median, q90) and the realized trial prevalence beside it. Every coverage number in this document is computed on the detected replicates of the cell named in its row, and is coverage over detected replicates.") |>
+    caption = "DETECTION RATE per cell out of 2,000 replicates, with the ENUMERATED POOL n_family (median, q90), the ADMITTED count admitted_n (median, q90) and the realized trial prevalence beside it. On the HR 1.00 cells (arm = null) the same column is a SELECTION RATE and nothing more: the planted region is differentially null against a benefiting complement and clears the sub-null log(0.90) floor, so returning it is admissible. Every coverage number in this document is computed on the detected replicates of the cell named in its row, and is coverage over detected replicates.") |>
   kable_styling(font_size = 10)
 }
 ```
@@ -226,7 +235,7 @@ for (blk in c("A","B")) {
                     "b","b_err","se_mean","r","se_over_sd_err","cov1","cov1_wilson_lo",
                     "cov1_wilson_hi","cov2","cov1_ref","cov1_ref_err")],
       digits = 3, booktabs = TRUE, row.names = FALSE,
-      caption = sprintf("BLOCK %s (%s prevalence). Per cell and block: bias on the log scale; marginal SD (sd_emp) and error SD (sd_err) side by side; b = bias / marginal SD, b_err = bias / error SD; mean SE; r = SE / marginal SD and SE / error SD; cov1 = one-sided 95%% coverage on the exposed side (lower for beta(Hhat), upper for beta(Hhat^c)) with Wilson limits; cov2 = two-sided; cov1_ref = the Gaussian reference on the MARGINAL SD, cov1_ref_err its twin on the ERROR SD -- cov1_ref_err = Phi(1.645 * se_over_sd_err - b_err) for the harm block's LOWER bound and Phi(1.645 * se_over_sd_err + b_err) for the complement block's UPPER bound, where b_err = bias_log / sd_err. EVERY COVERAGE COLUMN (cov1, cov1_wilson_lo, cov1_wilson_hi, cov2) IS COMPUTED OVER DETECTED REPLICATES ONLY. The harm block has no field-s row (field-s = field there by construction). naive is a reference, never a product.",
+      caption = sprintf("BLOCK %s (%s prevalence). Per cell and block: bias on the log scale; marginal SD (sd_emp) and error SD (sd_err) side by side; b = bias / marginal SD, b_err = bias / error SD; mean SE; r = SE / marginal SD and SE / error SD; cov1 = one-sided 95%% coverage on the exposed side (lower for beta(Hhat), upper for beta(Hhat^c)) with Wilson limits; cov2 = two-sided; cov1_ref = the Gaussian reference on the MARGINAL SD, cov1_ref_err its twin on the ERROR SD -- cov1_ref_err = Phi(1.645 * se_over_sd_err - b_err) for the Hhat block's LOWER bound and Phi(1.645 * se_over_sd_err + b_err) for the complement block's UPPER bound, where b_err = bias_log / sd_err. EVERY COVERAGE COLUMN (cov1, cov1_wilson_lo, cov1_wilson_hi, cov2) IS COMPUTED OVER DETECTED REPLICATES ONLY. The Hhat block has no field-s row (field-s = field there by construction). naive is a reference, never a product. On the HR 1.00 cells (arm = null) the Hhat block is the identified region, differentially null against a benefiting complement; no harm is planted there.",
                           blk, if (blk == "A") "12.4%" else "31%")) |>
       kable_styling(font_size = 9))
 }
@@ -280,7 +289,8 @@ fs_file <- function(blk, hr, n) {
     # e1stud was run only at HR 1.50 and 1.75.  At HR 1.00 the n = 500 / 31%
     # comparator is cert20, which IS on disk and is likewise effMaxSG at
     # eps 0.20 -- so the null cells at 31% stay criterion-matched
-    # (TASK_grfmr_blockC_grfprobe_2026-09-11).
+    # (TASK_dinamr_blockC_grfprobe_2026-09-11; resolved per cell by gate2G.R
+    # for TASK_grfmr_completion_2026-09-12).
     camp <- if (n == 500L && abs(hr - 1.00) > 1e-9) "e1stud" else "cert20"
     sprintf("%sfs_effMaxSG_fb_mr_field_m1_h%03d_knoise0_n%d_z1q60_nb20_%s_combined_1_2000.rds", R, round(100*hr), n, camp)
   } }
@@ -1028,33 +1038,17 @@ print(ggplot(OV, aes(p_hat_med, fldH_cov, colour = engine, group = engine)) +
 
 # The null cells (HR 1.00) {#sec-null}
 
-> **What HR 1.00 is on this path, verified from source (Gate 0,
-> `TASK_grfmr_blockC_grfprobe_2026-09-11`).** It is **a planted region with HR 1.00 inside it,
-> not a global null.** `FS_S7_HR` sets `target_hr_harm`, which
-> "calibrate[s] `k_inter` to this Cox HR **in the harm subgroup**"
-> (`sim_fs_maxeffCons_fb_mr_field_m1_template.qmd:340`). The harm rule itself is
-> `{er <= quantile(er, z1_quantile)} & {meno == 0}` (template lines 344--346), **the same form at
-> every HR** and a function of `FS_S7_Z1Q` alone -- HR does not enter it. The DGM is pinned at
-> `dgm_model <- "alt"` (template line 488), a literal with no environment override; the harness's
-> genuine global-null path (`model = "null"`, "uniform treatment effect",
-> `R/sim_aft_gbsg.R:93`) is unreachable from this template. So `HR 1.00` names the calibration
-> target inside a region that is planted regardless, and the calibration confirms it: `k_inter` is
-> **not** zero (+0.567917 at 12.4%, -8.579297 at 31%), and the planted contrast is
-> **HR(H) = 1.00 against HR(Hᶜ) = 0.657 (12.4%) and 0.721 (31%)**, with overall causal HR 0.685
-> and 0.792. The treatment effect is heterogeneous at these cells: the planted region is
-> **differentially null against a benefiting complement**, not harmed. Because there is no planted
-> harm at these cells, this section uses no harm vocabulary for them.
+> **What HR 1.00 is on this path — settled, cited and not re-determined here.** HR 1.00 is **not
+> a global null**. The planted region carries HR 1.00 against a benefiting complement (HR 0.657 at
+> 12.4%, 0.721 at 31%) on this same template. That was established from source in the `dinamr`
+> Block C Gate 0 (`REPORT_dinamr_blockC_2026-09-11.md`, "GATE 0 — Stage 0, verified from source";
+> quoted in `summary_dinamr.qmd` @sec-null). These cells are **differentially null against a
+> benefiting complement**, and no harm vocabulary is used for them.
 >
-> **Which quantities are structurally undefined here: none of the classification set.** Because
-> the region indicator is planted by the rule and not by the effect size, `harm_col <- "flag_harm"`
-> (template line 661) resolves at HR 1.00 exactly as it does at HR 1.50, with super-population
-> prevalence 0.1242 and 0.3065. The per-replicate **oracle** θ̂(H) is a Cox fit on that same
-> planted region and is defined (its target is simply log 1.00 = 0); **sens, spec, PPV and NPV**
-> are defined against the same planted H and are finite on every detected replicate. The only
-> columns that are structurally absent here are the ones already structurally absent on **every**
-> GRF cell -- `n_cons_qual`, `band_n` (present, all-NA: no consistency screen) and `p_star` (not
-> a recorder column at all) -- and they are reported as such in @sec-structna, never as failures.
-> No quantity in this document is dropped, NA-ed or suppressed on account of HR 1.00.
+> **Nothing in the classification set is structurally undefined here.** The planted region exists,
+> so sens, spec, PPV, NPV and the oracle target (log 1.00 = 0) are all defined. The structural
+> columns are the ones structural on **every** GRF cell, not on account of HR 1.00:
+> `n_cons_qual`, `band_n` and `p_star` (@sec-structna).
 >
 > **The rate here is a `selection_rate`, and nothing more is read into it (Larry, 2026-09-11).**
 > The planted region carries HR 1.00 and GRF's effect floor is log(0.90), **deliberately
@@ -1064,7 +1058,7 @@ print(ggplot(OV, aes(p_hat_med, fldH_cov, colour = engine, group = engine)) +
 >
 > **What speaks to a false claim is bound location, not selection.** @sec-null-location reports,
 > per Block C cell, the share of field lower bounds **at or above 1.00** and **at or above 1.25** —
-> the same columns as the Block A location table (`scripts_grfmr/blockA_rest.R:74-75`) — and those
+> the same columns as the DINA location tables (`scripts_dinamr/blockA_rest.R:74-75`) — and those
 > columns carry the question. The selection rate does not.
 >
 > **Vocabulary in Block C.** These cells have no planted harm, so no harm vocabulary is used for
@@ -1087,12 +1081,16 @@ if (!length(null_labs)) skip_note("the null-cell table (no HR 1.00 cell on disk)
 NUL <- do.call(rbind, lapply(null_labs, function(k) {
   r <- B[[k]]$results; d <- prep(r)
   if (!nrow(d)) return(NULL)
+  A <- r$admitted_n[is.finite(r$admitted_n)]
   data.frame(cell = k, block = BLK[[k]], n = NN[[k]], selection_rate = mean(r$detected %in% 1L),
-             n_eval = nrow(d), K_med = stats::median(r$n_family, na.rm = TRUE),
+             n_eval = nrow(d),
+             adm_med = stats::median(A), adm_q25 = unname(stats::quantile(A, .25)),
+             adm_q75 = unname(stats::quantile(A, .75)), adm_p90 = unname(stats::quantile(A, .90)),
+             pool_K_med = stats::median(r$n_family, na.rm = TRUE),
              beta_H_mean = mean(d$betaHhat_H), beta_Hc_mean = mean(d$betaHhat_Hc),
-             harm_field_1s = mean(d$betaHhat_H >= d$fld_H_lo1s),
-             comp_field_s_1s = mean(d$betaHhat_Hc <= d$fld_Hc_up1s_s),
-             comp_field_1s = mean(d$betaHhat_Hc <= d$fld_Hc_up1s),
+             region_field_1s = mean(d$betaHhat_H >= d$fld_H_lo1s),
+             compl_field_s_1s = mean(d$betaHhat_Hc <= d$fld_Hc_up1s_s),
+             compl_field_1s = mean(d$betaHhat_Hc <= d$fld_Hc_up1s),
              H_lower_mean = mean(d$fld_H_lo1s),
              share_H_lower_ge_100 = mean(d$fld_H_lo1s >= 1.00),
              share_H_lower_ge_125 = mean(d$fld_H_lo1s >= 1.25),
@@ -1101,7 +1099,7 @@ NUL <- do.call(rbind, lapply(null_labs, function(k) {
              share_Hc_upper_lt_080 = mean(d$fld_Hc_up1s_s < 0.80)) }))
 if (!have(NUL)) skip_note("the null-cell table") else
 kbl(NUL, digits = 4, booktabs = TRUE, row.names = FALSE,
-    caption = paste("Null cells, both prevalence blocks: the SELECTION RATE under the screen -- a selection rate and nothing more, since the planted region clears GRF's deliberately sub-null log(0.90) floor and returning it is an admissible selection; the median proposed-family size; among selections the realized beta on the region and on its complement, the one-sided rate of each bound against its own realized beta, and THE BOUNDS BY LOCATION (share of the region's lower bound at or above 1.00 and at or above 1.25; share of the complement upper bound below 0.85 and 0.80). Bound location, not the selection rate, is what speaks to a false claim -- see @sec-null-location. Recorded, not scored.",
+    caption = paste("Null cells, both prevalence blocks: the SELECTION RATE under the screen -- a selection rate and nothing more, since the planted region clears GRF's deliberately sub-null log(0.90) floor and returning it is an admissible selection; the ADMITTED count admitted_n (median, q25, q75, p90) -- the stratifier -- with the ENUMERATED POOL n_family (pool_K_med) beside it, which is outcome-independent and not the qualified set; among selections the realized beta on the region and on its complement, the one-sided rate of each bound against its own realized beta, and THE BOUNDS BY LOCATION (share of the region's lower bound at or above 1.00 and at or above 1.25; share of the complement upper bound below 0.85 and 0.80). Bound location, not the selection rate, is what speaks to a false claim -- see @sec-null-location. Recorded, not scored.",
                     "Over detected replicates throughout. BLOCK C CELLS ARE DIFFERENTIALLY NULL AGAINST A BENEFITING COMPLEMENT -- the planted region carries HR 1.00 and its complement HR 0.657 (12.4%) / 0.721 (31%) -- so there is no planted harm here and no harm vocabulary is used.")) |>
   kable_styling(font_size = 9)
 }
@@ -1136,30 +1134,60 @@ kbl(vn2, digits = 4, booktabs = TRUE, row.names = FALSE,
 
 This is the table that speaks to a false claim. The selection rate does not: returning a region
 that clears a deliberately sub-null floor is admissible. **Where the lower bound sits** is the
-question, and it is asked with the same columns as the Block A location table
-(`scripts_grfmr/blockA_rest.R:63-76`), including the two share columns at **1.00** and **1.25**.
+question, and it is asked with the same columns as the DINA null location tables
+(`scripts_dinamr/blockA_rest.R:63-76`, `REPORT_dinamr_blockC_2026-09-11.md` "Bound location"),
+including the two share columns at **1.00** and **1.25**, now with Wilson intervals.
+
+**Two quantities, reported separately.** The selection rate (over all 2,000 replicates) and the
+location shares (over the detected replicates) sit in separate columns and are read separately.
+If GRF selects at or near 1 even where the planted region is null, its selection rate carries no
+information at these cells and the location shares are the entire diagnostic.
+
+**FS beside GRF, with the comparator's criterion on every row.** At **31%** the FS comparator is
+`cert20`, `effMaxSG` at ε 0.20 — **criterion-matched** to GRF. At **12.4%** it is `tier2` (n 500) /
+`p12ext` (n 1000, 1500), `maxeffCons` at ε 0.10 — **not matched**. **Confound, with every
+comparison:** FS and GRF differ in identifier, in family construction and in detection set; at
+12.4% they differ in the selection criterion as well, so a 12.4% gap cannot be read as engine
+behaviour even in part. Descriptive, not a contest.
 
 ```{r null-location}
 if (!length(null_labs)) skip_note("the Block C location table") else {
-LOC <- do.call(rbind, lapply(null_labs, function(k) {
-  b <- B[[k]]; d <- prep(b$results)
+# One row per engine per cell, on the row set fs_extraction.R uses for FS:
+# detected, with the field lower bound and theta(Hhat) finite.
+loc_row <- function(r, truth, k, engine, crit, matched) {
+  d <- r[r$detected %in% 1L & is.finite(r$fld_H_lo1s) & is.finite(r$betaHhat_H), , drop = FALSE]
   if (!nrow(d)) return(NULL)
-  data.frame(cell = k, block = BLK[[k]], n = NN[[k]], n_eval = nrow(d),
-             med_fld_H_lo1s   = stats::median(d$fld_H_lo1s),
-             med_theta_Hhat   = stats::median(d$betaHhat_H),
-             med_fld_H_est2   = stats::median(d$fld_H_est2),
-             med_naive_H      = stats::median(d$nv_H_est),
+  sr <- mean(r$detected %in% 1L); wsr <- wil(sr, nrow(r))
+  s1 <- mean(d$fld_H_lo1s >= 1.00); w1 <- wil(s1, nrow(d))
+  s2 <- mean(d$fld_H_lo1s >= 1.25); w2 <- wil(s2, nrow(d))
+  data.frame(cell = k, block = BLK[[k]], n = NN[[k]], engine = engine, criterion = crit,
+             criterion_matched = matched,
+             selection_rate = sr, selection_wilson_lo = wsr[1], selection_wilson_hi = wsr[2],
+             n_eval = nrow(d),
+             med_fld_H_lo1s    = stats::median(d$fld_H_lo1s),
+             med_theta_Hhat    = stats::median(d$betaHhat_H),
+             med_fld_H_est2    = stats::median(d$fld_H_est2),
+             med_naive_H       = stats::median(d$nv_H_est),
              bound_minus_theta = stats::median(d$fld_H_lo1s) - stats::median(d$betaHhat_H),
              bound_over_theta  = stats::median(d$fld_H_lo1s) / stats::median(d$betaHhat_H),
              med_paired_ratio  = stats::median(d$fld_H_lo1s / d$betaHhat_H),
-             planted_marg_H    = unname(b$truth$marg_H),
-             share_bound_ge_1.00 = mean(d$fld_H_lo1s >= 1.00),
-             share_bound_ge_1.25 = mean(d$fld_H_lo1s >= 1.25)) }))
-if (!have(LOC)) skip_note("the Block C location table") else
+             planted_marg_H    = unname(truth$marg_H),
+             share_bound_ge_1.00 = s1, s100_wilson_lo = w1[1], s100_wilson_hi = w1[2],
+             share_bound_ge_1.25 = s2, s125_wilson_lo = w2[1], s125_wilson_hi = w2[2],
+             stringsAsFactors = FALSE) }
+LOC <- do.call(rbind, lapply(null_labs, function(k) {
+  x <- fs_for(k)
+  rbind(loc_row(B[[k]]$results, B[[k]]$truth, k, "GRF (grfmr)", "grfmr / effMaxSG / eps 0.2", TRUE),
+        if (is.null(x)) NULL else
+          loc_row(x$b$results, x$b$truth, k, "FS", fs_crit(x),
+                  identical(x$focus, "effMaxSG") && isTRUE(all.equal(x$eps, 0.20)))) }))
+if (!have(LOC)) skip_note("the Block C location table") else {
+LOC <- LOC[order(LOC$block, LOC$n, LOC$engine != "GRF (grfmr)"), ]
 kbl(LOC, digits = 4, booktabs = TRUE, row.names = FALSE,
-    caption = paste("BLOCK C, BOUND LOCATION -- the same columns as the Block A location table (scripts_grfmr/blockA_rest.R:63-76). The median field lower bound against the median realized theta(Hhat) on the HR scale, the field point estimate and the naive estimate beside them, the bound-to-target gap in difference, ratio and paired-ratio form, the planted marginal target, and THE TWO SHARE COLUMNS: the share of field lower bounds at or above 1.00 and at or above 1.25. These shares are what speak to a claim the data do not support; the selection rate does not, since the planted region clears GRF's deliberately sub-null log(0.90) floor and returning it is admissible.",
-                    "Over detected replicates throughout. BLOCK C CELLS ARE DIFFERENTIALLY NULL AGAINST A BENEFITING COMPLEMENT -- the planted region carries HR 1.00 and its complement HR 0.657 (12.4%) / 0.721 (31%) -- so there is no planted harm here and no harm vocabulary is used.")) |>
-  kable_styling(font_size = 9)
+    caption = paste("BLOCK C, SELECTION RATE AND BOUND LOCATION, GRF beside its FS comparator, per cell. Products: the field one-sided lower bound on beta(Hhat) (fld_H_lo1s), the field point estimate (fld_H_est2) and the naive estimate. Columns: the selection rate over all 2,000 replicates with Wilson limits, as a SEPARATE quantity; then, over detected replicates, the median field lower bound against the median realized theta(Hhat) on the HR scale, the field and naive estimates beside them, the bound-to-target gap in difference, ratio and paired-ratio form, the planted marginal target, and THE TWO SHARE COLUMNS -- the share of field lower bounds at or above 1.00 and at or above 1.25 -- each with Wilson limits. Cells: the six HR 1.00 cells, 12.4% and 31% at n 500 / 1000 / 1500. The criterion column carries each row's campaign / sg_focus / eps: criterion_matched is TRUE at 31% (cert20, effMaxSG eps 0.20) and FALSE at 12.4% (tier2 / p12ext, maxeffCons eps 0.10). Confound with every comparison: FS and GRF differ in identifier, family construction and detection set, and at 12.4% in the selection criterion as well. The selection rate is not an error rate: the planted region clears the sub-null log(0.90) floor, so returning it is admissible.",
+                    "Rates other than the selection rate are over detected replicates. BLOCK C CELLS ARE DIFFERENTIALLY NULL AGAINST A BENEFITING COMPLEMENT -- the planted region carries HR 1.00 and its complement HR 0.657 (12.4%) / 0.721 (31%) -- so there is no planted harm here and no harm vocabulary is used.")) |>
+  kable_styling(font_size = 8) |> scroll_box(width = "100%")
+}
 }
 ```
 
@@ -1201,11 +1229,12 @@ kbl(NFS, digits = 4, booktabs = TRUE, row.names = FALSE,
 #| echo: false
 f3 <- function(x) sprintf("%.3f", x)
 if (!have(labs)) { cat("\n*No grfmr bundle on disk; nothing to record.*\n") } else {
-cat("\n**Detection and proposed-family size (the headline):**\n\n")
+cat("\n**Detection (harm cells) or selection rate (HR 1.00 cells), the admitted set and the enumerated pool (the headline):**\n\n")
 for (i in order(INV$arm, INV$block, INV$HR, INV$n))
-  cat(sprintf("- %s: detection %s (%d/2000); family size median %g, q90 %g; realized trial prevalence %s\n",
-      INV$cell[i], f3(INV$detection[i]), INV$detected[i], INV$K_med[i], INV$K_q90[i],
-      f3(INV$prev_trial[i])))
+  cat(sprintf("- %s: %s %s (%d/2000); admitted_n median %g, q90 %g; enumerated pool n_family median %g, q90 %g; realized trial prevalence %s\n",
+      INV$cell[i], if (INV$arm[i] == "null") "selection rate" else "detection",
+      f3(INV$detection[i]), INV$detected[i], INV$adm_med[i], INV$adm_q90[i],
+      INV$K_med[i], INV$K_q90[i], f3(INV$prev_trial[i])))
 if (have(VSN)) {
 cat("\n**Coverage versus n (harm cells; field lower / field-s upper / IJ two-sided H / IJ two-sided Hc / joint_s Bonferroni) -- over detected replicates throughout:**\n\n")
 for (i in which(VSN$arm == "harm"))
@@ -1222,8 +1251,8 @@ for (i in which(VSN$arm == "harm" & VSN$block == "A"))
 if (have(IDENT)) {
 cat("\n**Classification versus n and prevalence:**\n\n")
 for (i in seq_len(nrow(IDENT)))
-  cat(sprintf("- %s: detection %s; sens %s spec %s ppv %s npv %s; |Hhat|/|H| median %s q90 %s; beta(Hhat) %s vs planted %s; beta(Hhat^c) %s vs planted %s; naive optimism %s marginal-SD / %s error-SD (H), %s / %s (Hc); mean p-hat %s; family median %g\n",
-    IDENT$cell[i], f3(IDENT$detection[i]), f3(IDENT$sens[i]), f3(IDENT$spec[i]), f3(IDENT$ppv[i]), f3(IDENT$npv[i]),
+  cat(sprintf("- %s: %s %s; sens %s spec %s ppv %s npv %s; |Hhat|/|H| median %s q90 %s; beta(Hhat) %s vs planted %s; beta(Hhat^c) %s vs planted %s; naive optimism %s marginal-SD / %s error-SD (H), %s / %s (Hc); mean p-hat %s; enumerated pool median %g\n",
+    IDENT$cell[i], if (IDENT$arm[i] == "null") "selection rate" else "detection", f3(IDENT$detection[i]), f3(IDENT$sens[i]), f3(IDENT$spec[i]), f3(IDENT$ppv[i]), f3(IDENT$npv[i]),
     f3(IDENT$Hhat_over_H_med[i]), f3(IDENT$Hhat_over_H_q90[i]), f3(IDENT$beta_H_mean[i]), f3(IDENT$planted_H[i]),
     f3(IDENT$beta_Hc_mean[i]), f3(IDENT$planted_Hc[i]), f3(IDENT$naive_opt_H_marg[i]), f3(IDENT$naive_opt_H_err[i]),
     f3(IDENT$naive_opt_Hc_marg[i]), f3(IDENT$naive_opt_Hc_err[i]), f3(IDENT$p_hat_mean[i]), IDENT$K_med[i]))
@@ -1247,16 +1276,17 @@ for (k in labs) { x <- TERT[TERT$cell == k & TERT$stratum != "all", ]
 if (exists("NUL") && have(NUL)) {
 cat("\n**Null cells (recorded, not scored):**\n\n")
 for (i in seq_len(nrow(NUL)))
-  cat(sprintf("- %s: selection rate %s; beta(Hhat) %s, beta(Hhat^c) %s; harm lower one-sided rate %s, complement field-s upper %s; harm lower mean %s (share >= 1.00 %s); complement upper mean %s (share < 0.80 %s)\n",
-    NUL$cell[i], f3(NUL$selection_rate[i]), f3(NUL$beta_H_mean[i]), f3(NUL$beta_Hc_mean[i]),
-    f3(NUL$harm_field_1s[i]), f3(NUL$comp_field_s_1s[i]), f3(NUL$H_lower_mean[i]),
+  cat(sprintf("- %s: selection rate %s; admitted_n median %g (q25 %g, q75 %g, p90 %g), enumerated pool median %g; beta(Hhat) %s, beta(Hhat^c) %s; region field lower one-sided rate %s, complement field-s upper %s; region lower bound mean %s (share >= 1.00 %s); complement upper mean %s (share < 0.80 %s)\n",
+    NUL$cell[i], f3(NUL$selection_rate[i]), NUL$adm_med[i], NUL$adm_q25[i], NUL$adm_q75[i],
+    NUL$adm_p90[i], NUL$pool_K_med[i], f3(NUL$beta_H_mean[i]), f3(NUL$beta_Hc_mean[i]),
+    f3(NUL$region_field_1s[i]), f3(NUL$compl_field_s_1s[i]), f3(NUL$H_lower_mean[i]),
     f3(NUL$share_H_lower_ge_100[i]), f3(NUL$Hc_upper_mean[i]), f3(NUL$share_Hc_upper_lt_080[i])))
 }
 if (have(VSN) && have(VSN[VSN$arm == "null", ])) {
 cat("\n**Null cells, every product at its absolute level (over detected replicates throughout):**\n\n")
 vnr <- VSN[VSN$arm == "null", ]
 for (i in seq_len(nrow(vnr)))
-  cat(sprintf("- %s (n_eval %d): harm field %s [%s, %s]; IJ two-sided H %s [%s, %s] (miss below %s, above %s); complement field-s %s [%s, %s] (field %s); IJ two-sided Hc %s [%s, %s]; joint Bonferroni %s; joint_s Bonferroni %s [%s, %s]\n",
+  cat(sprintf("- %s (n_eval %d): region field lower %s [%s, %s]; IJ two-sided H %s [%s, %s] (miss below %s, above %s); complement field-s %s [%s, %s] (field %s); IJ two-sided Hc %s [%s, %s]; joint Bonferroni %s; joint_s Bonferroni %s [%s, %s]\n",
     vnr$cell[i], vnr$n_eval[i],
     f3(vnr$harm_field[i]), f3(vnr$harm_field_lo[i]), f3(vnr$harm_field_hi[i]),
     f3(vnr$ij2_H[i]), f3(vnr$ij2_H_lo[i]), f3(vnr$ij2_H_hi[i]),
@@ -1267,12 +1297,17 @@ for (i in seq_len(nrow(vnr)))
 cat("\n*Block C is differentially null against a benefiting complement, not a global null (Gate 0, @sec-null): k_inter is nonzero and HR(region) = 1.00 sits against HR(complement) = 0.657 at 12.4% and 0.721 at 31%. The rate at these cells is a selection rate and nothing more -- the planted region clears GRF's deliberately sub-null log(0.90) floor, so returning it is an admissible selection. What speaks to a false claim is bound location, below.*\n")
 }
 if (exists("LOC") && have(LOC)) {
-cat("\n**Block C bound location -- the columns that speak to a claim the data do not support:**\n\n")
+cat("\n**Block C selection rate and bound location, GRF beside FS -- the share columns speak to a claim the data do not support; the selection rate does not:**\n\n")
 for (i in seq_len(nrow(LOC)))
-  cat(sprintf("- %s: median field lower bound %s against median theta(Hhat) %s (ratio %s, paired-ratio median %s); planted marginal target %s; SHARE OF LOWER BOUNDS >= 1.00 %s, >= 1.25 %s\n",
-    LOC$cell[i], f3(LOC$med_fld_H_lo1s[i]), f3(LOC$med_theta_Hhat[i]),
+  cat(sprintf("- %s, %s (%s%s): selection rate %s [%s, %s]; median field lower bound %s against median theta(Hhat) %s (ratio %s, paired-ratio median %s); planted marginal target %s; SHARE OF LOWER BOUNDS >= 1.00 %s [%s, %s], >= 1.25 %s [%s, %s]\n",
+    LOC$cell[i], LOC$engine[i], LOC$criterion[i],
+    if (LOC$engine[i] == "FS") if (isTRUE(LOC$criterion_matched[i])) "; criterion-matched" else "; NOT criterion-matched" else "",
+    f3(LOC$selection_rate[i]), f3(LOC$selection_wilson_lo[i]), f3(LOC$selection_wilson_hi[i]),
+    f3(LOC$med_fld_H_lo1s[i]), f3(LOC$med_theta_Hhat[i]),
     f3(LOC$bound_over_theta[i]), f3(LOC$med_paired_ratio[i]), f3(LOC$planted_marg_H[i]),
-    f3(LOC$`share_bound_ge_1.00`[i]), f3(LOC$`share_bound_ge_1.25`[i])))
+    f3(LOC$`share_bound_ge_1.00`[i]), f3(LOC$s100_wilson_lo[i]), f3(LOC$s100_wilson_hi[i]),
+    f3(LOC$`share_bound_ge_1.25`[i]), f3(LOC$s125_wilson_lo[i]), f3(LOC$s125_wilson_hi[i])))
+cat("\n*Confound, with every comparison: FS and GRF differ in identifier, in family construction and in detection set; at 12.4% they differ in the selection criterion as well (maxeffCons eps 0.10 against effMaxSG eps 0.20), so a 12.4% gap cannot be read as engine behaviour even in part.*\n")
 }
 if (exists("NFS") && have(NFS)) {
 cat("\n**Null cells beside the FS comparator, absolute levels, criterion named:**\n\n")
