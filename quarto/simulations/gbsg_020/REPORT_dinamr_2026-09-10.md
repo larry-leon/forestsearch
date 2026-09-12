@@ -609,3 +609,145 @@ constant.** At HR 1.50, 12.4%:
 > **Block B's overlay is the comparison to read.** There the FS comparators (`cert20` / `e1stud`)
 > run **DINA's own criterion** — `effMaxSG` at ε 0.20 — so the criterion drops out and only the
 > identifier, the family construction and the detection set remain.
+
+---
+
+## Gate 2 — Block B, all five cells run: **PASS**, 170 checks, **zero failures**
+
+The sixth cell (HR 1.75, n 1500) is the checkpoint's deferred cell and correctly reports
+**NOT ON DISK**, not a failure.
+
+| cell | rows | detection | family K: min / med / q90 / max (**CV**) | realized prevalence | γ range (share at floor) | field-s bdc identity | same draws |
+|---|---|---|---|---|---|---|---|
+| HR 1.50 n 500 | 2000 | **0.9985** | 3 / 1495 / 2881 / 3556 (**0.564**) | 0.30591 | 0.0250–0.0270 (0.915) | 2.22e-16 | **yes** |
+| HR 1.50 n 1000 | 2000 | **1.0000** | 48 / 1709.5 / 2984 / 3814 (**0.473**) | 0.30625 | 0.0250–0.0270 (0.907) | 2.22e-16 | **yes** |
+| HR 1.50 n 1500 | 2000 | **1.0000** | 55 / 1743.5 / 2850 / 3794 (**0.433**) | 0.30646 | 0.0250–0.0270 (0.910) | 2.22e-16 | **yes** |
+| HR 1.75 n 500 | 2000 | **1.0000** | 37 / 1954.5 / 2982 / 3557 (**0.449**) | 0.30591 | 0.0250–0.0270 (0.902) | 2.22e-16 | **yes** |
+| HR 1.75 n 1000 | 2000 | **1.0000** | 241 / 2257.5 / 3160 / 3821 (**0.337**) | 0.30625 | 0.0250–0.0270 (0.904) | 2.22e-16 | **yes** |
+| HR 1.75 n 1500 | — | — | — | — | — | — | **deferred** |
+
+**Amendment 3 holds on all five.** `n_true` `identical()` on all 2,000 rows; `truth` `all.equal` at
+**tolerance 1e-8** TRUE. `identical()` FALSE throughout, at **max abs 5.55e-15 / max rel 3.25e-15**
+(HR 1.50, comparator `cert20` / `e1stud`) and **8.88e-15 / 4.25e-15** (HR 1.75) — the cross-machine
+signature, confined as before to the two CDE components. **No mismatch anywhere.**
+
+**Classification, Block B:** sens 0.497 / 0.642 / 0.788 and PPV 0.674 / 0.799 / 0.850 at HR 1.50
+across n = 500 / 1000 / 1500, with NPV 0.808 / 0.863 / 0.918 and mean |Ĥ| 110 / 243 / 426.
+**Detection is ~100% at every Block B cell**, against 0.80–0.91 in Block A — so the
+conditioning-on-detection caveat, which bites hard at 12.4%, barely bites at 31%. Only 3
+non-detections in the entire block (all at HR 1.50 n 500, all genuine no-selections).
+
+### The proposed family stabilizes at 31% and does **not** at 12.4%
+
+This is the mechanism Supplementary S8.3 offers for conditional coverage recovering with n, and the
+two blocks answer it oppositely.
+
+| block | HR | n 500 | n 1000 | n 1500 |
+|---|---|---|---|---|
+| **A (12.4%)** | 1.50 | med 254, CV **1.201**, IQR/med 2.026 | med 156, CV **1.185**, 1.917 | med 103, CV **1.142**, 2.000 |
+| A (12.4%) | 1.75 | med 332, CV 1.105, 1.795 | med 232, CV 1.059, 1.595 | med 177, CV 1.001, 1.516 |
+| **B (31%)** | 1.50 | med 1495, CV **0.564**, IQR/med 0.992 | med 1710, CV **0.473**, 0.790 | med 1744, CV **0.433**, 0.679 |
+| B (31%) | 1.75 | med 1954, CV 0.449, 0.697 | med 2258, CV 0.337, 0.512 | *(deferred)* |
+
+At **31%** the family **grows** with n (1495 → 1710 → 1744) while its relative spread **shrinks**
+(CV 0.564 → 0.433; IQR/median 0.992 → 0.679) — it stabilizes. At **12.4%** the family **shrinks**
+with n (254 → 156 → 103) and its relative spread **does not** (CV 1.20 → 1.14; IQR/median stays
+≈ 1.9–2.0). The S8.3 mechanism is visible at 31% and absent at 12.4%. Reported, not interpreted
+further.
+
+### The matched-criterion comparison — the one to read
+
+At 31% the FS comparators run **DINA's own criterion** (`effMaxSG`, ε 0.20), so the criterion drops
+out and only identifier, family construction and detection set remain.
+
+| cell | engine | criterion | field lower [Wilson] | field-s upper | IJ 2-sided | miss lo / hi | joint_s | sens | PPV |
+|---|---|---|---|---|---|---|---|---|---|
+| HR 1.50 n 500 | **DINA** | dinamr/effMaxSG/ε0.2 | **0.9159** [0.9029, 0.9273] | 0.9099 | 0.9905 | 0.0095 / 0.0000 | 0.9119 | 0.497 | 0.674 |
+| | FS | e1stud/effMaxSG/ε0.2 | **0.9745** [0.9666, 0.9805] | 0.9125 | 0.9810 | 0.0035 / 0.0155 | 0.9420 | 0.590 | 0.706 |
+| HR 1.50 n 1000 | **DINA** | dinamr/effMaxSG/ε0.2 | **0.9515** [0.9412, 0.9601] | 0.9365 | 0.9865 | 0.0065 / 0.0070 | 0.9455 | 0.642 | 0.799 |
+| | FS | cert20/effMaxSG/ε0.2 | **0.9585** [0.9488, 0.9664] | 0.9420 | 0.9710 | 0.0055 / 0.0235 | 0.9500 | 0.708 | 0.804 |
+| HR 1.50 n 1500 | **DINA** | dinamr/effMaxSG/ε0.2 | **0.9610** [0.9516, 0.9686] | 0.9420 | 0.9840 | 0.0045 / 0.0115 | 0.9535 | 0.788 | 0.850 |
+| | FS | cert20/effMaxSG/ε0.2 | **0.9615** [0.9521, 0.9691] | 0.9465 | 0.9755 | 0.0030 / 0.0215 | 0.9505 | 0.839 | 0.837 |
+| HR 1.75 n 500 | **DINA** | dinamr/effMaxSG/ε0.2 | 0.9155 [0.9025, 0.9269] | 0.9195 | 0.9870 | 0.0095 / 0.0035 | 0.9080 | 0.538 | 0.733 |
+| | FS | e1stud/effMaxSG/ε0.2 | 0.9700 [0.9616, 0.9766] | 0.9195 | 0.9720 | 0.0040 / 0.0240 | 0.9395 | 0.660 | 0.779 |
+| HR 1.75 n 1000 | **DINA** | dinamr/effMaxSG/ε0.2 | 0.9505 [0.9401, 0.9592] | 0.9435 | 0.9770 | 0.0070 / 0.0160 | 0.9440 | 0.689 | 0.848 |
+| | FS | cert20/effMaxSG/ε0.2 | 0.9525 [0.9423, 0.9610] | 0.9420 | 0.9740 | 0.0040 / 0.0220 | 0.9485 | 0.769 | 0.860 |
+
+**With the criterion matched, the two engines converge as n grows.** The harm field lower bound
+differs by **−0.059** at n 500 (0.916 vs 0.975, Wilson intervals disjoint) but by only **−0.007** at
+n 1000 and **−0.001** at n 1500 (Wilson intervals overlapping). The complement field-s upper bound
+is **within 0.005 at every cell**. FS identifies the planted region better throughout (sens 0.590 vs
+0.497 at n 500, 0.839 vs 0.788 at n 1500).
+
+### The matched p̂ overlay — and it closes with n
+
+| cell | | p̂ T1 | p̂ T2 | p̂ T3 | DINA − FS by tertile index |
+|---|---|---|---|---|---|
+| HR 1.50 n 500 | DINA bias (med p̂) | −0.140 (0.037) | +0.027 (0.092) | +0.341 (0.230) | **+0.089 / +0.124 / +0.182** |
+| | FS bias (med p̂) | −0.229 (0.023) | −0.097 (0.069) | +0.160 (0.187) | |
+| HR 1.50 n 1500 | DINA bias (med p̂) | −0.119 (0.035) | −0.058 (0.085) | +0.044 (0.182) | **+0.009 / +0.003 / −0.026** |
+| | FS bias (med p̂) | −0.129 (0.038) | −0.061 (0.096) | +0.070 (0.199) | |
+| HR 1.75 n 1000 | DINA bias (med p̂) | −0.166 (0.038) | −0.057 (0.095) | +0.118 (0.210) | **+0.018 / +0.023 / +0.003** |
+| | FS bias (med p̂) | −0.184 (0.045) | −0.081 (0.109) | +0.116 (0.243) | |
+
+At **n 500** DINA's retained bias sits above FS's in every tertile by **+0.09 to +0.18**. By
+**n 1500 the two curves essentially coincide** (+0.009 / +0.003 / −0.026), and their p̂ distributions
+coincide too (medians 0.035/0.085/0.182 against 0.038/0.096/0.199) — unlike at 12.4%, where FS's p̂
+ran far higher. **At a matched criterion the engines differ at n 500 and are indistinguishable on
+this curve by n 1500.**
+
+### The two-sided question, answered at both prevalences
+
+| | n 500 | n 1000 | n 1500 |
+|---|---|---|---|
+| **12.4%** FS, HR 1.50 | 0.977 | 0.932 | **0.901** |
+| **12.4%** DINA, HR 1.50 | 0.9949 | 0.9887 | 0.9925 |
+| **31%** FS, HR 1.50 | 0.9810 | 0.9710 | 0.9755 |
+| **31%** DINA, HR 1.50 | 0.9905 | 0.9865 | 0.9840 |
+
+**No — the decay does not appear on DINA, and at 31% it does not appear on FS either.** DINA is flat
+and high at both prevalences (0.984–0.995). FS decays only at **12.4%** (0.977 → 0.932 → 0.901);
+at 31% FS is flat (0.981 → 0.971 → 0.976). **The harm-block two-sided decay is a 12.4%, FS-specific
+phenomenon in this grid**, not a property of the IJ two-term interval as such.
+
+**The miss, split by side.** FS's 12.4% decay is **entirely an upper-side miss** — `miss_above`
+0.016 → 0.057 → 0.093 at HR 1.50 with `miss_below` ≤ 0.010. DINA's misses stay **≤ 0.010 on both
+sides at every cell of both blocks**, shifting from below-dominant at n 500 to above-dominant at
+n 1500 without either side growing.
+
+---
+
+## Cells completed, deferred and dropped, with walls
+
+| block | cell | status | wall |
+|---|---|---|---|
+| A (12.4%) | HR 1.50 n 500 | **complete** | 1840 s (30.7 min) |
+| A | HR 1.50 n 1000 | **complete** | 1400 s (23.3 min) |
+| A | HR 1.50 n 1500 | **complete** | 1186 s (19.8 min) |
+| A | HR 1.75 n 500 | **complete** | 2061 s (34.4 min) |
+| A | HR 1.75 n 1000 | **complete** | 1692 s (28.2 min) |
+| A | HR 1.75 n 1500 | **complete** | 1543 s (25.7 min) |
+| | **Block A total** | **6 / 6** | **9,722 s = 2.701 h** |
+| B (31%) | HR 1.50 n 500 | **complete** | 4976 s (82.9 min) |
+| B | HR 1.50 n 1000 | **complete** | 5569 s (92.8 min) |
+| B | HR 1.50 n 1500 | **complete** | 5857 s (97.6 min) |
+| B | HR 1.75 n 500 | **complete** | 5692 s (94.9 min) |
+| B | HR 1.75 n 1000 | **complete** | 6610 s (110.2 min) |
+| B | HR 1.75 n 1500 | **DEFERRED** (checkpoint, ratified) | — |
+| | **Block B total** | **5 / 6** | **28,704 s = 7.973 h** |
+| C (null) | HR 1.00, both prevalences, n 500/1000/1500 | **DEFERRED** (pinned) | — |
+| | **CAMPAIGN TOTAL** | **11 / 18 cells** | **38,426 s = 10.674 h** |
+
+**10.674 h against the 13 h ceiling — 18% headroom unused.** Nothing was dropped; the seven absent
+cells are **deferred** to a follow-up session. Block B realized **7.973 h against 8.694 h
+re-projected (8% under)**, against Block A's 27% over-run — so the by-n calibration the checkpoint
+applied corrected in the right direction and slightly over-corrected. Every cell carries 2,000
+replicates; none was thinned. No cell failed; no gate was stopped. The 16 h hard timeout was never
+approached.
+
+## Stage 3 artifact
+
+`summary_dinamr.qmd` → `summary_dinamr.html`, **11 of 18 cells**, rendered clean. The absent-cell
+guard works: the seven deferred cells are listed as deferred and **exactly one** chunk skips with a
+named note — the null-cell table, which is the only one with nothing to show. The A3 behaviour does
+not recur.
