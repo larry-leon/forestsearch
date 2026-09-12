@@ -7,7 +7,7 @@ QMD_DIR <- Sys.getenv("DINAMR_QMD_DIR", unset = "..")
 # Gate 1 projection from the probe corners.
 # Cost model: per-replicate WORKER-seconds (fit_mr_secs) is what parallelises;
 # the document overhead (DGM build, tables, render) is a fixed per-render cost.
-R <- file.path(QMD_DIR, "results")
+R <- file.path(QMD_DIR, "results", "")   # trailing "" keeps the %s concatenation below valid
 stem <- function(hr, n, z1q) sprintf("%sdina_effMaxSG_fb_mr_field_m1_h%03d_knoise0_n%d%s_nb20_dinamrprobe_res_1_36.rds",
                                      R, round(100*hr), n, if (z1q) "_z1q60" else "")
 grid <- expand.grid(hr = c(1.50, 1.00), n = c(500L, 1000L, 1500L), z1q = c(FALSE, TRUE),
@@ -61,5 +61,5 @@ cat(sprintf("\nGRAND TOTAL (all 18 cells): %.2f h\n", sum(ALL$wall_h)))
 cat(sprintf("A + B only (12 cells)     : %.2f h\n", sum(ALL$wall_h[ALL$campaign_block %in% c("A","B")])))
 cat(sprintf("A only (6 cells)          : %.2f h\n", sum(ALL$wall_h[ALL$campaign_block == "A"])))
 cat(sprintf("B only (6 cells)          : %.2f h\n", sum(ALL$wall_h[ALL$campaign_block == "B"])))
-cat(sprintf("C only (6 cells)          : %.2f h\n", sum(ALL$wall_h[ALL$campaign_block == "C"])))
+cat(sprintf("C only (6 cells)          : %.2f h\n", sum(ALL$wall_h[ALL$campaign_block == "C (null)"])))
 saveRDS(ALL, file.path(SCRATCH, "projection.rds"))

@@ -1,3 +1,6 @@
+# Portability header added when this script was committed; override with DINAMR_QMD_DIR.
+QMD_DIR <- Sys.getenv("DINAMR_QMD_DIR", unset = "..")
+
 chk <- function(path, label) {
   b <- readRDS(path); r <- b$results; m <- b$meta
   cat("\n================ ", label, " ================\n", sep="")
@@ -72,8 +75,15 @@ chk <- function(path, label) {
   # --- BOUND <-> QUANTILE identity (<= 1e-12) ---
   d1 <- max(abs(D$fld_joint_bonf_loH - D$fld_joint_loH), na.rm=TRUE)
   d2 <- max(abs(D$fld_joint_bonf_upHc - D$fld_joint_upHc), na.rm=TRUE)
-  cat(sprintf("BOUND<->QUANTILE max |bonf - raw| : loH %.3g  upHc %.3g   (<=1e-12: %s)\n",
-      d1, d2, (d1 <= 1e-12) && (d2 <= 1e-12)))
+  # NOTE: this is the bonf-vs-raw comparison, which is NOT a bound<->quantile
+  # identity -- the two coincide only where gamma sits at its 0.025 floor (as it
+  # does throughout these 5-replicate smokes).  gate2.R was corrected to gate the
+  # identity REPORT_cert20_2026-09-08 names; it is computed here too, beside it.
+  cat(sprintf("bonf vs raw (valid only where gamma is at its floor): loH %.3g  upHc %.3g\n", d1, d2))
+  .i1 <- max(abs((log(D$fld_Hc_est2_s) + D$fld_Hc_lam_mean_s) -
+                 (log(D$fld_Hc_est2)   + D$fld_Hc_lam_mean)), na.rm = TRUE)
+  cat(sprintf("IDENTITY field-s inverted around the same bdc : %.3g   (<=1e-12: %s)\n",
+      .i1, .i1 <= 1e-12))
 
   # --- structurally-NA columns ---
   sn <- c("n_cons_qual","band_n","p_star")
@@ -89,7 +99,7 @@ chk <- function(path, label) {
   cat(sprintf("rho-c (fld_Hc_scale_ratio): %s\n", paste(sprintf("%.4f", D$fld_Hc_scale_ratio), collapse=" ")))
   invisible(list(ok_recov=ok_recov, ok_phat=ok_phat, ok_rhoc=ok_rhoc, r=r, m=m))
 }
-a <- chk("results/dina_effMaxSG_fb_mr_field_m1_h150_knoise0_n500_nb20_dinamrsmk_res_1_5.rds",
+a <- chk(file.path(QMD_DIR, "results/dina_effMaxSG_fb_mr_field_m1_h150_knoise0_n500_nb20_dinamrsmk_res_1_5.rds"),
          "SMOKE 1 -- 12.4% (Z1Q unset), HR 1.50, n 500")
-b <- chk("results/dina_effMaxSG_fb_mr_field_m1_h150_knoise0_n1500_z1q60_nb20_dinamrsmk_res_1_5.rds",
+b <- chk(file.path(QMD_DIR, "results/dina_effMaxSG_fb_mr_field_m1_h150_knoise0_n1500_z1q60_nb20_dinamrsmk_res_1_5.rds"),
          "SMOKE 2 -- 31% (Z1Q=0.60), HR 1.50, n 1500")

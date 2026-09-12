@@ -19,7 +19,7 @@ overridable:
 | `probe.sh` | The ten 36-replicate Gate 1 cost probes (tag `dinamrprobe`). |
 | `project.R` | Gate 1 projection from the probe corners. |
 | `checkpoint.R` | The Amendment 2 post-Block-A re-projection, calibrated by n, against the 13 h ceiling. |
-| `stage1_checks.R` | The Stage 1 battery: finiteness, the interval invariants, γ, realized prevalence, family size, and the presence of p̂ / ρᶜ / the nine recovery columns. |
+| `stage1_checks.R` | The Stage 1 battery: finiteness, the interval invariants, γ, realized prevalence, family size, and the presence of p̂ / ρᶜ / the nine recovery columns. Its `bonf vs raw` line is the **wrong-pair** comparison described below, kept and relabelled as what it is; the corrected identity is computed beside it. |
 | `gate2.R` | **The Gate 2 checker.** Usage: `Rscript gate2.R A` / `B` / `C`. Carries the **corrected** bound↔quantile identity (see below) and Amendment 3 at `TOL_TRUTH <- 1e-8`. |
 | `blockA_numbers.R`, `blockA_rest.R`, `chunkdiff.py` | Ad-hoc readouts that produced report tables (the Block A standard tables, the stratified tables, and the per-chunk transplant accounting). Not part of the run. |
 
@@ -40,6 +40,20 @@ log(fld_Hc_est2_s) + fld_Hc_lam_mean_s  ==  log(fld_Hc_est2) + fld_Hc_lam_mean
 
 which lands at **2.22e-16** on every cell of the campaign. The `bonf == raw` identity is kept, gated
 on the γ-at-floor rows only, with the share at the floor reported beside the γ range as `cert20` did.
+
+## Verified to run from this directory
+
+All three `.sh` pass `zsh -n`; all seven `.R` parse; `chunkdiff.py` parses. Run from here against
+the committed bundles, every script reproduces its recorded result:
+
+| script | reproduces |
+|---|---|
+| `gate2.R A` | **204 passes, 0 failures** |
+| `gate2.R B` | **170 passes, 0 failures** |
+| `project.R` | the Gate 1 projection verbatim — A 2.12 h, B 8.53 h, C 2.17 h, A+B 10.65 h, all-18 12.83 h |
+| `stage1_checks.R` | the Stage 1 battery on both smokes — 9/9 recovery columns, all finite, γ in range |
+
+No path under this directory contains an absolute session path.
 
 ## Reproducing
 

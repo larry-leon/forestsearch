@@ -1,9 +1,7 @@
 # Portability header added when this script was committed: the campaign ran with
 # SCRATCH = the session scratchpad and QMD_DIR = quarto/simulations/gbsg_020.
-SCRATCH <- Sys.getenv("DINAMR_SCRATCH", unset = dirname(normalizePath(sys.frame(1)$ofile %||% ".", mustWork = FALSE)))
-if (!nzchar(SCRATCH) || is.na(SCRATCH)) SCRATCH <- "."
+SCRATCH <- Sys.getenv("DINAMR_SCRATCH", unset = ".")
 QMD_DIR <- Sys.getenv("DINAMR_QMD_DIR", unset = "..")
-`%||%` <- function(a, b) if (is.null(a)) b else a
 
 # ===== GATE 2, per cell, campaign dinamr =====================================
 # Completeness; detection rate; proposed-family distribution; realized prevalence;
