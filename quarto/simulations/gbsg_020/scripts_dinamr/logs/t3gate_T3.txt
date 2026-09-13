@@ -1,0 +1,85 @@
+=== HALF 1: unset, pre-change vs post-change (consistency) ===
+[PASS] 5 rows each (pre 5, post 5)
+[PASS] identical column names and order (168 columns)
+[PASS] every non-timing column identical() across 163 columns (mismatched: <none>)
+[PASS] truth identical()
+[PASS] meta$mr_inference absent pre-change, TRUE post-change (record only)
+
+=== HALF 2: MR on (unset) vs MR off, fs ===
+[PASS] 5 rows each (on 5, off 5)
+[PASS] identical column set
+[PASS] meta$mr_inference TRUE (on) / FALSE (off)
+detected: on 5/5, off 5/5
+[PASS] columns present (missing: <none>)
+[PASS] populated on every detected MR-off row (NA in: <none>)
+[PASS] n_cons_qual, band_n populated on detected rows, consistency (NA in: <none>)
+[PASS] identification + classification columns identical() on/off across 30 columns (mismatched: <none>)
+[PASS] truth identical()
+[PASS] n_family NA on every MR-off row (EXEMPT: MR-only quantity, documented)
+  n_family with MR on: 1233, 1297, 1212, 1280, 1303
+[PASS] MR off: mr_ok 0 and all 123 MR-derived columns NA (by design)
+  columns outside the ID/MR/timing sets that differ (informational): mr_harm_flag, ij_source
+  selected rules (off):
+  sim_id         label                       sg_def n_sel n_cons_qual band_n
+1      1  q8.1 & q27.0         {er <= 66} & !{meno}   161         118      8
+2      2 q10.0 & q26.0 !{er <= 191} & !{size <= 20}    69         227      1
+3      3 q24.0 & q27.0      !{size <= 26} & !{meno}   113          48     14
+4      4  q7.1 & q12.1     {er <= 38} & {age <= 53}   180         337     28
+5      5 q21.0 & q28.0      !{nodes <= 3} & !{meno}    87          89      3
+
+=== SUPPLEMENTARY: MR on (unset) vs MR off, dina ===
+[PASS] 5 rows each (on 5, off 5)
+[PASS] identical column set
+[PASS] meta$mr_inference TRUE (on) / FALSE (off)
+detected: on 5/5, off 5/5
+[PASS] columns present (missing: <none>)
+[PASS] populated on every detected MR-off row (NA in: <none>)
+[PASS] identification + classification columns identical() on/off across 30 columns (mismatched: <none>)
+[PASS] truth identical()
+[PASS] n_family NA on every MR-off row (EXEMPT: MR-only quantity, documented)
+  n_family with MR on: 905, 811, 983, 2302, 1251
+[PASS] MR off: mr_ok 0 and all 123 MR-derived columns NA (by design)
+  columns outside the ID/MR/timing sets that differ (informational): mr_harm_flag, ij_source
+  selected rules (off):
+  sim_id                                label
+1      1 er <= 58.399999999999977 & meno <= 0
+2      2 er <= 52.399999999999977 & age <= 52
+3      3               meno <= 0 & nodes <= 2
+4      4                 er <= 30 & meno <= 0
+5      5               meno <= 0 & nodes >= 4
+                                    sg_def n_sel n_cons_qual band_n
+1 {er <= 58.399999999999977} & {meno <= 0}   154          NA     NA
+2 {er <= 52.399999999999977} & {age <= 52}   194          NA     NA
+3               {meno <= 0} & {nodes <= 2}    92          NA     NA
+4                 {er <= 30} & {meno <= 0}   143          NA     NA
+5               {meno <= 0} & {nodes >= 4}    87          NA     NA
+
+=== SUPPLEMENTARY: MR on (unset) vs MR off, grf ===
+[PASS] 5 rows each (on 5, off 5)
+[PASS] identical column set
+[PASS] meta$mr_inference TRUE (on) / FALSE (off)
+detected: on 5/5, off 5/5
+[PASS] columns present (missing: <none>)
+[PASS] populated on every detected MR-off row (NA in: <none>)
+[PASS] identification + classification columns identical() on/off across 30 columns (mismatched: <none>)
+[PASS] truth identical()
+[PASS] n_family NA on every MR-off row (EXEMPT: MR-only quantity, documented)
+  n_family with MR on: 779, 776, 784, 729, 769
+[PASS] MR off: mr_ok 0 and all 123 MR-derived columns NA (by design)
+  columns outside the ID/MR/timing sets that differ (informational): mr_harm_flag, ij_source
+  selected rules (off):
+  sim_id                                label
+1      1                 age > 45 & meno <= 0
+2      2 er <= 52.400000000000034 & meno <= 0
+3      3               meno <= 0 & nodes <= 2
+4      4                 er <= 57 & age <= 57
+5      5                meno <= 0 & nodes > 4
+                                    sg_def n_sel n_cons_qual band_n
+1                 {age > 45} & {meno <= 0}   100          NA     NA
+2 {er <= 52.400000000000034} & {meno <= 0}   167          NA     NA
+3               {meno <= 0} & {nodes <= 2}    92          NA     NA
+4                 {er <= 57} & {age <= 57}   217          NA     NA
+5                {meno <= 0} & {nodes > 4}    68          NA     NA
+
+GATE T3 (halves 1 and 2): 0 failures -- PASS
+supplementary DINA/GRF: 0 failures

@@ -324,7 +324,14 @@ sg_focus           <- .env_chr("FS_S7_FOCUS", "maxeffCons")
 # is inert under both (band_n below is then the eps-band on the observed
 # effects, recorded for information only).  Guard widened; nothing else keys
 # on the value.
-stopifnot(sg_focus %in% c("maxeffCons", "effMaxSG", "maxSG", "minSG"))
+# Part B (TASK_partB_enabling_2026-09-12, 1b): widened to the six Part B
+# criteria.  "effMinSG" is the band rule's smallest-subgroup arm; "maxeff" is
+# the unconditional effect argmax on the consistency engine (it disables the
+# consistency and effect floors, forestsearch_main.R:1537-1571) and, like
+# "maxeffCons", resolves to the plain effect argmax on DINA and GRF
+# (fs_focus_tag.R:76-86).  Still a guard: anything else stops the render.
+stopifnot(sg_focus %in% c("effMaxSG", "maxeffCons", "effMinSG", "maxSG", "minSG", "maxeff"))
+.band_foci <- c("effMaxSG", "effMinSG")
 # Band-width and er-grid knobs (TASK_p30sg_nb20_2026-09-07; document-level,
 # add-only, defaults reproduce p30sg exactly).  effect_neighborhood is the
 # identifier's band half-width (hr >= (1 - eps) * max hr among the
@@ -334,6 +341,16 @@ stopifnot(sg_focus %in% c("maxeffCons", "effMaxSG", "maxSG", "minSG"))
 # HERE, before the stem, because non-default values tag the stem below.
 effect_neighborhood <- .env_num("FS_S7_NBHD", 0.10)
 stopifnot(is.finite(effect_neighborhood), effect_neighborhood >= 0, effect_neighborhood < 1)
+# Part B (1b): eps belongs to the band foci only.  Supplying FS_S7_NBHD with any
+# other focus is an error, not a silently inert setting.  Unset, the 0.10
+# default is still forwarded (it is forestsearch()'s own default, :1254), so
+# every committed non-band render is unchanged.  The package itself only
+# errors on a non-default selection_rule (.validate_selection_rule(),
+# R/subgroup_consistency_helpers.R:743); this eps check is template policy.
+if (!sg_focus %in% .band_foci && nzchar(Sys.getenv("FS_S7_NBHD")))
+  stop(sprintf("FS_S7_NBHD is set (%s) but sg_focus = '%s' does not consult effect_neighborhood; it is accepted only for %s.",
+               Sys.getenv("FS_S7_NBHD"), sg_focus, paste(.band_foci, collapse = " / ")),
+       call. = FALSE)
 er_jcuts            <- .env_int("FS_S7_ER_JCUTS", 10L)
 stopifnot(is.finite(er_jcuts), er_jcuts >= 1L)
 
@@ -352,6 +369,15 @@ n_sample        <- .env_int("FS_S7_N", 500L)   # M1 sample size
 # interaction sizes comparable to M1's.
 harm_z1_quantile <- .env_num("FS_S7_Z1Q", 0.25)
 stopifnot(harm_z1_quantile > 0, harm_z1_quantile < 1)
+# ── MR switch (TASK_partB_enabling_2026-09-12, 1a) ───────────────────────────
+# forestsearch(mr_inference = ...) was a literal TRUE.  FS_S7_MR reads it from
+# the environment: unset (or TRUE) reproduces the former literal exactly, so
+# every committed render is unchanged; FALSE runs identification and
+# classification only.  MR cannot change the identified subgroup
+# (R/forestsearch_main.R:1041-1044).  Read HERE because FALSE tags the stem.
+mr_inference_on <- .env_chr("FS_S7_MR", "TRUE")
+stopifnot(mr_inference_on %in% c("TRUE", "FALSE"))
+mr_inference_on <- identical(mr_inference_on, "TRUE")
 # Winner-only / winner-floor IJ rows (TASK_complement_refinements): rejected
 # on theoretical grounds and not evaluated going forward; excluded from every
 # table and figure unless FS_S7_WINNER_ROWS=TRUE (the recorder columns stay).
@@ -417,10 +443,14 @@ z1q_tag      <- if (abs(harm_z1_quantile - 0.25) < 1e-12) "" else
 nbhd_tag     <- if (abs(effect_neighborhood - 0.10) < 1e-12) "" else
                   sprintf("_nb%02d", round(100 * effect_neighborhood))
 jcuts_tag    <- if (er_jcuts == 10L) "" else sprintf("_j%d", er_jcuts)
-rds_stem     <- sprintf("%s_%s_fb_mr_field_m1_h%03d_knoise%d_n%d%s%s%s_%s",
+# MR tag only when MR is off (Part B), so an identification-only bundle can
+# never share a stem -- or a combine_glob -- with an MR bundle; every existing
+# stem is unchanged.
+mr_tag       <- if (isTRUE(mr_inference_on)) "" else "_nomr"
+rds_stem     <- sprintf("%s_%s_fb_mr_field_m1_h%03d_knoise%d_n%d%s%s%s%s_%s",
                         method_tag, focus_tag, round(100 * target_hr_harm),
                         k_random_noise, n_sample, z1q_tag, nbhd_tag, jcuts_tag,
-                        campaign_tag)
+                        mr_tag, campaign_tag)
 
 # ADOPTED FROM THE CONTINUOUS TWIN: quick-run stem tagging.
 # Without this a smoke render (nb_boots = 10, n_sims = 20) writes to the SAME
@@ -519,6 +549,13 @@ selection_rule     <- "neighborhood"  # effMaxSG/effMinSG band rule.  INERT unde
                                       # consistency-primary with no band term.
                                       # Retained unchanged so the effMaxSG/effMinSG
                                       # arms can use it.
+# Part B (1b): what the package already requires (.validate_selection_rule(),
+# R/subgroup_consistency_helpers.R:743), checked here so it fails before any
+# replicate runs rather than inside every one.
+if (!identical(selection_rule, "neighborhood") && !sg_focus %in% .band_foci)
+  stop(sprintf("selection_rule = '%s' is accepted only for %s; sg_focus = '%s'.",
+               selection_rule, paste(.band_foci, collapse = " / "), sg_focus),
+       call. = FALSE)
 stop_threshold     <- NULL            # early stopping.  NULL is what this config
                                       # already resolves to: forestsearch() resets
                                       # it for the canonical "hr" family, which
@@ -688,9 +725,9 @@ cat(sprintf("Run config: method=%s%s, n_sims=%d, nb_boots=%s, mr_draws=%d, worke
             n_sims, if (is.null(nb_boots)) "0 (skip)" else as.character(nb_boots),
             mr_draws, n_workers))
 # Resolved template knobs -- the render's audit line (env overrides included).
-cat(sprintf("Template knobs: method=%s hr=%.2f n=%d z1q=%.2f focus=%s nbhd=%.2f er_jcuts=%d ci_method=%s uniform=%s field_complement=%s field_decompose=%s field_scale_complement=%s field_recovery=%s return_reselection=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s\n",
+cat(sprintf("Template knobs: method=%s hr=%.2f n=%d z1q=%.2f focus=%s nbhd=%.2f er_jcuts=%d ci_method=%s uniform=%s field_complement=%s field_decompose=%s field_scale_complement=%s field_recovery=%s return_reselection=%s ij_residual=%s fb_mode=%s campaign=%s run_mode=%s sim_id %d-%d quickrun=%s mr_inference=%s\n",
             subgroup_method, target_hr_harm, n_sample, harm_z1_quantile, sg_focus, effect_neighborhood, er_jcuts, mr_ci_method, mr_field_uniform, mr_field_complement, mr_field_decompose, mr_field_scalec, mr_field_recovery, mr_return_reselection, mr_ij_residual, fb_mode, campaign_tag,
-            run_mode, sim_id_start, sim_id_start + n_sims - 1L, quickrun))
+            run_mode, sim_id_start, sim_id_start + n_sims - 1L, quickrun, mr_inference_on))
 cat(sprintf("Output stem: %s\n", rds_stem))
 ```
 
@@ -1014,7 +1051,7 @@ if (k_random_noise > 0) {
     effect_neighborhood = effect_neighborhood,  # band width; inert unless the focus is effMaxSG/effMinSG
     stop_threshold  = stop_threshold,   # see @sec-setup; NULL, i.e. no early stopping
     parallel_args   = inner_parallel,              # parallel_mode: sims->sequential, boots->multisession
-    mr_inference     = TRUE,
+    mr_inference     = mr_inference_on,   # FS_S7_MR (Part B 1a); unset = TRUE, the former literal
     mr_inference_args = mr_inference_args   # reselection derived from sg_focus
   )
   method_args <- switch(
@@ -1064,6 +1101,45 @@ if (k_random_noise > 0) {
   if (!found) { rec$status <- "NO-DETECTION"; return(rec) }
   rec$status <- "DETECTED"
   rec$mr_ok <- as.integer(!is.null(g))
+
+  # ---- MR OFF: identification columns from the forestsearch() result -------
+  # (TASK_partB_enabling_2026-09-12, 1c.)  With MR on, the block below fills
+  # label / n_sel / n_family from the MR object and n_cons_qual / band_n from
+  # the identifier's table; that path is left exactly as it was.  With MR off
+  # g is NULL, so the same identification is read from the result instead:
+  #   n_sel  <- grp.consistency$sg.harm.id (all engines).  MR's n_selected is
+  #             the size of the family member whose membership equals
+  #             which(sg.harm.id == 1) (fs_mr_inference.R:582-590, :1046), so
+  #             this is the same count: n_sel == n_harm on all 123,892 detected
+  #             rows of the committed FS/DINA/GRF bundles.
+  #   label  <- consistency: grp.consistency$out_sg$sg.harm, the factor codes
+  #             names.Z[indexm == 1] (subgroup_consistency_helpers.R:913, :1078),
+  #             joined as MR names its enumerated family
+  #             (forestsearch_main.R:3367-3368).  dina / grf: fs.est$sg.harm with
+  #             the braces stripped, which is how .fs_mr_family_from_table()
+  #             spells the same conjunction (fs_mr_inference_methods.R:62-66);
+  #             equal to MR's label on all 66,676 committed DINA/GRF rows.
+  #   n_cons_qual, band_n <- grp.consistency$out_sg$result, the identifier's
+  #             own table -- the same read the MR-on block makes.
+  #   n_family STAYS NA: it is the size of MR's own fitted family -- enumerated
+  #             only inside the MR branch (forestsearch_main.R:3352-3371;
+  #             :2330, :2520) and filtered by per-candidate fits in
+  #             .fs_mr_assemble() (fs_mr_inference.R:80-97).  No field of the
+  #             result carries it, and rebuilding it here would re-implement MR.
+  if (!isTRUE(mr_inference_on)) {
+    .cuts <- if (identical(subgroup_method, "consistency"))
+      fs.est$grp.consistency$out_sg$sg.harm else gsub("[{}]", "", fs.est$sg.harm)
+    rec$label <- if (length(.cuts)) paste(.cuts, collapse = " & ") else NA_character_
+    rec$n_sel <- as.integer(sum(fs.est$grp.consistency$sg.harm.id == 1L, na.rm = TRUE))
+    ctab <- fs.est$grp.consistency$out_sg$result
+    if (is.data.frame(ctab) && all(c("hr", "N") %in% names(ctab)) && nrow(ctab)) {
+      rec$n_cons_qual <- nrow(ctab)
+      hr_c <- as.numeric(ctab$hr)
+      if (any(is.finite(hr_c)))
+        rec$band_n <- sum(is.finite(hr_c) &
+                          hr_c >= (1 - effect_neighborhood) * max(hr_c, na.rm = TRUE))
+    }
+  }
 
   if (!is.null(g)) {
     rec$label <- g$selected_label %||% NA_character_
@@ -1531,6 +1607,7 @@ if (run_smoke && identical(run_mode, "batch")) {
                              sg_focus            = sg_focus,
                              focus_tag           = focus_tag,
                              consistency_method  = consistency_method,
+                             mr_inference        = mr_inference_on,          # record only (Part B 1a)
                              # --- template provenance (fb_mr_field) ---------
                              ci_method           = mr_ci_method,
                              field_uniform       = mr_field_uniform,
@@ -1647,6 +1724,8 @@ if (run_smoke && identical(run_mode, "batch")) {
                              # before provenance was recorded.
                              sg_focus   = bundles[[1]]$meta$sg_focus %||% NA_character_,
                              focus_tag  = bundles[[1]]$meta$focus_tag %||% NA_character_,
+                             # NA for batches written before FS_S7_MR existed (all MR on).
+                             mr_inference = bundles[[1]]$meta$mr_inference %||% NA,
                              ci_method  = bundles[[1]]$meta$ci_method %||% NA_character_,
                              field_complement = bundles[[1]]$meta$field_complement %||% NA,
                              field_decompose = bundles[[1]]$meta$field_decompose %||% NA,               # record only (E1)
@@ -1689,11 +1768,13 @@ if (run_smoke && identical(run_mode, "batch")) {
 # MR settings actually in force this run.  Placed here, not in @sec-definitions,
 # because the knobs and `results` are both in scope only after @sec-setup.
 knitr::kable(data.frame(
-  setting = c("subgroup_method (engine)", "ci_method", "draws", "confirm_rule", "t_confirm (as set)",
+  setting = c("subgroup_method (engine)", "mr_inference (FS_S7_MR)", "ci_method", "draws", "confirm_rule", "t_confirm (as set)",
               "include_complement", "field_complement", "field_decompose",
               "field_scale_complement", "field_recovery", "ij_residual (reported)",
               "replicates with an MR harm decision"),
-  value = c(subgroup_method, mr_ci_method, format(mr_draws), mr_confirm_rule,
+  value = c(subgroup_method,
+            if (isTRUE(mr_inference_on)) "TRUE" else "FALSE (identification only; every MR setting below is inert)",
+            mr_ci_method, format(mr_draws), mr_confirm_rule,
             if (is.null(mr_t_confirm)) "NULL -> package near-null default"
             else format(mr_t_confirm), "TRUE", as.character(mr_field_complement),
             as.character(mr_field_decompose),
