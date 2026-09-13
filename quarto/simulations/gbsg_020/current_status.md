@@ -1,7 +1,7 @@
 # current_status — `quarto/simulations/gbsg_020`
 
-- **Pin:** `96e743db` on `feature/glm-extension` — HEAD at the time this file was committed; the closeout commit that adds this file is its child.
-- **Updated:** 2026-09-12 (after `TASK_partB_enabling_2026-09-12`: the `FS_S7_MR` knob, Gate T3 PASS, and the 16-run OC smoke; before that `TASK_partB_measurement_2026-09-12`, which stopped at Stage 0c; preceded by `TASK_grfmr_completion_2026-09-12`, its review, and the `summary_grfmr.qmd` wording fix)
+- **Pin:** `d62e1391` on `feature/glm-extension` — HEAD at the time this file was committed; the closeout commit that adds this file is its child.
+- **Updated:** 2026-09-13, after `TASK_idsweep_2026-09-12`: the Part B identification sweep, 288 cell-runs, complete (§2.6), with Gate I Amendment 1 for review. Before that came `TASK_partB_enabling_2026-09-12` (the `FS_S7_MR` knob, Gate T3 PASS, the 16-run OC smoke) and `TASK_partB_measurement_2026-09-12`, which stopped at Stage 0c.
 - **Purpose:** a catalog of what has been run in this directory and where the payloads are, so a chat or workstream on another machine can be brought up to speed by attaching this one file. It points at authoritative files; it does not restate their numbers.
 - **Maintenance:** regenerated as the closeout step of every task that touches this directory. The pin above must equal HEAD at commit time. §3 is produced by `scripts_dinamr/status_inventory.R` from the directory.
 
@@ -66,7 +66,7 @@
   - **The admission floor can empty, and did** (`R/forestsearch_helpers.R:1642–1651`, `admitted_n <- 0L`): on **13 of the 12,000 HR 1.00 replicates**, all at null cells and all non-detections, and on none of the 24,000 harm replicates.
   - Calling the empty-selection branch "unreachable" without that qualifier is wrong: the band cannot empty, the floor can. Stated the same way in `summary_grfmr.qmd` ("The engine").
 
-### 2.5 Part B — identification only: enabled, smoke run, sweep not started
+### 2.5 Part B — identification only: enabled and smoke run (the sweep is §2.6)
 
 **The template (committed `8fd89e1d`).**
 - **`FS_S7_MR`:** default `TRUE`, the former literal; `FALSE` gives identification and classification only. It tags the stem `_nomr` and is recorded in meta as `mr_inference`.
@@ -88,6 +88,40 @@
 - **Projected 288 cell-runs at 12 workers:** 23.3 / 12.3 / 7.5 h flat, or 37.8 / 19.6 / 11.1 h adjusted for how cost varies across cells, at 2,000 / 1,000 / 500 replicates.
 - **Details:** `REPORT_partB_enabling_2026-09-12.md`.
 
+### 2.6 `idsweep` — the Part B identification sweep, complete
+
+- **What it is.** 288 cell-runs: three engines, six criteria, 18 cells.
+  - 500 replicates per run: sim_id 1–500, one batch per run, no combine render.
+  - MR off (`_nomr`), tag `idsweep`, `campaign.sh`'s knob set.
+  - **Identification and classification only.** No MR, coverage, bias or bounds.
+  - It is a self-contained campaign: no earlier bundle is used as data.
+- **Criteria.**
+  - Consistency: `effMaxSG` ε 0.20, `effMinSG` ε 0.20, `maxeffCons`, `maxeff`, `maxSG`, `minSG`.
+  - DINA and GRF: `effMaxSG` ε 0.20, `effMinSG` ε 0.20, `maxSG`, `minSG`, `eff`. Here `eff` stands for `eff` = `maxeff` = `maxeffCons`, run once.
+- **Outcome.**
+  - 18 of 18 cells; nothing deferred, nothing dropped.
+  - 12.01 h wall from the start, against a 10.21 h Gate 1 projection. The miss is render overhead: 44.5 s per render against the 16.4 s assumed.
+  - Gate A: 288 of 288 runs. Gate I: 18 of 18 cells.
+- **Gate I Amendment 1** (applied unattended; for review).
+  - Part 1 stopped at cell 1. DINA `maxSG` NPV was NA because the selection was the whole trial, so NPV is 0/0.
+  - Under the amendment, a classification rate may be NA on a detected replicate only where its denominator is zero, and each such case is counted.
+  - This occurs on DINA `maxSG` only: 12 cells, 2–299 of 500 replicates, and 159–299 at the six 31% harm cells.
+- **Detection is set by the engine.**
+  - It is flat across criteria in every cell on DINA and GRF.
+  - On consistency it is flat except `maxeff`, which detects or selects on 500 of 500 in every cell.
+- **Size ordering** holds in all 18 cells on every engine: `maxSG` > `effMaxSG` > `eff` / `maxeffCons` (> `maxeff` on consistency) > `effMinSG` > `minSG`.
+- **Criterion agreement** (identical rule over jointly detected replicates).
+  - Consistency `maxeffCons` / `maxeff`: 0.869–1.000.
+  - Consistency `effMinSG` / `minSG`: 0.208–0.942. It falls with n and with prevalence at the harm cells.
+  - Every DINA and GRF pair is lower (medians ≤ 0.457).
+- **Same draws.** `n_true` is `identical()` on sim_id 1–500 to every covering committed bundle at every coordinate.
+- **Files.**
+  - `REPORT_idsweep_2026-09-12.md`
+  - `summary_idsweep.qmd` / `.html`
+  - `scripts_dinamr/idsweep*`, `scripts_dinamr/logs/idsweep*` (includes `idsweep_findings.txt` and `idsweep_walls.txt`)
+  - `results/*_nomr_idsweep_res_1_500.rds` (288)
+  - `idsweep_*.html` (288, 1.09 GB)
+
 ## 3. Payload inventory
 
 Regenerated from the directory by `scripts_dinamr/status_inventory.R`.
@@ -97,37 +131,39 @@ Regenerated from the directory by `scripts_dinamr/status_inventory.R`.
 | `results/*dinamr*.rds` | 66/66 | 50.54 MB | `dina_effMaxSG_fb_mr_field_m1_h150_knoise0_n500_z1q60_nb20_dinamr_combined_1_2000.rds` 1.54 MB | `dinamr` per-replicate bundles + metas (batch and combined) |
 | `results/*grfmr*.rds` | 55/55 | 55.17 MB | `grf_effMaxSG_fb_mr_field_m1_h100_knoise0_n1000_z1q60_nb20_grfmr_combined_1_2000.rds` 1.55 MB | `grfmr` per-replicate bundles + metas (batch and combined), and the `grfmrsmk` Stage 1 smoke |
 | `results/*grfprobe*.rds` | 5/5 | 155 KB | `grf_effMaxSG_fb_mr_field_m1_h150_knoise0_n500_nb20_grfprobe_res_1_36.rds` 31 KB | `grfprobe` cost probes, 36 replicates each |
+| `results/*_nomr_idsweep_*.rds` | 288/288 | 16.92 MB | `grf_effMaxSG_fb_mr_field_m1_h100_knoise0_n500_z1q60_nb20_nomr_idsweep_res_1_500.rds` 69 KB | `idsweep` per-replicate bundles (MR off, 500 replicates, one batch per run; all three engines) |
 | `results/fs_*.rds` | 324/324 | 149.18 MB | `fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n1000_p12ext_combined_1_2000.rds` 1.51 MB | FS bundles — the comparator grid plus every earlier FS campaign |
 | `results/*.rds` | 28/28 | 1.02 MB | `grf_eff_fb_mr_m1_h10_knoise0_n500_combined_1_500.rds` 150 KB | other bundles in `results/` |
 | `mr_sweep/**` | 210/210 | 15.19 MB | `grf_mr_n500_res.rds` 130 KB | `mr_sweep/` — an earlier seed-table sweep, superseded, kept for provenance |
-| `scripts_dinamr/logs/*` | 124/124 | 423 KB | `gate2G_C.txt` 28 KB | per-render, driver and gate logs — `WALL_SECONDS` / `CELL DONE wall=` |
-| `scripts_dinamr/*.R` | 29/29 | 204 KB | `gate2G.R` 17 KB | drivers, checkers, projections, extractions (R) |
-| `scripts_dinamr/*.sh` | 12/12 | 20 KB | `grfmrC.sh` 3 KB | render/campaign drivers and the closeout checker (shell) |
+| `scripts_dinamr/logs/*` | 725/725 | 2.98 MB | `idsweep.driver.part2.log` 203 KB | per-render, driver and gate logs — `WALL_SECONDS` / `CELL DONE wall=` |
+| `scripts_dinamr/*.R` | 33/33 | 254 KB | `gate2G.R` 17 KB | drivers, checkers, projections, extractions (R) |
+| `scripts_dinamr/*.sh` | 13/13 | 27 KB | `idsweep.sh` 6 KB | render/campaign drivers and the closeout checker (shell) |
 | `scripts_dinamr/*.py` | 2/2 | 13 KB | `transplant_grfmr.py` 12 KB | transplant / chunk-diff helpers (Python) |
-| `scripts_dinamr/*.cells` | 7/7 | 1 KB | `grfmr.cells` 0 KB | cell lists, one line per cell |
-| `scripts_dinamr/*.rds` | 10/10 | 80 KB | `grfmr_tables.rds` 62 KB | saved derived objects (projections, walls, extracted tables) |
-| `scripts_dinamr/*.md` | 1/1 | 9 KB | `README.md` 9 KB | `README.md` — the standing rules, and what each script is |
+| `scripts_dinamr/*.cells` | 8/8 | 2 KB | `idsweep.cells` 0 KB | cell lists, one line per cell |
+| `scripts_dinamr/*.rds` | 15/15 | 129 KB | `grfmr_tables.rds` 62 KB | saved derived objects (projections, walls, extracted tables) |
+| `scripts_dinamr/*.md` | 1/1 | 10 KB | `README.md` 10 KB | `README.md` — the standing rules, and what each script is |
 | `scripts_dinamr/*.txt` | 1/1 | 5 KB | `grf_mechanism_output.txt` 5 KB | captured script output (GRF mechanism probe) |
 | `dinamr_*.html` | 54/54 | 235.69 MB | `dinamr_C31_h100_n500_combine_1.html` 4.39 MB | `dinamr` batch and combine renders |
 | `grfmr_*.html` | 54/54 | 236.03 MB | `grfmr_C124_h100_n1500_batch_1001.html` 4.40 MB | `grfmr` batch and combine renders |
 | `grfprobe_*.html` | 5/5 | 21.56 MB | `grfprobe_g_p124_h150_n1500.html` 4.33 MB | `grfprobe` renders |
+| `idsweep_*.html` | 288/288 | 1089.06 MB | `idsweep_p124_h100_n1500_dina_minSG.html` 3.81 MB | `idsweep` batch renders, one per cell-run |
 | `probe_*.html` | 10/10 | 43.14 MB | `probe_p31_h100_n500.html` 4.33 MB | Gate 1 cost-probe renders (`dinamr` era) |
-| `summary_*.html` | 14/14 | 51.03 MB | `summary_grfmr.html` 7.87 MB | summary rendered outputs, all campaigns |
-| `summary_*.qmd` | 14/14 | 377 KB | `summary_grfmr.qmd` 93 KB | summary sources, all campaigns |
+| `summary_*.html` | 15/15 | 55.85 MB | `summary_grfmr.html` 7.87 MB | summary rendered outputs, all campaigns |
+| `summary_*.qmd` | 15/15 | 398 KB | `summary_grfmr.qmd` 93 KB | summary sources, all campaigns |
 | `sim_fs_maxeffCons_fb_mr_field_m1_template.qmd` | 1/1 | 165 KB | `sim_fs_maxeffCons_fb_mr_field_m1_template.qmd` 165 KB | **the** template `dinamr` / `grfmr` / the FS grid all render |
 | `sim_*.qmd` | 53/53 | 4.19 MB | `sim_fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_batch_1_100.qmd` 98 KB | other simulation templates (earlier campaigns and variants) |
 | `sim_*.html` | 52/52 | 150.72 MB | `sim_fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_batch_1_1000.html` 3.33 MB | renders of those other templates |
 | `fs_*.html` | 245/245 | 973.62 MB | `fs_maxeffCons_fb_mr_field_m1_h175_knoise0_n1000_tier2_combine_1_2000.html` 4.34 MB | FS campaign batch/combine renders (`p12ext`, `tier2`, `e1stud`, `cert20`, earlier) |
 | `*.html` | 53/53 | 180.74 MB | `t3gate_t3grf.html` 4.31 MB | remaining renders (smoke, gate, dflt, compare; includes the `t3gate_*` and `partBoc_*` renders) |
-| `REPORT_*.md` | 67/67 | 1.13 MB | `REPORT_fixedphat_ij2s_2026-09-09.md` 79 KB | REPORT documents |
+| `REPORT_*.md` | 68/68 | 1.15 MB | `REPORT_fixedphat_ij2s_2026-09-09.md` 79 KB | REPORT documents |
 | `TABLES_*.md` | 2/2 | 83 KB | `TABLES_grfmr_completion_2026-09-12.md` 53 KB | TABLES documents |
 | `REVIEW_*.md` | 3/3 | 30 KB | `REVIEW_dinamr_blockC_2026-09-11.md` 13 KB | REVIEW documents |
-| `current_status.md` | 1/1 | 23 KB | `current_status.md` 23 KB | this file — the directory's catalog at a pin |
+| `current_status.md` | 1/1 | 28 KB | `current_status.md` 28 KB | this file — the directory's catalog at a pin |
 | `*.md` | 1/1 | 2 KB | `payload_runbook_mr_only_20260819.md` 2 KB | other notes in the directory |
 | `*.qmd` | 21/21 | 1.44 MB | `gate_d2_cim_unset.qmd` 156 KB | remaining `.qmd` |
 | `*.R` | 4/4 | 63 KB | `p12ext_findings.R` 24 KB | top-level ad-hoc R scripts |
 | `**` | 1/1 | 5 KB | `compare_1_20_vs_1_500.csv` 5 KB | everything else |
-| **total** | **1529/1529** | **2172 MB** | `summary_grfmr.html` 7.87 MB | every file, each counted once |
+| **total** | **2720/2720** | **3286 MB** | `summary_grfmr.html` 7.87 MB | every file, each counted once |
 
 Sizes are **apparent size** (`st_size`), in MiB/KiB, not disk usage; `du` reports block-allocated size and reads larger for many small files. **Every file is counted exactly once**: the rules are applied first-match-wins and the rows sum to the total. **Files over 50 MB: 0; over 100 MB: 0.** The gitignored `_gateT_pre_template_files/` and `.DS_Store` are excluded throughout. The `current_status.md` row shows this file's size at the pin, before this regeneration.
 
@@ -144,6 +180,7 @@ Sizes are **apparent size** (`st_size`), in MiB/KiB, not disk usage; `du` report
 | Cost and wall provenance | `scripts_dinamr/logs/`, `projectC.R`, `walls.R`, `wallsGC.R` |
 | Part B: how `sg_focus` resolves per engine, MR-on cost bounds, host factor, Monte Carlo resolution | `REPORT_partB_measurement_2026-09-12.md`, `scripts_dinamr/partB_stage0_readout.R` |
 | Part B: the `FS_S7_MR` change, Gate T3, the OC table, criterion agreement, the 288-cell-run projection | `REPORT_partB_enabling_2026-09-12.md`, `scripts_dinamr/partBoc_table.R`, `partBoc_checks.R` |
+| Part B sweep: detection or selection, subgroup size, classification and criterion agreement for three engines × six criteria × 18 cells (MR off) | `summary_idsweep.html`, `REPORT_idsweep_2026-09-12.md`, `scripts_dinamr/logs/idsweep_findings.txt` |
 | Raw per-replicate rows | `results/*<campaign>*.rds` |
 
 ## 4. Reading conventions that must travel with these numbers
@@ -156,6 +193,8 @@ Sizes are **apparent size** (`st_size`), in MiB/KiB, not disk usage; `du` report
 - Cross-identifier comparisons are descriptive, never a ranking, and carry the confound: identifier, family construction, detection set, and at 12.4% the selection criterion.
 - Evaluated estimator set: naive, oracle, IJ two-term, field, and Bonferroni for two-subgroup claims. Winner-only and winner-floor IJ variants are closed.
 - `n_cons_qual`, `band_n` and `p_star` are structurally NA on DINA and GRF, not failures, and not on account of HR 1.00.
+- On DINA and GRF, `eff` stands for `eff` = `maxeff` = `maxeffCons`: all three resolve to the plain effect argmax there, and the stem tags `eff`. Say so in every table.
+- **A classification rate can be undefined.** NPV is NA when the selection is the whole trial, and PPV, sensitivity and specificity likewise when their denominator is zero. In `idsweep` this happens on DINA `maxSG` only. Report the count beside the mean; never read it as a recording failure.
 
 ## 5. Superseded or known-wrong — do not quote
 
@@ -189,12 +228,13 @@ The first three entries name files that live **outside this repository** (the `f
 
 ## 7. Open work in this directory
 
-- **Part B sweep (288 cell-runs: six criteria × 18 cells × 3 identifiers, MR off).**
-  - It is runnable: see §2.5. No sweep cell has run.
-  - **The replicate count and the machine allocation are Larry's decisions.** `REPORT_partB_enabling_2026-09-12.md` has the projection and the Monte Carlo resolution.
-  - `n_family` will be NA throughout the sweep, because it is an MR-only quantity; `admitted_n` is GRF's stratifier.
-  - The earlier blocker (`REPORT_partB_measurement_2026-09-12.md`, Stage 0c) is resolved.
-- A criterion-matched FS comparator at 12.4%. None is committed; this needs compute and is the largest gap for a like-for-like low-prevalence comparison, now for all three identifiers at harm and null cells.
+- **Part B sweep `idsweep`: complete (§2.6); two items for review.**
+  - **Gate I Amendment 1**, applied unattended after the first Gate I stop. It allows a classification rate to be NA only where its denominator is zero, and each case is counted. It needs Larry's acceptance or reversal; rationale and negative test are in `REPORT_idsweep_2026-09-12.md`.
+  - **Push size.** The sweep adds 288 renders totalling 1.09 GB (largest 3.81 MB; nothing over 50 MB) to the pushable range.
+  - Still not done: identification with MR on, and any criterion choice. The sweep carries no acceptance criterion and no recommendation.
+- A criterion-matched FS comparator at 12.4% **with MR products**. None is committed.
+  - `idsweep` now supplies FS identification and classification at 12.4% under `effMaxSG` ε 0.20 as well as `maxeffCons`, at every cell, MR off.
+  - The MR-on comparison still needs compute.
 - Whether DINA and GRF should default to the field constructions, now informed by two complete 18-cell grids.
 - Whether to pin a commit in `forestsearch_version`.
 - The frontier-filter asymmetry decision (GRF's band as a filter with no empty-band fallback, where DINA uses a sort key and MR's `.inband()` has a "never empty" fallback) remains open; §2.4 states what can and cannot empty.
