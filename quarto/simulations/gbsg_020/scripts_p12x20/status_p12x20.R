@@ -16,8 +16,11 @@ hbf <- file.path(qmd, "LOG_p12x20_progress.txt")
 hb  <- if (file.exists(hbf)) readLines(hbf) else character(0)
 haltf <- file.path(qmd, "HALT_p12x20.md")
 tracked <- function(p) length(git("ls-files", "--error-unmatch", "--", p)) > 0L
+logf <- list.files(file.path(here, "logs"), full.names = TRUE)
+logt <- sum(vapply(file.path(rq, "scripts_p12x20", "logs", basename(logf)), tracked, TRUE))
 
 L <- c("# STATUS — p12x20 (Part A: FS effMaxSG eps 0.20, the nine 12.4% cells)", "",
+       "Campaign-scoped record for `p12x20`: this file makes **no pin claim**; the pin is asserted only in `current_status.md`.", "",
        sprintf("- Generated (UTC): %s", format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")),
        sprintf("- Branch: `%s`; HEAD at generation: `%s` (informational; no pin claim on this file).",
                git("rev-parse", "--abbrev-ref", "HEAD"), git("rev-parse", "--short", "HEAD")),
@@ -28,6 +31,9 @@ L <- c("# STATUS — p12x20 (Part A: FS effMaxSG eps 0.20, the nine 12.4% cells)
        sprintf("- Runner: `%s/scripts_p12x20/run_p12x20.sh`; payload directory `%s/%s/`.", rq, rq, paydir),
        sprintf("- HALT file: %s.", if (file.exists(haltf)) sprintf("PRESENT (`%s/HALT_p12x20.md`)", rq) else "absent"),
        sprintf("- Open items: %s.", if (file.exists(file.path(qmd, "OPEN_ITEMS_p12x20.md"))) sprintf("`%s/OPEN_ITEMS_p12x20.md`", rq) else "none"),
+       sprintf("- Logs: `%s/scripts_p12x20/logs/` — %d files, %.0f B, %d tracked. Committed under `TASK_p12x20_merge_2026-09-13` §3 (under 25 MB), following `scripts_dinamr/README.md` standing rule 1, which supersedes the Stage 2 addendum's instruction to leave them uncommitted.",
+               rq, length(logf), sum(file.size(logf)), logt),
+       "- Merge: `dev/tasks/TASK_p12x20_merge_2026-09-13.md` brought `campaign/p12x20` into `feature/glm-extension`.",
        "")
 
 s0 <- file.path(qmd, "REPORT_p12x20_stage0_2026-09-12.md")

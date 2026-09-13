@@ -1,7 +1,9 @@
 # STATUS — p12x20 (Part A: FS effMaxSG eps 0.20, the nine 12.4% cells)
 
-- Generated (UTC): 2026-09-13T13:07:46Z
-- Branch: `campaign/p12x20`; HEAD at generation: `c30360f0` (informational; no pin claim on this file).
+Campaign-scoped record for `p12x20`: this file makes **no pin claim**; the pin is asserted only in `current_status.md`.
+
+- Generated (UTC): 2026-09-13T17:55:23Z
+- Branch: `feature/glm-extension`; HEAD at generation: `1a25a666` (informational; no pin claim on this file).
 - Base SHA: `0ab5d1c560cfd0c536efd914f3a6266aa4511bab`.
 - Task: `dev/tasks/TASK_p12x20_partA_2026-09-12_v2.md`; addendum `dev/tasks/ADDENDUM_p12x20_stage2_unattended_2026-09-12_v2.md`.
 - Stage 0 record: `quarto/simulations/gbsg_020/REPORT_p12x20_stage0_2026-09-12.md`.
@@ -9,6 +11,8 @@
 - Runner: `quarto/simulations/gbsg_020/scripts_p12x20/run_p12x20.sh`; payload directory `quarto/simulations/gbsg_020/p12x20_2026-09-12/`.
 - HALT file: absent.
 - Open items: none.
+- Logs: `quarto/simulations/gbsg_020/scripts_p12x20/logs/` — 56 files, 106953 B, 56 tracked. Committed under `TASK_p12x20_merge_2026-09-13` §3 (under 25 MB), following `scripts_dinamr/README.md` standing rule 1, which supersedes the Stage 2 addendum's instruction to leave them uncommitted.
+- Merge: `dev/tasks/TASK_p12x20_merge_2026-09-13.md` brought `campaign/p12x20` into `feature/glm-extension`.
 
 ## Stage 0 install record (verbatim from the Stage 0 report, 0a-0f)
 
