@@ -1,0 +1,195 @@
+=== 1. COMPARATORS at 31% HR 1.50 n 500 (MR ON, 2,000 replicates each) ===
+                  engine               host workers     R    focus eps reps
+             consistency             pop-os     100 4.6.1 effMaxSG 0.2 2000
+ consistency (p30sgnb20)             pop-os     100 4.6.1 effMaxSG 0.2 2000
+                    dina Mac-Studio-3.local      12 4.5.2 effMaxSG 0.2 2000
+                     grf Mac-Studio-3.local      12 4.5.2 effMaxSG 0.2 2000
+ sim_ids detected on_q25 on_med on_q75 on_p90 bnd_q25 bnd_med bnd_q75 bnd_p90
+  1-2000   0.9995  64.74  72.88  81.22  87.73   29.06   33.88   38.78   42.68
+  1-2000   0.9995  64.06  72.46  80.82  87.86   28.44   33.54   38.44   42.42
+  1-2000   0.9985  16.84  25.42  36.26  42.89    3.52    5.87    9.06   10.96
+  1-2000   1.0000  15.23  15.93  16.55  17.04    3.75    3.83    3.93    4.11
+ share_lower_bound kb_per_rep
+             0.535      0.753
+             0.537      0.630
+             0.769      0.802
+             0.760      0.796
+
+=== 2. FS ACROSS sg_focus at 31% HR 1.50 n 500 (all pop-os, 100 workers, MR ON) ===
+                     focus   host workers on_med bnd_med field_med
+          maxeffCons (p30) pop-os     100  53.98   33.33     21.12
+     effMaxSG 0.10 (p30sg) pop-os     100  71.66   33.28     38.47
+ effMaxSG 0.20 (p30sgnb20) pop-os     100  72.46   33.54     39.72
+    effMaxSG 0.20 (e1stud) pop-os     100  72.88   33.88     39.62
+  effMaxSG 0.30 (banddial) pop-os     100  73.31   33.68     40.49
+          maxSG (banddial) pop-os     100  54.79   33.27     22.06
+          minSG (banddial) pop-os     100  52.04   32.58     19.58
+ share_lower_bound
+             0.383
+             0.536
+             0.537
+             0.535
+             0.541
+             0.393
+             0.374
+Not covered by any committed bundle: maxeff (consistency) and effMinSG.
+
+=== 3. HOST FACTOR, FS maxeffCons 12.4% n 500 (sim_id 1-1000, same seeds) ===
+ cell      popos                   mac on_med_popos on_med_mac ratio_on
+ h100 pop-os/100 Mac-Studio-3.local/12        35.46       9.18     3.86
+ h175 pop-os/100 Mac-Studio-3.local/12        45.83      10.38     4.41
+ bnd_popos bnd_mac ratio_bnd
+     19.77    3.50      5.64
+     26.72    4.04      6.62
+
+=== 4. PER-CELL, MR ON, 2,000 replicates (worker-hours = sum of per-replicate seconds / 3600) ===
+      engine  prev   hr    n               host workers reps on_med on_worker_h
+ consistency 12.4% 1.00  500 Mac-Studio-3.local      12 2000   9.24        3.90
+ consistency   31% 1.00  500             pop-os     100 2000  60.95       31.71
+ consistency 12.4% 1.50  500             pop-os     100 2000  45.63       23.54
+ consistency   31% 1.50  500             pop-os     100 2000  72.88       40.38
+ consistency 12.4% 1.75  500 Mac-Studio-3.local      12 2000  10.30        5.56
+ consistency   31% 1.75  500             pop-os     100 2000  76.55       42.22
+ consistency 12.4% 1.00 1000             pop-os     100 2000  71.89       31.90
+ consistency   31% 1.00 1000             pop-os     100 2000 102.12       54.07
+ consistency 12.4% 1.50 1000             pop-os     100 2000  96.02       51.25
+ consistency   31% 1.50 1000             pop-os     100 2000 116.48       63.97
+ consistency 12.4% 1.75 1000 Mac-Studio-3.local      12 2000  11.69        6.52
+ consistency   31% 1.75 1000             pop-os     100 2000 119.58       65.56
+ consistency 12.4% 1.00 1500             pop-os     100 2000 115.60       50.88
+ consistency   31% 1.00 1500             pop-os     100 2000 171.43       90.66
+ consistency 12.4% 1.50 1500             pop-os     100 2000 164.93       90.17
+ consistency   31% 1.50 1500             pop-os     100 2000 190.50      105.00
+ consistency 12.4% 1.75 1500 Mac-Studio-3.local      12 2000  12.08        6.76
+ consistency   31% 1.75 1500             pop-os     100 2000 194.59      106.90
+        dina 12.4% 1.00  500 Mac-Studio-3.local      12 2000   4.65        3.08
+        dina   31% 1.00  500 Mac-Studio-3.local      12 2000  10.76        7.46
+        dina 12.4% 1.50  500 Mac-Studio-3.local      12 2000   7.64        4.98
+        dina   31% 1.50  500 Mac-Studio-3.local      12 2000  25.42       14.78
+        dina 12.4% 1.75  500 Mac-Studio-3.local      12 2000   8.84        5.74
+        dina   31% 1.75  500 Mac-Studio-3.local      12 2000  31.52       17.29
+        dina 12.4% 1.00 1000 Mac-Studio-3.local      12 2000   1.98        1.74
+        dina   31% 1.00 1000 Mac-Studio-3.local      12 2000   9.58        6.41
+        dina 12.4% 1.50 1000 Mac-Studio-3.local      12 2000   6.30        3.82
+        dina   31% 1.50 1000 Mac-Studio-3.local      12 2000  30.13       17.34
+        dina 12.4% 1.75 1000 Mac-Studio-3.local      12 2000   7.99        4.78
+        dina   31% 1.75 1000 Mac-Studio-3.local      12 2000  38.38       20.93
+        dina 12.4% 1.00 1500 Mac-Studio-3.local      12 2000   0.10        0.99
+        dina   31% 1.00 1500 Mac-Studio-3.local      12 2000   8.70        5.24
+        dina 12.4% 1.50 1500 Mac-Studio-3.local      12 2000   5.63        3.18
+        dina   31% 1.50 1500 Mac-Studio-3.local      12 2000  31.92       18.05
+        dina 12.4% 1.75 1500 Mac-Studio-3.local      12 2000   7.72        4.38
+        dina   31% 1.75 1500 Mac-Studio-3.local      12 2000  42.07       22.77
+         grf 12.4% 1.00  500 Mac-Studio-3.local      12 2000  13.23        7.27
+         grf   31% 1.00  500 Mac-Studio-3.local      12 2000  14.64        8.12
+         grf 12.4% 1.50  500 Mac-Studio-3.local      12 2000  13.97        7.77
+         grf   31% 1.50  500 Mac-Studio-3.local      12 2000  15.93        8.81
+         grf 12.4% 1.75  500 Mac-Studio-3.local      12 2000  13.95        7.75
+         grf   31% 1.75  500 Mac-Studio-3.local      12 2000  16.18        8.95
+         grf 12.4% 1.00 1000 Mac-Studio-3.local      12 2000  14.72        7.91
+         grf   31% 1.00 1000 Mac-Studio-3.local      12 2000  16.19        9.00
+         grf 12.4% 1.50 1000 Mac-Studio-3.local      12 2000  15.17        8.45
+         grf   31% 1.50 1000 Mac-Studio-3.local      12 2000  17.98       10.00
+         grf 12.4% 1.75 1000 Mac-Studio-3.local      12 2000  15.51        8.66
+         grf   31% 1.75 1000 Mac-Studio-3.local      12 2000  18.56       10.33
+         grf 12.4% 1.00 1500 Mac-Studio-3.local      12 2000  15.92        7.90
+         grf   31% 1.00 1500 Mac-Studio-3.local      12 2000  17.76        9.83
+         grf 12.4% 1.50 1500 Mac-Studio-3.local      12 2000  16.60        9.25
+         grf   31% 1.50 1500 Mac-Studio-3.local      12 2000  19.58       10.86
+         grf 12.4% 1.75 1500 Mac-Studio-3.local      12 2000  16.74        9.35
+         grf   31% 1.75 1500 Mac-Studio-3.local      12 2000  20.26       11.30
+ bnd_worker_h
+         1.65
+        14.57
+        13.71
+        18.82
+         2.21
+        19.68
+        21.52
+        30.00
+        33.60
+        35.34
+         2.74
+        36.27
+        35.94
+        54.86
+        62.12
+        63.04
+         2.97
+        64.12
+         0.53
+         1.64
+         0.94
+         3.49
+         1.12
+         4.15
+         0.30
+         1.43
+         0.69
+         4.53
+         0.89
+         5.50
+         0.20
+         1.18
+         0.58
+         5.03
+         0.83
+         6.48
+         2.10
+         2.15
+         2.16
+         2.15
+         2.11
+         2.12
+         2.76
+         2.79
+         2.74
+         2.75
+         2.75
+         2.76
+         3.13
+         3.41
+         3.35
+         3.27
+         3.30
+         3.33
+
+=== 5. BOUNDS FOR THE PART B SWEEP (criteria x 18 cells), NOT A PROJECTION ===
+One criterion's 18-cell cost is taken from the committed effMaxSG-family grid and
+assumed flat across sg_focus (section 2 supports this for the field-excluded bound
+on FS; it does NOT for the MR-on ceiling).  Wall = worker-hours / 12.
+FS hours are mostly POP-OS / 100-WORKER seconds (section 3: 4-6x the Mac's per replicate).
+
+ reps      engine cell_runs ceiling_worker_h ceiling_wall_h_12w bound_worker_h
+ 2000 consistency       108           5225.8              435.5         3078.9
+ 2000        dina        90            814.8               67.9          197.7
+ 2000         grf        90            807.6               67.3          245.8
+ 1000 consistency       108           2612.9              217.7         1539.4
+ 1000        dina        90            407.4               33.9           98.8
+ 1000         grf        90            403.8               33.7          122.9
+  500 consistency       108           1306.4              108.9          769.7
+  500        dina        90            203.7               17.0           49.4
+  500         grf        90            201.9               16.8           61.5
+ bound_wall_h_12w                                    hosts
+            256.6 Mac-Studio-3.local/12 x4; pop-os/100 x14
+             16.5                Mac-Studio-3.local/12 x18
+             20.5                Mac-Studio-3.local/12 x18
+            128.3 Mac-Studio-3.local/12 x4; pop-os/100 x14
+              8.2                Mac-Studio-3.local/12 x18
+             10.2                Mac-Studio-3.local/12 x18
+             64.1 Mac-Studio-3.local/12 x4; pop-os/100 x14
+              4.1                Mac-Studio-3.local/12 x18
+              5.1                Mac-Studio-3.local/12 x18
+
+All three engines, wall hours at 12 workers:
+ reps ceiling_wall_h_12w bound_wall_h_12w
+ 2000              570.7            293.6
+ 1000              285.3            146.7
+  500              142.7             73.3
+
+=== 6. MONTE CARLO RESOLUTION (Wilson 95% half-width) ===
+thinnest cell: DINA, 12.4%, HR 1.00, n 1500, detection 0.344
+ reps hw_p50 hw_p90 thinnest_detected hw_p50_on_detected hw_p90_on_detected
+ 2000 0.0219 0.0132               688             0.0373             0.0225
+ 1000 0.0309 0.0186               344             0.0525             0.0318
+  500 0.0437 0.0264               172             0.0739             0.0452
