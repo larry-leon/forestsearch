@@ -55,6 +55,9 @@ overridable:
 | `gate3.R` | GRF alignment per batch: `grf_select_statistic`, `grf_selection`, `dmin.grf`, resolved three ways. |
 | `grfmr.sh`, `grfmr.cells`, `grfmr_deferred.cells` | The `grfmr` Part A driver and the ten-plus-two split. |
 | `projectG.R`, `grfmr_numbers.R`, `grfmr_tables.R`, `fs_extraction.R` | `grfmr` Gate 1 projection, the per-cell accumulator, the table extractor that re-executes the summary's own chunks, and the Part C FS extraction. |
+| `grfmrC_smoke.sh`, `stage1G.R` | `grfmr` completion (`TASK_grfmr_completion_2026-09-12`): the Stage 1 GRF null smoke and its battery. |
+| `projectGC.R`, `grfmrC.sh`, `grfmrC.cells`, `wallsGC.R` | The completion's Gate 1 projection (calibrated ×0.8962), the eight-cell driver (Gate 3 per batch, stop-on-failure, 10 h watchdog), its cell list, and realized walls against the projection. `gate2G.R C` gates the six HR 1.00 cells. |
+| `status_inventory.R` | Regenerates `current_status.md` §3, the payload inventory, **from the directory** (first-match-wins rules, tracked/disk counts, apparent sizes, 50 MB / 100 MB flags). |
 | `gate2.R` | **The Gate 2 checker.** Usage: `Rscript gate2.R A` / `B` / `C`. Carries the **corrected** bound↔quantile identity (see below) and Amendment 3 at `TOL_TRUTH <- 1e-8`. |
 | `blockA_numbers.R`, `blockA_rest.R`, `chunkdiff.py` | Ad-hoc readouts that produced report tables (the Block A standard tables, the stratified tables, and the per-chunk transplant accounting). Not part of the run. |
 
