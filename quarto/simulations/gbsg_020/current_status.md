@@ -1,7 +1,7 @@
 # current_status — `quarto/simulations/gbsg_020`
 
-- **Pin:** `cd30b176` on `feature/glm-extension` — HEAD at the time this file was committed; the closeout commit that adds this file is its child.
-- **Updated:** 2026-09-12 (after `TASK_grfmr_completion_2026-09-12`)
+- **Pin:** `e5288644` on `feature/glm-extension` — HEAD at the time this file was committed; the closeout commit that adds this file is its child.
+- **Updated:** 2026-09-12 (after `TASK_grfmr_completion_2026-09-12`, its review, and the `summary_grfmr.qmd` wording fix)
 - **Purpose:** a catalog of what has been run in this directory and where the payloads are, so a chat or workstream on another machine can be brought up to speed by attaching this one file. It points at authoritative files; it does not restate their numbers.
 - **Maintenance:** regenerated as the closeout step of every task that touches this directory. The pin above must equal HEAD at commit time. §3 is produced by `scripts_dinamr/status_inventory.R` from the directory.
 
@@ -47,7 +47,7 @@
 - Engine `grf`, `effMaxSG`, ε 0.20, `grf_selection = "frontier"`, `grf_select_statistic = "effect"`, `dmin.grf = 0.0`. **18 of 18 cells**, 2,000 replicates, matching the DINA grid cell for cell.
   - Ten harm cells under `TASK_grfmr_campaign_2026-09-11` (7.939 h).
   - The two deferred 31% HR 1.75 cells and the six HR 1.00 cells under `TASK_grfmr_completion_2026-09-12` (6.425 h against a 6.744 h projection). Nothing deferred, nothing dropped.
-- Reports: `REPORT_grfmr_2026-09-11.md`, `REPORT_grfmr_completion_2026-09-12.md`. Per-cell tables: `TABLES_grfmr_completion_2026-09-12.md` (18 cells; supersedes for coverage the 10-cell `TABLES_grfmr_percell_2026-09-12.md`, whose ten cells it reproduces). Summary: `summary_grfmr.qmd` / `.html` (18 of 18, no guarded skips). Review: `REVIEW_grfmr_2026-09-12.md` (the ten Part A cells).
+- Reports: `REPORT_grfmr_2026-09-11.md`, `REPORT_grfmr_completion_2026-09-12.md`. Per-cell tables: `TABLES_grfmr_completion_2026-09-12.md` (18 cells; supersedes for coverage the 10-cell `TABLES_grfmr_percell_2026-09-12.md`, whose ten cells it reproduces). Summary: `summary_grfmr.qmd` / `.html` (18 of 18, no guarded skips). Reviews: `REVIEW_grfmr_2026-09-12.md` (the ten Part A cells) and `REVIEW_grfmr_completion_2026-09-12.md` (the eight completion cells; accepts the report, no re-run).
 - **GRF's `n_family` is the outcome-independent enumerated pool**, not the qualified set. At each n it is identical quantile-for-quantile across both prevalences and all three hazard ratios. The outcome-dependent quantity is **`admitted_n`**, with ρ(`admitted_n`, `n_family`) between +0.016 and +0.054 across all 18 cells.
   - **Stratify GRF on `admitted_n`, never on `n_family`.**
   - `admitted_n` and p̂ carry independent information on GRF (joint counts near-uniform at harm and null cells alike), the opposite of DINA.
@@ -59,8 +59,11 @@
 
 ### 2.4 `grfprobe` — GRF cost and mechanism
 
-- Five 36-replicate probes. Cost 13.5–19.8 s per replicate, rising with n and prevalence, **flat in family size** (|ρ| ≤ 0.171). The frontier band came back empty on 0 of 180.
-- `admitted_n` was never 0 across the 20,000 harm replicates of the ten Part A cells, nor on the two later harm cells. **It is 0 on 13 of the 12,000 HR 1.00 replicates**, all non-detections (`REPORT_grfmr_completion_2026-09-12.md`).
+- Five 36-replicate probes. Cost 13.5–19.8 s per replicate, rising with n and prevalence, **flat in family size** (|ρ| ≤ 0.171).
+- **Two mechanisms, kept distinct.**
+  - **The frontier band cannot empty at `dmin.grf = 0.0`:** the eligible maximum is never negative (`R/subgroup_consistency_helpers.R:784–785`, `R/grf_subgroup_labels.R:358`, `:377–383`). Measured empty on 0 of 180 probe replicates.
+  - **The admission floor can empty, and did** (`R/forestsearch_helpers.R:1642–1651`, `admitted_n <- 0L`): on **13 of the 12,000 HR 1.00 replicates**, all at null cells and all non-detections, and on none of the 24,000 harm replicates.
+  - Calling the empty-selection branch "unreachable" without that qualifier is wrong: the band cannot empty, the floor can. Stated the same way in `summary_grfmr.qmd` ("The engine").
 
 ## 3. Payload inventory
 
@@ -74,7 +77,7 @@ Regenerated from the directory by `scripts_dinamr/status_inventory.R`.
 | `results/fs_*.rds` | 315/315 | 149.12 MB | `fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n1000_p12ext_combined_1_2000.rds` 1.51 MB | FS bundles — the comparator grid plus every earlier FS campaign |
 | `results/*.rds` | 14/14 | 960 KB | `grf_eff_fb_mr_m1_h10_knoise0_n500_combined_1_500.rds` 150 KB | other bundles in `results/` |
 | `mr_sweep/**` | 210/210 | 15.19 MB | `grf_mr_n500_res.rds` 130 KB | `mr_sweep/` — an earlier seed-table sweep, superseded, kept for provenance |
-| `scripts_dinamr/logs/*` | 88/88 | 316 KB | `gate2G_C.txt` 28 KB | per-render, driver and gate logs — `WALL_SECONDS` / `CELL DONE wall=` |
+| `scripts_dinamr/logs/*` | 89/89 | 319 KB | `gate2G_C.txt` 28 KB | per-render, driver and gate logs — `WALL_SECONDS` / `CELL DONE wall=` |
 | `scripts_dinamr/*.R` | 25/25 | 175 KB | `gate2G.R` 17 KB | drivers, checkers, projections, extractions (R) |
 | `scripts_dinamr/*.sh` | 10/10 | 16 KB | `grfmrC.sh` 3 KB | render/campaign drivers and the closeout checker (shell) |
 | `scripts_dinamr/*.py` | 2/2 | 13 KB | `transplant_grfmr.py` 12 KB | transplant / chunk-diff helpers (Python) |
@@ -86,8 +89,8 @@ Regenerated from the directory by `scripts_dinamr/status_inventory.R`.
 | `grfmr_*.html` | 54/54 | 236.03 MB | `grfmr_C124_h100_n1500_batch_1001.html` 4.40 MB | `grfmr` batch and combine renders |
 | `grfprobe_*.html` | 5/5 | 21.56 MB | `grfprobe_g_p124_h150_n1500.html` 4.33 MB | `grfprobe` renders |
 | `probe_*.html` | 10/10 | 43.14 MB | `probe_p31_h100_n500.html` 4.33 MB | Gate 1 cost-probe renders (`dinamr` era) |
-| `summary_*.html` | 14/14 | 51.02 MB | `summary_grfmr.html` 7.86 MB | summary rendered outputs, all campaigns |
-| `summary_*.qmd` | 14/14 | 375 KB | `summary_grfmr.qmd` 91 KB | summary sources, all campaigns |
+| `summary_*.html` | 14/14 | 51.03 MB | `summary_grfmr.html` 7.87 MB | summary rendered outputs, all campaigns |
+| `summary_*.qmd` | 14/14 | 377 KB | `summary_grfmr.qmd` 93 KB | summary sources, all campaigns |
 | `sim_fs_maxeffCons_fb_mr_field_m1_template.qmd` | 1/1 | 159 KB | `sim_fs_maxeffCons_fb_mr_field_m1_template.qmd` 159 KB | **the** template `dinamr` / `grfmr` / the FS grid all render |
 | `sim_*.qmd` | 53/53 | 4.19 MB | `sim_fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_batch_1_100.qmd` 98 KB | other simulation templates (earlier campaigns and variants) |
 | `sim_*.html` | 52/52 | 150.72 MB | `sim_fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_batch_1_1000.html` 3.33 MB | renders of those other templates |
@@ -95,13 +98,13 @@ Regenerated from the directory by `scripts_dinamr/status_inventory.R`.
 | `*.html` | 30/30 | 92.14 MB | `grfmrsmk_C124_h100_n500.html` 4.27 MB | remaining renders (smoke, gate, dflt, compare) |
 | `REPORT_*.md` | 65/65 | 1.10 MB | `REPORT_fixedphat_ij2s_2026-09-09.md` 79 KB | REPORT documents |
 | `TABLES_*.md` | 2/2 | 83 KB | `TABLES_grfmr_completion_2026-09-12.md` 53 KB | TABLES documents |
-| `REVIEW_*.md` | 2/2 | 23 KB | `REVIEW_dinamr_blockC_2026-09-11.md` 13 KB | REVIEW documents |
-| `current_status.md` | 1/1 | 18 KB | `current_status.md` 18 KB | this file — the directory's catalog at a pin |
+| `REVIEW_*.md` | 3/3 | 30 KB | `REVIEW_dinamr_blockC_2026-09-11.md` 13 KB | REVIEW documents |
+| `current_status.md` | 1/1 | 21 KB | `current_status.md` 21 KB | this file — the directory's catalog at a pin |
 | `*.md` | 1/1 | 2 KB | `payload_runbook_mr_only_20260819.md` 2 KB | other notes in the directory |
 | `*.qmd` | 21/21 | 1.44 MB | `gate_d2_cim_unset.qmd` 156 KB | remaining `.qmd` |
 | `*.R` | 4/4 | 63 KB | `p12ext_findings.R` 24 KB | top-level ad-hoc R scripts |
 | `**` | 1/1 | 5 KB | `compare_1_20_vs_1_500.csv` 5 KB | everything else |
-| **total** | **1435/1435** | **2083 MB** | `summary_grfmr.html` 7.86 MB | every file, each counted once |
+| **total** | **1437/1437** | **2083 MB** | `summary_grfmr.html` 7.87 MB | every file, each counted once |
 
 Sizes are **apparent size** (`st_size`), in MiB/KiB, not disk usage; `du` reports block-allocated size and reads larger for many small files. **Every file is counted exactly once**: the rules are applied first-match-wins and the rows sum to the total. **Files over 50 MB: 0; over 100 MB: 0.** The gitignored `_gateT_pre_template_files/` and `.DS_Store` are excluded throughout. The `current_status.md` row shows this file's size at the pin, before this regeneration.
 
@@ -156,5 +159,4 @@ The first three entries name files that live **outside this repository** (the `f
 - A criterion-matched FS comparator at 12.4%. None is committed; this needs compute and is the largest gap for a like-for-like low-prevalence comparison, now for all three identifiers at harm and null cells.
 - Whether DINA and GRF should default to the field constructions, now informed by two complete 18-cell grids.
 - Whether to pin a commit in `forestsearch_version`.
-- A review of `REPORT_grfmr_completion_2026-09-12.md` (the six null cells and the two late harm cells); `REVIEW_grfmr_2026-09-12.md` covers only the ten Part A cells.
-- Flagged, not fixed: transplant wording in `summary_grfmr.qmd` outside the sections the completion extended (line 26 "the same one GRF carries", line 41 and the strata section's "GRF's family-size stratifier", and the `strat-miss` caption's "proposed-family-size"), where DINA / `admitted_n` is meant. Numbers are unaffected.
+- The frontier-filter asymmetry decision (GRF's band as a filter with no empty-band fallback, where DINA uses a sort key and MR's `.inband()` has a "never empty" fallback) remains open; §2.4 states what can and cannot empty.
