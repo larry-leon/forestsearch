@@ -1,0 +1,102 @@
+=== GATE 1: idsweep, 288 cell-runs, 500 replicates, MR off, 12 workers ===
+Ceiling 13.00 h wall (planning bound).  Hard timeout 16.00 h (kill bound).
+
+--- 1. Reconciling REPORT_partB_enabling's 500-replicate projection ---
+      engine compute_h overhead_h wall_h  mult as_reported mult_on_wall
+ consistency      2.18       0.98   3.16 2.079        5.51         6.57
+        dina      0.54       0.82   1.36 2.326        2.08         3.16
+         grf      2.12       0.82   2.94 1.262        3.50         3.71
+  multiplier on compute only (the report's method): 11.08 h
+  multiplier on the whole wall (unrounded): 13.44 h; on the rounded 3.2/1.4/2.9: 13.57 h
+  -> 11.1 h is the arithmetic the report's method defines; ~13.6 h multiplies the per-render
+     overhead as well, which does not scale with per-replicate cost.  Overhead in both assumes
+     2 renders per cell-run (batch + combine): 576 renders x 16.4 s = 2.62 h.  idsweep runs one
+     render per cell-run (500 replicates, one batch, no combine): 288 x 16.4 s = 1.31 h.
+
+--- 2. The consistency multiplier mixes hosts ---
+  prev   hr    n               host bnd_worker_h bnd_norm
+ 12.4% 1.00  500 Mac-Studio-3.local         1.65     1.65
+   31% 1.00  500             pop-os        14.57     2.38
+ 12.4% 1.50  500             pop-os        13.71     2.24
+   31% 1.50  500             pop-os        18.82     3.07
+ 12.4% 1.75  500 Mac-Studio-3.local         2.21     2.21
+   31% 1.75  500             pop-os        19.68     3.21
+ 12.4% 1.00 1000             pop-os        21.52     3.51
+   31% 1.00 1000             pop-os        30.00     4.89
+ 12.4% 1.50 1000             pop-os        33.60     5.48
+   31% 1.50 1000             pop-os        35.34     5.76
+ 12.4% 1.75 1000 Mac-Studio-3.local         2.74     2.74
+   31% 1.75 1000             pop-os        36.27     5.92
+ 12.4% 1.00 1500             pop-os        35.94     5.86
+   31% 1.00 1500             pop-os        54.86     8.95
+ 12.4% 1.50 1500             pop-os        62.12    10.13
+   31% 1.50 1500             pop-os        63.04    10.28
+ 12.4% 1.75 1500 Mac-Studio-3.local         2.97     2.97
+   31% 1.75 1500             pop-os        64.12    10.46
+  host factor (mean ratio_bnd, pop-os/100 over Mac/12): 6.130
+                consistency  dina   grf
+as_reported           2.079 2.326 1.262
+host_normalized       2.278 2.326 1.262
+  DINA and GRF profiles are all-Mac, so their multipliers are unchanged.  All three profiles are
+  MR-ON cost (MR is ~0.85-0.95 of DINA/GRF per-replicate cost at the smoke cell), so they are an
+  approximation for identification-only cost; the re-projection replaces them with realized cost.
+
+--- 3. Per-criterion basis (smoke, s per replicate) ---
+      engine      focus         fo mean_s
+ consistency   effMaxSG   effMaxSG   1.61
+ consistency   effMinSG   effMinSG   1.57
+ consistency     maxeff     maxeff   2.55
+ consistency maxeffCons maxeffCons   1.56
+ consistency      maxSG      maxSG   1.58
+ consistency      minSG      minSG   1.57
+        dina   effMaxSG   effMaxSG   0.52
+        dina   effMinSG   effMinSG   0.52
+        dina maxeffCons        eff   0.52
+        dina      maxSG      maxSG   0.52
+        dina      minSG      minSG   0.52
+         grf   effMaxSG   effMaxSG   2.04
+         grf   effMinSG   effMinSG   2.04
+         grf maxeffCons        eff   2.04
+         grf      maxSG      maxSG   2.04
+         grf      minSG      minSG   2.03
+
+--- 4. Corrected projection, per cell in run order (host-normalized profile; compute x profile
+        ratio; 16 renders per cell x 16.4 s, the 30-replicate overhead -- unmeasured at 500) ---
+            cell compute_s overhead_s wall_s cum_h
+  p124_h150_n500       969        262   1230  0.34
+ p124_h150_n1000      1683        262   1944  0.88
+ p124_h150_n1500      2696        262   2958  1.70
+   p31_h150_n500      1421        262   1682  2.17
+  p31_h150_n1000      2185        262   2446  2.85
+  p31_h150_n1500      3224        262   3485  3.82
+  p124_h175_n500       973        262   1235  4.16
+ p124_h175_n1000      1174        262   1436  4.56
+ p124_h175_n1500      1321        262   1583  5.00
+   p31_h175_n500      1519        262   1781  5.49
+  p31_h175_n1000      2328        262   2589  6.21
+  p31_h175_n1500      3436        262   3697  7.24
+  p124_h100_n500       795        262   1057  7.53
+ p124_h100_n1000      1259        262   1521  7.96
+ p124_h100_n1500      1779        262   2041  8.52
+   p31_h100_n500      1075        262   1336  8.89
+  p31_h100_n1000      1666        262   1927  9.43
+  p31_h100_n1500      2547        262   2809 10.21
+
+by engine (h):
+      engine compute_s overhead_s wall_s
+ consistency      4.96       0.49   5.45
+        dina      1.26       0.41   1.67
+         grf      2.68       0.41   3.09
+
+TOTAL (corrected basis): 10.21 h  (compute 8.90 h + overhead 1.31 h)
+  with the consistency profile as reported (not host-normalized): 9.78 h
+  render-overhead sensitivity (the 500-replicate MR-off render is unmeasured):
+ overhead_s_per_render total_h cells_within_13h
+              16.35121   10.21               18
+              30.00000   11.30               18
+              60.00000   13.70               17
+              90.00000   16.10               14
+             120.00000   18.50               12
+
+GATE 1: 18 of 18 cells fit under the 13.00 h ceiling on the corrected basis -> GO, all 288
+Re-projected before every cell from realized cost; the first cell measures the 500-replicate render overhead.
