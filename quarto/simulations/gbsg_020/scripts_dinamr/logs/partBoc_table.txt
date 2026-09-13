@@ -1,0 +1,107 @@
+=== THE OC TABLE: 12.4%, HR 1.50, n 500, 30 replicates, MR off ===
+      engine                    sg_focus   eps                 rate  sens  spec   ppv   npv mean_Hhat mean_H ratio n_family     admitted_n prevalence med_rep_s total_wall_s                     status
+ consistency                    effMaxSG  0.20 0.967 [0.833, 0.994] 0.540 0.842 0.342 0.928     102.7   62.3 1.649       NA             --     0.1237      1.59           21 DETECTED:29 NO-DETECTION:1
+ consistency                    effMinSG  0.20 0.967 [0.833, 0.994] 0.496 0.921 0.479 0.929      65.9   62.3 1.059       NA             --     0.1237      1.50           19 DETECTED:29 NO-DETECTION:1
+ consistency                  maxeffCons inert 0.967 [0.833, 0.994] 0.521 0.907 0.463 0.929      72.9   62.3 1.170       NA             --     0.1237      1.51           20 DETECTED:29 NO-DETECTION:1
+ consistency                      maxeff inert 1.000 [0.886, 1.000] 0.533 0.907 0.463 0.931      73.5   61.8 1.189       NA             --     0.1237      2.64           23                DETECTED:30
+ consistency                       maxSG inert 0.967 [0.833, 0.994] 0.632 0.725 0.283 0.937     159.7   62.3 2.565       NA             --     0.1237      1.55           19 DETECTED:29 NO-DETECTION:1
+ consistency                       minSG inert 0.967 [0.833, 0.994] 0.478 0.920 0.465 0.926      65.5   62.3 1.052       NA             --     0.1237      1.54           20 DETECTED:29 NO-DETECTION:1
+        dina                    effMaxSG  0.20 0.933 [0.787, 0.982] 0.425 0.831 0.260 0.914     100.9   61.8 1.634       NA             --     0.1237      0.33           18 DETECTED:28 NO-DETECTION:2
+        dina                    effMinSG  0.20 0.933 [0.787, 0.982] 0.310 0.901 0.311 0.903      62.8   61.8 1.017       NA             --     0.1237      0.31           18 DETECTED:28 NO-DETECTION:2
+        dina                       maxSG inert 0.933 [0.787, 0.982] 0.721 0.639 0.240 0.949     203.0   61.8 3.288       NA             --     0.1237      0.31           18 DETECTED:28 NO-DETECTION:2
+        dina                       minSG inert 0.933 [0.787, 0.982] 0.298 0.903 0.304 0.901      60.9   61.8 0.986       NA             --     0.1237      0.33           18 DETECTED:28 NO-DETECTION:2
+        dina eff (= maxeff = maxeffCons) inert 0.933 [0.787, 0.982] 0.367 0.897 0.330 0.910      68.2   61.8 1.104       NA             --     0.1237      0.32           18 DETECTED:28 NO-DETECTION:2
+         grf                    effMaxSG  0.20 1.000 [0.886, 1.000] 0.511 0.829 0.293 0.925     106.8   61.8 1.728       NA 124.5 [4, 387]     0.1237      2.15           21                DETECTED:30
+         grf                    effMinSG  0.20 1.000 [0.886, 1.000] 0.329 0.901 0.315 0.905      64.1   61.8 1.037       NA 124.5 [4, 387]     0.1237      2.12           21                DETECTED:30
+         grf                       maxSG inert 1.000 [0.886, 1.000] 0.733 0.510 0.191 0.929     260.5   61.8 4.213       NA 124.5 [4, 387]     0.1237      2.12           22                DETECTED:30
+         grf                       minSG inert 1.000 [0.886, 1.000] 0.320 0.906 0.321 0.904      61.0   61.8 0.987       NA 124.5 [4, 387]     0.1237      2.11           21                DETECTED:30
+         grf eff (= maxeff = maxeffCons) inert 1.000 [0.886, 1.000] 0.415 0.891 0.337 0.915      73.3   61.8 1.185       NA 124.5 [4, 387]     0.1237      2.11           21                DETECTED:30
+
+=== NA COLUMNS ===
+consistency effMaxSG     all-NA on detected rows: admitted_n, n_family
+consistency effMinSG     all-NA on detected rows: admitted_n, n_family
+consistency maxeffCons   all-NA on detected rows: admitted_n, n_family
+consistency maxeff       all-NA on detected rows: admitted_n, n_family
+consistency maxSG        all-NA on detected rows: admitted_n, n_family
+consistency minSG        all-NA on detected rows: admitted_n, n_family
+dina effMaxSG            all-NA on detected rows: n_cons_qual, band_n, admitted_n, n_family
+dina effMinSG            all-NA on detected rows: n_cons_qual, band_n, admitted_n, n_family
+dina maxSG               all-NA on detected rows: n_cons_qual, band_n, admitted_n, n_family
+dina minSG               all-NA on detected rows: n_cons_qual, band_n, admitted_n, n_family
+dina maxeffCons          all-NA on detected rows: n_cons_qual, band_n, admitted_n, n_family
+grf effMaxSG             all-NA on detected rows: n_cons_qual, band_n, n_family
+grf effMinSG             all-NA on detected rows: n_cons_qual, band_n, n_family
+grf maxSG                all-NA on detected rows: n_cons_qual, band_n, n_family
+grf minSG                all-NA on detected rows: n_cons_qual, band_n, n_family
+grf maxeffCons           all-NA on detected rows: n_cons_qual, band_n, n_family
+
+=== SAME SUBGROUP ACROSS CRITERIA, SAME SEEDS (within engine; sg_def string match, both detected) ===
+
+consistency -- cell [i,j] = replicates (of 30) where both selected the identical rule:
+           effMaxSG effMinSG maxeffCons maxeff maxSG minSG
+effMaxSG         29        5          7      7     9     4
+effMinSG          5       29         14     13     4    26
+maxeffCons        7       14         29     27     5    12
+maxeff            7       13         27     30     5    11
+maxSG             9        4          5      5    29     4
+minSG             4       26         12     11     4    29
+
+dina -- cell [i,j] = replicates (of 30) where both selected the identical rule:
+           effMaxSG effMinSG maxSG minSG maxeffCons
+effMaxSG         28        4     6     2          6
+effMinSG          4       28     1    14         13
+maxSG             6        1    28     1          1
+minSG             2       14     1    28          6
+maxeffCons        6       13     1     6         28
+
+grf -- cell [i,j] = replicates (of 30) where both selected the identical rule:
+           effMaxSG effMinSG maxSG minSG maxeffCons
+effMaxSG         30        0     1     0          2
+effMinSG          0       30     0     6          6
+maxSG             1        0    30     0          1
+minSG             0        6     0    30          2
+maxeffCons        2        6     1     2         30
+
+n_true identical across all 16 runs (same DGM draws): TRUE
+
+=== PROJECTION: 288 cell-runs from the measured per-replicate seconds ===
+Basis: this ONE cell (12.4%, HR 1.50, n 500).  Compute = sum over the engine's criteria of
+mean per-replicate seconds x reps x 18 cells / 12 workers.  Render overhead per render =
+median over the 16 runs of (WALL_SECONDS - sum(fit_mr_secs)/12); renders per cell-run =
+ceiling(reps/1000) batches + 1 combine.
+
+      engine      focus mean_s med_s compute_s wall_s overhead_s
+ consistency   effMaxSG   1.61  1.59       4.0     21       17.0
+ consistency   effMinSG   1.57  1.50       3.9     19       15.1
+ consistency maxeffCons   1.56  1.51       3.9     20       16.1
+ consistency     maxeff   2.55  2.64       6.4     23       16.6
+ consistency      maxSG   1.58  1.55       3.9     19       15.1
+ consistency      minSG   1.57  1.54       3.9     20       16.1
+        dina   effMaxSG   0.52  0.33       1.3     18       16.7
+        dina   effMinSG   0.52  0.31       1.3     18       16.7
+        dina      maxSG   0.52  0.31       1.3     18       16.7
+        dina      minSG   0.52  0.33       1.3     18       16.7
+        dina maxeffCons   0.52  0.32       1.3     18       16.7
+         grf   effMaxSG   2.04  2.15       5.1     21       15.9
+         grf   effMinSG   2.04  2.12       5.1     21       15.9
+         grf      maxSG   2.04  2.12       5.1     22       16.9
+         grf      minSG   2.03  2.11       5.1     21       15.9
+         grf maxeffCons   2.04  2.11       5.1     21       15.9
+
+median per-render overhead: 16.4 s
+ reps      engine cell_runs compute_h overhead_h wall_h
+ 2000 consistency       108      8.70       1.47  10.18
+ 2000        dina        90      2.17       1.23   3.40
+ 2000         grf        90      8.50       1.23   9.72
+ 1000 consistency       108      4.35       0.98   5.33
+ 1000        dina        90      1.09       0.82   1.90
+ 1000         grf        90      4.25       0.82   5.07
+  500 consistency       108      2.18       0.98   3.16
+  500        dina        90      0.54       0.82   1.36
+  500         grf        90      2.12       0.82   2.94
+
+All three engines:
+ reps compute_h overhead_h wall_h
+ 2000     19.37       3.93  23.30
+ 1000      9.69       2.62  12.30
+  500      4.84       2.62   7.46

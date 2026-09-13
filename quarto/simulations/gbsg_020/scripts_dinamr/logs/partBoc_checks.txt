@@ -1,0 +1,51 @@
+=== 1. SMOKE (MR off) vs COMMITTED (MR on), sim_id 1-30, same cell and seeds ===
+
+dina vs dina_effMaxSG_fb_mr_field_m1_h150_knoise0_n500_nb20_dinamr (Mac-Studio-3.local, 0.3.5, R 4.5.2):
+  identical(): detected=TRUE status=TRUE sg_def=TRUE n_sel=TRUE n_harm=TRUE n_true=TRUE label=TRUE sens=TRUE spec=TRUE ppv=TRUE npv=TRUE betaHhat_H=TRUE betaHhat_Hc=TRUE
+  truth identical: TRUE ; all.equal 1e-12: TRUE
+
+grf vs grf_effMaxSG_fb_mr_field_m1_h150_knoise0_n500_nb20_grfmr (Mac-Studio-3.local, 0.3.5, R 4.5.2):
+  identical(): detected=TRUE status=TRUE sg_def=TRUE n_sel=TRUE n_harm=TRUE n_true=TRUE label=TRUE sens=TRUE spec=TRUE ppv=TRUE npv=TRUE betaHhat_H=TRUE betaHhat_Hc=TRUE admitted_n=TRUE
+  truth identical: TRUE ; all.equal 1e-12: TRUE
+
+consistency vs fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n500_p12ext (pop-os, 0.3.5, R 4.6.1):
+  identical(): detected=TRUE status=TRUE sg_def=TRUE n_sel=TRUE n_harm=TRUE n_true=TRUE label=TRUE sens=TRUE spec=TRUE ppv=TRUE npv=TRUE betaHhat_H=FALSE betaHhat_Hc=FALSE
+  truth identical: FALSE ; all.equal 1e-12: TRUE
+  betaHhat_H differs on sim_id 23 (max abs diff 1.110223e-16)
+  betaHhat_Hc differs on sim_id 8 (max abs diff 1.110223e-16)
+
+=== the replicate only maxeff detects (consistency) ===
+   sim_id               sg_def n_sel n_true sens       ppv betaHhat_H
+21     21 {er <= 20} & !{meno}    86     49    1 0.5697674    1.13676
+maxeff vs maxeffCons, jointly detected but different rules:
+  sim_id                    maxeff                  maxeffCons
+1      9 {er <= 36} & !{pgr <= 28}   {er <= 8} & !{nodes <= 5}
+2     15   {pgr <= 0} & {er <= 98} {pgr <= 32} & !{size <= 35}
+
+=== 2. CELL-PROFILE-ADJUSTED PROJECTION (approximation) ===
+consistency        dina         grf 
+      2.079       2.326       1.262 
+ reps      engine cell_runs compute_h overhead_h wall_h     mult compute_adj_h
+ 2000 consistency       108      8.70       1.47  10.18 2.079101         18.09
+ 2000        dina        90      2.17       1.23   3.40 2.326347          5.05
+ 2000         grf        90      8.50       1.23   9.72 1.262268         10.73
+ 1000 consistency       108      4.35       0.98   5.33 2.079101          9.04
+ 1000        dina        90      1.09       0.82   1.90 2.326347          2.54
+ 1000         grf        90      4.25       0.82   5.07 1.262268          5.36
+  500 consistency       108      2.18       0.98   3.16 2.079101          4.53
+  500        dina        90      0.54       0.82   1.36 2.326347          1.26
+  500         grf        90      2.12       0.82   2.94 1.262268          2.68
+ wall_adj_h
+      19.56
+       6.28
+      11.96
+      10.02
+       3.36
+       6.18
+       5.51
+       2.08
+       3.50
+ reps wall_h wall_adj_h
+ 2000  23.30      37.80
+ 1000  12.30      19.56
+  500   7.46      11.09
