@@ -1,0 +1,113 @@
+=== IDSWEEP START Sun Sep 13 00:00:34 PDT 2026 ; ceiling 46800s (13 h) ; hard timeout 57600s (16 h) ; watchdog pid 20471 ; dry=0 ===
+  host Mac-Studio-3.local ; 14 physical cores ; 36 GB ; git e3863a33
+=== RE-PROJECTION before cell 1 (p124_h150_n500) at elapsed 0.00 h ===
+render overhead: 16.4 s per render -- smoke's 30-replicate median (no cell realized yet)
+            cell compute_s overhead_s wall_s finish_h    anchors
+  p124_h150_n500       969        262   1230     0.34 pBoc smoke
+ p124_h150_n1000      1683        262   1944     0.88 pBoc smoke
+ p124_h150_n1500      2696        262   2958     1.70 pBoc smoke
+   p31_h150_n500      1421        262   1682     2.17 pBoc smoke
+  p31_h150_n1000      2185        262   2446     2.85 pBoc smoke
+  p31_h150_n1500      3224        262   3485     3.82 pBoc smoke
+  p124_h175_n500       973        262   1235     4.16 pBoc smoke
+ p124_h175_n1000      1174        262   1436     4.56 pBoc smoke
+ p124_h175_n1500      1321        262   1583     5.00 pBoc smoke
+   p31_h175_n500      1519        262   1781     5.49 pBoc smoke
+  p31_h175_n1000      2328        262   2589     6.21 pBoc smoke
+  p31_h175_n1500      3436        262   3697     7.24 pBoc smoke
+  p124_h100_n500       795        262   1057     7.53 pBoc smoke
+ p124_h100_n1000      1259        262   1521     7.96 pBoc smoke
+ p124_h100_n1500      1779        262   2041     8.52 pBoc smoke
+   p31_h100_n500      1075        262   1336     8.89 pBoc smoke
+  p31_h100_n1000      1666        262   1927     9.43 pBoc smoke
+  p31_h100_n1500      2547        262   2809    10.21 pBoc smoke
+projected: all remaining finish at 10.21 h; 18 of 18 remaining fit under the ceiling in order
+DECISION cell 1 p124_h150_n500: elapsed 0.00 h + projected 1230 s = 0.34 h vs ceiling 13.00 h -> GO
+=== CELL START: p124_h150_n500 (z1q='' n=500 hr=1.50) Sun Sep 13 00:00:35 PDT 2026 ; elapsed 0s ===
+vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)
+System-wide memory free percentage: 85%
+=== RUN START: p124_h150_n500 consistency effMaxSG -> idsweep_p124_h150_n500_consistency_effMaxSG Sun Sep 13 00:00:35 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=effMaxSG FS_S7_NBHD=0.20
+  env unset: FS_S7_ER_JCUTS FS_S7_METHOD FS_S7_Z1Q
+WALL_SECONDS=115 RC=0 OUT=idsweep_p124_h150_n500_consistency_effMaxSG
+GATE A idsweep_p124_h150_n500_consistency_effMaxSG: 38 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 consistency effMinSG -> idsweep_p124_h150_n500_consistency_effMinSG Sun Sep 13 00:02:31 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=effMinSG FS_S7_NBHD=0.20
+  env unset: FS_S7_ER_JCUTS FS_S7_METHOD FS_S7_Z1Q
+WALL_SECONDS=109 RC=0 OUT=idsweep_p124_h150_n500_consistency_effMinSG
+GATE A idsweep_p124_h150_n500_consistency_effMinSG: 38 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 consistency maxeffCons -> idsweep_p124_h150_n500_consistency_maxeffCons Sun Sep 13 00:04:21 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=maxeffCons
+  env unset: FS_S7_ER_JCUTS FS_S7_NBHD FS_S7_METHOD FS_S7_Z1Q
+WALL_SECONDS=111 RC=0 OUT=idsweep_p124_h150_n500_consistency_maxeffCons
+GATE A idsweep_p124_h150_n500_consistency_maxeffCons: 38 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 consistency maxeff -> idsweep_p124_h150_n500_consistency_maxeff Sun Sep 13 00:06:13 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=maxeff
+  env unset: FS_S7_ER_JCUTS FS_S7_NBHD FS_S7_METHOD FS_S7_Z1Q
+WALL_SECONDS=149 RC=0 OUT=idsweep_p124_h150_n500_consistency_maxeff
+GATE A idsweep_p124_h150_n500_consistency_maxeff: 38 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 consistency maxSG -> idsweep_p124_h150_n500_consistency_maxSG Sun Sep 13 00:08:43 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=maxSG
+  env unset: FS_S7_ER_JCUTS FS_S7_NBHD FS_S7_METHOD FS_S7_Z1Q
+WALL_SECONDS=121 RC=0 OUT=idsweep_p124_h150_n500_consistency_maxSG
+GATE A idsweep_p124_h150_n500_consistency_maxSG: 38 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 consistency minSG -> idsweep_p124_h150_n500_consistency_minSG Sun Sep 13 00:10:45 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=minSG
+  env unset: FS_S7_ER_JCUTS FS_S7_NBHD FS_S7_METHOD FS_S7_Z1Q
+WALL_SECONDS=111 RC=0 OUT=idsweep_p124_h150_n500_consistency_minSG
+GATE A idsweep_p124_h150_n500_consistency_minSG: 38 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 dina effMaxSG -> idsweep_p124_h150_n500_dina_effMaxSG Sun Sep 13 00:12:37 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=effMaxSG FS_S7_NBHD=0.20 FS_S7_METHOD=dina
+  env unset: FS_S7_ER_JCUTS FS_S7_Z1Q
+WALL_SECONDS=81 RC=0 OUT=idsweep_p124_h150_n500_dina_effMaxSG
+GATE A idsweep_p124_h150_n500_dina_effMaxSG: 38 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 dina effMinSG -> idsweep_p124_h150_n500_dina_effMinSG Sun Sep 13 00:13:59 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=effMinSG FS_S7_NBHD=0.20 FS_S7_METHOD=dina
+  env unset: FS_S7_ER_JCUTS FS_S7_Z1Q
+WALL_SECONDS=75 RC=0 OUT=idsweep_p124_h150_n500_dina_effMinSG
+GATE A idsweep_p124_h150_n500_dina_effMinSG: 38 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 dina maxSG -> idsweep_p124_h150_n500_dina_maxSG Sun Sep 13 00:15:15 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=maxSG FS_S7_METHOD=dina
+  env unset: FS_S7_ER_JCUTS FS_S7_NBHD FS_S7_Z1Q
+WALL_SECONDS=79 RC=0 OUT=idsweep_p124_h150_n500_dina_maxSG
+GATE A idsweep_p124_h150_n500_dina_maxSG: 38 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 dina minSG -> idsweep_p124_h150_n500_dina_minSG Sun Sep 13 00:16:35 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=minSG FS_S7_METHOD=dina
+  env unset: FS_S7_ER_JCUTS FS_S7_NBHD FS_S7_Z1Q
+WALL_SECONDS=77 RC=0 OUT=idsweep_p124_h150_n500_dina_minSG
+GATE A idsweep_p124_h150_n500_dina_minSG: 38 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 dina maxeffCons -> idsweep_p124_h150_n500_dina_eff Sun Sep 13 00:17:53 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=maxeffCons FS_S7_METHOD=dina
+  env unset: FS_S7_ER_JCUTS FS_S7_NBHD FS_S7_Z1Q
+WALL_SECONDS=77 RC=0 OUT=idsweep_p124_h150_n500_dina_eff
+GATE A idsweep_p124_h150_n500_dina_eff: 38 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 grf effMaxSG -> idsweep_p124_h150_n500_grf_effMaxSG Sun Sep 13 00:19:11 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=effMaxSG FS_S7_NBHD=0.20 FS_S7_METHOD=grf
+  env unset: FS_S7_ER_JCUTS FS_S7_Z1Q
+WALL_SECONDS=142 RC=0 OUT=idsweep_p124_h150_n500_grf_effMaxSG
+GATE A idsweep_p124_h150_n500_grf_effMaxSG: 44 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 grf effMinSG -> idsweep_p124_h150_n500_grf_effMinSG Sun Sep 13 00:21:34 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=effMinSG FS_S7_NBHD=0.20 FS_S7_METHOD=grf
+  env unset: FS_S7_ER_JCUTS FS_S7_Z1Q
+WALL_SECONDS=136 RC=0 OUT=idsweep_p124_h150_n500_grf_effMinSG
+GATE A idsweep_p124_h150_n500_grf_effMinSG: 44 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 grf maxSG -> idsweep_p124_h150_n500_grf_maxSG Sun Sep 13 00:23:51 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=maxSG FS_S7_METHOD=grf
+  env unset: FS_S7_ER_JCUTS FS_S7_NBHD FS_S7_Z1Q
+WALL_SECONDS=141 RC=0 OUT=idsweep_p124_h150_n500_grf_maxSG
+GATE A idsweep_p124_h150_n500_grf_maxSG: 44 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 grf minSG -> idsweep_p124_h150_n500_grf_minSG Sun Sep 13 00:26:13 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=minSG FS_S7_METHOD=grf
+  env unset: FS_S7_ER_JCUTS FS_S7_NBHD FS_S7_Z1Q
+WALL_SECONDS=138 RC=0 OUT=idsweep_p124_h150_n500_grf_minSG
+GATE A idsweep_p124_h150_n500_grf_minSG: 44 passes, 0 failures -- PASS
+=== RUN START: p124_h150_n500 grf maxeffCons -> idsweep_p124_h150_n500_grf_eff Sun Sep 13 00:28:32 PDT 2026 ===
+  env set:   FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12 FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=500 FS_S7_HR=1.50 FS_S7_N=500 FS_S7_FOCUS=maxeffCons FS_S7_METHOD=grf
+  env unset: FS_S7_ER_JCUTS FS_S7_NBHD FS_S7_Z1Q
+WALL_SECONDS=136 RC=0 OUT=idsweep_p124_h150_n500_grf_eff
+GATE A idsweep_p124_h150_n500_grf_eff: 44 passes, 0 failures -- PASS
+CELL DONE: p124_h150_n500  wall=1814s
+GATE I p124_h150_n500: 291 checks passed, 2 failed -- FAIL: STOP
+[FAIL] dina maxSG: `npv` not populated on every detected replicate (8 NA of 436)
+[FAIL] dina maxSG: `npv` outside [0,1] on a detected replicate
+=== GATE I FAILED at p124_h150_n500: STOPPING THE SWEEP Sun Sep 13 00:30:49 PDT 2026 ===

@@ -224,8 +224,8 @@ if (MODE == "gate1") {
   R <- realized(); stopifnot(!is.null(R))
   g1 <- readRDS(file.path(SCRATCH, "idsweep_gate1.rds"))
   hist <- if (file.exists(file.path(SCRATCH, "idsweep_reproject.rds"))) readRDS(file.path(SCRATCH, "idsweep_reproject.rds")) else list()
-  dl <- file.path(SCRATCH, "logs", "idsweep.driver.log")
-  cd <- if (file.exists(dl)) grep("^CELL DONE: ", readLines(dl, warn = FALSE), value = TRUE) else character(0)
+  dl <- Sys.glob(file.path(SCRATCH, "logs", "idsweep.driver*.log"))   # part1, part2, ... after a resume
+  cd <- unlist(lapply(dl, function(f) grep("^CELL DONE: ", readLines(f, warn = FALSE), value = TRUE)))
   cw <- setNames(as.numeric(sub(".*wall=([0-9]+)s.*", "\\1", cd)), sub("^CELL DONE: (\\S+).*", "\\1", cd))
   re <- aggregate(cbind(compute_s, wall_s) ~ ci, R, sum)
   re$cell <- cells$tag[re$ci]

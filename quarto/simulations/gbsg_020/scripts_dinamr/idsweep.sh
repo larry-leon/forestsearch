@@ -35,18 +35,25 @@ DRY=0; [[ "${2:-}" == "--dry" ]] && DRY=1
 PIN=(FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE
      FS_S7_FIELD_RECOV=TRUE FS_S7_IJ_RESIDUAL=two_term FS_S7_FB=none FS_S7_WORKERS=12)
 BASE=($PIN FS_S7_MR=FALSE FS_S7_CAMPAIGN=idsweep FS_S7_MODE=batch FS_S7_START=1 FS_S7_NSIMS=$REPS)
-T0=$(date +%s)
+# RESUME (added after Gate I stopped part 1 at cell 1; see REPORT_idsweep).
+#   IDSWEEP_T0   the campaign's ORIGINAL start (epoch s): elapsed time for the
+#                13 h ceiling and the 16 h hard timeout both count from it.
+#   IDSWEEP_FROM first cell index to run; earlier cells were completed (and
+#                gated) in an earlier part and are skipped, not re-run.
+T0=${IDSWEEP_T0:-$(date +%s)}
+FROM=${IDSWEEP_FROM:-1}
+REMAIN_S=$(( TIMEOUT_S - ($(date +%s) - T0) ))
 WATCHDOG=""
 if (( ! DRY )); then
   MAINPID=$$
-  ( sleep $TIMEOUT_S
+  ( sleep $REMAIN_S
     echo "=== HARD TIMEOUT ${TIMEOUT_S}s REACHED $(date): killing the render and the driver ==="
     pkill -f "quarto render sim_fs_maxeffCons_fb_mr_field_m1_template.qmd"
     kill $MAINPID ) &
   WATCHDOG=$!
 fi
 stop_run () { [[ -n "$WATCHDOG" ]] && kill $WATCHDOG 2>/dev/null; exit $1; }
-echo "=== IDSWEEP START $(date) ; ceiling 46800s (13 h) ; hard timeout ${TIMEOUT_S}s (16 h) ; watchdog pid ${WATCHDOG:-none} ; dry=$DRY ==="
+echo "=== IDSWEEP START $(date) ; campaign T0 $T0 ($(date -r $T0)) ; from cell $FROM ; ceiling 46800s (13 h) ; hard timeout ${TIMEOUT_S}s (16 h) from T0, ${REMAIN_S}s remaining ; watchdog pid ${WATCHDOG:-none} ; dry=$DRY ==="
 echo "  host $(hostname) ; $(sysctl -n hw.physicalcpu) physical cores ; $(( $(sysctl -n hw.memsize) / 1073741824 )) GB ; git $(git rev-parse --short HEAD)"
 
 run () {  # $1=engine $2=sg_focus $3=z1q ("" = unset) $4=n $5=hr $6=cell tag
@@ -77,6 +84,7 @@ while read -r Z N H T; do
   [[ -z "$T" ]] && continue
   CI=$(( CI + 1 ))
   [[ "$Z" == "-" ]] && Z=""
+  if (( CI < FROM )); then DONE+=($T); echo "=== CELL $T: completed and gated in an earlier part of this campaign; skipped ==="; continue; fi
   if (( DEFER )); then DEFERRED+=($T); echo "=== CELL DEFERRED: $T (deferred from the tail) ==="; continue; fi
   EL=$(( $(date +%s) - T0 ))
   if (( ! DRY )); then

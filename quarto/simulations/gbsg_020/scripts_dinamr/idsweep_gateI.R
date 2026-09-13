@@ -70,14 +70,33 @@ for (j in seq_len(nrow(runs))) {
   d <- st %in% "DETECTED"
   say(identical(as.integer(r$detected %in% 1L), as.integer(d)), sprintf("%s: detected != (status == DETECTED)", k))
   idc <- c("detected", "n_sel", "label", "sg_def", "sens", "spec", "ppv", "npv", if (e == "grf") "admitted_n")
+  # AMENDMENT 1 (2026-09-13, after Gate I stopped the sweep at p124_h150_n500).
+  # The template's .classify() (template :848) returns NA for a rate whose
+  # denominator is zero.  On a detected replicate the recorded counts say
+  # exactly when: NPV when n_sel == n (the selection is the whole trial, no
+  # predicted negatives), PPV when n_sel == 0, sensitivity when n_true == 0,
+  # specificity when n_true == n.  Such an NA is UNDEFINED, not unrecorded; it is
+  # counted and reported as structural.  Any NA not explained this way still
+  # fails.  (First seen: DINA maxSG, 8 of 436 detected replicates, each with
+  # n_sel = 500 and NPV NA, and no other NA on any detected row of the cell.)
+  zero_den <- list(sens = r$n_true == 0L, spec = r$n_true == N, ppv = r$n_sel == 0L, npv = r$n_sel == N)
+  und <- setNames(integer(4), names(zero_den))
   for (cc in idc) {
-    ok <- cc %in% names(r) && all(!is.na(r[[cc]][d])) &&
-          (!is.character(r[[cc]]) || all(nzchar(r[[cc]][d])))
-    say(ok, sprintf("%s: `%s` not populated on every detected replicate (%d NA of %d)", k, cc,
-                    if (cc %in% names(r)) sum(is.na(r[[cc]][d])) else NA_integer_, sum(d)))
+    present <- cc %in% names(r)
+    na_d <- if (present) is.na(r[[cc]]) & d else d
+    if (present && cc %in% names(zero_den)) {
+      allowed <- na_d & (zero_den[[cc]] %in% TRUE)
+      und[[cc]] <- sum(allowed); na_d <- na_d & !allowed
+    }
+    ok <- present && !any(na_d) &&
+          (!is.character(r[[cc]]) || all(nzchar(r[[cc]][d & !is.na(r[[cc]])])))
+    say(ok, sprintf("%s: `%s` NA on %d detected replicate(s) not explained by a zero denominator (%d detected)",
+                    k, cc, sum(na_d), sum(d)))
   }
-  for (cc in c("sens", "spec", "ppv", "npv"))
-    say(all(r[[cc]][d] >= 0 & r[[cc]][d] <= 1), sprintf("%s: `%s` outside [0,1] on a detected replicate", k, cc))
+  for (cc in c("sens", "spec", "ppv", "npv")) {
+    x <- r[[cc]][d]; x <- x[!is.na(x)]
+    say(all(x >= 0 & x <= 1), sprintf("%s: `%s` outside [0,1] on a detected replicate", k, cc))
+  }
   struct <- c(n_family = all(is.na(r$n_family)),
               n_cons_qual = all(is.na(r$n_cons_qual)), band_n = all(is.na(r$band_n)))
   rows[[length(rows) + 1L]] <- data.frame(
@@ -89,6 +108,7 @@ for (j in seq_len(nrow(runs))) {
     band_n = if (struct[["band_n"]]) "all NA" else sprintf("populated %d/%d det", sum(!is.na(r$band_n[d])), sum(d)),
     admitted_n = if (e == "grf") sprintf("finite %d/%d", sum(is.finite(r$admitted_n)), nrow(r)) else "--",
     mr_ok_max = suppressWarnings(max(r$mr_ok, na.rm = TRUE)),
+    undefined_rates = if (any(und > 0)) paste(sprintf("%s:%d", names(und)[und > 0], und[und > 0]), collapse = " ") else "none",
     stringsAsFactors = FALSE)
 }
 TB <- do.call(rbind, rows)
@@ -106,6 +126,9 @@ for (e in unique(TB$engine)) {
 }
 if (any(!TB$n_family_allNA)) cat("  NOTE: n_family populated on a run with MR off -- unexpected; reported, not gated\n")
 cat(sprintf("  mr_ok max over all runs: %s\n", paste(unique(TB$mr_ok_max), collapse = ",")))
+ud <- TB[TB$undefined_rates != "none", ]
+cat(sprintf("  undefined classification rates on detected replicates (zero denominator; Amendment 1): %s\n",
+            if (nrow(ud)) paste(sprintf("%s %s [%s]", ud$engine, ud$sg_focus, ud$undefined_rates), collapse = "; ") else "none"))
 
 cat("\n--- counts ---\n")
 cat(sprintf("  detections %d, non-detections %d, errors %d over %d replicates x %d runs\n",
