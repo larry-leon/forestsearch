@@ -1,0 +1,24 @@
+=== 1. RESOLVED FROM SOURCE ===
+  sim_fs_maxeffCons_fb_mr_field_m1_template.qmd:503  grf_selection   <- "frontier"      # only if subgroup_method == "grf": "tree" | "frontier"
+  sim_fs_maxeffCons_fb_mr_field_m1_template.qmd:504  grf_select_statistic <- "effect"   # only if grf frontier: "dr" | "effect" (no-op for tree)
+  sim_fs_maxeffCons_fb_mr_field_m1_template.qmd:506  dmin.grf        <- 0.0             # GRF DR-score screening floor
+  sim_fs_maxeffCons_fb_mr_field_m1_template.qmd:505  grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
+[PASS] grf_select_statistic resolves to "effect" (required "effect")
+[PASS] grf_selection resolves to "frontier" (required "frontier")
+[PASS] dmin.grf resolves to 0 (required 0.0)
+
+=== 2. RESOLVED IN THE RENDERED DOCUMENT (the batch's own audit line) ===
+  Run config: method=grf/frontier, n_sims=1000, nb_boots=0, mr_draws=5000, workers=12
+[PASS] the batch's audit line reads method=grf/frontier
+
+=== 3. CORROBORATED BY THE BUNDLE (the effect/frontier path's own output) ===
+[PASS] meta$subgroup_method = grf
+[PASS] admitted_n column present (Part T2)
+[PASS] admitted_n finite on 866 of 1000 rows -- the effect/frontier re-selection ran
+  admitted_n: median 23, range 0-279 ; n_family: median 829, range 814-913
+
+NOTE: dmin.grf is resolved from SOURCE ONLY.  It is the DR-score pre-filter
+(grf_main.R:291) and is consumed before any quantity that reaches the bundle,
+so there is no read-back for it and the gate does not claim one.
+
+GATE 3: 7 passes, 0 failures -- PASS

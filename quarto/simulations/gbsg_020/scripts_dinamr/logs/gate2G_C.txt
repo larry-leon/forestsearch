@@ -1,0 +1,396 @@
+
+########## GATE 2 (grfmr): 12.4% -- HR 1.00, n 500 ##########
+  2,000 rows                                     PASS   (2000)
+  sim_id 1..2000 exactly, no duplicates          PASS   
+  no CONFIG-ERROR replicate                      PASS   (0)
+  meta: subgroup_method == 'grf'                 PASS   
+  meta: sg_focus == 'effMaxSG'                   PASS   
+  meta: effect_neighborhood == 0.20              PASS   
+  meta: field_complement TRUE                    PASS   
+  meta: field_decompose TRUE                     PASS   
+  meta: field_scale_complement 'selected'        PASS   
+  meta: field_recovery TRUE                      PASS   
+  meta: ij_residual 'two_term'                   PASS   
+  meta: campaign_tag 'grfmr'                     PASS   
+  meta: 2 seed-disjoint batches                  PASS   (2)
+  meta: n_workers recorded in every batch        PASS   (12)
+  meta: forestsearch_version recorded            PASS   (0.3.5)
+  meta seed_base 8316951 | host Mac-Studio-3.local | R 4.5.2
+  >> SELECTION RATE            : 0.9840 (1968 / 2000)
+  >> ADMITTED_N (qualified)   : min 0  q25 32  MED 61.5  q75 113  p90 179.1  max 551  (mean 83.5, CV 0.898, n 1970)
+     admitted_n == 0 on 2 row(s); recorded on 1970 of 2000 rows
+  >> N_FAMILY (ENUMERATED POOL, not the qualified set): min 712  q25 771  med 776  q75 780  p90 784  max 870  (CV 0.0181)
+     n_family is .grf_dr_candidates()'s enumeration from quantiles of X subject to n_min
+     (R/grf_subgroup_labels.R:255-277): it does not depend on the outcome.  admitted_n does.
+     admitted_n / n_family: median share 0.0792 ; rho(admitted_n, n_family) = +0.033 on 1968 rows
+  >> REALIZED PREVALENCE      : super-population 0.12418 | trial mean 0.12363
+  every product finite on detected replicates    PASS   (38 quantities)
+  nine recovery columns present & populated      PASS   
+  p-hat block present & populated                PASS   
+  rho-c (fld_Hc_scale_ratio) present & populated PASS   
+  admitted_n present (Part T2) & populated on the GRF path PASS   
+  invariant harm  : fld_H_lo1s <= fld_H_est2     PASS   
+  invariant compl : fld_Hc_est2 <= fld_Hc_up1s   PASS   
+  invariant _s    : fld_Hc_est2_s <= fld_Hc_up1s_s PASS   
+  invariant joint : bonf_loH <= fld_H_est2       PASS   
+  invariant joint : fld_Hc_est2 <= bonf_upHc     PASS   
+  invariant jointS: bonf_loH_s <= fld_H_est2     PASS   
+  invariant jointS: fld_Hc_est2_s <= bonf_upHc_s PASS   
+  invariant IJ    : mr_H_lo <= est <= mr_H_hi    PASS   
+  invariant IJ    : mr_Hc_lo <= est <= mr_Hc_hi  PASS   
+  invariant rho-c : scale_ratio > 0              PASS   
+  invariant admitted_n : >= 1 on every detected replicate PASS   (min on detected 1)
+  gamma (joint)   in [0.025, 0.05]               PASS   [0.02500, 0.02700]
+  gamma (joint-s) in [0.025, 0.05]               PASS   [0.02500, 0.02700]
+  identity: field-s inverted around the same bdc PASS   max |diff| = 3.33e-16
+  identity: joint bonf == raw where gamma at floor PASS   max |diff| = 0 (share at floor 0.931 / 0.882)
+  p-hat validity (0<=p<=1, p_H<=sum, p_H<=top1)  PASS   
+  >> CLASSIFICATION           : sens 0.3559 spec 0.8104 ppv 0.2129 npv 0.8999 | mean |Hhat| 105.2
+  >> NON-DETECTIONS           : 32 (0.0160). status NO-DETECTION | err_msg 0
+     admitted_n on non-detections: == 0 2 | > 0 0 | NA 30  (Part T2 makes this separable, unlike DINA)
+     n_family on non-detections  : NA 32 | > 0 0  (NA is expected: it is read from the MR gate object)
+  STRUCTURAL n_cons_qual  present, all-NA -- STRUCTURAL on GRF (no consistency screen), NOT a failure
+  STRUCTURAL band_n       present, all-NA -- STRUCTURAL on GRF (no consistency screen), NOT a failure
+  STRUCTURAL p_star       not a recorder column (admission-set term; NULL on GRF)
+  --- Amendment 3 (same-draws vs the committed FS comparator) ---
+  designated FS comparator resolves (tier2/p12ext/e1stud/cert20, on disk) PASS   (fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n500_tier2_combined_1_2000.rds)
+      n_true and truth come from the DGM (simulate_from_dgm / setup_gbsg_dgm),
+      never from GRF, so GRF's cross-context irreproducibility does not touch this.
+    comparator: fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n500_tier2_combined_1_2000.rds  (focus maxeffCons, eps 0.1, campaign tier2)
+    criterion match: NOT MATCHED (maxeffCons, eps 0.1) -- a confound in every comparison against this cell
+    n_true identical() on all 2000 rows : YES
+    truth all.equal(tol = 1e-08)          : YES
+    truth identical() [reported, not asserted]: TRUE
+    truth max |abs diff| 0 ; max |rel diff| 0
+    FS family (same cell)    : min 1037 med 1223 q90 1318 max 1380 CV 0.0536 | detection 0.6805
+    GRF enumerated pool      : min 712 med 776 q90 784 max 870 CV 0.0181 | detection 0.9840
+
+########## GATE 2 (grfmr): 12.4% -- HR 1.00, n 1000 ##########
+  2,000 rows                                     PASS   (2000)
+  sim_id 1..2000 exactly, no duplicates          PASS   
+  no CONFIG-ERROR replicate                      PASS   (0)
+  meta: subgroup_method == 'grf'                 PASS   
+  meta: sg_focus == 'effMaxSG'                   PASS   
+  meta: effect_neighborhood == 0.20              PASS   
+  meta: field_complement TRUE                    PASS   
+  meta: field_decompose TRUE                     PASS   
+  meta: field_scale_complement 'selected'        PASS   
+  meta: field_recovery TRUE                      PASS   
+  meta: ij_residual 'two_term'                   PASS   
+  meta: campaign_tag 'grfmr'                     PASS   
+  meta: 2 seed-disjoint batches                  PASS   (2)
+  meta: n_workers recorded in every batch        PASS   (12)
+  meta: forestsearch_version recorded            PASS   (0.3.5)
+  meta seed_base 8316951 | host Mac-Studio-3.local | R 4.5.2
+  >> SELECTION RATE            : 0.9575 (1915 / 2000)
+  >> ADMITTED_N (qualified)   : min 0  q25 17  MED 38  q75 70  p90 109  max 304  (mean 50.8, CV 0.901, n 1917)
+     admitted_n == 0 on 2 row(s); recorded on 1917 of 2000 rows
+  >> N_FAMILY (ENUMERATED POOL, not the qualified set): min 779  q25 826  med 830  q75 833  p90 836  max 914  (CV 0.0113)
+     n_family is .grf_dr_candidates()'s enumeration from quantiles of X subject to n_min
+     (R/grf_subgroup_labels.R:255-277): it does not depend on the outcome.  admitted_n does.
+     admitted_n / n_family: median share 0.0455 ; rho(admitted_n, n_family) = +0.016 on 1915 rows
+  >> REALIZED PREVALENCE      : super-population 0.12418 | trial mean 0.12388
+  every product finite on detected replicates    PASS   (38 quantities)
+  nine recovery columns present & populated      PASS   
+  p-hat block present & populated                PASS   
+  rho-c (fld_Hc_scale_ratio) present & populated PASS   
+  admitted_n present (Part T2) & populated on the GRF path PASS   
+  invariant harm  : fld_H_lo1s <= fld_H_est2     PASS   
+  invariant compl : fld_Hc_est2 <= fld_Hc_up1s   PASS   
+  invariant _s    : fld_Hc_est2_s <= fld_Hc_up1s_s PASS   
+  invariant joint : bonf_loH <= fld_H_est2       PASS   
+  invariant joint : fld_Hc_est2 <= bonf_upHc     PASS   
+  invariant jointS: bonf_loH_s <= fld_H_est2     PASS   
+  invariant jointS: fld_Hc_est2_s <= bonf_upHc_s PASS   
+  invariant IJ    : mr_H_lo <= est <= mr_H_hi    PASS   
+  invariant IJ    : mr_Hc_lo <= est <= mr_Hc_hi  PASS   
+  invariant rho-c : scale_ratio > 0              PASS   
+  invariant admitted_n : >= 1 on every detected replicate PASS   (min on detected 1)
+  gamma (joint)   in [0.025, 0.05]               PASS   [0.02500, 0.02700]
+  gamma (joint-s) in [0.025, 0.05]               PASS   [0.02500, 0.02700]
+  identity: field-s inverted around the same bdc PASS   max |diff| = 3.33e-16
+  identity: joint bonf == raw where gamma at floor PASS   max |diff| = 0 (share at floor 0.930 / 0.887)
+  p-hat validity (0<=p<=1, p_H<=sum, p_H<=top1)  PASS   
+  >> CLASSIFICATION           : sens 0.4337 spec 0.8299 ppv 0.2753 npv 0.9126 | mean |Hhat| 202.9
+  >> NON-DETECTIONS           : 85 (0.0425). status NO-DETECTION | err_msg 0
+     admitted_n on non-detections: == 0 2 | > 0 0 | NA 83  (Part T2 makes this separable, unlike DINA)
+     n_family on non-detections  : NA 85 | > 0 0  (NA is expected: it is read from the MR gate object)
+  STRUCTURAL n_cons_qual  present, all-NA -- STRUCTURAL on GRF (no consistency screen), NOT a failure
+  STRUCTURAL band_n       present, all-NA -- STRUCTURAL on GRF (no consistency screen), NOT a failure
+  STRUCTURAL p_star       not a recorder column (admission-set term; NULL on GRF)
+  --- Amendment 3 (same-draws vs the committed FS comparator) ---
+  designated FS comparator resolves (tier2/p12ext/e1stud/cert20, on disk) PASS   (fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n1000_p12ext_combined_1_2000.rds)
+      n_true and truth come from the DGM (simulate_from_dgm / setup_gbsg_dgm),
+      never from GRF, so GRF's cross-context irreproducibility does not touch this.
+    comparator: fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n1000_p12ext_combined_1_2000.rds  (focus maxeffCons, eps 0.1, campaign p12ext)
+    criterion match: NOT MATCHED (maxeffCons, eps 0.1) -- a confound in every comparison against this cell
+    n_true identical() on all 2000 rows : YES
+    truth all.equal(tol = 1e-08)          : YES
+    truth identical() [reported, not asserted]: FALSE
+    truth max |abs diff| 2.22e-16 ; max |rel diff| 3.797e-16
+    FS family (same cell)    : min 1119 med 1300 q90 1398 max 1418 CV 0.0406 | detection 0.6595
+    GRF enumerated pool      : min 779 med 830 q90 836 max 914 CV 0.0113 | detection 0.9575
+
+########## GATE 2 (grfmr): 12.4% -- HR 1.00, n 1500 ##########
+  2,000 rows                                     PASS   (2000)
+  sim_id 1..2000 exactly, no duplicates          PASS   
+  no CONFIG-ERROR replicate                      PASS   (0)
+  meta: subgroup_method == 'grf'                 PASS   
+  meta: sg_focus == 'effMaxSG'                   PASS   
+  meta: effect_neighborhood == 0.20              PASS   
+  meta: field_complement TRUE                    PASS   
+  meta: field_decompose TRUE                     PASS   
+  meta: field_scale_complement 'selected'        PASS   
+  meta: field_recovery TRUE                      PASS   
+  meta: ij_residual 'two_term'                   PASS   
+  meta: campaign_tag 'grfmr'                     PASS   
+  meta: 2 seed-disjoint batches                  PASS   (2)
+  meta: n_workers recorded in every batch        PASS   (12)
+  meta: forestsearch_version recorded            PASS   (0.3.5)
+  meta seed_base 8316951 | host Mac-Studio-3.local | R 4.5.2
+  >> SELECTION RATE            : 0.8675 (1735 / 2000)
+  >> ADMITTED_N (qualified)   : min 0  q25 11  MED 23  q75 42  p90 70  max 279  (mean 31.8, CV 0.945, n 1743)
+     admitted_n == 0 on 8 row(s); recorded on 1743 of 2000 rows
+  >> N_FAMILY (ENUMERATED POOL, not the qualified set): min 780  q25 826  med 829  q75 833  p90 836  max 913  (CV 0.0077)
+     n_family is .grf_dr_candidates()'s enumeration from quantiles of X subject to n_min
+     (R/grf_subgroup_labels.R:255-277): it does not depend on the outcome.  admitted_n does.
+     admitted_n / n_family: median share 0.0277 ; rho(admitted_n, n_family) = +0.019 on 1735 rows
+  >> REALIZED PREVALENCE      : super-population 0.12418 | trial mean 0.12401
+  every product finite on detected replicates    PASS   (38 quantities)
+  nine recovery columns present & populated      PASS   
+  p-hat block present & populated                PASS   
+  rho-c (fld_Hc_scale_ratio) present & populated PASS   
+  admitted_n present (Part T2) & populated on the GRF path PASS   
+  invariant harm  : fld_H_lo1s <= fld_H_est2     PASS   
+  invariant compl : fld_Hc_est2 <= fld_Hc_up1s   PASS   
+  invariant _s    : fld_Hc_est2_s <= fld_Hc_up1s_s PASS   
+  invariant joint : bonf_loH <= fld_H_est2       PASS   
+  invariant joint : fld_Hc_est2 <= bonf_upHc     PASS   
+  invariant jointS: bonf_loH_s <= fld_H_est2     PASS   
+  invariant jointS: fld_Hc_est2_s <= bonf_upHc_s PASS   
+  invariant IJ    : mr_H_lo <= est <= mr_H_hi    PASS   
+  invariant IJ    : mr_Hc_lo <= est <= mr_Hc_hi  PASS   
+  invariant rho-c : scale_ratio > 0              PASS   
+  invariant admitted_n : >= 1 on every detected replicate PASS   (min on detected 1)
+  gamma (joint)   in [0.025, 0.05]               PASS   [0.02500, 0.02600]
+  gamma (joint-s) in [0.025, 0.05]               PASS   [0.02500, 0.02700]
+  identity: field-s inverted around the same bdc PASS   max |diff| = 3.33e-16
+  identity: joint bonf == raw where gamma at floor PASS   max |diff| = 0 (share at floor 0.938 / 0.899)
+  p-hat validity (0<=p<=1, p_H<=sum, p_H<=top1)  PASS   
+  >> CLASSIFICATION           : sens 0.5264 spec 0.8336 ppv 0.3240 npv 0.9263 | mean |Hhat| 316.7
+  >> NON-DETECTIONS           : 265 (0.1325). status NO-DETECTION | err_msg 0
+     admitted_n on non-detections: == 0 8 | > 0 0 | NA 257  (Part T2 makes this separable, unlike DINA)
+     n_family on non-detections  : NA 265 | > 0 0  (NA is expected: it is read from the MR gate object)
+  STRUCTURAL n_cons_qual  present, all-NA -- STRUCTURAL on GRF (no consistency screen), NOT a failure
+  STRUCTURAL band_n       present, all-NA -- STRUCTURAL on GRF (no consistency screen), NOT a failure
+  STRUCTURAL p_star       not a recorder column (admission-set term; NULL on GRF)
+  --- Amendment 3 (same-draws vs the committed FS comparator) ---
+  designated FS comparator resolves (tier2/p12ext/e1stud/cert20, on disk) PASS   (fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n1500_p12ext_combined_1_2000.rds)
+      n_true and truth come from the DGM (simulate_from_dgm / setup_gbsg_dgm),
+      never from GRF, so GRF's cross-context irreproducibility does not touch this.
+    comparator: fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n1500_p12ext_combined_1_2000.rds  (focus maxeffCons, eps 0.1, campaign p12ext)
+    criterion match: NOT MATCHED (maxeffCons, eps 0.1) -- a confound in every comparison against this cell
+    n_true identical() on all 2000 rows : YES
+    truth all.equal(tol = 1e-08)          : YES
+    truth identical() [reported, not asserted]: FALSE
+    truth max |abs diff| 2.22e-16 ; max |rel diff| 3.797e-16
+    FS family (same cell)    : min 1195 med 1297 q90 1396 max 1410 CV 0.0362 | detection 0.6240
+    GRF enumerated pool      : min 780 med 829 q90 836 max 913 CV 0.0077 | detection 0.8675
+
+########## GATE 2 (grfmr): 31% -- HR 1.00, n 500 ##########
+  2,000 rows                                     PASS   (2000)
+  sim_id 1..2000 exactly, no duplicates          PASS   
+  no CONFIG-ERROR replicate                      PASS   (0)
+  meta: subgroup_method == 'grf'                 PASS   
+  meta: sg_focus == 'effMaxSG'                   PASS   
+  meta: effect_neighborhood == 0.20              PASS   
+  meta: field_complement TRUE                    PASS   
+  meta: field_decompose TRUE                     PASS   
+  meta: field_scale_complement 'selected'        PASS   
+  meta: field_recovery TRUE                      PASS   
+  meta: ij_residual 'two_term'                   PASS   
+  meta: campaign_tag 'grfmr'                     PASS   
+  meta: 2 seed-disjoint batches                  PASS   (2)
+  meta: n_workers recorded in every batch        PASS   (12)
+  meta: forestsearch_version recorded            PASS   (0.3.5)
+  meta seed_base 8316951 | host Mac-Studio-3.local | R 4.5.2
+  >> SELECTION RATE            : 0.9970 (1994 / 2000)
+  >> ADMITTED_N (qualified)   : min 0  q25 95.5  MED 166  q75 281  p90 397.6  max 721  (mean 200.7, CV 0.675, n 1995)
+     admitted_n == 0 on 1 row(s); recorded on 1995 of 2000 rows
+  >> N_FAMILY (ENUMERATED POOL, not the qualified set): min 712  q25 771  med 776  q75 780  p90 784  max 870  (CV 0.0181)
+     n_family is .grf_dr_candidates()'s enumeration from quantiles of X subject to n_min
+     (R/grf_subgroup_labels.R:255-277): it does not depend on the outcome.  admitted_n does.
+     admitted_n / n_family: median share 0.2138 ; rho(admitted_n, n_family) = +0.031 on 1994 rows
+  >> REALIZED PREVALENCE      : super-population 0.30655 | trial mean 0.30591
+  every product finite on detected replicates    PASS   (38 quantities)
+  nine recovery columns present & populated      PASS   
+  p-hat block present & populated                PASS   
+  rho-c (fld_Hc_scale_ratio) present & populated PASS   
+  admitted_n present (Part T2) & populated on the GRF path PASS   
+  invariant harm  : fld_H_lo1s <= fld_H_est2     PASS   
+  invariant compl : fld_Hc_est2 <= fld_Hc_up1s   PASS   
+  invariant _s    : fld_Hc_est2_s <= fld_Hc_up1s_s PASS   
+  invariant joint : bonf_loH <= fld_H_est2       PASS   
+  invariant joint : fld_Hc_est2 <= bonf_upHc     PASS   
+  invariant jointS: bonf_loH_s <= fld_H_est2     PASS   
+  invariant jointS: fld_Hc_est2_s <= bonf_upHc_s PASS   
+  invariant IJ    : mr_H_lo <= est <= mr_H_hi    PASS   
+  invariant IJ    : mr_Hc_lo <= est <= mr_Hc_hi  PASS   
+  invariant rho-c : scale_ratio > 0              PASS   
+  invariant admitted_n : >= 1 on every detected replicate PASS   (min on detected 1)
+  gamma (joint)   in [0.025, 0.05]               PASS   [0.02500, 0.02700]
+  gamma (joint-s) in [0.025, 0.05]               PASS   [0.02500, 0.02700]
+  identity: field-s inverted around the same bdc PASS   max |diff| = 3.33e-16
+  identity: joint bonf == raw where gamma at floor PASS   max |diff| = 0 (share at floor 0.922 / 0.870)
+  p-hat validity (0<=p<=1, p_H<=sum, p_H<=top1)  PASS   
+  >> CLASSIFICATION           : sens 0.3501 spec 0.8350 ppv 0.4710 npv 0.7480 | mean |Hhat| 110.8
+  >> NON-DETECTIONS           : 6 (0.0030). status NO-DETECTION | err_msg 0
+     admitted_n on non-detections: == 0 1 | > 0 0 | NA 5  (Part T2 makes this separable, unlike DINA)
+     n_family on non-detections  : NA 6 | > 0 0  (NA is expected: it is read from the MR gate object)
+  STRUCTURAL n_cons_qual  present, all-NA -- STRUCTURAL on GRF (no consistency screen), NOT a failure
+  STRUCTURAL band_n       present, all-NA -- STRUCTURAL on GRF (no consistency screen), NOT a failure
+  STRUCTURAL p_star       not a recorder column (admission-set term; NULL on GRF)
+  --- Amendment 3 (same-draws vs the committed FS comparator) ---
+  designated FS comparator resolves (tier2/p12ext/e1stud/cert20, on disk) PASS   (fs_effMaxSG_fb_mr_field_m1_h100_knoise0_n500_z1q60_nb20_cert20_combined_1_2000.rds)
+      n_true and truth come from the DGM (simulate_from_dgm / setup_gbsg_dgm),
+      never from GRF, so GRF's cross-context irreproducibility does not touch this.
+    comparator: fs_effMaxSG_fb_mr_field_m1_h100_knoise0_n500_z1q60_nb20_cert20_combined_1_2000.rds  (focus effMaxSG, eps 0.2, campaign cert20)
+    criterion match: MATCHED (effMaxSG, eps 0.20)
+    n_true identical() on all 2000 rows : YES
+    truth all.equal(tol = 1e-08)          : YES
+    truth identical() [reported, not asserted]: FALSE
+    truth max |abs diff| 1.443e-15 ; max |rel diff| 2.199e-15
+    FS family (same cell)    : min 1036 med 1223 q90 1318 max 1380 CV 0.0536 | detection 0.9205
+    GRF enumerated pool      : min 712 med 776 q90 784 max 870 CV 0.0181 | detection 0.9970
+
+########## GATE 2 (grfmr): 31% -- HR 1.00, n 1000 ##########
+  2,000 rows                                     PASS   (2000)
+  sim_id 1..2000 exactly, no duplicates          PASS   
+  no CONFIG-ERROR replicate                      PASS   (0)
+  meta: subgroup_method == 'grf'                 PASS   
+  meta: sg_focus == 'effMaxSG'                   PASS   
+  meta: effect_neighborhood == 0.20              PASS   
+  meta: field_complement TRUE                    PASS   
+  meta: field_decompose TRUE                     PASS   
+  meta: field_scale_complement 'selected'        PASS   
+  meta: field_recovery TRUE                      PASS   
+  meta: ij_residual 'two_term'                   PASS   
+  meta: campaign_tag 'grfmr'                     PASS   
+  meta: 2 seed-disjoint batches                  PASS   (2)
+  meta: n_workers recorded in every batch        PASS   (12)
+  meta: forestsearch_version recorded            PASS   (0.3.5)
+  meta seed_base 8316951 | host Mac-Studio-3.local | R 4.5.2
+  >> SELECTION RATE            : 0.9980 (1996 / 2000)
+  >> ADMITTED_N (qualified)   : min 3  q25 82  MED 141  q75 225  p90 328.5  max 701  (mean 166.3, CV 0.680, n 1996)
+     admitted_n == 0 on 0 row(s); recorded on 1996 of 2000 rows
+  >> N_FAMILY (ENUMERATED POOL, not the qualified set): min 779  q25 826  med 830  q75 833  p90 836  max 914  (CV 0.0111)
+     n_family is .grf_dr_candidates()'s enumeration from quantiles of X subject to n_min
+     (R/grf_subgroup_labels.R:255-277): it does not depend on the outcome.  admitted_n does.
+     admitted_n / n_family: median share 0.1697 ; rho(admitted_n, n_family) = +0.019 on 1996 rows
+  >> REALIZED PREVALENCE      : super-population 0.30655 | trial mean 0.30625
+  every product finite on detected replicates    PASS   (38 quantities)
+  nine recovery columns present & populated      PASS   
+  p-hat block present & populated                PASS   
+  rho-c (fld_Hc_scale_ratio) present & populated PASS   
+  admitted_n present (Part T2) & populated on the GRF path PASS   
+  invariant harm  : fld_H_lo1s <= fld_H_est2     PASS   
+  invariant compl : fld_Hc_est2 <= fld_Hc_up1s   PASS   
+  invariant _s    : fld_Hc_est2_s <= fld_Hc_up1s_s PASS   
+  invariant joint : bonf_loH <= fld_H_est2       PASS   
+  invariant joint : fld_Hc_est2 <= bonf_upHc     PASS   
+  invariant jointS: bonf_loH_s <= fld_H_est2     PASS   
+  invariant jointS: fld_Hc_est2_s <= bonf_upHc_s PASS   
+  invariant IJ    : mr_H_lo <= est <= mr_H_hi    PASS   
+  invariant IJ    : mr_Hc_lo <= est <= mr_Hc_hi  PASS   
+  invariant rho-c : scale_ratio > 0              PASS   
+  invariant admitted_n : >= 1 on every detected replicate PASS   (min on detected 3)
+  gamma (joint)   in [0.025, 0.05]               PASS   [0.02500, 0.02700]
+  gamma (joint-s) in [0.025, 0.05]               PASS   [0.02500, 0.02700]
+  identity: field-s inverted around the same bdc PASS   max |diff| = 2.22e-16
+  identity: joint bonf == raw where gamma at floor PASS   max |diff| = 0 (share at floor 0.932 / 0.865)
+  p-hat validity (0<=p<=1, p_H<=sum, p_H<=top1)  PASS   
+  >> CLASSIFICATION           : sens 0.4385 spec 0.8449 ppv 0.5431 npv 0.7791 | mean |Hhat| 242.0
+  >> NON-DETECTIONS           : 4 (0.0020). status NO-DETECTION | err_msg 0
+     admitted_n on non-detections: == 0 0 | > 0 0 | NA 4  (Part T2 makes this separable, unlike DINA)
+     n_family on non-detections  : NA 4 | > 0 0  (NA is expected: it is read from the MR gate object)
+  STRUCTURAL n_cons_qual  present, all-NA -- STRUCTURAL on GRF (no consistency screen), NOT a failure
+  STRUCTURAL band_n       present, all-NA -- STRUCTURAL on GRF (no consistency screen), NOT a failure
+  STRUCTURAL p_star       not a recorder column (admission-set term; NULL on GRF)
+  --- Amendment 3 (same-draws vs the committed FS comparator) ---
+  designated FS comparator resolves (tier2/p12ext/e1stud/cert20, on disk) PASS   (fs_effMaxSG_fb_mr_field_m1_h100_knoise0_n1000_z1q60_nb20_cert20_combined_1_2000.rds)
+      n_true and truth come from the DGM (simulate_from_dgm / setup_gbsg_dgm),
+      never from GRF, so GRF's cross-context irreproducibility does not touch this.
+    comparator: fs_effMaxSG_fb_mr_field_m1_h100_knoise0_n1000_z1q60_nb20_cert20_combined_1_2000.rds  (focus effMaxSG, eps 0.2, campaign cert20)
+    criterion match: MATCHED (effMaxSG, eps 0.20)
+    n_true identical() on all 2000 rows : YES
+    truth all.equal(tol = 1e-08)          : YES
+    truth identical() [reported, not asserted]: FALSE
+    truth max |abs diff| 1.443e-15 ; max |rel diff| 2.199e-15
+    FS family (same cell)    : min 1119 med 1299 q90 1398 max 1418 CV 0.0409 | detection 0.9545
+    GRF enumerated pool      : min 779 med 830 q90 836 max 914 CV 0.0111 | detection 0.9980
+
+########## GATE 2 (grfmr): 31% -- HR 1.00, n 1500 ##########
+  2,000 rows                                     PASS   (2000)
+  sim_id 1..2000 exactly, no duplicates          PASS   
+  no CONFIG-ERROR replicate                      PASS   (0)
+  meta: subgroup_method == 'grf'                 PASS   
+  meta: sg_focus == 'effMaxSG'                   PASS   
+  meta: effect_neighborhood == 0.20              PASS   
+  meta: field_complement TRUE                    PASS   
+  meta: field_decompose TRUE                     PASS   
+  meta: field_scale_complement 'selected'        PASS   
+  meta: field_recovery TRUE                      PASS   
+  meta: ij_residual 'two_term'                   PASS   
+  meta: campaign_tag 'grfmr'                     PASS   
+  meta: 2 seed-disjoint batches                  PASS   (2)
+  meta: n_workers recorded in every batch        PASS   (12)
+  meta: forestsearch_version recorded            PASS   (0.3.5)
+  meta seed_base 8316951 | host Mac-Studio-3.local | R 4.5.2
+  >> SELECTION RATE            : 0.9935 (1987 / 2000)
+  >> ADMITTED_N (qualified)   : min 3  q25 66  MED 115  q75 176  p90 250  max 649  (mean 130.9, CV 0.684, n 1987)
+     admitted_n == 0 on 0 row(s); recorded on 1987 of 2000 rows
+  >> N_FAMILY (ENUMERATED POOL, not the qualified set): min 780  q25 826  med 830  q75 833  p90 836  max 913  (CV 0.0081)
+     n_family is .grf_dr_candidates()'s enumeration from quantiles of X subject to n_min
+     (R/grf_subgroup_labels.R:255-277): it does not depend on the outcome.  admitted_n does.
+     admitted_n / n_family: median share 0.1379 ; rho(admitted_n, n_family) = +0.017 on 1987 rows
+  >> REALIZED PREVALENCE      : super-population 0.30655 | trial mean 0.30646
+  every product finite on detected replicates    PASS   (38 quantities)
+  nine recovery columns present & populated      PASS   
+  p-hat block present & populated                PASS   
+  rho-c (fld_Hc_scale_ratio) present & populated PASS   
+  admitted_n present (Part T2) & populated on the GRF path PASS   
+  invariant harm  : fld_H_lo1s <= fld_H_est2     PASS   
+  invariant compl : fld_Hc_est2 <= fld_Hc_up1s   PASS   
+  invariant _s    : fld_Hc_est2_s <= fld_Hc_up1s_s PASS   
+  invariant joint : bonf_loH <= fld_H_est2       PASS   
+  invariant joint : fld_Hc_est2 <= bonf_upHc     PASS   
+  invariant jointS: bonf_loH_s <= fld_H_est2     PASS   
+  invariant jointS: fld_Hc_est2_s <= bonf_upHc_s PASS   
+  invariant IJ    : mr_H_lo <= est <= mr_H_hi    PASS   
+  invariant IJ    : mr_Hc_lo <= est <= mr_Hc_hi  PASS   
+  invariant rho-c : scale_ratio > 0              PASS   
+  invariant admitted_n : >= 1 on every detected replicate PASS   (min on detected 3)
+  gamma (joint)   in [0.025, 0.05]               PASS   [0.02500, 0.02700]
+  gamma (joint-s) in [0.025, 0.05]               PASS   [0.02500, 0.02700]
+  identity: field-s inverted around the same bdc PASS   max |diff| = 2.22e-16
+  identity: joint bonf == raw where gamma at floor PASS   max |diff| = 0 (share at floor 0.945 / 0.879)
+  p-hat validity (0<=p<=1, p_H<=sum, p_H<=top1)  PASS   
+  >> CLASSIFICATION           : sens 0.5683 spec 0.8327 ppv 0.6025 npv 0.8214 | mean |Hhat| 435.2
+  >> NON-DETECTIONS           : 13 (0.0065). status NO-DETECTION | err_msg 0
+     admitted_n on non-detections: == 0 0 | > 0 0 | NA 13  (Part T2 makes this separable, unlike DINA)
+     n_family on non-detections  : NA 13 | > 0 0  (NA is expected: it is read from the MR gate object)
+  STRUCTURAL n_cons_qual  present, all-NA -- STRUCTURAL on GRF (no consistency screen), NOT a failure
+  STRUCTURAL band_n       present, all-NA -- STRUCTURAL on GRF (no consistency screen), NOT a failure
+  STRUCTURAL p_star       not a recorder column (admission-set term; NULL on GRF)
+  --- Amendment 3 (same-draws vs the committed FS comparator) ---
+  designated FS comparator resolves (tier2/p12ext/e1stud/cert20, on disk) PASS   (fs_effMaxSG_fb_mr_field_m1_h100_knoise0_n1500_z1q60_nb20_cert20_combined_1_2000.rds)
+      n_true and truth come from the DGM (simulate_from_dgm / setup_gbsg_dgm),
+      never from GRF, so GRF's cross-context irreproducibility does not touch this.
+    comparator: fs_effMaxSG_fb_mr_field_m1_h100_knoise0_n1500_z1q60_nb20_cert20_combined_1_2000.rds  (focus effMaxSG, eps 0.2, campaign cert20)
+    criterion match: MATCHED (effMaxSG, eps 0.20)
+    n_true identical() on all 2000 rows : YES
+    truth all.equal(tol = 1e-08)          : YES
+    truth identical() [reported, not asserted]: FALSE
+    truth max |abs diff| 1.443e-15 ; max |rel diff| 2.199e-15
+    FS family (same cell)    : min 1195 med 1297 q90 1396 max 1412 CV 0.0357 | detection 0.9590
+    GRF enumerated pool      : min 780 med 830 q90 836 max 913 CV 0.0081 | detection 0.9935
