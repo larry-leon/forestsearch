@@ -1,0 +1,343 @@
+---
+title: "Part B identification sweep (`idsweep`)"
+subtitle: "Detection, subgroup size and classification: three engines × six selection criteria × 18 cells, 500 replicates each, MR off (TASK_idsweep_2026-09-12)"
+author: "Larry León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+suppressPackageStartupMessages(library(ggplot2))
+REPS <- 500L; TAG <- "idsweep"
+cells <- read.table("scripts_dinamr/idsweep.cells", col.names = c("z", "n", "hr", "tag"),
+                    colClasses = c("character", "integer", "numeric", "character"))
+cells$prev <- ifelse(cells$z == "-", "12.4%", "31%")
+ENG <- c("consistency", "dina", "grf")
+runs <- rbind(data.frame(engine = "consistency", focus = c("effMaxSG", "effMinSG", "maxeffCons", "maxeff", "maxSG", "minSG")),
+              data.frame(engine = "dina", focus = c("effMaxSG", "effMinSG", "maxSG", "minSG", "maxeffCons")),
+              data.frame(engine = "grf",  focus = c("effMaxSG", "effMinSG", "maxSG", "minSG", "maxeffCons")))
+runs$crit <- ifelse(runs$engine != "consistency" & runs$focus == "maxeffCons", "eff", runs$focus)
+runs$band <- runs$focus %in% c("effMaxSG", "effMinSG")
+CRIT_ALL <- c("effMaxSG", "effMinSG", "maxeffCons", "maxeff", "eff", "maxSG", "minSG")
+crit_label <- function(x) ifelse(x == "eff", "eff (= maxeff = maxeffCons)", x)
+bundle_path <- function(e, f, ci)
+  file.path("results", sprintf("%s_%s_fb_mr_field_m1_h%03d_knoise0_n%d%s%s_nomr_%s_res_1_%d.rds",
+    if (e == "consistency") "fs" else e, forestsearch::fs_focus_tag(e, f), round(100 * cells$hr[ci]),
+    cells$n[ci], if (cells$z[ci] == "-") "" else "_z1q60", if (f %in% c("effMaxSG", "effMinSG")) "_nb20" else "",
+    TAG, REPS))
+wilson <- function(x, n) { z <- qnorm(.975); p <- x / n
+  c((p + z^2/(2*n) - z*sqrt(p*(1-p)/n + z^2/(4*n^2))) / (1 + z^2/n),
+    (p + z^2/(2*n) + z*sqrt(p*(1-p)/n + z^2/(4*n^2))) / (1 + z^2/n)) }
+fr <- function(k, m) { if (!m) return("-- (0 jointly)"); w <- wilson(k, m); sprintf("%.3f [%.3f, %.3f]", k / m, w[1], w[2]) }
+
+KEEP <- c("sim_id", "status", "detected", "n_sel", "n_true", "sg_def", "sens", "spec", "ppv", "npv", "admitted_n")
+B <- list(); S <- list()
+for (ci in seq_len(nrow(cells))) for (j in seq_len(nrow(runs))) {
+  e <- runs$engine[j]; p <- bundle_path(e, runs$focus[j], ci)
+  if (!file.exists(p)) next
+  b <- readRDS(p); r <- b$results[, intersect(KEEP, names(b$results))]
+  B[[paste(cells$tag[ci], e, runs$crit[j])]] <- r
+  d <- r$status %in% "DETECTED"; nd <- sum(d); w <- wilson(nd, nrow(r))
+  m <- function(cc) if (nd) mean(r[[cc]][d], na.rm = TRUE) else NA_real_
+  adm <- if (e == "grf") r$admitted_n[is.finite(r$admitted_n)] else numeric(0)
+  S[[length(S) + 1L]] <- data.frame(
+    ci = ci, cell = cells$tag[ci], prev = cells$prev[ci], hr = cells$hr[ci], n = cells$n[ci],
+    engine = e, focus = runs$focus[j], crit = runs$crit[j],
+    eps = if (runs$band[j]) sprintf("%.2f", b$meta$effect_neighborhood) else "not set",
+    mr_off = identical(b$meta$mr_inference, FALSE),
+    reps = nrow(r), det = nd, nodet = sum(r$status %in% "NO-DETECTION"),
+    other = sum(!r$status %in% c("DETECTED", "NO-DETECTION")),
+    rate = nd / nrow(r), lo = w[1], hi = w[2],
+    sens = m("sens"), spec = m("spec"), ppv = m("ppv"), npv = m("npv"),
+    mHhat = m("n_sel"), mH = m("n_true"),
+    adm = if (length(adm)) sprintf("%g [%g, %g]", median(adm), min(adm), max(adm)) else "--",
+    und_sens = sum(d & is.na(r$sens)), und_spec = sum(d & is.na(r$spec)),
+    und_ppv = sum(d & is.na(r$ppv)), und_npv = sum(d & is.na(r$npv)), whole_trial = sum(d & r$n_sel == cells$n[ci], na.rm = TRUE),
+    prev_real = mean(r$n_true / cells$n[ci]), prev_super = b$meta$harm_prevalence_super,
+    marg_H = unname(b$truth$marg_H), marg_Hc = unname(b$truth$marg_Hc),
+    stringsAsFactors = FALSE)
+}
+S <- if (length(S)) do.call(rbind, S) else NULL
+HAVE <- !is.null(S)
+HAVE_AG <- FALSE
+if (HAVE) {
+  S$ratio <- S$mHhat / S$mH
+  S <- S[order(S$ci, match(S$engine, ENG), match(S$crit, CRIT_ALL)), ]
+  S$crit_plot <- ifelse(S$crit == "eff", "maxeffCons", S$crit)
+  S$nf <- factor(S$n, levels = c(500, 1000, 1500))
+  S$hr_f <- factor(sprintf("HR %.2f\n%s", S$hr, ifelse(S$hr == 1, "selection rate", "detection rate")),
+                   levels = c("HR 1.00\nselection rate", "HR 1.50\ndetection rate", "HR 1.75\ndetection rate"))
+}
+# Categorical slots in fixed order (reference palette slots 1-6), plus a shape per
+# criterion: six series in small multiples exceed the palette's all-pairs cap, so
+# identity never rests on colour alone.  eff (DINA, GRF) takes maxeffCons's slot.
+PLOT_LEVELS <- c("effMaxSG", "effMinSG", "maxeffCons", "maxeff", "maxSG", "minSG")
+COL <- setNames(c("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300"), PLOT_LEVELS)
+SHP <- setNames(c(16, 17, 15, 18, 4, 3), PLOT_LEVELS)
+LAB <- c(effMaxSG = "effMaxSG (eps 0.20)", effMinSG = "effMinSG (eps 0.20)",
+         maxeffCons = "maxeffCons (consistency) / eff (DINA, GRF)", maxeff = "maxeff (consistency only)",
+         maxSG = "maxSG", minSG = "minSG")
+theme_sweep <- theme_minimal(base_size = 10) +
+  theme(legend.position = "top", panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(colour = "#e6e5e1", linewidth = 0.3),
+        strip.text = element_text(face = "bold"), axis.text = element_text(colour = "#52514e"))
+crit_scales <- list(scale_colour_manual(values = COL, labels = LAB, name = NULL),
+                    scale_shape_manual(values = SHP, labels = LAB, name = NULL))
+wide_n <- function(S, fmt) {
+  S$val <- fmt(S)
+  key <- unique(S[, c("engine", "crit", "prev", "hr")])
+  key <- key[order(match(key$engine, ENG), match(key$crit, CRIT_ALL), key$prev, key$hr), ]
+  for (nn in c(500L, 1000L, 1500L))
+    key[[paste("n", nn)]] <- vapply(seq_len(nrow(key)), function(i) {
+      v <- S$val[S$engine == key$engine[i] & S$crit == key$crit[i] & S$prev == key$prev[i] & S$hr == key$hr[i] & S$n == nn]
+      if (length(v)) v else "not run" }, "")
+  key$crit <- crit_label(key$crit); key$hr <- sprintf("%.2f", key$hr)
+  names(key)[1:4] <- c("Engine", "sg_focus", "Prevalence", "HR")
+  key
+}
+```
+
+# Reading this document
+
+- **What it measures: identification and classification only.** MR is off on every run (`FS_S7_MR=FALSE`, `_nomr` in every stem). There is no MR, no field construction, no coverage, no bias and no bound here. The MR-derived columns are NA by design and are not read.
+- **A self-contained campaign.** Every number below comes from the `idsweep` bundles (`results/*_nomr_idsweep_res_1_500.rds`), one tag and one knob set. No earlier bundle is used as data.
+- **Design.** GBSG-based survival DGM, one template (`sim_fs_maxeffCons_fb_mr_field_m1_template.qmd`). 18 cells: prevalence 12.4% (`FS_S7_Z1Q` unset) or 31% (`FS_S7_Z1Q=0.60`) × HR 1.50, 1.75, 1.00 × n 500, 1000, 1500. 500 replicates per run, sim_id 1–500, seeds 8316951 + sim_id, so every run within a cell sees the same trials.
+- **Sixteen runs per cell.**
+  - Consistency: `effMaxSG` (ε 0.20), `effMinSG` (ε 0.20), `maxeffCons`, `maxeff`, `maxSG`, `minSG`.
+  - DINA and GRF: `effMaxSG` (ε 0.20), `effMinSG` (ε 0.20), `maxSG`, `minSG`, `eff`.
+  - **On DINA and GRF, `eff` stands for `eff` = `maxeff` = `maxeffCons`**: all three resolve to the plain effect argmax on those engines. It was run once, passed as `maxeffCons`.
+  - ε is set only for the two band criteria. GRF carries the rule as `frontier_rule` under `grf_selection = "frontier"`, with ε 0.20 set explicitly.
+- **Column definitions.**
+  - **Rate:** detected replicates / 500, with a Wilson 95% interval. It is a **detection rate** at HR 1.50 and 1.75, and a **selection rate** at HR 1.00.
+  - **Sens / spec / PPV / NPV:** replicate means, over detected replicates, of each replicate's subject-level rates against the planted region. They carry no interval: each is a mean of per-replicate proportions, not a rate over replicates.
+  - **Mean |Ĥ|, mean |H|:** mean `n_sel` and mean `n_true` over detected replicates; the ratio is of the two means.
+  - **`admitted_n`:** GRF only; median [min, max] over replicates. It does not depend on the criterion.
+  - **Realized prevalence:** mean `n_true / n` over all 500 replicates.
+- **The HR 1.00 cells are not a global null.** The planted region carries HR 1.00 and is **differentially null against a benefiting complement**. It clears the sub-null log(0.90) floor (`hr_threshold = 0.90` in the template), so returning it is an admissible selection. The rate there is a selection rate and nothing more; it is not an error rate.
+- **Descriptive only.** There is no acceptance criterion and no recommendation. Comparisons across engines carry the usual confound: identifier, family construction and detection set.
+
+# Grid status
+
+```{r}
+#| label: grid-status
+if (!HAVE) {
+  cat("No `idsweep` bundle is present.\n")
+} else {
+  gs <- do.call(rbind, lapply(seq_len(nrow(cells)), function(ci) {
+    s <- S[S$ci == ci, ]
+    data.frame(Cell = cells$tag[ci], Prevalence = cells$prev[ci], HR = sprintf("%.2f", cells$hr[ci]), n = cells$n[ci],
+               `Runs present` = sprintf("%d / 16", nrow(s)),
+               `MR off (all runs)` = if (nrow(s)) all(s$mr_off) else NA,
+               Replicates = if (nrow(s)) sum(s$reps) else 0L,
+               `Non-detections` = if (nrow(s)) sum(s$nodet) else NA_integer_,
+               `Other statuses` = if (nrow(s)) sum(s$other) else NA_integer_,
+               `Realized prevalence` = if (nrow(s)) paste(unique(sprintf("%.4f", s$prev_real)), collapse = ", ") else "not run",
+               `Super-population` = if (nrow(s)) sprintf("%.4f", s$prev_super[1]) else "--",
+               `Planted marginal Cox HR, H / Hc` = if (nrow(s)) sprintf("%.3f / %.3f", s$marg_H[1], s$marg_Hc[1]) else "--",
+               check.names = FALSE)
+  }))
+  knitr::kable(gs, caption = paste(
+    "One row per cell in run order. A cell with fewer than 16 runs present was not completed (deferred from the tail);",
+    "absent cells have no per-cell section. Realized prevalence is the same on every run of a cell because the runs share draws.",
+    "The planted marginal Cox HR is the DGM's super-population value, attenuated by non-collapsibility; it is context for",
+    "the cell, not a target, and nothing in this document is scored against it."))
+}
+```
+
+# Per cell: the OC table
+
+```{r}
+#| label: per-cell
+#| results: asis
+#| eval: !expr HAVE
+for (ci in seq_len(nrow(cells))) {
+  s <- S[S$ci == ci, ]
+  if (!nrow(s)) next
+  sel <- abs(cells$hr[ci] - 1) < 1e-9
+  cat(sprintf("\n\n## %s, HR %.2f, n %d\n\n", cells$prev[ci], cells$hr[ci], cells$n[ci]))
+  if (nrow(s) < 16L) cat(sprintf("*Partial cell: %d of 16 runs present.*\n\n", nrow(s)))
+  if (sel) cat("**Selection rate.** The planted region is differentially null against a benefiting complement",
+               sprintf("(planted marginal Cox HR %.3f in the region, %.3f in the complement) and clears the sub-null log(0.90) floor,",
+                       s$marg_H[1], s$marg_Hc[1]),
+               "so returning it is an admissible selection.\n\n")
+  tb <- data.frame(
+    Engine = s$engine, sg_focus = crit_label(s$crit), eps = s$eps,
+    Rate = sprintf("%s (%d/%d)", mapply(fr, s$det, s$reps), s$det, s$reps),
+    Sens = sprintf("%.3f", s$sens), Spec = sprintf("%.3f", s$spec), PPV = sprintf("%.3f", s$ppv), NPV = sprintf("%.3f", s$npv),
+    `Mean |Ĥ|` = sprintf("%.1f", s$mHhat), `Mean |H|` = sprintf("%.1f", s$mH), `|Ĥ| / |H|` = sprintf("%.3f", s$ratio),
+    `admitted_n median [range]` = s$adm, `Realized prevalence` = sprintf("%.4f", s$prev_real), check.names = FALSE)
+  names(tb)[4] <- if (sel) "Selection rate [Wilson 95%] (k/n)" else "Detection rate [Wilson 95%] (k/n)"
+  print(knitr::kable(tb, format = "pipe", caption = paste(
+    sprintf("%s, HR %.2f, n %d, 500 replicates, MR off.", cells$prev[ci], cells$hr[ci], cells$n[ci]),
+    "On DINA and GRF, eff stands for eff = maxeff = maxeffCons (run once). eps is set for effMaxSG / effMinSG only.",
+    "Sens, spec, PPV and NPV are replicate means over detected replicates (no interval: means of per-replicate proportions);",
+    "mean |Ĥ| and |H| are over detected replicates, with the ratio of the two means. admitted_n is GRF only.",
+    sprintf("Realized prevalence is over all 500 replicates (super-population %.4f).", s$prev_super[1]))))
+  cat("\n")
+  u <- s[s$und_sens + s$und_spec + s$und_ppv + s$und_npv > 0, ]
+  if (nrow(u)) cat("\n**Undefined rates.** A classification rate is undefined when its denominator is zero: NPV when the selection is the whole trial (no predicted negatives).",
+                   "The mean in the table is over the remaining detected replicates.",
+                   paste(sprintf("%s %s: NPV undefined on %d, PPV %d, sensitivity %d, specificity %d detected replicate(s); selection = whole trial on %d.",
+                                 u$engine, crit_label(u$crit), u$und_npv, u$und_ppv, u$und_sens, u$und_spec, u$whole_trial), collapse = " "), "\n\n")
+}
+```
+
+# Across cells
+
+## Detection and selection rate against n
+
+```{r}
+#| label: fig-rate
+#| eval: !expr HAVE
+#| fig-width: 13
+#| fig-height: 8.5
+#| fig-cap: "Rate over 500 replicates against n, with Wilson 95% intervals, by engine (rows), prevalence and HR (columns), and criterion (colour and shape). It is a detection rate at HR 1.50 and 1.75, and a selection rate at HR 1.00, where the planted region is differentially null against a benefiting complement and clears the sub-null log(0.90) floor. On DINA and GRF, eff stands for eff = maxeff = maxeffCons."
+pd <- position_dodge(width = 0.45)
+ggplot(S, aes(nf, rate, colour = crit_plot, shape = crit_plot, group = crit_plot)) +
+  geom_line(position = pd, linewidth = 0.5, alpha = 0.8) +
+  geom_errorbar(aes(ymin = lo, ymax = hi), width = 0.25, position = pd, linewidth = 0.4) +
+  geom_point(size = 2.2, position = pd) +
+  facet_grid(engine ~ prev + hr_f) + crit_scales +
+  scale_y_continuous(limits = c(NA, 1)) +
+  labs(x = "n", y = "rate over 500 replicates (Wilson 95%)") + theme_sweep
+```
+
+```{r}
+#| label: tbl-rate
+#| eval: !expr HAVE
+knitr::kable(wide_n(S, function(S) sprintf("%s (%d)", mapply(fr, S$det, S$reps), S$det)),
+  caption = "Rate [Wilson 95%] (detected count of 500) by engine, criterion, prevalence and HR, against n. It is a detection rate at HR 1.50 / 1.75 and a selection rate at HR 1.00. On DINA and GRF, eff stands for eff = maxeff = maxeffCons. 'not run' marks a deferred cell.")
+```
+
+## Subgroup size: mean |Ĥ| / mean |H| against n
+
+```{r}
+#| label: fig-ratio
+#| eval: !expr HAVE
+#| fig-width: 13
+#| fig-height: 8.5
+#| fig-cap: "Ratio of mean selected size to mean planted size (both over detected replicates) against n, by engine, prevalence and HR, and criterion. The dashed line marks 1 (the selected subgroup's mean size equals the planted region's). On DINA and GRF, eff stands for eff = maxeff = maxeffCons."
+ggplot(S, aes(nf, ratio, colour = crit_plot, shape = crit_plot, group = crit_plot)) +
+  geom_hline(yintercept = 1, linetype = "dashed", colour = "#8a8984", linewidth = 0.4) +
+  geom_line(linewidth = 0.5, alpha = 0.8) + geom_point(size = 2.2) +
+  facet_grid(engine ~ prev + hr_f) + crit_scales +
+  labs(x = "n", y = "mean |Ĥ| / mean |H|") + theme_sweep
+```
+
+```{r}
+#| label: tbl-ratio
+#| eval: !expr HAVE
+knitr::kable(wide_n(S, function(S) sprintf("%.2f (%.0f / %.0f)", S$ratio, S$mHhat, S$mH)),
+  caption = "Mean |Ĥ| / mean |H| (mean |Ĥ| / mean |H|), over detected replicates, against n. A ratio of two means, not a rate, so no interval. On DINA and GRF, eff stands for eff = maxeff = maxeffCons.")
+```
+
+## Classification: sensitivity, specificity, PPV and NPV against n
+
+```{r}
+#| label: tbl-class
+#| eval: !expr HAVE
+knitr::kable(wide_n(S, function(S) sprintf("%.3f / %.3f / %.3f / %.3f", S$sens, S$spec, S$ppv, S$npv)),
+  caption = "Sensitivity / specificity / PPV / NPV against the planted region, as replicate means over detected replicates, against n. These are means of per-replicate subject-level proportions, not rates over replicates, so they carry no Wilson interval; the rate each is conditional on is in the rate table. At HR 1.00 the planted region is differentially null against a benefiting complement; the four rates describe how the selection overlaps that region, and nothing more. On DINA and GRF, eff stands for eff = maxeff = maxeffCons.")
+```
+
+```{r}
+#| label: fig-class
+#| eval: !expr HAVE
+#| fig-width: 13
+#| fig-height: 10
+#| fig-cap: "Sensitivity, specificity, PPV and NPV (rows) against n by engine and prevalence (columns), and criterion (colour and shape); HR by line type. Replicate means over detected replicates. On DINA and GRF, eff stands for eff = maxeff = maxeffCons."
+L <- do.call(rbind, lapply(c("sens", "spec", "ppv", "npv"), function(v)
+  data.frame(S[, c("engine", "prev", "hr", "nf", "crit_plot")], metric = toupper(v), value = S[[v]])))
+L$metric <- factor(L$metric, levels = c("SENS", "SPEC", "PPV", "NPV"))
+L$hr_lt <- factor(sprintf("HR %.2f", L$hr))
+ggplot(L, aes(nf, value, colour = crit_plot, shape = crit_plot,
+              group = interaction(crit_plot, hr_lt), linetype = hr_lt)) +
+  geom_line(linewidth = 0.45, alpha = 0.8) + geom_point(size = 1.8) +
+  facet_grid(metric ~ engine + prev, scales = "free_y") + crit_scales +
+  scale_linetype_manual(values = c("HR 1.00" = "dotted", "HR 1.50" = "solid", "HR 1.75" = "dashed"), name = NULL) +
+  labs(x = "n", y = NULL) + theme_sweep
+```
+
+## Criterion agreement: the same subgroup on the same trial
+
+For each engine and cell, and each pair of that engine's criteria: of the replicates on which **both** criteria detected, the share on which they selected the **identical** rule (`sg_def` string match). Comparisons are within engine only, because rule strings are engine-specific. The shares carry Wilson intervals over the jointly detected replicates.
+
+```{r}
+#| label: agreement
+#| eval: !expr HAVE
+AG <- list()
+for (ci in unique(S$ci)) for (e in ENG) {
+  ks <- runs$crit[runs$engine == e]; keys <- paste(cells$tag[ci], e, ks)
+  if (!all(keys %in% names(B))) next
+  cmb <- combn(length(ks), 2)
+  for (q in seq_len(ncol(cmb))) {
+    a <- B[[keys[cmb[1, q]]]]; b <- B[[keys[cmb[2, q]]]]
+    stopifnot(identical(a$sim_id, b$sim_id))
+    both <- a$status %in% "DETECTED" & b$status %in% "DETECTED"
+    m <- sum(both); k <- sum(both & a$sg_def == b$sg_def, na.rm = TRUE)
+    w <- if (m) wilson(k, m) else c(NA, NA)
+    AG[[length(AG) + 1L]] <- data.frame(ci = ci, cell = cells$tag[ci], prev = cells$prev[ci], hr = cells$hr[ci],
+      n = cells$n[ci], engine = e, pair = paste(ks[cmb[1, q]], "/", ks[cmb[2, q]]), q = q,
+      k = k, m = m, share = if (m) k / m else NA_real_, lo = w[1], hi = w[2], stringsAsFactors = FALSE)
+  }
+}
+AG <- if (length(AG)) do.call(rbind, AG) else NULL
+HAVE_AG <- !is.null(AG)
+if (!HAVE_AG) cat("No engine has all of its criteria present in any cell yet; agreement is not computed.\n")
+if (HAVE_AG) AG$cell_lab <- factor(sprintf("%s HR %.2f n %d", AG$prev, AG$hr, AG$n),
+                      levels = unique(sprintf("%s HR %.2f n %d", cells$prev, cells$hr, cells$n)[order(cells$prev, cells$hr, cells$n)]))
+if (HAVE_AG) AG$pair_f <- factor(paste(AG$engine, AG$pair, sep = ": "), levels = rev(unique(paste(AG$engine, AG$pair, sep = ": ")[order(match(AG$engine, ENG), AG$q)])))
+```
+
+```{r}
+#| label: fig-agreement
+#| eval: !expr HAVE && HAVE_AG
+#| fig-width: 13
+#| fig-height: 11
+#| fig-cap: "Share of jointly detected replicates on which each pair of criteria selected the identical rule, per engine (panels), criterion pair (rows) and cell (columns; ordered by prevalence, HR, n). Light is 0, dark is 1. On DINA and GRF, eff stands for eff = maxeff = maxeffCons. Counts and Wilson intervals are in the table below."
+ggplot(AG, aes(cell_lab, pair_f, fill = share)) +
+  geom_tile(colour = "white", linewidth = 0.6) +
+  facet_grid(engine ~ ., scales = "free_y", space = "free_y") +
+  scale_fill_gradient(low = "#cde2fb", high = "#0d366b", limits = c(0, 1), name = "share identical") +
+  labs(x = NULL, y = NULL) + theme_sweep +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.grid = element_blank(), legend.position = "right")
+```
+
+```{r}
+#| label: tbl-agreement
+#| eval: !expr HAVE && HAVE_AG
+ta <- unique(AG[, c("engine", "q", "pair", "prev", "hr")])
+ta <- ta[order(match(ta$engine, ENG), ta$q, ta$prev, ta$hr), ]
+for (nn in c(500L, 1000L, 1500L))
+  ta[[paste("n", nn)]] <- vapply(seq_len(nrow(ta)), function(i) {
+    x <- AG[AG$engine == ta$engine[i] & AG$pair == ta$pair[i] & AG$prev == ta$prev[i] & AG$hr == ta$hr[i] & AG$n == nn, ]
+    if (!nrow(x)) "not run" else sprintf("%d/%d %s", x$k, x$m, fr(x$k, x$m)) }, "")
+ta$hr <- sprintf("%.2f", ta$hr); ta$q <- NULL
+names(ta)[1:4] <- c("Engine", "Criterion pair", "Prevalence", "HR")
+knitr::kable(ta, row.names = FALSE, caption = "Identical rule on k of m jointly detected replicates, with the share and its Wilson 95% interval, by engine, criterion pair, prevalence and HR, against n. Within engine only. On DINA and GRF, eff stands for eff = maxeff = maxeffCons.")
+```
+
+# Provenance
+
+- **Bundles:** `results/*_nomr_idsweep_res_1_500.rds`. There is one batch per run: 500 replicates did not need splitting, so there is no combine render. Each run's batch render is `idsweep_<cell>_<engine>_<criterion>.html`.
+- **Driver and gates:** `scripts_dinamr/idsweep.sh`, with Gate A per run (`idsweep_gateA.R`), Gate I per cell (`idsweep_gateI.R`) and Gate 1 (`idsweep_project.R`). Logs are in `scripts_dinamr/logs/idsweep*`.
+- **Findings and walls:** `REPORT_idsweep_2026-09-12.md`.
+
+```{r}
+#| label: session
+cat(sprintf("Rendered %s; forestsearch %s; %s; %d bundles read.\n", format(Sys.time()),
+            as.character(utils::packageVersion("forestsearch")), R.version.string, length(B)))
+```

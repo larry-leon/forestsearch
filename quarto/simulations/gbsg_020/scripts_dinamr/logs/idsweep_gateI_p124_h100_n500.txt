@@ -1,0 +1,56 @@
+=== GATE I: cell p124_h100_n500 (z1q -, n 500, HR 1.00), tag idsweep, 500 replicates ===
+
+--- per run ---
+      engine   sg_focus detected no_detection errors prev_realized prev_super n_sel_NA_on_nondetected n_family_allNA           n_cons_qual                band_n     admitted_n mr_ok_max undefined_rates
+ consistency   effMaxSG      329          171      0        0.1233     0.1242                     171           TRUE populated 329/329 det populated 329/329 det             --         0            none
+ consistency   effMinSG      329          171      0        0.1233     0.1242                     171           TRUE populated 329/329 det populated 329/329 det             --         0            none
+ consistency maxeffCons      329          171      0        0.1233     0.1242                     171           TRUE populated 329/329 det populated 329/329 det             --         0            none
+ consistency     maxeff      500            0      0        0.1233     0.1242                       0           TRUE populated 500/500 det populated 500/500 det             --         0            none
+ consistency      maxSG      329          171      0        0.1233     0.1242                     171           TRUE populated 329/329 det populated 329/329 det             --         0            none
+ consistency      minSG      329          171      0        0.1233     0.1242                     171           TRUE populated 329/329 det populated 329/329 det             --         0            none
+        dina   effMaxSG      350          150      0        0.1233     0.1242                     150           TRUE                all NA                all NA             --         0            none
+        dina   effMinSG      350          150      0        0.1233     0.1242                     150           TRUE                all NA                all NA             --         0            none
+        dina      maxSG      350          150      0        0.1233     0.1242                     150           TRUE                all NA                all NA             --         0           npv:4
+        dina      minSG      350          150      0        0.1233     0.1242                     150           TRUE                all NA                all NA             --         0            none
+        dina maxeffCons      350          150      0        0.1233     0.1242                     150           TRUE                all NA                all NA             --         0            none
+         grf   effMaxSG      490           10      0        0.1233     0.1242                      10           TRUE                all NA                all NA finite 491/500         0            none
+         grf   effMinSG      490           10      0        0.1233     0.1242                      10           TRUE                all NA                all NA finite 491/500         0            none
+         grf      maxSG      490           10      0        0.1233     0.1242                      10           TRUE                all NA                all NA finite 491/500         0            none
+         grf      minSG      490           10      0        0.1233     0.1242                      10           TRUE                all NA                all NA finite 491/500         0            none
+         grf maxeffCons      490           10      0        0.1233     0.1242                      10           TRUE                all NA                all NA finite 491/500         0            none
+
+--- structural NA (by design, not failures) ---
+  consistency n_family all NA on 6/6 runs (MR-only quantity, MR off)
+  dina        n_family all NA on 5/5 runs (MR-only quantity, MR off); n_cons_qual all NA 5/5, band_n all NA 5/5 (no consistency table)
+  grf         n_family all NA on 5/5 runs (MR-only quantity, MR off); n_cons_qual all NA 5/5, band_n all NA 5/5 (no consistency table)
+  mr_ok max over all runs: 0
+  undefined classification rates on detected replicates (zero denominator; Amendment 1): dina maxSG [npv:4]
+
+--- counts ---
+  detections 6345, non-detections 1655, errors 0 over 500 replicates x 16 runs
+  realized prevalence (all runs): 0.1233 ; super-population: 0.1242
+
+--- same draws within the cell ---
+  n_true identical across the 16 runs: TRUE ; truth identical: TRUE
+
+--- SAME DRAWS against committed bundles at this coordinate (sim_id 1-500; a finding, not a failure) ---
+  dinamr         dina_effMaxSG_fb_mr_field_m1_h100_knoise0_n500_nb20_dinamr_combined_1_2000.rds  identical()=TRUE  seed_base=8316951  engine=dina focus=effMaxSG
+  dinamrprobe    skipped: no tracked bundle covers sim_id 1-500 (1-36)
+  h6smoke        skipped: no tracked bundle covers sim_id 1-500 (1-5)
+  s7             fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n500_s7_combined_1_2000.rds  identical()=TRUE  seed_base=8316951  engine=consistency focus=maxeffCons
+  s7c            fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n500_s7c_combined_1_2000.rds  identical()=TRUE  seed_base=8316951  engine=consistency focus=maxeffCons
+  s7csmoke       skipped: no tracked bundle covers sim_id 1-500 (1-5)
+  s7u            fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n500_s7u_combined_1_500.rds  identical()=TRUE  seed_base=8316951  engine=consistency focus=maxeffCons
+  s7w            fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n500_s7w_combined_1_2000.rds  identical()=TRUE  seed_base=8316951  engine=consistency focus=maxeffCons
+  s7wsmoke       skipped: no tracked bundle covers sim_id 1-500 (1-5)
+  smoke          skipped: no tracked bundle covers sim_id 1-500 (1-5)
+  tier2          fs_maxeffCons_fb_mr_field_m1_h100_knoise0_n500_tier2_combined_1_2000.rds  identical()=TRUE  seed_base=8316951  engine=consistency focus=maxeffCons
+  tier2smoke     skipped: no tracked bundle covers sim_id 1-500 (1-5)
+  uburst         skipped: no tracked bundle covers sim_id 1-500 (1-100)
+  usmoke         skipped: no tracked bundle covers sim_id 1-500 (1-5)
+  z1qinert       skipped: no tracked bundle covers sim_id 1-500 (1-5)
+  grfmr          grf_effMaxSG_fb_mr_field_m1_h100_knoise0_n500_nb20_grfmr_combined_1_2000.rds  identical()=TRUE  seed_base=8316951  engine=grf focus=effMaxSG
+  grfmrsmk       skipped: no tracked bundle covers sim_id 1-500 (1-5)
+  grfprobe       skipped: no tracked bundle covers sim_id 1-500 (1-36)
+
+GATE I p124_h100_n500: 293 checks passed, 0 failed -- PASS

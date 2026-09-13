@@ -1,0 +1,80 @@
+=== GATE A: idsweep_p31_h175_n1000_dina_effMaxSG  (engine dina, sg_focus effMaxSG, z1q 0.60, n 1000, HR 1.75) ===
+  expected stem              dina_effMaxSG_fb_mr_field_m1_h175_knoise0_n1000_z1q60_nb20_nomr_idsweep
+
+--- 0. driver environment ---
+  set                        FS_S7_FIELD_COMPLEMENT=TRUE FS_S7_FIELD_SCALEC=selected FS_S7_FIELD_DECOMP=TRUE     FS_S7_FIELD_RECOV=TRUE      FS_S7_IJ_RESIDUAL=two_term  FS_S7_FB=none               FS_S7_WORKERS=12            FS_S7_MR=FALSE              FS_S7_CAMPAIGN=idsweep      FS_S7_MODE=batch            FS_S7_START=1               FS_S7_NSIMS=500             FS_S7_HR=1.75               FS_S7_N=1000                FS_S7_FOCUS=effMaxSG        FS_S7_NBHD=0.20             FS_S7_METHOD=dina           FS_S7_Z1Q=0.60             
+  unset                      FS_S7_ER_JCUTS
+[PASS] FS_S7_MR=FALSE passed
+[PASS] FS_S7_FOCUS=effMaxSG passed
+[PASS] band focus: FS_S7_NBHD=0.20 passed
+[PASS] FS_S7_METHOD=dina passed
+[PASS] 31%: FS_S7_Z1Q=0.60 passed
+[PASS] FS_S7_ER_JCUTS unset
+
+--- 1. render log ---
+  log                        WALL_SECONDS=232 RC=0 OUT=idsweep_p31_h175_n1000_dina_effMaxSG
+[PASS] render RC = 0
+
+--- 2. rendered document (the template's audit lines) ---
+[PASS] document present: idsweep_p31_h175_n1000_dina_effMaxSG.html
+  Output stem                Output stem: dina_effMaxSG_fb_mr_field_m1_h175_knoise0_n1000_z1q60_nb20_nomr_idsweep
+  Run config                 Run config: method=dina, n_sims=500, nb_boots=0, mr_draws=5000, workers=12
+  Template knobs             Template knobs: method=dina hr=1.75 n=1000 z1q=0.60 focus=effMaxSG nbhd=0.20 er_jcuts=10 ci_method=field uniform=FALSE field_complement=TRUE field_decompose=TRUE field_scale_complement=selected field_recovery=TRUE return_reselection=TRUE ij_residual=two_term fb_mode=none campaign=idsweep run_mode=batch sim_id 1-500 quickrun=FALSE mr_inference=FALSE
+[PASS] document's stem == expected stem
+[PASS] `_nomr` in the document's stem
+[PASS] audit method = dina (intended dina)
+[PASS] audit hr = 1.75 (intended 1.75)
+[PASS] audit n = 1000 (intended 1000)
+[PASS] audit z1q = 0.60 (intended 0.60)
+[PASS] audit focus = effMaxSG (intended effMaxSG)
+[PASS] audit nbhd = 0.20 (intended 0.20)
+[PASS] audit er_jcuts = 10 (intended 10)
+[PASS] audit fb_mode = none (intended none)
+[PASS] audit campaign = idsweep (intended idsweep)
+[PASS] audit run_mode = batch (intended batch)
+[PASS] audit quickrun = FALSE (intended FALSE)
+[PASS] audit mr_inference = FALSE (intended FALSE)
+[PASS] audit sim_id 1-500
+  inert with MR off, reported only: ci_method=field uniform=FALSE field_complement=TRUE field_decompose=TRUE field_scale_complement=selected field_recovery=TRUE return_reselection=TRUE ij_residual=two_term 
+[PASS] Run config workers=12
+
+--- 3. bundle meta ---
+[PASS] bundle present: results/dina_effMaxSG_fb_mr_field_m1_h175_knoise0_n1000_z1q60_nb20_nomr_idsweep_res_1_500.rds
+[PASS] `_nomr` in the bundle filename
+  mr_inference               FALSE
+  subgroup_method            dina
+  sg_focus                   effMaxSG
+  focus_tag                  effMaxSG
+  effect_neighborhood        0.2
+  selection_rule             neighborhood
+  campaign_tag               idsweep
+  n_sample                   1000
+  target_hr_harm             1.75
+  harm_z1_quantile           0.6
+  harm_prevalence_super      0.30655
+  n_sims                     500
+  sim_id_start               1
+  sim_id_end                 500
+  seed_base                  8316951
+  n_workers                  12
+  fb_mode                    none
+  er_jcuts                   10
+  forestsearch_version       0.3.5
+  hostname                   Mac-Studio-3.local
+[PASS] meta$mr_inference is FALSE
+[PASS] meta$subgroup_method = dina
+[PASS] meta$sg_focus = effMaxSG (intended effMaxSG)
+[PASS] meta$focus_tag = effMaxSG (fs_focus_tag: effMaxSG)
+[PASS] meta$effect_neighborhood = 0.20 (eps 0.20 on a band focus)
+[PASS] meta$campaign_tag = idsweep
+[PASS] meta n / HR / z1q as intended
+[PASS] meta sim_id 1-500, one batch
+[PASS] meta$seed_base = 8316951
+[PASS] meta$n_workers = 12
+[PASS] bundle rows = 500
+
+--- 4. DINA ---
+  template :538  dina_select_statistic <- "effect"  # only if subgroup_method == "dina": "dina" | "effect"
+[PASS] render.sh exports VECLIB_MAXIMUM_THREADS / OMP_NUM_THREADS / OPENBLAS_NUM_THREADS = 1
+
+GATE A idsweep_p31_h175_n1000_dina_effMaxSG: 38 passes, 0 failures -- PASS

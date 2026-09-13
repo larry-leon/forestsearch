@@ -1,0 +1,70 @@
+            cell compute_s overhead_s wall_s cell_done_wall_s gate1_proj_s
+  p124_h150_n500      1010        788   1798             1814         1230
+ p124_h150_n1000      1299        657   1956             1972         1944
+ p124_h150_n1500      1534        556   2090             2105         2958
+   p31_h150_n500      1724        793   2517             2532         1682
+  p31_h150_n1000      2296        739   3035             3051         2446
+  p31_h150_n1500      2760        688   3448             3464         3485
+  p124_h175_n500      1049        761   1810             1826         1235
+ p124_h175_n1000      1365        628   1993             2009         1436
+ p124_h175_n1500      1623        559   2182             2198         1583
+   p31_h175_n500      1866        749   2615             2630         1781
+  p31_h175_n1000      2567        672   3239             3255         2589
+  p31_h175_n1500      3115        620   3735             3750         3697
+  p124_h100_n500       918        757   1675             1691         1057
+ p124_h100_n1000      1143        657   1800             1816         1521
+ p124_h100_n1500      1383        584   1967             1984         2041
+   p31_h100_n500      1187        833   2020             2037         1336
+  p31_h100_n1000      1499        830   2329             2344         1927
+  p31_h100_n1500      1741        774   2515             2531         2809
+ reproj_s real_over_gate1 real_over_reproj
+     1230           1.474            1.474
+     2539           1.014            0.777
+     2592           0.712            0.812
+     2180           1.505            1.161
+     2612           1.247            1.168
+     2751           0.994            1.259
+     1725           1.479            1.059
+     2055           1.399            0.978
+     2252           1.389            0.976
+     2537           1.477            1.036
+     3178           1.257            1.024
+     3719           1.014            1.008
+     1624           1.600            1.041
+     1751           1.194            1.037
+     1874           0.972            1.059
+     1953           1.524            1.043
+     2364           1.216            0.991
+     2732           0.901            0.926
+
+by engine over the completed cells (h): realized vs Gate 1
+      engine real_compute_h real_overhead_h real_wall_h gate1_compute_h
+ consistency           3.36            1.26        4.62            4.96
+        dina           1.67            1.20        2.87            1.26
+         grf           3.32            1.06        4.38            2.68
+ gate1_wall_h
+         5.45
+         1.67
+         3.09
+
+render overhead per render, realized: median 44.5 s [20, 65] over 288 renders
+per-criterion mean s per replicate, averaged over completed cells:
+      engine      focus mean_s
+ consistency   effMaxSG   2.57
+        dina   effMaxSG   1.61
+         grf   effMaxSG   3.20
+ consistency   effMinSG   2.55
+        dina   effMinSG   1.61
+         grf   effMinSG   3.20
+ consistency     maxeff   3.25
+ consistency maxeffCons   2.54
+        dina maxeffCons   1.61
+         grf maxeffCons   3.20
+ consistency      maxSG   2.61
+        dina      maxSG   1.61
+         grf      maxSG   3.16
+ consistency      minSG   2.61
+        dina      minSG   1.60
+         grf      minSG   3.20
+
+TOTAL: realized 11.95 h (sum of CELL DONE walls, 18 cells) vs Gate 1 10.21 h for the same cells; Gate 1 all-18 10.21 h

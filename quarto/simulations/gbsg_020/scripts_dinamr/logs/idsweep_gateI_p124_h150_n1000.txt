@@ -1,0 +1,42 @@
+=== GATE I: cell p124_h150_n1000 (z1q -, n 1000, HR 1.50), tag idsweep, 500 replicates ===
+
+--- per run ---
+      engine   sg_focus detected no_detection errors prev_realized prev_super n_sel_NA_on_nondetected n_family_allNA           n_cons_qual                band_n     admitted_n mr_ok_max undefined_rates
+ consistency   effMaxSG      483           17      0        0.1238     0.1242                      17           TRUE populated 483/483 det populated 483/483 det             --         0            none
+ consistency   effMinSG      483           17      0        0.1238     0.1242                      17           TRUE populated 483/483 det populated 483/483 det             --         0            none
+ consistency maxeffCons      483           17      0        0.1238     0.1242                      17           TRUE populated 483/483 det populated 483/483 det             --         0            none
+ consistency     maxeff      500            0      0        0.1238     0.1242                       0           TRUE populated 500/500 det populated 500/500 det             --         0            none
+ consistency      maxSG      483           17      0        0.1238     0.1242                      17           TRUE populated 483/483 det populated 483/483 det             --         0            none
+ consistency      minSG      483           17      0        0.1238     0.1242                      17           TRUE populated 483/483 det populated 483/483 det             --         0            none
+        dina   effMaxSG      419           81      0        0.1238     0.1242                      81           TRUE                all NA                all NA             --         0            none
+        dina   effMinSG      419           81      0        0.1238     0.1242                      81           TRUE                all NA                all NA             --         0            none
+        dina      maxSG      419           81      0        0.1238     0.1242                      81           TRUE                all NA                all NA             --         0            none
+        dina      minSG      419           81      0        0.1238     0.1242                      81           TRUE                all NA                all NA             --         0            none
+        dina maxeffCons      419           81      0        0.1238     0.1242                      81           TRUE                all NA                all NA             --         0            none
+         grf   effMaxSG      500            0      0        0.1238     0.1242                       0           TRUE                all NA                all NA finite 500/500         0            none
+         grf   effMinSG      500            0      0        0.1238     0.1242                       0           TRUE                all NA                all NA finite 500/500         0            none
+         grf      maxSG      500            0      0        0.1238     0.1242                       0           TRUE                all NA                all NA finite 500/500         0            none
+         grf      minSG      500            0      0        0.1238     0.1242                       0           TRUE                all NA                all NA finite 500/500         0            none
+         grf maxeffCons      500            0      0        0.1238     0.1242                       0           TRUE                all NA                all NA finite 500/500         0            none
+
+--- structural NA (by design, not failures) ---
+  consistency n_family all NA on 6/6 runs (MR-only quantity, MR off)
+  dina        n_family all NA on 5/5 runs (MR-only quantity, MR off); n_cons_qual all NA 5/5, band_n all NA 5/5 (no consistency table)
+  grf         n_family all NA on 5/5 runs (MR-only quantity, MR off); n_cons_qual all NA 5/5, band_n all NA 5/5 (no consistency table)
+  mr_ok max over all runs: 0
+  undefined classification rates on detected replicates (zero denominator; Amendment 1): none
+
+--- counts ---
+  detections 7510, non-detections 490, errors 0 over 500 replicates x 16 runs
+  realized prevalence (all runs): 0.1238 ; super-population: 0.1242
+
+--- same draws within the cell ---
+  n_true identical across the 16 runs: TRUE ; truth identical: TRUE
+
+--- SAME DRAWS against committed bundles at this coordinate (sim_id 1-500; a finding, not a failure) ---
+  dinamr         dina_effMaxSG_fb_mr_field_m1_h150_knoise0_n1000_nb20_dinamr_combined_1_2000.rds  identical()=TRUE  seed_base=8316951  engine=dina focus=effMaxSG
+  dinamrprobe    skipped: no tracked bundle covers sim_id 1-500 (1-36)
+  p12ext         fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n1000_p12ext_combined_1_2000.rds  identical()=TRUE  seed_base=8316951  engine=consistency focus=maxeffCons
+  grfmr          grf_effMaxSG_fb_mr_field_m1_h150_knoise0_n1000_nb20_grfmr_combined_1_2000.rds  identical()=TRUE  seed_base=8316951  engine=grf focus=effMaxSG
+
+GATE I p124_h150_n1000: 293 checks passed, 0 failed -- PASS
