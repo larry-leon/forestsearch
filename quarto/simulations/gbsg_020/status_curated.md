@@ -135,6 +135,7 @@ The first three entries name files that live **outside this repository** (the `f
     - `fs_extraction.R`'s eps column.
   - **Why.** ε is inert under `maxeffCons`.
   - **Quote it as:** the 12.4% FS comparator differs from DINA and GRF in the **rule** (`maxeffCons`, no band).
+- The `cert20` Stage 1 report's per-cell timing sums field-block seconds into `fit_mr_secs`, which already contains them. Those totals are double-counted. The `p12x20` Gate 1 report uses `fit_mr_secs` alone.
 
 ## 6. Not derivable from the committed columns
 
