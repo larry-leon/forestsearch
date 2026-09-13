@@ -1,7 +1,7 @@
 # current_status — `quarto/simulations/gbsg_020`
 
-- **Pin:** `e5288644` on `feature/glm-extension` — HEAD at the time this file was committed; the closeout commit that adds this file is its child.
-- **Updated:** 2026-09-12 (after `TASK_grfmr_completion_2026-09-12`, its review, and the `summary_grfmr.qmd` wording fix)
+- **Pin:** `6e1a6189` on `feature/glm-extension` — HEAD at the time this file was committed; the closeout commit that adds this file is its child.
+- **Updated:** 2026-09-12 (after `TASK_partB_measurement_2026-09-12`, which stopped at Stage 0c; preceded by `TASK_grfmr_completion_2026-09-12`, its review, and the `summary_grfmr.qmd` wording fix)
 - **Purpose:** a catalog of what has been run in this directory and where the payloads are, so a chat or workstream on another machine can be brought up to speed by attaching this one file. It points at authoritative files; it does not restate their numbers.
 - **Maintenance:** regenerated as the closeout step of every task that touches this directory. The pin above must equal HEAD at commit time. §3 is produced by `scripts_dinamr/status_inventory.R` from the directory.
 
@@ -27,6 +27,7 @@
 
 - All 18 grid cells are covered, and all 18 designated comparator bundles are verified present. `gate2G.R` now asserts per cell that the designated comparator resolves. The table names the **designated** comparator, the one `gate2G.R` and `fs_extraction.R` resolve to. Earlier FS campaigns (`map1`, `s7`, and others) also hold bundles at some of these cells; those are not the comparator and must not be substituted.
 - **Criterion is matched to DINA and GRF at 31% and not at 12.4%.** Any 12.4% cross-identifier gap carries a criterion confound on top of identifier, family construction and detection set.
+  - **At 12.4% the confound is the rule, not ε.** `maxeffCons` never reads `effect_neighborhood` on any engine. The "ε 0.10" in the table is the recorded default, and it was inert on those nine cells (`REPORT_partB_measurement_2026-09-12.md`, Stage 0b). Only the informational `band_n` column reads it.
 - FS one-sided products, recomputed from the committed bundles across **all 12 harm cells**, both prevalences:
   - **field lower on β(Ĥ): 0.941–0.975.** The certification record's 0.944–0.974 is the same quantity on a **smaller cell set**. It predates `p12ext`, which supplies the three 12.4% HR 1.50 cells, and 12.4% HR 1.50 n 1000 (0.9410) is the only harm cell below 0.944. Both are right for their set; quote the cell set with the range.
   - **field-s upper on β(Ĥᶜ): 0.9125–0.9605.** Identical to the record's "0.912–0.960": the endpoints are the same numbers under a different rounding convention, not a disagreement.
@@ -77,12 +78,12 @@ Regenerated from the directory by `scripts_dinamr/status_inventory.R`.
 | `results/fs_*.rds` | 315/315 | 149.12 MB | `fs_maxeffCons_fb_mr_field_m1_h150_knoise0_n1000_p12ext_combined_1_2000.rds` 1.51 MB | FS bundles — the comparator grid plus every earlier FS campaign |
 | `results/*.rds` | 14/14 | 960 KB | `grf_eff_fb_mr_m1_h10_knoise0_n500_combined_1_500.rds` 150 KB | other bundles in `results/` |
 | `mr_sweep/**` | 210/210 | 15.19 MB | `grf_mr_n500_res.rds` 130 KB | `mr_sweep/` — an earlier seed-table sweep, superseded, kept for provenance |
-| `scripts_dinamr/logs/*` | 89/89 | 319 KB | `gate2G_C.txt` 28 KB | per-render, driver and gate logs — `WALL_SECONDS` / `CELL DONE wall=` |
-| `scripts_dinamr/*.R` | 25/25 | 175 KB | `gate2G.R` 17 KB | drivers, checkers, projections, extractions (R) |
+| `scripts_dinamr/logs/*` | 90/90 | 328 KB | `gate2G_C.txt` 28 KB | per-render, driver and gate logs — `WALL_SECONDS` / `CELL DONE wall=` |
+| `scripts_dinamr/*.R` | 26/26 | 186 KB | `gate2G.R` 17 KB | drivers, checkers, projections, extractions (R) |
 | `scripts_dinamr/*.sh` | 10/10 | 16 KB | `grfmrC.sh` 3 KB | render/campaign drivers and the closeout checker (shell) |
 | `scripts_dinamr/*.py` | 2/2 | 13 KB | `transplant_grfmr.py` 12 KB | transplant / chunk-diff helpers (Python) |
 | `scripts_dinamr/*.cells` | 7/7 | 1 KB | `grfmr.cells` 0 KB | cell lists, one line per cell |
-| `scripts_dinamr/*.rds` | 7/7 | 74 KB | `grfmr_tables.rds` 62 KB | saved derived objects (projections, walls, extracted tables) |
+| `scripts_dinamr/*.rds` | 8/8 | 77 KB | `grfmr_tables.rds` 62 KB | saved derived objects (projections, walls, extracted tables) |
 | `scripts_dinamr/*.md` | 1/1 | 8 KB | `README.md` 8 KB | `README.md` — the standing rules, and what each script is |
 | `scripts_dinamr/*.txt` | 1/1 | 5 KB | `grf_mechanism_output.txt` 5 KB | captured script output (GRF mechanism probe) |
 | `dinamr_*.html` | 54/54 | 235.69 MB | `dinamr_C31_h100_n500_combine_1.html` 4.39 MB | `dinamr` batch and combine renders |
@@ -96,7 +97,7 @@ Regenerated from the directory by `scripts_dinamr/status_inventory.R`.
 | `sim_*.html` | 52/52 | 150.72 MB | `sim_fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_batch_1_1000.html` 3.33 MB | renders of those other templates |
 | `fs_*.html` | 245/245 | 973.62 MB | `fs_maxeffCons_fb_mr_field_m1_h175_knoise0_n1000_tier2_combine_1_2000.html` 4.34 MB | FS campaign batch/combine renders (`p12ext`, `tier2`, `e1stud`, `cert20`, earlier) |
 | `*.html` | 30/30 | 92.14 MB | `grfmrsmk_C124_h100_n500.html` 4.27 MB | remaining renders (smoke, gate, dflt, compare) |
-| `REPORT_*.md` | 65/65 | 1.10 MB | `REPORT_fixedphat_ij2s_2026-09-09.md` 79 KB | REPORT documents |
+| `REPORT_*.md` | 66/66 | 1.11 MB | `REPORT_fixedphat_ij2s_2026-09-09.md` 79 KB | REPORT documents |
 | `TABLES_*.md` | 2/2 | 83 KB | `TABLES_grfmr_completion_2026-09-12.md` 53 KB | TABLES documents |
 | `REVIEW_*.md` | 3/3 | 30 KB | `REVIEW_dinamr_blockC_2026-09-11.md` 13 KB | REVIEW documents |
 | `current_status.md` | 1/1 | 21 KB | `current_status.md` 21 KB | this file — the directory's catalog at a pin |
@@ -104,7 +105,7 @@ Regenerated from the directory by `scripts_dinamr/status_inventory.R`.
 | `*.qmd` | 21/21 | 1.44 MB | `gate_d2_cim_unset.qmd` 156 KB | remaining `.qmd` |
 | `*.R` | 4/4 | 63 KB | `p12ext_findings.R` 24 KB | top-level ad-hoc R scripts |
 | `**` | 1/1 | 5 KB | `compare_1_20_vs_1_500.csv` 5 KB | everything else |
-| **total** | **1437/1437** | **2083 MB** | `summary_grfmr.html` 7.87 MB | every file, each counted once |
+| **total** | **1441/1441** | **2083 MB** | `summary_grfmr.html` 7.87 MB | every file, each counted once |
 
 Sizes are **apparent size** (`st_size`), in MiB/KiB, not disk usage; `du` reports block-allocated size and reads larger for many small files. **Every file is counted exactly once**: the rules are applied first-match-wins and the rows sum to the total. **Files over 50 MB: 0; over 100 MB: 0.** The gitignored `_gateT_pre_template_files/` and `.DS_Store` are excluded throughout. The `current_status.md` row shows this file's size at the pin, before this regeneration.
 
@@ -119,6 +120,7 @@ Sizes are **apparent size** (`st_size`), in MiB/KiB, not disk usage; `du` report
 | Why a quoted FS range differs from the certification record | `REPORT_fs_products_reconciliation_2026-09-12.md` |
 | How a number was computed | `scripts_dinamr/` — the summary's own chunks are authoritative over any re-implementation |
 | Cost and wall provenance | `scripts_dinamr/logs/`, `projectC.R`, `walls.R`, `wallsGC.R` |
+| Part B: how `sg_focus` resolves per engine, MR-on cost bounds, host factor, Monte Carlo resolution | `REPORT_partB_measurement_2026-09-12.md`, `scripts_dinamr/partB_stage0_readout.R` |
 | Raw per-replicate rows | `results/*<campaign>*.rds` |
 
 ## 4. Reading conventions that must travel with these numbers
@@ -146,6 +148,14 @@ The first three entries name files that live **outside this repository** (the `f
   - **field-s upper on β(Ĥᶜ)** — **no difference at all.** The value is 0.9125–0.9605; "0.912–0.960" and "0.913–0.961" are the same endpoints rounded differently. The note's per-cell quotes reproduce exactly: 0.912 / 0.942 / 0.947 at 31% HR 1.50, 0.919 / 0.942 / 0.946 at HR 1.75, 0.941 / 0.956 / 0.961 at 12.4% HR 1.75.
   - **Bonferroni joint** — **different construction, not a different number.** The record's 0.939–0.963 is the **studentized** pair `fld_joint_s_bonf_*` (9-cell range 0.9395–0.9640). The 0.932–0.964 quoted against it was the **unscaled** pair `fld_joint_bonf_*`. Always name which.
   - Neither `SUMMARY_survival_properties_2026-09-10.md` nor `REVIEW_certification_2026-09-09.md` is in this repository, so the "0.941–0.980" attributed to them could not be checked. **0.980 does not reproduce from any field-lower computation on the committed bundles** (the nearest 0.98 in the record is the IJ two-sided at 31%, 0.971–0.981).
+- **ε 0.10 as part of the 12.4% FS criterion (2026-09-12; `REPORT_partB_measurement_2026-09-12.md`, Stage 0b).** Reported; the records are not edited.
+  - **What is wrong.** Several records treat ε 0.10 as operative on the `tier2` / `p12ext` cells:
+    - `REPORT_dinamr_blockC_2026-09-11.md:596`: "at half the band width".
+    - `summary_grfmr.qmd` captions: `fs_matched` / `criterion_matched` gated on "sg_focus and eps".
+    - `REPORT_grfmr_completion_2026-09-12.md:257` and `REPORT_grfmr_2026-09-11.md:418`: "`maxeffCons` ε 0.10 against `effMaxSG` ε 0.20".
+    - `fs_extraction.R`'s eps column.
+  - **Why.** ε is inert under `maxeffCons`.
+  - **Quote it as:** the 12.4% FS comparator differs from DINA and GRF in the **rule** (`maxeffCons`, no band).
 
 ## 6. Not derivable from the committed columns
 
@@ -156,6 +166,12 @@ The first three entries name files that live **outside this repository** (the `f
 
 ## 7. Open work in this directory
 
+- **Part B (identification only, six `sg_focus` criteria × 18 cells × 3 identifiers) is blocked at the template.** Details in `REPORT_partB_measurement_2026-09-12.md`.
+  - `mr_inference = TRUE` is a literal (template `:1017`), with no `FS_S7_*` knob.
+  - The focus guard (`:327`) admits only four of the six criteria.
+  - The add-only change is described there and not made. Stage M, the MR-off cost measurement, has not run.
+  - On DINA and GRF, `maxeff` and `maxeffCons` are the same run, so the sweep is 288 cell-runs.
+  - The FS comparator at the Stage M coordinate is a pop-os / 100-worker bundle. FS seconds there run 3.9–4.4× the Mac's per replicate.
 - A criterion-matched FS comparator at 12.4%. None is committed; this needs compute and is the largest gap for a like-for-like low-prevalence comparison, now for all three identifiers at harm and null cells.
 - Whether DINA and GRF should default to the field constructions, now informed by two complete 18-cell grids.
 - Whether to pin a commit in `forestsearch_version`.
