@@ -4,7 +4,7 @@ Written by `summary_continuous_field_mdsgnb20.qmd` from the same objects its tab
 
 ## Columns
 
-- `campaign`: the campaign tag (`mdsgnb20`).
+- `campaign`: `mdsgnb20`, or `mdf1` for the paired comparator rows of the rule contrast (declaration rate, identification, field one-sided coverage on the same seeds).
 - `cell`: `md40 n500`, `md120 n500`, `null n500 (no subgroup; homogeneous +26)`, `md40 n700`.
 - `block`: `H` (the selected subgroup Ĥ), `Hc` (its complement Ĥᶜ), `joint` (the pair).
 - `estimator`: see the code map below.
@@ -36,9 +36,9 @@ Written by `summary_continuous_field_mdsgnb20.qmd` from the same objects its tab
 - `halfwidth_md`, `margin1_md`: mean two-sided half-width; mean one-sided margin from beta-tilde (field rows) or from the estimate.
 - `share_lower_ge_tau` (H): share of replicates whose one-sided lower bound is >= tau ('harm of at least tau supported'); `share_upper_le_tau` (Hc): share whose one-sided upper bound is <= tau ('harm of at most tau supported').
 - `bound_mean`, `bound_q05` ... `bound_q95`: location of the one-sided bound.
-- `joint_coverage`, `share_both_bounds`, `cov_H`, `cov_Hc`: joint pair rows on declared replicates carrying both bounds.
+- `joint_coverage`, `share_both_bounds`, `cov_H`, `cov_Hc`, `margin_H_md`, `margin_Hc_md`: joint pair rows on declared replicates carrying both bounds; margins in MD units from beta-tilde.
 - `gamma_mean`, `corr`, `gamma_mean_s`, `corr_s`: calibrated-split diagnostics.
-- `mean_n_harm`, `mean_n_sel`, `sensitivity_mean`, `ppv_mean`, `share_nharm_{grew,stayed,shrank}_vs_mdf1`: identification, paired with mdf1 by sim_id.
+- `mean_n_harm`, `mean_n_sel`, `sensitivity_mean`, `ppv_mean`, `share_nharm_{grew,stayed,shrank}_vs_mdf1`, `count_nharm_{grew,stayed,shrank}_vs_mdf1`: identification, paired with mdf1 by sim_id (shares and counts of the paired replicates).
 - `p_hat_mean`, `p_hat_share_lt_05`: re-selection frequency of the winner and the tie-regime share.
 - `sd_btc_over_naive_se` (mr), `lamsd_over_naive_se` (fld, fld_s): regime diagnostics on Ĥᶜ.
 - `display_b`, `display_r`, `display_cov1`, `display_cov1_ref`, `display_cov2`, `display_cov2_ref`: fs_sim_bias_coverage(scale = 'identity') bookkeeping.
