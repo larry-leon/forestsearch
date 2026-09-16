@@ -131,7 +131,13 @@ sim_id_start <- .env_int("FS_MD_START", 1L)
 seed_base    <- 8316951L
 
 # ── The identifier: engine + focus (these ARE the estimator; they feed the stem)
-subgroup_method <- "consistency"
+# ENGINE KNOB (FS_MD_METHOD; TASK_md_grf_2026-09-16 E1, transplanted from m1
+# :300-311 FS_S7_METHOD).  Default-inert: unset it resolves to "consistency",
+# the former literal.  method_tag, focus_tag and the output stem key on it below,
+# so a run under a different engine can never overwrite a consistency bundle, and
+# meta$subgroup_method (batch and combined; a poolability key) records the engine.
+subgroup_method <- .env_chr("FS_MD_METHOD", "consistency")  # "consistency" | "dina" | "grf"
+stopifnot(subgroup_method %in% c("consistency", "dina", "grf"))
 # Focus knob (FS_MD_FOCUS; TASK_md_field_rerun_2026-09-15 E1, transplanted
 # from the survival template's FS_S7_FOCUS).  forestsearch() derives the MR
 # re-selection rule from sg_focus, so the gate re-selects under the same
@@ -262,6 +268,19 @@ fs_splits <- 400L; maxk <- 2L; n_min <- 60L; d0_min <- 12L; d1_min <- 12L
 fs_conf.cont_jcuts <- list(age = 10, preanti = 10)
 use_lasso <- FALSE; use_dina <- FALSE; use_grf <- FALSE; use_twostage <- TRUE
 is_rct <- TRUE; vi_grf_min <- -0.2
+# ── Per-identifier arguments (TASK_md_grf_2026-09-16 E2; m1 :533-538), consumed
+# only under the matching subgroup_method (the method_args switch in the call).
+grf_selection   <- "frontier"      # only if subgroup_method == "grf": "tree" | "frontier"
+grf_select_statistic <- "effect"   # only if grf frontier: "dr" | "effect" (no-op for tree)
+grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
+# dmin.grf: the DR-score harm-effect floor of the frontier pre-filter
+# (R/grf_subgroup_labels.R:358), in outcome (MD) units on the harm-oriented DR
+# scale.  Disposition (TASK_md_grf_2026-09-16): 30, aligned with FS's effect
+# threshold; m1 uses the literal 0.0.  Knob FS_MD_DMIN_GRF.
+dmin.grf        <- .env_num("FS_MD_DMIN_GRF", 30)
+stopifnot(is.finite(dmin.grf), dmin.grf >= 0)
+dina_args       <- list()          # extra args forwarded to the DINA selector (dina_args =)
+dina_select_statistic <- "effect"  # only if subgroup_method == "dina": "dina" | "effect"
 adverse_outcome <- FALSE   # higher CD4 change = better; harm = negative MD
 
 # ── DGM knobs (verbatim from the committed harness; do NOT recalibrate) ─────
@@ -590,6 +609,24 @@ if (any(abs(c(.z_H, .z_Hc)) > 4, na.rm = TRUE))
   p_hat_H = NA_real_,
   p_top1 = NA_real_, p_top2 = NA_real_, p_top3 = NA_real_,
   p_lab1 = NA_character_, p_lab2 = NA_character_, p_lab3 = NA_character_,
+  # ---- TASK_md_grf_2026-09-16 E3: the survival DINA/GRF campaigns' identifier fields (m1 :988-1000) ----
+  # n_family = the gate's kept family K; n_cons_qual = the consistency-qualifying
+  # candidates the identifier sorted; band_n = those within the band on the OBSERVED
+  # effects (both structurally NA on the GRF path); admitted_n = GRF's forest-qualified
+  # candidate count at the resolved admission floor (R/forestsearch_helpers.R:1651, :1654;
+  # NA on every non-GRF path); p_hat_sum = sum of p-hat over the family (= selection rate).
+  n_family = NA_integer_, n_cons_qual = NA_integer_, band_n = NA_integer_,
+  admitted_n = NA_integer_, p_hat_sum = NA_real_,
+  # Field re-selection recovery (m1 :952-955; field_recovery is not passed here -> all NA).
+  fld_recov_sens_H = NA_real_, fld_recov_ppv_H = NA_real_,
+  fld_recov_sens_Hc = NA_real_, fld_recov_npv_Hc = NA_real_,
+  fld_recov_q10 = NA_real_, fld_recov_q50 = NA_real_, fld_recov_q90 = NA_real_,
+  fld_recov_share1 = NA_real_, fld_recov_n_used = NA_real_,
+  # Warnings raised inside forestsearch(), distinct messages with counts (§1.6(b)).
+  warn_msg = NA_character_,
+  # Identification wall inside forestsearch() (60 * minutes_all: the engine's own
+  # clock, taken before the MR gate on every path), for the GRF fit-time fact of §1.6(b).
+  id_secs = NA_real_,
   stringsAsFactors = FALSE)
 
 # Oracle: difference in means refit on a TRUE region (identity link), ORIENTED
@@ -642,44 +679,87 @@ record_replicate <- function(sim_id) {
   rec$or_Hc_hi  <- .oHc[["hi"]];  rec$or_Hc_se <- .oHc[["se"]]
 
   t0 <- proc.time()[3]; fs.est <- NULL
-  msgs <- tryCatch(utils::capture.output(
-    fs.est <- suppressWarnings(forestsearch(
-      df.analysis = df, confounders.name = confs,
-      outcome.name = outcome_name, treat.name = treat_name, id.name = id_name,
-      outcome_type = "continuous", effect_measure = "MD",
-      effect.threshold = md_threshold, consistency.threshold = md_consistency,
-      pconsistency.threshold = pconsistency, fs.splits = fs_splits,
-      n.min = n_min, d0.min = d0_min, d1.min = d1_min, maxk = maxk,
-      vi.grf.min = vi_grf_min, sg_focus = sg_focus,
-      selection_rule = selection_rule,
-      effect_neighborhood = effect_neighborhood,
-      stop_threshold = stop_threshold,
+  # TASK_md_grf_2026-09-16 E1/E2 (m1 :1039-1073): the call is built as base_args +
+  # method_args and dispatched with do.call(); the argument SET on the default
+  # path (subgroup_method = "consistency") is the former literal call's, unchanged.
+  base_args <- list(
+    df.analysis = df, confounders.name = confs,
+    outcome.name = outcome_name, treat.name = treat_name, id.name = id_name,
+    outcome_type = "continuous", effect_measure = "MD",
+    effect.threshold = md_threshold, consistency.threshold = md_consistency,
+    pconsistency.threshold = pconsistency,
+    n.min = n_min,
+    vi.grf.min = vi_grf_min, sg_focus = sg_focus,
+    subgroup_method = subgroup_method,
+    selection_rule = selection_rule,
+    effect_neighborhood = effect_neighborhood,
+    stop_threshold = stop_threshold,
+    is.RCT = is_rct,
+    adverse_outcome = adverse_outcome,
+    details = FALSE, quiet = FALSE, seedit = sd_i,
+    parallel_args = inner_parallel,
+    mr_inference = TRUE,
+    # THE template's knob delta versus the twin's inline
+    # list(ci_method = "ij", draws, include_complement = TRUE): every added
+    # element is add-only in the gate, so under ci_method = "ij" the IJ
+    # columns are byte-identical to the committed bundles.
+    mr_inference_args = mr_inference_args)
+  method_args <- switch(
+    subgroup_method,
+    consistency = list(
       consistency_method = consistency_method,
+      use_lasso = use_lasso, use_grf = use_grf, use_twostage = use_twostage,
+      use_dina = use_dina,
       conf.cont_jcuts = fs_conf.cont_jcuts,
-      use_lasso = use_lasso, use_dina = use_dina, use_grf = use_grf,
-      use_twostage = use_twostage, is.RCT = is_rct,
-      adverse_outcome = adverse_outcome,
-      details = FALSE, quiet = FALSE, seedit = sd_i,
-      parallel_args = inner_parallel,
-      mr_inference = TRUE,
-      # THE template's knob delta versus the twin's inline
-      # list(ci_method = "ij", draws, include_complement = TRUE): every added
-      # element is add-only in the gate, so under ci_method = "ij" the IJ
-      # columns are byte-identical to the committed bundles.
-      mr_inference_args = mr_inference_args)),
+      fs.splits = fs_splits, maxk = maxk, d0.min = d0_min, d1.min = d1_min),
+    dina = list(dina_select_statistic = dina_select_statistic,
+                dina_args             = dina_args),
+    grf  = list(grf_selection = grf_selection, grf_depth = grf_depth,
+                dmin.grf = dmin.grf, grf_select_statistic = grf_select_statistic),
+    stop("unknown subgroup_method: ", subgroup_method)
+  )
+  # Warnings are CAPTURED (TASK_md_grf_2026-09-16 §1.6(b), "warnings captured
+  # verbatim"), not suppressed: each distinct message with its count lands in
+  # warn_msg.  The former suppressWarnings() discarded them.
+  .warns <- character(0)
+  msgs <- tryCatch(utils::capture.output(
+    fs.est <- withCallingHandlers(do.call(forestsearch, c(base_args, method_args)),
+      warning = function(w) { .warns <<- c(.warns, conditionMessage(w)); invokeRestart("muffleWarning") }),
     type = "message"),
     error = function(e) {
       if (isTRUE(diag_mode)) warning(sprintf("FS-ERR sim %d: %s",
                                              sim_id, conditionMessage(e)))
       rec$err_msg <<- conditionMessage(e); character(0) })
+  if (length(.warns)) { .tw <- table(.warns); rec$warn_msg <- paste(sprintf("%s [x%d]", names(.tw), as.integer(.tw)), collapse = " | ") }
   rec$fit_mr_secs <- proc.time()[3] - t0
+  if (!is.null(fs.est) && is.numeric(fs.est$minutes_all)) rec$id_secs <- 60 * fs.est$minutes_all
   mr_lines <- grep("multiplier resampling|mr_inference", msgs, value = TRUE)
   if (length(mr_lines)) rec$mr_msg <- paste(mr_lines, collapse = " | ")
   if (!is.na(rec$err_msg)) { rec$status <- "CONFIG-ERROR"; return(rec) }
+  # admitted_n, recorded HERE -- before the no-detection return below -- because
+  # an empty admitted set is written as 0L (R/forestsearch_helpers.R:1651) and is
+  # exactly the reason that replicate did not detect (TASK_md_grf_2026-09-16 E3;
+  # m1 :1087-1094).  GRF path only; every other method leaves the NA_integer_.
+  .adm <- if (identical(subgroup_method, "grf") && !is.null(fs.est)) fs.est$grf_res$admitted_n else NULL
+  if (!is.null(.adm) && length(.adm) >= 1L && is.finite(.adm[1]))
+    rec$admitted_n <- as.integer(.adm[1])
   if (is.null(fs.est) || is.null(fs.est$sg.harm)) {
     rec$status <- "NO-DETECTION"; rec$detected <- 0L; return(rec)
   }
   rec$status <- "DETECTED"; rec$detected <- 1L
+  # Consistency-qualifying candidates and the observed-effect band (the
+  # identifier's own table, grp.consistency$out_sg$result: hr on the natural
+  # scale, N, Pcons, K), so band_n is the count the identifier's
+  # order(-in_band, -N, ...) key saw.  Absent table -> NA (structural on the GRF
+  # path, which has no consistency screen).  TASK_md_grf_2026-09-16 E3; m1 :1164-1171.
+  ctab <- fs.est$grp.consistency$out_sg$result
+  if (is.data.frame(ctab) && all(c("hr", "N") %in% names(ctab)) && nrow(ctab)) {
+    rec$n_cons_qual <- nrow(ctab)
+    hr_c <- as.numeric(ctab$hr)
+    if (any(is.finite(hr_c)))
+      rec$band_n <- sum(is.finite(hr_c) &
+                        hr_c >= (1 - effect_neighborhood) * max(hr_c, na.rm = TRUE))
+  }
 
   # The realized rule as a single string: the key fs_attach_betaHhat() joins on.
   # `covs` stays NA as in the twin (the identification section derives the
@@ -698,6 +778,7 @@ record_replicate <- function(sim_id) {
   rec$mr_ok <- as.integer(!is.null(g))
   if (!is.null(g)) {
     rec$n_sel     <- g$n_selected %||% NA_integer_
+    rec$n_family  <- g$n_family   %||% NA_integer_   # TASK_md_grf_2026-09-16 E3 (m1 :1148): MR's kept family K
     rec$ij_source <- g$debiased$ij_source %||% NA_character_
     rec$nv_H_est <- g$naive$est    %||% NA_real_
     rec$nv_H_lo  <- g$naive$lower  %||% NA_real_
@@ -802,6 +883,21 @@ record_replicate <- function(sim_id) {
         rec$fld_Hc_nfit         <- fc$n_complement_fits %||% NA_integer_
         rec$fld_Hc_share_newfit <- fc$share_draws_new_fit %||% NA_real_
       }
+      # ---- Field re-selection recovery (field_recovery = TRUE; absent -> NA)
+      # (TASK_md_grf_2026-09-16 E3; m1 :1279-1291.  field_recovery is not passed by this
+      # template, so these stay NA: recorder parity with the survival DINA/GRF campaigns.)
+      if (is.list(f$recovery)) {
+        fr <- f$recovery
+        rec$fld_recov_sens_H  <- fr$sens_H  %||% NA_real_
+        rec$fld_recov_ppv_H   <- fr$ppv_H   %||% NA_real_
+        rec$fld_recov_sens_Hc <- fr$sens_Hc %||% NA_real_
+        rec$fld_recov_npv_Hc  <- fr$npv_Hc  %||% NA_real_
+        rec$fld_recov_q10     <- fr$q10     %||% NA_real_
+        rec$fld_recov_q50     <- fr$q50     %||% NA_real_
+        rec$fld_recov_q90     <- fr$q90     %||% NA_real_
+        rec$fld_recov_share1  <- fr$share_equal_1 %||% NA_real_
+        rec$fld_recov_n_used  <- fr$n_used  %||% NA_real_
+      }
       # ---- Joint (H lower, Hc upper) pair (absent -> all NA) ----
       if (is.list(f$joint) && is.null(f$joint$note)) {
         jj <- f$joint
@@ -834,6 +930,7 @@ record_replicate <- function(sim_id) {
         is.finite(g$selected_index %||% NA_integer_)) {
       ph <- g$reselection$p_hat
       rec$p_hat_H <- unname(ph[g$selected_index])
+      rec$p_hat_sum <- sum(ph, na.rm = TRUE)   # TASK_md_grf_2026-09-16 E3 (m1 :1151)
       o  <- order(ph, decreasing = TRUE)[seq_len(min(3L, length(ph)))]
       tv <- unname(ph[o]); tl <- names(ph)[o]
       rec$p_top1 <- tv[1]; rec$p_lab1 <- tl[1]
@@ -977,6 +1074,10 @@ out <- rds_path
                          effect_neighborhood = effect_neighborhood,
                          consistency_method = consistency_method,
                          subgroup_method = subgroup_method,
+                         # TASK_md_grf_2026-09-16 E4 (m1 meta carries subgroup_method; the GRF
+                         # arguments are template literals there, resolved by gate3.R -- recorded here)
+                         dmin_grf = dmin.grf, grf_selection = grf_selection,
+                         grf_depth = grf_depth, grf_select_statistic = grf_select_statistic,
                          target_md_harm = target_md_harm,
                          null_cell = null_cell, dgm_build = dgm_build,
                          effect_threshold = md_threshold,
@@ -1029,7 +1130,9 @@ cat(sprintf("Saved batch bundle (%d rows, sim_id %d-%d) to %s\n",
               "sg_focus", "target_md_harm", "null_cell", "dgm_build", "seed_base",
               "k_random_noise", "ci_method", "campaign_tag", "field_complement",
               "ij_residual", "effect_threshold", "consistency_threshold",
-              "effect_neighborhood", "selection_rule", "field_scale_complement")) {
+              "effect_neighborhood", "selection_rule", "field_scale_complement",
+              # TASK_md_grf_2026-09-16 E4: the identifier's GRF arguments join the gate
+              "dmin_grf", "grf_selection", "grf_depth", "grf_select_statistic")) {
     vals <- unique(lapply(bundles, .meta_get, k = k))
     if (length(vals) > 1L)
       stop(sprintf("combine mode: batches disagree on meta$%s (%s).",
