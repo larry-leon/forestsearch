@@ -128,6 +128,9 @@ fs_anchor <- forestsearch(
   mr_inference     = TRUE,
   mr_inference_args = list(ci_method = "field", draws = 5000L,
                            include_complement = TRUE, field_complement = TRUE,
+                           # TASK_actg175_continuous_field_s_2026-09-16: the studentized
+                           # complement field (field-s), the package default, passed explicitly.
+                           field_scale_complement = "selected",
                            return_reselection = TRUE)
 )
 
@@ -179,7 +182,7 @@ stopifnot(is.list(g), identical(g$ci_method, "field"),
           is.list(g$field$complement), is.null(g$field$complement$note),
           is.list(g$field$joint), is.null(g$field$joint$note),
           is.list(g$reselection), is.list(g$complement), !is.null(g$complement$debiased))
-f  <- g$field; fc <- f$complement; jt <- f$joint; gc <- g$complement; rs <- g$reselection
+f  <- g$field; fc <- f$complement; jt <- f$joint; js <- f$joint_s; gc <- g$complement; rs <- g$reselection
 z95 <- qnorm(0.95)
 # Family labels are cut codes q<k>.<level>: k indexes fs_anchor$confounders.evaluated,
 # level 1 = the cut holds, level 0 = its negation -- decoded here for display.
@@ -201,7 +204,7 @@ top3    <- sort(rs$p_hat, decreasing = TRUE)[1:3]
 # one-sided bounds on the oriented scale (harm block: lower; complement: upper)
 lo1 <- c(naive = g$naive$est - z95 * g$debiased$se_wald, ij = g$debiased$lower_1s, field = f$lower_1s)
 up1 <- c(naive = gc$naive$est + z95 * gc$debiased$se_wald, ij = gc$debiased$est + z95 * gc$debiased$se_ij,
-         field = fc$upper_1s)
+         field = fc$upper_1s, field_s = fc$upper_1s_s)
 fmt2 <- function(l, h) sprintf("(%.2f, %.2f)", l, h)
 # the payload element (schema: TASK_actg175_continuous_intervals_2026-09-07)
 iv <- list(
@@ -210,7 +213,8 @@ iv <- list(
                     note = "simulation design's reference points (0/10/30/40 = no harm / consistency threshold / effect threshold / planted MD)"),
   settings = list(ci_method = g$ci_method, draws = g$settings$draws, multiplier = g$settings$multiplier,
                   reselection = g$settings$reselection, ij_residual = g$ij_residual, seed = params$seed,
-                  field_R_out = f$R_out, field_R_in = f$R_in, n_family = g$n_family, n_selected = g$n_selected),
+                  field_R_out = f$R_out, field_R_in = f$R_in, n_family = g$n_family, n_selected = g$n_selected,
+                  field_scale_complement = if (!is.null(fc$est2_s)) "selected" else "none"),
   H = list(naive = list(est = g$naive$est, lower = g$naive$lower, upper = g$naive$upper,
                         se_wald = g$debiased$se_wald, lower_1s = unname(lo1["naive"])),
            ij = list(est = g$debiased$est, lower = g$debiased$lower, upper = g$debiased$upper,
@@ -228,10 +232,17 @@ iv <- list(
                          lower_2s = fc$lower_2s, upper_2s = fc$upper_2s, lambda_sd = fc$se_field,
                          lambda_mean = fc$lambda_mean, q05 = fc$q05, q95 = fc$q95,
                          n_out_used = fc$n_out_used, n_complement_fits = fc$n_complement_fits,
-                         timing_seconds = fc$timing_seconds)),
+                         timing_seconds = fc$timing_seconds),
+            # field-s (TASK_actg175_continuous_field_s_2026-09-16): the studentized complement field, the same names as Hc$field
+            field_s = list(est2 = fc$est2_s, upper_1s = fc$upper_1s_s, lower_1s = fc$lower_1s_s,
+                           lower_2s = fc$lower_2s_s, upper_2s = fc$upper_2s_s, lambda_sd = fc$se_field_s,
+                           lambda_mean = fc$lambda_mean_s)),
   joint = list(gamma = jt$gamma, lower_H = jt$lower_H, upper_Hc = jt$upper_Hc, joint_prob = jt$joint_prob,
                bonf_lower_H = jt$bonf_lower_H, bonf_upper_Hc = jt$bonf_upper_Hc,
                bonf_joint_prob = jt$bonf_joint_prob, corr = jt$corr, n_joint_draws = jt$n_joint_draws),
+  joint_s = list(gamma = js$gamma, lower_H = js$lower_H, upper_Hc = js$upper_Hc, joint_prob = js$joint_prob,
+                 bonf_lower_H = js$bonf_lower_H, bonf_upper_Hc = js$bonf_upper_Hc,
+                 bonf_joint_prob = js$bonf_joint_prob, corr = js$corr, n_joint_draws = js$n_joint_draws),
   reselection = list(p_hat_H = p_hat_H, selection_rate = g$selection_rate,
                      top3_labels = vapply(names(top3), lab_of, character(1)), top3_codes = names(top3),
                      top3_p_hat = unname(top3)),
@@ -275,17 +286,18 @@ cat(sprintf(paste0(
 
 ```{r intervals-table-Hc}
 tab2 <- data.frame(
-  Method = c("Naive", "MR (IJ two-term)", "MR (field)"),
+  Method = c("Naive", "MR (IJ two-term)", "MR (field, unstudentized)", "MR (field-s)"),
   `Point est. (oriented)` = c(sprintf("%.2f", gc$naive$est), sprintf("%.2f (β̃ᶜ)", gc$debiased$est),
-                              sprintf("%.2f (est₂); β̃ᶜ %.2f", fc$est2, gc$debiased$est)),
+                              sprintf("%.2f (est₂); β̃ᶜ %.2f", fc$est2, gc$debiased$est),
+                              sprintf("%.2f (est₂ˢ); β̃ᶜ %.2f", fc$est2_s, gc$debiased$est)),
   `SE` = c(sprintf("%.2f (robust)", gc$debiased$se_wald), sprintf("%.2f (IJ)", gc$debiased$se_ij),
-           sprintf("%.2f (λ-SDᶜ)", fc$se_field)),
+           sprintf("%.2f (λ-SDᶜ)", fc$se_field), sprintf("%.2f (λ-SDᶜ, studentized)", fc$se_field_s)),
   `Two-sided 95% (oriented)` = c(fmt2(gc$naive$lower, gc$naive$upper), fmt2(gc$debiased$lower, gc$debiased$upper),
-                                 fmt2(fc$lower_2s, fc$upper_2s)),
+                                 fmt2(fc$lower_2s, fc$upper_2s), fmt2(fc$lower_2s_s, fc$upper_2s_s)),
   `One-sided 95% UPPER (oriented)` = sprintf("%.2f", up1),
-  `Point est. (cd4_change)` = sprintf("%.2f", -c(gc$naive$est, gc$debiased$est, fc$est2)),
+  `Point est. (cd4_change)` = sprintf("%.2f", -c(gc$naive$est, gc$debiased$est, fc$est2, fc$est2_s)),
   `Two-sided 95% (cd4_change)` = c(fmt2(-gc$naive$upper, -gc$naive$lower), fmt2(-gc$debiased$upper, -gc$debiased$lower),
-                                   fmt2(-fc$upper_2s, -fc$lower_2s)),
+                                   fmt2(-fc$upper_2s, -fc$lower_2s), fmt2(-fc$upper_2s_s, -fc$lower_2s_s)),
   `One-sided 95% bound (cd4_change): change ≥` = sprintf("%.2f", -up1),
   check.names = FALSE)
 gt(tab2) |>
@@ -293,26 +305,29 @@ gt(tab2) |>
              subtitle = sprintf("Ĥᶜ: n = %d; the one-sided UPPER bound is the exposed limit for a benefit claim (\"harm at most U\" = \"benefit at least −U\")",
                                 N - n_H)) |>
   tab_footnote(footnote = sprintf(paste(
-    "One-sided conventions: naive est + 1.645·SE(robust); MR (IJ) β̃ᶜ + 1.645·SE_IJ; MR (field) the gate's stored upper_1s = β̃ᶜ − q₀.₀₅(Λ*ᶜ).",
-    "Regime diagnostic: λ-SDᶜ / naive SE = %.3f (the IJ SE / naive SE = %.3f)."),
-    fc$se_field / gc$debiased$se_wald, gc$debiased$se_ij / gc$debiased$se_wald))
+    "One-sided conventions: naive est + 1.645·SE(robust); MR (IJ) β̃ᶜ + 1.645·SE_IJ; MR (field) the gate's stored upper_1s = β̃ᶜ − q₀.₀₅(Λ*ᶜ);",
+    "MR (field-s) the studentized complement field's upper_1s_s = β̃ᶜ − q₀.₀₅(Λ*ᶜₛ), each reading rescaled to the selected complement's influence-norm scale (field_scale_complement = \"selected\", the package default; the evaluated complement product).",
+    "Regime diagnostic: λ-SDᶜ / naive SE = %.3f unstudentized, %.3f studentized (the IJ SE / naive SE = %.3f)."),
+    fc$se_field / gc$debiased$se_wald, fc$se_field_s / gc$debiased$se_wald, gc$debiased$se_ij / gc$debiased$se_wald))
 ```
 
 ```{r intervals-table-joint}
 tab3 <- data.frame(
-  Pair = c("Separate one-sided 95% field bounds", "Bonferroni (γ = 0.025 each)",
-           sprintf("Calibrated from field$joint (γ = %.3f)", jt$gamma)),
-  `Ĥ lower (oriented)` = sprintf("%.2f", c(f$lower_1s, jt$bonf_lower_H, jt$lower_H)),
-  `Ĥᶜ upper (oriented)` = sprintf("%.2f", c(fc$upper_1s, jt$bonf_upper_Hc, jt$upper_Hc)),
-  `Ĥ: change ≤ (cd4_change)` = sprintf("%.2f", -c(f$lower_1s, jt$bonf_lower_H, jt$lower_H)),
-  `Ĥᶜ: change ≥ (cd4_change)` = sprintf("%.2f", -c(fc$upper_1s, jt$bonf_upper_Hc, jt$upper_Hc)),
+  Pair = c("Separate one-sided 95% field bounds (unstudentized)", "Bonferroni (γ = 0.025 each) (unstudentized)",
+           sprintf("Calibrated from field$joint (γ = %.3f) (unstudentized)", jt$gamma),
+           "Bonferroni (γ = 0.025 each), field-s", sprintf("Calibrated from field$joint_s (γ = %.3f), field-s", js$gamma)),
+  `Ĥ lower (oriented)` = sprintf("%.2f", c(f$lower_1s, jt$bonf_lower_H, jt$lower_H, js$bonf_lower_H, js$lower_H)),
+  `Ĥᶜ upper (oriented)` = sprintf("%.2f", c(fc$upper_1s, jt$bonf_upper_Hc, jt$upper_Hc, js$bonf_upper_Hc, js$upper_Hc)),
+  `Ĥ: change ≤ (cd4_change)` = sprintf("%.2f", -c(f$lower_1s, jt$bonf_lower_H, jt$lower_H, js$bonf_lower_H, js$lower_H)),
+  `Ĥᶜ: change ≥ (cd4_change)` = sprintf("%.2f", -c(fc$upper_1s, jt$bonf_upper_Hc, jt$upper_Hc, js$bonf_upper_Hc, js$upper_Hc)),
   `Joint prob. on the aligned draws` = c("< 0.95 by construction", sprintf("%.3f", jt$bonf_joint_prob),
-                                         sprintf("%.3f", jt$joint_prob)),
+                                         sprintf("%.3f", jt$joint_prob), sprintf("%.3f", js$bonf_joint_prob),
+                                         sprintf("%.3f", js$joint_prob)),
   check.names = FALSE)
 gt(tab3) |>
   tab_header(title = "Table 3 — the joint pair (Ĥ lower bound, Ĥᶜ upper bound)",
-             subtitle = sprintf("γ = %.3f on the 0.025–0.050 grid; corr(Λ*, Λ*ᶜ) = %+.3f over %d aligned draws",
-                                jt$gamma, jt$corr, jt$n_joint_draws))
+             subtitle = sprintf("unstudentized: γ = %.3f on the 0.025–0.050 grid, corr(Λ*, Λ*ᶜ) = %+.3f over %d aligned draws; field-s: γ = %.3f, corr = %+.3f over %d",
+                                jt$gamma, jt$corr, jt$n_joint_draws, js$gamma, js$corr, js$n_joint_draws))
 ```
 
 ```{r intervals-diagnostics}
@@ -343,15 +358,16 @@ gt(tab4) |> tab_header(title = "Re-selection and field diagnostics",
 ## Reading the intervals (generated from the numbers above at render time)
 
 ```{r intervals-reading, results = "asis"}
-U <- fc$upper_1s; L <- f$lower_1s
+U <- fc$upper_1s_s; U_u <- fc$upper_1s; L <- f$lower_1s   # field-s is the evaluated complement bound; U_u the unstudentized before/after
 sup_Hc <- thr_Hc[U <= thr_Hc]; not_Hc <- thr_Hc[U > thr_Hc]
 sup_H  <- thr_H[L >= thr_H];  not_H  <- thr_H[L < thr_H]
 say <- function(v) if (length(v)) paste(v, collapse = ", ") else "none"
 cat(sprintf(paste0(
-  "- **Complement first (the benefit claim).** The field's one-sided 95%% upper bound on Ĥᶜ is %.2f on the oriented scale ",
+  "- **Complement first (the benefit claim).** The field-s one-sided 95%% upper bound on Ĥᶜ is %.2f on the oriented scale ",
   "(a CD4 change of at least %.2f on the raw scale). Against the reading thresholds, \"harm at most τ on Ĥᶜ\" is supported for τ = %s ",
-  "and not supported for τ = %s. Comparators: MR (IJ) upper %.2f (change ≥ %.2f), naive upper %.2f (change ≥ %.2f).\n"),
-  U, -U, say(sup_Hc), say(not_Hc), up1["ij"], -up1["ij"], up1["naive"], -up1["naive"]))
+  "and not supported for τ = %s. The unstudentized field's upper bound, the paired before-and-after, is %.2f (change ≥ %.2f). ",
+  "Comparators: MR (IJ) upper %.2f (change ≥ %.2f), naive upper %.2f (change ≥ %.2f).\n"),
+  U, -U, say(sup_Hc), say(not_Hc), U_u, -U_u, up1["ij"], -up1["ij"], up1["naive"], -up1["naive"]))
 cat(sprintf(paste0(
   "- **Ĥ (the harm claim).** The field's one-sided 95%% lower bound is %.2f on the oriented scale (a CD4 change of at most %.2f). ",
   "\"Harm at least τ on Ĥ\" is supported for τ = %s and not supported for τ = %s. The naive lower bound is %.2f.\n"),
@@ -363,13 +379,15 @@ cat(sprintf(paste0(
   gc$debiased$se_ij / gc$debiased$se_wald,
   if (lo1["ij"] <= L && up1["ij"] >= U) "outside" else "not uniformly outside"))
 cat(sprintf(paste0(
-  "- **A claim on both subgroups** uses the Bonferroni pair (Ĥ lower %.2f, Ĥᶜ upper %.2f; on the cd4_change scale: Ĥ change ≤ %.2f, ",
-  "Ĥᶜ change ≥ %.2f); the calibrated pair at γ = %.3f %s it (corr(Λ*, Λ*ᶜ) = %+.3f).\n"),
-  jt$bonf_lower_H, jt$bonf_upper_Hc, -jt$bonf_lower_H, -jt$bonf_upper_Hc, jt$gamma,
-  if (abs(jt$gamma - 0.025) < 1e-9) "coincides with" else "is tighter than", jt$corr))
+  "- **A claim on both subgroups** uses the field-s Bonferroni pair (Ĥ lower %.2f, Ĥᶜ upper %.2f; on the cd4_change scale: Ĥ change ≤ %.2f, ",
+  "Ĥᶜ change ≥ %.2f): \"harm at least τ on Ĥ\" is supported for τ = %s and \"harm at most τ on Ĥᶜ\" for τ = %s; ",
+  "the calibrated field-s pair at γ = %.3f %s it (corr(Λ*, Λ*ᶜₛ) = %+.3f).\n"),
+  js$bonf_lower_H, js$bonf_upper_Hc, -js$bonf_lower_H, -js$bonf_upper_Hc,
+  say(thr_H[js$bonf_lower_H >= thr_H]), say(thr_Hc[js$bonf_upper_Hc <= thr_Hc]), js$gamma,
+  if (abs(js$gamma - 0.025) < 1e-9) "coincides with" else "is tighter than", js$corr))
 cat(sprintf(paste0(
   "- **The price of selection:** on Ĥ the adjusted one-sided lower bounds span %.2f (field) to %.2f (IJ) against the naive %.2f; ",
-  "on Ĥᶜ the adjusted upper bounds span %.2f (field) to %.2f (IJ) against the naive %.2f. The point estimates move from the naive %.2f ",
+  "on Ĥᶜ the adjusted upper bounds span %.2f (field-s) to %.2f (IJ) against the naive %.2f. The point estimates move from the naive %.2f ",
   "to %.2f (IJ) and %.2f (field est₂) on Ĥ.\n"),
   L, lo1["ij"], lo1["naive"], U, up1["ij"], up1["naive"], g$naive$est, g$debiased$est, f$est2))
 cat(sprintf(paste0(
