@@ -1,0 +1,562 @@
+---
+title: "ACTG175 continuous (CD4 change): post-selection intervals under effMaxSG, ε = 0.20"
+format: html
+params:
+  seed: 8316951
+---
+
+```{r setup}
+#| message: false
+suppressPackageStartupMessages({
+  library(forestsearch)
+  library(speff2trial)
+  library(gt)
+})
+
+# ---------------------------------------------------------------------------
+# Output location for this document's results:  <base>/<dirout>/
+#   results_dir = NULL -> base is <qmd dir>/_payloads
+#   dirout      = NULL -> the .qmd stem
+# ---------------------------------------------------------------------------
+results_dir <- NULL
+# TASK_actg175_continuous_intervals_2026-09-16: this document writes its payload
+# beside the maxeffCons intervals payload of analysis_actg175_continuous_oc.qmd
+# (same directory), with the file name suffixed _effmaxsg.
+dirout         <- "analysis_actg175_continuous_oc_intervals"
+payload_suffix <- "_effmaxsg"
+
+# Everything below is computed in this document: the data, one forestsearch()
+# call under effMaxSG (epsilon = 0.20, selection_rule = "neighborhood") with the
+# multiplier-resampling gate, the epsilon band the selection was made in, and the
+# interval constructions for H-hat and its complement.  Nothing is read from
+# disk.  The operating-characteristics evaluation of this design lives in
+# analysis_actg175_continuous_oc.qmd and remains under maxeffCons; nothing from
+# it is transplanted here.  Re-render at another seed via the YAML params.
+
+fmt  <- function(x, d = 3) formatC(x, format = "f", digits = d)
+fmt0 <- function(x) formatC(x, format = "d")
+pct  <- function(x, d = 1) paste0(fmt(100 * x, d), "%")
+pm   <- function(x, s, d = 4) paste0(fmt(x, d), " ± ", fmt(s, d))
+at   <- function(d, c1v, c2v) d[abs(d$c1 - c1v) < 1e-9 & abs(d$c2 - c2v) < 1e-9, ]
+qlab <- function(x) fmt(x, ifelse(x %% 1 == 0, 1, 2))
+t_doc <- proc.time()[["elapsed"]]
+```
+
+## 1. The data
+
+The analysis frame is the compare-all document's: ACTG175 arms 1 (ZDV+ddI)
+and 3 (ddI), outcome `y_decline` = CD4 decline from baseline to week 20
+(adverse scale), six continuous and six binary candidate confounders.
+
+```{r data-prep}
+cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
+confounders.name <- c(cont_vars, bin_vars)
+
+actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg_df$id <- seq_len(nrow(actg_df))
+actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+actg_df$y_decline <- actg_df$cd40 - actg_df$cd420
+for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
+
+N <- nrow(actg_df)
+stopifnot(N == 1083L)
+cat("Analysis N =", N, "\n")
+
+# the unadjusted ITT mean difference — distinct from the covariate-adjusted
+# GLM coefficient beta_treat the generator anchors to (section 3)
+itt <- coef(summary(lm(y_decline ~ treat, data = actg_df)))["treat", ]
+cat(sprintf("unadjusted ITT mean difference = %.3f (SE %.3f)\n",
+            itt["Estimate"], itt["Std. Error"]))
+```
+
+## 2. The analysis
+
+The search is the fixed-family configuration of `analysis_actg175_continuous_oc.qmd`
+with its selection rule changed to **`effMaxSG` at ε = 0.20 under
+`selection_rule = "neighborhood"`**: among the consistency-qualifying candidates
+whose oriented mean difference is within 20% of the largest, the largest
+subgroup is selected.  This is the rule of the survival grid and of the
+`mdsgnb20` simulation campaign on this design.  Multiplier-resampling inference
+and the lasso/GRF front ends are mutually exclusive under
+`subgroup_method = "consistency"` (the family would be estimated from the same
+data the search runs on), so the inferential anchor runs with the front ends
+off.
+
+```{r anchor}
+fs_anchor <- forestsearch(
+  df.analysis      = actg_df,
+  confounders.name = confounders.name,
+  outcome.name     = "y_decline",
+  treat.name       = "treat",
+  id.name          = "id",
+  outcome_type     = "continuous",
+  effect_measure   = "MD",
+  adverse_outcome  = TRUE,
+  seedit           = params$seed,
+  # TASK_actg175_continuous_intervals_2026-09-16: the effMaxSG rule at epsilon = 0.20,
+  # as the mdsgnb20 campaign bundles' meta record it (selection_rule "neighborhood").
+  sg_focus         = "effMaxSG",
+  effect_neighborhood = 0.20,
+  selection_rule   = "neighborhood",
+  consistency_method = "resample",
+  effect.threshold       = 10,
+  consistency.threshold  = 5,
+  pconsistency.threshold = 0.90,
+  use_twostage     = TRUE,
+  conf.cont_jcuts  = list(age = 10, preanti = 10, wtkg = 10,
+                          karnof = 10, cd40 = 10, cd80 = 10),
+  cut_type         = "default",
+  maxk             = 2L,
+  n.min            = 60L,
+  d0.min           = 10L,
+  d1.min           = 10L,
+  fs.splits        = 500L,
+  use_lasso        = FALSE,
+  use_grf          = FALSE,
+  use_dina         = FALSE,
+  is.RCT           = TRUE,
+  parallel_args    = list(plan = "sequential"),
+  details          = FALSE,
+  quiet            = TRUE,
+  # TASK_actg175_continuous_intervals_2026-09-07: the MR gate on this call --
+  # ci_method = "field", the complement field and the re-selection frequencies
+  # (add-only in the gate; the search is untouched).  mr_inference = TRUE and
+  # draws = 5000L (the compare-all anchor's value) are the enabling settings.
+  mr_inference     = TRUE,
+  mr_inference_args = list(ci_method = "field", draws = 5000L,
+                           include_complement = TRUE, field_complement = TRUE,
+                           # TASK_actg175_continuous_field_s_2026-09-16: the studentized
+                           # complement field (field-s), the package default, passed explicitly.
+                           field_scale_complement = "selected",
+                           return_reselection = TRUE)
+)
+
+H_def  <- paste(fs_anchor$sg.harm, collapse = " & ")
+n_H    <- sum(fs_anchor$df.est$treat.recommend == 0L)
+win    <- fs_anchor$grp.consistency$out_sg$result[1L, ]
+T_obs  <- as.numeric(win$hr)      # MD scale: the hr column holds the MD
+p_cons <- as.numeric(win$Pcons)
+cat(sprintf("H-hat = %s;  n(H-hat) = %d;  T_obs = %.6f;  p.consistency = %.8f\n",
+            H_def, n_H, T_obs, p_cons))
+
+# gate: the anchor must reproduce the effMaxSG Stage 0 result
+# (REPORT_actg175_applied_effmaxsg_stage0_2026-09-16.md section 3, computed at 570bf8a5:
+#  !{cd40 <= 507} & {gender}, n = 79, oriented MD 71.095513, Pcons 0.91)
+stopifnot(setequal(fs_anchor$sg.harm, c("!{cd40 <= 507}", "{gender}")),
+          n_H == 79L, abs(T_obs - 71.095513) < 1e-6, abs(p_cons - 0.91) < 1e-8)
+```
+
+The anchor: **Ĥ = `` `r H_def` ``**, n(Ĥ) = `r fmt0(n_H)` of `r fmt0(N)`,
+fitted mean difference **T̂~obs~ = `r fmt(T_obs, 6)`** CD4 units on the
+oriented `y_decline` scale (a CD4 change of `r fmt(-T_obs, 2)` on the raw
+scale), consistency `r fmt(p_cons, 2)`.
+
+### 2.0 The ε band the selection was made in
+
+`effMaxSG` picks the largest subgroup among the consistency-qualifying
+candidates whose oriented MD is at least (1 − ε) times the largest.  The
+qualifying set and the band are computed here from the fitted object's
+consistency table (rows are the candidates that passed the consistency
+threshold; the selected candidate is row 1).
+
+```{r band}
+eps  <- 0.20
+res  <- as.data.frame(fs_anchor$grp.consistency$out_sg$result)
+res$candidate <- ifelse(as.integer(res$K) == 2L, paste(res$M.1, res$M.2, sep = " & "), res$M.1)
+md_max   <- max(res$hr)
+md_floor <- (1 - eps) * md_max
+res$in_band  <- res$hr >= md_floor
+res$selected <- seq_len(nrow(res)) == 1L
+stopifnot(res$selected[1L], res$in_band[1L],
+          setequal(strsplit(res$candidate[1L], " & ", fixed = TRUE)[[1]], fs_anchor$sg.harm))
+n_qual <- nrow(res); n_band <- sum(res$in_band)
+bt <- res[order(-res$in_band, -res$N), c("candidate", "N", "hr", "Pcons", "in_band", "selected")]
+gt(data.frame(Candidate = bt$candidate, n = fmt0(bt$N), `MD (oriented)` = fmt(bt$hr, 4),
+              `CD4 change` = fmt(-bt$hr, 2), Pcons = fmt(bt$Pcons, 2),
+              `In band` = ifelse(bt$in_band, "yes", "no"), Selected = ifelse(bt$selected, "yes", ""),
+              check.names = FALSE)) |>
+  tab_header(title = sprintf("Consistency-qualifying candidates and the ε = %.2f band", eps),
+             subtitle = sprintf("max oriented MD %.6f; band floor (1 − ε) × max = %.6f; %d of %d qualifying candidates in band; effMaxSG selects the largest in band",
+                                md_max, md_floor, n_band, n_qual))
+```
+
+### 2.1 Post-selection intervals for the found subgroup and its complement {#sec-intervals}
+
+The call above runs multiplier resampling with `ci_method = "field"`,
+`field_complement = TRUE` and `return_reselection = TRUE` (the mirror of the
+GBSG frozen-family intervals section), so the fitted object carries, for Ĥ and
+its complement Ĥᶜ, the interval constructions currently in use: naive, MR (IJ
+two-term), MR (field) with its **one-sided bounds as the directional
+products**, and the Bonferroni / calibrated pair for a claim on both. The
+target throughout is the effect in the region the search found, with the
+candidate family held fixed. Two scales are shown side by side: the gate's
+working scale `y_decline` (positive = harm; the search's own scale, on which
+T̂~obs~ above is read) and the raw `cd4_change` scale, its sign flip. Every
+bound is read by its **location** against mean-difference thresholds — the
+simulation design's reference points, not decision rules: for Ĥ's lower bound
+0 (no harm), 10 (the design's consistency threshold), 20, 30 (the search's
+effect threshold), 40 (the planted MD of the simulation design); for Ĥᶜ's
+upper bound 0, 10, 20, 30. No full bootstrap exists for this document and
+none is run here, so that row is absent.
+
+```{r intervals-objects}
+g  <- fs_anchor$mr_inference
+stopifnot(is.list(g), identical(g$ci_method, "field"),
+          is.list(g$field), is.null(g$field$note),
+          is.list(g$field$complement), is.null(g$field$complement$note),
+          is.list(g$field$joint), is.null(g$field$joint$note),
+          is.list(g$reselection), is.list(g$complement), !is.null(g$complement$debiased))
+f  <- g$field; fc <- f$complement; jt <- f$joint; js <- f$joint_s; gc <- g$complement; rs <- g$reselection
+z95 <- qnorm(0.95)
+# Family labels are cut codes q<k>.<level>: k indexes fs_anchor$confounders.evaluated,
+# level 1 = the cut holds, level 0 = its negation -- decoded here for display.
+cuts <- fs_anchor$confounders.evaluated
+lab_of <- function(code) paste(vapply(strsplit(code, " & ", fixed = TRUE)[[1]], function(t) {
+  m <- regmatches(t, regexec("^q([0-9]+)\\.([01])$", t))[[1]]
+  if (length(m) < 3L) return(t)
+  paste0(if (m[3] == "0") "!" else "", "{", cuts[as.integer(m[2])], "}") }, character(1)),
+  collapse = " & ")
+# Gates inside the document: the gate's selected family member IS the found subgroup, its
+# naive estimate IS T_obs, and the field's bounds are the stated inversions about beta-tilde.
+stopifnot(setequal(strsplit(lab_of(g$selected_label), " & ", fixed = TRUE)[[1]], fs_anchor$sg.harm),
+          g$n_selected == n_H, abs(g$naive$est - T_obs) < 1e-9,
+          abs(f$lower_1s - (g$debiased$est - f$q95)) < 1e-9,
+          abs(fc$upper_1s - (gc$debiased$est - fc$q05)) < 1e-9)
+thr_H <- c(0, 10, 20, 30, 40); thr_Hc <- c(0, 10, 20, 30)
+p_hat_H <- unname(rs$p_hat[g$selected_index])
+top3    <- sort(rs$p_hat, decreasing = TRUE)[1:3]
+# one-sided bounds on the oriented scale (harm block: lower; complement: upper)
+lo1 <- c(naive = g$naive$est - z95 * g$debiased$se_wald, ij = g$debiased$lower_1s, field = f$lower_1s)
+up1 <- c(naive = gc$naive$est + z95 * gc$debiased$se_wald, ij = gc$debiased$est + z95 * gc$debiased$se_ij,
+         field = fc$upper_1s, field_s = fc$upper_1s_s)
+fmt2 <- function(l, h) sprintf("(%.2f, %.2f)", l, h)
+# the payload element (schema: TASK_actg175_continuous_intervals_2026-09-07)
+iv <- list(
+  scale = "oriented y_decline (positive = harm); raw cd4_change = sign flip",
+  thresholds = list(H_lower = thr_H, Hc_upper = thr_Hc,
+                    note = "simulation design's reference points (0/10/30/40 = no harm / consistency threshold / effect threshold / planted MD)"),
+  settings = list(ci_method = g$ci_method, draws = g$settings$draws, multiplier = g$settings$multiplier,
+                  reselection = g$settings$reselection, ij_residual = g$ij_residual, seed = params$seed,
+                  field_R_out = f$R_out, field_R_in = f$R_in, n_family = g$n_family, n_selected = g$n_selected,
+                  field_scale_complement = if (!is.null(fc$est2_s)) "selected" else "none"),
+  H = list(naive = list(est = g$naive$est, lower = g$naive$lower, upper = g$naive$upper,
+                        se_wald = g$debiased$se_wald, lower_1s = unname(lo1["naive"])),
+           ij = list(est = g$debiased$est, lower = g$debiased$lower, upper = g$debiased$upper,
+                     se_ij = g$debiased$se_ij, lower_1s = g$debiased$lower_1s,
+                     selection_bias = g$selection_bias, fixed_bias = g$fixed_bias),
+           field = list(est2 = f$est2, lower_1s = f$lower_1s, lower_2s = f$lower_2s, upper_2s = f$upper_2s,
+                        lambda_sd = f$lambda_sd, lambda_mean = f$lambda_mean, q05 = f$q05, q95 = f$q95,
+                        n_out_used = f$n_out_used, n_in_used_mean = f$n_in_used_mean,
+                        timing_seconds = f$timing_seconds)),
+  Hc = list(naive = list(est = gc$naive$est, lower = gc$naive$lower, upper = gc$naive$upper,
+                         se_wald = gc$debiased$se_wald, upper_1s = unname(up1["naive"])),
+            ij = list(est = gc$debiased$est, lower = gc$debiased$lower, upper = gc$debiased$upper,
+                      se_ij = gc$debiased$se_ij, upper_1s = unname(up1["ij"])),
+            field = list(est2 = fc$est2, upper_1s = fc$upper_1s, lower_1s = fc$lower_1s,
+                         lower_2s = fc$lower_2s, upper_2s = fc$upper_2s, lambda_sd = fc$se_field,
+                         lambda_mean = fc$lambda_mean, q05 = fc$q05, q95 = fc$q95,
+                         n_out_used = fc$n_out_used, n_complement_fits = fc$n_complement_fits,
+                         timing_seconds = fc$timing_seconds),
+            # field-s (TASK_actg175_continuous_field_s_2026-09-16): the studentized complement field, the same names as Hc$field
+            field_s = list(est2 = fc$est2_s, upper_1s = fc$upper_1s_s, lower_1s = fc$lower_1s_s,
+                           lower_2s = fc$lower_2s_s, upper_2s = fc$upper_2s_s, lambda_sd = fc$se_field_s,
+                           lambda_mean = fc$lambda_mean_s)),
+  joint = list(gamma = jt$gamma, lower_H = jt$lower_H, upper_Hc = jt$upper_Hc, joint_prob = jt$joint_prob,
+               bonf_lower_H = jt$bonf_lower_H, bonf_upper_Hc = jt$bonf_upper_Hc,
+               bonf_joint_prob = jt$bonf_joint_prob, corr = jt$corr, n_joint_draws = jt$n_joint_draws),
+  joint_s = list(gamma = js$gamma, lower_H = js$lower_H, upper_Hc = js$upper_Hc, joint_prob = js$joint_prob,
+                 bonf_lower_H = js$bonf_lower_H, bonf_upper_Hc = js$bonf_upper_Hc,
+                 bonf_joint_prob = js$bonf_joint_prob, corr = js$corr, n_joint_draws = js$n_joint_draws),
+  reselection = list(p_hat_H = p_hat_H, selection_rate = g$selection_rate,
+                     top3_labels = vapply(names(top3), lab_of, character(1)), top3_codes = names(top3),
+                     top3_p_hat = unname(top3)),
+  timing_seconds = list(multiplier_stage = g$timing_seconds, field = f$timing_seconds,
+                        complement_field = fc$timing_seconds))
+```
+
+```{r intervals-table-H}
+tab1 <- data.frame(
+  Method = c("Naive", "MR (IJ two-term)", "MR (field)"),
+  `Point est. (oriented)` = c(sprintf("%.2f", g$naive$est), sprintf("%.2f (β̃)", g$debiased$est),
+                              sprintf("%.2f (est₂); β̃ %.2f", f$est2, g$debiased$est)),
+  `SE` = c(sprintf("%.2f (robust)", g$debiased$se_wald), sprintf("%.2f (IJ)", g$debiased$se_ij),
+           sprintf("%.2f (λ-SD)", f$lambda_sd)),
+  `Two-sided 95% (oriented)` = c(fmt2(g$naive$lower, g$naive$upper), fmt2(g$debiased$lower, g$debiased$upper),
+                                 fmt2(f$lower_2s, f$upper_2s)),
+  `One-sided 95% LOWER (oriented)` = sprintf("%.2f", lo1),
+  `Point est. (cd4_change)` = sprintf("%.2f", -c(g$naive$est, g$debiased$est, f$est2)),
+  `Two-sided 95% (cd4_change)` = c(fmt2(-g$naive$upper, -g$naive$lower), fmt2(-g$debiased$upper, -g$debiased$lower),
+                                   fmt2(-f$upper_2s, -f$lower_2s)),
+  `One-sided 95% bound (cd4_change): change ≤` = sprintf("%.2f", -lo1),
+  check.names = FALSE)
+gt(tab1) |>
+  tab_header(title = "Table 1 — Ĥ: interval constructions for the found subgroup (effMaxSG, ε = 0.20)",
+             subtitle = sprintf("Ĥ = %s, n = %d of %d; oriented = y_decline (positive = harm); cd4_change = sign flip",
+                                H_def, n_H, N)) |>
+  tab_footnote(footnote = paste(
+    "One-sided conventions: naive est − 1.645·SE(robust); MR (IJ) the gate's stored selection-adjusted lower_1s (β̃ − 1.645·SE_IJ);",
+    "MR (field) β̃ − q₀.₉₅(Λ*), built on the de-biased estimate β̃, not on est₂ (est₂ = β̃ − mean Λ*). The field's SE column is the Λ*-SD.",
+    "On the cd4_change scale the harm lower bound L becomes an upper bound on the change: change ≤ −L."))
+```
+
+```{r intervals-spread, results = "asis"}
+cat(sprintf(paste0(
+  "Retained-optimism spread on the oriented scale: naive %.2f → MR (IJ) %.2f → MR (field) est₂ %.2f, ",
+  "i.e. the corrections remove %.2f (IJ) and %.2f (field) CD4 cells/mm³ of the naive estimate ",
+  "(selection term %.2f, fixed term %.2f in the two-term correction).\n\n"),
+  g$naive$est, g$debiased$est, f$est2, g$naive$est - g$debiased$est, g$naive$est - f$est2,
+  g$selection_bias, g$fixed_bias))
+```
+
+```{r intervals-table-Hc}
+tab2 <- data.frame(
+  Method = c("Naive", "MR (IJ two-term)", "MR (field, unstudentized)", "MR (field-s)"),
+  `Point est. (oriented)` = c(sprintf("%.2f", gc$naive$est), sprintf("%.2f (β̃ᶜ)", gc$debiased$est),
+                              sprintf("%.2f (est₂); β̃ᶜ %.2f", fc$est2, gc$debiased$est),
+                              sprintf("%.2f (est₂ˢ); β̃ᶜ %.2f", fc$est2_s, gc$debiased$est)),
+  `SE` = c(sprintf("%.2f (robust)", gc$debiased$se_wald), sprintf("%.2f (IJ)", gc$debiased$se_ij),
+           sprintf("%.2f (λ-SDᶜ)", fc$se_field), sprintf("%.2f (λ-SDᶜ, studentized)", fc$se_field_s)),
+  `Two-sided 95% (oriented)` = c(fmt2(gc$naive$lower, gc$naive$upper), fmt2(gc$debiased$lower, gc$debiased$upper),
+                                 fmt2(fc$lower_2s, fc$upper_2s), fmt2(fc$lower_2s_s, fc$upper_2s_s)),
+  `One-sided 95% UPPER (oriented)` = sprintf("%.2f", up1),
+  `Point est. (cd4_change)` = sprintf("%.2f", -c(gc$naive$est, gc$debiased$est, fc$est2, fc$est2_s)),
+  `Two-sided 95% (cd4_change)` = c(fmt2(-gc$naive$upper, -gc$naive$lower), fmt2(-gc$debiased$upper, -gc$debiased$lower),
+                                   fmt2(-fc$upper_2s, -fc$lower_2s), fmt2(-fc$upper_2s_s, -fc$lower_2s_s)),
+  `One-sided 95% bound (cd4_change): change ≥` = sprintf("%.2f", -up1),
+  check.names = FALSE)
+gt(tab2) |>
+  tab_header(title = "Table 2 — Ĥᶜ: interval constructions for the complement (benefit claim) (effMaxSG, ε = 0.20)",
+             subtitle = sprintf("Ĥᶜ: n = %d; the one-sided UPPER bound is the exposed limit for a benefit claim (\"harm at most U\" = \"benefit at least −U\")",
+                                N - n_H)) |>
+  tab_footnote(footnote = sprintf(paste(
+    "One-sided conventions: naive est + 1.645·SE(robust); MR (IJ) β̃ᶜ + 1.645·SE_IJ; MR (field) the gate's stored upper_1s = β̃ᶜ − q₀.₀₅(Λ*ᶜ);",
+    "MR (field-s) the studentized complement field's upper_1s_s = β̃ᶜ − q₀.₀₅(Λ*ᶜₛ), each reading rescaled to the selected complement's influence-norm scale (field_scale_complement = \"selected\", the package default; the evaluated complement product).",
+    "Regime diagnostic: λ-SDᶜ / naive SE = %.3f unstudentized, %.3f studentized (the IJ SE / naive SE = %.3f)."),
+    fc$se_field / gc$debiased$se_wald, fc$se_field_s / gc$debiased$se_wald, gc$debiased$se_ij / gc$debiased$se_wald))
+```
+
+```{r intervals-table-joint}
+tab3 <- data.frame(
+  Pair = c("Separate one-sided 95% field bounds (unstudentized)", "Bonferroni (γ = 0.025 each) (unstudentized)",
+           sprintf("Calibrated from field$joint (γ = %.3f) (unstudentized)", jt$gamma),
+           "Bonferroni (γ = 0.025 each), field-s", sprintf("Calibrated from field$joint_s (γ = %.3f), field-s", js$gamma)),
+  `Ĥ lower (oriented)` = sprintf("%.2f", c(f$lower_1s, jt$bonf_lower_H, jt$lower_H, js$bonf_lower_H, js$lower_H)),
+  `Ĥᶜ upper (oriented)` = sprintf("%.2f", c(fc$upper_1s, jt$bonf_upper_Hc, jt$upper_Hc, js$bonf_upper_Hc, js$upper_Hc)),
+  `Ĥ: change ≤ (cd4_change)` = sprintf("%.2f", -c(f$lower_1s, jt$bonf_lower_H, jt$lower_H, js$bonf_lower_H, js$lower_H)),
+  `Ĥᶜ: change ≥ (cd4_change)` = sprintf("%.2f", -c(fc$upper_1s, jt$bonf_upper_Hc, jt$upper_Hc, js$bonf_upper_Hc, js$upper_Hc)),
+  `Joint prob. on the aligned draws` = c("< 0.95 by construction", sprintf("%.3f", jt$bonf_joint_prob),
+                                         sprintf("%.3f", jt$joint_prob), sprintf("%.3f", js$bonf_joint_prob),
+                                         sprintf("%.3f", js$joint_prob)),
+  check.names = FALSE)
+gt(tab3) |>
+  tab_header(title = "Table 3 — the joint pair (Ĥ lower bound, Ĥᶜ upper bound) (effMaxSG, ε = 0.20)",
+             subtitle = sprintf("unstudentized: γ = %.3f on the 0.025–0.050 grid, corr(Λ*, Λ*ᶜ) = %+.3f over %d aligned draws; field-s: γ = %.3f, corr = %+.3f over %d",
+                                jt$gamma, jt$corr, jt$n_joint_draws, js$gamma, js$corr, js$n_joint_draws))
+```
+
+```{r intervals-diagnostics}
+tab4 <- data.frame(
+  Quantity = c(sprintf("p̂(Ĥ)  [selected: %s]", lab_of(g$selected_label)),
+               sprintf("Top re-selected: %s", lab_of(names(top3)[1])),
+               sprintf("2nd: %s", lab_of(names(top3)[2])),
+               sprintf("3rd: %s", lab_of(names(top3)[3])),
+               "Selection rate (draws with a winner); family size",
+               "Field Λ*-mean (second-order term, oriented)",
+               "Field λ-SD vs IJ SE; vs naive SE (Ĥ)",
+               "Field draw usage (outer used / R_out; mean inner / R_in)",
+               "Complement fits per gate call; λ-SDᶜ vs naive SE (Ĥᶜ)"),
+  Value = c(sprintf("%.3f", p_hat_H), sprintf("%.3f", top3[1]), sprintf("%.3f", top3[2]), sprintf("%.3f", top3[3]),
+            sprintf("%.3f; %d candidates", g$selection_rate, g$n_family),
+            sprintf("%+.3f", f$lambda_mean),
+            sprintf("%.2f / %.2f = %.2f; %.2f / %.2f = %.2f", f$lambda_sd, g$debiased$se_ij, f$lambda_sd / g$debiased$se_ij,
+                    f$lambda_sd, g$debiased$se_wald, f$lambda_sd / g$debiased$se_wald),
+            sprintf("%d / %d; %.0f / %d", f$n_out_used, f$R_out, f$n_in_used_mean, f$R_in),
+            sprintf("%d; %.2f / %.2f = %.3f", fc$n_complement_fits, fc$se_field, gc$debiased$se_wald,
+                    fc$se_field / gc$debiased$se_wald)),
+  check.names = FALSE)
+gt(tab4) |> tab_header(title = "Re-selection and field diagnostics (effMaxSG, ε = 0.20)",
+                       subtitle = "p̂ near 1 = settled selection; below ~0.5 = tie regime (the second-order field correction matters most)")
+```
+
+::: {.callout-note}
+## Reading the intervals (generated from the numbers above at render time)
+
+```{r intervals-reading, results = "asis"}
+U <- fc$upper_1s_s; U_u <- fc$upper_1s; L <- f$lower_1s   # field-s is the evaluated complement bound; U_u the unstudentized before/after
+sup_Hc <- thr_Hc[U <= thr_Hc]; not_Hc <- thr_Hc[U > thr_Hc]
+sup_H  <- thr_H[L >= thr_H];  not_H  <- thr_H[L < thr_H]
+say <- function(v) if (length(v)) paste(v, collapse = ", ") else "none"
+cat(sprintf(paste0(
+  "- **Complement first (the benefit claim).** The field-s one-sided 95%% upper bound on Ĥᶜ is %.2f on the oriented scale ",
+  "(a CD4 change of at least %.2f on the raw scale). Against the reading thresholds, \"harm at most τ on Ĥᶜ\" is supported for τ = %s ",
+  "and not supported for τ = %s. The unstudentized field's upper bound, the paired before-and-after, is %.2f (change ≥ %.2f). ",
+  "Comparators: MR (IJ) upper %.2f (change ≥ %.2f), naive upper %.2f (change ≥ %.2f).\n"),
+  U, -U, say(sup_Hc), say(not_Hc), U_u, -U_u, up1["ij"], -up1["ij"], up1["naive"], -up1["naive"]))
+cat(sprintf(paste0(
+  "- **Ĥ (the harm claim).** The field's one-sided 95%% lower bound is %.2f on the oriented scale (a CD4 change of at most %.2f). ",
+  "\"Harm at least τ on Ĥ\" is supported for τ = %s and not supported for τ = %s. The naive lower bound is %.2f.\n"),
+  L, -L, say(sup_H), say(not_H), lo1["naive"]))
+cat(sprintf(paste0(
+  "- **MR (IJ two-term) as the conservative reference:** lower bound on Ĥ %.2f (SE %.2f, %.2f× the naive SE), upper bound on Ĥᶜ %.2f ",
+  "(SE %.2f, %.2f× the naive SE); its bounds sit %s the field's on both blocks.\n"),
+  lo1["ij"], g$debiased$se_ij, g$debiased$se_ij / g$debiased$se_wald, up1["ij"], gc$debiased$se_ij,
+  gc$debiased$se_ij / gc$debiased$se_wald,
+  if (lo1["ij"] <= L && up1["ij"] >= U) "outside" else "not uniformly outside"))
+cat(sprintf(paste0(
+  "- **A claim on both subgroups** uses the field-s Bonferroni pair (Ĥ lower %.2f, Ĥᶜ upper %.2f; on the cd4_change scale: Ĥ change ≤ %.2f, ",
+  "Ĥᶜ change ≥ %.2f): \"harm at least τ on Ĥ\" is supported for τ = %s and \"harm at most τ on Ĥᶜ\" for τ = %s; ",
+  "the calibrated field-s pair at γ = %.3f %s it (corr(Λ*, Λ*ᶜₛ) = %+.3f).\n"),
+  js$bonf_lower_H, js$bonf_upper_Hc, -js$bonf_lower_H, -js$bonf_upper_Hc,
+  say(thr_H[js$bonf_lower_H >= thr_H]), say(thr_Hc[js$bonf_upper_Hc <= thr_Hc]), js$gamma,
+  if (abs(js$gamma - 0.025) < 1e-9) "coincides with" else "is tighter than", js$corr))
+cat(sprintf(paste0(
+  "- **The price of selection:** on Ĥ the adjusted one-sided lower bounds span %.2f (field) to %.2f (IJ) against the naive %.2f; ",
+  "on Ĥᶜ the adjusted upper bounds span %.2f (field-s) to %.2f (IJ) against the naive %.2f. The point estimates move from the naive %.2f ",
+  "to %.2f (IJ) and %.2f (field est₂) on Ĥ.\n"),
+  L, lo1["ij"], lo1["naive"], U, up1["ij"], up1["naive"], g$naive$est, g$debiased$est, f$est2))
+cat(sprintf(paste0(
+  "- **Regime:** p̂(Ĥ) = %.3f — the selected subgroup wins the re-selection on %.1f%% of multiplier draws, %s. ",
+  "λ-SDᶜ / naive SE = %.3f on the complement.\n"),
+  p_hat_H, 100 * p_hat_H,
+  if (p_hat_H >= 0.5) "a settled selection" else "the tie regime (family labels with near-identical membership compete)",
+  fc$se_field / gc$debiased$se_wald))
+cat(sprintf(paste0(
+  "\nProvenance: forestsearch %s; sg_focus = effMaxSG, effect_neighborhood = 0.20, selection_rule = neighborhood; ci_method = %s, %d multiplier draws (%s), field R_out/R_in = %d/%d, ij_residual = %s, seed = %d; ",
+  "gate wall %.1f s (multiplier stage %.1f s, field %.1f s, complement field %.1f s).\n"),
+  as.character(utils::packageVersion("forestsearch")), g$ci_method, g$settings$draws, g$settings$multiplier,
+  f$R_out, f$R_in, g$ij_residual, params$seed,
+  g$timing_seconds + f$timing_seconds + fc$timing_seconds, g$timing_seconds, f$timing_seconds, fc$timing_seconds))
+```
+
+No claim is made beyond these numbers; the thresholds are the simulation design's reference points and may be replaced.
+:::
+
+## 3. Interpretation
+
+```{r interp-objects}
+#| echo: false
+band_in  <- bt[bt$in_band, ]
+band_txt <- paste(sprintf("%s (n %d, MD %.2f, consistency %.2f)", band_in$candidate, band_in$N, band_in$hr, band_in$Pcons),
+                  collapse = "; ")
+bonf_H_sup  <- say(thr_H[js$bonf_lower_H >= thr_H]);  bonf_H_not  <- say(thr_H[js$bonf_lower_H < thr_H])
+bonf_Hc_sup <- say(thr_Hc[js$bonf_upper_Hc <= thr_Hc]); bonf_Hc_not <- say(thr_Hc[js$bonf_upper_Hc > thr_Hc])
+regime <- if (p_hat_H >= 0.5) "a settled selection" else "the tie regime: family labels with near-identical membership compete for the pick, and the field's second-order correction is where the selection-adjusted bound is doing its work"
+```
+
+**The subgroup.** Under `effMaxSG` at ε = 0.20 the search selects
+**Ĥ = `` `r H_def` ``**, n = `r fmt0(n_H)` of `r fmt0(N)`, with fitted mean
+difference `r fmt(T_obs, 2)` on the oriented `y_decline` scale (a CD4 change of
+`r fmt(-T_obs, 2)` cells/mm³ on the raw scale) and consistency proportion
+`r fmt(p_cons, 2)`. It is the largest of the `r fmt0(n_band)` consistency-qualifying
+candidates whose oriented MD lies within 20% of the largest
+(`r fmt(md_max, 2)`; band floor `r fmt(md_floor, 2)`), out of `r fmt0(n_qual)`
+qualifying candidates in all. The in-band candidates it was chosen among:
+`r band_txt`.
+
+**Ĥ, by bound location.** The field's one-sided 95% lower bound on the oriented
+scale is `r fmt(L, 2)` (on the raw scale: CD4 change ≤ `r fmt(-L, 2)`). Against
+the ladder 0 / 10 / 20 / 30 / 40, "harm at least τ on Ĥ" is supported for
+τ = `r say(sup_H)` and not supported for τ = `r say(not_H)`. Beside it: the
+unadjusted lower bound `r fmt(lo1["naive"], 2)` (change ≤ `r fmt(-lo1["naive"], 2)`)
+and the IJ two-term lower bound `r fmt(lo1["ij"], 2)` (change ≤ `r fmt(-lo1["ij"], 2)`).
+The point estimates move from the naive `r fmt(g$naive$est, 2)` to `r fmt(g$debiased$est, 2)`
+(IJ, β̃) and `r fmt(f$est2, 2)` (field est₂).
+
+**Ĥᶜ, the benefit claim.** The field-s one-sided 95% upper bound on the oriented
+scale is `r fmt(U, 2)`, i.e. on the raw scale a CD4 change of at least
+`r fmt(-U, 2)` cells/mm³ on the complement. "Harm at most τ on Ĥᶜ" is supported
+for τ = `r say(sup_Hc)` and not supported for τ = `r say(not_Hc)`. The
+unstudentized complement field's upper bound is `r fmt(U_u, 2)` (change ≥
+`r fmt(-U_u, 2)`). Beside them: the unadjusted upper bound `r fmt(up1["naive"], 2)`
+and the IJ two-term upper bound `r fmt(up1["ij"], 2)`.
+
+**The pair.** The field-s Bonferroni pair (γ = 0.025 each) is Ĥ lower
+`r fmt(js$bonf_lower_H, 2)`, Ĥᶜ upper `r fmt(js$bonf_upper_Hc, 2)` on the oriented
+scale (raw: Ĥ change ≤ `r fmt(-js$bonf_lower_H, 2)`, Ĥᶜ change ≥
+`r fmt(-js$bonf_upper_Hc, 2)`), with joint probability `r fmt(js$bonf_joint_prob, 3)`
+on the `r fmt0(js$n_joint_draws)` aligned draws. Read jointly: "harm at least τ on
+Ĥ" is supported for τ = `r bonf_H_sup` and not for τ = `r bonf_H_not`; "harm at
+most τ on Ĥᶜ" is supported for τ = `r bonf_Hc_sup` and not for τ = `r bonf_Hc_not`.
+The calibrated field-s pair returns γ = `r fmt(js$gamma, 3)` and
+`r if (abs(js$gamma - 0.025) < 1e-9) "coincides with" else "is tighter than"` it.
+The unstudentized Bonferroni pair is (`r fmt(jt$bonf_lower_H, 2)`, `r fmt(jt$bonf_upper_Hc, 2)`),
+sharing the Ĥ side.
+
+**Re-selection.** p̂(Ĥ) = `r fmt(p_hat_H, 3)`: the selected subgroup wins the
+re-selection on `r pct(p_hat_H)` of the `r fmt0(g$settings$draws)` multiplier
+draws (selection rate `r fmt(g$selection_rate, 3)`, family of `r fmt0(g$n_family)`),
+which indicates `r regime`. The top re-selected labels are
+`r lab_of(names(top3)[1])` (`r fmt(top3[1], 3)`), `r lab_of(names(top3)[2])`
+(`r fmt(top3[2], 3)`) and `r lab_of(names(top3)[3])` (`r fmt(top3[3], 3)`).
+
+**Contrast with the maxeffCons analysis** (quoted from
+`REPORT_actg175_continuous_field_s_2026-09-16.md` §5 and the committed payload
+at commit `570bf8a5`; not recomputed here). Under `maxeffCons` the same data and
+settings select Ĥ = `{age <= 37} & !{cd40 <= 507}`, n = 66, with the field
+one-sided lower bound on Ĥ −43.7954 (unadjusted 17.7478, IJ −55.0512), the
+field-s one-sided upper bound on Ĥᶜ −18.9041 (unstudentized −18.5546), and the
+field-s Bonferroni pair (−56.4409, −16.4175) with joint probability 0.9491.
+The two selected subgroups share the `cd40 > 507` clause and 52 patients;
+neither contains the other. On this document's anchor the field lower bound on
+Ĥ is `r fmt(L, 2)` against the quoted −43.80, the field-s upper bound on Ĥᶜ is
+`r fmt(U, 2)` against the quoted −18.90, and the pair is
+(`r fmt(js$bonf_lower_H, 2)`, `r fmt(js$bonf_upper_Hc, 2)`) against the quoted
+(−56.44, −16.42).
+
+These are selection-adjusted bounds on one trial under one selection rule; the operating-characteristics evaluation in analysis_actg175_continuous_oc.qmd remains under maxeffCons.
+
+```{r doc-clock}
+cat(sprintf("document compute wall-clock so far: %.1f min\n",
+            (proc.time()[["elapsed"]] - t_doc) / 60))
+```
+
+# Reproducibility payload {#sec-export-payload}
+
+```{r export-payload}
+#| echo: false
+#| message: false
+.qmd_dir  <- tryCatch(dirname(knitr::current_input(dir = TRUE)),
+                      error = function(e) getwd())
+.qmd_stem <- tryCatch(tools::file_path_sans_ext(basename(knitr::current_input())),
+                      error = function(e) "analysis")
+.dirout   <- if (is.null(dirout)) .qmd_stem else dirout
+.base     <- if (is.null(results_dir)) file.path(.qmd_dir, "_payloads") else results_dir
+.out_dir  <- file.path(.base, .dirout)
+dir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)
+.payload_file <- file.path(.out_dir, paste0(.dirout, payload_suffix, "_payload.rds"))
+
+payload <- list(
+  table  = NULL,
+  labels = list(
+    sg_harm  = H_def,
+    sg_focus = "effMaxSG",
+    focus    = NULL),
+  meta = list(
+    n_total    = N,
+    n_events   = NULL,
+    outcome    = "y_decline",
+    event      = NULL,
+    treat      = "treat",
+    covariates = confounders.name,
+    args_call  = list(sg_focus = "effMaxSG", effect_neighborhood = eps,
+                      selection_rule = "neighborhood",
+                      consistency_method = "resample", pconsistency = 0.90,
+                      seed = params$seed, T_obs = T_obs)),
+  extras = list(
+    anchor      = list(def = H_def, n_H = n_H, T_obs = T_obs, p_cons = p_cons),
+    band        = list(eps = eps, md_max = md_max, md_floor = md_floor,
+                       n_qualifying = n_qual, n_in_band = n_band,
+                       candidates = bt),
+    # TASK_actg175_continuous_intervals_2026-09-07 schema: the interval constructions
+    intervals   = iv,
+    interpretation = list(itt = itt)),
+  est_scale = "md",
+  built_at  = Sys.time(),
+  forestsearch_version = tryCatch(as.character(utils::packageVersion("forestsearch")),
+                                  error = function(e) NA_character_))
+
+saveRDS(payload, .payload_file)
+cat("Wrote payload to:", .payload_file, "\n")
+```
