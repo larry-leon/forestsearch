@@ -132,7 +132,29 @@ seed_base    <- 8316951L
 
 # ── The identifier: engine + focus (these ARE the estimator; they feed the stem)
 subgroup_method <- "consistency"
-sg_focus        <- "maxeffCons"  # highest effect meeting the consistency rate
+# Focus knob (FS_MD_FOCUS; TASK_md_field_rerun_2026-09-15 E1, transplanted
+# from the survival template's FS_S7_FOCUS).  forestsearch() derives the MR
+# re-selection rule from sg_focus, so the gate re-selects under the same
+# functional; the stem follows focus_tag as it always has.
+sg_focus        <- .env_chr("FS_MD_FOCUS", "maxeffCons")  # "maxeffCons": highest effect meeting the consistency rate
+# Guard (the survival template's six-criterion set): anything else stops the render.
+stopifnot(sg_focus %in% c("effMaxSG", "maxeffCons", "effMinSG", "maxSG", "minSG", "maxeff"))
+.band_foci <- c("effMaxSG", "effMinSG")
+# Band-width knob (FS_MD_NBHD).  effect_neighborhood is the identifier's band
+# half-width (effect >= (1 - eps) * max effect among the consistency-qualifying
+# candidates, on the harm-oriented MD scale), forwarded to the gate unchanged
+# by forestsearch() as `nbhd`.  Read HERE, before the stem, because a
+# non-default value tags the stem below.
+effect_neighborhood <- .env_num("FS_MD_NBHD", 0.10)
+stopifnot(is.finite(effect_neighborhood), effect_neighborhood >= 0, effect_neighborhood < 1)
+# eps belongs to the band foci only.  Supplying FS_MD_NBHD with any other focus
+# is an error, not a silently inert setting.  Unset, the 0.10 default is still
+# forwarded (it is forestsearch()'s own default), so every committed non-band
+# render is unchanged.
+if (!sg_focus %in% .band_foci && nzchar(Sys.getenv("FS_MD_NBHD")))
+  stop(sprintf("FS_MD_NBHD is set (%s) but sg_focus = '%s' does not consult effect_neighborhood; it is accepted only for %s.",
+               Sys.getenv("FS_MD_NBHD"), sg_focus, paste(.band_foci, collapse = " / ")),
+       call. = FALSE)
 
 # ── Cell: scenario knob and sample size ─────────────────────────────────────
 # FS_MD_MD = "40" | "120" | "null".  The twin calibrates k_inter to the target
@@ -166,9 +188,13 @@ if (!identical(focus_tag, sg_focus))
 #      production vs any rerun), so combine_glob can never pool across them.
 campaign_tag <- .env_chr("FS_MD_CAMPAIGN", "c1")
 stopifnot(grepl("^[A-Za-z0-9]+$", campaign_tag))
-rds_stem <- sprintf("%s_%s_mr_field_md%02d_knoise%d_n%d_%s",
+# Band tag only when non-default, so every committed stem (mdf1 included) is
+# unchanged (TASK_p30sg_nb20_2026-09-07).
+nbhd_tag <- if (abs(effect_neighborhood - 0.10) < 1e-12) "" else
+              sprintf("_nb%02d", round(100 * effect_neighborhood))
+rds_stem <- sprintf("%s_%s_mr_field_md%02d_knoise%d_n%d%s_%s",
                     method_tag, focus_tag, abs(target_md_harm),
-                    k_random_noise, n_sample, campaign_tag)
+                    k_random_noise, n_sample, nbhd_tag, campaign_tag)
 # Quick-run renders are stem-tagged so their bundle can NEVER pool with real
 # batches (the tag also renames the results directory).
 quickrun <- identical(.env_chr("FS_MD_QUICKRUN", "FALSE"), "TRUE")
@@ -211,7 +237,16 @@ consistency_method <- "resample"
 # MR's de-biasing rule is derived by forestsearch() from sg_focus — not set
 # here. Override only via mr_inference_args(reselection=) (advanced use).
 selection_rule      <- "neighborhood"  # band rule for effMaxSG/effMinSG arms;
-effect_neighborhood <- 0.10            # inert under maxcons-family foci; pinned
+# What the package already requires (.validate_selection_rule(),
+# R/subgroup_consistency_helpers.R:743), checked here so it fails before any
+# replicate runs rather than inside every one.
+if (!identical(selection_rule, "neighborhood") && !sg_focus %in% .band_foci)
+  stop(sprintf("selection_rule = '%s' is accepted only for %s; sg_focus = '%s'.",
+               selection_rule, paste(.band_foci, collapse = " / "), sg_focus),
+       call. = FALSE)
+# effect_neighborhood: read above (FS_MD_NBHD, default 0.10 = the package
+# default) next to the stem it tags; band half-width for effMaxSG/effMinSG,
+# inert under sg_focus = "maxcons"/"maxeffCons".
 stop_threshold      <- NULL            # pinned so the resolved setting is visible
 md_threshold   <- 30    # effect.threshold, oriented scale (true clearance
                         # <=> P(Q|H) >= 27.2% — alignment doc section 2)
@@ -269,6 +304,12 @@ mr_confirm_rule <- "point"
 mr_field_uniform <- identical(.env_chr("FS_MD_UNIFORM", "FALSE"), "TRUE")
 # Complement field (default ON for this design; consulted only under "field").
 mr_field_complement <- identical(.env_chr("FS_MD_FIELD_COMPLEMENT", "TRUE"), "TRUE")
+# Complement-scale knob (field-s; TASK_field_studentize_e1_2026-09-08).
+# DEFAULT "selected" from TASK_cert20_2026-09-08 Part D: field-s is the
+# recommended complement construction, so unset = recommended; set
+# FS_MD_FIELD_SCALEC=none for the prior behaviour.
+mr_field_scalec <- .env_chr("FS_MD_FIELD_SCALEC", "selected")
+stopifnot(mr_field_scalec %in% c("none", "selected"))
 # IJ residual populating the REPORTED mr_*_se_ij / mr_*_lo / mr_*_hi;
 # "two_term" keeps those columns byte-identical to the committed bundles.
 mr_ij_residual <- .env_chr("FS_MD_IJ_RESIDUAL", "two_term")
@@ -283,6 +324,7 @@ mr_inference_args <- c(
   list(ci_method = mr_ci_method, draws = mr_draws, include_complement = TRUE,
        confirm_rule = mr_confirm_rule, field_uniform = mr_field_uniform,
        field_complement = mr_field_complement, ij_residual = mr_ij_residual,
+       field_scale_complement = mr_field_scalec,
        return_reselection = mr_return_reselection),
   if (!is.null(mr_t_confirm)) list(t_confirm = mr_t_confirm))
 
@@ -304,10 +346,10 @@ fb_join_skip <- local({
 })
 run_fb <- FALSE   # FB is never computed in this document
 
-cat(sprintf("Batch %d..%d | cell md=%s n=%d build=%s | ci_method=%s complement_field=%s ij_residual=%s reselection=%s | FB=%s | draws=%d | %s x %d workers | campaign=%s quickrun=%s\n",
+cat(sprintf("Batch %d..%d | cell md=%s n=%d build=%s | ci_method=%s complement_field=%s ij_residual=%s reselection=%s scalec=%s | focus=%s nbhd=%.2f rule=%s | FB=%s | draws=%d | %s x %d workers | campaign=%s quickrun=%s\n",
             sim_id_start, sim_id_end, if (null_cell) "null" else format(abs(target_md_harm)),
             n_sample, dgm_build, mr_ci_method, mr_field_complement, mr_ij_residual,
-            mr_return_reselection, fb_mode, mr_draws, parallel_mode, n_workers,
+            mr_return_reselection, mr_field_scalec, sg_focus, effect_neighborhood, selection_rule, fb_mode, mr_draws, parallel_mode, n_workers,
             campaign_tag, quickrun))
 cat(sprintf("Output stem: %s\nResults dir: %s\n", rds_stem, results_dir))
 ```
@@ -516,6 +558,14 @@ if (any(abs(c(.z_H, .z_Hc)) > 4, na.rm = TRUE))
   fld_Hc_share_newfit = NA_real_,                          # share of draw-winner readings needing a new fit
   fld_Hc_secs = NA_real_,
   fld_Hc_note = NA_character_,
+  # field-s companions (field_scale_complement = "selected"; else all NA;
+  # TASK_field_studentize_e1_2026-09-08).  Studentized root, inverted around the
+  # same mr_Hc_est.  PRIMARY: fld_Hc_up1s_s, the one-sided 95% upper bound.
+  fld_Hc_est2_s = NA_real_,
+  fld_Hc_up1s_s = NA_real_, fld_Hc_lo1s_s = NA_real_,
+  fld_Hc_lo2s_s = NA_real_, fld_Hc_hi2s_s = NA_real_,
+  fld_Hc_lo_se_s = NA_real_, fld_Hc_hi_se_s = NA_real_,
+  fld_Hc_se_s = NA_real_, fld_Hc_lam_mean_s = NA_real_,
   # Winner-only IJ variants (recorded whatever ij_residual selects; excluded
   # from tables and figures unless show_winner_rows).
   mr_H_se_w = NA_real_,  mr_H_lo_w = NA_real_,  mr_H_hi_w = NA_real_,
@@ -528,6 +578,12 @@ if (any(abs(c(.z_H, .z_Hc)) > 4, na.rm = TRUE))
   fld_joint_bonf_loH = NA_real_, fld_joint_bonf_upHc = NA_real_,
   fld_joint_bonf_prob = NA_real_,
   fld_joint_corr = NA_real_, fld_joint_n = NA_integer_,
+  # joint_s mirrors (field-s; else all NA).
+  fld_joint_s_gamma = NA_real_, fld_joint_s_prob = NA_real_,
+  fld_joint_s_loH = NA_real_, fld_joint_s_upHc = NA_real_,
+  fld_joint_s_bonf_loH = NA_real_, fld_joint_s_bonf_upHc = NA_real_,
+  fld_joint_s_bonf_prob = NA_real_,
+  fld_joint_s_corr = NA_real_, fld_joint_s_n = NA_integer_,
   # Re-selection frequencies (return_reselection = TRUE): the winner's own
   # p-hat and the three most frequently re-selected candidates (GuoHe
   # convention: mr_vs_guohe_sim.R).
@@ -731,6 +787,16 @@ record_replicate <- function(sim_id) {
           rec$fld_Hc_q025 <- fc$q025; rec$fld_Hc_q975 <- fc$q975
           rec$fld_Hc_nin_mean <- fc$n_in_used_mean
           rec$fld_Hc_secs     <- fc$timing_seconds %||% NA_real_
+          # ---- field-s companions (field_scale_complement = "selected"; absent -> NA) ----
+          rec$fld_Hc_est2_s     <- fc$est2_s      %||% NA_real_
+          rec$fld_Hc_up1s_s     <- fc$upper_1s_s  %||% NA_real_
+          rec$fld_Hc_lo1s_s     <- fc$lower_1s_s  %||% NA_real_
+          rec$fld_Hc_lo2s_s     <- fc$lower_2s_s  %||% NA_real_
+          rec$fld_Hc_hi2s_s     <- fc$upper_2s_s  %||% NA_real_
+          rec$fld_Hc_lo_se_s    <- fc$lower_se_s  %||% NA_real_
+          rec$fld_Hc_hi_se_s    <- fc$upper_se_s  %||% NA_real_
+          rec$fld_Hc_se_s       <- fc$se_field_s  %||% NA_real_
+          rec$fld_Hc_lam_mean_s <- fc$lambda_mean_s %||% NA_real_
         }
         rec$fld_Hc_nout         <- fc$n_out_used %||% NA_integer_
         rec$fld_Hc_nfit         <- fc$n_complement_fits %||% NA_integer_
@@ -748,6 +814,19 @@ record_replicate <- function(sim_id) {
         rec$fld_joint_bonf_prob <- jj$bonf_joint_prob
         rec$fld_joint_corr      <- jj$corr
         rec$fld_joint_n         <- as.integer(jj$n_joint_draws)
+      }
+      # ---- joint_s (field-s; absent -> all NA) ----
+      if (is.list(f$joint_s) && is.null(f$joint_s$note)) {
+        js <- f$joint_s
+        rec$fld_joint_s_gamma     <- js$gamma
+        rec$fld_joint_s_prob      <- js$joint_prob
+        rec$fld_joint_s_loH       <- js$lower_H
+        rec$fld_joint_s_upHc      <- js$upper_Hc
+        rec$fld_joint_s_bonf_loH  <- js$bonf_lower_H
+        rec$fld_joint_s_bonf_upHc <- js$bonf_upper_Hc
+        rec$fld_joint_s_bonf_prob <- js$bonf_joint_prob
+        rec$fld_joint_s_corr      <- js$corr
+        rec$fld_joint_s_n         <- as.integer(js$n_joint_draws)
       }
     }
     # ---- Re-selection frequencies (return_reselection = TRUE) ----
@@ -825,6 +904,8 @@ if (length(.cfg_err))
                   c("fld_H_lo2u", "fld_H_hi2u"),
                   c("fld_Hc_lo2s", "fld_Hc_hi2s"), c("fld_Hc_lo_se", "fld_Hc_hi_se"),
                   c("fld_Hc_lo1s", "fld_Hc_up1s"),
+                  c("fld_Hc_lo2s_s", "fld_Hc_hi2s_s"), c("fld_Hc_lo_se_s", "fld_Hc_hi_se_s"),
+                  c("fld_Hc_lo1s_s", "fld_Hc_up1s_s"),
                   c("mr_H_lo_w", "mr_H_hi_w"), c("mr_H_lo_wf", "mr_H_hi_wf"),
                   c("mr_Hc_lo_w", "mr_Hc_hi_w"), c("mr_Hc_lo_wf", "mr_Hc_hi_wf"))) {
     lo <- r[[pr[1]]]; hi <- r[[pr[2]]]
@@ -893,6 +974,7 @@ out <- rds_path
                          nb_boots = nb_boots, mr_draws = mr_draws,
                          sg_focus = sg_focus, focus_tag = focus_tag,
                          selection_rule = selection_rule,
+                         effect_neighborhood = effect_neighborhood,
                          consistency_method = consistency_method,
                          subgroup_method = subgroup_method,
                          target_md_harm = target_md_harm,
@@ -910,6 +992,7 @@ out <- rds_path
                          field_complement = mr_field_complement,
                          ij_residual = mr_ij_residual,
                          return_reselection = mr_return_reselection,
+                         field_scale_complement = mr_field_scalec,       # record only (E1)
                          field_R = "R_out=1000/R_in=500 (package defaults; not forwarded by forestsearch())",
                          fb_mode = fb_mode,
                          fb_join_source = if (identical(fb_mode, "join")) basename(fb_join_path) else NA_character_,
@@ -945,7 +1028,8 @@ cat(sprintf("Saved batch bundle (%d rows, sim_id %d-%d) to %s\n",
   for (k in c("n_sample", "nb_boots", "mr_draws", "subgroup_method",
               "sg_focus", "target_md_harm", "null_cell", "dgm_build", "seed_base",
               "k_random_noise", "ci_method", "campaign_tag", "field_complement",
-              "ij_residual", "effect_threshold", "consistency_threshold")) {
+              "ij_residual", "effect_threshold", "consistency_threshold",
+              "effect_neighborhood", "selection_rule", "field_scale_complement")) {
     vals <- unique(lapply(bundles, .meta_get, k = k))
     if (length(vals) > 1L)
       stop(sprintf("combine mode: batches disagree on meta$%s (%s).",
