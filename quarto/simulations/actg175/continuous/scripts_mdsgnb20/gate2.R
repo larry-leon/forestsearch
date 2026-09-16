@@ -44,7 +44,7 @@ same_draws <- function(r, fr, label, null_cell) {
     if (!nt_ok && same_rows) sprintf("(%d of %d rows differ)", sum(r$n_true[o] != fr$n_true[of]), nrow(r)) else "")
   orc <- if (null_cell) c("or_Hc_est","or_Hc_lo","or_Hc_hi","or_Hc_se") else c("or_H_est","or_H_lo","or_H_hi","or_H_se","or_Hc_est","or_Hc_lo","or_Hc_hi","or_Hc_se")
   mx <- if (same_rows) max(vapply(orc, function(k) relmax(r[[k]][o], fr[[k]][of]), numeric(1))) else Inf
-  P(sprintf("[%s] oracle columns (%s) <= %g relative on all rows", label, if (null_cell) "complement only" else "H and Hc"), mx <= TOL, sprintf("(max %.3g)", mx))
+  P(sprintf("[%s] oracle columns (%s) <= %g relative on all rows", label, if (null_cell) "complement only" else "H and Hc", TOL), mx <= TOL, sprintf("(max %.3g)", mx))
   invisible(NULL)
 }
 
