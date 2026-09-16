@@ -51,10 +51,10 @@ sdfin <- function(x) { x <- x[is.finite(x)]; if (length(x) > 1) sd(x) else NA_re
 pse <- function(p, n) if (is.finite(p) && n > 0) sqrt(p * (1 - p) / n) else NA_real_   # task §3.2: proportions
 tau_H <- c(0, 10, 20, 30, 40, 60, 80, 100); tau_Hc <- tau_H                            # D3 ladder
 EX <- list()   # extract rows (task §3.2)
-ex <- function(cell, block, estimator, metric, value, mc_se = NA_real_, n = NA_integer_, tau = NA_real_, wl = NA_real_, wh = NA_real_, commit = NA_character_)
-  EX[[length(EX) + 1]] <<- data.frame(campaign = tag, cell = cell, block = block, estimator = estimator, metric = metric, tau = tau,
+ex <- function(cell, block, estimator, metric, value, mc_se = NA_real_, n = NA_integer_, tau = NA_real_, wl = NA_real_, wh = NA_real_, commit = NA_character_, campaign = tag)
+  EX[[length(EX) + 1]] <<- data.frame(campaign = campaign, cell = cell, block = block, estimator = estimator, metric = metric, tau = tau,
                                       value = value, mc_se = mc_se, wilson_lo = wl, wilson_hi = wh, n = n, commit = commit, stringsAsFactors = FALSE)
-exp_ <- function(cell, block, estimator, metric, p, n, tau = NA_real_, commit) { w <- wilson(p, n); ex(cell, block, estimator, metric, p, pse(p, n), n, tau, w[1], w[2], commit) }
+exp_ <- function(cell, block, estimator, metric, p, n, tau = NA_real_, commit, campaign = tag) { w <- wilson(p, n); ex(cell, block, estimator, metric, p, pse(p, n), n, tau, w[1], w[2], commit, campaign) }
 
 rows <- list(); bl <- list(); jt <- list(); rc <- list(); rg <- list(); disp <- list(); status <- list(); decl <- list()
 for (cl in cells) {
@@ -68,6 +68,8 @@ for (cl in cells) {
   decl[[cl$lab]] <- data.frame(cell = cl$lab, replicates = nrow(r), declared = nrow(d), rate = mean(det), mc_se = pse(mean(det), nrow(r)),
                                mdf1_rate = mean(rr$detected %in% 1L), stringsAsFactors = FALSE)
   exp_(cl$lab, "H", "all", "declaration_rate", mean(det), nrow(r), commit = cm)
+  cm_ref <- commit_of(pr)
+  exp_(cl$lab, "H", "all", "declaration_rate", mean(rr$detected %in% 1L), nrow(rr), commit = cm_ref, campaign = ref_tag)
   struct <- list(H = or * b$truth$effect_Q, Hc = or * b$truth$effect_Qc)
   # ---- Ĥ and Ĥᶜ tables: mdf1 summary :49-66 verbatim in structure; the complement adds field-s (evaluated) beside the unstudentized field (paired)
   for (sfx in c("H", "Hc")) {
@@ -131,7 +133,9 @@ for (cl in cells) {
     jt[[length(jt) + 1]] <- data.frame(cell = cl$lab, pair = nm, declared = nrow(d), both_bounds = sum(ok), share_both = sum(ok) / nrow(d), joint = fmtw(jc, sum(ok)), joint_mc_se = pse(jc, sum(ok)),
                                        cov_H = mean(cH), cov_Hc = mean(cC), margin_H = mean(d$mr_H_est[ok] - pp$lo[ok]), margin_Hc = mean(pp$up[ok] - d$mr_Hc_est[ok]), stringsAsFactors = FALSE)
     exp_(cl$lab, "joint", pp$code, "joint_coverage", jc, sum(ok), commit = cm); exp_(cl$lab, "joint", pp$code, "share_both_bounds", sum(ok) / nrow(d), nrow(d), commit = cm)
-    exp_(cl$lab, "joint", pp$code, "cov_H", mean(cH), sum(ok), commit = cm); exp_(cl$lab, "joint", pp$code, "cov_Hc", mean(cC), sum(ok), commit = cm) }
+    exp_(cl$lab, "joint", pp$code, "cov_H", mean(cH), sum(ok), commit = cm); exp_(cl$lab, "joint", pp$code, "cov_Hc", mean(cC), sum(ok), commit = cm)
+    ex(cl$lab, "joint", pp$code, "margin_H_md", mean(d$mr_H_est[ok] - pp$lo[ok]), sd(d$mr_H_est[ok] - pp$lo[ok]) / sqrt(sum(ok)), sum(ok), commit = cm)
+    ex(cl$lab, "joint", pp$code, "margin_Hc_md", mean(pp$up[ok] - d$mr_Hc_est[ok]), sd(pp$up[ok] - d$mr_Hc_est[ok]) / sqrt(sum(ok)), sum(ok), commit = cm) }
   for (v in list(c("gamma_mean_s", "fld_joint_s_gamma"), c("corr_s", "fld_joint_s_corr"), c("gamma_mean", "fld_joint_gamma"), c("corr", "fld_joint_corr")))
     ex(cl$lab, "joint", "calibrated", v[1], mfin(d[[v[2]]]), sdfin(d[[v[2]]]) / sqrt(sum(is.finite(d[[v[2]]]))), sum(is.finite(d[[v[2]]])), commit = cm)
   # ---- rule contrast with mdf1, paired by sim_id (task §3.1): n_sel / n_harm / n_true as the recorder defines them
@@ -159,7 +163,15 @@ for (cl in cells) {
   ex(cl$lab, "H", "all", "mean_n_sel", mean(d$n_sel, na.rm = TRUE), sdfin(d$n_sel) / sqrt(sum(is.finite(d$n_sel))), sum(is.finite(d$n_sel)), commit = cm)
   ex(cl$lab, "H", "all", "sensitivity_mean", mfin(d$sens), sdfin(d$sens) / sqrt(sum(is.finite(d$sens))), sum(is.finite(d$sens)), commit = cm)
   ex(cl$lab, "H", "all", "ppv_mean", mfin(d$ppv), sdfin(d$ppv) / sqrt(sum(is.finite(d$ppv))), sum(is.finite(d$ppv)), commit = cm)
-  for (v in c("grew", "stayed", "shrank")) { cnt <- switch(v, grew = sum(dd > 0, na.rm = TRUE), stayed = sum(dd == 0, na.rm = TRUE), shrank = sum(dd < 0, na.rm = TRUE)); exp_(cl$lab, "H", "all", paste0("share_nharm_", v, "_vs_mdf1"), cnt / sum(is.finite(dd)), sum(is.finite(dd)), commit = cm) }
+  for (v in c("grew", "stayed", "shrank")) { cnt <- switch(v, grew = sum(dd > 0, na.rm = TRUE), stayed = sum(dd == 0, na.rm = TRUE), shrank = sum(dd < 0, na.rm = TRUE)); exp_(cl$lab, "H", "all", paste0("share_nharm_", v, "_vs_mdf1"), cnt / sum(is.finite(dd)), sum(is.finite(dd)), commit = cm)
+    ex(cl$lab, "H", "all", paste0("count_nharm_", v, "_vs_mdf1"), cnt, n = sum(is.finite(dd)), commit = cm) }
+  # the paired mdf1 comparators (campaign = "mdf1"; the same seeds), as the contrast table prints them
+  ex(cl$lab, "H", "all", "mean_n_harm", mean(dr$n_harm, na.rm = TRUE), sdfin(dr$n_harm) / sqrt(sum(is.finite(dr$n_harm))), sum(is.finite(dr$n_harm)), commit = cm_ref, campaign = ref_tag)
+  ex(cl$lab, "H", "all", "mean_n_sel", mean(dr$n_sel, na.rm = TRUE), sdfin(dr$n_sel) / sqrt(sum(is.finite(dr$n_sel))), sum(is.finite(dr$n_sel)), commit = cm_ref, campaign = ref_tag)
+  ex(cl$lab, "H", "all", "sensitivity_mean", mfin(dr$sens), sdfin(dr$sens) / sqrt(sum(is.finite(dr$sens))), sum(is.finite(dr$sens)), commit = cm_ref, campaign = ref_tag)
+  ex(cl$lab, "H", "all", "ppv_mean", mfin(dr$ppv), sdfin(dr$ppv) / sqrt(sum(is.finite(dr$ppv))), sum(is.finite(dr$ppv)), commit = cm_ref, campaign = ref_tag)
+  exp_(cl$lab, "H", "fld", "cov1_lower", cs1r, sum(is.finite(dr$fld_H_lo1s) & is.finite(rrbH)), commit = cm_ref, campaign = ref_tag)
+  exp_(cl$lab, "Hc", "fld", "cov1_upper", cs2r, sum(is.finite(dr$fld_Hc_up1s) & is.finite(rrbHc)), commit = cm_ref, campaign = ref_tag)
   # ---- regime diagnostics (mdf1 summary :82-85)
   nvc <- mfin(d$nv_Hc_se)
   rg[[length(rg) + 1]] <- data.frame(cell = cl$lab, n_det = nrow(d), p_hat_mean = mean(d$p_hat_H, na.rm = TRUE), p_hat_lt05 = mean(d$p_hat_H < 0.5, na.rm = TRUE),
@@ -286,7 +298,7 @@ cols <- c(
 "# COLUMNS — md_field_metrics.csv (campaign mdsgnb20; TASK_md_field_rerun_2026-09-15 §3.2)", "",
 "Written by `summary_continuous_field_mdsgnb20.qmd` from the same objects its tables print. One row per cell × block × estimator × metric (× tau for bound-location rows).", "",
 "## Columns", "",
-"- `campaign`: the campaign tag (`mdsgnb20`).",
+"- `campaign`: `mdsgnb20`, or `mdf1` for the paired comparator rows of the rule contrast (declaration rate, identification, field one-sided coverage on the same seeds).",
 "- `cell`: `md40 n500`, `md120 n500`, `null n500 (no subgroup; homogeneous +26)`, `md40 n700`.",
 "- `block`: `H` (the selected subgroup Ĥ), `Hc` (its complement Ĥᶜ), `joint` (the pair).",
 "- `estimator`: see the code map below.",
@@ -314,9 +326,9 @@ cols <- c(
 "- `halfwidth_md`, `margin1_md`: mean two-sided half-width; mean one-sided margin from beta-tilde (field rows) or from the estimate.",
 "- `share_lower_ge_tau` (H): share of replicates whose one-sided lower bound is >= tau ('harm of at least tau supported'); `share_upper_le_tau` (Hc): share whose one-sided upper bound is <= tau ('harm of at most tau supported').",
 "- `bound_mean`, `bound_q05` ... `bound_q95`: location of the one-sided bound.",
-"- `joint_coverage`, `share_both_bounds`, `cov_H`, `cov_Hc`: joint pair rows on declared replicates carrying both bounds.",
+"- `joint_coverage`, `share_both_bounds`, `cov_H`, `cov_Hc`, `margin_H_md`, `margin_Hc_md`: joint pair rows on declared replicates carrying both bounds; margins in MD units from beta-tilde.",
 "- `gamma_mean`, `corr`, `gamma_mean_s`, `corr_s`: calibrated-split diagnostics.",
-"- `mean_n_harm`, `mean_n_sel`, `sensitivity_mean`, `ppv_mean`, `share_nharm_{grew,stayed,shrank}_vs_mdf1`: identification, paired with mdf1 by sim_id.",
+"- `mean_n_harm`, `mean_n_sel`, `sensitivity_mean`, `ppv_mean`, `share_nharm_{grew,stayed,shrank}_vs_mdf1`, `count_nharm_{grew,stayed,shrank}_vs_mdf1`: identification, paired with mdf1 by sim_id (shares and counts of the paired replicates).",
 "- `p_hat_mean`, `p_hat_share_lt_05`: re-selection frequency of the winner and the tie-regime share.",
 "- `sd_btc_over_naive_se` (mr), `lamsd_over_naive_se` (fld, fld_s): regime diagnostics on Ĥᶜ.",
 "- `display_b`, `display_r`, `display_cov1`, `display_cov1_ref`, `display_cov2`, `display_cov2_ref`: fs_sim_bias_coverage(scale = 'identity') bookkeeping.", "",
