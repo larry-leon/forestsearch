@@ -261,3 +261,89 @@ GATE_COUNTS run=58 passed=58 failed=0
 GATE_COUNTS run=58 passed=58 failed=0
 ```
 
+## md40_n700 — md 40, n 700
+
+- Stem: `fs_effMaxSG_mr_field_md40_knoise0_n700_nb20_mdsgnb20`; HEAD before this cell's commit: dbeee517; workers 63; threads 1.
+- Knobs: `FS_MD_FOCUS=effMaxSG FS_MD_NBHD=0.20 FS_MD_FIELD_SCALEC=selected FS_MD_CI=field FS_MD_CAMPAIGN=mdsgnb20 FS_MD_FB=none FS_MD_MD=40 FS_MD_N=700 FS_MD_WORKERS=63`.
+- Seeds: 8316951 + sim_id; batches sim_id 1-1000 and 1001-2000, then combine.
+- Cell wall: 3076 s; cumulative render wall 7662 s (ceiling 19071 s).
+- Render: WALL_SECONDS=1503 RC=0 PEAK_MB=82506 OUT=fs_effMaxSG_mr_field_md40_knoise0_n700_nb20_mdsgnb20_batch_1001_2000.html
+- Render: WALL_SECONDS=1533 RC=0 PEAK_MB=81838 OUT=fs_effMaxSG_mr_field_md40_knoise0_n700_nb20_mdsgnb20_batch_1_1000.html
+- Render: WALL_SECONDS=40 RC=0 PEAK_MB=1199 OUT=fs_effMaxSG_mr_field_md40_knoise0_n700_nb20_mdsgnb20_combine_1_2000.html
+- Gate counts: `GATE_COUNTS run=58 passed=58 failed=0`.
+
+```
+
+########## GATE 2 (mdsgnb20): md40_n700 -- md 40, n 700 ##########
+  bundle: ../mr_md_harm/fs_effMaxSG_mr_field_md40_knoise0_n700_nb20_mdsgnb20_d5000/fs_effMaxSG_mr_field_md40_knoise0_n700_nb20_mdsgnb20_combined_1_2000.rds
+  combined payload on disk                                       PASS     
+  --- combine assertions ---
+  exactly 2 batch files, res_1_1000 and res_1001_2000            PASS     (2)
+  2,000 rows                                                     PASS     (2000)
+  combined sim_id == 1:2000                                      PASS     
+  batch sim_id sets 1:1000 and 1001:2000                         PASS     (batch1 1000, batch2 1000)
+  batch files match the combined bundle on every column          PASS     (156 columns)
+  no CONFIG-ERROR replicate                                      PASS     (0)
+  --- meta (both batches) ---
+  meta: subgroup_method == consistency                           PASS     (consistency / consistency)
+  meta: sg_focus == effMaxSG                                     PASS     (effMaxSG / effMaxSG)
+  meta: effect_neighborhood == 0.2                               PASS     (0.2 / 0.2)
+  meta: selection_rule == neighborhood                           PASS     (neighborhood / neighborhood)
+  meta: consistency_method == resample                           PASS     (resample / resample)
+  meta: ci_method == field                                       PASS     (field / field)
+  meta: mr_draws == 5000                                         PASS     (5000 / 5000)
+  meta: field_uniform == FALSE                                   PASS     (FALSE / FALSE)
+  meta: field_complement == TRUE                                 PASS     (TRUE / TRUE)
+  meta: field_scale_complement == selected                       PASS     (selected / selected)
+  meta: ij_residual == two_term                                  PASS     (two_term / two_term)
+  meta: return_reselection == TRUE                               PASS     (TRUE / TRUE)
+  meta: fb_mode == none                                          PASS     (none / none)
+  meta: seed_base == 8316951                                     PASS     (8316951 / 8316951)
+  meta: campaign_tag == mdsgnb20                                 PASS     (mdsgnb20 / mdsgnb20)
+  meta: n_sample == 700                                          PASS     (700 / 700)
+  meta: null_cell == FALSE                                       PASS     (FALSE / FALSE)
+  meta: effect_threshold == 30                                   PASS     (30 / 30)
+  meta: consistency_threshold == 10                              PASS     (10 / 10)
+  meta: pkg_version == 0.3.5                                     PASS     (0.3.5 / 0.3.5)
+  meta: hostname == pop-os                                       PASS     (pop-os / pop-os)
+  meta: n_workers == 63                                          PASS     (63 / 63)
+  meta seed_base 8316951 | host pop-os | R 4.6.1 | built_at 2026-09-16 02:12:06 / 2026-09-16 01:47:01
+  >> DECLARATION RATE         : 0.9995 (1999 / 2000)
+  MR failures on declared replicates <= max(20, 2 x mdf1's 0)    PASS     (0)
+  every finiteness column present                                PASS     
+  harm products finite on declared replicates with a field block PASS     (1999 rows)
+  nine fld_Hc_*_s and nine fld_joint_s_* columns present         PASS     
+  fld_Hc_*_s finite on all 1999 filled replicates                PASS     
+  fld_joint_s_* finite on all 1999 filled replicates             PASS     
+  complement field filled on 1999 of 1999 declared replicates (0 notes)
+  invariant harm  : fld_H_lo1s <= fld_H_est2                     PASS     
+  invariant compl : fld_Hc_est2 <= fld_Hc_up1s                   PASS     
+  invariant _s    : fld_Hc_lo1s_s <= fld_Hc_up1s_s               PASS     
+  invariant _s    : fld_Hc_lo2s_s <= fld_Hc_hi2s_s               PASS     
+  invariant _s    : fld_Hc_est2_s <= fld_Hc_up1s_s               PASS     
+  invariant joint : bonf_loH <= fld_H_est2                       PASS     
+  invariant jointS: fld_Hc_est2_s <= bonf_upHc_s                 PASS     
+  invariant IJ    : mr_H_lo <= est <= mr_H_hi                    PASS     
+  gamma (joint)   in [0.025, 0.05]                               PASS     [0.02500, 0.02700]
+  gamma (joint-s) in [0.025, 0.05]                               PASS     [0.02500, 0.02700]
+  identity: field-s inverted around the same beta-tilde^c        PASS     max |diff| = 1.42e-14
+  identity: Bonferroni harm bound joint == joint_s where draw counts agree PASS     (1999 of 1999 agree; max |diff| 0)
+  identity: lo1s = beta-tilde - q95; up1s = beta-tilde^c - q05   PASS     max |diff| = 0
+  p-hat in [0, 1]                                                PASS     (mean 0.080, share < 0.5: 0.999)
+  >> CLASSIFICATION           : sens 0.2041 ppv 0.4101 | mean |Hhat| (n_harm) 118.0 | mdf1 73.3
+  --- same-draws: mdsgnb20 -> mdf1 ---
+  [mdsgnb20 -> mdf1] same sim_id set (2000 rows)                 PASS     (comparator 2000 rows)
+  [mdsgnb20 -> mdf1] n_true identical() on all rows              PASS     
+  [mdsgnb20 -> mdf1] oracle columns (H and Hc) <= 1e-08 relative on all rows PASS     (max 4.01e-11)
+  --- same-draws: mdf1 -> mdsgnb20 ---
+  [mdf1 -> mdsgnb20] same sim_id set (2000 rows)                 PASS     (comparator 2000 rows)
+  [mdf1 -> mdsgnb20] n_true identical() on all rows              PASS     
+  [mdf1 -> mdsgnb20] oracle columns (H and Hc) <= 1e-08 relative on all rows PASS     (max 4.01e-11)
+  size <= 100 MB: fs_effMaxSG_mr_field_md40_knoise0_n700_nb20_mdsgnb20_res_1_1000.rds PASS     (740620 B)
+  size <= 100 MB: fs_effMaxSG_mr_field_md40_knoise0_n700_nb20_mdsgnb20_res_1001_2000.rds PASS     (740802 B)
+  size <= 100 MB: fs_effMaxSG_mr_field_md40_knoise0_n700_nb20_mdsgnb20_combined_1_2000.rds PASS     (1461232 B)
+  timing: fit_mr_secs mean 84.9 median 86.9 p90 99.8 max 113.7 | fld_H_secs mean 42.0 | fld_Hc_secs mean 5.75
+
+GATE_COUNTS run=58 passed=58 failed=0
+```
+
