@@ -209,6 +209,7 @@ The first three entries name files that live **outside this repository** (the `f
 
 ## 7. Open work in this directory
 
+- **GRF factor-membership exposure (`REPORT_grf_factor_exposure_2026-09-16.md`):** the `grfmr` survival results are not exposed to the `.grf_evaluate_subgroup()` factor defect found on the MD design — the simulated covariates are integer columns, sim_id 1 of A124_h150_n500 reproduces the committed selection with 0 NA memberships of 779 candidates, no applied document runs the GRF frontier on factor covariates, and DINA coerces or rejects factors before evaluation; the evaluator fix is Larry's decision.
 - **Part B sweep `idsweep`: complete (§2.6). Two items for review:**
   - **Gate I Amendment 1**, applied unattended after the first Gate I stop. It allows a classification rate to be NA only where its denominator is zero, and counts each case. It needs Larry's acceptance or reversal; the rationale and the negative test are in `REPORT_idsweep_2026-09-12.md`.
   - **Push size.** The 288 `idsweep` renders total 1.09 GB (largest 3.81 MB; nothing over 50 MB).
