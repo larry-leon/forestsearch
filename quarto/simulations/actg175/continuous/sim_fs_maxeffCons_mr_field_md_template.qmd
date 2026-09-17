@@ -627,6 +627,11 @@ if (any(abs(c(.z_H, .z_Hc)) > 4, na.rm = TRUE))
   # Identification wall inside forestsearch() (60 * minutes_all: the engine's own
   # clock, taken before the MR gate on every path), for the GRF fit-time fact of §1.6(b).
   id_secs = NA_real_,
+  # ---- TASK_md_dina_campaign_2026-09-17 E2: DINA proposal counts (filled on the DINA
+  # path only, from grp.consistency$out_sg; NA elsewhere and on DINA non-detections) ----
+  # dina_searched_n = candidates searched; dina_proposed_n = candidates meeting the
+  # proposal floor and n.min; dina_tau_min = smallest oriented tau-hat among them.
+  dina_searched_n = NA_integer_, dina_proposed_n = NA_integer_, dina_tau_min = NA_real_,
   stringsAsFactors = FALSE)
 
 # Oracle: difference in means refit on a TRUE region (identity link), ORIENTED
@@ -743,6 +748,23 @@ record_replicate <- function(sim_id) {
   .adm <- if (identical(subgroup_method, "grf") && !is.null(fs.est)) fs.est$grf_res$admitted_n else NULL
   if (!is.null(.adm) && length(.adm) >= 1L && is.finite(.adm[1]))
     rec$admitted_n <- as.integer(.adm[1])
+  # DINA path only (TASK_md_dina_campaign_2026-09-17 E2; no m1 precedent -- m1 leaves
+  # admitted_n NA on DINA): the proposal and admission counts from DINA's own
+  # selection object, grp.consistency$out_sg (dina_subgroup()'s result after
+  # .dina_reselect_on_effect(), R/forestsearch_helpers.R:1238, R/dina_subgroup.R:627).
+  # That object exists only when DINA selected a subgroup (the no-subgroup contract
+  # returns grp.consistency = NULL), so these stay NA on DINA non-detections.
+  # dina_tau_min is the smallest ORIENTED tau-hat (tau_sign applied) among the
+  # proposed candidates: the proposal floor as applied, read per replicate.
+  .dsg <- if (identical(subgroup_method, "dina") && !is.null(fs.est)) fs.est$grp.consistency$out_sg else NULL
+  if (is.list(.dsg)) {
+    if (length(.dsg$admitted_n) && is.finite(.dsg$admitted_n[1]))
+      rec$admitted_n <- as.integer(.dsg$admitted_n[1])
+    rec$dina_searched_n <- as.integer(.dsg$n_candidates_searched %||% NA_integer_)
+    rec$dina_proposed_n <- as.integer(.dsg$n_candidates_qualifying %||% NA_integer_)
+    if (is.data.frame(.dsg$candidates) && nrow(.dsg$candidates) && "tau_hat" %in% names(.dsg$candidates))
+      rec$dina_tau_min <- min(as.numeric(.dsg$candidates$tau_hat))
+  }
   if (is.null(fs.est) || is.null(fs.est$sg.harm)) {
     rec$status <- "NO-DETECTION"; rec$detected <- 0L; return(rec)
   }
@@ -1078,6 +1100,11 @@ out <- rds_path
                          # arguments are template literals there, resolved by gate3.R -- recorded here)
                          dmin_grf = dmin.grf, grf_selection = grf_selection,
                          grf_depth = grf_depth, grf_select_statistic = grf_select_statistic,
+                         # TASK_md_dina_campaign_2026-09-17 E3: the DINA arguments (m1 :537-538, the
+                         # dinamr values; consumed only under subgroup_method = "dina"), dina_args
+                         # deparsed to one string so the poolability gate compares it as a scalar
+                         dina_select_statistic = dina_select_statistic,
+                         dina_args = paste(deparse(dina_args), collapse = ""),
                          target_md_harm = target_md_harm,
                          null_cell = null_cell, dgm_build = dgm_build,
                          effect_threshold = md_threshold,
@@ -1132,7 +1159,9 @@ cat(sprintf("Saved batch bundle (%d rows, sim_id %d-%d) to %s\n",
               "ij_residual", "effect_threshold", "consistency_threshold",
               "effect_neighborhood", "selection_rule", "field_scale_complement",
               # TASK_md_grf_2026-09-16 E4: the identifier's GRF arguments join the gate
-              "dmin_grf", "grf_selection", "grf_depth", "grf_select_statistic")) {
+              "dmin_grf", "grf_selection", "grf_depth", "grf_select_statistic",
+              # TASK_md_dina_campaign_2026-09-17 E3: the identifier's DINA arguments join the gate
+              "dina_select_statistic", "dina_args")) {
     vals <- unique(lapply(bundles, .meta_get, k = k))
     if (length(vals) > 1L)
       stop(sprintf("combine mode: batches disagree on meta$%s (%s).",
