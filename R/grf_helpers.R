@@ -695,3 +695,37 @@ validate_grf_data <- function(W, D, n.min) {
 
   return(TRUE)
 }
+
+
+#' Code one covariate column as the GRF forest matrix codes it
+#'
+#' The single definition of how a candidate covariate enters GRF on the GLM
+#' path.  Numeric columns pass through unchanged.  A factor or character
+#' column whose levels are all numeric strings (for example `"0"`/`"1"`)
+#' becomes those values via `as.numeric(as.character())`.  Any other factor or
+#' character column becomes integer codes via `as.integer(as.factor())`.
+#'
+#' `.build_grf_X()` applies it to build the forest's covariate matrix and
+#' `.grf_evaluate_subgroup()` applies it before comparing a column with a
+#' candidate cut, so a cut is always evaluated on the scale the forest split
+#' on.  Before this helper existed the evaluator compared the raw column, and a
+#' factor covariate returned `NA` membership for every cut on it.
+#'
+#' @param x A covariate column.
+#' @return `x` unchanged when it is neither a factor nor a character vector;
+#'   otherwise a numeric vector (all-numeric levels) or an integer vector
+#'   (other levels).
+#' @noRd
+.grf_code_column <- function(x) {
+  if (!is.factor(x) && !is.character(x)) {
+    return(x)
+  }
+  lvls <- if (is.factor(x)) levels(x) else unique(x)
+  if (!anyNA(suppressWarnings(as.numeric(lvls)))) {
+    # All-numeric levels: preserve the original values.
+    as.numeric(as.character(x))
+  } else {
+    # Non-numeric levels: integer codes.
+    as.integer(as.factor(x))
+  }
+}

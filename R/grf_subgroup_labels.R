@@ -219,7 +219,10 @@
       v  <- cj$variable[r]; op <- cj$op[r]; val <- cj$value[r]
       if (!v %in% names(df))
         stop("Subgroup variable '", v, "' not found in data.", call. = FALSE)
-      x <- df[[v]]
+      # Code the column exactly as the forest's covariate matrix does
+      # (.grf_code_column(), shared with .build_grf_X()): a factor with levels
+      # "0"/"1" is compared as 0/1, not as a factor, which R cannot order.
+      x <- .grf_code_column(df[[v]])
       member <- switch(op,
                        "<=" = x <= val,
                        ">"  = x >  val,

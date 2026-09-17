@@ -882,17 +882,12 @@ create_glm_row <- function(
   # with downstream cut evaluation, causing valid cuts to be
   # silently dropped (e.g., "z1 <= 1" is trivially TRUE on
   # the {0, 1} scale but meaningful on the {1, 2} scale).
+  #
+  # The per-column coding lives in .grf_code_column() (grf_helpers.R), which
+  # .grf_evaluate_subgroup() also calls, so a candidate cut is evaluated on
+  # the same scale the forest split on.
   for (v in names(X)) {
-    if (is.factor(X[[v]]) || is.character(X[[v]])) {
-      lvls <- if (is.factor(X[[v]])) levels(X[[v]]) else unique(X[[v]])
-      if (!anyNA(suppressWarnings(as.numeric(lvls)))) {
-        # All-numeric levels: preserve original values
-        X[[v]] <- as.numeric(as.character(X[[v]]))
-      } else {
-        # Non-numeric levels: integer codes
-        X[[v]] <- as.integer(as.factor(X[[v]]))
-      }
-    }
+    X[[v]] <- .grf_code_column(X[[v]])
   }
   as.matrix(X)
 }
