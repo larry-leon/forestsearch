@@ -197,7 +197,7 @@ Source: [fs] `binary_020/maxeffCons_mr_coverage_sweep_or075.qmd` at HEAD (`:line
 **`fs_sim_bias_coverage()` on the OR scale:**
 - **Scale:** `scale = c("log", "identity")` (`R/fs_bias_coverage.R:79`); `"log"` is the ratio-measure scale.
 - **Columns:** it reads `nv_<b>_*`, `mr_<b>_*` and `fld_<b>_*` directly (`:18–20`). Field-s needs the renamed copy used on the continuous path, because it reads `fld_Hc_*`, not `fld_Hc_*_s`.
-- **Oracle target:** `target = "oracle"` reads `or_<block>_est` (`:111`), so bundles with the `ora_` prefix need a rename.
+- **Oracle target:** `target = "oracle"` reads `or_<block>_est` (`:109`), so bundles with the `ora_` prefix need a rename.
 
 ## 5. S0.4 — What a re-run needs (listed, not made)
 
