@@ -187,6 +187,10 @@ for (cl in cells) {
   ex(cl$lab, "Hc", "mr", "sd_btc_over_naive_se", sdfin(d$mr_Hc_est) / nvc, n = sum(is.finite(d$mr_Hc_est)), commit = cm)
   ex(cl$lab, "Hc", "fld", "lamsd_over_naive_se", mfin(d$fld_Hc_se) / nvc, n = sum(is.finite(d$fld_Hc_se)), commit = cm)
   ex(cl$lab, "Hc", "fld_s", "lamsd_over_naive_se", mfin(d$fld_Hc_se_s) / nvc, n = sum(is.finite(d$fld_Hc_se_s)), commit = cm)
+  # the regime table's timing columns, exported so every number the record's tables print is in the extract
+  ex(cl$lab, "all", "all", "secs_fit_mr_mean", mean(r$fit_mr_secs), sdfin(r$fit_mr_secs) / sqrt(nrow(r)), nrow(r), commit = cm)
+  ex(cl$lab, "all", "all", "secs_field_mean", mfin(d$fld_H_secs), sdfin(d$fld_H_secs) / sqrt(sum(is.finite(d$fld_H_secs))), sum(is.finite(d$fld_H_secs)), commit = cm)
+  ex(cl$lab, "all", "all", "secs_complement_mean", mfin(d$fld_Hc_secs), sdfin(d$fld_Hc_secs) / sqrt(sum(is.finite(d$fld_Hc_secs))), sum(is.finite(d$fld_Hc_secs)), commit = cm)
   # ---- display (mdf1 summary :87-90); field-s through a renamed copy (task §3.1, no R/ change)
   ro <- r; ro$betaHhat_H <- or * r$betaHhat_H; ro$betaHhat_Hc <- or * r$betaHhat_Hc
   dh <- fs_sim_bias_coverage(ro, block = "H", estimators = c("naive", "mr", "fld"), scale = "identity"); dh$block <- "H"; dh$cell <- cl$lab
@@ -315,7 +319,8 @@ cols <- c(
 "- `mean_n_family`: mean of MR's kept family size K; `mean_admitted_n`: mean of GRF's admitted set (candidates clearing the harm-oriented MD floor 30).",
 "- `share_size_larger_than_fs`, `share_size_equal_than_fs`, `share_size_smaller_than_fs` and the matching `count_size_*_than_fs`: GRF's |Ĥ| against FS's (`mdsgnb20`) on the same `sim_id`, over replicates both identifiers declared.",
 "- FS rows (`identifier = fs`): `declaration_rate`, `mean_n_sel`, `sensitivity_mean`, `ppv_mean`. The FS extract's `mean_n_harm` equals its `mean_n_sel` (a labelling defect: `n_harm` is |Ĥ|) and is not copied.",
-"- The `mdf1` rule-contrast metrics of the FS extract (`*_vs_mdf1`) have no counterpart here.", "",
+"- The `mdf1` rule-contrast metrics of the FS extract (`*_vs_mdf1`) have no counterpart here.",
+"- `secs_fit_mr_mean`, `secs_field_mean`, `secs_complement_mean` (block `all`): mean seconds per replicate for the fit with MR (all replicates), the field pass and the complement field (declared replicates), as the regime table prints them; `fit_mr_secs` contains the other two, which are never summed.", "",
 "## Scale convention", "",
 "Every estimate, bound, bias and threshold is on the **harm-oriented mean-difference scale** (positive = harm; adverse_outcome = FALSE); `betaHhat_*` in the bundles are raw cd4_change and are oriented with -1 here. The null cell's truth is a homogeneous +26.255 on this scale for every Ĥ and Ĥᶜ. **Every coverage figure is coverage of the estimand conditional on the proposed family**: GRF's candidate family is generated from a fitted surface, so the fixed-family condition does not hold. Comparisons with FS are descriptive. No significance language: bounds are read by location against the ladder.")
 writeLines(cols, file.path(out_dir, "COLUMNS_md_grf.md"))

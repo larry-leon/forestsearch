@@ -26,6 +26,7 @@ As in `COLUMNS_md_field.md`, except the identification rows:
 - `share_size_larger_than_fs`, `share_size_equal_than_fs`, `share_size_smaller_than_fs` and the matching `count_size_*_than_fs`: GRF's |Ĥ| against FS's (`mdsgnb20`) on the same `sim_id`, over replicates both identifiers declared.
 - FS rows (`identifier = fs`): `declaration_rate`, `mean_n_sel`, `sensitivity_mean`, `ppv_mean`. The FS extract's `mean_n_harm` equals its `mean_n_sel` (a labelling defect: `n_harm` is |Ĥ|) and is not copied.
 - The `mdf1` rule-contrast metrics of the FS extract (`*_vs_mdf1`) have no counterpart here.
+- `secs_fit_mr_mean`, `secs_field_mean`, `secs_complement_mean` (block `all`): mean seconds per replicate for the fit with MR (all replicates), the field pass and the complement field (declared replicates), as the regime table prints them; `fit_mr_secs` contains the other two, which are never summed.
 
 ## Scale convention
 
