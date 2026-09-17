@@ -109,6 +109,7 @@ settings only).
 | `fs_dgm_scale()` / the SCALE CHECK | [MD] :442, :1367–1377 | **dropped**: `fs_dgm_scale()` refuses ratio measures (`R/fs_dgm_scale.R:130`). `dgm_scale <- NULL`, so [MD]'s own `is.null()` guards skip the check and the payload's `scale` element |
 | `fs_mr_oc_summary()` | [MD] :1136, :1215 | kept; the truth list carries `effect_Q`/`effect_Qc`/`prevalence_Q`/`beta_inter` aliases (`R/fs_mr_oc_summary.R:131–190` reads those names) beside the study's own |
 | reference-target slots | [MD] :1331–1339 | `struct`/`marg` renamed `dagger`/`ddagger` = θ† / θ‡, the study's two population references |
+| working vs effect scale | `R/fs_mr_inference.R:480–488` | recorded as a fact, not a change: `lambda_mean`, `lambda_sd`/`se_field` and the seven Λ* quantiles are on the **working** (log-OR) scale, while `est2` and every bound are on the **effect** (OR) scale. [MD]'s identity-scale summary treats them as one scale; here every Λ-SD ratio is taken against SD(log est) and the `est2`/bound identities are written on the log scale |
 | bound-location ladder | [MD] :1557–1593 | the dispositions' OR ladder on **both** blocks |
 | `fs_sim_bias_coverage()` scale | [MD] :1719, :1857 (`"identity"`) | `"log"` (the OR is a ratio measure) |
 | `fs_identification_summary()` triple | [MD] :1904–1938 | **dropped**: `anchor`/`partner`/`proxy` is the MD design's age / preanti / str2; the binary true region {wtkg > q70} ∩ {cd40 > q70} has no binary proxy and `proxy` has no default (`R/fs_identification_summary.R:222`). The classification table, the covariate-frequency figure and the realized-rules table are kept, re-pointed at wtkg / cd40 |
@@ -1188,6 +1189,18 @@ n_batch <- length(sim_ids)
 # No orientation bridge on this design: every estimator column and betaHhat_*
 # are ORs with OR > 1 = harm.  `.orient` is kept (as 1) so the ported code
 # reads unchanged.
+#
+# TWO SCALES, per R/fs_mr_inference.R:480-488.  The gate's WORKING scale here is
+# the log-OR and its EFFECT scale is the OR:
+#   * on the EFFECT (OR) scale: every *_est / est2 / bound column, and the
+#     stored Wald and IJ intervals;
+#   * on the WORKING (log-OR) scale: the stored SE columns (nv_*_se, mr_*_se_ij),
+#     the field's lambda_mean / se_field (= lambda_sd) and the seven Lambda*
+#     quantiles.
+# So: est2 = exp(log(beta-tilde) - lambda_mean), lower_1s = exp(log(beta-tilde) - q95),
+# upper_1s = exp(log(beta-tilde^c) - q05); lambda_mean can be NEGATIVE (it is a
+# log-scale correction, not a bound); and every SE-to-SD ratio below is taken
+# against SD(log est), never SD(est).
 .orient <- if (isTRUE(adverse_outcome)) 1 else -1
 stopifnot(.orient == 1)
 rd$bH   <- rd$betaHhat_H
@@ -1401,7 +1414,7 @@ if (length(nH)) {
     tab_footnote(footnote = md(paste(
       "Every estimate and bound is an ODDS RATIO; OR > 1 is harm (`adverse_outcome = TRUE`, no flip).",
       "Bias here is the OR difference; bias in SD units on the log-OR scale is in the Table-2 layout below.",
-      "The stored SE columns are on the LOG-OR scale (Wald / IJ), except the field row, whose SE is the Lambda-SD `se_field` on the OR scale.",
+      "Every stored SE column is on the WORKING (log-OR) scale: the Wald and IJ SEs, and the field row's Lambda-SD `se_field` (R/fs_mr_inference.R:480-488).",
       "**Targets.** *beta(Hhat)*: per-replicate exact conditional estimand at the REALIZED region (the Theorem 2 target).",
       "*oracle*: the per-replicate logistic refit on the TRUE region.",
       "*theta-dagger*: the population marginal OR in the block. *theta-ddagger*: the controlled direct effect.",
@@ -1482,8 +1495,8 @@ if (nrow(rd)) {
       "One-sided coverage on the block's exposed side: harm block, share of replicates with target >= the 95% LOWER bound;",
       "complement block, share with target <= the 95% UPPER bound. Field rows use their stored lo1s / up1s;",
       "normal-based rows use exp(log est -/+ 1.645 SE). `1-sided margin` = distance from the centring estimate (beta-tilde for the field row) to the one-sided bound, OR units.",
-      "Bias in SD units is computed on the LOG-OR scale: mean(log est - log target) / SD(log est). SE/SD likewise compares the stored log-OR SE with SD(log est);",
-      "the field row's stored SE is an OR-scale Lambda-SD, so its SE/SD entry is not on a common footing with the Wald/IJ rows and is reported for completeness only.",
+      "Bias in SD units is computed on the LOG-OR scale: mean(log est - log target) / SD(log est). SE/SD likewise compares the stored SE with SD(log est):",
+      "every stored SE -- Wald, IJ, and the field's Lambda-SD -- is on the WORKING (log-OR) scale (R/fs_mr_inference.R:480-488), so the rows are on a common footing.",
       .family_note)))
 }
 ```
@@ -1660,9 +1673,10 @@ if (nrow(rd) && any(is.finite(rd$fld_H_est2))) {
   }
   rb_nv <- .ret(rd$nv_H_est); rb_mr <- .ret(rd$mr_H_est); rb_fld <- .ret(rd$fld_H_est2)
   sdl_fld <- .sdlog(rd$fld_H_est2); sdl_mr <- .sdlog(rd$mr_H_est); sdl_nv <- .sdlog(rd$nv_H_est)
-  sd_emp_fld <- .sdfin(rd$fld_H_est2); sd_emp_mr <- .sdfin(rd$mr_H_est)
-  lam_ratio <- .mfin(rd$fld_H_se) / sd_emp_fld      # both OR-scale
-  ij_ratio  <- .mfin(rd$mr_H_se_ij) / sdl_mr        # both log-OR-scale
+  # Both stored SEs are on the WORKING (log-OR) scale, so both ratios are taken
+  # against SD(log est).
+  lam_ratio <- .mfin(rd$fld_H_se) / sdl_fld
+  ij_ratio  <- .mfin(rd$mr_H_se_ij) / sdl_mr
   marg_fld <- .mfin(rd$mr_H_est - rd$fld_H_lo1s)
   marg_ij  <- .mfin(rd$mr_H_est - exp(log(rd$mr_H_est) - z95 * rd$mr_H_se_ij))
   hw_fld   <- .mfin((rd$fld_H_hi2s - rd$fld_H_lo2s) / 2)
@@ -1674,8 +1688,8 @@ if (nrow(rd) && any(is.finite(rd$fld_H_est2))) {
                  "naive retained bias  [SD units, log-OR]",
                  "MR (IJ) retained bias  [SD units, log-OR]",
                  "MR (field) est2 retained bias  [SD units, log-OR]",
-                 "IJ SE / SD(log est)  (MR (IJ))",
-                 "lambda-SD / SD(est)  (MR (field), both OR-scale)",
+                 "IJ SE / SD(log est)  (MR (IJ), both log-OR)",
+                 "lambda-SD / SD(log est)  (MR (field), both log-OR)",
                  "one-sided LOWER margin, OR: MR (IJ)",
                  "one-sided LOWER margin, OR: MR (field)",
                  "two-sided half-width, OR: MR (IJ)",
@@ -1730,8 +1744,7 @@ if (nrow(rd) && any(is.finite(rd$fld_Hc_est2))) {
     c(mean = mean(d), sd_est = stats::sd(d), n = length(d)) }
   rbc_nv <- .retc(rd$nv_Hc_est); rbc_mr <- .retc(rd$mr_Hc_est); rbc_fld <- .retc(rd$fld_Hc_est2)
   sdlc_fld <- .sdlog(rd$fld_Hc_est2); sdlc_mr <- .sdlog(rd$mr_Hc_est); sdlc_nv <- .sdlog(rd$nv_Hc_est)
-  sdc_fld <- .sdfin(rd$fld_Hc_est2)
-  nv_se_c <- .mfin(rd$nv_Hc_se)    # log-OR scale
+  nv_se_c <- .mfin(rd$nv_Hc_se)    # WORKING (log-OR) scale, as are the two SEs below
   print(knitr::kable(data.frame(
     quantity = c("naive retained bias vs beta(Hhat^c)  [OR diff.]",
                  "MR (IJ) retained bias vs beta(Hhat^c)  [OR diff.]",
@@ -1739,10 +1752,10 @@ if (nrow(rd) && any(is.finite(rd$fld_Hc_est2))) {
                  "naive retained bias  [SD units, log-OR]",
                  "MR (IJ) retained bias  [SD units, log-OR]",
                  "MR (field) est2 retained bias  [SD units, log-OR]",
-                 "IJ SE / SD(log est)  (MR (IJ), complement)",
-                 "lambda-SD / SD(est)  (MR (field), complement, both OR-scale)",
-                 "REGIME: SD(log beta-tilde^c) / naive SE (log-OR)",
-                 "REGIME: lambda-SD^c(log-scale proxy) / naive SE",
+                 "IJ SE / SD(log est)  (MR (IJ), complement, both log-OR)",
+                 "lambda-SD / SD(log est)  (MR (field), complement, both log-OR)",
+                 "REGIME: SD(log beta-tilde^c) / naive SE (both log-OR)",
+                 "REGIME: lambda-SD^c / naive SE (both log-OR)",
                  "one-sided UPPER margin, OR: MR (IJ)",
                  "one-sided UPPER margin, OR: MR (field)",
                  "one-sided UPPER margin, OR: MR (field-s)",
@@ -1752,16 +1765,16 @@ if (nrow(rd) && any(is.finite(rd$fld_Hc_est2))) {
               .biaslog(rd$nv_Hc_est, rd$bHc) / sdlc_nv,
               .biaslog(rd$mr_Hc_est, rd$bHc) / sdlc_mr,
               .biaslog(rd$fld_Hc_est2, rd$bHc) / sdlc_fld,
-              .mfin(rd$mr_Hc_se_ij) / sdlc_mr, .mfin(rd$fld_Hc_se) / sdc_fld,
+              .mfin(rd$mr_Hc_se_ij) / sdlc_mr, .mfin(rd$fld_Hc_se) / sdlc_fld,
               sdlc_mr / nv_se_c,
-              .mfin(rd$fld_Hc_se / pmax(rd$fld_Hc_est2, .Machine$double.eps)) / nv_se_c,
+              .mfin(rd$fld_Hc_se) / nv_se_c,
               .mfin(exp(log(rd$mr_Hc_est) + z95 * rd$mr_Hc_se_ij) - rd$mr_Hc_est),
               .mfin(rd$fld_Hc_up1s - rd$mr_Hc_est),
               .mfin(rd$fld_Hc_up1s_s - rd$mr_Hc_est),
               .mfin((rd$mr_Hc_hi - rd$mr_Hc_lo) / 2), .mfin((rd$fld_Hc_hi2s - rd$fld_Hc_lo2s) / 2)),
     n = c(rbc_nv["n"], rbc_mr["n"], rbc_fld["n"], rbc_nv["n"], rbc_mr["n"], rbc_fld["n"], rep(NA, 9))),
     digits = 4,
-    caption = "Complement Hhat^c: retained bias against beta(Hhat^c), SE-calibration ratios, regime diagnostics, one-sided upper margins (field and field-s) and half-widths. The lambda-SD/naive-SE row divides the OR-scale lambda-SD by est2 as a log-scale proxy, so it is comparable with the log-OR naive SE."))
+    caption = "Complement Hhat^c: retained bias against beta(Hhat^c) (OR difference and SD units on the log-OR scale), SE-calibration ratios, regime diagnostics, one-sided upper margins (field and field-s) and half-widths. Every SE-to-SD and SE-to-SE ratio is on the WORKING (log-OR) scale: the stored Wald / IJ SEs and the field's lambda-SD all live there (R/fs_mr_inference.R:480-488)."))
   print(knitr::kable(data.frame(
     metric = c("outer draws used (mean / min, of R_out = 1000)",
                "inner draws used per outer (mean, of R_in = 500)",

@@ -106,9 +106,20 @@ if (identical(mode, "recipe")) {
                  there = paste0("ora_H_", c("est","lo","hi","se")), stringsAsFactors = FALSE),
       data.frame(here = paste0("or_Hc_",  c("est","lo","hi","se")),
                  there = paste0("ora_Hc_", c("est","lo","hi","se")), stringsAsFactors = FALSE))
+    # The committed study computes the oracle only AFTER its detection return
+    # (maxeffCons_mr_coverage_sweep_or075.qmd :628-631), so its ora_* columns are
+    # NA on NO-DETECTION rows.  This template follows the MD template and computes
+    # the oracle BEFORE the search, so it is filled on every replicate.  The
+    # comparison therefore runs on the rows the committed bundle HAS an oracle on;
+    # the extra rows are reported, and are strictly more information on a
+    # rule-independent quantity, not a disagreement about a value.
+    kk <- is.finite(as.numeric(ro$ora_H_est))
     omx <- max(vapply(seq_len(nrow(pairs)), function(i)
-      relmax(as.numeric(r1[[pairs$here[i]]]), as.numeric(ro[[pairs$there[i]]])), numeric(1)))
-    chk(omx <= TOL, sprintf("oracle columns (or_* here vs ora_* committed, 8 columns) within %g relative on every row (max %.3g)", TOL, omx))
+      relmax(as.numeric(r1[[pairs$here[i]]])[kk], as.numeric(ro[[pairs$there[i]]])[kk]), numeric(1)))
+    chk(omx <= TOL, sprintf("oracle columns (or_* here vs ora_* committed, 8 columns) within %g relative on all %d rows the committed bundle scores (max %.3g)", TOL, sum(kk), omx))
+    extra <- which(!kk & is.finite(r1$or_H_est))
+    cat(sprintf("  REPORTED: the committed bundle leaves ora_* NA on %d row(s) (%s -- all NO-DETECTION, its oracle runs after the detection return); this template fills the oracle on all %d (rule-independent, computed before the search)\n",
+                length(extra), paste(r1$sim_id[extra], collapse = ","), nrow(r1)))
     cat(sprintf("  FACT sim_id 1 oracle: or_H_est %.10f (committed ora_H_est %.10f) | or_Hc_est %.10f (committed %.10f)\n",
                 r1$or_H_est[1], ro$ora_H_est[1], r1$or_Hc_est[1], ro$ora_Hc_est[1]))
     # REPORTED, not gated: the selection under the same rule, and the naive estimate.
@@ -215,16 +226,24 @@ if (identical(mode, "dina") && nrow(D)) {
   chk(all(vapply(E2, function(k) all(is.finite(D[[k]])), logical(1))),
       sprintf("DINA proposal fields filled on every declared replicate (%s)",
               paste(sprintf("%s %d/%d", E2, vapply(E2, function(k) sum(is.finite(D[[k]])), 1L), nrow(D)), collapse = ", ")))
+  # DINA's tau-hat is on the LINK scale: forestsearch() derives the proposal floor
+  # as m_diff = log(hr.threshold) for every non-Gaussian family
+  # (R/forestsearch_helpers.R:1434-1437) and .dina_collect_candidates() drops any
+  # candidate with mean_tau < m_diff (R/dina_subgroup.R:748-749).  So the floor AS
+  # APPLIED is the OR-scale effect threshold on the harm side, asserted here on the
+  # log scale and reported back as an OR.
   FLOOR <- as.numeric(m$effect_threshold %||% 0.90)
-  chk(all(D$dina_tau_min >= FLOOR - 1e-12),
-      sprintf("every proposed candidate at oriented tau-hat >= the OR-scale effect threshold %.2f on the harm side (min over replicates %.6f)",
-              FLOOR, min(D$dina_tau_min)))
+  chk(all(D$dina_tau_min >= log(FLOOR) - 1e-12),
+      sprintf("every proposed candidate at oriented tau-hat >= log(effect threshold %.2f) = %.8f, i.e. the OR-scale threshold on the harm side (min over replicates %.8f = OR %.6f)",
+              FLOOR, log(FLOOR), min(D$dina_tau_min), exp(min(D$dina_tau_min))))
   chk(all(D$admitted_n >= 1L & D$admitted_n <= D$dina_proposed_n),
       "1 <= admitted_n <= dina_proposed_n on every declared replicate")
   cat(sprintf("  FACT DINA family sizes (declared): searched %s | proposed min %d median %.0f max %d | admitted min %d median %.0f max %d | tau_min min %.6f\n",
               paste(unique(range(D$dina_searched_n)), collapse = "-"),
               min(D$dina_proposed_n), stats::median(D$dina_proposed_n), max(D$dina_proposed_n),
               min(D$admitted_n), stats::median(D$admitted_n), max(D$admitted_n), min(D$dina_tau_min)))
+  cat(sprintf("  FACT DINA floor as applied: m_diff = log(%.2f) = %.8f (link scale); smallest proposed tau-hat %.8f = OR %.6f\n",
+              FLOOR, log(FLOOR), min(D$dina_tau_min), exp(min(D$dina_tau_min))))
 }
 if (identical(mode, "grf") && nrow(D)) {
   A <- r1$admitted_n[is.finite(r1$admitted_n)]
@@ -253,14 +272,29 @@ agree <- f$fld_joint_n == f$fld_joint_s_n
 dj <- if (any(agree)) max(abs(f$fld_joint_bonf_loH[agree] - f$fld_joint_s_bonf_loH[agree])) else 0
 chk(dj <= 1e-12, sprintf("Bonferroni harm bound identical between joint and joint_s where the draw counts agree (%d of %d rows agree; max |diff| %.2e)",
                          sum(agree), nrow(f), dj))
-idn <- if (nrow(f)) max(abs((f$fld_Hc_est2_s + f$fld_Hc_lam_mean_s) - (f$fld_Hc_est2 + f$fld_Hc_lam_mean))) else NA_real_
-chk(is.finite(idn) && idn <= 1e-9, sprintf("field-s inverted around the same beta-tilde^c (max |diff| %.2e)", idn))
+# est2 = to_eff(beta_deb - lambda_mean) with to_eff = exp on a ratio measure
+# (R/fs_mr_inference.R:931, :480-488), so the "same beta-tilde^c" identity is
+# log(est2) + lambda_mean = log(beta-tilde^c), checked here on the log scale for
+# BOTH the unstudentized field and field-s.  (The MD template's additive form is
+# an identity-scale specialization and does not hold for an OR.)
+idn <- if (nrow(f)) max(abs((log(f$fld_Hc_est2_s) + f$fld_Hc_lam_mean_s) -
+                            (log(f$fld_Hc_est2)   + f$fld_Hc_lam_mean))) else NA_real_
+idb <- if (nrow(f)) max(abs(log(f$fld_Hc_est2) + f$fld_Hc_lam_mean - log(f$mr_Hc_est))) else NA_real_
+ids <- if (nrow(f)) max(abs(log(f$fld_Hc_est2_s) + f$fld_Hc_lam_mean_s - log(f$mr_Hc_est))) else NA_real_
+chk(is.finite(idn) && idn <= 1e-9, sprintf("field-s inverted around the same beta-tilde^c, on the log scale (max |diff| %.2e)", idn))
+chk(is.finite(idb) && idb <= 1e-9, sprintf("identity: log(est2) + lambda_mean = log(beta-tilde^c) (max |diff| %.2e)", idb))
+chk(is.finite(ids) && ids <= 1e-9, sprintf("identity: log(est2_s) + lambda_mean_s = log(beta-tilde^c) (max |diff| %.2e)", ids))
 # Every bound is an OR, so strictly positive.
 POS <- c("or_H_est","or_H_lo","or_H_hi","or_Hc_est","or_Hc_lo","or_Hc_hi",
          "nv_H_est","nv_H_lo","nv_H_hi","nv_Hc_est","nv_Hc_lo","nv_Hc_hi",
          "mr_H_est","mr_H_lo","mr_H_hi","mr_Hc_est","mr_Hc_lo","mr_Hc_hi",
          "fld_H_est2","fld_H_lo1s","fld_H_lo2s","fld_H_hi2s",
-         "fld_Hc_est2","fld_Hc_up1s","fld_Hc_lo1s", sC,
+         "fld_Hc_est2","fld_Hc_up1s","fld_Hc_lo1s",
+         # field-s BOUNDS only: fld_Hc_se_s and fld_Hc_lam_mean_s are on the
+         # WORKING (log-OR) scale (R/fs_mr_inference.R:480-488), so lambda_mean_s
+         # is a log-scale correction that is routinely NEGATIVE and is not a bound.
+         "fld_Hc_est2_s","fld_Hc_up1s_s","fld_Hc_lo1s_s","fld_Hc_lo2s_s","fld_Hc_hi2s_s",
+         "fld_Hc_lo_se_s","fld_Hc_hi_se_s",
          "fld_joint_loH","fld_joint_upHc","fld_joint_bonf_loH","fld_joint_bonf_upHc",
          "fld_joint_s_loH","fld_joint_s_upHc","fld_joint_s_bonf_loH","fld_joint_s_bonf_upHc",
          "betaHhat_H","betaHhat_Hc")
@@ -274,6 +308,10 @@ chk(nrow(Dm1) > 0 && all(is.finite(Dm1$p_hat_H)),
     sprintf("p-hat(Hhat) recorded on all %d declared replicates with a field block (mean %.3f, share < 0.5 %.3f)",
             nrow(Dm1), mean(Dm1$p_hat_H), mean(Dm1$p_hat_H < 0.5)))
 chk(nrow(Dm1) > 0 && all(Dm1$fld_H_lo1s <= Dm1$fld_H_est2), "fld_H_lo1s <= fld_H_est2 on every such replicate")
+i2h <- if (nrow(Dm1)) max(abs(log(Dm1$fld_H_lo1s) - (log(Dm1$mr_H_est) - Dm1$fld_H_q95))) else NA_real_
+i2c <- if (nrow(f))   max(abs(log(f$fld_Hc_up1s)  - (log(f$mr_Hc_est)  - f$fld_Hc_q05)))  else NA_real_
+chk(is.finite(i2h) && i2h <= 1e-9, sprintf("identity: log(lo1s) = log(beta-tilde) - q95 (max |diff| %.2e)", i2h))
+chk(is.finite(i2c) && i2c <= 1e-9, sprintf("identity: log(up1s) = log(beta-tilde^c) - q05 (max |diff| %.2e)", i2c))
 chk(nrow(f) > 0 && all(f$fld_Hc_est2 <= f$fld_Hc_up1s), "fld_Hc_est2 <= fld_Hc_up1s on every such replicate")
 chk(nrow(Dm1) > 0 && all(Dm1$mr_H_lo <= Dm1$mr_H_est & Dm1$mr_H_est <= Dm1$mr_H_hi),
     "mr_H_lo <= mr_H_est <= mr_H_hi on every such replicate")

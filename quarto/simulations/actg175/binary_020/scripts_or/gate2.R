@@ -178,8 +178,15 @@ gate2 <- function(target, n, cell, tag) {
     P("DINA proposal fields filled on every declared replicate",
       all(E2 %in% names(r)) && all(vapply(E2, function(k) all(is.finite(D[[k]])), logical(1))),
       sprintf("(%s)", paste(sprintf("%s %d/%d", E2, vapply(E2, function(k) sum(is.finite(D[[k]])), 1L), nrow(D)), collapse = ", ")))
-    P("every proposed candidate at oriented tau-hat >= the OR effect threshold 0.90",
-      all(D$dina_tau_min >= 0.90 - 1e-12), sprintf("(min %.6f)", min(D$dina_tau_min)))
+    # DINA's tau-hat is on the LINK scale: forestsearch() derives the floor as
+    # m_diff = log(hr.threshold) for every non-Gaussian family
+    # (R/forestsearch_helpers.R:1434-1437), and .dina_collect_candidates() drops
+    # mean_tau < m_diff (R/dina_subgroup.R:748-749).  The floor AS APPLIED is the
+    # OR-scale threshold on the harm side, asserted on the log scale.
+    P("every proposed candidate at oriented tau-hat >= log(0.90), the OR effect threshold on the harm side",
+      all(D$dina_tau_min >= log(0.90) - 1e-12),
+      sprintf("(min %.8f = OR %.6f; floor log(0.90) = %.8f)",
+              min(D$dina_tau_min), exp(min(D$dina_tau_min)), log(0.90)))
     P("1 <= admitted_n <= dina_proposed_n on every declared replicate",
       all(D$admitted_n >= 1L & D$admitted_n <= D$dina_proposed_n))
   }
@@ -237,7 +244,12 @@ gate2 <- function(target, n, cell, tag) {
                      "nv_H_est","nv_H_lo","nv_H_hi","nv_Hc_est","nv_Hc_lo","nv_Hc_hi",
                      "mr_H_est","mr_H_lo","mr_H_hi","mr_Hc_est","mr_Hc_lo","mr_Hc_hi",
                      "fld_H_est2","fld_H_lo1s","fld_H_lo2s","fld_H_hi2s",
-                     "fld_Hc_est2","fld_Hc_up1s","fld_Hc_lo1s", sC,
+                     "fld_Hc_est2","fld_Hc_up1s","fld_Hc_lo1s",
+                     # field-s BOUNDS only: fld_Hc_se_s and fld_Hc_lam_mean_s are on
+                     # the WORKING (log-OR) scale (R/fs_mr_inference.R:480-488), so
+                     # lambda_mean_s is a log-scale correction, routinely negative.
+                     "fld_Hc_est2_s","fld_Hc_up1s_s","fld_Hc_lo1s_s","fld_Hc_lo2s_s",
+                     "fld_Hc_hi2s_s","fld_Hc_lo_se_s","fld_Hc_hi_se_s",
                      "fld_joint_loH","fld_joint_upHc","fld_joint_bonf_loH","fld_joint_bonf_upHc",
                      "fld_joint_s_loH","fld_joint_s_upHc","fld_joint_s_bonf_loH","fld_joint_s_bonf_upHc",
                      "betaHhat_H","betaHhat_Hc","C_dagger_H","C_dagger_Hc","C_ddagger_H","C_ddagger_Hc"),
@@ -251,15 +263,24 @@ gate2 <- function(target, n, cell, tag) {
     sprintf("[%.5f, %.5f]", min(g1), max(g1)))
   P("gamma (joint-s) in [0.025, 0.05]", all(g2 >= 0.025 - 1e-12 & g2 <= 0.05 + 1e-12),
     sprintf("[%.5f, %.5f]", min(g2), max(g2)))
-  i1 <- max(abs((f$fld_Hc_est2_s + f$fld_Hc_lam_mean_s) - (f$fld_Hc_est2 + f$fld_Hc_lam_mean)))
-  P("identity: field-s inverted around the same beta-tilde^c", i1 <= 1e-9, sprintf("max |diff| = %.3g", i1))
+  # est2 = to_eff(beta_deb - lambda_mean) with to_eff = exp on a ratio measure
+  # (R/fs_mr_inference.R:931, :480-488): lambda_mean and the Lambda* quantiles are
+  # on the WORKING (log-OR) scale, est2 and the bounds on the EFFECT (OR) scale.
+  # The MD checker's additive identities are identity-scale specializations; here
+  # they are written on the log scale.
+  i1 <- max(abs((log(f$fld_Hc_est2_s) + f$fld_Hc_lam_mean_s) -
+                (log(f$fld_Hc_est2)   + f$fld_Hc_lam_mean)))
+  P("identity: field-s inverted around the same beta-tilde^c (log scale)", i1 <= 1e-9, sprintf("max |diff| = %.3g", i1))
+  i1b <- max(abs(log(f$fld_Hc_est2) + f$fld_Hc_lam_mean - log(f$mr_Hc_est)),
+             abs(log(f$fld_Hc_est2_s) + f$fld_Hc_lam_mean_s - log(f$mr_Hc_est)))
+  P("identity: log(est2) + lambda_mean = log(beta-tilde^c), field and field-s", i1b <= 1e-9, sprintf("max |diff| = %.3g", i1b))
   agree <- f$fld_joint_n == f$fld_joint_s_n
   dj <- if (any(agree)) max(abs(f$fld_joint_bonf_loH[agree] - f$fld_joint_s_bonf_loH[agree])) else 0
   P("identity: Bonferroni harm bound joint == joint_s where draw counts agree", dj <= 1e-12,
     sprintf("(%d of %d agree; max |diff| %.3g)", sum(agree), nrow(f), dj))
-  i2 <- max(abs(Dm1$fld_H_lo1s - (Dm1$mr_H_est - Dm1$fld_H_q95)),
-            abs(f$fld_Hc_up1s - (f$mr_Hc_est - f$fld_Hc_q05)))
-  P("identity: lo1s = beta-tilde - q95; up1s = beta-tilde^c - q05", i2 <= 1e-9, sprintf("max |diff| = %.3g", i2))
+  i2 <- max(abs(log(Dm1$fld_H_lo1s) - (log(Dm1$mr_H_est) - Dm1$fld_H_q95)),
+            abs(log(f$fld_Hc_up1s)   - (log(f$mr_Hc_est)  - f$fld_Hc_q05)))
+  P("identity: log(lo1s) = log(beta-tilde) - q95; log(up1s) = log(beta-tilde^c) - q05", i2 <= 1e-9, sprintf("max |diff| = %.3g", i2))
   # The per-replicate target columns are the cell's population constants.
   P("C_dagger_* / C_ddagger_* equal the truth table on every row",
     max(abs(r$C_dagger_H - tr$marg_H), abs(r$C_dagger_Hc - tr$marg_Hc),
