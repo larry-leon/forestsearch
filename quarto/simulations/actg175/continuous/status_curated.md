@@ -62,4 +62,5 @@ Sizes are **apparent size** (`st_size`), in MiB/KiB, not disk usage. Every file 
 
 - **The applied document** `quarto/applications/actg175/analysis_actg175_continuous_oc.qmd` gains field-s rows (its intervals section and payload carry only the unstudentized complement field and joint pair) in its own task; not done here.
 - A `maxeffCons` re-run that records field-s, should the earlier rule need the current complement product.
-- DINA and GRF on this design: Stage 0 recorded, decisions pending (`REPORT_md_dina_grf_stage0_2026-09-16.md`).
+- GRF on this design: membership fix landed (`0cd33f7b`); campaign `mdgrf` resumes from its smoke (`REPORT_md_grf_stage1_2026-09-16.md`, `REPORT_grf_dina_fixes_2026-09-16.md`).
+- DINA on this design: proposal-floor fix landed (`064fce91`); campaign pending (`REPORT_md_dina_grf_stage0_2026-09-16.md`, `REPORT_grf_dina_fixes_2026-09-16.md`).
