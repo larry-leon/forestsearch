@@ -7,7 +7,7 @@
 #     marked blocks are placed exactly as gbsg_020's: preamble after the pin, §1-§2
 #     before §3, the table commentary after the inventory table, §4-§7 after §3.
 #     A missing file or marker is a hard error.
-# Named changes: the campaigns are mdf1 and mdsgnb20; a cell is (MD target or null, n)
+# Named changes: the campaigns are mdf1, mdsgnb20, mdgrf and mddina; a cell is (MD target or null, n)
 # rather than (prevalence, HR, n); bundles live in mr_md_harm/<stem>_d5000/; the
 # inventory table comes from scripts_mdsgnb20/status_inventory.R.
 # The pin is HEAD at generation.  Commit the file ALONE, as HEAD's child, then run
@@ -41,7 +41,11 @@ tick <- function(x) paste0("`", x, "`")
 
 camps <- list(
   mdf1     = list(dre = "_mdf1_d5000$",     rre = "^fs_.*_mdf1_combine_[0-9]+_[0-9]+[.]html$",     scripts = "scripts_mdf1",     docre = "^(REPORT_continuous_field_|summary_continuous_field_mdf1)"),
-  mdsgnb20 = list(dre = "_mdsgnb20_d5000$", rre = "^fs_.*_mdsgnb20_combine_[0-9]+_[0-9]+[.]html$", scripts = "scripts_mdsgnb20", docre = "^(REPORT_md_field_rerun_|summary_continuous_field_mdsgnb20|LOG_mdsgnb20|HALT_mdsgnb20|md_field_metrics|COLUMNS_md_field)"))
+  mdsgnb20 = list(dre = "_mdsgnb20_d5000$", rre = "^fs_.*_mdsgnb20_combine_[0-9]+_[0-9]+[.]html$", scripts = "scripts_mdsgnb20", docre = "^(REPORT_md_field_rerun_|summary_continuous_field_mdsgnb20|LOG_mdsgnb20|HALT_mdsgnb20|md_field_metrics|COLUMNS_md_field)"),
+  # TASK_md_dina_campaign_2026-09-17 (carried fix): the mdgrf and mddina rows, copied from
+  # mdsgnb20's with the tag, the identifier prefix of the stem and the paths changed.
+  mdgrf    = list(dre = "_mdgrf_d5000$",    rre = "^grf_.*_mdgrf_combine_[0-9]+_[0-9]+[.]html$",    scripts = "scripts_mdgrf",    docre = "^(REPORT_md_grf_|summary_continuous_field_mdgrf|LOG_mdgrf|HALT_mdgrf|md_grf_metrics|COLUMNS_md_grf)", pfx = "grf"),
+  mddina   = list(dre = "_mddina_d5000$",   rre = "^dina_.*_mddina_combine_[0-9]+_[0-9]+[.]html$",  scripts = "scripts_mddina",   docre = "^(REPORT_md_dina_(stage1|gate2|2026)|summary_continuous_field_mddina|LOG_mddina|HALT_mddina|md_dina_metrics|COLUMNS_md_dina)", pfx = "dina"))
 meta_rows <- list(); nav <- character(0)
 for (cn in names(camps)) {
   cc <- camps[[cn]]
@@ -78,7 +82,7 @@ L <- c(sprintf("# current_status — `%s`", rq), "",
 L <- c(L, "## 3. Payload inventory", "",
   "Regenerated from the directory and from git by `scripts_mdsgnb20/current_status_regen.R`; the table in 3.5 by `scripts_mdsgnb20/status_inventory.R`. The commentary after that table, and §1, §2, §4–§7, are curated (`status_curated.md`).", "",
   "### 3.1 Where each campaign lives", "",
-  "Both campaigns keep their bundles under `mr_md_harm/<stem>_d5000/` (one directory per cell: two batch bundles and the combined bundle) and their combine renders in the directory root.", "",
+  "Every campaign keeps its bundles under `mr_md_harm/<stem>_d5000/` (one directory per cell: two batch bundles and the combined bundle) and their combine renders in the directory root.", "",
   "| campaign | engine / focus / ε / rule / complement scale (combined metas) | combined bundles | batch bundles | bundles in | renders (combine) | scripts | campaign documents |",
   "|---|---|---|---|---|---|---|---|", nav, "",
   "### 3.2 Cells, from the combined bundle metas", "")
@@ -89,10 +93,10 @@ for (cn in names(camps)) {
     sprintf("| %s | %d | %d | %s | %d | %d | %s | %s | %s | `%s` | %s | %s |", d$cell, d$n, d$rows, d$sim, d$batches, d$declared, d$host, d$workers, d$version, d$path, MB(d$size), ifelse(d$tracked, "yes", "no")), "")
 }
 seeds <- unique(unlist(lapply(cells$path, function(p) readRDS(p)$meta$seed_base)))
-L <- c(L, sprintf("- `seed_base` in every combined meta above: %s (per replicate `seed_base + sim_id`; the two campaigns share every draw cell for cell).", paste(seeds, collapse = ", ")), "")
+L <- c(L, sprintf("- `seed_base` in every combined meta above: %s (per replicate `seed_base + sim_id`; the campaigns share every draw cell for cell).", paste(seeds, collapse = ", ")), "")
 L <- c(L, "### 3.3 Git", "")
 for (cn in names(camps)) {
-  specs <- c(file.path(rq, sprintf("mr_md_harm/*_%s_d5000", cn)), file.path(rq, sprintf("fs_*_%s_combine_*.html", cn)))
+  specs <- c(file.path(rq, sprintf("mr_md_harm/*_%s_d5000", cn)), file.path(rq, sprintf("%s_*_%s_combine_*.html", camps[[cn]]$pfx %||% "fs", cn)))
   lg <- git("log", "--format=%h %ad %s", "--date=short", "--", specs)
   L <- c(L, sprintf("- `%s` bundles/renders: %d commits; first `%s`; last `%s`.", cn, length(lg), sub(" .*", "", tail(lg, 1) %||% "none"), sub(" .*", "", lg[1] %||% "none")))
 }
