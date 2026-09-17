@@ -1,5 +1,20 @@
 # forestsearch (development version)
 
+* **GRF membership on factor covariates.** GRF's subgroup evaluator compared a
+  factor covariate's raw column with a numeric cut, so every candidate on a
+  factor covariate got `NA` membership and was dropped from the effect
+  re-selection and from the multiplier-resampling family; it now codes each
+  covariate exactly as the forest's covariate matrix does, through one shared
+  internal helper.
+
+* **DINA proposal floor orientation.** With `subgroup_method = "dina"` on a
+  continuous or binary outcome and `adverse_outcome = FALSE`, DINA's proposal
+  floor was applied to the raw tau-hat, so it admitted benefit while the
+  admission floor required harm; the floor, ranking and reported mean now use
+  the negated tau-hat for those outcomes (new `dina_subgroup()` argument
+  `tau_sign`, default `1`), and survival, count and `adverse_outcome = TRUE`
+  runs are unchanged.
+
 * The internal MR wrapper `.fs_apply_mr()` -- which carries the **DINA** and
   **GRF** branches into `fs_mr_inference()` -- now forwards the **full**
   argument set.  It previously forwarded 15 of 25, dropping
