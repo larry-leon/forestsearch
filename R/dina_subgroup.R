@@ -227,6 +227,16 @@
 #'   `"maxSG"`, `"minSG"`, `"eff"`.
 #' @param alpha confidence level for the Wald interval on the
 #'   subgroup-mean tau-hat.  Default `0.05`.
+#' @param tau_sign `1` (default) or `-1`; the orientation applied to the
+#'   per-patient tau-hat before the `m_diff` floor, the `sg_focus` ranking and
+#'   the reported mean and interval.  `1` uses the fit's own scale.  `-1`
+#'   negates it, for a fit whose harm direction is the negative effect: the
+#'   floor then reads "harm of at least `m_diff`".  [forestsearch()] passes
+#'   `-1` for continuous and binary outcomes with `adverse_outcome = FALSE`,
+#'   the same outcomes its effect estimator flips (`-Y`, `1 - Y`), so DINA's
+#'   proposal floor and the admission floor point the same way.  With `-1`,
+#'   `mean_tau_hat`, `ci` and `candidates$tau_hat` are on the negated scale.
+#'   The recorded `call` carries `tau_sign` only when it is not `1`.
 #'
 #' @return An object of class `"dina_subgroup"`, a list with components:
 #'   \describe{
@@ -244,7 +254,8 @@
 #'     \item{depth}{integer; number of covariates in the selected
 #'       subgroup (`1` or `2`).}
 #'     \item{n_subgroup}{integer size of the chosen subgroup.}
-#'     \item{mean_tau_hat}{scalar subgroup-mean tau-hat.}
+#'     \item{mean_tau_hat}{scalar subgroup-mean tau-hat (in the
+#'       `tau_sign` orientation).}
 #'     \item{se_mean_tau_hat}{Wald standard error, computed as
 #'       `sqrt(a_S^T vcov(fit) a_S)` (CONDITIONAL on the chosen
 #'       subgroup -- not selection-adjusted).}
@@ -314,7 +325,8 @@ dina_subgroup <- function(fit, df, covariates,
                           sg_focus = "maxSG",
                           selection_rule = "neighborhood",
                           effect_neighborhood = 0.10,
-                          alpha = 0.05) {
+                          alpha = 0.05,
+                          tau_sign = 1) {
 
   if (!inherits(fit, "dina")) {
     stop("`fit` must be a DINA object (class \"dina\" or \"dina_bagged\").")
@@ -351,6 +363,14 @@ dina_subgroup <- function(fit, df, covariates,
       alpha <= 0 || alpha >= 1) {
     stop("`alpha` must be a single numeric in (0, 1).")
   }
+  if (length(tau_sign) != 1L || !is.numeric(tau_sign) ||
+      !tau_sign %in% c(-1, 1)) {
+    stop("`tau_sign` must be 1 or -1.")
+  }
+  # The default orientation is not recorded, so a call that leaves tau_sign
+  # at 1 reads exactly as it did before the argument existed.
+  call_rec <- match.call()
+  if (tau_sign == 1) call_rec$tau_sign <- NULL
 
   # Normalize the GLM-natural vocabulary ("eff", "effMaxSG", "effMinSG")
   # to the canonical internal form ("hr", "hrMaxSG", "hrMinSG") shared
@@ -408,8 +428,11 @@ dina_subgroup <- function(fit, df, covariates,
   }
   V <- stats::vcov(fit)
 
-  # Per-patient tau-hat
-  tau_hat <- as.numeric(beta[1L] + X %*% beta[-1L])
+  # Per-patient tau-hat, in the requested orientation (tau_sign = -1 negates
+  # it, so the floor, the ranking and the reported mean are harm-oriented for
+  # a fit whose harm direction is the negative effect).  The Wald variance
+  # below is unchanged by the sign.
+  tau_hat <- tau_sign * as.numeric(beta[1L] + X %*% beta[-1L])
 
   # ---- Collect candidates -------------------------------------------------
   # Depth-1 singletons at full resolution (all unique thresholds), shared
@@ -479,7 +502,7 @@ dina_subgroup <- function(fit, df, covariates,
       n_total                 = n,
       n_candidates_searched   = n_searched,
       n_candidates_qualifying = n_qualifying,
-      call                    = match.call()
+      call                    = call_rec
     )
     class(out) <- "dina_subgroup"
     return(out)
@@ -610,7 +633,7 @@ dina_subgroup <- function(fit, df, covariates,
       v2 = covariates[cand_j2], d2 = cand_dir2, c2 = cand_q2,
       tau_hat = cand_tau,   # native DINA ranking statistic (subgroup-mean tau-hat)
       stringsAsFactors = FALSE),
-    call                    = match.call()
+    call                    = call_rec
   )
   class(out) <- "dina_subgroup"
   out

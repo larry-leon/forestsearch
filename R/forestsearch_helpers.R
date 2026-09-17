@@ -1358,6 +1358,31 @@ reset_workers <- function(workers   = NULL,
 }
 
 
+#' Orientation of DINA's tau-hat for the proposal floor
+#'
+#' DINA is fit on the raw outcome, so its tau-hat is on the outcome's own
+#' scale.  The admission floor scores candidates with the effect estimator,
+#' which flips the outcome when `adverse_outcome = FALSE`: `-Y` for continuous
+#' and `1 - Y` for binary outcomes (`.consistency_glm_pieces()`,
+#' `R/consistency_resample.R`).  Both flips negate the link-scale treatment
+#' effect (identity and logit), so the proposal floor is applied to `-tau-hat`
+#' for exactly those outcomes.  Survival, count, and `adverse_outcome = TRUE`
+#' keep `1`.
+#'
+#' @param outcome_type Character outcome type.
+#' @param adverse_outcome Logical, as resolved by `forestsearch()`.
+#' @return `-1` or `1`.
+#' @noRd
+.dina_tau_sign <- function(outcome_type, adverse_outcome) {
+  if (!isTRUE(adverse_outcome) &&
+      outcome_type %in% c("continuous", "binary")) {
+    -1
+  } else {
+    1
+  }
+}
+
+
 #' DINA-selection mode for forestsearch (subgroup_method = "dina")
 #'
 #' Fits a DINA model and delegates subgroup selection to
@@ -1410,6 +1435,10 @@ reset_workers <- function(workers   = NULL,
   # (cox/binomial/poisson), identity (mean difference) for gaussian.
   m_diff <- if (identical(da$fit$family, "gaussian")) hr.threshold
             else log(hr.threshold)
+  # ...applied to tau-hat in the orientation the admission floor uses: DINA is
+  # fit on the raw outcome, while the admission scores candidates with the
+  # effect estimator, which flips the outcome for these outcome types.
+  tau_sign <- .dina_tau_sign(outcome_type, adverse_outcome)
 
   if (isTRUE(details)) {
     lines <- c(
@@ -1421,7 +1450,9 @@ reset_workers <- function(workers   = NULL,
       paste0("  effect_neighborhood: ", effect_neighborhood),
       paste0("  Harm floor:          ", sprintf("m_diff = %.4f", m_diff),
              if (!identical(da$fit$family, "gaussian"))
-               sprintf("  (hr.threshold = %.4g)", hr.threshold) else ""),
+               sprintf("  (hr.threshold = %.4g)", hr.threshold) else "",
+             if (tau_sign < 0)
+               "  on -tau-hat (harm-oriented; adverse_outcome = FALSE)" else ""),
       paste0("  n.min:               ", n.min)
     )
 
@@ -1461,7 +1492,8 @@ reset_workers <- function(workers   = NULL,
     grid_probs          = da$select$grid_probs,
     sg_focus            = sg_focus,
     selection_rule      = selection_rule,
-    effect_neighborhood = effect_neighborhood
+    effect_neighborhood = effect_neighborhood,
+    tau_sign            = tau_sign
   )
 
   # Effect-based re-selection (dina_args$select_statistic = "effect"): re-rank

@@ -17,7 +17,8 @@ dina_subgroup(
   sg_focus = "maxSG",
   selection_rule = "neighborhood",
   effect_neighborhood = 0.1,
-  alpha = 0.05
+  alpha = 0.05,
+  tau_sign = 1
 )
 }
 \arguments{
@@ -142,6 +143,17 @@ Default \code{0.10} (within 10\% of the strongest effect).  Consulted by
 
 \item{alpha}{confidence level for the Wald interval on the
 subgroup-mean tau-hat.  Default \code{0.05}.}
+
+\item{tau_sign}{\code{1} (default) or \code{-1}; the orientation applied to the
+per-patient tau-hat before the \code{m_diff} floor, the \code{sg_focus} ranking and
+the reported mean and interval.  \code{1} uses the fit's own scale.  \code{-1}
+negates it, for a fit whose harm direction is the negative effect: the
+floor then reads "harm of at least \code{m_diff}".  \code{\link[=forestsearch]{forestsearch()}} passes
+\code{-1} for continuous and binary outcomes with \code{adverse_outcome = FALSE},
+the same outcomes its effect estimator flips (\code{-Y}, \code{1 - Y}), so DINA's
+proposal floor and the admission floor point the same way.  With \code{-1},
+\code{mean_tau_hat}, \code{ci} and \code{candidates$tau_hat} are on the negated scale.
+The recorded \code{call} carries \code{tau_sign} only when it is not \code{1}.}
 }
 \value{
 An object of class \code{"dina_subgroup"}, a list with components:
@@ -160,7 +172,8 @@ Length matches \code{covariate}.}
 \item{depth}{integer; number of covariates in the selected
 subgroup (\code{1} or \code{2}).}
 \item{n_subgroup}{integer size of the chosen subgroup.}
-\item{mean_tau_hat}{scalar subgroup-mean tau-hat.}
+\item{mean_tau_hat}{scalar subgroup-mean tau-hat (in the
+\code{tau_sign} orientation).}
 \item{se_mean_tau_hat}{Wald standard error, computed as
 \verb{sqrt(a_S^T vcov(fit) a_S)} (CONDITIONAL on the chosen
 subgroup -- not selection-adjusted).}
