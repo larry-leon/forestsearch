@@ -94,6 +94,7 @@ settings only).
 |---|---|---|
 | YAML, prose, chunk order, summary layer | [MD] :1–15, :30–89, :1235–2019 | retitled; the scale is the OR (see below) |
 | knobs | [MD] :93–374 | renamed `FS_OR_*`; `FS_OR_TARGET` and `FS_OR_N` replace `FS_MD_MD`/`FS_MD_N`; `FS_MD_KNOISE`, `FS_MD_BUILD`, `FS_MD_QUICKRUN`, `FS_MD_FB*`, `FS_MD_UNIFORM`, `FS_MD_DMIN_GRF` and `FS_MD_JOIN_SKIP` dropped (pinned to the study's / the campaign's literal) |
+| the band-width guard | [MD] :156–164 | a NOTE replaces the hard error: [MD]'s default eps was the package's own (0.10), so unset reproduced its committed renders; here the default is the campaign's 0.20, and §1.5(a) must render the STUDY's rule (`maxeffCons` at eps 0.10), which the study driver itself sets ([S] :151–154). eps is still recorded in `meta` and still tags the stem |
 | data preparation, DGM build, truth, evaluation frame | [S] :233–341 verbatim | `target_effect = FS_OR_TARGET` only ([S] :245 `target_or_h`; reachable range `k_inter_range = c(0.3, 1.5)` is [S] :222, and is [S10] :222 / [S15] :222 unchanged) |
 | seed table and per-replicate seeding | [S] :119–133, :447–456 verbatim | none |
 | per-replicate data preparation (id, factor→numeric, confounders, noise offset) | [S] :457–484 verbatim | none |
@@ -183,10 +184,16 @@ stopifnot(sg_focus %in% c("effMaxSG", "maxeffCons", "effMinSG", "maxSG", "minSG"
 # non-default value tags the stem below.
 effect_neighborhood <- .env_num("FS_OR_NBHD", 0.20)         # the dispositions' eps
 stopifnot(is.finite(effect_neighborhood), effect_neighborhood >= 0, effect_neighborhood < 1)
-if (!sg_focus %in% .band_foci && nzchar(Sys.getenv("FS_OR_NBHD")))
-  stop(sprintf("FS_OR_NBHD is set (%s) but sg_focus = '%s' does not consult effect_neighborhood; it is accepted only for %s.",
-               Sys.getenv("FS_OR_NBHD"), sg_focus, paste(.band_foci, collapse = " / ")),
-       call. = FALSE)
+# DEVIATION from [MD] :156-164, named: [MD] makes a non-band focus with FS_MD_NBHD set a hard
+# error, because there its default (0.10) was already forestsearch()'s own, so leaving it unset
+# reproduced every committed non-band render exactly.  Here the default is the campaign's 0.20,
+# so the same rule would make the STUDY's rule (maxeffCons at eps 0.10) unreachable -- and §1.5(a)
+# must render exactly that.  The study driver itself sets effect_neighborhood = 0.10 alongside
+# sg_focus = "maxeffCons" ([S] :151-154), so this is the study's own practice.  A NOTE replaces
+# the stop, and eps is still recorded in meta and still tags the stem.
+if (!sg_focus %in% .band_foci)
+  cat(sprintf("NOTE: sg_focus '%s' is not a band focus, so effect_neighborhood = %.2f is forwarded but INERT (the identifier does not consult it); it is still recorded in meta and tags the stem.\n",
+              sg_focus, effect_neighborhood))
 
 # ── Cell: design point and sample size ──────────────────────────────────────
 # FS_OR_TARGET = the planted marginal OR in the harm subgroup H, the ONLY thing
