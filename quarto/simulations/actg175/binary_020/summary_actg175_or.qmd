@@ -1,0 +1,589 @@
+---
+title: "FS, GRF and DINA on the ACTG175 binary (OR) design — campaigns orfs, orgrf and ordina (effMaxSG, ε = 0.20), six cells"
+subtitle: "Cross-cell summary of the eighteen committed combined bundles: Ĥ and Ĥᶜ tables, the OR bound-location ladder, the joint pair, the three-identifier table, the committed study beside it, regime diagnostics and the display; writes or_metrics.csv. GRF's and DINA's figures are conditional on the proposed family."
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+execute:
+  warning: false
+  message: false
+---
+
+**Conditional-family reading (the governing constraint).** GRF's and DINA's candidate families are
+generated from fitted surfaces, so the fixed-family condition does not hold for them: **every GRF
+and DINA coverage figure below is coverage of the estimand conditional on the proposed family.**
+FS's family is the prespecified cut grid. The three identifiers are compared descriptively, not as
+a contest: the identifier, the family construction and the set of detected replicates each summary
+conditions on all differ.
+
+**Scale.** Every estimate, bound and threshold is an **odds ratio**; `adverse_outcome = TRUE`, so
+**OR > 1 is harm** and no orientation flip is applied anywhere. Bias is reported two ways: as an
+**OR difference** and, in **SD units, on the log-OR scale**. Every SE-to-SD ratio is taken on the
+working (log-OR) scale, where the stored Wald and IJ SEs and the field's Λ-SD all live
+(`R/fs_mr_inference.R:480–488`). Bounds are read by **location** against the ladder
+τ = 0.7, 0.8, 0.9, 1.0, 1.25, 1.5, 2.0: on Ĥ a lower bound ≥ τ reads "harm of at least τ"; on Ĥᶜ an
+upper bound ≤ τ reads "harm of at most τ". Never as significance at OR = 1.
+
+**Targets.** The conditional rows are scored against **β(Ĥ)** / **β(Ĥᶜ)**, the exact per-replicate
+population OR at the realized region (`fs_attach_betaHhat()` on the full super-population). The
+two population references, recorded per replicate as `C_dagger_*` / `C_ddagger_*`, are
+**θ†** (the marginal OR in the block) and **θ‡** (the controlled direct effect); the oracle row is
+scored against θ†, and both are reported beside the harm block, as the committed study did.
+
+Transplanted from `../continuous/summary_continuous_field_mddina.qmd`
+(`TASK_actg175_binary_campaign_2026-09-17` §3.1): the Ĥ / Ĥᶜ, bound-location, joint, identification,
+three-identifier, regime and display blocks are that document's code, pointed at the OR bundles
+(`mr_or_harm/<fs|grf|dina>_effMaxSG_mr_field_or0XX_n<N>_nb20_<orfs|orgrf|ordina>_d5000/*_combined_1_2000.rds`),
+with `fs_sim_bias_coverage(scale = "log")` in place of `"identity"`, the dispositions' OR ladder in
+place of the MD ladder, θ† / θ‡ in place of the structural / fitted pair, and all three identifiers
+computed here (the MD document copied two of them from committed extracts). Excluded everywhere:
+IJ winner-only / winner-floor, κ variants, `field_uniform`, covariate adjustment, tuned inflation
+factors; FB was never run (no FB rows).
+
+```{r setup}
+suppressPackageStartupMessages({ library(forestsearch); library(ggplot2); library(knitr) })
+glob_new <- Sys.getenv("ORSG_SUMMARY_GLOB", "combined_1_2000")   # dry run on a smoke batch: "res_1_20"
+out_dir  <- Sys.getenv("ORSG_SUMMARY_OUT", ".")
+COND <- "(GRF and DINA rows conditional on the proposed family)"
+cap  <- function(x) paste(x, COND)
+`%||%` <- function(a, b) if (is.null(a) || !length(a) || all(is.na(a))) b else a
+
+# The six cells, in the task's order, and the three campaigns.
+cells <- list(
+  list(lab = "OR 0.75 n500",  design = "or075", target = 0.75, n = 500L),
+  list(lab = "OR 0.75 n2000", design = "or075", target = 0.75, n = 2000L),
+  list(lab = "OR 1.5 n500",   design = "or150", target = 1.5,  n = 500L),
+  list(lab = "OR 1.5 n2000",  design = "or150", target = 1.5,  n = 2000L),
+  list(lab = "OR 1.0 n500",   design = "or100", target = 1.0,  n = 500L),
+  list(lab = "OR 1.0 n2000",  design = "or100", target = 1.0,  n = 2000L))
+# The campaign tags are overridable so a DRY RUN can point the whole document at a smoke batch
+# (ORSG_SUMMARY_TAGS=orsmoke,orsmoke,orsmoke ORSG_SUMMARY_GLOB=res_1_20), exactly as the MD
+# summary's MDSG_SUMMARY_TAG / MDSG_SUMMARY_GLOB do.  Unset, the three production tags apply.
+.tags <- strsplit(Sys.getenv("ORSG_SUMMARY_TAGS", "orfs,orgrf,ordina"), ",", fixed = TRUE)[[1]]
+stopifnot(length(.tags) == 3L)
+ids <- list(fs   = list(tag = .tags[1], pfx = "fs",   lab = "FS (orfs)",     method = "consistency"),
+            grf  = list(tag = .tags[2], pfx = "grf",  lab = "GRF (orgrf)",   method = "grf"),
+            dina = list(tag = .tags[3], pfx = "dina", lab = "DINA (ordina)", method = "dina"))
+cond_id <- c(fs = FALSE, grf = TRUE, dina = TRUE)   # whose figures are conditional on the proposed family
+stem_of <- function(id, cl) sprintf("%s_effMaxSG_mr_field_%s_n%d_nb20_%s", ids[[id]]$pfx, cl$design, cl$n, ids[[id]]$tag)
+path_of <- function(s, glob) { f <- Sys.glob(file.path("mr_or_harm", paste0(s, "_d5000"), paste0(s, "_", glob, ".rds")))
+  if (length(f)) f[1] else NA_character_ }
+commit_of <- function(p) { x <- suppressWarnings(system2("git", c("log", "--diff-filter=A", "-1", "--format=%h", "--", shQuote(p)), stdout = TRUE, stderr = FALSE))
+  if (length(x) && nzchar(x[1])) x[1] else "untracked" }
+
+z95 <- qnorm(0.95)
+wilson <- function(x, n, z = qnorm(0.975)) { if (!is.finite(x) || n <= 0) return(c(NA, NA))
+  ctr <- (x + z^2/(2*n))/(1 + z^2/n); hw <- z*sqrt(x*(1-x)/n + z^2/(4*n^2))/(1 + z^2/n); c(ctr - hw, ctr + hw) }
+fmtw  <- function(x, n) { w <- wilson(x, n); sprintf("%.3f (%.3f, %.3f)", x, w[1], w[2]) }
+mfin  <- function(x) { x <- x[is.finite(x)]; if (length(x)) mean(x) else NA_real_ }
+sdfin <- function(x) { x <- x[is.finite(x)]; if (length(x) > 1) sd(x) else NA_real_ }
+# SD and bias on the WORKING (log-OR) scale, the footing for every SD-unit and SE/SD figure.
+sdlog  <- function(x) { x <- x[is.finite(x) & x > 0]; if (length(x) > 1) sd(log(x)) else NA_real_ }
+biaslog <- function(e, tgt) { tgt <- rep_len(tgt, length(e)); ok <- is.finite(e) & e > 0 & is.finite(tgt) & tgt > 0
+  if (!any(ok)) return(c(NA_real_, NA_real_, 0L))
+  d <- log(e[ok]) - log(tgt[ok]); c(mean(d), sd(d) / sqrt(length(d)), length(d)) }
+pse <- function(p, n) if (is.finite(p) && n > 0) sqrt(p * (1 - p) / n) else NA_real_
+# The dispositions' bound-location ladder, on BOTH blocks.
+tau_lad <- c(0.7, 0.8, 0.9, 1.0, 1.25, 1.5, 2.0)
+
+EX <- list()
+ex <- function(cell, design, identifier, block, estimator, metric, value, mc_se = NA_real_, n = NA_integer_,
+               tau = NA_real_, wl = NA_real_, wh = NA_real_, commit = NA_character_, campaign = NA_character_)
+  EX[[length(EX) + 1]] <<- data.frame(campaign = campaign, identifier = identifier, design = design, cell = cell,
+    block = block, estimator = estimator, metric = metric, tau = tau, value = value, mc_se = mc_se,
+    wilson_lo = wl, wilson_hi = wh, n = n, commit = commit, stringsAsFactors = FALSE)
+exp_ <- function(cell, design, identifier, block, estimator, metric, p, n, tau = NA_real_, commit, campaign) {
+  w <- wilson(p, n); ex(cell, design, identifier, block, estimator, metric, p, pse(p, n), n, tau, w[1], w[2], commit, campaign) }
+
+code <- c(naive = "naive", oracle = "oracle", `MR (IJ)` = "mr", `MR (field)` = "fld", `MR (field-s)` = "fld_s")
+rows <- list(); bl <- list(); jt <- list(); idn <- list(); rg <- list(); disp <- list()
+status <- list(); decl <- list(); truths <- list()
+
+for (cl in cells) for (id in names(ids)) {
+  p <- path_of(stem_of(id, cl), glob_new)
+  if (is.na(p)) { status[[length(status) + 1]] <- data.frame(cell = cl$lab, identifier = ids[[id]]$lab,
+    status = "NOT RUN", stringsAsFactors = FALSE); next }
+  cm <- commit_of(p); camp <- ids[[id]]$tag
+  b <- readRDS(p); r <- b$results; m <- b$meta; tr <- b$truth
+  det <- r$detected %in% 1L; d <- r[det, ]
+  d$bH <- d$betaHhat_H; d$bHc <- d$betaHhat_Hc      # already ORs: no orientation bridge
+  ref <- list(H  = list(dag = tr$marg_H,  ddag = tr$cde_H),
+              Hc = list(dag = tr$marg_Hc, ddag = tr$cde_Hc))
+  status[[length(status) + 1]] <- data.frame(cell = cl$lab, identifier = ids[[id]]$lab,
+    status = sprintf("%d reps, %d declared (%.4f), target_or_h %s, theta-dagger H/Hc %.4f / %.4f, theta-ddagger H/Hc %.4f / %.4f, pkg %s, host %s, commit %s",
+                     nrow(r), nrow(d), mean(det), format(m$target_or_h), tr$marg_H, tr$marg_Hc,
+                     tr$cde_H, tr$cde_Hc, m$pkg_version, m$hostname, cm), stringsAsFactors = FALSE)
+  if (id == "fs") truths[[length(truths) + 1]] <- data.frame(cell = cl$lab, design = cl$design,
+    target_or_h = m$target_or_h, prevalence_H = tr$prevalence_Q, k_inter = tr$beta_inter,
+    or_causal = tr$or_causal, theta_dagger_H = tr$marg_H, theta_dagger_Hc = tr$marg_Hc,
+    theta_ddagger_H = tr$cde_H, theta_ddagger_Hc = tr$cde_Hc, stringsAsFactors = FALSE)
+  decl[[length(decl) + 1]] <- data.frame(cell = cl$lab, identifier = ids[[id]]$lab, replicates = nrow(r),
+    declared = nrow(d), rate = mean(det), mc_se = pse(mean(det), nrow(r)), stringsAsFactors = FALSE)
+  exp_(cl$lab, cl$design, id, "H", "all", "declaration_rate", mean(det), nrow(r), commit = cm, campaign = camp)
+
+  # ---- Ĥ and Ĥᶜ tables -----------------------------------------------------
+  for (sfx in c("H", "Hc")) {
+    side <- if (sfx == "H") "lower" else "upper"; sgn <- if (side == "lower") -1 else 1
+    beta <- d[[if (sfx == "H") "bH" else "bHc"]]
+    ests <- list(
+      naive  = list(e = d[[paste0("nv_", sfx, "_est")]], lo = d[[paste0("nv_", sfx, "_lo")]],
+                    hi = d[[paste0("nv_", sfx, "_hi")]], se = d[[paste0("nv_", sfx, "_se")]]),
+      oracle = list(e = d[[paste0("or_", sfx, "_est")]], lo = d[[paste0("or_", sfx, "_lo")]],
+                    hi = d[[paste0("or_", sfx, "_hi")]], se = d[[paste0("or_", sfx, "_se")]]),
+      `MR (IJ)` = list(e = d[[paste0("mr_", sfx, "_est")]], lo = d[[paste0("mr_", sfx, "_lo")]],
+                       hi = d[[paste0("mr_", sfx, "_hi")]], se = d[[paste0("mr_", sfx, "_se_ij")]]),
+      `MR (field)` = list(e = d[[paste0("fld_", sfx, "_est2")]], lo = d[[paste0("fld_", sfx, "_lo2s")]],
+                          hi = d[[paste0("fld_", sfx, "_hi2s")]], se = d[[paste0("fld_", sfx, "_se")]]))
+    if (sfx == "Hc") ests$`MR (field-s)` <- list(e = d$fld_Hc_est2_s, lo = d$fld_Hc_lo2s_s,
+                                                 hi = d$fld_Hc_hi2s_s, se = d$fld_Hc_se_s)
+    for (k in names(ests)) {
+      ec <- ests[[k]]; e <- ec$e; se <- ec$se
+      # The oracle refits on the TRUE region, so its target is theta-dagger; every other row is
+      # scored against the conditional estimand beta(.).
+      tgt <- if (k == "oracle") rep(ref[[sfx]]$dag, length(e)) else beta
+      tgt_lab <- if (k == "oracle") "theta-dagger" else "beta(.)"
+      ctr <- if (k %in% c("MR (field)", "MR (field-s)")) d[[paste0("mr_", sfx, "_est")]] else e
+      # Field rows use their stored OR-scale one-sided bound; normal-based rows invert on the
+      # working (log-OR) scale and back-transform.
+      b1 <- if (k == "MR (field)") d[[paste0("fld_", sfx, if (side == "upper") "_up1s" else "_lo1s")]]
+            else if (k == "MR (field-s)") d$fld_Hc_up1s_s
+            else ifelse(is.finite(e) & e > 0 & is.finite(se), exp(log(e) + sgn * z95 * se), NA_real_)
+      ok  <- is.finite(e) & is.finite(tgt)
+      ok2 <- ok & is.finite(ec$lo) & is.finite(ec$hi); ok1 <- ok & is.finite(b1)
+      n <- sum(ok)
+      bias <- mean(e[ok] - tgt[ok])                                 # OR difference
+      bl3  <- biaslog(e, tgt); sd_l <- sdlog(e)                     # log-OR scale
+      sde <- sdfin(e); sem <- mfin(se)
+      c2 <- mean(tgt[ok2] >= ec$lo[ok2] & tgt[ok2] <= ec$hi[ok2])
+      c1 <- if (side == "lower") mean(tgt[ok1] >= b1[ok1]) else mean(tgt[ok1] <= b1[ok1])
+      bias_se <- sd(e[ok] - tgt[ok]) / sqrt(n)
+      sd_se   <- sde / sqrt(2 * (n - 1)); sdl_se <- sd_l / sqrt(2 * (n - 1))
+      sem_se  <- sdfin(se) / sqrt(sum(is.finite(se)))
+      ratio <- sem / sd_l                                            # both log-OR
+      ratio_se <- ratio * sqrt((sem_se / sem)^2 + (sdl_se / sd_l)^2)
+      rows[[length(rows) + 1]] <- data.frame(cell = cl$lab, design = cl$design,
+        identifier = ids[[id]]$lab, block = sfx, estimator = k, target = tgt_lab, n = n,
+        decl = mean(det), bias = bias, bias_sd = bl3[1] / sd_l, SD = sde, SD_log = sd_l,
+        SE = sem, SE_SD = ratio, cov1 = c1, cov1_w = fmtw(c1, sum(ok1)),
+        cov2 = c2, cov2_w = fmtw(c2, sum(ok2)), side = side,
+        halfwidth = mfin((ec$hi - ec$lo) / 2), margin1 = mfin(sgn * (b1 - ctr)),
+        stringsAsFactors = FALSE)
+      kc <- code[[k]]
+      ex(cl$lab, cl$design, id, sfx, kc, "bias_or", bias, bias_se, n, commit = cm, campaign = camp)
+      ex(cl$lab, cl$design, id, sfx, kc, "bias_log", bl3[1], bl3[2], bl3[3], commit = cm, campaign = camp)
+      ex(cl$lab, cl$design, id, sfx, kc, "bias_sd_units", bl3[1] / sd_l, bl3[2] / sd_l, bl3[3], commit = cm, campaign = camp)
+      ex(cl$lab, cl$design, id, sfx, kc, "sd_emp_or", sde, sd_se, n, commit = cm, campaign = camp)
+      ex(cl$lab, cl$design, id, sfx, kc, "sd_emp_log", sd_l, sdl_se, n, commit = cm, campaign = camp)
+      ex(cl$lab, cl$design, id, sfx, kc, "se_mean", sem, sem_se, n, commit = cm, campaign = camp)
+      ex(cl$lab, cl$design, id, sfx, kc, "se_over_sd", ratio, ratio_se, n, commit = cm, campaign = camp)
+      exp_(cl$lab, cl$design, id, sfx, kc, if (side == "lower") "cov1_lower" else "cov1_upper", c1, sum(ok1), commit = cm, campaign = camp)
+      exp_(cl$lab, cl$design, id, sfx, kc, "cov2", c2, sum(ok2), commit = cm, campaign = camp)
+      ex(cl$lab, cl$design, id, sfx, kc, "halfwidth_or", mfin((ec$hi - ec$lo) / 2), n = n, commit = cm, campaign = camp)
+      ex(cl$lab, cl$design, id, sfx, kc, "margin1_or", mfin(sgn * (b1 - ctr)), n = n, commit = cm, campaign = camp)
+      # The harm block also carries coverage of theta-dagger and theta-ddagger beside beta(H),
+      # as the committed study reported them.
+      if (sfx == "H" && k != "oracle") for (tn in c("theta_dagger", "theta_ddagger")) {
+        tv <- if (tn == "theta_dagger") ref$H$dag else ref$H$ddag
+        o2 <- is.finite(ec$lo) & is.finite(ec$hi); o1 <- is.finite(b1)
+        exp_(cl$lab, cl$design, id, sfx, kc, paste0("cov2_", tn), mean(tv >= ec$lo[o2] & tv <= ec$hi[o2]), sum(o2), commit = cm, campaign = camp)
+        exp_(cl$lab, cl$design, id, sfx, kc, paste0("cov1_lower_", tn), mean(tv >= b1[o1]), sum(o1), commit = cm, campaign = camp)
+      }
+    }
+    # ---- bound location on the OR ladder, with Monte Carlo SEs ---------------
+    lad <- if (sfx == "H")
+      list(`MR (field)` = d$fld_H_lo1s,
+           oracle = exp(log(d$or_H_est) - z95 * d$or_H_se),
+           `MR (IJ)` = exp(log(d$mr_H_est) - z95 * d$mr_H_se_ij),
+           naive = exp(log(d$nv_H_est) - z95 * d$nv_H_se))
+    else
+      list(`MR (field-s)` = d$fld_Hc_up1s_s,
+           oracle = exp(log(d$or_Hc_est) + z95 * d$or_Hc_se),
+           `MR (field)` = d$fld_Hc_up1s,
+           `MR (IJ)` = exp(log(d$mr_Hc_est) + z95 * d$mr_Hc_se_ij),
+           naive = exp(log(d$nv_Hc_est) + z95 * d$nv_Hc_se))
+    for (k in names(lad)) {
+      bb <- lad[[k]]; bb <- bb[is.finite(bb)]
+      row <- data.frame(cell = cl$lab, identifier = ids[[id]]$lab, block = sfx, estimator = k,
+                        n = length(bb), mean = if (length(bb)) mean(bb) else NA_real_,
+                        q05 = NA_real_, q25 = NA_real_, median = NA_real_, q75 = NA_real_, q95 = NA_real_,
+                        stringsAsFactors = FALSE)
+      if (length(bb)) {
+        qs <- quantile(bb, c(.05, .25, .5, .75, .95), names = FALSE)
+        row$q05 <- qs[1]; row$q25 <- qs[2]; row$median <- qs[3]; row$q75 <- qs[4]; row$q95 <- qs[5]
+        sh <- vapply(tau_lad, function(t) if (side == "lower") mean(bb >= t) else mean(bb <= t), numeric(1))
+        for (i in seq_along(tau_lad)) {
+          row[[sprintf(if (side == "lower") "P(L>=%g)" else "P(U<=%g)", tau_lad[i])]] <-
+            sprintf("%.3f (%.3f)", sh[i], pse(sh[i], length(bb)))
+          exp_(cl$lab, cl$design, id, sfx, code[[k]],
+               if (side == "lower") "share_lower_ge_tau" else "share_upper_le_tau",
+               sh[i], length(bb), tau_lad[i], commit = cm, campaign = camp)
+        }
+        ex(cl$lab, cl$design, id, sfx, code[[k]], "bound_mean", mean(bb), sd(bb) / sqrt(length(bb)), length(bb), commit = cm, campaign = camp)
+        for (q in c(.05, .25, .5, .75, .95))
+          ex(cl$lab, cl$design, id, sfx, code[[k]], sprintf("bound_q%02d", round(100 * q)),
+             quantile(bb, q, names = FALSE), n = length(bb), commit = cm, campaign = camp)
+      } else for (i in seq_along(tau_lad))
+        row[[sprintf(if (side == "lower") "P(L>=%g)" else "P(U<=%g)", tau_lad[i])]] <- NA_character_
+      bl[[length(bl) + 1]] <- row
+    }
+  }
+
+  # ---- joint pair ----------------------------------------------------------
+  both_s <- is.finite(d$fld_joint_s_bonf_loH) & is.finite(d$fld_joint_s_bonf_upHc) & is.finite(d$bH) & is.finite(d$bHc)
+  both_u <- is.finite(d$fld_joint_bonf_loH)   & is.finite(d$fld_joint_bonf_upHc)   & is.finite(d$bH) & is.finite(d$bHc)
+  pairs <- list(
+    `Bonferroni field-s (gamma = 0.025)`            = list(lo = d$fld_joint_s_bonf_loH, up = d$fld_joint_s_bonf_upHc, ok = both_s, code = "bonf_s"),
+    `Bonferroni unstudentized (gamma = 0.025)`      = list(lo = d$fld_joint_bonf_loH,   up = d$fld_joint_bonf_upHc,   ok = both_u, code = "bonf"),
+    `separate 95%: field lower, field-s upper`      = list(lo = d$fld_H_lo1s,           up = d$fld_Hc_up1s_s,          ok = both_s, code = "separate_s"))
+  for (nm in names(pairs)) {
+    pp <- pairs[[nm]]; ok <- pp$ok
+    if (!any(ok)) next
+    cH <- d$bH[ok] >= pp$lo[ok]; cC <- d$bHc[ok] <= pp$up[ok]; jc <- mean(cH & cC)
+    jt[[length(jt) + 1]] <- data.frame(cell = cl$lab, identifier = ids[[id]]$lab, pair = nm,
+      declared = nrow(d), both_bounds = sum(ok), share_both = sum(ok) / nrow(d),
+      joint = fmtw(jc, sum(ok)), joint_mc_se = pse(jc, sum(ok)),
+      cov_H = mean(cH), cov_Hc = mean(cC),
+      margin_H = mean(d$mr_H_est[ok] - pp$lo[ok]), margin_Hc = mean(pp$up[ok] - d$mr_Hc_est[ok]),
+      stringsAsFactors = FALSE)
+    exp_(cl$lab, cl$design, id, "joint", pp$code, "joint_coverage", jc, sum(ok), commit = cm, campaign = camp)
+    exp_(cl$lab, cl$design, id, "joint", pp$code, "share_both_bounds", sum(ok) / nrow(d), nrow(d), commit = cm, campaign = camp)
+    exp_(cl$lab, cl$design, id, "joint", pp$code, "cov_H",  mean(cH), sum(ok), commit = cm, campaign = camp)
+    exp_(cl$lab, cl$design, id, "joint", pp$code, "cov_Hc", mean(cC), sum(ok), commit = cm, campaign = camp)
+    ex(cl$lab, cl$design, id, "joint", pp$code, "margin_H_or", mean(d$mr_H_est[ok] - pp$lo[ok]),
+       sd(d$mr_H_est[ok] - pp$lo[ok]) / sqrt(sum(ok)), sum(ok), commit = cm, campaign = camp)
+    ex(cl$lab, cl$design, id, "joint", pp$code, "margin_Hc_or", mean(pp$up[ok] - d$mr_Hc_est[ok]),
+       sd(pp$up[ok] - d$mr_Hc_est[ok]) / sqrt(sum(ok)), sum(ok), commit = cm, campaign = camp)
+  }
+  for (v in list(c("gamma_mean_s", "fld_joint_s_gamma"), c("corr_s", "fld_joint_s_corr"),
+                 c("gamma_mean", "fld_joint_gamma"), c("corr", "fld_joint_corr")))
+    ex(cl$lab, cl$design, id, "joint", "calibrated", v[1], mfin(d[[v[2]]]),
+       sdfin(d[[v[2]]]) / sqrt(sum(is.finite(d[[v[2]]]))), sum(is.finite(d[[v[2]]])), commit = cm, campaign = camp)
+
+  # ---- identification ------------------------------------------------------
+  # |Hhat| is n_sel; the true-positive count is sensitivity x n_true, never |Hhat|.
+  tp <- ifelse(is.finite(d$sens) & d$n_true > 0, d$sens * d$n_true, NA_real_)
+  idn[[length(idn) + 1]] <- data.frame(cell = cl$lab, identifier = ids[[id]]$lab,
+    declaration = mean(det), mean_size_hhat = mfin(d$n_sel), mean_true_positives = mfin(tp),
+    sensitivity = mfin(d$sens), ppv = mfin(d$ppv), spec = mfin(d$spec),
+    mean_n_family = mfin(d$n_family), mean_admitted_n = mfin(d$admitted_n),
+    mean_proposed_n = mfin(d$dina_proposed_n), mean_cons_qual = mfin(d$n_cons_qual),
+    mean_band_n = mfin(d$band_n), stringsAsFactors = FALSE)
+  # NOTE: list(name, vector), never c(name, vector) -- c() of a character and a numeric
+  # coerces the vector to character and every row would come out NA with n = 0.
+  for (v in list(list("mean_size_hhat", d$n_sel), list("mean_true_positives", tp),
+                 list("sensitivity_mean", d$sens), list("ppv_mean", d$ppv), list("spec_mean", d$spec),
+                 list("mean_n_family", d$n_family), list("mean_admitted_n", d$admitted_n),
+                 list("mean_proposed_n", d$dina_proposed_n), list("mean_n_cons_qual", d$n_cons_qual),
+                 list("mean_band_n", d$band_n), list("mean_n_true", d$n_true))) {
+    nm <- v[[1]]; xx <- v[[2]]
+    ex(cl$lab, cl$design, id, "H", "all", nm, mfin(xx), sdfin(xx) / sqrt(sum(is.finite(xx))),
+       sum(is.finite(xx)), commit = cm, campaign = camp)
+  }
+
+  # ---- regime diagnostics --------------------------------------------------
+  nvc <- mfin(d$nv_Hc_se)    # working (log-OR) scale
+  rg[[length(rg) + 1]] <- data.frame(cell = cl$lab, identifier = ids[[id]]$lab, n_det = nrow(d),
+    p_hat_mean = mean(d$p_hat_H, na.rm = TRUE), p_hat_lt05 = mean(d$p_hat_H < 0.5, na.rm = TRUE),
+    sd_btc_naive = sdlog(d$mr_Hc_est) / nvc, lamc_naive = mfin(d$fld_Hc_se) / nvc,
+    lamc_s_naive = mfin(d$fld_Hc_se_s) / nvc,
+    ij_sd_H = mfin(d$mr_H_se_ij) / sdlog(d$mr_H_est), ij_sd_Hc = mfin(d$mr_Hc_se_ij) / sdlog(d$mr_Hc_est),
+    lam_sd_H = mfin(d$fld_H_se) / sdlog(d$fld_H_est2),
+    fit_secs = mean(r$fit_mr_secs), id_secs = mfin(r$id_secs),
+    field_secs = mfin(d$fld_H_secs), comp_secs = mfin(d$fld_Hc_secs), stringsAsFactors = FALSE)
+  ex(cl$lab, cl$design, id, "H", "all", "p_hat_mean", mean(d$p_hat_H, na.rm = TRUE),
+     sdfin(d$p_hat_H) / sqrt(sum(is.finite(d$p_hat_H))), sum(is.finite(d$p_hat_H)), commit = cm, campaign = camp)
+  exp_(cl$lab, cl$design, id, "H", "all", "p_hat_share_lt_05", mean(d$p_hat_H < 0.5, na.rm = TRUE),
+       sum(is.finite(d$p_hat_H)), commit = cm, campaign = camp)
+  ex(cl$lab, cl$design, id, "Hc", "mr",    "sd_btc_over_naive_se", sdlog(d$mr_Hc_est) / nvc, n = sum(is.finite(d$mr_Hc_est)), commit = cm, campaign = camp)
+  ex(cl$lab, cl$design, id, "Hc", "fld",   "lamsd_over_naive_se",  mfin(d$fld_Hc_se) / nvc,  n = sum(is.finite(d$fld_Hc_se)),  commit = cm, campaign = camp)
+  ex(cl$lab, cl$design, id, "Hc", "fld_s", "lamsd_over_naive_se",  mfin(d$fld_Hc_se_s) / nvc, n = sum(is.finite(d$fld_Hc_se_s)), commit = cm, campaign = camp)
+  for (v in list(list("secs_fit_mr_mean", r$fit_mr_secs), list("secs_id_mean", r$id_secs),
+                 list("secs_field_mean", d$fld_H_secs), list("secs_complement_mean", d$fld_Hc_secs)))
+    ex(cl$lab, cl$design, id, "all", "all", v[[1]], mfin(v[[2]]),
+       sdfin(v[[2]]) / sqrt(sum(is.finite(v[[2]]))), sum(is.finite(v[[2]])), commit = cm, campaign = camp)
+
+  # ---- display: fs_sim_bias_coverage(scale = "log") ------------------------
+  # The OR is a ratio measure, so the bookkeeping runs on the log scale.  field-s goes through a
+  # renamed copy (no R/ change): the nine fld_Hc_*_s columns over their unstudentized names.
+  dh <- fs_sim_bias_coverage(r, block = "H", estimators = c("naive", "mr", "fld"), scale = "log")
+  dh$block <- "H"
+  dc <- fs_sim_bias_coverage(r, block = "Hc", estimators = c("naive", "mr", "fld"), side = "upper", scale = "log")
+  dc$block <- "Hc"
+  rs <- r; for (s in c("est2","up1s","lo1s","lo2s","hi2s","lo_se","hi_se","se","lam_mean"))
+    rs[[paste0("fld_Hc_", s)]] <- r[[paste0("fld_Hc_", s, "_s")]]
+  ds <- fs_sim_bias_coverage(rs, block = "Hc", estimators = "fld", side = "upper", scale = "log")
+  ds$estimator <- "fld_s"; ds$block <- "Hc"
+  dd <- rbind(dh, dc, ds); dd$cell <- cl$lab; dd$identifier <- ids[[id]]$lab
+  disp[[length(disp) + 1]] <- dd
+  for (i in seq_len(nrow(dd))) for (v in c("b", "r", "cov1", "cov1_ref", "cov2", "cov2_ref"))
+    ex(cl$lab, cl$design, id, dd$block[i], dd$estimator[i], paste0("display_", v), dd[[v]][i],
+       n = dd$n[i], commit = cm, campaign = camp)
+}
+
+T2 <- do.call(rbind, rows); BL <- bl; JT <- do.call(rbind, jt)
+IDN <- do.call(rbind, idn); RG <- do.call(rbind, rg); DS <- do.call(rbind, disp)
+DECL <- do.call(rbind, decl); ST <- do.call(rbind, status); TRU <- do.call(rbind, truths)
+XX <- do.call(rbind, EX)
+
+# ---- the three-identifier table, read from the extract rows ---------------
+pick <- function(id, cell, block, est, metric) {
+  x <- XX[XX$identifier == id & XX$cell == cell & XX$block == block & XX$estimator == est &
+          XX$metric == metric & is.na(XX$tau), ]
+  if (nrow(x) == 1L) x$value else NA_real_ }
+TRI <- do.call(rbind, lapply(cells, function(cl) do.call(rbind, lapply(names(ids), function(id)
+  data.frame(cell = cl$lab, identifier = ids[[id]]$lab,
+    declaration_rate     = pick(id, cl$lab, "H", "all", "declaration_rate"),
+    field_lower_cov_H    = pick(id, cl$lab, "H", "fld", "cov1_lower"),
+    field_s_upper_cov_Hc = pick(id, cl$lab, "Hc", "fld_s", "cov1_upper"),
+    bonferroni_joint     = pick(id, cl$lab, "joint", "bonf_s", "joint_coverage"),
+    mean_size_hhat       = pick(id, cl$lab, "H", "all", "mean_size_hhat"),
+    sensitivity          = pick(id, cl$lab, "H", "all", "sensitivity_mean"),
+    ppv                  = pick(id, cl$lab, "H", "all", "ppv_mean"),
+    stringsAsFactors = FALSE)))))
+
+# ---- the committed study beside this campaign, QUOTED from its grid -------
+# Read, never recomputed: the study's own coverage grid, built under ITS rule (maxeffCons,
+# eps 0.10), 1,000 replicates per cell and IJ intervals only.  Its "MR" estimator is the IJ
+# two-term construction; "naive" is the plug-in Wald interval.  Both figures below are TWO-SIDED
+# coverage of theta-dagger on the harm block.
+grid_p <- file.path("mr_sweep", "maxeffCons_actg175_or075_seedtab_s1000",
+                    "mr_coverage_grid_maxeffCons_actg175_or075_seedtab_s1000.rds")
+STU <- NULL
+if (file.exists(grid_p)) {
+  gg <- readRDS(grid_p)$coverage
+  gg <- gg[gg$n_sample %in% c(500L, 2000L) & gg$block == "H" & gg$target == "C_dagger" &
+           gg$estimator %in% c("naive", "MR"), ]
+  meth_lab <- c(consistency = "FS (orfs)", grf = "GRF (orgrf)", dina = "DINA (ordina)")
+  STU <- do.call(rbind, lapply(seq_len(nrow(gg)), function(i) {
+    x <- gg[i, ]; cl_lab <- sprintf("OR 0.75 n%d", x$n_sample); idl <- meth_lab[[x$subgroup_method]]
+    idk <- names(ids)[vapply(ids, function(z) identical(z$lab, idl), logical(1))]
+    data.frame(cell = cl_lab, identifier = idl,
+      study_estimator = ifelse(x$estimator == "MR", "IJ two-term", "unadjusted (naive)"),
+      study_det_rate = x$det_rate,
+      study_cov2_theta_dagger = fmtw(x$coverage, x$n_eff), study_n_eff = x$n_eff,
+      study_n_sims = x$n_sims,
+      campaign_det_rate = pick(idk, cl_lab, "H", "all", "declaration_rate"),
+      campaign_cov2_theta_dagger = pick(idk, cl_lab, "H",
+        ifelse(x$estimator == "MR", "mr", "naive"), "cov2_theta_dagger"),
+      stringsAsFactors = FALSE) }))
+  STU <- STU[order(STU$identifier, STU$cell, STU$study_estimator), ]
+  for (i in seq_len(nrow(STU))) {
+    idk <- names(ids)[vapply(ids, function(z) identical(z$lab, STU$identifier[i]), logical(1))]
+    ec <- ifelse(STU$study_estimator[i] == "IJ two-term", "mr", "naive")
+    ex(STU$cell[i], "or075", idk, "H", ec, "study_cov2_theta_dagger",
+       as.numeric(sub(" .*", "", STU$study_cov2_theta_dagger[i])), n = STU$study_n_eff[i],
+       commit = "committed grid", campaign = "maxeffCons_actg175_or075_seedtab_s1000")
+    # once per (identifier, cell), not once per estimator row
+    if (!duplicated(paste(STU$identifier, STU$cell))[i])
+      ex(STU$cell[i], "or075", idk, "H", "all", "study_declaration_rate", STU$study_det_rate[i],
+         n = STU$study_n_sims[i], commit = "committed grid",
+         campaign = "maxeffCons_actg175_or075_seedtab_s1000")
+  }
+}
+cat(sprintf("read %d of %d cell x identifier bundles; %d extract rows\n",
+            sum(ST$status != "NOT RUN"), nrow(ST), nrow(XX)))
+```
+
+# Cells and truths
+
+```{r status}
+kable(ST, caption = cap("The eighteen combined bundles read (2,000 replicates per cell x identifier); the commit is the one that added the bundle."))
+kable(TRU, digits = 6, caption = "The three design points, from the calibrated DGM (identical across identifiers and n within a design): the planted marginal OR in H, the prevalence, the calibrated interaction, and the four population references theta-dagger / theta-ddagger for H and its complement.")
+kable(DECL, digits = 4, caption = cap("Declaration per cell x identifier: replicates, declared, rate and its Monte Carlo SE."))
+```
+
+# Ĥ table
+
+Rows unadjusted (naive) / oracle / MR (IJ two-term) / MR (field), per identifier. The conditional
+rows are scored against **β(Ĥ)** (exact, per replicate); the oracle row against **θ†**. Bias is the
+OR difference and, in SD units, on the log-OR scale. One-sided coverage is the **LOWER** bound (the
+harm claim). Coverage of θ† and θ‡ is in the extract (`cov2_theta_dagger`,
+`cov1_lower_theta_dagger`, and the θ‡ pair) and in the study-comparison table below.
+
+```{r tableH}
+tH <- T2[T2$block == "H", ]
+kable(tH[, c("cell","identifier","estimator","target","n","decl","bias","bias_sd","SD_log","SE","SE_SD","cov1_w","cov2_w")],
+      digits = 3,
+      col.names = c("cell","identifier","estimator","target","n","declaration rate","bias (OR diff.)",
+                    "bias (SD units, log-OR)","SD (log-OR)","mean SE (log-OR)","SE/SD",
+                    "one-sided LOWER coverage (Wilson)","two-sided coverage (Wilson)"),
+      caption = cap("Hhat: declaration rate, bias as an OR difference and in SD units on the log-OR scale, SD and mean SE on the log-OR scale, SE/SD, one-sided lower and two-sided coverage of the row's named target."))
+```
+
+# Ĥᶜ table
+
+The evaluated row is **MR (field-s)**; the unstudentized field row is shown once beside it. One-sided
+coverage is the **UPPER** bound (the benefit claim).
+
+```{r tableHc}
+tC <- T2[T2$block == "Hc", ]
+kable(tC[, c("cell","identifier","estimator","target","n","decl","bias","bias_sd","SD_log","SE","SE_SD","cov1_w","cov2_w")],
+      digits = 3,
+      col.names = c("cell","identifier","estimator","target","n","declaration rate","bias (OR diff.)",
+                    "bias (SD units, log-OR)","SD (log-OR)","mean SE (log-OR)","SE/SD",
+                    "one-sided UPPER coverage (Wilson)","two-sided coverage (Wilson)"),
+      caption = cap("Hhat^c: declaration rate, bias as an OR difference and in SD units on the log-OR scale, SD and mean SE on the log-OR scale, SE/SD, one-sided upper and two-sided coverage; MR (field-s) evaluated, MR (field) beside it."))
+```
+
+# Bound location — the OR ladder
+
+τ = 0.7, 0.8, 0.9, 1.0, 1.25, 1.5, 2.0. On Ĥ the share is of replicates whose one-sided 95% **LOWER**
+bound is at or above τ ("harm of at least τ" supported); on Ĥᶜ, whose one-sided 95% **UPPER** bound
+is at or below τ ("harm of at most τ" supported). Monte Carlo SEs in parentheses. Never significance
+at OR = 1.
+
+```{r bounds}
+BLH <- do.call(rbind, lapply(BL, function(x) if (x$block[1] == "H") x))
+BLC <- do.call(rbind, lapply(BL, function(x) if (x$block[1] == "Hc") x))
+kable(BLH[, setdiff(names(BLH), "block")], digits = 3,
+      caption = cap("Harm block: one-sided 95% LOWER bound (OR) -- location quantiles and the share at or above each tau, with Monte Carlo SEs; field | oracle, with IJ and naive for orientation."))
+kable(BLC[, setdiff(names(BLC), "block")], digits = 3,
+      caption = cap("Complement block: one-sided 95% UPPER bound (OR) -- location quantiles and the share at or below each tau, with Monte Carlo SEs; field-s | oracle, with the unstudentized field, IJ and naive for orientation."))
+```
+
+# Joint pair
+
+```{r joint}
+kable(JT, digits = 3,
+      caption = cap("Joint (Hhat lower, Hhat^c upper) coverage of (beta(Hhat), beta(Hhat^c)) on declared replicates where both bounds exist: the field-s Bonferroni pair (evaluated), the unstudentized Bonferroni pair beside it, and the separate 95% pair. share_both = the share of declared replicates carrying both bounds; margins in OR units from the two-term de-biased estimates."))
+calr <- XX[XX$estimator == "calibrated", c("cell","identifier","metric","value","mc_se","n")]
+kable(calr, digits = 4,
+      caption = cap("Diagnostics: mean gamma and mean corr(Lambda*, Lambda*c) for the studentized (_s) and unstudentized pairs."))
+```
+
+# The three identifiers
+
+One table over the six cells, one line per identifier. Coverage is one-sided: the field lower bound
+on β(Ĥ), the field-s upper bound on β(Ĥᶜ), and the field-s Bonferroni pair, each over that
+identifier's own declared replicates. The rows are read side by side, never ranked: the identifier,
+the family construction and the detected set all differ, and **the GRF and DINA rows are conditional
+on the proposed family** while FS's family is the prespecified cut grid.
+
+```{r three-identifiers}
+kable(TRI, digits = 4,
+      col.names = c("cell","identifier","declaration rate","field lower coverage, Hhat",
+                    "field-s upper coverage, Hhat^c","Bonferroni joint (field-s)",
+                    "mean size of Hhat","sensitivity","PPV"),
+      caption = cap("FS, GRF and DINA on the same six cells and the same seeds: declaration, one-sided coverage of the field lower bound on beta(Hhat) and the field-s upper bound on beta(Hhat^c), field-s Bonferroni joint coverage, mean |Hhat|, sensitivity and PPV."))
+```
+
+# Identification
+
+|Ĥ| is `n_sel`; the true-positive count is sensitivity × `n_true`, never |Ĥ|. `n_cons_qual` and
+`band_n` exist only on the FS path (GRF and DINA have no consistency screen); `admitted_n` is GRF's
+forest-qualified count and DINA's admitted count, and is NA on FS; `dina_proposed_n` is DINA's only.
+
+```{r identification}
+kable(IDN, digits = 4,
+      caption = cap("Per cell x identifier: declaration, mean |Hhat|, mean true positives (sensitivity x n_true), sensitivity, PPV, specificity, MR's kept family K, the admitted and proposed family sizes, and FS's consistency-qualifying and in-band counts. Structural NAs are not failures."))
+```
+
+# Against the committed study
+
+Quoted from the committed grid
+(`mr_sweep/maxeffCons_actg175_or075_seedtab_s1000/mr_coverage_grid_*.rds`), **not recomputed**:
+the study's detection rate and its two-sided coverage of θ† from the unadjusted (naive) and IJ
+two-term intervals, at n = 500 and n = 2000, beside this campaign's figures in the same cells.
+
+**The rule, the replicate count and the constructions all differ.** The study ran `maxeffCons` at
+ε 0.10 with `ci_method = "ij"` and 1,000 replicates per cell; this campaign runs `effMaxSG` at
+ε 0.20 with the field constructions and 2,000 replicates per cell. The two columns are therefore
+not a like-for-like contrast of any one construction — they place this campaign's design point
+against the published one.
+
+```{r study-comparison}
+if (!is.null(STU)) kable(STU, digits = 4,
+  col.names = c("cell","identifier","construction","study detection rate",
+                "study two-sided coverage of theta-dagger (Wilson)","study n_eff","study replicates",
+                "this campaign's declaration rate","this campaign's two-sided coverage of theta-dagger"),
+  caption = cap("The committed study (maxeffCons, eps 0.10, IJ only, 1,000 replicates) beside this campaign (effMaxSG, eps 0.20, field constructions, 2,000 replicates), at the protective design point OR 0.75 and n = 500 / 2000. Study figures are quoted from its grid.")) else
+  cat("The committed study grid was not found; the comparison table is omitted.\n")
+```
+
+# Regime diagnostics
+
+```{r regime}
+kable(RG, digits = 3,
+      caption = cap("Per cell x identifier: declared replicates, p-hat(Hhat) mean and the share below 0.5 (tie regime), SD(log beta-tilde^c) / mean naive SE^c, Lambda-SD^c / naive SE^c for the field and for field-s, the IJ SE and Lambda-SD against SD(log est) per block, and seconds per replicate (fit + MR + field; identification; field; complement). Every ratio is on the working (log-OR) scale."))
+```
+
+# The display (log-OR scale)
+
+```{r display-table}
+kable(DS[, c("cell","identifier","block","estimator","n","bias_log","sd_emp","se_mean","b","r","cov1","cov1_ref","cov2","cov2_ref")],
+      digits = 3,
+      col.names = c("cell","identifier","block","estimator","n","bias (log-OR)","SD","mean SE","b","r",
+                    "1-sided cov","1-sided ref","2-sided cov","2-sided ref"),
+      caption = cap("fs_sim_bias_coverage(scale = 'log'): b = retained bias / SD, r = mean SE / SD, both on the log-OR scale; refs = Phi(1.645 r -/+ b) and Phi(1.96 r - b) - Phi(-1.96 r - b). The Hhat^c 'fld_s' rows come from a copy of the results with fld_Hc_*_s renamed over fld_Hc_* (field-s)."))
+```
+
+```{r display-H, fig.width=13, fig.height=4.6, fig.cap=cap("Hhat: bias against coverage on the log-OR scale, one point per estimator per cell x identifier.")}
+DS$cell_id <- paste(DS$cell, DS$identifier)
+pH <- fs_plot_bias_coverage(within(DS[DS$block == "H", ], cell <- cell_id), side = "lower") +
+  ggplot2::labs(caption = COND)
+ggsave(file.path(out_dir, "fig_or_bias_coverage_display_H.png"), pH, width = 13, height = 4.6, dpi = 130)
+pH
+```
+
+```{r display-Hc, fig.width=13, fig.height=4.6, fig.cap=cap("Hhat^c: bias against coverage on the log-OR scale, one point per estimator per cell x identifier; field-s through the renamed copy.")}
+pC <- fs_plot_bias_coverage(within(DS[DS$block == "Hc", ], cell <- cell_id), side = "upper") +
+  ggplot2::labs(caption = COND)
+ggsave(file.path(out_dir, "fig_or_bias_coverage_display_Hc.png"), pC, width = 13, height = 4.6, dpi = 130)
+pC
+```
+
+# The extract
+
+```{r extract}
+# Rebuilt from EX, not the earlier XX snapshot: the study-comparison block appends its quoted
+# rows after XX is taken for the three-identifier table.
+X <- do.call(rbind, EX)
+num <- X$commit != "committed grid"
+X$value[num] <- signif(X$value[num], 8); X$mc_se[num] <- signif(X$mc_se[num], 6)
+X$wilson_lo[num] <- signif(X$wilson_lo[num], 6); X$wilson_hi[num] <- signif(X$wilson_hi[num], 6)
+write.csv(X, file.path(out_dir, "or_metrics.csv"), row.names = FALSE, na = "")
+cols <- c(
+"# COLUMNS — or_metrics.csv (campaigns orfs, orgrf, ordina; TASK_actg175_binary_campaign_2026-09-17 §3.2)", "",
+"Written by `summary_actg175_or.qmd` from the same objects its tables print. The schema of `../continuous/md_dina_metrics.csv` (see `COLUMNS_md_dina.md`) plus a `design` column. One row per design × cell × identifier × block × estimator × metric (× tau for bound-location rows).", "",
+"## Columns", "",
+"- `campaign`: `orfs`, `orgrf` or `ordina`; `maxeffCons_actg175_or075_seedtab_s1000` for the rows quoted from the committed study grid.",
+"- `identifier`: `fs`, `grf` or `dina` — the identifier that produced the row. Every `grf` and `dina` coverage row is coverage of the estimand **conditional on the proposed family**.",
+"- `design`: `or075` (the supplement's protective design), `or150` (harm) or `or100` (borderline null: the planted region at the null against a protective complement). All three share the prevalence 9.632% and the complement references θ†(Ĥᶜ) 0.6560 / θ‡(Ĥᶜ) 0.6314; they differ only in `target_effect`.",
+"- `cell`: `OR 0.75 n500`, `OR 0.75 n2000`, `OR 1.5 n500`, `OR 1.5 n2000`, `OR 1.0 n500`, `OR 1.0 n2000`.",
+"- `block`: `H` (the selected subgroup Ĥ), `Hc` (its complement Ĥᶜ), `joint` (the pair), `all` (timing).",
+"- `estimator`: `naive` (unadjusted), `oracle`, `mr` (IJ two-term), `fld` (field), `fld_s` (field-s), `bonf_s`, `bonf`, `separate_s`, `calibrated`, `all`.",
+"- `metric`: see below. `tau`: the ladder point, on bound-location rows only.",
+"- `value`, `mc_se`: the figure and its Monte Carlo SE. For a proportion, `mc_se` is sqrt(p(1-p)/n) and `wilson_lo` / `wilson_hi` are the Wilson 95% interval; for a mean, `mc_se` is SD/sqrt(n) and the Wilson columns are empty.",
+"- `n`: the denominator the figure was computed on.",
+"- `commit`: the commit that added the cell's combined bundle; `committed grid` for the quoted study rows.", "",
+"## Metrics", "",
+"- Estimation, per block × estimator: `bias_or` (mean estimate minus target, OR difference), `bias_log` (mean log estimate minus log target), `bias_sd_units` (`bias_log` / SD(log est)), `sd_emp_or`, `sd_emp_log`, `se_mean` (the stored SE, log-OR scale), `se_over_sd` (`se_mean` / SD(log est)), `halfwidth_or`, `margin1_or`.",
+"- Coverage, per block × estimator: `cov2` (two-sided, the estimator's own interval) and `cov1_lower` / `cov1_upper` (one-sided on the block's exposed side), each against the row's target — β(Ĥ) for the conditional rows and θ† for the `oracle` row. The harm block additionally carries `cov2_theta_dagger`, `cov1_lower_theta_dagger`, `cov2_theta_ddagger` and `cov1_lower_theta_ddagger`.",
+"- Bound location: `share_lower_ge_tau` (Ĥ) and `share_upper_le_tau` (Ĥᶜ) at each `tau`; `bound_mean` and `bound_q05` … `bound_q95`.",
+"- Joint: `joint_coverage`, `share_both_bounds`, `cov_H`, `cov_Hc`, `margin_H_or`, `margin_Hc_or`; `gamma_mean`, `gamma_mean_s`, `corr`, `corr_s` under estimator `calibrated`.",
+"- Identification (block `H`, estimator `all`): `declaration_rate`, `mean_size_hhat` (the recorder's `n_sel`), `mean_true_positives` (sensitivity × `n_true`, never |Ĥ|), `sensitivity_mean`, `ppv_mean`, `spec_mean`, `mean_n_true`, `mean_n_family` (MR's kept family K), `mean_admitted_n` (GRF's forest-qualified / DINA's admitted count; NA on FS), `mean_proposed_n` (DINA only), `mean_n_cons_qual` and `mean_band_n` (FS only).",
+"- Regime: `p_hat_mean`, `p_hat_share_lt_05`; `sd_btc_over_naive_se` (block `Hc`, estimator `mr`) and `lamsd_over_naive_se` (block `Hc`, estimators `fld` and `fld_s`), all on the log-OR scale.",
+"- Display: `display_b`, `display_r`, `display_cov1`, `display_cov1_ref`, `display_cov2`, `display_cov2_ref` from `fs_sim_bias_coverage(scale = \"log\")`.",
+"- Timing (block `all`, estimator `all`): `secs_fit_mr_mean` (the fit with MR, all replicates), `secs_id_mean` (identification inside forestsearch()), `secs_field_mean` and `secs_complement_mean` (declared replicates). `fit_mr_secs` CONTAINS the other three, which are never summed.",
+"- Quoted study rows: `study_declaration_rate` and `study_cov2_theta_dagger` — the committed study's detection rate and two-sided coverage of θ† under ITS rule (`maxeffCons`, ε 0.10), IJ intervals only, 1,000 replicates per cell. Read from its grid, never recomputed.", "",
+"## Scale convention", "",
+"Every estimate, bound and threshold is an **odds ratio**; `adverse_outcome = TRUE`, so **OR > 1 is harm** and no orientation flip is applied anywhere. Two scales coexist and are never mixed (`R/fs_mr_inference.R:480–488`): the **effect** scale (the OR) carries every estimate and bound, and the **working** scale (the log-OR) carries the stored Wald and IJ SEs, the field's `lambda_mean` / `se_field` and the Λ* quantiles. So every bias in SD units, every SE/SD and every regime ratio here is computed on the log-OR scale, while `bias_or`, `halfwidth_or`, `margin*_or` and the bound columns are ORs.", "",
+"## Reading convention", "",
+"Bounds are read by **location** against the ladder τ = 0.7, 0.8, 0.9, 1.0, 1.25, 1.5, 2.0, never as significance at OR = 1: on Ĥ, a one-sided 95% lower bound at or above τ reads \"harm of at least τ\"; on Ĥᶜ, a one-sided 95% upper bound at or below τ reads \"harm of at most τ\".", "",
+"## Conditional-family reading", "",
+"GRF's and DINA's candidate families are generated from fitted surfaces, so the fixed-family condition does not hold for them: **every `grf` and `dina` coverage row is coverage of the estimand conditional on the proposed family.** FS's family is the prespecified cut grid. Comparisons across the three identifiers are descriptive: the identifier, the family construction and the set of detected replicates all differ, so rows are read side by side and never ranked.")
+writeLines(cols, file.path(out_dir, "COLUMNS_or.md"))
+cat(sprintf("extract: %d rows (%d fs, %d grf, %d dina) -> %s ; %s\n", nrow(X),
+            sum(X$identifier == "fs"), sum(X$identifier == "grf"), sum(X$identifier == "dina"),
+            file.path(out_dir, "or_metrics.csv"), file.path(out_dir, "COLUMNS_or.md")))
+```
+
+```{r session}
+sessionInfo()
+```
