@@ -142,9 +142,14 @@ make_effect_estimator <- function(
     },
 
     binary = {
+      # "OR" first: match.arg() returns the first choice for a NULL argument,
+      # so the choice ORDER is itself a default.  Unreachable today -- the
+      # resolution above always yields a length-1 value -- but an "RD" sitting
+      # here contradicts the binary default resolved at :112-120, and a future
+      # path that reaches this with NULL must land on the same measure.
       effect_measure <- match.arg(
         effect_measure,
-        choices = c("RD", "OR", "RR", "IRR", "IRD")
+        choices = c("OR", "RD", "RR", "IRR", "IRD")
       )
       if (effect_measure %in% c("IRR", "IRD")) {
         .make_poisson_rate_estimator(

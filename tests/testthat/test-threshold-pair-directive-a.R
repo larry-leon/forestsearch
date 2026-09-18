@@ -396,3 +396,34 @@ test_that("c2 > c1 errors before any model is fit", {
   }, error = function(e) conditionMessage(e))
   expect_false(isTRUE(grepl("c2 > c1 not allowed", err, fixed = TRUE)))
 })
+
+
+# ---------------------------------------------------------------------------
+# The rider (separable): the latent match.arg default
+# ---------------------------------------------------------------------------
+
+test_that("make_effect_estimator()'s binary choice order defaults to OR", {
+  # match.arg() returns the FIRST choice for a NULL argument, so the order of
+  # the choices vector is a default in its own right.  It is unreachable today
+  # -- the resolution above it always yields a length-1 effect_measure -- but
+  # it must not contradict that resolution.
+  b <- gsub("[[:space:]]+", " ",
+            paste(deparse(body(make_effect_estimator)), collapse = " "))
+  expect_identical(
+    length(gregexpr('c("OR", "RD", "RR", "IRR", "IRD")', b,
+                    fixed = TRUE)[[1L]]), 1L)
+  expect_identical(
+    gregexpr('c("RD", "OR", "RR", "IRR", "IRD")', b, fixed = TRUE)[[1L]][1L],
+    -1L)
+
+  # The reachable default is unchanged, and an explicit measure still wins.
+  df <- .make_binary_data(N = 60L, seed = 3L)
+  f_default <- make_effect_estimator(outcome_type = "binary",
+                                     treat.name = "treat", outcome.name = "y")
+  f_or <- make_effect_estimator(outcome_type = "binary", effect_measure = "OR",
+                                treat.name = "treat", outcome.name = "y")
+  f_rd <- make_effect_estimator(outcome_type = "binary", effect_measure = "RD",
+                                treat.name = "treat", outcome.name = "y")
+  expect_equal(f_default(df)$estimate, f_or(df)$estimate)
+  expect_false(isTRUE(all.equal(f_default(df)$estimate, f_rd(df)$estimate)))
+})
