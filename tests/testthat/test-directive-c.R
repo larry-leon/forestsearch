@@ -445,6 +445,69 @@ test_that("the micro-fit stays inside the compute cap", {
 })
 
 
+# =============================================================================
+# Part 4 -- the details-time frontier print retitle
+#
+# Reuses the Part 3 micro-fit via `dina_res`, so no second model is fitted.
+# =============================================================================
+
+.dc_details_lines <- function() {
+  e <- .dc_micro_fit()
+  msgs <- character(0)
+  withCallingHandlers(
+    tryCatch(
+      forestsearch:::.forestsearch_dina_select(
+        df = e$df, df.predict = NULL, df.test = NULL,
+        confounders.name = e$cov,
+        outcome.name = "y", event.name = "y", treat.name = "w",
+        id.name = "id", outcome_type = "continuous",
+        hr.threshold = 0.10, n.min = 40L, sg_focus = "maxSG",
+        selection_rule = "neighborhood", effect_neighborhood = 0.05,
+        dina_args = list(family = "gaussian"), dina_res = e$fit,
+        seedit = 1L, details = TRUE,
+        effect_measure = "MD", adverse_outcome = TRUE),
+      error = function(err) NULL),
+    message = function(m) {
+      msgs <<- c(msgs, conditionMessage(m))
+      invokeRestart("muffleMessage")
+    },
+    warning = function(w) invokeRestart("muffleWarning"))
+  paste(msgs, collapse = "")
+}
+
+test_that("the frontier print is titled as proposed single cuts", {
+  out <- .dc_details_lines()
+
+  expect_true(grepl("DINA frontier -- proposed single cuts", out, fixed = TRUE))
+  expect_true(grepl("display only, not the searched family", out, fixed = TRUE))
+
+  # The old title is gone.
+  expect_false(grepl("DINA frontier candidates", out, fixed = TRUE))
+
+  # Shown BESIDE the family counts, which are unchanged.
+  expect_true(grepl("Candidates searched:", out, fixed = TRUE))
+  expect_true(grepl("Candidates qualifying", out, fixed = TRUE))
+
+  # Structure is unchanged: the same header block still precedes it.
+  expect_true(grepl("[forestsearch] DINA selection", out, fixed = TRUE))
+  expect_true(grepl("Harm floor:", out, fixed = TRUE))
+})
+
+test_that("neither old frontier title survives anywhere in the package", {
+  ns  <- asNamespace("forestsearch")
+  txt <- vapply(ls(ns, all.names = TRUE), function(o) {
+    f <- get(o, envir = ns)
+    if (!is.function(f)) return("")
+    paste(deparse(body(f)), collapse = "\n")
+  }, character(1))
+  all_txt <- paste(txt, collapse = "\n")
+  expect_false(grepl("DINA frontier candidates (per-covariate non-dominated)",
+                     all_txt, fixed = TRUE))
+  expect_false(grepl("DINA frontier: no candidates met the size constraint.",
+                     all_txt, fixed = TRUE))
+})
+
+
 test_that("wall clock stays inside the file's abort budget", {
   elapsed <- proc.time()[["elapsed"]] - .dc_t0
   message(sprintf("[directive C] acceptance-test wall clock: %.1f s", elapsed))

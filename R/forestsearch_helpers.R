@@ -1528,7 +1528,9 @@ reset_workers <- function(workers   = NULL,
       paste0("  n.min:               ", n.min)
     )
 
-    # DINA frontier: the per-covariate candidate cuts under consideration.
+    # DINA frontier: the per-covariate cuts DINA proposes.  A DISPLAY, shown
+    # beside the family counts printed below -- it is not the family
+    # dina_subgroup() searches, and nothing here selects.
     fr <- tryCatch(
       dina_frontier(fit = dina_res, df = df, covariates = confounders.name,
                     scope = "wide", n_min = n.min),
@@ -1539,7 +1541,10 @@ reset_workers <- function(workers   = NULL,
       }
     )
     if (!is.null(fr) && nrow(fr) > 0L) {
-      lines <- c(lines, "  DINA frontier candidates (per-covariate non-dominated):")
+      lines <- c(lines,
+                 paste0("  DINA frontier -- proposed single cuts ",
+                        "(per-covariate non-dominated); display only, ",
+                        "not the searched family:"))
       fr_show <- fr[, intersect(c("covariate", "direction", "threshold",
                                   "n_subgroup", "effect", "cut_expr"),
                                 names(fr)), drop = FALSE]
@@ -1547,7 +1552,9 @@ reset_workers <- function(workers   = NULL,
                  paste0("    ",
                         utils::capture.output(print(fr_show, row.names = FALSE))))
     } else if (!is.null(fr)) {
-      lines <- c(lines, "  DINA frontier: no candidates met the size constraint.")
+      lines <- c(lines,
+                 paste0("  DINA frontier -- proposed single cuts: none met ",
+                        "the size constraint."))
     }
     # Single message() call: stderr is forwarded by doFuture workers, whereas
     # cat() (stdout) is captured by the future and never reaches the document.
