@@ -3015,10 +3015,21 @@ forestsearch <- function(df.analysis,
         dina_res <- do.call(dina, fit_call)
       }
 
-      fr <- do.call(dina_frontier,
-                    c(list(fit = dina_res, df = df.dina,
-                           covariates = confounders.name),
-                      da$frontier))
+      # .resolve_dina_args() supplies the finite screening caps (3L / 10L)
+      # explicitly, so this pool is unchanged by dina_frontier()'s Inf
+      # defaults.  Under selected_only = TRUE the table below is discarded in
+      # favour of the selected cut, so a cap-trim warning would name a display
+      # nobody sees -- muffle exactly that condition class there, and nothing
+      # else.  Under selected_only = FALSE the caps DO shape the screening
+      # pool, and the warning stands.
+      fr <- withCallingHandlers(
+        do.call(dina_frontier,
+                c(list(fit = dina_res, df = df.dina,
+                       covariates = confounders.name),
+                  da$frontier)),
+        dina_frontier_cap_trim = function(w) {
+          if (isTRUE(da$selected_only)) invokeRestart("muffleWarning")
+        })
 
       if (isTRUE(da$selected_only)) {
         # Selected-cut screening: contribute the SINGLE cut dina_subgroup()

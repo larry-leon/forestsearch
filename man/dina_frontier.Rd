@@ -12,8 +12,8 @@ dina_frontier(
   m_diff = NULL,
   n_min = 60L,
   direction = c("both", "left", "right"),
-  max_per_covariate = 3L,
-  max_subgroups = 10L,
+  max_per_covariate = Inf,
+  max_subgroups = Inf,
   digits = 3L
 )
 }
@@ -43,19 +43,22 @@ Default \code{NULL}.}
 \item{max_per_covariate}{positive integer, or \code{Inf} for no limit: the
 most cuts any single covariate may contribute to the \strong{returned table}
 (its top cuts by effect).  A report-trimming cap, not a search control.
-Default \code{3L}.}
+Default \code{Inf} -- show everything.  A finite value that actually trims
+warns, naming the kept and available counts.}
 
 \item{max_subgroups}{positive integer, or \code{Inf} for no limit: the cap
 on the total pooled cuts in the \strong{returned table}.  When the pool is
 larger it is trimmed round-robin by within-covariate effect rank.
-Default \code{10L}.
+Default \code{Inf}; a finite value that actually trims warns, naming the
+kept and available counts.
 
-Not to be equated with \code{\link[=forestsearch]{forestsearch()}}'s \code{max_subgroups_search}.  The
-two differ in what they act on and in their defaults:
+Both caps default to \code{Inf} for the same reason \code{\link[=forestsearch]{forestsearch()}}'s
+\code{max_subgroups_search} does: a finite pooled cap drops covariates whole
+and truncates the rank-2 pass, so the table stops being a faithful
+picture of the frontier.  The two are still not the same knob --
 \code{max_subgroups_search} truncates the pool of candidate subgroups that
-forestsearch actually \strong{evaluates} at the consistency stage, and
-defaults to \code{Inf} (evaluate everything); \code{max_subgroups} trims the rows
-of the \strong{table this function returns}, and defaults to the finite \code{10L}.
+forestsearch actually \strong{evaluates} at the consistency stage, while
+\code{max_subgroups} trims the rows of the \strong{table this function returns}.
 One changes what is computed; the other changes what is reported.}
 
 \item{digits}{significant figures for rounding the emitted threshold
@@ -120,7 +123,9 @@ on within-covariate effect rank -- every covariate's best cut first
 so a finite budget preserves cross-covariate spread instead of
 refilling with one covariate's micro-steps.  Setting
 \code{max_per_covariate = Inf} recovers a pure global budget; setting
-\code{max_subgroups = Inf} recovers per-covariate-only limits.
+\code{max_subgroups = Inf} recovers per-covariate-only limits.  Both default to
+\code{Inf}, and a finite cap that actually removes rows warns rather than
+trimming the display silently.
 
 \strong{Cut form.}  The expression is always the canonical \code{"<covariate> <= <threshold>"}.  forestsearch's factor machinery exposes both the
 cut and its complement, so one expression covers both of DINA's
@@ -152,8 +157,7 @@ fit <- dina(df_demo, outcome = "y", treatment = "w",
             family = "gaussian", seed = 1L)
 
 fr <- dina_frontier(fit, df_demo, covariates = c("x1", "x2", "x3"),
-                    n_min = 60L, max_per_covariate = 3L,
-                    max_subgroups = 10L)
+                    n_min = 60L)
 fr
 fr$cut_expr   # ready to append to forestsearch(conf_force = ...)
 

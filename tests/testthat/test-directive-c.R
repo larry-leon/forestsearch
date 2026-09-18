@@ -332,6 +332,119 @@ test_that("the same dina_args under consistency and grf warn nothing", {
 })
 
 
+# =============================================================================
+# Part 3 -- honest display caps
+#
+# The file's ONE micro-fit lives here and is reused by every cap assertion.
+# =============================================================================
+
+.dc_fit_env <- new.env(parent = emptyenv())
+
+.dc_micro_fit <- function() {
+  if (!is.null(.dc_fit_env$fit)) return(.dc_fit_env)
+  set.seed(7L)
+  n  <- 200L
+  df <- data.frame(
+    w  = stats::rbinom(n, 1L, 0.5),
+    x1 = stats::runif(n, -1, 1),
+    x2 = stats::runif(n, -1, 1),
+    x3 = stats::runif(n, -1, 1))
+  tau  <- 0.3 + 1.2 * df$x1 - 0.4 * df$x2
+  df$y <- 0.5 * df$x1 + df$w * tau + stats::rnorm(n)
+  t0 <- proc.time()[["elapsed"]]
+  .dc_fit_env$fit  <- dina(df, outcome = "y", treatment = "w",
+                           covariates = c("x1", "x2", "x3"),
+                           family = "gaussian", seed = 1L)
+  .dc_fit_env$secs <- proc.time()[["elapsed"]] - t0
+  .dc_fit_env$df   <- df
+  .dc_fit_env$cov  <- c("x1", "x2", "x3")
+  .dc_fit_env
+}
+
+test_that("dina_frontier() caps default to Inf / Inf", {
+  fm <- formals(dina_frontier)
+  expect_identical(eval(fm$max_per_covariate), Inf)
+  expect_identical(eval(fm$max_subgroups),     Inf)
+})
+
+test_that("the default frontier is untrimmed and silent", {
+  e <- .dc_micro_fit()
+  expect_silent(
+    fr_inf <- dina_frontier(e$fit, e$df, covariates = e$cov, n_min = 40L))
+  expect_gt(nrow(fr_inf), 0L)
+  # Inf shows every non-dominated cut the extractor found.
+  expect_identical(nrow(fr_inf), as.integer(attr(fr_inf, "n_frontier")))
+  .dc_fit_env$fr_inf <- fr_inf
+})
+
+test_that("a finite cap that trims warns, naming kept and available", {
+  e  <- .dc_micro_fit()
+  n_full <- nrow(.dc_fit_env$fr_inf)
+  skip_if(n_full < 3L, "frontier too small to exercise a trimming cap")
+
+  cap <- n_full - 1L
+  w <- tryCatch(dina_frontier(e$fit, e$df, covariates = e$cov, n_min = 40L,
+                              max_subgroups = cap),
+                warning = conditionMessage)
+  expect_true(is.character(w))
+  expect_true(grepl(paste0("max_subgroups = ", cap), w, fixed = TRUE))
+  expect_true(grepl(paste0(cap, " of ", n_full), w, fixed = TRUE))
+  expect_true(grepl("DISPLAY limit", w, fixed = TRUE))
+
+  # ...and it really trims.
+  fr <- suppressWarnings(
+    dina_frontier(e$fit, e$df, covariates = e$cov, n_min = 40L,
+                  max_subgroups = cap))
+  expect_identical(nrow(fr), as.integer(cap))
+
+  # The condition carries the class the screening path muffles.
+  cond <- tryCatch(dina_frontier(e$fit, e$df, covariates = e$cov, n_min = 40L,
+                                 max_subgroups = cap),
+                   warning = function(w) w)
+  expect_s3_class(cond, "dina_frontier_cap_trim")
+})
+
+test_that("a finite cap that does not trim is silent", {
+  e <- .dc_micro_fit()
+  n_full <- nrow(.dc_fit_env$fr_inf)
+  expect_silent(dina_frontier(e$fit, e$df, covariates = e$cov, n_min = 40L,
+                              max_subgroups = n_full,
+                              max_per_covariate = n_full))
+})
+
+test_that("max_per_covariate trims and warns on its own terms", {
+  e  <- .dc_micro_fit()
+  per <- table(.dc_fit_env$fr_inf$covariate)
+  skip_if(max(per) < 2L, "no covariate contributes 2+ cuts")
+  cap <- max(per) - 1L
+  w <- tryCatch(dina_frontier(e$fit, e$df, covariates = e$cov, n_min = 40L,
+                              max_per_covariate = cap),
+                warning = conditionMessage)
+  expect_true(is.character(w))
+  expect_true(grepl(paste0("max_per_covariate = ", cap), w, fixed = TRUE))
+})
+
+test_that("the discarded screening frontier muffles exactly the trim warning", {
+  txt <- .dc_body_text("forestsearch")
+  expect_true(grepl("dina_frontier_cap_trim = function(w)", txt, fixed = TRUE))
+  expect_true(grepl("isTRUE(da$selected_only)", txt, fixed = TRUE))
+  expect_true(grepl("muffleWarning", txt, fixed = TRUE))
+  # The screening pool is untouched: .resolve_dina_args() still supplies the
+  # finite caps, so Part 3 changes no candidate the search evaluates.
+  da <- forestsearch:::.resolve_dina_args(list(), "binary",
+                                          n_min_default = 60L, seed_default = 1L)
+  expect_identical(da$frontier$max_per_covariate, 3L)
+  expect_identical(da$frontier$max_subgroups, 10L)
+})
+
+test_that("the micro-fit stays inside the compute cap", {
+  e <- .dc_micro_fit()
+  message(sprintf("[directive C] micro-fit (1 x dina, gaussian, n = 200): %.2f s",
+                  e$secs))
+  expect_lt(e$secs, 300)
+})
+
+
 test_that("wall clock stays inside the file's abort budget", {
   elapsed <- proc.time()[["elapsed"]] - .dc_t0
   message(sprintf("[directive C] acceptance-test wall clock: %.1f s", elapsed))

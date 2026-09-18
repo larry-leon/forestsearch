@@ -1017,6 +1017,34 @@ print.dina_subgroup <- function(x,
   if (is.infinite(x)) Inf else as.integer(x)
 }
 
+#' Report a finite frontier cap that actually trimmed the display
+#'
+#' Signalled with the condition class `dina_frontier_cap_trim` so a caller that
+#' discards the frontier (the `use_dina` + `selected_only = TRUE` screening
+#' branch in `forestsearch_main.R`, which keeps the finite caps to leave the
+#' screening pool byte-identical and then throws the table away) can muffle
+#' exactly this warning and nothing else.
+#'
+#' @param nm cap argument name.
+#' @param cap the finite cap value.
+#' @param kept rows surviving the cap.
+#' @param available rows the cap had to choose from.
+#' @return invisible NULL; called for the warning.
+#' @noRd
+.dina_warn_cap_trim <- function(nm, cap, kept, available) {
+  w <- structure(
+    class = c("dina_frontier_cap_trim", "warning", "condition"),
+    list(message = paste0(
+           "`", nm, " = ", format(cap), "` trimmed the frontier display: ",
+           format(kept), " of ", format(available),
+           " non-dominated cuts kept.  The cap is a DISPLAY limit -- ",
+           "the pooled cap drops covariates whole and truncates the rank-2 ",
+           "pass.  Pass ", nm, " = Inf (the default) to see them all."),
+         call = NULL))
+  warning(w)
+  invisible(NULL)
+}
+
 #' Extract DINA per-covariate Pareto frontiers as forestsearch cuts
 #'
 #' Runs the same univariate (covariate, direction, threshold) search as
@@ -1060,7 +1088,9 @@ print.dina_subgroup <- function(x,
 #' so a finite budget preserves cross-covariate spread instead of
 #' refilling with one covariate's micro-steps.  Setting
 #' `max_per_covariate = Inf` recovers a pure global budget; setting
-#' `max_subgroups = Inf` recovers per-covariate-only limits.
+#' `max_subgroups = Inf` recovers per-covariate-only limits.  Both default to
+#' `Inf`, and a finite cap that actually removes rows warns rather than
+#' trimming the display silently.
 #'
 #' **Cut form.**  The expression is always the canonical `"<covariate>
 #' <= <threshold>"`.  forestsearch's factor machinery exposes both the
@@ -1094,18 +1124,21 @@ print.dina_subgroup <- function(x,
 #' @param max_per_covariate positive integer, or `Inf` for no limit: the
 #'   most cuts any single covariate may contribute to the **returned table**
 #'   (its top cuts by effect).  A report-trimming cap, not a search control.
-#'   Default `3L`.
+#'   Default `Inf` -- show everything.  A finite value that actually trims
+#'   warns, naming the kept and available counts.
 #' @param max_subgroups positive integer, or `Inf` for no limit: the cap
 #'   on the total pooled cuts in the **returned table**.  When the pool is
 #'   larger it is trimmed round-robin by within-covariate effect rank.
-#'   Default `10L`.
+#'   Default `Inf`; a finite value that actually trims warns, naming the
+#'   kept and available counts.
 #'
-#'   Not to be equated with [forestsearch()]'s `max_subgroups_search`.  The
-#'   two differ in what they act on and in their defaults:
+#'   Both caps default to `Inf` for the same reason [forestsearch()]'s
+#'   `max_subgroups_search` does: a finite pooled cap drops covariates whole
+#'   and truncates the rank-2 pass, so the table stops being a faithful
+#'   picture of the frontier.  The two are still not the same knob --
 #'   `max_subgroups_search` truncates the pool of candidate subgroups that
-#'   forestsearch actually **evaluates** at the consistency stage, and
-#'   defaults to `Inf` (evaluate everything); `max_subgroups` trims the rows
-#'   of the **table this function returns**, and defaults to the finite `10L`.
+#'   forestsearch actually **evaluates** at the consistency stage, while
+#'   `max_subgroups` trims the rows of the **table this function returns**.
 #'   One changes what is computed; the other changes what is reported.
 #' @param digits significant figures for rounding the emitted threshold
 #'   in `cut_expr`.  Default `3L`.
@@ -1149,8 +1182,7 @@ print.dina_subgroup <- function(x,
 #'             family = "gaussian", seed = 1L)
 #'
 #' fr <- dina_frontier(fit, df_demo, covariates = c("x1", "x2", "x3"),
-#'                     n_min = 60L, max_per_covariate = 3L,
-#'                     max_subgroups = 10L)
+#'                     n_min = 60L)
 #' fr
 #' fr$cut_expr   # ready to append to forestsearch(conf_force = ...)
 #'
@@ -1160,8 +1192,8 @@ dina_frontier <- function(fit, df, covariates,
                           m_diff = NULL,
                           n_min = 60L,
                           direction = c("both", "left", "right"),
-                          max_per_covariate = 3L,
-                          max_subgroups = 10L,
+                          max_per_covariate = Inf,
+                          max_subgroups = Inf,
                           digits = 3L) {
 
   if (!inherits(fit, "dina")) {
@@ -1263,6 +1295,19 @@ dina_frontier <- function(fit, df, covariates,
   # Raw per-covariate frontier size (deduped) before any cap.
   n_frontier <- sum(vapply(per_cov, nrow, integer(1L)))
 
+  # A finite cap that actually binds is reported, naming kept vs. available.
+  # Silence when the cap is Inf (the default) or wide enough not to bind: the
+  # frontier is a display object, and a display that silently drops covariates
+  # whole -- which the pooled cap does -- is the thing being fixed here.
+  n_trimmed_cov <- sum(vapply(per_cov,
+                              function(ff) max(nrow(ff) - max_per_covariate, 0),
+                              numeric(1L)))
+  if (is.finite(max_per_covariate) && n_trimmed_cov > 0) {
+    .dina_warn_cap_trim("max_per_covariate", max_per_covariate,
+                        kept = n_frontier - n_trimmed_cov,
+                        available = n_frontier)
+  }
+
   per_cov <- lapply(per_cov, function(ff) {
     if (nrow(ff) > max_per_covariate) {
       ff <- ff[seq_len(max_per_covariate), , drop = FALSE]
@@ -1278,6 +1323,10 @@ dina_frontier <- function(fit, df, covariates,
   # rather than refilling with one covariate's micro-steps.
   fr <- fr[order(fr$cov_rank, -fr$effect), , drop = FALSE]
   if (nrow(fr) > max_subgroups) {
+    if (is.finite(max_subgroups)) {
+      .dina_warn_cap_trim("max_subgroups", max_subgroups,
+                          kept = max_subgroups, available = nrow(fr))
+    }
     fr <- fr[seq_len(max_subgroups), , drop = FALSE]
   }
   fr$cov_rank <- NULL

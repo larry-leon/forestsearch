@@ -1,5 +1,22 @@
 # forestsearch (development version)
 
+* **`dina_frontier()`'s display caps now default to `Inf` and say when they
+  trim.** `max_per_covariate` and `max_subgroups` defaulted to `3L` and `10L`,
+  which silently dropped covariates whole and truncated the round-robin
+  rank-2 pass -- observed in the applied vignettes, where the printed frontier
+  was not the frontier. Both now default to `Inf`, aligning with
+  `max_subgroups_search`'s own `Inf` doctrine, and a user-supplied finite value
+  that actually removes rows raises a warning naming the kept and available
+  counts (condition class `dina_frontier_cap_trim`). **Affected: callers who
+  relied on the finite defaults** -- they now receive the full table; every
+  committed in-repo caller passes both caps explicitly, so no committed
+  rendered table changes. **Unaffected: the candidate pool anywhere.** The
+  frontier is a display object; `dina_subgroup()` never consults it, and
+  `forestsearch(use_dina = TRUE)` still supplies the finite screening caps
+  itself, so the screening pool is byte-identical. Under the default
+  `selected_only = TRUE` that screening frontier is discarded, so the trim
+  warning is muffled there rather than naming a table nobody sees.
+
 * **`dina_args` frontier keys now warn when they are ignored.** The seven
   `dina_frontier()` keys -- `scope`, `m_diff`, `n_min`, `direction`,
   `max_per_covariate`, `max_subgroups`, `digits` -- are inert under
