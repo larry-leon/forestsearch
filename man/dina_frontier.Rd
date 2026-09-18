@@ -41,13 +41,22 @@ Default \code{NULL}.}
 \item{direction}{one of \code{"both"} (default), \code{"left"}, \code{"right"}.}
 
 \item{max_per_covariate}{positive integer, or \code{Inf} for no limit: the
-most cuts any single covariate may contribute (its top cuts by
-effect).  Default \code{3L}.}
+most cuts any single covariate may contribute to the \strong{returned table}
+(its top cuts by effect).  A report-trimming cap, not a search control.
+Default \code{3L}.}
 
 \item{max_subgroups}{positive integer, or \code{Inf} for no limit: the cap
-on the total pooled cuts returned -- the DINA analog of
-forestsearch's \code{max_subgroups_search}.  When the pool is larger it is
-trimmed round-robin by within-covariate effect rank.  Default \code{10L}.}
+on the total pooled cuts in the \strong{returned table}.  When the pool is
+larger it is trimmed round-robin by within-covariate effect rank.
+Default \code{10L}.
+
+Not to be equated with \code{\link[=forestsearch]{forestsearch()}}'s \code{max_subgroups_search}.  The
+two differ in what they act on and in their defaults:
+\code{max_subgroups_search} truncates the pool of candidate subgroups that
+forestsearch actually \strong{evaluates} at the consistency stage, and
+defaults to \code{Inf} (evaluate everything); \code{max_subgroups} trims the rows
+of the \strong{table this function returns}, and defaults to the finite \code{10L}.
+One changes what is computed; the other changes what is reported.}
 
 \item{digits}{significant figures for rounding the emitted threshold
 in \code{cut_expr}.  Default \code{3L}.}
@@ -89,16 +98,22 @@ in \emph{composing} cuts drawn from several covariates.  So this function
 computes a separate frontier for each covariate, then pools them,
 mirroring how a GRF tree splits on multiple variables.
 
-\strong{Two caps, each optional.}  Diversity and total burden are
-controlled by two independent caps, either of which may be \code{Inf} to
-disable it:
+\strong{Two caps, each optional.}  Both caps act on \strong{this function's return
+value} and nothing else: they trim the frontier table of \strong{single cuts}
+that is returned here.  They are not a cap on a selection family -- the
+rows they trim are univariate cuts, never conjunctions -- and
+\code{\link[=dina_subgroup]{dina_subgroup()}} does not take them, so nothing they do reaches the
+subgroup selector.  Either may be \code{Inf} to disable it:
 \itemize{
 \item \code{max_per_covariate} bounds how many cuts any single covariate
 contributes (its top cuts by effect), limiting within-covariate
 redundancy.
-\item \code{max_subgroups} bounds the total pool size across covariates,
-the DINA analog of forestsearch's \code{max_subgroups_search}.
+\item \code{max_subgroups} bounds the total pool size across covariates.
 }
+Under \code{forestsearch(subgroup_method = "dina")} neither cap has any effect:
+that path selects with \code{\link[=dina_subgroup]{dina_subgroup()}} and never consults a frontier
+table.  They bite only where this function's output is used directly --
+including \code{forestsearch(use_dina = TRUE, dina_args = list(selected_only = FALSE))}, where \code{cut_expr} becomes the screening-stage candidate pool.
 When the pool exceeds \code{max_subgroups}, the global trim is round-robin
 on within-covariate effect rank -- every covariate's best cut first
 (ordered by effect), then every covariate's second-best, and so on --

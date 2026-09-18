@@ -227,6 +227,20 @@ resolved \code{effect.threshold}, and an \code{m_diff} supplied here is
 \code{hr.threshold}.  The key remains meaningful only where the raw
 \code{\link{dina_frontier}} candidate set is used directly.
 
+\strong{The same holds for every frontier key, not only
+\code{m_diff}.}  All seven -- \code{scope}, \code{m_diff},
+\code{n_min}, \code{direction}, \code{max_per_covariate},
+\code{max_subgroups} and \code{digits} -- are \strong{inert under}
+\code{subgroup_method = "dina"}, which selects with
+\code{\link{dina_subgroup}} and never consults a frontier table.  Under
+\code{use_dina = TRUE} screening with \code{selected_only = TRUE} (the
+default) a frontier is computed and then discarded in favour of the
+selected cut, so six of the seven change nothing; only \code{digits}
+still acts, rounding the threshold in the emitted cut expression.  The
+seven keys govern the candidate pool only under
+\code{selected_only = FALSE}, where
+\code{\link{dina_frontier}}'s \code{cut_expr} column \emph{is} the pool.
+
 Under \code{dina_select_statistic = "effect"} the floor still defines the
 qualifying family on the tau-hat scale while selection re-ranks that
 family on the refit inferential effect; because multiplier resampling

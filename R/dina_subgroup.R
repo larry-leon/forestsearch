@@ -1037,16 +1037,23 @@ print.dina_subgroup <- function(x,
 #' computes a separate frontier for each covariate, then pools them,
 #' mirroring how a GRF tree splits on multiple variables.
 #'
-#' **Two caps, each optional.**  Diversity and total burden are
-#' controlled by two independent caps, either of which may be `Inf` to
-#' disable it:
+#' **Two caps, each optional.**  Both caps act on **this function's return
+#' value** and nothing else: they trim the frontier table of **single cuts**
+#' that is returned here.  They are not a cap on a selection family -- the
+#' rows they trim are univariate cuts, never conjunctions -- and
+#' [dina_subgroup()] does not take them, so nothing they do reaches the
+#' subgroup selector.  Either may be `Inf` to disable it:
 #' \itemize{
 #'   \item `max_per_covariate` bounds how many cuts any single covariate
 #'     contributes (its top cuts by effect), limiting within-covariate
 #'     redundancy.
-#'   \item `max_subgroups` bounds the total pool size across covariates,
-#'     the DINA analog of forestsearch's `max_subgroups_search`.
+#'   \item `max_subgroups` bounds the total pool size across covariates.
 #' }
+#' Under `forestsearch(subgroup_method = "dina")` neither cap has any effect:
+#' that path selects with [dina_subgroup()] and never consults a frontier
+#' table.  They bite only where this function's output is used directly --
+#' including `forestsearch(use_dina = TRUE, dina_args = list(selected_only =
+#' FALSE))`, where `cut_expr` becomes the screening-stage candidate pool.
 #' When the pool exceeds `max_subgroups`, the global trim is round-robin
 #' on within-covariate effect rank -- every covariate's best cut first
 #' (ordered by effect), then every covariate's second-best, and so on --
@@ -1085,12 +1092,21 @@ print.dina_subgroup <- function(x,
 #' @param n_min positive integer minimum subgroup size.  Default `60L`.
 #' @param direction one of `"both"` (default), `"left"`, `"right"`.
 #' @param max_per_covariate positive integer, or `Inf` for no limit: the
-#'   most cuts any single covariate may contribute (its top cuts by
-#'   effect).  Default `3L`.
+#'   most cuts any single covariate may contribute to the **returned table**
+#'   (its top cuts by effect).  A report-trimming cap, not a search control.
+#'   Default `3L`.
 #' @param max_subgroups positive integer, or `Inf` for no limit: the cap
-#'   on the total pooled cuts returned -- the DINA analog of
-#'   forestsearch's `max_subgroups_search`.  When the pool is larger it is
-#'   trimmed round-robin by within-covariate effect rank.  Default `10L`.
+#'   on the total pooled cuts in the **returned table**.  When the pool is
+#'   larger it is trimmed round-robin by within-covariate effect rank.
+#'   Default `10L`.
+#'
+#'   Not to be equated with [forestsearch()]'s `max_subgroups_search`.  The
+#'   two differ in what they act on and in their defaults:
+#'   `max_subgroups_search` truncates the pool of candidate subgroups that
+#'   forestsearch actually **evaluates** at the consistency stage, and
+#'   defaults to `Inf` (evaluate everything); `max_subgroups` trims the rows
+#'   of the **table this function returns**, and defaults to the finite `10L`.
+#'   One changes what is computed; the other changes what is reported.
 #' @param digits significant figures for rounding the emitted threshold
 #'   in `cut_expr`.  Default `3L`.
 #'
