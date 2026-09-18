@@ -1437,7 +1437,7 @@ forestsearch <- function(df.analysis,
 
   if (outcome_type != "survival" && is.null(effect_measure)) {
     effect_measure <- switch(outcome_type,
-      binary     = "RD",
+      binary     = "OR",
       continuous = "MD",
       count      = "IRR"
     )
