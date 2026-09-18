@@ -980,6 +980,29 @@
 #'     \item{max_sg_est}{Maximum subgroup HR estimate}
 #'     \item{grf_plot}{GRF plot object (if plot.grf = TRUE)}
 #'     \item{args_call_all}{All arguments for reproducibility}
+#'     \item{threshold_config}{The resolved threshold configuration:
+#'       \code{outcome_type}, \code{effect_measure}, \code{screening},
+#'       \code{consistency}, \code{screening_natural},
+#'       \code{consistency_natural}, \code{scale}, \code{pconsistency} and
+#'       two description strings.  \strong{Read \code{$scale} before reading
+#'       \code{$screening}.}  The phrase "the screening threshold" names two
+#'       different numbers depending on which object is inspected:
+#'       \itemize{
+#'         \item On the \strong{survival} path \code{$screening} is
+#'           \code{log(hr.threshold)} -- the scale the admission set and
+#'           multiplier resampling work on -- while the candidate search
+#'           itself compares the fitted hazard ratio against
+#'           \code{hr.threshold} on the \strong{natural} scale.  The two
+#'           are the same threshold on two scales, and
+#'           \code{$screening_natural} holds the search's value.
+#'         \item On the \strong{GLM} paths \code{$screening} is the value
+#'           the search compares against directly: the link scale for ratio
+#'           measures (\code{log} of the supplied ratio) and the identity
+#'           scale for \code{RD}, \code{IRD} and \code{MD}.
+#'       }
+#'       \code{$consistency} follows the same convention, and
+#'       \code{$pconsistency} is the rate \code{pconsistency.threshold},
+#'       which has no scale.}
 #'     \item{family_status}{Character scalar recording whether the candidate
 #'       family the identifier ranked over is fixed -- the condition
 #'       multiplier resampling requires (see \code{mr_inference}).
