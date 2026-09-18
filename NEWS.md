@@ -1,5 +1,37 @@
 # forestsearch (development version)
 
+* **Bootstrap replicates and cross-validation folds now resolve the thresholds
+  the original fit resolved.** `forestsearch()` resolves the screening (`c1`)
+  and consistency (`c2`) thresholds through branches guarded by whether the
+  caller supplied them, and for the legacy spellings (`hr.threshold`,
+  `hr.consistency`) that was detected with `missing()`. Because
+  `forestsearch_bootstrap_dofuture()`, `forestsearch_Kfold()` and
+  `forestsearch_tenfold()` replay the captured argument list with every formal
+  supplied, `missing()` was `FALSE` inside a replicate, and a replicate could
+  resolve thresholds its parent never used. **Affected: identity-scale
+  analyses (`effect_measure` `"RD"`, `"IRD"` or `"MD"`) that left `c1` or `c2`
+  at its default, or supplied only one of the two, and then ran the bootstrap
+  or cross-validation** -- those replicates used `c2 = 1.0` where the fit used
+  `0.0`, and on `"MD"` also `c1 = 1.25` where the fit used `0.0`. A per-split
+  effect of 1.0 is a threshold no candidate can meet, so the affected folds
+  and replicates identified nothing. Ratio measures (`"OR"`, `"RR"`, `"IRR"`)
+  and survival were never affected, and the fix leaves every original fit's
+  resolution byte-identical -- only what a replay sees changes. The resolved
+  values are now written back into `effect.threshold` /
+  `consistency.threshold`, which are detected by value rather than by
+  `missing()` and so survive any wrapper. A spurious
+  "`effect.threshold` appears to be on a ratio scale" warning that fired once
+  per replicate on `"RD"` / `"IRD"` also stops.
+
+* **The estimation-layer entry points default binary to the odds ratio.**
+  `make_effect_estimator()` and `consistency_resample()` resolved an unset
+  `effect_measure` to `"RD"` for `outcome_type = "binary"` while
+  `forestsearch()` resolves it to `"OR"`; both now resolve `"OR"`. Continuous
+  (`"MD"`), count (`"IRR"`) and survival (`"HR"`) defaults are unchanged, and
+  an explicitly supplied measure is untouched. No in-package caller reached
+  the old default -- `forestsearch()` passes `effect_measure` explicitly -- so
+  this changes results only for a direct call that omitted it.
+
 * **Binary outcomes now default to the odds ratio.** `forestsearch()` with
   `outcome_type = "binary"` and `effect_measure` left unset resolves to
   `"OR"`; it previously resolved to `"RD"`. **This changes results for binary
