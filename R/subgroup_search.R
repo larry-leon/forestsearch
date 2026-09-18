@@ -19,9 +19,15 @@
 #'   candidate subgroup.  Ignored for continuous outcomes (only
 #'   \code{n.min} applies).
 #' @param d1.min Integer. Same as \code{d0.min} for the treatment arm.
-#' @param hr.threshold Numeric. Effect threshold for subgroup selection.
+#' @param hr.threshold Numeric. `c1`, the \strong{screening threshold on a
+#'   candidate subgroup's own effect}: a candidate is retained only if its
+#'   fitted effect exceeds this value.
 #'   On the log scale for ratio measures (OR, HR), identity scale for
-#'   difference measures (RD, MD).
+#'   difference measures (RD, MD).  This is \code{forestsearch()}'s
+#'   \code{effect.threshold} / \code{hr.threshold}.  It is not the per-split
+#'   threshold (`c2`, \code{hr.consistency}) and not the consistency rate
+#'   (`p*`, \code{pconsistency.threshold}); neither is applied here -- this
+#'   function performs the screening stage only.
 #' @param max.minutes Numeric. \strong{Currently inert; scheduled for
 #'   deprecation in v0.3.0.} Previously intended as a wall-clock budget for
 #'   the combination search, it is threaded to

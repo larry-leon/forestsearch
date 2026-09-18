@@ -48,8 +48,10 @@ floor for another.}
 
 \item{consistency_method}{One gate.}
 
-\item{pconsistency}{Numeric in (0, 1).  Consistency-rate threshold for the
-\code{"resample"} gate.  Default
+\item{pconsistency}{Numeric in (0, 1).  Consistency-\emph{rate} threshold
+for the \code{"resample"} gate -- the \verb{p*} of
+\code{\link{forestsearch}}'s \code{pconsistency.threshold}: the fraction
+of splits that must clear \code{c2}, not an effect threshold.  Default
 \code{forestsearch_args$pconsistency.threshold}, itself defaulting to
 \code{forestsearch()}'s default (0.90); an explicit value overrides.
 Ignored by \code{"split"}.}

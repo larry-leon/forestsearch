@@ -24,8 +24,13 @@
 #'   baseline rate for binary; used to compute SE).  Default 0.40.
 #' @param n_min Integer.  Minimum subgroup size (\code{n.min} in
 #'   \code{forestsearch()}).  Default 60.
-#' @param c1 Numeric.  Screening threshold (\code{hr.threshold}).
+#' @param c1 Numeric.  The \strong{screening threshold} on a candidate
+#'   subgroup's own effect -- \code{\link{forestsearch}}'s
+#'   \code{effect.threshold} (legacy \code{hr.threshold}).
 #'   Candidates with effect > \code{c1} pass screening.  Default 1.25.
+#'   This approximation covers the screening stage only, so the per-split
+#'   effect threshold `c2` (\code{consistency.threshold}) and the consistency
+#'   rate `p*` (\code{pconsistency.threshold}) do not appear here.
 #' @param n_confounders_cont Integer.  Number of continuous confounders.
 #'   Default 6.
 #' @param n_confounders_bin Integer.  Number of binary confounders.

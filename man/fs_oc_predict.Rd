@@ -31,10 +31,15 @@ specification and floors for \code{\link{fs_oc_family_enumerate}}.}
 arguments; sets the size floor and the standard-error scale of an
 enumerated family and converts expected prevalence to expected subjects.}
 
-\item{c1}{Numeric.  Screening floor on the full-sample effect.  Default
+\item{c1}{Numeric.  Screening floor on the full-sample effect -- the \code{c1}
+of \code{\link{forestsearch}}'s \code{effect.threshold} (legacy
+\code{hr.threshold}).  Default
 \code{forestsearch_args$effect.threshold}; an explicit value overrides.}
 
-\item{c2}{Numeric.  Consistency floor on each half-sample effect.  Default
+\item{c2}{Numeric.  Consistency floor on each half-sample effect -- the
+\code{c2} of \code{\link{forestsearch}}'s \code{consistency.threshold}
+(legacy \code{hr.consistency}).  An \strong{effect} threshold, not a
+proportion; the proportion is \code{pconsistency} below.  Default
 \code{forestsearch_args$consistency.threshold}; an explicit value
 overrides.}
 
@@ -46,8 +51,10 @@ used as-is.}
 closed-form screen, the default) or \code{"split"} (the analytic
 document's single-split gate).  See Details.}
 
-\item{pconsistency}{Numeric in (0, 1).  Consistency-rate threshold for the
-\code{"resample"} gate.  Default
+\item{pconsistency}{Numeric in (0, 1).  Consistency-\emph{rate} threshold
+for the \code{"resample"} gate -- the \verb{p*} of
+\code{\link{forestsearch}}'s \code{pconsistency.threshold}: the fraction
+of splits that must clear \code{c2}, not an effect threshold.  Default
 \code{forestsearch_args$pconsistency.threshold}, itself defaulting to
 \code{forestsearch()}'s default (0.90); an explicit value overrides.
 Ignored by \code{"split"}.}

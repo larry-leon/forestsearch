@@ -19,7 +19,11 @@ run_single_consistency_split(
 
 \item{N.x}{Integer. Number of observations in subgroup.}
 
-\item{hr.consistency}{Numeric. Minimum HR threshold for consistency.}
+\item{hr.consistency}{Numeric. \code{c2}, \strong{an effect threshold} -- the
+minimum effect required in \emph{each} half of a split for that split to
+count as consistent.  \strong{Not} a proportion and \strong{not} the
+consistency rate.  \code{forestsearch()} calls this
+\code{consistency.threshold} / \code{hr.consistency}.}
 
 \item{cox_init}{Numeric. Initial value for Cox model (log HR).}
 

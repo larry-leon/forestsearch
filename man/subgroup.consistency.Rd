@@ -47,14 +47,23 @@ for outcome (Y), event indicator (Event), and treatment (Treat).}
 \item{hr.subgroups}{Data.table of candidate subgroups from subgroup search,
 containing columns: HR, n, E, K, d0, d1, m0, m1, grp, and factor indicators.}
 
-\item{hr.threshold}{Numeric. Minimum hazard ratio threshold for candidates.
-Default: 1.0}
+\item{hr.threshold}{Numeric. \code{c1}, the \strong{screening threshold} on a
+candidate's own effect, re-applied here to the supplied
+\code{hr.subgroups} table.  On the comparison scale of the estimand
+(\code{forestsearch()} passes the already-resolved value for GLM
+outcomes).  Default: 1.0}
 
-\item{hr.consistency}{Numeric. Minimum HR required in each split for
-consistency. Default: 1.0}
+\item{hr.consistency}{Numeric. \code{c2}, \strong{an effect threshold} -- the
+minimum effect required in \emph{each} half of a split for that split to
+count as consistent.  \strong{Not} a proportion and \strong{not} the
+consistency rate; for the proportion see
+\code{pconsistency.threshold}.  Default: 1.0}
 
-\item{pconsistency.threshold}{Numeric. Minimum proportion of splits that
-must be consistent. Default: 0.9}
+\item{pconsistency.threshold}{Numeric. \verb{p*}, \strong{a proportion} in
+\code{[0, 1]} -- the minimum fraction of splits that must be consistent,
+where consistency of one split is decided by \code{hr.consistency}
+(\code{c2}).  \code{c2} sets the bar; \verb{p*} counts how often it is met.  Both names
+contain "consistency" and they are different quantities.  Default: 0.9}
 
 \item{m1.threshold}{Numeric. Maximum m1 threshold for filtering. Default: Inf}
 

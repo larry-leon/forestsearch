@@ -37,11 +37,16 @@
 #'   \code{\link{forestsearch}}: "minSG", "hr", or "maxSG". Default: "minSG"
 #' @param maxk Integer. Maximum number of factors in subgroup combinations (1 or 2).
 #'   Default: 1
-#' @param hr.threshold Numeric. Hazard ratio threshold for subgroup identification.
+#' @param hr.threshold Numeric. `c1`, the screening threshold on a candidate
+#'   subgroup's own hazard ratio, passed to \code{\link{forestsearch}}.
 #'   Default: 0.90
-#' @param hr.consistency Numeric. Consistency threshold for hazard ratio.
+#' @param hr.consistency Numeric. `c2`, \strong{an effect threshold} -- the
+#'   minimum hazard ratio required in each half of a split.  Not a proportion
+#'   and not the consistency rate.
 #'   Default: 0.80
-#' @param pconsistency.threshold Numeric. Probability threshold for consistency.
+#' @param pconsistency.threshold Numeric. `p*`, \strong{a proportion} in
+#'   \code{[0, 1]} -- the fraction of splits that must clear
+#'   \code{hr.consistency} (`c2`).  Not an effect threshold.
 #'   Default: 0.90
 #' @param confounders.name Character vector. Confounder variable names for ForestSearch.
 #'   If NULL, automatically extracted from dgm

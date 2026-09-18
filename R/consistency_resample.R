@@ -345,6 +345,11 @@
 #' @param df data.frame/data.table with the relevant outcome columns.
 #' @param hr.consistency Numeric; survival HR consistency threshold (also the
 #'   default GLM threshold when `consistency_threshold` is `NULL`). Default 1.0.
+#'   This is `c2`, an \strong{effect} threshold on the half-sample effect --
+#'   [forestsearch()]'s `consistency.threshold` / `hr.consistency`.  It is not
+#'   a proportion: the fraction of splits that must clear it is
+#'   `pconsistency.threshold` (`p*`), which this function does not take -- it
+#'   returns the rate rather than thresholding it.
 #' @param consistency_threshold Numeric or `NULL`; GLM consistency threshold on
 #'   the natural scale (OR/RR/IRR, or RD/MD/IRD). `NULL` uses `hr.consistency`.
 #' @param comparison_threshold Numeric or `NULL`; the consistency threshold

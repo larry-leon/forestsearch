@@ -40,9 +40,16 @@ evaluate_consistency_twostage(
 
 \item{found.hrs}{data.table. Subgroup hazard ratio results.}
 
-\item{hr.consistency}{Numeric. Minimum HR threshold for consistency.}
+\item{hr.consistency}{Numeric. \code{c2}, \strong{an effect threshold} -- the
+minimum effect required in \emph{each} half of a split for that split to
+count as consistent.  \strong{Not} a proportion and \strong{not} the
+consistency rate.  \code{forestsearch()} calls this
+\code{consistency.threshold} / \code{hr.consistency}.}
 
-\item{pconsistency.threshold}{Numeric. Final consistency threshold.}
+\item{pconsistency.threshold}{Numeric. \verb{p*}, \strong{a proportion} in
+\code{[0, 1]} -- the fraction of splits that must be consistent, where
+one split's consistency is decided by \code{hr.consistency} (\code{c2}).
+\code{c2} sets the bar; \verb{p*} counts how often it is met.}
 
 \item{pconsistency.digits}{Integer. Rounding digits for output.}
 

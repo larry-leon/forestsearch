@@ -225,7 +225,11 @@ get_split_hr_fast <- function(df, cox_init = 0, adjust_covariates = NULL) {
 #'
 #' @param df.x data.table. Subgroup data with columns Y, Event, Treat.
 #' @param N.x Integer. Number of observations in subgroup.
-#' @param hr.consistency Numeric. Minimum HR threshold for consistency.
+#' @param hr.consistency Numeric. `c2`, \strong{an effect threshold} -- the
+#'   minimum effect required in \emph{each} half of a split for that split to
+#'   count as consistent.  \strong{Not} a proportion and \strong{not} the
+#'   consistency rate.  \code{forestsearch()} calls this
+#'   \code{consistency.threshold} / \code{hr.consistency}.
 #' @param cox_init Numeric. Initial value for Cox model (log HR).
 #' @param estimator_fn Closure or \code{NULL}. Effect-estimator closure from
 #'   \code{\link{make_effect_estimator}} for GLM outcomes.  Default \code{NULL}
@@ -1288,8 +1292,15 @@ remove_redundant_subgroups <- function(found.hrs) {
 #' @param found.hrs data.table. Subgroup hazard ratio results.
 #' @param n.splits Integer. Number of random splits used to evaluate
 #'   consistency.
-#' @param hr.consistency Numeric. Minimum HR threshold for consistency.
-#' @param pconsistency.threshold Numeric. Final consistency threshold.
+#' @param hr.consistency Numeric. `c2`, \strong{an effect threshold} -- the
+#'   minimum effect required in \emph{each} half of a split for that split to
+#'   count as consistent.  \strong{Not} a proportion and \strong{not} the
+#'   consistency rate.  \code{forestsearch()} calls this
+#'   \code{consistency.threshold} / \code{hr.consistency}.
+#' @param pconsistency.threshold Numeric. `p*`, \strong{a proportion} in
+#'   \code{[0, 1]} -- the fraction of splits that must be consistent, where
+#'   one split's consistency is decided by \code{hr.consistency} (`c2`).
+#'   `c2` sets the bar; `p*` counts how often it is met.
 #' @param pconsistency.digits Integer. Rounding digits for output.
 #' @param maxk Integer. Maximum number of factors in a subgroup.
 #' @param confs_labels Character vector. Labels for confounders.
@@ -1561,8 +1572,15 @@ evaluate_subgroup_consistency <- function(
 #' @param names.Z Character vector. Names of factor columns.
 #' @param df data.frame. Original data with Y, Event, Treat, id columns.
 #' @param found.hrs data.table. Subgroup hazard ratio results.
-#' @param hr.consistency Numeric. Minimum HR threshold for consistency.
-#' @param pconsistency.threshold Numeric. Final consistency threshold.
+#' @param hr.consistency Numeric. `c2`, \strong{an effect threshold} -- the
+#'   minimum effect required in \emph{each} half of a split for that split to
+#'   count as consistent.  \strong{Not} a proportion and \strong{not} the
+#'   consistency rate.  \code{forestsearch()} calls this
+#'   \code{consistency.threshold} / \code{hr.consistency}.
+#' @param pconsistency.threshold Numeric. `p*`, \strong{a proportion} in
+#'   \code{[0, 1]} -- the fraction of splits that must be consistent, where
+#'   one split's consistency is decided by \code{hr.consistency} (`c2`).
+#'   `c2` sets the bar; `p*` counts how often it is met.
 #' @param pconsistency.digits Integer. Rounding digits for output.
 #' @param maxk Integer. Maximum number of factors in a subgroup.
 #' @param confs_labels Character vector. Labels for confounders.

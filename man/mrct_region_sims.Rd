@@ -44,13 +44,18 @@ Default: "z_regA"}
 \item{maxk}{Integer. Maximum number of factors in subgroup combinations (1 or 2).
 Default: 1}
 
-\item{hr.threshold}{Numeric. Hazard ratio threshold for subgroup identification.
+\item{hr.threshold}{Numeric. \code{c1}, the screening threshold on a candidate
+subgroup's own hazard ratio, passed to \code{\link{forestsearch}}.
 Default: 0.90}
 
-\item{hr.consistency}{Numeric. Consistency threshold for hazard ratio.
+\item{hr.consistency}{Numeric. \code{c2}, \strong{an effect threshold} -- the
+minimum hazard ratio required in each half of a split.  Not a proportion
+and not the consistency rate.
 Default: 0.80}
 
-\item{pconsistency.threshold}{Numeric. Probability threshold for consistency.
+\item{pconsistency.threshold}{Numeric. \verb{p*}, \strong{a proportion} in
+\code{[0, 1]} -- the fraction of splits that must clear
+\code{hr.consistency} (\code{c2}).  Not an effect threshold.
 Default: 0.90}
 
 \item{confounders.name}{Character vector. Confounder variable names for ForestSearch.

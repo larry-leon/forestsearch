@@ -94,9 +94,14 @@
 #' @param n Integer.  Trial size.  Overrides any size implied by the
 #'   arguments; sets the size floor and the standard-error scale of an
 #'   enumerated family and converts expected prevalence to expected subjects.
-#' @param c1 Numeric.  Screening floor on the full-sample effect.  Default
+#' @param c1 Numeric.  Screening floor on the full-sample effect -- the `c1`
+#'   of \code{\link{forestsearch}}'s \code{effect.threshold} (legacy
+#'   \code{hr.threshold}).  Default
 #'   \code{forestsearch_args$effect.threshold}; an explicit value overrides.
-#' @param c2 Numeric.  Consistency floor on each half-sample effect.  Default
+#' @param c2 Numeric.  Consistency floor on each half-sample effect -- the
+#'   `c2` of \code{\link{forestsearch}}'s \code{consistency.threshold}
+#'   (legacy \code{hr.consistency}).  An \strong{effect} threshold, not a
+#'   proportion; the proportion is \code{pconsistency} below.  Default
 #'   \code{forestsearch_args$consistency.threshold}; an explicit value
 #'   overrides.
 #' @param family \code{NULL} (enumerate with
@@ -105,8 +110,10 @@
 #' @param consistency_method \code{"resample"} (the package's production
 #'   closed-form screen, the default) or \code{"split"} (the analytic
 #'   document's single-split gate).  See Details.
-#' @param pconsistency Numeric in (0, 1).  Consistency-rate threshold for the
-#'   \code{"resample"} gate.  Default
+#' @param pconsistency Numeric in (0, 1).  Consistency-\emph{rate} threshold
+#'   for the \code{"resample"} gate -- the `p*` of
+#'   \code{\link{forestsearch}}'s \code{pconsistency.threshold}: the fraction
+#'   of splits that must clear `c2`, not an effect threshold.  Default
 #'   \code{forestsearch_args$pconsistency.threshold}, itself defaulting to
 #'   \code{forestsearch()}'s default (0.90); an explicit value overrides.
 #'   Ignored by \code{"split"}.

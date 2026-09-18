@@ -29,7 +29,12 @@ consistency_resample(
 \item{df}{data.frame/data.table with the relevant outcome columns.}
 
 \item{hr.consistency}{Numeric; survival HR consistency threshold (also the
-default GLM threshold when \code{consistency_threshold} is \code{NULL}). Default 1.0.}
+default GLM threshold when \code{consistency_threshold} is \code{NULL}). Default 1.0.
+This is \code{c2}, an \strong{effect} threshold on the half-sample effect --
+\code{\link[=forestsearch]{forestsearch()}}'s \code{consistency.threshold} / \code{hr.consistency}.  It is not
+a proportion: the fraction of splits that must clear it is
+\code{pconsistency.threshold} (\verb{p*}), which this function does not take -- it
+returns the rate rather than thresholding it.}
 
 \item{consistency_threshold}{Numeric or \code{NULL}; GLM consistency threshold on
 the natural scale (OR/RR/IRR, or RD/MD/IRD). \code{NULL} uses \code{hr.consistency}.}

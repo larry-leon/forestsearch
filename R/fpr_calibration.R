@@ -46,8 +46,18 @@
 #'     \code{treat.name} column to be present in \code{df.analysis}.}
 #' }
 #'
-#' @param c1 Numeric scalar. Screening threshold (hr.threshold).
-#' @param c2 Numeric scalar. Consistency threshold (hr.consistency).
+#' @param c1 Numeric scalar. The \strong{screening threshold} on a candidate
+#'   subgroup's own effect.  `c1` is this function's name for
+#'   \code{\link{forestsearch}}'s \code{effect.threshold} (legacy
+#'   \code{hr.threshold}), and is passed through to it under that name, on the
+#'   natural scale -- \code{forestsearch()} resolves the comparison scale per
+#'   estimand.
+#' @param c2 Numeric scalar. The \strong{per-split effect threshold}.  `c2` is
+#'   this function's name for \code{\link{forestsearch}}'s
+#'   \code{consistency.threshold} (legacy \code{hr.consistency}), passed
+#'   through under that name on the natural scale.  It is an effect threshold
+#'   applied within each split half, \strong{not} the consistency rate: the
+#'   rate is \code{pconsistency.threshold} and travels in \code{fs_params}.
 #'   Must satisfy \code{c2 <= c1}.
 #' @param df.analysis Data frame. The analyst's dataset.  Used directly in
 #'   permutation mode; also used to extract N for the per-subgroup

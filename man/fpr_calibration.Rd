@@ -25,9 +25,19 @@ fpr_calibration(
 )
 }
 \arguments{
-\item{c1}{Numeric scalar. Screening threshold (hr.threshold).}
+\item{c1}{Numeric scalar. The \strong{screening threshold} on a candidate
+subgroup's own effect.  \code{c1} is this function's name for
+\code{\link{forestsearch}}'s \code{effect.threshold} (legacy
+\code{hr.threshold}), and is passed through to it under that name, on the
+natural scale -- \code{forestsearch()} resolves the comparison scale per
+estimand.}
 
-\item{c2}{Numeric scalar. Consistency threshold (hr.consistency).
+\item{c2}{Numeric scalar. The \strong{per-split effect threshold}.  \code{c2} is
+this function's name for \code{\link{forestsearch}}'s
+\code{consistency.threshold} (legacy \code{hr.consistency}), passed
+through under that name on the natural scale.  It is an effect threshold
+applied within each split half, \strong{not} the consistency rate: the
+rate is \code{pconsistency.threshold} and travels in \code{fs_params}.
 Must satisfy \code{c2 <= c1}.}
 
 \item{df.analysis}{Data frame. The analyst's dataset.  Used directly in

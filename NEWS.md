@@ -94,6 +94,20 @@
   changes, the default reproduces prior output exactly
   (PROPOSAL_complement_field_scale_2026-09-08_v2 s5; TASK_field_studentize_e1).
 
+* **Documentation: the threshold arguments.** The roles of
+  `effect.threshold` / `hr.threshold` (`c1`, the screening threshold on a
+  candidate subgroup's own effect), `consistency.threshold` /
+  `hr.consistency` (`c2`) and `pconsistency.threshold` (`p*`) are now stated
+  in every exported function that carries them, together with the defaults
+  `c1` and `c2` resolve to under each estimand -- `hr.consistency`'s
+  documented default of `1.0` is the survival value and is remapped on the
+  GLM paths.  `consistency.threshold` is an **effect** threshold applied
+  within each split half, **not** a proportion and not the consistency rate;
+  the rate is `pconsistency.threshold`, which is never remapped.
+  `fpr_calibration()`'s `c1` / `c2` are cross-referenced to the
+  `forestsearch()` names in both directions.  Documentation only: no
+  behaviour, default or code change.
+
 # forestsearch 0.3.5
 
 ## Performance: unadjusted survival fits run on subset vectors

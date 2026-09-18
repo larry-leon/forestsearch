@@ -407,22 +407,41 @@ search, and the bootstrap).}
 used for the adaptive \code{n.min} floor when \code{n.min = NULL}. Default
 0.10. Ignored when \code{n.min} is supplied.}
 
-\item{effect.threshold}{Numeric or NULL. Screening threshold for candidate
-subgroups.  For ratio-scale measures (OR, RR, IRR, HR): on the ratio
+\item{effect.threshold}{Numeric or NULL. \code{c1}, the \strong{screening
+threshold on a candidate subgroup's own effect}, estimated on the full
+sample.  A candidate must clear it to enter the consistency stage.  For
+ratio-scale measures (OR, RR, IRR, HR): on the ratio
 scale (e.g., 1.5 means OR >= 1.5).  For identity-scale measures
 (RD, IRD, MD): on the identity scale (e.g., 0.07 means RD >= 7 pct
-points).  If NULL (default), falls back to \code{hr.threshold}.}
+points).  If NULL (default), falls back to \code{hr.threshold}.
+Distinct from \code{consistency.threshold} (\code{c2}), which is applied
+within each split half, and from \code{pconsistency.threshold} (\verb{p*}),
+which is a proportion rather than an effect.  See the
+\emph{Threshold vocabulary and resolved defaults} section for the value
+this resolves to under each estimand.}
 
-\item{consistency.threshold}{Numeric or NULL. Threshold for split-sample
-consistency.  Each random 50/50 split must produce an estimate at or
-above this value.  Same scale conventions as \code{effect.threshold}.
-If NULL (default), falls back to \code{hr.consistency}.}
+\item{consistency.threshold}{Numeric or NULL. \code{c2}, \strong{an effect
+threshold} -- \strong{not} a proportion, and \strong{not} the
+consistency rate.  It is applied to the subgroup's effect estimated
+\emph{within each split half}; a split counts as consistent when both of
+its halves clear \code{c2}.  Same scale conventions as
+\code{effect.threshold}.
+If NULL (default), falls back to \code{hr.consistency}.
+Its companion is \code{pconsistency.threshold} (\verb{p*}), the
+\emph{fraction} of splits that must clear \code{c2}: this argument sets the
+bar, that one counts how often the bar is met.  Both names contain the
+word "consistency" and they are different quantities.  See the
+\emph{Threshold vocabulary and resolved defaults} section for the value
+this resolves to under each estimand.}
 
-\item{hr.threshold}{Numeric. Legacy name for \code{effect.threshold}.
+\item{hr.threshold}{Numeric. Legacy name for \code{effect.threshold} --
+\code{c1}, the screening threshold on a candidate subgroup's own effect.
 Retained for backward compatibility.  Default 1.25.  When
 \code{effect.threshold} is provided, \code{hr.threshold} is ignored.}
 
-\item{hr.consistency}{Numeric. Legacy name for \code{consistency.threshold}.
+\item{hr.consistency}{Numeric. Legacy name for
+\code{consistency.threshold} -- \code{c2}, the per-split \strong{effect}
+threshold, not a proportion and not the consistency rate.
 Retained for backward compatibility.  Default 1.0.  When
 \code{consistency.threshold} is provided, \code{hr.consistency} is ignored.}
 
@@ -576,7 +595,13 @@ splits when \code{use_twostage = TRUE}). Default 1000.}
 
 \item{m1.threshold}{Numeric. Maximum median survival threshold. Default Inf.}
 
-\item{pconsistency.threshold}{Numeric. Minimum consistency proportion. Default 0.90.
+\item{pconsistency.threshold}{Numeric. \verb{p*}, a \strong{proportion} in
+\code{[0, 1]} -- the fraction of random splits that must be consistent, where a
+split is consistent when both of its halves clear
+\code{consistency.threshold} (\code{c2}).  It is a rate, not an effect
+threshold: it never enters an effect comparison, and unlike \code{c1} and \code{c2}
+it is \strong{not} remapped per estimand -- the same number means the
+same thing for every \code{outcome_type}.  Default 0.90.
 Overridden to \code{0} under \code{sg_focus = "maxeff"} (no consistency filter).}
 
 \item{stop_threshold}{Numeric in \code{[0, 1]} or \code{NULL}.
@@ -1012,6 +1037,50 @@ The two-stage algorithm is recommended for:
 For final regulatory submissions, \code{use_twostage = FALSE} may be preferred
 for exact reproducibility.
 }
+\section{Threshold vocabulary and resolved defaults}{
+
+Three arguments carry thresholds, and two of them have the word
+"consistency" in the name.  They are different quantities:
+
+\describe{
+\item{\code{c1} -- \code{effect.threshold} (legacy \code{hr.threshold})}{The
+\strong{screening} threshold on a candidate subgroup's own effect,
+estimated on the full sample.  A candidate must clear it to enter the
+consistency stage.}
+\item{\code{c2} -- \code{consistency.threshold} (legacy
+\code{hr.consistency})}{An \strong{effect} threshold, applied to the
+subgroup's effect estimated within each split half.  \strong{Not} a
+proportion, and \strong{not} the consistency rate.}
+\item{\verb{p*} -- \code{pconsistency.threshold}}{A \strong{proportion} in
+\code{[0, 1]}: the fraction of splits that must clear \code{c2}.
+\strong{Not} an effect threshold.}
+}
+
+In one line: \code{c2} sets the bar a split half must clear, and \verb{p*} counts how
+often that bar is met.
+
+\strong{Resolved defaults, per estimand.}  Reading
+\code{hr.consistency}'s default as "1.0" is misleading on the GLM paths:
+when neither threshold is supplied, the value a run actually uses is
+resolved from the estimand.  The resolved pairs are:
+
+\tabular{lll}{
+\strong{resolved estimand} \tab \strong{c1} \tab \strong{c2} \cr
+\code{HR} (survival) \tab 1.25, compared by the search on the natural HR scale \tab 1.0 \cr
+\code{OR}, \code{RR}, \code{IRR} \tab log(1.25) \tab log(1.0), i.e. 0 \cr
+\code{RD} \tab 0.05 \tab 0.0 \cr
+\code{IRD} \tab 0.01 \tab 0.0 \cr
+\code{MD} \tab 0.0 \tab 0.0
+}
+
+Supplying \code{effect.threshold} or \code{consistency.threshold} (or the
+legacy names) suppresses the corresponding remap and the supplied value is
+used on the scale shown above.
+
+\code{pconsistency.threshold} is \strong{not} remapped.  It is a rate, and
+it is identical for every \code{outcome_type} and every estimand.
+}
+
 \section{Field naming collision with GRF results}{
 
 The top-level \code{sg.harm} on this object and the
