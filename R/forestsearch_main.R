@@ -2118,6 +2118,42 @@ forestsearch <- function(df.analysis,
   }
 
   # ===========================================================================
+  # SECTION 2B-ii: THRESHOLD SYNC -- WHAT A REPLAY MUST RESOLVE
+  # ===========================================================================
+  # The two effect thresholds resolve into LOCALS (effect_threshold /
+  # consistency_threshold) through branches guarded by user_set_threshold /
+  # user_set_consistency, and those flags are detected with missing() on the
+  # legacy spellings (:1462-1463).  args_call_all captures the FORMALS
+  # (:1512-1513), and the bootstrap (bootstrap_analysis_dofuture.R:406, 558,
+  # 614) and the cross-validation (forestsearch_cross_validation.R:345, 479
+  # and :859, 1001) replay that list with EVERY formal supplied -- so
+  # missing() is FALSE inside a replicate and user_set_* is TRUE there even
+  # when this call set neither threshold.  On the identity-scale measures that
+  # made a replicate resolve thresholds its parent never used: RD / IRD / MD
+  # consistency 1.0 where the fit used 0.0, and MD screening 1.25 where the
+  # fit used 0.0.
+  #
+  # Writing the RESOLVED values, on the natural scale, into the two
+  # NULL-defaulted spellings fixes it at the source: effect.threshold and
+  # consistency.threshold are is.null()-detected, so they survive any wrapper,
+  # and the alias merge at :1464-1465 makes the replay adopt them.  This runs
+  # AFTER resolution and writes only to args_call_all, so THIS fit's resolved
+  # thresholds are untouched; only a replay sees the difference.
+  #
+  # The naturals are taken pre-log (hr.threshold / hr.consistency, which the
+  # ratio branch at :1986-1987 leaves alone) rather than as
+  # exp(threshold_config$screening): a replay applies log() again, and an
+  # exp(log(x)) round-trip is not guaranteed to return x bit-for-bit.
+  .fs_identity_scale <- outcome_type != "survival" &&
+    effect_measure %in% c("RD", "IRD", "MD")
+  effect.threshold <- if (.fs_identity_scale) effect_threshold else hr.threshold
+  consistency.threshold <- if (.fs_identity_scale) consistency_threshold
+                           else hr.consistency
+  args_call_all <- .sync_args_call_all(args_call_all, environment(),
+                                       c("effect.threshold",
+                                         "consistency.threshold"))
+
+  # ===========================================================================
   # ADMISSION SET -- RESOLVED ONCE
   # ===========================================================================
   # threshold_config$screening / $consistency are already on the comparison
