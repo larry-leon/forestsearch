@@ -1831,15 +1831,6 @@ forestsearch <- function(df.analysis,
 
   if (outcome_type != "survival") {
 
-    # Resolve default effect measure
-    if (is.null(effect_measure)) {
-      effect_measure <- switch(outcome_type,
-        binary     = "RD",
-        continuous = "MD",
-        count      = "IRR"
-      )
-    }
-
     # Validate offset requirement for rate-based measures
     if (effect_measure %in% c("IRR", "IRD") && is.null(offset.name)) {
       stop(
