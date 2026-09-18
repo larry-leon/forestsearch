@@ -27,6 +27,8 @@
 #                        threshold resolution (GLM branches)
 #                        SECTION 2B-ii threshold sync (present only after the
 #                          Step 3 edit; the probe detects its absence)
+#                        SECTION 1A3 pair validation / derivation (Directive A;
+#                          same treatment -- lifted only when validate = TRUE)
 #   bootstrap_analysis_dofuture.R:406, 558, 614       the bootstrap replay
 #   forestsearch_cross_validation.R:345, 479; 859, 1001   the CV replay
 # =============================================================================
@@ -49,10 +51,14 @@
 #' Build the resolver: forestsearch()'s own threshold code, as a function.
 #'
 #' @param sync TRUE to include the SECTION 2B-ii sync statements.
+#' @param validate TRUE to include the SECTION 1A3 threshold-pair statements
+#'   (Directive A: the c2 > c1 stop and the silent-c2 derivation).  Absent
+#'   before the Directive A edit, exactly as `sync` was before the sync edit.
 #' @return a function(effect.threshold, consistency.threshold, hr.threshold,
-#'   hr.consistency, outcome_type, effect_measure) returning the resolved
-#'   record plus the args_call_all entries a replay would receive.
-.probe_resolver <- function(sync = FALSE) {
+#'   hr.consistency, outcome_type, effect_measure, subgroup_method, quiet)
+#'   returning the resolved record plus the args_call_all entries a replay
+#'   would receive.
+.probe_resolver <- function(sync = FALSE, validate = FALSE) {
   fm   <- formals(forestsearch)
   top  <- as.list(body(forestsearch))[-1L]   # drop the `{`
 
@@ -68,6 +74,20 @@
   i_a2  <- .probe_pick(top, "hr.consistency <- consistency.threshold",
                        "alias merge c2")
   s_flags <- top[c(i_ust, i_usc, i_a1, i_a2)]
+
+  # -- SECTION 1A3: the pair validation / derivation (Directive A) ----------
+  # The two legacy captures must precede the alias merge (they read the
+  # pre-merge values); the resolve call follows it.  Absent before the edit.
+  s_pre_flags <- list()
+  s_pair      <- list()
+  if (isTRUE(validate)) {
+    i_l1 <- .probe_pick(top, ".fs_c1_legacy <- ", "legacy c1 capture")
+    i_l2 <- .probe_pick(top, ".fs_c2_legacy <- ", "legacy c2 capture")
+    i_pr <- .probe_pick(top, "hr.consistency <- .fs_resolve_threshold_pair(",
+                        "threshold-pair resolution")
+    s_pre_flags <- top[c(i_l1, i_l2)]
+    s_pair      <- top[i_pr]
+  }
 
   # -- the GLM resolution block (nested in `if (outcome_type != "survival")`)
   i_glm <- .probe_pick(top, 'if (outcome_type != "survival") {',
@@ -98,14 +118,15 @@
     list(quote(outcome_type <- match.arg(
       outcome_type, c("survival", "binary", "continuous", "count")))),
     list(s_em),
-    s_flags,
+    s_flags[1:2], s_pre_flags, s_flags[3:4], s_pair,
     list(quote(args_call_all <- list(
       effect.threshold      = effect.threshold,
       consistency.threshold = consistency.threshold,
       hr.threshold          = hr.threshold,
       hr.consistency        = hr.consistency,
       outcome_type          = outcome_type,
-      effect_measure        = effect_measure))),
+      effect_measure        = effect_measure,
+      subgroup_method       = subgroup_method))),
     list(quote(effect_threshold <- NULL),
          quote(consistency_threshold <- NULL)),
     list(as.call(c(quote(`if`), quote(outcome_type != "survival"),
@@ -120,7 +141,8 @@
   f <- as.function(c(
     fm[c("effect.threshold", "consistency.threshold",
          "hr.threshold", "hr.consistency")],
-    alist(outcome_type = "survival", effect_measure = NULL),
+    alist(outcome_type = "survival", effect_measure = NULL,
+          subgroup_method = "consistency", quiet = FALSE),
     as.call(c(quote(`{`), body_exprs))))
   environment(f) <- asNamespace("forestsearch")
   f
@@ -163,6 +185,7 @@
 
 .probe_eval <- function(resolver, supplied) {
   warns <- character(0)
+  msgs  <- character(0)
   res <- withCallingHandlers(
     tryCatch(do.call(resolver, supplied, quote = TRUE),
              error = function(e) structure(list(error = conditionMessage(e)),
@@ -170,15 +193,22 @@
     warning = function(w) {
       warns <<- c(warns, .probe_warn_tag(conditionMessage(w)))
       invokeRestart("muffleWarning")
+    },
+    message = function(m) {
+      msgs <<- c(msgs, sub("\n$", "", conditionMessage(m)))
+      invokeRestart("muffleMessage")
     })
   if (inherits(res, "probe_error")) {
     return(list(screening = NA_real_, consistency = NA_real_,
                 screening_natural = NA_real_, consistency_natural = NA_real_,
                 scale = NA_character_, args_call_all = NULL,
-                warnings = "", error = res$error))
+                warnings = "", messages = paste(msgs, collapse = "|"),
+                n_messages = length(msgs), error = res$error))
   }
-  res$warnings <- if (length(warns)) paste(unique(warns), collapse = "|") else ""
-  res$error    <- NA_character_
+  res$warnings   <- if (length(warns)) paste(unique(warns), collapse = "|") else ""
+  res$messages   <- paste(msgs, collapse = "|")
+  res$n_messages <- length(msgs)
+  res$error      <- NA_character_
   res
 }
 
@@ -201,7 +231,32 @@
   list(key = "count-IRD",      outcome_type = "count",      effect_measure = "IRD")
 )
 
-.probe_custom_values <- function(key) {
+.probe_custom_values <- function(key, values = "custom") {
+  if (identical(values, "c2gt")) {
+    # c2 strictly above c1, per estimand scale.  The ratio pair is the task
+    # document's worked example (c1 = 0.90, c2 = 1.00).
+    return(switch(key,
+      "binary-RD"     = c(c1 = 0.03, c2 = 0.07),
+      "count-IRD"     = c(c1 = 0.01, c2 = 0.02),
+      "continuous-MD" = c(c1 = 10,   c2 = 30),
+      c(c1 = 0.90, c2 = 1.00)))
+  }
+  if (identical(values, "c2high")) {
+    # c2 alone, above the DEFAULT c1 (1.25 on the ratio scale).
+    return(switch(key,
+      "binary-RD"     = c(c1 = NA, c2 = 0.07),
+      "count-IRD"     = c(c1 = NA, c2 = 0.02),
+      "continuous-MD" = c(c1 = NA, c2 = 30),
+      c(c1 = NA, c2 = 1.50)))
+  }
+  if (identical(values, "c1derive")) {
+    # c1 supplied alone at a value whose 0.80 multiple is not the old default.
+    return(switch(key,
+      "binary-RD"     = c(c1 = 0.07, c2 = NA),
+      "count-IRD"     = c(c1 = 0.02, c2 = NA),
+      "continuous-MD" = c(c1 = 30,   c2 = NA),
+      c(c1 = 0.90, c2 = NA)))
+  }
   switch(key,
     "binary-RD"     = c(c1 = 0.07, c2 = 0.03),
     "count-IRD"     = c(c1 = 0.02, c2 = 0.01),
@@ -209,22 +264,43 @@
     c(c1 = 1.5, c2 = 1.2))
 }
 
-.probe_supplied_list <- function(est, spelling, subset, values = "default") {
+.probe_supplied_list <- function(est, spelling, subset, values = "default",
+                                 method = "consistency") {
   s <- list(outcome_type = est$outcome_type)
   if (!is.null(est$effect_measure)) s$effect_measure <- est$effect_measure
+  if (!identical(method, "consistency")) s$subgroup_method <- method
   if (identical(spelling, "none") || identical(subset, "neither")) return(s)
 
   fm <- formals(forestsearch)
   v  <- if (identical(values, "default"))
           c(c1 = eval(fm[["hr.threshold"]]), c2 = eval(fm[["hr.consistency"]]))
-        else .probe_custom_values(est$key)
+        else .probe_custom_values(est$key, values)
+
+  # "mixed": BOTH spellings of one quantity, at disagreeing values -- the new
+  # and the legacy name differing by one custom step.
+  if (identical(spelling, "mixed")) {
+    # New spelling at the custom value, legacy spelling at the package
+    # default: two spellings of one quantity, disagreeing.
+    cus <- .probe_custom_values(est$key, "custom")
+    def <- c(c1 = eval(fm[["hr.threshold"]]), c2 = eval(fm[["hr.consistency"]]))
+    if (identical(subset, "c1")) {
+      s[["effect.threshold"]] <- unname(cus[["c1"]])
+      s[["hr.threshold"]]     <- unname(def[["c1"]])
+    } else {
+      s[["consistency.threshold"]] <- unname(cus[["c2"]])
+      s[["hr.consistency"]]        <- unname(def[["c2"]])
+    }
+    return(s)
+  }
 
   nm_c1 <- if (identical(spelling, "legacy")) "hr.threshold"   else "effect.threshold"
   nm_c2 <- if (identical(spelling, "legacy")) "hr.consistency" else "consistency.threshold"
-  s[[nm_c1]] <- unname(v[["c1"]])
-  if (identical(subset, "both")) s[[nm_c2]] <- unname(v[["c2"]])
+  if (!identical(subset, "c2")) s[[nm_c1]] <- unname(v[["c1"]])
+  if (subset %in% c("both", "c2")) s[[nm_c2]] <- unname(v[["c2"]])
   s
 }
+
+.probe_null0 <- function(x, empty = "") if (is.null(x)) empty else x
 
 .probe_fmt <- function(x) {
   if (is.null(x) || length(x) != 1L) return(NA_character_)
@@ -233,29 +309,65 @@
   formatC(as.numeric(x), format = "g", digits = 17)
 }
 
-.probe_grid <- function() {
+.probe_grid <- function(extended = FALSE) {
   g <- expand.grid(est = seq_along(.PROBE_ESTIMANDS),
                    spelling = c("none", "legacy", "new"),
                    subset   = c("neither", "c1", "both"),
                    values   = c("default", "custom"),
+                   method   = "consistency",
                    stringsAsFactors = FALSE)
   keep <- !(g$spelling == "none" & (g$subset != "neither" | g$values != "default"))
   keep <- keep & !(g$spelling != "none" & g$subset == "neither")
-  g[keep, , drop = FALSE]
+  g <- g[keep, , drop = FALSE]
+  if (!isTRUE(extended)) return(g)
+
+  # ---- Directive A cells ---------------------------------------------------
+  # (A) c1 alone, at a value whose 0.80 multiple differs from the old default
+  #     -- the derivation cells.
+  gA <- expand.grid(est = seq_along(.PROBE_ESTIMANDS),
+                    spelling = c("legacy", "new"), subset = "c1",
+                    values = "c1derive", method = "consistency",
+                    stringsAsFactors = FALSE)
+  # (B) c2 alone, honoured against the DEFAULT c1 (1.25 on the ratio scale);
+  #     "c2high" puts it above that default, where the error rule applies.
+  gB <- expand.grid(est = seq_along(.PROBE_ESTIMANDS),
+                    spelling = c("legacy", "new"), subset = "c2",
+                    values = c("default", "custom", "c2high"),
+                    method = "consistency", stringsAsFactors = FALSE)
+  # (C) both supplied with c2 > c1, under each subgroup_method.  dina and grf
+  #     must stay inert: no error, no derivation.
+  gC <- expand.grid(est = seq_along(.PROBE_ESTIMANDS),
+                    spelling = c("legacy", "new"), subset = "both",
+                    values = "c2gt",
+                    method = c("consistency", "dina", "grf"),
+                    stringsAsFactors = FALSE)
+  # (D) both spellings of one quantity, disagreeing.
+  gD <- expand.grid(est = seq_along(.PROBE_ESTIMANDS),
+                    spelling = "mixed", subset = c("c1", "c2"),
+                    values = "disagree", method = "consistency",
+                    stringsAsFactors = FALSE)
+  rbind(g, gA, gB, gC, gD)
 }
 
 #' Run the replicate-equality probe.
 #'
 #' @param sync TRUE to include the SECTION 2B-ii sync statements when building
 #'   the resolver -- i.e. to probe the edited tree.
+#' @param validate TRUE to include the SECTION 1A3 threshold-pair statements
+#'   (Directive A).
+#' @param extended TRUE to run the Directive A cells as well as the 63 sync
+#'   cells.  The 63 keep their identity, so the sync task's assertions on them
+#'   are unaffected.
 #' @return a data.frame, one row per cell of the matrix.
-probe_threshold_sync <- function(sync = FALSE) {
-  resolver <- .probe_resolver(sync = sync)
-  g <- .probe_grid()
+probe_threshold_sync <- function(sync = FALSE, validate = FALSE,
+                                 extended = FALSE) {
+  resolver <- .probe_resolver(sync = sync, validate = validate)
+  g <- .probe_grid(extended = extended)
 
   rows <- lapply(seq_len(nrow(g)), function(i) {
     est <- .PROBE_ESTIMANDS[[g$est[i]]]
-    sup <- .probe_supplied_list(est, g$spelling[i], g$subset[i], g$values[i])
+    sup <- .probe_supplied_list(est, g$spelling[i], g$subset[i], g$values[i],
+                                g$method[i])
 
     par <- .probe_eval(resolver, sup)
 
@@ -274,6 +386,7 @@ probe_threshold_sync <- function(sync = FALSE) {
       spelling = g$spelling[i],
       subset   = if (g$spelling[i] == "none") "neither" else g$subset[i],
       values   = if (g$spelling[i] == "none") "-" else g$values[i],
+      method   = g$method[i],
       parent_screening   = pv[["screening"]],
       parent_consistency = pv[["consistency"]],
       parent_scr_natural = pv[["screening_natural"]],
@@ -281,6 +394,8 @@ probe_threshold_sync <- function(sync = FALSE) {
       parent_scale       = pv[["scale"]],
       parent_error       = par$error,
       parent_warnings    = par$warnings,
+      parent_messages    = .probe_null0(par$messages),
+      n_parent_messages  = .probe_null0(par$n_messages, 0L),
       rep_screening      = rv[["screening"]],
       rep_consistency    = rv[["consistency"]],
       rep_scr_natural    = rv[["screening_natural"]],
@@ -288,6 +403,8 @@ probe_threshold_sync <- function(sync = FALSE) {
       rep_scale          = rv[["scale"]],
       rep_error          = rep$error,
       rep_warnings       = rep$warnings,
+      rep_messages       = .probe_null0(rep$messages),
+      n_rep_messages     = .probe_null0(rep$n_messages, 0L),
       acall_effect.threshold =
         .probe_fmt(if (is.null(a)) NULL else a$effect.threshold),
       acall_consistency.threshold =
