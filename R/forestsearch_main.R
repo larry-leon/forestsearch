@@ -32,6 +32,102 @@
 
 
 # =============================================================================
+# Helper: the effect / consistency threshold pair
+# =============================================================================
+
+#' Validate the (c1, c2) threshold pair for the forest-search consistency path
+#'
+#' The two effect thresholds are one pair, not two independent knobs.  \code{c1}
+#' (\code{effect.threshold} / \code{hr.threshold}) admits a candidate subgroup
+#' to the family; \code{c2} (\code{consistency.threshold} /
+#' \code{hr.consistency}) is the per-split floor that candidate must then clear
+#' on both halves of every random split.  A \code{c2} above \code{c1} makes the
+#' pair degenerate: the consistency-stage entry condition re-filters the
+#' screened family on the \emph{higher} threshold, so candidates the screen
+#' admitted are discarded at the stage boundary and, when none survives, the
+#' whole consistency stage silently does not run.  That configuration is
+#' rejected here -- before any model is fit -- rather than producing an empty
+#' selection that reads like a finding of no subgroup.
+#'
+#' \strong{Scope, deliberately narrow.}  The check applies only where the
+#' consistency stage actually runs (\code{subgroup_method = "consistency"};
+#' \code{"dina"} and \code{"grf"} return from their own sections long before
+#' the stage boundary and never consult \code{c2}) and only on the two
+#' ratio-scale estimands whose threshold pair is on one comparable scale:
+#' survival (HR) and binary \code{"OR"}.  \code{RD}, \code{IRD}, \code{MD} and
+#' \code{IRR} are untouched, in every branch.
+#'
+#' Supplying both spellings of one quantity at disagreeing values is also
+#' rejected here: the alias merge silently prefers the new spelling, and a
+#' pair rule that then reports a value the caller did not write would be worse
+#' than no rule.
+#'
+#' @param outcome_type Resolved outcome type.
+#' @param effect_measure Resolved effect measure (\code{NULL} on survival).
+#' @param subgroup_method Resolved subgroup method.
+#' @param c1,c2 The two thresholds on the natural scale, \emph{after} the alias
+#'   merge -- i.e. the values this fit will use.
+#' @param c1_new,c2_new The new-spelling arguments as supplied
+#'   (\code{NULL} when absent).
+#' @param c1_legacy,c2_legacy The legacy-spelling arguments as supplied,
+#'   captured \emph{before} the alias merge overwrote them (\code{NULL} when
+#'   absent).
+#' @param user_set_threshold,user_set_consistency The supply flags.
+#' @param quiet Suppress the announcement.
+#' @return \code{c2}, on the natural scale.
+#' @noRd
+.fs_resolve_threshold_pair <- function(outcome_type, effect_measure,
+                                       subgroup_method, c1, c2,
+                                       c1_new, c2_new, c1_legacy, c2_legacy,
+                                       user_set_threshold,
+                                       user_set_consistency,
+                                       quiet = FALSE) {
+  # The pair rule governs the consistency path on a ratio estimand only.
+  ratio_pair <- identical(as.character(subgroup_method)[1L], "consistency") &&
+    (identical(outcome_type, "survival") ||
+       (identical(outcome_type, "binary") && identical(effect_measure, "OR")))
+  if (!ratio_pair) return(c2)
+
+  # Which name to report: the one the caller wrote; the preferred spelling
+  # when the value is the package default and the caller wrote neither.
+  .nm <- function(new, legacy, new_name, legacy_name) {
+    if (!is.null(new)) new_name else if (!is.null(legacy)) legacy_name
+    else new_name
+  }
+  .disagrees <- function(new, legacy) {
+    !is.null(new) && !is.null(legacy) &&
+      !isTRUE(all.equal(as.numeric(new), as.numeric(legacy)))
+  }
+
+  if (.disagrees(c1_new, c1_legacy)) {
+    stop(sprintf(paste0("effect.threshold = %s and hr.threshold = %s are two ",
+                        "spellings of the same threshold (c1) and disagree; ",
+                        "supply one."),
+                 format(c1_new), format(c1_legacy)), call. = FALSE)
+  }
+  if (.disagrees(c2_new, c2_legacy)) {
+    stop(sprintf(paste0("consistency.threshold = %s and hr.consistency = %s ",
+                        "are two spellings of the same threshold (c2) and ",
+                        "disagree; supply one."),
+                 format(c2_new), format(c2_legacy)), call. = FALSE)
+  }
+
+  c1_name <- .nm(c1_new, c1_legacy, "effect.threshold", "hr.threshold")
+  c2_name <- .nm(c2_new, c2_legacy, "consistency.threshold", "hr.consistency")
+
+  # isTRUE(), not a bare comparison: an NA or a non-scalar threshold must
+  # reach the resolution branches that already handle it, not fail here with
+  # "missing value where TRUE/FALSE needed".
+  if (isTRUE(c2 > c1)) {
+    stop(sprintf("c2 > c1 not allowed for FS: %s = %.2f exceeds %s = %.2f",
+                 c2_name, c2, c1_name, c1), call. = FALSE)
+  }
+
+  c2
+}
+
+
+# =============================================================================
 # Default Worker Count for parallel_args
 # =============================================================================
 
@@ -1461,8 +1557,33 @@ forestsearch <- function(df.analysis,
   # provided.
   user_set_threshold   <- !is.null(effect.threshold)      || !missing(hr.threshold)
   user_set_consistency <- !is.null(consistency.threshold) || !missing(hr.consistency)
+  # Captured BEFORE the merge overwrites them, so SECTION 1A3 can tell a
+  # caller who wrote both spellings of one quantity from one who wrote either.
+  .fs_c1_legacy <- if (missing(hr.threshold))   NULL else hr.threshold
+  .fs_c2_legacy <- if (missing(hr.consistency)) NULL else hr.consistency
   if (!is.null(effect.threshold))      hr.threshold   <- effect.threshold
   if (!is.null(consistency.threshold)) hr.consistency <- consistency.threshold
+
+  # ===========================================================================
+  # SECTION 1A3: THE THRESHOLD PAIR -- c2 <= c1 ON THE CONSISTENCY PATH
+  # ===========================================================================
+  # c1 admits a candidate to the family; c2 is the per-split floor it must then
+  # clear.  c2 > c1 is degenerate -- the consistency-stage entry condition
+  # (SECTION 8) re-filters the screened family on c2, so candidates the screen
+  # admitted are dropped at the stage boundary.  Rejected here, ahead of every
+  # fit, for the consistency path on a ratio estimand (survival HR, binary OR).
+  # dina and grf return from their own sections without ever consulting c2, and
+  # RD / IRD / MD / IRR are untouched: see .fs_resolve_threshold_pair().
+  #
+  # Placed before the Section 1B capture so the resolved value is captured with
+  # the rest, and re-synced at SECTION 2B-ii on the spelling a replay detects.
+  hr.consistency <- .fs_resolve_threshold_pair(
+    outcome_type = outcome_type, effect_measure = effect_measure,
+    subgroup_method = subgroup_method, c1 = hr.threshold, c2 = hr.consistency,
+    c1_new = effect.threshold, c2_new = consistency.threshold,
+    c1_legacy = .fs_c1_legacy, c2_legacy = .fs_c2_legacy,
+    user_set_threshold = user_set_threshold,
+    user_set_consistency = user_set_consistency, quiet = quiet)
 
   # ===========================================================================
   # SECTION 1A2: RESOLVE ADAPTIVE n.min (opt-in via n.min = NULL)
