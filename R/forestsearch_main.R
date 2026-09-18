@@ -889,10 +889,18 @@
 #' @param outcome_type Character. One of \code{"survival"} (default),
 #'   \code{"binary"}, \code{"continuous"}, or \code{"count"}.
 #' @param effect_measure Character or \code{NULL}. Effect measure for GLM
-#'   outcomes.  For binary: \code{"RD"}, \code{"OR"}, \code{"RR"},
-#'   \code{"IRR"}, \code{"IRD"}.  For continuous: \code{"MD"}.
-#'   For count: \code{"IRR"} (default), \code{"IRD"}.
-#'   Default depends on \code{outcome_type}.
+#'   outcomes.  For binary: \code{"OR"} (default), \code{"RD"},
+#'   \code{"RR"}, \code{"IRR"}, \code{"IRD"}.  For continuous:
+#'   \code{"MD"} (default).  For count: \code{"IRR"} (default),
+#'   \code{"IRD"}.  \code{NULL} resolves to the per-outcome default shown
+#'   here; the resolved measure then fixes the scale on which
+#'   \code{effect.threshold} and \code{consistency.threshold} are compared
+#'   -- log for the ratio measures (\code{"OR"}, \code{"RR"},
+#'   \code{"IRR"}), identity for \code{"RD"}, \code{"IRD"} and
+#'   \code{"MD"} -- so an unset binary call screens on log(1.25) rather
+#'   than 0.05.  See the \emph{Threshold vocabulary and resolved defaults}
+#'   section.  Ignored for \code{outcome_type = "survival"}, which always
+#'   uses the hazard ratio.
 #' @param offset.name Character or \code{NULL}. Name of the follow-up time
 #'   column for rate-based measures (IRR, IRD).
 #' @param adverse_outcome Logical or \code{NULL}. If \code{TRUE}, higher
