@@ -446,10 +446,17 @@ summary.forestsearch <- function(object, ...) {
     .print_param <- function(label, value) {
       if (!is.null(value)) cat("  ", label, ": ", value, "\n", sep = "")
     }
+    # c2 / p* are echoed whatever the path selected on; annotate them where
+    # the path returns before the consistency stage and never reads them.
+    .c2_note <- .fs_c2_inert_note(params$subgroup_method)
     .print_param("sg_focus",                params$sg_focus)
     .print_param("hr.threshold",            params$hr.threshold)
-    .print_param("hr.consistency",          params$hr.consistency)
-    .print_param("pconsistency.threshold",  params$pconsistency.threshold)
+    .print_param("hr.consistency",
+                 if (is.null(params$hr.consistency)) NULL
+                 else paste0(params$hr.consistency, .c2_note))
+    .print_param("pconsistency.threshold",
+                 if (is.null(params$pconsistency.threshold)) NULL
+                 else paste0(params$pconsistency.threshold, .c2_note))
     .print_param("n.min",                   params$n.min)
     .print_param("fs.splits",               params$fs.splits)
     .print_param("maxk",                    params$maxk)

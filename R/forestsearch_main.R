@@ -2222,6 +2222,9 @@ forestsearch <- function(df.analysis,
     }
 
     if (!quiet && subgroup_method != "dina") {
+    # c2 and p* are echoed here on every path; annotate them where the path
+    # never reads them (display only -- no value changes).
+    .c2_note <- .fs_c2_inert_note(subgroup_method)
     message(sprintf(paste0(
       "\n[forestsearch] Subgroup Identification Configuration\n",
       "  Outcome type:   %s\n",
@@ -2229,18 +2232,18 @@ forestsearch <- function(df.analysis,
       "  Scale:          %s\n",
       "\n",
       "  Screening:      %s >= %s\n",
-      "  Consistency:    %s >= %s\n",
-      "  Consistency rate threshold: %.0f%%\n",
+      "  Consistency:    %s >= %s%s\n",
+      "  Consistency rate threshold: %.0f%%%s\n",
       "\n",
       "  Interpretation:\n",
       "    Candidates: %s\n",
-      "    Splits:     %s\n"),
+      "    Splits:     %s%s\n"),
       outcome_type, effect_measure, measure_label,
       if (is_identity) "identity" else "log (ratio)",
       effect_measure, screen_desc,
-      effect_measure, consist_desc,
-      100 * pconsistency.threshold,
-      screen_interp, consist_interp))
+      effect_measure, consist_desc, .c2_note,
+      100 * pconsistency.threshold, .c2_note,
+      screen_interp, consist_interp, .c2_note))
     }
 
     # Store resolved config for the return object
@@ -2274,6 +2277,7 @@ forestsearch <- function(df.analysis,
   } else {
     # Survival path: print configuration summary
     if (!quiet && subgroup_method != "dina") {
+    .c2_note <- .fs_c2_inert_note(subgroup_method)
     message(sprintf(paste0(
       "\n[forestsearch] Subgroup Identification Configuration\n",
       "  Outcome type:   survival (Cox PH)\n",
@@ -2281,16 +2285,16 @@ forestsearch <- function(df.analysis,
       "  Scale:          log (ratio)\n",
       "\n",
       "  Screening:      HR >= %.2f  (log: %.4f)\n",
-      "  Consistency:    HR >= %.2f  (log: %.4f)\n",
-      "  Consistency rate threshold: %.0f%%\n",
+      "  Consistency:    HR >= %.2f  (log: %.4f)%s\n",
+      "  Consistency rate threshold: %.0f%%%s\n",
       "\n",
       "  Interpretation:\n",
       "    Candidates: subgroup hazard ratio >= %.2f\n",
-      "    Splits:     each split HR >= %.2f\n"),
+      "    Splits:     each split HR >= %.2f%s\n"),
       hr.threshold, log(hr.threshold),
-      hr.consistency, log(max(hr.consistency, 0.001)),
-      100 * pconsistency.threshold,
-      hr.threshold, hr.consistency))
+      hr.consistency, log(max(hr.consistency, 0.001)), .c2_note,
+      100 * pconsistency.threshold, .c2_note,
+      hr.threshold, hr.consistency, .c2_note))
     }
 
     # Store resolved config for the return object
@@ -2382,6 +2386,7 @@ forestsearch <- function(df.analysis,
     event.name           = event.name,
     treat.name           = treat.name,
     offset.name          = offset.name,
+    subgroup_method      = subgroup_method,
     quiet                = !details || quiet || subgroup_method == "dina"
   )
 

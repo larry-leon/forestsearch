@@ -325,8 +325,12 @@ fs_family_report <- function(x, data = NULL, outcome_type = NULL) {
               fmt(consistency_method), fmt(pconsistency.threshold), if (is_maxeff) " (maxeff: -> 0)" else "",
               if (outcome_type == "survival") sprintf("hr.consistency = %s", fmt(hr.consistency)) else sprintf("consistency.threshold = %s", fmt(consistency.threshold)),
               fmt(fs.splits), fmt(use_twostage), fmt(twostage_args)),
-      if (is_maxeff) DIS else DD,
-      if (is_maxeff) "sg_focus = \"maxeff\" sets pconsistency.threshold to 0: every candidate passes"
+      if (!identical(subgroup_method, "consistency")) INE
+      else if (is_maxeff) DIS else DD,
+      if (!identical(subgroup_method, "consistency"))
+        sprintf("not used on this path: subgroup_method = \"%s\" returns before the consistency stage, so c2 and pconsistency.threshold are never read",
+                subgroup_method)
+      else if (is_maxeff) "sg_focus = \"maxeff\" sets pconsistency.threshold to 0: every candidate passes"
       else "the gate: per-candidate consistency rate on resampled / split halves of the sample")
   add("early stopping", "stop_threshold", sprintf("stop_threshold = %s%s", fmt(stop_threshold),
       if (is.null(stop_threshold) && !is.null(.arg("stop_threshold")) && !identical(as.character(sg_focus), "maxeffCons")) sprintf(" (reset to NULL for sg_focus = %s)", fmt(sg_focus_raw)) else ""),

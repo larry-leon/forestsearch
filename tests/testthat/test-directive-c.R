@@ -508,6 +508,172 @@ test_that("neither old frontier title survives anywhere in the package", {
 })
 
 
+# =============================================================================
+# Part 5 -- the c2 / p* echo annotation under dina / grf
+#
+# Display only.  No value changes, no warning, no error: the echo sites are
+# found from source and each is exercised directly.
+# =============================================================================
+
+# The echo sites, established from source (Part 5).  Each is a place c2
+# (consistency.threshold / hr.consistency) or p* (pconsistency.threshold) is
+# printed back to the user.
+.DC_ECHO_SITES <- c(
+  "forestsearch",              # the two config banners (GLM + survival)
+  "interpret_search_config",   # the Search Alignment Diagnostic thresholds
+  "summary.forestsearch",      # Analysis Parameters
+  "print_cv_params",           # ForestSearch parameters for CV folds
+  "fs_family_report"           # the consistency-screen row
+)
+
+test_that("the annotation helper fires only on dina and grf", {
+  note <- forestsearch:::.fs_c2_inert_note
+  expect_identical(note("consistency"), "")
+  expect_identical(note(NULL), "")
+  expect_identical(note(NA_character_), "")
+  expect_true(grepl('subgroup_method = "dina"', note("dina"), fixed = TRUE))
+  expect_true(grepl('subgroup_method = "grf"', note("grf"), fixed = TRUE))
+  expect_true(grepl("not used on this path", note("grf"), fixed = TRUE))
+  expect_false(grepl("[^-]", note("grf")))
+})
+
+test_that("every echo site found in Part 5 carries the annotation", {
+  for (fn in .DC_ECHO_SITES) {
+    txt <- .dc_body_text(fn)
+    hit <- grepl(".fs_c2_inert_note(", txt, fixed = TRUE) ||
+           grepl("not used on this path", txt, fixed = TRUE)
+    expect_true(hit, info = paste("echo site annotated:", fn))
+  }
+  # The bootstrap banner too (its else-branch; dina is already excluded there).
+  expect_true(grepl(".fs_c2_inert_note(",
+                    .dc_body_text("forestsearch_bootstrap_dofuture"),
+                    fixed = TRUE))
+})
+
+test_that("the banner annotates c2 and p* under grf and not under consistency", {
+  df <- .make_binary_data(N = 120L, seed = 11L)
+  grab <- function(m) {
+    args <- .fs_args_for("binary",
+                         confounders = c("age", "biomarker"),
+                         extra = list(subgroup_method = m,
+                                      use_grf = (m == "grf"),
+                                      use_lasso = FALSE, use_dina = FALSE,
+                                      n.min = 30L, quiet = FALSE,
+                                      details = FALSE))
+    msgs <- character(0)
+    withCallingHandlers(
+      tryCatch(suppressWarnings(
+        do.call(forestsearch, c(list(df.analysis = df), args))),
+        error = function(e) NULL),
+      message = function(mm) {
+        msgs <<- c(msgs, conditionMessage(mm))
+        invokeRestart("muffleMessage")
+      })
+    paste(msgs, collapse = "")
+  }
+
+  out_grf <- grab("grf")
+  expect_true(grepl("Subgroup Identification Configuration", out_grf,
+                    fixed = TRUE))
+  expect_true(grepl('not used on this path: subgroup_method = "grf"',
+                    out_grf, fixed = TRUE))
+
+  out_cons <- grab("consistency")
+  expect_true(grepl("Subgroup Identification Configuration", out_cons,
+                    fixed = TRUE))
+  expect_false(grepl("not used on this path", out_cons, fixed = TRUE))
+
+  # The echoed VALUES are untouched -- annotation only.
+  expect_true(grepl("Consistency rate threshold: 80%", out_grf, fixed = TRUE))
+  expect_true(grepl("Consistency rate threshold: 80%", out_cons, fixed = TRUE))
+})
+
+test_that("interpret_search_config annotates only dina / grf", {
+  cap <- function(m) {
+    msgs <- character(0)
+    withCallingHandlers(
+      interpret_search_config(
+        outcome_type = "binary", effect_measure = "OR",
+        adverse_outcome = TRUE, effect_threshold = log(1.25),
+        consistency_threshold = log(1.0),
+        use_lasso = FALSE, use_grf = TRUE,
+        outcome.name = "y", event.name = "y", treat.name = "treat",
+        subgroup_method = m, quiet = FALSE),
+      message = function(mm) {
+        msgs <<- c(msgs, conditionMessage(mm))
+        invokeRestart("muffleMessage")
+      })
+    paste(msgs, collapse = "")
+  }
+  expect_true(grepl('not used on this path: subgroup_method = "grf"',
+                    cap("grf"), fixed = TRUE))
+  expect_true(grepl('not used on this path: subgroup_method = "dina"',
+                    cap("dina"), fixed = TRUE))
+  expect_false(grepl("not used on this path", cap("consistency"),
+                     fixed = TRUE))
+  # Default keeps the pre-Part-5 output for every existing caller.
+  expect_identical(eval(formals(interpret_search_config)$subgroup_method),
+                   "consistency")
+})
+
+test_that("print_cv_params annotates only dina / grf", {
+  base <- list(sg_focus = "maxSG", maxk = 2L, fs.splits = 100L,
+               max_subgroups_search = Inf, hr.threshold = 1.25,
+               hr.consistency = 1.0, pconsistency.threshold = 0.8,
+               n.min = 40L, use_twostage = FALSE, use_lasso = FALSE,
+               use_grf = TRUE, outcome_type = "survival")
+  grab <- function(m) paste(utils::capture.output(
+    forestsearch:::print_cv_params(utils::modifyList(
+      base, list(subgroup_method = m)))), collapse = "\n")
+  expect_true(grepl("not used on this path", grab("grf"), fixed = TRUE))
+  expect_true(grepl("not used on this path", grab("dina"), fixed = TRUE))
+  expect_false(grepl("not used on this path", grab("consistency"),
+                     fixed = TRUE))
+})
+
+test_that("summary.forestsearch annotates only dina / grf", {
+  stub <- function(m) structure(
+    list(args_call_all = list(
+      sg_focus = "maxSG", hr.threshold = 1.25, hr.consistency = 1.0,
+      pconsistency.threshold = 0.8, n.min = 40, fs.splits = 100, maxk = 2,
+      use_twostage = FALSE, use_lasso = FALSE, use_grf = TRUE,
+      use_dina = FALSE, subgroup_method = m)),
+    class = "forestsearch")
+  grab <- function(m) paste(utils::capture.output(summary(stub(m))),
+                            collapse = "\n")
+  for (m in c("dina", "grf")) {
+    out <- grab(m)
+    expect_true(grepl(sprintf('not used on this path: subgroup_method = "%s"', m),
+                      out, fixed = TRUE), info = m)
+    # Both quantities annotated, and the values themselves unchanged.
+    expect_true(grepl("hr.consistency: 1  [not used", out, fixed = TRUE))
+    expect_true(grepl("pconsistency.threshold: 0.8  [not used", out,
+                      fixed = TRUE))
+  }
+  out_c <- grab("consistency")
+  expect_false(grepl("not used on this path", out_c, fixed = TRUE))
+  expect_true(grepl("hr.consistency: 1", out_c, fixed = TRUE))
+  expect_true(grepl("pconsistency.threshold: 0.8", out_c, fixed = TRUE))
+})
+
+test_that("Part 5 changes no resolved value on any path", {
+  # Gate C's instrument: the threshold-resolution probe, all 175 cells,
+  # compared to the baseline recorded before the first Directive C edit.
+  base <- utils::read.csv("../../dev/reports/baseline_directive_C_2026-09-18.csv",
+                          stringsAsFactors = FALSE, colClasses = "character")
+  now  <- probe_threshold_sync(sync = TRUE, validate = TRUE, extended = TRUE)
+  now  <- as.data.frame(lapply(now, as.character), stringsAsFactors = FALSE)
+  base <- as.data.frame(lapply(base, as.character), stringsAsFactors = FALSE)
+  base[is.na(base)] <- ""
+  now[is.na(now)]   <- ""
+  expect_identical(dim(now), dim(base))
+  expect_identical(names(now), names(base))
+  for (j in names(base)) {
+    expect_identical(now[[j]], base[[j]], info = paste("probe column", j))
+  }
+})
+
+
 test_that("wall clock stays inside the file's abort budget", {
   elapsed <- proc.time()[["elapsed"]] - .dc_t0
   message(sprintf("[directive C] acceptance-test wall clock: %.1f s", elapsed))

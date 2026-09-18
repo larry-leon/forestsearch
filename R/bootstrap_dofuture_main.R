@@ -424,8 +424,13 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
       cat("  - fs.splits:", args_forestsearch_call$fs.splits, "\n")
       cat("  - max_subgroups_search:", args_forestsearch_call$max_subgroups_search, "\n")
       cat("  - hr.threshold:", args_forestsearch_call$hr.threshold, "\n")
-      cat("  - hr.consistency:", args_forestsearch_call$hr.consistency, "\n")
-      cat("  - pconsistency.threshold:", args_forestsearch_call$pconsistency.threshold, "\n")
+      # sm is "consistency" or "grf" in this branch; grf returns before the
+      # consistency stage, so annotate the echo there.
+      .c2_note <- .fs_c2_inert_note(sm)
+      cat("  - hr.consistency:", args_forestsearch_call$hr.consistency,
+          .c2_note, "\n")
+      cat("  - pconsistency.threshold:",
+          args_forestsearch_call$pconsistency.threshold, .c2_note, "\n")
       cat("  - n.min:", args_forestsearch_call$n.min, "\n")
       cat("  - use_twostage:", args_forestsearch_call$use_twostage, "\n")
       if (isTRUE(args_forestsearch_call$use_twostage) &&

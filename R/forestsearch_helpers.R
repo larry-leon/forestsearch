@@ -1018,6 +1018,32 @@ reset_workers <- function(workers   = NULL,
   )
 }
 
+#' Annotate a c2 / p* echo that the running path never consults
+#'
+#' \code{subgroup_method = "dina"} selects through \code{dina_subgroup()} and
+#' \code{"grf"} through the GRF policy tree / DR-candidate frontier; both
+#' return before the consistency stage, so the consistency threshold
+#' (\code{consistency.threshold} / \code{hr.consistency}, "c2") and the
+#' consistency RATE threshold (\code{pconsistency.threshold}, "p*") are never
+#' read.  Output that echoes them back said nothing about that -- the
+#' motivating case is \code{quarto/simulations/gbsg_020/summary_grfmr.qmd},
+#' which runs \code{hr.threshold = 0.90} against the inert default c2 = 1.0
+#' under \code{grf} with nothing in its output saying c2 was never consulted.
+#'
+#' Display only: no value changes, no warning, no error.
+#'
+#' @param subgroup_method The resolved \code{subgroup_method}, or \code{NULL}.
+#' @return A short suffix to append to the echoed value, or \code{""} on the
+#'   consistency path.
+#' @noRd
+.fs_c2_inert_note <- function(subgroup_method) {
+  if (is.null(subgroup_method) || length(subgroup_method) != 1L) return("")
+  sm <- as.character(subgroup_method)[1L]
+  if (is.na(sm) || !sm %in% c("dina", "grf")) return("")
+  sprintf("  [not used on this path: subgroup_method = \"%s\"]", sm)
+}
+
+
 #' The seven \code{dina_frontier()} keys \code{dina_args} recognises
 #'
 #' \code{scope}, \code{m_diff}, \code{n_min}, \code{direction},

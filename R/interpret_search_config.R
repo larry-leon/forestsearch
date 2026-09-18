@@ -34,6 +34,11 @@
 #' @param event.name Character. Name of event column.
 #' @param treat.name Character. Name of treatment column.
 #' @param offset.name Character or NULL.
+#' @param subgroup_method Character, the resolved \code{subgroup_method}.
+#'   \code{"dina"} and \code{"grf"} return before the consistency stage and
+#'   never read the consistency threshold, so the echoed value is annotated as
+#'   unused on those paths.  Display only; nothing is computed from it.
+#'   Default \code{"consistency"}.
 #' @param quiet Logical. If TRUE, suppress output.
 #'
 #' @return Invisible list with diagnostic fields.
@@ -49,8 +54,9 @@ interpret_search_config <- function(
     outcome.name,
     event.name,
     treat.name,
-    offset.name   = NULL,
-    quiet         = FALSE
+    offset.name     = NULL,
+    subgroup_method = "consistency",
+    quiet           = FALSE
 ) {
 
   is_survival  <- outcome_type == "survival"
@@ -171,15 +177,19 @@ interpret_search_config <- function(
   }
 
   # -- Threshold interpretation --------------------------------------------
+  # The consistency echo is annotated where the path never consults it.
+  c2_note <- .fs_c2_inert_note(subgroup_method)
   if (is_ratio) {
     thresh_nat <- exp(effect_threshold)
     thresh_desc <- sprintf(
-      "Screening: %s >= %.3f in the candidate subgroup\n    Consistency: %s >= %.3f in each bootstrap split",
-      effect_measure, thresh_nat, effect_measure, exp(consistency_threshold))
+      "Screening: %s >= %.3f in the candidate subgroup\n    Consistency: %s >= %.3f in each bootstrap split%s",
+      effect_measure, thresh_nat, effect_measure, exp(consistency_threshold),
+      c2_note)
   } else {
     thresh_desc <- sprintf(
-      "Screening: %s >= %.4f in the candidate subgroup\n    Consistency: %s >= %.4f in each bootstrap split",
-      effect_measure, effect_threshold, effect_measure, consistency_threshold)
+      "Screening: %s >= %.4f in the candidate subgroup\n    Consistency: %s >= %.4f in each bootstrap split%s",
+      effect_measure, effect_threshold, effect_measure, consistency_threshold,
+      c2_note)
   }
 
   # -- LASSO note ----------------------------------------------------------

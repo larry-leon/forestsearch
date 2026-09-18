@@ -2059,8 +2059,10 @@ print_cv_params <- function(cv_args) {
   cat("  - fs.splits:", cv_args$fs.splits, "\n")
   cat("  - max_subgroups_search:", cv_args$max_subgroups_search, "\n")
   cat("  - hr.threshold:", cv_args$hr.threshold, "\n")
-  cat("  - hr.consistency:", cv_args$hr.consistency, "\n")
-  cat("  - pconsistency.threshold:", cv_args$pconsistency.threshold, "\n")
+  .c2_note <- .fs_c2_inert_note(cv_args$subgroup_method)
+  cat("  - hr.consistency:", cv_args$hr.consistency, .c2_note, "\n")
+  cat("  - pconsistency.threshold:", cv_args$pconsistency.threshold,
+      .c2_note, "\n")
   cat("  - n.min:", cv_args$n.min, "\n")
   cat("  - use_twostage:", cv_args$use_twostage, "\n")
   if (isTRUE(cv_args$use_twostage) && length(cv_args$twostage_args) > 0) {

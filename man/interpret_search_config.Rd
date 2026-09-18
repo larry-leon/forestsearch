@@ -16,6 +16,7 @@ interpret_search_config(
   event.name,
   treat.name,
   offset.name = NULL,
+  subgroup_method = "consistency",
   quiet = FALSE
 )
 }
@@ -45,6 +46,12 @@ see \code{\link{forestsearch}}.}
 \item{treat.name}{Character. Name of treatment column.}
 
 \item{offset.name}{Character or NULL.}
+
+\item{subgroup_method}{Character, the resolved \code{subgroup_method}.
+\code{"dina"} and \code{"grf"} return before the consistency stage and
+never read the consistency threshold, so the echoed value is annotated as
+unused on those paths.  Display only; nothing is computed from it.
+Default \code{"consistency"}.}
 
 \item{quiet}{Logical. If TRUE, suppress output.}
 }
