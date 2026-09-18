@@ -1,5 +1,17 @@
 # forestsearch (development version)
 
+* **`dina_args` frontier keys now warn when they are ignored.** The seven
+  `dina_frontier()` keys -- `scope`, `m_diff`, `n_min`, `direction`,
+  `max_per_covariate`, `max_subgroups`, `digits` -- are inert under
+  `subgroup_method = "dina"`, which selects through `dina_subgroup()` and
+  never consults a frontier table. Supplying any of them there now raises a
+  single `warning()` per fit naming every offending key at once, rather than
+  accepting them silently. **Affected: `subgroup_method = "dina"` callers who
+  pass frontier keys** -- the selection is unchanged, only the messaging.
+  **Unaffected:** the `use_dina` screening path, where the keys still act
+  (`digits` under `selected_only = TRUE`, all seven under
+  `selected_only = FALSE`), and every other `subgroup_method`.
+
 * **DINA now refuses the identity-scale estimands `"RD"` and `"IRD"`.** DINA
   scores candidates on the family link scale, so its admission floor was
   derived as `log(hr.threshold)` for the ratio families and as the identity

@@ -240,6 +240,8 @@ still acts, rounding the threshold in the emitted cut expression.  The
 seven keys govern the candidate pool only under
 \code{selected_only = FALSE}, where
 \code{\link{dina_frontier}}'s \code{cut_expr} column \emph{is} the pool.
+Supplying any of the seven under \code{subgroup_method = "dina"} now
+raises a single \code{warning()} naming every offending key.
 
 Under \code{dina_select_statistic = "effect"} the floor still defines the
 qualifying family on the tau-hat scale while selection re-ranks that

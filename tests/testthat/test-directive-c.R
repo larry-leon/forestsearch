@@ -244,6 +244,94 @@ test_that("the use_dina screening route reports the refusal and contributes no c
 })
 
 
+# =============================================================================
+# Part 2 -- the frontier-key warning under subgroup_method = "dina"
+# =============================================================================
+
+.dc_dina_select_warnings <- function(dina_args, effect_measure = "OR",
+                                     outcome_type = "binary") {
+  df <- .make_binary_data(N = 120L, seed = 11L)
+  seen <- character(0)
+  testthat::local_mocked_bindings(
+    dina = function(...) stop("MODEL RAN", call. = FALSE),
+    .package = "forestsearch")
+  withCallingHandlers(
+    tryCatch(
+      forestsearch:::.forestsearch_dina_select(
+        df = df, df.predict = NULL, df.test = NULL,
+        confounders.name = c("age", "biomarker"),
+        outcome.name = "y", event.name = "y", treat.name = "treat",
+        id.name = "id", outcome_type = outcome_type,
+        hr.threshold = 1.25, n.min = 30L, sg_focus = "maxSG",
+        selection_rule = "hr", effect_neighborhood = 0.05,
+        dina_args = dina_args, dina_res = NULL, seedit = 1L, details = FALSE,
+        effect_measure = effect_measure, adverse_outcome = TRUE),
+      error = function(e) NULL),
+    warning = function(w) {
+      seen <<- c(seen, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    })
+  seen
+}
+
+test_that("the seven frontier keys are the documented set", {
+  expect_setequal(forestsearch:::.DINA_FRONTIER_KEYS,
+                  c("scope", "m_diff", "n_min", "direction",
+                    "max_per_covariate", "max_subgroups", "digits"))
+})
+
+test_that("frontier keys under dina warn ONCE, naming every offending key", {
+  keys <- forestsearch:::.DINA_FRONTIER_KEYS
+  supplied <- list(scope = "wide", m_diff = 0.2, n_min = 30L,
+                   direction = "both", max_per_covariate = 3L,
+                   max_subgroups = 10L, digits = 3L)
+
+  w <- .dc_dina_select_warnings(supplied)
+  hits <- grep("frontier key", w, fixed = TRUE, value = TRUE)
+  expect_length(hits, 1L)             # one warning per fit, never one per key
+  for (k in keys) {
+    expect_true(grepl(shQuote(k), hits[[1L]], fixed = TRUE), info = k)
+  }
+  expect_true(grepl('subgroup_method = "dina"', hits[[1L]], fixed = TRUE))
+
+  # A subset names exactly that subset.
+  w2 <- .dc_dina_select_warnings(list(max_subgroups = 5L, digits = 2L))
+  hits2 <- grep("frontier key", w2, fixed = TRUE, value = TRUE)
+  expect_length(hits2, 1L)
+  expect_true(grepl(shQuote("max_subgroups"), hits2[[1L]], fixed = TRUE))
+  expect_true(grepl(shQuote("digits"), hits2[[1L]], fixed = TRUE))
+  expect_false(grepl(shQuote("scope"), hits2[[1L]], fixed = TRUE))
+})
+
+test_that("no frontier keys, no warning; fit / behaviour keys do not warn", {
+  expect_length(grep("frontier key", .dc_dina_select_warnings(list()),
+                     fixed = TRUE), 0L)
+  expect_length(
+    grep("frontier key",
+         .dc_dina_select_warnings(list(family = "binomial", seed = 3L,
+                                       max_depth = 1L, selected_only = TRUE)),
+         fixed = TRUE),
+    0L)
+})
+
+test_that("the same dina_args under consistency and grf warn nothing", {
+  df <- .make_binary_data(N = 120L, seed = 11L)
+  for (m in c("consistency", "grf")) {
+    args <- .fs_args_for("binary",
+                         confounders = c("age", "biomarker"),
+                         extra = list(subgroup_method = m,
+                                      use_grf = (m == "grf"),
+                                      use_lasso = FALSE, use_dina = FALSE,
+                                      n.min = 30L,
+                                      dina_args = list(scope = "wide",
+                                                       max_subgroups = 5L,
+                                                       digits = 2L)))
+    cap <- .run_fs_capture(df, args)
+    expect_length(grep("frontier key", cap$warnings, fixed = TRUE), 0L)
+  }
+})
+
+
 test_that("wall clock stays inside the file's abort budget", {
   elapsed <- proc.time()[["elapsed"]] - .dc_t0
   message(sprintf("[directive C] acceptance-test wall clock: %.1f s", elapsed))

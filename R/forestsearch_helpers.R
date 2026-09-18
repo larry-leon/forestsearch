@@ -1018,6 +1018,18 @@ reset_workers <- function(workers   = NULL,
   )
 }
 
+#' The seven \code{dina_frontier()} keys \code{dina_args} recognises
+#'
+#' \code{scope}, \code{m_diff}, \code{n_min}, \code{direction},
+#' \code{max_per_covariate}, \code{max_subgroups} and \code{digits} tune the
+#' frontier EXTRACTION.  All seven are inert under
+#' \code{subgroup_method = "dina"}, which selects through
+#' \code{dina_subgroup()} and never consults \code{da$frontier}.
+#' @noRd
+.DINA_FRONTIER_KEYS <- c("scope", "m_diff", "n_min", "direction",
+                         "max_per_covariate", "max_subgroups", "digits")
+
+
 #' Resolve and validate the \code{dina_args} list for \code{forestsearch()}
 #'
 #' Fills defaults (several inherited from the enclosing \code{forestsearch()}
@@ -1041,8 +1053,7 @@ reset_workers <- function(workers   = NULL,
     stop("`dina_args` must be a list.", call. = FALSE)
   }
   fit_keys      <- c("family", "seed", "n_folds", "cens_type", "cens_params")
-  frontier_keys <- c("scope", "m_diff", "n_min", "direction",
-                      "max_per_covariate", "max_subgroups", "digits")
+  frontier_keys <- .DINA_FRONTIER_KEYS
   # screening-behavior keys: control HOW use_dina screening turns the DINA
   # fit into candidate cuts (frontier vs. single selected cut) and how deep
   # the selected-cut search runs.  Not passed to dina() or dina_frontier();
@@ -1451,6 +1462,23 @@ reset_workers <- function(workers   = NULL,
                                       admission = NULL) {
   da <- .resolve_dina_args(dina_args, outcome_type,
                            n_min_default = n.min, seed_default = seedit)
+
+  # Frontier keys are inert on this path: selection runs through
+  # dina_subgroup(), and the only dina_frontier() call here is the details-time
+  # display, which passes its own scope / n_min.  Say so once per fit, naming
+  # every offending key -- never one warning per key.
+  .dina_frontier_keys_supplied <- intersect(names(dina_args),
+                                            .DINA_FRONTIER_KEYS)
+  if (length(.dina_frontier_keys_supplied) > 0L) {
+    warning(
+      "`dina_args` frontier key(s) ",
+      paste(shQuote(.dina_frontier_keys_supplied), collapse = ", "),
+      " are ignored under `subgroup_method = \"dina\"`: this path selects ",
+      "through dina_subgroup() and never calls dina_frontier() with them.  ",
+      "They act only on the `use_dina` screening path.",
+      call. = FALSE
+    )
+  }
 
   # DINA requires numeric covariates (dina() rejects factors/characters).
   # Coerce all-numeric-level factor/character candidates to numeric -- the
