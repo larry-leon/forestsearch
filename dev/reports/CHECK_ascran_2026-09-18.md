@@ -150,3 +150,60 @@ skips. Two caveats on that expectation, stated rather than glossed: the skip pat
 **simulated** broken lift, not against a real installed package (no install was authorized here); and the
 Rd fix was verified in the generated `.Rd`, not by re-running the cross-reference check. Both are settled
 only by the next authorized run.
+
+### Verification run — 2026-09-18, Larry-authorized
+
+Same surface and environment as above: `RSTUDIO_PANDOC` exported and on `PATH`,
+`rcmdcheck::rcmdcheck(args = "--as-cran")`, vignettes and PDF manual included, 90-minute hard timeout.
+Tree `b9a32705` (the remediation commit). **Wall clock 10.2 min.**
+
+```
+verification:  0 errors | 1 warning | 2 notes
+reference:     0 errors | 1 warning | 2 notes
+```
+
+**The reference set is reproduced exactly, and identical in text.** Compared programmatically against the
+first run's carried-over set, with the `[NNs/NNs]` timing annotations stripped: the non-ASCII WARNING is
+identical, both NOTES are identical, and the only warning present in run 1 and absent here is the Rd
+cross-reference one. Nothing new appeared.
+
+The full certification surface ran again, not a reduced one: `checking examples ... OK` (28 s),
+`checking examples with --run-donttest ... OK` (211 s), `checking package vignettes ... OK`,
+`checking re-building of vignette outputs ... OK` (51 s), `checking PDF version of manual ... OK`.
+
+**Both caveats are now verified, not expected.**
+
+| Was expected | Verdict |
+|---|---|
+| The three probe-based files appear as clean skips against a **real** installed package | **VERIFIED.** `checking tests ... OK` — `FAIL 0 \| WARN 21 \| SKIP 76 \| PASS 5063`, against run 1's `FAIL 14 \| SKIP 66 \| PASS 5097`. The 10 extra skips are exactly the guard's: `test-threshold-sync.R` (`:106`, `:123`, `:141`, `:152`, `:165`), `test-threshold-pair-directive-a.R` (`:45`, `:66`, `:87`, `:127`) and `test-directive-c.R` (`:662`), all reported under one skip reason with the message intact. Zero failures anywhere in the suite. |
+| The Rd cross-reference warning is gone | **VERIFIED.** `* checking Rd cross-references ... OK`. The warning is absent from the finding set. |
+
+#### Correction — the mechanism behind NEW-1's Cause 2 was misdiagnosed
+
+The skip log names the real cause, and it is **not** what this report's Cause 2 said:
+
+```
+Cause: resolver evaluated to an error: could not find function ".probe_record"
+```
+
+The statement lifting out of `body(forestsearch)` **succeeds** against the installed, byte-compiled
+package — the resolver builds. What fails is evaluation: `.probe_resolver()` sets the rebuilt function's
+environment to `asNamespace("forestsearch")` (`helper-threshold-sync.R`), and the record-builder
+`.probe_record()` lives in the helper file, which testthat sources into the test environment, not into the
+package namespace. From an installed namespace that function is unreachable, so every one of the 175 cells
+errors. Under `devtools::load_all()` it resolves, which is why the files pass on their gated surface.
+
+Cause 2's **consequence** (all 175 cells error; those files give no coverage under `R CMD check`) and its
+**remedy** are unaffected — `.probe_available()` detects the failure by evaluating a cell, so it catches
+the condition whatever produces it, which this run confirms. Only the stated mechanism was wrong, and it is
+corrected here rather than edited out of the body above.
+
+**Finding, no fix applied** (outside this run's authorization, which was report-only): the guard's own skip
+message still leads with the superseded explanation ("cannot match them against the installed,
+byte-compiled package") before appending the true `Cause:`. A future reader would take the leading sentence
+as the diagnosis. One line in `skip_if_probe_unavailable()` (`tests/testthat/helper-threshold-sync.R`), and
+the same sentence in that file's surface-guard comment block, would say instead that the rebuilt resolver
+is evaluated in the package namespace, where the helper's own functions are not reachable.
+
+**Workstream record closed.** The certification surface at `b9a32705` reports the reference set exactly:
+`0 errors | 1 warning | 2 notes`, all three pre-existing and all three untouched by the five tasks.
