@@ -659,7 +659,16 @@ test_that("summary.forestsearch annotates only dina / grf", {
 test_that("Part 5 changes no resolved value on any path", {
   # Gate C's instrument: the threshold-resolution probe, all 175 cells,
   # compared to the baseline recorded before the first Directive C edit.
-  base <- utils::read.csv("../../dev/reports/baseline_directive_C_2026-09-18.csv",
+  skip_if_probe_unavailable()
+  # dev/ is deliberately not in the built tarball, so under `R CMD check` the
+  # baseline is absent by design.  Skip cleanly rather than fail to open it.
+  base_csv <- "../../dev/reports/baseline_directive_C_2026-09-18.csv"
+  skip_if_not(file.exists(base_csv),
+              paste0("Gate C baseline not present on this surface (", base_csv,
+                     "): dev/ is not in the built tarball by design; this ",
+                     "gate is run under devtools::load_all() per CLAUDE.md."))
+
+  base <- utils::read.csv(base_csv,
                           stringsAsFactors = FALSE, colClasses = "character")
   now  <- probe_threshold_sync(sync = TRUE, validate = TRUE, extended = TRUE)
   now  <- as.data.frame(lapply(now, as.character), stringsAsFactors = FALSE)

@@ -46,7 +46,7 @@ evaluate_combination_with_status(
 \item{hr.threshold}{Numeric. Effect threshold, on the scale this function
 compares on: the natural hazard-ratio scale on the survival path, and
 the resolved comparison scale (link for OR/RR/IRR, identity for
-RD/IRD/MD) on the GLM paths.  See \code{\link{subgroup_search}}.}
+RD/IRD/MD) on the GLM paths.  See \code{\link{subgroup.search}}.}
 
 \item{minp}{Numeric. Minimum prevalence.}
 

@@ -26,6 +26,9 @@
 .DA_IN_SCOPE <- c("survival", "binary-unset", "binary-OR")
 
 .da_probe <- function(validate) {
+  # Every probe-driven test in this file goes through here, so the surface
+  # guard sits here too: a check shows a clean skip, not 175 erroring cells.
+  skip_if_probe_unavailable()
   probe_threshold_sync(sync = TRUE, validate = validate, extended = TRUE)
 }
 

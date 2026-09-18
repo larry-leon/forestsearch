@@ -545,7 +545,7 @@ extract_idx_flagredundancy <- function(x, rmin) {
 #' @param hr.threshold Numeric. Effect threshold, on the scale this function
 #'   compares on: the natural hazard-ratio scale on the survival path, and
 #'   the resolved comparison scale (link for OR/RR/IRR, identity for
-#'   RD/IRD/MD) on the GLM paths.  See \code{\link{subgroup_search}}.
+#'   RD/IRD/MD) on the GLM paths.  See \code{\link{subgroup.search}}.
 #' @param minp Numeric. Minimum prevalence.
 #' @param rmin Integer. Minimum size reduction.
 #' @param kk Integer. Combination index.

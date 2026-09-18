@@ -103,6 +103,7 @@ survival,none,neither,-,0.22314355131420976,0,1.25,1,log
 
 
 test_that("every replicate resolves what its parent fit resolved", {
+  skip_if_probe_unavailable()
   p <- probe_threshold_sync(sync = TRUE)
 
   expect_identical(nrow(p), 63L)
@@ -119,6 +120,7 @@ test_that("every replicate resolves what its parent fit resolved", {
 
 
 test_that("the pre-fix tree violates on exactly the identity-scale cells", {
+  skip_if_probe_unavailable()
   # The bug, as a test: with the sync statements excluded the probe must
   # reproduce the defect the task was opened against -- 15 cells, all
   # identity-scale, none on survival or any ratio measure.  If this ever goes
@@ -136,6 +138,7 @@ test_that("the pre-fix tree violates on exactly the identity-scale cells", {
 
 
 test_that("the sync leaves the parent fit's own resolution untouched", {
+  skip_if_probe_unavailable()
   got  <- .threshold_sync_parent_table(probe_threshold_sync(sync = TRUE))
   want <- .THRESHOLD_SYNC_BASELINE_PARENT
   want <- want[order(want$estimand, want$spelling, want$subset, want$values), ]
@@ -146,6 +149,7 @@ test_that("the sync leaves the parent fit's own resolution untouched", {
 
 
 test_that("ratio and survival replicates are untouched by the sync", {
+  skip_if_probe_unavailable()
   b <- probe_threshold_sync(sync = FALSE)
   p <- probe_threshold_sync(sync = TRUE)
   ratio <- b$estimand %in% c("survival", "binary-unset", "binary-OR",
@@ -158,6 +162,7 @@ test_that("ratio and survival replicates are untouched by the sync", {
 
 
 test_that("the replayed list carries the parent's resolved naturals", {
+  skip_if_probe_unavailable()
   # args_call_all, built the bootstrap's way, must carry NON-NULL values in
   # the two NULL-defaulted spellings, equal to what the parent resolved on the
   # natural scale.  Those spellings are is.null()-detected, so they are the
