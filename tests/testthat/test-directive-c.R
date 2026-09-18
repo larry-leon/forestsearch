@@ -674,6 +674,64 @@ test_that("Part 5 changes no resolved value on any path", {
 })
 
 
+# =============================================================================
+# Gates A / B / C
+# =============================================================================
+
+test_that("Gate B: an mddina-shaped call passes silently", {
+  # gaussian family, MD, subgroup_method = "dina" -- a committed campaign
+  # shape.  The SECOND and last micro-fit in this file.
+  df <- .make_continuous_data(N = 120L, seed = 5L)
+  args <- .fs_args_for("continuous",
+                       confounders = c("age", "biomarker"),
+                       extra = list(subgroup_method = "dina",
+                                    effect_measure = "MD",
+                                    effect.threshold = 0.30,
+                                    consistency.threshold = 0.20,
+                                    use_grf = FALSE, use_lasso = FALSE,
+                                    n.min = 30L))
+  t0 <- proc.time()[["elapsed"]]
+  cap <- .run_fs_capture(df, args)
+  secs <- proc.time()[["elapsed"]] - t0
+  message(sprintf("[directive C] Gate B micro-fit (forestsearch + dina, MD): %.2f s",
+                  secs))
+  expect_lt(secs, 300)
+
+  # No Directive C condition fires on this shape.
+  expect_length(grep("identity-scale estimands", cap$warnings, fixed = TRUE), 0L)
+  expect_length(grep("frontier key", cap$warnings, fixed = TRUE), 0L)
+  expect_length(grep("trimmed the frontier display", cap$warnings,
+                     fixed = TRUE), 0L)
+})
+
+test_that("Gate A: the refusal is the only new failure mode", {
+  guard <- forestsearch:::.dina_assert_ratio_estimand
+  # The full (family, measure) grid: the guard fires on exactly six cells.
+  fams <- c("cox", "binomial", "poisson", "gaussian")
+  ems  <- c("HR", "OR", "RR", "IRR", "MD", "RD", "IRD")
+  fires <- outer(fams, ems, Vectorize(function(f, m)
+    inherits(tryCatch(guard(f, m), error = function(e) e), "error")))
+  dimnames(fires) <- list(fams, ems)
+  expect_identical(sum(fires), 6L)
+  expect_true(all(fires[c("cox", "binomial", "poisson"), c("RD", "IRD")]))
+  expect_false(any(fires["gaussian", ]))
+  expect_false(any(fires[, c("HR", "OR", "RR", "IRR", "MD")]))
+})
+
+test_that("Gate A: neither new warning fires on a clean call", {
+  # A plain consistency run touches none of the three conditions.
+  df <- .make_binary_data(N = 120L, seed = 11L)
+  args <- .fs_args_for("binary", confounders = c("age", "biomarker"),
+                       extra = list(use_grf = FALSE, use_lasso = FALSE,
+                                    use_dina = FALSE, n.min = 30L))
+  cap <- .run_fs_capture(df, args)
+  for (pat in c("identity-scale estimands", "frontier key",
+                "trimmed the frontier display")) {
+    expect_length(grep(pat, cap$warnings, fixed = TRUE), 0L)
+  }
+})
+
+
 test_that("wall clock stays inside the file's abort budget", {
   elapsed <- proc.time()[["elapsed"]] - .dc_t0
   message(sprintf("[directive C] acceptance-test wall clock: %.1f s", elapsed))
