@@ -284,25 +284,30 @@ ids <- if (nrow(f)) max(abs(log(f$fld_Hc_est2_s) + f$fld_Hc_lam_mean_s - log(f$m
 chk(is.finite(idn) && idn <= 1e-9, sprintf("field-s inverted around the same beta-tilde^c, on the log scale (max |diff| %.2e)", idn))
 chk(is.finite(idb) && idb <= 1e-9, sprintf("identity: log(est2) + lambda_mean = log(beta-tilde^c) (max |diff| %.2e)", idb))
 chk(is.finite(ids) && ids <= 1e-9, sprintf("identity: log(est2_s) + lambda_mean_s = log(beta-tilde^c) (max |diff| %.2e)", ids))
-# Every bound is an OR, so strictly positive.
-POS <- c("or_H_est","or_H_lo","or_H_hi","or_Hc_est","or_Hc_lo","or_Hc_hi",
-         "nv_H_est","nv_H_lo","nv_H_hi","nv_Hc_est","nv_Hc_lo","nv_Hc_hi",
-         "mr_H_est","mr_H_lo","mr_H_hi","mr_Hc_est","mr_Hc_lo","mr_Hc_hi",
-         "fld_H_est2","fld_H_lo1s","fld_H_lo2s","fld_H_hi2s",
-         "fld_Hc_est2","fld_Hc_up1s","fld_Hc_lo1s",
-         # field-s BOUNDS only: fld_Hc_se_s and fld_Hc_lam_mean_s are on the
-         # WORKING (log-OR) scale (R/fs_mr_inference.R:480-488), so lambda_mean_s
-         # is a log-scale correction that is routinely NEGATIVE and is not a bound.
-         "fld_Hc_est2_s","fld_Hc_up1s_s","fld_Hc_lo1s_s","fld_Hc_lo2s_s","fld_Hc_hi2s_s",
-         "fld_Hc_lo_se_s","fld_Hc_hi_se_s",
-         "fld_joint_loH","fld_joint_upHc","fld_joint_bonf_loH","fld_joint_bonf_upHc",
-         "fld_joint_s_loH","fld_joint_s_upHc","fld_joint_s_bonf_loH","fld_joint_s_bonf_upHc",
-         "betaHhat_H","betaHhat_Hc")
-POS <- intersect(POS, names(r1))
-npos <- vapply(POS, function(k) { x <- r1[[k]]; sum(is.finite(x) & x <= 0) }, integer(1))
-chk(all(npos == 0L), sprintf("every bound is an OR, so positive (%s)",
-    if (all(npos == 0L)) sprintf("%d columns checked", length(POS)) else
-      paste(sprintf("%s %d non-positive", names(npos)[npos > 0], npos[npos > 0]), collapse = ", ")))
+# The OR scale, with degenerate logistic fits accounted for.  ESTIMATES must be strictly
+# positive; a bound fails only when NEGATIVE.  Under complete separation in an arm the logistic
+# MLE diverges and exp() underflows the lower bound to 0 / overflows the upper to Inf -- the
+# bound is still positive mathematically, so those are counted and reported, not failed.
+PEST <- intersect(c("or_H_est","or_Hc_est","nv_H_est","nv_Hc_est","mr_H_est","mr_Hc_est",
+                    "fld_H_est2","fld_Hc_est2","fld_Hc_est2_s","betaHhat_H","betaHhat_Hc"), names(r1))
+PBND <- intersect(c("or_H_lo","or_H_hi","or_Hc_lo","or_Hc_hi","nv_H_lo","nv_H_hi","nv_Hc_lo","nv_Hc_hi",
+                    "mr_H_lo","mr_H_hi","mr_Hc_lo","mr_Hc_hi",
+                    "fld_H_lo1s","fld_H_lo2s","fld_H_hi2s",
+                    "fld_Hc_up1s","fld_Hc_lo1s","fld_Hc_lo2s","fld_Hc_hi2s",
+                    # field-s BOUNDS only: fld_Hc_se_s and fld_Hc_lam_mean_s are log-OR
+                    # quantities (R/fs_mr_inference.R:480-488), routinely negative, not bounds.
+                    "fld_Hc_up1s_s","fld_Hc_lo1s_s","fld_Hc_lo2s_s","fld_Hc_hi2s_s","fld_Hc_lo_se_s","fld_Hc_hi_se_s",
+                    "fld_joint_loH","fld_joint_upHc","fld_joint_bonf_loH","fld_joint_bonf_upHc",
+                    "fld_joint_s_loH","fld_joint_s_upHc","fld_joint_s_bonf_loH","fld_joint_s_bonf_upHc"), names(r1))
+ne <- vapply(PEST, function(k) { x <- r1[[k]]; sum(is.finite(x) & x <= 0) }, integer(1))
+chk(all(ne == 0L), sprintf("every ESTIMATE is a positive OR (%d columns%s)", length(PEST),
+    if (any(ne > 0L)) paste0("; ", paste(sprintf("%s %d", names(ne)[ne > 0], ne[ne > 0]), collapse = ", ")) else ""))
+nb <- vapply(PBND, function(k) { x <- r1[[k]]; sum(is.finite(x) & x < 0) }, integer(1))
+chk(all(nb == 0L), sprintf("no NEGATIVE bound (%d columns%s)", length(PBND),
+    if (any(nb > 0L)) paste0("; ", paste(sprintf("%s %d", names(nb)[nb > 0], nb[nb > 0]), collapse = ", ")) else ""))
+dg <- vapply(PBND, function(k) { x <- r1[[k]]; sum((is.finite(x) & x == 0) | is.infinite(x)) }, integer(1))
+cat(sprintf("  DEGENERATE BOUNDS (separation): %s\n",
+    if (any(dg > 0L)) paste(sprintf("%s %d", names(dg)[dg > 0], dg[dg > 0]), collapse = ", ") else "none"))
 Dm1 <- D[D$mr_ok %in% 1L & is.finite(D$fld_H_est2), , drop = FALSE]
 chk(nrow(Dm1) > 0 && all(is.finite(Dm1$p_hat_H)),
     sprintf("p-hat(Hhat) recorded on all %d declared replicates with a field block (mean %.3f, share < 0.5 %.3f)",

@@ -239,24 +239,38 @@ gate2 <- function(target, n, cell, tag) {
   P("invariant joint : bonf_loH <= fld_H_est2",         all(f$fld_joint_bonf_loH <= f$fld_H_est2))
   P("invariant jointS: fld_Hc_est2_s <= bonf_upHc_s",   all(f$fld_Hc_est2_s <= f$fld_joint_s_bonf_upHc))
   P("invariant IJ    : mr_H_lo <= est <= mr_H_hi",      all(Dm1$mr_H_lo <= Dm1$mr_H_est & Dm1$mr_H_est <= Dm1$mr_H_hi))
-  # Every bound is an OR, so strictly positive (§1.5(d)).
-  POS <- intersect(c("or_H_est","or_H_lo","or_H_hi","or_Hc_est","or_Hc_lo","or_Hc_hi",
-                     "nv_H_est","nv_H_lo","nv_H_hi","nv_Hc_est","nv_Hc_lo","nv_Hc_hi",
-                     "mr_H_est","mr_H_lo","mr_H_hi","mr_Hc_est","mr_Hc_lo","mr_Hc_hi",
-                     "fld_H_est2","fld_H_lo1s","fld_H_lo2s","fld_H_hi2s",
-                     "fld_Hc_est2","fld_Hc_up1s","fld_Hc_lo1s",
-                     # field-s BOUNDS only: fld_Hc_se_s and fld_Hc_lam_mean_s are on
-                     # the WORKING (log-OR) scale (R/fs_mr_inference.R:480-488), so
-                     # lambda_mean_s is a log-scale correction, routinely negative.
-                     "fld_Hc_est2_s","fld_Hc_up1s_s","fld_Hc_lo1s_s","fld_Hc_lo2s_s",
-                     "fld_Hc_hi2s_s","fld_Hc_lo_se_s","fld_Hc_hi_se_s",
-                     "fld_joint_loH","fld_joint_upHc","fld_joint_bonf_loH","fld_joint_bonf_upHc",
-                     "fld_joint_s_loH","fld_joint_s_upHc","fld_joint_s_bonf_loH","fld_joint_s_bonf_upHc",
-                     "betaHhat_H","betaHhat_Hc","C_dagger_H","C_dagger_Hc","C_ddagger_H","C_ddagger_Hc"),
-                   names(r))
-  npos <- vapply(POS, function(k) { x <- r[[k]]; sum(is.finite(x) & x <= 0) }, integer(1))
-  P(sprintf("every bound is an OR, so positive (%d columns)", length(POS)), all(npos == 0L),
-    if (any(npos > 0L)) paste(sprintf("%s %d", names(npos)[npos > 0], npos[npos > 0]), collapse = ", ") else "")
+  # The OR scale, with degenerate logistic fits accounted for (§1.5(d)).  Under complete
+  # separation in an arm the logistic MLE diverges (the study's .logit_or_ci() guards only the
+  # OVERALL >= 5 events / >= 5 non-events), beta-hat and SE blow up together, and exp()
+  # underflows the lower bound to 0 / overflows the upper to Inf.  The bound is still positive
+  # mathematically; the double cannot hold it.  So: ESTIMATES must be strictly positive, a
+  # bound is a failure only when NEGATIVE, and zero / infinite bounds are counted and reported
+  # as a degenerate-fit diagnostic.  Such rows are already dropped from every coverage figure
+  # by the finiteness masks, here and in the committed study.
+  PEST <- intersect(c("or_H_est","or_Hc_est","nv_H_est","nv_Hc_est","mr_H_est","mr_Hc_est",
+                      "fld_H_est2","fld_Hc_est2","fld_Hc_est2_s","betaHhat_H","betaHhat_Hc",
+                      "C_dagger_H","C_dagger_Hc","C_ddagger_H","C_ddagger_Hc"), names(r))
+  PBND <- intersect(c("or_H_lo","or_H_hi","or_Hc_lo","or_Hc_hi","nv_H_lo","nv_H_hi","nv_Hc_lo","nv_Hc_hi",
+                      "mr_H_lo","mr_H_hi","mr_Hc_lo","mr_Hc_hi",
+                      "fld_H_lo1s","fld_H_lo2s","fld_H_hi2s",
+                      "fld_Hc_up1s","fld_Hc_lo1s","fld_Hc_lo2s","fld_Hc_hi2s",
+                      # field-s BOUNDS only: fld_Hc_se_s and fld_Hc_lam_mean_s are log-OR
+                      # quantities (R/fs_mr_inference.R:480-488), routinely negative, not bounds.
+                      "fld_Hc_up1s_s","fld_Hc_lo1s_s","fld_Hc_lo2s_s","fld_Hc_hi2s_s","fld_Hc_lo_se_s","fld_Hc_hi_se_s",
+                      "fld_joint_loH","fld_joint_upHc","fld_joint_bonf_loH","fld_joint_bonf_upHc",
+                      "fld_joint_s_loH","fld_joint_s_upHc","fld_joint_s_bonf_loH","fld_joint_s_bonf_upHc"), names(r))
+  ne <- vapply(PEST, function(k) { x <- r[[k]]; sum(is.finite(x) & x <= 0) }, integer(1))
+  P(sprintf("every ESTIMATE is a positive OR (%d columns)", length(PEST)), all(ne == 0L),
+    if (any(ne > 0L)) paste(sprintf("%s %d", names(ne)[ne > 0], ne[ne > 0]), collapse = ", ") else "")
+  nb <- vapply(PBND, function(k) { x <- r[[k]]; sum(is.finite(x) & x < 0) }, integer(1))
+  P(sprintf("no NEGATIVE bound (%d columns)", length(PBND)), all(nb == 0L),
+    if (any(nb > 0L)) paste(sprintf("%s %d", names(nb)[nb > 0], nb[nb > 0]), collapse = ", ") else "")
+  dg <- vapply(PBND, function(k) { x <- r[[k]]; sum((is.finite(x) & x == 0) | is.infinite(x)) }, integer(1))
+  dor <- sum(is.finite(r$or_H_est) & (!is.finite(r$or_H_hi) | r$or_H_lo %in% 0), na.rm = TRUE)
+  dorc <- sum(is.finite(r$or_Hc_est) & (!is.finite(r$or_Hc_hi) | r$or_Hc_lo %in% 0), na.rm = TRUE)
+  cat(sprintf("  >> DEGENERATE BOUNDS (separation) : %s | oracle rows affected: H %d, Hc %d of %d\n",
+      if (any(dg > 0L)) paste(sprintf("%s %d", names(dg)[dg > 0], dg[dg > 0]), collapse = ", ") else "none",
+      dor, dorc, nrow(r)))
 
   g1 <- f$fld_joint_gamma; g2 <- f$fld_joint_s_gamma
   P("gamma (joint)   in [0.025, 0.05]", all(g1 >= 0.025 - 1e-12 & g1 <= 0.05 + 1e-12),

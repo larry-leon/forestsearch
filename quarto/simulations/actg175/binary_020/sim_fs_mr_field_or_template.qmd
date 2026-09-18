@@ -979,24 +979,56 @@ if (length(.cfg_err))
 }
 .ci_check(results)
 
-# ---- INVARIANT: every bound is an OR, so strictly positive ------------------
-# (The OR-scale counterpart of [MD]'s identity-scale checks; it is also
-# §1.5(d)'s positivity assertion, run here so a render fails before it saves.)
-.pos_cols <- c("or_H_est","or_H_lo","or_H_hi","or_Hc_est","or_Hc_lo","or_Hc_hi",
-               "nv_H_est","nv_H_lo","nv_H_hi","nv_Hc_est","nv_Hc_lo","nv_Hc_hi",
-               "mr_H_est","mr_H_lo","mr_H_hi","mr_Hc_est","mr_Hc_lo","mr_Hc_hi",
-               "fld_H_est2","fld_H_lo1s","fld_H_lo2s","fld_H_hi2s",
-               "fld_Hc_est2","fld_Hc_up1s","fld_Hc_lo1s","fld_Hc_lo2s","fld_Hc_hi2s",
-               "fld_Hc_est2_s","fld_Hc_up1s_s","fld_Hc_lo1s_s","fld_Hc_lo2s_s","fld_Hc_hi2s_s",
-               "fld_joint_loH","fld_joint_upHc","fld_joint_bonf_loH","fld_joint_bonf_upHc",
-               "fld_joint_s_loH","fld_joint_s_upHc","fld_joint_s_bonf_loH","fld_joint_s_bonf_upHc",
-               "betaHhat_H","betaHhat_Hc")
-.npos <- vapply(intersect(.pos_cols, names(results)), function(k) {
+# ---- INVARIANT: the OR scale, with degenerate logistic fits accounted for ----
+# The OR-scale counterpart of [MD]'s identity-scale checks, and §1.5(d)'s positivity
+# assertion, run here so a render fails before it saves.  It is split in two, because a
+# bound and an estimate fail differently on this scale.
+#
+# ESTIMATES must be strictly positive: a non-positive odds ratio is a corrupted value.
+#
+# BOUNDS are exponentials of a Wald or quantile interval on the log-OR scale.  Under
+# COMPLETE SEPARATION in an arm the logistic MLE diverges -- the study's .logit_or_ci()
+# guards only the OVERALL >= 5 events and >= 5 non-events ([S] :366-368), so a subset whose
+# TREATED arm is all-event still fits -- and the reported beta-hat and SE blow up together
+# (e.g. beta 20.38, SE 2608 on a 43-subject true region).  exp() then underflows the lower
+# bound to 0 and overflows the upper to Inf.  Mathematically the bound is still positive;
+# it is the double that cannot hold it.  So a bound is fatal only when NEGATIVE, while
+# zero / infinite bounds are COUNTED and REPORTED as degenerate-fit diagnostics.  The
+# committed study records exactly the same values and drops such rows from coverage through
+# its is.finite(lo) & is.finite(hi) masks; this template keeps the recipe verbatim and makes
+# the count visible instead of silent.
+.pos_est <- c("or_H_est","or_Hc_est","nv_H_est","nv_Hc_est","mr_H_est","mr_Hc_est",
+              "fld_H_est2","fld_Hc_est2","fld_Hc_est2_s","betaHhat_H","betaHhat_Hc")
+.pos_bnd <- c("or_H_lo","or_H_hi","or_Hc_lo","or_Hc_hi",
+              "nv_H_lo","nv_H_hi","nv_Hc_lo","nv_Hc_hi",
+              "mr_H_lo","mr_H_hi","mr_Hc_lo","mr_Hc_hi",
+              "fld_H_lo1s","fld_H_lo2s","fld_H_hi2s",
+              "fld_Hc_up1s","fld_Hc_lo1s","fld_Hc_lo2s","fld_Hc_hi2s",
+              "fld_Hc_up1s_s","fld_Hc_lo1s_s","fld_Hc_lo2s_s","fld_Hc_hi2s_s",
+              "fld_Hc_lo_se_s","fld_Hc_hi_se_s","fld_Hc_lo_se","fld_Hc_hi_se","fld_H_lo_se","fld_H_hi_se",
+              "fld_joint_loH","fld_joint_upHc","fld_joint_bonf_loH","fld_joint_bonf_upHc",
+              "fld_joint_s_loH","fld_joint_s_upHc","fld_joint_s_bonf_loH","fld_joint_s_bonf_upHc")
+.bad_est <- vapply(intersect(.pos_est, names(results)), function(k) {
   x <- results[[k]]; sum(is.finite(x) & x <= 0) }, integer(1))
-if (any(.npos > 0L))
-  stop("OR positivity violated -- non-positive finite values in: ",
-       paste(sprintf("%s (%d)", names(.npos)[.npos > 0L], .npos[.npos > 0L]), collapse = ", "),
-       call. = FALSE)
+if (any(.bad_est > 0L))
+  stop("OR positivity violated -- non-positive finite ESTIMATE in: ",
+       paste(sprintf("%s (%d)", names(.bad_est)[.bad_est > 0L], .bad_est[.bad_est > 0L]),
+             collapse = ", "), call. = FALSE)
+.neg_bnd <- vapply(intersect(.pos_bnd, names(results)), function(k) {
+  x <- results[[k]]; sum(is.finite(x) & x < 0) }, integer(1))
+if (any(.neg_bnd > 0L))
+  stop("OR scale violated -- NEGATIVE bound in: ",
+       paste(sprintf("%s (%d)", names(.neg_bnd)[.neg_bnd > 0L], .neg_bnd[.neg_bnd > 0L]),
+             collapse = ", "), call. = FALSE)
+.deg <- vapply(intersect(.pos_bnd, names(results)), function(k) {
+  x <- results[[k]]; sum((is.finite(x) & x == 0) | is.infinite(x)) }, integer(1))
+.deg_or <- sum(is.finite(results$or_H_est) & (!is.finite(results$or_H_hi) | results$or_H_lo == 0), na.rm = TRUE) +
+           sum(is.finite(results$or_Hc_est) & (!is.finite(results$or_Hc_hi) | results$or_Hc_lo == 0), na.rm = TRUE)
+if (any(.deg > 0L))
+  cat(sprintf("DEGENERATE BOUNDS (separation; bound underflowed to 0 or overflowed to Inf): %s | oracle rows affected: %d of %d. Recorded as the study records them; excluded from coverage by the finiteness masks downstream.\n",
+              paste(sprintf("%s %d", names(.deg)[.deg > 0L], .deg[.deg > 0L]), collapse = ", "),
+              .deg_or, nrow(results))) else
+  cat("DEGENERATE BOUNDS: none.\n")
 
 # Exact beta(Hhat) at the realized rules, on the fixed evaluation frame ([S]
 # :697-707): a post-loop, whole-frame call keyed on sg_def.  Undetected and
