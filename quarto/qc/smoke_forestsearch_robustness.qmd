@@ -128,8 +128,15 @@ FAMILIES <- list(
       outcome_type     = "continuous",
       effect_measure   = "MD"
     ),
-    thr_found = list(effect.threshold = 1.0,  pconsistency.threshold = 0.50),
-    thr_nosg  = list(effect.threshold = 1e6,  pconsistency.threshold = 0.999)
+    # consistency.threshold is pinned at its RESOLVED value rather than left
+    # unset.  MD is identity-scale, so an unset consistency threshold resolves
+    # to 0.0 in the fit but -- because args_call_all replays every formal,
+    # including hr.consistency = 1.0 -- resolved to 1.0 inside each CV fold.
+    # Pinning it makes the fold resolve what the fit resolved.
+    thr_found = list(effect.threshold = 1.0,  consistency.threshold = 0.0,
+                     pconsistency.threshold = 0.50),
+    thr_nosg  = list(effect.threshold = 1e6,  consistency.threshold = 0.0,
+                     pconsistency.threshold = 0.999)
   )
 
   # ,count = list(
