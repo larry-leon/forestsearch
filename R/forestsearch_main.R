@@ -35,7 +35,7 @@
 # Helper: the effect / consistency threshold pair
 # =============================================================================
 
-#' Validate the (c1, c2) threshold pair for the forest-search consistency path
+#' Validate, and where silent derive, the (c1, c2) threshold pair
 #'
 #' The two effect thresholds are one pair, not two independent knobs.  \code{c1}
 #' (\code{effect.threshold} / \code{hr.threshold}) admits a candidate subgroup
@@ -48,6 +48,17 @@
 #' whole consistency stage silently does not run.  That configuration is
 #' rejected here -- before any model is fit -- rather than producing an empty
 #' selection that reads like a finding of no subgroup.
+#'
+#' A \code{c1} supplied \emph{without} a \code{c2} used to leave \code{c2} at
+#' the package default \code{1.0} whatever \code{c1} was, which on a ratio
+#' estimand silently unlinks the pair -- \code{c1 = 1.5} with \code{c2 = 1.0}
+#' screens for a 50\% excess and then accepts any split above parity.  It now
+#' derives \code{c2 = 0.80 * c1} on the \strong{ratio} scale, announced.  On
+#' the log scale that is an additive shift of \code{log(0.80)}, never
+#' \code{0.80 * log(c1)}: 1.25 -> 1.00, 1.00 -> 0.80, 0.90 -> 0.72.  The
+#' default pair (1.25, 1.0) is the fixed point of the rule, so a call that sets
+#' neither threshold is unmoved.  An explicitly supplied \code{c2}, in either
+#' spelling, is never overridden.
 #'
 #' \strong{Scope, deliberately narrow.}  The check applies only where the
 #' consistency stage actually runs (\code{subgroup_method = "consistency"};
@@ -115,12 +126,32 @@
   c1_name <- .nm(c1_new, c1_legacy, "effect.threshold", "hr.threshold")
   c2_name <- .nm(c2_new, c2_legacy, "consistency.threshold", "hr.consistency")
 
+  # Derive a silent c2 from c1 on the RATIO scale.  Done before the pair check
+  # below, not after: a derived value satisfies c2 <= c1 for every positive c1,
+  # so the check that follows is what guarantees the invariant on both routes.
+  # The announcement is held until the check has passed, so a rejected call
+  # never reports a threshold it will not use.
+  derived <- isTRUE(user_set_threshold) && !isTRUE(user_set_consistency)
+  if (derived) c2 <- 0.80 * c1
+
   # isTRUE(), not a bare comparison: an NA or a non-scalar threshold must
   # reach the resolution branches that already handle it, not fail here with
   # "missing value where TRUE/FALSE needed".
   if (isTRUE(c2 > c1)) {
     stop(sprintf("c2 > c1 not allowed for FS: %s = %.2f exceeds %s = %.2f",
                  c2_name, c2, c1_name, c1), call. = FALSE)
+  }
+
+  # Once per fit, in forestsearch()'s own frame: a replicate receives the
+  # derived c2 explicitly (SECTION 2B-ii writes it into consistency.threshold,
+  # which the replay supplies), so user_set_consistency is TRUE there and this
+  # branch is not re-entered.
+  if (derived && !isTRUE(quiet)) {
+    message(sprintf(paste0(
+      "[forestsearch] consistency.threshold not supplied; derived as ",
+      "0.80 * %s = 0.80 * %s = %s (ratio scale).  Supply ",
+      "consistency.threshold to override."),
+      c1_name, sprintf("%g", c1), sprintf("%g", c2)))
   }
 
   c2
