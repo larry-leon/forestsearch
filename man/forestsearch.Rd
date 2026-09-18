@@ -430,9 +430,12 @@ scale (e.g., 1.5 means OR >= 1.5).  For identity-scale measures
 points).  If NULL (default), falls back to \code{hr.threshold}.
 Distinct from \code{consistency.threshold} (\code{c2}), which is applied
 within each split half, and from \code{pconsistency.threshold} (\verb{p*}),
-which is a proportion rather than an effect.  See the
-\emph{Threshold vocabulary and resolved defaults} section for the value
-this resolves to under each estimand.}
+which is a proportion rather than an effect.  On the consistency path with
+a ratio estimand (survival HR, binary \code{"OR"}), supplying \code{c1} and
+\strong{not} \code{c2} derives \code{c2 = 0.80 * c1} on the ratio scale, with
+a message; see the \emph{Threshold vocabulary and resolved defaults}
+section for that rule and for the value this resolves to under each
+estimand.}
 
 \item{consistency.threshold}{Numeric or NULL. \code{c2}, \strong{an effect
 threshold} -- \strong{not} a proportion, and \strong{not} the
@@ -444,20 +447,28 @@ If NULL (default), falls back to \code{hr.consistency}.
 Its companion is \code{pconsistency.threshold} (\verb{p*}), the
 \emph{fraction} of splits that must clear \code{c2}: this argument sets the
 bar, that one counts how often the bar is met.  Both names contain the
-word "consistency" and they are different quantities.  See the
-\emph{Threshold vocabulary and resolved defaults} section for the value
-this resolves to under each estimand.}
+word "consistency" and they are different quantities.  On the consistency
+path with a ratio estimand (survival HR, binary \code{"OR"}) \code{c2} must be
+\strong{less than or equal to} \code{c1}; \code{c2 > c1} is an error.  Left
+unsupplied there, it is derived as \code{0.80 * c1} rather than left at
+its default.  See the \emph{Threshold vocabulary and resolved defaults}
+section for both rules and for the value this resolves to under each
+estimand.}
 
 \item{hr.threshold}{Numeric. Legacy name for \code{effect.threshold} --
 \code{c1}, the screening threshold on a candidate subgroup's own effect.
 Retained for backward compatibility.  Default 1.25.  When
-\code{effect.threshold} is provided, \code{hr.threshold} is ignored.}
+\code{effect.threshold} is provided, \code{hr.threshold} is ignored;
+supplying both at disagreeing values is an error.  Carries the same
+\code{c2} derivation as \code{effect.threshold}.}
 
 \item{hr.consistency}{Numeric. Legacy name for
 \code{consistency.threshold} -- \code{c2}, the per-split \strong{effect}
 threshold, not a proportion and not the consistency rate.
 Retained for backward compatibility.  Default 1.0.  When
-\code{consistency.threshold} is provided, \code{hr.consistency} is ignored.}
+\code{consistency.threshold} is provided, \code{hr.consistency} is
+ignored; supplying both at disagreeing values is an error.  Carries the
+same \code{c2 <= c1} requirement as \code{consistency.threshold}.}
 
 \item{sg_focus}{Character. Subgroup selection focus -- \emph{what} is
 selected, not merely how candidates are sorted. Except for
@@ -1121,6 +1132,34 @@ resolved from the estimand.  The resolved pairs are:
 Supplying \code{effect.threshold} or \code{consistency.threshold} (or the
 legacy names) suppresses the corresponding remap and the supplied value is
 used on the scale shown above.
+
+\strong{The pair rule, on the consistency path with a ratio estimand.}  For
+\code{subgroup_method = "consistency"} with survival (HR) or binary
+\code{effect_measure = "OR"} -- the two estimands whose \code{c1} and \code{c2} sit on
+one comparable ratio scale -- the two thresholds are treated as a pair:
+
+\itemize{
+\item \code{c2 > c1} is an \strong{error}.  It is degenerate: the
+consistency-stage entry condition re-screens the admitted family on \code{c2},
+so candidates the screen let through are discarded at the stage boundary,
+and when none survives the consistency stage does not run at all and the
+fit reads as a finding of no subgroup.  \code{c2 = c1} is allowed.
+\item \code{c1} supplied \strong{without} \code{c2} derives
+\code{c2 = 0.80 * c1} on the \strong{ratio} scale (on the log scale an
+additive shift of \code{log(0.80)}, never \code{0.80 * log(c1)}):
+1.25 -> 1.00, 1.00 -> 0.80, 0.90 -> 0.72.  Announced with a message, and
+carried into every bootstrap replicate and CV fold.  The default pair
+(1.25, 1.0) is the rule's fixed point, so a call that sets neither
+threshold is unaffected.  An explicitly supplied \code{c2}, in either
+spelling, is never overridden.
+\item Supplying both spellings of one threshold at disagreeing values is
+an error naming both.
+}
+
+Neither rule applies under \code{subgroup_method = "dina"} or
+\code{"grf"} (which return before the consistency stage and never consult
+\code{c2}), nor to the identity-scale estimands \code{RD}, \code{IRD},
+\code{MD}, nor to \code{IRR}.
 
 \code{pconsistency.threshold} is \strong{not} remapped.  It is a rate, and
 it is identical for every \code{outcome_type} and every estimand.
