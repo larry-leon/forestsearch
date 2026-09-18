@@ -1383,6 +1383,48 @@ reset_workers <- function(workers   = NULL,
 }
 
 
+#' Refuse DINA's harm floor for identity-scale estimands
+#'
+#' DINA scores candidates on the family LINK scale, so its admission floor
+#' `m_diff` is derived as `log(hr.threshold)` for the ratio families
+#' (cox / binomial / poisson) and as the identity threshold for `gaussian`.
+#' There is no correct derivation for an identity-scale estimand on a
+#' non-gaussian family: `effect_measure = "RD"` with a threshold of 0.07 would
+#' yield a log-odds floor of `log(0.07) = -2.66`, which admits nearly every
+#' candidate, silently.  The only honest answer is a refusal -- no RD- or
+#' IRD-scale number exists that DINA could apply on the link scale.
+#'
+#' Called at BOTH derivation sites (`.forestsearch_dina_select()` here, and the
+#' `use_dina` + `selected_only = TRUE` screening branch in
+#' `forestsearch_main.R`), not at the `subgroup_method` dispatch, so every
+#' route to the derivation is covered.
+#'
+#' Gaussian is untouched: `MD` on `family = "gaussian"` IS a correct
+#' identity-scale floor, and the guard cannot fire there.
+#'
+#' @param family The resolved DINA family (`da$fit$family`).
+#' @param effect_measure The resolved effect measure, or `NULL` on survival.
+#' @return `invisible(TRUE)` when the derivation may proceed; otherwise stops.
+#' @noRd
+.dina_assert_ratio_estimand <- function(family, effect_measure) {
+  if (!is.null(effect_measure) && length(effect_measure) == 1L &&
+      !is.na(effect_measure) && effect_measure %in% c("RD", "IRD") &&
+      !identical(family, "gaussian")) {
+    stop(
+      "subgroup_method = \"dina\" does not support identity-scale estimands ",
+      "(RD, IRD):\n",
+      "DINA's admission floor operates on the family link scale.  Use a ",
+      "ratio estimand\n",
+      "(e.g. effect_measure = \"OR\") with dina, or subgroup_method = ",
+      "\"consistency\" or\n",
+      "\"grf\" for ", effect_measure, ".",
+      call. = FALSE
+    )
+  }
+  invisible(TRUE)
+}
+
+
 #' DINA-selection mode for forestsearch (subgroup_method = "dina")
 #'
 #' Fits a DINA model and delegates subgroup selection to
@@ -1422,6 +1464,13 @@ reset_workers <- function(workers   = NULL,
   df.predict <- .coerce_covariates_numeric(df.predict, confounders.name)
   df.test    <- .coerce_covariates_numeric(df.test, confounders.name)
 
+  # Harm floor on the link scale: log(hr.threshold) for ratio families
+  # (cox/binomial/poisson), identity (mean difference) for gaussian.
+  # Derived BEFORE the fit so the identity-scale refusal costs no model run.
+  .dina_assert_ratio_estimand(da$fit$family, effect_measure)
+  m_diff <- if (identical(da$fit$family, "gaussian")) hr.threshold
+            else log(hr.threshold)
+
   # Fit DINA unless a fit was supplied.
   if (is.null(dina_res)) {
     status_arg <- if (identical(da$fit$family, "cox")) event.name else NULL
@@ -1430,11 +1479,6 @@ reset_workers <- function(workers   = NULL,
                   da$fit)
     dina_res <- do.call(dina, fit_call)
   }
-
-  # Harm floor on the link scale: log(hr.threshold) for ratio families
-  # (cox/binomial/poisson), identity (mean difference) for gaussian.
-  m_diff <- if (identical(da$fit$family, "gaussian")) hr.threshold
-            else log(hr.threshold)
   # ...applied to tau-hat in the orientation the admission floor uses: DINA is
   # fit on the raw outcome, while the admission scores candidates with the
   # effect estimator, which flips the outcome for these outcome types.

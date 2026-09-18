@@ -1,5 +1,24 @@
 # forestsearch (development version)
 
+* **DINA now refuses the identity-scale estimands `"RD"` and `"IRD"`.** DINA
+  scores candidates on the family link scale, so its admission floor was
+  derived as `log(hr.threshold)` for the ratio families and as the identity
+  threshold for `gaussian`. For an explicit `effect_measure = "RD"` that
+  derivation was meaningless: a 7-percentage-point threshold became a log-odds
+  floor of `log(0.07) = -2.66`, which admitted nearly every candidate,
+  silently. There is no identity-scale number DINA could correctly apply on a
+  link scale, so the derivation now stops instead, naming the ratio and
+  non-DINA alternatives. The guard sits at the `m_diff` derivation itself, so
+  both routes to it are covered: `subgroup_method = "dina"` (an error, raised
+  before the DINA model is fit) and `use_dina` screening with
+  `dina_args$selected_only = TRUE` (where it surfaces through that path's
+  existing `"DINA analysis failed"` warning and the run continues with no DINA
+  cuts). **Affected: only calls that explicitly request `"RD"` or `"IRD"`
+  together with DINA** -- nothing committed does, and the defaults per outcome
+  type (`"OR"`, `"MD"`, `"IRR"`) are all outside the guard. **Unaffected:**
+  `family = "gaussian"` with `"MD"`, which is a correct identity-scale floor
+  and cannot reach the refusal, and every ratio estimand on every family.
+
 * **The two effect thresholds are now a pair on the forest-search consistency
   path.** For `subgroup_method = "consistency"` with survival (`HR`) or binary
   `effect_measure = "OR"` -- the estimands whose `c1` and `c2` sit on one

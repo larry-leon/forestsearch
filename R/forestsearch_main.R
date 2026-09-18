@@ -3023,7 +3023,13 @@ forestsearch <- function(df.analysis,
         # selects, using forestsearch's own selection criteria (so this
         # matches what subgroup_method = "dina" would choose).  m_diff is the
         # harm floor on the link scale: log(hr.threshold) for ratio families
-        # (cox/binomial/poisson), identity for gaussian.
+        # (cox/binomial/poisson), identity for gaussian.  The same refusal the
+        # subgroup_method = "dina" derivation applies: there is no identity-
+        # scale number DINA could correctly use on a non-gaussian family.
+        # This route is optional screening, so the refusal surfaces through
+        # the enclosing tryCatch as "DINA analysis failed: ..." and the run
+        # continues with no DINA cuts.
+        .dina_assert_ratio_estimand(da$fit$family, effect_measure)
         m_diff_sel <- if (identical(da$fit$family, "gaussian")) hr.threshold
                       else log(hr.threshold)
         sgsel <- dina_subgroup(
