@@ -50,7 +50,8 @@ upstream), so callers avoid a double log-transform.}
 \code{"continuous"}, or \code{"count"}.}
 
 \item{effect_measure}{Character or \code{NULL}; GLM effect measure (resolved to
-the outcome-type default when \code{NULL}). Ignored for survival.}
+the outcome-type default when \code{NULL}: binary \code{"OR"}, continuous \code{"MD"},
+count \code{"IRR"}). Ignored for survival.}
 
 \item{method}{Character; \code{"closed"}, \code{"mc"}, or \code{"both"} (default).}
 

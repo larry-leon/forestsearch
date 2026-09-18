@@ -22,7 +22,7 @@
 \item{outcome_type}{Character; \code{"binary"}, \code{"continuous"}, or \code{"count"}.}
 
 \item{effect_measure}{Character or \code{NULL}; resolved to the outcome-type
-default when \code{NULL} (binary \code{"RD"}, continuous \code{"MD"}, count \code{"IRR"}).}
+default when \code{NULL} (binary \code{"OR"}, continuous \code{"MD"}, count \code{"IRR"}).}
 
 \item{treat.name, outcome.name, offset.name}{Character; column names.}
 

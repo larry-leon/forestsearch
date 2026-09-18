@@ -225,7 +225,7 @@
 #'   `adjust_covariates`, and `offset.name` (rate measures).
 #' @param outcome_type Character; `"binary"`, `"continuous"`, or `"count"`.
 #' @param effect_measure Character or `NULL`; resolved to the outcome-type
-#'   default when `NULL` (binary `"RD"`, continuous `"MD"`, count `"IRR"`).
+#'   default when `NULL` (binary `"OR"`, continuous `"MD"`, count `"IRR"`).
 #' @param treat.name,outcome.name,offset.name Character; column names.
 #' @param adjust_covariates Character vector or `NULL`.
 #' @param adverse_outcome Logical; if `FALSE`, binary `Y` is flipped to `1 - Y`
@@ -243,8 +243,9 @@
                                     adverse_outcome = TRUE) {
   df <- as.data.frame(df)
   if (is.null(effect_measure)) {
+    # Binary defaults to "OR", matching forestsearch()'s own binary default.
     effect_measure <- switch(outcome_type,
-      binary = "RD", continuous = "MD", count = "IRR")
+      binary = "OR", continuous = "MD", count = "IRR")
   }
   if (effect_measure == "IRD") return(NULL)   # rate difference: not a coefficient
   if (!all(c(outcome.name, treat.name) %in% names(df))) {
@@ -361,7 +362,8 @@
 #' @param outcome_type Character; `"survival"` (default), `"binary"`,
 #'   `"continuous"`, or `"count"`.
 #' @param effect_measure Character or `NULL`; GLM effect measure (resolved to
-#'   the outcome-type default when `NULL`). Ignored for survival.
+#'   the outcome-type default when `NULL`: binary `"OR"`, continuous `"MD"`,
+#'   count `"IRR"`). Ignored for survival.
 #' @param method Character; `"closed"`, `"mc"`, or `"both"` (default).
 #' @param multiplier Character; `"rademacher"` (default), `"normal"`,
 #'   `"poisson"`.

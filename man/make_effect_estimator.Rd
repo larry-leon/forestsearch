@@ -33,11 +33,12 @@ make_effect_estimator(
 column for rate-based measures (IRR, IRD).}
 
 \item{effect_measure}{Character or \code{NULL}.
-For binary: \code{"RD"} (default), \code{"OR"}, \code{"RR"},
+For binary: \code{"OR"} (default), \code{"RR"}, \code{"RD"},
 \code{"IRR"}, \code{"IRD"}.
 For continuous: \code{"MD"} (default).
 For survival: \code{"HR"} (default).
-\code{NULL} uses the default for the outcome type.}
+\code{NULL} uses the default for the outcome type, which for binary
+is \code{"OR"} -- the same default \code{\link{forestsearch}} uses.}
 
 \item{adverse_outcome}{Logical. If \code{TRUE} (default), higher
 outcome values indicate harm and the effect is computed on the

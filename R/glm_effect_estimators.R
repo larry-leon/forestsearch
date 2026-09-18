@@ -45,11 +45,12 @@
 #' @param offset.name Character or \code{NULL}. Name of the follow-up time
 #'   column for rate-based measures (IRR, IRD).
 #' @param effect_measure Character or \code{NULL}.
-#'   For binary: \code{"RD"} (default), \code{"OR"}, \code{"RR"},
+#'   For binary: \code{"OR"} (default), \code{"RR"}, \code{"RD"},
 #'   \code{"IRR"}, \code{"IRD"}.
 #'   For continuous: \code{"MD"} (default).
 #'   For survival: \code{"HR"} (default).
-#'   \code{NULL} uses the default for the outcome type.
+#'   \code{NULL} uses the default for the outcome type, which for binary
+#'   is \code{"OR"} -- the same default \code{\link{forestsearch}} uses.
 #' @param adverse_outcome Logical. If \code{TRUE} (default), higher
 #'   outcome values indicate harm and the effect is computed on the
 #'   raw outcome.  If \code{FALSE}, the outcome is beneficial (e.g.,
@@ -109,9 +110,10 @@ make_effect_estimator <- function(
 
   # Resolve default effect measure
   if (is.null(effect_measure)) {
+    # Binary defaults to "OR", matching forestsearch()'s own binary default.
     effect_measure <- switch(outcome_type,
       survival   = "HR",
-      binary     = "RD",
+      binary     = "OR",
       continuous = "MD",
       count      = "IRR"
     )
