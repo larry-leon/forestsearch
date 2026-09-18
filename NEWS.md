@@ -1,5 +1,22 @@
 # forestsearch (development version)
 
+* **Binary outcomes now default to the odds ratio.** `forestsearch()` with
+  `outcome_type = "binary"` and `effect_measure` left unset resolves to
+  `"OR"`; it previously resolved to `"RD"`. **This changes results for binary
+  callers who inherit `effect_measure`**: because the screening and
+  consistency thresholds are resolved from the estimand, such a run moves
+  from `c1 = 0.05` / `c2 = 0.0` on the identity scale to `c1 = log(1.25)` /
+  `c2 = log(1.0)` on the log scale, and the search screens candidates on the
+  log odds ratio rather than the risk difference. To keep the old behaviour,
+  pass `effect_measure = "RD"` explicitly. **Callers who already pass
+  `effect_measure` -- any value, including `"RD"` -- are unaffected**, as are
+  survival (`HR`), continuous (`MD`) and count (`IRR`) outcomes, whose
+  defaults are unchanged. No selection logic changed. The default also aligns
+  the three identifiers: `subgroup_method = "dina"` already screened on the
+  log odds ratio (its harm floor is `log(hr.threshold)` for a binomial
+  family), so this brings the consistency and GRF identifiers onto the same
+  estimand; DINA's own behaviour is unchanged.
+
 * **GRF membership on factor covariates.** GRF's subgroup evaluator compared a
   factor covariate's raw column with a numeric cut, so every candidate on a
   factor covariate got `NA` membership and was dropped from the effect

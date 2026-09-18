@@ -52,8 +52,16 @@ candidate subgroup.  Ignored for continuous outcomes (only
 \item{hr.threshold}{Numeric. \code{c1}, the \strong{screening threshold on a
 candidate subgroup's own effect}: a candidate is retained only if its
 fitted effect exceeds this value.
-On the log scale for ratio measures (OR, HR), identity scale for
-difference measures (RD, MD).  This is \code{forestsearch()}'s
+The scale is the one the caller compares on, and it differs by path.
+On the survival path \code{effect_threshold} is \code{NULL}, so this
+value reaches the comparison unchanged and is compared against the
+fitted hazard ratio on the \strong{natural} scale
+(\code{fit_cox_for_subgroup()} returns \code{exp(coef)}): 1.25 means
+HR >= 1.25, not log(1.25).  On the GLM paths the value arrives already
+on the comparison scale that \code{forestsearch()} resolved from the
+effect measure -- link scale for the ratio measures (OR, RR, IRR),
+identity for RD, IRD and MD -- and is compared against the estimator's
+estimate on that same scale.  This is \code{forestsearch()}'s
 \code{effect.threshold} / \code{hr.threshold}.  It is not the per-split
 threshold (\code{c2}, \code{hr.consistency}) and not the consistency rate
 (\verb{p*}, \code{pconsistency.threshold}); neither is applied here -- this
