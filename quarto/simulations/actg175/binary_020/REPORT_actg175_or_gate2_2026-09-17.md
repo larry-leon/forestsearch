@@ -1,3 +1,72 @@
+# REPORT — ACTG175 binary/OR Gate 2 (per cell)
+
+Task: `dev/tasks/TASK_actg175_binary_campaign_2026-09-17.md` Stage 2. Runner:
+`quarto/simulations/actg175/binary_020/scripts_or/run_or.sh`; checker:
+`quarto/simulations/actg175/binary_020/scripts_or/gate2.R`.
+
+GRF's and DINA's candidate families are generated from fitted surfaces, so every coverage figure
+of the `orgrf` and `ordina` campaigns is coverage of the estimand **conditional on the proposed
+family**; FS's family is the prespecified cut grid. Comparisons across the three identifiers are
+descriptive.
+
+*(This header was written by hand. The runner emits it only when the record file does not exist,
+but its `[ -f ... ]` test runs inside the `>> record` redirection, which has already created the
+file — so the header is always skipped. The committed `mdgrf` and `mddina` Gate 2 records have the
+same gap; see the findings.)*
+
+## The cell-3 halt, its cause, and the convention that follows from it
+
+**The halt.** Stage 2 halted at 2026-09-18T00:23:34Z on cell 3, `orfs_or150_n500`, batch
+`1001_2000`, with `OR positivity violated -- non-positive finite values in: or_H_lo (1)`. Cells 1
+and 2 were already committed and are untouched.
+
+**The cause, reproduced exactly.** `sim_id` **1179**, design `or150`, n = 500. The **true** harm
+region holds 43 subjects and its **treated arm is all-event** — 17 events, 0 non-events: complete
+separation. The study's `.logit_or_ci()` guards only the *overall* ≥ 5 events and ≥ 5 non-events
+(`maxeffCons_mr_coverage_sweep_or075.qmd:366–368`), and this subset has 25 and 18, so it fits. The
+logistic MLE then diverges — **β̂ = 20.38 with SE = 2608** — so
+`exp(20.38 − 1.96 × 2608) = exp(−5092)` **underflows to 0** and the upper bound overflows to `Inf`.
+Mathematically the bound is positive; the double cannot hold it. The committed study records
+exactly these values and drops such rows from coverage through its `is.finite(lo) & is.finite(hi)`
+masks. **The fault was in my guard, not in the data recipe.**
+
+**The patch commits.**
+
+- `1f99dfe4` — the guard splits in two: **estimates** must be strictly positive and stay fatal; a
+  **bound** is fatal only when *negative*, while a bound that underflows to 0 or overflows to Inf is
+  counted and reported. Applied in the template, `gate2.R` and `smoke_identity.R`.
+- `6f80f292` — clears `HALT_or.md` so Stage 2 can resume from cell 3.
+
+**Check 1 — the patch is assertion-only, verified.** `sim_id` 1–20 of the committed cell
+`orfs_or075_n500` were re-rendered with the patched template under a separate campaign tag
+(`orassert`, so no committed bundle could be written) and compared against the committed rows:
+**174 columns compared** (the 6 `*_secs` columns excluded), identical column sets, and a **maximum
+relative difference of exactly 0** — NA matching NA and character columns exact. The patch changes
+no recorded value. Regression tests alongside it: all four smoke modes PASS, and `gate2.R` passes
+**70 / 70** on both committed cells (70 rather than 69 because the estimate/bound split adds a
+check).
+
+**The convention for non-convergent fits — one rule, every estimator.** A replicate is
+**non-convergent for an estimator** when that estimator's point estimate or either of its two-sided
+bounds is non-finite, or its point estimate is ≤ 0. Such rows are excluded from **that** estimator's
+coverage, location, spread and bound-location statistics — exactly as the committed study's
+finiteness masks exclude them from coverage — and the count is reported per cell × block ×
+estimator as `n_nonconvergent_fits` in `or_metrics.csv`, and as a `non-convergent` column in every
+table that carries an affected row. **No row is dropped silently**, and no estimator's rows are
+dropped on another estimator's account. Coverage was already protected by the finiteness masks; a
+**mean** and an **SD** were not, and one separated fit carries an odds ratio of order 10⁸.
+
+**The data recipe is the committed study's, verbatim, and is not touched: every recorded value is
+exactly what the recorder wrote. The convention above is a consumer-side convention, applied in
+`summary_actg175_or.qmd`.**
+
+**One aborted launch, recorded.** A relaunch was started at 2026-09-18T16:30:51Z and stopped within
+minutes, before any cell completed, so that check 1 could be run first. It correctly skipped the two
+committed cells; its partial cell-3 output was discarded. Its three heartbeat lines are in
+`LOG_or_progress.txt`.
+
+---
+
 ## orfs_or075_n500 — identifier consistency, target_or_h 0.75, n 500
 
 - Stem: `fs_effMaxSG_mr_field_or075_n500_nb20_orfs`; HEAD before this cell's commit: 6233870a; workers 63; threads 1.

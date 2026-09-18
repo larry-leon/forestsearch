@@ -30,6 +30,19 @@ working (log-OR) scale, where the stored Wald and IJ SEs and the field's Λ-SD a
 τ = 0.7, 0.8, 0.9, 1.0, 1.25, 1.5, 2.0: on Ĥ a lower bound ≥ τ reads "harm of at least τ"; on Ĥᶜ an
 upper bound ≤ τ reads "harm of at most τ". Never as significance at OR = 1.
 
+**Non-convergent fits — one convention, every estimator.** A replicate is **non-convergent for an
+estimator** when that estimator's point estimate or either of its two-sided bounds is non-finite, or
+its point estimate is ≤ 0. Such rows are excluded from **that** estimator's coverage, location,
+spread and bound-location statistics — exactly as the committed study's `is.finite(lo) &
+is.finite(hi)` masks exclude them from coverage — and the count is reported per cell × block ×
+estimator as `n_nonconvergent_fits` in the extract and as a `non-convergent` column in every table
+that carries an affected row. **No row is dropped silently**, and no estimator's rows are dropped on
+another estimator's account. The motivating case is complete separation in an arm of the true
+region, where the logistic MLE diverges and the Wald interval degenerates to (0, Inf) with a point
+estimate of order 10⁸: coverage is protected by the finiteness masks, a mean and an SD are not.
+**The data recipe is the committed study's, verbatim, and is not touched — every recorded value
+stays exactly as the recorder wrote it. This is a consumer-side convention, applied here.**
+
 **Targets.** The conditional rows are scored against **β(Ĥ)** / **β(Ĥᶜ)**, the exact per-replicate
 population OR at the realized region (`fs_attach_betaHhat()` on the full super-population). The
 two population references, recorded per replicate as `C_dagger_*` / `C_ddagger_*`, are
@@ -113,35 +126,31 @@ for (cl in cells) for (id in names(ids)) {
   b <- readRDS(p); r <- b$results; m <- b$meta; tr <- b$truth
   det <- r$detected %in% 1L; d <- r[det, ]
   d$bH <- d$betaHhat_H; d$bHc <- d$betaHhat_Hc      # already ORs: no orientation bridge
-  # NON-CONVERGENT ORACLE FITS (complete separation in an arm of the TRUE region).  The study's
+  # NON-CONVERGENT FITS -- ONE CONVENTION, APPLIED TO EVERY ESTIMATOR.
+  # A replicate is NON-CONVERGENT FOR AN ESTIMATOR when that estimator's point estimate or
+  # either of its two-sided bounds is non-finite, or its point estimate is <= 0.  Such rows are
+  # excluded from THAT estimator's coverage, location, spread and bound-location statistics --
+  # exactly as the committed study's is.finite(lo) & is.finite(hi) masks exclude them from
+  # coverage -- and the count is reported per cell x block x estimator as n_nonconvergent_fits
+  # in the extract and as a column in every table that carries an affected row.  No row is
+  # dropped silently, and no estimator's rows are dropped on another estimator's account.
+  #
+  # The motivating case is complete separation in an arm of the TRUE region: the study's
   # .logit_or_ci() guards only the OVERALL >= 5 events / >= 5 non-events, so a subset whose
-  # treated arm is all-event still fits; the logistic MLE then diverges, beta-hat and SE blow up
-  # together, and the Wald interval degenerates to (0, Inf) with a point estimate of order 1e8.
-  # The committed study records exactly these values and drops such rows from COVERAGE through
-  # its is.finite(lo) & is.finite(hi) masks -- but nothing there protects a MEAN or an SD.  The
-  # data recipe is frozen (it is the study's, verbatim), so the rows are masked out of the
-  # ORACLE's location, spread and bound statistics HERE, in the consumer, and counted.  No other
-  # estimator is touched, and no other column is changed.
-  n_deg <- c(H = 0L, Hc = 0L)
-  for (blk in c("H", "Hc")) {
-    e <- d[[paste0("or_", blk, "_est")]]; lo <- d[[paste0("or_", blk, "_lo")]]
-    hi <- d[[paste0("or_", blk, "_hi")]]
-    bad <- (!is.finite(hi)) | (is.finite(lo) & lo <= 0) | (is.finite(e) & e <= 0)
-    bad[is.na(bad)] <- FALSE
-    n_deg[[blk]] <- sum(bad)
-    if (any(bad)) for (cc in paste0("or_", blk, c("_est", "_lo", "_hi", "_se")))
-      d[[cc]][bad] <- NA_real_
-  }
+  # treated arm is all-event still fits, the logistic MLE diverges, and the Wald interval
+  # degenerates to (0, Inf) with a point estimate of order 1e8.  Coverage is protected by the
+  # finiteness masks; a MEAN or an SD is not.
+  #
+  # THE DATA RECIPE IS THE STUDY'S, VERBATIM, AND IS NOT TOUCHED: every recorded value stays
+  # exactly as the recorder wrote it.  This is a CONSUMER-SIDE convention, applied here.
+  convs <- list(H = list(), Hc = list())
   ref <- list(H  = list(dag = tr$marg_H,  ddag = tr$cde_H),
               Hc = list(dag = tr$marg_Hc, ddag = tr$cde_Hc))
   status[[length(status) + 1]] <- data.frame(cell = cl$lab, identifier = ids[[id]]$lab,
-    status = sprintf("%d reps, %d declared (%.4f), target_or_h %s, theta-dagger H/Hc %.4f / %.4f, theta-ddagger H/Hc %.4f / %.4f, non-convergent oracle fits H/Hc %d/%d, pkg %s, host %s, commit %s",
+    status = sprintf("%d reps, %d declared (%.4f), target_or_h %s, theta-dagger H/Hc %.4f / %.4f, theta-ddagger H/Hc %.4f / %.4f, pkg %s, host %s, commit %s",
                      nrow(r), nrow(d), mean(det), format(m$target_or_h), tr$marg_H, tr$marg_Hc,
-                     tr$cde_H, tr$cde_Hc, n_deg[["H"]], n_deg[["Hc"]], m$pkg_version, m$hostname, cm),
+                     tr$cde_H, tr$cde_Hc, m$pkg_version, m$hostname, cm),
     stringsAsFactors = FALSE)
-  for (blk in c("H", "Hc"))
-    ex(cl$lab, cl$design, id, blk, "oracle", "n_separated_oracle_fits", n_deg[[blk]],
-       n = nrow(d), commit = cm, campaign = camp)
   if (id == "fs") truths[[length(truths) + 1]] <- data.frame(cell = cl$lab, design = cl$design,
     target_or_h = m$target_or_h, prevalence_H = tr$prevalence_Q, k_inter = tr$beta_inter,
     or_causal = tr$or_causal, theta_dagger_H = tr$marg_H, theta_dagger_Hc = tr$marg_Hc,
@@ -177,27 +186,35 @@ for (cl in cells) for (id in names(ids)) {
       b1 <- if (k == "MR (field)") d[[paste0("fld_", sfx, if (side == "upper") "_up1s" else "_lo1s")]]
             else if (k == "MR (field-s)") d$fld_Hc_up1s_s
             else ifelse(is.finite(e) & e > 0 & is.finite(se), exp(log(e) + sgn * z95 * se), NA_real_)
-      ok  <- is.finite(e) & is.finite(tgt)
-      ok2 <- ok & is.finite(ec$lo) & is.finite(ec$hi); ok1 <- ok & is.finite(b1)
+      # THE CONVENTION: this estimator's non-convergent replicates, excluded from every one of
+      # its statistics below and counted.  Nothing else is touched.
+      conv <- is.finite(e) & e > 0 & is.finite(ec$lo) & is.finite(ec$hi)
+      conv[is.na(conv)] <- FALSE
+      n_nc <- sum(!conv)
+      convs[[sfx]][[k]] <- conv
+      ok  <- conv & is.finite(tgt)
+      ok2 <- ok; ok1 <- ok & is.finite(b1)
       n <- sum(ok)
       bias <- mean(e[ok] - tgt[ok])                                 # OR difference
-      bl3  <- biaslog(e, tgt); sd_l <- sdlog(e)                     # log-OR scale
-      sde <- sdfin(e); sem <- mfin(se)
+      bl3  <- biaslog(e[conv], tgt[conv]); sd_l <- sdlog(e[conv])   # log-OR scale
+      sde <- sdfin(e[conv]); sem <- mfin(se[conv])
       c2 <- mean(tgt[ok2] >= ec$lo[ok2] & tgt[ok2] <= ec$hi[ok2])
       c1 <- if (side == "lower") mean(tgt[ok1] >= b1[ok1]) else mean(tgt[ok1] <= b1[ok1])
       bias_se <- sd(e[ok] - tgt[ok]) / sqrt(n)
       sd_se   <- sde / sqrt(2 * (n - 1)); sdl_se <- sd_l / sqrt(2 * (n - 1))
-      sem_se  <- sdfin(se) / sqrt(sum(is.finite(se)))
+      sem_se  <- sdfin(se[conv]) / sqrt(sum(is.finite(se[conv])))
       ratio <- sem / sd_l                                            # both log-OR
       ratio_se <- ratio * sqrt((sem_se / sem)^2 + (sdl_se / sd_l)^2)
       rows[[length(rows) + 1]] <- data.frame(cell = cl$lab, design = cl$design,
         identifier = ids[[id]]$lab, block = sfx, estimator = k, target = tgt_lab, n = n,
+        n_nonconv = n_nc,
         decl = mean(det), bias = bias, bias_sd = bl3[1] / sd_l, SD = sde, SD_log = sd_l,
         SE = sem, SE_SD = ratio, cov1 = c1, cov1_w = fmtw(c1, sum(ok1)),
         cov2 = c2, cov2_w = fmtw(c2, sum(ok2)), side = side,
-        halfwidth = mfin((ec$hi - ec$lo) / 2), margin1 = mfin(sgn * (b1 - ctr)),
+        halfwidth = mfin(((ec$hi - ec$lo) / 2)[conv]), margin1 = mfin((sgn * (b1 - ctr))[conv]),
         stringsAsFactors = FALSE)
       kc <- code[[k]]
+      ex(cl$lab, cl$design, id, sfx, kc, "n_nonconvergent_fits", n_nc, n = nrow(d), commit = cm, campaign = camp)
       ex(cl$lab, cl$design, id, sfx, kc, "bias_or", bias, bias_se, n, commit = cm, campaign = camp)
       ex(cl$lab, cl$design, id, sfx, kc, "bias_log", bl3[1], bl3[2], bl3[3], commit = cm, campaign = camp)
       ex(cl$lab, cl$design, id, sfx, kc, "bias_sd_units", bl3[1] / sd_l, bl3[2] / sd_l, bl3[3], commit = cm, campaign = camp)
@@ -231,9 +248,14 @@ for (cl in cells) for (id in names(ids)) {
            `MR (IJ)` = exp(log(d$mr_Hc_est) + z95 * d$mr_Hc_se_ij),
            naive = exp(log(d$nv_Hc_est) + z95 * d$nv_Hc_se))
     for (k in names(lad)) {
-      bb <- lad[[k]]; bb <- bb[is.finite(bb)]
+      # The same per-estimator convergence mask as the tables above, so a replicate excluded
+      # from an estimator's coverage is excluded from its bound location too.
+      cmask <- convs[[sfx]][[k]]
+      if (is.null(cmask)) cmask <- rep(TRUE, nrow(d))
+      bb <- lad[[k]]; n_nc_l <- sum(!(cmask & is.finite(bb))); bb <- bb[cmask & is.finite(bb)]
       row <- data.frame(cell = cl$lab, identifier = ids[[id]]$lab, block = sfx, estimator = k,
-                        n = length(bb), mean = if (length(bb)) mean(bb) else NA_real_,
+                        n = length(bb), n_nonconv = n_nc_l,
+                        mean = if (length(bb)) mean(bb) else NA_real_,
                         q05 = NA_real_, q25 = NA_real_, median = NA_real_, q75 = NA_real_, q95 = NA_real_,
                         stringsAsFactors = FALSE)
       if (length(bb)) {
@@ -431,12 +453,12 @@ harm claim). Coverage of θ† and θ‡ is in the extract (`cov2_theta_dagger`,
 
 ```{r tableH}
 tH <- T2[T2$block == "H", ]
-kable(tH[, c("cell","identifier","estimator","target","n","decl","bias","bias_sd","SD_log","SE","SE_SD","cov1_w","cov2_w")],
+kable(tH[, c("cell","identifier","estimator","target","n","n_nonconv","decl","bias","bias_sd","SD_log","SE","SE_SD","cov1_w","cov2_w")],
       digits = 3,
-      col.names = c("cell","identifier","estimator","target","n","declaration rate","bias (OR diff.)",
+      col.names = c("cell","identifier","estimator","target","n","non-convergent","declaration rate","bias (OR diff.)",
                     "bias (SD units, log-OR)","SD (log-OR)","mean SE (log-OR)","SE/SD",
                     "one-sided LOWER coverage (Wilson)","two-sided coverage (Wilson)"),
-      caption = cap("Hhat: declaration rate, bias as an OR difference and in SD units on the log-OR scale, SD and mean SE on the log-OR scale, SE/SD, one-sided lower and two-sided coverage of the row's named target."))
+      caption = cap("Hhat: declaration rate, bias as an OR difference and in SD units on the log-OR scale, SD and mean SE on the log-OR scale, SE/SD, one-sided lower and two-sided coverage of the row's named target. `non-convergent` counts the declared replicates excluded from THAT estimator's statistics under the convention below; no row is dropped silently."))
 ```
 
 # Ĥᶜ table
@@ -446,12 +468,12 @@ coverage is the **UPPER** bound (the benefit claim).
 
 ```{r tableHc}
 tC <- T2[T2$block == "Hc", ]
-kable(tC[, c("cell","identifier","estimator","target","n","decl","bias","bias_sd","SD_log","SE","SE_SD","cov1_w","cov2_w")],
+kable(tC[, c("cell","identifier","estimator","target","n","n_nonconv","decl","bias","bias_sd","SD_log","SE","SE_SD","cov1_w","cov2_w")],
       digits = 3,
-      col.names = c("cell","identifier","estimator","target","n","declaration rate","bias (OR diff.)",
+      col.names = c("cell","identifier","estimator","target","n","non-convergent","declaration rate","bias (OR diff.)",
                     "bias (SD units, log-OR)","SD (log-OR)","mean SE (log-OR)","SE/SD",
                     "one-sided UPPER coverage (Wilson)","two-sided coverage (Wilson)"),
-      caption = cap("Hhat^c: declaration rate, bias as an OR difference and in SD units on the log-OR scale, SD and mean SE on the log-OR scale, SE/SD, one-sided upper and two-sided coverage; MR (field-s) evaluated, MR (field) beside it."))
+      caption = cap("Hhat^c: declaration rate, bias as an OR difference and in SD units on the log-OR scale, SD and mean SE on the log-OR scale, SE/SD, one-sided upper and two-sided coverage; MR (field-s) evaluated, MR (field) beside it. `non-convergent` counts the declared replicates excluded from THAT estimator's statistics under the convention below; no row is dropped silently."))
 ```
 
 # Bound location — the OR ladder
@@ -590,7 +612,7 @@ cols <- c(
 "- Coverage, per block × estimator: `cov2` (two-sided, the estimator's own interval) and `cov1_lower` / `cov1_upper` (one-sided on the block's exposed side), each against the row's target — β(Ĥ) for the conditional rows and θ† for the `oracle` row. The harm block additionally carries `cov2_theta_dagger`, `cov1_lower_theta_dagger`, `cov2_theta_ddagger` and `cov1_lower_theta_ddagger`.",
 "- Bound location: `share_lower_ge_tau` (Ĥ) and `share_upper_le_tau` (Ĥᶜ) at each `tau`; `bound_mean` and `bound_q05` … `bound_q95`.",
 "- Joint: `joint_coverage`, `share_both_bounds`, `cov_H`, `cov_Hc`, `margin_H_or`, `margin_Hc_or`; `gamma_mean`, `gamma_mean_s`, `corr`, `corr_s` under estimator `calibrated`.",
-"- `n_separated_oracle_fits` (estimator `oracle`): declared replicates whose ORACLE logistic fit did not converge — complete separation in an arm of the TRUE region, so the MLE diverges and the Wald interval degenerates to (0, Inf) with a point estimate of order 1e8. The study records the same values and drops them from coverage via its finiteness masks; here they are additionally masked out of the oracle's location, spread and bound statistics, because a mean is not protected by a finiteness mask. No other estimator and no other column is affected, and the recorded data are unchanged.",
+"- `n_nonconvergent_fits` (every block × estimator): declared replicates that are NON-CONVERGENT FOR THAT ESTIMATOR — its point estimate or either two-sided bound is non-finite, or its point estimate is <= 0. Such rows are excluded from that estimator's coverage, location, spread and bound-location statistics, exactly as the committed study's `is.finite(lo) & is.finite(hi)` masks exclude them from coverage, and the count is carried here and as a `non-convergent` column in every table that has an affected row. No row is dropped silently, and no estimator's rows are dropped on another estimator's account. The motivating case is complete separation in an arm of the true region (the study's `.logit_or_ci()` guards only the OVERALL >= 5 events / >= 5 non-events), where the logistic MLE diverges and the Wald interval degenerates to (0, Inf) with a point estimate of order 1e8. **The data recipe is the committed study's, verbatim: every recorded value is exactly what the recorder wrote. This is a consumer-side convention.**",
 "- Identification (block `H`, estimator `all`): `declaration_rate`, `mean_size_hhat` (the recorder's `n_sel`), `mean_true_positives` (sensitivity × `n_true`, never |Ĥ|), `sensitivity_mean`, `ppv_mean`, `spec_mean`, `mean_n_true`, `mean_n_family` (MR's kept family K), `mean_admitted_n` (GRF's forest-qualified / DINA's admitted count; NA on FS), `mean_proposed_n` (DINA only), `mean_n_cons_qual` and `mean_band_n` (FS only).",
 "- Regime: `p_hat_mean`, `p_hat_share_lt_05`; `sd_btc_over_naive_se` (block `Hc`, estimator `mr`) and `lamsd_over_naive_se` (block `Hc`, estimators `fld` and `fld_s`), all on the log-OR scale.",
 "- Display: `display_b`, `display_r`, `display_cov1`, `display_cov1_ref`, `display_cov2`, `display_cov2_ref` from `fs_sim_bias_coverage(scale = \"log\")`.",
