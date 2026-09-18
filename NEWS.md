@@ -1,5 +1,31 @@
 # forestsearch (development version)
 
+* **The two effect thresholds are now a pair on the forest-search consistency
+  path.** For `subgroup_method = "consistency"` with survival (`HR`) or binary
+  `effect_measure = "OR"` -- the estimands whose `c1` and `c2` sit on one
+  comparable ratio scale -- `forestsearch()` now enforces `c2 <= c1` and
+  derives a `c2` the caller did not supply. **Affected: callers who set `c1`
+  without `c2`** (`effect.threshold` or `hr.threshold` alone), which used to
+  leave `c2` at the package default `1.0` whatever `c1` was and now resolves
+  `c2 = 0.80 * c1` on the ratio scale -- 1.25 -> 1.00, 1.00 -> 0.80,
+  0.90 -> 0.72 -- announced with a message and carried into every bootstrap
+  replicate and cross-validation fold. The default pair (1.25, 1.0) is the
+  rule's fixed point, so a call that set neither threshold resolves exactly
+  what it did before, and a call that passed `hr.threshold = 1.25` explicitly
+  is likewise unmoved and only gains the message. **Also affected: callers
+  with `c2 > c1`**, previously accepted and degenerate -- the consistency-stage
+  entry condition re-screens the admitted family on `c2`, so candidates the
+  screen let through were discarded at the stage boundary and the run could
+  report no subgroup for a reason nothing in the output named. That
+  configuration is now an error, raised before any model is fit, naming both
+  values and the spellings the caller used. Supplying both spellings of one
+  threshold at disagreeing values is an error too. An explicitly supplied `c2`
+  is never overridden, and no selection logic changed. **Unaffected:**
+  `subgroup_method = "dina"` and `"grf"`, which return before the consistency
+  stage and never consult `c2`, and the identity-scale estimands `"RD"`,
+  `"IRD"` and `"MD"` together with `"IRR"`, all of which resolve exactly as
+  before in every branch.
+
 * **Bootstrap replicates and cross-validation folds now resolve the thresholds
   the original fit resolved.** `forestsearch()` resolves the screening (`c1`)
   and consistency (`c2`) thresholds through branches guarded by whether the
