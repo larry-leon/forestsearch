@@ -22,8 +22,16 @@
 #' @param hr.threshold Numeric. `c1`, the \strong{screening threshold on a
 #'   candidate subgroup's own effect}: a candidate is retained only if its
 #'   fitted effect exceeds this value.
-#'   On the log scale for ratio measures (OR, HR), identity scale for
-#'   difference measures (RD, MD).  This is \code{forestsearch()}'s
+#'   The scale is the one the caller compares on, and it differs by path.
+#'   On the survival path \code{effect_threshold} is \code{NULL}, so this
+#'   value reaches the comparison unchanged and is compared against the
+#'   fitted hazard ratio on the \strong{natural} scale
+#'   (\code{fit_cox_for_subgroup()} returns \code{exp(coef)}): 1.25 means
+#'   HR >= 1.25, not log(1.25).  On the GLM paths the value arrives already
+#'   on the comparison scale that \code{forestsearch()} resolved from the
+#'   effect measure -- link scale for the ratio measures (OR, RR, IRR),
+#'   identity for RD, IRD and MD -- and is compared against the estimator's
+#'   estimate on that same scale.  This is \code{forestsearch()}'s
 #'   \code{effect.threshold} / \code{hr.threshold}.  It is not the per-split
 #'   threshold (`c2`, \code{hr.consistency}) and not the consistency rate
 #'   (`p*`, \code{pconsistency.threshold}); neither is applied here -- this
@@ -534,7 +542,10 @@ extract_idx_flagredundancy <- function(x, rmin) {
 #'   (continuous).
 #' @param d1.min Integer. Minimum treatment events (binary/survival) or ignored
 #'   (continuous).
-#' @param hr.threshold Numeric. Effect threshold (log scale for ratio measures).
+#' @param hr.threshold Numeric. Effect threshold, on the scale this function
+#'   compares on: the natural hazard-ratio scale on the survival path, and
+#'   the resolved comparison scale (link for OR/RR/IRR, identity for
+#'   RD/IRD/MD) on the GLM paths.  See \code{\link{subgroup_search}}.
 #' @param minp Numeric. Minimum prevalence.
 #' @param rmin Integer. Minimum size reduction.
 #' @param kk Integer. Combination index.
