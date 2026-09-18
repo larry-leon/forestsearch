@@ -1,0 +1,70 @@
+Directive B -- caller inventory (read-only) for the three exported
+estimation-layer entry points that keep binary = "RD".
+Scope: git-tracked R/, tests/, vignettes/, quarto/.  Prose and \link{}
+mentions excluded.  dev/ excluded: it holds archival copies of older
+source, not the live surface.
+
+## make_effect_estimator()  --  48 call sites (11 in R/); 2 leave effect_measure NULL
+  explicit    | outcome_type outcome_type               | R/bootstrap_dofuture_main.R:302
+  explicit    | outcome_type outcome_type               | R/forestsearch_cross_validation.R:1452
+  explicit    | outcome_type outcome_type               | R/forestsearch_cross_validation.R:1508
+  explicit    | outcome_type outcome_type               | R/forestsearch_main.R:1852
+  explicit    | outcome_type outcome_type               | R/forestsearch_main.R:2285
+  explicit    | outcome_type outcome_type               | R/frontier_cis.R:143
+  explicit    | outcome_type outcome_type               | R/plot_sg_glm_outcomes.R:250
+  explicit    | outcome_type outcome_type               | R/plot_subgroup_results_forestplot.R:422
+  explicit    | outcome_type outcome_type               | R/run_subgroup_sims.R:321
+  explicit    | outcome_type outcome_type               | R/summary_utility_functions.R:830
+  explicit    | outcome_type outcome_type               | R/summary_utility_functions.R:983
+  explicit    | outcome_type "binary"                   | quarto/qc/qc_exhaustive_glm_pipeline.R:93
+  explicit    | outcome_type "binary"                   | quarto/qc/qc_exhaustive_glm_pipeline.R:98
+  explicit    | outcome_type "continuous"               | quarto/qc/qc_exhaustive_glm_pipeline.R:105
+  explicit    | outcome_type "count"                    | quarto/qc/qc_exhaustive_glm_pipeline.R:114
+  explicit    | outcome_type "count"                    | quarto/qc/qc_exhaustive_glm_pipeline.R:122
+  explicit    | outcome_type "binary"                   | quarto/qc/qc_glm_sign_diagnosis.R:42
+  explicit    | outcome_type "continuous"               | quarto/qc/qc_glm_sign_diagnosis.R:63
+  explicit    | outcome_type "count"                    | quarto/qc/qc_glm_sign_diagnosis.R:85
+  explicit    | outcome_type "count"                    | quarto/qc/qc_poisson_offset.R:37
+  explicit    | outcome_type "count"                    | quarto/qc/qc_poisson_offset.R:99
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:79
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:83
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:111
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:129
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:133
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:167
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:171
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:202
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:206
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:223
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:225
+  NOT passed  | outcome_type "survival"                 | quarto/qc/test_adverse_outcome.R:243
+  NOT passed  | outcome_type "continuous"               | quarto/qc/test_adverse_outcome.R:252
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:270
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:280
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:293
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:305
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:315
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:326
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:366
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:378
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:391
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:404
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:414
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:416
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:441
+  explicit    | outcome_type "binary"                   | quarto/qc/test_adverse_outcome.R:458
+
+## consistency_resample_compare()  --  2 call sites (0 in R/); 2 leave effect_measure NULL
+  NOT passed  | outcome_type (default: survival)        | quarto/resampling/gbsg_consistency_resample.qmd:57
+  NOT passed  | outcome_type (default: survival)        | quarto/resampling/gbsg_consistency_resample.qmd:95
+
+## consistency_resample()  --  8 call sites (5 in R/); 5 leave effect_measure NULL
+  NOT passed  | outcome_type (default: survival)        | R/consistency_resample.R:509
+  NOT passed  | outcome_type (default: survival)        | R/subgroup_consistency_helpers.R:1464
+  explicit    | outcome_type glm_resample_spec$outcome_type | R/subgroup_consistency_helpers.R:1485
+  NOT passed  | outcome_type (default: survival)        | R/subgroup_consistency_helpers.R:1843
+  explicit    | outcome_type glm_resample_spec$outcome_type | R/subgroup_consistency_helpers.R:1847
+  NOT passed  | outcome_type (default: survival)        | quarto/resampling/consistency_resample.R:268
+  NOT passed  | outcome_type (default: survival)        | quarto/resampling/gbsg_consistency_resample.qmd:125
+  explicit    | outcome_type "continuous"               | tests/testthat/test-dfbeta-lm-influence-path.R:121
+
