@@ -361,32 +361,21 @@ loop never aborts a cell.
 # Guards separation / degenerate cells: non-finite coef/SE or a near-constant
 # outcome returns a clean NA triple, not Inf bounds.
 .logit_or_ci <- function(df) {
-  na4 <- c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_)
-  if (!nrow(df) || length(unique(df[[treat_name]])) < 2L) return(na4)
-  y  <- df[[outcome_name]]
-  tt <- df[[treat_name]]
-  # LEGACY guard, unchanged: at least 5 events and 5 non-events POOLED over arms.
-  if (sum(y == 1L) < 5L || sum(y == 0L) < 5L) return(na4)
-  # FOUR-CELL condition (TASK_binary_study_redesign_2026-09-18 Step 3): the odds
-  # ratio does not exist unless all four arm x outcome cells are non-empty -- the
-  # condition the package's estimator boundary applies for OR
-  # (.fs_existence_reason(), R/glm_effect_estimators.R:261-276).  BOTH conditions
-  # apply; either one failing returns the NA quadruple, which the study's
-  # non-convergence convention already counts per estimator.
-  if (sum(tt == 0L & y == 1L, na.rm = TRUE) == 0L ||
-      sum(tt == 0L & y == 0L, na.rm = TRUE) == 0L ||
-      sum(tt == 1L & y == 1L, na.rm = TRUE) == 0L ||
-      sum(tt == 1L & y == 0L, na.rm = TRUE) == 0L) return(na4)
+  if (length(unique(df[[treat_name]])) < 2L) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_))
+  y <- df[[outcome_name]]
+  if (sum(y == 1L) < 5L || sum(y == 0L) < 5L)
+    return(c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_))
   fml <- stats::as.formula(sprintf("%s ~ %s", outcome_name, treat_name))
   fit <- tryCatch(suppressWarnings(stats::glm(fml, data = df, family = stats::binomial("logit"))),
                   error = function(e) NULL)
-  if (is.null(fit)) return(na4)
+  if (is.null(fit)) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_))
   cf <- stats::coef(fit)
-  if (!(treat_name %in% names(cf))) return(na4)
+  if (!(treat_name %in% names(cf))) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_))
   b <- unname(cf[[treat_name]])
   v <- unname(suppressWarnings(diag(stats::vcov(fit))[treat_name]))
   se <- if (is.finite(v) && v > 0) sqrt(v) else NA_real_
-  if (!is.finite(b) || !is.finite(se)) return(na4)
+  if (!is.finite(b) || !is.finite(se))
+    return(c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_))
   c(est = exp(b), lo = exp(b - z975 * se), hi = exp(b + z975 * se), se = se)
 }
 
