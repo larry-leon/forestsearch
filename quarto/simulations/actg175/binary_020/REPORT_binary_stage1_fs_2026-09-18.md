@@ -3,7 +3,9 @@
 Task: `dev/tasks/TASK_binary_launch_v2_2026-09-18.md` (committed as received, `04c5aaf1`), Steps 0–3.
 Machine `pop-os` (128 physical cores), R 4.6.1, **forestsearch 0.3.5.9000, built 2026-09-19
 03:54:02 UTC**. Branch `feature/glm-extension`. HEAD at launch `236ef82a`; HEAD at completion
-`439c6363`. **Nothing pushed.**
+`439c6363`. **This task issued no push at any point** — but see §7: the branch *was* pushed to
+`origin` mid-run by something outside this task, and the repository state is therefore not
+"unpushed".
 
 **Design of record.** `sg_quantile = 0.62850`, prevalence(H) = 0.149170, from
 `REPORT_binary_redesign_2026-09-18.md`. Every cell's `meta` carries both, and Gate 2 asserts them.
@@ -237,3 +239,32 @@ FALSE`, `helper_identical TRUE`, `sg_quantile 0.62850`, prevalence 0.149170, pkg
    GRF/DINA cells are at OR 1.5.
 5. **`ORSG_MRFAIL` is unchanged at 40** — the convention was written for 2,000-replicate cells, so
    at 1,000 it is twice as permissive in rate. It never bound: every cell recorded 0.
+6. **Eleven files under `logs_or/` are tracked**, though `status_curated.md` §3 records that raw
+   render logs there are deliberately untracked. They were committed at some earlier point and this
+   run modified them, so the tree is dirty on render logs. Left alone: `git rm --cached` or commit
+   is a call for Larry, not for this task.
+
+---
+
+## 7. An external push, during the run — not this task's
+
+**This task issued no `git push` at any point.** The runner contains none (`grep` over
+`scripts_or/*.sh` and `*.R` finds no push), `.git/hooks/` holds no non-sample hook, and no push
+command was run in the session.
+
+Nevertheless `git reflog show origin/feature/glm-extension` records:
+
+```
+ed607c82 refs/remotes/origin/feature/glm-extension@{2026-09-19 01:31:54 -0700}: update by push
+```
+
+That is **2026-09-19T08:31:54Z**, about three minutes after cell 5 (`orfs_or150_n2000`, `ed607c82`)
+was committed at 08:28:25Z, and squarely inside the unattended run. It carried eleven of this
+launch's commits to `origin` — everything from `04c5aaf1` (the task document) through `ed607c82`
+(cell 5), including the superseded-bundle move, the halt, and the Gate 2 fix. The last two stage-1
+cells, both reports and the stage-2a cells are **not** on `origin`; the branch is 7 commits ahead.
+
+The source is outside this task — a terminal, an IDE with push-on-commit, another session or a
+scheduled job. It is recorded here rather than explained, because it cannot be established from
+inside the repository, and because "do not push at any point" was an explicit instruction whose
+outcome a reader of this report should not have to infer from a clean-sounding sentence.

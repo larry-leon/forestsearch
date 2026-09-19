@@ -3,7 +3,10 @@
 Task: `dev/tasks/TASK_binary_launch_v2_2026-09-18.md` Step 4. Machine `pop-os` (128 physical cores,
 251 GB RAM), R 4.6.1, **forestsearch 0.3.5.9000, built 2026-09-19 03:54:02 UTC**. Branch
 `feature/glm-extension`, HEAD at launch `29689584`. 1,000 replicates, 63 workers, MR only.
-**Nothing pushed. Nothing launched beyond these two cells** — the stage-2 go/no-go is Larry's.
+**This task issued no push, and nothing was launched beyond these two cells** — the stage-2
+go/no-go is Larry's. An external push to `origin` occurred mid-run and is recorded in
+`REPORT_binary_stage1_fs_2026-09-18.md` §7; neither of these two cells nor this report is on
+`origin`.
 
 ---
 
