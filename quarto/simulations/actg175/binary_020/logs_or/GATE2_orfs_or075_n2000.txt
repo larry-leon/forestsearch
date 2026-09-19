@@ -1,0 +1,88 @@
+
+########## GATE 2 (orfs): orfs_or075_n2000 -- target_or_h 0.75, n 2000, identifier consistency ##########
+  FS's candidate family is the prespecified cut grid: the fixed-family condition holds.
+  bundle: ../mr_or_harm/fs_effMaxSG_mr_field_or075_n2000_nb20_orfs_d5000/fs_effMaxSG_mr_field_or075_n2000_nb20_orfs_combined_1_2000.rds
+  combined payload on disk                                               PASS     
+  --- combine assertions ---
+  exactly 2 batch files, res_1_1000 and res_1001_2000                    PASS     (2)
+  2,000 rows                                                             PASS     (2000)
+  combined sim_id == 1:2000 exactly                                      PASS     
+  batch sim_id sets 1:1000 and 1001:2000                                 PASS     (batch1 1000, batch2 1000)
+  batch files match the combined bundle on every column                  PASS     (180 columns)
+  no CONFIG-ERROR replicate                                              PASS     (0)
+  --- meta (both batches) ---
+  meta: subgroup_method == consistency                                   PASS     (consistency / consistency)
+  meta: sg_focus == effMaxSG                                             PASS     (effMaxSG / effMaxSG)
+  meta: effect_neighborhood == 0.2                                       PASS     (0.2 / 0.2)
+  meta: selection_rule == neighborhood                                   PASS     (neighborhood / neighborhood)
+  meta: effect_threshold == 0.9                                          PASS     (0.9 / 0.9)
+  meta: consistency_threshold == 0.8                                     PASS     (0.8 / 0.8)
+  meta: pconsistency == 0.9                                              PASS     (0.9 / 0.9)
+  meta: adverse_outcome == TRUE                                          PASS     (TRUE / TRUE)
+  meta: outcome_type == binary                                           PASS     (binary / binary)
+  meta: effect_measure == OR                                             PASS     (OR / OR)
+  meta: target_or_h == 0.75                                              PASS     (0.75 / 0.75)
+  meta: design_tag == or075                                              PASS     (or075 / or075)
+  meta: dgm_model == alt                                                 PASS     (alt / alt)
+  meta: sg_quantile == 0.7                                               PASS     (0.7 / 0.7)
+  meta: n_super == 100000                                                PASS     (100000 / 100000)
+  meta: eval_seed == 20260628                                            PASS     (20260628 / 20260628)
+  meta: ci_method == field                                               PASS     (field / field)
+  meta: mr_draws == 5000                                                 PASS     (5000 / 5000)
+  meta: field_uniform == FALSE                                           PASS     (FALSE / FALSE)
+  meta: field_complement == TRUE                                         PASS     (TRUE / TRUE)
+  meta: field_scale_complement == selected                               PASS     (selected / selected)
+  meta: ij_residual == two_term                                          PASS     (two_term / two_term)
+  meta: return_reselection == TRUE                                       PASS     (TRUE / TRUE)
+  meta: fb_mode == none                                                  PASS     (none / none)
+  meta: seed_base == 8316951                                             PASS     (8316951 / 8316951)
+  meta: campaign_tag == orfs                                             PASS     (orfs / orfs)
+  meta: n_sample == 2000                                                 PASS     (2000 / 2000)
+  meta: k_random_noise == 0                                              PASS     (0 / 0)
+  meta: consistency_method == resample                                   PASS     (resample / resample)
+  meta: pkg_version == 0.3.5                                             PASS     (0.3.5 / 0.3.5)
+  meta: hostname == pop-os                                               PASS     (pop-os / pop-os)
+  meta: n_workers == 63                                                  PASS     (63 / 63)
+  meta carries the truths                                                PASS     (marg_H 0.7499999955 | marg_Hc 0.6560116720 | cde_H 0.7321189340 | cde_Hc 0.6313905111 | prev 0.096320)
+  meta seed_base 8316951 | seed_scheme pre-generated table indexed by global sim_id | host pop-os | R 4.6.1 | pkg_commit 59b144ea | built_at 2026-09-17 16:46:00 / 2026-09-17 15:23:40
+  >> DECLARATION RATE         : 0.8950 (1790 / 2000)
+  MR failures on declared replicates <= 40                               PASS     (0)
+  >> N_FAMILY (MR's kept family K): min 2525  med 2985  p90 2991  max 3001
+  STRUCTURAL n_cons_qual  POPULATED (expected on FS)
+  STRUCTURAL band_n       POPULATED (expected on FS)
+  n_family finite on every declared replicate with a gate                PASS     
+  p_hat_H and p_hat_sum recorded on declared replicates with a gate      PASS     
+  p-hat validity (0<=p<=1, p_H<=sum)                                     PASS     
+  >> WARNINGS                 : 0 of 2000 rows carry warn_msg; distinct: none
+  zero factor-comparison warnings                                        PASS     
+  every finiteness column present (incl. C_dagger_* / C_ddagger_*)       PASS     
+  harm products finite on declared replicates with a field block         PASS     (1790 rows)
+  nine fld_Hc_*_s and nine fld_joint_s_* columns present                 PASS     
+  fld_Hc_*_s finite on all 1790 filled replicates                        PASS     
+  fld_joint_s_* finite on all 1790 filled replicates                     PASS     
+  complement field filled on 1790 of 1790 declared replicates (0 notes)
+  invariant harm  : fld_H_lo1s <= fld_H_est2                             PASS     
+  invariant compl : fld_Hc_est2 <= fld_Hc_up1s                           PASS     
+  invariant _s    : fld_Hc_lo1s_s <= fld_Hc_up1s_s                       PASS     
+  invariant _s    : fld_Hc_lo2s_s <= fld_Hc_hi2s_s                       PASS     
+  invariant _s    : fld_Hc_est2_s <= fld_Hc_up1s_s                       PASS     
+  invariant joint : bonf_loH <= fld_H_est2                               PASS     
+  invariant jointS: fld_Hc_est2_s <= bonf_upHc_s                         PASS     
+  invariant IJ    : mr_H_lo <= est <= mr_H_hi                            PASS     
+  every bound is an OR, so positive (46 columns)                         PASS     
+  gamma (joint)   in [0.025, 0.05]                                       PASS     [0.02500, 0.02700]
+  gamma (joint-s) in [0.025, 0.05]                                       PASS     [0.02500, 0.02700]
+  identity: field-s inverted around the same beta-tilde^c (log scale)    PASS     max |diff| = 2.22e-16
+  identity: log(est2) + lambda_mean = log(beta-tilde^c), field and field-s PASS     max |diff| = 2.22e-16
+  identity: Bonferroni harm bound joint == joint_s where draw counts agree PASS     (1790 of 1790 agree; max |diff| 0)
+  identity: log(lo1s) = log(beta-tilde) - q95; log(up1s) = log(beta-tilde^c) - q05 PASS     max |diff| = 2.22e-16
+  C_dagger_* / C_ddagger_* equal the truth table on every row            PASS     
+  >> p-hat(H): mean 0.103, share < 0.5: 0.996 | CLASSIFICATION: sens 0.1057 ppv 0.1616 | mean |Hhat| 141.5
+  >> BOUNDS: mean fld_H_lo1s 0.3377 | share >= 1.0 0.003 | mean fld_Hc_up1s_s 0.7698 | share <= 1.0 0.998
+  same-draws: this IS the orfs campaign (the reference for the other two).
+  size <= 100 MB: fs_effMaxSG_mr_field_or075_n2000_nb20_orfs_res_1_1000.rds PASS     (711595 B)
+  size <= 100 MB: fs_effMaxSG_mr_field_or075_n2000_nb20_orfs_res_1001_2000.rds PASS     (702304 B)
+  size <= 100 MB: fs_effMaxSG_mr_field_or075_n2000_nb20_orfs_combined_1_2000.rds PASS     (1392267 B)
+  timing: fit_mr_secs mean 278.1 median 319.7 p90 340.4 max 372.6 | id_secs mean 26.07 median 26.76 max 42.93 | fld_H_secs mean 70.3 | fld_Hc_secs mean 28.14
+
+GATE_COUNTS run=69 passed=69 failed=0

@@ -1,5 +1,31 @@
 # forestsearch (development version)
 
+* **New `fs_dgm_feasibility()`: a design-time check that the planted region
+  can be declared at all.** Given a `glm_dgm` -- the interface
+  `fs_oc_predict()` and `fs_oc_grid()` accept -- it draws `n_rep` replicates
+  per sample size through the DGM's *own* generator (`simulate_from_glm_dgm()`,
+  the function the campaign templates call, never a re-implementation) and
+  reports, per `n`: the share of replicates on which the planted region is
+  **undeclarable** (size `<=` `n.min`, the strict test `subgroup.search()`
+  itself applies), the share under the per-arm events floor, the share on
+  which the estimand does not exist under the estimability boundary's
+  per-estimand condition, and size and per-arm cell summaries. `$feasible` is
+  `TRUE` when every undeclarable share is at or below `tolerance` (default
+  0.05). The print method is loud and unconditional. On the ACTG175 OR 0.75
+  design this returns `FALSE` at n = 500 and n = 750: the planted region is at
+  or below `n.min = 60` in 90% of replicates at n = 500, so what the search
+  declares there is a larger overlapping region, not the planted one.
+  **It imposes nothing** -- the floors are read and reported, never applied,
+  and `forestsearch()` never consults it. The function does not change the RNG
+  kind and restores the caller's RNG stream on exit; the caller's matching
+  obligation, stated in the roxygen, is to build and calibrate the DGM
+  *before* any replicate switches the kind, since calibrating afterwards
+  yields a different super-population. **Survival DGMs are not accepted**, and
+  the error and `?fs_dgm_feasibility` say exactly what supporting them would
+  need rather than guessing: `setup_gbsg_dgm()` objects carry a different
+  generator (`simulate_from_dgm()`) whose `analysis_time` and `cens_adjust`
+  arguments have no GLM counterpart and change the per-arm event counts.
+
 * **The estimator boundary now returns `NA` with a reason where the estimand
   does not exist, instead of a finite divergent number.** `glm()` and
   `coxph()` do not fail on a slice with an empty cell or a zero-event arm:
