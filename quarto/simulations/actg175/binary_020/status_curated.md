@@ -22,7 +22,12 @@ reads the directory and git, never a report and never a chat record.
 
 - **Driver:** `maxeffCons_mr_coverage_sweep_or075.qmd`, the producer of the supplement's Figures
   S9 and S10, with its figure fragment `_sim_mr_coverage_or075.qmd` and its render. **Not edited**
-  by any campaign in this directory.
+  by any campaign in this directory, with **one recorded exception**: the oracle helper
+  `.logit_or_ci()` gained the four-cell existence condition
+  (`TASK_binary_study_redesign_2026-09-18` Step 3, which directs one helper identical in every
+  copy). The driver's DGM, seeds, thresholds and rule are untouched, its committed payloads are
+  not rewritten, and it is not re-run; a re-run would differ from the committed payloads only on
+  replicates whose true region has an empty arm x outcome cell.
 - **Design:** ACTG175 arms 1 (ZDV+ddI) vs 3 (ddI); the week-20 adverse outcome
   `y_neg = 1 - 1{cd420 > cd40}`, analysed directly, so **OR > 1 is harm**. The planted harm region
   is H = {wtkg > q70} ∩ {cd40 > q70}, calibrated to a marginal OR of 0.75 in H against a
@@ -47,6 +52,24 @@ reads the directory and git, never a report and never a chat record.
   has it; the driver's homogeneous `dgm_model = "null"` branch is not used anywhere here).
 - **Sizes:** n = 500 and n = 2000, the ends of the study's sweep. Six cells per campaign,
   eighteen in all.
+- **Planted prevalence — CHANGED 2026-09-18, and the reason.** The campaigns originally inherited
+  the study's H = {wtkg > q70} ∩ {cd40 > q70}, prevalence 9.632%. `fs_dgm_feasibility()` shows that
+  region is **undeclarable** — at or below the search's own `n.min = 60` — in 96% of replicates at
+  n = 500, so at that size the search is structurally unable to recover a region of the planted
+  size. Larry directed the planted prevalence into the 12–15% range; the design point was then
+  chosen mechanically from the feasibility table (`feasibility_binary_redesign_2026-09-18.csv`,
+  tolerance 0.05, `n_rep` 200, n grid 500/750/1000/2000): 12.4% is **not** feasible at every n, so
+  the rule fell to the smallest feasible prevalence in the range. **The design of record is
+  `sg_quantile = 0.62850`, prevalence(H) = 14.917%**, the same two cut variables and the same
+  floors, thresholds, seeds and rule. See `REPORT_binary_redesign_2026-09-18.md`.
+- **Two committed cells are SUPERSEDED BY DESIGN CHANGE.** `orfs_or075_n500` and
+  `orfs_or075_n2000` (bundles under `mr_or_harm/fs_effMaxSG_mr_field_or075_n{500,2000}_nb20_orfs_d5000/`,
+  Gate 2 PASS, committed `50c25059` and earlier) were produced at the **old** planted prevalence
+  **9.632%**; the design of record is now **14.917%**. They are **not deleted and not re-run** in
+  the redesign task, they pool with nothing under the new design, and no table may place them
+  beside a new cell without saying so. The committed study's own payloads under `mr_sweep/` are
+  likewise at 9.632% and are not a comparator for anything run under the new design — the Stage 0
+  smoke reports that difference instead of gating on it.
 - **Identifiers:** `orfs` runs first and is the reference the other two are checked against —
   the three campaigns share every draw cell for cell, and Gate 2 asserts that the data-level
   columns (the per-replicate seed, the true-region size and the oracle) are identical in both
@@ -56,6 +79,13 @@ reads the directory and git, never a report and never a chat record.
   references. Excluded everywhere: the IJ winner-only and winner-floor variants, the κ / uniform
   calibration, covariate adjustment and tuned inflation factors. FB was never run and never
   joined (there is no committed binary FB bundle).
+- **Stage 0 gate.** The template calls `fs_dgm_feasibility()` on the DGM of record at the n grid
+  `FS_OR_FEAS_N` (default 500,750,1000,2000) with `FS_OR_FEAS_TOL` (default 0.05) passed
+  explicitly, prints the table into the Stage 0 record, and **refuses to render on to Stage 2
+  unless `feasible` is TRUE**. The only way past a FALSE is `FS_OR_FEAS_OVERRIDE=TRUE`, which is
+  echoed in the record and carried in `meta$feas_override` — the DINA-caps pattern: possible
+  deliberately, never silently. The same chunk asserts the two copies of `.logit_or_ci()` are
+  character-identical and stops if they are not.
 - **One template, one runner.** `sim_fs_mr_field_or_template.qmd` runs every cell of every
   campaign through `FS_OR_*` environment knobs; `scripts_or/run_or.sh` sequences the three
   campaigns over the six cells, two batches and a combine per cell, gating each cell with
@@ -110,9 +140,20 @@ nothing in the committed study, which ran a different rule and different constru
 - **Only the two ends of the study's sweep are run.** The study swept n = 500 … 2000 by 250; these
   campaigns run n = 500 and n = 2000. The five interior sizes are open under the current rule and
   constructions.
-- **One design family.** H is the study's {wtkg > q70} ∩ {cd40 > q70} at a 9.6% prevalence in all
-  three design points; the study driver notes an alternative single-cut definition (`cd40` at q75,
-  ~25% prevalence) that has never been run under the field constructions.
+- **One design family.** H is {wtkg > q} ∩ {cd40 > q} on the same two cut variables in all three
+  design points — the committed study's q70 (prevalence 9.6%), and, for the campaigns from
+  2026-09-18, q = 0.62850 (prevalence 14.9%, the feasible design of record). The study driver notes
+  an alternative single-cut definition (`cd40` at q75, ~25% prevalence) that has never been run
+  under the field constructions.
+- **The feasibility boundary in the 12–15% range is not resolved.** At tolerance 0.05 and n = 500
+  the undeclarable share is 0.100 at prevalence 13.686% and 0.015 at 14.917%; where between those
+  two it crosses 0.05 was not searched, because the selection rule ran over Larry's five nominal
+  prevalences only.
+- **`recipe` mode of `scripts_or/smoke_identity.R` is inapplicable under the new design.** It
+  compares the template's rule-independent data-level columns against the committed study bundles,
+  which are at the old prevalence, so `n_true` and the oracle necessarily differ. It was not run in
+  the redesign task and is not part of the Stage 0 gate; whether to retire it or re-point it at a
+  new reference bundle is open.
 - **No genuine global null.** The borderline-null design point plants the region *at* the null
   against a protective complement; the driver's homogeneous `dgm_model = "null"` branch, under
   which the declaration rate *is* the false-positive rate, is not exercised here.

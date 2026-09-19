@@ -294,7 +294,17 @@ adverse_outcome <- TRUE   # [S] :176: analyze y_neg directly; OR > 1 = harm
 
 # ── DGM knobs ([S] :122-171, verbatim; do NOT recalibrate) ──────────────────
 n_super     <- 100000L    # [S] :124, the study's fixed 100k universe
-sg_quantile <- 0.70       # [S] :126
+# sg_quantile: the DESIGN OF RECORD knob.  [S] :126 planted the region at q70
+# on both cut variables, prevalence(H) = 9.632%, which fs_dgm_feasibility()
+# shows is undeclarable (|Q| <= n.min = 60) in 96% of replicates at n = 500.
+# TASK_binary_study_redesign_2026-09-18 Step 1 raised the planted prevalence
+# into Larry's 12-15% range, chosen mechanically from the feasibility table
+# (feasibility_binary_redesign_2026-09-18.csv): 12.4% is NOT feasible at
+# every n at tolerance 0.05, so the rule falls to the smallest feasible
+# prevalence in the range, the 15% design point.  q is the MIDPOINT of the
+# prevalence plateau (the cuts are taken on the 1083-row ACTG175 analysis
+# sample, which carries ties), so the value is robust to rounding.
+sg_quantile <- 0.62850    # prevalence(H) = 14.917% (was [S] :126's 0.70 = 9.632%)
 cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")   # [S] :158
 bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom") # [S] :159
 subgroup_vars <- c("wtkg", "cd40")                                   # [S] :164
@@ -445,6 +455,75 @@ cat(sprintf("  theta-dagger check   : %.10f / %.10f  (eval frame at true H/Hc; m
             .td_chk["thetaDagger_H"], .td_chk["thetaDagger_Hc"]))
 ```
 
+# Stage 0 gate — the planted region must be declarable {#sec-stage0-gate}
+
+`fs_dgm_feasibility()` is asked of the DGM of record, at the study's n grid,
+with `tolerance` passed explicitly. It reports how often the planted region
+\(Q\) is **undeclarable** (\(|Q| \le\) `n.min`, the search's own test), how
+often it falls under the per-arm events floor, and how often the OR does not
+exist on it. **The render refuses to go on to Stage 2 unless `feasible` is
+TRUE**, and the only way past a FALSE is `FS_OR_FEAS_OVERRIDE=TRUE`, which is
+written into the record and into `meta` — the DINA-caps pattern: possible
+deliberately, never silently. The same chunk asserts that the study's two
+copies of `.logit_or_ci()` are character-identical.
+
+```{r stage0-gate}
+# ── (i) the oracle helper is ONE helper (TASK_binary_study_redesign Step 3) ──
+# The template and the committed study driver each carry a copy; they must be
+# the same text.  Read both from disk and compare the definitions verbatim.
+.grab_helper <- function(path) {
+  if (!file.exists(path)) return(NA_character_)
+  L <- readLines(path, warn = FALSE)
+  i <- grep("^\\.logit_or_ci <- function\\(df\\) \\{$", L)
+  if (length(i) != 1L) return(NA_character_)
+  j <- i + which(L[(i + 1L):length(L)] == "}")[1]
+  paste(L[i:j], collapse = "\n")
+}
+.helper_paths <- c("sim_fs_mr_field_or_template.qmd",
+                   "maxeffCons_mr_coverage_sweep_or075.qmd")
+.helper_txt <- vapply(.helper_paths, .grab_helper, character(1))
+helper_identical <- !anyNA(.helper_txt) && length(unique(.helper_txt)) == 1L
+cat(sprintf("HELPER ASSERTION: .logit_or_ci() found in %d of %d copies; identical: %s\n",
+            sum(!is.na(.helper_txt)), length(.helper_paths), helper_identical))
+if (!helper_identical)
+  stop("the copies of .logit_or_ci() differ (", paste(.helper_paths, collapse = ", "),
+       "): one helper, identical in every copy.", call. = FALSE)
+
+# ── (ii) feasibility of the planted region at the study's n grid ────────────
+# n grid and tolerance are knobs, both passed EXPLICITLY; n_rep is the
+# function's own 200.  The DGM was built and calibrated above, under R's
+# default generator -- before any replicate switches the RNG kind inside
+# record_replicate() -- which is the caller obligation fs_dgm_feasibility()
+# states.  The floors passed are the search's own, as configured here.
+feas_n_grid  <- as.numeric(strsplit(.env_chr("FS_OR_FEAS_N", "500,750,1000,2000"), ",")[[1]])
+feas_tol     <- .env_num("FS_OR_FEAS_TOL", 0.05)
+feas_n_rep   <- .env_int("FS_OR_FEAS_NREP", 200L)
+feas_seed    <- 20260918L
+feas_override <- identical(.env_chr("FS_OR_FEAS_OVERRIDE", "FALSE"), "TRUE")
+feas <- forestsearch::fs_dgm_feasibility(
+  dgm, n = feas_n_grid, n.min = n_min, d0.min = d0_min, d1.min = d1_min,
+  n_rep = feas_n_rep, tolerance = feas_tol, effect_measure = effect_measure,
+  seed = feas_seed)
+cat(sprintf("STAGE 0 FEASIBILITY [prevalence(H) %.5f, sg_quantile %.5f, target_or_h %s]: tolerance %.3f, n_rep %d, seed %d\n",
+            truth$prevalence_Q, sg_quantile, format(target_or_h), feas_tol, feas_n_rep, feas_seed))
+print(feas$table)
+cat(sprintf("STAGE 0 FEASIBILITY: feasible = %s (every undeclarable share <= %.3f)\n",
+            feas$feasible, feas_tol))
+if (!isTRUE(feas$feasible)) {
+  if (!feas_override)
+    stop(sprintf(paste0("STAGE 0 GATE: the planted region is NOT declarable at every n ",
+                        "(undeclarable shares %s vs tolerance %.3f). Stage 2 refused. ",
+                        "Set FS_OR_FEAS_OVERRIDE=TRUE to proceed deliberately; the ",
+                        "override is recorded in the bundle's meta."),
+                 paste(sprintf("n%d %.3f", feas$table$n, feas$table$share_undeclarable),
+                       collapse = " | "), feas_tol),
+         call. = FALSE)
+  cat(sprintf("STAGE 0 GATE OVERRIDE: FS_OR_FEAS_OVERRIDE=TRUE -- proceeding on an INFEASIBLE design (undeclarable shares %s vs tolerance %.3f). Recorded in meta as feas_override.\n",
+              paste(sprintf("n%d %.3f", feas$table$n, feas$table$share_undeclarable),
+                    collapse = " | "), feas_tol))
+}
+```
+
 # Per-replicate machinery {#sec-machinery}
 
 ```{r machinery}
@@ -471,8 +550,20 @@ z95 <- qnorm(0.95); z975 <- qnorm(0.975)
 .logit_or_ci <- function(df) {
   na4 <- c(est = NA_real_, lo = NA_real_, hi = NA_real_, se = NA_real_)
   if (!nrow(df) || length(unique(df[[treat_name]])) < 2L) return(na4)
-  y <- df[[outcome_name]]
+  y  <- df[[outcome_name]]
+  tt <- df[[treat_name]]
+  # LEGACY guard, unchanged: at least 5 events and 5 non-events POOLED over arms.
   if (sum(y == 1L) < 5L || sum(y == 0L) < 5L) return(na4)
+  # FOUR-CELL condition (TASK_binary_study_redesign_2026-09-18 Step 3): the odds
+  # ratio does not exist unless all four arm x outcome cells are non-empty -- the
+  # condition the package's estimator boundary applies for OR
+  # (.fs_existence_reason(), R/glm_effect_estimators.R:261-276).  BOTH conditions
+  # apply; either one failing returns the NA quadruple, which the study's
+  # non-convergence convention already counts per estimator.
+  if (sum(tt == 0L & y == 1L, na.rm = TRUE) == 0L ||
+      sum(tt == 0L & y == 0L, na.rm = TRUE) == 0L ||
+      sum(tt == 1L & y == 1L, na.rm = TRUE) == 0L ||
+      sum(tt == 1L & y == 0L, na.rm = TRUE) == 0L) return(na4)
   fml <- stats::as.formula(sprintf("%s ~ %s", outcome_name, treat_name))
   fit <- tryCatch(suppressWarnings(stats::glm(fml, data = df, family = stats::binomial("logit"))),
                   error = function(e) NULL)
@@ -1071,6 +1162,13 @@ out <- rds_path
               dgm_model = dgm_model, target_or_h = target_or_h,
               design_tag = design_tag,
               sg_quantile = sg_quantile, n_super = n_super,
+              # --- the Stage 0 feasibility gate, as applied --------------
+              feas_feasible = feas$feasible, feas_tolerance = feas_tol,
+              feas_n_grid = paste(feas_n_grid, collapse = ","),
+              feas_n_rep = feas_n_rep, feas_seed = feas_seed,
+              feas_override = feas_override,
+              feas_share_undeclarable = paste(sprintf("n%d=%.3f", feas$table$n, feas$table$share_undeclarable), collapse = "|"),
+              helper_identical = helper_identical,
               k_random_noise = k_random_noise,
               effect_threshold = or_threshold,
               consistency_threshold = or_consistency,

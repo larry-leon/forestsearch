@@ -77,10 +77,25 @@ if (any(!is.na(r1$err_msg)))
 # ---- truths (every mode): the template's DGM must reproduce the committed truth table ----
 if (!is.null(o)) {
   tk <- c("or_causal", "marg_H", "marg_Hc", "cde_H", "cde_Hc")
-  if (identical(design_tag, "or075")) {
+  # The committed study planted the region at prevalence 9.632% (sg_quantile 0.70).
+  # TASK_binary_study_redesign_2026-09-18 raised it to 14.917% (sg_quantile 0.62850),
+  # so under the design of record the committed truths describe a SUPERSEDED
+  # super-population and are not a comparator for anything.  The gate therefore
+  # applies only when the two carry the SAME planted prevalence; otherwise the
+  # comparison is REPORTED with both prevalences named, never gated.
+  # The committed study's truth list carries no prevalence, so the planted
+  # region is compared through meta$sg_quantile, which both bundles carry.
+  .sgq_here  <- m$sg_quantile %||% NA_real_
+  .sgq_there <- o$meta$sg_quantile %||% NA_real_
+  same_prev  <- isTRUE(abs(.sgq_here - .sgq_there) <= 1e-10)
+  if (identical(design_tag, "or075") && same_prev) {
     tmx <- max(vapply(tk, function(k) relmax(tr[[k]], o$truth[[k]]), numeric(1)))
     chk(tmx <= TOL, sprintf("truth targets match the committed study within %g relative (max %.3g); %s",
                             TOL, tmx, paste(sprintf("%s %.10f", tk, unlist(tr[tk])), collapse = " | ")))
+  } else if (identical(design_tag, "or075")) {
+    cat(sprintf("  SUPERSEDED BY DESIGN CHANGE: the committed study plants at sg_quantile %s; this DGM of record plants at %s, prevalence(H) %.6f. The committed truths are not a comparator for it, and are not gated. Truths here: %s\n",
+                format(.sgq_there), format(.sgq_here), tr$prevalence_Q %||% NA_real_,
+                paste(sprintf("%s %.10f", tk, unlist(tr[tk])), collapse = " | ")))
   } else {
     cat(sprintf("  truths at %s (no committed comparator at this design point): %s\n",
                 design_tag, paste(sprintf("%s %.10f", tk, unlist(tr[tk])), collapse = " | ")))
