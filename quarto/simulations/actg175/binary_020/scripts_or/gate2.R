@@ -370,7 +370,7 @@ gate2 <- function(target, n, cell, tag) {
     }
   } else cat("  same-draws: this IS the orfs campaign (the reference for the other two).\n")
 
-  for (fp2 in c(f1, f2, cf)) if (file.exists(fp2)) {
+  for (fp2 in c(bf, cf)) if (file.exists(fp2)) {
     sz <- file.size(fp2)
     P(sprintf("size <= 100 MB: %s", basename(fp2)), sz <= 100 * 1024^2,
       sprintf("(%d B)%s", sz, if (sz > 50 * 1024^2) "  ** FLAG: over 50 MB **" else ""))
