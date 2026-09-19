@@ -64,12 +64,22 @@ reads the directory and git, never a report and never a chat record.
   the rule fell to the smallest feasible prevalence in the range. **The design of record is
   `sg_quantile = 0.62850`, prevalence(H) = 14.917%**, the same two cut variables and the same
   floors, thresholds, seeds and rule. See `REPORT_binary_redesign_2026-09-18.md`.
-- **Two committed cells are SUPERSEDED BY DESIGN CHANGE.** `orfs_or075_n500` and
-  `orfs_or075_n2000` (bundles under `mr_or_harm/fs_effMaxSG_mr_field_or075_n{500,2000}_nb20_orfs_d5000/`,
-  Gate 2 PASS, committed `50c25059` and earlier) were produced at the **old** planted prevalence
-  **9.632%**; the design of record is now **14.917%**. They are **not deleted and not re-run** in
-  the redesign task, they pool with nothing under the new design, and no table may place them
-  beside a new cell without saying so. The committed study's own payloads under `mr_sweep/` are
+- **Two committed cells are SUPERSEDED BY DESIGN CHANGE, and they have been MOVED ASIDE.**
+  `orfs_or075_n500` and `orfs_or075_n2000` (Gate 2 PASS, committed `50c25059` and earlier) were
+  produced at the **old** planted prevalence **9.632%**; the design of record is **14.917%**.
+  They are **not deleted** — at the 2026-09-18 launch their two bundle directories were
+  `git mv`'d, whole and byte-for-byte, from `mr_or_harm/` to
+  **`mr_or_harm_superseded_prev09632/fs_effMaxSG_mr_field_or075_n{500,2000}_nb20_orfs_d5000/`**.
+  Two things forced the move, both of them the design change biting at the file level: the
+  campaigns' 1,000-replicate cells write `…_res_1_1000.rds` to exactly the path the superseded
+  2,000-replicate batch occupies, which the template's `.refuse_if_tracked()` guard correctly
+  refuses; and while they sat under `mr_or_harm/*_orfs_d5000/` they were inside the combine glob,
+  where a 9.632% batch could pool with a 14.917% one. Moving them out of that root is what makes
+  "they pool with nothing under the new design" true mechanically rather than by convention.
+  One `git mv` back restores the old layout exactly. No table may place them beside a new cell
+  without saying so. Their combine renders
+  (`fs_…_orfs_combine_1_2000.html`) stay in the directory root and are distinguishable from the
+  new cells' by their `_1_2000` suffix. The committed study's own payloads under `mr_sweep/` are
   likewise at 9.632% and are not a comparator for anything run under the new design — the Stage 0
   smoke reports that difference instead of gating on it.
 - **Which build produced what.** The two superseded cells ran on **forestsearch 0.3.5, built
