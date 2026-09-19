@@ -22,12 +22,14 @@ reads the directory and git, never a report and never a chat record.
 
 - **Driver:** `maxeffCons_mr_coverage_sweep_or075.qmd`, the producer of the supplement's Figures
   S9 and S10, with its figure fragment `_sim_mr_coverage_or075.qmd` and its render. **Not edited**
-  by any campaign in this directory, with **one recorded exception**: the oracle helper
-  `.logit_or_ci()` gained the four-cell existence condition
-  (`TASK_binary_study_redesign_2026-09-18` Step 3, which directs one helper identical in every
-  copy). The driver's DGM, seeds, thresholds and rule are untouched, its committed payloads are
-  not rewritten, and it is not re-run; a re-run would differ from the committed payloads only on
-  replicates whose true region has an empty arm x outcome cell.
+  by any campaign in this directory — **no exception**. The four-cell existence condition that
+  `TASK_binary_study_redesign_2026-09-18` Step 3 added to its `.logit_or_ci()` was **reverted**
+  (`23b9714d`), on Larry's disposition that the driver stay byte-identical to what produced its
+  committed cells; the worktree copy now matches its pre-`625b10d0` content exactly
+  (sha256 `408b864b…8285ad`). The condition lives only in the template of record, which is the
+  single in-scope copy: the Stage 0 assertion requires it present exactly once and prints
+  `found in 1 of 1 in-scope copies`. The driver's DGM, seeds, thresholds and rule are untouched,
+  its committed payloads are not rewritten, and it is not re-run.
 - **Design:** ACTG175 arms 1 (ZDV+ddI) vs 3 (ddI); the week-20 adverse outcome
   `y_neg = 1 - 1{cd420 > cd40}`, analysed directly, so **OR > 1 is harm**. The planted harm region
   is H = {wtkg > q70} ∩ {cd40 > q70}, calibrated to a marginal OR of 0.75 in H against a
@@ -70,6 +72,13 @@ reads the directory and git, never a report and never a chat record.
   beside a new cell without saying so. The committed study's own payloads under `mr_sweep/` are
   likewise at 9.632% and are not a comparator for anything run under the new design — the Stage 0
   smoke reports that difference instead of gating on it.
+- **Which build produced what.** The two superseded cells ran on **forestsearch 0.3.5, built
+  2026-09-17 04:47:31 UTC**. Everything from the 2026-09-18 launch onward runs on **forestsearch
+  0.3.5.9000, built 2026-09-19 03:54:02 UTC** (= 2026-09-18 20:54 local), installed with
+  `devtools::install(quick = TRUE)` under the launch task's standing authorization for launch
+  preparation. That build carries the estimability boundary (`1719056f`) and
+  `fs_dgm_feasibility()` (`f9b794f6`); the 2026-09-17 build of 0.3.5 carries neither. Every
+  bundle's `meta` records `pkg_version` and `built_at`, and Gate 2 asserts `pkg_version`.
 - **Identifiers:** `orfs` runs first and is the reference the other two are checked against —
   the three campaigns share every draw cell for cell, and Gate 2 asserts that the data-level
   columns (the per-replicate seed, the true-region size and the oracle) are identical in both
@@ -149,7 +158,9 @@ nothing in the committed study, which ran a different rule and different constru
   the undeclarable share is 0.100 at prevalence 13.686% and 0.015 at 14.917%; where between those
   two it crosses 0.05 was not searched, because the selection rule ran over Larry's five nominal
   prevalences only.
-- **`recipe` mode of `scripts_or/smoke_identity.R` is inapplicable under the new design.** It
+- **`recipe` mode of `scripts_or/smoke_identity.R` is DEFERRED — recorded, not changed.**
+  `TASK_binary_launch_v2_2026-09-18` Step 1.4 defers it explicitly: no code change was made to it,
+  it is not part of the Stage 0 gate, and it was not run in the launch. Why it is inapplicable: it
   compares the template's rule-independent data-level columns against the committed study bundles,
   which are at the old prevalence, so `n_true` and the oracle necessarily differ. It was not run in
   the redesign task and is not part of the Stage 0 gate; whether to retire it or re-point it at a

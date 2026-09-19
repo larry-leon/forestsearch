@@ -1186,6 +1186,20 @@ out <- rds_path
               seed_base = seed_base, sim_id_start = sim_id_start,
               sim_id_end = sim_id_end,
               parallel_mode = parallel_mode, n_workers = n_workers,
+              # --- launch record (TASK_binary_launch_v2_2026-09-18 Step 3) --
+              # Wall clock of the run loop, and the two estimability counts the
+              # stage-1 report needs per cell.  NA-ORACLE counts the replicates
+              # whose ORACLE refit on the TRUE region returned the NA quadruple
+              # (the pooled 5/5 guard or the four-cell condition in
+              # .logit_or_ci()); NON-ESTIMABLE counts the DECLARED replicates
+              # whose unadjusted plug-in on the SELECTED region is not finite --
+              # the package's own boundary (.fs_existence_reason()) applied where
+              # it can actually bind.
+              wall_seconds = elapsed,
+              n_na_oracle_H     = sum(!is.finite(results$or_H_est)),
+              n_na_oracle_Hc    = sum(!is.finite(results$or_Hc_est)),
+              n_nonestimable_H  = sum(results$detected %in% 1L & !is.finite(results$nv_H_est)),
+              n_nonestimable_Hc = sum(results$detected %in% 1L & !is.finite(results$nv_Hc_est)),
               # --- template provenance (mr_field) --------------------------
               ci_method = mr_ci_method,
               field_uniform = mr_field_uniform,
@@ -1279,12 +1293,24 @@ cat(sprintf("Saved batch bundle (%d rows, sim_id %d-%d) to %s\n",
     cpath <- combined_path %||%
       file.path(results_dir, sprintf("%s_combined_%d_%d.rds", rds_stem, rng[1], rng[2]))
     .m1 <- bundles[[1]]$meta
+    # The launch-record keys are PER BATCH, so they are recomputed over the pool
+    # rather than inherited from batch 1 (Step 3: the meta of every bundle, the
+    # combined one included, carries them).
+    .wb <- vapply(bundles, function(b) as.numeric(b$meta$wall_seconds %||% NA_real_), numeric(1))
     .cpayload <- list(results = results, truth = truth,
       meta = c(.m1[setdiff(names(.m1), c("n_sims", "sim_id_start", "sim_id_end",
-                                          "n_workers", "built_at"))],
+                                          "n_workers", "built_at", "wall_seconds",
+                                          "n_na_oracle_H", "n_na_oracle_Hc",
+                                          "n_nonestimable_H", "n_nonestimable_Hc"))],
                list(n_sims = n_sims, sim_id_start = rng[1], sim_id_end = rng[2],
                     n_batches = length(files), source_files = basename(files),
                     n_workers_by_batch = vapply(bundles, function(b) as.integer(b$meta$n_workers %||% NA_integer_), integer(1)),
+                    wall_seconds_by_batch = .wb,
+                    wall_seconds = if (all(is.finite(.wb))) sum(.wb) else NA_real_,
+                    n_na_oracle_H     = sum(!is.finite(results$or_H_est)),
+                    n_na_oracle_Hc    = sum(!is.finite(results$or_Hc_est)),
+                    n_nonestimable_H  = sum(results$detected %in% 1L & !is.finite(results$nv_H_est)),
+                    n_nonestimable_Hc = sum(results$detected %in% 1L & !is.finite(results$nv_Hc_est)),
                     built_at = Sys.time())))
     if (!is.null(dgm_scale)) .cpayload$scale <- dgm_scale
     .cpayload$oc <- tryCatch(fs_mr_oc_summary(.cpayload),

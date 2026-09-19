@@ -3,8 +3,11 @@
 # invariants, gamma, identities, same-draws in two directions, payload size), pointed at the OR
 # bundles (stem <fs|grf|dina>_effMaxSG_mr_field_or0XX_n<N>_nb20_<tag>) with
 # TASK_actg175_binary_campaign_2026-09-17 Stage 2's per-cell Gate 2:
-#   - 2,000 rows with sim_id exactly 1-2000, and the batch files matching the combined bundle on
-#     every column;
+#   - NSIMS rows with sim_id exactly 1-NSIMS, and the batch file(s) matching the combined bundle
+#     on every column.  NSIMS is ORSG_NSIMS, default 1000: TASK_binary_launch_v2_2026-09-18 fixes
+#     1,000 replicates per cell, run as ONE batch over sim_id 1-1000 plus the combine.  The
+#     superseded 2 x 1,000 layout is still checkable by passing ORSG_NSIMS=2000, which restores
+#     the two-batch assertions (res_1_1000 + res_1001_2000);
 #   - meta carries the rule (effMaxSG, eps 0.20, neighborhood), the thresholds (0.90 / 0.80 /
 #     0.90 with adverse_outcome = TRUE), target_or_h, the truths, field_scale_complement,
 #     pkg_version and host;
@@ -24,8 +27,17 @@
 QMD_DIR <- Sys.getenv("ORSG_DIR", unset = "..")
 WORKERS <- Sys.getenv("ORSG_WORKERS", unset = NA)
 HOST    <- Sys.getenv("ORSG_HOST", unset = "pop-os")
-PKG     <- Sys.getenv("ORSG_PKG",  unset = "0.3.5")
+PKG     <- Sys.getenv("ORSG_PKG",  unset = "0.3.5.9000")
 MRFAIL  <- as.integer(Sys.getenv("ORSG_MRFAIL", unset = "40"))
+# Replicates per cell, and the batch layout that follows from it.
+NSIMS   <- as.integer(Sys.getenv("ORSG_NSIMS", unset = "1000"))
+# sg_quantile of the DESIGN OF RECORD (REPORT_binary_redesign_2026-09-18: prevalence(H) 14.917%).
+# The superseded cells were planted at 0.70 (9.632%) and are checked by passing ORSG_SGQ=0.70.
+SGQ     <- as.numeric(Sys.getenv("ORSG_SGQ", unset = "0.62850"))
+# The batch boundaries: 1,000 -> one batch [1, 1000]; 2,000 -> the superseded [1,1000],[1001,2000].
+BATCHES <- if (NSIMS <= 1000L) list(c(1L, NSIMS)) else
+             lapply(seq(1L, NSIMS, by = 1000L), function(s) c(s, min(s + 999L, NSIMS)))
+NBATCH  <- length(BATCHES)
 TOL <- 1e-8
 `%||%` <- function(a,b) if (is.null(a) || length(a)==0 || all(is.na(a))) b else a
 dtok  <- function(target) sprintf("or%03d", as.integer(round(100 * as.numeric(target))))
@@ -36,7 +48,7 @@ fstem <- function(target, n, tag)
   sprintf("%s_effMaxSG_mr_field_%s_n%d_nb20_%s", mtag(tag), dtok(target), n, tag)
 fdir  <- function(st) file.path(QMD_DIR, "mr_or_harm", paste0(st, "_d5000"))
 fcomb <- function(target, n, tag) { st <- fstem(target, n, tag)
-  file.path(fdir(st), paste0(st, "_combined_1_2000.rds")) }
+  file.path(fdir(st), sprintf("%s_combined_1_%d.rds", st, NSIMS)) }
 
 N_RUN <- 0L; N_PASS <- 0L; FAILED <- character(0)
 P <- function(lab, ok, extra = "") {
@@ -94,20 +106,26 @@ gate2 <- function(target, n, cell, tag) {
   b <- readRDS(cf); r <- b$results; m <- b$meta; tr <- b$truth
 
   cat("  --- combine assertions ---\n")
-  f1 <- file.path(dr, paste0(st, "_res_1_1000.rds")); f2 <- file.path(dr, paste0(st, "_res_1001_2000.rds"))
-  bts <- Sys.glob(file.path(dr, paste0(st, "_res_*.rds")))
-  P("exactly 2 batch files, res_1_1000 and res_1001_2000",
-    length(bts) == 2L && file.exists(f1) && file.exists(f2), sprintf("(%d)", length(bts)))
-  b1 <- if (file.exists(f1)) readRDS(f1) else NULL; b2 <- if (file.exists(f2)) readRDS(f2) else NULL
-  s1 <- if (!is.null(b1)) b1$results$sim_id else integer(0)
-  s2 <- if (!is.null(b2)) b2$results$sim_id else integer(0)
-  P("2,000 rows", nrow(r) == 2000L, sprintf("(%d)", nrow(r)))
-  P("combined sim_id == 1:2000 exactly", identical(sort(as.integer(r$sim_id)), 1:2000))
-  P("batch sim_id sets 1:1000 and 1001:2000",
-    identical(sort(as.integer(s1)), 1:1000) && identical(sort(as.integer(s2)), 1001:2000),
-    sprintf("(batch1 %d, batch2 %d)", length(s1), length(s2)))
-  if (!is.null(b1) && !is.null(b2)) {
-    rb <- rbind(b1$results, b2$results); rb <- rb[order(rb$sim_id), ]; rc <- r[order(r$sim_id), ]
+  bf   <- vapply(BATCHES, function(x) file.path(dr, sprintf("%s_res_%d_%d.rds", st, x[1], x[2])), "")
+  blab <- paste(vapply(BATCHES, function(x) sprintf("res_%d_%d", x[1], x[2]), ""), collapse = " + ")
+  bts  <- Sys.glob(file.path(dr, paste0(st, "_res_*.rds")))
+  P(sprintf("exactly %d batch file%s, %s", NBATCH, if (NBATCH == 1L) "" else "s", blab),
+    length(bts) == NBATCH && all(file.exists(bf)), sprintf("(%d)", length(bts)))
+  bl <- lapply(bf, function(f) if (file.exists(f)) readRDS(f) else NULL)
+  P(sprintf("%s rows", format(NSIMS, big.mark = ",")), nrow(r) == NSIMS, sprintf("(%d)", nrow(r)))
+  P(sprintf("combined sim_id == 1:%d exactly", NSIMS),
+    identical(sort(as.integer(r$sim_id)), seq_len(NSIMS)))
+  sid_ok <- all(vapply(seq_along(BATCHES), function(i) {
+    if (is.null(bl[[i]])) return(FALSE)
+    identical(sort(as.integer(bl[[i]]$results$sim_id)), BATCHES[[i]][1]:BATCHES[[i]][2]) }, TRUE))
+  P(sprintf("batch sim_id set%s %s", if (NBATCH == 1L) "" else "s",
+            paste(vapply(BATCHES, function(x) sprintf("%d:%d", x[1], x[2]), ""), collapse = " and ")),
+    sid_ok,
+    sprintf("(%s)", paste(vapply(seq_along(bl), function(i)
+      sprintf("batch%d %d", i, if (is.null(bl[[i]])) 0L else nrow(bl[[i]]$results)), ""), collapse = ", ")))
+  if (!any(vapply(bl, is.null, TRUE))) {
+    rb <- do.call(rbind, lapply(bl, function(x) x$results))
+    rb <- rb[order(rb$sim_id), ]; rc <- r[order(r$sim_id), ]
     rownames(rb) <- NULL; rownames(rc) <- NULL
     same_cols <- identical(names(rb), names(rc))
     colsame <- if (same_cols) vapply(names(rc), function(k) identical(rb[[k]], rc[[k]]), logical(1)) else FALSE
@@ -118,11 +136,11 @@ gate2 <- function(target, n, cell, tag) {
   ce <- sum(grepl("CONFIG", as.character(r$status), ignore.case = TRUE))
   P("no CONFIG-ERROR replicate", ce == 0L, sprintf("(%d)", ce))
 
-  cat("  --- meta (both batches) ---\n")
+  cat(sprintf("  --- meta (%s) ---\n", if (NBATCH == 1L) "the batch" else "both batches"))
   bm <- lapply(bts, function(f) readRDS(f)$meta)
   mk <- function(key, want) {
     got <- vapply(bm, function(x) paste(format(x[[key]] %||% "<absent>"), collapse = "|"), "")
-    ok <- length(bm) == 2L && all(vapply(bm, function(x) isTRUE(all.equal(x[[key]], want)), TRUE))
+    ok <- length(bm) == NBATCH && all(vapply(bm, function(x) isTRUE(all.equal(x[[key]], want)), TRUE))
     P(sprintf("meta: %s == %s", key, paste(format(want), collapse = "|")), ok,
       sprintf("(%s)", paste(got, collapse = " / ")))
   }
@@ -131,7 +149,7 @@ gate2 <- function(target, n, cell, tag) {
   mk("effect_threshold", 0.90); mk("consistency_threshold", 0.80); mk("pconsistency", 0.90)
   mk("adverse_outcome", TRUE); mk("outcome_type", "binary"); mk("effect_measure", "OR")
   mk("target_or_h", as.numeric(target)); mk("design_tag", dtok(target)); mk("dgm_model", "alt")
-  mk("sg_quantile", 0.70); mk("n_super", 100000L); mk("eval_seed", 20260628L)
+  mk("sg_quantile", SGQ); mk("n_super", 100000L); mk("eval_seed", 20260628L)
   mk("ci_method", "field"); mk("mr_draws", 5000L); mk("field_uniform", FALSE)
   mk("field_complement", TRUE); mk("field_scale_complement", "selected")
   mk("ij_residual", "two_term"); mk("return_reselection", TRUE); mk("fb_mode", "none")
@@ -154,6 +172,38 @@ gate2 <- function(target, n, cell, tag) {
               paste(unique(vapply(bm, function(x) x$r_version %||% NA_character_, "")), collapse="/"),
               m$pkg_commit %||% NA_character_,
               paste(vapply(bm, function(x) format(x$built_at %||% NA), ""), collapse=" / ")))
+
+  # --- the launch record on the COMBINED meta (TASK_binary_launch_v2 Step 3) ---
+  # Step 3 requires every bundle's meta to carry version, build time, prevalence,
+  # replicates, workers, wall clock and the non-estimable / NA-oracle counts.
+  cat("  --- launch record (combined meta) ---\n")
+  P(sprintf("meta: n_sims == %d", NSIMS), isTRUE(m$n_sims == NSIMS),
+    sprintf("(%s)", format(m$n_sims %||% "<absent>")))
+  P("meta: Stage 0 feasibility gate green, not overridden",
+    isTRUE(m$feas_feasible) && !isTRUE(m$feas_override),
+    sprintf("(feasible %s, override %s, tol %s, shares %s)",
+            format(m$feas_feasible %||% "<absent>"), format(m$feas_override %||% "<absent>"),
+            format(m$feas_tolerance %||% "<absent>"), format(m$feas_share_undeclarable %||% "<absent>")))
+  P("meta: the oracle helper assertion passed in the render", isTRUE(m$helper_identical),
+    sprintf("(%s)", format(m$helper_identical %||% "<absent>")))
+  P("meta: wall clock recorded", is.finite(m$wall_seconds %||% NA_real_),
+    sprintf("(%.0f s total%s)", m$wall_seconds %||% NA_real_,
+            if (!is.null(m$wall_seconds_by_batch))
+              sprintf("; by batch %s", paste(sprintf("%.0f", m$wall_seconds_by_batch), collapse = " + ")) else ""))
+  CNTK <- c("n_na_oracle_H", "n_na_oracle_Hc", "n_nonestimable_H", "n_nonestimable_Hc")
+  P("meta: the non-estimable / NA-oracle counts recorded",
+    all(vapply(CNTK, function(k) is.finite(m[[k]] %||% NA_real_), logical(1))),
+    sprintf("(%s)", paste(sprintf("%s=%s", CNTK,
+            vapply(CNTK, function(k) format(m[[k]] %||% NA), "")), collapse = ", ")))
+  cat(sprintf("  >> NA-ORACLE (true region)  : H %s / %d, Hc %s / %d\n",
+              format(m$n_na_oracle_H %||% NA), nrow(r), format(m$n_na_oracle_Hc %||% NA), nrow(r)))
+  cat(sprintf("  >> NON-ESTIMABLE (selected) : H %s, Hc %s (of the declared replicates)\n",
+              format(m$n_nonestimable_H %||% NA), format(m$n_nonestimable_Hc %||% NA)))
+  cat(sprintf("  >> PREVALENCE(H) / sg_quantile: %.6f / %.5f | pkg %s built %s | workers %s\n",
+              m$truth_prevalence_Q %||% NA_real_, m$sg_quantile %||% NA_real_,
+              m$pkg_version %||% "<absent>",
+              paste(vapply(bm, function(x) format(x$built_at %||% NA), ""), collapse = " / "),
+              paste(m$n_workers_by_batch %||% (m$n_workers %||% NA), collapse = "/")))
 
   det <- r$detected %in% 1L
   cat(sprintf("  >> DECLARATION RATE         : %.4f (%d / %d)\n", mean(det), sum(det), nrow(r)))

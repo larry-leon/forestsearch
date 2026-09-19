@@ -33,7 +33,10 @@ nsims <- as.integer(args[4]); mode <- args[5]
 stopifnot(mode %in% c("recipe", "fs", "grf", "dina"))
 setwd(Sys.getenv("ORSG_DIR", unset = "~/Documents/GitHub/forestsearch/quarto/simulations/actg175/binary_020"))
 HOST  <- Sys.getenv("ORSG_HOST", unset = "pop-os")
-PKG   <- Sys.getenv("ORSG_PKG",  unset = "0.3.5")
+# The expected build.  TASK_binary_launch_v2_2026-09-18 Step 1.2 bumps the package to the dev
+# version and reinstalls before the launch, so the pin moves with it; the superseded 0.3.5 cells
+# are still checkable by passing ORSG_PKG=0.3.5.
+PKG   <- Sys.getenv("ORSG_PKG",  unset = "0.3.5.9000")
 TOL   <- 1e-8
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
 
