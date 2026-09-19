@@ -160,6 +160,21 @@ therefore not a comparator for anything run under the new design.
 
 ## 3. Step 3 — the oracle helper
 
+> **Updated 2026-09-18, pre-launch (`TASK_binary_launch_stage1`, Part 1 Step 3): one in-scope
+> copy, not two.** Larry's disposition is that the historical sweep driver
+> `maxeffCons_mr_coverage_sweep_or075.qmd` stays **byte-identical to what produced its committed
+> cells**, so the four-cell condition described in this section was reverted out of it and the
+> driver is back to its pre-`625b10d0` content (blob `e9eceabe`; `git diff --stat` against
+> `e55c5da6` empty). **The template of record keeps the new helper**, and it is now the single
+> in-scope copy: the Stage 0 assertion compares nothing and instead requires that copy to be
+> present exactly once, printing `found in 1 of 1 in-scope copies`. The reason for the split is
+> that the driver's committed payloads are a historical record — an edited driver would no longer
+> be the code that produced them — while the template is what every new cell runs. The paragraphs
+> below record the redesign render as it stood; read “both in-scope copies” and “2 of 2” as the
+> state on 2026-09-18 before this revert. `status_curated.md` §1's exception no longer applies:
+> the driver is once again unedited by any campaign in this directory.
+
+
 **Every copy, found by search.** Within the study directory
 (`quarto/simulations/actg175/binary_020/`, the task's `Where`) there are exactly **two** copies:
 `sim_fs_mr_field_or_template.qmd:471` and `maxeffCons_mr_coverage_sweep_or075.qmd:363`. A
@@ -280,7 +295,7 @@ SMOKE fs target_or_h=0.75 n=500: PASS
 | gate | result |
 |---|---|
 | smoke green | **PASS** (`SMOKE fs target_or_h=0.75 n=500: PASS`) |
-| the assertion check passes | **PASS** (`.logit_or_ci()` found in 2 of 2 copies; identical: TRUE) |
+| the assertion check passes | **PASS** (`.logit_or_ci()` found in 2 of 2 copies; identical: TRUE) — superseded, see §3: now 1 of 1 in-scope copies |
 | feasibility table shows `feasible = TRUE` at every n | **PASS** (0.015 / 0 / 0 / 0 vs tolerance 0.05) |
 
 Old vs new smoke at the same cell and the same 20 seeds, for the record (per-replicate cost is what

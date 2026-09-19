@@ -464,13 +464,16 @@ often it falls under the per-arm events floor, and how often the OR does not
 exist on it. **The render refuses to go on to Stage 2 unless `feasible` is
 TRUE**, and the only way past a FALSE is `FS_OR_FEAS_OVERRIDE=TRUE`, which is
 written into the record and into `meta` — the DINA-caps pattern: possible
-deliberately, never silently. The same chunk asserts that the study's two
-copies of `.logit_or_ci()` are character-identical.
+deliberately, never silently. The same chunk asserts that the one in-scope
+copy of `.logit_or_ci()` is present and readable.
 
 ```{r stage0-gate}
 # ── (i) the oracle helper is ONE helper (TASK_binary_study_redesign Step 3) ──
-# The template and the committed study driver each carry a copy; they must be
-# the same text.  Read both from disk and compare the definitions verbatim.
+# ONE in-scope copy, this template's (TASK_binary_launch_stage1 Part 1 Step 3):
+# maxeffCons_mr_coverage_sweep_or075.qmd is the historical study driver and is
+# held byte-identical to what produced its committed cells, so it keeps the
+# legacy pooled-5/5 helper and is NOT a comparator here.  Read the definition
+# from disk and require it to be present exactly once.
 .grab_helper <- function(path) {
   if (!file.exists(path)) return(NA_character_)
   L <- readLines(path, warn = FALSE)
@@ -479,15 +482,14 @@ copies of `.logit_or_ci()` are character-identical.
   j <- i + which(L[(i + 1L):length(L)] == "}")[1]
   paste(L[i:j], collapse = "\n")
 }
-.helper_paths <- c("sim_fs_mr_field_or_template.qmd",
-                   "maxeffCons_mr_coverage_sweep_or075.qmd")
+.helper_paths <- "sim_fs_mr_field_or_template.qmd"
 .helper_txt <- vapply(.helper_paths, .grab_helper, character(1))
 helper_identical <- !anyNA(.helper_txt) && length(unique(.helper_txt)) == 1L
-cat(sprintf("HELPER ASSERTION: .logit_or_ci() found in %d of %d copies; identical: %s\n",
+cat(sprintf("HELPER ASSERTION: .logit_or_ci() found in %d of %d in-scope copies; identical: %s\n",
             sum(!is.na(.helper_txt)), length(.helper_paths), helper_identical))
 if (!helper_identical)
-  stop("the copies of .logit_or_ci() differ (", paste(.helper_paths, collapse = ", "),
-       "): one helper, identical in every copy.", call. = FALSE)
+  stop("the in-scope copy of .logit_or_ci() was not found exactly once (",
+       paste(.helper_paths, collapse = ", "), ").", call. = FALSE)
 
 # ── (ii) feasibility of the planted region at the study's n grid ────────────
 # n grid and tolerance are knobs, both passed EXPLICITLY; n_rep is the
