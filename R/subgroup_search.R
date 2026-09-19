@@ -225,6 +225,15 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
     cat(sprintf("  Passed %s counts (d0>= %d, d1>= %d): %d\n",
         d_label, d0.min, d1.min, filter_counts$n_passed_events))
     cat("  Passed sample size (n>=", n.min, "):", filter_counts$n_passed_sample_size, "\n")
+    if (isTRUE(filter_counts$n_nonestimable > 0L)) {
+      tab <- sort(table(filter_counts$nonestimable_reasons), decreasing = TRUE)
+      cat(sprintf("  Non-estimable (estimand does not exist): %d\n",
+                  filter_counts$n_nonestimable))
+      for (i in seq_along(tab)) {
+        cat(sprintf("    %s: %d\n",
+                    sub("^non-estimable: ", "", names(tab)[i]), tab[[i]]))
+      }
+    }
     cat(sprintf("  %s model fit successfully: %d\n",
         model_label, filter_counts$n_passed_cox))
     cat(sprintf("  Passed effect threshold (%s): %d\n",
@@ -295,7 +304,9 @@ search_combinations_parallel <- function(yy, dd, tt, zz, combo_info,
     n_passed_events = 0L,
     n_passed_sample_size = 0L,
     n_passed_cox = 0L,
-    n_passed_hr = 0L
+    n_passed_hr = 0L,
+    n_nonestimable = 0L,
+    nonestimable_reasons = character(0)
   )
 
   results_list <- list()
@@ -311,6 +322,11 @@ search_combinations_parallel <- function(yy, dd, tt, zz, combo_info,
     if (res$status >= 5) filter_counts$n_passed_sample_size <- filter_counts$n_passed_sample_size + 1L
     if (res$status >= 6) filter_counts$n_passed_cox <- filter_counts$n_passed_cox + 1L
     if (res$status >= 7) filter_counts$n_passed_hr <- filter_counts$n_passed_hr + 1L
+    if (!is.null(res$reason)) {
+      filter_counts$n_nonestimable <- filter_counts$n_nonestimable + 1L
+      filter_counts$nonestimable_reasons <-
+        c(filter_counts$nonestimable_reasons, res$reason)
+    }
     if (!is.null(res$result)) {
       n_results <- n_results + 1
       results_list[[n_results]] <- res$result
@@ -641,6 +657,9 @@ evaluate_combination_with_status <- function(covs.in, yy, dd, tt, zz,
     } else {
       glm_result <- fit_glm_for_subgroup(df_clean, id.x, estimator_fn)
     }
+    if (!is.null(glm_result) && isTRUE(glm_result$nonestimable)) {
+      return(list(status = 5L, result = NULL, reason = glm_result$reason))
+    }
     if (is.null(glm_result)) {
       return(list(status = 5L, result = NULL))
     }
@@ -678,7 +697,20 @@ evaluate_combination_with_status <- function(covs.in, yy, dd, tt, zz,
     return(list(status = 4L, result = NULL))
   }
 
-  # Status 5: Fit Cox model
+  # Status 5: Fit Cox model.  The log-HR needs an event in each arm; with
+  # d1.min = 0 (which several committed campaign templates pass) a zero-event
+  # arm reaches coxph(), which returns a finite divergent coefficient rather
+  # than an error.  No admission floor is added here -- the candidate simply
+  # takes the existing fit-failure status, with its reason recorded.
+  why <- .fs_existence_reason("HR",
+    c(e0  = sum(dd[id.x == 1] == 1 & tt[id.x == 1] == 0, na.rm = TRUE),
+      ne0 = NA_integer_,
+      e1  = sum(dd[id.x == 1] == 1 & tt[id.x == 1] == 1, na.rm = TRUE),
+      ne1 = NA_integer_))
+  if (!is.null(why)) {
+    return(list(status = 5L, result = NULL, reason = why))
+  }
+
   cox_result <- fit_cox_for_subgroup(yy, dd, tt, id.x,
                                      df_clean = df_clean,
                                      adjust_covariates = adjust_covariates)
@@ -893,7 +925,18 @@ fit_glm_for_subgroup <- function(df_clean, id.x, estimator_fn) {
     error = function(e) NULL
   )
 
-  if (is.null(res) || is.na(res$estimate)) return(NULL)
+  if (is.null(res)) return(NULL)
+
+  # A non-estimable candidate carries a reason from the estimator boundary.
+  # It still fails the fit (status 5, as any NA estimate always has), but the
+  # reason travels so the run can say how many candidates were non-estimable
+  # and why, rather than dropping them silently.
+  if (is.na(res$estimate)) {
+    if (!is.null(res$reason)) {
+      return(list(nonestimable = TRUE, reason = res$reason))
+    }
+    return(NULL)
+  }
 
   # Wald CI: estimate +/- 1.96 * SE
   z_crit <- 1.96

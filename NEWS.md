@@ -1,5 +1,33 @@
 # forestsearch (development version)
 
+* **The estimator boundary now returns `NA` with a reason where the estimand
+  does not exist, instead of a finite divergent number.** `glm()` and
+  `coxph()` do not fail on a slice with an empty cell or a zero-event arm:
+  they return a large finite coefficient with `converged = TRUE`, which was
+  then admitted as an estimate (a zero-cell OR returned 19.97 with SE 4809).
+  The existence condition is now checked before the fit, per estimand: **OR**
+  requires all four cells (control/treated x events/non-events) `>= 1`;
+  **RR**, **IRR** and **HR** require at least one event in each arm. A
+  candidate failing it returns `estimate = NA`, `se = NA`,
+  `converged = FALSE` and a `reason` naming the empty cell, and takes the
+  existing fit-failure status (status 5) -- an `NA` effect cannot rank, so no
+  selection logic changes. For the ratio estimands only, a fit reporting
+  `converged = FALSE` is likewise non-estimable (`"non-convergent fit"`).
+  **Unaffected, byte-identical: RD, IRD and MD**, which exist on any slice --
+  in particular RD's tier-3 raw-proportions fallback returns
+  `converged = FALSE` by design and is never caught. **This is not an
+  admission floor:** `n.min`, `d0.min`/`d1.min` and every DINA/GRF floor are
+  unchanged, nothing is forwarded to DINA or GRF, and no minimum count is
+  imposed anywhere. Non-estimable candidates are counted, not dropped
+  silently: `filter_counts$n_nonestimable` and
+  `filter_counts$nonestimable_reasons` carry the tally and its reasons,
+  `subgroup.search(details = TRUE)` prints them, and `fs_family_report()`
+  gains an "estimability boundary" stage row. Committed results are
+  unaffected -- no declared subgroup in the committed binary record violates
+  the four-cell condition (3,313 replicates, `a3374e6f`), and no committed
+  survival bundle stores a non-finite estimate or SE (930 bundles, 568,757
+  declared rows).
+
 * **`dina_frontier()`'s display caps now default to `Inf` and say when they
   trim.** `max_per_covariate` and `max_subgroups` defaulted to `3L` and `10L`,
   which silently dropped covariates whole and truncated the round-robin

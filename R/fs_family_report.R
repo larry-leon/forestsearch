@@ -300,6 +300,27 @@ fs_family_report <- function(x, data = NULL, outcome_type = NULL) {
       if (glm_like) sprintf("skipped entirely for outcome_type = \"%s\" (subgroup.search() L593-609: continuous and count rely on n.min)", outcome_type)
       else if (outcome_type == "binary") "minimum EVENTS (Y = 1) per arm within the subgroup, on the sample"
       else "minimum events per arm within the subgroup, on the sample")
+  em <- .arg("effect_measure")
+  em <- if (is.null(em) || all(is.na(em)))
+          switch(outcome_type, survival = "HR", binary = "RD",
+                 count = "IRR", continuous = "MD", NA_character_)
+        else as.character(em)[1]
+  ratio_cond <- switch(em,
+    OR  = "all four cells (control/treated x events/non-events) >= 1",
+    RR  = ">= 1 event in each arm",
+    IRR = ">= 1 event in each arm",
+    HR  = ">= 1 event in each arm",
+    NULL)
+  add("estimability boundary", "effect_measure",
+      sprintf("effect_measure = %s -> %s", fmt(em),
+              if (is.null(ratio_cond)) "no existence condition" else ratio_cond),
+      if (is.null(ratio_cond)) INE else DD,
+      if (is.null(ratio_cond))
+        sprintf("%s exists on any slice; the fit is untouched by the boundary", em)
+      else paste0("a candidate failing this returns NA with a reason and takes the ",
+                  "fit-failure status (status 5); counted in filter_counts$n_nonestimable ",
+                  "with filter_counts$nonestimable_reasons. Not an admission floor: no ",
+                  "minimum count is imposed and nothing is forwarded to DINA or GRF"))
   eff_val <- if (outcome_type == "survival") sprintf("hr.threshold = %s", fmt(hr.threshold))
              else sprintf("effect.threshold = %s", fmt(effect.threshold))
   add("effect screen", c("effect.threshold", "hr.threshold"), paste0(eff_val, if (effect_floor_disabled) " (maxeff: floor disabled)" else ""),

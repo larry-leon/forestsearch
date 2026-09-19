@@ -213,6 +213,68 @@ make_effect_estimator <- function(
 # ---------------------------------------------------------------------------
 
 #' @noRd
+# ---------------------------------------------------------------------------
+# The estimability boundary
+# ---------------------------------------------------------------------------
+# An estimand that does not exist on a candidate must not be reported as a
+# number.  glm() and coxph() both return a FINITE, divergent coefficient with
+# converged = TRUE when an arm (or a cell) is empty -- the pathology is not
+# visible through `converged`, so the existence condition is checked BEFORE
+# the fit, per estimand:
+#
+#   OR            all four cells >= 1 (control/treated x events/non-events)
+#   RR, IRR, HR   >= 1 event in each arm
+#   RD, IRD, MD   no condition -- these estimands exist on any slice and are
+#                 left byte-identical.  In particular RD's tier-3
+#                 raw-proportions fallback returns converged = FALSE BY
+#                 DESIGN and is never treated as non-estimable.
+#
+# This is not an admission floor: it adds no minimum count anywhere, and
+# nothing is forwarded to the DINA or GRF collectors.  It only replaces a
+# nonsense number with NA and a reason.
+
+#' @noRd
+.fs_nonestimable <- function(reason, n0, n1, measure, method_used) {
+  list(
+    estimate    = NA_real_,
+    se          = NA_real_,
+    converged   = FALSE,
+    n0          = n0,
+    n1          = n1,
+    measure     = measure,
+    method_used = method_used,
+    reason      = reason
+  )
+}
+
+#' @noRd
+.fs_binary_cells <- function(y, t) {
+  y <- as.integer(y)
+  t <- as.integer(t)
+  c(e0  = sum(t == 0L & y == 1L, na.rm = TRUE),
+    ne0 = sum(t == 0L & y == 0L, na.rm = TRUE),
+    e1  = sum(t == 1L & y == 1L, na.rm = TRUE),
+    ne1 = sum(t == 1L & y == 0L, na.rm = TRUE))
+}
+
+#' @noRd
+.fs_existence_reason <- function(measure, cells) {
+  need <- switch(measure,
+    OR  = c("e0", "ne0", "e1", "ne1"),
+    RR  = c("e0", "e1"),
+    IRR = c("e0", "e1"),
+    HR  = c("e0", "e1"),
+    NULL)
+  if (is.null(need)) return(NULL)
+  empty <- need[cells[need] == 0L]
+  if (length(empty) == 0L) return(NULL)
+  labs <- c(e0  = "control events",  ne0 = "control non-events",
+            e1  = "treated events",  ne1 = "treated non-events")
+  paste0("non-estimable: ",
+         paste(labs[empty], collapse = " = 0, "), " = 0")
+}
+
+
 .make_cox_estimator <- function(treat.name, outcome.name, event.name,
                                 adjust_covariates = NULL,
                                 ps_adjust_method = "none", ...) {
@@ -226,6 +288,16 @@ make_effect_estimator <- function(
   function(data_slice) {
     n0 <- sum(data_slice[[treat.name]] == 0L, na.rm = TRUE)
     n1 <- sum(data_slice[[treat.name]] == 1L, na.rm = TRUE)
+
+    # Existence: the log-HR needs at least one event in each arm.  A
+    # zero-event arm gives coxph() a monotone likelihood and a finite
+    # divergent coefficient with no error raised.
+    why <- .fs_existence_reason(
+      "HR",
+      .fs_binary_cells(data_slice[[event.name]], data_slice[[treat.name]]))
+    if (!is.null(why)) {
+      return(.fs_nonestimable(why, n0, n1, "log-HR", "nonestimable"))
+    }
 
     result <- tryCatch({
       surv_obj <- survival::Surv(
@@ -314,6 +386,20 @@ make_effect_estimator <- function(
     n0 <- sum(data_slice[[treat.name]] == 0L, na.rm = TRUE)
     n1 <- sum(data_slice[[treat.name]] == 1L, na.rm = TRUE)
 
+    # Existence, ratio estimands only.  RD falls straight through: the risk
+    # difference exists on any slice and its three-tier fallback is untouched.
+    if (effect_measure %in% c("OR", "RR")) {
+      why <- .fs_existence_reason(
+        effect_measure,
+        .fs_binary_cells(data_slice[[outcome.name]], data_slice[[treat.name]]))
+      if (!is.null(why)) {
+        return(.fs_nonestimable(
+          why, n0, n1,
+          if (identical(effect_measure, "OR")) "log-OR" else "log-RR",
+          "nonestimable"))
+      }
+    }
+
     result <- switch(effect_measure,
 
       # ---- Risk Difference (primary) ----------------------------------------
@@ -339,6 +425,16 @@ make_effect_estimator <- function(
                      n0, n1, robust_se)
       }
     )
+
+    # A ratio fit that reports non-convergence is not a usable estimate.
+    # Guarded by !is.na(estimate) so the existing error branch -- which
+    # already returns NA with converged = FALSE -- is returned unaltered,
+    # and scoped to OR/RR so RD's converged = FALSE tier 3 is never caught.
+    if (effect_measure %in% c("OR", "RR") &&
+        isFALSE(result$converged) && !is.na(result$estimate)) {
+      return(.fs_nonestimable("non-convergent fit", n0, n1,
+                              result$measure, result$method_used))
+    }
 
     result
   }
@@ -640,6 +736,21 @@ make_effect_estimator <- function(
   function(data_slice) {
     n0 <- sum(data_slice[[treat.name]] == 0L, na.rm = TRUE)
     n1 <- sum(data_slice[[treat.name]] == 1L, na.rm = TRUE)
+
+    # Existence, IRR only.  The rate difference (IRD) is untouched.
+    if (identical(effect_measure, "IRR")) {
+      why <- .fs_existence_reason(
+        "IRR",
+        c(e0  = sum(data_slice[[treat.name]] == 0L &
+                    data_slice[[outcome.name]] > 0, na.rm = TRUE),
+          ne0 = NA_integer_,
+          e1  = sum(data_slice[[treat.name]] == 1L &
+                    data_slice[[outcome.name]] > 0, na.rm = TRUE),
+          ne1 = NA_integer_))
+      if (!is.null(why)) {
+        return(.fs_nonestimable(why, n0, n1, "log-IRR", "nonestimable"))
+      }
+    }
 
     # Validate offset column
     time_vec <- data_slice[[offset.name]]
