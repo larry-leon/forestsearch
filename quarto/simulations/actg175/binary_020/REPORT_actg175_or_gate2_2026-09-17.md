@@ -14,6 +14,42 @@ but its `[ -f ... ]` test runs inside the `>> record` redirection, which has alr
 file — so the header is always skipped. The committed `mdgrf` and `mddina` Gate 2 records have the
 same gap; see the findings.)*
 
+---
+
+## Two designs are interleaved in this file under identical headings — read the discriminating fields
+
+This record is append-only and spans both the **superseded** design and the **design of record**, so
+four sections carry cell names that also appear later, and two headings appear twice verbatim. Nothing
+here is deleted or rewritten; this note is the index.
+
+**Superseded sections** (the `sg_quantile` 0.70 design, 2 x 1,000 replicates, package 0.3.5):
+
+| section | heading | superseded by |
+|---|---|---|
+| line 106 | `## orfs_or075_n500 — identifier consistency, target_or_h 0.75, n 500` | line 424 |
+| line 208 | `## orfs_or075_n2000 — identifier consistency, target_or_h 0.75, n 2000` | line 652 |
+
+Every section from line 310 onward belongs to the design of record.
+
+**The two discriminating fields**, both printed inside each section's Gate 2 block:
+
+- `meta: pkg_version == ...` — **0.3.5** in a superseded section, **0.3.5.9000** in a current one.
+- `prev` on the `meta carries the truths` line — **0.096320** superseded (`sg_quantile` 0.70),
+  **0.149170** current (`sg_quantile` 0.62850).
+
+Two further tells, not needed but consistent: a superseded section renders `batch_1_1000` **and**
+`batch_1001_2000` plus `combine_1_2000` (the 2 x 1,000 layout), where a current section renders
+`batch_1_1000` and `combine_1_1000` only; and superseded sections quote `ceiling 105165 s`.
+
+The `orfs_or150_n500` section at line 310 is **not** superseded despite the 2026-09-17 halt of that
+cell: the halted attempt never reached Gate 2, so it wrote no section, and line 310 is the completed
+2026-09-19 cell (`pkg_version` 0.3.5.9000, `prev` 0.149170).
+
+The ten `orgrf`/`ordina` sections from line 1253 onward were written on the Mac Studio; see
+`REPORT_binary_stage2_2026-09-19.md`.
+
+---
+
 ## The cell-3 halt, its cause, and the convention that follows from it
 
 **The halt.** Stage 2 halted at 2026-09-18T00:23:34Z on cell 3, `orfs_or150_n500`, batch
