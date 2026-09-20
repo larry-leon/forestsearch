@@ -9,9 +9,23 @@ at 63 workers, these ten on this Mac at W = 13. The 18-cell bias-and-coverage sy
 task.
 
 **Every coverage figure for `orgrf` and `ordina` is coverage of the estimand CONDITIONAL ON THE
-PROPOSED FAMILY.** GRF's and DINA's candidate families are generated from fitted surfaces, so the
-fixed-family condition does not hold; FS's family is the prespecified cut grid. Nothing below is a
-coverage figure — the synthesis task carries those — but the condition travels with the bundles.
+PROPOSED FAMILY**, which is the identifiers workstream's rule for both. The two families reach that
+label by different routes, and the difference is worth stating because the campaign's earlier records
+compress it:
+
+- **DINA's** candidate family is generated from a fitted surface, so the fixed-family condition
+  plainly does not hold.
+- **GRF's** is not. Membership is enumerated from **covariate quantile cuts alone** —
+  `R/grf_subgroup_labels.R:258-279` (depth 1, deciles of each covariate, both directions) and
+  `:283-310` (depth 2, covariate pairs) — admitted only by the size filter `nS < n_min || nS > n - 1L`.
+  The doubly-robust surface enters solely as an `effect` **column** on each enumerated row
+  (`mean(ctrl[S]) - mean(trt[S])`), which is what the Pareto frontier and the selection rule then rank
+  (`.grf_mark_frontier`, `:330-334`; `.grf_frontier_select`, `:358`, called from `R/grf_main.R:291-294`).
+  So GRF's family is a prespecified grid like FS's, and it is the **selection within it** that is
+  surface-driven, not the family.
+
+FS's family is the prespecified cut grid and its selection is the consistency screen. Nothing below is
+a coverage figure — the synthesis task carries those — but the condition travels with the bundles.
 
 ---
 
