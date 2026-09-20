@@ -1,0 +1,16 @@
+#!/bin/sh
+# macOS pgrep(1) has no -c (count) flag; procps-ng's does, and run_or.sh's
+# preflight uses `pgrep -fc`.  Strip the c from a leading combined short-flag
+# group, count the matching lines instead, and mirror GNU's exit status
+# (0 = at least one match, 1 = none).  Everything else delegates unchanged.
+case "$1" in
+  -*c*)
+    rest=`printf '%s' "$1" | sed 's/^-//; s/c//g'`
+    shift
+    [ -n "$rest" ] && set -- "-$rest" "$@"
+    n=`/usr/bin/pgrep "$@" 2>/dev/null | wc -l | tr -d ' '`
+    printf '%s\n' "$n"
+    [ "$n" -gt 0 ] && exit 0 || exit 1
+    ;;
+esac
+exec /usr/bin/pgrep "$@"

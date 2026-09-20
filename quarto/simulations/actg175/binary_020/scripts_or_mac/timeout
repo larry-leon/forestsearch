@@ -1,0 +1,71 @@
+#!/usr/bin/perl
+# GNU-timeout stand-in for macOS (no coreutils here, no gtimeout).
+# usage: timeout SECONDS COMMAND [ARG]...
+# Runs COMMAND in its own process group; on expiry TERMs the group, waits a
+# 10 s grace, KILLs it, and exits 124 exactly as GNU timeout does.  Otherwise
+# propagates the child's exit status (128+N for a signal death).
+# A stricter relative of scripts_mdf1/tmo.sh, this Mac's earlier Perl-alarm
+# wrapper: process group rather than bare pid, a grace before KILL, and the
+# 128+N status for a signal death.
+#
+# PER-CAMPAIGN CAP (supplement to TASK_binary_stage2_v3_2026-09-19, Step 1):
+# DINA's five cells get 157017 s per render (3 x 52339), GRF's five keep the
+# 52339 s run_or.sh passes.  The override lives HERE because run_or.sh reads
+# ORSG_TIMEOUT once per invocation and neither it nor gate2.R may be edited;
+# the wrapper is exec'd afresh for every render, so this applies to every
+# render not yet started and touches nothing already running.  The render's
+# own environment identifies the campaign: run_or.sh sets FS_OR_METHOD as a
+# prefix assignment on the same simple command as the wrapper, and the
+# --output stem carries the _ordina_ tag.
+use strict; use warnings;
+use POSIX qw(WNOHANG strftime);
+my $secs = shift @ARGV;
+die "usage: timeout SECONDS COMMAND [ARG]...\n" unless defined($secs) && @ARGV;
+$secs =~ s/s$//;
+$secs += 0;
+my $DINA_SECS = 157017;
+# Only the campaign's own render is re-capped: the wrapped command must be
+# `quarto render`, AND the run must be DINA's (by the render's FS_OR_METHOD or
+# by the _ordina_ stem).  Any other use of the wrapper keeps the seconds it was
+# given, whatever happens to be in the environment.
+my $is_render = (@ARGV >= 2 && $ARGV[0] =~ m{(^|/)quarto$} && $ARGV[1] eq 'render') ? 1 : 0;
+my $is_dina = ($is_render
+               && ((defined($ENV{FS_OR_METHOD}) && $ENV{FS_OR_METHOD} eq 'dina')
+                   || grep { /_ordina_/ } @ARGV)) ? 1 : 0;
+if ($is_dina && $secs != $DINA_SECS) {
+  my $out = join(' ', grep { /\.html$/ } @ARGV) || '<no output arg>';
+  if (open(my $fh, '>>', "$ENV{HOME}/.orsg_shim_2026-09-19/timeout_applied.log")) {
+    printf $fh "%s\tdina\tpassed=%d\tapplied=%d\t%s\n",
+      strftime("%Y-%m-%dT%H:%M:%SZ", gmtime), $secs, $DINA_SECS, $out;
+    close $fh;
+  }
+  $secs = $DINA_SECS;
+} elsif (open(my $fh, '>>', "$ENV{HOME}/.orsg_shim_2026-09-19/timeout_applied.log")) {
+  my $out = join(' ', grep { /\.html$/ } @ARGV) || '<no output arg>';
+  printf $fh "%s\t%s\tpassed=%d\tapplied=%d\t%s\n",
+    strftime("%Y-%m-%dT%H:%M:%SZ", gmtime), ($ENV{FS_OR_METHOD} // 'unknown'), $secs, $secs, $out;
+  close $fh;
+}
+my $pid = fork();
+die "timeout: fork: $!\n" unless defined $pid;
+if ($pid == 0) { setpgrp(0, 0); exec { $ARGV[0] } @ARGV; die "timeout: exec $ARGV[0]: $!\n"; }
+for my $s (qw(TERM INT HUP QUIT)) { $SIG{$s} = sub { kill('TERM', -$pid); }; }
+my $deadline = time + $secs;
+while (1) {
+  my $k = waitpid($pid, WNOHANG);
+  if ($k == $pid) {
+    my $st = $?;
+    kill('TERM', -$pid);
+    exit(($st & 127) ? 128 + ($st & 127) : ($st >> 8));
+  }
+  if ($k == -1) { exit 125; }
+  if (time >= $deadline) {
+    kill('TERM', -$pid);
+    my $grace = time + 10;
+    while (time < $grace) { last if waitpid($pid, WNOHANG) == $pid; select(undef, undef, undef, 0.25); }
+    kill('KILL', -$pid);
+    waitpid($pid, 0);
+    exit 124;
+  }
+  select(undef, undef, undef, 0.25);
+}

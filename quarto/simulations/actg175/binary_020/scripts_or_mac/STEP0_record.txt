@@ -1,0 +1,79 @@
+===== STEP 0e — launch record, TASK_binary_stage2_v3_2026-09-19 =====
+UTC now                 : 2026-09-19T20:26:13Z
+
+-- machine
+model                   : Mac16,9 (Apple M4 Max)
+cores                   : 14 physical = 10 P + 4 E; 14 logical
+memory                  : 36 GiB
+macOS                   : macOS 27.0 (26A428), arm64
+nodename                : Mac-Studio-3.local
+swap at launch          : total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)
+
+-- software
+R                       : R version 4.5.2 (2025-10-31)
+BLAS                    : /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib
+LAPACK                  : /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib
+forestsearch            : 0.3.5.9000, Built R 4.5.2; ; 2026-09-19 20:23:40 UTC; unix
+quarto                  : 1.10.18 at /usr/local/bin/quarto
+install commit C        : b3d4921d (= HEAD; git diff adfd783f..HEAD -- R DESCRIPTION NAMESPACE src inst data is empty, so C = HEAD)
+S1 (newest stage-1 cell): adfd783f actg175 or ordina_or150_n500
+installed from          : temporary git worktree at C, devtools::install(upgrade = FALSE, dependencies = FALSE); worktree removed
+previously installed    : 0.3.5, Built R 4.5.2 2026-09-11 14:53:59 UTC (not the campaign build, as the task expects)
+
+-- design of record (0a, verified in this clone)
+sg_quantile             : 0.62850 (template :307) / bundle meta 0.6285
+prevalence(H)           : 0.149170 (bundle meta truth_prevalence_Q 0.14917)
+replicates per cell     : 1000 (meta n_sims 1000)
+fb_mode                 : none  (MR only: unadjusted, oracle, IJ two-term, field, field-s, Bonferroni)
+seed_base               : 8316951; scheme 'pre-generated table indexed by global sim_id'
+predecessors            : 8 cells committed with Gate 2 PASS (6 orfs 74/74; orgrf_or150_n500 87/87; ordina_or150_n500 88/88)
+
+-- run parameters
+W (workers)             : 13 = physical cores 14 - 1; template's own cap .phys_minus1 = 13, so FS_OR_WORKERS=13 is taken verbatim
+ORSG_CEILING            : 440000 s  (90000 x 63/13 = 436154, rounded up to the next 10000)
+ORSG_TIMEOUT per render : 52339 s   (stage 2a's 10800 x 63/13 = 52338.46, rounded up)
+                        : run_or.sh applies no other time cap (no heartbeat staleness limit exists in it)
+ORSG_HOST               : Mac-Studio-3.local (gate2.R asserts meta hostname == ORSG_HOST; its default is pop-os)
+
+-- 0d machine adaptations (all resolved in the environment; NO edit to run_or.sh or gate2.R)
+timeout                 : macOS has none and no Homebrew coreutils/gtimeout is installed -> Perl alarm wrapper
+                          at ~/.orsg_shim_2026-09-19/timeout; own process group, TERM + 10 s grace + KILL,
+                          exit 124 on expiry, child status otherwise.  Tested: rc 0 / 3 / 124 and no straggler.
+pgrep -fc                : BSD pgrep has no -c -> shim at ~/.orsg_shim_2026-09-19/pgrep counts the lines and
+                          mirrors GNU's exit status; everything else delegates to /usr/bin/pgrep.
+PATH (run_or.sh :68)     : prepends /usr/lib/rstudio/.../quarto/bin, which does not exist here; inert, and
+                          quarto resolves at /usr/local/bin.  The shim dir stays ahead of /usr/bin.  No edit.
+ps -eo rss,comm          : accepted by macOS ps (-e is -A); mem_sampler.sh needs no change.  Verified.
+bash 3.2 (/bin/bash)     : run_or.sh uses only 3.2 features; bash -n clean.  Empty-array iteration under set -u
+                          would fail on 3.2, but the guard uses ${#a[@]}, which is fine, and neither array is
+                          empty in this pass.  No Homebrew bash needed.
+Linux-only, none present : nproc, sed -i, date +%N, stat -c, readlink -f, setsid (comment only), flock, /proc,
+                          free, grep -P, find -printf.
+VECLIB_MAXIMUM_THREADS=1 : exported by the driver and again by run_or.sh :69; future plan is multisession
+                          (socket, not forked).
+caffeinate               : 'caffeinate -is -w <driver pid>' held for the life of the run.
+
+-- seeds do not depend on W (template :155, :164-172)
+# run and results are invariant to worker count and batch position.
+seed_base  <- 8316951L
+MAX_SIMS   <- 5000L
+set.seed(seed_base)
+SEED_TABLE <- sample.int(.Machine$integer.max - 1L, MAX_SIMS)
+seed_for <- function(sim_id) {
+  if (sim_id < 1L || sim_id > MAX_SIMS)
+    stop("sim_id ", sim_id, " outside the pre-generated seed table.")
+  SEED_TABLE[sim_id]
+}
+
+-- cell order and the pop-os reference (not a Mac prediction; 63/13 = 4.85x load per worker)
+ 1 orgrf_or075_n500    orfs 1105 s x 0.758 = 837 s
+ 2 orgrf_or100_n500    orfs 1135 s x 0.758 = 860 s
+ 3 orgrf_or075_n2000   orfs 5054 s x 0.758 = 3831 s
+ 4 orgrf_or100_n2000   orfs 5321 s x 0.758 = 4033 s
+ 5 orgrf_or150_n2000   orfs 5555 s x 0.758 = 4211 s
+ 6 ordina_or075_n500   orfs 1105 s x 1.099 = 1214 s
+ 7 ordina_or100_n500   orfs 1135 s x 1.099 = 1247 s
+ 8 ordina_or075_n2000  orfs 5054 s x 1.099 = 5554 s
+ 9 ordina_or100_n2000  orfs 5321 s x 1.099 = 5848 s
+10 ordina_or150_n2000  orfs 5555 s x 1.099 = 6105 s
+pop-os total 33740 s; at 4.85x load per worker, 163500 s (45 h) if a Mac core matched a pop-os core.
