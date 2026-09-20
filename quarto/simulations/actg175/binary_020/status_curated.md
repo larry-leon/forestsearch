@@ -12,11 +12,13 @@ reads the directory and git, never a report and never a chat record.
   21 per-cell payloads and coverage grid, and the three campaigns that re-run that design under
   the current constructions — `orfs` (forest search), `orgrf` (GRF) and `ordina` (DINA).
 - **Two things live here side by side, and they are not the same study.** The committed study ran
-  `maxeffCons` at ε 0.10 with infinitesimal-jackknife intervals only, 1,000 replicates per cell,
-  over a seven-point sample-size sweep at the single protective design point OR 0.75. The three
-  campaigns run `effMaxSG` at ε 0.20 with the field constructions, 2,000 replicates per cell, at
-  two sample sizes and three design points. **Neither supersedes the other**, and no table mixes
-  them without saying so.
+  `maxeffCons` at ε 0.10 with infinitesimal-jackknife intervals only, over a seven-point
+  sample-size sweep at the single protective design point OR 0.75. The three campaigns run
+  `effMaxSG` at ε 0.20 with the field constructions, at two sample sizes and three design points.
+  Both run **1,000 replicates per cell** — the campaigns' 2 x 1,000 layout was superseded on
+  2026-09-18 and only the two moved-aside cells under
+  `mr_or_harm_superseded_prev09632/` were ever run at 2,000. **Neither supersedes the other**, and
+  no table mixes them without saying so.
 <!-- curated:before-inventory -->
 ## 1. The committed study
 
@@ -54,6 +56,15 @@ reads the directory and git, never a report and never a chat record.
   has it; the driver's homogeneous `dgm_model = "null"` branch is not used anywhere here).
 - **Sizes:** n = 500 and n = 2000, the ends of the study's sweep. Six cells per campaign,
   eighteen in all.
+- **The design of record, and what ran it.** 1,000 replicates per cell; `sg_quantile` 0.62850,
+  prevalence(H) 0.149170; MR only (`fb_mode = "none"`) — unadjusted, oracle, IJ two-term, field,
+  field-s, Bonferroni — with no bootstrap and no cross-validation in any cell; `seed_base` 8316951,
+  the pre-generated seed table indexed by global `sim_id`, so a replicate's draws depend on neither
+  the worker count nor the batch position. The eighteen cells were run on **two machines**: the six
+  `orfs` cells and the two stage-2a timing cells (`orgrf_or150_n500`, `ordina_or150_n500`) on
+  `pop-os` at **63 workers**, and the remaining ten `orgrf`/`ordina` cells on the Mac Studio
+  (`Mac-Studio-3.local`) at **13 workers**, 2026-09-19. The shared seed table is verified across
+  the two machines per replicate, not assumed: see `REPORT_binary_stage2_2026-09-19.md` §4.
 - **Planted prevalence — CHANGED 2026-09-18, and the reason.** The campaigns originally inherited
   the study's H = {wtkg > q70} ∩ {cd40 > q70}, prevalence 9.632%. `fs_dgm_feasibility()` shows that
   region is **undeclarable** — at or below the search's own `n.min = 60` — in 96% of replicates at
@@ -141,9 +152,14 @@ render logs under `logs_or/` are deliberately untracked.
 
 ## 5. The conditional-family constraint
 
-GRF's and DINA's candidate families are generated from fitted surfaces, so the fixed-family
-condition does not hold for them: **every `orgrf` and `ordina` coverage figure is coverage of the
-estimand conditional on the proposed family.** FS's family is the prespecified cut grid. Every
+**Every `orgrf` and `ordina` coverage figure is coverage of the estimand conditional on the
+proposed family** — the identifiers workstream's rule for both, though they reach it differently.
+DINA's candidate family is generated from a fitted surface, so the fixed-family condition plainly
+does not hold. GRF's is not: `R/grf_subgroup_labels.R:258-310` enumerates its family from covariate
+quantile cuts alone, admitted by a size filter, and the doubly-robust surface enters only as the
+`effect` column that the Pareto frontier and the selection rule rank (`:330-334`, `:358`, called
+from `R/grf_main.R:291-294`) — so for GRF it is the **selection**, not the family, that is
+surface-driven. FS's family is the prespecified cut grid. Every
 table, caption and extract row in this directory says which, and comparisons across the three
 identifiers are **descriptive** — the identifier, the family construction and the set of detected
 replicates all differ, so rows are read side by side and never ranked.
