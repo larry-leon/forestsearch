@@ -36,16 +36,30 @@ for (e in names(tags)) {
 if (length(bs) == 3L) {
   rs <- lapply(bs, function(b) b$results[order(b$results$sim_id), , drop = FALSE])
   ref <- rs[["consistency"]]
+  # The invariant that explains the NA patterns above: or_Hc_est is written
+  # exactly on the declaring replicates.
+  for (e in names(rs))
+    chk(identical(is.na(unname(rs[[e]]$or_Hc_est)), rs[[e]]$detected == 0L),
+        sprintf("%s: or_Hc_est is present exactly on the declaring replicates", e))
   for (e in c("dina", "grf")) {
     chk(identical(rs[[e]]$sim_id, ref$sim_id), sprintf("%s: same sim_id vector", e))
     chk(identical(rs[[e]]$n_true, ref$n_true), sprintf("%s: same n_true vector", e))
+    # or_Hc_* is written by the template's oracle block, which sits AFTER the
+    # NO-DETECTION early return, so it is NA on non-declaring replicates.  The
+    # declaring sets differ by engine, so the NA PATTERNS differ legitimately
+    # and must not be compared.  The comparison is on the rows where both
+    # engines declared -- there the quantity is a Cox fit of treatment alone on
+    # the whole trial, computed from the simulated data alone, so any difference
+    # in the draws would show.  Corrected after the cell-1 Gate C false failure;
+    # see REPORT_null_gbsg_identification_2026-09-21.md.
     for (k in c("or_Hc_est", "or_Hc_se")) {
-      a <- rs[[e]][[k]]; c0 <- ref[[k]]
-      ok <- identical(a, c0) ||
-            isTRUE(all(abs(a - c0) <= 1e-12 * pmax(1, abs(c0)), na.rm = TRUE) &&
-                   identical(is.na(a), is.na(c0)))
-      chk(ok, sprintf("%s: same draws via %s", e, k),
-          sprintf("(max |diff| %s)", format(suppressWarnings(max(abs(a - c0), na.rm = TRUE)))))
+      a <- unname(rs[[e]][[k]]); c0 <- unname(ref[[k]])
+      both <- is.finite(a) & is.finite(c0)
+      nb <- sum(both)
+      ok <- nb >= 100L && identical(a[both], c0[both])
+      chk(ok, sprintf("%s: same draws via %s, on the %d replicates both declared", e, k, nb),
+          sprintf("(max |diff| %s)",
+                  format(if (nb) suppressWarnings(max(abs(a[both] - c0[both]))) else NA_real_)))
     }
   }
   # the design point is the same object in all three

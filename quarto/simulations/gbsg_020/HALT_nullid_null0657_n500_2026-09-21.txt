@@ -1,0 +1,33 @@
+=====================================================================
+WITHDRAWN -- this halt record is FALSE.  Cell null0657_n500 did not fail.
+=====================================================================
+  Written  : 2026-09-21, by scripts_dinamr/nullid.sh, on a Gate C failure.
+  Withdrawn: 2026-09-21, same session, after diagnosis.
+  Cause    : a bug in nullid_gateC.R, not in the cell.  The gate compared
+             or_Hc_est / or_Hc_se across engines and required
+             identical(is.na(a), is.na(b)).  The template's oracle block sits
+             AFTER the NO-DETECTION early return, so or_Hc_* is NA on
+             non-declaring replicates; the declaring sets differ by engine
+             (894 / 1116 / 1884 of 2000 here), so the NA patterns differ
+             legitimately and that clause can never hold.  The gate's own
+             output said so: it printed "max |diff| 0" beside every failure.
+  Evidence : on the replicates where both engines declared, the values are
+             identical -- 692 rows FS vs DINA, 890 rows FS vs GRF, max |diff|
+             exactly 0, identical() TRUE.
+  Fix      : nullid_gateC.R now compares on the rows where both declared, with
+             a floor of 100 such rows, and separately asserts the invariant
+             that or_Hc_est is present exactly on the declaring replicates.
+  Re-gated : GATE C PASS (18 checks, 0 failed) -- logs/nullid_gateC_null0657_n500.txt.
+  Recorded : REPORT_null_gbsg_identification_2026-09-21.md.
+
+  The cell's three runs all completed and all passed Gate A (29 / 25 / 26
+  checks, 0 failed).  Nothing was abandoned and nothing was re-run.
+
+--- the original record, verbatim ---------------------------------------
+HALT RECORD -- nullid, cell null0657_n500
+  task     : TASK_null_gbsg_identification_2026-09-21
+  when     : Mon Sep 21 15:06:05 PDT 2026
+  host     : Mac-Studio-3.local ; git d75fec0f
+  stage    : GATE C
+  detail   : the per-cell gate failed; see logs/nullid_gateC_null0657_n500.txt
+  action   : the rest of this cell is abandoned; the campaign continues at the next cell.
