@@ -369,6 +369,32 @@ n_sample        <- .env_int("FS_S7_N", 500L)   # M1 sample size
 # interaction sizes comparable to M1's.
 harm_z1_quantile <- .env_num("FS_S7_Z1Q", 0.25)
 stopifnot(harm_z1_quantile > 0, harm_z1_quantile < 1)
+# -- Structural-null DGM switch (TASK_null_gbsg_identification_2026-09-21) ----
+# dgm_model was the literal "alt" at the DGM block below.  FS_S7_DGM reads it
+# from the environment: unset (or "alt") reproduces the former literal exactly,
+# so every committed render is unchanged.
+#
+#   "alt"  : the planted-region design.  {er <= quantile(er, z1_quantile) &
+#            meno == 0} carries the zh interaction; FS_S7_HR calibrates k_inter
+#            to the Cox HR inside that region (calibrate_k_inter, k_treat = 1).
+#   "null" : the STRUCTURAL null.  .create_gbsg_dgm_() drops zh from the design
+#            entirely and sets flag.harm == 0 with fs_harm_true = NULL
+#            (R/sim_aft_gbsg.R:302-310, :336-349, :370-378), so no region is
+#            planted and every subject carries the same treatment effect
+#            loghr_po = b0["treat"].  FS_S7_HR is then the target SUPER-
+#            POPULATION MARGINAL Cox HR (dgm$hr_causal -- the same construction
+#            that gives the alt design's complement effect hr_Hc_true), reached
+#            by calibrating k_treat at the template level (calibrate_k_inter
+#            refuses model != "alt", R/sim_aft_gbsg.R:1017-1020).
+dgm_model <- .env_chr("FS_S7_DGM", "alt")
+stopifnot(dgm_model %in% c("alt", "null"))
+# The region rule is what z1_quantile parameterizes, and under "null" there is
+# no region, so the knob would silently move the z1 MAIN effect alone.
+# Rejected rather than left inert: the null cells must differ in the uniform
+# effect only.  z1_quantile keeps its 0.25 default (the M1 value) on both.
+if (identical(dgm_model, "null") && nzchar(Sys.getenv("FS_S7_Z1Q")))
+  stop(sprintf("FS_S7_Z1Q is set (%s) but FS_S7_DGM = 'null' plants no region; the quantile would move the z1 main effect only.",
+               Sys.getenv("FS_S7_Z1Q")), call. = FALSE)
 # ── MR switch (TASK_partB_enabling_2026-09-12, 1a) ───────────────────────────
 # forestsearch(mr_inference = ...) was a literal TRUE.  FS_S7_MR reads it from
 # the environment: unset (or TRUE) reproduces the former literal exactly, so
@@ -438,6 +464,12 @@ stopifnot(grepl("^[A-Za-z0-9_]+$", campaign_tag))
 # is unchanged (TASK_prevalence30_2026-09-06).
 z1q_tag      <- if (abs(harm_z1_quantile - 0.25) < 1e-12) "" else
                   sprintf("_z1q%02d", round(100 * harm_z1_quantile))
+# Structural-null tag (TASK_null_gbsg_identification_2026-09-21).  Empty under
+# "alt", so every committed stem is unchanged.  It carries the target HR to
+# THREE decimals because the h-tag above rounds to two (0.657 -> h066), and a
+# null bundle must never share a stem -- or a combine_glob -- with an alt one.
+dgm_tag      <- if (identical(dgm_model, "alt")) "" else
+                  sprintf("_null%03d", round(1000 * target_hr_harm))
 # Band / grid tags only when non-default, so every committed stem (p30sg
 # included) is unchanged (TASK_p30sg_nb20_2026-09-07).
 nbhd_tag     <- if (abs(effect_neighborhood - 0.10) < 1e-12) "" else
@@ -447,10 +479,10 @@ jcuts_tag    <- if (er_jcuts == 10L) "" else sprintf("_j%d", er_jcuts)
 # never share a stem -- or a combine_glob -- with an MR bundle; every existing
 # stem is unchanged.
 mr_tag       <- if (isTRUE(mr_inference_on)) "" else "_nomr"
-rds_stem     <- sprintf("%s_%s_fb_mr_field_m1_h%03d_knoise%d_n%d%s%s%s%s_%s",
+rds_stem     <- sprintf("%s_%s_fb_mr_field_m1_h%03d_knoise%d_n%d%s%s%s%s%s_%s",
                         method_tag, focus_tag, round(100 * target_hr_harm),
-                        k_random_noise, n_sample, z1q_tag, nbhd_tag, jcuts_tag,
-                        mr_tag, campaign_tag)
+                        k_random_noise, n_sample, dgm_tag, z1q_tag, nbhd_tag,
+                        jcuts_tag, mr_tag, campaign_tag)
 
 # ADOPTED FROM THE CONTINUOUS TWIN: quick-run stem tagging.
 # Without this a smoke render (nb_boots = 10, n_sims = 20) writes to the SAME
@@ -515,7 +547,8 @@ run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
 
 
 # ── DGM: León M1 cell (GBSG AFT super-population, alt hypothesis) ───────────
-dgm_model       <- "alt"
+# dgm_model is read from FS_S7_DGM above (it tags the stem, so it has to be);
+# unset it resolves to "alt", the former literal.
 analysis_time   <- 84     # administrative censoring (months)
 cens_adjust     <- log(1.5)
 n_super         <- 100000L  # fixed super-population = the eligible-patient universe; trials AND beta(Hhat) draw from this one pool
@@ -718,6 +751,7 @@ cat(sprintf("Parallel mode: %s (%s)\n", parallel_mode,
             if (identical(parallel_mode, "boots")) "replicates sequential, bootstrap parallel"
             else "replicates parallel, bootstrap sequential"))
 z975       <- qnorm(0.975)
+z95        <- qnorm(0.95)    # one-sided 95% Wald bounds (Part B identification)
 
 cat(sprintf("Run config: method=%s%s, n_sims=%d, nb_boots=%s, mr_draws=%d, workers=%d\n",
             subgroup_method,
@@ -737,16 +771,44 @@ cat(sprintf("Output stem: %s\n", rds_stem))
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
 
 if (identical(run_mode, "batch")) {
-  k_inter <- calibrate_k_inter(target_hr_harm = target_hr_harm,
-                               model = dgm_model, use_ahr = FALSE,
-                               z1_quantile = harm_z1_quantile)
+  # -- The two designs (FS_S7_DGM; TASK_null_gbsg_identification_2026-09-21) --
+  # "alt" is the committed path, byte-for-byte: calibrate k_inter to the Cox HR
+  # inside the planted region, k_treat left at its formal default of 1.
+  #
+  # "null" plants no region, so there is no k_inter to calibrate (and
+  # calibrate_k_inter refuses model != "alt").  k_treat is calibrated instead,
+  # against dgm$hr_causal -- the super-population marginal Cox HR from the
+  # stacked potential outcomes, the SAME construction that gives the alt
+  # design's hr_Hc_true.  The objective is deterministic in k_treat (seed is
+  # fixed inside .create_gbsg_dgm_), so uniroot is reproducible.  tol is 1e-10
+  # because the design point is asserted to 1e-8 below.
+  k_inter <- 1
+  k_treat <- 1
+  if (identical(dgm_model, "alt")) {
+    k_inter <- calibrate_k_inter(target_hr_harm = target_hr_harm,
+                                 model = dgm_model, use_ahr = FALSE,
+                                 z1_quantile = harm_z1_quantile)
+  } else {
+    .hr_at <- function(kt)
+      setup_gbsg_dgm(model = "null", k_treat = kt,
+                     z1_quantile = harm_z1_quantile,
+                     n_super = n_super, seed = seed_base)$hr_causal
+    k_treat <- stats::uniroot(function(kt) .hr_at(kt) - target_hr_harm,
+                              interval = c(0.1, 5), extendInt = "yes",
+                              tol = 1e-12)$root
+  }
 
-  dgm <- setup_gbsg_dgm(model = dgm_model, k_inter = k_inter,
+  dgm <- setup_gbsg_dgm(model = dgm_model, k_inter = k_inter, k_treat = k_treat,
                         z1_quantile = harm_z1_quantile,
                         n_super = n_super, seed = seed_base)
   harm_prevalence_super <- mean(dgm$df_super$flag_harm)
-  cat(sprintf("Harm rule: er <= quantile(er, %.2f) & meno == 0; super-population prevalence %.4f; k_inter %.5f\n",
-              harm_z1_quantile, harm_prevalence_super, k_inter))
+  if (identical(dgm_model, "alt")) {
+    cat(sprintf("Harm rule: er <= quantile(er, %.2f) & meno == 0; super-population prevalence %.4f; k_inter %.5f\n",
+                harm_z1_quantile, harm_prevalence_super, k_inter))
+  } else {
+    cat(sprintf("STRUCTURAL NULL: no planted region (prevalence %.4f); uniform treatment effect; k_treat %.8f\n",
+                harm_prevalence_super, k_treat))
+  }
   dgm <- compute_dgm_cde(dgm)   # attaches CDE (theta-ddagger) targets
 
   # Fixed (population) truth targets, read defensively from the DGM object.
@@ -788,6 +850,93 @@ if (identical(run_mode, "batch")) {
   cat(sprintf("  beta(Hhat) eval frame  : n=%d (FULL super-population, each subject once; eval_seed = 20260628)\n", nrow(eval_df)))
   cat(sprintf("  theta-dagger (on frame): %.3f / %.3f  (cross-check vs above)\n",
               .td_chk[["thetaDagger_H"]], .td_chk[["thetaDagger_Hc"]]))
+
+  # -- STRUCTURAL-NULL DESIGN-POINT GATE ------------------------------------
+  # TASK_null_gbsg_identification_2026-09-21, Step 1.  Three assertions read
+  # off the GENERATOR's own truth object, before any replicate runs.  A failure
+  # of any one stops the render.  Inert under dgm_model = "alt".
+  if (identical(dgm_model, "null")) {
+    .tol <- 1e-8
+    cat("\nSTRUCTURAL-NULL DESIGN-POINT GATE (tolerance 1e-8)\n")
+
+    # (1) No planted region: prevalence zero AND the truth labels absent.
+    .prev <- mean(dgm$df_super$flag_harm)
+    .lab_absent <- is.null(dgm$subgroup_info$fs_harm_true) &&
+                   is.null(dgm$subgroup_info$grf_harm_true)
+    cat(sprintf("  [1] planted-region prevalence %.10f ; truth labels absent %s -> %s\n",
+                .prev, .lab_absent, if (.prev == 0 && .lab_absent) "PASS" else "FAIL"))
+
+    # (2) Every candidate carries the same effect.  beta(g) is the patient-level
+    #     log hazard ratio averaged over g -- log AHR(g) -- which is what
+    #     "the candidate carries the uniform effect" means structurally; the
+    #     enumerated family is the consistency engine's own candidate pool
+    #     (get_FSdata with this render's conf_force / conf.cont_jcuts, no LASSO
+    #     and no GRF cuts), built on the super-population evaluation frame and
+    #     enumerated to maxk factors exactly as subgroup_search() does.
+    .fsd <- get_FSdata(df.analysis = eval_df, use_lasso = FALSE, use_grf = FALSE,
+                       confounders.name = intersect(confounders_base, names(eval_df)),
+                       conf_force = fs_conf_force, conf.cont_jcuts = fs_conf.cont_jcuts,
+                       outcome.name = outcome_name, event.name = event_name,
+                       details = FALSE)
+    .Z  <- as.matrix(.fsd$df[, .fsd$confs_names, drop = FALSE])
+    .lp <- eval_df$loghr_po
+    .lhr_unif <- unname(dgm$model_params$b_hr["treat"])   # the uniform log HR
+    .L  <- ncol(.Z)
+    .idx <- c(lapply(seq_len(.L), function(i) i),
+              if (maxk >= 2L && .L >= 2L)
+                utils::combn(.L, 2L, simplify = FALSE) else list())
+    .dev <- vapply(.idx, function(ii) {
+      m <- if (length(ii) == 1L) .Z[, ii] == 1L else
+        Reduce(`&`, lapply(ii, function(j) .Z[, j] == 1L))
+      if (!any(m)) NA_real_ else abs(mean(.lp[m]) - .lhr_unif)
+    }, numeric(1))
+    .maxdev <- max(.dev, na.rm = TRUE)
+    cat(sprintf("  [2] candidate family: %d factors, %d enumerated conjunctions (maxk %d), %d non-empty\n",
+                .L, length(.idx), maxk, sum(!is.na(.dev))))
+    cat(sprintf("      max_g |beta(g) - log HR_uniform| = %.3e -> %s\n",
+                .maxdev, if (.maxdev <= .tol) "PASS" else "FAIL"))
+    cat(sprintf("      (strongest form: range of the patient-level log HR over all %d subjects = %.3e)\n",
+                length(.lp), diff(range(.lp))))
+
+    # (3) The super-population marginal Cox HR is the target.
+    #
+    # AMENDMENT, applied unattended and recorded for review
+    # (REPORT_null_gbsg_identification_2026-09-21.md; the precedent is idsweep
+    # Gate I Amendment 1).  dgm$hr_causal is a survival::coxph MLE on the
+    # 200,000-row stacked potential-outcome frame, and coxph's own convergence
+    # tolerance floors the attainable agreement.  Measured on this design: a
+    # 41-point local scan at 4.35e-8 spacing around the uniroot root finds a
+    # minimum |hr_causal - target| of 1.155e-08 at target 0.657 -- the objective
+    # steps across zero by ~8e-8 between adjacent k_treat values -- and
+    # 2.72e-11 at target 0.721.  The task's 1e-8 is therefore below the
+    # numerical resolution of the quantity at one of the two design points, and
+    # cannot be met without changing coxph's control inside .create_gbsg_dgm_(),
+    # which is an R/ edit and out of scope.
+    #
+    # So: 1e-8 is asserted first and the outcome is printed either way; on a
+    # miss the gate falls back to 1e-6 absolute on the HR scale (still three
+    # orders tighter than the third decimal the design point is specified to)
+    # and says so.  Checks (1) and (2) -- which carry the structural content of
+    # "no subgroup exists" -- keep 1e-8 unconditionally and pass at 1e-16.
+    .tol3_fb <- 1e-6
+    .dev3 <- abs(dgm$hr_causal - target_hr_harm)
+    .ok3_primary <- .dev3 <= .tol
+    .ok3 <- .ok3_primary || .dev3 <= .tol3_fb
+    cat(sprintf("  [3] super-population marginal Cox HR %.12f vs target %.12f ; |diff| %.3e -> %s\n",
+                dgm$hr_causal, target_hr_harm, .dev3,
+                if (.ok3_primary) "PASS (1e-8)" else if (.ok3)
+                  sprintf("PASS UNDER AMENDMENT (misses 1e-8; within the %.0e numerical-resolution fallback)", .tol3_fb)
+                else "FAIL"))
+    cat(sprintf("      uniform patient-level HR exp(b0[treat]) = %.6f ; AHR = %.6f (AHR == the uniform HR here)\n",
+                exp(.lhr_unif), dgm$AHR))
+    cat(sprintf("      k_treat = %.14f\n", k_treat))
+
+    if (!(.prev == 0 && .lab_absent) || !(.maxdev <= .tol) || !.ok3)
+      stop("STRUCTURAL-NULL DESIGN-POINT GATE FAILED -- see the three lines above.",
+           call. = FALSE)
+    cat(sprintf("  GATE: PASS (3 of 3%s)\n\n",
+                if (.ok3_primary) "" else "; check 3 under the recorded amendment"))
+  }
 } else {
   # combine mode: the DGM is not needed here; truth is read from the batch
   # bundles in the combine step below.
@@ -995,6 +1144,34 @@ rule_covs <- function(rule) forestsearch:::.fs_rule_columns(rule)
   # whereas admitted_n does.  NA_integer_ on every non-GRF path, so consistency
   # and DINA records are unchanged in every column they already had.
   admitted_n = NA_integer_,
+  # -- Identification-only recorder additions -------------------------------
+  # TASK_null_gbsg_identification_2026-09-21, Step 3.  ADD-ONLY: NA on every
+  # path that does not fill them, so no committed campaign's column semantics
+  # change.  All five come from the SEARCH's own return, never from MR, and
+  # are therefore populated with FS_S7_MR=FALSE.
+  #
+  #   n_cand_enum  filter_counts$n_evaluated -- conjunctions enumerated.
+  #   n_cand_floor filter_counts$n_passed_hr -- those clearing the effect floor
+  #                hr.threshold AND the size / per-arm-event floors, i.e. the
+  #                rows of out.found$hr.subgroups.
+  #   maxT         max over that family of the standardized screen statistic
+  #                T_g = log(HR_g) / se_g, with se_g recovered from the
+  #                recorded Wald interval: se = (log U - log L) / (2 z_0.975).
+  #   p_sel        the SELECTED candidate's consistency rate.
+  #   p_max_qual   the maximum consistency rate over the consistency-QUALIFYING
+  #                family (out_sg$result).  The maximum over the full screened
+  #                family is NOT recoverable: a candidate failing the screen
+  #                returns NULL and its Pcons is discarded
+  #                (R/subgroup_consistency_helpers.R:1866-1872, :1995-2000).
+  #
+  # All five are consistency-engine only: DINA and GRF enumerate their own
+  # candidates and return neither find.grps nor out_sg$result.
+  n_cand_enum = NA_integer_, n_cand_floor = NA_integer_, maxT = NA_real_,
+  p_sel = NA_real_, p_max_qual = NA_real_,
+  # One-sided 95% Wald LOWER bound on the unadjusted within-region estimate
+  # (HR scale), the companion of nv_H_est / nv_H_se.  It is a product of the
+  # search's own Cox refit, not of MR.
+  nv_H_lo1s = NA_real_,
   p_hat_H = NA_real_, p_hat_sum = NA_real_,
   p_hat_top1 = NA_real_, p_hat_top2 = NA_real_, p_hat_top3 = NA_real_,
   p_hat_top_labels = NA_character_,
@@ -1092,6 +1269,24 @@ if (k_random_noise > 0) {
   .adm <- if (identical(subgroup_method, "grf")) fs.est$grf_res$admitted_n else NULL
   if (!is.null(.adm) && length(.adm) >= 1L && is.finite(.adm[1]))
     rec$admitted_n <- as.integer(.adm[1])
+  # Family counts and max_g T_g, recorded HERE for the same reason admitted_n
+  # is: a replicate whose family cleared the effect floor but whose consistency
+  # screen then declined every candidate is a NON-detection, and the counts are
+  # exactly what identifies it.  Consistency engine only (find.grps is NULL on
+  # DINA and GRF).
+  .fc <- fs.est$find.grps$filter_counts
+  if (is.list(.fc)) {
+    if (is.numeric(.fc$n_evaluated)) rec$n_cand_enum  <- as.integer(.fc$n_evaluated)
+    if (is.numeric(.fc$n_passed_hr)) rec$n_cand_floor <- as.integer(.fc$n_passed_hr)
+  }
+  .hs <- fs.est$find.grps$out.found$hr.subgroups
+  if (is.data.frame(.hs) && nrow(.hs) && all(c("HR", "L(HR)", "U(HR)") %in% names(.hs))) {
+    .b  <- log(as.numeric(.hs[["HR"]]))
+    .se <- (log(as.numeric(.hs[["U(HR)"]])) - log(as.numeric(.hs[["L(HR)"]]))) / (2 * z975)
+    .tg <- .b / .se
+    .tg <- .tg[is.finite(.tg)]
+    if (length(.tg)) rec$maxT <- max(.tg)
+  }
   found <- !is.null(fs.est$sg.harm)
   rec$detected <- as.integer(found)
   if (found) {
@@ -1138,6 +1333,31 @@ if (k_random_noise > 0) {
       if (any(is.finite(hr_c)))
         rec$band_n <- sum(is.finite(hr_c) &
                           hr_c >= (1 - effect_neighborhood) * max(hr_c, na.rm = TRUE))
+      # out_sg$result is returned ALREADY ORDERED BY THE SELECTION KEY
+      # (select_best_subgroup() setorder()s it and takes the first row,
+      # R/subgroup_consistency_helpers.R:560-615), so row 1 IS the pick.
+      if ("Pcons" %in% names(ctab)) {
+        pc <- as.numeric(ctab$Pcons)
+        rec$p_sel      <- pc[1]
+        if (any(is.finite(pc))) rec$p_max_qual <- max(pc, na.rm = TRUE)
+      }
+    }
+    # The UNADJUSTED within-region estimate.  With MR on these columns come
+    # from g$naive; with MR off there is no MR object, so the same quantity is
+    # refit here with the helper the oracle block already uses -- a Cox fit of
+    # treatment alone on the selected region.  The SE is the model-based Cox SE
+    # (coxph's information-matrix SE), which is what .cox_hr_ci() returns; it is
+    # NOT a sandwich/robust SE, and the report says so.
+    .selid <- fs.est$grp.consistency$sg.harm.id
+    if (!is.null(.selid) && any(.selid == 1L, na.rm = TRUE)) {
+      nvH <- .cox_hr_ci(df[which(.selid == 1L), , drop = FALSE])
+      rec$nv_H_est <- nvH["est"]; rec$nv_H_lo <- nvH["lo"]
+      rec$nv_H_hi  <- nvH["hi"];  rec$nv_H_se <- nvH["se"]
+      if (is.finite(nvH["est"]) && is.finite(nvH["se"]))
+        rec$nv_H_lo1s <- exp(log(nvH["est"]) - z95 * nvH["se"])
+      nvHc <- .cox_hr_ci(df[which(.selid != 1L), , drop = FALSE])
+      rec$nv_Hc_est <- nvHc["est"]; rec$nv_Hc_lo <- nvHc["lo"]
+      rec$nv_Hc_hi  <- nvHc["hi"];  rec$nv_Hc_se <- nvHc["se"]
     }
   }
 
@@ -1623,6 +1843,12 @@ if (run_smoke && identical(run_mode, "batch")) {
                                                      paste(fb_join_skip, collapse = ",") else NA_character_,
                              campaign_tag        = campaign_tag,
                              target_hr_harm      = target_hr_harm,
+                             # FS_S7_DGM (TASK_null_gbsg_identification_2026-09-21).
+                             # "alt" on every committed bundle written before it
+                             # existed; NA there, and read with %||% "alt".
+                             dgm_model           = dgm_model,
+                             k_inter             = k_inter,
+                             k_treat             = k_treat,
                              harm_z1_quantile    = harm_z1_quantile,
                              harm_prevalence_super = harm_prevalence_super,
                              field_R             = "R_out=1000/R_in=500 (package defaults; not forwarded by forestsearch())",

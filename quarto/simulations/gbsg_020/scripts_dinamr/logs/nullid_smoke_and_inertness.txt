@@ -1,0 +1,28 @@
+nullid Step 2 smoke and the template inertness check
+TASK_null_gbsg_identification_2026-09-21 ;  2026-09-21 14:43:09 
+host Mac-Studio-3.local ; 14 physical cores ; 36 GB ; R 4.5.2 ; forestsearch 0.3.5.9000
+
+== STEP 2 SMOKE: cell null0657_n500, 20 replicates, MR off, 12 workers ==
+  consistency per-replicate search 1.1871 s ; declarations 6/20 ; render wall 34 s
+  dina        per-replicate search 0.1477 s ; declarations 9/20 ; render wall 32 s
+  grf         per-replicate search 2.0528 s ; declarations 20/20 ; render wall 36 s
+  TOTAL per replicate across the three identifiers at n=500: 3.3876 s
+
+== PROJECTION FOR THE FULL GRID (recorded, not a decision point) ==
+  n-scaling from grfprobe (13.5 s at n500 -> 19.8 s at n1500, linear in n): n500 x1.0000, n1000 x1.2333, n1500 x1.4667
+  compute  = 50136 core-s over 6 cells x 3 identifiers x 2000 replicates
+           = 4178 s = 1.16 h at 12 workers
+  renders  = 18 x 60 s = 1080 s = 0.30 h (smoke measured 20-36 s at 20 reps; idsweep 44.5 s at 500)
+  PROJECTED TOTAL at 12 workers: 1.46 h
+
+== INERTNESS OF THE TEMPLATE EDITS ON THE alt PATH ==
+  FS_S7_DGM unset, hr 1.50, n 500, effMaxSG eps 0.20, MR off, sim_id 1-20, against the
+  committed idsweep bundle
+    results/fs_effMaxSG_fb_mr_field_m1_h150_knoise0_n500_nb20_nomr_idsweep_res_1_500.rds
+  identical on 158 of 166 shared non-timing columns
+  truth object identical: TRUE ; meta harm_prevalence_super 0.12418 vs 0.12418 ; k_treat 1 ; k_inter 1.1115482580
+  columns ADDED by the edits (absent from the committed bundle): n_cand_enum, n_cand_floor, maxT, p_sel, p_max_qual, nv_H_lo1s
+  columns that DIFFER: nv_H_est, nv_H_lo, nv_H_hi, nv_H_se, nv_Hc_est, nv_Hc_lo, nv_Hc_hi, nv_Hc_se
+    -- these were ALL-NA with MR off before the edits and are now populated from the
+       search's own Cox refit of the selected region (.cox_hr_ci, the helper the oracle
+       block already uses).  No existing VALUE changes; NA becomes a number.
