@@ -334,3 +334,317 @@ failed — on a bug in the gate, not the run: `mr_ok` matched the `^(mr_|fld_|fb
 uses to assert that every MR product is NA, but `mr_ok` is
 `as.integer(!is.null(fs.est$mr_inference))`, a legitimate 0 on this path. Excluded, and asserted to
 be 0 instead. Gate A then passed 29 of 29 on that bundle. Fixed in `1f5c0076`, before any cell ran.
+
+---
+
+## 3. The grid
+
+Six cells, in the task's order, three identifiers each, 2,000 replicates each, one batch per run
+(`sim_id` 1–2000, no combine render). Driver `scripts_dinamr/nullid.sh`, cell list
+`scripts_dinamr/nullid.cells`, log `scripts_dinamr/logs/nullid.driver.log`.
+
+**Same draws within a cell, and how that is checked.** The three identifiers of a cell see the same
+2,000 trials: the seed is `seed_base + sim_id` and the DGM build is a deterministic function of the
+cell. The campaign's usual same-draws fingerprint, `n_true`, is 0 on every replicate here and cannot
+discriminate, so Gate C uses **`or_Hc_est` / `or_Hc_se`** instead — the template's oracle complement
+refit, which under the structural null is a Cox fit of treatment alone on the **whole trial** and so
+is computed from the simulated data alone, never touching the engine.
+
+**Gates.** Gate A after every run (29 checks on FS, 25 on DINA and GRF — the four family/`maxT`
+checks are FS-only), Gate C after every cell. Per the task, **a failing cell does not stop the
+campaign**: the rest of that cell is abandoned, a `HALT_nullid_<cell>_<date>.txt` record is written
+in the study directory, and the driver moves to the next cell.
+
+### 3.1 What actually happened: two gate bugs, both mine, both corrected
+
+Neither was a failure of a run, and no bundle was re-run. Both were the same mistake — **I asserted a
+threshold I had guessed instead of the invariant the data satisfy.**
+
+**Gate C, cell `null0657_n500`.** It compared `or_Hc_est` / `or_Hc_se` across engines and required
+`identical(is.na(a), is.na(b))`. The template's oracle block sits **after** the NO-DETECTION early
+return, so `or_Hc_*` is NA on non-declaring replicates; the declaring sets differ by engine, so the
+NA patterns differ legitimately and that clause can never hold. The gate's own output said so — it
+printed `max |diff| 0` beside every failure. On the replicates where both engines declared the
+values are identical: 692 rows FS vs DINA, 890 rows FS vs GRF, `max |diff|` exactly 0. Gate C now
+compares there, with a floor of 100 such rows, and separately asserts that `or_Hc_est` is present
+exactly on the declaring replicates. Re-run: **PASS, 18 checks**.
+
+**Gate A, cell `null0657_n1500`.** It asserted that `max_g T_g` is "recorded on > 95% of
+replicates". `maxT` comes from `find.grps$out.found$hr.subgroups`, which is **absent when no
+candidate cleared the effect floor** — at n 1500 under the stronger uniform benefit that happens on
+**330 of 2,000 replicates (16.5%)**. The real invariant holds exactly on all 2,000 rows:
+`is.finite(maxT)` ⟺ `n_cand_floor > 0`, and **no replicate ever declares when nothing cleared the
+floor** (0 cases). Gate A now asserts both. Re-run on the same untouched bundle: **PASS, 30 checks**.
+
+**Consequence, and it was real.** The driver, doing what the task specifies, abandoned the rest of
+cell `null0657_n1500`. Its DINA and GRF runs were then produced by
+`scripts_dinamr/nullid_complete_cell5.sh` with byte-identical knobs, gated, and the cell closed by
+Gate C. The consistency bundle was not re-run — it was correct throughout.
+
+Both halt records are **kept and bannered WITHDRAWN** with the diagnosis, rather than deleted:
+`HALT_nullid_null0657_n500_2026-09-21.txt`, `HALT_nullid_null0657_n1500_2026-09-21.txt`. The
+driver's own closing line reads `completed 4 cells ... failed 2`; that line is about the gates as
+they stood at run time, and is superseded by this section.
+
+**Final state: 18 of 18 runs, Gate A PASS on every one, Gate C PASS on every cell. Nothing
+deferred, nothing dropped, nothing re-run.**
+
+---
+
+## 4. Results
+
+**Every rate below is a FALSE-declaration rate.** There is no subgroup anywhere in this design.
+
+### Table 1 — declaration, size and specificity (cells x identifiers)
+
+| cell | HR | n | identifier | declarations / 2000 | rate [Wilson 95%] | mean \|H\| (MC SE) | \|H\| Q1/med/Q3 | mean \|H\|/n (MC SE) | spec uncond. (MC SE) | spec cond. (MC SE) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| null0657_n500 | 0.657 | 500 | FS | 894 | 0.4470 [0.4253, 0.4689] | 105.4 (1.19) | 80 / 98 / 123 | 0.2107 (0.0024) | 0.9058 (0.0026) | 0.7893 (0.0024) |
+| null0657_n500 | 0.657 | 500 | DINA | 1116 | 0.5580 [0.5361, 0.5796] | 95.6 (0.97) | 74 / 88 / 108 | 0.1913 (0.0019) | 0.8933 (0.0024) | 0.8087 (0.0019) |
+| null0657_n500 | 0.657 | 500 | GRF | 1884 | 0.9420 [0.9309, 0.9514] | 103.7 (0.81) | 79 / 94 / 120 | 0.2074 (0.0016) | 0.8046 (0.0019) | 0.7926 (0.0016) |
+| null0721_n500 | 0.721 | 500 | FS | 1356 | 0.6780 [0.6572, 0.6981] | 110.6 (1.02) | 84 / 104 / 127 | 0.2212 (0.0020) | 0.8500 (0.0027) | 0.7788 (0.0020) |
+| null0721_n500 | 0.721 | 500 | DINA | 1480 | 0.7400 [0.7203, 0.7588] | 101.1 (0.94) | 77 / 92 / 117 | 0.2022 (0.0019) | 0.8504 (0.0024) | 0.7978 (0.0019) |
+| null0721_n500 | 0.721 | 500 | GRF | 1969 | 0.9845 [0.9781, 0.9891] | 107.8 (0.89) | 80 / 98 / 125 | 0.2156 (0.0018) | 0.7878 (0.0019) | 0.7844 (0.0018) |
+| null0657_n1000 | 0.657 | 1000 | FS | 637 | 0.3185 [0.2984, 0.3392] | 166.8 (2.30) | 125 / 153 / 189 | 0.1668 (0.0023) | 0.9469 (0.0019) | 0.8332 (0.0023) |
+| null0657_n1000 | 0.657 | 1000 | DINA | 593 | 0.2965 [0.2769, 0.3169] | 157.8 (2.17) | 122 / 145 / 177 | 0.1578 (0.0022) | 0.9532 (0.0017) | 0.8422 (0.0022) |
+| null0657_n1000 | 0.657 | 1000 | GRF | 1662 | 0.8310 [0.8139, 0.8468] | 189.5 (1.66) | 142 / 174 / 220 | 0.1895 (0.0017) | 0.8425 (0.0021) | 0.8105 (0.0017) |
+| null0721_n1000 | 0.721 | 1000 | FS | 1234 | 0.6170 [0.5955, 0.6381] | 193.0 (2.15) | 139 / 176 / 227 | 0.1930 (0.0021) | 0.8809 (0.0025) | 0.8070 (0.0021) |
+| null0721_n1000 | 0.721 | 1000 | DINA | 1152 | 0.5760 [0.5542, 0.5975] | 184.1 (2.16) | 132 / 166 / 213 | 0.1841 (0.0022) | 0.8940 (0.0024) | 0.8159 (0.0022) |
+| null0721_n1000 | 0.721 | 1000 | GRF | 1886 | 0.9430 [0.9320, 0.9523] | 215.4 (1.98) | 157 / 196 / 256 | 0.2154 (0.0020) | 0.7969 (0.0022) | 0.7846 (0.0020) |
+| null0657_n1500 | 0.657 | 1500 | FS | 337 | 0.1685 [0.1527, 0.1855] | 240.0 (4.63) | 177 / 216 / 272 | 0.1600 (0.0031) | 0.9730 (0.0014) | 0.8400 (0.0031) |
+| null0657_n1500 | 0.657 | 1500 | DINA | 278 | 0.1390 [0.1245, 0.1549] | 224.7 (3.93) | 173 / 207 / 261 | 0.1498 (0.0026) | 0.9792 (0.0012) | 0.8502 (0.0026) |
+| null0657_n1500 | 0.657 | 1500 | GRF | 1129 | 0.5645 [0.5427, 0.5861] | 273.1 (2.91) | 203 / 251 / 316 | 0.1821 (0.0019) | 0.8972 (0.0023) | 0.8179 (0.0019) |
+| null0721_n1500 | 0.721 | 1500 | FS | 969 | 0.4845 [0.4626, 0.5064] | 297.3 (4.24) | 202 / 268 / 348 | 0.1982 (0.0028) | 0.9040 (0.0026) | 0.8018 (0.0028) |
+| null0721_n1500 | 0.721 | 1500 | DINA | 748 | 0.3740 [0.3531, 0.3954] | 259.6 (3.46) | 186 / 239 / 305 | 0.1731 (0.0023) | 0.9353 (0.0021) | 0.8269 (0.0023) |
+| null0721_n1500 | 0.721 | 1500 | GRF | 1689 | 0.8445 [0.8280, 0.8597] | 342.2 (3.24) | 248 / 310 / 405 | 0.2281 (0.0022) | 0.8074 (0.0026) | 0.7719 (0.0022) |
+
+### Table 2 — the unadjusted within-region estimate, and where its one-sided bound lands
+
+| cell | identifier | HR(H) Q1/med/Q3 | model-based SE med | lower 1s Q1/med/Q3 | share lower >= 1.00 [Wilson] | share lower >= 1.25 [Wilson] |
+|---|---|---|---|---|---|---|
+| null0657_n500 | FS | 1.297 / 1.390 / 1.555 | 0.299 | 0.811 / 0.843 / 0.915 | 93/894 = 0.1040 [0.0857, 0.1258] | 7/894 = 0.0078 [0.0038, 0.0161] |
+| null0657_n500 | DINA | 1.026 / 1.197 / 1.479 | 0.320 | 0.627 / 0.719 / 0.841 | 93/1116 = 0.0833 [0.0685, 0.1010] | 16/1116 = 0.0143 [0.0088, 0.0232] |
+| null0657_n500 | GRF | 1.036 / 1.206 / 1.456 | 0.314 | 0.649 / 0.722 / 0.824 | 113/1884 = 0.0600 [0.0501, 0.0716] | 20/1884 = 0.0106 [0.0069, 0.0163] |
+| null0721_n500 | FS | 1.298 / 1.419 / 1.578 | 0.290 | 0.818 / 0.865 / 0.950 | 225/1356 = 0.1659 [0.1471, 0.1867] | 21/1356 = 0.0155 [0.0102, 0.0236] |
+| null0721_n500 | DINA | 1.109 / 1.334 / 1.643 | 0.306 | 0.695 / 0.809 / 0.949 | 269/1480 = 0.1818 [0.1629, 0.2022] | 46/1480 = 0.0311 [0.0234, 0.0412] |
+| null0721_n500 | GRF | 1.128 / 1.323 / 1.615 | 0.306 | 0.706 / 0.799 / 0.919 | 268/1969 = 0.1361 [0.1217, 0.1520] | 49/1969 = 0.0249 [0.0189, 0.0327] |
+| null0657_n1000 | FS | 1.159 / 1.240 / 1.352 | 0.238 | 0.809 / 0.829 / 0.866 | 26/637 = 0.0408 [0.0280, 0.0591] | 4/637 = 0.0063 [0.0024, 0.0160] |
+| null0657_n1000 | DINA | 0.949 / 1.029 / 1.173 | 0.254 | 0.636 / 0.704 / 0.782 | 12/593 = 0.0202 [0.0116, 0.0350] | 4/593 = 0.0067 [0.0026, 0.0172] |
+| null0657_n1000 | GRF | 0.938 / 1.002 / 1.139 | 0.230 | 0.657 / 0.707 / 0.768 | 38/1662 = 0.0229 [0.0167, 0.0312] | 6/1662 = 0.0036 [0.0017, 0.0079] |
+| null0721_n1000 | FS | 1.131 / 1.213 / 1.338 | 0.216 | 0.812 / 0.838 / 0.892 | 85/1234 = 0.0689 [0.0560, 0.0844] | 9/1234 = 0.0073 [0.0038, 0.0138] |
+| null0721_n1000 | DINA | 0.959 / 1.062 / 1.234 | 0.226 | 0.672 / 0.753 / 0.852 | 75/1152 = 0.0651 [0.0523, 0.0808] | 7/1152 = 0.0061 [0.0029, 0.0125] |
+| null0721_n1000 | GRF | 0.967 / 1.063 / 1.225 | 0.210 | 0.706 / 0.765 / 0.842 | 97/1886 = 0.0514 [0.0423, 0.0623] | 11/1886 = 0.0058 [0.0033, 0.0104] |
+| null0657_n1500 | FS | 1.080 / 1.144 / 1.230 | 0.198 | 0.804 / 0.816 / 0.840 | 6/337 = 0.0178 [0.0082, 0.0383] | 0/337 = 0.0000 [0.0000, 0.0113] |
+| null0657_n1500 | DINA | 0.924 / 0.966 / 1.062 | 0.219 | 0.648 / 0.694 / 0.753 | 1/278 = 0.0036 [0.0006, 0.0201] | 0/278 = 0.0000 [0.0000, 0.0136] |
+| null0657_n1500 | GRF | 0.919 / 0.946 / 1.004 | 0.195 | 0.669 / 0.701 / 0.742 | 6/1129 = 0.0053 [0.0024, 0.0115] | 1/1129 = 0.0009 [0.0002, 0.0050] |
+| null0721_n1500 | FS | 1.053 / 1.107 / 1.181 | 0.174 | 0.806 / 0.822 / 0.850 | 17/969 = 0.0175 [0.0110, 0.0279] | 1/969 = 0.0010 [0.0002, 0.0058] |
+| null0721_n1500 | DINA | 0.929 / 0.982 / 1.081 | 0.189 | 0.677 / 0.733 / 0.804 | 14/748 = 0.0187 [0.0112, 0.0312] | 1/748 = 0.0013 [0.0002, 0.0075] |
+| null0721_n1500 | GRF | 0.920 / 0.957 / 1.038 | 0.166 | 0.709 / 0.746 / 0.788 | 29/1689 = 0.0172 [0.0120, 0.0246] | 2/1689 = 0.0012 [0.0003, 0.0043] |
+
+### Table 3 — the candidate family and the screen statistic (FS only)
+
+| cell | enumerated Q1/med/Q3 | clearing the floor Q1/med/Q3 | consistency-qualifying Q1/med/Q3 | p_sel med | p_max_qual med | floor>0 but no declaration |
+|---|---|---|---|---|---|---|
+| null0657_n500 | 1711 / 1711 / 1830 | 16 / 43 / 89 | 1 / 3 / 8 | 0.930 | 0.960 | 1075/1969 = 0.5460 [0.5239, 0.5678] |
+| null0721_n500 | 1711 / 1711 / 1830 | 44 / 100 / 185 | 2 / 7 / 19 | 0.950 | 0.970 | 637/1993 = 0.3196 [0.2995, 0.3404] |
+| null0657_n1000 | 1711 / 1711 / 1830 | 6 / 16 / 37 | 1 / 2 / 5 | 0.930 | 0.950 | 1270/1907 = 0.6660 [0.6445, 0.6868] |
+| null0721_n1000 | 1711 / 1711 / 1830 | 23 / 53 / 104 | 2 / 5 / 12 | 0.940 | 0.960 | 753/1987 = 0.3790 [0.3579, 0.4005] |
+| null0657_n1500 | 1711 / 1711 / 1830 | 1 / 5 / 14 | 1 / 2 / 3 | 0.920 | 0.940 | 1333/1670 = 0.7982 [0.7783, 0.8168] |
+| null0721_n1500 | 1711 / 1711 / 1830 | 11 / 26 / 53 | 1 / 3 / 8 | 0.930 | 0.950 | 980/1949 = 0.5028 [0.4806, 0.5250] |
+
+### Table 4 — max_g T_g over the screened family, against z_0.95 = 1.645 (FS only)
+
+| cell | n with max_g T_g | Q1 | median | Q3 | 90% | 95% | 99% | share > 1.645 [Wilson] |
+|---|---|---|---|---|---|---|---|---|
+| null0657_n500 | 1969 | 0.483 | 0.833 | 1.225 | 1.577 | 1.807 | 2.176 | 166/1969 = 0.0843 [0.0728, 0.0974] |
+| null0721_n500 | 1993 | 0.767 | 1.159 | 1.564 | 1.887 | 2.093 | 2.575 | 414/1993 = 0.2077 [0.1905, 0.2261] |
+| null0657_n1000 | 1907 | 0.139 | 0.522 | 0.877 | 1.238 | 1.465 | 1.975 | 56/1907 = 0.0294 [0.0227, 0.0379] |
+| null0721_n1000 | 1987 | 0.488 | 0.874 | 1.253 | 1.637 | 1.840 | 2.270 | 188/1987 = 0.0946 [0.0825, 0.1083] |
+| null0657_n1500 | 1670 | -0.137 | 0.146 | 0.489 | 0.831 | 1.037 | 1.579 | 13/1670 = 0.0078 [0.0046, 0.0133] |
+| null0721_n1500 | 1949 | 0.172 | 0.511 | 0.892 | 1.237 | 1.478 | 1.915 | 58/1949 = 0.0298 [0.0231, 0.0383] |
+
+### Table 5 — the composition of H-hat: covariates and cut directions
+
+
+**FS** — share of declaring replicates whose rule contains the term, pooled over the six cells:
+
+| term | replicates | share of declaring |
+|---|---|---|
+| `NOT er <=` | 1520 | 0.2801 |
+| `er <=` | 1377 | 0.2537 |
+| `NOT pgr <=` | 1163 | 0.2143 |
+| `nodes <=` | 1039 | 0.1915 |
+| `size <=` | 1014 | 0.1868 |
+| `NOT size <=` | 986 | 0.1817 |
+| `age <=` | 850 | 0.1566 |
+| `NOT age <=` | 816 | 0.1504 |
+| `NOT nodes <=` | 628 | 0.1157 |
+| `pgr <=` | 614 | 0.1131 |
+| `NOT meno (indicator)` | 305 | 0.0562 |
+| `meno (indicator)` | 196 | 0.0361 |
+| `NOT grade (indicator)` | 116 | 0.0214 |
+| `grade (indicator)` | 73 | 0.0135 |
+
+(declaring replicates pooled: 5427)
+
+**DINA** — share of declaring replicates whose rule contains the term, pooled over the six cells:
+
+| term | replicates | share of declaring |
+|---|---|---|
+| `pgr >=` | 1564 | 0.2914 |
+| `er >=` | 997 | 0.1858 |
+| `age >=` | 872 | 0.1625 |
+| `nodes <=` | 857 | 0.1597 |
+| `size >=` | 830 | 0.1546 |
+| `age <=` | 827 | 0.1541 |
+| `size <=` | 712 | 0.1327 |
+| `pgr <=` | 617 | 0.1150 |
+| `er <=` | 574 | 0.1069 |
+| `nodes >=` | 538 | 0.1002 |
+| `grade >=` | 459 | 0.0855 |
+| `meno <=` | 356 | 0.0663 |
+| `grade <=` | 308 | 0.0574 |
+| `meno >=` | 240 | 0.0447 |
+
+(declaring replicates pooled: 5367)
+
+**GRF** — share of declaring replicates whose rule contains the term, pooled over the six cells:
+
+| term | replicates | share of declaring |
+|---|---|---|
+| `nodes <=` | 2927 | 0.2864 |
+| `pgr >` | 2418 | 0.2366 |
+| `size <=` | 2006 | 0.1963 |
+| `er >` | 1892 | 0.1851 |
+| `age <=` | 1889 | 0.1849 |
+| `size >` | 1729 | 0.1692 |
+| `age >` | 1639 | 0.1604 |
+| `er <=` | 1439 | 0.1408 |
+| `pgr <=` | 1036 | 0.1014 |
+| `nodes >` | 880 | 0.0861 |
+| `meno <=` | 671 | 0.0657 |
+| `grade <=` | 503 | 0.0492 |
+| `grade >` | 406 | 0.0397 |
+| `meno >` | 346 | 0.0339 |
+
+(declaring replicates pooled: 10219)
+
+### Table 6 — measured wall per cell
+
+| cell | wall (s) | wall (h) |
+|---|---|---|
+| null0657_n500 | 991 | 0.275 |
+| null0721_n500 | 1139 | 0.316 |
+| null0657_n1000 | 1056 | 0.293 |
+| null0721_n1000 | 1240 | 0.344 |
+| null0657_n1500 | 1152 | 0.320 |
+| null0721_n1500 | 1331 | 0.370 |
+| **total (18 renders)** | **6909** | **1.919** |
+
+Build: forestsearch 0.3.5.9000 ; host Mac-Studio-3.local ; workers 12 ; R 4.5.2
+
+### Table 7 — the unconditional claim rate: declares **and** the unadjusted one-sided 95% lower bound reaches HR 1.00 / 1.25
+
+Over all 2,000 replicates, not over declaring ones.
+
+| cell | FS | DINA | GRF |
+|---|---|---|---|
+| null0657_n500 | 0.0465 / 0.0035 | 0.0465 / 0.0080 | 0.0565 / 0.0100 |
+| null0721_n500 | 0.1125 / 0.0105 | 0.1345 / 0.0230 | 0.1340 / 0.0245 |
+| null0657_n1000 | 0.0130 / 0.0020 | 0.0060 / 0.0020 | 0.0190 / 0.0030 |
+| null0721_n1000 | 0.0425 / 0.0045 | 0.0375 / 0.0035 | 0.0485 / 0.0055 |
+| null0657_n1500 | 0.0030 / 0.0000 | 0.0005 / 0.0000 | 0.0030 / 0.0005 |
+| null0721_n1500 | 0.0085 / 0.0005 | 0.0070 / 0.0005 | 0.0145 / 0.0010 |
+
+---
+
+## 5. Findings
+
+- **The headline: a region is declared on 13.9% to 98.5% of replicates, under a design in which no
+  subgroup exists.** The extremes are DINA at `null0657_n1500` (278/2000, 0.1390
+  [0.1245, 0.1549]) and GRF at `null0721_n500` (1969/2000, 0.9845 [0.9781, 0.9891]). **Declaration
+  is not, and must not be read as, evidence that a subgroup exists.** This is the same reading
+  `current_status.md` §4 already requires of the differentially-null cells — "selection rate is not
+  an error rate" — and the structural null makes it unavoidable rather than arguable.
+
+- **The rate falls with n on every identifier, and it is higher at the weaker uniform benefit at
+  every n.** FS: 0.4470 → 0.3185 → 0.1685 at HR 0.657, and 0.6780 → 0.6170 → 0.4845 at HR 0.721.
+  The mechanism is the screening floor, which is **HR ≥ 0.90 on the natural scale**: a weaker
+  overall benefit leaves more of the candidate family above it, and a larger n tightens the
+  candidate estimates so fewer stray above it. Table 3 shows the floor-clearing count directly —
+  median 43 → 16 → 5 at HR 0.657, and 100 → 53 → 26 at HR 0.721, out of ~1,711–1,830 enumerated.
+
+- **GRF declares far more often than FS or DINA everywhere** (0.5645–0.9845 against 0.1390–0.7400),
+  and its ordering against the others never reverses. This is the identifier's own behaviour, not
+  the null's: `current_status.md` §2.3 records GRF selecting at or near 1 on the committed harm and
+  differentially-null cells too. Cross-identifier comparison here carries the same confound the
+  directory already flags — identifier, family construction and detection set — but **not** the
+  criterion confound, since all three ran `effMaxSG` ε 0.20.
+
+- **Size is remarkably stable: |Ĥ|/n sits between 0.150 and 0.228 in all eighteen runs**, with
+  Monte Carlo standard errors of 0.0016–0.0031. Whatever the cell and whatever the identifier, a
+  declared region is between a seventh and a quarter of the trial.
+
+- **Specificity, both conventions.** *Unconditional* (a replicate declaring nothing scores 1):
+  0.7878–0.9792, rising with n exactly as the declaration rate falls. *Conditional* (declaring
+  replicates only, S3.4): **0.7719–0.8502 — nearly flat across every cell and identifier.** That
+  flatness is the direct consequence of the |Ĥ|/n stability above: under an empty planted region
+  every selected subject is a false positive, so conditional specificity is exactly 1 − |Ĥ|/n. The
+  two conventions therefore say different things here, and the unconditional one is doing almost
+  all of its work through the declaration rate.
+
+- **The candidate family, and where the screen bites.** The enumerated family is flat at
+  1,711–1,830 conjunctions in every cell (it is outcome-independent). Of those, the median clearing
+  the effect floor falls from 100 to 5 across the grid, and the median *consistency-qualifying* set
+  is 2–7. **The consistency screen declines a floor-clearing family on 32.0% to 79.8% of the
+  replicates where something did clear the floor** — it is doing a great deal of work, and doing
+  more of it as n grows (0.5460 → 0.6660 → 0.7982 at HR 0.657).
+
+- **`max_g T_g` against the conventional cutoff `z_0.95 = 1.645` — it is not calibrated.** The
+  share exceeding 1.645 ranges from **0.0078** (`null0657_n1500`) to **0.2077** (`null0721_n500`),
+  a factor of 27, and it moves systematically with both n and the uniform effect. At
+  `null0721_n500` it is roughly four times nominal; at `null0657_n1500` it is a seventh of nominal.
+  The median itself moves from 0.146 to 1.159 across cells. **A fixed 1.645 cutoff on this
+  statistic would therefore not control anything uniformly over this grid**, which is precisely the
+  case for the calibrated cutoff of Section 4. Evaluating that cutoff is out of scope here; the
+  recorded `max_g T_g` is what makes it possible later without a re-run.
+
+- **Where the unadjusted bound lands.** Among declaring replicates, the share whose one-sided 95%
+  Wald lower bound reaches **HR 1.00** runs 0.0036–0.1818, and **HR 1.25** runs 0.0000–0.0311.
+  Both fall steeply with n. Unconditionally (Table 7) the worst cell is `null0721_n500`, where
+  **11.3% (FS) to 13.5% (DINA) of all replicates both declare a region and carry an unadjusted
+  lower bound at or above HR 1.00**, and 1.1%–2.5% reach 1.25. By n 1500 those are 0.3%–1.5% and
+  ≤ 0.1%. These are **unadjusted** products of the search itself; no selection-adjusted interval was
+  computed, and the point of this cell is not to evaluate one.
+
+- **The composition of Ĥ is driven by the candidate construction, not by signal.** On FS the ER
+  terms dominate (`NOT er <=` 0.2801, `er <=` 0.2537 of declaring replicates), then `NOT pgr <=`
+  (0.2143), `nodes <=` (0.1915) and the size terms. ER leads **because the template forces the cut
+  `er <= 0` and puts a 10-quantile grid on raw ER** (§0.4), not because ER carries any effect —
+  there is none. DINA's picks lead with `pgr >=` (0.2914) and GRF's with `nodes <=` (0.2864); each
+  engine's ordering follows its own enumeration. Read across identifiers, the only safe statement
+  is that the declared rule reflects how candidates were built.
+
+- **Cost.** 6,909 s of render wall over the eighteen runs (1.92 h), 991–1,331 s per cell, against a
+  1.71 h revised projection. The main campaign ran 6,088 s end to end; the cell-5 completion run
+  added 824 s. Host `Mac-Studio-3.local`, 14 physical cores, 36 GB, 12 workers, R 4.5.2,
+  forestsearch 0.3.5.9000, threads pinned to 1.
+
+## 6. What is not reported, and why
+
+- **Sensitivity and PPV are undefined with an empty planted region and are not reported.**
+  Sensitivity is `TP/(TP+FN)` with `TP = FN = 0` — it is NA on all 36,000 replicates, and Gate A
+  asserts that per bundle. PPV is `TP/(TP+FP)` with `TP = 0`, so it is **0 by construction** on
+  every declaring replicate and carries no information; the recorder stores it, and it should not
+  be quoted as a measured quantity.
+- **NPV is 1 by construction** — `TN/(TN+FN)` with `FN = 0 `— on every declaring replicate. Gate A
+  asserts it.
+- **The identified-to-planted size ratio has no denominator here** and is not reported.
+- **No MR product of any kind exists in these bundles.** Gate A asserts that all 118 `mr_*` /
+  `fld_*` / `fb_*` product columns are NA and that `mr_ok == 0`, per run.
+- **`n_family` is NA** and the maximum consistency rate over the *full screened* family is not
+  recoverable; both would require an `R/` change (§0.6).
+- **The other selection rules' picks are not recorded**, because this machinery does not produce
+  them from one search (§0.6).
+- **Rates carry Wilson 95% intervals and means carry Monte Carlo standard errors**, as S3.7
+  requires. A replicate-mean rate is reported beside, never inside, a Wilson interval.

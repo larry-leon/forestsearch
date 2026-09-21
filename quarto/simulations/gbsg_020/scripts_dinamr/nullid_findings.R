@@ -124,10 +124,13 @@ parse_terms <- function(sg) {
     neg <- startsWith(s, "!")
     body <- gsub("^!?\\{|\\}$", "", s)
     v  <- sub("^\\s*([A-Za-z._][A-Za-z0-9._]*).*$", "\\1", body)
+    # A bare {meno} / {grade3} is an INDICATOR cut, not a comparison: there is
+    # no operator to report, and !{meno} is the indicator being false.
     op <- if (grepl("<=", body)) "<=" else if (grepl(">=", body)) ">=" else
           if (grepl("==", body)) "==" else if (grepl("<", body)) "<" else
-          if (grepl(">", body)) ">" else "?"
-    sprintf("%s %s%s", v, if (neg) "NOT " else "", op)
+          if (grepl(">", body)) ">" else ""
+    if (!nzchar(op)) sprintf("%s%s (indicator)", if (neg) "NOT " else "", v)
+    else sprintf("%s%s %s", if (neg) "NOT " else "", v, op)
   }, character(1), USE.NAMES = FALSE)
 }
 for (e in names(ENG)) {
