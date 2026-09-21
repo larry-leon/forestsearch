@@ -65,7 +65,16 @@ camps <- list(
   idsweep = list(bdir = "results", bre = "^(fs|dina|grf)_.*_nomr_idsweep_(res|combined)_[0-9]+_[0-9]+[.]rds$",
                 rdir = ".", rre = "^idsweep_.*[.]html$",
                 scripts = "scripts_dinamr", sre = "idsweep",
-                docre = "^(REPORT|summary)_idsweep[_.]"))
+                docre = "^(REPORT|summary)_idsweep[_.]"),
+  # nullid (TASK_null_gbsg_identification_2026-09-21): the structural-null cell.
+  # Batch-only like idsweep -- one 2,000-replicate batch per cell-run, MR off,
+  # no combine -- so its engine line and its cells come from the batch metas.
+  # The smoke (`nullsmk`) and inertness (`nullinert`) bundles are quickrun-tagged
+  # and are deliberately OUTSIDE bre, so they never enter the cell table.
+  nullid = list(bdir = "results", bre = "^(fs|dina|grf)_.*_nomr_nullid_(res|combined)_[0-9]+_[0-9]+[.]rds$",
+                rdir = ".", rre = "^nullid_.*[.]html$",
+                scripts = "scripts_dinamr", sre = "nullid",
+                docre = "^(REPORT|summary)_null_gbsg[_.]"))
 
 meta_rows <- list(); nav <- character(0)
 for (cn in names(camps)) {
