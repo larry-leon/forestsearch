@@ -73,8 +73,18 @@ chk(nrow(det) == 0L || all(is.finite(det$nv_H_est)) || sum(is.finite(det$nv_H_es
 
 # --- engine-specific recorder expectations ---------------------------------
 if (identical(ENG, "consistency")) {
-  chk(sum(is.finite(r$maxT)) > 0.95 * nrow(r), "max_g T_g recorded on > 95% of replicates",
-      sprintf("(%d of %d)", sum(is.finite(r$maxT)), nrow(r)))
+  # maxT is computed from out.found$hr.subgroups, which is ABSENT when no
+  # candidate cleared the effect floor.  The invariant is therefore an iff, not
+  # a coverage threshold: an empty screened family is a legitimate -- and
+  # informative -- null outcome, and it becomes common at large n under the
+  # stronger uniform benefit (330 of 2000 at null0657_n1500, where a 95%
+  # coverage threshold falsely failed this gate).
+  chk(identical(is.finite(r$maxT), r$n_cand_floor > 0L),
+      sprintf("max_g T_g is finite exactly when the screened family is non-empty (%d of %d)",
+              sum(is.finite(r$maxT)), nrow(r)))
+  chk(sum(r$n_cand_floor == 0L & r$detected == 1L) == 0L,
+      "no replicate declares a region when nothing cleared the effect floor",
+      sprintf("(%d)", sum(r$n_cand_floor == 0L & r$detected == 1L)))
   chk(all(is.finite(r$n_cand_enum)), "n_cand_enum recorded on every replicate")
   chk(all(is.finite(r$n_cand_floor)), "n_cand_floor recorded on every replicate")
   chk(nrow(det) == 0L || all(is.finite(det$p_sel)), "p_sel recorded on every declaring replicate")

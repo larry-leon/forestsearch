@@ -1,0 +1,36 @@
+=====================================================================
+WITHDRAWN -- this halt record is FALSE.  The consistency run did not fail.
+=====================================================================
+  Written  : 2026-09-21, by scripts_dinamr/nullid.sh, on a Gate A failure.
+  Withdrawn: 2026-09-21, same session, after diagnosis.
+  Cause    : a bug in nullid_gateA.R, not in the run.  The gate asserted that
+             max_g T_g is "recorded on > 95% of replicates".  That threshold was
+             a guess, not an invariant.  maxT is computed from
+             find.grps$out.found$hr.subgroups, which is ABSENT when no candidate
+             cleared the effect floor (hr.threshold = 0.90 on the natural
+             scale).  At n 1500 under the stronger uniform benefit that happens
+             on 330 of 2000 replicates -- 16.5%, so the run tripped the 95%
+             threshold.
+  Evidence : the real invariant holds exactly --
+               is.finite(maxT)  <=>  n_cand_floor > 0     : TRUE, all 2000 rows
+               declarations while n_cand_floor == 0       : 0
+             An empty screened family is a legitimate and informative null
+             outcome, not a recording failure.
+  Fix      : nullid_gateA.R now asserts that iff, and separately that no
+             replicate declares a region when nothing cleared the floor.
+  Re-gated : GATE A PASS (30 checks, 0 failed) on the same bundle, unchanged.
+  Recorded : REPORT_null_gbsg_identification_2026-09-21.md.
+
+  CONSEQUENCE, and it is real: the driver abandoned the rest of the cell, so
+  the DINA and GRF runs of null0657_n1500 did NOT run at this point.  They were
+  run afterwards, under the corrected gate, and the cell was then closed by
+  Gate C.  The consistency bundle was NOT re-run -- it was correct all along.
+
+--- the original record, verbatim ---------------------------------------
+HALT RECORD -- nullid, cell null0657_n1500
+  task     : TASK_null_gbsg_identification_2026-09-21
+  when     : Mon Sep 21 16:08:51 PDT 2026
+  host     : Mac-Studio-3.local ; git e1de2b5a
+  stage    : run consistency (rc 2)
+  detail   : the consistency run of cell null0657_n1500 failed; see logs/nullid_null0657_n1500_consistency_effMaxSG.log and logs/nullid_gateA_null0657_n1500_consistency.log
+  action   : the rest of this cell is abandoned; the campaign continues at the next cell.

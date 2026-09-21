@@ -1,0 +1,35 @@
+GATE A -- null0721_n1500 (consistency, hr 0.721, n 1500)
+  bundle results/fs_effMaxSG_fb_mr_field_m1_h072_knoise0_n1500_null721_nb20_nomr_nullid_res_1_2000.rds
+[ ok ] 2000 rows
+[ ok ] sim_id is exactly 1..2000
+[ ok ] no CONFIG-ERROR rows
+[ ok ] every row DETECTED or NO-DETECTION
+[ ok ] meta dgm_model == 'null'
+[ ok ] meta target_hr_harm == the cell's HR
+[ ok ] meta harm_prevalence_super == 0
+[ ok ] meta harm_z1_quantile == 0.25 (M1 default, FS_S7_Z1Q unset)
+[ ok ] meta subgroup_method
+[ ok ] meta sg_focus == effMaxSG
+[ ok ] meta effect_neighborhood == 0.20
+[ ok ] meta carries the cell's n
+[ ok ] meta campaign_tag == nullid
+[ ok ] meta mr_inference == FALSE
+[ ok ] mr_ok == 0 on every replicate (MR never ran)
+[ ok ] meta fb_mode == none (no bootstrap)
+[ ok ] all 118 MR / field / FB product columns are NA
+[ ok ] n_true == 0 on every replicate (no planted region)
+[ ok ] sensitivity is NA on every replicate (empty planted region)
+[ ok ] NPV == 1 on every declaring replicate
+[ ok ] specificity finite on every declaring replicate
+[ ok ] 0 < |Hhat| <= n on every declaring replicate
+[ ok ] every declaring replicate carries a label
+[ ok ] unadjusted within-region estimate present on >= 95% of declaring replicates
+[ ok ] max_g T_g is finite exactly when the screened family is non-empty (1949 of 2000)
+[ ok ] no replicate declares a region when nothing cleared the effect floor
+[ ok ] n_cand_enum recorded on every replicate
+[ ok ] n_cand_floor recorded on every replicate
+[ ok ] p_sel recorded on every declaring replicate
+[ ok ] p_sel <= p_max_qual
+
+  declarations 969 / 2000 (0.4845) ; |Hhat| median 268 ; mean search 1.724 s
+GATE A PASS (30 checks, 0 failed)
