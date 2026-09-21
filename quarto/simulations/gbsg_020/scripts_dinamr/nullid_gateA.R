@@ -47,9 +47,13 @@ chk(identical(m$campaign_tag, "nullid"), "meta campaign_tag == nullid")
 
 # --- NO MR ANYWHERE ---------------------------------------------------------
 chk(isFALSE(m$mr_inference), "meta mr_inference == FALSE")
+chk(all(r$mr_ok == 0L), "mr_ok == 0 on every replicate (MR never ran)")
 chk(identical(m$fb_mode, "none"), "meta fb_mode == none (no bootstrap)")
 mrcols <- grep("^(mr_|fld_|fb_)", names(r), value = TRUE)
-mrcols <- setdiff(mrcols, c("fb_secs", "fb_err", "fit_mr_secs"))
+# mr_ok, fb_secs, fb_err and fit_mr_secs match the prefix but are not MR
+# PRODUCTS: mr_ok is as.integer(!is.null(fs.est$mr_inference)), i.e. 0 with MR
+# off, and the other three are timing / error fields.
+mrcols <- setdiff(mrcols, c("mr_ok", "fb_secs", "fb_err", "fit_mr_secs"))
 allna  <- vapply(mrcols, function(k) all(is.na(r[[k]])), logical(1))
 chk(all(allna), sprintf("all %d MR / field / FB product columns are NA", length(mrcols)),
     sprintf("(populated: %s)", paste(names(allna)[!allna], collapse = ", ")))
