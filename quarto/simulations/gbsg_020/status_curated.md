@@ -7,7 +7,11 @@
 
 - GBSG-based survival simulation. One template: `sim_fs_maxeffCons_fb_mr_field_m1_template.qmd`.
 - Cells are (prevalence × target HR × n): prevalence 12.4% (`FS_S7_Z1Q` unset) or 31% (`FS_S7_Z1Q=0.60`); HR 1.50, 1.75 or 1.00; n = 500, 1000, 1500. 2,000 replicates per cell unless stated.
-- **HR 1.00 is not a global null.** `FS_S7_HR` calibrates `k_inter` to a target Cox HR inside the planted region. The region rule depends on `FS_S7_Z1Q` alone, and `dgm_model <- "alt"` is a literal, so the harness's global-null path is unreachable. At HR 1.00 the planted region carries HR 1.00 against a benefiting complement (HR 0.657 at 12.4%, 0.721 at 31%). Describe it as **differentially null against a benefiting complement**, never with harm vocabulary.
+- **HR 1.00 is not a global null.** `FS_S7_HR` calibrates `k_inter` to a target Cox HR inside the planted region. The region rule depends on `FS_S7_Z1Q` alone. At HR 1.00 the planted region carries HR 1.00 against a benefiting complement (HR 0.657 at 12.4%, 0.721 at 31%). Describe it as **differentially null against a benefiting complement**, never with harm vocabulary.
+- **There are now TWO designs, and `FS_S7_DGM` selects them** (`TASK_null_gbsg_identification_2026-09-21`). `dgm_model` was the literal `"alt"`, which is why the harness's global-null path used to be unreachable; it is now read from `FS_S7_DGM`, default `"alt"`, so every committed render is unchanged.
+  - **`alt`** — everything above: a planted region, `k_inter` calibrated to `FS_S7_HR`, `k_treat = 1`.
+  - **`null`** — the **structural null** of §2.8: `.create_gbsg_dgm_()` drops `zh` from the design and sets `flag.harm == 0` with `fs_harm_true = NULL`, so **no region is planted and every subject carries the same treatment effect**. `FS_S7_HR` is then the target **super-population marginal Cox HR** (`dgm$hr_causal`), reached by calibrating `k_treat`; `FS_S7_Z1Q` is rejected, because with no region the quantile would move only the z1 main effect.
+  - **Vocabulary, and it matters.** The null design points are fixed by their **marginal Cox HR** (0.657, 0.721), because that is what the alt design's complement effects are. The **patient-level (individual) HR is uniform by construction** — that is what makes it a structural null — but it is a different number, further from 1: **0.582908** at the 0.657 point and **0.656562** at the 0.721 point. Under `null` the AHR equals the patient-level HR exactly, since `loghr_po` is constant. Never call 0.657 "the uniform patient-level HR".
 - Seeds are `8316951 + sim_id` throughout, so cells at matched coordinates share DGM draws across campaigns. Verified per cell on both GRF and DINA grids: `n_true` identical on all 2,000 rows, truth agreeing to ≤ 8.9e-15 (cross-machine BLAS; the largest observed is 8.882e-15, on the 31% HR 1.50 / 1.75 cells).
 
 ## 2. Campaigns
@@ -138,6 +142,21 @@
 - **On FS, `n_cons_qual` and `band_n` are populated**, unlike DINA and GRF.
 - **Merged** into `feature/glm-extension` under `TASK_p12x20_merge_2026-09-13`. Its logs (56 files, 106,953 B) are committed under rule 1.
 
+### 2.8 `nullid` — the structural null, identification only, complete
+
+- **What it is.** The strict-null cell the manuscript twice says the design lacks (§5.1 p. 27, §5.4 p. 34): the same GBSG survival design with **no planted region and a uniform treatment benefit**, run for identification and classification only. `TASK_null_gbsg_identification_2026-09-21`; record `REPORT_null_gbsg_identification_2026-09-21.md`.
+- **Grid.** 6 cells = 2 uniform effects (marginal Cox HR **0.657**, **0.721**) x n **500 / 1000 / 1500**. **No prevalence dimension** — there is no region, so `FS_S7_Z1Q` is rejected and `z1_quantile` stays at its 0.25 default. 3 identifiers (FS / DINA / GRF) on identical draws within a cell, 2,000 replicates each: **18 runs, 36,000 replicate-searches**.
+- **Settings.** `effMaxSG` eps 0.20 — the rule `max_A N(eps)` — on all three engines. Everything else is the campaign's: `hr.threshold` 0.90 (natural scale), `hr.consistency` 0.80, `p*` 0.90, `d0/d1.min` 10, `maxk` 2, `n.min` NULL. MR off (`FS_S7_MR=FALSE`), `FS_S7_FB=none`. **No MR, no bootstrap, no CV, no interval product of any kind** — Gate A asserts per run that all 118 `mr_*` / `fld_*` / `fb_*` columns are NA and `mr_ok == 0`.
+- **Run on the Mac** (`Mac-Studio-3.local`, 12 workers, R 4.5.2, forestsearch 0.3.5.9000), as `idsweep` was. 6,909 s of render wall over the 18 runs.
+- **Design point, verified before any replicate** (`scripts_dinamr/logs/nullid_designpoint.txt`): prevalence 0 and truth labels absent; `max_g |beta(g) - log HR_uniform|` = 0.000e+00 / 5.551e-17 over the 433 non-empty conjunctions of the 29-factor enumerated family; marginal Cox HR within 1.155e-08 / 2.722e-11 of target.
+- **Headline: a region is declared on 13.9% to 98.5% of replicates, under a design in which no subgroup exists.** DINA 0.1390 [0.1245, 0.1549] at `null0657_n1500`; GRF 0.9845 [0.9781, 0.9891] at `null0721_n500`. **Declaration is not evidence that a subgroup exists.**
+- The rate **falls with n** on every identifier and is **higher at the weaker uniform benefit** at every n. The mechanism is the HR >= 0.90 screening floor: median candidates clearing it fall 43 -> 16 -> 5 at HR 0.657 and 100 -> 53 -> 26 at HR 0.721, out of ~1,711-1,830 enumerated.
+- **`max_g T_g` is not calibrated against the conventional `z_0.95 = 1.645`**: the share exceeding it runs **0.0078 to 0.2077** across the six cells, moving systematically with n and with the effect. It is recorded per replicate so Section 4's calibrated cutoff can be evaluated later **without a re-run**; that evaluation was out of scope here.
+- **Conditional specificity is nearly flat (0.7719-0.8502) by arithmetic, not by result**: with an empty planted region it is exactly 1 - |Hhat|/n, and |Hhat|/n sits in 0.150-0.228 in all eighteen runs. Unconditional specificity (0.7878-0.9792) does almost all its work through the declaration rate.
+- **Sensitivity and PPV are undefined here** (empty planted region) and are not reported; PPV is 0 by construction on every declaring replicate and must not be quoted as measured. **NPV is 1 by construction.** The identified-to-planted size ratio has no denominator.
+- **Two gate bugs, both mine, both corrected, both recorded** — see §7. Neither was a run failure and no bundle was re-run; the final state is 18 of 18 runs with Gate A PASS on every one and Gate C PASS on every cell. The driver's own closing line reads `completed 4 cells ... failed 2`; it is superseded by the report.
+- **Recorder additions** (template level, add-only, NA elsewhere): `n_cand_enum`, `n_cand_floor`, `maxT`, `p_sel`, `p_max_qual`, `nv_H_lo1s`; and `nv_H_*` / `nv_Hc_*` are now **populated with MR off** from the search's own Cox refit of the selected region. The first five are **consistency-engine only** — DINA and GRF return neither `find.grps` nor `out_sg$result`.
+
 <!-- curated:after-inventory-table -->
 Sizes are **apparent size** (`st_size`), in MiB/KiB, not disk usage; `du` reports block-allocated size and reads larger for many small files. **Every file is counted exactly once**: the rules are applied first-match-wins and the rows sum to the total. **Files over 50 MB: 0; over 100 MB: 0.** The gitignored `_gateT_pre_template_files/` and `.DS_Store` are excluded throughout. The `current_status.md` row shows this file's size at the pin, before this regeneration.
 
@@ -156,12 +175,15 @@ Sizes are **apparent size** (`st_size`), in MiB/KiB, not disk usage; `du` report
 | Part B: the `FS_S7_MR` change, Gate T3, the OC table, criterion agreement, the 288-cell-run projection | `REPORT_partB_enabling_2026-09-12.md`, `scripts_dinamr/partBoc_table.R`, `partBoc_checks.R` |
 | Part B sweep: detection or selection, subgroup size, classification and criterion agreement for three engines × six criteria × 18 cells (MR off) | `summary_idsweep.html`, `REPORT_idsweep_2026-09-12.md`, `scripts_dinamr/logs/idsweep_findings.txt` |
 | Part A: FS at `effMaxSG` ε 0.20 on the nine 12.4% cells — per-cell gate record, detection, classification, interval invariants | `p12x20_2026-09-12/REPORT_p12x20_A*.md` and `GATE2_p12x20_A*.txt`; campaign record `STATUS_p12x20.md` |
+| The strict null: false-declaration rates, size, specificity both ways, `max_g T_g`, bound location | `REPORT_null_gbsg_identification_2026-09-21.md`; design point `scripts_dinamr/logs/nullid_designpoint.txt` |
 | Raw per-replicate rows | `results/*<campaign>*.rds`; `p12x20` in `p12x20_2026-09-12/` |
 <!-- curated:after-inventory -->
 ## 4. Reading conventions that must travel with these numbers
 
 - Read every bound **by its location** against clinically meaningful effect sizes. Never frame a result as significance at HR = 1.00.
 - **Selection rate is not an error rate.** At the differentially-null cells FS, DINA and GRF all select frequently and admissibly; GRF at 31% selects at 1 within its interval. What speaks to an unsupported claim is the share of lower bounds reaching HR 1.00 and 1.25.
+  - **`nullid` (§2.8) settles what that rate is when there is genuinely nothing to find**: 0.1390-0.9845 against a structural null. A declaration rate near 1 is therefore compatible with no subgroup existing, and cannot on its own distinguish the two.
+- **Under a structural null, conditional specificity is 1 - |Hhat|/n exactly** and carries no information beyond region size; quote the unconditional convention, or quote |Hhat|/n directly. Sensitivity and PPV are undefined there, and NPV is 1 by construction.
 - Coverage and bias as one comparative table (cells × estimators), then a short plain-language reading, not narrative prose.
 - Marginal SD and error SD side by side. A Gaussian reference on the marginal SD understates the prediction by up to 7.5 points where the target moves with the estimate; both forms are in the summaries with their formulas stated.
 - Wilson intervals on every rate. A Wilson interval belongs on pooled subject-level counts or on a rate over replicates; a replicate-mean rate goes beside it without one.
@@ -218,6 +240,10 @@ The first three entries name files that live **outside this repository** (the `f
   - `p12x20` (§2.7) supplies FS at `effMaxSG` ε 0.20 with MR on at all nine 12.4% cells.
   - `idsweep` supplies FS identification and classification at those cells under `effMaxSG` ε 0.20 and `maxeffCons`, MR off.
   - `gate2G.R`, `fs_extraction.R` and the `dinamr` / `grfmr` summaries still designate `p12ext` / `tier2` at 12.4% (§2.1). Whether and how to repoint them is open.
+- **`nullid` (§2.8): complete. Three items for review.**
+  - **The design-point gate amendment**, applied unattended. The task fixed 1e-8 on check (3), the marginal-HR check; `dgm$hr_causal` is a `coxph` MLE on a 200,000-row stacked frame whose solver noise is ~8e-8 in absolute HR, so 1e-8 is below the numerical resolution of the quantity at the 0.657 design point (best attainable 1.155e-08; 0.721 reaches 2.722e-11). Check (3) asserts 1e-8, prints the outcome either way, and falls back to 1e-6 absolute on a miss. Checks (1) and (2) keep 1e-8 and pass at 1e-16 or exactly zero. Needs Larry's acceptance or reversal. Precedent: `idsweep` Gate I Amendment 1.
+  - **`nv_H_*` / `nv_Hc_*` now populate with MR off.** This is what makes the unadjusted within-region estimate available without MR, but it changes what an MR-off render records: a future re-render of an `idsweep` cell would fill eight columns that are NA in the committed bundles. No existing value changes.
+  - **Not done, deliberately:** the evaluation of Section 4's calibrated cutoff (the recorded `max_g T_g` makes it possible without a re-run), and a boundary null at uniform HR 1.00 — three more cells on this machinery, Larry's call.
 - Whether DINA and GRF should default to the field constructions, now informed by two complete 18-cell grids.
 - Whether to pin a commit in `forestsearch_version`.
 - The frontier-filter asymmetry decision (GRF's band as a filter with no empty-band fallback, where DINA uses a sort key and MR's `.inband()` has a "never empty" fallback) remains open; §2.4 states what can and cannot empty.
