@@ -119,7 +119,7 @@ for (cn in names(camps)) {
       stringsAsFactors = FALSE)
   }
   if (batch_only) {
-    key <- vapply(bms, function(b) with(b$meta, sprintf("%.5f|%.2f|%d", harm_prevalence_super, target_hr_harm, n_sample)), "")
+    key <- vapply(bms, function(b) with(b$meta, sprintf("%.5f|%.6f|%d", harm_prevalence_super, target_hr_harm, n_sample)), "")
     for (kk in unique(key)) {
       ii <- which(key == kk); m <- bms[[ii[1]]]$meta; bm_ <- lapply(bms[ii], `[[`, "meta")
       meta_rows[[length(meta_rows) + 1]] <- data.frame(
@@ -136,6 +136,10 @@ for (cn in names(camps)) {
 }
 cells <- do.call(rbind, meta_rows)
 cells <- cells[order(cells$campaign, cells$prev, cells$hr, cells$n), ]
+# Two decimals is right for the alt grid (1.00 / 1.50 / 1.75) and WRONG for the
+# structural-null design points (0.657 / 0.721), which it rounds to 0.66 / 0.72.
+# Print the third decimal only when it carries information.
+.hrfmt <- function(x) if (isTRUE(all.equal(x, round(x, 2)))) sprintf("%.2f", x) else sprintf("%.3f", x)
 
 # ---- preamble, then curated §1-§2 --------------------------------------------
 L <- c(sprintf("# current_status — `%s`", rq), "",
@@ -165,7 +169,7 @@ for (cn in names(camps)) {
     if (bo) "| cell | prevalence (super-population) | HR | n | rows per run | sim_id | runs (batch bundles) | host | workers | forestsearch | first batch bundle | total size | tracked (all) |" else
     "| cell | prevalence (super-population) | HR | n | rows | sim_id | batches | host | workers | forestsearch | combined bundle | size | tracked |",
     "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
-    sprintf("| %s | %.5f | %.2f | %d | %d | %s | %d | %s | %s | %s | `%s` | %s | %s |", d$cell, d$prev, d$hr, d$n, d$rows, d$sim,
+    sprintf("| %s | %.5f | %s | %d | %d | %s | %d | %s | %s | %s | `%s` | %s | %s |", d$cell, d$prev, .hrfmt(d$hr), d$n, d$rows, d$sim,
             d$batches, d$host, d$workers, d$version, d$path, MB(d$size), ifelse(d$tracked, "yes", "no")), "")
 }
 seeds <- unique(unlist(lapply(cells$path, function(p) readRDS(p)$meta$seed_base)))
@@ -177,7 +181,14 @@ for (cn in names(camps)) {
     dinamr = c(file.path(rq, "results/*_dinamr_*"), file.path(rq, "dinamr_*.html")),
     grfmr  = c(file.path(rq, "results/*_grfmr_*"),  file.path(rq, "grfmr_*.html")),
     p12x20 = c(file.path(rq, PAYDIR), file.path(rq, "scripts_p12x20"), file.path(rq, "STATUS_p12x20.md")),
-    idsweep = c(file.path(rq, "results/*_nomr_idsweep_*"), file.path(rq, "idsweep_*.html")))
+    idsweep = c(file.path(rq, "results/*_nomr_idsweep_*"), file.path(rq, "idsweep_*.html")),
+    nullid  = c(file.path(rq, "results/*_nomr_nullid_*"),  file.path(rq, "nullid_*.html")))
+  # A missing branch here makes switch() return NULL, and `git log --` with an
+  # empty pathspec logs the ENTIRE REPOSITORY.  Guard it: a campaign with no
+  # pathspec is a bug in this registry, not a campaign with thousands of commits.
+  if (is.null(specs) || !length(specs))
+    stop("current_status_regen.R: no git pathspec for campaign '", cn,
+         "' -- add one to `specs` above.", call. = FALSE)
   lg <- git("log", "--format=%h %ad %s", "--date=short", "--", specs)
   L <- c(L, sprintf("- `%s` bundles/renders: %d commits; first `%s`; last `%s`.", cn, length(lg),
                     sub(" .*", "", tail(lg, 1) %||% "none"), sub(" .*", "", lg[1] %||% "none")))
