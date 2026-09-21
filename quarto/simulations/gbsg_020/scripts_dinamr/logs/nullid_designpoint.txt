@@ -1,0 +1,43 @@
+nullid STRUCTURAL-NULL DESIGN-POINT RECORD
+TASK_null_gbsg_identification_2026-09-21, Step 1 ;  2026-09-21 14:49:48 
+host Mac-Studio-3.local ; R 4.5.2 ; forestsearch 0.3.5.9000
+DGM: setup_gbsg_dgm(model = "null"), z1_quantile 0.25, n_super 100000, seed 8316951.
+  model = "null" drops zh from the AFT design and sets flag.harm == 0 with
+  fs_harm_true = NULL (R/sim_aft_gbsg.R:302-310, :336-349, :370-378).
+
+== design point: super-population marginal Cox HR = 0.657 ==
+  k_treat = 1.27232145415221
+  [1] planted-region prevalence 0.0000000000 ; truth labels absent TRUE -> PASS
+  [2] candidate family: 29 factors, 435 enumerated conjunctions (maxk 2), 433 non-empty
+      max_g |beta(g) - log HR_uniform| = 0.000e+00 -> PASS
+      strongest form: range of the patient-level log HR over all 100000 subjects = 4.441e-16
+  [3] super-population marginal Cox HR 0.657000011553 vs target 0.657000000000 ; |diff| 1.155e-08 -> PASS UNDER AMENDMENT (within 1e-06)
+      uniform patient-level HR exp(b0[treat]) = 0.582908 ; AHR = 0.582908
+      hr_Hc_true (== hr_causal under the null) = 0.657000
+
+== design point: super-population marginal Cox HR = 0.721 ==
+  k_treat = 0.99182531577674
+  [1] planted-region prevalence 0.0000000000 ; truth labels absent TRUE -> PASS
+  [2] candidate family: 29 factors, 435 enumerated conjunctions (maxk 2), 433 non-empty
+      max_g |beta(g) - log HR_uniform| = 5.551e-17 -> PASS
+      strongest form: range of the patient-level log HR over all 100000 subjects = 3.886e-16
+  [3] super-population marginal Cox HR 0.720999999973 vs target 0.721000000000 ; |diff| 2.722e-11 -> PASS (1e-8)
+      uniform patient-level HR exp(b0[treat]) = 0.656562 ; AHR = 0.656562
+      hr_Hc_true (== hr_causal under the null) = 0.721000
+
+For reference, the alt design's complement effects at HR 1.00, which fix these two targets:
+  z1_quantile 0.25 : prevalence 0.12418 ; hr_H 1.000454 ; hr_Hc 0.656891
+  z1_quantile 0.60 : prevalence 0.30655 ; hr_H 0.999870 ; hr_Hc 0.720557
+Warning messages:
+1: In coxph.fit(X, Y, istrat, offset, init, control, weights = weights,  :
+  Loglik converged before variable  1 ; coefficient may be infinite. 
+2: In coxph.fit(X, Y, istrat, offset, init, control, weights = weights,  :
+  Loglik converged before variable  1 ; coefficient may be infinite. 
+3: In coxph.fit(X, Y, istrat, offset, init, control, weights = weights,  :
+  Loglik converged before variable  1 ; coefficient may be infinite. 
+4: In coxph.fit(X, Y, istrat, offset, init, control, weights = weights,  :
+  Loglik converged before variable  1 ; coefficient may be infinite. 
+5: In coxph.fit(X, Y, istrat, offset, init, control, weights = weights,  :
+  Loglik converged before variable  1 ; coefficient may be infinite. 
+6: In coxph.fit(X, Y, istrat, offset, init, control, weights = weights,  :
+  Loglik converged before variable  1 ; coefficient may be infinite. 
