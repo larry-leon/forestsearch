@@ -1,0 +1,41 @@
+nullmr Step 3.1 smoke and the grid projection
+TASK_null_gbsg_mr_2026-09-21 ; 2026-09-21 21:38:25 ; host pop-os ; R 4.6.1 ; forestsearch 0.3.5.9000 ; 64 workers
+
+== consistency ==
+  n 500  (null0657): declared  6/20 ; mean s non-declaring 2.598 ; declaring 29.56 ; all 10.686 ; render wall 88 s
+  n 1500 (null0721): declared 10/20 ; mean s non-declaring 3.801 ; declaring 54.475 ; all 29.138 ; render wall 109 s
+  measured n-scaling of the all-replicate mean, n1500 / n500: 2.727
+== dina ==
+  n 500  (null0657): declared  9/20 ; mean s non-declaring 0.139 ; declaring 10.694 ; all 4.889 ; render wall 82 s
+  n 1500 (null0721): declared 11/20 ; mean s non-declaring 0.185 ; declaring 14.305 ; all 7.951 ; render wall 73 s
+  measured n-scaling of the all-replicate mean, n1500 / n500: 1.626
+== grf ==
+  n 500  (null0657): declared 20/20 ; mean s non-declaring NA ; declaring 26.233 ; all 26.233 ; render wall 86 s
+  n 1500 (null0721): declared 19/20 ; mean s non-declaring 2.048 ; declaring 41.107 ; all 39.154 ; render wall 94 s
+  measured n-scaling of the all-replicate mean, n1500 / n500: 1.493
+
+  render overhead (wall - slowest replicate), max over the 6 smoke renders: 58 s
+
+| cell | engine | nullid decl. rate | s/rep | compute s @64w (x load) | render s |
+|---|---|---|---|---|---|
+| null0657_n500 | consistency | 0.4470 | 14.650 | 458 (x1.17) | 594 |
+| null0657_n500 | dina | 0.5580 | 6.028 | 188 (x1.17) | 279 |
+| null0657_n500 | grf | 0.9420 | 24.791 | 775 (x1.17) | 965 |
+| null0721_n500 | consistency | 0.6780 | 20.878 | 652 (x1.17) | 821 |
+| null0721_n500 | dina | 0.7400 | 7.949 | 248 (x1.17) | 349 |
+| null0721_n500 | grf | 0.9845 | 25.848 | 808 (x1.17) | 1003 |
+| null0657_n1000 | consistency | 0.3185 | 15.563 | 486 (x1.87) | 968 |
+| null0657_n1000 | dina | 0.2965 | 3.820 | 119 (x1.87) | 281 |
+| null0657_n1000 | grf | 0.8310 | 28.269 | 883 (x1.87) | 1710 |
+| null0721_n1000 | consistency | 0.6170 | 27.150 | 848 (x1.87) | 1645 |
+| null0721_n1000 | dina | 0.5760 | 7.268 | 227 (x1.87) | 483 |
+| null0721_n1000 | grf | 0.9430 | 31.848 | 995 (x1.87) | 1919 |
+| null0657_n1500 | consistency | 0.1685 | 12.340 | 386 (x2.57) | 1049 |
+| null0657_n1500 | dina | 0.1390 | 2.147 | 67 (x2.57) | 231 |
+| null0657_n1500 | grf | 0.5645 | 24.097 | 753 (x2.57) | 1993 |
+| null0721_n1500 | consistency | 0.4845 | 28.353 | 886 (x2.57) | 2335 |
+| null0721_n1500 | dina | 0.3740 | 5.466 | 171 (x2.57) | 497 |
+| null0721_n1500 | grf | 0.8445 | 35.034 | 1095 (x2.57) | 2872 |
+
+  PROJECTED GRID: 5.55 h  (no load factor 3.08 h ; load factor 3.27 at every n 9.42 h)
+  bound 16 h -> UNDER: the grid runs straight away (Step 3.4)

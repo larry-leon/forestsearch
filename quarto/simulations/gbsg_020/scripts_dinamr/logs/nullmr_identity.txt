@@ -1,0 +1,47 @@
+nullmr Step 3.2 -- identity gate: MR on vs nullc125's MR-off render, same replicates
+  host pop-os ; R 4.6.1 ; forestsearch 0.3.5.9000 ; 2026-09-21 21:33:18
+  cell null0657_n500, sim_id 1-20 ; MR-on campaign nullmrsmoke ; MR-off campaign nullc125inertunset
+
+== consistency ==
+  meta mr_inference on/off: TRUE / FALSE ; rows 20 / 20
+  declarations on/off: 6 / 6 ; mr_ok on declaring (MR on): 6
+  shared columns 178 ; excluded 132 (MR-off-only 3, MR/field/IJ 116, naive (MR-path) 8, timing 5) ; gated 46
+  identical on 46 of 46 gated columns ; truth identical TRUE
+    [printed] nv_H_est   finite on/off  6 /  6 ; same NA pattern TRUE ; max |diff| 0
+    [printed] nv_H_lo    finite on/off  6 /  6 ; same NA pattern TRUE ; max |diff| 0.017
+    [printed] nv_H_hi    finite on/off  6 /  6 ; same NA pattern TRUE ; max |diff| 0.0624
+    [printed] nv_H_se    finite on/off  6 /  6 ; same NA pattern TRUE ; max |diff| 0.012
+    [printed] nv_Hc_est  finite on/off  6 /  6 ; same NA pattern TRUE ; max |diff| 0
+    [printed] nv_Hc_lo   finite on/off  6 /  6 ; same NA pattern TRUE ; max |diff| 0.00184
+    [printed] nv_Hc_hi   finite on/off  6 /  6 ; same NA pattern TRUE ; max |diff| 0.00314
+    [printed] nv_Hc_se   finite on/off  6 /  6 ; same NA pattern TRUE ; max |diff| 0.00197
+
+== dina ==
+  meta mr_inference on/off: TRUE / FALSE ; rows 20 / 20
+  declarations on/off: 9 / 9 ; mr_ok on declaring (MR on): 9
+  shared columns 178 ; excluded 132 (MR-off-only 3, MR/field/IJ 116, naive (MR-path) 8, timing 5) ; gated 46
+  identical on 46 of 46 gated columns ; truth identical TRUE
+    [printed] nv_H_est   finite on/off  9 /  9 ; same NA pattern TRUE ; max |diff| 0
+    [printed] nv_H_lo    finite on/off  9 /  9 ; same NA pattern TRUE ; max |diff| 0.0152
+    [printed] nv_H_hi    finite on/off  9 /  9 ; same NA pattern TRUE ; max |diff| 0.0646
+    [printed] nv_H_se    finite on/off  9 /  9 ; same NA pattern TRUE ; max |diff| 0.0113
+    [printed] nv_Hc_est  finite on/off  9 /  9 ; same NA pattern TRUE ; max |diff| 0
+    [printed] nv_Hc_lo   finite on/off  9 /  9 ; same NA pattern TRUE ; max |diff| 0.0019
+    [printed] nv_Hc_hi   finite on/off  9 /  9 ; same NA pattern TRUE ; max |diff| 0.0033
+    [printed] nv_Hc_se   finite on/off  9 /  9 ; same NA pattern TRUE ; max |diff| 0.00214
+
+== grf ==
+  meta mr_inference on/off: TRUE / FALSE ; rows 20 / 20
+  declarations on/off: 20 / 20 ; mr_ok on declaring (MR on): 20
+  shared columns 178 ; excluded 132 (MR-off-only 3, MR/field/IJ 116, naive (MR-path) 8, timing 5) ; gated 46
+  identical on 46 of 46 gated columns ; truth identical TRUE
+    [printed] nv_H_est   finite on/off 20 / 20 ; same NA pattern TRUE ; max |diff| 0
+    [printed] nv_H_lo    finite on/off 20 / 20 ; same NA pattern TRUE ; max |diff| 0.017
+    [printed] nv_H_hi    finite on/off 20 / 20 ; same NA pattern TRUE ; max |diff| 0.0516
+    [printed] nv_H_se    finite on/off 20 / 20 ; same NA pattern TRUE ; max |diff| 0.012
+    [printed] nv_Hc_est  finite on/off 20 / 20 ; same NA pattern TRUE ; max |diff| 0
+    [printed] nv_Hc_lo   finite on/off 20 / 20 ; same NA pattern TRUE ; max |diff| 0.00178
+    [printed] nv_Hc_hi   finite on/off 20 / 20 ; same NA pattern TRUE ; max |diff| 0.00323
+    [printed] nv_Hc_se   finite on/off 20 / 20 ; same NA pattern TRUE ; max |diff| 0.00235
+
+IDENTITY GATE PASS (0 failing identifiers)
