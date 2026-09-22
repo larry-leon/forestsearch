@@ -27,6 +27,8 @@ rules <- list(
   c("results/*_nullc125*_quickrun_*.rds", "`nullc125` Step 3.1 smoke (`nullc125smoke`, at 1.25 / 1.00) and the Step 1.5 threshold-knob inertness renders (`nullc125inert*`, at 0.90 / 0.80), 20 replicates each"),
   c("results/*_nb20_nullmr_*.rds", "`nullmr` per-replicate bundles (structural null at c1 0.90 / c2 0.80, MR on, 2,000 replicates, one batch per run; all three engines)"),
   c("results/*_nullmrsmoke_quickrun_*.rds", "`nullmr` Step 3.1 smoke (`nullmrsmoke`, MR on), 20 replicates each"),
+  c("results/declcal_pilot_*.rds", "`declcal` Stage 1 pilot (cell A2, 200 replicates, B 2000 sub-sampled)"),
+  c("results/declcal_*.rds", "`declcal` per-replicate payloads (section-5 schema + aux + meta; FS only, c1 = c2 = 1.0, 2,000 replicates per cell; blocks bnull / inull / power)"),
   c("results/*null*_quickrun_*.rds", "`nullid` Step 2 smoke (`nullsmk`) and the alt-path inertness check (`nullinert`), 20 replicates each"),
   c("results/fs_*.rds", "FS bundles -- the comparator grid plus every earlier FS campaign"),
   c("results/*.rds", "other bundles in `results/`"),
