@@ -1,0 +1,49 @@
+GATE A -- null0657_n1000 (consistency, hr 0.657, n 1000, c1 1.25, c2 1.00, 2000 reps)
+  bundle results/fs_effMaxSG_fb_mr_field_m1_h066_knoise0_n1000_null657_nb20_nomr_c125c100_nullc125_res_1_2000.rds
+[ ok ] 2000 rows
+[ ok ] sim_id is exactly 1..2000
+[ ok ] no CONFIG-ERROR rows
+[ ok ] every row DETECTED or NO-DETECTION
+[ ok ] status DETECTED exactly where detected == 1
+[ ok ] meta dgm_model == 'null'
+[ ok ] meta target_hr_harm == the cell's HR
+[ ok ] meta harm_prevalence_super == 0
+[ ok ] meta harm_z1_quantile == 0.25 (M1 default, FS_S7_Z1Q unset)
+[ ok ] meta subgroup_method
+[ ok ] meta sg_focus == effMaxSG
+[ ok ] meta effect_neighborhood == 0.20
+[ ok ] meta er_jcuts == 10 (FS_S7_ER_JCUTS unset)
+[ ok ] meta campaign_tag == nullc125
+[ ok ] meta c1 == 1.25
+[ ok ] meta c2 == 1.00
+[ ok ] meta pstar == 0.90 (the literal)
+[ ok ] meta dmin_grf == 0.0
+[ ok ] meta dina_m_diff == log(c1)
+[ ok ] resolved c1 == the knob on every replicate where recorded
+[ ok ] resolved c2 == the knob on every replicate where recorded
+       (resolved thresholds recorded on 2000 / 2000 replicates for c1, 2000 / 2000 for c2)
+[ ok ] itt_est finite on every replicate
+[ ok ] itt_se finite and positive on every replicate
+[ ok ] meta mr_inference == FALSE
+[ ok ] mr_ok == 0 on every replicate (MR never ran)
+[ ok ] meta fb_mode == none (no bootstrap)
+[ ok ] all 118 MR / field / FB product columns are NA
+[ ok ] n_true == 0 on every replicate (no planted region)
+[ ok ] sensitivity is NA on every replicate (empty planted region)
+[ ok ] NPV == 1 on every declaring replicate
+[ ok ] specificity finite on every declaring replicate
+[ ok ] 0 < |Hhat| <= n on every declaring replicate
+[ ok ] every declaring replicate carries a label
+[ ok ] unadjusted estimate, SE and one-sided bound are finite together on declaring replicates
+[ ok ] no unadjusted estimate on non-declaring replicates
+       (unadjusted within-region estimate present on 65 / 65 declaring replicates)
+[ ok ] max_g T_g is finite exactly when the screened family is non-empty (576 of 2000)
+[ ok ] no replicate declares a region when nothing cleared the effect floor
+[ ok ] n_cand_enum recorded on every replicate
+[ ok ] n_cand_floor recorded on every replicate
+[ ok ] p_sel recorded on every declaring replicate
+[ ok ] p_sel <= p_max_qual
+[ ok ] p_sel >= p* on every declaring replicate
+
+  declarations 65 / 2000 (0.0325) ; |Hhat| median 129 ; mean search 3.577 s
+GATE A PASS (42 checks, 0 failed)
