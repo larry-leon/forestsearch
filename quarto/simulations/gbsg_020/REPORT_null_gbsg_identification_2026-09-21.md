@@ -23,6 +23,21 @@ sweep (§2.6 of `current_status.md`), ran on this same Mac at 12 workers. Nothin
 fixed parameters is host-dependent, and no MR product — the one place where a host factor has been
 measured to matter here (`REPORT_partB_measurement_2026-09-12.md`) — is computed.
 
+**Thresholds — by Larry's disposition of 2026-09-21.** This run uses the template's
+**c1 = 0.90, c2 = 0.80, p⋆ = 0.90** (`sim_fs_maxeffCons_fb_mr_field_m1_template.qmd:601-603`,
+passed at `:1225-1226`; c2 is passed explicitly). That is the pair the main manuscript's simulations
+used, and it is fixed by Larry's disposition of 2026-09-21. The same c1 sets DINA's proposal floor,
+`m_diff = log(0.90)` (`R/forestsearch_helpers.R:1525-1526`), and GRF's effect-scale admission floor,
+with `dmin.grf = 0.0` (`:569`). **Any "log 1.0" in the task or its handoff is superseded by that
+disposition. It is not a deviation and not a stop.** That includes the manuscript p. 7 TODO quoted
+in §0.4.
+
+**Package build — the comparators and this run differ.** The committed comparator bundles of the
+survival campaigns this cell stands beside all record `meta$forestsearch_version = "0.3.5"`: cert20
+7, p12x20 9, dinamr 18 and grfmr 18 combined bundles. The 18 nullid bundles record
+**0.3.5.9000**. `DESCRIPTION` moved 0.3.5 → 0.3.5.9000 in `66c4469b` (2026-09-18), after those
+campaigns and before this one. The comparison is therefore across builds, not within one.
+
 ---
 
 ## 0. The campaign, read from source
