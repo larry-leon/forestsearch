@@ -1,0 +1,59 @@
+GATE A -- null0721_n1500 (grf, hr 0.721, n 1500, c1 0.90, c2 0.80, 2000 reps)
+  bundle results/grf_effMaxSG_fb_mr_field_m1_h072_knoise0_n1500_null721_nb20_nullmr_res_1_2000.rds
+[ ok ] 2000 rows
+[ ok ] sim_id is exactly 1..2000
+[ ok ] no CONFIG-ERROR rows
+[ ok ] every row DETECTED or NO-DETECTION
+[ ok ] status DETECTED exactly where detected == 1
+[ ok ] meta dgm_model == 'null'
+[ ok ] meta target_hr_harm == the cell's HR
+[ ok ] meta harm_prevalence_super == 0
+[ ok ] meta harm_z1_quantile == 0.25 (M1 default, FS_S7_Z1Q unset)
+[ ok ] meta subgroup_method
+[ ok ] meta sg_focus == effMaxSG
+[ ok ] meta effect_neighborhood == 0.20
+[ ok ] meta er_jcuts == 10 (FS_S7_ER_JCUTS unset)
+[ ok ] meta campaign_tag == nullmr
+[ ok ] meta c1 == 0.90
+[ ok ] meta c2 == 0.80
+[ ok ] meta pstar == 0.90 (the literal)
+[ ok ] meta dmin_grf == 0.0
+[ ok ] meta dina_m_diff == log(c1)
+[ ok ] resolved c1 == c1 on every replicate
+[ ok ] resolved c2 == c2 on every replicate
+       (resolved thresholds recorded on 2000 / 2000 replicates for c1, 2000 / 2000 for c2)
+[ ok ] itt_est finite on every replicate
+[ ok ] itt_se finite and positive on every replicate
+[ ok ] meta mr_inference == TRUE
+[ ok ] meta ci_method == field
+[ ok ] meta mr_draws == 5000 (template :545)
+[ ok ] meta MR knobs: field_complement TRUE, field_decompose TRUE, scale_complement selected, ij two_term, uniform FALSE
+[ ok ] meta field_recovery == TRUE (the committed DINA / GRF setting)
+[ ok ] meta fb_mode == none (no bootstrap)
+[ ok ] mr_ok is 0 or 1 on every replicate
+[ ok ] mr_ok == 0 on every non-declaring replicate
+[ ok ] all 117 MR / field product columns are NA on every non-declaring replicate (310 rows)
+[ ok ] naive finite wherever mr_ok == 1 (nv_H_est, nv_H_lo, nv_H_hi, nv_H_se, nv_Hc_est, nv_Hc_lo, nv_Hc_hi, nv_Hc_se; 1690 rows)
+[ ok ] IJ two-term finite wherever mr_ok == 1 (mr_H_est, mr_H_lo, mr_H_hi, mr_H_se_ij, mr_Hc_est, mr_Hc_lo, mr_Hc_hi, mr_Hc_se_ij; 1690 rows)
+[ ok ] field lower finite wherever mr_ok == 1 (fld_H_lo1s; 1690 rows)
+[ ok ] field-s upper finite wherever mr_ok == 1 (fld_Hc_up1s_s; 1690 rows)
+[ ok ] Bonferroni pair finite wherever mr_ok == 1 (fld_joint_s_bonf_loH, fld_joint_s_bonf_upHc; 1690 rows)
+[ ok ] all 8 full-bootstrap product columns are NA
+[ ok ] n_true == 0 on every replicate (no planted region)
+[ ok ] sensitivity is NA on every replicate (empty planted region)
+[ ok ] NPV == 1 on every declaring replicate
+[ ok ] specificity finite on every declaring replicate
+[ ok ] 0 < |Hhat| <= n on every declaring replicate
+[ ok ] every declaring replicate carries a label
+[ ok ] unadjusted estimate and SE are finite together on declaring replicates
+[ ok ] nv_H_lo1s NA on every replicate (filled on the MR-off branch only, template :1408-1409)
+[ ok ] betaHhat_H and betaHhat_Hc finite on every declaring replicate
+[ ok ] no unadjusted estimate on non-declaring replicates
+       (unadjusted within-region estimate present on 1690 / 1690 declaring replicates)
+[ ok ] family counts / maxT / p_sel are structurally NA (DINA and GRF enumerate their own candidates)
+[ ok ] admitted_n >= 1 on every declaring GRF replicate
+
+  mr_ok among declaring replicates: 1690 / 1690 (1.0000) -- printed, not gated
+
+  declarations 1690 / 2000 (0.8450) ; |Hhat| median 310.5 ; mean search 48.153 s
+GATE A PASS (50 checks, 0 failed)
