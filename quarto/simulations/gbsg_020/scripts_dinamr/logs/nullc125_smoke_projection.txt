@@ -1,0 +1,20 @@
+nullc125 Step 3.1 smoke and the grid projection
+TASK_null_gbsg_thresholds_2026-09-21_v2 ; 2026-09-21 19:44 PDT
+host pop-os ; 64 physical cores (Threadripper PRO 5995WX) ; 251 GB ; R 4.6.1 ; forestsearch 0.3.5.9000 (built 2026-09-19 03:54:02 UTC)
+driver scripts_dinamr/nullthr.sh on nullthr_smoke.cells, NULLTHR_CAMPAIGN=nullc125smoke NULLTHR_REPS=20 NULLTHR_QUICKRUN=TRUE, 64 workers
+
+== SMOKE: cell null0657_n500 at (c1, c2) = (1.25, 1.00), 20 replicates, MR off ==
+  consistency per-replicate search 2.4270 s ; declarations  2/20 ; render wall 59 s ; Gate A PASS (42)
+  dina        per-replicate search 0.1458 s ; declarations  2/20 ; render wall 56 s ; Gate A PASS (36)
+  grf         per-replicate search 3.9643 s ; declarations 10/20 ; render wall 60 s ; Gate A PASS (37)
+  Gate C PASS (16) ; cell wall 175 s
+  TOTAL per replicate across the three identifiers at n=500: 6.5371 s (light load)
+
+== PROJECTION FOR THE GRID ==
+  n-scaling (grfprobe, as nullid used): n500 x1.0000, n1000 x1.2333, n1500 x1.4667
+  load factor at ~64 workers (memory 'contention-factor-per-n': 63w 1.17 at n500, 3.27 at n2000;
+    linear in n between): n500 x1.17, n1000 x1.87, n1500 x2.57
+  compute  = 189462 core-s over 6 cells x 3 identifiers x 2000 replicates = 2960 s at 64 workers
+  renders  = 18 x 60 s = 1080 s (smoke renders 56-60 s at 20 replicates)
+  PROJECTED TOTAL: 1.12 h   (no load factor: 0.72 h; load factor 3.14 at every n: ~2.2 h)
+  Under the 4 h ceiling and every gate green -> the grid runs straight away (Step 3.2).
