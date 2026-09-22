@@ -38,11 +38,29 @@ The table is in `quarto/simulations/gbsg_020/scripts_dinamr/logs/declcal_powercu
   - **C1:** at every fixed k from 1.6449 to 3.2, the rate is *below* the matched A2 size. The two are equal at 3.4 (0.0740 each), and C1 is marginally above at 3.6. Its calibrated rate equals A2's calibrated size at α = 0.05 (0.0495 vs 0.0490). **At n 1000 there is no usable power at any cutoff on this grid.**
   - **C2:** it crosses A3 between k = 2.6 and 2.8. The largest separation on the fixed-k grid is at 3.6, with 0.0855 against 0.0330. At calibrated α = 0.05 the rate is 0.0935 against 0.0430.
   - **Caveat for reading C1 and C2:** the C DGMs combine a harm subgroup with benefit in its complement. The complement's benefit pulls down the spurious part of the maximum, so a low-k C rate below the A rate is expected and is not a defect.
+  - **Size and power at the same rule, n = 1000.**
+    - Conventional k = 1.6449: 0.105 at B5, 0.693 at C1, and 0.9425 at A2.
+    - Calibrated α = 0.05: 0.000 at B5, 0.0495 at C1, and 0.049 at A2.
+    - The conventional screen discriminates against the realistic null (B5). It loses size control only at the boundary null (A2).
 - **Planted harm HR 2.0 (C3 at n 1000, C4 at n 1500).**
   - At k = 3.6: 0.3475 and 0.6375, against sizes of 0.041 and 0.033.
   - Calibrated at α = 0.05: 0.355 and 0.641.
   - Calibrated at α = 0.01: 0.191 and 0.437.
 - **Calibrated rule vs a fixed cutoff.** At α = 0.05, the calibrated rule behaves like a fixed cutoff of about k = 3.55. Its power sits between the k = 3.4 and k = 3.6 rows in every C cell, which fits the median `kappa_hat_05` of 3.58 to 3.59 in the C cells. **Per-replicate calibration therefore buys size control, not extra power over a well-chosen fixed k.** On this grid, a fixed k would have to be about 3.5 or higher for its complete-null size to reach 0.05.
+
+## Caveat: comparator matching for C1
+
+- **Neither B2 nor B5 is C1's exact matched null.**
+  - C's complement runs at k_treat = 1. B2 runs at k_treat = 1.272, and B5 at k_treat = 0.9918.
+  - The exact counterpart is C's DGM with the harm region removed, at k_treat = 1. **It was not run.**
+- **Each B cell matches the complement on a different scale.**
+  - **Marginal Cox scale:** C's complement matches B2 (0.656891 vs 0.657000).
+  - **Patient-level scale:** C's complement matches B5 (about 0.654 vs B5's recorded 0.656562).
+  - The 0.654 is **derived, not a recorded value**. It follows from log-HR linearity in k_treat (`R/sim_aft_gbsg.R:417`, `gamma["treat"] <- k_treat * gamma["treat"]`).
+- **The matched-null reading is robust to which B cell is used.**
+  - C1 is strictly above both B2 and B5 at all 14 rules, with non-overlapping Wilson intervals.
+  - B5 is the tighter comparator: its rates are the higher of the two.
+- **How to quote any lift:** quote it against B5, as counts rather than a ratio. At calibrated α = 0.05 that is 99/2000 declarations in C1 vs 0/2000 in B5.
 
 ## Reproduction
 
