@@ -479,10 +479,35 @@ jcuts_tag    <- if (er_jcuts == 10L) "" else sprintf("_j%d", er_jcuts)
 # never share a stem -- or a combine_glob -- with an MR bundle; every existing
 # stem is unchanged.
 mr_tag       <- if (isTRUE(mr_inference_on)) "" else "_nomr"
-rds_stem     <- sprintf("%s_%s_fb_mr_field_m1_h%03d_knoise%d_n%d%s%s%s%s%s_%s",
+# Threshold knobs (TASK_null_gbsg_thresholds_2026-09-21_v2, Step 1).  FS_S7_C1
+# and FS_S7_C2 set the screening threshold c1 (hr.threshold) and the per-split
+# threshold c2 (hr.consistency) that the search chunk passes to forestsearch().
+# Their defaults are the literals the search configuration carried before the
+# knobs existed (0.90 / 0.80), so an unset render is unchanged.  Both or
+# neither, and c2 <= c1.  p* stays the literal in the search configuration.
+# They are read HERE, not there, because they tag the stem.
+.c1_default <- 0.90
+.c2_default <- 0.80
+.c1_set <- nzchar(Sys.getenv("FS_S7_C1")); .c2_set <- nzchar(Sys.getenv("FS_S7_C2"))
+if (xor(.c1_set, .c2_set))
+  stop(sprintf("FS_S7_C1 and FS_S7_C2 must be set together (C1 '%s', C2 '%s').",
+               Sys.getenv("FS_S7_C1"), Sys.getenv("FS_S7_C2")), call. = FALSE)
+thr_c1 <- .env_num("FS_S7_C1", .c1_default)
+thr_c2 <- .env_num("FS_S7_C2", .c2_default)
+if (!is.finite(thr_c1) || !is.finite(thr_c2) || thr_c1 <= 0 || thr_c2 <= 0)
+  stop(sprintf("FS_S7_C1 / FS_S7_C2 must be positive numbers (got %s / %s).",
+               format(thr_c1), format(thr_c2)), call. = FALSE)
+if (thr_c2 > thr_c1)
+  stop(sprintf("FS_S7_C2 (%.4f) exceeds FS_S7_C1 (%.4f).", thr_c2, thr_c1), call. = FALSE)
+# Threshold tag only when the pair differs from the defaults, so every
+# committed stem is unchanged and a stricter-screen bundle can never share a
+# stem -- or a combine_glob -- with one run at 0.90 / 0.80.
+thr_tag      <- if (abs(thr_c1 - .c1_default) < 1e-12 && abs(thr_c2 - .c2_default) < 1e-12) "" else
+                  sprintf("_c%03dc%03d", round(100 * thr_c1), round(100 * thr_c2))
+rds_stem     <- sprintf("%s_%s_fb_mr_field_m1_h%03d_knoise%d_n%d%s%s%s%s%s%s_%s",
                         method_tag, focus_tag, round(100 * target_hr_harm),
                         k_random_noise, n_sample, dgm_tag, z1q_tag, nbhd_tag,
-                        jcuts_tag, mr_tag, campaign_tag)
+                        jcuts_tag, mr_tag, thr_tag, campaign_tag)
 
 # ADOPTED FROM THE CONTINUOUS TWIN: quick-run stem tagging.
 # Without this a smoke render (nb_boots = 10, n_sims = 20) writes to the SAME
@@ -598,8 +623,8 @@ stop_threshold     <- NULL            # early stopping.  NULL is what this confi
 # effect_neighborhood: read above (FS_S7_NBHD, default 0.10 = the package
 # default) next to the stem it tags; band half-width for effMaxSG/effMinSG,
 # inert under sg_focus = "maxcons"/"maxeffCons".
-hr_threshold       <- 0.90
-hr_consistency     <- 0.80
+hr_threshold       <- thr_c1        # FS_S7_C1, default 0.90 (read with the stem it tags)
+hr_consistency     <- thr_c2        # FS_S7_C2, default 0.80
 pconsistency       <- 0.90
 fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
 maxk               <- 2L
@@ -763,6 +788,9 @@ cat(sprintf("Template knobs: method=%s hr=%.2f n=%d z1q=%.2f focus=%s nbhd=%.2f 
             subgroup_method, target_hr_harm, n_sample, harm_z1_quantile, sg_focus, effect_neighborhood, er_jcuts, mr_ci_method, mr_field_uniform, mr_field_complement, mr_field_decompose, mr_field_scalec, mr_field_recovery, mr_return_reselection, mr_ij_residual, fb_mode, campaign_tag,
             run_mode, sim_id_start, sim_id_start + n_sims - 1L, quickrun, mr_inference_on))
 cat(sprintf("Output stem: %s\n", rds_stem))
+cat(sprintf("Thresholds: c1=%.4f c2=%.4f p*=%.4f (FS_S7_C1/C2 %s) ; dmin.grf=%.4f ; DINA m_diff=log(c1)=%.6f\n",
+            hr_threshold, hr_consistency, pconsistency,
+            if (.c1_set) "set" else "unset", dmin.grf, log(hr_threshold)))
 ```
 
 # Build the DGM and read off the truth targets
@@ -1172,6 +1200,18 @@ rule_covs <- function(rule) forestsearch:::.fs_rule_columns(rule)
   # (HR scale), the companion of nv_H_est / nv_H_se.  It is a product of the
   # search's own Cox refit, not of MR.
   nv_H_lo1s = NA_real_,
+  # -- Threshold-campaign recorder additions ---------------------------------
+  # TASK_null_gbsg_thresholds_2026-09-21_v2, Step 1.4.  ADD-ONLY.
+  #   c1_resolved, c2_resolved  hr.threshold / hr.consistency as the fit
+  #             resolved them, read from fs.est$args_call_all; NA when the
+  #             result does not carry them.
+  #   itt_est, itt_se  Cox fit of treatment alone on the WHOLE trial
+  #             (.cox_hr_ci(), as the oracle block uses): HR scale and
+  #             log-HR-scale model SE.  Computed before the search, so it is
+  #             present on every replicate the DGM draw succeeds on; it is the
+  #             engine-independent draw fingerprint at any declaration rate.
+  c1_resolved = NA_real_, c2_resolved = NA_real_,
+  itt_est = NA_real_, itt_se = NA_real_,
   p_hat_H = NA_real_, p_hat_sum = NA_real_,
   p_hat_top1 = NA_real_, p_hat_top2 = NA_real_, p_hat_top3 = NA_real_,
   p_hat_top_labels = NA_character_,
@@ -1207,6 +1247,9 @@ if (k_random_noise > 0) {
   
   
   rec$n_true <- sum(df[[harm_col]] == 1L, na.rm = TRUE)   # true |Q| this trial (all reps)
+  # Whole-trial ITT Cox HR (TASK_null_gbsg_thresholds_2026-09-21_v2, 1.4).
+  .itt <- .cox_hr_ci(df)
+  rec$itt_est <- unname(.itt["est"]); rec$itt_se <- unname(.itt["se"])
 
   
   # ---- Identification + naive + MR (single forestsearch call) -----
@@ -1256,6 +1299,15 @@ if (k_random_noise > 0) {
                      })
   rec$fit_mr_secs <- proc.time()[3] - mr_t0   # forestsearch fit INCLUDING MR
   if (is.null(fs.est)) { rec$status <- "CONFIG-ERROR"; return(rec) }
+  # The thresholds the fit resolved (TASK_null_gbsg_thresholds_2026-09-21_v2,
+  # 1.4), read before the no-detection return so every replicate carries them.
+  .aca <- fs.est$args_call_all
+  if (is.list(.aca)) {
+    if (is.numeric(.aca$hr.threshold)   && length(.aca$hr.threshold) == 1L)
+      rec$c1_resolved <- .aca$hr.threshold
+    if (is.numeric(.aca$hr.consistency) && length(.aca$hr.consistency) == 1L)
+      rec$c2_resolved <- .aca$hr.consistency
+  }
 
   # Detection is METHOD-AGNOSTIC (a subgroup was identified), independent of
   # whether the MR produced a CI; MR availability is tracked
@@ -1851,7 +1903,15 @@ if (run_smoke && identical(run_mode, "batch")) {
                              k_treat             = k_treat,
                              harm_z1_quantile    = harm_z1_quantile,
                              harm_prevalence_super = harm_prevalence_super,
-                             field_R             = "R_out=1000/R_in=500 (package defaults; not forwarded by forestsearch())",
+                             # Thresholds (TASK_null_gbsg_thresholds_2026-09-21_v2,
+                             # 1.3; add-only).  No bundle written before this
+                             # records them; there they were 0.90 / 0.80 / 0.90.
+                             c1                  = hr_threshold,
+                             c2                  = hr_consistency,
+                             pstar               = pconsistency,
+                             dmin_grf            = dmin.grf,
+                             dina_m_diff         = log(hr_threshold),
+                             field_R           = "R_out=1000/R_in=500 (package defaults; not forwarded by forestsearch())",
                              stop_threshold      = paste(deparse(stop_threshold),
                                                          collapse = " "),
                              selection_rule      = selection_rule,

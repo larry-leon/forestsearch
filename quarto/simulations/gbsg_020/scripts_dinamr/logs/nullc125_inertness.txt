@@ -1,0 +1,42 @@
+nullc125 Step 1.5 -- threshold-knob inertness
+  host pop-os ; R 4.6.1 ; forestsearch 0.3.5.9000 ; 2026-09-21 19:37:10
+  cell null0657_n500, sim_id 1-20, MR off, effMaxSG eps 0.20, FS_S7_QUICKRUN=TRUE
+  pre      = HEAD template (before the edit)
+  unset    = edited template, FS_S7_C1/C2 unset
+  explicit = edited template, FS_S7_C1=0.90 FS_S7_C2=0.80
+
+== consistency ==
+  declarations pre/unset/explicit: 6 / 6 / 6
+  columns added by the edit: c1_resolved, c2_resolved, itt_est, itt_se
+  pre vs unset   : identical on 169 of 169 shared non-timing columns ; truth identical TRUE
+  pre vs explicit: identical on 169 of 169 shared non-timing columns ; truth identical TRUE
+  unset vs explicit on the added columns: identical
+  explicit meta c1/c2/pstar/dmin_grf/dina_m_diff: 0.9 / 0.8 / 0.9 / 0 / -0.105361
+  resolved c1 / c2 (explicit): 0.9 / 0.8 ; NA on 0 of 20
+  itt_est finite on 20 of 20
+
+== dina ==
+  declarations pre/unset/explicit: 9 / 9 / 9
+  columns added by the edit: c1_resolved, c2_resolved, itt_est, itt_se
+  pre vs unset   : identical on 169 of 169 shared non-timing columns ; truth identical TRUE
+  pre vs explicit: identical on 169 of 169 shared non-timing columns ; truth identical TRUE
+  unset vs explicit on the added columns: identical
+  explicit meta c1/c2/pstar/dmin_grf/dina_m_diff: 0.9 / 0.8 / 0.9 / 0 / -0.105361
+  resolved c1 / c2 (explicit): 0.9 / 0.8 ; NA on 0 of 20
+  itt_est finite on 20 of 20
+
+== grf ==
+  declarations pre/unset/explicit: 20 / 20 / 20
+  columns added by the edit: c1_resolved, c2_resolved, itt_est, itt_se
+  pre vs unset   : identical on 169 of 169 shared non-timing columns ; truth identical TRUE
+  pre vs explicit: identical on 169 of 169 shared non-timing columns ; truth identical TRUE
+  unset vs explicit on the added columns: identical
+  explicit meta c1/c2/pstar/dmin_grf/dina_m_diff: 0.9 / 0.8 / 0.9 / 0 / -0.105361
+  resolved c1 / c2 (explicit): 0.9 / 0.8 ; NA on 0 of 20
+  itt_est finite on 20 of 20
+
+INERTNESS PASS (0 failing comparisons)
+
+Guards (edited template, FS_S7_NSIMS=1, render stops in setup; no bundle or html written):
+  FS_S7_C1=1.25 alone              -> rc 1: "FS_S7_C1 and FS_S7_C2 must be set together (C1 '1.25', C2 '')."
+  FS_S7_C1=1.00 FS_S7_C2=1.25      -> rc 1: "FS_S7_C2 (1.2500) exceeds FS_S7_C1 (1.0000)."
