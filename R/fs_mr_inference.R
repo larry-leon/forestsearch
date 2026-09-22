@@ -433,6 +433,22 @@
 #'   multiplier perturbation, not re-discovery of a subgroup from scratch on
 #'   resampled data.  The two are related but not interchangeable, and a
 #'   report that quotes one should say which.
+#' @param keep_declaration_field Logical (default `FALSE`).  When `TRUE`, the
+#'   return gains a `declaration_field` element: the standardized perturbation
+#'   field of the main multiplier stream, `Zstar[b, g] = D_g(b) / sigma_D(g)`,
+#'   summarized by its family maxima `Mstar` (length `draws`), with the
+#'   per-candidate `beta_hat`, `sigma_D`, `family_id` and a `meta` list (the
+#'   multiplier law, `B`, the resolved `c_cons` / `p_star` / effect floor, and
+#'   the field's scaling diagnostics).  It is what
+#'   [fs_declaration_calibration()] reads.  It re-reads the influence matrix
+#'   and the multipliers already drawn -- no fit, no draw, no RNG consumption
+#'   -- so every other output is byte-identical whether or not it runs, and
+#'   with `FALSE` nothing is computed or stored.
+#' @param keep_field_matrix Logical (default `FALSE`); consulted only when
+#'   `keep_declaration_field = TRUE`.  When `TRUE`, `declaration_field` also
+#'   keeps the full `draws x G` matrix `Zstar`, which the reduced-family
+#'   diagnostic of [fs_declaration_calibration()] needs.  Off by default
+#'   because `G` can be large.
 #' @return List with the selected index/label, `naive` and `debiased` estimates
 #'   (effect scale, with approximate 95% CIs), `selection_bias`, `fixed_bias`,
 #'   `selection_rate`, `mean_r`, `mean_r_c`, the `settings` actually used (`t_confirm`,
@@ -567,7 +583,9 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                            field_decompose = FALSE,
                            field_scale_complement = c("selected", "none"),
                            ij_residual = c("two_term", "winner", "winner_floor"),
-                           field_recovery = FALSE) {
+                           field_recovery = FALSE,
+                           keep_declaration_field = FALSE,
+                           keep_field_matrix = FALSE) {
   confirm_rule <- match.arg(confirm_rule); reselection <- match.arg(reselection)
   ij_residual <- match.arg(ij_residual)
   field_scale_complement <- match.arg(field_scale_complement)
@@ -1052,6 +1070,30 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   }
   if (!is.null(field)) out$field <- field
   out$ij_residual <- ij_residual   # add-only: the residual behind the reported IJ SEs
+  # Declaration field (TASK_declaration_calibration_2026-09-22_v2) -- add-only
+  # and drawn from NOTHING: it re-reads the influence matrix B and the main
+  # stream's shared multipliers Xi, after every construction above is complete.
+  # The standardization lives in .fs_decl_field() (fs_declaration_calibration.R).
+  if (isTRUE(keep_declaration_field)) {
+    fld <- .fs_decl_field(B, Xi, keep_matrix = isTRUE(keep_field_matrix))
+    out$declaration_field <- list(
+      Mstar = fld$Mstar, Zstar = fld$Zstar,
+      beta_hat = stats::setNames(bh, asm$names),
+      sigma_D = stats::setNames(sdv, asm$names),
+      family_id = asm$names,
+      meta = list(
+        multiplier = multiplier, B = as.integer(draws), n = nrow(B),
+        G = ncol(B), shared_multipliers = fld$shared_multipliers,
+        sizes = stats::setNames(sz, asm$names), selected_index = sel,
+        selected_appended = identical(sel_lab, H_lab),
+        n_candidates_supplied = length(candidates),
+        log_scale = log_scale,
+        c_cons = c_cons, p_star = admission$consistency$p_star,
+        c_screen = admission$effect_floor,
+        sigma_D_field = fld$sigma_D, column_sd = fld$column_sd,
+        column_mean = fld$column_mean, zstar_mean = fld$zstar_mean,
+        field_cor = fld$field_cor, seed = seed))
+  }
   out
 }
 

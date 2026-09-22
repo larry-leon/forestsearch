@@ -950,6 +950,13 @@ populates the reported de-biased SE and interval (both blocks); all
 three SEs are returned side by side regardless (see
 \code{\link{fs_mr_inference}}).  Add-only pass-through: the default
 reproduces prior output exactly.}
+\item{\code{keep_declaration_field}, \code{keep_field_matrix}}{Logical,
+both default \code{FALSE}.  Retain the standardized perturbation
+field that \code{\link{fs_declaration_calibration}} reads, as
+\code{mr_inference$declaration_field}; \code{keep_field_matrix}
+additionally keeps the full draws-by-candidates matrix (needed for
+\code{family = "reduced"}).  Add-only pass-through: unset, nothing is
+computed or stored and the default reproduces prior output exactly.}
 }}
 }
 \value{

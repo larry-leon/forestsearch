@@ -1008,6 +1008,13 @@
 #'       three SEs are returned side by side regardless (see
 #'       \code{\link{fs_mr_inference}}).  Add-only pass-through: the default
 #'       reproduces prior output exactly.}
+#'     \item{\code{keep_declaration_field}, \code{keep_field_matrix}}{Logical,
+#'       both default \code{FALSE}.  Retain the standardized perturbation
+#'       field that \code{\link{fs_declaration_calibration}} reads, as
+#'       \code{mr_inference$declaration_field}; \code{keep_field_matrix}
+#'       additionally keeps the full draws-by-candidates matrix (needed for
+#'       \code{family = "reduced"}).  Add-only pass-through: unset, nothing is
+#'       computed or stored and the default reproduces prior output exactly.}
 #'   }
 #' @param consistency_method Character. \code{"resample"} (default) uses the
 #'   multiplier (influence-function / \code{dfbeta}) approximation
@@ -3804,6 +3811,11 @@ forestsearch <- function(df.analysis,
         # which IJ residual populates the reported SE; "two_term" is the
         # gate's default and reproduces prior output exactly.
         ij_residual   = .g_mr(mr_inference_args$ij_residual, "two_term"),
+        # Add-only pass-throughs (TASK_declaration_calibration_2026-09-22_v2):
+        # retain the standardized field fs_declaration_calibration() reads.
+        # FALSE computes and stores nothing.
+        keep_declaration_field = .g_mr(mr_inference_args$keep_declaration_field, FALSE),
+        keep_field_matrix = .g_mr(mr_inference_args$keep_field_matrix, FALSE),
         seed          = .g_mr(mr_inference_args$seed,        seedit))
     }, error = function(e) {
       warning("mr_inference failed: ", conditionMessage(e)); NULL

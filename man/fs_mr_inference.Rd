@@ -29,7 +29,9 @@ fs_mr_inference(
   field_decompose = FALSE,
   field_scale_complement = c("selected", "none"),
   ij_residual = c("two_term", "winner", "winner_floor"),
-  field_recovery = FALSE
+  field_recovery = FALSE,
+  keep_declaration_field = FALSE,
+  keep_field_matrix = FALSE
 )
 }
 \arguments{
@@ -246,6 +248,24 @@ diagnostics: re-selection \emph{within the fixed kept family} under
 multiplier perturbation, not re-discovery of a subgroup from scratch on
 resampled data.  The two are related but not interchangeable, and a
 report that quotes one should say which.}
+
+\item{keep_declaration_field}{Logical (default \code{FALSE}).  When \code{TRUE}, the
+return gains a \code{declaration_field} element: the standardized perturbation
+field of the main multiplier stream, \code{Zstar[b, g] = D_g(b) / sigma_D(g)},
+summarized by its family maxima \code{Mstar} (length \code{draws}), with the
+per-candidate \code{beta_hat}, \code{sigma_D}, \code{family_id} and a \code{meta} list (the
+multiplier law, \code{B}, the resolved \code{c_cons} / \code{p_star} / effect floor, and
+the field's scaling diagnostics).  It is what
+\code{\link[=fs_declaration_calibration]{fs_declaration_calibration()}} reads.  It re-reads the influence matrix
+and the multipliers already drawn -- no fit, no draw, no RNG consumption
+-- so every other output is byte-identical whether or not it runs, and
+with \code{FALSE} nothing is computed or stored.}
+
+\item{keep_field_matrix}{Logical (default \code{FALSE}); consulted only when
+\code{keep_declaration_field = TRUE}.  When \code{TRUE}, \code{declaration_field} also
+keeps the full \verb{draws x G} matrix \code{Zstar}, which the reduced-family
+diagnostic of \code{\link[=fs_declaration_calibration]{fs_declaration_calibration()}} needs.  Off by default
+because \code{G} can be large.}
 }
 \value{
 List with the selected index/label, \code{naive} and \code{debiased} estimates
