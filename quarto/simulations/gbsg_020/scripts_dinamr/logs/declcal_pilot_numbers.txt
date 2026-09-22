@@ -1,0 +1,19 @@
+declcal pilot read-out -- cell A2 (complete null, n = 1000), 200 replicates, B 2000 assembled once and sub-sampled
+status: ok 200
+workers 64 ; cell elapsed 105 s ; host pop-os ; forestsearch 0.3.5.9000 built R 4.6.1; ; 2026-09-22 19:31:24 UTC; unix
+per-replicate wall (s), min / q25 / median / q75 / max: total 13.10 / 20.33 / 23.70 / 26.04 / 32.50
+                                              search 4.25 / 8.97 / 12.02 / 14.19 / 19.82
+                                              field  7.04 / 10.82 / 11.60 / 12.42 / 14.99
+G_pre min / q25 / median / q75 / max: 1194.00 / 1289.00 / 1298.00 / 1386.25 / 1413.00
+G_post min / q25 / median / q75 / max: 72.00 / 368.75 / 569.00 / 738.00 / 1016.00
+fidelity: declared_conv vs search indicator: 200 of 200 agree
+realized conventional declaration fraction (as executed): 0.9500 ; exact z: 0.9400
+  B500   calibrated declaration rate alpha 0.05 0.0400 ; alpha 0.10 0.0850 ; median kappa_hat_05 3.5554
+  B1000  calibrated declaration rate alpha 0.05 0.0450 ; alpha 0.10 0.0800 ; median kappa_hat_05 3.5534
+  B2000  calibrated declaration rate alpha 0.05 0.0450 ; alpha 0.10 0.0800 ; median kappa_hat_05 3.5539
+B_cal rule (alpha 0.05 rate within 0.005 of B 2000's 0.0450): |diff| B500 0.0050, B1000 0.0000 -> B_cal = 500
+projection: median per-replicate wall 23.700 s x 26000 replicates / 64 workers = 9628 s = 2.67 h (ceiling 12.0 h)
+  (assumption: the pilot ran with every worker busy on the same cell type, so contention is in the median; the pilot's B is 2000, so B_cal < 2000 makes this conservative on the field share)
+  cross-check from the pilot's own throughput: 0.525 s of cell wall per replicate x 26000 = 13654 s = 3.79 h (includes the ragged last round of 200 / 64)
+per-replicate hard cap: 10 x 23.700 = 237.0 s ; campaign hard cap: 1.5 x 9628 = 14442 s (4.01 h)
+DECISION: CONTINUE (projection 2.67 h vs ceiling 12.0 h)
