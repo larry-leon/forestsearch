@@ -354,4 +354,4 @@ differences of the screen, not of the draw.
 | smoke / inertness bundles (12) | `results/*_nullc125smoke_quickrun_res_1_20.rds`, `results/*_nullc125inert{pre,unset,expl}_quickrun_res_1_20.rds` |
 | driver, cells, gates, smoke, inertness, findings | `scripts_dinamr/nullthr.sh`, `nullthr.cells`, `nullthr_smoke.cells`, `nullthr_gateA.R`, `nullthr_gateC.R`, `nullthr_smoke.sh`, `nullthr_inertness.R`, `nullthr_findings.R` |
 | logs | `scripts_dinamr/logs/nullc125*` (driver, per-render, Gate A, Gate C, inertness, smoke/projection, findings) |
-| renders (not committed; not required by the task) | `nullc125_*.html`, `nullc125smoke_*.html`, `nullc125inert*_*.html` in the study directory |
+| renders (30; committed at closeout, following `nullid`'s convention) | `nullc125_*.html` (18), `nullc125smoke_*.html` (3), `nullc125inert*_*.html` (9) in the study directory |
