@@ -1,0 +1,20 @@
+declcal cell B1 (null0657): dgm=null hr=0.657 n=500 c1=1.00 c2=1.00 p*=0.90 focus=effMaxSG nbhd=0.20 B_cal=500 mode=stage2 cap=237.0s workers=64 reps 1-2000 floors=nmin60_d010_d110
+DGM: null ; super-population prevalence 0.0000 ; k_inter 1.00000 ; k_treat 1.272e+00 ; hr_causal 0.6570000116
+
+STRUCTURAL-NULL DESIGN-POINT GATE (tolerance 1e-8)
+  [1] planted-region prevalence 0.0000000000 ; truth labels absent TRUE -> PASS
+  [2] candidate family: 29 factors, 435 enumerated conjunctions; max_g |beta(g) - log HR_uniform| = 1.110e-16 -> PASS
+  [3] super-population marginal Cox HR 0.657000011553 vs target 0.657000000000 ; |diff| 1.155e-08 -> PASS UNDER AMENDMENT (1e-6)
+      uniform patient-level HR exp(b0[treat]) = 0.582907533499 ; k_treat = 1.272e+00
+  GATE: PASS
+
+          used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 2326980 124.3    4568504 244.0  3000694 160.3
+Vcells 7427321  56.7   24472496 186.8 30590620 233.4
+chunk 1/4 done: 500 reps, elapsed 73s, fail 0 (abort 0, error 0), gate max 20
+chunk 2/4 done: 1000 reps, elapsed 144s, fail 0 (abort 0, error 0), gate max 20
+chunk 3/4 done: 1500 reps, elapsed 216s, fail 0 (abort 0, error 0), gate max 20
+chunk 4/4 done: 2000 reps, elapsed 287s, fail 0 (abort 0, error 0), gate max 20
+CELL B1 complete: 2000 rows, elapsed 288s, status table: ok 2000
+FIDELITY: declared_conv (rounded, post-reduction) vs search indicator on 2000 ok reps: 0 disagree
+RATES: conv 0.0950 exact 0.0905 cal05 0.0005 cal10 0.0005 ; median wall 7.48s ; median G_pre 1223
