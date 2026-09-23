@@ -39,7 +39,9 @@ section.  Named only (it follows \code{...}).}
 }
 \value{
 An object of class \code{fs_declaration_calibration}: a list with
-\code{kappa_hat}, \code{fw_size}, \code{alpha}, \code{p_star}, \code{z_pstar}, \code{c_cons},
+\code{kappa_hat}, \code{fw_size}, \code{alpha}, \code{p_star}, \code{digits}, \code{digits_source},
+\code{pcons_eff}, \code{z_pstar} (the effective z cutoff of the rounded screen),
+\code{consistency_method}, \code{consistency_method_source}, \code{c_cons},
 \code{c_screen}, \code{B}, \code{multiplier_law}, \code{quantile_type}, \code{family_source},
 \code{family_label}, \code{n_family_prereduction}, \code{n_family_reduced},
 \code{admitted_current} (the candidates the executed screen admitted; \code{NULL}
@@ -50,8 +52,9 @@ when the fit is a bare \code{fs_mr_inference()} result), \code{admitted_calibrat
 \code{field_cor} (families of at most 8 candidates, else \code{NULL}), and a
 \code{reduction} list recording the replay of the near-duplicate reduction.
 When \code{c0} is given it also carries \code{c0}, a list with \code{table} (one row per
-\code{c0}: \code{c0}, \code{c0_cmp}, \code{kappa_hat}, \code{fw_size}, \code{pstar_implied},
-\code{n_admitted_calibrated}, the 0.90 / 0.95 / 0.99 quantiles of \code{Mstar_c0},
+\code{c0}: \code{c0}, \code{c0_cmp}, \code{kappa_hat}, \code{fw_size}, \code{pstar_settable},
+\code{pstar_achievable}, \code{pcons_eff_settable}, \code{z_eff_settable}, \code{z_gap},
+\code{digits_fine}, \code{pstar_fine}, \code{z_gap_fine}, \code{n_admitted_calibrated}, the 0.90 / 0.95 / 0.99 quantiles of \code{Mstar_c0},
 and \code{is_c2}), \code{admitted_calibrated} (a list indexed by \code{c0}), \code{Mstar_c0}
 and \code{source} (\code{"capture"} or \code{"field_matrix"}).  Every other element is
 unchanged by \code{c0}.
@@ -59,13 +62,14 @@ unchanged by \code{c0}.
 \description{
 Post-hoc, opt-in, reported diagnostics of the consistency screen, computed
 from multiplier draws the package already produces.  The screen admits a
-candidate \code{g} when its standardized statistic
-\code{T(g) = (beta_hat(g) - c_cons) / sigma_D(g)} clears \code{qnorm((1 + p_star) / 2)};
-that admission is exactly the closed-form consistency rule, relabelled.
-This function reports how often the maximum of that statistic over the
-candidate family would clear the conventional cutoff under the null
-perturbation law (\code{fw_size}), and the cutoff that would hold the
-family-wise declaration rate at \code{alpha} (\code{kappa_hat}).
+candidate \code{g} when its consistency rate, rounded to \code{pconsistency.digits},
+is at least \code{p_star}; on the resample path that is exactly the standardized
+statistic \code{T(g) = (beta_hat(g) - c_cons) / sigma_D(g)} clearing the
+effective cutoff \code{z_pstar = qnorm((1 + pcons_eff) / 2)} (see the Rounded
+admission rule section).  This function reports how often the maximum of
+that statistic over the candidate family would clear the screen's cutoff
+under the null perturbation law (\code{fw_size}), and the cutoff that would hold
+the family-wise declaration rate at \code{alpha} (\code{kappa_hat}).
 }
 \details{
 It reads a fitted object and returns a new one.  It does not modify its
@@ -85,13 +89,42 @@ uses, never a model-based standard error.
 direction.
 \item \code{kappa_hat(alpha)} is the empirical (\code{type = 1}) \code{1 - alpha} quantile of
 \code{Mstar}.
-\item \code{fw_size = mean(Mstar > qnorm((1 + p_star) / 2))}.  Its threshold is the
-fit's own \code{p_star}, not \code{alpha}: it is the family-wise size of the screen
-as run, not of the calibrated rule.
+\item \code{fw_size = mean(Mstar > z_pstar)}, \code{z_pstar = qnorm((1 + pcons_eff) / 2)}.
+Its threshold is the fit's own \code{p_star} at the fit's own
+\code{pconsistency.digits}, not \code{alpha}: it is the family-wise size of the
+screen as implemented, not of the calibrated rule.
 \item The calibrated admission rule is
 \code{beta_hat(g) >= max(c_screen, c_cons + kappa_hat * sigma_D(g))}, the
-current rule with \code{qnorm((1 + p_star) / 2)} replaced by \code{kappa_hat}.
+current rule with \code{z_pstar} replaced by \code{kappa_hat}.
 }
+}
+
+\section{Rounded admission rule}{
+
+The screen admits on \code{round(Pcons, digits) >= p_star}, with \code{digits} the
+fit's \code{pconsistency.digits}.  With \code{p_star} rounded up to the
+\code{10^-digits} grid (\code{g}), that is \code{Pcons >= pcons_eff = g - 0.5 * 10^-digits},
+a bar below \code{p_star} itself (0.895 for \code{p_star = 0.90}, \code{digits = 2}).  On
+the resample path \code{Pcons = 2 * pnorm(T) - 1}, so the screen is
+\code{T >= z_pstar = qnorm((1 + pcons_eff) / 2)}.  \code{fw_size}, \code{admitted_pstar}
+and the settable \verb{p*} are computed at that effective threshold; \code{fw_size}
+is therefore the family-wise size of the screen as implemented and depends
+on \code{pconsistency.digits}.  \code{kappa_hat} does not: it is a quantile of the
+maximum statistic and is compared with \code{T} directly, with no rounding.
+
+\code{digits} is read from the fit's \code{args_call_all$pconsistency.digits}; when
+absent (a bare \code{fs_mr_inference()} result, or an older fit) the
+\code{subgroup.consistency()} default of 2 is used.  \code{digits_source} records
+which.
+
+The correspondence with \code{T} holds only under
+\code{consistency_method = "resample"}.  Under \code{"split"}, \code{Pcons} is a split
+proportion \code{k / n_valid} and admission is not a threshold on \code{T}, so
+\code{fw_size}, \code{z_pstar}, \code{admitted_pstar} and the settable-\verb{p*} columns are
+\code{NA} / \code{NULL} rather than computed; \code{kappa_hat} and the calibrated rule are
+still returned.  The method is read from \code{args_call_all$consistency_method};
+a bare \code{fs_mr_inference()} result is treated as resample (the field is the
+closed-form statistic), recorded in \code{consistency_method_source}.
 }
 
 \section{Family}{
@@ -124,10 +157,20 @@ than only when every candidate sits at \code{c2}.  With
 \itemize{
 \item \verb{Mstar_c0[b] = max_g \{ Zstar[b, g] - delta_g \}};
 \item \code{kappa_hat(c0)} is its empirical (\code{type = 1}) \code{1 - alpha} quantile;
-\item \code{fw_size(c0) = mean(Mstar_c0 > qnorm((1 + p_star) / 2))};
-\item \code{pstar_implied = 2 * pnorm(kappa_hat(c0)) - 1}, the \code{p_star} whose
-cutoff equals \code{kappa_hat(c0)};
-\item admission is unchanged in form, \code{T(g) >= kappa_hat(c0)}.
+\item \code{fw_size(c0) = mean(Mstar_c0 > z_pstar)}, at the rounded admission rule;
+\item admission is unchanged in form, \code{T(g) >= kappa_hat(c0)};
+\item guidance on what to set to run \code{kappa_hat(c0)} as a \verb{p*} screen at the
+fit's \code{digits}: \code{pstar_settable}, the smallest \verb{p*} on the \code{10^-digits}
+grid whose effective threshold is at or above \code{kappa_hat(c0)}; that
+threshold as \code{pcons_eff_settable} (Pcons scale) and \code{z_eff_settable}
+(z scale); \code{z_gap = z_eff_settable - kappa_hat(c0)} (positive =
+conservative); and \code{digits_fine} / \code{pstar_fine} / \code{z_gap_fine}, the
+smallest \code{digits} (searched over 1 to 12) at which the gap falls below
+0.01, with its \verb{p*}.  When no \verb{p* <= 1} reaches \code{kappa_hat(c0)} at the
+fit's \code{digits}, \code{pstar_achievable} is \code{FALSE} and the settable columns
+are \code{NA}; the print method says so.  This is guidance on what to set, not
+an identity: the settable screen is \code{kappa_hat(c0)} rounded up to what the
+grid can express, so it admits a subset of what \code{kappa_hat(c0)} admits.
 }
 
 If every candidate's true effect is \code{c0_cmp}, \code{T(g)} is centred at
