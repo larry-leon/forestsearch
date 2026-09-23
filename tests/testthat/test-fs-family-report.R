@@ -32,7 +32,7 @@
   "potentialOutcome.name", "flag_harm.name", "confounders.name", "df.predict",
   "df.test", "offset.name",
   # design / estimand, not family
-  "is.RCT", "est.scale", "outcome_type", "effect_measure", "adverse_outcome",
+  "is.RCT", "est.scale", "outcome_type", "adverse_outcome",
   "overdispersion", "grf_count_transform", "adjust_covariates",
   "ps_method", "ps_adjust_method", "ps_hat",
   # supplied screening results / engine tuning (the engine rows carry the switch)

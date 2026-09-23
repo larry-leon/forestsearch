@@ -100,8 +100,8 @@ test_that("the existence share uses Part A's per-estimand condition", {
 })
 
 test_that("it draws through the DGM's own generator, not a re-implementation", {
-  src <- paste(readLines(testthat::test_path("..", "..", "R",
-                "fs_dgm_feasibility.R"), warn = FALSE), collapse = "\n")
+  # deparse the function itself: the R/ source is not on disk under R CMD check
+  src <- paste(deparse(fs_dgm_feasibility), collapse = "\n")
   expect_true(grepl("simulate_from_glm_dgm(dgm,", src, fixed = TRUE))
   # and never switches the generator
   expect_false(grepl("RNGkind(", src, fixed = TRUE))

@@ -92,8 +92,19 @@
 #'
 #' @examples
 #' \donttest{
-#' dgm <- generate_glm_dgm(n_super = 2000, outcome_type = "binary",
-#'                         effect_measure = "OR", seed = 8316951)
+#' set.seed(1)
+#' N <- 400
+#' d <- data.frame(treat = rbinom(N, 1, 0.5),
+#'                 age   = round(rnorm(N, 55, 12)),
+#'                 sex   = factor(rbinom(N, 1, 0.5), levels = 0:1))
+#' d$y <- rbinom(N, 1, plogis(-0.5 + 0.3 * d$treat))
+#' dgm <- generate_glm_dgm(data = d, factor_vars = "sex",
+#'                         continuous_vars = "age", outcome_var = "y",
+#'                         treatment_var = "treat", outcome_type = "binary",
+#'                         effect_measure = "OR", subgroup_vars = "age",
+#'                         subgroup_cuts = list(age = list(type = "greater",
+#'                                                         quantile = 0.55)),
+#'                         k_inter = 1, n_super = 2000, seed = 8316951)
 #' feas <- fs_dgm_feasibility(dgm, n = c(500, 1000), n_rep = 50)
 #' feas
 #' feas$feasible
