@@ -258,7 +258,12 @@ utils::globalVariables(c(
   "value",      # label aesthetic in annotation panels
   "col",        # colour aesthetic in label panel
   "lo",         # xend of CI segment
-  "hi"          # x of CI upper bound (also used in geom_point)
+  "hi",         # x of CI upper bound (also used in geom_point)
+
+# ============================================================================
+# fs_plot_bias_coverage() -- ggplot2 aes() column names
+# ============================================================================
+  "b", "r", "cell", "estimator", "cov", "cov1", "cov2", "obs", "ref"
 ))
 
 
