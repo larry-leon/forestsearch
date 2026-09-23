@@ -50,7 +50,19 @@ consistency rate.  \code{forestsearch()} calls this
 one split's consistency is decided by \code{hr.consistency} (\code{c2}).
 \code{c2} sets the bar; \verb{p*} counts how often it is met.}
 
-\item{pconsistency.digits}{Integer. Rounding digits for output.}
+\item{pconsistency.digits}{Integer. Number of decimal places to which the
+consistency proportion is rounded \strong{before} it is compared with
+\code{pconsistency.threshold}.  The rounded value decides admission and
+is the value the selection sort orders on, so this setting affects which
+subgroups are admitted, not only what is displayed.  At the default of 2,
+a threshold of \verb{p*} admits any candidate whose unrounded proportion is at
+or above the largest 0.01 grid point strictly below \verb{p*} plus half a step
+(0.005) -- so \verb{p* = 0.99} admits from about 0.985.  Raising the setting
+makes admission finer-grained and produces fewer exact ties for the
+selection rule to break.  Under \code{consistency_method = "resample"}
+the proportion is a continuous closed-form quantity, so the rounding is a
+deliberate coarsening rather than a formatting step.
+Default: 2}
 
 \item{maxk}{Integer. Maximum number of factors in a subgroup.}
 

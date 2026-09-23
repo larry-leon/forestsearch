@@ -61,6 +61,7 @@ forestsearch(
   m1.threshold = Inf,
   pconsistency.threshold = 0.9,
   stop_threshold = pconsistency.threshold,
+  pconsistency.digits = 2,
   show_candidate_summary = FALSE,
   max_print = 10,
   d0.min = 10,
@@ -665,6 +666,20 @@ nothing to skip.
 
 \strong{Note:} Values > 1.0 are not permitted. To disable early
 stopping, use \code{stop_threshold = NULL}, not a value above 1.}
+
+\item{pconsistency.digits}{Integer. Number of decimal places to which the
+consistency proportion is rounded \strong{before} it is compared with
+\code{pconsistency.threshold}.  The rounded value decides admission and
+is the value the selection sort orders on, so this setting affects which
+subgroups are admitted, not only what is displayed.  At the default of 2,
+a threshold of \verb{p*} admits any candidate whose unrounded proportion is at
+or above the largest 0.01 grid point strictly below \verb{p*} plus half a step
+(0.005) -- so \verb{p* = 0.99} admits from about 0.985.  Raising the setting
+makes admission finer-grained and produces fewer exact ties for the
+selection rule to break.  Under \code{consistency_method = "resample"}
+the proportion is a continuous closed-form quantity, so the rounding is a
+deliberate coarsening rather than a formatting step.
+Passed to \code{\link{subgroup.consistency}}.  Default 2.}
 
 \item{show_candidate_summary}{Logical. If \code{TRUE}, prints a
 post-consistency summary table of all passing candidates with
