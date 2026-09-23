@@ -1173,7 +1173,18 @@ remove_redundant_subgroups <- function(found.hrs) {
 #' @param hr.consistency Numeric. Minimum HR threshold for consistency.
 #' @param pconsistency.threshold Numeric. Minimum proportion of splits meeting
 #'   consistency.
-#' @param pconsistency.digits Integer. Rounding digits for consistency proportion.
+#' @param pconsistency.digits Integer. Number of decimal places to which the
+#'   consistency proportion is rounded \strong{before} it is compared with
+#'   \code{pconsistency.threshold}.  The rounded value decides admission and
+#'   is the value the selection sort orders on, so this setting affects which
+#'   subgroups are admitted, not only what is displayed.  At the default of 2,
+#'   a threshold of `p*` admits any candidate whose unrounded proportion is at
+#'   or above the largest 0.01 grid point strictly below `p*` plus half a step
+#'   (0.005) -- so `p* = 0.99` admits from about 0.985.  Raising the setting
+#'   makes admission finer-grained and produces fewer exact ties for the
+#'   selection rule to break.  Under \code{consistency_method = "resample"}
+#'   the proportion is a continuous closed-form quantity, so the rounding is a
+#'   deliberate coarsening rather than a formatting step.
 #' @param maxk Integer. Maximum number of factors in a subgroup.
 #' @param confs_labels Character vector. Labels for confounders.
 #' @param details Logical. Print details during execution.
@@ -1301,7 +1312,6 @@ remove_redundant_subgroups <- function(found.hrs) {
 #'   \code{[0, 1]} -- the fraction of splits that must be consistent, where
 #'   one split's consistency is decided by \code{hr.consistency} (`c2`).
 #'   `c2` sets the bar; `p*` counts how often it is met.
-#' @param pconsistency.digits Integer. Rounding digits for output.
 #' @param maxk Integer. Maximum number of factors in a subgroup.
 #' @param confs_labels Character vector. Labels for confounders.
 #' @param details Logical. Print progress details.
@@ -1342,6 +1352,7 @@ remove_redundant_subgroups <- function(found.hrs) {
 #' }
 #' @importFrom data.table data.table
 #' @importFrom survival coxph Surv
+#' @inheritParams subgroup.consistency
 #' @export
 evaluate_subgroup_consistency <- function(
     m,
@@ -1581,7 +1592,6 @@ evaluate_subgroup_consistency <- function(
 #'   \code{[0, 1]} -- the fraction of splits that must be consistent, where
 #'   one split's consistency is decided by \code{hr.consistency} (`c2`).
 #'   `c2` sets the bar; `p*` counts how often it is met.
-#' @param pconsistency.digits Integer. Rounding digits for output.
 #' @param maxk Integer. Maximum number of factors in a subgroup.
 #' @param confs_labels Character vector. Labels for confounders.
 #' @param details Logical. Print progress details.
@@ -1623,6 +1633,7 @@ evaluate_subgroup_consistency <- function(
 #' }
 #' @importFrom data.table data.table as.data.table
 #' @importFrom survival coxph Surv
+#' @inheritParams subgroup.consistency
 #' @export
 evaluate_consistency_twostage <- function(
     m,

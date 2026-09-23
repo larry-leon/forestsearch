@@ -185,8 +185,19 @@
 #'   remaining candidates beyond \code{max_print} are collapsed into a
 #'   trailing "... N more candidate(s) not shown" line.  Affects console
 #'   output only, not the returned object.  Default: 10.
-#' @param pconsistency.digits Integer. Decimal places for consistency
-#'   proportion. Default: 2
+#' @param pconsistency.digits Integer. Number of decimal places to which the
+#'   consistency proportion is rounded \strong{before} it is compared with
+#'   \code{pconsistency.threshold}.  The rounded value decides admission and
+#'   is the value the selection sort orders on, so this setting affects which
+#'   subgroups are admitted, not only what is displayed.  At the default of 2,
+#'   a threshold of `p*` admits any candidate whose unrounded proportion is at
+#'   or above the largest 0.01 grid point strictly below `p*` plus half a step
+#'   (0.005) -- so `p* = 0.99` admits from about 0.985.  Raising the setting
+#'   makes admission finer-grained and produces fewer exact ties for the
+#'   selection rule to break.  Under \code{consistency_method = "resample"}
+#'   the proportion is a continuous closed-form quantity, so the rounding is a
+#'   deliberate coarsening rather than a formatting step.
+#'   Default: 2
 #' @param seed Integer. Random seed for reproducible consistency splits.
 #'   Default: 8316951. Set to NULL for non-reproducible random splits.
 #'   The seed is used both for sequential execution (via set.seed()) and

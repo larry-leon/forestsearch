@@ -850,6 +850,19 @@
 #'   it is \strong{not} remapped per estimand -- the same number means the
 #'   same thing for every \code{outcome_type}.  Default 0.90.
 #'   Overridden to \code{0} under \code{sg_focus = "maxeff"} (no consistency filter).
+#' @param pconsistency.digits Integer. Number of decimal places to which the
+#'   consistency proportion is rounded \strong{before} it is compared with
+#'   \code{pconsistency.threshold}.  The rounded value decides admission and
+#'   is the value the selection sort orders on, so this setting affects which
+#'   subgroups are admitted, not only what is displayed.  At the default of 2,
+#'   a threshold of `p*` admits any candidate whose unrounded proportion is at
+#'   or above the largest 0.01 grid point strictly below `p*` plus half a step
+#'   (0.005) -- so `p* = 0.99` admits from about 0.985.  Raising the setting
+#'   makes admission finer-grained and produces fewer exact ties for the
+#'   selection rule to break.  Under \code{consistency_method = "resample"}
+#'   the proportion is a continuous closed-form quantity, so the rounding is a
+#'   deliberate coarsening rather than a formatting step.
+#'   Passed to \code{\link{subgroup.consistency}}.  Default 2.
 #' @param show_candidate_summary Logical. If \code{TRUE}, prints a
 #'   post-consistency summary table of all passing candidates with
 #'   Frontier/InBand/Selected flags.  See
@@ -1556,6 +1569,7 @@ forestsearch <- function(df.analysis,
                          # drift apart.  Written as a promise, not a literal,
                          # so it tracks a user-supplied floor.
                          stop_threshold = pconsistency.threshold,
+                         pconsistency.digits = 2,
                          show_candidate_summary = FALSE,
                          max_print = 10,
                          d0.min = 10,
@@ -3502,6 +3516,7 @@ forestsearch <- function(df.analysis,
       # stopping the override promised to disable.
       pconsistency.threshold = pconsistency.threshold,
       stop_threshold = stop_threshold,
+      pconsistency.digits = pconsistency.digits,
       max_print = max_print,
       # NEW: Pass two-stage parameters
       use_twostage = use_twostage,

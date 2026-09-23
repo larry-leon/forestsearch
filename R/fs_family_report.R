@@ -153,6 +153,7 @@ fs_family_report <- function(x, data = NULL, outcome_type = NULL) {
   effect.threshold <- .arg("effect.threshold"); hr.threshold <- .arg("hr.threshold")
   consistency.threshold <- .arg("consistency.threshold"); hr.consistency <- .arg("hr.consistency")
   pconsistency.threshold <- .arg("pconsistency.threshold")
+  pconsistency.digits <- .arg("pconsistency.digits")
   stop_threshold <- if ("stop_threshold" %in% names(args)) args[["stop_threshold"]]
                     else pconsistency.threshold            # formal default
   use_twostage <- .arg("use_twostage"); twostage_args <- .arg("twostage_args")
@@ -340,10 +341,11 @@ fs_family_report <- function(x, data = NULL, outcome_type = NULL) {
       if (is.finite(m1.threshold)) DD else INE,
       if (is.finite(m1.threshold)) "candidates with treatment-arm count m1 above the threshold are dropped before consistency (subgroup_consistency_main.R L516-531)"
       else "Inf: never binds")
-  cons_args <- c("consistency_method", "pconsistency.threshold", "consistency.threshold", "hr.consistency", "fs.splits", "use_twostage", "twostage_args")
+  cons_args <- c("consistency_method", "pconsistency.threshold", "pconsistency.digits", "consistency.threshold", "hr.consistency", "fs.splits", "use_twostage", "twostage_args")
   add("consistency screen", cons_args,
-      sprintf("consistency_method = %s; pconsistency.threshold = %s%s; %s; fs.splits = %s; use_twostage = %s; twostage_args = %s",
+      sprintf("consistency_method = %s; pconsistency.threshold = %s%s; pconsistency.digits = %s; %s; fs.splits = %s; use_twostage = %s; twostage_args = %s",
               fmt(consistency_method), fmt(pconsistency.threshold), if (is_maxeff) " (maxeff: -> 0)" else "",
+              fmt(pconsistency.digits),
               if (outcome_type == "survival") sprintf("hr.consistency = %s", fmt(hr.consistency)) else sprintf("consistency.threshold = %s", fmt(consistency.threshold)),
               fmt(fs.splits), fmt(use_twostage), fmt(twostage_args)),
       if (!identical(subgroup_method, "consistency")) INE
