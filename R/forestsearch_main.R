@@ -1015,6 +1015,14 @@
 #'       additionally keeps the full draws-by-candidates matrix (needed for
 #'       \code{family = "reduced"}).  Add-only pass-through: unset, nothing is
 #'       computed or stored and the default reproduces prior output exactly.}
+#'     \item{\code{declaration_c0}}{\code{NULL} (default) or a numeric vector
+#'       of pre-specified protected null levels \code{c0} on the natural scale
+#'       of \code{hr.consistency} (\code{c0 <= c2}); consulted only with
+#'       \code{keep_declaration_field = TRUE}.  The capture then also stores
+#'       the shifted family maxima \code{Mstar_c0} that
+#'       \code{fs_declaration_calibration(fit, c0 = )} reads (see
+#'       \code{\link{fs_mr_inference}}).  Add-only pass-through: unset,
+#'       nothing is computed or stored.}
 #'   }
 #' @param consistency_method Character. \code{"resample"} (default) uses the
 #'   multiplier (influence-function / \code{dfbeta}) approximation
@@ -3816,6 +3824,10 @@ forestsearch <- function(df.analysis,
         # FALSE computes and stores nothing.
         keep_declaration_field = .g_mr(mr_inference_args$keep_declaration_field, FALSE),
         keep_field_matrix = .g_mr(mr_inference_args$keep_field_matrix, FALSE),
+        # Add-only pass-through (TASK_declcal_c0_rchange_2026-09-22): protected
+        # null levels c0 whose shifted maxima the capture stores.  NULL stores
+        # nothing.
+        declaration_c0 = .g_mr(mr_inference_args$declaration_c0, NULL),
         seed          = .g_mr(mr_inference_args$seed,        seedit))
     }, error = function(e) {
       warning("mr_inference failed: ", conditionMessage(e)); NULL

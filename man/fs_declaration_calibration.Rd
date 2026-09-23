@@ -9,7 +9,8 @@ fs_declaration_calibration(
   fit,
   alpha = 0.05,
   family = c("prereduction", "reduced"),
-  ...
+  ...,
+  c0 = NULL
 )
 
 \method{print}{fs_declaration_calibration}(x, ...)
@@ -30,6 +31,10 @@ resolved admission set carries no consistency floor (for example
 is evaluated.  \code{c_cons} is on the comparison scale (log for ratio
 measures).}
 
+\item{c0}{\code{NULL} (default) or a numeric vector of clinically specified,
+pre-specified protected null levels; see the Protected null level
+section.  Named only (it follows \code{...}).}
+
 \item{x}{An \code{fs_declaration_calibration} object.}
 }
 \value{
@@ -44,6 +49,12 @@ when the fit is a bare \code{fs_mr_inference()} result), \code{admitted_calibrat
 \code{Mstar}, \code{beta_hat}, \code{sigma_D}, \code{T_hat}, \code{column_sd}, \code{zstar_mean},
 \code{field_cor} (families of at most 8 candidates, else \code{NULL}), and a
 \code{reduction} list recording the replay of the near-duplicate reduction.
+When \code{c0} is given it also carries \code{c0}, a list with \code{table} (one row per
+\code{c0}: \code{c0}, \code{c0_cmp}, \code{kappa_hat}, \code{fw_size}, \code{pstar_implied},
+\code{n_admitted_calibrated}, the 0.90 / 0.95 / 0.99 quantiles of \code{Mstar_c0},
+and \code{is_c2}), \code{admitted_calibrated} (a list indexed by \code{c0}), \code{Mstar_c0}
+and \code{source} (\code{"capture"} or \code{"field_matrix"}).  Every other element is
+unchanged by \code{c0}.
 }
 \description{
 Post-hoc, opt-in, reported diagnostics of the consistency screen, computed
@@ -100,6 +111,41 @@ removed and is a diagnostic only, so the gap is measurable.  Its result is
 conditional on the realized family and is labelled so; it is never meant
 for admission.  It needs a \code{forestsearch} fit (the reduction lives in the
 identifier) and the full field matrix (\code{keep_field_matrix = TRUE}).
+}
+
+\section{Protected null level}{
+
+\code{c1} and \code{c2} state the claim; \code{c0} states what the claim is protected
+against: a clinically specified, pre-specified benefit level (for example
+HR 0.75).  The family-wise declaration rate is then controlled at \code{alpha}
+whenever every candidate's true effect is at least as good as \code{c0}, rather
+than only when every candidate sits at \code{c2}.  With
+\code{delta_g = (c_cons - c0_cmp) / sigma_D(g)}:
+\itemize{
+\item \verb{Mstar_c0[b] = max_g \{ Zstar[b, g] - delta_g \}};
+\item \code{kappa_hat(c0)} is its empirical (\code{type = 1}) \code{1 - alpha} quantile;
+\item \code{fw_size(c0) = mean(Mstar_c0 > qnorm((1 + p_star) / 2))};
+\item \code{pstar_implied = 2 * pnorm(kappa_hat(c0)) - 1}, the \code{p_star} whose
+cutoff equals \code{kappa_hat(c0)};
+\item admission is unchanged in form, \code{T(g) >= kappa_hat(c0)}.
+}
+
+If every candidate's true effect is \code{c0_cmp}, \code{T(g)} is centred at
+\code{-delta_g}, so the null law of \verb{max_g T(g)} is that of the shifted maximum.
+At \code{c0 = c2}, \code{delta_g = 0} and every quantity is the unshifted one.
+
+\code{c0} is on the natural scale of the consistency threshold \code{c2} (the HR on
+the survival path; the ratio for OR / RR / IRR; the difference for RD /
+MD) and is mapped exactly as \code{c2} is: \code{log()} for ratio measures, identity
+otherwise.  \code{c0 <= c2} is required.  A non-positive \code{c0} on a ratio path
+(a log supplied by mistake) errors; on an identity path a wrong-scale
+\code{c0} cannot be detected.
+
+The shifted maxima are read from the capture when the fit carries them
+for every requested \code{c0} (\code{declaration_c0} at fit time); otherwise they are
+computed from the stored field matrix (\code{keep_field_matrix = TRUE});
+otherwise the call errors.  It never falls back to the unshifted maximum.
+\code{family = "reduced"} always computes from the field matrix.
 }
 
 \section{Inputs}{

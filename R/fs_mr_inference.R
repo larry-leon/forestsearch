@@ -449,6 +449,20 @@
 #'   keeps the full `draws x G` matrix `Zstar`, which the reduced-family
 #'   diagnostic of [fs_declaration_calibration()] needs.  Off by default
 #'   because `G` can be large.
+#' @param declaration_c0 `NULL` (default) or a numeric vector of clinically
+#'   specified, pre-specified protected null levels `c0`; consulted only when
+#'   `keep_declaration_field = TRUE` (ignored otherwise).  Each `c0` is on the
+#'   natural scale of the consistency threshold `c2` (the HR itself on the
+#'   survival path; the ratio for OR / RR / IRR; the difference for RD / MD)
+#'   and is mapped to the comparison scale exactly as `c2` is (`log()` for
+#'   ratio measures, identity otherwise).  `c0 <= c2` is required.  With
+#'   `delta_g = (c_cons - c0_cmp) / sigma_D(g)`, `declaration_field` then also
+#'   stores `Mstar_c0`, a `draws x K` matrix of the shifted family maxima
+#'   `max_g { Zstar[b, g] - delta_g }`, column names `as.character(c0)`, and
+#'   `meta$c0` / `meta$c0_cmp`.  At `c0 = c2` the column equals `Mstar`
+#'   exactly.  On an identity-scale path a `c0` given on the wrong scale
+#'   cannot be detected; on a ratio path a non-positive `c0` (a log supplied
+#'   by mistake) errors.  With `NULL` nothing is computed or stored.
 #' @return List with the selected index/label, `naive` and `debiased` estimates
 #'   (effect scale, with approximate 95% CIs), `selection_bias`, `fixed_bias`,
 #'   `selection_rate`, `mean_r`, `mean_r_c`, the `settings` actually used (`t_confirm`,
@@ -585,7 +599,8 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                            ij_residual = c("two_term", "winner", "winner_floor"),
                            field_recovery = FALSE,
                            keep_declaration_field = FALSE,
-                           keep_field_matrix = FALSE) {
+                           keep_field_matrix = FALSE,
+                           declaration_c0 = NULL) {
   confirm_rule <- match.arg(confirm_rule); reselection <- match.arg(reselection)
   ij_residual <- match.arg(ij_residual)
   field_scale_complement <- match.arg(field_scale_complement)
@@ -1075,7 +1090,14 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   # stream's shared multipliers Xi, after every construction above is complete.
   # The standardization lives in .fs_decl_field() (fs_declaration_calibration.R).
   if (isTRUE(keep_declaration_field)) {
-    fld <- .fs_decl_field(B, Xi, keep_matrix = isTRUE(keep_field_matrix))
+    # Protected null level c0 (TASK_declcal_c0_rchange_2026-09-22): the shifted
+    # maxima are taken inside .fs_decl_field() before keep_field_matrix is
+    # consulted.  NULL leaves the shift, and the stored field, untouched.
+    c0_cmp <- if (is.null(declaration_c0)) NULL else
+      .fs_decl_c0_cmp(declaration_c0, c_cons, log_scale)
+    fld <- .fs_decl_field(B, Xi, keep_matrix = isTRUE(keep_field_matrix),
+                          shift = if (is.null(c0_cmp)) NULL else
+                            .fs_decl_c0_shift(c0_cmp, c_cons, sdv))
     out$declaration_field <- list(
       Mstar = fld$Mstar, Zstar = fld$Zstar,
       beta_hat = stats::setNames(bh, asm$names),
@@ -1093,6 +1115,11 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
         sigma_D_field = fld$sigma_D, column_sd = fld$column_sd,
         column_mean = fld$column_mean, zstar_mean = fld$zstar_mean,
         field_cor = fld$field_cor, seed = seed))
+    if (!is.null(c0_cmp)) {
+      out$declaration_field$Mstar_c0 <- fld$Mstar_shift
+      out$declaration_field$meta$c0 <- as.numeric(declaration_c0)
+      out$declaration_field$meta$c0_cmp <- c0_cmp
+    }
   }
   out
 }

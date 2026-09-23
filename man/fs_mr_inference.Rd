@@ -31,7 +31,8 @@ fs_mr_inference(
   ij_residual = c("two_term", "winner", "winner_floor"),
   field_recovery = FALSE,
   keep_declaration_field = FALSE,
-  keep_field_matrix = FALSE
+  keep_field_matrix = FALSE,
+  declaration_c0 = NULL
 )
 }
 \arguments{
@@ -266,6 +267,21 @@ with \code{FALSE} nothing is computed or stored.}
 keeps the full \verb{draws x G} matrix \code{Zstar}, which the reduced-family
 diagnostic of \code{\link[=fs_declaration_calibration]{fs_declaration_calibration()}} needs.  Off by default
 because \code{G} can be large.}
+
+\item{declaration_c0}{\code{NULL} (default) or a numeric vector of clinically
+specified, pre-specified protected null levels \code{c0}; consulted only when
+\code{keep_declaration_field = TRUE} (ignored otherwise).  Each \code{c0} is on the
+natural scale of the consistency threshold \code{c2} (the HR itself on the
+survival path; the ratio for OR / RR / IRR; the difference for RD / MD)
+and is mapped to the comparison scale exactly as \code{c2} is (\code{log()} for
+ratio measures, identity otherwise).  \code{c0 <= c2} is required.  With
+\code{delta_g = (c_cons - c0_cmp) / sigma_D(g)}, \code{declaration_field} then also
+stores \code{Mstar_c0}, a \verb{draws x K} matrix of the shifted family maxima
+\verb{max_g \{ Zstar[b, g] - delta_g \}}, column names \code{as.character(c0)}, and
+\code{meta$c0} / \code{meta$c0_cmp}.  At \code{c0 = c2} the column equals \code{Mstar}
+exactly.  On an identity-scale path a \code{c0} given on the wrong scale
+cannot be detected; on a ratio path a non-positive \code{c0} (a log supplied
+by mistake) errors.  With \code{NULL} nothing is computed or stored.}
 }
 \value{
 List with the selected index/label, \code{naive} and \code{debiased} estimates

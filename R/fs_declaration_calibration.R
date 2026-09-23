@@ -32,12 +32,20 @@
 #' @param keep_matrix Logical; return the `B x G` matrix `Zstar`.
 #' @param cor_max Largest family for which the empirical correlation matrix of
 #'   `Zstar` is returned.
+#' @param shift `NULL` (default: no shift), a length-`G` numeric vector, or a
+#'   `G x K` matrix of per-candidate shifts `delta[g, k]`.  When supplied, the
+#'   shifted maxima `max_g { Zstar[b, g] - delta[g, k] }` are returned as
+#'   `Mstar_shift` (`B x K`, column names those of `shift`).  They are taken
+#'   from the full field before `keep_matrix` is consulted, so they are
+#'   available without storing the matrix.
 #' @return List with `Mstar` (length `B`), `Zstar` (or `NULL`), `sigma_D`,
 #'   `column_sd`, `column_mean`, `zstar_mean`, `field_cor` (or `NULL`),
-#'   `shared_multipliers`, `B`, `G`.
+#'   `shared_multipliers`, `B`, `G`; and `Mstar_shift` only when `shift` is
+#'   supplied.
 #' @keywords internal
 #' @noRd
-.fs_decl_field <- function(db, xi, keep_matrix = TRUE, cor_max = 8L) {
+.fs_decl_field <- function(db, xi, keep_matrix = TRUE, cor_max = 8L,
+                           shift = NULL) {
   db <- as.matrix(db)
   xi <- as.matrix(xi)
   if (nrow(db) != nrow(xi)) {
@@ -53,7 +61,8 @@
   zs <- zs / rep(sigma_D, each = nrow(zs))        # column g / sigma_D(g)
   n_g <- ncol(zs)
   m_star <- zs[cbind(seq_len(nrow(zs)), max.col(zs, ties.method = "first"))]
-  list(
+  m_shift <- if (is.null(shift)) NULL else .fs_decl_shifted_max(zs, shift)
+  out <- list(
     Mstar = m_star,
     Zstar = if (isTRUE(keep_matrix)) zs else NULL,
     sigma_D = sigma_D,
@@ -64,6 +73,101 @@
     shared_multipliers = TRUE,
     B = nrow(zs), G = n_g
   )
+  if (!is.null(m_shift)) out$Mstar_shift <- m_shift
+  out
+}
+
+
+#' Shifted family maxima of a standardized field
+#'
+#' `M[b, k] = max_g { zs[b, g] - shift[g, k] }`.  With a zero shift column the
+#' result is bit-identical to the unshifted maximum.
+#'
+#' @param zs `B x G` standardized field.
+#' @param shift Length-`G` vector or `G x K` matrix.
+#' @return `B x K` matrix, column names from `shift`.
+#' @keywords internal
+#' @noRd
+.fs_decl_shifted_max <- function(zs, shift) {
+  shift <- as.matrix(shift)
+  if (nrow(shift) != ncol(zs) || !all(is.finite(shift))) {
+    stop("shift must be finite with one row per candidate (", ncol(zs),
+         ").", call. = FALSE)
+  }
+  n_b <- nrow(zs)
+  rows <- seq_len(n_b)
+  m <- vapply(seq_len(ncol(shift)), function(k) {
+    zk <- zs - rep(shift[, k], each = n_b)
+    zk[cbind(rows, max.col(zk, ties.method = "first"))]
+  }, numeric(n_b))
+  m <- matrix(m, n_b, ncol(shift))
+  colnames(m) <- colnames(shift)
+  m
+}
+
+
+#' Map a protected null level c0 to the comparison scale
+#'
+#' `c0` is supplied on the natural scale of the consistency threshold `c2`
+#' (the HR itself on the survival path) and transformed exactly as `c2` is:
+#' `log()` for ratio measures, the identity otherwise.  `c0 <= c2` is required
+#' on the natural scale, i.e. `c0_cmp <= c_cons` on the comparison scale.
+#'
+#' @param c0 Numeric vector, natural scale.
+#' @param c_cons `c2` on the comparison scale.
+#' @param log_scale Logical; `TRUE` for ratio measures.
+#' @return Numeric vector `c0_cmp`, named by `as.character(c0)`.
+#' @keywords internal
+#' @noRd
+.fs_decl_c0_cmp <- function(c0, c_cons, log_scale) {
+  if (!is.numeric(c0) || !length(c0) || any(!is.finite(c0))) {
+    stop("c0 must be a finite numeric vector.", call. = FALSE)
+  }
+  if (anyDuplicated(c0)) stop("c0 values must be distinct.", call. = FALSE)
+  if (is.null(c_cons)) {
+    stop("c0 needs a consistency threshold c2 to shift from, and the ",
+         "resolved admission set has none.", call. = FALSE)
+  }
+  if (is.null(log_scale)) {
+    stop("the field records no log_scale, so c0 cannot be mapped to the ",
+         "comparison scale.", call. = FALSE)
+  }
+  if (isTRUE(log_scale)) {
+    if (any(c0 <= 0)) {
+      stop("c0 = ", paste(c0[c0 <= 0], collapse = ", "), " is not on the ",
+           "natural ratio scale: on this path c0 is a ratio (e.g. 0.75 for ",
+           "HR 0.75), not its log.", call. = FALSE)
+    }
+    c0_cmp <- log(c0)
+  } else {
+    c0_cmp <- c0
+  }
+  bad <- c0_cmp > c_cons
+  if (any(bad)) {
+    c2_nat <- if (isTRUE(log_scale)) exp(c_cons) else c_cons
+    stop("c0 must satisfy c0 <= c2 on the natural scale: c0 = ",
+         paste(c0[bad], collapse = ", "), " exceeds c2 = ",
+         format(c2_nat, digits = 6),
+         ". A protected level worse than the harm criterion is not a null.",
+         call. = FALSE)
+  }
+  stats::setNames(c0_cmp, as.character(c0))
+}
+
+
+#' Per-candidate shift matrix for protected levels c0
+#' @param c0_cmp Named comparison-scale levels (from `.fs_decl_c0_cmp()`).
+#' @param c_cons `c2` on the comparison scale.
+#' @param sigma_D Length-`G` robust scales.
+#' @return `G x K` matrix `(c_cons - c0_cmp[k]) / sigma_D[g]`.
+#' @keywords internal
+#' @noRd
+.fs_decl_c0_shift <- function(c0_cmp, c_cons, sigma_D) {
+  n_g <- length(sigma_D)
+  d <- matrix((c_cons - rep(unname(c0_cmp), each = n_g)) / sigma_D,
+              n_g, length(c0_cmp))
+  colnames(d) <- names(c0_cmp)
+  d
 }
 
 
@@ -203,6 +307,38 @@
 #' for admission.  It needs a `forestsearch` fit (the reduction lives in the
 #' identifier) and the full field matrix (`keep_field_matrix = TRUE`).
 #'
+#' @section Protected null level:
+#' `c1` and `c2` state the claim; `c0` states what the claim is protected
+#' against: a clinically specified, pre-specified benefit level (for example
+#' HR 0.75).  The family-wise declaration rate is then controlled at `alpha`
+#' whenever every candidate's true effect is at least as good as `c0`, rather
+#' than only when every candidate sits at `c2`.  With
+#' `delta_g = (c_cons - c0_cmp) / sigma_D(g)`:
+#'
+#' * `Mstar_c0[b] = max_g { Zstar[b, g] - delta_g }`;
+#' * `kappa_hat(c0)` is its empirical (`type = 1`) `1 - alpha` quantile;
+#' * `fw_size(c0) = mean(Mstar_c0 > qnorm((1 + p_star) / 2))`;
+#' * `pstar_implied = 2 * pnorm(kappa_hat(c0)) - 1`, the `p_star` whose
+#'   cutoff equals `kappa_hat(c0)`;
+#' * admission is unchanged in form, `T(g) >= kappa_hat(c0)`.
+#'
+#' If every candidate's true effect is `c0_cmp`, `T(g)` is centred at
+#' `-delta_g`, so the null law of `max_g T(g)` is that of the shifted maximum.
+#' At `c0 = c2`, `delta_g = 0` and every quantity is the unshifted one.
+#'
+#' `c0` is on the natural scale of the consistency threshold `c2` (the HR on
+#' the survival path; the ratio for OR / RR / IRR; the difference for RD /
+#' MD) and is mapped exactly as `c2` is: `log()` for ratio measures, identity
+#' otherwise.  `c0 <= c2` is required.  A non-positive `c0` on a ratio path
+#' (a log supplied by mistake) errors; on an identity path a wrong-scale
+#' `c0` cannot be detected.
+#'
+#' The shifted maxima are read from the capture when the fit carries them
+#' for every requested `c0` (`declaration_c0` at fit time); otherwise they are
+#' computed from the stored field matrix (`keep_field_matrix = TRUE`);
+#' otherwise the call errors.  It never falls back to the unshifted maximum.
+#' `family = "reduced"` always computes from the field matrix.
+#'
 #' @section Inputs:
 #' The field is retained only on request.  Fit with
 #' `mr_inference = TRUE` and
@@ -223,6 +359,9 @@
 #'   `sg_focus = "maxeff"`); they then name the hypothetical screen whose size
 #'   is evaluated.  `c_cons` is on the comparison scale (log for ratio
 #'   measures).
+#' @param c0 `NULL` (default) or a numeric vector of clinically specified,
+#'   pre-specified protected null levels; see the Protected null level
+#'   section.  Named only (it follows `...`).
 #' @return An object of class `fs_declaration_calibration`: a list with
 #'   `kappa_hat`, `fw_size`, `alpha`, `p_star`, `z_pstar`, `c_cons`,
 #'   `c_screen`, `B`, `multiplier_law`, `quantile_type`, `family_source`,
@@ -234,6 +373,12 @@
 #'   `Mstar`, `beta_hat`, `sigma_D`, `T_hat`, `column_sd`, `zstar_mean`,
 #'   `field_cor` (families of at most 8 candidates, else `NULL`), and a
 #'   `reduction` list recording the replay of the near-duplicate reduction.
+#'   When `c0` is given it also carries `c0`, a list with `table` (one row per
+#'   `c0`: `c0`, `c0_cmp`, `kappa_hat`, `fw_size`, `pstar_implied`,
+#'   `n_admitted_calibrated`, the 0.90 / 0.95 / 0.99 quantiles of `Mstar_c0`,
+#'   and `is_c2`), `admitted_calibrated` (a list indexed by `c0`), `Mstar_c0`
+#'   and `source` (`"capture"` or `"field_matrix"`).  Every other element is
+#'   unchanged by `c0`.
 #' @seealso [fs_mr_inference()], [fs_family_report()], [fs_fdr_report()].
 #' @examples
 #' \dontrun{
@@ -245,7 +390,8 @@
 fs_declaration_calibration <- function(fit,
                                        alpha = 0.05,
                                        family = c("prereduction", "reduced"),
-                                       ...) {
+                                       ...,
+                                       c0 = NULL) {
   family <- match.arg(family)
   if (!is.numeric(alpha) || length(alpha) != 1L || !is.finite(alpha) ||
       alpha <= 0 || alpha >= 1) {
@@ -328,6 +474,10 @@ fs_declaration_calibration <- function(fit,
   admitted_calibrated <- names(bh)[bh >= floor_at(kappa_hat)]
   admitted_pstar <- names(bh)[bh >= floor_at(z_pstar)]
 
+  c0_out <- if (is.null(c0)) NULL else
+    .fs_decl_c0_block(fld, c0, c_cons, cols, family, alpha, z_pstar, bh, sdv,
+                      floor_at)
+
   field_cor <- meta$field_cor
   if (!is.null(field_cor) && length(cols) != n_pre) {
     field_cor <- field_cor[cols, cols, drop = FALSE]
@@ -363,8 +513,60 @@ fs_declaration_calibration <- function(fit,
     shared_multipliers = meta$shared_multipliers,
     reduction = red
   )
+  if (!is.null(c0_out)) out$c0 <- c0_out
   class(out) <- c("fs_declaration_calibration", "list")
   out
+}
+
+
+#' Per-c0 calibration block of fs_declaration_calibration()
+#'
+#' Reads the captured shifted maxima when they cover every requested `c0`
+#' (pre-reduction family only), otherwise computes them from the stored field
+#' matrix, otherwise errors.  Never substitutes the unshifted maximum.
+#' @keywords internal
+#' @noRd
+.fs_decl_c0_block <- function(fld, c0, c_cons, cols, family, alpha, z_pstar,
+                              bh, sdv, floor_at) {
+  meta <- fld$meta
+  c0_cmp <- .fs_decl_c0_cmp(c0, c_cons, meta$log_scale)
+  keys <- names(c0_cmp)
+  cap <- fld$Mstar_c0
+  use_cap <- identical(family, "prereduction") && !is.null(cap) &&
+    all(keys %in% colnames(cap)) && identical(meta$c_cons, c_cons)
+  if (use_cap) {
+    m_c0 <- cap[, keys, drop = FALSE]
+    src <- "capture"
+  } else if (!is.null(fld$Zstar)) {
+    m_c0 <- .fs_decl_shifted_max(fld$Zstar[, cols, drop = FALSE],
+                                 .fs_decl_c0_shift(c0_cmp, c_cons, sdv))
+    src <- "field_matrix"
+  } else {
+    stop("c0 = ", paste(c0, collapse = ", "), " needs the shifted maxima: ",
+         "refit with declaration_c0 = c(", paste(c0, collapse = ", "),
+         ") (forestsearch(): mr_inference_args = list(keep_declaration_field ",
+         "= TRUE, declaration_c0 = ...)), or with keep_field_matrix = TRUE",
+         if (identical(family, "reduced")) " (required for family = \"reduced\")",
+         ". The unshifted maximum is never substituted.", call. = FALSE)
+  }
+  kap <- apply(m_c0, 2L, stats::quantile, probs = 1 - alpha, type = 1,
+               names = FALSE)
+  fw <- apply(m_c0 > z_pstar, 2L, mean)   # as mean(Mstar > z), column-wise
+  adm <- lapply(stats::setNames(kap, keys),
+                function(k) names(bh)[bh >= floor_at(k)])
+  qs <- apply(m_c0, 2L, stats::quantile, probs = c(0.90, 0.95, 0.99),
+              type = 1, names = FALSE)
+  qs <- matrix(qs, nrow = 3L)
+  tab <- data.frame(
+    c0 = as.numeric(c0), c0_cmp = unname(c0_cmp),
+    kappa_hat = unname(kap), fw_size = unname(fw),
+    pstar_implied = 2 * stats::pnorm(unname(kap)) - 1,
+    n_admitted_calibrated = lengths(adm, use.names = FALSE),
+    Mstar_c0_q90 = qs[1L, ], Mstar_c0_q95 = qs[2L, ], Mstar_c0_q99 = qs[3L, ],
+    is_c2 = unname(c0_cmp) == c_cons,
+    row.names = NULL
+  )
+  list(table = tab, admitted_calibrated = adm, Mstar_c0 = m_c0, source = src)
 }
 
 
@@ -373,6 +575,7 @@ fs_declaration_calibration <- function(fit,
 #' @export
 print.fs_declaration_calibration <- function(x, ...) {
   f3 <- function(v) if (is.null(v)) "none" else formatC(v, digits = 4, format = "fg")
+  f3v <- function(v) formatC(v, digits = 4, format = "fg")
   cat("Declaration calibration (post-hoc, reported; admission unchanged)\n")
   cat("  family source:       ", x$family_source, "\n")
   cat("  family:              ", x$family_label, "\n")
@@ -393,5 +596,17 @@ print.fs_declaration_calibration <- function(x, ...) {
       else length(x$admitted_current), "\n")
   cat("  admitted (p-star rule, this family):   ", length(x$admitted_pstar), "\n")
   cat("  admitted (calibrated rule, this family):", length(x$admitted_calibrated), "\n")
+  if (!is.null(x$c0)) {
+    tb <- x$c0$table
+    cat("  Protected null level c0 (source: ", x$c0$source, "):\n", sep = "")
+    lab <- ifelse(tb$is_c2, paste0(f3v(tb$c0), " (= c2, unshifted)"),
+                  f3v(tb$c0))
+    shown <- data.frame(c0 = lab, kappa_hat = f3v(tb$kappa_hat),
+                        pstar_implied = f3v(tb$pstar_implied),
+                        fw_size = f3v(tb$fw_size),
+                        n_admitted = tb$n_admitted_calibrated,
+                        q95 = f3v(tb$Mstar_c0_q95))
+    print(shown, row.names = FALSE, right = TRUE)
+  }
   invisible(x)
 }

@@ -957,6 +957,14 @@ field that \code{\link{fs_declaration_calibration}} reads, as
 additionally keeps the full draws-by-candidates matrix (needed for
 \code{family = "reduced"}).  Add-only pass-through: unset, nothing is
 computed or stored and the default reproduces prior output exactly.}
+\item{\code{declaration_c0}}{\code{NULL} (default) or a numeric vector
+of pre-specified protected null levels \code{c0} on the natural scale
+of \code{hr.consistency} (\code{c0 <= c2}); consulted only with
+\code{keep_declaration_field = TRUE}.  The capture then also stores
+the shifted family maxima \code{Mstar_c0} that
+\code{fs_declaration_calibration(fit, c0 = )} reads (see
+\code{\link{fs_mr_inference}}).  Add-only pass-through: unset,
+nothing is computed or stored.}
 }}
 }
 \value{
