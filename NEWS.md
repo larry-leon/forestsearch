@@ -1,5 +1,16 @@
 # forestsearch (development version)
 
+* **`forestsearch()` gains `pconsistency.digits` (default 2).** It was
+  previously reachable only on the internal consistency functions
+  (`subgroup.consistency()`, `evaluate_subgroup_consistency()`,
+  `evaluate_consistency_twostage()`); every `forestsearch()` run was pinned to
+  2 digits. The consistency proportion is rounded to this many digits *before*
+  it is compared with `pconsistency.threshold`, so the setting governs
+  admission, not only display; the roxygen for all four functions now says so.
+  Default behaviour is unchanged: at 2 the GBSG application's consistency table
+  is identical to the previous package's. `fs_family_report()` lists the
+  argument in its consistency-screen row.
+
 * **New `fs_dgm_feasibility()`: a design-time check that the planted region
   can be declared at all.** Given a `glm_dgm` -- the interface
   `fs_oc_predict()` and `fs_oc_grid()` accept -- it draws `n_rep` replicates
