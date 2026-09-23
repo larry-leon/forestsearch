@@ -81,10 +81,9 @@ for (al in c("05", "10")) {
     say("| %s | %s | %d | %s | %s | %s |", cl, dgm_txt[[r$dgm[1]]], r$n[1], fmt_w(r$declared_conv),
         paste(vapply(sfx, function(s) fmt_w(r[[sprintf("declared_cal%s_%s", al, s)]]), ""), collapse = " | "),
         fmt_w(ref[[sprintf("declared_cal%s", al)]]))
-    say("| %s approx | plug-in median kappa_hat(c0) at n, max_T_pre | %d | %.4f | %s | %.4f |", cl, r$n[1],
-        AX$rates[[sprintf("%s|conv|%s", cl, al)]],
-        paste(sprintf("%.4f", AX$rates[sprintf("%s|%.2f|%s", cl, c0_grid, al)]), collapse = " | "),
-        AX$rates[[sprintf("%s|c2|%s", cl, al)]])
+    fmt_r <- function(p) fmt_w(c(rep(1L, round(p * 2000)), rep(0L, 2000 - round(p * 2000))))
+    say("| %s approx | plug-in median kappa_hat(c0) at n, max_T_pre | %d | - | %s | - |", cl, r$n[1],
+        paste(vapply(AX$rates[sprintf("%s|%.2f|%s", cl, c0_grid, al)], fmt_r, ""), collapse = " | "))
   }
   say("\n\"approx\" rows: REPORT_declcal_c0_approx_2026-09-22 (e9de87c7) -- each rate is mean(max_T_pre >= median kappa_hat(c0) over 40 captures at that n, B 2000), a fixed cutoff, not the per-replicate calibrated rule of the exact row above it.")
 }
@@ -202,5 +201,37 @@ for (cl in Bc) {
         mean(f21), mean(r$declared_conv), mean(d2), sd(d2) / sqrt(nrow(r)))
   }
 }
+# ---- the three free checks (declcal task section 7.3, per c0) ----------------
+say("\n## Free check (a): Eq. 8 at the shifted field as an estimator, B cells (all c0)")
+say("(the fw_c0 table above: mean fw_1621_c0 vs the as-executed rate, mean fw_1645_c0 vs the exact-z pre-family rate, paired MC SE = sd/sqrt(2000); Block A is not re-run)")
+say("\n## Free check (b): how strict the calibration is -- pstar_implied_05_c0 distribution")
+say("| cell | c0 | min | 5%% | 25%% | 50%% | 75%% | 95%% | max | fraction > 0.90 | fraction < p*(executed cutoff 1.621) |")
+say("|---|---|---|---|---|---|---|---|---|---|---|")
+pr <- c(0, .05, .25, .5, .75, .95, 1)
+for (cl in names(P)) { r <- ok_rows(cl)
+  for (j in seq_along(sfx)) { v <- r[[paste0("pstar_implied_05_", sfx[j])]]
+    say("| %s | %.2f | %s | %.4f | %.4f |", cl, c0_grid[j], paste(sprintf("%.5f", stats::quantile(v, pr, type = 7)), collapse = " | "),
+        mean(v > 0.90), mean(r[[paste0("kappa_hat_05_", sfx[j])]] < qnorm((1 + 0.895) / 2))) } }
+say("(last column: share of replicates whose kappa_hat_05_c0 is below the as-executed cutoff z = 1.621, i.e. the calibrated rule is looser than p* 0.90 as executed)")
+say("\n## Free check (c): can the calibrated rule declare where the conventional one did not?")
+say("| cell | c0 | cal05 = 1 & conv = 0 | cal10 = 1 & conv = 0 | cal05 = 1 & exact = 0 | cal10 = 1 & exact = 0 | min kappa_hat_05_c0 | min kappa_hat_10_c0 | cal05 & !conv: via family / via cutoff | cal10 & !conv: via family / via cutoff |")
+say("|---|---|---|---|---|---|---|---|---|---|")
+fc <- list()
+for (cl in names(P)) { r <- ok_rows(cl)
+  for (j in seq_along(sfx)) { s5 <- r[[paste0("declared_cal05_", sfx[j])]]; s10 <- r[[paste0("declared_cal10_", sfx[j])]]
+    x <- c(sum(s5 == 1 & r$declared_conv == 0), sum(s10 == 1 & r$declared_conv == 0),
+           sum(s5 == 1 & r$declared_conv_exact == 0), sum(s10 == 1 & r$declared_conv_exact == 0))
+    k5 <- r[[paste0("kappa_hat_05_", sfx[j])]]; k10 <- r[[paste0("kappa_hat_10_", sfx[j])]]
+    post_ge <- function(k) !is.na(r$max_T_post) & r$max_T_post >= k
+    v5 <- s5 == 1 & r$declared_conv == 0; v10 <- s10 == 1 & r$declared_conv == 0
+    sp <- c(sum(v5 & !post_ge(k5)), sum(v5 & post_ge(k5)), sum(v10 & !post_ge(k10)), sum(v10 & post_ge(k10)))
+    fc[[paste(cl, sfx[j])]] <- c(x, sp)
+    say("| %s | %.2f | %d | %d | %d | %d | %.3f | %.3f | %d / %d | %d / %d |", cl, c0_grid[j], x[1], x[2], x[3], x[4],
+        min(k5), min(k10), sp[1], sp[2], sp[3], sp[4]) } }
+tot <- Reduce(`+`, fc)
+say("\nPooled over the 40 (cell, c0) rows: cal05 & !conv %d (via family %d, via cutoff %d); cal10 & !conv %d (via family %d, via cutoff %d).",
+    tot[1], tot[5], tot[6], tot[2], tot[7], tot[8])
+say("via family: max_T_post < kappa_hat (the admitting subgroup is in the pre-reduction family but not the post-reduction family the executed screen evaluated); via cutoff: max_T_post >= kappa_hat yet the rounded p* 0.90 rule did not admit, i.e. kappa_hat below the executed cutoff 1.621.")
+say("(conv = declared_conv, the rounded post-reduction rule as executed; exact = declared_conv_exact, max_T_post >= 1.6449)")
 writeLines(out, "logs/declcalc0_findings.txt")
-saveRDS(list(status = status, gates = gates, q62 = q62, fk = fk), "declcalc0_findings.rds")
+saveRDS(list(status = status, gates = gates, q62 = q62, fk = fk, free_c = fc), "declcalc0_findings.rds")
