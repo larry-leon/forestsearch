@@ -1,5 +1,20 @@
 # forestsearch (development version)
 
+* **MR's admission set now uses the screen's rounded consistency threshold
+  (forest search only).** The search admits on
+  `round(Pcons, pconsistency.digits) >= p*`, but MR's consistency floor was
+  built from the exact cutoff `qnorm((1 + p*) / 2)`, so MR re-selected under a
+  different admission rule from the one that produced the selected subgroup,
+  in the under-adjusting direction. The floor is now built from the effective
+  threshold `.fs_pcons_eff(p*, digits)` on both consistency paths.
+  `fs_mr_inference()` gains `pconsistency.digits` (default `NULL`, the
+  `subgroup.consistency()` default); `forestsearch()` passes its own value.
+  **Corrected estimates, field bounds and the Bonferroni pair can move for
+  forest search.** On the GBSG application (seed 8316951) the corrected HR
+  moves from 1.2806 to 1.2762, the field lower bound from 0.6365 to 0.6336,
+  and the Bonferroni pair from 0.5099 / 0.8397 to 0.5087 / 0.8396. GRF and
+  DINA carry no consistency screen and are unaffected (identical output).
+
 * **`fs_declaration_calibration()`: FW-hat and the implied p-star are now
   computed at the screen's rounded admission rule.** The screen admits on
   `round(Pcons, pconsistency.digits) >= p*`, which is `Pcons >= 0.895` for
