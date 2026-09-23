@@ -1,5 +1,9 @@
 # forestsearch (development version)
 
+* The `fs_dgm_feasibility()` example now runs (it called `generate_glm_dgm()`
+  without its required data arguments); `fs_plot_bias_coverage()` captions use
+  `\u` escapes, so the R source is ASCII -- the rendered text is unchanged.
+
 * **`forestsearch()` gains `pconsistency.digits` (default 2).** It was
   previously reachable only on the internal consistency functions
   (`subgroup.consistency()`, `evaluate_subgroup_consistency()`,
