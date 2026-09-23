@@ -19,7 +19,7 @@
 #' `betaHhat_H`, `detected`, and their `Hc` twins), computes, per estimator
 #' over the detected replicates: the retained bias on the log scale, the
 #' empirical SD of the log estimate, the mean reported SE, their ratios
-#' `b = bias_log / sd_emp` and `r = se_mean / sd_emp`, the observed one- and
+#' `b = bias_log / sd_emp` and \code{r = se_mean / sd_emp}, the observed one- and
 #' two-sided coverage of the target with Wilson intervals, and the Gaussian
 #' reference coverages at (b, r).
 #'
@@ -235,8 +235,8 @@ fs_plot_bias_coverage <- function(tbl, labels = TRUE,
     ggplot2::labs(title = sprintf("One-sided %d%% %s-bound coverage",
                                   round(100 * level), side),
                   x = "residual bias b (SD units)", y = "coverage",
-                  caption = sprintf("curves: Φ(%.3f·r %s b), r ∈ {%s}",
-                                    z1, if (side == "lower") "−" else "+",
+                  caption = sprintf("curves: \u03a6(%.3f\u00b7r %s b), r \u2208 {%s}",
+                                    z1, if (side == "lower") "\u2212" else "+",
                                     paste(curves, collapse = ", "))) +
     base_th
 
@@ -248,7 +248,7 @@ fs_plot_bias_coverage <- function(tbl, labels = TRUE,
     lab_layer(ggplot2::aes(label = cell)) +
     ggplot2::labs(title = sprintf("Two-sided %d%% coverage", round(100 * level)),
                   x = "residual bias b (SD units)", y = "coverage",
-                  caption = sprintf("curves: Φ(%.2f·r − b) − Φ(−%.2f·r − b)",
+                  caption = sprintf("curves: \u03a6(%.2f\u00b7r \u2212 b) \u2212 \u03a6(\u2212%.2f\u00b7r \u2212 b)",
                                     z2, z2)) +
     base_th
 
