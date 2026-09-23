@@ -48,6 +48,10 @@
                    lower = -Inf, upper = a, rel.tol = 1e-12)$value
 }
 .fw_target <- function(rho) 1 - .phi2(stats::qnorm(0.95), rho)
+# fw_size is taken at the rounded screen: p* = 0.90 at digits = 2 admits on
+# Pcons >= 0.895 (TASK_declcal_rounding_alignment_2026-09-23)
+.z_eff <- stats::qnorm((1 + 0.895) / 2)
+.fw_target_eff <- function(rho) 1 - .phi2(.z_eff, rho)
 .kappa_target <- function(rho) {
   stats::uniroot(function(k) .phi2(k, rho) - 0.95, c(1.0, 3.0),
                  tol = 1e-10)$root
@@ -147,9 +151,11 @@ test_that("3: independent columns give fw_size = 1 - (1 - alpha1)^G", {
   for (g in seq_len(G)) db[(g - 1L) * m + seq_len(m), g] <- stats::rnorm(m)
   xi <- matrix(stats::rnorm(n * B), n, B)
   fld <- forestsearch:::.fs_decl_field(db, xi)
+  # the screen as implemented: round(Pcons, 2) >= p*, i.e. Pcons >= p* - 0.005
+  pcons_eff <- c("0.8" = 0.795, "0.9" = 0.895)
   for (ps in c(0.80, 0.90)) {
     dc <- fs_declaration_calibration(.decl_fit(fld, bh = rep(0, G), p_star = ps))
-    alpha1 <- 1 - stats::pnorm(stats::qnorm((1 + ps) / 2))
+    alpha1 <- 1 - stats::pnorm(stats::qnorm((1 + pcons_eff[[as.character(ps)]]) / 2))
     tgt <- 1 - (1 - alpha1)^G
     expect_lt(abs(dc$fw_size - tgt), 4 * sqrt(tgt * (1 - tgt) / B))
   }
@@ -250,9 +256,10 @@ test_that("7: unset, nothing is stored and the call refuses by name", {
 
 .check8 <- function(dc, rho) {
   expect_lt(abs(dc$field_cor[1, 2] - rho), 4 / sqrt(.B8))              # 8a
-  expect_lt(abs(dc$fw_size - .fw_target(rho)), 0.0027)                  # 8b
+  expect_lt(abs(dc$fw_size - .fw_target_eff(rho)), 0.0027)              # 8b
   expect_lt(abs(dc$kappa_hat - .kappa_target(rho)), 0.025)              # 8c
-  expect_gte(dc$fw_size, 0.05); expect_lte(dc$fw_size, 0.0975)           # 8d
+  expect_gte(dc$fw_size, 1 - stats::pnorm(.z_eff))                      # 8d
+  expect_lte(dc$fw_size, 1 - stats::pnorm(.z_eff)^2)
   expect_gte(dc$kappa_hat, 1.644854); expect_lte(dc$kappa_hat, 1.954508)
 }
 

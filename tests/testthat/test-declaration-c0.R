@@ -225,8 +225,10 @@ test_that("4: c0 > c2 errors naming both; a log on a ratio path errors", {
 .sig5 <- sqrt(colSums(.db5^2))
 .rho5 <- sum(.db5[, 1] * .db5[, 2]) / (.sig5[1] * .sig5[2])
 .dl5 <- (0 - .c0_5) / .sig5                      # delta_1, delta_2
-.fw5_target <- 1 - .phi2ab(stats::qnorm(0.95) + .dl5[1],
-                           stats::qnorm(0.95) + .dl5[2], .rho5)
+# fw_size is taken at the rounded screen: p* = 0.90 at digits = 2 admits on
+# Pcons >= 0.895 (TASK_declcal_rounding_alignment_2026-09-23)
+.z_eff5 <- stats::qnorm((1 + 0.895) / 2)
+.fw5_target <- 1 - .phi2ab(.z_eff5 + .dl5[1], .z_eff5 + .dl5[2], .rho5)
 .kappa5_target <- stats::uniroot(
   function(k) .phi2ab(k + .dl5[1], k + .dl5[2], .rho5) - 0.95,
   c(0, 3), tol = 1e-10)$root
@@ -240,7 +242,7 @@ test_that("4: c0 > c2 errors naming both; a log on a ratio path errors", {
 test_that("5: the shifted closed form is non-degenerate and below the unshifted", {
   expect_gte(.rho5, 0.05)
   expect_true(all(.dl5 > 0))
-  expect_lt(.fw5_target, 0.078751)             # unshifted target (prerequisite)
+  expect_lt(.fw5_target, 1 - .phi2ab(.z_eff5, .z_eff5, .rho5))  # unshifted target
   expect_lt(.kappa5_target, 1.867648)
 })
 
@@ -262,7 +264,7 @@ test_that("5: the internal helper on a hand-supplied db matches the shifted clos
   fld <- forestsearch:::.fs_decl_field(.db5, xi, keep_matrix = FALSE,
                                        shift = cbind(.dl5))
   m <- fld$Mstar_shift[, 1]
-  expect_lt(abs(mean(m > stats::qnorm(0.95)) - .fw5_target), 0.0027)
+  expect_lt(abs(mean(m > .z_eff5) - .fw5_target), 0.0027)
   expect_lt(abs(stats::quantile(m, 0.95, type = 1, names = FALSE) -
                   .kappa5_target), 0.025)
 })

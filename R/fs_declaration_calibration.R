@@ -7,13 +7,15 @@
 #
 # The closed-form consistency screen admits candidate g when
 #   max(0, 2 * pnorm((beta_hat - c_cons) / sigma_D) - 1) >= p_star,
-# which is exactly T(g) = (beta_hat(g) - c_cons) / sigma_D(g) >= z_{(1+p_star)/2}.
+# the rate rounded to pconsistency.digits = d first, which is exactly
+# T(g) = (beta_hat(g) - c_cons) / sigma_D(g) >= qnorm((1 + pcons_eff) / 2),
+# pcons_eff = .fs_pcons_eff(p_star, d) (TASK_declcal_rounding_alignment_2026-09-23).
 # Under multiplier resampling the standardized perturbation field is
 #   Zstar[b, g] = sum_i xi[b, i] * db[g, i] / sigma_D(g),
 # with one shared multiplier vector per draw.  Its family maximum Mstar[b]
 # calibrates the declaration: kappa_hat(alpha) is the (1 - alpha) quantile of
-# Mstar, and fw_size = mean(Mstar > z_{(1+p_star)/2}) is the family-wise size
-# the conventional p-star screen actually has on the realized family.
+# Mstar, and fw_size = mean(Mstar > qnorm((1 + pcons_eff) / 2)) is the
+# family-wise size the p-star screen, as implemented, has on the realized family.
 #
 # Post-hoc, opt-in and reported: nothing here re-runs the search, mutates the
 # fit, or feeds back into admission.
@@ -171,6 +173,87 @@
 }
 
 
+#' Effective Pcons threshold of the rounded admission rule
+#'
+#' The screen admits on `round(Pcons, digits) >= p_star`.  With `g` the
+#' smallest point of the `10^-digits` grid at or above `p_star`, that is
+#' `Pcons >= g - 0.5 * 10^-digits`, which this returns.  The one place the
+#' expression lives; every site that needs the screen's threshold calls it.
+#' The scaled `p_star` is snapped to 6 decimals before `ceiling()` so that a
+#' grid value carrying representation error (`0.07 * 100` is
+#' `7.000000000000001`) is not pushed up a grid step.
+#'
+#' @param p_star Numeric, the consistency threshold `p*`.
+#' @param digits Integer, `pconsistency.digits`.
+#' @return Numeric, the threshold on the `Pcons` scale.
+#' @keywords internal
+#' @noRd
+.fs_pcons_eff <- function(p_star, digits) {
+  g <- ceiling(round(p_star * 10^digits, 6)) / 10^digits
+  g - 0.5 * 10^(-digits)
+}
+
+
+#' Settable p-star for a calibrated cutoff
+#'
+#' The smallest `p*` on the `10^-digits` grid whose effective threshold
+#' (`.fs_pcons_eff()`, mapped to z by `qnorm((1 + .) / 2)`) is at or above
+#' `kap`.  `NA` when no `p* <= 1` reaches `kap` at these `digits`.
+#' @return List with `p_star`, `pcons_eff`, `z_eff`, `z_gap` (`z_eff - kap`).
+#' @keywords internal
+#' @noRd
+.fs_decl_settable <- function(kap, digits) {
+  none <- list(p_star = NA_real_, pcons_eff = NA_real_, z_eff = NA_real_,
+               z_gap = NA_real_)
+  if (!is.finite(kap)) return(none)
+  step <- 10^(-digits)
+  p_k <- 2 * stats::pnorm(kap) - 1
+  # start at p_k on the grid; the effective threshold sits within a step, so
+  # the searches below move at most a step or two, each via .fs_pcons_eff()
+  g <- max(step, ceiling(round(p_k / step, 6)) * step)
+  z_at <- function(p) stats::qnorm((1 + .fs_pcons_eff(p, digits)) / 2)
+  while (g - step >= step && z_at(g - step) >= kap) g <- g - step
+  while (g <= 1 + step / 2 && z_at(g) < kap) g <- g + step
+  if (g > 1 + step / 2) return(none)
+  g <- round(g, digits)
+  z <- z_at(g)
+  list(p_star = g, pcons_eff = .fs_pcons_eff(g, digits), z_eff = z,
+       z_gap = z - kap)
+}
+
+
+#' Settable-pair columns for a vector of calibrated cutoffs
+#'
+#' At the fit's `digits`: the smallest settable `p*` reaching each `kap`, its
+#' effective threshold on the `Pcons` and z scales, and the gap to `kap` in z
+#' units (positive = conservative).  Then the smallest `digits` in
+#' `1:digits_max` at which that gap falls below `gap_tol`, with its `p*`.
+#' @keywords internal
+#' @noRd
+.fs_decl_settable_table <- function(kap, digits, gap_tol = 0.01,
+                                    digits_max = 12L) {
+  rows <- lapply(kap, function(k) {
+    s <- .fs_decl_settable(k, digits)
+    d_fine <- NA_integer_; p_fine <- NA_real_; gap_fine <- NA_real_
+    for (d in seq_len(digits_max)) {
+      sd <- .fs_decl_settable(k, d)
+      if (is.finite(sd$z_gap) && sd$z_gap < gap_tol) {
+        d_fine <- d; p_fine <- sd$p_star; gap_fine <- sd$z_gap
+        break
+      }
+    }
+    data.frame(pstar_settable = s$p_star,
+               pstar_achievable = is.finite(s$p_star),
+               pcons_eff_settable = s$pcons_eff,
+               z_eff_settable = s$z_eff,
+               z_gap = s$z_gap,
+               digits_fine = d_fine, pstar_fine = p_fine,
+               z_gap_fine = gap_fine)
+  })
+  do.call(rbind, rows)
+}
+
+
 #' Normalize a candidate label to an order-free key
 #' @keywords internal
 #' @noRd
@@ -259,13 +342,14 @@
 #'
 #' Post-hoc, opt-in, reported diagnostics of the consistency screen, computed
 #' from multiplier draws the package already produces.  The screen admits a
-#' candidate `g` when its standardized statistic
-#' `T(g) = (beta_hat(g) - c_cons) / sigma_D(g)` clears `qnorm((1 + p_star) / 2)`;
-#' that admission is exactly the closed-form consistency rule, relabelled.
-#' This function reports how often the maximum of that statistic over the
-#' candidate family would clear the conventional cutoff under the null
-#' perturbation law (`fw_size`), and the cutoff that would hold the
-#' family-wise declaration rate at `alpha` (`kappa_hat`).
+#' candidate `g` when its consistency rate, rounded to `pconsistency.digits`,
+#' is at least `p_star`; on the resample path that is exactly the standardized
+#' statistic `T(g) = (beta_hat(g) - c_cons) / sigma_D(g)` clearing the
+#' effective cutoff `z_pstar = qnorm((1 + pcons_eff) / 2)` (see the Rounded
+#' admission rule section).  This function reports how often the maximum of
+#' that statistic over the candidate family would clear the screen's cutoff
+#' under the null perturbation law (`fw_size`), and the cutoff that would hold
+#' the family-wise declaration rate at `alpha` (`kappa_hat`).
 #'
 #' It reads a fitted object and returns a new one.  It does not modify its
 #' input, does not re-run the search, does not call the consistency engine,
@@ -283,12 +367,39 @@
 #'   direction.
 #' * `kappa_hat(alpha)` is the empirical (`type = 1`) `1 - alpha` quantile of
 #'   `Mstar`.
-#' * `fw_size = mean(Mstar > qnorm((1 + p_star) / 2))`.  Its threshold is the
-#'   fit's own `p_star`, not `alpha`: it is the family-wise size of the screen
-#'   as run, not of the calibrated rule.
+#' * `fw_size = mean(Mstar > z_pstar)`, `z_pstar = qnorm((1 + pcons_eff) / 2)`.
+#'   Its threshold is the fit's own `p_star` at the fit's own
+#'   `pconsistency.digits`, not `alpha`: it is the family-wise size of the
+#'   screen as implemented, not of the calibrated rule.
 #' * The calibrated admission rule is
 #'   `beta_hat(g) >= max(c_screen, c_cons + kappa_hat * sigma_D(g))`, the
-#'   current rule with `qnorm((1 + p_star) / 2)` replaced by `kappa_hat`.
+#'   current rule with `z_pstar` replaced by `kappa_hat`.
+#'
+#' @section Rounded admission rule:
+#' The screen admits on `round(Pcons, digits) >= p_star`, with `digits` the
+#' fit's `pconsistency.digits`.  With `p_star` rounded up to the
+#' `10^-digits` grid (`g`), that is `Pcons >= pcons_eff = g - 0.5 * 10^-digits`,
+#' a bar below `p_star` itself (0.895 for `p_star = 0.90`, `digits = 2`).  On
+#' the resample path `Pcons = 2 * pnorm(T) - 1`, so the screen is
+#' `T >= z_pstar = qnorm((1 + pcons_eff) / 2)`.  `fw_size`, `admitted_pstar`
+#' and the settable `p*` are computed at that effective threshold; `fw_size`
+#' is therefore the family-wise size of the screen as implemented and depends
+#' on `pconsistency.digits`.  `kappa_hat` does not: it is a quantile of the
+#' maximum statistic and is compared with `T` directly, with no rounding.
+#'
+#' `digits` is read from the fit's `args_call_all$pconsistency.digits`; when
+#' absent (a bare `fs_mr_inference()` result, or an older fit) the
+#' `subgroup.consistency()` default of 2 is used.  `digits_source` records
+#' which.
+#'
+#' The correspondence with `T` holds only under
+#' `consistency_method = "resample"`.  Under `"split"`, `Pcons` is a split
+#' proportion `k / n_valid` and admission is not a threshold on `T`, so
+#' `fw_size`, `z_pstar`, `admitted_pstar` and the settable-`p*` columns are
+#' `NA` / `NULL` rather than computed; `kappa_hat` and the calibrated rule are
+#' still returned.  The method is read from `args_call_all$consistency_method`;
+#' a bare `fs_mr_inference()` result is treated as resample (the field is the
+#' closed-form statistic), recorded in `consistency_method_source`.
 #'
 #' @section Family:
 #' `family = "prereduction"` (the default, and the only value meant for the
@@ -317,10 +428,20 @@
 #'
 #' * `Mstar_c0[b] = max_g { Zstar[b, g] - delta_g }`;
 #' * `kappa_hat(c0)` is its empirical (`type = 1`) `1 - alpha` quantile;
-#' * `fw_size(c0) = mean(Mstar_c0 > qnorm((1 + p_star) / 2))`;
-#' * `pstar_implied = 2 * pnorm(kappa_hat(c0)) - 1`, the `p_star` whose
-#'   cutoff equals `kappa_hat(c0)`;
-#' * admission is unchanged in form, `T(g) >= kappa_hat(c0)`.
+#' * `fw_size(c0) = mean(Mstar_c0 > z_pstar)`, at the rounded admission rule;
+#' * admission is unchanged in form, `T(g) >= kappa_hat(c0)`;
+#' * guidance on what to set to run `kappa_hat(c0)` as a `p*` screen at the
+#'   fit's `digits`: `pstar_settable`, the smallest `p*` on the `10^-digits`
+#'   grid whose effective threshold is at or above `kappa_hat(c0)`; that
+#'   threshold as `pcons_eff_settable` (Pcons scale) and `z_eff_settable`
+#'   (z scale); `z_gap = z_eff_settable - kappa_hat(c0)` (positive =
+#'   conservative); and `digits_fine` / `pstar_fine` / `z_gap_fine`, the
+#'   smallest `digits` (searched over 1 to 12) at which the gap falls below
+#'   0.01, with its `p*`.  When no `p* <= 1` reaches `kappa_hat(c0)` at the
+#'   fit's `digits`, `pstar_achievable` is `FALSE` and the settable columns
+#'   are `NA`; the print method says so.  This is guidance on what to set, not
+#'   an identity: the settable screen is `kappa_hat(c0)` rounded up to what the
+#'   grid can express, so it admits a subset of what `kappa_hat(c0)` admits.
 #'
 #' If every candidate's true effect is `c0_cmp`, `T(g)` is centred at
 #' `-delta_g`, so the null law of `max_g T(g)` is that of the shifted maximum.
@@ -363,7 +484,9 @@
 #'   pre-specified protected null levels; see the Protected null level
 #'   section.  Named only (it follows `...`).
 #' @return An object of class `fs_declaration_calibration`: a list with
-#'   `kappa_hat`, `fw_size`, `alpha`, `p_star`, `z_pstar`, `c_cons`,
+#'   `kappa_hat`, `fw_size`, `alpha`, `p_star`, `digits`, `digits_source`,
+#'   `pcons_eff`, `z_pstar` (the effective z cutoff of the rounded screen),
+#'   `consistency_method`, `consistency_method_source`, `c_cons`,
 #'   `c_screen`, `B`, `multiplier_law`, `quantile_type`, `family_source`,
 #'   `family_label`, `n_family_prereduction`, `n_family_reduced`,
 #'   `admitted_current` (the candidates the executed screen admitted; `NULL`
@@ -374,8 +497,9 @@
 #'   `field_cor` (families of at most 8 candidates, else `NULL`), and a
 #'   `reduction` list recording the replay of the near-duplicate reduction.
 #'   When `c0` is given it also carries `c0`, a list with `table` (one row per
-#'   `c0`: `c0`, `c0_cmp`, `kappa_hat`, `fw_size`, `pstar_implied`,
-#'   `n_admitted_calibrated`, the 0.90 / 0.95 / 0.99 quantiles of `Mstar_c0`,
+#'   `c0`: `c0`, `c0_cmp`, `kappa_hat`, `fw_size`, `pstar_settable`,
+#'   `pstar_achievable`, `pcons_eff_settable`, `z_eff_settable`, `z_gap`,
+#'   `digits_fine`, `pstar_fine`, `z_gap_fine`, `n_admitted_calibrated`, the 0.90 / 0.95 / 0.99 quantiles of `Mstar_c0`,
 #'   and `is_c2`), `admitted_calibrated` (a list indexed by `c0`), `Mstar_c0`
 #'   and `source` (`"capture"` or `"field_matrix"`).  Every other element is
 #'   unchanged by `c0`.
@@ -430,7 +554,29 @@ fs_declaration_calibration <- function(fit,
     c_cons <- dots$c_cons
   }
   c_screen <- meta$c_screen
-  z_pstar <- stats::qnorm((1 + p_star) / 2)
+
+  # The screen admits on round(Pcons, digits) >= p_star; digits is the fit's
+  # own pconsistency.digits, else the subgroup.consistency() default.
+  aca <- if (is_fs) fit$args_call_all else NULL
+  digits <- aca$pconsistency.digits
+  digits_source <- "fit$args_call_all$pconsistency.digits"
+  if (is.null(digits)) {
+    digits <- eval(formals(subgroup.consistency)$pconsistency.digits)
+    digits_source <- "subgroup.consistency() default (not recorded on the fit)"
+  }
+  digits <- as.integer(digits)
+  cons_method <- aca$consistency_method
+  cons_method_source <- "fit$args_call_all$consistency_method"
+  if (is.null(cons_method)) {
+    cons_method <- "resample"
+    cons_method_source <- paste("assumed: the field is the closed-form",
+                                "(resample) statistic; not recorded on the fit")
+  }
+  # Pcons = 2 * pnorm(T) - 1 holds on the resample path only; under "split"
+  # Pcons is k / n_valid and the screen is not a threshold on T.
+  on_T <- identical(cons_method, "resample")
+  pcons_eff <- .fs_pcons_eff(p_star, digits)
+  z_pstar <- if (on_T) stats::qnorm((1 + pcons_eff) / 2) else NA_real_
 
   fam_pre <- fld$family_id
   red <- if (is_fs) .fs_decl_reduction(fit, fam_pre) else NULL
@@ -462,7 +608,7 @@ fs_declaration_calibration <- function(fit,
   }
 
   kappa_hat <- stats::quantile(m_star, 1 - alpha, type = 1, names = FALSE)
-  fw_size <- mean(m_star > z_pstar)
+  fw_size <- if (on_T) mean(m_star > z_pstar) else NA_real_
 
   bh <- fld$beta_hat[cols]
   sdv <- fld$sigma_D[cols]
@@ -472,11 +618,11 @@ fs_declaration_calibration <- function(fit,
     fl
   }
   admitted_calibrated <- names(bh)[bh >= floor_at(kappa_hat)]
-  admitted_pstar <- names(bh)[bh >= floor_at(z_pstar)]
+  admitted_pstar <- if (on_T) names(bh)[bh >= floor_at(z_pstar)] else NULL
 
   c0_out <- if (is.null(c0)) NULL else
     .fs_decl_c0_block(fld, c0, c_cons, cols, family, alpha, z_pstar, bh, sdv,
-                      floor_at)
+                      floor_at, digits, on_T)
 
   field_cor <- meta$field_cor
   if (!is.null(field_cor) && length(cols) != n_pre) {
@@ -488,7 +634,12 @@ fs_declaration_calibration <- function(fit,
     fw_size = fw_size,
     alpha = alpha,
     p_star = p_star,
+    digits = digits,
+    digits_source = digits_source,
+    pcons_eff = pcons_eff,
     z_pstar = z_pstar,
+    consistency_method = cons_method,
+    consistency_method_source = cons_method_source,
     c_cons = c_cons,
     c_screen = c_screen,
     B = length(m_star),
@@ -527,7 +678,7 @@ fs_declaration_calibration <- function(fit,
 #' @keywords internal
 #' @noRd
 .fs_decl_c0_block <- function(fld, c0, c_cons, cols, family, alpha, z_pstar,
-                              bh, sdv, floor_at) {
+                              bh, sdv, floor_at, digits, on_T = TRUE) {
   meta <- fld$meta
   c0_cmp <- .fs_decl_c0_cmp(c0, c_cons, meta$log_scale)
   keys <- names(c0_cmp)
@@ -551,7 +702,8 @@ fs_declaration_calibration <- function(fit,
   }
   kap <- apply(m_c0, 2L, stats::quantile, probs = 1 - alpha, type = 1,
                names = FALSE)
-  fw <- apply(m_c0 > z_pstar, 2L, mean)   # as mean(Mstar > z), column-wise
+  fw <- if (on_T) apply(m_c0 > z_pstar, 2L, mean)   # as mean(Mstar > z)
+        else rep(NA_real_, length(keys))
   adm <- lapply(stats::setNames(kap, keys),
                 function(k) names(bh)[bh >= floor_at(k)])
   qs <- apply(m_c0, 2L, stats::quantile, probs = c(0.90, 0.95, 0.99),
@@ -560,12 +712,16 @@ fs_declaration_calibration <- function(fit,
   tab <- data.frame(
     c0 = as.numeric(c0), c0_cmp = unname(c0_cmp),
     kappa_hat = unname(kap), fw_size = unname(fw),
-    pstar_implied = 2 * stats::pnorm(unname(kap)) - 1,
     n_admitted_calibrated = lengths(adm, use.names = FALSE),
     Mstar_c0_q90 = qs[1L, ], Mstar_c0_q95 = qs[2L, ], Mstar_c0_q99 = qs[3L, ],
     is_c2 = unname(c0_cmp) == c_cons,
     row.names = NULL
   )
+  # What to set to run kappa_hat as a p-star screen: defined only where the
+  # screen is a threshold on T (resample path).
+  st <- .fs_decl_settable_table(unname(kap), digits)
+  if (!on_T) st[] <- lapply(st, function(v) rep(v[NA_integer_], length(v)))
+  tab <- cbind(tab[, 1:4], st, tab[, -(1:4)])
   list(table = tab, admitted_calibrated = adm, Mstar_c0 = m_c0, source = src)
 }
 
@@ -588,8 +744,16 @@ print.fs_declaration_calibration <- function(x, ...) {
   cat("  multiplier law, B:   ", x$multiplier_law, ",", x$B, "\n")
   cat("  alpha:               ", f3(x$alpha), "\n")
   cat("  kappa_hat(alpha):    ", f3(x$kappa_hat), "\n")
-  cat("  p_star, z_pstar:     ", f3(x$p_star), ",", f3(x$z_pstar), "\n")
-  cat("  fw_size (at p_star): ", f3(x$fw_size), "\n")
+  cat("  p_star, digits:      ", f3(x$p_star), ",", x$digits,
+      paste0("(", x$digits_source, ")"), "\n")
+  cat("  screen threshold:     Pcons >=", f3(x$pcons_eff), "; T >=",
+      f3(x$z_pstar), "(rounded admission rule)\n")
+  cat("  fw_size (as screened):", f3(x$fw_size), "\n")
+  if (!identical(x$consistency_method, "resample")) {
+    cat("  NOTE: consistency_method = \"", x$consistency_method, "\": Pcons is ",
+        "a split proportion, not 2 * pnorm(T) - 1, so fw_size and the settable ",
+        "p-star are not defined.\n", sep = "")
+  }
   cat("  c_cons, c_screen:    ", f3(x$c_cons), ",", f3(x$c_screen), "\n")
   cat("  admitted (current):  ",
       if (is.null(x$admitted_current)) "not recorded"
@@ -602,11 +766,26 @@ print.fs_declaration_calibration <- function(x, ...) {
     lab <- ifelse(tb$is_c2, paste0(f3v(tb$c0), " (= c2, unshifted)"),
                   f3v(tb$c0))
     shown <- data.frame(c0 = lab, kappa_hat = f3v(tb$kappa_hat),
-                        pstar_implied = f3v(tb$pstar_implied),
                         fw_size = f3v(tb$fw_size),
+                        pstar_set = ifelse(tb$pstar_achievable,
+                                           f3v(tb$pstar_settable), "none"),
+                        z_eff = f3v(tb$z_eff_settable),
+                        z_gap = f3v(tb$z_gap),
+                        digits_fine = tb$digits_fine,
+                        pstar_fine = f3v(tb$pstar_fine),
                         n_admitted = tb$n_admitted_calibrated,
                         q95 = f3v(tb$Mstar_c0_q95))
     print(shown, row.names = FALSE, right = TRUE)
+    cat("  pstar_set: smallest p* settable at digits =", x$digits,
+        "whose rounded screen is at least kappa_hat (z_eff; z_gap = z_eff -",
+        "kappa_hat,\n  positive = conservative); digits_fine / pstar_fine:",
+        "smallest digits with z_gap < 0.01.\n")
+    if (any(!tb$pstar_achievable & !is.na(tb$kappa_hat)) &&
+        identical(x$consistency_method, "resample")) {
+      cat("  No p* <= 1 at digits =", x$digits, "reaches kappa_hat for c0 =",
+          paste(f3v(tb$c0[!tb$pstar_achievable]), collapse = ", "),
+          "; use more digits (digits_fine).\n")
+    }
   }
   invisible(x)
 }
