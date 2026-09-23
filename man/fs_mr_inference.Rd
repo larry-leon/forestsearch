@@ -32,7 +32,8 @@ fs_mr_inference(
   field_recovery = FALSE,
   keep_declaration_field = FALSE,
   keep_field_matrix = FALSE,
-  declaration_c0 = NULL
+  declaration_c0 = NULL,
+  pconsistency.digits = NULL
 )
 }
 \arguments{
@@ -282,6 +283,16 @@ stores \code{Mstar_c0}, a \verb{draws x K} matrix of the shifted family maxima
 exactly.  On an identity-scale path a \code{c0} given on the wrong scale
 cannot be detected; on a ratio path a non-positive \code{c0} (a log supplied
 by mistake) errors.  With \code{NULL} nothing is computed or stored.}
+
+\item{pconsistency.digits}{Integer or \code{NULL} (default).  The digits the
+search rounded \code{Pcons} to before comparing it with \code{p_star}; consulted
+only when the admission set carries a consistency floor.  MR's
+consistency floor is built from the screen's effective threshold
+(\code{.fs_pcons_eff(p_star, digits)}, mapped to z by \code{qnorm((1 + .) / 2)}),
+not from the exact cutoff \code{qnorm((1 + p_star) / 2)}, so that MR
+re-selects under the admission rule that produced the selected subgroup.
+\code{\link[=forestsearch]{forestsearch()}} passes its own \code{pconsistency.digits}; \code{NULL} falls back
+to the \code{\link[=subgroup.consistency]{subgroup.consistency()}} default.}
 }
 \value{
 List with the selected index/label, \code{naive} and \code{debiased} estimates
