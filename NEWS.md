@@ -1,5 +1,24 @@
 # forestsearch (development version)
 
+* **`fs_declaration_calibration()`: FW-hat and the implied p-star are now
+  computed at the screen's rounded admission rule.** The screen admits on
+  `round(Pcons, pconsistency.digits) >= p*`, which is `Pcons >= 0.895` for
+  `p* = 0.90` at 2 digits, but `fw_size` was taken at the exact
+  `qnorm((1 + p*) / 2)`. It is now taken at the effective threshold
+  `qnorm((1 + pcons_eff) / 2)` (returned as `pcons_eff` and `z_pstar`), with
+  `digits` read from the fit's `args_call_all` (default 2, source recorded), so
+  **`fw_size` values rise relative to previous releases** and now depend on
+  `pconsistency.digits`; `admitted_pstar` uses the same threshold. On the GBSG
+  application (`c0 = 0.75`, `alpha = 0.10`) `fw_size(c0)` moves from 0.6508 to
+  0.6672. **`kappa_hat` is unchanged.** The c0 table's `pstar_implied` column
+  is replaced by what to set to run `kappa_hat` as a p-star screen:
+  `pstar_settable` (smallest settable p* at the fit's digits whose rounded
+  screen is at or above `kappa_hat`; `pstar_achievable = FALSE` when none is),
+  `pcons_eff_settable`, `z_eff_settable`, `z_gap`, and `digits_fine` /
+  `pstar_fine` / `z_gap_fine` (smallest digits with a gap under 0.01 in z).
+  Under `consistency_method = "split"` the screen is not a threshold on `T`,
+  so `fw_size`, `admitted_pstar` and the settable columns are `NA` / `NULL`.
+
 * The `fs_dgm_feasibility()` example now runs (it called `generate_glm_dgm()`
   without its required data arguments); `fs_plot_bias_coverage()` captions use
   `\u` escapes, so the R source is ASCII -- the rendered text is unchanged.
