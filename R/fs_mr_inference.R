@@ -463,6 +463,15 @@
 #'   exactly.  On an identity-scale path a `c0` given on the wrong scale
 #'   cannot be detected; on a ratio path a non-positive `c0` (a log supplied
 #'   by mistake) errors.  With `NULL` nothing is computed or stored.
+#' @param pconsistency.digits Integer or `NULL` (default).  The digits the
+#'   search rounded `Pcons` to before comparing it with `p_star`; consulted
+#'   only when the admission set carries a consistency floor.  MR's
+#'   consistency floor is built from the screen's effective threshold
+#'   (`.fs_pcons_eff(p_star, digits)`, mapped to z by `qnorm((1 + .) / 2)`),
+#'   not from the exact cutoff `qnorm((1 + p_star) / 2)`, so that MR
+#'   re-selects under the admission rule that produced the selected subgroup.
+#'   [forestsearch()] passes its own `pconsistency.digits`; `NULL` falls back
+#'   to the [subgroup.consistency()] default.
 #' @return List with the selected index/label, `naive` and `debiased` estimates
 #'   (effect scale, with approximate 95% CIs), `selection_bias`, `fixed_bias`,
 #'   `selection_rate`, `mean_r`, `mean_r_c`, the `settings` actually used (`t_confirm`,
@@ -600,7 +609,8 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
                            field_recovery = FALSE,
                            keep_declaration_field = FALSE,
                            keep_field_matrix = FALSE,
-                           declaration_c0 = NULL) {
+                           declaration_c0 = NULL,
+                           pconsistency.digits = NULL) {
   confirm_rule <- match.arg(confirm_rule); reselection <- match.arg(reselection)
   ij_residual <- match.arg(ij_residual)
   field_scale_complement <- match.arg(field_scale_complement)
@@ -657,7 +667,16 @@ fs_mr_inference <- function(df, candidates, spec, selected_members,
   c_cons <- if (.has_cons) admission$consistency$c_cons else NULL
 
   if (.has_effect && .has_cons) {
-    z   <- stats::qnorm((1 + admission$consistency$p_star) / 2)
+    # The search admits on round(Pcons, digits) >= p_star, i.e. on the
+    # effective threshold .fs_pcons_eff(p_star, digits), not on p_star itself;
+    # MR's floor uses the same rule so its re-selection map is the one that ran.
+    # Applies on both consistency paths (under "split" the closed form was
+    # already the approximation; only the rounding is corrected).
+    digits <- pconsistency.digits
+    if (is.null(digits))
+      digits <- eval(formals(subgroup.consistency)$pconsistency.digits)
+    z   <- stats::qnorm((1 + .fs_pcons_eff(admission$consistency$p_star,
+                                           as.integer(digits))) / 2)
     t_g <- pmax(admission$effect_floor, c_cons + z * sdv)
     .admit <- function(bs) which(bs >= t_g)
   } else if (.has_effect) {

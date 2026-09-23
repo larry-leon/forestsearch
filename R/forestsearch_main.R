@@ -3843,6 +3843,7 @@ forestsearch <- function(df.analysis,
         # null levels c0 whose shifted maxima the capture stores.  NULL stores
         # nothing.
         declaration_c0 = .g_mr(mr_inference_args$declaration_c0, NULL),
+        pconsistency.digits = pconsistency.digits,
         seed          = .g_mr(mr_inference_args$seed,        seedit))
     }, error = function(e) {
       warning("mr_inference failed: ", conditionMessage(e)); NULL
