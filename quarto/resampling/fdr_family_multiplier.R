@@ -1,3 +1,4 @@
+# Values computed at the exact cutoff, before the 2026-09-23 alignment (96f84ad8, 7713942e). See dev/tasks/TASK_declcal_consumers_2026-09-24_v3.md.
 # =============================================================================
 # fdr_family_multiplier.R
 #
