@@ -1,3 +1,4 @@
+# Values computed at the exact cutoff, before the 2026-09-23 alignment (96f84ad8, 7713942e). See dev/tasks/TASK_declcal_consumers_2026-09-24_v3.md.
 # =============================================================================
 # sigma_d_diagnostic_2026-08-29.R -- §2.3 of the gate-and-n700 task
 # -----------------------------------------------------------------------------

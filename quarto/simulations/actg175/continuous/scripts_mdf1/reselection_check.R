@@ -1,3 +1,4 @@
+# Verifies pre-alignment (exact-cutoff) behaviour, before the 2026-09-23 alignment (96f84ad8, 7713942e); not valid against the aligned package. See dev/tasks/TASK_declcal_consumers_2026-09-24_v3.md.
 # Re-selection map check (Stage 1b): the observed Hhat is reproduced by the gate's own
 # selection map applied to the UNPERTURBED candidate effects.
 suppressPackageStartupMessages(library(forestsearch))

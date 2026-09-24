@@ -18,6 +18,16 @@ maxrep  <- as.integer(Sys.getenv("C0A_MAXREP", "20"))        # captures used: re
 out_rds <- Sys.getenv("C0A_OUT_RDS", "results/declcal_c0approx_res.rds")
 out_txt <- Sys.getenv("C0A_OUT_TXT", "scripts_dinamr/logs/declcal_c0approx.txt")
 
+# Every column this script reads must be present: a payload from the fixed
+# drivers (TASK_declcal_consumers_2026-09-24_v3) no longer carries the
+# exact-cutoff columns, and a missing column would otherwise reach sprintf()
+# as a zero-length or NA value without any error.
+need_cols <- function(df, cols, what) {
+  miss <- setdiff(cols, names(df))
+  if (length(miss)) stop(sprintf("%s lacks column(s) read by this script: %s", what,
+                                 paste(miss, collapse = ", ")), call. = FALSE)
+  invisible(TRUE)
+}
 B_cells <- sprintf("B%d", 1:6); C_cells <- sprintf("C%d", 1:4)
 c0_grid <- c(0.70, 0.75, 0.80, 0.85)
 c0_sfx  <- sprintf("c%03d", as.integer(round(100 * c0_grid)))
@@ -29,10 +39,18 @@ ref_files <- vapply(c(B_cells, C_cells), ref_path, "")
 dirty <- system2("git", c("diff", "--name-only", pin, "--", ref_files), stdout = TRUE)
 if (length(dirty)) stop("committed declcal payloads differ from ", pin, ": ", paste(dirty, collapse = ", "))
 ref <- lapply(setNames(ref_files, c(B_cells, C_cells)), function(p) readRDS(p)$results)
+for (cl in names(ref)) need_cols(ref[[cl]], c("rep", "status", "G_pre", "max_T_pre", "kappa_hat_05",
+                                             "declared_conv", "declared_cal05", "declared_cal10"),
+                                 paste0(ref_path(cl), " $results"))
 
 # ---- 1. combine ---------------------------------------------------------------
 pl <- lapply(setNames(B_cells, B_cells), function(cl)
   readRDS(file.path(celldir, sprintf("declcal_c0approx_%s_res_1_20.rds", cl))))
+for (cl in names(pl)) need_cols(pl[[cl]]$results,
+  c("cell_id", "rep", "status", "n", "B_cal", "pconsistency_digits", "G_pre", "max_T_pre",
+    "kappa_hat_05", "kappa_hat_10", "alpha_FW_hat_1645",
+    as.vector(outer(c("kappa_hat_05", "kappa_hat_10", "fw_1645"), c0_sfx, paste, sep = "_"))),
+  sprintf("declcal_c0approx_%s_res_1_20.rds $results", cl))
 res <- rbindlist(lapply(pl, function(p) as.data.table(p$results)), fill = TRUE)
 aux <- rbindlist(lapply(names(pl), function(cl) cbind(cell_id = cl, as.data.table(pl[[cl]]$aux))), fill = TRUE)
 res <- res[rep <= maxrep]; aux <- aux[rep <= maxrep]
@@ -97,9 +115,17 @@ alphas <- c("05" = 0.05, "10" = 0.10)
 qs <- function(x) c(med = median(x), min = min(x), q1 = unname(quantile(x, 0.25)),
                     q3 = unname(quantile(x, 0.75)), max = max(x))
 med <- list()   # key "n|lab|a" -> median kappa
+# Settable p* of the median kappa (TASK_declcal_consumers_2026-09-24_v3): the
+# package's own inverse (.fs_decl_settable_table(), built on .fs_decl_settable())
+# at the captures' pconsistency.digits; when none <= 1 reaches it there, the
+# settable p* at the smallest digits within 0.01 z of it (pstar_fine, digits_fine).
+dig <- unique(res$pconsistency_digits); stopifnot(length(dig) == 1L, !is.na(dig))
+pset1 <- function(k) { t <- forestsearch:::.fs_decl_settable_table(k, as.integer(dig))
+  if (t$pstar_achievable) sprintf("%.2f", t$pstar_settable) else
+    sprintf("none <= 1 (fine %.5f [digits %d])", t$pstar_fine, t$digits_fine) }
 say(""); say("## 1. Table 1 -- median kappa_hat(c0) per n over the captures (B = 2000)")
 say("")
-say("| n | c0 | median k05 | min | IQR | max | implied p* (median k05) | median k10 | min | IQR | max | mean fw_1645 |")
+say("| n | c0 | median k05 | min | IQR | max | settable p* (median k05) | median k10 | min | IQR | max | mean fw_1645 |")
 say("|---|---|---|---|---|---|---|---|---|---|---|---|")
 for (nn in sort(unique(res$n))) for (i in seq_len(nrow(lev))) {
   r <- res[n == nn]; s <- lev$sfx[i]
@@ -107,8 +133,8 @@ for (nn in sort(unique(res$n))) for (i in seq_len(nrow(lev))) {
   fw <- if (s == "") r$alpha_FW_hat_1645 else r[[paste0("fw_1645", s)]]
   med[[sprintf("%d|%s|05", nn, lev$lab[i])]] <- a[["med"]]
   med[[sprintf("%d|%s|10", nn, lev$lab[i])]] <- b[["med"]]
-  say("| %d | %s | %.4f | %.4f | %.4f-%.4f | %.4f | %.4f | %.4f | %.4f | %.4f-%.4f | %.4f | %.4f |",
-      nn, lev$lab[i], a[["med"]], a[["min"]], a[["q1"]], a[["q3"]], a[["max"]], 2 * pnorm(a[["med"]]) - 1,
+  say("| %d | %s | %.4f | %.4f | %.4f-%.4f | %.4f | %s | %.4f | %.4f | %.4f-%.4f | %.4f | %.4f |",
+      nn, lev$lab[i], a[["med"]], a[["min"]], a[["q1"]], a[["q3"]], a[["max"]], pset1(a[["med"]]),
       b[["med"]], b[["min"]], b[["q1"]], b[["q3"]], b[["max"]], mean(fw))
 }
 say("")
