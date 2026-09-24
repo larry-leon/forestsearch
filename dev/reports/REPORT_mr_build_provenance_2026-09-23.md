@@ -130,4 +130,22 @@ repeated here as this task's deliverable.
 3. No re-run was needed: n/a.
 4. §3 reports 153 / 153 and max diff 0: met.
 5. No `R/` file modified: met (`git status --short -- R/` empty).
-6. `devtools::install()`: **reversed by the amendment**; see §5, run after the commits above.
+6. `devtools::install()`: **reversed by the amendment**; run last, see §5.
+
+## 5. Install (the amendment)
+
+- Run after every other run in the session had finished (the Section 5 sweep ended 18:43; no `workRSOCK`,
+  `Rscript`, `quarto` or `rsession` process was running), after the commit of §1–§4 (`face5645`).
+- Command, from the repo root at HEAD `face5645` (`R/` last changed at `7713942e`; `R/`, `DESCRIPTION` and
+  `NAMESPACE` clean), with `R_LIBS` unset: `Rscript -e 'devtools::install(dependencies = FALSE, upgrade = FALSE)'`
+  -> `* DONE (forestsearch)`. `dependencies = FALSE, upgrade = FALSE` keeps it to this package (no dependency
+  chain), as the `p12x20` Stage 0 install did.
+- **Installed:** `/home/larryleon/R/x86_64-pc-linux-gnu-library/4.6/forestsearch`, version **0.3.5.9000**,
+  packaged **2026-09-24 01:50:37 UTC**, built **2026-09-24 01:50:39 UTC** (R 4.6.1). The version is unchanged,
+  as instructed.
+- **Confirmed afterwards**, in a fresh session: `pconsistency.digits` in `formals(fs_mr_inference)` **TRUE**;
+  `.fs_pcons_eff` in its body TRUE. From inside a fresh `multisession` worker (no `R_LIBS`): the same library
+  path and `pconsistency.digits` TRUE.
+- **The scratch-library route via `R_LIBS` is no longer needed for future runs.** The main library now holds the
+  HEAD build, and multisession workers load it by default. The scratch libraries under the session scratchpad
+  (`Rlib_head`, `Rlib_pre`) were used by the probe, the sweep and the parent-build checks only.
