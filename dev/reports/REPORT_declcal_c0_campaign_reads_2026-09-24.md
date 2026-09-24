@@ -1,6 +1,10 @@
-# REPORT — c₀ campaign record: five reads for Supplementary S1.8 (read-only)
+# REPORT — c₀ campaign record: six reads for Supplementary S1.8 (read-only)
 
-Task: `dev/tasks/TASK_declcal_c0_campaign_reads_2026-09-24.md` (committed as received, `097ea7ab`). Branch `feature/glm-extension`. No R was run, and no `.rds` was read or written.
+Task: `dev/tasks/TASK_declcal_c0_campaign_reads_2026-09-24_v2.md` (committed as received, `9224dfe9`). It supersedes v1 (`dev/tasks/TASK_declcal_c0_campaign_reads_2026-09-24.md`, `097ea7ab`). Branch `feature/glm-extension`.
+
+**Revision.** This file first answered v1's five questions (`ab25e9d6`). Under v2 it adds Q6; Q1–Q5 are unchanged. v2's Step 3 names the same report path, so here the report is a **modification** of a committed file rather than an added one. P1's "exactly two added files" is therefore met as: one added file (the v2 task document) plus one modified file (this report).
+
+**No simulation was re-run and no rate was computed.** R was used once, for Q6 only (P2): an `Rscript --vanilla` session that read one payload's `names()`, column classes and the value of `pconsistency_digits`, and wrote nothing. The payload's md5 was the same before and after.
 
 ## 0. Gates and sources
 
@@ -29,7 +33,12 @@ Task: `dev/tasks/TASK_declcal_c0_campaign_reads_2026-09-24.md` (committed as rec
   - lines 517–520: `hr_causal`, a Cox fit on the stacked potential outcomes, which is the marginal Cox HR.
 - `scripts_dinamr/logs/declcalc0_inull_B{1..6}.log`, lines 2, 7 and 8: the design point as it was executed.
 
-**Extra read, outside Step 1's list.** For Q3's fixed-p\* row I also read `scripts_dinamr/logs/declcal_fixedk_practical.txt`. REPORT line 268 names it as the source of that row. It was only read.
+**Extra read, outside Step 1's list.** For Q3's fixed-p\* row I also read `scripts_dinamr/logs/declcal_fixedk_practical.txt`. REPORT line 268 names it as the source of that row. It was only read. Q6 also cites it for its header lines, 1–4.
+
+**Q6 sources.**
+
+- `scripts_dinamr/declcalc0_run.R` at `a46bf9b7`: its record schema (lines 221–237) and per-replicate definitions (lines 330–421).
+- The committed payload `quarto/simulations/gbsg_020/results/declcalc0_inull_B4_res_1_2000.rds`: its structure only (`names()` and column classes).
 
 ---
 
@@ -161,3 +170,55 @@ The record states the range at REPORT line 400: "The smallest gaps are at c0 0.7
 - the executed pairing (`fw_1621`, post-reduction family) runs from +0.0426 (B6) to +0.0923 (B4).
 
 REPORT line 358 gives the `fw_1645` pairing alone as "0.04–0.06". HANDOFF line 221 attaches "+0.04 to +0.09" to "the same pre-reduction family". The +0.09 end, however, is the post-reduction executed pairing (B4, `fw_1621`). On the pre-reduction family alone, the record's range is +0.04 to +0.06.
+
+---
+
+## Q6 — Is the executed rate at a screening level other than 0.90 recoverable without a re-run?
+
+**Answer: yes. The column is `max_T_post`, not `max_T_pre`.**
+
+**What `max_T_pre` is.** It is the maximum of T(g) over the **pre-reduction** family: the covariate-measurable enumeration, before the event floors and the near-duplicate reduction. It is **not** the family that the executed search admits from.
+
+- `declcalc0_run.R@a46bf9b7` line 330: `fam <- .enum_family(cap$Z, maxk, aux$nmin_fit)`.
+- Line 364: `r$max_T_pre <- max(T_pre)`, with `T_pre` computed over that family's field.
+- REPORT line 460: "the pre-reduction family, which the calibrated rule reads, but not in the post-reduction family that the executed screen evaluated".
+- `declcal_fixedk_practical.txt` line 3: "max_T_pre: pre-reduction family".
+
+**Which committed column holds the maximum over the executed family.** `max_T_post` does. It is the maximum of T(g) over the post-reduction family, which is the family the executed screen evaluated. `declared_conv`, the "p\* = 0.90 as executed" rate (0.2325 at B4), is computed on that same family, from the same `Tp`.
+
+- `declcalc0_run.R@a46bf9b7` line 406: `# ---- post-reduction family: the one the executed screen evaluated`.
+- Lines 407 and 412: `red <- ns$.fs_decl_reduction(fit, fld$family_id)` and `Tp <- T_pre[post]`.
+- Line 414: `adm_round <- round(rate, digits) >= p_star`.
+- Line 415: `r$max_T_post <- max(Tp)`.
+- Line 416: `r$declared_conv <- as.integer(any(adm_round))`.
+- Line 417: `r$declared_conv_exact <- as.integer(any(Tp >= z_exact))`.
+- Line 421: when the post-reduction family is empty, `max_T_post` is `NA_real_` and `declared_conv` is `0L`. The record counts empty families in the first campaign's payloads. B4 (HR 0.721, n 500) has 33 of 2000 (`declcal_fixedk_practical.txt` line 14).
+- `declcal_fixedk_practical.txt` line 3: "max_T_post: executed post-reduction family (after d0/d1 floors)".
+
+**Evidence that the column ties to the executed search:**
+
+- **Fidelity gate.** `declared_conv` equals the fitted search's own declaration indicator on 2000 of 2000 replicates in every cell (REPORT lines 71–82; FINDINGS lines 15–26).
+- **Identity gate.** `max_T_post` is one of the thirteen columns that match the first campaign's committed `declcal` payloads exactly, on 20,000 of 20,000 replicates (REPORT line 84).
+- **Prior use.** The record has already used this column for other cutoffs. It re-evaluated `max_T_post` at fixed k ∈ {1.6449, 1.8, 2.0, 2.2, 2.4, 2.6} on the first campaign's payloads (`declcal_fixedk_practical.txt` lines 1–4 and 24–82). Its k 2.0 post-reduction column "is reproduced from the committed payloads in all 10 of 10 cells" (REPORT line 268).
+- **NA convention.** That log states it: "max_T_post is NA when the post-reduction family is empty; counted as not declared (matches declared_conv_exact == (max_T_post >= qnorm(0.95)) in all 13 cells)" (line 4).
+
+**What the payload carries** (`declcalc0_inull_B4_res_1_2000.rds`, structure read only):
+
+- **Top level:** a list with `results`, `aux` and `meta`.
+- **`results`:** a data.frame, 2000 × 79. Its columns include `G_pre`, `G_post`, `max_T_pre`, `max_T_post` (numeric), `declared_conv`, `declared_conv_exact`, `n_admitted_conv`, `n_band` and `pconsistency_digits` (integer, value 2). It also has, per c₀ ∈ {c070, c075, c080, c085}: `kappa_hat_05_*`, `kappa_hat_10_*`, `pstar_implied_05_*`, `declared_cal05_*`, `declared_cal10_*`, `n_admitted_cal05_*`, `fw_1645_*`, `fw_1621_*` and `Mstar_c0_q90/q95/q99_*`.
+- **`meta`:** includes `z_exact`, `z_round`, `p_star`, `floors` and `family`.
+- The schema is defined at `declcalc0_run.R@a46bf9b7` lines 221–237. STATUS line 197 describes it as "the `declcal` schema plus per-c0 columns".
+
+**What is and is not recoverable, as the code and structure state it:**
+
+- **Executed screen at another level.** Recoverable from `max_T_post`, with an empty post-reduction family (NA) counted as not declared.
+  - The unrounded rule `any(Tp >= z)` is exactly `max_T_post >= z`. The record uses this at line 4 of the fixed-k log.
+  - The executed rule also rounds (line 414, `round(rate, digits) >= p_star`, with `pconsistency_digits` = 2). The record gives the rounded p\* 0.90 rule as the cutoff 1.621 (`z_round`, runner line 231), not 1.6449. The record does not say which cutoff the rounded rule has at other p\* values. That point is **not established from source**. What the record does establish is `max_T_post` as the column that holds the executed family's maximum.
+- **Pre-reduction screen at another level.** Recoverable from `max_T_pre`. Unlike `max_T_post`, it is not the executed rate.
+- **FŴ(c₀) at a cutoff other than 1.6449 or 1.621.** **Not recoverable.** The per-draw shifted field `Mstar_c0` is not in the payload; only its per-replicate summaries are (`fw_1645_*`, `fw_1621_*`, `Mstar_c0_q90/q95/q99_*`). Runner line 350 passes `keep_field_matrix = FALSE`. Lines 381–398 reduce `fld$Mstar_c0` to those summaries.
+- **Calibrated cutoff κ̂(c₀) at an α other than 0.10, 0.05 or 0.01.** **Not recoverable**, for the same reason. Only the 0.90, 0.95 and 0.99 quantiles of `Mstar_c0` are stored.
+
+**Disagreement between the HANDOFF wording and the record.**
+
+- HANDOFF lines 329–331 list the payloads as carrying "`max_T_pre`, `Mstar_c0`, `Mstar_q90/95/99`, per-replicate κ̂ and implied p\* — any cutoff, α or c₀ on the grid re-evaluable without re-running". The committed `results` frame has no `Mstar_c0` field. It has `Mstar_c0_q90/q95/q99_<c0>` summaries, so "any α" and "any cutoff" do not hold for κ̂(c₀) or FŴ(c₀).
+- The same HANDOFF lines omit `max_T_post`. That is the column holding the executed-family maximum, and so the one that gives the executed rate. `max_T_pre`, which the handoff does list, gives the pre-reduction rate.
