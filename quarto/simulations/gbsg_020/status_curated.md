@@ -196,6 +196,13 @@
 - **Not a gbsg_020 campaign** (application-matched null DGM on `survival::gbsg` via `generate_aft_dgm_flex(model = "null")`, uniform marginal Cox HR 0.75, the GBSG application's own FS settings, n 686, 1,000 replicates, FS only, no MR): directory `quarto/simulations/gbsg_app_null/`, record **`dev/reports/REPORT_gbsg_app_null_declaration_2026-09-23.md`** (`TASK_gbsg_app_null_declaration_2026-09-23`).
 - **p\* grid, same directory (complete).** `TASK_gbsg_pstar_grid_2026-09-23`; record **`dev/reports/REPORT_gbsg_pstar_grid_2026-09-23.md`**. Fixed-baseline (`simulate_from_dgm(baseline = "fixed")`) on the application's own 686 rows, two cells × 5,000 replicates at the floor p\* 0.50 (Cell 1 arm re-randomized at 246/440, Cell 2 observed arm fixed); the full p\* CDF from one run per cell. Driver `run_gbsg_pstar_grid.R`, read-out `pstar_grid_findings.R` -> `logs/pstar_grid_findings.txt`, payloads `results/gbsg_pstar_{gateA,gateB,gateC,cell1,cell2}.*`; 48 workers, 24.2 min for both cells, 0 errors.
 
+### 2.13 `mrs5` — the MR admission alignment's after arm on the 18 Section 5 cells, complete
+
+- **What it is:** the after arm of `7713942e` (MR admits on the screen's rounded consistency threshold) on the 18 FS `effMaxSG` ε 0.20 cells of the manuscript's Section 5 (the nine `p12x20` 12.4% cells, the seven `cert20` 31% cells, the two `e1stud` 31% n 500 harm cells), 200 replicates per cell (sim_id 1–200, seeds `8316951 + sim_id`), FS only, 64 workers. The before arm is the committed bundle of each cell: a `git archive` export of the fix's parent `ba595f4b` reproduced the committed `p12x20` A7, `cert20` HR 1.00 n 500 and `e1stud` HR 1.50 n 500 rows exactly (tag `mrs5pre`).
+- **Records:** probe (A7) **`dev/reports/REPORT_mr_alignment_section5_probe_2026-09-23.md`**; sweep (all 18) **`dev/reports/REPORT_mr_alignment_section5_sweep_2026-09-23.md`**. Per-cell read-out `mrs5sweep/readout.md` (`mrs5sweep/readout.R` from `mrs5sweep/pair/*.rds`).
+- **Build:** the HEAD build from a scratch library first on `R_LIBS`, asserted per cell from inside 64 workers (`mrs5sweep/logs/*.buildcheck`); the installed library was not used.
+- **Tags:** `mrs5probe` (A7, and its Gate T `res_1_10`), `mrs5sweep` (the other 17), `mrs5pre` (parent-build checks, `res_1_10`). Driver `mrs5sweep/sweep.sh` → `mrs5sweep/runcell.sh` → the unchanged `scripts_dinamr/render.sh` and template.
+
 <!-- curated:after-inventory-table -->
 Sizes are **apparent size** (`st_size`), in MiB/KiB, not disk usage; `du` reports block-allocated size and reads larger for many small files. **Every file is counted exactly once**: the rules are applied first-match-wins and the rows sum to the total. **Files over 50 MB: 0; over 100 MB: 0.** The gitignored `_gateT_pre_template_files/` and `.DS_Store` are excluded throughout. The `current_status.md` row shows this file's size at the pin, before this regeneration.
 
@@ -219,6 +226,7 @@ Sizes are **apparent size** (`st_size`), in MiB/KiB, not disk usage; `du` report
 | The strict null with MR on: coverage of β(Ĥ) / β(Ĥᶜ) and where the adjusted lower bounds sit | `REPORT_null_gbsg_mr_2026-09-21.md`; tables `scripts_dinamr/logs/nullmr_findings.md`; identity gate `scripts_dinamr/logs/nullmr_identity.txt` |
 | The calibrated declaration screen: family-wise declaration rates (boundary null, interior null, planted-harm power), `kappa_hat`, Eq. 8, the rounding band | `dev/reports/REPORT_declaration_calibration_evaluation_2026-09-22.md`; tables `scripts_dinamr/logs/declcal_findings.txt`; pilot `scripts_dinamr/logs/declcal_pilot_numbers.txt` |
 | The calibrated screen at a clinically specified null level c0 (0.70–0.85): declaration rates, power, `kappa_hat(c0)` with implied p\*, `n_admitted`, fw_c0 | `dev/reports/REPORT_declcal_c0_campaign_2026-09-22.md`; tables `scripts_dinamr/logs/declcalc0_findings.txt`; approximate table `dev/reports/REPORT_declcal_c0_approx_2026-09-22.md` |
+| The MR admission alignment's effect on the 18 Section 5 cells: per-replicate shift distributions, declaration identity, threshold crossings | `dev/reports/REPORT_mr_alignment_section5_sweep_2026-09-23.md`; table `mrs5sweep/readout.md` |
 | Raw per-replicate rows | `results/*<campaign>*.rds`; `p12x20` in `p12x20_2026-09-12/` |
 <!-- curated:after-inventory -->
 ## 4. Reading conventions that must travel with these numbers
