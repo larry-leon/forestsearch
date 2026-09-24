@@ -70,13 +70,13 @@
   d
 })
 
-.gb_fit <- function(mr_args) {
+.gb_fit <- function(mr_args, pstar = 0.90) {
   suppressWarnings(forestsearch(
     .gb, outcome.name = "time_months", event.name = "status",
     treat.name = "hormon", id.name = "id",
     confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
     use_lasso = FALSE, use_grf = FALSE, sg_focus = "hr", maxk = 2,
-    hr.threshold = 1.1, hr.consistency = 1.0, pconsistency.threshold = 0.90,
+    hr.threshold = 1.1, hr.consistency = 1.0, pconsistency.threshold = pstar,
     n.min = 60, d0.min = 12, d1.min = 12, use_twostage = FALSE,
     seedit = 8316951, quiet = TRUE,
     parallel_args = list(plan = "sequential", workers = 1L),
@@ -87,6 +87,11 @@
 .fit_on  <- .gb_fit(utils::modifyList(.mr_base, list(
   keep_declaration_field = TRUE, keep_field_matrix = TRUE)))
 .fit_off <- .gb_fit(.mr_base)
+# Test 1's band fixture: at p* = 0.87 a screened candidate (q5.0 & q18.1,
+# Pcons 0.86597) is admitted by round(Pcons, 2) >= p* and not by Pcons >= p*
+# (TASK_declcal_consumers_2026-09-24_v3; the p* = 0.90 fit has no such candidate).
+.fit_band <- .gb_fit(utils::modifyList(.mr_base, list(
+  keep_declaration_field = TRUE, keep_field_matrix = TRUE)), pstar = 0.87)
 
 .cfgB <- local({
   set.seed(20260922L)
@@ -109,19 +114,35 @@
 # Test 1 -- relabelling exactness
 # ---------------------------------------------------------------------------
 test_that("1: with kappa_hat -> z_pstar the rule reproduces the executed screen", {
-  dc <- fs_declaration_calibration(.fit_on)
-  expect_true(dc$reduction$replay_check)          # replay == executed candidate set
-  expect_identical(dc$reduction$n_unmatched, 0L)
-  s <- dc$screened
-  expect_gt(length(s), 1L)
-  thr <- pmax(dc$c_screen, dc$c_cons + dc$z_pstar * dc$sigma_D[s])
-  relabelled <- s[dc$beta_hat[s] >= thr]
-  expect_gt(length(dc$admitted_current), 0L)
-  expect_setequal(relabelled, dc$admitted_current)
-  # the closed form, written out: admission <=> T >= z_{(1+p*)/2}
-  rate <- pmax(0, 2 * stats::pnorm(dc$T_hat[s]) - 1)
-  expect_setequal(s[rate >= dc$p_star & dc$beta_hat[s] >= dc$c_screen],
-                  relabelled)
+  for (fx in c("on", "band")) {
+    fit <- list(on = .fit_on, band = .fit_band)[[fx]]
+    dc <- fs_declaration_calibration(fit)
+    expect_true(dc$reduction$replay_check)          # replay == executed candidate set
+    expect_identical(dc$reduction$n_unmatched, 0L)
+    s <- dc$screened
+    expect_gt(length(s), 1L)
+    thr <- pmax(dc$c_screen, dc$c_cons + dc$z_pstar * dc$sigma_D[s])
+    relabelled <- s[dc$beta_hat[s] >= thr]
+    expect_gt(length(dc$admitted_current), 0L)
+    expect_setequal(relabelled, dc$admitted_current)
+    # the screen's rule, written out independently of .fs_pcons_eff():
+    # admission <=> round(Pcons, digits) >= p*, Pcons = 2 * pnorm(T) - 1, at
+    # the fixture's pconsistency.digits (subgroup.consistency() default 2)
+    digits <- fit$args_call_all$pconsistency.digits
+    if (is.null(digits)) digits <- 2L
+    rate <- pmax(0, 2 * stats::pnorm(dc$T_hat[s]) - 1)
+    eff <- dc$beta_hat[s] >= dc$c_screen
+    rounded <- s[round(rate, digits) >= dc$p_star & eff]
+    expect_setequal(rounded, relabelled)
+    if (fx == "band") {
+      unrounded <- s[rate >= dc$p_star & eff]
+      expect(length(setdiff(rounded, unrounded)) >= 1L,
+             paste("the band fixture has no screened candidate on which",
+                   "round(Pcons, digits) >= p* and Pcons >= p* disagree;",
+                   "without one, test 1 cannot tell the rounded rule from",
+                   "the unrounded one and loses its power"))
+    }
+  }
 })
 
 # ---------------------------------------------------------------------------
