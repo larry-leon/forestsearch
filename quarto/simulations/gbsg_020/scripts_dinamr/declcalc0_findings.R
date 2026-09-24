@@ -25,19 +25,52 @@ id_cols <- c("max_T_pre", "max_T_post", "G_pre", "G_post", "declared_conv",
              "declared_conv_exact", "Mstar_q90", "Mstar_q95", "Mstar_q99",
              "kappa_hat_05", "kappa_hat_10", "declared_cal05", "declared_cal10")
 
+# Every column this script reads must be present: a payload from the fixed
+# drivers (TASK_declcal_consumers_2026-09-24_v3) no longer carries the
+# exact-cutoff columns, and a missing column would otherwise reach sprintf()
+# as a zero-length or NA value without any error.
+need_cols <- function(df, cols, what) {
+  miss <- setdiff(cols, names(df))
+  if (length(miss)) stop(sprintf("%s lacks column(s) read by this script: %s", what,
+                                 paste(miss, collapse = ", ")), call. = FALSE)
+  invisible(TRUE)
+}
+c0_read <- c("kappa_hat_05", "kappa_hat_10", "declared_cal05", "declared_cal10",
+             "n_admitted_cal05", "fw_1621", "fw_1645")
+cols_res <- unique(c("status", "dgm", "n", "rep", "declared_conv", "declared_cal05", "declared_cal10",
+                     "kappa_hat_05", "kappa_hat_10", "max_T_pre", "max_T_post", "n_admitted_cal05",
+                     "alpha_FW_hat_1621", "alpha_FW_hat_1645", "pconsistency_digits", "wall_sec", id_cols,
+                     as.vector(outer(c0_read, sfx, paste, sep = "_"))))
+cols_aux <- c("rep", "search_declared", "c0_mono_draws", "c0_kappa_le")
+cols_ref <- unique(c("rep", "status", id_cols, "declared_cal05", "declared_cal10", "max_T_post"))
 AX <- readRDS("../results/declcal_c0approx_res.rds")$approx   # committed at e9de87c7
-ptxt <- function(k) sprintf("%.5f", 2 * pnorm(k) - 1)
-FOOT <- paste0("Implied p* = 2*pnorm(kappa) - 1. A literal re-run of the fixed-p* screen at that p* needs ",
-               "pconsistency.digits >= 5 (the implied p* are quoted to 5 decimals). At the default ",
-               "pconsistency.digits = 2 the consistency proportion is rounded to 2 decimals before it is ",
-               "compared with p*, so e.g. p* = 0.99586 acts as 'rounded proportion = 1.00' and the executed ",
-               "cutoff is not kappa_hat.")
+# Settable p* (TASK_declcal_consumers_2026-09-24_v3), derived from the stored
+# kappa_hat by the package's own inverse (.fs_decl_settable_table(), built on
+# .fs_decl_settable()): pstar_settable, the smallest p* on the fit's
+# pconsistency.digits grid whose rounded-screen cutoff reaches kappa_hat (NA:
+# none <= 1 at those digits), and the finer pair (pstar_fine, digits_fine), the
+# smallest digits at which a settable p* sits within 0.01 z of kappa_hat.
+stab <- function(k, d = dig) { d <- unique(as.integer(d)); stopifnot(length(d) == 1L, !is.na(d))
+  forestsearch:::.fs_decl_settable_table(k, d) }
+set_txt <- function(t) sprintf("%s ; none <= 1: %.4f ; fine %.5f [digits %s]",
+  if (any(t$pstar_achievable)) med_iqr(t$pstar_settable[t$pstar_achievable], 2) else "none",
+  mean(!t$pstar_achievable), median(t$pstar_fine),
+  paste(unique(range(t$digits_fine)), collapse = "-"))
+ptxt <- function(k) { t <- stab(k)
+  if (t$pstar_achievable) sprintf("%.2f", t$pstar_settable) else
+    sprintf("none <= 1 (fine %.5f [digits %d])", t$pstar_fine, t$digits_fine) }
+FOOT <- paste0("Settable p* = the smallest p* on the pconsistency.digits grid whose rounded-screen cutoff ",
+               "reaches kappa_hat (forestsearch:::.fs_decl_settable()); 'none <= 1' when no p* <= 1 reaches ",
+               "it at those digits; pstar_fine [digits_fine] is the settable p* at the smallest digits within 0.01 z ",
+               "of kappa_hat. Setting that p* at those digits reproduces a cutoff at or above kappa_hat.")
 P <- list(); R0 <- list(); status <- list()
 for (blk in names(cells)) for (cl in cells[[blk]]) {
   f <- sprintf("../results/declcalc0_%s_%s_res_1_2000.rds", blk, cl)
   R0[[cl]] <- readRDS(sprintf("../results/declcal_%s_%s_res_1_2000.rds", blk, cl))
+  need_cols(R0[[cl]]$results, cols_ref, sprintf("declcal_%s_%s $results", blk, cl))
   if (!file.exists(f)) { status[[cl]] <- "not run"; next }
   p <- readRDS(f)
+  need_cols(p$results, cols_res, paste0(f, " $results")); need_cols(p$aux, cols_aux, paste0(f, " $aux"))
   st <- p$meta$cell_status; fin <- isTRUE(p$meta$final)
   status[[cl]] <- sprintf("%s%s ; %d rows ; %s ; elapsed %.0f s ; median wall %.2f s ; max wall %.1f s",
                           st, if (fin) "" else " (not final)", nrow(p$results),
@@ -46,6 +79,11 @@ for (blk in names(cells)) for (cl in cells[[blk]]) {
   if (identical(st, "complete") && fin) P[[cl]] <- p
 }
 ok_rows <- function(cl) { r <- P[[cl]]$results; r[r$status == "ok", ] }
+dig <- unique(unlist(lapply(P, function(p) unique(p$results$pconsistency_digits))))
+stopifnot(length(dig) == 1L, !is.na(dig))
+# the executed (rounded) cutoff as the payload recorded it
+z_exec <- function(cl) { z <- P[[cl]]$meta$z_round; if (is.null(z)) z <- unique(P[[cl]]$results$z_pstar)
+  stopifnot(length(z) == 1L, is.finite(z)); z }
 out <- character(0); say <- function(...) { s <- sprintf(...); cat(s, "\n"); out <<- c(out, s) }
 say("## Cell status"); for (cl in names(status)) say("- %s: %s", cl, status[[cl]])
 
@@ -90,7 +128,7 @@ for (al in c("05", "10")) {
 
 # ---- 6.2 calibration quantities per c0 ---------------------------------------
 say("\n## 6.2 The calibration's own quantities per c0")
-say("| cell | c0 | kappa_hat_05 (median, IQR) | implied p* (median, IQR) | mean fw_1645 | mean fw_1621 | n_admitted_cal05 median (all reps) | declaring reps (cal05) | share of declaring reps with n_admitted_cal05 = 1 |")
+say("| cell | c0 | kappa_hat_05 (median, IQR) | settable p*: median (IQR) ; share none <= 1 ; median pstar_fine [digits_fine] | mean fw_1645 | mean fw_1621 | n_admitted_cal05 median (all reps) | declaring reps (cal05) | share of declaring reps with n_admitted_cal05 = 1 |")
 say("|---|---|---|---|---|---|---|---|---|")
 q62 <- list()
 for (cl in names(P)) {
@@ -100,7 +138,7 @@ for (cl in names(P)) {
     na <- r[[paste0("n_admitted_cal05_", s)]]
     sh1 <- if (any(dec)) sprintf("%.4f (%d / %d)", mean(na[dec] == 1L), sum(na[dec] == 1L), sum(dec)) else "no declarations"
     say("| %s | %.2f | %s | %s | %.4f | %.4f | %d | %d | %s |", cl, c0_grid[j],
-        med_iqr(r[[paste0("kappa_hat_05_", s)]], 3), med_iqr(r[[paste0("pstar_implied_05_", s)]], 5),
+        med_iqr(r[[paste0("kappa_hat_05_", s)]], 3), set_txt(stab(r[[paste0("kappa_hat_05_", s)]])),
         mean(r[[paste0("fw_1645_", s)]]), mean(r[[paste0("fw_1621_", s)]]),
         as.integer(median(na)), sum(dec), sh1)
     q62[[paste(cl, s)]] <- data.frame(cell = cl, n = r$n[1], c0 = c0_grid[j],
@@ -108,7 +146,7 @@ for (cl in names(P)) {
       n_dec_adm1 = sum(na[dec] == 1L), n_dec_adm_gt1 = sum(na[dec] > 1L))
   }
   say("| %s | c2 = 1.00 (committed) | %s | %s | %.4f | %.4f | %d | %d | %s |", cl,
-      med_iqr(r$kappa_hat_05, 3), med_iqr(r$pstar_implied_05, 5), mean(r$alpha_FW_hat_1645),
+      med_iqr(r$kappa_hat_05, 3), set_txt(stab(r$kappa_hat_05)), mean(r$alpha_FW_hat_1645),
       mean(r$alpha_FW_hat_1621), as.integer(median(r$n_admitted_cal05)), sum(r$declared_cal05),
       if (any(r$declared_cal05 == 1)) sprintf("%.4f (%d / %d)", mean(r$n_admitted_cal05[r$declared_cal05 == 1] == 1),
                                              sum(r$n_admitted_cal05[r$declared_cal05 == 1] == 1), sum(r$declared_cal05)) else "no declarations")
@@ -155,7 +193,7 @@ say("\nfixed-k rates parsed from logs/declcal_fixedk_practical.txt (k = 2.0000 r
 # ---- kappa_hat_c0 configuration invariance -----------------------------------
 for (al in c("05", "10")) {
   say("\n## kappa_hat_%s_c0 across configurations, grouped by n; exact (per-replicate, B 500) beside approx (40 captures, B 2000)", al)
-  say("| n | c0 | cells | exact: median of per-cell medians (min-max) | exact implied p* | approx median kappa_hat | approx implied p* |")
+  say("| n | c0 | cells | exact: median of per-cell medians (min-max) | exact: settable p* | approx median kappa_hat | approx settable p* |")
   say("|---|---|---|---|---|---|---|")
   for (nn in c(500L, 1000L, 1500L)) {
     cc <- names(P)[vapply(names(P), function(cl) P[[cl]]$meta$n == nn, logical(1))]
@@ -186,32 +224,32 @@ for (j in seq_along(sfx)) {
       if (length(cx)) sprintf("%.0f", median(cx)) else "-")
 }
 
-# ---- fw_1645_c0 against realized rates in the B cells ------------------------
+# ---- fw_c0 against realized rates in the B cells ---------------------------
 say("\n## fw_c0 (Eq. 8 at the shifted field) beside realized p* = 0.90 rates, B cells")
-say("| cell | uniform HR | c0 | mean fw_1645_c0 | realized pre-family exact rate (max_T_pre >= 1.6449) | diff | paired MC SE | mean fw_1621_c0 | executed rate (post, rounded) | diff | paired MC SE |")
+say("| cell | uniform HR | c0 | mean fw_1621_c0 | realized pre-family rate at the executed cutoff (max_T_pre >= z_pstar) | diff | paired MC SE | mean fw_1621_c0 | executed rate (post, rounded) | diff | paired MC SE |")
 say("|---|---|---|---|---|---|---|---|---|---|---|")
 for (cl in Bc) {
   r <- ok_rows(cl); hr <- if (r$dgm[1] == "null0657") 0.657 else 0.721
-  pre_ex <- as.integer(r$max_T_pre >= qnorm(0.95))
+  pre_ex <- as.integer(r$max_T_pre >= z_exec(cl))
   for (j in seq_along(sfx)) {
-    f45 <- r[[paste0("fw_1645_", sfx[j])]]; f21 <- r[[paste0("fw_1621_", sfx[j])]]
-    d1 <- f45 - pre_ex; d2 <- f21 - r$declared_conv
+    f21 <- r[[paste0("fw_1621_", sfx[j])]]
+    d1 <- f21 - pre_ex; d2 <- f21 - r$declared_conv
     say("| %s | %.3f | %.2f | %.4f | %.4f | %+.4f | %.4f | %.4f | %.4f | %+.4f | %.4f |", cl, hr, c0_grid[j],
-        mean(f45), mean(pre_ex), mean(d1), sd(d1) / sqrt(nrow(r)),
+        mean(f21), mean(pre_ex), mean(d1), sd(d1) / sqrt(nrow(r)),
         mean(f21), mean(r$declared_conv), mean(d2), sd(d2) / sqrt(nrow(r)))
   }
 }
 # ---- the three free checks (declcal task section 7.3, per c0) ----------------
 say("\n## Free check (a): Eq. 8 at the shifted field as an estimator, B cells (all c0)")
-say("(the fw_c0 table above: mean fw_1621_c0 vs the as-executed rate, mean fw_1645_c0 vs the exact-z pre-family rate, paired MC SE = sd/sqrt(2000); Block A is not re-run)")
-say("\n## Free check (b): how strict the calibration is -- pstar_implied_05_c0 distribution")
-say("| cell | c0 | min | 5%% | 25%% | 50%% | 75%% | 95%% | max | fraction > 0.90 | fraction < p*(executed cutoff 1.621) |")
-say("|---|---|---|---|---|---|---|---|---|---|---|")
+say("(the fw_c0 table above: mean fw_1621_c0 vs the as-executed rate, mean fw_1621_c0 vs the pre-family rate at the executed cutoff, paired MC SE = sd/sqrt(2000); Block A is not re-run)")
+say("\n## Free check (b): how strict the calibration is -- pstar_fine at alpha = 0.05 (the settable p* at digits_fine), per c0")
+say("| cell | c0 | min | 5%% | 25%% | 50%% | 75%% | 95%% | max | digits_fine range | fraction settable at the fit's digits with p* > 0.90 | fraction with no settable p* <= 1 at the fit's digits | fraction < p*(executed cutoff) |")
+say("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
 pr <- c(0, .05, .25, .5, .75, .95, 1)
 for (cl in names(P)) { r <- ok_rows(cl)
-  for (j in seq_along(sfx)) { v <- r[[paste0("pstar_implied_05_", sfx[j])]]
-    say("| %s | %.2f | %s | %.4f | %.4f |", cl, c0_grid[j], paste(sprintf("%.5f", stats::quantile(v, pr, type = 7)), collapse = " | "),
-        mean(v > 0.90), mean(r[[paste0("kappa_hat_05_", sfx[j])]] < qnorm((1 + 0.895) / 2))) } }
+  for (j in seq_along(sfx)) { t <- stab(r[[paste0("kappa_hat_05_", sfx[j])]]); v <- t$pstar_settable
+    say("| %s | %.2f | %s | %s | %.4f | %.4f | %.4f |", cl, c0_grid[j], paste(sprintf("%.5f", stats::quantile(t$pstar_fine, pr, type = 7)), collapse = " | "),
+        paste(unique(range(t$digits_fine)), collapse = "-"), mean(!is.na(v) & v > 0.90), mean(is.na(v)), mean(r[[paste0("kappa_hat_05_", sfx[j])]] < z_exec(cl))) } }
 say("(last column: share of replicates whose kappa_hat_05_c0 is below the as-executed cutoff z = 1.621, i.e. the calibrated rule is looser than p* 0.90 as executed)")
 say("\n## Free check (c): can the calibrated rule declare where the conventional one did not?")
 say("| cell | c0 | cal05 = 1 & conv = 0 | cal10 = 1 & conv = 0 | cal05 = 1 & exact = 0 | cal10 = 1 & exact = 0 | min kappa_hat_05_c0 | min kappa_hat_10_c0 | cal05 & !conv: via family / via cutoff | cal10 & !conv: via family / via cutoff |")

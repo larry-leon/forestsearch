@@ -32,6 +32,12 @@ rate_at <- function(r, p) {
   ci <- wilson(x, n)
   c(p = p, count = x, n = n, rate = x / n, lo = ci[["lo"]], hi = ci[["hi"]])
 }
+# FW_0.10(0.75) of the GBSG application fit at the aligned (rounded) screen,
+# 0.6672: REPORT_declcal_rounding_alignment_2026-09-23 Gate 2 (ac860c6d),
+# re-checked as mean(Mstar_c0 > z_pstar) on that report's capture
+# (TASK_declcal_consumers_2026-09-24_v3). The application payload in
+# fs-glms-interpretable still carries the exact-cutoff value until it re-runs.
+fw_app_075 <- 0.6672
 pc <- list()
 fail <- function(id, ok, note = "") {
   pc[[id]] <<- ok
@@ -100,8 +106,8 @@ for (k in 1:2) {
     cat("bracketing 0.01 grid points:\n")
     print(round(br, 4))
   }
-  cat(sprintf("rate at 0.90: %.4f vs FW_0.10(0.75) 0.651 and super-population 0.329\n",
-              rate_at(r, 0.90)[["rate"]]))
+  cat(sprintf("rate at 0.90: %.4f vs FW_0.10(0.75) %.4f and super-population 0.329\n",
+              rate_at(r, 0.90)[["rate"]], fw_app_075))
 }
 
 cat("\n=== Grid table (cells x p*; rate [90% Wilson] count/B) ===\n")

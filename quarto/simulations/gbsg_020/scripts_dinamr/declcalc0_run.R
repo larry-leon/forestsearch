@@ -220,21 +220,23 @@ if (identical(dgm_model, "null")) {
 # ---- per-replicate record ---------------------------------------------------
 .schema <- c("cell_id", "dgm", "n", "c1", "c2", "rep", "seed",
              "G_pre", "G_post", "max_T_pre", "max_T_post",
-             "kappa_hat_05", "kappa_hat_10", "pstar_implied_05", "pstar_implied_10",
-             "alpha_FW_hat_1645", "alpha_FW_hat_1621",
+             "kappa_hat_05", "kappa_hat_10", "pstar_settable_05", "pstar_settable_10",
+             "z_pstar", "alpha_FW_hat_1621",
              "Mstar_q90", "Mstar_q95", "Mstar_q99",
-             "declared_conv", "declared_conv_exact", "declared_cal05", "declared_cal10",
-             "n_admitted_conv", "n_admitted_cal05", "n_band",
+             "declared_conv", "declared_cal05", "declared_cal10",
+             "n_admitted_conv", "n_admitted_cal05",
              "sg_size_declared", "sg_size_argmax",
              "B_cal", "mult_law", "pconsistency_digits", "floors_id", "wall_sec", "status")
-z_exact <- qnorm((1 + 0.90) / 2)          # 1.644854
-z_round <- qnorm((1 + 0.895) / 2)         # 1.621 -- effective cutoff of the rounded rule
+# (TASK_declcal_consumers_2026-09-24_v3) the screen's threshold is read per replicate from
+# fs_declaration_calibration(mr)$z_pstar (the rounded rule); the exact-cutoff
+# columns (implied p*, alpha_FW_hat_1645, declared_conv_exact, n_band, fw_1645_<c0>)
+# are no longer recorded.
 # (c0-1, c0-2) the null-level grid (natural HR scale) and the appended columns
 c0_grid <- c(0.70, 0.75, 0.80, 0.85)
 c0_sfx  <- sprintf("c%03d", as.integer(round(100 * c0_grid)))            # c070 ...
-c0_cols <- c("kappa_hat_05", "kappa_hat_10", "pstar_implied_05",
+c0_cols <- c("kappa_hat_05", "kappa_hat_10", "pstar_settable_05",
              "declared_cal05", "declared_cal10", "n_admitted_cal05",
-             "fw_1645", "fw_1621", "Mstar_c0_q90", "Mstar_c0_q95", "Mstar_c0_q99")
+             "fw_1621", "Mstar_c0_q90", "Mstar_c0_q95", "Mstar_c0_q99")
 .schema <- c(.schema, as.vector(t(outer(c0_sfx, c0_cols, function(s, v) paste0(v, "_", s)))))
 
 .row_template <- function(sim_id) {
@@ -367,10 +369,14 @@ record_replicate <- function(sim_id) {
 
   q <- function(p, M = Ms) stats::quantile(M, p, type = 1, names = FALSE)
   r$kappa_hat_05 <- q(0.95); r$kappa_hat_10 <- q(0.90)
-  r$pstar_implied_05 <- 2 * pnorm(r$kappa_hat_05) - 1
-  r$pstar_implied_10 <- 2 * pnorm(r$kappa_hat_10) - 1
-  r$alpha_FW_hat_1645 <- mean(Ms > z_exact)
-  r$alpha_FW_hat_1621 <- mean(Ms > z_round)
+  dcal <- ns$fs_declaration_calibration(mr)
+  if (!identical(dcal$digits, as.integer(digits)))
+    stop(sprintf("calibration digits %s differ from the fit's %s", dcal$digits, digits))
+  z_round <- dcal$z_pstar                  # effective cutoff of the rounded rule
+  r$z_pstar <- z_round
+  r$pstar_settable_05 <- ns$.fs_decl_settable(r$kappa_hat_05, digits)$p_star
+  r$pstar_settable_10 <- ns$.fs_decl_settable(r$kappa_hat_10, digits)$p_star
+  r$alpha_FW_hat_1621 <- dcal$fw_size
   r$Mstar_q90 <- q(0.90); r$Mstar_q95 <- q(0.95); r$Mstar_q99 <- q(0.99)
   adm_at <- function(k) { fl <- c_cons + k * sdv; if (!is.null(c_screen)) fl <- pmax(c_screen, fl); bh >= fl }
   r$declared_cal05 <- as.integer(any(adm_at(r$kappa_hat_05)))
@@ -387,11 +393,10 @@ record_replicate <- function(sim_id) {
     k05 <- q(0.95, Mj); k10 <- q(0.90, Mj)
     r[[paste0("kappa_hat_05_", sx)]] <- k05
     r[[paste0("kappa_hat_10_", sx)]] <- k10
-    r[[paste0("pstar_implied_05_", sx)]] <- 2 * pnorm(k05) - 1
+    r[[paste0("pstar_settable_05_", sx)]] <- ns$.fs_decl_settable(k05, digits)$p_star
     r[[paste0("declared_cal05_", sx)]] <- as.integer(r$max_T_pre >= k05)
     r[[paste0("declared_cal10_", sx)]] <- as.integer(r$max_T_pre >= k10)
     r[[paste0("n_admitted_cal05_", sx)]] <- as.integer(sum(adm_at(k05)))
-    r[[paste0("fw_1645_", sx)]] <- mean(Mj > z_exact)
     r[[paste0("fw_1621_", sx)]] <- mean(Mj > z_round)
     r[[paste0("Mstar_c0_q90_", sx)]] <- q(0.90, Mj)
     r[[paste0("Mstar_c0_q95_", sx)]] <- q(0.95, Mj)
@@ -410,16 +415,13 @@ record_replicate <- function(sim_id) {
   r$G_post <- length(post)
   if (length(post)) {
     Tp <- T_pre[post]
-    rate <- pmax(0, 2 * pnorm(Tp) - 1)
-    adm_round <- round(rate, digits) >= p_star
+    adm_round <- post %in% dcal$admitted_pstar      # the package's rounded rule
     r$max_T_post <- max(Tp)
     r$declared_conv <- as.integer(any(adm_round))
-    r$declared_conv_exact <- as.integer(any(Tp >= z_exact))
     r$n_admitted_conv <- as.integer(sum(adm_round))
-    r$n_band <- as.integer(sum(rate >= 0.895 & rate < 0.900))
   } else {
-    r$max_T_post <- NA_real_; r$declared_conv <- 0L; r$declared_conv_exact <- 0L
-    r$n_admitted_conv <- 0L; r$n_band <- 0L
+    r$max_T_post <- NA_real_; r$declared_conv <- 0L
+    r$n_admitted_conv <- 0L
   }
 
   if (identical(run_kind, "pilot")) {
@@ -482,7 +484,7 @@ res <- list(); cell_status <- "complete"
                 cap_s = cap_s, chunk_n = chunk_n, gate_max = gate_max,
                 seed_convention = "data seed = seed_base + rep (simulate_from_dgm); forestsearch seedit = seed_base + rep; MR multiplier seed = seed_base + rep (forestsearch()'s own default); one offset, seed_base = 8316951",
                 seed_base = seed_base, sim_id_start = sim_id_start, n_sims = n_sims,
-                z_exact = z_exact, z_round = z_round,
+                threshold_source = "fs_declaration_calibration(mr)$z_pstar per replicate (results$z_pstar)",
                 n_workers = n_workers, cell_status = cell_status, final = final,
                 elapsed_s = proc.time()[3] - t_all,
                 forestsearch_version = as.character(utils::packageVersion("forestsearch")),
@@ -527,8 +529,8 @@ ok <- rows$status == "ok"
 mis <- rows$rep[ok & rows$declared_conv != aux$search_declared[match(rows$rep, aux$rep)]]
 cat(sprintf("FIDELITY: declared_conv (rounded, post-reduction) vs search indicator on %d ok reps: %d disagree%s\n",
             sum(ok), length(mis), if (length(mis)) paste0(" -> reps ", paste(mis, collapse = ",")) else ""))
-cat(sprintf("RATES: conv %.4f exact %.4f cal05 %.4f cal10 %.4f ; median wall %.2fs ; median G_pre %d\n",
-            mean(rows$declared_conv[ok]), mean(rows$declared_conv_exact[ok]),
+cat(sprintf("RATES: conv %.4f cal05 %.4f cal10 %.4f ; median wall %.2fs ; median G_pre %d\n",
+            mean(rows$declared_conv[ok]),
             mean(rows$declared_cal05[ok]), mean(rows$declared_cal10[ok]),
             median(rows$wall_sec[ok]), as.integer(median(rows$G_pre[ok]))))
 if (length(mis)) quit(status = 3L)
@@ -540,7 +542,7 @@ ref_blk  <- c(B = "inull", C = "power")[[substr(cell_id, 1L, 1L)]]
 ref_path <- sprintf("results/declcal_%s_%s_res_1_2000.rds", ref_blk, cell_id)
 ref <- readRDS(ref_path)$results
 id_cols <- c("max_T_pre", "max_T_post", "G_pre", "G_post", "declared_conv",
-             "declared_conv_exact", "Mstar_q90", "Mstar_q95", "Mstar_q99",
+             "Mstar_q90", "Mstar_q95", "Mstar_q99",
              "kappa_hat_05", "kappa_hat_10", "declared_cal05", "declared_cal10")
 mref <- ref[match(rows$rep, ref$rep), , drop = FALSE]
 id_bad <- list()

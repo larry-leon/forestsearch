@@ -12,7 +12,7 @@ with(env, {
   cat("PRE kappa05", fmt(pre$kappa_hat), "kappa10", fmt(pre10$kappa_hat), "fw", fmt(pre$fw_size), "\n")
   cat("RED kappa05", fmt(red$kappa_hat), "kappa10", fmt(red10$kappa_hat), "fw", fmt(red$fw_size), "\n")
   cat("admitted_pstar(pre)", pre$admitted_pstar, "| admitted_calibrated(pre) n=", length(pre$admitted_calibrated), "\n")
-  cat("T_hat selected", fmt(pre$T_hat[pre$admitted_current], 4), "z", fmt(pre$z_pstar, 4), "\n")
+  cat("T_hat selected", fmt(pre$T_hat[pre$admitted_current], 4), "z_pstar (rounded rule)", fmt(pre$z_pstar, 4), "\n")
   cat("Mstar quantiles:", fmt(quantile(pre$Mstar, c(.5,.9,.95,.99), type = 1), 4), "\n")
   cat("PC4 GBSG column_sd range", fmt(range(pre$column_sd), 4), "mean(Zstar)", fmt(pre$zstar_mean, 5), "tol", fmt(4/sqrt(pre$B), 4), "\n")
   d8 <- fs_declaration_calibration(.mr8)
@@ -24,7 +24,7 @@ with(env, {
   cat("PC6 GBSG sigma_D field", fmt(pre$sigma_D[pre$admitted_current], 10), "screen", fmt(rr$sigma_D, 10), "diff", signif(pre$sigma_D[pre$admitted_current] - rr$sigma_D, 3), "\n")
   for (g in 1:2) { r8 <- consistency_resample(.cfgB$df[.cfgB$cands[[g]], ], method = "closed", outcome_type = "continuous", effect_measure = "MD", treat.name = "A", outcome.name = "Y", consistency_threshold = 0)
     cat("PC6 OLS g", g, "field", fmt(d8$sigma_D[g], 10), "screen", fmt(r8$sigma_D, 10), "\n") }
-  fwt <- .fw_target(.rho8); kt <- .kappa_target(.rho8)
+  fwt <- 1 - .phi2(d8$z_pstar, .rho8); kt <- .kappa_target(.rho8)   # fw target at the calibration's rounded cutoff
   cat("T8 rho_hat", fmt(.rho8), "targets: cor", fmt(.rho8), "fw", fmt(fwt), "kappa", fmt(kt), "\n")
   cat("T8 gaussian realized: cor", fmt(d8$field_cor[1,2]), "fw", fmt(d8$fw_size), "kappa", fmt(d8$kappa_hat), "\n")
   cat("T8 gaussian disc: cor", fmt(d8$field_cor[1,2]-.rho8), "fw", fmt(d8$fw_size-fwt), "kappa", fmt(d8$kappa_hat-kt), "\n")
@@ -47,6 +47,6 @@ fc <- suppressWarnings(do.call(forestsearch, c(list(df.analysis = cd), cargs)))
 dg <- fs_declaration_calibration(fc)
 cat("GLM: n_pre", dg$n_family_prereduction, "n_red", dg$n_family_reduced, "replay_check", dg$reduction$replay_check,
     "unmatched", dg$reduction$n_unmatched, "admitted_current", dg$admitted_current, "kappa", dg$kappa_hat, "fw", dg$fw_size, "\n")
-s <- dg$screened; rel <- s[dg$beta_hat[s] >= pmax(dg$c_screen, dg$c_cons + dg$z_pstar * dg$sigma_D[s])]
+s <- dg$screened; rel <- intersect(s, dg$admitted_pstar)   # the package's rounded rule, not a local rebuild
 cat("GLM relabel reproduces:", setequal(rel, dg$admitted_current), "\n")
 cat("GLM hr.subgroups names:", paste(names(fc$find.grps$out.found$hr.subgroups)[1:10], collapse=","), "\n")
