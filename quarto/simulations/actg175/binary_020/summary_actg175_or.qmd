@@ -61,7 +61,7 @@ factors; FB was never run (no FB rows).
 
 ```{r setup}
 suppressPackageStartupMessages({ library(forestsearch); library(ggplot2); library(knitr) })
-glob_new <- Sys.getenv("ORSG_SUMMARY_GLOB", "combined_1_2000")   # dry run on a smoke batch: "res_1_20"
+glob_new <- Sys.getenv("ORSG_SUMMARY_GLOB", "combined_1_1000")   # dry run on a smoke batch: "res_1_20"
 out_dir  <- Sys.getenv("ORSG_SUMMARY_OUT", ".")
 COND <- "(GRF and DINA rows conditional on the proposed family)"
 cap  <- function(x) paste(x, COND)
@@ -438,7 +438,7 @@ cat(sprintf("read %d of %d cell x identifier bundles; %d extract rows\n",
 # Cells and truths
 
 ```{r status}
-kable(ST, caption = cap("The eighteen combined bundles read (2,000 replicates per cell x identifier); the commit is the one that added the bundle."))
+kable(ST, caption = cap("The eighteen combined bundles read (1,000 replicates per cell x identifier); the commit is the one that added the bundle."))
 kable(TRU, digits = 6, caption = "The three design points, from the calibrated DGM (identical across identifiers and n within a design): the planted marginal OR in H, the prevalence, the calibrated interaction, and the four population references theta-dagger / theta-ddagger for H and its complement.")
 kable(DECL, digits = 4, caption = cap("Declaration per cell x identifier: replicates, declared, rate and its Monte Carlo SE."))
 ```
@@ -538,7 +538,7 @@ two-term intervals, at n = 500 and n = 2000, beside this campaign's figures in t
 
 **The rule, the replicate count and the constructions all differ.** The study ran `maxeffCons` at
 ε 0.10 with `ci_method = "ij"` and 1,000 replicates per cell; this campaign runs `effMaxSG` at
-ε 0.20 with the field constructions and 2,000 replicates per cell. The two columns are therefore
+ε 0.20 with the field constructions, also at 1,000 replicates per cell. The two columns are therefore
 not a like-for-like contrast of any one construction — they place this campaign's design point
 against the published one.
 
@@ -547,7 +547,7 @@ if (!is.null(STU)) kable(STU, digits = 4,
   col.names = c("cell","identifier","construction","study detection rate",
                 "study two-sided coverage of theta-dagger (Wilson)","study n_eff","study replicates",
                 "this campaign's declaration rate","this campaign's two-sided coverage of theta-dagger"),
-  caption = cap("The committed study (maxeffCons, eps 0.10, IJ only, 1,000 replicates) beside this campaign (effMaxSG, eps 0.20, field constructions, 2,000 replicates), at the protective design point OR 0.75 and n = 500 / 2000. Study figures are quoted from its grid.")) else
+  caption = cap("The committed study (maxeffCons, eps 0.10, IJ only, 1,000 replicates) beside this campaign (effMaxSG, eps 0.20, field constructions, 1,000 replicates), at the protective design point OR 0.75 and n = 500 / 2000. Study figures are quoted from its grid.")) else
   cat("The committed study grid was not found; the comparison table is omitted.\n")
 ```
 
@@ -594,12 +594,12 @@ X$value[num] <- signif(X$value[num], 8); X$mc_se[num] <- signif(X$mc_se[num], 6)
 X$wilson_lo[num] <- signif(X$wilson_lo[num], 6); X$wilson_hi[num] <- signif(X$wilson_hi[num], 6)
 write.csv(X, file.path(out_dir, "or_metrics.csv"), row.names = FALSE, na = "")
 cols <- c(
-"# COLUMNS — or_metrics.csv (campaigns orfs, orgrf, ordina; TASK_actg175_binary_campaign_2026-09-17 §3.2)", "",
+"# COLUMNS — or_metrics.csv (campaigns orfs, orgrf, ordina; TASK_actg175_binary_campaign_2026-09-17 §3.2; Stage 3 run under TASK_actg175_or_stage3_2026-09-28)", "",
 "Written by `summary_actg175_or.qmd` from the same objects its tables print. The schema of `../continuous/md_dina_metrics.csv` (see `COLUMNS_md_dina.md`) plus a `design` column. One row per design × cell × identifier × block × estimator × metric (× tau for bound-location rows).", "",
 "## Columns", "",
 "- `campaign`: `orfs`, `orgrf` or `ordina`; `maxeffCons_actg175_or075_seedtab_s1000` for the rows quoted from the committed study grid.",
 "- `identifier`: `fs`, `grf` or `dina` — the identifier that produced the row. Every `grf` and `dina` coverage row is coverage of the estimand **conditional on the proposed family**.",
-"- `design`: `or075` (the supplement's protective design), `or150` (harm) or `or100` (borderline null: the planted region at the null against a protective complement). All three share the prevalence 9.632% and the complement references θ†(Ĥᶜ) 0.6560 / θ‡(Ĥᶜ) 0.6314; they differ only in `target_effect`.",
+"- `design`: `or075` (the supplement's protective design), `or150` (harm) or `or100` (borderline null: the planted region at the null against a protective complement). All three share the design of record's planted prevalence 14.917% (`sg_quantile` 0.62850, `REPORT_binary_redesign_2026-09-18.md`) and the complement references θ†(Ĥᶜ) 0.6564 / θ‡(Ĥᶜ) 0.6314; they differ only in `target_effect`.",
 "- `cell`: `OR 0.75 n500`, `OR 0.75 n2000`, `OR 1.5 n500`, `OR 1.5 n2000`, `OR 1.0 n500`, `OR 1.0 n2000`.",
 "- `block`: `H` (the selected subgroup Ĥ), `Hc` (its complement Ĥᶜ), `joint` (the pair), `all` (timing).",
 "- `estimator`: `naive` (unadjusted), `oracle`, `mr` (IJ two-term), `fld` (field), `fld_s` (field-s), `bonf_s`, `bonf`, `separate_s`, `calibrated`, `all`.",

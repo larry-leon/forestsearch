@@ -14,6 +14,12 @@
   2026-09-18 and only the two moved-aside cells under
   `mr_or_harm_superseded_prev09632/` were ever run at 2,000. **Neither supersedes the other**, and
   no table mixes them without saying so.
+- **Stage 3 (2026-09-28): done** under `dev/tasks/TASK_actg175_or_stage3_2026-09-28.md`, summarization only. The
+  cross-cell summary `summary_actg175_or.qmd` now reads the committed `*_combined_1_1000.rds` bundles (18 of 18); its
+  render `summary_actg175_or.html`, the extract `or_metrics.csv` (5,814 rows; schema of `../continuous/md_dina_metrics.csv`
+  plus `design`; definitions in `COLUMNS_or.md`) and the record `REPORT_actg175_or_2026-09-28.md` (design, truths, one
+  comparative table per block, build provenance) are in this directory. The bundles were read, never written; the
+  closeout deletion of the smoke and calibration bundles (§3.5) remains not done.
 
 ---
 
@@ -127,9 +133,9 @@ Every campaign keeps its bundles under `mr_or_harm/<stem>_d5000/` (one directory
 
 | campaign | engine / focus / ε / rule / ci / complement scale (combined metas) | combined bundles | batch bundles | bundles in | renders (combine) | scripts | campaign documents |
 |---|---|---|---|---|---|---|---|
-| `orfs` | consistency / effMaxSG / eps 0.2 / rule neighborhood / ci field / scale-complement selected | 6 | 6 | `mr_or_harm/<stem>_orfs_d5000/` | 8, 29.94 MB, in the directory root | `scripts_or/` (7 files) | `LOG_or_progress.txt`, `REPORT_actg175_or_gate2_2026-09-17.md`, `REPORT_actg175_or_stage1_2026-09-17.md`, `summary_actg175_or.qmd` |
-| `orgrf` | grf / effMaxSG / eps 0.2 / rule neighborhood / ci field / scale-complement selected | 6 | 6 | `mr_or_harm/<stem>_orgrf_d5000/` | 6, 23.01 MB, in the directory root | `scripts_or/` (7 files) | `LOG_or_progress.txt`, `REPORT_actg175_or_gate2_2026-09-17.md`, `REPORT_actg175_or_stage1_2026-09-17.md`, `summary_actg175_or.qmd` |
-| `ordina` | dina / effMaxSG / eps 0.2 / rule neighborhood / ci field / scale-complement selected | 6 | 6 | `mr_or_harm/<stem>_ordina_d5000/` | 6, 23.09 MB, in the directory root | `scripts_or/` (7 files) | `LOG_or_progress.txt`, `REPORT_actg175_or_gate2_2026-09-17.md`, `REPORT_actg175_or_stage1_2026-09-17.md`, `summary_actg175_or.qmd` |
+| `orfs` | consistency / effMaxSG / eps 0.2 / rule neighborhood / ci field / scale-complement selected | 6 | 6 | `mr_or_harm/<stem>_orfs_d5000/` | 8, 29.94 MB, in the directory root | `scripts_or/` (7 files) | `LOG_or_progress.txt`, `REPORT_actg175_or_gate2_2026-09-17.md`, `REPORT_actg175_or_stage1_2026-09-17.md`, `summary_actg175_or.qmd`, `summary_actg175_or.html`, `or_metrics.csv`, `COLUMNS_or.md`, `REPORT_actg175_or_2026-09-28.md` |
+| `orgrf` | grf / effMaxSG / eps 0.2 / rule neighborhood / ci field / scale-complement selected | 6 | 6 | `mr_or_harm/<stem>_orgrf_d5000/` | 6, 23.01 MB, in the directory root | `scripts_or/` (7 files) | `LOG_or_progress.txt`, `REPORT_actg175_or_gate2_2026-09-17.md`, `REPORT_actg175_or_stage1_2026-09-17.md`, `summary_actg175_or.qmd`, `summary_actg175_or.html`, `or_metrics.csv`, `COLUMNS_or.md`, `REPORT_actg175_or_2026-09-28.md` |
+| `ordina` | dina / effMaxSG / eps 0.2 / rule neighborhood / ci field / scale-complement selected | 6 | 6 | `mr_or_harm/<stem>_ordina_d5000/` | 6, 23.09 MB, in the directory root | `scripts_or/` (7 files) | `LOG_or_progress.txt`, `REPORT_actg175_or_gate2_2026-09-17.md`, `REPORT_actg175_or_stage1_2026-09-17.md`, `summary_actg175_or.qmd`, `summary_actg175_or.html`, `or_metrics.csv`, `COLUMNS_or.md`, `REPORT_actg175_or_2026-09-28.md` |
 
 ### 3.2 Cells, from the combined bundle metas
 
