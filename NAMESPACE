@@ -64,6 +64,7 @@ export(CV_sgs)
 export(FS_labels)
 export(SG_tab_estimates)
 export(SGplot_estimates)
+export(analysis_covariates)
 export(analyze_subgroup)
 export(benchmark_spec)
 export(bootstrap_results)
@@ -125,6 +126,7 @@ export(evaluate_comparison)
 export(evaluate_consistency_twostage)
 export(evaluate_cuts_once)
 export(evaluate_subgroup_consistency)
+export(expand_covariates)
 export(explain_pareto_selection)
 export(extract_grf_args)
 export(extract_selected_subgroups)
@@ -170,6 +172,7 @@ export(fs_focus_tag)
 export(fs_identification_structure)
 export(fs_identification_summary)
 export(fs_identification_table)
+export(fs_mr_inference)
 export(fs_mr_oc_summary)
 export(fs_oc_family_enumerate)
 export(fs_oc_grid)
@@ -207,14 +210,17 @@ export(grf.subg.harm.survival)
 export(guohe_adaptive_r)
 export(guohe_algorithm3)
 export(hrCI_format)
+export(inject_mrct_structure)
 export(interpret_estimation_table)
 export(interpret_search_config)
 export(lasso_selection)
 export(latest_rds)
 export(load_leff_calibration)
 export(make_effect_estimator)
+export(make_region_model)
 export(mr_estimates_table)
 export(mrct_region_sims)
+export(mrct_truth_by_region)
 export(n_pcnt)
 export(pareto_frontier_table)
 export(plot_detection_curve)
@@ -225,6 +231,7 @@ export(plot_fs_rule_pairs)
 export(plot_km_band_forestsearch)
 export(plot_pareto_combined)
 export(plot_pareto_frontier)
+export(plot_region_modifier)
 export(plot_sg_distribution)
 export(plot_sg_glm_outcomes)
 export(plot_sg_results)
@@ -254,6 +261,7 @@ export(setup_parallel_SGcons)
 export(sg_consistency_out)
 export(sg_tables)
 export(sgdist_fig_height)
+export(sim_region_metrics)
 export(simulate_from_dgm)
 export(simulate_from_gbsg_dgm)
 export(simulate_from_glm_dgm)
@@ -280,6 +288,7 @@ export(validate_subgroups)
 export(wilson_ci)
 import(data.table)
 import(survival)
+importFrom(Matrix,nearPD)
 importFrom(data.table,
   ":=",
   .GRP,
@@ -429,6 +438,7 @@ importFrom(gt,
   tab_spanner,
   tab_style
 )
+importFrom(mvtnorm,rmvnorm)
 importFrom(parallel,detectCores)
 importFrom(patchwork,
   plot_annotation,
@@ -461,6 +471,7 @@ importFrom(stats,
   density,
   dfbeta,
   dnorm,
+  ecdf,
   fitted,
   formula,
   gaussian,

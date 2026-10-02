@@ -585,6 +585,7 @@
 #'   [forestsearch_bootstrap_dofuture()] for the full bootstrap (FB) this
 #'   approximates; [fs_fdr_report()] which sweeps `c_confirm` thresholds.
 #' @keywords internal
+#' @export
 fs_mr_inference <- function(df, candidates, spec, selected_members,
                            admission,
                            t_confirm = NULL, confirm_rule = c("point", "ci"),
