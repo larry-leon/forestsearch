@@ -12,7 +12,8 @@ make_region_model(
   or_x1 = 1,
   prevalence = 0.2,
   scale_ref = NULL,
-  scale = c("rank", "minmax")
+  scale = c("rank", "minmax"),
+  band = NULL
 )
 }
 \arguments{
@@ -32,9 +33,13 @@ no X2 term (regional imbalance only through x1_vars)}
 \item{scale_ref}{data.frame used to define the scaling (defaults to pop)}
 
 \item{scale}{"rank" (ECDF, default) or "minmax" (the paper's scaling)}
+
+\item{band}{NULL (default, no band term), or list(var, cut, or): adds
+\code{log(or) * 1(df[[var]] <= cut)} to the logit (var on its
+natural scale, not passed through s())}
 }
 \value{
-list(alpha0, coefs, prob = function(df), draw = function(df, seed))
+list(alpha0, coefs, band, prob = function(df), draw = function(df, seed))
 }
 \description{
 Build the logistic region model and draw Region on a population.

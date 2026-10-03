@@ -52,3 +52,45 @@ test_that("inject_mrct_structure builds a usable aft_dgm_flex on cgd", {
   expect_false("z_age" %in% covs)
   expect_false("z_region" %in% covs)
 })
+
+# TASK_fs-region-band-term (2026-10-03): band term in the region logit.
+test_that("region band term concentrates the X3 band in the region on cgd", {
+  cgd <- survival::cgd
+  cgd1 <- cgd[cgd$enum == 1, ]
+  cgd1 <- data.frame(
+    tte      = cgd1$tstop - cgd1$tstart,
+    event    = cgd1$status,
+    treat    = as.numeric(cgd1$treat == "rIFN-g"),
+    age      = cgd1$age,
+    height   = cgd1$height,
+    weight   = cgd1$weight,
+    female   = as.numeric(cgd1$sex == "female"),
+    autosom  = as.numeric(cgd1$inherit == "autosomal"),
+    steroids = cgd1$steroids,
+    propylac = cgd1$propylac
+  )
+
+  dgm <- inject_mrct_structure(
+    seed_data = cgd1, outcome_var = "tte", event_var = "event",
+    treatment_var = "treat", continuous_vars = c("age", "height", "weight"),
+    factor_vars = c("female", "autosom", "steroids", "propylac"), x_pred = "age",
+    spline_spec = list(knot = 12, zeta = 25, log_hrs = rep(log(0.70), 3)),
+    region = list(prevalence = 0.20, or_pred = 1,
+                  band = list(cut = 10, or = 20)),
+    x3 = list(vars = "age", cuts = list(age = 10), loghr = log(5)),
+    n_super = 5000, expand = "copula", seed = 1
+  )
+
+  ds <- dgm$df_super
+  prev <- mean(ds$z_region)
+  expect_gte(prev, 0.17)
+  expect_lte(prev, 0.23)
+
+  expect_true(all(ds$flag_harm == (ds$z_age <= 10)))
+
+  in_band <- ds$z_age <= 10
+  expect_gt(mean(in_band[ds$z_region == 1]), mean(in_band[ds$z_region == 0]))
+
+  expect_equal(dgm$mrct$region$band, list(var = "age", cut = 10, or = 20))
+  expect_equal(dgm$mrct$region_model$band, dgm$mrct$region$band)
+})

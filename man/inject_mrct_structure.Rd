@@ -43,7 +43,9 @@ true log-HR is piecewise linear through (0, \code{log_hrs[1]}), (knot, \code{log
 x1_vars = character(0), or_x1 = 1, loghr = 0, scale = "rank") -- loghr is
 the prognostic log-HR of Region (no TE modification; 0 for the paper's
 DGM; -log(5) reproduces the Feb-2026 deck's strongly prognostic region);
-scale = "rank" (ECDF) or "minmax" (the paper's \verb{[0,1]} scaling)}
+scale = "rank" (ECDF) or "minmax" (the paper's \verb{[0,1]} scaling);
+optional band = list(cut, or) (and optional var, default \code{x_pred}) adds
+\code{log(or) * 1(var <= cut)} to the region logit, see make_region_model()}
 
 \item{x3}{NULL, or list(vars = c(...), cuts = list(...), loghr = ...)
 for a balanced effect modifier: cuts as in generate_aft_dgm_flex (use

@@ -17,6 +17,8 @@
 ##   logit P(Region = 1 | x) = a0 + log(OR_pred) * s(x_pred) + sum_j log(OR_j) * s(x1_j)
 ##   with s() in [0,1] (ECDF by default, or the paper's min-max) on the
 ##   super-population and a0 solved so that mean P(Region = 1) = `prevalence`.
+##   Optional band term: + log(OR_band) * 1{x_band <= cut} (`band`), which
+##   concentrates a covariate band (e.g. an X3 subgroup) in the region.
 ##
 ## Expansion (any n): a Gaussian copula on the seed covariates (latent
 ## correlation via latentcor when available, else normal-score correlation)
@@ -142,15 +144,24 @@ expand_covariates <- function(seed_df, vars, n_super, seed = 20260903L,
 #' @param prevalence target marginal P(Region = 1)
 #' @param scale_ref data.frame used to define the scaling (defaults to pop)
 #' @param scale    "rank" (ECDF, default) or "minmax" (the paper's scaling)
-#' @return list(alpha0, coefs, prob = function(df), draw = function(df, seed))
+#' @param band     NULL (default, no band term), or list(var, cut, or): adds
+#'                 `log(or) * 1(df[[var]] <= cut)` to the logit (var on its
+#'                 natural scale, not passed through s())
+#' @return list(alpha0, coefs, band, prob = function(df), draw = function(df, seed))
 #' @importFrom stats plogis uniroot rbinom ecdf
 #' @export
 make_region_model <- function(pop, x_pred = NULL, or_pred = 1,
                               x1_vars = character(0), or_x1 = 1,
                               prevalence = 0.20, scale_ref = NULL,
-                              scale = c("rank", "minmax")) {
+                              scale = c("rank", "minmax"), band = NULL) {
   scale <- match.arg(scale)
   if (is.null(scale_ref)) scale_ref <- pop
+  if (!is.null(band)) {
+    if (!is.list(band) || !all(c("var", "cut", "or") %in% names(band)))
+      stop("band must be NULL or list(var, cut, or).")
+    if (!band$var %in% names(pop))
+      stop("band$var '", band$var, "' not found in pop.")
+  }
   terms <- c(x_pred, x1_vars)
   ors   <- c(if (!is.null(x_pred)) or_pred else NULL,
              if (length(x1_vars)) rep_len(or_x1, length(x1_vars)) else NULL)
@@ -181,7 +192,11 @@ make_region_model <- function(pop, x_pred = NULL, or_pred = 1,
     matrix(S, nrow = nrow(df), dimnames = list(NULL, terms))
   }
 
-  eta_no_int <- function(df) as.vector(scale_fn(df) %*% log(ors))
+  eta_no_int <- function(df) {
+    eta <- as.vector(scale_fn(df) %*% log(ors))
+    if (!is.null(band)) eta <- eta + log(band$or) * (df[[band$var]] <= band$cut)
+    eta
+  }
   eta_pop    <- eta_no_int(pop)
 
   ## solve a0 so that mean(plogis(a0 + eta)) = prevalence
@@ -196,6 +211,7 @@ make_region_model <- function(pop, x_pred = NULL, or_pred = 1,
     ors        = ors,
     prevalence = prevalence,
     scale      = scale,
+    band       = band,
     prob       = prob_fn,
     draw       = function(df, seed = NULL) {
       if (!is.null(seed)) set.seed(seed)
@@ -222,7 +238,9 @@ make_region_model <- function(pop, x_pred = NULL, or_pred = 1,
 #'   x1_vars = character(0), or_x1 = 1, loghr = 0, scale = "rank") -- loghr is
 #'   the prognostic log-HR of Region (no TE modification; 0 for the paper's
 #'   DGM; -log(5) reproduces the Feb-2026 deck's strongly prognostic region);
-#'   scale = "rank" (ECDF) or "minmax" (the paper's `[0,1]` scaling)
+#'   scale = "rank" (ECDF) or "minmax" (the paper's `[0,1]` scaling);
+#'   optional band = list(cut, or) (and optional var, default `x_pred`) adds
+#'   `log(or) * 1(var <= cut)` to the region logit, see make_region_model()
 #' @param x3            NULL, or list(vars = c(...), cuts = list(...), loghr = ...)
 #'   for a balanced effect modifier: cuts as in generate_aft_dgm_flex (use
 #'   fixed values), loghr = log-HR change (treatment x subgroup).
@@ -262,6 +280,11 @@ inject_mrct_structure <- function(seed_data,
     stop("x3 and region_treat_loghr are mutually exclusive: the AFT DGM ",
          "carries a single treatment interaction term.")
   stopifnot(x_pred %in% continuous_vars)
+  band <- region$band
+  if (!is.null(band)) {
+    if (is.null(band$var)) band$var <- x_pred
+    band <- band[c("var", "cut", "or")]
+  }
 
   ## keep only complete seed rows on the variables we use -------------------
   use_vars <- unique(c(outcome_var, event_var, treatment_var, continuous_vars,
@@ -286,7 +309,7 @@ inject_mrct_structure <- function(seed_data,
   rm_ <- make_region_model(df_pop, x_pred = x_pred, or_pred = region$or_pred,
                            x1_vars = region$x1_vars, or_x1 = region$or_x1,
                            prevalence = region$prevalence, scale_ref = df_pop,
-                           scale = region$scale)
+                           scale = region$scale, band = band)
   df_pop[[region$name]]  <- rm_$draw(df_pop,  seed = seed + 1L)
   seed_df[[region$name]] <- rm_$draw(seed_df, seed = seed + 2L)
   ## guard: survreg needs both region levels in the seed
@@ -377,6 +400,7 @@ inject_mrct_structure <- function(seed_data,
                          prevalence_target = region$prevalence,
                          prevalence_pop = mean(df_super[[z_region]]),
                          alpha0 = rm_$alpha0, coefs = rm_$coefs, scale = region$scale,
+                         band = band,
                          prognostic_loghr = region$loghr,
                          treat_interaction_loghr = region_treat_loghr),
     classes       = list(X1 = region$x1_vars, X2 = x_pred,
