@@ -1,0 +1,397 @@
+\documentclass[9pt]{article}
+\usepackage{multicol}
+\usepackage{amssymb,mathrsfs,graphicx}
+\usepackage{enumerate}
+\usepackage{amsthm}
+\usepackage{lscape}
+\usepackage{pdfpages}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}
+
+\textheight=9.0in \textwidth=10.5in \topmargin=0in
+\evensidemargin=0in \oddsidemargin=0in
+
+\begin{document}
+
+\raggedbottom
+
+<<echo=FALSE>>=
+opts_chunk$set (warning = FALSE, message = FALSE, tidy=TRUE, echo=FALSE, dev = 'pdf')
+options(warn=-1)
+@
+
+<<echo=TRUE>>=
+rm(list=ls())
+
+# Get operator (parallel or serial)
+get_operator <- function() {
+  is_par <- foreach::getDoParWorkers() > 1
+  if (is_par) {
+    res <- foreach::`%dopar%`
+  } else {
+    res <- foreach::`%do%`
+  }
+  res
+}
+
+#' Parallelize arbitrary user-supplied expression
+#'
+#' @param expr R expression.
+#' @param n Number of iterations.
+#' @param seed Initial random seed.
+#' @param counter Character string. Name of the loop counter variable. Default is `"i"`.
+#' @param export Exported variables to be used in `expr`.
+simPar <- function(expr, sims, seed, counter = "i", export) {
+  `%op%` <- get_operator()
+  expr <- substitute(expr)
+  res <- foreach::foreach(
+    i = seq_len(sims),
+    .export = export,
+    .packages = c("survival","grf","policytree","aVirtualTwins","randomForest","SPlit","data.table","cubature"),
+    .combine = "rbind",
+    .errorhandling = "pass"
+  ) %op% {
+    assign(counter, value = i)
+    set.seed(seed + i - 1)
+    eval(expr)
+  }
+  res
+}
+
+library(doParallel)
+registerDoParallel(parallel::detectCores(logical = FALSE))
+
+#source("../source_forestsearch_v0.R")
+
+source("../../R/source_forestsearch_v0.R")
+source_fs_functions()
+
+library(cubature)
+library(formatR)
+
+
+library(kableExtra)
+library(knitr)
+library(ggplot2)
+library(gridExtra)
+
+library(aVirtualTwins,quietly=TRUE,verbose=FALSE)
+
+# Following loaded in "forest_search_v0.R"
+library(randomForest,quietly=TRUE,verbose=FALSE)
+library(survival)
+library(SPlit)
+library(grf)
+library(policytree)
+library(data.table)
+
+library(psych)
+
+# These are exported in simPar 
+# ANY new functions or arguments will need to be added
+fun_arg_list<-c("dgm","maxFollow","sim_aftm1_gbsg","forestsearch","fs.estimates.out","vi.grf.min","dummy","subgroup.search",
+  "subgroup.consistency","acm.disjctif","max.minutes","ztrail","one.zero","maxk","nmin.fs","d.min","hr.threshold",
+  "NA.CHR.Weighted","R.Weighted","N.Weighted","hr.consistency","stop.threshold","fs.splits","m1.threshold","pconsistency.threshold",
+  "confounders.name","outcome.name","id.name","treat.name",
+  "cox.formula.sim","cox.formula.adj.sim",
+  "event.name",
+  "get.FG","FG.transform","LS.int.FG","vt.subg.harm.survival","vt.threshold","treat.threshold","maxdepth","n.min","ntree","vt.data2",
+  "formatRCTDataset2","vt.estimates.out","label.analyses","grf.subg.harm.survival","grf.estimates.out","dmin.grf",
+  "frac.tau",
+  "get.FS","get.VT","get.GRF","grf.fs.subg","muC.adj","oc_analyses","N","split_method","quiet",
+  "cox.formula.boot","cox2.formula.boot","forestsearch_bootstrap","oc_analyses_FSboot","fsBoot.estimates.out","boots","est.loghr","trim_boots")
+
+maxFollow<-84
+cens.type<-"weibull"
+
+#########################
+# Forest search criteria
+#########################
+hr.threshold<-1.5   # Initital candidates 
+hr.consistency<-1.25  # Candidates for many splits
+pconsistency.threshold<-0.90
+maxk<-5
+# Limit timing for forestsearch
+max.minutes<-2.0
+nmin.fs<-60
+#stop.threshold<-0.60 # If any sg meets this, then choose this (stop here);
+m1.threshold<-Inf # Turning this off (Default)
+stop.threshold<-0.95
+#pconsistency.threshold<-0.70 # Minimum threshold (will choose max among subgroups satisfying)
+fs.splits<-400 # How many times to split for consistency
+# vi is % factor is selected in cross-validation --> higher more important
+vi.grf.min<-0.2
+# Null, turns off grf screening
+d.min<-10 # Min number of events for both arms (d0.min=d1.min=d.min)
+# default=5
+
+##########################
+# Virtual twins analysis
+##########################
+# Counter-factual difference (C-E) >= vt.threshold
+# Large values in favor of C (control)
+vt.threshold<-0.25  # For VT delta
+treat.threshold<-0.0
+maxdepth<-3
+n.min<-60
+ntree<-1000
+
+# GRF criteria
+dmin.grf<-12.0 # For GRF delta
+# Note: For CRT this represents dmin.grf/2 RMS for control (-dmin.grf/2 for treatment)
+frac.tau<-0.70
+
+get.FS<-TRUE
+get.VT<-TRUE
+get.GRF<-TRUE
+
+outcome.name<-c("y.sim")
+event.name<-c("event.sim")
+id.name<-c("id")
+treat.name<-c("treat")
+
+cox.formula.sim<-as.formula(paste("Surv(y.sim,event.sim)~treat"))
+
+cox.formula.adj.sim<-as.formula(paste("Surv(y.sim,event.sim)~treat+v1+v2+v3+v4+v5"))
+
+label.analyses<-c("FS","GRF","VT(24)","VT#(24)","VT(36)","VT#(36)","GRF.70")
+
+split_method<-"Random"
+
+cox.formula.boot<-cox.formula.sim
+cox2.formula.boot<-as.formula(paste("Surv(Y,Event)~Treat"))
+
+
+# m1 -censoring
+muC.adj<-log(1.5)
+
+model.index<-"m1"
+file.index<-"v0"
+
+mod.harm<-"alt"
+
+# m0-censoring
+#muC.adj<-0.0
+
+k.treat<-1.0
+
+N<-700
+
+Nsims<-1000
+boots<-400
+
+trim_boots<-0.025
+
+# 100@100 aprox 1hr
+
+# Want N/B^2 = 0.01
+# B = sqrt(N*100)
+# N=700 --> B=299 sufficient
+# B=399 for 0.005
+
+out.loc<-c("../output/Ex1_boots=400_")
+
+# Estimates/target on log(hr) scale
+est.loghr<-FALSE
+
+t.start.all<-proc.time()[3]
+@
+
+<<echo=TRUE>>=
+mod.harm<-"alt"
+hrH.target<-3.5
+this.dgm<-get.dgm(mod.harm=mod.harm,N=N,k.treat=k.treat,model.index=model.index,
+hrH.target=hrH.target,cens.type=cens.type,out.loc=out.loc,file.index=file.index)
+
+dgm<-this.dgm$dgm
+output.file<-this.dgm$out.file
+confounders.name<-dgm$covs.analysis
+
+sim<-6
+
+df_analysis<-sim_aftm1_gbsg(dgm=dgm,n=N,maxFollow=maxFollow,muC.adj=muC.adj,simid=sim)
+  
+  
+fs_analysis<-forestsearch(df=df_analysis,
+                        df.predict=df_analysis,  
+                        confounders.name=confounders.name,
+                        details=TRUE,
+                        outcome.name=outcome.name,treat.name=treat.name,event.name=event.name,id.name=id.name,
+                        n.min=nmin.fs,hr.threshold=hr.threshold,hr.consistency=hr.consistency,fs.splits=fs.splits,
+                        stop.threshold=stop.threshold,
+                        d0.min=d.min,d1.min=d.min,
+                        pconsistency.threshold=pconsistency.threshold,max.minutes=max.minutes,maxk=maxk,
+                        plot.sg=TRUE,vi.grf.min=vi.grf.min,split_method=split_method)
+    
+
+  
+  df_temp<-fs_analysis$df.pred[,c("id","treat.recommend")]
+  dfa<-merge(df_analysis,df_temp,by="id")
+  
+  trim_boots<-0.05
+  
+  boots<-20
+  yy.20<-forestsearch_bootstrap(df=dfa,fs.est=fs_analysis,boots=boots,est.loghr=est.loghr,trim_boots=trim_boots,returnYstar=TRUE)
+  yy<-yy.20
+  print(yy$dfH_out)
+  print(yy$dfHc_out)
+  
+  boots<-50
+  yy.50<-forestsearch_bootstrap(df=dfa,fs.est=fs_analysis,boots=boots,est.loghr=est.loghr,trim_boots=trim_boots,returnYstar=TRUE)
+  yy<-yy.50
+  print(yy$dfH_out)
+  print(yy$dfHc_out)
+  
+  boots<-100
+  yy.100<-forestsearch_bootstrap(df=dfa,fs.est=fs_analysis,boots=boots,est.loghr=est.loghr,trim_boots=trim_boots,returnYstar=TRUE)
+  yy<-yy.100
+  print(yy$dfH_out)
+  print(yy$dfHc_out)
+  
+  boots<-200
+  yy.200<-forestsearch_bootstrap(df=dfa,fs.est=fs_analysis,boots=boots,est.loghr=est.loghr,trim_boots=trim_boots,returnYstar=TRUE)
+  yy<-yy.200
+  print(yy$dfH_out)
+  print(yy$dfHc_out)
+  
+  boots<-500
+  yy.500<-forestsearch_bootstrap(df=dfa,fs.est=fs_analysis,boots=boots,est.loghr=est.loghr,trim_boots=trim_boots,returnYstar=TRUE)
+  yy<-yy.500
+  print(yy$dfH_out)
+  print(yy$dfHc_out)
+  
+  print(yy.20$dfH_out)
+  print(yy.50$dfH_out)
+  print(yy.100$dfH_out)
+  print(yy.200$dfH_out)
+  print(yy.500$dfH_out)
+  
+  boots<-1000
+  yy.1000<-forestsearch_bootstrap(df=dfa,fs.est=fs_analysis,boots=boots,est.loghr=est.loghr,trim_boots=trim_boots,returnYstar=TRUE)
+
+  
+  
+#calc_cov_Efron<-function(x,Est){mean(c((x-mean(x,na.rm=TRUE))*Est),na.rm=TRUE)}
+calc_cov_Efron<-function(x,Est){mean(c((x-1)*Est),na.rm=TRUE)}
+
+mean_trim<-function(x,trim=0.025){mean(x,trim=trim,na.rm=TRUE)}
+
+# Trim directly
+trimit<-function(x,trim=0.025){
+tokeep<-which(!is.na(x))
+x_trimmed<-x[tokeep]
+# Trimming only if at least 10 elements
+if(trim>0.0){  
+ql<-quantile(x,c(trim),na.rm=TRUE)
+qu<-quantile(x,c(1-trim),na.rm=TRUE)
+tokeep<-which(!is.na(x) & x>=ql & x<=qu)
+x_trimmed<-x[tokeep]
+}
+return(list(x_trimmed=x_trimmed,id_trimmed=tokeep))
+}
+
+  
+get_targetEst<-function(x,trim,N,ystar,Efron_approx=TRUE){
+xt<-trimit(x=x,trim=trim)
+xnew<-xt$x_trimmed
+mx<-mean(xnew)
+if(Efron_approx){
+# ystar corresponding to non-trimmed x's id_trimmed="kept"
+ystar<-ystar[xt$id_trimmed,]
+
+if(length(xnew) != nrow(ystar)) stop("Error in get_targetEst, x and ystar dimensions do not match")
+xc<-c(xnew-mx)
+# Ystar_mat is (B x n) matrix
+# Across columns of Ystar 
+cov_i<-apply(ystar,2,calc_cov_Efron,Est=xc)
+varhat<-sum(cov_i^2,na.rm=TRUE)
+seH<-sqrt(varhat)
+B.eval<-sum(!is.na(xc))
+# correction
+nb_ratio<-N/(B.eval^2)
+termc<-nb_ratio*sum(xc^2,na.rm=TRUE)
+varhat_new<-varhat-termc
+seH_new<-sqrt(varhat_new)
+out<-(list(target_est=mx,sehat=seH,sehat_new=seH_new,term_correct=termc,varhat=varhat))
+}
+if(!Efron_approx){
+seH<-seH_new<-termc<-varhat<-NA
+out<-(list(target_est=mx,sehat=seH,sehat_new=seH_new,term_correct=termc,varhat=varhat))
+}
+return(out)
+}
+  
+  
+x<-yy.100$fs_H_boots$H_2_bc
+summary(x)
+
+ystar<-yy.100$Ystar_mat
+trim<-0.001
+N<-700
+
+
+
+
+
+
+  
+  
+  
+  
+  
+  
+
+
+if(!is.null(output.file) & !grepl(mod.harm,output.file)) stop("Wrong file name for mod.harm")
+
+t.start<-proc.time()[3]
+res<-simPar(
+{  
+ans.analyses<-oc_analyses_FSboot(sim)
+},
+sims=Nsims,
+seed=8316951,
+counter="sim",
+export=fun_arg_list
+)
+t.now<-proc.time()[3]
+t.min<-(t.now-t.start)/60
+
+if(!is.null(output.file)) save(dgm,res,file=output.file)
+
+psych::describe(res)
+par(mfrow=c(1,1))
+plot(ecdf(res$H_true))
+lines(ecdf(res$H_bc),col="blue")
+lines(ecdf(res$H_obs),col="red")
+lines(ecdf(res$H.smooth),col="grey")
+
+par(mfrow=c(1,1))
+plot(ecdf(res$Hc_true))
+lines(ecdf(res$Hc_bc),col="blue")
+lines(ecdf(res$Hc_obs),col="red")
+lines(ecdf(res$Hc.smooth),col="grey")
+rm("res","dgm")
+@
+
+
+
+<<echo=TRUE>>=
+t.done<-proc.time()[3]
+t.min<-(t.done-t.start.all)/60
+cat("Simulations,boots=",c(Nsims,boots),"\n")
+cat("Minutes and hours to finish",c(t.min,t.min/60),"\n")
+cat("Minutes and hours per 1000 to finish",(1000/Nsims)*c(t.min,t.min/60),"\n")
+cat("Machine=",c(Sys.info()[[4]]),"\n")
+
+@
+
+
+
+\end{document}
+
+
+

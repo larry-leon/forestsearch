@@ -1,0 +1,408 @@
+---
+title: "ACTG-175 SIM Revision: Primary analysis strong benefit"
+author: "Larry Leon"
+output: html_document
+---
+
+```{=latex}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{longtable}
+\usepackage{enumerate}
+\usepackage{threeparttable}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{url}
+\usepackage[colorlinks=true,linkcolor={blue},citecolor={black},urlcolor={blue},runcolor={blue}]{hyperref}
+```
+
+```{r Rpackages, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(warn = -1)
+
+rm(list=ls())
+## Unnecessary packages commented out
+suppressMessages(library(kableExtra,quietly=TRUE))
+suppressMessages(library(knitr,quietly=TRUE))
+suppressMessages(library(randomForest,quietly=TRUE))
+suppressMessages(library(survival,quietly=TRUE))
+suppressMessages(library(grf,quietly=TRUE))
+suppressMessages(library(policytree,quietly=TRUE))
+suppressMessages(library(DiagrammeR,quietly=TRUE))
+suppressMessages(library(data.table,quietly=TRUE))
+suppressMessages(library(plyr,quietly=TRUE))
+suppressMessages(library(dplyr,quietly=TRUE))
+suppressMessages(library(glmnet,quietly=TRUE))
+# smd and gtsummary are for baseline summary table
+# omit if not desired (remove corresponding section below)
+suppressMessages(library(smd,quietly=TRUE)) # required for gtsummary
+suppressMessages(library(gtsummary,quietly=TRUE)) # only for baseline table summary
+suppressMessages(library(future,quietly=TRUE))
+# Speff2trial for ACTG-175 dataset
+suppressMessages(library(speff2trial,quietly=TRUE))
+library(stringr)
+
+```
+
+```{r SetBootstrapCV, echo=TRUE, eval=TRUE}
+## Output file name specification
+
+file_out_here <- c("applications/actg-175/output/actg175_v0.Rdata")
+#file_out_here <- NULL
+# set file_out_here = NULL if not outputting results to file
+# Bootstrapping and cross-validation
+NB <- 2000 # Bootstraps
+tenfoldsims <- 200  #10-fold cross-validation sims
+dirpath1 <- c("/media/larryleon/My Projects/")
+#dirpath1 <- c("/home/larryleon/Documents/")
+
+```
+
+```{r Setup, echo=TRUE, eval=TRUE}
+## Directory and file output paths
+## Set dirpath2 = NULL if only 1 system (here choosing between "Apple" for dirpath2 and "non-MAC" for dirpath1)
+## If only 1 system then set dirpath2=NULL and dirpath1 according to your setup
+## file_analysis denotes the forest-search full analysis results (fs.est)
+setup_files <- function(dirpath1=c("/media/larryleon/My Projects/"),dirpath2=c("/Users/larryleon/Documents/"),
+                        dir2_identifier="Apple",
+                        dircode=c("GitHub/Forest-Search/R/"), 
+                        resdir=c("GitHub/Forest-Search/paper/"),
+                        file_out =NULL){
+  # dirpath1 and dirpath2 then chose between two paths
+  # here, running on different systems MAC versus linux
+  if(!is.null(dirpath2)){
+    suppressMessages(library(benchmarkme,quietly=TRUE))
+    suppressMessages(library(parallelly,quietly=TRUE))  
+    my_system <- get_cpu()
+    my_ram <- get_ram()
+    cat("Running on system:",c(my_system$model_name),"\n")
+    cat("with number of cores and cpu/GB=",c(my_system$no_of_cores,round(c(my_ram)/10^9,0)),"\n")
+    check_dir2 <- grepl(dir2_identifier,my_system$model_name)
+    # Change to dirpath2
+    if(check_dir2){
+      dirpath <- dirpath2
+      # Free connections
+      free_cons <- c(availableCores())
+    }
+    if(!check_dir2){
+      dirpath <- dirpath1
+      # Free connections (for my popos system)
+      free_cons <- c(freeConnections()-1)
+    }
+    cat("Number of free connections for doFuture/parallel =",c(free_cons),"\n")
+  }
+  if(is.null(dirpath2)){
+    suppressMessages(library(benchmarkme,quietly=TRUE))
+    suppressMessages(library(parallelly,quietly=TRUE))  
+    my_system <- get_cpu()
+    my_ram <- get_ram()
+    cat("Running on system:",c(my_system$model_name),"\n")
+    cat("with number of cores and cpu/GB=",c(my_system$no_of_cores,round(c(my_ram)/10^9,0)),"\n")
+    dirpath <- dirpath1
+    check_mac <- grepl("Apple",my_system$model_name)
+    if(check_mac) free_cons <- c(availableCores())
+    if(!check_mac) free_cons <- c(freeConnections()-1)
+    cat("Number of free connections for doFuture/parallel =",c(free_cons),"\n")
+  }
+  codepath <- paste0(dirpath,dircode)
+  respath <- paste0(dirpath,resdir)
+  # Output file name
+  outfile_name <- NULL
+  if(!is.null(file_out)){
+    outfile_name <- paste0(respath,file_out)
+    # Check if results already exist
+    #check_exists <-try(load(outfile_name),silent=TRUE,TRUE)
+  }
+  return(list(codepath=codepath,outfile_name=outfile_name))
+}
+```
+
+
+```{r SourceCode, echo=TRUE, eval=TRUE}
+## Get setup
+get_setup <- setup_files(dirpath1=dirpath1,
+dircode=c("GitHub/Forest-Search/R/"), 
+resdir=c("GitHub/Forest-Search/paper/"),
+dirpath2=c("/Users/larryleon/Documents/"),dir2_identifier="Apple",
+file_out=file_out_here)
+
+codepath <- get_setup$codepath
+outfile_name <- get_setup$outfile_name
+
+source(paste0(codepath,"source_forestsearch_v0.R"))
+source_fs_functions(file_loc=codepath)
+
+ if(!exists("forestsearch")){
+ cat("Files not found when sourcing from:","\n")
+ print(paste0(codepath,"source_forestsearch_v0.R"))
+ stop("forestsearch code does not exist")  
+ }
+ 
+```
+
+
+## Datasetup  
+```{r Getdata, echo=TRUE, eval=TRUE}
+
+df.analysis<-subset(ACTG175,arms %in% c(1,3))
+
+names(df.analysis)[names(df.analysis)=="homo"] <- "ha"
+## Here we are "reversing the roles of treatment"
+## looking for large benefit by looking for harm with treatment reversed
+df.analysis<-within(df.analysis,{
+id<-as.numeric(c(1:nrow(df.analysis)))  
+time_months<-days/30.4375
+treat<-ifelse(arms==3,1,0)
+treat2 <- ifelse(arms==3,0,1)
+## arm1 for 1 vs 3 
+arm1 <- ifelse(arms==1,1,0)
+sga <- ifelse(preanti>744.5,1,0)
+sgb <- ifelse(age<=34,1,0)
+})
+confounders.name<-c("age","wtkg","karnof","cd40","cd80","hemo","ha","drugs","race","gender","oprior","symptom","preanti","str2","z30")
+outcome.name<-c("time_months")
+event.name<-c("cens")
+id.name<-c("id")
+treat.name<-c("treat")
+
+treat.name2<-c("treat2")
+
+# Calculate Cox and RMST
+itt_tab<-SGtab(df=df.analysis,SG_flag="ITT",outcome.name=outcome.name,event.name=event.name,treat.name=treat.name2,draws=0)
+# For draws>0 (above) will calculate simultaneous band
+#plotband_survdiff(res=itt_tab$rmst_fit)
+print(itt_tab$res_out)
+cat("RMSTs for individual arms (m1,m0)",c(itt_tab$rmst_fit$m1L,itt_tab$rmst_fit$m0L),"\n")
+
+dfa <- subset(df.analysis, preanti > 744.5)
+SGtab(df=dfa,SG_flag="ITT",outcome.name=outcome.name,event.name=event.name,treat.name=treat.name2,draws=0)$res_out
+dfa <- subset(df.analysis, age <= 34)
+SGtab(df=dfa,SG_flag="ITT",outcome.name=outcome.name,event.name=event.name,treat.name=treat.name2,draws=0)$res_out
+
+
+plot_twosample(df=df.analysis,tte.name=outcome.name,treat.name=treat.name,event.name=event.name,
+col.treat="blue",col.control="darkgrey",choose_ylim=TRUE,               
+ylab="Survival Probability", xlab="Months", show.Y.axis=TRUE,               
+byrisk=6,show.med=FALSE,legend.cex=0.5,risk.cex=0.5,censor.cex=0.7,cox.cex=0.55,cex_Yaxis=0.65)
+
+```
+
+## Baseline summary table
+```{r BaselineTable, echo=TRUE, eval=TRUE}
+
+dfbl_exp <- df.analysis %>% select(treat,cens,age,wtkg,karnof,cd40,cd80,hemo,ha,drugs,race,gender,oprior,zprior,symptom,preanti,str2,z30)
+
+as_kable_tbl <-
+  tbl_summary(
+  dfbl_exp,
+  by = treat, # split table by group
+  missing = "no" # don't list missing data separately
+  ) %>%
+  add_n() %>% # add column with total number of non-missing observations
+  add_difference(pvalue_fun=function(x){round(x,3)})%>%
+  add_stat_label
+
+as_kable_tbl <- 
+  as_kable_tbl %>% 
+  as_kable_extra(
+    booktabs = TRUE,
+    longtable = FALSE,
+    escape=TRUE,
+    caption="\\label{tab:bl_exposure} Summary of events and baseline factors by treatment",
+    linesep = "") %>%
+    kableExtra::kable_styling(bootstrap_options=c("striped","hover"), full_width=F, position="center",font_size=10,latex_options=c("scale_down","hold_position")
+  )
+
+as_kable_tbl
+
+```
+
+
+
+## Baseline summary table H
+```{r BaselineTable-H, echo=TRUE, eval=TRUE}
+
+dfa <- subset(df.analysis, preanti<=744.5 & age>34)
+
+with(dfa,summary(preanti))
+
+with(dfa,mean(preanti<=0))
+
+dfbl_exp <- dfa %>% select(treat,cens,age,wtkg,karnof,cd40,cd80,hemo,ha,drugs,race,gender,oprior,zprior,symptom,preanti,str2,z30)
+
+as_kable_tbl <-
+  tbl_summary(
+  dfbl_exp,
+  by = treat, # split table by group
+  missing = "no" # don't list missing data separately
+  ) %>%
+  add_n() %>% # add column with total number of non-missing observations
+  add_difference(pvalue_fun=function(x){round(x,3)})%>%
+  add_stat_label
+
+as_kable_tbl <- 
+  as_kable_tbl %>% 
+  as_kable_extra(
+    booktabs = TRUE,
+    longtable = FALSE,
+    escape=TRUE,
+    caption="\\label{tab:bl_exposure} Summary of events and baseline factors by treatment",
+    linesep = "") %>%
+    kableExtra::kable_styling(bootstrap_options=c("striped","hover"), full_width=F, position="center",font_size=10,latex_options=c("scale_down","hold_position")
+  )
+
+as_kable_tbl
+
+```
+
+## Baseline summary table H2
+```{r BaselineTable-H2, echo=TRUE, eval=TRUE}
+
+# Exclude naive
+dfa <- subset(df.analysis, preanti>0 & preanti<=744.5 & age>34)
+
+with(dfa,summary(preanti))
+
+with(dfa,mean(preanti<=0))
+
+dfbl_exp <- dfa %>% select(treat,cens,age,wtkg,karnof,cd40,cd80,hemo,ha,drugs,race,gender,oprior,zprior,symptom,preanti,str2,z30)
+
+as_kable_tbl <-
+  tbl_summary(
+  dfbl_exp,
+  by = treat, # split table by group
+  missing = "no" # don't list missing data separately
+  ) %>%
+  add_n() %>% # add column with total number of non-missing observations
+  add_difference(pvalue_fun=function(x){round(x,3)})%>%
+  add_stat_label
+
+as_kable_tbl <- 
+  as_kable_tbl %>% 
+  as_kable_extra(
+    booktabs = TRUE,
+    longtable = FALSE,
+    escape=TRUE,
+    caption="\\label{tab:bl_exposure} Summary of events and baseline factors by treatment",
+    linesep = "") %>%
+    kableExtra::kable_styling(bootstrap_options=c("striped","hover"), full_width=F, position="center",font_size=10,latex_options=c("scale_down","hold_position")
+  )
+
+as_kable_tbl
+
+```
+
+
+
+## Baseline summary table Hc
+```{r BaselineTable-Hc, echo=TRUE, eval=TRUE}
+
+# Exclude naive
+dfa <- subset(df.analysis, preanti>744.5 | age<=34)
+
+with(dfa,summary(preanti))
+
+with(dfa,mean(preanti<=0))
+
+dfbl_exp <- dfa %>% select(treat,cens,age,wtkg,karnof,cd40,cd80,hemo,ha,drugs,race,gender,oprior,zprior,symptom,preanti,str2,z30)
+
+as_kable_tbl <-
+  tbl_summary(
+  dfbl_exp,
+  by = treat, # split table by group
+  missing = "no" # don't list missing data separately
+  ) %>%
+  add_n() %>% # add column with total number of non-missing observations
+  add_difference(pvalue_fun=function(x){round(x,3)})%>%
+  add_stat_label
+
+as_kable_tbl <- 
+  as_kable_tbl %>% 
+  as_kable_extra(
+    booktabs = TRUE,
+    longtable = FALSE,
+    escape=TRUE,
+    caption="\\label{tab:bl_exposure} Summary of events and baseline factors by treatment",
+    linesep = "") %>%
+    kableExtra::kable_styling(bootstrap_options=c("striped","hover"), full_width=F, position="center",font_size=10,latex_options=c("scale_down","hold_position")
+  )
+
+as_kable_tbl
+
+```
+
+
+## Baseline summary table Hc1
+```{r BaselineTable-Hc1, echo=TRUE, eval=TRUE}
+
+# Exclude naive
+dfa <- subset(df.analysis, preanti>744.5)
+
+with(dfa,summary(preanti))
+
+with(dfa,mean(preanti<=0))
+
+dfbl_exp <- dfa %>% select(treat,cens,age,wtkg,karnof,cd40,cd80,hemo,ha,drugs,race,gender,oprior,zprior,symptom,preanti,str2,z30)
+
+as_kable_tbl <-
+  tbl_summary(
+  dfbl_exp,
+  by = treat, # split table by group
+  missing = "no" # don't list missing data separately
+  ) %>%
+  add_n() %>% # add column with total number of non-missing observations
+  add_difference(pvalue_fun=function(x){round(x,3)})%>%
+  add_stat_label
+
+as_kable_tbl <- 
+  as_kable_tbl %>% 
+  as_kable_extra(
+    booktabs = TRUE,
+    longtable = FALSE,
+    escape=TRUE,
+    caption="\\label{tab:bl_exposure} Summary of events and baseline factors by treatment",
+    linesep = "") %>%
+    kableExtra::kable_styling(bootstrap_options=c("striped","hover"), full_width=F, position="center",font_size=10,latex_options=c("scale_down","hold_position")
+  )
+
+as_kable_tbl
+
+```
+
+
+## Baseline summary table Hc2
+```{r BaselineTable-Hc2, echo=TRUE, eval=TRUE}
+
+# Exclude naive
+dfa <- subset(df.analysis, age<=34)
+
+with(dfa,summary(preanti))
+
+with(dfa,mean(preanti<=0))
+
+dfbl_exp <- dfa %>% select(treat,cens,age,wtkg,karnof,cd40,cd80,hemo,ha,drugs,race,gender,oprior,zprior,symptom,preanti,str2,z30)
+
+as_kable_tbl <-
+  tbl_summary(
+  dfbl_exp,
+  by = treat, # split table by group
+  missing = "no" # don't list missing data separately
+  ) %>%
+  add_n() %>% # add column with total number of non-missing observations
+  add_difference(pvalue_fun=function(x){round(x,3)})%>%
+  add_stat_label
+
+as_kable_tbl <- 
+  as_kable_tbl %>% 
+  as_kable_extra(
+    booktabs = TRUE,
+    longtable = FALSE,
+    escape=TRUE,
+    caption="\\label{tab:bl_exposure} Summary of events and baseline factors by treatment",
+    linesep = "") %>%
+    kableExtra::kable_styling(bootstrap_options=c("striped","hover"), full_width=F, position="center",font_size=10,latex_options=c("scale_down","hold_position")
+  )
+
+as_kable_tbl
+
+```

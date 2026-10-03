@@ -1,0 +1,332 @@
+\Sexpr{set_parent("../../paper/Biostatistics_draft/forest_search_bio_v0.Rnw")}
+
+<<echo=FALSE>>=
+opts_chunk$set (warning = FALSE, message = FALSE, tidy=TRUE, echo=FALSE, dev = 'pdf')
+options(warn=-1)
+@
+
+<<echo=FALSE>>=
+requiredPackages <- c("grf","policytree","data.table","randomForest","survival","SPlit","plyr",
+"cubature","formatR","kableExtra","knitr","ggplot2","gridExtra","aVirtualTwins","psych")
+
+ipak <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg)>0){
+    install.packages(new.pkg, dependencies = TRUE, quietly=TRUE, verbose=FALSE,logical.return=FALSE)
+    sapply(pkg, require, character.only = TRUE, quietly=TRUE)
+  }
+}
+
+ipak(requiredPackages)
+
+rm(list=ls())
+
+# Use common code source
+codepath<-c("/media/larryleon/My Projects/GitHub/Forest-Search/R/")
+source(paste0(codepath,"source_forestsearch_v0.R"))
+source_fs_functions(file_loc=codepath)
+
+source(paste0(codepath,"cox_rhogamma_functions.R"))
+source(paste0(codepath,"km_resampling_functions.R"))
+source(paste0(codepath,"weighted_logrank.R"))
+
+# Data example output path
+outpath<-c("/media/larryleon/My Projects/Current Projects/subgroup identification and analysis/applications/simulated_ex1/output/")
+
+#library(formatR)
+library(kableExtra)
+library(knitr)
+library(ggplot2)
+library(gridExtra)
+#library(covRobust)
+# Following loaded in "forest_search_v0.R"
+library(cubature)
+library(aVirtualTwins)
+library(randomForest)
+library(survival)
+library(SPlit)
+library(grf)
+library(policytree)
+library(data.table)
+library(plyr)
+library(psych)
+
+library(survminer)
+library(cowplot)
+@
+
+
+<<echo=FALSE>>=
+maxFollow<-84
+cens.type<-"weibull"
+
+#########################
+# Forest search criteria
+#########################
+hr.threshold<-1.5   # Initital candidates 
+hr.consistency<-1.25  # Candidates for many splits
+pconsistency.threshold<-0.90
+
+maxk<-3
+# Limit timing for forestsearch (Estimation and bootstrapping)
+max.minutes<-2.0
+
+nmin.fs<-60
+#stop.threshold<-0.60 # If any sg meets this, then choose this (stop here);
+m1.threshold<-Inf # Turning this off (Default)
+
+stop.threshold<-0.95
+
+sg_focus<-"hr"
+
+#pconsistency.threshold<-0.70 # Minimum threshold (will choose max among subgroups satisfying)
+fs.splits<-400 # How many times to split for consistency
+# vi is % factor is selected in cross-validation --> higher more important
+vi.grf.min<-0.2
+# Null, turns off grf screening
+d.min<-10 # Min number of events for both arms (d0.min=d1.min=d.min)
+# default=5
+
+##########################
+# Virtual twins analysis
+##########################
+# Counter-factual difference (C-E) >= vt.threshold
+# Large values in favor of C (control)
+vt.threshold<-0.25  # For VT delta
+treat.threshold<-0.0
+maxdepth<-3
+n.min<-60
+ntree<-1000
+
+# GRF criteria
+dmin.grf<-12.0 # For GRF delta
+# Note: For CRT this represents dmin.grf/2 RMS for control (-dmin.grf/2 for treatment)
+frac.tau<-0.70
+
+get.FS<-TRUE
+get.VT<-TRUE
+get.GRF<-TRUE
+
+outcome.name<-c("y.sim")
+event.name<-c("event.sim")
+id.name<-c("id")
+treat.name<-c("treat")
+
+# NOTE: Need to revise all functions to allow for 
+# covariate adjusted Cox models; In estimation stage and bootstrapping
+
+cox.formula.sim<-as.formula(paste("Surv(y.sim,event.sim)~treat"))
+
+cox.formula.adj.sim<-as.formula(paste("Surv(y.sim,event.sim)~treat+v1+v2+v3+v4+v5"))
+
+label.analyses<-c("FS","GRF","VT(24)","VT#(24)","VT(36)","VT#(36)","GRF.70")
+
+cox.formula.boot<-cox.formula.sim
+cox2.formula.boot<-as.formula(paste("Surv(Y,Event)~Treat"))
+
+# m1 -censoring
+muC.adj<-log(1.5)
+# m0-censoring (original data)
+#muC.adj<-0.0
+split_method<-"Random"
+# m3a RCT probH=12.5% (pH_super)
+model.index<-"m4a"
+file.index<-"v0"
+mod.harm<-"alt"
+
+k.treat<-0.90
+k.z3<-1.0
+
+z1_frac<-0.25 # Default model index 'm1' (The 1st quartile of z1=er)
+pH_super<-0.125 # non-NULL re-defines z1_frac
+
+boots<-500
+
+N<-700
+
+ss_start<-1
+
+hrH.target<-2.5
+
+if(is.null(pH_super)){
+#pH_check<-with(gbsg,mean(pgr<=quantile(pgr,c(z3_frac),1,0) & er<=quantile(er,z1_frac)))
+pH_check<-with(gbsg,mean(meno==0 & er<=quantile(er,z1_frac)))
+cat("Underlying pH_super",c(pH_check),"\n")
+}
+# pH_super specified
+# If pH_super then override  z1_frac and find z1_frac to yield pH_super
+
+if(!is.null(pH_super)){
+  # Approximate Z1 quantile to yield pH proportion  
+  z1_q<-uniroot(propH.obj4,c(0.0,1.0),tol=0.0001,pH.target=pH_super)$root
+  #pH_check<-with(gbsg,mean(pgr<=quantile(pgr,c(z3_frac),1,0) & er<=quantile(er,z1_q)))
+  pH_check<-with(gbsg,mean(meno==0 & er<=quantile(er,z1_q)))
+  cat("pH",c(pH_check),"\n")
+  rel_error<-(pH_super-pH_check)/pH_super
+  if(abs(rel_error)>=0.1) stop("pH_super approximation relative error exceeds 10%")
+  z1_frac<-z1_q
+  cat("Underlying pH_super",c(pH_check),"\n")
+  }
+
+# Bootstrap on log(hr) scale converted to HR (est.loghr=TRUE & est.scale="hr")
+est.loghr<-TRUE
+est.scale<-"hr"
+out.loc<-NULL
+
+this.dgm<-get.dgm4(mod.harm=mod.harm,N=N,k.treat=k.treat,model.index=model.index,
+hrH.target=hrH.target,cens.type=cens.type,out.loc=out.loc,file.index=file.index,details=TRUE,parms_torand=FALSE)
+
+#this.dgm<-get.dgm4(mod.harm=mod.harm,N=N,k.treat=k.treat,model.index=model.index,sol_tol=10^-8,
+#hrH.target=hrH.target,cens.type=cens.type,out.loc=out.loc,file.index=file.index,details=TRUE,parms_torand=FALSE)
+
+dgm<-this.dgm$dgm
+confounders.name<-dgm$covs.analysis
+@
+
+<<echo=TRUE>>=
+# Draw large sample
+x<-sim_aftm4_gbsg(dgm=dgm,n=700,maxFollow=maxFollow,muC.adj=muC.adj,simid=12,drawtreat=TRUE)
+
+dfa<-x
+dfa$v13.1<-ifelse(dfa$v1==1 & dfa$v3==1,1,0)
+plot_onesample(df=dfa,tte.name="y.sim",treat.name="treat",event.name="event.sim",
+ylab="Survival", show.Y.axis=TRUE, xlab="Months",
+byrisk=12,show.med=FALSE)
+rug(dfa$y.sim[dfa$v13.1==1 & dfa$treat==1],ticksize=0.02,lwd=2,col="red")
+rug(dfa$y.sim[dfa$v13.1==1 & dfa$treat==0],ticksize=0.02,lwd=2,col="grey")
+
+
+# ss=8 --> true H
+
+#ss<-1 no
+
+sims<-20
+
+# ITT Cox, Hc_oracle, FH(0,1), FS_Hc, H_oracle, FH(1,0), FS_H
+
+Est_out<-matrix(NA,nrow=sims,ncol=7)
+colnames(Est_out)<-c("ITT","Hc_oracle","FH(0,1)","Hc_FS","H_oracle","FH(1,0)","H_FS")
+
+for(ss in 1:sims){
+ 
+sim<-ss  
+x<-sim_aftm4_gbsg(dgm=dgm,n=N,maxFollow=maxFollow,muC.adj=muC.adj,simid=sim,drawtreat=TRUE)
+
+# Oracle estimators
+# H_oracle
+df_0<-subset(x,flag.harm==1)
+# Hc_oracle
+df_1<-subset(x,flag.harm==0)
+
+#estITT<-summary(coxph(Surv(y.sim,event.sim)~treat,data=x))$conf.int[c(1,3,4)]
+
+estH_oracle<-summary(coxph(Surv(y.sim,event.sim)~treat,data=df_0))$conf.int[c(1,3,4)]
+estHc_oracle<-summary(coxph(Surv(y.sim,event.sim)~treat,data=df_1))$conf.int[c(1,3,4)]
+
+Est_out[ss,"Hc_oracle"]<-c(estHc_oracle[1])
+Est_out[ss,"H_oracle"]<-c(estH_oracle[1])
+
+# Weighted estimators
+# FH(1,0) estimator
+rgs <- list(c(0, 0), c(0, 1), c(1, 0))
+temp <- fit.combo.wlr(rgs = rgs, time = x$y.sim, delta = x$event.sim, z = x$treat, draws = 0, plot.rg = FALSE, print.results = FALSE)
+
+Est_out[ss,"ITT"]<-temp$WLR[1,"est"]
+Est_out[ss,"FH(0,1)"]<-temp$WLR[2,"est"]
+Est_out[ss,"FH(1,0)"]<-temp$WLR[3,"est"]
+
+rm("temp")
+
+# Forest search estimates
+
+y<-try(forestsearch(df=x,confounders.name=confounders.name,
+df.predict=x,details=FALSE,
+outcome.name=outcome.name,treat.name=treat.name,event.name=event.name,id.name=id.name,
+m1.threshold=Inf,sg_focus=sg_focus,
+n.min=nmin.fs,hr.threshold=hr.threshold,hr.consistency=hr.consistency,fs.splits=fs.splits,
+stop.threshold=stop.threshold,
+d0.min=d.min,d1.min=d.min,
+pconsistency.threshold=pconsistency.threshold,max.minutes=max.minutes,maxk=maxk,
+plot.sg=ifelse(ss<=3,TRUE,FALSE),vi.grf.min=vi.grf.min,split_method=split_method),TRUE)
+
+cat("Found anything =",c(ifelse(is.null(y$sg.harm),"No","Yes")),"\n")
+
+if(!is.null(y$sg.harm)){
+fs.est<-y
+df_temp<-y$df.pred[,c("id","treat.recommend")]
+dfa<-merge(x,df_temp,by="id")
+df_boot_analysis<-dfa
+
+# On log(HR) scale
+fitH<-get_Cox_sg(df_sg=subset(df_boot_analysis,treat.recommend==0),cox.formula=cox.formula.boot,est.loghr=est.loghr)
+H_obs<-fitH$est_obs
+seH_obs<-fitH$se_obs
+rm("fitH")
+# Hc observed estimates
+fitHc<-get_Cox_sg(df_sg=subset(df_boot_analysis,treat.recommend==1),cox.formula=cox.formula.boot,est.loghr=est.loghr)
+Hc_obs<-fitHc$est_obs
+seHc_obs<-fitHc$se_obs
+rm("fitHc")
+
+# Convert to HR scale
+Est_out[ss,"Hc_FS"]<-c(exp(Hc_obs))
+Est_out[ss,"H_FS"]<-c(exp(H_obs))
+} # FS
+} # Sims
+
+cat("dgm: H,H-complement,ITT=",c(dgm$hr.H.true,dgm$hr.Hc.true,dgm$hr.causal),"\n")  
+
+df_out<-transpose(as.data.table(Est_out),keep.names="Analysis")
+
+df_new<-melt(df_out,id.vars="Analysis")
+
+dig_Hc<-2
+
+# Hc
+df_Hc<-subset(df_new, Analysis %in% c("Hc_oracle","FH(0,1)","Hc_FS","ITT"))
+
+plot_breaks<-c("Hc_oracle","Hc_FS","FH(0,1)","ITT")
+col_values<-c("brown","blue","orange","beige")
+
+p1<-ggplot(df_Hc,aes(value,fill=Analysis))+
+  geom_density(alpha=0.7)+
+  geom_vline(xintercept=c(round(dgm$hr.Hc.true,dig_Hc)), linetype='dashed', color='black', linewidth=c(0.35))+
+  scale_fill_manual(breaks=plot_breaks,values=col_values)+
+  theme()+
+  labs(title = "", colour="Est") +
+  labs(x="HR estimates (Hc and ITT)", y="Density")+
+  theme(legend.position = "top", legend.text = element_text(size=6), axis.title.y = element_blank())
+  
+# H
+df_H<-subset(df_new, Analysis %in% c("H_oracle","FH(1,0)","H_FS","ITT"))
+
+plot_breaks<-c("H_oracle","H_FS","FH(1,0)","ITT")
+col_values<-c("brown","blue","orange","beige")
+
+p2<-ggplot(df_H,aes(value,fill=Analysis))+
+  geom_density(alpha=0.7)+
+  geom_vline(xintercept=c(round(dgm$hr.Hc.true,dig_Hc)), linetype='dashed', color='black', linewidth=c(0.35))+
+  scale_fill_manual(breaks=plot_breaks,values=col_values)+
+  theme()+
+  labs(title = "", colour="Est") +
+  labs(x="HR estimates (H and ITT)", y="Density")+
+  theme(legend.position = "top", legend.text = element_text(size=6), axis.title.y = element_blank())
+
+@
+
+
+%\begin{figure}[h]
+%\begin{center}
+%<<hrplots,echo=FALSE,out.height="400px",out.width="400px">>=
+%p12 <- plot_grid(p2,p1,labels=c("(a)","(b)"), ncol=2, byrow=TRUE, align="hv")
+%plot(p12)
+%@
+%\end{center}
+%\caption{Cox model estimators: (a) Distribution (density) of the $H$ subgroup hazard ratio estimates for the H true (oracle), FS, FH(0,1), and ITT under $\hplim=\Sexpr{hr0}$; 
+%(b) Distribution of $H^{c}$ estimates for the H true (oracle), FS, FH(1,0), and ITT under $\hcplim=\Sexpr{round(dgm$hr.Hc.true,3)}$.}
+%\label{fig:hrplots}
+%\end{figure}
+
+
+
+

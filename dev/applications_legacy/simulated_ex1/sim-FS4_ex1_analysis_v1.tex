@@ -1,0 +1,811 @@
+
+
+
+
+
+
+
+
+
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{maxFollow} \hlkwb{<-} \hlnum{84}
+\hlstd{cens.type} \hlkwb{<-} \hlstr{"weibull"}
+
+\hlcom{# m1 -censoring adjustment}
+\hlstd{muC.adj} \hlkwb{<-} \hlkwd{log}\hlstd{(}\hlnum{1.5}\hlstd{)}
+\hlstd{k.z3} \hlkwb{<-} \hlnum{1}
+\hlstd{k.treat} \hlkwb{<-} \hlnum{0.9}
+
+\hlstd{z1_frac} \hlkwb{<-} \hlnum{0.25}  \hlcom{# Default model index 'm1' (The 1st quartile of z1=er)}
+\hlstd{pH_super} \hlkwb{<-} \hlnum{0.125}  \hlcom{# non-NULL re-defines z1_frac}
+
+\hlkwa{if} \hlstd{(}\hlkwd{is.null}\hlstd{(pH_super)) \{}
+    \hlcom{# pH_check<-with(gbsg,mean(pgr<=quantile(pgr,c(z3_frac),1,0) &}
+    \hlcom{# er<=quantile(er,z1_frac)))}
+    \hlstd{pH_check} \hlkwb{<-} \hlkwd{with}\hlstd{(gbsg,} \hlkwd{mean}\hlstd{(meno} \hlopt{==} \hlnum{0} \hlopt{&} \hlstd{er} \hlopt{<=} \hlkwd{quantile}\hlstd{(er, z1_frac)))}
+    \hlkwd{cat}\hlstd{(}\hlstr{"Underlying pH_super"}\hlstd{,} \hlkwd{c}\hlstd{(pH_check),} \hlstr{"\textbackslash{}n"}\hlstd{)}
+\hlstd{\}}
+\hlcom{# pH_super specified If pH_super then override z1_frac and find z1_frac to}
+\hlcom{# yield pH_super}
+
+\hlkwa{if} \hlstd{(}\hlopt{!}\hlkwd{is.null}\hlstd{(pH_super)) \{}
+    \hlcom{# Approximate Z1 quantile to yield pH proportion}
+    \hlstd{z1_q} \hlkwb{<-} \hlkwd{uniroot}\hlstd{(propH.obj4,} \hlkwd{c}\hlstd{(}\hlnum{0}\hlstd{,} \hlnum{1}\hlstd{),} \hlkwc{tol} \hlstd{=} \hlnum{1e-04}\hlstd{,} \hlkwc{pH.target} \hlstd{= pH_super)}\hlopt{$}\hlstd{root}
+    \hlcom{# pH_check<-with(gbsg,mean(pgr<=quantile(pgr,c(z3_frac),1,0) &}
+    \hlcom{# er<=quantile(er,z1_q)))}
+    \hlstd{pH_check} \hlkwb{<-} \hlkwd{with}\hlstd{(gbsg,} \hlkwd{mean}\hlstd{(meno} \hlopt{==} \hlnum{0} \hlopt{&} \hlstd{er} \hlopt{<=} \hlkwd{quantile}\hlstd{(er, z1_q)))}
+    \hlkwd{cat}\hlstd{(}\hlstr{"pH"}\hlstd{,} \hlkwd{c}\hlstd{(pH_check),} \hlstr{"\textbackslash{}n"}\hlstd{)}
+    \hlstd{rel_error} \hlkwb{<-} \hlstd{(pH_super} \hlopt{-} \hlstd{pH_check)}\hlopt{/}\hlstd{pH_super}
+    \hlkwa{if} \hlstd{(}\hlkwd{abs}\hlstd{(rel_error)} \hlopt{>=} \hlnum{0.1}\hlstd{)}
+        \hlkwd{stop}\hlstd{(}\hlstr{"pH_super approximation relative error exceeds 10%"}\hlstd{)}
+    \hlstd{z1_frac} \hlkwb{<-} \hlstd{z1_q}
+    \hlkwd{cat}\hlstd{(}\hlstr{"Underlying pH_super"}\hlstd{,} \hlkwd{c}\hlstd{(pH_check),} \hlstr{"\textbackslash{}n"}\hlstd{)}
+\hlstd{\}}
+\end{alltt}
+\begin{verbatim}
+## pH 0.122449 
+## Underlying pH_super 0.122449
+\end{verbatim}
+\begin{alltt}
+\hlcom{# Bootstrap on log(hr) scale converted to HR (est.loghr=TRUE & est.scale='hr')}
+\hlstd{t.start.all} \hlkwb{<-} \hlkwd{proc.time}\hlstd{()[}\hlnum{3}\hlstd{]}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{######################### Forest search criteria}
+\hlstd{hr.threshold} \hlkwb{<-} \hlnum{1.25}  \hlcom{# Initital candidates }
+\hlstd{hr.consistency} \hlkwb{<-} \hlnum{1}  \hlcom{# Candidates for many splits}
+\hlstd{pconsistency.threshold} \hlkwb{<-} \hlnum{0.9}
+\hlstd{stop.threshold} \hlkwb{<-} \hlnum{0.95}
+\hlstd{maxk} \hlkwb{<-} \hlnum{2}
+\hlstd{nmin.fs} \hlkwb{<-} \hlnum{60}
+\hlstd{pstop_futile} \hlkwb{<-} \hlnum{0.5}
+\hlcom{# Limit timing for forestsearch}
+\hlstd{max.minutes} \hlkwb{<-} \hlnum{3}
+\hlstd{m1.threshold} \hlkwb{<-} \hlnum{Inf}  \hlcom{# Turning this off (Default)}
+\hlcom{# pconsistency.threshold<-0.70 # Minimum threshold (will choose max among}
+\hlcom{# subgroups satisfying)}
+\hlstd{fs.splits} \hlkwb{<-} \hlnum{400}  \hlcom{# How many times to split for consistency}
+\hlcom{# vi is % factor is selected in cross-validation --> higher more important}
+\hlstd{vi.grf.min} \hlkwb{<-} \hlnum{0.2}
+\hlcom{# Null, turns off grf screening}
+\hlstd{d.min} \hlkwb{<-} \hlnum{10}  \hlcom{# Min number of events for both arms (d0.min=d1.min=d.min)}
+\hlcom{# default=5 Virtual twins analysis Counter-factual difference (C-E) >=}
+\hlcom{# vt.threshold Large values in favor of C (control)}
+\hlstd{vt.threshold} \hlkwb{<-} \hlnum{0.225}  \hlcom{# For VT delta}
+\hlstd{treat.threshold} \hlkwb{<-} \hlnum{0}
+
+\hlstd{maxdepth} \hlkwb{<-} \hlnum{2}
+\hlstd{n.min} \hlkwb{<-} \hlnum{60}
+\hlstd{ntree} \hlkwb{<-} \hlnum{1000}
+\hlcom{# GRF criteria}
+\hlstd{dmin.grf} \hlkwb{<-} \hlnum{12}  \hlcom{# For GRF delta}
+\hlcom{# Note: For CRT this represents dmin.grf/2 RMS for control (-dmin.grf/2 for}
+\hlcom{# treatment)}
+\hlstd{frac.tau} \hlkwb{<-} \hlnum{0.6}
+
+\hlstd{outcome.name} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"y.sim"}\hlstd{)}
+\hlstd{event.name} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"event.sim"}\hlstd{)}
+\hlstd{id.name} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"id"}\hlstd{)}
+\hlstd{treat.name} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"treat"}\hlstd{)}
+
+\hlstd{cox.formula.sim} \hlkwb{<-} \hlkwd{as.formula}\hlstd{(}\hlkwd{paste}\hlstd{(}\hlstr{"Surv(y.sim,event.sim)~treat"}\hlstd{))}
+\hlstd{cox.formula.adj.sim} \hlkwb{<-} \hlkwd{as.formula}\hlstd{(}\hlkwd{paste}\hlstd{(}\hlstr{"Surv(y.sim,event.sim)~treat+v1+v2+v3+v4+v5"}\hlstd{))}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# Bootstrap on log(hr) scale converted to HR (est.loghr=TRUE & est.scale='hr')}
+\hlstd{mod.harm} \hlkwb{<-} \hlstr{"alt"}
+\hlstd{hrH.target} \hlkwb{<-} \hlnum{2}
+
+\hlcom{# out.loc = NULL turns off file creation}
+\hlstd{N} \hlkwb{<-} \hlnum{700}
+\hlstd{this.dgm} \hlkwb{<-} \hlkwd{get.dgm4}\hlstd{(}\hlkwc{mod.harm} \hlstd{= mod.harm,} \hlkwc{N} \hlstd{= N,} \hlkwc{k.treat} \hlstd{= k.treat,} \hlkwc{hrH.target} \hlstd{= hrH.target,}
+    \hlkwc{cens.type} \hlstd{= cens.type,} \hlkwc{out.loc} \hlstd{=} \hlkwa{NULL}\hlstd{,} \hlkwc{details} \hlstd{=} \hlnum{TRUE}\hlstd{,} \hlkwc{parms_torand} \hlstd{=} \hlnum{FALSE}\hlstd{)}
+\end{alltt}
+\end{kframe}
+\includegraphics[width=\maxwidth]{figure/unnamed-chunk-3-1} 
+\begin{kframe}\begin{verbatim}
+## Super-population empirical harm and non-harm hazard ratios= 2.000007 0.6466405 
+## Causal HR (empirical ITT)= 0.7057463
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{n_add_noise} \hlkwb{<-} \hlnum{3}
+\hlstd{sim} \hlkwb{<-} \hlnum{1}
+
+\hlstd{dgm} \hlkwb{<-} \hlstd{this.dgm}\hlopt{$}\hlstd{dgm}
+
+\hlstd{x} \hlkwb{<-} \hlkwd{sim_aftm4_gbsg}\hlstd{(}\hlkwc{dgm} \hlstd{= dgm,} \hlkwc{n} \hlstd{= N,} \hlkwc{maxFollow} \hlstd{= maxFollow,} \hlkwc{muC.adj} \hlstd{= muC.adj,} \hlkwc{simid} \hlstd{= sim)}
+
+
+\hlkwa{if} \hlstd{(n_add_noise} \hlopt{==} \hlnum{0}\hlstd{) \{}
+    \hlstd{confounders.name} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"z1"}\hlstd{,} \hlstr{"z2"}\hlstd{,} \hlstr{"z3"}\hlstd{,} \hlstr{"z4"}\hlstd{,} \hlstr{"z5"}\hlstd{,} \hlstr{"size"}\hlstd{,} \hlstr{"grade"}\hlstd{)}
+\hlstd{\}}
+
+\hlkwa{if} \hlstd{(n_add_noise} \hlopt{==} \hlnum{5}\hlstd{) \{}
+    \hlkwd{set.seed}\hlstd{(}\hlnum{8316951} \hlopt{+} \hlnum{1000} \hlopt{*} \hlstd{sim)}
+    \hlcom{# Add 5 noise}
+    \hlstd{x}\hlopt{$}\hlstd{noise1} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N)}
+    \hlstd{x}\hlopt{$}\hlstd{noise2} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N)}
+    \hlstd{x}\hlopt{$}\hlstd{noise3} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N)}
+    \hlstd{x}\hlopt{$}\hlstd{noise4} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N)}
+    \hlstd{x}\hlopt{$}\hlstd{noise5} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N)}
+    \hlstd{confounders.name} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"z1"}\hlstd{,} \hlstr{"z2"}\hlstd{,} \hlstr{"z3"}\hlstd{,} \hlstr{"z4"}\hlstd{,} \hlstr{"z5"}\hlstd{,} \hlstr{"size"}\hlstd{,} \hlstr{"grade"}\hlstd{,} \hlstr{"noise1"}\hlstd{,}
+        \hlstr{"noise2"}\hlstd{,} \hlstr{"noise3"}\hlstd{,} \hlstr{"noise4"}\hlstd{,} \hlstr{"noise5"}\hlstd{)}
+\hlstd{\}}
+
+\hlkwa{if} \hlstd{(n_add_noise} \hlopt{==} \hlnum{3}\hlstd{) \{}
+    \hlkwd{set.seed}\hlstd{(}\hlnum{8316951} \hlopt{+} \hlnum{1000} \hlopt{*} \hlstd{sim)}
+    \hlcom{# Add 3 noise}
+    \hlstd{x}\hlopt{$}\hlstd{noise1} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N)}
+    \hlstd{x}\hlopt{$}\hlstd{noise2} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N)}
+    \hlstd{x}\hlopt{$}\hlstd{noise3} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N)}
+    \hlstd{confounders.name} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"z1"}\hlstd{,} \hlstr{"z2"}\hlstd{,} \hlstr{"z3"}\hlstd{,} \hlstr{"z4"}\hlstd{,} \hlstr{"z5"}\hlstd{,} \hlstr{"size"}\hlstd{,} \hlstr{"grade"}\hlstd{,} \hlstr{"noise1"}\hlstd{,}
+        \hlstr{"noise2"}\hlstd{,} \hlstr{"noise3"}\hlstd{)}
+\hlstd{\}}
+
+\hlcom{# More challenging which_replace <- which(confounders.name=='z1')}
+\hlcom{# confounders.name[which_replace] <- 'er'}
+
+\hlstd{cox.formula.check} \hlkwb{<-} \hlkwd{as.formula}\hlstd{(}\hlkwd{paste}\hlstd{(}\hlstr{"Surv(y.sim,event.sim)~treat+v1+v2+v3+v4+v5+size+grade+noise1+noise2+noise3"}\hlstd{))}
+\hlkwd{coxph}\hlstd{(cox.formula.check,} \hlkwc{data} \hlstd{= x)}
+\end{alltt}
+\begin{verbatim}
+## Call:
+## coxph(formula = cox.formula.check, data = x)
+## 
+##             coef exp(coef)  se(coef)      z        p
+## treat  -0.190994  0.826138  0.106954 -1.786  0.07414
+## v11     0.646240  1.908352  0.139462  4.634 3.59e-06
+## v21    -0.644920  0.524705  0.199045 -3.240  0.00119
+## v31     0.910511  2.485592  0.202101  4.505 6.63e-06
+## v41     0.601285  1.824462  0.134425  4.473 7.71e-06
+## v51    -0.823439  0.438920  0.112756 -7.303 2.82e-13
+## size    0.003801  1.003809  0.003565  1.066  0.28623
+## grade  -0.042503  0.958388  0.100926 -0.421  0.67366
+## noise1 -0.046821  0.954258  0.054690 -0.856  0.39193
+## noise2  0.130029  1.138861  0.054183  2.400  0.01640
+## noise3  0.027800  1.028190  0.052403  0.531  0.59576
+## 
+## Likelihood ratio test=188.3  on 11 df, p=< 2.2e-16
+## n= 700, number of events= 365
+\end{verbatim}
+\begin{alltt}
+\hlstd{Zm} \hlkwb{<-} \hlkwd{cor}\hlstd{(x[,} \hlkwd{c}\hlstd{(confounders.name)])}
+\hlkwd{corrplot}\hlstd{(Zm)}
+\end{alltt}
+\end{kframe}
+\includegraphics[width=\maxwidth]{figure/r_FSanalysis-1} 
+\begin{kframe}\begin{alltt}
+\hlstd{use_lasso} \hlkwb{<-} \hlnum{TRUE}
+\hlstd{use_grf} \hlkwb{<-} \hlnum{TRUE}
+\hlstd{use_grf_only} \hlkwb{<-} \hlnum{TRUE}
+
+\hlstd{fs.est} \hlkwb{<-} \hlkwd{forestsearch}\hlstd{(}\hlkwc{df.analysis} \hlstd{= x,} \hlkwc{Allconfounders.name} \hlstd{= confounders.name,} \hlkwc{details} \hlstd{=} \hlnum{TRUE}\hlstd{,}
+    \hlkwc{use_lasso} \hlstd{= use_lasso,} \hlkwc{use_grf} \hlstd{= use_grf,} \hlkwc{use_grf_only} \hlstd{= use_grf_only,} \hlkwc{conf_force} \hlstd{=} \hlkwa{NULL}\hlstd{,}
+    \hlkwc{outcome.name} \hlstd{= outcome.name,} \hlkwc{treat.name} \hlstd{= treat.name,} \hlkwc{event.name} \hlstd{= event.name,}
+    \hlkwc{id.name} \hlstd{= id.name,} \hlkwc{n.min} \hlstd{= nmin.fs,} \hlkwc{hr.threshold} \hlstd{= hr.threshold,} \hlkwc{hr.consistency} \hlstd{= hr.consistency,}
+    \hlkwc{fs.splits} \hlstd{= fs.splits,} \hlkwc{d0.min} \hlstd{= d.min,} \hlkwc{d1.min} \hlstd{= d.min,} \hlkwc{pstop_futile} \hlstd{= pstop_futile,}
+    \hlkwc{pconsistency.threshold} \hlstd{= pconsistency.threshold,} \hlkwc{stop.threshold} \hlstd{= stop.threshold,}
+    \hlkwc{max.minutes} \hlstd{= max.minutes,} \hlkwc{maxk} \hlstd{= maxk,} \hlkwc{by.risk} \hlstd{=} \hlnum{12}\hlstd{,} \hlkwc{plot.sg} \hlstd{=} \hlnum{TRUE}\hlstd{,} \hlkwc{vi.grf.min} \hlstd{= vi.grf.min)}
+\end{alltt}
+\begin{verbatim}
+## tau, maxdepth= 77.92977 2 
+##   leaf.node control.mean control.size control.se treated.mean treated.size
+## 1         2   -10.725803   325.000000   2.824359    10.725803   325.000000
+## 2         3     2.742131   375.000000   2.528028    -2.742131   375.000000
+## 3         4   -17.438997   150.000000   4.105683    17.438997   150.000000
+## 4         5     7.149639   152.000000   3.980382    -7.149639   152.000000
+## 5         6     7.949972   146.000000   4.002286    -7.949972   146.000000
+## 6         7    -8.290389   252.000000   3.123463     8.290389   252.000000
+##   treated.se       diff Nsg depth
+## 1   2.824359 -21.451606 325     1
+## 2   2.528028   5.484263 375     1
+## 3   4.105683 -34.877994 150     2
+## 4   3.980382  14.299278 152     2
+## 5   4.002286  15.899943 146     2
+## 6   3.123463 -16.580779 252     2
+##   leaf.node control.mean control.size control.se treated.mean treated.size
+## 5         6     7.949972   146.000000   4.002286    -7.949972   146.000000
+##   treated.se     diff Nsg depth
+## 5   4.002286 15.89994 146     2
+## [1] "noise2 <= -0.12" "z2 <= 0"         "noise1 <= -0.42"
+## [1] "noise1 <= -0.419923509251078"
+## # of continuous/categorical characteristics 4 6 
+## Continuous characteristics: size noise1 noise2 noise3 
+## Categorical characteristics: z1 z2 z3 z4 z5 grade 
+## Initial GRF cuts included noise2 <= -0.12 z2 <= 0 noise1 <= -0.42 
+## # of candidate subgroup factors= 8 
+## [1] "noise2 <= -0.12" "noise1 <= -0.42" "z1"              "z2"             
+## [5] "z3"              "z4"              "z5"              "grade"          
+## Confounders per grf screening q4 q8 q5 q1 q3 q2 q7 q6 
+##   FSconfounders.name      vi.cs  vi_ratio
+## 4                 q4 0.27260018 2.1808015
+## 8                 q8 0.14615634 1.1692507
+## 5                 q5 0.13149717 1.0519773
+## 1                 q1 0.09785155 0.7828124
+## 3                 q3 0.09315877 0.7452701
+## 2                 q2 0.09121612 0.7297290
+## 7                 q7 0.08435687 0.6748550
+## 6                 q6 0.08316299 0.6653039
+## Number of unique levels (L) and possible subgroups= 17 131071 
+## # of subgroups based on # variables > k.max and excluded (per million) 0.130918 
+## k.max= 2 
+## Events criteria for control,exp= 10 10 
+## # of subgroups with events less than criteria: control, experimental 21 18 
+## # of subgroups with sample size less than criteria 24 
+## # of subgroups meeting all criteria = 128 
+## # of subgroups fitted (Cox model estimable) = 128 
+## *Subgroup Searching Minutes=* 0.01825 
+## Number of subgroups meeting HR threshold 11 
+## # of candidate subgroups (meeting HR criteria) =  11 
+## Subgroups (1st 10) meeting overall screening thresholds (HR, m1) sorted by HRs= Inf 
+##     K   n  E d1    m1    m0   HR L(HR) U(HR) q4.0 q4.1 q8.1 q8.2 q8.3 q5.0 q5.1
+##  1: 2  62 28 15 56.82    NA 2.02  0.95  4.28    0    0    1    0    0    0    0
+##  2: 2  77 30 15 64.35    NA 1.61  0.78  3.30    0    0    1    0    0    0    0
+##  3: 2  63 22 12 68.24    NA 1.57  0.67  3.65    0    0    1    0    0    0    0
+##  4: 2 131 73 44 46.30 60.76 1.52  0.95  2.43    0    1    0    0    0    0    0
+##  5: 2  85 74 45 19.29 32.07 1.51  0.94  2.41    0    0    0    0    0    0    1
+##  6: 1  89 37 19 63.58    NA 1.50  0.78  2.87    0    0    1    0    0    0    0
+##  7: 2 146 84 46 40.70 50.63 1.49  0.97  2.30    0    0    0    0    0    0    0
+##  8: 2 109 88 52 23.44 34.58 1.48  0.96  2.27    0    1    0    0    0    0    0
+##  9: 2  98 58 34 42.07 54.22 1.38  0.82  2.34    0    0    0    0    0    0    1
+## 10: 2  61 51 26 26.99 39.47 1.37  0.78  2.41    0    0    0    0    0    0    0
+##     q1.0 q1.1 q3.0 q3.1 q2.0 q2.1 q7.0 q7.1 q6.0 q6.1
+##  1:    0    0    0    0    1    0    0    0    0    0
+##  2:    0    0    0    0    0    0    0    0    1    0
+##  3:    0    0    0    0    0    0    0    1    0    0
+##  4:    0    0    0    0    0    1    0    0    0    0
+##  5:    0    0    0    1    0    0    0    0    0    0
+##  6:    0    0    0    0    0    0    0    0    0    0
+##  7:    1    0    0    0    0    1    0    0    0    0
+##  8:    0    0    0    1    0    0    0    0    0    0
+##  9:    0    0    0    0    0    1    0    0    0    0
+## 10:    0    0    0    1    0    1    0    0    0    0
+## Consistency 0.935 
+## # of splits= 400 
+## Model, % Consistency Met= {grade} !{noise1 <= -0.42} 0.935 
+## Consistency 0.7875 
+## Consistency 0.66 
+## Consistency 0.8975 
+## Consistency 0.8975 
+## Consistency 0.785 
+## Consistency 0.9275 
+## # of splits= 400 
+## Model, % Consistency Met= !{noise2 <= -0.12} {noise1 <= -0.42} 0.9275 
+## Consistency 0.955 
+## # of splits= 400 
+## Model, % Consistency Met= {z2} {z1} 0.955 
+## Number of subgroups meeting consistency criteria= 
+##    p.consistency Nsg group.id m.index K                M.1                M.2
+## 1:        0.9550 109        3       8 2               {z2}               {z1}
+## 2:        0.9350  62        4       1 2            {grade} !{noise1 <= -0.42}
+## 3:        0.9275 146        6       7 2 !{noise2 <= -0.12}  {noise1 <= -0.42}
+\end{verbatim}
+\end{kframe}
+\includegraphics[width=\maxwidth]{figure/r_FSanalysis-2} 
+\begin{kframe}\begin{verbatim}
+## [1] "{z2}" "{z1}"
+## % consistency criteria met= 0.955 
+## SG focus= hr 
+## Subgroup Consistency Minutes= 0.1750667 
+## Subgroup found 
+## Minutes overall= 0.2109333
+\end{verbatim}
+\begin{alltt}
+\hlstd{grf.est} \hlkwb{<-} \hlkwd{grf.subg.harm.survival}\hlstd{(}\hlkwc{data} \hlstd{= x,} \hlkwc{confounders.name} \hlstd{= confounders.name,}
+    \hlkwc{outcome.name} \hlstd{= outcome.name,} \hlkwc{event.name} \hlstd{= event.name,} \hlkwc{id.name} \hlstd{= id.name,} \hlkwc{treat.name} \hlstd{= treat.name,}
+    \hlkwc{n.min} \hlstd{= n.min,} \hlkwc{dmin.grf} \hlstd{= dmin.grf,} \hlkwc{frac.tau} \hlstd{=} \hlnum{1}\hlstd{,} \hlkwc{details} \hlstd{=} \hlnum{TRUE}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+## tau, maxdepth= 77.92977 2 
+##   leaf.node control.mean control.size control.se treated.mean treated.size
+## 1         2   -10.535829   325.000000   2.834699    10.535829   325.000000
+## 2         3     2.727493   375.000000   2.515591    -2.727493   375.000000
+## 3         4   -17.261313   150.000000   4.120255    17.261313   150.000000
+## 4         5     7.069757   152.000000   3.966572    -7.069757   152.000000
+## 5         6     8.102285   146.000000   4.006352    -8.102285   146.000000
+## 6         7    -8.212993   252.000000   3.113917     8.212993   252.000000
+##   treated.se       diff Nsg depth
+## 1   2.834699 -21.071658 325     1
+## 2   2.515591   5.454986 375     1
+## 3   4.120255 -34.522626 150     2
+## 4   3.966572  14.139513 152     2
+## 5   4.006352  16.204571 146     2
+## 6   3.113917 -16.425985 252     2
+##   leaf.node control.mean control.size control.se treated.mean treated.size
+## 5         6     8.102285   146.000000   4.006352    -8.102285   146.000000
+##   treated.se     diff Nsg depth
+## 5   4.006352 16.20457 146     2
+## [1] "noise2 <= -0.12" "z2 <= 0"         "noise1 <= -0.42"
+## [1] "noise1 <= -0.419923509251078"
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{library}\hlstd{(doParallel)}
+\hlkwd{registerDoParallel}\hlstd{(parallel}\hlopt{::}\hlkwd{detectCores}\hlstd{(}\hlkwc{logical} \hlstd{=} \hlnum{FALSE}\hlstd{))}
+
+\hlstd{cox.formula.boot} \hlkwb{<-} \hlstd{cox.formula.sim}
+\hlstd{max.minutes} \hlkwb{<-} \hlnum{7}
+
+\hlcom{# Suggest running 50, first ... to get timing estimate}
+
+\hlstd{NB} \hlkwb{<-} \hlnum{20}
+
+\hlstd{df_boot_analysis} \hlkwb{<-} \hlstd{fs.est}\hlopt{$}\hlstd{df.est}
+
+\hlcom{################################# est.loghr=T --> log(HR) scale}
+\hlstd{fitH} \hlkwb{<-} \hlkwd{get_Cox_sg}\hlstd{(}\hlkwc{df_sg} \hlstd{=} \hlkwd{subset}\hlstd{(df_boot_analysis, treat.recommend} \hlopt{==} \hlnum{0}\hlstd{),} \hlkwc{cox.formula} \hlstd{= cox.formula.boot)}
+\hlstd{H_obs} \hlkwb{<-} \hlstd{fitH}\hlopt{$}\hlstd{est_obs}  \hlcom{# log(hr) scale}
+\hlstd{seH_obs} \hlkwb{<-} \hlstd{fitH}\hlopt{$}\hlstd{se_obs}
+\hlcom{# Hc observed estimates}
+\hlstd{fitHc} \hlkwb{<-} \hlkwd{get_Cox_sg}\hlstd{(}\hlkwc{df_sg} \hlstd{=} \hlkwd{subset}\hlstd{(df_boot_analysis, treat.recommend} \hlopt{==} \hlnum{1}\hlstd{),} \hlkwc{cox.formula} \hlstd{= cox.formula.boot)}
+\hlstd{Hc_obs} \hlkwb{<-} \hlstd{fitHc}\hlopt{$}\hlstd{est_obs}
+\hlstd{seHc_obs} \hlkwb{<-} \hlstd{fitHc}\hlopt{$}\hlstd{se_obs}
+\hlkwd{rm}\hlstd{(}\hlstr{"fitH"}\hlstd{,} \hlstr{"fitHc"}\hlstd{)}
+
+\hlstd{Ystar_mat} \hlkwb{<-} \hlkwd{bootYstar}\hlstd{(\{}
+    \hlstd{ystar} \hlkwb{<-} \hlkwd{get_Ystar}\hlstd{(boot)}
+\hlstd{\},} \hlkwc{boots} \hlstd{= NB,} \hlkwc{seed} \hlstd{=} \hlnum{8316951}\hlstd{,} \hlkwc{counter} \hlstd{=} \hlstr{"boot"}\hlstd{,} \hlkwc{export} \hlstd{= fun_arg_list_boot)}
+\hlcom{# Check dimension}
+\hlkwa{if} \hlstd{(}\hlkwd{dim}\hlstd{(Ystar_mat)[}\hlnum{1}\hlstd{]} \hlopt{!=} \hlstd{NB} \hlopt{|} \hlkwd{dim}\hlstd{(Ystar_mat)[}\hlnum{2}\hlstd{]} \hlopt{!=} \hlkwd{nrow}\hlstd{(df_boot_analysis))} \hlkwd{stop}\hlstd{(}\hlstr{"Dimension of Ystar_mat does not match"}\hlstd{)}
+
+
+\hlcom{# for(boot in 1:NB)\{ ans<-fsboot_forparallel(boot) cat('*** BOOTSTRAP DONE =}
+\hlcom{# ***',c(boot),'\textbackslash{}n') \}}
+
+\hlstd{tB.start} \hlkwb{<-} \hlkwd{proc.time}\hlstd{()[}\hlnum{3}\hlstd{]}
+\hlcom{# Bootstraps}
+\hlstd{resB} \hlkwb{<-} \hlkwd{bootPar}\hlstd{(\{}
+    \hlstd{ans} \hlkwb{<-} \hlkwd{fsboot_forparallel}\hlstd{(boot)}
+\hlstd{\},} \hlkwc{boots} \hlstd{= NB,} \hlkwc{seed} \hlstd{=} \hlnum{8316951}\hlstd{,} \hlkwc{counter} \hlstd{=} \hlstr{"boot"}\hlstd{,} \hlkwc{export} \hlstd{= fun_arg_list_boot)}
+\end{alltt}
+\begin{verbatim}
+## error calling combine function:
+## <simpleError: All inputs to rbind.fill must be data.frames>
+\end{verbatim}
+\begin{alltt}
+\hlstd{tB.now} \hlkwb{<-} \hlkwd{proc.time}\hlstd{()[}\hlnum{3}\hlstd{]}
+\hlstd{tB.min} \hlkwb{<-} \hlstd{(tB.now} \hlopt{-} \hlstd{tB.start)}\hlopt{/}\hlnum{60}
+
+\hlstd{doParallel}\hlopt{::}\hlkwd{stopImplicitCluster}\hlstd{()}
+
+\hlkwd{cat}\hlstd{(}\hlstr{"Minutes for Boots"}\hlstd{,} \hlkwd{c}\hlstd{(NB, tB.min),} \hlstr{"\textbackslash{}n"}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+## Minutes for Boots 20 0.001483333
+\end{verbatim}
+\begin{alltt}
+\hlkwd{cat}\hlstd{(}\hlstr{"Projection per 100"}\hlstd{,} \hlkwd{c}\hlstd{(tB.min} \hlopt{*} \hlstd{(}\hlnum{100}\hlopt{/}\hlstd{NB)),} \hlstr{"\textbackslash{}n"}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+## Projection per 100 0.007416667
+\end{verbatim}
+\begin{alltt}
+\hlkwd{cat}\hlstd{(}\hlstr{"Propn bootstrap subgroups found ="}\hlstd{,} \hlkwd{c}\hlstd{(}\hlkwd{sum}\hlstd{(}\hlopt{!}\hlkwd{is.na}\hlstd{(resB}\hlopt{$}\hlstd{H_biasadj_1))}\hlopt{/}\hlstd{NB),} \hlstr{"\textbackslash{}n"}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+## Propn bootstrap subgroups found = 0
+\end{verbatim}
+\begin{alltt}
+\hlcom{# How many timmed out}
+\hlkwd{cat}\hlstd{(}\hlstr{"Number timmed out="}\hlstd{,} \hlkwd{c}\hlstd{(}\hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(resB}\hlopt{$}\hlstd{H_biasadj_1)} \hlopt{&} \hlstd{resB}\hlopt{$}\hlstd{tmins_search} \hlopt{>} \hlstd{max.minutes)),}
+    \hlstr{"\textbackslash{}n"}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+## Number timmed out= 0
+\end{verbatim}
+\begin{alltt}
+\hlstd{H_estimates} \hlkwb{<-} \hlkwd{get_dfRes}\hlstd{(}\hlkwc{Hobs} \hlstd{= H_obs,} \hlkwc{seHobs} \hlstd{= seH_obs,} \hlkwc{H1_adj} \hlstd{= resB}\hlopt{$}\hlstd{H_biasadj_1,}
+    \hlkwc{ystar} \hlstd{= Ystar_mat,} \hlkwc{cov_method} \hlstd{=} \hlstr{"standard"}\hlstd{,} \hlkwc{cov_trim} \hlstd{=} \hlnum{0.05}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in ci\_est(x = Hobs, sd = seHobs, scale = est.scale): object 'est.loghr' not found}}\begin{alltt}
+\hlstd{Hc_estimates} \hlkwb{<-} \hlkwd{get_dfRes}\hlstd{(}\hlkwc{Hobs} \hlstd{= Hc_obs,} \hlkwc{seHobs} \hlstd{= seHc_obs,} \hlkwc{H1_adj} \hlstd{= resB}\hlopt{$}\hlstd{Hc_biasadj_1,}
+    \hlkwc{ystar} \hlstd{= Ystar_mat,} \hlkwc{cov_method} \hlstd{=} \hlstr{"standard"}\hlstd{,} \hlkwc{cov_trim} \hlstd{=} \hlnum{0.05}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in ci\_est(x = Hobs, sd = seHobs, scale = est.scale): object 'est.loghr' not found}}\begin{alltt}
+\hlkwd{print}\hlstd{(H_estimates)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in h(simpleError(msg, call)): error in evaluating the argument 'x' in selecting a method for function 'print': object 'H\_estimates' not found}}\begin{alltt}
+\hlkwd{print}\hlstd{(Hc_estimates)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in h(simpleError(msg, call)): error in evaluating the argument 'x' in selecting a method for function 'print': object 'Hc\_estimates' not found}}\begin{alltt}
+\hlstd{bootit} \hlkwb{<-} \hlkwd{list}\hlstd{(}\hlkwc{H_estimates} \hlstd{= H_estimates,} \hlkwc{Hc_estimates} \hlstd{= Hc_estimates)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'H\_estimates' not found}}\begin{alltt}
+\hlstd{ans3} \hlkwb{<-} \hlkwd{fsBoot.parallel.out}\hlstd{(}\hlkwc{df} \hlstd{= df_boot_analysis,} \hlkwc{FSboots} \hlstd{= bootit,} \hlkwc{cox.formula.boot} \hlstd{= cox.formula.boot,}
+    \hlkwc{est.loghr} \hlstd{= est.loghr,} \hlkwc{sim_number} \hlstd{= sim)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in get\_Cox\_sg(df\_sg = df, cox.formula = cox.formula.sim, est.loghr = est.loghr): object 'est.loghr' not found}}\begin{alltt}
+\hlstd{tall.min} \hlkwb{<-} \hlstd{(tB.now} \hlopt{-} \hlstd{t.start.all)}\hlopt{/}\hlnum{60}
+\hlkwd{cat}\hlstd{(}\hlstr{"Overall minutes for analysis"}\hlstd{,} \hlkwd{c}\hlstd{(tall.min),} \hlstr{"\textbackslash{}n"}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+## Overall minutes for analysis 0.26185
+\end{verbatim}
+\begin{alltt}
+\hlcom{# Revise path accordingly}
+\hlcom{# save(dgm,x,y,H_estimates,Hc_estimates,ans3,file='output/sim_ex1.Rdata')}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{df_pred} \hlkwb{<-} \hlstd{fs.est}\hlopt{$}\hlstd{df.predict}
+\hlstd{df} \hlkwb{<-} \hlstd{df_pred}
+\hlstd{tte.name} \hlkwb{<-} \hlstr{"y.sim"}
+\hlstd{event.name} \hlkwb{<-} \hlstr{"event.sim"}
+\hlstd{treat.name} \hlkwb{<-} \hlstr{"treat"}
+\hlstd{byrisk} \hlkwb{<-} \hlnum{9}
+\hlstd{risk.cex} \hlkwb{<-} \hlnum{0.6}
+\hlstd{legend.cex} \hlkwb{<-} \hlnum{0.75}
+\hlstd{details} \hlkwb{<-} \hlnum{TRUE}
+\hlstd{ylab} \hlkwb{<-} \hlstr{"Survival"}
+\hlcom{# Add all events}
+\hlstd{evs} \hlkwb{<-} \hlkwd{sort}\hlstd{(}\hlkwd{unique}\hlstd{(df}\hlopt{$}\hlstd{y.sim[}\hlkwd{which}\hlstd{(df}\hlopt{$}\hlstd{event.sim} \hlopt{==} \hlnum{1}\hlstd{)]))}
+\hlstd{tpoints.add} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlopt{-}\hlnum{1}\hlstd{, evs,} \hlkwd{max}\hlstd{(df}\hlopt{$}\hlstd{y.sim))}
+\hlstd{pcens} \hlkwb{<-} \hlnum{100} \hlopt{*} \hlkwd{round}\hlstd{(}\hlkwd{mean}\hlstd{(}\hlnum{1} \hlopt{-} \hlstd{df}\hlopt{$}\hlstd{event.sim),} \hlnum{2}\hlstd{)}
+\hlstd{nn} \hlkwb{<-} \hlkwd{length}\hlstd{(df}\hlopt{$}\hlstd{y.sim)}
+\hlstd{nH_true} \hlkwb{<-} \hlkwd{sum}\hlstd{(x}\hlopt{$}\hlstd{flag.harm)}
+\hlstd{nHc_true} \hlkwb{<-} \hlkwd{sum}\hlstd{(}\hlnum{1} \hlopt{-} \hlstd{x}\hlopt{$}\hlstd{flag.harm)}
+\hlstd{nH_est} \hlkwb{<-} \hlkwd{sum}\hlstd{(}\hlnum{1} \hlopt{-} \hlstd{df}\hlopt{$}\hlstd{treat.recommend)}
+\hlstd{kH} \hlkwb{<-} \hlkwd{with}\hlstd{(df,} \hlkwd{sum}\hlstd{(treat.recommend} \hlopt{==} \hlnum{0} \hlopt{&} \hlstd{flag.harm} \hlopt{==} \hlnum{1}\hlstd{))}
+\hlstd{sens_H} \hlkwb{<-} \hlstd{kH}\hlopt{/}\hlstd{nH_true}
+\hlstd{spec_H} \hlkwb{<-} \hlstd{kH}\hlopt{/}\hlstd{nH_est}
+
+\hlstd{nHc_est} \hlkwb{<-} \hlkwd{sum}\hlstd{(df}\hlopt{$}\hlstd{treat.recommend)}
+\hlstd{kHc} \hlkwb{<-} \hlkwd{with}\hlstd{(df,} \hlkwd{sum}\hlstd{(treat.recommend} \hlopt{==} \hlnum{1} \hlopt{&} \hlstd{flag.harm} \hlopt{==} \hlnum{0}\hlstd{))}
+
+\hlstd{pH_super} \hlkwb{<-} \hlnum{100} \hlopt{*} \hlkwd{round}\hlstd{(}\hlkwd{mean}\hlstd{(dgm}\hlopt{$}\hlstd{df.super_rand}\hlopt{$}\hlstd{flag.harm),} \hlnum{2}\hlstd{)}
+
+\hlcom{# ans3b<-format(ans3,digits=4,drop0trailing=TRUE) ans3<-as.data.frame(ans3b)}
+
+\hlstd{ans3} \hlkwb{<-} \hlkwd{round}\hlstd{(ans3,} \hlnum{3}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'ans3' not found}}\begin{alltt}
+\hlcom{# ITT estimates}
+\hlstd{resITT} \hlkwb{<-} \hlkwd{c}\hlstd{(ans3[,} \hlkwd{c}\hlstd{(}\hlstr{"H_itt"}\hlstd{,} \hlstr{"H_itt_lower"}\hlstd{,} \hlstr{"H_itt_upper"}\hlstd{)],} \hlnum{NA}\hlstd{,} \hlnum{NA}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'ans3' not found}}\begin{alltt}
+\hlcom{# Knowing subgroup a-priori Returns coverage status for hr.H.true coverage for}
+\hlcom{# a-prior is NA}
+\hlstd{temp} \hlkwb{<-} \hlkwd{getci_Cox}\hlstd{(}\hlkwc{df} \hlstd{=} \hlkwd{as.data.frame}\hlstd{(ans3),} \hlkwc{est} \hlstd{=} \hlstr{"H_true"}\hlstd{,} \hlkwc{se} \hlstd{=} \hlstr{"seH_true"}\hlstd{,} \hlkwc{target} \hlstd{=} \hlkwd{unlist}\hlstd{(dgm[}\hlstr{"hr.H.true"}\hlstd{]))}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in as.data.frame(ans3): object 'ans3' not found}}\begin{alltt}
+\hlstd{resH_apriori} \hlkwb{<-} \hlkwd{c}\hlstd{(ans3[,} \hlkwd{c}\hlstd{(}\hlstr{"H_true"}\hlstd{)], temp}\hlopt{$}\hlstd{lb, temp}\hlopt{$}\hlstd{ub,} \hlnum{NA}\hlstd{, temp}\hlopt{$}\hlstd{cover)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'ans3' not found}}\begin{alltt}
+\hlcom{########### Observed}
+\hlstd{temp} \hlkwb{<-} \hlkwd{getci_Cox}\hlstd{(}\hlkwc{df} \hlstd{=} \hlkwd{as.data.frame}\hlstd{(ans3),} \hlkwc{est} \hlstd{=} \hlstr{"H_obs"}\hlstd{,} \hlkwc{se} \hlstd{=} \hlstr{"seH_obs"}\hlstd{,} \hlkwc{target} \hlstd{=} \hlkwd{unlist}\hlstd{(dgm[}\hlstr{"hr.H.true"}\hlstd{]))}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in as.data.frame(ans3): object 'ans3' not found}}\begin{alltt}
+\hlcom{# Cover a-priori ?}
+\hlstd{estH_apriori} \hlkwb{<-} \hlstd{ans3[,} \hlkwd{c}\hlstd{(}\hlstr{"H_true"}\hlstd{)]}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'ans3' not found}}\begin{alltt}
+\hlstd{cover2} \hlkwb{<-} \hlkwd{ifelse}\hlstd{(estH_apriori} \hlopt{>=} \hlkwd{c}\hlstd{(temp}\hlopt{$}\hlstd{lb)} \hlopt{&} \hlstd{estH_apriori} \hlopt{<=} \hlkwd{c}\hlstd{(temp}\hlopt{$}\hlstd{ub),} \hlnum{1}\hlstd{,} \hlnum{0}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in ifelse(estH\_apriori >= c(temp\$lb) \& estH\_apriori <= c(temp\$ub), : object 'estH\_apriori' not found}}\begin{alltt}
+\hlstd{resH_obs} \hlkwb{<-} \hlkwd{c}\hlstd{(ans3[,} \hlkwd{c}\hlstd{(}\hlstr{"H_obs"}\hlstd{)], temp}\hlopt{$}\hlstd{lb, temp}\hlopt{$}\hlstd{ub, cover2, temp}\hlopt{$}\hlstd{cover)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'ans3' not found}}\begin{alltt}
+\hlcom{# Bias-corrected}
+\hlstd{temp} \hlkwb{<-} \hlkwd{getci_Cox}\hlstd{(}\hlkwc{df} \hlstd{=} \hlkwd{as.data.frame}\hlstd{(ans3),} \hlkwc{est} \hlstd{=} \hlstr{"H1.bc"}\hlstd{,} \hlkwc{se} \hlstd{=} \hlstr{"seH1.bc"}\hlstd{,} \hlkwc{target} \hlstd{=} \hlkwd{unlist}\hlstd{(dgm[}\hlstr{"hr.H.true"}\hlstd{]))}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in as.data.frame(ans3): object 'ans3' not found}}\begin{alltt}
+\hlcom{# Cover a-priori ?}
+\hlstd{cover2} \hlkwb{<-} \hlkwd{ifelse}\hlstd{(estH_apriori} \hlopt{>=} \hlkwd{c}\hlstd{(temp}\hlopt{$}\hlstd{lb)} \hlopt{&} \hlstd{estH_apriori} \hlopt{<=} \hlkwd{c}\hlstd{(temp}\hlopt{$}\hlstd{ub),} \hlnum{1}\hlstd{,} \hlnum{0}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in ifelse(estH\_apriori >= c(temp\$lb) \& estH\_apriori <= c(temp\$ub), : object 'estH\_apriori' not found}}\begin{alltt}
+\hlstd{resH_bc} \hlkwb{<-} \hlkwd{c}\hlstd{(ans3[,} \hlkwd{c}\hlstd{(}\hlstr{"H1.bc"}\hlstd{)], temp}\hlopt{$}\hlstd{lb, temp}\hlopt{$}\hlstd{ub, cover2, temp}\hlopt{$}\hlstd{cover)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'ans3' not found}}\begin{alltt}
+\hlcom{###########################################}
+\hlstd{resH} \hlkwb{<-} \hlkwd{rbind}\hlstd{(resH_apriori, resH_obs, resH_bc)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in rbind(resH\_apriori, resH\_obs, resH\_bc): object 'resH\_apriori' not found}}\begin{alltt}
+\hlcom{########################################### Repeat above for Hc}
+\hlstd{temp} \hlkwb{<-} \hlkwd{getci_Cox}\hlstd{(}\hlkwc{df} \hlstd{=} \hlkwd{as.data.frame}\hlstd{(ans3),} \hlkwc{est} \hlstd{=} \hlstr{"Hc_true"}\hlstd{,} \hlkwc{se} \hlstd{=} \hlstr{"seHc_true"}\hlstd{,} \hlkwc{target} \hlstd{=} \hlkwd{unlist}\hlstd{(dgm[}\hlstr{"hr.Hc.true"}\hlstd{]))}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in as.data.frame(ans3): object 'ans3' not found}}\begin{alltt}
+\hlstd{resH_apriori} \hlkwb{<-} \hlkwd{c}\hlstd{(ans3[,} \hlkwd{c}\hlstd{(}\hlstr{"Hc_true"}\hlstd{)], temp}\hlopt{$}\hlstd{lb, temp}\hlopt{$}\hlstd{ub,} \hlnum{NA}\hlstd{, temp}\hlopt{$}\hlstd{cover)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'ans3' not found}}\begin{alltt}
+\hlstd{temp} \hlkwb{<-} \hlkwd{getci_Cox}\hlstd{(}\hlkwc{df} \hlstd{=} \hlkwd{as.data.frame}\hlstd{(ans3),} \hlkwc{est} \hlstd{=} \hlstr{"Hc_obs"}\hlstd{,} \hlkwc{se} \hlstd{=} \hlstr{"seHc_obs"}\hlstd{,} \hlkwc{target} \hlstd{=} \hlkwd{unlist}\hlstd{(dgm[}\hlstr{"hr.Hc.true"}\hlstd{]))}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in as.data.frame(ans3): object 'ans3' not found}}\begin{alltt}
+\hlstd{estH_apriori} \hlkwb{<-} \hlstd{ans3[,} \hlkwd{c}\hlstd{(}\hlstr{"Hc_true"}\hlstd{)]}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'ans3' not found}}\begin{alltt}
+\hlstd{cover2} \hlkwb{<-} \hlkwd{ifelse}\hlstd{(estH_apriori} \hlopt{>=} \hlkwd{c}\hlstd{(temp}\hlopt{$}\hlstd{lb)} \hlopt{&} \hlstd{estH_apriori} \hlopt{<=} \hlkwd{c}\hlstd{(temp}\hlopt{$}\hlstd{ub),} \hlnum{1}\hlstd{,} \hlnum{0}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in ifelse(estH\_apriori >= c(temp\$lb) \& estH\_apriori <= c(temp\$ub), : object 'estH\_apriori' not found}}\begin{alltt}
+\hlstd{resH_obs} \hlkwb{<-} \hlkwd{c}\hlstd{(ans3[,} \hlkwd{c}\hlstd{(}\hlstr{"Hc_obs"}\hlstd{)], temp}\hlopt{$}\hlstd{lb, temp}\hlopt{$}\hlstd{ub, cover2, temp}\hlopt{$}\hlstd{cover)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'ans3' not found}}\begin{alltt}
+\hlstd{temp} \hlkwb{<-} \hlkwd{getci_Cox}\hlstd{(}\hlkwc{df} \hlstd{=} \hlkwd{as.data.frame}\hlstd{(ans3),} \hlkwc{est} \hlstd{=} \hlstr{"Hc1.bc"}\hlstd{,} \hlkwc{se} \hlstd{=} \hlstr{"seHc1.bc"}\hlstd{,} \hlkwc{target} \hlstd{=} \hlkwd{unlist}\hlstd{(dgm[}\hlstr{"hr.Hc.true"}\hlstd{]))}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in as.data.frame(ans3): object 'ans3' not found}}\begin{alltt}
+\hlstd{cover2} \hlkwb{<-} \hlkwd{ifelse}\hlstd{(estH_apriori} \hlopt{>=} \hlkwd{c}\hlstd{(temp}\hlopt{$}\hlstd{lb)} \hlopt{&} \hlstd{estH_apriori} \hlopt{<=} \hlkwd{c}\hlstd{(temp}\hlopt{$}\hlstd{ub),} \hlnum{1}\hlstd{,} \hlnum{0}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in ifelse(estH\_apriori >= c(temp\$lb) \& estH\_apriori <= c(temp\$ub), : object 'estH\_apriori' not found}}\begin{alltt}
+\hlstd{resH_bc} \hlkwb{<-} \hlkwd{c}\hlstd{(ans3[,} \hlkwd{c}\hlstd{(}\hlstr{"Hc1.bc"}\hlstd{)], temp}\hlopt{$}\hlstd{lb, temp}\hlopt{$}\hlstd{ub, cover2, temp}\hlopt{$}\hlstd{cover)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'ans3' not found}}\begin{alltt}
+\hlcom{###########################################}
+\hlstd{resHc} \hlkwb{<-} \hlkwd{rbind}\hlstd{(resH_apriori, resH_obs, resH_bc)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in rbind(resH\_apriori, resH\_obs, resH\_bc): object 'resH\_apriori' not found}}\begin{alltt}
+\hlcom{###########################################}
+
+\hlstd{res} \hlkwb{<-} \hlkwd{rbind}\hlstd{(resITT, resH, resHc)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in rbind(resITT, resH, resHc): object 'resITT' not found}}\begin{alltt}
+\hlstd{resf} \hlkwb{<-} \hlkwd{as.data.frame}\hlstd{(res)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in as.data.frame(res): object 'res' not found}}\begin{alltt}
+\hlkwd{colnames}\hlstd{(resf)} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"HR Estimate"}\hlstd{,} \hlstr{"Lower"}\hlstd{,} \hlstr{"Upper"}\hlstd{,} \hlstr{"C(true)"}\hlstd{,} \hlstr{"C(fixed)"}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in colnames(resf) <- c("{}HR Estimate"{}, "{}Lower"{}, "{}Upper"{}, "{}C(true)"{}, : object 'resf' not found}}\begin{alltt}
+\hlcom{# Per Keaven's suggestion, remove C(.) and include # of subjects}
+
+\hlstd{resf_new} \hlkwb{<-} \hlstd{resf[,} \hlopt{-}\hlkwd{c}\hlstd{(}\hlnum{4}\hlstd{,} \hlnum{5}\hlstd{)]}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'resf' not found}}\begin{alltt}
+\hlcom{# Add sample size columns}
+\hlstd{na} \hlkwb{<-} \hlkwd{c}\hlstd{(nn, nH_true, nH_est, nH_est, nHc_true, nHc_est, nHc_est)}
+\hlstd{ncorrect} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{NA}\hlstd{,} \hlnum{NA}\hlstd{, kH, kH,} \hlnum{NA}\hlstd{, kHc, kHc)}
+\hlstd{nnew} \hlkwb{<-} \hlkwd{cbind}\hlstd{(na, ncorrect)}
+\hlstd{resf_new} \hlkwb{<-} \hlkwd{cbind}\hlstd{(resf_new, nnew)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in cbind(resf\_new, nnew): object 'resf\_new' not found}}\begin{alltt}
+\hlkwd{rm}\hlstd{(}\hlstr{"resf"}\hlstd{)}
+
+\hlkwd{colnames}\hlstd{(resf_new)} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"HR Estimate"}\hlstd{,} \hlstr{"Lower"}\hlstd{,} \hlstr{"Upper"}\hlstd{,} \hlstr{"$\textbackslash{}\textbackslash{}#$ Subjects"}\hlstd{,} \hlstr{"$\textbackslash{}\textbackslash{}#$ Correct"}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in colnames(resf\_new) <- c("{}HR Estimate"{}, "{}Lower"{}, "{}Upper"{}, "{}\$\textbackslash{}\textbackslash{}\#\$ Subjects"{}, : object 'resf\_new' not found}}\begin{alltt}
+\hlstd{resf} \hlkwb{<-} \hlstd{resf_new}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'resf\_new' not found}}\begin{alltt}
+\hlcom{# rnH<-c('$\textbackslash{}\textbackslash{}hat\textbackslash{}\textbackslash{}theta(H)$','$\textbackslash{}\textbackslash{}hat\textbackslash{}\textbackslash{}theta(\textbackslash{}\textbackslash{}hat\{H\})$','$\textbackslash{}\textbackslash{}hat\textbackslash{}\textbackslash{}theta^\{*\}(\textbackslash{}\textbackslash{}hat\{H\})$')}
+\hlcom{# rnHc<-c('$\textbackslash{}\textbackslash{}hat\textbackslash{}\textbackslash{}theta(H^\{c\})$','$\textbackslash{}\textbackslash{}hat\textbackslash{}\textbackslash{}theta(\textbackslash{}\textbackslash{}hat\{H\}^\{c\})$','$\textbackslash{}\textbackslash{}hat\textbackslash{}\textbackslash{}theta^\{*\}(\textbackslash{}\textbackslash{}hat\{H\}^\{c\})$')}
+\hlcom{# rnItt<-c('$\textbackslash{}\textbackslash{}hat\textbackslash{}\textbackslash{}theta(ITT)$')}
+
+\hlstd{rnH} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"H true"}\hlstd{,} \hlstr{"$\textbackslash{}\textbackslash{}hat\{H\}$"}\hlstd{,} \hlstr{"$\textbackslash{}\textbackslash{}hat\{H\}_\{bc\}$"}\hlstd{)}
+\hlstd{rnHc} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"$H^\{c\}$ true"}\hlstd{,} \hlstr{"$\textbackslash{}\textbackslash{}hat\{H\}^\{c\}$"}\hlstd{,} \hlstr{"$\textbackslash{}\textbackslash{}hat\{H\}^\{c\}_\{bc\}$"}\hlstd{)}
+\hlstd{rnItt} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"ITT"}\hlstd{)}
+
+\hlkwd{rownames}\hlstd{(resf)} \hlkwb{<-} \hlkwd{c}\hlstd{(rnItt, rnH, rnHc)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in rownames(resf) <- c(rnItt, rnH, rnHc): object 'resf' not found}}\begin{alltt}
+\hlcom{# Describing CIs}
+\hlstd{Hstat} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlkwd{unlist}\hlstd{(resH[}\hlnum{1}\hlstd{, ]))[}\hlkwd{c}\hlstd{(}\hlnum{1}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{3}\hlstd{)]}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in unlist(resH[1, ]): object 'resH' not found}}\begin{alltt}
+\hlstd{Hstat} \hlkwb{<-} \hlkwd{round}\hlstd{(Hstat,} \hlnum{2}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'Hstat' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(Hstat[}\hlnum{1}\hlstd{],} \hlstr{" (95% CI="}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(Hstat[1], "{} (95\% CI="{}): object 'Hstat' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(a, Hstat[}\hlnum{2}\hlstd{])}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(a, Hstat[2]): object 'a' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(a,} \hlstr{","}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(a, "{},"{}): object 'a' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(a, Hstat[}\hlnum{3}\hlstd{])}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(a, Hstat[3]): object 'a' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(a,} \hlstr{")"}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(a, "{})"{}): object 'a' not found}}\begin{alltt}
+\hlstd{Hstat_true} \hlkwb{<-} \hlkwd{c}\hlstd{(a)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'a' not found}}\begin{alltt}
+\hlstd{Hstat} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlkwd{unlist}\hlstd{(resH[}\hlnum{2}\hlstd{, ]))[}\hlkwd{c}\hlstd{(}\hlnum{1}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{3}\hlstd{)]}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in unlist(resH[2, ]): object 'resH' not found}}\begin{alltt}
+\hlstd{Hstat} \hlkwb{<-} \hlkwd{round}\hlstd{(Hstat,} \hlnum{2}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'Hstat' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(Hstat[}\hlnum{1}\hlstd{],} \hlstr{" (95% CI="}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(Hstat[1], "{} (95\% CI="{}): object 'Hstat' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(a, Hstat[}\hlnum{2}\hlstd{])}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(a, Hstat[2]): object 'a' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(a,} \hlstr{","}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(a, "{},"{}): object 'a' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(a, Hstat[}\hlnum{3}\hlstd{])}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(a, Hstat[3]): object 'a' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(a,} \hlstr{")"}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(a, "{})"{}): object 'a' not found}}\begin{alltt}
+\hlstd{Hstat_est} \hlkwb{<-} \hlkwd{c}\hlstd{(a)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'a' not found}}\begin{alltt}
+\hlstd{Hstat} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlkwd{unlist}\hlstd{(resH[}\hlnum{3}\hlstd{, ]))[}\hlkwd{c}\hlstd{(}\hlnum{1}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{3}\hlstd{)]}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in unlist(resH[3, ]): object 'resH' not found}}\begin{alltt}
+\hlstd{Hstat} \hlkwb{<-} \hlkwd{round}\hlstd{(Hstat,} \hlnum{2}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'Hstat' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(Hstat[}\hlnum{1}\hlstd{],} \hlstr{" (95% CI="}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(Hstat[1], "{} (95\% CI="{}): object 'Hstat' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(a, Hstat[}\hlnum{2}\hlstd{])}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(a, Hstat[2]): object 'a' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(a,} \hlstr{","}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(a, "{},"{}): object 'a' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(a, Hstat[}\hlnum{3}\hlstd{])}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(a, Hstat[3]): object 'a' not found}}\begin{alltt}
+\hlstd{a} \hlkwb{<-} \hlkwd{paste0}\hlstd{(a,} \hlstr{")"}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in paste0(a, "{})"{}): object 'a' not found}}\begin{alltt}
+\hlstd{Hstat_bc} \hlkwb{<-} \hlkwd{c}\hlstd{(a)}
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in eval(expr, envir, enclos): object 'a' not found}}\end{kframe}
+\end{knitrout}
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{\#\# Error in knitr::kable(x = x, format = format, digits = digits, row.names = row.names, : object 'resf' not found}}\end{kframe}
+\end{knitrout}
+
+
+

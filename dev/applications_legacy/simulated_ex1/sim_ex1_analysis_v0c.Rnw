@@ -1,0 +1,638 @@
+\Sexpr{set_parent("../../paper/Biostatistics_draft/forest_search_bio_v0.Rnw")}
+
+
+<<echo=FALSE>>=
+opts_chunk$set (warning = FALSE, message = FALSE, tidy=TRUE, echo=FALSE, dev = 'pdf')
+options(warn=-1)
+@
+
+<<echo=FALSE>>=
+requiredPackages <- c("grf","policytree","data.table","randomForest","survival","SPlit","plyr",
+"cubature","formatR","kableExtra","knitr","ggplot2","gridExtra","aVirtualTwins","psych")
+
+ipak <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg)>0){
+    install.packages(new.pkg, dependencies = TRUE, quietly=TRUE, verbose=FALSE,logical.return=FALSE)
+    sapply(pkg, require, character.only = TRUE, quietly=TRUE)
+  }
+}
+
+ipak(requiredPackages)
+
+rm(list=ls())
+
+# Use common code source
+codepath<-c("/media/larryleon/My Projects/GitHub/Forest-Search/R/")
+source(paste0(codepath,"source_forestsearch_v0.R"))
+source_fs_functions(file_loc=codepath)
+
+# Data example output path
+outpath<-c("/media/larryleon/My Projects/Current Projects/subgroup identification and analysis/applications/simulated_ex1/output/")
+
+#library(formatR)
+library(kableExtra)
+library(knitr)
+library(ggplot2)
+library(gridExtra)
+#library(covRobust)
+# Following loaded in "forest_search_v0.R"
+library(cubature)
+library(aVirtualTwins)
+library(randomForest)
+library(survival)
+library(SPlit)
+library(grf)
+library(policytree)
+library(data.table)
+library(plyr)
+library(psych)
+
+library(survminer)
+@
+
+
+
+
+
+
+<<echo=FALSE,eval=FALSE>>=
+
+maxFollow<-84
+cens.type<-"weibull"
+
+#########################
+# Forest search criteria
+#########################
+hr.threshold<-1.5   # Initital candidates 
+hr.consistency<-1.25  # Candidates for many splits
+pconsistency.threshold<-0.90
+
+maxk<-3
+# Limit timing for forestsearch (Estimation and bootstrapping)
+max.minutes<-2.0
+
+nmin.fs<-60
+#stop.threshold<-0.60 # If any sg meets this, then choose this (stop here);
+m1.threshold<-Inf # Turning this off (Default)
+
+stop.threshold<-0.95
+
+sg_focus<-"hr"
+
+#pconsistency.threshold<-0.70 # Minimum threshold (will choose max among subgroups satisfying)
+fs.splits<-400 # How many times to split for consistency
+# vi is % factor is selected in cross-validation --> higher more important
+vi.grf.min<-0.2
+# Null, turns off grf screening
+d.min<-10 # Min number of events for both arms (d0.min=d1.min=d.min)
+# default=5
+
+##########################
+# Virtual twins analysis
+##########################
+# Counter-factual difference (C-E) >= vt.threshold
+# Large values in favor of C (control)
+vt.threshold<-0.25  # For VT delta
+treat.threshold<-0.0
+maxdepth<-3
+n.min<-60
+ntree<-1000
+
+# GRF criteria
+dmin.grf<-12.0 # For GRF delta
+# Note: For CRT this represents dmin.grf/2 RMS for control (-dmin.grf/2 for treatment)
+frac.tau<-0.70
+
+get.FS<-TRUE
+get.VT<-TRUE
+get.GRF<-TRUE
+
+outcome.name<-c("y.sim")
+event.name<-c("event.sim")
+id.name<-c("id")
+treat.name<-c("treat")
+
+# NOTE: Need to revise all functions to allow for 
+# covariate adjusted Cox models; In estimation stage and bootstrapping
+
+cox.formula.sim<-as.formula(paste("Surv(y.sim,event.sim)~treat"))
+
+cox.formula.adj.sim<-as.formula(paste("Surv(y.sim,event.sim)~treat+v1+v2+v3+v4+v5"))
+
+label.analyses<-c("FS","GRF","VT(24)","VT#(24)","VT(36)","VT#(36)","GRF.70")
+
+cox.formula.boot<-cox.formula.sim
+cox2.formula.boot<-as.formula(paste("Surv(Y,Event)~Treat"))
+
+# m1 -censoring
+muC.adj<-log(1.5)
+# m0-censoring (original data)
+#muC.adj<-0.0
+split_method<-"Random"
+# m3a RCT probH=12.5% (pH_super)
+model.index<-"m4a"
+file.index<-"v0"
+mod.harm<-"alt"
+
+k.treat<-0.90
+k.z3<-1.0
+
+z1_frac<-0.25 # Default model index 'm1' (The 1st quartile of z1=er)
+pH_super<-0.125 # non-NULL re-defines z1_frac
+
+boots<-500
+
+N<-700
+
+ss_start<-1
+
+hrH.target<-2.5
+
+if(is.null(pH_super)){
+#pH_check<-with(gbsg,mean(pgr<=quantile(pgr,c(z3_frac),1,0) & er<=quantile(er,z1_frac)))
+pH_check<-with(gbsg,mean(meno==0 & er<=quantile(er,z1_frac)))
+cat("Underlying pH_super",c(pH_check),"\n")
+}
+# pH_super specified
+# If pH_super then override  z1_frac and find z1_frac to yield pH_super
+
+if(!is.null(pH_super)){
+  # Approximate Z1 quantile to yield pH proportion  
+  z1_q<-uniroot(propH.obj4,c(0.0,1.0),tol=0.0001,pH.target=pH_super)$root
+  #pH_check<-with(gbsg,mean(pgr<=quantile(pgr,c(z3_frac),1,0) & er<=quantile(er,z1_q)))
+  pH_check<-with(gbsg,mean(meno==0 & er<=quantile(er,z1_q)))
+  cat("pH",c(pH_check),"\n")
+  rel_error<-(pH_super-pH_check)/pH_super
+  if(abs(rel_error)>=0.1) stop("pH_super approximation relative error exceeds 10%")
+  z1_frac<-z1_q
+  cat("Underlying pH_super",c(pH_check),"\n")
+  }
+
+# Bootstrap on log(hr) scale converted to HR (est.loghr=TRUE & est.scale="hr")
+est.loghr<-TRUE
+est.scale<-"hr"
+out.loc<-NULL
+
+this.dgm<-get.dgm4(mod.harm=mod.harm,N=N,k.treat=k.treat,model.index=model.index,
+hrH.target=hrH.target,cens.type=cens.type,out.loc=out.loc,file.index=file.index,details=TRUE,parms_torand=FALSE)
+
+#this.dgm<-get.dgm4(mod.harm=mod.harm,N=N,k.treat=k.treat,model.index=model.index,sol_tol=10^-8,
+#hrH.target=hrH.target,cens.type=cens.type,out.loc=out.loc,file.index=file.index,details=TRUE,parms_torand=FALSE)
+
+dgm<-this.dgm$dgm
+confounders.name<-dgm$covs.analysis
+@
+
+<<echo=FALSE,eval=FALSE>>=
+
+# ss=8 --> true H
+
+#ss<-1 no
+
+ss<-2
+
+sim<-ss  
+x<-sim_aftm4_gbsg(dgm=dgm,n=N,maxFollow=maxFollow,muC.adj=muC.adj,simid=sim,drawtreat=TRUE)
+
+y<-try(forestsearch(df=x,confounders.name=confounders.name,
+                        df.predict=x,details=TRUE,
+                        outcome.name=outcome.name,treat.name=treat.name,event.name=event.name,id.name=id.name,
+                         m1.threshold=Inf,
+                         sg_focus=sg_focus,
+                        n.min=nmin.fs,hr.threshold=hr.threshold,hr.consistency=hr.consistency,fs.splits=fs.splits,
+                        stop.threshold=stop.threshold,
+                        d0.min=d.min,d1.min=d.min,
+                        pconsistency.threshold=pconsistency.threshold,max.minutes=max.minutes,maxk=maxk,
+                        plot.sg=TRUE,vi.grf.min=vi.grf.min,split_method=split_method),TRUE)
+
+cat("Found anything =",c(ifelse(is.null(y$sg.harm),"No","Yes")),"\n")
+
+#z<-y$grp.consistency$result_start
+# Convert to numeric
+#z$p.consistency<-as.numeric(z$p.consistency)
+#z$Nsg<-as.numeric(z$Nsg)
+#z$K<-as.numeric(z$K)
+#z2<-copy(z)
+#wtf<-setorder(z2,-Nsg,K)
+
+library(doParallel)
+registerDoParallel(parallel::detectCores(logical = FALSE))
+
+NB<-boots
+fs.est<-y
+df_temp<-y$df.pred[,c("id","treat.recommend")]
+dfa<-merge(x,df_temp,by="id")
+df_boot_analysis<-dfa
+
+fitH<-get_Cox_sg(df_sg=subset(df_boot_analysis,treat.recommend==0),cox.formula=cox.formula.boot,est.loghr=est.loghr)
+H_obs<-fitH$est_obs
+seH_obs<-fitH$se_obs
+rm("fitH")
+# Hc observed estimates
+fitHc<-get_Cox_sg(df_sg=subset(df_boot_analysis,treat.recommend==1),cox.formula=cox.formula.boot,est.loghr=est.loghr)
+Hc_obs<-fitHc$est_obs
+seHc_obs<-fitHc$se_obs
+rm("fitHc")
+
+Ystar_mat<-bootYstar(
+  {  
+    ystar<-get_Ystar(boot)
+  },
+  boots=NB,
+  seed=8316951,
+  counter="boot",
+  export=fun_arg_list_boot
+)
+
+# Bootstraps
+resB<-try(bootPar(
+  { 
+  ans<-fsboot_forparallel(boot)
+    },
+  boots=NB,
+  seed=8316951,
+  counter="boot",
+  export=fun_arg_list_boot
+),TRUE)
+
+
+      H_estimates<-get_dfRes(Hobs=H_obs,seHobs=seH_obs,H1_adj=resB$H_biasadj_1,H2_adj=resB$H_biasadj_2,ystar=Ystar_mat,cov_method="standard",cov_trim=0.05)
+      Hc_estimates<-get_dfRes(Hobs=Hc_obs,seHobs=seHc_obs,H1_adj=resB$Hc_biasadj_1,H2_adj=resB$Hc_biasadj_2,ystar=Ystar_mat,cov_method="standard",cov_trim=0.05)
+      bootit<-list(H_estimates=H_estimates,Hc_estimates=Hc_estimates)
+      ans3<-fsBoot.parallel.out(df=df_boot_analysis,FSboots=bootit,cox.formula.boot=cox.formula.boot,est.loghr=est.loghr,sim_number=sim)
+     
+
+doParallel::stopImplicitCluster()
+
+# Revise path accordingly
+#save(dgm,x,y,H_estimates,Hc_estimates,ans3,file="output/sim_ex1.Rdata")
+@
+
+<<echo=FALSE,eval=TRUE>>=
+load(paste0(outpath,"sim_ex1.Rdata"))
+@
+
+<<echo=FALSE,eval=TRUE>>=
+
+# Check forestplot
+#fitCox<- coxph( Surv(y.sim, event.sim) ~ treat+v1+v2+v3+v4+v5+v6+v7,
+#                data = x)
+#ggforest(fitCox)
+
+#print(summary(coxph(Surv(y.sim,event.sim)~ treat, data=subset(x,v1==0))))
+#print(summary(coxph(Surv(y.sim,event.sim)~ treat, data=subset(x,v1==1))))
+#print(summary(coxph(Surv(y.sim,event.sim)~ treat, data=subset(x,v3==0))))
+#print(summary(coxph(Surv(y.sim,event.sim)~ treat, data=subset(x,v3==1))))
+
+df_pred<-y$df.pred
+df<-df_pred
+tte.name<-"y.sim"
+event.name<-"event.sim"
+treat.name<-"treat"
+byrisk<-9
+risk.cex<-0.6
+legend.cex<-0.75
+details<-TRUE
+ylab<-"Survival"
+# Add all events
+evs<-sort(unique(df$y.sim[which(df$event.sim==1)]))
+tpoints.add<-c(-1,evs,max(df$y.sim))
+pcens<-100*round(mean(1-df$event.sim),2)
+nn<-length(df$y.sim)
+nH_true<-sum(x$flag.harm)
+nHc_true<-sum(1-x$flag.harm)
+nH_est<-sum(1-df$treat.recommend)
+kH<-with(df,sum(treat.recommend==0 & flag.harm==1))
+sens_H<-kH/nH_true
+spec_H<-kH/nH_est
+
+nHc_est<-sum(df$treat.recommend)
+kHc<-with(df,sum(treat.recommend==1 & flag.harm==0))
+
+pH_super<-100*round(mean(dgm$df.super_rand$flag.harm),2)
+
+#ans3b<-format(ans3,digits=4,drop0trailing=TRUE)
+#ans3<-as.data.frame(ans3b)
+
+ans3<-round(ans3,3)
+
+# ITT estimates
+resITT<-c(ans3[,c("H_itt","H_itt_lower","H_itt_upper")],NA,NA)
+
+# Knowing subgroup a-priori
+# Returns coverage status for hr.H.true
+# coverage for a-prior is NA
+temp<-getci_Cox(df=as.data.frame(ans3),est="H_true",se="seH_true",target=unlist(dgm["hr.H.true"]))
+resH_apriori<-c(ans3[,c("H_true")],temp$lb,temp$ub,NA,temp$cover)
+###########
+# Observed
+###########
+temp<-getci_Cox(df=as.data.frame(ans3),est="H_obs",se="seH_obs",target=unlist(dgm["hr.H.true"]))
+# Cover a-priori ?
+estH_apriori<-ans3[,c("H_true")]
+cover2<-ifelse(estH_apriori >= c(temp$lb) & estH_apriori <= c(temp$ub),1,0)
+resH_obs<-c(ans3[,c("H_obs")],temp$lb,temp$ub,cover2,temp$cover)
+# Bias-corrected
+temp<-getci_Cox(df=as.data.frame(ans3),est="H1.bc",se="seH1.bc",target=unlist(dgm["hr.H.true"]))
+# Cover a-priori ?
+cover2<-ifelse(estH_apriori >= c(temp$lb) & estH_apriori <= c(temp$ub),1,0)
+resH_bc<-c(ans3[,c("H1.bc")],temp$lb,temp$ub,cover2,temp$cover)
+###########################################
+resH<-rbind(resH_apriori,resH_obs,resH_bc)
+###########################################
+# Repeat above for Hc
+temp<-getci_Cox(df=as.data.frame(ans3),est="Hc_true",se="seHc_true",target=unlist(dgm["hr.Hc.true"]))
+resH_apriori<-c(ans3[,c("Hc_true")],temp$lb,temp$ub,NA,temp$cover)
+temp<-getci_Cox(df=as.data.frame(ans3),est="Hc_obs",se="seHc_obs",target=unlist(dgm["hr.Hc.true"]))
+estH_apriori<-ans3[,c("Hc_true")]
+cover2<-ifelse(estH_apriori >= c(temp$lb) & estH_apriori <= c(temp$ub),1,0)
+resH_obs<-c(ans3[,c("Hc_obs")],temp$lb,temp$ub,cover2,temp$cover)
+temp<-getci_Cox(df=as.data.frame(ans3),est="Hc1.bc",se="seHc1.bc",target=unlist(dgm["hr.Hc.true"]))
+cover2<-ifelse(estH_apriori >= c(temp$lb) & estH_apriori <= c(temp$ub),1,0)
+resH_bc<-c(ans3[,c("Hc1.bc")],temp$lb,temp$ub,cover2,temp$cover)
+###########################################
+resHc<-rbind(resH_apriori,resH_obs,resH_bc)
+###########################################
+
+res<-rbind(resITT,resH,resHc)
+resf<-as.data.frame(res)
+colnames(resf)<-c("HR Estimate","Lower","Upper","C(true)","C(fixed)")
+
+# Per Keaven's suggestion, remove C(.) and include # of subjects
+
+resf_new<-resf[,-c(4,5)]
+# Add sample size columns
+na<-c(nn,nH_true,nH_est,nH_est,nHc_true,nHc_est,nHc_est)
+ncorrect<-c(NA,NA,kH,kH,NA,kHc,kHc)
+nnew<-cbind(na,ncorrect)
+resf_new<-cbind(resf_new,nnew)
+
+rm("resf")
+
+colnames(resf_new)<-c("HR Estimate","Lower","Upper","$\\#$ Subjects","$\\#$ Correct")
+resf<-resf_new
+
+#rnH<-c("$\\hat\\theta(H)$","$\\hat\\theta(\\hat{H})$","$\\hat\\theta^{*}(\\hat{H})$")
+#rnHc<-c("$\\hat\\theta(H^{c})$","$\\hat\\theta(\\hat{H}^{c})$","$\\hat\\theta^{*}(\\hat{H}^{c})$")
+#rnItt<-c("$\\hat\\theta(ITT)$")
+
+rnH<-c("H true","$\\hat{H}$","$\\hat{H}_{bc}$")
+rnHc<-c("$H^{c}$ true","$\\hat{H}^{c}$","$\\hat{H}^{c}_{bc}$")
+rnItt<-c("ITT")
+
+rownames(resf)<-c(rnItt,rnH,rnHc)
+
+# Describing CIs
+Hstat<-c(unlist(resH[1,]))[c(1,2,3)]
+Hstat<-round(Hstat,2)
+a<-paste0(Hstat[1]," (95% CI=")
+a<-paste0(a,Hstat[2])
+a<-paste0(a,",")
+a<-paste0(a,Hstat[3])
+a<-paste0(a,")")
+Hstat_true<-c(a)
+
+Hstat<-c(unlist(resH[2,]))[c(1,2,3)]
+Hstat<-round(Hstat,2)
+a<-paste0(Hstat[1]," (95% CI=")
+a<-paste0(a,Hstat[2])
+a<-paste0(a,",")
+a<-paste0(a,Hstat[3])
+a<-paste0(a,")")
+Hstat_est<-c(a)
+
+Hstat<-c(unlist(resH[3,]))[c(1,2,3)]
+Hstat<-round(Hstat,2)
+a<-paste0(Hstat[1]," (95% CI=")
+a<-paste0(a,Hstat[2])
+a<-paste0(a,",")
+a<-paste0(a,Hstat[3])
+a<-paste0(a,")")
+Hstat_bc<-c(a)
+
+@
+
+<<simex1_tab,echo=FALSE,eval=FALSE>>=
+options(knitr.kable.NA = '.',format="latex")
+tab_ex1<-kbl(resf,longtable=FALSE,align='c',format="latex",booktabs=TRUE,escape=F,digits=3,
+caption="\\label{tab:simex1} Simulated data example: Cox hazard ratio (hr) estimates for the ITT population and subgroups $H$ and $H^{c}$.
+Cox model estimates are based on subgroups: H true (knowing the actual subgroup, a-priori); the estimated subgroup $\\hat{H}$; and 
+the boostrap ($500$ resamples) bias-correction to $\\hat{H}$ estimates, denoted $\\hat{H}_{bc}$.  Estimates for the complement $H^{c}$ are defined analogously.
+The number of subjects in each population ($\\#$ Subjects) and the number of subjects correctly classified ($\\#$ Correct) in the true subgroups $H$ and $H^{c}$, respectively, are listed.") %>%
+kable_styling(full_width = FALSE, font_size=9) %>%
+group_rows("ITT", 1, 1) %>%
+group_rows("H subgroup estimates", 2, 4) %>%
+group_rows("H-complement subgroup estimates", 5, 7)
+@
+
+
+
+\begin{table}[p]
+\caption{\label{tab:simex1} Simulated data example: Cox hazard ratio (hr) estimates for the ITT population and subgroups $H$ and $H^{c}$.
+Cox model estimates are based on subgroups: H true (knowing the actual subgroup, a-priori); the estimated subgroup $\hat{H}$; and 
+the boostrap ($500$ resamples) bias-correction to $\hat{H}$ estimates, denoted $\hat{H}_{bc}$.  Estimates for the complement $H^{c}$ are defined analogously.
+The number of subjects in each population ($\#$ Subjects) and the number of subjects correctly classified ($\#$ Correct) in the true subgroups $H$ and $H^{c}$, respectively, are listed.}
+\centering
+\fontsize{9}{11}\selectfont
+\begin{tabular}[t]{lccccc}
+\toprule
+  & HR Estimate & Lower & Upper & $\#$ Subjects & $\#$ Correct\\
+\midrule
+\addlinespace[0.3em]
+\multicolumn{6}{l}{\textbf{ITT}}\\
+\hspace{1em}ITT & 0.838 & 0.687 & 1.021 & 700 & .\\
+\addlinespace[0.3em]
+\multicolumn{6}{l}{\textbf{H subgroup estimates}}\\
+\hspace{1em}H true & 2.358 & 1.471 & 3.781 & 101 & .\\
+\hspace{1em}$\hat{H}$ & 3.077 & 1.604 & 5.904 & 64 & 52\\
+\hspace{1em}$\hat{H}_{bc}$ & 2.248 & 1.436 & 3.519 & 64 & 52\\
+\addlinespace[0.3em]
+\multicolumn{6}{l}{\textbf{H-complement subgroup estimates}}\\
+\hspace{1em}$H^{c}$ true & 0.672 & 0.537 & 0.841 & 599 & .\\
+\hspace{1em}$\hat{H}^{c}$ & 0.733 & 0.592 & 0.908 & 636 & 587\\
+\hspace{1em}$\hat{H}^{c}_{bc}$ & 0.743 & 0.592 & 0.932 & 636 & 587\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+As a practical illustration we consider a simulated dataset generated as described in Section \ref{sec:sims}.   In this simulated example there are 
+$N=\Sexpr{length(df$y.sim)}$ subjects, randomized 1:1, where the underlying (marginal) hazard ratio for the harm population $H$ is 
+$\hplim =\Sexpr{round(dgm$hr.H.true,3)}$, and for the complement $H^{c}$, the (marginal) hazard ratio is $\hcplim =\Sexpr{round(dgm$hr.Hc.true,3)}$.  The overall (marginal) hazard ratio is $\Sexpr{round(dgm$hr.causal,2)}$.  
+Subjects' outcomes are generated from a Weibull regression model with $5$ covariates, and analysis is based on those $5$ covariates in addition to $2$ ``noise'' covariates.
+The underlying proportion of subjects in the harm population $H$ is $\approx \Sexpr{pH_super}\%$.  Here the actual number of subjects in the $H$ subgroup is $\Sexpr{sum(x$flag.harm)}$ and the number of subjects in the complement equals $\Sexpr{sum(1-x$flag.harm)}$.  
+
+
+
+<<echo=FALSE,eval=FALSE>>=
+# Note: execute this when in R-project draft "mode"
+# which will save the graph in the R-project directory
+
+#pdf(file = "plot_simex1.pdf",   
+#width = 10, height = 10) 
+
+library(latex2exp)
+par(mar=c(5, 0.5, 0.2, 0.2), mfrow=c(1,2),
+     oma = c(4, 4, 0.2, 0.2))
+
+# First, true H subgroup (flag.harm==1) and 
+# estimates H subgroup (treat.recommend==0)
+# Treat arms for H subgroup
+dfp<-subset(df,flag.harm==1)
+
+kmH.fit<-KM.plot.2sample.weighted(Y=dfp[,c(tte.name)],E=dfp[,c(event.name)],Treat=dfp[,c(treat.name)],
+risk.set=FALSE,by.risk=byrisk,tpoints.add=tpoints.add,risk.cex=risk.cex,
+stop.onerror=TRUE,Xlab="Months",Ylab="Survival",details=FALSE,
+show.ticks=FALSE,
+col.1="grey", col.2="grey",
+ltys=c(1,2),lwds=c(3,3),
+plotit=TRUE,
+show.logrank=FALSE,show.med=FALSE,show.cox=FALSE)
+title(sub="(a)")
+
+# Risk set for true H
+riskH<-kmH.fit$risk.1+kmH.fit$risk.2
+riskH.points<-kmH.fit$risk.points
+# put on top
+y.riskH<-kmH.fit$y.risk2
+text(c(riskH.points),c(y.riskH),c(riskH),col="grey",cex=risk.cex)
+
+dfp<-subset(df,treat.recommend==0)
+# Do not plot (plotit=FALSE)
+kmHest.fit<-KM.plot.2sample.weighted(Y=dfp[,c(tte.name)],E=dfp[,c(event.name)],Treat=dfp[,c(treat.name)],
+risk.set=FALSE,by.risk=byrisk,tpoints.add=tpoints.add,risk.cex=risk.cex,
+stop.onerror=TRUE,Xlab="Months",Ylab=ylab,details=FALSE,
+show.ticks=FALSE,
+col.1="grey", col.2="grey",
+ltys=c(1,2),lwds=c(3,3),
+plotit=FALSE,
+show.logrank=FALSE,show.med=FALSE,show.cox=FALSE)
+
+lwdHe<-3
+
+# Treatment arm, H estimated
+lines(kmHest.fit$at.points1.plot,kmHest.fit$Y1.plot,lty=1,type="s",col="black",lwd=lwdHe)
+# Control arm, H estimated
+lines(kmHest.fit$at.points2.plot,kmHest.fit$Y2.plot,lty=2,type="s",col="black",lwd=lwdHe)
+
+# Risk set for estimated H
+riskHest<-kmHest.fit$risk.1+kmHest.fit$risk.2
+riskHest.points<-kmHest.fit$risk.points
+# put on top
+y.riskHest<-kmHest.fit$y.risk1
+text(c(riskHest.points),c(y.riskHest),c(riskHest),col="black",cex=risk.cex)
+
+#legend("top",legend=c("H true, Treatment","est(H), Treatment","H true, Control","est(H), Control"),col=c("grey","black","grey","black"),lwd=c(3,lwdHe,3,lwdHe),lty=c(1,1,2,2),bty="n",cex=legend.cex)
+
+#legend("top",
+#legend=TeX(sprintf(r'($H, %s$)',c("Treatment","Treatment","Control","Control"))),
+#col=c("grey","black","grey","black"),lwd=c(3,lwdHe,3,lwdHe),lty=c(1,1,2,2),bty="n",cex=legend.cex)
+
+Hla<-sprintf(r'($H, %s$)',c("Treatment"))
+Hlb<-sprintf(r'($\hat{H}, %s$)',c("Treatment"))
+Hlc<-sprintf(r'($H, %s$)',c("Control"))
+Hld<-sprintf(r'($\hat{H}, %s$)',c("Control"))
+Hl<-c(Hla,Hlb,Hlc,Hld)
+
+legend("top",
+legend=TeX(Hl),col=c("grey","black","grey","black"),lwd=c(3,lwdHe,3,lwdHe),lty=c(1,1,2,2),bty="n",cex=legend.cex)
+
+
+# Complement
+
+# Keep same naming below (i.e., H is now H-complement)
+
+# Treat arms for H subgroup
+dfp<-subset(df,flag.harm==0)
+
+kmH.fit<-KM.plot.2sample.weighted(Y=dfp[,c(tte.name)],E=dfp[,c(event.name)],Treat=dfp[,c(treat.name)],
+risk.set=FALSE,by.risk=byrisk,tpoints.add=tpoints.add,risk.cex=risk.cex,
+stop.onerror=TRUE,Xlab="Months",Ylab="Survival",details=FALSE,
+show.ticks=FALSE,
+col.1="grey", col.2="grey",
+ltys=c(1,2),lwds=c(3,3),
+plotit=TRUE,
+show.Y.axis=FALSE,
+show.logrank=FALSE,show.med=FALSE,show.cox=FALSE)
+
+title(sub="(b)")
+
+# Risk set for true H
+riskH<-kmH.fit$risk.1+kmH.fit$risk.2
+riskH.points<-kmH.fit$risk.points
+# put on top
+y.riskH<-kmH.fit$y.risk2
+text(c(riskH.points),c(y.riskH),c(riskH),col="grey",cex=risk.cex)
+
+dfp<-subset(df,treat.recommend==1)
+# Do not plot (plotit=FALSE)
+kmHest.fit<-KM.plot.2sample.weighted(Y=dfp[,c(tte.name)],E=dfp[,c(event.name)],Treat=dfp[,c(treat.name)],
+risk.set=FALSE,by.risk=byrisk,tpoints.add=tpoints.add,risk.cex=risk.cex,
+stop.onerror=TRUE,Xlab="Months",Ylab=ylab,details=FALSE,
+show.ticks=FALSE,
+col.1="grey", col.2="grey",
+ltys=c(1,2),lwds=c(3,3),
+plotit=FALSE,
+show.logrank=FALSE,show.med=FALSE,show.cox=FALSE)
+
+# Treatment arm, H estimated
+lines(kmHest.fit$at.points1.plot,kmHest.fit$Y1.plot,lty=1,type="s",col="black",lwd=lwdHe)
+# Control arm, H estimated
+lines(kmHest.fit$at.points2.plot,kmHest.fit$Y2.plot,lty=2,type="s",col="black",lwd=lwdHe)
+
+# Risk set for estimated H
+riskHest<-kmHest.fit$risk.1+kmHest.fit$risk.2
+riskHest.points<-kmHest.fit$risk.points
+# put on top
+y.riskHest<-kmHest.fit$y.risk1
+text(c(riskHest.points),c(y.riskHest),c(riskHest),col="black",cex=risk.cex)
+
+Hla<-sprintf(r'($H^{c}, %s$)',c("Treatment"))
+Hlb<-sprintf(r'($\hat{H}^{c}, %s$)',c("Treatment"))
+Hlc<-sprintf(r'($H^{c}, %s$)',c("Control"))
+Hld<-sprintf(r'($\hat{H}^{c}, %s$)',c("Control"))
+Hl<-c(Hla,Hlb,Hlc,Hld)
+
+legend("top",
+legend=TeX(Hl),col=c("grey","black","grey","black"),lwd=c(3,lwdHe,3,lwdHe),lty=c(1,1,2,2),bty="n",cex=legend.cex)
+
+#dev.off()
+@
+
+
+
+\begin{figure}[p]
+\begin{center}
+\includegraphics[width=\textwidth, height=3.5in]{plot_simex1.pdf}
+\end{center}
+\caption{Simulated data example with $\approx \Sexpr{pcens}$\% censoring: (a) Kaplan-Meier (KM) curves for the true $H$ ($H$) subgroup for the treatment (solid grey) 
+and control (dashed grey) arms, along with the KM curves for the estimated H ($\hat{H}$) subgroup treatment (solid black) and control (dashed black); 
+(b) KM curves for the true complement $H^{c}$ ($H^{c}$) subgroup for the treatment (solid grey) 
+and control (dashed grey) arms, along with the KM curves for the estimated $H^{c}$ ($\hat{H}^{c}$) subgroup treatment (solid black) and control (dashed black). The displayed risk sets 
+correspond to the treatment and control arms combined for the true and estimated subgroups ($H$ and $\hat{H}$ in (a); $H^{c}$ and $\hat{H}^{c}$ in (b)).}\label{fig:simex1}
+\end{figure}
+
+
+Applying our novel procedure the estimated subgroup $\hat{H}$ consists of $\Sexpr{nH_est}$ subjects and thus 
+$\Sexpr{nn-nH_est}$ in the estimated complement $\hat{H}^{c}$. The number of subjects in $H$ that are included in $\hat{H}$ is $\Sexpr{kH}$ (i.e., $|H \cap \hat{H}|=\Sexpr{kH}$): Of the $\Sexpr{nH_true}$ subjects in $H$, $\Sexpr{kH}/\Sexpr{nH_true}=\Sexpr{100*round(kH/nH_true,3)}\%$ are correctly classified and of the $\Sexpr{nH_est}$ subjects in $\hat{H}$, $\Sexpr{kH}/\Sexpr{nH_est}=\Sexpr{100*round(kH/nH_est,3)}\%$ are correctly classified.  For the complement, the number of subjects in $H^{c}$ that are included in $\hat{H}^{c}$ is $\Sexpr{kHc}$: Of the $\Sexpr{nHc_true}$ subjects in $H^{c}$, $\Sexpr{kHc}/\Sexpr{nHc_true}=\Sexpr{100*round(kHc/nHc_true,3)}\%$ are correctly classified and of the $\Sexpr{nHc_est}$ subjects in $\hat{H}^{c}$, $\Sexpr{kHc}/\Sexpr{nHc_est}=\Sexpr{100*round(kHc/nHc_est,3)}\%$ are correctly classified.  
+
+In other words, $\hat{H}^{c}$ represents $\Sexpr{100*round(kHc/nHc_true,3)}\%$ of $H^{c}$, and for estimation (Cox and Kaplan-Meier)
+based on $\hat{H}^{c}$: $\Sexpr{100*round(kHc/nHc_est,3)}\%$ are $H^{c}$ subjects with (marginal) hazard ratio $\hcplim=\Sexpr{round(dgm$hr.Hc.true,3)}$, and $\Sexpr{100*round(1-kHc/nHc_est,3)}\%$
+are $H$ subjects with (marginal) hazard ratio $\hplim =\Sexpr{round(dgm$hr.H.true,3)}$.
+
+
+Figure \ref{fig:simex1} displays the Kaplan-Meier curves based on the true (known a-priori) subgroups and the estimated subgroups (Figures \ref{fig:simex1}(a) and \ref{fig:simex1}(b), for $H$ and $H^{c}$, respectively).  The Kaplan-Meier curves for the treatment and control arms %for the actual subgroups ($H$, known a-prior) are generally well characterized by the estimated subgroups.  
+
+
+Table \ref{tab:simex1} provides the Cox estimate for the overall population (ITT) as well as the estimates based on the true (known a-priori), and estimated subgroups, $\hat{H}$ and $\hat{H}^{c}$.  The ITT Cox estimate is $\Sexpr{round(as.numeric(resITT[1]),2)}$ (95\% CI=$\Sexpr{round(as.numeric(resITT[2]),2)}$, $\Sexpr{round(as.numeric(resITT[3]),2)}$), 
+which is statistically insignificant and highlights the practical implications.  For characterizing $H$, recall that the underlying (marginal) hazard ratio is $\hplim =\Sexpr{round(dgm$hr.H.true,2)}$.  If the true H is known (a-priori), the Cox estimate is $\Sexpr{round(as.numeric(resH[1,1]),2)}$ (95\% CI=$\Sexpr{round(as.numeric(resH[1,2]),2)}$, $\Sexpr{round(as.numeric(resH[1,3]),2)}$), and for the estimated H, $\hat{H}$, the Cox estimate is $\Sexpr{round(as.numeric(resH[2,1]),2)}$ (95\% CI=$\Sexpr{round(as.numeric(resH[2,2]),2)}$, 
+$\Sexpr{round(as.numeric(resH[2,3]),2)}$).  By the nature of the FS procedure we expect Cox model estimates based on an estimated subgroup to be upwardly biased for $H$.  We therefore describe a bootstrap bias-correction, which in this case, the bias-corrected Cox estimate denoted by $\hat{H}_{bc}$ is $\Sexpr{round(as.numeric(resH[3,1]),2)}$ (95\% CI=$\Sexpr{round(as.numeric(resH[3,2]),2)}$, $\Sexpr{round(as.numeric(resH[3,3]),2)}$) which we see provides a more ``tempered''estimate and is quite similar to the estimates based on the ideal true H in this simulated example.  
+In addition, notice that the CIs for each estimate cover the underlying (marginal) respective hazard ratios 
+$\hplim =\Sexpr{round(dgm$hr.H.true,2)}$ and $\hcplim =\Sexpr{round(dgm$hr.Hc.true,2)}$ for $H$ and $H^{c}$, respectively.  
+The CIs for $\hat{H}$ and $\hat{H}_{bc}$ also cover the estimate based on $H$ true =  $\Sexpr{round(as.numeric(resH[1,1]),2)}$; and similarly for the complement where $H^{c}$ true =  $\Sexpr{round(as.numeric(resHc[1,1]),2)}$.  We remark that this simulated example is representative of the results observed in our simulation setting described in Section \ref{sec:sims}.
+
+
+
+

@@ -1,0 +1,395 @@
+\documentclass[9pt]{article}
+\usepackage{multicol}
+\usepackage{amssymb,mathrsfs,graphicx}
+\usepackage{enumerate}
+\usepackage{amsthm}
+\usepackage{lscape}
+\usepackage{pdfpages}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}
+
+\textheight=9.0in \textwidth=10.5in \topmargin=0in
+\evensidemargin=0in \oddsidemargin=0in
+
+\begin{document}
+
+\raggedbottom
+
+<<echo=FALSE>>=
+opts_chunk$set (warning = FALSE, message = FALSE, tidy=TRUE, echo=FALSE, dev = 'pdf')
+options(warn=-1)
+@
+
+<<echo=FALSE>>=
+requiredPackages <- c("grf","policytree","data.table","randomForest","survival","SPlit","plyr",
+"cubature","formatR","kableExtra","knitr","ggplot2","gridExtra","aVirtualTwins","psych")
+
+ipak <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg))
+    install.packages(new.pkg, dependencies = TRUE, quietly=TRUE, verbose=FALSE)
+  sapply(pkg, require, character.only = TRUE)
+}
+ipak(requiredPackages)
+
+rm(list=ls())
+
+# 3 down to R from Bootstrap directory
+source("../../../R/source_forestsearch_v0.R")
+source_fs_functions(file_loc="../../../R/")
+
+library(doParallel)
+registerDoParallel(parallel::detectCores(logical = FALSE))
+
+#library(formatR)
+library(kableExtra)
+library(knitr)
+library(ggplot2)
+library(gridExtra)
+#library(covRobust)
+# Following loaded in "forest_search_v0.R"
+library(cubature)
+library(aVirtualTwins)
+library(randomForest)
+library(survival)
+library(SPlit)
+library(grf)
+library(policytree)
+library(data.table)
+library(plyr)
+library(psych)
+@
+
+<<echo=TRUE>>=
+
+maxFollow<-84
+cens.type<-"weibull"
+
+#########################
+# Forest search criteria
+#########################
+hr.threshold<-1.5   # Initital candidates 
+hr.consistency<-1.25  # Candidates for many splits
+pconsistency.threshold<-0.90
+
+maxk<-3
+# Limit timing for forestsearch (Estimation and bootstrapping)
+max.minutes<-2.0
+
+nmin.fs<-60
+#stop.threshold<-0.60 # If any sg meets this, then choose this (stop here);
+m1.threshold<-Inf # Turning this off (Default)
+stop.threshold<-0.90
+
+#pconsistency.threshold<-0.70 # Minimum threshold (will choose max among subgroups satisfying)
+fs.splits<-400 # How many times to split for consistency
+# vi is % factor is selected in cross-validation --> higher more important
+vi.grf.min<-0.2
+# Null, turns off grf screening
+d.min<-10 # Min number of events for both arms (d0.min=d1.min=d.min)
+# default=5
+
+##########################
+# Virtual twins analysis
+##########################
+# Counter-factual difference (C-E) >= vt.threshold
+# Large values in favor of C (control)
+vt.threshold<-0.25  # For VT delta
+treat.threshold<-0.0
+maxdepth<-3
+n.min<-60
+ntree<-1000
+
+# GRF criteria
+dmin.grf<-12.0 # For GRF delta
+# Note: For CRT this represents dmin.grf/2 RMS for control (-dmin.grf/2 for treatment)
+frac.tau<-0.70
+
+get.FS<-TRUE
+get.VT<-TRUE
+get.GRF<-TRUE
+
+outcome.name<-c("y.sim")
+event.name<-c("event.sim")
+id.name<-c("id")
+treat.name<-c("treat")
+
+# NOTE: Need to revise all functions to allow for 
+# covariate adjusted Cox models; In estimation stage and bootstrapping
+
+cox.formula.sim<-as.formula(paste("Surv(y.sim,event.sim)~treat"))
+
+cox.formula.adj.sim<-as.formula(paste("Surv(y.sim,event.sim)~treat+v1+v2+v3+v4+v5"))
+
+label.analyses<-c("FS","GRF","VT(24)","VT#(24)","VT(36)","VT#(36)","GRF.70")
+
+cox.formula.boot<-cox.formula.sim
+cox2.formula.boot<-as.formula(paste("Surv(Y,Event)~Treat"))
+
+# m1 -censoring
+muC.adj<-log(1.5)
+# m0-censoring (original data)
+#muC.adj<-0.0
+split_method<-"Random"
+# m3a RCT probH=12.5% (pH_super)
+model.index<-"m4a"
+file.index<-"v0"
+mod.harm<-"alt"
+
+k.treat<-0.90
+k.z3<-1.0
+
+z1_frac<-0.25 # Default model index 'm1' (The 1st quartile of z1=er)
+pH_super<-0.125 # non-NULL re-defines z1_frac
+
+boots<-500
+
+N<-700
+Nsims<-49
+ss_start<-1
+
+hrH.target<-2.5
+
+out.loc<-c("results/N=700/fsb_S=1-50_B=500_")
+
+if(is.null(pH_super)){
+#pH_check<-with(gbsg,mean(pgr<=quantile(pgr,c(z3_frac),1,0) & er<=quantile(er,z1_frac)))
+pH_check<-with(gbsg,mean(meno==0 & er<=quantile(er,z1_frac)))
+cat("Underlying pH_super",c(pH_check),"\n")
+}
+# pH_super specified
+# If pH_super then override  z1_frac and find z1_frac to yield pH_super
+
+if(!is.null(pH_super)){
+  # Approximate Z1 quantile to yield pH proportion  
+  z1_q<-uniroot(propH.obj4,c(0.01,0.99),tol=0.0001,pH.target=pH_super)$root
+  #pH_check<-with(gbsg,mean(pgr<=quantile(pgr,c(z3_frac),1,0) & er<=quantile(er,z1_q)))
+  pH_check<-with(gbsg,mean(meno==0 & er<=quantile(er,z1_q)))
+  cat("pH",c(pH_check),"\n")
+  rel_error<-(pH_super-pH_check)/pH_super
+  if(abs(rel_error)>=0.1) stop("pH_super approximation relative error exceeds 10%")
+  z1_frac<-z1_q
+  cat("Underlying pH_super",c(pH_check),"\n")
+  }
+
+# Bootstrap on log(hr) scale converted to HR (est.loghr=TRUE & est.scale="hr")
+est.loghr<-TRUE
+est.scale<-"hr"
+
+this.dgm<-get.dgm4(mod.harm=mod.harm,N=N,k.treat=k.treat,model.index=model.index,
+hrH.target=hrH.target,cens.type=cens.type,out.loc=out.loc,file.index=file.index,details=TRUE,parms_torand=FALSE)
+
+dgm<-this.dgm$dgm
+output.file<-this.dgm$out.file
+confounders.name<-dgm$covs.analysis
+
+if(!is.null(output.file) & !grepl(mod.harm,output.file)) stop("Wrong file name for mod.harm")
+@
+
+<<echo=TRUE>>=
+t.start<-proc.time()[3]
+# 6 covariance approaches
+sim_answers1<-NULL
+sim_answers2<-NULL
+sim_answers3<-NULL
+sim_answers4<-NULL
+sim_answers5<-NULL
+sim_answers6<-NULL
+
+for(ss in ss_start:(ss_start+Nsims)){
+
+sim<-ss  
+x<-sim_aftm4_gbsg(dgm=dgm,n=N,maxFollow=maxFollow,muC.adj=muC.adj,simid=sim,drawtreat=TRUE)
+
+y<-try(forestsearch(df=x,confounders.name=confounders.name,
+                        df.predict=x,details=FALSE,
+                        outcome.name=outcome.name,treat.name=treat.name,event.name=event.name,id.name=id.name,
+                        n.min=nmin.fs,hr.threshold=hr.threshold,hr.consistency=hr.consistency,fs.splits=fs.splits,
+                        stop.threshold=stop.threshold,
+                        d0.min=d.min,d1.min=d.min,
+                        pconsistency.threshold=pconsistency.threshold,max.minutes=max.minutes,maxk=maxk,
+                        plot.sg=FALSE,vi.grf.min=vi.grf.min,split_method=split_method),TRUE)
+
+
+if(inherits(y,"try-error")){
+ans<-fsBoot.parallel.out(df=x,FSboots=NULL,cox.formula.boot=cox.formula.boot,est.loghr=est.loghr,sim_number=sim)
+}  
+      
+if(!inherits(y,"try-error")){ 
+    if(is.null(y$sg.harm)){
+    # No subgroup found, can still estimate H_true, ITT, etc.  
+    ans<-fsBoot.parallel.out(df=x,FSboots=NULL,cox.formula.boot=cox.formula.boot,est.loghr=est.loghr,sim_number=sim)
+    } # No subgroup found -- > estimate ITT
+ 
+  # Sg found 
+if(!is.null(y$sg.harm)){  
+NB<-boots
+fs.est<-y
+df_temp<-y$df.pred[,c("id","treat.recommend")]
+dfa<-merge(x,df_temp,by="id")
+df_boot_analysis<-dfa
+
+fitH<-get_Cox_sg(df_sg=subset(df_boot_analysis,treat.recommend==0),cox.formula=cox.formula.boot,est.loghr=est.loghr)
+H_obs<-fitH$est_obs
+seH_obs<-fitH$se_obs
+rm("fitH")
+# Hc observed estimates
+fitHc<-get_Cox_sg(df_sg=subset(df_boot_analysis,treat.recommend==1),cox.formula=cox.formula.boot,est.loghr=est.loghr)
+Hc_obs<-fitHc$est_obs
+seHc_obs<-fitHc$se_obs
+rm("fitHc")
+
+Ystar_mat<-bootYstar(
+  {  
+    ystar<-get_Ystar(boot)
+  },
+  boots=NB,
+  seed=8316951,
+  counter="boot",
+  export=fun_arg_list_boot
+)
+# Bootstraps
+resB<-try(bootPar(
+  {  
+    ans<-fsboot_forparallel(boot)
+  },
+  boots=NB,
+  seed=8316951,
+  counter="boot",
+  export=fun_arg_list_boot
+),TRUE)
+
+   if(inherits(resB,"try_error")){
+       # dfa exists but boots not estimable, fs.boots=NULL
+       ans<-fsBoot.parallel.out(df=df_boot_analysis,FSboots=NULL,cox.formula.boot=cox.formula.boot,est.loghr=est.loghr,sim_number=sim)
+       
+       sim_answers1<-rbind(sim_answers1,ans)
+       sim_answers2<-rbind(sim_answers2,ans)
+       sim_answers3<-rbind(sim_answers3,ans)
+       sim_answers4<-rbind(sim_answers4,ans)
+       sim_answers5<-rbind(sim_answers5,ans)
+       sim_answers6<-rbind(sim_answers6,ans)
+          }
+     
+    if(!inherits(resB,"try_error")){ # Boots completed
+
+      if(sum(!is.na(resB$H_biasadj_1))>=(0.5*NB)){
+      
+      H_estimates<-get_dfRes(Hobs=H_obs,seHobs=seH_obs,H1_adj=resB$H_biasadj_1,H2_adj=resB$H_biasadj_2,ystar=Ystar_mat,cov_method="standard",cov_trim=0.0)
+      Hc_estimates<-get_dfRes(Hobs=Hc_obs,seHobs=seHc_obs,H1_adj=resB$Hc_biasadj_1,H2_adj=resB$Hc_biasadj_2,ystar=Ystar_mat,cov_method="standard",cov_trim=0.0)
+      bootit<-list(H_estimates=H_estimates,Hc_estimates=Hc_estimates)
+      ans1<-fsBoot.parallel.out(df=df_boot_analysis,FSboots=bootit,cox.formula.boot=cox.formula.boot,est.loghr=est.loghr,sim_number=sim)
+     
+      H_estimates<-get_dfRes(Hobs=H_obs,seHobs=seH_obs,H1_adj=resB$H_biasadj_1,H2_adj=resB$H_biasadj_2,ystar=Ystar_mat,cov_method="standard",cov_trim=0.025)
+      Hc_estimates<-get_dfRes(Hobs=Hc_obs,seHobs=seHc_obs,H1_adj=resB$Hc_biasadj_1,H2_adj=resB$Hc_biasadj_2,ystar=Ystar_mat,cov_method="standard",cov_trim=0.025)
+      bootit<-list(H_estimates=H_estimates,Hc_estimates=Hc_estimates)
+      ans2<-fsBoot.parallel.out(df=df_boot_analysis,FSboots=bootit,cox.formula.boot=cox.formula.boot,est.loghr=est.loghr,sim_number=sim)
+      
+      H_estimates<-get_dfRes(Hobs=H_obs,seHobs=seH_obs,H1_adj=resB$H_biasadj_1,H2_adj=resB$H_biasadj_2,ystar=Ystar_mat,cov_method="standard",cov_trim=0.05)
+      Hc_estimates<-get_dfRes(Hobs=Hc_obs,seHobs=seHc_obs,H1_adj=resB$Hc_biasadj_1,H2_adj=resB$Hc_biasadj_2,ystar=Ystar_mat,cov_method="standard",cov_trim=0.05)
+      bootit<-list(H_estimates=H_estimates,Hc_estimates=Hc_estimates)
+      ans3<-fsBoot.parallel.out(df=df_boot_analysis,FSboots=bootit,cox.formula.boot=cox.formula.boot,est.loghr=est.loghr,sim_number=sim)
+     
+      H_estimates<-get_dfRes(Hobs=H_obs,seHobs=seH_obs,H1_adj=resB$H_biasadj_1,H2_adj=resB$H_biasadj_2,ystar=Ystar_mat,cov_method="nocorrect",cov_trim=0.0)
+      Hc_estimates<-get_dfRes(Hobs=Hc_obs,seHobs=seHc_obs,H1_adj=resB$Hc_biasadj_1,H2_adj=resB$Hc_biasadj_2,ystar=Ystar_mat,cov_method="nocorrect",cov_trim=0.0)
+      bootit<-list(H_estimates=H_estimates,Hc_estimates=Hc_estimates)
+      ans4<-fsBoot.parallel.out(df=df_boot_analysis,FSboots=bootit,cox.formula.boot=cox.formula.boot,est.loghr=est.loghr,sim_number=sim)
+     
+      H_estimates<-get_dfRes(Hobs=H_obs,seHobs=seH_obs,H1_adj=resB$H_biasadj_1,H2_adj=resB$H_biasadj_2,ystar=Ystar_mat,cov_method="nocorrect",cov_trim=0.025)
+      Hc_estimates<-get_dfRes(Hobs=Hc_obs,seHobs=seHc_obs,H1_adj=resB$Hc_biasadj_1,H2_adj=resB$Hc_biasadj_2,ystar=Ystar_mat,cov_method="nocorrect",cov_trim=0.025)
+      bootit<-list(H_estimates=H_estimates,Hc_estimates=Hc_estimates)
+      ans5<-fsBoot.parallel.out(df=df_boot_analysis,FSboots=bootit,cox.formula.boot=cox.formula.boot,est.loghr=est.loghr,sim_number=sim)
+     
+      H_estimates<-get_dfRes(Hobs=H_obs,seHobs=seH_obs,H1_adj=resB$H_biasadj_1,H2_adj=resB$H_biasadj_2,ystar=Ystar_mat,cov_method="nocorrect",cov_trim=0.05)
+      Hc_estimates<-get_dfRes(Hobs=Hc_obs,seHobs=seHc_obs,H1_adj=resB$Hc_biasadj_1,H2_adj=resB$Hc_biasadj_2,ystar=Ystar_mat,cov_method="nocorrect",cov_trim=0.05)
+      bootit<-list(H_estimates=H_estimates,Hc_estimates=Hc_estimates)
+      ans6<-fsBoot.parallel.out(df=df_boot_analysis,FSboots=bootit,cox.formula.boot=cox.formula.boot,est.loghr=est.loghr,sim_number=sim)
+    
+       sim_answers1<-rbind(sim_answers1,ans1)
+       sim_answers2<-rbind(sim_answers2,ans2)
+       sim_answers3<-rbind(sim_answers3,ans3)
+       sim_answers4<-rbind(sim_answers4,ans4)
+       sim_answers5<-rbind(sim_answers5,ans5)
+       sim_answers6<-rbind(sim_answers6,ans6)
+       
+      }
+      
+      if(sum(!is.na(resB$H_biasadj_1))<(0.5*NB)){
+       ans<-fsBoot.parallel.out(df=df_boot_analysis,FSboots=NULL,cox.formula.boot=cox.formula.boot,est.loghr=est.loghr,sim_number=sim)
+       sim_answers1<-rbind(sim_answers1,ans)
+       sim_answers2<-rbind(sim_answers2,ans)
+       sim_answers3<-rbind(sim_answers3,ans)
+       sim_answers4<-rbind(sim_answers4,ans)
+       sim_answers5<-rbind(sim_answers5,ans)
+       sim_answers6<-rbind(sim_answers6,ans)
+       
+         }  
+      
+      }
+} # Boots    
+}
+}
+
+t.now<-proc.time()[3]
+t.min<-(t.now-t.start)/60
+
+doParallel::stopImplicitCluster()
+
+@
+<<echo=TRUE>>=
+
+if(!is.null(output.file)){
+save(dgm,sim_answers1,sim_answers2,sim_answers3,sim_answers4,sim_answers5,sim_answers6,file=output.file)
+}
+
+t.done<-proc.time()[3]
+t.min<-(t.done-t.start)/60
+
+cat("Simulations,boots=",c(Nsims,boots),"\n")
+cat("Minutes and hours to finish",c(t.min,t.min/60),"\n")
+cat("Minutes and hours per 1000 to finish",(1000/Nsims)*c(t.min,t.min/60),"\n")
+cat("Machine=",c(Sys.info()[[4]]),"\n")
+cat("Number of cores=",c(detectCores(logical=FALSE)),"\n")
+
+res<-sim_answers3
+
+df_bc<-get_dfPlot(res=res,dgm=dgm)
+
+p1<-ggplot(df_bc, aes(x=target, y=bias, fill=est)) + 
+  geom_boxplot(outlier.shape = NA) +
+  coord_cartesian(ylim = quantile(df_bc$bias, c(0.01, 0.99),na.rm=TRUE))
+
+plot(p1)
+@
+
+<<echo=TRUE>>=
+
+psych::describe(res)
+
+df_var<-var_summary(res=sim_answers1)
+print(df_var)
+
+df_var<-var_summary(res=sim_answers2)
+print(df_var)
+
+df_var<-var_summary(res=sim_answers3)
+print(df_var)
+
+df_var<-var_summary(res=sim_answers4)
+print(df_var)
+
+df_var<-var_summary(res=sim_answers5)
+print(df_var)
+
+df_var<-var_summary(res=sim_answers6)
+print(df_var)
+
+@
+
+
+
+\end{document}
+

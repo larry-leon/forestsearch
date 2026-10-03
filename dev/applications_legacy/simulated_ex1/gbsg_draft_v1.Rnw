@@ -1,0 +1,379 @@
+
+\Sexpr{set_parent("../../paper/draft1/forest_search_draft_3.Rnw")}
+
+<<echo=FALSE>>=
+opts_chunk$set (warning = FALSE, message = FALSE, tidy=TRUE, echo=FALSE)
+options(warn = -1)
+
+rm(list=ls())
+
+library(survival)
+library(knitr)
+library(kableExtra)
+
+library(ggplot2)
+
+# Following loaded in "forest_search_v0.R"
+suppressMessages(library(randomForest))
+library(SPlit)
+library(grf)
+library(policytree)
+library(DiagrammeR)
+
+library(data.table)
+library(plyr)
+
+library(aVirtualTwins)
+library(formatR)
+suppressMessages(library(gridExtra))
+
+# Forestsearch functions
+source("../../R/source_forestsearch_v0.R")
+source_fs_functions()
+@
+
+<<echo=FALSE,eval=FALSE>>=
+
+df.analysis<-gbsg
+df.analysis<-within(df.analysis,{
+id<-as.numeric(c(1:nrow(df.analysis)))  
+# time to months
+time_months<-rfstime/30.4375
+# ER
+# Cut at 0 and 103 per GRF
+# Also cut at median
+z1a<-ifelse(er<=0,1,0)
+z1b<-ifelse(er<=103,1,0)
+z1c<-ifelse(er<=quantile(er,c(0.5)),1,0)
+# PGR
+# Cut at 8 and 74 per GRF
+# Also cut at median
+z2a<-ifelse(pgr<=8,1,0)
+z2b<-ifelse(pgr<=74,1,0)
+# PGR at mean=110
+z2c<-ifelse(pgr<=110,1,0)
+# PGR and 3rd quart=132
+z2d<-ifelse(pgr<=132,1,0)
+# Age
+z3a<-ifelse(age<=50,1,0) # Close to median=53
+z3b<-ifelse(age<=33,1,0)
+z3c<-ifelse(age<=43,1,0)
+
+z4<-ifelse(meno==0,1,0)
+# For nodes and size, cut at medians
+z5<-ifelse(nodes<=quantile(nodes,c(0.50)),1,0)
+z6<-ifelse(size<=quantile(size,c(0.50)),1,0)
+
+v1a<-as.factor(z1a)
+v1b<-as.factor(z1b)
+v1c<-as.factor(z1c)
+
+v2a<-as.factor(z2a)
+v2b<-as.factor(z2b)
+v2c<-as.factor(z2c)
+v2d<-as.factor(z2d)
+
+v3a<-as.factor(z3a)
+v3b<-as.factor(z3b)
+v3c<-as.factor(z3c)
+
+v4<-as.factor(z4)
+v5<-as.factor(z5)
+v6<-as.factor(z6)
+
+# Grade 1 vs 2/3
+# Grade 3 vs 1/2
+# Grade 2 vs 1/3 may not make sense?
+v7a<-as.factor(ifelse(grade==1,1,0))
+v7b<-as.factor(ifelse(grade==3,1,0))
+})
+
+confounders.name<-c("v1a","v1b","v1c",
+"v2a","v2b","v2c","v2d",
+"v3a","v3b","v3c",
+"v4","v6","v7a","v7b")
+
+outcome.name<-c("time_months")
+event.name<-c("status")
+id.name<-c("id")
+treat.name<-c("hormon")
+
+df.confounders<-df.analysis[,confounders.name]
+df.confounders<-dummy(df.confounders)
+
+hr.threshold<-1.5   # Initital candidates 
+hr.consistency<-1.25 # Candidates for many splits
+pconsistency.threshold<-0.90
+maxk<-4
+# Limit timing for forestsearch
+max.minutes<-60.0
+nmin.fs<-60
+#stop.threshold<-0.60 # If any sg meets this, then choose this (stop here);
+m1.threshold<-Inf # Turning this off (Default)
+
+stop.threshold<-1.0
+# =1 will run through all sg's meeting HR criteria
+
+#pconsistency.threshold<-0.70 # Minimum threshold (will choose max among subgroups satisfying)
+fs.splits<-1000 # How many times to split for consistency
+# vi is % factor is selected in cross-validation --> higher more important
+vi.grf.min<-0.4
+# Null, turns off grf screening
+
+d.min<-10 # Min number of events for both arms (d0.min=d1.min=d.min)
+# default=5
+
+fs.est<-forestsearch(df=df.analysis,confounders.name=confounders.name,df.predict=df.analysis,details=TRUE,
+outcome.name=outcome.name,treat.name=treat.name,event.name=event.name,id.name=id.name,
+n.min=nmin.fs,hr.threshold=hr.threshold,hr.consistency=hr.consistency,
+fs.splits=fs.splits,
+stop.threshold=stop.threshold,d0.min=d.min,d1.min=d.min,
+pconsistency.threshold=pconsistency.threshold,max.minutes=max.minutes,maxk=maxk,plot.sg=TRUE,vi.grf.min=vi.grf.min)
+
+fs_gbsg_v0<-fs.est
+
+save(fs_gbsg_v0,file="../gbsg/output/fs_gbsg_v0.Rdata")
+
+library(doParallel)
+registerDoParallel(parallel::detectCores(logical = FALSE))
+
+cox.formula.boot<-as.formula(paste("Surv(time_months,status)~hormon"))
+split_method<-"Random"
+stop.threshold<-0.90
+fs.splits<-400 
+
+max.minutes<-6.0
+vi.grf.min<-0.4
+
+NB<-2000
+
+est.loghr<-TRUE
+est.scale<-"hr"
+
+df_temp<-fs.est$df.pred[,c("id","treat.recommend")]
+dfa<-merge(df.analysis,df_temp,by="id")
+df_boot_analysis<-dfa
+
+fitH<-get_Cox_sg(df_sg=subset(df_boot_analysis,treat.recommend==0),cox.formula=cox.formula.boot,est.loghr=est.loghr)
+H_obs<-fitH$est_obs
+seH_obs<-fitH$se_obs
+# Hc observed estimates
+fitHc<-get_Cox_sg(df_sg=subset(df_boot_analysis,treat.recommend==1),cox.formula=cox.formula.boot,est.loghr=est.loghr)
+Hc_obs<-fitHc$est_obs
+seHc_obs<-fitHc$se_obs
+rm("fitH","fitHc")
+
+Ystar_mat<-bootYstar(
+{  
+ystar<-get_Ystar(boot)
+},
+boots=NB,
+seed=8316951,
+counter="boot",
+export=fun_arg_list_boot
+)
+# Check dimension
+if(dim(Ystar_mat)[1]!=NB | dim(Ystar_mat)[2]!=nrow(df_boot_analysis)) stop("Dimension of Ystar_mat does not match")
+
+tB.start<-proc.time()[3]
+# Bootstraps
+resB<-bootPar(
+{  
+ans<-fsboot_forparallel(boot)
+},
+boots=NB,
+seed=8316951,
+counter="boot",
+export=fun_arg_list_boot
+)
+tB.now<-proc.time()[3]
+tB.min<-(tB.now-tB.start)/60
+
+cat("Minutes for Boots",c(NB,tB.min),"\n")
+cat("Projection per 100",c(tB.min*(100/NB)),"\n")
+cat("Propn bootstrap subgroups found =",c(sum(!is.na(resB$H_biasadj_1))/NB),"\n")
+# How many timmed out 
+cat("Number timmed out=",c(sum(is.na(resB$H_biasadj_1) & resB$tmins_search>max.minutes)),"\n")
+
+doParallel::stopImplicitCluster()
+
+H_estimates<-get_dfRes(Hobs=H_obs,seHobs=seH_obs,H1_adj=resB$H_biasadj_1,H2_adj=resB$H_biasadj_2,ystar=Ystar_mat,cov_method="standard",cov_trim=0.05)
+Hc_estimates<-get_dfRes(Hobs=Hc_obs,seHobs=seHc_obs,H1_adj=resB$Hc_biasadj_1,H2_adj=resB$Hc_biasadj_2,ystar=Ystar_mat,,cov_method="standard",cov_trim=0.05)
+
+save(fs.est,Ystar_mat,resB,H_estimates,Hc_estimates,df_boot_analysis,file="../gbsg/output/fsBoot_gbsg_v0.Rdata")
+@
+
+
+
+<<echo=FALSE,eval=FALSE>>=
+#pgr.cut<-with(df.analysis,quantile(pgr,0.25))
+#er.cut<-with(df.analysis,quantile(er,0.25))
+#nodes.cut<-with(df.analysis,median(nodes))
+
+#df0.fs<-subset(df.analysis, pgr<=7 & er<=8 & nodes>3)
+#df1.fs<-subset(df.analysis, pgr>7 | er>8 | nodes<=3)
+
+grp.consistency<-fs.est$grp.consistency  
+sg.harm.fs<-grp.consistency$sg.harm
+
+df0.fs<-subset(fs.est$df.pred,treat.recommend==0)
+df1.fs<-subset(fs.est$df.pred,treat.recommend==1)
+
+df0.grf<-subset(df.analysis, er<=0)
+df1.grf<-subset(df.analysis, er>0)
+
+# Loh et al.
+#df0.loh<-subset(df.analysis, pgr<=21)
+#df1.loh<-subset(df.analysis, pgr>21)
+
+# NOTE:  Extend support to be the same --> 84 months!!!
+layout(matrix(c(1,2,3,4), 2, 2, byrow = TRUE))
+plot.subgroup(sub1=df0.fs,sub1C=df1.fs,tte.name="time_months",event.name="status",treat.name="hormon",fix.rows=FALSE,byrisk=6,show.med=FALSE)
+plot.subgroup(sub1=df0.grf,sub1C=df1.grf,tte.name="time_months",event.name="status",treat.name="hormon",fix.rows=FALSE,byrisk=6,show.med=FALSE)
+
+#plot.subgroup(sub1=df0.loh,sub1C=df1.loh,tte.name="time_months",event.name="status",treat.name="hormon",fix.rows=FALSE,byrisk=6,show.med=FALSE)
+
+# Overlap in treatment recommend?
+id1.fs<-df1.fs$pid
+id1.grf<-df1.grf$pid
+id.common<-intersect(id1.fs,id1.grf)
+print(length(id.common))
+id.common<-intersect(id1.grf,id1.fs)
+print(length(id.common))
+
+length(id.common)/dim(df1.fs)[1]
+# Use this metric as grf is smaller
+length(id.common)/dim(df1.grf)[1]
+@
+
+
+
+\section{Real data applications}
+
+We apply the methods to the analysis of two clinical trial datasets. 
+
+\subsection{Breast cancer data}
+
+
+<<echo=FALSE>>=
+#plot(grf.est$tree)
+# er <=0
+#plot(grf.est$tree2)
+# Splits on Age<=50 --> Age<=43, er<=-0 
+#plot(grf.est$tree3)
+# Splits points: Age at 48, 33, 43
+# Pgr at 8, 74
+# Er at <=103 and 0
+#df0.grf<-subset(grf.est$data,treat.recommend==0)
+#df1.grf<-subset(grf.est$data,treat.recommend==1)
+
+# Recommend control: pgr<=8 & age>30
+#check0<-subset(df.analysis, er<=0)
+#print(dim(check0))
+#check1<-subset(df.analysis, er>0)
+#print(dim(check))
+
+# depth=3
+#check0<-subset(df.analysis, age<=48 & pgr<=8 & age>33)
+# no
+#check0<-subset(df.analysis, age<=48 & pgr>8 & age>43)
+#print(dim(check0))
+# Examining Tree3, the next sg in favor of control
+# Split: Age<=48, Pgr>8, Age>43
+
+# Second candidate
+# Not quite 6-month improvement --- 5.8 improvement
+#df0.grfB<-subset(df.analysis, age<=48 & pgr>8 & age>43)
+#df1.grfB<-subset(grf.est$data, age>48 | pgr<=8 | age<=43)
+
+load("output/grf_analysis.Rdata")
+
+df0.grf<-subset(grf.est$data,treat.recommend==0)
+df1.grf<-subset(grf.est$data,treat.recommend==1)
+
+df0.grfB<-subset(df.analysis, age<=48 & pgr>8 & age>43)
+df1.grfB<-subset(grf.est$data, age>48 | pgr<=8 | age<=43)
+
+
+layout(matrix(c(1,2,3,4), 2, 2, byrow = TRUE))
+plot.subgroup(sub1=df0.grf,sub1C=df1.grf,tte.name="time_months",event.name="status",treat.name="hormon",fix.rows=FALSE,byrisk=6,show.med=FALSE)
+plot.subgroup(sub1=df0.grfB,sub1C=df1.grfB,tte.name="time_months",event.name="status",treat.name="hormon",fix.rows=FALSE,byrisk=6,show.med=FALSE)
+
+#plot.subgroup(sub1=check0,sub1C=check1,tte.name="time_months",event.name="status",treat.name="hormon",fix.rows=FALSE,byrisk=6,show.med=FALSE)
+#plot.subgroup(sub1=df0.loh,sub1C=df1.loh,tte.name="time_months",event.name="status",treat.name="hormon",fix.rows=FALSE,byrisk=6,show.med=FALSE)
+
+@
+
+<<echo=FALSE>>=
+#covs.most
+#fs_gbsg_round1
+
+load("output/fs_gbsg_v0.Rdata")
+
+save(fs_gbsg_v0,file="../gbsg/output/fs_gbsg_v0.Rdata")
+
+fs_est<-fs_gbsg_round1
+
+grp_est<-fs_est$grp.consistency$result
+tot_fit<-fs_est$find.grps$out.found$ngroups.fit
+hr_grps<-fs_est$find.grps$out.found$hr.subgroups
+tot_grps<-dim(hr_grps)[1]
+# merge tot_grps with grp_est1 to get stats with consistency
+# Use m.index to quickly merge
+temp1<-grp_est[,-c(2,3,4)]
+temp<-hr_grps[as.numeric(grp_est$m.index),]
+temp2<-temp[,c("K","n","E","d1","m1","m0","HR")]
+df_hr<-cbind(temp1,temp2)
+num_confounders<-length(fs_est$confounders.evaluated)
+tab_hr1<-kable(df_hr,digits=3)
+@
+
+Number of factors $=\Sexpr{num_confounders}$
+\Sexpr{tab_hr1}
+
+<<echo=FALSE>>=
+#covs.most
+#fs_gbsg_round2
+
+load("output/fs_gbsg_round2_d=10.Rdata")
+
+fs_est<-fs_gbsg_round2
+
+grp_est<-fs_est$grp.consistency$result
+tot_fit<-fs_est$find.grps$out.found$ngroups.fit
+hr_grps<-fs_est$find.grps$out.found$hr.subgroups
+tot_grps<-dim(hr_grps)[1]
+# merge tot_grps with grp_est1 to get stats with consistency
+# Use m.index to quickly merge
+temp1<-grp_est[,-c(2,3,4)]
+temp<-hr_grps[as.numeric(grp_est$m.index),]
+temp2<-temp[,c("K","n","E","d1","m1","m0","HR")]
+df_hr<-cbind(temp1,temp2)
+num_confounders<-length(fs_est$confounders.evaluated)
+tab_hr2<-kable(df_hr,digits=3)
+@
+Number of factors $=\Sexpr{num_confounders}$
+
+\Sexpr{tab_hr2}
+
+% Compare with GRF
+<<echo=FALSE>>=
+load("output/grf_analysis.Rdata")
+
+# er <=0
+df0.grf<-subset(grf.est$data,treat.recommend==0)
+df1.grf<-subset(grf.est$data,treat.recommend==1)
+#check0<-subset(df.analysis,er<=0)
+
+df0.fs<-subset(fs_est$df.pred,treat.recommend==0)
+df1.fs<-subset(fs_est$df.pred,treat.recommend==1)
+#check0<-subset(df.analysis,pgr<=110 & age>43 & age<=50)
+
+# sg
+# "v3a.1" "v3c.0" "v2c.1"
+
+layout(matrix(c(1,2,3,4), 2, 2, byrow = TRUE))
+plot.subgroup(sub1=df0.grf,sub1C=df1.grf,tte.name="time_months",event.name="status",treat.name="hormon",fix.rows=FALSE,byrisk=6,show.med=FALSE,subid="Estrogen=0")
+plot.subgroup(sub1=df0.fs,sub1C=df1.fs,tte.name="time_months",event.name="status",treat.name="hormon",fix.rows=FALSE,byrisk=6,show.med=FALSE,subid="Progesterone <=110 and 43< Age <=50")
+
+@

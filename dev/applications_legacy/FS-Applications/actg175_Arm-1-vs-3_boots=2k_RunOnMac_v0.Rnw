@@ -1,0 +1,308 @@
+\Sexpr{set_parent("../../forestSearch_SIM-working_v1.Rnw")}
+
+
+<<echo=FALSE>>=
+opts_chunk$set (warning = FALSE, message = FALSE, tidy=TRUE, echo=FALSE, dev = 'pdf')
+options(warn=-1)
+@
+
+
+
+<<echo=TRUE>>=
+
+rm(list=ls())
+
+# Local github (on Linux)
+#codepath<-c("/media/larryleon/My Projects/GitHub/Forest-Search/R/")
+# On MAC
+# Mac Studio: M1 Ultra 2022, 64GB, 
+# 20 cores (16 performance, 4 efficiency)
+
+# Revise paths as needed (Originally run in private directory)
+# This file will be placed in public github forestSearch
+
+codepath <- c("/Users/larryleon/Documents/GitHub/Forest-Search/R/")
+
+source(paste0(codepath,"source_forestsearch_v0.R"))
+source_fs_functions(file_loc=codepath)
+
+library(kableExtra)
+library(knitr)
+library(ggplot2)
+library(gridExtra)
+library(cubature)
+#library(aVirtualTwins)
+library(randomForest)
+library(survival)
+library(survminer)
+library(grf)
+library(policytree)
+library(data.table)
+library(plyr)
+library(dplyr)
+library(glmnet)
+library(corrplot)
+
+library(table1)
+library(cli) # for colors in cat
+
+library(speff2trial)
+@
+
+
+<<echo=TRUE>>=
+t.start.all<-proc.time()[3]
+df.analysis<-subset(ACTG175,arms %in% c(1,3))
+
+# Here we are "reversing the roles of treatment"
+# looking for large benefit by looking for harm with treatment reversed
+
+df.analysis<-within(df.analysis,{
+id<-as.numeric(c(1:nrow(df.analysis)))  
+time_months<-days/30.4375
+treat<-ifelse(arms==3,1,0)
+# arm1 for 1 vs 3 
+arm1 <- ifelse(arms==1,1,0)
+})
+
+#plot(survfit(Surv(time_months,cens)~treat,data=df.analysis))
+#coxph(Surv(time_months,cens)~ arm1, data=df.analysis)
+
+survfit(Surv(time_months,cens)~ treat, data=df.analysis)
+
+coxph(Surv(time_months,cens)~ treat, data=df.analysis)
+
+confounders.name<-c("age","wtkg","karnof","cd40","cd80","hemo","homo","drugs","race","gender","oprior","zprior","symptom","preanti","str2","z30")
+
+outcome.name<-c("time_months")
+event.name<-c("cens")
+id.name<-c("id")
+treat.name<-c("treat")
+
+kmfit <- survfit(Surv(time_months,cens)~arm1,data=df.analysis)
+
+ggsurvplot(kmfit, data=df.analysis, main="K-M curves for simulated data",
+legend="top", legend.title="Treatment",
+legend.labs=c("Control","Experimental"),
+palette="grey", risk.table=TRUE, risk.table.col="strata")
+
+# Calculate RMST
+itt_tab<-SGtab(df=df.analysis,SG_flag="ITT",outcome.name=outcome.name,event.name=event.name,treat.name=treat.name,draws=1000)
+
+par(mfrow=c(1,2))
+plot_twosample(df=df.analysis,tte.name=outcome.name,treat.name=treat.name,event.name=event.name,
+col.treat="blue",col.control="darkgrey",               
+ylab="Survival Probability", xlab="Months", show.Y.axis=TRUE,               
+byrisk=6,show.med=FALSE,legend.cex=0.5,risk.cex=0.5,censor.cex=0.7,cox.cex=0.55,cex_Yaxis=0.65)
+
+plotband_survdiff(res=itt_tab$rmst_fit)
+
+print(itt_tab$res_out)
+
+cat("RMSTs for individual arms (m1,m0)",c(itt_tab$rmst_fit$m1L,itt_tab$rmst_fit$m0L),"\n")
+
+Zm <- cor(as.matrix(df.analysis[,c(confounders.name)]))
+corrplot(Zm)
+
+suppressWarnings(table1 (~ age + wtkg + karnof + cd40 + cd80 + hemo + homo + drugs + race + gender + oprior + symptom | treat, data=df.analysis))
+
+# Searching for large positive effects
+# Treatment roles reversed
+
+hr.threshold<-1/0.6   # Initital candidates 
+hr.consistency<-1.25  # Candidates for many splits
+pconsistency.threshold <- 0.9
+stop.threshold <- 0.95
+
+maxk<-2
+
+nmin.fs<-60
+
+pstop_futile<-0.7
+
+# Limit timing for forestsearch
+max.minutes<-3.0
+m1.threshold<-Inf # Turning this off (Default)
+#pconsistency.threshold<-0.70 # Minimum threshold (will choose max among subgroups satisfying)
+
+fs.splits<-400  # How many times to split for consistency
+
+# vi is % factor is selected in cross-validation --> higher more important
+#vi.grf.min <- (-1)*0.2
+# Use default which is -0.2 so that factors are NOT excluded via VI
+# Null, turns off grf screening
+
+d.min<-10 # Min number of events for both arms (d0.min=d1.min=d.min)
+# default=5
+
+use_lasso <- TRUE
+use_grf <- TRUE
+use_grf_only <- FALSE
+
+# Now run with stop.threshold
+fs.est <- forestsearch(df.analysis=df.analysis, Allconfounders.name=confounders.name,
+details=TRUE,use_lasso=use_lasso, use_grf=use_grf, use_grf_only=use_grf_only,
+conf_force = c("karnof <= mean(karnof)","age <= median(age)"),
+dmin.grf=4, frac.tau=0.80,
+maxk=maxk,
+max_n_confounders=11,
+sg_focus="Nsg_only",
+stop.threshold=stop.threshold,
+grf_depth=2,
+outcome.name=outcome.name,treat.name=treat.name,
+event.name=event.name,id.name=id.name,n.min=nmin.fs,
+hr.threshold=hr.threshold,hr.consistency=hr.consistency,
+fs.splits=fs.splits,
+d0.min=d.min,d1.min=d.min,
+pstop_futile=pstop_futile,
+pconsistency.threshold=pconsistency.threshold, 
+max.minutes=max.minutes,by.risk=4,
+plot.sg=TRUE)
+
+@
+
+<<r Bootstrap, echo=TRUE>>=
+
+file_out <- NULL
+#file_out <- c("output/actg_1-vs-3_results_Boots=2k_v0B.Rdata")
+
+library(doParallel)
+registerDoParallel(parallel::detectCores(logical = FALSE))
+
+cox.formula.boot <- as.formula(paste("Surv(time_months,cens)~treat"))
+max.minutes<-6.0
+
+# Suggest running 20, first ... to get timing estimate
+
+NB <- 2000
+
+df_boot_analysis <- fs.est$df.est
+
+fitH<-get_Cox_sg(df_sg=subset(df_boot_analysis,treat.recommend==0),cox.formula=cox.formula.boot)
+
+H_obs<-fitH$est_obs # log(hr) scale
+seH_obs<-fitH$se_obs
+# Hc observed estimates
+fitHc<-get_Cox_sg(df_sg=subset(df_boot_analysis,treat.recommend==1),cox.formula=cox.formula.boot)
+Hc_obs<-fitHc$est_obs
+seHc_obs<-fitHc$se_obs
+rm("fitH","fitHc")
+
+Ystar_mat<-bootYstar(
+{  
+ystar<-get_Ystar(boot)
+},
+boots=NB,
+seed=8316951,
+counter="boot",
+export=fun_arg_list_boot
+)
+# Check dimension
+if(dim(Ystar_mat)[1]!=NB | dim(Ystar_mat)[2]!=nrow(df_boot_analysis)) stop("Dimension of Ystar_mat does not match")
+
+# Check 1st bootstrap
+ansB <- NULL
+for(bb in 1:1){  
+boot <- bb  
+ans <- fsboot_forparallel(boot)
+cat_line("***Bootstrap done, B***=",c(boot),col="blue")
+print(ans)
+ansB <- rbind(ansB,c(bb,ans))
+}
+print(ansB)
+
+tB.start<-proc.time()[3]
+# Bootstraps
+resB<-bootPar(
+{  
+ans <- fsboot_forparallel(boot)
+},
+boots=NB,
+seed=8316951,
+counter="boot",
+export=fun_arg_list_boot
+)
+tB.now<-proc.time()[3]
+tB.min<-(tB.now-tB.start)/60
+
+doParallel::stopImplicitCluster()
+
+cat("Minutes for Boots",c(NB,tB.min),"\n")
+cat("Projection per 1000",c(tB.min*(1000/NB)),"\n")
+
+cat("Propn bootstrap subgroups found =",c(sum(!is.na(resB$H_biasadj_1))/NB),"\n")
+
+# How many timmed out 
+cat("Number timmed out=",c(sum(is.na(resB$H_biasadj_1) & resB$tmins_search>max.minutes)),"\n")
+
+H_estimates<-get_dfRes(Hobs=H_obs,seHobs=seH_obs,H1_adj=resB$H_biasadj_1,H2_adj=resB$H_biasadj_2,
+                       ystar=Ystar_mat,cov_method="standard",cov_trim=0.0,est.scale="1/hr")
+Hc_estimates<-get_dfRes(Hobs=Hc_obs,seHobs=seHc_obs,H1_adj=resB$Hc_biasadj_1,H2_adj=resB$Hc_biasadj_2,
+                        ystar=Ystar_mat,cov_method="standard",cov_trim=0.0, est.scale="1/hr")
+
+print(H_estimates)
+print(Hc_estimates)
+
+bootit<-list(H_estimates=H_estimates,Hc_estimates=Hc_estimates)
+
+tall.min<-(tB.now-t.start.all)/60
+
+cat("Overall minutes for analysis",c(tall.min),"\n")
+
+if(!is.null(file_out)) save(df.analysis, fs.est, bootit, tall.min, resB, cox.formula.boot, file=file_out)
+@
+
+
+<<r Summary, echo=FALSE>>=
+resH <- H_estimates[,c("H0","H0_lower","H0_upper")]
+# Describing CIs
+Hstat<-c(unlist(resH[1,]))[c(1,2,3)]
+Hstat<-round(Hstat,2)
+a<-paste0(Hstat[1]," (95% CI=")
+a<-paste0(a,Hstat[2])
+a<-paste0(a,",")
+a<-paste0(a,Hstat[3])
+H_res1<-paste0(a,")")
+
+resH <- H_estimates[,c("H2","H2_lower","H2_upper")]
+# Describing CIs
+Hstat<-c(unlist(resH[1,]))[c(1,2,3)]
+Hstat<-round(Hstat,2)
+a<-paste0(Hstat[1]," (95% CI=")
+a<-paste0(a,Hstat[2])
+a<-paste0(a,",")
+a<-paste0(a,Hstat[3])
+H_res2<-paste0(a,")")
+
+# Hc
+
+resH <- Hc_estimates[,c("H0","H0_lower","H0_upper")]
+# Describing CIs
+Hstat<-c(unlist(resH[1,]))[c(1,2,3)]
+Hstat<-round(Hstat,2)
+a<-paste0(Hstat[1]," (95% CI=")
+a<-paste0(a,Hstat[2])
+a<-paste0(a,",")
+a<-paste0(a,Hstat[3])
+Hc_res1<-paste0(a,")")
+
+
+resH <- Hc_estimates[,c("H2","H2_lower","H2_upper")]
+# Describing CIs
+Hstat<-c(unlist(resH[1,]))[c(1,2,3)]
+Hstat<-round(Hstat,2)
+a<-paste0(Hstat[1]," (95% CI=")
+a<-paste0(a,Hstat[2])
+a<-paste0(a,",")
+a<-paste0(a,Hstat[3])
+Hc_res2<-paste0(a,")")
+
+cat_line("H un-adjusted estimates-----:   ",c(H_res1), col="blue")
+cat_line("H bias-corrected estimates--:   ",c(H_res2), col="blue")
+cat_line("H^c un-adjusted estimates---:   ",c(Hc_res1), col="red")
+cat_line("H^c bias-corrected estimates:   ",c(Hc_res2), col="red")
+
+@
+
+
+

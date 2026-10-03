@@ -1,0 +1,723 @@
+\documentclass[smallextended]{svjour3}
+\usepackage[]{graphicx}\usepackage[]{xcolor}
+% maxwidth is the original width if it is less than linewidth
+% otherwise use linewidth (to make sure the graphics do not exceed the margin)
+\makeatletter
+\def\maxwidth{ %
+  \ifdim\Gin@nat@width>\linewidth
+    \linewidth
+  \else
+    \Gin@nat@width
+  \fi
+}
+\makeatother
+
+\definecolor{fgcolor}{rgb}{0.345, 0.345, 0.345}
+\newcommand{\hlnum}[1]{\textcolor[rgb]{0.686,0.059,0.569}{#1}}%
+\newcommand{\hlstr}[1]{\textcolor[rgb]{0.192,0.494,0.8}{#1}}%
+\newcommand{\hlcom}[1]{\textcolor[rgb]{0.678,0.584,0.686}{\textit{#1}}}%
+\newcommand{\hlopt}[1]{\textcolor[rgb]{0,0,0}{#1}}%
+\newcommand{\hlstd}[1]{\textcolor[rgb]{0.345,0.345,0.345}{#1}}%
+\newcommand{\hlkwa}[1]{\textcolor[rgb]{0.161,0.373,0.58}{\textbf{#1}}}%
+\newcommand{\hlkwb}[1]{\textcolor[rgb]{0.69,0.353,0.396}{#1}}%
+\newcommand{\hlkwc}[1]{\textcolor[rgb]{0.333,0.667,0.333}{#1}}%
+\newcommand{\hlkwd}[1]{\textcolor[rgb]{0.737,0.353,0.396}{\textbf{#1}}}%
+\let\hlipl\hlkwb
+
+\usepackage{framed}
+\makeatletter
+\newenvironment{kframe}{%
+ \def\at@end@of@kframe{}%
+ \ifinner\ifhmode%
+  \def\at@end@of@kframe{\end{minipage}}%
+  \begin{minipage}{\columnwidth}%
+ \fi\fi%
+ \def\FrameCommand##1{\hskip\@totalleftmargin \hskip-\fboxsep
+ \colorbox{shadecolor}{##1}\hskip-\fboxsep
+     % There is no \\@totalrightmargin, so:
+     \hskip-\linewidth \hskip-\@totalleftmargin \hskip\columnwidth}%
+ \MakeFramed {\advance\hsize-\width
+   \@totalleftmargin\z@ \linewidth\hsize
+   \@setminipage}}%
+ {\par\unskip\endMakeFramed%
+ \at@end@of@kframe}
+\makeatother
+
+\definecolor{shadecolor}{rgb}{.97, .97, .97}
+\definecolor{messagecolor}{rgb}{0, 0, 0}
+\definecolor{warningcolor}{rgb}{1, 0, 1}
+\definecolor{errorcolor}{rgb}{1, 0, 0}
+\newenvironment{knitrout}{}{} % an empty environment to be redefined in TeX
+
+\usepackage{alltt}
+\newcommand{\SweaveOpts}[1]{}  % do not interfere with LaTeX
+\newcommand{\SweaveInput}[1]{} % because they are not real TeX commands
+\newcommand{\Sexpr}[1]{}       % will only be parsed by R
+
+    
+\smartqed  % flush right qed marks, e.g. at end of proof
+
+\usepackage[colorlinks=true,linkcolor={blue},citecolor={blue},urlcolor={blue}]{hyperref}
+%\usepackage{caption}
+% Add longtable and ctable packages
+\usepackage{longtable,ctable}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{multirow}
+%\usepackage{amsthm}
+\usepackage{graphicx}
+
+\usepackage{booktabs}
+%\usepackage{bookmark}
+
+%\usepackage{caption}
+%\usepackage{capt-of}
+
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{mathptmx}
+\usepackage{natbib}
+
+\usepackage{setspace}
+
+%\usepackage{tikz-feynman}
+%\usepackage{tikz} 
+%\usetikzlibrary{positioning}
+\usepackage[utf8]{inputenc}
+\usepackage{pgf}
+
+
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumerate}
+
+\usepackage{threeparttable}
+
+\raggedbottom
+
+\newcommand{\R}{R}
+\newcommand{\gbsg}{gbsg}
+
+%\def\FsNg{\hbox{FS}(M_{g})}
+
+\def\FsNg{\hbox{FS-M}}
+
+\def\hhat{\hat\theta(\hat{H})}
+\def\hchat{\hat\theta(\hat{H}^{c})}
+\def\hknow{\hat\theta(H)}
+\def\hcknow{\hat\theta(H^{c})}
+\def\hplim{\theta^{\dagger}(H)}
+\def\hcplim{\theta^{\dagger}(H^{c})}
+
+\def\sumin{\sum_{i=1}^n}
+\def\nsumin{n^{-1}\sum_{i=1}^n}
+
+\def\ns{n_{0}+n_{1}}
+\def\na{n_{0}}
+\def\nb{n_{1}}
+
+\newcommand{\indep}{\perp \!\!\! \perp}
+
+\textheight=9.25in \textwidth=6.0in 
+\topmargin=0in
+\evensidemargin=0in \oddsidemargin=0in
+
+
+
+\begin{document}
+
+
+
+
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{rm}\hlstd{(}\hlkwc{list} \hlstd{=} \hlkwd{ls}\hlstd{())}
+
+\hlcom{# Local github}
+\hlstd{codepath} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"/media/larryleon/My Projects/GitHub/Forest-Search/R/"}\hlstd{)}
+\hlkwd{source}\hlstd{(}\hlkwd{paste0}\hlstd{(codepath,} \hlstr{"source_forestsearch_v0.R"}\hlstd{))}
+\hlkwd{source_fs_functions}\hlstd{(}\hlkwc{file_loc} \hlstd{= codepath)}
+
+\hlkwd{library}\hlstd{(kableExtra)}
+\hlkwd{library}\hlstd{(knitr)}
+\hlkwd{library}\hlstd{(ggplot2)}
+\hlkwd{library}\hlstd{(gridExtra)}
+\hlkwd{library}\hlstd{(cubature)}
+\hlkwd{library}\hlstd{(aVirtualTwins)}
+\hlkwd{library}\hlstd{(randomForest)}
+\hlkwd{library}\hlstd{(survival)}
+\hlkwd{library}\hlstd{(survminer)}
+\hlkwd{library}\hlstd{(grf)}
+\hlkwd{library}\hlstd{(policytree)}
+\hlkwd{library}\hlstd{(data.table)}
+\hlkwd{library}\hlstd{(plyr)}
+\hlkwd{library}\hlstd{(dplyr)}
+\hlkwd{library}\hlstd{(glmnet)}
+\hlkwd{library}\hlstd{(corrplot)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+
+
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{maxFollow} \hlkwb{<-} \hlnum{84}
+\hlstd{cens.type} \hlkwb{<-} \hlstr{"weibull"}
+
+\hlcom{# m1 -censoring adjustment}
+\hlstd{muC.adj} \hlkwb{<-} \hlkwd{log}\hlstd{(}\hlnum{1.5}\hlstd{)}
+\hlstd{k.z3} \hlkwb{<-} \hlnum{1}
+\hlstd{k.treat} \hlkwb{<-} \hlnum{0.9}
+
+\hlstd{z1_frac} \hlkwb{<-} \hlnum{0.25}  \hlcom{# Default model index 'm1' (The 1st quartile of z1=er)}
+\hlstd{pH_super} \hlkwb{<-} \hlnum{0.125}  \hlcom{# non-NULL re-defines z1_frac}
+
+\hlkwa{if} \hlstd{(}\hlkwd{is.null}\hlstd{(pH_super)) \{}
+    \hlcom{# pH_check<-with(gbsg,mean(pgr<=quantile(pgr,c(z3_frac),1,0) &}
+    \hlcom{# er<=quantile(er,z1_frac)))}
+    \hlstd{pH_check} \hlkwb{<-} \hlkwd{with}\hlstd{(gbsg,} \hlkwd{mean}\hlstd{(meno} \hlopt{==} \hlnum{0} \hlopt{&} \hlstd{er} \hlopt{<=} \hlkwd{quantile}\hlstd{(er, z1_frac)))}
+    \hlkwd{cat}\hlstd{(}\hlstr{"Underlying pH_super"}\hlstd{,} \hlkwd{c}\hlstd{(pH_check),} \hlstr{"\textbackslash{}n"}\hlstd{)}
+\hlstd{\}}
+\hlcom{# pH_super specified If pH_super then override z1_frac and find z1_frac to}
+\hlcom{# yield pH_super}
+
+\hlkwa{if} \hlstd{(}\hlopt{!}\hlkwd{is.null}\hlstd{(pH_super)) \{}
+    \hlcom{# Approximate Z1 quantile to yield pH proportion}
+    \hlstd{z1_q} \hlkwb{<-} \hlkwd{uniroot}\hlstd{(propH.obj4,} \hlkwd{c}\hlstd{(}\hlnum{0}\hlstd{,} \hlnum{1}\hlstd{),} \hlkwc{tol} \hlstd{=} \hlnum{1e-04}\hlstd{,} \hlkwc{pH.target} \hlstd{= pH_super)}\hlopt{$}\hlstd{root}
+    \hlcom{# pH_check<-with(gbsg,mean(pgr<=quantile(pgr,c(z3_frac),1,0) &}
+    \hlcom{# er<=quantile(er,z1_q)))}
+    \hlstd{pH_check} \hlkwb{<-} \hlkwd{with}\hlstd{(gbsg,} \hlkwd{mean}\hlstd{(meno} \hlopt{==} \hlnum{0} \hlopt{&} \hlstd{er} \hlopt{<=} \hlkwd{quantile}\hlstd{(er, z1_q)))}
+    \hlkwd{cat}\hlstd{(}\hlstr{"pH"}\hlstd{,} \hlkwd{c}\hlstd{(pH_check),} \hlstr{"\textbackslash{}n"}\hlstd{)}
+    \hlstd{rel_error} \hlkwb{<-} \hlstd{(pH_super} \hlopt{-} \hlstd{pH_check)}\hlopt{/}\hlstd{pH_super}
+    \hlkwa{if} \hlstd{(}\hlkwd{abs}\hlstd{(rel_error)} \hlopt{>=} \hlnum{0.1}\hlstd{)}
+        \hlkwd{stop}\hlstd{(}\hlstr{"pH_super approximation relative error exceeds 10%"}\hlstd{)}
+    \hlstd{z1_frac} \hlkwb{<-} \hlstd{z1_q}
+    \hlkwd{cat}\hlstd{(}\hlstr{"Underlying pH_super"}\hlstd{,} \hlkwd{c}\hlstd{(pH_check),} \hlstr{"\textbackslash{}n"}\hlstd{)}
+\hlstd{\}}
+\end{alltt}
+\begin{verbatim}
+## pH 0.122449 
+## Underlying pH_super 0.122449
+\end{verbatim}
+\begin{alltt}
+\hlcom{# Bootstrap on log(hr) scale converted to HR (est.loghr=TRUE & est.scale='hr')}
+\hlstd{t.start.all} \hlkwb{<-} \hlkwd{proc.time}\hlstd{()[}\hlnum{3}\hlstd{]}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{######################### Forest search criteria}
+\hlstd{hr.threshold} \hlkwb{<-} \hlnum{1.25}  \hlcom{# Initital candidates }
+\hlstd{hr.consistency} \hlkwb{<-} \hlnum{1}  \hlcom{# Candidates for many splits}
+\hlstd{pconsistency.threshold} \hlkwb{<-} \hlnum{0.9}
+\hlstd{stop.threshold} \hlkwb{<-} \hlnum{0.95}
+\hlstd{maxk} \hlkwb{<-} \hlnum{2}
+\hlstd{nmin.fs} \hlkwb{<-} \hlnum{60}
+\hlstd{pstop_futile} \hlkwb{<-} \hlnum{0.5}
+\hlcom{# Limit timing for forestsearch}
+\hlstd{max.minutes} \hlkwb{<-} \hlnum{3}
+\hlstd{m1.threshold} \hlkwb{<-} \hlnum{Inf}  \hlcom{# Turning this off (Default)}
+\hlcom{# pconsistency.threshold<-0.70 # Minimum threshold (will choose max among}
+\hlcom{# subgroups satisfying)}
+\hlstd{fs.splits} \hlkwb{<-} \hlnum{400}  \hlcom{# How many times to split for consistency}
+\hlcom{# vi is % factor is selected in cross-validation --> higher more important}
+\hlstd{vi.grf.min} \hlkwb{<-} \hlnum{0.2}
+\hlcom{# Null, turns off grf screening}
+\hlstd{d.min} \hlkwb{<-} \hlnum{10}  \hlcom{# Min number of events for both arms (d0.min=d1.min=d.min)}
+\hlcom{# default=5 Virtual twins analysis Counter-factual difference (C-E) >=}
+\hlcom{# vt.threshold Large values in favor of C (control)}
+\hlstd{vt.threshold} \hlkwb{<-} \hlnum{0.225}  \hlcom{# For VT delta}
+\hlstd{treat.threshold} \hlkwb{<-} \hlnum{0}
+
+\hlstd{maxdepth} \hlkwb{<-} \hlnum{2}
+\hlstd{n.min} \hlkwb{<-} \hlnum{60}
+\hlstd{ntree} \hlkwb{<-} \hlnum{1000}
+\hlcom{# GRF criteria}
+\hlstd{dmin.grf} \hlkwb{<-} \hlnum{12}  \hlcom{# For GRF delta}
+\hlcom{# Note: For CRT this represents dmin.grf/2 RMS for control (-dmin.grf/2 for}
+\hlcom{# treatment)}
+\hlstd{frac.tau} \hlkwb{<-} \hlnum{0.6}
+
+\hlstd{outcome.name} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"y.sim"}\hlstd{)}
+\hlstd{event.name} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"event.sim"}\hlstd{)}
+\hlstd{id.name} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"id"}\hlstd{)}
+\hlstd{treat.name} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"treat"}\hlstd{)}
+
+\hlstd{cox.formula.sim} \hlkwb{<-} \hlkwd{as.formula}\hlstd{(}\hlkwd{paste}\hlstd{(}\hlstr{"Surv(y.sim,event.sim)~treat"}\hlstd{))}
+\hlstd{cox.formula.adj.sim} \hlkwb{<-} \hlkwd{as.formula}\hlstd{(}\hlkwd{paste}\hlstd{(}\hlstr{"Surv(y.sim,event.sim)~treat+v1+v2+v3+v4+v5"}\hlstd{))}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{mod.harm} \hlkwb{<-} \hlstr{"alt"}
+\hlstd{hrH.target} \hlkwb{<-} \hlnum{2}
+\hlcom{# out.loc = NULL turns off file creation}
+\hlstd{N} \hlkwb{<-} \hlnum{1000}
+\hlstd{this.dgm} \hlkwb{<-} \hlkwd{get.dgm4}\hlstd{(}\hlkwc{mod.harm} \hlstd{= mod.harm,} \hlkwc{N} \hlstd{= N,} \hlkwc{k.treat} \hlstd{= k.treat,} \hlkwc{hrH.target} \hlstd{= hrH.target,}
+    \hlkwc{cens.type} \hlstd{= cens.type,} \hlkwc{out.loc} \hlstd{=} \hlkwa{NULL}\hlstd{,} \hlkwc{details} \hlstd{=} \hlnum{TRUE}\hlstd{,} \hlkwc{parms_torand} \hlstd{=} \hlnum{FALSE}\hlstd{)}
+\end{alltt}
+\end{kframe}
+\includegraphics[width=\maxwidth]{figure/r_DGMsetup-1} 
+\begin{kframe}\begin{verbatim}
+## Super-population empirical harm and non-harm hazard ratios= 2.000007 0.6466405 
+## Causal HR (empirical ITT)= 0.7057463
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# sim sensH ppvH sensHc ppvHc 1: 11 0.5000000 0.5731707 0.9422442 0.9239482 2:}
+\hlcom{# 14 0.6891892 0.5666667 0.9376997 0.9622951 3: 17 0.3296703 0.2830189}
+\hlcom{# 0.8752053 0.8973064 4: 18 0.4489796 0.4943820 0.9252492 0.9116203 5: 20}
+\hlcom{# 0.8045977 0.4347826 0.8515498 0.9684601 6: 23 0.8101266 0.5203252 0.9049919}
+\hlcom{# 0.9740035 7: 30 0.7802198 0.5182482 0.8916256 0.9644760}
+
+\hlstd{file_out} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"output/sim-FS4_sim31.Rdata"}\hlstd{)}
+
+\hlstd{n_add_noise} \hlkwb{<-} \hlnum{3}
+
+\hlstd{sim} \hlkwb{<-} \hlnum{31}
+
+\hlstd{dgm} \hlkwb{<-} \hlstd{this.dgm}\hlopt{$}\hlstd{dgm}
+
+\hlstd{x} \hlkwb{<-} \hlkwd{sim_aftm4_gbsg}\hlstd{(}\hlkwc{dgm} \hlstd{= dgm,} \hlkwc{n} \hlstd{= N,} \hlkwc{maxFollow} \hlstd{= maxFollow,} \hlkwc{muC.adj} \hlstd{= muC.adj,} \hlkwc{simid} \hlstd{= sim)}
+
+\hlstd{kmfit} \hlkwb{<-} \hlkwd{survfit}\hlstd{(}\hlkwd{Surv}\hlstd{(y.sim, event)} \hlopt{~} \hlstd{treat,} \hlkwc{data} \hlstd{= x)}
+
+\hlkwd{ggsurvplot}\hlstd{(kmfit,} \hlkwc{data} \hlstd{= x,} \hlkwc{main} \hlstd{=} \hlstr{"K-M curves for simulated data"}\hlstd{,} \hlkwc{legend} \hlstd{=} \hlstr{"top"}\hlstd{,}
+    \hlkwc{legend.title} \hlstd{=} \hlstr{"Treatment"}\hlstd{,} \hlkwc{legend.labs} \hlstd{=} \hlkwd{c}\hlstd{(}\hlstr{"Control"}\hlstd{,} \hlstr{"Experimental"}\hlstd{),} \hlkwc{palette} \hlstd{=} \hlstr{"grey"}\hlstd{,}
+    \hlkwc{risk.table} \hlstd{=} \hlnum{TRUE}\hlstd{,} \hlkwc{risk.table.col} \hlstd{=} \hlstr{"strata"}\hlstd{)}
+\end{alltt}
+\end{kframe}
+\includegraphics[width=\maxwidth]{figure/r_FSanalysis-1} 
+\begin{kframe}\begin{alltt}
+\hlkwa{if} \hlstd{(n_add_noise} \hlopt{==} \hlnum{0}\hlstd{) \{}
+    \hlstd{confounders.name} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"z1"}\hlstd{,} \hlstr{"z2"}\hlstd{,} \hlstr{"z3"}\hlstd{,} \hlstr{"z4"}\hlstd{,} \hlstr{"z5"}\hlstd{,} \hlstr{"size"}\hlstd{,} \hlstr{"grade3"}\hlstd{)}
+\hlstd{\}}
+
+\hlkwa{if} \hlstd{(n_add_noise} \hlopt{==} \hlnum{5}\hlstd{) \{}
+    \hlkwd{set.seed}\hlstd{(}\hlnum{8316951} \hlopt{+} \hlnum{1000} \hlopt{*} \hlstd{sim)}
+    \hlcom{# Add 5 noise}
+    \hlstd{x}\hlopt{$}\hlstd{noise1} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N)}
+    \hlstd{x}\hlopt{$}\hlstd{noise2} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N)}
+    \hlstd{x}\hlopt{$}\hlstd{noise3} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N)}
+    \hlstd{x}\hlopt{$}\hlstd{noise4} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N)}
+    \hlstd{x}\hlopt{$}\hlstd{noise5} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N)}
+    \hlstd{confounders.name} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"z1"}\hlstd{,} \hlstr{"z2"}\hlstd{,} \hlstr{"z3"}\hlstd{,} \hlstr{"z4"}\hlstd{,} \hlstr{"z5"}\hlstd{,} \hlstr{"size"}\hlstd{,} \hlstr{"grade3"}\hlstd{,} \hlstr{"noise1"}\hlstd{,}
+        \hlstr{"noise2"}\hlstd{,} \hlstr{"noise3"}\hlstd{,} \hlstr{"noise4"}\hlstd{,} \hlstr{"noise5"}\hlstd{)}
+\hlstd{\}}
+
+\hlkwa{if} \hlstd{(n_add_noise} \hlopt{==} \hlnum{3}\hlstd{) \{}
+    \hlkwd{set.seed}\hlstd{(}\hlnum{8316951} \hlopt{+} \hlnum{1000} \hlopt{*} \hlstd{sim)}
+    \hlcom{# Add 3 noise}
+    \hlstd{x}\hlopt{$}\hlstd{noise1} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N,} \hlkwc{sd} \hlstd{=} \hlnum{1}\hlstd{)}
+    \hlstd{x}\hlopt{$}\hlstd{noise2} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N,} \hlkwc{sd} \hlstd{=} \hlnum{1}\hlstd{)}
+    \hlstd{x}\hlopt{$}\hlstd{noise3} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(N,} \hlkwc{sd} \hlstd{=} \hlnum{1}\hlstd{)}
+    \hlstd{confounders.name} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"z1"}\hlstd{,} \hlstr{"z2"}\hlstd{,} \hlstr{"z3"}\hlstd{,} \hlstr{"z4"}\hlstd{,} \hlstr{"z5"}\hlstd{,} \hlstr{"size"}\hlstd{,} \hlstr{"grade3"}\hlstd{,} \hlstr{"noise1"}\hlstd{,}
+        \hlstr{"noise2"}\hlstd{,} \hlstr{"noise3"}\hlstd{)}
+\hlstd{\}}
+
+\hlcom{# More challenging which_replace <- which(confounders.name=='z1')}
+\hlcom{# confounders.name[which_replace] <- 'er'}
+
+\hlstd{cox.formula.check} \hlkwb{<-} \hlkwd{as.formula}\hlstd{(}\hlkwd{paste}\hlstd{(}\hlstr{"Surv(y.sim,event.sim)~treat+v1+v2+v3+v4+v5+size+grade3+noise1+noise2+noise3"}\hlstd{))}
+\hlkwd{coxph}\hlstd{(cox.formula.check,} \hlkwc{data} \hlstd{= x)}
+\end{alltt}
+\begin{verbatim}
+## Call:
+## coxph(formula = cox.formula.check, data = x)
+## 
+##             coef exp(coef)  se(coef)       z        p
+## treat  -0.192488  0.824904  0.086376  -2.228 0.025848
+## v11     0.360030  1.433373  0.105958   3.398 0.000679
+## v21    -0.169226  0.844318  0.148971  -1.136 0.255973
+## v31     0.056322  1.057938  0.150861   0.373 0.708897
+## v41     0.629020  1.875771  0.101081   6.223 4.88e-10
+## v51    -0.922735  0.397431  0.092130 -10.016  < 2e-16
+## size   -0.002153  0.997849  0.002836  -0.759 0.447725
+## grade3  0.117525  1.124710  0.103329   1.137 0.255379
+## noise1 -0.013035  0.987049  0.043192  -0.302 0.762806
+## noise2 -0.031559  0.968934  0.042576  -0.741 0.458540
+## noise3 -0.036418  0.964237  0.042414  -0.859 0.390552
+## 
+## Likelihood ratio test=226  on 11 df, p=< 2.2e-16
+## n= 1000, number of events= 555
+\end{verbatim}
+\begin{alltt}
+\hlstd{Zm} \hlkwb{<-} \hlkwd{cor}\hlstd{(}\hlkwd{as.matrix}\hlstd{(x[,} \hlkwd{c}\hlstd{(confounders.name)]))}
+\hlkwd{corrplot}\hlstd{(Zm)}
+\end{alltt}
+\end{kframe}
+\includegraphics[width=\maxwidth]{figure/r_FSanalysis-2} 
+\begin{kframe}\begin{alltt}
+\hlcom{# Options Allconfounders.name is list of confounders within analysis dataset}
+\hlcom{# (1) use_lasso=TRUE & use_grf=FALSE Lasso used to possibly reduce dimension}
+\hlcom{# Any continuous factors are cut at medians (2) use_lasso=TRUE & use_grf=TRUE}
+\hlcom{# Lasso used to reduce dimension Continuous covariates are cut at medians}
+\hlcom{# However, if GRF selects a covariate cut then only that cut is used: For}
+\hlcom{# example if 'age <= median(ag)' is called for per Lasso but GRF includes 'age}
+\hlcom{# <= 54', then only the latter is used (3) use_grf_only = TRUE (overrides}
+\hlcom{# use_lasso and use_grf) Only factors selected via GRF are used (4) use_lasso =}
+\hlcom{# F & use_grf =T Median cuts (unless selected via GRF) as in (2) However no}
+\hlcom{# possible dimension reduction via lasso All categorical factors included}
+
+\hlstd{use_lasso} \hlkwb{<-} \hlnum{TRUE}
+\hlstd{use_grf} \hlkwb{<-} \hlnum{TRUE}
+\hlstd{use_grf_only} \hlkwb{<-} \hlnum{FALSE}
+
+\hlstd{fs.est} \hlkwb{<-} \hlkwd{forestsearch}\hlstd{(}\hlkwc{df.analysis} \hlstd{= x,} \hlkwc{Allconfounders.name} \hlstd{= confounders.name,} \hlkwc{details} \hlstd{=} \hlnum{TRUE}\hlstd{,}
+    \hlkwc{use_lasso} \hlstd{= use_lasso,} \hlkwc{use_grf} \hlstd{= use_grf,} \hlkwc{use_grf_only} \hlstd{= use_grf_only,} \hlkwc{dmin.grf} \hlstd{=} \hlnum{12}\hlstd{,}
+    \hlkwc{frac.tau} \hlstd{=} \hlnum{0.6}\hlstd{,} \hlkwc{conf_force} \hlstd{=} \hlkwa{NULL}\hlstd{,} \hlkwc{outcome.name} \hlstd{= outcome.name,} \hlkwc{treat.name} \hlstd{= treat.name,}
+    \hlkwc{event.name} \hlstd{= event.name,} \hlkwc{id.name} \hlstd{= id.name,} \hlkwc{n.min} \hlstd{= nmin.fs,} \hlkwc{hr.threshold} \hlstd{= hr.threshold,}
+    \hlkwc{hr.consistency} \hlstd{= hr.consistency,} \hlkwc{fs.splits} \hlstd{= fs.splits,} \hlkwc{d0.min} \hlstd{= d.min,} \hlkwc{d1.min} \hlstd{= d.min,}
+    \hlkwc{pstop_futile} \hlstd{= pstop_futile,} \hlkwc{pconsistency.threshold} \hlstd{= pconsistency.threshold,}
+    \hlkwc{stop.threshold} \hlstd{= stop.threshold,} \hlkwc{max.minutes} \hlstd{= max.minutes,} \hlkwc{maxk} \hlstd{= maxk,} \hlkwc{by.risk} \hlstd{=} \hlnum{12}\hlstd{,}
+    \hlkwc{plot.sg} \hlstd{=} \hlnum{TRUE}\hlstd{,} \hlkwc{vi.grf.min} \hlstd{= vi.grf.min)}
+\end{alltt}
+\begin{verbatim}
+## tau, maxdepth= 49.9606 2 
+##    leaf.node control.mean control.size control.se treated.mean treated.size
+## 1          2    -3.566880   559.000000   1.258074     3.566880   559.000000
+## 2          3     2.971787   441.000000   1.378688    -2.971787   441.000000
+## 11         4    -4.111919   542.000000   1.279361     4.111919   542.000000
+## 3          6     4.534178   401.000000   1.420526    -4.534178   401.000000
+##    treated.se      diff Nsg depth
+## 1    1.258074 -7.133761 559     1
+## 2    1.378688  5.943575 441     1
+## 11   1.279361 -8.223838 542     2
+## 3    1.420526  9.068356 401     2
+##   leaf.node control.mean control.size control.se treated.mean treated.size
+## 3         6     4.534178   401.000000   1.420526    -4.534178   401.000000
+##   treated.se     diff Nsg depth
+## 3   1.420526 9.068356 401     2
+## NO GRF cuts meeting delta(RMST): dmin.grf= 12 
+## # of continuous/categorical characteristics 4 6 
+## Continuous characteristics: size noise1 noise2 noise3 
+## Categorical characteristics: z1 z2 z3 z4 z5 grade3 
+## 10 x 1 sparse Matrix of class "dgCMatrix"
+##                   s0
+## z1      0.3368616714
+## z2     -0.0607765582
+## z3      .           
+## z4      0.5661585955
+## z5     -0.8441645446
+## size   -0.0001604526
+## grade3  0.0739548174
+## noise1  .           
+## noise2  .           
+## noise3 -0.0054871259
+## Cox-LASSO selected: z1 z2 z4 z5 size grade3 noise3 
+## Cox-LASSO not selected: z3 noise1 noise2 
+## Median cuts (after Lasso if use_lasso) size noise3 
+## Categorical (after Lasso if use_lasso) z1 z2 z4 z5 grade3 
+## Prior to removing (if in GRF): size noise3 
+## Left (to cut at median) after removing others if in GRF: size noise3 
+## # of candidate subgroup factors= 7 
+## [1] "size <= median(size)"     "noise3 <= median(noise3)"
+## [3] "z1"                       "z2"                      
+## [5] "z4"                       "z5"                      
+## [7] "grade3"                  
+## Confounders per grf screening q3 q4 q5 q1 q2 q6 q7 
+##   FSconfounders.name      vi.cs  vi_ratio
+## 3                 q3 0.28757043 2.0129930
+## 4                 q4 0.20718321 1.4502824
+## 5                 q5 0.16490680 1.1543476
+## 1                 q1 0.09518060 0.6662642
+## 2                 q2 0.09310435 0.6517305
+## 6                 q6 0.08604764 0.6023335
+## 7                 q7 0.06600697 0.4620488
+## Number of unique levels (L) and possible subgroups= 14 16383 
+## # of subgroups based on # variables > k.max and excluded (per million) 0.016278 
+## k.max= 2 
+## Events criteria for control,exp= 10 10 
+## # of subgroups with events less than criteria: control, experimental 7 8 
+## # of subgroups with sample size less than criteria 9 
+## # of subgroups meeting all criteria = 96 
+## # of subgroups fitted (Cox model estimable) = 96 
+## *Subgroup Searching Minutes=* 0.00515 
+## Number of subgroups meeting HR threshold 3 
+## # of candidate subgroups (meeting HR criteria) =  3 
+## Subgroups (1st 10) meeting overall screening thresholds (HR, m1) sorted by HRs= Inf 
+##      K   n   E d1    m1    m0   HR L(HR) U(HR) q3.0 q3.1 q4.0 q4.1 q5.0 q5.1
+##  1:  2 150 120 61 23.08 33.76 1.47  1.02  2.12    0    1    0    0    0    0
+##  2:  2 173 133 78 23.75 42.24 1.46  1.03  2.06    0    1    0    1    0    0
+##  3:  2 124  94 46 23.97 38.50 1.29  0.86  1.94    0    1    0    0    0    0
+##  4: NA  NA  NA NA    NA    NA   NA    NA    NA   NA   NA   NA   NA   NA   NA
+##  5: NA  NA  NA NA    NA    NA   NA    NA    NA   NA   NA   NA   NA   NA   NA
+##  6: NA  NA  NA NA    NA    NA   NA    NA    NA   NA   NA   NA   NA   NA   NA
+##  7: NA  NA  NA NA    NA    NA   NA    NA    NA   NA   NA   NA   NA   NA   NA
+##  8: NA  NA  NA NA    NA    NA   NA    NA    NA   NA   NA   NA   NA   NA   NA
+##  9: NA  NA  NA NA    NA    NA   NA    NA    NA   NA   NA   NA   NA   NA   NA
+## 10: NA  NA  NA NA    NA    NA   NA    NA    NA   NA   NA   NA   NA   NA   NA
+##     q1.0 q1.1 q2.0 q2.1 q6.0 q6.1 q7.0 q7.1
+##  1:    0    0    0    0    1    0    0    0
+##  2:    0    0    0    0    0    0    0    0
+##  3:    0    0    0    0    0    0    0    1
+##  4:   NA   NA   NA   NA   NA   NA   NA   NA
+##  5:   NA   NA   NA   NA   NA   NA   NA   NA
+##  6:   NA   NA   NA   NA   NA   NA   NA   NA
+##  7:   NA   NA   NA   NA   NA   NA   NA   NA
+##  8:   NA   NA   NA   NA   NA   NA   NA   NA
+##  9:   NA   NA   NA   NA   NA   NA   NA   NA
+## 10:   NA   NA   NA   NA   NA   NA   NA   NA
+## Consistency 0.9575 
+## # of splits= 400 
+## Model, % Consistency Met= {z1} !{z5} 0.9575 
+## Number of subgroups meeting consistency criteria= 
+##    p.consistency Nsg group.id m.index K  M.1   M.2
+## 1:        0.9575 150        2       1 2 {z1} !{z5}
+\end{verbatim}
+\end{kframe}
+\includegraphics[width=\maxwidth]{figure/r_FSanalysis-3} 
+\begin{kframe}\begin{verbatim}
+## [1] "{z1}"  "!{z5}"
+## % consistency criteria met= 0.9575 
+## SG focus= hr 
+## Subgroup Consistency Minutes= 0.02366667 
+## Subgroup found 
+## Minutes overall= 0.05973333
+\end{verbatim}
+\begin{alltt}
+\hlstd{grf.est} \hlkwb{<-} \hlkwd{grf.subg.harm.survival}\hlstd{(}\hlkwc{data} \hlstd{= x,} \hlkwc{confounders.name} \hlstd{= confounders.name,}
+    \hlkwc{outcome.name} \hlstd{= outcome.name,} \hlkwc{event.name} \hlstd{= event.name,} \hlkwc{id.name} \hlstd{= id.name,} \hlkwc{treat.name} \hlstd{= treat.name,}
+    \hlkwc{n.min} \hlstd{= n.min,} \hlkwc{dmin.grf} \hlstd{= dmin.grf,} \hlkwc{frac.tau} \hlstd{=} \hlnum{1}\hlstd{,} \hlkwc{details} \hlstd{=} \hlnum{TRUE}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+## tau, maxdepth= 83.26767 2 
+##    leaf.node control.mean control.size control.se treated.mean treated.size
+## 1          2    -7.322058   738.000000   1.942452     7.322058   738.000000
+## 2          3     4.719104   262.000000   3.241085    -4.719104   262.000000
+## 21         5    -8.719158   685.000000   1.998662     8.719158   685.000000
+## 3          6   -11.151631   123.000000   4.513512    11.151631   123.000000
+## 4          7    18.762991   139.000000   4.297314   -18.762991   139.000000
+##    treated.se       diff Nsg depth
+## 1    1.942452 -14.644116 738     1
+## 2    3.241085   9.438207 262     1
+## 21   1.998662 -17.438316 685     2
+## 3    4.513512 -22.303263 123     2
+## 4    4.297314  37.525982 139     2
+##   leaf.node control.mean control.size control.se treated.mean treated.size
+## 4         7    18.762991   139.000000   4.297314   -18.762991   139.000000
+##   treated.se     diff Nsg depth
+## 4   4.297314 37.52598 139     2
+## [1] "z1 <= 0"    "size <= 14" "z3 <= 0"   
+## [1] "z3 <= 0"
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{library}\hlstd{(doParallel)}
+\hlkwd{registerDoParallel}\hlstd{(parallel}\hlopt{::}\hlkwd{detectCores}\hlstd{(}\hlkwc{logical} \hlstd{=} \hlnum{FALSE}\hlstd{))}
+
+\hlstd{cox.formula.boot} \hlkwb{<-} \hlstd{cox.formula.sim}
+\hlstd{max.minutes} \hlkwb{<-} \hlnum{7}
+\hlcom{# Suggest running 50, first ... to get timing estimate}
+
+\hlstd{NB} \hlkwb{<-} \hlnum{1000}
+
+\hlstd{df_boot_analysis} \hlkwb{<-} \hlstd{fs.est}\hlopt{$}\hlstd{df.est}
+
+\hlstd{fitH} \hlkwb{<-} \hlkwd{get_Cox_sg}\hlstd{(}\hlkwc{df_sg} \hlstd{=} \hlkwd{subset}\hlstd{(df_boot_analysis, treat.recommend} \hlopt{==} \hlnum{0}\hlstd{),} \hlkwc{cox.formula} \hlstd{= cox.formula.boot)}
+\hlstd{H_obs} \hlkwb{<-} \hlstd{fitH}\hlopt{$}\hlstd{est_obs}  \hlcom{# log(hr) scale}
+\hlstd{seH_obs} \hlkwb{<-} \hlstd{fitH}\hlopt{$}\hlstd{se_obs}
+\hlcom{# Hc observed estimates}
+\hlstd{fitHc} \hlkwb{<-} \hlkwd{get_Cox_sg}\hlstd{(}\hlkwc{df_sg} \hlstd{=} \hlkwd{subset}\hlstd{(df_boot_analysis, treat.recommend} \hlopt{==} \hlnum{1}\hlstd{),} \hlkwc{cox.formula} \hlstd{= cox.formula.boot)}
+\hlstd{Hc_obs} \hlkwb{<-} \hlstd{fitHc}\hlopt{$}\hlstd{est_obs}
+\hlstd{seHc_obs} \hlkwb{<-} \hlstd{fitHc}\hlopt{$}\hlstd{se_obs}
+\hlkwd{rm}\hlstd{(}\hlstr{"fitH"}\hlstd{,} \hlstr{"fitHc"}\hlstd{)}
+
+\hlstd{Ystar_mat} \hlkwb{<-} \hlkwd{bootYstar}\hlstd{(\{}
+    \hlstd{ystar} \hlkwb{<-} \hlkwd{get_Ystar}\hlstd{(boot)}
+\hlstd{\},} \hlkwc{boots} \hlstd{= NB,} \hlkwc{seed} \hlstd{=} \hlnum{8316951}\hlstd{,} \hlkwc{counter} \hlstd{=} \hlstr{"boot"}\hlstd{,} \hlkwc{export} \hlstd{= fun_arg_list_boot)}
+\hlcom{# Check dimension}
+\hlkwa{if} \hlstd{(}\hlkwd{dim}\hlstd{(Ystar_mat)[}\hlnum{1}\hlstd{]} \hlopt{!=} \hlstd{NB} \hlopt{|} \hlkwd{dim}\hlstd{(Ystar_mat)[}\hlnum{2}\hlstd{]} \hlopt{!=} \hlkwd{nrow}\hlstd{(df_boot_analysis))} \hlkwd{stop}\hlstd{(}\hlstr{"Dimension of Ystar_mat does not match"}\hlstd{)}
+
+\hlstd{tB.start} \hlkwb{<-} \hlkwd{proc.time}\hlstd{()[}\hlnum{3}\hlstd{]}
+\hlcom{# Bootstraps}
+\hlstd{resB} \hlkwb{<-} \hlkwd{bootPar}\hlstd{(\{}
+    \hlstd{ans} \hlkwb{<-} \hlkwd{fsboot_forparallel}\hlstd{(boot)}
+\hlstd{\},} \hlkwc{boots} \hlstd{= NB,} \hlkwc{seed} \hlstd{=} \hlnum{8316951}\hlstd{,} \hlkwc{counter} \hlstd{=} \hlstr{"boot"}\hlstd{,} \hlkwc{export} \hlstd{= fun_arg_list_boot)}
+\hlstd{tB.now} \hlkwb{<-} \hlkwd{proc.time}\hlstd{()[}\hlnum{3}\hlstd{]}
+\hlstd{tB.min} \hlkwb{<-} \hlstd{(tB.now} \hlopt{-} \hlstd{tB.start)}\hlopt{/}\hlnum{60}
+
+\hlstd{doParallel}\hlopt{::}\hlkwd{stopImplicitCluster}\hlstd{()}
+
+\hlkwd{cat}\hlstd{(}\hlstr{"Minutes for Boots"}\hlstd{,} \hlkwd{c}\hlstd{(NB, tB.min),} \hlstr{"\textbackslash{}n"}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+## Minutes for Boots 1000 1.9187
+\end{verbatim}
+\begin{alltt}
+\hlkwd{cat}\hlstd{(}\hlstr{"Projection per 1000"}\hlstd{,} \hlkwd{c}\hlstd{(tB.min} \hlopt{*} \hlstd{(}\hlnum{1000}\hlopt{/}\hlstd{NB)),} \hlstr{"\textbackslash{}n"}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+## Projection per 1000 1.9187
+\end{verbatim}
+\begin{alltt}
+\hlkwd{cat}\hlstd{(}\hlstr{"Propn bootstrap subgroups found ="}\hlstd{,} \hlkwd{c}\hlstd{(}\hlkwd{sum}\hlstd{(}\hlopt{!}\hlkwd{is.na}\hlstd{(resB}\hlopt{$}\hlstd{H_biasadj_1))}\hlopt{/}\hlstd{NB),} \hlstr{"\textbackslash{}n"}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+## Propn bootstrap subgroups found = 0.897
+\end{verbatim}
+\begin{alltt}
+\hlcom{# How many timmed out}
+\hlkwd{cat}\hlstd{(}\hlstr{"Number timmed out="}\hlstd{,} \hlkwd{c}\hlstd{(}\hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(resB}\hlopt{$}\hlstd{H_biasadj_1)} \hlopt{&} \hlstd{resB}\hlopt{$}\hlstd{tmins_search} \hlopt{>} \hlstd{max.minutes)),}
+    \hlstr{"\textbackslash{}n"}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+## Number timmed out= 0
+\end{verbatim}
+\begin{alltt}
+\hlstd{H_estimates} \hlkwb{<-} \hlkwd{get_dfRes}\hlstd{(}\hlkwc{Hobs} \hlstd{= H_obs,} \hlkwc{seHobs} \hlstd{= seH_obs,} \hlkwc{H1_adj} \hlstd{= resB}\hlopt{$}\hlstd{H_biasadj_2,}
+    \hlkwc{ystar} \hlstd{= Ystar_mat,} \hlkwc{cov_method} \hlstd{=} \hlstr{"standard"}\hlstd{,} \hlkwc{cov_trim} \hlstd{=} \hlnum{0}\hlstd{)}
+\hlstd{Hc_estimates} \hlkwb{<-} \hlkwd{get_dfRes}\hlstd{(}\hlkwc{Hobs} \hlstd{= Hc_obs,} \hlkwc{seHobs} \hlstd{= seHc_obs,} \hlkwc{H1_adj} \hlstd{= resB}\hlopt{$}\hlstd{Hc_biasadj_2,}
+    \hlkwc{ystar} \hlstd{= Ystar_mat,} \hlkwc{cov_method} \hlstd{=} \hlstr{"standard"}\hlstd{,} \hlkwc{cov_trim} \hlstd{=} \hlnum{0}\hlstd{)}
+
+\hlkwd{print}\hlstd{(H_estimates)}
+\end{alltt}
+\begin{verbatim}
+##          H0      sdH0 H0_lower H0_upper       H1      sdH1  H1_lower H1_upper
+## 1: 1.466969 0.2753467 1.015435 2.119286 1.307954 0.2729269 0.8689095 1.968838
+\end{verbatim}
+\begin{alltt}
+\hlkwd{print}\hlstd{(Hc_estimates)}
+\end{alltt}
+\begin{verbatim}
+##           H0       sdH0  H0_lower  H0_upper       H1      sdH1  H1_lower
+## 1: 0.7368537 0.07112228 0.6098485 0.8903086 0.742244 0.1092211 0.5562788
+##     H1_upper
+## 1: 0.9903778
+\end{verbatim}
+\begin{alltt}
+\hlcom{# H_estimates<-get_dfRes(Hobs=H_obs,seHobs=seH_obs,H1_adj=resB$H_biasadj_1,ystar=Ystar_mat,cov_method='standard',cov_trim=0.025)}
+\hlcom{# Hc_estimates<-get_dfRes(Hobs=Hc_obs,seHobs=seHc_obs,H1_adj=resB$Hc_biasadj_1,ystar=Ystar_mat,cov_method='standard',cov_trim=0.025)}
+\hlcom{# print(H_estimates) print(Hc_estimates)}
+
+
+\hlstd{bootit} \hlkwb{<-} \hlkwd{list}\hlstd{(}\hlkwc{H_estimates} \hlstd{= H_estimates,} \hlkwc{Hc_estimates} \hlstd{= Hc_estimates)}
+\hlstd{ans3} \hlkwb{<-} \hlkwd{fsBoot.parallel.out}\hlstd{(}\hlkwc{df} \hlstd{= df_boot_analysis,} \hlkwc{FSboots} \hlstd{= bootit,} \hlkwc{cox.formula.boot} \hlstd{= cox.formula.boot,}
+    \hlkwc{sim_number} \hlstd{= sim)}
+\hlstd{tall.min} \hlkwb{<-} \hlstd{(tB.now} \hlopt{-} \hlstd{t.start.all)}\hlopt{/}\hlnum{60}
+\hlkwd{cat}\hlstd{(}\hlstr{"Overall minutes for analysis"}\hlstd{,} \hlkwd{c}\hlstd{(tall.min),} \hlstr{"\textbackslash{}n"}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+## Overall minutes for analysis 2.062333
+\end{verbatim}
+\begin{alltt}
+\hlkwd{save}\hlstd{(dgm, x, fs.est, grf.est, bootit, ans3, tall.min, resB, cox.formula.boot,} \hlkwc{file} \hlstd{= file_out)}
+
+\hlcom{# ITT causal hazard ratio}
+\hlkwd{mean}\hlstd{(fs.est}\hlopt{$}\hlstd{df.est}\hlopt{$}\hlstd{hlin.ratio)}
+\end{alltt}
+\begin{verbatim}
+## [1] 0.8327531
+\end{verbatim}
+\begin{alltt}
+\hlcom{# H Oracle}
+\hlstd{dfH} \hlkwb{<-} \hlkwd{subset}\hlstd{(fs.est}\hlopt{$}\hlstd{df.est, flag.harm} \hlopt{==} \hlnum{1}\hlstd{)}
+\hlkwd{mean}\hlstd{(dfH}\hlopt{$}\hlstd{hlin.ratio)}
+\end{alltt}
+\begin{verbatim}
+## [1] 2.249393
+\end{verbatim}
+\begin{alltt}
+\hlstd{dfH_est} \hlkwb{<-} \hlkwd{subset}\hlstd{(fs.est}\hlopt{$}\hlstd{df.est, treat.recommend} \hlopt{==} \hlnum{0}\hlstd{)}
+\hlkwd{mean}\hlstd{(dfH_est}\hlopt{$}\hlstd{hlin.ratio)}
+\end{alltt}
+\begin{verbatim}
+## [1] 1.54738
+\end{verbatim}
+\begin{alltt}
+\hlcom{# Hc Oracle}
+\hlstd{dfHc} \hlkwb{<-} \hlkwd{subset}\hlstd{(fs.est}\hlopt{$}\hlstd{df.est, flag.harm} \hlopt{==} \hlnum{0}\hlstd{)}
+\hlkwd{mean}\hlstd{(dfHc}\hlopt{$}\hlstd{hlin.ratio)}
+\end{alltt}
+\begin{verbatim}
+## [1] 0.6040505
+\end{verbatim}
+\begin{alltt}
+\hlstd{dfHc_est} \hlkwb{<-} \hlkwd{subset}\hlstd{(fs.est}\hlopt{$}\hlstd{df.est, treat.recommend} \hlopt{==} \hlnum{1}\hlstd{)}
+\hlkwd{mean}\hlstd{(dfHc_est}\hlopt{$}\hlstd{hlin.ratio)}
+\end{alltt}
+\begin{verbatim}
+## [1] 0.7066424
+\end{verbatim}
+\begin{alltt}
+\hlcom{# dfSens <- subset(fs.est$df.est, flag.harm==1 & treat.recommend==0) sensH <-}
+\hlcom{# nrow(dfSens)/nrow(dfH)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{verbatim}
+## Confounders evaluated in Forestsearch:
+## [1] "size <= median(size)"     "noise3 <= median(noise3)"
+## [3] "z1"                       "z2"                      
+## [5] "z4"                       "z5"                      
+## [7] "grade3"
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+
+
+
+
+\begin{table}
+
+\caption{\label{tab:simex_tab}\label{tab:simex} Simulated data example: Cox hazard ratio (hr) estimates for the ITT population and subgroups $H$ and $H^{c}$.
+Cox model estimates are based on subgroups: H true (knowing the actual subgroup, a-priori); the estimated subgroup $\hat{H}$; and 
+the boostrap ($1,000$ resamples) bias-correction to $\hat{H}$ estimates, denoted $\hat{H}_{bc}$.  Estimates for the complement $H^{c}$ are defined analogously.
+The number of subjects in each population ($\#$ Subjects) and the number of subjects correctly classified ($\#$ Correct) in the true subgroups $H$ and $H^{c}$, respectively, are listed.}
+\centering
+\fontsize{9}{11}\selectfont
+\begin{tabular}[t]{lccccc}
+\toprule
+  & HR Estimate & Lower & Upper & $\#$ Subjects & $\#$ Correct\\
+\midrule
+ITT & 0.805 & 0.681 & 0.951 & 1000 & .\\
+\addlinespace[0.3em]
+\multicolumn{6}{l}{\textbf{H subgroup estimates}}\\
+\hspace{1em}$H_{oracle}$ & 1.911 & 1.293 & 2.825 & 139 & .\\
+\hspace{1em}$\hat{H}$ & 1.467 & 1.016 & 2.118 & 150 & 86\\
+\hspace{1em}$\hat{H}_{bc}$ & 1.308 & 0.869 & 1.969 & 150 & 86\\
+\addlinespace[0.3em]
+\multicolumn{6}{l}{\textbf{H-complement subgroup estimates}}\\
+\hspace{1em}$H^{c}_{oracle}$ & 0.668 & 0.554 & 0.806 & 861 & .\\
+\hspace{1em}$\hat{H}^{c}$ & 0.737 & 0.61 & 0.89 & 850 & 797\\
+\hspace{1em}$\hat{H}^{c}_{bc}$ & 0.742 & 0.556 & 0.99 & 850 & 797\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+
+\bibliographystyle{spbasic}      % basic style, author-year citations
+\bibliography{../../subgroups_ref}
+\end{document}

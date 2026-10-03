@@ -1,0 +1,513 @@
+\Sexpr{set_parent("../../forestSearch_SIM-working_v1.Rnw")}
+
+
+<<echo=FALSE>>=
+opts_chunk$set (warning = FALSE, message = FALSE, tidy=TRUE, echo=FALSE, dev = 'pdf')
+options(warn=-1)
+@
+
+<<echo=TRUE>>=
+
+rm(list=ls())
+
+# Local github popOS
+#codepath<-c("/media/larryleon/My Projects/GitHub/Forest-Search/R/")
+
+# On MAC
+# Mac Studio: M1 Ultra 2022, 64GB, 
+# 20 cores (16 performance, 4 efficiency)
+codepath <- c("/Users/larryleon/Documents/GitHub/Forest-Search/R/")
+
+source(paste0(codepath,"source_forestsearch_v0.R"))
+source_fs_functions(file_loc=codepath)
+
+library(kableExtra)
+library(knitr)
+library(ggplot2)
+library(gridExtra)
+library(cubature)
+#library(aVirtualTwins)
+library(randomForest)
+library(survival)
+library(survminer)
+library(grf)
+library(policytree)
+library(data.table)
+library(plyr)
+library(dplyr)
+library(glmnet)
+
+library(cli)
+library(corrplot)
+library(table1)
+
+
+@
+
+
+
+
+<<r simsetup, echo=TRUE>>=
+
+maxFollow<-84
+cens.type<-"weibull"
+
+# m1 -censoring adjustment
+muC.adj<-log(1.5)
+k.z3<-1.0
+k.treat<-0.9
+
+z1_frac<-0.25 # Default model index 'm1' (The 1st quartile of z1=er)
+pH_super<-0.125 # non-NULL re-defines z1_frac
+
+if(is.null(pH_super)){
+#pH_check<-with(gbsg,mean(pgr<=quantile(pgr,c(z3_frac),1,0) & er<=quantile(er,z1_frac)))
+pH_check<-with(gbsg,mean(meno==0 & er<=quantile(er,z1_frac)))
+cat("Underlying pH_super",c(pH_check),"\n")
+}
+# pH_super specified
+# If pH_super then override  z1_frac and find z1_frac to yield pH_super
+
+if(!is.null(pH_super)){
+  # Approximate Z1 quantile to yield pH proportion  
+  z1_q<-uniroot(propH.obj4,c(0,1),tol=0.0001,pH.target=pH_super)$root
+  #pH_check<-with(gbsg,mean(pgr<=quantile(pgr,c(z3_frac),1,0) & er<=quantile(er,z1_q)))
+  pH_check<-with(gbsg,mean(meno==0 & er<=quantile(er,z1_q)))
+  cat("pH",c(pH_check),"\n")
+  rel_error<-(pH_super-pH_check)/pH_super
+  if(abs(rel_error)>=0.1) stop("pH_super approximation relative error exceeds 10%")
+  z1_frac<-z1_q
+  cat("Underlying pH_super",c(pH_check),"\n")
+  }
+
+# Bootstrap on log(hr) scale converted to HR (est.loghr=TRUE & est.scale="hr")
+t.start.all<-proc.time()[3]
+
+@
+
+
+<<r AnalysisSetup, echo=TRUE>>=
+#########################
+# Forest search criteria
+#########################
+
+hr.threshold<-1.25   # Initital candidates 
+hr.consistency<-1.0  # Candidates for many splits
+pconsistency.threshold <- 0.9
+stop.threshold <- 0.95
+maxk<-2
+nmin.fs<-60
+pstop_futile<-0.7
+
+# Limit timing for forestsearch
+max.minutes<-3.0
+m1.threshold<-Inf # Turning this off (Default)
+#pconsistency.threshold<-0.70 # Minimum threshold (will choose max among subgroups satisfying)
+fs.splits<-400 # How many times to split for consistency
+# vi is % factor is selected in cross-validation --> higher more important
+# Null, turns off grf screening
+d.min<-10 # Min number of events for both arms (d0.min=d1.min=d.min)
+# default=5
+##########################
+# Virtual twins analysis
+##########################
+# Counter-factual difference (C-E) >= vt.threshold
+# Large values in favor of C (control)
+vt.threshold<-0.225  # For VT delta
+treat.threshold<-0.0
+
+maxdepth<-2
+n.min<-60
+ntree<-1000
+# GRF criteria
+dmin.grf<-12.0 # For GRF delta
+# Note: For CRT this represents dmin.grf/2 RMS for control (-dmin.grf/2 for treatment)
+frac.tau<-0.60
+
+outcome.name<-c("y.sim")
+event.name<-c("event.sim")
+id.name<-c("id")
+treat.name<-c("treat")
+
+cox.formula.sim<-as.formula(paste("Surv(y.sim,event.sim)~treat"))
+cox.formula.adj.sim<-as.formula(paste("Surv(y.sim,event.sim)~treat+v1+v2+v3+v4+v5"))
+@
+
+
+
+<<r DGMsetup, echo=TRUE>>=
+
+mod.harm<-"alt"
+hrH.target <- 2.0
+# out.loc = NULL turns off file creation
+N <- 1000
+this.dgm<-get.dgm4(mod.harm=mod.harm,N=N,k.treat=k.treat,
+hrH.target=hrH.target,cens.type=cens.type,out.loc=NULL,details=TRUE,parms_torand=FALSE)
+
+file_out <- NULL
+#file_out <- c("output/sim-FS4_N1k_Noise=3_hrH=2_sim99.Rdata")
+
+@
+
+<<r FSanalysis, echo=TRUE, eval=TRUE>>=
+
+n_add_noise <- 3
+
+sim <- 99
+
+dgm<-this.dgm$dgm
+
+x<-sim_aftm4_gbsg(dgm=dgm,n=N,maxFollow=maxFollow,muC.adj=muC.adj,simid=sim)
+
+kmfit <- survfit(Surv(y.sim,event) ~ treat, data=x)
+
+ggsurvplot(kmfit, data=x, main="K-M curves for simulated data",
+legend="top", legend.title="Treatment",
+legend.labs=c("Control","Experimental"),
+palette="grey", risk.table=TRUE, risk.table.col="strata")
+
+
+  if(n_add_noise==0){
+  confounders.name <- c("z1","z2","z3","z4","z5","size","grade3")
+  }
+    
+  if(n_add_noise==5){
+  set.seed(8316951+1000*sim)
+  # Add 5 noise 
+  x$noise1 <- rnorm(N)
+  x$noise2 <- rnorm(N)
+  x$noise3 <- rnorm(N)
+  x$noise4 <- rnorm(N)
+  x$noise5 <- rnorm(N)
+  confounders.name <- c("z1","z2","z3","z4","z5","size","grade3","noise1","noise2","noise3","noise4","noise5")
+  }
+  
+  if(n_add_noise==3){
+    set.seed(8316951+1000*sim)
+    # Add 3 noise 
+    x$noise1 <- rnorm(N, sd=1)
+    x$noise2 <- rnorm(N, sd=1)
+    x$noise3 <- rnorm(N, sd=1)
+    confounders.name <- c("z1","z2","z3","z4","z5","size","grade3","noise1","noise2","noise3")
+  }
+
+
+cox.formula.check<-as.formula(paste("Surv(y.sim,event.sim)~treat+z1+z2+z3+z4+z5+size+grade3+noise1+noise2+noise3"))
+coxph(cox.formula.check,data=x)
+
+Zm <- cor(as.matrix(x[,c(confounders.name)]))
+corrplot(Zm)
+
+suppressWarnings(table1 (~ z1 + z2 + z3 + z4 + z5 + size + grade3 + noise1 + noise2 + noise3 | treat, data=x))
+
+# Options
+# Allconfounders.name is list of confounders
+# within analysis dataset
+# (1) use_lasso=TRUE & use_grf=FALSE
+# Lasso used to possibly reduce dimension
+# Any continuous factors are cut at medians
+# (2) use_lasso=TRUE & use_grf=TRUE
+# Lasso used to reduce dimension
+# Continuous covariates are cut at medians
+# However, if GRF selects a covariate cut
+# then only that cut is used:
+# For example if "age <= median(ag)" is 
+# called for per Lasso but GRF includes
+# "age <= 54", then only the latter is used
+# (3) use_grf_only = TRUE (overrides use_lasso and use_grf)
+# Only factors selected via GRF are used
+# (4) use_lasso = F & use_grf =T
+# Median cuts (unless selected via GRF) as  in (2)
+# However no possible dimension reduction via lasso
+# All categorical factors included
+# (5) If all options set to false, then all 
+# factors are included with continuous factors
+# cut at medians
+
+use_lasso <- TRUE
+use_grf <- TRUE
+use_grf_only <- FALSE
+
+fs.est <- forestsearch(df.analysis=x, Allconfounders.name=confounders.name,
+details=TRUE,use_lasso=use_lasso, use_grf=use_grf, use_grf_only=use_grf_only,
+dmin.grf=12, frac.tau=0.60,
+conf_force=NULL, outcome.name=outcome.name,treat.name=treat.name,
+event.name=event.name,id.name=id.name,n.min=nmin.fs,hr.threshold=hr.threshold,
+hr.consistency=hr.consistency,fs.splits=fs.splits,d0.min=d.min,d1.min=d.min,
+pstop_futile=pstop_futile,pconsistency.threshold=pconsistency.threshold, 
+stop.threshold=stop.threshold,max.minutes=max.minutes,maxk=maxk,by.risk=12,
+plot.sg=TRUE)
+
+
+grf.est <- grf.subg.harm.survival(data=x,confounders.name=confounders.name,
+outcome.name=outcome.name,event.name=event.name,id.name=id.name,
+treat.name=treat.name,n.min=n.min,
+dmin.grf=dmin.grf,frac.tau=0.60, details=TRUE)
+
+#plot(grf.est$tree)
+
+@
+
+
+<<r Bootstrap-doParallel, echo=TRUE>>=
+library(doParallel)
+registerDoParallel(parallel::detectCores(logical = FALSE))
+
+cox.formula.boot<-cox.formula.sim
+max.minutes<-7.0
+# Suggest running 50, first ... to get timing estimate
+
+NB<-1000
+
+df_boot_analysis <- fs.est$df.est
+
+fitH<-get_Cox_sg(df_sg=subset(df_boot_analysis,treat.recommend==0),cox.formula=cox.formula.boot)
+H_obs<-fitH$est_obs # log(hr) scale
+seH_obs<-fitH$se_obs
+# Hc observed estimates
+fitHc<-get_Cox_sg(df_sg=subset(df_boot_analysis,treat.recommend==1),cox.formula=cox.formula.boot)
+Hc_obs<-fitHc$est_obs
+seHc_obs<-fitHc$se_obs
+rm("fitH","fitHc")
+
+Ystar_mat<-bootYstar(
+{  
+ystar<-get_Ystar(boot)
+},
+boots=NB,
+seed=8316951,
+counter="boot",
+export=fun_arg_list_boot
+)
+# Check dimension
+if(dim(Ystar_mat)[1]!=NB | dim(Ystar_mat)[2]!=nrow(df_boot_analysis)) stop("Dimension of Ystar_mat does not match")
+
+# Check 1st 5 bootstraps
+ansB <- NULL
+for(bb in 1:5){  
+boot <- bb  
+ans <- fsboot_forparallel(boot)
+cat_line("***Bootstrap done, B***=",c(boot),col="blue")
+print(ans)
+ansB <- rbind(ansB,c(bb,ans))
+}
+print(ansB)
+
+
+tB.start<-proc.time()[3]
+# Bootstraps
+resB<-bootPar(
+{  
+ans <- fsboot_forparallel(boot)
+},
+boots=NB,
+seed=8316951,
+counter="boot",
+export=fun_arg_list_boot
+)
+tB.now<-proc.time()[3]
+tB.min<-(tB.now-tB.start)/60
+
+doParallel::stopImplicitCluster()
+
+cat("Minutes for Boots",c(NB,tB.min),"\n")
+cat("Projection per 1000",c(tB.min*(1000/NB)),"\n")
+
+cat("Propn bootstrap subgroups found =",c(sum(!is.na(resB$H_biasadj_1))/NB),"\n")
+
+# How many timmed out 
+cat("Number timmed out=",c(sum(is.na(resB$H_biasadj_1) & resB$tmins_search>max.minutes)),"\n")
+
+H_estimates<-get_dfRes(Hobs=H_obs,seHobs=seH_obs,H1_adj=resB$H_biasadj_1,H2_adj=resB$H_biasadj_2,
+                       ystar=Ystar_mat,cov_method="standard",cov_trim=0.0)
+Hc_estimates<-get_dfRes(Hobs=Hc_obs,seHobs=seHc_obs,H1_adj=resB$Hc_biasadj_1,H2_adj=resB$Hc_biasadj_2,
+                        ystar=Ystar_mat,cov_method="standard",cov_trim=0.0)
+
+print(H_estimates)
+print(Hc_estimates)
+
+
+bootit<-list(H_estimates=H_estimates,Hc_estimates=Hc_estimates)
+ans <- fsBoot.parallel.out(df=df_boot_analysis,FSboots=bootit,cox.formula.boot=cox.formula.boot,sim_number=sim)
+tall.min<-(tB.now-t.start.all)/60
+
+cat("Overall minutes for analysis",c(tall.min),"\n")
+
+#save(dgm, x, fs.est, grf.est, bootit, ans, tall.min, resB, cox.formula.boot, file=file_out)
+
+@
+
+
+<<r TableSummary, echo=FALSE>>=
+
+# ITT causal hazard ratio
+itt_po <- c(mean(fs.est$df.est$hlin.ratio))
+# H  Oracle
+dfH <- subset(fs.est$df.est, flag.harm==1)
+
+Horacle_po <- c(mean(dfH$hlin.ratio))
+
+dfH_est <- subset(fs.est$df.est, treat.recommend==0)
+
+Hest_po <- c(mean(dfH_est$hlin.ratio))
+
+# Hc Oracle
+dfHc <- subset(fs.est$df.est, flag.harm==0)
+
+HCoracle_po <- c(mean(dfHc$hlin.ratio))
+
+dfHc_est <- subset(fs.est$df.est, treat.recommend==1)
+HCest_po <- c(mean(dfHc_est$hlin.ratio))
+
+#dfSens <- subset(fs.est$df.est, flag.harm==1 & treat.recommend==0)
+#sensH <- nrow(dfSens)/nrow(dfH)
+
+cat("Confounders evaluated in Forestsearch:","\n")
+print(fs.est$confounders.evaluated)
+
+# Creating descriptions to use in paper
+
+df_pred<-fs.est$df.predict
+df<-df_pred
+tte.name<-"y.sim"
+event.name<-"event.sim"
+treat.name<-"treat"
+byrisk<-9
+risk.cex<-0.6
+legend.cex<-0.75
+details<-TRUE
+ylab<-"Survival"
+# Add all events
+evs<-sort(unique(df$y.sim[which(df$event.sim==1)]))
+tpoints.add<-c(-1,evs,max(df$y.sim))
+pcens<-100*round(mean(1-df$event.sim),2)
+nn<-length(df$y.sim)
+nH_true<-sum(x$flag.harm)
+nHc_true<-sum(1-x$flag.harm)
+nH_est<-sum(1-df$treat.recommend)
+kH<-with(df,sum(treat.recommend==0 & flag.harm==1))
+sens_H<-kH/nH_true
+spec_H<-kH/nH_est
+
+nHc_est<-sum(df$treat.recommend)
+kHc<-with(df,sum(treat.recommend==1 & flag.harm==0))
+
+pH_super<-100*round(mean(dgm$df.super_rand$flag.harm),2)
+
+#ansb<-format(ans,digits=4,drop0trailing=TRUE)
+#ans<-as.data.frame(ansb)
+
+ans<-round(ans,3)
+
+# ITT estimates
+resITT<-c(ans[,c("H_itt","H_itt_lower","H_itt_upper")],NA,NA)
+
+# Knowing subgroup a-priori
+# Returns coverage status for hr.H.true
+# coverage for a-prior is NA
+temp<-getci_Cox(df=as.data.frame(ans),est="H_true",se="seH_true",target=unlist(dgm["hr.H.true"]))
+resH_apriori<-c(ans[,c("H_true")],temp$lb,temp$ub,NA,temp$cover)
+###########
+# Observed
+###########
+temp<-getci_Cox(df=as.data.frame(ans),est="H_obs",se="seH_obs",target=unlist(dgm["hr.H.true"]))
+# Cover a-priori ?
+estH_apriori<-ans[,c("H_true")]
+cover2<-ifelse(estH_apriori >= c(temp$lb) & estH_apriori <= c(temp$ub),1,0)
+resH_obs<-c(ans[,c("H_obs")],temp$lb,temp$ub,cover2,temp$cover)
+# Bias-corrected
+temp<-getci_Cox(df=as.data.frame(ans),est="H2.bc",se="seH2.bc",target=unlist(dgm["hr.H.true"]))
+# Cover a-priori ?
+cover2<-ifelse(estH_apriori >= c(temp$lb) & estH_apriori <= c(temp$ub),1,0)
+resH_bc<-c(ans[,c("H2.bc")],temp$lb,temp$ub,cover2,temp$cover)
+###########################################
+resH<-rbind(resH_apriori,resH_obs,resH_bc)
+###########################################
+# Repeat above for Hc
+temp<-getci_Cox(df=as.data.frame(ans),est="Hc_true",se="seHc_true",target=unlist(dgm["hr.Hc.true"]))
+resH_apriori<-c(ans[,c("Hc_true")],temp$lb,temp$ub,NA,temp$cover)
+temp<-getci_Cox(df=as.data.frame(ans),est="Hc_obs",se="seHc_obs",target=unlist(dgm["hr.Hc.true"]))
+estH_apriori<-ans[,c("Hc_true")]
+cover2<-ifelse(estH_apriori >= c(temp$lb) & estH_apriori <= c(temp$ub),1,0)
+resH_obs<-c(ans[,c("Hc_obs")],temp$lb,temp$ub,cover2,temp$cover)
+temp<-getci_Cox(df=as.data.frame(ans),est="Hc2.bc",se="seHc2.bc",target=unlist(dgm["hr.Hc.true"]))
+cover2<-ifelse(estH_apriori >= c(temp$lb) & estH_apriori <= c(temp$ub),1,0)
+resH_bc<-c(ans[,c("Hc2.bc")],temp$lb,temp$ub,cover2,temp$cover)
+###########################################
+resHc<-rbind(resH_apriori,resH_obs,resH_bc)
+###########################################
+
+res<-rbind(resITT,resH,resHc)
+resf<-as.data.frame(res)
+colnames(resf)<-c("HR Estimate","Lower","Upper","C(true)","C(fixed)")
+
+# Remove C(.) and include # of subjects
+
+resf_new<-resf[,-c(4,5)]
+# Add sample size columns
+na<-c(nn,nH_true,nH_est,nH_est,nHc_true,nHc_est,nHc_est)
+ncorrect<-c(NA,NA,kH,kH,NA,kHc,kHc)
+nnew<-cbind(na,ncorrect)
+resf_new<-cbind(resf_new,nnew)
+
+rm("resf")
+
+# Add potential outcomes
+temp <- c(itt_po,Horacle_po,Hest_po,Hest_po,HCoracle_po,HCest_po,HCest_po)
+
+resf_new <-cbind(temp,resf_new)
+
+colnames(resf_new)<-c("Causal(adj)","Estimate","Lower","Upper","$\\#$ Subjects","$\\#$ Correct")
+resf<-resf_new
+
+rnH<-c("$H_{oracle}$","$\\hat{H}$","$\\hat{H}_{bc}$")
+rnHc<-c("$H^{c}_{oracle}$","$\\hat{H}^{c}$","$\\hat{H}^{c}_{bc}$")
+rnItt<-c("ITT")
+
+rownames(resf)<-c(rnItt,rnH,rnHc)
+
+# Describing CIs
+Hstat<-c(unlist(resH[1,]))[c(1,2,3)]
+Hstat<-round(Hstat,2)
+a<-paste0(Hstat[1]," (95% CI=")
+a<-paste0(a,Hstat[2])
+a<-paste0(a,",")
+a<-paste0(a,Hstat[3])
+a<-paste0(a,")")
+Hstat_true<-c(a)
+
+Hstat<-c(unlist(resH[2,]))[c(1,2,3)]
+Hstat<-round(Hstat,2)
+a<-paste0(Hstat[1]," (95% CI=")
+a<-paste0(a,Hstat[2])
+a<-paste0(a,",")
+a<-paste0(a,Hstat[3])
+a<-paste0(a,")")
+Hstat_est<-c(a)
+
+Hstat<-c(unlist(resH[3,]))[c(1,2,3)]
+Hstat<-round(Hstat,2)
+a<-paste0(Hstat[1]," (95% CI=")
+a<-paste0(a,Hstat[2])
+a<-paste0(a,",")
+a<-paste0(a,Hstat[3])
+a<-paste0(a,")")
+Hstat_bc<-c(a)
+@
+
+
+<<simex_tab,echo=FALSE>>=
+options(knitr.kable.NA = '.',format="latex")
+tab_ex<-kbl(resf,longtable=FALSE,align='c',format="latex",booktabs=TRUE,escape=F,digits=3,
+caption="\\label{tab:simex} Simulated data example: Cox hazard ratio (hr) estimates for the ITT population and subgroups $H$ and $H^{c}$.
+Cox model estimates are based on subgroups: H true (knowing the actual subgroup, a-priori); the estimated subgroup $\\hat{H}$; and 
+the boostrap ($1,000$ resamples) bias-correction to $\\hat{H}$ estimates, denoted $\\hat{H}_{bc}$.  Estimates for the complement $H^{c}$ are defined analogously.
+The number of subjects in each population ($\\#$ Subjects) and the number of subjects correctly classified ($\\#$ Correct) in the true subgroups $H$ and $H^{c}$, respectively, are listed.") %>%
+kable_styling(full_width = FALSE, font_size=9) %>%
+pack_rows("H subgroup estimates", 2, 4) %>%
+pack_rows("H-complement subgroup estimates", 5, 7)
+@
+
+\Sexpr{tab_ex}
+
+

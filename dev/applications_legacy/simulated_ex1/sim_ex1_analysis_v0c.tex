@@ -1,0 +1,220 @@
+\documentclass[oupdraft]{bio}
+\usepackage[]{graphicx}\usepackage[]{color}
+% maxwidth is the original width if it is less than linewidth
+% otherwise use linewidth (to make sure the graphics do not exceed the margin)
+\makeatletter
+\def\maxwidth{ %
+  \ifdim\Gin@nat@width>\linewidth
+    \linewidth
+  \else
+    \Gin@nat@width
+  \fi
+}
+\makeatother
+
+\definecolor{fgcolor}{rgb}{0.345, 0.345, 0.345}
+\makeatletter
+\@ifundefined{AddToHook}{}{\AddToHook{package/xcolor/after}{\definecolor{fgcolor}{rgb}{0.345, 0.345, 0.345}}}
+\makeatother
+\newcommand{\hlnum}[1]{\textcolor[rgb]{0.686,0.059,0.569}{#1}}%
+\newcommand{\hlstr}[1]{\textcolor[rgb]{0.192,0.494,0.8}{#1}}%
+\newcommand{\hlcom}[1]{\textcolor[rgb]{0.678,0.584,0.686}{\textit{#1}}}%
+\newcommand{\hlopt}[1]{\textcolor[rgb]{0,0,0}{#1}}%
+\newcommand{\hlstd}[1]{\textcolor[rgb]{0.345,0.345,0.345}{#1}}%
+\newcommand{\hlkwa}[1]{\textcolor[rgb]{0.161,0.373,0.58}{\textbf{#1}}}%
+\newcommand{\hlkwb}[1]{\textcolor[rgb]{0.69,0.353,0.396}{#1}}%
+\newcommand{\hlkwc}[1]{\textcolor[rgb]{0.333,0.667,0.333}{#1}}%
+\newcommand{\hlkwd}[1]{\textcolor[rgb]{0.737,0.353,0.396}{\textbf{#1}}}%
+\let\hlipl\hlkwb
+
+\usepackage{framed}
+\makeatletter
+\newenvironment{kframe}{%
+ \def\at@end@of@kframe{}%
+ \ifinner\ifhmode%
+  \def\at@end@of@kframe{\end{minipage}}%
+  \begin{minipage}{\columnwidth}%
+ \fi\fi%
+ \def\FrameCommand##1{\hskip\@totalleftmargin \hskip-\fboxsep
+ \colorbox{shadecolor}{##1}\hskip-\fboxsep
+     % There is no \\@totalrightmargin, so:
+     \hskip-\linewidth \hskip-\@totalleftmargin \hskip\columnwidth}%
+ \MakeFramed {\advance\hsize-\width
+   \@totalleftmargin\z@ \linewidth\hsize
+   \@setminipage}}%
+ {\par\unskip\endMakeFramed%
+ \at@end@of@kframe}
+\makeatother
+
+\definecolor{shadecolor}{rgb}{.97, .97, .97}
+\definecolor{messagecolor}{rgb}{0, 0, 0}
+\definecolor{warningcolor}{rgb}{1, 0, 1}
+\definecolor{errorcolor}{rgb}{1, 0, 0}
+\makeatletter
+\@ifundefined{AddToHook}{}{\AddToHook{package/xcolor/after}{
+\definecolor{shadecolor}{rgb}{.97, .97, .97}
+\definecolor{messagecolor}{rgb}{0, 0, 0}
+\definecolor{warningcolor}{rgb}{1, 0, 1}
+\definecolor{errorcolor}{rgb}{1, 0, 0}
+}}
+\makeatother
+\newenvironment{knitrout}{}{} % an empty environment to be redefined in TeX
+
+\usepackage{alltt}
+\newcommand{\SweaveOpts}[1]{}  % do not interfere with LaTeX
+\newcommand{\SweaveInput}[1]{} % because they are not real TeX commands
+\newcommand{\Sexpr}[1]{}       % will only be parsed by R
+
+
+
+%\usepackage[colorlinks=true, urlcolor=citecolor, linkcolor=citecolor, citecolor=citecolor]{hyperref}
+% hypperref is incompatible with bio.cls
+
+\usepackage{url}
+
+\usepackage{float}
+
+\usepackage{longtable,ctable}
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+
+\usepackage{setspace}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumerate}
+
+\usepackage{threeparttable}
+
+\newcommand{\R}{R}
+\newcommand{\gbsg}{gbsg}
+
+%\def\FsNg{\hbox{FS}(M_{g})}
+
+\def\FsNg{\hbox{FS-M}}
+
+\def\hhat{\hat\theta(\hat{H})}
+\def\hchat{\hat\theta(\hat{H}^{c})}
+\def\hknow{\hat\theta(H)}
+\def\hcknow{\hat\theta(H^{c})}
+\def\hplim{\theta^{\dagger}(H)}
+\def\hcplim{\theta^{\dagger}(H^{c})}
+
+\def\sumin{\sum_{i=1}^n}
+\def\nsumin{n^{-1}\sum_{i=1}^n}
+
+\def\ns{n_{0}+n_{1}}
+\def\na{n_{0}}
+\def\nb{n_{1}}
+
+\newcommand{\indep}{\perp \!\!\! \perp}
+
+%\textheight=9.25in \textwidth=6.0in 
+%\topmargin=0in
+%\evensidemargin=0in \oddsidemargin=0in
+
+
+
+\begin{document}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\begin{table}[p]
+\caption{\label{tab:simex1} Simulated data example: Cox hazard ratio (hr) estimates for the ITT population and subgroups $H$ and $H^{c}$.
+Cox model estimates are based on subgroups: H true (knowing the actual subgroup, a-priori); the estimated subgroup $\hat{H}$; and 
+the boostrap ($500$ resamples) bias-correction to $\hat{H}$ estimates, denoted $\hat{H}_{bc}$.  Estimates for the complement $H^{c}$ are defined analogously.
+The number of subjects in each population ($\#$ Subjects) and the number of subjects correctly classified ($\#$ Correct) in the true subgroups $H$ and $H^{c}$, respectively, are listed.}
+\centering
+\fontsize{9}{11}\selectfont
+\begin{tabular}[t]{lccccc}
+\toprule
+  & HR Estimate & Lower & Upper & $\#$ Subjects & $\#$ Correct\\
+\midrule
+\addlinespace[0.3em]
+\multicolumn{6}{l}{\textbf{ITT}}\\
+\hspace{1em}ITT & 0.838 & 0.687 & 1.021 & 700 & .\\
+\addlinespace[0.3em]
+\multicolumn{6}{l}{\textbf{H subgroup estimates}}\\
+\hspace{1em}H true & 2.358 & 1.471 & 3.781 & 101 & .\\
+\hspace{1em}$\hat{H}$ & 3.077 & 1.604 & 5.904 & 64 & 52\\
+\hspace{1em}$\hat{H}_{bc}$ & 2.248 & 1.436 & 3.519 & 64 & 52\\
+\addlinespace[0.3em]
+\multicolumn{6}{l}{\textbf{H-complement subgroup estimates}}\\
+\hspace{1em}$H^{c}$ true & 0.672 & 0.537 & 0.841 & 599 & .\\
+\hspace{1em}$\hat{H}^{c}$ & 0.733 & 0.592 & 0.908 & 636 & 587\\
+\hspace{1em}$\hat{H}^{c}_{bc}$ & 0.743 & 0.592 & 0.932 & 636 & 587\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+As a practical illustration we consider a simulated dataset generated as described in Section \ref{sec:sims}.   In this simulated example there are 
+$N=700$ subjects, randomized 1:1, where the underlying (marginal) hazard ratio for the harm population $H$ is 
+$\hplim =2.5$, and for the complement $H^{c}$, the (marginal) hazard ratio is $\hcplim =0.647$.  The overall (marginal) hazard ratio is $0.71$.  
+Subjects' outcomes are generated from a Weibull regression model with $5$ covariates, and analysis is based on those $5$ covariates in addition to $2$ ``noise'' covariates.
+The underlying proportion of subjects in the harm population $H$ is $\approx 13\%$.  Here the actual number of subjects in the $H$ subgroup is $101$ and the number of subjects in the complement equals $599$.  
+
+
+
+
+
+
+
+\begin{figure}[p]
+\begin{center}
+\includegraphics[width=\textwidth, height=3.5in]{plot_simex1.pdf}
+\end{center}
+\caption{Simulated data example with $\approx 44$\% censoring: (a) Kaplan-Meier (KM) curves for the true $H$ ($H$) subgroup for the treatment (solid grey) 
+and control (dashed grey) arms, along with the KM curves for the estimated H ($\hat{H}$) subgroup treatment (solid black) and control (dashed black); 
+(b) KM curves for the true complement $H^{c}$ ($H^{c}$) subgroup for the treatment (solid grey) 
+and control (dashed grey) arms, along with the KM curves for the estimated $H^{c}$ ($\hat{H}^{c}$) subgroup treatment (solid black) and control (dashed black). The displayed risk sets 
+correspond to the treatment and control arms combined for the true and estimated subgroups ($H$ and $\hat{H}$ in (a); $H^{c}$ and $\hat{H}^{c}$ in (b)).}\label{fig:simex1}
+\end{figure}
+
+
+Applying our novel procedure the estimated subgroup $\hat{H}$ consists of $64$ subjects and thus 
+$636$ in the estimated complement $\hat{H}^{c}$. The number of subjects in $H$ that are included in $\hat{H}$ is $52$ (i.e., $|H \cap \hat{H}|=52$): Of the $101$ subjects in $H$, $52/101=51.5\%$ are correctly classified and of the $64$ subjects in $\hat{H}$, $52/64=81.2\%$ are correctly classified.  For the complement, the number of subjects in $H^{c}$ that are included in $\hat{H}^{c}$ is $587$: Of the $599$ subjects in $H^{c}$, $587/599=98\%$ are correctly classified and of the $636$ subjects in $\hat{H}^{c}$, $587/636=92.3\%$ are correctly classified.  
+
+In other words, $\hat{H}^{c}$ represents $98\%$ of $H^{c}$, and for estimation (Cox and Kaplan-Meier)
+based on $\hat{H}^{c}$: $92.3\%$ are $H^{c}$ subjects with (marginal) hazard ratio $\hcplim=0.647$, and $7.7\%$
+are $H$ subjects with (marginal) hazard ratio $\hplim =2.5$.
+
+
+Figure \ref{fig:simex1} displays the Kaplan-Meier curves based on the true (known a-priori) subgroups and the estimated subgroups (Figures \ref{fig:simex1}(a) and \ref{fig:simex1}(b), for $H$ and $H^{c}$, respectively).  The Kaplan-Meier curves for the treatment and control arms %for the actual subgroups ($H$, known a-prior) are generally well characterized by the estimated subgroups.  
+
+
+Table \ref{tab:simex1} provides the Cox estimate for the overall population (ITT) as well as the estimates based on the true (known a-priori), and estimated subgroups, $\hat{H}$ and $\hat{H}^{c}$.  The ITT Cox estimate is $0.84$ (95\% CI=$0.69$, $1.02$), 
+which is statistically insignificant and highlights the practical implications.  For characterizing $H$, recall that the underlying (marginal) hazard ratio is $\hplim =2.5$.  If the true H is known (a-priori), the Cox estimate is $2.36$ (95\% CI=$1.47$, $3.78$), and for the estimated H, $\hat{H}$, the Cox estimate is $3.08$ (95\% CI=$1.6$, 
+$5.9$).  By the nature of the FS procedure we expect Cox model estimates based on an estimated subgroup to be upwardly biased for $H$.  We therefore describe a bootstrap bias-correction, which in this case, the bias-corrected Cox estimate denoted by $\hat{H}_{bc}$ is $2.25$ (95\% CI=$1.44$, $3.52$) which we see provides a more ``tempered''estimate and is quite similar to the estimates based on the ideal true H in this simulated example.  
+In addition, notice that the CIs for each estimate cover the underlying (marginal) respective hazard ratios 
+$\hplim =2.5$ and $\hcplim =0.65$ for $H$ and $H^{c}$, respectively.  
+The CIs for $\hat{H}$ and $\hat{H}_{bc}$ also cover the estimate based on $H$ true =  $2.36$; and similarly for the complement where $H^{c}$ true =  $0.67$.  We remark that this simulated example is representative of the results observed in our simulation setting described in Section \ref{sec:sims}.
+
+
+
+
+\bibliographystyle{biorefs}      % basic style, author-year citations
+\bibliography{subgroups_ref}
+\end{document}

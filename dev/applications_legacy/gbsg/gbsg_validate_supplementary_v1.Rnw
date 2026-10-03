@@ -1,0 +1,123 @@
+\Sexpr{set_parent("supplementary_SIM-Rev1_v1.Rnw")}
+
+
+<<echo=FALSE>>=
+opts_chunk$set (warning = FALSE, message = FALSE, tidy=TRUE, echo=FALSE, dev = 'pdf')
+options(warn=-1)
+@
+
+<<echo=FALSE>>=
+rm(list=ls())
+# For KM plots
+codepath<-c("../../R/")
+source(paste0(codepath,"source_forestsearch_v0.R"))
+source_fs_functions(file_loc=codepath)
+library(survival)
+@
+
+
+<<echo=FALSE,eval=TRUE>>=
+# supplementary "validation"
+gbsg_validate <-within(rotterdam,{
+rfstime <- ifelse(recur==1,rtime,dtime)
+#rfstime <- pmin(rtime,dtime)
+t_months<-rfstime/30.4375
+time_months <- t_months
+status <- pmax(recur,death)
+# censor if beyond 84 months ?
+#time_months <- pmin(t_months,84)
+#status <- ifelse(status==1 & t_months <= 84,1,0)
+# Second version (conservative per Therneau)
+ignore <- (recur==0 & death==1 & rtime < dtime)
+status2 <- ifelse(recur==1 | ignore, recur, death)
+rfstime2 <- ifelse(recur==1 | ignore, rtime,dtime)
+time_months2 <- rfstime2/30.4375
+grade3 <- ifelse(grade=="3",1,0)
+treat <- hormon
+id<-as.numeric(c(1:nrow(rotterdam)))  
+SG0 <- ifelse(er<=0,0,1)
+wt_one <- 1
+})
+# Check subject 40 who was censored at recurrence but death afterwards
+# Event at 6.6 years
+subset(gbsg_validate,pid==40)
+
+tte.name<-c("time_months")
+event.name<-c("status")
+treat.name<-c("treat")
+wt.name <- c("sw.weights")
+
+# node positive to match gbsg?
+df.analysis <- subset(gbsg_validate, nodes > 0)
+@
+
+<<echo=FALSE,eval=FALSE>>=
+
+pdf(file = "plot_KM_gbsg-validate.pdf",   
+width = 10, height = 10) 
+
+par(mfrow=c(1,2))
+
+byrisk <- 12
+
+risk.cex<-0.65
+legend.cex<-0.90
+
+fit.ps <- glm(treat ~ age+meno+size+grade3+nodes+pgr+chemo+er, data=df.analysis, family="binomial")
+pihat <- fit.ps$fitted
+pihat.null <- glm(treat ~ 1, family="binomial", data=df.analysis)$fitted
+wt.1 <- pihat.null/pihat
+wt.0 <- (1-pihat.null)/(1-pihat)
+# Stabilized weight
+df.analysis$sw.weights <- ifelse(df.analysis$treat==1, wt.1,wt.0)
+
+
+# Add all events
+evs<-sort(unique(df.analysis$time_months[which(df.analysis$status==1)]))
+tpoints.add<-c(-1,evs,max(df.analysis$time_months))
+
+dfp <- subset(df.analysis, er<=0)
+
+kmH.fit<-KM.plot.2sample.weighted(Y=dfp[,c(tte.name)],E=dfp[,c(event.name)],Treat=dfp[,c(treat.name)],
+                                  Weight=dfp[,c(wt.name)],
+                                  risk.set=TRUE,by.risk=byrisk,tpoints.add=tpoints.add,risk.cex=risk.cex,
+                                  stop.onerror=TRUE,check.KM=TRUE,
+                                  Xlab="Months",Ylab="Recurrence-free Survival",details=FALSE,
+                                  show.ticks=TRUE,
+                                  col.1="black", col.2="darkgrey",
+                                  ltys=c(1,2),lwds=c(3,3),
+                                  plotit=TRUE, risk_offset=0.125, risk_delta=0.05,
+                                  show.logrank=FALSE,show.med=FALSE,show.cox=TRUE)
+title(sub="(a) Estrogen = 0")
+
+
+dfp <- subset(df.analysis, er>0)
+
+kmH.fit<-KM.plot.2sample.weighted(Y=dfp[,c(tte.name)],E=dfp[,c(event.name)],Treat=dfp[,c(treat.name)],
+                                  Weight=dfp[,c(wt.name)],
+                                  risk.set=TRUE,by.risk=byrisk,tpoints.add=tpoints.add,risk.cex=risk.cex,
+                                  show.Y.axis=FALSE,
+                                  stop.onerror=TRUE, check.KM=TRUE,
+                                  Xlab="Months",Ylab="",details=FALSE,
+                                  show.ticks=TRUE,
+                                  col.1="black", col.2="darkgrey",
+                                  ltys=c(1,2),lwds=c(3,3), 
+                                  plotit=TRUE, risk_offset=0.125, risk_delta=0.05,
+                                  show.logrank=FALSE,show.med=FALSE,show.cox=TRUE)
+title(sub="(b) Estrogen > 0")
+
+dev.off()
+
+@
+
+
+\begin{figure}
+\begin{center}
+\includegraphics[width=\textwidth, height=3.25in]{plot_KM_gbsg-validate.pdf}
+\end{center}
+\caption{Application of GBSG subgroups to Rotterdam tumor bank data}
+\label{fig:gbsg_validate}
+\end{figure}
+
+
+

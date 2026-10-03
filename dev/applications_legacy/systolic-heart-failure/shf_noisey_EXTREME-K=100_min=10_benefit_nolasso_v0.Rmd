@@ -1,0 +1,262 @@
+---
+title: "Systolic Heart Failure SIM Revision no lasso"
+author: "Larry Leon"
+output: html_document
+---
+
+```{=latex}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{longtable}
+\usepackage{enumerate}
+\usepackage{threeparttable}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{url}
+\usepackage[colorlinks=true,linkcolor={blue},citecolor={black},urlcolor={blue},runcolor={blue}]{hyperref}
+```
+
+```{r Rpackages, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(warn = -1)
+
+rm(list=ls())
+## Unnecessary packages commented out
+suppressMessages(library(kableExtra,quietly=TRUE))
+suppressMessages(library(knitr,quietly=TRUE))
+suppressMessages(library(randomForest,quietly=TRUE))
+suppressMessages(library(survival,quietly=TRUE))
+suppressMessages(library(grf,quietly=TRUE))
+suppressMessages(library(policytree,quietly=TRUE))
+suppressMessages(library(DiagrammeR,quietly=TRUE))
+suppressMessages(library(data.table,quietly=TRUE))
+suppressMessages(library(plyr,quietly=TRUE))
+suppressMessages(library(dplyr,quietly=TRUE))
+suppressMessages(library(glmnet,quietly=TRUE))
+# smd and gtsummary are for baseline summary table
+# omit if not desired (remove corresponding section below)
+suppressMessages(library(smd,quietly=TRUE)) # required for gtsummary
+suppressMessages(library(gtsummary,quietly=TRUE)) # only for baseline table summary
+suppressMessages(library(future,quietly=TRUE))
+# Speff2trial for ACTG-175 dataset
+suppressMessages(library(speff2trial,quietly=TRUE))
+library(stringr)
+
+## Output file name specification
+
+file_out_here <- c("applications/systolic-heart-failure/output/shf_noisey_Extreme-k100_mins=10_boots=500_benefit_nolasso_v0.Rdata")
+#file_out_here <- NULL
+# set file_out_here = NULL if not outputting results to file
+# Bootstrapping and cross-validation
+NB <- 500 # Bootstraps
+dirpath1 <- c("/media/larryleon/My Projects/")
+#dirpath1 <- c("/home/larryleon/Documents/")
+
+## Directory and file output paths
+## Set dirpath2 = NULL if only 1 system (here choosing between "Apple" for dirpath2 and "non-MAC" for dirpath1)
+## If only 1 system then set dirpath2=NULL and dirpath1 according to your setup
+## file_analysis denotes the forest-search full analysis results (fs.est)
+setup_files <- function(dirpath1=c("/media/larryleon/My Projects/"),dirpath2=c("/Users/larryleon/Documents/"),
+                        dir2_identifier="Apple",
+                        dircode=c("GitHub/Forest-Search/R/"), 
+                        resdir=c("GitHub/Forest-Search/paper/"),
+                        file_out =NULL){
+  # dirpath1 and dirpath2 then chose between two paths
+  # here, running on different systems MAC versus linux
+  if(!is.null(dirpath2)){
+    suppressMessages(library(benchmarkme,quietly=TRUE))
+    suppressMessages(library(parallelly,quietly=TRUE))  
+    my_system <- get_cpu()
+    my_ram <- get_ram()
+    cat("Running on system:",c(my_system$model_name),"\n")
+    cat("with number of cores and cpu/GB=",c(my_system$no_of_cores,round(c(my_ram)/10^9,0)),"\n")
+    check_dir2 <- grepl(dir2_identifier,my_system$model_name)
+    # Change to dirpath2
+    if(check_dir2){
+      dirpath <- dirpath2
+      # Free connections
+      free_cons <- c(availableCores())
+    }
+    if(!check_dir2){
+      dirpath <- dirpath1
+      # Free connections (for my popos system)
+      free_cons <- c(freeConnections()-1)
+    }
+    cat("Number of free connections for doFuture/parallel =",c(free_cons),"\n")
+  }
+  if(is.null(dirpath2)){
+    suppressMessages(library(benchmarkme,quietly=TRUE))
+    suppressMessages(library(parallelly,quietly=TRUE))  
+    my_system <- get_cpu()
+    my_ram <- get_ram()
+    cat("Running on system:",c(my_system$model_name),"\n")
+    cat("with number of cores and cpu/GB=",c(my_system$no_of_cores,round(c(my_ram)/10^9,0)),"\n")
+    dirpath <- dirpath1
+    check_mac <- grepl("Apple",my_system$model_name)
+    if(check_mac) free_cons <- c(availableCores())
+    if(!check_mac) free_cons <- c(freeConnections()-1)
+    cat("Number of free connections for doFuture/parallel =",c(free_cons),"\n")
+  }
+  codepath <- paste0(dirpath,dircode)
+  respath <- paste0(dirpath,resdir)
+  # Output file name
+  outfile_name <- NULL
+  if(!is.null(file_out)){
+    outfile_name <- paste0(respath,file_out)
+    # Check if results already exist
+    #check_exists <-try(load(outfile_name),silent=TRUE,TRUE)
+  }
+  return(list(codepath=codepath,outfile_name=outfile_name))
+}
+
+## Get setup
+get_setup <- setup_files(dirpath1=dirpath1,
+dircode=c("GitHub/Forest-Search/R/"), 
+resdir=c("GitHub/Forest-Search/paper/"),
+dirpath2=c("/Users/larryleon/Documents/"),dir2_identifier="Apple",
+file_out=file_out_here)
+
+codepath <- get_setup$codepath
+outfile_name <- get_setup$outfile_name
+
+source(paste0(codepath,"source_forestsearch_v0.R"))
+source_fs_functions(file_loc=codepath)
+
+ if(!exists("forestsearch")){
+ cat("Files not found when sourcing from:","\n")
+ print(paste0(codepath,"source_forestsearch_v0.R"))
+ stop("forestsearch code does not exist")  
+ }
+ 
+```
+
+
+## Datasetup  
+```{r Datasetup, echo=TRUE, eval=TRUE}
+t.start.all<-proc.time()[3]
+
+data(peakVO2, package = "randomForestSRC")
+
+dfa <- peakVO2
+
+confounders.name <- names(dfa)
+loc_remove <- which(confounders.name %in% c("died","ttodead","aspirin"))
+
+confounders.name.start <- confounders.name[-c(loc_remove)]
+
+cat("# of baseline confounders =",c(length(confounders.name.start)),"\n")
+
+dfa<-within(dfa,{
+id<-as.numeric(c(1:nrow(dfa)))  
+# time to months
+time_months<-12*ttodead
+treat <- 1-aspirin
+event <- died
+})
+
+
+outcome.name<-c("time_months")
+event.name<-c("event")
+id.name<-c("id")
+treat.name<-c("treat")
+# Calculate Cox and RMST
+itt_tab<-SGtab(df=dfa,SG_flag="ITT",outcome.name=outcome.name,event.name=event.name,treat.name=treat.name,draws=0)
+
+
+plot_twosample(df=dfa,tte.name=outcome.name,treat.name=treat.name,event.name=event.name,
+col.treat="blue",col.control="darkgrey",choose_ylim=TRUE,               
+ylab="Survival Probability", xlab="Months", show.Y.axis=TRUE,               
+byrisk=6,show.med=FALSE,legend.cex=0.5,risk.cex=0.5,censor.cex=0.7,cox.cex=0.55,cex_Yaxis=0.65)
+
+# For draws>0 (above) will calculate simultaneous band
+#plotband_survdiff(res=itt_tab$rmst_fit)
+print(itt_tab$res_out)
+
+# Add 20 noise baseline variables
+set.seed(8316951)
+
+N <-nrow(dfa)
+
+Knoise <- 100
+
+df.noise <- data.frame(replicate(Knoise,rnorm(n=N)))
+
+noise.name <- paste0("noise",1:Knoise)
+
+names(df.noise) <- noise.name
+
+df.analysis <- cbind(dfa, df.noise)
+
+confounders.name <- c(confounders.name.start,noise.name)
+
+
+t.start.fs<-proc.time()[3]
+
+use_lasso <- FALSE
+use_grf <- FALSE
+
+# Nsg_only
+sg_focus <- "Nsg_only"
+
+hr.threshold<-1/0.6   # Initital candidates 
+hr.consistency<-1/.80  # Candidates for many splits
+pconsistency.threshold <- 0.90
+stop.threshold <- 0.90
+
+max.minutes <- 1.0
+
+fs.est <- forestsearch(df.analysis=df.analysis, Allconfounders.name=confounders.name,
+outcome.name=outcome.name,treat.name=treat.name,
+event.name=event.name,id.name=id.name,
+hr.threshold=hr.threshold,hr.consistency=hr.consistency,stop.threshold=stop.threshold,
+pconsistency.threshold=pconsistency.threshold, 
+pstop_futile=0.50,
+conf_force=NULL,
+details=TRUE,
+use_lasso=use_lasso, 
+use_grf=use_grf,
+max.minutes=max.minutes,
+defaultcut_names=NULL,
+cut_type="default",
+dmin.grf=4, frac.tau=0.60, grf_depth=2,
+maxk=2,
+sg_focus=sg_focus,
+n.min=60,
+fs.splits=1000,
+d0.min=10,d1.min=10,
+by.risk=12,
+plot.sg=TRUE)
+
+cat("Proportion of maxk searched",c(fs.est$prop_maxk),"\n")
+cat("L, max count=",c(fs.est$find.grps$L,fs.est$find.grps$max_count),"\n")
+
+
+```
+
+## Forest Search Bootstrap dofuture (doF)  
+```{r FSbootstrap_doF, echo=TRUE, eval=TRUE}
+library(doFuture)
+library(doRNG)
+registerDoFuture()
+registerDoRNG()
+# workers=48 works well on popOS
+plan("multisession", workers=20)
+# Bootstrap bias-correction 
+fs_bc <- forestsearch_bootstrap_dofuture(fs.est=fs.est,nb_boots=NB,est.scale="1/hr",show_three=TRUE,details=TRUE)
+t.now<-proc.time()[3]
+tall.min<-(t.now-t.start.fs)/60
+cat("Minutes (total) for analysis + (doFuture) bootstrap",c(tall.min),"\n")
+# Reset workers to single
+plan(sequential)
+
+cat("# of bootstraps =",c(length(fs_bc$results$H_biasadj_2)),"\n")
+
+summary(fs_bc$results$prop_maxk)
+summary(fs_bc$results$L)
+summary(fs_bc$results$max_count)
+
+save(fs_bc, fs.est, file=outfile_name)
+cat("Saving file here:",c(outfile_name),"\n")
+
+```
+

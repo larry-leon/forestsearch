@@ -1,0 +1,515 @@
+\documentclass[9pt]{article}
+\usepackage{multicol}
+\usepackage{amssymb,mathrsfs,graphicx}
+\usepackage{enumerate}
+\usepackage{amsthm}
+\usepackage{lscape}
+\usepackage{pdfpages}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}
+
+\textheight=9.0in \textwidth=10.5in \topmargin=0in
+\evensidemargin=0in \oddsidemargin=0in
+
+\begin{document}
+
+\raggedbottom
+
+<<echo=FALSE>>=
+opts_chunk$set (warning = FALSE, message = FALSE, tidy=TRUE, echo=FALSE, dev = 'pdf')
+options(warn=-1)
+@
+
+<<echo=FALSE>>=
+requiredPackages <- c("grf","policytree","data.table","randomForest","survival","SPlit","plyr",
+"cubature","formatR","kableExtra","knitr","ggplot2","gridExtra","aVirtualTwins","psych")
+
+ipak <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg))
+    install.packages(new.pkg, dependencies = TRUE, quietly=TRUE, verbose=FALSE)
+  sapply(pkg, require, character.only = TRUE)
+}
+ipak(requiredPackages)
+
+rm(list=ls())
+
+source("../../R/source_forestsearch_v0.R")
+source_fs_functions(file_loc="../../R/")
+
+#library(formatR)
+library(kableExtra)
+library(knitr)
+library(ggplot2)
+library(gridExtra)
+#library(covRobust)
+# Following loaded in "forest_search_v0.R"
+library(cubature)
+library(aVirtualTwins)
+library(randomForest)
+library(survival)
+library(SPlit)
+library(grf)
+library(policytree)
+library(data.table)
+library(plyr)
+library(psych)
+@
+
+<<echo=TRUE>>=
+
+maxFollow<-84
+cens.type<-"weibull"
+
+#########################
+# Forest search criteria
+#########################
+hr.threshold<-1.5   # Initital candidates 
+hr.consistency<-1.25  # Candidates for many splits
+pconsistency.threshold<-0.90
+
+maxk<-3
+# Limit timing for forestsearch (Estimation and bootstrapping)
+max.minutes<-2.0
+
+nmin.fs<-60
+#stop.threshold<-0.60 # If any sg meets this, then choose this (stop here);
+m1.threshold<-Inf # Turning this off (Default)
+stop.threshold<-0.90
+
+#pconsistency.threshold<-0.70 # Minimum threshold (will choose max among subgroups satisfying)
+fs.splits<-400 # How many times to split for consistency
+# vi is % factor is selected in cross-validation --> higher more important
+vi.grf.min<-0.2
+# Null, turns off grf screening
+d.min<-10 # Min number of events for both arms (d0.min=d1.min=d.min)
+# default=5
+
+##########################
+# Virtual twins analysis
+##########################
+# Counter-factual difference (C-E) >= vt.threshold
+# Large values in favor of C (control)
+vt.threshold<-0.25  # For VT delta
+treat.threshold<-0.0
+maxdepth<-3
+n.min<-60
+ntree<-1000
+
+# GRF criteria
+dmin.grf<-12.0 # For GRF delta
+# Note: For CRT this represents dmin.grf/2 RMS for control (-dmin.grf/2 for treatment)
+frac.tau<-0.70
+
+get.FS<-TRUE
+get.VT<-TRUE
+get.GRF<-TRUE
+
+outcome.name<-c("y.sim")
+event.name<-c("event.sim")
+id.name<-c("id")
+treat.name<-c("treat")
+
+# NOTE: Need to revise all functions to allow for 
+# covariate adjusted Cox models; In estimation stage and bootstrapping
+
+cox.formula.sim<-as.formula(paste("Surv(y.sim,event.sim)~treat"))
+
+cox.formula.adj.sim<-as.formula(paste("Surv(y.sim,event.sim)~treat+v1+v2+v3+v4+v5"))
+
+label.analyses<-c("FS","GRF","VT(24)","VT#(24)","VT(36)","VT#(36)","GRF.70")
+
+cox.formula.boot<-cox.formula.sim
+cox2.formula.boot<-as.formula(paste("Surv(Y,Event)~Treat"))
+
+# m1 -censoring
+muC.adj<-log(1.5)
+# m0-censoring (original data)
+#muC.adj<-0.0
+split_method<-"Random"
+# m3a RCT probH=12.5% (pH_super)
+model.index<-"m4a"
+file.index<-"v0"
+mod.harm<-"alt"
+
+k.treat<-0.90
+k.z3<-1.0
+
+z1_frac<-0.25 # Default model index 'm1' (The 1st quartile of z1=er)
+pH_super<-0.125 # non-NULL re-defines z1_frac
+
+boots<-500
+
+N<-700
+
+ss_start<-1
+
+hrH.target<-2.5
+
+if(is.null(pH_super)){
+#pH_check<-with(gbsg,mean(pgr<=quantile(pgr,c(z3_frac),1,0) & er<=quantile(er,z1_frac)))
+pH_check<-with(gbsg,mean(meno==0 & er<=quantile(er,z1_frac)))
+cat("Underlying pH_super",c(pH_check),"\n")
+}
+# pH_super specified
+# If pH_super then override  z1_frac and find z1_frac to yield pH_super
+
+if(!is.null(pH_super)){
+  # Approximate Z1 quantile to yield pH proportion  
+  z1_q<-uniroot(propH.obj4,c(0.01,0.99),tol=0.0001,pH.target=pH_super)$root
+  #pH_check<-with(gbsg,mean(pgr<=quantile(pgr,c(z3_frac),1,0) & er<=quantile(er,z1_q)))
+  pH_check<-with(gbsg,mean(meno==0 & er<=quantile(er,z1_q)))
+  cat("pH",c(pH_check),"\n")
+  rel_error<-(pH_super-pH_check)/pH_super
+  if(abs(rel_error)>=0.1) stop("pH_super approximation relative error exceeds 10%")
+  z1_frac<-z1_q
+  cat("Underlying pH_super",c(pH_check),"\n")
+  }
+
+# Bootstrap on log(hr) scale converted to HR (est.loghr=TRUE & est.scale="hr")
+est.loghr<-TRUE
+est.scale<-"hr"
+
+out.loc<-NULL
+
+this.dgm<-get.dgm4(mod.harm=mod.harm,N=N,k.treat=k.treat,model.index=model.index,
+hrH.target=hrH.target,cens.type=cens.type,out.loc=out.loc,file.index=file.index,details=TRUE,parms_torand=FALSE)
+
+dgm<-this.dgm$dgm
+confounders.name<-dgm$covs.analysis
+@
+
+<<echo=TRUE,eval=FALSE>>=
+
+# ss=8 --> true H
+
+#ss<-1 no
+
+ss<-2
+
+sim<-ss  
+x<-sim_aftm4_gbsg(dgm=dgm,n=N,maxFollow=maxFollow,muC.adj=muC.adj,simid=sim,drawtreat=TRUE)
+
+y<-try(forestsearch(df=x,confounders.name=confounders.name,
+                        df.predict=x,details=TRUE,
+                        outcome.name=outcome.name,treat.name=treat.name,event.name=event.name,id.name=id.name,
+                        n.min=nmin.fs,hr.threshold=hr.threshold,hr.consistency=hr.consistency,fs.splits=fs.splits,
+                        stop.threshold=stop.threshold,
+                        d0.min=d.min,d1.min=d.min,
+                        pconsistency.threshold=pconsistency.threshold,max.minutes=max.minutes,maxk=maxk,
+                        plot.sg=TRUE,vi.grf.min=vi.grf.min,split_method=split_method),TRUE)
+
+cat("Found anything =",c(ifelse(is.null(y$sg.harm),"No","Yes")),"\n")
+
+
+library(doParallel)
+registerDoParallel(parallel::detectCores(logical = FALSE))
+
+NB<-boots
+fs.est<-y
+df_temp<-y$df.pred[,c("id","treat.recommend")]
+dfa<-merge(x,df_temp,by="id")
+df_boot_analysis<-dfa
+
+fitH<-get_Cox_sg(df_sg=subset(df_boot_analysis,treat.recommend==0),cox.formula=cox.formula.boot,est.loghr=est.loghr)
+H_obs<-fitH$est_obs
+seH_obs<-fitH$se_obs
+rm("fitH")
+# Hc observed estimates
+fitHc<-get_Cox_sg(df_sg=subset(df_boot_analysis,treat.recommend==1),cox.formula=cox.formula.boot,est.loghr=est.loghr)
+Hc_obs<-fitHc$est_obs
+seHc_obs<-fitHc$se_obs
+rm("fitHc")
+
+Ystar_mat<-bootYstar(
+  {  
+    ystar<-get_Ystar(boot)
+  },
+  boots=NB,
+  seed=8316951,
+  counter="boot",
+  export=fun_arg_list_boot
+)
+# Bootstraps
+resB<-try(bootPar(
+  {  
+    ans<-fsboot_forparallel(boot)
+  },
+  boots=NB,
+  seed=8316951,
+  counter="boot",
+  export=fun_arg_list_boot
+),TRUE)
+
+
+      H_estimates<-get_dfRes(Hobs=H_obs,seHobs=seH_obs,H1_adj=resB$H_biasadj_1,H2_adj=resB$H_biasadj_2,ystar=Ystar_mat,cov_method="standard",cov_trim=0.05)
+      Hc_estimates<-get_dfRes(Hobs=Hc_obs,seHobs=seHc_obs,H1_adj=resB$Hc_biasadj_1,H2_adj=resB$Hc_biasadj_2,ystar=Ystar_mat,cov_method="standard",cov_trim=0.05)
+      bootit<-list(H_estimates=H_estimates,Hc_estimates=Hc_estimates)
+      ans3<-fsBoot.parallel.out(df=df_boot_analysis,FSboots=bootit,cox.formula.boot=cox.formula.boot,est.loghr=est.loghr,sim_number=sim)
+     
+
+doParallel::stopImplicitCluster()
+
+#save(x,y,H_estimates,Hc_estimates,ans3,file="output/sim_ex1.Rdata")
+@
+
+
+<<echo=TRUE,eval=TRUE>>=
+
+load("output/sim_ex1.Rdata")
+
+df_pred<-y$df.pred
+# True and Estimatimated
+df_H<-subset(df_pred,flag.harm==1 | treat.recommend==0)
+df_Hc<-subset(df_pred,flag.harm==0 | treat.recommend==1)
+
+df<-df_pred
+
+tte.name<-"y.sim"
+event.name<-"event.sim"
+treat.name<-"treat"
+byrisk<-6
+risk.cex<-0.65
+details<-TRUE
+ylab<-"Survival"
+
+# Add all events
+evs<-sort(unique(df$y.sim[which(df$event.sim==1)]))
+tpoints.add<-c(-1,evs,max(df$y.sim))
+
+par(mfrow=c(1,2))
+
+# First, true H subgroup (flag.harm==1) and 
+# estimates H subgroup (treat.recommend==0)
+
+# Treat arms for H subgroup
+dfp<-subset(df,flag.harm==1)
+
+kmH.fit<-KM.plot.2sample.weighted(Y=dfp[,c(tte.name)],E=dfp[,c(event.name)],Treat=dfp[,c(treat.name)],
+risk.set=FALSE,by.risk=byrisk,tpoints.add=tpoints.add,risk.cex=risk.cex,
+stop.onerror=TRUE,Xlab="Months",Ylab=ylab,details=details,
+show.ticks=FALSE,
+col.1="grey", col.2="grey",
+ltys=c(1,2),lwds=c(3,3),
+plotit=TRUE,
+show.logrank=FALSE,show.med=FALSE,show.cox=FALSE)
+
+# Risk set for true H
+riskH<-kmH.fit$risk.1+kmH.fit$risk.2
+riskH.points<-kmH.fit$risk.points
+# put on top
+y.riskH<-kmH.fit$y.risk2
+text(c(riskH.points),c(y.riskH),c(riskH),col="grey",cex=1.0)
+
+dfp<-subset(df,treat.recommend==0)
+# Do not plot (plotit=FALSE)
+kmHest.fit<-KM.plot.2sample.weighted(Y=dfp[,c(tte.name)],E=dfp[,c(event.name)],Treat=dfp[,c(treat.name)],
+risk.set=FALSE,by.risk=byrisk,tpoints.add=tpoints.add,risk.cex=risk.cex,
+stop.onerror=TRUE,Xlab="Months",Ylab=ylab,details=details,
+show.ticks=FALSE,
+col.1="grey", col.2="grey",
+ltys=c(1,2),lwds=c(3,3),
+plotit=FALSE,
+show.logrank=FALSE,show.med=FALSE,show.cox=FALSE)
+
+# Treatment arm, H estimated
+lines(kmHest.fit$at.points1.plot,kmHest.fit$Y1.plot,lty=1,type="s",col="black",lwd=1)
+# Control arm, H estimated
+lines(kmHest.fit$at.points2.plot,kmHest.fit$Y2.plot,lty=2,type="s",col="black",lwd=1)
+  
+# Risk set for estimated H
+riskHest<-kmHest.fit$risk.1+kmHest.fit$risk.2
+riskHest.points<-kmHest.fit$risk.points
+# put on top
+y.riskHest<-kmHest.fit$y.risk1
+text(c(riskHest.points),c(y.riskHest),c(riskHest),col="black",cex=1.0)
+
+legend("top",legend=c("H true (Treat)","est(H) (Treat)","H true (Control)","est(H) (Control)"),col=c("grey","black","grey","black"),lwd=c(3,1,3,1),lty=c(1,1,2,2),bty="n")
+
+# Complement
+
+# Keep same naming below (i.e., H is now H-complement)
+
+# Treat arms for H subgroup
+dfp<-subset(df,flag.harm==0)
+
+kmH.fit<-KM.plot.2sample.weighted(Y=dfp[,c(tte.name)],E=dfp[,c(event.name)],Treat=dfp[,c(treat.name)],
+risk.set=FALSE,by.risk=byrisk,tpoints.add=tpoints.add,risk.cex=risk.cex,
+stop.onerror=TRUE,Xlab="Months",Ylab="",details=details,
+show.ticks=FALSE,
+col.1="grey", col.2="grey",
+ltys=c(1,2),lwds=c(3,3),
+plotit=TRUE,
+show.logrank=FALSE,show.med=FALSE,show.cox=FALSE)
+
+# Risk set for true H
+riskH<-kmH.fit$risk.1+kmH.fit$risk.2
+riskH.points<-kmH.fit$risk.points
+# put on top
+y.riskH<-kmH.fit$y.risk2
+text(c(riskH.points),c(y.riskH),c(riskH),col="grey",cex=1.0)
+
+dfp<-subset(df,treat.recommend==1)
+# Do not plot (plotit=FALSE)
+kmHest.fit<-KM.plot.2sample.weighted(Y=dfp[,c(tte.name)],E=dfp[,c(event.name)],Treat=dfp[,c(treat.name)],
+risk.set=FALSE,by.risk=byrisk,tpoints.add=tpoints.add,risk.cex=risk.cex,
+stop.onerror=TRUE,Xlab="Months",Ylab=ylab,details=details,
+show.ticks=FALSE,
+col.1="grey", col.2="grey",
+ltys=c(1,2),lwds=c(3,3),
+plotit=FALSE,
+show.logrank=FALSE,show.med=FALSE,show.cox=FALSE)
+
+# Treatment arm, H estimated
+lines(kmHest.fit$at.points1.plot,kmHest.fit$Y1.plot,lty=1,type="s",col="black",lwd=1)
+# Control arm, H estimated
+lines(kmHest.fit$at.points2.plot,kmHest.fit$Y2.plot,lty=2,type="s",col="black",lwd=1)
+  
+# Risk set for estimated H
+riskHest<-kmHest.fit$risk.1+kmHest.fit$risk.2
+riskHest.points<-kmHest.fit$risk.points
+# put on top
+y.riskHest<-kmHest.fit$y.risk1
+text(c(riskHest.points),c(y.riskHest),c(riskHest),col="black",cex=1.0)
+
+legend("top",legend=c("H_c true (Treat)","est(H_c) (Treat)","H_c true (Control)","est(H_c) (Control)"),col=c("grey","black","grey","black"),lwd=c(3,1,3,1),lty=c(1,1,2,2),bty="n")
+@
+
+
+\begin{figure}[p!]
+\begin{center}
+<<sim_ex1,echo=FALSE,out.height="300px",out.width="400px">>=
+
+load("output/sim_ex1.Rdata")
+
+df_pred<-y$df.pred
+# True and Estimatimated
+df_H<-subset(df_pred,flag.harm==1 | treat.recommend==0)
+df_Hc<-subset(df_pred,flag.harm==0 | treat.recommend==1)
+
+df<-df_pred
+
+tte.name<-"y.sim"
+event.name<-"event.sim"
+treat.name<-"treat"
+byrisk<-6
+risk.cex<-0.65
+details<-TRUE
+ylab<-"Survival"
+
+# Add all events
+evs<-sort(unique(df$y.sim[which(df$event.sim==1)]))
+tpoints.add<-c(-1,evs,max(df$y.sim))
+
+par(mfrow=c(1,2))
+
+# First, true H subgroup (flag.harm==1) and 
+# estimates H subgroup (treat.recommend==0)
+
+# Treat arms for H subgroup
+dfp<-subset(df,flag.harm==1)
+
+kmH.fit<-KM.plot.2sample.weighted(Y=dfp[,c(tte.name)],E=dfp[,c(event.name)],Treat=dfp[,c(treat.name)],
+risk.set=FALSE,by.risk=byrisk,tpoints.add=tpoints.add,risk.cex=risk.cex,
+stop.onerror=TRUE,Xlab="Months",Ylab=ylab,details=details,
+show.ticks=FALSE,
+col.1="grey", col.2="grey",
+ltys=c(1,2),lwds=c(3,3),
+plotit=TRUE,
+show.logrank=FALSE,show.med=FALSE,show.cox=FALSE)
+
+# Risk set for true H
+riskH<-kmH.fit$risk.1+kmH.fit$risk.2
+riskH.points<-kmH.fit$risk.points
+# put on top
+y.riskH<-kmH.fit$y.risk2
+text(c(riskH.points),c(y.riskH),c(riskH),col="grey",cex=1.0)
+
+dfp<-subset(df,treat.recommend==0)
+# Do not plot (plotit=FALSE)
+kmHest.fit<-KM.plot.2sample.weighted(Y=dfp[,c(tte.name)],E=dfp[,c(event.name)],Treat=dfp[,c(treat.name)],
+risk.set=FALSE,by.risk=byrisk,tpoints.add=tpoints.add,risk.cex=risk.cex,
+stop.onerror=TRUE,Xlab="Months",Ylab=ylab,details=FALSE,
+show.ticks=FALSE,
+col.1="grey", col.2="grey",
+ltys=c(1,2),lwds=c(3,3),
+plotit=FALSE,
+show.logrank=FALSE,show.med=FALSE,show.cox=FALSE)
+
+# Treatment arm, H estimated
+lines(kmHest.fit$at.points1.plot,kmHest.fit$Y1.plot,lty=1,type="s",col="black",lwd=1)
+# Control arm, H estimated
+lines(kmHest.fit$at.points2.plot,kmHest.fit$Y2.plot,lty=2,type="s",col="black",lwd=1)
+  
+# Risk set for estimated H
+riskHest<-kmHest.fit$risk.1+kmHest.fit$risk.2
+riskHest.points<-kmHest.fit$risk.points
+# put on top
+y.riskHest<-kmHest.fit$y.risk1
+text(c(riskHest.points),c(y.riskHest),c(riskHest),col="black",cex=1.0)
+
+legend("top",legend=c("H true (Treat)","est(H) (Treat)","H true (Control)","est(H) (Control)"),col=c("grey","black","grey","black"),lwd=c(3,1,3,1),lty=c(1,1,2,2),bty="n")
+
+# Complement
+
+# Keep same naming below (i.e., H is now H-complement)
+
+# Treat arms for H subgroup
+dfp<-subset(df,flag.harm==0)
+
+kmH.fit<-KM.plot.2sample.weighted(Y=dfp[,c(tte.name)],E=dfp[,c(event.name)],Treat=dfp[,c(treat.name)],
+risk.set=FALSE,by.risk=byrisk,tpoints.add=tpoints.add,risk.cex=risk.cex,
+stop.onerror=TRUE,Xlab="Months",Ylab="",details=FALSE,
+show.ticks=FALSE,
+col.1="grey", col.2="grey",
+ltys=c(1,2),lwds=c(3,3),
+plotit=TRUE,
+show.logrank=FALSE,show.med=FALSE,show.cox=FALSE)
+
+# Risk set for true H
+riskH<-kmH.fit$risk.1+kmH.fit$risk.2
+riskH.points<-kmH.fit$risk.points
+# put on top
+y.riskH<-kmH.fit$y.risk2
+text(c(riskH.points),c(y.riskH),c(riskH),col="grey",cex=1.0)
+
+dfp<-subset(df,treat.recommend==1)
+# Do not plot (plotit=FALSE)
+kmHest.fit<-KM.plot.2sample.weighted(Y=dfp[,c(tte.name)],E=dfp[,c(event.name)],Treat=dfp[,c(treat.name)],
+risk.set=FALSE,by.risk=byrisk,tpoints.add=tpoints.add,risk.cex=risk.cex,
+stop.onerror=TRUE,Xlab="Months",Ylab=ylab,details=details,
+show.ticks=FALSE,
+col.1="grey", col.2="grey",
+ltys=c(1,2),lwds=c(3,3),
+plotit=FALSE,
+show.logrank=FALSE,show.med=FALSE,show.cox=FALSE)
+
+# Treatment arm, H estimated
+lines(kmHest.fit$at.points1.plot,kmHest.fit$Y1.plot,lty=1,type="s",col="black",lwd=1)
+# Control arm, H estimated
+lines(kmHest.fit$at.points2.plot,kmHest.fit$Y2.plot,lty=2,type="s",col="black",lwd=1)
+  
+# Risk set for estimated H
+riskHest<-kmHest.fit$risk.1+kmHest.fit$risk.2
+riskHest.points<-kmHest.fit$risk.points
+# put on top
+y.riskHest<-kmHest.fit$y.risk1
+text(c(riskHest.points),c(y.riskHest),c(riskHest),col="black",cex=1.0)
+
+legend("top",legend=c("H_c true (Treat)","est(H_c) (Treat)","H_c true (Control)","est(H_c) (Control)"),col=c("grey","black","grey","black"),lwd=c(3,1,3,1),lty=c(1,1,2,2),bty="n")
+@
+\end{center}
+\caption{Simulated example}\label{fig:simex1}
+\end{figure}
+
+
+
+
+
+
+
+\end{document}
+
