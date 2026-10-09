@@ -25,8 +25,9 @@
 #' @param dgm_description Character. Free-text description of the
 #'   DGM used for calibration.
 #' @param n_sims_per_N Integer. Simulations per sample size.
-#' @param output_dir Character. Directory for .rds files.
-#'   Default: \code{"_data"}.
+#' @param output_dir Character. Directory for .rds files. Required: an
+#'   error is raised when it is \code{NULL} (the default). The former
+#'   default was \code{"_data"}.
 #' @param extra List. Any additional items to store.
 #'
 #' @return Invisible path to the saved file.
@@ -38,7 +39,8 @@
 #'   outcome_type = "binary",
 #'   cal_data = cal_df,
 #'   dgm_description = "Binary DGM, 4 confounders (bm1, bm2, age, ecog)",
-#'   n_sims_per_N = 5000
+#'   n_sims_per_N = 5000,
+#'   output_dir = tempdir()
 #' )
 #' }
 #'
@@ -64,7 +66,10 @@ save_leff_calibration <- function(C, alpha, n_min,
   )
 
   if (is.null(output_dir)) {
-    output_dir <- "_data"
+    stop("`output_dir` must be supplied: save_leff_calibration() no longer ",
+         "writes to a default location. The former default was \"_data\" ",
+         "(relative to the working directory); pass ",
+         "output_dir = \"_data\" to keep that behaviour.", call. = FALSE)
   }
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)

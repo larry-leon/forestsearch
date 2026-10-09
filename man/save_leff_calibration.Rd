@@ -34,8 +34,9 @@ DGM used for calibration.}
 
 \item{n_sims_per_N}{Integer. Simulations per sample size.}
 
-\item{output_dir}{Character. Directory for .rds files.
-Default: \code{"_data"}.}
+\item{output_dir}{Character. Directory for .rds files. Required: an
+error is raised when it is \code{NULL} (the default). The former
+default was \code{"_data"}.}
 
 \item{extra}{List. Any additional items to store.}
 }
@@ -54,7 +55,8 @@ save_leff_calibration(
   outcome_type = "binary",
   cal_data = cal_df,
   dgm_description = "Binary DGM, 4 confounders (bm1, bm2, age, ecog)",
-  n_sims_per_N = 5000
+  n_sims_per_N = 5000,
+  output_dir = tempdir()
 )
 }
 
