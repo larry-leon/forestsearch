@@ -16,7 +16,8 @@
 - Gate 7 (thread cap): **PASS**. Ratio 1.43; new test green.
 - Step 8 (NEWS, cran-comments): done.
 - Gate 9 (release check): **PASS**.
-- Post-conditions: PC2–PC6 **PASS**. PC1 has one recorded exception: `R/summary_utility_functions.R` (see §4). Detail in §9.
+- Post-conditions: PC1–PC6 **PASS**. PC1 passes under Larry's amendment, which also allows `R/summary_utility_functions.R` (§9). Detail in §9.
+- Disposition (Larry, 2026-10-09): deviations 1–6 reported at the end of the run are **accepted**. They are: the extra Step 4 site; base R in place of `withr` in the test; latentcor dependencies installed as binaries into the temp library; the `save_leff_calibration` doc and example edits; the NEWS layout choices; and the separate `forestsearch-package.Rd` commit.
 
 ## 2. Repo state
 
@@ -107,7 +108,7 @@
   - `R/plot_sg_weighted_km.R:334`
 - **Extra site, not cited by the audit:** `R/summary_utility_functions.R:428` (`rmst_calculation()`) also said `install_github('larry-leon/weightedsurv')`.
   - Gate 4 cannot pass without editing it, so its message string was changed the same way.
-  - This file is not in PC1's allowed list. Recorded as the PC1 exception.
+  - This file was not in PC1's original allowed list. **PC1 amended by Larry** to allow it (Step 4, messaging-only).
 - Gate 4: `grep -rn "install_github" R/ man/` returns nothing.
 
 ### Step 5 — build exclusions
@@ -261,7 +262,8 @@
 
 ## 9. Post-conditions
 
-- **PC1:** every file changed since `dc3ef230^` is in the allowed set, **except `R/summary_utility_functions.R`**. Its message-string edit was required by Gate 4 (§4).
+- **PC1: PASS (amended).** Every file changed since `dc3ef230^` is in the allowed set.
+  - **Amendment (Larry, 2026-10-09):** PC1 also allows `R/summary_utility_functions.R` as a Step 4 messaging-only edit. Its single changed line is the `rmst_calculation()` error string (§4).
   - The other changed R/ files are all from Steps 2, 4, 6 and 7: the 6 Step-2 files; `plot_km_band_forestsearch.R` and `plot_sg_weighted_km.R`; `leff_calibration_io.R`; `utils_check_threads.R`; and the 4 files with grf forest calls.
 - **PC2:** `NAMESPACE` is byte-identical to `541fef30`.
 - **PC3:** `git status --porcelain` is clean. No tarball, `.Rcheck` directory or temp library is in the repo.
