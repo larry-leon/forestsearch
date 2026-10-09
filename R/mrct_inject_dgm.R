@@ -421,6 +421,16 @@ inject_mrct_structure <- function(seed_data,
 ## -----------------------------------------------------------------------------
 #' Covariate set handed to forestsearch()/mrct_region_sims() for the paper's
 #' observed vs unobserved analysis cases.
+#' @param dgm An MRCT data-generating mechanism returned by
+#'   [inject_mrct_structure()]. Its `df_super` supplies the `z_` covariate
+#'   columns and its `mrct` component supplies the region indicator name and
+#'   the effect-modifier (`X2`) variables.
+#' @param case Character. `"observed"` (default) keeps every `z_` covariate
+#'   except the region indicator and spline helper columns; `"unobserved"`
+#'   additionally drops the effect-modifier (`X2`) covariates.
+#' @param drop Character vector of covariate names (without the `z_` prefix)
+#'   to remove from the returned set. Default `character(0)` removes nothing.
+#' @return Character vector of `z_`-prefixed covariate column names.
 #' @export
 analysis_covariates <- function(dgm, case = c("observed", "unobserved"),
                                 drop = character(0)) {
@@ -438,6 +448,17 @@ analysis_covariates <- function(dgm, case = c("observed", "unobserved"),
 #' sim_region_metrics(): a gap between them isolates the prognostic-shift /
 #' follow-up-truncation mechanism (the Feb-2026 deck) from covariate shift
 #' (AHR itself differing by region).
+#' @param dgm An MRCT data-generating mechanism returned by
+#'   [inject_mrct_structure()]. Uses its super-population `df_super`, the
+#'   region indicator and effect-modifier names in `mrct`, and the AFT
+#'   parameters `mu` and `tau` in `model_params`.
+#' @param seed Integer seed passed to [set.seed()] before drawing the common
+#'   error term used to generate the uncensored potential outcomes.
+#'   Default `1L`.
+#' @return A data frame with one row per stratum (`"ALL"`, `"NON-REGION"`,
+#'   `"REGION"`) and columns `stratum`, `n`, `prev`, `x_pred_mean`, `AHR`,
+#'   `CDE` and `HR_cox_PO`. Attribute `"smd_x_pred"` holds the standardised
+#'   mean difference of the effect modifier between region and non-region.
 #' @importFrom stats rexp coef
 #' @export
 mrct_truth_by_region <- function(dgm, seed = 1L) {
@@ -468,6 +489,17 @@ mrct_truth_by_region <- function(dgm, seed = 1L) {
 }
 
 #' True log-HR psi0(x) along x_pred with region histograms (paper Fig. 3 analogue)
+#' @param dgm An MRCT data-generating mechanism returned by
+#'   [inject_mrct_structure()]. Uses `df_super` (the effect modifier, the
+#'   region indicator and `loghr_po`) and `hazard_ratios$AHR` for the
+#'   reference line.
+#' @param file Optional character path. When supplied, the plot is written
+#'   to this PNG file (900 x 800 px) and the device is closed on exit;
+#'   when `NULL` (default), it is drawn on the current device.
+#' @param main Optional character title for the upper panel. When `NULL`
+#'   (default), the title is `"True causal log-HR along <x_pred>"`.
+#' @return `NULL`, invisibly. Called for its side effect of drawing a
+#'   two-panel plot.
 #' @importFrom grDevices png dev.off adjustcolor
 #' @importFrom graphics par plot hist abline legend
 #' @export
@@ -497,6 +529,24 @@ plot_region_modifier <- function(dgm, file = NULL, main = NULL) {
 }
 
 #' Region-consistency metrics on a simulated trial (ITT and optionally a subgroup)
+#' @param sim Data frame of one simulated trial with columns `y_sim`,
+#'   `event_sim` and `treat_sim` (as from [simulate_from_dgm()]) plus the
+#'   region indicator.
+#' @param region_col Character name of the 0/1 region indicator column in
+#'   `sim`.
+#' @param subgroup_index Optional logical vector of length `nrow(sim)`
+#'   marking subgroup membership. When supplied, Cox HRs are also computed
+#'   within the subgroup for the region and non-region strata. Default
+#'   `NULL`.
+#' @param pi_preserve Numeric threshold for the Method 1 consistency check:
+#'   the check passes when log(HR region) / log(HR overall) is at least
+#'   `pi_preserve`. Default `0.5`.
+#' @return A list with numeric vectors `overall`, `non_region` and `region`
+#'   (each with elements `hr`, `lo`, `hi`, `n`, `d`; `NA` HR and limits when
+#'   fewer than 10 subjects or 5 events), `consistency_ratio`, logical
+#'   `method1_pass`, `method2_pass` and `region_hr_below_1`, and, when
+#'   `subgroup_index` is supplied, `region_subgroup` and
+#'   `non_region_subgroup`.
 #' @importFrom stats coef vcov
 #' @export
 sim_region_metrics <- function(sim, region_col, subgroup_index = NULL,

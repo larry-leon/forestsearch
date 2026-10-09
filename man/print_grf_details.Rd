@@ -17,6 +17,11 @@ print_grf_details(config, values, best_subgroup, sg_harm_id, tree_cuts = NULL)
 
 \item{tree_cuts}{List. Cut information}
 }
+\value{
+Called for its side effect of printing to the console. The value
+is returned invisibly and is incidental: \code{tree_cuts$all} when a subgroup,
+its definition and \code{tree_cuts} are all supplied, otherwise \code{NULL}.
+}
 \description{
 Displays detailed information about the GRF analysis
 }

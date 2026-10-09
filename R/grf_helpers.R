@@ -615,6 +615,9 @@ create_null_result <- function(data, values, trees, config) {
 #' @param best_subgroup Data frame row. Selected subgroup (or NULL)
 #' @param sg_harm_id Character. Subgroup definition (or NULL)
 #' @param tree_cuts List. Cut information
+#' @return Called for its side effect of printing to the console. The value
+#'   is returned invisibly and is incidental: `tree_cuts$all` when a subgroup,
+#'   its definition and `tree_cuts` are all supplied, otherwise `NULL`.
 #' @examples
 #' \dontrun{
 #' # print_grf_details() is called internally by grf.subg.harm.survival().

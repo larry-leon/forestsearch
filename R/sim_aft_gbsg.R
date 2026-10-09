@@ -1145,6 +1145,8 @@ get_dgm_with_output <- function(
 #'
 #' @param x A gbsg_dgm object
 #' @param ... Additional arguments (unused)
+#' @return `x`, invisibly. Called for its side effect of printing the
+#'   data-generating mechanism summary.
 #'
 #' @examples
 #' \dontrun{

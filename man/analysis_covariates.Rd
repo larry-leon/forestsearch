@@ -11,6 +11,22 @@ analysis_covariates(
   drop = character(0)
 )
 }
+\arguments{
+\item{dgm}{An MRCT data-generating mechanism returned by
+\code{\link[=inject_mrct_structure]{inject_mrct_structure()}}. Its \code{df_super} supplies the \code{z_} covariate
+columns and its \code{mrct} component supplies the region indicator name and
+the effect-modifier (\code{X2}) variables.}
+
+\item{case}{Character. \code{"observed"} (default) keeps every \code{z_} covariate
+except the region indicator and spline helper columns; \code{"unobserved"}
+additionally drops the effect-modifier (\code{X2}) covariates.}
+
+\item{drop}{Character vector of covariate names (without the \code{z_} prefix)
+to remove from the returned set. Default \code{character(0)} removes nothing.}
+}
+\value{
+Character vector of \code{z_}-prefixed covariate column names.
+}
 \description{
 Covariate set handed to forestsearch()/mrct_region_sims() for the paper's
 observed vs unobserved analysis cases.

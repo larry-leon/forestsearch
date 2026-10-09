@@ -11,6 +11,10 @@
 
 \item{...}{Additional arguments (unused)}
 }
+\value{
+\code{x}, invisibly. Called for its side effect of printing the
+data-generating mechanism summary.
+}
 \description{
 Print Method for gbsg_dgm Objects
 }

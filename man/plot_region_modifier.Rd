@@ -6,6 +6,23 @@
 \usage{
 plot_region_modifier(dgm, file = NULL, main = NULL)
 }
+\arguments{
+\item{dgm}{An MRCT data-generating mechanism returned by
+\code{\link[=inject_mrct_structure]{inject_mrct_structure()}}. Uses \code{df_super} (the effect modifier, the
+region indicator and \code{loghr_po}) and \code{hazard_ratios$AHR} for the
+reference line.}
+
+\item{file}{Optional character path. When supplied, the plot is written
+to this PNG file (900 x 800 px) and the device is closed on exit;
+when \code{NULL} (default), it is drawn on the current device.}
+
+\item{main}{Optional character title for the upper panel. When \code{NULL}
+(default), the title is \code{"True causal log-HR along <x_pred>"}.}
+}
+\value{
+\code{NULL}, invisibly. Called for its side effect of drawing a
+two-panel plot.
+}
 \description{
 True log-HR psi0(x) along x_pred with region histograms (paper Fig. 3 analogue)
 }

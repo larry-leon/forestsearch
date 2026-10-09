@@ -14,6 +14,11 @@ Default: 1 (first available)}
 
 \item{...}{Additional arguments passed to plot functions}
 }
+\value{
+\code{x}, invisibly. No plot is drawn: a message names the
+\code{plot_sg_results()} call that produces the requested plot. An error is
+raised when a character \code{which} does not name an available plot.
+}
 \description{
 Plot Method for fs_sg_plot Objects
 }

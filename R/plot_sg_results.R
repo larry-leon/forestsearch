@@ -858,6 +858,8 @@ plot_sg_summary_panel <- function(
 #'
 #' @param x An fs_sg_plot object
 #' @param ... Additional arguments (unused)
+#' @return `x`, invisibly. Called for its side effect of printing the
+#'   subgroup definition, summary statistics and hazard ratio estimates.
 #'
 #' @examples
 #' \dontrun{
@@ -901,6 +903,9 @@ print.fs_sg_plot <- function(x, ...) {
 #' @param which Character or integer. Which plot to display.
 #'   Default: 1 (first available)
 #' @param ... Additional arguments passed to plot functions
+#' @return `x`, invisibly. No plot is drawn: a message names the
+#'   `plot_sg_results()` call that produces the requested plot. An error is
+#'   raised when a character `which` does not name an available plot.
 #'
 #' @examples
 #' \dontrun{

@@ -11,6 +11,10 @@
 
 \item{...}{Additional arguments (ignored)}
 }
+\value{
+\code{x}, invisibly. Called for its side effect of printing the
+repeated K-fold summary.
+}
 \description{
 Print Method for Repeated K-Fold CV Results
 }

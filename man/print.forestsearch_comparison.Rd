@@ -11,6 +11,10 @@
 
 \item{...}{Ignored.}
 }
+\value{
+\code{x}, invisibly. Called for its side effect of printing the
+comparison summary.
+}
 \description{
 Short summary of the comparison.  Use \code{print(x$plot_grid)} for
 the side-by-side plot and \code{cat(x$console[[i]])} for each

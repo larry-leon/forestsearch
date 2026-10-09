@@ -1971,6 +1971,8 @@ resolve_cv_parallel_args <- function(parallel_args, fs_args, details = FALSE) {
 #'
 #' @param x An fs_kfold object
 #' @param ... Additional arguments (ignored)
+#' @return `x`, invisibly. Called for its side effect of printing the
+#'   K-fold summary.
 #' @examples
 #' \dontrun{
 #' fs <- forestsearch(gbsg,
@@ -1998,6 +2000,8 @@ print.fs_kfold <- function(x, ...) {
 #'
 #' @param x An fs_tenfold object
 #' @param ... Additional arguments (ignored)
+#' @return `x`, invisibly. Called for its side effect of printing the
+#'   repeated K-fold summary.
 #' @examples
 #' \dontrun{
 #' fs <- forestsearch(gbsg,

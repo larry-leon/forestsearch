@@ -6,6 +6,31 @@
 \usage{
 sim_region_metrics(sim, region_col, subgroup_index = NULL, pi_preserve = 0.5)
 }
+\arguments{
+\item{sim}{Data frame of one simulated trial with columns \code{y_sim},
+\code{event_sim} and \code{treat_sim} (as from \code{\link[=simulate_from_dgm]{simulate_from_dgm()}}) plus the
+region indicator.}
+
+\item{region_col}{Character name of the 0/1 region indicator column in
+\code{sim}.}
+
+\item{subgroup_index}{Optional logical vector of length \code{nrow(sim)}
+marking subgroup membership. When supplied, Cox HRs are also computed
+within the subgroup for the region and non-region strata. Default
+\code{NULL}.}
+
+\item{pi_preserve}{Numeric threshold for the Method 1 consistency check:
+the check passes when log(HR region) / log(HR overall) is at least
+\code{pi_preserve}. Default \code{0.5}.}
+}
+\value{
+A list with numeric vectors \code{overall}, \code{non_region} and \code{region}
+(each with elements \code{hr}, \code{lo}, \code{hi}, \code{n}, \code{d}; \code{NA} HR and limits when
+fewer than 10 subjects or 5 events), \code{consistency_ratio}, logical
+\code{method1_pass}, \code{method2_pass} and \code{region_hr_below_1}, and, when
+\code{subgroup_index} is supplied, \code{region_subgroup} and
+\code{non_region_subgroup}.
+}
 \description{
 Region-consistency metrics on a simulated trial (ITT and optionally a subgroup)
 }

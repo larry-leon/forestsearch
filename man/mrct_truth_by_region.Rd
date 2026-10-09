@@ -11,6 +11,22 @@ follow-up-truncation mechanism (the Feb-2026 deck) from covariate shift
 \usage{
 mrct_truth_by_region(dgm, seed = 1L)
 }
+\arguments{
+\item{dgm}{An MRCT data-generating mechanism returned by
+\code{\link[=inject_mrct_structure]{inject_mrct_structure()}}. Uses its super-population \code{df_super}, the
+region indicator and effect-modifier names in \code{mrct}, and the AFT
+parameters \code{mu} and \code{tau} in \code{model_params}.}
+
+\item{seed}{Integer seed passed to \code{\link[=set.seed]{set.seed()}} before drawing the common
+error term used to generate the uncensored potential outcomes.
+Default \code{1L}.}
+}
+\value{
+A data frame with one row per stratum (\code{"ALL"}, \code{"NON-REGION"},
+\code{"REGION"}) and columns \code{stratum}, \code{n}, \code{prev}, \code{x_pred_mean}, \code{AHR},
+\code{CDE} and \code{HR_cox_PO}. Attribute \code{"smd_x_pred"} holds the standardised
+mean difference of the effect modifier between region and non-region.
+}
 \description{
 Truth by region on the super-population: prevalence, x_pred shift,
 causal AHR / CDE, and a large-sample Cox HR on UNCENSORED potential

@@ -11,6 +11,10 @@
 
 \item{...}{Additional arguments (unused)}
 }
+\value{
+\code{x}, invisibly. Called for its side effect of printing the
+subgroup definition, summary statistics and hazard ratio estimates.
+}
 \description{
 Print Method for fs_sg_plot Objects
 }

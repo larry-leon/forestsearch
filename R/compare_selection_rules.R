@@ -807,6 +807,8 @@ compare_selection_rules <- function(df.analysis,
 #'
 #' @param x A \code{forestsearch_comparison} object.
 #' @param ... Ignored.
+#' @return `x`, invisibly. Called for its side effect of printing the
+#'   comparison summary.
 #' @export
 print.forestsearch_comparison <- function(x, ...) {
   cat("forestsearch comparison across selection-rule combinations\n")
