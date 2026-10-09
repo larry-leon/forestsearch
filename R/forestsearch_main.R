@@ -3255,13 +3255,15 @@ forestsearch <- function(df.analysis,
           cs.forest <- try(suppressWarnings(
             grf::causal_survival_forest(X, Y, Treat, Event,
                                          horizon = frac.tau * tau.rmst, seed = seedit,
-                                         tune.parameters = tune_arg)
+                                         tune.parameters = tune_arg,
+                                         num.threads = .fs_grf_num_threads())
           ), TRUE)
         } else {
           cs.forest <- try(suppressWarnings(
             grf::causal_survival_forest(X, Y, Treat, Event, W.hat = 0.5,
                                          horizon = frac.tau * tau.rmst, seed = seedit,
-                                         tune.parameters = tune_arg)
+                                         tune.parameters = tune_arg,
+                                         num.threads = .fs_grf_num_threads())
           ), TRUE)
         }
       }

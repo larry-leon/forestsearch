@@ -1351,7 +1351,8 @@ estimate_propensity_scores <- function(
   }
 
   # Otherwise, fit a regression forest on W
-  rf_w <- grf::regression_forest(X, W, seed = seed)
+  rf_w <- grf::regression_forest(X, W, seed = seed,
+                                num.threads = .fs_grf_num_threads())
   ps <- predict(rf_w)$predictions
   as.numeric(ps)
 }

@@ -73,7 +73,8 @@ fit_causal_forest <- function(X, Y, W, D, tau.rmst, RCT, seedit,
       suppressWarnings(
         grf::causal_survival_forest(X, Y, W, D, W.hat = 0.5,
                                     horizon = tau.rmst, seed = seedit,
-                                    tune.parameters = tune_arg)
+                                    tune.parameters = tune_arg,
+                                    num.threads = .fs_grf_num_threads())
       ),
       TRUE
     )
@@ -82,7 +83,8 @@ fit_causal_forest <- function(X, Y, W, D, tau.rmst, RCT, seedit,
       suppressWarnings(
         grf::causal_survival_forest(X, Y, W, D,
                                     horizon = tau.rmst, seed = seedit,
-                                    tune.parameters = tune_arg)
+                                    tune.parameters = tune_arg,
+                                    num.threads = .fs_grf_num_threads())
       ),
       TRUE
     )
@@ -119,7 +121,8 @@ fit_causal_forest_glm <- function(X, Y, W, RCT, seedit,
     cf <- try(
       suppressWarnings(
         grf::causal_forest(X, Y, W, W.hat = 0.5, seed = seedit,
-                           tune.parameters = tune_arg)
+                           tune.parameters = tune_arg,
+                           num.threads = .fs_grf_num_threads())
       ),
       TRUE
     )
@@ -127,7 +130,8 @@ fit_causal_forest_glm <- function(X, Y, W, RCT, seedit,
     cf <- try(
       suppressWarnings(
         grf::causal_forest(X, Y, W, seed = seedit,
-                           tune.parameters = tune_arg)
+                           tune.parameters = tune_arg,
+                           num.threads = .fs_grf_num_threads())
       ),
       TRUE
     )

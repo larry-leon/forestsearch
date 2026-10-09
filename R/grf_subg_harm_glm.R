@@ -461,10 +461,12 @@ grf.subg.harm.glm <- function(
   cs_forest <- tryCatch({
     if (RCT) {
       grf::causal_forest(X, Y_grf, W, W.hat = W_hat, seed = seedit,
-                         tune.parameters = tune_arg)
+                         tune.parameters = tune_arg,
+                         num.threads = .fs_grf_num_threads())
     } else {
       grf::causal_forest(X, Y_grf, W, seed = seedit,
-                         tune.parameters = tune_arg)
+                         tune.parameters = tune_arg,
+                         num.threads = .fs_grf_num_threads())
     }
   }, error = function(e) {
     stop("grf::causal_forest() failed: ", e$message)
