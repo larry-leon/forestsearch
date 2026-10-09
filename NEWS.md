@@ -1,4 +1,58 @@
-# forestsearch (development version)
+# forestsearch 0.4.0
+
+## Changes since the last CRAN release (0.1.0)
+
+### Breaking changes
+
+* `showten_subgroups` is removed from `forestsearch()` and
+  `subgroup.consistency()`. Neither function has `...`, so a call that passes
+  it now fails with "unused argument". Use `show_candidate_summary` instead.
+* Changed defaults in `forestsearch()` (old -> new):
+  * `use_lasso`: `TRUE` -> `FALSE`
+  * `use_grf`: `TRUE` -> `FALSE`
+  * `dmin.grf`: `12` -> `0`
+  * `frac.tau`: `0.6` -> `0.8`
+  * `d0.min`: `12` -> `10`
+  * `d1.min`: `12` -> `10`
+  * `max_subgroups_search`: `10` -> `Inf`
+  * `vi.grf.min`: `-0.2` -> `NULL`
+  * `stop_threshold`: `0.95` -> `pconsistency.threshold`
+  * `parallel_args`: `list(plan = "callr", workers = 6, show_message = TRUE)`
+    -> `list(plan = "multisession", workers = .default_parallel_workers(),
+    show_message = TRUE)`
+* Changed default in `subgroup.consistency()`: `stop_Kgroups`: `10` -> `200`.
+* Changed default in `forestsearch_Kfold()`: `Kfolds`: `nrow(fs.est$df.est)`
+  -> `.fs_cv_nobs(fs.est)`.
+* Changed default in `cox_ahr_cde_analysis()`: `output_dir`: `tempdir()` ->
+  `"plots"` (files are written only when `save_plots = TRUE`).
+* `save_leff_calibration()` now requires `output_dir`. Called without it, the
+  function stops instead of writing to `"_data"` in the working directory;
+  pass `output_dir = "_data"` to keep the former behaviour.
+
+### New features
+
+* GLM outcomes: binary (odds ratio), continuous (mean difference) and
+  count/rate (incidence rate ratio) endpoints, selected with the
+  `outcome_type` and `effect_measure` arguments of `forestsearch()`.
+* DINA and GRF as subgroup identifiers alongside the consistency search,
+  selected with `forestsearch(subgroup_method = c("consistency", "dina",
+  "grf"))`; see `dina_subgroup()` and, for GLM outcomes, `grf.subg.harm.glm()`.
+* Post-selection inference: multiplier resampling (`fs_mr_inference()`),
+  with infinitesimal-jackknife (IJ) standard errors and field bounds.
+* Operating-characteristics functions: `fs_oc_family_enumerate()`,
+  `fs_oc_predict()`, `fs_oc_grid()` and `fs_oc_invert()`.
+* Threshold rules on the forest-search consistency path (survival HR and
+  binary OR only): when only `c1` is given, `c2 = 0.8 * c1` on the ratio
+  scale; `c2 > c1` is an error.
+* Calibrated declaration threshold: `fs_declaration_calibration()`.
+* `forestsearch()` gains `pconsistency.digits` (default 2): the consistency
+  proportion is rounded to this many digits before it is compared with
+  `pconsistency.threshold`.
+* grf forest training is capped at 2 threads when `_R_CHECK_LIMIT_CORES_` is
+  set (as under `R CMD check --as-cran`); otherwise grf's own default applies
+  unchanged.
+
+## Development changes after 0.3.5 (not released on CRAN)
 
 * **MR's admission set now uses the screen's rounded consistency threshold
   (forest search only).** The search admits on
@@ -334,7 +388,7 @@
   `forestsearch()` names in both directions.  Documentation only: no
   behaviour, default or code change.
 
-# forestsearch 0.3.5
+## forestsearch 0.3.5 (development; not released on CRAN)
 
 ## Performance: unadjusted survival fits run on subset vectors
 
@@ -348,7 +402,7 @@
   result component across nine fixtures, plus a 20-replicate gbsg
   bootstrap payload, against the committed 0.3.4 baseline).
 
-# forestsearch 0.3.4
+## forestsearch 0.3.4 (development; not released on CRAN)
 
 ## Performance: survival candidate medians computed only for effect-screen survivors
 
@@ -365,7 +419,7 @@
   and unadjusted survival arms both take the relocated path; continuous and
   binary outcomes never computed medians and are untouched.
 
-# forestsearch 0.3.3
+## forestsearch 0.3.3 (development; not released on CRAN)
 
 ## Performance: unadjusted fast paths for the per-candidate fit
 
@@ -386,7 +440,7 @@
 * Adjusted, weighted and propensity-adjusted paths are unchanged (preserved
   verbatim as the `else` branches); binary/count outcomes are out of scope.
 
-# forestsearch 0.3.2
+## forestsearch 0.3.2 (development; not released on CRAN)
 
 ## Signed orientation in `fs_oc_family_enumerate()`
 
@@ -413,7 +467,7 @@
   the cut columns is controlled solely by `vi.grf.min` (`NULL` default since
   0.3.0). No behavior change.
 
-# forestsearch 0.3.1
+## forestsearch 0.3.1 (development; not released on CRAN)
 
 ## The consistency screen treats `plan = "sequential"` as sequential
 
@@ -462,7 +516,7 @@ for the identical search under the plain loop.
    `"parallel_args missing required elements. Using sequential."` warning,
    which no longer fires for that input.
 
-# forestsearch 0.3.0
+## forestsearch 0.3.0 (development; not released on CRAN)
 
 ## Default change: `vi.grf.min = NULL` -- GRF variable-importance screening is off unless requested
 
@@ -499,7 +553,7 @@ only when a numeric value is passed.
 document or payload was touched; results recorded under earlier versions
 stand as statements about those versions.
 
-# forestsearch 0.2.7
+## forestsearch 0.2.7 (development; not released on CRAN)
 
 ## New: `fs_family_report()` -- what is, and is not, deterministic about the candidate family
 
@@ -527,7 +581,7 @@ holds it to the engine.  **It reports and changes nothing**: it fits no model,
 runs no search, and is called by nothing else in the package.  No default,
 driver or document changed.
 
-# forestsearch 0.2.6
+## forestsearch 0.2.6 (development; not released on CRAN)
 
 ## `fs_oc_family_enumerate()`: a null branch
 
@@ -561,7 +615,7 @@ inversions are reproduced to the order-statistic step.
 both gates, and the analytic document's `worked-predictions` chunk is still
 reproduced bit-identically.
 
-# forestsearch 0.2.5
+## forestsearch 0.2.5 (development; not released on CRAN)
 
 ## New: `fs_oc_grid()` and `fs_oc_invert()` -- threshold sweeps on one draw set, and the declaration-rate inversion
 
@@ -590,7 +644,7 @@ output at a fixed seed is `identical()` to 0.2.4's on both gates, and the
 analytic document's `worked-predictions` chunk is still reproduced
 bit-identically.
 
-# forestsearch 0.2.4
+## forestsearch 0.2.4 (development; not released on CRAN)
 
 ## `fs_oc_predict()`: the `"resample"` gate is implemented
 
@@ -611,7 +665,7 @@ The branch draws only `Bhat ~ N(beta_g, Sg)` -- one draw matrix, not two.
 The `"split"` branch is untouched and remains bit-identical to the analytic
 document's `worked-predictions` chunk.
 
-# forestsearch 0.2.3
+## forestsearch 0.2.3 (development; not released on CRAN)
 
 ## New: `fs_oc_family_enumerate()` and `fs_oc_predict()` -- predicted operating characteristics over a population-enumerated family
 
@@ -644,7 +698,7 @@ would be a method decision, not a port.
 
 No existing function changes.
 
-# forestsearch 0.2.2
+## forestsearch 0.2.2 (development; not released on CRAN)
 
 ## Builders own population noise
 
@@ -691,7 +745,7 @@ complement-pair candidate families produce. The test suite asserts the
 continuity difference directly: under a 1e-12 perturbation the symmetric root
 moves < 1e-6 where the asymmetric root jumps by order one.
 
-# forestsearch 0.2.1
+## forestsearch 0.2.1 (development; not released on CRAN)
 
 ## `sg_focus` alias resolution is now announced at run time
 
@@ -776,7 +830,7 @@ stream. It now routes through `.mr_msg(quiet, ...)` like every other MR report.
 - The `grf_selection` note warning that `maxeff`/`maxeffCons` "fall through
   without a condition being raised" is removed; they now map explicitly.
 
-# forestsearch 0.2.0
+## forestsearch 0.2.0 (development; not released on CRAN)
 
 ## `consistency_method` now defaults to `"resample"`
 
