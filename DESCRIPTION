@@ -1,11 +1,11 @@
 Package: forestsearch
-Title: Exploratory Subgroup Identification with Survival and GLM Outcomes
-Version: 0.3.5.9002
+Title: Exploratory Subgroup Identification in Survival and GLM Outcomes
+Version: 0.4.0
 Authors@R: person("Larry", "Leon", , "larry.leon.05@post.harvard.edu", role = c("aut", "cre"))
-Description: Implements advanced statistical methods for exploratory subgroup 
+Description: Implements statistical methods for exploratory subgroup 
     identification in clinical trials. Provides tools for identifying patient 
     subgroups with differential treatment effects using machine learning 
-    approaches including Generalized Random Forests ('GRF'), LASSO 
+    approaches including Generalized Random Forests (GRF), LASSO 
     regularization, and exhaustive combinatorial search algorithms. Supports 
     survival endpoints (Cox proportional hazards), binary outcomes (log odds 
     ratio, log relative risk, risk difference), continuous outcomes (mean 
@@ -15,7 +15,7 @@ Description: Implements advanced statistical methods for exploratory subgroup
     infinitesimal jackknife methods to address selection bias in post-hoc 
     analyses. Designed for clinical researchers conducting exploratory 
     subgroup analyses in randomized controlled trials, particularly for 
-    multi-regional clinical trials ('MRCT') requiring regional consistency 
+    multi-regional clinical trials (MRCT) requiring regional consistency 
     evaluation. Methods are described in Leon et al. (2024) 
     <doi:10.1002/sim.10163>.
 License: MIT + file LICENSE
@@ -24,6 +24,7 @@ Depends:
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 VignetteBuilder: knitr, quarto
+SystemRequirements: Quarto command line tools (https://github.com/quarto-dev/quarto-cli)
 Imports: 
     data.table,
     doFuture,
@@ -47,7 +48,7 @@ Imports:
     stats,
     survival,
     utils,
-    weightedsurv
+    weightedsurv (>= 0.1.0)
 Suggests: 
     DiagrammeR,
     doRNG,

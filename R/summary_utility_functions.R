@@ -425,7 +425,7 @@ SG_tab_estimates_glm <- function(df, SG_flag,
 
 rmst_calculation <- function(df,tte.name = "tte",event.name = "event",treat.name = "treat"){
   if (!requireNamespace("weightedsurv", quietly = TRUE)) {
-    stop("Package 'weightedsurv' needed for this function to work. Please install it install_github('larry-leon/weightedsurv').")
+    stop("Package 'weightedsurv' needed for this function to work. Please install it with install.packages(\"weightedsurv\").")
   }
   dfcount <- weightedsurv::df_counting(df, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c("treat","control"), by.risk = 1)
   taumax <- with(dfcount, max(at_points[ybar1 > 0 & ybar0 >0]))

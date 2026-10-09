@@ -154,7 +154,7 @@ The complement (Brecommend) represents patients recommended for treatment.
 }
 \note{
 This function requires the \pkg{weightedsurv} package, which can be
-installed from GitHub: \code{devtools::install_github("larry-leon/weightedsurv")}
+installed from CRAN: \code{install.packages("weightedsurv")}
 }
 \section{Subgroup Extraction}{
 

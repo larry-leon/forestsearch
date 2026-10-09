@@ -331,7 +331,7 @@ plot_sg_weighted_km <- function(
 
   if (!requireNamespace("weightedsurv", quietly = TRUE)) {
     stop("Package 'weightedsurv' is required. Install with: ",
-         "devtools::install_github('larry-leon/weightedsurv')")
+         "install.packages(\"weightedsurv\")")
   }
 
   # Use exact same variable names as plot_subgroup()

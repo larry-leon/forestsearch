@@ -168,7 +168,7 @@
 #'
 #' @note
 #' This function requires the \pkg{weightedsurv} package, which can be
-#' installed from GitHub: \code{devtools::install_github("larry-leon/weightedsurv")}
+#' installed from CRAN: \code{install.packages("weightedsurv")}
 #'
 #' @importFrom graphics legend
 #' @export
@@ -339,7 +339,7 @@ plot_km_band_forestsearch <- function(
   # Check that weightedsurv is available
   if (!requireNamespace("weightedsurv", quietly = TRUE)) {
     stop("Package 'weightedsurv' is required. ",
-         "Install with: devtools::install_github('larry-leon/weightedsurv')")
+         "Install with: install.packages(\"weightedsurv\")")
   }
 
   # The function expects subgroup columns to exist in df with specific names
