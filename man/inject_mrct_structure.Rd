@@ -66,7 +66,7 @@ interaction (the residual Region-U-TE pathway).  Mutually exclusive with x3
 \item{verbose}{logical}
 }
 \value{
-aft_dgm_flex with df_super = expanded population (+ z_\if{html}{\out{<region>}}), and
+aft_dgm_flex with df_super = expanded population (+ \verb{z_<region>}), and
 a \verb{$mrct} element documenting the injected structure.
 }
 \description{

@@ -252,7 +252,7 @@ make_region_model <- function(pop, x_pred = NULL, or_pred = 1,
 #' @param continuous_vars_cens,factor_vars_cens,cens_type  passed through
 #' @param seed          RNG seed
 #' @param verbose       logical
-#' @return aft_dgm_flex with df_super = expanded population (+ z_<region>), and
+#' @return aft_dgm_flex with df_super = expanded population (+ `z_<region>`), and
 #'   a `$mrct` element documenting the injected structure.
 #' @importFrom stats complete.cases setNames
 #' @importFrom utils modifyList
