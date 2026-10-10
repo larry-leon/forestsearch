@@ -112,18 +112,18 @@ theme_set(theme_minimal(base_size = 12))
 
 ## Study Background
 
-The GBSG trial evaluated hormonal treatment (tamoxifen) versus chemotherapy 
+The GBSG trial evaluated hormonal treatment (tamoxifen) versus no hormonal therapy 
 in node-positive breast cancer patients. Key characteristics:
 
 - **Sample size**: N = 686
 - **Outcome**: Recurrence-free survival time
 - **Censoring rate**: ~56%
-- **Treatment**: Hormonal therapy (tamoxifen) vs. chemotherapy
+- **Treatment**: Hormonal therapy (tamoxifen) vs. no hormonal therapy
 
 ## Data Preparation
 
 ```{r data-setup}
-# Load GBSG data (included in forestsearch package)
+# Load GBSG data (from the survival package)
 df.analysis <- gbsg
 
 # Prepare analysis variables
@@ -789,7 +789,7 @@ render_forestplot(
 
 ### KM Difference plots: ITT and subgroups 
 
-The solid black line denotes the ITT Kaplan-Meier treatment difference estimates along with 95%95% CIs (the grey shaded region). K-M differences corresponding to subgroups are displayed.
+The solid black line denotes the ITT Kaplan-Meier treatment difference estimates along with 95% CIs (the grey shaded region). K-M differences corresponding to subgroups are displayed.
 
 
 ```{r KMdiffs, fig.width = 8, fig.height = 6, fig.align="center"}
@@ -861,7 +861,7 @@ cat("Identified Subgroup (H):\n")
 cat("  Definition:", paste(fs$sg.harm, collapse = " & "), "\n")
 cat("  Size:", sum(fs$df.est$treat.recommend == 0), 
     sprintf("(%.1f%%)\n", 100 * mean(fs$df.est$treat.recommend == 0)))
-cat("  Unadjusted HR:", sprintf("%.2f", exp(fs$grp.consistency$out_sg$result$hr[1])), "\n")
+cat("  Unadjusted HR:", sprintf("%.2f", fs$grp.consistency$out_sg$result$hr[1]), "\n")
 
 cat("\nComplement Subgroup (Hc):\n")
 cat("  Size:", sum(fs$df.est$treat.recommend == 1),
