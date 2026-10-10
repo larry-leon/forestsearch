@@ -512,7 +512,7 @@ print.guohe_a3 <- function(x, ...) {
   cat(sprintf("  selected         : %s\n", x$selected))
   cat(sprintf("  naive %-16s: %.4f\n", x$scale, x$naive))
   cat(sprintf("  de-biased %-12s: %.4f\n", x$scale, x$debiased))
-  cat(sprintf("  %s bound (one-sided, %.3f) : %.4f   [CERTIFIED]\n",
+  cat(sprintf("  %s bound (one-sided, %.3f) : %.4f   [Guo-He bound]\n",
               x$bound_side, 1 - x$level, x$bound_one_sided))
   cat(sprintf("  two-sided CI (%.2f, quantile inversion): (%.4f, %.4f)   [EXTENSION]\n",
               1 - x$level, x$ci_two_sided[1], x$ci_two_sided[2]))

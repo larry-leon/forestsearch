@@ -123,54 +123,19 @@
 }
 
 
-#' The caveat lines, worded from dev/notes/NOTE_survival_products_2026-09-09.md
+#' The fixed note printed beneath the post-selection block
 #'
-#' Each string is a faithful compression of a sentence of that NOTE and nothing
-#' else; no claim here is generated from the analysis at hand.
-#'
-#' The two p-hat band edges, 0.20 and 0.5, are the NOTE's own and are
-#' \strong{descriptive band edges, not calibrated thresholds}.  0.5 is where
-#' the NOTE puts the harm-block bias crossing zero; 0.20 is the top of the band
-#' the NOTE characterises as low ("replicates below p-hat = 0.20").  Neither is
-#' a decision rule: they say which pole an analysis sits at, and the flag is
-#' directional.  The interval between them carries no line, because the NOTE
-#' supports no claim there.
+#' One note, printed whenever the block prints (print() and summary()); it
+#' does not depend on the analysis at hand.  \code{p} is accepted for
+#' interface stability and is not read.
 #' @keywords internal
 #' @noRd
 .fs_mr_caveats <- function(p) {
-  out <- character(0)
-  # NOTE, "Two-sided intervals are not certified.": "... its harm-block
-  # coverage falls to 0.913-0.917 at 12.4% prevalence with n >= 1000
-  # (0.971-0.981 at 31%).  Read two-sided statements at low prevalence and
-  # large n with that caveat."
-  if (!is.null(p$ij_lo) && is.finite(p$ij_lo))
-    out <- c(out, paste(
-      "Two-sided intervals are not certified: the IJ two-term interval's",
-      "harm-block coverage falls to 0.913-0.917 at 12.4% prevalence with",
-      "n >= 1000 (0.971-0.981 at 31%).  Read two-sided statements at low",
-      "prevalence and large n with that caveat."))
-  # NOTE, "Analysis-time diagnostic.": bias "crossing zero near p-hat ~ 0.5:
-  # ... under-correction at high p-hat (the stable-pick regime, +0.02)" and
-  # "its p-hat flag is directional, not calibrated".
-  if (is.finite(p$p_hat_H) && p$p_hat_H >= 0.5)
-    out <- c(out, paste(
-      "p-hat(H) >= 0.5 is the stable-pick regime, where the harm-block",
-      "correction is under-corrected (+0.02 log units).  The flag is",
-      "directional, not calibrated."))
-  # NOTE, "Analysis-time diagnostic.": "over-correction at low p-hat (bias
-  # -0.11 to -0.28 log units at 12.4%, n = 1500)"; and "The one-sided products
-  # are each exposed to one pole only, and in the conservative direction ...
-  # while the two-sided interval -- exposed to both -- does not [certify]."
-  # 0.20 is the NOTE's own low-band edge ("replicates below p-hat = 0.20");
-  # nothing is printed on [0.20, 0.5), where the NOTE supports no claim.
-  if (is.finite(p$p_hat_H) && p$p_hat_H < 0.20)
-    out <- c(out, paste(
-      "p-hat(H) < 0.20 is the unstable-pick pole, where the harm-block",
-      "correction runs the other way -- over-correction, -0.11 to -0.28 log",
-      "units at 12.4% prevalence with n = 1500 -- so the one-sided lower bound",
-      "on H is conservative here and the two-sided interval is the exposed",
-      "one.  See dev/notes/NOTE_survival_products_2026-09-09.md."))
-  out
+  c("One-sided bounds are the primary products; the two-sided IJ interval is",
+    "secondary. p-hat(H) is a descriptive diagnostic. Read each bound by its",
+    "location relative to a clinically meaningful effect size. Methods and",
+    "simulation operating characteristics: Leon & Anderson (2026),",
+    "arXiv:2609.38361.")
 }
 
 
@@ -183,17 +148,17 @@
 }
 
 
-#' The shared certified-products block used by print() and summary()
+#' The shared post-selection block used by print() and summary()
 #'
 #' @param p The list from \code{.fs_mr_products()}.
-#' @param long Logical; \code{TRUE} adds the SEs, the re-selection mass and the
-#'   certified/not-certified paragraph (the \code{summary} form).
+#' @param long Logical; \code{TRUE} adds the SEs and the re-selection mass
+#'   (the \code{summary} form).
 #' @keywords internal
 #' @noRd
 .fs_print_mr_products <- function(p, long = FALSE) {
   m <- p$measure
   f3 <- function(v) if (is.null(v) || !is.finite(v)) "NA" else formatC(v, format = "f", digits = 3)
-  cat("\nPost-selection inference (certified products):\n")
+  cat("\nPost-selection inference (selection-adjusted; Leon & Anderson 2026):\n")
   cat(sprintf("  Harm subgroup H:        one-sided 95%% lower bound on %s   %s\n", m, f3(p$harm_lo)))
   cat(sprintf("  Complement Hc:          one-sided 95%% upper bound on %s   %s   [%s]\n",
               m, f3(p$comp_up), p$comp_tag))
@@ -227,12 +192,6 @@
         "    membership recovery: sens_H = %s (mean share of Hhat retained over %s draws)\n",
         f3(p$recov_sens_H),
         if (is.null(p$recov_n_used)) "NA" else format(p$recov_n_used)))
-    cat("\n  Certified: the one-sided lower bound on H (field) and the one-sided\n")
-    cat("  upper bound on Hc (field-s), and the Bonferroni joint pair at gamma =\n")
-    cat("  0.025 each side.  Not certified: any two-sided interval.  p-hat(H) is a\n")
-    cat("  recorded diagnostic -- no construction reads it.  Read every bound by\n")
-    cat("  location against a clinically meaningful effect size, never as\n")
-    cat("  significance at the null.  Source: dev/notes/NOTE_survival_products_2026-09-09.md.\n")
   }
   cv <- .fs_mr_caveats(p)
   if (length(cv)) { cat("\n"); .fs_cat_caveat(cv) }
