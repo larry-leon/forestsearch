@@ -1,5 +1,5 @@
 ---
-title: "Survival post-selection inference: the certified products"
+title: "Post-selection inference for an identified survival subgroup"
 subtitle: "A worked GBSG analysis, end to end"
 author: "Larry Leon"
 date: today
@@ -10,7 +10,7 @@ format:
     toc-depth: 3
     code-fold: false
 vignette: >
-  %\VignetteIndexEntry{Survival post-selection inference: the certified products}
+  %\VignetteIndexEntry{Post-selection inference for an identified survival subgroup}
   %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 ---
@@ -23,17 +23,16 @@ library(forestsearch)
 library(survival)
 ```
 
-`forestsearch()` identifies a subgroup by searching; anything estimated on that
-subgroup afterwards is estimated on a subgroup the data chose. This vignette
-runs the pipeline end to end on a public dataset and shows what the package
-reports about that selection, and -- as importantly -- what it declines to
-certify.
-
-Every claim about coverage below comes from
-`dev/notes/NOTE_survival_products_2026-09-09.md`, which is the source of truth
-for the certified products; the simulation evidence behind it is named at the
-end. Nothing here is new methodology, and no number in this document is
-computed by it: the reporting block reads elements the fit already carries.
+`forestsearch()` identifies a subgroup by searching over candidate subgroups,
+so a treatment effect estimated within the identified subgroup is affected by
+the selection: a confidence interval computed as if the subgroup had been
+prespecified tends to under-cover. With `mr_inference = TRUE`,
+`forestsearch()` reports selection-adjusted estimates and bounds for the
+identified subgroup and its complement, based on multiplier resampling of the
+candidate effects. The methodology, its assumptions and its simulation
+operating characteristics are described in León and Anderson (2026); this
+vignette shows how to obtain and read the reported quantities on a public
+dataset.
 
 ## The data and the fit
 
@@ -55,16 +54,13 @@ cat("Sample size:", nrow(df.analysis),
     sprintf("(%.1f%%)\n", 100 * mean(df.analysis$status)))
 ```
 
-The fit below is the applications configuration cut to vignette size: the
-consistency search with no LASSO/GRF/DINA screen, `sg_focus = "effMaxSG"`
-(largest subgroup within a 20% band of the strongest observed effect), 200
-split-sample replicates and 500 multiplier draws. `mr_inference = TRUE` turns
-on the post-selection gate, whose result is attached to the fit as
-`fs$mr_inference`; no separate run is needed. `field_recovery = TRUE` adds the
-membership-agreement diagnostics used in the p-hat section below -- descriptive
-only, computed from draws the gate has already made. There is no bootstrap, no
-cross-validation and no leave-one-out here -- those live in the applications
-documents, not in a vignette.
+The fit below uses the consistency search without a LASSO/GRF/DINA screen,
+`sg_focus = "effMaxSG"` (the largest subgroup within 20% of the strongest
+observed effect), 200 consistency splits and 500 multiplier draws.
+`mr_inference = TRUE` attaches the post-selection results to the fit as
+`fs$mr_inference`; `field_recovery = TRUE` adds the membership-agreement
+diagnostics used below. Bootstrap and cross-validation are not run here; see
+`vignette("forestsearch")`.
 
 ```{r fit}
 t0 <- proc.time()
@@ -96,11 +92,11 @@ cat("Selected subgroup:", paste(fs$sg.harm, collapse = " & "), "\n")
 ```
 
 The subgroup is a conjunction of at most `maxk = 2` binary cutpoints drawn from
-the candidate family. `family_status` records how that family was built --
-`"no-front-end"` here, meaning no fitted model on the observed data shaped it,
-which is the weakest form of selection the package will report on.
+the candidate family. `family_status` records how the candidate family was built;
+`"no-front-end"` means the family was enumerated directly rather than proposed
+by a model fitted to the data.
 
-## The certified products
+## The reported quantities
 
 `print()` reports them; nothing extra needs to be called.
 
@@ -108,28 +104,20 @@ which is the weakest form of selection the package will report on.
 print(fs)
 ```
 
-Read top to bottom, this is the package's order of standing.
+- **Identified subgroup:** the one-sided 95% lower bound on the hazard ratio
+  (the *field* construction).
+- **Complement:** the one-sided 95% upper bound on the hazard ratio (*field-s*,
+  the studentized complement field), relevant to a benefit claim.
+- **Both together:** the Bonferroni pair, each side at level 0.025.
+- **Two-sided interval:** the infinitesimal-jackknife (IJ) two-term interval,
+  reported as a secondary summary.
+- **p-hat(H):** the re-selection frequency, a descriptive diagnostic (below).
 
-**The harm subgroup's one-sided lower bound** on `HR(Hhat)` is the *field*
-construction. Its coverage is 0.944--0.974 across ten harm cells at 12.4% and
-31% prevalence, n = 500 / 1000 / 1500, and it is flat in n.
+The field bounds require `ci_method = "field"` (the default); with
+`ci_method = "ij"` only the two-sided interval is reported. León and Anderson
+(2026) describe each construction and report its performance in simulation.
 
-**The complement's one-sided upper bound** on `HR(Hhat^c)` is *field-s*, the
-studentized complement field. Its small-sample shortfall closes with n:
-0.912 -> 0.942 -> 0.947 at 31% prevalence with HR 1.50, and 0.919 -> 0.942 ->
-0.946 at HR 1.75; it is at or above 0.94 at every cell of the 12.4% regime.
-field-s is at or above the unscaled field in all thirteen certification cells.
-
-**The joint two-subgroup claim** is the Bonferroni pair at gamma = 0.025 each
-side, covering 0.939--0.963 at every cell. Use it when both statements are
-made together.
-
-Both field bounds exist only under `ci_method = "field"`. That is the default;
-`ci_method = "ij"` omits the field block entirely and leaves only the
-two-sided interval.
-
-`summary()` adds the standard errors, the re-selection mass and the
-certified/not-certified paragraph:
+`summary()` adds the standard errors and the leading re-selection frequencies:
 
 ```{r summary}
 summary(fs)
@@ -147,7 +135,7 @@ harm -- the naive estimate was largely selection.
 
 The complement-side question is a benefit claim: *is the one-sided upper bound
 below a threshold that would matter?* Name the threshold you are reading
-against -- 0.80 and 0.85 are the usual reading aids in these records -- and say
+against -- for example 0.80 or 0.85 -- and say
 whether the bound clears it. A threshold quoted this way is a reading aid, not
 a decision rule.
 
@@ -181,34 +169,16 @@ cat(sprintf("p-hat(Hhat) = %.3f over a family of %d candidates\n",
 print(round(sort(ph, decreasing = TRUE)[1:5], 3))
 ```
 
-Harm-block bias is a monotone increasing function of p-hat, crossing zero near
-p-hat ~ 0.5:
-
-- **Low p-hat, below 0.20** -- the pick is unstable and the correction runs the
-  other way, *over*-correcting (bias -0.11 to -0.28 log units at 12.4%
-  prevalence, n = 1500). The one-sided lower bound on Hhat is the conservative
-  product here; the two-sided interval is the exposed one. `print()` says so.
-- **High p-hat, 0.5 and above** -- the stable-pick regime, where the correction
-  *under*-corrects (+0.02 log units) and the bounds are somewhat optimistic.
-  `print()` says so.
-- **In between, 0.20 to 0.5** -- no line is printed, because the NOTE supports
-  no claim there.
-
-Those two edges come from the NOTE: 0.5 is where it puts the bias crossing
-zero, and 0.20 is the top of the band it characterises as low. They are
-**descriptive band edges, not calibrated thresholds** -- they tell you which
-pole an analysis sits at, and the flag is directional, not a decision rule.
-The complement's coverage, by contrast, is a stable function of p-hat.
-
-This fit sits at the low pole (p-hat = 0.006), so the printed output carries
-the unstable-pick line and not the stable-pick one, and the harm-side lower
-bound should be read as the conservative product.
+A small p-hat indicates that the exact boundary of the identified subgroup is
+not stable under perturbation; by itself it is neither evidence for nor
+against the bounds. León and Anderson (2026) discuss how the bias correction
+behaves across values of p-hat.
 
 ### What p-hat alone cannot say
 
-p-hat counts **exact** re-selections of `Hhat`. Over a family of 1,744
-candidates, most of which differ from `Hhat` by one cutpoint, an exact-match
-rate of 0.006 is compatible with two very different situations: the draws
+p-hat counts **exact** re-selections of `Hhat`. Over a large family in
+which most candidates differ from `Hhat` by a single cutpoint, a small
+exact-match rate is compatible with two very different situations: the draws
 re-selected near-twins of `Hhat`, or they re-selected unrelated regions. p-hat
 does not distinguish them. **Membership agreement** does, and it is computable
 from the same draws. Each draw's re-selection is compared with `Hhat` as a set
@@ -228,16 +198,12 @@ cat(sprintf("share of draws containing all of Hhat = %.3f  (over %d draws)
             rc$share_equal_1, rc$n_used))
 ```
 
-So the two numbers say different things about the same draws: exact
-re-selection is rare (0.006), while the typical re-selection still retains
-**more than half** of the identified patients, and about a quarter of the draws
-contain all of `Hhat`. Reported alone, p-hat = 0.006 invites the reading that
-the search found nothing reproducible; the membership numbers say the pick is
-unstable *in its exact boundary*, not in the region it points at. Both readings
-matter -- the low-p-hat caveat on the bounds still stands, because the bias
-correction is driven by the exact re-selection map.
+Read together, the two kinds of number say different things about the same
+draws: exact re-selection can be rare while the typical re-selection still
+retains much of the identified subgroup. That pattern points to an unstable
+boundary rather than an unstable region.
 
-One limit, stated plainly. These diagnostics measure re-selection **within the
+One limit. These diagnostics measure re-selection **within the
 fixed candidate family**, under multiplier perturbation of the candidate
 effects. The bootstrap (`forestsearch_bootstrap_dofuture()`) and
 cross-validation (`forestsearch_Kfold()`) recovery rates measure something
@@ -246,34 +212,16 @@ re-run and the family rebuilt each time. The two are related but neither
 substitutes for the other, and this one is free in every analysis while those
 cost a full re-run.
 
-## What is not certified
+## References
 
-**No two-sided interval is certified.** The IJ two-term two-sided interval is
-retained and reported as the secondary, conservative option, and it is the only
-two-sided construction offered -- but its harm-block coverage falls to
-0.913--0.917 at 12.4% prevalence once n is 1000 or more (against 0.971--0.981
-at 31%). The field's own two-sided interval is lower still, 0.878--0.930. Read
-two-sided statements at low prevalence and large n with that caveat.
+León, L. F. and Anderson, K. M. (2026). Inference for standard trial
+estimands after data-driven subgroup discovery. arXiv:2609.38361.
+<https://arxiv.org/abs/2609.38361>
 
-Also on record: `effect_neighborhood > 0.25` is not adoptable; under a pure-size
-pick (`sg_focus = "maxSG"`) the naive SE mis-calibrates, at 0.876 of the error
-SD, and field-s inherits that.
-
-The one-sided products certify and the two-sided one does not for a reason
-worth stating: each one-sided bound is exposed to one pole of the p-hat bias
-only, and in the conservative direction. A two-sided interval is exposed to
-both.
-
-## Where the evidence lives
-
-- `dev/notes/NOTE_survival_products_2026-09-09.md` -- the certified products
-  and their caveats; the source of truth for every claim above.
-- `REPORT_cert20_2026-09-08.md` -- the 31%-prevalence sample-size profile.
-- `REPORT_tier2_2026-09-08.md` -- the 12.4% dominated regime.
-- `REPORT_fixedphat_ij2s_2026-09-09.md` -- the fixed-p-hat diagnostics, the
-  harm-block two-sided decay and detection conditioning.
-- `REPORT_cimethod_flip_2026-09-09.md` -- why `ci_method = "field"` is the
-  default.
+León, L. F., Jemielita, T., Guo, Z., Marceau West, R. and Anderson, K. M.
+(2024). Exploratory subgroup identification in the heterogeneous Cox model:
+A relatively simple procedure. *Statistics in Medicine*.
+<https://doi.org/10.1002/sim.10163>
 
 ```{r session}
 sessionInfo()
