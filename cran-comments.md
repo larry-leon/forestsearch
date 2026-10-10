@@ -15,12 +15,12 @@ last CRAN release (0.1.0)": the `showten_subgroups` argument was removed from
   `R CMD check --as-cran` on the built tarball (vignettes built), with
   `_R_CHECK_LIMIT_CORES_=TRUE` and CRAN weightedsurv 0.1.0
 * win-builder, first round: R-release 4.6.1 and R-devel (r90650)
-* win-builder, second round (after the fixes below): R-devel, pending
+* win-builder R-devel (2026-10-09 r90655): Status OK
 * mac-builder: unavailable (HTTP 502 on two attempts, 2026-10-09)
 
 ## R CMD check results
 
-0 errors | 0 warnings | 0 notes (expected after the fixes)
+0 errors | 0 warnings | 0 notes on win-builder
 
 * The first win-builder round (R-release and R-devel) gave one NOTE, from
   "checking HTML version of manual": an HTML validation problem in
