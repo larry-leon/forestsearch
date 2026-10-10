@@ -16,7 +16,7 @@ last CRAN release (0.1.0)": the `showten_subgroups` argument was removed from
   `_R_CHECK_LIMIT_CORES_=TRUE` and CRAN weightedsurv 0.1.0
 * win-builder, first round: R-release 4.6.1 and R-devel (r90650)
 * win-builder R-devel (2026-10-09 r90655): Status OK
-* win-builder R-devel round 3 (after documentation revision): pending
+* win-builder R-devel round 3 (2026-10-09 r90655, after documentation revision): Status OK
 * mac-builder: unavailable (HTTP 502 on two attempts, 2026-10-09)
 
 ## R CMD check results
