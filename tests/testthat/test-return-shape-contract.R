@@ -19,6 +19,7 @@
 # HAPPY PATHS: object should satisfy full return contract
 # ---------------------------------------------------------------------------
 
+skip_on_cran()
 test_that("survival happy path returns full consumer contract", {
   df <- .make_survival_data(N = 200L, HR_harm = 2.0, seed = 42L)
   args <- .fs_args_for("survival",

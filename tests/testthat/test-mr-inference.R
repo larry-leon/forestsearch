@@ -17,6 +17,7 @@
 # on the default consistency path a GLM outcome silently skips the whole step.
 # See the note on that test.
 
+skip_on_cran()
 CONF_SURV <- c("age", "stage", "sex", "noise")
 
 # One shared fit per configuration: forestsearch() runs ~3 s here, so the

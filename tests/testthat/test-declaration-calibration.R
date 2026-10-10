@@ -7,6 +7,7 @@
 # separate script; see the report.
 # =============================================================================
 
+skip_on_cran()
 .md5 <- function(x) {
   f <- tempfile()
   on.exit(unlink(f))

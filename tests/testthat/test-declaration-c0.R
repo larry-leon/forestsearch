@@ -6,6 +6,7 @@
 # the pre-change pin; see the report.
 # =============================================================================
 
+skip_on_cran()
 .md5c <- function(x) {
   f <- tempfile()
   on.exit(unlink(f))

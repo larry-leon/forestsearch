@@ -13,6 +13,7 @@
 # the consistency engine use.
 # =============================================================================
 
+skip_on_cran()
 .mk <- function(effect, size) data.frame(effect = effect, size = size)
 
 test_that("selection_rule = 'neighborhood' is numerically unchanged", {

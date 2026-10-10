@@ -12,6 +12,7 @@
 
 # -- shared fixtures ---------------------------------------------------------
 
+skip_on_cran()
 .bd_data <- function(outcome_type) {
   switch(outcome_type,
     binary     = .make_binary_data(N = 150L, OR_harm = 3.0, seed = 7L),
