@@ -52,7 +52,7 @@
   set (as under `R CMD check --as-cran`); otherwise grf's own default applies
   unchanged.
 * Printed post-selection output and documentation simplified; methodology
-  reference León and Anderson (2026) <arXiv:2609.38361>.
+  reference León and Anderson (2026) <doi:10.48550/arXiv.2609.38361>.
 
 ## Development changes after 0.3.5 (not released on CRAN)
 
