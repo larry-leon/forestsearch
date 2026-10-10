@@ -987,8 +987,8 @@
 #'       analogue of nonparametric-bootstrap multiplicities); also
 #'       \code{"gaussian"}, \code{"rademacher"}.}
 #'     \item{\code{ci_method}}{\code{"field"} (default) additionally runs the
-#'       field-calibrated block, whose one-sided products are the certified
-#'       ones; the de-biased element, its infinitesimal-jackknife SE and its
+#'       field-calibrated block, whose one-sided bounds are the primary
+#'       reported products; the de-biased element, its infinitesimal-jackknife SE and its
 #'       IJ intervals are returned in every call regardless, so nothing is
 #'       removed -- only a per-fit Monte Carlo cost is added.  \code{"ij"}
 #'       restores the previous default: the de-biased interval from the

@@ -191,7 +191,7 @@
 #'
 #' @return An object of class `"guohe_a3"`: a list with the selected candidate
 #'   (`selected`), the naive and de-biased effects on the reporting scale
-#'   (`naive`, `debiased`), the certified one-sided bound (`bound_one_sided`,
+#'   (`naive`, `debiased`), the one-sided bound of Guo and He's Algorithm 3 (`bound_one_sided`,
 #'   with its conservative side in `bound_side`), the two-sided
 #'   quantile-inversion interval (`ci_two_sided`), the heuristic Wald interval
 #'   (`ci_wald`), and bookkeeping fields (`n`, `B`, `B_requested`, `r`,
@@ -498,7 +498,7 @@ guohe_algorithm3 <- function(data,
 #'
 #' Prints the family size, the selected candidate, the naive and de-biased
 #' effects, and the three interval objects returned by [guohe_algorithm3()],
-#' labelled by their inferential status (certified / extension / heuristic).
+#' labelled by their status (Guo-He bound / extension / heuristic).
 #'
 #' @param x An object of class `"guohe_a3"`.
 #' @param ... Ignored; present for method consistency.

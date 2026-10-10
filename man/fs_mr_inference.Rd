@@ -100,7 +100,7 @@ the extra cost is small.  Default \code{FALSE}.}
 the \code{"ij"} path computes -- the \code{debiased} element, its IJ SE and its IJ
 intervals are identical, and are returned in every call regardless of this
 argument -- and \strong{additionally} runs the field-calibrated interval, whose
-one-sided products are the certified ones (the lower bound on the harm
+one-sided bounds are the primary reported products (the lower bound on the harm
 subgroup, the studentized complement's upper bound, and the Bonferroni
 joint pair).  Nothing is removed by choosing it; it adds a per-fit Monte
 Carlo cost (\code{field_R_out} x \code{field_R_in}, defaults 1000 / 500, plus the
@@ -110,8 +110,8 @@ variance (Leon et al. 2024, Eq. VInfJ_bc), computed from the same
 multiplier draws -- the leading-order analogue of the FB interval -- with
 the field block omitted.  \code{"wald"} uses the subgroup robust SE
 (\code{sigma_D}) for the de-biased CI and also omits the field block.  The
-naive CI always uses the robust SE.  The field block (method proposal,
-\verb{dev/tasks/TASK_mr_field_vs_guohe_2026-09-05.md}) is returned as a \code{field}
+naive CI always uses the robust SE.  The field block (León and Anderson,
+2026) is returned as a \code{field}
 element: Gaussian-multiplier perturbations of the shrunk candidate-effect
 field (\code{w = beta_hat} with the winner's entry replaced by the de-biased
 estimate) are pushed through the configured re-selection map, with an
@@ -129,7 +129,7 @@ no draw winner exists) and \code{p_hat} (named numeric over the kept family,
 \code{tabulate(winner) / draws} -- so \code{sum(p_hat) == selection_rate}, and the
 frequencies sum to 1 exactly when every draw produced a winner). Default
 \code{TRUE}: the re-selection diagnostics are part of the recommended output
-(they carry the stable-pick frequency the coverage caveat is read by).
+(\eqn{\hat p} is reported by print() and summary() as a descriptive diagnostic).
 Nothing in the arithmetic depends on this switch, so \code{FALSE} reproduces
 the previous, smaller return object exactly.}
 
@@ -140,8 +140,7 @@ inner draws are shared across outer draws.}
 \item{field_uniform}{Logical (default \code{FALSE}); only consulted under
 \code{ci_method = "field"}.  When \code{TRUE}, after the field block completes the
 gate additionally runs the uniform (kappa) calibration
-(\code{fs_mr_field_uniform()}, method proposal
-\verb{dev/tasks/TASK_mr_field_uniform_2026-09-05.md}) and attaches its result
+(\code{fs_mr_field_uniform()}) and attaches its result
 as \code{field$uniform}: the smallest widening factor \code{kappa} in \verb{[1, 2]}
 such that the widened two-sided interval attains 95\% coverage uniformly
 over the \strong{winner-profile protection family} -- hypothetical true
@@ -150,7 +149,7 @@ runner-up level plus \code{delta} winner-SEs, \code{delta} on a 0-4 grid --
 computed from the trial's own influence structure (\code{Sigma_hat} via
 \code{B_eff}), restricted to the \strong{mass-carrying candidate set} (smallest
 \code{M <= 12} candidates holding >= 99\% of the re-selection mass, winner
-always included).  Guarantee as documented there: the one-sided field
+always included).  Experimental option. Intended properties: the one-sided field
 bound is uniformly valid; the two-sided interval widened by the
 reported \code{kappa} is uniformly valid over the winner-profile family; the
 plain quantile interval is approximate.  The sweep draws under
@@ -168,8 +167,7 @@ Consulted only when \code{field_uniform = TRUE}; add-only, default-inert.}
 construction); consulted only under
 \code{ci_method = "field"} with \code{include_complement = TRUE}.  When \code{TRUE},
 after the harm field block completes, the same field procedure is
-evaluated for the complement subgroup (method proposal
-\verb{dev/tasks/TASK_mr_field_complement_2026-09-06.md}) and attached as
+evaluated for the complement subgroup and attached as
 \code{field$complement}.  \strong{Orientation:} selection acts on the harm-subgroup
 effects; the complement is its by-product, and its naive estimate is
 pushed toward \emph{benefit}.  For a benefit claim ("the effect in the
@@ -193,8 +191,7 @@ complement field block runs.  When \code{TRUE}, \code{field$complement} gains a
 \code{decomp_fields} list of add-only scale diagnostics (the selected
 complement's influence-norm scale, the draw-weighted mean and CV of the
 outer winners' scales, their ratio \code{scale_ratio_c}, and the variance /
-covariance of the two pieces of \code{Lambda*c}; PROPOSAL_complement_field_scale
-2026-09-08 v2, Stage 1); it reads existing objects only, so every
+covariance of the two pieces of \code{Lambda*c}); it reads existing objects only, so every
 pre-existing output is unchanged whether or not it runs.}
 
 \item{field_scale_complement}{\code{"selected"} (default, the recommended
@@ -203,8 +200,7 @@ consulted only when the complement field block runs.  Under \code{"selected"} th
 complement's field readings are studentized to the selected complement's
 own scale before differencing -- each outer reading \verb{zeta^c_\{r, G_r\}} is
 multiplied by \verb{s_sel / s_\{G_r\}} and each inner reading by \verb{s_sel / s_\{G(v_r + zeta'_j)\}}, with \code{s_g = sqrt(sum(Bc[, g]^2))} the candidate's
-complement influence-norm scale (the percentile-t root; PROPOSAL_complement_
-field_scale_2026-09-08_v2 s5, variant R1) -- and \code{field$complement} gains
+complement influence-norm scale (the percentile-t root) -- and \code{field$complement} gains
 the \verb{_s} companions of its bounds (\code{est2_s}, \code{upper_1s_s}, \code{lower_1s_s},
 \code{lower_2s_s}, \code{upper_2s_s}, \code{lower_se_s}, \code{upper_se_s}, \code{se_field_s},
 \code{lambda_mean_s}) with \code{field$joint_s} beside \code{field$joint}.  Add-beside:
@@ -213,8 +209,7 @@ prior output exactly.}
 
 \item{ij_residual}{Which IJ residual populates the \strong{reported} de-biased
 SE and interval (\code{debiased$se_ij}/\code{lower}/\code{upper}/\code{lower_1s}, and the
-complement's), method proposal
-\verb{dev/tasks/TASK_complement_refinements_2026-09-06.md}.  \code{"two_term"}
+complement's).  \code{"two_term"}
 (default) is the paper's residual
 \eqn{r_b = (bias_{sel} + bias_{fix}) - D_{H^*_b}(b) - D_{\hat H}(b)},
 whose limit variance is \eqn{(p + e_{\hat H})' \Sigma (p + e_{\hat H})} --
@@ -223,9 +218,10 @@ there is least to correct (the complement is effectively always in that
 regime).  \code{"winner"} uses the winner-only (total-derivative) residual
 \eqn{r^w_b = bias_{sel} - D_{H^*_b}(b)}, exact when one candidate
 dominates but under-covering at ties on the harm side (the delta method
-does not hold in the local regime); \code{"winner_floor"} floors it at the
-naive robust variance, \eqn{\max(V^w, \hat\sigma^2_D)}, which repairs the
-tie regime at zero cost.  All three SEs are computed from the same draws
+does not hold in the local regime), likewise retained for comparison
+only; \code{"winner_floor"} floors it at the
+naive robust variance, \eqn{\max(V^w, \hat\sigma^2_D)}, retained for comparison only
+and not recommended.  All three SEs are computed from the same draws
 and returned side by side in every call (\code{se_ij_two_term},
 \code{se_ij_winner}, \code{se_ij_winner_floor} with their bounds \verb{*_w} / \verb{*_wf});
 the argument only selects the reported one, and the point estimates
@@ -234,8 +230,7 @@ never change.  Add-only: the default reproduces prior output exactly
 
 \item{field_recovery}{Logical (default \code{FALSE}); consulted only under
 \code{ci_method = "field"}.  When \code{TRUE}, \code{field} gains a \code{recovery} list of
-\strong{descriptive membership-agreement diagnostics}
-(\verb{dev/tasks/TASK_field_recovery_2026-09-09.md}, R-1): over the outer
+\strong{descriptive membership-agreement diagnostics}: over the outer
 draws that produced a winner, each re-selected candidate's patient set
 \code{kept[[G_r]]} is compared with the observed pick's \code{kept[[sel]]}, and the
 four classification metrics of the CV membership cross-tab

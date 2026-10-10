@@ -209,7 +209,7 @@
 #'
 #' Computes the population value of the standard within-subgroup analysis on a
 #' realized selection region and its complement, on a fixed evaluation frame.
-#' This is the estimand Theorem 2 certifies coverage for, evaluated at the
+#' This is the conditional estimand of León and Anderson (2026, Theorem 2), evaluated at the
 #' rule a detector actually returned -- not the marginal true-subgroup target.
 #'
 #' Membership is resolved once, by the internal `.fs_resolve_membership()`, and the same

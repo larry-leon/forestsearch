@@ -210,42 +210,19 @@
 #'
 #' @section Post-selection inference:
 #' When the fit carries multiplier-resampling results (`mr_inference = TRUE`,
-#' which attaches the [fs_mr_inference()] return as `x$mr_inference`) and the
-#' field block ran, a further block reports the **certified** survival
-#' post-selection products of
-#' `dev/notes/NOTE_survival_products_2026-09-09.md`, in that document's order
-#' of standing: the one-sided 95% **lower** bound on the harm subgroup
-#' \eqn{\beta(\widehat H)} (the field) and the one-sided 95% **upper** bound
-#' on the complement \eqn{\beta(\widehat H^c)} (**field-s**, the studentized
-#' complement field) first; the Bonferroni **joint** pair at
-#' \eqn{\gamma = 0.025} each side second; the IJ two-term **two-sided**
-#' interval third, explicitly labelled secondary because no two-sided interval
-#' is certified; and the re-selection frequency \eqn{\hat p(\widehat H)}
-#' last, as a recorded diagnostic that no construction reads.
-#'
-#' The field and field-s bounds exist only under `ci_method = "field"`, which
-#' is the default; `ci_method = "ij"` omits the field block and with it this
-#' entire section apart from the two-sided line.  When MR results are absent
-#' the printed output is unchanged from a build without this section.
-#'
-#' Caveat lines are printed only when they apply and are compressions of the
-#' NOTE, not of the analysis: a two-sided caveat whenever a two-sided interval
-#' is shown, and one of two directional \eqn{\hat p} notes at the poles of
-#' the harm-block bias.  At \eqn{\hat p(\widehat H) \ge 0.5} -- the
-#' stable-pick regime -- the correction under-corrects, so the bounds are
-#' somewhat optimistic.  At \eqn{\hat p(\widehat H) < 0.20} the correction
-#' runs the other way and over-corrects, which makes the one-sided lower bound
-#' on \eqn{\widehat H} the conservative product and leaves the two-sided
-#' interval as the exposed one.
-#'
-#' **0.20 and 0.5 are descriptive band edges taken from the NOTE, not
-#' calibrated thresholds.** 0.5 is where the NOTE puts the bias crossing zero;
-#' 0.20 is the top of the band it characterises as low.  They say which pole an
-#' analysis sits at, and the flag is directional, not a decision rule.
-#' \eqn{\hat p} in \eqn{[0.20, 0.5)} prints no note at all, because the NOTE
-#' supports no claim there.  Bounds are reported by location and must be read
-#' against a clinically meaningful effect size, never as significance at the
-#' null.
+#' attached as `x$mr_inference`) and the field block ran
+#' (`ci_method = "field"`, the default), a further block reports: the
+#' one-sided 95% lower bound for the identified subgroup (the field); the
+#' one-sided 95% upper bound for its complement (field-s, the studentized
+#' complement field); the Bonferroni pair for a joint two-subgroup
+#' statement; the infinitesimal-jackknife (IJ) two-term two-sided interval,
+#' as a secondary summary; and the re-selection frequency
+#' \eqn{\hat p(\widehat H)} as a descriptive diagnostic.  Bounds are read by
+#' their location relative to a clinically meaningful effect size, not as
+#' tests at the null.  With `ci_method = "ij"` only the two-sided interval is
+#' shown; without MR results the output is unchanged.  The constructions and
+#' their simulation operating characteristics are described in León and
+#' Anderson (2026), [arXiv:2609.38361](https://arxiv.org/abs/2609.38361).
 #'
 #' @param x A \code{forestsearch} object returned by
 #'   \code{\link{forestsearch}}.
@@ -353,16 +330,11 @@ print.forestsearch <- function(x, ...) {
 #' the selected subgroup with key metrics.
 #'
 #' @section Post-selection inference:
-#' Carries the same certified-products block as [print.forestsearch()] -- see
-#' its documentation for the ordering, the `ci_method = "field"` requirement,
-#' the by-location reading convention and the descriptive (not calibrated)
-#' \eqn{\hat p} threshold -- and adds, on the log scale, the field SE for the
-#' harm block, the field-s SE for the complement with the naive complement SE
-#' beside it, and the IJ two-term SE; the three largest re-selection
-#' frequencies with their labels; `p_hat_sum` over the re-selection family;
-#' and one paragraph naming what is certified and what is not, sourced from
-#' `dev/notes/NOTE_survival_products_2026-09-09.md`.  Absent MR results, the
-#' output is unchanged from a build without this section.
+#' Carries the same block as [print.forestsearch()] (see there) and adds the
+#' log-scale standard errors (field, field-s with the naive complement SE
+#' beside it, and IJ two-term), the three largest re-selection frequencies
+#' with their labels, and `p_hat_sum` over the re-selection family.  Absent MR
+#' results, the output is unchanged.
 #'
 #' When the fit carries the membership-agreement diagnostics -- that is, under
 #' `mr_inference_args = list(field_recovery = TRUE)` -- one further line

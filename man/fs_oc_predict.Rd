@@ -129,8 +129,7 @@ Inverting: \eqn{\hat\beta \ge c_2 + z_p \sigma_D} with
 \code{sqrt(sum(dfbeta[i, treat]^2))}, the sandwich standard error of the
 subgroup treatment coefficient; in the draw model above the analogous
 quantity is \code{se_g}, and on a simulated MD40 trial the two agree
-within a few percent with no prevalence trend
-(\code{dev/glm-continuous-sims/sigma_d_diagnostic_2026-08-29.R}), so the
+within a few percent with no prevalence trend, so the
 wrapper identifies \eqn{\sigma_D = se_g}.  The gate is then a single
 threshold on the full-sample draw,
 \code{(Bhat >= c1) & (Bhat - c2 >= z_p * se_g)}, and only

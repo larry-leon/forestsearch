@@ -22,16 +22,11 @@ the selected subgroup with key metrics.
 }
 \section{Post-selection inference}{
 
-Carries the same certified-products block as \code{\link[=print.forestsearch]{print.forestsearch()}} -- see
-its documentation for the ordering, the \code{ci_method = "field"} requirement,
-the by-location reading convention and the descriptive (not calibrated)
-\eqn{\hat p} threshold -- and adds, on the log scale, the field SE for the
-harm block, the field-s SE for the complement with the naive complement SE
-beside it, and the IJ two-term SE; the three largest re-selection
-frequencies with their labels; \code{p_hat_sum} over the re-selection family;
-and one paragraph naming what is certified and what is not, sourced from
-\verb{dev/notes/NOTE_survival_products_2026-09-09.md}.  Absent MR results, the
-output is unchanged from a build without this section.
+Carries the same block as \code{\link[=print.forestsearch]{print.forestsearch()}} (see there) and adds the
+log-scale standard errors (field, field-s with the naive complement SE
+beside it, and IJ two-term), the three largest re-selection frequencies
+with their labels, and \code{p_hat_sum} over the re-selection family.  Absent MR
+results, the output is unchanged.
 
 When the fit carries the membership-agreement diagnostics -- that is, under
 \code{mr_inference_args = list(field_recovery = TRUE)} -- one further line

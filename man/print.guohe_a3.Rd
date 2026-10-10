@@ -17,5 +17,5 @@
 \description{
 Prints the family size, the selected candidate, the naive and de-biased
 effects, and the three interval objects returned by \code{\link[=guohe_algorithm3]{guohe_algorithm3()}},
-labelled by their inferential status (certified / extension / heuristic).
+labelled by their status (Guo-He bound / extension / heuristic).
 }

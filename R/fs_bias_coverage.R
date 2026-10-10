@@ -23,13 +23,12 @@
 #' two-sided coverage of the target with Wilson intervals, and the Gaussian
 #' reference coverages at (b, r).
 #'
-#' Conventions follow the committed template's diagnostics section: the
+#' Conventions: the
 #' one-sided lower bound is the stored `fld_<block>_lo1s` for the field row
 #' and `exp(log est - qnorm(level) * SE)` for naive and MR (IJ); two-sided
 #' coverage uses each estimator's stored bounds; the field estimator is the
 #' shrunk-field `est2` with the two-sided Lambda-quantile interval.  Under
-#' `side = "upper"` (the complement's benefit-claim orientation,
-#' TASK_mr_field_complement_2026-09-06) the one-sided coverage is
+#' `side = "upper"` (the complement's benefit-claim orientation) the one-sided coverage is
 #' `truth <= upper bound`, with the field's stored `fld_<block>_up1s` and
 #' `exp(log est + qnorm(level) * SE)` for naive and MR (IJ), and the Gaussian
 #' reference is `Phi(z_level * r + b)` -- a positive retained bias helps an
@@ -44,7 +43,7 @@
 #' @param estimators Subset of `c("naive", "mr", "fld", "mr_w", "mr_wf")`
 #'   (default the first three).  `"mr_w"` / `"mr_wf"` are MR (IJ) with the
 #'   winner-only / winner-floor SE (`mr_<block>_se_w` / `_se_wf` and their
-#'   `_lo_w/_hi_w` / `_lo_wf/_hi_wf` bounds; TASK_complement_refinements_2026-09-06),
+#'   `_lo_w/_hi_w` / `_lo_wf/_hi_wf` bounds),
 #'   available only on bundles that recorded them.
 #' @param level Coverage level (default 0.95).
 #' @param target `"betaHhat"` (default; the per-replicate conditional target
@@ -60,8 +59,8 @@
 #'   normal-based one-sided bound `exp(log est -/+ z * SE)` are computed on
 #'   the log scale, and non-positive estimates are dropped), `"identity"`
 #'   for difference measures (MD/RD; bias, SD and the bound `est -/+ z * SE`
-#'   on the natural scale, no positivity guard).  Add-only
-#'   (TASK_continuous_field_mac_2026-09-07): the default reproduces the
+#'   on the natural scale, no positivity guard).  Add-only:
+#'   the default reproduces the
 #'   previous output exactly.  Under `"identity"` the `bias_log` column
 #'   holds the identity-scale bias (the column name is kept so stacked
 #'   tables and [fs_plot_bias_coverage()] read either scale unchanged).

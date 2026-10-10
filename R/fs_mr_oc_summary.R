@@ -18,16 +18,16 @@
 #' Operating-Characteristics Summary of a Multiplier-Resampling Payload
 #'
 #' Summarises a simulation payload produced by the multiplier-resampling (MR)
-#' harness into the estimation, coverage and classification quantities used by
-#' the analytic documents, returning plain numbers rather than a formatted
+#' harness into the estimation, coverage and classification quantities used in
+#' simulation summaries, returning plain numbers rather than a formatted
 #' table.
 #'
 #' @section Orientation:
 #' Estimator columns (\code{or_}, \code{nv_}, \code{fb_}, \code{mr_}) are stored
 #' on the ORIENTED scale, where positive means harm.  \code{betaHhat_H} and
 #' \code{betaHhat_Hc} are stored on the RAW outcome scale.  The bridge is
-#' \code{orient = if (adverse_outcome) 1 else -1}, applied here exactly as the
-#' batch documents apply it.  Getting this backwards silently negates every
+#' \code{orient = if (adverse_outcome) 1 else -1}, applied here as the
+#' simulation harness applies it.  Getting this backwards silently negates every
 #' bias.
 #'
 #' @section Four targets, deliberately:
@@ -50,7 +50,7 @@
 #' whenever detection is not near certain:
 #' \describe{
 #'   \item{\code{conditional}}{Averaged over DETECTED replicates only. This is
-#'     what the batch documents report.}
+#'     the detected-only summary.}
 #'   \item{\code{unconditional}}{Averaged over ALL replicates, following
 #'     \code{build_classification_table()} and Leon et al. (2024, Table 1),
 #'     with non-detection scored as sens = 0, ppv = 0, spec = 1, npv = 1.}

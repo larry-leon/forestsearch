@@ -86,7 +86,7 @@ invalid (survival, or any \code{adjust_covariates}), rather than silently fallin
 \value{
 An object of class \code{"guohe_a3"}: a list with the selected candidate
 (\code{selected}), the naive and de-biased effects on the reporting scale
-(\code{naive}, \code{debiased}), the certified one-sided bound (\code{bound_one_sided},
+(\code{naive}, \code{debiased}), the one-sided bound of Guo and He's Algorithm 3 (\code{bound_one_sided},
 with its conservative side in \code{bound_side}), the two-sided
 quantile-inversion interval (\code{ci_two_sided}), the heuristic Wald interval
 (\code{ci_wald}), and bookkeeping fields (\code{n}, \code{B}, \code{B_requested}, \code{r},

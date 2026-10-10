@@ -218,8 +218,7 @@
 #' effects "return `NULL` (the caller falls back to splitting)". That was never
 #' true and was not implementable as written. Whether to extend the influence
 #' path, add the argument purely so the claim can be honoured, or refuse the
-#' combination outright is unresolved; see
-#' `dev/identifier-alignment/f4_ps_effect_gap_findings.qmd`.
+#' combination outright is unresolved.
 #'
 #' @param df data.frame/data.table with `outcome.name`, `treat.name`, any
 #'   `adjust_covariates`, and `offset.name` (rate measures).

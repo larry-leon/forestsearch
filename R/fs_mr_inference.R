@@ -295,14 +295,14 @@
 #'   `tabulate(winner) / draws` -- so `sum(p_hat) == selection_rate`, and the
 #'   frequencies sum to 1 exactly when every draw produced a winner). Default
 #'   `TRUE`: the re-selection diagnostics are part of the recommended output
-#'   (they carry the stable-pick frequency the coverage caveat is read by).
+#'   (\eqn{\hat p} is reported by print() and summary() as a descriptive diagnostic).
 #'   Nothing in the arithmetic depends on this switch, so `FALSE` reproduces
 #'   the previous, smaller return object exactly.
 #' @param ci_method `"field"` (default, the recommendation) computes everything
 #'   the `"ij"` path computes -- the `debiased` element, its IJ SE and its IJ
 #'   intervals are identical, and are returned in every call regardless of this
 #'   argument -- and **additionally** runs the field-calibrated interval, whose
-#'   one-sided products are the certified ones (the lower bound on the harm
+#'   one-sided bounds are the primary reported products (the lower bound on the harm
 #'   subgroup, the studentized complement's upper bound, and the Bonferroni
 #'   joint pair).  Nothing is removed by choosing it; it adds a per-fit Monte
 #'   Carlo cost (`field_R_out` x `field_R_in`, defaults 1000 / 500, plus the
@@ -312,8 +312,8 @@
 #'   multiplier draws -- the leading-order analogue of the FB interval -- with
 #'   the field block omitted.  `"wald"` uses the subgroup robust SE
 #'   (`sigma_D`) for the de-biased CI and also omits the field block.  The
-#'   naive CI always uses the robust SE.  The field block (method proposal,
-#'   `dev/tasks/TASK_mr_field_vs_guohe_2026-09-05.md`) is returned as a `field`
+#'   naive CI always uses the robust SE.  The field block (León and Anderson,
+#'   2026) is returned as a `field`
 #'   element: Gaussian-multiplier perturbations of the shrunk candidate-effect
 #'   field (`w = beta_hat` with the winner's entry replaced by the de-biased
 #'   estimate) are pushed through the configured re-selection map, with an
@@ -328,8 +328,7 @@
 #' @param field_uniform Logical (default `FALSE`); only consulted under
 #'   `ci_method = "field"`.  When `TRUE`, after the field block completes the
 #'   gate additionally runs the uniform (kappa) calibration
-#'   (`fs_mr_field_uniform()`, method proposal
-#'   `dev/tasks/TASK_mr_field_uniform_2026-09-05.md`) and attaches its result
+#'   (`fs_mr_field_uniform()`) and attaches its result
 #'   as `field$uniform`: the smallest widening factor `kappa` in `[1, 2]`
 #'   such that the widened two-sided interval attains 95% coverage uniformly
 #'   over the **winner-profile protection family** -- hypothetical true
@@ -338,7 +337,7 @@
 #'   computed from the trial's own influence structure (`Sigma_hat` via
 #'   `B_eff`), restricted to the **mass-carrying candidate set** (smallest
 #'   `M <= 12` candidates holding >= 99% of the re-selection mass, winner
-#'   always included).  Guarantee as documented there: the one-sided field
+#'   always included).  Experimental option. Intended properties: the one-sided field
 #'   bound is uniformly valid; the two-sided interval widened by the
 #'   reported `kappa` is uniformly valid over the winner-profile family; the
 #'   plain quantile interval is approximate.  The sweep draws under
@@ -354,8 +353,7 @@
 #'   construction); consulted only under
 #'   `ci_method = "field"` with `include_complement = TRUE`.  When `TRUE`,
 #'   after the harm field block completes, the same field procedure is
-#'   evaluated for the complement subgroup (method proposal
-#'   `dev/tasks/TASK_mr_field_complement_2026-09-06.md`) and attached as
+#'   evaluated for the complement subgroup and attached as
 #'   `field$complement`.  **Orientation:** selection acts on the harm-subgroup
 #'   effects; the complement is its by-product, and its naive estimate is
 #'   pushed toward *benefit*.  For a benefit claim ("the effect in the
@@ -378,8 +376,7 @@
 #'   `decomp_fields` list of add-only scale diagnostics (the selected
 #'   complement's influence-norm scale, the draw-weighted mean and CV of the
 #'   outer winners' scales, their ratio `scale_ratio_c`, and the variance /
-#'   covariance of the two pieces of `Lambda*c`; PROPOSAL_complement_field_scale
-#'   2026-09-08 v2, Stage 1); it reads existing objects only, so every
+#'   covariance of the two pieces of `Lambda*c`); it reads existing objects only, so every
 #'   pre-existing output is unchanged whether or not it runs.
 #' @param field_scale_complement `"selected"` (default, the recommended
 #'   construction: the studentized complement field, "field-s") or `"none"`;
@@ -388,8 +385,7 @@
 #'   own scale before differencing -- each outer reading `zeta^c_{r, G_r}` is
 #'   multiplied by `s_sel / s_{G_r}` and each inner reading by `s_sel /
 #'   s_{G(v_r + zeta'_j)}`, with `s_g = sqrt(sum(Bc[, g]^2))` the candidate's
-#'   complement influence-norm scale (the percentile-t root; PROPOSAL_complement_
-#'   field_scale_2026-09-08_v2 s5, variant R1) -- and `field$complement` gains
+#'   complement influence-norm scale (the percentile-t root) -- and `field$complement` gains
 #'   the `_s` companions of its bounds (`est2_s`, `upper_1s_s`, `lower_1s_s`,
 #'   `lower_2s_s`, `upper_2s_s`, `lower_se_s`, `upper_se_s`, `se_field_s`,
 #'   `lambda_mean_s`) with `field$joint_s` beside `field$joint`.  Add-beside:
@@ -397,8 +393,7 @@
 #'   prior output exactly.
 #' @param ij_residual Which IJ residual populates the **reported** de-biased
 #'   SE and interval (`debiased$se_ij`/`lower`/`upper`/`lower_1s`, and the
-#'   complement's), method proposal
-#'   `dev/tasks/TASK_complement_refinements_2026-09-06.md`.  `"two_term"`
+#'   complement's).  `"two_term"`
 #'   (default) is the paper's residual
 #'   \eqn{r_b = (bias_{sel} + bias_{fix}) - D_{H^*_b}(b) - D_{\hat H}(b)},
 #'   whose limit variance is \eqn{(p + e_{\hat H})' \Sigma (p + e_{\hat H})} --
@@ -407,9 +402,10 @@
 #'   regime).  `"winner"` uses the winner-only (total-derivative) residual
 #'   \eqn{r^w_b = bias_{sel} - D_{H^*_b}(b)}, exact when one candidate
 #'   dominates but under-covering at ties on the harm side (the delta method
-#'   does not hold in the local regime); `"winner_floor"` floors it at the
-#'   naive robust variance, \eqn{\max(V^w, \hat\sigma^2_D)}, which repairs the
-#'   tie regime at zero cost.  All three SEs are computed from the same draws
+#'   does not hold in the local regime), likewise retained for comparison
+#'   only; `"winner_floor"` floors it at the
+#'   naive robust variance, \eqn{\max(V^w, \hat\sigma^2_D)}, retained for comparison only
+#'   and not recommended.  All three SEs are computed from the same draws
 #'   and returned side by side in every call (`se_ij_two_term`,
 #'   `se_ij_winner`, `se_ij_winner_floor` with their bounds `*_w` / `*_wf`);
 #'   the argument only selects the reported one, and the point estimates
@@ -417,8 +413,7 @@
 #'   (the new elements aside).
 #' @param field_recovery Logical (default `FALSE`); consulted only under
 #'   `ci_method = "field"`.  When `TRUE`, `field` gains a `recovery` list of
-#'   **descriptive membership-agreement diagnostics**
-#'   (`dev/tasks/TASK_field_recovery_2026-09-09.md`, R-1): over the outer
+#'   **descriptive membership-agreement diagnostics**: over the outer
 #'   draws that produced a winner, each re-selected candidate's patient set
 #'   `kept[[G_r]]` is compared with the observed pick's `kept[[sel]]`, and the
 #'   four classification metrics of the CV membership cross-tab
