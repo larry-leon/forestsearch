@@ -18,7 +18,12 @@ evaluate_combination_with_status(
   hr.threshold,
   minp,
   rmin,
-  kk
+  kk,
+  estimator_fn = NULL,
+  df_clean = NULL,
+  outcome_type = NULL,
+  adjust_covariates = NULL,
+  disable_effect_floor = FALSE
 )
 ```
 
@@ -50,15 +55,21 @@ evaluate_combination_with_status(
 
 - d0.min:
 
-  Integer. Minimum control events.
+  Integer. Minimum control events (binary/survival) or ignored
+  (continuous).
 
 - d1.min:
 
-  Integer. Minimum treatment events.
+  Integer. Minimum treatment events (binary/survival) or ignored
+  (continuous).
 
 - hr.threshold:
 
-  Numeric. HR threshold.
+  Numeric. Effect threshold, on the scale this function compares on: the
+  natural hazard-ratio scale on the survival path, and the resolved
+  comparison scale (link for OR/RR/IRR, identity for RD/IRD/MD) on the
+  GLM paths. See
+  [`subgroup.search`](https://larry-leon.github.io/forestsearch/reference/subgroup.search.md).
 
 - minp:
 
@@ -72,6 +83,11 @@ evaluate_combination_with_status(
 
   Integer. Combination index.
 
+- adjust_covariates:
+
+  Character vector or `NULL`. Cox adjustment terms passed to
+  `fit_cox_for_subgroup` on the survival path.
+
 ## Value
 
 List with:
@@ -80,9 +96,10 @@ List with:
 
   Integer status code: 0 = failed variance check, 1 = passed variance,
   failed prevalence, 2 = passed prevalence, failed redundancy, 3 =
-  passed redundancy, failed events, 4 = passed events, failed sample
-  size, 5 = passed sample size, failed Cox fit, 6 = passed Cox fit,
-  failed HR threshold, 7 = passed all criteria (success)
+  passed redundancy, failed per-arm filter, 4 = passed per-arm filter,
+  failed sample size, 5 = passed sample size, failed model fit, 6 =
+  passed model fit, failed effect threshold, 7 = passed all criteria
+  (success)
 
 - result:
 

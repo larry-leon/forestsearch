@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Treatment Effect Definitions in ForestSearch • forestsearch</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Treatment Effect Definitions in ForestSearch">
 </head>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -71,7 +71,7 @@ Truth</h3>
                         <h4 data-toc-skip class="author">ForestSearch
 Package Documentation</h4>
             
-            <h4 data-toc-skip class="date">2026-03-23</h4>
+            <h4 data-toc-skip class="date">2026-10-17</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/treatment_effect_definitions.Rmd" class="external-link"><code>vignettes/articles/treatment_effect_definitions.Rmd</code></a></small>
       <div class="d-none name"><code>treatment_effect_definitions.Rmd</code></div>
@@ -113,13 +113,13 @@ in a two-arm randomized trial with treatment
 the potential outcomes framework posits a pair of survival times:</p>
 <ul>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>T</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">T_i(1)</annotation></semantics></math>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>T</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">T_i(1)</annotation></semantics></math>:
 survival time had subject
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
 received treatment
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">A = 1</annotation></semantics></math>),</li>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>T</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">T_i(0)</annotation></semantics></math>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>T</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">T_i(0)</annotation></semantics></math>:
 survival time had subject
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
 received control
@@ -134,7 +134,7 @@ denote baseline covariates.</p>
 </h3>
 <p>ForestSearch’s data-generating mechanisms are built on a Weibull AFT
 model:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><msub><mi>T</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>a</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mi>μ</mi><mo>+</mo><msub><mi>𝐗</mi><mi>i</mi></msub><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>a</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>⊤</mi></msup><mi>𝛄</mi><mo>+</mo><mi>σ</mi><mspace width="0.167em"></mspace><msub><mi>ε</mi><mi>i</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>ε</mi><mi>i</mi></msub><mo>∼</mo><mtext mathvariant="normal">Extreme Value</mtext></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><msub><mi>T</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mi>μ</mi><mo>+</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><msup><mo stretchy="false" form="postfix">)</mo><mi>⊤</mi></msup><mi>𝛄</mi><mo>+</mo><mi>σ</mi><mspace width="0.167em"></mspace><msub><mi>ε</mi><mi>i</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>ε</mi><mi>i</mi></msub><mo>∼</mo><mtext mathvariant="normal">Extreme Value</mtext></mrow><annotation encoding="application/x-tex">
 \log T_i(a) = \mu + \mathbf{X}_i(a)^{\top} \boldsymbol{\gamma}
 + \sigma \, \varepsilon_i,
 \qquad \varepsilon_i \sim \text{Extreme Value}
@@ -148,10 +148,10 @@ is the scale parameter, and
 are regression coefficients on the log-time scale. For the
 alternative-hypothesis model with heterogeneous treatment effects, the
 covariate vector
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝐗</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>a</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\mathbf{X}_i(a)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\mathbf{X}_i(a)</annotation></semantics></math>
 includes both the treatment indicator and a treatment-by-subgroup
 interaction:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝐗</mi><mi>i</mi></msub><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>a</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>⊤</mi></msup><mi>𝛄</mi><mo>=</mo><mi>a</mi><mo>⋅</mo><msub><mi>γ</mi><mtext mathvariant="normal">treat</mtext></msub><mo>+</mo><msubsup><mi>𝐙</mi><mi>i</mi><mi>⊤</mi></msubsup><msub><mi>𝛄</mi><mi>Z</mi></msub><mo>+</mo><mi>a</mi><mo>⋅</mo><msub><mi>H</mi><mi>i</mi></msub><mo>⋅</mo><msub><mi>γ</mi><mtext mathvariant="normal">int</mtext></msub></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><msup><mo stretchy="false" form="postfix">)</mo><mi>⊤</mi></msup><mi>𝛄</mi><mo>=</mo><mi>a</mi><mo>⋅</mo><msub><mi>γ</mi><mtext mathvariant="normal">treat</mtext></msub><mo>+</mo><msubsup><mi>𝐙</mi><mi>i</mi><mi>⊤</mi></msubsup><msub><mi>𝛄</mi><mi>Z</mi></msub><mo>+</mo><mi>a</mi><mo>⋅</mo><msub><mi>H</mi><mi>i</mi></msub><mo>⋅</mo><msub><mi>γ</mi><mtext mathvariant="normal">int</mtext></msub></mrow><annotation encoding="application/x-tex">
 \mathbf{X}_i(a)^{\top} \boldsymbol{\gamma}
 = a \cdot \gamma_{\text{treat}} + \mathbf{Z}_i^{\top} \boldsymbol{\gamma}_Z
 + a \cdot H_i \cdot \gamma_{\text{int}}
@@ -166,17 +166,17 @@ are prognostic covariate effects.</p>
 <h3 id="hazard-scale-coefficients">Hazard-Scale Coefficients<a class="anchor" aria-label="anchor" href="#hazard-scale-coefficients"></a>
 </h3>
 <p>The AFT-to-hazard-scale transformation yields:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mo>−</mo><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mi>−</mi><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">
 \boldsymbol{\beta}_0 = -\boldsymbol{\gamma} / \sigma
 </annotation></semantics></math></p>
 <p>Under this parameterisation the conditional hazard function is</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>h</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo>∣</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>h</mi><mn>0</mn></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mi>𝐗</mi><mi>i</mi><mi>⊤</mi></msubsup><msub><mi>𝛃</mi><mn>0</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>h</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo>∣</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mi>h</mi><mn>0</mn></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mi>𝐗</mi><mi>i</mi><mi>⊤</mi></msubsup><msub><mi>𝛃</mi><mn>0</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
 h(t \mid \mathbf{X}_i) = h_0(t) \exp\left(\mathbf{X}_i^{\top}
 \boldsymbol{\beta}_0\right)
 </annotation></semantics></math></p>
 <p>and the individual log-hazard contributions under each treatment arm
 are:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>a</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>𝐗</mi><mi>i</mi></msub><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>a</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>⊤</mi></msup><msub><mi>𝛃</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><msup><mo stretchy="false" form="postfix">)</mo><mi>⊤</mi></msup><msub><mi>𝛃</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">
 \theta_i(a) = \mathbf{X}_i(a)^{\top} \boldsymbol{\beta}_0
 </annotation></semantics></math></p>
 <p>These are stored in the ForestSearch super-population data frame as
@@ -197,7 +197,7 @@ are:</p>
 is the population-level treatment effect obtained by fitting a Cox
 proportional hazards model to stacked potential outcomes within
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝒮</mi><annotation encoding="application/x-tex">\mathcal{S}</annotation></semantics></math>:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">HR</mtext><mtext mathvariant="normal">marg</mtext></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mover><mi>β</mi><mo accent="true">̂</mo></mover><mtext mathvariant="normal">Cox</mtext></msub><mo>∣</mo><mtext mathvariant="normal">data</mtext><mo>=</mo><mrow><mo stretchy="true" form="prefix">{</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>T</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo><mn>1</mn><mo>,</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>T</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo><mn>1</mn><mo>,</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>:</mo><mi>i</mi><mo>∈</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">}</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">HR</mtext><mtext mathvariant="normal">marg</mtext></msub><mo stretchy="false" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><msub><mover><mi>β</mi><mo accent="true">̂</mo></mover><mtext mathvariant="normal">Cox</mtext></msub><mo>∣</mo><mtext mathvariant="normal">data</mtext><mo>=</mo><mrow><mo stretchy="true" form="prefix">{</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>T</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mn>1</mn><mo>,</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>T</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mn>1</mn><mo>,</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>:</mo><mi>i</mi><mo>∈</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">}</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
 \text{HR}_{\text{marg}}(\mathcal{S})
 = \exp\left(\hat{\beta}_{\text{Cox}}  \mid 
 \text{data} = \left\{\left(T_i(1), 1, 1\right), \left(T_i(0), 1, 0\right)
@@ -216,14 +216,14 @@ the super-population).</p>
 follows:</p>
 <ol style="list-style-type: decimal">
 <li><p>Generate a common set of error terms:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ε</mi><mi>i</mi></msub><mo>=</mo><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mtext mathvariant="normal">Exp</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\varepsilon_i = \log(\text{Exp}(1))</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ε</mi><mi>i</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">Exp</mtext><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\varepsilon_i = \log(\text{Exp}(1))</annotation></semantics></math>
 for
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>i</mi><mo>=</mo><mn>1</mn><mo>,</mo><mi>…</mi><mo>,</mo><mi>n</mi></mrow><annotation encoding="application/x-tex">i = 1, \ldots, n</annotation></semantics></math>.</p></li>
 <li>
 <p>Compute potential survival times:</p>
 <ul>
-<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><msub><mi>T</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mi>μ</mi><mo>+</mo><mi>σ</mi><msub><mi>ε</mi><mi>i</mi></msub><mo>+</mo><msub><mi>𝐗</mi><mi>i</mi></msub><msup><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>⊤</mi></msup><mi>𝛄</mi></mrow><annotation encoding="application/x-tex">\log T_i(1) = \mu + \sigma \varepsilon_i + \mathbf{X}_i(1)^{\top} \boldsymbol{\gamma}</annotation></semantics></math></li>
-<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><msub><mi>T</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mi>μ</mi><mo>+</mo><mi>σ</mi><msub><mi>ε</mi><mi>i</mi></msub><mo>+</mo><msub><mi>𝐗</mi><mi>i</mi></msub><msup><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>⊤</mi></msup><mi>𝛄</mi></mrow><annotation encoding="application/x-tex">\log T_i(0) = \mu + \sigma \varepsilon_i + \mathbf{X}_i(0)^{\top} \boldsymbol{\gamma}</annotation></semantics></math></li>
+<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><msub><mi>T</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mi>μ</mi><mo>+</mo><mi>σ</mi><msub><mi>ε</mi><mi>i</mi></msub><mo>+</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><msup><mo stretchy="false" form="postfix">)</mo><mi>⊤</mi></msup><mi>𝛄</mi></mrow><annotation encoding="application/x-tex">\log T_i(1) = \mu + \sigma \varepsilon_i + \mathbf{X}_i(1)^{\top} \boldsymbol{\gamma}</annotation></semantics></math></li>
+<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><msub><mi>T</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mi>μ</mi><mo>+</mo><mi>σ</mi><msub><mi>ε</mi><mi>i</mi></msub><mo>+</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><msup><mo stretchy="false" form="postfix">)</mo><mi>⊤</mi></msup><mi>𝛄</mi></mrow><annotation encoding="application/x-tex">\log T_i(0) = \mu + \sigma \varepsilon_i + \mathbf{X}_i(0)^{\top} \boldsymbol{\gamma}</annotation></semantics></math></li>
 </ul>
 </li>
 <li><p>Stack into a single dataset of
@@ -233,7 +233,7 @@ rows with columns <code>time</code>, <code>event = 1</code>,
 <li><p>Fit Cox model:
 <code>coxph(Surv(time, event) ~ treat_sim, data = df_stacked)</code>.</p></li>
 <li><p>Extract:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">HR</mtext><mtext mathvariant="normal">marg</mtext></msub><mo>=</mo><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mover><mi>β</mi><mo accent="true">̂</mo></mover><mtext mathvariant="normal">treat</mtext></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{HR}_{\text{marg}} = \exp(\hat{\beta}_{\text{treat}})</annotation></semantics></math>.</p></li>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">HR</mtext><mtext mathvariant="normal">marg</mtext></msub><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mover><mi>β</mi><mo accent="true">̂</mo></mover><mtext mathvariant="normal">treat</mtext></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\text{HR}_{\text{marg}} = \exp(\hat{\beta}_{\text{treat}})</annotation></semantics></math>.</p></li>
 </ol>
 </div>
 <div class="section level4">
@@ -290,7 +290,7 @@ does not hold exactly.</p>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝒮</mi><annotation encoding="application/x-tex">\mathcal{S}</annotation></semantics></math>
 is defined directly from the individual-level potential-outcome log
 hazard ratios:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">AHR</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><mn>1</mn><mrow><mo stretchy="true" form="prefix">|</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>i</mi><mo>∈</mo><mi>𝒮</mi></mrow></munder><mrow><mo stretchy="true" form="prefix">[</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">]</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><mn>1</mn><mrow><mo stretchy="true" form="prefix">|</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>i</mi><mo>∈</mo><mi>𝒮</mi></mrow></munder><mo>log</mo><msubsup><mtext mathvariant="normal">HR</mtext><mi>i</mi><mrow><mo stretchy="true" form="prefix">(</mo><mtext mathvariant="normal">po</mtext><mo stretchy="true" form="postfix">)</mo></mrow></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">AHR</mtext><mo stretchy="false" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><mn>1</mn><mrow><mo stretchy="false" form="prefix">|</mo><mi>𝒮</mi><mo stretchy="false" form="prefix">|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>i</mi><mo>∈</mo><mi>𝒮</mi></mrow></munder><mrow><mo stretchy="true" form="prefix">[</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="true" form="postfix">]</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><mn>1</mn><mrow><mo stretchy="false" form="prefix">|</mo><mi>𝒮</mi><mo stretchy="false" form="prefix">|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>i</mi><mo>∈</mo><mi>𝒮</mi></mrow></munder><mi mathvariant="normal">log</mi><msubsup><mtext mathvariant="normal">HR</mtext><mi>i</mi><mrow><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">po</mtext><mo stretchy="false" form="postfix">)</mo></mrow></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
 \text{AHR}(\mathcal{S})
 = \exp\left(\frac{1}{|\mathcal{S}|} \sum_{i \in \mathcal{S}}
 \left[\theta_i(1) - \theta_i(0)\right]\right)
@@ -298,7 +298,7 @@ hazard ratios:</p>
 \log \text{HR}_{i}^{(\text{po})}\right)
 </annotation></semantics></math></p>
 <p>where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><msubsup><mtext mathvariant="normal">HR</mtext><mi>i</mi><mrow><mo stretchy="true" form="prefix">(</mo><mtext mathvariant="normal">po</mtext><mo stretchy="true" form="postfix">)</mo></mrow></msubsup><mo>=</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\log \text{HR}_{i}^{(\text{po})} = \theta_i(1) - \theta_i(0)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><msubsup><mtext mathvariant="normal">HR</mtext><mi>i</mi><mrow><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">po</mtext><mo stretchy="false" form="postfix">)</mo></mrow></msubsup><mo>=</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\log \text{HR}_{i}^{(\text{po})} = \theta_i(1) - \theta_i(0)</annotation></semantics></math>
 is the individual causal log hazard ratio.</p>
 </div>
 <div class="section level4">
@@ -309,13 +309,13 @@ super-population data frame:</p>
 <ol style="list-style-type: decimal">
 <li>For each subject, compute potential-outcome log-hazards:
 <ul>
-<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>𝐗</mi><mi>i</mi></msub><msup><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>⊤</mi></msup><msub><mi>𝛃</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\theta_i(0) = \mathbf{X}_i(0)^{\top} \boldsymbol{\beta}_0</annotation></semantics></math></li>
-<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>𝐗</mi><mi>i</mi></msub><msup><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>⊤</mi></msup><msub><mi>𝛃</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\theta_i(1) = \mathbf{X}_i(1)^{\top} \boldsymbol{\beta}_0</annotation></semantics></math></li>
-<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">loghr_po</mtext><mi>i</mi></msub><mo>=</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{loghr\_po}_i = \theta_i(1) - \theta_i(0)</annotation></semantics></math></li>
+<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><msup><mo stretchy="false" form="postfix">)</mo><mi>⊤</mi></msup><msub><mi>𝛃</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\theta_i(0) = \mathbf{X}_i(0)^{\top} \boldsymbol{\beta}_0</annotation></semantics></math></li>
+<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><msup><mo stretchy="false" form="postfix">)</mo><mi>⊤</mi></msup><msub><mi>𝛃</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\theta_i(1) = \mathbf{X}_i(1)^{\top} \boldsymbol{\beta}_0</annotation></semantics></math></li>
+<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">loghr_po</mtext><mi>i</mi></msub><mo>=</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\text{loghr\_po}_i = \theta_i(1) - \theta_i(0)</annotation></semantics></math></li>
 </ul>
 </li>
 <li>Aggregate over the subgroup:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">AHR</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mover><mtext mathvariant="normal">loghr_po</mtext><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{AHR}(\mathcal{S}) = \exp\left(\overline{\text{loghr\_po}}_{\mathcal{S}}\right)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">AHR</mtext><mo stretchy="false" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><msub><mover><mtext mathvariant="normal">loghr_po</mtext><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{AHR}(\mathcal{S}) = \exp\left(\overline{\text{loghr\_po}}_{\mathcal{S}}\right)</annotation></semantics></math>
 </li>
 </ol>
 </div>
@@ -332,7 +332,7 @@ effect across the covariate distribution. For a subgroup defined by a
 biomarker threshold
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>z</mi><mo>≥</mo><mi>c</mi></mrow><annotation encoding="application/x-tex">z \geq c</annotation></semantics></math>,
 the AHR curve
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">AHR</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>c</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{AHR}(c)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">AHR</mtext><mo stretchy="false" form="prefix">(</mo><mi>c</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\text{AHR}(c)</annotation></semantics></math>
 provides a smooth summary of how the treatment effect changes with the
 threshold.</p>
 </div>
@@ -348,7 +348,7 @@ threshold.</p>
 <tr class="odd">
 <td align="left"><code>loghr_po</code></td>
 <td align="left">Individual log HR:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta_i(1) - \theta_i(0)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta_i(1) - \theta_i(0)</annotation></semantics></math>
 </td>
 </tr>
 <tr class="even">
@@ -408,7 +408,7 @@ a subgroup
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝒮</mi><annotation encoding="application/x-tex">\mathcal{S}</annotation></semantics></math>
 is defined as the ratio of average exponentiated log-hazards under
 treatment versus control:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDE</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mfrac><mrow><mfrac><mn>1</mn><mrow><mo stretchy="true" form="prefix">|</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>i</mi><mo>∈</mo><mi>𝒮</mi></mrow></munder><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mrow><mfrac><mn>1</mn><mrow><mo stretchy="true" form="prefix">|</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>i</mi><mo>∈</mo><mi>𝒮</mi></mrow></munder><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow></mfrac><mo>=</mo><mfrac><msub><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub><msub><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub></mfrac></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDE</mtext><mo stretchy="false" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mfrac><mrow><mfrac><mn>1</mn><mrow><mo stretchy="false" form="prefix">|</mo><mi>𝒮</mi><mo stretchy="false" form="prefix">|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>i</mi><mo>∈</mo><mi>𝒮</mi></mrow></munder><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mrow><mfrac><mn>1</mn><mrow><mo stretchy="false" form="prefix">|</mo><mi>𝒮</mi><mo stretchy="false" form="prefix">|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>i</mi><mo>∈</mo><mi>𝒮</mi></mrow></munder><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="true" form="postfix">)</mo></mrow></mrow></mfrac><mo>=</mo><mfrac><msub><mover><mrow><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub><msub><mover><mrow><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub></mfrac></mrow><annotation encoding="application/x-tex">
 \text{CDE}(\mathcal{S})
 = \frac{\frac{1}{|\mathcal{S}|}
 \sum_{i \in \mathcal{S}} \exp\left(\theta_i(1)\right)}
@@ -420,7 +420,7 @@ treatment versus control:</p>
 <p>This is the ratio of average hazard <em>contributions</em> (on the
 natural scale) under treatment versus control. The term “controlled
 direct effect” reflects that each
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>a</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta_i(a)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta_i(a)</annotation></semantics></math>
 controls for baseline covariates through the linear predictor.</p>
 </div>
 <div class="section level4">
@@ -433,12 +433,12 @@ controls for baseline covariates through the linear predictor.</p>
 <ol style="list-style-type: decimal">
 <li>For each subject, retrieve:
 <ul>
-<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>𝐗</mi><mi>i</mi></msub><msup><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>⊤</mi></msup><msub><mi>𝛃</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\theta_i(0) = \mathbf{X}_i(0)^{\top} \boldsymbol{\beta}_0</annotation></semantics></math></li>
-<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>𝐗</mi><mi>i</mi></msub><msup><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>⊤</mi></msup><msub><mi>𝛃</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\theta_i(1) = \mathbf{X}_i(1)^{\top} \boldsymbol{\beta}_0</annotation></semantics></math></li>
+<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><msup><mo stretchy="false" form="postfix">)</mo><mi>⊤</mi></msup><msub><mi>𝛃</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\theta_i(0) = \mathbf{X}_i(0)^{\top} \boldsymbol{\beta}_0</annotation></semantics></math></li>
+<li><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><msup><mo stretchy="false" form="postfix">)</mo><mi>⊤</mi></msup><msub><mi>𝛃</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\theta_i(1) = \mathbf{X}_i(1)^{\top} \boldsymbol{\beta}_0</annotation></semantics></math></li>
 </ul>
 </li>
 <li>Compute subgroup CDE:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDE</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>θ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub><mi>/</mi><msub><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>θ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub></mrow><annotation encoding="application/x-tex">\text{CDE}(\mathcal{S}) = \overline{\exp(\theta(1))}_{\mathcal{S}} / \overline{\exp(\theta(0))}_{\mathcal{S}}</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDE</mtext><mo stretchy="false" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mover><mrow><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>θ</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub><mi>/</mi><msub><mover><mrow><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>θ</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub></mrow><annotation encoding="application/x-tex">\text{CDE}(\mathcal{S}) = \overline{\exp(\theta(1))}_{\mathcal{S}} / \overline{\exp(\theta(0))}_{\mathcal{S}}</annotation></semantics></math>
 </li>
 </ol>
 </div>
@@ -452,7 +452,7 @@ However, by averaging on the hazard (exponential) scale rather than the
 log-hazard scale, the CDE gives more weight to subjects with larger
 absolute hazard contributions. Jensen’s inequality implies that in
 general
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDE</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>≠</mo><mtext mathvariant="normal">AHR</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{CDE}(\mathcal{S}) \neq \text{AHR}(\mathcal{S})</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDE</mtext><mo stretchy="false" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="false" form="postfix">)</mo><mo>≠</mo><mtext mathvariant="normal">AHR</mtext><mo stretchy="false" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\text{CDE}(\mathcal{S}) \neq \text{AHR}(\mathcal{S})</annotation></semantics></math>,
 with the discrepancy increasing as within-subgroup heterogeneity
 grows.</p>
 </div>
@@ -532,12 +532,12 @@ grows.</p>
 </h3>
 <p>Under a constant treatment effect model (no heterogeneity), the
 individual log hazard ratio is identical for all subjects:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><msubsup><mtext mathvariant="normal">HR</mtext><mi>i</mi><mrow><mo stretchy="true" form="prefix">(</mo><mtext mathvariant="normal">po</mtext><mo stretchy="true" form="postfix">)</mo></mrow></msubsup><mo>=</mo><msub><mi>β</mi><mtext mathvariant="normal">treat</mtext></msub><mspace width="1.0em"></mspace><mo>∀</mo><mspace width="0.167em"></mspace><mi>i</mi></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><msubsup><mtext mathvariant="normal">HR</mtext><mi>i</mi><mrow><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">po</mtext><mo stretchy="false" form="postfix">)</mo></mrow></msubsup><mo>=</mo><msub><mi>β</mi><mtext mathvariant="normal">treat</mtext></msub><mspace width="1.0em"></mspace><mo>∀</mo><mspace width="0.167em"></mspace><mi>i</mi></mrow><annotation encoding="application/x-tex">
 \log \text{HR}_i^{(\text{po})} = \beta_{\text{treat}} \quad
 \forall\, i
 </annotation></semantics></math></p>
 <p>In this case, all three measures coincide:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">HR</mtext><mtext mathvariant="normal">marg</mtext></msub><mo>=</mo><mtext mathvariant="normal">AHR</mtext><mo>=</mo><mtext mathvariant="normal">CDE</mtext><mo>=</mo><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>β</mi><mtext mathvariant="normal">treat</mtext></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{HR}_{\text{marg}} = \text{AHR} = \text{CDE} = \exp(\beta_{\text{treat}})</annotation></semantics></math>.</p>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">HR</mtext><mtext mathvariant="normal">marg</mtext></msub><mo>=</mo><mtext mathvariant="normal">AHR</mtext><mo>=</mo><mtext mathvariant="normal">CDE</mtext><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>β</mi><mtext mathvariant="normal">treat</mtext></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\text{HR}_{\text{marg}} = \text{AHR} = \text{CDE} = \exp(\beta_{\text{treat}})</annotation></semantics></math>.</p>
 </div>
 <div class="section level3">
 <h3 id="sources-of-divergence">Sources of Divergence<a class="anchor" aria-label="anchor" href="#sources-of-divergence"></a>
@@ -546,12 +546,12 @@ individual log hazard ratio is identical for all subjects:</p>
 arise.</p>
 <p>First, <strong>Jensen’s inequality</strong> separates AHR from
 CDE:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mover><mrow><mo>log</mo><msub><mtext mathvariant="normal">HR</mtext><mi>i</mi></msub></mrow><mo accent="true">¯</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>≠</mo><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>/</mi><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><mover><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><msub><mtext mathvariant="normal">HR</mtext><mi>i</mi></msub></mrow><mo accent="true">¯</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>≠</mo><mover><mrow><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><mo accent="true">¯</mo></mover><mi>/</mi><mover><mrow><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><mo accent="true">¯</mo></mover></mrow><annotation encoding="application/x-tex">
 \exp\left(\overline{\log \text{HR}_i}\right) \neq
 \overline{\exp(\theta_i(1))} / \overline{\exp(\theta_i(0))}
 </annotation></semantics></math></p>
 <p>unless all
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><msub><mtext mathvariant="normal">HR</mtext><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">\log \text{HR}_i</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><msub><mtext mathvariant="normal">HR</mtext><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">\log \text{HR}_i</annotation></semantics></math>
 are identical.</p>
 <p>Second, the marginal HR from the stacked Cox model can differ from
 the AHR because the Cox partial likelihood implicitly weights subjects
@@ -583,44 +583,44 @@ thresholds.</p>
 <h3 id="step-by-step-derivation">Step-by-Step Derivation<a class="anchor" aria-label="anchor" href="#step-by-step-derivation"></a>
 </h3>
 <p>Given a fitted AFT model with parameters
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="true" form="prefix">(</mo><mi>μ</mi><mo>,</mo><mi>σ</mi><mo>,</mo><mi>𝛄</mi><mo stretchy="true" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(\mu, \sigma, \boldsymbol{\gamma})</annotation></semantics></math>:</p>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>μ</mi><mo>,</mo><mi>σ</mi><mo>,</mo><mi>𝛄</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(\mu, \sigma, \boldsymbol{\gamma})</annotation></semantics></math>:</p>
 <p><strong>Step 1: Hazard-scale transformation</strong></p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mo>−</mo><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mi>−</mi><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">
 \boldsymbol{\beta}_0 = -\boldsymbol{\gamma} / \sigma
 </annotation></semantics></math></p>
 <p><strong>Step 2: Build potential-outcome design matrices</strong></p>
 <p>For each subject
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>,
 construct
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝐗</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\mathbf{X}_i(1)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\mathbf{X}_i(1)</annotation></semantics></math>
 (treatment arm) and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝐗</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\mathbf{X}_i(0)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\mathbf{X}_i(0)</annotation></semantics></math>
 (control arm). The treatment indicator is set to 1 or 0 respectively;
 all other covariates remain at their observed values. Interaction terms
 (e.g.,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>×</mo><mi>H</mi></mrow><annotation encoding="application/x-tex">A \times H</annotation></semantics></math>)
 are computed accordingly.</p>
 <p><strong>Step 3: Individual log-hazard contributions</strong></p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>a</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>𝐗</mi><mi>i</mi></msub><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>a</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>⊤</mi></msup><msub><mi>𝛃</mi><mn>0</mn></msub><mo>,</mo><mspace width="1.0em"></mspace><mi>a</mi><mo>∈</mo><mo stretchy="false" form="prefix">{</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><msup><mo stretchy="false" form="postfix">)</mo><mi>⊤</mi></msup><msub><mi>𝛃</mi><mn>0</mn></msub><mo>,</mo><mspace width="1.0em"></mspace><mi>a</mi><mo>∈</mo><mo stretchy="false" form="prefix">{</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">
 \theta_i(a) = \mathbf{X}_i(a)^{\top} \boldsymbol{\beta}_0,
 \quad a \in \{0, 1\}
 </annotation></semantics></math></p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><msubsup><mtext mathvariant="normal">HR</mtext><mi>i</mi><mrow><mo stretchy="true" form="prefix">(</mo><mtext mathvariant="normal">po</mtext><mo stretchy="true" form="postfix">)</mo></mrow></msubsup><mo>=</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><msubsup><mtext mathvariant="normal">HR</mtext><mi>i</mi><mrow><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">po</mtext><mo stretchy="false" form="postfix">)</mo></mrow></msubsup><mo>=</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">
 \log \text{HR}_i^{(\text{po})} = \theta_i(1) - \theta_i(0)
 </annotation></semantics></math></p>
 <p><strong>Step 4: Treatment effect summaries</strong> for subgroup
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝒮</mi><annotation encoding="application/x-tex">\mathcal{S}</annotation></semantics></math></p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">AHR</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><mn>1</mn><mrow><mo stretchy="true" form="prefix">|</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>i</mi><mo>∈</mo><mi>𝒮</mi></mrow></munder><mo>log</mo><msubsup><mtext mathvariant="normal">HR</mtext><mi>i</mi><mrow><mo stretchy="true" form="prefix">(</mo><mtext mathvariant="normal">po</mtext><mo stretchy="true" form="postfix">)</mo></mrow></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">AHR</mtext><mo stretchy="false" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><mn>1</mn><mrow><mo stretchy="false" form="prefix">|</mo><mi>𝒮</mi><mo stretchy="false" form="prefix">|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>i</mi><mo>∈</mo><mi>𝒮</mi></mrow></munder><mi mathvariant="normal">log</mi><msubsup><mtext mathvariant="normal">HR</mtext><mi>i</mi><mrow><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">po</mtext><mo stretchy="false" form="postfix">)</mo></mrow></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
 \text{AHR}(\mathcal{S})
 = \exp\left(\frac{1}{|\mathcal{S}|} \sum_{i \in \mathcal{S}}
 \log \text{HR}_i^{(\text{po})}\right)
 </annotation></semantics></math></p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDE</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mfrac><mrow><munder><mo>∑</mo><mrow><mi>i</mi><mo>∈</mo><mi>𝒮</mi></mrow></munder><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mrow><munder><mo>∑</mo><mrow><mi>i</mi><mo>∈</mo><mi>𝒮</mi></mrow></munder><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow></mfrac></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDE</mtext><mo stretchy="false" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mfrac><mrow><munder><mo>∑</mo><mrow><mi>i</mi><mo>∈</mo><mi>𝒮</mi></mrow></munder><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><mrow><munder><mo>∑</mo><mrow><mi>i</mi><mo>∈</mo><mi>𝒮</mi></mrow></munder><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>θ</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow></mfrac></mrow><annotation encoding="application/x-tex">
 \text{CDE}(\mathcal{S})
 = \frac{\sum_{i \in \mathcal{S}} \exp(\theta_i(1))}
 {\sum_{i \in \mathcal{S}} \exp(\theta_i(0))}
 </annotation></semantics></math></p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">HR</mtext><mtext mathvariant="normal">marg</mtext></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>:</mo><mtext mathvariant="normal">Cox model on stacked potential outcomes</mtext></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">HR</mtext><mtext mathvariant="normal">marg</mtext></msub><mo stretchy="false" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="false" form="postfix">)</mo><mo>:</mo><mtext mathvariant="normal">Cox model on stacked potential outcomes</mtext></mrow><annotation encoding="application/x-tex">
 \text{HR}_{\text{marg}}(\mathcal{S}):
 \text{Cox model on stacked potential outcomes}
 </annotation></semantics></math></p>
@@ -633,16 +633,16 @@ is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ℋ</mi><mo>=</mo><mo stretchy="false" form="prefix">{</mo><msub><mi>z</mi><mn>1</mn></msub><mo>=</mo><mn>1</mn><mspace width="0.278em"></mspace><mtext mathvariant="normal">AND</mtext><mspace width="0.278em"></mspace><msub><mi>z</mi><mn>3</mn></msub><mo>=</mo><mn>1</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\mathcal{H} = \{z_1 = 1 \;\text{AND}\; z_3 = 1\}</annotation></semantics></math>
 (low estrogen receptor AND premenopausal). The theoretical hazard ratios
 from the AFT coefficients are:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">HR</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>ℋ</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>β</mi><mn>0</mn></msub><mrow><mo stretchy="true" form="prefix">[</mo><mtext mathvariant="normal">treat</mtext><mo stretchy="true" form="postfix">]</mo></mrow><mo>+</mo><msub><mi>β</mi><mn>0</mn></msub><mrow><mo stretchy="true" form="prefix">[</mo><mtext mathvariant="normal">zh</mtext><mo stretchy="true" form="postfix">]</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">HR</mtext><mo stretchy="false" form="prefix">(</mo><mi>ℋ</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>β</mi><mn>0</mn></msub><mo stretchy="false" form="prefix">[</mo><mtext mathvariant="normal">treat</mtext><mo stretchy="false" form="postfix">]</mo><mo>+</mo><msub><mi>β</mi><mn>0</mn></msub><mo stretchy="false" form="prefix">[</mo><mtext mathvariant="normal">zh</mtext><mo stretchy="false" form="postfix">]</mo><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
 \text{HR}(\mathcal{H}) = \exp\left(\beta_0[\text{treat}] +
 \beta_0[\text{zh}]\right)
 </annotation></semantics></math></p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">HR</mtext><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>ℋ</mi><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>β</mi><mn>0</mn></msub><mrow><mo stretchy="true" form="prefix">[</mo><mtext mathvariant="normal">treat</mtext><mo stretchy="true" form="postfix">]</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">HR</mtext><mo stretchy="false" form="prefix">(</mo><msup><mi>ℋ</mi><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>β</mi><mn>0</mn></msub><mo stretchy="false" form="prefix">[</mo><mtext mathvariant="normal">treat</mtext><mo stretchy="false" form="postfix">]</mo><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
 \text{HR}(\mathcal{H}^c) = \exp\left(\beta_0[\text{treat}]\right)
 </annotation></semantics></math></p>
 <p>The <code>k_inter</code> parameter modulates the interaction
 coefficient:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>γ</mi><mrow><mo stretchy="true" form="prefix">[</mo><mtext mathvariant="normal">zh</mtext><mo stretchy="true" form="postfix">]</mo></mrow><mo>←</mo><msub><mi>k</mi><mtext mathvariant="normal">inter</mtext></msub><mo>×</mo><mi>γ</mi><mrow><mo stretchy="true" form="prefix">[</mo><mtext mathvariant="normal">zh</mtext><mo stretchy="true" form="postfix">]</mo></mrow></mrow><annotation encoding="application/x-tex">\gamma[\text{zh}] \leftarrow k_{\text{inter}} \times \gamma[\text{zh}]</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>γ</mi><mo stretchy="false" form="prefix">[</mo><mtext mathvariant="normal">zh</mtext><mo stretchy="false" form="postfix">]</mo><mo>←</mo><msub><mi>k</mi><mtext mathvariant="normal">inter</mtext></msub><mo>×</mo><mi>γ</mi><mo stretchy="false" form="prefix">[</mo><mtext mathvariant="normal">zh</mtext><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">\gamma[\text{zh}] \leftarrow k_{\text{inter}} \times \gamma[\text{zh}]</annotation></semantics></math>,
 providing direct control over the magnitude of treatment effect
 heterogeneity.</p>
 </div>
@@ -690,7 +690,7 @@ for both arms:</p>
 constants</strong> for a given DGM specification. They define the ground
 truth against which estimator performance is evaluated and converge to
 the theoretical values:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">HR</mtext><mtext mathvariant="normal">DGM</mtext></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>ℋ</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mspace width="-0.167em"></mspace><mo minsize="1.2" maxsize="1.2" stretchy="false" form="prefix">(</mo><msub><mi>β</mi><mn>0</mn></msub><mrow><mo stretchy="true" form="prefix">[</mo><mtext mathvariant="normal">treat</mtext><mo stretchy="true" form="postfix">]</mo></mrow><mo>+</mo><msub><mi>β</mi><mn>0</mn></msub><mrow><mo stretchy="true" form="prefix">[</mo><mtext mathvariant="normal">zh</mtext><mo stretchy="true" form="postfix">]</mo></mrow><mo minsize="1.2" maxsize="1.2" stretchy="false" form="postfix">)</mo><mo>,</mo><mspace width="2.0em"></mspace><msub><mtext mathvariant="normal">HR</mtext><mtext mathvariant="normal">DGM</mtext></msub><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>ℋ</mi><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mspace width="-0.167em"></mspace><mo minsize="1.2" maxsize="1.2" stretchy="false" form="prefix">(</mo><msub><mi>β</mi><mn>0</mn></msub><mrow><mo stretchy="true" form="prefix">[</mo><mtext mathvariant="normal">treat</mtext><mo stretchy="true" form="postfix">]</mo></mrow><mo minsize="1.2" maxsize="1.2" stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">HR</mtext><mtext mathvariant="normal">DGM</mtext></msub><mo stretchy="false" form="prefix">(</mo><mi>ℋ</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mspace width="-0.167em"></mspace><mo minsize="120%" maxsize="120%" stretchy="true" form="prefix">(</mo><msub><mi>β</mi><mn>0</mn></msub><mo stretchy="false" form="prefix">[</mo><mtext mathvariant="normal">treat</mtext><mo stretchy="false" form="postfix">]</mo><mo>+</mo><msub><mi>β</mi><mn>0</mn></msub><mo stretchy="false" form="prefix">[</mo><mtext mathvariant="normal">zh</mtext><mo stretchy="false" form="postfix">]</mo><mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">)</mo><mo>,</mo><mspace width="2.0em"></mspace><msub><mtext mathvariant="normal">HR</mtext><mtext mathvariant="normal">DGM</mtext></msub><mo stretchy="false" form="prefix">(</mo><msup><mi>ℋ</mi><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mspace width="-0.167em"></mspace><mo minsize="120%" maxsize="120%" stretchy="true" form="prefix">(</mo><msub><mi>β</mi><mn>0</mn></msub><mo stretchy="false" form="prefix">[</mo><mtext mathvariant="normal">treat</mtext><mo stretchy="false" form="postfix">]</mo><mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">
 \text{HR}_{\text{DGM}}(\mathcal{H})
 = \exp\!\bigl(\beta_0[\text{treat}] + \beta_0[\text{zh}]\bigr),
 \qquad
@@ -709,7 +709,7 @@ the theoretical values:</p>
 <h3 id="simulation-level-truth-per-replicate">Simulation-Level Truth (Per-Replicate)<a class="anchor" aria-label="anchor" href="#simulation-level-truth-per-replicate"></a>
 </h3>
 <p>During each simulation replicate, <code>run_fs_analysis()</code> and
-<code><a href="../reference/run_grf_analysis.html">run_grf_analysis()</a></code> in
+<code>run_grf_analysis()</code> in
 <code>oc_analyses_gbsg_refactored.R</code> recompute the true subgroup
 HRs on the <strong>simulated sample</strong>—with censoring, finite
 sample size, and randomized (not stacked) treatment:</p>
@@ -1409,7 +1409,7 @@ using observed data</td>
 <tr class="even">
 <td align="left"><code>ahr.H.hat</code></td>
 <td align="left">AHR =
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mover><mtext mathvariant="normal">loghr_po</mtext><mo accent="true">¯</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(\overline{\text{loghr\_po}})</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mover><mtext mathvariant="normal">loghr_po</mtext><mo accent="true">¯</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\exp(\overline{\text{loghr\_po}})</annotation></semantics></math>
 in the <strong>identified</strong>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{H}</annotation></semantics></math>
 </td>
@@ -1417,7 +1417,7 @@ in the <strong>identified</strong>
 <tr class="odd">
 <td align="left"><code>cde.H.hat</code></td>
 <td align="left">CDE =
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>/</mi><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mn>0</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover></mrow><annotation encoding="application/x-tex">\overline{\exp(\theta_1)} / \overline{\exp(\theta_0)}</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mrow><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>θ</mi><mn>1</mn></msub><mo stretchy="false" form="postfix">)</mo></mrow><mo accent="true">¯</mo></mover><mi>/</mi><mover><mrow><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>θ</mi><mn>0</mn></msub><mo stretchy="false" form="postfix">)</mo></mrow><mo accent="true">¯</mo></mover></mrow><annotation encoding="application/x-tex">\overline{\exp(\theta_1)} / \overline{\exp(\theta_0)}</annotation></semantics></math>
 in the <strong>identified</strong>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{H}</annotation></semantics></math>
 </td>
@@ -1457,9 +1457,9 @@ using observed data</td>
 <p>Relative bias is computed against the DGM-level constant
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>θ</mi><mi>H</mi><mo>†</mo></msubsup><mo>=</mo><mrow><mi>𝚍</mi><mi>𝚐</mi><mi>𝚖</mi><mi mathvariant="monospace">$</mi><mi>𝚑</mi><mi>𝚛</mi><mi mathvariant="monospace">_</mi><mi>𝙷</mi><mi mathvariant="monospace">_</mi><mi>𝚝</mi><mi>𝚛</mi><mi>𝚞</mi><mi>𝚎</mi></mrow></mrow><annotation encoding="application/x-tex">\theta^\dagger_H = \mathtt{dgm\$hr\_H\_true}</annotation></semantics></math>
 (the marginal/causal HR truth, using the
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>†</mo><annotation encoding="application/x-tex">\dagger</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>†</mi><annotation encoding="application/x-tex">\dagger</annotation></semantics></math>
 notation from León et al., 2024):</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>b</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>%</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>100</mn><mo>×</mo><mfrac><mrow><mover><mrow><mi>𝚑</mi><mi>𝚛</mi><mi mathvariant="monospace">.</mi><mi>𝙷</mi><mi mathvariant="monospace">.</mi><mi>𝚑</mi><mi>𝚊</mi><mi>𝚝</mi></mrow><mo accent="true">¯</mo></mover><mo>−</mo><msubsup><mi>θ</mi><mi>H</mi><mo>†</mo></msubsup></mrow><msubsup><mi>θ</mi><mi>H</mi><mo>†</mo></msubsup></mfrac></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>b</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>%</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>100</mn><mo>×</mo><mfrac><mrow><mover><mrow><mi>𝚑</mi><mi>𝚛</mi><mi mathvariant="monospace">.</mi><mi>𝙷</mi><mi mathvariant="monospace">.</mi><mi>𝚑</mi><mi>𝚊</mi><mi>𝚝</mi></mrow><mo accent="true">¯</mo></mover><mo>−</mo><msubsup><mi>θ</mi><mi>H</mi><mo>†</mo></msubsup></mrow><msubsup><mi>θ</mi><mi>H</mi><mo>†</mo></msubsup></mfrac></mrow><annotation encoding="application/x-tex">
 b^\dagger(\%) = 100 \times
 \frac{\overline{\mathtt{hr.H.hat}} - \theta^\dagger_H}{\theta^\dagger_H}
 </annotation></semantics></math></p>
@@ -1467,7 +1467,7 @@ b^\dagger(\%) = 100 \times
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>θ</mi><mo>‡</mo></msup><annotation encoding="application/x-tex">\theta^\ddagger</annotation></semantics></math>)
 are available, <code><a href="../reference/build_estimation_table.html">build_estimation_table()</a></code> reports a second
 bias column measuring distance from the controlled direct effect:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>b</mi><mo>‡</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>%</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>100</mn><mo>×</mo><mfrac><mrow><mover><mrow><mi>𝚑</mi><mi>𝚛</mi><mi mathvariant="monospace">.</mi><mi>𝙷</mi><mi mathvariant="monospace">.</mi><mi>𝚑</mi><mi>𝚊</mi><mi>𝚝</mi></mrow><mo accent="true">¯</mo></mover><mo>−</mo><msubsup><mi>θ</mi><mi>H</mi><mo>‡</mo></msubsup></mrow><msubsup><mi>θ</mi><mi>H</mi><mo>‡</mo></msubsup></mfrac></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>b</mi><mo>‡</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>%</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>100</mn><mo>×</mo><mfrac><mrow><mover><mrow><mi>𝚑</mi><mi>𝚛</mi><mi mathvariant="monospace">.</mi><mi>𝙷</mi><mi mathvariant="monospace">.</mi><mi>𝚑</mi><mi>𝚊</mi><mi>𝚝</mi></mrow><mo accent="true">¯</mo></mover><mo>−</mo><msubsup><mi>θ</mi><mi>H</mi><mo>‡</mo></msubsup></mrow><msubsup><mi>θ</mi><mi>H</mi><mo>‡</mo></msubsup></mfrac></mrow><annotation encoding="application/x-tex">
 b^\ddagger(\%) = 100 \times
 \frac{\overline{\mathtt{hr.H.hat}} - \theta^\ddagger_H}{\theta^\ddagger_H}
 </annotation></semantics></math></p>
@@ -1476,7 +1476,7 @@ b^\ddagger(\%) = 100 \times
 denotes the true (oracle) subgroup,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{H}</annotation></semantics></math>
 denotes the identified (data-driven) subgroup, and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>*</mo><annotation encoding="application/x-tex">*</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>*</mi><annotation encoding="application/x-tex">*</annotation></semantics></math>
 is reserved exclusively for bootstrap bias-corrected estimates
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><annotation encoding="application/x-tex">\hat{\theta}^*</annotation></semantics></math>)—it
 is never used to denote “true subgroup.”</p>
@@ -2024,94 +2024,94 @@ comparison of all three treatment effect measures.</p>
 </thead>
 <tbody class="gt_table_body">
 <tr class="gt_group_heading_row">
-<th colspan="4" class="gt_group_heading" style="background-color: #F0F4F8; font-size: small; font-weight: bold;" scope="colgroup" id="&lt;span class='gt_from_md'&gt;&lt;strong&gt;Definition&lt;/strong&gt;&lt;/span&gt;"><span class="gt_from_md"><strong>Definition</strong></span></th>
+<th colspan="4" class="gt_group_heading" style="background-color: #F0F4F8; font-size: small; font-weight: bold;" scope="colgroup" id="a&lt;span-class='gt_from_md'&gt;&lt;strong&gt;Definition&lt;/strong&gt;&lt;/span&gt;"><span class="gt_from_md"><strong>Definition</strong></span></th>
     </tr>
 <tr class="gt_row_group_first">
-<td headers="**Definition**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Formal name</td>
-<td headers="**Definition**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">Marginal (causal) hazard ratio</td>
-<td headers="**Definition**  AHR" class="gt_row gt_left" style="font-size: small;">Average hazard ratio</td>
-<td headers="**Definition**  CDE" class="gt_row gt_left" style="font-size: small;">Controlled direct effect (hazard ratio)</td>
+<td headers="a**Definition**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Formal name</td>
+<td headers="a**Definition**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">Marginal (causal) hazard ratio</td>
+<td headers="a**Definition**  AHR" class="gt_row gt_left" style="font-size: small;">Average hazard ratio</td>
+<td headers="a**Definition**  CDE" class="gt_row gt_left" style="font-size: small;">Controlled direct effect (hazard ratio)</td>
 </tr>
 <tr>
-<td headers="**Definition**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Notation</td>
-<td headers="**Definition**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">HR_marg(S), theta-dagger</td>
-<td headers="**Definition**  AHR" class="gt_row gt_left" style="font-size: small;">AHR(S)</td>
-<td headers="**Definition**  CDE" class="gt_row gt_left" style="font-size: small;">CDE(S), theta-ddagger</td>
+<td headers="a**Definition**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Notation</td>
+<td headers="a**Definition**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">HR_marg(S), theta-dagger</td>
+<td headers="a**Definition**  AHR" class="gt_row gt_left" style="font-size: small;">AHR(S)</td>
+<td headers="a**Definition**  CDE" class="gt_row gt_left" style="font-size: small;">CDE(S), theta-ddagger</td>
 </tr>
 <tr>
-<td headers="**Definition**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Formula (subgroup S)</td>
-<td headers="**Definition**  Marginal_HR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">exp(beta_Cox) from stacked PO Cox model</td>
-<td headers="**Definition**  AHR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">exp( mean(loghr_po_i) ) for i in S</td>
-<td headers="**Definition**  CDE" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">mean(exp(theta_1_i)) / mean(exp(theta_0_i))</td>
+<td headers="a**Definition**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Formula (subgroup S)</td>
+<td headers="a**Definition**  Marginal_HR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">exp(beta_Cox) from stacked PO Cox model</td>
+<td headers="a**Definition**  AHR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">exp( mean(loghr_po_i) ) for i in S</td>
+<td headers="a**Definition**  CDE" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">mean(exp(theta_1_i)) / mean(exp(theta_0_i))</td>
 </tr>
 <tr class="gt_group_heading_row">
-<th colspan="4" class="gt_group_heading" style="background-color: #F0F4F8; font-size: small; font-weight: bold;" scope="colgroup" id="&lt;span class='gt_from_md'&gt;&lt;strong&gt;Statistical Properties&lt;/strong&gt;&lt;/span&gt;"><span class="gt_from_md"><strong>Statistical Properties</strong></span></th>
+<th colspan="4" class="gt_group_heading" style="background-color: #F0F4F8; font-size: small; font-weight: bold;" scope="colgroup" id="a&lt;span-class='gt_from_md'&gt;&lt;strong&gt;Statistical-Properties&lt;/strong&gt;&lt;/span&gt;"><span class="gt_from_md"><strong>Statistical Properties</strong></span></th>
     </tr>
 <tr class="gt_row_group_first">
-<td headers="**Statistical Properties**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Averaging scale</td>
-<td headers="**Statistical Properties**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">Hazard ratio (Cox partial likelihood)</td>
-<td headers="**Statistical Properties**  AHR" class="gt_row gt_left" style="font-size: small;">Log-hazard (then exponentiated)</td>
-<td headers="**Statistical Properties**  CDE" class="gt_row gt_left" style="font-size: small;">Hazard (natural scale ratio)</td>
+<td headers="a**Statistical-Properties**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Averaging scale</td>
+<td headers="a**Statistical-Properties**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">Hazard ratio (Cox partial likelihood)</td>
+<td headers="a**Statistical-Properties**  AHR" class="gt_row gt_left" style="font-size: small;">Log-hazard (then exponentiated)</td>
+<td headers="a**Statistical-Properties**  CDE" class="gt_row gt_left" style="font-size: small;">Hazard (natural scale ratio)</td>
 </tr>
 <tr>
-<td headers="**Statistical Properties**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Depends on epsilon_i</td>
-<td headers="**Statistical Properties**  Marginal_HR" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">Yes</td>
-<td headers="**Statistical Properties**  AHR" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">No</td>
-<td headers="**Statistical Properties**  CDE" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">No</td>
+<td headers="a**Statistical-Properties**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Depends on epsilon_i</td>
+<td headers="a**Statistical-Properties**  Marginal_HR" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">Yes</td>
+<td headers="a**Statistical-Properties**  AHR" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">No</td>
+<td headers="a**Statistical-Properties**  CDE" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">No</td>
 </tr>
 <tr>
-<td headers="**Statistical Properties**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Reproducible across seeds</td>
-<td headers="**Statistical Properties**  Marginal_HR" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">No (Monte Carlo variability)</td>
-<td headers="**Statistical Properties**  AHR" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">Yes (deterministic)</td>
-<td headers="**Statistical Properties**  CDE" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">Yes (deterministic)</td>
+<td headers="a**Statistical-Properties**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Reproducible across seeds</td>
+<td headers="a**Statistical-Properties**  Marginal_HR" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">No (Monte Carlo variability)</td>
+<td headers="a**Statistical-Properties**  AHR" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">Yes (deterministic)</td>
+<td headers="a**Statistical-Properties**  CDE" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">Yes (deterministic)</td>
 </tr>
 <tr>
-<td headers="**Statistical Properties**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Accounts for covariate heterogeneity</td>
-<td headers="**Statistical Properties**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">Averaged out (population-level)</td>
-<td headers="**Statistical Properties**  AHR" class="gt_row gt_left" style="font-size: small;">Geometric mean preserves individual effects</td>
-<td headers="**Statistical Properties**  CDE" class="gt_row gt_left" style="font-size: small;">Ratio of mean hazards preserves scale</td>
+<td headers="a**Statistical-Properties**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Accounts for covariate heterogeneity</td>
+<td headers="a**Statistical-Properties**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">Averaged out (population-level)</td>
+<td headers="a**Statistical-Properties**  AHR" class="gt_row gt_left" style="font-size: small;">Geometric mean preserves individual effects</td>
+<td headers="a**Statistical-Properties**  CDE" class="gt_row gt_left" style="font-size: small;">Ratio of mean hazards preserves scale</td>
 </tr>
 <tr>
-<td headers="**Statistical Properties**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Sensitive to outlier hazard contributions</td>
-<td headers="**Statistical Properties**  Marginal_HR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">No (rank-based)</td>
-<td headers="**Statistical Properties**  AHR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Moderate (log scale dampens extremes)</td>
-<td headers="**Statistical Properties**  CDE" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Yes (exponential scale amplifies large values)</td>
+<td headers="a**Statistical-Properties**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Sensitive to outlier hazard contributions</td>
+<td headers="a**Statistical-Properties**  Marginal_HR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">No (rank-based)</td>
+<td headers="a**Statistical-Properties**  AHR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Moderate (log scale dampens extremes)</td>
+<td headers="a**Statistical-Properties**  CDE" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Yes (exponential scale amplifies large values)</td>
 </tr>
 <tr class="gt_group_heading_row">
-<th colspan="4" class="gt_group_heading" style="background-color: #F0F4F8; font-size: small; font-weight: bold;" scope="colgroup" id="&lt;span class='gt_from_md'&gt;&lt;strong&gt;Computation&lt;/strong&gt;&lt;/span&gt;"><span class="gt_from_md"><strong>Computation</strong></span></th>
+<th colspan="4" class="gt_group_heading" style="background-color: #F0F4F8; font-size: small; font-weight: bold;" scope="colgroup" id="a&lt;span-class='gt_from_md'&gt;&lt;strong&gt;Computation&lt;/strong&gt;&lt;/span&gt;"><span class="gt_from_md"><strong>Computation</strong></span></th>
     </tr>
 <tr class="gt_row_group_first">
-<td headers="**Computation**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Standard estimation method</td>
-<td headers="**Computation**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">Cox PH on stacked potential outcomes</td>
-<td headers="**Computation**  AHR" class="gt_row gt_left" style="font-size: small;">Arithmetic mean of individual log HRs</td>
-<td headers="**Computation**  CDE" class="gt_row gt_left" style="font-size: small;">Ratio of average exponentiated log-hazards</td>
+<td headers="a**Computation**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Standard estimation method</td>
+<td headers="a**Computation**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">Cox PH on stacked potential outcomes</td>
+<td headers="a**Computation**  AHR" class="gt_row gt_left" style="font-size: small;">Arithmetic mean of individual log HRs</td>
+<td headers="a**Computation**  CDE" class="gt_row gt_left" style="font-size: small;">Ratio of average exponentiated log-hazards</td>
 </tr>
 <tr>
-<td headers="**Computation**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Primary ForestSearch use</td>
-<td headers="**Computation**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">Estimation rows in build_estimation_table(); DGM validation</td>
-<td headers="**Computation**  AHR" class="gt_row gt_left" style="font-size: small;">Estimation row in build_estimation_table(); primary subgroup characterization</td>
-<td headers="**Computation**  CDE" class="gt_row gt_left" style="font-size: small;">Estimation row in build_estimation_table(); biomarker-threshold analysis</td>
+<td headers="a**Computation**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Primary ForestSearch use</td>
+<td headers="a**Computation**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">Estimation rows in build_estimation_table(); DGM validation</td>
+<td headers="a**Computation**  AHR" class="gt_row gt_left" style="font-size: small;">Estimation row in build_estimation_table(); primary subgroup characterization</td>
+<td headers="a**Computation**  CDE" class="gt_row gt_left" style="font-size: small;">Estimation row in build_estimation_table(); biomarker-threshold analysis</td>
 </tr>
 <tr>
-<td headers="**Computation**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Key package variable(s)</td>
-<td headers="**Computation**  Marginal_HR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">hr_causal, hr_H_true, hr_Hc_true, hr.H.hat, hr.Hc.hat</td>
-<td headers="**Computation**  AHR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">loghr_po, ahr.H.hat, ahr.Hc.hat, ahr_H, ahr_Hc</td>
-<td headers="**Computation**  CDE" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">theta_0, theta_1, cde.H.hat, cde.Hc.hat, cde_H, cde_Hc</td>
+<td headers="a**Computation**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Key package variable(s)</td>
+<td headers="a**Computation**  Marginal_HR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">hr_causal, hr_H_true, hr_Hc_true, hr.H.hat, hr.Hc.hat</td>
+<td headers="a**Computation**  AHR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">loghr_po, ahr.H.hat, ahr.Hc.hat, ahr_H, ahr_Hc</td>
+<td headers="a**Computation**  CDE" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">theta_0, theta_1, cde.H.hat, cde.Hc.hat, cde_H, cde_Hc</td>
 </tr>
 <tr class="gt_group_heading_row">
-<th colspan="4" class="gt_group_heading" style="background-color: #F0F4F8; font-size: small; font-weight: bold;" scope="colgroup" id="&lt;span class='gt_from_md'&gt;&lt;strong&gt;Interpretation &amp;amp; Use&lt;/strong&gt;&lt;/span&gt;"><span class="gt_from_md"><strong>Interpretation &amp; Use</strong></span></th>
+<th colspan="4" class="gt_group_heading" style="background-color: #F0F4F8; font-size: small; font-weight: bold;" scope="colgroup" id="a&lt;span-class='gt_from_md'&gt;&lt;strong&gt;Interpretation-&amp;amp;-Use&lt;/strong&gt;&lt;/span&gt;"><span class="gt_from_md"><strong>Interpretation &amp; Use</strong></span></th>
     </tr>
 <tr class="gt_row_group_first">
-<td headers="**Interpretation &amp; Use**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Key package function(s)</td>
-<td headers="**Interpretation &amp; Use**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">calculate_hazard_ratios(), setup_gbsg_dgm(), build_estimation_table()</td>
-<td headers="**Interpretation &amp; Use**  AHR" class="gt_row gt_left" style="font-size: small;">cox_ahr_cde_analysis(), build_estimation_table()</td>
-<td headers="**Interpretation &amp; Use**  CDE" class="gt_row gt_left" style="font-size: small;">cox_ahr_cde_analysis(), compute_dgm_cde(), build_estimation_table()</td>
+<td headers="a**Interpretation-&amp;-Use**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Key package function(s)</td>
+<td headers="a**Interpretation-&amp;-Use**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">calculate_hazard_ratios(), setup_gbsg_dgm(), build_estimation_table()</td>
+<td headers="a**Interpretation-&amp;-Use**  AHR" class="gt_row gt_left" style="font-size: small;">cox_ahr_cde_analysis(), build_estimation_table()</td>
+<td headers="a**Interpretation-&amp;-Use**  CDE" class="gt_row gt_left" style="font-size: small;">cox_ahr_cde_analysis(), compute_dgm_cde(), build_estimation_table()</td>
 </tr>
 <tr>
-<td headers="**Interpretation &amp; Use**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Interpretation</td>
-<td headers="**Interpretation &amp; Use**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">Population-average HR as estimated by Cox regression on potential outcomes</td>
-<td headers="**Interpretation &amp; Use**  AHR" class="gt_row gt_left" style="font-size: small;">Geometric mean of individual causal hazard ratios across subjects</td>
-<td headers="**Interpretation &amp; Use**  CDE" class="gt_row gt_left" style="font-size: small;">Ratio of average hazard contributions under treatment vs. control</td>
+<td headers="a**Interpretation-&amp;-Use**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Interpretation</td>
+<td headers="a**Interpretation-&amp;-Use**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">Population-average HR as estimated by Cox regression on potential outcomes</td>
+<td headers="a**Interpretation-&amp;-Use**  AHR" class="gt_row gt_left" style="font-size: small;">Geometric mean of individual causal hazard ratios across subjects</td>
+<td headers="a**Interpretation-&amp;-Use**  CDE" class="gt_row gt_left" style="font-size: small;">Ratio of average hazard contributions under treatment vs. control</td>
 </tr>
 </tbody>
 <tfoot><tr class="gt_sourcenotes">
@@ -3035,7 +3035,7 @@ and, when available, against the CDE truth
 <p><strong>Use CDE</strong> as a complementary estimand that provides a
 natural-scale perspective on treatment effect heterogeneity. The CDE
 appears as an estimation row
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>‡</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta^\ddagger(\hat{H})</annotation></semantics></math>)
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>‡</mo></msup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta^\ddagger(\hat{H})</annotation></semantics></math>)
 in <code><a href="../reference/build_estimation_table.html">build_estimation_table()</a></code> alongside Cox HR and AHR rows,
 enabling direct comparison of estimation properties across all three
 estimand types. When exploring treatment effects across continuous
@@ -3073,7 +3073,7 @@ Wiley.</p></li>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Exploratory Subgroup Identification with ForestSearch • forestsearch</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Exploratory Subgroup Identification with ForestSearch">
 </head>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -62,7 +62,7 @@
 
 <link href="forestsearch_files/htmltools-fill-0.5.9/fill.css" rel="stylesheet">
 <script src="forestsearch_files/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="forestsearch_files/viz-1.8.2/viz.js"></script><link href="forestsearch_files/DiagrammeR-styles-0.2/styles.css" rel="stylesheet">
-<script src="forestsearch_files/grViz-binding-1.0.11/grViz.js"></script><div class="row">
+<script src="forestsearch_files/grViz-binding-1.0.12/grViz.js"></script><div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Exploratory Subgroup Identification with ForestSearch</h1>
@@ -71,7 +71,7 @@ Study Group (GBSG) Analysis</h3>
                         <h4 data-toc-skip class="author">Larry F.
 León</h4>
             
-            <h4 data-toc-skip class="date">2026-03-23</h4>
+            <h4 data-toc-skip class="date">2026-10-17</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/forestsearch.Rmd" class="external-link"><code>vignettes/forestsearch.Rmd</code></a></small>
       <div class="d-none name"><code>forestsearch.Rmd</code></div>
@@ -162,8 +162,8 @@ threshold”).</p>
 <div class="section level3">
 <h3 id="study-background">Study Background<a class="anchor" aria-label="anchor" href="#study-background"></a>
 </h3>
-<p>The GBSG trial evaluated hormonal treatment (tamoxifen) versus
-chemotherapy in node-positive breast cancer patients. Key
+<p>The GBSG trial evaluated hormonal treatment (tamoxifen) versus no
+hormonal therapy in node-positive breast cancer patients. Key
 characteristics:</p>
 <ul>
 <li>
@@ -173,15 +173,15 @@ characteristics:</p>
 <li>
 <strong>Censoring rate</strong>: ~56%</li>
 <li>
-<strong>Treatment</strong>: Hormonal therapy (tamoxifen)
-vs. chemotherapy</li>
+<strong>Treatment</strong>: Hormonal therapy (tamoxifen) vs. no
+hormonal therapy</li>
 </ul>
 </div>
 <div class="section level3">
 <h3 id="data-preparation">Data Preparation<a class="anchor" aria-label="anchor" href="#data-preparation"></a>
 </h3>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Load GBSG data (included in forestsearch package)</span></span>
+<code class="sourceCode R"><span><span class="co"># Load GBSG data (from the survival package)</span></span>
 <span><span class="va">df.analysis</span> <span class="op">&lt;-</span> <span class="va">gbsg</span></span>
 <span></span>
 <span><span class="co"># Prepare analysis variables</span></span>
@@ -215,12 +215,32 @@ vs. chemotherapy</li>
 </h3>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/create_summary_table.html">create_summary_table</a></span><span class="op">(</span></span>
-<span>  data <span class="op">=</span> <span class="va">df.analysis</span>,</span>
-<span>  treat_var <span class="op">=</span> <span class="va">treat.name</span>,</span>
-<span>  table_title <span class="op">=</span> <span class="st">"GBSG Baseline Characteristics by Treatment Arm"</span>,</span>
-<span>  vars_continuous <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"nodes"</span>, <span class="st">"size"</span>, <span class="st">"er"</span>, <span class="st">"pgr"</span><span class="op">)</span>,</span>
-<span>  vars_categorical <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"grade"</span>, <span class="st">"meno"</span><span class="op">)</span>,</span>
-<span>  font_size <span class="op">=</span> <span class="fl">12</span></span>
+<span>  data                  <span class="op">=</span> <span class="va">df.analysis</span>,                                       <span class="co"># required</span></span>
+<span>  treat_var             <span class="op">=</span> <span class="va">treat.name</span>,                                        <span class="co"># default "treat"</span></span>
+<span>  vars_continuous       <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"nodes"</span>, <span class="st">"size"</span>, <span class="st">"er"</span>, <span class="st">"pgr"</span><span class="op">)</span>,            <span class="co"># default NULL</span></span>
+<span>  vars_categorical      <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"grade"</span>, <span class="st">"meno"</span><span class="op">)</span>,                                <span class="co"># default NULL</span></span>
+<span>  vars_binary           <span class="op">=</span> <span class="cn">NULL</span>,                                              <span class="co"># default NULL</span></span>
+<span>  var_labels            <span class="op">=</span> <span class="cn">NULL</span>,                                              <span class="co"># default NULL</span></span>
+<span>  digits                <span class="op">=</span> <span class="fl">1</span>,                                                 <span class="co"># default 1</span></span>
+<span>  show_pvalue           <span class="op">=</span> <span class="cn">TRUE</span>,                                              <span class="co"># default TRUE</span></span>
+<span>  show_smd              <span class="op">=</span> <span class="cn">TRUE</span>,                                              <span class="co"># default TRUE</span></span>
+<span>  show_missing          <span class="op">=</span> <span class="cn">TRUE</span>,                                              <span class="co"># default TRUE</span></span>
+<span>  table_title           <span class="op">=</span> <span class="st">"GBSG Baseline Characteristics by Treatment Arm"</span>,  <span class="co"># default "Baseline Characteristics by Treatment Arm"</span></span>
+<span>  table_subtitle        <span class="op">=</span> <span class="cn">NULL</span>,                                              <span class="co"># default NULL</span></span>
+<span>  source_note           <span class="op">=</span> <span class="cn">NULL</span>,                                              <span class="co"># default NULL</span></span>
+<span>  font_size             <span class="op">=</span> <span class="fl">12</span>,                                                <span class="co"># default 12</span></span>
+<span>  header_font_size      <span class="op">=</span> <span class="fl">14</span>,                                                <span class="co"># default 14</span></span>
+<span>  footnote_font_size    <span class="op">=</span> <span class="fl">10</span>,                                                <span class="co"># default 10</span></span>
+<span>  use_alternating_rows  <span class="op">=</span> <span class="cn">TRUE</span>,                                              <span class="co"># default TRUE</span></span>
+<span>  stripe_color          <span class="op">=</span> <span class="st">"#f9f9f9"</span>,                                         <span class="co"># default "#f9f9f9"</span></span>
+<span>  indent_size           <span class="op">=</span> <span class="fl">20</span>,                                                <span class="co"># default 20</span></span>
+<span>  highlight_pval        <span class="op">=</span> <span class="fl">0.05</span>,                                              <span class="co"># default 0.05</span></span>
+<span>  highlight_smd         <span class="op">=</span> <span class="fl">0.2</span>,                                               <span class="co"># default 0.2</span></span>
+<span>  highlight_color       <span class="op">=</span> <span class="st">"#fff3cd"</span>,                                         <span class="co"># default "#fff3cd"</span></span>
+<span>  compact_mode          <span class="op">=</span> <span class="cn">FALSE</span>,                                             <span class="co"># default FALSE</span></span>
+<span>  column_width_var      <span class="op">=</span> <span class="fl">200</span>,                                               <span class="co"># default 200</span></span>
+<span>  column_width_stats    <span class="op">=</span> <span class="fl">120</span>,                                               <span class="co"># default 120</span></span>
+<span>  show_column_borders   <span class="op">=</span> <span class="cn">FALSE</span>                                              <span class="co"># default FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <div id="mwlefoodfi" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>#mwlefoodfi table {
@@ -819,19 +839,25 @@ treatment effect heterogeneity and identify candidate factors.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># All grf.subg.harm.survival() parameters shown with their default values.</span></span>
+<span><span class="co"># Required: data, confounders.name, outcome.name, event.name, id.name, treat.name.</span></span>
 <span><span class="va">grf_est</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/grf.subg.harm.survival.html">grf.subg.harm.survival</a></span><span class="op">(</span></span>
-<span>  data <span class="op">=</span> <span class="va">df.analysis</span>,</span>
-<span>  confounders.name <span class="op">=</span> <span class="va">confounders.name</span>,</span>
-<span>  outcome.name <span class="op">=</span> <span class="va">outcome.name</span>,</span>
-<span>  event.name <span class="op">=</span> <span class="va">event.name</span>,</span>
-<span>  id.name <span class="op">=</span> <span class="va">id.name</span>,</span>
-<span>  treat.name <span class="op">=</span> <span class="va">treat.name</span>,</span>
-<span>  maxdepth <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  n.min <span class="op">=</span> <span class="fl">60</span>,</span>
-<span>  dmin.grf <span class="op">=</span> <span class="fl">12</span>,</span>
-<span>  frac.tau <span class="op">=</span> <span class="fl">0.6</span>,</span>
-<span>  details <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  return_selected_cuts_only <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  data                      <span class="op">=</span> <span class="va">df.analysis</span>,         <span class="co"># required</span></span>
+<span>  confounders.name          <span class="op">=</span> <span class="va">confounders.name</span>,    <span class="co"># required</span></span>
+<span>  outcome.name              <span class="op">=</span> <span class="va">outcome.name</span>,        <span class="co"># required</span></span>
+<span>  event.name                <span class="op">=</span> <span class="va">event.name</span>,          <span class="co"># required</span></span>
+<span>  id.name                   <span class="op">=</span> <span class="va">id.name</span>,             <span class="co"># required</span></span>
+<span>  treat.name                <span class="op">=</span> <span class="va">treat.name</span>,          <span class="co"># required</span></span>
+<span>  frac.tau                  <span class="op">=</span> <span class="fl">0.6</span>,                 <span class="co"># default 1.0; max follow-up fraction</span></span>
+<span>  n.min                     <span class="op">=</span> <span class="fl">60</span>,                  <span class="co"># default 60; min subgroup size</span></span>
+<span>  dmin.grf                  <span class="op">=</span> <span class="fl">12</span>,                  <span class="co"># default 0.0; min RMST diff (months)</span></span>
+<span>  RCT                       <span class="op">=</span> <span class="cn">TRUE</span>,                <span class="co"># default TRUE</span></span>
+<span>  details                   <span class="op">=</span> <span class="cn">TRUE</span>,                <span class="co"># default FALSE</span></span>
+<span>  sg.criterion              <span class="op">=</span> <span class="st">"mDiff"</span>,             <span class="co"># default "mDiff"; or "Nsg"</span></span>
+<span>  maxdepth                  <span class="op">=</span> <span class="fl">2</span>,                   <span class="co"># default 2; max policy tree depth (&lt;=3)</span></span>
+<span>  seedit                    <span class="op">=</span> <span class="fl">8316951</span>,             <span class="co"># default 8316951</span></span>
+<span>  return_selected_cuts_only <span class="op">=</span> <span class="cn">FALSE</span>,               <span class="co"># default FALSE</span></span>
+<span>  tune_grf                  <span class="op">=</span> <span class="cn">FALSE</span>                <span class="co"># default FALSE; CV hyperparameter tuning</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## tau, maxdepth = 46.75811 2 </span></span>
 <span><span class="co">##    leaf.node control.mean control.size control.se depth</span></span>
@@ -856,14 +882,14 @@ treatment effect heterogeneity and identify candidate factors.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Display policy trees</span></span>
 <span><span class="co"># leaf1 = recommend control, leaf2 = recommend treatment</span></span>
-<span><span class="va">oldpar</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">grf_est</span><span class="op">$</span><span class="va">tree1</span>, leaf.labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Control"</span>, <span class="st">"Treat"</span><span class="op">)</span>, main <span class="op">=</span> <span class="st">"Depth 1"</span><span class="op">)</span></span></code></pre></div>
 <div class="grViz html-widget html-fill-item" id="htmlwidget-ac96cb3ee4656e2e9ec3" style="width:960px;height:384px;"></div>
 <script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"diagram":"digraph nodes { \n node [shape=box] ;\n0 [label=\" er <= 0 \"] ;\n0 -> 1 [labeldistance=2.5, labelangle=45, headlabel=\"True\"];\n0 -> 2 [labeldistance=2.5, labelangle=-45, headlabel=\"False\"]\n1  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Control \"];\n2  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Treat \"];\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script><div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">grf_est</span><span class="op">$</span><span class="va">tree2</span>, leaf.labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Control"</span>, <span class="st">"Treat"</span><span class="op">)</span>, main <span class="op">=</span> <span class="st">"Depth 2"</span><span class="op">)</span></span></code></pre></div>
 <div class="grViz html-widget html-fill-item" id="htmlwidget-e5c8c404fe174e4c81bd" style="width:960px;height:384px;"></div>
 <script type="application/json" data-for="htmlwidget-e5c8c404fe174e4c81bd">{"x":{"diagram":"digraph nodes { \n node [shape=box] ;\n0 [label=\" age <= 50 \"] ;\n0 -> 1 [labeldistance=2.5, labelangle=45, headlabel=\"True\"];\n0 -> 2 [labeldistance=2.5, labelangle=-45, headlabel=\"False\"]\n1 [label=\" age <= 43 \"] ;\n1 -> 3  ;\n1 -> 4  ;\n3  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Treat \"];\n4  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Control \"];\n2 [label=\" er <= 0 \"] ;\n2 -> 5  ;\n2 -> 6  ;\n5  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Control \"];\n6  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Treat \"];\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script><div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span><span class="va">oldpar</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>GRF identifies estrogen receptor status (ER) as a key factor, with ER
 ≤ 0 suggesting potential harm from hormonal therapy.</p>
 </div>
@@ -931,44 +957,106 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># All forestsearch() parameters shown with their default values.</span></span>
+<span><span class="co"># Comments indicate the package default; the value used here may differ.</span></span>
 <span><span class="va">fs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch.html">forestsearch</a></span><span class="op">(</span></span>
-<span>  <span class="va">df.analysis</span>,</span>
-<span>  confounders.name <span class="op">=</span> <span class="va">confounders.name</span>,</span>
-<span>  outcome.name <span class="op">=</span> <span class="va">outcome.name</span>,</span>
-<span>  treat.name <span class="op">=</span> <span class="va">treat.name</span>,</span>
-<span>  event.name <span class="op">=</span> <span class="va">event.name</span>,</span>
-<span>  id.name <span class="op">=</span> <span class="va">id.name</span>,</span>
-<span>  <span class="co"># Threshold parameters (per León et al. 2024)</span></span>
-<span>  hr.threshold <span class="op">=</span> <span class="fl">1.25</span>,</span>
-<span>  hr.consistency <span class="op">=</span> <span class="fl">1.0</span>,</span>
-<span>  pconsistency.threshold <span class="op">=</span> <span class="fl">0.80</span>,</span>
-<span>  stop_threshold <span class="op">=</span> <span class="fl">0.80</span>,</span>
-<span>  <span class="co"># Search configuration</span></span>
-<span>  sg_focus <span class="op">=</span> <span class="st">"hr"</span>,</span>
-<span>  max_subgroups_search <span class="op">=</span> <span class="fl">3</span>,</span>
-<span>  use_twostage <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  <span class="co"># Factor selection</span></span>
-<span>  use_grf <span class="op">=</span> <span class="cn">TRUE</span>, </span>
-<span>  return_selected_cuts_only <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  use_lasso <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  cut_type <span class="op">=</span> <span class="st">"default"</span>,</span>
-<span>  <span class="co"># Subgroup constraints</span></span>
-<span>  maxk <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  n.min <span class="op">=</span> <span class="fl">60</span>,</span>
-<span>  d0.min <span class="op">=</span> <span class="fl">12</span>,</span>
-<span>  d1.min <span class="op">=</span> <span class="fl">12</span>,</span>
-<span>  <span class="co"># Consistency evaluation</span></span>
-<span>  fs.splits <span class="op">=</span> <span class="fl">100</span>,</span>
-<span>  <span class="co"># Parallel processing</span></span>
-<span>  parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    plan <span class="op">=</span> <span class="st">"multisession"</span>,</span>
-<span>    workers <span class="op">=</span> <span class="va">n_cores</span>,</span>
-<span>    show_message <span class="op">=</span> <span class="cn">TRUE</span></span>
-<span>  <span class="op">)</span>,</span>
-<span>  <span class="co"># Output options</span></span>
-<span>  showten_subgroups <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  details <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  plot.sg <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  df.analysis                <span class="op">=</span> <span class="va">df.analysis</span>,                  <span class="co"># required</span></span>
+<span></span>
+<span>  <span class="co"># ─── Variable names ─────────────────────────────────────────────────────</span></span>
+<span>  outcome.name               <span class="op">=</span> <span class="va">outcome.name</span>,                 <span class="co"># default "tte"</span></span>
+<span>  event.name                 <span class="op">=</span> <span class="va">event.name</span>,                   <span class="co"># default "event"</span></span>
+<span>  treat.name                 <span class="op">=</span> <span class="va">treat.name</span>,                   <span class="co"># default "treat"</span></span>
+<span>  id.name                    <span class="op">=</span> <span class="va">id.name</span>,                      <span class="co"># default "id"</span></span>
+<span>  potentialOutcome.name      <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  flag_harm.name             <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  confounders.name           <span class="op">=</span> <span class="va">confounders.name</span>,             <span class="co"># default NULL</span></span>
+<span></span>
+<span>  <span class="co"># ─── Parallel processing ────────────────────────────────────────────────</span></span>
+<span>  parallel_args              <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"multisession"</span>,</span>
+<span>                                    workers <span class="op">=</span> <span class="va">n_cores</span>,</span>
+<span>                                    show_message <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,    <span class="co"># default plan="multisession"</span></span>
+<span></span>
+<span>  <span class="co"># ─── Prediction / RCT flag ──────────────────────────────────────────────</span></span>
+<span>  df.predict                 <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  df.test                    <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  is.RCT                     <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
+<span>  seedit                     <span class="op">=</span> <span class="fl">8316951</span>,                      <span class="co"># default 8316951</span></span>
+<span>  est.scale                  <span class="op">=</span> <span class="st">"hr"</span>,                         <span class="co"># default "hr"</span></span>
+<span></span>
+<span>  <span class="co"># ─── Factor selection: LASSO + GRF ──────────────────────────────────────</span></span>
+<span>  use_lasso                  <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
+<span>  use_grf                    <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
+<span>  grf_res                    <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL; pass cached GRF result</span></span>
+<span>  grf_cuts                   <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  max_n_confounders          <span class="op">=</span> <span class="fl">1000</span>,                         <span class="co"># default 1000</span></span>
+<span>  grf_depth                  <span class="op">=</span> <span class="fl">2</span>,                            <span class="co"># default 2</span></span>
+<span>  dmin.grf                   <span class="op">=</span> <span class="fl">0.0</span>,                          <span class="co"># default 0.0</span></span>
+<span>  frac.tau                   <span class="op">=</span> <span class="fl">0.8</span>,                          <span class="co"># default 0.8</span></span>
+<span>  return_selected_cuts_only  <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
+<span>  vi.grf.min                 <span class="op">=</span> <span class="op">-</span><span class="fl">0.2</span>,                         <span class="co"># default -0.2; GRF VI threshold</span></span>
+<span>  tune_grf                   <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span></span>
+<span>  <span class="co"># ─── Cuts / discretization ──────────────────────────────────────────────</span></span>
+<span>  conf_force                 <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  defaultcut_names           <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  cut_type                   <span class="op">=</span> <span class="st">"default"</span>,                    <span class="co"># default "default"</span></span>
+<span>  exclude_cuts               <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  replace_med_grf            <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span>  cont.cutoff                <span class="op">=</span> <span class="fl">4</span>,                            <span class="co"># default 4</span></span>
+<span>  conf.cont_medians          <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  conf.cont_medians_force    <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  conf.cont_jcuts            <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span></span>
+<span>  <span class="co"># ─── Subgroup constraints ───────────────────────────────────────────────</span></span>
+<span>  n.min                      <span class="op">=</span> <span class="fl">60</span>,                           <span class="co"># default 60; min subgroup size</span></span>
+<span>  d0.min                     <span class="op">=</span> <span class="fl">12</span>,                           <span class="co"># default 10; min events arm 0</span></span>
+<span>  d1.min                     <span class="op">=</span> <span class="fl">12</span>,                           <span class="co"># default 10; min events arm 1</span></span>
+<span>  maxk                       <span class="op">=</span> <span class="fl">2</span>,                            <span class="co"># default 2; max factors per SG</span></span>
+<span>  max_subgroups_search       <span class="op">=</span> <span class="fl">3</span>,                            <span class="co"># default 10</span></span>
+<span>  max.minutes                <span class="op">=</span> <span class="fl">3</span>,                            <span class="co"># default 3; per-stage timeout</span></span>
+<span></span>
+<span>  <span class="co"># ─── Thresholds (preferred names take precedence if both supplied) ─────</span></span>
+<span>  effect.threshold           <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL; alias for hr.threshold</span></span>
+<span>  consistency.threshold      <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL; alias for hr.consistency</span></span>
+<span>  hr.threshold               <span class="op">=</span> <span class="fl">1.25</span>,                         <span class="co"># default 1.25; screening threshold</span></span>
+<span>  hr.consistency             <span class="op">=</span> <span class="fl">1.0</span>,                          <span class="co"># default 1.0; consistency threshold</span></span>
+<span></span>
+<span>  <span class="co"># ─── Selection (sg_focus / Pareto neighborhood) ─────────────────────────</span></span>
+<span>  sg_focus                   <span class="op">=</span> <span class="st">"maxSG"</span>,                    <span class="co"># default "hr"; "hr"/"eff", "maxSG", "minSG", "hrMaxSG"/"effMaxSG", "hrMinSG"/"effMinSG"</span></span>
+<span>  selection_rule             <span class="op">=</span> <span class="st">"neighborhood"</span>,               <span class="co"># default "neighborhood"; or "pareto", "both" (only for hrMaxSG/hrMinSG)</span></span>
+<span>  effect_neighborhood        <span class="op">=</span> <span class="fl">0.10</span>,                         <span class="co"># default 0.10; tol for hrMaxSG/hrMinSG</span></span>
+<span></span>
+<span>  <span class="co"># ─── Consistency evaluation ─────────────────────────────────────────────</span></span>
+<span>  fs.splits                  <span class="op">=</span> <span class="fl">100</span>,                          <span class="co"># default 1000; split-half repeats</span></span>
+<span>  m1.threshold               <span class="op">=</span> <span class="cn">Inf</span>,                          <span class="co"># default Inf</span></span>
+<span>  pconsistency.threshold     <span class="op">=</span> <span class="fl">0.80</span>,                         <span class="co"># default 0.90</span></span>
+<span>  stop_threshold             <span class="op">=</span> <span class="fl">0.80</span>,                         <span class="co"># default 0.95; early-stop consistency</span></span>
+<span></span>
+<span>  <span class="co"># ─── Two-stage consistency ──────────────────────────────────────────────</span></span>
+<span>  use_twostage               <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
+<span>  twostage_args              <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,                       <span class="co"># default list()</span></span>
+<span></span>
+<span>  <span class="co"># ─── GLM outcome support (survival analysis here) ───────────────────────</span></span>
+<span>  outcome_type               <span class="op">=</span> <span class="st">"survival"</span>,                   <span class="co"># default "survival"; or "binary", "continuous", "count"</span></span>
+<span>  effect_measure             <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL; auto-set from outcome_type</span></span>
+<span>  offset.name                <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL; required for count</span></span>
+<span>  adverse_outcome            <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL; auto-set</span></span>
+<span>  overdispersion             <span class="op">=</span> <span class="st">"none"</span>,                       <span class="co"># default "none"; or "quasi", "negbin"</span></span>
+<span>  grf_count_transform        <span class="op">=</span> <span class="st">"log"</span>,                        <span class="co"># default "log"; or "identity"</span></span>
+<span></span>
+<span>  <span class="co"># ─── Propensity-score adjustment (observational analyses) ───────────────</span></span>
+<span>  ps_method                  <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  ps_adjust_method           <span class="op">=</span> <span class="st">"none"</span>,                       <span class="co"># default "none"; or "iptw", "dr_gcomp"</span></span>
+<span>  ps_hat                     <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span></span>
+<span>  <span class="co"># ─── Output / diagnostics ───────────────────────────────────────────────</span></span>
+<span>  show_candidate_summary     <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default FALSE; pre-/post-consistency previews</span></span>
+<span>  minp                       <span class="op">=</span> <span class="fl">0.025</span>,                        <span class="co"># default 0.025</span></span>
+<span>  details                    <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default FALSE</span></span>
+<span>  quiet                      <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span>  by.risk                    <span class="op">=</span> <span class="fl">12</span>,                           <span class="co"># default 12</span></span>
+<span>  plot.sg                    <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default FALSE; KM plots for SG</span></span>
+<span>  plot.grf                   <span class="op">=</span> <span class="cn">FALSE</span>                         <span class="co"># default FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## GRF subgroup: er &lt;= 0 </span></span>
 <span><span class="co">## GRF cuts identified: 1 </span></span>
@@ -976,69 +1064,76 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <span><span class="co">## Cox-LASSO selected: 4 of 7 candidate factors</span></span>
 <span><span class="co">##   Omitted: age, meno, er </span></span>
 <span><span class="co">## Candidate factors: 14 </span></span>
-<span><span class="co">##  [1] "er &lt;= 0"      "size &lt;= 29.3" "size &lt;= 25"   "size &lt;= 20"   "size &lt;= 35"  </span></span>
-<span><span class="co">##  [6] "nodes &lt;= 5"   "nodes &lt;= 3"   "nodes &lt;= 1"   "nodes &lt;= 7"   "pgr &lt;= 110"  </span></span>
-<span><span class="co">## [11] "pgr &lt;= 32.5"  "pgr &lt;= 7"     "pgr &lt;= 131.8" "grade3"      </span></span>
+<span><span class="co">##  [1] "er &lt;= 0"    "size &lt;= 29" "size &lt;= 25" "size &lt;= 20" "size &lt;= 35"</span></span>
+<span><span class="co">##  [6] "nodes &lt;= 5" "nodes &lt;= 3" "nodes &lt;= 1" "nodes &lt;= 7" "pgr &lt;= 110"</span></span>
+<span><span class="co">## [11] "pgr &lt;= 33"  "pgr &lt;= 7"   "pgr &lt;= 132" "grade3"    </span></span>
 <span><span class="co">## Number of possible configurations (&lt;= maxk): maxk = 2 , # combinations = 406 </span></span>
-<span><span class="co">## Events criteria: control &gt;= 12 , treatment &gt;= 12 </span></span>
+<span><span class="co">## Per-arm events criteria: control &gt;= 12, treatment &gt;= 12</span></span>
 <span><span class="co">## Sample size criteria: n &gt;= 60 </span></span>
-<span><span class="co">## Subgroup search completed in 0.03 minutes</span></span>
+<span><span class="co">## Subgroup search completed in 0.01 minutes</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## --- Filtering Summary ---</span></span>
 <span><span class="co">##   Combinations evaluated: 406 </span></span>
 <span><span class="co">##   Passed variance check: 374 </span></span>
 <span><span class="co">##   Passed prevalence (&gt;= 0.025 ): 374 </span></span>
 <span><span class="co">##   Passed redundancy check: 354 </span></span>
-<span><span class="co">##   Passed event counts (d0&gt;= 12 , d1&gt;= 12 ): 250 </span></span>
+<span><span class="co">##   Passed events counts (d0&gt;= 12, d1&gt;= 12): 250</span></span>
 <span><span class="co">##   Passed sample size (n&gt;= 60 ): 247 </span></span>
-<span><span class="co">##   Cox model fit successfully: 247 </span></span>
-<span><span class="co">##   Passed HR threshold (&gt;= 1.25 ): 7 </span></span>
+<span><span class="co">##   Cox model fit successfully: 247</span></span>
+<span><span class="co">##   Passed effect threshold (effect &gt;= 1.2500): 7</span></span>
 <span><span class="co">## -------------------------</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## Found 7 subgroup candidate(s)</span></span>
 <span><span class="co">## # of candidate subgroups (meeting all criteria) = 7 </span></span>
-<span><span class="co">## # of unique initial candidates: 7 </span></span>
-<span><span class="co">## # Restricting to top stop_Kgroups = 3 </span></span>
+<span><span class="co">## # of unique initial candidates: 7</span></span></code></pre>
+<pre><code><span><span class="co">## # Restricting to top stop_Kgroups = 3 </span></span>
 <span><span class="co">## # of candidates to evaluate: 3 </span></span>
-<span><span class="co">## # Early stop threshold: 0.8 </span></span>
 <span><span class="co">## </span></span>
-<span><span class="co">## ================================================================================ </span></span>
-<span><span class="co">## TOP 3 CANDIDATE SUBGROUPS FOR CONSISTENCY EVALUATION</span></span>
-<span><span class="co">## Sorted by: hr </span></span>
-<span><span class="co">## ================================================================================ </span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## Rank   HR        N       Events  K    Subgroup Definition</span></span>
-<span><span class="co">## -------------------------------------------------------------------------------- </span></span>
-<span><span class="co">## 1      2.537     61      34      2    {er &lt;= 0} &amp; {size &lt;= 35}</span></span>
-<span><span class="co">## 2      2.222     75      41      2    {er &lt;= 0} &amp; {pgr &lt;= 32.5}</span></span>
-<span><span class="co">## 3      2.054     61      35      2    {er &lt;= 0} &amp; !{size &lt;= 20}</span></span>
-<span><span class="co">## --------------------------------------------------------------------------------</span></span></code></pre>
-<pre><code><span><span class="co">## Parallel config: workers = 2 , batch_size = 1 </span></span>
-<span><span class="co">## Batch 1 / 3 : candidates 1 - 1 </span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## ==================================================</span></span>
-<span><span class="co">## EARLY STOP TRIGGERED (batch 1 )</span></span>
-<span><span class="co">##   Candidate: 1 of 3 </span></span>
-<span><span class="co">##   Pcons: 0.97 &gt;= 0.8 </span></span>
-<span><span class="co">## ==================================================</span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## Evaluated 1 of 3 candidates (early stop) </span></span>
-<span><span class="co">## 1 subgroups passed consistency threshold</span></span></code></pre>
+<span><span class="co">## ==============================================================================================================</span></span>
+<span><span class="co">## CANDIDATE EVALUATION PREVIEW (pre-consistency) (sg_focus = "maxSG", selection_rule = "neighborhood")</span></span>
+<span><span class="co">## ==============================================================================================================</span></span>
+<span><span class="co">## Rank  HR      N      E     K    OF  Subgroup</span></span>
+<span><span class="co">## --------------------------------------------------------------------------------------------------------------</span></span>
+<span><span class="co">##    1   1.951     82    45    1  *   {er &lt;= 0}</span></span>
+<span><span class="co">##    2   2.222     75    41    2  *   {er &lt;= 0} &amp; {pgr &lt;= 33}</span></span>
+<span><span class="co">##    3   1.710     72    39    2  -   {grade3} &amp; {pgr &lt;= 7}</span></span>
+<span><span class="co">## --------------------------------------------------------------------------------------------------------------</span></span>
+<span><span class="co">## To evaluate: 3   On frontier: 2</span></span>
+<span><span class="co">## Legend: OF = on Pareto frontier.</span></span>
+<span><span class="co">## ==============================================================================================================</span></span></code></pre>
+<pre><code><span><span class="co">## Parallel config: workers = 2 , batch_size = 3 </span></span>
+<span><span class="co">## Batch 1 / 1 : candidates 1 - 3 </span></span>
+<span><span class="co">## Evaluated 3 of 3 candidates (complete) </span></span>
+<span><span class="co">## 3 subgroups passed consistency threshold</span></span></code></pre>
 <p><img src="forestsearch_files/figure-html/forestsearch-main-1.png" class="r-plt" alt="" width="960" style="display: block; margin: auto;"></p>
-<pre><code><span><span class="co">## *** Subgroup found: {er &lt;= 0} {size &lt;= 35} </span></span>
-<span><span class="co">## % consistency criteria met= 0.97 </span></span>
-<span><span class="co">## SG focus = hr </span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 6.335 0.1056 </span></span>
+<pre><code><span><span class="co">## *** Subgroup found: {er &lt;= 0} </span></span>
+<span><span class="co">## % consistency criteria met= 0.96 </span></span>
+<span><span class="co">## SG focus = maxSG </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## ==============================================================================================================</span></span>
+<span><span class="co">## CANDIDATE EVALUATION SUMMARY  (sg_focus = "maxSG", selection_rule = "neighborhood")</span></span>
+<span><span class="co">## ==============================================================================================================</span></span>
+<span><span class="co">## Rank  HR      N      E     K    P      OF  S  Subgroup</span></span>
+<span><span class="co">## --------------------------------------------------------------------------------------------------------------</span></span>
+<span><span class="co">##    1   1.951     82    45    1  0.960  *   *  {er &lt;= 0}</span></span>
+<span><span class="co">##    2   2.222     75    41    2  0.990  *   -  {er &lt;= 0} &amp; {pgr &lt;= 33}</span></span>
+<span><span class="co">##    3   1.710     72    39    2  0.860  -   -  {grade3} &amp; {pgr &lt;= 7}</span></span>
+<span><span class="co">## --------------------------------------------------------------------------------------------------------------</span></span>
+<span><span class="co">## Evaluated: 3   Passed: 3   On frontier: 2   Selected: m=1</span></span>
+<span><span class="co">## Legend: P = Pcons (consistency probability); OF = on Pareto frontier; S = selected.</span></span>
+<span><span class="co">## ==============================================================================================================</span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 4.669 0.0778 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
-<span><span class="co">## Subgroup identified: {er &lt;= 0} &amp; {size &lt;= 35}</span></span></code></pre>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<span><span class="co">## Subgroup identified: {er &lt;= 0}</span></span></code></pre>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://future.futureverse.org/reference/plan.html" class="external-link">plan</a></span><span class="op">(</span><span class="st">"sequential"</span><span class="op">)</span></span>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">forestsearch</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span> <span class="op">-</span> <span class="va">t0</span><span class="op">)</span><span class="op">[</span><span class="st">"elapsed"</span><span class="op">]</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nForestSearch completed in"</span>, </span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">timings</span><span class="op">$</span><span class="va">forestsearch</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"seconds\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## </span></span>
-<span><span class="co">## ForestSearch completed in 6.3 seconds</span></span></code></pre>
+<span><span class="co">## ForestSearch completed in 4.7 seconds</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="forestsearch-results">ForestSearch Results<a class="anchor" aria-label="anchor" href="#forestsearch-results"></a>
@@ -1046,29 +1141,44 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <div class="section level4">
 <h4 id="identified-subgroups">Identified Subgroups<a class="anchor" aria-label="anchor" href="#identified-subgroups"></a>
 </h4>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Generate results tables</span></span>
-<span><span class="va">res_tabs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/sg_tables.html">sg_tables</a></span><span class="op">(</span><span class="va">fs</span>, ndecimals <span class="op">=</span> <span class="fl">3</span>, which_df <span class="op">=</span> <span class="st">"est"</span><span class="op">)</span></span>
+<span><span class="co"># All sg_tables() parameters shown with their default values.</span></span>
+<span><span class="va">res_tabs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/sg_tables.html">sg_tables</a></span><span class="op">(</span></span>
+<span>  fs                    <span class="op">=</span> <span class="va">fs</span>,                                <span class="co"># required</span></span>
+<span>  which_df              <span class="op">=</span> <span class="st">"est"</span>,                             <span class="co"># default "est"</span></span>
+<span>  est_title             <span class="op">=</span> <span class="st">"Treatment Effect Estimates"</span>,      <span class="co"># default "Treatment Effect Estimates"</span></span>
+<span>  est_caption           <span class="op">=</span> <span class="st">"Training data estimates"</span>,         <span class="co"># default "Training data estimates"</span></span>
+<span>  sg_title              <span class="op">=</span> <span class="st">"Identified Subgroups"</span>,            <span class="co"># default "Identified Subgroups"</span></span>
+<span>  sg_subtitle           <span class="op">=</span> <span class="cn">NULL</span>,                              <span class="co"># default NULL</span></span>
+<span>  potentialOutcome.name <span class="op">=</span> <span class="cn">NULL</span>,                              <span class="co"># default NULL</span></span>
+<span>  hr_1a                 <span class="op">=</span> <span class="cn">NA</span>,                                <span class="co"># default NA</span></span>
+<span>  hr_0a                 <span class="op">=</span> <span class="cn">NA</span>,                                <span class="co"># default NA</span></span>
+<span>  ndecimals             <span class="op">=</span> <span class="fl">3</span>,                                 <span class="co"># default 3</span></span>
+<span>  include_search_info   <span class="op">=</span> <span class="cn">TRUE</span>,                              <span class="co"># default TRUE</span></span>
+<span>  subgroup_notation     <span class="op">=</span> <span class="cn">NULL</span>,                              <span class="co"># default NULL; or "harm", "benefit"</span></span>
+<span>  font_size             <span class="op">=</span> <span class="fl">12</span>                                 <span class="co"># default 12</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Display top subgroups meeting criteria</span></span>
 <span><span class="va">res_tabs</span><span class="op">$</span><span class="va">sg10_out</span></span></code></pre></div>
-<div id="ppjflwfsyz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#ppjflwfsyz table {
+<div id="lppjflwfsy" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#lppjflwfsy table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#ppjflwfsyz thead, #ppjflwfsyz tbody, #ppjflwfsyz tfoot, #ppjflwfsyz tr, #ppjflwfsyz td, #ppjflwfsyz th {
+#lppjflwfsy thead, #lppjflwfsy tbody, #lppjflwfsy tfoot, #lppjflwfsy tr, #lppjflwfsy td, #lppjflwfsy th {
   border-style: none;
 }
 
-#ppjflwfsyz p {
+#lppjflwfsy p {
   margin: 0;
   padding: 0;
 }
 
-#ppjflwfsyz .gt_table {
+#lppjflwfsy .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -1094,12 +1204,12 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-left-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_caption {
+#lppjflwfsy .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#ppjflwfsyz .gt_title {
+#lppjflwfsy .gt_title {
   color: #333333;
   font-size: 14px;
   font-weight: initial;
@@ -1111,7 +1221,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-width: 0;
 }
 
-#ppjflwfsyz .gt_subtitle {
+#lppjflwfsy .gt_subtitle {
   color: #333333;
   font-size: 12px;
   font-weight: initial;
@@ -1123,7 +1233,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-top-width: 0;
 }
 
-#ppjflwfsyz .gt_heading {
+#lppjflwfsy .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -1135,13 +1245,13 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_bottom_border {
+#lppjflwfsy .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_col_headings {
+#lppjflwfsy .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1156,7 +1266,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_col_heading {
+#lppjflwfsy .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 12px;
@@ -1176,7 +1286,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   overflow-x: hidden;
 }
 
-#ppjflwfsyz .gt_column_spanner_outer {
+#lppjflwfsy .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 12px;
@@ -1188,15 +1298,15 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 4px;
 }
 
-#ppjflwfsyz .gt_column_spanner_outer:first-child {
+#lppjflwfsy .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#ppjflwfsyz .gt_column_spanner_outer:last-child {
+#lppjflwfsy .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#ppjflwfsyz .gt_column_spanner {
+#lppjflwfsy .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -1208,11 +1318,11 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   width: 100%;
 }
 
-#ppjflwfsyz .gt_spanner_row {
+#lppjflwfsy .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#ppjflwfsyz .gt_group_heading {
+#lppjflwfsy .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1238,7 +1348,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   text-align: left;
 }
 
-#ppjflwfsyz .gt_empty_group_heading {
+#lppjflwfsy .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -1253,15 +1363,15 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   vertical-align: middle;
 }
 
-#ppjflwfsyz .gt_from_md > :first-child {
+#lppjflwfsy .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#ppjflwfsyz .gt_from_md > :last-child {
+#lppjflwfsy .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#ppjflwfsyz .gt_row {
+#lppjflwfsy .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1280,7 +1390,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   overflow-x: hidden;
 }
 
-#ppjflwfsyz .gt_stub {
+#lppjflwfsy .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1293,7 +1403,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_stub_row_group {
+#lppjflwfsy .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1307,15 +1417,15 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   vertical-align: top;
 }
 
-#ppjflwfsyz .gt_row_group_first td {
+#lppjflwfsy .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#ppjflwfsyz .gt_row_group_first th {
+#lppjflwfsy .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#ppjflwfsyz .gt_summary_row {
+#lppjflwfsy .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1325,16 +1435,16 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_first_summary_row {
+#lppjflwfsy .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_first_summary_row.thick {
+#lppjflwfsy .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#ppjflwfsyz .gt_last_summary_row {
+#lppjflwfsy .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1344,7 +1454,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_grand_summary_row {
+#lppjflwfsy .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1354,7 +1464,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_first_grand_summary_row {
+#lppjflwfsy .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1364,7 +1474,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-top-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_last_grand_summary_row_top {
+#lppjflwfsy .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1374,11 +1484,11 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_striped {
+#lppjflwfsy .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#ppjflwfsyz .gt_table_body {
+#lppjflwfsy .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1387,7 +1497,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_footnotes {
+#lppjflwfsy .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1401,7 +1511,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_footnote {
+#lppjflwfsy .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -1410,7 +1520,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_sourcenotes {
+#lppjflwfsy .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1424,7 +1534,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_sourcenote {
+#lppjflwfsy .gt_sourcenote {
   font-size: 11px;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -1432,72 +1542,72 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_left {
+#lppjflwfsy .gt_left {
   text-align: left;
 }
 
-#ppjflwfsyz .gt_center {
+#lppjflwfsy .gt_center {
   text-align: center;
 }
 
-#ppjflwfsyz .gt_right {
+#lppjflwfsy .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#ppjflwfsyz .gt_font_normal {
+#lppjflwfsy .gt_font_normal {
   font-weight: normal;
 }
 
-#ppjflwfsyz .gt_font_bold {
+#lppjflwfsy .gt_font_bold {
   font-weight: bold;
 }
 
-#ppjflwfsyz .gt_font_italic {
+#lppjflwfsy .gt_font_italic {
   font-style: italic;
 }
 
-#ppjflwfsyz .gt_super {
+#lppjflwfsy .gt_super {
   font-size: 65%;
 }
 
-#ppjflwfsyz .gt_footnote_marks {
+#lppjflwfsy .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#ppjflwfsyz .gt_asterisk {
+#lppjflwfsy .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#ppjflwfsyz .gt_indent_1 {
+#lppjflwfsy .gt_indent_1 {
   text-indent: 5px;
 }
 
-#ppjflwfsyz .gt_indent_2 {
+#lppjflwfsy .gt_indent_2 {
   text-indent: 10px;
 }
 
-#ppjflwfsyz .gt_indent_3 {
+#lppjflwfsy .gt_indent_3 {
   text-indent: 15px;
 }
 
-#ppjflwfsyz .gt_indent_4 {
+#lppjflwfsy .gt_indent_4 {
   text-indent: 20px;
 }
 
-#ppjflwfsyz .gt_indent_5 {
+#lppjflwfsy .gt_indent_5 {
   text-indent: 25px;
 }
 
-#ppjflwfsyz .katex-display {
+#lppjflwfsy .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#ppjflwfsyz div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#lppjflwfsy div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -1519,15 +1629,35 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
       <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="Pcons"><span class="gt_from_md">P<sub>cons</sub></span></th>
     </tr>
 </thead>
-<tbody class="gt_table_body"><tr>
+<tbody class="gt_table_body">
+<tr>
 <td headers="M.1" class="gt_row gt_left">{er &lt;= 0}</td>
-<td headers="M.2" class="gt_row gt_left">{size &lt;= 35}</td>
-<td headers="N" class="gt_row gt_right">61</td>
-<td headers="E" class="gt_row gt_right">34</td>
-<td headers="d1" class="gt_row gt_right">15</td>
-<td headers="hr" class="gt_row gt_right">2.537</td>
-<td headers="Pcons" class="gt_row gt_right">0.970</td>
-</tr></tbody>
+<td headers="M.2" class="gt_row gt_left"></td>
+<td headers="N" class="gt_row gt_right">82</td>
+<td headers="E" class="gt_row gt_right">45</td>
+<td headers="d1" class="gt_row gt_right">16</td>
+<td headers="hr" class="gt_row gt_right">1.951</td>
+<td headers="Pcons" class="gt_row gt_right">0.960</td>
+</tr>
+<tr>
+<td headers="M.1" class="gt_row gt_left">{er &lt;= 0}</td>
+<td headers="M.2" class="gt_row gt_left">{pgr &lt;= 33}</td>
+<td headers="N" class="gt_row gt_right">75</td>
+<td headers="E" class="gt_row gt_right">41</td>
+<td headers="d1" class="gt_row gt_right">16</td>
+<td headers="hr" class="gt_row gt_right">2.222</td>
+<td headers="Pcons" class="gt_row gt_right">0.990</td>
+</tr>
+<tr>
+<td headers="M.1" class="gt_row gt_left">{grade3}</td>
+<td headers="M.2" class="gt_row gt_left">{pgr &lt;= 7}</td>
+<td headers="N" class="gt_row gt_right">72</td>
+<td headers="E" class="gt_row gt_right">39</td>
+<td headers="d1" class="gt_row gt_right">13</td>
+<td headers="hr" class="gt_row gt_right">1.710</td>
+<td headers="Pcons" class="gt_row gt_right">0.860</td>
+</tr>
+</tbody>
 <tfoot>
 <tr class="gt_sourcenotes">
 <td class="gt_sourcenote" colspan="7"><span class="gt_from_md"><strong>Search Configuration:</strong> Single-factor candidates (L) = 28; Maximum combinations evaluated = 406; Search depth (maxk) = 2</span></td>
@@ -1545,26 +1675,26 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <div class="section level4">
 <h4 id="treatment-effect-estimates">Treatment Effect Estimates<a class="anchor" aria-label="anchor" href="#treatment-effect-estimates"></a>
 </h4>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># ITT and subgroup estimates</span></span>
 <span><span class="va">res_tabs</span><span class="op">$</span><span class="va">tab_estimates</span></span></code></pre></div>
-<div id="bsappnmlhn" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#bsappnmlhn table {
+<div id="xbsappnmlh" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#xbsappnmlh table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#bsappnmlhn thead, #bsappnmlhn tbody, #bsappnmlhn tfoot, #bsappnmlhn tr, #bsappnmlhn td, #bsappnmlhn th {
+#xbsappnmlh thead, #xbsappnmlh tbody, #xbsappnmlh tfoot, #xbsappnmlh tr, #xbsappnmlh td, #xbsappnmlh th {
   border-style: none;
 }
 
-#bsappnmlhn p {
+#xbsappnmlh p {
   margin: 0;
   padding: 0;
 }
 
-#bsappnmlhn .gt_table {
+#xbsappnmlh .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -1590,12 +1720,12 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-left-color: #D3D3D3;
 }
 
-#bsappnmlhn .gt_caption {
+#xbsappnmlh .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#bsappnmlhn .gt_title {
+#xbsappnmlh .gt_title {
   color: #333333;
   font-size: 14px;
   font-weight: initial;
@@ -1607,7 +1737,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-width: 0;
 }
 
-#bsappnmlhn .gt_subtitle {
+#xbsappnmlh .gt_subtitle {
   color: #333333;
   font-size: 12px;
   font-weight: initial;
@@ -1619,7 +1749,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-top-width: 0;
 }
 
-#bsappnmlhn .gt_heading {
+#xbsappnmlh .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -1631,13 +1761,13 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#bsappnmlhn .gt_bottom_border {
+#xbsappnmlh .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#bsappnmlhn .gt_col_headings {
+#xbsappnmlh .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1652,7 +1782,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#bsappnmlhn .gt_col_heading {
+#xbsappnmlh .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 12px;
@@ -1672,7 +1802,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   overflow-x: hidden;
 }
 
-#bsappnmlhn .gt_column_spanner_outer {
+#xbsappnmlh .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 12px;
@@ -1684,15 +1814,15 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 4px;
 }
 
-#bsappnmlhn .gt_column_spanner_outer:first-child {
+#xbsappnmlh .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#bsappnmlhn .gt_column_spanner_outer:last-child {
+#xbsappnmlh .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#bsappnmlhn .gt_column_spanner {
+#xbsappnmlh .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -1704,11 +1834,11 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   width: 100%;
 }
 
-#bsappnmlhn .gt_spanner_row {
+#xbsappnmlh .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#bsappnmlhn .gt_group_heading {
+#xbsappnmlh .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1734,7 +1864,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   text-align: left;
 }
 
-#bsappnmlhn .gt_empty_group_heading {
+#xbsappnmlh .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -1749,15 +1879,15 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   vertical-align: middle;
 }
 
-#bsappnmlhn .gt_from_md > :first-child {
+#xbsappnmlh .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#bsappnmlhn .gt_from_md > :last-child {
+#xbsappnmlh .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#bsappnmlhn .gt_row {
+#xbsappnmlh .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1776,7 +1906,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   overflow-x: hidden;
 }
 
-#bsappnmlhn .gt_stub {
+#xbsappnmlh .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1789,7 +1919,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#bsappnmlhn .gt_stub_row_group {
+#xbsappnmlh .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1803,15 +1933,15 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   vertical-align: top;
 }
 
-#bsappnmlhn .gt_row_group_first td {
+#xbsappnmlh .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#bsappnmlhn .gt_row_group_first th {
+#xbsappnmlh .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#bsappnmlhn .gt_summary_row {
+#xbsappnmlh .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1821,16 +1951,16 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#bsappnmlhn .gt_first_summary_row {
+#xbsappnmlh .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#bsappnmlhn .gt_first_summary_row.thick {
+#xbsappnmlh .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#bsappnmlhn .gt_last_summary_row {
+#xbsappnmlh .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1840,7 +1970,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#bsappnmlhn .gt_grand_summary_row {
+#xbsappnmlh .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1850,7 +1980,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#bsappnmlhn .gt_first_grand_summary_row {
+#xbsappnmlh .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1860,7 +1990,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-top-color: #D3D3D3;
 }
 
-#bsappnmlhn .gt_last_grand_summary_row_top {
+#xbsappnmlh .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1870,11 +2000,11 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#bsappnmlhn .gt_striped {
+#xbsappnmlh .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#bsappnmlhn .gt_table_body {
+#xbsappnmlh .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1883,7 +2013,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#bsappnmlhn .gt_footnotes {
+#xbsappnmlh .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1897,7 +2027,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#bsappnmlhn .gt_footnote {
+#xbsappnmlh .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -1906,7 +2036,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#bsappnmlhn .gt_sourcenotes {
+#xbsappnmlh .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1920,7 +2050,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#bsappnmlhn .gt_sourcenote {
+#xbsappnmlh .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -1928,72 +2058,72 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#bsappnmlhn .gt_left {
+#xbsappnmlh .gt_left {
   text-align: left;
 }
 
-#bsappnmlhn .gt_center {
+#xbsappnmlh .gt_center {
   text-align: center;
 }
 
-#bsappnmlhn .gt_right {
+#xbsappnmlh .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#bsappnmlhn .gt_font_normal {
+#xbsappnmlh .gt_font_normal {
   font-weight: normal;
 }
 
-#bsappnmlhn .gt_font_bold {
+#xbsappnmlh .gt_font_bold {
   font-weight: bold;
 }
 
-#bsappnmlhn .gt_font_italic {
+#xbsappnmlh .gt_font_italic {
   font-style: italic;
 }
 
-#bsappnmlhn .gt_super {
+#xbsappnmlh .gt_super {
   font-size: 65%;
 }
 
-#bsappnmlhn .gt_footnote_marks {
+#xbsappnmlh .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#bsappnmlhn .gt_asterisk {
+#xbsappnmlh .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#bsappnmlhn .gt_indent_1 {
+#xbsappnmlh .gt_indent_1 {
   text-indent: 5px;
 }
 
-#bsappnmlhn .gt_indent_2 {
+#xbsappnmlh .gt_indent_2 {
   text-indent: 10px;
 }
 
-#bsappnmlhn .gt_indent_3 {
+#xbsappnmlh .gt_indent_3 {
   text-indent: 15px;
 }
 
-#bsappnmlhn .gt_indent_4 {
+#xbsappnmlh .gt_indent_4 {
   text-indent: 20px;
 }
 
-#bsappnmlhn .gt_indent_5 {
+#xbsappnmlh .gt_indent_5 {
   text-indent: 25px;
 }
 
-#bsappnmlhn .katex-display {
+#xbsappnmlh .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#bsappnmlhn div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#xbsappnmlh div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -2025,33 +2155,33 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <td headers="m1" class="gt_row gt_right">66.3</td>
 <td headers="m0" class="gt_row gt_right">50.2</td>
 <td headers="RMST" class="gt_row gt_right">7.8</td>
-<td headers="HR (95% CI)" class="gt_row gt_right">0.69 (0.54, 0.89)</td>
+<td headers="HR-(95%-CI)" class="gt_row gt_right">0.69 (0.54, 0.89)</td>
 </tr>
 <tr>
 <td headers="Subgroup" class="gt_row gt_left">Questionable<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>1</sup></span>
 </td>
-<td headers="n" class="gt_row gt_right">61 (8.9%)</td>
-<td headers="n1" class="gt_row gt_right">23 (37.7%)</td>
-<td headers="events" class="gt_row gt_right">34 (55.7%)</td>
-<td headers="m1" class="gt_row gt_right">18.5</td>
-<td headers="m0" class="gt_row gt_right">48</td>
-<td headers="RMST" class="gt_row gt_right">-19</td>
-<td headers="HR (95% CI)" class="gt_row gt_right">2.54 (1.25, 5.17)</td>
+<td headers="n" class="gt_row gt_right">82 (12.0%)</td>
+<td headers="n1" class="gt_row gt_right">26 (31.7%)</td>
+<td headers="events" class="gt_row gt_right">45 (54.9%)</td>
+<td headers="m1" class="gt_row gt_right">22.9</td>
+<td headers="m0" class="gt_row gt_right">43.7</td>
+<td headers="RMST" class="gt_row gt_right">-14</td>
+<td headers="HR-(95%-CI)" class="gt_row gt_right">1.95 (1.04, 3.67)</td>
 </tr>
 <tr>
 <td headers="Subgroup" class="gt_row gt_left">Recommend</td>
-<td headers="n" class="gt_row gt_right">625 (91.1%)</td>
-<td headers="n1" class="gt_row gt_right">223 (35.7%)</td>
-<td headers="events" class="gt_row gt_right">265 (42.4%)</td>
+<td headers="n" class="gt_row gt_right">604 (88.0%)</td>
+<td headers="n1" class="gt_row gt_right">220 (36.4%)</td>
+<td headers="events" class="gt_row gt_right">254 (42.1%)</td>
 <td headers="m1" class="gt_row gt_right">66.7</td>
-<td headers="m0" class="gt_row gt_right">52.2</td>
-<td headers="RMST" class="gt_row gt_right">9.6</td>
-<td headers="HR (95% CI)" class="gt_row gt_right">0.61 (0.47, 0.79)</td>
+<td headers="m0" class="gt_row gt_right">52.6</td>
+<td headers="RMST" class="gt_row gt_right">9.3</td>
+<td headers="HR-(95%-CI)" class="gt_row gt_right">0.61 (0.47, 0.80)</td>
 </tr>
 </tbody>
 <tfoot><tr class="gt_footnotes">
 <td class="gt_footnote" colspan="8">
-<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>1</sup></span> <span class="gt_from_md"><strong>Identified subgroup</strong> : {er &lt;= 0} &amp; {size &lt;= 35}</span>
+<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>1</sup></span> <span class="gt_from_md"><strong>Identified subgroup:</strong> {er &lt;= 0}</span>
 </td>
     </tr></tfoot>
 </table>
@@ -2060,14 +2190,14 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <div class="section level4">
 <h4 id="identified-subgroup-definition">Identified Subgroup Definition<a class="anchor" aria-label="anchor" href="#identified-subgroup-definition"></a>
 </h4>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Identified subgroup (H):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">sg.harm</span>, collapse <span class="op">=</span> <span class="st">" &amp; "</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Identified subgroup (H): {er &lt;= 0} &amp; {size &lt;= 35}</span></span></code></pre>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<pre><code><span><span class="co">## Identified subgroup (H): {er &lt;= 0}</span></span></code></pre>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Subgroup size:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">df.est</span><span class="op">$</span><span class="va">treat.recommend</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span>, </span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"(%.1f%% of ITT)\n"</span>, </span>
 <span>            <span class="fl">100</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">df.est</span><span class="op">$</span><span class="va">treat.recommend</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Subgroup size: 61 (8.9% of ITT)</span></span></code></pre>
+<pre><code><span><span class="co">## Subgroup size: 82 (12.0% of ITT)</span></span></code></pre>
 <p>ForestSearch identifies <strong>Estrogen ≤ 0</strong> (ER-negative)
 as the subgroup with potential harm. This is biologically plausible:
 tamoxifen is a selective estrogen receptor modulator with limited
@@ -2095,23 +2225,24 @@ addresses this by:</p>
 <div class="section level3">
 <h3 id="running-bootstrap-analysis">Running Bootstrap Analysis<a class="anchor" aria-label="anchor" href="#running-bootstrap-analysis"></a>
 </h3>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Number of bootstrap iterations</span></span>
 <span><span class="co"># Use 500-2000 for production; reduced here for vignette</span></span>
 <span><span class="va">NB</span> <span class="op">&lt;-</span> <span class="fl">2</span></span>
 <span></span>
 <span><span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># All forestsearch_bootstrap_dofuture() parameters shown with their defaults.</span></span>
 <span><span class="va">fs_bc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch_bootstrap_dofuture.html">forestsearch_bootstrap_dofuture</a></span><span class="op">(</span></span>
-<span>  fs.est <span class="op">=</span> <span class="va">fs</span>,</span>
-<span>  nb_boots <span class="op">=</span> <span class="va">NB</span>,</span>
-<span>  show_three <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  details <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    plan <span class="op">=</span> <span class="st">"multisession"</span>,</span>
-<span>    workers <span class="op">=</span> <span class="va">n_cores</span>,</span>
-<span>    show_message <span class="op">=</span> <span class="cn">TRUE</span></span>
-<span>  <span class="op">)</span></span>
+<span>  fs.est        <span class="op">=</span> <span class="va">fs</span>,                                        <span class="co"># required</span></span>
+<span>  nb_boots      <span class="op">=</span> <span class="va">NB</span>,                                        <span class="co"># required (use 500-2000 for production)</span></span>
+<span>  seed          <span class="op">=</span> <span class="fl">8316951L</span>,                                  <span class="co"># default 8316951L</span></span>
+<span>  details       <span class="op">=</span> <span class="cn">FALSE</span>,                                     <span class="co"># default FALSE</span></span>
+<span>  show_three    <span class="op">=</span> <span class="cn">FALSE</span>,                                     <span class="co"># default FALSE</span></span>
+<span>  parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"multisession"</span>,</span>
+<span>                       workers <span class="op">=</span> <span class="va">n_cores</span>,</span>
+<span>                       show_message <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,                 <span class="co"># default list()</span></span>
+<span>  digits        <span class="op">=</span> <span class="fl">4</span>                                          <span class="co"># default 4</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://future.futureverse.org/reference/plan.html" class="external-link">plan</a></span><span class="op">(</span><span class="st">"sequential"</span><span class="op">)</span></span>
@@ -2120,18 +2251,19 @@ addresses this by:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nBootstrap completed in"</span>, </span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">timings</span><span class="op">$</span><span class="va">bootstrap</span> <span class="op">/</span> <span class="fl">60</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"minutes\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## </span></span>
-<span><span class="co">## Bootstrap completed in 0.2 minutes</span></span></code></pre>
+<span><span class="co">## Bootstrap completed in 0.1 minutes</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="bootstrap-summary-and-diagnostics">Bootstrap Summary and Diagnostics<a class="anchor" aria-label="anchor" href="#bootstrap-summary-and-diagnostics"></a>
 </h3>
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Comprehensive summary with diagnostics</span></span>
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># All summarize_bootstrap_results() parameters shown with their defaults.</span></span>
 <span><span class="va">summaries</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/summarize_bootstrap_results.html">summarize_bootstrap_results</a></span><span class="op">(</span></span>
-<span>  sgharm <span class="op">=</span> <span class="va">fs</span><span class="op">$</span><span class="va">sg.harm</span>,</span>
-<span>  boot_results <span class="op">=</span> <span class="va">fs_bc</span>,</span>
-<span>  create_plots <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  est.scale <span class="op">=</span> <span class="st">"hr"</span></span>
+<span>  sgharm       <span class="op">=</span> <span class="va">fs</span><span class="op">$</span><span class="va">sg.harm</span>,                                 <span class="co"># required</span></span>
+<span>  boot_results <span class="op">=</span> <span class="va">fs_bc</span>,                                      <span class="co"># required</span></span>
+<span>  create_plots <span class="op">=</span> <span class="cn">TRUE</span>,                                       <span class="co"># default FALSE</span></span>
+<span>  est.scale    <span class="op">=</span> <span class="st">"hr"</span>,                                       <span class="co"># default "hr"</span></span>
+<span>  digits       <span class="op">=</span> <span class="fl">2</span>                                           <span class="co"># default 2</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## </span></span>
 <span><span class="co">## ===============================================================</span></span>
@@ -2140,7 +2272,7 @@ addresses this by:</p>
 <span><span class="co">## </span></span>
 <span><span class="co">## IDENTIFIED SUBGROUP:</span></span>
 <span><span class="co">## -------------------------------------------------------------</span></span>
-<span><span class="co">##   H: {er &lt;= 0} &amp; {size &lt;= 35}</span></span>
+<span><span class="co">##   H: {er &lt;= 0}</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## BOOTSTRAP SUCCESS METRICS:</span></span>
 <span><span class="co">## -------------------------------------------------------------</span></span>
@@ -2151,10 +2283,10 @@ addresses this by:</p>
 <span><span class="co">## TIMING ANALYSIS:</span></span>
 <span><span class="co">## -------------------------------------------------------------</span></span>
 <span><span class="co">## Overall:</span></span>
-<span><span class="co">##   Total bootstrap time:          0.14 minutes (0.00 hours)</span></span>
-<span><span class="co">##   Average per iteration:         0.07 min (4.1 sec)</span></span>
-<span><span class="co">##   Projected for 1000 boots:      68.98 min (1.15 hrs)</span></span></code></pre>
-<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<span><span class="co">##   Total bootstrap time:          0.13 minutes (0.00 hours)</span></span>
+<span><span class="co">##   Average per iteration:         0.07 min (4.0 sec)</span></span>
+<span><span class="co">##   Projected for 1000 boots:      66.02 min (1.10 hrs)</span></span></code></pre>
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Display bias-corrected estimates table</span></span>
 <span><span class="va">summaries</span><span class="op">$</span><span class="va">table</span></span></code></pre></div>
 <div id="ppjflwfsyz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
@@ -2616,13 +2748,13 @@ addresses this by:</p>
     </tr>
 <tr class="gt_col_headings gt_spanner_row">
 <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="2" colspan="1" scope="col" id="Subgroup">Subgroup</th>
-      <th class="gt_center gt_columns_top_border gt_column_spanner_outer" rowspan="1" colspan="3" scope="colgroup" id="Sample Size">
+      <th class="gt_center gt_columns_top_border gt_column_spanner_outer" rowspan="1" colspan="3" scope="colgroup" id="Sample-Size">
         <div class="gt_column_spanner">Sample Size</div>
       </th>
       <th class="gt_center gt_columns_top_border gt_column_spanner_outer" rowspan="1" colspan="3" scope="colgroup" id="Survival">
         <div class="gt_column_spanner">Survival</div>
       </th>
-      <th class="gt_center gt_columns_top_border gt_column_spanner_outer" rowspan="1" colspan="2" scope="colgroup" id="Treatment Effect">
+      <th class="gt_center gt_columns_top_border gt_column_spanner_outer" rowspan="1" colspan="2" scope="colgroup" id="Treatment-Effect">
         <div class="gt_column_spanner">Treatment Effect</div>
       </th>
     </tr>
@@ -2636,7 +2768,7 @@ addresses this by:</p>
       <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="HR-(95%-CI)">
 <span class="gt_from_md">HR<br>(95% CI)<sup>†</sup></span><span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>1</sup></span>
 </th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="HR*">
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="HR*">
 <span class="gt_from_md">HR<sup>‡</sup><br>(95% CI)</span><span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>2</sup></span>
 </th>
     </tr>
@@ -2645,25 +2777,25 @@ addresses this by:</p>
 <tr>
 <td headers="Subgroup" class="gt_row gt_left">Qstnbl<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>3</sup></span>
 </td>
-<td headers="n" class="gt_row gt_right">61 (8.9%)</td>
-<td headers="n1" class="gt_row gt_right">23 (37.7%)</td>
-<td headers="events" class="gt_row gt_right">34 (55.7%)</td>
-<td headers="m1" class="gt_row gt_right">18.5</td>
-<td headers="m0" class="gt_row gt_right">48</td>
-<td headers="RMST" class="gt_row gt_right">-19</td>
-<td headers="HR (95% CI)" class="gt_row gt_right">2.54 (1.25, 5.17)</td>
-<td headers="HR*" class="gt_row gt_right">2.13 (0.15,29.84)</td>
+<td headers="n" class="gt_row gt_right">82 (12.0%)</td>
+<td headers="n1" class="gt_row gt_right">26 (31.7%)</td>
+<td headers="events" class="gt_row gt_right">45 (54.9%)</td>
+<td headers="m1" class="gt_row gt_right">22.9</td>
+<td headers="m0" class="gt_row gt_right">43.7</td>
+<td headers="RMST" class="gt_row gt_right">-14</td>
+<td headers="HR-(95%-CI)" class="gt_row gt_right">1.95 (1.04, 3.67)</td>
+<td headers="HR*" class="gt_row gt_left">3.0206 (1e-04,148775.2913)</td>
 </tr>
 <tr>
 <td headers="Subgroup" class="gt_row gt_left">Recmnd</td>
-<td headers="n" class="gt_row gt_right">625 (91.1%)</td>
-<td headers="n1" class="gt_row gt_right">223 (35.7%)</td>
-<td headers="events" class="gt_row gt_right">265 (42.4%)</td>
+<td headers="n" class="gt_row gt_right">604 (88.0%)</td>
+<td headers="n1" class="gt_row gt_right">220 (36.4%)</td>
+<td headers="events" class="gt_row gt_right">254 (42.1%)</td>
 <td headers="m1" class="gt_row gt_right">66.7</td>
-<td headers="m0" class="gt_row gt_right">52.2</td>
-<td headers="RMST" class="gt_row gt_right">9.6</td>
-<td headers="HR (95% CI)" class="gt_row gt_right">0.61 (0.47, 0.79)</td>
-<td headers="HR*" class="gt_row gt_right">0.57 (0.08,3.95)</td>
+<td headers="m0" class="gt_row gt_right">52.6</td>
+<td headers="RMST" class="gt_row gt_right">9.3</td>
+<td headers="HR-(95%-CI)" class="gt_row gt_right">0.61 (0.47, 0.80)</td>
+<td headers="HR*" class="gt_row gt_left">0.75 (0.19,2.86)</td>
 </tr>
 </tbody>
 <tfoot>
@@ -2679,7 +2811,7 @@ addresses this by:</p>
     </tr>
 <tr class="gt_footnotes">
 <td class="gt_footnote" colspan="9">
-<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>3</sup></span> <span class="gt_from_md"><strong>Identified subgroup</strong>: {er &lt;= 0} &amp; {size &lt;= 35}</span>
+<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>3</sup></span> <span class="gt_from_md"><strong>Identified subgroup</strong>: {er &lt;= 0}</span>
 </td>
     </tr>
 <tr class="gt_sourcenotes">
@@ -2692,38 +2824,52 @@ addresses this by:</p>
 <div class="section level3">
 <h3 id="kaplan-meier-by-identified-subgroups">Kaplan-Meier by Identified Subgroups<a class="anchor" aria-label="anchor" href="#kaplan-meier-by-identified-subgroups"></a>
 </h3>
-<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span> <span class="va">km_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plot_sg_weighted_km.html">plot_sg_weighted_km</a></span><span class="op">(</span></span>
-<span>   fs.est <span class="op">=</span> <span class="va">fs</span>,</span>
-<span>   outcome.name <span class="op">=</span> <span class="st">"time_months"</span>,</span>
-<span>   event.name <span class="op">=</span> <span class="st">"status"</span>,</span>
-<span>   treat.name <span class="op">=</span> <span class="st">"hormon"</span>,</span>
-<span>   show.logrank <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>   conf.int <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>   by.risk <span class="op">=</span> <span class="fl">12</span>,</span>
-<span>   show.cox <span class="op">=</span> <span class="cn">FALSE</span>, show.cox.bc <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>   fs_bc <span class="op">=</span> <span class="va">fs_bc</span>,</span>
-<span>   hr_bc_position <span class="op">=</span> <span class="st">"topright"</span></span>
-<span> <span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># All plot_sg_weighted_km() parameters shown with their defaults.</span></span>
+<span><span class="va">km_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plot_sg_weighted_km.html">plot_sg_weighted_km</a></span><span class="op">(</span></span>
+<span>  fs.est         <span class="op">=</span> <span class="va">fs</span>,                                       <span class="co"># required</span></span>
+<span>  fs_bc          <span class="op">=</span> <span class="va">fs_bc</span>,                                    <span class="co"># default NULL</span></span>
+<span>  outcome.name   <span class="op">=</span> <span class="st">"time_months"</span>,                            <span class="co"># default "Y"</span></span>
+<span>  event.name     <span class="op">=</span> <span class="st">"status"</span>,                                 <span class="co"># default "Event"</span></span>
+<span>  treat.name     <span class="op">=</span> <span class="st">"hormon"</span>,                                 <span class="co"># default "Treat"</span></span>
+<span>  by.risk        <span class="op">=</span> <span class="fl">12</span>,                                       <span class="co"># default NULL</span></span>
+<span>  sg0_name       <span class="op">=</span> <span class="cn">NULL</span>,                                     <span class="co"># default NULL</span></span>
+<span>  sg1_name       <span class="op">=</span> <span class="cn">NULL</span>,                                     <span class="co"># default NULL</span></span>
+<span>  conf.int       <span class="op">=</span> <span class="cn">TRUE</span>,                                     <span class="co"># default TRUE</span></span>
+<span>  show.logrank   <span class="op">=</span> <span class="cn">FALSE</span>,                                    <span class="co"># default TRUE</span></span>
+<span>  show.cox       <span class="op">=</span> <span class="cn">FALSE</span>,                                    <span class="co"># default TRUE</span></span>
+<span>  show.cox.bc    <span class="op">=</span> <span class="cn">TRUE</span>,                                     <span class="co"># default TRUE</span></span>
+<span>  put.legend.lr  <span class="op">=</span> <span class="st">"topleft"</span>,                                <span class="co"># default "topleft"</span></span>
+<span>  ymax           <span class="op">=</span> <span class="fl">1.05</span>,                                     <span class="co"># default 1.05</span></span>
+<span>  xmed.fraction  <span class="op">=</span> <span class="fl">0.65</span>,                                     <span class="co"># default 0.65</span></span>
+<span>  hr_bc_position <span class="op">=</span> <span class="st">"topright"</span>,                               <span class="co"># default "bottomright"</span></span>
+<span>  hr_bc_cex      <span class="op">=</span> <span class="fl">0.725</span>,                                    <span class="co"># default 0.725</span></span>
+<span>  title          <span class="op">=</span> <span class="cn">NULL</span>,                                     <span class="co"># default NULL</span></span>
+<span>  verbose        <span class="op">=</span> <span class="cn">FALSE</span>                                     <span class="co"># default FALSE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="forestsearch_files/figure-html/fs-results_figure-1.png" class="r-plt" alt="Kaplan-Meier survival curves by identified subgroup" width="960"><p class="caption">
 Kaplan-Meier survival curves by identified subgroup
 </p>
 </div>
 <div class="figure-note">
-<p><strong>Note:</strong> Identified subgroup: {er &lt;= 0} &amp; {size
-&lt;= 35}. HR(bc) = bootstrap bias-corrected hazard ratio. Medians [95%
-CI] for arms are un-adjusted.</p>
+<p><strong>Note:</strong> Identified subgroup: {er &lt;= 0}. HR(bc) =
+bootstrap bias-corrected hazard ratio. Medians [95% CI] for arms are
+un-adjusted.</p>
 </div>
 <div class="section level4">
 <h4 id="event-count-summary">Event Count Summary<a class="anchor" aria-label="anchor" href="#event-count-summary"></a>
 </h4>
 <p>Low event counts can lead to unstable HR estimates. This summary
 helps identify potential issues:</p>
-<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># note that default required minimum events is 12 for subgroup candidate</span></span>
 <span><span class="co"># Here we evaluate frequency of subgroup candidates in bootstrap samples less than 15</span></span>
-<span><span class="va">event_summary</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/summarize_bootstrap_events.html">summarize_bootstrap_events</a></span><span class="op">(</span><span class="va">fs_bc</span>, threshold <span class="op">=</span> <span class="fl">15</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># All summarize_bootstrap_events() parameters shown with their defaults.</span></span>
+<span><span class="va">event_summary</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/summarize_bootstrap_events.html">summarize_bootstrap_events</a></span><span class="op">(</span></span>
+<span>  boot_results <span class="op">=</span> <span class="va">fs_bc</span>,                                      <span class="co"># required</span></span>
+<span>  threshold    <span class="op">=</span> <span class="fl">15</span>                                          <span class="co"># default 5</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## </span></span>
 <span><span class="co">## === Bootstrap Event Count Summary ===</span></span>
 <span><span class="co">## Total bootstrap iterations: 2</span></span>
@@ -2742,9 +2888,9 @@ helps identify potential issues:</p>
 <span><span class="co">## NEW Subgroups found: 2 (100.0%)</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## NEW Subgroup H* on ORIGINAL data:</span></span>
-<span><span class="co">##   Control arm &lt;15 events: 1 (50.0% of successful)</span></span>
-<span><span class="co">##   Treatment arm &lt;15 events: 1 (50.0% of successful)</span></span>
-<span><span class="co">##   Either arm &lt;15 events: 1 (50.0% of successful)</span></span>
+<span><span class="co">##   Control arm &lt;15 events: 0 (0.0% of successful)</span></span>
+<span><span class="co">##   Treatment arm &lt;15 events: 0 (0.0% of successful)</span></span>
+<span><span class="co">##   Either arm &lt;15 events: 0 (0.0% of successful)</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## NEW Subgroup Hc* on ORIGINAL data:</span></span>
 <span><span class="co">##   Control arm &lt;15 events: 0 (0.0% of successful)</span></span>
@@ -2754,7 +2900,7 @@ helps identify potential issues:</p>
 <div class="section level4">
 <h4 id="bootstrap-diagnostics">Bootstrap Diagnostics<a class="anchor" aria-label="anchor" href="#bootstrap-diagnostics"></a>
 </h4>
-<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Quality metrics</span></span>
 <span><span class="va">summaries</span><span class="op">$</span><span class="va">diagnostics_table_gt</span></span></code></pre></div>
 <div id="knzabjqler" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
@@ -3244,17 +3390,17 @@ helps identify potential issues:</p>
 <tr>
 <td headers="Category" class="gt_row gt_left" style="background-color: #F8F9FA; font-weight: bold;">Subgroup H (Questionable)</td>
 <td headers="Metric" class="gt_row gt_left">Observed HR</td>
-<td headers="Value" class="gt_row gt_left">2.537</td>
+<td headers="Value" class="gt_row gt_left">1.951</td>
 </tr>
 <tr>
 <td headers="Category" class="gt_row gt_left"></td>
 <td headers="Metric" class="gt_row gt_left">Bias-corrected HR</td>
-<td headers="Value" class="gt_row gt_left">2.131</td>
+<td headers="Value" class="gt_row gt_left">3.021</td>
 </tr>
 <tr>
 <td headers="Category" class="gt_row gt_left"></td>
 <td headers="Metric" class="gt_row gt_left">Bootstrap CV (%)</td>
-<td headers="Value" class="gt_row gt_left">60.2%</td>
+<td headers="Value" class="gt_row gt_left">38.5%</td>
 </tr>
 <tr>
 <td headers="Category" class="gt_row gt_left"></td>
@@ -3264,17 +3410,17 @@ helps identify potential issues:</p>
 <tr>
 <td headers="Category" class="gt_row gt_left" style="background-color: #F8F9FA; font-weight: bold;">Subgroup Hc (Recommend)</td>
 <td headers="Metric" class="gt_row gt_left">Observed HR</td>
-<td headers="Value" class="gt_row gt_left">0.608</td>
+<td headers="Value" class="gt_row gt_left">0.615</td>
 </tr>
 <tr>
 <td headers="Category" class="gt_row gt_left"></td>
 <td headers="Metric" class="gt_row gt_left">Bias-corrected HR</td>
-<td headers="Value" class="gt_row gt_left">0.570</td>
+<td headers="Value" class="gt_row gt_left">0.746</td>
 </tr>
 <tr>
 <td headers="Category" class="gt_row gt_left"></td>
 <td headers="Metric" class="gt_row gt_left">Bootstrap CV (%)</td>
-<td headers="Value" class="gt_row gt_left">59.4%</td>
+<td headers="Value" class="gt_row gt_left">18.1%</td>
 </tr>
 <tr>
 <td headers="Category" class="gt_row gt_left"></td>
@@ -3289,36 +3435,35 @@ helps identify potential issues:</p>
 <h4 id="subgroup-agreement">Subgroup Agreement<a class="anchor" aria-label="anchor" href="#subgroup-agreement"></a>
 </h4>
 <p>How consistently does bootstrap identify the same subgroup?</p>
-<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Agreement with original analysis</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">summaries</span><span class="op">$</span><span class="va">subgroup_summary</span><span class="op">$</span><span class="va">original_agreement</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">summaries</span><span class="op">$</span><span class="va">subgroup_summary</span><span class="op">$</span><span class="va">original_agreement</span></span>
 <span><span class="op">}</span></span></code></pre></div>
-<pre><code><span><span class="co">##                             Metric                    Value</span></span>
-<span><span class="co">##                             &lt;char&gt;                   &lt;char&gt;</span></span>
-<span><span class="co">## 1:      Total bootstrap iterations                        2</span></span>
-<span><span class="co">## 2:           Successful iterations                        2</span></span>
-<span><span class="co">## 3: Failed iterations (no subgroup)                        0</span></span>
-<span><span class="co">## 4:                                                         </span></span>
-<span><span class="co">## 5:    Original subgroup definition {er &lt;= 0} &amp; {size &lt;= 35}</span></span>
-<span><span class="co">## 6:       Exact match with original                 0 (0.0%)</span></span>
-<span><span class="co">## 7:         Different from original               2 (100.0%)</span></span>
-<span><span class="co">## 8:   Partial match (shared factor)                 0 (0.0%)</span></span></code></pre>
-<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
+<pre><code><span><span class="co">##                             Metric      Value</span></span>
+<span><span class="co">##                             &lt;char&gt;     &lt;char&gt;</span></span>
+<span><span class="co">## 1:      Total bootstrap iterations          2</span></span>
+<span><span class="co">## 2:           Successful iterations          2</span></span>
+<span><span class="co">## 3: Failed iterations (no subgroup)          0</span></span>
+<span><span class="co">## 4:                                           </span></span>
+<span><span class="co">## 5:    Original subgroup definition  {er &lt;= 0}</span></span>
+<span><span class="co">## 6:       Exact match with original   0 (0.0%)</span></span>
+<span><span class="co">## 7:         Different from original 2 (100.0%)</span></span>
+<span><span class="co">## 8:   Partial match (shared factor)   0 (0.0%)</span></span></code></pre>
+<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Factor presence across bootstrap iterations</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">summaries</span><span class="op">$</span><span class="va">subgroup_summary</span><span class="op">$</span><span class="va">factor_presence</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">summaries</span><span class="op">$</span><span class="va">subgroup_summary</span><span class="op">$</span><span class="va">factor_presence</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <pre><code><span><span class="co">##   Rank Factor Count Percent</span></span>
-<span><span class="co">## 1    1    age     1      50</span></span>
-<span><span class="co">## 2    2 grade3     1      50</span></span>
-<span><span class="co">## 3    3    pgr     1      50</span></span>
-<span><span class="co">## 4    4   size     1      50</span></span></code></pre>
+<span><span class="co">## 1    1     er     2     100</span></span>
+<span><span class="co">## 2    2    pgr     1      50</span></span>
+<span><span class="co">## 3    3   size     1      50</span></span></code></pre>
 </div>
 <div class="section level4">
 <h4 id="bootstrap-distributions">Bootstrap Distributions<a class="anchor" aria-label="anchor" href="#bootstrap-distributions"></a>
 </h4>
-<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">summaries</span><span class="op">$</span><span class="va">plots</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">summaries</span><span class="op">$</span><span class="va">plots</span><span class="op">$</span><span class="va">H_distribution</span> <span class="op">+</span> <span class="va">summaries</span><span class="op">$</span><span class="va">plots</span><span class="op">$</span><span class="va">Hc_distribution</span></span>
 <span><span class="op">}</span></span></code></pre></div>
@@ -3334,28 +3479,40 @@ ForestSearch algorithm. Two approaches are available:</p>
 <div class="section level3">
 <h3 id="k-fold-cross-validation">K-Fold Cross-Validation<a class="anchor" aria-label="anchor" href="#k-fold-cross-validation"></a>
 </h3>
-<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># 10-fold CV with multiple iterations</span></span>
 <span><span class="co"># Use Ksims &gt;= 50 for production</span></span>
 <span><span class="va">Ksims</span> <span class="op">&lt;-</span> <span class="fl">1</span></span>
 <span></span>
 <span><span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># All forestsearch_tenfold() parameters shown with their defaults.</span></span>
 <span><span class="va">fs_kfold</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch_tenfold.html">forestsearch_tenfold</a></span><span class="op">(</span></span>
-<span>  fs.est <span class="op">=</span> <span class="va">fs</span>,</span>
-<span>  sims <span class="op">=</span> <span class="va">Ksims</span>,</span>
-<span>  Kfolds <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  details <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    plan <span class="op">=</span> <span class="st">"multisession"</span>,</span>
-<span>    workers <span class="op">=</span> <span class="va">n_cores</span>,</span>
-<span>    show_message <span class="op">=</span> <span class="cn">FALSE</span></span>
-<span>  <span class="op">)</span></span>
+<span>  fs.est        <span class="op">=</span> <span class="va">fs</span>,                                        <span class="co"># required</span></span>
+<span>  sims          <span class="op">=</span> <span class="va">Ksims</span>,                                     <span class="co"># required (use &gt;=50 for production)</span></span>
+<span>  Kfolds        <span class="op">=</span> <span class="fl">2</span>,                                         <span class="co"># default 10</span></span>
+<span>  details       <span class="op">=</span> <span class="cn">FALSE</span>,                                     <span class="co"># default TRUE</span></span>
+<span>  seed          <span class="op">=</span> <span class="fl">8316951L</span>,                                  <span class="co"># default 8316951L</span></span>
+<span>  parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"multisession"</span>,</span>
+<span>                       workers <span class="op">=</span> <span class="va">n_cores</span>,</span>
+<span>                       show_message <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>,                <span class="co"># default plan="multisession", workers=6</span></span>
+<span>  keep_resCV    <span class="op">=</span> <span class="cn">FALSE</span>                                      <span class="co"># default FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://future.futureverse.org/reference/plan.html" class="external-link">plan</a></span><span class="op">(</span><span class="st">"sequential"</span><span class="op">)</span></span>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">kfold</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span> <span class="op">-</span> <span class="va">t0</span><span class="op">)</span><span class="op">[</span><span class="st">"elapsed"</span><span class="op">]</span></span>
-<span><span class="va">metrics_tables</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cv_metrics_tables.html">cv_metrics_tables</a></span><span class="op">(</span><span class="va">fs_kfold</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># All cv_metrics_tables() parameters shown with their defaults.</span></span>
+<span><span class="va">metrics_tables</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cv_metrics_tables.html">cv_metrics_tables</a></span><span class="op">(</span></span>
+<span>  cv_result        <span class="op">=</span> <span class="va">fs_kfold</span>,                               <span class="co"># required</span></span>
+<span>  sg_definition    <span class="op">=</span> <span class="cn">NULL</span>,                                   <span class="co"># default NULL</span></span>
+<span>  title            <span class="op">=</span> <span class="st">"Cross-Validation Metrics"</span>,             <span class="co"># default "Cross-Validation Metrics"</span></span>
+<span>  show_percentages <span class="op">=</span> <span class="cn">TRUE</span>,                                   <span class="co"># default TRUE</span></span>
+<span>  digits           <span class="op">=</span> <span class="fl">1</span>,                                      <span class="co"># default 1</span></span>
+<span>  include_raw      <span class="op">=</span> <span class="cn">FALSE</span>,                                  <span class="co"># default FALSE</span></span>
+<span>  table_style      <span class="op">=</span> <span class="st">"combined"</span>,                             <span class="co"># default "combined"; or "separate", "minimal"</span></span>
+<span>  use_gt           <span class="op">=</span> <span class="cn">TRUE</span>                                    <span class="co"># default TRUE</span></span>
+<span><span class="op">)</span></span>
 <span><span class="va">metrics_tables</span></span></code></pre></div>
 <div id="tqaaomapdw" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>#tqaaomapdw table {
@@ -3827,65 +3984,65 @@ ForestSearch algorithm. Two approaches are available:</p>
 <tr class="gt_row_group_first">
 <td headers="Agreement  Metric" class="gt_row gt_left">Sensitivity (H)</td>
 <td headers="Agreement  Description" class="gt_row gt_left">Agreement rate for subgroup H</td>
-<td headers="Agreement  Value" class="gt_row gt_right">11.5</td>
+<td headers="Agreement  Value" class="gt_row gt_right">19.5</td>
 </tr>
 <tr>
 <td headers="Agreement  Metric" class="gt_row gt_left">Sensitivity (Hc)</td>
 <td headers="Agreement  Description" class="gt_row gt_left">Agreement rate for complement Hc</td>
-<td headers="Agreement  Value" class="gt_row gt_right">89.8</td>
+<td headers="Agreement  Value" class="gt_row gt_right">76.2</td>
 </tr>
 <tr>
 <td headers="Agreement  Metric" class="gt_row gt_left">PPV (H)</td>
 <td headers="Agreement  Description" class="gt_row gt_left">Positive predictive value for H</td>
-<td headers="Agreement  Value" class="gt_row gt_right">9.9</td>
+<td headers="Agreement  Value" class="gt_row gt_right">10.0</td>
 </tr>
 <tr>
 <td headers="Agreement  Metric" class="gt_row gt_left">PPV (Hc)</td>
 <td headers="Agreement  Description" class="gt_row gt_left">Positive predictive value for Hc</td>
-<td headers="Agreement  Value" class="gt_row gt_right">91.2</td>
+<td headers="Agreement  Value" class="gt_row gt_right">87.5</td>
 </tr>
 <tr class="gt_group_heading_row">
-<th colspan="3" class="gt_group_heading" style="font-weight: bold;" scope="colgroup" id="Subgroup Finding">Subgroup Finding</th>
+<th colspan="3" class="gt_group_heading" style="font-weight: bold;" scope="colgroup" id="Subgroup-Finding">Subgroup Finding</th>
     </tr>
 <tr class="gt_row_group_first">
-<td headers="Subgroup Finding  Metric" class="gt_row gt_left">Any Found</td>
-<td headers="Subgroup Finding  Description" class="gt_row gt_left">Any subgroup identified</td>
-<td headers="Subgroup Finding  Value" class="gt_row gt_right">50.0</td>
+<td headers="Subgroup-Finding  Metric" class="gt_row gt_left">Any Found</td>
+<td headers="Subgroup-Finding  Description" class="gt_row gt_left">Any subgroup identified</td>
+<td headers="Subgroup-Finding  Value" class="gt_row gt_right">100.0</td>
 </tr>
 <tr>
-<td headers="Subgroup Finding  Metric" class="gt_row gt_left">Exact Match</td>
-<td headers="Subgroup Finding  Description" class="gt_row gt_left">Exact match on all factors</td>
-<td headers="Subgroup Finding  Value" class="gt_row gt_right">0.0</td>
+<td headers="Subgroup-Finding  Metric" class="gt_row gt_left">Exact Match</td>
+<td headers="Subgroup-Finding  Description" class="gt_row gt_left">Exact match on all factors</td>
+<td headers="Subgroup-Finding  Value" class="gt_row gt_right">0.0</td>
 </tr>
 <tr>
-<td headers="Subgroup Finding  Metric" class="gt_row gt_left">At Least 1</td>
-<td headers="Subgroup Finding  Description" class="gt_row gt_left">At least one factor matches</td>
-<td headers="Subgroup Finding  Value" class="gt_row gt_right">50.0</td>
+<td headers="Subgroup-Finding  Metric" class="gt_row gt_left">At Least 1</td>
+<td headers="Subgroup-Finding  Description" class="gt_row gt_left">At least one factor matches</td>
+<td headers="Subgroup-Finding  Value" class="gt_row gt_right">0.0</td>
 </tr>
 <tr>
-<td headers="Subgroup Finding  Metric" class="gt_row gt_left">Cov1 Any</td>
-<td headers="Subgroup Finding  Description" class="gt_row gt_left">First covariate found (any cut)</td>
-<td headers="Subgroup Finding  Value" class="gt_row gt_right">0.0</td>
+<td headers="Subgroup-Finding  Metric" class="gt_row gt_left">Cov1 Any</td>
+<td headers="Subgroup-Finding  Description" class="gt_row gt_left">First covariate found (any cut)</td>
+<td headers="Subgroup-Finding  Value" class="gt_row gt_right">0.0</td>
 </tr>
 <tr>
-<td headers="Subgroup Finding  Metric" class="gt_row gt_left">Cov2 Any</td>
-<td headers="Subgroup Finding  Description" class="gt_row gt_left">Second covariate found (any cut)</td>
-<td headers="Subgroup Finding  Value" class="gt_row gt_right">50.0</td>
+<td headers="Subgroup-Finding  Metric" class="gt_row gt_left">Cov2 Any</td>
+<td headers="Subgroup-Finding  Description" class="gt_row gt_left">Second covariate found (any cut)</td>
+<td headers="Subgroup-Finding  Value" class="gt_row gt_right">NA</td>
 </tr>
 <tr>
-<td headers="Subgroup Finding  Metric" class="gt_row gt_left">Cov1 &amp; Cov2</td>
-<td headers="Subgroup Finding  Description" class="gt_row gt_left">Both covariates found</td>
-<td headers="Subgroup Finding  Value" class="gt_row gt_right">0.0</td>
+<td headers="Subgroup-Finding  Metric" class="gt_row gt_left">Cov1 &amp; Cov2</td>
+<td headers="Subgroup-Finding  Description" class="gt_row gt_left">Both covariates found</td>
+<td headers="Subgroup-Finding  Value" class="gt_row gt_right">0.0</td>
 </tr>
 <tr>
-<td headers="Subgroup Finding  Metric" class="gt_row gt_left">Cov1 Exact</td>
-<td headers="Subgroup Finding  Description" class="gt_row gt_left">First covariate exact match</td>
-<td headers="Subgroup Finding  Value" class="gt_row gt_right">0.0</td>
+<td headers="Subgroup-Finding  Metric" class="gt_row gt_left">Cov1 Exact</td>
+<td headers="Subgroup-Finding  Description" class="gt_row gt_left">First covariate exact match</td>
+<td headers="Subgroup-Finding  Value" class="gt_row gt_right">0.0</td>
 </tr>
 <tr>
-<td headers="Subgroup Finding  Metric" class="gt_row gt_left">Cov2 Exact</td>
-<td headers="Subgroup Finding  Description" class="gt_row gt_left">Second covariate exact match</td>
-<td headers="Subgroup Finding  Value" class="gt_row gt_right">50.0</td>
+<td headers="Subgroup-Finding  Metric" class="gt_row gt_left">Cov2 Exact</td>
+<td headers="Subgroup-Finding  Description" class="gt_row gt_left">Second covariate exact match</td>
+<td headers="Subgroup-Finding  Value" class="gt_row gt_right">NA</td>
 </tr>
 </tbody>
 <tfoot><tr class="gt_footnotes">
@@ -3898,31 +4055,43 @@ ForestSearch algorithm. Two approaches are available:</p>
 <h3 id="out-of-bag-n-fold-cross-validation">Out-of-Bag (N-Fold) Cross-Validation<a class="anchor" aria-label="anchor" href="#out-of-bag-n-fold-cross-validation"></a>
 </h3>
 <p>N-fold CV (leave-one-out):</p>
-<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># All forestsearch_Kfold() parameters shown with their defaults.</span></span>
 <span><span class="va">fs_OOB</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch_Kfold.html">forestsearch_Kfold</a></span><span class="op">(</span></span>
-<span>  fs.est <span class="op">=</span> <span class="va">fs</span>,</span>
-<span>  details <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  Kfolds <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">df.analysis</span><span class="op">)</span><span class="op">/</span><span class="fl">100</span>,<span class="fl">0</span><span class="op">)</span>,  <span class="co"># N-fold = leave-one-out</span></span>
-<span>  parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    plan <span class="op">=</span> <span class="st">"multisession"</span>,</span>
-<span>    workers <span class="op">=</span> <span class="va">n_cores</span>,</span>
-<span>    show_message <span class="op">=</span> <span class="cn">TRUE</span></span>
-<span>  <span class="op">)</span></span>
+<span>  fs.est        <span class="op">=</span> <span class="va">fs</span>,                                        <span class="co"># required</span></span>
+<span>  Kfolds        <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">df.analysis</span><span class="op">)</span><span class="op">/</span><span class="fl">100</span>, <span class="fl">0</span><span class="op">)</span>,           <span class="co"># default nrow(fs.est$df.est) (LOO)</span></span>
+<span>  seedit        <span class="op">=</span> <span class="fl">8316951L</span>,                                  <span class="co"># default 8316951L</span></span>
+<span>  parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"multisession"</span>,</span>
+<span>                       workers <span class="op">=</span> <span class="va">n_cores</span>,</span>
+<span>                       show_message <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,                 <span class="co"># default plan="multisession", workers=6</span></span>
+<span>  sg0.name      <span class="op">=</span> <span class="st">"Not recommend"</span>,                           <span class="co"># default "Not recommend"</span></span>
+<span>  sg1.name      <span class="op">=</span> <span class="st">"Recommend"</span>,                               <span class="co"># default "Recommend"</span></span>
+<span>  details       <span class="op">=</span> <span class="cn">FALSE</span>                                      <span class="co"># default FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://future.futureverse.org/reference/plan.html" class="external-link">plan</a></span><span class="op">(</span><span class="st">"sequential"</span><span class="op">)</span></span>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">oob</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span> <span class="op">-</span> <span class="va">t0</span><span class="op">)</span><span class="op">[</span><span class="st">"elapsed"</span><span class="op">]</span></span>
 <span></span>
-<span><span class="co"># Summarize OOB results</span></span>
+<span><span class="co"># All forestsearch_KfoldOut() parameters shown with their defaults.</span></span>
 <span><span class="va">cv_out</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch_KfoldOut.html">forestsearch_KfoldOut</a></span><span class="op">(</span></span>
-<span>  res <span class="op">=</span> <span class="va">fs_OOB</span>,</span>
-<span>  details <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  outall <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  res     <span class="op">=</span> <span class="va">fs_OOB</span>,                                          <span class="co"># required</span></span>
+<span>  details <span class="op">=</span> <span class="cn">FALSE</span>,                                           <span class="co"># default FALSE</span></span>
+<span>  outall  <span class="op">=</span> <span class="cn">TRUE</span>,                                            <span class="co"># default FALSE</span></span>
+<span>  digits  <span class="op">=</span> <span class="fl">4</span>                                                <span class="co"># default 4</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">tables</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cv_summary_tables.html">cv_summary_tables</a></span><span class="op">(</span><span class="va">cv_out</span><span class="op">)</span></span>
+<span><span class="co"># All cv_summary_tables() parameters shown with their defaults.</span></span>
+<span><span class="va">tables</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cv_summary_tables.html">cv_summary_tables</a></span><span class="op">(</span></span>
+<span>  kfold_out    <span class="op">=</span> <span class="va">cv_out</span>,                                     <span class="co"># required</span></span>
+<span>  title        <span class="op">=</span> <span class="st">"Cross-Validation Summary"</span>,                 <span class="co"># default "Cross-Validation Summary"</span></span>
+<span>  subtitle     <span class="op">=</span> <span class="cn">NULL</span>,                                       <span class="co"># default NULL</span></span>
+<span>  show_metrics <span class="op">=</span> <span class="cn">TRUE</span>,                                       <span class="co"># default TRUE</span></span>
+<span>  digits       <span class="op">=</span> <span class="fl">3</span>,                                          <span class="co"># default 3</span></span>
+<span>  font_size    <span class="op">=</span> <span class="fl">12</span>,                                         <span class="co"># default 12</span></span>
+<span>  use_gt       <span class="op">=</span> <span class="cn">TRUE</span>                                        <span class="co"># default TRUE</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">tables</span><span class="op">$</span><span class="va">combined_table</span></span>
 <span></span>
@@ -3938,7 +4107,7 @@ ForestSearch algorithm. Two approaches are available:</p>
 <p>The forest plot summarizes treatment effects across the ITT
 population, reference subgroups, and identified subgroups with
 cross-validation metrics.</p>
-<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb47"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Define reference subgroups for comparison</span></span>
 <span><span class="va">subgroups</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  age_gt65 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -3964,34 +4133,78 @@ cross-validation metrics.</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span></span>
-<span><span class="va">my_theme</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/create_forest_theme.html">create_forest_theme</a></span><span class="op">(</span>base_size <span class="op">=</span> <span class="fl">24</span>, </span>
-<span>footnote_fontsize <span class="op">=</span> <span class="fl">17</span>, cv_fontsize <span class="op">=</span> <span class="fl">22</span><span class="op">)</span></span>
+<span><span class="co"># All create_forest_theme() parameters shown with their defaults.</span></span>
+<span><span class="va">my_theme</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/create_forest_theme.html">create_forest_theme</a></span><span class="op">(</span></span>
+<span>  base_size         <span class="op">=</span> <span class="fl">24</span>,                                    <span class="co"># default 10</span></span>
+<span>  scale             <span class="op">=</span> <span class="fl">1.0</span>,                                   <span class="co"># default 1.0</span></span>
+<span>  row_padding       <span class="op">=</span> <span class="cn">NULL</span>,                                  <span class="co"># default NULL</span></span>
+<span>  ci_pch            <span class="op">=</span> <span class="fl">15</span>,                                    <span class="co"># default 15</span></span>
+<span>  ci_lwd            <span class="op">=</span> <span class="cn">NULL</span>,                                  <span class="co"># default NULL</span></span>
+<span>  ci_Theight        <span class="op">=</span> <span class="cn">NULL</span>,                                  <span class="co"># default NULL</span></span>
+<span>  ci_col            <span class="op">=</span> <span class="st">"black"</span>,                               <span class="co"># default "black"</span></span>
+<span>  header_fontsize   <span class="op">=</span> <span class="cn">NULL</span>,                                  <span class="co"># default NULL (auto)</span></span>
+<span>  body_fontsize     <span class="op">=</span> <span class="cn">NULL</span>,                                  <span class="co"># default NULL (auto)</span></span>
+<span>  footnote_fontsize <span class="op">=</span> <span class="fl">17</span>,                                    <span class="co"># default NULL</span></span>
+<span>  footnote_col      <span class="op">=</span> <span class="st">"darkcyan"</span>,                            <span class="co"># default "darkcyan"</span></span>
+<span>  title_fontsize    <span class="op">=</span> <span class="cn">NULL</span>,                                  <span class="co"># default NULL</span></span>
+<span>  cv_fontsize       <span class="op">=</span> <span class="fl">22</span>,                                    <span class="co"># default NULL</span></span>
+<span>  cv_col            <span class="op">=</span> <span class="st">"gray30"</span>,                              <span class="co"># default "gray30"</span></span>
+<span>  refline_lwd       <span class="op">=</span> <span class="cn">NULL</span>,                                  <span class="co"># default NULL</span></span>
+<span>  refline_lty       <span class="op">=</span> <span class="st">"dashed"</span>,                              <span class="co"># default "dashed"</span></span>
+<span>  refline_col       <span class="op">=</span> <span class="st">"gray30"</span>,                              <span class="co"># default "gray30"</span></span>
+<span>  vertline_lwd      <span class="op">=</span> <span class="cn">NULL</span>,                                  <span class="co"># default NULL</span></span>
+<span>  vertline_lty      <span class="op">=</span> <span class="st">"dashed"</span>,                              <span class="co"># default "dashed"</span></span>
+<span>  vertline_col      <span class="op">=</span> <span class="st">"gray20"</span>,                              <span class="co"># default "gray20"</span></span>
+<span>  arrow_type        <span class="op">=</span> <span class="st">"closed"</span>,                              <span class="co"># default "closed"</span></span>
+<span>  arrow_col         <span class="op">=</span> <span class="st">"black"</span>,                               <span class="co"># default "black"</span></span>
+<span>  summary_fill      <span class="op">=</span> <span class="st">"black"</span>,                               <span class="co"># default "black"</span></span>
+<span>  summary_col       <span class="op">=</span> <span class="st">"black"</span>                                <span class="co"># default "black"</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span></span>
 <span><span class="co"># Create forest plot</span></span>
 <span><span class="co"># Include fs_kfold and fs_OOB if available for CV metrics</span></span>
+<span><span class="co"># All plot_subgroup_results_forestplot() parameters shown with their defaults.</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plot_subgroup_results_forestplot.html">plot_subgroup_results_forestplot</a></span><span class="op">(</span></span>
-<span>  fs_results <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    fs.est <span class="op">=</span> <span class="va">fs</span>,</span>
-<span>    fs_bc <span class="op">=</span> <span class="va">fs_bc</span>,</span>
-<span>    fs_OOB <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>    fs_kfold <span class="op">=</span> <span class="va">fs_kfold</span></span>
-<span>  <span class="op">)</span>,</span>
-<span>  df_analysis <span class="op">=</span> <span class="va">df.analysis</span>,</span>
-<span>  subgroup_list <span class="op">=</span> <span class="va">subgroups</span>,</span>
-<span>  outcome.name <span class="op">=</span> <span class="va">outcome.name</span>,</span>
-<span>  event.name <span class="op">=</span> <span class="va">event.name</span>,</span>
-<span>  treat.name <span class="op">=</span> <span class="va">treat.name</span>,</span>
-<span>  E.name <span class="op">=</span> <span class="st">"Hormonal"</span>,</span>
-<span>  C.name <span class="op">=</span> <span class="st">"Chemo"</span>,</span>
-<span>  ci_column_spaces <span class="op">=</span> <span class="fl">25</span>,</span>
-<span>  xlog <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  theme <span class="op">=</span> <span class="va">my_theme</span></span>
+<span>  fs_results        <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>fs.est   <span class="op">=</span> <span class="va">fs</span>,</span>
+<span>                           fs_bc    <span class="op">=</span> <span class="va">fs_bc</span>,</span>
+<span>                           fs_OOB   <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>                           fs_kfold <span class="op">=</span> <span class="va">fs_kfold</span><span class="op">)</span>,             <span class="co"># required</span></span>
+<span>  df_analysis       <span class="op">=</span> <span class="va">df.analysis</span>,                           <span class="co"># required</span></span>
+<span>  subgroup_list     <span class="op">=</span> <span class="va">subgroups</span>,                             <span class="co"># default NULL</span></span>
+<span>  outcome.name      <span class="op">=</span> <span class="va">outcome.name</span>,                          <span class="co"># required</span></span>
+<span>  event.name        <span class="op">=</span> <span class="va">event.name</span>,                            <span class="co"># required</span></span>
+<span>  treat.name        <span class="op">=</span> <span class="va">treat.name</span>,                            <span class="co"># required</span></span>
+<span>  E.name            <span class="op">=</span> <span class="st">"Hormonal"</span>,                            <span class="co"># default "Experimental"</span></span>
+<span>  C.name            <span class="op">=</span> <span class="st">"Chemo"</span>,                               <span class="co"># default "Control"</span></span>
+<span>  est.scale         <span class="op">=</span> <span class="st">"hr"</span>,                                  <span class="co"># default "hr"</span></span>
+<span>  xlog              <span class="op">=</span> <span class="cn">TRUE</span>,                                  <span class="co"># default TRUE</span></span>
+<span>  title_text        <span class="op">=</span> <span class="cn">NULL</span>,                                  <span class="co"># default NULL</span></span>
+<span>  arrow_text        <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Favors Experimental"</span>, <span class="st">"Favors Control"</span><span class="op">)</span>,  <span class="co"># default same</span></span>
+<span>  footnote_text     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Eg 80% of training found SG: 70% of B (+) also B in CV testing"</span><span class="op">)</span>,  <span class="co"># default same</span></span>
+<span>  xlim              <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.25</span>, <span class="fl">1.5</span><span class="op">)</span>,                          <span class="co"># default c(0.25, 1.5)</span></span>
+<span>  ticks_at          <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.25</span>, <span class="fl">0.70</span>, <span class="fl">1.0</span>, <span class="fl">1.5</span><span class="op">)</span>,               <span class="co"># default c(0.25, 0.70, 1.0, 1.5)</span></span>
+<span>  show_cv_metrics   <span class="op">=</span> <span class="cn">TRUE</span>,                                  <span class="co"># default TRUE</span></span>
+<span>  cv_source         <span class="op">=</span> <span class="st">"auto"</span>,                                <span class="co"># default "auto"; or "kfold", "oob", "both"</span></span>
+<span>  posthoc_colors    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"powderblue"</span>, <span class="st">"beige"</span><span class="op">)</span>,              <span class="co"># default same</span></span>
+<span>  reference_colors  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"yellow"</span>, <span class="st">"powderblue"</span><span class="op">)</span>,             <span class="co"># default same</span></span>
+<span>  ci_column_spaces  <span class="op">=</span> <span class="fl">25</span>,                                    <span class="co"># default 20</span></span>
+<span>  conf.level        <span class="op">=</span> <span class="fl">0.95</span>,                                  <span class="co"># default 0.95</span></span>
+<span>  theme             <span class="op">=</span> <span class="va">my_theme</span>,                              <span class="co"># default NULL</span></span>
+<span>  outcome_type      <span class="op">=</span> <span class="cn">NULL</span>,                                  <span class="co"># default NULL; auto-detect</span></span>
+<span>  effect_measure    <span class="op">=</span> <span class="cn">NULL</span>,                                  <span class="co"># default NULL; auto-detect</span></span>
+<span>  offset.name       <span class="op">=</span> <span class="cn">NULL</span>,                                  <span class="co"># default NULL</span></span>
+<span>  extreme_ci_cap    <span class="op">=</span> <span class="fl">1.5</span>,                                   <span class="co"># default 1.5</span></span>
+<span>  xlim_method       <span class="op">=</span> <span class="st">"clinical"</span>                             <span class="co"># default "clinical"; or "data"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span></span>
 <span><span class="co"># Option 2: Custom sizing</span></span>
-<span><span class="fu"><a href="../reference/render_forestplot.html">render_forestplot</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span>   </span></code></pre></div>
+<span><span class="co"># All render_forestplot() parameters shown with their defaults.</span></span>
+<span><span class="fu"><a href="../reference/render_forestplot.html">render_forestplot</a></span><span class="op">(</span></span>
+<span>  x       <span class="op">=</span> <span class="va">result</span>,                                          <span class="co"># required</span></span>
+<span>  newpage <span class="op">=</span> <span class="cn">TRUE</span>                                             <span class="co"># default TRUE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="forestsearch_files/figure-html/forest-plot-1.png" class="r-plt" alt="Subgroup forest plot including identified subgroups" width="1728"><p class="caption">
 Subgroup forest plot including identified subgroups
@@ -4001,26 +4214,44 @@ Subgroup forest plot including identified subgroups
 <h4 id="km-difference-plots-itt-and-subgroups">KM Difference plots: ITT and subgroups<a class="anchor" aria-label="anchor" href="#km-difference-plots-itt-and-subgroups"></a>
 </h4>
 <p>The solid black line denotes the ITT Kaplan-Meier treatment
-difference estimates along with 95%95% CIs (the grey shaded region). K-M
+difference estimates along with 95% CIs (the grey shaded region). K-M
 differences corresponding to subgroups are displayed.</p>
-<div class="sourceCode" id="cb47"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb48"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Add additional subgroups along with ITT and identified subgroups</span></span>
 <span><span class="va">ref_sgs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>age_young <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>subset_expr <span class="op">=</span> <span class="st">"age &lt; 65"</span>, color <span class="op">=</span> <span class="st">"brown"</span><span class="op">)</span>,</span>
 <span>age_old <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>subset_expr <span class="op">=</span> <span class="st">"age &gt;= 65"</span>, color <span class="op">=</span> <span class="st">"orange"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># All plot_km_band_forestsearch() parameters shown with their defaults.</span></span>
 <span><span class="fu"><a href="../reference/plot_km_band_forestsearch.html">plot_km_band_forestsearch</a></span><span class="op">(</span></span>
-<span> df <span class="op">=</span> <span class="va">df.analysis</span>,</span>
-<span>   fs.est <span class="op">=</span> <span class="va">fs</span>,</span>
-<span> ref_subgroups <span class="op">=</span> <span class="va">ref_sgs</span>,</span>
-<span> outcome.name <span class="op">=</span> <span class="va">outcome.name</span>,</span>
-<span>   event.name <span class="op">=</span> <span class="va">event.name</span>,</span>
-<span>   treat.name <span class="op">=</span> <span class="va">treat.name</span>,</span>
-<span> draws_band <span class="op">=</span> <span class="fl">20</span></span>
+<span>  df             <span class="op">=</span> <span class="va">df.analysis</span>,                              <span class="co"># required</span></span>
+<span>  fs.est         <span class="op">=</span> <span class="va">fs</span>,                                       <span class="co"># default NULL</span></span>
+<span>  sg_cols        <span class="op">=</span> <span class="cn">NULL</span>,                                     <span class="co"># default NULL</span></span>
+<span>  sg_labels      <span class="op">=</span> <span class="cn">NULL</span>,                                     <span class="co"># default NULL</span></span>
+<span>  sg_colors      <span class="op">=</span> <span class="cn">NULL</span>,                                     <span class="co"># default NULL</span></span>
+<span>  itt_color      <span class="op">=</span> <span class="st">"azure3"</span>,                                 <span class="co"># default "azure3"</span></span>
+<span>  outcome.name   <span class="op">=</span> <span class="va">outcome.name</span>,                             <span class="co"># default "tte"</span></span>
+<span>  event.name     <span class="op">=</span> <span class="va">event.name</span>,                               <span class="co"># default "event"</span></span>
+<span>  treat.name     <span class="op">=</span> <span class="va">treat.name</span>,                               <span class="co"># default "treat"</span></span>
+<span>  xlabel         <span class="op">=</span> <span class="st">"Time"</span>,                                   <span class="co"># default "Time"</span></span>
+<span>  ylabel         <span class="op">=</span> <span class="st">"Survival differences"</span>,                   <span class="co"># default "Survival differences"</span></span>
+<span>  yseq_length    <span class="op">=</span> <span class="fl">5</span>,                                        <span class="co"># default 5</span></span>
+<span>  draws_band     <span class="op">=</span> <span class="fl">20</span>,                                       <span class="co"># default 1000 (lower for speed)</span></span>
+<span>  tau_add        <span class="op">=</span> <span class="cn">NULL</span>,                                     <span class="co"># default NULL</span></span>
+<span>  by_risk        <span class="op">=</span> <span class="fl">6</span>,                                        <span class="co"># default 6</span></span>
+<span>  risk_cex       <span class="op">=</span> <span class="fl">0.75</span>,                                     <span class="co"># default 0.75</span></span>
+<span>  risk_delta     <span class="op">=</span> <span class="fl">0.035</span>,                                    <span class="co"># default 0.035</span></span>
+<span>  risk_pad       <span class="op">=</span> <span class="fl">0.015</span>,                                    <span class="co"># default 0.015</span></span>
+<span>  ymax_pad       <span class="op">=</span> <span class="fl">0.11</span>,                                     <span class="co"># default 0.11</span></span>
+<span>  show_legend    <span class="op">=</span> <span class="cn">TRUE</span>,                                     <span class="co"># default TRUE</span></span>
+<span>  legend_pos     <span class="op">=</span> <span class="st">"topleft"</span>,                                <span class="co"># default "topleft"</span></span>
+<span>  legend_cex     <span class="op">=</span> <span class="fl">0.75</span>,                                     <span class="co"># default 0.75</span></span>
+<span>  ref_subgroups  <span class="op">=</span> <span class="va">ref_sgs</span>,                                  <span class="co"># default NULL</span></span>
+<span>  verbose        <span class="op">=</span> <span class="cn">FALSE</span>                                     <span class="co"># default FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p><img src="forestsearch_files/figure-html/KMdiffs-1.png" class="r-plt" alt="" width="768" style="display: block; margin: auto;"></p>
-<div class="sourceCode" id="cb48"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb49"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># # Example with more subgroups</span></span>
 <span><span class="co"># ref_sgs &lt;- list(</span></span>
 <span><span class="co"># pgr_positive = list(subset_expr = "pgr &gt; 0", color ="green"),</span></span>
@@ -4037,49 +4268,49 @@ differences corresponding to subgroups are displayed.</p>
 <div class="section level3">
 <h3 id="key-findings">Key Findings<a class="anchor" aria-label="anchor" href="#key-findings"></a>
 </h3>
-<div class="sourceCode" id="cb49"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb50"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Extract key results</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"="</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">60</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span>collapse <span class="op">=</span> <span class="st">""</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## ============================================================</span></span></code></pre>
-<div class="sourceCode" id="cb51"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb52"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"FORESTSEARCH ANALYSIS SUMMARY\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## FORESTSEARCH ANALYSIS SUMMARY</span></span></code></pre>
-<div class="sourceCode" id="cb53"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb54"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"="</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">60</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span>collapse <span class="op">=</span> <span class="st">""</span><span class="op">)</span>, <span class="st">"\n\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## ============================================================</span></span></code></pre>
-<div class="sourceCode" id="cb55"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb56"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Dataset: GBSG (N ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">df.analysis</span><span class="op">)</span>, <span class="st">")\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Dataset: GBSG (N = 686 )</span></span></code></pre>
-<div class="sourceCode" id="cb57"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb58"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Outcome: Recurrence-free survival\n\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Outcome: Recurrence-free survival</span></span></code></pre>
-<div class="sourceCode" id="cb59"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb60"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"ITT Analysis:\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## ITT Analysis:</span></span></code></pre>
-<div class="sourceCode" id="cb61"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb62"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  HR (95% CI): 0.69 (0.54, 0.89)\n\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##   HR (95% CI): 0.69 (0.54, 0.89)</span></span></code></pre>
-<div class="sourceCode" id="cb63"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb64"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Identified Subgroup (H):\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Identified Subgroup (H):</span></span></code></pre>
-<div class="sourceCode" id="cb65"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb66"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Definition:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">sg.harm</span>, collapse <span class="op">=</span> <span class="st">" &amp; "</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##   Definition: {er &lt;= 0} &amp; {size &lt;= 35}</span></span></code></pre>
-<div class="sourceCode" id="cb67"><pre class="downlit sourceCode r">
+<pre><code><span><span class="co">##   Definition: {er &lt;= 0}</span></span></code></pre>
+<div class="sourceCode" id="cb68"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Size:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">df.est</span><span class="op">$</span><span class="va">treat.recommend</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span>, </span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"(%.1f%%)\n"</span>, <span class="fl">100</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">df.est</span><span class="op">$</span><span class="va">treat.recommend</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##   Size: 61 (8.9%)</span></span></code></pre>
-<div class="sourceCode" id="cb69"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Unadjusted HR:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">grp.consistency</span><span class="op">$</span><span class="va">out_sg</span><span class="op">$</span><span class="va">result</span><span class="op">$</span><span class="va">hr</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##   Unadjusted HR: 12.64</span></span></code></pre>
-<div class="sourceCode" id="cb71"><pre class="downlit sourceCode r">
+<pre><code><span><span class="co">##   Size: 82 (12.0%)</span></span></code></pre>
+<div class="sourceCode" id="cb70"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Unadjusted HR:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f"</span>, <span class="va">fs</span><span class="op">$</span><span class="va">grp.consistency</span><span class="op">$</span><span class="va">out_sg</span><span class="op">$</span><span class="va">result</span><span class="op">$</span><span class="va">hr</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
+<pre><code><span><span class="co">##   Unadjusted HR: 1.95</span></span></code></pre>
+<div class="sourceCode" id="cb72"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nComplement Subgroup (Hc):\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## </span></span>
 <span><span class="co">## Complement Subgroup (Hc):</span></span></code></pre>
-<div class="sourceCode" id="cb73"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb74"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Size:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">df.est</span><span class="op">$</span><span class="va">treat.recommend</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"(%.1f%%)\n"</span>, <span class="fl">100</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">df.est</span><span class="op">$</span><span class="va">treat.recommend</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##   Size: 625 (91.1%)</span></span></code></pre>
+<pre><code><span><span class="co">##   Size: 604 (88.0%)</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="clinical-interpretation">Clinical Interpretation<a class="anchor" aria-label="anchor" href="#clinical-interpretation"></a>
@@ -4573,23 +4804,23 @@ stability</li>
 <tbody class="gt_table_body">
 <tr>
 <td headers="Analysis" class="gt_row gt_left">GRF</td>
-<td headers="Seconds" class="gt_row gt_right">0.6</td>
+<td headers="Seconds" class="gt_row gt_right">1.3</td>
 <td headers="Minutes" class="gt_row gt_right">0.0</td>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">ForestSearch</td>
-<td headers="Seconds" class="gt_row gt_right">6.3</td>
+<td headers="Seconds" class="gt_row gt_right">4.7</td>
 <td headers="Minutes" class="gt_row gt_right">0.1</td>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">Bootstrap</td>
-<td headers="Seconds" class="gt_row gt_right">11.0</td>
-<td headers="Minutes" class="gt_row gt_right">0.2</td>
+<td headers="Seconds" class="gt_row gt_right">8.7</td>
+<td headers="Minutes" class="gt_row gt_right">0.1</td>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">Total</td>
-<td headers="Seconds" class="gt_row gt_right">31.7</td>
-<td headers="Minutes" class="gt_row gt_right">0.5</td>
+<td headers="Seconds" class="gt_row gt_right">25.2</td>
+<td headers="Minutes" class="gt_row gt_right">0.4</td>
 </tr>
 </tbody>
 </table>
@@ -4636,11 +4867,11 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 <div class="section level2">
 <h2 id="session-information">Session Information<a class="anchor" aria-label="anchor" href="#session-information"></a>
 </h2>
-<div class="sourceCode" id="cb75"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb76"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## R version 4.5.3 (2026-03-11)</span></span>
+<pre><code><span><span class="co">## R version 4.6.1 (2026-06-24)</span></span>
 <span><span class="co">## Platform: x86_64-pc-linux-gnu</span></span>
-<span><span class="co">## Running under: Ubuntu 24.04.3 LTS</span></span>
+<span><span class="co">## Running under: Ubuntu 24.04.5 LTS</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## Matrix products: default</span></span>
 <span><span class="co">## BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 </span></span>
@@ -4659,35 +4890,35 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 <span><span class="co">## [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## other attached packages:</span></span>
-<span><span class="co">##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.2.1     </span></span>
-<span><span class="co">##  [4] future_1.70.0       foreach_1.5.2       policytree_1.2.4   </span></span>
-<span><span class="co">##  [7] grf_2.6.1           gt_1.3.0            ggplot2_4.0.2      </span></span>
-<span><span class="co">## [10] data.table_1.18.2.1 survival_3.8-6      forestsearch_0.1.0 </span></span>
+<span><span class="co">##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.4.0     </span></span>
+<span><span class="co">##  [4] future_1.80.0       foreach_1.5.2       policytree_1.2.5   </span></span>
+<span><span class="co">##  [7] grf_2.6.1           gt_1.4.0            ggplot2_4.0.3      </span></span>
+<span><span class="co">## [10] data.table_1.18.6.1 survival_3.8-6      forestsearch_0.4.0 </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## loaded via a namespace (and not attached):</span></span>
-<span><span class="co">##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.57           </span></span>
-<span><span class="co">##  [4] bslib_0.10.0         htmlwidgets_1.6.4    visNetwork_2.1.4    </span></span>
-<span><span class="co">##  [7] lattice_0.22-9       vctrs_0.7.2          tools_4.5.3         </span></span>
-<span><span class="co">## [10] generics_0.1.4       parallel_4.5.3       tibble_3.3.1        </span></span>
-<span><span class="co">## [13] pkgconfig_2.0.3      Matrix_1.7-4         forestploter_1.1.3  </span></span>
-<span><span class="co">## [16] RColorBrewer_1.1-3   S7_0.2.1             desc_1.4.3          </span></span>
-<span><span class="co">## [19] lifecycle_1.0.5      compiler_4.5.3       farver_2.1.2        </span></span>
-<span><span class="co">## [22] stringr_1.6.0        textshaping_1.0.5    codetools_0.2-20    </span></span>
-<span><span class="co">## [25] litedown_0.9         htmltools_0.5.9      sass_0.4.10         </span></span>
-<span><span class="co">## [28] yaml_2.3.12          glmnet_4.1-10        pillar_1.11.1       </span></span>
-<span><span class="co">## [31] pkgdown_2.2.0        jquerylib_0.1.4      cachem_1.1.0        </span></span>
-<span><span class="co">## [34] iterators_1.0.14     parallelly_1.46.1    commonmark_2.0.0    </span></span>
-<span><span class="co">## [37] tidyselect_1.2.1     digest_0.6.39        stringi_1.8.7       </span></span>
-<span><span class="co">## [40] dplyr_1.2.0          listenv_0.10.1       labeling_0.4.3      </span></span>
-<span><span class="co">## [43] splines_4.5.3        fastmap_1.2.0        grid_4.5.3          </span></span>
-<span><span class="co">## [46] cli_3.6.5            magrittr_2.0.4       DiagrammeR_1.0.11   </span></span>
-<span><span class="co">## [49] randomForest_4.7-1.2 future.apply_1.20.2  withr_3.0.2         </span></span>
-<span><span class="co">## [52] scales_1.4.0         rmarkdown_2.30       globals_0.19.1      </span></span>
-<span><span class="co">## [55] gridExtra_2.3        progressr_0.18.0     ragg_1.5.2          </span></span>
-<span><span class="co">## [58] evaluate_1.0.5       knitr_1.51           markdown_2.0        </span></span>
-<span><span class="co">## [61] rlang_1.1.7          Rcpp_1.1.1           glue_1.8.0          </span></span>
-<span><span class="co">## [64] xml2_1.5.2           rstudioapi_0.18.0    jsonlite_2.0.0      </span></span>
-<span><span class="co">## [67] R6_2.6.1             systemfonts_1.3.2    fs_2.0.0</span></span></code></pre>
+<span><span class="co">##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.62           </span></span>
+<span><span class="co">##  [4] bslib_0.12.0         htmlwidgets_1.6.4    visNetwork_2.1.4    </span></span>
+<span><span class="co">##  [7] lattice_0.22-9       vctrs_0.7.3          tools_4.6.1         </span></span>
+<span><span class="co">## [10] generics_0.1.4       parallel_4.6.1       tibble_3.3.1        </span></span>
+<span><span class="co">## [13] pkgconfig_2.0.3      Matrix_1.7-5         forestploter_1.2.0  </span></span>
+<span><span class="co">## [16] RColorBrewer_1.1-3   S7_0.2.2             desc_1.4.3          </span></span>
+<span><span class="co">## [19] lifecycle_1.0.5      compiler_4.6.1       farver_2.1.2        </span></span>
+<span><span class="co">## [22] textshaping_1.0.5    codetools_0.2-20     litedown_0.11       </span></span>
+<span><span class="co">## [25] htmltools_0.5.9      sass_0.4.10          yaml_2.3.12         </span></span>
+<span><span class="co">## [28] glmnet_5.1           pillar_1.11.1        pkgdown_2.2.1       </span></span>
+<span><span class="co">## [31] jquerylib_0.1.4      cachem_1.1.0         iterators_1.0.14    </span></span>
+<span><span class="co">## [34] parallelly_1.48.0    commonmark_2.0.0     tidyselect_1.2.1    </span></span>
+<span><span class="co">## [37] digest_0.6.39        mvtnorm_1.4-2        dplyr_1.2.1         </span></span>
+<span><span class="co">## [40] listenv_1.1.0        labeling_0.4.3       splines_4.6.1       </span></span>
+<span><span class="co">## [43] fastmap_1.2.0        grid_4.6.1           cli_3.6.6           </span></span>
+<span><span class="co">## [46] magrittr_2.0.5       DiagrammeR_1.0.12    randomForest_4.7-1.2</span></span>
+<span><span class="co">## [49] future.apply_1.21.0  withr_3.0.3          scales_1.4.0        </span></span>
+<span><span class="co">## [52] rmarkdown_2.32       globals_0.20.0       otel_0.2.0          </span></span>
+<span><span class="co">## [55] gridExtra_2.3.1      progressr_1.0.0      ragg_1.5.2          </span></span>
+<span><span class="co">## [58] evaluate_1.0.5       knitr_1.52           markdown_2.0        </span></span>
+<span><span class="co">## [61] rlang_1.3.0          Rcpp_1.1.2           glue_1.8.1          </span></span>
+<span><span class="co">## [64] xml2_1.6.0           rstudioapi_0.19.0    jsonlite_2.0.0      </span></span>
+<span><span class="co">## [67] R6_2.6.1             systemfonts_1.3.2    fs_2.1.0</span></span></code></pre>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
@@ -4700,7 +4931,7 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

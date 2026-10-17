@@ -11,7 +11,8 @@ summarize_bootstrap_results(
   sgharm,
   boot_results,
   create_plots = FALSE,
-  est.scale = "hr"
+  est.scale = "hr",
+  digits = 2
 )
 ```
 
@@ -39,6 +40,20 @@ summarize_bootstrap_results(
 - est.scale:
 
   Character. "hr" or "1/hr" for effect scale
+
+- digits:
+
+  Integer or NULL. Decimal places for display formatting of numeric
+  columns in the rendered table (per-arm summaries, Diff, effect
+  estimate CI, bias-corrected CI). Default 2. When set, the formatted
+  strings in `boot_results$FSsg_tab` are parsed back to numeric and
+  re-formatted at the requested precision; this works reliably as long
+  as the construction-time precision (default 4 decimals; controlled by
+  `digits` in `forestsearch_bootstrap_dofuture`) is at least as high as
+  `digits` requested here. Set `digits = NULL` to display the
+  construction-time strings unchanged. The `n` and `n1` columns are
+  **not** reformatted – their count-with-percent format is preserved as
+  constructed.
 
 ## Value
 
@@ -85,3 +100,19 @@ for table creation
 for analogous main analysis tables
 [`summarize_bootstrap_subgroups`](https://larry-leon.github.io/forestsearch/reference/summarize_bootstrap_subgroups.md)
 for subgroup stability analysis
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+library(survival)
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+fs <- forestsearch(df,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+fs_bc <- forestsearch_bootstrap_dofuture(fs, nb_boots = 100)
+summaries <- summarize_bootstrap_results(fs$sg.harm, fs_bc)
+summaries$table
+} # }
+```

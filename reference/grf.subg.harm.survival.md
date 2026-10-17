@@ -23,7 +23,12 @@ grf.subg.harm.survival(
   sg.criterion = "mDiff",
   maxdepth = 2,
   seedit = 8316951,
-  return_selected_cuts_only = FALSE
+  return_selected_cuts_only = FALSE,
+  tune_grf = FALSE,
+  grf_selection = c("tree", "frontier"),
+  frontier_rule = c("effMaxSG", "eff", "maxSG", "minSG", "effMinSG"),
+  effect_neighborhood = 0.1,
+  selection_rule = c("neighborhood", "pareto", "both")
 )
 ```
 
@@ -93,6 +98,52 @@ grf.subg.harm.survival(
   (default), returns all cuts from all fitted trees (depths 1 through
   `maxdepth`).
 
+- tune_grf:
+
+  Logical. If `TRUE`, enables cross-validated hyperparameter tuning via
+  `tune.parameters = "all"` in the causal survival forest. Default
+  `FALSE`.
+
+- grf_selection:
+
+  Character, one of `"tree"` (default) or `"frontier"`. `"tree"` uses
+  the GRF policy tree (standard behavior). `"frontier"` is an
+  **experimental** alternative that, on the same doubly-robust scores,
+  enumerates single-covariate thresholds (and depth-2 covariate-pair
+  conjunctions when `maxdepth >= 2`), takes the Pareto frontier of
+  (harm-effect, size), and selects one subgroup under `frontier_rule`.
+  The selected subgroup is always a single conjunction. In small
+  benchmarks the policy tree matched or beat the frontier on harm
+  recovery, so `"frontier"` is provided for comparison and exploration,
+  not as a recommended default.
+
+- frontier_rule:
+
+  Character, one of `"effMaxSG"` (default), `"eff"`, `"maxSG"`,
+  `"minSG"`, or `"effMinSG"`; the rule applied to the frontier when
+  `grf_selection = "frontier"`. Semantics match
+  [`dina_subgroup()`](https://larry-leon.github.io/forestsearch/reference/dina_subgroup.md)'s
+  `sg_focus`: `"eff"` takes the maximum harm-effect candidate;
+  `"maxSG"`/`"minSG"` the largest/smallest eligible candidate (effect
+  \>= `dmin.grf`); `"effMaxSG"`/`"effMinSG"` the largest/smallest
+  candidate within `effect_neighborhood` (relative) of the max
+  harm-effect.
+
+- effect_neighborhood:
+
+  Numeric in (0, 1); relative neighborhood for the `"effMaxSG"` /
+  `"effMinSG"` rules. Default 0.10. Used only when
+  `grf_selection = "frontier"`.
+
+- selection_rule:
+
+  Character, one of `"neighborhood"` (default), `"pareto"`, `"both"`;
+  the inclusion band for the `eff*SG` frontier rules, matching
+  [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
+  and
+  [`dina_subgroup()`](https://larry-leon.github.io/forestsearch/reference/dina_subgroup.md).
+  Inert for the other rules.
+
 ## Value
 
 A list with GRF results, including:
@@ -107,7 +158,10 @@ A list with GRF results, including:
 
 - sg.harm.id:
 
-  Expression defining the identified subgroup
+  **Character vector of cut expressions** defining the identified
+  subgroup (length = depth of the selected policy tree), or `NULL` if no
+  subgroup was found. **Not** a per-subject membership indicator; see
+  the *Field naming collision* section below.
 
 - tree.cuts:
 
@@ -162,3 +216,67 @@ returned:
 
 When `return_selected_cuts_only = TRUE` and no subgroup meets the
 criteria, `tree.cuts` will be empty (character(0)).
+
+## Field naming collision with forestsearch / subgroup.consistency
+
+The field name `sg.harm.id` has **different semantics** on this object
+versus on the `grp.consistency` list returned by
+[`subgroup.consistency`](https://larry-leon.github.io/forestsearch/reference/subgroup.consistency.md)
+(and nested inside the
+[`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
+result):
+
+|  |  |  |
+|----|----|----|
+| **Object** | **`sg.harm.id` contains** | **Length / type** |
+| `grf.subg.harm.survival()` result (this function) | character vector of cut expressions | character, length = depth of selected tree |
+| [`subgroup.consistency()`](https://larry-leon.github.io/forestsearch/reference/subgroup.consistency.md) result | per-subject 0/1 membership indicator | integer, length `nrow(data)` |
+
+**Practical consequence.** On this object, pasting
+`paste(obj$sg.harm.id, collapse = " & ")` correctly renders the
+identified subgroup. On a `grp.consistency` list the same expression
+silently concatenates a long 0/1 indicator and produces output like
+`"0 & 0 & 1 & 0 & ..."`. When writing code that must handle both object
+types, dispatch on class first, or use the top-level `sg.harm` field
+that the
+[`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
+result exposes.
+
+This naming collision is a documented CRAN-stable API for v0.1.x and
+v0.2.x; it is expected to be resolved via a deprecation cycle in a
+future minor release.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# Return all cuts (default behavior)
+result_all <- grf.subg.harm.survival(
+  data = trial_data,
+  confounders.name = c("age", "biomarker", "region"),
+  outcome.name = "tte",
+  event.name = "event",
+  id.name = "id",
+  treat.name = "treat",
+  dmin.grf = 0.1,
+  maxdepth = 2
+)
+result_all$tree.cuts
+# Returns cuts from both depth 1 and depth 2 trees
+
+# Return only cuts from the selected tree
+result_selected <- grf.subg.harm.survival(
+  data = trial_data,
+  confounders.name = c("age", "biomarker", "region"),
+  outcome.name = "tte",
+  event.name = "event",
+  id.name = "id",
+  treat.name = "treat",
+  dmin.grf = 0.1,
+  maxdepth = 2,
+  return_selected_cuts_only = TRUE
+)
+result_selected$tree.cuts
+# Returns cuts only from the depth that identified the winning subgroup
+} # }
+```

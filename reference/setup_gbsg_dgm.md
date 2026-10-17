@@ -22,7 +22,9 @@ setup_gbsg_dgm(
   cens_type = c("weibull", "uniform"),
   use_rand_params = FALSE,
   seed = 8316951L,
-  verbose = FALSE
+  verbose = FALSE,
+  k_random_noise = 0L,
+  noise_seed = 20260807L
 )
 ```
 
@@ -79,6 +81,18 @@ setup_gbsg_dgm(
 
   Logical. Print diagnostic information. Default: FALSE
 
+- k_random_noise:
+
+  Integer. Number of standard-normal noise columns (`noise1`, `noise2`,
+  ...) drawn once onto the super-population at construction. Default
+  `0L` (no noise columns; output identical to previous versions).
+
+- noise_seed:
+
+  Integer. Seed for the population-level noise draw, used only when
+  `k_random_noise > 0`. Default `20260807L`, the committed
+  population-noise seed (commit `2a4787bc`).
+
 ## Value
 
 An object of class `c("aft_dgm_flex", "gbsg_dgm", "list")` with all
@@ -100,6 +114,20 @@ plus:
 
   Sub-list with `type`, `mu`, `tau` for the censoring model.
 
+- `noise_names`:
+
+  Character vector of noise column names (`character(0)` when
+  `k_random_noise = 0`).
+
+- `noise_scheme`:
+
+  `"population"` when noise was drawn, otherwise `"none"`.
+
+- `noise_seed`:
+
+  The seed used for the noise draw, or `NA_integer_` when none was
+  drawn.
+
 ## Details
 
 Internally the function calls
@@ -120,6 +148,12 @@ The original `df_super_rand` field is kept so that
 [`compute_dgm_cde()`](https://larry-leon.github.io/forestsearch/reference/compute_dgm_cde.md)
 and `print.gbsg_dgm` continue to work.
 
+Noise columns requested via `k_random_noise` are inert N(0,1) population
+attributes intended as candidate confounders; the builder never puts
+them in the outcome model. They are drawn once onto the super-population
+(both `df_super_rand` and `df_super`), so simulated trials and
+evaluation frames inherit them by row resampling.
+
 ## See also
 
 [`create_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md),
@@ -129,37 +163,10 @@ and `print.gbsg_dgm` continue to work.
 ## Examples
 
 ``` r
-# \donttest{
+if (FALSE) { # \dontrun{
 dgm <- setup_gbsg_dgm(model = "alt", k_inter = 2, verbose = FALSE)
 dgm <- compute_dgm_cde(dgm)
 print(dgm)
-#> GBSG-Based AFT Data Generating Mechanism (Aligned)
-#> ===================================================
-#> 
-#> Model type: alt 
-#> Super-population size: 5000 
-#> 
-#> Effect Modifiers:
-#>   k_treat: 1 
-#>   k_inter: 2 
-#>   k_z3: 1 
-#> 
-#> Hazard Ratios (Cox-based, stacked PO):
-#>   Overall (causal): 0.7331 
-#>   Harm subgroup (H): 2.9651 
-#>   Complement (Hc): 0.6612 
-#>   Ratio HR(H)/HR(Hc): 4.4846 
-#> 
-#> Average Hazard Ratios (from loghr_po):
-#>   AHR (overall): 0.7431 
-#>   AHR_harm (H): 3.8687 
-#>   AHR_no_harm (Hc): 0.5848 
-#>   Ratio AHR(H)/AHR(Hc): 6.6157 
-#> 
-#> Subgroup definition: z1 == 1 & z3 == 1 (low ER & premenopausal) 
-#> ER threshold: 8 (quantile = 0.25)
-#> Subgroup size: 634 (12.7%)
-#> Analysis variables: v1, v2, v3, v4, v5, v6, v7 
 sim <- simulate_from_dgm(dgm, n = 400, seed = 1)
-# }
+} # }
 ```

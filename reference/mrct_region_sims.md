@@ -66,16 +66,22 @@ mrct_region_sims(
 
 - hr.threshold:
 
-  Numeric. Hazard ratio threshold for subgroup identification. Default:
-  0.90
+  Numeric. `c1`, the screening threshold on a candidate subgroup's own
+  hazard ratio, passed to
+  [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md).
+  Default: 0.90
 
 - hr.consistency:
 
-  Numeric. Consistency threshold for hazard ratio. Default: 0.80
+  Numeric. `c2`, **an effect threshold** – the minimum hazard ratio
+  required in each half of a split. Not a proportion and not the
+  consistency rate. Default: 0.80
 
 - pconsistency.threshold:
 
-  Numeric. Probability threshold for consistency. Default: 0.90
+  Numeric. `p*`, **a proportion** in `[0, 1]` – the fraction of splits
+  that must clear `hr.consistency` (`c2`). Not an effect threshold.
+  Default: 0.90
 
 - confounders.name:
 
@@ -262,3 +268,30 @@ for data simulation
 for MRCT-specific DGM wrapper
 [`summaryout_mrct`](https://larry-leon.github.io/forestsearch/reference/summaryout_mrct.md)
 for summarizing simulation results
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# Create DGM for alternative hypothesis
+dgm_alt <- create_dgm_for_mrct(
+  df_case = df_case,
+  model_type = "alt",
+  log_hrs = log(c(3, 1.25, 0.50)),
+  verbose = TRUE
+)
+
+# Run simulations
+results <- mrct_region_sims(
+  dgm = dgm_alt,
+  n_sims = 100,
+  region_var = "z_regA",
+  sg_focus = "minSG",
+  parallel_args = list(plan = "multisession", workers = 4),
+  details = TRUE
+)
+
+# Summarize results
+cat("Subgroup identification rate:", mean(results$any_found) * 100, "%\n")
+} # }
+```

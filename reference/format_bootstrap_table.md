@@ -52,3 +52,16 @@ format_bootstrap_table(
 ## Value
 
 A gt table object
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+fs <- forestsearch(gbsg,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+fs_bc <- forestsearch_bootstrap_dofuture(fs, nb_boots = 100)
+summaries <- summarize_bootstrap_results(fs$sg.harm, fs_bc)
+format_bootstrap_table(summaries$table_data)
+} # }
+```

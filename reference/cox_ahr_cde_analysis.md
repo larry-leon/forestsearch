@@ -23,7 +23,7 @@ cox_ahr_cde_analysis(
   plot_style = c("combined", "separate", "grid"),
   plot_select = c("all", "profile_ahr", "ahr_only"),
   save_plots = FALSE,
-  output_dir = tempdir(),
+  output_dir = "plots",
   verbose = TRUE
 )
 ```
@@ -105,8 +105,7 @@ cox_ahr_cde_analysis(
 
 - output_dir:
 
-  Character directory for saving plots. Default:
-  [`tempdir()`](https://rdrr.io/r/base/tempfile.html).
+  Character directory for saving plots. Default: `"plots"`.
 
 - verbose:
 
@@ -146,31 +145,31 @@ List of class `"cox_ahr_cde"` containing:
 ## Examples
 
 ``` r
-# \donttest{
-# Build a small synthetic dataset with required columns
-set.seed(42)
-n <- 200
-df_ex <- data.frame(
-  os_time   = rexp(n, rate = 0.01),
-  os_event  = rbinom(n, 1, 0.6),
-  treat     = rep(0:1, each = n / 2),
-  biomarker = rnorm(n),
-  loghr_po  = rnorm(n, mean = -0.3, sd = 0.5)
-)
-
+if (FALSE) { # \dontrun{
 # With threshold - full subgroup analysis
 results <- cox_ahr_cde_analysis(
-  df = df_ex, z_name = "biomarker",
-  hr_threshold = 1.25, plot_style = "grid",
-  verbose = FALSE
+  df = df_large, z_name = "z_bm",
+  hr_threshold = 1.25, plot_style = "grid"
 )
 
-# Without threshold - pure AHR curves
+# Without threshold - pure AHR/CDE curves
 results <- cox_ahr_cde_analysis(
-  df = df_ex, z_name = "biomarker",
-  hr_threshold = NULL, plot_select = "ahr_only",
-  verbose = FALSE
+  df = df_large, z_name = "z_bm",
+  hr_threshold = NULL, plot_style = "grid"
 )
-# }
 
+# Compact two-panel without threshold
+results <- cox_ahr_cde_analysis(
+  df = df_large, z_name = "z_bm",
+  hr_threshold = NULL,
+  plot_select = "profile_ahr"
+)
+
+# Single AHR panel only
+results <- cox_ahr_cde_analysis(
+  df = df_large, z_name = "z_bm",
+  hr_threshold = 1.25,
+  plot_select = "ahr_only"
+)
+} # }
 ```

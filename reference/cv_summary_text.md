@@ -39,3 +39,12 @@ cv_summary_text(
 ## Value
 
 Character string with formatted CV metrics.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+cv_text <- cv_summary_text(tenfold_results)
+# Returns: "CV found = 95%, Agree(+,-) = 88%, 92%"
+} # }
+```

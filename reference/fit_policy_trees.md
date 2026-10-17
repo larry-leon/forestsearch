@@ -33,3 +33,12 @@ fit_policy_trees(X, data, dr.scores, maxdepth, n.min)
 ## Value
 
 List with trees and combined values
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# fit_policy_trees() is called internally by grf.subg.harm.survival().
+# See grf.subg.harm.survival() for the standard entry point.
+} # }
+```

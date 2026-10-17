@@ -35,3 +35,13 @@ summarize_simulation_results(
 ## Value
 
 Data frame with summary statistics
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+dgm <- create_gbsg_dgm()
+sim_res <- run_simulation_analysis(dgm, nsim = 10)
+summarize_simulation_results(sim_res)
+} # }
+```

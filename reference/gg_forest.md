@@ -35,7 +35,8 @@ gg_forest(
   point_shape = 21,
   base_size = 11,
   widths = NULL,
-  row_expand = 0.6
+  row_expand = 0.6,
+  clip_marker = c("none", "arrow")
 )
 ```
 
@@ -159,6 +160,14 @@ gg_forest(
   Numeric. Extra space above and below row range on y-axis, in row units
   (default 0.6).
 
+- clip_marker:
+
+  Character. How to mark whiskers whose 1st or 99th percentile falls
+  outside `xlim`. One of `"none"` (default — the whisker simply reaches
+  the axis edge) or `"arrow"` (a small arrowhead is drawn at the clipped
+  boundary, pointing outward, indicating the distribution extends beyond
+  the visible range).
+
 ## Value
 
 A patchwork object. Render with
@@ -166,3 +175,12 @@ A patchwork object. Render with
 [`plot()`](https://rdrr.io/r/graphics/plot.default.html). Control
 dimensions entirely via knitr chunk options `fig.width` / `fig.height`:
 row height = fig.height / n_rows.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# Recommended fig.height: n_rows * 0.45 + 1.5 (for title/axis overhead)
+# e.g. 20 rows -> fig.height = 20 * 0.45 + 1.5 = 10.5
+} # }
+```

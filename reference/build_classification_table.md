@@ -16,7 +16,8 @@ build_classification_table(
   title = "Subgroup Identification and Classification Rates",
   n_sims = NULL,
   bold_threshold = 0.05,
-  font_size = 12
+  font_size = 12,
+  subgroup_notation = c("harm", "benefit")
 )
 ```
 
@@ -76,6 +77,11 @@ build_classification_table(
   Numeric. Font size in pixels for table text. Default: 12. Increase to
   14 or 16 for larger display.
 
+- subgroup_notation:
+
+  Character. `"harm"` (default) labels subgroups as H/Hc; `"benefit"`
+  labels as G/Gc for benefit-search analyses (treatment switching).
+
 ## Value
 
 A `gt` table object.
@@ -103,3 +109,23 @@ Under the null hypothesis the rows are reduced to `any(H)`, `sens(Hc)`,
 
 [`format_oc_results`](https://larry-leon.github.io/forestsearch/reference/format_oc_results.md),
 [`summarize_simulation_results`](https://larry-leon.github.io/forestsearch/reference/summarize_simulation_results.md)
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# Assemble results from H0 and H1 simulations
+scenarios <- list(
+  null = list(
+    results = results_null, label = "M1",
+    n_sample = 700, dgm = dgm_null, hypothesis = "null"
+  ),
+  alt = list(
+    results = results_alt, label = "M1",
+    n_sample = 700, dgm = dgm_calibrated, hypothesis = "alt"
+  )
+)
+
+build_classification_table(scenarios, n_sims = 100)
+} # }
+```

@@ -20,6 +20,7 @@ sg_tables(
   hr_0a = NA,
   ndecimals = 3,
   include_search_info = TRUE,
+  subgroup_notation = NULL,
   font_size = 12
 )
 ```
@@ -28,7 +29,11 @@ sg_tables(
 
 - fs:
 
-  ForestSearch results object.
+  ForestSearch results object, or a `grf_glm_result` object from
+  [`grf.subg.harm.glm`](https://larry-leon.github.io/forestsearch/reference/grf.subg.harm.glm.md).
+  When a GRF object is supplied, only Table 1 (treatment effect
+  estimates) is produced; Table 2 (identified subgroups with
+  consistency) returns `NULL`.
 
 - which_df:
 
@@ -72,10 +77,27 @@ sg_tables(
 - ndecimals:
 
   Integer. Number of decimals for formatted numbers (default: 3).
+  Controls precision in both `sg10_out` (formatted via
+  [`gt::fmt_number`](https://gt.rstudio.com/reference/fmt_number.html))
+  and `tab_estimates` (threaded as `digits` to
+  [`SG_tab_estimates_glm`](https://larry-leon.github.io/forestsearch/reference/SG_tab_estimates_glm.md)
+  for arm summaries, Diff, effect-estimate CI, and bias-corrected CI).
+  GLM and GRF-GLM paths only; the survival path uses its own formatting
+  in
+  [`SG_tab_estimates`](https://larry-leon.github.io/forestsearch/reference/SG_tab_estimates.md).
 
 - include_search_info:
 
   Logical. Include search metadata table (default: TRUE).
+
+- subgroup_notation:
+
+  Character or `NULL`. When set to `"harm"` or `"benefit"`, overrides
+  the default "Recommend"/"Questionable" labels with the Unicode labels
+  from
+  [`get_sg_labels`](https://larry-leon.github.io/forestsearch/reference/get_sg_labels.md)
+  (e.g., \\\hat{H}\\ / \\\hat{H}^c\\ for harm). Default `NULL` (use
+  "Recommend"/"Questionable").
 
 - font_size:
 
@@ -85,3 +107,23 @@ sg_tables(
 
 List with gt tables for estimates, subgroups, and optionally search
 info.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+library(survival)
+fs <- forestsearch(
+  gbsg,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name     = "rfstime",
+  treat.name       = "hormon",
+  event.name       = "status",
+  fs.splits        = 50,
+  use_lasso        = FALSE,
+  use_grf          = FALSE
+)
+tabs <- sg_tables(fs)
+tabs$tab_estimates
+} # }
+```

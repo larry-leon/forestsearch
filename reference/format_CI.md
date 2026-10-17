@@ -5,7 +5,7 @@ Formats confidence interval for estimates.
 ## Usage
 
 ``` r
-format_CI(estimates, col_names)
+format_CI(estimates, col_names, digits = 4)
 ```
 
 ## Arguments
@@ -18,6 +18,28 @@ format_CI(estimates, col_names)
 
   Character vector of column names for estimate, lower, upper.
 
+- digits:
+
+  Integer. Decimal places for numeric formatting. Default 4 to provide
+  round-down headroom for downstream display reformatting (e.g.,
+  `summarize_bootstrap_results(digits = ...)`).
+
 ## Value
 
 Character string formatted as \\estimate (lower, upper)\\.
+
+## Examples
+
+``` r
+# \donttest{
+library(data.table)
+#> 
+#> Attaching package: ‘data.table’
+#> The following object is masked from ‘package:base’:
+#> 
+#>     %notin%
+est <- data.table(hr = 1.58, lower = 0.86, upper = 2.90)
+format_CI(est, col_names = c("hr", "lower", "upper"))
+#> [1] "1.58 (0.86,2.9)"
+# }
+```

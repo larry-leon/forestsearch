@@ -1,0 +1,198 @@
+# De-biased inference for the best subgroup over a large enumerated family
+
+Finite realization of Algorithm 3 of Guo and He (2021): the candidate
+family is supplied as materialized 0/1 membership columns, the most
+extreme oriented effect is selected, and its selection optimism is
+removed by a pair (case) bootstrap with deterministic shrinkage offsets
+computed against the global maximum. Survival, binary, and continuous
+outcomes are supported.
+
+## Usage
+
+``` r
+guohe_algorithm3(
+  data,
+  outcome = c("survival", "binary", "continuous"),
+  treatment,
+  candidates,
+  time = NULL,
+  event = NULL,
+  y = NULL,
+  orient = -1,
+  B = 2000L,
+  r = 0.03,
+  level = 0.05,
+  seed = NULL,
+  min_events = 5L,
+  diagnostics = TRUE,
+  parallel = FALSE,
+  adjust_covariates = NULL,
+  fast = NULL
+)
+```
+
+## Arguments
+
+- data:
+
+  A data frame.
+
+- outcome:
+
+  One of `"survival"`, `"binary"`, `"continuous"`.
+
+- treatment:
+
+  Name of the 0/1 treatment column.
+
+- candidates:
+
+  Character vector of names of 0/1 membership columns forming the
+  enumerated family.
+
+- time, event:
+
+  Survival only: names of the time and event columns.
+
+- y:
+
+  Binary or continuous only: name of the outcome column.
+
+- orient:
+
+  Either `-1` or `+1`; sign orienting the effect of interest.
+
+- B:
+
+  Number of bootstrap resamples.
+
+- r:
+
+  Shrinkage tuning parameter, strictly between 0 and 0.5. Guo and He's
+  Algorithm 2 gives a cross-validated choice; a fixed small value is
+  used here.
+
+- level:
+
+  One-sided level; the two-sided interval has coverage `1 - level`.
+
+- seed:
+
+  Optional integer for reproducible resampling.
+
+- min_events:
+
+  Minimum events (survival) or minimum per-arm count for a candidate to
+  be estimable.
+
+- diagnostics:
+
+  Logical; if `TRUE`, record per-resample estimability.
+
+- parallel:
+
+  Logical; if `TRUE`, distribute the bootstrap model fitting with
+  `future.apply`. Requires a
+  [`future::plan()`](https://future.futureverse.org/reference/plan.html)
+  to have been set by the caller. Results are identical to
+  `parallel = FALSE` for the same `seed`, because resample indices are
+  drawn serially before any distribution. Do NOT enable this inside an
+  already-parallel outer loop.
+
+- adjust_covariates:
+
+  Optional character vector of covariate names for the within-subgroup
+  model, matching the argument of the same name in
+  [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)'s
+  `.estimate_or()` / `.make_lm_estimator()`. Default `NULL` is the
+  unadjusted model. Supplying it DISABLES the closed-form fast path,
+  because an adjusted coefficient is a partial regression coefficient,
+  not a 2x2 log-odds-ratio or a difference of arm means.
+
+  NOTE:
+  [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
+  has a SECOND adjustment axis, `ps_adjust_method` (`"iptw"` weighted
+  fitting, `"dr_gcomp"` Bang-Robins G-computation). Those modes are not
+  implemented in this comparator, and the closed forms would be invalid
+  under them too – IPTW fits a weighted logistic, and DR reports a
+  marginal log-OR from G-computed probabilities; neither equals the 2x2
+  statistic. If the comparator is extended to those modes, the `fast_ok`
+  gate must be extended with them.
+
+- fast:
+
+  Logical or `NULL`. Closed-form evaluation of the within-subgroup
+  effect, available only for UNADJUSTED binary and continuous outcomes.
+  These are EXACT, not approximations: with a single binary covariate
+  the logistic model is saturated, so its MLE is the 2x2 log-odds-ratio,
+  and the Gaussian coefficient is the difference of arm means. `NULL`
+  (default) auto-enables it whenever it is valid. `TRUE` errors if the
+  configuration makes it invalid (survival, or any `adjust_covariates`),
+  rather than silently falling back.
+
+## Value
+
+An object of class `"guohe_a3"`: a list with the selected candidate
+(`selected`), the naive and de-biased effects on the reporting scale
+(`naive`, `debiased`), the one-sided bound of Guo and He's Algorithm 3
+(`bound_one_sided`, with its conservative side in `bound_side`), the
+two-sided quantile-inversion interval (`ci_two_sided`), the heuristic
+Wald interval (`ci_wald`), and bookkeeping fields (`n`, `B`,
+`B_requested`, `r`, `level`, `n_candidates`, `n_estimable`, `fast`,
+`lean_cox`, `adjust_covariates`, and, when `diagnostics = TRUE`, the
+per-candidate resample `drop_rate`).
+
+## Details
+
+Membership is computed once on the full data and carried through the
+bootstrap; cut points are NOT re-derived per resample. This is required
+by the method (the index set is held fixed) and is what makes the
+comparison against multiplier resampling like-for-like; regenerating the
+family per resample is the full-bootstrap object instead.
+
+The oriented score is `orient * b`, with `b` the within-subgroup
+treatment coefficient on the natural scale. `orient = -1` treats a
+protective ratio (HR or OR below 1) as the effect of interest, matching
+Guo and He's MONET1 convention; `orient = +1` treats a harmful ratio as
+the effect of interest, which is the setting for a forest-search harm
+subgroup.
+
+This is an independent implementation of the published method, validated
+by reproducing the simulation study of Section 5 of Guo and He (2021).
+
+## References
+
+Guo, X. and He, X. (2021). Inference on Selected Subgroups in Clinical
+Trials. *Journal of the American Statistical Association*, **116**(535),
+1498–1506.
+[doi:10.1080/01621459.2020.1740096](https://doi.org/10.1080/01621459.2020.1740096)
+
+## Examples
+
+``` r
+set.seed(1)
+n <- 160
+df <- data.frame(
+  treat = rbinom(n, 1, 0.5),
+  y     = rbinom(n, 1, 0.3),
+  g1    = rbinom(n, 1, 0.5),
+  g2    = rbinom(n, 1, 0.5),
+  g3    = rbinom(n, 1, 0.5)
+)
+fit <- guohe_algorithm3(
+  df, outcome = "binary", treatment = "treat",
+  candidates = c("g1", "g2", "g3"), y = "y",
+  orient = +1, B = 50, seed = 2
+)
+fit
+#> Guo-He Algorithm 3 (enumerated family)  [binary, orient = +1]
+#>   family           : 3 candidates (3 estimable), n = 160
+#>   selected         : g2
+#>   naive odds ratio      : 0.8418
+#>   de-biased odds ratio  : 0.6606
+#>   lower bound (one-sided, 0.950) : 0.2934   [Guo-He bound]
+#>   two-sided CI (0.95, quantile inversion): (0.2527, 1.6409)   [EXTENSION]
+#>   Wald CI (0.95, Zhao-style)             : (0.2424, 1.8001)   [HEURISTIC]
+#>   B = 50, r = 0.030
+#>   resample drop-out: none
+```

@@ -26,4 +26,19 @@ plot(x, which = 1, ...)
 
 ## Value
 
-Invisibly returns `x`.
+`x`, invisibly. No plot is drawn: a message names the
+[`plot_sg_results()`](https://larry-leon.github.io/forestsearch/reference/plot_sg_results.md)
+call that produces the requested plot. An error is raised when a
+character `which` does not name an available plot.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+fs <- forestsearch(gbsg,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+p <- plot_subgroup(fs)
+plot(p)
+} # }
+```

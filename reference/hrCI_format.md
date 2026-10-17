@@ -17,3 +17,10 @@ hrCI_format(hrest)
 ## Value
 
 Character string formatted as \\HR (lower, upper)\\.
+
+## Examples
+
+``` r
+hrCI_format(c(1.45, 0.98, 2.14))
+#> [1] "1.45 (0.98, 2.14)"
+```

@@ -14,7 +14,10 @@ format_oc_results(
   digits_hr = 3,
   title = "Operating Characteristics Summary",
   subtitle = NULL,
-  use_gt = TRUE
+  use_gt = TRUE,
+  effect_measure = NULL,
+  dgm = NULL,
+  subgroup_notation = c("harm", "benefit")
 )
 ```
 
@@ -51,11 +54,35 @@ format_oc_results(
 
 - subtitle:
 
-  Character. Table subtitle. Default: NULL
+  Character or `NULL`. Table subtitle. When `NULL` (default) and a `dgm`
+  is provided, an informative subtitle is auto-generated showing the
+  number of simulations and true effect sizes using notation-aware
+  labels (e.g., `"100 sims, OR(H) = 2.00, OR(Hc) = 0.65"`).
 
 - use_gt:
 
   Logical. Return gt table if TRUE, data.frame if FALSE. Default: TRUE
+
+- effect_measure:
+
+  Character or `NULL`. The effect measure used in the simulation (e.g.,
+  `"HR"`, `"OR"`, `"MD"`). When provided, identity-scale measures (MD,
+  RD, IRD) are negated rather than reciprocated during benefit-search
+  inversion. When `NULL` (default), auto-detected from
+  `dgm$effect_measure` if `dgm` is provided; otherwise ratio-scale
+  inversion (`1/x`) is used for backward compatibility.
+
+- dgm:
+
+  Optional DGM object (`gbsg_dgm`, `aft_dgm_flex`, or `glm_dgm`). When
+  provided, `effect_measure` is auto-detected from `dgm$effect_measure`
+  (unless explicitly overridden) and column spanner labels adapt to the
+  outcome type.
+
+- subgroup_notation:
+
+  Character. `"harm"` (default) labels subgroups as H/Hc; `"benefit"`
+  labels as G/Gc for benefit-search analyses (treatment switching).
 
 ## Value
 
@@ -86,3 +113,12 @@ Column notation aligns with
 and Leon et al. (2024): `H` = true (oracle) subgroup, `H-hat` =
 identified subgroup. The asterisk (`*`) is reserved for bootstrap
 bias-corrected estimates and is not used in this summary table.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# format_oc_results() is called by summarize_simulation_results().
+# See run_simulation_analysis() for the standard entry point.
+} # }
+```

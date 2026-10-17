@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>forestsearch • forestsearch</title>
 <script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="forestsearch">
 <meta name="description" content="Exploratory subgroup identification in clinical trials with survival endpoints using bootstrap bias correction.
@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -181,20 +181,20 @@
 <col width="50%">
 <col width="50%">
 </colgroup>
-<thead><tr class="header">
+<thead><tr>
 <th>Feature</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/forestsearch.html">forestsearch()</a></code></td>
 <td>Main search engine: LASSO/GRF candidate selection, exhaustive enumeration, consistency evaluation</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code><a href="reference/subgroup.consistency.html">subgroup.consistency()</a></code></td>
 <td>Split-sample consistency with optional two-stage sequential early stopping</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/select_best_subgroup.html">select_best_subgroup()</a></code></td>
 <td>Multiple selection criteria: <code>"hr"</code>, <code>"maxSG"</code>, <code>"minSG"</code>, <code>"hrMaxSG"</code>, <code>"hrMinSG"</code>
 </td>
@@ -210,24 +210,24 @@
 <col width="50%">
 <col width="50%">
 </colgroup>
-<thead><tr class="header">
+<thead><tr>
 <th>Feature</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/forestsearch_bootstrap_dofuture.html">forestsearch_bootstrap_dofuture()</a></code></td>
 <td>Parallelised bootstrap with <code>doFuture</code>; full algorithm mimicked in each replicate</td>
 </tr>
-<tr class="even">
+<tr>
 <td>Bias correction</td>
 <td>Two-source correction on the log-HR scale (Leon et al., Eq. 6–7)</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>IJ variance</td>
 <td>Infinitesimal jackknife variance estimation for valid confidence intervals</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code><a href="reference/summarize_bootstrap_results.html">summarize_bootstrap_results()</a></code></td>
 <td>Publication-ready <code>gt</code> tables with diagnostics</td>
 </tr>
@@ -242,20 +242,20 @@
 <col width="50%">
 <col width="50%">
 </colgroup>
-<thead><tr class="header">
+<thead><tr>
 <th>Feature</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/forestsearch_Kfold.html">forestsearch_Kfold()</a></code></td>
 <td>N-fold (leave-one-out) CV for algorithmic stability assessment</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code><a href="reference/forestsearch_tenfold.html">forestsearch_tenfold()</a></code></td>
 <td>Repeated K-fold CV (e.g., 200 x 10-fold)</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/cv_metrics_tables.html">cv_metrics_tables()</a></code></td>
 <td>sensCV, ppvCV, and exact-match correspondence metrics</td>
 </tr>
@@ -270,28 +270,28 @@
 <col width="50%">
 <col width="50%">
 </colgroup>
-<thead><tr class="header">
+<thead><tr>
 <th>Feature</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/plot_subgroup_results_forestplot.html">plot_subgroup_results_forestplot()</a></code></td>
 <td>Forest plot with bias-corrected HRs, reference subgroups, and CV annotations</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code><a href="reference/plot_sg_weighted_km.html">plot_sg_weighted_km()</a></code></td>
 <td>Weighted Kaplan-Meier curves for identified subgroups</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/plot_km_band_forestsearch.html">plot_km_band_forestsearch()</a></code></td>
 <td>Multi-subgroup KM comparison bands</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code><a href="reference/plot_spline_treatment_effect.html">plot_spline_treatment_effect()</a></code></td>
 <td>Spline-based treatment effect curves</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/plot_detection_curve.html">plot_detection_curve()</a></code></td>
 <td>Power/detection probability across effect sizes</td>
 </tr>
@@ -306,24 +306,24 @@
 <col width="50%">
 <col width="50%">
 </colgroup>
-<thead><tr class="header">
+<thead><tr>
 <th>Feature</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/generate_aft_dgm_flex.html">generate_aft_dgm_flex()</a></code></td>
 <td>Flexible AFT data-generating mechanism with configurable heterogeneity</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code><a href="reference/create_gbsg_dgm.html">create_gbsg_dgm()</a></code></td>
 <td>GBSG-based DGM for replicating paper simulations</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/run_simulation_analysis.html">run_simulation_analysis()</a></code></td>
 <td>Full simulation wrapper: FS, FS+GRF, and standalone GRF</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code><a href="reference/summarize_simulation_results.html">summarize_simulation_results()</a></code></td>
 <td>Operating characteristics tables (type-1 error, power, sensitivity, PPV)</td>
 </tr>
@@ -334,16 +334,16 @@
 <h3 id="multi-regional-clinical-trials">Multi-Regional Clinical Trials<a class="anchor" aria-label="anchor" href="#multi-regional-clinical-trials"></a>
 </h3>
 <table class="table">
-<thead><tr class="header">
+<thead><tr>
 <th>Feature</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/mrct_region_sims.html">mrct_region_sims()</a></code></td>
 <td>Regional consistency evaluation in MRCTs</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code><a href="reference/create_dgm_for_mrct.html">create_dgm_for_mrct()</a></code></td>
 <td>DGM with region-level heterogeneity</td>
 </tr>
@@ -478,7 +478,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

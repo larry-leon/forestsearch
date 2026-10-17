@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Methodology • forestsearch</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Methodology">
 </head>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -61,7 +61,7 @@
 
 
 <script src="methodology_files/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="methodology_files/viz-1.8.2/viz.js"></script><link href="methodology_files/DiagrammeR-styles-0.2/styles.css" rel="stylesheet">
-<script src="methodology_files/grViz-binding-1.0.11/grViz.js"></script><div class="row">
+<script src="methodology_files/grViz-binding-1.0.12/grViz.js"></script><div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Methodology</h1>
@@ -71,7 +71,7 @@ Identification with Bootstrap Bias Correction</h3>
 Thomas Jemielita, Zifang Guo, Rachel Marceau West, Keaven M.
 Anderson</h4>
             
-            <h4 data-toc-skip class="date">2026-03-23</h4>
+            <h4 data-toc-skip class="date">2026-10-17</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/methodology.Rmd" class="external-link"><code>vignettes/articles/methodology.Rmd</code></a></small>
       <div class="d-none name"><code>methodology.Rmd</code></div>
@@ -164,26 +164,26 @@ denote the survival time,
 the censoring time,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>
 the treatment assignment, and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>𝐙</mi><mo>=</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>Z</mi><mn>1</mn></msub><mo>,</mo><msub><mi>Z</mi><mn>2</mn></msub><mo>,</mo><mi>…</mi><mo>,</mo><msub><mi>Z</mi><mi>p</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\boldsymbol{Z} = (Z_1, Z_2, \ldots, Z_p)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>𝐙</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>Z</mi><mn>1</mn></msub><mo>,</mo><msub><mi>Z</mi><mn>2</mn></msub><mo>,</mo><mi>…</mi><mo>,</mo><msub><mi>Z</mi><mi>p</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\boldsymbol{Z} = (Z_1, Z_2, \ldots, Z_p)</annotation></semantics></math>
 a
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>p</mi><annotation encoding="application/x-tex">p</annotation></semantics></math>-dimensional
 collection of baseline covariates. We observe the possibly censored
 survival time
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Y</mi><mo>=</mo><mo>min</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>T</mi><mo>,</mo><mi>C</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">Y = \min(T, C)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Y</mi><mo>=</mo><mrow><mi mathvariant="normal">min</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>T</mi><mo>,</mo><mi>C</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">Y = \min(T, C)</annotation></semantics></math>
 with
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Δ</mi><mo>=</mo><mi>I</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>T</mi><mo>≤</mo><mi>C</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\Delta = I(T \le C)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mo>=</mo><mi>I</mi><mo stretchy="false" form="prefix">(</mo><mi>T</mi><mo>≤</mo><mi>C</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\Delta = I(T \le C)</annotation></semantics></math>
 the event indicator. The observations
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>V</mi><mi>i</mi></msub><mo>,</mo><msub><mi>𝐙</mi><mi>i</mi></msub><mo>,</mo><msub><mi>Y</mi><mi>i</mi></msub><mo>,</mo><msub><mi>Δ</mi><mi>i</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(V_i, \boldsymbol{Z}_i, Y_i, \Delta_i)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>V</mi><mi>i</mi></msub><mo>,</mo><msub><mi>𝐙</mi><mi>i</mi></msub><mo>,</mo><msub><mi>Y</mi><mi>i</mi></msub><mo>,</mo><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(V_i, \boldsymbol{Z}_i, Y_i, \Delta_i)</annotation></semantics></math>
 for
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>i</mi><mo>=</mo><mn>1</mn><mo>,</mo><mi>…</mi><mo>,</mo><mi>N</mi></mrow><annotation encoding="application/x-tex">i = 1, \ldots, N</annotation></semantics></math>
 are assumed to be iid replicates.</p>
 <p>ForestSearch is based on the standard Cox model fitted within
 candidate subgroups:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo>;</mo><mi>V</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>λ</mi><mn>0</mn></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>β</mi><mi>V</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo>;</mo><mi>V</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mi>λ</mi><mn>0</mn></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>β</mi><mi>V</mi><mo stretchy="false" form="postfix">)</mo><mo>,</mo></mrow><annotation encoding="application/x-tex">
 \lambda(t; V) = \lambda_0(t) \exp(\beta V),
 </annotation></semantics></math></p>
 <p>where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>λ</mi><mn>0</mn></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\lambda_0(t)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>λ</mi><mn>0</mn></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\lambda_0(t)</annotation></semantics></math>
 is the baseline hazard and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>β</mi><annotation encoding="application/x-tex">\beta</annotation></semantics></math>
 is the log-hazard ratio for treatment. This is the standard model used
@@ -196,7 +196,7 @@ in oncology forest plot summaries—adjusted for treatment only.</p>
 existence of a detrimental subgroup
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
 with true marginal hazard ratio
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>H</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>&gt;</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H) &gt; 1</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>H</mi><mo stretchy="false" form="postfix">)</mo><mo>&gt;</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H) &gt; 1</annotation></semantics></math>,
 where the size of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
 is at least 60 subjects with an underlying expected event count
@@ -208,7 +208,7 @@ defined:</p>
 <strong>Scenario (i):</strong> A subgroup
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
 is identified where in truth
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>H</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>≤</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H) \le 1</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>H</mi><mo stretchy="false" form="postfix">)</mo><mo>≤</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H) \le 1</annotation></semantics></math>
 (non-detrimental), even though heterogeneous effects may exist via a
 mixture of true
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
@@ -217,7 +217,7 @@ and
 <li>
 <strong>Scenario (ii):</strong> The treatment effect is uniformly
 beneficial,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mtext mathvariant="normal">ITT</mtext><mo stretchy="true" form="postfix">)</mo></mrow><mo>&lt;</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(\text{ITT}) &lt; 1</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">ITT</mtext><mo stretchy="false" form="postfix">)</mo><mo>&lt;</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(\text{ITT}) &lt; 1</annotation></semantics></math>,
 so no detrimental subgroup effects exist.</li>
 </ol>
 </div>
@@ -226,18 +226,18 @@ so no detrimental subgroup effects exist.</li>
 </h3>
 <p>An important distinction in Forest Search is between marginal hazard
 ratios
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mo>⋅</mo><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(\cdot)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>⋅</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(\cdot)</annotation></semantics></math>
 and controlled direct effects (CDEs)
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>‡</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mo>⋅</mo><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta^{\ddagger}(\cdot)</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>‡</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>⋅</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta^{\ddagger}(\cdot)</annotation></semantics></math>.
 For a data-generating model with hazard function:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>λ</mi><mi>v</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo>;</mo><mi>𝐳</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>λ</mi><mn>0</mn></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>γ</mi><mn>0</mn></msub><mi>v</mi><mo>+</mo><msub><mi>γ</mi><mn>1</mn></msub><mi>v</mi><msub><mi>z</mi><mn>1</mn></msub><msub><mi>z</mi><mn>3</mn></msub><mo>+</mo><msub><mi>𝛄</mi><mn>2</mn></msub><mi>′</mi><msub><mi>𝐳</mi><mn>2</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>λ</mi><mi>v</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo>;</mo><mi>𝐳</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mi>λ</mi><mn>0</mn></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>γ</mi><mn>0</mn></msub><mi>v</mi><mo>+</mo><msub><mi>γ</mi><mn>1</mn></msub><mi>v</mi><msub><mi>z</mi><mn>1</mn></msub><msub><mi>z</mi><mn>3</mn></msub><mo>+</mo><msubsup><mi>𝛄</mi><mn>2</mn><mo>′</mo></msubsup><msub><mi>𝐳</mi><mn>2</mn></msub><mo stretchy="false" form="postfix">)</mo><mo>,</mo></mrow><annotation encoding="application/x-tex">
 \lambda_v(t; \boldsymbol{z}) = \lambda_0(t) \exp(\gamma_0 v +
 \gamma_1 v z_1 z_3 + \boldsymbol{\gamma}_2' \boldsymbol{z}_2),
 </annotation></semantics></math></p>
 <p>the CDEs are
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>‡</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>H</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>γ</mi><mn>0</mn></msub><mo>+</mo><msub><mi>γ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta^{\ddagger}(H) = \exp(\gamma_0 + \gamma_1)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>‡</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>H</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>γ</mi><mn>0</mn></msub><mo>+</mo><msub><mi>γ</mi><mn>1</mn></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta^{\ddagger}(H) = \exp(\gamma_0 + \gamma_1)</annotation></semantics></math>
 and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>‡</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>H</mi><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>γ</mi><mn>0</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta^{\ddagger}(H^c) = \exp(\gamma_0)</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>‡</mo></msup><mo stretchy="false" form="prefix">(</mo><msup><mi>H</mi><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>γ</mi><mn>0</mn></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta^{\ddagger}(H^c) = \exp(\gamma_0)</annotation></semantics></math>.
 As Aalen et al. (2015) describe, marginal effects for
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
 and
@@ -285,10 +285,10 @@ denote the resulting subgroup indicators. For example, for age cut at 50
 years:</p>
 <ul>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>J</mi><mn>1</mn></msub><mo>=</mo><mi>I</mi><mrow><mo stretchy="true" form="prefix">(</mo><mtext mathvariant="normal">age</mtext><mo>≤</mo><mn>50</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">J_1 = I(\text{age} \leq 50)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>J</mi><mn>1</mn></msub><mo>=</mo><mi>I</mi><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">age</mtext><mo>≤</mo><mn>50</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">J_1 = I(\text{age} \leq 50)</annotation></semantics></math>
 indicates membership in the “50 and younger” subgroup</li>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>J</mi><mn>2</mn></msub><mo>=</mo><mi>I</mi><mrow><mo stretchy="true" form="prefix">(</mo><mtext mathvariant="normal">age</mtext><mo>&gt;</mo><mn>50</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">J_2 = I(\text{age} &gt; 50)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>J</mi><mn>2</mn></msub><mo>=</mo><mi>I</mi><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">age</mtext><mo>&gt;</mo><mn>50</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">J_2 = I(\text{age} &gt; 50)</annotation></semantics></math>
 indicates membership in the “older than 50” subgroup</li>
 </ul>
 <p>Each
@@ -329,7 +329,7 @@ LASSO + GRF for candidate selection</li>
 all-possible subgroup combinations. We restrict to those based on
 <strong>at most two factors</strong>. The total number of possible
 two-factor combinations is:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mo stretchy="true" form="prefix">(</mo><mfrac linethickness="0"><mi>L</mi><mn>2</mn></mfrac><mo stretchy="true" form="postfix">)</mo></mrow><mo>+</mo><mi>L</mi><mo>=</mo><mfrac><mrow><mi>L</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>L</mi><mo>−</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mn>2</mn></mfrac><mo>+</mo><mi>L</mi></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mo stretchy="true" form="prefix">(</mo><mfrac linethickness="0"><mi>L</mi><mn>2</mn></mfrac><mo stretchy="true" form="postfix">)</mo></mrow><mo>+</mo><mi>L</mi><mo>=</mo><mfrac><mrow><mi>L</mi><mo stretchy="false" form="prefix">(</mo><mi>L</mi><mo>−</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><mn>2</mn></mfrac><mo>+</mo><mi>L</mi></mrow><annotation encoding="application/x-tex">
 \binom{L}{2} + L = \frac{L(L-1)}{2} + L
 </annotation></semantics></math></p>
 <p>As a minimal sample size criterion, we further restrict to candidate
@@ -342,7 +342,7 @@ subgroup combinations with:</p>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">{</mo><msub><mi>G</mi><mi>s</mi></msub><mo>,</mo><mi>s</mi><mo>=</mo><mn>1</mn><mo>,</mo><mi>…</mi><mo>,</mo><mi>S</mi><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\{G_s, s = 1, \ldots, S\}</annotation></semantics></math>
 denote the collection of subgroups meeting the sample size criteria
 where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><mo>≤</mo><mi>L</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>L</mi><mo>−</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>/</mi><mn>2</mn><mo>+</mo><mi>L</mi></mrow><annotation encoding="application/x-tex">S \leq L(L-1)/2 + L</annotation></semantics></math>.</p>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><mo>≤</mo><mi>L</mi><mo stretchy="false" form="prefix">(</mo><mi>L</mi><mo>−</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mi>/</mi><mn>2</mn><mo>+</mo><mi>L</mi></mrow><annotation encoding="application/x-tex">S \leq L(L-1)/2 + L</annotation></semantics></math>.</p>
 </div>
 <div class="section level3">
 <h3 id="step-3-screening-and-consistency-evaluation">Step 3: Screening and Consistency Evaluation<a class="anchor" aria-label="anchor" href="#step-3-screening-and-consistency-evaluation"></a>
@@ -357,7 +357,7 @@ where
 60 and at least 20 events), estimate the Cox model log-hazard ratio
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi></msub><annotation encoding="application/x-tex">\hat{\beta}_s</annotation></semantics></math>,
 and consider the subgroup as a candidate if:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi></msub><mo>≥</mo><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1.25</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi></msub><mo>≥</mo><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mn>1.25</mn><mo stretchy="false" form="postfix">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \hat{\beta}_s \geq \log(1.25).
 </annotation></semantics></math></p>
 <p>This corresponds to a hazard ratio threshold of 1.25, indicating
@@ -375,11 +375,11 @@ subgroup 50/50</li>
 <li>Consider this subgroup to be “consistent with harm” if, for each
 random split, <strong>both</strong> splits have estimated log-hazard
 ratios
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>≥</mo><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1.0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\ge \log(1.0) = 0</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>≥</mo><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mn>1.0</mn><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\ge \log(1.0) = 0</annotation></semantics></math>
 </li>
 </ol>
 <p>That is,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>min</mo><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mn>1</mn></msubsup><mo>,</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mo>≥</mo><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1.0</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\min(\hat{\beta}_s^1, \hat{\beta}_s^2) \geq \log(1.0)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">min</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mn>1</mn></msubsup><mo>,</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mn>2</mn></msubsup><mo stretchy="false" form="postfix">)</mo><mo>≥</mo><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mn>1.0</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\min(\hat{\beta}_s^1, \hat{\beta}_s^2) \geq \log(1.0)</annotation></semantics></math>
 for log-hazard ratio estimate pairs
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">{</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mn>1</mn></msubsup><mo>,</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mn>2</mn></msubsup><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\{\hat{\beta}_s^1, \hat{\beta}_s^2\}</annotation></semantics></math>
 corresponding to each random split.</p>
@@ -396,7 +396,7 @@ denote pairs for the
 random split for
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>1</mn><mo>,</mo><mi>…</mi><mo>,</mo><mi>R</mi></mrow><annotation encoding="application/x-tex">r = 1, \ldots, R</annotation></semantics></math>.
 The consistency rate is:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>p</mi><mo accent="true">̂</mo></mover><mtext mathvariant="normal">consistency</mtext></msub><mo>=</mo><mfrac><mn>1</mn><mi>R</mi></mfrac><munderover><mo>∑</mo><mrow><mi>r</mi><mo>=</mo><mn>1</mn></mrow><mi>R</mi></munderover><mi>I</mi><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><mo>min</mo><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mrow><mn>1</mn><mi>r</mi></mrow></msubsup><mo>,</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mrow><mn>2</mn><mi>r</mi></mrow></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mo>≥</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>p</mi><mo accent="true">̂</mo></mover><mtext mathvariant="normal">consistency</mtext></msub><mo>=</mo><mfrac><mn>1</mn><mi>R</mi></mfrac><munderover><mo>∑</mo><mrow><mi>r</mi><mo>=</mo><mn>1</mn></mrow><mi>R</mi></munderover><mi>I</mi><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><mi mathvariant="normal">min</mi><mo stretchy="false" form="prefix">(</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mrow><mn>1</mn><mi>r</mi></mrow></msubsup><mo>,</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mrow><mn>2</mn><mi>r</mi></mrow></msubsup><mo stretchy="false" form="postfix">)</mo><mo>≥</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \hat{p}_{\text{consistency}} = \frac{1}{R} \sum_{r=1}^{R}
 I\!\left(\min(\hat{\beta}_s^{1r}, \hat{\beta}_s^{2r}) \geq 0\right).
 </annotation></semantics></math></p>
@@ -489,20 +489,20 @@ ForestSearch Algorithm Overview
 <p>We can approximate the probability of identifying subgroup
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
 via numerical integration. Let
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>W</mi><mn>1</mn></msub><mo>,</mo><msub><mi>W</mi><mn>2</mn></msub><mover><mo>∼</mo><mrow><mi>i</mi><mi>i</mi><mi>d</mi></mrow></mover><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>β</mi><mo>,</mo><mn>8</mn><mi>/</mi><mi>d</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">W_1, W_2 \stackrel{iid}{\sim} N(\beta, 8/d)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>W</mi><mn>1</mn></msub><mo>,</mo><msub><mi>W</mi><mn>2</mn></msub><mover><mo>∼</mo><mrow><mi>i</mi><mi>i</mi><mi>d</mi></mrow></mover><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mi>β</mi><mo>,</mo><mn>8</mn><mi>/</mi><mi>d</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">W_1, W_2 \stackrel{iid}{\sim} N(\beta, 8/d)</annotation></semantics></math>
 where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>=</mo><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>H</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\beta = \log(\theta^{\dagger}(H))</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>=</mo><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>H</mi><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\beta = \log(\theta^{\dagger}(H))</annotation></semantics></math>
 and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
 is the expected number of events in the subgroup.</p>
 <p>The screening criterion
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi></msub><mo>≥</mo><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1.25</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\beta}_s \ge \log(1.25)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi></msub><mo>≥</mo><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mn>1.25</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\beta}_s \ge \log(1.25)</annotation></semantics></math>
 is equivalent (approximately) to:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mn>1</mn></msubsup><mo>+</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mn>2</mn></msubsup><mo>≥</mo><mn>2</mn><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1.25</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mn>1</mn></msubsup><mo>+</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mn>2</mn></msubsup><mo>≥</mo><mn>2</mn><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mn>1.25</mn><mo stretchy="false" form="postfix">)</mo><mo>,</mo></mrow><annotation encoding="application/x-tex">
 \hat{\beta}_s^1 + \hat{\beta}_s^2 \ge 2\log(1.25),
 </annotation></semantics></math></p>
 <p>since
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi></msub><mo>≈</mo><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mn>1</mn></msubsup><mo>+</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">\hat{\beta}_s \approx (\hat{\beta}_s^1 + \hat{\beta}_s^2)/2</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi></msub><mo>≈</mo><mo stretchy="false" form="prefix">(</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mn>1</mn></msubsup><mo>+</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>s</mi><mn>2</mn></msubsup><mo stretchy="false" form="postfix">)</mo><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">\hat{\beta}_s \approx (\hat{\beta}_s^1 + \hat{\beta}_s^2)/2</annotation></semantics></math>
 by construction of the random splitting.</p>
 <p>For a subgroup
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
@@ -511,16 +511,16 @@ with underlying log-hazard ratio
 we can approximate the probability of identifying
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
 via:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><mrow><mtext mathvariant="normal">identify </mtext><mspace width="0.333em"></mspace></mrow><mi>H</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>≈</mo></mrow><annotation encoding="application/x-tex">P(\text{identify } H) \approx</annotation></semantics></math></p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∫</mo><mo>∫</mo><mi>I</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>w</mi><mn>1</mn></msub><mo>+</mo><msub><mi>w</mi><mn>2</mn></msub><mo>≥</mo><mn>2</mn><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1.25</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow><mo>⋅</mo><mi>I</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>w</mi><mn>1</mn></msub><mo>≥</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>⋅</mo><mi>I</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>w</mi><mn>2</mn></msub><mo>≥</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>⋅</mo><mi>φ</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>w</mi><mn>1</mn></msub><mo>;</mo><mi>β</mi><mo>,</mo><mn>8</mn><mi>/</mi><mi>d</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>⋅</mo><mi>φ</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>w</mi><mn>2</mn></msub><mo>;</mo><mi>β</mi><mo>,</mo><mn>8</mn><mi>/</mi><mi>d</mi><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="0.167em"></mspace><mi>d</mi><msub><mi>w</mi><mn>1</mn></msub><mspace width="0.167em"></mspace><mi>d</mi><msub><mi>w</mi><mn>2</mn></msub><mo>,</mo></mrow><annotation encoding="application/x-tex">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mo stretchy="false" form="prefix">(</mo><mrow><mtext mathvariant="normal">identify </mtext><mspace width="0.333em"></mspace></mrow><mi>H</mi><mo stretchy="false" form="postfix">)</mo><mo>≈</mo></mrow><annotation encoding="application/x-tex">P(\text{identify } H) \approx</annotation></semantics></math></p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∫</mo><mo>∫</mo><mi>I</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>w</mi><mn>1</mn></msub><mo>+</mo><msub><mi>w</mi><mn>2</mn></msub><mo>≥</mo><mn>2</mn><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mn>1.25</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo><mo>⋅</mo><mi>I</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>w</mi><mn>1</mn></msub><mo>≥</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo><mo>⋅</mo><mi>I</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>w</mi><mn>2</mn></msub><mo>≥</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo><mo>⋅</mo><mi>φ</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>w</mi><mn>1</mn></msub><mo>;</mo><mi>β</mi><mo>,</mo><mn>8</mn><mi>/</mi><mi>d</mi><mo stretchy="false" form="postfix">)</mo><mo>⋅</mo><mi>φ</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>w</mi><mn>2</mn></msub><mo>;</mo><mi>β</mi><mo>,</mo><mn>8</mn><mi>/</mi><mi>d</mi><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><mi>d</mi><msub><mi>w</mi><mn>1</mn></msub><mspace width="0.167em"></mspace><mi>d</mi><msub><mi>w</mi><mn>2</mn></msub><mo>,</mo></mrow><annotation encoding="application/x-tex">
 \int \int I(w_1 + w_2 \geq 2\log(1.25)) \cdot I(w_1 \geq 0) \cdot
 I(w_2 \geq 0) \cdot \varphi(w_1; \beta, 8/d) \cdot
 \varphi(w_2; \beta, 8/d) \, dw_1 \, dw_2,
 </annotation></semantics></math></p>
 <p>where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">{</mo><msub><mi>W</mi><mn>1</mn></msub><mo>,</mo><msub><mi>W</mi><mn>2</mn></msub><mo stretchy="false" form="postfix">}</mo><mo>∼</mo><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>β</mi><mo>,</mo><mn>8</mn><mi>/</mi><mi>d</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\{W_1, W_2\} \sim N(\beta, 8/d)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">{</mo><msub><mi>W</mi><mn>1</mn></msub><mo>,</mo><msub><mi>W</mi><mn>2</mn></msub><mo stretchy="false" form="postfix">}</mo><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mi>β</mi><mo>,</mo><mn>8</mn><mi>/</mi><mi>d</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\{W_1, W_2\} \sim N(\beta, 8/d)</annotation></semantics></math>
 independently, and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>φ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mo>⋅</mo><mo>;</mo><mi>β</mi><mo>,</mo><mn>8</mn><mi>/</mi><mi>d</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\varphi(\cdot; \beta, 8/d)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>φ</mi><mo stretchy="false" form="prefix">(</mo><mi>⋅</mi><mo>;</mo><mi>β</mi><mo>,</mo><mn>8</mn><mi>/</mi><mi>d</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\varphi(\cdot; \beta, 8/d)</annotation></semantics></math>
 denotes the normal density with mean
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>β</mi><annotation encoding="application/x-tex">\beta</annotation></semantics></math>
 and variance
@@ -608,7 +608,7 @@ screening and consistency thresholds), the chance of forming subgroups
 under the null with an estimated benefit randomly in favor of control is
 less likely the stronger the (uniform) ITT treatment effect.</p>
 <p><strong>Example:</strong> For
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>H</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>≡</mo><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mtext mathvariant="normal">ITT</mtext><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>0.75</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H) \equiv \theta^{\dagger}(\text{ITT}) = 0.75</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>H</mi><mo stretchy="false" form="postfix">)</mo><mo>≡</mo><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">ITT</mtext><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0.75</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H) \equiv \theta^{\dagger}(\text{ITT}) = 0.75</annotation></semantics></math>,
 the approximation yields:</p>
 <table class="table">
 <colgroup>
@@ -619,7 +619,7 @@ the approximation yields:</p>
 <thead><tr class="header">
 <th align="center">Subgroup size</th>
 <th align="center">Type-1 error
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>H</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>0.75</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H) = 0.75</annotation></semantics></math>)</th>
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>H</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0.75</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H) = 0.75</annotation></semantics></math>)</th>
 <th align="center">
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>≈</mo><annotation encoding="application/x-tex">\approx</annotation></semantics></math>
 80% power at</th>
@@ -675,13 +675,13 @@ subjects incorrectly included in
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\widehat{H}</annotation></semantics></math>
 </li>
 <li>The value of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>H</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>H</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H)</annotation></semantics></math>
 relative to
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>H</mi><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H^c)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><msup><mi>H</mi><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H^c)</annotation></semantics></math>
 (e.g., a mixture of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>H</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>2.0</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H) = 2.0</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>H</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>2.0</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H) = 2.0</annotation></semantics></math>
 vs.
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>H</mi><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>0.65</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H^c) = 0.65</annotation></semantics></math>)</li>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><msup><mi>H</mi><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0.65</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H^c) = 0.65</annotation></semantics></math>)</li>
 </ul>
 </div>
 <div class="section level3">
@@ -689,15 +689,15 @@ vs.
 </h3>
 <p>For bias correction, we proceed on the Cox regression coefficient
 scale, denoted
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>β</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\beta}(\widehat{H})</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\beta}(\widehat{H})</annotation></semantics></math>,
 and then exponentiate to obtain point estimates and confidence intervals
 for hazard ratios
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>:=</mo><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\theta}(\widehat{H}) := \exp(\hat{\beta}(\widehat{H}))</annotation></semantics></math>.</p>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>:=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\theta}(\widehat{H}) := \exp(\hat{\beta}(\widehat{H}))</annotation></semantics></math>.</p>
 <p>Our bias-corrected estimator takes into account <strong>two sources
 of bias</strong> involving the discrepancies between the bootstrapped
 and observed data Cox estimators. The approach is along the lines of
 Harrell et al. (1996), but additionally incorporates the bias term
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\beta}_b^*(\widehat{H}) - \hat{\beta}(\widehat{H})</annotation></semantics></math>.</p>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\beta}_b^*(\widehat{H}) - \hat{\beta}(\widehat{H})</annotation></semantics></math>.</p>
 <div class="section level4">
 <h4 id="notation">Notation<a class="anchor" aria-label="anchor" href="#notation"></a>
 </h4>
@@ -705,7 +705,7 @@ Harrell et al. (1996), but additionally incorporates the bias term
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\widehat{H}</annotation></semantics></math>:</p>
 <ul>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>β</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\beta}(\widehat{H})</annotation></semantics></math>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\beta}(\widehat{H})</annotation></semantics></math>:
 Estimated Cox model regression parameter</li>
 </ul>
 <p>For bootstrap samples
@@ -714,15 +714,15 @@ with estimated subgroup
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><annotation encoding="application/x-tex">\widehat{H}^*_b</annotation></semantics></math>:</p>
 <ul>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\beta}^*_b(\widehat{H}^*_b)</annotation></semantics></math>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\beta}^*_b(\widehat{H}^*_b)</annotation></semantics></math>:
 Cox model parameter for bootstrap sample based on bootstrap-estimated
 subgroup</li>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>β</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\beta}(\widehat{H}^*_b)</annotation></semantics></math>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\beta}(\widehat{H}^*_b)</annotation></semantics></math>:
 Cox model parameter for observed data based on bootstrap-estimated
 subgroup</li>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\beta}^*_b(\widehat{H})</annotation></semantics></math>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\beta}^*_b(\widehat{H})</annotation></semantics></math>:
 Cox model parameter for bootstrap sample based on observed subgroup</li>
 </ul>
 </div>
@@ -730,11 +730,11 @@ Cox model parameter for bootstrap sample based on observed subgroup</li>
 <h4 id="bias-terms">Bias Terms<a class="anchor" aria-label="anchor" href="#bias-terms"></a>
 </h4>
 <p>Define the bias terms:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">
 \eta^*_b(\widehat{H}^*_b) = \hat{\beta}^*_b(\widehat{H}^*_b) -
 \hat{\beta}(\widehat{H}^*_b)
 </annotation></semantics></math></p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msubsup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">
 \eta^*_b(\widehat{H}) = \hat{\beta}^*_b(\widehat{H}) -
 \hat{\beta}(\widehat{H})
 </annotation></semantics></math></p>
@@ -743,7 +743,7 @@ Cox model parameter for bootstrap sample based on observed subgroup</li>
 <h4 id="bias-corrected-estimators">Bias-Corrected Estimators<a class="anchor" aria-label="anchor" href="#bias-corrected-estimators"></a>
 </h4>
 <p>The bias-corrected estimators are defined as:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><mfrac><mn>1</mn><mi>B</mi></mfrac><munderover><mo>∑</mo><mrow><mi>b</mi><mo>=</mo><mn>1</mn></mrow><mi>B</mi></munderover><mrow><mo stretchy="true" form="prefix">[</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mo>+</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">]</mo></mrow><mo>,</mo><mspace width="2.0em"></mspace><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mfrac><mn>1</mn><mi>B</mi></mfrac><munderover><mo>∑</mo><mrow><mi>b</mi><mo>=</mo><mn>1</mn></mrow><mi>B</mi></munderover><mrow><mo stretchy="true" form="prefix">[</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo stretchy="true" form="postfix">]</mo></mrow><mo>,</mo><mspace width="2.0em"></mspace><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
 \hat{\beta}^*(\widehat{H}) = \hat{\beta}(\widehat{H}) -
 \frac{1}{B}\sum_{b=1}^{B} \left[\eta^*_b(\widehat{H}^*_b) +
 \eta^*_b(\widehat{H})\right], \qquad
@@ -751,7 +751,7 @@ Cox model parameter for bootstrap sample based on observed subgroup</li>
 \exp\!\left(\hat{\beta}^*(\widehat{H})\right)
 </annotation></semantics></math></p>
 <p>Similarly for the complement:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><mfrac><mn>1</mn><mi>B</mi></mfrac><munderover><mo>∑</mo><mrow><mi>b</mi><mo>=</mo><mn>1</mn></mrow><mi>B</mi></munderover><mrow><mo stretchy="true" form="prefix">[</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mrow><mi>c</mi><mo>*</mo></mrow></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mo>+</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">]</mo></mrow><mo>,</mo><mspace width="2.0em"></mspace><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo stretchy="false" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mfrac><mn>1</mn><mi>B</mi></mfrac><munderover><mo>∑</mo><mrow><mi>b</mi><mo>=</mo><mn>1</mn></mrow><mi>B</mi></munderover><mrow><mo stretchy="true" form="prefix">[</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mrow><mi>c</mi><mo>*</mo></mrow></msubsup><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="true" form="postfix">]</mo></mrow><mo>,</mo><mspace width="2.0em"></mspace><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo stretchy="false" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo stretchy="false" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
 \hat{\beta}^*(\widehat{H}^c) = \hat{\beta}(\widehat{H}^c) -
 \frac{1}{B}\sum_{b=1}^{B} \left[\eta^*_b(\widehat{H}^{c*}_b) +
 \eta^*_b(\widehat{H}^c)\right], \qquad
@@ -760,7 +760,7 @@ Cox model parameter for bootstrap sample based on observed subgroup</li>
 </annotation></semantics></math></p>
 <p>The bootstrap resamples are drawn independently with replacement from
 the observed data
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">{</mo><msub><mi>O</mi><mi>i</mi></msub><mo>:=</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>V</mi><mi>i</mi></msub><mo>,</mo><msub><mi>𝐙</mi><mi>i</mi></msub><mo>,</mo><msub><mi>Y</mi><mi>i</mi></msub><mo>,</mo><msub><mi>Δ</mi><mi>i</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo><mspace width="0.278em"></mspace><mi>i</mi><mo>=</mo><mn>1</mn><mo>,</mo><mi>…</mi><mo>,</mo><mi>N</mi><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\{O_i := (V_i, \boldsymbol{Z}_i, Y_i, \Delta_i),\; i = 1, \ldots, N\}</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">{</mo><msub><mi>O</mi><mi>i</mi></msub><mo>:=</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>V</mi><mi>i</mi></msub><mo>,</mo><msub><mi>𝐙</mi><mi>i</mi></msub><mo>,</mo><msub><mi>Y</mi><mi>i</mi></msub><mo>,</mo><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mspace width="0.278em"></mspace><mi>i</mi><mo>=</mo><mn>1</mn><mo>,</mo><mi>…</mi><mo>,</mo><mi>N</mi><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\{O_i := (V_i, \boldsymbol{Z}_i, Y_i, \Delta_i),\; i = 1, \ldots, N\}</annotation></semantics></math>.
 The full ForestSearch algorithm (including LASSO and/or GRF candidate
 selection) is mimicked in each bootstrap replicate. In general, the
 variance induced by the (well-defined) candidate selection algorithm is
@@ -784,13 +784,13 @@ denote the number of times observation
 is drawn for the
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>b</mi><annotation encoding="application/x-tex">b</annotation></semantics></math>th
 bootstrap sample, and let
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mover><mi>K</mi><mo accent="true">‾</mo></mover><mi>i</mi><mo>*</mo></msubsup><mo>=</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mi>/</mi><mi>B</mi><mo stretchy="true" form="postfix">)</mo></mrow><msubsup><mo>∑</mo><mrow><mi>b</mi><mo>=</mo><mn>1</mn></mrow><mi>B</mi></msubsup><msubsup><mi>K</mi><mrow><mi>b</mi><mi>i</mi></mrow><mo>*</mo></msubsup></mrow><annotation encoding="application/x-tex">\bar{K}^*_i = (1/B)\sum_{b=1}^{B} K^*_{bi}</annotation></semantics></math>.</p>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mover><mi>K</mi><mo accent="true">‾</mo></mover><mi>i</mi><mo>*</mo></msubsup><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mi>/</mi><mi>B</mi><mo stretchy="false" form="postfix">)</mo><msubsup><mo>∑</mo><mrow><mi>b</mi><mo>=</mo><mn>1</mn></mrow><mi>B</mi></msubsup><msubsup><mi>K</mi><mrow><mi>b</mi><mi>i</mi></mrow><mo>*</mo></msubsup></mrow><annotation encoding="application/x-tex">\bar{K}^*_i = (1/B)\sum_{b=1}^{B} K^*_{bi}</annotation></semantics></math>.</p>
 <p>The infinitesimal jackknife variance estimate is:</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>V</mi><mo accent="true">̃</mo></mover><mo>=</mo><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msubsup><mover><mtext mathvariant="normal">cov</mtext><mo accent="true">̃</mo></mover><mi>i</mi><mn>2</mn></msubsup></mrow><annotation encoding="application/x-tex">
 \tilde{V} = \sum_{i=1}^{N} \widetilde{\text{cov}}_i^2
 </annotation></semantics></math></p>
 <p>where:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mtext mathvariant="normal">cov</mtext><mo accent="true">̃</mo></mover><mi>i</mi></msub><mo>=</mo><mfrac><mn>1</mn><mi>B</mi></mfrac><munderover><mo>∑</mo><mrow><mi>b</mi><mo>=</mo><mn>1</mn></mrow><mi>B</mi></munderover><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mi>K</mi><mrow><mi>b</mi><mi>i</mi></mrow><mo>*</mo></msubsup><mo>−</mo><msubsup><mover><mi>K</mi><mo accent="true">‾</mo></mover><mi>i</mi><mo>*</mo></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mo stretchy="true" form="prefix">[</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">]</mo></mrow></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mtext mathvariant="normal">cov</mtext><mo accent="true">̃</mo></mover><mi>i</mi></msub><mo>=</mo><mfrac><mn>1</mn><mi>B</mi></mfrac><munderover><mo>∑</mo><mrow><mi>b</mi><mo>=</mo><mn>1</mn></mrow><mi>B</mi></munderover><mo stretchy="false" form="prefix">(</mo><msubsup><mi>K</mi><mrow><mi>b</mi><mi>i</mi></mrow><mo>*</mo></msubsup><mo>−</mo><msubsup><mover><mi>K</mi><mo accent="true">‾</mo></mover><mi>i</mi><mo>*</mo></msubsup><mo stretchy="false" form="postfix">)</mo><mrow><mo stretchy="true" form="prefix">[</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo stretchy="true" form="postfix">]</mo></mrow></mrow><annotation encoding="application/x-tex">
 \widetilde{\text{cov}}_i = \frac{1}{B} \sum_{b=1}^{B}
 (K^*_{bi} - \bar{K}^*_i)
 \left[\hat{\beta}(\widehat{H}) - \eta^*_b(\widehat{H}^*_b) -
@@ -801,14 +801,14 @@ bootstrap sample, and let
 \hat{V} = \tilde{V} - \frac{N}{B} \tilde{\sigma}^2_B
 </annotation></semantics></math></p>
 <p>where:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mover><mi>σ</mi><mo accent="true">̃</mo></mover><mi>B</mi><mn>2</mn></msubsup><mo>=</mo><mfrac><mn>1</mn><mi>B</mi></mfrac><munderover><mo>∑</mo><mrow><mi>b</mi><mo>=</mo><mn>1</mn></mrow><mi>B</mi></munderover><msup><mrow><mo stretchy="true" form="prefix">[</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">]</mo></mrow><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mover><mi>σ</mi><mo accent="true">̃</mo></mover><mi>B</mi><mn>2</mn></msubsup><mo>=</mo><mfrac><mn>1</mn><mi>B</mi></mfrac><munderover><mo>∑</mo><mrow><mi>b</mi><mo>=</mo><mn>1</mn></mrow><mi>B</mi></munderover><msup><mrow><mo stretchy="true" form="prefix">[</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><msubsup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msubsup><mi>η</mi><mi>b</mi><mo>*</mo></msubsup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo stretchy="true" form="postfix">]</mo></mrow><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">
 \tilde{\sigma}^2_B = \frac{1}{B} \sum_{b=1}^{B}
 \left[\hat{\beta}(\widehat{H}) - \eta^*_b(\widehat{H}^*_b) -
 \eta^*_b(\widehat{H}) - \hat{\beta}^*(\widehat{H})\right]^2
 </annotation></semantics></math></p>
 <p>Confidence intervals for hazard ratios are based on standard normal
 approximations (exponentiated):
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo>±</mo><mn>1.96</mn><msqrt><mover><mi>V</mi><mo accent="true">̂</mo></mover></msqrt><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp\!\left(\hat{\beta}^* \pm 1.96\sqrt{\hat{V}}\right)</annotation></semantics></math>.</p>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo>±</mo><mn>1.96</mn><msqrt><mover><mi>V</mi><mo accent="true">̂</mo></mover></msqrt><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp\!\left(\hat{\beta}^* \pm 1.96\sqrt{\hat{V}}\right)</annotation></semantics></math>.</p>
 <div class="figure" style="text-align: center">
 <div id="htmlwidget-e5c8c404fe174e4c81bd" style="width:900px;height:400px;" class="grViz html-widget"></div>
 <script type="application/json" data-for="htmlwidget-e5c8c404fe174e4c81bd">{"x":{"diagram":"\ndigraph Bootstrap {\n  graph [rankdir = LR, fontname = Helvetica, nodesep = 0.5, ranksep = 1.0]\n  node [shape = box, style = filled, fontname = Helvetica, fontsize = 11,\n        margin = 0.2]\n  edge [fontsize = 9]\n\n  subgraph cluster_0 {\n    label = \"Observed Data\"\n    style = filled\n    color = \"#E8F4F8\"\n    fontsize = 12\n    A [label = \"Observed data \\nRun ForestSearch\\nGet Ĥ\",\n       fillcolor = white]\n    B [label = \"Estimate β̂(Ĥ)\", fillcolor = white]\n  }\n\n  subgraph cluster_1 {\n    label = \"Bootstrap b = 1,...,B\"\n    style = filled\n    color = \"#FFF3CD\"\n    fontsize = 12\n    C [label = \"Resample Data \\nBootstrap data \\nb = 1,...,B\",\n       fillcolor = white]\n    D [label = \"Run ForestSearch\\nGet Ĥ*b\", fillcolor = white]\n    E [label = \"Compute η*b(Ĥ*b)\\nand η*b(Ĥ)\",\n       fillcolor = white]\n  }\n\n  subgraph cluster_2 {\n    label = \"Bias Correction\"\n    style = filled\n    color = \"#D4EDDA\"\n    fontsize = 12\n    F [label = \"Average Bias\\nTerms\", fillcolor = white]\n    G [label = \"β̂*(Ĥ) = β̂(Ĥ) - bias\",\n       fillcolor = white]\n    H [label = \"IJ Variance\\nEstimation\", fillcolor = white]\n  }\n\n  {rank = same; A; B}\n  {rank = same; C; D; E}\n\n  A:s -> B:n\n  A -> C -> D -> E\n  E -> F -> G\n  F -> H\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script><p class="caption">
@@ -835,38 +835,38 @@ classification based on the remaining
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>−</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">N-1</annotation></semantics></math>
 subjects.</p>
 <p>Let
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>π</mi><mo accent="true">̂</mo></mover><mrow><mo>−</mo><mi>i</mi></mrow></msup><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>𝐙</mi><mi>i</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\pi}^{-i}(\boldsymbol{Z}_i)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>π</mi><mo accent="true">̂</mo></mover><mrow><mi>−</mi><mi>i</mi></mrow></msup><mo stretchy="false" form="prefix">(</mo><msub><mi>𝐙</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\pi}^{-i}(\boldsymbol{Z}_i)</annotation></semantics></math>
 denote the
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>th
 subject’s predicted classification based on the FS procedure without the
 subject in the analysis. Similarly,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>π</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>𝐙</mi><mi>i</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\pi}(\boldsymbol{Z}_i)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>π</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><msub><mi>𝐙</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\pi}(\boldsymbol{Z}_i)</annotation></semantics></math>
 is the FS classification based on the full sample analysis. Form:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>O</mi><mo accent="true">̂</mo></mover><mrow><mi>C</mi><mi>V</mi></mrow></msub><mo>=</mo><mo stretchy="false" form="prefix">{</mo><msub><mover><mi>O</mi><mo accent="true">̂</mo></mover><mi>i</mi></msub><mo>:=</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>V</mi><mi>i</mi></msub><mo>,</mo><msub><mi>Y</mi><mi>i</mi></msub><mo>,</mo><msub><mi>Δ</mi><mi>i</mi></msub><mo>,</mo><mover><mi>π</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>𝐙</mi><mi>i</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo><msup><mover><mi>π</mi><mo accent="true">̂</mo></mover><mrow><mo>−</mo><mi>i</mi></mrow></msup><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>𝐙</mi><mi>i</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo><mspace width="0.278em"></mspace><mi>i</mi><mo>=</mo><mn>1</mn><mo>,</mo><mi>…</mi><mo>,</mo><mi>N</mi><mo stretchy="false" form="postfix">}</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>O</mi><mo accent="true">̂</mo></mover><mrow><mi>C</mi><mi>V</mi></mrow></msub><mo>=</mo><mo stretchy="false" form="prefix">{</mo><msub><mover><mi>O</mi><mo accent="true">̂</mo></mover><mi>i</mi></msub><mo>:=</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>V</mi><mi>i</mi></msub><mo>,</mo><msub><mi>Y</mi><mi>i</mi></msub><mo>,</mo><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo>,</mo><mover><mi>π</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><msub><mi>𝐙</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>,</mo><msup><mover><mi>π</mi><mo accent="true">̂</mo></mover><mrow><mi>−</mi><mi>i</mi></mrow></msup><mo stretchy="false" form="prefix">(</mo><msub><mi>𝐙</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mspace width="0.278em"></mspace><mi>i</mi><mo>=</mo><mn>1</mn><mo>,</mo><mi>…</mi><mo>,</mo><mi>N</mi><mo stretchy="false" form="postfix">}</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \widehat{O}_{CV} = \{\hat{O}_i := (V_i, Y_i, \Delta_i,
 \hat{\pi}(\boldsymbol{Z}_i), \hat{\pi}^{-i}(\boldsymbol{Z}_i)),\;
 i = 1, \ldots, N\}.
 </annotation></semantics></math></p>
 <p>Cox model analyses based on
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>π</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mo>⋅</mo><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\pi}(\cdot)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>π</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mi>⋅</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\pi}(\cdot)</annotation></semantics></math>
 subgroups correspond to estimates that are unadjusted for the selection
 algorithm, whereas
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>π</mi><mo accent="true">̂</mo></mover><mrow><mo>−</mo><mi>i</mi></mrow></msup><mrow><mo stretchy="true" form="prefix">(</mo><mo>⋅</mo><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\pi}^{-i}(\cdot)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>π</mi><mo accent="true">̂</mo></mover><mrow><mi>−</mi><mi>i</mi></mrow></msup><mo stretchy="false" form="prefix">(</mo><mi>⋅</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\pi}^{-i}(\cdot)</annotation></semantics></math>
 represents an out-of-bag (OOB) classification where each subject is not
 included in the selection algorithm from which they are classified.</p>
 <p><strong>Interpretation:</strong></p>
 <ul>
 <li>Correspondence between
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>π</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mo>⋅</mo><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\pi}(\cdot)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>π</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mi>⋅</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\pi}(\cdot)</annotation></semantics></math>
 and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>π</mi><mo accent="true">̂</mo></mover><mrow><mo>−</mo><mi>i</mi></mrow></msup><mrow><mo stretchy="true" form="prefix">(</mo><mo>⋅</mo><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\pi}^{-i}(\cdot)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>π</mi><mo accent="true">̂</mo></mover><mrow><mi>−</mi><mi>i</mi></mrow></msup><mo stretchy="false" form="prefix">(</mo><mi>⋅</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\pi}^{-i}(\cdot)</annotation></semantics></math>
 subgroup analysis results may be anticipated, especially for large
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math>
 </li>
 <li>If
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>π</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{\pi}</annotation></semantics></math>
 and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mover><mi>π</mi><mo accent="true">̂</mo></mover><mrow><mo>−</mo><mi>i</mi></mrow></msup><annotation encoding="application/x-tex">\hat{\pi}^{-i}</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mover><mi>π</mi><mo accent="true">̂</mo></mover><mrow><mi>−</mi><mi>i</mi></mrow></msup><annotation encoding="application/x-tex">\hat{\pi}^{-i}</annotation></semantics></math>
 are identical, there is no diagnostic value; in contrast, substantial
 lack of correspondence may suggest underlying instability</li>
 </ul>
@@ -892,12 +892,12 @@ times and summarize correspondence measures across the partitions.</p>
 replacing
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\widehat{H}</annotation></semantics></math>
 with
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mrow><mo>−</mo><mi>i</mi></mrow></msup><annotation encoding="application/x-tex">\widehat{H}^{-i}</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mrow><mi>−</mi><mi>i</mi></mrow></msup><annotation encoding="application/x-tex">\widehat{H}^{-i}</annotation></semantics></math>
 and the true
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
 with
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\widehat{H}</annotation></semantics></math>:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">sensCV</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mfrac><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mrow><mo>−</mo><mi>i</mi></mrow></msup><mo>∩</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">}</mo></mrow><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">}</mo></mrow></mfrac><mo>,</mo><mspace width="2.0em"></mspace><mtext mathvariant="normal">ppvCV</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mfrac><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mrow><mo>−</mo><mi>i</mi></mrow></msup><mo>∩</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">}</mo></mrow><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mrow><mo>−</mo><mi>i</mi></mrow></msup><mo stretchy="false" form="postfix">}</mo></mrow></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">sensCV</mtext><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mfrac><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mrow><mi>−</mi><mi>i</mi></mrow></msup><mo>∩</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">}</mo></mrow><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">}</mo></mrow></mfrac><mo>,</mo><mspace width="2.0em"></mspace><mtext mathvariant="normal">ppvCV</mtext><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mfrac><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mrow><mi>−</mi><mi>i</mi></mrow></msup><mo>∩</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">}</mo></mrow><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mrow><mi>−</mi><mi>i</mi></mrow></msup><mo stretchy="false" form="postfix">}</mo></mrow></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \text{sensCV}(\widehat{H}) =
 \frac{\#\{i \in \widehat{H}^{-i} \cap \widehat{H}\}}
      {\#\{i \in \widehat{H}\}}, \qquad
@@ -993,7 +993,7 @@ Group (GBSG) trial covariate structure. A “super-population” of 5,000
 subjects was constructed by resampling from the observed GBSG data while
 retaining covariate structure. Survival outcomes were generated from a
 Weibull regression model:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>T</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mi>μ</mi><mo>+</mo><msub><mi>β</mi><mn>0</mn></msub><mi>V</mi><mo>+</mo><msub><mi>β</mi><mn>1</mn></msub><mi>V</mi><msub><mi>Z</mi><mn>1</mn></msub><msub><mi>Z</mi><mn>3</mn></msub><mo>+</mo><msub><mi>𝛃</mi><mn>2</mn></msub><mi>′</mi><msub><mi>𝐙</mi><mn>2</mn></msub><mo>+</mo><mi>τ</mi><mi>ϵ</mi><mo>,</mo></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>T</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mi>μ</mi><mo>+</mo><msub><mi>β</mi><mn>0</mn></msub><mi>V</mi><mo>+</mo><msub><mi>β</mi><mn>1</mn></msub><mi>V</mi><msub><mi>Z</mi><mn>1</mn></msub><msub><mi>Z</mi><mn>3</mn></msub><mo>+</mo><msubsup><mi>𝛃</mi><mn>2</mn><mo>′</mo></msubsup><msub><mi>𝐙</mi><mn>2</mn></msub><mo>+</mo><mi>τ</mi><mi>ϵ</mi><mo>,</mo></mrow><annotation encoding="application/x-tex">
 \log(T) = \mu + \beta_0 V + \beta_1 V Z_1 Z_3 +
 \boldsymbol{\beta}_2' \boldsymbol{Z}_2 + \tau \epsilon,
 </annotation></semantics></math></p>
@@ -1002,7 +1002,7 @@ Weibull regression model:</p>
 follows the standard extreme value distribution,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>τ</mi><annotation encoding="application/x-tex">\tau</annotation></semantics></math>
 is a dispersion parameter,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝐙</mi><mn>2</mn></msub><mo>=</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>Z</mi><mn>1</mn></msub><mo>,</mo><msub><mi>Z</mi><mn>2</mn></msub><mo>,</mo><msub><mi>Z</mi><mn>3</mn></msub><mo>,</mo><msub><mi>Z</mi><mn>4</mn></msub><mo>,</mo><msub><mi>Z</mi><mn>5</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\boldsymbol{Z}_2 = (Z_1, Z_2, Z_3, Z_4, Z_5)</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝐙</mi><mn>2</mn></msub><mo>=</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>Z</mi><mn>1</mn></msub><mo>,</mo><msub><mi>Z</mi><mn>2</mn></msub><mo>,</mo><msub><mi>Z</mi><mn>3</mn></msub><mo>,</mo><msub><mi>Z</mi><mn>4</mn></msub><mo>,</mo><msub><mi>Z</mi><mn>5</mn></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\boldsymbol{Z}_2 = (Z_1, Z_2, Z_3, Z_4, Z_5)</annotation></semantics></math>,
 and the interaction
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>V</mi><msub><mi>Z</mi><mn>1</mn></msub><msub><mi>Z</mi><mn>3</mn></msub></mrow><annotation encoding="application/x-tex">V Z_1 Z_3</annotation></semantics></math>
 defines the true subgroup
@@ -1121,7 +1121,7 @@ Code</a>
 </div>
 <p>Each model was evaluated with and without additional random noise
 factors
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">N(0,1)</annotation></semantics></math>
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">N(0,1)</annotation></semantics></math>
 variables completely unrelated to the outcome): 3 noise factors for
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>M</mi><mn>1</mn></msub><annotation encoding="application/x-tex">M_1</annotation></semantics></math>,
 and 5 noise factors for
@@ -1137,7 +1137,7 @@ and
 <li>
 <strong>GRF / GRF.60</strong>: Generalized random forests targeting
 RMST, with GRF.60 using a truncated horizon
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>τ</mi><mn>60</mn></msub><mo>=</mo><mn>0.6</mn><mo>min</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>τ</mi><mn>0</mn></msub><mo>,</mo><msub><mi>τ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\tau_{60} = 0.6\min(\tau_0, \tau_1)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>τ</mi><mn>60</mn></msub><mo>=</mo><mn>0.6</mn><mrow><mi mathvariant="normal">min</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>τ</mi><mn>0</mn></msub><mo>,</mo><msub><mi>τ</mi><mn>1</mn></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\tau_{60} = 0.6\min(\tau_0, \tau_1)</annotation></semantics></math>
 for stability. Requires
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>≥</mo><annotation encoding="application/x-tex">\ge</annotation></semantics></math>
 6-month RMST benefit for control.</li>
@@ -1151,7 +1151,7 @@ in favor of control.</li>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>≥</mo><annotation encoding="application/x-tex">\ge</annotation></semantics></math>
 60 subjects and maximum tree depth of 2. Classification accuracy is
 measured by sensitivity and positive predictive value:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">sens</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mfrac><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo>∩</mo><mi>H</mi><mo stretchy="false" form="postfix">}</mo></mrow><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><mi>H</mi><mo stretchy="false" form="postfix">}</mo></mrow></mfrac><mo>,</mo><mspace width="2.0em"></mspace><mtext mathvariant="normal">ppv</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mfrac><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo>∩</mo><mi>H</mi><mo stretchy="false" form="postfix">}</mo></mrow><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">}</mo></mrow></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">sens</mtext><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mfrac><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo>∩</mo><mi>H</mi><mo stretchy="false" form="postfix">}</mo></mrow><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><mi>H</mi><mo stretchy="false" form="postfix">}</mo></mrow></mfrac><mo>,</mo><mspace width="2.0em"></mspace><mtext mathvariant="normal">ppv</mtext><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mfrac><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo>∩</mo><mi>H</mi><mo stretchy="false" form="postfix">}</mo></mrow><mrow><mi>#</mi><mo stretchy="false" form="prefix">{</mo><mi>i</mi><mo>∈</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">}</mo></mrow></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \text{sens}(\widehat{H}) =
 \frac{\#\{i \in \widehat{H} \cap H\}}{\#\{i \in H\}}, \qquad
 \text{ppv}(\widehat{H}) =
@@ -1287,7 +1287,7 @@ opportunity to randomly form erroneous splits</li>
 <li>Under
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>M</mi><mn>3</mn></msub><annotation encoding="application/x-tex">M_3</annotation></semantics></math>
 (strongest ITT effect,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mtext mathvariant="normal">ITT</mtext><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>0.55</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(\text{ITT}) = 0.55</annotation></semantics></math>),
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">ITT</mtext><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0.55</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(\text{ITT}) = 0.55</annotation></semantics></math>),
 all approaches had better-controlled type-1 error since the chance of
 forming subgroups with estimates in favor of control is less likely with
 a more pronounced ITT treatment effect</li>
@@ -1384,15 +1384,15 @@ Code</a>
 </div>
 <p>The bias-corrected estimators tend to be
 <strong>conservative</strong>: underestimating both
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>H</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>H</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H)</annotation></semantics></math>
 and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>‡</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta^{\ddagger}(\widehat{H})</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>‡</mo></msup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta^{\ddagger}(\widehat{H})</annotation></semantics></math>
 (“conservative for harm”) while overestimating both
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>H</mi><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H^c)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><msup><mi>H</mi><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H^c)</annotation></semantics></math>
 and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>‡</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta^{\ddagger}(\widehat{H}^c)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>‡</mo></msup><mo stretchy="false" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta^{\ddagger}(\widehat{H}^c)</annotation></semantics></math>
 (“conservative for benefit”). Coverage rates for
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{\theta}^*(\widehat{H}^c)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo stretchy="false" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat{\theta}^*(\widehat{H}^c)</annotation></semantics></math>
 were
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>≥</mo><mn>93</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">\ge 93\%</annotation></semantics></math>
 for each target, and the oracle coverage rates for both estimators were
@@ -1422,10 +1422,10 @@ for additional candidate selection:</p>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\widehat{H}</annotation></semantics></math>
 = Estrogen = 0 (consistency rate 95.1%)</li>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>1.58</mn></mrow><annotation encoding="application/x-tex">\hat{\theta}^*(\widehat{H}) = 1.58</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>1.58</mn></mrow><annotation encoding="application/x-tex">\hat{\theta}^*(\widehat{H}) = 1.58</annotation></semantics></math>
 (0.86, 2.9) — 82 subjects (12%)</li>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>0.64</mn></mrow><annotation encoding="application/x-tex">\hat{\theta}^*(\widehat{H}^c) = 0.64</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo stretchy="false" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0.64</mn></mrow><annotation encoding="application/x-tex">\hat{\theta}^*(\widehat{H}^c) = 0.64</annotation></semantics></math>
 (0.44, 0.93) — 604 subjects (88%)</li>
 </ul>
 <p>The bias-corrected estimate for
@@ -1436,9 +1436,9 @@ statistically significant.</p>
 (all 686 training sets reproduced Estrogen = 0). Across 200 random
 10-fold CV analyses, the median number of folds identifying a subgroup
 was 9/10, with
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">sensCV</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>73</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">\text{sensCV}(\widehat{H}) = 73\%</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">sensCV</mtext><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>73</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">\text{sensCV}(\widehat{H}) = 73\%</annotation></semantics></math>
 and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">ppvCV</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>83</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">\text{ppvCV}(\widehat{H}) = 83\%</annotation></semantics></math>.</p>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">ppvCV</mtext><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>83</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">\text{ppvCV}(\widehat{H}) = 83\%</annotation></semantics></math>.</p>
 <p><strong>Biological plausibility:</strong> Tamoxifen is a selective
 estrogen receptor (ER) modulator with limited efficacy in ER-negative
 tumors. A patient-level meta-analysis by the Early Breast Cancer
@@ -1460,9 +1460,9 @@ CD4 decline
 0.84 (0.65, 1.09), with 15 baseline covariates available.</p>
 <p><strong>Goal:</strong> Identify a subgroup with <em>substantial
 benefit</em> by reversing treatment roles (screening threshold
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mi>/</mi><mn>0.6</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\log(1/0.6)</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mi>/</mi><mn>0.6</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\log(1/0.6)</annotation></semantics></math>,
 consistency threshold
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mi>/</mi><mn>0.8</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\log(1/0.8)</annotation></semantics></math>),
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mi>/</mi><mn>0.8</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\log(1/0.8)</annotation></semantics></math>),
 selecting the largest subgroup with consistency
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>≥</mo><annotation encoding="application/x-tex">\ge</annotation></semantics></math>
 90%.</p>
@@ -1476,10 +1476,10 @@ selecting the largest subgroup with consistency
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>&gt;</mo><annotation encoding="application/x-tex">&gt;</annotation></semantics></math>
 34 (consistency 92.8%)</li>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>Q</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>0.59</mn></mrow><annotation encoding="application/x-tex">\hat{\theta}^*(\widehat{Q}) = 0.59</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo stretchy="false" form="prefix">(</mo><mover><mi>Q</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0.59</mn></mrow><annotation encoding="application/x-tex">\hat{\theta}^*(\widehat{Q}) = 0.59</annotation></semantics></math>
 (0.37, 0.94) — 382 subjects (35%)</li>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>Q</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>0.95</mn></mrow><annotation encoding="application/x-tex">\hat{\theta}^*(\widehat{Q}^c) = 0.95</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo stretchy="false" form="prefix">(</mo><msup><mover><mi>Q</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0.95</mn></mrow><annotation encoding="application/x-tex">\hat{\theta}^*(\widehat{Q}^c) = 0.95</annotation></semantics></math>
 (0.65, 1.41) — 701 subjects (65%)</li>
 </ul>
 <p>The bias-corrected estimate suggests a relatively strong benefit
@@ -1489,7 +1489,7 @@ analysis subgroup definition in all but 7 of 1,083 training sets. The
 N-fold predicted Cox estimate was 0.59 (0.37, 0.94), identical to the
 bootstrap bias-corrected estimate. Across 200 random 10-fold analyses,
 median 9/10 folds identified a subgroup with
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">sensCV</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>Q</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mo>≈</mo><mn>69</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">\text{sensCV}(\widehat{Q}) \approx 69\%</annotation></semantics></math>.</p>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">sensCV</mtext><mo stretchy="false" form="prefix">(</mo><mover><mi>Q</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>≈</mo><mn>69</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">\text{sensCV}(\widehat{Q}) \approx 69\%</annotation></semantics></math>.</p>
 <p><strong>Biological plausibility:</strong> The finding aligns with the
 HIV Trialists’ Collaborative Group meta-analysis reporting greater
 treatment effects among participants with no previous antiretroviral
@@ -1509,12 +1509,107 @@ Cox model covariate (prognostic) selection via <code>glmnet</code>. In
 simulations, LASSO helps mitigate false discovery when analyses include
 baseline factors that are completely random noise.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># LASSO is enabled by default</span></span>
+<code class="sourceCode R"><span><span class="co"># All forestsearch() parameters shown with their default values.</span></span>
+<span><span class="co"># LASSO is enabled by default; this snippet contrasts use_lasso = TRUE</span></span>
+<span><span class="co"># with use_grf = FALSE.</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch.html">forestsearch</a></span><span class="op">(</span></span>
-<span>  df.analysis <span class="op">=</span> <span class="va">data</span>,</span>
-<span>  use_lasso <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  use_grf <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  <span class="va">...</span></span>
+<span>  df.analysis                <span class="op">=</span> <span class="va">data</span>,                         <span class="co"># required</span></span>
+<span></span>
+<span>  <span class="co"># ─── Variable names ─────────────────────────────────────────────────────</span></span>
+<span>  outcome.name               <span class="op">=</span> <span class="st">"tte"</span>,                        <span class="co"># default "tte"</span></span>
+<span>  event.name                 <span class="op">=</span> <span class="st">"event"</span>,                      <span class="co"># default "event"</span></span>
+<span>  treat.name                 <span class="op">=</span> <span class="st">"treat"</span>,                      <span class="co"># default "treat"</span></span>
+<span>  id.name                    <span class="op">=</span> <span class="st">"id"</span>,                         <span class="co"># default "id"</span></span>
+<span>  potentialOutcome.name      <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  flag_harm.name             <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  confounders.name           <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span></span>
+<span>  <span class="co"># ─── Parallel processing ────────────────────────────────────────────────</span></span>
+<span>  parallel_args              <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"multisession"</span>,</span>
+<span>                                    workers <span class="op">=</span> <span class="fl">6</span>,</span>
+<span>                                    show_message <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,    <span class="co"># default plan="multisession"</span></span>
+<span></span>
+<span>  <span class="co"># ─── Prediction / RCT flag ──────────────────────────────────────────────</span></span>
+<span>  df.predict                 <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  df.test                    <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  is.RCT                     <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
+<span>  seedit                     <span class="op">=</span> <span class="fl">8316951</span>,                      <span class="co"># default 8316951</span></span>
+<span>  est.scale                  <span class="op">=</span> <span class="st">"hr"</span>,                         <span class="co"># default "hr"</span></span>
+<span></span>
+<span>  <span class="co"># ─── Factor selection: LASSO + GRF ──────────────────────────────────────</span></span>
+<span>  use_lasso                  <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE  &lt;-- FOCAL</span></span>
+<span>  use_grf                    <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default TRUE  &lt;-- FOCAL</span></span>
+<span>  grf_res                    <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  grf_cuts                   <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  max_n_confounders          <span class="op">=</span> <span class="fl">1000</span>,                         <span class="co"># default 1000</span></span>
+<span>  grf_depth                  <span class="op">=</span> <span class="fl">2</span>,                            <span class="co"># default 2</span></span>
+<span>  dmin.grf                   <span class="op">=</span> <span class="fl">0.0</span>,                          <span class="co"># default 0.0</span></span>
+<span>  frac.tau                   <span class="op">=</span> <span class="fl">0.8</span>,                          <span class="co"># default 0.8</span></span>
+<span>  return_selected_cuts_only  <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
+<span>  vi.grf.min                 <span class="op">=</span> <span class="op">-</span><span class="fl">0.2</span>,                         <span class="co"># default -0.2</span></span>
+<span>  tune_grf                   <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span></span>
+<span>  <span class="co"># ─── Cuts / discretization ──────────────────────────────────────────────</span></span>
+<span>  conf_force                 <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  defaultcut_names           <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  cut_type                   <span class="op">=</span> <span class="st">"default"</span>,                    <span class="co"># default "default"</span></span>
+<span>  exclude_cuts               <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  replace_med_grf            <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span>  cont.cutoff                <span class="op">=</span> <span class="fl">4</span>,                            <span class="co"># default 4</span></span>
+<span>  conf.cont_medians          <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  conf.cont_medians_force    <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  conf.cont_jcuts            <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span></span>
+<span>  <span class="co"># ─── Subgroup constraints ───────────────────────────────────────────────</span></span>
+<span>  n.min                      <span class="op">=</span> <span class="fl">60</span>,                           <span class="co"># default 60</span></span>
+<span>  d0.min                     <span class="op">=</span> <span class="fl">10</span>,                           <span class="co"># default 10</span></span>
+<span>  d1.min                     <span class="op">=</span> <span class="fl">10</span>,                           <span class="co"># default 10</span></span>
+<span>  maxk                       <span class="op">=</span> <span class="fl">2</span>,                            <span class="co"># default 2</span></span>
+<span>  max_subgroups_search       <span class="op">=</span> <span class="fl">10</span>,                           <span class="co"># default 10</span></span>
+<span>  max.minutes                <span class="op">=</span> <span class="fl">3</span>,                            <span class="co"># default 3</span></span>
+<span></span>
+<span>  <span class="co"># ─── Thresholds ─────────────────────────────────────────────────────────</span></span>
+<span>  effect.threshold           <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  consistency.threshold      <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  hr.threshold               <span class="op">=</span> <span class="fl">1.25</span>,                         <span class="co"># default 1.25</span></span>
+<span>  hr.consistency             <span class="op">=</span> <span class="fl">1.0</span>,                          <span class="co"># default 1.0</span></span>
+<span></span>
+<span>  <span class="co"># ─── Selection (sg_focus / Pareto neighborhood) ─────────────────────────</span></span>
+<span>  sg_focus                   <span class="op">=</span> <span class="st">"hr"</span>,                         <span class="co"># default "hr"</span></span>
+<span>  selection_rule             <span class="op">=</span> <span class="st">"neighborhood"</span>,               <span class="co"># default "neighborhood"</span></span>
+<span>  effect_neighborhood        <span class="op">=</span> <span class="fl">0.10</span>,                         <span class="co"># default 0.10</span></span>
+<span></span>
+<span>  <span class="co"># ─── Consistency evaluation ─────────────────────────────────────────────</span></span>
+<span>  fs.splits                  <span class="op">=</span> <span class="fl">1000</span>,                         <span class="co"># default 1000</span></span>
+<span>  m1.threshold               <span class="op">=</span> <span class="cn">Inf</span>,                          <span class="co"># default Inf</span></span>
+<span>  pconsistency.threshold     <span class="op">=</span> <span class="fl">0.90</span>,                         <span class="co"># default 0.90</span></span>
+<span>  stop_threshold             <span class="op">=</span> <span class="fl">0.95</span>,                         <span class="co"># default 0.95</span></span>
+<span></span>
+<span>  <span class="co"># ─── Two-stage consistency ──────────────────────────────────────────────</span></span>
+<span>  use_twostage               <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
+<span>  twostage_args              <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,                       <span class="co"># default list()</span></span>
+<span></span>
+<span>  <span class="co"># ─── GLM outcome support ────────────────────────────────────────────────</span></span>
+<span>  outcome_type               <span class="op">=</span> <span class="st">"survival"</span>,                   <span class="co"># default "survival"</span></span>
+<span>  effect_measure             <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  offset.name                <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  adverse_outcome            <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  overdispersion             <span class="op">=</span> <span class="st">"none"</span>,                       <span class="co"># default "none"</span></span>
+<span>  grf_count_transform        <span class="op">=</span> <span class="st">"log"</span>,                        <span class="co"># default "log"</span></span>
+<span></span>
+<span>  <span class="co"># ─── Propensity-score adjustment ────────────────────────────────────────</span></span>
+<span>  ps_method                  <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  ps_adjust_method           <span class="op">=</span> <span class="st">"none"</span>,                       <span class="co"># default "none"</span></span>
+<span>  ps_hat                     <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span></span>
+<span>  <span class="co"># ─── Output / diagnostics ───────────────────────────────────────────────</span></span>
+<span>  show_candidate_summary     <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span>  minp                       <span class="op">=</span> <span class="fl">0.025</span>,                        <span class="co"># default 0.025</span></span>
+<span>  details                    <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span>  quiet                      <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span>  by.risk                    <span class="op">=</span> <span class="fl">12</span>,                           <span class="co"># default 12</span></span>
+<span>  plot.sg                    <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span>  plot.grf                   <span class="op">=</span> <span class="cn">FALSE</span>                         <span class="co"># default FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
@@ -1525,12 +1620,106 @@ forests and can be used as a complementary variable selection method. In
 ForestSearch, GRF is used for identifying candidate factors (binary
 splits) rather than as the primary identification procedure.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Enable both LASSO and GRF</span></span>
+<code class="sourceCode R"><span><span class="co"># All forestsearch() parameters shown with their default values.</span></span>
+<span><span class="co"># Enable both LASSO and GRF (the package default for variable selection).</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch.html">forestsearch</a></span><span class="op">(</span></span>
-<span>  df.analysis <span class="op">=</span> <span class="va">data</span>,</span>
-<span>  use_lasso <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  use_grf <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  <span class="va">...</span></span>
+<span>  df.analysis                <span class="op">=</span> <span class="va">data</span>,                         <span class="co"># required</span></span>
+<span></span>
+<span>  <span class="co"># ─── Variable names ─────────────────────────────────────────────────────</span></span>
+<span>  outcome.name               <span class="op">=</span> <span class="st">"tte"</span>,                        <span class="co"># default "tte"</span></span>
+<span>  event.name                 <span class="op">=</span> <span class="st">"event"</span>,                      <span class="co"># default "event"</span></span>
+<span>  treat.name                 <span class="op">=</span> <span class="st">"treat"</span>,                      <span class="co"># default "treat"</span></span>
+<span>  id.name                    <span class="op">=</span> <span class="st">"id"</span>,                         <span class="co"># default "id"</span></span>
+<span>  potentialOutcome.name      <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  flag_harm.name             <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  confounders.name           <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span></span>
+<span>  <span class="co"># ─── Parallel processing ────────────────────────────────────────────────</span></span>
+<span>  parallel_args              <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"multisession"</span>,</span>
+<span>                                    workers <span class="op">=</span> <span class="fl">6</span>,</span>
+<span>                                    show_message <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,    <span class="co"># default plan="multisession"</span></span>
+<span></span>
+<span>  <span class="co"># ─── Prediction / RCT flag ──────────────────────────────────────────────</span></span>
+<span>  df.predict                 <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  df.test                    <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  is.RCT                     <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
+<span>  seedit                     <span class="op">=</span> <span class="fl">8316951</span>,                      <span class="co"># default 8316951</span></span>
+<span>  est.scale                  <span class="op">=</span> <span class="st">"hr"</span>,                         <span class="co"># default "hr"</span></span>
+<span></span>
+<span>  <span class="co"># ─── Factor selection: LASSO + GRF ──────────────────────────────────────</span></span>
+<span>  use_lasso                  <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE  &lt;-- FOCAL</span></span>
+<span>  use_grf                    <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE  &lt;-- FOCAL</span></span>
+<span>  grf_res                    <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  grf_cuts                   <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  max_n_confounders          <span class="op">=</span> <span class="fl">1000</span>,                         <span class="co"># default 1000</span></span>
+<span>  grf_depth                  <span class="op">=</span> <span class="fl">2</span>,                            <span class="co"># default 2</span></span>
+<span>  dmin.grf                   <span class="op">=</span> <span class="fl">0.0</span>,                          <span class="co"># default 0.0</span></span>
+<span>  frac.tau                   <span class="op">=</span> <span class="fl">0.8</span>,                          <span class="co"># default 0.8</span></span>
+<span>  return_selected_cuts_only  <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
+<span>  vi.grf.min                 <span class="op">=</span> <span class="op">-</span><span class="fl">0.2</span>,                         <span class="co"># default -0.2</span></span>
+<span>  tune_grf                   <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span></span>
+<span>  <span class="co"># ─── Cuts / discretization ──────────────────────────────────────────────</span></span>
+<span>  conf_force                 <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  defaultcut_names           <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  cut_type                   <span class="op">=</span> <span class="st">"default"</span>,                    <span class="co"># default "default"</span></span>
+<span>  exclude_cuts               <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  replace_med_grf            <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span>  cont.cutoff                <span class="op">=</span> <span class="fl">4</span>,                            <span class="co"># default 4</span></span>
+<span>  conf.cont_medians          <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  conf.cont_medians_force    <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  conf.cont_jcuts            <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span></span>
+<span>  <span class="co"># ─── Subgroup constraints ───────────────────────────────────────────────</span></span>
+<span>  n.min                      <span class="op">=</span> <span class="fl">60</span>,                           <span class="co"># default 60</span></span>
+<span>  d0.min                     <span class="op">=</span> <span class="fl">10</span>,                           <span class="co"># default 10</span></span>
+<span>  d1.min                     <span class="op">=</span> <span class="fl">10</span>,                           <span class="co"># default 10</span></span>
+<span>  maxk                       <span class="op">=</span> <span class="fl">2</span>,                            <span class="co"># default 2</span></span>
+<span>  max_subgroups_search       <span class="op">=</span> <span class="fl">10</span>,                           <span class="co"># default 10</span></span>
+<span>  max.minutes                <span class="op">=</span> <span class="fl">3</span>,                            <span class="co"># default 3</span></span>
+<span></span>
+<span>  <span class="co"># ─── Thresholds ─────────────────────────────────────────────────────────</span></span>
+<span>  effect.threshold           <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  consistency.threshold      <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  hr.threshold               <span class="op">=</span> <span class="fl">1.25</span>,                         <span class="co"># default 1.25</span></span>
+<span>  hr.consistency             <span class="op">=</span> <span class="fl">1.0</span>,                          <span class="co"># default 1.0</span></span>
+<span></span>
+<span>  <span class="co"># ─── Selection (sg_focus / Pareto neighborhood) ─────────────────────────</span></span>
+<span>  sg_focus                   <span class="op">=</span> <span class="st">"hr"</span>,                         <span class="co"># default "hr"</span></span>
+<span>  selection_rule             <span class="op">=</span> <span class="st">"neighborhood"</span>,               <span class="co"># default "neighborhood"</span></span>
+<span>  effect_neighborhood        <span class="op">=</span> <span class="fl">0.10</span>,                         <span class="co"># default 0.10</span></span>
+<span></span>
+<span>  <span class="co"># ─── Consistency evaluation ─────────────────────────────────────────────</span></span>
+<span>  fs.splits                  <span class="op">=</span> <span class="fl">1000</span>,                         <span class="co"># default 1000</span></span>
+<span>  m1.threshold               <span class="op">=</span> <span class="cn">Inf</span>,                          <span class="co"># default Inf</span></span>
+<span>  pconsistency.threshold     <span class="op">=</span> <span class="fl">0.90</span>,                         <span class="co"># default 0.90</span></span>
+<span>  stop_threshold             <span class="op">=</span> <span class="fl">0.95</span>,                         <span class="co"># default 0.95</span></span>
+<span></span>
+<span>  <span class="co"># ─── Two-stage consistency ──────────────────────────────────────────────</span></span>
+<span>  use_twostage               <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
+<span>  twostage_args              <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,                       <span class="co"># default list()</span></span>
+<span></span>
+<span>  <span class="co"># ─── GLM outcome support ────────────────────────────────────────────────</span></span>
+<span>  outcome_type               <span class="op">=</span> <span class="st">"survival"</span>,                   <span class="co"># default "survival"</span></span>
+<span>  effect_measure             <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  offset.name                <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  adverse_outcome            <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  overdispersion             <span class="op">=</span> <span class="st">"none"</span>,                       <span class="co"># default "none"</span></span>
+<span>  grf_count_transform        <span class="op">=</span> <span class="st">"log"</span>,                        <span class="co"># default "log"</span></span>
+<span></span>
+<span>  <span class="co"># ─── Propensity-score adjustment ────────────────────────────────────────</span></span>
+<span>  ps_method                  <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span>  ps_adjust_method           <span class="op">=</span> <span class="st">"none"</span>,                       <span class="co"># default "none"</span></span>
+<span>  ps_hat                     <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
+<span></span>
+<span>  <span class="co"># ─── Output / diagnostics ───────────────────────────────────────────────</span></span>
+<span>  show_candidate_summary     <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span>  minp                       <span class="op">=</span> <span class="fl">0.025</span>,                        <span class="co"># default 0.025</span></span>
+<span>  details                    <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span>  quiet                      <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span>  by.risk                    <span class="op">=</span> <span class="fl">12</span>,                           <span class="co"># default 12</span></span>
+<span>  plot.sg                    <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
+<span>  plot.grf                   <span class="op">=</span> <span class="cn">FALSE</span>                         <span class="co"># default FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
@@ -1631,7 +1820,7 @@ typically 300–2000), and the number of CV repetitions.</p>
 </tr>
 <tr class="even">
 <td>200
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>×</mo><annotation encoding="application/x-tex">\times</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>
 10-fold CV</td>
 <td>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>∼</mo><annotation encoding="application/x-tex">\sim</annotation></semantics></math>
@@ -1674,11 +1863,23 @@ regimens studied</li>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
-<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
+<div id="refs" class="references csl-bib-body hanging-indent">
 <div id="ref-Athey2019" class="csl-entry">
 Athey, Susan, Julie Tibshirani, and Stefan Wager. 2019.
 <span>“Generalized Random Forests.”</span> <em>The Annals of
 Statistics</em> 47 (2): 1148–78.
+</div>
+<div id="ref-Leon_2024" class="csl-entry">
+León, Larry F., Thomas Jemielita, Zifang Guo, Rachel Marceau West, and
+Keaven M. Anderson. 2024. <span>“Exploratory Subgroup Identification in
+the Heterogeneous Cox Model: A Relatively Simple Procedure.”</span>
+<em>Statistics in Medicine</em> 43 (20): 3921–42. https://doi.org/<a href="https://doi.org/10.1002/sim.10163" class="external-link">https://doi.org/10.1002/sim.10163</a>.
+</div>
+<div id="ref-Wager_2014" class="csl-entry">
+Wager, Stefan, Trevor Hastie, and Bradley Efron. 2014. <span>“Confidence
+Intervals for Random Forests: The Jackknife and the Infinitesimal
+Jackknife.”</span> <em>Journal of Machine Learning Research</em> 15:
+1625–51.
 </div>
 </div>
 </div>
@@ -1687,9 +1888,9 @@ Statistics</em> 47 (2): 1148–78.
 </h2>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## R version 4.5.3 (2026-03-11)</span></span>
+<pre><code><span><span class="co">## R version 4.6.1 (2026-06-24)</span></span>
 <span><span class="co">## Platform: x86_64-pc-linux-gnu</span></span>
-<span><span class="co">## Running under: Ubuntu 24.04.3 LTS</span></span>
+<span><span class="co">## Running under: Ubuntu 24.04.5 LTS</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## Matrix products: default</span></span>
 <span><span class="co">## BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 </span></span>
@@ -1708,20 +1909,21 @@ Statistics</em> 47 (2): 1148–78.
 <span><span class="co">## [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## other attached packages:</span></span>
-<span><span class="co">## [1] ggplot2_4.0.2     DiagrammeR_1.0.11</span></span>
+<span><span class="co">## [1] ggplot2_4.0.3     DiagrammeR_1.0.12</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## loaded via a namespace (and not attached):</span></span>
-<span><span class="co">##  [1] gtable_0.3.6       jsonlite_2.0.0     dplyr_1.2.0        compiler_4.5.3    </span></span>
+<span><span class="co">##  [1] gtable_0.3.6       jsonlite_2.0.0     dplyr_1.2.1        compiler_4.6.1    </span></span>
 <span><span class="co">##  [5] tidyselect_1.2.1   jquerylib_0.1.4    systemfonts_1.3.2  scales_1.4.0      </span></span>
 <span><span class="co">##  [9] textshaping_1.0.5  yaml_2.3.12        fastmap_1.2.0      R6_2.6.1          </span></span>
-<span><span class="co">## [13] generics_0.1.4     knitr_1.51         htmlwidgets_1.6.4  visNetwork_2.1.4  </span></span>
-<span><span class="co">## [17] tibble_3.3.1       desc_1.4.3         bslib_0.10.0       pillar_1.11.1     </span></span>
-<span><span class="co">## [21] RColorBrewer_1.1-3 rlang_1.1.7        cachem_1.1.0       xfun_0.57         </span></span>
-<span><span class="co">## [25] fs_2.0.0           sass_0.4.10        S7_0.2.1           cli_3.6.5         </span></span>
-<span><span class="co">## [29] withr_3.0.2        pkgdown_2.2.0      magrittr_2.0.4     digest_0.6.39     </span></span>
-<span><span class="co">## [33] grid_4.5.3         rstudioapi_0.18.0  lifecycle_1.0.5    vctrs_0.7.2       </span></span>
-<span><span class="co">## [37] evaluate_1.0.5     glue_1.8.0         farver_2.1.2       ragg_1.5.2        </span></span>
-<span><span class="co">## [41] rmarkdown_2.30     tools_4.5.3        pkgconfig_2.0.3    htmltools_0.5.9</span></span></code></pre>
+<span><span class="co">## [13] generics_0.1.4     knitr_1.52         htmlwidgets_1.6.4  visNetwork_2.1.4  </span></span>
+<span><span class="co">## [17] tibble_3.3.1       desc_1.4.3         bslib_0.12.0       pillar_1.11.1     </span></span>
+<span><span class="co">## [21] RColorBrewer_1.1-3 rlang_1.3.0        cachem_1.1.0       xfun_0.62         </span></span>
+<span><span class="co">## [25] fs_2.1.0           sass_0.4.10        S7_0.2.2           otel_0.2.0        </span></span>
+<span><span class="co">## [29] cli_3.6.6          withr_3.0.3        pkgdown_2.2.1      magrittr_2.0.5    </span></span>
+<span><span class="co">## [33] digest_0.6.39      grid_4.6.1         rstudioapi_0.19.0  lifecycle_1.0.5   </span></span>
+<span><span class="co">## [37] vctrs_0.7.3        evaluate_1.0.5     glue_1.8.1         farver_2.1.2      </span></span>
+<span><span class="co">## [41] ragg_1.5.2         rmarkdown_2.32     tools_4.6.1        pkgconfig_2.0.3   </span></span>
+<span><span class="co">## [45] htmltools_0.5.9</span></span></code></pre>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
@@ -1734,7 +1936,7 @@ Statistics</em> 47 (2): 1148–78.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

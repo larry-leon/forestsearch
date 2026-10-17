@@ -5,7 +5,7 @@ Calculates target estimate and standard error for bootstrap samples.
 ## Usage
 
 ``` r
-get_targetEst(x, ystar, cov_method = "standard", cov_trim = 0)
+get_targetEst(x, ystar, cov_method = c("standard", "nocorrect"), cov_trim = 0)
 ```
 
 ## Arguments

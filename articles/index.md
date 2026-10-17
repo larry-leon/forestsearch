@@ -11,6 +11,13 @@ Technical details on the statistical methods
 
 - [Methodology](https://larry-leon.github.io/forestsearch/articles/methodology.md):
 
+### Post-Selection Inference
+
+Inference for trial estimands after data-driven subgroup discovery
+
+- [Post-selection inference for an identified survival
+  subgroup](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.md):
+
 ### Treatment Effect Definitions
 
 Definitions and computation of marginal HR, average hazard ratio (AHR),

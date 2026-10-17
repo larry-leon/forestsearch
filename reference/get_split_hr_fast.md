@@ -7,7 +7,7 @@ speed.
 ## Usage
 
 ``` r
-get_split_hr_fast(df, cox_init = 0)
+get_split_hr_fast(df, cox_init = 0, adjust_covariates = NULL)
 ```
 
 ## Arguments
@@ -18,8 +18,33 @@ get_split_hr_fast(df, cox_init = 0)
 
 - cox_init:
 
-  Numeric. Initial value for coefficient (default 0).
+  Numeric. Initial value for coefficient (default 0). Ignored when
+  `adjust_covariates` is supplied (the default coxph starting values are
+  used so the init length matches the number of model coefficients).
+
+- adjust_covariates:
+
+  Character vector or `NULL`. Additional terms appended to the model
+  right-hand side after `Treat`. Terms are pasted verbatim, so
+  `"strata(x1)"` produces a stratified Cox model. The referenced columns
+  must be present in `df`. `NULL` (default) fits the unadjusted
+  `Surv(Y, Event) ~ Treat` model.
 
 ## Value
 
-Numeric. Estimated hazard ratio, or NA if model fails.
+Numeric. Estimated hazard ratio for `Treat`, or NA if model fails.
+
+## Examples
+
+``` r
+# \donttest{
+set.seed(42)
+df <- data.frame(
+  Y     = rexp(80),
+  Event = rbinom(80, 1, 0.6),
+  Treat = rep(0:1, 40)
+)
+get_split_hr_fast(df)
+#> [1] 0.7923594
+# }
+```

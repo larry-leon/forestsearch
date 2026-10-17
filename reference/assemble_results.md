@@ -21,6 +21,7 @@ assemble_results(
   model,
   n_super,
   seed,
-  spline_info = NULL
+  spline_info = NULL,
+  df_source = NULL
 )
 ```

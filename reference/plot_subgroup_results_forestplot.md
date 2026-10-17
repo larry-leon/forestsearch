@@ -35,7 +35,13 @@ plot_subgroup_results_forestplot(
   reference_colors = c("yellow", "powderblue"),
   ci_column_spaces = 20,
   conf.level = 0.95,
-  theme = NULL
+  theme = NULL,
+  outcome_type = NULL,
+  effect_measure = NULL,
+  offset.name = NULL,
+  adjust_covariates = NULL,
+  extreme_ci_cap = 1.5,
+  xlim_method = c("clinical", "data")
 )
 ```
 
@@ -169,6 +175,48 @@ plot_subgroup_results_forestplot(
   Use this to control plot sizing (fonts, row height, CI appearance, CV
   annotation font size). Default: NULL (uses default theme).
 
+- outcome_type:
+
+  Character or `NULL`. One of `"survival"` (default), `"binary"`, or
+  `"continuous"`. If `NULL`, auto-detected from
+  `fs_results$fs.est$outcome_type`.
+
+- effect_measure:
+
+  Character or `NULL`. Effect measure for GLM outcomes (e.g., `"OR"`,
+  `"RR"`, `"IRR"`, `"RD"`, `"IRD"`, `"MD"`). Auto-detected from
+  `fs_results$fs.est$effect_measure` if `NULL`.
+
+- offset.name:
+
+  Character or `NULL`. Follow-up time column for rate-based measures
+  (IRR, IRD).
+
+- adjust_covariates:
+
+  Character vector or `NULL`. Baseline covariates to adjust the GLM-row
+  effect models for, matching the adjustment used during
+  search/estimation. When `NULL`, resolved from
+  `fs_results$fs.est$args_call_all$adjust_covariates` so the forest-plot
+  CIs share the fit's scale. Applies to GLM rows only.
+
+- extreme_ci_cap:
+
+  Numeric. Multiplier for outlier-resistant axis limits when
+  `xlim_method = "data"`. If the most extreme CI bound exceeds twice the
+  second-most extreme, the axis limit is capped at `extreme_ci_cap`
+  times the second-most extreme bound. Default 1.5. Set to `Inf` to
+  disable.
+
+- xlim_method:
+
+  Character. Method for computing default axis limits for GLM measures
+  when `xlim` is not user-supplied. `"clinical"` (default) uses fixed
+  clinically meaningful ranges: HR/OR/RR/IRR = (0.25, 4.0), RD/IRD =
+  (-0.50, 0.50), MD = data-driven. `"data"` computes limits from the
+  actual estimates with outlier resistance controlled by
+  `extreme_ci_cap`.
+
 ## Value
 
 A list containing:
@@ -231,3 +279,58 @@ for cross-validation
 for customizing plot appearance
 [`render_forestplot`](https://larry-leon.github.io/forestsearch/reference/render_forestplot.md)
 for rendering the plot
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# Load ForestSearch results
+load("fs_analysis_results.Rdata")  # Contains fs.est, fs_bc, fs_kfold
+
+# Define subgroups to display
+subgroups <- list(
+  bm_gt1 = list(
+    subset_expr = "BM > 1",
+    name = "BM > 1",
+    type = "reference"
+  ),
+  bm_gt1_size_gt19 = list(
+    subset_expr = "BM > 1 & tmrsize > 19",
+    name = "BM > 1 & Tumor Size > 19",
+    type = "posthoc"
+  )
+)
+
+# Create the forest plot with default theme
+result <- plot_subgroup_results_forestplot(
+  fs_results = list(fs.est = fs.est, fs_bc = fs_bc, fs_kfold = fs_kfold),
+  df_analysis = df_itt,
+  subgroup_list = subgroups,
+  outcome.name = "os_time",
+  event.name = "os_event",
+  treat.name = "combo",
+  E.name = "Experimental+CT",
+  C.name = "CT"
+)
+
+# Create with custom theme for larger plot
+large_theme <- create_forest_theme(
+  base_size = 14,
+  row_padding = c(6, 4),
+  cv_fontsize = 11
+)
+
+result <- plot_subgroup_results_forestplot(
+  fs_results = list(fs.est = fs.est, fs_bc = fs_bc, fs_kfold = fs_kfold),
+  df_analysis = df_itt,
+  subgroup_list = subgroups,
+  outcome.name = "os_time",
+  event.name = "os_event",
+  treat.name = "combo",
+  theme = large_theme
+)
+
+# Display the plot
+render_forestplot(result)
+} # }
+```

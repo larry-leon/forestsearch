@@ -32,5 +32,15 @@ print_grf_details(config, values, best_subgroup, sg_harm_id, tree_cuts = NULL)
 
 ## Value
 
-No return value, called for side effects (prints GRF diagnostic
-information to the console).
+Called for its side effect of printing to the console. The value is
+returned invisibly and is incidental: `tree_cuts$all` when a subgroup,
+its definition and `tree_cuts` are all supplied, otherwise `NULL`.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# print_grf_details() is called internally by grf.subg.harm.survival().
+# See grf.subg.harm.survival() for the standard entry point.
+} # }
+```

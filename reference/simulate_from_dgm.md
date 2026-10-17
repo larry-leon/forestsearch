@@ -20,7 +20,9 @@ simulate_from_dgm(
   strata_rand = NULL,
   hrz_crit = NULL,
   keep_rand = FALSE,
-  time_eos = NULL
+  time_eos = NULL,
+  replace = TRUE,
+  baseline = c("resample", "fixed")
 )
 ```
 
@@ -97,6 +99,32 @@ simulate_from_dgm(
   Numeric secondary administrative censoring cutoff (end-of-study time
   on the DGM scale). Applied after `follow_up` censoring. Default
   `NULL`.
+
+- replace:
+
+  Logical sampling scheme for drawing the `n` subjects from
+  `dgm$df_super`. `TRUE` (default) samples with replacement (the
+  trial-resampling / bootstrap mode used for simulated trials). `FALSE`
+  samples without replacement and so requires `n <= nrow(dgm$df_super)`;
+  with `n = nrow(dgm$df_super)` it evaluates every super-population
+  subject exactly once while still applying randomisation and censoring
+  (unlike the `n = NULL` path, which uses the pool as-is and skips
+  both). Ignored when `baseline = "fixed"`. Default `TRUE`.
+
+- baseline:
+
+  Character; how baseline covariates are obtained per simulated trial.
+  `"resample"` (default – the historical behaviour) draws subjects from
+  `dgm$df_super`, so covariates and therefore subgroup composition and
+  sizes vary across trials. `"fixed"` uses `dgm$df_source` – every
+  source patient exactly once, in source order – so the baseline data
+  and all covariate-defined subgroups are identical in every simulated
+  trial; only treatment assignment, entry times, latent event times, and
+  censoring are re-drawn per trial. Requires a DGM built by a package
+  version that stores `df_source` (rebuild with
+  [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
+  if absent). With `baseline = "fixed"`, `n` must be `NULL` or equal
+  `nrow(dgm$df_source)`, and `replace` is ignored.
 
 ## Value
 
@@ -181,6 +209,24 @@ distribution:
 
 - `cens_adjust = log(0.5)` halves expected censoring times.
 
+### Random-X vs fixed-X designs (`baseline`)
+
+Under `baseline = "resample"` each simulated trial is a fresh draw of
+subjects, so between-trial variability reflects both covariate
+resampling and outcome generation – the "what if this trial had enrolled
+a different sample from the same population?" interpretation. Subgroup
+sizes fluctuate across trials.
+
+Under `baseline = "fixed"` the covariate matrix is the observed trial
+data, identical in every simulated trial: subgroup definitions,
+memberships, and sizes are exactly those of the source data.
+Between-trial variability isolates the outcome-generation process
+(treatment assignment, latent event times, censoring, entry). This is
+the conditional-on-X (parametric-bootstrap-given-X) design. Note that
+entry times are still drawn `Uniform(0, max_entry)` per trial unless
+`entry_var` names a fixed column, and treatment is still re-randomised
+per trial unless `draw_treatment = FALSE`.
+
 ## See also
 
 [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md),
@@ -189,18 +235,10 @@ distribution:
 ## Examples
 
 ``` r
-# \donttest{
+if (FALSE) { # \dontrun{
 dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
 sim_data <- simulate_from_dgm(dgm, n = 200, seed = 42)
 dim(sim_data)
-#> [1] 200  54
 head(sim_data[, c("y_sim", "event_sim", "treat_sim")])
-#>          y_sim event_sim treat_sim
-#> 97.3  34.44427         0         1
-#> 3.8    2.95523         1         0
-#> 476.3 16.93996         0         1
-#> 35    27.79183         0         0
-#> 22.2  30.66218         0         0
-#> 322   29.98234         0         1
-# }
+} # }
 ```

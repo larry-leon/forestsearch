@@ -13,6 +13,7 @@ prepare_censoring_model(
   cens_params,
   df_super,
   select_censoring = TRUE,
+  cens_intercept_only = FALSE,
   verbose = TRUE
 )
 ```
@@ -38,12 +39,47 @@ prepare_censoring_model(
 
 - select_censoring:
 
-  Logical. If `TRUE` (default), fits the censoring distribution from
-  observed data using AIC-based `survreg` model comparison. If `FALSE`,
-  uses `cens_params` directly with no model fitting. See
-  [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
-  for the required `cens_params` structure under each combination of
-  `select_censoring` and `cens_type`.
+  Logical. Selects among three censoring modes:
+
+  AIC selection
+
+  :   `select_censoring = TRUE` (default): fits the censoring
+      distribution from observed data via AIC comparison among four
+      `survreg` candidates – Weibull and LogNormal, each with covariates
+      and intercept-only.
+
+  Analytical
+
+  :   `select_censoring = FALSE` *and* `cens_params` supplies the
+      required analytical parameters (`mu`+`tau` for Weibull/LogNormal;
+      `min`+`max` for uniform with optional defaulting): no fitting;
+      uses `cens_params` directly; covariate contribution is zero.
+
+  Force-fit
+
+  :   `select_censoring = FALSE` *and* `cens_params` does **not** supply
+      analytical parameters (Weibull/LogNormal only): fits the chosen
+      distribution with formula determined by `cens_intercept_only` and
+      the censoring covariate vectors – no AIC arbitration, no fallback
+      to intercept-only.
+
+- cens_intercept_only:
+
+  Logical. Only honored in force-fit mode (`select_censoring = FALSE`
+  with empty `cens_params`). If `TRUE`, fits `Surv(y, 1 - event) ~ 1`
+  (no treat, no covariates). If `FALSE` (default), formula is determined
+  by the censoring covariate vectors:
+
+  - Both `*_cens = NULL` (default): inherit from outcome model; formula
+    is `~ treat + zcens_<outcome covariates>`.
+
+  - Both `*_cens = character(0)`: treat-only; formula is `~ treat`.
+
+  - One or both `*_cens` non-empty: formula is
+    `~ treat + zcens_<supplied covariates>`.
+
+  Setting `cens_intercept_only = TRUE` with `select_censoring = TRUE` or
+  with analytical `cens_params` raises an error.
 
 - verbose:
 

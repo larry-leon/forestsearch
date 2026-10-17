@@ -70,6 +70,7 @@ overall element will be NULL.
 
 Always check for NULL before using the returned tables:
 
+
     if (!is.null(factor_tables$by_position)) {
       print(factor_tables$by_position)
     }

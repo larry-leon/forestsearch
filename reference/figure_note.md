@@ -40,3 +40,12 @@ figure_note(
 ## Value
 
 Character string formatted as a figure note, or NULL if no content
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+km_result <- plot_sg_weighted_km(fs.est = fs)
+cat(figure_note(km_result))
+} # }
+```

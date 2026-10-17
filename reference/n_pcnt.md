@@ -21,3 +21,10 @@ n_pcnt(x, denom)
 ## Value
 
 Character string formatted as \\n (percent%)\\.
+
+## Examples
+
+``` r
+n_pcnt(1:30, 100)
+#> [1] "30 (30.0%)"
+```

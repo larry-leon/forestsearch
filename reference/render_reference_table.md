@@ -12,7 +12,8 @@ render_reference_table(
   ref_df,
   title = "Reference Simulation Results",
   subtitle = NULL,
-  bold_threshold = 0.05
+  bold_threshold = 0.05,
+  subgroup_notation = c("harm", "benefit")
 )
 ```
 
@@ -36,6 +37,11 @@ render_reference_table(
   Numeric. Values in `any(H)` rows exceeding this threshold are shown in
   bold. Set `NULL` to disable. Default: 0.05.
 
+- subgroup_notation:
+
+  Character. `"harm"` (default) labels subgroups as H/Hc; `"benefit"`
+  labels as G/Gc for benefit-search analyses (treatment switching).
+
 ## Value
 
 A `gt` table object.
@@ -43,7 +49,7 @@ A `gt` table object.
 ## Examples
 
 ``` r
-# \donttest{
+if (FALSE) { # \dontrun{
 ref <- data.frame(
   Scenario = "M1 Null: N=700",
   Metric   = "any(H)",
@@ -52,28 +58,5 @@ ref <- data.frame(
   GRF      = 0.25
 )
 render_reference_table(ref, title = "Reference Results")
-
-
-  
-
-
-Reference Results
+} # }
 ```
-
-FS
-
-FSlg
-
-GRF
-
-M1 Null: N=700
-
-any(H)
-
-0.02
-
-0.03
-
-0.25
-
-\# }

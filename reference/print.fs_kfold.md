@@ -21,4 +21,17 @@ print(x, ...)
 
 ## Value
 
-Invisibly returns `x`.
+`x`, invisibly. Called for its side effect of printing the K-fold
+summary.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+fs <- forestsearch(gbsg,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+oob <- forestsearch_Kfold(fs.est = fs)
+print(oob)
+} # }
+```

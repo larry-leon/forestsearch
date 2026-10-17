@@ -15,7 +15,11 @@ bootstrap_results(
   show_three,
   H_obs,
   Hc_obs,
-  seed = 8316951L
+  seed = 8316951L,
+  estimator_fn = NULL,
+  effect_measure = NULL,
+  boot_index_mat = NULL,
+  mr_in_replicates = FALSE
 )
 ```
 
@@ -70,10 +74,54 @@ bootstrap_results(
 
 - seed:
 
-  Integer. Random seed for reproducibility. Default 8316951L. Must match
-  the seed used in
-  [`bootstrap_ystar`](https://larry-leon.github.io/forestsearch/reference/bootstrap_ystar.md)
-  to ensure bootstrap index alignment.
+  Integer. Random seed for reproducibility. Default 8316951L. Only used
+  when `boot_index_mat` is `NULL`; when an explicit index matrix is
+  supplied, it is the source of bootstrap row selection and `seed` has
+  no effect on bootstrap indices.
+
+- estimator_fn:
+
+  Closure or `NULL`. Effect-estimator closure from
+  [`make_effect_estimator`](https://larry-leon.github.io/forestsearch/reference/make_effect_estimator.md)
+  for GLM outcomes. When `NULL` (default), the Cox model via
+  `cox.formula.boot` is used.
+
+- effect_measure:
+
+  Character or `NULL`. Effect-measure label for GLM outcomes (e.g. "OR",
+  "RR", "IRR", "MD", "RD", "IRD"), threaded from the bootstrap entry.
+  Controls the scale of the per-resample subgroup-effect diagnostic
+  (`hr_sg`) for DINA-selected subgroups: ratio measures ("OR", "RR",
+  "IRR") and survival report it on the ratio scale, while identity
+  measures ("MD", "RD", "IRD") report it on the difference scale. `NULL`
+  (default) applies the ratio (survival) convention.
+
+- boot_index_mat:
+
+  Integer matrix or `NULL`. Optional pre-generated \\B \times N\\ matrix
+  of bootstrap row indices. When supplied, row \\b\\ is used as the
+  resampling vector for iteration \\b\\
+  (`df_boot_analysis[boot_index_mat[b, ], ]`); the per-iteration call to
+  [`sample.int()`](https://rdrr.io/r/base/sample.html) is bypassed. This
+  is the path taken by
+  [`forestsearch_bootstrap_dofuture`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md),
+  which generates the matrix once on the main process so that the same
+  indices drive both the worker's bootstrap data construction and the
+  `Ystar_mat` count matrix. When `NULL` (default), each iteration draws
+  its own indices via
+  [`sample.int()`](https://rdrr.io/r/base/sample.html) - retained for
+  backward compatibility with direct callers.
+
+- mr_in_replicates:
+
+  Logical. Whether multiplier resampling runs inside each replicate.
+  Default `FALSE`, which strips `mr_inference` from the reconstructed
+  per-replicate call. When `TRUE` the flag propagates unchanged and each
+  replicate's MR object is attached to the returned table as the
+  `"mr_replicates"` attribute (a list of length `nb_boots`). See
+  [`forestsearch_bootstrap_dofuture`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
+  for the full contract, including why the retained objects are not
+  aggregable.
 
 ## Value
 
@@ -165,6 +213,15 @@ Data.table with one row per bootstrap iteration and columns:
 
   Numeric. Consistency p-value for top subgroup
 
+- any_found:
+
+  Integer 0/1. Identification flag; equivalent to
+  `as.integer(!is.na(Pcons))`. Added in v0.2.0 to mirror the
+  `fold_summary$any_found` column produced by
+  [`forestsearch_tenfold`](https://larry-leon.github.io/forestsearch/reference/forestsearch_tenfold.md),
+  so cross-API diagnostics (`sum(results$any_found == 1L)`) work
+  identically for bootstrap and CV outputs.
+
 - hr_sg:
 
   Numeric. Hazard ratio for top subgroup
@@ -216,6 +273,18 @@ Data.table with one row per bootstrap iteration and columns:
 - M.7:
 
   Character. Seventh factor label
+
+- grf_cuts_b:
+
+  Character. GRF policy-tree cut expressions returned on this bootstrap
+  sample, collapsed with " \| " when multiple cuts are produced.
+  `NA_character_` when GRF was not used, the bootstrap forestsearch call
+  errored, or GRF returned no cuts. Populated independently of whether a
+  subgroup was identified: GRF may surface a candidate cut on bootstraps
+  where the downstream consistency stage rejects all candidates. Mirrors
+  the `grf_cuts` column that
+  [`forestsearch_tenfold`](https://larry-leon.github.io/forestsearch/reference/forestsearch_tenfold.md)
+  captures in its `fold_summary` return slot.
 
 Rows where no valid subgroup was found will have `NA` for bias
 corrections. The returned object has a "timing" attribute with summary
@@ -279,7 +348,7 @@ where:
 
 Each bootstrap iteration modifies ForestSearch arguments to:
 
-- **Suppress output**: `details`, `showten_subgroups`, `plot.sg`,
+- **Suppress output**: `details`, `show_candidate_summary`, `plot.sg`,
   `plot.grf` all set to `FALSE`
 
 - **Force re-selection**: `grf_res` and `grf_cuts` set to `NULL`
@@ -325,3 +394,48 @@ for Cox model fitting on subgroups
 for processing bootstrap results into confidence intervals
 [`bootstrap_ystar`](https://larry-leon.github.io/forestsearch/reference/bootstrap_ystar.md)
 for generating the Ystar matrix
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# Typically called via forestsearch_bootstrap_dofuture()
+# Manual usage for debugging:
+
+# 1. Fit initial ForestSearch model
+fs_result <- forestsearch(
+  df.analysis = mydata,
+  outcome.name = "time",
+  event.name = "status",
+  treat.name = "treatment",
+  confounders.name = c("age", "sex", "stage")
+)
+
+# 2. Build Cox formula
+cox_formula <- build_cox_formula("time", "status", "treatment")
+
+# 3. Get observed estimates
+cox_fits <- fit_cox_models(fs_result$df.est, cox_formula)
+
+# 4. Set up parallel backend
+library(doFuture)
+plan(multisession, workers = 6)
+
+# 5. Run bootstrap (note: this is already parallelized internally)
+boot_results <- bootstrap_results(
+  fs.est = fs_result,
+  df_boot_analysis = fs_result$df.est,
+  cox.formula.boot = cox_formula,
+  nb_boots = 100,
+  show_three = TRUE,
+  H_obs = cox_fits$H_obs,
+  Hc_obs = cox_fits$Hc_obs
+)
+
+# 6. Check results
+summary(boot_results)
+
+# Proportion of bootstraps that found a subgroup
+mean(!is.na(boot_results$H_biasadj_2))
+} # }
+```
