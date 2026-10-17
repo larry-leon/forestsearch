@@ -10,14 +10,24 @@ execute:
   message: false
 ---
 
-```{r setup}
-#| include: false
+**User settings.** These are the only values you need to change to run
+this article yourself (see *Running this article yourself* below).
 
-# Number of uniform-DGM simulated trials. 150 keeps this article quick to
-# build. For an actual application use 5,000-10,000, after timing a pilot
-# run of about 100 trials on your own machine (see "Number of simulated
-# trials" and the Timing summary).
+```{r setup}
+# n_sims_uniform: number of simulated trials. 150 keeps this article quick
+#   to build. For an actual application use 5,000-10,000, after timing a
+#   pilot run of about 100 trials on your own machine (see "Number of
+#   simulated trials" and the Timing summary).
+# n_workers_user: parallel workers. NULL uses about 90% of the available
+#   cores; set an integer to override (1L runs without parallel workers).
 n_sims_uniform <- 150L
+n_workers_user <- NULL
+
+# This article is written for the current CRAN release of forestsearch.
+if (utils::packageVersion("forestsearch") < "0.4.0") {
+  stop("This article needs forestsearch >= 0.4.0. ",
+       "Update it with install.packages(\"forestsearch\").")
+}
 ```
 
 # Overview
@@ -195,28 +205,48 @@ censoring rate).  See the **Appendix: DGM with Heterogeneous Treatment
 Effects** for a contrasting setup where one subgroup has a different
 treatment effect than the rest of the population.
 
-## Installation
+## Running this article yourself
 
-**forestsearch** is available on CRAN:
+This article is written for the current CRAN release of
+**forestsearch** (0.4.0) and runs as a single file.
 
-```r
-install.packages("forestsearch")
-```
+1. **Install the R packages.** Installing **forestsearch** from CRAN
+   also installs everything this article uses (survival, ggplot2,
+   dplyr, patchwork, future, doFuture, foreach and weightedsurv).
+   knitr and rmarkdown are needed to render the file:
 
-The development version can be installed from GitHub:
+   ```r
+   install.packages(c("forestsearch", "knitr", "rmarkdown"))
+   ```
 
-```r
-# install.packages("pak")
-pak::pak("larry-leon/forestsearch")
-```
+2. **Download this file** into your working directory:
 
-Dependencies, including
-[**weightedsurv**](https://CRAN.R-project.org/package=weightedsurv),
-are installed automatically.
+   ```r
+   download.file(
+     "https://raw.githubusercontent.com/larry-leon/forestsearch/master/vignettes/articles/extreme_subgroups.qmd",
+     "extreme_subgroups.qmd"
+   )
+   ```
 
-```r
-library(forestsearch)
-```
+3. **Adjust the User settings** at the top of the file if you wish:
+   `n_sims_uniform` (number of simulated trials) and `n_workers_user`
+   (parallel workers).
+
+4. **Run it**, in either of two ways:
+   - In RStudio, open the file and click **Render**. RStudio includes
+     Quarto, so nothing else is needed.
+   - Or run the chunks interactively (**Run All**). This needs no
+     Quarto at all.
+
+   Outside RStudio, render from a terminal with
+   `quarto render extreme_subgroups.qmd`, which needs the Quarto
+   command-line tool from <https://quarto.org>.
+
+With the default 150 simulated trials, the whole article rendered in
+about 20 seconds on the 14-core machine used to build it.  The Timing
+summary at the
+end reports the time on your machine and projects the cost of larger
+runs.
 
 ## Documentation
 
@@ -1117,11 +1147,16 @@ library(future)
 library(doFuture)
 library(foreach)
 
-# Target at least 90% of available cores; ceiling() guarantees the
-# 90% floor on machines where 0.9 * cores is non-integer.
+# By default, target at least 90% of available cores; ceiling() guarantees
+# the 90% floor on machines where 0.9 * cores is non-integer.  Set
+# n_workers_user in the User settings chunk to override.
 .t_par_start  <- Sys.time()
 n_cores_total <- future::availableCores()
-n_workers     <- max(1L, ceiling(0.90 * n_cores_total))
+n_workers     <- if (is.null(n_workers_user)) {
+  max(1L, ceiling(0.90 * n_cores_total))
+} else {
+  max(1L, as.integer(n_workers_user))
+}
 
 future::plan(future::multisession, workers = n_workers)
 t_par_setup   <- as.numeric(difftime(Sys.time(), .t_par_start, units = "secs"))
