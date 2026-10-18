@@ -2355,16 +2355,16 @@ costs that don’t change with replicate count.
 
 | Step                                                   |   Elapsed | Per trial |
 |:-------------------------------------------------------|----------:|----------:|
-| DGM construction (generate_aft_dgm_flex)               |  1.18 sec |         — |
-| Censoring calibration (calibrate_cens_adjust)          |    340 ms |         — |
-| Simulation loop (150 trials × 56 subgroups, 4 workers) | 10.49 sec |     70 ms |
-| Total                                                  | 12.00 sec |         — |
+| DGM construction (generate_aft_dgm_flex)               |  1.71 sec |         — |
+| Censoring calibration (calibrate_cens_adjust)          |    720 ms |         — |
+| Simulation loop (150 trials × 56 subgroups, 4 workers) | 17.47 sec |    116 ms |
+| Total                                                  | 19.90 sec |         — |
 
 Timing for n_sims_uniform = 150, parallel across 4 of 4 cores. {.table
 .caption-top style="width:100%;"}
 
 
-    Throughput: 14.3 trials/sec (wall-clock, 4 workers)  |  Projected total time:  1,000 sims → 1.2 min    │    5,000 sims → 5.9 min
+    Throughput: 8.6 trials/sec (wall-clock, 4 workers)  |  Projected total time:  1,000 sims → 2.0 min    │    5,000 sims → 9.7 min
 
 ## 8 Appendix: DGM with Heterogeneous Treatment Effects
 
@@ -2714,7 +2714,7 @@ sessionInfo()
     [31] otel_0.2.0           tools_4.6.1          parallel_4.6.1
     [34] globals_0.20.0       vctrs_0.7.3          R6_2.6.1
     [37] stats4_4.6.1         lifecycle_1.0.5      randomForest_4.7-1.2
-    [40] fs_2.1.0             pkgconfig_2.0.3      progressr_1.0.0
+    [40] fs_2.1.0             pkgconfig_2.0.3      progressr_1.1.0
     [43] pillar_1.11.1        gtable_0.3.6         data.table_1.18.6.1
     [46] glue_1.8.1           Rcpp_1.1.2           xfun_0.62
     [49] tibble_3.3.1         tidyselect_1.2.1     knitr_1.52

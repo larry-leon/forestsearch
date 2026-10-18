@@ -77,7 +77,7 @@ fs <- forestsearch(
 cat(sprintf("fit time: %.1f seconds\n", (proc.time() - t0)[["elapsed"]]))
 ```
 
-    #> fit time: 20.7 seconds
+    #> fit time: 32.5 seconds
 
 ## The identified subgroup
 
@@ -131,7 +131,7 @@ print(fs)
     #>   simulation operating characteristics: Leon & Anderson (2026),
     #>   arXiv:2609.38361.
     #>
-    #> Computation time: 0.05 minutes
+    #> Computation time: 0.07 minutes
 
 - **Identified subgroup:** the one-sided 95% lower bound on the hazard
   ratio (the *field* construction).
@@ -218,7 +218,7 @@ summary(fs)
     #>   simulation operating characteristics: Leon & Anderson (2026),
     #>   arXiv:2609.38361.
     #>
-    #> Computation time: 0.05 minutes
+    #> Computation time: 0.07 minutes
 
 ## How to read a bound: by location
 
@@ -421,7 +421,7 @@ sessionInfo()
     #> [34] dplyr_1.2.1          ggplot2_4.0.3        globals_0.20.0
     #> [37] vctrs_0.7.3          R6_2.6.1             lifecycle_1.0.5
     #> [40] randomForest_4.7-1.2 fs_2.1.0             pkgconfig_2.0.3
-    #> [43] progressr_1.0.0      pillar_1.11.1        gtable_0.3.6
+    #> [43] progressr_1.1.0      pillar_1.11.1        gtable_0.3.6
     #> [46] data.table_1.18.6.1  glue_1.8.1           Rcpp_1.1.2
     #> [49] xfun_0.62            tibble_3.3.1         tidyselect_1.2.1
     #> [52] knitr_1.52           farver_2.1.2         patchwork_1.3.2

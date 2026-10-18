@@ -481,7 +481,7 @@ fs <- forestsearch(
     ## Legend: P = Pcons (consistency probability); OF = on Pareto frontier; S = selected.
     ## ==============================================================================================================
     ## 
-    ## Seconds and minutes forestsearch overall = 4.935 0.0823 
+    ## Seconds and minutes forestsearch overall = 5.954 0.0992 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0}
 
@@ -495,7 +495,7 @@ cat("\nForestSearch completed in",
 ```
 
     ## 
-    ## ForestSearch completed in 4.9 seconds
+    ## ForestSearch completed in 6 seconds
 
 ### ForestSearch Results
 
@@ -620,7 +620,7 @@ cat("\nBootstrap completed in",
 ```
 
     ## 
-    ## Bootstrap completed in 0.1 minutes
+    ## Bootstrap completed in 0.2 minutes
 
 ### Bootstrap Summary and Diagnostics
 
@@ -654,9 +654,9 @@ summaries <- summarize_bootstrap_results(
     ## TIMING ANALYSIS:
     ## -------------------------------------------------------------
     ## Overall:
-    ##   Total bootstrap time:          0.12 minutes (0.00 hours)
-    ##   Average per iteration:         0.06 min (3.6 sec)
-    ##   Projected for 1000 boots:      59.89 min (1.00 hrs)
+    ##   Total bootstrap time:          0.18 minutes (0.00 hours)
+    ##   Average per iteration:         0.09 min (5.3 sec)
+    ##   Projected for 1000 boots:      88.77 min (1.48 hrs)
 
 ``` r
 
@@ -1227,10 +1227,10 @@ ER-negative patients may not benefit is consistent with:
 | Computational Timing |            |            |
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
-| GRF                  | 1.2        | 0.0        |
-| ForestSearch         | 4.9        | 0.1        |
-| Bootstrap            | 8.0        | 0.1        |
-| Total                | 23.9       | 0.4        |
+| GRF                  | 1.5        | 0.0        |
+| ForestSearch         | 6.0        | 0.1        |
+| Bootstrap            | 11.6       | 0.2        |
+| Total                | 33.5       | 0.6        |
 
 [ Code](#collapse-timingsummary)
 
@@ -1317,7 +1317,7 @@ sessionInfo()
     ## [46] magrittr_2.0.5       DiagrammeR_1.0.12    randomForest_4.7-1.2
     ## [49] future.apply_1.21.0  withr_3.0.3          scales_1.4.0        
     ## [52] rmarkdown_2.32       globals_0.20.0       otel_0.2.0          
-    ## [55] gridExtra_2.3.1      progressr_1.0.0      ragg_1.5.2          
+    ## [55] gridExtra_2.3.1      progressr_1.1.0      ragg_1.5.2          
     ## [58] evaluate_1.0.5       knitr_1.52           markdown_2.0        
     ## [61] rlang_1.3.0          Rcpp_1.1.2           glue_1.8.1          
     ## [64] xml2_1.6.0           rstudioapi_0.19.0    jsonlite_2.0.0      
