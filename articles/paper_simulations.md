@@ -1314,7 +1314,7 @@ results_alt <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Per-arm events criteria: control >= 12, treatment >= 12
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.02 minutes
+    ## Subgroup search completed in 0.01 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1338,7 +1338,7 @@ results_alt <- foreach(
     ## Subgroup 3: resample Pcons=0.82 (threshold 0.9)
     ## Evaluated 3 of 3 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 4.64 0.0773 
+    ## Seconds and minutes forestsearch overall = 3.905 0.0651 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.90727 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1357,7 +1357,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 1.4 minutes
+    ## Completed in 1.3 minutes
 
 ``` r
 
@@ -1435,7 +1435,7 @@ results_null <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Per-arm events criteria: control >= 12, treatment >= 12
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.02 minutes
+    ## Subgroup search completed in 0.01 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1458,7 +1458,7 @@ results_null <- foreach(
     ## Subgroup 2: resample Pcons=0.57 (threshold 0.9)
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 4.299 0.0717 
+    ## Seconds and minutes forestsearch overall = 3.732 0.0622 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 43.8823 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1477,7 +1477,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 1.4 minutes
+    ## Completed in 1.2 minutes
 
 ## Summarizing Results
 
@@ -2365,16 +2365,16 @@ reproducibility information.
 |----|----|----|----|
 | 44 H1 + 44 H0 simulations, 3 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
-| DGM creation (H1) | 0.1 | 0.00 | 0.1 |
-| Calibrate k_inter (Cox) | 5.7 | 0.09 | 2.8 |
-| Calibrate k_inter (AHR) | 2.1 | 0.03 | 1.0 |
+| DGM creation (H1) | 0.1 | 0.00 | 0.0 |
+| Calibrate k_inter (Cox) | 5.1 | 0.09 | 2.9 |
+| Calibrate k_inter (AHR) | 1.9 | 0.03 | 1.1 |
 | Validate k_inter | 0.4 | 0.01 | 0.2 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.0 |
-| Simulations H1 | 84.2 | 1.40 | 41.9 |
-| Simulations H0 | 81.2 | 1.35 | 40.4 |
+| Simulations H1 | 76.2 | 1.27 | 42.6 |
+| Simulations H0 | 70.3 | 1.17 | 39.3 |
 | Summarize H1 | 0.1 | 0.00 | 0.1 |
 | Summarize H0 | 0.1 | 0.00 | 0.1 |
-| Total vignette | 201.3 | 3.35 | 100.0 |
+| Total vignette | 178.9 | 2.98 | 100.0 |
 | ¹ Parallel backend: 3 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -2491,7 +2491,7 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-    ##   H1: 1.9 sec/sim (wall) across 44 sims on 3 workers
+    ##   H1: 1.7 sec/sim (wall) across 44 sims on 3 workers
 
 ``` r
 
@@ -2500,7 +2500,7 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-    ##   H0: 1.8 sec/sim (wall) across 44 sims on 3 workers
+    ##   H0: 1.6 sec/sim (wall) across 44 sims on 3 workers
 
 ## Complete Example Script
 
@@ -3736,8 +3736,8 @@ gc(verbose = FALSE)
 ```
 
     ##           used  (Mb) gc trigger  (Mb) max used  (Mb)
-    ## Ncells 3578236 191.1    5454812 291.4  5454812 291.4
-    ## Vcells 6935555  53.0   14827174 113.2 12289312  93.8
+    ## Ncells 3578251 191.1    5454774 291.4  5454774 291.4
+    ## Vcells 6935594  53.0   14827224 113.2 12289354  93.8
 
 ## Session Info
 
