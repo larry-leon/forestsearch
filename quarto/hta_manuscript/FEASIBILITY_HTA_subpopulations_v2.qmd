@@ -1,0 +1,374 @@
+---
+title: "Informativeness of Small PICO Subpopulations in HTA"
+subtitle: "Manuscript feasibility assessment — version 2"
+author: "Prepared for L. F. León"
+date: 2026-10-18
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: false
+    embed-resources: true
+    theme: cosmo
+  docx:
+    toc: true
+---
+
+::: {.callout-note title="Provenance"}
+Supersedes v1 (16 Sept 2026). Incorporates the external evaluation received 18 Oct 2026, verification of its two factual claims, and Larry's dispositions on framing, scope, datasets and venue. Companion files: `FEASIBILITY_HTA_subpopulations_v2.docx` (Word), `FEASIBILITY_extreme_subgroups_HTA.md` (v1).
+:::
+
+## 0. What changed from v1
+
+| Topic          | v1 position                                                 | v2 position (disposition)                                                                                                                                                                               |
+|--------------------|-----------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Central object     | “Extreme subgroups” — chance behaviour of small trial subgroups | Informativeness of policy-defined PICO subpopulations (JCA / Member-State requests); “subgroup” reserved for effect-modification within a PICO. Approved.                                                   |
+| Novelty claim      | “Nothing published does this”                                   | Narrowed: no trial-specific, computable assessment of whether a requested subpopulation can be informatively analysed, with a calibration benchmark; conference precursor exists (own group, PSI June 2026) |
+| Scope              | Size dimension only                                             | Two-comparison problem first (requested subpopulation and its complement); K-population extension recorded as essential but deferred to a second paper. Approved.                                           |
+| Datasets           | GBSG only                                                       | GBSG and ACTG-175. Approved.                                                                                                                                                                                |
+| Venue              | Pharmaceutical Statistics → Value in Health                     | Pharmaceutical Statistics → IJTAHC; Value in Health reserved for the K-population paper. Detailed in §6.                                                                                                    |
+| Terminology        | “False alarm rate”; UB ≥ 2 / ≥ 3                                | “Threshold-crossing probability”; thresholds tied to clinically meaningful loss of benefit; add P(CI excludes minimum worthwhile benefit) and P(point estimate reverses)                                    |
+| Co-authorship risk | Needs an HTA practitioner                                       | Largely closed: PSI abstract co-authors (MSD, Lilly, Novo Nordisk, UCB, Cogent) are the HTA-SIG constituency                                                                                                |
+
+## 1. Bottom line
+
+- **Verdict: feasible; publishable with the reframing and the additions
+  below.** The external evaluation is right that v1 overstated the gap
+  and wrong that the PSI abstract makes the paper incremental — the
+  abstract is this group’s own precursor and the journal paper is its
+  full report.
+
+- **Defensible claim:** existing guidance identifies the risks of small
+  and multiple subgroup analyses, and JCA evidence documents
+  proliferation of policy-defined PICO subpopulations; what is missing
+  is a transparent, trial-specific way to quantify whether the available
+  randomised evidence can support stable interpretation for a requested
+  subpopulation. The paper supplies that, calibrated against same-size
+  random subsets and against the analytical normal approximation.
+
+- **The decision framing:** a rule that permits a subpopulation analysis
+  to be processed (IQWiG ≥10 patients / ≥10 events; rule-of-thumb N ≥ 20
+  per arm) is not a rule that the result is decision-informative. The
+  output is a transparent qualification of informativeness, not a
+  refusal of a requested PICO.
+
+- **Venue:** Pharmaceutical Statistics (primary), IJTAHC (secondary);
+  Value in Health for the later K-population paper.
+
+## 2. Verification of the external evaluation
+
+### 2.1 The two factual claims
+
+| Claim                                                                                                  | Verified    | Finding                                                                                                                                                                                                                                                                                                                                                                                        |
+|------------------------------------------------------------------------------------------------------------|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| A 2026 PSI abstract already discloses the concept                                                          | Yes — own group | “All PICOs Great and Small: Dealing with small subpopulations in the EU HTA landscape”, PSI Conference 15 June 2026. Gelb (MSD), Baldwin (Cogent), Masoudi (Lilly), Ivkovic (Novo Nordisk), Berggren (UCB), Leon (Merck). GBSG; uniform benefit; upper-CI behaviour; objective “simulations add rigour to rule-of-thumb (N ≥ 20/arm)”. Reports mean UB = 3.84 at N = 66 vs 0.87 for ITT (N = 686). |
+| An FDA presentation gives P(≥1 negative subset) analytically and distinguishes subgroup from subpopulation | Yes             | Sue-Jane Wang (FDA), EMA subgroup workshop, Nov 2011. Product-of-normal-CDFs expression across S mutually exclusive subgroups under a common effect, attributed to Li et al. 2007. Subpopulation = label-restricted subset. No numerical results for that probability.                                                                                                                             |
+
+### 2.2 Point-by-point response
+
+| Evaluation point                                                                             | Response                                         | Action in the manuscript                                                                                                                                           |
+|--------------------------------------------------------------------------------------------------|------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Subpopulation (PICO) ≠ subgroup (effect modification)                                            | Agree; the PSI abstract already uses this vocabulary | Adopt as organising distinction; title and abstract use “subpopulation”                                                                                                |
+| “Nothing published does this” overstated                                                         | Agree                                                | Replace with the narrowed claim in §1                                                                                                                                  |
+| PSI abstract makes the paper incremental                                                         | Disagree in part                                     | Cite as precursor; the paper adds ACTG-175, formal definitions, analytical comparison, shrinkage positioning and software                                              |
+| Many-subpopulation dimension missing                                                             | Agree; deferred by disposition                       | Record as essential; second paper; one paragraph in Discussion                                                                                                         |
+| “Clinical subgroup of size N behaves exactly like random subgroup of size N” needs qualification | Agree                                                | State: under uniform HR, conditional on N and events, the chance distribution coincides; definition can still change baseline hazard, event count and transportability |
+| Thresholds UB ≥ 2 / ≥ 3 look arbitrary; “false alarm” is wrong                                   | Agree on wording; partly on thresholds               | Keep as illustrative; add P(CI excludes minimum worthwhile benefit), P(point estimate reverses direction), expected log-HR CI width                                    |
+| Compare with simpler alternatives                                                                | Agree                                                | Panel: normal approximation on log-HR vs simulation; event-count rule; shrinkage positioned as complementary                                                           |
+| Validate beyond GBSG                                                                             | Agree                                                | ACTG-175                                                                                                                                                               |
+| IQWiG 10/10 is a processing threshold; rare-disease “small populations” are a different thing    | Agree                                                | Reframe; keep the three situations separate                                                                                                                            |
+| “Disallow” is the wrong framing under JCA                                                        | Agree                                                | Qualification of informativeness, with reporting language                                                                                                              |
+| IJTAHC may be the best fit                                                                       | Partly                                               | IJTAHC moves to secondary; see §6                                                                                                                                      |
+| Needs an HTA practitioner co-author                                                              | Largely moot                                         | PSI co-author group                                                                                                                                                    |
+
+## 3. The reframed paper
+
+### 3.1 Title and question
+
+- **Working title:** Assessing the informativeness of small PICO
+  subpopulations in health technology assessment: trial-specific
+  simulation and calibration.
+
+- **Question:** before a requested subpopulation effect is interpreted
+  or reported, can the completed trial provide a stated level of
+  precision or decision stability for that subpopulation under plausible
+  outcome and treatment-effect models?
+
+### 3.2 The two-comparison problem (scope of this paper)
+
+- Setting: one PICO request splits the trial into a requested
+  subpopulation and its complement (biomarker-positive / negative;
+  region / rest of world; age band / rest). This is the most frequent
+  single request and the S = 2 case of the Wang/Li analytical
+  expression, which gives a closed-form benchmark.
+
+- Quantities per subpopulation and complement, under a uniform true
+  effect: threshold-crossing probabilities for the upper bound at
+  clinically defined thresholds; P(CI excludes a minimum worthwhile
+  benefit); P(point estimate on the wrong side of no effect); median and
+  1st–99th percentile of estimate and upper bound.
+
+- Calibration: same-size random subsets as a negative-control benchmark;
+  normal approximation on the log-HR scale as the analytical check;
+  where they diverge (few events) is itself a finding.
+
+- Heterogeneous-effect appendix: same tool with a genuine effect
+  modifier, to show the envelope separates signal from size.
+
+- Fixed-baseline (conditional-on-X) design retained as the primary;
+  random-X as sensitivity. The paper must reconcile with the PSI
+  abstract’s mean UB = 3.84 at N = 66 (presumably random-X, mean) versus
+  the fixed-baseline median UB = 1.63 at N = 60, and carry one
+  consistent set of numbers.
+
+### 3.3 Datasets
+
+| Dataset                                | Endpoint(s)                                                               | Subpopulation structure available                                                                           | Note                                                                                                                                       |
+|--------------------------------------------|-------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| GBSG (survival::gbsg), N = 686             | Recurrence-free survival (time-to-event)                                      | Menopausal status, age, grade, nodes, ER/PGR; combinations down to N ≈ 35                                       | Lacks sex and region; continuity with PSI abstract                                                                                             |
+| ACTG-175 (speff2trial::ACTG175), N ≈ 2,139 | Time to AIDS/death (survival); CD4 at 20 weeks (continuous); binary derivable | Sex, race, age, IDU history, prior ZDV, Karnofsky, baseline CD4 strata; four arms — choose one two-arm contrast | Supplies the second endpoint type and a larger trial with small natural subpopulations; existing self-contained application folder in the repo |
+
+### 3.4 K-population extension (deferred; second paper)
+
+- Vary K; prevalence and event count; mutually exclusive vs nested vs
+  overlapping definitions; correlation among defining characteristics;
+  imbalance; one true effect modifier vs uniform effect; survival,
+  binary and continuous endpoints.
+
+- Report per-population threshold-crossing and family-level P(at least
+  one discordant population). Compare with the Wang/Li
+  mutually-exclusive formula.
+
+- Natural home: Value in Health (methodological, policy hook = PICO
+  proliferation) or IJTAHC.
+
+## 4. Precedent (updated)
+
+### 4.1 Directly about HTA subpopulations
+
+| Source                                                           | What it gives                                                                                                                  | What it lacks                                                                          |
+|----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| PSI 2026 abstract (own group)                                        | The question, the vocabulary, GBSG simulation, UB behaviour, rule-of-thumb critique                                                | Second dataset, formal definitions, analytical comparison, shrinkage positioning, software |
+| Steck et al. 2026, JMAHP                                             | 35 PICO exercises; ~8 consolidated PICOs per assessment; 67 in a 25-country NSCLC simulation; consolidation criteria undefined     | Any statistical informativeness criterion                                                  |
+| ISPOR Europe 2026 poster (Evalueserve): inaugural JCA (tovorafenib)  | 8 consolidated PICOs; 3 target subpopulations; only 1 PICO fully matched by direct evidence                                        | Statistical treatment                                                                      |
+| EU HTACG guideline (direct/indirect comparisons) and JCA scoping Q&A | Different PICOs may need different syntheses; trial population wider than PICO; overlapping subgroup analyses and PICO populations | Thresholds, minimum sizes, multiplicity                                                    |
+| IQWiG General Methods v8.0; Grouven 2024; EFSPI 2025 white paper     | Mandatory subgroups; p \< 0.05 / \< 0.20 tiers; ≥10 patients, ≥10 events; separate “small populations” (rare disease) section      | Any statement that the floor yields a decision-informative estimate                        |
+
+### 4.2 Regulatory and methodological background
+
+| Source                                                                               | Relevance                                                                                                                                                       |
+|------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| EMA 2019 subgroup guideline                                                              | Defines subgroup vs subpopulation; small, multiple, correlated subsets; forest-plot attention to extremes; “no formal rule”; no variability quantification proposed |
+| Wang (FDA) 2011, EMA workshop; Li et al. 2007                                            | Analytical P(≥1 negative subset) under common effect; the S = 2 case is the benchmark for this paper                                                                |
+| Dane et al. 2019 (EFSPI/PSI white paper); Hemmings & Koch 2019                           | Standardised effect plots; interaction tests “a crude tool”; shrinkage/bootstrap for small subgroups; no HTA content                                                |
+| Brookes 2004; Tanniou 2016; Webster-Clark 2020                                           | Spurious subgroup significance 7–64%; purposes taxonomy; selection bias in forest rows                                                                              |
+| Paget 2011; Fletcher 2014 (Pharmaceutical Statistics)                                    | HTA subgroup principles, clinical and cost-effectiveness; no quantification                                                                                         |
+| Empirical priors for interaction heterogeneity (RSM 2026); Bayesian shrinkage literature | Modern alternatives for sparse subgroup evidence; must be positioned as complementary, not ignored                                                                  |
+| van Beekhuizen, ISPOR 2024                                                               | 23 EUnetHTA assessments: assessor criticisms heterogeneity 42%, sample size 16%, subgroup data 10%                                                                  |
+
+## 5. Feasibility (revised)
+
+| Dimension            | Assessment                                                                                                                                                                                                                  |
+|--------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Novelty                  | Adequate under the narrowed claim: trial-specific informativeness assessment for a requested subpopulation, calibrated against random subsets and the analytical approximation, replicated on two trials and two endpoint types |
+| Relation to PSI abstract | Full report of own conference work; cite transparently; must exceed it (it does, by the additions in §3)                                                                                                                        |
+| Timing                   | Favourable; inaugural JCA report published June 2026; PICO multiplicity now documented in real assessments                                                                                                                      |
+| Machinery                | Complete for survival (fixed and random baseline); continuous via GLM extension; ACTG-175 application folder exists                                                                                                             |
+| Compute                  | Trivial for the two-comparison problem; separate go/no-go for the K-population paper                                                                                                                                            |
+| Authorship               | PSI co-author group in place; one agency-side reader before submission still advisable for IJTAHC fallback                                                                                                                      |
+| Main residual risk       | Reviewers at Pharmaceutical Statistics ask “why simulation rather than the normal approximation?” — answered by the few-events divergence panel and by the fixed-panel conditioning that no closed form reproduces              |
+| Overall                  | Proceed                                                                                                                                                                                                                         |
+
+## 6. Venue — detailed advice
+
+### 6.1 Comparison
+
+| Criterion                                      | Pharmaceutical Statistics                                                                                   | IJTAHC                                                       | Value in Health                                                    | Stat. Biopharm. Research      |
+|----------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|------------------------------------------------------------------------|-----------------------------------|
+| Relationship to the PSI abstract                   | PSI’s own journal; editors will see the June 2026 talk as the precursor; co-author group is the core readership | Neutral                                                          | Neutral                                                                | Neutral                           |
+| Fit for two-dataset simulation paper with software | Native; no hard word cap; code and supplements expected                                                         | Method ≤ 4,000 words; two datasets fit with tables in supplement | Methodological ≤ 3,500 words; too tight for GBSG + ACTG-175 + appendix | Native                            |
+| Who will use the output                            | Dossier statisticians (AMNOG, JCA) who run the simulation                                                       | Agency assessors and HTA methodologists who read the result      | HEOR broadly; least statistical                                        | Regulatory/industry statisticians |
+| Speed / acceptance                                 | Not published; Wiley typical 2–4 months to first decision                                                       | 44 days to first decision; 38% acceptance (2023)                 | Not published; competitive                                             | Not published                     |
+| Impact / visibility                                | IF ≈ 1.4 (Q2)                                                                                                   | IF 3.0 (2-yr), 3.4 (5-yr); Q1 Health Policy; essentially all OA  | IF 6.0 (Q1)                                                            | IF not verified (≈1–2)            |
+| Cost                                               | Hybrid; OA optional                                                                                             | Gold OA; read-and-publish agreements; waivers                    | Hybrid                                                                 | Hybrid                            |
+| Main risk                                          | Reviewers want novelty beyond the abstract — met by ACTG-175, analytical comparison, formal definitions         | Reviewers want the decision problem first and little algebra     | “Too technical / one method” desk reject                               | “Too applied” unless generalised  |
+
+### 6.2 Recommendation
+
+- **Primary — Pharmaceutical Statistics.** The contribution is a
+  reproducible statistical procedure, the authors are PSI/EFSPI HTA-SIG
+  members presenting the full version of a PSI talk, and the Dane 2019
+  white paper with the Hemmings commentary gives a direct lineage in the
+  same pages. The lower impact factor is the only cost; for a tool paper
+  the readership match matters more.
+
+- **Secondary — IJTAHC (Method).** With the subpopulation/PICO framing,
+  the second audience is agencies. Fast, open access, and its 2025
+  “concretization” paper is a list of JCA methods gaps. Prepare the
+  4,000-word cut with two-dataset tables in a supplement.
+
+- **Reserved — Value in Health (Methodological).** For the K-population
+  paper, where the PICO-proliferation policy hook is strongest and one
+  family-level table carries the message within 3,500 words.
+
+- **Alternate — Statistics in Biopharmaceutical Research.** If reviewers
+  at Pharmaceutical Statistics push the paper toward generalised
+  operating characteristics rather than the two-trial case study.
+
+### 6.3 Submission sequence
+
+- Write the full paper to Pharmaceutical Statistics format; post to
+  medRxiv (or arXiv stat.ME) at submission — all four venues allow it.
+
+- Keep the IJTAHC 4,000-word cut current while under review; submit
+  within two weeks of a rejection.
+
+- Cite the PSI 2026 abstract in the cover letter and the paper as the
+  conference precursor; state what the paper adds.
+
+- Ask one agency-side reader (EAG/ERG or IQWiG-experienced) to read the
+  Introduction and Guidance sections before submission; this is the
+  cheapest protection for the IJTAHC route.
+
+- After acceptance, scope the K-population paper for Value in Health;
+  consider an IJTAHC Perspective (≤ 2,000 words) aimed at JCA scoping
+  only if the main paper lands at Pharmaceutical Statistics rather than
+  IJTAHC.
+
+## 7. Manuscript skeleton (revised)
+
+- **Introduction.** JCA subpopulations vs subgroups; Member-State
+  requests and PICO multiplicity (Steck 2026; inaugural JCA); IQWiG and
+  rule-of-thumb thresholds; EMA’s “no formal rule”; the question.
+
+- **Methods.** Trial-anchored DGM; fixed-baseline replicates; the
+  two-comparison setting; threshold-crossing probabilities and the other
+  quantities; random-subset calibration; normal approximation and the
+  Wang/Li S = 2 benchmark; software.
+
+- **Results — GBSG.** One comparative table (subpopulations ×
+  quantities) and two forest panels; short plain-language reading.
+
+- **Results — ACTG-175.** Same layout; survival and continuous
+  endpoints; where simulation and approximation diverge.
+
+- **Heterogeneous-effect appendix.** Envelope under a genuine effect
+  modifier.
+
+- **Guidance.** A reporting block for a requested subpopulation:
+  informativeness statement, envelope summary, calibration anchor;
+  relation to shrinkage; what the method does not do (no selection
+  adjustment; not a PICO veto).
+
+- **Discussion.** K-population extension; transportability from trial
+  subgroup to target subpopulation; limitations (DGM assumptions, two
+  trials).
+
+## 8. Items to verify before drafting
+
+- Reconcile the PSI-abstract numbers (mean UB 3.84 at N = 66) with the
+  fixed-baseline vignette (median UB 1.63 at N = 60): design and summary
+  statistic.
+
+- Confirm the two-comparison reading: requested subpopulation and its
+  complement, not two requested subpopulations.
+
+- Which ACTG-175 two-arm contrast and which endpoints; check the
+  existing application folder is self-contained.
+
+- IQWiG v8.0 subgroup section wording (German); the “small populations”
+  section to keep the rare-disease case separate.
+
+- Li et al. 2007 reference for the analytical expression; reproduce the
+  S = 2 case.
+
+- Current Pharmaceutical Statistics author guidelines (Wiley page did
+  not load here).
+
+## 9. Sources
+
+- PSI 2026 abstract — All PICOs Great and Small (Gelb, Baldwin, Masoudi,
+  Ivkovic, Berggren, Leon) —
+  <https://psiweb.org/docs/default-source/psi-conference-2026/abstracts-2026/15_june_1330_all_picos_great_and_small_dealing_with_small_subpopulations_in_the_eu_hta_landscape.pdf?sfvrsn=519ca9db_1>
+
+- PSI 2026 individual abstracts —
+  <https://www.psiweb.org/conferences/past-conferences/2026-conference-sessions/individual-abstracts-2026>
+
+- Wang (FDA) 2011, A Subgroup or a Subpopulation, EMA workshop —
+  <https://www.ema.europa.eu/en/documents/presentation/presentation-subgroup-or-subpopulation-wang_en.pdf>
+
+- EMA 2011 subgroup workshop report —
+  <https://www.ema.europa.eu/en/documents/report/workshop-report-expert-workshop-subgroup-analysis_en.pdf>
+
+- EMA 2019 Guideline on the investigation of subgroups in confirmatory
+  clinical trials —
+  <https://www.ema.europa.eu/en/documents/scientific-guideline/guideline-investigation-subgroups-confirmatory-clinical-trials_en.pdf>
+
+- ISPOR Europe 2026 poster — PICO multiplicity in the inaugural JCA —
+  <https://www.ispor.org/heor-resources/presentations-database/presentation-cti/ispor-europe-2026/poster-session-2-5/early-evidence-pico-multiplicity-under-the-eu-htar-insights-from-the-inaugural-joint-clinical-assessment>
+
+- Steck et al. 2026, JMAHP, EU JCA PICO scoping —
+  <https://www.mdpi.com/2001-6689/14/1/3>
+
+- EU HTACG methodological guideline, direct and indirect comparisons —
+  <https://health.ec.europa.eu/document/download/4ec8288e-6d15-49c5-a490-d8ad7748578f_en?filename=hta_methodological-guideline_direct-indirect-comparisons_en.pdf>
+
+- EU HTACG methodological/procedural Q&A —
+  <https://health.ec.europa.eu/document/download/2d188e71-5a10-443c-bfca-69234276799b_en?filename=hta_methodologica-procedural-htacg_qa_en.pdf>
+
+- Grouven (IQWiG) 2024 presentation —
+  <https://medstat.umg.eu/fileadmin/Redaktion/Medizinische_Statistik/Dokumente/Vortr%C3%A4ge/2024_Presentation-Ulrich-Grouven.pdf>
+
+- IQWiG Allgemeine Methoden v8.0 —
+  <https://www.iqwig.de/methoden/allgemeine-methoden_v8-0.pdf>
+
+- EFSPI German Benefit Assessment white paper 2025 —
+  <https://www.efspi.org/wp-content/uploads/2025/05/GermanHTA_WhitePaper_2025.pdf>
+
+- Dane et al. 2019, EFSPI/PSI subgroup white paper —
+  <https://onlinelibrary.wiley.com/doi/abs/10.1002/pst.1919>
+
+- Hemmings & Koch 2019 commentary —
+  <https://onlinelibrary.wiley.com/doi/10.1002/pst.1935>
+
+- Paget et al. 2011 —
+  <https://onlinelibrary.wiley.com/doi/10.1002/pst.531>
+
+- Fletcher et al. 2014 —
+  <https://onlinelibrary.wiley.com/doi/10.1002/pst.1626>
+
+- Brookes et al. 2004 —
+  <https://www.sciencedirect.com/science/article/abs/pii/S0895435603003329>
+
+- Tanniou et al. 2016 —
+  <https://link.springer.com/article/10.1186/s12874-016-0122-6>
+
+- Webster-Clark et al. 2020 —
+  <https://www.sciencedirect.com/science/article/abs/pii/S0895435620300731>
+
+- Empirical priors for interaction heterogeneity, RSM 2026 —
+  <https://arxiv.org/abs/2606.23968>
+
+- van Beekhuizen, ISPOR 2024 poster —
+  <https://www.ispor.org/docs/default-source/intl2024/ispor2024vanbeekhuizenhta31poster138520-pdf.pdf?sfvrsn=1f9cc864_0>
+
+- EU HTA regulation concretization paper, IJTAHC —
+  <https://www.cambridge.org/core/journals/international-journal-of-technology-assessment-in-health-care/article/implementation-of-the-eus-health-technology-assessment-regulation-where-does-existing-methods-guidance-require-concretization-and-what-are-the-relevant-methodological-options/1A07065C57DB1985CD9B9D49CACC26CE>
+
+- IJTAHC journal metrics —
+  <https://www.cambridge.org/core/journals/international-journal-of-technology-assessment-in-health-care/information/about-this-journal/journal-metrics>
+
+- IJTAHC author instructions —
+  <https://www.cambridge.org/core/journals/international-journal-of-technology-assessment-in-health-care/information/author-instructions>
+
+- Value in Health guide for authors —
+  <https://www.ispor.org/publications/journals/value-in-health/for-authors/guide-for-authors>
+
+- Value in Health metrics —
+  <https://www.journalmetrics.org/journal/value-in-health>
+
+- Pharmaceutical Statistics author guidelines —
+  <https://onlinelibrary.wiley.com/page/journal/15391612/homepage/forauthors.html>
+
+- Pharmaceutical Statistics metrics —
+  <https://www.journalmetrics.org/journal/pharmaceutical-statistics-2>
