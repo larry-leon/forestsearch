@@ -23,7 +23,7 @@ suppressMessages({ library(forestsearch); library(survival) })
 args   <- commandArgs(trailingOnly = TRUE)
 n_diag <- if (length(args) >= 1) as.integer(args[1]) else 400L
 
-res_dir <- "quarto/extreme_subgroups/fixed_random/results"
+res_dir <- "quarto/extreme_subgroups/results"
 
 cat("==== Q1: sim_config recorded by the Gate 3 renders ====\n")
 for (d in c("resample", "fixed")) {

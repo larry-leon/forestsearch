@@ -18,13 +18,13 @@
 # summary() with no numeric change.
 #
 # Usage:  Rscript dev/accept_phase2_payload_compare.R [results_dir]
-#         default results_dir = quarto/extreme_subgroups/fixed_random/results
+#         default results_dir = quarto/extreme_subgroups/results
 # =========================================================================
 suppressMessages(library(forestsearch))
 
 args <- commandArgs(trailingOnly = TRUE)
 res_dir <- if (length(args) >= 1) args[1] else
-  "quarto/extreme_subgroups/fixed_random/results"
+  "quarto/extreme_subgroups/results"
 
 .fails <- 0L
 ok <- function(cond, msg) {

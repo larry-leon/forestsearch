@@ -9,7 +9,7 @@
 suppressMessages(library(forestsearch))
 args <- commandArgs(trailingOnly = TRUE)
 res_dir <- if (length(args) >= 1) args[1] else
-  "quarto/extreme_subgroups/fixed_random/results"
+  "quarto/extreme_subgroups/results"
 
 .fails <- 0L
 ok <- function(cond, msg) {
