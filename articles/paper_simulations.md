@@ -1338,7 +1338,7 @@ results_alt <- foreach(
     ## Subgroup 3: resample Pcons=0.82 (threshold 0.9)
     ## Evaluated 3 of 3 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 4.387 0.0731 
+    ## Seconds and minutes forestsearch overall = 4.359 0.0727 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.90727 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1357,7 +1357,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 1.4 minutes
+    ## Completed in 1.5 minutes
 
 ``` r
 
@@ -1435,7 +1435,7 @@ results_null <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Per-arm events criteria: control >= 12, treatment >= 12
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.01 minutes
+    ## Subgroup search completed in 0.02 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1458,7 +1458,7 @@ results_null <- foreach(
     ## Subgroup 2: resample Pcons=0.57 (threshold 0.9)
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 3.554 0.0592 
+    ## Seconds and minutes forestsearch overall = 3.975 0.0663 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 43.8823 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -2366,15 +2366,15 @@ reproducibility information.
 | 44 H1 + 44 H0 simulations, 3 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.1 | 0.00 | 0.1 |
-| Calibrate k_inter (Cox) | 5.8 | 0.10 | 2.8 |
-| Calibrate k_inter (AHR) | 2.3 | 0.04 | 1.1 |
+| Calibrate k_inter (Cox) | 6.2 | 0.10 | 2.9 |
+| Calibrate k_inter (AHR) | 2.4 | 0.04 | 1.1 |
 | Validate k_inter | 0.5 | 0.01 | 0.3 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.0 |
-| Simulations H1 | 87.0 | 1.45 | 41.6 |
-| Simulations H0 | 81.5 | 1.36 | 39.0 |
+| Simulations H1 | 88.0 | 1.47 | 41.3 |
+| Simulations H0 | 83.5 | 1.39 | 39.2 |
 | Summarize H1 | 0.1 | 0.00 | 0.1 |
 | Summarize H0 | 0.1 | 0.00 | 0.1 |
-| Total vignette | 208.9 | 3.48 | 100.0 |
+| Total vignette | 213.0 | 3.55 | 100.0 |
 | ¹ Parallel backend: 3 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -3736,7 +3736,7 @@ gc(verbose = FALSE)
 ```
 
     ##           used  (Mb) gc trigger  (Mb) max used  (Mb)
-    ## Ncells 3578274 191.2    5454791 291.4  5454791 291.4
+    ## Ncells 3578274 191.2    5454805 291.4  5454805 291.4
     ## Vcells 6935660  53.0   14802219 113.0 12268516  93.7
 
 ## Session Info

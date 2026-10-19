@@ -77,7 +77,7 @@ fs <- forestsearch(
 cat(sprintf("fit time: %.1f seconds\n", (proc.time() - t0)[["elapsed"]]))
 ```
 
-    #> fit time: 27.7 seconds
+    #> fit time: 28.2 seconds
 
 ## The identified subgroup
 
