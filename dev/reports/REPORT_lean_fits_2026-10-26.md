@@ -181,4 +181,29 @@ The Part-A count (1410) matched its stated expectation exactly.
 
 ## 7. Closing block
 
-(appended after the report commit)
+Run after the report commit `2e2b7437` (HEAD at the time). Every command printed what §8 requires: the first nothing; numstat deletions 0; exactly one non-comment `survival::coxph(` line (the adjusted branch); 3 for coxph.fit/aeqSurv/coxph.control; the helper names only in the three permitted files; PASS 71 / FAIL 0; a clean tracked tree.
+
+```
+$ git diff --name-only 60a6496b HEAD | grep -v -E ...
+$ git diff --numstat 60a6496b HEAD -- R/glm_effect_estimators.R
+111	0	R/glm_effect_estimators.R
+$ grep -n "survival::coxph(" R/subgroup_search.R | grep -v comments
+903:      summary(survival::coxph(cox_fmla, data = df.x, robust = FALSE))$conf.int,
+$ grep -n "coxph.fit\|aeqSurv\|coxph.control" R/subgroup_search.R | grep -v comments | wc -l
+3
+$ grep -n "fs_fast_core\|.make_glm_or_estimator_fast\|.fit_or_for_subgroup_vector\|.fs_logit_two_group" R/*.R | grep -v comments
+R/forestsearch_main.R:2114:        estimator_fn <- .make_glm_or_estimator_fast(
+R/glm_effect_estimators.R:1132:.fs_logit_two_group <- function(y, t, treat.name) {
+R/glm_effect_estimators.R:1165:.make_glm_or_estimator_fast <- function(treat.name, outcome.name,
+R/glm_effect_estimators.R:1170:  fs_fast_core <- "logit_or"
+R/glm_effect_estimators.R:1190:      core <- .fs_logit_two_group(data_slice[[outcome.name]],
+R/subgroup_search.R:1024:  if (identical(fn_env$fs_fast_core, "logit_or")) {
+R/subgroup_search.R:1025:    return(.fit_or_for_subgroup_vector(y, t, fn_env))
+R/subgroup_search.R:1066:.fit_or_for_subgroup_vector <- function(y, t, fn_env) {
+R/subgroup_search.R:1072:  core <- tryCatch(.fs_logit_two_group(y, t, fn_env$treat.name),
+$ grep -c "PASS" stageC_summary.txt; grep -c "FAIL" stageC_summary.txt
+71
+0
+$ git status --porcelain | grep -v "^?? "
+(end)
+```
