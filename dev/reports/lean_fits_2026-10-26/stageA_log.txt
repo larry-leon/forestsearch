@@ -1,0 +1,37 @@
+$Version
+[1] "0.4.0.9000"
+
+$Packaged
+[1] "2026-10-26 17:05:23 UTC; larryleon"
+
+$<NA>
+NULL
+
+$Built
+[1] "R 4.6.1; ; 2026-10-26 17:05:25 UTC; unix"
+
+[survival] warm-up done (warnings = 0)
+[survival] calls 3.06 3.19 3.04 (median 3.06); boot outer 74.6 s, rep mean 3.60 s
+[continuous] warm-up done (warnings = 0)
+[continuous] calls 1.48 1.45 1.61 (median 1.48); boot outer 39.7 s, rep mean 1.87 s
+[binary] warm-up done (warnings = 0)
+[binary] calls 5.52 5.51 5.34 (median 5.51); boot outer 120.9 s, rep mean 5.93 s
+Warning messages:
+1: In forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = 20L,  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+2: In forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = 20L,  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+3: In forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = 20L,  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+     fixture call_s_1 call_s_2 call_s_3 call_median_s boot_outer_s rep_mean_s
+1   survival    3.058    3.192    3.040         3.058       74.556    3.60490
+2 continuous    1.484    1.450    1.606         1.484       39.715    1.86800
+3     binary    5.518    5.514    5.343         5.514      120.851    5.92515
+PASS: survival bootstrap: same components found (results, SG_CIs, H_estimates, Hc_estimates, Ystar_mat, FSsg_tab)
+PASS: survival bootstrap: results identical to committed stageC_survival_boot.rds
+PASS: survival bootstrap: SG_CIs identical to committed stageC_survival_boot.rds
+PASS: survival bootstrap: H_estimates identical to committed stageC_survival_boot.rds
+PASS: survival bootstrap: Hc_estimates identical to committed stageC_survival_boot.rds
+PASS: survival bootstrap: Ystar_mat identical to committed stageC_survival_boot.rds
+PASS: survival bootstrap: FSsg_tab identical to committed stageC_survival_boot.rds
+GATE PASS: survival bootstrap payload identical to the committed record
