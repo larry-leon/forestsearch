@@ -1,0 +1,53 @@
+fixture = V: survival-post-selection vignette gbsg config, mr_inference = FALSE
+fixture_n = 686
+call_warmup_s = 3.183
+search_n_evaluated = 2211
+search_n_reached_cox = 1410
+search_n_cox_ok = 1410
+search_n_passed_effect = 121
+consistency_n_total = 120
+consistency_n_evaluated = 120
+consistency_n_passed = 16
+consistency_early_stop = FALSE
+identified_subgroup = {er <= 0} & {pgr <= 26}
+call_s_rep = 3.045, 3.197, 3.158
+call_s_median = 3.158
+
+Rprof by.total, median of 3 profiles (seconds, % of samples):
+                              fun total.time total.pct
+     search_combinations_parallel       2.56     82.05
+ evaluate_combination_with_status       2.49     79.81
+             fit_cox_for_subgroup       1.98     64.29
+                            coxph       2.04     65.91
+                        coxph.fit       0.33     10.58
+              model.frame.default       0.27      8.46
+             model.matrix.default       0.12      3.85
+                             Surv       0.09      2.92
+                          aeqSurv       0.16      5.13
+                   concordancefit       0.45     14.61
+                          survfit       0.11      3.57
+                  survfit.formula       0.11      3.57
+                  summary.survfit       0.07      2.27
+    evaluate_consistency_twostage       0.51     16.35
+             consistency_resample       0.26      8.15
+          .consistency_cox_pieces       0.26      8.15
+                  residuals.coxph       0.10      3.25
+  remove_near_duplicate_subgroups       0.01      0.32
+           sort_subgroups_preview       0.01      0.31
+                            dummy       0.01      0.31
+                            merge       0.01      0.32
+                    future_lapply       2.56     82.05
+rprof_sampling_s_median = 3.12
+rprof_coxph_total_s = 2.04
+rprof_coxph_fit_total_s = 0.33
+rprof_formula_machinery_s = 1.71
+rprof_machinery_share_of_coxph = 0.838235
+rprof_fit_cox_for_subgroup_s = 1.98
+rprof_search_stage_s = 2.56
+rprof_survfit_s = 0.11
+rprof_concordancefit_s = 0.45
+rprof_consistency_stage_s = 0.51
+rprof_consistency_cox_pieces_s = 0.26
+rprof_residuals_coxph_s = 0.1
+
+s1 complete
