@@ -245,4 +245,29 @@ Nothing in this audit was edited. Whether to clean the source lines (and re-rend
 
 ## 7. Closing block
 
-(Appended after the final commit; see below.)
+Run at HEAD `65ed179e` (the Stage C + report commit). The closing-block commit that follows touches only this report and `postconditions.txt`, both inside the allowed list. Full output, including the complete `git diff --name-only` list: `dev/reports/vi_deprecation_2026-10-26/postconditions.txt`.
+
+Commits: `4654b4cc` (task document) · `94738533` (Stage A) · `41347eb4` (edits) · `65ed179e` (Stage C, audit, report) · closing block (this commit).
+
+```
+HEAD: 65ed179e260480393ae11ecc8d27dc912c754084  branch: feature/vi-deprecation-lean-fits  base: a0025013f103d0921455102129caeb33127bb139
+$ git diff --name-only <base> HEAD | grep -v -E <allowed>   # must print nothing
+[end]
+$ grep -n "variable_importance|causal_survival_forest|causal_forest|fit_causal_forest_glm|vi_ratio|vi_max|vi.cs\b|vi.order" R/forestsearch_main.R | grep -v comments   # must print nothing
+[end]
+$ grep -n "vi.grf.min|max_n_confounders" R/forestsearch_main.R | grep -v comments   # formals + guard only
+1519:                         max_n_confounders = 1000,
+1569:                         vi.grf.min = NULL,
+1614:  if (!is.null(vi.grf.min)) {
+1615:    warning("forestsearch(): 'vi.grf.min' is deprecated and ignored. GRF ",
+1622:  if (!missing(max_n_confounders) &&
+1623:      !identical(as.numeric(max_n_confounders), 1000)) {
+1624:    warning("forestsearch(): 'max_n_confounders' is deprecated and ignored ",
+[end]
+$ grep -rn "vi.grf.min|max_n_confounders" R/ | grep -v forestsearch_main|fs_family_report   # must print nothing
+[end]
+$ git status --porcelain | grep -v '^?? '   # must print nothing
+[end]
+```
+
+Every command printed what it should. The allowed-list filter, the removed-step grep, the other-`R/`-files grep and the dirty-tree check are all empty, and the deprecated-argument grep shows exactly the two formals and the guard's own lines. Neither `NAMESPACE` nor `DESCRIPTION` appears in the diff.
