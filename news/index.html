@@ -47,6 +47,21 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="forestsearch-development-version">forestsearch (development version)<a class="anchor" aria-label="anchor" href="#forestsearch-development-version"></a></h2>
+<div class="section level4">
+<h4 id="deprecated-development-version">Deprecated<a class="anchor" aria-label="anchor" href="#deprecated-development-version"></a></h4>
+<ul><li>
+<code>vi.grf.min</code> and <code>max_n_confounders</code> in <code><a href="../reference/forestsearch.html">forestsearch()</a></code> are deprecated. Both formals are kept (same positions, same defaults), so no existing call breaks, but a non-default value now emits one deprecation warning and has no effect. The GRF variable-importance screening/ordering of the candidate cut columns is removed. The candidate family is now the cut grid alone, and no model is fitted in the forest-search path unless <code>use_lasso</code>, <code>use_grf</code> or <code>use_dina</code> is <code>TRUE</code>.</li>
+<li>What changes for callers who passed a non-NULL <code>vi.grf.min</code>: at values <code>&lt;= 0</code> the screen never filtered anything, so the selected subgroup’s membership is unchanged. The clause order of the <code>sg.harm</code> label (and the redundancy column-walk) can still differ. A binding value <code>&gt; 0</code> no longer screens.</li>
+<li>
+<code><a href="../reference/run_simulation_analysis.html">run_simulation_analysis()</a></code>’s default argument list, the test helper <code>.fs_args_for()</code> and the <code>forestsearch</code> vignette no longer pass either argument. <code><a href="../reference/fs_family_report.html">fs_family_report()</a></code> reports both on a single <code>"GRF variable-importance screening (deprecated)"</code> row with status <code>inert</code>, echoing the values that were passed.</li>
+<li>Both formals will be removed in a later release.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="performance-development-version">Performance<a class="anchor" aria-label="anchor" href="#performance-development-version"></a></h4>
+<ul><li>Two per-candidate search-stage fits now call the fitting engines directly instead of going through the formula interface: the unadjusted survival fit in <code><a href="../reference/fit_cox_for_subgroup.html">fit_cox_for_subgroup()</a></code> calls <code><a href="https://rdrr.io/pkg/survival/man/agreg.fit.html" class="external-link">survival::coxph.fit()</a></code> with exactly the arguments <code><a href="https://rdrr.io/pkg/survival/man/coxph.html" class="external-link">coxph()</a></code> passes, and the unadjusted binary odds-ratio fit runs <code><a href="https://rdrr.io/r/stats/glm.html" class="external-link">stats::glm.fit()</a></code> through a tagged closure and vector path (the twin of the continuous fast path). Results are bit-identical (identity tests in <code>tests/testthat/test-lean-fits.R</code>; verification record <code>dev/reports/REPORT_lean_fits_2026-10-26.md</code>).</li>
+<li>Measured per-replicate time of a sequential <code>nb_boots = 20</code> bootstrap on the committed applications: survival (gbsg) 3.60 s -&gt; 2.02 s (-44%), binary OR (ACTG175) 5.93 s -&gt; 2.75 s (-54%), continuous (ACTG175) unchanged (1.87 s -&gt; 1.84 s).</li>
+<li>Nothing changes for adjusted, weighted (propensity), RD or RR fits: they keep their formula paths.</li>
+</ul></div>
 </div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.4.0" id="forestsearch-040">forestsearch 0.4.0<a class="anchor" aria-label="anchor" href="#forestsearch-040"></a></h2>

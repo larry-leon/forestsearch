@@ -2,6 +2,54 @@
 
 ## forestsearch (development version)
 
+#### Deprecated
+
+- `vi.grf.min` and `max_n_confounders` in
+  [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
+  are deprecated. Both formals are kept (same positions, same defaults),
+  so no existing call breaks, but a non-default value now emits one
+  deprecation warning and has no effect. The GRF variable-importance
+  screening/ordering of the candidate cut columns is removed. The
+  candidate family is now the cut grid alone, and no model is fitted in
+  the forest-search path unless `use_lasso`, `use_grf` or `use_dina` is
+  `TRUE`.
+- What changes for callers who passed a non-NULL `vi.grf.min`: at values
+  `<= 0` the screen never filtered anything, so the selected subgroup’s
+  membership is unchanged. The clause order of the `sg.harm` label (and
+  the redundancy column-walk) can still differ. A binding value `> 0` no
+  longer screens.
+- [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md)’s
+  default argument list, the test helper `.fs_args_for()` and the
+  `forestsearch` vignette no longer pass either argument.
+  [`fs_family_report()`](https://larry-leon.github.io/forestsearch/reference/fs_family_report.md)
+  reports both on a single
+  `"GRF variable-importance screening (deprecated)"` row with status
+  `inert`, echoing the values that were passed.
+- Both formals will be removed in a later release.
+
+#### Performance
+
+- Two per-candidate search-stage fits now call the fitting engines
+  directly instead of going through the formula interface: the
+  unadjusted survival fit in
+  [`fit_cox_for_subgroup()`](https://larry-leon.github.io/forestsearch/reference/fit_cox_for_subgroup.md)
+  calls
+  [`survival::coxph.fit()`](https://rdrr.io/pkg/survival/man/agreg.fit.html)
+  with exactly the arguments
+  [`coxph()`](https://rdrr.io/pkg/survival/man/coxph.html) passes, and
+  the unadjusted binary odds-ratio fit runs
+  [`stats::glm.fit()`](https://rdrr.io/r/stats/glm.html) through a
+  tagged closure and vector path (the twin of the continuous fast path).
+  Results are bit-identical (identity tests in
+  `tests/testthat/test-lean-fits.R`; verification record
+  `dev/reports/REPORT_lean_fits_2026-10-26.md`).
+- Measured per-replicate time of a sequential `nb_boots = 20` bootstrap
+  on the committed applications: survival (gbsg) 3.60 s -\> 2.02 s
+  (-44%), binary OR (ACTG175) 5.93 s -\> 2.75 s (-54%), continuous
+  (ACTG175) unchanged (1.87 s -\> 1.84 s).
+- Nothing changes for adjusted, weighted (propensity), RD or RR fits:
+  they keep their formula paths.
+
 ## forestsearch 0.4.0
 
 ### Changes since the last CRAN release (0.1.0)

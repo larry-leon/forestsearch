@@ -226,12 +226,11 @@ forestsearch(
   (or taken from `grf_res` / `grf_cuts` when supplied) and enter the
   candidate family through
   [`get_FSdata`](https://larry-leon.github.io/forestsearch/reference/get_FSdata.md)
-  alongside the quartile (and any DINA) cuts. This flag governs
-  candidate-cut generation only: GRF variable-importance ordering of the
-  cut columns is a separate step controlled solely by `vi.grf.min` and
-  runs, or is skipped, regardless of `use_grf`. Default FALSE. The
-  default changed from `TRUE` in an earlier release, for the same
-  fixed-candidate-family reason given under `use_lasso`.
+  alongside the quartile (and any DINA) cuts. This is the only switch
+  that fits a GRF in the forest-search path (the former
+  variable-importance screening, `vi.grf.min`, is deprecated and inert).
+  Default FALSE. The default changed from `TRUE` in an earlier release,
+  for the same fixed-candidate-family reason given under `use_lasso`.
 
 - grf_res:
 
@@ -375,13 +374,12 @@ forestsearch(
 
 - max_n_confounders:
 
-  Integer. Maximum number of candidate cut columns retained after GRF
-  variable-importance screening, keeping the highest-importance columns.
-  Default 1000. **Applied only when `vi.grf.min` is numeric**: the
-  truncation lives inside the variable-importance block, so with
-  `vi.grf.min = NULL` (the default) this argument has no effect, and a
-  finite value below the number of cut columns triggers a warning saying
-  so.
+  **Deprecated** (0.4.0.9000): accepted and ignored with a warning. GRF
+  variable-importance screening of the candidate cut columns was removed
+  so that the candidate family is the cut grid alone unless `use_lasso`,
+  `use_grf` or `use_dina` is `TRUE`. It capped the importance-ordered
+  column list, which no longer exists. Will be removed in a future
+  release; drop it from the call.
 
 - grf_depth:
 
@@ -439,9 +437,8 @@ forestsearch(
   `frac.tau * min(max(Y[treated, event]), max(Y[control, event]))`, i.e.
   `frac.tau` times the smaller of the two arm-specific maximum event
   times. Values \< 1 truncate the horizon inward of that maximum (the
-  conservative choice when events are sparse near the tail). Applies to
-  both the GRF variable-importance pre-screen inside `forestsearch()`
-  and the downstream call to
+  conservative choice when events are sparse near the tail). Used by the
+  downstream call to
   [`grf.subg.harm.survival`](https://larry-leon.github.io/forestsearch/reference/grf.subg.harm.survival.md).
   Used only when `outcome_type = "survival"`; ignored for GLM outcomes
   (binary, continuous, count). Default 0.8.
@@ -926,31 +923,11 @@ forestsearch(
 
 - vi.grf.min:
 
-  Numeric or `NULL`. GRF variable-importance screening of the candidate
-  cut columns. `NULL` (the default since 0.3.0) skips the screening
-  entirely: no causal forest is fitted and the cut columns are searched
-  in the order
-  [`get_FSdata()`](https://larry-leon.github.io/forestsearch/reference/get_FSdata.md)
-  builds them. A numeric value fits a causal forest
-  ([`grf::causal_forest()`](https://rdrr.io/pkg/grf/man/causal_forest.html)
-  for GLM outcomes,
-  [`grf::causal_survival_forest()`](https://rdrr.io/pkg/grf/man/causal_survival_forest.html)
-  for survival), **orders** the cut columns by variable importance, and
-  retains those with `vi_ratio > vi.grf.min`, where `vi_ratio` is each
-  column's importance divided by the maximum. At values `<= 0` nothing
-  is filtered out –
-  [`grf::variable_importance()`](https://rdrr.io/pkg/grf/man/variable_importance.html)
-  is non-negative and the block is guarded by `vi_max > 0` – so the
-  effect is ordering only. That ordering sets the candidate matrix's
-  column order; it does **not** reach candidate selection, because the
-  candidate table is re-sorted by `(-HR, K)` before the consistency
-  loop. Measured effect on `n_candidates_evaluated` and
-  `early_stop_candidate`: zero; the selected subgroup's subject
-  membership is unchanged and only the clause order of `sg.harm` may
-  differ. Versions before 0.3.0 defaulted to `-0.2`; pass
-  `vi.grf.min = -0.2` explicitly to reproduce their output.
-  `max_n_confounders` is applied **only when this screening runs** – see
-  that argument.
+  **Deprecated** (0.4.0.9000): accepted and ignored with a warning. GRF
+  variable-importance screening of the candidate cut columns was removed
+  so that the candidate family is the cut grid alone unless `use_lasso`,
+  `use_grf` or `use_dina` is `TRUE`. Will be removed in a future
+  release; drop it from the call.
 
 - use_twostage:
 

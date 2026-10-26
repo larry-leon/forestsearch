@@ -340,12 +340,10 @@ fs <- forestsearch(
   use_grf                    = TRUE,                         # default TRUE
   grf_res                    = NULL,                         # default NULL; pass cached GRF result
   grf_cuts                   = NULL,                         # default NULL
-  max_n_confounders          = 1000,                         # default 1000
   grf_depth                  = 2,                            # default 2
   dmin.grf                   = 0.0,                          # default 0.0
   frac.tau                   = 0.8,                          # default 0.8
   return_selected_cuts_only  = TRUE,                         # default TRUE
-  vi.grf.min                 = -0.2,                         # default -0.2; GRF VI threshold
   tune_grf                   = FALSE,                        # default FALSE
 
   # ─── Cuts / discretization ──────────────────────────────────────────────
@@ -451,7 +449,7 @@ fs <- forestsearch(
     ## --------------------------------------------------------------------------------------------------------------
     ##    1   1.951     82    45    1  *   {er <= 0}
     ##    2   2.222     75    41    2  *   {er <= 0} & {pgr <= 33}
-    ##    3   1.710     72    39    2  -   {grade3} & {pgr <= 7}
+    ##    3   1.710     72    39    2  -   {pgr <= 7} & {grade3}
     ## --------------------------------------------------------------------------------------------------------------
     ## To evaluate: 3   On frontier: 2
     ## Legend: OF = on Pareto frontier.
@@ -475,13 +473,13 @@ fs <- forestsearch(
     ## --------------------------------------------------------------------------------------------------------------
     ##    1   1.951     82    45    1  0.960  *   *  {er <= 0}
     ##    2   2.222     75    41    2  0.990  *   -  {er <= 0} & {pgr <= 33}
-    ##    3   1.710     72    39    2  0.860  -   -  {grade3} & {pgr <= 7}
+    ##    3   1.710     72    39    2  0.860  -   -  {pgr <= 7} & {grade3}
     ## --------------------------------------------------------------------------------------------------------------
     ## Evaluated: 3   Passed: 3   On frontier: 2   Selected: m=1
     ## Legend: P = Pcons (consistency probability); OF = on Pareto frontier; S = selected.
     ## ==============================================================================================================
     ## 
-    ## Seconds and minutes forestsearch overall = 5.441 0.0907 
+    ## Seconds and minutes forestsearch overall = 5.159 0.086 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0}
 
@@ -495,7 +493,7 @@ cat("\nForestSearch completed in",
 ```
 
     ## 
-    ## ForestSearch completed in 5.5 seconds
+    ## ForestSearch completed in 5.2 seconds
 
 ### ForestSearch Results
 
@@ -531,7 +529,7 @@ res_tabs$sg10_out
 | Factor 1 | Factor 2 | N | Events | E₁ | HR | P_(cons) |
 | {er \<= 0} |  | 82 | 45 | 16 | 1.951 | 0.960 |
 | {er \<= 0} | {pgr \<= 33} | 75 | 41 | 16 | 2.222 | 0.990 |
-| {grade3} | {pgr \<= 7} | 72 | 39 | 13 | 1.710 | 0.860 |
+| {pgr \<= 7} | {grade3} | 72 | 39 | 13 | 1.710 | 0.860 |
 | **Search Configuration:** Single-factor candidates (L) = 28; Maximum combinations evaluated = 406; Search depth (maxk) = 2 |  |  |  |  |  |  |
 | **Search Results:** Candidate subgroups found = 7; Maximum HR estimate = 2.54 |  |  |  |  |  |  |
 | **Note:** E₁ = events in treatment arm; P_(cons) = consistency proportion |  |  |  |  |  |  |
@@ -655,8 +653,8 @@ summaries <- summarize_bootstrap_results(
     ## -------------------------------------------------------------
     ## Overall:
     ##   Total bootstrap time:          0.14 minutes (0.00 hours)
-    ##   Average per iteration:         0.07 min (4.2 sec)
-    ##   Projected for 1000 boots:      70.22 min (1.17 hrs)
+    ##   Average per iteration:         0.07 min (4.3 sec)
+    ##   Projected for 1000 boots:      71.56 min (1.19 hrs)
 
 ``` r
 
@@ -1228,9 +1226,9 @@ ER-negative patients may not benefit is consistent with:
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
 | GRF                  | 1.4        | 0.0        |
-| ForestSearch         | 5.5        | 0.1        |
-| Bootstrap            | 9.3        | 0.2        |
-| Total                | 27.8       | 0.5        |
+| ForestSearch         | 5.2        | 0.1        |
+| Bootstrap            | 9.4        | 0.2        |
+| Total                | 29.6       | 0.5        |
 
 [ Code](#collapse-timingsummary)
 

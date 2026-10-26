@@ -1,8 +1,7 @@
 # Report which stages of the candidate family are data-dependent
 
 A user who sets `use_lasso = FALSE`, `use_grf = FALSE`,
-`use_dina = FALSE` and `vi.grf.min = NULL` may reasonably believe the
-candidate family
+`use_dina = FALSE` may reasonably believe the candidate family
 [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
 searches is now fixed. It is not. Continuous cuts are placed at *sample*
 quantiles
@@ -85,10 +84,9 @@ own argument resolution rather than reading arguments at face value:
 `use_twostage` to `FALSE` and `max_subgroups_search` to `Inf`, and
 disables the effect floor; `stop_threshold` is reset to `NULL` for every
 focus other than `"maxeffCons"` (it is meaningful only there);
-`max_n_confounders` is applied only inside the GRF variable-importance
-block, so it is inert when `vi.grf.min` is `NULL`; and the per-arm event
-floors `d0.min` / `d1.min` are skipped for continuous and count
-outcomes.
+`vi.grf.min` and `max_n_confounders` are deprecated and always inert;
+and the per-arm event floors `d0.min` / `d1.min` are skipped for
+continuous and count outcomes.
 
 ## See also
 
@@ -105,8 +103,7 @@ rep <- fs_family_report(
   list(confounders.name = c("age", "preanti", "hemo"),
        conf.cont_jcuts = list(age = 10, preanti = 10),
        n.min = 60, maxk = 2, sg_focus = "maxeffCons",
-       use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE,
-       vi.grf.min = NULL),
+       use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE),
   outcome_type = "continuous")
 print(rep)
 #> Candidate family is data-dependent: 8 of 20 stages vary with the sample; 4 are disableable, 4 are intrinsic to the method.
@@ -170,7 +167,7 @@ df <- data.frame(age = round(rnorm(200, 40, 8)),
 rep2 <- fs_family_report(
   list(confounders.name = c("age", "preanti", "hemo"),
        conf.cont_jcuts = list(age = 10, preanti = 10), maxk = 2,
-       use_lasso = FALSE, use_grf = FALSE, vi.grf.min = NULL),
+       use_lasso = FALSE, use_grf = FALSE),
   data = df, outcome_type = "continuous")
 attr(rep2, "n_cut_columns"); attr(rep2, "n_combinations")
 #> [1] 42

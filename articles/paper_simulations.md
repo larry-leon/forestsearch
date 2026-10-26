@@ -1314,7 +1314,7 @@ results_alt <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Per-arm events criteria: control >= 12, treatment >= 12
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.01 minutes
+    ## Subgroup search completed in 0.02 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1338,7 +1338,7 @@ results_alt <- foreach(
     ## Subgroup 3: resample Pcons=0.82 (threshold 0.9)
     ## Evaluated 3 of 3 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 4.359 0.0727 
+    ## Seconds and minutes forestsearch overall = 5.519 0.092 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.90727 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1357,7 +1357,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 1.5 minutes
+    ## Completed in 1.9 minutes
 
 ``` r
 
@@ -1458,7 +1458,7 @@ results_null <- foreach(
     ## Subgroup 2: resample Pcons=0.57 (threshold 0.9)
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 3.975 0.0663 
+    ## Seconds and minutes forestsearch overall = 4.88 0.0813 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 43.8823 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1477,7 +1477,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 1.4 minutes
+    ## Completed in 1.8 minutes
 
 ## Summarizing Results
 
@@ -2366,15 +2366,15 @@ reproducibility information.
 | 44 H1 + 44 H0 simulations, 3 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.1 | 0.00 | 0.1 |
-| Calibrate k_inter (Cox) | 6.2 | 0.10 | 2.9 |
-| Calibrate k_inter (AHR) | 2.4 | 0.04 | 1.1 |
-| Validate k_inter | 0.5 | 0.01 | 0.3 |
+| Calibrate k_inter (Cox) | 7.1 | 0.12 | 2.7 |
+| Calibrate k_inter (AHR) | 3.0 | 0.05 | 1.1 |
+| Validate k_inter | 0.7 | 0.01 | 0.2 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.0 |
-| Simulations H1 | 88.0 | 1.47 | 41.3 |
-| Simulations H0 | 83.5 | 1.39 | 39.2 |
-| Summarize H1 | 0.1 | 0.00 | 0.1 |
-| Summarize H0 | 0.1 | 0.00 | 0.1 |
-| Total vignette | 213.0 | 3.55 | 100.0 |
+| Simulations H1 | 112.3 | 1.87 | 42.1 |
+| Simulations H0 | 105.1 | 1.75 | 39.4 |
+| Summarize H1 | 0.2 | 0.00 | 0.1 |
+| Summarize H0 | 0.2 | 0.00 | 0.1 |
+| Total vignette | 266.5 | 4.44 | 100.0 |
 | ¹ Parallel backend: 3 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -2491,7 +2491,7 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-    ##   H1: 2.0 sec/sim (wall) across 44 sims on 3 workers
+    ##   H1: 2.6 sec/sim (wall) across 44 sims on 3 workers
 
 ``` r
 
@@ -2500,7 +2500,7 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-    ##   H0: 1.9 sec/sim (wall) across 44 sims on 3 workers
+    ##   H0: 2.4 sec/sim (wall) across 44 sims on 3 workers
 
 ## Complete Example Script
 
@@ -3736,8 +3736,8 @@ gc(verbose = FALSE)
 ```
 
     ##           used  (Mb) gc trigger  (Mb) max used  (Mb)
-    ## Ncells 3578274 191.2    5454805 291.4  5454805 291.4
-    ## Vcells 6935660  53.0   14802219 113.0 12268516  93.7
+    ## Ncells 3577589 191.1    5450358 291.1  5450358 291.1
+    ## Vcells 6934692  53.0   14790789 112.9 12258991  93.6
 
 ## Session Info
 
@@ -3793,7 +3793,7 @@ sessionInfo()
     ## [52] future.apply_1.21.0  withr_3.0.3          scales_1.4.0        
     ## [55] rmarkdown_2.32       globals_0.20.0       otel_0.2.0          
     ## [58] progressr_1.1.0      ragg_1.5.2           evaluate_1.0.5      
-    ## [61] knitr_1.52           V8_8.2.0             markdown_2.0        
+    ## [61] knitr_1.52           V8_8.2.1             markdown_2.0        
     ## [64] rlang_1.3.0          Rcpp_1.1.2           glue_1.8.1          
     ## [67] xml2_1.6.0           rstudioapi_0.19.0    jsonlite_2.0.0      
     ## [70] R6_2.6.1             systemfonts_1.3.2    fs_2.1.0

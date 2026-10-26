@@ -158,11 +158,11 @@ cal <- run_null_calibration(
 #> Warning: FSdata failure - returning NULL result
 #> Warning: Error in get_FSdata: get_FSdata: no candidate cut expressions could be constructed from the supplied inputs.  Upstream source counts: GRF cuts (0), DINA cuts (0), LASSO selected (1), conf_force (0), conf.cont_medians (0), conf.categorical (0).  Check that: (1) GRF is succeeding for this outcome type (rerun forestsearch() with details = TRUE to inspect); (2) LASSO is not shrinking all covariates to zero (try use_lasso = FALSE); (3) candidate covariates are numeric or factor and have sufficient variability; (4) GRF-related thresholds (dmin.grf, frac.tau, vi.grf.min) are appropriate for the outcome type and sample size (frac.tau is survival-specific and may be ignored for GLM).
 #> Warning: FSdata failure - returning NULL result
-#>   N =  200: FPR = 0.240 (12/50) | P1 = 0.227 | 14.5 sec
+#>   N =  200: FPR = 0.240 (12/50) | P1 = 0.227 | 17.3 sec
 #> Warning: Error in get_FSdata: get_FSdata: no candidate cut expressions could be constructed from the supplied inputs.  Upstream source counts: GRF cuts (0), DINA cuts (0), LASSO selected (1), conf_force (0), conf.cont_medians (0), conf.categorical (0).  Check that: (1) GRF is succeeding for this outcome type (rerun forestsearch() with details = TRUE to inspect); (2) LASSO is not shrinking all covariates to zero (try use_lasso = FALSE); (3) candidate covariates are numeric or factor and have sufficient variability; (4) GRF-related thresholds (dmin.grf, frac.tau, vi.grf.min) are appropriate for the outcome type and sample size (frac.tau is survival-specific and may be ignored for GLM).
 #> Warning: FSdata failure - returning NULL result
-#>   N =  500: FPR = 0.600 (30/50) | P1 = 0.195 | 25.0 sec
-#>   N = 1000: FPR = 0.640 (32/50) | P1 = 0.153 | 39.6 sec
+#>   N =  500: FPR = 0.600 (30/50) | P1 = 0.195 | 28.6 sec
+#>   N = 1000: FPR = 0.640 (32/50) | P1 = 0.153 | 45.0 sec
 #> 
 #> L_eff Calibration
 #>   Model: L_eff = 0.313 * (N / 60)^1.109
