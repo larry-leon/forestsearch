@@ -1099,6 +1099,117 @@ make_effect_estimator <- function(
 
 
 # ---------------------------------------------------------------------------
+# Unadjusted fast path, binary OR (0.4.0.9000)
+# ---------------------------------------------------------------------------
+
+#' Two-group logistic core, bit-identical to `glm()` + `coef()` + `vcov()`
+#'
+#' Fits `y ~ t` for an unadjusted, unweighted, offset-free two-group
+#' comparison via `stats::glm.fit()` on the explicit two-column model matrix
+#' -- the call `stats::glm()` makes for that formula (weights, start,
+#' etastart, mustart and offset at their defaults, `intercept = TRUE`,
+#' `singular.ok = TRUE`, `glm.control()`) -- then takes the treatment
+#' coefficient and its standard error by replicating `stats::summary.glm()`
+#' / `stats::vcov.glm()` operation for operation (R 4.6.1 sources):
+#' `p1 <- 1L:p`; `covmat.unscaled <- chol2inv(Qr$qr[p1, p1, drop = FALSE])`;
+#' `covmat <- dispersion * covmat.unscaled` with `dispersion = 1` for the
+#' binomial family (kept as `1 * ...` so the arithmetic is the same);
+#' `sqrt(diag(covmat))` at the treatment column.  A rank-deficient fit
+#' (single treatment arm) returns `estimate = NA` and `se = NA` without
+#' error, as the slow chain does.  `glm.fit()`'s own warnings ("fitted
+#' probabilities numerically 0 or 1 occurred", "algorithm did not converge")
+#' are raised exactly as through `glm()`: nothing is suppressed here.
+#'
+#' @param y Numeric vector. 0/1 outcome, already sliced, already on the
+#'   adverse scale.
+#' @param t Numeric or integer vector. Treatment indicator (0/1), same length.
+#' @param treat.name Character. The treatment column name `model.matrix()`
+#'   would use.
+#' @return List with `estimate`, `se` (doubles, possibly `NA`) and
+#'   `converged` (`glm.fit()`'s flag).
+#' @keywords internal
+#' @noRd
+.fs_logit_two_group <- function(y, t, treat.name) {
+  X <- cbind(1, t)
+  colnames(X) <- c("(Intercept)", treat.name)
+  fit <- stats::glm.fit(X, as.double(y),
+                        family = stats::binomial(link = "logit"))
+  coef_val <- fit$coefficients[[treat.name]]
+  p1 <- seq_len(fit$rank)
+  covmat <- 1 * chol2inv(fit$qr$qr[p1, p1, drop = FALSE])
+  # Column 2 is the treatment term; with the treatment column aliased
+  # (rank 1) the index is out of range and gives NA, as vcov(complete = TRUE)
+  # does for an aliased coefficient.
+  se_val <- unname(sqrt(diag(covmat))[2L])
+  list(estimate = coef_val, se = se_val, converged = fit$converged)
+}
+
+
+#' Fast unadjusted binary odds-ratio estimator closure
+#'
+#' Drop-in replacement for the `.make_glm_binary_estimator()` closure when
+#' `effect_measure = "OR"`, there is no covariate adjustment and no
+#' propensity adjustment: the routing predicate at the construction site
+#' (`forestsearch_main.R`) selects it, and every consumer of the closure
+#' works unchanged because the signature and the returned structure --
+#' fields, names, types, failure behaviour, the `reason` of a non-estimable
+#' slice -- are identical to the slow closure's, and the numbers are
+#' bit-identical (see `.fs_logit_two_group()`).  The search loop routes its
+#' per-candidate fit to the vector path on the `fs_fast_unadjusted`
+#' attribute; `fs_fast_core` in this closure's environment tells
+#' `fit_glm_for_subgroup_fast()` which core to run (the continuous closure
+#' carries no marker and keeps its OLS path).
+#'
+#' @keywords internal
+#' @noRd
+.make_glm_or_estimator_fast <- function(treat.name, outcome.name,
+                                        adverse_outcome = TRUE, ...) {
+  force(treat.name)
+  force(outcome.name)
+  force(adverse_outcome)
+  fs_fast_core <- "logit_or"
+
+  function(data_slice) {
+    # Sign convention as in .make_glm_binary_estimator(): Y -> 1 - Y when the
+    # outcome is beneficial, so that OR > 1 indicates treatment harm.
+    if (!adverse_outcome) {
+      data_slice[[outcome.name]] <- 1L - data_slice[[outcome.name]]
+    }
+
+    n0 <- sum(data_slice[[treat.name]] == 0L, na.rm = TRUE)
+    n1 <- sum(data_slice[[treat.name]] == 1L, na.rm = TRUE)
+
+    why <- .fs_existence_reason(
+      "OR",
+      .fs_binary_cells(data_slice[[outcome.name]], data_slice[[treat.name]]))
+    if (!is.null(why)) {
+      return(.fs_nonestimable(why, n0, n1, "log-OR", "nonestimable"))
+    }
+
+    result <- tryCatch({
+      core <- .fs_logit_two_group(data_slice[[outcome.name]],
+                                  data_slice[[treat.name]], treat.name)
+      list(estimate = core$estimate, se = core$se, converged = core$converged,
+           n0 = n0, n1 = n1, measure = "log-OR", method_used = "logistic")
+    },
+    error = function(e) {
+      list(estimate = NA_real_, se = NA_real_, converged = FALSE,
+           n0 = n0, n1 = n1, measure = "log-OR",
+           method_used = "logistic_failed_none")
+    })
+
+    # The slow closure's non-convergence rule, verbatim.
+    if (isFALSE(result$converged) && !is.na(result$estimate)) {
+      return(.fs_nonestimable("non-convergent fit", n0, n1,
+                              result$measure, result$method_used))
+    }
+
+    result
+  }
+}
+
+
+# ---------------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------------
 

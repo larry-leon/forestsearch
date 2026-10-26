@@ -2088,7 +2088,7 @@ forestsearch <- function(df.analysis,
       adjust_covariates = adjust_covariates
     )
 
-    # Unadjusted fast path (0.3.3): for the continuous/MD case with no
+    # Unadjusted fast path (0.3.3): for the continuous/MD and binary/OR cases with no
     # regression adjustment and no propensity adjustment, swap in the
     # bit-identical fast closure (.make_lm_estimator_fast: lm.fit + the
     # summary.lm/vcov.lm extraction ops).  ps_adjust_method is still the
@@ -2098,15 +2098,26 @@ forestsearch <- function(df.analysis,
     # untagged slow one, so the tag cannot leak onto a weighted path.  The
     # attribute is the only signal that travels: the search loop routes its
     # per-candidate fit to the vector path on it.
-    if (outcome_type == "continuous" &&
-        identical(ps_adjust_method[[1L]], "none") &&
+    if (identical(ps_adjust_method[[1L]], "none") &&
         length(.fs_adjust_terms(adjust_covariates)) == 0L) {
-      estimator_fn <- .make_lm_estimator_fast(
-        treat.name      = treat.name,
-        outcome.name    = outcome.name,
-        adverse_outcome = adverse_outcome
-      )
-      attr(estimator_fn, "fs_fast_unadjusted") <- TRUE
+      if (outcome_type == "continuous") {
+        estimator_fn <- .make_lm_estimator_fast(
+          treat.name      = treat.name,
+          outcome.name    = outcome.name,
+          adverse_outcome = adverse_outcome
+        )
+        attr(estimator_fn, "fs_fast_unadjusted") <- TRUE
+      } else if (outcome_type == "binary" && identical(effect_measure, "OR")) {
+        # Binary OR twin (0.4.0.9000): same predicate, same tag, bit-identical
+        # glm.fit closure (.make_glm_or_estimator_fast).  RD and RR keep the
+        # slow closure (their fallback tiers are untouched).
+        estimator_fn <- .make_glm_or_estimator_fast(
+          treat.name      = treat.name,
+          outcome.name    = outcome.name,
+          adverse_outcome = adverse_outcome
+        )
+        attr(estimator_fn, "fs_fast_unadjusted") <- TRUE
+      }
     }
 
     # Resolve screening and consistency thresholds from effect_measure.

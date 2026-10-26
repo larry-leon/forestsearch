@@ -1001,6 +1001,11 @@ fit_glm_for_subgroup <- function(df_clean, id.x, estimator_fn) {
 #' closure's environment (\code{adverse_outcome}, \code{treat.name} are
 #' \code{force()}d there), so no signature beyond the vectors changes.
 #'
+#' The tagged unadjusted binary OR closure
+#' (\code{.make_glm_or_estimator_fast()}) is routed here too; its environment
+#' carries \code{fs_fast_core = "logit_or"}, on which the OR vector path
+#' \code{.fit_or_for_subgroup_vector()} is taken instead of the OLS core.
+#'
 #' @param yy,tt Numeric vectors: cleaned outcome and treatment, full length.
 #' @param id.x Integer vector. 1 = subject in this subgroup, 0 = not.
 #' @param estimator_fn The tagged fast closure (attribute
@@ -1014,6 +1019,12 @@ fit_glm_for_subgroup_fast <- function(yy, tt, id.x, estimator_fn) {
   fn_env <- environment(estimator_fn)
   y <- yy[idx]
   t <- tt[idx]
+  # Binary OR core (0.4.0.9000): the tagged fast OR closure marks its
+  # environment; the OLS closure carries no marker and takes the path below.
+  if (identical(fn_env$fs_fast_core, "logit_or")) {
+    return(.fit_or_for_subgroup_vector(y, t, fn_env))
+  }
+
   if (!isTRUE(fn_env$adverse_outcome)) y <- -y
 
   res <- tryCatch(
@@ -1032,6 +1043,47 @@ fit_glm_for_subgroup_fast <- function(yy, tt, id.x, estimator_fn) {
     hr    = res$estimate,
     lower = lower,
     upper = upper,
+    med0  = NA_real_,
+    med1  = NA_real_
+  )
+}
+
+#' Vector-path binary OR fit for a candidate subgroup
+#'
+#' The vector twin of `fit_glm_for_subgroup()` with the unadjusted OR
+#' closure: the same sign flip, the same existence check
+#' (`.fs_existence_reason()` on the 2x2 cells), the same non-convergence
+#' rule and the same `NULL` / `nonestimable` contract, with the fit done by
+#' `.fs_logit_two_group()` on the already-sliced vectors instead of
+#' `stats::glm()` on a data-frame slice.  Called by
+#' `fit_glm_for_subgroup_fast()` after its `< 6 rows -> NULL` check.
+#'
+#' @param y,t Numeric vectors: outcome and treatment, already sliced.
+#' @param fn_env The tagged OR closure's environment (`adverse_outcome`,
+#'   `treat.name`).
+#' @keywords internal
+#' @noRd
+.fit_or_for_subgroup_vector <- function(y, t, fn_env) {
+  if (!isTRUE(fn_env$adverse_outcome)) y <- 1L - y
+
+  why <- .fs_existence_reason("OR", .fs_binary_cells(y, t))
+  if (!is.null(why)) return(list(nonestimable = TRUE, reason = why))
+
+  core <- tryCatch(.fs_logit_two_group(y, t, fn_env$treat.name),
+                   error = function(e) NULL)
+  # The slow chain's error branch: NA estimate with no reason -> NULL.
+  if (is.null(core)) return(NULL)
+  if (isFALSE(core$converged) && !is.na(core$estimate)) {
+    return(list(nonestimable = TRUE, reason = "non-convergent fit"))
+  }
+  if (is.na(core$estimate)) return(NULL)
+
+  # Wald CI: estimate +/- 1.96 * SE (as in fit_glm_for_subgroup)
+  z_crit <- 1.96
+  list(
+    hr    = core$estimate,
+    lower = core$estimate - z_crit * core$se,
+    upper = core$estimate + z_crit * core$se,
     med0  = NA_real_,
     med1  = NA_real_
   )
