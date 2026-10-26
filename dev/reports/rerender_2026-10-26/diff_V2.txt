@@ -1,0 +1,47 @@
+--- outputs_V2_legacy.txt	2026-10-26 15:16:14.715290212 -0700
++++ outputs_V2_new.txt	2026-10-26 15:16:14.715432271 -0700
+@@ -27,7 +27,7 @@
+ 1          2         6.49        82.00       3.34     1
+ 2          3        -4.10       604.00       1.06     1
+ 11         4        -7.90       112.00       2.81     2
+-21         5         3.85       177.00       1.87     2
++21         5         3.86       177.00       1.87     2
+ 4          7        -5.89       356.00       1.33     2
+ Selected subgroup:
+ leaf.node control.mean control.size control.se depth
+@@ -82,7 +82,7 @@
+ --------------------------------------------------------------------------------------------------------------
+ 1   1.951     82    45    1  *   {er <= 0}
+ 2   2.222     75    41    2  *   {er <= 0} & {pgr <= 33}
+-3   1.710     72    39    2  -   {grade3} & {pgr <= 7}
++3   1.710     72    39    2  -   {pgr <= 7} & {grade3}
+ --------------------------------------------------------------------------------------------------------------
+ To evaluate: 3   On frontier: 2
+ Legend: OF = on Pareto frontier.
+@@ -103,7 +103,7 @@
+ --------------------------------------------------------------------------------------------------------------
+ 1   1.951     82    45    1  0.960  *   *  {er <= 0}
+ 2   2.222     75    41    2  0.990  *   -  {er <= 0} & {pgr <= 33}
+-3   1.710     72    39    2  0.860  -   -  {grade3} & {pgr <= 7}
++3   1.710     72    39    2  0.860  -   -  {pgr <= 7} & {grade3}
+ --------------------------------------------------------------------------------------------------------------
+ Evaluated: 3   Passed: 3   On frontier: 2   Selected: m=1
+ Legend: P = Pcons (consistency probability); OF = on Pareto frontier; S = selected.
+@@ -117,7 +117,7 @@
+ Factor 1 | Factor 2 | N | Events | E1 | HR | Pcons
+ {er <= 0} |  | 82 | 45 | 16 | 1.951 | 0.960
+ {er <= 0} | {pgr <= 33} | 75 | 41 | 16 | 2.222 | 0.990
+-{grade3} | {pgr <= 7} | 72 | 39 | 13 | 1.710 | 0.860
++{pgr <= 7} | {grade3} | 72 | 39 | 13 | 1.710 | 0.860
+ Search Configuration: Single-factor candidates (L) = 28; Maximum combinations evaluated = 406; Search depth (maxk) = 2
+ Search Results: Candidate subgroups found = 7; Maximum HR estimate = 2.54
+ Note: E1 = events in treatment arm; Pcons = consistency proportion
+@@ -149,7 +149,7 @@
+ TIMING ANALYSIS:
+ -------------------------------------------------------------
+ Overall:
+-Projected for 1000 boots:      28.96 min (0.48 hrs)
++Projected for 1000 boots:      42.88 min (0.71 hrs)
+ <<table>>
+ Treatment Effect by Subgroup
+ Bootstrap bias-corrected estimates (2 iterations)

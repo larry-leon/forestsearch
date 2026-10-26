@@ -1,0 +1,373 @@
+forestsearch inventory, 2026-10-26 22:02:52 UTC
+Legacy vignette MD5s:
+/home/larryleon/Downloads/CRAN_0.4.0_survival-post-selection.html 
+                               "69effc528fdda3c2100074243f216878" 
+           /home/larryleon/Downloads/CRAN_0.4.0_forestsearch.html 
+                               "1fc55176f5506245a3c7e91220f06508" 
+Expected: 69effc528fdda3c2100074243f216878 / 1fc55176f5506245a3c7e91220f06508
+Physical cores: 128  logical: 128 
+
+========== V1 : vignettes/survival-post-selection.qmd ( 228 lines )
+legacy: ~/Downloads/CRAN_0.4.0_survival-post-selection.html 
+output: dev/reports/rerender_2026-10-26/new_V1.html (copy render in vignette_build/) 
+-- YAML:
+  ---
+  title: "Post-selection inference for an identified survival subgroup"
+  subtitle: "A worked GBSG analysis, end to end"
+  author: "Larry Leon"
+  date: today
+  format:
+    html:
+      embed-resources: true
+      toc: true
+      toc-depth: 3
+      code-fold: false
+  vignette: >
+    %\VignetteIndexEntry{Post-selection inference for an identified survival subgroup}
+    %\VignetteEngine{quarto::html}
+    %\VignetteEncoding{UTF-8}
+  ---
+-- chunks (name; eval/cache options):
+  L18    setup                                    
+  L44    data                                     
+  L65    fit                                      
+  L90    subgroup                                 
+  L103   print                                    
+  L122   summary                                  
+  L142   locations                                
+  L164   phat                                     
+  L188   recovery                                 
+  L226   session                                  
+-- settings :
+  L59    observed effect), 200 consistency splits and 500 multiplier draws.
+  L72    is.RCT = TRUE, seedit = 8316951, est.scale = "hr",
+  L79    mr_inference_args = list(draws = 500L, field_recovery = TRUE),
+  L82    fs.splits = 200, max.minutes = 3,
+  L84    parallel_args = list(plan = "sequential"))
+  L158   picks the same subgroup across the multiplier draws. It is a **recorded
+  L160   reads it**. It is also estimated from the same draws that build the bound, so
+  L181   exact-match rate is compatible with two very different situations: the draws
+  L184   from the same draws. Each draw's re-selection is compared with `Hhat` as a set
+  L196   cat(sprintf("share of draws containing all of Hhat = %.3f  (over %d draws)
+  L202   draws: exact re-selection can be rare while the typical re-selection still
+-- vi.grf.min / max_n_confounders :
+  (none)
+-- files written / output paths :
+  (none)
+
+========== V2 : vignettes/forestsearch.Rmd ( 925 lines )
+legacy: ~/Downloads/CRAN_0.4.0_forestsearch.html 
+output: dev/reports/rerender_2026-10-26/new_V2.html (copy render in vignette_build/) 
+-- YAML:
+  ---
+  title: "Exploratory Subgroup Identification with ForestSearch"
+  subtitle: "German Breast Cancer Study Group (GBSG) Analysis"
+  author: "Larry F. León"
+  date: "`r Sys.Date()`"
+  output:
+    html_document:
+      toc: true
+      toc_depth: 3
+      number_sections: true
+      code_folding: hide
+      theme: cosmo
+      highlight: tango
+      fig_width: 8
+      fig_height: 6
+  vignette: >
+    %\VignetteIndexEntry{Exploratory Subgroup Identification with ForestSearch}
+    %\VignetteEngine{knitr::rmarkdown}
+    %\VignetteEncoding{UTF-8}
+  ---
+-- chunks (name; eval/cache options):
+  L22    setup                                    include=FALSE
+  L92    load-packages                            
+  L125   data-setup                               
+  L153   baseline-table                           
+  L186   km-itt                                   
+  L215   grf-analysis                             
+  L242   grf-trees                                
+  L262   parallel-setup                           
+  L285   forestsearch-main                        
+  L402   fs-results                               
+  L427   fs-estimates                             
+  L434   fs-subgroup                              
+  L460   bootstrap                                eval=TRUE
+  L489   bootstrap-summary                        
+  L505   fs-results_figure                        
+  L540   event-summary                            
+  L552   bootstrap-diagnostics                    
+  L561   subgroup-agreement                       
+  L575   bootstrap-plots                          eval=TRUE
+  L588   kfold-cv                                 eval = TRUE
+  L630   oob-cv                                   eval = FALSE
+  L684   forest-plot                              
+  L793   KMdiffs                                  
+  L846   summary-findings                         
+  L890   timing-summary                           
+  L923   session-info                             
+-- settings :
+  L234   seedit                    = 8316951,             # default 8316951
+  L264   n_cores <- 2
+  L303   parallel_args              = list(plan = "multisession",
+  L304   workers = n_cores,
+  L305   show_message = TRUE),    # default plan="multisession"
+  L311   seedit                     = 8316951,                      # default 8316951
+  L356   fs.splits                  = 100,                          # default 1000; split-half repeats
+  L463   NB <- 2
+  L470   nb_boots      = NB,                                        # required (use 500-2000 for production)
+  L471   seed          = 8316951L,                                  # default 8316951L
+  L474   parallel_args = list(plan = "multisession",
+  L475   workers = n_cores,
+  L601   seed          = 8316951L,                                  # default 8316951L
+  L602   parallel_args = list(plan = "multisession",
+  L603   workers = n_cores,
+  L604   show_message = FALSE),                # default plan="multisession", workers=6
+  L637   seedit        = 8316951L,                                  # default 8316951L
+  L638   parallel_args = list(plan = "multisession",
+  L639   workers = n_cores,
+  L640   show_message = TRUE),                 # default plan="multisession", workers=6
+  L815   draws_band     = 20,                                       # default 1000 (lower for speed)
+-- vi.grf.min / max_n_confounders :
+  (none)
+-- files written / output paths :
+  (none)
+
+========== C : quarto/applications/actg175/analysis_actg175_continuous_intervals.qmd ( 562 lines )
+legacy: git show HEAD:...continuous_intervals.html 
+output: quarto/applications/actg175/analysis_actg175_continuous_intervals.html (in place) 
+-- YAML:
+  ---
+  title: "ACTG175 continuous (CD4 change): post-selection intervals under effMaxSG, ε = 0.20"
+  format: html
+  params:
+    seed: 8316951
+  ---
+-- chunks (name; eval/cache options):
+  L8     setup                                    
+  L51    data-prep                                
+  L87    anchor                                   
+  L164   band                                     
+  L204   intervals-objects                        
+  L279   intervals-table-H                        
+  L304   intervals-spread                         
+  L313   intervals-table-Hc                       
+  L340   intervals-table-joint                    
+  L359   intervals-diagnostics                    
+  L386   intervals-reading                        
+  L438   interp-objects                           
+  L510   doc-clock                                
+  L517   export-payload                           
+-- settings :
+  L5     seed: 8316951
+  L34    # it is transplanted here.  Re-render at another seed via the YAML params.
+  L97    seedit           = params$seed,
+  L115   fs.splits        = 500L,
+  L120   parallel_args    = list(plan = "sequential"),
+  L126   # draws = 5000L (the compare-all anchor's value) are the enabling settings.
+  L128   mr_inference_args = list(ci_method = "field", draws = 5000L,
+  L240   settings = list(ci_method = g$ci_method, draws = g$settings$draws, multiplier = g$settings$multiplier,
+  L241   reselection = g$settings$reselection, ij_residual = g$ij_residual, seed = params$seed,
+  L268   bonf_joint_prob = jt$bonf_joint_prob, corr = jt$corr, n_joint_draws = jt$n_joint_draws),
+  L271   bonf_joint_prob = js$bonf_joint_prob, corr = js$corr, n_joint_draws = js$n_joint_draws),
+  L349   `Joint prob. on the aligned draws` = c("< 0.95 by construction", sprintf("%.3f", jt$bonf_joint_prob),
+  L355   subtitle = sprintf("unstudentized: γ = %.3f on the 0.025–0.050 grid, corr(Λ*, Λ*ᶜ) = %+.3f over %d aligned draws; field-s: γ = %.3f, corr = %+.3f over %d",
+  L356   jt$gamma, jt$corr, jt$n_joint_draws, js$gamma, js$corr, js$n_joint_draws))
+  L365   "Selection rate (draws with a winner); family size",
+  L420   "- **Regime:** p̂(Ĥ) = %.3f — the selected subgroup wins the re-selection on %.1f%% of multiplier draws, %s. ",
+  L426   "\nProvenance: forestsearch %s; sg_focus = effMaxSG, effect_neighborhood = 0.20, selection_rule = neighborhood; ci_method = %s, %d multiplier draws (%s), field R_out/R_in = %d/%d, ij_residual = %s, seed = %d; ",
+  L428   as.character(utils::packageVersion("forestsearch")), g$ci_method, g$settings$draws, g$settings$multiplier,
+  L429   f$R_out, f$R_in, g$ij_residual, params$seed,
+  L479   on the `r fmt0(js$n_joint_draws)` aligned draws. Read jointly: "harm at least τ on
+  L488   re-selection on `r pct(p_hat_H)` of the `r fmt0(g$settings$draws)` multiplier
+  L489   draws (selection rate `r fmt(g$selection_rate, 3)`, family of `r fmt0(g$n_family)`),
+  L546   seed = params$seed, T_obs = T_obs)),
+-- vi.grf.min / max_n_confounders :
+  (none)
+-- files written / output paths :
+  L21    results_dir <- NULL
+  L25    dirout         <- "analysis_actg175_continuous_oc_intervals"
+  L26    payload_suffix <- "_effmaxsg"
+  L524   .dirout   <- if (is.null(dirout)) .qmd_stem else dirout
+  L525   .base     <- if (is.null(results_dir)) file.path(.qmd_dir, "_payloads") else results_dir
+  L526   .out_dir  <- file.path(.base, .dirout)
+  L528   .payload_file <- file.path(.out_dir, paste0(.dirout, payload_suffix, "_payload.rds"))
+  L560   saveRDS(payload, .payload_file)
+
+========== B : quarto/applications/actg175/analysis_actg175_binary_multimethod_fixed_family.qmd ( 2124 lines )
+legacy: git show HEAD:...fixed_family.html 
+output: quarto/applications/actg175/analysis_actg175_binary_multimethod_fixed_family.html (in place) 
+-- YAML:
+  ---
+  title: "Exploratory Subgroup Identification with ForestSearch"
+  subtitle: "ACTG175 Binary Harm Search (GLM Odds-Ratio Outcome)"
+  author: "Larry F. León"
+  date: today
+  format:
+    html:
+      embed-resources: true
+      toc: true
+      toc-depth: 3
+      number-sections: true
+      code-fold: true
+      code-summary: "Show code"
+      theme: cosmo
+      fig-width: 8
+      fig-height: 6
+  execute:
+    warning: true
+    message: true
+  ---
+-- chunks (name; eval/cache options):
+  L39    setup                                    #| include: false
+  L53    parallel-setup                           
+  L317   load-packages                            
+  L340   analysis-roles                           
+  L367   data-treat                               
+  L378   data-outcomes                            
+  L397   data-covariates                          
+  L415   baseline-table                           
+  L428   itt-analysis                             
+  L458   grf-analysis                             
+  L480   grf-trees                                
+  L551   forestsearch-main                        
+  L636   fs-results                               
+  L646   fs-estimates                             
+  L653   fs-subgroup                              
+  L679   fs-pareto                                
+  L712   fs-pareto-explain                        
+  L726   fs-grf-concordance                       
+  L741   fs-grf-concordance-stats                 
+  L770   bootstrap                                
+  L795   bootstrap-summary                        
+  L826   debias-gate-comparison                   eval = !is.null(fs$sg.harm)
+  L901   debias-gate-no-subgroup                  eval = is.null(fs$sg.harm)
+  L912   debias-gate-table                        eval = !is.null(fs$sg.harm) && !is.null(fs$mr_inference)
+  L918   fs-glm-plot                              
+  L939   bootstrap-diagnostics                    
+  L947   subgroup-agreement                       
+  L959   bootstrap-plots                          
+  L990   dina-config                              
+  L1017  fs-dina-screen                           
+  L1101  fs-dina-screen-cuts                      
+  L1116  fs-dina-screen-pareto                    eval = !is.null(fs_dina_screen$sg.harm)
+  L1129  dina-standalone-fit                      
+  L1153  dina-standalone-frontier                 
+  L1184  dina-standalone-select                   
+  L1218  fs-dina-select                           
+  L1277  fs-dina-bootstrap                        eval = !is.null(fs_dina$sg.harm)
+  L1302  fs-dina-no-subgroup                      eval = is.null(fs_dina$sg.harm)
+  L1313  fs-dina-bootstrap-summary                eval = !is.null(fs_dina$sg.harm)
+  L1348  fs-dina-debias-gate-comparison           eval = !is.null(fs_dina$sg.harm)
+  L1409  fs-dina-debias-gate-table                eval = !is.null(fs_dina$sg.harm) && !is.null(fs_dina$mr_inference)
+  L1440  fs-grf-select                            
+  L1501  fs-grf-bootstrap                         eval = !is.null(fs_grf$sg.harm)
+  L1525  fs-grf-no-subgroup                       eval = is.null(fs_grf$sg.harm)
+  L1534  fs-grf-bootstrap-summary                 eval = !is.null(fs_grf$sg.harm)
+  L1572  fs-grf-debias-gate-comparison            eval = !is.null(fs_grf$sg.harm)
+  L1631  fs-grf-debias-gate-table                 eval = !is.null(fs_grf$sg.harm) && !is.null(fs_grf$mr_inference)
+  L1657  cv-skipped-note                          eval = !run_cv
+  L1662  kfold-cv                                 eval = run_cv
+  L1691  cv-diagnostics-run                       eval = run_cv
+  L1700  cv-identification                        eval = run_cv
+  L1704  cv-grf-cut                               eval = run_cv
+  L1708  cv-no-subgroup                           eval = run_cv
+  L1712  cv-pcons                                 eval = run_cv
+  L1716  cv-fold-numeric                          eval = run_cv
+  L1720  cv-original-agreement                    eval = run_cv
+  L1729  loo-skipped-note                         eval = !run_loo
+  L1734  oob-cv                                   eval = run_loo
+  L1774  forest-plot                              
+  L1822  summary-findings                         
+  L1865  timing-summary                           
+  L1917  session-info                             
+  L1929  export-section6-2-payload                
+-- settings :
+  L56    n_cores <- max(1L, floor(0.80 * parallel::detectCores(logical = FALSE)))
+  L61    NB <- 1000L
+  L68    run_cv  <- FALSE    # K-Fold cross-validation (kfold-cv + diagnostics)
+  L69    run_loo <- FALSE    # Leave-one-out / N-fold OOB (oob-cv)
+  L73    # Pre-seed CV/LOO timings so the Computational Timing table is well-formed
+  L99    run_mr <- TRUE     # add mr_inference = TRUE to the forestsearch call
+  L100   mr_draws      <- 5000L    # multiplier-bootstrap draws for the gate
+  L139   # 5000 MR draws, max_subgroups_search = 50L.
+  L239   seed          = 1L,
+  L344   analysis_seed <- 8316951L
+  L345   set.seed(analysis_seed)
+  L566   seedit                    = analysis_seed,
+  L596   mr_inference_args          = list(draws = mr_draws,
+  L609   fs.splits                 = 500L,
+  L617   parallel_args = list(
+  L618   plan = "multisession",
+  L619   workers = n_cores,
+  L687   seed     = frontier_params$seed
+  L775   nb_boots = NB,
+  L779   parallel_args = list(
+  L780   plan = "multisession",
+  L781   workers = n_cores,
+  L815   `fs_subgroup_method` — and re-selects under multiplier draws, so its
+  L831   cat("_The de-biased gate did not run (set `run_mr <- TRUE`, and note",
+  L996   dina_seed   <- 8316951L
+  L1008  supplies the DINA *fit* tuning (`seed`, `n_folds`) and the *frontier* controls
+  L1029  seedit                    = analysis_seed,
+  L1045  seed = dina_seed, n_folds = dina_nfolds,
+  L1069  fs.splits                 = 500L,
+  L1077  parallel_args = list(
+  L1078  plan = "multisession",
+  L1079  workers = n_cores,
+  L1141  seed              = dina_seed,   # default NULL
+  L1230  seedit              = analysis_seed,
+  L1237  dina_args           = list(seed = dina_seed, n_folds = dina_nfolds),  # fit tuning only
+  L1247  mr_inference_args    = list(draws = mr_draws,
+  L1252  # search; use_grf / use_lasso / use_twostage / fs.splits / maxk and related
+  L1284  nb_boots = NB,
+  L1288  parallel_args = list(
+  L1289  plan = "multisession",
+  L1290  workers = n_cores,
+  L1353  cat("_The de-biased gate did not run (set `run_mr <- TRUE`)._\n")
+  L1452  seedit              = analysis_seed,   # also seeds the forest
+  L1471  mr_inference_args    = list(draws = mr_draws,
+  L1476  # search; use_lasso / use_dina / use_twostage / fs.splits / maxk and related
+  L1507  nb_boots = NB,
+  L1511  parallel_args = list(
+  L1512  plan = "multisession",
+  L1513  workers = n_cores,
+  L1577  cat("_The de-biased gate did not run (set `run_mr <- TRUE`)._\n")
+  L1658  cat("K-Fold cross-validation skipped (run_cv = FALSE). Set run_cv <- TRUE",
+  L1670  parallel_args = list(
+  L1671  plan = "multisession",
+  L1672  workers = n_cores,
+  L1730  cat("Leave-one-out (N-fold / OOB) skipped (run_loo = FALSE). Set run_loo <- TRUE",
+  L1741  parallel_args = list(
+  L1742  plan = "multisession",
+  L1743  workers = n_cores,
+  L2021  .machine_info <- function(n_workers = NULL) {
+  L2067  future_plan        = tryCatch(class(future::plan())[1], error = function(e) NA_character_),
+  L2108  mr_draws = if (exists("mr_draws")) mr_draws else NA_integer_,
+  L2111  machine    = .machine_info(n_workers = if (exists("n_cores")) n_cores else NULL),
+-- vi.grf.min / max_n_confounders :
+  L577   vi.grf.min                = -0.2,
+  L1040  vi.grf.min                = -0.2,
+-- files written / output paths :
+  L110   #   results_dir <- NULL;  dirout <- NULL
+  L112   #   results_dir <- NULL;  dirout <- "gbsg_survival_multimethod"
+  L114   #   results_dir <- "~/GitHub/fs-post-selection-manuscript_jasa/_payloads"; dirout <- NULL
+  L117   results_dir <- NULL
+  L118   dirout      <- NULL
+  L1937  .dirout   <- if (is.null(dirout)) .qmd_stem else dirout
+  L1938  .base     <- if (is.null(results_dir)) file.path(.qmd_dir, "_payloads") else results_dir
+  L1939  .out_dir  <- file.path(.base, .dirout)
+  L2121  .payload_file <- file.path(.out_dir, paste0(.dirout, "_payload.rds"))
+  L2122  saveRDS(payload, .payload_file)
+
+========== Resolved compute (CC, from the sources above; machine: 128 physical cores)
+V1: fs.splits 200; MR draws 500 (field_recovery); no bootstrap; plan sequential (1 worker); no eval=FALSE chunks; writes nothing.
+V2: fs.splits 100; NB = 2 bootstraps; K-fold CV eval=TRUE; oob-cv eval=FALSE; draws_band 20; plan multisession, workers = 2; writes nothing.
+C : fs.splits 500; MR draws 5000 (ci_method field); no bootstrap; plan sequential; seed 8316951 (params);
+    writes quarto/applications/actg175/_payloads/analysis_actg175_continuous_oc_intervals/analysis_actg175_continuous_oc_intervals_effmaxsg_payload.rds
+    -- that file is TRACKED in git; the in-place render overwrites it (legacy copy saved as legacy_C_payload.rds via git show).
+    format: html without embed-resources -> sibling analysis_actg175_continuous_intervals_files/ (gitignored *_files/).
+B : three fits (fs, fs_dina, fs_grf) each with nb_boots = NB = 1000 and MR draws 5000; fs.splits 500; plan multisession,
+    workers = n_cores = floor(0.80 * 128) = 102; run_cv = FALSE, run_loo = FALSE (CV/LOO chunks not evaluated);
+    vi.grf.min = -0.2 at L577 (forestsearch-main) and L1040 (fs-dina-screen) -> deprecation warning per call, behaves as NULL;
+    writes quarto/applications/actg175/_payloads/analysis_actg175_binary_multimethod_fixed_family/analysis_actg175_binary_multimethod_fixed_family_payload.rds (untracked, new; no prior copy on disk).

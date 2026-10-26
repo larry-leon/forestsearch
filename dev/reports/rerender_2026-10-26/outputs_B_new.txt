@@ -1,0 +1,1619 @@
+<<block>>
+<<block>>
+Loading required package: leaps
+<<block>>
+Loading required package: survival
+<<block>>
+Attaching package: 'data.table'
+<<block>>
+The following object is masked from 'package:base':
+%notin%
+<<block>>
+Loading required package: foreach
+<<block>>
+Loading required package: future
+<<block>>
+Attaching package: 'future'
+<<block>>
+The following object is masked from 'package:survival':
+cluster
+<<block>>
+Sample size: 1083
+<<block>>
+Adverse events (no improvement): 430 (39.7%)
+<<block>>
+Baseline factors: age, preanti, wtkg, karnof, cd40, cd80, hemo, homo, drugs, race, gender, symptom
+<<block>>
+Continuous candidates: age, preanti, wtkg, karnof, cd40, cd80
+<<block>>
+Binary candidates:     hemo, homo, drugs, race, gender, symptom
+<<table>>
+ACTG175 Baseline Characteristics and Outcome by Treatment Arm
+Characteristic |  | Control (n=561) | Treatment (n=522) | P-value1 | SMD2
+y_binary_neg | Mean (SD) | 0.4 (0.5) | 0.3 (0.5) | 0.001 | 0.20
+age | Mean (SD) | 35.1 (8.5) | 35.2 (8.7) | 0.828 | 0.01
+preanti | Mean (SD) | 383.9 (477.7) | 379.1 (474.0) | 0.870 | 0.01
+wtkg | Mean (SD) | 74.9 (13.0) | 74.9 (13.6) | 0.988 | 0.00
+karnof | Mean (SD) | 95.1 (5.9) | 95.5 (5.8) | 0.258 | 0.07
+cd40 | Mean (SD) | 347.5 (114.4) | 348.7 (130.2) | 0.866 | 0.01
+cd80 | Mean (SD) | 971.9 (502.7) | 1004.3 (488.0) | 0.282 | 0.07
+hemo |  | 49 (8.7%) | 43 (8.2%) | 0.854 | 0.02
+homo |  | 379 (67.6%) | 346 (66.3%) | 0.703 | 0.03
+drugs |  | 69 (12.3%) | 73 (14.0%) | 0.465 | 0.05
+race |  | 173 (30.8%) | 138 (26.4%) | 0.125 | 0.10
+gender |  | 470 (83.8%) | 434 (83.1%) | 0.841 | 0.02
+symptom |  | 96 (17.1%) | 96 (18.4%) | 0.638 | 0.03
+1 P-values: t-test for continuous, chi-square/Fisher's exact for categorical/binary variables
+2 SMD = Standardized mean difference (Cohen's d for continuous, Cramer's V for categorical)
+<<block>>
+=== ITT Odds Ratio, adverse scale (y_binary_neg) ===
+<<block>>
+log-OR (treat): -0.4078  (SE 0.1252)
+<<block>>
+OR:              0.665  (95% CI: 0.520, 0.850)
+<<block>>
+p-value:        0.0011
+<<block>>
+On the adverse scale, OR > 1 indicates the treatment raises the odds of
+<<block>>
+no improvement (harm); OR < 1 indicates fewer non-improvers (benefit).
+<<block>>
+Warning: forestsearch(): 'vi.grf.min' is deprecated and ignored. GRF
+variable-importance screening of the candidate cut columns was removed; the
+candidate family is the cut grid alone unless use_lasso, use_grf or use_dina is
+TRUE. The argument will be removed in a future release -- drop it from the
+call.
+<<block>>
+sg_focus 'effMaxSG' resolves to canonical rule 'hrMaxSG' (aliases: effMaxSG).
+<<block>>
+[forestsearch] Subgroup Identification Configuration
+Outcome type:   binary
+Effect measure: OR (Odds Ratio)
+Scale:          log (ratio)
+Screening:      OR >= 1.00 (log: 0.0000)
+Consistency:    OR >= 1.00 (log: 0.0000)
+Consistency rate threshold: 90%
+Interpretation:
+Candidates: subgroup OR >= 1.00
+Splits:     each split OR >= 1.00
+<<block>>
+==============================================================
+<<block>>
+Search Alignment Diagnostic
+<<block>>
+==============================================================
+<<block>>
+Outcome:    y_binary_neg (binary)
+<<block>>
+Treatment:  treat
+<<block>>
+Measure:    Odds Ratio (OR) -- estimator sees Y as-is (no flip)
+<<block>>
+ForestSearch searches for:
+Subgroups where treat increases P(y_binary_neg=1)
+(OR >= threshold on the ORIGINAL outcome scale)
+<<block>>
+Thresholds:
+Screening: OR >= 1.000 in the candidate subgroup
+Consistency: OR >= 1.000 in each bootstrap split
+<<block>>
+Variable screening:
+<<block>>
+LASSO: LASSO screening: DISABLED
+<<block>>
+GRF:   DISABLED
+<<block>>
+No alignment concerns detected.
+<<block>>
+==============================================================
+<<block>>
+J-quantile cuts: cd40 (J=10), wtkg (J=10)
+Candidate factors: 40
+[1] "cd40 <= 204"    "cd40 <= 237"    "cd40 <= 267"    "cd40 <= 296"
+[5] "cd40 <= 321"    "cd40 <= 350"    "cd40 <= 380"    "cd40 <= 413"
+[9] "cd40 <= 449"    "cd40 <= 507"    "wtkg <= 58"     "wtkg <= 64"
+[13] "wtkg <= 67"     "wtkg <= 70"     "wtkg <= 73"     "wtkg <= 76"
+[17] "wtkg <= 78"     "wtkg <= 81"     "wtkg <= 86"     "wtkg <= 91"
+[21] "age <= 35"      "age <= 34"      "age <= 29"      "age <= 40"
+[25] "preanti <= 382" "preanti <= 136" "preanti <= 0"   "preanti <= 745"
+[29] "karnof <= 95"   "karnof <= 90"   "cd80 <= 988"    "cd80 <= 895"
+[33] "cd80 <= 649"    "cd80 <= 1208"   "hemo"           "homo"
+[37] "drugs"          "race"           "gender"         "symptom"
+Number of possible configurations (<= maxk): maxk = 2 , # combinations = 3240
+Per-arm events criteria: control >= 10, treatment >= 10
+Sample size criteria: n >= 60
+--- Filtering Summary ---
+Combinations evaluated: 3240
+Passed variance check: 3090
+Passed prevalence (>= 0.025 ): 3090
+Passed redundancy check: 2975
+Passed events counts (d0>= 10, d1>= 10): 2666
+Passed sample size (n>= 60 ): 2584
+GLM model fit successfully: 2584
+Passed effect threshold (effect >= 0.0000): 160
+-------------------------
+Found 160 subgroup candidate(s)
+# of candidate subgroups (meeting all criteria) = 160
+Removed 23 near-duplicate subgroups
+# of unique initial candidates: 137
+# Restricting to top stop_Kgroups = Inf
+# of candidates to evaluate: 137
+==============================================================================================================
+CANDIDATE EVALUATION PREVIEW (pre-consistency) (sg_focus = "hrMaxSG", selection_rule = "neighborhood")
+==============================================================================================================
+Rank  OR      N      E     K    OF  IB  Subgroup
+--------------------------------------------------------------------------------------------------------------
+1   3.584     72    37    2  *   *   !{cd40 <= 380} & !{wtkg <= 86}
+2   1.096    262   133    2  *   -   !{cd40 <= 413} & !{drugs}
+3   1.120    207    89    2  *   -   !{cd40 <= 296} & !{wtkg <= 81}
+4   1.134    196   113    1  *   -   !{cd40 <= 449}
+5   1.134    196   113    2  *   -   !{cd40 <= 204} & !{cd40 <= 449}
+6   1.404    177    85    2  *   -   !{cd40 <= 380} & !{wtkg <= 76}
+7   1.467    166    97    2  *   -   !{cd40 <= 449} & {gender}
+8   1.602    136    69    2  *   -   !{cd40 <= 413} & !{wtkg <= 76}
+9   1.927    117    59    2  *   -   !{cd40 <= 380} & !{wtkg <= 81}
+10   2.415     92    49    2  *   -   !{cd40 <= 413} & !{wtkg <= 81}
+... 127 more candidates not shown (max_print = 10).
+--------------------------------------------------------------------------------------------------------------
+To evaluate: 137   On frontier: 11   In band: 1
+Legend: OF = on Pareto frontier;  IB = in effect-size band.
+==============================================================================================================
+<<block>>
+Parallel plan: multisession with 102 workers.
+<<block>>
+Parallel config: workers = 102 , batch_size = 137
+Batch 1 / 1 : candidates 1 - 137
+Evaluated 137 of 137 candidates (complete)
+5 subgroups passed consistency threshold
+SG focus = hrMaxSG
+==============================================================================================================
+CANDIDATE EVALUATION SUMMARY  (sg_focus = "hrMaxSG", selection_rule = "neighborhood")
+==============================================================================================================
+Rank  OR      N      E     K    P      OF  IB  S  Subgroup
+--------------------------------------------------------------------------------------------------------------
+1   3.584     72    37    2  0.990  *   *   *  !{cd40 <= 380} & !{wtkg <= 86}
+2   1.927    117    59    2  0.910  *   -   -  !{cd40 <= 380} & !{wtkg <= 81}
+3   2.415     92    49    2  0.960  *   -   -  !{cd40 <= 413} & !{wtkg <= 81}
+4   2.095     88    51    2  0.900  -   -   -  !{cd40 <= 449} & !{wtkg <= 76}
+5   2.525     74    43    2  0.940  *   -   -  !{cd40 <= 449} & !{wtkg <= 78}
+--------------------------------------------------------------------------------------------------------------
+Evaluated: 137   Passed: 5   On frontier: 4   In band: 1   Selected: m=1
+Legend: P = Pcons (consistency probability); OF = on Pareto frontier;  IB = in effect-size band; S = selected.
+==============================================================================================================
+Consistency algorithm used: twostage
+Subgroup identified: !{cd40 <= 380} & !{wtkg <= 86}
+<<block>>
+Multiplier resampling (MR): constructing de-biased estimates from 5000 draws.
+This is post-selection inference on the completed search; it cannot change the identified subgroup.
+<<block>>
+MR harm confirmation: OR = 1.795 (point rule vs 1.00) -> consistent with harm
+<<block>>
+<<block>>
+<<table>>
+Identified Subgroups
+Two-factor subgroups (maxk=2)
+Factor 1 | Factor 2 | N | n(C+T) | n1 | OR | Pcons
+!{cd40 <= 380} | !{wtkg <= 86} | 72 | 37 | 23 | 3.58 | 0.99
+!{cd40 <= 380} | !{wtkg <= 81} | 117 | 59 | 34 | 1.93 | 0.91
+!{cd40 <= 413} | !{wtkg <= 81} | 92 | 49 | 30 | 2.41 | 0.96
+!{cd40 <= 449} | !{wtkg <= 76} | 88 | 51 | 30 | 2.10 | 0.90
+!{cd40 <= 449} | !{wtkg <= 78} | 74 | 43 | 25 | 2.53 | 0.94
+Search Configuration: Single-factor candidates (L) = 80; Maximum combinations evaluated = 3,240; Search depth (maxk) = 2
+Search Results: Candidate subgroups found = 160; Maximum OR estimate = 3.58
+Note: E1 = events in treatment arm; Pcons = consistency proportion
+<<table>>
+Treatment Effect Estimates
+Training data estimates
+Subgroup | n | n1 | Rate(C) | Rate(T) | Diff | OR (95% CI)
+ITT | 1083 (100.0%) | 522 (48.2%) | 44.39% | 34.67% | -9.71% | 0.67 (0.52, 0.85)
+Questionable1 | 72 (6.6%) | 34 (47.2%) | 36.84% | 67.65% | +30.80% | 3.58 (1.35, 9.50)
+Recommend | 1011 (93.4%) | 488 (48.3%) | 44.93% | 32.38% | -12.56% | 0.59 (0.45, 0.76)
+1 Identified subgroup: !{cd40 <= 380} & !{wtkg <= 86}
+<<block>>
+Identified subgroup (H): !{cd40 <= 380} & !{wtkg <= 86}
+Subgroup size: 72 (6.6% of ITT)
+<<table>>
+Pareto frontier on (OR, N)
+4 non-dominated candidate(s) | sg_focus = 'hrMaxSG' | OR shown on natural scale (exponentiated from log-scale storage) | diagnostic only
+S1,2 | M.1 | M.2 | N | E | OR | P3 | K | 95% CIs
+Naive | Split ~ | FSBC ~
+★ | !{cd40 <= 380} | !{wtkg <= 86} | 72 | 37 | 3.58 | 0.99 | 2 | (1.35, 9.50) | (1.23, 10.48) | 3.42 (1.17, 10.02)
+| !{cd40 <= 449} | !{wtkg <= 78} | 74 | 43 | 2.53 | 0.94 | 2 | (0.97, 6.55) | (0.88, 7.24) | 2.44 (0.85, 7.00)
+| !{cd40 <= 413} | !{wtkg <= 81} | 92 | 49 | 2.41 | 0.96 | 2 | (1.04, 5.59) | (0.99, 5.89) | 2.35 (0.96, 5.74)
+| !{cd40 <= 380} | !{wtkg <= 81} | 117 | 59 | 1.93 | 0.91 | 2 | (0.92, 4.02) | (0.88, 4.24) | 1.90 (0.86, 4.17)
+1 S: selected subgroup (winner of the configured selection rule).
+2 ★ marks the subgroup chosen by sg_focus = 'hrMaxSG'.
+3 P: Pcons (consistency probability).
+<<table>>
+FS vs GRF: Subgroup Membership Concordance
+ACTG175 observed data (binary OR, adverse scale)
+ForestSearch | GRF Standalone | Total
+H (Questionable) | Hᶜ (Recommend)
+H (Questionable) | 67 | 5 | 72
+Hᶜ (Recommend) | 63 | 948 | 1011
+Total | 130 | 953 | 1083
+Agreement: 1015 / 1083 (93.7%) Cohen’s κ: 0.632 ForestSearch H: !{cd40 <= 380} & !{wtkg <= 86} GRF Standalone H: (wtkg <= 83.462400000000002 & preanti > 1292) | (wtkg > 83.462400000000002 & cd40 > 390)
+<<block>>
+Concordance statistics:
+<<block>>
+Agreement:       93.7%
+<<block>>
+Cohen's kappa:   0.632
+<<block>>
+Concordant:      1015 / Discordant: 68 / Total: 1083
+<<block>>
+Bootstrap parallel config: Using user-provided settings
+<<block>>
+<<block>>
+Bootstrap will use: 102 workers with 'multisession' plan
+<<block>>
+Parallel plan: multisession with 102 workers.
+<<block>>
+Bootstrap iteration 1/1000
+<<block>>
+Bootstrap iteration 10/1000
+<<block>>
+Bootstrap iteration 50/1000
+<<block>>
+Bootstrap iteration 100/1000
+<<block>>
+Bootstrap iteration 250/1000
+<<block>>
+Bootstrap iteration 500/1000
+<<block>>
+Bootstrap iteration 750/1000
+<<block>>
+Bootstrap iteration 1000/1000
+<<block>>
+<<block>>
+<<block>>
+===============================================================
+BOOTSTRAP ANALYSIS SUMMARY
+===============================================================
+IDENTIFIED SUBGROUP:
+-------------------------------------------------------------
+H: !{cd40 <= 380} & !{wtkg <= 86}
+BOOTSTRAP SUCCESS METRICS:
+-------------------------------------------------------------
+Total iterations:              1000
+Successful subgroup ID:        990 (99.0%)
+Failed to find subgroup:       10 (1.0%)
+TIMING ANALYSIS:
+-------------------------------------------------------------
+Overall:
+<<table>>
+Treatment Effect by Subgroup
+Bootstrap bias-corrected estimates (1000 iterations)
+Subgroup | Sample Size | Event Rates | Diff | Treatment Effect
+N | NT | RateC | RateT | OR(95% CI)†1 | OR‡(95% CI)2
+Qstnbl3 | 72 (6.6%) | 34 (47.2%) | 36.84% | 67.65% | +30.80% | 3.58 (1.35, 9.50) | 2.43 (0.80,7.33)
+Recmnd | 1011 (93.4%) | 488 (48.3%) | 44.93% | 32.38% | -12.56% | 0.59 (0.45, 0.76) | 0.61 (0.41,0.89)
+1 Unadjusted OR: GLM estimate with robust standard errors
+2 Bias-corrected OR: Bootstrap-adjusted estimate using infinitesimal jackknife method (1000 iterations). Corrects for optimism in subgroup selection.
+3 Identified subgroup: !{cd40 <= 380} & !{wtkg <= 86}
+Note: RateC = control arm event rate; RateT = treatment arm event rate. Subgroup identified in 99.0% of bootstrap samples.
+<<table>>
+Treatment Effect by Subgroup
+MR de-biased estimate (multiplier resampling, 5000 draws)
+Subgroup | Sample Size | Event Rates | Diff | Treatment Effect
+N | NT | RateC | RateT | OR(95% CI)†1 | OR‡(95% CI)2
+Qstnbl3 | 72 (6.6%) | 34 (47.2%) | 36.84% | 67.65% | +30.80% | 3.58 (1.35, 9.50) | 1.79 (0.63,5.09)
+Recmnd | 1011 (93.4%) | 488 (48.3%) | 44.93% | 32.38% | -12.56% | 0.59 (0.45, 0.76) | 0.62 (0.37,1.03)
+1 Unadjusted OR: GLM estimate with robust standard errors
+2 Bias-corrected OR: Bootstrap-adjusted estimate using infinitesimal jackknife method (5000 iterations). Corrects for optimism in subgroup selection.
+3 Identified subgroup: !{cd40 <= 380} & !{wtkg <= 86}
+Note: RateC = control arm event rate; RateT = treatment arm event rate.
+<<block>>
+Coordinate system already present.
+ℹ Adding new coordinate system, which will replace the existing one.
+<<block>>
+Figure note: Identified subgroup (H): !{cd40 <= 380} & !{wtkg <= 86}. Bars show event rates per arm; error bars show 95 percent CI.
+<<table>>
+Bootstrap Diagnostics Summary
+Analysis of 1000 bootstrap iterations
+Category | Metric | Value
+Success Rate | Total iterations | 1000
+| Successful | 990 (99.0%)
+| Failed | 10 (1.0%)
+| Success rating | Excellent
+Subgroup H (Questionable) | Observed OR | 3.584
+| Bias-corrected OR | 2.427
+| Bootstrap CV (%) | 79.9%
+| N estimates | 990
+Subgroup Hc (Recommend) | Observed OR | 0.587
+| Bias-corrected OR | 0.606
+| Bootstrap CV (%) | 43.2%
+| N estimates | 990
+<<block>>
+Metric                          Value
+<char>                         <char>
+1:      Total bootstrap iterations                           1000
+2:           Successful iterations                            990
+3: Failed iterations (no subgroup)                             10
+4:
+5:    Original subgroup definition !{cd40 <= 380} & !{wtkg <= 86}
+6:       Exact match with original                      31 (3.1%)
+7:         Different from original                    959 (96.9%)
+8:   Partial match (shared factor)                    210 (21.2%)
+<<block>>
+Rank  Factor Count    Percent
+2     1    cd40   853 86.1616162
+12    2    wtkg   759 76.6666667
+9     3 preanti   147 14.8484848
+3     4    cd80    89  8.9898990
+1     5     age    48  4.8484848
+8     6  karnof    30  3.0303030
+5     7  gender    13  1.3131313
+4     8   drugs    12  1.2121212
+10    9    race    12  1.2121212
+7    10    homo    10  1.0101010
+11   11 symptom     6  0.6060606
+6    12    hemo     1  0.1010101
+<<block>>
+Warning: forestsearch(): 'vi.grf.min' is deprecated and ignored. GRF
+variable-importance screening of the candidate cut columns was removed; the
+candidate family is the cut grid alone unless use_lasso, use_grf or use_dina is
+TRUE. The argument will be removed in a future release -- drop it from the
+call.
+<<block>>
+sg_focus 'effMaxSG' resolves to canonical rule 'hrMaxSG' (aliases: effMaxSG).
+<<block>>
+[forestsearch] Subgroup Identification Configuration
+Outcome type:   binary
+Effect measure: OR (Odds Ratio)
+Scale:          log (ratio)
+Screening:      OR >= 1.00 (log: 0.0000)
+Consistency:    OR >= 0.90 (log: -0.1054)
+Consistency rate threshold: 90%
+Interpretation:
+Candidates: subgroup OR >= 1.00
+Splits:     each split OR >= 0.90
+<<block>>
+==============================================================
+<<block>>
+Search Alignment Diagnostic
+<<block>>
+==============================================================
+<<block>>
+Outcome:    y_binary_neg (binary)
+<<block>>
+Treatment:  treat
+<<block>>
+Measure:    Odds Ratio (OR) -- estimator sees Y as-is (no flip)
+<<block>>
+ForestSearch searches for:
+Subgroups where treat increases P(y_binary_neg=1)
+(OR >= threshold on the ORIGINAL outcome scale)
+<<block>>
+Thresholds:
+Screening: OR >= 1.000 in the candidate subgroup
+Consistency: OR >= 0.900 in each bootstrap split
+<<block>>
+Variable screening:
+<<block>>
+LASSO: LASSO screening uses glmnet with family = "binomial (logistic)".
+Variables with non-zero coefficients are retained.
+<<block>>
+GRF:   GRF sees 1-y_binary_neg (flipped for causal_forest).
+Positive CATE = treatment REDUCES y_binary_neg = treatment HELPS.
+<<block>>
+No alignment concerns detected.
+<<block>>
+==============================================================
+<<block>>
+J-quantile cuts: cd40 (J=10), wtkg (J=10)
+GRF subgroup: (wtkg <= 83 & preanti > 1292) | (wtkg > 83 & cd40 > 390)
+GRF cuts identified: 3
+Cuts: wtkg <= 83, preanti <= 1292, cd40 <= 390
+DINA screening mode: selected cut (dina_subgroup, forestsearch criteria)
+DINA cuts identified: 2
+Cuts: cd40 >= 500, drugs <= 0
+Cox-LASSO selected: 7 of 13 candidate factors
+Omitted: wtkg, karnof, hemo, drugs, gender, symptom
+Candidate factors: 39
+[1] "wtkg <= 83.4624" "preanti <= 1292" "cd40 <= 390"     "cd40 >= 500"
+[5] "cd40 <= 204"     "cd40 <= 237"     "cd40 <= 267"     "cd40 <= 296"
+[9] "cd40 <= 321"     "cd40 <= 350"     "cd40 <= 380"     "cd40 <= 413"
+[13] "cd40 <= 449"     "cd40 <= 507"     "wtkg <= 58"      "wtkg <= 64"
+[17] "wtkg <= 67"      "wtkg <= 70"      "wtkg <= 73"      "wtkg <= 76"
+[21] "wtkg <= 78"      "wtkg <= 81"      "wtkg <= 86"      "wtkg <= 91"
+[25] "age <= 35"       "age <= 34"       "age <= 29"       "age <= 40"
+[29] "preanti <= 382"  "preanti <= 136"  "preanti <= 0"    "preanti <= 745"
+[33] "cd80 <= 988"     "cd80 <= 895"     "cd80 <= 649"     "cd80 <= 1208"
+[37] "homo"            "race"            "drugs <= 0"
+Number of possible configurations (<= maxk): maxk = 2 , # combinations = 3081
+Per-arm events criteria: control >= 10, treatment >= 10
+Sample size criteria: n >= 60
+--- Filtering Summary ---
+Combinations evaluated: 3081
+Passed variance check: 2899
+Passed prevalence (>= 0.025 ): 2899
+Passed redundancy check: 2751
+Passed events counts (d0>= 10, d1>= 10): 2443
+Passed sample size (n>= 60 ): 2364
+GLM model fit successfully: 2364
+Passed effect threshold (effect >= 0.0000): 184
+-------------------------
+Found 184 subgroup candidate(s)
+# of candidate subgroups (meeting all criteria) = 184
+Removed 18 near-duplicate subgroups
+# of unique initial candidates: 166
+# Restricting to top stop_Kgroups = Inf
+# of candidates to evaluate: 166
+==============================================================================================================
+CANDIDATE EVALUATION PREVIEW (pre-consistency) (sg_focus = "hrMaxSG", selection_rule = "neighborhood")
+==============================================================================================================
+Rank  OR      N      E     K    OF  IB  Subgroup
+--------------------------------------------------------------------------------------------------------------
+1   6.337     71    41    2  *   *   !{wtkg <= 83.4624} & !{cd40 <= 413}
+2   1.096    262   133    2  *   -   !{cd40 <= 413} & {drugs <= 0}
+3   1.120    207    89    2  *   -   !{cd40 <= 296} & !{wtkg <= 81}
+4   1.152    197    99    2  *   -   !{cd40 <= 390} & !{wtkg <= 73}
+5   1.404    177    85    2  *   -   !{cd40 <= 380} & !{wtkg <= 76}
+6   1.445    159    69    2  *   -   !{wtkg <= 83.4624} & !{cd40 <= 296}
+7   1.598    156    75    2  *   -   !{cd40 <= 390} & !{wtkg <= 76}
+8   1.700    136    64    2  *   -   !{wtkg <= 83.4624} & !{cd40 <= 321}
+9   1.718    134    65    2  *   -   !{cd40 <= 390} & !{wtkg <= 78}
+10   1.927    117    59    2  *   -   !{cd40 <= 380} & !{wtkg <= 81}
+... 156 more candidates not shown (max_print = 10).
+--------------------------------------------------------------------------------------------------------------
+To evaluate: 166   On frontier: 13   In band: 1
+Legend: OF = on Pareto frontier;  IB = in effect-size band.
+==============================================================================================================
+<<block>>
+Parallel plan: multisession with 102 workers.
+<<block>>
+Parallel config: workers = 102 , batch_size = 166
+Batch 1 / 1 : candidates 1 - 166
+Evaluated 166 of 166 candidates (complete)
+17 subgroups passed consistency threshold
+SG focus = hrMaxSG
+==============================================================================================================
+CANDIDATE EVALUATION SUMMARY  (sg_focus = "hrMaxSG", selection_rule = "neighborhood")
+==============================================================================================================
+Rank  OR      N      E     K    P      OF  IB  S  Subgroup
+--------------------------------------------------------------------------------------------------------------
+1   6.337     71    41    2  1.000  *   *   *  !{wtkg <= 83.4624} & !{cd40 <= 413}
+2   1.598    156    75    2  0.920  *   -   -  !{cd40 <= 390} & !{wtkg <= 76}
+3   1.700    136    64    2  0.930  *   -   -  !{wtkg <= 83.4624} & !{cd40 <= 321}
+4   1.602    136    69    2  0.900  -   -   -  !{cd40 <= 413} & !{wtkg <= 76}
+5   1.718    134    65    2  0.930  *   -   -  !{cd40 <= 390} & !{wtkg <= 78}
+6   1.927    117    59    2  0.950  *   -   -  !{cd40 <= 380} & !{wtkg <= 81}
+7   1.739    116    53    2  0.910  -   -   -  !{wtkg <= 83.4624} & !{cd40 <= 350}
+8   1.813    115    59    2  0.930  -   -   -  !{cd40 <= 413} & !{wtkg <= 78}
+9   2.395    107    54    2  0.980  *   -   -  !{cd40 <= 390} & !{wtkg <= 81}
+10   1.917    105    51    2  0.940  -   -   -  !{cd40 <= 321} & !{wtkg <= 86}
+... 7 more candidates not shown (max_print = 10).
+--------------------------------------------------------------------------------------------------------------
+Evaluated: 166   Passed: 17   On frontier: 8   In band: 1   Selected: m=1
+Legend: P = Pcons (consistency probability); OF = on Pareto frontier;  IB = in effect-size band; S = selected.
+==============================================================================================================
+Consistency algorithm used: twostage
+Subgroup identified: !{wtkg <= 83.4624} & !{cd40 <= 413}
+<<block>>
+<<block>>
+Identified subgroup (H): !{wtkg <= 83.46} & !{cd40 <= 413}
+Subgroup size: 71 (6.6% of ITT)
+<<table>>
+DINA Screening Candidates Injected into ForestSearch
+# | DINA candidate cut
+1 | cd40 >= 500
+2 | drugs <= 0
+<<table>>
+Pareto frontier on (OR, N)
+8 non-dominated candidate(s) | sg_focus = 'hrMaxSG' | OR shown on natural scale (exponentiated from log-scale storage) | diagnostic only
+S1,2 | M.1 | M.2 | N | E | OR | P3 | K
+★ | !{wtkg <= 83.4624} | !{cd40 <= 413} | 71 | 41 | 6.34 | 1.00 | 2
+| !{wtkg <= 83.4624} | !{cd40 <= 390} | 83 | 44 | 4.92 | 1.00 | 2
+| !{wtkg <= 83.4624} | !{cd40 <= 380} | 92 | 48 | 3.57 | 1.00 | 2
+| !{cd40 <= 390} | !{wtkg <= 81} | 107 | 54 | 2.39 | 0.98 | 2
+| !{cd40 <= 380} | !{wtkg <= 81} | 117 | 59 | 1.93 | 0.95 | 2
+| !{cd40 <= 390} | !{wtkg <= 78} | 134 | 65 | 1.72 | 0.93 | 2
+| !{wtkg <= 83.4624} | !{cd40 <= 321} | 136 | 64 | 1.70 | 0.93 | 2
+| !{cd40 <= 390} | !{wtkg <= 76} | 156 | 75 | 1.60 | 0.92 | 2
+1 S: selected subgroup (winner of the configured selection rule).
+2 ★ marks the subgroup chosen by sg_focus = 'hrMaxSG'.
+3 P: Pcons (consistency probability).
+<<block>>
+Standalone DINA fit complete (family = binomial).
+<<block>>
+Warning: `max_per_covariate = 3` trimmed the frontier display: 36 of 829
+non-dominated cuts kept.  The cap is a DISPLAY limit -- the pooled cap drops
+covariates whole and truncates the rank-2 pass.  Pass max_per_covariate = Inf
+(the default) to see them all.
+<<block>>
+Warning: `max_subgroups = 10` trimmed the frontier display: 10 of 36
+non-dominated cuts kept.  The cap is a DISPLAY limit -- the pooled cap drops
+covariates whole and truncates the rank-2 pass.  Pass max_subgroups = Inf (the
+default) to see them all.
+<<table>>
+Standalone DINA Frontier
+Per-covariate non-dominated (effect, N) candidates; effect on OR scale
+Covariate | Direction | Threshold | N | OR | Cut
+cd40 | right | 549.000 | 62 | 1.149 | cd40 >= 549
+cd80 | right | 1,786.000 | 69 | 1.019 | cd80 >= 1790
+preanti | right | 1,224.000 | 67 | 0.979 | preanti >= 1220
+symptom | right | 1.000 | 192 | 0.754 | symptom >= 1
+age | left | 29.000 | 282 | 0.722 | age <= 29
+homo | right | 1.000 | 725 | 0.718 | homo >= 1
+karnof | left | 90.000 | 457 | 0.692 | karnof <= 90
+drugs | left | 0.000 | 941 | 0.681 | drugs <= 0
+race | right | 1.000 | 311 | 0.674 | race >= 1
+wtkg | left | 57.607 | 95 | 0.662 | wtkg <= 57.6
+<<block>>
+DINA-selected subgroup: cd40 >= 500
+DINA-selected subgroup: drugs >=   0
+Direction: right | N = 100
+Direction: left | N = 100
+<<block>>
+sg_focus 'effMaxSG' resolves to canonical rule 'hrMaxSG' (aliases: effMaxSG).
+<<block>>
+[forestsearch] DINA selection (subgroup_method = "dina")
+Family:              binomial
+sg_focus:            hrMaxSG
+selection_rule:      neighborhood
+effect_neighborhood: 0.1
+Harm floor:          m_diff = 0.0000  (hr.threshold = 1)
+n.min:               60
+DINA frontier -- proposed single cuts (per-covariate non-dominated); display only, not the searched family:
+covariate direction  threshold n_subgroup    effect        cut_expr
+cd40     right  549.00000         62 1.1488938     cd40 >= 549
+cd80     right 1786.00000         69 1.0191980    cd80 >= 1790
+preanti     right 1224.00000         67 0.9794775 preanti >= 1220
+symptom     right    1.00000        192 0.7535221    symptom >= 1
+age      left   29.00000        282 0.7219017       age <= 29
+homo     right    1.00000        725 0.7177058       homo >= 1
+karnof      left   90.00000        457 0.6923732    karnof <= 90
+drugs      left    0.00000        941 0.6814438      drugs <= 0
+race     right    1.00000        311 0.6740014       race >= 1
+wtkg      left   57.60720         95 0.6616176    wtkg <= 57.6
+gender     right    1.00000        904 0.6179114     gender >= 1
+hemo      left    0.00000        991 0.6027633       hemo <= 0
+cd40     right  545.00000         68 1.1373176     cd40 >= 545
+cd80     right 1738.00000         74 1.0076620    cd80 >= 1740
+preanti     right 1191.00000         71 0.9518765 preanti >= 1190
+age      left   30.00000        341 0.7145198       age <= 30
+wtkg      left   58.00000        100 0.6591339      wtkg <= 58
+drugs      left    1.00000       1083 0.5877502      drugs <= 1
+gender      left    1.00000       1083 0.5877502     gender <= 1
+hemo      left    1.00000       1083 0.5877502       hemo <= 1
+homo      left    1.00000       1083 0.5877502       homo <= 1
+karnof      left  100.00000       1083 0.5877502   karnof <= 100
+race      left    1.00000       1083 0.5877502       race <= 1
+symptom      left    1.00000       1083 0.5877502    symptom <= 1
+cd40     right  540.00000         71 1.1289610     cd40 >= 540
+cd80     right 1728.00000         77 1.0055061    cd80 >= 1730
+preanti     right 1182.00000         73 0.9365253 preanti >= 1180
+age      left   31.00000        395 0.6948866       age <= 31
+wtkg      left   61.23600        145 0.6569479    wtkg <= 61.2
+drugs     right    0.00000       1083 0.5877502      drugs >= 0
+gender     right    0.00000       1083 0.5877502     gender >= 0
+hemo     right    0.00000       1083 0.5877502       hemo >= 0
+homo     right    0.00000       1083 0.5877502       homo >= 0
+karnof     right   70.00000       1083 0.5877502    karnof >= 70
+race     right    0.00000       1083 0.5877502       race >= 0
+symptom     right    0.00000       1083 0.5877502    symptom >= 0
+cd40     right  538.00000         72 1.1277887     cd40 >= 538
+cd80     right 1682.00000         86 1.0045398    cd80 >= 1680
+preanti     right 1148.00000         82 0.9023601 preanti >= 1150
+age      left   33.00000        504 0.6787876       age <= 33
+wtkg      left   62.00000        154 0.6532887      wtkg <= 62
+cd40     right  537.00000         73 1.1121694     cd40 >= 537
+cd80     right 1673.00000         88 0.9818549    cd80 >= 1670
+preanti     right 1055.00000        101 0.8752013 preanti >= 1060
+age      left   34.00000        554 0.6762170       age <= 34
+wtkg      left   62.14320        156 0.6476453    wtkg <= 62.1
+cd40     right  532.00000         75 1.0869101     cd40 >= 532
+cd80     right 1656.00000         93 0.9803218    cd80 >= 1660
+preanti     right  933.00000        154 0.8698339  preanti >= 933
+age      left   35.00000        603 0.6651005       age <= 35
+wtkg      left   62.20000        157 0.6458033    wtkg <= 62.2
+cd40     right  530.00000         76 1.0852434     cd40 >= 530
+cd80     right 1642.00000         97 0.9762549    cd80 >= 1640
+preanti     right  932.00000        155 0.8677918  preanti >= 932
+age      left   36.00000        642 0.6623011       age <= 36
+wtkg      left   62.37000        160 0.6405584    wtkg <= 62.4
+cd40     right  522.00000         83 1.0766258     cd40 >= 522
+cd80     right 1629.00000         98 0.9755388    cd80 >= 1630
+preanti     right  914.00000        173 0.8667864  preanti >= 914
+age      left   37.00000        693 0.6521612       age <= 37
+wtkg      left   70.90000        426 0.6387120    wtkg <= 70.9
+cd40     right  520.00000         88 1.0592942     cd40 >= 520
+cd80     right 1620.00000        100 0.9676073    cd80 >= 1620
+preanti     right  910.00000        177 0.8660834  preanti >= 910
+age      left   38.00000        737 0.6391368       age <= 38
+wtkg      left   70.98840        429 0.6362483      wtkg <= 71
+cd40     right  507.00000         99 1.0591501     cd40 >= 507
+cd80     right 1613.00000        101 0.9653775    cd80 >= 1610
+preanti     right  908.00000        180 0.8630026  preanti >= 908
+age      left   39.00000        784 0.6333794       age <= 39
+wtkg      left   71.10000        436 0.6314629    wtkg <= 71.1
+cd40     right  506.00000        100 1.0576984     cd40 >= 506
+cd80     right 1592.00000        106 0.9628106    cd80 >= 1590
+preanti     right  906.00000        181 0.8620573  preanti >= 906
+wtkg      left   71.66880        449 0.6309493    wtkg <= 71.7
+age      left   40.00000        825 0.6230332       age <= 40
+cd40     right  503.00000        106 1.0546383     cd40 >= 503
+cd80     right 1579.00000        110 0.9514562    cd80 >= 1580
+preanti     right  905.00000        182 0.8571216  preanti >= 905
+wtkg      left   71.80000        453 0.6304820    wtkg <= 71.8
+age      left   41.00000        858 0.6193141       age <= 41
+cd40     right  500.00000        110 1.0545642     cd40 >= 500
+cd80     right 1572.00000        114 0.9503940    cd80 >= 1570
+preanti     right  898.00000        185 0.8547834  preanti >= 898
+wtkg      left   71.90000        454 0.6293380    wtkg <= 71.9
+age      left   42.00000        890 0.6192153       age <= 42
+cd40     right  489.00000        122 1.0515504     cd40 >= 489
+cd80     right 1464.00000        149 0.9456438    cd80 >= 1460
+preanti     right  896.00000        187 0.8528788  preanti >= 896
+wtkg      left   72.00000        457 0.6293090      wtkg <= 72
+age      left   43.00000        916 0.6167780       age <= 43
+cd40     right  484.00000        125 1.0392131     cd40 >= 484
+cd80     right 1442.00000        154 0.9404450    cd80 >= 1440
+preanti     right  892.00000        190 0.8517067  preanti >= 892
+wtkg      left   76.88520        638 0.6283037    wtkg <= 76.9
+age      left   44.00000        935 0.6131857       age <= 44
+cd40     right  483.00000        128 1.0231077     cd40 >= 483
+cd80     right 1430.00000        161 0.9204924    cd80 >= 1430
+preanti     right  885.00000        192 0.8497553  preanti >= 885
+wtkg      left   77.00000        641 0.6275163      wtkg <= 77
+age      left   45.00000        964 0.6085596       age <= 45
+cd40     right  482.00000        129 1.0182075     cd40 >= 482
+cd80     right 1421.00000        165 0.9202449    cd80 >= 1420
+preanti     right  883.00000        193 0.8496112  preanti >= 883
+wtkg      left   77.50000        667 0.6223407    wtkg <= 77.5
+age      left   46.00000        975 0.6052275       age <= 46
+cd40     right  481.00000        133 1.0040055     cd40 >= 481
+cd80     right 1412.00000        166 0.9170731    cd80 >= 1410
+preanti     right  881.00000        195 0.8495300  preanti >= 881
+wtkg      left   77.60000        672 0.6215846    wtkg <= 77.6
+age      left   47.00000        992 0.6013208       age <= 47
+cd40     right  480.00000        140 0.9747973     cd40 >= 480
+cd80     right 1402.00000        169 0.9104976    cd80 >= 1400
+preanti     right  861.00000        207 0.8488995  preanti >= 861
+wtkg      left   77.70000        674 0.6205667    wtkg <= 77.7
+age      left   48.00000       1011 0.5974631       age <= 48
+cd40     right  479.00000        141 0.9684805     cd40 >= 479
+cd80     right 1328.00000        205 0.9088282    cd80 >= 1330
+preanti     right  857.00000        210 0.8427529  preanti >= 857
+wtkg      left   77.80000        677 0.6204602    wtkg <= 77.8
+age      left   50.00000       1037 0.5963958       age <= 50
+cd40     right  478.00000        143 0.9647914     cd40 >= 478
+cd80     right 1323.00000        209 0.9084268    cd80 >= 1320
+preanti     right  855.00000        211 0.8399251  preanti >= 855
+wtkg      left   78.01920        689 0.6200733      wtkg <= 78
+age      left   52.00000       1049 0.5952636       age <= 52
+cd40     right  477.00000        146 0.9521679     cd40 >= 477
+cd80     right 1313.00000        213 0.9038519    cd80 >= 1310
+preanti     right  854.00000        212 0.8383336  preanti >= 854
+wtkg      left   81.10368        783 0.6199054    wtkg <= 81.1
+age      left   53.00000       1053 0.5950320       age <= 53
+cd40     right  476.00000        147 0.9508769     cd40 >= 476
+cd80     right 1305.00000        217 0.8985834    cd80 >= 1300
+preanti     right  853.00000        215 0.8314856  preanti >= 853
+wtkg      left   81.30000        789 0.6185416    wtkg <= 81.3
+age      left   55.00000       1058 0.5946903       age <= 55
+cd40     right  475.00000        148 0.9438623     cd40 >= 475
+cd80     right 1279.00000        227 0.8965334    cd80 >= 1280
+preanti     right  852.00000        216 0.8276448  preanti >= 852
+wtkg      left   81.42120        791 0.6179294    wtkg <= 81.4
+age      left   56.00000       1061 0.5934683       age <= 56
+cd40     right  467.00000        160 0.9425498     cd40 >= 467
+cd80     right 1270.00000        233 0.8829300    cd80 >= 1270
+preanti     right  851.00000        217 0.8241183  preanti >= 851
+wtkg      left   81.50000        792 0.6176002    wtkg <= 81.5
+age      left   57.00000       1064 0.5923674       age <= 57
+cd40     right  466.00000        161 0.9412416     cd40 >= 466
+cd80     right 1265.00000        236 0.8802439    cd80 >= 1260
+preanti     right  821.00000        232 0.8201297  preanti >= 821
+wtkg      left   81.80000        802 0.6147792    wtkg <= 81.8
+age      left   58.00000       1066 0.5919835       age <= 58
+cd40     right  464.00000        166 0.9375236     cd40 >= 464
+cd80     right 1254.00000        243 0.8719948    cd80 >= 1250
+preanti     right  820.00000        233 0.8198984  preanti >= 820
+wtkg      left   82.10000        805 0.6144954    wtkg <= 82.1
+age      left   59.00000       1071 0.5914720       age <= 59
+cd40     right  462.00000        167 0.9358798     cd40 >= 462
+cd80     right 1237.00000        252 0.8700572    cd80 >= 1240
+preanti     right  811.00000        241 0.8188336  preanti >= 811
+wtkg      left   82.55520        823 0.6135964    wtkg <= 82.6
+age      left   60.00000       1073 0.5908524       age <= 60
+cd40     right  459.00000        172 0.9292800     cd40 >= 459
+cd80     right 1233.00000        254 0.8653268    cd80 >= 1230
+preanti     right  807.00000        243 0.8140955  preanti >= 807
+wtkg      left   82.70000        828 0.6127866    wtkg <= 82.7
+age      left   61.00000       1074 0.5903545       age <= 61
+cd40     right  458.00000        175 0.9242237     cd40 >= 458
+cd80     right 1215.00000        265 0.8578854    cd80 >= 1220
+preanti     right  803.00000        244 0.8122199  preanti >= 803
+wtkg      left   82.78200        829 0.6124344    wtkg <= 82.8
+age      left   62.00000       1075 0.5901258       age <= 62
+cd40     right  457.00000        178 0.9219589     cd40 >= 457
+cd80     right 1213.00000        266 0.8549984    cd80 >= 1210
+preanti     right  802.00000        245 0.8114024  preanti >= 802
+wtkg      left   82.87272        830 0.6123839    wtkg <= 82.9
+age      left   63.00000       1076 0.5897490       age <= 63
+cd40     right  456.00000        180 0.9217037     cd40 >= 456
+cd80     right 1202.00000        276 0.8519211    cd80 >= 1200
+preanti     right  796.00000        248 0.8101352  preanti >= 796
+wtkg      left   83.00000        832 0.6120959      wtkg <= 83
+age      left   64.00000       1078 0.5893088       age <= 64
+cd40     right  455.00000        182 0.9154249     cd40 >= 455
+cd80     right 1186.00000        285 0.8426739    cd80 >= 1190
+preanti     right  792.00000        251 0.8070415  preanti >= 792
+wtkg      left   83.30000        842 0.6102366    wtkg <= 83.3
+age      left   67.00000       1079 0.5889927       age <= 67
+cd40     right  453.00000        187 0.9119846     cd40 >= 453
+cd80     right 1183.00000        286 0.8426563    cd80 >= 1180
+preanti     right  780.00000        253 0.8045463  preanti >= 780
+wtkg      left   83.40000        843 0.6098926    wtkg <= 83.4
+age      left   68.00000       1081 0.5880684       age <= 68
+cd40     right  452.00000        191 0.9053575     cd40 >= 452
+cd80     right 1170.00000        299 0.8342862    cd80 >= 1170
+preanti     right  778.00000        256 0.8004364  preanti >= 778
+wtkg      left   83.46240        850 0.6072641    wtkg <= 83.5
+age      left   69.00000       1082 0.5879734       age <= 69
+cd40     right  449.00000        198 0.8882065     cd40 >= 449
+cd80     right 1162.00000        307 0.8317195    cd80 >= 1160
+preanti     right  777.00000        258 0.7992058  preanti >= 777
+wtkg      left   83.91600        858 0.6071354    wtkg <= 83.9
+age      left   70.00000       1083 0.5877502       age <= 70
+cd40     right  448.00000        201 0.8838275     cd40 >= 448
+cd80     right 1152.00000        314 0.8269084    cd80 >= 1150
+preanti     right  770.00000        259 0.7980576  preanti >= 770
+wtkg      left   84.36960        869 0.6063991    wtkg <= 84.4
+age     right   12.00000       1083 0.5877502       age >= 12
+cd40     right  447.00000        203 0.8830716     cd40 >= 447
+cd80     right 1145.00000        319 0.8206276    cd80 >= 1140
+preanti     right  768.00000        261 0.7966198  preanti >= 768
+wtkg      left   84.82320        874 0.6063926    wtkg <= 84.8
+cd40     right  446.00000        207 0.8786104     cd40 >= 446
+cd80     right 1134.00000        327 0.8097131    cd80 >= 1130
+preanti     right  762.00000        263 0.7958844  preanti >= 762
+wtkg      left   85.50000        887 0.6063783    wtkg <= 85.5
+cd40     right  445.00000        209 0.8749482     cd40 >= 445
+cd80     right 1125.00000        333 0.8053073    cd80 >= 1120
+preanti     right  760.00000        264 0.7937959  preanti >= 760
+wtkg      left   85.77576        898 0.6046193    wtkg <= 85.8
+cd40     right  441.00000        219 0.8610426     cd40 >= 441
+cd80     right 1111.00000        343 0.7989895    cd80 >= 1110
+preanti     right  755.00000        265 0.7924445  preanti >= 755
+wtkg      left   85.95720        901 0.6042649      wtkg <= 86
+cd40     right  437.00000        232 0.8540260     cd40 >= 437
+cd80     right 1098.00000        347 0.7977390    cd80 >= 1100
+preanti     right  754.00000        267 0.7900607  preanti >= 754
+wtkg      left   90.94680        981 0.6033166    wtkg <= 90.9
+cd40     right  435.00000        233 0.8492080     cd40 >= 435
+cd80     right 1092.00000        354 0.7963845    cd80 >= 1090
+preanti     right  746.00000        270 0.7883795  preanti >= 746
+wtkg      left   91.17360        985 0.6030590    wtkg <= 91.2
+cd40     right  431.00000        244 0.8421055     cd40 >= 431
+cd80     right 1084.00000        360 0.7954464    cd80 >= 1080
+preanti     right  745.00000        271 0.7859475  preanti >= 745
+wtkg      left   91.60000        987 0.6027072    wtkg <= 91.6
+cd40     right  430.00000        245 0.8394565     cd40 >= 430
+cd80     right 1074.00000        374 0.7925293    cd80 >= 1070
+preanti     right  741.00000        274 0.7844237  preanti >= 741
+wtkg      left   92.08080        994 0.6021797    wtkg <= 92.1
+cd40     right  429.00000        248 0.8388768     cd40 >= 429
+cd80     right 1065.00000        384 0.7856906    cd80 >= 1060
+preanti     right  740.00000        275 0.7842565  preanti >= 740
+wtkg      left   92.50000        995 0.6019598    wtkg <= 92.5
+cd40     right  425.00000        259 0.8386911     cd40 >= 425
+preanti     right  739.00000        276 0.7806328  preanti >= 739
+cd80     right 1054.00000        394 0.7794197    cd80 >= 1050
+wtkg      left   92.62512       1000 0.6006494    wtkg <= 92.6
+cd40     right  424.00000        261 0.8364364     cd40 >= 424
+preanti     right  735.00000        277 0.7760366  preanti >= 735
+cd80     right 1043.00000        405 0.7709724    cd80 >= 1040
+wtkg      left   92.70000       1001 0.6004911    wtkg <= 92.7
+cd40     right  423.00000        264 0.8355871     cd40 >= 423
+preanti     right  731.00000        278 0.7742646  preanti >= 731
+cd80     right 1034.00000        416 0.7657298    cd80 >= 1030
+wtkg      left   92.76120       1002 0.6004719    wtkg <= 92.8
+cd40     right  422.00000        267 0.8352607     cd40 >= 422
+preanti     right  729.00000        279 0.7720439  preanti >= 729
+cd80     right 1025.00000        426 0.7647936    cd80 >= 1020
+wtkg      left   93.44160       1004 0.6004110    wtkg <= 93.4
+cd40     right  421.00000        272 0.8304086     cd40 >= 421
+preanti     right  722.00000        282 0.7711437  preanti >= 722
+cd80     right 1002.00000        441 0.7554563    cd80 >= 1000
+wtkg      left   93.50000       1005 0.6003299    wtkg <= 93.5
+cd40     right  420.00000        282 0.8272424     cd40 >= 420
+preanti     right  719.00000        283 0.7675049  preanti >= 719
+cd80     right  999.00000        447 0.7549448     cd80 >= 999
+wtkg      left   93.60000       1006 0.6000079    wtkg <= 93.6
+cd40     right  419.00000        284 0.8246338     cd40 >= 419
+preanti     right  718.00000        284 0.7669704  preanti >= 718
+cd80     right  997.00000        451 0.7488905     cd80 >= 997
+wtkg      left   93.66840       1007 0.5997034    wtkg <= 93.7
+cd40     right  418.00000        286 0.8245008     cd40 >= 418
+preanti     right  717.00000        285 0.7662970  preanti >= 717
+cd80     right  991.00000        454 0.7474738     cd80 >= 991
+wtkg      left   93.89520       1008 0.5993923    wtkg <= 93.9
+cd40     right  417.00000        287 0.8208834     cd40 >= 417
+preanti     right  715.00000        286 0.7627000  preanti >= 715
+cd80     right  990.00000        458 0.7453140     cd80 >= 990
+wtkg      left   94.00000       1009 0.5992235      wtkg <= 94
+cd40     right  415.00000        293 0.8208746     cd40 >= 415
+preanti     right  707.00000        287 0.7608920  preanti >= 707
+cd80     right  988.00000        459 0.7449598     cd80 >= 988
+wtkg      left   94.30000       1010 0.5990191    wtkg <= 94.3
+cd40     right  413.00000        297 0.8186847     cd40 >= 413
+preanti     right  698.00000        288 0.7599439  preanti >= 698
+cd80     right  986.00000        461 0.7449565     cd80 >= 986
+wtkg      left   94.57560       1011 0.5989484    wtkg <= 94.6
+cd40     right  412.00000        298 0.8169737     cd40 >= 412
+preanti     right  694.00000        289 0.7566958  preanti >= 694
+cd80     right  982.00000        462 0.7442808     cd80 >= 982
+wtkg      left   94.80240       1013 0.5985728    wtkg <= 94.8
+cd40     right  411.00000        301 0.8126744     cd40 >= 411
+preanti     right  693.00000        290 0.7515412  preanti >= 693
+cd80     right  979.00000        466 0.7436477     cd80 >= 979
+wtkg      left   96.10000       1022 0.5981172    wtkg <= 96.1
+cd40     right  410.00000        310 0.8050481     cd40 >= 410
+preanti     right  691.00000        291 0.7512418  preanti >= 691
+cd80     right  978.00000        467 0.7425519     cd80 >= 978
+wtkg      left   99.79200       1039 0.5979780    wtkg <= 99.8
+cd40     right  408.00000        311 0.8047994     cd40 >= 408
+preanti     right  690.00000        292 0.7503601  preanti >= 690
+cd80     right  977.00000        469 0.7409910     cd80 >= 977
+wtkg      left  100.24560       1041 0.5967184     wtkg <= 100
+cd40     right  406.00000        314 0.7987881     cd40 >= 406
+preanti     right  677.00000        298 0.7478774  preanti >= 677
+cd80     right  972.00000        471 0.7399086     cd80 >= 972
+wtkg      left  100.69920       1044 0.5962778     wtkg <= 101
+cd40     right  403.00000        318 0.7986494     cd40 >= 403
+preanti     right  676.00000        301 0.7475701  preanti >= 676
+cd80     right  971.00000        472 0.7391737     cd80 >= 971
+wtkg      left  102.06000       1047 0.5955310     wtkg <= 102
+cd40     right  402.00000        319 0.7984440     cd40 >= 402
+preanti     right  672.00000        304 0.7469816  preanti >= 672
+cd80     right  970.00000        473 0.7376834     cd80 >= 970
+wtkg      left  102.70000       1050 0.5952672     wtkg <= 103
+cd40     right  400.00000        328 0.7964268     cd40 >= 400
+preanti     right  668.00000        305 0.7432728  preanti >= 668
+cd80     right  964.00000        478 0.7368690     cd80 >= 964
+wtkg      left  103.60000       1055 0.5927390     wtkg <= 104
+cd40     right  396.00000        329 0.7953232     cd40 >= 396
+preanti     right  665.00000        307 0.7424800  preanti >= 665
+cd80     right  959.00000        481 0.7328520     cd80 >= 959
+wtkg      left  107.10000       1062 0.5922133     wtkg <= 107
+cd40     right  393.00000        338 0.7934329     cd40 >= 393
+preanti     right  662.00000        308 0.7404696  preanti >= 662
+cd80     right  958.00000        483 0.7323595     cd80 >= 958
+wtkg      left  109.31760       1066 0.5921815     wtkg <= 109
+cd40     right  392.00000        343 0.7930058     cd40 >= 392
+preanti     right  661.00000        309 0.7378759  preanti >= 661
+cd80     right  955.00000        487 0.7288970     cd80 >= 955
+wtkg      left  109.50000       1067 0.5912167     wtkg <= 110
+cd40     right  391.00000        345 0.7928744     cd40 >= 391
+preanti     right  658.00000        310 0.7344916  preanti >= 658
+cd80     right  950.00000        492 0.7284879     cd80 >= 950
+wtkg      left  111.00000       1070 0.5910271     wtkg <= 111
+cd40     right  389.00000        356 0.7873938     cd40 >= 389
+preanti     right  653.00000        311 0.7319815  preanti >= 653
+cd80     right  935.00000        501 0.7267831     cd80 >= 935
+wtkg     right   44.18064       1075 0.5893196    wtkg >= 44.2
+cd40     right  388.00000        358 0.7862117     cd40 >= 388
+preanti     right  650.00000        312 0.7290289  preanti >= 650
+cd80     right  932.00000        502 0.7265061     cd80 >= 932
+wtkg      left  120.65760       1078 0.5889221     wtkg <= 121
+cd40     right  387.00000        361 0.7858025     cd40 >= 387
+preanti     right  646.00000        313 0.7289049  preanti >= 646
+cd80     right  931.00000        503 0.7259480     cd80 >= 931
+wtkg      left  123.37920       1079 0.5878404     wtkg <= 123
+cd40     right  386.00000        366 0.7782082     cd40 >= 386
+preanti     right  641.00000        314 0.7275758  preanti >= 641
+cd80     right  926.00000        510 0.7234754     cd80 >= 926
+wtkg      left  159.93936       1083 0.5877502     wtkg <= 160
+cd40     right  385.00000        370 0.7777531     cd40 >= 385
+preanti     right  630.00000        320 0.7268570  preanti >= 630
+cd80     right  925.00000        511 0.7233652     cd80 >= 925
+wtkg     right   31.00000       1083 0.5877502      wtkg >= 31
+cd40     right  384.00000        376 0.7744751     cd40 >= 384
+preanti     right  626.00000        325 0.7257164  preanti >= 626
+cd80     right  924.00000        512 0.7230160     cd80 >= 924
+cd40     right  383.00000        379 0.7725862     cd40 >= 383
+preanti     right  621.00000        326 0.7252055  preanti >= 621
+cd80     right  923.00000        513 0.7229966     cd80 >= 923
+cd40     right  382.00000        380 0.7722665     cd40 >= 382
+preanti     right  531.00000        360 0.7237146  preanti >= 531
+cd80     right  922.00000        514 0.7219937     cd80 >= 922
+cd40     right  381.00000        381 0.7718743     cd40 >= 381
+preanti     right  517.00000        363 0.7222285  preanti >= 517
+cd80     right  920.00000        516 0.7215439     cd80 >= 920
+cd40     right  380.00000        394 0.7638811     cd40 >= 380
+cd80     right  919.00000        519 0.7212591     cd80 >= 919
+preanti     right  514.00000        364 0.7211259  preanti >= 514
+cd40     right  375.00000        411 0.7611489     cd40 >= 375
+cd80     right  916.00000        522 0.7210203     cd80 >= 916
+preanti     right  512.00000        365 0.7209467  preanti >= 512
+cd40     right  374.00000        415 0.7594699     cd40 >= 374
+cd80     right  915.00000        523 0.7202261     cd80 >= 915
+preanti     right  510.00000        366 0.7194696  preanti >= 510
+cd40     right  372.00000        420 0.7580866     cd40 >= 372
+cd80     right  913.00000        524 0.7197591     cd80 >= 913
+preanti     right  501.00000        367 0.7191981  preanti >= 501
+cd40     right  371.00000        423 0.7564524     cd40 >= 371
+cd80     right  912.00000        525 0.7194802     cd80 >= 912
+preanti     right  492.00000        370 0.7185684  preanti >= 492
+cd40     right  370.00000        430 0.7520139     cd40 >= 370
+cd80     right  911.00000        526 0.7186581     cd80 >= 911
+preanti     right  490.00000        372 0.7156126  preanti >= 490
+cd40     right  369.00000        433 0.7506257     cd40 >= 369
+cd80     right  910.00000        530 0.7180280     cd80 >= 910
+preanti     right  488.00000        373 0.7145257  preanti >= 488
+cd40     right  368.00000        437 0.7498618     cd40 >= 368
+cd80     right  899.00000        538 0.7172605     cd80 >= 899
+preanti     right  482.00000        374 0.7131772  preanti >= 482
+cd40     right  367.00000        440 0.7445866     cd40 >= 367
+cd80     right  897.00000        539 0.7156590     cd80 >= 897
+preanti     right  481.00000        375 0.7126187  preanti >= 481
+cd40     right  366.00000        443 0.7435186     cd40 >= 366
+cd80     right  894.00000        545 0.7141887     cd80 >= 894
+preanti     right  455.00000        385 0.7124012  preanti >= 455
+cd40     right  365.00000        447 0.7423446     cd40 >= 365
+cd80     right  892.00000        549 0.7141570     cd80 >= 892
+preanti     right  415.00000        400 0.7110411  preanti >= 415
+cd40     right  362.00000        454 0.7403556     cd40 >= 362
+cd80     right  890.00000        551 0.7135755     cd80 >= 890
+preanti     right  413.00000        401 0.7102212  preanti >= 413
+cd40     right  360.00000        460 0.7399446     cd40 >= 360
+cd80     right  875.00000        562 0.7130351     cd80 >= 875
+preanti     right  411.00000        402 0.7095139  preanti >= 411
+cd40     right  359.00000        465 0.7383951     cd40 >= 359
+cd80     right  873.00000        565 0.7127090     cd80 >= 873
+preanti     right  406.00000        406 0.7076398  preanti >= 406
+cd40     right  357.00000        470 0.7356286     cd40 >= 357
+cd80     right  869.00000        572 0.7114066     cd80 >= 869
+preanti     right  402.00000        408 0.7070960  preanti >= 402
+cd40     right  354.00000        477 0.7339818     cd40 >= 354
+cd80     right  868.00000        576 0.7102678     cd80 >= 868
+preanti     right  389.00000        412 0.7058863  preanti >= 389
+cd40     right  353.00000        484 0.7302910     cd40 >= 353
+cd80     right  866.00000        578 0.7099006     cd80 >= 866
+preanti     right  387.00000        414 0.7026940  preanti >= 387
+cd40     right  352.00000        487 0.7291447     cd40 >= 352
+cd80     right  864.00000        581 0.7087932     cd80 >= 864
+preanti     right  384.00000        416 0.7009113  preanti >= 384
+cd40     right  350.00000        495 0.7251241     cd40 >= 350
+cd80     right  861.00000        584 0.7076629     cd80 >= 861
+preanti     right  380.00000        419 0.6992754  preanti >= 380
+cd40     right  347.00000        507 0.7220509     cd40 >= 347
+cd80     right  849.00000        600 0.7074875     cd80 >= 849
+preanti     right  374.00000        420 0.6982258  preanti >= 374
+cd40     right  345.00000        513 0.7194767     cd40 >= 345
+cd80     right  843.00000        610 0.7060744     cd80 >= 843
+preanti     right  372.00000        421 0.6971581  preanti >= 372
+cd40     right  344.00000        515 0.7176499     cd40 >= 344
+cd80     right  842.00000        611 0.7055993     cd80 >= 842
+preanti     right  364.00000        429 0.6948003  preanti >= 364
+cd40     right  343.00000        519 0.7155344     cd40 >= 343
+cd80     right  838.00000        617 0.7052587     cd80 >= 838
+preanti     right  361.00000        430 0.6941752  preanti >= 361
+cd40     right  342.00000        524 0.7137750     cd40 >= 342
+cd80     right  831.00000        622 0.7051305     cd80 >= 831
+preanti     right  359.00000        431 0.6940411  preanti >= 359
+cd40     right  341.00000        527 0.7100700     cd40 >= 341
+cd80     right  830.00000        625 0.7039004     cd80 >= 830
+preanti     right  335.00000        442 0.6926231  preanti >= 335
+cd40     right  340.00000        536 0.7075387     cd40 >= 340
+cd80     right  829.00000        626 0.7037906     cd80 >= 829
+preanti     right  333.00000        443 0.6919849  preanti >= 333
+cd40     right  339.00000        541 0.7053311     cd40 >= 339
+cd80     right  828.00000        628 0.7025505     cd80 >= 828
+preanti     right  330.00000        444 0.6914243  preanti >= 330
+cd40     right  338.00000        544 0.7028493     cd40 >= 338
+cd80     right  821.00000        631 0.7024833     cd80 >= 821
+preanti     right  329.00000        445 0.6900960  preanti >= 329
+cd80     right  820.00000        632 0.7021959     cd80 >= 820
+cd40     right  337.00000        546 0.7019505     cd40 >= 337
+preanti     right  327.00000        447 0.6892665  preanti >= 327
+cd80     right  819.00000        633 0.7017713     cd80 >= 819
+cd40     right  336.00000        550 0.7002123     cd40 >= 336
+preanti     right  322.00000        450 0.6883148  preanti >= 322
+cd80     right  812.00000        636 0.7017464     cd80 >= 812
+cd40     right  335.00000        552 0.7000829     cd40 >= 335
+preanti     right  316.00000        451 0.6878669  preanti >= 316
+cd80     right  805.00000        639 0.7005235     cd80 >= 805
+cd40     right  329.00000        560 0.6989951     cd40 >= 329
+preanti     right  291.00000        459 0.6865469  preanti >= 291
+cd80     right  804.00000        642 0.7002243     cd80 >= 804
+cd40     right  328.00000        564 0.6965096     cd40 >= 328
+preanti     right  290.00000        460 0.6865465  preanti >= 290
+cd80     right  795.00000        651 0.6996723     cd80 >= 795
+cd40     right  327.00000        567 0.6951830     cd40 >= 327
+preanti     right  289.00000        461 0.6841817  preanti >= 289
+cd80     right  770.00000        671 0.6992497     cd80 >= 770
+cd40     right  326.00000        570 0.6934113     cd40 >= 326
+preanti     right  287.00000        462 0.6838059  preanti >= 287
+cd80     right  769.00000        672 0.6988746     cd80 >= 769
+cd40     right  325.00000        572 0.6920739     cd40 >= 325
+preanti     right  286.00000        463 0.6831665  preanti >= 286
+cd80     right  768.00000        674 0.6983877     cd80 >= 768
+cd40     right  324.00000        580 0.6892057     cd40 >= 324
+preanti     right  272.00000        472 0.6824699  preanti >= 272
+cd80     right  766.00000        676 0.6979678     cd80 >= 766
+cd40     right  323.00000        583 0.6885443     cd40 >= 323
+preanti     right  264.00000        473 0.6820144  preanti >= 264
+cd80     right  763.00000        677 0.6976320     cd80 >= 763
+cd40     right  322.00000        586 0.6869226     cd40 >= 322
+preanti     right  249.00000        474 0.6815384  preanti >= 249
+cd80     right  762.00000        678 0.6974079     cd80 >= 762
+cd40     right  321.00000        591 0.6864623     cd40 >= 321
+preanti     right  245.00000        477 0.6781442  preanti >= 245
+cd80     right  761.00000        679 0.6966591     cd80 >= 761
+cd40     right  319.00000        605 0.6838705     cd40 >= 319
+preanti     right  243.00000        479 0.6755692  preanti >= 243
+cd80     right  759.00000        681 0.6962148     cd80 >= 759
+cd40     right  318.00000        606 0.6812881     cd40 >= 318
+preanti     right  206.00000        498 0.6745105  preanti >= 206
+cd80     right  756.00000        685 0.6954994     cd80 >= 756
+cd40     right  317.00000        611 0.6798023     cd40 >= 317
+preanti     right  205.00000        499 0.6722729  preanti >= 205
+cd80     right  755.00000        686 0.6947354     cd80 >= 755
+cd40     right  315.00000        618 0.6795357     cd40 >= 315
+preanti     right  204.00000        500 0.6721394  preanti >= 204
+cd80     right  752.00000        687 0.6947156     cd80 >= 752
+cd40     right  314.00000        621 0.6789058     cd40 >= 314
+preanti     right  200.00000        503 0.6716331  preanti >= 200
+cd80     right  742.00000        698 0.6943462     cd80 >= 742
+cd40     right  313.00000        624 0.6775343     cd40 >= 313
+preanti     right  199.00000        505 0.6715242  preanti >= 199
+cd80     right  741.00000        700 0.6927912     cd80 >= 741
+cd40     right  311.00000        627 0.6768084     cd40 >= 311
+preanti     right  195.00000        506 0.6701765  preanti >= 195
+cd80     right  740.00000        704 0.6900265     cd80 >= 740
+cd40     right  310.00000        637 0.6742295     cd40 >= 310
+preanti     right  188.00000        508 0.6689641  preanti >= 188
+cd80     right  739.00000        707 0.6885863     cd80 >= 739
+cd40     right  309.00000        640 0.6725797     cd40 >= 309
+preanti     right  183.00000        509 0.6688753  preanti >= 183
+cd80     right  737.00000        709 0.6874667     cd80 >= 737
+cd40     right  308.00000        644 0.6707721     cd40 >= 308
+preanti     right  181.00000        512 0.6657410  preanti >= 181
+cd80     right  735.00000        711 0.6861677     cd80 >= 735
+cd40     right  307.00000        647 0.6692725     cd40 >= 307
+preanti     right  175.00000        515 0.6653195  preanti >= 175
+cd80     right  731.00000        714 0.6846513     cd80 >= 731
+cd40     right  306.00000        652 0.6664263     cd40 >= 306
+preanti     right  168.00000        518 0.6640765  preanti >= 168
+cd80     right  730.00000        715 0.6845884     cd80 >= 730
+cd40     right  305.00000        656 0.6664091     cd40 >= 305
+preanti     right  167.00000        520 0.6629331  preanti >= 167
+cd80     right  729.00000        716 0.6845294     cd80 >= 729
+cd40     right  303.00000        661 0.6648516     cd40 >= 303
+preanti     right  162.00000        521 0.6609415  preanti >= 162
+cd80     right  728.00000        717 0.6834398     cd80 >= 728
+cd40     right  302.00000        662 0.6645869     cd40 >= 302
+preanti     right  161.00000        523 0.6599765  preanti >= 161
+cd80     right  725.00000        719 0.6825773     cd80 >= 725
+cd40     right  301.00000        663 0.6642779     cd40 >= 301
+preanti     right  156.00000        524 0.6584522  preanti >= 156
+cd80     right  717.00000        725 0.6807580     cd80 >= 717
+cd40     right  300.00000        677 0.6610130     cd40 >= 300
+preanti     right  155.00000        526 0.6582737  preanti >= 155
+cd80     right  713.00000        728 0.6801090     cd80 >= 713
+cd40     right  298.00000        680 0.6609994     cd40 >= 298
+preanti     right  154.00000        527 0.6581955  preanti >= 154
+cd80     right  712.00000        729 0.6799613     cd80 >= 712
+cd40     right  297.00000        685 0.6591479     cd40 >= 297
+preanti     right  149.00000        531 0.6580922  preanti >= 149
+cd80     right  710.00000        732 0.6797734     cd80 >= 710
+cd40     right  294.00000        695 0.6582060     cd40 >= 294
+preanti     right  145.00000        533 0.6574727  preanti >= 145
+cd80     right  709.00000        733 0.6796178     cd80 >= 709
+preanti     right  141.00000        536 0.6570605  preanti >= 141
+cd40     right  293.00000        703 0.6560631     cd40 >= 293
+cd80     right  708.00000        734 0.6783009     cd80 >= 708
+preanti     right  139.00000        538 0.6565893  preanti >= 139
+cd40     right  292.00000        705 0.6559862     cd40 >= 292
+cd80     right  707.00000        738 0.6773419     cd80 >= 707
+preanti     right  138.00000        540 0.6565446  preanti >= 138
+cd40     right  291.00000        706 0.6550085     cd40 >= 291
+cd80     right  706.00000        740 0.6773417     cd80 >= 706
+preanti     right  137.00000        541 0.6562316  preanti >= 137
+cd40     right  290.00000        715 0.6506533     cd40 >= 290
+cd80     right  703.00000        743 0.6770687     cd80 >= 703
+preanti     right  134.00000        544 0.6557365  preanti >= 134
+cd40     right  289.00000        716 0.6505529     cd40 >= 289
+cd80     right  702.00000        745 0.6759060     cd80 >= 702
+preanti     right  130.00000        546 0.6550127  preanti >= 130
+cd40     right  283.00000        733 0.6502404     cd40 >= 283
+cd80     right  700.00000        749 0.6743614     cd80 >= 700
+preanti     right  129.00000        547 0.6546908  preanti >= 129
+cd40     right  278.00000        749 0.6500986     cd40 >= 278
+cd80     right  699.00000        752 0.6742866     cd80 >= 699
+preanti     right  122.00000        548 0.6530337  preanti >= 122
+cd40     right  277.00000        753 0.6500597     cd40 >= 277
+cd80     right  698.00000        753 0.6737660     cd80 >= 698
+preanti     right  118.00000        550 0.6529190  preanti >= 118
+cd40     right  276.00000        758 0.6489943     cd40 >= 276
+cd80     right  697.00000        754 0.6731247     cd80 >= 697
+preanti     right  116.00000        551 0.6522919  preanti >= 116
+cd40     right  275.00000        764 0.6459636     cd40 >= 275
+cd80     right  696.00000        756 0.6715500     cd80 >= 696
+preanti     right  113.00000        553 0.6510174  preanti >= 113
+cd40     right  273.00000        769 0.6454755     cd40 >= 273
+cd80     right  694.00000        757 0.6706450     cd80 >= 694
+preanti     right  112.00000        554 0.6508710  preanti >= 112
+cd40     right  269.00000        785 0.6454237     cd40 >= 269
+cd80     right  693.00000        758 0.6701336     cd80 >= 693
+preanti     right  111.00000        557 0.6507965  preanti >= 111
+cd40     right  267.00000        788 0.6449631     cd40 >= 267
+cd80     right  691.00000        761 0.6693558     cd80 >= 691
+preanti     right  110.00000        558 0.6505356  preanti >= 110
+cd40     right  266.00000        793 0.6425595     cd40 >= 266
+cd80     right  688.00000        769 0.6677022     cd80 >= 688
+preanti     right  109.00000        559 0.6499385  preanti >= 109
+cd40     right  264.00000        798 0.6424628     cd40 >= 264
+cd80     right  686.00000        771 0.6659897     cd80 >= 686
+preanti     right  103.00000        567 0.6497246  preanti >= 103
+cd40     right  259.00000        818 0.6420061     cd40 >= 259
+cd80     right  684.00000        773 0.6659311     cd80 >= 684
+preanti     right  101.00000        568 0.6479870  preanti >= 101
+cd40     right  258.00000        821 0.6412311     cd40 >= 258
+cd80     right  682.00000        776 0.6649275     cd80 >= 682
+preanti     right   99.00000        569 0.6475915   preanti >= 99
+cd40     right  257.00000        829 0.6397531     cd40 >= 257
+cd80     right  681.00000        778 0.6634492     cd80 >= 681
+preanti     right   97.00000        570 0.6461525   preanti >= 97
+cd40     right  256.00000        830 0.6394750     cd40 >= 256
+cd80     right  680.00000        782 0.6632301     cd80 >= 680
+preanti     right   90.00000        573 0.6460929   preanti >= 90
+cd40     right  255.00000        834 0.6391292     cd40 >= 255
+cd80     right  675.00000        787 0.6614399     cd80 >= 675
+preanti     right   88.00000        574 0.6455110   preanti >= 88
+cd40     right  253.00000        836 0.6390430     cd40 >= 253
+cd80     right  670.00000        790 0.6613183     cd80 >= 670
+preanti     right   85.00000        577 0.6445255   preanti >= 85
+cd40     right  252.00000        842 0.6374652     cd40 >= 252
+cd80     right  666.00000        793 0.6607727     cd80 >= 666
+preanti     right   76.00000        582 0.6442966   preanti >= 76
+cd40     right  251.00000        848 0.6368746     cd40 >= 251
+cd80     right  664.00000        794 0.6607186     cd80 >= 664
+preanti     right   73.00000        584 0.6429035   preanti >= 73
+cd40     right  248.00000        860 0.6365300     cd40 >= 248
+cd80     right  661.00000        797 0.6598222     cd80 >= 661
+preanti     right   61.00000        588 0.6419944   preanti >= 61
+cd40     right  247.00000        863 0.6354107     cd40 >= 247
+cd80     right  660.00000        798 0.6595964     cd80 >= 660
+preanti     right   57.00000        589 0.6418744   preanti >= 57
+cd40     right  246.00000        866 0.6343123     cd40 >= 246
+cd80     right  658.00000        800 0.6588902     cd80 >= 658
+preanti     right   55.00000        592 0.6416770   preanti >= 55
+cd40     right  244.00000        870 0.6330773     cd40 >= 244
+cd80     right  657.00000        801 0.6587423     cd80 >= 657
+preanti     right   53.00000        595 0.6402171   preanti >= 53
+cd40     right  242.00000        875 0.6330347     cd40 >= 242
+cd80     right  656.00000        802 0.6583399     cd80 >= 656
+preanti     right   44.00000        600 0.6398738   preanti >= 44
+cd40     right  241.00000        876 0.6329949     cd40 >= 241
+cd80     right  655.00000        805 0.6580263     cd80 >= 655
+preanti     right   42.00000        602 0.6392007   preanti >= 42
+cd40     right  240.00000        877 0.6325128     cd40 >= 240
+cd80     right  654.00000        808 0.6579216     cd80 >= 654
+preanti     right   34.00000        610 0.6390138   preanti >= 34
+cd40     right  237.00000        887 0.6324430     cd40 >= 237
+cd80     right  652.00000        810 0.6575481     cd80 >= 652
+preanti     right   33.00000        612 0.6386415   preanti >= 33
+cd40     right  236.00000        891 0.6322340     cd40 >= 236
+cd80     right  649.00000        812 0.6557704     cd80 >= 649
+preanti     right   26.00000        621 0.6384858   preanti >= 26
+cd40     right  234.00000        899 0.6319348     cd40 >= 234
+cd80     right  641.00000        818 0.6551607     cd80 >= 641
+preanti     right   23.00000        624 0.6381829   preanti >= 23
+cd40     right  232.00000        907 0.6313747     cd40 >= 232
+cd80     right  640.00000        821 0.6540263     cd80 >= 640
+preanti     right   21.00000        626 0.6379410   preanti >= 21
+cd40     right  231.00000        913 0.6280318     cd40 >= 231
+cd80     right  636.00000        823 0.6529244     cd80 >= 636
+preanti     right    7.00000        635 0.6377035    preanti >= 7
+cd40     right  228.00000        931 0.6249251     cd40 >= 228
+cd80     right  635.00000        824 0.6522866     cd80 >= 635
+preanti     right    4.00000        639 0.6349599    preanti >= 4
+cd40     right  227.00000        933 0.6248868     cd40 >= 227
+cd80     right  633.00000        826 0.6513017     cd80 >= 633
+cd40     right  226.00000        935 0.6243637     cd40 >= 226
+preanti      left 2851.00000       1083 0.5877502 preanti <= 2850
+cd80     right  627.00000        829 0.6498139     cd80 >= 627
+cd40     right  224.00000        942 0.6237077     cd40 >= 224
+preanti     right    0.00000       1083 0.5877502    preanti >= 0
+cd80     right  626.00000        830 0.6495416     cd80 >= 626
+cd40     right  222.00000        943 0.6236821     cd40 >= 222
+cd80     right  624.00000        833 0.6485144     cd80 >= 624
+cd40     right  221.00000        946 0.6213316     cd40 >= 221
+cd80     right  623.00000        834 0.6483589     cd80 >= 623
+cd40     right  214.00000        961 0.6184615     cd40 >= 214
+cd80     right  622.00000        836 0.6483555     cd80 >= 622
+cd40     right  211.00000        968 0.6181209     cd40 >= 211
+cd80     right  621.00000        837 0.6479980     cd80 >= 621
+cd40     right  210.00000        973 0.6170534     cd40 >= 210
+cd80     right  620.00000        840 0.6467605     cd80 >= 620
+cd40     right  208.00000        980 0.6155099     cd40 >= 208
+cd80     right  618.00000        841 0.6467540     cd80 >= 618
+cd40     right  207.00000        983 0.6143824     cd40 >= 207
+cd80     right  617.00000        842 0.6459565     cd80 >= 617
+cd40     right  205.00000        984 0.6137861     cd40 >= 205
+cd80     right  613.00000        844 0.6451570     cd80 >= 613
+cd40     right  204.00000        985 0.6132862     cd40 >= 204
+cd80     right  606.00000        854 0.6438199     cd80 >= 606
+cd40     right  203.00000        986 0.6127877     cd40 >= 203
+cd80     right  602.00000        860 0.6426996     cd80 >= 602
+cd40     right  201.00000        991 0.6117385     cd40 >= 201
+cd80     right  601.00000        863 0.6426215     cd80 >= 601
+cd40     right  200.00000        999 0.6085319     cd40 >= 200
+cd80     right  598.00000        868 0.6411222     cd80 >= 598
+cd40     right  199.00000       1003 0.6078198     cd40 >= 199
+cd80     right  596.00000        869 0.6410341     cd80 >= 596
+cd40     right  198.00000       1008 0.6062412     cd40 >= 198
+cd80     right  590.00000        876 0.6409358     cd80 >= 590
+cd40     right  186.00000       1020 0.6050455     cd40 >= 186
+cd80     right  589.00000        877 0.6403402     cd80 >= 589
+cd40     right  182.00000       1023 0.6043689     cd40 >= 182
+cd80     right  586.00000        879 0.6402146     cd80 >= 586
+cd40     right  180.00000       1025 0.6040521     cd40 >= 180
+cd80     right  584.00000        880 0.6400393     cd80 >= 584
+cd40     right  179.00000       1026 0.6036256     cd40 >= 179
+cd80     right  583.00000        881 0.6399559     cd80 >= 583
+cd40     right  178.00000       1027 0.6033436     cd40 >= 178
+cd80     right  582.00000        882 0.6395876     cd80 >= 582
+cd40     right  177.00000       1028 0.6032700     cd40 >= 177
+cd80     right  577.00000        890 0.6390377     cd80 >= 577
+cd40     right  176.00000       1029 0.6025798     cd40 >= 176
+cd80     right  576.00000        891 0.6390015     cd80 >= 576
+cd40     right  175.00000       1030 0.6025721     cd40 >= 175
+cd80     right  574.00000        893 0.6385086     cd80 >= 574
+cd40     right  174.00000       1033 0.6021814     cd40 >= 174
+cd80     right  572.00000        898 0.6358994     cd80 >= 572
+cd40     right  172.00000       1036 0.6010395     cd40 >= 172
+cd80     right  571.00000        900 0.6350458     cd80 >= 571
+cd40     right  170.00000       1038 0.6006951     cd40 >= 170
+cd80     right  562.00000        908 0.6328152     cd80 >= 562
+cd40     right  168.00000       1042 0.6005601     cd40 >= 168
+cd80     right  561.00000        910 0.6320427     cd80 >= 561
+cd40     right  166.00000       1044 0.5997199     cd40 >= 166
+cd80     right  560.00000        914 0.6306277     cd80 >= 560
+cd40     right  165.00000       1046 0.5991171     cd40 >= 165
+cd80     right  559.00000        915 0.6304753     cd80 >= 559
+cd40     right  163.00000       1048 0.5989125     cd40 >= 163
+cd80     right  552.00000        918 0.6304144     cd80 >= 552
+cd40     right  160.00000       1056 0.5979752     cd40 >= 160
+cd80     right  551.00000        919 0.6295471     cd80 >= 551
+cd40     right  158.00000       1057 0.5974454     cd40 >= 158
+cd80     right  550.00000        924 0.6288486     cd80 >= 550
+cd40     right  153.00000       1058 0.5964603     cd40 >= 153
+cd80     right  549.00000        925 0.6287000     cd80 >= 549
+cd40     right  152.00000       1059 0.5960986     cd40 >= 152
+cd80     right  548.00000        927 0.6284871     cd80 >= 548
+cd40     right  151.00000       1061 0.5956627     cd40 >= 151
+cd80     right  538.00000        936 0.6278223     cd80 >= 538
+cd40     right  150.00000       1062 0.5950928     cd40 >= 150
+cd80     right  534.00000        938 0.6275610     cd80 >= 534
+cd40     right  148.00000       1064 0.5944805     cd40 >= 148
+cd80     right  531.00000        940 0.6259103     cd80 >= 531
+cd40     right  147.00000       1065 0.5942262     cd40 >= 147
+cd80     right  529.00000        942 0.6258246     cd80 >= 529
+cd40     right  146.00000       1066 0.5939653     cd40 >= 146
+cd80     right  524.00000        946 0.6255174     cd80 >= 524
+cd40     right  144.00000       1068 0.5931856     cd40 >= 144
+cd80     right  522.00000        949 0.6252035     cd80 >= 522
+cd40     right  140.00000       1069 0.5931772     cd40 >= 140
+cd80     right  520.00000        952 0.6251043     cd80 >= 520
+cd40     right  131.00000       1071 0.5924912     cd40 >= 131
+cd80     right  519.00000        955 0.6247290     cd80 >= 519
+cd40     right  130.00000       1072 0.5921090     cd40 >= 130
+cd80     right  516.00000        956 0.6245112     cd80 >= 516
+cd40     right  128.00000       1073 0.5912665     cd40 >= 128
+cd80     right  509.00000        963 0.6242681     cd80 >= 509
+cd40     right  127.00000       1074 0.5911885     cd40 >= 127
+cd80     right  507.00000        964 0.6240476     cd80 >= 507
+cd40     right  123.00000       1076 0.5909744     cd40 >= 123
+cd80     right  505.00000        965 0.6234064     cd80 >= 505
+cd40     right  112.00000       1077 0.5906440     cd40 >= 112
+cd80     right  504.00000        966 0.6229101     cd80 >= 504
+cd40     right  110.00000       1078 0.5900317     cd40 >= 110
+cd80     right  503.00000        968 0.6226776     cd80 >= 503
+cd40     right   84.00000       1079 0.5896925      cd40 >= 84
+cd80     right  502.00000        969 0.6223611     cd80 >= 502
+cd40     right   70.00000       1080 0.5890006      cd40 >= 70
+cd80     right  501.00000        971 0.6217643     cd80 >= 501
+cd40      left 1199.00000       1083 0.5877502    cd40 <= 1200
+cd80     right  500.00000        973 0.6208592     cd80 >= 500
+cd40     right    0.00000       1083 0.5877502       cd40 >= 0
+cd80     right  497.00000        976 0.6207491     cd80 >= 497
+cd80     right  496.00000        977 0.6206866     cd80 >= 496
+cd80     right  492.00000        978 0.6198932     cd80 >= 492
+cd80     right  491.00000        979 0.6197542     cd80 >= 491
+cd80     right  490.00000        980 0.6186101     cd80 >= 490
+cd80     right  486.00000        981 0.6182896     cd80 >= 486
+cd80     right  482.00000        983 0.6168907     cd80 >= 482
+cd80     right  481.00000        984 0.6160540     cd80 >= 481
+cd80     right  480.00000        989 0.6139270     cd80 >= 480
+cd80     right  478.00000        990 0.6138130     cd80 >= 478
+cd80     right  470.00000        992 0.6130979     cd80 >= 470
+cd80     right  469.00000        993 0.6128928     cd80 >= 469
+cd80     right  468.00000        994 0.6128320     cd80 >= 468
+cd80     right  462.00000        995 0.6118048     cd80 >= 462
+cd80     right  460.00000        996 0.6117874     cd80 >= 460
+cd80     right  459.00000        997 0.6111614     cd80 >= 459
+cd80     right  458.00000        998 0.6107123     cd80 >= 458
+cd80     right  453.00000        999 0.6106191     cd80 >= 453
+cd80     right  452.00000       1000 0.6105059     cd80 >= 452
+cd80     right  447.00000       1003 0.6090735     cd80 >= 447
+cd80     right  446.00000       1004 0.6089100     cd80 >= 446
+cd80     right  443.00000       1006 0.6086154     cd80 >= 443
+cd80     right  437.00000       1008 0.6074778     cd80 >= 437
+cd80     right  430.00000       1010 0.6068409     cd80 >= 430
+cd80     right  427.00000       1011 0.6066018     cd80 >= 427
+cd80     right  419.00000       1013 0.6057176     cd80 >= 419
+cd80     right  415.00000       1015 0.6050390     cd80 >= 415
+cd80     right  410.00000       1016 0.6045031     cd80 >= 410
+cd80     right  408.00000       1017 0.6036632     cd80 >= 408
+cd80     right  405.00000       1019 0.6032832     cd80 >= 405
+cd80     right  400.00000       1022 0.6022530     cd80 >= 400
+cd80     right  395.00000       1023 0.6016030     cd80 >= 395
+cd80     right  393.00000       1024 0.6016011     cd80 >= 393
+cd80     right  392.00000       1025 0.6010594     cd80 >= 392
+cd80     right  391.00000       1026 0.6006380     cd80 >= 391
+cd80     right  390.00000       1028 0.6006064     cd80 >= 390
+cd80     right  378.00000       1035 0.6003863     cd80 >= 378
+cd80     right  371.00000       1036 0.6003242     cd80 >= 371
+cd80     right  370.00000       1038 0.5997628     cd80 >= 370
+cd80     right  368.00000       1040 0.5994241     cd80 >= 368
+cd80     right  352.00000       1045 0.5991819     cd80 >= 352
+cd80     right  338.00000       1046 0.5982815     cd80 >= 338
+cd80     right  337.00000       1048 0.5980197     cd80 >= 337
+cd80     right  334.00000       1049 0.5977988     cd80 >= 334
+cd80     right  330.00000       1051 0.5965669     cd80 >= 330
+cd80     right  323.00000       1055 0.5955843     cd80 >= 323
+cd80     right  321.00000       1056 0.5952406     cd80 >= 321
+cd80     right  315.00000       1057 0.5946167     cd80 >= 315
+cd80     right  314.00000       1059 0.5937900     cd80 >= 314
+cd80     right  308.00000       1060 0.5934552     cd80 >= 308
+cd80     right  306.00000       1061 0.5933066     cd80 >= 306
+cd80     right  305.00000       1062 0.5922705     cd80 >= 305
+cd80     right  298.00000       1065 0.5909264     cd80 >= 298
+cd80     right  296.00000       1066 0.5907593     cd80 >= 296
+cd80     right  270.00000       1071 0.5904283     cd80 >= 270
+cd80     right  244.00000       1073 0.5900243     cd80 >= 244
+cd80     right  230.00000       1074 0.5894109     cd80 >= 230
+cd80     right  228.00000       1075 0.5890935     cd80 >= 228
+cd80     right  227.00000       1076 0.5890044     cd80 >= 227
+cd80     right  218.00000       1078 0.5887269     cd80 >= 218
+cd80     right  207.00000       1079 0.5881476     cd80 >= 207
+cd80     right  176.00000       1081 0.5878700     cd80 >= 176
+cd80      left 5011.00000       1083 0.5877502    cd80 <= 5010
+cd80     right   40.00000       1083 0.5877502      cd80 >= 40
+<<block>>
+Candidates searched:  10284
+Candidates qualifying (>= floor, >= n.min): 147
+SELECTED: {preanti >= 849.4} & {cd40 >= 338.0}  (n = 98, mean tau-hat = 0.0098)
+<<block>>
+DINA-selected subgroup: {preanti >= 849.40000000000009} & {cd40 >= 338}
+<<block>>
+Multiplier resampling (MR): constructing de-biased estimates from 5000 draws.
+This is post-selection inference on the completed search; it cannot change the identified subgroup.
+<<block>>
+DINA-selected subgroup (H): {preanti >= 849.4} & {cd40 >= 338}
+Subgroup size: 98 (9.0% of ITT)
+<<block>>
+Bootstrap parallel config: Using user-provided settings
+<<block>>
+<<block>>
+Bootstrap will use: 102 workers with 'multisession' plan
+<<block>>
+Parallel plan: multisession with 102 workers.
+<<block>>
+Bootstrap iteration 1/1000
+<<block>>
+Bootstrap iteration 10/1000
+<<block>>
+Bootstrap iteration 50/1000
+<<block>>
+Bootstrap iteration 100/1000
+<<block>>
+Bootstrap iteration 250/1000
+<<block>>
+Bootstrap iteration 500/1000
+<<block>>
+Bootstrap iteration 750/1000
+<<block>>
+Bootstrap iteration 1000/1000
+<<block>>
+<<block>>
+<<block>>
+===============================================================
+BOOTSTRAP ANALYSIS SUMMARY
+===============================================================
+IDENTIFIED SUBGROUP:
+-------------------------------------------------------------
+H: {preanti >= 849.40000000000009} & {cd40 >= 338}
+BOOTSTRAP SUCCESS METRICS:
+-------------------------------------------------------------
+Total iterations:              1000
+Successful subgroup ID:        977 (97.7%)
+Failed to find subgroup:       23 (2.3%)
+TIMING ANALYSIS:
+-------------------------------------------------------------
+Overall:
+<<table>>
+Treatment Effect by Subgroup
+Bootstrap bias-corrected estimates (1000 iterations)
+Subgroup | Sample Size | Event Rates | Diff | Treatment Effect
+N | NT | RateC | RateT | OR(95% CI)†1 | OR‡(95% CI)2
+Qstnbl3 | 98 (9.0%) | 43 (43.9%) | 49.09% | 65.12% | +16.03% | 1.94 (0.85, 4.40) | 0.87 (0.25,2.97)
+Recmnd | 985 (91.0%) | 479 (48.6%) | 43.87% | 31.94% | -11.93% | 0.60 (0.46, 0.78) | 0.63 (0.40,1.02)
+1 Unadjusted OR: GLM estimate with robust standard errors
+2 Bias-corrected OR: Bootstrap-adjusted estimate using infinitesimal jackknife method (1000 iterations). Corrects for optimism in subgroup selection.
+3 Identified subgroup: {preanti >= 849.40000000000009} & {cd40 >= 338}
+Note: RateC = control arm event rate; RateT = treatment arm event rate. Subgroup identified in 97.7% of bootstrap samples.
+<<table>>
+Treatment Effect by Subgroup
+MR de-biased estimate (multiplier resampling, 5000 draws)
+Subgroup | Sample Size | Event Rates | Diff | Treatment Effect
+N | NT | RateC | RateT | OR(95% CI)†1 | OR‡(95% CI)2
+Qstnbl3 | 98 (9.0%) | 43 (43.9%) | 49.09% | 65.12% | +16.03% | 1.94 (0.85, 4.40) | 0.95 (0.29,3.10)
+Recmnd | 985 (91.0%) | 479 (48.6%) | 43.87% | 31.94% | -11.93% | 0.60 (0.46, 0.78) | 0.63 (0.38,1.06)
+1 Unadjusted OR: GLM estimate with robust standard errors
+2 Bias-corrected OR: Bootstrap-adjusted estimate using infinitesimal jackknife method (5000 iterations). Corrects for optimism in subgroup selection.
+3 Identified subgroup: {preanti >= 849.40000000000009} & {cd40 >= 338}
+Note: RateC = control arm event rate; RateT = treatment arm event rate.
+<<block>>
+sg_focus 'effMaxSG' resolves to canonical rule 'hrMaxSG' (aliases: effMaxSG).
+<<block>>
+[forestsearch] Subgroup Identification Configuration
+Outcome type:   binary
+Effect measure: OR (Odds Ratio)
+Scale:          log (ratio)
+Screening:      OR >= 1.25 (log: 0.2231)
+Consistency:    OR >= 1.00 (log: 0.0000)  [not used on this path: subgroup_method = "grf"]
+Consistency rate threshold: 90%  [not used on this path: subgroup_method = "grf"]
+Interpretation:
+Candidates: subgroup OR >= 1.25
+Splits:     each split OR >= 1.00  [not used on this path: subgroup_method = "grf"]
+<<block>>
+==============================================================
+<<block>>
+Search Alignment Diagnostic
+<<block>>
+==============================================================
+<<block>>
+Outcome:    y_binary_neg (binary)
+<<block>>
+Treatment:  treat
+<<block>>
+Measure:    Odds Ratio (OR) -- estimator sees Y as-is (no flip)
+<<block>>
+ForestSearch searches for:
+Subgroups where treat increases P(y_binary_neg=1)
+(OR >= threshold on the ORIGINAL outcome scale)
+<<block>>
+Thresholds:
+Screening: OR >= 1.250 in the candidate subgroup
+Consistency: OR >= 1.000 in each bootstrap split  [not used on this path: subgroup_method = "grf"]
+<<block>>
+Variable screening:
+<<block>>
+LASSO: LASSO screening: DISABLED
+<<block>>
+GRF:   DISABLED
+<<block>>
+No alignment concerns detected.
+<<block>>
+==============================================================
+<<block>>
+[forestsearch] GRF selection (subgroup_method = "grf")
+Outcome type:   binary
+grf_depth:      2
+dmin.grf:       0
+frac.tau:       0.8
+n.min:          60
+SELECTED (depth 2): wtkg > 84.369600000000005 & cd40 > 368.20000000000005
+<<block>>
+GRF-selected subgroup: {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005}
+<<block>>
+Multiplier resampling (MR): constructing de-biased estimates from 5000 draws.
+This is post-selection inference on the completed search; it cannot change the identified subgroup.
+<<block>>
+GRF-selected subgroup (H): {wtkg > 84.37} & {cd40 > 368.2}
+Subgroup size: 95 (8.8% of ITT)
+<<block>>
+Bootstrap parallel config: Using user-provided settings
+<<block>>
+<<block>>
+Bootstrap will use: 102 workers with 'multisession' plan
+<<block>>
+Parallel plan: multisession with 102 workers.
+<<block>>
+Bootstrap iteration 1/1000
+<<block>>
+Bootstrap iteration 10/1000
+<<block>>
+Bootstrap iteration 50/1000
+<<block>>
+Bootstrap iteration 100/1000
+<<block>>
+Bootstrap iteration 250/1000
+<<block>>
+Bootstrap iteration 500/1000
+<<block>>
+Bootstrap iteration 750/1000
+<<block>>
+Bootstrap iteration 1000/1000
+<<block>>
+<<block>>
+<<block>>
+===============================================================
+BOOTSTRAP ANALYSIS SUMMARY
+===============================================================
+IDENTIFIED SUBGROUP:
+-------------------------------------------------------------
+H: {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005}
+BOOTSTRAP SUCCESS METRICS:
+-------------------------------------------------------------
+Total iterations:              1000
+Successful subgroup ID:        1000 (100.0%)
+Failed to find subgroup:       0 (0.0%)
+TIMING ANALYSIS:
+-------------------------------------------------------------
+Overall:
+<<table>>
+Treatment Effect by Subgroup
+Bootstrap bias-corrected estimates (1000 iterations)
+Subgroup | Sample Size | Event Rates | Diff | Treatment Effect
+N | NT | RateC | RateT | OR(95% CI)†1 | OR‡(95% CI)2
+Qstnbl3 | 95 (8.8%) | 47 (49.5%) | 39.58% | 59.57% | +19.99% | 2.25 (0.99, 5.11) | 1.09 (0.40,3.01)
+Recmnd | 988 (91.2%) | 475 (48.1%) | 44.83% | 32.21% | -12.62% | 0.58 (0.45, 0.76) | 0.63 (0.38,1.04)
+1 Unadjusted OR: GLM estimate with robust standard errors
+2 Bias-corrected OR: Bootstrap-adjusted estimate using infinitesimal jackknife method (1000 iterations). Corrects for optimism in subgroup selection.
+3 Identified subgroup: {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005}
+Note: RateC = control arm event rate; RateT = treatment arm event rate. Subgroup identified in 100.0% of bootstrap samples.
+<<table>>
+Treatment Effect by Subgroup
+MR de-biased estimate (multiplier resampling, 5000 draws)
+Subgroup | Sample Size | Event Rates | Diff | Treatment Effect
+N | NT | RateC | RateT | OR(95% CI)†1 | OR‡(95% CI)2
+Qstnbl3 | 95 (8.8%) | 47 (49.5%) | 39.58% | 59.57% | +19.99% | 2.25 (0.99, 5.11) | 1.10 (0.43,2.80)
+Recmnd | 988 (91.2%) | 475 (48.1%) | 44.83% | 32.21% | -12.62% | 0.58 (0.45, 0.76) | 0.62 (0.37,1.04)
+1 Unadjusted OR: GLM estimate with robust standard errors
+2 Bias-corrected OR: Bootstrap-adjusted estimate using infinitesimal jackknife method (5000 iterations). Corrects for optimism in subgroup selection.
+3 Identified subgroup: {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005}
+Note: RateC = control arm event rate; RateT = treatment arm event rate.
+<<block>>
+K-Fold cross-validation skipped (run_cv = FALSE). Set run_cv <- TRUE in the parallel-setup chunk to run it.
+<<block>>
+Leave-one-out (N-fold / OOB) skipped (run_loo = FALSE). Set run_loo <- TRUE in the parallel-setup chunk to run it.
+<<block>>
+refline_lwd, refline_lty, refline_col will be deprecated, use refline_gp instead.
+<<block>>
+title, arrow_lab, footnote will be deprecated, use set_labs() instead.
+<<block>>
+xlim, ticks_at will be deprecated, use set_xaxis() instead.
+<<block>>
+theme will be deprecated, use style of forest() instead.
+<<block>>
+Unknown arguments ignored: `xlog`. They are not used by `fn_ci`, `fn_summary` or `index_args`, see ?forest.
+<<block>>
+============================================================
+<<block>>
+FORESTSEARCH ANALYSIS SUMMARY
+<<block>>
+============================================================
+<<block>>
+Dataset: ACTG175 (N = 1083 )
+<<block>>
+Outcome: binary, no CD4 improvement (adverse scale), OR measure
+<<block>>
+ITT Analysis (adverse scale):
+<<block>>
+OR (95% CI): 0.67 (0.52, 0.85)
+<<block>>
+Identified Subgroup (H):
+Definition: !{cd40 <= 380} & !{wtkg <= 86}
+Size: 72 (6.6%)
+Complement Subgroup (Hc):
+Size: 1011 (93.4%)
+<<block>>
+<<block>>
