@@ -299,4 +299,21 @@ New untracked file (by-product of B): `quarto/applications/actg175/_payloads/ana
 
 ## 7. Closing block
 
-(§6 post-conditions, appended after the commit.)
+§6 post-conditions, run after the record commit `ef058d81` (start HEAD `ee8ee08e`). The first two print nothing, which passes. The third lists the two in-place HTMLs plus C's payload `.rds` (deviation 2). The untracked list is pre-existing dirt plus B's payload directory. This block is committed separately, after the record.
+
+```
+$ git diff --name-only ee8ee08e89a186e2fcc51cbfd4c566928b22f463 HEAD | grep -v -E '^dev/(tasks/cc_task_rerender_compare_2026-10-26\.md|reports/)'
+(exit 1; empty = pass)
+$ git diff --name-only ee8ee08e89a186e2fcc51cbfd4c566928b22f463 HEAD | grep -E '^(R/|tests/|man/|vignettes/|NAMESPACE|DESCRIPTION|NEWS)'
+(exit 1; empty = pass)
+$ git status --porcelain | grep -v '^?? '
+ M quarto/applications/actg175/_payloads/analysis_actg175_continuous_oc_intervals/analysis_actg175_continuous_oc_intervals_effmaxsg_payload.rds
+ M quarto/applications/actg175/analysis_actg175_binary_multimethod_fixed_family.html
+ M quarto/applications/actg175/analysis_actg175_continuous_intervals.html
+$ git status --porcelain | grep '^?? '
+?? quarto/applications/actg175/_payloads/analysis_actg175_binary_multimethod_fixed_family/
+?? quarto/extreme_subgroups/fixed_random/
+$ git log --oneline -2
+ef058d81 dev: rerender-compare record under lean-fit build (V1, V2, C, B)
+b3ad07e0 dev: task — rerender and compare under lean-fit build
+```
