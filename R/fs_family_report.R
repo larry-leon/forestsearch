@@ -11,7 +11,7 @@
 #' Report which stages of the candidate family are data-dependent
 #'
 #' A user who sets \code{use_lasso = FALSE}, \code{use_grf = FALSE},
-#' \code{use_dina = FALSE} and \code{vi.grf.min = NULL} may reasonably believe
+#' \code{use_dina = FALSE} may reasonably believe
 #' the candidate family \code{\link{forestsearch}} searches is now fixed.  It
 #' is not.  Continuous cuts are placed at \emph{sample} quantiles
 #' (\code{get_FSdata()}); the prevalence, redundancy and size floors
@@ -35,9 +35,8 @@
 #' \code{use_twostage} to \code{FALSE} and \code{max_subgroups_search} to
 #' \code{Inf}, and disables the effect floor; \code{stop_threshold} is reset
 #' to \code{NULL} for every focus other than \code{"maxeffCons"} (it is
-#' meaningful only there); \code{max_n_confounders} is applied only inside the
-#' GRF variable-importance block, so it is inert when \code{vi.grf.min} is
-#' \code{NULL}; and the per-arm event floors \code{d0.min} / \code{d1.min} are
+#' meaningful only there); \code{vi.grf.min} and \code{max_n_confounders}
+#' are deprecated and always inert; and the per-arm event floors \code{d0.min} / \code{d1.min} are
 #' skipped for continuous and count outcomes.
 #'
 #' @param x Either a named list of \code{\link{forestsearch}} arguments (as
@@ -70,8 +69,7 @@
 #'   list(confounders.name = c("age", "preanti", "hemo"),
 #'        conf.cont_jcuts = list(age = 10, preanti = 10),
 #'        n.min = 60, maxk = 2, sg_focus = "maxeffCons",
-#'        use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE,
-#'        vi.grf.min = NULL),
+#'        use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE),
 #'   outcome_type = "continuous")
 #' print(rep)
 #' attr(rep, "verdict")
@@ -84,7 +82,7 @@
 #' rep2 <- fs_family_report(
 #'   list(confounders.name = c("age", "preanti", "hemo"),
 #'        conf.cont_jcuts = list(age = 10, preanti = 10), maxk = 2,
-#'        use_lasso = FALSE, use_grf = FALSE, vi.grf.min = NULL),
+#'        use_lasso = FALSE, use_grf = FALSE),
 #'   data = df, outcome_type = "continuous")
 #' attr(rep2, "n_cut_columns"); attr(rep2, "n_combinations")
 #'
@@ -265,21 +263,10 @@ fs_family_report <- function(x, data = NULL, outcome_type = NULL) {
       if (use_dina || use_grf || !identical(subgroup_method, "consistency"))
         "model-identified cuts (GRF section 3A) / DINA candidates are fitted on the sample and enter the pool; use_grf = use_dina = FALSE with subgroup_method = \"consistency\" disables them"
       else "use_grf = use_dina = FALSE, subgroup_method = \"consistency\"")
-  vi_on <- !is.null(vi.grf.min)
-  add("GRF variable-importance ordering", "vi.grf.min", sprintf("vi.grf.min = %s", fmt(vi.grf.min)),
-      if (vi_on) DD else DIS,
-      if (!vi_on) "vi.grf.min = NULL skips Section 5 entirely (forestsearch_main.R L2752)"
-      else if (is.numeric(vi.grf.min) && vi.grf.min <= 0)
-        "a causal forest is fitted per call and ORDERS the cut columns by importance; at values <= 0 nothing is filtered (variable_importance() is non-negative, block guarded by vi_max > 0), but the order reaches rmin (column-walk) and the clause order of the winner; vi.grf.min = NULL disables it"
-      else "a causal forest is fitted per call; columns with vi_ratio <= vi.grf.min are dropped and the rest reordered; vi.grf.min = NULL disables it")
-  cap_status <- if (!vi_on) INE
-                else if (!is.na(n_cut_columns) && is.finite(max_n_confounders) && max_n_confounders >= n_cut_columns) INE
-                else DD
-  add("confounder cap", "max_n_confounders", sprintf("max_n_confounders = %s", fmt(max_n_confounders)),
-      cap_status,
-      if (!vi_on) "applied only inside the variable-importance block (forestsearch_main.R L2820, under vi_max > 0, under !is.null(vi.grf.min)); inert while vi.grf.min = NULL"
-      else if (cap_status == INE) sprintf("cap %s >= %d cut columns on this data: never binds", fmt(max_n_confounders), n_cut_columns)
-      else "truncates the importance-ORDERED column list, so which columns survive depends on the fitted forest")
+  add("GRF variable-importance screening (deprecated)", c("vi.grf.min", "max_n_confounders"),
+      sprintf("vi.grf.min = %s; max_n_confounders = %s", fmt(vi.grf.min), fmt(max_n_confounders)),
+      INE,
+      "deprecated and ignored since 0.4.0.9000: no forest is fitted in the forest-search path unless use_lasso, use_grf or use_dina is TRUE")
   add("dummy expansion", character(0), "each 2-level factor -> two indicator columns (both directions)", DET,
       "deterministic given the cut columns")
   add("combination enumeration", "maxk", sprintf("maxk = %s%s", fmt(maxk),

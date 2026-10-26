@@ -1,5 +1,26 @@
 # forestsearch (development version)
 
+### Deprecated
+
+* `vi.grf.min` and `max_n_confounders` in `forestsearch()` are deprecated.
+  Both formals are kept (same positions, same defaults), so no existing call
+  breaks, but a non-default value now emits one deprecation warning and has
+  no effect. The GRF variable-importance screening/ordering of the candidate
+  cut columns is removed. The candidate family is now the cut grid alone,
+  and no model is fitted in the forest-search path unless `use_lasso`,
+  `use_grf` or `use_dina` is `TRUE`.
+* What changes for callers who passed a non-NULL `vi.grf.min`: at values
+  `<= 0` the screen never filtered anything, so the selected subgroup's
+  membership is unchanged. The clause order of the `sg.harm` label (and the
+  redundancy column-walk) can still differ. A binding value `> 0` no longer
+  screens.
+* `run_simulation_analysis()`'s default argument list, the test helper
+  `.fs_args_for()` and the `forestsearch` vignette no longer pass either
+  argument. `fs_family_report()` reports both on a single
+  `"GRF variable-importance screening (deprecated)"` row with status
+  `inert`, echoing the values that were passed.
+* Both formals will be removed in a later release.
+
 # forestsearch 0.4.0
 
 ## Changes since the last CRAN release (0.1.0)

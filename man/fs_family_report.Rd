@@ -42,7 +42,7 @@ named integer vector), \code{data_supplied} (logical), and -- when
 }
 \description{
 A user who sets \code{use_lasso = FALSE}, \code{use_grf = FALSE},
-\code{use_dina = FALSE} and \code{vi.grf.min = NULL} may reasonably believe
+\code{use_dina = FALSE} may reasonably believe
 the candidate family \code{\link{forestsearch}} searches is now fixed.  It
 is not.  Continuous cuts are placed at \emph{sample} quantiles
 (\code{get_FSdata()}); the prevalence, redundancy and size floors
@@ -67,9 +67,8 @@ normalised; \code{sg_focus = "maxeff"} zeroes \code{minp}, \code{rmin} and
 \code{use_twostage} to \code{FALSE} and \code{max_subgroups_search} to
 \code{Inf}, and disables the effect floor; \code{stop_threshold} is reset
 to \code{NULL} for every focus other than \code{"maxeffCons"} (it is
-meaningful only there); \code{max_n_confounders} is applied only inside the
-GRF variable-importance block, so it is inert when \code{vi.grf.min} is
-\code{NULL}; and the per-arm event floors \code{d0.min} / \code{d1.min} are
+meaningful only there); \code{vi.grf.min} and \code{max_n_confounders}
+are deprecated and always inert; and the per-arm event floors \code{d0.min} / \code{d1.min} are
 skipped for continuous and count outcomes.
 }
 \examples{
@@ -77,8 +76,7 @@ rep <- fs_family_report(
   list(confounders.name = c("age", "preanti", "hemo"),
        conf.cont_jcuts = list(age = 10, preanti = 10),
        n.min = 60, maxk = 2, sg_focus = "maxeffCons",
-       use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE,
-       vi.grf.min = NULL),
+       use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE),
   outcome_type = "continuous")
 print(rep)
 attr(rep, "verdict")
@@ -91,7 +89,7 @@ df <- data.frame(age = round(rnorm(200, 40, 8)),
 rep2 <- fs_family_report(
   list(confounders.name = c("age", "preanti", "hemo"),
        conf.cont_jcuts = list(age = 10, preanti = 10), maxk = 2,
-       use_lasso = FALSE, use_grf = FALSE, vi.grf.min = NULL),
+       use_lasso = FALSE, use_grf = FALSE),
   data = df, outcome_type = "continuous")
 attr(rep2, "n_cut_columns"); attr(rep2, "n_combinations")
 

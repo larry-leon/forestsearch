@@ -595,7 +595,7 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
       "use_lasso = FALSE); ",
       "(3) candidate covariates are numeric or factor and have ",
       "sufficient variability; ",
-      "(4) GRF-related thresholds (dmin.grf, frac.tau, vi.grf.min) ",
+      "(4) GRF-related thresholds (dmin.grf, frac.tau) ",
       "are appropriate for the outcome type and sample size ",
       "(frac.tau is survival-specific and may be ignored for GLM)."),
       paste(sources, collapse = ", ")

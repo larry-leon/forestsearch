@@ -80,7 +80,7 @@ test_that("shape and contract: statuses, real formals, prints, with and without 
   expect_error(fs_family_report(list(not_a_formal = 1), outcome_type = "continuous"), "not forestsearch\\(\\) formals")
 })
 
-test_that("resolution agreement (drift guard): stop_threshold and the max_n_confounders cap match the engine", {
+test_that("resolution agreement (drift guard): stop_threshold matches the engine; the deprecated VI row is inert", {
   df <- .make_continuous_data(N = 300L, MD_harm = 1.5, seed = 42L)
   # sg_focus = "eff" (alias of "hr"), stop_threshold left at its default:
   # forestsearch() resets it to NULL and re-syncs args_call_all
@@ -101,10 +101,8 @@ test_that("resolution agreement (drift guard): stop_threshold and the max_n_conf
   # the report's resolved value equals the engine's recorded one
   rep_resolved <- if (grepl("stop_threshold = NULL", es$values)) NULL else NA
   expect_identical(rep_resolved, fit$args_call_all$stop_threshold)
-  # max_n_confounders inert under vi.grf.min = NULL, on the fitted object and on its args
   expect_null(fit$args_call_all$vi.grf.min)
-  expect_identical(r[r$stage == "confounder cap", "status"], "inert")
-  expect_identical(r[r$stage == "GRF variable-importance ordering", "status"], "disabled")
+  expect_identical(r[r$stage == "GRF variable-importance screening (deprecated)", "status"], "inert")
 })
 
 test_that("coverage guard: every forestsearch() formal is classified or explicitly out of scope", {
@@ -118,12 +116,10 @@ test_that("coverage guard: every forestsearch() formal is classified or explicit
 
 test_that("status sensitivity: switches flip their rows; the intrinsic rows never move", {
   row_status <- function(r, stage) r[r$stage == stage, "status"]
-  r_null <- fs_family_report(.fr_driver_args(vi.grf.min = NULL))
-  expect_identical(row_status(r_null, "GRF variable-importance ordering"), "disabled")
-  expect_identical(row_status(r_null, "confounder cap"), "inert")
-  r_num <- fs_family_report(.fr_driver_args(vi.grf.min = -0.2))
-  expect_identical(row_status(r_num, "GRF variable-importance ordering"), "data-dependent")
-  expect_identical(row_status(r_num, "confounder cap"), "data-dependent")
+  # deprecated VI row: inert whatever is passed
+  expect_identical(row_status(fs_family_report(.fr_driver_args(vi.grf.min = NULL)), "GRF variable-importance screening (deprecated)"), "inert")
+  expect_identical(row_status(fs_family_report(.fr_driver_args(vi.grf.min = -0.2)), "GRF variable-importance screening (deprecated)"), "inert")
+  expect_identical(row_status(fs_family_report(.fr_driver_args(max_n_confounders = 5)), "GRF variable-importance screening (deprecated)"), "inert")
   expect_identical(row_status(fs_family_report(.fr_driver_args(use_lasso = TRUE)), "LASSO screen"), "data-dependent")
   expect_identical(row_status(fs_family_report(.fr_driver_args(use_lasso = FALSE)), "LASSO screen"), "disabled")
   expect_identical(row_status(fs_family_report(.fr_driver_args(use_grf = TRUE)), "DINA / GRF subgroup paths"), "data-dependent")

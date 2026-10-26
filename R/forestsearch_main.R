@@ -384,10 +384,9 @@
 #'   \code{grf.subg.harm.survival()} / \code{grf.subg.harm.glm()} (or taken
 #'   from \code{grf_res} / \code{grf_cuts} when supplied) and enter the
 #'   candidate family through \code{\link{get_FSdata}} alongside the
-#'   quartile (and any DINA) cuts.  This flag governs candidate-cut
-#'   generation only: GRF variable-importance ordering of the cut columns
-#'   is a separate step controlled solely by \code{vi.grf.min} and runs,
-#'   or is skipped, regardless of \code{use_grf}.  Default FALSE.
+#'   quartile (and any DINA) cuts.  This is the only switch that fits a
+#'   GRF in the forest-search path (the former variable-importance
+#'   screening, \code{vi.grf.min}, is deprecated and inert).  Default FALSE.
 #'   The default changed from \code{TRUE} in an earlier release, for the same
 #'   fixed-candidate-family reason given under \code{use_lasso}.
 #' @param grf_res GRF results object (optional, for reuse).
@@ -504,13 +503,13 @@
 #'   selected subgroup may be a single covariate or, where the method's depth
 #'   allows (DINA \code{max_depth = 2}; GRF \code{grf_depth >= 2}), an
 #'   AND-conjunction.
-#' @param max_n_confounders Integer. Maximum number of candidate cut columns
-#'   retained after GRF variable-importance screening, keeping the
-#'   highest-importance columns.  Default 1000.  \strong{Applied only when
-#'   \code{vi.grf.min} is numeric}: the truncation lives inside the
-#'   variable-importance block, so with \code{vi.grf.min = NULL} (the
-#'   default) this argument has no effect, and a finite value below the
-#'   number of cut columns triggers a warning saying so.
+#' @param max_n_confounders \strong{Deprecated} (0.4.0.9000): accepted and
+#'   ignored with a warning.  GRF variable-importance screening of the
+#'   candidate cut columns was removed so that the candidate family is the
+#'   cut grid alone unless \code{use_lasso}, \code{use_grf} or
+#'   \code{use_dina} is \code{TRUE}.  It capped the importance-ordered
+#'   column list, which no longer exists.  Will be removed in a future
+#'   release; drop it from the call.
 #' @param grf_depth Integer. GRF tree depth. Default 2.
 #' @param grf_selection Character, one of \code{"frontier"} (default) or
 #'   \code{"tree"}, used only when \code{subgroup_method = "grf"}.
@@ -554,8 +553,7 @@
 #'   i.e. \code{frac.tau} times the smaller of the two arm-specific
 #'   maximum event times.  Values < 1 truncate the horizon inward of
 #'   that maximum (the conservative choice when events are sparse near
-#'   the tail).  Applies to both the GRF variable-importance
-#'   pre-screen inside \code{forestsearch()} and the downstream call to
+#'   the tail).  Used by the downstream call to
 #'   \code{\link{grf.subg.harm.survival}}.  Used only when
 #'   \code{outcome_type = "survival"}; ignored for GLM outcomes
 #'   (binary, continuous, count).  Default 0.8.
@@ -915,26 +913,11 @@
 #'
 #'   Set a finite value only to bound runtime, knowing it can change which
 #'   subgroup is selected.  The default was \code{200} in earlier versions.
-#' @param vi.grf.min Numeric or \code{NULL}.  GRF variable-importance
-#'   screening of the candidate cut columns.  \code{NULL} (the default since
-#'   0.3.0) skips the screening entirely: no causal forest is fitted and the
-#'   cut columns are searched in the order \code{get_FSdata()} builds them.
-#'   A numeric value fits a causal forest (\code{grf::causal_forest()} for
-#'   GLM outcomes, \code{grf::causal_survival_forest()} for survival),
-#'   \strong{orders} the cut columns by variable importance, and retains those
-#'   with \code{vi_ratio > vi.grf.min}, where \code{vi_ratio} is each column's
-#'   importance divided by the maximum.  At values \code{<= 0} nothing is
-#'   filtered out -- \code{grf::variable_importance()} is non-negative and the
-#'   block is guarded by \code{vi_max > 0} -- so the effect is ordering only.
-#'   That ordering sets the candidate matrix's column order; it does
-#'   \strong{not} reach candidate selection, because the candidate table is
-#'   re-sorted by \code{(-HR, K)} before the consistency loop.  Measured effect
-#'   on \code{n_candidates_evaluated} and \code{early_stop_candidate}: zero;
-#'   the selected subgroup's subject membership is unchanged and only the
-#'   clause order of \code{sg.harm} may differ.  Versions before 0.3.0
-#'   defaulted to \code{-0.2}; pass \code{vi.grf.min = -0.2} explicitly to
-#'   reproduce their output.  \code{max_n_confounders} is applied
-#'   \strong{only when this screening runs} -- see that argument.
+#' @param vi.grf.min \strong{Deprecated} (0.4.0.9000): accepted and ignored
+#'   with a warning.  GRF variable-importance screening of the candidate cut
+#'   columns was removed so that the candidate family is the cut grid alone
+#'   unless \code{use_lasso}, \code{use_grf} or \code{use_dina} is
+#'   \code{TRUE}.  Will be removed in a future release; drop it from the call.
 #' @param use_twostage Logical. Use two-stage sequential consistency algorithm for
 #'   improved performance. Default FALSE for backward compatibility. When TRUE,
 #'   \code{fs.splits} becomes the maximum number of splits, and early stopping
@@ -1620,6 +1603,29 @@ forestsearch <- function(df.analysis,
   grf_count_transform <- match.arg(grf_count_transform)
   subgroup_method     <- match.arg(subgroup_method)
   consistency_method  <- match.arg(consistency_method)
+
+  # Deprecated arguments (0.4.0.9000): accepted so existing calls do not
+  # break, warned about once per call, and ignored.  GRF variable-importance
+  # screening/ordering of the candidate cut columns no longer exists: the
+  # candidate family is the cut grid alone unless use_lasso, use_grf or
+  # use_dina asks for a model-based front end.  Both formals are removed in
+  # a later release.  The values are deliberately NOT reset, so that
+  # args_call_all records what the caller passed.
+  if (!is.null(vi.grf.min)) {
+    warning("forestsearch(): 'vi.grf.min' is deprecated and ignored. GRF ",
+            "variable-importance screening of the candidate cut columns was ",
+            "removed; the candidate family is the cut grid alone unless ",
+            "use_lasso, use_grf or use_dina is TRUE. The argument will be ",
+            "removed in a future release -- drop it from the call.",
+            call. = FALSE)
+  }
+  if (!missing(max_n_confounders) &&
+      !identical(as.numeric(max_n_confounders), 1000)) {
+    warning("forestsearch(): 'max_n_confounders' is deprecated and ignored ",
+            "(it capped the variable-importance-ordered column list, which ",
+            "no longer exists). It will be removed in a future release -- ",
+            "drop it from the call.", call. = FALSE)
+  }
 
   # DINA's selector statistic is a first-class argument, mirroring
   # `grf_select_statistic`.  It is normalized here and injected as the canonical
@@ -3210,107 +3216,11 @@ forestsearch <- function(df.analysis,
 
   if (is.null(df.predict)) df.predict <- df
 
-  # The max_n_confounders truncation is applied only inside the variable-
-  # importance block below (the `seq_len(min(..., max_n_confounders))` line
-  # under `if (vi_max > 0)`).  With vi.grf.min = NULL -- the default
-  # since 0.3.0 -- that block is skipped, so a finite cap below the number of
-  # cut columns silently does nothing.  Say so once, actionably.
-  if (is.null(vi.grf.min) && is.finite(max_n_confounders) &&
-      max_n_confounders < length(FSconfounders.name)) {
-    warning("max_n_confounders = ", max_n_confounders, " is inert: variable-",
-            "importance screening is off (vi.grf.min = NULL), so all ",
-            length(FSconfounders.name), " candidate cut columns are searched. ",
-            "Set vi.grf.min to a numeric value (e.g. -0.2, the pre-0.3.0 ",
-            "default) to apply the cap.", call. = FALSE)
-  }
-
-  # ===========================================================================
-  # SECTION 5: GRF VARIABLE IMPORTANCE SCREENING
-  # ===========================================================================
-
-  if (!is.null(vi.grf.min)) {
-    X <- apply(df[, FSconfounders.name, drop = FALSE], 2, as.numeric)
-
-    if (outcome_type == "survival") {
-      # Survival path: causal_survival_forest (unchanged)
-      # Guard against zero events in either arm: max(numeric(0)) is -Inf
-      # (with a warning), which would propagate to horizon = frac.tau * -Inf
-      # and crash causal_survival_forest.  Skip the GRF VI step instead.
-      y_evt_t <- Y[Treat == 1 & Event == 1]
-      y_evt_c <- Y[Treat == 0 & Event == 1]
-
-      if (length(y_evt_t) == 0L || length(y_evt_c) == 0L) {
-        if (!quiet) {
-          message("[forestsearch] Skipping GRF variable-importance screening: ",
-                  "zero events in ",
-                  if (length(y_evt_t) == 0L) "treatment" else "control",
-                  " arm.")
-        }
-        cs.forest <- structure("zero-events", class = "try-error")
-      } else {
-        tau.rmst <- min(max(y_evt_t), max(y_evt_c))
-        tune_arg <- if (tune_grf) "all" else "none"
-
-        if (!is.RCT) {
-          cs.forest <- try(suppressWarnings(
-            grf::causal_survival_forest(X, Y, Treat, Event,
-                                         horizon = frac.tau * tau.rmst, seed = seedit,
-                                         tune.parameters = tune_arg,
-                                         num.threads = .fs_grf_num_threads())
-          ), TRUE)
-        } else {
-          cs.forest <- try(suppressWarnings(
-            grf::causal_survival_forest(X, Y, Treat, Event, W.hat = 0.5,
-                                         horizon = frac.tau * tau.rmst, seed = seedit,
-                                         tune.parameters = tune_arg,
-                                         num.threads = .fs_grf_num_threads())
-          ), TRUE)
-        }
-      }
-    } else {
-      # GLM path: causal_forest (no event/horizon)
-      if (outcome_type == "count") {
-        # Count data: variance-stabilising log transform (same as
-        # grf.subg.harm.glm with grf_count_transform = "log")
-        Y_vi <- if (grf_count_transform == "log") log(Y + 0.5) else Y
-      } else if (outcome_type == "binary") {
-        # Binary: complement (1-Y) so positive CATE = treatment helps
-        Y_vi <- if (adverse_outcome) 1L - Y else Y
-      } else {
-        # Continuous: negate (-Y) so positive CATE = treatment helps
-        Y_vi <- if (adverse_outcome) -Y else Y
-      }
-      cs.forest <- try(suppressWarnings(
-        fit_causal_forest_glm(X, Y_vi, Treat, is.RCT, seedit = seedit,
-                              tune_grf = tune_grf)
-      ), TRUE)
-    }
-
-    if (!inherits(cs.forest, "try-error")) {
-      vi.cs <- round(grf::variable_importance(cs.forest), 4)
-      vi.cs2 <- data.frame(confs_labels, FSconfounders.name, vi.cs)
-      vi.order <- order(vi.cs, decreasing = TRUE)
-      vi.cs2 <- vi.cs2[vi.order, ]
-
-      conf.screen <- vi.cs2[, 2]
-      vi_max <- max(vi.cs2[, 3])
-      if (vi_max > 0) {
-        vi_ratio <- vi.cs2[, 3] / vi_max
-        selected.vars <- which(vi_ratio > vi.grf.min)
-        conf.screen <- conf.screen[selected.vars]
-        conf.screen <- conf.screen[seq_len(min(length(conf.screen), max_n_confounders))]
-      }
-      # Fall back to full set if GRF screening eliminated everything
-      if (length(conf.screen) == 0L) {
-        conf.screen <- FSconfounders.name
-      }
-    } else {
-      # GRF fit failed: skip screening, use all confounders
-      conf.screen <- FSconfounders.name
-    }
-  } else {
-    conf.screen <- FSconfounders.name
-  }
+  # Candidate cut columns are searched as get_FSdata() built them.  The GRF
+  # variable-importance screening/ordering that stood here before
+  # 0.4.0.9000 is deprecated (see vi.grf.min): no forest is fitted in the
+  # forest-search path unless use_lasso, use_grf or use_dina is TRUE.
+  conf.screen <- FSconfounders.name
 
   # ===========================================================================
   # SECTION 6: SUBGROUP SEARCH

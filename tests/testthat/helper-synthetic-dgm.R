@@ -146,7 +146,6 @@
     use_grf                = TRUE,
     use_lasso              = FALSE,
     is.RCT                 = TRUE,
-    vi.grf.min             = -0.2,
     cont.cutoff            = 4L,
     cut_type               = "default",
     seedit                 = 42L,

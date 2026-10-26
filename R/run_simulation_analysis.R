@@ -65,7 +65,6 @@ default_sim_params <- function() {
     # reading it as one would be a mistake.
     max.minutes              = 5,
     by.risk                  = 12,
-    vi.grf.min               = -0.2,
     use_twostage             = FALSE,
     twostage_args            = list(),
     # Run inner forestsearch() sequentially by default.  See function
