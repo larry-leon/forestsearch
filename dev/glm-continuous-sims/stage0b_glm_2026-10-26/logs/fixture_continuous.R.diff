@@ -1,0 +1,119 @@
+--- shipped/fixture_continuous.R	2026-10-26 06:53:07.000000000 -0700
++++ fixture_continuous.R	2026-10-26 08:15:31.656683496 -0700
+@@ -1,50 +1,76 @@
+ # fixture_continuous.R -- the continuous (MD) fixture for Stage 0b.
+ #
+-# CC: replace the `args` block below with the committed ACTG175 continuous
+-# application's forestsearch() parameter block, transplanted VERBATIM from the
+-# document named in the task (quarto/applications/actg175/, the continuous
+-# analysis), with exactly these overrides for the per-replicate shape:
+-#   mr_inference = FALSE, details = FALSE, quiet = TRUE, plot.sg = FALSE,
+-#   plot.grf = FALSE, parallel_args = list(plan = "sequential"),
+-# and drop mr_inference_args.  Keep use_grf / use_lasso / vi.grf.min exactly as
+-# the document has them (the bootstrap re-runs them per replicate).  Set
+-# `source` to the document path and the chunk name.  Record the diff against
+-# this default in the report.
+-#
+-# DEFAULT (chat's approximation, used only if no committed configuration is
+-# located): ACTG175 arms 1 vs 3, outcome y_decline = cd40 - cd420 (positive =
+-# CD4 decline, harm-oriented), the twelve confounders of the application
+-# (six continuous, six binary, no str2), ten quantile cuts on each continuous
+-# confounder, c1 = 10, c2 = 5, p* = 0.80, effMaxSG, resample consistency.
++# TRANSPLANTED (CC, 2026-10-26) from the committed ACTG175 continuous
++# application: quarto/applications/actg175/analysis_actg175_continuous_intervals.qmd,
++# chunks `data-prep` (data preparation, verbatim) and `anchor` (the
++# forestsearch() parameter block, verbatim), with exactly these overrides for
++# the per-replicate shape:
++#   mr_inference = FALSE (mr_inference_args dropped), details = FALSE,
++#   quiet = TRUE, plot.sg = FALSE, plot.grf = FALSE,
++#   parallel_args = list(plan = "sequential").
++# seedit = params$seed is resolved to the document's YAML params value 8316951.
++# use_lasso / use_grf / use_twostage / consistency_method and every threshold
++# are kept as the document has them.
+ 
+ fixture_continuous <- function() {
+   if (!requireNamespace("speff2trial", quietly = TRUE))
+     stop("speff2trial is required for the ACTG175 fixtures")
+-  d <- speff2trial::ACTG175
+-  d <- d[d$arms %in% c(1, 3), ]
+-  d$treat <- 1L - as.integer(d$arms == 1)
+-  d$id <- seq_len(nrow(d))
+-  d$y_decline <- d$cd40 - d$cd420
+-  cont <- c("age", "wtkg", "karnof", "preanti", "cd40", "cd80")
+-  bin  <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
++  params <- list(seed = 8316951)
++
++  # ---- data-prep (verbatim) ----
++  cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
++  bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
++  confounders.name <- c(cont_vars, bin_vars)
++
++  actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
++  actg_df$id <- seq_len(nrow(actg_df))
++  actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
++  actg_df <- actg_df[!is.na(actg_df$cd420), ]
++  actg_df$y_decline <- actg_df$cd40 - actg_df$cd420
++  for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
++
++  N <- nrow(actg_df)
++  stopifnot(N == 1083L)
++
++  # ---- anchor (verbatim parameter block, overrides marked) ----
+   args <- list(
+-    df.analysis = d,
+-    outcome.name = "y_decline", treat.name = "treat", id.name = "id",
+-    confounders.name = c(cont, bin),
+-    outcome_type = "continuous", effect_measure = "MD", adverse_outcome = TRUE,
+-    is.RCT = TRUE, seedit = 8316951,
+-    use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE,
+-    conf.cont_jcuts = as.list(setNames(rep(10L, length(cont)), cont)), collapse_cuts = TRUE,
+-    subgroup_method = "consistency", sg_focus = "effMaxSG",
+-    selection_rule = "neighborhood", effect_neighborhood = 0.20,
++    df.analysis      = actg_df,
++    confounders.name = confounders.name,
++    outcome.name     = "y_decline",
++    treat.name       = "treat",
++    id.name          = "id",
++    outcome_type     = "continuous",
++    effect_measure   = "MD",
++    adverse_outcome  = TRUE,
++    seedit           = params$seed,
++    sg_focus         = "effMaxSG",
++    effect_neighborhood = 0.20,
++    selection_rule   = "neighborhood",
+     consistency_method = "resample",
+-    n.min = 60, maxk = 2, max.minutes = 3,
+-    hr.threshold = 10, hr.consistency = 5, pconsistency.threshold = 0.80,
+-    mr_inference = FALSE,
+-    details = FALSE, quiet = TRUE, plot.sg = FALSE, plot.grf = FALSE,
+-    parallel_args = list(plan = "sequential")
++    effect.threshold       = 10,
++    consistency.threshold  = 5,
++    pconsistency.threshold = 0.90,
++    use_twostage     = TRUE,
++    conf.cont_jcuts  = list(age = 10, preanti = 10, wtkg = 10,
++                            karnof = 10, cd40 = 10, cd80 = 10),
++    cut_type         = "default",
++    maxk             = 2L,
++    n.min            = 60L,
++    d0.min           = 10L,
++    d1.min           = 10L,
++    fs.splits        = 500L,
++    use_lasso        = FALSE,
++    use_grf          = FALSE,
++    use_dina         = FALSE,
++    is.RCT           = TRUE,
++    parallel_args    = list(plan = "sequential"),   # override (document: same)
++    details          = FALSE,                       # override (document: same)
++    quiet            = TRUE,                        # override (document: same)
++    mr_inference     = FALSE,                       # override (document: TRUE; mr_inference_args dropped)
++    plot.sg          = FALSE,                       # override (document: absent)
++    plot.grf         = FALSE                        # override (document: absent)
+   )
+-  list(label = "continuous: ACTG175 MD (APPROXIMATE DEFAULT -- replace with the committed application block)",
+-       df = d, args = args,
+-       source = "APPROXIMATE DEFAULT (chat), not a committed configuration")
++  list(label = "continuous: ACTG175 MD, committed application (effMaxSG, eps = 0.20)",
++       df = actg_df, args = args,
++       source = "quarto/applications/actg175/analysis_actg175_continuous_intervals.qmd, chunks data-prep + anchor")
+ }

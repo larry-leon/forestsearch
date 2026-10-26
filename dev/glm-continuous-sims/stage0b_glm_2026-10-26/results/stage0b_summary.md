@@ -1,0 +1,73 @@
+# Stage 0b -- GLM paths and the consistency stage (CRAN forestsearch 0.4.0)
+
+Installed: forestsearch 0.4.0 (2026-10-10 04:12:05 UTC; larryleon; repository CRAN) · survival 3.8.12 · data.table 1.18.6.1 · R version 4.6.1 (2026-06-24) · cores 128
+Repo: /home/larryleon/Documents/GitHub/forestsearch @ 9fc39fb17cc68ba99e1c2c7aacda0645b59fc4a0 (master); files matching CRAN 0.4.0: 10, differing: 1
+
+## 1. The single sequential call and the replicate, per fixture
+
+| fixture | source | n | call s (median of 3) | sequential replicate s (nb = 5) | search: evaluated / reached fit / passed effect | consistency: total / evaluated / passed | early stop | identified subgroup |
+|---|---|---|---|---|---|---|---|---|
+| survival | inst/doc/survival-post-selection.qmd (CRAN 0.4.0), mr_inference = FALSE | 686 | 3.154 | 3.139 | 2211 / 1410 / 121 | 120 / 120 / 16 | FALSE | {er <= 0} & {pgr <= 26} |
+| continuous | quarto/applications/actg175/analysis_actg175_continuous_intervals.qmd, chunks data-prep + anchor | 1083 | 1.544 | 1.963 | 5886 / 4702 / 146 | 131 / 131 / 8 | FALSE | !{cd40 <= 507} & {gender} |
+| binary | quarto/applications/actg175/analysis_actg175_binary_multimethod_fixed_family.qmd, chunks parallel-setup + analysis-roles + data-* + forestsearch-main | 1083 | 5.450 | 6.371 | 3240 / 2577 / 145 | 136 / 136 / 5 | FALSE | !{wtkg <= 86} & !{cd40 <= 380} |
+
+Rprof buckets, median of 3 profiles, seconds of total time (a function reached through do.call() is not attributable by name; its children are):
+
+| fixture | call s | search stage | of which per-candidate fit | consistency stage | of which pieces (fit + dfbeta) | consistency stage minus pieces (extraction, bookkeeping) | dedup / sort | GRF | LASSO | survfit medians |
+|---|---|---|---|---|---|---|---|---|---|---|
+| survival | 3.11 | 2.55 | 2.01 | 0.52 | 0.25 | 0.27 | 0.00 | 0.00 | 0.00 | 0.12 |
+| continuous | 1.46 | 1.15 | 0.59 | 0.23 | 0.11 | 0.12 | 0.02 | 0.00 | 0.00 | 0.00 |
+| binary | 6.33 | 5.14 | 4.63 | 0.28 | 0.15 | 0.13 | 0.01 | 1.63 | 0.00 | 0.00 |
+
+## 2. Candidates: machinery removed per call, identity, and the 30% bar (per-replicate shape)
+
+Machinery = (package function on the recorded inputs) - (lean equivalent on the same inputs), direct timers, median of 3 alternating reps. Share = machinery / measured sequential replicate. Identity = identical() on what the package consumes.
+
+| candidate | fixture | what | n calls | package s | lean s | machinery s | share of replicate | identity | clears 30%? |
+|---|---|---|---|---|---|---|---|---|---|
+| **A** | survival | search-stage Cox fit (Stage 0, committed) | 1410 | 1.887 | 0.378 | **1.509** | **47.0%** | 1410/1410 | YES |
+| **B** | survival | consistency pieces (fit + dfbeta), narrow frame | 120 | 0.261 | 0.079 | **0.182** | **5.8%** | rate identical 120/120; NULL sets agree TRUE | no |
+| **H (+B)** | survival | whole consistency evaluator: lean extraction + lean pieces | 120 | 0.498 | 0.085 | **0.413** | **13.2%** | Pcons identical: TRUE (passed 16 vs 16; lean fallbacks 0) | no |
+| **H alone** | survival | lean extraction + lean warm start, package pieces | 120 | 0.498 | 0.289 | **0.209** | **6.7%** | Pcons identical: TRUE | no |
+| **E** | continuous | consistency pieces (fit + dfbeta), narrow frame | 131 | 0.096 | 0.013 | **0.083** | **4.2%** | rate identical 131/131; NULL sets agree TRUE | no |
+| **H+E** | continuous | whole consistency evaluator: lean extraction + lean pieces | 131 | 0.215 | 0.015 | **0.200** | **10.2%** | Pcons identical: TRUE (passed 8 vs 8; lean fallbacks 0) | no |
+| **H alone** | continuous | lean extraction, package pieces | 131 | 0.215 | 0.100 | **0.115** | **5.9%** | Pcons identical: TRUE | no |
+| **G** | binary | consistency pieces (fit + dfbeta), narrow frame | 136 | 0.152 | 0.045 | **0.107** | **1.7%** | rate identical 136/136; NULL sets agree TRUE | no |
+| **F** | binary | search-stage OR fit (glm.fit on vectors, SE from QR) | 2577 | 4.295 | 1.167 | **3.128** | **49.1%** | identical 2577/2577; kinds agree TRUE | YES |
+| **H+G** | binary | whole consistency evaluator: lean extraction + lean pieces | 136 | 0.268 | 0.048 | **0.220** | **3.5%** | Pcons identical: TRUE (passed 5 vs 5; lean fallbacks 0) | no |
+| **H alone** | binary | lean extraction, package pieces | 136 | 0.268 | 0.155 | **0.113** | **1.8%** | Pcons identical: TRUE | no |
+
+Continuous search-stage fit (already lean since 0.3.3): 0.582 s per call over 4702 candidates -- no candidate.
+
+## 3. Combined per fixture (per-replicate shape; machinery seconds are additive across stages)
+
+| fixture | replicate s | search-stage machinery s | consistency-stage machinery s (whole evaluator) | total s | share | clears 30%? |
+|---|---|---|---|---|---|---|
+| survival | 3.139 | 1.509 | 0.413 | **1.922** | **61.2%** | YES |
+| continuous | 1.963 | 0.000 | 0.200 | **0.200** | **10.2%** | no |
+| binary | 6.371 | 3.128 | 0.220 | **3.348** | **52.5%** | YES |
+
+The survival search-stage figure (A) is Stage 0's committed measurement on this machine (1.509 s of a 3.2112 s replicate); the survival replicate measured here is the denominator of the combined row.
+
+
+## 4. Modification map (CRAN 0.4.0 line references; nothing here was changed)
+
+| candidate | function(s) that would change | file:lines (0.4.0) | what replaces what | new helper | measured status |
+|---|---|---|---|---|---|
+| A | `fit_cox_for_subgroup()` unadjusted branch | R/subgroup_search.R:809-845 | formula `coxph()` -> `survival::coxph.fit()` with captured conventions; fallback to the formula block on error | `.fs_cox_lean_ci()` | Stage 0: 1410/1410 identical; 1.509 s/call |
+| B | `.consistency_cox_pieces()` (and the warm-start fits in `evaluate_subgroup_consistency()` / `evaluate_consistency_twostage()`) | R/consistency_resample.R:55-91; R/subgroup_consistency_helpers.R:1457-1467, 1827-1837 | two formula `coxph()` + `residuals(type = 'dfbeta')` with model-frame re-evaluation -> `coxph.fit()` x2 + `residuals.coxph()` on a constructed object | shares `.fs_cox_lean_ci()`'s fit | pieces rate identical 120/120; machinery 0.182 s/call |
+| E | `.consistency_glm_pieces()` MD branch + `.dfbeta_glm()` | R/consistency_resample.R:292, 168-176 | `lm()` + `lm.influence()` -> `lm.fit()` + hat values from the fit's QR | `.fs_glm_pieces_lean()` | pieces rate identical 131/131; machinery 0.083 s/call |
+| F | routing predicate in `forestsearch()` + a fast OR closure + `fit_glm_for_subgroup_fast()` dispatch | R/forestsearch_main.R:2085-2104; R/glm_effect_estimators.R (new closure beside `.make_lm_estimator_fast`, :1058); R/subgroup_search.R:975-1003 | data-frame slice + `glm()` + `vcov()` -> vectors + `glm.fit()` + SE from the QR; existence check via the package's own `.fs_existence_reason()` | `.make_or_estimator_fast()`, `.fs_glm_two_group()` | search fits identical 2577/2577; machinery 3.128 s/call |
+| G | `.consistency_glm_pieces()` OR branch + `.dfbeta_glm()` | R/consistency_resample.R:271-272, 168-176 | `glm()` + `lm.influence()` -> `glm.fit()` + hat values from the fit's QR | shares `.fs_glm_pieces_lean()` | pieces rate identical 136/136; machinery 0.107 s/call |
+| H | member extraction in `evaluate_consistency_twostage()` and `evaluate_subgroup_consistency()` | R/subgroup_consistency_helpers.R:1803-1811 and 1431-1439 (+ index row extraction :1778, :1391) | `as.data.table(df)` + sequential row filters per candidate -> one precomputed logical column cache and an index matrix, subset only the columns the pieces need | none (hoisting into `subgroup.consistency()`) | Pcons identical, H alone: survival TRUE, continuous TRUE, binary TRUE; machinery (H alone) 0.209 / 0.115 / 0.113 s/call |
+| C, D | none | -- | closed by Stage 0 measurement | -- | -- |
+
+Count/IRR is not measured: its search fit and pieces are the binary code paths with `poisson(log)` and an offset; the binary figures are the proxy. RR/RD (multi-tier fallbacks), adjusted and propensity-weighted fits, DINA and GRF identifiers are outside every candidate above.
+
+## 5. Reading
+
+- survival: replicate 3.14 s; search-stage machinery 1.51 s, consistency-stage machinery 0.41 s; combined 61.2% (bar 30.0%: cleared). Consistency-stage identity: TRUE.
+- continuous: replicate 1.96 s; search-stage machinery 0.00 s, consistency-stage machinery 0.20 s; combined 10.2% (bar 30.0%: not cleared). Consistency-stage identity: TRUE.
+- binary: replicate 6.37 s; search-stage machinery 3.13 s, consistency-stage machinery 0.22 s; combined 52.5% (bar 30.0%: cleared). Consistency-stage identity: TRUE.
+- Shares depend on each fixture's candidate flow (the consistency stage's cost is proportional to the number of candidates evaluated under full evaluation); the fixture sources above say which configuration each row describes.
+

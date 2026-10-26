@@ -1,0 +1,190 @@
+
+========== survival ==========
+survival_call_warmup_s = 3.161
+survival_n_evaluated_search = 2211
+survival_n_reached_fit = 1410
+survival_n_fit_ok = 1410
+survival_n_passed_effect = 121
+survival_n_consistency_total = 120
+survival_n_consistency_evaluated = 120
+survival_n_consistency_passed = 16
+survival_early_stop_triggered = FALSE
+survival_sg_harm = {er <= 0} & {pgr <= 26}
+survival_call_s_rep = 3.065, 3.154, 3.164
+survival_call_s_median = 3.154
+
+Rprof by.total, median of 3 (s):
+                              fun total.time total.pct
+     search_combinations_parallel      2.550     81.99
+ evaluate_combination_with_status      2.480     79.74
+                            coxph      2.130     68.49
+             fit_cox_for_subgroup      2.010     64.63
+    evaluate_consistency_twostage      0.520     16.72
+                   concordancefit      0.440     14.15
+              model.frame.default      0.280      9.00
+                        coxph.fit      0.270      8.68
+          .consistency_cox_pieces      0.250      8.04
+             consistency_resample      0.250      8.04
+             model.matrix.default      0.140      4.50
+                          survfit      0.120      3.86
+                  survfit.formula      0.120      3.86
+                  residuals.coxph      0.090      2.89
+                    as.data.table      0.050      1.61
+                     [.data.table      0.040      1.29
+                        FS_labels      0.015      0.48
+                            dummy      0.010      0.32
+survival_rprof_sampling_s = 3.11
+survival_rprof_search_stage_s = 2.55
+survival_rprof_search_fit_s = 2.01
+survival_rprof_consistency_stage_s = 0.52
+survival_rprof_consistency_resample_s = 0.25
+survival_rprof_consistency_pieces_s = 0.25
+survival_rprof_dedup_sort_s = 0
+survival_rprof_grf_s = 0
+survival_rprof_lasso_s = 0
+survival_rprof_get_FSdata_s = 0
+survival_rprof_survfit_s = 0.12
+survival_rprof_coxph_s = 2.13
+survival_rprof_coxph_fit_s = 0.27
+survival_rprof_glm_s = 0
+survival_rprof_glm_fit_s = 0
+survival_rprof_lm_s = 0
+survival_rprof_lm_fit_s = 0
+survival_rprof_lm_influence_s = 0
+survival_rprof_dfbeta_glm_s = 0
+survival_rprof_model_frame_s = 0.28
+survival_rprof_model_matrix_s = 0.14
+survival_rprof_as_data_table_s = 0.05
+survival_boot5_outer_s = 18.234
+survival_rep_s_mean = 3.139
+survival_boot5_n_found = 5
+
+========== continuous ==========
+continuous_call_warmup_s = 1.423
+continuous_n_evaluated_search = 5886
+continuous_n_reached_fit = 4702
+continuous_n_fit_ok = 4702
+continuous_n_passed_effect = 146
+continuous_n_consistency_total = 131
+continuous_n_consistency_evaluated = 131
+continuous_n_consistency_passed = 8
+continuous_early_stop_triggered = FALSE
+continuous_sg_harm = !{cd40 <= 507} & {gender}
+continuous_call_s_rep = 1.544, 1.547, 1.477
+continuous_call_s_median = 1.544
+
+Rprof by.total, median of 3 (s):
+                              fun total.time total.pct
+     search_combinations_parallel      1.150    79.310
+ evaluate_combination_with_status      1.040    71.230
+        fit_glm_for_subgroup_fast      0.590    39.870
+                 .fs_lm_two_group      0.500    34.250
+    evaluate_consistency_twostage      0.230    15.860
+                           lm.fit      0.170    11.640
+          .consistency_glm_pieces      0.110     7.530
+             consistency_resample      0.110     7.530
+                     [.data.table      0.050     3.160
+                    as.data.table      0.050     3.450
+                      .dfbeta_glm      0.035     2.370
+                     lm.influence      0.030     2.025
+                               lm      0.030     2.050
+              model.frame.default      0.020     1.370
+             model.matrix.default      0.015     1.000
+                            dummy      0.010     0.680
+                        FS_labels      0.010     0.680
+                            merge      0.010     0.630
+  remove_near_duplicate_subgroups      0.010     0.690
+           sort_subgroups_preview      0.010     0.630
+continuous_rprof_sampling_s = 1.46
+continuous_rprof_search_stage_s = 1.15
+continuous_rprof_search_fit_s = 0.59
+continuous_rprof_consistency_stage_s = 0.23
+continuous_rprof_consistency_resample_s = 0.11
+continuous_rprof_consistency_pieces_s = 0.11
+continuous_rprof_dedup_sort_s = 0.02
+continuous_rprof_grf_s = 0
+continuous_rprof_lasso_s = 0
+continuous_rprof_get_FSdata_s = 0
+continuous_rprof_survfit_s = 0
+continuous_rprof_coxph_s = 0
+continuous_rprof_coxph_fit_s = 0
+continuous_rprof_glm_s = 0
+continuous_rprof_glm_fit_s = 0
+continuous_rprof_lm_s = 0.03
+continuous_rprof_lm_fit_s = 0.17
+continuous_rprof_lm_influence_s = 0.03
+continuous_rprof_dfbeta_glm_s = 0.035
+continuous_rprof_model_frame_s = 0.02
+continuous_rprof_model_matrix_s = 0.015
+continuous_rprof_as_data_table_s = 0.05
+continuous_boot5_outer_s = 12.166
+continuous_rep_s_mean = 1.963
+continuous_boot5_n_found = 5
+
+========== binary ==========
+binary_call_warmup_s = 5.624
+binary_n_evaluated_search = 3240
+binary_n_reached_fit = 2577
+binary_n_fit_ok = 2577
+binary_n_passed_effect = 145
+binary_n_consistency_total = 136
+binary_n_consistency_evaluated = 136
+binary_n_consistency_passed = 5
+binary_early_stop_triggered = FALSE
+binary_sg_harm = !{wtkg <= 86} & !{cd40 <= 380}
+binary_call_s_rep = 5.51, 5.34, 5.45
+binary_call_s_median = 5.45
+
+Rprof by.total, median of 3 (s):
+                              fun total.time total.pct
+     search_combinations_parallel       5.14     81.20
+ evaluate_combination_with_status       4.97     78.52
+             fit_glm_for_subgroup       4.63     73.14
+                     .estimate_or       2.68     42.50
+                              glm       2.32     36.94
+                          glm.fit       1.21     19.00
+            fit_causal_forest_glm       0.82     12.87
+                    causal_forest       0.81     12.87
+              model.frame.default       0.37      5.89
+                             vcov       0.37      5.89
+                      summary.glm       0.35      5.57
+    evaluate_consistency_twostage       0.28      4.46
+             model.matrix.default       0.26      4.08
+          .consistency_glm_pieces       0.15      2.35
+             consistency_resample       0.15      2.35
+                     [.data.table       0.09      1.42
+                      .dfbeta_glm       0.04      0.64
+              variable_importance       0.03      0.47
+                    as.data.table       0.02      0.32
+                        FS_labels       0.02      0.32
+                     lm.influence       0.02      0.31
+                            dummy       0.01      0.16
+                            merge       0.01      0.16
+           sort_subgroups_preview       0.01      0.16
+binary_rprof_sampling_s = 6.33
+binary_rprof_search_stage_s = 5.14
+binary_rprof_search_fit_s = 4.63
+binary_rprof_consistency_stage_s = 0.28
+binary_rprof_consistency_resample_s = 0.15
+binary_rprof_consistency_pieces_s = 0.15
+binary_rprof_dedup_sort_s = 0.01
+binary_rprof_grf_s = 1.63
+binary_rprof_lasso_s = 0
+binary_rprof_get_FSdata_s = 0
+binary_rprof_survfit_s = 0
+binary_rprof_coxph_s = 0
+binary_rprof_coxph_fit_s = 0
+binary_rprof_glm_s = 2.32
+binary_rprof_glm_fit_s = 1.21
+binary_rprof_lm_s = 0
+binary_rprof_lm_fit_s = 0
+binary_rprof_lm_influence_s = 0.02
+binary_rprof_dfbeta_glm_s = 0.04
+binary_rprof_model_frame_s = 0.37
+binary_rprof_model_matrix_s = 0.26
+binary_rprof_as_data_table_s = 0.02
+binary_boot5_outer_s = 34.208
+binary_rep_s_mean = 6.3714
+binary_boot5_n_found = 5
+
+b1 complete
