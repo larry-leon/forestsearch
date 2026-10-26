@@ -21,6 +21,23 @@
   `inert`, echoing the values that were passed.
 * Both formals will be removed in a later release.
 
+### Performance
+
+* Two per-candidate search-stage fits now call the fitting engines directly
+  instead of going through the formula interface: the unadjusted survival
+  fit in `fit_cox_for_subgroup()` calls `survival::coxph.fit()` with exactly
+  the arguments `coxph()` passes, and the unadjusted binary odds-ratio fit
+  runs `stats::glm.fit()` through a tagged closure and vector path (the twin
+  of the continuous fast path). Results are bit-identical (identity tests in
+  `tests/testthat/test-lean-fits.R`; verification record
+  `dev/reports/REPORT_lean_fits_2026-10-26.md`).
+* Measured per-replicate time of a sequential `nb_boots = 20` bootstrap on
+  the committed applications: survival (gbsg) 3.60 s -> 2.02 s (-44%),
+  binary OR (ACTG175) 5.93 s -> 2.75 s (-54%), continuous (ACTG175)
+  unchanged (1.87 s -> 1.84 s).
+* Nothing changes for adjusted, weighted (propensity), RD or RR fits: they
+  keep their formula paths.
+
 # forestsearch 0.4.0
 
 ## Changes since the last CRAN release (0.1.0)
