@@ -807,8 +807,9 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x, df_clean = NULL,
 
   # Fit Cox model (treatment-only or adjusted)
   if (length(adj) == 0L) {
-    # Unadjusted fast branch (0.3.3): same coxph() fit, but the consumed
-    # $conf.int row is computed directly instead of through summary.coxph(),
+    # Unadjusted fast branch (0.3.3): the same Cox fit (through coxph.fit()
+    # since 0.4.0.9000, see below), but the consumed $conf.int row is
+    # computed directly instead of through summary.coxph(),
     # whose full summary table cost 40.3% of the fit bucket for one CI row
     # (REPORT_bootstrap_reprofile_2026-09-01.md, section 4a).  The
     # arithmetic replicates survival 3.8.9 summary.coxph() operation for
@@ -832,8 +833,42 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x, df_clean = NULL,
     E <- dd[idx]
     Treat <- tt[idx]
     hr.cox <- try({
-      fit.cox <- survival::coxph(survival::Surv(Y, E) ~ Treat, robust = FALSE)
+      # Lean unadjusted fit (0.4.0.9000): survival::coxph.fit() called
+      # directly with exactly the arguments coxph() itself passes for
+      # Surv(Y, E) ~ Treat (survival 3.5.8 .. 3.8.x): the one-column model
+      # matrix without intercept, the response through aeqSurv() when
+      # control$timefix, no strata, a zero offset, init = NULL, the default
+      # control, no weights, Efron ties, the model-frame row names,
+      # residuals on, and coxph()'s nocenter = c(-1, 0, 1) (so the 0/1
+      # treatment column is not centred, exactly as in the formula fit).
+      # coxph() additionally builds the model frame, the full coxph object
+      # and the concordance, none of which the search reads; coefficients
+      # and var -- the only fields consumed below -- are returned by
+      # coxph.fit() unchanged.  Verified bit-identical on every candidate
+      # of the gbsg application (REPORT_bootstrap_stage0_2026-10-26.md,
+      # 1410/1410) and re-verified in tests/testthat/test-lean-fits.R.
+      # coxph.fit() raises the same warnings coxph() would (monotone
+      # likelihood, non-convergence): nothing is suppressed.
+      n_sg <- length(Y)
+      ctl  <- survival::coxph.control()
+      ys   <- survival::Surv(Y, E)
+      if (isTRUE(ctl$timefix)) ys <- survival::aeqSurv(ys)
+      fit.cox <- survival::coxph.fit(
+        x        = matrix(as.double(Treat), ncol = 1L,
+                          dimnames = list(NULL, "Treat")),
+        y        = ys,
+        strata   = NULL,
+        offset   = rep(0, n_sg),
+        init     = NULL,
+        control  = ctl,
+        weights  = NULL,
+        method   = "efron",
+        rownames = as.character(seq_len(n_sg)),
+        resid    = TRUE,
+        nocenter = c(-1, 0, 1)
+      )
       beta <- fit.cox$coefficients
+      names(beta) <- "Treat"
       se_beta <- sqrt(diag(fit.cox$var))
       z_ci <- stats::qnorm((1 + 0.95) / 2, 0, 1)
       ci <- cbind(exp(beta), exp(-beta),
