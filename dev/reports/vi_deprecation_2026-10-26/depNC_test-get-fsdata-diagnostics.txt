@@ -1,0 +1,13 @@
+get-fsdata-diagnostics: ......................W..W...................W........W........
+
+══ Warnings ════════════════════════════════════════════════════════════════════
+1. all-continuous-covariate configuration works end-to-end ('test-get-fsdata-diagnostics.R:189:3') - max_subgroups_search = 5 truncated the candidate pool from 39 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+2. mixed continuous + factor covariates work end-to-end ('test-get-fsdata-diagnostics.R:203:3') - max_subgroups_search = 5 truncated the candidate pool from 99 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+3. use_grf = TRUE, use_lasso = FALSE works ('test-get-fsdata-diagnostics.R:447:3') - max_subgroups_search = 5 truncated the candidate pool from 20 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+4. use_grf = FALSE, use_lasso = FALSE works (factor-only default cuts) ('test-get-fsdata-diagnostics.R:471:3') - max_subgroups_search = 5 truncated the candidate pool from 8 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+TOTALS test-get-fsdata-diagnostics: tests=19 failed=0 skipped=0 warnings=4 error=0

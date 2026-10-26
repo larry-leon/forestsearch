@@ -1,0 +1,21 @@
+downstream-consumers: ...........W..........W............W..WWBootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use: 1 workers with 'sequential' plan
+Bootstrap iteration 1/5
+Bootstrap iteration 5/5
+...
+
+══ Warnings ════════════════════════════════════════════════════════════════════
+1. summarize_cv_results() rejects non-fs_tenfold input with clear error ('test-downstream-consumers.R:139:3') - Could not build metrics_table: cv_result must contain 'sens_summary' and 'find_summary' elements
+
+2. forestsearch_tenfold() returns valid shape on identified DGM ('test-downstream-consumers.R:215:3') - max_subgroups_search = 5 truncated the candidate pool from 8 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+3. summarize_cv_results() on real CV run works end-to-end ('test-downstream-consumers.R:290:3') - max_subgroups_search = 5 truncated the candidate pool from 8 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+4. forestsearch_bootstrap_dofuture() returns valid structure ('test-downstream-consumers.R:333:3') - max_subgroups_search = 5 truncated the candidate pool from 8 to 5. Candidates ranked below 5 under the sg_focus = 'maxSG' preview ordering were not evaluated. Size-focused foci ('maxSG'/'minSG') order by subgroup size, so small high-effect subgroups rank last and truncate first.
+
+5. forestsearch_bootstrap_dofuture() returns valid structure ('test-downstream-consumers.R:336:3') - nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+🎉🎊🎉🎊🎉🎊🎉🎊🎉🎊🎉
+TOTALS test-downstream-consumers: tests=11 failed=0 skipped=0 warnings=5 error=0
