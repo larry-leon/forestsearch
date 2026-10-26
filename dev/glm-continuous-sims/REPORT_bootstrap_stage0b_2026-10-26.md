@@ -383,4 +383,16 @@ None. All eight scripts ran as shipped. The only authored change is the §2.4 fi
 
 ## Closing block (post-conditions)
 
-(filled after the bundle commit; see the final report-only commit)
+
+Run after commit `a41f43d7` (bundle + report); this block was then appended in a final report-only commit, after which the same three checks were re-run; their output is unchanged (only the report file changed, under dev/).
+
+```
+$ git diff --name-only d6613995c882d15a7168674bb7e9a7ba4ced3564 HEAD | grep -v '^dev/'
+(no output)
+$ git status --porcelain | grep -v '^?? ' | grep -v '^.. dev/'
+(no output)
+$ git status --porcelain | grep '^?? ' | grep -v ' dev/'
+?? quarto/extreme_subgroups/fixed_random/
+```
+
+The third line lists only the pre-existing dirt recorded in §1. Commits, in order: `9fc39fb1` (task document alone), `a41f43d7` (bundle sources after §2.4, results/, logs/, this report), then the report-only commit adding this block.
