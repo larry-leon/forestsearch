@@ -9,6 +9,12 @@
   cut columns is removed. The candidate family is now the cut grid alone,
   and no model is fitted in the forest-search path unless `use_lasso`,
   `use_grf` or `use_dina` is `TRUE`.
+* `max.minutes` in `forestsearch()` and `subgroup.search()` is deprecated.
+  It was documented as inert ("scheduled for deprecation in v0.3.0") and
+  that was never actioned. Both formals are kept (same positions, same
+  defaults); the argument has no effect. `forestsearch()` emits one
+  deprecation warning for a non-default value, and `subgroup.search()` one
+  warning whenever it is passed. The formals are removed in a later release.
 * What changes for callers who passed a non-NULL `vi.grf.min`: at values
   `<= 0` the screen never filtered anything, so the selected subgroup's
   membership is unchanged. The clause order of the `sg.harm` label (and the

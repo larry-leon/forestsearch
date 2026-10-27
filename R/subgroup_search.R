@@ -36,14 +36,12 @@
 #'   threshold (`c2`, \code{hr.consistency}) and not the consistency rate
 #'   (`p*`, \code{pconsistency.threshold}); neither is applied here -- this
 #'   function performs the screening stage only.
-#' @param max.minutes Numeric. \strong{Currently inert; scheduled for
-#'   deprecation in v0.3.0.} Previously intended as a wall-clock budget for
-#'   the combination search, it is threaded to
-#'   \code{search_combinations_parallel()} and no path consults it, so it has
-#'   no effect on behaviour. Search scope is governed by \code{maxk} and the
-#'   candidate-factor controls. Retained because it is part of a public
-#'   signature; this description now matches \code{\link{forestsearch}}'s,
-#'   which has documented it as inert for some time.
+#' @param max.minutes \strong{Deprecated} (0.4.0.9000): accepted and
+#'   ignored. It was documented as a wall-clock budget for the
+#'   combination search but was never enforced in the parallel search
+#'   path. Passing it emits one warning. Search scope is governed by
+#'   \code{maxk} and the candidate-factor controls.
+#'   The formal will be removed in a later release; drop it from calls.
 #' @param minp Numeric. Minimum prevalence rate for each factor.
 #' @param rmin Integer. Minimum required reduction in sample size when adding a factor.
 #' @param details Logical. Print details during execution.
@@ -106,6 +104,14 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
                             outcome_type = NULL,
                             adjust_covariates = NULL,
                             disable_effect_floor = FALSE) {
+
+  if (!missing(max.minutes)) {
+    warning("subgroup.search(): 'max.minutes' is deprecated and ignored. ",
+            "The wall-clock budget was never enforced in the parallel ",
+            "search; scope is governed by maxk and the candidate-factor ",
+            "controls. The argument will be removed in a future release -- ",
+            "drop it from the call.", call. = FALSE)
+  }
 
   # =========================================================================
   # SECTION 1: DATA PREPARATION AND VALIDATION

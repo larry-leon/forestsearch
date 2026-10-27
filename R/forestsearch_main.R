@@ -888,14 +888,13 @@
 #'   Default 10.
 #' @param d1.min Integer. Same as \code{d0.min} for the treatment arm.
 #'   Default 10.
-#' @param max.minutes Numeric. \strong{Currently inert; scheduled for
-#'   deprecation in v0.3.0.} Previously intended as a wall-clock time
-#'   budget for the combination search, this argument is no longer
-#'   enforced in the parallelized search path and has no effect on
-#'   behavior. Search scope is governed by \code{maxk}, the candidate-factor
-#'   front ends (\code{use_grf}, \code{use_lasso}, \code{conf_force}),
-#'   and the number of parallel workers. The default of 3 is retained
-#'   only for signature compatibility.
+#' @param max.minutes \strong{Deprecated} (0.4.0.9000): accepted and
+#'   ignored. It was documented as a wall-clock budget for the
+#'   combination search but was never enforced in the parallel search
+#'   path. A non-default value emits one warning. Search scope is governed
+#'   by \code{maxk}, the candidate-factor front ends (\code{use_grf},
+#'   \code{use_lasso}, \code{conf_force}) and the number of workers.
+#'   The formal will be removed in a later release; drop it from calls.
 #' @param minp Numeric. Minimum prevalence threshold. Default 0.025.
 #' @param details Logical. Print progress details. Default FALSE.
 #' @param quiet Logical. If TRUE, suppress the configuration summary
@@ -1618,13 +1617,14 @@ forestsearch <- function(df.analysis,
   subgroup_method     <- match.arg(subgroup_method)
   consistency_method  <- match.arg(consistency_method)
 
-  # Deprecated arguments (0.4.0.9000): accepted so existing calls do not
-  # break, warned about once per call, and ignored.  GRF variable-importance
-  # screening/ordering of the candidate cut columns no longer exists: the
-  # candidate family is the cut grid alone unless use_lasso, use_grf or
-  # use_dina asks for a model-based front end.  Both formals are removed in
-  # a later release.  The values are deliberately NOT reset, so that
-  # args_call_all records what the caller passed.
+  # Deprecated arguments (0.4.0.9000): vi.grf.min, max_n_confounders and
+  # max.minutes are accepted so existing calls do not break, warned about
+  # once per call, and ignored.  GRF variable-importance screening/ordering
+  # of the candidate cut columns no longer exists: the candidate family is
+  # the cut grid alone unless use_lasso, use_grf or use_dina asks for a
+  # model-based front end.  max.minutes was never enforced.  All three
+  # formals are removed in a later release.  The values are deliberately NOT
+  # reset, so that args_call_all records what the caller passed.
   if (!is.null(vi.grf.min)) {
     warning("forestsearch(): 'vi.grf.min' is deprecated and ignored. GRF ",
             "variable-importance screening of the candidate cut columns was ",
@@ -1639,6 +1639,16 @@ forestsearch <- function(df.analysis,
             "(it capped the variable-importance-ordered column list, which ",
             "no longer exists). It will be removed in a future release -- ",
             "drop it from the call.", call. = FALSE)
+  }
+  # Value trigger (not bare !missing()): args_call_all always carries
+  # max.minutes, and bootstrap/CV replay it via do.call(forestsearch, ...).
+  if (!missing(max.minutes) &&
+      !identical(as.numeric(max.minutes), 3)) {
+    warning("forestsearch(): 'max.minutes' is deprecated and ignored. The ",
+            "wall-clock budget was never enforced in the parallel search; ",
+            "scope is governed by maxk and the candidate-factor controls. ",
+            "The argument will be removed in a future release -- drop it ",
+            "from the call.", call. = FALSE)
   }
 
   # DINA's selector statistic is a first-class argument, mirroring
@@ -3324,7 +3334,6 @@ forestsearch <- function(df.analysis,
         d1.min = d1.min,
         n.min = n.min,
         hr.threshold = if (!is.null(effect_threshold)) effect_threshold else hr.threshold,
-        max.minutes = max.minutes,
         minp = minp,
         maxk = maxk,
         parallel_workers = 1,  # Ensure sequential execution if inside parallel context
@@ -3363,6 +3372,9 @@ forestsearch <- function(df.analysis,
   # Optionally, filter only valid arguments for subgroup.search
   valid_args <- names(formals(subgroup.search))
   search_args <- search_args[names(search_args) %in% valid_args]
+  # max.minutes is deprecated and inert; args_call_all always carries it, so
+  # drop it here or subgroup.search() would warn on every call.
+  search_args$max.minutes <- NULL
 
   find.grps <- tryCatch(
     do.call(subgroup.search, search_args),
