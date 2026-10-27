@@ -38,6 +38,16 @@
 * Nothing changes for adjusted, weighted (propensity), RD or RR fits: they
   keep their formula paths.
 
+### Bug fixes
+
+* `xlog` in `plot_subgroup_results_forestplot()` never reached forestploter
+  (it was passed to `forestploter::forest()`, which has no such argument),
+  so the HR/OR axis was linear despite the documentation. It is now a real
+  log axis via `set_xaxis(x_trans = "log")`. The call uses the forestploter
+  1.2.0 API (`set_xaxis()`, `set_labs()`, `style`, `refline_gp`), which
+  removes the "will be deprecated" and "Unknown arguments ignored" messages;
+  `Suggests: forestploter (>= 1.2.0)`. Reported by adayim (#7).
+
 # forestsearch 0.4.0
 
 ## Changes since the last CRAN release (0.1.0)

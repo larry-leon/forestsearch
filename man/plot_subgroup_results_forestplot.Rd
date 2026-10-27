@@ -71,7 +71,10 @@ Each element should be a list with:
 
 \item{xlog}{Logical. If TRUE (default), the x-axis is plotted on a
 logarithmic scale. This is standard for hazard ratio forest plots
-where equal distances represent equal relative effects.}
+where equal distances represent equal relative effects.
+Implemented through forestploter's \code{set_xaxis(x_trans = "log")}
+since 0.4.0.9000; earlier versions documented the log axis but drew a
+linear one (GitHub #7).}
 
 \item{title_text}{Character. Plot title (default: NULL).}
 

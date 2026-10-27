@@ -38,6 +38,9 @@
 #' @param xlog Logical. If TRUE (default), the x-axis is plotted on a
 #'   logarithmic scale. This is standard for hazard ratio forest plots
 #'   where equal distances represent equal relative effects.
+#'   Implemented through forestploter's \code{set_xaxis(x_trans = "log")}
+#'   since 0.4.0.9000; earlier versions documented the log axis but drew a
+#'   linear one (GitHub #7).
 #' @param title_text Character. Plot title (default: NULL).
 #' @param arrow_text Character vector of length 2. Arrow labels for forest plot
 #'   (default: c("Favors Experimental", "Favors Control")).
@@ -220,8 +223,10 @@ plot_subgroup_results_forestplot <- function(
   # Input Validation
   # ==========================================================================
 
-  if (!requireNamespace("forestploter", quietly = TRUE)) {
-    stop("Package 'forestploter' is required but not installed.", call. = FALSE)
+  if (!requireNamespace("forestploter", quietly = TRUE) ||
+      utils::packageVersion("forestploter") < "1.2.0") {
+    stop("plot_subgroup_results_forestplot() needs the 'forestploter' package, ",
+         "version 1.2.0 or later (install.packages(\"forestploter\")).", call. = FALSE)
   }
 
   if (!requireNamespace("grid", quietly = TRUE)) {
@@ -1101,9 +1106,7 @@ plot_subgroup_results_forestplot <- function(
     ci_col = ci_col,
     ci_lwd = ci_lwd,
     ci_Theight = ci_Theight,
-    refline_lwd = refline_lwd,
-    refline_lty = refline_lty,
-    refline_col = refline_col,
+    refline_gp = grid::gpar(lwd = refline_lwd, lty = refline_lty, col = refline_col),
     footnote_gp = grid::gpar(
       fontsize = footnote_fontsize,
       fontface = "italic",
@@ -1211,23 +1214,31 @@ plot_subgroup_results_forestplot <- function(
     }
   }
 
-  # Generate the forest plot
+  # Generate the forest plot (forestploter >= 1.2.0 API, 0.4.0.9000): forest()
+  # draws the table and the CIs; the axis, scale and labels are set with
+  # set_xaxis() / set_labs(), which must run BEFORE insert_text() below.
+  # `xlog` reaches the plot here as x_trans -- until 0.4.0.9000 it was
+  # passed to forest() under a name forest() never had and was dropped, so
+  # the axis was linear whatever the documentation said (GitHub #7).
   p <- forestploter::forest(
     dt[, c("Subgroup", E.name, C.name, " ", ci_label)],
-    title = title_text,
     est = dt$est,
     lower = dt$low,
     upper = dt$hi,
     sizes = 0.4,
     ci_column = 4,
     ref_line = ref_line,
-    arrow_lab = arrow_text,
-    xlim = xlim,
-    ticks_at = ticks_at,
-    xlog = xlog,
-    footnote = footnote_text,
-    theme = tm
+    style = tm
   )
+  xaxis_args <- list(plot = p, x_trans = if (isTRUE(xlog)) "log" else "none")
+  if (!is.null(xlim))     xaxis_args$xlim     <- xlim
+  if (!is.null(ticks_at)) xaxis_args$ticks_at <- ticks_at
+  p <- do.call(forestploter::set_xaxis, xaxis_args)
+  labs_args <- list(plot = p)
+  if (!is.null(title_text))    labs_args$title    <- title_text
+  if (!is.null(arrow_text))    labs_args$arrow    <- arrow_text
+  if (!is.null(footnote_text)) labs_args$footnote <- footnote_text
+  if (length(labs_args) > 1L) p <- do.call(forestploter::set_labs, labs_args)
 
   # Add CV annotation text using insert_text (spans across first 3 columns)
   # Uses cv_fontsize from theme for proper sizing
