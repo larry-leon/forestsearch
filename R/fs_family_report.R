@@ -351,7 +351,7 @@ fs_family_report <- function(x, data = NULL, outcome_type = NULL) {
       sprintf("sg_focus = %s (canonical %s); selection_rule = %s; effect_neighborhood = %s", fmt(sg_focus_raw), fmt(sg_focus), fmt(selection_rule), fmt(effect_neighborhood)),
       DET, "deterministic given the qualifying set")
   add("time cap", "max.minutes", sprintf("max.minutes = %s", fmt(max.minutes)), INE,
-      "no path consults it (subgroup.search() forwards it and never compares it)")
+      "deprecated and ignored since 0.4.0.9000: forestsearch() does not forward it and no path consults it")
 
   out <- do.call(rbind, rows)
   rownames(out) <- NULL
