@@ -76,7 +76,11 @@
 #'   \code{fs_results$fs.est$effect_measure} if \code{NULL}.
 #' @param offset.name Character or \code{NULL}. Follow-up time column for
 #'   rate-based measures (IRR, IRD).
-#' @param adjust_covariates Character vector or \code{NULL}. Baseline
+#' @param adjust_covariates This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Character vector or \code{NULL}. Baseline
 #'   covariates to adjust the GLM-row effect models for, matching the
 #'   adjustment used during search/estimation.  When \code{NULL}, resolved
 #'   from \code{fs_results$fs.est$args_call_all$adjust_covariates} so the

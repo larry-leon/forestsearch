@@ -162,7 +162,11 @@
 #' @param min_events Minimum events (survival) or minimum per-arm count for a
 #'   candidate to be estimable.
 #' @param diagnostics Logical; if `TRUE`, record per-resample estimability.
-#' @param adjust_covariates Optional character vector of covariate names for the
+#' @param adjust_covariates This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Optional character vector of covariate names for the
 #'   within-subgroup model, matching the argument of the same name in
 #'   `forestsearch()`'s `.estimate_or()` / `.make_lm_estimator()`. Default `NULL`
 #'   is the unadjusted model. Supplying it DISABLES the closed-form fast path,

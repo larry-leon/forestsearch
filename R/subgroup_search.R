@@ -62,7 +62,11 @@
 #'   d0.min/d1.min interpretation: events per arm for binary/survival,
 #'   ignored for continuous.  Default \code{NULL} (inferred from
 #'   \code{estimator_fn} presence).
-#' @param adjust_covariates Character vector or \code{NULL}. Additional Cox
+#' @param adjust_covariates This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Character vector or \code{NULL}. Additional Cox
 #'   model terms (e.g. \code{"strata(x1)"} or \code{"x2"}) used to adjust the
 #'   candidate-search Cox scorer on the survival path.  Referenced columns are
 #'   sourced from \code{df_analysis}.  Ignored on the GLM path.  Default

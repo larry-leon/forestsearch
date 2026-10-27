@@ -208,7 +208,11 @@
 #'   (uses Cox model).
 #' @param consistency_threshold Numeric or \code{NULL}. Threshold for GLM
 #'   consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).
-#' @param adjust_covariates Character vector or \code{NULL}. Additional Cox
+#' @param adjust_covariates This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Character vector or \code{NULL}. Additional Cox
 #'   model terms used when scoring survival subgroups during consistency
 #'   evaluation, e.g. \code{"strata(x1)"} for a stratified model or
 #'   \code{"x2"} for linear adjustment.  Referenced columns must be present

@@ -372,7 +372,11 @@
 #' @param outcome.name,offset.name Character; GLM outcome and (rate) offset
 #'   column names.
 #' @param cox_init Numeric; Cox warm-start.
-#' @param adjust_covariates Character vector or `NULL`; adjustment terms.
+#' @param adjust_covariates This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Character vector or `NULL`; adjustment terms.
 #' @param adverse_outcome Logical; GLM adverse-outcome convention (see
 #'   [.consistency_glm_pieces()]).
 #' @param seed Integer or `NULL`; RNG seed for the Monte Carlo draws.

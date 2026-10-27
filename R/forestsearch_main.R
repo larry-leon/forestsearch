@@ -1080,7 +1080,11 @@
 #'   behavior.  Applies to both internal GRF pre-screening and
 #'   standalone GRF analysis when passed through
 #'   \code{run_simulation_analysis()}.
-#' @param adjust_covariates Character vector or \code{NULL}. Additional terms
+#' @param adjust_covariates This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Character vector or \code{NULL}. Additional terms
 #'   used to adjust the Cox model that scores survival subgroups during
 #'   consistency evaluation.  Terms are appended verbatim to the model
 #'   right-hand side after the treatment term, so survival modelling helpers
@@ -1094,7 +1098,11 @@
 #'   The candidate-search ranking is adjusted on both paths.  Mutually
 #'   exclusive with \code{ps_method != "none"}.  Default \code{NULL}
 #'   (treatment-only, unadjusted -- the previous behaviour).
-#' @param ps_method Character or \code{NULL}. Propensity score estimation
+#' @param ps_method This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Character or \code{NULL}. Propensity score estimation
 #'   method: \code{"grf"}, \code{"lasso"}, \code{"logistic"}, or
 #'   \code{"none"}.  Default: \code{"none"} for RCT, \code{"grf"} for
 #'   observational.
@@ -1107,7 +1115,11 @@
 #'   use \code{adjust_covariates}. Note the default resolves to \code{"grf"}
 #'   when \code{is.RCT = FALSE}, so an observational survival analysis must
 #'   pass \code{ps_method = "none"} explicitly.
-#' @param ps_adjust_method Character. PS adjustment method: \code{"none"}
+#' @param ps_adjust_method This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Character. PS adjustment method: \code{"none"}
 #'   (default), \code{"iptw"} (stabilized inverse probability of treatment
 #'   weights), or \code{"dr_gcomp"} (IPS covariate).
 #'
@@ -1115,7 +1127,11 @@
 #'   \code{"none"} -- it selects how the estimator closure is rebuilt, and that
 #'   rebuild is GLM-gated. It has no effect on a survival outcome, which is
 #'   refused at \code{ps_method}.
-#' @param ps_hat Numeric vector or \code{NULL}. User-supplied propensity
+#' @param ps_hat This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Numeric vector or \code{NULL}. User-supplied propensity
 #'   scores.  Must have length equal to \code{nrow(df.analysis)}, and is
 #'   applied **positionally** to \code{df.analysis}.
 #'
@@ -1402,6 +1418,16 @@
 #'
 #' For final regulatory submissions, \code{use_twostage = FALSE} may be preferred
 #' for exact reproducibility.
+#'
+#' @section Options not tested against the manuscript analyses:
+#' The arguments \code{adjust_covariates}, \code{ps_method},
+#' \code{ps_adjust_method} and \code{ps_hat} are implemented, but the
+#' published analyses and simulation studies of León and Anderson (2026a,
+#' 2026b) use the unadjusted treatment-only fits, and no coverage or bias
+#' results exist for these paths.  They are untested, not known to be wrong.
+#' Users who need them should check them on their own data, for example
+#' against a direct \code{coxph()} or \code{glm()} fit of the selected
+#' subgroup.
 #'
 #' @examples
 #' \dontrun{

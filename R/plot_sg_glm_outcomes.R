@@ -37,7 +37,11 @@
 #' @param outcome_type Character or \code{NULL}. One of \code{"binary"},
 #'   \code{"continuous"}.  Auto-detected from \code{fs.est$outcome_type}
 #'   if \code{NULL}.
-#' @param adjust_covariates Character vector or \code{NULL}. Baseline
+#' @param adjust_covariates This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Character vector or \code{NULL}. Baseline
 #'   covariates to adjust the plotted effect model for, matching the
 #'   adjustment used during search/estimation.  When \code{NULL}, resolved
 #'   from \code{fs.est$args_call_all$adjust_covariates} so the plot reflects

@@ -91,7 +91,11 @@ get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE, cox_initial = log(1
 #' @param outcome.name Character. Name of outcome variable.
 #' @param event.name Character. Name of event indicator variable.
 #' @param treat.name Character. Name of treatment variable.
-#' @param adjust_covariates Character vector or `NULL`. Additional model terms
+#' @param adjust_covariates This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Character vector or `NULL`. Additional model terms
 #'   appended to the right-hand side after the treatment term.  Terms are
 #'   pasted verbatim, so survival modelling functions such as `strata()` and
 #'   `pspline()` may be used directly, e.g. `adjust_covariates = "strata(x1)"`

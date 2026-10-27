@@ -165,7 +165,11 @@ early_stop_decision <- function(n_success, n_total, threshold,
 #'   Ignored when `adjust_covariates` is supplied (the default coxph
 #'   starting values are used so the init length matches the number of
 #'   model coefficients).
-#' @param adjust_covariates Character vector or `NULL`. Additional terms
+#' @param adjust_covariates This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Character vector or `NULL`. Additional terms
 #'   appended to the model right-hand side after `Treat`.  Terms are pasted
 #'   verbatim, so `"strata(x1)"` produces a stratified Cox model.  The
 #'   referenced columns must be present in `df`.  `NULL` (default) fits the
@@ -236,7 +240,11 @@ get_split_hr_fast <- function(df, cox_init = 0, adjust_covariates = NULL) {
 #'   (uses Cox model).
 #' @param consistency_threshold Numeric or \code{NULL}. Threshold for GLM
 #'   consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).
-#' @param adjust_covariates Character vector or \code{NULL}. Additional Cox
+#' @param adjust_covariates This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Character vector or \code{NULL}. Additional Cox
 #'   model terms (e.g. \code{"strata(x1)"}) passed to
 #'   \code{\link{get_split_hr_fast}} on the survival path.  Ignored on the
 #'   GLM path.  Default \code{NULL} (unadjusted).
@@ -1320,7 +1328,11 @@ remove_redundant_subgroups <- function(found.hrs) {
 #'   (uses Cox model).
 #' @param consistency_threshold Numeric or \code{NULL}. Threshold for GLM
 #'   consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).
-#' @param adjust_covariates Character vector or \code{NULL}. Additional Cox
+#' @param adjust_covariates This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Character vector or \code{NULL}. Additional Cox
 #'   model terms (e.g. \code{"strata(x1)"}) used when scoring survival
 #'   subgroups.  Referenced columns must be present in \code{df}.  Ignored
 #'   on the GLM path.  Default \code{NULL} (unadjusted).
@@ -1607,7 +1619,11 @@ evaluate_subgroup_consistency <- function(
 #'   (uses Cox model).
 #' @param consistency_threshold Numeric or \code{NULL}. Threshold for GLM
 #'   consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).
-#' @param adjust_covariates Character vector or \code{NULL}. Additional Cox
+#' @param adjust_covariates This option is implemented but has not been
+#'   tested against the manuscript analyses or the simulation studies of
+#'   León and Anderson (2026a, 2026b), which use the unadjusted
+#'   treatment-only fits.
+#'   Character vector or \code{NULL}. Additional Cox
 #'   model terms (e.g. \code{"strata(x1)"}) used when scoring survival
 #'   subgroups.  Referenced columns must be present in \code{df}.  Ignored
 #'   on the GLM path.  Default \code{NULL} (unadjusted).
