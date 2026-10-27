@@ -1,7 +1,7 @@
 # CC task — pre-check tidy on `feature/docs-refs-maxminutes` (A: roxygen stamp, B: stale note, C: dead `fit_causal_forest_glm()`)
 
 **Date:** 2026-10-27. **Repo:** forestsearch. **Branch:** `feature/docs-refs-maxminutes`, HEAD `b36da9dc` (verify with `git rev-parse --abbrev-ref HEAD` and `git rev-parse HEAD`; stop if either differs).
-**Authorised by:** Larry, chat of 2026-10-27. Items are independent; Larry's disposition per item is recorded here: **A: ___  B: ___  C: ___** (fill in `yes`/`skip` before kickoff; CC stops if any is blank).
+**Authorised by:** Larry, chat of 2026-10-27. Items are independent; Larry's disposition per item is recorded here: **A: yes  B: yes  C: yes** (fill in `yes`/`skip` before kickoff; CC stops if any is blank).
 **Task doc path:** copy from `~/Downloads/` to `dev/tasks/cc_task_prechec_tidy_2026-10-27.md`, commit first and alone.
 
 ## 0. Rules
