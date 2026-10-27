@@ -1,0 +1,770 @@
+<<block>>
+<<block>>
+Loading required package: leaps
+<<block>>
+Loading required package: survival
+<<block>>
+Attaching package: 'data.table'
+<<block>>
+The following object is masked from 'package:base':
+%notin%
+<<block>>
+Loading required package: foreach
+<<block>>
+Loading required package: future
+<<block>>
+Attaching package: 'future'
+<<block>>
+The following object is masked from 'package:survival':
+cluster
+<<block>>
+Sample size: 1083
+<<block>>
+Adverse events (no improvement): 430 (39.7%)
+<<block>>
+Baseline factors: age, preanti, wtkg, karnof, cd40, cd80, hemo, homo, drugs, race, gender, symptom
+<<block>>
+Continuous candidates: age, preanti, wtkg, karnof, cd40, cd80
+<<block>>
+Binary candidates:     hemo, homo, drugs, race, gender, symptom
+<<table>>
+ACTG175 Baseline Characteristics and Outcome by Treatment Arm
+Characteristic |  | Control (n=561) | Treatment (n=522) | P-value1 | SMD2
+y_binary_neg | Mean (SD) | 0.4 (0.5) | 0.3 (0.5) | 0.001 | 0.20
+age | Mean (SD) | 35.1 (8.5) | 35.2 (8.7) | 0.828 | 0.01
+preanti | Mean (SD) | 383.9 (477.7) | 379.1 (474.0) | 0.870 | 0.01
+wtkg | Mean (SD) | 74.9 (13.0) | 74.9 (13.6) | 0.988 | 0.00
+karnof | Mean (SD) | 95.1 (5.9) | 95.5 (5.8) | 0.258 | 0.07
+cd40 | Mean (SD) | 347.5 (114.4) | 348.7 (130.2) | 0.866 | 0.01
+cd80 | Mean (SD) | 971.9 (502.7) | 1004.3 (488.0) | 0.282 | 0.07
+hemo |  | 49 (8.7%) | 43 (8.2%) | 0.854 | 0.02
+homo |  | 379 (67.6%) | 346 (66.3%) | 0.703 | 0.03
+drugs |  | 69 (12.3%) | 73 (14.0%) | 0.465 | 0.05
+race |  | 173 (30.8%) | 138 (26.4%) | 0.125 | 0.10
+gender |  | 470 (83.8%) | 434 (83.1%) | 0.841 | 0.02
+symptom |  | 96 (17.1%) | 96 (18.4%) | 0.638 | 0.03
+1 P-values: t-test for continuous, chi-square/Fisher's exact for categorical/binary variables
+2 SMD = Standardized mean difference (Cohen's d for continuous, Cramer's V for categorical)
+<<block>>
+=== ITT Odds Ratio, adverse scale (y_binary_neg) ===
+<<block>>
+log-OR (treat): -0.4078  (SE 0.1252)
+<<block>>
+OR:              0.665  (95% CI: 0.520, 0.850)
+<<block>>
+p-value:        0.0011
+<<block>>
+On the adverse scale, OR > 1 indicates the treatment raises the odds of
+<<block>>
+no improvement (harm); OR < 1 indicates fewer non-improvers (benefit).
+<<block>>
+[forestsearch] Subgroup Identification Configuration
+Outcome type:   binary
+Effect measure: OR (Odds Ratio)
+Scale:          log (ratio)
+Screening:      OR >= 1.00 (log: 0.0000)
+Consistency:    OR >= 1.00 (log: 0.0000)
+Consistency rate threshold: 90%
+Interpretation:
+Candidates: subgroup OR >= 1.00
+Splits:     each split OR >= 1.00
+<<block>>
+==============================================================
+<<block>>
+Search Alignment Diagnostic
+<<block>>
+==============================================================
+<<block>>
+Outcome:    y_binary_neg (binary)
+<<block>>
+Treatment:  treat
+<<block>>
+Measure:    Odds Ratio (OR) -- estimator sees Y as-is (no flip)
+<<block>>
+ForestSearch searches for:
+Subgroups where treat increases P(y_binary_neg=1)
+(OR >= threshold on the ORIGINAL outcome scale)
+<<block>>
+Thresholds:
+Screening: OR >= 1.000 in the candidate subgroup
+Consistency: OR >= 1.000 in each bootstrap split
+<<block>>
+Variable screening:
+<<block>>
+LASSO: LASSO screening: DISABLED
+<<block>>
+GRF:   DISABLED
+<<block>>
+No alignment concerns detected.
+<<block>>
+==============================================================
+<<block>>
+J-quantile cuts: cd40 (J=10), wtkg (J=10)
+Candidate factors: 40
+[1] "cd40 <= 204"    "cd40 <= 237"    "cd40 <= 267"    "cd40 <= 296"
+[5] "cd40 <= 321"    "cd40 <= 350"    "cd40 <= 380"    "cd40 <= 413"
+[9] "cd40 <= 449"    "cd40 <= 507"    "wtkg <= 58"     "wtkg <= 64"
+[13] "wtkg <= 67"     "wtkg <= 70"     "wtkg <= 73"     "wtkg <= 76"
+[17] "wtkg <= 78"     "wtkg <= 81"     "wtkg <= 86"     "wtkg <= 91"
+[21] "age <= 35"      "age <= 34"      "age <= 29"      "age <= 40"
+[25] "preanti <= 382" "preanti <= 136" "preanti <= 0"   "preanti <= 745"
+[29] "karnof <= 95"   "karnof <= 90"   "cd80 <= 988"    "cd80 <= 895"
+[33] "cd80 <= 649"    "cd80 <= 1208"   "hemo"           "homo"
+[37] "drugs"          "race"           "gender"         "symptom"
+Number of possible configurations (<= maxk): maxk = 2 , # combinations = 3240
+Per-arm events criteria: control >= 10, treatment >= 10
+Sample size criteria: n >= 60
+--- Filtering Summary ---
+Combinations evaluated: 3240
+Passed variance check: 3090
+Passed prevalence (>= 0.025 ): 3090
+Passed redundancy check: 2975
+Passed events counts (d0>= 10, d1>= 10): 2659
+Passed sample size (n>= 60 ): 2577
+GLM model fit successfully: 2577
+Passed effect threshold (effect >= 0.0000): 145
+-------------------------
+Found 145 subgroup candidate(s)
+# of candidate subgroups (meeting all criteria) = 145
+Removed 9 near-duplicate subgroups
+# of unique initial candidates: 136
+# Restricting to top stop_Kgroups = Inf
+# of candidates to evaluate: 136
+==============================================================================================================
+CANDIDATE EVALUATION PREVIEW (pre-consistency) (sg_focus = "hrMaxSG", selection_rule = "neighborhood")
+==============================================================================================================
+Rank  OR      N      E     K    OF  IB  Subgroup
+--------------------------------------------------------------------------------------------------------------
+1   3.584     72    37    2  *   *   !{wtkg <= 86} & !{cd40 <= 380}
+2   1.096    262   133    2  *   -   !{drugs} & !{cd40 <= 413}
+3   1.120    207    89    2  *   -   !{wtkg <= 81} & !{cd40 <= 296}
+4   1.134    196   113    1  *   -   !{cd40 <= 449}
+5   1.404    177    85    2  *   -   !{wtkg <= 76} & !{cd40 <= 380}
+6   1.467    166    97    2  *   -   !{cd40 <= 449} & {gender}
+7   1.602    136    69    2  *   -   !{cd40 <= 413} & !{wtkg <= 76}
+8   1.927    117    59    2  *   -   !{wtkg <= 81} & !{cd40 <= 380}
+9   2.415     92    49    2  *   -   !{cd40 <= 413} & !{wtkg <= 81}
+10   2.525     74    43    2  *   -   !{cd40 <= 449} & !{wtkg <= 78}
+... 126 more candidates not shown (max_print = 10).
+--------------------------------------------------------------------------------------------------------------
+To evaluate: 136   On frontier: 10   In band: 1
+Legend: OF = on Pareto frontier;  IB = in effect-size band.
+==============================================================================================================
+<<block>>
+Parallel plan: multisession with 102 workers.
+<<block>>
+Parallel config: workers = 102 , batch_size = 136
+Batch 1 / 1 : candidates 1 - 136
+Evaluated 136 of 136 candidates (complete)
+5 subgroups passed consistency threshold
+SG focus = hrMaxSG
+==============================================================================================================
+CANDIDATE EVALUATION SUMMARY  (sg_focus = "hrMaxSG", selection_rule = "neighborhood")
+==============================================================================================================
+Rank  OR      N      E     K    P      OF  IB  S  Subgroup
+--------------------------------------------------------------------------------------------------------------
+1   3.584     72    37    2  0.990  *   *   *  !{wtkg <= 86} & !{cd40 <= 380}
+2   1.927    117    59    2  0.910  *   -   -  !{wtkg <= 81} & !{cd40 <= 380}
+3   2.415     92    49    2  0.960  *   -   -  !{cd40 <= 413} & !{wtkg <= 81}
+4   2.095     88    51    2  0.900  -   -   -  !{cd40 <= 449} & !{wtkg <= 76}
+5   2.525     74    43    2  0.940  *   -   -  !{cd40 <= 449} & !{wtkg <= 78}
+--------------------------------------------------------------------------------------------------------------
+Evaluated: 136   Passed: 5   On frontier: 4   In band: 1   Selected: m=1
+Legend: P = Pcons (consistency probability); OF = on Pareto frontier;  IB = in effect-size band; S = selected.
+==============================================================================================================
+Consistency algorithm used: twostage
+Subgroup identified: !{wtkg <= 86} & !{cd40 <= 380}
+<<block>>
+Multiplier resampling (MR): constructing de-biased estimates from 5000 draws.
+This is post-selection inference on the completed search; it cannot change the identified subgroup.
+<<block>>
+MR harm confirmation: OR = 1.794 (point rule vs 1.00) -> consistent with harm
+<<block>>
+<<block>>
+<<table>>
+Identified Subgroups
+Two-factor subgroups (maxk=2)
+Factor 1 | Factor 2 | N | n(C+T) | n1 | OR | Pcons
+!{wtkg <= 86} | !{cd40 <= 380} | 72 | 37 | 23 | 3.58 | 0.99
+!{wtkg <= 81} | !{cd40 <= 380} | 117 | 59 | 34 | 1.93 | 0.91
+!{cd40 <= 413} | !{wtkg <= 81} | 92 | 49 | 30 | 2.41 | 0.96
+!{cd40 <= 449} | !{wtkg <= 76} | 88 | 51 | 30 | 2.10 | 0.90
+!{cd40 <= 449} | !{wtkg <= 78} | 74 | 43 | 25 | 2.53 | 0.94
+Search Configuration: Single-factor candidates (L) = 80; Maximum combinations evaluated = 3,240; Search depth (maxk) = 2
+Search Results: Candidate subgroups found = 145; Maximum OR estimate = 3.58
+Note: E1 = events in treatment arm; Pcons = consistency proportion
+<<table>>
+Treatment Effect Estimates
+Training data estimates
+Subgroup | n | n1 | Rate(C) | Rate(T) | Diff | OR (95% CI)
+ITT | 1083 (100.0%) | 522 (48.2%) | 44.39% | 34.67% | -9.71% | 0.67 (0.52, 0.85)
+Questionable1 | 72 (6.6%) | 34 (47.2%) | 36.84% | 67.65% | +30.80% | 3.58 (1.35, 9.50)
+Recommend | 1011 (93.4%) | 488 (48.3%) | 44.93% | 32.38% | -12.56% | 0.59 (0.45, 0.76)
+1 Identified subgroup: !{wtkg <= 86} & !{cd40 <= 380}
+<<block>>
+Identified subgroup (H): !{wtkg <= 86} & !{cd40 <= 380}
+Subgroup size: 72 (6.6% of ITT)
+<<table>>
+Pareto frontier on (OR, N)
+4 non-dominated candidate(s) | sg_focus = 'hrMaxSG' | OR shown on natural scale (exponentiated from log-scale storage) | diagnostic only
+S1,2 | M.1 | M.2 | N | E | OR | P3 | K | 95% CIs
+Naive | Split ~ | FSBC ~
+★ | !{wtkg <= 86} | !{cd40 <= 380} | 72 | 37 | 3.58 | 0.99 | 2 | (1.35, 9.50) | (0.50, 25.61) | 3.30 (0.46, 23.60)
+| !{cd40 <= 449} | !{wtkg <= 78} | 74 | 43 | 2.53 | 0.94 | 2 | (0.97, 6.55) | (0.88, 7.24) | 2.44 (0.85, 7.00)
+| !{cd40 <= 413} | !{wtkg <= 81} | 92 | 49 | 2.41 | 0.96 | 2 | (1.04, 5.59) | (0.99, 5.89) | 2.35 (0.96, 5.74)
+| !{wtkg <= 81} | !{cd40 <= 380} | 117 | 59 | 1.93 | 0.91 | 2 | (0.92, 4.02) | (0.88, 4.24) | 1.90 (0.86, 4.17)
+1 S: selected subgroup (winner of the configured selection rule).
+2 ★ marks the subgroup chosen by sg_focus = 'hrMaxSG'.
+3 P: Pcons (consistency probability).
+<<table>>
+FS vs GRF: Subgroup Membership Concordance
+ACTG175 observed data (binary OR, adverse scale)
+ForestSearch | GRF Standalone | Total
+H (Questionable) | Hᶜ (Recommend)
+H (Questionable) | 67 | 5 | 72
+Hᶜ (Recommend) | 63 | 948 | 1011
+Total | 130 | 953 | 1083
+Agreement: 1015 / 1083 (93.7%) Cohen’s κ: 0.632 ForestSearch H: !{wtkg <= 86} & !{cd40 <= 380} GRF Standalone H: (wtkg <= 83.462400000000002 & preanti > 1292) | (wtkg > 83.462400000000002 & cd40 > 390)
+<<block>>
+Concordance statistics:
+<<block>>
+Agreement:       93.7%
+<<block>>
+Cohen's kappa:   0.632
+<<block>>
+Concordant:      1015 / Discordant: 68 / Total: 1083
+<<block>>
+Bootstrap parallel config: Using user-provided settings
+<<block>>
+<<block>>
+Bootstrap will use: 102 workers with 'multisession' plan
+<<block>>
+Parallel plan: multisession with 102 workers.
+<<block>>
+Bootstrap iteration 1/1000
+<<block>>
+Bootstrap iteration 10/1000
+<<block>>
+Bootstrap iteration 50/1000
+<<block>>
+Bootstrap iteration 100/1000
+<<block>>
+Bootstrap iteration 250/1000
+<<block>>
+Bootstrap iteration 500/1000
+<<block>>
+Bootstrap iteration 750/1000
+<<block>>
+Bootstrap iteration 1000/1000
+<<block>>
+<<block>>
+<<block>>
+===============================================================
+BOOTSTRAP ANALYSIS SUMMARY
+===============================================================
+IDENTIFIED SUBGROUP:
+-------------------------------------------------------------
+H: !{wtkg <= 86} & !{cd40 <= 380}
+BOOTSTRAP SUCCESS METRICS:
+-------------------------------------------------------------
+Total iterations:              1000
+Successful subgroup ID:        990 (99.0%)
+Failed to find subgroup:       10 (1.0%)
+TIMING ANALYSIS:
+-------------------------------------------------------------
+Overall:
+<<table>>
+Treatment Effect by Subgroup
+Bootstrap bias-corrected estimates (1000 iterations)
+Subgroup | Sample Size | Event Rates | Diff | Treatment Effect
+N | NT | RateC | RateT | OR(95% CI)†1 | OR‡(95% CI)2
+Qstnbl3 | 72 (6.6%) | 34 (47.2%) | 36.84% | 67.65% | +30.80% | 3.58 (1.35, 9.50) | 2.43 (0.80,7.33)
+Recmnd | 1011 (93.4%) | 488 (48.3%) | 44.93% | 32.38% | -12.56% | 0.59 (0.45, 0.76) | 0.61 (0.41,0.89)
+1 Unadjusted OR: GLM estimate with robust standard errors
+2 Bias-corrected OR: Bootstrap-adjusted estimate using infinitesimal jackknife method (1000 iterations). Corrects for optimism in subgroup selection.
+3 Identified subgroup: !{wtkg <= 86} & !{cd40 <= 380}
+Note: RateC = control arm event rate; RateT = treatment arm event rate. Subgroup identified in 99.0% of bootstrap samples.
+<<table>>
+Treatment Effect by Subgroup
+MR de-biased estimate (multiplier resampling, 5000 draws)
+Subgroup | Sample Size | Event Rates | Diff | Treatment Effect
+N | NT | RateC | RateT | OR(95% CI)†1 | OR‡(95% CI)2
+Qstnbl3 | 72 (6.6%) | 34 (47.2%) | 36.84% | 67.65% | +30.80% | 3.58 (1.35, 9.50) | 1.79 (0.63,5.08)
+Recmnd | 1011 (93.4%) | 488 (48.3%) | 44.93% | 32.38% | -12.56% | 0.59 (0.45, 0.76) | 0.62 (0.37,1.03)
+1 Unadjusted OR: GLM estimate with robust standard errors
+2 Bias-corrected OR: Bootstrap-adjusted estimate using infinitesimal jackknife method (5000 iterations). Corrects for optimism in subgroup selection.
+3 Identified subgroup: !{wtkg <= 86} & !{cd40 <= 380}
+Note: RateC = control arm event rate; RateT = treatment arm event rate.
+<<block>>
+Coordinate system already present.
+ℹ Adding new coordinate system, which will replace the existing one.
+<<block>>
+Figure note: Identified subgroup (H): !{wtkg <= 86} & !{cd40 <= 380}. Bars show event rates per arm; error bars show 95 percent CI.
+<<table>>
+Bootstrap Diagnostics Summary
+Analysis of 1000 bootstrap iterations
+Category | Metric | Value
+Success Rate | Total iterations | 1000
+| Successful | 990 (99.0%)
+| Failed | 10 (1.0%)
+| Success rating | Excellent
+Subgroup H (Questionable) | Observed OR | 3.584
+| Bias-corrected OR | 2.427
+| Bootstrap CV (%) | 79.9%
+| N estimates | 990
+Subgroup Hc (Recommend) | Observed OR | 0.587
+| Bias-corrected OR | 0.606
+| Bootstrap CV (%) | 43.2%
+| N estimates | 990
+<<block>>
+Metric                          Value
+<char>                         <char>
+1:      Total bootstrap iterations                           1000
+2:           Successful iterations                            990
+3: Failed iterations (no subgroup)                             10
+4:
+5:    Original subgroup definition !{cd40 <= 380} & !{wtkg <= 86}
+6:       Exact match with original                      31 (3.1%)
+7:         Different from original                    959 (96.9%)
+8:   Partial match (shared factor)                    210 (21.2%)
+<<block>>
+Rank  Factor Count    Percent
+2     1    cd40   853 86.1616162
+12    2    wtkg   759 76.6666667
+9     3 preanti   147 14.8484848
+3     4    cd80    89  8.9898990
+1     5     age    48  4.8484848
+8     6  karnof    30  3.0303030
+5     7  gender    13  1.3131313
+4     8   drugs    12  1.2121212
+10    9    race    12  1.2121212
+7    10    homo    10  1.0101010
+11   11 symptom     6  0.6060606
+6    12    hemo     1  0.1010101
+<<block>>
+[forestsearch] Subgroup Identification Configuration
+Outcome type:   binary
+Effect measure: OR (Odds Ratio)
+Scale:          log (ratio)
+Screening:      OR >= 1.00 (log: 0.0000)
+Consistency:    OR >= 0.90 (log: -0.1054)
+Consistency rate threshold: 90%
+Interpretation:
+Candidates: subgroup OR >= 1.00
+Splits:     each split OR >= 0.90
+<<block>>
+==============================================================
+<<block>>
+Search Alignment Diagnostic
+<<block>>
+==============================================================
+<<block>>
+Outcome:    y_binary_neg (binary)
+<<block>>
+Treatment:  treat
+<<block>>
+Measure:    Odds Ratio (OR) -- estimator sees Y as-is (no flip)
+<<block>>
+ForestSearch searches for:
+Subgroups where treat increases P(y_binary_neg=1)
+(OR >= threshold on the ORIGINAL outcome scale)
+<<block>>
+Thresholds:
+Screening: OR >= 1.000 in the candidate subgroup
+Consistency: OR >= 0.900 in each bootstrap split
+<<block>>
+Variable screening:
+<<block>>
+LASSO: LASSO screening uses glmnet with family = "binomial (logistic)".
+Variables with non-zero coefficients are retained.
+<<block>>
+GRF:   GRF sees 1-y_binary_neg (flipped for causal_forest).
+Positive CATE = treatment REDUCES y_binary_neg = treatment HELPS.
+<<block>>
+No alignment concerns detected.
+<<block>>
+==============================================================
+<<block>>
+J-quantile cuts: cd40 (J=10), wtkg (J=10)
+GRF subgroup: (wtkg <= 83 & preanti > 1292) | (wtkg > 83 & cd40 > 390)
+GRF cuts identified: 3
+Cuts: wtkg <= 83, preanti <= 1292, cd40 <= 390
+DINA screening mode: selected cut (dina_subgroup, forestsearch criteria)
+DINA cuts identified: 2
+Cuts: cd40 >= 500, drugs <= 0
+Cox-LASSO selected: 7 of 13 candidate factors
+Omitted: wtkg, karnof, hemo, drugs, gender, symptom
+Candidate factors: 39
+[1] "wtkg <= 83.4624" "preanti <= 1292" "cd40 <= 390"     "cd40 >= 500"
+[5] "cd40 <= 204"     "cd40 <= 237"     "cd40 <= 267"     "cd40 <= 296"
+[9] "cd40 <= 321"     "cd40 <= 350"     "cd40 <= 380"     "cd40 <= 413"
+[13] "cd40 <= 449"     "cd40 <= 507"     "wtkg <= 58"      "wtkg <= 64"
+[17] "wtkg <= 67"      "wtkg <= 70"      "wtkg <= 73"      "wtkg <= 76"
+[21] "wtkg <= 78"      "wtkg <= 81"      "wtkg <= 86"      "wtkg <= 91"
+[25] "age <= 35"       "age <= 34"       "age <= 29"       "age <= 40"
+[29] "preanti <= 382"  "preanti <= 136"  "preanti <= 0"    "preanti <= 745"
+[33] "cd80 <= 988"     "cd80 <= 895"     "cd80 <= 649"     "cd80 <= 1208"
+[37] "homo"            "race"            "drugs <= 0"
+Number of possible configurations (<= maxk): maxk = 2 , # combinations = 3081
+Per-arm events criteria: control >= 10, treatment >= 10
+Sample size criteria: n >= 60
+--- Filtering Summary ---
+Combinations evaluated: 3081
+Passed variance check: 2899
+Passed prevalence (>= 0.025 ): 2899
+Passed redundancy check: 2751
+Passed events counts (d0>= 10, d1>= 10): 2435
+Passed sample size (n>= 60 ): 2356
+GLM model fit successfully: 2356
+Passed effect threshold (effect >= 0.0000): 168
+-------------------------
+Found 168 subgroup candidate(s)
+# of candidate subgroups (meeting all criteria) = 168
+Removed 3 near-duplicate subgroups
+# of unique initial candidates: 165
+# Restricting to top stop_Kgroups = Inf
+# of candidates to evaluate: 165
+==============================================================================================================
+CANDIDATE EVALUATION PREVIEW (pre-consistency) (sg_focus = "hrMaxSG", selection_rule = "neighborhood")
+==============================================================================================================
+Rank  OR      N      E     K    OF  IB  Subgroup
+--------------------------------------------------------------------------------------------------------------
+1   6.337     71    41    2  *   *   !{wtkg <= 83.4624} & !{cd40 <= 413}
+2   1.096    262   133    2  *   -   {drugs <= 0} & !{cd40 <= 413}
+3   1.120    207    89    2  *   -   !{wtkg <= 81} & !{cd40 <= 296}
+4   1.152    197    99    2  *   -   !{cd40 <= 390} & !{wtkg <= 73}
+5   1.404    177    85    2  *   -   !{wtkg <= 76} & !{cd40 <= 380}
+6   1.445    159    69    2  *   -   !{wtkg <= 83.4624} & !{cd40 <= 296}
+7   1.598    156    75    2  *   -   !{cd40 <= 390} & !{wtkg <= 76}
+8   1.700    136    64    2  *   -   !{wtkg <= 83.4624} & !{cd40 <= 321}
+9   1.718    134    65    2  *   -   !{cd40 <= 390} & !{wtkg <= 78}
+10   1.927    117    59    2  *   -   !{cd40 <= 380} & !{wtkg <= 81}
+... 155 more candidates not shown (max_print = 10).
+--------------------------------------------------------------------------------------------------------------
+To evaluate: 165   On frontier: 13   In band: 1
+Legend: OF = on Pareto frontier;  IB = in effect-size band.
+==============================================================================================================
+<<block>>
+Parallel plan: multisession with 102 workers.
+<<block>>
+Parallel config: workers = 102 , batch_size = 165
+Batch 1 / 1 : candidates 1 - 165
+Evaluated 165 of 165 candidates (complete)
+17 subgroups passed consistency threshold
+SG focus = hrMaxSG
+==============================================================================================================
+CANDIDATE EVALUATION SUMMARY  (sg_focus = "hrMaxSG", selection_rule = "neighborhood")
+==============================================================================================================
+Rank  OR      N      E     K    P      OF  IB  S  Subgroup
+--------------------------------------------------------------------------------------------------------------
+1   6.337     71    41    2  1.000  *   *   *  !{wtkg <= 83.4624} & !{cd40 <= 413}
+2   1.598    156    75    2  0.920  *   -   -  !{cd40 <= 390} & !{wtkg <= 76}
+3   1.700    136    64    2  0.930  *   -   -  !{wtkg <= 83.4624} & !{cd40 <= 321}
+4   1.602    136    69    2  0.900  -   -   -  !{cd40 <= 413} & !{wtkg <= 76}
+5   1.718    134    65    2  0.930  *   -   -  !{cd40 <= 390} & !{wtkg <= 78}
+6   1.927    117    59    2  0.950  *   -   -  !{cd40 <= 380} & !{wtkg <= 81}
+7   1.739    116    53    2  0.910  -   -   -  !{wtkg <= 83.4624} & !{cd40 <= 350}
+8   1.813    115    59    2  0.930  -   -   -  !{cd40 <= 413} & !{wtkg <= 78}
+9   2.395    107    54    2  0.980  *   -   -  !{cd40 <= 390} & !{wtkg <= 81}
+10   1.917    105    51    2  0.940  -   -   -  !{cd40 <= 321} & !{wtkg <= 86}
+... 7 more candidates not shown (max_print = 10).
+--------------------------------------------------------------------------------------------------------------
+Evaluated: 165   Passed: 17   On frontier: 8   In band: 1   Selected: m=1
+Legend: P = Pcons (consistency probability); OF = on Pareto frontier;  IB = in effect-size band; S = selected.
+==============================================================================================================
+Consistency algorithm used: twostage
+Subgroup identified: !{wtkg <= 83.4624} & !{cd40 <= 413}
+<<block>>
+<<block>>
+Identified subgroup (H): !{wtkg <= 83.46} & !{cd40 <= 413}
+Subgroup size: 71 (6.6% of ITT)
+<<table>>
+DINA Screening Candidates Injected into ForestSearch
+# | DINA candidate cut
+1 | cd40 >= 500
+2 | drugs <= 0
+<<table>>
+Pareto frontier on (OR, N)
+8 non-dominated candidate(s) | sg_focus = 'hrMaxSG' | OR shown on natural scale (exponentiated from log-scale storage) | diagnostic only
+S1,2 | M.1 | M.2 | N | E | OR | P3 | K
+★ | !{wtkg <= 83.4624} | !{cd40 <= 413} | 71 | 41 | 6.34 | 1.00 | 2
+| !{wtkg <= 83.4624} | !{cd40 <= 390} | 83 | 44 | 4.92 | 1.00 | 2
+| !{wtkg <= 83.4624} | !{cd40 <= 380} | 92 | 48 | 3.57 | 1.00 | 2
+| !{cd40 <= 390} | !{wtkg <= 81} | 107 | 54 | 2.39 | 0.98 | 2
+| !{cd40 <= 380} | !{wtkg <= 81} | 117 | 59 | 1.93 | 0.95 | 2
+| !{cd40 <= 390} | !{wtkg <= 78} | 134 | 65 | 1.72 | 0.93 | 2
+| !{wtkg <= 83.4624} | !{cd40 <= 321} | 136 | 64 | 1.70 | 0.93 | 2
+| !{cd40 <= 390} | !{wtkg <= 76} | 156 | 75 | 1.60 | 0.92 | 2
+1 S: selected subgroup (winner of the configured selection rule).
+2 ★ marks the subgroup chosen by sg_focus = 'hrMaxSG'.
+3 P: Pcons (consistency probability).
+<<block>>
+Standalone DINA fit complete (family = binomial).
+<<table>>
+Standalone DINA Frontier
+Per-covariate non-dominated (effect, N) candidates; effect on OR scale
+Covariate | Direction | Threshold | N | OR | Cut
+cd40 | right | 549.000 | 62 | 1.149 | cd40 >= 549
+cd80 | right | 1,786.000 | 69 | 1.019 | cd80 >= 1790
+preanti | right | 1,224.000 | 67 | 0.979 | preanti >= 1220
+symptom | right | 1.000 | 192 | 0.754 | symptom >= 1
+age | left | 29.000 | 282 | 0.722 | age <= 29
+homo | right | 1.000 | 725 | 0.718 | homo >= 1
+karnof | left | 90.000 | 457 | 0.692 | karnof <= 90
+drugs | left | 0.000 | 941 | 0.681 | drugs <= 0
+race | right | 1.000 | 311 | 0.674 | race >= 1
+wtkg | left | 57.607 | 95 | 0.662 | wtkg <= 57.6
+<<block>>
+DINA-selected subgroup: cd40 >= 500
+DINA-selected subgroup: drugs >=   0
+Direction: right | N = 100
+Direction: left | N = 100
+<<block>>
+[forestsearch] DINA selection (subgroup_method = "dina")
+Family:              binomial
+sg_focus:            hrMaxSG
+selection_rule:      neighborhood
+effect_neighborhood: 0.1
+Harm floor:          m_diff = 0.0000  (hr.threshold = 1)
+n.min:               60
+DINA frontier candidates (per-covariate non-dominated):
+covariate direction threshold n_subgroup    effect        cut_expr
+cd40     right  549.0000         62 1.1488938     cd40 >= 549
+cd80     right 1786.0000         69 1.0191980    cd80 >= 1790
+preanti     right 1224.0000         67 0.9794775 preanti >= 1220
+symptom     right    1.0000        192 0.7535221    symptom >= 1
+age      left   29.0000        282 0.7219017       age <= 29
+homo     right    1.0000        725 0.7177058       homo >= 1
+karnof      left   90.0000        457 0.6923732    karnof <= 90
+drugs      left    0.0000        941 0.6814438      drugs <= 0
+race     right    1.0000        311 0.6740014       race >= 1
+wtkg      left   57.6072         95 0.6616176    wtkg <= 57.6
+<<block>>
+Candidates searched:  10284
+Candidates qualifying (>= floor, >= n.min): 147
+SELECTED: {preanti >= 849.4} & {cd40 >= 338.0}  (n = 98, mean tau-hat = 0.0098)
+<<block>>
+DINA-selected subgroup: {preanti >= 849.40000000000009} & {cd40 >= 338}
+<<block>>
+Multiplier resampling (MR): constructing de-biased estimates from 5000 draws.
+This is post-selection inference on the completed search; it cannot change the identified subgroup.
+<<block>>
+DINA-selected subgroup (H): {preanti >= 849.4} & {cd40 >= 338}
+Subgroup size: 98 (9.0% of ITT)
+<<block>>
+Bootstrap parallel config: Using user-provided settings
+<<block>>
+<<block>>
+Bootstrap will use: 102 workers with 'multisession' plan
+<<block>>
+Parallel plan: multisession with 102 workers.
+<<block>>
+Bootstrap iteration 1/1000
+<<block>>
+Bootstrap iteration 10/1000
+<<block>>
+Bootstrap iteration 50/1000
+<<block>>
+Bootstrap iteration 100/1000
+<<block>>
+Bootstrap iteration 250/1000
+<<block>>
+Bootstrap iteration 500/1000
+<<block>>
+Bootstrap iteration 750/1000
+<<block>>
+Bootstrap iteration 1000/1000
+<<block>>
+<<block>>
+<<block>>
+===============================================================
+BOOTSTRAP ANALYSIS SUMMARY
+===============================================================
+IDENTIFIED SUBGROUP:
+-------------------------------------------------------------
+H: {preanti >= 849.40000000000009} & {cd40 >= 338}
+BOOTSTRAP SUCCESS METRICS:
+-------------------------------------------------------------
+Total iterations:              1000
+Successful subgroup ID:        978 (97.8%)
+Failed to find subgroup:       22 (2.2%)
+TIMING ANALYSIS:
+-------------------------------------------------------------
+Overall:
+<<table>>
+Treatment Effect by Subgroup
+Bootstrap bias-corrected estimates (1000 iterations)
+Subgroup | Sample Size | Event Rates | Diff | Treatment Effect
+N | NT | RateC | RateT | OR(95% CI)†1 | OR‡(95% CI)2
+Qstnbl3 | 98 (9.0%) | 43 (43.9%) | 49.09% | 65.12% | +16.03% | 1.94 (0.85, 4.40) | 0.85 (0.23,3.11)
+Recmnd | 985 (91.0%) | 479 (48.6%) | 43.87% | 31.94% | -11.93% | 0.60 (0.46, 0.78) | 0.63 (0.40,1.02)
+1 Unadjusted OR: GLM estimate with robust standard errors
+2 Bias-corrected OR: Bootstrap-adjusted estimate using infinitesimal jackknife method (1000 iterations). Corrects for optimism in subgroup selection.
+3 Identified subgroup: {preanti >= 849.40000000000009} & {cd40 >= 338}
+Note: RateC = control arm event rate; RateT = treatment arm event rate. Subgroup identified in 97.8% of bootstrap samples.
+<<table>>
+Treatment Effect by Subgroup
+MR de-biased estimate (multiplier resampling, 5000 draws)
+Subgroup | Sample Size | Event Rates | Diff | Treatment Effect
+N | NT | RateC | RateT | OR(95% CI)†1 | OR‡(95% CI)2
+Qstnbl3 | 98 (9.0%) | 43 (43.9%) | 49.09% | 65.12% | +16.03% | 1.94 (0.85, 4.40) | 0.95 (0.29,3.10)
+Recmnd | 985 (91.0%) | 479 (48.6%) | 43.87% | 31.94% | -11.93% | 0.60 (0.46, 0.78) | 0.63 (0.38,1.06)
+1 Unadjusted OR: GLM estimate with robust standard errors
+2 Bias-corrected OR: Bootstrap-adjusted estimate using infinitesimal jackknife method (5000 iterations). Corrects for optimism in subgroup selection.
+3 Identified subgroup: {preanti >= 849.40000000000009} & {cd40 >= 338}
+Note: RateC = control arm event rate; RateT = treatment arm event rate.
+<<block>>
+[forestsearch] Subgroup Identification Configuration
+Outcome type:   binary
+Effect measure: OR (Odds Ratio)
+Scale:          log (ratio)
+Screening:      OR >= 1.25 (log: 0.2231)
+Consistency:    OR >= 1.00 (log: 0.0000)
+Consistency rate threshold: 90%
+Interpretation:
+Candidates: subgroup OR >= 1.25
+Splits:     each split OR >= 1.00
+<<block>>
+==============================================================
+<<block>>
+Search Alignment Diagnostic
+<<block>>
+==============================================================
+<<block>>
+Outcome:    y_binary_neg (binary)
+<<block>>
+Treatment:  treat
+<<block>>
+Measure:    Odds Ratio (OR) -- estimator sees Y as-is (no flip)
+<<block>>
+ForestSearch searches for:
+Subgroups where treat increases P(y_binary_neg=1)
+(OR >= threshold on the ORIGINAL outcome scale)
+<<block>>
+Thresholds:
+Screening: OR >= 1.250 in the candidate subgroup
+Consistency: OR >= 1.000 in each bootstrap split
+<<block>>
+Variable screening:
+<<block>>
+LASSO: LASSO screening: DISABLED
+<<block>>
+GRF:   DISABLED
+<<block>>
+No alignment concerns detected.
+<<block>>
+==============================================================
+<<block>>
+[forestsearch] GRF selection (subgroup_method = "grf")
+Outcome type:   binary
+grf_depth:      2
+dmin.grf:       0
+frac.tau:       0.8
+n.min:          60
+SELECTED (depth 2): wtkg > 84.369600000000005 & cd40 > 368.20000000000005
+<<block>>
+GRF-selected subgroup: {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005}
+<<block>>
+Multiplier resampling (MR): constructing de-biased estimates from 5000 draws.
+This is post-selection inference on the completed search; it cannot change the identified subgroup.
+<<block>>
+GRF-selected subgroup (H): {wtkg > 84.37} & {cd40 > 368.2}
+Subgroup size: 95 (8.8% of ITT)
+<<block>>
+Bootstrap parallel config: Using user-provided settings
+<<block>>
+<<block>>
+Bootstrap will use: 102 workers with 'multisession' plan
+<<block>>
+Parallel plan: multisession with 102 workers.
+<<block>>
+Bootstrap iteration 1/1000
+<<block>>
+Bootstrap iteration 10/1000
+<<block>>
+Bootstrap iteration 50/1000
+<<block>>
+Bootstrap iteration 100/1000
+<<block>>
+Bootstrap iteration 250/1000
+<<block>>
+Bootstrap iteration 500/1000
+<<block>>
+Bootstrap iteration 750/1000
+<<block>>
+Bootstrap iteration 1000/1000
+<<block>>
+<<block>>
+<<block>>
+===============================================================
+BOOTSTRAP ANALYSIS SUMMARY
+===============================================================
+IDENTIFIED SUBGROUP:
+-------------------------------------------------------------
+H: {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005}
+BOOTSTRAP SUCCESS METRICS:
+-------------------------------------------------------------
+Total iterations:              1000
+Successful subgroup ID:        1000 (100.0%)
+Failed to find subgroup:       0 (0.0%)
+TIMING ANALYSIS:
+-------------------------------------------------------------
+Overall:
+<<table>>
+Treatment Effect by Subgroup
+Bootstrap bias-corrected estimates (1000 iterations)
+Subgroup | Sample Size | Event Rates | Diff | Treatment Effect
+N | NT | RateC | RateT | OR(95% CI)†1 | OR‡(95% CI)2
+Qstnbl3 | 95 (8.8%) | 47 (49.5%) | 39.58% | 59.57% | +19.99% | 2.25 (0.99, 5.11) | 1.09 (0.40,3.01)
+Recmnd | 988 (91.2%) | 475 (48.1%) | 44.83% | 32.21% | -12.62% | 0.58 (0.45, 0.76) | 0.63 (0.38,1.04)
+1 Unadjusted OR: GLM estimate with robust standard errors
+2 Bias-corrected OR: Bootstrap-adjusted estimate using infinitesimal jackknife method (1000 iterations). Corrects for optimism in subgroup selection.
+3 Identified subgroup: {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005}
+Note: RateC = control arm event rate; RateT = treatment arm event rate. Subgroup identified in 100.0% of bootstrap samples.
+<<table>>
+Treatment Effect by Subgroup
+MR de-biased estimate (multiplier resampling, 5000 draws)
+Subgroup | Sample Size | Event Rates | Diff | Treatment Effect
+N | NT | RateC | RateT | OR(95% CI)†1 | OR‡(95% CI)2
+Qstnbl3 | 95 (8.8%) | 47 (49.5%) | 39.58% | 59.57% | +19.99% | 2.25 (0.99, 5.11) | 1.10 (0.43,2.80)
+Recmnd | 988 (91.2%) | 475 (48.1%) | 44.83% | 32.21% | -12.62% | 0.58 (0.45, 0.76) | 0.62 (0.37,1.04)
+1 Unadjusted OR: GLM estimate with robust standard errors
+2 Bias-corrected OR: Bootstrap-adjusted estimate using infinitesimal jackknife method (5000 iterations). Corrects for optimism in subgroup selection.
+3 Identified subgroup: {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005}
+Note: RateC = control arm event rate; RateT = treatment arm event rate.
+<<block>>
+K-Fold cross-validation skipped (run_cv = FALSE). Set run_cv <- TRUE in the parallel-setup chunk to run it.
+<<block>>
+Leave-one-out (N-fold / OOB) skipped (run_loo = FALSE). Set run_loo <- TRUE in the parallel-setup chunk to run it.
+<<block>>
+refline_lwd, refline_lty, refline_col will be deprecated, use refline_gp instead.
+<<block>>
+title, arrow_lab, footnote will be deprecated, use set_labs() instead.
+<<block>>
+xlim, ticks_at will be deprecated, use set_xaxis() instead.
+<<block>>
+theme will be deprecated, use style of forest() instead.
+<<block>>
+Unknown arguments ignored: `xlog`. They are not used by `fn_ci`, `fn_summary` or `index_args`, see ?forest.
+<<block>>
+============================================================
+<<block>>
+FORESTSEARCH ANALYSIS SUMMARY
+<<block>>
+============================================================
+<<block>>
+Dataset: ACTG175 (N = 1083 )
+<<block>>
+Outcome: binary, no CD4 improvement (adverse scale), OR measure
+<<block>>
+ITT Analysis (adverse scale):
+<<block>>
+OR (95% CI): 0.67 (0.52, 0.85)
+<<block>>
+Identified Subgroup (H):
+Definition: !{wtkg <= 86} & !{cd40 <= 380}
+Size: 72 (6.6%)
+Complement Subgroup (Hc):
+Size: 1011 (93.4%)
+<<block>>
+<<block>>

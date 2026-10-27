@@ -1,0 +1,60 @@
+<<block>>
+Analysis N = 1083
+<<block>>
+unadjusted ITT mean difference = -27.591 (SE 7.889)
+<<block>>
+H-hat = !{cd40 <= 507} & {gender};  n(H-hat) = 79;  T_obs = 71.095513;  p.consistency = 0.91000000
+<<table>>
+Consistency-qualifying candidates and the ε = 0.20 band
+max oriented MD 87.916667; band floor (1 − ε) × max = 70.333333; 4 of 8 qualifying candidates in band; effMaxSG selects the largest in band
+Candidate | n | MD (oriented) | CD4 change | Pcons | In band | Selected
+!{cd40 <= 507} & {gender} | 79 | 71.0955 | -71.10 | 0.91 | yes | yes
+{age <= 40} & !{cd40 <= 507} | 76 | 78.7054 | -78.71 | 0.93 | yes |
+{age <= 37} & !{cd40 <= 507} | 66 | 87.9167 | -87.92 | 0.95 | yes |
+!{wtkg <= 73} & !{cd40 <= 507} | 61 | 82.2688 | -82.27 | 0.93 | yes |
+{age <= 37} & !{cd40 <= 449} | 121 | 61.4653 | -61.47 | 0.96 | no |
+{age <= 35} & !{cd40 <= 449} | 110 | 66.3959 | -66.40 | 0.96 | no |
+{age <= 33} & !{cd40 <= 449} | 98 | 68.5918 | -68.59 | 0.95 | no |
+!{cd40 <= 507} & !{drugs} | 87 | 62.6628 | -62.66 | 0.90 | no |
+<<table>>
+Table 1 — Ĥ: interval constructions for the found subgroup (effMaxSG, ε = 0.20)
+Ĥ = !{cd40 <= 507} & {gender}, n = 79 of 1083; oriented = y_decline (positive = harm); cd4_change = sign flip
+Method | Point est. (oriented) | SE | Two-sided 95% (oriented) | One-sided 95% LOWER (oriented) | Point est. (cd4_change) | Two-sided 95% (cd4_change) | One-sided 95% bound (cd4_change): change ≤
+Naive | 71.10 | 38.86 (robust) | (-5.07, 147.26) | 7.17 | -71.10 | (-147.26, 5.07) | -7.17
+MR (IJ two-term) | 21.79 (β̃) | 50.60 (IJ) | (-77.38, 120.96) | -61.44 | -21.79 | (-120.96, 77.38) | 61.44
+MR (field) | 16.74 (est₂); β̃ 21.79 | 32.31 (λ-SD) | (-51.45, 73.46) | -38.59 | -16.74 | (-73.46, 51.45) | 38.59
+One-sided conventions: naive est − 1.645·SE(robust); MR (IJ) the gate's stored selection-adjusted lower_1s (β̃ − 1.645·SE_IJ); MR (field) β̃ − q₀.₉₅(Λ*), built on the de-biased estimate β̃, not on est₂ (est₂ = β̃ − mean Λ*). The field's SE column is the Λ*-SD. On the cd4_change scale the harm lower bound L becomes an upper bound on the change: change ≤ −L.
+<<table>>
+Table 2 — Ĥᶜ: interval constructions for the complement (benefit claim) (effMaxSG, ε = 0.20)
+Ĥᶜ: n = 1004; the one-sided UPPER bound is the exposed limit for a benefit claim ("harm at most U" = "benefit at least −U")
+Method | Point est. (oriented) | SE | Two-sided 95% (oriented) | One-sided 95% UPPER (oriented) | Point est. (cd4_change) | Two-sided 95% (cd4_change) | One-sided 95% bound (cd4_change): change ≥
+Naive | -36.15 | 7.78 (robust) | (-51.41, -20.90) | -23.35 | 36.15 | (20.90, 51.41) | 23.35
+MR (IJ two-term) | -32.74 (β̃ᶜ) | 15.06 (IJ) | (-62.25, -3.23) | -7.97 | 32.74 | (3.23, 62.25) | 7.97
+MR (field, unstudentized) | -31.10 (est₂); β̃ᶜ -32.74 | 8.09 (λ-SDᶜ) | (-46.69, -15.38) | -17.37 | 31.10 | (15.38, 46.69) | 17.37
+MR (field-s) | -31.12 (est₂ˢ); β̃ᶜ -32.74 | 7.89 (λ-SDᶜ, studentized) | (-46.32, -15.82) | -17.66 | 31.12 | (15.82, 46.32) | 17.66
+One-sided conventions: naive est + 1.645·SE(robust); MR (IJ) β̃ᶜ + 1.645·SE_IJ; MR (field) the gate's stored upper_1s = β̃ᶜ − q₀.₀₅(Λ*ᶜ); MR (field-s) the studentized complement field's upper_1s_s = β̃ᶜ − q₀.₀₅(Λ*ᶜₛ), each reading rescaled to the selected complement's influence-norm scale (field_scale_complement = "selected", the package default; the evaluated complement product). Regime diagnostic: λ-SDᶜ / naive SE = 1.039 unstudentized, 1.014 studentized (the IJ SE / naive SE = 1.935).
+<<table>>
+Table 3 — the joint pair (Ĥ lower bound, Ĥᶜ upper bound) (effMaxSG, ε = 0.20)
+unstudentized: γ = 0.025 on the 0.025–0.050 grid, corr(Λ*, Λ*ᶜ) = -0.038 over 983 aligned draws; field-s: γ = 0.025, corr = -0.035 over 983
+Pair | Ĥ lower (oriented) | Ĥᶜ upper (oriented) | Ĥ: change ≤ (cd4_change) | Ĥᶜ: change ≥ (cd4_change) | Joint prob. on the aligned draws
+Separate one-sided 95% field bounds (unstudentized) | -38.59 | -17.37 | 38.59 | 17.37 | < 0.95 by construction
+Bonferroni (γ = 0.025 each) (unstudentized) | -51.45 | -15.38 | 51.45 | 15.38 | 0.949
+Calibrated from field$joint (γ = 0.025) (unstudentized) | -51.45 | -15.38 | 51.45 | 15.38 | 0.949
+Bonferroni (γ = 0.025 each), field-s | -51.45 | -15.82 | 51.45 | 15.82 | 0.949
+Calibrated from field$joint_s (γ = 0.025), field-s | -51.45 | -15.82 | 51.45 | 15.82 | 0.949
+<<table>>
+Re-selection and field diagnostics (effMaxSG, ε = 0.20)
+p̂ near 1 = settled selection; below ~0.5 = tie regime (the second-order field correction matters most)
+Quantity | Value
+p̂(Ĥ) [selected: !{cd40 <= 507} & {gender}] | 0.064
+Top re-selected: !{wtkg <= 81} & !{cd40 <= 413} | 0.077
+2nd: {age <= 37} & !{cd40 <= 507} | 0.077
+3rd: {age <= 40} & !{cd40 <= 507} | 0.066
+Selection rate (draws with a winner); family size | 0.972; 4935 candidates
+Field Λ*-mean (second-order term, oriented) | +5.049
+Field λ-SD vs IJ SE; vs naive SE (Ĥ) | 32.31 / 50.60 = 0.64; 32.31 / 38.86 = 0.83
+Field draw usage (outer used / R_out; mean inner / R_in) | 983 / 1000; 499 / 500
+Complement fits per gate call; λ-SDᶜ vs naive SE (Ĥᶜ) | 1149; 8.09 / 7.78 = 1.039
+<<block>>
+document compute wall-clock so far: 1.3 min
+<<block>>

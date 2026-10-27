@@ -1,0 +1,40 @@
+# G bisect bracket: commits touching R/ or DESCRIPTION in (43b051b6, d9ccc24c] -- the first move 1.442 -> 1.449 lies here
+202ef15b 2026-08-29 feat: vi.grf.min default -0.2 -> NULL (0.3.0); GRF variable-importance screening off unless requested; warn when max_n_confounders is inert
+d5ef8c7c 2026-08-29 feat: fs_family_report() (0.2.7) — reports which candidate-family stages are data-dependent; additive only
+e3725912 2026-08-28 feat: null path (0.2.6) — order-statistic inversion, null family branch, null-cell comparison
+d6b7d1ae 2026-08-28 feat: fs_oc_grid() and fs_oc_invert() (0.2.5); move-only refactor of fs_oc_predict()
+4a17641d 2026-08-28 feat: fs_oc_predict() "resample" gate (0.2.4); sigma_D verified; n = 700 grid; verification document
+9e538ec2 2026-08-27 feat: fs_oc_predict() and fs_oc_family_enumerate() — OC prediction over a population-enumerated family (0.2.3)
+ae6f4025 2026-08-27 feat(pkg): promote the document's .sym_root() to exported fs_sym_root()
+7f4174f2 2026-08-26 feat(sims): add fs_mr_oc_summary() for payload operating characteristics
+d00b5ecf 2026-08-26 feat(glm): add fs_dgm_scale() for computed difference-in-means scale
+83bd19de 2026-08-18 feat(dgm): builders own population noise -- k_random_noise/noise_seed in setup_gbsg_dgm and generate_glm_dgm
+16e6bd96 2026-08-17 sg_focus transparency: announce alias resolution; widen DINA bootstrap whitelist; fs_focus_tag(); mr harm-confirmation message stream
+
+# commits touching R/ in (4e1b6dd4, a0025013] -- the second move 1.449 -> 1.444 lies here (contains 7713942e)
+392253f0 2026-10-09 docs: tone down MR roxygen, drop dev/ references; regenerate man
+a65f9764 2026-10-09 fix(print): simplify post-selection printed messaging; cite Leon & Anderson (2026)
+d82cb0ce 2026-10-09 docs(mrct): escape <region> in inject_mrct_structure() @return
+fdd3299e 2026-10-09 fix(grf): cap grf training threads at 2 under _R_CHECK_LIMIT_CORES_
+77e35a45 2026-10-09 fix(leff): save_leff_calibration() requires output_dir (no default write to ./_data)
+48674761 2026-10-09 chore(release): DESCRIPTION 0.4.0, CRAN weightedsurv messages, ignore inst/patches
+19f3dc2b 2026-10-09 docs: add missing @param/@return for CRAN (TASK_cran_release_remediation Step 2)
+c98ed047 2026-10-03 feat(mrct): band term in the region model (TASK_fs-region-band-term)
+2b4e7762 2026-10-02 feat(mrct): add MRCT structure-injection module (TASK_fs-add-mrct-inject-module)
+7713942e 2026-09-23 fix(mr): admit on the screen's rounded consistency threshold
+96f84ad8 2026-09-23 fix(declcal): FW-hat and settable p-star at the screen's rounded admission rule
+194a5536 2026-09-23 fix(examples,tests): runnable fs_dgm_feasibility example; R CMD check-safe tests
+9ec3a64a 2026-09-23 chore(globals): declare fs_plot_bias_coverage() aes() columns
+41eedfa2 2026-09-23 fix(fs_bias_coverage): ASCII-only source via \u escapes; fix inline-R roxygen span
+06ac5391 2026-09-23 feat(forestsearch): expose pconsistency.digits as a forestsearch() argument
+845fea56 2026-09-22 feat(declaration): add clinically specified null level c0 to the calibrated declaration threshold
+c5e9f91e 2026-09-22 feat(declaration): add opt-in calibrated declaration threshold and family-wise size diagnostic
+f9b794f6 2026-09-18 feat(fs_dgm_feasibility): design-time check that the planted region is declarable
+1719056f 2026-09-18 feat(estimability): NA-with-reason where the estimand does not exist
+b9a32705 2026-09-18 fix(tests,docs): probe tests skip off their gated surface; Rd link fixed
+c8b475b4 2026-09-18 feat(display): annotate the c2 / p* echoes under dina and grf
+c7e95160 2026-09-18 style(dina): retitle the details-time frontier print as proposed single cuts
+31255426 2026-09-18 feat(dina_frontier): display caps default to Inf, and say when they trim
+b8243432 2026-09-18 feat(dina): warn when dina_args carries inert frontier keys
+c5bd3b5d 2026-09-18 feat(dina): refuse identity-scale estimands at the m_diff derivation
+787d138e 2026-09-18 align(rider): "OR" first in make_effect_estimator()'s binary choices

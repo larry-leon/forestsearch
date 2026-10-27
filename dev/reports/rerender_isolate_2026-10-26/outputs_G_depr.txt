@@ -1,0 +1,445 @@
+<<table>>
+Item | Value
+sg_focus (supplied) | effMaxSG
+sg_focus (canonical) | hrMaxSG
+Sort key | (-in_band, -N, -Pcons, -hr, K)
+Ranges over | all qualifiers
+selection_rule | neighborhood
+effect_neighborhood | 0.1
+Effect floor (hr.threshold) | 1
+Consistency screen (pconsistency) | 0.9
+stop_threshold | NULL
+use_twostage | TRUE
+Pareto frontier section | RUN (banded focus)
+Guo & He section | skipped (requires sg_focus = 'maxeff')
+<<block>>
+<<block>>
+Sample size: 686
+<<block>>
+Events: 299 (43.6%)
+<<block>>
+sg_focus 'effMaxSG' resolves to canonical rule 'hrMaxSG' (aliases: effMaxSG).
+<<block>>
+[forestsearch] Subgroup Identification Configuration
+Outcome type:   survival (Cox PH)
+Effect measure: HR (hazard ratio)
+Scale:          log (ratio)
+Screening:      HR >= 1.00  (log: 0.0000)
+Consistency:    HR >= 1.00  (log: 0.0000)
+Consistency rate threshold: 90%
+Interpretation:
+Candidates: subgroup hazard ratio >= 1.00
+Splits:     each split HR >= 1.00
+<<block>>
+==============================================================
+<<block>>
+Search Alignment Diagnostic
+<<block>>
+==============================================================
+<<block>>
+Outcome:    time_months (survival)
+<<block>>
+Treatment:  hormon
+<<block>>
+Measure:    Hazard Ratio (HR)
+<<block>>
+ForestSearch searches for:
+Subgroups where hormon increases the event hazard
+(HR >= threshold in the candidate subgroup)
+<<block>>
+Thresholds:
+Screening: HR >= 1.000 in the candidate subgroup
+Consistency: HR >= 1.000 in each bootstrap split
+<<block>>
+Variable screening:
+<<block>>
+LASSO: LASSO screening: DISABLED
+<<block>>
+GRF:   DISABLED
+<<block>>
+No alignment concerns detected.
+<<block>>
+==============================================================
+<<block>>
+Forced confounders: er <= 0, pgr <= 0
+J-quantile cuts: er (J=10), pgr (J=10)
+Candidate factors: 33
+[1] "er <= 0"    "pgr <= 0"   "er <= 3"    "er <= 9"    "er <= 17"
+[6] "er <= 30"   "er <= 44"   "er <= 70"   "er <= 100"  "er <= 174"
+[11] "er <= 294"  "pgr <= 2"   "pgr <= 8"   "pgr <= 16"  "pgr <= 26"
+[16] "pgr <= 45"  "pgr <= 77"  "pgr <= 114" "pgr <= 184" "pgr <= 337"
+[21] "age <= 53"  "age <= 46"  "age <= 61"  "size <= 29" "size <= 25"
+[26] "size <= 20" "size <= 35" "nodes <= 5" "nodes <= 3" "nodes <= 1"
+[31] "nodes <= 7" "meno"       "grade3"
+Number of possible configurations (<= maxk): maxk = 2 , # combinations = 2211
+Per-arm events criteria: control >= 10, treatment >= 10
+Sample size criteria: n >= 60
+--- Filtering Summary ---
+Combinations evaluated: 2211
+Passed variance check: 2069
+Passed prevalence (>= 0.025 ): 2069
+Passed redundancy check: 1943
+Passed events counts (d0>= 10, d1>= 10): 1454
+Passed sample size (n>= 60 ): 1410
+Cox model fit successfully: 1410
+Passed effect threshold (effect >= 1.0000): 121
+-------------------------
+Found 121 subgroup candidate(s)
+# of candidate subgroups (meeting all criteria) = 121
+Removed 1 near-duplicate subgroups
+# of unique initial candidates: 120
+# Restricting to top stop_Kgroups = Inf
+# of candidates to evaluate: 120
+==============================================================================================================
+CANDIDATE EVALUATION PREVIEW (pre-consistency) (sg_focus = "hrMaxSG", selection_rule = "neighborhood")
+==============================================================================================================
+Rank  HR      N      E     K    OF  IB  Subgroup
+--------------------------------------------------------------------------------------------------------------
+1   2.537     61    34    2  *   *   {er <= 0} & {size <= 35}
+2   2.335     61    31    2  -   *   {er <= 0} & {nodes <= 7}
+3   1.024    245   139    2  *   -   {pgr <= 26} & !{size <= 20}
+4   1.126    235   125    2  *   -   {pgr <= 114} & !{size <= 25}
+5   1.160    212   116    2  *   -   {pgr <= 77} & !{size <= 25}
+6   1.170    209   115    2  *   -   {pgr <= 114} & !{size <= 29}
+7   1.219    188   106    2  *   -   {pgr <= 77} & !{size <= 29}
+8   1.254    157    95    2  *   -   {pgr <= 26} & !{size <= 25}
+9   1.318    139    85    2  *   -   {pgr <= 26} & !{size <= 29}
+10   1.323    128    80    2  *   -   {pgr <= 16} & !{size <= 25}
+... 110 more candidates not shown (max_print = 10).
+--------------------------------------------------------------------------------------------------------------
+To evaluate: 120   On frontier: 14   In band: 2
+Legend: OF = on Pareto frontier;  IB = in effect-size band.
+==============================================================================================================
+<<block>>
+Parallel plan: multisession with 102 workers.
+<<block>>
+Parallel config: workers = 102 , batch_size = 120
+Batch 1 / 1 : candidates 1 - 120
+Evaluated 120 of 120 candidates (complete)
+9 subgroups passed consistency threshold
+<<block>>
+*** Subgroup found: {er <= 0} {size <= 35}
+% consistency criteria met= 0.99
+SG focus = hrMaxSG
+==============================================================================================================
+CANDIDATE EVALUATION SUMMARY  (sg_focus = "hrMaxSG", selection_rule = "neighborhood")
+==============================================================================================================
+Rank  HR      N      E     K    P      OF  IB  S  Subgroup
+--------------------------------------------------------------------------------------------------------------
+1   2.537     61    34    2  0.990  *   *   *  {er <= 0} & {size <= 35}
+2   2.335     61    31    2  0.970  -   *   -  {er <= 0} & {nodes <= 7}
+3   1.951     82    45    1  0.960  *   -   -  {er <= 0}
+4   2.222     75    41    2  0.990  *   -   -  {er <= 0} & {pgr <= 26}
+5   1.684     71    42    2  0.900  -   -   -  {pgr <= 0} & {er <= 9}
+6   1.918     70    38    2  0.950  -   -   -  {er <= 0} & {pgr <= 16}
+7   2.129     66    35    2  0.970  -   -   -  {er <= 0} & {pgr <= 8}
+8   1.886     62    34    2  0.920  -   -   -  {er <= 0} & {pgr <= 2}
+9   2.054     61    35    2  0.950  -   -   -  {er <= 0} & !{size <= 20}
+--------------------------------------------------------------------------------------------------------------
+Evaluated: 120   Passed: 9   On frontier: 3   In band: 2   Selected: m=1
+Legend: P = Pcons (consistency probability); OF = on Pareto frontier;  IB = in effect-size band; S = selected.
+==============================================================================================================
+Consistency algorithm used: twostage
+Subgroup identified: {er <= 0} & {size <= 35}
+<<block>>
+Multiplier resampling (MR): constructing de-biased estimates from 5000 draws.
+This is post-selection inference on the completed search; it cannot change the identified subgroup.
+<<block>>
+MR harm confirmation: HR = 1.444 (point rule vs 1.00) -> consistent with harm
+<<block>>
+Selected subgroup: {er <= 0} & {size <= 35}
+sg_focus (canonical): hrMaxSG
+fit: 0.7 min
+<<table>>
+parameter | default | value_used | status
+df.analysis | <required; no default> | <data.frame 686 x 14> | differs from default
+outcome.name | “tte” | “time_months” | differs from default
+event.name | “event” | “status” | differs from default
+treat.name | “treat” | “hormon” | differs from default
+id.name | “id” | “id” | at default
+potentialOutcome.name | NULL | NULL | at default
+flag_harm.name | NULL | NULL | at default
+confounders.name | NULL | <character[7]> | differs from default
+parallel_args | list(plan = “multisession”, workers = .default_parallel_workers(), show_message = TRUE) | list(plan = “multisession”, workers = 102, show_message = TRUE) | differs from default
+df.predict | NULL | NULL | at default
+df.test | NULL | NULL | at default
+is.RCT | TRUE | TRUE | at default
+seedit | 8316951 | 8316951 | at default
+est.scale | “hr” | “hr” | at default
+use_lasso | FALSE | FALSE | at default
+use_grf | FALSE | FALSE | at default
+grf_res | NULL | NULL | at default
+grf_cuts | NULL | NULL | at default
+use_dina | FALSE | FALSE | at default
+dina_res | NULL | NULL | at default
+dina_cuts | NULL | NULL | at default
+dina_args | list() | list(select_statistic = “effect”) | differs from default
+dina_select_statistic | c(“effect”, “dina”) | “effect” | at default
+subgroup_method | c(“consistency”, “dina”, “grf”) | “consistency” | at default
+max_n_confounders | 1000 | 1000 | at default
+grf_depth | 2 | 2 | at default
+grf_selection | c(“frontier”, “tree”) | c(“frontier”, “tree”) | at default
+grf_select_statistic | c(“effect”, “dr”) | c(“effect”, “dr”) | at default
+dmin.grf | 0 | 0 | at default
+frac.tau | 0.8 | 0.8 | at default
+return_selected_cuts_only | TRUE | TRUE | at default
+conf_force | NULL | c(“er <= 0”, “pgr <= 0”) | differs from default
+defaultcut_names | NULL | NULL | at default
+cut_type | “default” | “default” | at default
+exclude_cuts | NULL | NULL | at default
+replace_med_grf | FALSE | FALSE | at default
+cont.cutoff | 4 | 4 | at default
+conf.cont_medians | NULL | NULL | at default
+conf.cont_medians_force | NULL | NULL | at default
+conf.cont_jcuts | NULL | list(er = 10, pgr = 10) | differs from default
+collapse_cuts | TRUE | TRUE | at default
+collapse_cuts_args | list() | list() | at default
+n.min | 60 | 60 | at default
+n.min.frac | 0.1 | 0.1 | at default
+effect.threshold | NULL | 1 | differs from default
+consistency.threshold | NULL | 1 | differs from default
+hr.threshold | 1.25 | 1 | differs from default
+hr.consistency | 1 | 1 | at default
+sg_focus | “hr” | “hrMaxSG” | differs from default
+selection_rule | “neighborhood” | “neighborhood” | at default
+effect_neighborhood | 0.1 | 0.1 | at default
+fs.splits | 1000 | 1000 | at default
+m1.threshold | Inf | Inf | at default
+pconsistency.threshold | 0.9 | 0.9 | at default
+stop_threshold | pconsistency.threshold | NULL | NULL: early stopping unsound for this key (re-synced)
+pconsistency.digits | 2 | 2 | at default
+show_candidate_summary | FALSE | TRUE | differs from default
+max_print | 10 | 10 | at default
+d0.min | 10 | 10 | at default
+d1.min | 10 | 10 | at default
+minp | 0.025 | 0.025 | at default
+details | FALSE | TRUE | differs from default
+quiet | FALSE | FALSE | at default
+maxk | 2 | 2 | at default
+by.risk | 12 | 12 | at default
+plot.sg | FALSE | TRUE | differs from default
+plot.grf | FALSE | FALSE | at default
+max_subgroups_search | Inf | Inf | at default
+vi.grf.min | NULL | NULL | at default
+use_twostage | TRUE | TRUE | at default
+twostage_args | list() | list() | at default
+consistency_method | c(“resample”, “split”) | “resample” | at default
+outcome_type | c(“survival”, “binary”, “continuous”, “count”) | “survival” | at default
+effect_measure | NULL | NULL | at default
+offset.name | NULL | NULL | at default
+adverse_outcome | NULL | FALSE | differs from default
+overdispersion | c(“none”, “quasi”, “negbin”) | “none” | at default
+grf_count_transform | c(“log”, “identity”) | “log” | at default
+tune_grf | FALSE | FALSE | at default
+adjust_covariates | NULL | NULL | at default
+ps_method | NULL | “none” | differs from default
+ps_adjust_method | c(“none”, “iptw”, “dr_gcomp”) | “none” | at default
+ps_hat | NULL | NULL | at default
+mr_inference | FALSE | TRUE | differs from default
+mr_inference_args | list() | list(draws = 5000L) | differs from default
+<<table>>
+Identified Subgroups
+Two-factor subgroups (maxk=2)
+Factor 1 | Factor 2 | N | Events | E1 | HR | Pcons
+{er <= 0} | {size <= 35} | 61 | 34 | 15 | 2.537 | 0.990
+{er <= 0} | {nodes <= 7} | 61 | 31 | 11 | 2.335 | 0.970
+{er <= 0} |  | 82 | 45 | 16 | 1.951 | 0.960
+{er <= 0} | {pgr <= 26} | 75 | 41 | 16 | 2.222 | 0.990
+{pgr <= 0} | {er <= 9} | 71 | 42 | 16 | 1.684 | 0.900
+{er <= 0} | {pgr <= 16} | 70 | 38 | 14 | 1.918 | 0.950
+{er <= 0} | {pgr <= 8} | 66 | 35 | 14 | 2.129 | 0.970
+{er <= 0} | {pgr <= 2} | 62 | 34 | 13 | 1.886 | 0.920
+{er <= 0} | !{size <= 20} | 61 | 35 | 12 | 2.054 | 0.950
+Search Configuration: Single-factor candidates (L) = 66; Maximum combinations evaluated = 2,211; Search depth (maxk) = 2
+Search Results: Candidate subgroups found = 121; Maximum HR estimate = 2.54
+Note: E1 = events in treatment arm; Pcons = consistency proportion
+<<table>>
+Treatment Effect Estimates
+Training data estimates
+Subgroup | n | n1 | events | m1 | m0 | RMST | HR (95% CI)
+ITT | 686 (100.0%) | 246 (35.9%) | 299 (43.6%) | 66.3 | 50.2 | 7.8 | 0.69 (0.54, 0.89)
+Questionable1 | 61 (8.9%) | 23 (37.7%) | 34 (55.7%) | 18.5 | 48 | -19 | 2.54 (1.25, 5.17)
+Recommend | 625 (91.1%) | 223 (35.7%) | 265 (42.4%) | 66.7 | 52.2 | 9.6 | 0.61 (0.47, 0.79)
+1 Identified subgroup: {er <= 0} & {size <= 35}
+<<block>>
+Identified subgroup (H): {er <= 0} & {size <= 35}
+<<block>>
+Subgroup size: 61 (8.9% of ITT)
+<<block>>
+Frontier CIs: 3 member(s) over 1,000 splits in 10.1 s
+<<table>>
+Pareto frontier on (HR, N)
+3 non-dominated candidate(s) | sg_focus = 'hrMaxSG' | HR shown on natural scale | diagnostic only
+S1,2 | M.1 | M.2 | N | E | HR | P3 | K | 95% CIs
+Naive | Split ~ | FSBC ~
+★ | {er <= 0} | {size <= 35} | 61 | 34 | 2.54 | 0.99 | 2 | (1.25, 5.17) | (1.10, 5.87) | 2.43 (1.05, 5.62)
+| {er <= 0} | {pgr <= 26} | 75 | 41 | 2.22 | 0.99 | 2 | (1.17, 4.22) | (1.05, 4.71) | 2.16 (1.02, 4.58)
+| {er <= 0} |  | 82 | 45 | 1.95 | 0.96 | 1 | (1.04, 3.67) | (0.95, 4.01) | 1.92 (0.94, 3.95)
+1 S: selected subgroup (winner of the configured selection rule).
+2 ★ marks the subgroup chosen by sg_focus = 'hrMaxSG'.
+3 P: Pcons (consistency probability).
+<<block>>
+Bootstrap parallel config: Using user-provided settings
+<<block>>
+<<block>>
+Bootstrap will use: 102 workers with 'multisession' plan
+<<block>>
+Parallel plan: multisession with 102 workers.
+<<block>>
+Bootstrap iteration 1/1000
+<<block>>
+Bootstrap iteration 10/1000
+<<block>>
+Bootstrap iteration 50/1000
+<<block>>
+Bootstrap iteration 100/1000
+<<block>>
+Bootstrap iteration 250/1000
+<<block>>
+Bootstrap iteration 500/1000
+<<block>>
+Bootstrap iteration 750/1000
+<<block>>
+Bootstrap iteration 1000/1000
+<<block>>
+===============================================================
+BOOTSTRAP ANALYSIS SUMMARY
+===============================================================
+IDENTIFIED SUBGROUP:
+-------------------------------------------------------------
+H: {er <= 0} & {size <= 35}
+BOOTSTRAP SUCCESS METRICS:
+-------------------------------------------------------------
+Total iterations:              1000
+Successful subgroup ID:        976 (97.6%)
+Failed to find subgroup:       24 (2.4%)
+TIMING ANALYSIS:
+-------------------------------------------------------------
+Overall:
+<<block>>
+FB completed in 1.8 min
+<<block>>
+MR gate: 4.31 s over 5,000 draws
+<<block>>
+MR re-selection rule: effMaxSG (search focus: effMaxSG / canonical hrMaxSG)
+<<block>>
+Candidate family size: 1744
+<<block>>
+Scale cross-check (MR naive vs FB H0): PASS (2.537 vs 2.537)
+<<block>>
+10-fold CV: 50 x 10 partitions in 0.8 min
+<<table>>
+Cross-Validation Metrics
+Subgroup: Identified Subgroup
+Metric | Description | Value (%)
+Agreement
+Sensitivity (H) | Agreement rate for subgroup H | 86.1
+Sensitivity (Hc) | Agreement rate for complement Hc | 96.0
+PPV (H) | Positive predictive value for H | 67.8
+PPV (Hc) | Positive predictive value for Hc | 98.6
+Subgroup Finding
+Any Found | Any subgroup identified | 100.0
+Exact Match | Exact match on all factors | 0.0
+At Least 1 | At least one factor matches | 90.0
+Cov1 Any | First covariate found (any cut) | 90.0
+Cov2 Any | Second covariate found (any cut) | 0.0
+Cov1 & Cov2 | Both covariates found | 0.0
+Cov1 Exact | First covariate exact match | 90.0
+Cov2 Exact | Second covariate exact match | 0.0
+Based on 50 simulation(s) with 10-fold CV. Values are medians shown as percentages.
+<<table>>
+Identified subgroups across sim x fold pairs
+50 simulations x 10 folds = 500 total pairs
+Rank | Identified subgroup | n folds | % folds
+1 | {er <= 0} & {pgr <= 26} | 258 | 51.60
+2 | {er <= 0} | 91 | 18.20
+3 | {er <= 0} & {pgr <= 27} | 44 | 8.80
+4 | {pgr <= 8} & {grade3} | 25 | 5.00
+5 | {er <= 0} & {pgr <= 25} | 20 | 4.00
+6 | (no subgroup) | 14 | 2.80
+7 | {er <= 6} & !{meno} | 8 | 1.60
+8 | {er <= 0} & {pgr <= 8} | 7 | 1.40
+9 | {er <= 0} & {pgr <= 41} | 5 | 1.00
+10 | {er <= 0} & {pgr <= 28} | 4 | 0.80
+11 | (13 others) | 24 | 4.80
+<<table>>
+Pcons distribution among identifying folds
+Out of 500 sim x fold pairs
+Pcons range | n folds | % of identifying folds
+<0.5 | 0 | 0.00
+0.5-0.7 | 0 | 0.00
+0.7-0.8 | 0 | 0.00
+0.8-0.85 | 0 | 0.00
+0.85-0.95 | 73 | 15.02
+>=0.95 | 413 | 84.98
+Median (identifying): 0.980 | – | –
+IQR (identifying): 0.960 - 0.990 | – | –
+Identifying folds total | 486 | 97.20
+Restricted to folds that identified a subgroup. A concentration near the pconsistency.threshold (typically 0.90) suggests many identifications are marginal; concentration above 0.95 suggests robust identifications. Values for rejected candidates are not surfaced -- only the selected candidate's Pcons is captured.
+<<table>>
+Fold-level numeric diagnostics
+Across 500 sim x fold pairs; per-metric denominator shown in Context
+Metric | n | Median | Q1 | Q3 | Min | Max | n NA | Context
+Test-fold size (n_test) | 500 | 69.000 | 68.000 | 69.000 | 68.000 | 69.000 | 0 | All sim x fold pairs
+Pcons (identifying folds) | 486 | 0.980 | 0.960 | 0.990 | 0.900 | 1.000 | 14 | Folds that identified a subgroup
+Training-fold subgroup effect (identifying folds) | 486 | 2.185 | 2.014 | 2.382 | 1.695 | 3.703 | 14 | Natural scale; in-sample; optimistically biased
+Candidates evaluated per fold | 500 | 106.500 | 86.000 | 135.000 | 35.000 | 227.000 | 0 | Folds where consistency stage ran
+Training-fold subgroup effects are in-sample estimates on the effect measure's natural scale (HR for survival; OR, RR, IRR, RD, IRD, or MD for GLM). They are optimistically biased and shown here for diagnostic comparison across folds only; do not use for inference.
+<<table>>
+Agreement with original full-data analysis
+Fraction of sim x fold pairs matching the original result
+| Value
+Total sim x fold pairs | 500
+Original subgroup definition | {er <= 0} & {size <= 35}
+Exact subgroup match | 0 (0.0%)
+Partial match (>=1 shared factor) | 432 (86.4%)
+<<block>>
+Parallel plan: multisession with 102 workers.
+<<block>>
+LOO [stable]: out-of-sample harm HR 1.56 (0.81, 3.02) (n = 64 (9.3%))
+agreement: sens_H = 0.92, ppv_H = 0.88 (exact-match = 0.90)
+<<table>>
+Cross-Validation Summary
+ITT and Subgroup Estimates: Full Analysis (FA) vs K-fold (Kf)
+Analysis | Subgroup | n | n1 | m1 | m0 | RMST | Hazard ratio
+Overall | ITT | 686 (100.0%) | 246 (35.9%) | 66.3 | 50.2 | 7.8 | 0.69 (0.54, 0.89)
+FA_0 | Not recommend | 61 (8.9%) | 23 (37.7%) | 18.5 | 48 | -19 | 2.54 (1.25, 5.17)
+KfA_0 | Not recommend | 64 (9.3%) | 25 (39.1%) | 22.9 | 40.2 | -9.8 | 1.56 (0.81, 3.02)
+FA_1 | Recommend | 625 (91.1%) | 223 (35.7%) | 66.7 | 52.2 | 9.6 | 0.61 (0.47, 0.79)
+KfA_1 | Recommend | 622 (90.7%) | 221 (35.5%) | 66.7 | 52.6 | 8.9 | 0.63 (0.48, 0.81)
+FA = Full Analysis (original data), Kf = K-fold CV estimate
+<<table>>
+Cross-Validation Metrics
+Agreement and subgroup finding rates (%)
+Metric | Value (%)
+Agreement
+Sensitivity (H) | 91.803
+Sensitivity (Hc) | 98.720
+PPV (H) | 87.500
+PPV (Hc) | 99.196
+Finding
+Any Found | 100.000
+Exact Match | 89.942
+At Least 1 | 100.000
+Cov1 Any | 100.000
+Cov2 Any | 89.942
+Cov1 & Cov2 | 89.942
+Cov1 Exact | 100.000
+Cov2 Exact | 89.942
+<<table>>
+Method | Estimate
+Naive | 2.54
+Full bootstrap | 1.93 (0.89, 4.20)
+Multiplier resampling | 1.44 (0.62, 3.36)
+Leave-one-out (out-of-sample) | 1.56 (0.81, 3.02)
+<<table>>
+Step | Seconds | Minutes
+Fit + MR gate | 40.687 | 0.68
+Frontier CIs | 10.091 | 0.17
+Full bootstrap | 109.466 | 1.82
+MR gate (within fit) | 4.310 | 0.07
+Guo & He bootstrap | NA | NA
+10-fold CV | 48.001 | 0.80
+Leave-one-out (N-fold, 102 workers) | 63.563 | 1.06
+<<block>>
+<<block>>

@@ -1,0 +1,22 @@
+# bad: [a0025013f103d0921455102129caeb33127bb139] dev: Stage 0b report closing block (post-conditions)
+# good: [f3f188f9f95a081466e2ed5fa873ee3d788bc392] ACTG175 continuous intervals under effMaxSG, eps = 0.20: closeout (TASK_actg175_continuous_intervals_2026-09-16) -- one render (91 s, peak 2.5 GB): anchor !{cd40 <= 507} & {gender} n = 79, MD 71.095513, Pcons 0.91 reproduces Stage 0, band 4 of 8 identical; H field one-sided lower bound -38.59 (no rung of 0-40), Hc field-s upper bound -17.66 (unstudentized -17.37; all of 0-30), field-s Bonferroni pair (-51.45, -15.82) joint 0.949, p-hat(H) 0.064 (tie regime); HTML, payload and record
+git bisect start 'a0025013' 'f3f188f9'
+# good: [c4baf796674a11d11acffe180319b421355137cb] housekeeping(nullc125): regenerate current_status.md at the closeout
+git bisect good c4baf796674a11d11acffe180319b421355137cb
+# bad: [9224dfe935c417a17f3a915e806e175194696d99] docs(tasks): declcal c0 campaign reads v2 task (2026-09-24), as received
+git bisect bad 9224dfe935c417a17f3a915e806e175194696d99
+# good: [85ecbbfc3008fe89b14f586734f2fd980a6ebad4] docs(gbsg_020): catalogue pointer to the sibling gbsg_app_null run (status_curated 2.12)
+git bisect good 85ecbbfc3008fe89b14f586734f2fd980a6ebad4
+# good: [ba595f4bb62d5c315251d4cd34c485fc6352b344] docs(tasks): align MR admission with the rounded screen (2026-09-23)
+git bisect good ba595f4bb62d5c315251d4cd34c485fc6352b344
+# bad: [1b11967c3204e52245b56b39d46478a4cb646b3c] docs(tasks): update declaration-calibration consumers (2026-09-23)
+git bisect bad 1b11967c3204e52245b56b39d46478a4cb646b3c
+# bad: [d637ff073a612b8ea96a2f987ebe34c028a465d3] sims(mrs5probe): A7 after arm, 200 replicates; Gate T and parent-build check payloads
+git bisect bad d637ff073a612b8ea96a2f987ebe34c028a465d3
+# bad: [b346348957c042d1126ef8a15fe87bd7a1be6884] docs(news): MR admission at the screen's rounded threshold; GRF/DINA unaffected
+git bisect bad b346348957c042d1126ef8a15fe87bd7a1be6884
+# bad: [6fabaed5d76fb87fe3fd839d05d637a4274239f6] docs(man): regenerate fs_mr_inference.Rd
+git bisect bad 6fabaed5d76fb87fe3fd839d05d637a4274239f6
+# bad: [7713942e07f6268457320160eae64adf8017b8b0] fix(mr): admit on the screen's rounded consistency threshold
+git bisect bad 7713942e07f6268457320160eae64adf8017b8b0
+# first bad commit: [7713942e07f6268457320160eae64adf8017b8b0] fix(mr): admit on the screen's rounded consistency threshold

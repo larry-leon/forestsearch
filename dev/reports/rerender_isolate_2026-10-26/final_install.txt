@@ -1,0 +1,26 @@
+=== §7.1 final lean reinstall 2026-10-26T18:56:10-07:00 HEAD 0c00959b39aa99e0f4dad43a4344ca6aae72dfbc
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (forestsearch)
+── 1. Error ('test-lean-fits.R:156:5'): routing: unadjusted binary OR takes the 
+Error in `forestsearch(df.analysis = df, confounders.name = c("age", "biomarker_hi", "sex"), outcome.name = "y", event.name = "y", treat.name = "treat", id.name = "id", outcome_type = "binary", adverse_outcome = TRUE, sg_focus = "maxSG", pconsistency.threshold = 0.8, is.RCT = TRUE, fs.splits = 20, n.min = 30, d0.min = 5L, d1.min = 5L, maxk = 2, use_lasso = FALSE, use_grf = FALSE, mr_inference = FALSE, seedit = 42L, details = FALSE, quiet = TRUE, plot.sg = FALSE, plot.grf = FALSE, parallel_args = list(plan = "sequential"),      ...)`: could not find function "forestsearch"
+Backtrace:
+    ▆
+ 1. ├─count_fits(run(effect_measure = "OR")) at test-lean-fits.R:167:3
+ 2. │ └─base::force(expr) at test-lean-fits.R:151:5
+ 3. └─run(effect_measure = "OR")
+ 4.   ├─base::suppressWarnings(...) at test-lean-fits.R:156:5
+ 5.   │ └─base::withCallingHandlers(...)
+ 6.   └─base::suppressMessages(...)
+ 7.     └─base::withCallingHandlers(...)
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Keep trying!
+tests: 339 failed: 0 errors: 1 skipped: 0 
+
+=== re-run with the installed build attached (deviation: the literal call has no package env; 'could not find function forestsearch')
+lean-fits: ........................................................................................................................................................................................................................................................................................................................................................
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+expectations: 344 failed: 0 errors: 0 skipped: 0 warnings: 0 
+loaded from: /home/larryleon/R/x86_64-pc-linux-gnu-library/4.6/forestsearch  Built: R 4.6.1; ; 2026-10-27 01:56:21 UTC; unix  exists lean fn: TRUE 

@@ -1,0 +1,45 @@
+HEAD is now at f3f188f9 ACTG175 continuous intervals under effMaxSG, eps = 0.20: closeout (TASK_actg175_continuous_intervals_2026-09-16) -- one render (91 s, peak 2.5 GB): anchor !{cd40 <= 507} & {gender} n = 79, MD 71.095513, Pcons 0.91 reproduces Stage 0, band 4 of 8 identical; H field one-sided lower bound -38.59 (no rung of 0-40), Hc field-s upper bound -17.66 (unstudentized -17.37; all of 0-30), field-s Bonferroni pair (-51.45, -15.82) joint 0.949, p-hat(H) 0.064 (tie regime); HTML, payload and record
+Bisecting: 201 revisions left to test after this (roughly 8 steps)
+[c4baf796674a11d11acffe180319b421355137cb] housekeeping(nullc125): regenerate current_status.md at the closeout
+rc=0
+Bisecting: 2 revisions left to test after this (roughly 2 steps)
+[b346348957c042d1126ef8a15fe87bd7a1be6884] docs(news): MR admission at the screen's rounded threshold; GRF/DINA unaffected
+running '/home/larryleon/Documents/GitHub/forestsearch/dev/reports/rerender_isolate_2026-10-26/bisect_C.sh'
+Bisecting: 0 revisions left to test after this (roughly 1 step)
+[6fabaed5d76fb87fe3fd839d05d637a4274239f6] docs(man): regenerate fs_mr_inference.Rd
+running '/home/larryleon/Documents/GitHub/forestsearch/dev/reports/rerender_isolate_2026-10-26/bisect_C.sh'
+Bisecting: 0 revisions left to test after this (roughly 0 steps)
+[7713942e07f6268457320160eae64adf8017b8b0] fix(mr): admit on the screen's rounded consistency threshold
+running '/home/larryleon/Documents/GitHub/forestsearch/dev/reports/rerender_isolate_2026-10-26/bisect_C.sh'
+7713942e07f6268457320160eae64adf8017b8b0 is the first bad commit
+commit 7713942e07f6268457320160eae64adf8017b8b0
+Author: Larry Leon <larry.leon.05@post.harvard.edu>
+Date:   Wed Sep 23 16:26:15 2026 -0700
+
+    fix(mr): admit on the screen's rounded consistency threshold
+    
+    MR's consistency floor used qnorm((1 + p_star)/2), the exact cutoff, while
+    the search admits on round(Pcons, pconsistency.digits) >= p_star. Build the
+    floor from .fs_pcons_eff(p_star, digits) instead. fs_mr_inference() gains
+    pconsistency.digits (NULL -> subgroup.consistency() default); forestsearch()
+    passes its own. Forest search only: GRF/DINA carry no consistency floor.
+    
+    Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+
+ R/forestsearch_main.R                      |   1 +
+ R/fs_mr_inference.R                        |  23 +++++-
+ tests/testthat/test-mr-admission-rounded.R | 108 +++++++++++++++++++++++++++++
+ 3 files changed, 130 insertions(+), 2 deletions(-)
+ create mode 100644 tests/testthat/test-mr-admission-rounded.R
+bisect found first bad commit
+step 1 c4baf796674a11d11acffe180319b421355137cb 2026-09-21 housekeeping(nullc125): regenerate current_status.md at the closeout :: beta-tilde=21.79 -> good (legacy)
+step 2 9224dfe935c417a17f3a915e806e175194696d99 2026-09-24 docs(tasks): declcal c0 campaign reads v2 task (2026-09-24), as received :: beta-tilde=22.05 -> bad (new)
+step 3 85ecbbfc3008fe89b14f586734f2fd980a6ebad4 2026-09-23 docs(gbsg_020): catalogue pointer to the sibling gbsg_app_null run (status_cura :: beta-tilde=21.79 -> good (legacy)
+step 4 ba595f4bb62d5c315251d4cd34c485fc6352b344 2026-09-23 docs(tasks): align MR admission with the rounded screen (2026-09-23) :: beta-tilde=21.79 -> good (legacy)
+step 5 1b11967c3204e52245b56b39d46478a4cb646b3c 2026-09-23 docs(tasks): update declaration-calibration consumers (2026-09-23) :: beta-tilde=22.05 -> bad (new)
+step 6 d637ff073a612b8ea96a2f987ebe34c028a465d3 2026-09-23 sims(mrs5probe): A7 after arm, 200 replicates; Gate T and parent-build check pa :: beta-tilde=22.05 -> bad (new)
+step 7 b346348957c042d1126ef8a15fe87bd7a1be6884 2026-09-23 docs(news): MR admission at the screen's rounded threshold; GRF/DINA unaffected :: beta-tilde=22.05 -> bad (new)
+step 8 6fabaed5d76fb87fe3fd839d05d637a4274239f6 2026-09-23 docs(man): regenerate fs_mr_inference.Rd :: beta-tilde=22.05 -> bad (new)
+step 9 7713942e07f6268457320160eae64adf8017b8b0 2026-09-23 fix(mr): admit on the screen's rounded consistency threshold :: beta-tilde=22.05 -> bad (new)
+
+[exited with code 0]

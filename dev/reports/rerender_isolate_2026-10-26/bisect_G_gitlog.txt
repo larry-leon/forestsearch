@@ -1,0 +1,31 @@
+# bad: [a0025013f103d0921455102129caeb33127bb139] dev: Stage 0b report closing block (post-conditions)
+# good: [43b051b6294805dc86a59ad717bd1f4b80b66ba4] update gbsg and actg175 analysis runs
+git bisect start 'a0025013' '43b051b6'
+# skip: [5e49bf9463005e3362ce16242092fca0d7ff0381] Block C coverage numbers, and GRF's family is outcome-independent
+git bisect skip 5e49bf9463005e3362ce16242092fca0d7ff0381
+# skip: [65c8417a8f9e0d4041de1be465501720ddeba660] B2: r = 1/12 column from the fixed-r production for cells 00 and 03; Adaptive row replaced by one sentence
+git bisect skip 65c8417a8f9e0d4041de1be465501720ddeba660
+# skip: [d9ccc24cbe17ae6bb4d2c61b94675e6ce3630e4d] task doc — residual: population-quantile cuts against replicate-quantile cuts (last lead)
+git bisect skip d9ccc24cbe17ae6bb4d2c61b94675e6ce3630e4d
+# skip: [f16ebfc1b9331aabfb0926ff00a0b96a8f5f6f01] p12x20 Part A Gate 1: anchor read, knob transplant, worker-count sweeps (threads pinned, equal replicates), 64 workers, nine cells projected 3h45m-8h53m
+git bisect skip f16ebfc1b9331aabfb0926ff00a0b96a8f5f6f01
+# skip: [728ccf5a4e27ad7fbe08a85900ce1bdc206a4213] tasks: add applications render task (2026-08-31)
+git bisect skip 728ccf5a4e27ad7fbe08a85900ce1bdc206a4213
+# skip: [b4667d5c4e5536fd97ef8377c0f8f426b5a53df5] dinamr Part T: FS_S7_METHOD engine knob (document-level, add-only, default-inert)
+git bisect skip b4667d5c4e5536fd97ef8377c0f8f426b5a53df5
+# skip: [3118660ba1c170b4b725fd12cba9229187520968] applications: ACTG175 continuous OC evaluation document — reads stored rungs, renders in 8 s, payload per conventions (2026-08-31)
+git bisect skip 3118660ba1c170b4b725fd12cba9229187520968
+# skip: [4e21ea2cdc78d593e2a600b84b4da5b7ef1f1c54] grfmr completion: eight cells at 2,000 replicates, all gates PASS
+git bisect skip 4e21ea2cdc78d593e2a600b84b4da5b7ef1f1c54
+# skip: [9aae6ce17195c2ac84acd47c1bd459c0495db7c7] applications: finalise self-contained OC — ladder refined to 21 evaluations (0.05 crossings bracketed within five units: primary 9.04, wider 0.89), three §12 corrections; closing pass (2026-09-01)
+git bisect skip 9aae6ce17195c2ac84acd47c1bd459c0495db7c7
+# skip: [4189661cb6776acc482aae4f56394d6a2512d607] dinamr: commit the drivers and checkers -- they existed only in the scratchpad
+git bisect skip 4189661cb6776acc482aae4f56394d6a2512d607
+# skip: [e964b129b554e0628b66fb738d5e671291ab169e] sims: closeout scripts — plan-reproducibility pair (F1/F2, sequential vs multisession/6, fixture blocks verbatim), settleA transplant at nb=100/48 workers (named lines only, diff in report), survival 48-worker wall (2026-09-02)
+git bisect skip e964b129b554e0628b66fb738d5e671291ab169e
+# skip: [5e3f71a6d385d428e156d07e74cf6e2cc46a7f44] grfmr: fix the joint count table's stratifier, and extract the per-cell numbers
+git bisect skip 5e3f71a6d385d428e156d07e74cf6e2cc46a7f44
+# skip: [4e1b6dd48cbe0a184b5164c1aaf095ba431530dc] test(directive A): acceptance tests for the threshold pair
+git bisect skip 4e1b6dd48cbe0a184b5164c1aaf095ba431530dc
+# skip: [851874595fdae822713339de8aa99e5c895255bd] grfmr: the campaign report through Gate 1, with the three Gate 0 determinations
+git bisect skip 851874595fdae822713339de8aa99e5c895255bd

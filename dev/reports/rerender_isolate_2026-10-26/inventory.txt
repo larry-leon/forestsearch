@@ -1,0 +1,120 @@
+# Inventory — cc_task_isolate_rerender_2026-10-26 §2 (printed before any build or render)
+# HEAD 0c00959b39aa99e0f4dad43a4344ca6aae72dfbc; machine pop-os, 128 physical cores -> n_cores = floor(0.8*128) = 102
+
+## C  quarto/applications/actg175/analysis_actg175_continuous_intervals.qmd
+READS : none from disk (speff2trial::ACTG175 package data; 'Nothing is read from disk' per the setup chunk)
+WRITES: saveRDS(payload, file.path(file.path(dirname(knitr::current_input(dir=TRUE)), '_payloads'), 'analysis_actg175_continuous_oc_intervals', 'analysis_actg175_continuous_oc_intervals_effmaxsg_payload.rds'))  [qmd-dir relative -> stays in run dir]
+        absolute / here::here / repo-root write paths: none
+SETTINGS: fs.splits = 500L; parallel_args = list(plan = 'sequential'); mr_inference_args = list(ci_method='field', draws=5000L, include_complement=TRUE, field_complement=TRUE, field_scale_complement='selected', return_reselection=TRUE) (R_out/R_in at package defaults); no nb_boots (no bootstrap); seed param 8316951; no eval flags; no vi.grf.min / max_n_confounders lines
+
+## B  quarto/applications/actg175/analysis_actg175_binary_multimethod_fixed_family.qmd
+READS : none from disk (ACTG175 package data)
+WRITES: saveRDS(payload, file.path(<qmd dir>/_payloads, <stem>, '<stem>_payload.rds'))  results_dir <- NULL; dirout <- NULL  [qmd-dir relative]
+        absolute / here::here / repo-root write paths: none (line 114-115 '~/GitHub/fs-post-selection-manuscript_jasa/_payloads' is a COMMENT example only)
+SETTINGS: NB = 1000L (nb_boots = NB at L775, L1284, L1507); mr_draws = 5000L (L100; mr_inference_args draws at L596, L1247, L1471); fs.splits = 500L (L609, L1069); parallel_args plan='multisession', workers=n_cores (=102 here; 11 on the legacy Mac) at L617, L779, L1077, L1288, L1511, L1670, L1741; run_cv <- FALSE, run_loo <- FALSE; analysis_seed 8316951L
+  vi.grf.min = -0.2 at L577 and L1040 (kept; §8); no max_n_confounders lines
+  eval: L826:```{r debias-gate-comparison, eval = !is.null(fs$sg.harm)}
+  eval: L901:```{r debias-gate-no-subgroup, eval = is.null(fs$sg.harm)}
+  eval: L912:```{r debias-gate-table, eval = !is.null(fs$sg.harm) && !is.null(fs$mr_inference)}
+  eval: L1116:```{r fs-dina-screen-pareto, eval = !is.null(fs_dina_screen$sg.harm)}
+  eval: L1277:```{r fs-dina-bootstrap, eval = !is.null(fs_dina$sg.harm)}
+  eval: L1302:```{r fs-dina-no-subgroup, eval = is.null(fs_dina$sg.harm)}
+  eval: L1313:```{r fs-dina-bootstrap-summary, eval = !is.null(fs_dina$sg.harm)}
+  eval: L1348:```{r fs-dina-debias-gate-comparison, eval = !is.null(fs_dina$sg.harm)}
+  eval: L1409:```{r fs-dina-debias-gate-table, eval = !is.null(fs_dina$sg.harm) && !is.null(fs_dina$mr_inference)}
+  eval: L1501:```{r fs-grf-bootstrap, eval = !is.null(fs_grf$sg.harm)}
+  eval: L1525:```{r fs-grf-no-subgroup, eval = is.null(fs_grf$sg.harm)}
+  eval: L1534:```{r fs-grf-bootstrap-summary, eval = !is.null(fs_grf$sg.harm)}
+  eval: L1572:```{r fs-grf-debias-gate-comparison, eval = !is.null(fs_grf$sg.harm)}
+  eval: L1631:```{r fs-grf-debias-gate-table, eval = !is.null(fs_grf$sg.harm) && !is.null(fs_grf$mr_inference)}
+  eval: L1657:```{r cv-skipped-note, eval = !run_cv}
+  eval: L1662:```{r kfold-cv, eval = run_cv}
+  eval: L1691:```{r cv-diagnostics-run, eval = run_cv}
+  eval: L1700:```{r cv-identification, eval = run_cv}
+  eval: L1704:```{r cv-grf-cut, eval = run_cv}
+  eval: L1708:```{r cv-no-subgroup, eval = run_cv}
+  eval: L1712:```{r cv-pcons, eval = run_cv}
+  eval: L1716:```{r cv-fold-numeric, eval = run_cv}
+  eval: L1720:```{r cv-original-agreement, eval = run_cv}
+  eval: L1729:```{r loo-skipped-note, eval = !run_loo}
+  eval: L1734:```{r oob-cv, eval = run_loo}
+
+## G  quarto/applications/gbsg/analysis_gbsg_survival_effMaxSG.qmd
+READS : readRDS(loo_cache) IF it exists, loo_cache <- Sys.getenv('LOO_CACHE', unset = file.path(gh_dir, 'cv_out_<stem>_<focus>_<rule>.rds')), gh_dir <- Sys.getenv('GH_DIR', unset = '../../../quarto/GuoHe')  (L66, L1024-1029)
+WRITES: saveRDS(cv_out, loo_cache) when the cache is absent (L1044)  <-- PARENT-RELATIVE, ESCAPES A COPY DIRECTORY (repo-root/quarto/GuoHe from the legacy location; quarto/applications/quarto/GuoHe (nonexistent) from a run dir)
+        saveRDS(payload, <qmd dir>/_payloads/<stem>/<stem>_payload.rds)  results_dir <- NULL; dirout <- NULL  [qmd-dir relative]
+        absolute / here::here write paths: none (L80-81 '~/GitHub/...' is a comment example only)
+  legacy cache file (tracked, outside the guarded dirs): quarto/GuoHe/cv_out_analysis_gbsg_survival_effMaxSG_hrMaxSG_neighborhood.rds  4844ae280990185655bed5a29b2d99bb
+  legacy HTML: the LOO row was COMPUTED in the legacy render (timing 372.8 s on 11 workers), not loaded from cache
+SETTINGS: NB = 1000L (nb_boots = NB L738); mr_draws = 5000L (mr_inference_args = list(draws = mr_draws) L567); GH_B 2000 (GH not run: run_gh requires sg_focus='maxeff'); fs.splits = 1000 (L579); parallel_args plan='multisession', workers=n_cores (=102 here; 11 legacy) at L583, L741, L860, L1038 (loo_workers = n_cores); run_loo TRUE, run_cv_kfold TRUE, Ksims 50L; fs_sg_focus 'effMaxSG'
+  no vi.grf.min / max_n_confounders lines
+  eval: L624:```{r pareto-skip-note, eval = !run_pareto}
+  eval: L644:```{r pareto-intro, eval = run_pareto}
+  eval: L671:```{r pareto-cis, eval = run_pareto}
+  eval: L692:```{r pareto-plot, eval = run_pareto}
+  eval: L707:```{r pareto-table, eval = run_pareto}
+  eval: L718:```{r pareto-explain, eval = run_pareto}
+  eval: L726:```{r pareto-data, eval = FALSE}
+  eval: L791:```{r gh-skip-note, eval = !run_gh}
+  eval: L813:```{r guohe, eval = run_gh}
+  eval: L848:```{r cv-kfold-skip-note, eval = !run_cv_kfold, results = "asis"}
+  eval: L853:```{r kfold-cv, eval = run_cv_kfold}
+  eval: L873:```{r cv-diagnostics-run, eval = run_cv_kfold}
+  eval: L886:```{r cv-identification, eval = run_cv_kfold}
+  eval: L907:```{r cv-pcons, eval = run_cv_kfold}
+  eval: L917:```{r cv-fold-numeric, eval = run_cv_kfold}
+  eval: L924:```{r cv-original-agreement, eval = run_cv_kfold}
+  eval: L928:```{r cv-identification-plot, eval = run_cv_kfold}
+  eval: L994:```{r loo-skipped-note, eval = !run_loo}
+  eval: L999:```{r loo, eval = run_loo}
+  eval: L1152:```{r gh-callout, eval = run_gh}
+
+## Legacy records
+### C  quarto/applications/actg175/analysis_actg175_continuous_intervals.html  2212626 bytes  md5 f5506e1cf4268897e2391ba8e9a10359
+era commit: f3f188f9f95a081466e2ed5fa873ee3d788bc392 2026-09-16 ACTG175 continuous intervals under effMaxSG, eps = 0.20: closeout (TASK_actg175_continuous_intervals_2026-09
+DESCRIPTION Version at era: Version: 0.3.5
+qmd changed since era: 
+version/platform strings in legacy HTML:
+  forestsearch 0.3.5
+payloads under quarto/applications/actg175/_payloads/analysis_actg175_continuous_oc_intervals:
+  quarto/applications/actg175/_payloads/analysis_actg175_continuous_oc_intervals/analysis_actg175_continuous_oc_intervals_effmaxsg_payload.rds 2395 fb93659b31580b97e382ade9b04a0900
+  quarto/applications/actg175/_payloads/analysis_actg175_continuous_oc_intervals/analysis_actg175_continuous_oc_intervals_payload.rds 13648 bfcf6513fa667700df00b7401dee82a0
+### B  quarto/applications/actg175/analysis_actg175_binary_multimethod_fixed_family.html  3316211 bytes  md5 7ffc9b66094a4506965aa44bc34de294
+era commit: 43b051b6294805dc86a59ad717bd1f4b80b66ba4 2026-08-16 update gbsg and actg175 analysis runs
+DESCRIPTION Version at era: Version: 0.2.0
+qmd changed since era: 
+version/platform strings in legacy HTML:
+  forestsearch_0.2.0
+  Platform: aarch64-apple-darwin20
+  Running under: macOS Tahoe 26.6
+  R version 4.5.2 (2025-10-31)
+payloads under quarto/applications/actg175/_payloads/analysis_actg175_binary_multimethod_fixed_family:
+  (directory does not exist: no legacy payload)
+### G  quarto/applications/gbsg/analysis_gbsg_survival_effMaxSG.html  3059053 bytes  md5 7ad0482ec3aae5076340cf59caae7f30
+era commit: 43b051b6294805dc86a59ad717bd1f4b80b66ba4 2026-08-16 update gbsg and actg175 analysis runs
+DESCRIPTION Version at era: Version: 0.2.0
+qmd changed since era: 
+version/platform strings in legacy HTML:
+  forestsearch 0.2.0
+  forestsearch_0.2.0
+  Platform: aarch64-apple-darwin20
+  Running under: macOS Tahoe 26.6
+  R version 4.5.2 (2025-10-31)
+payloads under quarto/applications/gbsg/_payloads/analysis_gbsg_survival_effMaxSG:
+  (directory does not exist: no legacy payload)
+  note C: C writes only the _effmaxsg file; analysis_actg175_continuous_oc_intervals_payload.rds belongs to analysis_actg175_continuous_oc.qmd
+
+## Rung commits
+f3f188f9 f3f188f9f95a081466e2ed5fa873ee3d788bc392 Version: 0.3.5 2026-09-16 ACTG175 continuous intervals under effMaxSG, eps = 0.20: closeout (TASK_actg175_continuou
+43b051b6 43b051b6294805dc86a59ad717bd1f4b80b66ba4 Version: 0.2.0 2026-08-16 update gbsg and actg175 analysis runs
+a0025013 a0025013f103d0921455102129caeb33127bb139 Version: 0.4.0.9000 2026-10-26 dev: Stage 0b report closing block (post-conditions)
+60a6496b 60a6496bbe24f531519546004ede03d6bdc079d2 Version: 0.4.0.9000 2026-10-26 dev: vi deprecation report closing block (post-conditions)
+HEAD 0c00959b39aa99e0f4dad43a4344ca6aae72dfbc Version: 0.4.0.9000 2026-10-26 dev: task — isolate re-render differences (build ladder + bisect)
+
+## Decision recorded before any render (G's escaping write)
+G's only escaping path is the LOO cache (gh_dir = Sys.getenv("GH_DIR", unset = "../../../quarto/GuoHe")).
+It is not absolute / here::here(); it is parent-relative and environment-overridable by the document's own
+documented knob. G is rendered with GH_DIR=<run dir>/_payloads exported in the render's environment (no source
+edit), so the cache read misses (as in the legacy render, which computed LOO) and the cache write lands inside the
+run directory. The tracked quarto/GuoHe cache file is MD5-checked after every G render in addition to the §4 gate.
+Reported under deviations.

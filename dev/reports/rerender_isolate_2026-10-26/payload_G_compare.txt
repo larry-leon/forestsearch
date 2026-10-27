@@ -1,0 +1,153 @@
+Legacy payload path: /home/larryleon/Documents/GitHub/forestsearch/quarto/applications/gbsg/_payloads/analysis_gbsg_survival_effMaxSG/analysis_gbsg_survival_effMaxSG_payload.rds 
+exists: FALSE 
+No legacy G payload exists under quarto/applications/gbsg/_payloads/ (nor _payloads_2026-08-31/09-01*): the legacy
+record is the HTML only. The leaf-by-leaf comparison below is therefore supplementary: the fresh lean payload vs the
+era_G payload (the legacy-reproducing build), and lean vs cran040.
+
+G_lean payload top-level names: table, labels, meta, extras, est_scale, built_at, forestsearch_version 
+G_lean forestsearch_version: 0.4.0.9000 
+
+== G_era_G vs G_lean: leaves 6388 / 6403, common 6366, differing 138, only in G_era_G 0, only in lean 15
+   table.Estimate2                                              1.94 (0.89, 4.21) -> 1.93 (0.89, 4.20)
+   meta.provenance.parameter56                                  show_candidate_summary -> pconsistency.digits
+   meta.provenance.parameter57                                  max_print -> show_candidate_summary
+   meta.provenance.parameter58                                  d0.min -> max_print
+   meta.provenance.parameter59                                  d1.min -> d0.min
+   meta.provenance.parameter60                                  max.minutes -> d1.min
+   meta.provenance.parameter61                                  minp -> max.minutes
+   meta.provenance.parameter62                                  details -> minp
+   meta.provenance.parameter63                                  quiet -> details
+   meta.provenance.parameter64                                  maxk -> quiet
+   meta.provenance.parameter65                                  by.risk -> maxk
+   meta.provenance.parameter66                                  plot.sg -> by.risk
+   meta.provenance.parameter67                                  plot.grf -> plot.sg
+   meta.provenance.parameter68                                  max_subgroups_search -> plot.grf
+   meta.provenance.parameter69                                  vi.grf.min -> max_subgroups_search
+   meta.provenance.parameter70                                  use_twostage -> vi.grf.min
+   meta.provenance.parameter71                                  twostage_args -> use_twostage
+   meta.provenance.parameter72                                  consistency_method -> twostage_args
+   meta.provenance.parameter73                                  outcome_type -> consistency_method
+   meta.provenance.parameter74                                  effect_measure -> outcome_type
+   meta.provenance.parameter75                                  offset.name -> effect_measure
+   meta.provenance.parameter76                                  adverse_outcome -> offset.name
+   meta.provenance.parameter77                                  overdispersion -> adverse_outcome
+   meta.provenance.parameter78                                  grf_count_transform -> overdispersion
+   meta.provenance.parameter79                                  tune_grf -> grf_count_transform
+   meta.provenance.parameter80                                  adjust_covariates -> tune_grf
+   meta.provenance.parameter81                                  ps_method -> adjust_covariates
+   meta.provenance.parameter82                                  ps_adjust_method -> ps_method
+   meta.provenance.parameter83                                  ps_hat -> ps_adjust_method
+   meta.provenance.parameter84                                  mr_inference -> ps_hat
+   meta.provenance.parameter85                                  mr_inference_args -> mr_inference
+   meta.provenance.default56                                    FALSE -> 2
+   meta.provenance.default57                                    10 -> FALSE
+   meta.provenance.default60                                    3 -> 10
+   meta.provenance.default61                                    0.025 -> 3
+   meta.provenance.default62                                    FALSE -> 0.025
+   meta.provenance.default64                                    2 -> FALSE
+   meta.provenance.default65                                    12 -> 2
+   meta.provenance.default66                                    FALSE -> 12
+   meta.provenance.default68                                    Inf -> FALSE
+   meta.provenance.default69                                    -0.2 -> Inf
+   meta.provenance.default70                                    TRUE -> NULL
+   meta.provenance.default71                                    list() -> TRUE
+   meta.provenance.default72                                    c("resample", "split") -> list()
+   meta.provenance.default73                                    c("survival", "binary", "continuous", "count") -> c("resample", "split")
+   meta.provenance.default74                                    NULL -> c("survival", "binary", "continuous", "count")
+   meta.provenance.default77                                    c("none", "quasi", "negbin") -> NULL
+   meta.provenance.default78                                    c("log", "identity") -> c("none", "quasi", "negbin")
+   meta.provenance.default79                                    FALSE -> c("log", "identity")
+   meta.provenance.default80                                    NULL -> FALSE
+   meta.provenance.default82                                    c("none", "iptw", "dr_gcomp") -> NULL
+   meta.provenance.default83                                    NULL -> c("none", "iptw", "dr_gcomp")
+   meta.provenance.default84                                    FALSE -> NULL
+   meta.provenance.default85                                    list() -> FALSE
+   meta.provenance.value_used45                                 NULL -> 1
+   meta.provenance.value_used46                                 NULL -> 1
+   meta.provenance.value_used56                                 TRUE -> 2
+   meta.provenance.value_used57                                 10 -> TRUE
+   meta.provenance.value_used60                                 3 -> 10
+   meta.provenance.value_used61                                 0.025 -> 3
+   meta.provenance.value_used62                                 TRUE -> 0.025
+   meta.provenance.value_used63                                 FALSE -> TRUE
+   meta.provenance.value_used64                                 2 -> FALSE
+   meta.provenance.value_used65                                 12 -> 2
+   meta.provenance.value_used66                                 TRUE -> 12
+   meta.provenance.value_used67                                 FALSE -> TRUE
+   meta.provenance.value_used68                                 Inf -> FALSE
+   meta.provenance.value_used69                                 -0.2 -> Inf
+   meta.provenance.value_used70                                 TRUE -> NULL
+   meta.provenance.value_used71                                 list() -> TRUE
+   meta.provenance.value_used72                                 "resample" -> list()
+   meta.provenance.value_used73                                 "survival" -> "resample"
+   meta.provenance.value_used74                                 NULL -> "survival"
+   meta.provenance.value_used76                                 FALSE -> NULL
+   meta.provenance.value_used77                                 "none" -> FALSE
+   meta.provenance.value_used78                                 "log" -> "none"
+   meta.provenance.value_used79                                 FALSE -> "log"
+   meta.provenance.value_used80                                 NULL -> FALSE
+   meta.provenance.value_used81                                 "none" -> NULL
+   meta.provenance.value_used83                                 NULL -> "none"
+   meta.provenance.value_used84                                 TRUE -> NULL
+   meta.provenance.value_used85                                 list(draws = 5000L) -> TRUE
+   meta.provenance.status45                                     at default -> differs from default
+   meta.provenance.status46                                     at default -> differs from default
+   meta.provenance.status56                                     differs from default -> at default
+   meta.provenance.status57                                     at default -> differs from default
+   meta.provenance.status62                                     differs from default -> at default
+   meta.provenance.status63                                     at default -> differs from default
+   meta.provenance.status66                                     differs from default -> at default
+   meta.provenance.status67                                     at default -> differs from default
+   meta.provenance.status76                                     differs from default -> at default
+   meta.provenance.status77                                     at default -> differs from default
+   meta.provenance.status81                                     differs from default -> at default
+   meta.provenance.status82                                     at default -> differs from default
+   meta.provenance.status84                                     differs from default -> at default
+   extras.mr.debiased.est                                       1.44211752113718 -> 1.44394713283335
+   extras.mr.debiased.lower                                     0.619261572548131 -> 0.620608792777772
+   extras.mr.debiased.upper                                     3.35835943479149 -> 3.35957747727924
+   extras.mr.debiased.lower_1s                                  0.709411727501407 -> 0.710851604489207
+   extras.mr.debiased.se                                        0.431303872774518 -> 0.43084199185786
+   extras.mr.debiased.se_ij                                     0.431303872774518 -> 0.43084199185786
+   extras.mr.debiased.var_ij                                    0.186023030670297 -> 0.185624821948048
+   extras.mr.debiased.ij_draws                                  4964 -> 4966
+   extras.mr.selection_bias                                     0.555645779256668 -> 0.554570224294547
+   extras.fb.H_estimates.H1                                     2.00153901631721 -> 2.00019408882058
+   extras.fb.H_estimates.sdH1                                   0.11530363898705 -> 0.113812638598171
+   extras.fb.H_estimates.H1_lower                               1.78783928442271 -> 1.78911432459877
+   extras.fb.H_estimates.H1_upper                               2.24078219376058 -> 2.23617705025642
+   extras.fb.H_estimates.H2                                     1.93530021430991 -> 1.93399979575637
+   extras.fb.H_estimates.sdH2                                   0.767541177500012 -> 0.766142311362869
+   extras.fb.H_estimates.H2_lower                               0.889531482529662 -> 0.889729694752469
+   extras.fb.H_estimates.H2_upper                               4.21051642698109 -> 4.20392309264925
+   extras.fb.Hc_estimates.H1                                    0.628696136209193 -> 0.628730775113893
+   extras.fb.Hc_estimates.sdH1                                  0.0366615269071867 -> 0.0367073666846251
+   extras.fb.Hc_estimates.H1_lower                              0.560795055680232 -> 0.560749349242622
+   extras.fb.Hc_estimates.H1_upper                              0.704818681407467 -> 0.704953805312897
+   extras.fb.Hc_estimates.H2                                    0.630417201261123 -> 0.630451934990342
+   extras.fb.Hc_estimates.sdH2                                  0.125164116424241 -> 0.12519058022266
+   extras.fb.Hc_estimates.H2_lower                              0.427197826903593 -> 0.427195375801352
+   extras.fb.Hc_estimates.H2_upper                              0.930308682809838 -> 0.93041653736882
+   extras.cv.identification_summary._data.Subgroup4             {grade3} & {pgr <= 8} -> {pgr <= 8} & {grade3}
+   extras.cv.identification_summary._data.Subgroup7             {er <= 0} & {pgr <= 8} -> {er <= 6} & !{meno}
+   extras.cv.identification_summary._data.Subgroup8             {er <= 6} & !{meno} -> {er <= 0} & {pgr <= 8}
+   extras.cv.identification_summary._data.Subgroup11            (15 others) -> (13 others)
+   extras.cv.identification_summary._data.n_folds4              24 -> 25
+   extras.cv.identification_summary._data.n_folds7              7 -> 8
+   extras.cv.identification_summary._data.n_folds8              6 -> 7
+   extras.cv.identification_summary._data.n_folds11             27 -> 24
+   extras.cv.identification_summary._data.pct_folds4            4.8 -> 5
+   extras.cv.identification_summary._data.pct_folds7            1.4 -> 1.6
+   extras.cv.identification_summary._data.pct_folds8            1.2 -> 1.4
+   extras.cv.identification_summary._data.pct_folds11           5.4 -> 4.8
+   extras.cv.fold_numeric_summary._data.median4                 109 -> 106.5
+   extras.cv.fold_numeric_summary._data.Q14                     89 -> 86
+   extras.cv.fold_numeric_summary._data.Q34                     138 -> 135
+   extras.cv.fold_numeric_summary._data.min4                    38 -> 35
+   extras.cv.fold_numeric_summary._data.max4                    233 -> 227
+   extras.loo.cache                                             /home/larryleon/Documents/GitHub/forestsearch/quarto/applications/gbsg/rerun_2026-10-26/G_era_G/_payloads/cv_out_analysis_gbsg_survival_effMaxSG_hrMaxSG_neighborhood.rds -> /home/larryleon/Documents/GitHub/forestsearch/quarto/applications/gbsg/rerun_2026-10-26/G_lean/_payloads/cv_out_analysis_gbsg_survival_effMaxSG_hrMaxSG_neighborhood.rds
+   only in lean: meta.provenance.parameter86, meta.provenance.default86, meta.provenance.value_used86, meta.provenance.status86, extras.mr.debiased.se_ij_two_term, extras.mr.debiased.se_ij_winner, extras.mr.debiased.ij_source_winner, extras.mr.debiased.se_ij_winner_floor, extras.mr.debiased.ij_source_winner_floor, extras.mr.debiased.lower_w, extras.mr.debiased.upper_w, extras.mr.debiased.lower_1s_w, extras.mr.debiased.lower_wf, extras.mr.debiased.upper_wf, extras.mr.debiased.lower_1s_wf 
+== G_cran040 vs G_lean: leaves 6403 / 6403, common 6381, differing 1, only in G_cran040 0, only in lean 0
+   extras.loo.cache                                             /home/larryleon/Documents/GitHub/forestsearch/quarto/applications/gbsg/rerun_2026-10-26/G_cran040/_payloads/cv_out_analysis_gbsg_survival_effMaxSG_hrMaxSG_neighborhood.rds -> /home/larryleon/Documents/GitHub/forestsearch/quarto/applications/gbsg/rerun_2026-10-26/G_lean/_payloads/cv_out_analysis_gbsg_survival_effMaxSG_hrMaxSG_neighborhood.rds
+== G_depr vs G_lean: leaves 6403 / 6403, common 6381, differing 1, only in G_depr 0, only in lean 0
+   extras.loo.cache                                             /home/larryleon/Documents/GitHub/forestsearch/quarto/applications/gbsg/rerun_2026-10-26/G_depr/_payloads/cv_out_analysis_gbsg_survival_effMaxSG_hrMaxSG_neighborhood.rds -> /home/larryleon/Documents/GitHub/forestsearch/quarto/applications/gbsg/rerun_2026-10-26/G_lean/_payloads/cv_out_analysis_gbsg_survival_effMaxSG_hrMaxSG_neighborhood.rds
