@@ -332,6 +332,13 @@
 #' controlled trials, particularly for multi-regional clinical trials
 #' ('MRCT') requiring regional consistency evaluation.  Methods are
 #' described in Leon et al. (2024) \doi{10.1002/sim.10163}.
+#' Post-selection inference for the reported subgroup (multiplier
+#' resampling, \code{mr_inference = TRUE}) follows León and Anderson
+#' (2026a) \doi{10.48550/arXiv.2609.38361}. The current methodology for
+#' the search itself -- forest search as closed-form stability selection
+#' on splitting consistency, the family-wise false-declaration rate and
+#' the two-subgroup claim -- is given in León and Anderson (2026b)
+#' \doi{10.48550/arXiv.2610.28379}.
 #'
 #' @param df.analysis Data frame. Analysis dataset with required columns.
 #' @param outcome.name Character. Name of time-to-event outcome variable. Default "tte".
@@ -1459,11 +1466,18 @@
 #'
 #' @references
 #' \itemize{
+#'   \item León, L. F. and Anderson, K. M. (2026a). Inference for standard
+#'     trial estimands after data-driven subgroup discovery.
+#'     arXiv:2609.38361. \doi{10.48550/arXiv.2609.38361}
+#'   \item León, L. F. and Anderson, K. M. (2026b). Interpretable subgroup
+#'     identification across survival and generalized-linear outcomes.
+#'     arXiv:2610.28379. \doi{10.48550/arXiv.2610.28379}
 #'   \item FDA Guidance for Industry: Enrichment Strategies for Clinical Trials
 #'   \item Athey & Imbens (2016). Recursive partitioning for heterogeneous
 #'     causal effects. PNAS.
 #'   \item Wager & Athey (2018). Estimation and inference of heterogeneous
 #'     treatment effects using random forests. JASA.
+#'   \item León et al. (2024). \doi{10.1002/sim.10163}
 #' }
 #'
 #' @seealso

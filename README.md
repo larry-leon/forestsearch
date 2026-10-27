@@ -258,6 +258,28 @@ If you use **forestsearch** in your work, please cite:
   year    = {2024},
   doi     = {10.1002/sim.10163}
 }
+
+@misc{LeonAnderson2026a,
+  author        = {Le{\'o}n, Larry F. and Anderson, Keaven M.},
+  title         = {Inference for standard trial estimands after data-driven
+                   subgroup discovery},
+  year          = {2026},
+  eprint        = {2609.38361},
+  archivePrefix = {arXiv},
+  primaryClass  = {stat.ME},
+  doi           = {10.48550/arXiv.2609.38361}
+}
+
+@misc{LeonAnderson2026b,
+  author        = {Le{\'o}n, Larry F. and Anderson, Keaven M.},
+  title         = {Interpretable subgroup identification across survival and
+                   generalized-linear outcomes},
+  year          = {2026},
+  eprint        = {2610.28379},
+  archivePrefix = {arXiv},
+  primaryClass  = {stat.ME},
+  doi           = {10.48550/arXiv.2610.28379}
+}
 ```
 
 ## Related Work
