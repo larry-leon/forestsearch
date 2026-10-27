@@ -27,6 +27,11 @@
   `inert`, echoing the values that were passed.
 * Both formals will be removed in a later release.
 
+### Internal
+
+* The internal helper `fit_causal_forest_glm()` is removed (unused since
+  the `vi.grf.min` deprecation).
+
 ### Performance
 
 * Two per-candidate search-stage fits now call the fitting engines directly

@@ -98,52 +98,6 @@ fit_causal_forest <- function(X, Y, W, D, tau.rmst, RCT, seedit,
 }
 
 
-#' Fit Causal Forest for GLM Outcomes
-#'
-#' Fits a GRF causal forest for binary or continuous outcomes using
-#' [grf::causal_forest()].  This is the GLM counterpart to
-#' \code{\link{fit_causal_forest}}, which uses `causal_survival_forest`.
-#'
-#' @param X Numeric matrix. Covariates.
-#' @param Y Numeric vector. Outcome (binary 0/1 or continuous).
-#' @param W Numeric vector. Treatment indicator (0/1).
-#' @param RCT Logical. Is this RCT data?
-#' @param seedit Integer. Random seed.
-#' @param tune_grf Logical. If TRUE, enables cross-validated hyperparameter
-#'   tuning via \code{tune.parameters = "all"}. Default FALSE preserves
-#'   existing behavior.
-#' @return Causal forest object.
-#' @keywords internal
-fit_causal_forest_glm <- function(X, Y, W, RCT, seedit,
-                                  tune_grf = FALSE) {
-  tune_arg <- if (tune_grf) "all" else "none"
-  if (RCT) {
-    cf <- try(
-      suppressWarnings(
-        grf::causal_forest(X, Y, W, W.hat = 0.5, seed = seedit,
-                           tune.parameters = tune_arg,
-                           num.threads = .fs_grf_num_threads())
-      ),
-      TRUE
-    )
-  } else {
-    cf <- try(
-      suppressWarnings(
-        grf::causal_forest(X, Y, W, seed = seedit,
-                           tune.parameters = tune_arg,
-                           num.threads = .fs_grf_num_threads())
-      ),
-      TRUE
-    )
-  }
-
-  if (inherits(cf, "try-error")) {
-    stop("Failed to fit causal forest: ", attr(cf, "condition")$message)
-  }
-
-  return(cf)
-}
-
 #' Compute node metrics for a policy tree
 #'
 #' Aggregates scores by leaf node and calculates treatment effect differences
