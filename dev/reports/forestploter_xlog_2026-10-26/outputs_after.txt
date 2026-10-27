@@ -1,0 +1,262 @@
+<<block>>
+Sample size: 686
+<<block>>
+Events: 299 (43.6%)
+<<block>>
+Baseline factors: age, meno, size, grade3, nodes, pgr, er
+<<table>>
+GBSG Baseline Characteristics by Treatment Arm
+Characteristic |  | Control
+(n=440) | Treatment
+(n=246) | P-value1 | SMD2
+age | Mean (SD) | 51.1 (10.0) | 56.6 (9.4) | <0.001 | 0.57
+nodes | Mean (SD) | 4.9 (5.6) | 5.1 (5.3) | 0.665 | 0.03
+size | Mean (SD) | 29.6 (14.4) | 28.8 (14.1) | 0.470 | 0.06
+er | Mean (SD) | 79.7 (124.2) | 125.8 (191.1) | <0.001 | 0.30
+pgr | Mean (SD) | 102.0 (170.0) | 124.3 (249.7) | 0.213 | 0.11
+grade |  |  |  | 0.273 | 0.06
+| 1 | 48 (10.9%) | 33 (13.4%) |  |
+| 2 | 281 (63.9%) | 163 (66.3%) |  |
+| 3 | 111 (25.2%) | 50 (20.3%) |  |
+meno |  | 209 (47.5%) | 187 (76.0%) | <0.001 | 0.61
+1 P-values: t-test for continuous, chi-square/Fisher's exact for categorical/binary variables
+2 SMD = Standardized mean difference (Cohen's d for continuous, Cramer's V for categorical)
+<<block>>
+tau, maxdepth = 46.75811 2
+leaf.node control.mean control.size control.se depth
+1          2         6.49        82.00       3.34     1
+2          3        -4.10       604.00       1.06     1
+11         4        -7.90       112.00       2.81     2
+21         5         3.86       177.00       1.87     2
+4          7        -5.89       356.00       1.33     2
+Selected subgroup:
+leaf.node control.mean control.size control.se depth
+1         2         6.49        82.00       3.34     1
+GRF subgroup found
+Terminating node at max.diff (sg.harm.id):
+[1] "er <= 0"
+All splits (from all trees):
+[1] "er <= 0"   "age <= 50" "age <= 43"
+<<block>>
+<<table>>
+Parameter | Value | Description
+hr.threshold | 1.25 | Minimum HR for consistency evaluation
+hr.consistency | 1.0 | Minimum consistency rate for candidates
+pconsistency.threshold | 0.90 | Required consistency for selection
+maxk | 2 | Maximum factors in subgroup definition
+n.min | 60 | Minimum subgroup sample size
+d0.min, d1.min | 12 | Minimum events per treatment arm
+<<block>>
+GRF subgroup: er <= 0
+GRF cuts identified: 1
+Cuts: er <= 0
+Cox-LASSO selected: 4 of 7 candidate factors
+Omitted: age, meno, er
+Candidate factors: 14
+[1] "er <= 0"    "size <= 29" "size <= 25" "size <= 20" "size <= 35"
+[6] "nodes <= 5" "nodes <= 3" "nodes <= 1" "nodes <= 7" "pgr <= 110"
+[11] "pgr <= 33"  "pgr <= 7"   "pgr <= 132" "grade3"
+Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406
+Per-arm events criteria: control >= 12, treatment >= 12
+Sample size criteria: n >= 60
+--- Filtering Summary ---
+Combinations evaluated: 406
+Passed variance check: 374
+Passed prevalence (>= 0.025 ): 374
+Passed redundancy check: 354
+Passed events counts (d0>= 12, d1>= 12): 250
+Passed sample size (n>= 60 ): 247
+Cox model fit successfully: 247
+Passed effect threshold (effect >= 1.2500): 7
+-------------------------
+Found 7 subgroup candidate(s)
+# of candidate subgroups (meeting all criteria) = 7
+# of unique initial candidates: 7
+<<block>>
+# Restricting to top stop_Kgroups = 3
+# of candidates to evaluate: 3
+==============================================================================================================
+CANDIDATE EVALUATION PREVIEW (pre-consistency) (sg_focus = "maxSG", selection_rule = "neighborhood")
+==============================================================================================================
+Rank  HR      N      E     K    OF  Subgroup
+--------------------------------------------------------------------------------------------------------------
+1   1.951     82    45    1  *   {er <= 0}
+2   2.222     75    41    2  *   {er <= 0} & {pgr <= 33}
+3   1.710     72    39    2  -   {pgr <= 7} & {grade3}
+--------------------------------------------------------------------------------------------------------------
+To evaluate: 3   On frontier: 2
+Legend: OF = on Pareto frontier.
+==============================================================================================================
+<<block>>
+Parallel config: workers = 2 , batch_size = 3
+Batch 1 / 1 : candidates 1 - 3
+Evaluated 3 of 3 candidates (complete)
+3 subgroups passed consistency threshold
+<<block>>
+*** Subgroup found: {er <= 0}
+% consistency criteria met= 0.96
+SG focus = maxSG
+==============================================================================================================
+CANDIDATE EVALUATION SUMMARY  (sg_focus = "maxSG", selection_rule = "neighborhood")
+==============================================================================================================
+Rank  HR      N      E     K    P      OF  S  Subgroup
+--------------------------------------------------------------------------------------------------------------
+1   1.951     82    45    1  0.960  *   *  {er <= 0}
+2   2.222     75    41    2  0.990  *   -  {er <= 0} & {pgr <= 33}
+3   1.710     72    39    2  0.860  -   -  {pgr <= 7} & {grade3}
+--------------------------------------------------------------------------------------------------------------
+Evaluated: 3   Passed: 3   On frontier: 2   Selected: m=1
+Legend: P = Pcons (consistency probability); OF = on Pareto frontier; S = selected.
+==============================================================================================================
+Consistency algorithm used: twostage
+Subgroup identified: {er <= 0}
+<<block>>
+<<table>>
+Identified Subgroups
+Two-factor subgroups (maxk=2)
+Factor 1 | Factor 2 | N | Events | E1 | HR | Pcons
+{er <= 0} |  | 82 | 45 | 16 | 1.951 | 0.960
+{er <= 0} | {pgr <= 33} | 75 | 41 | 16 | 2.222 | 0.990
+{pgr <= 7} | {grade3} | 72 | 39 | 13 | 1.710 | 0.860
+Search Configuration: Single-factor candidates (L) = 28; Maximum combinations evaluated = 406; Search depth (maxk) = 2
+Search Results: Candidate subgroups found = 7; Maximum HR estimate = 2.54
+Note: E1 = events in treatment arm; Pcons = consistency proportion
+<<table>>
+Treatment Effect Estimates
+Training data estimates
+Subgroup | n | n1 | events | m1 | m0 | RMST | HR (95% CI)
+ITT | 686 (100.0%) | 246 (35.9%) | 299 (43.6%) | 66.3 | 50.2 | 7.8 | 0.69 (0.54, 0.89)
+Questionable1 | 82 (12.0%) | 26 (31.7%) | 45 (54.9%) | 22.9 | 43.7 | -14 | 1.95 (1.04, 3.67)
+Recommend | 604 (88.0%) | 220 (36.4%) | 254 (42.1%) | 66.7 | 52.6 | 9.3 | 0.61 (0.47, 0.80)
+1 Identified subgroup: {er <= 0}
+<<block>>
+Identified subgroup (H): {er <= 0}
+<<block>>
+Subgroup size: 82 (12.0% of ITT)
+<<block>>
+<<block>>
+===============================================================
+BOOTSTRAP ANALYSIS SUMMARY
+===============================================================
+IDENTIFIED SUBGROUP:
+-------------------------------------------------------------
+H: {er <= 0}
+BOOTSTRAP SUCCESS METRICS:
+-------------------------------------------------------------
+Total iterations:              2
+Successful subgroup ID:        2 (100.0%)
+Failed to find subgroup:       0 (0.0%)
+TIMING ANALYSIS:
+-------------------------------------------------------------
+Overall:
+Projected for 1000 boots:      42.18 min (0.70 hrs)
+<<table>>
+Treatment Effect by Subgroup
+Bootstrap bias-corrected estimates (2 iterations)
+Subgroup | Sample Size | Survival | Treatment Effect
+N | NT | Events | MedT | MedC | RMSTd | HR(95% CI)†1 | HR‡(95% CI)2
+Qstnbl3 | 82 (12.0%) | 26 (31.7%) | 45 (54.9%) | 22.9 | 43.7 | -14 | 1.95 (1.04, 3.67) | 3.0206 (1e-04,148775.2913)
+Recmnd | 604 (88.0%) | 220 (36.4%) | 254 (42.1%) | 66.7 | 52.6 | 9.3 | 0.61 (0.47, 0.80) | 0.75 (0.19,2.86)
+1 Unadjusted HR: Standard Cox regression hazard ratio with robust standard errors
+2 Bias-corrected HR: Bootstrap-adjusted estimate using infinitesimal jackknife method (2 iterations). Corrects for optimism in subgroup selection.
+3 Identified subgroup: {er <= 0}
+Note: Med = Median survival time (months). RMSTd = Restricted mean survival time difference. Subgroup identified in 100.0% of bootstrap samples.
+<<block>>
+=== Bootstrap Event Count Summary ===
+Total bootstrap iterations: 2
+Event threshold: <15 events
+ORIGINAL Subgroup H on BOOTSTRAP samples:
+Control arm <15 events: 0 (0.0%)
+Treatment arm <15 events: 0 (0.0%)
+Either arm <15 events: 0 (0.0%)
+ORIGINAL Subgroup Hc on BOOTSTRAP samples:
+Control arm <15 events: 0 (0.0%)
+Treatment arm <15 events: 0 (0.0%)
+Either arm <15 events: 0 (0.0%)
+NEW Subgroups found: 2 (100.0%)
+NEW Subgroup H* on ORIGINAL data:
+Control arm <15 events: 0 (0.0% of successful)
+Treatment arm <15 events: 0 (0.0% of successful)
+Either arm <15 events: 0 (0.0% of successful)
+NEW Subgroup Hc* on ORIGINAL data:
+Control arm <15 events: 0 (0.0% of successful)
+Treatment arm <15 events: 0 (0.0% of successful)
+Either arm <15 events: 0 (0.0% of successful)
+<<table>>
+Bootstrap Diagnostics Summary
+Analysis of 2 bootstrap iterations
+Category | Metric | Value
+Success Rate | Total iterations | 2
+| Successful | 2 (100.0%)
+| Failed | 0 (0.0%)
+| Success rating | Excellent
+Subgroup H (Questionable) | Observed HR | 1.951
+| Bias-corrected HR | 3.021
+| Bootstrap CV (%) | 38.5%
+| N estimates | 2
+Subgroup Hc (Recommend) | Observed HR | 0.615
+| Bias-corrected HR | 0.746
+| Bootstrap CV (%) | 18.1%
+| N estimates | 2
+<<block>>
+Metric      Value
+<char>     <char>
+1:      Total bootstrap iterations          2
+2:           Successful iterations          2
+3: Failed iterations (no subgroup)          0
+4:
+5:    Original subgroup definition  {er <= 0}
+6:       Exact match with original   0 (0.0%)
+7:         Different from original 2 (100.0%)
+8:   Partial match (shared factor)   0 (0.0%)
+<<block>>
+Rank Factor Count Percent
+1    1     er     2     100
+2    2    pgr     1      50
+3    3   size     1      50
+<<table>>
+Cross-Validation Metrics
+Subgroup: Identified Subgroup
+Metric | Description | Value (%)
+Agreement
+Sensitivity (H) | Agreement rate for subgroup H | 19.5
+Sensitivity (Hc) | Agreement rate for complement Hc | 76.2
+PPV (H) | Positive predictive value for H | 10.0
+PPV (Hc) | Positive predictive value for Hc | 87.5
+Subgroup Finding
+Any Found | Any subgroup identified | 100.0
+Exact Match | Exact match on all factors | 0.0
+At Least 1 | At least one factor matches | 0.0
+Cov1 Any | First covariate found (any cut) | 0.0
+Cov2 Any | Second covariate found (any cut) | NA
+Cov1 & Cov2 | Both covariates found | 0.0
+Cov1 Exact | First covariate exact match | 0.0
+Cov2 Exact | Second covariate exact match | NA
+Based on 1 simulation(s) with 2-fold CV. Values are proportions shown as percentages.
+<<block>>
+============================================================
+<<block>>
+FORESTSEARCH ANALYSIS SUMMARY
+<<block>>
+============================================================
+<<block>>
+Dataset: GBSG (N = 686 )
+<<block>>
+Outcome: Recurrence-free survival
+<<block>>
+ITT Analysis:
+<<block>>
+HR (95% CI): 0.69 (0.54, 0.89)
+<<block>>
+Identified Subgroup (H):
+<<block>>
+Definition: {er <= 0}
+<<block>>
+Size: 82 (12.0%)
+<<block>>
+Unadjusted HR: 1.95
+<<block>>
+Complement Subgroup (Hc):
+<<block>>
+Size: 604 (88.0%)
+<<block>>
