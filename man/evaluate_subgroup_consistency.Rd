@@ -77,7 +77,11 @@ Default: 2}
 \item{consistency_threshold}{Numeric or \code{NULL}. Threshold for GLM
 consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).}
 
-\item{adjust_covariates}{Character vector or \code{NULL}. Additional Cox
+\item{adjust_covariates}{This option is implemented but has not been
+tested against the manuscript analyses or the simulation studies of
+León and Anderson (2026a, 2026b), which use the unadjusted
+treatment-only fits.
+Character vector or \code{NULL}. Additional Cox
 model terms (e.g. \code{"strata(x1)"}) used when scoring survival
 subgroups.  Referenced columns must be present in \code{df}.  Ignored
 on the GLM path.  Default \code{NULL} (unadjusted).}

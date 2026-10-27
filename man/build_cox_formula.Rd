@@ -18,7 +18,11 @@ build_cox_formula(
 
 \item{treat.name}{Character. Name of treatment variable.}
 
-\item{adjust_covariates}{Character vector or \code{NULL}. Additional model terms
+\item{adjust_covariates}{This option is implemented but has not been
+tested against the manuscript analyses or the simulation studies of
+León and Anderson (2026a, 2026b), which use the unadjusted
+treatment-only fits.
+Character vector or \code{NULL}. Additional model terms
 appended to the right-hand side after the treatment term.  Terms are
 pasted verbatim, so survival modelling functions such as \code{strata()} and
 \code{pspline()} may be used directly, e.g. \code{adjust_covariates = "strata(x1)"}

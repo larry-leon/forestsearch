@@ -67,14 +67,12 @@ threshold (\code{c2}, \code{hr.consistency}) and not the consistency rate
 (\verb{p*}, \code{pconsistency.threshold}); neither is applied here -- this
 function performs the screening stage only.}
 
-\item{max.minutes}{Numeric. \strong{Currently inert; scheduled for
-deprecation in v0.3.0.} Previously intended as a wall-clock budget for
-the combination search, it is threaded to
-\code{search_combinations_parallel()} and no path consults it, so it has
-no effect on behaviour. Search scope is governed by \code{maxk} and the
-candidate-factor controls. Retained because it is part of a public
-signature; this description now matches \code{\link{forestsearch}}'s,
-which has documented it as inert for some time.}
+\item{max.minutes}{\strong{Deprecated} (0.4.0.9000): accepted and
+ignored. It was documented as a wall-clock budget for the
+combination search but was never enforced in the parallel search
+path. Passing it emits one warning. Search scope is governed by
+\code{maxk} and the candidate-factor controls.
+The formal will be removed in a later release; drop it from calls.}
 
 \item{minp}{Numeric. Minimum prevalence rate for each factor.}
 
@@ -106,7 +104,11 @@ d0.min/d1.min interpretation: events per arm for binary/survival,
 ignored for continuous.  Default \code{NULL} (inferred from
 \code{estimator_fn} presence).}
 
-\item{adjust_covariates}{Character vector or \code{NULL}. Additional Cox
+\item{adjust_covariates}{This option is implemented but has not been
+tested against the manuscript analyses or the simulation studies of
+León and Anderson (2026a, 2026b), which use the unadjusted
+treatment-only fits.
+Character vector or \code{NULL}. Additional Cox
 model terms (e.g. \code{"strata(x1)"} or \code{"x2"}) used to adjust the
 candidate-search Cox scorer on the survival path.  Referenced columns are
 sourced from \code{df_analysis}.  Ignored on the GLM path.  Default

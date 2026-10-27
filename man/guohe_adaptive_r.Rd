@@ -57,7 +57,11 @@ candidate to be estimable.}
 \item{refit}{Logical; if \code{TRUE}, also return a full-data fit at the selected
 \code{r}.}
 
-\item{adjust_covariates}{Optional character vector of covariate names for the
+\item{adjust_covariates}{This option is implemented but has not been
+tested against the manuscript analyses or the simulation studies of
+León and Anderson (2026a, 2026b), which use the unadjusted
+treatment-only fits.
+Optional character vector of covariate names for the
 within-subgroup model, matching the argument of the same name in
 \code{forestsearch()}'s \code{.estimate_or()} / \code{.make_lm_estimator()}. Default \code{NULL}
 is the unadjusted model. Supplying it DISABLES the closed-form fast path,

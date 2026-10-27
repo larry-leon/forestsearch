@@ -68,7 +68,11 @@ column names.}
 
 \item{cox_init}{Numeric; Cox warm-start.}
 
-\item{adjust_covariates}{Character vector or \code{NULL}; adjustment terms.}
+\item{adjust_covariates}{This option is implemented but has not been
+tested against the manuscript analyses or the simulation studies of
+León and Anderson (2026a, 2026b), which use the unadjusted
+treatment-only fits.
+Character vector or \code{NULL}; adjustment terms.}
 
 \item{adverse_outcome}{Logical; GLM adverse-outcome convention (see
 \code{\link[=.consistency_glm_pieces]{.consistency_glm_pieces()}}).}

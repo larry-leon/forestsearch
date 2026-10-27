@@ -14,7 +14,11 @@ Ignored when \code{adjust_covariates} is supplied (the default coxph
 starting values are used so the init length matches the number of
 model coefficients).}
 
-\item{adjust_covariates}{Character vector or \code{NULL}. Additional terms
+\item{adjust_covariates}{This option is implemented but has not been
+tested against the manuscript analyses or the simulation studies of
+León and Anderson (2026a, 2026b), which use the unadjusted
+treatment-only fits.
+Character vector or \code{NULL}. Additional terms
 appended to the model right-hand side after \code{Treat}.  Terms are pasted
 verbatim, so \code{"strata(x1)"} produces a stratified Cox model.  The
 referenced columns must be present in \code{df}.  \code{NULL} (default) fits the
