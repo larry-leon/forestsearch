@@ -316,3 +316,73 @@ man/subgroup.search.Rd
 6. **README `@misc` entries** also carry a `doi = {10.48550/arXiv....}` field. That is beyond the fields §1.1 item 5 lists; remove it if unwanted.
 7. **§0 line hint.** The legacy `analysis_gbsg_survival_effMaxSG.qmd` hit is at L580, not L≈584.
 8. The git-ignored rendered `vignettes/survival-post-selection.html` still shows `max.minutes = 3` until the vignette is next rendered.
+
+## Pre-check tidy (same day)
+
+Task doc: `dev/tasks/cc_task_prechec_tidy_2026-10-27.md`. Start: `feature/docs-refs-maxminutes` at `b36da9dc0dae84e44ff774fddc33ae8978b54311`, clean tree.
+
+**Disposition line:** A: yes  B: yes  C: yes
+
+The task doc was first committed as received, with the disposition line blank. CC stopped there, as the doc requires. Larry supplied the dispositions in chat, and they went in as a separate commit.
+
+### Commits
+
+| SHA | Subject |
+|---|---|
+| `725d64b2` | dev: task doc — pre-check tidy (2026-10-27) |
+| `c5dfe0b1` | dev: task doc — pre-check tidy dispositions (Larry, 2026-10-27) |
+| `8f94d117` | DESCRIPTION: accept roxygen2 8.1.1 stamp (A) |
+| `81d3dab3` | docs: fix stale note in fs_family_report.R (B) |
+| `936b6734` | cleanup: remove dead fit_causal_forest_glm() (C) |
+| `de298322` | docs: regenerate man pages |
+
+### B — deviation from the task text
+
+The task text for B says the note at L≈354 is a comment about the VI screen. In the working tree, neither part holds:
+
+- `R/fs_family_report.R:354` is the note string on the `max.minutes` ("time cap") row. It is the one flagged in Surprises item 4 above. The VI-screen row (L266-269) already reads "deprecated and ignored since 0.4.0.9000 ...", with status `INE`, so it needed no change.
+- The note is a string literal that the function prints. It is not a comment.
+
+CC went by the doc's explicit pointer ("the one CC flagged in the report") and rewrote only that string. No logic changed:
+
+- before: `"no path consults it (subgroup.search() forwards it and never compares it)"`
+- after: `"deprecated and ignored since 0.4.0.9000: forestsearch() does not forward it and no path consults it"`
+
+Basis for the new wording: `R/forestsearch_main.R:3477` (`search_args$max.minutes <- NULL`). No test or other file matches the old string.
+
+### C.1 — `grep -rn "fit_causal_forest_glm" R/ tests/ vignettes/ inst/ quarto/ NAMESPACE man/` (before the edit)
+
+```
+R/grf_helpers.R:117:fit_causal_forest_glm <- function(X, Y, W, RCT, seedit,
+man/fit_causal_forest_glm.Rd:3:\name{fit_causal_forest_glm}
+man/fit_causal_forest_glm.Rd:4:\alias{fit_causal_forest_glm}
+man/fit_causal_forest_glm.Rd:7:fit_causal_forest_glm(X, Y, W, RCT, seedit, tune_grf = FALSE)
+```
+
+### C.2 — gate: HOLDS
+
+- (i) `NAMESPACE` has no hit, so there is no `export(fit_causal_forest_glm)`.
+- (ii) The only `R/` hit is the definition (`R/grf_helpers.R:117`). Its roxygen block (L101-116, `@keywords internal`) does not name the function.
+- (iii) There are no hits in `tests/`, `vignettes/`, `inst/` or `quarto/`.
+
+C.3: the function and its roxygen block were deleted (`R/grf_helpers.R` L101-146 at `81d3dab3`, 46 lines). The block had no `@importFrom`, so there was nothing to keep. The NEWS line went under a new `### Internal` heading in the development section.
+
+### §2.3 gates (after `devtools::document()`)
+
+- `git diff --stat -- NAMESPACE`: empty.
+- `man/`: the only change is `D man/fit_causal_forest_glm.Rd`.
+- `git diff b36da9dc -- DESCRIPTION`: only `Config/roxygen2/version: 8.1.0` -> `8.1.1`. `document()` did not rewrite DESCRIPTION, so the restore step is no longer needed.
+
+### §2.4 tests (`NOT_CRAN=true`)
+
+| File | load_package | test_that blocks | expectations passed | failed | skipped | errors |
+|---|---|---|---|---|---|---|
+| `test-max-minutes-deprecation.R` | source | 5 | 12 | 0 | 0 | 0 |
+| `test-vi-deprecation.R` | source | 4 | 15 | 0 | 0 | 0 |
+| `test-lean-fits.R` | installed | 3 | 344 | 0 | 0 | 0 |
+
+`devtools::install(upgrade = FALSE)` ran before `test-lean-fits.R`. `exists("fit_causal_forest_glm", envir = asNamespace("forestsearch"))` returns `FALSE` on the installed build. The first `test_file(..., load_package = "installed")` call failed because no `package =` argument was given (`'package' must be of length 1`). It was re-run with `package = "forestsearch"`. That was an invocation error; no test failed.
+
+### §2.5
+
+`git status --porcelain quarto/`: empty.
