@@ -1431,62 +1431,136 @@
 #'
 #' @examples
 #' \dontrun{
-#' # Example 1: Standard analysis (backward compatible)
-#' result <- forestsearch(
-#'   df.analysis = trial_data,
-#'   sg_focus = "hr",
-#'   hr.threshold = 1.25,
+#' ## Example 1 -- Survival (GBSG, hormone therapy): the analysis of
+#' ## León and Anderson (2026a, Sec. 5) and the survival-post-selection
+#' ## vignette. Forest search over the cut grid (no model-based front ends),
+#' ## effMaxSG selection in a 10% effect neighbourhood, multiplier-resampling
+#' ## inference for the reported subgroup computed inside the fit.
+#' library(survival)
+#' df_gbsg <- within(gbsg, {
+#'   id          <- seq_len(nrow(gbsg))
+#'   time_months <- rfstime / 30.4375
+#'   grade3      <- ifelse(grade == "3", 1, 0)
+#' })
+#' fs_surv <- forestsearch(
+#'   df.analysis            = df_gbsg,
+#'   outcome.name           = "time_months",
+#'   event.name             = "status",
+#'   treat.name             = "hormon",
+#'   id.name                = "id",
+#'   confounders.name       = c("age", "meno", "size", "grade3", "nodes",
+#'                              "pgr", "er"),
+#'   is.RCT                 = TRUE,
+#'   use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE,
+#'   conf.cont_jcuts        = list(er = 10, pgr = 10),
+#'   conf_force             = c("er <= 0", "pgr <= 0"),
+#'   subgroup_method        = "consistency",
+#'   sg_focus               = "effMaxSG",
+#'   selection_rule         = "neighborhood",
+#'   effect_neighborhood    = 0.10,
+#'   hr.threshold           = 1.0,
+#'   hr.consistency         = 1.0,
 #'   pconsistency.threshold = 0.90,
-#'   fs.splits = 400,
-#'   details = TRUE
+#'   consistency_method     = "resample",
+#'   fs.splits              = 1000,
+#'   n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
+#'   mr_inference           = TRUE,
+#'   mr_inference_args      = list(draws = 5000L),
+#'   parallel_args          = list(plan = "multisession", workers = 4),
+#'   seedit                 = 8316951
 #' )
+#' print(fs_surv)
+#' mr_estimates_table(fs_surv)
 #'
-#' # Example 2: Fast exploratory analysis with two-stage
-#' result_fast <- forestsearch(
-#'   df.analysis = trial_data,
-#'   sg_focus = "maxSG",
-#'   hr.threshold = 1.15,
-#'   pconsistency.threshold = 0.85,
-#'   fs.splits = 500,
-#'   use_twostage = TRUE,
-#'   details = TRUE
-#' )
+#' ## Example 2 -- Binary outcome, odds ratio (ACTG175, ZDV+ddI vs ddI):
+#' ## the binary application of León and Anderson (2026b). Adverse-scale
+#' ## outcome (1 = no CD4 improvement at week 20), OR thresholds at the null,
+#' ## same selection rule and multiplier-resampling gate as Example 1.
+#' if (requireNamespace("speff2trial", quietly = TRUE)) {
+#'   actg <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+#'   actg <- actg[!is.na(actg$cd420), ]
+#'   actg$id           <- seq_len(nrow(actg))
+#'   actg$treat        <- as.integer(actg$arms == 1L)
+#'   actg$y_binary_neg <- as.integer(!(actg$cd420 > actg$cd40))
+#'   bin_vars <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
+#'   for (v in bin_vars) actg[[v]] <- as.numeric(actg[[v]])
+#'   fs_bin <- forestsearch(
+#'     df.analysis            = actg,
+#'     outcome.name           = "y_binary_neg",
+#'     event.name             = "y_binary_neg",
+#'     treat.name             = "treat",
+#'     id.name                = "id",
+#'     confounders.name       = c("age", "preanti", "wtkg", "karnof", "cd40",
+#'                                "cd80", bin_vars),
+#'     outcome_type           = "binary",
+#'     effect_measure         = "OR",
+#'     adverse_outcome        = TRUE,
+#'     use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE,
+#'     conf.cont_jcuts        = list(cd40 = 10, wtkg = 10),
+#'     subgroup_method        = "consistency",
+#'     sg_focus               = "effMaxSG",
+#'     selection_rule         = "neighborhood",
+#'     effect_neighborhood    = 0.10,
+#'     effect.threshold       = 1.0,
+#'     consistency.threshold  = 1.0,
+#'     pconsistency.threshold = 0.90,
+#'     consistency_method     = "resample",
+#'     fs.splits              = 500,
+#'     n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
+#'     mr_inference           = TRUE,
+#'     mr_inference_args      = list(draws = 5000L),
+#'     parallel_args          = list(plan = "multisession", workers = 4),
+#'     seedit                 = 8316951
+#'   )
+#'   print(fs_bin)
+#' }
 #'
-#' # Example 3: Two-stage with custom parameters
-#' result_custom <- forestsearch(
-#'   df.analysis = trial_data,
-#'   sg_focus = "hr",
-#'   hr.threshold = 1.3,
-#'   pconsistency.threshold = 0.95,
-#'   fs.splits = 600,
-#'   use_twostage = TRUE,
-#'   twostage_args = list(
-#'     n.splits.screen = 50,
-#'     batch.size = 25,
-#'     conf.level = 0.99
-#'   ),
-#'   parallel_args = list(plan = "multisession", workers = 4),
-#'   details = TRUE
-#' )
-#'
-#' # Example 4: Binary outcome with OR thresholds
-#' result_binary <- forestsearch(
-#'   df.analysis = trial_data,
-#'   outcome_type = "binary",
-#'   effect_measure = "OR",
-#'   effect.threshold = 1.5,
-#'   consistency.threshold = 1.3,
-#'   pconsistency.threshold = 0.90
-#' )
-#'
-#' # Example 5: Binary outcome with RD thresholds
-#' result_rd <- forestsearch(
-#'   df.analysis = trial_data,
-#'   outcome_type = "binary",
-#'   effect_measure = "RD",
-#'   effect.threshold = 0.07,       # 7 pct-point harm
-#'   consistency.threshold = 0.03   # 3 pct-point per split
-#' )
+#' ## Example 3 -- Continuous outcome, mean difference (ACTG175): the
+#' ## continuous application of León and Anderson (2026b), with the field
+#' ## (calibrated one-sided) bounds for the selected subgroup and its
+#' ## complement. Outcome is CD4 decline from baseline to week 20 (adverse
+#' ## scale); thresholds are on the mean-difference scale.
+#' if (requireNamespace("speff2trial", quietly = TRUE)) {
+#'   actg <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+#'   actg <- actg[!is.na(actg$cd420), ]
+#'   actg$id        <- seq_len(nrow(actg))
+#'   actg$treat     <- as.integer(actg$arms == 1L)
+#'   actg$y_decline <- actg$cd40 - actg$cd420
+#'   bin_vars <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
+#'   for (v in bin_vars) actg[[v]] <- as.factor(actg[[v]])
+#'   fs_cont <- forestsearch(
+#'     df.analysis            = actg,
+#'     outcome.name           = "y_decline",
+#'     treat.name             = "treat",
+#'     id.name                = "id",
+#'     confounders.name       = c("age", "preanti", "wtkg", "karnof", "cd40",
+#'                                "cd80", bin_vars),
+#'     outcome_type           = "continuous",
+#'     effect_measure         = "MD",
+#'     adverse_outcome        = TRUE,
+#'     use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE,
+#'     conf.cont_jcuts        = list(age = 10, preanti = 10, wtkg = 10,
+#'                                   karnof = 10, cd40 = 10, cd80 = 10),
+#'     sg_focus               = "effMaxSG",
+#'     selection_rule         = "neighborhood",
+#'     effect_neighborhood    = 0.20,
+#'     effect.threshold       = 10,
+#'     consistency.threshold  = 5,
+#'     pconsistency.threshold = 0.90,
+#'     consistency_method     = "resample",
+#'     fs.splits              = 500,
+#'     n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
+#'     mr_inference           = TRUE,
+#'     mr_inference_args      = list(ci_method = "field", draws = 5000L,
+#'                                   include_complement = TRUE,
+#'                                   field_complement = TRUE,
+#'                                   field_scale_complement = "selected",
+#'                                   return_reselection = TRUE),
+#'     parallel_args          = list(plan = "sequential"),
+#'     seedit                 = 8316951
+#'   )
+#'   print(fs_cont)
+#' }
 #' }
 #'
 #' @references
