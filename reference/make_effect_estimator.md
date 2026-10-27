@@ -72,11 +72,17 @@ make_effect_estimator(
 
 - adjust_covariates:
 
+  This option is implemented but has not been tested against the
+  manuscript analyses or the simulation studies of León and Anderson
+  (2026a, 2026b), which use the unadjusted treatment-only fits.
   Character vector or `NULL`. Additional covariate names to include in
   the outcome model formula.
 
 - ps_adjust_method:
 
+  This option is implemented but has not been tested against the
+  manuscript analyses or the simulation studies of León and Anderson
+  (2026a, 2026b), which use the unadjusted treatment-only fits.
   Character. Propensity score adjustment method. One of `"none"`
   (default), `"iptw"` (stabilized inverse probability of treatment
   weights), or `"dr_gcomp"` (Bang & Robins 2005 IPS covariate with

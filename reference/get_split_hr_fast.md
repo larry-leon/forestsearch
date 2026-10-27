@@ -24,6 +24,9 @@ get_split_hr_fast(df, cox_init = 0, adjust_covariates = NULL)
 
 - adjust_covariates:
 
+  This option is implemented but has not been tested against the
+  manuscript analyses or the simulation studies of León and Anderson
+  (2026a, 2026b), which use the unadjusted treatment-only fits.
   Character vector or `NULL`. Additional terms appended to the model
   right-hand side after `Treat`. Terms are pasted verbatim, so
   `"strata(x1)"` produces a stratified Cox model. The referenced columns

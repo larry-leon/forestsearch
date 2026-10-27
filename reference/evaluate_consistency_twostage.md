@@ -134,6 +134,9 @@ evaluate_consistency_twostage(
 
 - adjust_covariates:
 
+  This option is implemented but has not been tested against the
+  manuscript analyses or the simulation studies of León and Anderson
+  (2026a, 2026b), which use the unadjusted treatment-only fits.
   Character vector or `NULL`. Additional Cox model terms (e.g.
   `"strata(x1)"`) used when scoring survival subgroups. Referenced
   columns must be present in `df`. Ignored on the GLM path. Default

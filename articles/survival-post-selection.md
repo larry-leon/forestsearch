@@ -71,13 +71,13 @@ fs <- forestsearch(
   mr_inference_args = list(draws = 500L, field_recovery = TRUE),
   n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
   hr.threshold = 1.0, hr.consistency = 1.0, pconsistency.threshold = 0.80,
-  fs.splits = 200, max.minutes = 3,
+  fs.splits = 200,
   details = FALSE, quiet = TRUE, plot.sg = FALSE,
   parallel_args = list(plan = "sequential"))
 cat(sprintf("fit time: %.1f seconds\n", (proc.time() - t0)[["elapsed"]]))
 ```
 
-    #> fit time: 27.1 seconds
+    #> fit time: 32.0 seconds
 
 ## The identified subgroup
 
@@ -131,7 +131,7 @@ print(fs)
     #>   simulation operating characteristics: Leon & Anderson (2026),
     #>   arXiv:2609.38361.
     #>
-    #> Computation time: 0.06 minutes
+    #> Computation time: 0.07 minutes
 
 - **Identified subgroup:** the one-sided 95% lower bound on the hazard
   ratio (the *field* construction).
@@ -218,7 +218,7 @@ summary(fs)
     #>   simulation operating characteristics: Leon & Anderson (2026),
     #>   arXiv:2609.38361.
     #>
-    #> Computation time: 0.06 minutes
+    #> Computation time: 0.07 minutes
 
 ## How to read a bound: by location
 

@@ -30,6 +30,9 @@ build_cox_formula(
 
 - adjust_covariates:
 
+  This option is implemented but has not been tested against the
+  manuscript analyses or the simulation studies of León and Anderson
+  (2026a, 2026b), which use the unadjusted treatment-only fits.
   Character vector or `NULL`. Additional model terms appended to the
   right-hand side after the treatment term. Terms are pasted verbatim,
   so survival modelling functions such as
@@ -50,9 +53,9 @@ side.
 ``` r
 build_cox_formula("time_months", "event", "treat")
 #> Surv(time_months, event) ~ treat
-#> <environment: 0x55730e2dfd40>
+#> <environment: 0x561cb6d8dc60>
 build_cox_formula("time_months", "event", "treat",
                   adjust_covariates = c("strata(site)", "age"))
 #> Surv(time_months, event) ~ treat + strata(site) + age
-#> <environment: 0x55730e316870>
+#> <environment: 0x561cb6dc9bc8>
 ```

@@ -52,6 +52,9 @@ run_single_consistency_split(
 
 - adjust_covariates:
 
+  This option is implemented but has not been tested against the
+  manuscript analyses or the simulation studies of León and Anderson
+  (2026a, 2026b), which use the unadjusted treatment-only fits.
   Character vector or `NULL`. Additional Cox model terms (e.g.
   `"strata(x1)"`) passed to
   [`get_split_hr_fast`](https://larry-leon.github.io/forestsearch/reference/get_split_hr_fast.md)

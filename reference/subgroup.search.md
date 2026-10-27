@@ -94,14 +94,11 @@ subgroup.search(
 
 - max.minutes:
 
-  Numeric. **Currently inert; scheduled for deprecation in v0.3.0.**
-  Previously intended as a wall-clock budget for the combination search,
-  it is threaded to `search_combinations_parallel()` and no path
-  consults it, so it has no effect on behaviour. Search scope is
-  governed by `maxk` and the candidate-factor controls. Retained because
-  it is part of a public signature; this description now matches
-  [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)'s,
-  which has documented it as inert for some time.
+  **Deprecated** (0.4.0.9000): accepted and ignored. It was documented
+  as a wall-clock budget for the combination search but was never
+  enforced in the parallel search path. Passing it emits one warning.
+  Search scope is governed by `maxk` and the candidate-factor controls.
+  The formal will be removed in a later release; drop it from calls.
 
 - minp:
 
@@ -155,6 +152,9 @@ subgroup.search(
 
 - adjust_covariates:
 
+  This option is implemented but has not been tested against the
+  manuscript analyses or the simulation studies of León and Anderson
+  (2026a, 2026b), which use the unadjusted treatment-only fits.
   Character vector or `NULL`. Additional Cox model terms (e.g.
   `"strata(x1)"` or `"x2"`) used to adjust the candidate-search Cox
   scorer on the survival path. Referenced columns are sourced from

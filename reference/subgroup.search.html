@@ -144,14 +144,12 @@ function performs the screening stage only.</p></dd>
 
 
 <dt id="arg-max-minutes">max.minutes<a class="anchor" aria-label="anchor" href="#arg-max-minutes"></a></dt>
-<dd><p>Numeric. <strong>Currently inert; scheduled for
-deprecation in v0.3.0.</strong> Previously intended as a wall-clock budget for
-the combination search, it is threaded to
-<code>search_combinations_parallel()</code> and no path consults it, so it has
-no effect on behaviour. Search scope is governed by <code>maxk</code> and the
-candidate-factor controls. Retained because it is part of a public
-signature; this description now matches <code><a href="forestsearch.html">forestsearch</a></code>'s,
-which has documented it as inert for some time.</p></dd>
+<dd><p><strong>Deprecated</strong> (0.4.0.9000): accepted and
+ignored. It was documented as a wall-clock budget for the
+combination search but was never enforced in the parallel search
+path. Passing it emits one warning. Search scope is governed by
+<code>maxk</code> and the candidate-factor controls.
+The formal will be removed in a later release; drop it from calls.</p></dd>
 
 
 <dt id="arg-minp">minp<a class="anchor" aria-label="anchor" href="#arg-minp"></a></dt>
@@ -205,7 +203,11 @@ ignored for continuous.  Default <code>NULL</code> (inferred from
 
 
 <dt id="arg-adjust-covariates">adjust_covariates<a class="anchor" aria-label="anchor" href="#arg-adjust-covariates"></a></dt>
-<dd><p>Character vector or <code>NULL</code>. Additional Cox
+<dd><p>This option is implemented but has not been
+tested against the manuscript analyses or the simulation studies of
+León and Anderson (2026a, 2026b), which use the unadjusted
+treatment-only fits.
+Character vector or <code>NULL</code>. Additional Cox
 model terms (e.g. <code>"strata(x1)"</code> or <code>"x2"</code>) used to adjust the
 candidate-search Cox scorer on the survival path.  Referenced columns are
 sourced from <code>df_analysis</code>.  Ignored on the GLM path.  Default

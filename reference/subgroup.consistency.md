@@ -353,6 +353,9 @@ subgroup.consistency(
 
 - adjust_covariates:
 
+  This option is implemented but has not been tested against the
+  manuscript analyses or the simulation studies of León and Anderson
+  (2026a, 2026b), which use the unadjusted treatment-only fits.
   Character vector or `NULL`. Additional Cox model terms used when
   scoring survival subgroups during consistency evaluation, e.g.
   `"strata(x1)"` for a stratified model or `"x2"` for linear adjustment.

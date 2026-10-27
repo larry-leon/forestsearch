@@ -64,6 +64,9 @@ consistency_resample_compare(
 
 - adjust_covariates:
 
+  This option is implemented but has not been tested against the
+  manuscript analyses or the simulation studies of León and Anderson
+  (2026a, 2026b), which use the unadjusted treatment-only fits.
   Character vector or `NULL`; adjustment terms.
 
 - seed:

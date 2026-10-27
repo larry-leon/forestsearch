@@ -363,7 +363,6 @@ fs <- forestsearch(
   d1.min                     = 12,                           # default 10; min events arm 1
   maxk                       = 2,                            # default 2; max factors per SG
   max_subgroups_search       = 3,                            # default 10
-  max.minutes                = 3,                            # default 3; per-stage timeout
 
   # ─── Thresholds (preferred names take precedence if both supplied) ─────
   effect.threshold           = NULL,                         # default NULL; alias for hr.threshold
@@ -479,7 +478,7 @@ fs <- forestsearch(
     ## Legend: P = Pcons (consistency probability); OF = on Pareto frontier; S = selected.
     ## ==============================================================================================================
     ## 
-    ## Seconds and minutes forestsearch overall = 4.712 0.0785 
+    ## Seconds and minutes forestsearch overall = 4.98 0.083 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0}
 
@@ -493,7 +492,7 @@ cat("\nForestSearch completed in",
 ```
 
     ## 
-    ## ForestSearch completed in 4.7 seconds
+    ## ForestSearch completed in 5 seconds
 
 ### ForestSearch Results
 
@@ -618,7 +617,7 @@ cat("\nBootstrap completed in",
 ```
 
     ## 
-    ## Bootstrap completed in 0.1 minutes
+    ## Bootstrap completed in 0.2 minutes
 
 ### Bootstrap Summary and Diagnostics
 
@@ -652,9 +651,9 @@ summaries <- summarize_bootstrap_results(
     ## TIMING ANALYSIS:
     ## -------------------------------------------------------------
     ## Overall:
-    ##   Total bootstrap time:          0.11 minutes (0.00 hours)
-    ##   Average per iteration:         0.05 min (3.3 sec)
-    ##   Projected for 1000 boots:      54.97 min (0.92 hrs)
+    ##   Total bootstrap time:          0.14 minutes (0.00 hours)
+    ##   Average per iteration:         0.07 min (4.3 sec)
+    ##   Projected for 1000 boots:      71.29 min (1.19 hrs)
 
 ``` r
 
@@ -1225,10 +1224,10 @@ ER-negative patients may not benefit is consistent with:
 | Computational Timing |            |            |
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
-| GRF                  | 1.3        | 0.0        |
-| ForestSearch         | 4.7        | 0.1        |
-| Bootstrap            | 7.5        | 0.1        |
-| Total                | 24.2       | 0.4        |
+| GRF                  | 1.5        | 0.0        |
+| ForestSearch         | 5.0        | 0.1        |
+| Bootstrap            | 9.4        | 0.2        |
+| Total                | 29.4       | 0.5        |
 
 [ Code](#collapse-timingsummary)
 
@@ -1316,7 +1315,7 @@ sessionInfo()
     ## [49] future.apply_1.21.0  withr_3.0.3          scales_1.4.0        
     ## [52] rmarkdown_2.32       globals_0.20.0       otel_0.2.0          
     ## [55] gridExtra_2.3.1      progressr_1.1.0      ragg_1.5.2          
-    ## [58] evaluate_1.0.5       knitr_1.52           markdown_2.0        
+    ## [58] evaluate_1.0.5       knitr_1.52           markdown_2.1        
     ## [61] rlang_1.3.0          Rcpp_1.1.2           glue_1.8.1          
     ## [64] xml2_1.6.0           rstudioapi_0.19.0    jsonlite_2.0.0      
     ## [67] R6_2.6.1             systemfonts_1.3.2    fs_2.1.0

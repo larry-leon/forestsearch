@@ -77,6 +77,9 @@ plot(x, ...)
 
 - adjust_covariates:
 
+  This option is implemented but has not been tested against the
+  manuscript analyses or the simulation studies of León and Anderson
+  (2026a, 2026b), which use the unadjusted treatment-only fits.
   Character vector or `NULL`. Baseline covariates to adjust the plotted
   effect model for, matching the adjustment used during
   search/estimation. When `NULL`, resolved from

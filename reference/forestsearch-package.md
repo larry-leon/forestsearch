@@ -19,6 +19,8 @@ evaluation. Methods are described in Leon et al. (2024)
 Post-selection inference for the identified subgroup follows León and
 Anderson (2026)
 [doi:10.48550/arXiv.2609.38361](https://doi.org/10.48550/arXiv.2609.38361)
+. The search methodology is given in León and Anderson (2026)
+[doi:10.48550/arXiv.2610.28379](https://doi.org/10.48550/arXiv.2610.28379)
 .
 
 ## See also

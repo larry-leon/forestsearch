@@ -960,7 +960,6 @@ result <- forestsearch(
   d1.min                     = 10,                           # default 10
   maxk                       = 2,                            # default 2
   max_subgroups_search       = 10,                           # default 10
-  max.minutes                = 3,                            # default 3
 
   # ─── Thresholds ─────────────────────────────────────────────────────────
   effect.threshold           = NULL,                         # default NULL
@@ -1072,7 +1071,6 @@ result <- forestsearch(
   d1.min                     = 10,                           # default 10
   maxk                       = 2,                            # default 2
   max_subgroups_search       = 10,                           # default 10
-  max.minutes                = 3,                            # default 3
 
   # ─── Thresholds ─────────────────────────────────────────────────────────
   effect.threshold           = NULL,                         # default NULL

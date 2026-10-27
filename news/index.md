@@ -13,6 +13,18 @@
   candidate family is now the cut grid alone, and no model is fitted in
   the forest-search path unless `use_lasso`, `use_grf` or `use_dina` is
   `TRUE`.
+- `max.minutes` in
+  [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
+  and
+  [`subgroup.search()`](https://larry-leon.github.io/forestsearch/reference/subgroup.search.md)
+  is deprecated. It was documented as inert (“scheduled for deprecation
+  in v0.3.0”) and that was never actioned. Both formals are kept (same
+  positions, same defaults); the argument has no effect.
+  [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
+  emits one deprecation warning for a non-default value, and
+  [`subgroup.search()`](https://larry-leon.github.io/forestsearch/reference/subgroup.search.md)
+  one warning whenever it is passed. The formals are removed in a later
+  release.
 - What changes for callers who passed a non-NULL `vi.grf.min`: at values
   `<= 0` the screen never filtered anything, so the selected subgroup’s
   membership is unchanged. The clause order of the `sg.harm` label (and
@@ -26,6 +38,11 @@
   `"GRF variable-importance screening (deprecated)"` row with status
   `inert`, echoing the values that were passed.
 - Both formals will be removed in a later release.
+
+#### Internal
+
+- The internal helper `fit_causal_forest_glm()` is removed (unused since
+  the `vi.grf.min` deprecation).
 
 #### Performance
 
@@ -1893,9 +1910,8 @@ re-record the selection.
 ### Internal
 
 - [`fit_causal_forest()`](https://larry-leon.github.io/forestsearch/reference/fit_causal_forest.md)
-  and
-  [`fit_causal_forest_glm()`](https://larry-leon.github.io/forestsearch/reference/fit_causal_forest_glm.md)
-  accept `tune_grf` and pass `tune.parameters` to
+  and `fit_causal_forest_glm()` accept `tune_grf` and pass
+  `tune.parameters` to
   [`grf::causal_forest()`](https://rdrr.io/pkg/grf/man/causal_forest.html)
   and
   [`grf::causal_survival_forest()`](https://rdrr.io/pkg/grf/man/causal_survival_forest.html).

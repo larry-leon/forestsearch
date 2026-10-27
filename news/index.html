@@ -51,10 +51,16 @@
 <h4 id="deprecated-development-version">Deprecated<a class="anchor" aria-label="anchor" href="#deprecated-development-version"></a></h4>
 <ul><li>
 <code>vi.grf.min</code> and <code>max_n_confounders</code> in <code><a href="../reference/forestsearch.html">forestsearch()</a></code> are deprecated. Both formals are kept (same positions, same defaults), so no existing call breaks, but a non-default value now emits one deprecation warning and has no effect. The GRF variable-importance screening/ordering of the candidate cut columns is removed. The candidate family is now the cut grid alone, and no model is fitted in the forest-search path unless <code>use_lasso</code>, <code>use_grf</code> or <code>use_dina</code> is <code>TRUE</code>.</li>
+<li>
+<code>max.minutes</code> in <code><a href="../reference/forestsearch.html">forestsearch()</a></code> and <code><a href="../reference/subgroup.search.html">subgroup.search()</a></code> is deprecated. It was documented as inert (“scheduled for deprecation in v0.3.0”) and that was never actioned. Both formals are kept (same positions, same defaults); the argument has no effect. <code><a href="../reference/forestsearch.html">forestsearch()</a></code> emits one deprecation warning for a non-default value, and <code><a href="../reference/subgroup.search.html">subgroup.search()</a></code> one warning whenever it is passed. The formals are removed in a later release.</li>
 <li>What changes for callers who passed a non-NULL <code>vi.grf.min</code>: at values <code>&lt;= 0</code> the screen never filtered anything, so the selected subgroup’s membership is unchanged. The clause order of the <code>sg.harm</code> label (and the redundancy column-walk) can still differ. A binding value <code>&gt; 0</code> no longer screens.</li>
 <li>
 <code><a href="../reference/run_simulation_analysis.html">run_simulation_analysis()</a></code>’s default argument list, the test helper <code>.fs_args_for()</code> and the <code>forestsearch</code> vignette no longer pass either argument. <code><a href="../reference/fs_family_report.html">fs_family_report()</a></code> reports both on a single <code>"GRF variable-importance screening (deprecated)"</code> row with status <code>inert</code>, echoing the values that were passed.</li>
 <li>Both formals will be removed in a later release.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="internal-development-version">Internal<a class="anchor" aria-label="anchor" href="#internal-development-version"></a></h4>
+<ul><li>The internal helper <code>fit_causal_forest_glm()</code> is removed (unused since the <code>vi.grf.min</code> deprecation).</li>
 </ul></div>
 <div class="section level4">
 <h4 id="performance-development-version">Performance<a class="anchor" aria-label="anchor" href="#performance-development-version"></a></h4>
@@ -659,7 +665,7 @@ sg_focus 'maxeffCons' ranks as the effect argmax on the dina path (no Pcons is c
 </ul></div>
 <div class="section level3">
 <h3 id="internal-0-4-0">Internal<a class="anchor" aria-label="anchor" href="#internal-0-4-0"></a></h3>
-<ul><li><p><code><a href="../reference/fit_causal_forest.html">fit_causal_forest()</a></code> and <code><a href="../reference/fit_causal_forest_glm.html">fit_causal_forest_glm()</a></code> accept <code>tune_grf</code> and pass <code>tune.parameters</code> to <code><a href="https://rdrr.io/pkg/grf/man/causal_forest.html" class="external-link">grf::causal_forest()</a></code> and <code><a href="https://rdrr.io/pkg/grf/man/causal_survival_forest.html" class="external-link">grf::causal_survival_forest()</a></code>.</p></li>
+<ul><li><p><code><a href="../reference/fit_causal_forest.html">fit_causal_forest()</a></code> and <code>fit_causal_forest_glm()</code> accept <code>tune_grf</code> and pass <code>tune.parameters</code> to <code><a href="https://rdrr.io/pkg/grf/man/causal_forest.html" class="external-link">grf::causal_forest()</a></code> and <code><a href="https://rdrr.io/pkg/grf/man/causal_survival_forest.html" class="external-link">grf::causal_survival_forest()</a></code>.</p></li>
 <li><p>Bootstrap bias correction extended for GLM outcomes with log-scale / identity-scale handling.</p></li>
 <li><p>Cross-validation extended to handle GLM parameters and propensity score re-estimation.</p></li>
 <li><p>New internal helper <code>.normalize_sg_focus()</code> in <code>forestsearch_helpers.R</code> translates the <code>"eff*"</code> vocabulary to the canonical <code>"hr*"</code> form at entry to <code><a href="../reference/forestsearch.html">forestsearch()</a></code> and <code><a href="../reference/subgroup.consistency.html">subgroup.consistency()</a></code>. Downstream code is keyed on the canonical form; the aliases are purely user-facing.</p></li>

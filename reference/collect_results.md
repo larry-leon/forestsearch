@@ -142,7 +142,7 @@ raw <- foreach(i = 1:5, .errorhandling = "pass") %dofuture% {
   if (i == 3L) stop("simulated failure")
   data.frame(task = i, value = rnorm(1))
 }
-#> Warning: UNRELIABLE VALUE: At least one of iterations 1-5 of the foreach() %dofuture% { ... }, part of chunk #1 (‘doFuture2-1’), unexpectedly generated random numbers without declaring so. There is a risk that those random numbers are not statistically sound and the overall results might be invalid. To fix this, specify foreach() argument '.options.future = list(seed = TRUE)'. This ensures that proper, parallel-safe random numbers are produced. To disable this check, set option 'doFuture.rng.onMisuse' to "ignore". [future ‘doFuture2-1’ (a6dbf2eef7e0cfd5574d7eea3d46b8f4-1); on a6dbf2eef7e0cfd5574d7eea3d46b8f4@runnervmtai0g<7497>]
+#> Warning: UNRELIABLE VALUE: At least one of iterations 1-5 of the foreach() %dofuture% { ... }, part of chunk #1 (‘doFuture2-1’), unexpectedly generated random numbers without declaring so. There is a risk that those random numbers are not statistically sound and the overall results might be invalid. To fix this, specify foreach() argument '.options.future = list(seed = TRUE)'. This ensures that proper, parallel-safe random numbers are produced. To disable this check, set option 'doFuture.rng.onMisuse' to "ignore". [future ‘doFuture2-1’ (ab1c339489344197ead34fd7c263cd85-1); on ab1c339489344197ead34fd7c263cd85@runnervmtai0g<7882>]
 res <- collect_results(raw, label = "demo")
 #> Warning: demo: 1 of 5 tasks failed. First error: simulated failure
 # Warning: demo: 1 of 5 tasks failed.
