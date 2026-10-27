@@ -479,7 +479,7 @@ fs <- forestsearch(
     ## Legend: P = Pcons (consistency probability); OF = on Pareto frontier; S = selected.
     ## ==============================================================================================================
     ## 
-    ## Seconds and minutes forestsearch overall = 5.159 0.086 
+    ## Seconds and minutes forestsearch overall = 4.712 0.0785 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0}
 
@@ -493,7 +493,7 @@ cat("\nForestSearch completed in",
 ```
 
     ## 
-    ## ForestSearch completed in 5.2 seconds
+    ## ForestSearch completed in 4.7 seconds
 
 ### ForestSearch Results
 
@@ -618,7 +618,7 @@ cat("\nBootstrap completed in",
 ```
 
     ## 
-    ## Bootstrap completed in 0.2 minutes
+    ## Bootstrap completed in 0.1 minutes
 
 ### Bootstrap Summary and Diagnostics
 
@@ -652,9 +652,9 @@ summaries <- summarize_bootstrap_results(
     ## TIMING ANALYSIS:
     ## -------------------------------------------------------------
     ## Overall:
-    ##   Total bootstrap time:          0.14 minutes (0.00 hours)
-    ##   Average per iteration:         0.07 min (4.3 sec)
-    ##   Projected for 1000 boots:      71.56 min (1.19 hrs)
+    ##   Total bootstrap time:          0.11 minutes (0.00 hours)
+    ##   Average per iteration:         0.05 min (3.3 sec)
+    ##   Projected for 1000 boots:      54.97 min (0.92 hrs)
 
 ``` r
 
@@ -1225,10 +1225,10 @@ ER-negative patients may not benefit is consistent with:
 | Computational Timing |            |            |
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
-| GRF                  | 1.4        | 0.0        |
-| ForestSearch         | 5.2        | 0.1        |
-| Bootstrap            | 9.4        | 0.2        |
-| Total                | 29.6       | 0.5        |
+| GRF                  | 1.3        | 0.0        |
+| ForestSearch         | 4.7        | 0.1        |
+| Bootstrap            | 7.5        | 0.1        |
+| Total                | 24.2       | 0.4        |
 
 [ Code](#collapse-timingsummary)
 

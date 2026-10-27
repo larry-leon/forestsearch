@@ -50,9 +50,9 @@ side.
 ``` r
 build_cox_formula("time_months", "event", "treat")
 #> Surv(time_months, event) ~ treat
-#> <environment: 0x55b186894410>
+#> <environment: 0x55730e2dfd40>
 build_cox_formula("time_months", "event", "treat",
                   adjust_covariates = c("strata(site)", "age"))
 #> Surv(time_months, event) ~ treat + strata(site) + age
-#> <environment: 0x55b1868d0b40>
+#> <environment: 0x55730e316870>
 ```

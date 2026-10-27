@@ -111,7 +111,9 @@ plot_subgroup_results_forestplot(
 
   Logical. If TRUE (default), the x-axis is plotted on a logarithmic
   scale. This is standard for hazard ratio forest plots where equal
-  distances represent equal relative effects.
+  distances represent equal relative effects. Implemented through
+  forestploter's `set_xaxis(x_trans = "log")` since 0.4.0.9000; earlier
+  versions documented the log axis but drew a linear one (GitHub \#7).
 
 - title_text:
 
