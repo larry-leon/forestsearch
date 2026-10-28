@@ -1,0 +1,77 @@
+rung G1 | forestsearch 0.4.0.9000 from /home/larryleon/R/x86_64-pc-linux-gnu-library/4.6/forestsearch | built R 4.6.1; ; 2026-10-27 21:01:28 UTC; unix
+---- call as evaluated ----
+forestsearch(df.analysis = df, outcome.name = "time_months", event.name = "status", treat.name = "hormon", 
+    id.name = "id", confounders.name = confounders, is.RCT = TRUE, seedit = 8316951, est.scale = "hr", 
+    use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE, max_n_confounders = 1000, conf_force = c("er <= 0", 
+        "pgr <= 0"), cut_type = "default", cont.cutoff = 4, conf.cont_jcuts = list(er = 10, pgr = 10), 
+    collapse_cuts = TRUE, subgroup_method = "grf", grf_selection = "frontier", grf_select_statistic = "effect", 
+    grf_depth = 2L, dmin.grf = 0, sg_focus = "effMaxSG", selection_rule = "neighborhood", effect_neighborhood = 0.2, 
+    n.min = 60, d0.min = 10, d1.min = 10, maxk = 2, hr.threshold = 1, m1.threshold = Inf, minp = 0.025, 
+    fs.splits = 1000, stop_threshold = NULL, mr_inference = TRUE, mr_inference_args = list(ci_method = "field", 
+        draws = 500L, include_complement = TRUE, confirm_rule = "point", field_uniform = FALSE, field_complement = TRUE, 
+        ij_residual = "two_term", field_decompose = TRUE, field_scale_complement = "selected", field_recovery = FALSE, 
+        return_reselection = TRUE), parallel_args = list(plan = "sequential"), quiet = TRUE, details = FALSE, 
+    plot.sg = FALSE, plot.grf = FALSE)
+[1] ".consistency_via_splits"
+          used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 2239050 119.6    4406031 235.4  2239050 119.6
+Vcells 3780032  28.9    8388608  64.0  3780032  28.9
+---- fit elapsed 20.77 s (user 22.30, sys 0.33); R max used 361.3 Mb
+---- warnings (0):
+---- record ----
+                  [,1]       
+rung              "G1"       
+identifier        "grf"      
+fit_sec           "20.77"    
+region            "{er <= 0}"
+N_H               "82"       
+E_H               "45"       
+N_Hc              "604"      
+E_Hc              "254"      
+n_screened_closed "0"        
+n_fallback        "0"        
+n_family          "858"      
+mr_draws          "500"      
+field_R_out       "1000"     
+field_R_in        "500"      
+naive_H           "1.951393" 
+naive_lo_H        "1.036610" 
+naive_hi_H        "3.673451" 
+corrected_H       "1.090770" 
+field_lower_H     "0.501179" 
+naive_Hc          "0.614995" 
+naive_lo_Hc       "0.472315" 
+naive_hi_Hc       "0.800778" 
+corrected_Hc      "0.668517" 
+field_s_upper_Hc  "0.852984" 
+bonf_lower_H      "0.395943" 
+bonf_upper_Hc     "0.881295" 
+n_warnings        "0"        
+filter_counts:
+ NULL
+consistency counts:
+List of 1
+ $ algorithm: chr "grf"
+	Command being timed: "Rscript ladder.R G1"
+	User time (seconds): 23.91
+	System time (seconds): 0.52
+	Percent of CPU this job got: 108%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:22.56
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 459232
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 132112
+	Voluntary context switches: 2339
+	Involuntary context switches: 865
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 280
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

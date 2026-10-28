@@ -1,0 +1,213 @@
+rung S2 | forestsearch 0.4.0.9000 from /home/larryleon/R/x86_64-pc-linux-gnu-library/4.6/forestsearch | built R 4.6.1; ; 2026-10-27 21:01:28 UTC; unix
+---- call as evaluated ----
+forestsearch(df.analysis = df, outcome.name = "time_months", event.name = "status", treat.name = "hormon", 
+    id.name = "id", confounders.name = confounders, is.RCT = TRUE, seedit = 8316951, est.scale = "hr", 
+    use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE, max_n_confounders = 1000, conf_force = c("er <= 0", 
+        "pgr <= 0"), cut_type = "default", cont.cutoff = 4, conf.cont_jcuts = list(er = 10, pgr = 10), 
+    collapse_cuts = TRUE, subgroup_method = "consistency", sg_focus = "effMaxSG", selection_rule = "neighborhood", 
+    effect_neighborhood = 0.2, n.min = 60, d0.min = 10, d1.min = 10, maxk = 2, hr.threshold = 1, hr.consistency = 1, 
+    pconsistency.threshold = 0.9, consistency_method = "resample", m1.threshold = Inf, minp = 0.025, 
+    fs.splits = 1000, stop_threshold = NULL, mr_inference = TRUE, mr_inference_args = list(ci_method = "field", 
+        draws = 2000L, include_complement = TRUE, confirm_rule = "point", field_uniform = FALSE, field_complement = TRUE, 
+        ij_residual = "two_term", field_decompose = TRUE, field_scale_complement = "selected", field_recovery = FALSE, 
+        return_reselection = TRUE, keep_declaration_field = TRUE, keep_field_matrix = FALSE, declaration_c0 = c(0.7, 
+            0.75, 0.8, 0.85)), parallel_args = list(plan = "sequential"), quiet = TRUE, details = FALSE, 
+    plot.sg = FALSE, plot.grf = FALSE)
+[1] ".consistency_via_splits"
+          used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 2238681 119.6    4404985 235.3  2238681 119.6
+Vcells 3779383  28.9    8388608  64.0  3779383  28.9
+---- fit elapsed 29.04 s (user 28.77, sys 0.25); R max used 548.4 Mb
+---- warnings (0):
+---- record ----
+                  [,1]                     
+rung              "S2"                     
+identifier        "fs"                     
+fit_sec           "29.04"                  
+region            "{er <= 0} & {pgr <= 26}"
+N_H               "75"                     
+E_H               "41"                     
+N_Hc              "611"                    
+E_Hc              "258"                    
+n_screened_closed "120"                    
+n_fallback        "0"                      
+n_family          "1744"                   
+mr_draws          "2000"                   
+field_R_out       "1000"                   
+field_R_in        "500"                    
+naive_H           "2.221839"               
+naive_lo_H        "1.169437"               
+naive_hi_H        "4.221320"               
+corrected_H       "1.282641"               
+field_lower_H     "0.636769"               
+naive_Hc          "0.605388"               
+naive_lo_Hc       "0.465249"               
+naive_hi_Hc       "0.787738"               
+corrected_Hc      "0.643832"               
+field_s_upper_Hc  "0.802548"               
+bonf_lower_H      "0.511259"               
+bonf_upper_Hc     "0.838526"               
+n_warnings        "0"                      
+filter_counts:
+List of 10
+ $ n_evaluated         : int 2211
+ $ n_passed_variance   : int 2069
+ $ n_passed_prevalence : int 2069
+ $ n_passed_redundancy : int 1943
+ $ n_passed_events     : int 1454
+ $ n_passed_sample_size: int 1410
+ $ n_passed_cox        : int 1410
+ $ n_passed_hr         : int 121
+ $ n_nonestimable      : int 0
+ $ nonestimable_reasons: chr(0) 
+consistency counts:
+List of 4
+ $ algorithm             : chr "twostage"
+ $ n_candidates_evaluated: int 120
+ $ n_candidates_total    : int 120
+ $ n_passed              : int 9
+p_cons (closed form, consistency stage):
+  m label   n   d    beta_hat   sigma_D rate_closed
+ NA    NA  61  34 0.930949797 0.3630143 0.989667514
+ NA    NA  75  41 0.798335163 0.3274614 0.985229252
+ NA    NA  61  31 0.848173073 0.3893488 0.970626699
+ NA    NA  66  35 0.755557769 0.3520966 0.968117589
+ NA    NA  82  45 0.668543517 0.3227549 0.961675385
+ NA    NA  61  35 0.719866690 0.3687977 0.949053315
+ NA    NA  70  38 0.651331212 0.3393785 0.945039464
+ NA    NA  62  34 0.634394326 0.3602237 0.921780576
+ NA    NA  71  42 0.521129267 0.3180787 0.898654627
+ NA    NA  74  44 0.485618711 0.3054686 0.888108881
+ NA    NA  63  38 0.517777295 0.3278969 0.885683625
+ NA    NA  79  44 0.510290279 0.3306145 0.877280765
+ NA    NA  75  45 0.452965618 0.3025394 0.865661875
+ NA    NA  66  38 0.485901846 0.3341770 0.854060725
+ NA    NA 139  85 0.276077523 0.2111440 0.808967927
+ NA    NA 104  56 0.384414710 0.2943374 0.808459086
+ NA    NA 128  80 0.280248047 0.2217726 0.793652484
+ NA    NA  97  57 0.348285574 0.2785076 0.788898491
+ NA    NA 113  72 0.284632908 0.2308233 0.782469098
+ NA    NA  88  48 0.417562713 0.3526628 0.763598057
+ NA    NA 157  95 0.226705034 0.2035673 0.734575592
+ NA    NA  65  32 0.392649518 0.3534776 0.733353570
+ NA    NA  81  31 0.388119920 0.3597375 0.719366578
+ NA    NA  73  39 0.407272069 0.3777469 0.719038244
+ NA    NA  78  47 0.331872503 0.3100108 0.715614255
+ NA    NA  78  47 0.317161454 0.3014316 0.707284736
+ NA    NA 188 106 0.198329485 0.1897621 0.704045423
+ NA    NA 126  65 0.300790203 0.2893434 0.701456272
+ NA    NA 106  63 0.261207049 0.2589527 0.686884214
+ NA    NA  84  49 0.290136952 0.3038407 0.660370845
+ NA    NA 103  60 0.250644967 0.2673255 0.651551139
+ NA    NA 165  96 0.183578657 0.2000383 0.641233200
+ NA    NA  62  38 0.313029938 0.3445329 0.636419361
+ NA    NA 123  73 0.226873863 0.2507554 0.634408275
+ NA    NA  62  36 0.335604650 0.3781088 0.625237389
+ NA    NA 209 115 0.157036927 0.1835219 0.607828009
+ NA    NA  88  53 0.241998343 0.2849936 0.604194411
+ NA    NA  92  56 0.249729092 0.2960633 0.601050522
+ NA    NA  81  49 0.248493995 0.2960742 0.598696915
+ NA    NA  92  54 0.225217352 0.2778606 0.582370549
+ NA    NA 212 116 0.148110213 0.1850197 0.576584819
+ NA    NA  97  52 0.249379337 0.3143647 0.572385465
+ NA    NA  71  29 0.277062165 0.3601734 0.558253051
+ NA    NA 104  56 0.229537717 0.3002356 0.555445768
+ NA    NA 106  61 0.182177110 0.2419691 0.548486429
+ NA    NA  69  43 0.228461373 0.3091092 0.540151319
+ NA    NA  64  37 0.236876304 0.3210522 0.539371553
+ NA    NA 103  58 0.203769041 0.2800560 0.533142179
+ NA    NA 131  76 0.179245379 0.2474827 0.531102645
+ NA    NA  87  49 0.229297052 0.3254809 0.518870385
+ NA    NA 189 106 0.132834238 0.1948256 0.504641606
+ NA    NA 107  64 0.177793536 0.2625815 0.501656454
+ NA    NA  70  48 0.210030997 0.3109460 0.500615243
+ NA    NA 103  61 0.178828577 0.2665173 0.497768603
+ NA    NA 235 125 0.118689380 0.1783571 0.494243123
+ NA    NA 153  76 0.185087794 0.2794879 0.492181947
+ NA    NA  81  44 0.247551550 0.3881231 0.476407275
+ NA    NA 139  70 0.141529796 0.2313825 0.459244038
+ NA    NA  94  56 0.161099672 0.2892025 0.422505415
+ NA    NA  62  34 0.186859348 0.3364546 0.421363607
+ NA    NA  83  57 0.132770635 0.2571301 0.394394116
+ NA    NA  97  54 0.139147454 0.2801884 0.380543644
+ NA    NA 144  83 0.111826229 0.2325693 0.369362482
+ NA    NA  80  44 0.151092839 0.3279741 0.354975606
+ NA    NA 123  66 0.129826665 0.2868824 0.349122247
+ NA    NA  89  51 0.132158061 0.3030307 0.337251057
+ NA    NA 122  70 0.107143519 0.2577214 0.322395258
+ NA    NA  98  55 0.106475103 0.2617517 0.315829662
+ NA    NA 181  86 0.103664103 0.2626292 0.306947966
+ NA    NA  71  37 0.145219297 0.3728109 0.303112453
+ NA    NA 110  66 0.098874644 0.2611652 0.295007951
+ NA    NA 120  69 0.096895641 0.2580335 0.292723006
+ NA    NA  64  35 0.130052979 0.3531945 0.287290150
+ NA    NA 123  63 0.111319839 0.3117795 0.278943138
+ NA    NA 101  69 0.094197472 0.2659514 0.276803916
+ NA    NA  71  46 0.102718130 0.2955117 0.271854952
+ NA    NA 184 105 0.075699234 0.2180818 0.271494232
+ NA    NA 105  52 0.118193950 0.3520490 0.262926649
+ NA    NA  93  63 0.071880734 0.2486689 0.227466053
+ NA    NA  92  47 0.083442609 0.3264308 0.201756587
+ NA    NA 132  71 0.060108166 0.2371230 0.200109955
+ NA    NA  99  52 0.075739937 0.3177622 0.188393546
+ NA    NA  97  61 0.064096873 0.2799859 0.181075845
+ NA    NA  61  23 0.090321882 0.4114804 0.173743079
+ NA    NA 135  72 0.057202198 0.2665991 0.169891676
+ NA    NA 139  81 0.054207023 0.2539572 0.169023549
+ NA    NA 115  69 0.054713124 0.2575647 0.168224354
+ NA    NA  71  27 0.079373121 0.3812893 0.164904046
+ NA    NA  68  44 0.066136950 0.3244226 0.161537477
+ NA    NA 166  86 0.049853080 0.2526217 0.156440711
+ NA    NA  98  57 0.054297025 0.2895681 0.148739530
+ NA    NA 110  58 0.053083721 0.2954684 0.142580160
+ NA    NA  84  45 0.051208832 0.2914431 0.139476494
+ NA    NA 100  50 0.043502601 0.2774149 0.124608732
+ NA    NA  88  45 0.058202420 0.3729713 0.124006925
+ NA    NA 150  89 0.035136873 0.2279410 0.122507723
+ NA    NA  61  26 0.053432318 0.3670067 0.115754522
+ NA    NA 245 139 0.023907935 0.1739648 0.109308841
+ NA    NA 202 111 0.022667353 0.2013430 0.089637101
+ NA    NA  90  39 0.035062156 0.3230798 0.086420558
+ NA    NA 102  51 0.028830721 0.2744450 0.083664651
+ NA    NA 131  69 0.028406062 0.2833704 0.079849033
+ NA    NA 152  80 0.021159861 0.2228637 0.075641721
+ NA    NA 172  83 0.020057567 0.2119099 0.075408280
+ NA    NA 120  60 0.026630205 0.2942678 0.072107328
+ NA    NA 128  73 0.021744149 0.2562103 0.067633951
+ NA    NA 233 125 0.014254675 0.1792089 0.063398658
+ NA    NA 120  67 0.018699298 0.2393756 0.062264992
+ NA    NA  83  49 0.021726325 0.2792888 0.062006168
+ NA    NA 157  93 0.016848365 0.2250848 0.059668665
+ NA    NA 124  78 0.015458466 0.2232077 0.055214127
+ NA    NA 199  99 0.016026026 0.2362985 0.054071951
+ NA    NA 132  76 0.013840115 0.2381286 0.046347225
+ NA    NA  90  46 0.012841203 0.3169664 0.032315717
+ NA    NA 101  71 0.009327870 0.2579695 0.028844266
+ NA    NA 153  86 0.004054081 0.2293963 0.014100142
+ NA    NA  64  45 0.004862667 0.3294720 0.011775527
+ NA    NA 157  82 0.002475494 0.2264985 0.008720232
+ NA    NA 181 103 0.001782736 0.2062241 0.006897349
+ NA    NA  77  49 0.001504530 0.3117854 0.003850202
+	Command being timed: "Rscript ladder.R S2"
+	User time (seconds): 30.42
+	System time (seconds): 0.45
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:30.87
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 700300
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 208517
+	Voluntary context switches: 53
+	Involuntary context switches: 355
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 520
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
