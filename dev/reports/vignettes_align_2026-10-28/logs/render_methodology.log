@@ -1,0 +1,54 @@
+
+
+processing file: methodology.Rmd
+1/18                      
+2/18 [setup]              
+3/18                      
+4/18 [algorithm-diagram]  
+5/18                      
+6/18 [power-approximation]
+7/18                      
+8/18 [bootstrap-diagram4] 
+9/18                      
+10/18 [cv-metrics-table]   
+11/18                      
+12/18 [sim-models-table]   
+13/18                      
+14/18 [sim-results-table]  
+15/18                      
+16/18 [estimation-table]   
+17/18                      
+18/18 [session-info]       
+output file: methodology.knit.md
+
+/usr/lib/rstudio/resources/app/bin/quarto/bin/tools/x86_64/pandoc +RTS -K512m -RTS methodology.knit.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output methodology.html --lua-filter /home/larryleon/R/x86_64-pc-linux-gnu-library/4.6/rmarkdown/rmarkdown/lua/pagebreak.lua --lua-filter /home/larryleon/R/x86_64-pc-linux-gnu-library/4.6/rmarkdown/rmarkdown/lua/latex-div.lua --lua-filter /home/larryleon/R/x86_64-pc-linux-gnu-library/4.6/rmarkdown/rmarkdown/lua/table-classes.lua --embed-resources --standalone --variable bs3=TRUE --section-divs --table-of-contents --toc-depth 3 --template /home/larryleon/R/x86_64-pc-linux-gnu-library/4.6/rmarkdown/rmd/h/default.html --syntax-highlighting tango --number-sections --variable theme=flatly --mathjax --variable 'mathjax-url=https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' --include-in-header /tmp/RtmpTUVsoe/rmarkdown-str23406274866c55.html --variable code_folding=hide --variable code_menu=1 --citeproc 
+[WARNING] Citeproc: citation eq-power not found
+
+Output created: methodology.html
+	Command being timed: "timeout 1200 Rscript -e rmarkdown::render("vignettes/articles/methodology.Rmd")"
+	User time (seconds): 2.74
+	System time (seconds): 0.24
+	Percent of CPU this job got: 98%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:03.03
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 205160
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 85510
+	Voluntary context switches: 214
+	Involuntary context switches: 54
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 7208
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+exit=0
+58:  About this article (updated October 2026). This article describes the methodology of León, Jemielita, Guo, Marceau West and Anderson (2024), Statistics in Medicine, https://doi.org/10.1002/sim.10163, as the package first implemented it: the split-sample consistency screen evaluated by random half-splits, bootstrap bias correction, and GRF variable-importance screening of the candidate factors. The current package evaluates the consistency screen in closed form (consistency_method = "resample", the default; random half-splitting is only the fallback, so fs.splits has no effect otherwise), reports selection-adjusted estimates and one-sided bounds by multiplier resampling (mr_inference = TRUE; León and Anderson 2026a, arXiv:2609.38361), and calibrates the declaration of a subgroup at a protected level (León and Anderson 2026b, arXiv:2610.28379). The GRF variable-importance screen is removed as of 0.4.1 (vi.grf.min is deprecated and has no effect). The current methodology is documented in vignette("forestsearch") and vignette("survival-post-selection"); the argument listings below are kept for the 2024 workflow and are not the complete current signature of forestsearch() — see ?forestsearch.
+914:León, Larry F., and Keaven M. Anderson. 2026a. Inference for Standard Trial Estimands After Data-Driven Subgroup Discovery. https://doi.org/10.48550/arXiv.2609.38361.
+916:León, Larry F., and Keaven M. Anderson. 2026b. Interpretable Subgroup Identification Across Survival and Generalized-Linear Outcomes. https://doi.org/10.48550/arXiv.2610.28379.

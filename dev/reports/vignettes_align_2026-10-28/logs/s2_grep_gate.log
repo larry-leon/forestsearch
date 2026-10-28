@@ -1,0 +1,11 @@
+§2 grep gate (after edits A–I):
+grep -n 'Anderson (2026)':
+(none) PASS
+grep -n 'fs.splits\|0.80\|500L':
+145:against -- for example 0.80 or 0.85 -- and say
+154:cat(sprintf("field-s one-sided upper Hc  %.3f  (vs 0.80 / 0.85)\n",
+FAIL: two lines match 0.80 — the clinical reading thresholds (0.80/0.85), outside edits A–I. Task stopped here.
+
+NARROWED by Larry 2026-10-28: pattern 'pconsistency.threshold = 0.80\|fs.splits\|draws = 500L'; lines 145/154 (0.80/0.85 reading thresholds) stay.
+grep -n result:
+(none) — narrowed gate PASS
