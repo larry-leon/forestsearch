@@ -9,6 +9,8 @@ format:
     toc: true
     toc-depth: 3
     code-fold: false
+    code-overflow: wrap
+    fontsize: 15px
 vignette: >
   %\VignetteIndexEntry{Interpretable subgroup identification with forestsearch}
   %\VignetteEngine{quarto::html}
@@ -21,6 +23,14 @@ vignette: >
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 library(forestsearch)
 library(survival)
+```
+
+```{=html}
+<style>
+#quarto-document-content table.table { width: auto; margin-left: 0; }
+#quarto-document-content table.table th,
+#quarto-document-content table.table td { padding: 0.25rem 0.9rem; }
+</style>
 ```
 
 A confirmatory trial is powered for an effect in its whole population, and the
@@ -50,15 +60,14 @@ same selection distorts the estimate for the patients outside it.
   most two covariate cuts, so whether a patient belongs is read from the
   patient's own measurements.
 - **Three identifiers, one form.** Forest search (León et al. 2024), the causal
-  forest of generalized random forests (GRF; Athey et al. 2019, Cui et al.
-  2023) and the difference-in-natural-parameters estimator (DINA; Gao and
-  Hastie 2025) each score a family of candidates by an estimated treatment
-  effect, admit those whose standard-analysis estimate β̂(g) clears a threshold
-  common to all three, and return one admitted candidate as a selection rule
-  directs — or none, if none is admitted. Forest search enumerates the
-  candidates exhaustively; DINA and GRF propose them from a surface fitted to
-  the outcome, and every proposal is re-ranked on β̂(g) against the same
-  threshold.
+  forest of generalized random forests (GRF; Athey et al. 2019, Cui et al. 2023)
+  and the difference-in-natural-parameters estimator (DINA; Gao and Hastie 2025)
+  each score a family of candidates by an estimated treatment effect, admit
+  those whose standard-analysis estimate β̂(g) clears a threshold common to all
+  three, and return one admitted candidate as a selection rule directs — or
+  none, if none is admitted. Forest search enumerates the candidates
+  exhaustively; DINA and GRF propose them from a surface fitted to the outcome,
+  and every proposal is re-ranked on β̂(g) against the same threshold.
 - **The orientation.** The search runs in the direction of a sub-optimal
   effect — the package's "harm" direction, a hazard ratio above one for a
   survival outcome — the direction in which the trial's conclusion of benefit
@@ -234,9 +243,9 @@ fit_sec_fs <- proc.time()[["elapsed"]] - t0
 ```{r fs-selected}
 g_fs <- fit_fs$mr_inference
 cat(sprintf("Identified subgroup: %s\n", paste(fit_fs$sg.harm, collapse = " & ")))
-cat(sprintf("Fit including inference: %.1f s (multiplier stage %.1f s; field blocks %.1f + %.1f s)\n",
-            fit_sec_fs, g_fs$timing_seconds, g_fs$field$timing_seconds,
-            g_fs$field$complement$timing_seconds))
+cat(sprintf("Fit including inference: %.1f s\n", fit_sec_fs))
+cat(sprintf("  multiplier stage %.1f s; field blocks %.1f + %.1f s\n", g_fs$timing_seconds,
+            g_fs$field$timing_seconds, g_fs$field$complement$timing_seconds))
 ```
 
 The identified region is `r sprintf("\x60%s\x60", paste(fit_fs$sg.harm, collapse = " & "))`:
@@ -278,18 +287,19 @@ acts on them.
 cand <- as.data.frame(fit_fs$grp.consistency$out_sg$result)
 cand$candidate <- ifelse(cand$M.2 == "", cand$M.1, paste(cand$M.1, cand$M.2, sep = " & "))
 cand <- cand[order(-cand$N), ]
-knitr::kable(cand[, c("candidate", "N", "hr", "Pcons")], digits = 3, row.names = FALSE,
-             col.names = c("candidate", "N", "HR", "p_cons"),
+knitr::kable(cand[, c("candidate", "N", "hr", "Pcons")], digits = 3,
+             row.names = FALSE, col.names = c("candidate", "N", "HR", "p_cons"),
              caption = "The candidates passing the consistency screen, largest first.")
 band <- (1 - 0.20) * max(cand$hr)
 within_band <- cand$hr >= band
 sel <- cand[within_band, ][which.max(cand$N[within_band]), ]
 cat(sprintf("Largest HR over the family: %.2f (N %d). Band: HR >= %.2f.\n",
             max(cand$hr), cand$N[which.max(cand$hr)], band))
-cat(sprintf("max N(eps) takes the largest candidate within the band: N %d, HR %.2f.\n", sel$N, sel$hr))
+cat(sprintf("max N(eps) takes the largest candidate within the band: N %d, HR %.2f.\n",
+            sel$N, sel$hr))
 cat(sprintf("max N alone would take N %d (HR %.2f); max beta the N %d.\n",
             max(cand$N), cand$hr[which.max(cand$N)], cand$N[which.max(cand$hr)]))
-stopifnot(sel$N == g_fs$n_selected)      # the rule, re-applied here, picks the fit's own selection
+stopifnot(sel$N == g_fs$n_selected)   # the rule, re-applied, picks the fit's own selection
 ```
 
 All of the passing candidates restrict the estrogen receptor, and the rules
@@ -306,7 +316,8 @@ single accessor for them, so the vignette defines one; `print(fit)` and
 
 ```{r table1-helper}
 table1_column <- function(fit, data) {
-  g  <- fit$mr_inference; cc <- g$complement; fb <- g$field; fc <- fb$complement; js <- fb$joint_s
+  g  <- fit$mr_inference; cc <- g$complement
+  fb <- g$field; fc <- fb$complement; js <- fb$joint_s
   in_H <- fit$df.est$treat.recommend[match(data$id, fit$df.est$id)] == 0
   stopifnot(!anyNA(in_H), sum(in_H) == g$n_selected, sum(!in_H) == cc$n)
   f3 <- function(x) sprintf("%.3f", x)
@@ -322,12 +333,12 @@ table1_column <- function(fit, data) {
     f3(fc$upper_1s_s),
     sprintf("%s / %s", f3(js$bonf_lower_H), f3(js$bonf_upper_Hc)))
 }
-table1_rows <- c("Region", "N (events)", "Unadjusted, 95% CI", "Corrected", "Field, lower bound",
-                 "Complement N (events)", "Unadjusted, 95% CI", "Corrected", "Field-s, upper bound",
-                 "Bonferroni pair")
+table1_rows <- c("Region", "N (events)", "Unadjusted, 95% CI", "Corrected",
+                 "Field, lower bound", "Complement N (events)", "Unadjusted, 95% CI",
+                 "Corrected", "Field-s, upper bound", "Bonferroni pair")
 knitr::kable(data.frame(row = table1_rows, FS = table1_column(fit_fs, df)),
              col.names = c("", "FS"), row.names = FALSE,
-             caption = "Forest search: the identified region and its complement, hazard-ratio scale.")
+             caption = "Forest search: the identified region and its complement.")
 ```
 
 The unadjusted hazard ratio in the region is opposite in direction to the
@@ -351,9 +362,10 @@ supporting <- data.frame(
                "Bonferroni pair: simulated joint coverage",
                "calibrated split gamma (Bonferroni's own alpha/2 is 0.025)",
                "correlation of the aligned roots"),
-  value = c(sprintf("%.3f", fb$lambda_mean), sprintf("%.3f", fb$est2), sprintf("%.3f", fc$est2_s),
-            sprintf("%.3f", fc$decomp_fields$scale_ratio_c), sprintf("%.4f", js$bonf_joint_prob),
-            sprintf("%.3f", js$gamma), sprintf("%.3f", js$corr)))
+  value = c(sprintf("%.3f", fb$lambda_mean), sprintf("%.3f", fb$est2),
+            sprintf("%.3f", fc$est2_s), sprintf("%.3f", fc$decomp_fields$scale_ratio_c),
+            sprintf("%.4f", js$bonf_joint_prob), sprintf("%.3f", js$gamma),
+            sprintf("%.3f", js$corr)))
 knitr::kable(supporting, row.names = FALSE)
 ```
 
@@ -418,7 +430,8 @@ fit_sec_grf <- proc.time()[["elapsed"]] - t0
 g_dina <- fit_dina$mr_inference
 g_grf  <- fit_grf$mr_inference
 cat(sprintf("DINA: %s  (fit %.1f s; re-selection family %d)\n",
-            paste(fit_dina$sg.harm, collapse = " & "), fit_sec_dina, g_dina$n_family))
+            paste(fit_dina$sg.harm, collapse = " & "), fit_sec_dina,
+            g_dina$n_family))
 cat(sprintf("GRF:  %s  (fit %.1f s; re-selection family %d)\n",
             paste(fit_grf$sg.harm, collapse = " & "), fit_sec_grf, g_grf$n_family))
 ```
@@ -433,7 +446,9 @@ León and Anderson 2026b); forest search's family is enumerated from the
 covariates alone.
 
 ```{r agreement}
-member <- function(fit) fit$df.est$treat.recommend[match(df$id, fit$df.est$id)] == 0
+member <- function(fit) {
+  fit$df.est$treat.recommend[match(df$id, fit$df.est$id)] == 0
+}
 m <- data.frame(FS = member(fit_fs), DINA = member(fit_dina), GRF = member(fit_grf))
 partition <- aggregate(cbind(N = 1, events = df$status), by = m, FUN = sum)
 knitr::kable(partition[order(-partition$N), ], row.names = FALSE,
@@ -443,15 +458,18 @@ knitr::kable(partition[order(-partition$N), ], row.names = FALSE,
 ## Table 1
 
 ```{r table1}
-table1 <- data.frame(row = table1_rows, FS = table1_column(fit_fs, df),
-                     DINA = table1_column(fit_dina, df), GRF = table1_column(fit_grf, df))
-knitr::kable(table1, col.names = c("", "FS", "DINA", "GRF"), row.names = FALSE, align = "lrrr",
-             caption = sprintf(paste(
-               "Selection-adjusted analysis of the three identified regions, hazard-ratio scale.",
-               "Unadjusted: two-sided 95%% Wald interval; field and field-s: one-sided at nominal 0.95;",
-               "Bonferroni pair: region / complement, joint 0.95. Whole trial: %d patients, %d events,",
-               "hazard ratio %.3f (%.3f, %.3f)."),
-               nrow(df), sum(df$status), whole_hr[["est"]], whole_hr[[2]], whole_hr[[3]]))
+table1 <- data.frame(row = table1_rows,
+                     FS = table1_column(fit_fs, df),
+                     DINA = table1_column(fit_dina, df),
+                     GRF = table1_column(fit_grf, df))
+caption1 <- sprintf(paste(
+  "Selection-adjusted analysis of the three identified regions, hazard-ratio",
+  "scale. Unadjusted: two-sided 95%% Wald interval; field and field-s: one-sided",
+  "at nominal 0.95; Bonferroni pair: region / complement, joint 0.95.",
+  "Whole trial: %d patients, %d events, hazard ratio %.3f (%.3f, %.3f)."),
+  nrow(df), sum(df$status), whole_hr[["est"]], whole_hr[[2]], whole_hr[[3]])
+knitr::kable(table1, col.names = c("", "FS", "DINA", "GRF"), row.names = FALSE,
+             align = "lrrr", caption = caption1)
 ```
 
 This is Table 1 of León and Anderson (2026b). The calls, the seed and the draw
@@ -524,7 +542,7 @@ made (`keep_declaration_field = TRUE`, with the grid passed as
 ```{r declaration}
 c0_grid <- c(0.70, 0.75, 0.80, 0.85)
 cal    <- fs_declaration_calibration(fit_fs, alpha = 0.10, c0 = c0_grid)
-cal_c2 <- fs_declaration_calibration(fit_fs, alpha = 0.10)          # c0 = NULL: the claim threshold itself
+cal_c2 <- fs_declaration_calibration(fit_fs, alpha = 0.10)   # c0 = NULL: the claim threshold
 tb <- cal$c0$table
 fld <- g_fs$declaration_field
 T_H   <- cal$T_hat[[fld$family_id[fld$meta$selected_index]]]
@@ -532,18 +550,22 @@ T_max <- max(cal$T_hat)
 kappa <- c(tb$kappa_hat, cal_c2$kappa_hat)
 declaration <- data.frame(
   c0 = c(sprintf("HR %.2f%s", tb$c0, ifelse(tb$c0 == 0.75, " (primary)", "")),
-         "HR 1.00, the claim threshold"),
+         "HR 1.00 (claim threshold)"),
   kappa   = sprintf("%.3f", kappa),
   implied = sprintf("%.3f", 2 * pnorm(kappa) - 1),
   fw      = sprintf("%.3f", c(tb$fw_size, cal_c2$fw_size)),
-  admits  = c(lengths(cal$c0$admitted_calibrated), length(cal_c2$admitted_calibrated)))
+  admits  = c(lengths(cal$c0$admitted_calibrated),
+              length(cal_c2$admitted_calibrated)))
 knitr::kable(declaration, row.names = FALSE, align = "lrrrr",
-             col.names = c("protected level c0", "calibrated cutoff kappa-hat (alpha 0.10)",
-                           "implied screening level 2*Phi(kappa-hat) - 1",
-                           "family-wise size of the p* = 0.90 screen at c0",
-                           "candidates the calibrated rule admits"))
-cat(sprintf("T of the declared region: %.3f; largest T in the family: %.3f; the p* = 0.90 screen's cutoff: %.3f\n",
-            T_H, T_max, cal$z_pstar))
+             col.names = c("protected level c0", "kappa-hat", "implied level",
+                           "FW size", "admits"),
+             caption = paste(
+               "Declaration calibration at alpha = 0.10. kappa-hat: the calibrated",
+               "cutoff; implied level: 2*Phi(kappa-hat) - 1; FW size: the family-wise",
+               "size of the p* = 0.90 screen at c0; admits: candidates the calibrated",
+               "rule admits."))
+cat(sprintf("T of the declared region: %.3f; largest T in the family: %.3f\n", T_H, T_max))
+cat(sprintf("The p* = 0.90 screen's cutoff, as the package applies it: %.3f\n", cal$z_pstar))
 ```
 
 The screen's cutoff is the p\* = 0.90 rule as the package applies it, after
@@ -557,8 +579,8 @@ region's statistic is `r sprintf("%.3f", T_H)` and the largest in the family
 `r sprintf("%.3f", T_max)`, so the calibrated screen admits
 `r if (lengths(cal$c0$admitted_calibrated)[tb$c0 == 0.75] == 0) "no candidate" else "a candidate"`
 at that level, and likewise at every protected level on the grid and at the
-claim threshold. The family-wise size in the fourth column is the diagnostic of
-the paper's equation (8): the probability that the p\* = 0.90 screen as
+claim threshold. The FW-size column is the diagnostic of the paper's
+equation (8): the probability that the p\* = 0.90 screen as
 executed declares some harm subgroup if every candidate carried a uniform
 benefit of c₀ — a property of this family and covariate design, not the
 trial's realized error rate; at the claim threshold it is a boundary size.
