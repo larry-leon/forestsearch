@@ -952,8 +952,8 @@ are completely random noise.
 
 ```r
 # forestsearch() arguments of the 2024 workflow with their defaults; not the complete current signature (see ?forestsearch).
-# LASSO is enabled by default; this snippet contrasts use_lasso = TRUE
-# with use_grf = FALSE.
+# LASSO and GRF are both off by default (use_lasso = FALSE, use_grf = FALSE);
+# this snippet switches LASSO on (use_lasso = TRUE) and leaves GRF off.
 result <- forestsearch(
   df.analysis                = data,                         # required
 
@@ -1029,16 +1029,16 @@ result <- forestsearch(
   twostage_args              = list(),                       # default list()
 
   # ─── GLM outcome support ────────────────────────────────────────────────
-  outcome_type               = "survival",                   # default c("survival", "binary", "continuous", "count")
+  outcome_type               = "survival",                   # default "survival" (match.arg)
   effect_measure             = NULL,                         # default NULL
   offset.name                = NULL,                         # default NULL
   adverse_outcome            = NULL,                         # default NULL
-  overdispersion             = "none",                       # default c("none", "quasi", "negbin")
-  grf_count_transform        = "log",                        # default c("log", "identity")
+  overdispersion             = "none",                       # default "none" (match.arg)
+  grf_count_transform        = "log",                        # default "log" (match.arg)
 
   # ─── Propensity-score adjustment ────────────────────────────────────────
   ps_method                  = NULL,                         # default NULL
-  ps_adjust_method           = "none",                       # default c("none", "iptw", "dr_gcomp")
+  ps_adjust_method           = "none",                       # default "none" (match.arg)
   ps_hat                     = NULL,                         # default NULL
 
   # ─── Output / diagnostics ───────────────────────────────────────────────
@@ -1061,7 +1061,8 @@ the primary identification procedure.
 
 ```r
 # forestsearch() arguments of the 2024 workflow with their defaults; not the complete current signature (see ?forestsearch).
-# Enable both LASSO and GRF (the package default for variable selection).
+# LASSO and GRF are both off by default (use_lasso = FALSE, use_grf = FALSE);
+# this snippet switches both on (use_lasso = TRUE, use_grf = TRUE).
 result <- forestsearch(
   df.analysis                = data,                         # required
 
@@ -1137,16 +1138,16 @@ result <- forestsearch(
   twostage_args              = list(),                       # default list()
 
   # ─── GLM outcome support ────────────────────────────────────────────────
-  outcome_type               = "survival",                   # default c("survival", "binary", "continuous", "count")
+  outcome_type               = "survival",                   # default "survival" (match.arg)
   effect_measure             = NULL,                         # default NULL
   offset.name                = NULL,                         # default NULL
   adverse_outcome            = NULL,                         # default NULL
-  overdispersion             = "none",                       # default c("none", "quasi", "negbin")
-  grf_count_transform        = "log",                        # default c("log", "identity")
+  overdispersion             = "none",                       # default "none" (match.arg)
+  grf_count_transform        = "log",                        # default "log" (match.arg)
 
   # ─── Propensity-score adjustment ────────────────────────────────────────
   ps_method                  = NULL,                         # default NULL
-  ps_adjust_method           = "none",                       # default c("none", "iptw", "dr_gcomp")
+  ps_adjust_method           = "none",                       # default "none" (match.arg)
   ps_hat                     = NULL,                         # default NULL
 
   # ─── Output / diagnostics ───────────────────────────────────────────────

@@ -2,7 +2,8 @@
 # against formals(forestsearch::forestsearch) (installed build = HEAD's R/ tree).
 # Asserts: every named argument (other than the parallel_args elements workers /
 # show_message) is a current formal; every "# default <text>" comment parses to the
-# deparsed formal default; none of vi.grf.min, max_n_confounders, max.minutes appears.
+# deparsed formal default (or, for "# default \"<x>\" (match.arg)", to the first element of
+# the formal's c() choice vector); none of vi.grf.min, max_n_confounders, max.minutes appears.
 # usage: Rscript methodology_listings_check.R <methodology.Rmd> [--report]
 args   <- commandArgs(TRUE)
 report <- "--report" %in% args
@@ -26,6 +27,14 @@ for (b in seq_along(blocks)) {
     if (nm %in% skip) next
     if (!nm %in% names(fm)) { bad <- c(bad, sprintf("block %d line %d: %s not a formal", b, i, nm)); next }
     want <- paste(deparse(fm[[nm]]), collapse = "")
+    # '# default "<first choice>" (match.arg)': the formal is a c() of character
+    # choices and the comment names the first one, the effective default
+    if (grepl("\\s*\\(match\\.arg\\)$", txt)) {
+      txt <- sub("\\s*\\(match\\.arg\\)$", "", txt)
+      d <- fm[[nm]]
+      ok <- is.call(d) && identical(d[[1]], as.name("c")) && length(d) > 1L && is.character(d[[2]])
+      want <- if (ok) deparse(d[[2]]) else paste0("<not a match.arg choice vector: ", want, ">")
+    }
     got  <- tryCatch(paste(deparse(parse(text = txt, keep.source = FALSE)[[1]]), collapse = ""),
                      error = function(e) NA_character_)
     if (!identical(got, want))
