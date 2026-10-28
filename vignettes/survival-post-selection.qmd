@@ -1,6 +1,6 @@
 ---
 title: "Post-selection inference for an identified survival subgroup"
-subtitle: "A worked GBSG analysis, end to end"
+subtitle: "The GBSG analysis of León and Anderson (2026a): naive, full-bootstrap and multiplier-resampling estimates for three identifiers"
 author: "Larry Leon"
 date: today
 format:
@@ -25,206 +25,434 @@ library(forestsearch)
 library(survival)
 ```
 
-`forestsearch()` identifies a subgroup by searching over candidate subgroups,
-so a treatment effect estimated within the identified subgroup is affected by
-the selection: a confidence interval computed as if the subgroup had been
-prespecified tends to under-cover. With `mr_inference = TRUE`,
-`forestsearch()` reports selection-adjusted estimates and bounds for the
-identified subgroup and its complement, based on multiplier resampling of the
-candidate effects. The constructions, their assumptions and their simulation
-operating characteristics are described in León and Anderson (2026a); the
-search that identifies the subgroup — the closed-form consistency screen, the
-selection rule and the declaration calibration — in León and Anderson
-(2026b). This vignette shows how to obtain and read the reported quantities on
-a public dataset; `vignette("forestsearch")` runs the same analysis as the
-manuscript's Table 1 and reads it alongside the two model-based identifiers.
+```{=html}
+<style>
+#quarto-document-content table.table { width: auto; margin-left: 0; }
+#quarto-document-content table.table th,
+#quarto-document-content table.table td { padding: 0.25rem 0.9rem; }
+</style>
+```
 
-## The data and the fit
+A subgroup discovered in a trial is reported through the standard analysis the
+trial would have run had that subgroup been the only one: the treatment
+coefficient of the working model fitted within it, a Cox log hazard ratio here.
+Selection by an effect-driven rule — rewarding large estimated effects subject
+to screening and size criteria — inflates that coefficient. This is the
+winner's curse, and it invalidates a naive interval whether or not the
+identifier's own internal estimand was de-biased by cross-fitting (León and
+Anderson 2026a). The same selection distorts the estimate for the patients
+outside the subgroup.
 
-The GBSG node-positive breast-cancer trial shipped with **survival**: 686
-patients, hormonal therapy against none, recurrence-free survival. The
-covariate set is the usual seven; `er` and `pgr` are forced in as candidate
-receptor cutpoints, and continuous covariates get 10 quantile cuts each.
+**What is corrected, and how.** The target is the standard-analysis effect of
+the selected region, with the candidate family held fixed: β(Ĥ) for the region
+and β(Ĥᶜ) for its complement. Two routes remove the optimism of selection.
+
+- **The full bootstrap** re-runs the whole pipeline — enumerate, screen,
+  select — on each resample, and corrects the observed estimate by the
+  bootstrap estimate of its selection bias. It is the procedure of León et al.
+  (2024). It is costly, because every replicate repeats the search.
+- **Multiplier resampling** (MR) never refits. Once the candidate family and
+  every candidate's effect and influence function are in hand, resampling the
+  search reduces to perturbing all candidate effects jointly with one set of
+  multiplier weights and re-selecting; the correction is read from the
+  re-selected effects, and an infinitesimal-jackknife (IJ) interval comes from
+  the same draws. León and Anderson (2026a) show the IJ interval's coverage
+  under standard regularity and an explicit condition on the limiting
+  competition between candidates, and that MR matches the full bootstrap on a
+  fixed family.
+- **Model-generated families.** For DINA and GRF the candidate family is
+  proposed from a surface fitted to the outcome, so a bootstrap regenerates
+  it. There MR remains valid for the same conditional target — the effect of
+  the selected region given the family proposed — which the bootstrap
+  reproduces only under further conditions.
+
+**This vignette** runs the GBSG analysis of León and Anderson (2026a) for the
+three identifiers — forest search (FS), DINA and GRF — at the manuscript's
+settings, with the multiplier correction in full (5,000 draws) and the full
+bootstrap implemented and run at a small number of replicates to show the
+machinery and its cost. The manuscript's Table S2 (Supplementary Section S6),
+computed with B = 1,000 bootstrap replicates, is reproduced for comparison.
+`vignette("forestsearch")` runs the companion analysis of León and Anderson
+(2026b) on the same trial — the search, the one-sided bounds and the
+declaration calibration; this vignette is about the two-sided correction and
+the bootstrap it replaces.
+
+## The data
 
 ```{r data}
-df.analysis <- gbsg
-df.analysis <- within(df.analysis, {
-  id          <- seq_len(nrow(df.analysis))
+df <- survival::gbsg
+df <- within(df, {
+  id          <- seq_len(nrow(df))
   time_months <- rfstime / 30.4375
   grade3      <- ifelse(grade == "3", 1, 0)
 })
-confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
-cat("Sample size:", nrow(df.analysis),
-    "| events:", sum(df.analysis$status),
-    sprintf("(%.1f%%)\n", 100 * mean(df.analysis$status)))
+confounders <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+stopifnot(nrow(df) == 686, sum(df$status) == 299)
+whole <- coxph(Surv(time_months, status) ~ hormon, data = df)
+sprintf("Whole trial: %d patients, %d events, hazard ratio %.3f (%.3f, %.3f)",
+        nrow(df), sum(df$status), exp(coef(whole)), exp(confint(whole))[1],
+        exp(confint(whole))[2])
 ```
 
-The fit below uses the consistency search without a LASSO/GRF/DINA screen,
-`sg_focus = "effMaxSG"` (the largest subgroup within 20% of the strongest
-observed effect), the closed-form consistency screen at p\* = 0.90 with every
-screened candidate evaluated (`stop_threshold = NULL`), and 5,000 multiplier
-draws — the settings of Table 1 of León and Anderson (2026b), so this fit is
-the forest-search fit of `vignette("forestsearch")`.
-`mr_inference = TRUE` attaches the post-selection results to the fit as
-`fs$mr_inference`; `field_recovery = TRUE` adds the membership-agreement
-diagnostics used below. Bootstrap and cross-validation are not run here; see
-the article *Exploratory subgroup identification with forestsearch (the 2024
-workflow)* on the package website.
+## The settings
 
-```{r fit}
-t0 <- proc.time()
-fs <- forestsearch(
-  df.analysis,
-  outcome.name = "time_months", event.name = "status",
-  treat.name = "hormon", id.name = "id",
-  confounders.name = confounders.name,
-  is.RCT = TRUE, seedit = 8316951, est.scale = "hr",
-  use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE,
-  conf.cont_jcuts = list(er = 10, pgr = 10), collapse_cuts = TRUE,
-  conf_force = c("er <= 0", "pgr <= 0"),
-  subgroup_method = "consistency", sg_focus = "effMaxSG",
-  selection_rule = "neighborhood", effect_neighborhood = 0.20,
-  mr_inference = TRUE,
-  mr_inference_args = list(draws = 5000L, field_recovery = TRUE),
+The analysis of León and Anderson (2026a), Section 6, and the calls below
+follow the document that produced its Table S2:
+
+- **Candidates** are conjunctions of at most two covariate cuts with at least
+  60 patients and 10 events in each arm. Forest search carries ten candidate
+  cuts on each receptor with zero forced in as a cut of its own; DINA and GRF
+  propose their candidates from a fitted surface on the covariates as given.
+- **Forest search** screens at a hazard ratio of 1.0 and requires splitting
+  consistency at p\* = 0.90, evaluated in closed form (`consistency_method =
+  "resample"`); `stop_threshold = NULL` has every screened candidate
+  evaluated.
+- **The selection rule** is max N(ε) at **ε = 0.10**: the largest admitted
+  region whose effect is within 10% of the largest effect over the family. The
+  companion vignette uses ε = 0.20 and returns a larger forest-search region
+  (N 75); at ε = 0.10 the rule returns the 61 patients with no measured
+  estrogen receptor and tumour size at most 35 mm — the effect-maximising
+  region of that vignette's candidate table.
+- **DINA** is re-ranked on the Cox coefficient against a floor of 0.90, with a
+  two-fold cross-fit surface; **GRF** uses the frontier of its covariate grid,
+  re-ranked on the Cox coefficient, at depth 2 with a doubly-robust-score
+  floor of 0.
+- **Multiplier resampling** at 5,000 draws, reported as the two-term corrected
+  estimate with its IJ two-sided 95% interval (`ci_method = "ij"` for DINA and
+  GRF). The forest-search fit asks for `ci_method = "field"` with
+  `field_recovery = TRUE`: the two-term estimate and the IJ interval are the
+  same under both settings, and the field adds the one-sided bounds of the
+  companion vignette and the membership-recovery diagnostics used below.
+
+## The three fits
+
+```{r fit-fs}
+#| message: false
+#| results: hide
+t0 <- proc.time()[["elapsed"]]
+fit_fs <- forestsearch(
+  df.analysis = df,
+  outcome.name = "time_months", event.name = "status", treat.name = "hormon", id.name = "id",
+  confounders.name = confounders,
+  is.RCT = TRUE, est.scale = "hr", seedit = 8316951,
+  conf.cont_jcuts = list(er = 10, pgr = 10), conf_force = c("er <= 0", "pgr <= 0"),
   n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
-  hr.threshold = 1.0, hr.consistency = 1.0, pconsistency.threshold = 0.90,
+  subgroup_method = "consistency", consistency_method = "resample",
+  hr.threshold = 1.00, hr.consistency = 1.00, pconsistency.threshold = 0.90,
   stop_threshold = NULL,
-  details = FALSE, quiet = TRUE, plot.sg = FALSE,
-  parallel_args = list(plan = "sequential"))
-cat(sprintf("fit time: %.1f seconds\n", (proc.time() - t0)[["elapsed"]]))
+  sg_focus = "effMaxSG", selection_rule = "neighborhood", effect_neighborhood = 0.10,
+  mr_inference = TRUE,
+  mr_inference_args = list(ci_method = "field", draws = 5000L, field_recovery = TRUE),
+  quiet = TRUE, parallel_args = list(plan = "sequential"))
+sec_fs <- proc.time()[["elapsed"]] - t0
 ```
 
-## The identified subgroup
-
-```{r subgroup}
-cat("Selected subgroup:", paste(fs$sg.harm, collapse = " & "), "\n")
+```{r fit-dina}
+#| message: false
+#| results: hide
+t0 <- proc.time()[["elapsed"]]
+fit_dina <- forestsearch(
+  df.analysis = df,
+  outcome.name = "time_months", event.name = "status", treat.name = "hormon", id.name = "id",
+  confounders.name = confounders,
+  is.RCT = TRUE, est.scale = "hr", seedit = 8316951,
+  subgroup_method = "dina", dina_select_statistic = "effect",
+  dina_args = list(seed = 8316951, n_folds = 2),
+  hr.threshold = 0.90, n.min = 60,
+  sg_focus = "effMaxSG", selection_rule = "neighborhood", effect_neighborhood = 0.10,
+  mr_inference = TRUE, mr_inference_args = list(ci_method = "ij", draws = 5000L),
+  quiet = TRUE, parallel_args = list(plan = "sequential"))
+sec_dina <- proc.time()[["elapsed"]] - t0
 ```
 
-The subgroup is a conjunction of at most `maxk = 2` binary cutpoints drawn from
-the candidate family. `family_status` records how the candidate family was built;
-`"no-front-end"` means the family was enumerated directly rather than proposed
-by a model fitted to the data.
-
-## The reported quantities
-
-`print()` reports them; nothing extra needs to be called.
-
-```{r print}
-print(fs)
+```{r fit-grf}
+#| message: false
+#| results: hide
+t0 <- proc.time()[["elapsed"]]
+fit_grf <- forestsearch(
+  df.analysis = df,
+  outcome.name = "time_months", event.name = "status", treat.name = "hormon", id.name = "id",
+  confounders.name = confounders,
+  is.RCT = TRUE, est.scale = "hr", seedit = 8316951,
+  subgroup_method = "grf", grf_selection = "frontier", grf_select_statistic = "effect",
+  grf_depth = 2L, dmin.grf = 0.0, frac.tau = 0.8, n.min = 60,
+  sg_focus = "effMaxSG", selection_rule = "neighborhood", effect_neighborhood = 0.10,
+  mr_inference = TRUE, mr_inference_args = list(ci_method = "ij", draws = 5000L),
+  quiet = TRUE, parallel_args = list(plan = "sequential"))
+sec_grf <- proc.time()[["elapsed"]] - t0
 ```
 
-- **Identified subgroup:** the one-sided 95% lower bound on the hazard ratio
-  (the *field* construction).
-- **Complement:** the one-sided 95% upper bound on the hazard ratio (*field-s*,
-  the studentized complement field), relevant to a benefit claim.
-- **Both together:** the Bonferroni pair, each side at level 0.025.
-- **Two-sided interval:** the infinitesimal-jackknife (IJ) two-term interval,
-  reported as a secondary summary.
-- **p-hat(H):** the re-selection frequency, a descriptive diagnostic (below).
-
-The field bounds require `ci_method = "field"` (the default); with
-`ci_method = "ij"` only the two-sided interval is reported. León and Anderson
-(2026a) describe each construction and report its performance in simulation.
-
-`summary()` adds the standard errors and the leading re-selection frequencies:
-
-```{r summary}
-summary(fs)
+```{r selected}
+fits <- list(FS = fit_fs, DINA = fit_dina, GRF = fit_grf)
+secs <- c(FS = sec_fs, DINA = sec_dina, GRF = sec_grf)
+for (m in names(fits)) {
+  gm <- fits[[m]]$mr_inference
+  cat(sprintf("%-4s %-28s N %3d   fit %5.1f s (multiplier stage %.1f s)   family %d\n",
+              m, paste(fits[[m]]$sg.harm, collapse = " & "), gm$n_selected, secs[[m]],
+              gm$timing_seconds, gm$n_family))
+}
 ```
 
-## How to read a bound: by location
+## The multiplier correction
 
-These bounds are read **by location against a clinically meaningful effect
-size**, never as significance at the null.
+For each identifier, `fit$mr_inference` holds the unadjusted (naive) estimate
+of the selected region, the selection bias the draws estimate, and the
+two-term corrected estimate with its IJ interval; `$complement` holds the same
+for the patients outside the region. The family size is the number of
+candidates the draws re-select over.
 
-The harm-side question is *how much harm the data can rule out*. A one-sided
-lower bound in the high 0.8s or above, against an unadjusted subgroup estimate
-well above 1, says the adjusted evidence does not establish clinically
-meaningful harm -- the unadjusted estimate was largely selection.
-
-The complement-side question is a benefit claim: *is the one-sided upper bound
-below a threshold that would matter?* Name the threshold you are reading
-against -- for example 0.80 or 0.85 -- and say
-whether the bound clears it. A threshold quoted this way is a reading aid, not
-a decision rule.
-
-```{r locations}
-g <- fs$mr_inference
-cat(sprintf("unadjusted HR on Hhat       %.3f\n", g$naive$est))
-cat(sprintf("corrected (two-term) HR     %.3f\n", g$debiased$est))
-cat(sprintf("field one-sided lower       %.3f\n", g$field$lower_1s))
-cat(sprintf("field-s one-sided upper Hc  %.3f  (vs 0.80 / 0.85)\n",
-            g$field$complement$upper_1s_s))
+```{r mr-fs}
+g <- fit_fs$mr_inference
+cat(sprintf("Selection bias (log scale): %.3f over a family of %d candidates\n",
+            g$selection_bias, g$n_family))
+cat(sprintf("Region:     naive %.2f (%.2f, %.2f)  ->  corrected %.2f (%.2f, %.2f)\n",
+            g$naive$est, g$naive$lower, g$naive$upper,
+            g$debiased$est, g$debiased$lower, g$debiased$upper))
+cc <- g$complement
+cat(sprintf("Complement: naive %.2f (%.2f, %.2f)  ->  corrected %.2f (%.2f, %.2f)\n",
+            cc$naive$est, cc$naive$lower, cc$naive$upper,
+            cc$debiased$est, cc$debiased$lower, cc$debiased$upper))
 ```
 
-The distance between the unadjusted estimate and the corrected one is what
-selection cost; the spread across the constructions is what the adjustments
-pay for it.
+The correction moves the forest-search region's estimate from an apparent
+harm to a value near one, and widens the interval: the IJ interval accounts
+for the selection's own variability, which a naive interval ignores. The
+complement moves the other way and by much less — it is most of the trial, and
+the selection barely touches it.
 
-## p-hat as a diagnostic
+## The full bootstrap
 
-`p_hat(Hhat)` is the frequency with which the gate's own re-selection map
-picks the same subgroup across the multiplier draws. It is a **recorded
-diagnostic**: it is computed after the bounds are formed, and **no construction
-reads it**. It is also estimated from the same draws that build the bound, so
-it is a flag, not an independent instrument -- which is a reason not to let any
-interval depend on it.
+`forestsearch_bootstrap_dofuture()` draws a nonparametric bootstrap sample,
+re-runs the identifier on it — the whole search, the screen and the selection,
+with the front-end surfaces refitted for DINA and GRF — and records the
+selected region's effect on the resample and on the original data. The
+bias-corrected estimate is the observed estimate less the bootstrap estimate of
+its selection bias, averaged over replicates (the correction of León et al.
+2024); its interval uses an infinitesimal-jackknife variance of the bootstrap
+mean with a finite-B correction. Multiplier resampling is not run inside the
+replicates (`mr_in_replicates = FALSE`, the default), so each replicate costs
+one search.
+
+The manuscript used B = 1,000. Here B is small, to show the implementation and
+its cost: the point estimates are usable as an illustration, the intervals are
+not — the finite-B variance needs B in the hundreds, the package warns below
+100, and at small B the variance can fall back to its uncorrected form. Read
+the interval columns of the bootstrap tables below as what the machinery
+produces at this B, not as results.
+
+```{r bootstrap}
+#| message: false
+#| warning: false
+B <- c(FS = 25L, DINA = 25L, GRF = 10L)
+boots <- list(); boot_secs <- c()
+for (m in names(fits)) {
+  t0 <- proc.time()[["elapsed"]]
+  boots[[m]] <- forestsearch_bootstrap_dofuture(
+    fs.est = fits[[m]], nb_boots = B[[m]], seed = 8316951L,
+    mr_in_replicates = FALSE, parallel_args = list(plan = "sequential"))
+  boot_secs[m] <- proc.time()[["elapsed"]] - t0
+}
+round(boot_secs, 1)
+```
+
+The package's own summaries, shown for forest search. The first is the
+bootstrap table: the naive estimate beside the bootstrap-corrected one, for the
+region and its complement.
+
+```{r boot-summary}
+summ_fs <- summarize_bootstrap_results(sgharm = fit_fs$sg.harm, boot_results = boots$FS,
+                                       create_plots = FALSE, est.scale = "hr")
+summ_fs$table
+```
+
+`mr_estimates_table()` puts the multiplier correction into the same layout: it
+takes the bootstrap table as its template — the descriptive columns and the
+naive estimate — and replaces the corrected column by the two-term estimate
+with its IJ interval, so the two corrections can be read side by side in one
+format.
+
+```{r mr-table}
+mr_estimates_table(fit_fs, boot_results = boots$FS, est.scale = "hr", digits = 2)
+```
+
+## Naive, bootstrap and multiplier side by side
+
+The three columns for the three identifiers, assembled from the fit objects
+and the bootstrap objects.
+
+```{r three-columns}
+three_columns <- function(method, fit, boot) {
+  g <- fit$mr_inference; cc <- g$complement
+  n_H <- g$n_selected; n_Hc <- cc$n
+  f2 <- function(e, l, u) sprintf("%.2f (%.2f, %.2f)", e, l, u)
+  data.frame(
+    method = method, region = c("H", "Hc"),
+    n = c(sprintf("%d (%d%%)", n_H, round(100 * n_H / (n_H + n_Hc))),
+          sprintf("%d (%d%%)", n_Hc, round(100 * n_Hc / (n_H + n_Hc)))),
+    naive = c(f2(g$naive$est, g$naive$lower, g$naive$upper),
+              f2(cc$naive$est, cc$naive$lower, cc$naive$upper)),
+    bootstrap = c(f2(boot$H_estimates$H2, boot$H_estimates$H2_lower,
+                     boot$H_estimates$H2_upper),
+                  f2(boot$Hc_estimates$H2, boot$Hc_estimates$H2_lower,
+                     boot$Hc_estimates$H2_upper)),
+    multiplier = c(f2(g$debiased$est, g$debiased$lower, g$debiased$upper),
+                   f2(cc$debiased$est, cc$debiased$lower, cc$debiased$upper)))
+}
+side_by_side <- rbind(three_columns("FS", fit_fs, boots$FS),
+                      three_columns("DINA", fit_dina, boots$DINA),
+                      three_columns("GRF", fit_grf, boots$GRF))
+boot_label <- sprintf("Full bootstrap (B = %d / %d / %d)", B[["FS"]], B[["DINA"]], B[["GRF"]])
+knitr::kable(side_by_side, row.names = FALSE, align = "llrrrr",
+             col.names = c("Method", "SG", "n (%)", "Naive", boot_label,
+                           "Multiplier (5,000 draws)"),
+             caption = paste("This vignette's run: hazard ratios with 95% intervals.",
+                             "The bootstrap column is an illustration at a small B."))
+```
+
+Table S2 of León and Anderson (2026a), as published, with the full bootstrap at
+B = 1,000:
+
+```{r table-s2}
+table_s2 <- data.frame(
+  method = c("FS", "FS", "DINA", "DINA", "GRF", "GRF"),
+  region = rep(c("H", "Hc"), 3),
+  n = c("61 (9%)", "625 (91%)", "89 (13%)", "597 (87%)", "82 (12%)", "604 (88%)"),
+  naive = c("2.54 (1.25, 5.17)", "0.61 (0.47, 0.79)", "1.60 (0.88, 2.91)",
+            "0.63 (0.48, 0.82)", "1.95 (1.04, 3.67)", "0.61 (0.47, 0.80)"),
+  bootstrap = c("1.94 (0.89, 4.21)", "0.63 (0.43, 0.93)", "0.89 (0.38, 2.07)",
+                "0.66 (0.40, 1.11)", "1.04 (0.49, 2.24)", "0.66 (0.39, 1.13)"),
+  multiplier = c("1.44 (0.62, 3.36)", "0.64 (0.40, 1.03)", "1.11 (0.45, 2.75)",
+                 "0.66 (0.40, 1.09)", "1.05 (0.47, 2.34)", "0.66 (0.41, 1.06)"))
+knitr::kable(table_s2, row.names = FALSE, align = "llrrrr",
+             col.names = c("Method", "SG", "n (%)", "Naive", "Full bootstrap (B = 1,000)",
+                           "Multiplier"),
+             caption = "Table S2 of León and Anderson (2026a), as published.")
+```
+
+```{r reading-values}
+#| echo: false
+r2 <- function(x) sprintf("%.2f", x)
+gd <- fit_dina$mr_inference; gg <- fit_grf$mr_inference
+```
+
+- **Naive and multiplier columns.** The regions, their sizes, the naive
+  estimates and the multiplier estimates and intervals are those of the
+  published table at its precision: the calls, the seed and the draw count are
+  the manuscript's.
+- **The bootstrap column** at this B is an illustration of the implementation.
+  At B = 1,000 the manuscript finds the two corrections agree closely for GRF
+  (1.04 and 1.05), remain apart for forest search (1.94 and 1.44, both well
+  below the naive 2.54), and fall on opposite sides of one for DINA (0.89 and
+  1.11) — the two routes estimate the same selection bias from different
+  perturbations of the search, and DINA's family is itself regenerated by the
+  bootstrap.
+- **Reading, by location.** The forest-search region's corrected estimates,
+  `r r2(fit_fs$mr_inference$debiased$est)` by multiplier resampling and
+  1.94 by the manuscript's bootstrap, sit far below its naive
+  `r r2(fit_fs$mr_inference$naive$est)`: most of the apparent harm was
+  selection. The complement's corrected estimate,
+  `r r2(fit_fs$mr_inference$complement$debiased$est)`, is a benefit at least as
+  large as the trial's own 0.695 for the patients outside the region. Neither is
+  read as a test at a hazard ratio of one.
+
+### The cost of the two corrections
+
+```{r cost}
+cost <- data.frame(
+  method = names(fits),
+  mr_seconds = sapply(fits, function(f) f$mr_inference$timing_seconds),
+  bootstrap_B = B[names(fits)],
+  bootstrap_seconds = boot_secs[names(fits)])
+cost$seconds_per_replicate <- cost$bootstrap_seconds / cost$bootstrap_B
+cost$projected_B_1000 <- round(cost$seconds_per_replicate * 1000)
+knitr::kable(cost, row.names = FALSE, digits = 2,
+             col.names = c("Method", "MR (s)", "B", "bootstrap (s)", "s per replicate",
+                           "projected at B = 1,000 (s)"),
+             caption = "Single-core timings from this run. The projection is linear in B.")
+```
+
+The multiplier correction is seconds; the bootstrap is minutes at the B its
+intervals need, and the ratio widens with B. The absolute numbers are those of
+this machine and this package version; the manuscript reports 72 s to about
+10 minutes at B = 1,000 on 11 workers against 0.1 to 0.4 s for the multiplier
+stage.
+
+## Diagnostics
+
+### The re-selection frequency
+
+p̂(Ĥ) is the frequency with which the re-selection picks exactly the identified
+region across the multiplier draws. It is a recorded diagnostic — computed after
+the correction, read by no construction, and estimated from the same draws —
+so it is a flag, not an instrument.
 
 ```{r phat}
 ph  <- g$reselection$p_hat
-lab <- g$selected_label
-cat(sprintf("p-hat(Hhat) = %.3f over a family of %d candidates\n",
-            unname(ph[[lab]]), g$n_family))
+cat(sprintf("p-hat(H) = %.3f over a family of %d candidates\n",
+            unname(ph[[g$selected_label]]), g$n_family))
 print(round(sort(ph, decreasing = TRUE)[1:5], 3))
 ```
 
-A small p-hat indicates that the exact boundary of the identified subgroup is
-not stable under perturbation; by itself it is neither evidence for nor
-against the bounds. León and Anderson (2026a) discuss how the bias correction
-behaves across values of p-hat.
+A small p̂ says the exact boundary of the region is not stable under
+perturbation; by itself it is neither evidence for nor against the correction.
 
-### What p-hat alone cannot say
+### What p̂ alone cannot say
 
-p-hat counts **exact** re-selections of `Hhat`. Over a large family in
-which most candidates differ from `Hhat` by a single cutpoint, a small
-exact-match rate is compatible with two very different situations: the draws
-re-selected near-twins of `Hhat`, or they re-selected unrelated regions. p-hat
-does not distinguish them. **Membership agreement** does, and it is computable
-from the same draws. Each draw's re-selection is compared with `Hhat` as a set
-of patients, in the vocabulary of the cross-validation agreement metrics
-(`forestsearch_Kfold()`'s `sens_H` / `ppv_H`).
+p̂ counts exact re-selections. Over a family in which most candidates differ
+from Ĥ by a single cut, a small exact-match rate is compatible with the draws
+re-selecting near-twins of Ĥ or unrelated regions, and p̂ does not distinguish
+them. Membership agreement does: each draw's re-selection is compared with Ĥ
+as a set of patients, in the vocabulary of the cross-validation agreement
+metrics of `forestsearch_Kfold()` (`sens_H`, `ppv_H`). These diagnostics are
+computed from the field draws, which the forest-search fit asked for.
 
 ```{r recovery}
 rc <- g$field$recovery
-cat(sprintf("sens_H  = %.3f   mean share of Hhat retained by a re-selection
-", rc$sens_H))
-cat(sprintf("ppv_H   = %.3f   mean share of a re-selection that lies in Hhat
-", rc$ppv_H))
-cat(sprintf("containment q10 / q50 / q90 = %.3f / %.3f / %.3f
-", rc$q10, rc$q50, rc$q90))
-cat(sprintf("share of draws containing all of Hhat = %.3f  (over %d draws)
-",
+cat(sprintf("sens_H = %.3f   mean share of H retained by a re-selection\n", rc$sens_H))
+cat(sprintf("ppv_H  = %.3f   mean share of a re-selection that lies in H\n", rc$ppv_H))
+cat(sprintf("containment q10 / q50 / q90 = %.3f / %.3f / %.3f\n", rc$q10, rc$q50, rc$q90))
+cat(sprintf("share of draws containing all of H = %.3f  (over %d draws)\n",
             rc$share_equal_1, rc$n_used))
 ```
 
-Read together, the two kinds of number say different things about the same
-draws: exact re-selection can be rare while the typical re-selection still
-retains much of the identified subgroup. That pattern points to an unstable
-boundary rather than an unstable region.
+Exact re-selection can be rare while the typical re-selection retains much of
+the identified region — an unstable boundary rather than an unstable region.
+These diagnostics measure re-selection within the fixed candidate family under
+multiplier perturbation; the bootstrap's and the cross-validation's recovery
+rates (`forestsearch_bootstrap_dofuture()`, `forestsearch_Kfold()`) measure
+re-discovery from resampled data with the family rebuilt, which is stronger and
+costs a full re-run each time.
 
-One limit. These diagnostics measure re-selection **within the
-fixed candidate family**, under multiplier perturbation of the candidate
-effects. The bootstrap (`forestsearch_bootstrap_dofuture()`) and
-cross-validation (`forestsearch_Kfold()`) recovery rates measure something
-stronger: re-**discovery** of a subgroup from resampled data, with the search
-re-run and the family rebuilt each time. The two are related but neither
-substitutes for the other, and this one is free in every analysis while those
-cost a full re-run.
+## Scope
+
+The coverage result of León and Anderson (2026a) is for a fixed, enumerated
+family — forest search's. DINA and GRF propose their families from the
+outcomes, and a bootstrap regenerates them; for those identifiers the
+multiplier correction targets the effect of the selected region conditional on
+the family proposed, and the results above are empirical evaluations of how the
+correction behaves on such families, not instances of the theorem. The
+one-sided bounds, the two-subgroup claim and the declaration calibration that
+build on this correction are the subject of León and Anderson (2026b) and of
+`vignette("forestsearch")`.
+
+## Where to go next
+
+- `vignette("forestsearch")`: the same trial under the identification paper —
+  the search, the three identifiers at the max N(ε = 0.20) rule, the one-sided
+  field bounds, the two-subgroup claim and the declaration calibration.
+- The package website's article *Exploratory subgroup identification with
+  forestsearch (the 2024 workflow)*: the full bootstrap at a working B with its
+  diagnostics and plots, and K-fold cross-validation.
+- `?forestsearch_bootstrap_dofuture`, `?summarize_bootstrap_results`,
+  `?mr_estimates_table`.
 
 ## References
 
-León, L. F. and Anderson, K. M. (2026a). Inference for standard trial
-estimands after data-driven subgroup discovery. arXiv:2609.38361.
+Efron, B. (2014). Estimation and accuracy after model selection. *Journal of
+the American Statistical Association* 109(507), 991–1007.
+
+León, L. F. and Anderson, K. M. (2026a). Inference for standard trial estimands
+after data-driven subgroup discovery. arXiv:2609.38361.
 <https://doi.org/10.48550/arXiv.2609.38361>
 
 León, L. F. and Anderson, K. M. (2026b). Interpretable subgroup identification
@@ -232,8 +460,8 @@ across survival and generalized-linear outcomes. arXiv:2610.28379.
 <https://doi.org/10.48550/arXiv.2610.28379>
 
 León, L. F., Jemielita, T., Guo, Z., Marceau West, R. and Anderson, K. M.
-(2024). Exploratory subgroup identification in the heterogeneous Cox model:
-A relatively simple procedure. *Statistics in Medicine*.
+(2024). Exploratory subgroup identification in the heterogeneous Cox model: A
+relatively simple procedure. *Statistics in Medicine*.
 <https://doi.org/10.1002/sim.10163>
 
 ```{r session}
