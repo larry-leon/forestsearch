@@ -164,3 +164,49 @@ Commit `bf508916`. Files: `vignettes/articles/methodology.Rmd`,
 - Negative control (`"log"` → `"identity"` in a scratch copy): fails on both listings, rc 1.
 - Article not re-rendered: the edits are inside display-only fenced blocks.
 - OPEN ITEMS remaining: the `paper_simulations.Rmd` 2024-workflow values (unchanged).
+
+## Rendering polish (2026-10-28)
+
+Task: `dev/tasks/cc_task_vignette_render_2026-10-28.md` (commit `7442213f`). Start HEAD `beb528f3`.
+Artifacts: `dev/reports/vignette_render_2026-10-28/`.
+
+**§0 gates — PASS.** Branch `feature/vignettes-0.4.1`. `c1fb38d3` is an ancestor of HEAD.
+`forestsearch_v5.qmd` md5 `64f4a604da9b761520e1cb4fb958dde7`, 648 lines.
+`git diff 936b6734 HEAD -- R/ DESCRIPTION NAMESPACE inst/` is empty. Installed build: 0.4.0.9000, built 2026-10-27 21:01:28 UTC.
+
+**§1 `vignettes/forestsearch.qmd` ← v5** (commit `400f7778`)
+- 1.2 markdown gate: `grep -nE '^\s*[0-9]+[.)]( |$)'` returns nothing. PASS.
+- 1.3 render: exit 0, wall clock 1:14.02, max RSS 1.05 GB. HTML 1,285,719 bytes (previous 1,283,200).
+  Greps `Error in` / `Warning` / `NaN` / `NA (` are 0 / 0 / 0 / 0. PASS. Log: `render_vignette.log`.
+- 1.4 identity (`gate_identity.R` on the new file, md5 `64f4a604…`): purled code sourced in 23.9 s.
+  54/54 equal against the rds files and 54/54 against `ladder_quantities.csv`.
+  Declaration values: 2.726 / 0.994 / 0.667 / 2.438 / 2.564 / 3.503 / 0.974, all equal to S17. Admits are 0 0 0 0 0.
+  GATE 2.4 PASS, GATE 2.5 PASS. Output: `gate_identity_output.txt`.
+- 1.5 rendered content: `grep -c '<ol'` = 0. PASS. Table 1 block (`diff -w`): see the deviation below.
+  The rendered table is identical: caption, row labels and every value.
+- 1.6 recorded:
+  - Declaration table header row: `protected level c0 | kappa-hat | implied level | FW size | admits`.
+    The last row is `HR 1.00 (claim threshold)`.
+  - The inline CSS has `pre > code.sourceCode { white-space: pre-wrap; }` (1 hit). All 25 source `<pre>` blocks wrap; the longest source line is 94 chars.
+  - The 13 output `<pre>` blocks (`#>`) are bare `<pre>`, which this rule does not cover. Their longest line is 86 chars (the next longest is 80).
+    Whether that overflows depends on the viewport. It was not checked visually.
+
+**§2 `vignettes/survival-post-selection.qmd`** (commit `5a1af95d`)
+- The two YAML lines were inserted exactly as specified.
+- Render: exit 0, wall clock 0:36.82. HTML 1,223,374 bytes (previous 1,223,367).
+  `Error in` / `Warning` / `NaN` are 0 / 0 / 0.
+- Printed quantities: 152 `#>` lines; `diff -w` differs only in the timing line (see the deviation below). PASS on quantities.
+  Diff: `post_selection_output_diff_w.txt`.
+
+**Deviations (verbatim)**
+1. §1.5, Table 1 block `diff -w` is not empty (`table1_block_diff_w.txt`).
+   The block runs from the "Table 1" h2 to the "Declaration at a protected level" h2, and it contains the echoed source of the `table1` chunk.
+   v5 rewraps that chunk by design: it splits the `data.frame()` call and moves the caption into a `caption1` variable.
+   Those are line-structure changes, so `diff -w` reports them. They are the only differing lines (old 3–11 / new 3–14).
+   The rest of the block, the rendered table included, is identical.
+   I judged this a gate-definition defect (the gate's own section mandates the code rewrap), not a content failure, and proceeded.
+   The 54-way identity gate (1.4) independently confirms the computed values.
+   Also noted outside the block: v5 drops ", hazard-ratio scale" from the FS-only table caption ("Forest search: the identified region and its complement.").
+2. §2, the `#>` diff is not empty in one line: `fit time: 32.2 seconds` → `32.1 seconds`.
+   This is wall-clock timing, not a computed quantity. The other 151 lines are identical.
+   Likewise in the primary vignette, the timings moved between renders (FS 37.0 → 37.1 s; DINA 7.4 → 7.6 s; GRF 23.8 → 23.9 s; field-complement block 2.8 → 3.0 s).

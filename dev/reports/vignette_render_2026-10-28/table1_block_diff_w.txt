@@ -1,0 +1,23 @@
+3,11c3,14
+<     table1 <- data.frame(row = table1_rows, FS = table1_column(fit_fs, df),
+<                          DINA = table1_column(fit_dina, df), GRF = table1_column(fit_grf, df))
+<     knitr::kable(table1, col.names = c("", "FS", "DINA", "GRF"), row.names = FALSE, align = "lrrr",
+<                  caption = sprintf(paste(
+<                    "Selection-adjusted analysis of the three identified regions, hazard-ratio scale.",
+<                    "Unadjusted: two-sided 95%% Wald interval; field and field-s: one-sided at nominal 0.95;",
+<                    "Bonferroni pair: region / complement, joint 0.95. Whole trial: %d patients, %d events,",
+<                    "hazard ratio %.3f (%.3f, %.3f)."),
+<                    nrow(df), sum(df$status), whole_hr[["est"]], whole_hr[[2]], whole_hr[[3]]))
+---
+>     table1 <- data.frame(row = table1_rows,
+>                          FS = table1_column(fit_fs, df),
+>                          DINA = table1_column(fit_dina, df),
+>                          GRF = table1_column(fit_grf, df))
+>     caption1 <- sprintf(paste(
+>       "Selection-adjusted analysis of the three identified regions, hazard-ratio",
+>       "scale. Unadjusted: two-sided 95%% Wald interval; field and field-s: one-sided",
+>       "at nominal 0.95; Bonferroni pair: region / complement, joint 0.95.",
+>       "Whole trial: %d patients, %d events, hazard ratio %.3f (%.3f, %.3f)."),
+>       nrow(df), sum(df$status), whole_hr[["est"]], whole_hr[[2]], whole_hr[[3]])
+>     knitr::kable(table1, col.names = c("", "FS", "DINA", "GRF"), row.names = FALSE,
+>                  align = "lrrr", caption = caption1)
