@@ -181,3 +181,153 @@ drwxr-xr-x 10 larryleon larryleon   20480 Oct 28 11:56 ..
 -rw-rw-r--  1 larryleon larryleon 1289499 Oct 28 11:56 survival-post-selection.html
 -rw-r--r--  1 larryleon larryleon   22029 Oct 28 11:56 survival-post-selection.qmd
 ```
+
+## Math, presentation and two-worker bootstrap pass (2026-10-28)
+
+Task: `dev/tasks/cc_task_vignettes_math_2026-10-28_v2.md`. The task ran in three sessions. The first stopped at §0.3 because `forestsearch_v6.qmd` was not yet in `~/Downloads`. The second stopped twice at §1.4 and §2.4, on gate definitions; both were amended by Larry (deviations below).
+
+### Commits
+
+| # | hash | message |
+|---|---|---|
+| 1 | `aceb413b` | dev: task — vignette math v2 (2026-10-28) |
+| 2 | `2f36d0ce` | docs: vignette — LaTeX math for the thresholds, the closed-form rate, the selection rule and the declaration statistic |
+| 3 | `ce9cfb38` | docs: post-selection vignette — LaTeX math; bootstrap on two workers behind an n_workers knob; bootstrap column as point estimate at small B; cost and recovery sentences made exact |
+| 4 | (this report) | dev: report — vignette math pass (2026-10-28) |
+
+### §0
+
+- **Branch and base:** branch `feature/vignettes-0.4.1`; HEAD at task start `e7f4fa6d`, which passes the ancestor check.
+- **Untracked paths:** the pre-existing ones are `vignettes/articles/methodology.html` and `vignettes/articles/paper_simulations.html`. Neither was staged.
+- **Input checksums:**
+  - `forestsearch_v6.qmd`: `8ed0d81d373a4427a1a74a0b0dc9817f`, 662 lines.
+  - `survival-post-selection_v5.qmd`: `8c56077e1fdbd0b1c13fbf4c5d082e15`, 494 lines.
+- **Base checksums at HEAD:**
+  - `vignettes/forestsearch.qmd`: `234322275f3df0ef4fee47c5509b81e5`.
+  - `vignettes/survival-post-selection.qmd`: `2f955e6926d231e4eae1bd191eeb2fa9`.
+- **Installed build:** `git diff 936b6734 HEAD -- R/ DESCRIPTION NAMESPACE inst/` is empty.
+- **Cores:** `future::availableCores()` returns 128, so `n_workers` resolves to 2 here.
+
+### §1 `vignettes/forestsearch.qmd` ← v6
+
+- **Prose only (pass):** `knitr::purl()` of the HEAD file and of v6 are byte-identical.
+- **Markdown (pass):**
+  - The numbered-list grep is empty.
+  - β, Ĥ, Φ, κ̂ do not occur outside code chunks.
+- **Render** (`render_forestsearch_math.log`; under `/usr/bin/time -v`):
+  - Exit 0.
+  - Wall clock 1:14.14.
+  - Peak RSS 1,107,060 kB.
+  - HTML size 1,373,170 bytes, against 1,285,738 last run.
+  - The growth is the polyfill that Quarto embeds alongside the CDN MathJax reference (see deviation 1).
+- **HTML gates as amended (pass; `gates_forestsearch_math.txt`):**
+
+| check | count |
+|---|---|
+| pandoc plain `Error in` / `Warning` / `NaN` | 0 / 0 / 0 |
+| pandoc plain `grep -cP '\bNA \('` | 0 |
+| raw HTML outside `<script>`: `Error in` / `Warning` / `NaN` / `NA (` | 0 / 0 / 0 / 0 |
+| `<ol` | 0 |
+| `mathjax` (case-insensitive) | 4 |
+| `class="math inline"` (`grep -o \| wc -l`) | 41 (≥ 20) |
+| `class="math display"` (`grep -o \| wc -l`) | 2 (= 2) |
+| `1.276` / `1.076` / `1.111` | 4 / 2 / 2 |
+
+- **MathJax source:** the HTML references `https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js`. MathJax itself is not embedded.
+- **Excerpts:** the pandoc plain text around the first display equation and around T(g) is in `excerpts_forestsearch_math.txt`. Pandoc shows the TeX source; the browser renders it. The first display equation reads:
+
+```
+p_{\mathrm{cons}}(g) \;=\; 2\,\Phi\!\left(\frac{\hat\beta(g) - \log
+c_2}{\sigma_D(g)}\right) - 1, \] with \(\sigma_D(g)\) the scale of the
+```
+
+```
+candidate's standardized statistic \[ T(g) \;=\; \frac{\hat\beta(g) -
+\log c_2}{\sigma_D(g)}, \] with every candidate shifted to sit at
+\(c_0\), under the law of the fit's own multiplier draws. The calibrated
+rule admits a candidate when \(T(g) \ge \hat\kappa_\alpha(c_0)\); it
+```
+
+### §2 `vignettes/survival-post-selection.qmd` ← v5
+
+- **Code change confined (pass; `gate_purl_postsel_math.txt`):** every line that differs between the purled scripts lies in the `bootstrap` chunk (5 lines) or the `three-columns` chunk (12 lines). The `fit-fs`, `fit-dina` and `fit-grf` chunks are identical, so the fit-identity result of `e7f4fa6d` stands.
+  - The chunk of each differing line was found from `purl(documentation = 1)` chunk headers.
+  - My first parse cut labels at the first hyphen; that was a bug in my own check script. It was fixed and the check rerun, with no change to the gate.
+- **Markdown (pass):** both greps are empty.
+- **Render** (`render_postsel_math.log`; under `/usr/bin/time -v`):
+  - Exit 0.
+  - Wall clock 2:07.47, against 2:50.61 sequential last run.
+  - Peak RSS 992,776 kB.
+  - HTML size 1,377,332 bytes.
+- **HTML gates as amended (pass; `gates_postsel_math.txt`):**
+
+| check | count |
+|---|---|
+| pandoc plain `Error in` / `Warning` / `NaN` | 0 / 0 / 0 |
+| pandoc plain `grep -cP '\bNA \('` | 0 |
+| raw HTML outside `<script>`: `Error in` / `Warning` / `NaN` | 0 / 0 / 0 |
+| `gt_table` | 8 (≥ 2) |
+| `mathjax` | 4 |
+| `1.44 (0.62, 3.36)` / `0.64 (0.40, 1.03)` | 4 / 4 |
+| `1.11 (0.45, 2.75)` / `0.66 (0.40, 1.09)` | 3 / 3 |
+| `1.05 (0.47, 2.34)` / `0.66 (0.41, 1.06)` | 3 / 3 |
+
+- **Bootstrap column:** "Full bootstrap estimate (B = 25 / 25 / 10)" holds bare numbers only (pass). In pandoc plain text it reads 1.88, 0.63, 0.83, 0.66, 1.29, 0.73.
+- **Not a gate here:** the raw HTML outside `<script>` contains one `NA (`, inside "DINA (0.89 and 1.11)".
+- **`boot_secs` on two workers:** FS 32.6, DINA 23.6, GRF 21.8 s. The previous run, sequential, was 53, 30.5 and 36 s.
+- **Side-by-side H bootstrap estimates:** FS 1.88, DINA 0.83, GRF 1.29, identical to the previous run's.
+- **Recovery sentence, as rendered:**
+
+  > Read together: the median draw retains 66% of the region's members, a tenth of the draws retain 0% or less, and 2% of draws contain all of it. Exact re-selection is rare; what moves from draw to draw is the boundary. […]
+
+- **Cost table, as rendered** (`excerpts_postsel_math.txt`):
+
+| Method | MR (s) | B | bootstrap (s) | s per replicate | projected at B = 1,000 (s) |
+|---|---|---|---|---|---|
+| FS | 4.66 | 25 | 32.62 | 1.30 | 1305 |
+| DINA | 0.34 | 25 | 23.65 | 0.95 | 946 |
+| GRF | 2.12 | 10 | 21.80 | 2.18 | 2180 |
+
+### §2.5 Plan invariance (recorded, not gated)
+
+`plan_invariance.R` and its output `plan_invariance_output.txt`, run in a fresh `Rscript`.
+
+- **Setup:**
+  - The purled vignette is evaluated expression by expression until `fit_fs` exists. It asserts `fit_dina` does not.
+  - Then `forestsearch_bootstrap_dofuture(fs.est = fit_fs, nb_boots = 25L, seed = 8316951L, mr_in_replicates = FALSE, ...)` runs once sequentially and once under `multisession` with 2 workers.
+- **Wall clock:** sequential 53.2 s; two workers 32.3 s.
+- **Estimates:** identical under both plans.
+  - `H_estimates$H2` = 1.8786205217.
+  - `Hc_estimates$H2` = 0.6348402476.
+- **Per-replicate table (`results`, 25 × 34):** `identical()` is FALSE. The only differences are timing:
+  - the columns `tmins_search` and `tmins_iteration`;
+  - the `timing` attribute.
+
+  With those two columns and the attributes dropped, the remaining 32 columns are `identical()` TRUE.
+- **Conclusion:** the bootstrap is invariant to the plan apart from wall-clock fields. The vignette claims nothing about this.
+
+### Deviations (verbatim approvals)
+
+1. **§1.4 / §2.4 greps moved to rendered text; math spans counted by occurrence.**
+   - Why: as written, `NaN` = 17 in `forestsearch.html`. All 17 matches are in a JavaScript polyfill (`isNaN(a)?NaN:…`) that Quarto embeds with MathJax under `embed-resources: true`. Also, `grep -c 'class="math inline"'` = 18 counts lines, while there are 41 occurrences.
+   - Larry: "Approved: amend §1.4 and §2.4 so the Error in / Warning / NaN / NA ( greps run on `pandoc -t plain` of the HTML (record alongside that the raw HTML outside <script> also has 0), and count math spans with `grep -o ... | wc -l`; record the amendment as a deviation and resume from §1.4."
+   - The §1 render was not repeated, because the qmd was unchanged since it was rendered. The amended gates were applied to that HTML.
+2. **`NA (` anchored on a word boundary.**
+   - Why: under deviation 1, §2.4 counted `NA (` = 1 in the plain text, from "DINA (0.89 and 1.11)".
+   - Larry: "Approved with option 2: in §1.4 and §2.4 replace the `NA (` grep by `grep -cP '\bNA \('` on the pandoc plain text (0 required); record the change as a deviation and resume from §2.4."
+3. **The §2.5 comparison ran twice.** The first run showed `results` differing only in timing fields. The second appended a comparison that drops the timing fields. Each run was under the 10-min cap, and the numbers above come from the second run.
+4. **Render logs got new names** (`render_*_math.log`) so the previous run's logs were not overwritten.
+
+### OPEN ITEMS
+
+1. **The cost-table caption is now wrong.** It still says "Single-core timings from this run. The projection is linear in B." The bootstrap column now runs on `n_workers` = 2 here, so "s per replicate" and the B = 1,000 projection are two-worker figures. Proposed fix, for Larry's call:
+   - say the bootstrap column is on `n_workers` workers; or
+   - divide by the plan's worker count before projecting.
+
+   The v5 text was placed unchanged.
+2. **"0% or less" in the recovery sentence.** It renders as "a tenth of the draws retain 0% or less". It is accurate, since q10 = 0, but awkward. Possible wording: "at least a tenth of the draws retain none of it".
+3. **The multiplier-stage seconds.** The rendered cost prose now says what each number measures (the whole multiplier stage, `timing_seconds`, against the whole bootstrap call). This closes item 2 of the previous pass.
+
+## Copies to `~/Downloads/vignettes_math_2026-10-28/`
+
+`forestsearch.html`, `survival-post-selection.html`, `REPORT_postsel_vignette_2026-10-28.md`.

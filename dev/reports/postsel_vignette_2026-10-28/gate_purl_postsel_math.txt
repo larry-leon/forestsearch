@@ -1,0 +1,34 @@
+chunk labels in HEAD purl: setup data fit-fs fit-dina fit-grf selected mr-fs bootstrap boot-summary mr-table three-columns table-s2 reading-values cost phat recovery session 
+chs
+    bootstrap three-columns 
+            5            12 
+GATE §2.2: PASS 
+fit-fs identical: TRUE 
+fit-dina identical: TRUE 
+fit-grf identical: TRUE 
+106a107,109
+> n_workers <- min(2L, future::availableCores())   # set to your cores for a real run
+> boot_plan <- if (n_workers > 1L) list(plan = "multisession", workers = n_workers) else
+>   list(plan = "sequential")
+113c116
+<     mr_in_replicates = FALSE, parallel_args = list(plan = "sequential"))
+---
+>     mr_in_replicates = FALSE, parallel_args = boot_plan)
+140,143c143
+<     bootstrap = c(f2(boot$H_estimates$H2, boot$H_estimates$H2_lower,
+<                      boot$H_estimates$H2_upper),
+<                   f2(boot$Hc_estimates$H2, boot$Hc_estimates$H2_lower,
+<                      boot$Hc_estimates$H2_upper)),
+---
+>     bootstrap = sprintf("%.2f", c(boot$H_estimates$H2, boot$Hc_estimates$H2)),
+150c150,151
+< boot_label <- sprintf("Full bootstrap (B = %d / %d / %d)", B[["FS"]], B[["DINA"]], B[["GRF"]])
+---
+> boot_label <- sprintf("Full bootstrap estimate (B = %d / %d / %d)",
+>                       B[["FS"]], B[["DINA"]], B[["GRF"]])
+154,155c155,156
+<              caption = paste("This vignette's run: hazard ratios with 95% intervals.",
+<                              "The bootstrap column is an illustration at a small B."))
+---
+>              caption = paste("This vignette's run: hazard ratios with 95% intervals;",
+>                              "the bootstrap estimate at a small B, without an interval."))

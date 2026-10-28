@@ -1,0 +1,34 @@
+### around first display equation (plain lines 170-185)
+  proportion of consistent splits a candidate must reach.
+
+The applications of León and Anderson (2026b) set \(c_1 = c_2 = 1.0\)
+and \(p^\star = 0.90\). The splitting-consistency rate is not computed
+by drawing splits. With consistency_method = "resample" (the default)
+the rate is evaluated in closed form, as Section 2.2 of that paper gives
+it: to first order the two half-sample estimates are a mirror pair about
+the full-sample fit, so the probability that both clear \(c_2\) is \[
+p_{\mathrm{cons}}(g) \;=\; 2\,\Phi\!\left(\frac{\hat\beta(g) - \log
+c_2}{\sigma_D(g)}\right) - 1, \] with \(\sigma_D(g)\) the scale of the
+half-sample difference, obtained from the fit’s influence function.
+Despite its name, "resample" draws nothing. Literal random
+half-splitting (consistency_method = "split", fs.splits refits per
+candidate) is retained only as the fallback for a candidate whose closed
+form cannot be evaluated — a non-convergent fit, for instance — and
+fs.splits has no effect otherwise. Here every candidate has at least ten
+
+### around T(g) (plain lines 624-638)
+Section 4 of León and Anderson (2026b) asks a different question: would
+a screen calibrated to protect a clinically meaningful uniform benefit
+have declared it? The answer is read for forest search, whose family is
+enumerated. At a protected level \(c_0\) and family-wise level
+\(\alpha\), the calibrated cutoff \(\hat\kappa_\alpha(c_0)\) is the
+\((1 - \alpha)\) quantile of the maximum over the family of each
+candidate’s standardized statistic \[ T(g) \;=\; \frac{\hat\beta(g) -
+\log c_2}{\sigma_D(g)}, \] with every candidate shifted to sit at
+\(c_0\), under the law of the fit’s own multiplier draws. The calibrated
+rule admits a candidate when \(T(g) \ge \hat\kappa_\alpha(c_0)\); it
+holds the family-wise probability of declaring any harm subgroup at
+\(\alpha\) whenever every candidate’s true effect is \(c_0\) or better.
+fs_declaration_calibration() reads it from the draws the fit above
+already made (keep_declaration_field = TRUE, with the grid passed as
+declaration_c0); nothing is redrawn and nothing else in the fit changes.

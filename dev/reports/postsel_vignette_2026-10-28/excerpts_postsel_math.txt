@@ -1,0 +1,62 @@
+### paragraph beginning 'Read together'
+Read together: the median draw retains 66% of the region’s members, a
+tenth of the draws retain 0% or less, and 2% of draws contain all of it.
+Exact re-selection is rare; what moves from draw to draw is the
+boundary. These diagnostics measure re-selection within the fixed
+candidate family under multiplier perturbation; the bootstrap’s and the
+cross-validation’s recovery rates (forestsearch_bootstrap_dofuture(),
+forestsearch_Kfold()) measure re-discovery from resampled data with the
+family rebuilt, which is stronger and costs a full re-run each time.
+
+### cost chunk and table (from plain line 472)
+  sit far below its naive 2.54: most of the apparent harm was selection.
+  The complement’s corrected estimate, 0.64, is a benefit at least as
+  large as the trial’s own 0.695 for the patients outside the region.
+  Neither is read as a test at a hazard ratio of one.
+
+The cost of the two corrections
+
+    cost <- data.frame(
+      method = names(fits),
+      mr_seconds = sapply(fits, function(f) f$mr_inference$timing_seconds),
+      bootstrap_B = B[names(fits)],
+      bootstrap_seconds = boot_secs[names(fits)])
+    cost$seconds_per_replicate <- cost$bootstrap_seconds / cost$bootstrap_B
+    cost$projected_B_1000 <- round(cost$seconds_per_replicate * 1000)
+    knitr::kable(cost, row.names = FALSE, digits = 2,
+                 col.names = c("Method", "MR (s)", "B", "bootstrap (s)", "s per replicate",
+                               "projected at B = 1,000 (s)"),
+                 caption = "Single-core timings from this run. The projection is linear in B.")
+
+  --------------------------------------------------------------------------
+  Method   MR (s)    B    bootstrap          s per    projected at B = 1,000
+                                (s)      replicate                       (s)
+  -------- ------ ---- ------------ -------------- -------------------------
+  FS         4.66   25        32.62           1.30                      1305
+
+  DINA       0.34   25        23.65           0.95                       946
+
+  GRF        2.12   10        21.80           2.18                      2180
+  --------------------------------------------------------------------------
+
+  : Single-core timings from this run. The projection is linear in B.
+  {.caption-top .table .table-sm .table-striped .small}
+
+The multiplier correction is seconds; the bootstrap is minutes at the B
+its intervals need, and the ratio widens with B. The seconds are those
+of this machine and this package version: the MR column is the whole
+multiplier stage as the fit records it (timing_seconds), the bootstrap
+column the whole forestsearch_bootstrap_dofuture() call. The
+manuscript’s figures — 72 s to about 10 minutes at B = 1,000 on 11
+workers, 0.1 to 0.4 s for the multiplier stage — were recorded under
+forestsearch 0.2.0 on another machine, and are not comparable second for
+second; the order of magnitude between the two routes is the point.
+
+Diagnostics
+
+The re-selection frequency
+
+\(\hat p(\hat H)\) is the frequency with which the re-selection picks
+exactly the identified region across the multiplier draws. It is a
+recorded diagnostic — computed after the correction, read by no
+construction, and estimated from the same draws — so it is a flag, not
