@@ -68,6 +68,10 @@
 * The previous getting-started vignette, which documents the workflow of León et al. (2024), is now the
   pkgdown article "Exploratory subgroup identification with forestsearch (the 2024 workflow)" and is no
   longer built on CRAN.
+* `vignette("survival-post-selection")` now runs at the manuscript's settings (consistency level 0.90,
+  5,000 multiplier draws, the closed-form consistency screen) and cites both 2026 papers; the
+  methodology and simulation articles on the package website carry a note placing them as the 2024
+  workflow, with the deprecated arguments removed from their listings.
 
 # forestsearch 0.4.0
 
