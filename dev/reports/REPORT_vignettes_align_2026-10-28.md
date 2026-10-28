@@ -138,3 +138,29 @@ drwxr-xr-x 7 larryleon larryleon   20480 Oct 28 09:20 ..
 -rw-r--r-- 1 larryleon larryleon   10057 Oct 28 09:20 survival-post-selection.qmd
 (listing taken before this section was filled in; the REPORT size shown is the pre-listing size)
 ```
+
+## §3 addendum — methodology listings amendment (Larry, 2026-10-28)
+
+Commit `bf508916`. Files: `vignettes/articles/methodology.Rmd`,
+`dev/reports/vignettes_align_2026-10-28/methodology_listings_check.R`. Resolves the first two OPEN ITEMS.
+
+- Line 955–956 (listing 1, second comment), old → new:
+  - `# LASSO is enabled by default; this snippet contrasts use_lasso = TRUE` / `# with use_grf = FALSE.`
+  - → `# LASSO and GRF are both off by default (use_lasso = FALSE, use_grf = FALSE);` /
+    `# this snippet switches LASSO on (use_lasso = TRUE) and leaves GRF off.`
+  - Listing 1 sets `use_grf = FALSE`, so it says "LASSO on, GRF off" rather than "both on".
+- Line 1064–1065 (listing 2, second comment), old → new:
+  - `# Enable both LASSO and GRF (the package default for variable selection).`
+  - → `# LASSO and GRF are both off by default (use_lasso = FALSE, use_grf = FALSE);` /
+    `# this snippet switches both on (use_lasso = TRUE, use_grf = TRUE).`
+- `match.arg` comments, both listings (lines 1032/1141, 1036/1145, 1037/1146, 1041/1150), old → new:
+  - `outcome_type`: `# default c("survival", "binary", "continuous", "count")` → `# default "survival" (match.arg)`
+  - `overdispersion`: `# default c("none", "quasi", "negbin")` → `# default "none" (match.arg)`
+  - `grf_count_transform`: `# default c("log", "identity")` → `# default "log" (match.arg)`
+  - `ps_adjust_method`: `# default c("none", "iptw", "dr_gcomp")` → `# default "none" (match.arg)`
+- Check script: a comment ending in `(match.arg)` must name the first element of the formal's `c()`
+  character choice vector. The plain form must still deparse-equal the formal.
+- Re-run: ALL CHECKS PASS (`logs/methodology_check_amend.log`).
+- Negative control (`"log"` → `"identity"` in a scratch copy): fails on both listings, rc 1.
+- Article not re-rendered: the edits are inside display-only fenced blocks.
+- OPEN ITEMS remaining: the `paper_simulations.Rmd` 2024-workflow values (unchanged).
