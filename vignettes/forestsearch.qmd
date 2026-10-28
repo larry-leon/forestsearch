@@ -23,20 +23,95 @@ library(forestsearch)
 library(survival)
 ```
 
-`forestsearch()` searches a trial for a subgroup in which the treatment effect
-is worse than the trial's, from candidates built as conjunctions of at most two
-covariate cuts, and reports the effect in the identified subgroup and in its
-complement with estimates and bounds that account for the selection. This
-vignette runs the analysis reported as Table 1 of León and Anderson (2026b), on
-the German Breast Cancer Study Group (GBSG) trial that ships with **survival**,
-at the manuscript's settings: the three identifiers of that paper — forest
-search (FS), the cross-fit surface (DINA) and the causal forest (GRF) — each by
-one call, then the selection-adjusted analysis of León and Anderson (2026a) on
-each identified region and its complement. The search is described in León and
-Anderson (2026b); the corrected estimate, the one-sided field bounds and the
-two-subgroup claim in León and Anderson (2026a); the original procedure in León
-et al. (2024). The computation takes about a minute and a half on one core;
-the fit times are printed as they are measured.
+A confirmatory trial is powered for an effect in its whole population, and the
+indication it supports describes a population in which efficacy and a
+favourable benefit–risk balance have been concluded. Regulatory guidance asks
+that this conclusion be examined across relevant subgroups rather than assumed,
+and that a sub-population in which it does not hold be left out of the
+indication; it credits a subgroup finding only when credible — tied to prior
+plausibility and replication — and warns that an estimate singled out for its
+extremity is biased by the selection (European Medicines Agency 2019).
+Approvals have been restricted to a subgroup after a positive result in the
+whole population (Amatya et al. 2021).
+
+A subgroup of concern is reached by searching the trial's covariates after the
+data are seen, or by examining many prespecified subgroups and singling one
+out. Either way it is chosen for the extremity of its estimate, and its effect
+is reported through the analysis the trial would have run had that subgroup
+been the only one: the treatment coefficient of the trial's working model
+fitted within it, a Cox log hazard ratio for a time-to-event outcome. So
+chosen, the subgroup carries an estimate that overstates its effect, and the
+same selection distorts the estimate for the patients outside it.
+**forestsearch** is built for this situation.
+
+**Identification — what the package searches for, and how**
+
+- **Interpretable candidates.** Every candidate subgroup is a conjunction of at
+  most two covariate cuts, so whether a patient belongs is read from the
+  patient's own measurements.
+- **Three identifiers, one form.** Forest search (León et al. 2024), the causal
+  forest of generalized random forests (GRF; Athey et al. 2019, Cui et al.
+  2023) and the difference-in-natural-parameters estimator (DINA; Gao and
+  Hastie 2025) each score a family of candidates by an estimated treatment
+  effect, admit those whose standard-analysis estimate β̂(g) clears a threshold
+  common to all three, and return one admitted candidate as a selection rule
+  directs — or none, if none is admitted. Forest search enumerates the
+  candidates exhaustively; DINA and GRF propose them from a surface fitted to
+  the outcome, and every proposal is re-ranked on β̂(g) against the same
+  threshold.
+- **The orientation.** The search runs in the direction of a sub-optimal
+  effect — the package's "harm" direction, a hazard ratio above one for a
+  survival outcome — the direction in which the trial's conclusion of benefit
+  would not hold for the patients concerned.
+- **The consistency screen, in closed form.** Forest search additionally
+  requires a candidate's effect to replicate across random half-splits. That
+  screen is complementary-pairs stability selection applied to a smooth
+  estimating-function coefficient, so the replication rate follows in closed
+  form from one fit of the working model within the candidate: nothing is
+  drawn, and the search is deterministic given the data.
+- **The selection rule is a modelling choice.** The rule moves the returned
+  region along a frontier of size against effect — the largest admitted
+  region, the largest within a band of the strongest effect, the strongest
+  effect itself — and so determines what identification and inference are
+  about.
+- **The targets.** The region returned is Ĥ; the targets are β(Ĥ) and, for
+  the patients outside it, β(Ĥᶜ): the working model's coefficient in each
+  population, its least-false value whether or not the model is correct, on
+  the scale on which the trial was powered and on which regulators and
+  clinicians read its results.
+
+**Inference — what is reported about the identified region, and about the rest
+of the trial**
+
+- **The correction.** Refit-free multiplier resampling over the candidate
+  family removes the optimism of selection from the estimate in Ĥ and in Ĥᶜ
+  (León and Anderson 2026a).
+- **One-sided bounds, and a claim about both groups.** The *field* inverts the
+  law of the residual the correction leaves into a one-sided lower bound on
+  β(Ĥ); *field-s* gives the one-sided upper bound on β(Ĥᶜ), relevant to a
+  benefit claim for the patients outside the subgroup; the Bonferroni pair
+  joins the two in a two-subgroup claim at a joint level. Coverage is
+  asymptotically exact under separated selection, characterized under local
+  competition, and conditional on the family proposed when the family comes
+  from the outcomes (León and Anderson 2026b).
+- **Declaration control.** Whether a subgroup should be declared at all is
+  governed separately: the law of the maximum over the enumerated family gives
+  the family-wise rate of falsely declaring a subgroup when every candidate's
+  effect is at least a clinically specified benefit — a diagnostic of the rate
+  the chosen thresholds imply and, where a capped rate is wanted, the
+  calibrated cutoff that holds it (León and Anderson 2026b).
+- **Reading.** Each estimate and bound is read by its location against the
+  trial's own effect and against clinically meaningful effect sizes, not as a
+  test at the null. Whether and how to act on a finding is a broader judgement
+  of benefit and risk, which this inference is meant to inform.
+
+**This vignette** runs the analysis reported as Table 1 of León and Anderson
+(2026b), on the German Breast Cancer Study Group (GBSG) trial that ships with
+**survival**, at the manuscript's settings: the three identifiers, each by one
+call; the selection-adjusted analysis of each identified region and its
+complement; and the declaration calibration at a protected level. The
+computation takes about a minute and a half on one core; the fit times are
+printed as they are measured.
 
 ## The data
 
@@ -511,6 +586,27 @@ fit and alters none of them.
   analyses.
 
 ## References
+
+Amatya, A. K., Fiero, M. H., Bloomquist, E. W., Sinha, A. K., Lemery, S. J.,
+Singh, H., Ibrahim, A., Donoghue, M., Fashoyin-Aje, L. A., de Claro, R. A.,
+Gormley, N. J., Amiri-Kordestani, L., Sridhara, R., Theoret, M. R., Kluetz,
+P. G., Pazdur, R., Beaver, J. A. and Tang, S. (2021). Subgroup analyses in
+oncology trials: Regulatory considerations and case examples. *Clinical Cancer
+Research* 27(21), 5753–5756.
+
+Athey, S., Tibshirani, J. and Wager, S. (2019). Generalized random forests.
+*The Annals of Statistics* 47(2), 1148–1178.
+
+Cui, Y., Kosorok, M. R., Sverdrup, E., Wager, S. and Zhu, R. (2023). Estimating
+heterogeneous treatment effects with right-censored data via causal survival
+forests. *Journal of the Royal Statistical Society Series B* 85(2), 179–211.
+
+European Medicines Agency (2019). Guideline on the investigation of subgroups
+in confirmatory clinical trials. EMA/CHMP/539146/2013, Committee for Medicinal
+Products for Human Use.
+
+Gao, Z. and Hastie, T. (2025). Estimating heterogeneous treatment effects for
+general responses. *Biometrics* 81(4), ujaf162.
 
 León, L. F. and Anderson, K. M. (2026a). Inference for standard trial estimands
 after data-driven subgroup discovery. arXiv:2609.38361.
