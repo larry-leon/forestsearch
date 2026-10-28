@@ -59,6 +59,16 @@
   removes the "will be deprecated" and "Unknown arguments ignored" messages;
   `Suggests: forestploter (>= 1.2.0)`. Reported by adayim (#7).
 
+### Documentation
+
+* New getting-started vignette, `vignette("forestsearch")`: the German Breast Cancer Study Group analysis of
+  León and Anderson (2026b), Table 1, run end to end — the three identifiers (forest search, DINA, GRF) and
+  the selection-adjusted estimates and bounds of León and Anderson (2026a) — at the manuscript's settings,
+  with the declaration calibration at a protected level.
+* The previous getting-started vignette, which documents the workflow of León et al. (2024), is now the
+  pkgdown article "Exploratory subgroup identification with forestsearch (the 2024 workflow)" and is no
+  longer built on CRAN.
+
 # forestsearch 0.4.0
 
 ## Changes since the last CRAN release (0.1.0)
