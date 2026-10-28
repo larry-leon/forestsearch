@@ -129,8 +129,8 @@ follow the document that produced its Table S2:
 ## The three fits
 
 The fits run on one core here (`parallel_args = list(plan = "sequential")`);
-the bootstrap below uses two, the most a CRAN build may use. The package's
-default plan is parallel.
+the bootstrap below uses up to two, the limit a CRAN check imposes. The
+package's default plan is parallel.
 
 ```{r fit-fs}
 #| message: false
@@ -250,7 +250,7 @@ Replicates are independent, so the bootstrap parallelises across them:
 `forestsearch_bootstrap_dofuture()` dispatches them through the **future**
 framework, and `parallel_args = list(plan = "multisession", workers = k)` runs
 them on k processes. The document behind Table S2 ran its B = 1,000 on 11
-workers. This vignette uses two, the most a CRAN build may use
+workers. This vignette uses at most two, the limit a CRAN check imposes
 (`future::availableCores()` returns what the host allows); for a real run, set
 `n_workers` below to the cores you have.
 
@@ -382,21 +382,26 @@ cost <- data.frame(
   bootstrap_seconds = boot_secs[names(fits)])
 cost$seconds_per_replicate <- cost$bootstrap_seconds / cost$bootstrap_B
 cost$projected_B_1000 <- round(cost$seconds_per_replicate * 1000)
+plan_label <- if (n_workers > 1L) sprintf("%d workers", n_workers) else "one process"
 knitr::kable(cost, row.names = FALSE, digits = 2,
              col.names = c("Method", "MR (s)", "B", "bootstrap (s)", "s per replicate",
                            "projected at B = 1,000 (s)"),
-             caption = "Single-core timings from this run. The projection is linear in B.")
+             caption = sprintf(paste(
+               "Wall-clock timings from this run: the multiplier stage under the fits'",
+               "sequential plan, the bootstrap on %s. The projection is linear in B",
+               "at that worker count."), plan_label))
 ```
 
 The multiplier correction is seconds; the bootstrap is minutes at the B its
 intervals need, and the ratio widens with B. The seconds are those of this
 machine and this package version: the MR column is the whole multiplier stage
-as the fit records it (`timing_seconds`), the bootstrap column the whole
-`forestsearch_bootstrap_dofuture()` call. The manuscript's figures — 72 s to
-about 10 minutes at B = 1,000 on 11 workers, 0.1 to 0.4 s for the multiplier
-stage — were recorded under forestsearch 0.2.0 on another machine, and are not
-comparable second for second; the order of magnitude between the two routes
-is the point.
+as the fit records it (`timing_seconds`); the bootstrap column is the whole
+`forestsearch_bootstrap_dofuture()` call on `r plan_label`, in wall-clock
+seconds, so the per-replicate figure and the projection fall as workers are
+added. The manuscript's figures — 72 s to about 10 minutes at B = 1,000 on 11
+workers, 0.1 to 0.4 s for the multiplier stage — were recorded under
+forestsearch 0.2.0 on another machine, and are not comparable second for
+second; the order of magnitude between the two routes is the point.
 
 ## Diagnostics
 
@@ -438,10 +443,10 @@ cat(sprintf("share of draws containing all of H = %.3f  (over %d draws)\n",
 ```
 
 Read together: the median draw retains
-`r sprintf("%.0f%%", 100 * rc$q50)` of the region's members, a tenth of the
-draws retain `r sprintf("%.0f%%", 100 * rc$q10)` or less, and
-`r sprintf("%.0f%%", 100 * rc$share_equal_1)` of draws contain all of it. Exact
-re-selection is rare; what moves from draw to draw is the boundary.
+`r sprintf("%.0f%%", 100 * rc$q50)` of the region's members,
+`r if (rc$q10 == 0) "at least a tenth of the draws retain none of them" else if (100 * rc$q10 < 0.5) "a tenth of the draws retain under 1%" else sprintf("a tenth of the draws retain %.0f%% or less", 100 * rc$q10)`,
+and `r sprintf("%.0f%%", 100 * rc$share_equal_1)` of draws contain all of it.
+Exact re-selection is rare; what moves from draw to draw is the boundary.
 These diagnostics measure re-selection within the fixed candidate family under
 multiplier perturbation; the bootstrap's and the cross-validation's recovery
 rates (`forestsearch_bootstrap_dofuture()`, `forestsearch_Kfold()`) measure
