@@ -1,0 +1,81 @@
+==== all.equal(M-FS debiased, M-FS-ij debiased), tolerance 0 ====
+[1] TRUE
+identical(): TRUE 
+ci_method: field vs ij ; field block present: TRUE vs FALSE 
+MR multiplier-loop timing_seconds: 4.678 (field run) vs 4.623 (ij run)
+
+==== Table S2 comparison (payload = León & Anderson 2026a; now = this ladder) ====
+ method region n_payload n_now                 naive_payload                     naive_now naive_2dp_match naive_maxabs_diff
+     FS      H        61    61 2.536918 (1.245398, 5.167788) 2.536918 (1.245398, 5.167788)            TRUE      8.881784e-16
+     FS     Hc       625   625 0.607938 (0.468596, 0.788715) 0.607938 (0.468596, 0.788715)            TRUE      1.110223e-16
+   DINA      H        89    89 1.599358 (0.879607, 2.908058) 1.599358 (0.879607, 2.908058)            TRUE      1.110223e-16
+   DINA     Hc       597   597 0.629072 (0.482280, 0.820542) 0.629072 (0.482280, 0.820542)            TRUE      1.110223e-16
+    GRF      H        82    82 1.951393 (1.036610, 3.673451) 1.951393 (1.036610, 3.673451)            TRUE      1.776357e-15
+    GRF     Hc       604   604 0.614995 (0.472315, 0.800778) 0.614995 (0.472315, 0.800778)            TRUE      0.000000e+00
+                    mr_payload                        mr_now mr_2dp_match mr_maxabs_diff              fb_payload_B1000
+ 1.442118 (0.619262, 3.358359) 1.443947 (0.620609, 3.359577)         TRUE   1.829612e-03 1.935300 (0.889531, 4.210516)
+ 0.644048 (0.401929, 1.032018) 0.644104 (0.401602, 1.033039)         TRUE   1.021103e-03 0.630417 (0.427198, 0.930309)
+ 1.114573 (0.452056, 2.748052) 1.114573 (0.452056, 2.748052)         TRUE   1.332268e-15 0.889227 (0.381278, 2.073882)
+ 0.659100 (0.399799, 1.086577) 0.659100 (0.399799, 1.086577)         TRUE   2.220446e-16 0.663626 (0.395725, 1.112890)
+ 1.053848 (0.474586, 2.340133) 1.053848 (0.474586, 2.340133)         TRUE   4.440892e-16 1.043478 (0.485030, 2.244907)
+ 0.660887 (0.410252, 1.064643) 0.660887 (0.410252, 1.064643)         TRUE   2.220446e-16 0.662037 (0.387885, 1.129955)
+                      fb_now_B5
+ 2.681773 (0.392779, 18.310323)
+ 0.689927 (0.006033, 78.898877)
+  1.104339 (0.721503, 1.690310)
+ 0.774032 (0.009376, 63.901906)
+  1.477917 (0.780425, 2.798778)
+ 0.711266 (0.009345, 54.135386)
+
+==== payload meta$timings (0.2.0, Mac Studio M4 Max, 11 workers for FB) ====
+     n_family boot_sec mr_sec  speedup
+fs       1744  605.861  0.379 1598.578
+dina       84   71.771  0.107  670.757
+grf       858  225.745  0.132 1710.189
+
+==== bootstrap rungs (nb_boots = 5) ====
+  rung identifier call_sec per_rep_sec_total_over_5 rep1_sec            rep_sec_iter n_found       H2 H2_lower  H2_upper       H0      Hc2
+1 B-FS         fs    10.93                     2.19     1.28 1.28/1.77/2.29/1.5/1.53       5 2.681773 0.392779 18.310323 2.536918 0.689927
+  Hc2_lower Hc2_upper n_warnings
+1  0.006033 78.898877          1
+  SG_CIs:
+List of 4
+ $ H_raw : chr "2.5369 (1.2454,5.1678)"
+ $ H_bc  : chr "2.6818 (0.3928,18.3103)"
+ $ Hc_raw: chr "0.6079 (0.4686,0.7887)"
+ $ Hc_bc : chr "0.6899 (0.006,78.8989)"
+    rung identifier call_sec per_rep_sec_total_over_5 rep1_sec            rep_sec_iter n_found       H2 H2_lower H2_upper       H0      Hc2
+1 B-DINA       dina     4.25                     0.85     0.27 0.27/0.33/0.58/0.37/0.1       5 1.104339 0.721503 1.690310 1.599358 0.774032
+  Hc2_lower Hc2_upper n_warnings
+1  0.009376 63.901906          1
+  SG_CIs:
+List of 4
+ $ H_raw : chr "1.5994 (0.8796,2.9081)"
+ $ H_bc  : chr "1.1043 (0.7215,1.6903)"
+ $ Hc_raw: chr "0.6291 (0.4823,0.8205)"
+ $ Hc_bc : chr "0.774 (0.0094,63.9019)"
+   rung identifier call_sec per_rep_sec_total_over_5 rep1_sec            rep_sec_iter n_found       H2 H2_lower H2_upper       H0      Hc2
+1 B-GRF        grf    19.94                     3.99     3.44 3.44/3.56/3.5/3.62/3.29       5 1.477917 0.780425 2.798778 1.951393 0.711266
+  Hc2_lower Hc2_upper n_warnings
+1  0.009345 54.135386          1
+  SG_CIs:
+List of 4
+ $ H_raw : chr "1.9514 (1.0366,3.6735)"
+ $ H_bc  : chr "1.4779 (0.7804,2.7988)"
+ $ Hc_raw: chr "0.615 (0.4723,0.8008)"
+ $ Hc_bc : chr "0.7113 (0.0093,54.1354)"
+
+==== budget arithmetic (single core, plan = sequential) ====
+ method M_fit_sec M_rung_wall_s B5_call_sec per_rep_sec rep1_sec B_in_30s B_in_60s B_in_120s
+     FS     31.83         33.71       10.93        2.19     1.28       13       27        54
+   DINA      1.73          3.55        4.25        0.85     0.27       35       70       141
+    GRF     11.28         13.13       19.94        3.99     3.44        7       15        30
+
+FS-ij saving: fit 31.83 s (field) - 15.98 s (ij) = 15.85 s; rung wall 33.71 - 17.80 = 15.91 s
+Three M fits (as the document ran them): 44.84 s fit time total (FS 31.83, DINA 1.73, GRF 11.28)
+
+==== overhead-adjusted budget (B affordable in T seconds of the bootstrap call alone; M fit excluded) ====
+ method call_sec sum_iter_sec overhead_sec mean_iter_sec max_iter_sec B_in_30s B_in_60s B_in_120s
+     FS    10.93         8.37         2.56         1.673         2.29       16       34        70
+   DINA     4.25         1.66         2.59         0.332         0.58       82      172       353
+    GRF    19.94        17.41         2.53         3.482         3.62        7       16        33

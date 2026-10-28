@@ -1,0 +1,95 @@
+rung M-FS | forestsearch 0.4.0.9000 from /home/larryleon/R/x86_64-pc-linux-gnu-library/4.6/forestsearch | built R 4.6.1; ; 2026-10-27 21:01:28 UTC; unix
+---- call as evaluated ----
+forestsearch(df.analysis, outcome.name = outcome.name, event.name = event.name, treat.name = treat.name, 
+    id.name = id.name, confounders.name = confounders.name, potentialOutcome.name = NULL, flag_harm.name = NULL, 
+    df.predict = NULL, df.test = NULL, is.RCT = TRUE, seedit = 8316951, est.scale = "hr", use_lasso = FALSE, 
+    use_grf = FALSE, grf_res = NULL, grf_cuts = NULL, grf_depth = fs_grf_depth, dmin.grf = fs_dmin_grf, 
+    frac.tau = 0.8, vi.grf.min = -0.2, return_selected_cuts_only = TRUE, tune_grf = FALSE, use_dina = FALSE, 
+    dina_res = NULL, dina_cuts = NULL, dina_args = fs_dina_args, max_n_confounders = 1000, conf_force = fs_conf_force, 
+    defaultcut_names = NULL, cut_type = "default", exclude_cuts = NULL, replace_med_grf = FALSE, cont.cutoff = 4, 
+    conf.cont_medians = NULL, conf.cont_medians_force = NULL, conf.cont_jcuts = list(er = 10, pgr = 10), 
+    collapse_cuts = TRUE, subgroup_method = fs_subgroup_method, grf_selection = fs_grf_selection, grf_select_statistic = fs_grf_select_statistic, 
+    dina_select_statistic = fs_dina_select_statistic, sg_focus = fs_sg_focus, selection_rule = "neighborhood", 
+    effect_neighborhood = 0.1, mr_inference = run_mr, mr_inference_args = list(draws = mr_draws, family_native_neighborhood = fs_family_native_nbhd), 
+    n.min = 60, d0.min = 10, d1.min = 10, maxk = 2, hr.threshold = fs_hr_threshold, hr.consistency = fs_hr_consistency, 
+    effect.threshold = NULL, consistency.threshold = NULL, pconsistency.threshold = 0.9, consistency_method = fs_consistency_method, 
+    m1.threshold = Inf, minp = 0.025, fs.splits = 1000, stop_threshold = NULL, use_twostage = TRUE, twostage_args = list(), 
+    max.minutes = 3, show_candidate_summary = TRUE, details = FALSE, quiet = TRUE, by.risk = 12, plot.sg = FALSE, 
+    plot.grf = FALSE, parallel_args = list(plan = "sequential"))
+---- call elapsed 31.83 s (user 31.54, sys 0.27); R max used 740.5 Mb
+---- warnings (1):
+  W: forestsearch(): 'vi.grf.min' is deprecated and ignored. GRF variable-importance screening of the candidate cut columns was removed; the candidate family is the cut grid alone unless use_lasso, use_grf or use_dina is TRUE. The argument will be removed in a future release -- drop it from the call.
+---- record ----
+                    [,1]                      
+rung                "M-FS"                    
+identifier          "fs"                      
+fit_sec             "31.83"                   
+ci_method           "field"                   
+region              "{er <= 0} & {size <= 35}"
+N_H                 "61"                      
+E_H                 "34"                      
+N_Hc                "625"                     
+E_Hc                "265"                     
+n_family            "1744"                    
+mr_draws            "5000"                    
+reselection         "effMaxSG"                
+mr_sec              "4.678000"                
+field_sec_H         "12.995000"               
+field_sec_Hc        "2.756000"                
+naive_H             "2.536918"                
+naive_lo_H          "1.245398"                
+naive_hi_H          "5.167788"                
+mr_H                "1.443947"                
+mr_lo_H             "0.620609"                
+mr_hi_H             "3.359577"                
+naive_Hc            "0.607938"                
+naive_lo_Hc         "0.468596"                
+naive_hi_Hc         "0.788715"                
+mr_Hc               "0.644104"                
+mr_lo_Hc            "0.401602"                
+mr_hi_Hc            "1.033039"                
+se_ij_H             "0.430842"                
+se_ij_Hc            "0.241025"                
+field_lower_1s_H    "0.698976"                
+field_lower_2s_H    "0.572870"                
+field_upper_2s_H    "3.095597"                
+field_est2_H        "1.458937"                
+field_s_upper_1s_Hc "0.805325"                
+bonf_lower_H        "0.572870"                
+bonf_upper_Hc       "0.835272"                
+n_warnings          "1"                       
+sg.harm:
+          q1.1          q27.1 
+   "{er <= 0}" "{size <= 35}" 
+MR settings:
+List of 6
+ $ t_confirm     : num 1
+ $ confirm_rule  : chr "point"
+ $ reselection   : chr "effMaxSG"
+ $ selection_rule: chr "neighborhood"
+ $ multiplier    : chr "poisson"
+ $ draws         : int 5000
+GATE A: PASS (region {er <= 0} & {size <= 35}, N 61 [TRUE]; naive 2.54/1.25/5.17 [TRUE]; MR 1.44/0.62/3.36 [TRUE])
+	Command being timed: "Rscript ladder.R M-FS"
+	User time (seconds): 33.18
+	System time (seconds): 0.51
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:33.70
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 798856
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 217418
+	Voluntary context switches: 72
+	Involuntary context switches: 449
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 192
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

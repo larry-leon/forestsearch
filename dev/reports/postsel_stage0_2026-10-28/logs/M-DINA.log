@@ -1,0 +1,83 @@
+rung M-DINA | forestsearch 0.4.0.9000 from /home/larryleon/R/x86_64-pc-linux-gnu-library/4.6/forestsearch | built R 4.6.1; ; 2026-10-27 21:01:28 UTC; unix
+---- call as evaluated ----
+forestsearch(df.analysis, outcome.name = outcome.name, event.name = event.name, treat.name = treat.name, 
+    id.name = id.name, confounders.name = confounders.name, df.predict = NULL, df.test = NULL, is.RCT = TRUE, 
+    seedit = 8316951, subgroup_method = "dina", dina_args = list(seed = dina_seed, n_folds = dina_nfolds), 
+    dina_select_statistic = fs_dina_select_statistic, dina_res = NULL, sg_focus = fs_dina_sg_focus, selection_rule = "neighborhood", 
+    effect_neighborhood = 0.1, n.min = 60, hr.threshold = fs_dina_hr_threshold, mr_inference = run_mr, 
+    mr_inference_args = list(draws = mr_draws, family_native_neighborhood = fs_dina_family_native_nbhd), 
+    details = FALSE, parallel_args = list(plan = "sequential"), quiet = TRUE, plot.sg = FALSE, plot.grf = FALSE)
+---- call elapsed 1.73 s (user 1.57, sys 0.15); R max used 360.6 Mb
+---- warnings (0):
+---- record ----
+                    [,1]                         
+rung                "M-DINA"                     
+identifier          "dina"                       
+fit_sec             "1.73"                       
+ci_method           "ij"                         
+region              "{grade3 >= 1} & {pgr <= 10}"
+N_H                 "89"                         
+E_H                 "50"                         
+N_Hc                "597"                        
+E_Hc                "249"                        
+n_family            "84"                         
+mr_draws            "5000"                       
+reselection         "effMaxSG"                   
+mr_sec              "0.493000"                   
+field_sec_H         NA                           
+field_sec_Hc        NA                           
+naive_H             "1.599358"                   
+naive_lo_H          "0.879607"                   
+naive_hi_H          "2.908058"                   
+mr_H                "1.114573"                   
+mr_lo_H             "0.452056"                   
+mr_hi_H             "2.748052"                   
+naive_Hc            "0.629072"                   
+naive_lo_Hc         "0.482280"                   
+naive_hi_Hc         "0.820542"                   
+mr_Hc               "0.659100"                   
+mr_lo_Hc            "0.399799"                   
+mr_hi_Hc            "1.086577"                   
+se_ij_H             "0.460427"                   
+se_ij_Hc            "0.255062"                   
+field_lower_1s_H    NA                           
+field_lower_2s_H    NA                           
+field_upper_2s_H    NA                           
+field_est2_H        NA                           
+field_s_upper_1s_Hc NA                           
+bonf_lower_H        NA                           
+bonf_upper_Hc       NA                           
+n_warnings          "0"                          
+sg.harm:
+[1] "{grade3 >= 1}" "{pgr <= 10}"  
+MR settings:
+List of 6
+ $ t_confirm     : num 1
+ $ confirm_rule  : chr "point"
+ $ reselection   : chr "effMaxSG"
+ $ selection_rule: chr "neighborhood"
+ $ multiplier    : chr "poisson"
+ $ draws         : int 5000
+	Command being timed: "Rscript ladder.R M-DINA"
+	User time (seconds): 3.21
+	System time (seconds): 0.32
+	Percent of CPU this job got: 100%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:03.54
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 424728
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 161457
+	Voluntary context switches: 60
+	Involuntary context switches: 64
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 120
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
