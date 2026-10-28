@@ -331,3 +331,75 @@ rule admits a candidate when \(T(g) \ge \hat\kappa_\alpha(c_0)\); it
 ## Copies to `~/Downloads/vignettes_math_2026-10-28/`
 
 `forestsearch.html`, `survival-post-selection.html`, `REPORT_postsel_vignette_2026-10-28.md`.
+
+## Caption and recovery-sentence fix (2026-10-28)
+
+Task: `dev/tasks/cc_task_postsel_caption_2026-10-28.md` (commit `8de6cdaf`). Base HEAD `25318e8c`. Vignette commit `e3e18b07`.
+
+### Gates (all passed)
+
+- **§0.1:** branch `feature/vignettes-0.4.1`; `25318e8c` is an ancestor of HEAD. The two pre-existing untracked article `.html` files were left unstaged.
+- **§0.3:** the input md5 is `660b2f87bd26edd0a5e1fdd9801fd09e` (499 lines; line 447 has 214 characters). The base `vignettes/survival-post-selection.qmd` md5 is `8c56077e1fdbd0b1c13fbf4c5d082e15`.
+- **§0.4:** `git diff 936b6734 HEAD -- R/ DESCRIPTION NAMESPACE inst/` is empty. `future::availableCores()` = 128, and `n_workers` resolves to 2.
+- **§1.2 (purl):** the purled diff contains only the added `plan_label <-` line (purled line 190) and the four-line `sprintf(paste(…), plan_label)` caption (purled lines 194–197). All of it lies inside `## ----cost` (purled 182) and before `## ----phat` (purled 200). No other chunk differs.
+- **§1.3 (markdown):** the numbered-list grep returns nothing; `Single-core` count in the qmd = 0.
+- **§1.4 (render):**
+  - exit 0.
+  - In the plain text: `Error in` 0, `NaN` 0, `Warning` 0, `\bNA \(` 0.
+  - In the raw HTML: `gt_table` 8, `mathjax` (case-insensitive) 4.
+  - Multiplier strings in the plain text: `1.44 (0.62, 3.36)` 4, `0.64 (0.40, 1.03)` 4, `1.11 (0.45, 2.75)` 3, `0.66 (0.40, 1.09)` 3, `1.05 (0.47, 2.34)` 3, `0.66 (0.41, 1.06)` 3. All are ≥ 2.
+  - Raw HTML: `the bootstrap on 2 workers` occurs 1 time; `Single-core` occurs 0 times.
+  - Plain text: `0% or less` occurs 0 times; `at least a tenth of the draws retain none of them` occurs 1 time.
+  - "Full bootstrap estimate" column, Ĥ rows: FS 1.88, DINA 0.83, GRF 1.29. These are unchanged from the two previous renders.
+
+### Render
+
+- **Wall clock:** 2:11.80 (`/usr/bin/time -v`). Max RSS 986,976 kB.
+- **HTML size:** 1,378,503 bytes.
+- **Log:** `postsel_vignette_2026-10-28/render_postsel_caption.log`.
+- **`boot_secs`:** FS 34.4 / DINA 24.2 / GRF 22.6 s this run, against FS 32.6 / DINA 23.6 / GRF 21.8 s in the previous run. This is wall-clock jitter on two workers. The estimates are unchanged.
+
+### Recorded excerpts (from `pandoc --wrap=none -t plain`)
+
+Cost table and caption:
+
+```
+  -------------------------------------------------------------------------------------
+  Method     MR (s)    B   bootstrap (s)   s per replicate   projected at B = 1,000 (s)
+  -------- -------- ---- --------------- ----------------- ----------------------------
+  FS           4.72   25           34.36              1.37                         1374
+
+  DINA         0.35   25           24.22              0.97                          969
+
+  GRF          2.13   10           22.61              2.26                         2261
+  -------------------------------------------------------------------------------------
+
+  : Wall-clock timings from this run: the multiplier stage under the fits’ sequential plan, the bootstrap on 2 workers. The projection is linear in B at that worker count. {.caption-top .table .table-sm .table-striped .small}
+```
+
+The paragraph after the cost table:
+
+```
+The multiplier correction is seconds; the bootstrap is minutes at the B its intervals need, and the ratio widens with B. The seconds are those of this machine and this package version: the MR column is the whole multiplier stage as the fit records it (timing_seconds); the bootstrap column is the whole forestsearch_bootstrap_dofuture() call on 2 workers, in wall-clock seconds, so the per-replicate figure and the projection fall as workers are added. The manuscript’s figures — 72 s to about 10 minutes at B = 1,000 on 11 workers, 0.1 to 0.4 s for the multiplier stage — were recorded under forestsearch 0.2.0 on another machine, and are not comparable second for second; the order of magnitude between the two routes is the point.
+```
+
+"Read together" paragraph:
+
+```
+Read together: the median draw retains 66% of the region’s members, at least a tenth of the draws retain none of them, and 2% of draws contain all of it. Exact re-selection is rare; what moves from draw to draw is the boundary. These diagnostics measure re-selection within the fixed candidate family under multiplier perturbation; the bootstrap’s and the cross-validation’s recovery rates (forestsearch_bootstrap_dofuture(), forestsearch_Kfold()) measure re-discovery from resampled data with the family rebuilt, which is stronger and costs a full re-run each time.
+```
+
+### Deviations
+
+None. The task was executed as written.
+
+### OPEN ITEMS
+
+None. This commit closes both open items of the previous section:
+
+1. The cost-table caption is now built from `n_workers`. It reads "…the bootstrap on 2 workers. The projection is linear in B at that worker count."
+2. The recovery sentence now reads "at least a tenth of the draws retain none of them". It no longer says "0% or less".
+
+## Copies to `~/Downloads/postsel_caption_2026-10-28/`
+
+`survival-post-selection.html`, `REPORT_postsel_vignette_2026-10-28.md`.
