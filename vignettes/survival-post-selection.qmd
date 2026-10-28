@@ -29,10 +29,13 @@ the selection: a confidence interval computed as if the subgroup had been
 prespecified tends to under-cover. With `mr_inference = TRUE`,
 `forestsearch()` reports selection-adjusted estimates and bounds for the
 identified subgroup and its complement, based on multiplier resampling of the
-candidate effects. The methodology, its assumptions and its simulation
-operating characteristics are described in León and Anderson (2026); this
-vignette shows how to obtain and read the reported quantities on a public
-dataset.
+candidate effects. The constructions, their assumptions and their simulation
+operating characteristics are described in León and Anderson (2026a); the
+search that identifies the subgroup — the closed-form consistency screen, the
+selection rule and the declaration calibration — in León and Anderson
+(2026b). This vignette shows how to obtain and read the reported quantities on
+a public dataset; `vignette("forestsearch")` runs the same analysis as the
+manuscript's Table 1 and reads it alongside the two model-based identifiers.
 
 ## The data and the fit
 
@@ -56,7 +59,10 @@ cat("Sample size:", nrow(df.analysis),
 
 The fit below uses the consistency search without a LASSO/GRF/DINA screen,
 `sg_focus = "effMaxSG"` (the largest subgroup within 20% of the strongest
-observed effect), 200 consistency splits and 500 multiplier draws.
+observed effect), the closed-form consistency screen at p\* = 0.90 with every
+screened candidate evaluated (`stop_threshold = NULL`), and 5,000 multiplier
+draws — the settings of Table 1 of León and Anderson (2026b), so this fit is
+the forest-search fit of `vignette("forestsearch")`.
 `mr_inference = TRUE` attaches the post-selection results to the fit as
 `fs$mr_inference`; `field_recovery = TRUE` adds the membership-agreement
 diagnostics used below. Bootstrap and cross-validation are not run here; see
@@ -77,10 +83,10 @@ fs <- forestsearch(
   subgroup_method = "consistency", sg_focus = "effMaxSG",
   selection_rule = "neighborhood", effect_neighborhood = 0.20,
   mr_inference = TRUE,
-  mr_inference_args = list(draws = 500L, field_recovery = TRUE),
+  mr_inference_args = list(draws = 5000L, field_recovery = TRUE),
   n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
-  hr.threshold = 1.0, hr.consistency = 1.0, pconsistency.threshold = 0.80,
-  fs.splits = 200,
+  hr.threshold = 1.0, hr.consistency = 1.0, pconsistency.threshold = 0.90,
+  stop_threshold = NULL,
   details = FALSE, quiet = TRUE, plot.sg = FALSE,
   parallel_args = list(plan = "sequential"))
 cat(sprintf("fit time: %.1f seconds\n", (proc.time() - t0)[["elapsed"]]))
@@ -116,7 +122,7 @@ print(fs)
 
 The field bounds require `ci_method = "field"` (the default); with
 `ci_method = "ij"` only the two-sided interval is reported. León and Anderson
-(2026) describe each construction and report its performance in simulation.
+(2026a) describe each construction and report its performance in simulation.
 
 `summary()` adds the standard errors and the leading re-selection frequencies:
 
@@ -130,9 +136,9 @@ These bounds are read **by location against a clinically meaningful effect
 size**, never as significance at the null.
 
 The harm-side question is *how much harm the data can rule out*. A one-sided
-lower bound in the high 0.8s or above, against a naive subgroup estimate well
-above 1, says the adjusted evidence does not establish clinically meaningful
-harm -- the naive estimate was largely selection.
+lower bound in the high 0.8s or above, against an unadjusted subgroup estimate
+well above 1, says the adjusted evidence does not establish clinically
+meaningful harm -- the unadjusted estimate was largely selection.
 
 The complement-side question is a benefit claim: *is the one-sided upper bound
 below a threshold that would matter?* Name the threshold you are reading
@@ -142,14 +148,14 @@ a decision rule.
 
 ```{r locations}
 g <- fs$mr_inference
-cat(sprintf("naive HR on Hhat            %.3f\n", g$naive$est))
-cat(sprintf("de-biased HR on Hhat        %.3f\n", g$debiased$est))
+cat(sprintf("unadjusted HR on Hhat       %.3f\n", g$naive$est))
+cat(sprintf("corrected (two-term) HR     %.3f\n", g$debiased$est))
 cat(sprintf("field one-sided lower       %.3f\n", g$field$lower_1s))
 cat(sprintf("field-s one-sided upper Hc  %.3f  (vs 0.80 / 0.85)\n",
             g$field$complement$upper_1s_s))
 ```
 
-The distance between the naive estimate and the de-biased one is what
+The distance between the unadjusted estimate and the corrected one is what
 selection cost; the spread across the constructions is what the adjustments
 pay for it.
 
@@ -172,7 +178,7 @@ print(round(sort(ph, decreasing = TRUE)[1:5], 3))
 
 A small p-hat indicates that the exact boundary of the identified subgroup is
 not stable under perturbation; by itself it is neither evidence for nor
-against the bounds. León and Anderson (2026) discuss how the bias correction
+against the bounds. León and Anderson (2026a) discuss how the bias correction
 behaves across values of p-hat.
 
 ### What p-hat alone cannot say
@@ -215,9 +221,13 @@ cost a full re-run.
 
 ## References
 
-León, L. F. and Anderson, K. M. (2026). Inference for standard trial
+León, L. F. and Anderson, K. M. (2026a). Inference for standard trial
 estimands after data-driven subgroup discovery. arXiv:2609.38361.
-<https://arxiv.org/abs/2609.38361>
+<https://doi.org/10.48550/arXiv.2609.38361>
+
+León, L. F. and Anderson, K. M. (2026b). Interpretable subgroup identification
+across survival and generalized-linear outcomes. arXiv:2610.28379.
+<https://doi.org/10.48550/arXiv.2610.28379>
 
 León, L. F., Jemielita, T., Guo, Z., Marceau West, R. and Anderson, K. M.
 (2024). Exploratory subgroup identification in the heterogeneous Cox model:
