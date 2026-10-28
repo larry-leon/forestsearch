@@ -63,11 +63,11 @@ same selection distorts the estimate for the patients outside it.
   forest of generalized random forests (GRF; Athey et al. 2019, Cui et al. 2023)
   and the difference-in-natural-parameters estimator (DINA; Gao and Hastie 2025)
   each score a family of candidates by an estimated treatment effect, admit
-  those whose standard-analysis estimate β̂(g) clears a threshold common to all
+  those whose standard-analysis estimate $\hat\beta(g)$ clears a threshold common to all
   three, and return one admitted candidate as a selection rule directs — or
   none, if none is admitted. Forest search enumerates the candidates
   exhaustively; DINA and GRF propose them from a surface fitted to the outcome,
-  and every proposal is re-ranked on β̂(g) against the same threshold.
+  and every proposal is re-ranked on $\hat\beta(g)$ against the same threshold.
 - **The orientation.** The search runs in the direction of a sub-optimal
   effect — the package's "harm" direction, a hazard ratio above one for a
   survival outcome — the direction in which the trial's conclusion of benefit
@@ -83,8 +83,9 @@ same selection distorts the estimate for the patients outside it.
   region, the largest within a band of the strongest effect, the strongest
   effect itself — and so determines what identification and inference are
   about.
-- **The targets.** The region returned is Ĥ; the targets are β(Ĥ) and, for
-  the patients outside it, β(Ĥᶜ): the working model's coefficient in each
+- **The targets.** The region returned is $\hat H$; the targets are
+  $\beta(\hat H)$ and, for the patients outside it, $\beta(\hat H^{c})$: the
+  working model's coefficient in each
   population, its least-false value whether or not the model is correct, on
   the scale on which the trial was powered and on which regulators and
   clinicians read its results.
@@ -93,11 +94,12 @@ same selection distorts the estimate for the patients outside it.
 of the trial**
 
 - **The correction.** Refit-free multiplier resampling over the candidate
-  family removes the optimism of selection from the estimate in Ĥ and in Ĥᶜ
-  (León and Anderson 2026a).
+  family removes the optimism of selection from the estimate in $\hat H$ and
+  in $\hat H^{c}$ (León and Anderson 2026a).
 - **One-sided bounds, and a claim about both groups.** The *field* inverts the
   law of the residual the correction leaves into a one-sided lower bound on
-  β(Ĥ); *field-s* gives the one-sided upper bound on β(Ĥᶜ), relevant to a
+  $\beta(\hat H)$; *field-s* gives the one-sided upper bound on
+  $\beta(\hat H^{c})$, relevant to a
   benefit claim for the patients outside the subgroup; the Bonferroni pair
   joins the two in a two-subgroup claim at a joint level. Coverage is
   asymptotically exact under separated selection, characterized under local
@@ -165,43 +167,48 @@ cut of its own (`conf_force`).
 Three thresholds govern the search, on the hazard-ratio scale with harm
 upward:
 
-- the **screening threshold** c₁ = `hr.threshold`, which a candidate's
+- the **screening threshold** $c_1$ = `hr.threshold`, which a candidate's
   estimated hazard ratio must clear to be admitted;
-- the **per-split threshold** c₂ = `hr.consistency`, the claim threshold at
-  which an effect stops being beneficial, which both halves of a random
+- the **per-split threshold** $c_2$ = `hr.consistency`, the claim threshold
+  at which an effect stops being beneficial, which both halves of a random
   half-split must clear for the split to count as consistent;
-- the **consistency level** p\* = `pconsistency.threshold`, the proportion of
-  consistent splits a candidate must reach.
+- the **consistency level** $p^\star$ = `pconsistency.threshold`, the
+  proportion of consistent splits a candidate must reach.
 
-The applications of León and Anderson (2026b) set c₁ = c₂ = 1.0 and
-p\* = 0.90. The splitting-consistency rate is *not* computed by drawing splits.
-With `consistency_method = "resample"` (the default) the rate is evaluated in
-closed form, as Section 2.2 of that paper gives it: to first order the two
-half-sample estimates are a mirror pair about the full-sample fit, so the
-probability that both clear c₂ is 2Φ((β̂(g) − log c₂)/σ_D(g)) − 1, with σ_D(g)
-the scale of the half-sample difference obtained from the fit's influence
-function. Despite its name, `"resample"` draws nothing. Literal random
+The applications of León and Anderson (2026b) set $c_1 = c_2 = 1.0$ and
+$p^\star = 0.90$. The splitting-consistency rate is *not* computed by drawing
+splits. With `consistency_method = "resample"` (the default) the rate is
+evaluated in closed form, as Section 2.2 of that paper gives it: to first
+order the two half-sample estimates are a mirror pair about the full-sample
+fit, so the probability that both clear $c_2$ is
+$$
+p_{\mathrm{cons}}(g) \;=\; 2\,\Phi\!\left(\frac{\hat\beta(g) - \log c_2}{\sigma_D(g)}\right) - 1,
+$$
+with $\sigma_D(g)$ the scale of the half-sample difference, obtained from the
+fit's influence function. Despite its name, `"resample"` draws nothing. Literal random
 half-splitting (`consistency_method = "split"`, `fs.splits` refits per
 candidate) is retained only as the fallback for a candidate whose closed form
 cannot be evaluated — a non-convergent fit, for instance — and `fs.splits` has
 no effect otherwise. Here every candidate has at least ten events in each arm
 and the Cox fits converge, so the closed form is evaluable throughout and the
 search is deterministic given the data. The rate is rounded to
-`pconsistency.digits = 2` decimals before it is compared with p\*.
+`pconsistency.digits = 2` decimals before it is compared with $p^\star$.
 
-The **selection rule** is max N(ε): among the admitted candidates, the largest
-whose hazard ratio is within 20% of the largest hazard ratio over the family
+The **selection rule** is $\max_{\mathcal{A}} N(\varepsilon)$: among the
+admitted candidates $\mathcal{A}$, the largest whose hazard ratio is within a
+fraction $\varepsilon = 0.20$ of the largest hazard ratio over the family
 (`sg_focus = "effMaxSG"`, `selection_rule = "neighborhood"`,
 `effect_neighborhood = 0.20`). Section 2.1 of León and Anderson (2026b) sets
-this rule beside the alternatives (max N, max β, and their smallest-subgroup
-counterparts), which Figure 1 of that paper draws on this trial's candidate
-frontier.
+this rule beside the alternatives ($\max_{\mathcal{A}} N$,
+$\max_{\mathcal{A}} \hat\beta$, and their smallest-subgroup counterparts),
+which Figure 1 of that paper draws on this trial's candidate frontier.
 
 **Inference** (`mr_inference = TRUE`): from 5,000 multiplier draws over every
 size-eligible candidate the identifier proposes, the corrected (two-term)
-estimate of the effect in the identified region Ĥ and in its complement Ĥᶜ
-(León and Anderson 2026a); the nominal 95% one-sided *field* lower bound on
-β(Ĥ), the *field-s* upper bound on β(Ĥᶜ), the studentized complement bound,
+estimate of the effect in the identified region $\hat H$ and in its
+complement $\hat H^{c}$ (León and Anderson 2026a); the nominal 95% one-sided
+*field* lower bound on $\beta(\hat H)$, the *field-s* upper bound on
+$\beta(\hat H^{c})$, the studentized complement bound,
 and the Bonferroni pair, a joint 95% claim on both (León and Anderson 2026b).
 The field's own
 Monte Carlo runs at 1,000 outer and 500 inner draws, the package's fixed
@@ -304,10 +311,11 @@ stopifnot(sel$N == g_fs$n_selected)   # the rule, re-applied, picks the fit's ow
 ```
 
 All of the passing candidates restrict the estrogen receptor, and the rules
-differ only in how far that region is trimmed. The max N(ε) rule takes the 75
-patients with no measured estrogen receptor and progesterone receptor at most
-26 fmol/l; max N would take the 82 with no measured estrogen receptor; the
-effect-maximising rules the 61 with, in addition, tumour size at most 35 mm.
+differ only in how far that region is trimmed. The $\max_{\mathcal{A}}
+N(\varepsilon)$ rule takes the 75 patients with no measured estrogen receptor
+and progesterone receptor at most 26 fmol/l; $\max_{\mathcal{A}} N$ would take
+the 82 with no measured estrogen receptor; the effect-maximising rules the 61
+with, in addition, tumour size at most 35 mm.
 
 ## The selection-adjusted analysis of a region
 
@@ -378,8 +386,8 @@ complement bound agree on these data.
 ## The two model-based identifiers
 
 DINA and GRF propose candidates from a surface fitted to the outcome and have
-them re-ranked on the same Cox coefficient β̂(g) against the same screening
-threshold; neither applies the consistency screen. Supplementary Section S5 of
+them re-ranked on the same Cox coefficient $\hat\beta(g)$ against the same
+screening threshold; neither applies the consistency screen. Supplementary Section S5 of
 León and Anderson (2026b) sets the three identifiers side by side, with every
 setting used here. The selection rule and the inference are the same. The
 calls differ from forest search's only in the identifier's own arguments.
@@ -526,16 +534,21 @@ ev_region <- vapply(m, function(z) sum(df$status[z]), numeric(1))
 ## Declaration at a protected level
 
 Every region above was declared at the identifiers' default settings, forest
-search's by the conventional screen at p\* = 0.90. Section 4 of León and
+search's by the conventional screen at $p^\star = 0.90$. Section 4 of León and
 Anderson (2026b) asks a different question: would a screen calibrated to
 protect a clinically meaningful uniform benefit have declared it? The answer is
-read for forest search, whose family is enumerated. At a protected level c₀ and
-family-wise level α, the calibrated cutoff κ̂_α(c₀) is the (1 − α) quantile of
-the maximum over the family of each candidate's standardized statistic
-T(g) = (β̂(g) − log c₂)/σ_D(g), with every candidate shifted to sit at c₀,
-under the law of the fit's own multiplier draws. The calibrated rule admits a
-candidate when T(g) ≥ κ̂; it holds the family-wise probability of declaring any
-harm subgroup at α whenever every candidate's true effect is c₀ or better.
+read for forest search, whose family is enumerated. At a protected level $c_0$
+and family-wise level $\alpha$, the calibrated cutoff $\hat\kappa_\alpha(c_0)$
+is the $(1 - \alpha)$ quantile of the maximum over the family of each
+candidate's standardized statistic
+$$
+T(g) \;=\; \frac{\hat\beta(g) - \log c_2}{\sigma_D(g)},
+$$
+with every candidate shifted to sit at $c_0$, under the law of the fit's own
+multiplier draws. The calibrated rule admits a candidate when
+$T(g) \ge \hat\kappa_\alpha(c_0)$; it holds the family-wise probability of
+declaring any harm subgroup at $\alpha$ whenever every candidate's true effect
+is $c_0$ or better.
 `fs_declaration_calibration()` reads it from the draws the fit above already
 made (`keep_declaration_field = TRUE`, with the grid passed as
 `declaration_c0`); nothing is redrawn and nothing else in the fit changes.
@@ -569,7 +582,7 @@ cat(sprintf("T of the declared region: %.3f; largest T in the family: %.3f\n", T
 cat(sprintf("The p* = 0.90 screen's cutoff, as the package applies it: %.3f\n", cal$z_pstar))
 ```
 
-The screen's cutoff is the p\* = 0.90 rule as the package applies it, after
+The screen's cutoff is the $p^\star = 0.90$ rule as the package applies it, after
 the rate is rounded to `pconsistency.digits = 2`, which is why it sits a little
 below the 1.645 of an unrounded 0.90.
 
@@ -581,9 +594,9 @@ region's statistic is `r sprintf("%.3f", T_H)` and the largest in the family
 `r if (lengths(cal$c0$admitted_calibrated)[tb$c0 == 0.75] == 0) "no candidate" else "a candidate"`
 at that level, and likewise at every protected level on the grid and at the
 claim threshold. The FW-size column is the diagnostic of the paper's
-equation (8): the probability that the p\* = 0.90 screen as
+equation (8): the probability that the $p^\star = 0.90$ screen as
 executed declares some harm subgroup if every candidate carried a uniform
-benefit of c₀ — a property of this family and covariate design, not the
+benefit of $c_0$ — a property of this family and covariate design, not the
 trial's realized error rate; at the claim threshold it is a boundary size.
 To run the screen at the implied level, set `pconsistency.threshold` to it and
 `pconsistency.digits` to at least 5, so the level is not rounded away; the
