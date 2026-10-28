@@ -44,8 +44,9 @@ Anderson 2026a). The same selection distorts the estimate for the patients
 outside the subgroup.
 
 **What is corrected, and how.** The target is the standard-analysis effect of
-the selected region, with the candidate family held fixed: β(Ĥ) for the region
-and β(Ĥᶜ) for its complement. Two routes remove the optimism of selection.
+the selected region, with the candidate family held fixed: $\beta(\hat H)$ for
+the region and $\beta(\hat H^{c})$ for its complement. Two routes remove the
+optimism of selection.
 
 - **The full bootstrap** re-runs the whole pipeline — enumerate, screen,
   select — on each resample, and corrects the observed estimate by the
@@ -104,13 +105,14 @@ follow the document that produced its Table S2:
   cuts on each receptor with zero forced in as a cut of its own; DINA and GRF
   propose their candidates from a fitted surface on the covariates as given.
 - **Forest search** screens at a hazard ratio of 1.0 and requires splitting
-  consistency at p\* = 0.90, evaluated in closed form (`consistency_method =
-  "resample"`); `stop_threshold = NULL` has every screened candidate
-  evaluated.
-- **The selection rule** is max N(ε) at **ε = 0.10**: the largest admitted
-  region whose effect is within 10% of the largest effect over the family. The
-  companion vignette uses ε = 0.20 and returns a larger forest-search region
-  (N 75); at ε = 0.10 the rule returns the 61 patients with no measured
+  consistency at $p^\star = 0.90$, evaluated in closed form
+  (`consistency_method = "resample"`); `stop_threshold = NULL` has every
+  screened candidate evaluated.
+- **The selection rule** is $\max_{\mathcal{A}} N(\varepsilon)$ at
+  $\varepsilon = 0.10$: the largest admitted region whose effect is within 10%
+  of the largest effect over the family. The companion vignette uses
+  $\varepsilon = 0.20$ and returns a larger forest-search region (N 75); at
+  $\varepsilon = 0.10$ the rule returns the 61 patients with no measured
   estrogen receptor and tumour size at most 35 mm — the effect-maximising
   region of that vignette's candidate table.
 - **DINA** is re-ranked on the Cox coefficient against a floor of 0.90, with a
@@ -125,6 +127,10 @@ follow the document that produced its Table S2:
   companion vignette and the membership-recovery diagnostics used below.
 
 ## The three fits
+
+The fits run on one core here (`parallel_args = list(plan = "sequential")`);
+the bootstrap below uses two, the most a CRAN build may use. The package's
+default plan is parallel.
 
 ```{r fit-fs}
 #| message: false
@@ -240,16 +246,27 @@ not — the finite-B variance needs B in the hundreds, the package warns below
 the interval columns of the bootstrap tables below as what the machinery
 produces at this B, not as results.
 
+Replicates are independent, so the bootstrap parallelises across them:
+`forestsearch_bootstrap_dofuture()` dispatches them through the **future**
+framework, and `parallel_args = list(plan = "multisession", workers = k)` runs
+them on k processes. The document behind Table S2 ran its B = 1,000 on 11
+workers. This vignette uses two, the most a CRAN build may use
+(`future::availableCores()` returns what the host allows); for a real run, set
+`n_workers` below to the cores you have.
+
 ```{r bootstrap}
 #| message: false
 #| warning: false
+n_workers <- min(2L, future::availableCores())   # set to your cores for a real run
+boot_plan <- if (n_workers > 1L) list(plan = "multisession", workers = n_workers) else
+  list(plan = "sequential")
 B <- c(FS = 25L, DINA = 25L, GRF = 10L)
 boots <- list(); boot_secs <- c()
 for (m in names(fits)) {
   t0 <- proc.time()[["elapsed"]]
   boots[[m]] <- forestsearch_bootstrap_dofuture(
     fs.est = fits[[m]], nb_boots = B[[m]], seed = 8316951L,
-    mr_in_replicates = FALSE, parallel_args = list(plan = "sequential"))
+    mr_in_replicates = FALSE, parallel_args = boot_plan)
   boot_secs[m] <- proc.time()[["elapsed"]] - t0
 }
 round(boot_secs, 1)
@@ -278,7 +295,9 @@ mr_estimates_table(fit_fs, boot_results = boots$FS, est.scale = "hr", digits = 2
 ## Naive, bootstrap and multiplier side by side
 
 The three columns for the three identifiers, assembled from the fit objects
-and the bootstrap objects.
+and the bootstrap objects. The bootstrap column carries the point estimate
+only: at this B its interval is not a result (the package's own table above
+shows what the machinery returns for it).
 
 ```{r three-columns}
 three_columns <- function(method, fit, boot) {
@@ -291,22 +310,20 @@ three_columns <- function(method, fit, boot) {
           sprintf("%d (%d%%)", n_Hc, round(100 * n_Hc / (n_H + n_Hc)))),
     naive = c(f2(g$naive$est, g$naive$lower, g$naive$upper),
               f2(cc$naive$est, cc$naive$lower, cc$naive$upper)),
-    bootstrap = c(f2(boot$H_estimates$H2, boot$H_estimates$H2_lower,
-                     boot$H_estimates$H2_upper),
-                  f2(boot$Hc_estimates$H2, boot$Hc_estimates$H2_lower,
-                     boot$Hc_estimates$H2_upper)),
+    bootstrap = sprintf("%.2f", c(boot$H_estimates$H2, boot$Hc_estimates$H2)),
     multiplier = c(f2(g$debiased$est, g$debiased$lower, g$debiased$upper),
                    f2(cc$debiased$est, cc$debiased$lower, cc$debiased$upper)))
 }
 side_by_side <- rbind(three_columns("FS", fit_fs, boots$FS),
                       three_columns("DINA", fit_dina, boots$DINA),
                       three_columns("GRF", fit_grf, boots$GRF))
-boot_label <- sprintf("Full bootstrap (B = %d / %d / %d)", B[["FS"]], B[["DINA"]], B[["GRF"]])
+boot_label <- sprintf("Full bootstrap estimate (B = %d / %d / %d)",
+                      B[["FS"]], B[["DINA"]], B[["GRF"]])
 knitr::kable(side_by_side, row.names = FALSE, align = "llrrrr",
              col.names = c("Method", "SG", "n (%)", "Naive", boot_label,
                            "Multiplier (5,000 draws)"),
-             caption = paste("This vignette's run: hazard ratios with 95% intervals.",
-                             "The bootstrap column is an illustration at a small B."))
+             caption = paste("This vignette's run: hazard ratios with 95% intervals;",
+                             "the bootstrap estimate at a small B, without an interval."))
 ```
 
 Table S2 of León and Anderson (2026a), as published, with the full bootstrap at
@@ -372,19 +389,23 @@ knitr::kable(cost, row.names = FALSE, digits = 2,
 ```
 
 The multiplier correction is seconds; the bootstrap is minutes at the B its
-intervals need, and the ratio widens with B. The absolute numbers are those of
-this machine and this package version; the manuscript reports 72 s to about
-10 minutes at B = 1,000 on 11 workers against 0.1 to 0.4 s for the multiplier
-stage.
+intervals need, and the ratio widens with B. The seconds are those of this
+machine and this package version: the MR column is the whole multiplier stage
+as the fit records it (`timing_seconds`), the bootstrap column the whole
+`forestsearch_bootstrap_dofuture()` call. The manuscript's figures — 72 s to
+about 10 minutes at B = 1,000 on 11 workers, 0.1 to 0.4 s for the multiplier
+stage — were recorded under forestsearch 0.2.0 on another machine, and are not
+comparable second for second; the order of magnitude between the two routes
+is the point.
 
 ## Diagnostics
 
 ### The re-selection frequency
 
-p̂(Ĥ) is the frequency with which the re-selection picks exactly the identified
-region across the multiplier draws. It is a recorded diagnostic — computed after
-the correction, read by no construction, and estimated from the same draws —
-so it is a flag, not an instrument.
+$\hat p(\hat H)$ is the frequency with which the re-selection picks exactly the
+identified region across the multiplier draws. It is a recorded diagnostic —
+computed after the correction, read by no construction, and estimated from the
+same draws — so it is a flag, not an instrument.
 
 ```{r phat}
 ph  <- g$reselection$p_hat
@@ -393,18 +414,19 @@ cat(sprintf("p-hat(H) = %.3f over a family of %d candidates\n",
 print(round(sort(ph, decreasing = TRUE)[1:5], 3))
 ```
 
-A small p̂ says the exact boundary of the region is not stable under
+A small $\hat p$ says the exact boundary of the region is not stable under
 perturbation; by itself it is neither evidence for nor against the correction.
 
-### What p̂ alone cannot say
+### What $\hat p$ alone cannot say
 
-p̂ counts exact re-selections. Over a family in which most candidates differ
-from Ĥ by a single cut, a small exact-match rate is compatible with the draws
-re-selecting near-twins of Ĥ or unrelated regions, and p̂ does not distinguish
-them. Membership agreement does: each draw's re-selection is compared with Ĥ
-as a set of patients, in the vocabulary of the cross-validation agreement
-metrics of `forestsearch_Kfold()` (`sens_H`, `ppv_H`). These diagnostics are
-computed from the field draws, which the forest-search fit asked for.
+$\hat p$ counts exact re-selections. Over a family in which most candidates
+differ from $\hat H$ by a single cut, a small exact-match rate is compatible
+with the draws re-selecting near-twins of $\hat H$ or unrelated regions, and
+$\hat p$ does not distinguish them. Membership agreement does: each draw's
+re-selection is compared with $\hat H$ as a set of patients, in the vocabulary
+of the cross-validation agreement metrics of `forestsearch_Kfold()` (`sens_H`,
+`ppv_H`). These diagnostics are computed from the field draws, which the
+forest-search fit asked for.
 
 ```{r recovery}
 rc <- g$field$recovery
@@ -415,8 +437,11 @@ cat(sprintf("share of draws containing all of H = %.3f  (over %d draws)\n",
             rc$share_equal_1, rc$n_used))
 ```
 
-Exact re-selection can be rare while the typical re-selection retains much of
-the identified region — an unstable boundary rather than an unstable region.
+Read together: the median draw retains
+`r sprintf("%.0f%%", 100 * rc$q50)` of the region's members, a tenth of the
+draws retain `r sprintf("%.0f%%", 100 * rc$q10)` or less, and
+`r sprintf("%.0f%%", 100 * rc$share_equal_1)` of draws contain all of it. Exact
+re-selection is rare; what moves from draw to draw is the boundary.
 These diagnostics measure re-selection within the fixed candidate family under
 multiplier perturbation; the bootstrap's and the cross-validation's recovery
 rates (`forestsearch_bootstrap_dofuture()`, `forestsearch_Kfold()`) measure
@@ -438,7 +463,7 @@ build on this correction are the subject of León and Anderson (2026b) and of
 ## Where to go next
 
 - `vignette("forestsearch")`: the same trial under the identification paper —
-  the search, the three identifiers at the max N(ε = 0.20) rule, the one-sided
+  the search, the three identifiers at the $\max_{\mathcal{A}} N(\varepsilon = 0.20)$ rule, the one-sided
   field bounds, the two-subgroup claim and the declaration calibration.
 - The package website's article *Exploratory subgroup identification with
   forestsearch (the 2024 workflow)*: the full bootstrap at a working B with its
