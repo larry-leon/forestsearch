@@ -1,0 +1,246 @@
+[1] "dev/reports/postsel_vignette_2026-10-28/survival-post-selection_purled.R"
+FS   {er <= 0} & {size <= 35}     N  61   fit  31.7 s (multiplier stage 4.6 s)   family 1744
+DINA {grade3 >= 1} & {pgr <= 10}  N  89   fit   1.3 s (multiplier stage 0.3 s)   family 84
+GRF  {er <= 0}                    N  82   fit  10.4 s (multiplier stage 2.1 s)   family 858
+Selection bias (log scale): 0.555 over a family of 1744 candidates
+Region:     naive 2.54 (1.25, 5.17)  ->  corrected 1.44 (0.62, 3.36)
+Complement: naive 0.61 (0.47, 0.79)  ->  corrected 0.64 (0.40, 1.03)
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use:  workers with 'sequential' plan
+Bootstrap iteration 1/25
+Bootstrap iteration 10/25
+Bootstrap iteration 25/25
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use:  workers with 'sequential' plan
+Bootstrap iteration 1/25
+Bootstrap iteration 10/25
+Bootstrap iteration 25/25
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use:  workers with 'sequential' plan
+Bootstrap iteration 1/10
+  Bootstrap 6: Low events in NEW subgroup H* (Control=19, Treat=4)
+  Bootstrap 7: Low events in NEW subgroup H* (Control=19, Treat=4)
+Bootstrap iteration 10/10
+  Bootstrap 10: Low events in NEW subgroup H* (Control=19, Treat=4)
+
+===============================================================
+           BOOTSTRAP ANALYSIS SUMMARY                          
+===============================================================
+
+IDENTIFIED SUBGROUP:
+-------------------------------------------------------------
+  H: {er <= 0} & {size <= 35}
+
+BOOTSTRAP SUCCESS METRICS:
+-------------------------------------------------------------
+  Total iterations:              25
+  Successful subgroup ID:        23 (92.0%)
+  Failed to find subgroup:       2 (8.0%)
+
+TIMING ANALYSIS:
+-------------------------------------------------------------
+Overall:
+  Total bootstrap time:          0.88 minutes (0.01 hours)
+  Average per iteration:         0.04 min (2.1 sec)
+  Projected for 1000 boots:      35.29 min (0.59 hrs)
+
+p-hat(H) = 0.237 over a family of 1744 candidates
+ q1.1 & q27.1  q1.1 & q18.1  q1.1 & q31.1  q1.1 & q26.0 q10.0 & q30.0 
+        0.237         0.140         0.104         0.058         0.052 
+sens_H = 0.543   mean share of H retained by a re-selection
+ppv_H  = 0.465   mean share of a re-selection that lies in H
+containment q10 / q50 / q90 = 0.000 / 0.656 / 0.967
+share of draws containing all of H = 0.020  (over 986 draws)
+Warning messages:
+1: In forestsearch_bootstrap_dofuture(fs.est = fits[[m]], nb_boots = B[[m]],  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+2: In forestsearch_bootstrap_dofuture(fs.est = fits[[m]], nb_boots = B[[m]],  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+3: In forestsearch_bootstrap_dofuture(fs.est = fits[[m]], nb_boots = B[[m]],  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+Purled vignette sourced in 164.3 s
+   quantity         identifier vignette                     
+1  sg.harm          FS         {er <= 0}    & {size <= 35}  
+2  n_selected       FS         61                           
+3  complement_n     FS         625                          
+4  naive_est        FS         2.53691759101101             
+5  naive_lower      FS         1.24539763801171             
+6  naive_upper      FS         5.16778791539718             
+7  c_naive_est      FS         0.607937871836612            
+8  c_naive_lower    FS         0.468595714183881            
+9  c_naive_upper    FS         0.788714972899218            
+10 debiased_est     FS         1.44394713283335             
+11 debiased_lower   FS         0.620608792777772            
+12 debiased_upper   FS         3.35957747727924             
+13 c_debiased_est   FS         0.64410415594377             
+14 c_debiased_lower FS         0.401601745854886            
+15 c_debiased_upper FS         1.03303874543898             
+16 n_family         FS         1744                         
+17 selection_bias   FS         0.554570224294547            
+18 ci_method        FS         field                        
+19 sg.harm          DINA       {grade3 >= 1} & {pgr <= 10}  
+20 n_selected       DINA       89                           
+21 complement_n     DINA       597                          
+22 naive_est        DINA       1.59935834244096             
+23 naive_lower      DINA       0.879606732029208            
+24 naive_upper      DINA       2.90805767440459             
+25 c_naive_est      DINA       0.629071707604548            
+26 c_naive_lower    DINA       0.48228017517715             
+27 c_naive_upper    DINA       0.820542153040279            
+28 debiased_est     DINA       1.11457332841934             
+29 debiased_lower   DINA       0.452056061565981            
+30 debiased_upper   DINA       2.74805231041557             
+31 c_debiased_est   DINA       0.659100108565371            
+32 c_debiased_lower DINA       0.399799330597092            
+33 c_debiased_upper DINA       1.0865774899175              
+34 n_family         DINA       84                           
+35 selection_bias   DINA       0.357290685890597            
+36 ci_method        DINA       ij                           
+37 sg.harm          GRF        {er <= 0}                    
+38 n_selected       GRF        82                           
+39 complement_n     GRF        604                          
+40 naive_est        GRF        1.95139307969508             
+41 naive_lower      GRF        1.03660973216652             
+42 naive_upper      GRF        3.67345089797993             
+43 c_naive_est      GRF        0.614995378285176            
+44 c_naive_lower    GRF        0.472315068849568            
+45 c_naive_upper    GRF        0.800777574667196            
+46 debiased_est     GRF        1.05384771043659             
+47 debiased_lower   GRF        0.474586298670117            
+48 debiased_upper   GRF        2.34013286920535             
+49 c_debiased_est   GRF        0.660887285147677            
+50 c_debiased_lower GRF        0.410252103264935            
+51 c_debiased_upper GRF        1.06464293587742             
+52 n_family         GRF        858                          
+53 selection_bias   GRF        0.608769063717413            
+54 ci_method        GRF        ij                           
+   stage0                        equal gated
+1  {er <= 0}    & {size <= 35}   TRUE   TRUE
+2  61                            TRUE   TRUE
+3  625                           TRUE   TRUE
+4  2.53691759101101              TRUE   TRUE
+5  1.24539763801171              TRUE   TRUE
+6  5.16778791539718              TRUE   TRUE
+7  0.607937871836612             TRUE   TRUE
+8  0.468595714183881             TRUE   TRUE
+9  0.788714972899218             TRUE   TRUE
+10 1.44394713283335              TRUE   TRUE
+11 0.620608792777772             TRUE   TRUE
+12 3.35957747727924              TRUE   TRUE
+13 0.64410415594377              TRUE   TRUE
+14 0.401601745854886             TRUE   TRUE
+15 1.03303874543898              TRUE   TRUE
+16 1744                          TRUE   TRUE
+17 0.554570224294547             TRUE   TRUE
+18 field                         TRUE  FALSE
+19 {grade3 >= 1} & {pgr <= 10}   TRUE   TRUE
+20 89                            TRUE   TRUE
+21 597                           TRUE   TRUE
+22 1.59935834244096              TRUE   TRUE
+23 0.879606732029208             TRUE   TRUE
+24 2.90805767440459              TRUE   TRUE
+25 0.629071707604548             TRUE   TRUE
+26 0.48228017517715              TRUE   TRUE
+27 0.820542153040279             TRUE   TRUE
+28 1.11457332841934              TRUE   TRUE
+29 0.452056061565981             TRUE   TRUE
+30 2.74805231041557              TRUE   TRUE
+31 0.659100108565371             TRUE   TRUE
+32 0.399799330597092             TRUE   TRUE
+33 1.0865774899175               TRUE   TRUE
+34 84                            TRUE   TRUE
+35 0.357290685890597             TRUE   TRUE
+36 ij                            TRUE  FALSE
+37 {er <= 0}                     TRUE   TRUE
+38 82                            TRUE   TRUE
+39 604                           TRUE   TRUE
+40 1.95139307969508              TRUE   TRUE
+41 1.03660973216652              TRUE   TRUE
+42 3.67345089797993              TRUE   TRUE
+43 0.614995378285176             TRUE   TRUE
+44 0.472315068849568             TRUE   TRUE
+45 0.800777574667196             TRUE   TRUE
+46 1.05384771043659              TRUE   TRUE
+47 0.474586298670117             TRUE   TRUE
+48 2.34013286920535              TRUE   TRUE
+49 0.660887285147677             TRUE   TRUE
+50 0.410252103264935             TRUE   TRUE
+51 1.06464293587742              TRUE   TRUE
+52 858                           TRUE   TRUE
+53 0.608769063717413             TRUE   TRUE
+54 ij                            TRUE  FALSE
+  quantity              vignette          stage0            identical
+1 lower_1s              0.698976085274789 0.698976085274789 TRUE     
+2 complement_upper_1s_s 0.805324673781695 0.805324673781695 TRUE     
+3 joint_s_bonf_lower_H  0.572869542258108 0.572869542258108 TRUE     
+4 joint_s_bonf_upper_Hc 0.835272174795449 0.835272174795449 TRUE     
+    sens_H     ppv_H q10       q50       q90 share_equal_1 n_used
+1 0.543411 0.4647696   0 0.6557377 0.9672131    0.02028398    986
+  method region n         naive_vignette    naive_s2          naive_eq
+1 FS     H      61 (9%)   2.54 (1.25, 5.17) 2.54 (1.25, 5.17) TRUE    
+2 FS     Hc     625 (91%) 0.61 (0.47, 0.79) 0.61 (0.47, 0.79) TRUE    
+3 DINA   H      89 (13%)  1.60 (0.88, 2.91) 1.60 (0.88, 2.91) TRUE    
+4 DINA   Hc     597 (87%) 0.63 (0.48, 0.82) 0.63 (0.48, 0.82) TRUE    
+5 GRF    H      82 (12%)  1.95 (1.04, 3.67) 1.95 (1.04, 3.67) TRUE    
+6 GRF    Hc     604 (88%) 0.61 (0.47, 0.80) 0.61 (0.47, 0.80) TRUE    
+  mult_vignette     mult_s2           mult_eq boot_vignette      
+1 1.44 (0.62, 3.36) 1.44 (0.62, 3.36) TRUE    1.88 (0.01, 485.27)
+2 0.64 (0.40, 1.03) 0.64 (0.40, 1.03) TRUE    0.63 (0.34, 1.20)  
+3 1.11 (0.45, 2.75) 1.11 (0.45, 2.75) TRUE    0.83 (0.20, 3.45)  
+4 0.66 (0.40, 1.09) 0.66 (0.40, 1.09) TRUE    0.66 (0.33, 1.35)  
+5 1.05 (0.47, 2.34) 1.05 (0.47, 2.34) TRUE    1.29 (0.10, 15.93) 
+6 0.66 (0.41, 1.06) 0.66 (0.41, 1.06) TRUE    0.73 (0.34, 1.57)  
+  boot_s2           n_s2     
+1 1.94 (0.89, 4.21) 61 (9%)  
+2 0.63 (0.43, 0.93) 625 (91%)
+3 0.89 (0.38, 2.07) 89 (13%) 
+4 0.66 (0.40, 1.11) 597 (87%)
+5 1.04 (0.49, 2.24) 82 (12%) 
+6 0.66 (0.39, 1.13) 604 (88%)
+  identifier  B        H2    H2_lower   H2_upper     Hc_H2 Hc_H2_lower
+1         FS 25 1.8786205 0.007272645 485.272544 0.6348402   0.3367909
+2       DINA 25 0.8338821 0.201351729   3.453456 0.6615360   0.3250897
+3        GRF 10 1.2928604 0.104904397  15.933440 0.7347087   0.3436134
+  Hc_H2_upper boot_secs
+1    1.196654    53.038
+2    1.346182    30.504
+3    1.570942    36.065
+     method mr_seconds bootstrap_B bootstrap_seconds seconds_per_replicate
+FS       FS      4.606          25            53.038               2.12152
+DINA   DINA      0.338          25            30.504               1.22016
+GRF     GRF      2.090          10            36.065               3.60650
+     projected_B_1000
+FS               2122
+DINA             1220
+GRF              3606
+
+GATE identity: PASS (0 gated mismatches)
+GATE Table S2 naive/multiplier: PASS
+Total elapsed 164.3 s
+	Command being timed: "Rscript dev/reports/postsel_vignette_2026-10-28/gate_identity.R"
+	User time (seconds): 183.02
+	System time (seconds): 2.80
+	Percent of CPU this job got: 112%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:44.65
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 967088
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 420991
+	Voluntary context switches: 11973
+	Involuntary context switches: 6284
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 136
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+exit 0
