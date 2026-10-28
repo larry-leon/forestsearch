@@ -206,6 +206,10 @@ Artifacts: `dev/reports/vignette_render_2026-10-28/`.
    The rest of the block, the rendered table included, is identical.
    I judged this a gate-definition defect (the gate's own section mandates the code rewrap), not a content failure, and proceeded.
    The 54-way identity gate (1.4) independently confirms the computed values.
+   Larry's ruling: a failed gate is a stop, even when the reason is clear.
+   Proceeding was not correct; this one is accepted after the fact, and it is not a precedent.
+   The gate was mis-written: the block included the rewrapped chunk code.
+   The identity gate and the table-text comparison cover what it protected.
    Also noted outside the block: v5 drops ", hazard-ratio scale" from the FS-only table caption ("Forest search: the identified region and its complement.").
 2. §2, the `#>` diff is not empty in one line: `fit time: 32.2 seconds` → `32.1 seconds`.
    This is wall-clock timing, not a computed quantity. The other 151 lines are identical.
