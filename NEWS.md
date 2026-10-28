@@ -68,11 +68,8 @@
 * The previous getting-started vignette, which documents the workflow of León et al. (2024), is now the
   pkgdown article "Exploratory subgroup identification with forestsearch (the 2024 workflow)" and is no
   longer built on CRAN.
-* `vignette("survival-post-selection")` now reproduces the GBSG analysis of León and Anderson (2026a):
-  the three identifiers at the manuscript's settings, multiplier resampling in full and the full
-  bootstrap at a small B for illustration, with `summarize_bootstrap_results()` and
-  `mr_estimates_table()`. The methodology and simulation articles on the package website carry a
-  note placing them as the 2024 workflow, with the deprecated arguments removed from their listings.
+* The post-selection analysis is now an article on the package website rather than a CRAN vignette, because the full analysis takes a few minutes to run: <https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html>. It reproduces the GBSG analysis of León and Anderson (2026a), illustrates the full bootstrap at a small number of replicates, and shows `mr_estimates_table()`.
+* The methodology and simulation articles on the package website carry a note placing them as the 2024 workflow, with the deprecated arguments removed from their listings.
 
 # forestsearch 0.4.0
 
