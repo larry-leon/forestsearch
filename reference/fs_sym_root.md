@@ -55,7 +55,7 @@ functions of the inputs.
 S <- crossprod(matrix(rnorm(25), 5))   # symmetric positive definite
 R <- fs_sym_root(S, scale = 2)
 max(abs(R %*% t(R) - 2 * S))           # ~ 1e-14
-#> [1] 2.4869e-14
+#> [1] 1.776357e-14
 isSymmetric(R)
 #> [1] TRUE
 
@@ -63,5 +63,5 @@ isSymmetric(R)
 X <- matrix(rnorm(15), 5, 3)
 R2 <- fs_sym_root(tcrossprod(X), scale = 1)
 max(abs(R2 %*% t(R2) - tcrossprod(X)))
-#> [1] 9.769963e-15
+#> [1] 7.327472e-15
 ```
