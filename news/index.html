@@ -63,6 +63,9 @@
 <div class="section level4">
 <h4 id="internal-development-version">Internal<a class="anchor" aria-label="anchor" href="#internal-development-version"></a></h4>
 <ul><li>The internal helper <code>fit_causal_forest_glm()</code> is removed (unused since the <code>vi.grf.min</code> deprecation).</li>
+<li>
+<code>survival (&gt;= 3.5-8)</code> is now required: the lean unadjusted search-stage Cox fit calls <code><a href="https://rdrr.io/pkg/survival/man/agreg.fit.html" class="external-link">survival::coxph.fit()</a></code> with the calling conventions verified on survival 3.5-8 and later.</li>
+<li>The lean unadjusted Cox fit lives in the internal helper <code>.fs_cox_two_group()</code> and is guarded by a once-per-session probe: if <code><a href="https://rdrr.io/pkg/survival/man/agreg.fit.html" class="external-link">coxph.fit()</a></code> does not reproduce <code><a href="https://rdrr.io/pkg/survival/man/coxph.html" class="external-link">coxph()</a></code> on a near-tie fixture (for example after a change in a future survival), the search-stage fit falls back to the formula interface for the session, with one message. Results are identical either way (<code>tests/testthat/test-lean-fits.R</code>; record <code>dev/reports/REPORT_robustness_041_2026-10-28.md</code>).</li>
 </ul></div>
 <div class="section level4">
 <h4 id="performance-development-version">Performance<a class="anchor" aria-label="anchor" href="#performance-development-version"></a></h4>
@@ -74,6 +77,8 @@
 <h4 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h4>
 <ul><li>
 <code>xlog</code> in <code><a href="../reference/plot_subgroup_results_forestplot.html">plot_subgroup_results_forestplot()</a></code> never reached forestploter (it was passed to <code><a href="https://adayim.github.io/forestploter/reference/forest.html" class="external-link">forestploter::forest()</a></code>, which has no such argument), so the HR/OR axis was linear despite the documentation. It is now a real log axis via <code>set_xaxis(x_trans = "log")</code>. The call uses the forestploter 1.2.0 API (<code>set_xaxis()</code>, <code>set_labs()</code>, <code>style</code>, <code>refline_gp</code>), which removes the “will be deprecated” and “Unknown arguments ignored” messages; <code>Suggests: forestploter (&gt;= 1.2.0)</code>. Reported by adayim (<a href="https://github.com/larry-leon/forestsearch/issues/7" class="external-link">#7</a>).</li>
+<li>
+<code>ps_adjust_method = "iptw"</code> with a continuous outcome: the weighted least-squares fit failed for every candidate, because the <code>weights</code> argument did not resolve inside the estimator closure, so the search returned no candidates without an error. The weights now resolve from the data slice. The unadjusted and covariate-adjusted continuous fits, and the binary, count and survival paths, are unchanged; no committed analysis used this path (all are randomized-trial analyses with <code>is.RCT = TRUE</code>). Regression test <code>tests/testthat/test-iptw-continuous.R</code>.</li>
 </ul></div>
 <div class="section level4">
 <h4 id="documentation-development-version">Documentation<a class="anchor" aria-label="anchor" href="#documentation-development-version"></a></h4>
