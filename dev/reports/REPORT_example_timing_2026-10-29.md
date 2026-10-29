@@ -86,3 +86,11 @@ The example itself was not changed (out of scope). The binary call alone exceeds
 
 ## Closing block
 
+```
+$ git diff --name-only 1f14b012 HEAD | grep -v -E '^(dev/|NEWS\.md$|R/calibrate_null_correction\.R$|man/run_null_calibration\.Rd$)'
+$ git diff 1f14b012 HEAD -- R/calibrate_null_correction.R | grep -E '^[-+]' | grep -v -E "^[-+]#'" | grep -v -E '^(\+\+\+|---)'
+$ git status --porcelain | grep -v '^?? '
+(run after commit 9174d97c; all three printed nothing)
+```
+
+Commits on `feature/example-timing-041` (base `1f14b012`): `114fc95f` task · `ccfd4340` baseline record · `c71cdf8d` example edit · `9174d97c` NEWS/record/report · this closing-block commit. Not pushed, not merged.
