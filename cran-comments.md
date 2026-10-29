@@ -1,41 +1,40 @@
 ## Submission
 
-This is an update from forestsearch 0.1.0 (the current CRAN version) to
-0.4.0. The intermediate version numbers recorded in NEWS.md (0.2.0 to 0.3.5)
-were development versions only and were never submitted to CRAN.
+This is an update from forestsearch 0.4.0 (the current CRAN version) to
+0.4.1. NEWS.md lists the changes under "forestsearch 0.4.1":
 
-The update changes the API. NEWS.md lists the changes under "Changes since the
-last CRAN release (0.1.0)": the `showten_subgroups` argument was removed from
-`forestsearch()` and `subgroup.consistency()`, several defaults changed, and
-`save_leff_calibration()` now requires `output_dir`.
+* Three arguments of `forestsearch()` are deprecated (`vi.grf.min`,
+  `max_n_confounders`, `max.minutes`): the formals are kept at the same
+  positions and defaults, a non-default value warns once and has no effect.
+* Two per-candidate fits call the fitting engines directly
+  (`survival::coxph.fit()`, `stats::glm.fit()`); results are bit-identical
+  to the formula-interface fits and are covered by identity tests. The
+  package now requires survival (>= 3.5-8).
+* Bug fixes: the log axis of `plot_subgroup_results_forestplot()` (#7); the
+  weighted fit for `ps_adjust_method = "iptw"` with a continuous outcome.
+* Documentation: a new getting-started vignette reproducing a published
+  analysis; the longer post-selection analysis is now an article on the
+  package website, so the package ships one vignette instead of two.
 
 ## Test environments
 
-* Local: macOS 27.0.1, R 4.5.2 (aarch64-apple-darwin20), checked with
-  `R CMD check --as-cran` on the built tarball (vignettes built), with
-  `_R_CHECK_LIMIT_CORES_=TRUE` and CRAN weightedsurv 0.1.0
-* win-builder, first round: R-release 4.6.1 and R-devel (r90650)
-* win-builder R-devel (2026-10-09 r90655): Status OK
-* win-builder R-devel round 3 (2026-10-09 r90655, after documentation revision): Status OK
-* mac-builder: unavailable (HTTP 502 on two attempts, 2026-10-09)
+* Local: Pop!_OS 24.04 (x86_64-pc-linux-gnu), R 4.6.1, `R CMD check --as-cran
+  --run-donttest` on the built tarball (vignette built): Status OK
+  (0 errors | 0 warnings | 0 notes)
+* win-builder R-release: (Larry fills in)
+* win-builder R-devel: (Larry fills in)
 
 ## R CMD check results
 
-0 errors | 0 warnings | 0 notes on win-builder
+0 errors | 0 warnings | 0 notes (local, Status: OK).
 
-* The first win-builder round (R-release and R-devel) gave one NOTE, from
-  "checking HTML version of manual": an HTML validation problem in
-  `inject_mrct_structure.Rd`, where a literal `<region>` was read as an HTML
-  tag. This version fixes it.
-* Local check status: `Status: 1 NOTE`. The NOTE is
-  "checking HTML version of manual ... NOTE / Skipping checking HTML
-  validation: 'tidy' doesn't look like recent enough HTML Tidy." It comes from
-  the old HTML Tidy on the local check machine, not from the package.
-
-Long-running tests are skipped on CRAN with `skip_on_cran()`; the full suite
-runs locally.
+Check time: the vignette rebuild takes about 75 s locally; the examples
+about 50 s with `--run-donttest`; the test suite runs its long tests only
+with `NOT_CRAN=true` (`skip_on_cran()`), so the tests take under a minute on
+CRAN. CRAN's checks of 0.4.0 shipped two vignettes; 0.4.1 ships one, which
+reproduces a published analysis at its settings.
 
 ## Reverse dependencies
 
-There are no reverse dependencies (`tools::package_dependencies(reverse = TRUE,
-which = "all")` against CRAN returns none).
+There are no reverse dependencies (`tools::package_dependencies(reverse =
+TRUE, which = "all")` against CRAN returns none).
