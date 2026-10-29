@@ -175,3 +175,39 @@ test_that("routing: unadjusted binary OR takes the fast path; RD and adjusted OR
   or_adj <- count_fits(run(effect_measure = "OR", adjust_covariates = "age"))
   expect_identical(or_adj[["fast"]], 0L)
 })
+
+test_that("A: the lean-core probe passes on the installed survival, and the formula fallback is identical", {
+  state  <- forestsearch:::.fs_cox_lean_state
+  old_ok <- state$ok
+  old_cv <- state$conventions
+  on.exit({ state$ok <- old_ok; state$conventions <- old_cv }, add = TRUE)
+
+  # A fresh probe on this survival: TRUE and silent; conventions well-formed.
+  state$ok <- NULL; state$conventions <- NULL
+  expect_silent(ok <- forestsearch:::.fs_cox_lean_ok())
+  expect_true(ok)
+  cv <- forestsearch:::.fs_cox_lean_conventions()
+  expect_true(is.character(cv$ties) && length(cv$ties) == 1L)
+  expect_true(is.numeric(cv$nocenter) && length(cv$nocenter) >= 1L)
+
+  # The core against coxph() on the probe fixture.
+  Y_p <- rep(seq(5, 50, by = 5), each = 3) + rep(c(0, 1e-9, 2e-9), 10)
+  E_p <- rep(c(1L, 1L, 0L), 10)
+  T_p <- rep(c(0, 1), 15)
+  lean <- forestsearch:::.fs_cox_two_group(Y_p, E_p, T_p)
+  ref  <- survival::coxph(survival::Surv(Y_p, E_p) ~ T_p, robust = FALSE)
+  expect_identical(unname(lean$coefficients), unname(ref$coefficients))
+  expect_identical(unname(as.vector(lean$var)), unname(as.vector(ref$var)))
+
+  # Forced fallback: fit_cox_for_subgroup() through the formula branch is
+  # still identical to the 0.4.0 reference (gbsg subsets and the near-tie set).
+  state$ok <- FALSE
+  g <- survival::gbsg
+  Yg <- g$rfstime / 30.4375; Eg <- g$status; Tg <- g$hormon
+  set.seed(3)
+  for (i in 1:5) {
+    idx <- sort(sample(nrow(g), sample(40:300, 1L)))
+    .lf_expect_cox_same(Yg[idx], Eg[idx], Tg[idx], sprintf("fallback subset %d", i))
+  }
+  .lf_expect_cox_same(Y_p, Eg[1:30], Tg[1:30], "fallback near-tie set")
+})

@@ -798,6 +798,121 @@ meets_event_criteria <- function(event_counts, d0.min, d1.min) {
   return(event_counts$d0 >= d0.min && event_counts$d1 >= d1.min)
 }
 
+# ---------------------------------------------------------------------------
+# Lean unadjusted Cox core (0.4.0.9000)
+# ---------------------------------------------------------------------------
+
+# Per-session state for the lean core: the probe verdict and the calling
+# conventions read from coxph().  One environment per R process, so every
+# worker probes once.
+.fs_cox_lean_state <- new.env(parent = emptyenv())
+
+#' Calling conventions of `coxph()` that the lean core reproduces
+#'
+#' `coxph()` passes `method = match.arg(ties)` and its own `nocenter` default
+#' to `coxph.fit()`.  Both are read from `coxph()`'s formals once per session,
+#' so the lean core follows survival if either default moves; the literal
+#' values of survival 3.5-8 .. 3.8.x (`"efron"`, `c(-1, 0, 1)`) are the
+#' fallback when the formals cannot be read.  Whatever is read here is
+#' checked against `coxph()` by `.fs_cox_lean_ok()` before the lean core is
+#' used.
+#'
+#' @return List with `ties` (character scalar) and `nocenter` (numeric).
+#' @keywords internal
+#' @noRd
+.fs_cox_lean_conventions <- function() {
+  cv <- .fs_cox_lean_state$conventions
+  if (!is.null(cv)) return(cv)
+  f <- formals(survival::coxph)
+  ties <- tryCatch(eval(f$ties)[1L], error = function(e) NULL)
+  if (!is.character(ties) || length(ties) != 1L || is.na(ties)) ties <- "efron"
+  nocenter <- tryCatch(eval(f$nocenter), error = function(e) NULL)
+  if (!is.numeric(nocenter) || length(nocenter) == 0L) nocenter <- c(-1, 0, 1)
+  cv <- list(ties = ties, nocenter = nocenter)
+  .fs_cox_lean_state$conventions <- cv
+  cv
+}
+
+#' Two-group Cox fit through `survival::coxph.fit()`, bit-identical to `coxph()`
+#'
+#' The fitting-engine call `coxph()` makes for `Surv(Y, E) ~ Treat`
+#' (survival 3.5-8 .. 3.8.x): the one-column model matrix without intercept,
+#' the response through `aeqSurv()` when `control$timefix`, no strata, a zero
+#' offset, `init = NULL`, the default control, no weights, `coxph()`'s ties
+#' method and `nocenter` (so the 0/1 treatment column is not centred, exactly
+#' as in the formula fit), the model-frame row names, residuals on.
+#' `coxph()` additionally builds the model frame, the full `coxph` object and
+#' the concordance, none of which the search reads; `coefficients` and `var`
+#' are returned by `coxph.fit()` unchanged, and the same warnings are raised
+#' (monotone likelihood, non-convergence) -- nothing is suppressed.  Verified
+#' bit-identical on every candidate of the gbsg application
+#' (`dev/reports/REPORT_bootstrap_stage0_2026-10-26.md`, 1410/1410) and in
+#' `tests/testthat/test-lean-fits.R`.  Guarded by `.fs_cox_lean_ok()`.
+#'
+#' @param Y,E,Treat Numeric vectors: time, event indicator and 0/1 treatment,
+#'   already restricted to the candidate subgroup.
+#' @return The `coxph.fit()` result (a list with `coefficients`, `var`, ...).
+#' @keywords internal
+#' @noRd
+.fs_cox_two_group <- function(Y, E, Treat) {
+  n_sg <- length(Y)
+  cv   <- .fs_cox_lean_conventions()
+  ctl  <- survival::coxph.control()
+  ys   <- survival::Surv(Y, E)
+  if (isTRUE(ctl$timefix)) ys <- survival::aeqSurv(ys)
+  survival::coxph.fit(
+    x        = matrix(as.double(Treat), ncol = 1L,
+                      dimnames = list(NULL, "Treat")),
+    y        = ys,
+    strata   = NULL,
+    offset   = rep(0, n_sg),
+    init     = NULL,
+    control  = ctl,
+    weights  = NULL,
+    method   = cv$ties,
+    rownames = as.character(seq_len(n_sg)),
+    resid    = TRUE,
+    nocenter = cv$nocenter
+  )
+}
+
+#' Once-per-session probe: does the lean core reproduce `coxph()`?
+#'
+#' Fits a fixed 30-row fixture both ways -- ten clusters of three near-tied
+#' times that `aeqSurv()` collapses to exact ties (the tripwire for the
+#' `timefix` convention), both arms present, events in both arms -- and
+#' compares `coefficients` and `var` with `identical()`.  An error (for
+#' example a changed `coxph.fit()` signature in a future survival) or any
+#' difference turns the lean core off for the session: the search-stage fit
+#' then goes through the formula interface, which is the same estimator, and
+#' one message says so.  The verdict is cached in `.fs_cox_lean_state`.
+#'
+#' @return `TRUE` if the lean core may be used in this session.
+#' @keywords internal
+#' @noRd
+.fs_cox_lean_ok <- function() {
+  ok <- .fs_cox_lean_state$ok
+  if (!is.null(ok)) return(ok)
+  ok <- isTRUE(tryCatch({
+    Y <- rep(seq(5, 50, by = 5), each = 3) + rep(c(0, 1e-9, 2e-9), 10)
+    E <- rep(c(1L, 1L, 0L), 10)
+    Treat <- rep(c(0, 1), 15)
+    lean <- .fs_cox_two_group(Y, E, Treat)
+    ref  <- survival::coxph(survival::Surv(Y, E) ~ Treat, robust = FALSE)
+    identical(unname(lean$coefficients), unname(ref$coefficients)) &&
+      identical(unname(as.vector(lean$var)), unname(as.vector(ref$var)))
+  }, error = function(e) FALSE))
+  if (!ok) {
+    message("forestsearch: survival::coxph.fit() did not reproduce coxph() ",
+            "on the probe fixture (survival ",
+            as.character(utils::packageVersion("survival")),
+            "); the unadjusted search-stage Cox fit uses the formula ",
+            "interface in this session.")
+  }
+  .fs_cox_lean_state$ok <- ok
+  ok
+}
+
 #' Fit Cox Model for Subgroup
 #'
 #' @param yy,dd,tt,id.x Numeric vectors: outcome, event, treatment, and the
@@ -843,40 +958,17 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x, df_clean = NULL,
     E <- dd[idx]
     Treat <- tt[idx]
     hr.cox <- try({
-      # Lean unadjusted fit (0.4.0.9000): survival::coxph.fit() called
-      # directly with exactly the arguments coxph() itself passes for
-      # Surv(Y, E) ~ Treat (survival 3.5.8 .. 3.8.x): the one-column model
-      # matrix without intercept, the response through aeqSurv() when
-      # control$timefix, no strata, a zero offset, init = NULL, the default
-      # control, no weights, Efron ties, the model-frame row names,
-      # residuals on, and coxph()'s nocenter = c(-1, 0, 1) (so the 0/1
-      # treatment column is not centred, exactly as in the formula fit).
-      # coxph() additionally builds the model frame, the full coxph object
-      # and the concordance, none of which the search reads; coefficients
-      # and var -- the only fields consumed below -- are returned by
-      # coxph.fit() unchanged.  Verified bit-identical on every candidate
-      # of the gbsg application (REPORT_bootstrap_stage0_2026-10-26.md,
-      # 1410/1410) and re-verified in tests/testthat/test-lean-fits.R.
-      # coxph.fit() raises the same warnings coxph() would (monotone
-      # likelihood, non-convergence): nothing is suppressed.
-      n_sg <- length(Y)
-      ctl  <- survival::coxph.control()
-      ys   <- survival::Surv(Y, E)
-      if (isTRUE(ctl$timefix)) ys <- survival::aeqSurv(ys)
-      fit.cox <- survival::coxph.fit(
-        x        = matrix(as.double(Treat), ncol = 1L,
-                          dimnames = list(NULL, "Treat")),
-        y        = ys,
-        strata   = NULL,
-        offset   = rep(0, n_sg),
-        init     = NULL,
-        control  = ctl,
-        weights  = NULL,
-        method   = "efron",
-        rownames = as.character(seq_len(n_sg)),
-        resid    = TRUE,
-        nocenter = c(-1, 0, 1)
-      )
+      # Unadjusted fit (0.4.0.9000): the lean core .fs_cox_two_group() --
+      # survival::coxph.fit() with exactly the arguments coxph() passes for
+      # Surv(Y, E) ~ Treat -- once the per-session probe .fs_cox_lean_ok()
+      # has confirmed it reproduces coxph(); otherwise the 0.4.0 formula
+      # fit.  The same estimator either way; coefficients and var are the
+      # only fields consumed below.  Identity: tests/testthat/test-lean-fits.R.
+      fit.cox <- if (.fs_cox_lean_ok()) {
+        .fs_cox_two_group(Y, E, Treat)
+      } else {
+        survival::coxph(survival::Surv(Y, E) ~ Treat, robust = FALSE)
+      }
       beta <- fit.cox$coefficients
       names(beta) <- "Treat"
       se_beta <- sqrt(diag(fit.cox$var))
