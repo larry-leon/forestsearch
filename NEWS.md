@@ -31,6 +31,16 @@
 
 * The internal helper `fit_causal_forest_glm()` is removed (unused since
   the `vi.grf.min` deprecation).
+* `survival (>= 3.5-8)` is now required: the lean unadjusted search-stage
+  Cox fit calls `survival::coxph.fit()` with the calling conventions
+  verified on survival 3.5-8 and later.
+* The lean unadjusted Cox fit lives in the internal helper
+  `.fs_cox_two_group()` and is guarded by a once-per-session probe: if
+  `coxph.fit()` does not reproduce `coxph()` on a near-tie fixture (for
+  example after a change in a future survival), the search-stage fit falls
+  back to the formula interface for the session, with one message. Results
+  are identical either way (`tests/testthat/test-lean-fits.R`; record
+  `dev/reports/REPORT_robustness_041_2026-10-28.md`).
 
 ### Performance
 
@@ -58,6 +68,14 @@
   1.2.0 API (`set_xaxis()`, `set_labs()`, `style`, `refline_gp`), which
   removes the "will be deprecated" and "Unknown arguments ignored" messages;
   `Suggests: forestploter (>= 1.2.0)`. Reported by adayim (#7).
+* `ps_adjust_method = "iptw"` with a continuous outcome: the weighted
+  least-squares fit failed for every candidate, because the `weights`
+  argument did not resolve inside the estimator closure, so the search
+  returned no candidates without an error. The weights now resolve from the
+  data slice. The unadjusted and covariate-adjusted continuous fits, and the
+  binary, count and survival paths, are unchanged; no committed analysis
+  used this path (all are randomized-trial analyses with `is.RCT = TRUE`).
+  Regression test `tests/testthat/test-iptw-continuous.R`.
 
 ### Documentation
 
