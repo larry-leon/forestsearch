@@ -1,0 +1,13 @@
+library(forestsearch)
+tag <- commandArgs(trailingOnly = TRUE)[1]
+sink(sprintf("dev/reports/example_timing_2026-10-29/timing_%s.txt", tag), split = TRUE)
+cat("installed:", packageDescription("forestsearch")$Built, "\n")
+t1 <- system.time(example(run_null_calibration, package = "forestsearch", run.donttest = TRUE, echo = FALSE))
+cat(sprintf("run_null_calibration example: elapsed %.1f s (user %.1f s)\n", t1[["elapsed"]], t1[["user.self"]]))
+# suggest_thresholds: the two calls of its example, timed separately (measurement only)
+d_s <- d_eff_survival(n_sg = 60, prop_cens = 0.45)
+t2 <- system.time(suggest_thresholds(d_eff = d_s, N = 700))
+d_b <- d_eff_binary(n_sg = 150, p_event = 0.30)
+t3 <- system.time(suggest_thresholds(d_eff = d_b, N = 500, L_eff_C = 0.220, L_eff_alpha = 1.298))
+cat(sprintf("suggest_thresholds survival call: elapsed %.1f s; binary call: elapsed %.1f s\n", t2[["elapsed"]], t3[["elapsed"]]))
+sink()
