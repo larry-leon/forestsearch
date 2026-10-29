@@ -259,7 +259,7 @@ cat(sprintf("Identified subgroup: %s\n", paste(fit_fs$sg.harm, collapse = " & ")
 cat(sprintf("Fit including inference: %.1f s\n", fit_sec_fs))
 ```
 
-    #> Fit including inference: 31.3 s
+    #> Fit including inference: 33.5 s
 
 ``` r
 
@@ -267,7 +267,7 @@ cat(sprintf("  multiplier stage %.1f s; field blocks %.1f + %.1f s\n", g_fs$timi
             g_fs$field$timing_seconds, g_fs$field$complement$timing_seconds))
 ```
 
-    #>   multiplier stage 1.0 s; field blocks 15.0 + 2.3 s
+    #>   multiplier stage 1.0 s; field blocks 16.2 + 2.4 s
 
 The identified region is `{er <= 0} & {pgr <= 26}`: no measured estrogen
 receptor and progesterone receptor at most 26 fmol/l. Two arguments in
@@ -534,7 +534,7 @@ cat(sprintf("DINA: %s  (fit %.1f s; re-selection family %d)\n",
             g_dina$n_family))
 ```
 
-    #> DINA: {grade3 >= 1} & {pgr <= 20}  (fit 8.5 s; re-selection family 30)
+    #> DINA: {grade3 >= 1} & {pgr <= 20}  (fit 10.2 s; re-selection family 30)
 
 ``` r
 
@@ -542,7 +542,7 @@ cat(sprintf("GRF:  %s  (fit %.1f s; re-selection family %d)\n",
             paste(fit_grf$sg.harm, collapse = " & "), fit_sec_grf, g_grf$n_family))
 ```
 
-    #> GRF:  {er <= 0}  (fit 24.5 s; re-selection family 858)
+    #> GRF:  {er <= 0}  (fit 26.3 s; re-selection family 858)
 
 GRF returns the 82 patients with no measured estrogen receptor, a region
 that contains forest search’s; DINA returns the 113 who are grade 3 with
