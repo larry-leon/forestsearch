@@ -954,7 +954,13 @@ make_effect_estimator <- function(
 
     result <- tryCatch({
       if (ps_adjust_method == "iptw" && "sw" %in% names(data_slice)) {
-        fit <- stats::lm(fmla, data = data_slice, weights = data_slice$sw)
+        # `weights` is evaluated by model.frame() in `data` and then in the
+        # formula's environment.  `fmla` comes from .build_adjusted_formula(),
+        # whose frame does not hold `data_slice`, so `weights = data_slice$sw`
+        # never resolved and every weighted fit failed (0.4.0 and earlier).
+        # `sw` is a column of data_slice (the guard above), so it resolves in
+        # `data`.
+        fit <- stats::lm(fmla, data = data_slice, weights = sw)
       } else {
         fit <- stats::lm(fmla, data = data_slice)
       }

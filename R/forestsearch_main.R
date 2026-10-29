@@ -2573,7 +2573,7 @@ forestsearch <- function(df.analysis,
   # Defaults:
   #   RCT = TRUE  -> ps_method = "none"  (randomization ensures balance)
   #   RCT = FALSE -> ps_method = "grf"   (non-parametric, cross-fitted)
-  #   ps_adjust_method = "iptw" (default)
+  #   ps_adjust_method = "none" (default; "iptw" or "dr_gcomp" on request)
   # ===========================================================================
 
   # Resolve ps_method default
