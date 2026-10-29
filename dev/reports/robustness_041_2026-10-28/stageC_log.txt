@@ -1,0 +1,92 @@
+$Version
+[1] "0.4.0.9000"
+
+$Packaged
+[1] "2026-10-29 14:24:15 UTC; larryleon"
+
+$<NA>
+NULL
+
+$Built
+[1] "R 4.6.1; ; 2026-10-29 14:24:17 UTC; unix"
+
+[survival] warm-up done (warnings = 0)
+[survival] calls 1.56 1.66 1.52 (median 1.56); boot outer 43.8 s, rep mean 2.07 s
+[continuous] warm-up done (warnings = 0)
+[continuous] calls 1.48 1.50 1.47 (median 1.48); boot outer 38.9 s, rep mean 1.83 s
+[binary] warm-up done (warnings = 0)
+[binary] calls 2.26 2.37 2.25 (median 2.26); boot outer 58.7 s, rep mean 2.82 s
+Warning messages:
+1: In forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = 20L,  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+2: In forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = 20L,  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+3: In forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = 20L,  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+     fixture call_s_1 call_s_2 call_s_3 call_median_s boot_outer_s rep_mean_s
+1   survival    1.563    1.655    1.522         1.563       43.826    2.06705
+2 continuous    1.480    1.500    1.472         1.480       38.880    1.82640
+3     binary    2.259    2.369    2.254         2.259       58.706    2.81545
+PASS: [1] survival end to end: sg.harm identical to Stage A 
+PASS: [1] survival end to end: membership identical to Stage A 
+PASS: [1] survival end to end: out_sg_result identical to Stage A 
+PASS: [1] survival end to end: hr.subgroups identical to Stage A 
+PASS: [1] survival end to end: filter_counts identical to Stage A 
+PASS: [1] survival end to end: n_candidates identical to Stage A 
+PASS: [1] survival end to end: n_fits identical to Stage A 
+PASS: [1] survival end to end: n_warnings identical to Stage A 
+PASS: [1] survival end to end: warnings identical to Stage A 
+PASS: [1] survival end to end: args_call_all identical to Stage A 
+PASS: [1] continuous end to end: sg.harm identical to Stage A 
+PASS: [1] continuous end to end: membership identical to Stage A 
+PASS: [1] continuous end to end: out_sg_result identical to Stage A 
+PASS: [1] continuous end to end: hr.subgroups identical to Stage A 
+PASS: [1] continuous end to end: filter_counts identical to Stage A 
+PASS: [1] continuous end to end: n_candidates identical to Stage A 
+PASS: [1] continuous end to end: n_fits identical to Stage A 
+PASS: [1] continuous end to end: n_warnings identical to Stage A 
+PASS: [1] continuous end to end: warnings identical to Stage A 
+PASS: [1] continuous end to end: args_call_all identical to Stage A 
+PASS: [1] binary end to end: sg.harm identical to Stage A 
+PASS: [1] binary end to end: membership identical to Stage A 
+PASS: [1] binary end to end: out_sg_result identical to Stage A 
+PASS: [1] binary end to end: hr.subgroups identical to Stage A 
+PASS: [1] binary end to end: filter_counts identical to Stage A 
+PASS: [1] binary end to end: n_candidates identical to Stage A 
+PASS: [1] binary end to end: n_fits identical to Stage A 
+PASS: [1] binary end to end: n_warnings identical to Stage A 
+PASS: [1] binary end to end: warnings identical to Stage A 
+PASS: [1] binary end to end: args_call_all identical to Stage A 
+PASS: [2] survival bootstrap: same components found (results, SG_CIs, H_estimates, Hc_estimates, Ystar_mat, FSsg_tab) 
+PASS: [2] survival bootstrap: results identical to Stage A 
+PASS: [2] survival bootstrap: SG_CIs identical to Stage A 
+PASS: [2] survival bootstrap: H_estimates identical to Stage A 
+PASS: [2] survival bootstrap: Hc_estimates identical to Stage A 
+PASS: [2] survival bootstrap: Ystar_mat identical to Stage A 
+PASS: [2] survival bootstrap: FSsg_tab identical to Stage A 
+PASS: [2] continuous bootstrap: same components found (results, SG_CIs, H_estimates, Hc_estimates, Ystar_mat, FSsg_tab) 
+PASS: [2] continuous bootstrap: results identical to Stage A 
+PASS: [2] continuous bootstrap: SG_CIs identical to Stage A 
+PASS: [2] continuous bootstrap: H_estimates identical to Stage A 
+PASS: [2] continuous bootstrap: Hc_estimates identical to Stage A 
+PASS: [2] continuous bootstrap: Ystar_mat identical to Stage A 
+PASS: [2] continuous bootstrap: FSsg_tab identical to Stage A 
+PASS: [2] binary bootstrap: same components found (results, SG_CIs, H_estimates, Hc_estimates, Ystar_mat, FSsg_tab) 
+PASS: [2] binary bootstrap: results identical to Stage A 
+PASS: [2] binary bootstrap: SG_CIs identical to Stage A 
+PASS: [2] binary bootstrap: H_estimates identical to Stage A 
+PASS: [2] binary bootstrap: Hc_estimates identical to Stage A 
+PASS: [2] binary bootstrap: Ystar_mat identical to Stage A 
+PASS: [2] binary bootstrap: FSsg_tab identical to Stage A 
+PASS: [3] tests_gating_lean_fits.txt (gating): failures 0, warnings 0, skips 0, passes 362 
+PASS: [3] tests_gating_iptw.txt (gating): failures 0, warnings 0, skips 0, passes 7 
+INFO: [3] tests_nongating_family_report.txt (non-gating): failures 0, warnings 0, skips 0, passes 105 
+INFO: [3] tests_nongating_vi_deprecation.txt (non-gating): failures 0, warnings 0, skips 0, passes 15 
+PASS: [4] before the fix (reproduce_iptw_log.txt): PASS: closure-level weighted fit returns NA (the defect is present) 
+INFO: [4] closure after the fix: estimate = 0.8358334, se = 0.1334824, converged = TRUE, method_used = ols 
+PASS: [4] closure-level weighted fit now returns an estimate 
+INFO: [5] survival | call median s: 1.53 -> 1.56 (+2.0%) | replicate mean s: 2.07 -> 2.07 (-0.2%) | boot outer s: 44.0 -> 43.8 (-0.4%) 
+INFO: [5] continuous | call median s: 1.64 -> 1.48 (-9.9%) | replicate mean s: 1.83 -> 1.83 (-0.1%) | boot outer s: 38.9 -> 38.9 (-0.1%) 
+INFO: [5] binary | call median s: 2.36 -> 2.26 (-4.4%) | replicate mean s: 2.82 -> 2.82 (-0.1%) | boot outer s: 58.8 -> 58.7 (-0.1%) 
+INFO: [6] probe: .fs_cox_lean_state$ok = TRUE; conventions: ties = efron, nocenter = c(-1, 0, 1); survival 3.8.12 
+STAGE C GATES: ALL PASS 
