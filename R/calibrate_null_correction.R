@@ -273,8 +273,8 @@ predict_fpr_corrected <- function(calibration, theta, d_eff, c1, c2, N,
 #'   fs.splits = 200,
 #'   n.min = 60,
 #'   maxk = 2,
-#'   use_lasso = TRUE,
-#'   use_grf = TRUE,
+#'   use_lasso = FALSE,
+#'   use_grf = FALSE,
 #'   use_twostage = TRUE,
 #'   is.RCT = TRUE,
 #'   details = FALSE,
@@ -284,12 +284,15 @@ predict_fpr_corrected <- function(calibration, theta, d_eff, c1, c2, N,
 #'                        show_message = FALSE)
 #' )
 #'
+#' # Illustrative size only (the function requires n_sims >= 10 and at least
+#' # two N values); a calibration for use takes n_sims of 50 or more over the
+#' # trial sizes of interest.
 #' cal <- run_null_calibration(
 #'   sim_null_fn = sim_null,
 #'   fs_args = fs_args,
 #'   d_eff_fn = function(n) d_eff_binary(n, 0.30),
-#'   N_values = c(200, 500, 1000),
-#'   n_sims = 50,
+#'   N_values = c(200, 500),
+#'   n_sims = 10,
 #'   verbose = TRUE
 #' )
 #' print(cal)
