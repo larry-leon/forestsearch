@@ -173,6 +173,34 @@ Probe after the Stage C run: `.fs_cox_lean_state$ok = TRUE`; conventions read fr
 
 ## 9. Closing block
 
-Run after the report commit; see the record of the run below.
+The §11 block, with the three corrected checks (§8, deviation 3) in place of the originals, run after the report commit `3ea1475e`. The output was then pasted into this section in a follow-up commit that touches only this file. Every line printed as expected: the first command printed nothing (no `man/`, no `NAMESPACE`), and the last printed nothing (no tracked modifications).
 
-CLOSING_BLOCK_PLACEHOLDER
+```
+$ git diff --name-only 606a78ea HEAD | grep -v -E '^(dev/|NEWS\.md$|DESCRIPTION$|R/(subgroup_search|glm_effect_estimators|forestsearch_main|globals)\.R$|tests/testthat/(test-lean-fits|test-iptw-continuous)\.R$)'
+$ git diff 606a78ea HEAD -- DESCRIPTION | grep -E '^[-+] '
+-    survival,
++    survival (>= 3.5-8),
+$ git diff 606a78ea HEAD -- R/forestsearch_main.R | grep -E '^[-+] '
+-  #   ps_adjust_method = "iptw" (default)
++  #   ps_adjust_method = "none" (default; "iptw" or "dr_gcomp" on request)
+$ git diff --numstat 606a78ea HEAD -- R/glm_effect_estimators.R
+7	1	R/glm_effect_estimators.R
+$ grep -n 'weights = data_slice\$sw' R/glm_effect_estimators.R | grep -v -E '^[0-9]+:[[:space:]]*#' | wc -l
+3
+$ grep -c 'weights = sw)' R/glm_effect_estimators.R
+1
+$ grep -n "coxph.fit(" R/subgroup_search.R | grep -v -E '^[0-9]+:[[:space:]]*#' | grep -v 'message(' | wc -l
+1
+$ grep -n "survival::coxph(" R/subgroup_search.R | grep -v -E '^[0-9]+:[[:space:]]*#' | wc -l
+3
+$ grep -n "aeqSurv\|coxph.control" R/subgroup_search.R | grep -v -E '^[0-9]+:[[:space:]]*#' | wc -l
+2
+$ grep -ln "fs_cox_lean_state\|fs_cox_lean_conventions\|fs_cox_two_group\|fs_cox_lean_ok" R/*.R
+R/subgroup_search.R
+$ grep -rln 'ps_adjust_method *= *"iptw"' --include=*.qmd --include=*.Rmd --include=*.R quarto/applications vignettes tests inst 2>/dev/null
+tests/testthat/test-iptw-continuous.R
+$ grep -c FAIL dev/reports/robustness_041_2026-10-28/stageC_summary.txt
+0
+$ git status --porcelain | grep -v '^?? '
+(end; HEAD = 3ea1475e)
+```
