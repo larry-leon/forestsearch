@@ -2355,16 +2355,16 @@ costs that don’t change with replicate count.
 
 | Step                                                   |   Elapsed | Per trial |
 |:-------------------------------------------------------|----------:|----------:|
-| DGM construction (generate_aft_dgm_flex)               |  1.72 sec |         — |
-| Censoring calibration (calibrate_cens_adjust)          |    552 ms |         — |
-| Simulation loop (150 trials × 56 subgroups, 4 workers) | 17.21 sec |    115 ms |
-| Total                                                  | 19.49 sec |         — |
+| DGM construction (generate_aft_dgm_flex)               |  1.62 sec |         — |
+| Censoring calibration (calibrate_cens_adjust)          |    529 ms |         — |
+| Simulation loop (150 trials × 56 subgroups, 4 workers) | 14.89 sec |     99 ms |
+| Total                                                  | 17.03 sec |         — |
 
 Timing for n_sims_uniform = 150, parallel across 4 of 4 cores. {.table
 .caption-top style="width:100%;"}
 
 
-    Throughput: 8.7 trials/sec (wall-clock, 4 workers)  |  Projected total time:  1,000 sims → 2.0 min    │    5,000 sims → 9.6 min
+    Throughput: 10.1 trials/sec (wall-clock, 4 workers)  |  Projected total time:  1,000 sims → 1.7 min    │    5,000 sims → 8.3 min
 
 ## 8 Appendix: DGM with Heterogeneous Treatment Effects
 

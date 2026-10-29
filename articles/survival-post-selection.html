@@ -202,9 +202,9 @@
 <span>              <span class="va">gm</span><span class="op">$</span><span class="va">timing_seconds</span>, <span class="va">gm</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; FS   {er &lt;= 0} &amp; {size &lt;= 35}     N  61   fit  32.7 s (multiplier stage 1.2 s)   family 1744</span></span>
-<span><span class="co">#&gt; DINA {grade3 &gt;= 1} &amp; {pgr &lt;= 10}  N  89   fit   1.6 s (multiplier stage 0.3 s)   family 84</span></span>
-<span><span class="co">#&gt; GRF  {er &lt;= 0}                    N  82   fit   9.3 s (multiplier stage 0.3 s)   family 858</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; FS   {er &lt;= 0} &amp; {size &lt;= 35}     N  61   fit  29.8 s (multiplier stage 1.0 s)   family 1744</span></span>
+<span><span class="co">#&gt; DINA {grade3 &gt;= 1} &amp; {pgr &lt;= 10}  N  89   fit   1.5 s (multiplier stage 0.2 s)   family 84</span></span>
+<span><span class="co">#&gt; GRF  {er &lt;= 0}                    N  82   fit   8.7 s (multiplier stage 0.3 s)   family 858</span></span></code></pre>
 </div>
 </div>
 </section><section class="level2"><h2 id="the-multiplier-correction">The multiplier correction<a class="anchor" aria-label="anchor" href="#the-multiplier-correction"></a>
@@ -257,7 +257,7 @@
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">boot_secs</span>, <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code><span><span class="co">#&gt;   FS DINA  GRF</span></span>
-<span><span class="co">#&gt; 70.2 29.9 32.5</span></span></code></pre>
+<span><span class="co">#&gt; 68.2 30.1 31.4</span></span></code></pre>
 </div>
 </div>
 <p>The package’s own summaries, shown for forest search. The first is the bootstrap table: the naive estimate beside the bootstrap-corrected one, for the region and its complement.</p>
@@ -284,9 +284,9 @@
 <span><span class="co">#&gt; TIMING ANALYSIS:</span></span>
 <span><span class="co">#&gt; -------------------------------------------------------------</span></span>
 <span><span class="co">#&gt; Overall:</span></span>
-<span><span class="co">#&gt;   Total bootstrap time:          1.15 minutes (0.02 hours)</span></span>
-<span><span class="co">#&gt;   Average per iteration:         0.05 min (2.8 sec)</span></span>
-<span><span class="co">#&gt;   Projected for 1000 boots:      45.93 min (0.77 hrs)</span></span></code></pre>
+<span><span class="co">#&gt;   Total bootstrap time:          1.12 minutes (0.02 hours)</span></span>
+<span><span class="co">#&gt;   Average per iteration:         0.04 min (2.7 sec)</span></span>
+<span><span class="co">#&gt;   Projected for 1000 boots:      44.69 min (0.74 hrs)</span></span></code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">summ_fs</span><span class="op">$</span><span class="va">table</span></span></code></pre></div>
@@ -1623,27 +1623,27 @@ Treatment Effect
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">FS</td>
-<td style="text-align: right;">1.19</td>
+<td style="text-align: right;">0.98</td>
 <td style="text-align: right;">25</td>
-<td style="text-align: right;">70.17</td>
-<td style="text-align: right;">2.81</td>
-<td style="text-align: right;">2807</td>
+<td style="text-align: right;">68.18</td>
+<td style="text-align: right;">2.73</td>
+<td style="text-align: right;">2727</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">DINA</td>
-<td style="text-align: right;">0.26</td>
+<td style="text-align: right;">0.23</td>
 <td style="text-align: right;">25</td>
-<td style="text-align: right;">29.94</td>
+<td style="text-align: right;">30.09</td>
 <td style="text-align: right;">1.20</td>
-<td style="text-align: right;">1197</td>
+<td style="text-align: right;">1203</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">GRF</td>
-<td style="text-align: right;">0.34</td>
+<td style="text-align: right;">0.28</td>
 <td style="text-align: right;">10</td>
-<td style="text-align: right;">32.51</td>
-<td style="text-align: right;">3.25</td>
-<td style="text-align: right;">3251</td>
+<td style="text-align: right;">31.43</td>
+<td style="text-align: right;">3.14</td>
+<td style="text-align: right;">3143</td>
 </tr>
 </tbody>
 </table>

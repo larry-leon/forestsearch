@@ -134,8 +134,8 @@ fs_args <- list(
   fs.splits = 200,
   n.min = 60,
   maxk = 2,
-  use_lasso = TRUE,
-  use_grf = TRUE,
+  use_lasso = FALSE,
+  use_grf = FALSE,
   use_twostage = TRUE,
   is.RCT = TRUE,
   details = FALSE,
@@ -145,43 +145,37 @@ fs_args <- list(
                        show_message = FALSE)
 )
 
+# Illustrative size only (the function requires n_sims >= 10 and at least
+# two N values); a calibration for use takes n_sims of 50 or more over the
+# trial sizes of interest.
 cal <- run_null_calibration(
   sim_null_fn = sim_null,
   fs_args = fs_args,
   d_eff_fn = function(n) d_eff_binary(n, 0.30),
-  N_values = c(200, 500, 1000),
-  n_sims = 50,
+  N_values = c(200, 500),
+  n_sims = 10,
   verbose = TRUE
 )
-#> Null calibration: 3 N values x 50 sims = 150 tasks
-#> Warning: Error in get_FSdata: get_FSdata: no candidate cut expressions could be constructed from the supplied inputs.  Upstream source counts: GRF cuts (0), DINA cuts (0), LASSO selected (1), conf_force (0), conf.cont_medians (0), conf.categorical (0).  Check that: (1) GRF is succeeding for this outcome type (rerun forestsearch() with details = TRUE to inspect); (2) LASSO is not shrinking all covariates to zero (try use_lasso = FALSE); (3) candidate covariates are numeric or factor and have sufficient variability; (4) GRF-related thresholds (dmin.grf, frac.tau, vi.grf.min) are appropriate for the outcome type and sample size (frac.tau is survival-specific and may be ignored for GLM).
-#> Warning: FSdata failure - returning NULL result
-#> Warning: Error in get_FSdata: get_FSdata: no candidate cut expressions could be constructed from the supplied inputs.  Upstream source counts: GRF cuts (0), DINA cuts (0), LASSO selected (1), conf_force (0), conf.cont_medians (0), conf.categorical (0).  Check that: (1) GRF is succeeding for this outcome type (rerun forestsearch() with details = TRUE to inspect); (2) LASSO is not shrinking all covariates to zero (try use_lasso = FALSE); (3) candidate covariates are numeric or factor and have sufficient variability; (4) GRF-related thresholds (dmin.grf, frac.tau, vi.grf.min) are appropriate for the outcome type and sample size (frac.tau is survival-specific and may be ignored for GLM).
-#> Warning: FSdata failure - returning NULL result
-#>   N =  200: FPR = 0.240 (12/50) | P1 = 0.227 | 16.8 sec
-#> Warning: Error in get_FSdata: get_FSdata: no candidate cut expressions could be constructed from the supplied inputs.  Upstream source counts: GRF cuts (0), DINA cuts (0), LASSO selected (1), conf_force (0), conf.cont_medians (0), conf.categorical (0).  Check that: (1) GRF is succeeding for this outcome type (rerun forestsearch() with details = TRUE to inspect); (2) LASSO is not shrinking all covariates to zero (try use_lasso = FALSE); (3) candidate covariates are numeric or factor and have sufficient variability; (4) GRF-related thresholds (dmin.grf, frac.tau, vi.grf.min) are appropriate for the outcome type and sample size (frac.tau is survival-specific and may be ignored for GLM).
-#> Warning: FSdata failure - returning NULL result
-#>   N =  500: FPR = 0.600 (30/50) | P1 = 0.195 | 29.4 sec
-#>   N = 1000: FPR = 0.640 (32/50) | P1 = 0.153 | 48.6 sec
+#> Null calibration: 2 N values x 10 sims = 20 tasks
+#>   N =  200: FPR = 0.200 (2/10) | P1 = 0.227 | 1.7 sec
+#>   N =  500: FPR = 0.500 (5/10) | P1 = 0.195 | 2.7 sec
 #> 
 #> L_eff Calibration
-#>   Model: L_eff = 0.313 * (N / 60)^1.109
-#>   R-squared: 0.945
-#>   Calibrated at N = 200, 500, 1000
+#>   Model: L_eff = 0.157 * (N / 60)^1.421
+#>   R-squared: 1.000
+#>   Calibrated at N = 200, 500
 #> 
 #>   Implied L_eff:
-#>     N =  200: L_eff = 1.07 (fitted: 1.19)
-#>     N =  500: L_eff = 4.22 (fitted: 3.29)
-#>     N = 1000: L_eff = 6.15 (fitted: 7.09)
+#>     N =  200: L_eff = 0.87 (fitted: 0.87)
+#>     N =  500: L_eff = 3.19 (fitted: 3.19)
 print(cal)
 #> L_eff Calibration
-#>   Model: L_eff = 0.313 * (N / 60)^1.109
-#>   R-squared: 0.945
-#>   Calibrated at N = 200, 500, 1000
+#>   Model: L_eff = 0.157 * (N / 60)^1.421
+#>   R-squared: 1.000
+#>   Calibrated at N = 200, 500
 #> 
 #>   Implied L_eff:
-#>     N =  200: L_eff = 1.07 (fitted: 1.19)
-#>     N =  500: L_eff = 4.22 (fitted: 3.29)
-#>     N = 1000: L_eff = 6.15 (fitted: 7.09)
+#>     N =  200: L_eff = 0.87 (fitted: 0.87)
+#>     N =  500: L_eff = 3.19 (fitted: 3.19)
 # }
 ```

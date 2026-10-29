@@ -127,6 +127,11 @@
 - The methodology and simulation articles on the package website carry a
   note placing them as the 2024 workflow, with the deprecated arguments
   removed from their listings.
+- The
+  [`run_null_calibration()`](https://larry-leon.github.io/forestsearch/reference/run_null_calibration.md)
+  example runs at an illustrative size (two trial sizes, ten
+  simulations, no LASSO/GRF screening); a calibration for use takes more
+  simulations, as the example now says.
 
 ## forestsearch 0.4.0
 
