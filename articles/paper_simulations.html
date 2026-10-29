@@ -43,6 +43,8 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -72,7 +74,7 @@ and Power Analysis</h3>
                         <h4 data-toc-skip class="author">ForestSearch
 Package</h4>
             
-            <h4 data-toc-skip class="date">2026-10-28</h4>
+            <h4 data-toc-skip class="date">2026-10-29</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/paper_simulations.Rmd" class="external-link"><code>vignettes/articles/paper_simulations.Rmd</code></a></small>
       <div class="d-none name"><code>paper_simulations.Rmd</code></div>
@@ -80,6 +82,23 @@ Package</h4>
 
     
     
+<blockquote>
+<p><strong>About this article (updated October 2026).</strong> This
+article reproduces the simulation framework of León, Jemielita, Guo,
+Marceau West and Anderson (2024), <em>Statistics in Medicine</em>, <a href="https://doi.org/10.1002/sim.10163" class="external-link uri">https://doi.org/10.1002/sim.10163</a>, and its published
+benchmarks, on the current package. The simulation settings below are
+those of the 2024 workflow; two of them no longer act: the consistency
+screen is evaluated in closed form, so <code>fs.splits</code> has no
+effect unless the closed form is unavailable for a candidate, and the
+GRF variable-importance screen is removed as of 0.4.1
+(<code>vi.grf.min</code> is deprecated and has no effect). The operating
+characteristics of the current methodology — the selection-adjusted
+bounds, the two-subgroup claim and the declaration calibration — are
+reported in León and Anderson (2026a, arXiv:2609.38361) and (2026b,
+arXiv:2610.28379); the methodology is documented in
+<code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> and the <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html">post-selection
+article</a>.</p>
+</blockquote>
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
@@ -1661,7 +1680,6 @@ trial:</p>
 <span>  d1.min <span class="op">=</span> <span class="fl">12</span>,</span>
 <span>  maxk <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>  by.risk <span class="op">=</span> <span class="fl">12</span>,</span>
-<span>  vi.grf.min <span class="op">=</span> <span class="op">-</span><span class="fl">0.2</span>,</span>
 <span>  <span class="co"># NEW: Two-stage algorithm option</span></span>
 <span>  use_twostage <span class="op">=</span> <span class="cn">TRUE</span>,      <span class="co"># Set TRUE for faster exploratory analysis</span></span>
 <span>  twostage_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,    <span class="co"># Optional tuning parameters</span></span>
@@ -1765,7 +1783,7 @@ search algorithm:</p>
 <span><span class="co">## Number of possible configurations (&lt;= maxk): maxk = 2 , # combinations = 406 </span></span>
 <span><span class="co">## Per-arm events criteria: control &gt;= 12, treatment &gt;= 12</span></span>
 <span><span class="co">## Sample size criteria: n &gt;= 60 </span></span>
-<span><span class="co">## Subgroup search completed in 0.01 minutes</span></span>
+<span><span class="co">## Subgroup search completed in 0.02 minutes</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## --- Filtering Summary ---</span></span>
 <span><span class="co">##   Combinations evaluated: 406 </span></span>
@@ -1789,7 +1807,7 @@ search algorithm:</p>
 <span><span class="co">## Subgroup 3: resample Pcons=0.82 (threshold 0.9)</span></span>
 <span><span class="co">## Evaluated 3 of 3 candidates (complete) </span></span>
 <span><span class="co">## No subgroups found meeting consistency threshold</span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 3.715 0.0619 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 5.58 0.093 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## tau, maxdepth = 47.90727 2 </span></span>
 <span><span class="co">##    leaf.node control.mean control.size control.se depth</span></span>
@@ -1804,7 +1822,7 @@ search algorithm:</p>
 <span><span class="va">runtime_alt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/difftime.html" class="external-link">difftime</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">start_time</span>, units <span class="op">=</span> <span class="st">"mins"</span><span class="op">)</span></span>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">sims_alt_wall</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">runtime_alt</span><span class="op">)</span> <span class="op">*</span> <span class="fl">60</span>  <span class="co"># store in seconds</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Completed in"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">runtime_alt</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"minutes\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Completed in 1.2 minutes</span></span></code></pre>
+<pre><code><span><span class="co">## Completed in 1.9 minutes</span></span></code></pre>
 <div class="sourceCode" id="cb143"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Results:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">results_alt</span><span class="op">)</span>, <span class="st">"rows\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Results: 88 rows</span></span></code></pre>
@@ -1872,7 +1890,7 @@ search algorithm:</p>
 <span><span class="co">## Number of possible configurations (&lt;= maxk): maxk = 2 , # combinations = 406 </span></span>
 <span><span class="co">## Per-arm events criteria: control &gt;= 12, treatment &gt;= 12</span></span>
 <span><span class="co">## Sample size criteria: n &gt;= 60 </span></span>
-<span><span class="co">## Subgroup search completed in 0.01 minutes</span></span>
+<span><span class="co">## Subgroup search completed in 0.02 minutes</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## --- Filtering Summary ---</span></span>
 <span><span class="co">##   Combinations evaluated: 406 </span></span>
@@ -1895,7 +1913,7 @@ search algorithm:</p>
 <span><span class="co">## Subgroup 2: resample Pcons=0.57 (threshold 0.9)</span></span>
 <span><span class="co">## Evaluated 2 of 2 candidates (complete) </span></span>
 <span><span class="co">## No subgroups found meeting consistency threshold</span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 3.11 0.0518 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 5.322 0.0887 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## tau, maxdepth = 43.8823 2 </span></span>
 <span><span class="co">##   leaf.node control.mean control.size control.se depth</span></span>
@@ -1910,7 +1928,7 @@ search algorithm:</p>
 <span><span class="va">runtime_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/difftime.html" class="external-link">difftime</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">start_time</span>, units <span class="op">=</span> <span class="st">"mins"</span><span class="op">)</span></span>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">sims_null_wall</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">runtime_null</span><span class="op">)</span> <span class="op">*</span> <span class="fl">60</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Completed in"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">runtime_null</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"minutes\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Completed in 1.1 minutes</span></span></code></pre>
+<pre><code><span><span class="co">## Completed in 1.7 minutes</span></span></code></pre>
 </div>
 </div>
 <div class="section level2">
@@ -6315,21 +6333,21 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Calibrate k_inter (Cox)</td>
-<td headers="Seconds" class="gt_row gt_right">5.3</td>
-<td headers="Minutes" class="gt_row gt_right">0.09</td>
-<td headers="Pct" class="gt_row gt_right">3.2</td>
+<td headers="Seconds" class="gt_row gt_right">7.4</td>
+<td headers="Minutes" class="gt_row gt_right">0.12</td>
+<td headers="Pct" class="gt_row gt_right">2.8</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Calibrate k_inter (AHR)</td>
-<td headers="Seconds" class="gt_row gt_right">1.8</td>
-<td headers="Minutes" class="gt_row gt_right">0.03</td>
+<td headers="Seconds" class="gt_row gt_right">3.0</td>
+<td headers="Minutes" class="gt_row gt_right">0.05</td>
 <td headers="Pct" class="gt_row gt_right">1.1</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Validate k_inter</td>
-<td headers="Seconds" class="gt_row gt_right">0.4</td>
+<td headers="Seconds" class="gt_row gt_right">0.7</td>
 <td headers="Minutes" class="gt_row gt_right">0.01</td>
-<td headers="Pct" class="gt_row gt_right">0.2</td>
+<td headers="Pct" class="gt_row gt_right">0.3</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">DGM creation (H0)</td>
@@ -6339,32 +6357,32 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Simulations H1</td>
-<td headers="Seconds" class="gt_row gt_right">71.5</td>
-<td headers="Minutes" class="gt_row gt_right">1.19</td>
-<td headers="Pct" class="gt_row gt_right">42.2</td>
+<td headers="Seconds" class="gt_row gt_right">111.5</td>
+<td headers="Minutes" class="gt_row gt_right">1.86</td>
+<td headers="Pct" class="gt_row gt_right">42.0</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Simulations H0</td>
-<td headers="Seconds" class="gt_row gt_right">66.3</td>
-<td headers="Minutes" class="gt_row gt_right">1.10</td>
-<td headers="Pct" class="gt_row gt_right">39.1</td>
+<td headers="Seconds" class="gt_row gt_right">104.1</td>
+<td headers="Minutes" class="gt_row gt_right">1.73</td>
+<td headers="Pct" class="gt_row gt_right">39.2</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Summarize H1</td>
-<td headers="Seconds" class="gt_row gt_right">0.1</td>
+<td headers="Seconds" class="gt_row gt_right">0.2</td>
 <td headers="Minutes" class="gt_row gt_right">0.00</td>
 <td headers="Pct" class="gt_row gt_right">0.1</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Summarize H0</td>
-<td headers="Seconds" class="gt_row gt_right">0.1</td>
+<td headers="Seconds" class="gt_row gt_right">0.2</td>
 <td headers="Minutes" class="gt_row gt_right">0.00</td>
 <td headers="Pct" class="gt_row gt_right">0.1</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left" style="font-weight: bold;">Total vignette</td>
-<td headers="Seconds" class="gt_row gt_right" style="font-weight: bold;">169.4</td>
-<td headers="Minutes" class="gt_row gt_right" style="font-weight: bold;">2.82</td>
+<td headers="Seconds" class="gt_row gt_right" style="font-weight: bold;">265.7</td>
+<td headers="Minutes" class="gt_row gt_right" style="font-weight: bold;">4.43</td>
 <td headers="Pct" class="gt_row gt_right" style="font-weight: bold;">100.0</td>
 </tr>
 </tbody>
@@ -6481,12 +6499,12 @@ parallel overhead:</p>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"  H1: %.1f sec/sim (wall) across %d sims on %d workers\n"</span>,</span>
 <span>            <span class="va">timings</span><span class="op">$</span><span class="va">sims_alt_elapsed</span> <span class="op">/</span> <span class="va">sim_config_alt</span><span class="op">$</span><span class="va">n_sims</span>,</span>
 <span>            <span class="va">sim_config_alt</span><span class="op">$</span><span class="va">n_sims</span>, <span class="va">n_workers</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##   H1: 1.6 sec/sim (wall) across 44 sims on 3 workers</span></span></code></pre>
+<pre><code><span><span class="co">##   H1: 2.5 sec/sim (wall) across 44 sims on 3 workers</span></span></code></pre>
 <div class="sourceCode" id="cb232"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"  H0: %.1f sec/sim (wall) across %d sims on %d workers\n"</span>,</span>
 <span>            <span class="va">timings</span><span class="op">$</span><span class="va">sims_null_elapsed</span> <span class="op">/</span> <span class="va">sim_config_null</span><span class="op">$</span><span class="va">n_sims</span>,</span>
 <span>            <span class="va">sim_config_null</span><span class="op">$</span><span class="va">n_sims</span>, <span class="va">n_workers</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##   H0: 1.5 sec/sim (wall) across 44 sims on 3 workers</span></span></code></pre>
+<pre><code><span><span class="co">##   H0: 2.4 sec/sim (wall) across 44 sims on 3 workers</span></span></code></pre>
 </div>
 </div>
 <div class="section level2">
@@ -10444,8 +10462,8 @@ before the next operation (or before the vignette terminates).</p>
 <code class="sourceCode R"><span><span class="fu">future</span><span class="fu">::</span><span class="fu"><a href="https://future.futureverse.org/reference/plan.html" class="external-link">plan</a></span><span class="op">(</span><span class="st">"sequential"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/gc.html" class="external-link">gc</a></span><span class="op">(</span>verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##           used  (Mb) gc trigger  (Mb) max used  (Mb)</span></span>
-<span><span class="co">## Ncells 3578923 191.2    5460108 291.7  5460108 291.7</span></span>
-<span><span class="co">## Vcells 6936996  53.0   14815182 113.1 12279319  93.7</span></span></code></pre>
+<span><span class="co">## Ncells 3578902 191.2    5461580 291.7  5461580 291.7</span></span>
+<span><span class="co">## Vcells 6937664  53.0   14791412 112.9 12259510  93.6</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="session-info">Session Info<a class="anchor" aria-label="anchor" href="#session-info"></a>
@@ -10489,7 +10507,7 @@ before the next operation (or before the vignette terminates).</p>
 <span><span class="co">## [22] farver_2.1.2         textshaping_1.0.5    policytree_1.2.5    </span></span>
 <span><span class="co">## [25] grf_2.6.1            codetools_0.2-20     litedown_0.11       </span></span>
 <span><span class="co">## [28] htmltools_0.5.9      sass_0.4.10          yaml_2.3.12         </span></span>
-<span><span class="co">## [31] glmnet_5.1           pillar_1.11.1        pkgdown_2.2.1       </span></span>
+<span><span class="co">## [31] glmnet_5.2           pillar_1.11.1        pkgdown_2.2.1       </span></span>
 <span><span class="co">## [34] jquerylib_0.1.4      cachem_1.1.0         iterators_1.0.14    </span></span>
 <span><span class="co">## [37] parallelly_1.48.0    commonmark_2.0.0     tidyselect_1.2.1    </span></span>
 <span><span class="co">## [40] digest_0.6.39        mvtnorm_1.4-2        dplyr_1.2.1         </span></span>

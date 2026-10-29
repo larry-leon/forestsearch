@@ -1,5 +1,23 @@
 # Simulation Studies for Evaluating ForestSearch Performance
 
+> **About this article (updated October 2026).** This article reproduces
+> the simulation framework of León, Jemielita, Guo, Marceau West and
+> Anderson (2024), *Statistics in Medicine*,
+> <https://doi.org/10.1002/sim.10163>, and its published benchmarks, on
+> the current package. The simulation settings below are those of the
+> 2024 workflow; two of them no longer act: the consistency screen is
+> evaluated in closed form, so `fs.splits` has no effect unless the
+> closed form is unavailable for a candidate, and the GRF
+> variable-importance screen is removed as of 0.4.1 (`vi.grf.min` is
+> deprecated and has no effect). The operating characteristics of the
+> current methodology — the selection-adjusted bounds, the two-subgroup
+> claim and the declaration calibration — are reported in León and
+> Anderson (2026a, arXiv:2609.38361) and (2026b, arXiv:2610.28379); the
+> methodology is documented in
+> [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
+> and the [post-selection
+> article](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html).
+
 ## Introduction
 
 This vignette demonstrates how to conduct simulation studies to evaluate
@@ -1196,7 +1214,6 @@ fs_params <- list(
   d1.min = 12,
   maxk = 2,
   by.risk = 12,
-  vi.grf.min = -0.2,
   # NEW: Two-stage algorithm option
   use_twostage = TRUE,      # Set TRUE for faster exploratory analysis
   twostage_args = list(),    # Optional tuning parameters
@@ -1314,7 +1331,7 @@ results_alt <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Per-arm events criteria: control >= 12, treatment >= 12
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.01 minutes
+    ## Subgroup search completed in 0.02 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1338,7 +1355,7 @@ results_alt <- foreach(
     ## Subgroup 3: resample Pcons=0.82 (threshold 0.9)
     ## Evaluated 3 of 3 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 3.715 0.0619 
+    ## Seconds and minutes forestsearch overall = 5.58 0.093 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.90727 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1357,7 +1374,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 1.2 minutes
+    ## Completed in 1.9 minutes
 
 ``` r
 
@@ -1435,7 +1452,7 @@ results_null <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Per-arm events criteria: control >= 12, treatment >= 12
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.01 minutes
+    ## Subgroup search completed in 0.02 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1458,7 +1475,7 @@ results_null <- foreach(
     ## Subgroup 2: resample Pcons=0.57 (threshold 0.9)
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 3.11 0.0518 
+    ## Seconds and minutes forestsearch overall = 5.322 0.0887 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 43.8823 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1477,7 +1494,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 1.1 minutes
+    ## Completed in 1.7 minutes
 
 ## Summarizing Results
 
@@ -2366,15 +2383,15 @@ reproducibility information.
 | 44 H1 + 44 H0 simulations, 3 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.1 | 0.00 | 0.1 |
-| Calibrate k_inter (Cox) | 5.3 | 0.09 | 3.2 |
-| Calibrate k_inter (AHR) | 1.8 | 0.03 | 1.1 |
-| Validate k_inter | 0.4 | 0.01 | 0.2 |
+| Calibrate k_inter (Cox) | 7.4 | 0.12 | 2.8 |
+| Calibrate k_inter (AHR) | 3.0 | 0.05 | 1.1 |
+| Validate k_inter | 0.7 | 0.01 | 0.3 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.0 |
-| Simulations H1 | 71.5 | 1.19 | 42.2 |
-| Simulations H0 | 66.3 | 1.10 | 39.1 |
-| Summarize H1 | 0.1 | 0.00 | 0.1 |
-| Summarize H0 | 0.1 | 0.00 | 0.1 |
-| Total vignette | 169.4 | 2.82 | 100.0 |
+| Simulations H1 | 111.5 | 1.86 | 42.0 |
+| Simulations H0 | 104.1 | 1.73 | 39.2 |
+| Summarize H1 | 0.2 | 0.00 | 0.1 |
+| Summarize H0 | 0.2 | 0.00 | 0.1 |
+| Total vignette | 265.7 | 4.43 | 100.0 |
 | ¹ Parallel backend: 3 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -2491,7 +2508,7 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-    ##   H1: 1.6 sec/sim (wall) across 44 sims on 3 workers
+    ##   H1: 2.5 sec/sim (wall) across 44 sims on 3 workers
 
 ``` r
 
@@ -2500,7 +2517,7 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-    ##   H0: 1.5 sec/sim (wall) across 44 sims on 3 workers
+    ##   H0: 2.4 sec/sim (wall) across 44 sims on 3 workers
 
 ## Complete Example Script
 
@@ -3736,8 +3753,8 @@ gc(verbose = FALSE)
 ```
 
     ##           used  (Mb) gc trigger  (Mb) max used  (Mb)
-    ## Ncells 3578923 191.2    5460108 291.7  5460108 291.7
-    ## Vcells 6936996  53.0   14815182 113.1 12279319  93.7
+    ## Ncells 3578902 191.2    5461580 291.7  5461580 291.7
+    ## Vcells 6937664  53.0   14791412 112.9 12259510  93.6
 
 ## Session Info
 
@@ -3783,7 +3800,7 @@ sessionInfo()
     ## [22] farver_2.1.2         textshaping_1.0.5    policytree_1.2.5    
     ## [25] grf_2.6.1            codetools_0.2-20     litedown_0.11       
     ## [28] htmltools_0.5.9      sass_0.4.10          yaml_2.3.12         
-    ## [31] glmnet_5.1           pillar_1.11.1        pkgdown_2.2.1       
+    ## [31] glmnet_5.2           pillar_1.11.1        pkgdown_2.2.1       
     ## [34] jquerylib_0.1.4      cachem_1.1.0         iterators_1.0.14    
     ## [37] parallelly_1.48.0    commonmark_2.0.0     tidyselect_1.2.1    
     ## [40] digest_0.6.39        mvtnorm_1.4-2        dplyr_1.2.1         

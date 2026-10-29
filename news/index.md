@@ -81,6 +81,31 @@
   `Suggests: forestploter (>= 1.2.0)`. Reported by adayim
   ([\#7](https://github.com/larry-leon/forestsearch/issues/7)).
 
+#### Documentation
+
+- New getting-started vignette,
+  [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md):
+  the German Breast Cancer Study Group analysis of León and Anderson
+  (2026b), Table 1, run end to end — the three identifiers (forest
+  search, DINA, GRF) and the selection-adjusted estimates and bounds of
+  León and Anderson (2026a) — at the manuscript’s settings, with the
+  declaration calibration at a protected level.
+- The previous getting-started vignette, which documents the workflow of
+  León et al. (2024), is now the pkgdown article “Exploratory subgroup
+  identification with forestsearch (the 2024 workflow)” and is no longer
+  built on CRAN.
+- The post-selection analysis is now an article on the package website
+  rather than a CRAN vignette, because the full analysis takes a few
+  minutes to run:
+  <https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html>.
+  It reproduces the GBSG analysis of León and Anderson (2026a),
+  illustrates the full bootstrap at a small number of replicates, and
+  shows
+  [`mr_estimates_table()`](https://larry-leon.github.io/forestsearch/reference/mr_estimates_table.md).
+- The methodology and simulation articles on the package website carry a
+  note placing them as the 2024 workflow, with the deprecated arguments
+  removed from their listings.
+
 ## forestsearch 0.4.0
 
 ### Changes since the last CRAN release (0.1.0)

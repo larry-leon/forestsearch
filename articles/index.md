@@ -2,8 +2,8 @@
 
 ### Getting Started
 
-- [Exploratory Subgroup Identification with
-  ForestSearch](https://larry-leon.github.io/forestsearch/articles/forestsearch.md):
+- [Interpretable subgroup identification with
+  forestsearch](https://larry-leon.github.io/forestsearch/articles/forestsearch.md):
 
 ### Methodology
 
@@ -38,3 +38,11 @@ Operating characteristics and published benchmarks
   Performance](https://larry-leon.github.io/forestsearch/articles/paper_simulations.md):
 - [Extreme Subgroup Effects Under a Uniform Treatment
   Benefit](https://larry-leon.github.io/forestsearch/articles/extreme_subgroups.md):
+
+### Reference
+
+The package’s original vignette, kept as a reference for León et
+al. (2024)
+
+- [Exploratory subgroup identification with forestsearch (the 2024
+  workflow)](https://larry-leon.github.io/forestsearch/articles/forestsearch-2024.md):

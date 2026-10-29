@@ -43,6 +43,8 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -72,7 +74,7 @@ Identification with Bootstrap Bias Correction</h3>
 Thomas Jemielita, Zifang Guo, Rachel Marceau West, Keaven M.
 Anderson</h4>
             
-            <h4 data-toc-skip class="date">2026-10-28</h4>
+            <h4 data-toc-skip class="date">2026-10-29</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/methodology.Rmd" class="external-link"><code>vignettes/articles/methodology.Rmd</code></a></small>
       <div class="d-none name"><code>methodology.Rmd</code></div>
@@ -80,6 +82,28 @@ Anderson</h4>
 
     
     
+<blockquote>
+<p><strong>About this article (updated October 2026).</strong> This
+article describes the methodology of León, Jemielita, Guo, Marceau West
+and Anderson (2024), <em>Statistics in Medicine</em>, <a href="https://doi.org/10.1002/sim.10163" class="external-link uri">https://doi.org/10.1002/sim.10163</a>, as the package first
+implemented it: the split-sample consistency screen evaluated by random
+half-splits, bootstrap bias correction, and GRF variable-importance
+screening of the candidate factors. The current package evaluates the
+consistency screen in closed form
+(<code>consistency_method = "resample"</code>, the default; random
+half-splitting is only the fallback, so <code>fs.splits</code> has no
+effect otherwise), reports selection-adjusted estimates and one-sided
+bounds by multiplier resampling (<code>mr_inference = TRUE</code>; León
+and Anderson 2026a, arXiv:2609.38361), and calibrates the declaration of
+a subgroup at a protected level (León and Anderson 2026b,
+arXiv:2610.28379). The GRF variable-importance screen is removed as of
+0.4.1 (<code>vi.grf.min</code> is deprecated and has no effect). The
+current methodology is documented in
+<code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> and the <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html">post-selection
+article</a>; the argument listings below are kept for the 2024 workflow
+and are not the complete current signature of
+<code><a href="../reference/forestsearch.html">forestsearch()</a></code> — see <code><a href="../reference/forestsearch.html">?forestsearch</a></code>.</p>
+</blockquote>
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
@@ -1510,9 +1534,9 @@ Cox model covariate (prognostic) selection via <code>glmnet</code>. In
 simulations, LASSO helps mitigate false discovery when analyses include
 baseline factors that are completely random noise.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># All forestsearch() parameters shown with their default values.</span></span>
-<span><span class="co"># LASSO is enabled by default; this snippet contrasts use_lasso = TRUE</span></span>
-<span><span class="co"># with use_grf = FALSE.</span></span>
+<code class="sourceCode R"><span><span class="co"># forestsearch() arguments of the 2024 workflow with their defaults; not the complete current signature (see ?forestsearch).</span></span>
+<span><span class="co"># LASSO and GRF are both off by default (use_lasso = FALSE, use_grf = FALSE);</span></span>
+<span><span class="co"># this snippet switches LASSO on (use_lasso = TRUE) and leaves GRF off.</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch.html">forestsearch</a></span><span class="op">(</span></span>
 <span>  df.analysis                <span class="op">=</span> <span class="va">data</span>,                         <span class="co"># required</span></span>
 <span></span>
@@ -1538,16 +1562,14 @@ baseline factors that are completely random noise.</p>
 <span>  est.scale                  <span class="op">=</span> <span class="st">"hr"</span>,                         <span class="co"># default "hr"</span></span>
 <span></span>
 <span>  <span class="co"># ─── Factor selection: LASSO + GRF ──────────────────────────────────────</span></span>
-<span>  use_lasso                  <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE  &lt;-- FOCAL</span></span>
-<span>  use_grf                    <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default TRUE  &lt;-- FOCAL</span></span>
+<span>  use_lasso                  <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default FALSE  &lt;-- FOCAL</span></span>
+<span>  use_grf                    <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE  &lt;-- FOCAL</span></span>
 <span>  grf_res                    <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
 <span>  grf_cuts                   <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
-<span>  max_n_confounders          <span class="op">=</span> <span class="fl">1000</span>,                         <span class="co"># default 1000</span></span>
 <span>  grf_depth                  <span class="op">=</span> <span class="fl">2</span>,                            <span class="co"># default 2</span></span>
 <span>  dmin.grf                   <span class="op">=</span> <span class="fl">0.0</span>,                          <span class="co"># default 0.0</span></span>
 <span>  frac.tau                   <span class="op">=</span> <span class="fl">0.8</span>,                          <span class="co"># default 0.8</span></span>
 <span>  return_selected_cuts_only  <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
-<span>  vi.grf.min                 <span class="op">=</span> <span class="op">-</span><span class="fl">0.2</span>,                         <span class="co"># default -0.2</span></span>
 <span>  tune_grf                   <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
 <span></span>
 <span>  <span class="co"># ─── Cuts / discretization ──────────────────────────────────────────────</span></span>
@@ -1566,7 +1588,7 @@ baseline factors that are completely random noise.</p>
 <span>  d0.min                     <span class="op">=</span> <span class="fl">10</span>,                           <span class="co"># default 10</span></span>
 <span>  d1.min                     <span class="op">=</span> <span class="fl">10</span>,                           <span class="co"># default 10</span></span>
 <span>  maxk                       <span class="op">=</span> <span class="fl">2</span>,                            <span class="co"># default 2</span></span>
-<span>  max_subgroups_search       <span class="op">=</span> <span class="fl">10</span>,                           <span class="co"># default 10</span></span>
+<span>  max_subgroups_search       <span class="op">=</span> <span class="fl">10</span>,                           <span class="co"># default Inf</span></span>
 <span></span>
 <span>  <span class="co"># ─── Thresholds ─────────────────────────────────────────────────────────</span></span>
 <span>  effect.threshold           <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
@@ -1583,23 +1605,23 @@ baseline factors that are completely random noise.</p>
 <span>  fs.splits                  <span class="op">=</span> <span class="fl">1000</span>,                         <span class="co"># default 1000</span></span>
 <span>  m1.threshold               <span class="op">=</span> <span class="cn">Inf</span>,                          <span class="co"># default Inf</span></span>
 <span>  pconsistency.threshold     <span class="op">=</span> <span class="fl">0.90</span>,                         <span class="co"># default 0.90</span></span>
-<span>  stop_threshold             <span class="op">=</span> <span class="fl">0.95</span>,                         <span class="co"># default 0.95</span></span>
+<span>  stop_threshold             <span class="op">=</span> <span class="fl">0.95</span>,                         <span class="co"># default pconsistency.threshold</span></span>
 <span></span>
 <span>  <span class="co"># ─── Two-stage consistency ──────────────────────────────────────────────</span></span>
 <span>  use_twostage               <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
 <span>  twostage_args              <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,                       <span class="co"># default list()</span></span>
 <span></span>
 <span>  <span class="co"># ─── GLM outcome support ────────────────────────────────────────────────</span></span>
-<span>  outcome_type               <span class="op">=</span> <span class="st">"survival"</span>,                   <span class="co"># default "survival"</span></span>
+<span>  outcome_type               <span class="op">=</span> <span class="st">"survival"</span>,                   <span class="co"># default "survival" (match.arg)</span></span>
 <span>  effect_measure             <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
 <span>  offset.name                <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
 <span>  adverse_outcome            <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
-<span>  overdispersion             <span class="op">=</span> <span class="st">"none"</span>,                       <span class="co"># default "none"</span></span>
-<span>  grf_count_transform        <span class="op">=</span> <span class="st">"log"</span>,                        <span class="co"># default "log"</span></span>
+<span>  overdispersion             <span class="op">=</span> <span class="st">"none"</span>,                       <span class="co"># default "none" (match.arg)</span></span>
+<span>  grf_count_transform        <span class="op">=</span> <span class="st">"log"</span>,                        <span class="co"># default "log" (match.arg)</span></span>
 <span></span>
 <span>  <span class="co"># ─── Propensity-score adjustment ────────────────────────────────────────</span></span>
 <span>  ps_method                  <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
-<span>  ps_adjust_method           <span class="op">=</span> <span class="st">"none"</span>,                       <span class="co"># default "none"</span></span>
+<span>  ps_adjust_method           <span class="op">=</span> <span class="st">"none"</span>,                       <span class="co"># default "none" (match.arg)</span></span>
 <span>  ps_hat                     <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
 <span></span>
 <span>  <span class="co"># ─── Output / diagnostics ───────────────────────────────────────────────</span></span>
@@ -1620,8 +1642,9 @@ forests and can be used as a complementary variable selection method. In
 ForestSearch, GRF is used for identifying candidate factors (binary
 splits) rather than as the primary identification procedure.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># All forestsearch() parameters shown with their default values.</span></span>
-<span><span class="co"># Enable both LASSO and GRF (the package default for variable selection).</span></span>
+<code class="sourceCode R"><span><span class="co"># forestsearch() arguments of the 2024 workflow with their defaults; not the complete current signature (see ?forestsearch).</span></span>
+<span><span class="co"># LASSO and GRF are both off by default (use_lasso = FALSE, use_grf = FALSE);</span></span>
+<span><span class="co"># this snippet switches both on (use_lasso = TRUE, use_grf = TRUE).</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch.html">forestsearch</a></span><span class="op">(</span></span>
 <span>  df.analysis                <span class="op">=</span> <span class="va">data</span>,                         <span class="co"># required</span></span>
 <span></span>
@@ -1647,16 +1670,14 @@ splits) rather than as the primary identification procedure.</p>
 <span>  est.scale                  <span class="op">=</span> <span class="st">"hr"</span>,                         <span class="co"># default "hr"</span></span>
 <span></span>
 <span>  <span class="co"># ─── Factor selection: LASSO + GRF ──────────────────────────────────────</span></span>
-<span>  use_lasso                  <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE  &lt;-- FOCAL</span></span>
-<span>  use_grf                    <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE  &lt;-- FOCAL</span></span>
+<span>  use_lasso                  <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default FALSE  &lt;-- FOCAL</span></span>
+<span>  use_grf                    <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default FALSE  &lt;-- FOCAL</span></span>
 <span>  grf_res                    <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
 <span>  grf_cuts                   <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
-<span>  max_n_confounders          <span class="op">=</span> <span class="fl">1000</span>,                         <span class="co"># default 1000</span></span>
 <span>  grf_depth                  <span class="op">=</span> <span class="fl">2</span>,                            <span class="co"># default 2</span></span>
 <span>  dmin.grf                   <span class="op">=</span> <span class="fl">0.0</span>,                          <span class="co"># default 0.0</span></span>
 <span>  frac.tau                   <span class="op">=</span> <span class="fl">0.8</span>,                          <span class="co"># default 0.8</span></span>
 <span>  return_selected_cuts_only  <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
-<span>  vi.grf.min                 <span class="op">=</span> <span class="op">-</span><span class="fl">0.2</span>,                         <span class="co"># default -0.2</span></span>
 <span>  tune_grf                   <span class="op">=</span> <span class="cn">FALSE</span>,                        <span class="co"># default FALSE</span></span>
 <span></span>
 <span>  <span class="co"># ─── Cuts / discretization ──────────────────────────────────────────────</span></span>
@@ -1675,7 +1696,7 @@ splits) rather than as the primary identification procedure.</p>
 <span>  d0.min                     <span class="op">=</span> <span class="fl">10</span>,                           <span class="co"># default 10</span></span>
 <span>  d1.min                     <span class="op">=</span> <span class="fl">10</span>,                           <span class="co"># default 10</span></span>
 <span>  maxk                       <span class="op">=</span> <span class="fl">2</span>,                            <span class="co"># default 2</span></span>
-<span>  max_subgroups_search       <span class="op">=</span> <span class="fl">10</span>,                           <span class="co"># default 10</span></span>
+<span>  max_subgroups_search       <span class="op">=</span> <span class="fl">10</span>,                           <span class="co"># default Inf</span></span>
 <span></span>
 <span>  <span class="co"># ─── Thresholds ─────────────────────────────────────────────────────────</span></span>
 <span>  effect.threshold           <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
@@ -1692,23 +1713,23 @@ splits) rather than as the primary identification procedure.</p>
 <span>  fs.splits                  <span class="op">=</span> <span class="fl">1000</span>,                         <span class="co"># default 1000</span></span>
 <span>  m1.threshold               <span class="op">=</span> <span class="cn">Inf</span>,                          <span class="co"># default Inf</span></span>
 <span>  pconsistency.threshold     <span class="op">=</span> <span class="fl">0.90</span>,                         <span class="co"># default 0.90</span></span>
-<span>  stop_threshold             <span class="op">=</span> <span class="fl">0.95</span>,                         <span class="co"># default 0.95</span></span>
+<span>  stop_threshold             <span class="op">=</span> <span class="fl">0.95</span>,                         <span class="co"># default pconsistency.threshold</span></span>
 <span></span>
 <span>  <span class="co"># ─── Two-stage consistency ──────────────────────────────────────────────</span></span>
 <span>  use_twostage               <span class="op">=</span> <span class="cn">TRUE</span>,                         <span class="co"># default TRUE</span></span>
 <span>  twostage_args              <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,                       <span class="co"># default list()</span></span>
 <span></span>
 <span>  <span class="co"># ─── GLM outcome support ────────────────────────────────────────────────</span></span>
-<span>  outcome_type               <span class="op">=</span> <span class="st">"survival"</span>,                   <span class="co"># default "survival"</span></span>
+<span>  outcome_type               <span class="op">=</span> <span class="st">"survival"</span>,                   <span class="co"># default "survival" (match.arg)</span></span>
 <span>  effect_measure             <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
 <span>  offset.name                <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
 <span>  adverse_outcome            <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
-<span>  overdispersion             <span class="op">=</span> <span class="st">"none"</span>,                       <span class="co"># default "none"</span></span>
-<span>  grf_count_transform        <span class="op">=</span> <span class="st">"log"</span>,                        <span class="co"># default "log"</span></span>
+<span>  overdispersion             <span class="op">=</span> <span class="st">"none"</span>,                       <span class="co"># default "none" (match.arg)</span></span>
+<span>  grf_count_transform        <span class="op">=</span> <span class="st">"log"</span>,                        <span class="co"># default "log" (match.arg)</span></span>
 <span></span>
 <span>  <span class="co"># ─── Propensity-score adjustment ────────────────────────────────────────</span></span>
 <span>  ps_method                  <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
-<span>  ps_adjust_method           <span class="op">=</span> <span class="st">"none"</span>,                       <span class="co"># default "none"</span></span>
+<span>  ps_adjust_method           <span class="op">=</span> <span class="st">"none"</span>,                       <span class="co"># default "none" (match.arg)</span></span>
 <span>  ps_hat                     <span class="op">=</span> <span class="cn">NULL</span>,                         <span class="co"># default NULL</span></span>
 <span></span>
 <span>  <span class="co"># ─── Output / diagnostics ───────────────────────────────────────────────</span></span>
@@ -1771,8 +1792,8 @@ estimates were obtained.</p>
 <strong>Minimum subgroup size:</strong> 60 subjects (default
 <code>n.min = 60</code>)</li>
 <li>
-<strong>Minimum events:</strong> 10–12 per treatment arm (default
-<code>d0.min = 12</code>, <code>d1.min = 12</code>)</li>
+<strong>Minimum events:</strong> 10 per treatment arm (default
+<code>d0.min = 10</code>, <code>d1.min = 10</code>)</li>
 <li>
 <strong>Recommended trial size:</strong>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>≥</mo><mn>300</mn></mrow><annotation encoding="application/x-tex">N \ge 300</annotation></semantics></math>
@@ -1788,8 +1809,9 @@ for Phase 3</li>
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>),
 the number of subgroup combinations meeting size criteria
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>S</mi><annotation encoding="application/x-tex">S</annotation></semantics></math>),
-the number of consistency splits (<code>fs.splits</code>, default
-400–1000), the number of bootstrap iterations
+the number of consistency splits (<code>fs.splits</code>, default 1000;
+used only when the closed-form consistency evaluation is unavailable for
+a candidate), the number of bootstrap iterations
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>,
 typically 300–2000), and the number of CV repetitions.</p>
 <p><strong>Typical timing</strong> (Apple M1, 20 cores):</p>
@@ -1867,6 +1889,15 @@ regimens studied</li>
 Athey, Susan, Julie Tibshirani, and Stefan Wager. 2019.
 <span>“Generalized Random Forests.”</span> <em>The Annals of
 Statistics</em> 47 (2): 1148–78.
+</div>
+<div id="ref-Leon_Anderson_2026a" class="csl-entry">
+León, Larry F., and Keaven M. Anderson. 2026a. <em>Inference for
+Standard Trial Estimands After Data-Driven Subgroup Discovery</em>. <a href="https://doi.org/10.48550/arXiv.2609.38361" class="external-link">https://doi.org/10.48550/arXiv.2609.38361</a>.
+</div>
+<div id="ref-Leon_Anderson_2026b" class="csl-entry">
+León, Larry F., and Keaven M. Anderson. 2026b. <em>Interpretable
+Subgroup Identification Across Survival and Generalized-Linear
+Outcomes</em>. <a href="https://doi.org/10.48550/arXiv.2610.28379" class="external-link">https://doi.org/10.48550/arXiv.2610.28379</a>.
 </div>
 <div id="ref-Leon_2024" class="csl-entry">
 León, Larry F., Thomas Jemielita, Zifang Guo, Rachel Marceau West, and

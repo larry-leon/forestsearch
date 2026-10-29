@@ -45,6 +45,8 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -64,11 +66,11 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Post-selection inference for an identified survival subgroup</h1>
-      <p class="subtitle">A worked GBSG analysis, end to end</p>
+      <p class="subtitle">The GBSG analysis of León and Anderson (2026a): naive, full-bootstrap and multiplier-resampling estimates for three identifiers</p>
       <p class="author">Larry Leon</p>
-      <p class="date">2026-10-28</p>
+      <p class="date">2026-10-29</p>
 
-      <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/survival-post-selection.qmd" class="external-link"><code>vignettes/survival-post-selection.qmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/survival-post-selection.qmd" class="external-link"><code>vignettes/articles/survival-post-selection.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
     </div>
 
@@ -77,278 +79,1645 @@
 
 
 
-    <div class="cell">
+    <blockquote>
+<p><strong>A website article.</strong> In forestsearch 0.4.0 this was a CRAN vignette; from 0.4.1 it is an article on the package website, because the full analysis takes a few minutes to run, too long for CRAN’s package checks. The text is otherwise unchanged; where it says “vignette”, read “article”.</p>
+</blockquote>
+<div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="va"><a href="https://rdrr.io/pkg/knitr/man/opts_chunk.html" class="external-link">opts_chunk</a></span><span class="op">$</span><span class="fu">set</span><span class="op">(</span>comment <span class="op">=</span> <span class="st">"#&gt;"</span>, fig.align <span class="op">=</span> <span class="st">"center"</span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/larry-leon/forestsearch" class="external-link">forestsearch</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/therneau/survival" class="external-link">survival</a></span><span class="op">)</span></span></code></pre></div>
 </div>
-<p><code><a href="../reference/forestsearch.html">forestsearch()</a></code> identifies a subgroup by searching over candidate subgroups, so a treatment effect estimated within the identified subgroup is affected by the selection: a confidence interval computed as if the subgroup had been prespecified tends to under-cover. With <code>mr_inference = TRUE</code>, <code><a href="../reference/forestsearch.html">forestsearch()</a></code> reports selection-adjusted estimates and bounds for the identified subgroup and its complement, based on multiplier resampling of the candidate effects. The methodology, its assumptions and its simulation operating characteristics are described in León and Anderson (2026); this vignette shows how to obtain and read the reported quantities on a public dataset.</p>
-<section class="level2"><h2 id="the-data-and-the-fit">The data and the fit<a class="anchor" aria-label="anchor" href="#the-data-and-the-fit"></a>
+<style>
+#quarto-document-content table.table { width: auto; margin-left: 0; }
+#quarto-document-content table.table th,
+#quarto-document-content table.table td { padding: 0.25rem 0.9rem; }
+</style>
+<p>A subgroup discovered in a trial is reported through the standard analysis the trial would have run had that subgroup been the only one: the treatment coefficient of the working model fitted within it, a Cox log hazard ratio here. Selection by an effect-driven rule — rewarding large estimated effects subject to screening and size criteria — inflates that coefficient. This is the winner’s curse, and it invalidates a naive interval whether or not the identifier’s own internal estimand was de-biased by cross-fitting (León and Anderson 2026a). The same selection distorts the estimate for the patients outside the subgroup.</p>
+<p><strong>What is corrected, and how.</strong> The target is the standard-analysis effect of the selected region, with the candidate family held fixed: <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\beta(\hat H)</annotation></semantics></math> for the region and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\beta(\hat H^{c})</annotation></semantics></math> for its complement. Two routes remove the optimism of selection.</p>
+<ul>
+<li>
+<strong>The full bootstrap</strong> re-runs the whole pipeline — enumerate, screen, select — on each resample, and corrects the observed estimate by the bootstrap estimate of its selection bias. It is the procedure of León et al. (2024). It is costly, because every replicate repeats the search.</li>
+<li>
+<strong>Multiplier resampling</strong> (MR) never refits. Once the candidate family and every candidate’s effect and influence function are in hand, resampling the search reduces to perturbing all candidate effects jointly with one set of multiplier weights and re-selecting; the correction is read from the re-selected effects, and an infinitesimal-jackknife (IJ) interval comes from the same draws. León and Anderson (2026a) show the IJ interval’s coverage under standard regularity and an explicit condition on the limiting competition between candidates, and that MR matches the full bootstrap on a fixed family.</li>
+<li>
+<strong>Model-generated families.</strong> For DINA and GRF the candidate family is proposed from a surface fitted to the outcome, so a bootstrap regenerates it. There MR remains valid for the same conditional target — the effect of the selected region given the family proposed — which the bootstrap reproduces only under further conditions.</li>
+</ul>
+<p><strong>This vignette</strong> runs the GBSG analysis of León and Anderson (2026a) for the three identifiers — forest search (FS), DINA and GRF — at the manuscript’s settings, with the multiplier correction in full (5,000 draws) and the full bootstrap implemented and run at a small number of replicates to show the machinery and its cost. The manuscript’s Table S2 (Supplementary Section S6), computed with B = 1,000 bootstrap replicates, is reproduced for comparison. <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> runs the companion analysis of León and Anderson (2026b) on the same trial — the search, the one-sided bounds and the declaration calibration; this vignette is about the two-sided correction and the bootstrap it replaces.</p>
+<section class="level2"><h2 id="the-data">The data<a class="anchor" aria-label="anchor" href="#the-data"></a>
 </h2>
-<p>The GBSG node-positive breast-cancer trial shipped with <strong>survival</strong>: 686 patients, hormonal therapy against none, recurrence-free survival. The covariate set is the usual seven; <code>er</code> and <code>pgr</code> are forced in as candidate receptor cutpoints, and continuous covariates get 10 quantile cuts each.</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">df.analysis</span> <span class="op">&lt;-</span> <span class="va">gbsg</span></span>
-<span><span class="va">df.analysis</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/with.html" class="external-link">within</a></span><span class="op">(</span><span class="va">df.analysis</span>, <span class="op">{</span></span>
-<span>  <span class="va">id</span>          <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">df.analysis</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu">survival</span><span class="fu">::</span><span class="va"><a href="https://rdrr.io/pkg/survival/man/gbsg.html" class="external-link">gbsg</a></span></span>
+<span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/with.html" class="external-link">within</a></span><span class="op">(</span><span class="va">df</span>, <span class="op">{</span></span>
+<span>  <span class="va">id</span>          <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="va">time_months</span> <span class="op">&lt;-</span> <span class="va">rfstime</span> <span class="op">/</span> <span class="fl">30.4375</span></span>
 <span>  <span class="va">grade3</span>      <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">grade</span> <span class="op">==</span> <span class="st">"3"</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
-<span><span class="va">confounders.name</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"meno"</span>, <span class="st">"size"</span>, <span class="st">"grade3"</span>, <span class="st">"nodes"</span>, <span class="st">"pgr"</span>, <span class="st">"er"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Sample size:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">df.analysis</span><span class="op">)</span>,</span>
-<span>    <span class="st">"| events:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">df.analysis</span><span class="op">$</span><span class="va">status</span><span class="op">)</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"(%.1f%%)\n"</span>, <span class="fl">100</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">df.analysis</span><span class="op">$</span><span class="va">status</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">confounders</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"meno"</span>, <span class="st">"size"</span>, <span class="st">"grade3"</span>, <span class="st">"nodes"</span>, <span class="st">"pgr"</span>, <span class="st">"er"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span> <span class="op">==</span> <span class="fl">686</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">status</span><span class="op">)</span> <span class="op">==</span> <span class="fl">299</span><span class="op">)</span></span>
+<span><span class="va">whole</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/survival/man/coxph.html" class="external-link">coxph</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">Surv</a></span><span class="op">(</span><span class="va">time_months</span>, <span class="va">status</span><span class="op">)</span> <span class="op">~</span> <span class="va">hormon</span>, data <span class="op">=</span> <span class="va">df</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"Whole trial: %d patients, %d events, hazard ratio %.3f (%.3f, %.3f)"</span>,</span>
+<span>        <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">status</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">whole</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">whole</span><span class="op">)</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>,</span>
+<span>        <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">whole</span><span class="op">)</span><span class="op">)</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; Sample size: 686 | events: 299 (43.6%)</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; [1] "Whole trial: 686 patients, 299 events, hazard ratio 0.695 (0.544, 0.888)"</span></span></code></pre>
 </div>
 </div>
-<p>The fit below uses the consistency search without a LASSO/GRF/DINA screen, <code>sg_focus = "effMaxSG"</code> (the largest subgroup within 20% of the strongest observed effect), 200 consistency splits and 500 multiplier draws. <code>mr_inference = TRUE</code> attaches the post-selection results to the fit as <code>fs$mr_inference</code>; <code>field_recovery = TRUE</code> adds the membership-agreement diagnostics used below. Bootstrap and cross-validation are not run here; see <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code>.</p>
+</section><section class="level2"><h2 id="the-settings">The settings<a class="anchor" aria-label="anchor" href="#the-settings"></a>
+</h2>
+<p>The analysis of León and Anderson (2026a), Section 6, and the calls below follow the document that produced its Table S2:</p>
+<ul>
+<li>
+<strong>Candidates</strong> are conjunctions of at most two covariate cuts with at least 60 patients and 10 events in each arm. Forest search carries ten candidate cuts on each receptor with zero forced in as a cut of its own; DINA and GRF propose their candidates from a fitted surface on the covariates as given.</li>
+<li>
+<strong>Forest search</strong> screens at a hazard ratio of 1.0 and requires splitting consistency at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>p</mi><mo>⋆</mo></msup><mo>=</mo><mn>0.90</mn></mrow><annotation encoding="application/x-tex">p^\star = 0.90</annotation></semantics></math>, evaluated in closed form (<code>consistency_method = "resample"</code>); <code>stop_threshold = NULL</code> has every screened candidate evaluated.</li>
+<li>
+<strong>The selection rule</strong> is <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mi mathvariant="script">𝒜</mi></msub><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mi>ε</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\max_{\mathcal{A}} N(\varepsilon)</annotation></semantics></math> at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>=</mo><mn>0.10</mn></mrow><annotation encoding="application/x-tex">\varepsilon = 0.10</annotation></semantics></math>: the largest admitted region whose effect is within 10% of the largest effect over the family. The companion vignette uses <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>=</mo><mn>0.20</mn></mrow><annotation encoding="application/x-tex">\varepsilon = 0.20</annotation></semantics></math> and returns a larger forest-search region (N 75); at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>=</mo><mn>0.10</mn></mrow><annotation encoding="application/x-tex">\varepsilon = 0.10</annotation></semantics></math> the rule returns the 61 patients with no measured estrogen receptor and tumour size at most 35 mm — the effect-maximising region of that vignette’s candidate table.</li>
+<li>
+<strong>DINA</strong> is re-ranked on the Cox coefficient against a floor of 0.90, with a two-fold cross-fit surface; <strong>GRF</strong> uses the frontier of its covariate grid, re-ranked on the Cox coefficient, at depth 2 with a doubly-robust-score floor of 0.</li>
+<li>
+<strong>Multiplier resampling</strong> at 5,000 draws, reported as the two-term corrected estimate with its IJ two-sided 95% interval (<code>ci_method = "ij"</code> for DINA and GRF). The forest-search fit asks for <code>ci_method = "field"</code> with <code>field_recovery = TRUE</code>: the two-term estimate and the IJ interval are the same under both settings, and the field adds the one-sided bounds of the companion vignette and the membership-recovery diagnostics used below.</li>
+</ul></section><section class="level2"><h2 id="the-three-fits">The three fits<a class="anchor" aria-label="anchor" href="#the-three-fits"></a>
+</h2>
+<p>The fits run on one core here (<code>parallel_args = list(plan = "sequential")</code>); the bootstrap below uses up to two, the limit a CRAN check imposes. The package’s default plan is parallel.</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="va">fs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch.html">forestsearch</a></span><span class="op">(</span></span>
-<span>  <span class="va">df.analysis</span>,</span>
-<span>  outcome.name <span class="op">=</span> <span class="st">"time_months"</span>, event.name <span class="op">=</span> <span class="st">"status"</span>,</span>
-<span>  treat.name <span class="op">=</span> <span class="st">"hormon"</span>, id.name <span class="op">=</span> <span class="st">"id"</span>,</span>
-<span>  confounders.name <span class="op">=</span> <span class="va">confounders.name</span>,</span>
-<span>  is.RCT <span class="op">=</span> <span class="cn">TRUE</span>, seedit <span class="op">=</span> <span class="fl">8316951</span>, est.scale <span class="op">=</span> <span class="st">"hr"</span>,</span>
-<span>  use_lasso <span class="op">=</span> <span class="cn">FALSE</span>, use_grf <span class="op">=</span> <span class="cn">FALSE</span>, use_dina <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  conf.cont_jcuts <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>er <span class="op">=</span> <span class="fl">10</span>, pgr <span class="op">=</span> <span class="fl">10</span><span class="op">)</span>, collapse_cuts <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  conf_force <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"er &lt;= 0"</span>, <span class="st">"pgr &lt;= 0"</span><span class="op">)</span>,</span>
-<span>  subgroup_method <span class="op">=</span> <span class="st">"consistency"</span>, sg_focus <span class="op">=</span> <span class="st">"effMaxSG"</span>,</span>
-<span>  selection_rule <span class="op">=</span> <span class="st">"neighborhood"</span>, effect_neighborhood <span class="op">=</span> <span class="fl">0.20</span>,</span>
-<span>  mr_inference <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  mr_inference_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>draws <span class="op">=</span> <span class="fl">500L</span>, field_recovery <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<code class="sourceCode R"><span><span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span><span class="op">[[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">]</span></span>
+<span><span class="va">fit_fs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch.html">forestsearch</a></span><span class="op">(</span></span>
+<span>  df.analysis <span class="op">=</span> <span class="va">df</span>,</span>
+<span>  outcome.name <span class="op">=</span> <span class="st">"time_months"</span>, event.name <span class="op">=</span> <span class="st">"status"</span>, treat.name <span class="op">=</span> <span class="st">"hormon"</span>, id.name <span class="op">=</span> <span class="st">"id"</span>,</span>
+<span>  confounders.name <span class="op">=</span> <span class="va">confounders</span>,</span>
+<span>  is.RCT <span class="op">=</span> <span class="cn">TRUE</span>, est.scale <span class="op">=</span> <span class="st">"hr"</span>, seedit <span class="op">=</span> <span class="fl">8316951</span>,</span>
+<span>  conf.cont_jcuts <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>er <span class="op">=</span> <span class="fl">10</span>, pgr <span class="op">=</span> <span class="fl">10</span><span class="op">)</span>, conf_force <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"er &lt;= 0"</span>, <span class="st">"pgr &lt;= 0"</span><span class="op">)</span>,</span>
 <span>  n.min <span class="op">=</span> <span class="fl">60</span>, d0.min <span class="op">=</span> <span class="fl">10</span>, d1.min <span class="op">=</span> <span class="fl">10</span>, maxk <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  hr.threshold <span class="op">=</span> <span class="fl">1.0</span>, hr.consistency <span class="op">=</span> <span class="fl">1.0</span>, pconsistency.threshold <span class="op">=</span> <span class="fl">0.80</span>,</span>
-<span>  fs.splits <span class="op">=</span> <span class="fl">200</span>,</span>
-<span>  details <span class="op">=</span> <span class="cn">FALSE</span>, quiet <span class="op">=</span> <span class="cn">TRUE</span>, plot.sg <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"sequential"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"fit time: %.1f seconds\n"</span>, <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span> <span class="op">-</span> <span class="va">t0</span><span class="op">)</span><span class="op">[[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; fit time: 20.3 seconds</span></span></code></pre>
+<span>  subgroup_method <span class="op">=</span> <span class="st">"consistency"</span>, consistency_method <span class="op">=</span> <span class="st">"resample"</span>,</span>
+<span>  hr.threshold <span class="op">=</span> <span class="fl">1.00</span>, hr.consistency <span class="op">=</span> <span class="fl">1.00</span>, pconsistency.threshold <span class="op">=</span> <span class="fl">0.90</span>,</span>
+<span>  stop_threshold <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  sg_focus <span class="op">=</span> <span class="st">"effMaxSG"</span>, selection_rule <span class="op">=</span> <span class="st">"neighborhood"</span>, effect_neighborhood <span class="op">=</span> <span class="fl">0.10</span>,</span>
+<span>  mr_inference <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  mr_inference_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>ci_method <span class="op">=</span> <span class="st">"field"</span>, draws <span class="op">=</span> <span class="fl">5000L</span>, field_recovery <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  quiet <span class="op">=</span> <span class="cn">TRUE</span>, parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"sequential"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">sec_fs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span><span class="op">[[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">]</span> <span class="op">-</span> <span class="va">t0</span></span></code></pre></div>
 </div>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span><span class="op">[[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">]</span></span>
+<span><span class="va">fit_dina</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch.html">forestsearch</a></span><span class="op">(</span></span>
+<span>  df.analysis <span class="op">=</span> <span class="va">df</span>,</span>
+<span>  outcome.name <span class="op">=</span> <span class="st">"time_months"</span>, event.name <span class="op">=</span> <span class="st">"status"</span>, treat.name <span class="op">=</span> <span class="st">"hormon"</span>, id.name <span class="op">=</span> <span class="st">"id"</span>,</span>
+<span>  confounders.name <span class="op">=</span> <span class="va">confounders</span>,</span>
+<span>  is.RCT <span class="op">=</span> <span class="cn">TRUE</span>, est.scale <span class="op">=</span> <span class="st">"hr"</span>, seedit <span class="op">=</span> <span class="fl">8316951</span>,</span>
+<span>  subgroup_method <span class="op">=</span> <span class="st">"dina"</span>, dina_select_statistic <span class="op">=</span> <span class="st">"effect"</span>,</span>
+<span>  dina_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>seed <span class="op">=</span> <span class="fl">8316951</span>, n_folds <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>,</span>
+<span>  hr.threshold <span class="op">=</span> <span class="fl">0.90</span>, n.min <span class="op">=</span> <span class="fl">60</span>,</span>
+<span>  sg_focus <span class="op">=</span> <span class="st">"effMaxSG"</span>, selection_rule <span class="op">=</span> <span class="st">"neighborhood"</span>, effect_neighborhood <span class="op">=</span> <span class="fl">0.10</span>,</span>
+<span>  mr_inference <span class="op">=</span> <span class="cn">TRUE</span>, mr_inference_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>ci_method <span class="op">=</span> <span class="st">"ij"</span>, draws <span class="op">=</span> <span class="fl">5000L</span><span class="op">)</span>,</span>
+<span>  quiet <span class="op">=</span> <span class="cn">TRUE</span>, parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"sequential"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">sec_dina</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span><span class="op">[[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">]</span> <span class="op">-</span> <span class="va">t0</span></span></code></pre></div>
 </div>
-</section><section class="level2"><h2 id="the-identified-subgroup">The identified subgroup<a class="anchor" aria-label="anchor" href="#the-identified-subgroup"></a>
-</h2>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Selected subgroup:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">sg.harm</span>, collapse <span class="op">=</span> <span class="st">" &amp; "</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; Selected subgroup: {er &lt;= 0} &amp; {pgr &lt;= 26}</span></span></code></pre>
+<code class="sourceCode R"><span><span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span><span class="op">[[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">]</span></span>
+<span><span class="va">fit_grf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch.html">forestsearch</a></span><span class="op">(</span></span>
+<span>  df.analysis <span class="op">=</span> <span class="va">df</span>,</span>
+<span>  outcome.name <span class="op">=</span> <span class="st">"time_months"</span>, event.name <span class="op">=</span> <span class="st">"status"</span>, treat.name <span class="op">=</span> <span class="st">"hormon"</span>, id.name <span class="op">=</span> <span class="st">"id"</span>,</span>
+<span>  confounders.name <span class="op">=</span> <span class="va">confounders</span>,</span>
+<span>  is.RCT <span class="op">=</span> <span class="cn">TRUE</span>, est.scale <span class="op">=</span> <span class="st">"hr"</span>, seedit <span class="op">=</span> <span class="fl">8316951</span>,</span>
+<span>  subgroup_method <span class="op">=</span> <span class="st">"grf"</span>, grf_selection <span class="op">=</span> <span class="st">"frontier"</span>, grf_select_statistic <span class="op">=</span> <span class="st">"effect"</span>,</span>
+<span>  grf_depth <span class="op">=</span> <span class="fl">2L</span>, dmin.grf <span class="op">=</span> <span class="fl">0.0</span>, frac.tau <span class="op">=</span> <span class="fl">0.8</span>, n.min <span class="op">=</span> <span class="fl">60</span>,</span>
+<span>  sg_focus <span class="op">=</span> <span class="st">"effMaxSG"</span>, selection_rule <span class="op">=</span> <span class="st">"neighborhood"</span>, effect_neighborhood <span class="op">=</span> <span class="fl">0.10</span>,</span>
+<span>  mr_inference <span class="op">=</span> <span class="cn">TRUE</span>, mr_inference_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>ci_method <span class="op">=</span> <span class="st">"ij"</span>, draws <span class="op">=</span> <span class="fl">5000L</span><span class="op">)</span>,</span>
+<span>  quiet <span class="op">=</span> <span class="cn">TRUE</span>, parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"sequential"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">sec_grf</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span><span class="op">[[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">]</span> <span class="op">-</span> <span class="va">t0</span></span></code></pre></div>
 </div>
-</div>
-<p>The subgroup is a conjunction of at most <code>maxk = 2</code> binary cutpoints drawn from the candidate family. <code>family_status</code> records how the candidate family was built; <code>"no-front-end"</code> means the family was enumerated directly rather than proposed by a model fitted to the data.</p>
-</section><section class="level2"><h2 id="the-reported-quantities">The reported quantities<a class="anchor" aria-label="anchor" href="#the-reported-quantities"></a>
-</h2>
-<p><code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> reports them; nothing extra needs to be called.</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">fs</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode cell-code" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fits</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>FS <span class="op">=</span> <span class="va">fit_fs</span>, DINA <span class="op">=</span> <span class="va">fit_dina</span>, GRF <span class="op">=</span> <span class="va">fit_grf</span><span class="op">)</span></span>
+<span><span class="va">secs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>FS <span class="op">=</span> <span class="va">sec_fs</span>, DINA <span class="op">=</span> <span class="va">sec_dina</span>, GRF <span class="op">=</span> <span class="va">sec_grf</span><span class="op">)</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">m</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fits</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">gm</span> <span class="op">&lt;-</span> <span class="va">fits</span><span class="op">[[</span><span class="va">m</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">mr_inference</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%-4s %-28s N %3d   fit %5.1f s (multiplier stage %.1f s)   family %d\n"</span>,</span>
+<span>              <span class="va">m</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">fits</span><span class="op">[[</span><span class="va">m</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">sg.harm</span>, collapse <span class="op">=</span> <span class="st">" &amp; "</span><span class="op">)</span>, <span class="va">gm</span><span class="op">$</span><span class="va">n_selected</span>, <span class="va">secs</span><span class="op">[[</span><span class="va">m</span><span class="op">]</span><span class="op">]</span>,</span>
+<span>              <span class="va">gm</span><span class="op">$</span><span class="va">timing_seconds</span>, <span class="va">gm</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; ForestSearch Results</span></span>
-<span><span class="co">#&gt; ====================</span></span>
+<pre><code><span><span class="co">#&gt; FS   {er &lt;= 0} &amp; {size &lt;= 35}     N  61   fit  31.9 s (multiplier stage 1.0 s)   family 1744</span></span>
+<span><span class="co">#&gt; DINA {grade3 &gt;= 1} &amp; {pgr &lt;= 10}  N  89   fit   1.4 s (multiplier stage 0.3 s)   family 84</span></span>
+<span><span class="co">#&gt; GRF  {er &lt;= 0}                    N  82   fit   9.6 s (multiplier stage 0.3 s)   family 858</span></span></code></pre>
+</div>
+</div>
+</section><section class="level2"><h2 id="the-multiplier-correction">The multiplier correction<a class="anchor" aria-label="anchor" href="#the-multiplier-correction"></a>
+</h2>
+<p>For each identifier, <code>fit$mr_inference</code> holds the unadjusted (naive) estimate of the selected region, the selection bias the draws estimate, and the two-term corrected estimate with its IJ interval; <code>$complement</code> holds the same for the patients outside the region. The family size is the number of candidates the draws re-select over.</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">g</span> <span class="op">&lt;-</span> <span class="va">fit_fs</span><span class="op">$</span><span class="va">mr_inference</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"Selection bias (log scale): %.3f over a family of %d candidates\n"</span>,</span>
+<span>            <span class="va">g</span><span class="op">$</span><span class="va">selection_bias</span>, <span class="va">g</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code><span><span class="co">#&gt; Selection bias (log scale): 0.555 over a family of 1744 candidates</span></span></code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"Region:     naive %.2f (%.2f, %.2f)  -&gt;  corrected %.2f (%.2f, %.2f)\n"</span>,</span>
+<span>            <span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">est</span>, <span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">lower</span>, <span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">upper</span>,</span>
+<span>            <span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">est</span>, <span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">lower</span>, <span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code><span><span class="co">#&gt; Region:     naive 2.54 (1.25, 5.17)  -&gt;  corrected 1.44 (0.62, 3.36)</span></span></code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">cc</span> <span class="op">&lt;-</span> <span class="va">g</span><span class="op">$</span><span class="va">complement</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"Complement: naive %.2f (%.2f, %.2f)  -&gt;  corrected %.2f (%.2f, %.2f)\n"</span>,</span>
+<span>            <span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">est</span>, <span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">lower</span>, <span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">upper</span>,</span>
+<span>            <span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">est</span>, <span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">lower</span>, <span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code><span><span class="co">#&gt; Complement: naive 0.61 (0.47, 0.79)  -&gt;  corrected 0.64 (0.40, 1.03)</span></span></code></pre>
+</div>
+</div>
+<p>The correction moves the forest-search region’s estimate from an apparent harm to a value near one, and widens the interval: the IJ interval accounts for the selection’s own variability, which a naive interval ignores. The complement moves the other way and by much less — it is most of the trial, and the selection barely touches it.</p>
+</section><section class="level2"><h2 id="the-full-bootstrap">The full bootstrap<a class="anchor" aria-label="anchor" href="#the-full-bootstrap"></a>
+</h2>
+<p><code><a href="../reference/forestsearch_bootstrap_dofuture.html">forestsearch_bootstrap_dofuture()</a></code> draws a nonparametric bootstrap sample, re-runs the identifier on it — the whole search, the screen and the selection, with the front-end surfaces refitted for DINA and GRF — and records the selected region’s effect on the resample and on the original data. The bias-corrected estimate is the observed estimate less the bootstrap estimate of its selection bias, averaged over replicates (the correction of León et al. 2024); its interval uses an infinitesimal-jackknife variance of the bootstrap mean with a finite-B correction. Multiplier resampling is not run inside the replicates (<code>mr_in_replicates = FALSE</code>, the default), so each replicate costs one search.</p>
+<p>The manuscript used B = 1,000. Here B is small, to show the implementation and its cost: the point estimates are usable as an illustration, the intervals are not — the finite-B variance needs B in the hundreds, the package warns below 100, and at small B the variance can fall back to its uncorrected form. Read the interval columns of the bootstrap tables below as what the machinery produces at this B, not as results.</p>
+<p>Replicates are independent, so the bootstrap parallelises across them: <code><a href="../reference/forestsearch_bootstrap_dofuture.html">forestsearch_bootstrap_dofuture()</a></code> dispatches them through the <strong>future</strong> framework, and <code>parallel_args = list(plan = "multisession", workers = k)</code> runs them on k processes. The document behind Table S2 ran its B = 1,000 on 11 workers. This vignette uses at most two, the limit a CRAN check imposes (<code><a href="https://parallelly.futureverse.org/reference/availableCores.html" class="external-link">future::availableCores()</a></code> returns what the host allows); for a real run, set <code>n_workers</code> below to the cores you have.</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">n_workers</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="fl">2L</span>, <span class="fu">future</span><span class="fu">::</span><span class="fu"><a href="https://parallelly.futureverse.org/reference/availableCores.html" class="external-link">availableCores</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span>   <span class="co"># set to your cores for a real run</span></span>
+<span><span class="va">boot_plan</span> <span class="op">&lt;-</span> <span class="kw">if</span> <span class="op">(</span><span class="va">n_workers</span> <span class="op">&gt;</span> <span class="fl">1L</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"multisession"</span>, workers <span class="op">=</span> <span class="va">n_workers</span><span class="op">)</span> <span class="kw">else</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"sequential"</span><span class="op">)</span></span>
+<span><span class="va">B</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>FS <span class="op">=</span> <span class="fl">25L</span>, DINA <span class="op">=</span> <span class="fl">25L</span>, GRF <span class="op">=</span> <span class="fl">10L</span><span class="op">)</span></span>
+<span><span class="va">boots</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>; <span class="va">boot_secs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">m</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fits</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span><span class="op">[[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">]</span></span>
+<span>  <span class="va">boots</span><span class="op">[[</span><span class="va">m</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch_bootstrap_dofuture.html">forestsearch_bootstrap_dofuture</a></span><span class="op">(</span></span>
+<span>    fs.est <span class="op">=</span> <span class="va">fits</span><span class="op">[[</span><span class="va">m</span><span class="op">]</span><span class="op">]</span>, nb_boots <span class="op">=</span> <span class="va">B</span><span class="op">[[</span><span class="va">m</span><span class="op">]</span><span class="op">]</span>, seed <span class="op">=</span> <span class="fl">8316951L</span>,</span>
+<span>    mr_in_replicates <span class="op">=</span> <span class="cn">FALSE</span>, parallel_args <span class="op">=</span> <span class="va">boot_plan</span><span class="op">)</span></span>
+<span>  <span class="va">boot_secs</span><span class="op">[</span><span class="va">m</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span><span class="op">[[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">]</span> <span class="op">-</span> <span class="va">t0</span></span>
+<span><span class="op">}</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">boot_secs</span>, <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code><span><span class="co">#&gt;   FS DINA  GRF</span></span>
+<span><span class="co">#&gt; 73.0 32.3 33.9</span></span></code></pre>
+</div>
+</div>
+<p>The package’s own summaries, shown for forest search. The first is the bootstrap table: the naive estimate beside the bootstrap-corrected one, for the region and its complement.</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">summ_fs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/summarize_bootstrap_results.html">summarize_bootstrap_results</a></span><span class="op">(</span>sgharm <span class="op">=</span> <span class="va">fit_fs</span><span class="op">$</span><span class="va">sg.harm</span>, boot_results <span class="op">=</span> <span class="va">boots</span><span class="op">$</span><span class="va">FS</span>,</span>
+<span>                                       create_plots <span class="op">=</span> <span class="cn">FALSE</span>, est.scale <span class="op">=</span> <span class="st">"hr"</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code><span><span class="co">#&gt;</span></span>
+<span><span class="co">#&gt; ===============================================================</span></span>
+<span><span class="co">#&gt;            BOOTSTRAP ANALYSIS SUMMARY</span></span>
+<span><span class="co">#&gt; ===============================================================</span></span>
 <span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; Selected Subgroup:</span></span>
-<span><span class="co">#&gt;   Definition: {er &lt;= 0} &amp; {pgr &lt;= 26}</span></span>
-<span><span class="co">#&gt;   sg_focus: hrMaxSG</span></span>
-<span><span class="co">#&gt;   N: 75</span></span>
-<span><span class="co">#&gt;   HR: 2.222</span></span>
-<span><span class="co">#&gt;   Pcons: 0.99</span></span>
-<span><span class="co">#&gt;   Algorithm: twostage</span></span>
-<span><span class="co">#&gt;   Candidate family: no-front-end</span></span>
-<span><span class="co">#&gt;   Admission set: effect floor 0; consistency floor 0 at p* = 0.8</span></span>
-<span><span class="co">#&gt;   Candidates evaluated: 120</span></span>
-<span><span class="co">#&gt;   Candidates passed: 16</span></span>
+<span><span class="co">#&gt; IDENTIFIED SUBGROUP:</span></span>
+<span><span class="co">#&gt; -------------------------------------------------------------</span></span>
+<span><span class="co">#&gt;   H: {er &lt;= 0} &amp; {size &lt;= 35}</span></span>
 <span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; Post-selection inference (selection-adjusted; Leon &amp; Anderson 2026):</span></span>
-<span><span class="co">#&gt;   Harm subgroup H:        one-sided 95% lower bound on HR   0.609</span></span>
-<span><span class="co">#&gt;   Complement Hc:          one-sided 95% upper bound on HR   0.812   [field-s]</span></span>
-<span><span class="co">#&gt;   Joint (Bonferroni):     H lower 0.500, Hc upper 0.848  (gamma 0.025 each side) [field-s]</span></span>
-<span><span class="co">#&gt;   Two-sided (IJ, secondary): H (0.549, 2.900)</span></span>
-<span><span class="co">#&gt;   Re-selection frequency  p-hat(H) = 0.006</span></span>
+<span><span class="co">#&gt; BOOTSTRAP SUCCESS METRICS:</span></span>
+<span><span class="co">#&gt; -------------------------------------------------------------</span></span>
+<span><span class="co">#&gt;   Total iterations:              25</span></span>
+<span><span class="co">#&gt;   Successful subgroup ID:        23 (92.0%)</span></span>
+<span><span class="co">#&gt;   Failed to find subgroup:       2 (8.0%)</span></span>
 <span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt;   One-sided bounds are the primary products; the two-sided IJ interval is</span></span>
-<span><span class="co">#&gt;   secondary. p-hat(H) is a descriptive diagnostic. Read each bound by its</span></span>
-<span><span class="co">#&gt;   location relative to a clinically meaningful effect size. Methods and</span></span>
-<span><span class="co">#&gt;   simulation operating characteristics: Leon &amp; Anderson (2026),</span></span>
-<span><span class="co">#&gt;   arXiv:2609.38361.</span></span>
-<span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; Computation time: 0.04 minutes</span></span></code></pre>
+<span><span class="co">#&gt; TIMING ANALYSIS:</span></span>
+<span><span class="co">#&gt; -------------------------------------------------------------</span></span>
+<span><span class="co">#&gt; Overall:</span></span>
+<span><span class="co">#&gt;   Total bootstrap time:          1.20 minutes (0.02 hours)</span></span>
+<span><span class="co">#&gt;   Average per iteration:         0.05 min (2.9 sec)</span></span>
+<span><span class="co">#&gt;   Projected for 1000 boots:      47.87 min (0.80 hrs)</span></span></code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">summ_fs</span><span class="op">$</span><span class="va">table</span></span></code></pre></div>
+<div class="cell-output-display">
+<div id="ppjflwfsyz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#ppjflwfsyz table {
+  font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#ppjflwfsyz thead, #ppjflwfsyz tbody, #ppjflwfsyz tfoot, #ppjflwfsyz tr, #ppjflwfsyz td, #ppjflwfsyz th {
+  border-style: none;
+}
+
+#ppjflwfsyz p {
+  margin: 0;
+  padding: 0;
+}
+
+#ppjflwfsyz .gt_table {
+  display: table;
+  border-collapse: collapse;
+  line-height: normal;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 13px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 3px;
+  border-top-color: #333333;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#ppjflwfsyz .gt_caption {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#ppjflwfsyz .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#ppjflwfsyz .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 3px;
+  padding-bottom: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#ppjflwfsyz .gt_heading {
+  background-color: #FFFFFF;
+  text-align: left;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#ppjflwfsyz .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #333333;
+}
+
+#ppjflwfsyz .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #333333;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#ppjflwfsyz .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#ppjflwfsyz .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#ppjflwfsyz .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#ppjflwfsyz .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#ppjflwfsyz .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #333333;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#ppjflwfsyz .gt_spanner_row {
+  border-bottom-style: hidden;
+}
+
+#ppjflwfsyz .gt_group_heading {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  text-align: left;
+}
+
+#ppjflwfsyz .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#ppjflwfsyz .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#ppjflwfsyz .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#ppjflwfsyz .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#ppjflwfsyz .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#ppjflwfsyz .gt_stub_row_group {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+  vertical-align: top;
+}
+
+#ppjflwfsyz .gt_row_group_first td {
+  border-top-width: 2px;
+}
+
+#ppjflwfsyz .gt_row_group_first th {
+  border-top-width: 2px;
+}
+
+#ppjflwfsyz .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#ppjflwfsyz .gt_first_summary_row {
+  border-top-style: solid;
+  border-top-color: #D3D3D3;
+}
+
+#ppjflwfsyz .gt_first_summary_row.thick {
+  border-top-width: 2px;
+}
+
+#ppjflwfsyz .gt_last_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#ppjflwfsyz .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#ppjflwfsyz .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#ppjflwfsyz .gt_last_grand_summary_row_top {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: double;
+  border-bottom-width: 6px;
+  border-bottom-color: #D3D3D3;
+}
+
+#ppjflwfsyz .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#ppjflwfsyz .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#ppjflwfsyz .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#ppjflwfsyz .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#ppjflwfsyz .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#ppjflwfsyz .gt_sourcenote {
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#ppjflwfsyz .gt_left {
+  text-align: left;
+}
+
+#ppjflwfsyz .gt_center {
+  text-align: center;
+}
+
+#ppjflwfsyz .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#ppjflwfsyz .gt_font_normal {
+  font-weight: normal;
+}
+
+#ppjflwfsyz .gt_font_bold {
+  font-weight: bold;
+}
+
+#ppjflwfsyz .gt_font_italic {
+  font-style: italic;
+}
+
+#ppjflwfsyz .gt_super {
+  font-size: 65%;
+}
+
+#ppjflwfsyz .gt_footnote_marks {
+  font-size: 75%;
+  vertical-align: 0.4em;
+  position: initial;
+}
+
+#ppjflwfsyz .gt_asterisk {
+  font-size: 100%;
+  vertical-align: 0;
+}
+
+#ppjflwfsyz .gt_indent_1 {
+  text-indent: 5px;
+}
+
+#ppjflwfsyz .gt_indent_2 {
+  text-indent: 10px;
+}
+
+#ppjflwfsyz .gt_indent_3 {
+  text-indent: 15px;
+}
+
+#ppjflwfsyz .gt_indent_4 {
+  text-indent: 20px;
+}
+
+#ppjflwfsyz .gt_indent_5 {
+  text-indent: 25px;
+}
+
+#ppjflwfsyz .katex-display {
+  display: inline-flex !important;
+  margin-bottom: 0.75em !important;
+}
+
+#ppjflwfsyz div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+  height: 0px !important;
+}
+</style>
+<table class="table gt_table caption-top" data-quarto-bootstrap="false">
+<colgroup>
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 11%">
+</colgroup>
+<thead>
+<tr class="gt_heading header">
+<td colspan="9" class="gt_heading gt_title gt_font_normal"><strong>Treatment Effect by Subgroup</strong></td>
+</tr>
+<tr class="gt_heading even">
+<td colspan="9" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">Bootstrap bias-corrected estimates (25 iterations)</td>
+</tr>
+<tr class="gt_col_headings gt_spanner_row header">
+<th rowspan="2" id="Subgroup" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">Subgroup</th>
+<th colspan="3" id="Sample-Size" class="gt_center gt_columns_top_border gt_column_spanner_outer" data-quarto-table-cell-role="th" scope="colgroup"><div class="gt_column_spanner">
+Sample Size
+</div></th>
+<th colspan="3" id="Survival" class="gt_center gt_columns_top_border gt_column_spanner_outer" data-quarto-table-cell-role="th" scope="colgroup"><div class="gt_column_spanner">
+Survival
+</div></th>
+<th colspan="2" id="Treatment-Effect" class="gt_center gt_columns_top_border gt_column_spanner_outer" data-quarto-table-cell-role="th" scope="colgroup"><div class="gt_column_spanner">
+Treatment Effect
+</div></th>
+</tr>
+<tr class="gt_col_headings even">
+<th id="n" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">N</th>
+<th id="n1" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">N<sub>T</sub>
+</th>
+<th id="events" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">Events</th>
+<th id="m1" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">Med<sub>T</sub>
+</th>
+<th id="m0" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">Med<sub>C</sub>
+</th>
+<th id="RMST" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">RMST<sub>d</sub>
+</th>
+<th id="HR-(95%-CI)" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">HR<br>(95% CI)<sup>†</sup><span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>1</sup></span>
+</th>
+<th id="HR*" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">HR<sup>‡</sup><br>(95% CI)<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>2</sup></span>
+</th>
+</tr>
+</thead>
+<tbody class="gt_table_body">
+<tr class="odd">
+<td class="gt_row gt_left" headers="Subgroup">Qstnbl<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>3</sup></span>
+</td>
+<td class="gt_row gt_right" headers="n">61 (8.9%)</td>
+<td class="gt_row gt_right" headers="n1">23 (37.7%)</td>
+<td class="gt_row gt_right" headers="events">34 (55.7%)</td>
+<td class="gt_row gt_right" headers="m1">18.5</td>
+<td class="gt_row gt_right" headers="m0">48</td>
+<td class="gt_row gt_right" headers="RMST">-19</td>
+<td class="gt_row gt_right" headers="HR-(95%-CI)">2.54 (1.25, 5.17)</td>
+<td class="gt_row gt_right" headers="HR*">1.88 (0.01,485.27)</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" headers="Subgroup">Recmnd</td>
+<td class="gt_row gt_right" headers="n">625 (91.1%)</td>
+<td class="gt_row gt_right" headers="n1">223 (35.7%)</td>
+<td class="gt_row gt_right" headers="events">265 (42.4%)</td>
+<td class="gt_row gt_right" headers="m1">66.7</td>
+<td class="gt_row gt_right" headers="m0">52.2</td>
+<td class="gt_row gt_right" headers="RMST">9.6</td>
+<td class="gt_row gt_right" headers="HR-(95%-CI)">0.61 (0.47, 0.79)</td>
+<td class="gt_row gt_right" headers="HR*">0.63 (0.34,1.20)</td>
+</tr>
+</tbody>
+<tfoot>
+<tr class="gt_footnotes odd">
+<td colspan="9" class="gt_footnote">
+<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>1</sup></span> <strong>Unadjusted HR</strong>: Standard Cox regression hazard ratio with robust standard errors</td>
+</tr>
+<tr class="gt_footnotes even">
+<td colspan="9" class="gt_footnote">
+<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>2</sup></span> <strong>Bias-corrected HR</strong>: Bootstrap-adjusted estimate using infinitesimal jackknife method (25 iterations). Corrects for optimism in subgroup selection.</td>
+</tr>
+<tr class="gt_footnotes odd">
+<td colspan="9" class="gt_footnote">
+<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>3</sup></span> <strong>Identified subgroup</strong>: {er &lt;= 0} &amp; {size &lt;= 35}</td>
+</tr>
+<tr class="gt_sourcenotes even">
+<td colspan="9" class="gt_sourcenote">
+<em>Note</em>: Med = Median survival time (months). RMST<sub>d</sub> = Restricted mean survival time difference. Subgroup identified in 92.0% of bootstrap samples.</td>
+</tr>
+</tfoot>
+</table>
+</div>
+</div>
+</div>
+<p><code><a href="../reference/mr_estimates_table.html">mr_estimates_table()</a></code> puts the multiplier correction into the same layout: it takes the bootstrap table as its template — the descriptive columns and the naive estimate — and replaces the corrected column by the two-term estimate with its IJ interval, so the two corrections can be read side by side in one format.</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/mr_estimates_table.html">mr_estimates_table</a></span><span class="op">(</span><span class="va">fit_fs</span>, boot_results <span class="op">=</span> <span class="va">boots</span><span class="op">$</span><span class="va">FS</span>, est.scale <span class="op">=</span> <span class="st">"hr"</span>, digits <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div id="knzabjqler" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#knzabjqler table {
+  font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#knzabjqler thead, #knzabjqler tbody, #knzabjqler tfoot, #knzabjqler tr, #knzabjqler td, #knzabjqler th {
+  border-style: none;
+}
+
+#knzabjqler p {
+  margin: 0;
+  padding: 0;
+}
+
+#knzabjqler .gt_table {
+  display: table;
+  border-collapse: collapse;
+  line-height: normal;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 13px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 3px;
+  border-top-color: #333333;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#knzabjqler .gt_caption {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#knzabjqler .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#knzabjqler .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 3px;
+  padding-bottom: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#knzabjqler .gt_heading {
+  background-color: #FFFFFF;
+  text-align: left;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#knzabjqler .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #333333;
+}
+
+#knzabjqler .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #333333;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#knzabjqler .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#knzabjqler .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#knzabjqler .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#knzabjqler .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#knzabjqler .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #333333;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#knzabjqler .gt_spanner_row {
+  border-bottom-style: hidden;
+}
+
+#knzabjqler .gt_group_heading {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  text-align: left;
+}
+
+#knzabjqler .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#knzabjqler .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#knzabjqler .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#knzabjqler .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#knzabjqler .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#knzabjqler .gt_stub_row_group {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+  vertical-align: top;
+}
+
+#knzabjqler .gt_row_group_first td {
+  border-top-width: 2px;
+}
+
+#knzabjqler .gt_row_group_first th {
+  border-top-width: 2px;
+}
+
+#knzabjqler .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#knzabjqler .gt_first_summary_row {
+  border-top-style: solid;
+  border-top-color: #D3D3D3;
+}
+
+#knzabjqler .gt_first_summary_row.thick {
+  border-top-width: 2px;
+}
+
+#knzabjqler .gt_last_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#knzabjqler .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#knzabjqler .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#knzabjqler .gt_last_grand_summary_row_top {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: double;
+  border-bottom-width: 6px;
+  border-bottom-color: #D3D3D3;
+}
+
+#knzabjqler .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#knzabjqler .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#knzabjqler .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#knzabjqler .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#knzabjqler .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#knzabjqler .gt_sourcenote {
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#knzabjqler .gt_left {
+  text-align: left;
+}
+
+#knzabjqler .gt_center {
+  text-align: center;
+}
+
+#knzabjqler .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#knzabjqler .gt_font_normal {
+  font-weight: normal;
+}
+
+#knzabjqler .gt_font_bold {
+  font-weight: bold;
+}
+
+#knzabjqler .gt_font_italic {
+  font-style: italic;
+}
+
+#knzabjqler .gt_super {
+  font-size: 65%;
+}
+
+#knzabjqler .gt_footnote_marks {
+  font-size: 75%;
+  vertical-align: 0.4em;
+  position: initial;
+}
+
+#knzabjqler .gt_asterisk {
+  font-size: 100%;
+  vertical-align: 0;
+}
+
+#knzabjqler .gt_indent_1 {
+  text-indent: 5px;
+}
+
+#knzabjqler .gt_indent_2 {
+  text-indent: 10px;
+}
+
+#knzabjqler .gt_indent_3 {
+  text-indent: 15px;
+}
+
+#knzabjqler .gt_indent_4 {
+  text-indent: 20px;
+}
+
+#knzabjqler .gt_indent_5 {
+  text-indent: 25px;
+}
+
+#knzabjqler .katex-display {
+  display: inline-flex !important;
+  margin-bottom: 0.75em !important;
+}
+
+#knzabjqler div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+  height: 0px !important;
+}
+</style>
+<table class="table gt_table caption-top" data-quarto-bootstrap="false">
+<colgroup>
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 11%">
+</colgroup>
+<thead>
+<tr class="gt_heading header">
+<td colspan="9" class="gt_heading gt_title gt_font_normal"><strong>Treatment Effect by Subgroup</strong></td>
+</tr>
+<tr class="gt_heading even">
+<td colspan="9" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">MR de-biased estimate (multiplier resampling, 5000 draws)</td>
+</tr>
+<tr class="gt_col_headings gt_spanner_row header">
+<th rowspan="2" id="Subgroup" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">Subgroup</th>
+<th colspan="3" id="Sample-Size" class="gt_center gt_columns_top_border gt_column_spanner_outer" data-quarto-table-cell-role="th" scope="colgroup"><div class="gt_column_spanner">
+Sample Size
+</div></th>
+<th colspan="3" id="Survival" class="gt_center gt_columns_top_border gt_column_spanner_outer" data-quarto-table-cell-role="th" scope="colgroup"><div class="gt_column_spanner">
+Survival
+</div></th>
+<th colspan="2" id="Treatment-Effect" class="gt_center gt_columns_top_border gt_column_spanner_outer" data-quarto-table-cell-role="th" scope="colgroup"><div class="gt_column_spanner">
+Treatment Effect
+</div></th>
+</tr>
+<tr class="gt_col_headings even">
+<th id="n" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">N</th>
+<th id="n1" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">N<sub>T</sub>
+</th>
+<th id="events" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">Events</th>
+<th id="m1" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">Med<sub>T</sub>
+</th>
+<th id="m0" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">Med<sub>C</sub>
+</th>
+<th id="RMST" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">RMST<sub>d</sub>
+</th>
+<th id="HR-(95%-CI)" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">HR<br>(95% CI)<sup>†</sup><span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>1</sup></span>
+</th>
+<th id="HR*" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">HR<sup>‡</sup><br>(95% CI)<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>2</sup></span>
+</th>
+</tr>
+</thead>
+<tbody class="gt_table_body">
+<tr class="odd">
+<td class="gt_row gt_left" headers="Subgroup">Qstnbl<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>3</sup></span>
+</td>
+<td class="gt_row gt_right" headers="n">61 (8.9%)</td>
+<td class="gt_row gt_right" headers="n1">23 (37.7%)</td>
+<td class="gt_row gt_right" headers="events">34 (55.7%)</td>
+<td class="gt_row gt_right" headers="m1">18.5</td>
+<td class="gt_row gt_right" headers="m0">48</td>
+<td class="gt_row gt_right" headers="RMST">-19</td>
+<td class="gt_row gt_right" headers="HR-(95%-CI)">2.54 (1.25, 5.17)</td>
+<td class="gt_row gt_right" headers="HR*">1.44 (0.62,3.36)</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" headers="Subgroup">Recmnd</td>
+<td class="gt_row gt_right" headers="n">625 (91.1%)</td>
+<td class="gt_row gt_right" headers="n1">223 (35.7%)</td>
+<td class="gt_row gt_right" headers="events">265 (42.4%)</td>
+<td class="gt_row gt_right" headers="m1">66.7</td>
+<td class="gt_row gt_right" headers="m0">52.2</td>
+<td class="gt_row gt_right" headers="RMST">9.6</td>
+<td class="gt_row gt_right" headers="HR-(95%-CI)">0.61 (0.47, 0.79)</td>
+<td class="gt_row gt_right" headers="HR*">0.64 (0.40,1.03)</td>
+</tr>
+</tbody>
+<tfoot>
+<tr class="gt_footnotes odd">
+<td colspan="9" class="gt_footnote">
+<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>1</sup></span> <strong>Unadjusted HR</strong>: Standard Cox regression hazard ratio with robust standard errors</td>
+</tr>
+<tr class="gt_footnotes even">
+<td colspan="9" class="gt_footnote">
+<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>2</sup></span> <strong>Bias-corrected HR</strong>: Bootstrap-adjusted estimate using infinitesimal jackknife method (5000 iterations). Corrects for optimism in subgroup selection.</td>
+</tr>
+<tr class="gt_footnotes odd">
+<td colspan="9" class="gt_footnote">
+<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>3</sup></span> <strong>Identified subgroup</strong>: {er &lt;= 0} &amp; {size &lt;= 35}</td>
+</tr>
+<tr class="gt_sourcenotes even">
+<td colspan="9" class="gt_sourcenote">
+<em>Note</em>: Med = Median survival time (months). RMST<sub>d</sub> = Restricted mean survival time difference.</td>
+</tr>
+</tfoot>
+</table>
+</div>
+</div>
+</div>
+</section><section class="level2"><h2 id="naive-bootstrap-and-multiplier-side-by-side">Naive, bootstrap and multiplier side by side<a class="anchor" aria-label="anchor" href="#naive-bootstrap-and-multiplier-side-by-side"></a>
+</h2>
+<p>The three columns for the three identifiers, assembled from the fit objects and the bootstrap objects. The bootstrap column carries the point estimate only: at this B its interval is not a result (the package’s own table above shows what the machinery returns for it).</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">three_columns</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">method</span>, <span class="va">fit</span>, <span class="va">boot</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">g</span> <span class="op">&lt;-</span> <span class="va">fit</span><span class="op">$</span><span class="va">mr_inference</span>; <span class="va">cc</span> <span class="op">&lt;-</span> <span class="va">g</span><span class="op">$</span><span class="va">complement</span></span>
+<span>  <span class="va">n_H</span> <span class="op">&lt;-</span> <span class="va">g</span><span class="op">$</span><span class="va">n_selected</span>; <span class="va">n_Hc</span> <span class="op">&lt;-</span> <span class="va">cc</span><span class="op">$</span><span class="va">n</span></span>
+<span>  <span class="va">f2</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span>, <span class="va">l</span>, <span class="va">u</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f (%.2f, %.2f)"</span>, <span class="va">e</span>, <span class="va">l</span>, <span class="va">u</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>    method <span class="op">=</span> <span class="va">method</span>, region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"H"</span>, <span class="st">"Hc"</span><span class="op">)</span>,</span>
+<span>    n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%d (%d%%)"</span>, <span class="va">n_H</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">100</span> <span class="op">*</span> <span class="va">n_H</span> <span class="op">/</span> <span class="op">(</span><span class="va">n_H</span> <span class="op">+</span> <span class="va">n_Hc</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>          <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%d (%d%%)"</span>, <span class="va">n_Hc</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">100</span> <span class="op">*</span> <span class="va">n_Hc</span> <span class="op">/</span> <span class="op">(</span><span class="va">n_H</span> <span class="op">+</span> <span class="va">n_Hc</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    naive <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu">f2</span><span class="op">(</span><span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">est</span>, <span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">lower</span>, <span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span>,</span>
+<span>              <span class="fu">f2</span><span class="op">(</span><span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">est</span>, <span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">lower</span>, <span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    bootstrap <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">boot</span><span class="op">$</span><span class="va">H_estimates</span><span class="op">$</span><span class="va">H2</span>, <span class="va">boot</span><span class="op">$</span><span class="va">Hc_estimates</span><span class="op">$</span><span class="va">H2</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    multiplier <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu">f2</span><span class="op">(</span><span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">est</span>, <span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">lower</span>, <span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span>,</span>
+<span>                   <span class="fu">f2</span><span class="op">(</span><span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">est</span>, <span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">lower</span>, <span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="va">side_by_side</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu">three_columns</span><span class="op">(</span><span class="st">"FS"</span>, <span class="va">fit_fs</span>, <span class="va">boots</span><span class="op">$</span><span class="va">FS</span><span class="op">)</span>,</span>
+<span>                      <span class="fu">three_columns</span><span class="op">(</span><span class="st">"DINA"</span>, <span class="va">fit_dina</span>, <span class="va">boots</span><span class="op">$</span><span class="va">DINA</span><span class="op">)</span>,</span>
+<span>                      <span class="fu">three_columns</span><span class="op">(</span><span class="st">"GRF"</span>, <span class="va">fit_grf</span>, <span class="va">boots</span><span class="op">$</span><span class="va">GRF</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">boot_label</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"Full bootstrap estimate (B = %d / %d / %d)"</span>,</span>
+<span>                      <span class="va">B</span><span class="op">[[</span><span class="st">"FS"</span><span class="op">]</span><span class="op">]</span>, <span class="va">B</span><span class="op">[[</span><span class="st">"DINA"</span><span class="op">]</span><span class="op">]</span>, <span class="va">B</span><span class="op">[[</span><span class="st">"GRF"</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">side_by_side</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span>, align <span class="op">=</span> <span class="st">"llrrrr"</span>,</span>
+<span>             col.names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Method"</span>, <span class="st">"SG"</span>, <span class="st">"n (%)"</span>, <span class="st">"Naive"</span>, <span class="va">boot_label</span>,</span>
+<span>                           <span class="st">"Multiplier (5,000 draws)"</span><span class="op">)</span>,</span>
+<span>             caption <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"This vignette's run: hazard ratios with 95% intervals;"</span>,</span>
+<span>                             <span class="st">"the bootstrap estimate at a small B, without an interval."</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<table class="table caption-top">
+<caption>This vignette’s run: hazard ratios with 95% intervals; the bootstrap estimate at a small B, without an interval.</caption>
+<colgroup>
+<col style="width: 6%">
+<col style="width: 2%">
+<col style="width: 9%">
+<col style="width: 16%">
+<col style="width: 40%">
+<col style="width: 23%">
+</colgroup>
+<thead><tr class="header">
+<th style="text-align: left;">Method</th>
+<th style="text-align: left;">SG</th>
+<th style="text-align: right;">n (%)</th>
+<th style="text-align: right;">Naive</th>
+<th style="text-align: right;">Full bootstrap estimate (B = 25 / 25 / 10)</th>
+<th style="text-align: right;">Multiplier (5,000 draws)</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">FS</td>
+<td style="text-align: left;">H</td>
+<td style="text-align: right;">61 (9%)</td>
+<td style="text-align: right;">2.54 (1.25, 5.17)</td>
+<td style="text-align: right;">1.88</td>
+<td style="text-align: right;">1.44 (0.62, 3.36)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">FS</td>
+<td style="text-align: left;">Hc</td>
+<td style="text-align: right;">625 (91%)</td>
+<td style="text-align: right;">0.61 (0.47, 0.79)</td>
+<td style="text-align: right;">0.63</td>
+<td style="text-align: right;">0.64 (0.40, 1.03)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">DINA</td>
+<td style="text-align: left;">H</td>
+<td style="text-align: right;">89 (13%)</td>
+<td style="text-align: right;">1.60 (0.88, 2.91)</td>
+<td style="text-align: right;">0.83</td>
+<td style="text-align: right;">1.11 (0.45, 2.75)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">DINA</td>
+<td style="text-align: left;">Hc</td>
+<td style="text-align: right;">597 (87%)</td>
+<td style="text-align: right;">0.63 (0.48, 0.82)</td>
+<td style="text-align: right;">0.66</td>
+<td style="text-align: right;">0.66 (0.40, 1.09)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">GRF</td>
+<td style="text-align: left;">H</td>
+<td style="text-align: right;">82 (12%)</td>
+<td style="text-align: right;">1.95 (1.04, 3.67)</td>
+<td style="text-align: right;">1.29</td>
+<td style="text-align: right;">1.05 (0.47, 2.34)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">GRF</td>
+<td style="text-align: left;">Hc</td>
+<td style="text-align: right;">604 (88%)</td>
+<td style="text-align: right;">0.61 (0.47, 0.80)</td>
+<td style="text-align: right;">0.73</td>
+<td style="text-align: right;">0.66 (0.41, 1.06)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Table S2 of León and Anderson (2026a), as published, with the full bootstrap at B = 1,000:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb22"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">table_s2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"FS"</span>, <span class="st">"FS"</span>, <span class="st">"DINA"</span>, <span class="st">"DINA"</span>, <span class="st">"GRF"</span>, <span class="st">"GRF"</span><span class="op">)</span>,</span>
+<span>  region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"H"</span>, <span class="st">"Hc"</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>  n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"61 (9%)"</span>, <span class="st">"625 (91%)"</span>, <span class="st">"89 (13%)"</span>, <span class="st">"597 (87%)"</span>, <span class="st">"82 (12%)"</span>, <span class="st">"604 (88%)"</span><span class="op">)</span>,</span>
+<span>  naive <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"2.54 (1.25, 5.17)"</span>, <span class="st">"0.61 (0.47, 0.79)"</span>, <span class="st">"1.60 (0.88, 2.91)"</span>,</span>
+<span>            <span class="st">"0.63 (0.48, 0.82)"</span>, <span class="st">"1.95 (1.04, 3.67)"</span>, <span class="st">"0.61 (0.47, 0.80)"</span><span class="op">)</span>,</span>
+<span>  bootstrap <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"1.94 (0.89, 4.21)"</span>, <span class="st">"0.63 (0.43, 0.93)"</span>, <span class="st">"0.89 (0.38, 2.07)"</span>,</span>
+<span>                <span class="st">"0.66 (0.40, 1.11)"</span>, <span class="st">"1.04 (0.49, 2.24)"</span>, <span class="st">"0.66 (0.39, 1.13)"</span><span class="op">)</span>,</span>
+<span>  multiplier <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"1.44 (0.62, 3.36)"</span>, <span class="st">"0.64 (0.40, 1.03)"</span>, <span class="st">"1.11 (0.45, 2.75)"</span>,</span>
+<span>                 <span class="st">"0.66 (0.40, 1.09)"</span>, <span class="st">"1.05 (0.47, 2.34)"</span>, <span class="st">"0.66 (0.41, 1.06)"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">table_s2</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span>, align <span class="op">=</span> <span class="st">"llrrrr"</span>,</span>
+<span>             col.names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Method"</span>, <span class="st">"SG"</span>, <span class="st">"n (%)"</span>, <span class="st">"Naive"</span>, <span class="st">"Full bootstrap (B = 1,000)"</span>,</span>
+<span>                           <span class="st">"Multiplier"</span><span class="op">)</span>,</span>
+<span>             caption <span class="op">=</span> <span class="st">"Table S2 of León and Anderson (2026a), as published."</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<table class="table caption-top">
+<caption>Table S2 of León and Anderson (2026a), as published.</caption>
+<colgroup>
+<col style="width: 8%">
+<col style="width: 3%">
+<col style="width: 12%">
+<col style="width: 21%">
+<col style="width: 32%">
+<col style="width: 21%">
+</colgroup>
+<thead><tr class="header">
+<th style="text-align: left;">Method</th>
+<th style="text-align: left;">SG</th>
+<th style="text-align: right;">n (%)</th>
+<th style="text-align: right;">Naive</th>
+<th style="text-align: right;">Full bootstrap (B = 1,000)</th>
+<th style="text-align: right;">Multiplier</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">FS</td>
+<td style="text-align: left;">H</td>
+<td style="text-align: right;">61 (9%)</td>
+<td style="text-align: right;">2.54 (1.25, 5.17)</td>
+<td style="text-align: right;">1.94 (0.89, 4.21)</td>
+<td style="text-align: right;">1.44 (0.62, 3.36)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">FS</td>
+<td style="text-align: left;">Hc</td>
+<td style="text-align: right;">625 (91%)</td>
+<td style="text-align: right;">0.61 (0.47, 0.79)</td>
+<td style="text-align: right;">0.63 (0.43, 0.93)</td>
+<td style="text-align: right;">0.64 (0.40, 1.03)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">DINA</td>
+<td style="text-align: left;">H</td>
+<td style="text-align: right;">89 (13%)</td>
+<td style="text-align: right;">1.60 (0.88, 2.91)</td>
+<td style="text-align: right;">0.89 (0.38, 2.07)</td>
+<td style="text-align: right;">1.11 (0.45, 2.75)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">DINA</td>
+<td style="text-align: left;">Hc</td>
+<td style="text-align: right;">597 (87%)</td>
+<td style="text-align: right;">0.63 (0.48, 0.82)</td>
+<td style="text-align: right;">0.66 (0.40, 1.11)</td>
+<td style="text-align: right;">0.66 (0.40, 1.09)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">GRF</td>
+<td style="text-align: left;">H</td>
+<td style="text-align: right;">82 (12%)</td>
+<td style="text-align: right;">1.95 (1.04, 3.67)</td>
+<td style="text-align: right;">1.04 (0.49, 2.24)</td>
+<td style="text-align: right;">1.05 (0.47, 2.34)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">GRF</td>
+<td style="text-align: left;">Hc</td>
+<td style="text-align: right;">604 (88%)</td>
+<td style="text-align: right;">0.61 (0.47, 0.80)</td>
+<td style="text-align: right;">0.66 (0.39, 1.13)</td>
+<td style="text-align: right;">0.66 (0.41, 1.06)</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <ul>
 <li>
-<strong>Identified subgroup:</strong> the one-sided 95% lower bound on the hazard ratio (the <em>field</em> construction).</li>
+<strong>Naive and multiplier columns.</strong> The regions, their sizes, the naive estimates and the multiplier estimates and intervals are those of the published table at its precision: the calls, the seed and the draw count are the manuscript’s.</li>
 <li>
-<strong>Complement:</strong> the one-sided 95% upper bound on the hazard ratio (<em>field-s</em>, the studentized complement field), relevant to a benefit claim.</li>
+<strong>The bootstrap column</strong> at this B is an illustration of the implementation. At B = 1,000 the manuscript finds the two corrections agree closely for GRF (1.04 and 1.05), remain apart for forest search (1.94 and 1.44, both well below the naive 2.54), and fall on opposite sides of one for DINA (0.89 and 1.11) — the two routes estimate the same selection bias from different perturbations of the search, and DINA’s family is itself regenerated by the bootstrap.</li>
 <li>
-<strong>Both together:</strong> the Bonferroni pair, each side at level 0.025.</li>
-<li>
-<strong>Two-sided interval:</strong> the infinitesimal-jackknife (IJ) two-term interval, reported as a secondary summary.</li>
-<li>
-<strong>p-hat(H):</strong> the re-selection frequency, a descriptive diagnostic (below).</li>
+<strong>Reading, by location.</strong> The forest-search region’s corrected estimates, 1.44 by multiplier resampling and 1.94 by the manuscript’s bootstrap, sit far below its naive 2.54: most of the apparent harm was selection. The complement’s corrected estimate, 0.64, is a benefit at least as large as the trial’s own 0.695 for the patients outside the region. Neither is read as a test at a hazard ratio of one.</li>
 </ul>
-<p>The field bounds require <code>ci_method = "field"</code> (the default); with <code>ci_method = "ij"</code> only the two-sided interval is reported. León and Anderson (2026) describe each construction and report its performance in simulation.</p>
-<p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> adds the standard errors and the leading re-selection frequencies:</p>
-<div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fs</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; ForestSearch Summary</span></span>
-<span><span class="co">#&gt; ====================</span></span>
-<span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; Analysis Parameters:</span></span>
-<span><span class="co">#&gt;   sg_focus: hrMaxSG</span></span>
-<span><span class="co">#&gt;   hr.threshold: 1</span></span>
-<span><span class="co">#&gt;   hr.consistency: 1</span></span>
-<span><span class="co">#&gt;   pconsistency.threshold: 0.8</span></span>
-<span><span class="co">#&gt;   n.min: 60</span></span>
-<span><span class="co">#&gt;   fs.splits: 200</span></span>
-<span><span class="co">#&gt;   maxk: 2</span></span>
-<span><span class="co">#&gt;   use_twostage: TRUE</span></span>
-<span><span class="co">#&gt;   use_lasso: FALSE</span></span>
-<span><span class="co">#&gt;   use_grf: FALSE</span></span>
-<span><span class="co">#&gt;   use_dina: FALSE</span></span>
-<span><span class="co">#&gt;   candidate family: no-front-end</span></span>
-<span><span class="co">#&gt;   admission set: effect floor 0; consistency floor 0 at p* = 0.8</span></span>
-<span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; Variable Selection:</span></span>
-<span><span class="co">#&gt;   Candidate confounders: 33</span></span>
-<span><span class="co">#&gt;   Confounders evaluated: 33</span></span>
-<span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; Search Space:</span></span>
-<span><span class="co">#&gt;   Proportion of max combinations searched: 1</span></span>
-<span><span class="co">#&gt;   Maximum subgroup HR estimate: 2.537</span></span>
-<span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; Consistency Evaluation:</span></span>
-<span><span class="co">#&gt;   Algorithm: twostage</span></span>
-<span><span class="co">#&gt;   Candidates evaluated: 120</span></span>
-<span><span class="co">#&gt;   Candidates passed: 16</span></span>
-<span><span class="co">#&gt;   Stage 1 screening splits:</span></span>
-<span><span class="co">#&gt;   Stage 2 batch size:</span></span>
-<span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; Selected Subgroup:</span></span>
-<span><span class="co">#&gt;   Definition: {er &lt;= 0} &amp; {pgr &lt;= 26}</span></span>
-<span><span class="co">#&gt;   Sample size: 75</span></span>
-<span><span class="co">#&gt;   Hazard ratio: 2.222</span></span>
-<span><span class="co">#&gt;   Consistency: 99 %</span></span>
-<span><span class="co">#&gt;   Estimation data: n = 686 (harm = 75 , complement = 611 )</span></span>
-<span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; Post-selection inference (selection-adjusted; Leon &amp; Anderson 2026):</span></span>
-<span><span class="co">#&gt;   Harm subgroup H:        one-sided 95% lower bound on HR   0.609</span></span>
-<span><span class="co">#&gt;   Complement Hc:          one-sided 95% upper bound on HR   0.812   [field-s]</span></span>
-<span><span class="co">#&gt;   Joint (Bonferroni):     H lower 0.500, Hc upper 0.848  (gamma 0.025 each side) [field-s]</span></span>
-<span><span class="co">#&gt;   Two-sided (IJ, secondary): H (0.549, 2.900)</span></span>
-<span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt;   Standard errors (log scale):</span></span>
-<span><span class="co">#&gt;     field (H)                 se_field    0.411</span></span>
-<span><span class="co">#&gt;     field-s (Hc)              se_field_s  0.135   (naive complement SE 0.134)</span></span>
-<span><span class="co">#&gt;     IJ two-term (H)           se_ij       0.425</span></span>
-<span><span class="co">#&gt;   Re-selection frequency  p-hat(H) = 0.006</span></span>
-<span><span class="co">#&gt;     top-3 re-selection mass:  q1.1 &amp; q18.1 0.182 | q1.1 &amp; q27.1 0.156 | q10.0 &amp; q30.0 0.056</span></span>
-<span><span class="co">#&gt;     p_hat_sum = 1.000 over a family of 1744 candidates</span></span>
-<span><span class="co">#&gt;     membership recovery: sens_H = 0.559 (mean share of Hhat retained over 998 draws)</span></span>
-<span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt;   One-sided bounds are the primary products; the two-sided IJ interval is</span></span>
-<span><span class="co">#&gt;   secondary. p-hat(H) is a descriptive diagnostic. Read each bound by its</span></span>
-<span><span class="co">#&gt;   location relative to a clinically meaningful effect size. Methods and</span></span>
-<span><span class="co">#&gt;   simulation operating characteristics: Leon &amp; Anderson (2026),</span></span>
-<span><span class="co">#&gt;   arXiv:2609.38361.</span></span>
-<span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; Computation time: 0.04 minutes</span></span></code></pre>
-</div>
-</div>
-</section><section class="level2"><h2 id="how-to-read-a-bound-by-location">How to read a bound: by location<a class="anchor" aria-label="anchor" href="#how-to-read-a-bound-by-location"></a>
-</h2>
-<p>These bounds are read <strong>by location against a clinically meaningful effect size</strong>, never as significance at the null.</p>
-<p>The harm-side question is <em>how much harm the data can rule out</em>. A one-sided lower bound in the high 0.8s or above, against a naive subgroup estimate well above 1, says the adjusted evidence does not establish clinically meaningful harm – the naive estimate was largely selection.</p>
-<p>The complement-side question is a benefit claim: <em>is the one-sided upper bound below a threshold that would matter?</em> Name the threshold you are reading against – for example 0.80 or 0.85 – and say whether the bound clears it. A threshold quoted this way is a reading aid, not a decision rule.</p>
-<div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">g</span> <span class="op">&lt;-</span> <span class="va">fs</span><span class="op">$</span><span class="va">mr_inference</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"naive HR on Hhat            %.3f\n"</span>, <span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">est</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; naive HR on Hhat            2.222</span></span></code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"de-biased HR on Hhat        %.3f\n"</span>, <span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">est</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; de-biased HR on Hhat        1.262</span></span></code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"field one-sided lower       %.3f\n"</span>, <span class="va">g</span><span class="op">$</span><span class="va">field</span><span class="op">$</span><span class="va">lower_1s</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; field one-sided lower       0.609</span></span></code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb18"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"field-s one-sided upper Hc  %.3f  (vs 0.80 / 0.85)\n"</span>,</span>
-<span>            <span class="va">g</span><span class="op">$</span><span class="va">field</span><span class="op">$</span><span class="va">complement</span><span class="op">$</span><span class="va">upper_1s_s</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; field-s one-sided upper Hc  0.812  (vs 0.80 / 0.85)</span></span></code></pre>
-</div>
-</div>
-<p>The distance between the naive estimate and the de-biased one is what selection cost; the spread across the constructions is what the adjustments pay for it.</p>
-</section><section class="level2"><h2 id="p-hat-as-a-diagnostic">p-hat as a diagnostic<a class="anchor" aria-label="anchor" href="#p-hat-as-a-diagnostic"></a>
-</h2>
-<p><code>p_hat(Hhat)</code> is the frequency with which the gate’s own re-selection map picks the same subgroup across the multiplier draws. It is a <strong>recorded diagnostic</strong>: it is computed after the bounds are formed, and <strong>no construction reads it</strong>. It is also estimated from the same draws that build the bound, so it is a flag, not an independent instrument – which is a reason not to let any interval depend on it.</p>
-<div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb20"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">ph</span>  <span class="op">&lt;-</span> <span class="va">g</span><span class="op">$</span><span class="va">reselection</span><span class="op">$</span><span class="va">p_hat</span></span>
-<span><span class="va">lab</span> <span class="op">&lt;-</span> <span class="va">g</span><span class="op">$</span><span class="va">selected_label</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"p-hat(Hhat) = %.3f over a family of %d candidates\n"</span>,</span>
-<span>            <span class="fu"><a href="https://rdrr.io/r/base/unname.html" class="external-link">unname</a></span><span class="op">(</span><span class="va">ph</span><span class="op">[[</span><span class="va">lab</span><span class="op">]</span><span class="op">]</span><span class="op">)</span>, <span class="va">g</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; p-hat(Hhat) = 0.006 over a family of 1744 candidates</span></span></code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb22"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="va">ph</span>, decreasing <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt;  q1.1 &amp; q18.1  q1.1 &amp; q27.1 q10.0 &amp; q30.0          q1.1 q30.1 &amp; q32.0</span></span>
-<span><span class="co">#&gt;         0.182         0.156         0.056         0.054         0.052</span></span></code></pre>
-</div>
-</div>
-<p>A small p-hat indicates that the exact boundary of the identified subgroup is not stable under perturbation; by itself it is neither evidence for nor against the bounds. León and Anderson (2026) discuss how the bias correction behaves across values of p-hat.</p>
-<section class="level3"><h3 id="what-p-hat-alone-cannot-say">What p-hat alone cannot say<a class="anchor" aria-label="anchor" href="#what-p-hat-alone-cannot-say"></a>
+<section class="level3"><h3 id="the-cost-of-the-two-corrections">The cost of the two corrections<a class="anchor" aria-label="anchor" href="#the-cost-of-the-two-corrections"></a>
 </h3>
-<p>p-hat counts <strong>exact</strong> re-selections of <code>Hhat</code>. Over a large family in which most candidates differ from <code>Hhat</code> by a single cutpoint, a small exact-match rate is compatible with two very different situations: the draws re-selected near-twins of <code>Hhat</code>, or they re-selected unrelated regions. p-hat does not distinguish them. <strong>Membership agreement</strong> does, and it is computable from the same draws. Each draw’s re-selection is compared with <code>Hhat</code> as a set of patients, in the vocabulary of the cross-validation agreement metrics (<code><a href="../reference/forestsearch_Kfold.html">forestsearch_Kfold()</a></code>’s <code>sens_H</code> / <code>ppv_H</code>).</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">cost</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fits</span><span class="op">)</span>,</span>
+<span>  mr_seconds <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">fits</span>, <span class="kw">function</span><span class="op">(</span><span class="va">f</span><span class="op">)</span> <span class="va">f</span><span class="op">$</span><span class="va">mr_inference</span><span class="op">$</span><span class="va">timing_seconds</span><span class="op">)</span>,</span>
+<span>  bootstrap_B <span class="op">=</span> <span class="va">B</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fits</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>  bootstrap_seconds <span class="op">=</span> <span class="va">boot_secs</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fits</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">cost</span><span class="op">$</span><span class="va">seconds_per_replicate</span> <span class="op">&lt;-</span> <span class="va">cost</span><span class="op">$</span><span class="va">bootstrap_seconds</span> <span class="op">/</span> <span class="va">cost</span><span class="op">$</span><span class="va">bootstrap_B</span></span>
+<span><span class="va">cost</span><span class="op">$</span><span class="va">projected_B_1000</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cost</span><span class="op">$</span><span class="va">seconds_per_replicate</span> <span class="op">*</span> <span class="fl">1000</span><span class="op">)</span></span>
+<span><span class="va">plan_label</span> <span class="op">&lt;-</span> <span class="kw">if</span> <span class="op">(</span><span class="va">n_workers</span> <span class="op">&gt;</span> <span class="fl">1L</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%d workers"</span>, <span class="va">n_workers</span><span class="op">)</span> <span class="kw">else</span> <span class="st">"one process"</span></span>
+<span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">cost</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span>, digits <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>             col.names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Method"</span>, <span class="st">"MR (s)"</span>, <span class="st">"B"</span>, <span class="st">"bootstrap (s)"</span>, <span class="st">"s per replicate"</span>,</span>
+<span>                           <span class="st">"projected at B = 1,000 (s)"</span><span class="op">)</span>,</span>
+<span>             caption <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span></span>
+<span>               <span class="st">"Wall-clock timings from this run: the multiplier stage under the fits'"</span>,</span>
+<span>               <span class="st">"sequential plan, the bootstrap on %s. The projection is linear in B"</span>,</span>
+<span>               <span class="st">"at that worker count."</span><span class="op">)</span>, <span class="va">plan_label</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<table class="table caption-top">
+<caption>Wall-clock timings from this run: the multiplier stage under the fits’ sequential plan, the bootstrap on 2 workers. The projection is linear in B at that worker count.</caption>
+<colgroup>
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 4%">
+<col style="width: 18%">
+<col style="width: 21%">
+<col style="width: 36%">
+</colgroup>
+<thead><tr class="header">
+<th style="text-align: left;">Method</th>
+<th style="text-align: right;">MR (s)</th>
+<th style="text-align: right;">B</th>
+<th style="text-align: right;">bootstrap (s)</th>
+<th style="text-align: right;">s per replicate</th>
+<th style="text-align: right;">projected at B = 1,000 (s)</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">FS</td>
+<td style="text-align: right;">0.97</td>
+<td style="text-align: right;">25</td>
+<td style="text-align: right;">72.96</td>
+<td style="text-align: right;">2.92</td>
+<td style="text-align: right;">2918</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">DINA</td>
+<td style="text-align: right;">0.25</td>
+<td style="text-align: right;">25</td>
+<td style="text-align: right;">32.35</td>
+<td style="text-align: right;">1.29</td>
+<td style="text-align: right;">1294</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">GRF</td>
+<td style="text-align: right;">0.35</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">33.92</td>
+<td style="text-align: right;">3.39</td>
+<td style="text-align: right;">3392</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>The multiplier correction is seconds; the bootstrap is minutes at the B its intervals need, and the ratio widens with B. The seconds are those of this machine and this package version: the MR column is the whole multiplier stage as the fit records it (<code>timing_seconds</code>); the bootstrap column is the whole <code><a href="../reference/forestsearch_bootstrap_dofuture.html">forestsearch_bootstrap_dofuture()</a></code> call on 2 workers, in wall-clock seconds, so the per-replicate figure and the projection fall as workers are added. The manuscript’s figures — 72 s to about 10 minutes at B = 1,000 on 11 workers, 0.1 to 0.4 s for the multiplier stage — were recorded under forestsearch 0.2.0 on another machine, and are not comparable second for second; the order of magnitude between the two routes is the point.</p>
+</section></section><section class="level2"><h2 id="diagnostics">Diagnostics<a class="anchor" aria-label="anchor" href="#diagnostics"></a>
+</h2>
+<section class="level3"><h3 id="the-re-selection-frequency">The re-selection frequency<a class="anchor" aria-label="anchor" href="#the-re-selection-frequency"></a>
+</h3>
+<p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>p</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat p(\hat H)</annotation></semantics></math> is the frequency with which the re-selection picks exactly the identified region across the multiplier draws. It is a recorded diagnostic — computed after the correction, read by no construction, and estimated from the same draws — so it is a flag, not an instrument.</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb24"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">rc</span> <span class="op">&lt;-</span> <span class="va">g</span><span class="op">$</span><span class="va">field</span><span class="op">$</span><span class="va">recovery</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"sens_H  = %.3f   mean share of Hhat retained by a re-selection</span></span>
-<span><span class="st">"</span>, <span class="va">rc</span><span class="op">$</span><span class="va">sens_H</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">ph</span>  <span class="op">&lt;-</span> <span class="va">g</span><span class="op">$</span><span class="va">reselection</span><span class="op">$</span><span class="va">p_hat</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"p-hat(H) = %.3f over a family of %d candidates\n"</span>,</span>
+<span>            <span class="fu"><a href="https://rdrr.io/r/base/unname.html" class="external-link">unname</a></span><span class="op">(</span><span class="va">ph</span><span class="op">[[</span><span class="va">g</span><span class="op">$</span><span class="va">selected_label</span><span class="op">]</span><span class="op">]</span><span class="op">)</span>, <span class="va">g</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; sens_H  = 0.559   mean share of Hhat retained by a re-selection</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; p-hat(H) = 0.237 over a family of 1744 candidates</span></span></code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb26"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"ppv_H   = %.3f   mean share of a re-selection that lies in Hhat</span></span>
-<span><span class="st">"</span>, <span class="va">rc</span><span class="op">$</span><span class="va">ppv_H</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="va">ph</span>, decreasing <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; ppv_H   = 0.563   mean share of a re-selection that lies in Hhat</span></span></code></pre>
+<pre><code><span><span class="co">#&gt;  q1.1 &amp; q27.1  q1.1 &amp; q18.1  q1.1 &amp; q31.1  q1.1 &amp; q26.0 q10.0 &amp; q30.0</span></span>
+<span><span class="co">#&gt;         0.237         0.140         0.104         0.058         0.052</span></span></code></pre>
 </div>
+</div>
+<p>A small <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>p</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat p</annotation></semantics></math> says the exact boundary of the region is not stable under perturbation; by itself it is neither evidence for nor against the correction.</p>
+</section><section class="level3"><h3 id="what-hat-p-alone-cannot-say">What <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>p</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat p</annotation></semantics></math> alone cannot say<a class="anchor" aria-label="anchor" href="#what-hat-p-alone-cannot-say"></a>
+</h3>
+<p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>p</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat p</annotation></semantics></math> counts exact re-selections. Over a family in which most candidates differ from <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat H</annotation></semantics></math> by a single cut, a small exact-match rate is compatible with the draws re-selecting near-twins of <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat H</annotation></semantics></math> or unrelated regions, and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>p</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat p</annotation></semantics></math> does not distinguish them. Membership agreement does: each draw’s re-selection is compared with <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat H</annotation></semantics></math> as a set of patients, in the vocabulary of the cross-validation agreement metrics of <code><a href="../reference/forestsearch_Kfold.html">forestsearch_Kfold()</a></code> (<code>sens_H</code>, <code>ppv_H</code>). These diagnostics are computed from the field draws, which the forest-search fit asked for.</p>
+<div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb28"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"containment q10 / q50 / q90 = %.3f / %.3f / %.3f</span></span>
-<span><span class="st">"</span>, <span class="va">rc</span><span class="op">$</span><span class="va">q10</span>, <span class="va">rc</span><span class="op">$</span><span class="va">q50</span>, <span class="va">rc</span><span class="op">$</span><span class="va">q90</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">rc</span> <span class="op">&lt;-</span> <span class="va">g</span><span class="op">$</span><span class="va">field</span><span class="op">$</span><span class="va">recovery</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"sens_H = %.3f   mean share of H retained by a re-selection\n"</span>, <span class="va">rc</span><span class="op">$</span><span class="va">sens_H</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; containment q10 / q50 / q90 = 0.000 / 0.547 / 1.000</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; sens_H = 0.543   mean share of H retained by a re-selection</span></span></code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb30"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"share of draws containing all of Hhat = %.3f  (over %d draws)</span></span>
-<span><span class="st">"</span>,</span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"ppv_H  = %.3f   mean share of a re-selection that lies in H\n"</span>, <span class="va">rc</span><span class="op">$</span><span class="va">ppv_H</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code><span><span class="co">#&gt; ppv_H  = 0.465   mean share of a re-selection that lies in H</span></span></code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb32"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"containment q10 / q50 / q90 = %.3f / %.3f / %.3f\n"</span>, <span class="va">rc</span><span class="op">$</span><span class="va">q10</span>, <span class="va">rc</span><span class="op">$</span><span class="va">q50</span>, <span class="va">rc</span><span class="op">$</span><span class="va">q90</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code><span><span class="co">#&gt; containment q10 / q50 / q90 = 0.000 / 0.656 / 0.967</span></span></code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb34"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"share of draws containing all of H = %.3f  (over %d draws)\n"</span>,</span>
 <span>            <span class="va">rc</span><span class="op">$</span><span class="va">share_equal_1</span>, <span class="va">rc</span><span class="op">$</span><span class="va">n_used</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; share of draws containing all of Hhat = 0.244  (over 998 draws)</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; share of draws containing all of H = 0.020  (over 986 draws)</span></span></code></pre>
 </div>
 </div>
-<p>Read together, the two kinds of number say different things about the same draws: exact re-selection can be rare while the typical re-selection still retains much of the identified subgroup. That pattern points to an unstable boundary rather than an unstable region.</p>
-<p>One limit. These diagnostics measure re-selection <strong>within the fixed candidate family</strong>, under multiplier perturbation of the candidate effects. The bootstrap (<code><a href="../reference/forestsearch_bootstrap_dofuture.html">forestsearch_bootstrap_dofuture()</a></code>) and cross-validation (<code><a href="../reference/forestsearch_Kfold.html">forestsearch_Kfold()</a></code>) recovery rates measure something stronger: re-<strong>discovery</strong> of a subgroup from resampled data, with the search re-run and the family rebuilt each time. The two are related but neither substitutes for the other, and this one is free in every analysis while those cost a full re-run.</p>
-</section></section><section class="level2"><h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
+<p>Read together: the median draw retains 66% of the region’s members, at least a tenth of the draws retain none of them, and 2% of draws contain all of it. Exact re-selection is rare; what moves from draw to draw is the boundary. These diagnostics measure re-selection within the fixed candidate family under multiplier perturbation; the bootstrap’s and the cross-validation’s recovery rates (<code><a href="../reference/forestsearch_bootstrap_dofuture.html">forestsearch_bootstrap_dofuture()</a></code>, <code><a href="../reference/forestsearch_Kfold.html">forestsearch_Kfold()</a></code>) measure re-discovery from resampled data with the family rebuilt, which is stronger and costs a full re-run each time.</p>
+</section></section><section class="level2"><h2 id="scope">Scope<a class="anchor" aria-label="anchor" href="#scope"></a>
 </h2>
-<p>León, L. F. and Anderson, K. M. (2026). Inference for standard trial estimands after data-driven subgroup discovery. arXiv:2609.38361. <a href="https://arxiv.org/abs/2609.38361" class="external-link uri">https://arxiv.org/abs/2609.38361</a></p>
+<p>The coverage result of León and Anderson (2026a) is for a fixed, enumerated family — forest search’s. DINA and GRF propose their families from the outcomes, and a bootstrap regenerates them; for those identifiers the multiplier correction targets the effect of the selected region conditional on the family proposed, and the results above are empirical evaluations of how the correction behaves on such families, not instances of the theorem. The one-sided bounds, the two-subgroup claim and the declaration calibration that build on this correction are the subject of León and Anderson (2026b) and of <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code>.</p>
+</section><section class="level2"><h2 id="where-to-go-next">Where to go next<a class="anchor" aria-label="anchor" href="#where-to-go-next"></a>
+</h2>
+<ul>
+<li>
+<code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code>: the same trial under the identification paper — the search, the three identifiers at the <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mi mathvariant="script">𝒜</mi></msub><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mi>ε</mi><mo>=</mo><mn>0.20</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\max_{\mathcal{A}} N(\varepsilon = 0.20)</annotation></semantics></math> rule, the one-sided field bounds, the two-subgroup claim and the declaration calibration.</li>
+<li>The package website’s article <em>Exploratory subgroup identification with forestsearch (the 2024 workflow)</em>: the full bootstrap at a working B with its diagnostics and plots, and K-fold cross-validation.</li>
+<li>
+<code><a href="../reference/forestsearch_bootstrap_dofuture.html">?forestsearch_bootstrap_dofuture</a></code>, <code><a href="../reference/summarize_bootstrap_results.html">?summarize_bootstrap_results</a></code>, <code><a href="../reference/mr_estimates_table.html">?mr_estimates_table</a></code>.</li>
+</ul></section><section class="level2"><h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
+</h2>
+<p>Efron, B. (2014). Estimation and accuracy after model selection. <em>Journal of the American Statistical Association</em> 109(507), 991–1007.</p>
+<p>León, L. F. and Anderson, K. M. (2026a). Inference for standard trial estimands after data-driven subgroup discovery. arXiv:2609.38361. <a href="https://doi.org/10.48550/arXiv.2609.38361" class="external-link uri">https://doi.org/10.48550/arXiv.2609.38361</a></p>
+<p>León, L. F. and Anderson, K. M. (2026b). Interpretable subgroup identification across survival and generalized-linear outcomes. arXiv:2610.28379. <a href="https://doi.org/10.48550/arXiv.2610.28379" class="external-link uri">https://doi.org/10.48550/arXiv.2610.28379</a></p>
 <p>León, L. F., Jemielita, T., Guo, Z., Marceau West, R. and Anderson, K. M. (2024). Exploratory subgroup identification in the heterogeneous Cox model: A relatively simple procedure. <em>Statistics in Medicine</em>. <a href="https://doi.org/10.1002/sim.10163" class="external-link uri">https://doi.org/10.1002/sim.10163</a></p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb32"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb36"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code><span><span class="co">#&gt; R version 4.6.1 (2026-06-24)</span></span>
@@ -375,26 +1744,28 @@
 <span><span class="co">#&gt; [1] future_1.80.0      survival_3.8-6     forestsearch_0.4.0</span></span>
 <span><span class="co">#&gt;</span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
-<span><span class="co">#&gt;  [1] gt_1.4.0             generics_0.1.4       xml2_1.6.0</span></span>
-<span><span class="co">#&gt;  [4] shape_1.4.6.1        lattice_0.22-9       listenv_1.1.0</span></span>
-<span><span class="co">#&gt;  [7] digest_0.6.39        magrittr_2.0.5       grf_2.6.1</span></span>
-<span><span class="co">#&gt; [10] evaluate_1.0.5       grid_4.6.1           RColorBrewer_1.1-3</span></span>
-<span><span class="co">#&gt; [13] iterators_1.0.14     policytree_1.2.5     mvtnorm_1.4-2</span></span>
-<span><span class="co">#&gt; [16] fastmap_1.2.0        foreach_1.5.2        jsonlite_2.0.0</span></span>
-<span><span class="co">#&gt; [19] Matrix_1.7-5         glmnet_5.1           scales_1.4.0</span></span>
-<span><span class="co">#&gt; [22] weightedsurv_0.1.0   codetools_0.2-20     cli_3.6.6</span></span>
-<span><span class="co">#&gt; [25] rlang_1.3.0          parallelly_1.48.0    future.apply_1.21.0</span></span>
-<span><span class="co">#&gt; [28] splines_4.6.1        yaml_2.3.12          otel_0.2.0</span></span>
-<span><span class="co">#&gt; [31] tools_4.6.1          parallel_4.6.1       doFuture_1.4.0</span></span>
-<span><span class="co">#&gt; [34] dplyr_1.2.1          ggplot2_4.0.3        globals_0.20.0</span></span>
-<span><span class="co">#&gt; [37] vctrs_0.7.3          R6_2.6.1             lifecycle_1.0.5</span></span>
-<span><span class="co">#&gt; [40] randomForest_4.7-1.2 fs_2.1.0             pkgconfig_2.0.3</span></span>
-<span><span class="co">#&gt; [43] progressr_1.1.0      pillar_1.11.1        gtable_0.3.6</span></span>
-<span><span class="co">#&gt; [46] data.table_1.18.6.1  glue_1.8.1           Rcpp_1.1.2</span></span>
-<span><span class="co">#&gt; [49] xfun_0.62            tibble_3.3.1         tidyselect_1.2.1</span></span>
-<span><span class="co">#&gt; [52] knitr_1.52           farver_2.1.2         patchwork_1.3.2</span></span>
-<span><span class="co">#&gt; [55] htmltools_0.5.9      rmarkdown_2.32       compiler_4.6.1</span></span>
-<span><span class="co">#&gt; [58] S7_0.2.2</span></span></code></pre>
+<span><span class="co">#&gt;  [1] gt_1.4.0             sass_0.4.10          generics_0.1.4</span></span>
+<span><span class="co">#&gt;  [4] xml2_1.6.0           shape_1.4.6.1        lattice_0.22-9</span></span>
+<span><span class="co">#&gt;  [7] listenv_1.1.0        digest_0.6.39        magrittr_2.0.5</span></span>
+<span><span class="co">#&gt; [10] grf_2.6.1            evaluate_1.0.5       grid_4.6.1</span></span>
+<span><span class="co">#&gt; [13] RColorBrewer_1.1-3   iterators_1.0.14     policytree_1.2.5</span></span>
+<span><span class="co">#&gt; [16] mvtnorm_1.4-2        fastmap_1.2.0        foreach_1.5.2</span></span>
+<span><span class="co">#&gt; [19] jsonlite_2.0.0       Matrix_1.7-5         glmnet_5.2</span></span>
+<span><span class="co">#&gt; [22] scales_1.4.0         weightedsurv_0.1.0   codetools_0.2-20</span></span>
+<span><span class="co">#&gt; [25] cli_3.6.6            rlang_1.3.0          litedown_0.11</span></span>
+<span><span class="co">#&gt; [28] parallelly_1.48.0    future.apply_1.21.0  commonmark_2.0.0</span></span>
+<span><span class="co">#&gt; [31] splines_4.6.1        base64enc_0.1-6      withr_3.0.3</span></span>
+<span><span class="co">#&gt; [34] yaml_2.3.12          otel_0.2.0           tools_4.6.1</span></span>
+<span><span class="co">#&gt; [37] parallel_4.6.1       doFuture_1.4.0       dplyr_1.2.1</span></span>
+<span><span class="co">#&gt; [40] ggplot2_4.0.3        globals_0.20.0       vctrs_0.7.3</span></span>
+<span><span class="co">#&gt; [43] R6_2.6.1             lifecycle_1.0.5      randomForest_4.7-1.2</span></span>
+<span><span class="co">#&gt; [46] fs_2.1.0             pkgconfig_2.0.3      progressr_1.1.0</span></span>
+<span><span class="co">#&gt; [49] pillar_1.11.1        gtable_0.3.6         data.table_1.18.6.1</span></span>
+<span><span class="co">#&gt; [52] glue_1.8.1           Rcpp_1.1.2           xfun_0.62</span></span>
+<span><span class="co">#&gt; [55] tibble_3.3.1         tidyselect_1.2.1     knitr_1.52</span></span>
+<span><span class="co">#&gt; [58] farver_2.1.2         patchwork_1.3.2      htmltools_0.5.9</span></span>
+<span><span class="co">#&gt; [61] rmarkdown_2.32       compiler_4.6.1       S7_0.2.2</span></span>
+<span><span class="co">#&gt; [64] markdown_2.1</span></span></code></pre>
 </div>
 </div>
 </section><script id="quarto-html-after-body" type="application/javascript">

@@ -28,6 +28,8 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
 <li class="active nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -72,6 +74,13 @@
 <h4 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h4>
 <ul><li>
 <code>xlog</code> in <code><a href="../reference/plot_subgroup_results_forestplot.html">plot_subgroup_results_forestplot()</a></code> never reached forestploter (it was passed to <code><a href="https://adayim.github.io/forestploter/reference/forest.html" class="external-link">forestploter::forest()</a></code>, which has no such argument), so the HR/OR axis was linear despite the documentation. It is now a real log axis via <code>set_xaxis(x_trans = "log")</code>. The call uses the forestploter 1.2.0 API (<code>set_xaxis()</code>, <code>set_labs()</code>, <code>style</code>, <code>refline_gp</code>), which removes the “will be deprecated” and “Unknown arguments ignored” messages; <code>Suggests: forestploter (&gt;= 1.2.0)</code>. Reported by adayim (<a href="https://github.com/larry-leon/forestsearch/issues/7" class="external-link">#7</a>).</li>
+</ul></div>
+<div class="section level4">
+<h4 id="documentation-development-version">Documentation<a class="anchor" aria-label="anchor" href="#documentation-development-version"></a></h4>
+<ul><li>New getting-started vignette, <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code>: the German Breast Cancer Study Group analysis of León and Anderson (2026b), Table 1, run end to end — the three identifiers (forest search, DINA, GRF) and the selection-adjusted estimates and bounds of León and Anderson (2026a) — at the manuscript’s settings, with the declaration calibration at a protected level.</li>
+<li>The previous getting-started vignette, which documents the workflow of León et al. (2024), is now the pkgdown article “Exploratory subgroup identification with forestsearch (the 2024 workflow)” and is no longer built on CRAN.</li>
+<li>The post-selection analysis is now an article on the package website rather than a CRAN vignette, because the full analysis takes a few minutes to run: <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html" class="uri">https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html</a>. It reproduces the GBSG analysis of León and Anderson (2026a), illustrates the full bootstrap at a small number of replicates, and shows <code><a href="../reference/mr_estimates_table.html">mr_estimates_table()</a></code>.</li>
+<li>The methodology and simulation articles on the package website carry a note placing them as the 2024 workflow, with the deprecated arguments removed from their listings.</li>
 </ul></div>
 </div>
     <div class="section level2">

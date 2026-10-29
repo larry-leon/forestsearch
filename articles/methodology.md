@@ -1,5 +1,30 @@
 # Methodology
 
+> **About this article (updated October 2026).** This article describes
+> the methodology of León, Jemielita, Guo, Marceau West and Anderson
+> (2024), *Statistics in Medicine*, <https://doi.org/10.1002/sim.10163>,
+> as the package first implemented it: the split-sample consistency
+> screen evaluated by random half-splits, bootstrap bias correction, and
+> GRF variable-importance screening of the candidate factors. The
+> current package evaluates the consistency screen in closed form
+> (`consistency_method = "resample"`, the default; random half-splitting
+> is only the fallback, so `fs.splits` has no effect otherwise), reports
+> selection-adjusted estimates and one-sided bounds by multiplier
+> resampling (`mr_inference = TRUE`; León and Anderson 2026a,
+> arXiv:2609.38361), and calibrates the declaration of a subgroup at a
+> protected level (León and Anderson 2026b, arXiv:2610.28379). The GRF
+> variable-importance screen is removed as of 0.4.1 (`vi.grf.min` is
+> deprecated and has no effect). The current methodology is documented
+> in
+> [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
+> and the [post-selection
+> article](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html);
+> the argument listings below are kept for the 2024 workflow and are not
+> the complete current signature of
+> [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
+> — see
+> [`?forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md).
+
 ## Introduction
 
 ForestSearch is a procedure for identifying subgroups with large
@@ -903,9 +928,9 @@ factors that are completely random noise.
 
 ``` r
 
-# All forestsearch() parameters shown with their default values.
-# LASSO is enabled by default; this snippet contrasts use_lasso = TRUE
-# with use_grf = FALSE.
+# forestsearch() arguments of the 2024 workflow with their defaults; not the complete current signature (see ?forestsearch).
+# LASSO and GRF are both off by default (use_lasso = FALSE, use_grf = FALSE);
+# this snippet switches LASSO on (use_lasso = TRUE) and leaves GRF off.
 result <- forestsearch(
   df.analysis                = data,                         # required
 
@@ -931,16 +956,14 @@ result <- forestsearch(
   est.scale                  = "hr",                         # default "hr"
 
   # ─── Factor selection: LASSO + GRF ──────────────────────────────────────
-  use_lasso                  = TRUE,                         # default TRUE  <-- FOCAL
-  use_grf                    = FALSE,                        # default TRUE  <-- FOCAL
+  use_lasso                  = TRUE,                         # default FALSE  <-- FOCAL
+  use_grf                    = FALSE,                        # default FALSE  <-- FOCAL
   grf_res                    = NULL,                         # default NULL
   grf_cuts                   = NULL,                         # default NULL
-  max_n_confounders          = 1000,                         # default 1000
   grf_depth                  = 2,                            # default 2
   dmin.grf                   = 0.0,                          # default 0.0
   frac.tau                   = 0.8,                          # default 0.8
   return_selected_cuts_only  = TRUE,                         # default TRUE
-  vi.grf.min                 = -0.2,                         # default -0.2
   tune_grf                   = FALSE,                        # default FALSE
 
   # ─── Cuts / discretization ──────────────────────────────────────────────
@@ -959,7 +982,7 @@ result <- forestsearch(
   d0.min                     = 10,                           # default 10
   d1.min                     = 10,                           # default 10
   maxk                       = 2,                            # default 2
-  max_subgroups_search       = 10,                           # default 10
+  max_subgroups_search       = 10,                           # default Inf
 
   # ─── Thresholds ─────────────────────────────────────────────────────────
   effect.threshold           = NULL,                         # default NULL
@@ -976,23 +999,23 @@ result <- forestsearch(
   fs.splits                  = 1000,                         # default 1000
   m1.threshold               = Inf,                          # default Inf
   pconsistency.threshold     = 0.90,                         # default 0.90
-  stop_threshold             = 0.95,                         # default 0.95
+  stop_threshold             = 0.95,                         # default pconsistency.threshold
 
   # ─── Two-stage consistency ──────────────────────────────────────────────
   use_twostage               = TRUE,                         # default TRUE
   twostage_args              = list(),                       # default list()
 
   # ─── GLM outcome support ────────────────────────────────────────────────
-  outcome_type               = "survival",                   # default "survival"
+  outcome_type               = "survival",                   # default "survival" (match.arg)
   effect_measure             = NULL,                         # default NULL
   offset.name                = NULL,                         # default NULL
   adverse_outcome            = NULL,                         # default NULL
-  overdispersion             = "none",                       # default "none"
-  grf_count_transform        = "log",                        # default "log"
+  overdispersion             = "none",                       # default "none" (match.arg)
+  grf_count_transform        = "log",                        # default "log" (match.arg)
 
   # ─── Propensity-score adjustment ────────────────────────────────────────
   ps_method                  = NULL,                         # default NULL
-  ps_adjust_method           = "none",                       # default "none"
+  ps_adjust_method           = "none",                       # default "none" (match.arg)
   ps_hat                     = NULL,                         # default NULL
 
   # ─── Output / diagnostics ───────────────────────────────────────────────
@@ -1015,8 +1038,9 @@ splits) rather than as the primary identification procedure.
 
 ``` r
 
-# All forestsearch() parameters shown with their default values.
-# Enable both LASSO and GRF (the package default for variable selection).
+# forestsearch() arguments of the 2024 workflow with their defaults; not the complete current signature (see ?forestsearch).
+# LASSO and GRF are both off by default (use_lasso = FALSE, use_grf = FALSE);
+# this snippet switches both on (use_lasso = TRUE, use_grf = TRUE).
 result <- forestsearch(
   df.analysis                = data,                         # required
 
@@ -1042,16 +1066,14 @@ result <- forestsearch(
   est.scale                  = "hr",                         # default "hr"
 
   # ─── Factor selection: LASSO + GRF ──────────────────────────────────────
-  use_lasso                  = TRUE,                         # default TRUE  <-- FOCAL
-  use_grf                    = TRUE,                         # default TRUE  <-- FOCAL
+  use_lasso                  = TRUE,                         # default FALSE  <-- FOCAL
+  use_grf                    = TRUE,                         # default FALSE  <-- FOCAL
   grf_res                    = NULL,                         # default NULL
   grf_cuts                   = NULL,                         # default NULL
-  max_n_confounders          = 1000,                         # default 1000
   grf_depth                  = 2,                            # default 2
   dmin.grf                   = 0.0,                          # default 0.0
   frac.tau                   = 0.8,                          # default 0.8
   return_selected_cuts_only  = TRUE,                         # default TRUE
-  vi.grf.min                 = -0.2,                         # default -0.2
   tune_grf                   = FALSE,                        # default FALSE
 
   # ─── Cuts / discretization ──────────────────────────────────────────────
@@ -1070,7 +1092,7 @@ result <- forestsearch(
   d0.min                     = 10,                           # default 10
   d1.min                     = 10,                           # default 10
   maxk                       = 2,                            # default 2
-  max_subgroups_search       = 10,                           # default 10
+  max_subgroups_search       = 10,                           # default Inf
 
   # ─── Thresholds ─────────────────────────────────────────────────────────
   effect.threshold           = NULL,                         # default NULL
@@ -1087,23 +1109,23 @@ result <- forestsearch(
   fs.splits                  = 1000,                         # default 1000
   m1.threshold               = Inf,                          # default Inf
   pconsistency.threshold     = 0.90,                         # default 0.90
-  stop_threshold             = 0.95,                         # default 0.95
+  stop_threshold             = 0.95,                         # default pconsistency.threshold
 
   # ─── Two-stage consistency ──────────────────────────────────────────────
   use_twostage               = TRUE,                         # default TRUE
   twostage_args              = list(),                       # default list()
 
   # ─── GLM outcome support ────────────────────────────────────────────────
-  outcome_type               = "survival",                   # default "survival"
+  outcome_type               = "survival",                   # default "survival" (match.arg)
   effect_measure             = NULL,                         # default NULL
   offset.name                = NULL,                         # default NULL
   adverse_outcome            = NULL,                         # default NULL
-  overdispersion             = "none",                       # default "none"
-  grf_count_transform        = "log",                        # default "log"
+  overdispersion             = "none",                       # default "none" (match.arg)
+  grf_count_transform        = "log",                        # default "log" (match.arg)
 
   # ─── Propensity-score adjustment ────────────────────────────────────────
   ps_method                  = NULL,                         # default NULL
-  ps_adjust_method           = "none",                       # default "none"
+  ps_adjust_method           = "none",                       # default "none" (match.arg)
   ps_hat                     = NULL,                         # default NULL
 
   # ─── Output / diagnostics ───────────────────────────────────────────────
@@ -1139,8 +1161,8 @@ were obtained.
 ### Sample Size Requirements
 
 - **Minimum subgroup size:** 60 subjects (default `n.min = 60`)
-- **Minimum events:** 10–12 per treatment arm (default `d0.min = 12`,
-  `d1.min = 12`)
+- **Minimum events:** 10 per treatment arm (default `d0.min = 10`,
+  `d1.min = 10`)
 - **Recommended trial size:** $`N \ge 300`$ for Phase 2; $`N \ge 500`$
   for Phase 3
 
@@ -1148,8 +1170,9 @@ were obtained.
 
 The computational time depends on the number of candidate factors
 ($`K`$), the number of subgroup combinations meeting size criteria
-($`S`$), the number of consistency splits (`fs.splits`, default
-400–1000), the number of bootstrap iterations ($`B`$, typically
+($`S`$), the number of consistency splits (`fs.splits`, default 1000;
+used only when the closed-form consistency evaluation is unavailable for
+a candidate), the number of bootstrap iterations ($`B`$, typically
 300–2000), and the number of CV repetitions.
 
 **Typical timing** (Apple M1, 20 cores):
@@ -1184,6 +1207,14 @@ implemented via the `doFuture` package.
 
 Athey, Susan, Julie Tibshirani, and Stefan Wager. 2019. “Generalized
 Random Forests.” *The Annals of Statistics* 47 (2): 1148–78.
+
+León, Larry F., and Keaven M. Anderson. 2026a. *Inference for Standard
+Trial Estimands After Data-Driven Subgroup Discovery*.
+<https://doi.org/10.48550/arXiv.2609.38361>.
+
+León, Larry F., and Keaven M. Anderson. 2026b. *Interpretable Subgroup
+Identification Across Survival and Generalized-Linear Outcomes*.
+<https://doi.org/10.48550/arXiv.2610.28379>.
 
 León, Larry F., Thomas Jemielita, Zifang Guo, Rachel Marceau West, and
 Keaven M. Anderson. 2024. “Exploratory Subgroup Identification in the

@@ -2355,16 +2355,16 @@ costs that don’t change with replicate count.
 
 | Step                                                   |   Elapsed | Per trial |
 |:-------------------------------------------------------|----------:|----------:|
-| DGM construction (generate_aft_dgm_flex)               |  1.09 sec |         — |
-| Censoring calibration (calibrate_cens_adjust)          |    380 ms |         — |
-| Simulation loop (150 trials × 56 subgroups, 4 workers) | 10.11 sec |     67 ms |
-| Total                                                  | 11.58 sec |         — |
+| DGM construction (generate_aft_dgm_flex)               |  1.82 sec |         — |
+| Censoring calibration (calibrate_cens_adjust)          |    566 ms |         — |
+| Simulation loop (150 trials × 56 subgroups, 4 workers) | 17.89 sec |    119 ms |
+| Total                                                  | 20.27 sec |         — |
 
 Timing for n_sims_uniform = 150, parallel across 4 of 4 cores. {.table
 .caption-top style="width:100%;"}
 
 
-    Throughput: 14.8 trials/sec (wall-clock, 4 workers)  |  Projected total time:  1,000 sims → 1.1 min    │    5,000 sims → 5.6 min
+    Throughput: 8.4 trials/sec (wall-clock, 4 workers)  |  Projected total time:  1,000 sims → 2.0 min    │    5,000 sims → 10.0 min
 
 ## 8 Appendix: DGM with Heterogeneous Treatment Effects
 
@@ -2707,7 +2707,7 @@ sessionInfo()
     [10] grf_2.6.1            evaluate_1.0.5       grid_4.6.1
     [13] RColorBrewer_1.1-3   iterators_1.0.14     policytree_1.2.5
     [16] mvtnorm_1.4-2        fastmap_1.2.0        jsonlite_2.0.0
-    [19] Matrix_1.7-5         glmnet_5.1           scales_1.4.0
+    [19] Matrix_1.7-5         glmnet_5.2           scales_1.4.0
     [22] weightedsurv_0.1.0   codetools_0.2-20     cli_3.6.6
     [25] rlang_1.3.0          parallelly_1.48.0    future.apply_1.21.0
     [28] splines_4.6.1        withr_3.0.3          yaml_2.3.12
