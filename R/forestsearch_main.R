@@ -1432,10 +1432,11 @@
 #' @examples
 #' \dontrun{
 #' ## Example 1 -- Survival (GBSG, hormone therapy): the analysis of
-#' ## León and Anderson (2026a, Sec. 5) and the survival-post-selection
-#' ## vignette. Forest search over the cut grid (no model-based front ends),
-#' ## effMaxSG selection in a 10% effect neighbourhood, multiplier-resampling
-#' ## inference for the reported subgroup computed inside the fit.
+#' ## León and Anderson (2026a, Sec. 5) and of the survival-post-selection
+#' ## article on the package website. Forest search over the cut grid (no
+#' ## model-based front ends), effMaxSG selection in a 10% effect
+#' ## neighbourhood, multiplier-resampling inference for the reported
+#' ## subgroup computed inside the fit.
 #' library(survival)
 #' df_gbsg <- within(gbsg, {
 #'   id          <- seq_len(nrow(gbsg))

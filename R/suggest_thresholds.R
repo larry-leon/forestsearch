@@ -86,10 +86,10 @@
 #' d <- d_eff_survival(n_sg = 60, prop_cens = 0.45)
 #' suggest_thresholds(d_eff = d, N = 700)
 #'
-#' # Binary: needs higher thresholds
-#' d <- d_eff_binary(n_sg = 150, p_event = 0.30)
-#' suggest_thresholds(d_eff = d, N = 500,
-#'                    L_eff_C = 0.220, L_eff_alpha = 1.298)
+#' # Binary: needs higher thresholds (shown, not run -- about 10 s)
+#' # d <- d_eff_binary(n_sg = 150, p_event = 0.30)
+#' # suggest_thresholds(d_eff = d, N = 500,
+#' #                    L_eff_C = 0.220, L_eff_alpha = 1.298)
 #'
 #' # Use calibration object from run_null_calibration()
 #' # cal <- run_null_calibration(...)

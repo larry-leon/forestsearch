@@ -40,8 +40,10 @@ The selected-subgroup row is matched by its bias-corrected string
 robust to row ordering.  The MR de-biased confidence interval is a
 leading-order approximation of the full-bootstrap infinitesimal-jackknife
 interval -- it comes from the IJ variance computed on the multiplier draws
-under the default \code{ci_method = "ij"}, and from the subgroup robust SE only
-under \code{ci_method = "wald"}.  Either way the bias-corrected cell may differ
+under \code{ci_method = "ij"} or \code{"field"} (the forest-search path defaults to
+\code{"field"}, which adds the field bounds; the DINA and GRF paths default to
+\code{"ij"}), and from the subgroup robust SE only under \code{ci_method = "wald"}.
+Either way the bias-corrected cell may differ
 slightly from the full bootstrap even when the naive effect matches exactly.
 }
 \seealso{

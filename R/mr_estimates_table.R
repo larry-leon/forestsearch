@@ -28,8 +28,10 @@
 #' robust to row ordering.  The MR de-biased confidence interval is a
 #' leading-order approximation of the full-bootstrap infinitesimal-jackknife
 #' interval -- it comes from the IJ variance computed on the multiplier draws
-#' under the default `ci_method = "ij"`, and from the subgroup robust SE only
-#' under `ci_method = "wald"`.  Either way the bias-corrected cell may differ
+#' under `ci_method = "ij"` or `"field"` (the forest-search path defaults to
+#' `"field"`, which adds the field bounds; the DINA and GRF paths default to
+#' `"ij"`), and from the subgroup robust SE only under `ci_method = "wald"`.
+#' Either way the bias-corrected cell may differ
 #' slightly from the full bootstrap even when the naive effect matches exactly.
 #'
 #' @seealso [forestsearch()] for the `mr_inference` switch and the vocabulary
