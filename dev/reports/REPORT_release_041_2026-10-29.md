@@ -213,3 +213,25 @@ Status: OK
 - Flag, not edited: `cran-comments.md` says the examples take "about 50 s
   with `--run-donttest`"; this run measured 41 s. Text left as written by
   the task.
+
+## Closing block (base `624bd457`, run after `2ff2bc90`) — GATE passed
+
+```
+$ git diff --name-only <base> HEAD | grep -v -E ...
+$ git diff <base> HEAD -- DESCRIPTION | grep -E '^[-+]Version'
+-Version: 0.4.0.9000
++Version: 0.4.1
+$ git diff <base> HEAD -- NEWS.md | grep -E '^[-+]#'
+-# forestsearch (development version)
++# forestsearch 0.4.1
+$ git diff <base> HEAD -- R/ | (non-roxygen changed lines)
+$ grep -rn "survival-post-selection vignette" R/ man/ ; grep -c ... README.md
+0
+$ grep -n '^Status:' <log>
+82:Status: OK
+$ git status --porcelain | grep -v '^?? '
+(end)
+```
+
+All seven checks as required. Copies of this report, the check log and
+`cran-comments.md` are in `~/Downloads`.
