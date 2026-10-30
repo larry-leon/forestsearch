@@ -224,3 +224,26 @@ IDs match `alignment_edits_2026-10-30.json` (`edits[].id`); the JSON carries the
 | E14 | references | — | + 2026a, 2026b after Knudsen (2025) | items inserted |
 
 **Deliberately unchanged.** The 2024 text of `methodology.Rmd` and `paper_simulations.Rmd` (figures, tables, thresholds, the bootstrap and CV sections, the 2024 application numbers); every passage of the three conceptual articles that is about the DGM, the AHR/CDE theory or the reviewed papers rather than about what the package reports; `references.bib` (the 2026 papers are cited inline, as the banners already do). `methodology.Rmd` says "Forest Search targets marginal hazard ratios" and keeps saying it — A3 states beside it what the 2026 papers target instead.
+
+---
+
+## Closing block (appended by CC, 2026-10-30)
+
+Checks run after commit 3 (`356bba4f`), before this block was written; this block is commit 4, committed alone.
+
+```
+$ git diff --name-only c2967362 HEAD | grep -vE '^(dev/|vignettes/articles/(methodology|paper_simulations|treatment_effect_definitions|biomarker_effects|causal_effects_brief_review)\.Rmd$)'
+(nothing)
+$ git status --porcelain | grep -v '^?? '
+(nothing)
+$ git status --porcelain | grep '^?? '
+?? vignettes/articles/guohe-nested-continuum.html
+$ git log --oneline c2967362..HEAD
+356bba4f Report: article alignment with 2026a/2026b (applier OK, five renders, output-only gates, check_pkgdown)
+a88f8ea4 docs: align methodology, paper_simulations, treatment_effect_definitions, biomarker_effects and causal_effects_brief_review with León & Anderson 2026a/2026b
+bdeb75f8 task: article alignment — v2 (gate 12a re-stated for toc_float; Guo–He HTML restore)
+794863f3 task: article alignment with 2026a/2026b — task document, edit set, applier
+(plus this closing-block commit)
+```
+
+Report: `dev/reports/REPORT_articles_alignment_2026-10-30.md`. Copied to `~/Downloads/articles_alignment_2026-10-30/`: the report, `results/`, and the five rendered HTML files.
