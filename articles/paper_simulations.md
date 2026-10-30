@@ -1331,7 +1331,7 @@ results_alt <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Per-arm events criteria: control >= 12, treatment >= 12
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.01 minutes
+    ## Subgroup search completed in 0.02 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1355,7 +1355,7 @@ results_alt <- foreach(
     ## Subgroup 3: resample Pcons=0.82 (threshold 0.9)
     ## Evaluated 3 of 3 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 5.2 0.0867 
+    ## Seconds and minutes forestsearch overall = 5.704 0.0951 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.90727 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1452,7 +1452,7 @@ results_null <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Per-arm events criteria: control >= 12, treatment >= 12
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.03 minutes
+    ## Subgroup search completed in 0.02 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1475,7 +1475,7 @@ results_null <- foreach(
     ## Subgroup 2: resample Pcons=0.57 (threshold 0.9)
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 5.564 0.0927 
+    ## Seconds and minutes forestsearch overall = 5.113 0.0852 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 43.8823 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -2383,15 +2383,15 @@ reproducibility information.
 | 44 H1 + 44 H0 simulations, 3 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.1 | 0.00 | 0.1 |
-| Calibrate k_inter (Cox) | 7.3 | 0.12 | 2.8 |
-| Calibrate k_inter (AHR) | 3.1 | 0.05 | 1.2 |
-| Validate k_inter | 0.7 | 0.01 | 0.3 |
+| Calibrate k_inter (Cox) | 7.2 | 0.12 | 2.7 |
+| Calibrate k_inter (AHR) | 3.0 | 0.05 | 1.1 |
+| Validate k_inter | 0.9 | 0.01 | 0.3 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.0 |
-| Simulations H1 | 111.8 | 1.86 | 42.0 |
-| Simulations H0 | 104.6 | 1.74 | 39.3 |
+| Simulations H1 | 111.4 | 1.86 | 42.1 |
+| Simulations H0 | 103.6 | 1.73 | 39.2 |
 | Summarize H1 | 0.2 | 0.00 | 0.1 |
-| Summarize H0 | 0.2 | 0.00 | 0.1 |
-| Total vignette | 266.4 | 4.44 | 100.0 |
+| Summarize H0 | 0.1 | 0.00 | 0.1 |
+| Total vignette | 264.6 | 4.41 | 100.0 |
 | ¹ Parallel backend: 3 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -3753,8 +3753,8 @@ gc(verbose = FALSE)
 ```
 
     ##           used  (Mb) gc trigger  (Mb) max used  (Mb)
-    ## Ncells 3578932 191.2    5462002 291.8  5462002 291.8
-    ## Vcells 6937730  53.0   14809240 113.0 12274367  93.7
+    ## Ncells 3579285 191.2    5462312 291.8  5462312 291.8
+    ## Vcells 6938541  53.0   14799573 113.0 12266311  93.6
 
 ## Session Info
 
@@ -3763,7 +3763,7 @@ gc(verbose = FALSE)
 sessionInfo()
 ```
 
-    ## R version 4.6.1 (2026-06-24)
+    ## R version 4.6.2 (2026-10-29)
     ## Platform: x86_64-pc-linux-gnu
     ## Running under: Ubuntu 24.04.5 LTS
     ## 
@@ -3786,17 +3786,17 @@ sessionInfo()
     ## other attached packages:
     ##  [1] katex_1.5.0         doFuture_1.4.0      future_1.80.0      
     ##  [4] foreach_1.5.2       gt_1.4.0            ggplot2_4.0.3      
-    ##  [7] survival_3.8-6      data.table_1.18.6.1 weightedsurv_0.1.0 
+    ##  [7] survival_3.8-12     data.table_1.18.6.1 weightedsurv_0.1.0 
     ## [10] forestsearch_0.4.0 
     ## 
     ## loaded via a namespace (and not attached):
     ##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.62           
     ##  [4] bslib_0.12.0         visNetwork_2.1.4     htmlwidgets_1.6.4   
-    ##  [7] lattice_0.22-9       vctrs_0.7.3          tools_4.6.1         
-    ## [10] generics_0.1.4       curl_8.1.0           parallel_4.6.1      
-    ## [13] tibble_3.3.1         pkgconfig_2.0.3      Matrix_1.7-5        
+    ##  [7] lattice_0.23-1       vctrs_0.7.3          tools_4.6.2         
+    ## [10] generics_0.1.4       curl_8.1.0           parallel_4.6.2      
+    ## [13] tibble_3.3.1         pkgconfig_2.0.3      Matrix_1.7-6        
     ## [16] RColorBrewer_1.1-3   S7_0.2.2             desc_1.4.3          
-    ## [19] cubature_2.1.4-1     lifecycle_1.0.5      compiler_4.6.1      
+    ## [19] cubature_2.1.4-1     lifecycle_1.0.5      compiler_4.6.2      
     ## [22] farver_2.1.2         textshaping_1.0.5    policytree_1.2.5    
     ## [25] grf_2.6.1            codetools_0.2-20     litedown_0.11       
     ## [28] htmltools_0.5.9      sass_0.4.10          yaml_2.3.12         
@@ -3804,8 +3804,8 @@ sessionInfo()
     ## [34] jquerylib_0.1.4      cachem_1.1.0         iterators_1.0.14    
     ## [37] parallelly_1.48.0    commonmark_2.0.0     tidyselect_1.2.1    
     ## [40] digest_0.6.39        mvtnorm_1.4-2        dplyr_1.2.1         
-    ## [43] listenv_1.1.0        splines_4.6.1        fastmap_1.2.0       
-    ## [46] grid_4.6.1           cli_3.6.6            DiagrammeR_1.0.12   
+    ## [43] listenv_1.1.0        splines_4.6.2        fastmap_1.2.0       
+    ## [46] grid_4.6.2           cli_3.6.6            DiagrammeR_1.0.12   
     ## [49] magrittr_2.0.5       patchwork_1.3.2      randomForest_4.7-1.2
     ## [52] future.apply_1.21.0  withr_3.0.3          scales_1.4.0        
     ## [55] rmarkdown_2.32       globals_0.20.0       otel_0.2.0          

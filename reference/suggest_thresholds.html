@@ -15,7 +15,7 @@ corrected FPR is at most fpr_target."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -219,29 +219,10 @@ analysis documents):</p><dl><dt>Binary, 4 confounders</dt>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 24 2.45   0.90 0.005234 0.005234     1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 25 2.50   0.90 0.004434 0.004434     1</span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Binary: needs higher thresholds</span></span></span>
-<span class="r-in"><span><span class="va">d</span> <span class="op">&lt;-</span> <span class="fu"><a href="d_eff_binary.html">d_eff_binary</a></span><span class="op">(</span>n_sg <span class="op">=</span> <span class="fl">150</span>, p_event <span class="op">=</span> <span class="fl">0.30</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu">suggest_thresholds</span><span class="op">(</span>d_eff <span class="op">=</span> <span class="va">d</span>, N <span class="op">=</span> <span class="fl">500</span>,</span></span>
-<span class="r-in"><span>                   L_eff_C <span class="op">=</span> <span class="fl">0.220</span>, L_eff_alpha <span class="op">=</span> <span class="fl">1.298</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>      c1 min_c2   FPR_corr       P1    L_eff</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1  1.65   1.65 0.08608888 0.025766 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2  1.70   1.60 0.09827876 0.029552 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3  1.75   1.60 0.09268443 0.027810 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4  1.80   1.55 0.09444052 0.028356 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5  1.85   1.45 0.09820185 0.029528 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6  1.90   1.35 0.09671406 0.029064 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 7  1.95   1.00 0.09974552 0.030010 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 8  2.00   0.90 0.08671634 0.025960 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 9  2.05   0.90 0.07399799 0.022046 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10 2.10   0.90 0.06339480 0.018812 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 11 2.15   0.90 0.05389984 0.015938 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 12 2.20   0.90 0.04632551 0.013660 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 13 2.25   0.90 0.03972054 0.011684 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 14 2.30   0.90 0.03388431 0.009946 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 15 2.35   0.90 0.02865819 0.008396 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 16 2.40   0.90 0.02459162 0.007194 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 17 2.45   0.90 0.02113811 0.006176 3.448621</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 18 2.50   0.90 0.01803003 0.005262 3.448621</span>
+<span class="r-in"><span><span class="co"># Binary: needs higher thresholds (shown, not run -- about 10 s)</span></span></span>
+<span class="r-in"><span><span class="co"># d &lt;- d_eff_binary(n_sg = 150, p_event = 0.30)</span></span></span>
+<span class="r-in"><span><span class="co"># suggest_thresholds(d_eff = d, N = 500,</span></span></span>
+<span class="r-in"><span><span class="co">#                    L_eff_C = 0.220, L_eff_alpha = 1.298)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Use calibration object from run_null_calibration()</span></span></span>
 <span class="r-in"><span><span class="co"># cal &lt;- run_null_calibration(...)</span></span></span>

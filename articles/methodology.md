@@ -1233,7 +1233,7 @@ Jackknife.” *Journal of Machine Learning Research* 15: 1625–51.
 sessionInfo()
 ```
 
-    ## R version 4.6.1 (2026-06-24)
+    ## R version 4.6.2 (2026-10-29)
     ## Platform: x86_64-pc-linux-gnu
     ## Running under: Ubuntu 24.04.5 LTS
     ## 
@@ -1257,7 +1257,7 @@ sessionInfo()
     ## [1] ggplot2_4.0.3     DiagrammeR_1.0.12
     ## 
     ## loaded via a namespace (and not attached):
-    ##  [1] gtable_0.3.6       jsonlite_2.0.0     dplyr_1.2.1        compiler_4.6.1    
+    ##  [1] gtable_0.3.6       jsonlite_2.0.0     dplyr_1.2.1        compiler_4.6.2    
     ##  [5] tidyselect_1.2.1   jquerylib_0.1.4    systemfonts_1.3.2  scales_1.4.0      
     ##  [9] textshaping_1.0.5  yaml_2.3.12        fastmap_1.2.0      R6_2.6.1          
     ## [13] generics_0.1.4     knitr_1.52         htmlwidgets_1.6.4  visNetwork_2.1.4  
@@ -1265,7 +1265,7 @@ sessionInfo()
     ## [21] RColorBrewer_1.1-3 rlang_1.3.0        cachem_1.1.0       xfun_0.62         
     ## [25] fs_2.1.0           sass_0.4.10        S7_0.2.2           otel_0.2.0        
     ## [29] cli_3.6.6          withr_3.0.3        pkgdown_2.2.1      magrittr_2.0.5    
-    ## [33] digest_0.6.39      grid_4.6.1         rstudioapi_0.19.0  lifecycle_1.0.5   
+    ## [33] digest_0.6.39      grid_4.6.2         rstudioapi_0.19.0  lifecycle_1.0.5   
     ## [37] vctrs_0.7.3        evaluate_1.0.5     glue_1.8.1         farver_2.1.2      
-    ## [41] ragg_1.5.2         rmarkdown_2.32     tools_4.6.1        pkgconfig_2.0.3   
+    ## [41] ragg_1.5.2         rmarkdown_2.32     tools_4.6.2        pkgconfig_2.0.3   
     ## [45] htmltools_0.5.9

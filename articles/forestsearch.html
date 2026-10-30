@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -68,7 +68,7 @@
       <h1>Interpretable subgroup identification with forestsearch</h1>
       <p class="subtitle">The German Breast Cancer Study Group analysis of León and Anderson (2026b), Table 1, run end to end</p>
       <p class="author">Larry Leon</p>
-      <p class="date">2026-10-29</p>
+      <p class="date">2026-10-30</p>
 
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/forestsearch.qmd" class="external-link"><code>vignettes/forestsearch.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -201,13 +201,13 @@ p_{\mathrm{cons}}(g) \;=\; 2\,\Phi\!\left(\frac{\hat\beta(g) - \log c_2}{\sigma_
 <div class="sourceCode cell-code" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"Fit including inference: %.1f s\n"</span>, <span class="va">fit_sec_fs</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; Fit including inference: 33.5 s</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; Fit including inference: 33.7 s</span></span></code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"  multiplier stage %.1f s; field blocks %.1f + %.1f s\n"</span>, <span class="va">g_fs</span><span class="op">$</span><span class="va">timing_seconds</span>,</span>
 <span>            <span class="va">g_fs</span><span class="op">$</span><span class="va">field</span><span class="op">$</span><span class="va">timing_seconds</span>, <span class="va">g_fs</span><span class="op">$</span><span class="va">field</span><span class="op">$</span><span class="va">complement</span><span class="op">$</span><span class="va">timing_seconds</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt;   multiplier stage 1.0 s; field blocks 16.2 + 2.4 s</span></span></code></pre>
+<pre><code><span><span class="co">#&gt;   multiplier stage 1.0 s; field blocks 16.5 + 2.4 s</span></span></code></pre>
 </div>
 </div>
 <p>The identified region is <code>{er &lt;= 0} &amp; {pgr &lt;= 26}</code>: no measured estrogen receptor and progesterone receptor at most 26 fmol/l. Two arguments in the call are not the defaults and are there for a reason: <code>stop_threshold = NULL</code> has the consistency stage evaluate every screened candidate rather than stop at the first that passes, and <code>field_decompose = TRUE</code> returns the supporting quantities shown below. Everything else that is not the default is the specification itself.</p>
@@ -553,13 +553,13 @@ N(\varepsilon)</annotation></semantics></math> rule takes the 75 patients with n
 <span>            <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">fit_dina</span><span class="op">$</span><span class="va">sg.harm</span>, collapse <span class="op">=</span> <span class="st">" &amp; "</span><span class="op">)</span>, <span class="va">fit_sec_dina</span>,</span>
 <span>            <span class="va">g_dina</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; DINA: {grade3 &gt;= 1} &amp; {pgr &lt;= 20}  (fit 10.2 s; re-selection family 30)</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; DINA: {grade3 &gt;= 1} &amp; {pgr &lt;= 20}  (fit 10.3 s; re-selection family 30)</span></span></code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"GRF:  %s  (fit %.1f s; re-selection family %d)\n"</span>,</span>
 <span>            <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">fit_grf</span><span class="op">$</span><span class="va">sg.harm</span>, collapse <span class="op">=</span> <span class="st">" &amp; "</span><span class="op">)</span>, <span class="va">fit_sec_grf</span>, <span class="va">g_grf</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; GRF:  {er &lt;= 0}  (fit 26.3 s; re-selection family 858)</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; GRF:  {er &lt;= 0}  (fit 26.5 s; re-selection family 858)</span></span></code></pre>
 </div>
 </div>
 <p>GRF returns the 82 patients with no measured estrogen receptor, a region that contains forest search’s; DINA returns the 113 who are grade 3 with progesterone receptor at most 20 fmol/l, a different classification. For the two model-based identifiers the candidate family is generated from a surface fitted to the outcome, so their bounds are conditional on the family proposed (Supplementary Section S1.9 of León and Anderson 2026b); forest search’s family is enumerated from the covariates alone.</p>
@@ -845,7 +845,7 @@ T(g) \;=\; \frac{\hat\beta(g) - \log c_2}{\sigma_D(g)},
 <div class="sourceCode cell-code" id="cb37"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; R version 4.6.1 (2026-06-24)</span></span>
+<pre><code><span><span class="co">#&gt; R version 4.6.2 (2026-10-29)</span></span>
 <span><span class="co">#&gt; Platform: x86_64-pc-linux-gnu</span></span>
 <span><span class="co">#&gt; Running under: Ubuntu 24.04.5 LTS</span></span>
 <span><span class="co">#&gt;</span></span>
@@ -866,20 +866,20 @@ T(g) \;=\; \frac{\hat\beta(g) - \log c_2}{\sigma_D(g)},
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base</span></span>
 <span><span class="co">#&gt;</span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] future_1.80.0      survival_3.8-6     forestsearch_0.4.0</span></span>
+<span><span class="co">#&gt; [1] future_1.80.0      survival_3.8-12    forestsearch_0.4.0</span></span>
 <span><span class="co">#&gt;</span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
 <span><span class="co">#&gt;  [1] gt_1.4.0             generics_0.1.4       xml2_1.6.0</span></span>
-<span><span class="co">#&gt;  [4] shape_1.4.6.1        lattice_0.22-9       listenv_1.1.0</span></span>
+<span><span class="co">#&gt;  [4] shape_1.4.6.1        lattice_0.23-1       listenv_1.1.0</span></span>
 <span><span class="co">#&gt;  [7] digest_0.6.39        magrittr_2.0.5       grf_2.6.1</span></span>
-<span><span class="co">#&gt; [10] evaluate_1.0.5       grid_4.6.1           RColorBrewer_1.1-3</span></span>
+<span><span class="co">#&gt; [10] evaluate_1.0.5       grid_4.6.2           RColorBrewer_1.1-3</span></span>
 <span><span class="co">#&gt; [13] iterators_1.0.14     policytree_1.2.5     mvtnorm_1.4-2</span></span>
 <span><span class="co">#&gt; [16] fastmap_1.2.0        foreach_1.5.2        jsonlite_2.0.0</span></span>
-<span><span class="co">#&gt; [19] Matrix_1.7-5         glmnet_5.2           scales_1.4.0</span></span>
+<span><span class="co">#&gt; [19] Matrix_1.7-6         glmnet_5.2           scales_1.4.0</span></span>
 <span><span class="co">#&gt; [22] weightedsurv_0.1.0   codetools_0.2-20     cli_3.6.6</span></span>
 <span><span class="co">#&gt; [25] rlang_1.3.0          parallelly_1.48.0    future.apply_1.21.0</span></span>
-<span><span class="co">#&gt; [28] splines_4.6.1        yaml_2.3.12          otel_0.2.0</span></span>
-<span><span class="co">#&gt; [31] tools_4.6.1          parallel_4.6.1       doFuture_1.4.0</span></span>
+<span><span class="co">#&gt; [28] splines_4.6.2        yaml_2.3.12          otel_0.2.0</span></span>
+<span><span class="co">#&gt; [31] tools_4.6.2          parallel_4.6.2       doFuture_1.4.0</span></span>
 <span><span class="co">#&gt; [34] dplyr_1.2.1          ggplot2_4.0.3        globals_0.20.0</span></span>
 <span><span class="co">#&gt; [37] vctrs_0.7.3          R6_2.6.1             lifecycle_1.0.5</span></span>
 <span><span class="co">#&gt; [40] randomForest_4.7-1.2 fs_2.1.0             pkgconfig_2.0.3</span></span>
@@ -887,7 +887,7 @@ T(g) \;=\; \frac{\hat\beta(g) - \log c_2}{\sigma_D(g)},
 <span><span class="co">#&gt; [46] data.table_1.18.6.1  glue_1.8.1           Rcpp_1.1.2</span></span>
 <span><span class="co">#&gt; [49] xfun_0.62            tibble_3.3.1         tidyselect_1.2.1</span></span>
 <span><span class="co">#&gt; [52] knitr_1.52           farver_2.1.2         patchwork_1.3.2</span></span>
-<span><span class="co">#&gt; [55] htmltools_0.5.9      rmarkdown_2.32       compiler_4.6.1</span></span>
+<span><span class="co">#&gt; [55] htmltools_0.5.9      rmarkdown_2.32       compiler_4.6.2</span></span>
 <span><span class="co">#&gt; [58] S7_0.2.2</span></span></code></pre>
 </div>
 </div>

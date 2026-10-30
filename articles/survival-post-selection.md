@@ -189,9 +189,9 @@ for (m in names(fits)) {
 }
 ```
 
-    #> FS   {er <= 0} & {size <= 35}     N  61   fit  31.7 s (multiplier stage 1.0 s)   family 1744
+    #> FS   {er <= 0} & {size <= 35}     N  61   fit  31.9 s (multiplier stage 1.0 s)   family 1744
     #> DINA {grade3 >= 1} & {pgr <= 10}  N  89   fit   1.4 s (multiplier stage 0.3 s)   family 84
-    #> GRF  {er <= 0}                    N  82   fit   9.7 s (multiplier stage 0.4 s)   family 858
+    #> GRF  {er <= 0}                    N  82   fit   9.9 s (multiplier stage 0.6 s)   family 858
 
 ## The multiplier correction
 
@@ -285,7 +285,7 @@ round(boot_secs, 1)
 ```
 
     #>   FS DINA  GRF
-    #> 71.1 31.8 34.0
+    #> 72.8 32.9 34.9
 
 The package’s own summaries, shown for forest search. The first is the
 bootstrap table: the naive estimate beside the bootstrap-corrected one,
@@ -315,9 +315,9 @@ summ_fs <- summarize_bootstrap_results(sgharm = fit_fs$sg.harm, boot_results = b
     #> TIMING ANALYSIS:
     #> -------------------------------------------------------------
     #> Overall:
-    #>   Total bootstrap time:          1.17 minutes (0.02 hours)
-    #>   Average per iteration:         0.05 min (2.8 sec)
-    #>   Projected for 1000 boots:      46.65 min (0.78 hrs)
+    #>   Total bootstrap time:          1.19 minutes (0.02 hours)
+    #>   Average per iteration:         0.05 min (2.9 sec)
+    #>   Projected for 1000 boots:      47.75 min (0.80 hrs)
 
 ``` r
 
@@ -461,9 +461,9 @@ knitr::kable(cost, row.names = FALSE, digits = 2,
 
 | Method | MR (s) |   B | bootstrap (s) | s per replicate | projected at B = 1,000 (s) |
 |:-------|-------:|----:|--------------:|----------------:|---------------------------:|
-| FS     |   0.99 |  25 |         71.12 |            2.84 |                       2845 |
-| DINA   |   0.25 |  25 |         31.82 |            1.27 |                       1273 |
-| GRF    |   0.35 |  10 |         33.98 |            3.40 |                       3398 |
+| FS     |   0.97 |  25 |         72.76 |            2.91 |                       2911 |
+| DINA   |   0.28 |  25 |         32.87 |            1.31 |                       1315 |
+| GRF    |   0.56 |  10 |         34.85 |            3.49 |                       3485 |
 
 Wall-clock timings from this run: the multiplier stage under the fits’
 sequential plan, the bootstrap on 2 workers. The projection is linear in
@@ -617,7 +617,7 @@ model: A relatively simple procedure. *Statistics in Medicine*.
 sessionInfo()
 ```
 
-    #> R version 4.6.1 (2026-06-24)
+    #> R version 4.6.2 (2026-10-29)
     #> Platform: x86_64-pc-linux-gnu
     #> Running under: Ubuntu 24.04.5 LTS
     #>
@@ -638,22 +638,22 @@ sessionInfo()
     #> [1] stats     graphics  grDevices utils     datasets  methods   base
     #>
     #> other attached packages:
-    #> [1] future_1.80.0      survival_3.8-6     forestsearch_0.4.0
+    #> [1] future_1.80.0      survival_3.8-12    forestsearch_0.4.0
     #>
     #> loaded via a namespace (and not attached):
     #>  [1] gt_1.4.0             sass_0.4.10          generics_0.1.4
-    #>  [4] xml2_1.6.0           shape_1.4.6.1        lattice_0.22-9
+    #>  [4] xml2_1.6.0           shape_1.4.6.1        lattice_0.23-1
     #>  [7] listenv_1.1.0        digest_0.6.39        magrittr_2.0.5
-    #> [10] grf_2.6.1            evaluate_1.0.5       grid_4.6.1
+    #> [10] grf_2.6.1            evaluate_1.0.5       grid_4.6.2
     #> [13] RColorBrewer_1.1-3   iterators_1.0.14     policytree_1.2.5
     #> [16] mvtnorm_1.4-2        fastmap_1.2.0        foreach_1.5.2
-    #> [19] jsonlite_2.0.0       Matrix_1.7-5         glmnet_5.2
+    #> [19] jsonlite_2.0.0       Matrix_1.7-6         glmnet_5.2
     #> [22] scales_1.4.0         weightedsurv_0.1.0   codetools_0.2-20
     #> [25] cli_3.6.6            rlang_1.3.0          litedown_0.11
     #> [28] parallelly_1.48.0    future.apply_1.21.0  commonmark_2.0.0
-    #> [31] splines_4.6.1        base64enc_0.1-6      withr_3.0.3
-    #> [34] yaml_2.3.12          otel_0.2.0           tools_4.6.1
-    #> [37] parallel_4.6.1       doFuture_1.4.0       dplyr_1.2.1
+    #> [31] splines_4.6.2        base64enc_0.1-6      withr_3.0.3
+    #> [34] yaml_2.3.12          otel_0.2.0           tools_4.6.2
+    #> [37] parallel_4.6.2       doFuture_1.4.0       dplyr_1.2.1
     #> [40] ggplot2_4.0.3        globals_0.20.0       vctrs_0.7.3
     #> [43] R6_2.6.1             lifecycle_1.0.5      randomForest_4.7-1.2
     #> [46] fs_2.1.0             pkgconfig_2.0.3      progressr_1.1.0
@@ -661,5 +661,5 @@ sessionInfo()
     #> [52] glue_1.8.1           Rcpp_1.1.2           xfun_0.62
     #> [55] tibble_3.3.1         tidyselect_1.2.1     knitr_1.52
     #> [58] farver_2.1.2         patchwork_1.3.2      htmltools_0.5.9
-    #> [61] rmarkdown_2.32       compiler_4.6.1       S7_0.2.2
+    #> [61] rmarkdown_2.32       compiler_4.6.2       S7_0.2.2
     #> [64] markdown_2.1

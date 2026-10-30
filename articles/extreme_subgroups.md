@@ -2355,16 +2355,16 @@ costs that don’t change with replicate count.
 
 | Step                                                   |   Elapsed | Per trial |
 |:-------------------------------------------------------|----------:|----------:|
-| DGM construction (generate_aft_dgm_flex)               |  1.85 sec |         — |
-| Censoring calibration (calibrate_cens_adjust)          |    587 ms |         — |
-| Simulation loop (150 trials × 56 subgroups, 4 workers) | 18.71 sec |    125 ms |
-| Total                                                  | 21.14 sec |         — |
+| DGM construction (generate_aft_dgm_flex)               |  1.80 sec |         — |
+| Censoring calibration (calibrate_cens_adjust)          |    570 ms |         — |
+| Simulation loop (150 trials × 56 subgroups, 4 workers) | 18.01 sec |    120 ms |
+| Total                                                  | 20.39 sec |         — |
 
 Timing for n_sims_uniform = 150, parallel across 4 of 4 cores. {.table
 .caption-top style="width:100%;"}
 
 
-    Throughput: 8.0 trials/sec (wall-clock, 4 workers)  |  Projected total time:  1,000 sims → 2.1 min    │    5,000 sims → 10.4 min
+    Throughput: 8.3 trials/sec (wall-clock, 4 workers)  |  Projected total time:  1,000 sims → 2.0 min    │    5,000 sims → 10.0 min
 
 ## 8 Appendix: DGM with Heterogeneous Treatment Effects
 
@@ -2676,7 +2676,7 @@ estimands after data-driven subgroup discovery. arXiv:2609.38361
 sessionInfo()
 ```
 
-    R version 4.6.1 (2026-06-24)
+    R version 4.6.2 (2026-10-29)
     Platform: x86_64-pc-linux-gnu
     Running under: Ubuntu 24.04.5 LTS
 
@@ -2698,25 +2698,25 @@ sessionInfo()
 
     other attached packages:
     [1] doFuture_1.4.0     foreach_1.5.2      future_1.80.0      patchwork_1.3.2
-    [5] dplyr_1.2.1        ggplot2_4.0.3      survival_3.8-6     forestsearch_0.4.0
+    [5] dplyr_1.2.1        ggplot2_4.0.3      survival_3.8-12    forestsearch_0.4.0
 
     loaded via a namespace (and not attached):
      [1] gt_1.4.0             sass_0.4.10          generics_0.1.4
-     [4] xml2_1.6.0           shape_1.4.6.1        lattice_0.22-9
+     [4] xml2_1.6.0           shape_1.4.6.1        lattice_0.23-1
      [7] listenv_1.1.0        digest_0.6.39        magrittr_2.0.5
-    [10] grf_2.6.1            evaluate_1.0.5       grid_4.6.1
+    [10] grf_2.6.1            evaluate_1.0.5       grid_4.6.2
     [13] RColorBrewer_1.1-3   iterators_1.0.14     policytree_1.2.5
     [16] mvtnorm_1.4-2        fastmap_1.2.0        jsonlite_2.0.0
-    [19] Matrix_1.7-5         glmnet_5.2           scales_1.4.0
+    [19] Matrix_1.7-6         glmnet_5.2           scales_1.4.0
     [22] weightedsurv_0.1.0   codetools_0.2-20     cli_3.6.6
     [25] rlang_1.3.0          parallelly_1.48.0    future.apply_1.21.0
-    [28] splines_4.6.1        withr_3.0.3          yaml_2.3.12
-    [31] otel_0.2.0           tools_4.6.1          parallel_4.6.1
+    [28] splines_4.6.2        withr_3.0.3          yaml_2.3.12
+    [31] otel_0.2.0           tools_4.6.2          parallel_4.6.2
     [34] globals_0.20.0       vctrs_0.7.3          R6_2.6.1
-    [37] stats4_4.6.1         lifecycle_1.0.5      randomForest_4.7-1.2
+    [37] stats4_4.6.2         lifecycle_1.0.5      randomForest_4.7-1.2
     [40] fs_2.1.0             pkgconfig_2.0.3      progressr_1.1.0
     [43] pillar_1.11.1        gtable_0.3.6         data.table_1.18.6.1
     [46] glue_1.8.1           Rcpp_1.1.2           xfun_0.62
     [49] tibble_3.3.1         tidyselect_1.2.1     knitr_1.52
     [52] farver_2.1.2         htmltools_0.5.9      labeling_0.4.3
-    [55] rmarkdown_2.32       compiler_4.6.1       S7_0.2.2            
+    [55] rmarkdown_2.32       compiler_4.6.2       S7_0.2.2            

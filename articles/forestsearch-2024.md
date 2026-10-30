@@ -496,7 +496,7 @@ fs <- forestsearch(
     ## Legend: P = Pcons (consistency probability); OF = on Pareto frontier; S = selected.
     ## ==============================================================================================================
     ## 
-    ## Seconds and minutes forestsearch overall = 5.508 0.0918 
+    ## Seconds and minutes forestsearch overall = 5.368 0.0895 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0}
 
@@ -510,7 +510,7 @@ cat("\nForestSearch completed in",
 ```
 
     ## 
-    ## ForestSearch completed in 5.5 seconds
+    ## ForestSearch completed in 5.4 seconds
 
 ### ForestSearch Results
 
@@ -670,8 +670,8 @@ summaries <- summarize_bootstrap_results(
     ## -------------------------------------------------------------
     ## Overall:
     ##   Total bootstrap time:          0.15 minutes (0.00 hours)
-    ##   Average per iteration:         0.08 min (4.5 sec)
-    ##   Projected for 1000 boots:      75.63 min (1.26 hrs)
+    ##   Average per iteration:         0.08 min (4.6 sec)
+    ##   Projected for 1000 boots:      75.88 min (1.26 hrs)
 
 ``` r
 
@@ -1243,9 +1243,9 @@ ER-negative patients may not benefit is consistent with:
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
 | GRF                  | 1.3        | 0.0        |
-| ForestSearch         | 5.5        | 0.1        |
+| ForestSearch         | 5.4        | 0.1        |
 | Bootstrap            | 10.0       | 0.2        |
-| Total                | 31.0       | 0.5        |
+| Total                | 30.8       | 0.5        |
 
 [ Code](#collapse-timingsummary)
 
@@ -1287,7 +1287,7 @@ relatively simple procedure.” *Statistics in Medicine*. DOI:
 sessionInfo()
 ```
 
-    ## R version 4.6.1 (2026-06-24)
+    ## R version 4.6.2 (2026-10-29)
     ## Platform: x86_64-pc-linux-gnu
     ## Running under: Ubuntu 24.04.5 LTS
     ## 
@@ -1311,24 +1311,24 @@ sessionInfo()
     ##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.4.0     
     ##  [4] future_1.80.0       foreach_1.5.2       policytree_1.2.5   
     ##  [7] grf_2.6.1           gt_1.4.0            ggplot2_4.0.3      
-    ## [10] data.table_1.18.6.1 survival_3.8-6      forestsearch_0.4.0 
+    ## [10] data.table_1.18.6.1 survival_3.8-12     forestsearch_0.4.0 
     ## 
     ## loaded via a namespace (and not attached):
     ##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.62           
     ##  [4] bslib_0.12.0         htmlwidgets_1.6.4    visNetwork_2.1.4    
-    ##  [7] lattice_0.22-9       vctrs_0.7.3          tools_4.6.1         
-    ## [10] generics_0.1.4       parallel_4.6.1       tibble_3.3.1        
-    ## [13] pkgconfig_2.0.3      Matrix_1.7-5         forestploter_1.2.0  
+    ##  [7] lattice_0.23-1       vctrs_0.7.3          tools_4.6.2         
+    ## [10] generics_0.1.4       parallel_4.6.2       tibble_3.3.1        
+    ## [13] pkgconfig_2.0.3      Matrix_1.7-6         forestploter_1.2.0  
     ## [16] RColorBrewer_1.1-3   S7_0.2.2             desc_1.4.3          
-    ## [19] lifecycle_1.0.5      compiler_4.6.1       farver_2.1.2        
+    ## [19] lifecycle_1.0.5      compiler_4.6.2       farver_2.1.2        
     ## [22] textshaping_1.0.5    codetools_0.2-20     litedown_0.11       
     ## [25] htmltools_0.5.9      sass_0.4.10          yaml_2.3.12         
     ## [28] glmnet_5.2           pillar_1.11.1        pkgdown_2.2.1       
     ## [31] jquerylib_0.1.4      cachem_1.1.0         iterators_1.0.14    
     ## [34] parallelly_1.48.0    commonmark_2.0.0     tidyselect_1.2.1    
     ## [37] digest_0.6.39        mvtnorm_1.4-2        dplyr_1.2.1         
-    ## [40] listenv_1.1.0        labeling_0.4.3       splines_4.6.1       
-    ## [43] fastmap_1.2.0        grid_4.6.1           cli_3.6.6           
+    ## [40] listenv_1.1.0        labeling_0.4.3       splines_4.6.2       
+    ## [43] fastmap_1.2.0        grid_4.6.2           cli_3.6.6           
     ## [46] magrittr_2.0.5       DiagrammeR_1.0.12    randomForest_4.7-1.2
     ## [49] future.apply_1.21.0  withr_3.0.3          scales_1.4.0        
     ## [52] rmarkdown_2.32       globals_0.20.0       otel_0.2.0          

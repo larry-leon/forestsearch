@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -48,9 +48,9 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="development version" id="forestsearch-development-version">forestsearch (development version)<a class="anchor" aria-label="anchor" href="#forestsearch-development-version"></a></h2>
+<h2 class="pkg-version" data-toc-text="0.4.1" id="forestsearch-041">forestsearch 0.4.1<a class="anchor" aria-label="anchor" href="#forestsearch-041"></a></h2>
 <div class="section level4">
-<h4 id="deprecated-development-version">Deprecated<a class="anchor" aria-label="anchor" href="#deprecated-development-version"></a></h4>
+<h4 id="deprecated-0-4-1">Deprecated<a class="anchor" aria-label="anchor" href="#deprecated-0-4-1"></a></h4>
 <ul><li>
 <code>vi.grf.min</code> and <code>max_n_confounders</code> in <code><a href="../reference/forestsearch.html">forestsearch()</a></code> are deprecated. Both formals are kept (same positions, same defaults), so no existing call breaks, but a non-default value now emits one deprecation warning and has no effect. The GRF variable-importance screening/ordering of the candidate cut columns is removed. The candidate family is now the cut grid alone, and no model is fitted in the forest-search path unless <code>use_lasso</code>, <code>use_grf</code> or <code>use_dina</code> is <code>TRUE</code>.</li>
 <li>
@@ -61,27 +61,27 @@
 <li>Both formals will be removed in a later release.</li>
 </ul></div>
 <div class="section level4">
-<h4 id="internal-development-version">Internal<a class="anchor" aria-label="anchor" href="#internal-development-version"></a></h4>
+<h4 id="internal-0-4-1">Internal<a class="anchor" aria-label="anchor" href="#internal-0-4-1"></a></h4>
 <ul><li>The internal helper <code>fit_causal_forest_glm()</code> is removed (unused since the <code>vi.grf.min</code> deprecation).</li>
 <li>
 <code>survival (&gt;= 3.5-8)</code> is now required: the lean unadjusted search-stage Cox fit calls <code><a href="https://rdrr.io/pkg/survival/man/agreg.fit.html" class="external-link">survival::coxph.fit()</a></code> with the calling conventions verified on survival 3.5-8 and later.</li>
 <li>The lean unadjusted Cox fit lives in the internal helper <code>.fs_cox_two_group()</code> and is guarded by a once-per-session probe: if <code><a href="https://rdrr.io/pkg/survival/man/agreg.fit.html" class="external-link">coxph.fit()</a></code> does not reproduce <code><a href="https://rdrr.io/pkg/survival/man/coxph.html" class="external-link">coxph()</a></code> on a near-tie fixture (for example after a change in a future survival), the search-stage fit falls back to the formula interface for the session, with one message. Results are identical either way (<code>tests/testthat/test-lean-fits.R</code>; record <code>dev/reports/REPORT_robustness_041_2026-10-28.md</code>).</li>
 </ul></div>
 <div class="section level4">
-<h4 id="performance-development-version">Performance<a class="anchor" aria-label="anchor" href="#performance-development-version"></a></h4>
+<h4 id="performance-0-4-1">Performance<a class="anchor" aria-label="anchor" href="#performance-0-4-1"></a></h4>
 <ul><li>Two per-candidate search-stage fits now call the fitting engines directly instead of going through the formula interface: the unadjusted survival fit in <code><a href="../reference/fit_cox_for_subgroup.html">fit_cox_for_subgroup()</a></code> calls <code><a href="https://rdrr.io/pkg/survival/man/agreg.fit.html" class="external-link">survival::coxph.fit()</a></code> with exactly the arguments <code><a href="https://rdrr.io/pkg/survival/man/coxph.html" class="external-link">coxph()</a></code> passes, and the unadjusted binary odds-ratio fit runs <code><a href="https://rdrr.io/r/stats/glm.html" class="external-link">stats::glm.fit()</a></code> through a tagged closure and vector path (the twin of the continuous fast path). Results are bit-identical (identity tests in <code>tests/testthat/test-lean-fits.R</code>; verification record <code>dev/reports/REPORT_lean_fits_2026-10-26.md</code>).</li>
 <li>Measured per-replicate time of a sequential <code>nb_boots = 20</code> bootstrap on the committed applications: survival (gbsg) 3.60 s -&gt; 2.02 s (-44%), binary OR (ACTG175) 5.93 s -&gt; 2.75 s (-54%), continuous (ACTG175) unchanged (1.87 s -&gt; 1.84 s).</li>
 <li>Nothing changes for adjusted, weighted (propensity), RD or RR fits: they keep their formula paths.</li>
 </ul></div>
 <div class="section level4">
-<h4 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h4>
+<h4 id="bug-fixes-0-4-1">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-4-1"></a></h4>
 <ul><li>
 <code>xlog</code> in <code><a href="../reference/plot_subgroup_results_forestplot.html">plot_subgroup_results_forestplot()</a></code> never reached forestploter (it was passed to <code><a href="https://adayim.github.io/forestploter/reference/forest.html" class="external-link">forestploter::forest()</a></code>, which has no such argument), so the HR/OR axis was linear despite the documentation. It is now a real log axis via <code>set_xaxis(x_trans = "log")</code>. The call uses the forestploter 1.2.0 API (<code>set_xaxis()</code>, <code>set_labs()</code>, <code>style</code>, <code>refline_gp</code>), which removes the “will be deprecated” and “Unknown arguments ignored” messages; <code>Suggests: forestploter (&gt;= 1.2.0)</code>. Reported by adayim (<a href="https://github.com/larry-leon/forestsearch/issues/7" class="external-link">#7</a>).</li>
 <li>
 <code>ps_adjust_method = "iptw"</code> with a continuous outcome: the weighted least-squares fit failed for every candidate, because the <code>weights</code> argument did not resolve inside the estimator closure, so the search returned no candidates without an error. The weights now resolve from the data slice. The unadjusted and covariate-adjusted continuous fits, and the binary, count and survival paths, are unchanged; no committed analysis used this path (all are randomized-trial analyses with <code>is.RCT = TRUE</code>). Regression test <code>tests/testthat/test-iptw-continuous.R</code>.</li>
 </ul></div>
 <div class="section level4">
-<h4 id="documentation-development-version">Documentation<a class="anchor" aria-label="anchor" href="#documentation-development-version"></a></h4>
+<h4 id="documentation-0-4-1">Documentation<a class="anchor" aria-label="anchor" href="#documentation-0-4-1"></a></h4>
 <ul><li>New getting-started vignette, <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code>: the German Breast Cancer Study Group analysis of León and Anderson (2026b), Table 1, run end to end — the three identifiers (forest search, DINA, GRF) and the selection-adjusted estimates and bounds of León and Anderson (2026a) — at the manuscript’s settings, with the declaration calibration at a protected level.</li>
 <li>The previous getting-started vignette, which documents the workflow of León et al. (2024), is now the pkgdown article “Exploratory subgroup identification with forestsearch (the 2024 workflow)” and is no longer built on CRAN.</li>
 <li>The post-selection analysis is now an article on the package website rather than a CRAN vignette, because the full analysis takes a few minutes to run: <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html" class="uri">https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html</a>. It reproduces the GBSG analysis of León and Anderson (2026a), illustrates the full bootstrap at a small number of replicates, and shows <code><a href="../reference/mr_estimates_table.html">mr_estimates_table()</a></code>.</li>

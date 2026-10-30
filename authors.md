@@ -10,13 +10,13 @@ Source:
 [`DESCRIPTION`](https://github.com/larry-leon/forestsearch/blob/master/DESCRIPTION)
 
 Leon L (2026). *forestsearch: Exploratory Subgroup Identification in
-Survival and GLM Outcomes*. R package version 0.4.0.9000,
+Survival and GLM Outcomes*. R package version 0.4.1,
 <https://github.com/larry-leon/forestsearch>.
 
     @Manual{,
       title = {forestsearch: Exploratory Subgroup Identification in Survival and GLM Outcomes},
       author = {Larry Leon},
       year = {2026},
-      note = {R package version 0.4.0.9000},
+      note = {R package version 0.4.1},
       url = {https://github.com/larry-leon/forestsearch},
     }

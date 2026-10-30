@@ -25,7 +25,7 @@ de-biases the selected subgroup only)."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -119,8 +119,10 @@ reformatter <code><a href="summarize_bootstrap_results.html">summarize_bootstrap
 robust to row ordering.  The MR de-biased confidence interval is a
 leading-order approximation of the full-bootstrap infinitesimal-jackknife
 interval – it comes from the IJ variance computed on the multiplier draws
-under the default <code>ci_method = "ij"</code>, and from the subgroup robust SE only
-under <code>ci_method = "wald"</code>.  Either way the bias-corrected cell may differ
+under <code>ci_method = "ij"</code> or <code>"field"</code> (the forest-search path defaults to
+<code>"field"</code>, which adds the field bounds; the DINA and GRF paths default to
+<code>"ij"</code>), and from the subgroup robust SE only under <code>ci_method = "wald"</code>.
+Either way the bias-corrected cell may differ
 slightly from the full bootstrap even when the naive effect matches exactly.</p>
     </div>
     <div class="section level2">

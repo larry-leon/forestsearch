@@ -259,7 +259,7 @@ cat(sprintf("Identified subgroup: %s\n", paste(fit_fs$sg.harm, collapse = " & ")
 cat(sprintf("Fit including inference: %.1f s\n", fit_sec_fs))
 ```
 
-    #> Fit including inference: 33.5 s
+    #> Fit including inference: 33.7 s
 
 ``` r
 
@@ -267,7 +267,7 @@ cat(sprintf("  multiplier stage %.1f s; field blocks %.1f + %.1f s\n", g_fs$timi
             g_fs$field$timing_seconds, g_fs$field$complement$timing_seconds))
 ```
 
-    #>   multiplier stage 1.0 s; field blocks 16.2 + 2.4 s
+    #>   multiplier stage 1.0 s; field blocks 16.5 + 2.4 s
 
 The identified region is `{er <= 0} & {pgr <= 26}`: no measured estrogen
 receptor and progesterone receptor at most 26 fmol/l. Two arguments in
@@ -534,7 +534,7 @@ cat(sprintf("DINA: %s  (fit %.1f s; re-selection family %d)\n",
             g_dina$n_family))
 ```
 
-    #> DINA: {grade3 >= 1} & {pgr <= 20}  (fit 10.2 s; re-selection family 30)
+    #> DINA: {grade3 >= 1} & {pgr <= 20}  (fit 10.3 s; re-selection family 30)
 
 ``` r
 
@@ -542,7 +542,7 @@ cat(sprintf("GRF:  %s  (fit %.1f s; re-selection family %d)\n",
             paste(fit_grf$sg.harm, collapse = " & "), fit_sec_grf, g_grf$n_family))
 ```
 
-    #> GRF:  {er <= 0}  (fit 26.3 s; re-selection family 858)
+    #> GRF:  {er <= 0}  (fit 26.5 s; re-selection family 858)
 
 GRF returns the 82 patients with no measured estrogen receptor, a region
 that contains forest search’s; DINA returns the 113 who are grade 3 with
@@ -811,7 +811,7 @@ model: A relatively simple procedure. *Statistics in Medicine*.
 sessionInfo()
 ```
 
-    #> R version 4.6.1 (2026-06-24)
+    #> R version 4.6.2 (2026-10-29)
     #> Platform: x86_64-pc-linux-gnu
     #> Running under: Ubuntu 24.04.5 LTS
     #>
@@ -832,20 +832,20 @@ sessionInfo()
     #> [1] stats     graphics  grDevices utils     datasets  methods   base
     #>
     #> other attached packages:
-    #> [1] future_1.80.0      survival_3.8-6     forestsearch_0.4.0
+    #> [1] future_1.80.0      survival_3.8-12    forestsearch_0.4.0
     #>
     #> loaded via a namespace (and not attached):
     #>  [1] gt_1.4.0             generics_0.1.4       xml2_1.6.0
-    #>  [4] shape_1.4.6.1        lattice_0.22-9       listenv_1.1.0
+    #>  [4] shape_1.4.6.1        lattice_0.23-1       listenv_1.1.0
     #>  [7] digest_0.6.39        magrittr_2.0.5       grf_2.6.1
-    #> [10] evaluate_1.0.5       grid_4.6.1           RColorBrewer_1.1-3
+    #> [10] evaluate_1.0.5       grid_4.6.2           RColorBrewer_1.1-3
     #> [13] iterators_1.0.14     policytree_1.2.5     mvtnorm_1.4-2
     #> [16] fastmap_1.2.0        foreach_1.5.2        jsonlite_2.0.0
-    #> [19] Matrix_1.7-5         glmnet_5.2           scales_1.4.0
+    #> [19] Matrix_1.7-6         glmnet_5.2           scales_1.4.0
     #> [22] weightedsurv_0.1.0   codetools_0.2-20     cli_3.6.6
     #> [25] rlang_1.3.0          parallelly_1.48.0    future.apply_1.21.0
-    #> [28] splines_4.6.1        yaml_2.3.12          otel_0.2.0
-    #> [31] tools_4.6.1          parallel_4.6.1       doFuture_1.4.0
+    #> [28] splines_4.6.2        yaml_2.3.12          otel_0.2.0
+    #> [31] tools_4.6.2          parallel_4.6.2       doFuture_1.4.0
     #> [34] dplyr_1.2.1          ggplot2_4.0.3        globals_0.20.0
     #> [37] vctrs_0.7.3          R6_2.6.1             lifecycle_1.0.5
     #> [40] randomForest_4.7-1.2 fs_2.1.0             pkgconfig_2.0.3
@@ -853,5 +853,5 @@ sessionInfo()
     #> [46] data.table_1.18.6.1  glue_1.8.1           Rcpp_1.1.2
     #> [49] xfun_0.62            tibble_3.3.1         tidyselect_1.2.1
     #> [52] knitr_1.52           farver_2.1.2         patchwork_1.3.2
-    #> [55] htmltools_0.5.9      rmarkdown_2.32       compiler_4.6.1
+    #> [55] htmltools_0.5.9      rmarkdown_2.32       compiler_4.6.2
     #> [58] S7_0.2.2
