@@ -29,7 +29,7 @@ This is an update from forestsearch 0.4.0 (the current CRAN version) to
 0 errors | 0 warnings | 0 notes (local, Status: OK).
 
 Check time: the vignette rebuild takes about 75 s locally; the examples
-about 50 s with `--run-donttest`; the test suite runs its long tests only
+about 40 s with `--run-donttest`; the test suite runs its long tests only
 with `NOT_CRAN=true` (`skip_on_cran()`), so the tests take under a minute on
 CRAN. CRAN's checks of 0.4.0 shipped two vignettes; 0.4.1 ships one, which
 reproduces a published analysis at its settings.
