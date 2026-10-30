@@ -1355,7 +1355,7 @@ results_alt <- foreach(
     ## Subgroup 3: resample Pcons=0.82 (threshold 0.9)
     ## Evaluated 3 of 3 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 5.704 0.0951 
+    ## Seconds and minutes forestsearch overall = 5.567 0.0928 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.90727 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1374,7 +1374,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 1.9 minutes
+    ## Completed in 1.8 minutes
 
 ``` r
 
@@ -1475,7 +1475,7 @@ results_null <- foreach(
     ## Subgroup 2: resample Pcons=0.57 (threshold 0.9)
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 5.113 0.0852 
+    ## Seconds and minutes forestsearch overall = 5.515 0.0919 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 43.8823 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -2383,15 +2383,15 @@ reproducibility information.
 | 44 H1 + 44 H0 simulations, 3 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.1 | 0.00 | 0.1 |
-| Calibrate k_inter (Cox) | 7.2 | 0.12 | 2.7 |
-| Calibrate k_inter (AHR) | 3.0 | 0.05 | 1.1 |
-| Validate k_inter | 0.9 | 0.01 | 0.3 |
+| Calibrate k_inter (Cox) | 7.3 | 0.12 | 2.8 |
+| Calibrate k_inter (AHR) | 3.2 | 0.05 | 1.2 |
+| Validate k_inter | 0.7 | 0.01 | 0.2 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.0 |
-| Simulations H1 | 111.4 | 1.86 | 42.1 |
-| Simulations H0 | 103.6 | 1.73 | 39.2 |
+| Simulations H1 | 110.4 | 1.84 | 41.7 |
+| Simulations H0 | 104.5 | 1.74 | 39.5 |
 | Summarize H1 | 0.2 | 0.00 | 0.1 |
 | Summarize H0 | 0.1 | 0.00 | 0.1 |
-| Total vignette | 264.6 | 4.41 | 100.0 |
+| Total vignette | 264.9 | 4.42 | 100.0 |
 | ¹ Parallel backend: 3 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -3753,8 +3753,8 @@ gc(verbose = FALSE)
 ```
 
     ##           used  (Mb) gc trigger  (Mb) max used  (Mb)
-    ## Ncells 3579285 191.2    5462312 291.8  5462312 291.8
-    ## Vcells 6938541  53.0   14799573 113.0 12266311  93.6
+    ## Ncells 3579305 191.2    5462721 291.8  5462721 291.8
+    ## Vcells 6938606  53.0   14826130 113.2 12288442  93.8
 
 ## Session Info
 

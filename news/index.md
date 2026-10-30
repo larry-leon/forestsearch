@@ -740,7 +740,8 @@
 [`subgroup.consistency()`](https://larry-leon.github.io/forestsearch/reference/subgroup.consistency.md)
 validated `parallel_args` against `c("plan", "workers")` and, when both
 were present, took the future-backed batching path even for
-`plan = "sequential"`: the candidates were split into `future_lapply()`
+`plan = "sequential"`: the candidates were split into
+[`future_lapply()`](https://future.apply.futureverse.org/reference/future_lapply.html)
 calls of `min(2 * workers, n)` – two at a time on one worker – and every
 call paid a full round of globals resolution around an evaluation
 costing a few milliseconds.

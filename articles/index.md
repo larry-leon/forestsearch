@@ -17,6 +17,8 @@ Inference for trial estimands after data-driven subgroup discovery
 
 - [Post-selection inference for an identified survival
   subgroup](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.md):
+- [Post-selection bounds on a nested continuum: the Guo and He (2021)
+  design](https://larry-leon.github.io/forestsearch/articles/guohe-nested-continuum.md):
 
 ### Treatment Effect Definitions
 
