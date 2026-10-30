@@ -36,7 +36,7 @@ Gate outcomes:
 - §2 call-identity gate: PASS. `mv_mr()` calls `forestsearch:::fs_mr_inference` with `reselection = "maxeff"` and `admission = list(effect_floor = NULL, consistency = NULL)` (lines 135–136, 151). `gh52_one_rep()` calls `guohe_algorithm3()` with `orient = +1`, `diagnostics = FALSE`, `seed = boot_seed`, and `boot_seed <- as.integer(seed) + 500000L` (lines 199, 209–210). `level` and `min_events` are passed through from `gh52_one_rep()` formals that default to `0.05` and `5L` (lines 190–191). The production driver `guohe_sec52_run.R:167` passes `level = 0.05, min_events = 5L` explicitly.
 - §3 reproduction: PASS (see §2 below).
 - §4 truth curve at n_big = 2e5: gates PASS. At 5e4: gates PASS.
-- §6 post-conditions: see closing block.
+- §6 post-conditions: PASS (see closing block).
 
 ### §2 source quotes (current tree, line-numbered)
 
@@ -815,3 +815,15 @@ Reference, not an article size: the manuscript's shape, 6 cells x 2000 replicate
 8. Truth curve: 2e5 5.91 s, max |Δβ| 0.0063. 5e4 1.20 s, max |Δβ| 0.019. Gates PASS both.
 9. 2 cells × 100 reps, single core: rung 1 4.0 h, rung 2 1.1 h, rung 3 0.5 h.
 10. Manuscript shape 6 × 2000 at rung 1: 240.8 h single core (not an article size).
+
+## Closing block (§6 post-conditions, after commit `7adb9c16`)
+
+All three commands print nothing (no pre-existing dirt was listed in §1.2).
+
+```
+$ git diff --name-only c2967362 HEAD | grep -v '^dev/'
+$ git status --porcelain | grep -v '^?? ' | grep -v '^.. dev/'
+$ git status --porcelain | grep '^?? ' | grep -v ' dev/'
+```
+
+Commits on `feature/articles-guohe` above `c2967362`: `e751c215` (v1 task doc), `462ca74c` (v2 task doc), `7adb9c16` (record + report), and this closing-block commit. No push, no fetch, no merge.
