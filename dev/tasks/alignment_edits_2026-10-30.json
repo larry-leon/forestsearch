@@ -1,0 +1,385 @@
+{
+ "issued": "2026-10-30",
+ "base_commit": "c2967362",
+ "files": {
+  "biomarker_effects.Rmd": {
+   "md5_before": "bdcd672a714d56c91d903e6ac5ed7ebf",
+   "md5_after": "42a79e8cbc708576fd5950929a95c4b3",
+   "n_edits": 3
+  },
+  "causal_effects_brief_review.Rmd": {
+   "md5_before": "787e60f6498b4e5b03b96a282a4dd8c3",
+   "md5_after": "94caca1f6166919499fce0f1d6b79aaa",
+   "n_edits": 15
+  },
+  "methodology.Rmd": {
+   "md5_before": "2a3113041bd7ca2ea22ba83ec9a58fbd",
+   "md5_after": "5d79611e4a538e2b54aadaa151fd27d1",
+   "n_edits": 14
+  },
+  "paper_simulations.Rmd": {
+   "md5_before": "6f0282e5e5354765d69c49f844fc394b",
+   "md5_after": "6154d7ea3b2fd8df2b831b1ae5524443",
+   "n_edits": 7
+  },
+  "treatment_effect_definitions.Rmd": {
+   "md5_before": "4d2a5e6d3a6e87832e22e067b1307194",
+   "md5_after": "2c46b87fccf0114413d602c4b74e618e",
+   "n_edits": 5
+  }
+ },
+ "edits": [
+  {
+   "file": "methodology.Rmd",
+   "id": "A1",
+   "section": "About this article (banner)",
+   "old": "> the argument listings below are kept for the 2024 workflow and are not the complete current signature\n> of `forestsearch()` — see `?forestsearch`.",
+   "new": "> the argument listings below are kept for the 2024 workflow and are not the complete current signature\n> of `forestsearch()` — see `?forestsearch`. Where a statement below has been superseded, a **2026 note**\n> at that point says what the current method does and where it is documented.",
+   "basis": "Banner: announces the in-place notes."
+  },
+  {
+   "file": "methodology.Rmd",
+   "id": "A2",
+   "section": "Type-1 Error Framework",
+   "old": "2. **Scenario (ii):** The treatment effect is uniformly beneficial,\n   $\\theta^{\\dagger}(\\text{ITT}) < 1$, so no detrimental subgroup effects\n   exist.\n",
+   "new": "2. **Scenario (ii):** The treatment effect is uniformly beneficial,\n   $\\theta^{\\dagger}(\\text{ITT}) < 1$, so no detrimental subgroup effects\n   exist.\n\n> **2026 note.** Scenario (ii) — uniform benefit, no detrimental subgroup — is\n> the event whose family-wise rate León and Anderson (2026b, Section 4)\n> control: the probability that the search declares *any* subgroup when every\n> candidate's effect is at least a clinically specified benefit $c_0$.\n> `fs_declaration_calibration()` reports that rate for the thresholds as\n> executed and the calibrated cutoff that holds it at a nominal level;\n> `vignette(\"forestsearch\")` runs it on the GBSG analysis.\n",
+   "basis": "2026b §4 (declaration event, family-wise control), §6 and vignette."
+  },
+  {
+   "file": "methodology.Rmd",
+   "id": "A3",
+   "section": "Marginal vs. Controlled Direct Effects",
+   "old": "Forest Search targets marginal hazard ratios via the unadjusted Cox model,\nwhich is the standard approach in oncology forest plots.\n",
+   "new": "Forest Search targets marginal hazard ratios via the unadjusted Cox model,\nwhich is the standard approach in oncology forest plots.\n\n> **2026 note.** The post-selection papers take as their target the standard\n> analysis of the *selected* region: $\\beta(\\widehat{H})$, the treatment\n> coefficient of the working model fitted within $\\widehat{H}$, and\n> $\\beta(\\widehat{H}^c)$ for the patients outside it — the model's least-false\n> value whether or not it is correctly specified, with the candidate family\n> held fixed at what the data produced (León and Anderson 2026a, Section 1.2\n> and equation 15; 2026b, Section 1). It is a data-adaptive estimand, distinct\n> from $\\theta^{\\dagger}(H)$ of a hypothetical true subgroup, and it is the\n> quantity the multiplier-resampling interval covers (2026a, Theorem 2). Bias\n> and coverage against both families of targets are reported in 2026a,\n> Section 7 and Supplementary Section S8.\n",
+   "basis": "2026a §1.2, eq. 15, Thm 2, §7/S8; 2026b §1."
+  },
+  {
+   "file": "methodology.Rmd",
+   "id": "A4",
+   "section": "Step 3c: Consistency Rate Estimation",
+   "old": "$$\n\\hat{p}_{\\text{consistency}} = \\frac{1}{R} \\sum_{r=1}^{R}\nI\\!\\left(\\min(\\hat{\\beta}_s^{1r}, \\hat{\\beta}_s^{2r}) \\geq 0\\right).\n$$\n",
+   "new": "$$\n\\hat{p}_{\\text{consistency}} = \\frac{1}{R} \\sum_{r=1}^{R}\nI\\!\\left(\\min(\\hat{\\beta}_s^{1r}, \\hat{\\beta}_s^{2r}) \\geq 0\\right).\n$$\n\n> **2026 note.** The rate is now evaluated in closed form from one fit of the\n> working model within the candidate: to first order the two half-sample\n> estimates are a mirror pair about the full-sample fit, so\n> $p_{\\text{cons}}(g) \\approx \\max\\{0,\\; 2\\,\\Phi((\\hat\\beta(g) - c_{\\text{cons}})/\\sigma_{D,g}) - 1\\}$,\n> with $c_{\\text{cons}} = \\log$ `hr.consistency` and $\\sigma_{D,g}$ the robust\n> (influence-function) standard error of $\\hat\\beta(g)$ (León and Anderson\n> 2026b, Section 2.2; 2026a, Supplementary Section S3). Nothing is drawn:\n> `consistency_method = \"resample\"` is the default and evaluates this\n> expression, and `fs.splits` is used only where the closed form is\n> unavailable for a candidate (a non-convergent fit, or a GLM effect it cannot\n> represent), when the literal split-and-refit calculation runs as the\n> fallback. The screen is complementary-pairs stability selection applied to a\n> smooth estimating-function coefficient, which is why its rate has a closed\n> form; passing at level $p^\\star$ is the same as the one-sided\n> $(1+p^\\star)/2$ robust lower confidence bound for $\\beta(g)$ clearing\n> $c_{\\text{cons}}$.\n",
+   "basis": "2026b §2.2 (closed form; stability selection; z-test reading); 2026a S3; R/forestsearch_main.R roxygen for consistency_method (default 'resample', automatic fallback)."
+  },
+  {
+   "file": "methodology.Rmd",
+   "id": "A5",
+   "section": "Selection Criteria Variants",
+   "old": "**Table:** ForestSearch subgroup selection criteria.\n",
+   "new": "**Table:** ForestSearch subgroup selection criteria.\n\n> **2026 note.** The applications of León and Anderson (2026a, 2026b) use the\n> largest admitted region within an effect band of the strongest effect —\n> `sg_focus = \"hrMaxSG\"` (alias `\"effMaxSG\"`) with\n> `selection_rule = \"neighborhood\"` and `effect_neighborhood` of 0.10 (2026a,\n> Section 6) or 0.20 (2026b, Section 6.1) — and treat the rule as an\n> operating-characteristic choice that moves the returned region along a\n> frontier of size against effect, for which no optimality is claimed (2026b,\n> Section 2.3). The package default remains `\"hr\"`; `?forestsearch` lists the\n> current spellings, including `\"maxeffCons\"` and `\"maxeff\"`.\n",
+   "basis": "2026a §6 (10% neighbourhood); 2026b §6.1 (max N(ε) at ε = 0.20), §2.3; package default and spellings verified in R/forestsearch_main.R."
+  },
+  {
+   "file": "methodology.Rmd",
+   "id": "A6",
+   "section": "Threshold Selection Rationale",
+   "old": "**Table:** Type-1 error and approximate 80% power thresholds.\n",
+   "new": "**Table:** Type-1 error and approximate 80% power thresholds.\n\n> **2026 note.** This rationale is per candidate. León and Anderson (2026b,\n> Section 4) treat the family-wise event — any candidate declared — through\n> the law of the maximum of the standardized statistics\n> $T_g = (\\hat\\beta(g) - c_{\\text{cons}})/\\sigma_{D,g}$ over the enumerated\n> family, which gives both the rate the executed thresholds imply under a\n> uniform benefit $c_0$ (a diagnostic) and the cutoff $\\hat\\kappa_\\alpha(c_0)$\n> that holds it at a nominal level; `fs_declaration_calibration()` computes\n> both. Their applications set the screening and consistency thresholds at a\n> hazard ratio of one with $p^\\star = 0.90$ (2026a, Section 6; 2026b, Section\n> 6.1); the package defaults remain 1.25, 1.0 and 0.90.\n",
+   "basis": "2026b §4.1–4.2 (T_g, κ̂_α(c₀), diagnostic), §6.1 and 2026a §6 (thresholds)."
+  },
+  {
+   "file": "methodology.Rmd",
+   "id": "A7",
+   "section": "Bootstrap Bias Correction — Infinitesimal Jackknife",
+   "old": "Confidence intervals for hazard ratios are based on standard normal\napproximations (exponentiated):\n$\\exp\\!\\left(\\hat{\\beta}^* \\pm 1.96\\sqrt{\\hat{V}}\\right)$.\n",
+   "new": "Confidence intervals for hazard ratios are based on standard normal\napproximations (exponentiated):\n$\\exp\\!\\left(\\hat{\\beta}^* \\pm 1.96\\sqrt{\\hat{V}}\\right)$.\n\n> **2026 note.** Multiplier resampling (`mr_inference = TRUE`), the\n> post-selection inference of León and Anderson (2026a), reproduces this\n> correction to first order on the enumerated family without refitting: one\n> shared multiplier draw perturbs every candidate's effect through its\n> influence values, the selection rule is re-applied to the perturbed effects,\n> and the two-term de-biased estimate and the infinitesimal-jackknife variance\n> above are read from a single matrix product (2026a, Sections 2.5 and 3;\n> Theorem 1). It runs in seconds where the bootstrap runs in minutes (2026a,\n> Section 6). The full bootstrap remains available as\n> `forestsearch_bootstrap_dofuture()` and is the reference on a fixed family;\n> on a model-generated family (GRF, DINA) the two answer different questions\n> (2026a, Section 5). The one-sided field bounds and the two-subgroup claim\n> are built from the same influence matrix and multiplier draws (2026b,\n> Section 3); the\n> [post-selection article](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html)\n> sets the bootstrap and the multiplier correction side by side on the GBSG\n> data.\n",
+   "basis": "2026a §2.5, §3, Thm 1, §5, §6; 2026b §3; NAMESPACE exports forestsearch_bootstrap_dofuture."
+  },
+  {
+   "file": "methodology.Rmd",
+   "id": "A8",
+   "section": "Cross-Validation",
+   "old": "Cross-validation is used for evaluating the quality and stability of the\nselection algorithm. Two forms are implemented.\n",
+   "new": "Cross-validation is used for evaluating the quality and stability of the\nselection algorithm. Two forms are implemented.\n\n> **2026 note.** The current diagnostics of selection stability come from the\n> multiplier draws themselves: the re-selection frequency $\\hat p(\\widehat{H})$,\n> the share of draws on which the observed region wins again, and the\n> membership recovery of the field (`field_recovery = TRUE`), read as flags\n> rather than instruments in the\n> [post-selection article](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html).\n> The cross-validation below is the 2024 workflow's and remains available.\n",
+   "basis": "Post-selection article (p-hat as diagnostic; membership recovery)."
+  },
+  {
+   "file": "methodology.Rmd",
+   "id": "A9",
+   "section": "Key Results: Estimation Properties",
+   "old": "Coverage\nrates for $\\hat{\\theta}^*(\\widehat{H}^c)$ were $\\ge 93\\%$ for each target,\nand the oracle coverage rates for both estimators were $\\ge 95\\%$.\n",
+   "new": "Coverage\nrates for $\\hat{\\theta}^*(\\widehat{H}^c)$ were $\\ge 93\\%$ for each target,\nand the oracle coverage rates for both estimators were $\\ge 95\\%$.\n\n> **2026 note.** The operating characteristics of the current inference — the\n> multiplier-resampling correction, the one-sided field and field-s bounds and\n> the Bonferroni pair, scored against $\\beta(\\widehat{H})$ and against the\n> planted targets — are in León and Anderson (2026b, Section 5 and\n> Supplementary Section S2) and (2026a, Section 7 and Supplementary Section\n> S8). Those studies run the fully enumerated search under their own designs\n> and thresholds — 2026b at the conventional thresholds with 2,000 replicates\n> per cell and no strict-null cell (Section 5.1); 2026a at deliberately\n> permissive thresholds, $\\log 0.9$ and $\\log 0.8$, to stress false\n> identification (Supplementary Section S8) — so their numbers are not\n> comparable with the table above.\n",
+   "basis": "2026b §5.1 (2,000 replicates, conventional settings, no strict-null cell); 2026a S8 (c_screen = log 0.9, c_cons = log 0.8)."
+  },
+  {
+   "file": "methodology.Rmd",
+   "id": "A10",
+   "section": "Applications — GBSG",
+   "old": "The bias-corrected estimate for $H^c$ suggests a slightly stronger benefit\n(0.64 vs 0.69 for ITT) that is statistically significant.\n",
+   "new": "The bias-corrected estimate for $H^c$ suggests a slightly stronger benefit\n(0.64 vs 0.69 for ITT) that is statistically significant.\n\n> **2026 note.** The same trial analysed with the current method is Table 1 of\n> León and Anderson (2026b), run end to end in `vignette(\"forestsearch\")`:\n> forest search returns $\\{er \\le 0\\} \\cap \\{pgr \\le 26\\}$ (75 patients), with\n> a corrected hazard ratio of 1.276 and a one-sided 95% field lower bound of\n> 0.634; the complement's corrected hazard ratio is 0.645 with a field-s upper\n> bound of 0.804. Each is read by its location against the trial's own effect\n> of 0.695 and against clinically meaningful effect sizes, not as a test at a\n> hazard ratio of one.\n",
+   "basis": "2026b Table 1 (values verified against the manuscript payload in REPORT_vignette_primary_2026-10-27); Table S19 whole-trial 0.695."
+  },
+  {
+   "file": "methodology.Rmd",
+   "id": "A11",
+   "section": "Applications — ACTG-175",
+   "old": "The bias-corrected estimate suggests a relatively strong benefit (0.59 vs\n0.84 for ITT) that is statistically significant.\n",
+   "new": "The bias-corrected estimate suggests a relatively strong benefit (0.59 vs\n0.84 for ITT) that is statistically significant.\n\n> **2026 note.** The 2026 papers analyse ACTG 175 on its binary and continuous\n> endpoints in the harm orientation — the odds ratio of no CD4 improvement\n> (2026a, Supplementary Section S7 and Table S3; 2026b, Supplementary Section\n> S3.4) and the mean difference in CD4 change (2026b, Supplementary Section\n> S3.4) — not the time-to-event benefit search above, which has no\n> counterpart there.\n",
+   "basis": "2026a S7/Table S3; 2026b S3.4 (binary and continuous endpoints)."
+  },
+  {
+   "file": "methodology.Rmd",
+   "id": "A12",
+   "section": "Variable Selection — Recommendations",
+   "old": "**Table:** Variable selection recommendations.\n",
+   "new": "**Table:** Variable selection recommendations.\n\n> **2026 note.** The current recommendation is the fully enumerated family\n> with no fitted model deciding it (`use_lasso = FALSE`, `use_grf = FALSE`, the\n> package defaults): on a fixed family the multiplier correction is first-order\n> exact against the full bootstrap, whereas a prognostic LASSO prefilter shapes\n> the family and trades that exactness for a target conditional on the family\n> it proposes (León and Anderson 2026a, Section 5 and Supplementary Section\n> S1). The GRF variable-importance screen is removed as of 0.4.1. The\n> robustness of the current method to noise covariates is examined in 2026a,\n> Supplementary Sections S8.7 and S8.8.\n",
+   "basis": "2026a §5 (recommended default), S1 (note on the lasso), S8.7–S8.8."
+  },
+  {
+   "file": "methodology.Rmd",
+   "id": "A13",
+   "section": "Computational Considerations",
+   "old": "**Table:** Computational timing for ForestSearch. Parallel computing is implemented via the `doFuture` package.\n",
+   "new": "**Table:** Computational timing for ForestSearch. Parallel computing is implemented via the `doFuture` package.\n\n> **2026 note.** These are 2024 timings. With the closed-form screen, the\n> GBSG forest search of `vignette(\"forestsearch\")` — fully enumerated family,\n> 5,000-draw multiplier-resampling inference and the field bounds included —\n> runs in under a minute on one core, and the vignette prints its own\n> timing. In 2026a, Section 6, the full bootstrap at $B = 1{,}000$ took from\n> about 72 s to about 10 min per identifier where the multiplier correction\n> with 5,000 draws took 0.11 s to 0.38 s.\n",
+   "basis": "Vignette chunk timing (fit_sec_fs; stage-0 record ≈ 38 s); 2026a §6 (FB 72 s–10.1 min; MR 0.11–0.38 s)."
+  },
+  {
+   "file": "methodology.Rmd",
+   "id": "A14",
+   "section": "Interpretation Guidelines",
+   "old": "### Interpretation Guidelines\n\n1. **Bias-corrected estimates** should be reported alongside unadjusted\n   estimates\n",
+   "new": "### Interpretation Guidelines\n\nThese are the 2024 guidelines. The current products are the corrected\n(two-term) estimate, the one-sided field lower bound on the region and the\nfield-s upper bound on its complement, and the Bonferroni pair for a joint\nclaim, each read by its location against the trial's own effect and against\nclinically meaningful effect sizes rather than as a test at the null (León and\nAnderson 2026b, Sections 3 and 6.1; `vignette(\"forestsearch\")`). Whether and how\nto act on a finding remains a broader judgement of benefit and risk, which the\ninference is meant to inform.\n\n1. **Bias-corrected estimates** should be reported alongside unadjusted\n   estimates\n",
+   "basis": "2026b §3, §6.1 (reading by location, not as tests at HR = 1)."
+  },
+  {
+   "file": "paper_simulations.Rmd",
+   "id": "B1",
+   "section": "About this article (banner)",
+   "old": "> `vignette(\"forestsearch\")` and the [post-selection article](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html).\n",
+   "new": "> `vignette(\"forestsearch\")` and the [post-selection article](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html).\n> The settings below (`hr.threshold = 1.25`, LASSO and GRF candidate selection, `fs.splits = 400`) are the\n> 2024 workflow's and differ from those of the 2026 studies (screening and consistency thresholds at a hazard\n> ratio of one, p* = 0.90, the `max N(ε)` rule at ε = 0.20, the fully enumerated family, 2,000 replicates per\n> cell: 2026b, Sections 5.1 and 6.1), so the operating characteristics here are not those of the current\n> inference and are not comparable with 2026b, Figure 3 or 2026a, Section 7.\n",
+   "basis": "2026b §5.1 (design, 2,000 replicates, max N(ε) at 0.20), §6.1 (thresholds); 2026a §7."
+  },
+  {
+   "file": "paper_simulations.Rmd",
+   "id": "B2",
+   "section": "Simulation workflow — what the framework allows",
+   "old": "- Track and summarize computational timings across simulations\n\n",
+   "new": "- Track and summarize computational timings across simulations\n\nThe uniform-benefit (null) runs are the simulation estimate of a search's\ndeclaration rate — the rate at which it declares some subgroup when the\ntreatment in fact benefits every patient. León and Anderson (2026a, Section 8)\nrecommend estimating that rate by simulation calibrated to the analyst's own\ntrial, using these data-generating mechanisms, and reporting it beside, but\ndistinctly from, the de-biased effect; 2026b (Section 4) adds the family-wise\nsize diagnostic of the executed screen, `fs_declaration_calibration()`, and\nits Supplementary Section S1.8.4 compares the diagnostic with a realized rate\non a design of this kind.\n\n",
+   "basis": "2026a §8 (reporting guidance); 2026b §4, S1.8.4."
+  },
+  {
+   "file": "paper_simulations.Rmd",
+   "id": "B3",
+   "section": "Step 2: Simulate Clinical Trials",
+   "old": "Because ForestSearch uses random-split consistency evaluation, each simulated\ntrial is an independent replicate of the full analysis pipeline.\n",
+   "new": "Each simulated trial is an independent replicate of the full analysis\npipeline. The consistency screen within each is evaluated in closed form\n(`consistency_method = \"resample\"`, the default; 2026b, Section 2.2), so\n`fs.splits` has no effect on these runs unless the closed form is unavailable\nfor a candidate.\n",
+   "basis": "2026b §2.2; package default."
+  },
+  {
+   "file": "paper_simulations.Rmd",
+   "id": "B4",
+   "section": "Step 4: Summarise Operating Characteristics",
+   "old": "are available, dual bias columns (b‡ vs CDE, b† vs marginal HR) are shown,\nmatching the notation of Table 5 in Leon et al. (2024).\n",
+   "new": "are available, dual bias columns (b‡ vs CDE, b† vs marginal HR) are shown,\nmatching the notation of Table 5 in Leon et al. (2024). Its bias-corrected\nrows are the bootstrap correction of the 2024 workflow, shown when the\n`hr.H.bc` / `hr.Hc.bc` columns are present; the multiplier-resampling\nestimate and the one-sided bounds of the current inference are not among the\ncolumns `run_simulation_analysis()` records, and their operating\ncharacteristics are reported in 2026b (Section 5 and Supplementary Section\nS2) and 2026a (Section 7 and Supplementary Section S8).\n",
+   "basis": "R/run_simulation_analysis.R records hr.H.hat/hr.Hc.hat, no bootstrap or MR column; R/simulation_tables.R shows hr.H.bc rows when present (verified); 2026b §5, S2; 2026a §7, S8."
+  },
+  {
+   "file": "paper_simulations.Rmd",
+   "id": "B5",
+   "section": "Comparing Vignette Results with Published Benchmarks",
+   "old": "Note that exact replication requires the same DGM calibration, censoring\nrate, and random seeds. The vignette's reduced simulation count\n(`n_sims = 1000`) will show higher Monte Carlo variability than the\npublished 20,000-simulation results.\n",
+   "new": "Note that exact replication requires the same DGM calibration, censoring\nrate, and random seeds. The vignette's reduced simulation count\n(`r nsims_alt` simulated trials under the alternative and `r nsims_null`\nunder the null) will show higher Monte Carlo variability than the\npublished 20,000-simulation results.\n",
+   "basis": "Internal consistency: the setup chunk sets 44 and 44, not 1000."
+  },
+  {
+   "file": "paper_simulations.Rmd",
+   "id": "B6",
+   "section": "References — correct the 2024 citation",
+   "old": "1. Leon LF, Marceau-West CT, He W, et al. (2024). \"Identifying Patient Subgroups \n   with Differential Treatment Effects: A Forest Search Approach.\" \n   *Statistics in Medicine*.\n",
+   "new": "1. León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM. (2024). \"Exploratory\n   subgroup identification in the heterogeneous Cox model: A relatively simple\n   procedure.\" *Statistics in Medicine*, 43(20):3921-3942.\n   https://doi.org/10.1002/sim.10163\n",
+   "basis": "The 2024 citation on master has the wrong title and author list; corrected to the published record."
+  },
+  {
+   "file": "paper_simulations.Rmd",
+   "id": "B7",
+   "section": "References — add the 2026 papers",
+   "old": "3. Wager S, Athey S. (2018). \"Estimation and inference of heterogeneous treatment \n   effects using random forests.\" *JASA*, 113(523):1228-1242.\n",
+   "new": "3. Wager S, Athey S. (2018). \"Estimation and inference of heterogeneous treatment \n   effects using random forests.\" *JASA*, 113(523):1228-1242.\n\n4. León LF, Anderson KM. (2026a). \"Inference for standard trial estimands after\n   data-driven subgroup discovery.\" arXiv:2609.38361.\n   https://doi.org/10.48550/arXiv.2609.38361\n\n5. León LF, Anderson KM. (2026b). \"Interpretable subgroup identification across\n   survival and generalized-linear outcomes.\" arXiv:2610.28379.\n   https://doi.org/10.48550/arXiv.2610.28379\n",
+   "basis": "2026a/2026b added at the end of the list, keeping the list order."
+  },
+  {
+   "file": "treatment_effect_definitions.Rmd",
+   "id": "C1",
+   "section": "Introduction",
+   "old": "hazard ratios, and discusses when each measure is most informative. A\nsummary comparison table is provided at the end for quick reference.\n",
+   "new": "hazard ratios, and discusses when each measure is most informative. A\nsummary comparison table is provided at the end for quick reference.\n\nThese three measures are *design* quantities: they define the truth a\nsimulation plants and against which identification and bias are scored. They\nare distinct from the estimand the package *reports* for an identified\nsubgroup, the standard-analysis coefficient $\\beta(\\hat{H})$ of the selected\nregion, which has its own section below.\n",
+   "basis": "2026a §1.2."
+  },
+  {
+   "file": "treatment_effect_definitions.Rmd",
+   "id": "C2",
+   "section": "New section: The Post-Selection Target",
+   "old": "# Guidance for Choosing an Estimand\n",
+   "new": "# The Post-Selection Target: the Standard Analysis of the Selected Region\n\nThe inference of León and Anderson (2026a, 2026b) targets the standard\nanalysis of the selected region: $\\beta(\\hat{H})$, the treatment coefficient\nof the working model fitted within $\\hat{H}$ — a Cox log hazard ratio for a\ntime-to-event outcome — and $\\beta(\\hat{H}^c)$ for the patients outside it.\nIt is the working model's least-false value, the value the coefficient\nestimates whether or not the model is correct, with the candidate family held\nfixed at what the data produced (2026a, Section 1.2 and equation 15). Three\nproperties matter for simulation work.\n\n- **It is random across replicates.** $\\hat{H}$ varies, so $\\beta(\\hat{H})$\n  varies with it, and it is neither $\\theta^\\dagger(H)$, $\\theta^\\ddagger(H)$\n  nor the AHR of the planted region. In the GBSG-based designs of 2026a its\n  mean sits below the planted marginal hazard ratio, because the selected\n  region absorbs patients from the complement (2026a, Supplementary Section\n  S8.1).\n- **It is the quantity the correction is built to cover.** The\n  multiplier-resampling interval is characterized for $\\beta(\\hat{H})$\n  (2026a, Theorem 2), and the field's one-sided bounds and the Bonferroni pair\n  are stated for $\\beta(\\hat{H})$ and $\\beta(\\hat{H}^c)$ (2026b, Section 3).\n- **Both families of targets are reported.** 2026a scores bias and coverage\n  against the oracle refit on $H$, the marginal $\\theta^\\dagger$, the\n  controlled direct effect $\\theta^\\ddagger$ and the conditional estimand\n  $\\theta(\\hat{H}) = \\exp\\beta(\\hat{H})$ (Section 7; Supplementary Section\n  S8), and reports the mismatch between the true and the realized region as\n  the identification factor $\\kappa = \\beta(H)/\\beta(\\hat{H})$; 2026b reports\n  bias against the planted target separately (Supplementary Section S2.3).\n\nThe DGM-level quantities of this article therefore keep their role — they are\nwhat a simulation plants and what classification is scored against — while\n$\\beta(\\hat{H})$ is what the reported interval is about.\n\n\n# Guidance for Choosing an Estimand\n",
+   "basis": "2026a §1.2, eq. 15, Thm 2, §7, S8.1, S8; 2026b §3, S2.3."
+  },
+  {
+   "file": "treatment_effect_definitions.Rmd",
+   "id": "C3",
+   "section": "Guidance — AHR paragraph",
+   "old": "**Use AHR** as the default estimand for ForestSearch simulation studies.\nIt is deterministic, directly interpretable, and aligns with the\ngeometric-mean interpretation of treatment effect heterogeneity. The\nAHR is a primary target when evaluating operating characteristics\n(sensitivity, PPV, bias) across simulation replications.\n",
+   "new": "**Use AHR** as the default *design* quantity for ForestSearch simulation\nstudies. It is deterministic, directly interpretable, and aligns with the\ngeometric-mean interpretation of treatment effect heterogeneity. It sets the\nplanted effect and is a natural target when evaluating identification\n(sensitivity, PPV) and bias against the planted region across simulation\nreplications. For the inference reported on an identified subgroup the target\nis $\\beta(\\hat{H})$, the previous section.\n",
+   "basis": "2026a §1.2; resolves the conflict with the manuscripts' coverage target."
+  },
+  {
+   "file": "treatment_effect_definitions.Rmd",
+   "id": "C4",
+   "section": "Role in Operating Characteristics",
+   "old": "subgroup, and $*$ is reserved exclusively for bootstrap bias-corrected\nestimates ($\\hat{\\theta}^*$)---it is never used to denote \"true subgroup.\"\n",
+   "new": "subgroup, and $*$ is reserved exclusively for bootstrap bias-corrected\nestimates ($\\hat{\\theta}^*$)---it is never used to denote \"true subgroup.\"\nThese are the columns of `run_simulation_analysis()`, the 2024 framework; the\nmultiplier-resampling estimate and the one-sided bounds are not among them\n(their operating characteristics: 2026b, Section 5; 2026a, Section 7).\n",
+   "basis": "R/run_simulation_analysis.R has no MR column (verified)."
+  },
+  {
+   "file": "treatment_effect_definitions.Rmd",
+   "id": "C5",
+   "section": "References",
+   "old": "- Le&oacute;n, L.F., Jemielita, T., Guo, Z., Marceau West, R., & Anderson,\n  K.M. (2024). Exploratory subgroup identification in the heterogeneous\n  Cox model: A relatively simple procedure. *Statistics in Medicine*.\n  doi:10.1002/sim.10163.\n",
+   "new": "- Le&oacute;n, L.F., Jemielita, T., Guo, Z., Marceau West, R., & Anderson,\n  K.M. (2024). Exploratory subgroup identification in the heterogeneous\n  Cox model: A relatively simple procedure. *Statistics in Medicine*.\n  doi:10.1002/sim.10163.\n\n- Le&oacute;n, L.F. & Anderson, K.M. (2026a). Inference for standard trial\n  estimands after data-driven subgroup discovery. arXiv:2609.38361.\n  doi:10.48550/arXiv.2609.38361.\n\n- Le&oacute;n, L.F. & Anderson, K.M. (2026b). Interpretable subgroup\n  identification across survival and generalized-linear outcomes.\n  arXiv:2610.28379. doi:10.48550/arXiv.2610.28379.\n",
+   "basis": "References completed."
+  },
+  {
+   "file": "biomarker_effects.Rmd",
+   "id": "D1",
+   "section": "Introduction",
+   "old": "The first two are deterministic functions of the data-generating\nmechanism (DGM); the third serves as a stochastic validation target.\nTheir theoretical relationships, conditions for agreement and\ndivergence, and causal standing are developed below.\n",
+   "new": "The first two are deterministic functions of the data-generating\nmechanism (DGM); the third serves as a stochastic validation target.\nTheir theoretical relationships, conditions for agreement and\ndivergence, and causal standing are developed below.\n\nThis DGM family is the one behind the published simulation studies.\nLeón and Anderson (2026a, Section 7) evaluate the post-selection correction\non an accelerated-failure-time super-population built from the GBSG data by\n`create_gbsg_dgm()` and `generate_aft_dgm_flex()` (their Supplementary\nSection S9), and 2026b (Section 5.1) builds its survival design from the\nsame trial's covariate structure, censoring and event rates.\n",
+   "basis": "2026a §7, S9 (function names as the manuscript names them); 2026b §5.1 (no function named)."
+  },
+  {
+   "file": "biomarker_effects.Rmd",
+   "id": "D2",
+   "section": "Within the ForestSearch framework (causal status)",
+   "old": "- The *true* treatment effects are defined through $\\psi^0(z)$, a\n  baseline causal quantity.\n- Subgroup *selection* uses the Cox HR as an efficient screening tool.\n- Subgroup *evaluation* uses the AHR and CDE, which avoid the\n  conditioning-set problem.\n- Bootstrap bias correction (`hr.H.bc`) and the decomposition of error\n  into subgroup misidentification versus finite-sample noise provide\n  further safeguards.\n",
+   "new": "- The *true* treatment effects are defined through $\\psi^0(z)$, a\n  baseline causal quantity; the AHR and CDE summarize it over a region\n  and are the truths a simulation plants.\n- Subgroup *selection* ranks candidates on the within-subgroup Cox\n  coefficient $\\hat\\beta(g)$, and the *reported* estimand is that\n  coefficient's least-false value in the selected region,\n  $\\beta(\\hat{H})$, corrected for selection by multiplier resampling\n  (León and Anderson 2026a, Sections 1.2 and 3) — taken as the target by\n  institutional choice, with the interpretive limits of a hazard ratio\n  acknowledged (2026a, Section 8).\n- Evaluation in simulations scores bias and coverage against both the\n  planted quantities (AHR, CDE, marginal HR) and $\\beta(\\hat{H})$ (2026a,\n  Section 7; Supplementary Section S8); the decomposition of error into\n  subgroup misidentification versus finite-sample noise applies to the\n  planted targets. The bootstrap bias correction of the 2024 workflow\n  (`hr.H.bc`) is reproduced to first order by the multiplier correction\n  (2026a, Theorem 1).\n",
+   "basis": "2026a §1.2, §3, §7, §8, S8, Thm 1."
+  },
+  {
+   "file": "biomarker_effects.Rmd",
+   "id": "D3",
+   "section": "References",
+   "old": "- Leon, L.F., Jemielita, T., Guo, Z., Marceau West, R. & Anderson,\n  K.M. (2024). Exploratory subgroup identification in the heterogeneous\n  Cox model. *Statistics in Medicine*.\n  doi:10.1002/sim.10163.\n",
+   "new": "- Leon, L.F., Jemielita, T., Guo, Z., Marceau West, R. & Anderson,\n  K.M. (2024). Exploratory subgroup identification in the heterogeneous\n  Cox model: A relatively simple procedure. *Statistics in Medicine*,\n  43(20), 3921--3942. doi:10.1002/sim.10163.\n\n- Leon, L.F. & Anderson, K.M. (2026a). Inference for standard trial\n  estimands after data-driven subgroup discovery. arXiv:2609.38361.\n  doi:10.48550/arXiv.2609.38361.\n\n- Leon, L.F. & Anderson, K.M. (2026b). Interpretable subgroup\n  identification across survival and generalized-linear outcomes.\n  arXiv:2610.28379. doi:10.48550/arXiv.2610.28379.\n",
+   "basis": "References completed; 2024 title completed."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E1",
+   "section": "Purpose (opening blockquote)",
+   "old": ">\n> The first three papers develop the theoretical limitations of the Cox HR as a\n> causal estimand; the fourth clarifies what hazard modeling *can* validly\n> deliver; the fifth provides a unifying taxonomy that reconciles all four.\n> Together they frame the estimand choices implemented in ForestSearch.\n",
+   "new": ">\n> The first three papers develop the theoretical limitations of the Cox HR as a\n> causal estimand; the fourth clarifies what hazard modeling *can* validly\n> deliver; the fifth provides a unifying taxonomy that reconciles all four.\n> Together they frame the estimand choices implemented in ForestSearch. Where\n> the review bears on what the package *reports* for an identified subgroup,\n> the closing section states the position León and Anderson (2026a, 2026b)\n> take.\n",
+   "basis": "Signposts the reconciliation."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E2",
+   "section": "Mapping table — row 1 response",
+   "old": "      \"AHR and CDE are computed directly from AFT potential outcomes; \",\n      \"no risk-set conditioning involved. Stacked PO marginal HR \",\n      \"bypasses partial likelihood risk sets entirely; observed Cox HR \",\n      \"treated as biased comparator\"\n",
+   "new": "      \"AHR and CDE are computed directly from AFT potential outcomes; \",\n      \"no risk-set conditioning involved. Stacked PO marginal HR \",\n      \"bypasses partial likelihood risk sets entirely. In applications \",\n      \"the reported estimand is the within-subgroup Cox coefficient \",\n      \"itself, corrected for selection (Leon & Anderson 2026a)\"\n",
+   "basis": "2026a §1.2."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E3",
+   "section": "Mapping table — row 2 response",
+   "old": "      \"When Cox models are used for AHR/RMST estimation in applied \",\n      \"output, proportionality should be assessed and CHR reported as \",\n      \"primary summary\"\n",
+   "new": "      \"When Cox models are used for AHR/RMST estimation, \",\n      \"proportionality should be assessed; the package's applied \",\n      \"products are the standard-analysis coefficient and its \",\n      \"selection-adjusted bounds (Leon & Anderson 2026a, 2026b)\"\n",
+   "basis": "2026a §1.2; 2026b §3."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E4",
+   "section": "Mapping table — row 3 response",
+   "old": "      \"ForestSearch applied output should report CHR alongside AHR; \",\n      \"the nonparametric AHR tracks CHR closely in practice\"\n",
+   "new": "      \"A CHR or AHR can accompany the standard-analysis hazard ratio \",\n      \"in applied output; the package reports the latter with \",\n      \"selection-adjusted bounds (Leon & Anderson 2026a, 2026b)\"\n",
+   "basis": "2026a §1.2; 2026b §3."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E5",
+   "section": "Mapping table — row 6 response",
+   "old": "      \"GRF/LASSO subgroup identification conditions on baseline X_i, \",\n      \"which Fay & Li show moves estimation toward individual-level \",\n      \"effects and resolves the aliasing\"\n",
+   "new": "      \"Candidate subgroups are conjunctions of baseline covariate \",\n      \"cuts, so the within-subgroup coefficient conditions on baseline \",\n      \"X_i, which Fay & Li show moves estimation toward \",\n      \"individual-level effects\"\n",
+   "basis": "2026a §2.1 (family from covariate cuts); GRF screen removed 0.4.1."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E6",
+   "section": "Mapping table — row 8 response",
+   "old": "      \"GRF baseline covariate conditioning is justified by Fay & Li: \",\n      \"adding covariates moves the estimated HR toward individual-level \",\n      \"causal truth\"\n",
+   "new": "      \"Conditioning on baseline covariates through the subgroup \",\n      \"definition is consistent with Fay & Li; the recommended family \",\n      \"is fully enumerated from the covariates, with no fitted model \",\n      \"deciding it (Leon & Anderson 2026a, Section 5)\"\n",
+   "basis": "2026a §5."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E7",
+   "section": "Estimand Selection Guide — primary simulation estimand",
+   "old": "**Primary simulation estimand: ForestSearch AHR.** Computed from AFT potential\noutcomes as the geometric mean individual log-hazard difference, it is the\nonly hazard-ratio-scale estimand that achieves both individual-level and\npopulation-level causal status (Fay & Li framework). It is unaffected by\nconditioning-set distortion, deterministic given the superpopulation, and more\nsensitive to early effects than RMST. From the WHI empirical evidence, this\nsensitivity advantage is clinically material: AHR detected the breast cancer\nrisk elevation at 6 years while RMST required 12.\n",
+   "new": "**Primary simulation design quantity: ForestSearch AHR.** Computed from AFT\npotential outcomes as the geometric mean individual log-hazard difference, it\nis the only hazard-ratio-scale estimand that achieves both individual-level\nand population-level causal status (Fay & Li framework). It is unaffected by\nconditioning-set distortion, deterministic given the superpopulation, and more\nsensitive to early effects than RMST. From the WHI empirical evidence, this\nsensitivity advantage is clinically material: AHR detected the breast cancer\nrisk elevation at 6 years while RMST required 12. It is the planted truth; the\ninference reported for an identified subgroup is scored against\n$\\beta(\\hat{H})$, the standard-analysis coefficient of the selected region,\nas well as against the planted targets (León and Anderson 2026a, Section 7).\n",
+   "basis": "2026a §7; the article's 'primary simulation estimand' reconciled with the manuscripts' coverage target."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E8",
+   "section": "Estimand Selection Guide — applied reporting",
+   "old": "**Applied reporting: CHR alongside AHR.** For applied output --- subgroup\nhazard ratio summaries reported to clinical trialists --- the cumulative hazard\nratio $\\log \\hat{S}_1(t)/\\log \\hat{S}_0(t)$ is the most defensible\npopulation-level causal estimand under non-PH (Fay & Li; Wei & Schaubel). The\nnonparametric AHR of Prentice & Aragaki tracks this closely in practice and\nadds useful time-averaged narrative.\n",
+   "new": "**Applied reporting: the standard analysis, corrected for selection.** For an\nidentified subgroup and its complement the package reports the within-subgroup\nCox coefficient --- the analysis the trial would have run had the subgroup been\nprespecified --- with the multiplier-resampling correction and one-sided\nbounds (León and Anderson 2026a, Section 1.2; 2026b, Section 3). The choice is\ninstitutional, not a claim of causal optimality: hazard ratios are\nnon-collapsible, and the corrected estimate inherits the interpretive limits\nof the standard analysis (2026a, Section 8). Under non-PH the cumulative\nhazard ratio $\\log \\hat{S}_1(t)/\\log \\hat{S}_0(t)$ remains the most\ndefensible population-level causal functional (Fay & Li; Wei & Schaubel), and\nit or the nonparametric AHR of Prentice & Aragaki can accompany the reported\nestimate as a time-averaged summary.\n",
+   "basis": "2026a §1.2, §8; 2026b §3."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E9",
+   "section": "Estimand Selection Guide — GRF conditioning",
+   "old": "**GRF baseline covariate conditioning is theoretically justified.** Fay & Li\ndemonstrate that conditioning on more baseline covariates moves the Cox HR\nestimand continuously from a population-level toward an individual-level causal\nquantity. ForestSearch's GRF/LASSO covariate conditioning is not merely a\nstatistical procedure --- it is the mechanism by which individual-level\nheterogeneous treatment effects become estimable and by which the frailty\naliasing illustrated in the vaccine efficacy example is resolved.\n",
+   "new": "**Baseline covariate conditioning through the subgroup definition.** Fay & Li\ndemonstrate that conditioning on more baseline covariates moves the Cox HR\nestimand continuously from a population-level toward an individual-level causal\nquantity. A forest-search subgroup is a conjunction of baseline covariate cuts,\nso its within-subgroup coefficient conditions on those covariates by\nconstruction. The recommended candidate family is enumerated from the\ncovariates alone; a LASSO prefilter or a GRF or DINA generator makes the\nselection correction conditional on the family it proposes (León and Anderson\n2026a, Section 5), and the GRF variable-importance screen is removed as of\n0.4.1.\n",
+   "basis": "2026a §5; 0.4.1 deprecation."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E10",
+   "section": "Estimand Selection Guide — per-replicate Cox HR",
+   "old": "**Avoid interpreting per-replicate Cox HR causally.** The `hr.H.hat` column in\nsimulation results estimates the marginal Cox AHR, which under non-PH depends\non the censoring distribution, is not cleanly individual-level, and conflates\ntreatment effect with selection. Its divergence from `dgm$hr_H_true` quantifies\nthe combined selection bias, finite-sample noise, and censoring distortion.\n",
+   "new": "**Avoid interpreting per-replicate Cox HR causally.** The `hr.H.hat` column in\nsimulation results estimates the marginal Cox AHR, which under non-PH depends\non the censoring distribution, is not cleanly individual-level, and conflates\ntreatment effect with selection. Its divergence from `dgm$hr_H_true` quantifies\nthe combined selection bias, finite-sample noise, and censoring distortion. The\nselection part is what multiplier resampling removes: the corrected estimate\nand its interval target $\\beta(\\hat{H})$, the least-false coefficient of the\nrealized region (León and Anderson 2026a, Section 3 and Theorem 2).\n",
+   "basis": "2026a §3, Thm 2."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E11",
+   "section": "Key Takeaways — item 6",
+   "old": "   demonstrate this aliasing. Baseline covariate conditioning (GRF/LASSO in\n   ForestSearch) is the correct remedy.\n",
+   "new": "   demonstrate this aliasing. Conditioning on baseline covariates --- in\n   ForestSearch, through the covariate cuts that define a subgroup --- is the\n   correct remedy.\n",
+   "basis": "Consistent with E5/E6/E9."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E12",
+   "section": "Key Takeaways — item 10",
+   "old": "    for efficient, flexible estimation of hazard functions; communicate causal\n    effects through functionals (CHR, AHR, RMST, survival contrasts) rather than\n    as point-in-time HRs.\n",
+   "new": "    for efficient, flexible estimation of hazard functions; communicate causal\n    effects through functionals (CHR, AHR, RMST, survival contrasts) rather than\n    as point-in-time HRs. The subgroup estimand the package reports is\n    nonetheless the standard analysis, by institutional choice, with its\n    interpretive limits stated (León and Anderson 2026a, Sections 1.2 and 8).\n",
+   "basis": "2026a §1.2, §8."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E15",
+   "section": "Summary table (gt) — Fay & Li vaccine row",
+   "old": "      \"vaccine example shows two indistinguishable worlds. Baseline \",\n      \"covariate conditioning (GRF/LASSO) is the correct remedy.\"\n",
+   "new": "      \"vaccine example shows two indistinguishable worlds. Baseline \",\n      \"covariate conditioning -- in ForestSearch, through the covariate \",\n      \"cuts that define a subgroup -- is the correct remedy.\"\n",
+   "basis": "Consistent with E5/E6/E9/E11; leaves no 'GRF/LASSO' in the article."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E13",
+   "section": "New closing section before References",
+   "old": "---\n\n# References\n\n- Aalen, O.O., Cook, R.J., & Røysland, K. (2015).",
+   "new": "---\n\n# What forestsearch Reports, Read Against This Review\n\nThe papers reviewed here concern the causal reading of a hazard ratio. León\nand Anderson (2026a, 2026b) take a different question as theirs: how to\nreport, with valid inference, the effect of a subgroup the trial's own data\nselected. Their target is the standard analysis of the selected region, the\nwithin-subgroup Cox coefficient $\\beta(\\hat{H})$ and its counterpart\n$\\beta(\\hat{H}^c)$ for the patients outside it --- the working model's\nleast-false value, by institutional choice: it is the scale on which trials are\ndesigned and read, and \"not a claim of causal optimality\" (2026a, Section\n1.2). The corrected estimate \"inherits the interpretive limits of the standard\nanalysis\"; hazard and odds ratios are non-collapsible (2026a, Section 8). The\nAHR, CDE and marginal hazard ratio of the companion articles are\nsimulation-truth constructs, planted by a data-generating mechanism and used\nto design simulations and to score identification; they are not the reported\nestimand. Bounds are read by their location against the trial's own effect\nand against clinically meaningful effect sizes, not as tests at the null\n(2026b, Section 6.1).\n\n---\n\n# References\n\n- Aalen, O.O., Cook, R.J., & Røysland, K. (2015).",
+   "basis": "2026a §1.2, §8 (quoted phrases verified verbatim); 2026b §6.1."
+  },
+  {
+   "file": "causal_effects_brief_review.Rmd",
+   "id": "E14",
+   "section": "References — add 2026a/2026b after Knudsen",
+   "old": "- Knudsen, M.B., Gabriel, E.E., Martinussen, T., Rytgaard, H.C.W., &\n  Sjolander, A. (2025). On the limitations for causal inference in Cox models\n  with time-varying treatment. *arXiv:2504.01524*.\n",
+   "new": "- Knudsen, M.B., Gabriel, E.E., Martinussen, T., Rytgaard, H.C.W., &\n  Sjolander, A. (2025). On the limitations for causal inference in Cox models\n  with time-varying treatment. *arXiv:2504.01524*.\n\n- León, L.F., & Anderson, K.M. (2026a). Inference for standard trial estimands\n  after data-driven subgroup discovery. *arXiv:2609.38361*.\n  https://doi.org/10.48550/arXiv.2609.38361\n\n- León, L.F., & Anderson, K.M. (2026b). Interpretable subgroup identification\n  across survival and generalized-linear outcomes. *arXiv:2610.28379*.\n  https://doi.org/10.48550/arXiv.2610.28379\n",
+   "basis": "References completed."
+  }
+ ]
+}
