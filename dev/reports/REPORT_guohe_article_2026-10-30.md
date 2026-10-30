@@ -186,3 +186,20 @@ Script notes:
 8. `_pkgdown.yml`: 3 insertions, `check_pkgdown()` clean.
 9. No package code touched; the rendered HTML is untracked and unstaged.
 10. No push, no merge. Ready for Larry's merge decision.
+
+## Closing block
+
+Commit 3 (record + report): `0d437f31570d67cf43c06c38d067277113b3c1a7`. This closing block is
+added in a report-only follow-up commit (the Stage 0 precedent, `f2ddb5c0`), since it must
+print the post-conditions after the last commit.
+
+```
+$ git diff --name-only c2967362 HEAD | grep -vE '^(dev/|vignettes/articles/guohe-nested-continuum\.qmd$|_pkgdown\.yml$)'
+(nothing)
+$ git status --porcelain | grep -v '^?? '
+(nothing)
+$ git status --porcelain | grep '^?? '
+?? vignettes/articles/guohe-nested-continuum.html
+```
+
+Copied to `~/Downloads/guohe_article_2026-10-30/`: this report, `results/`, and the rendered HTML.
