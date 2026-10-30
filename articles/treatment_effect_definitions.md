@@ -20,6 +20,13 @@ distinction between DGM-level (super-population) and simulation-level
 informative. A summary comparison table is provided at the end for quick
 reference.
 
+These three measures are *design* quantities: they define the truth a
+simulation plants and against which identification and bias are scored.
+They are distinct from the estimand the package *reports* for an
+identified subgroup, the standard-analysis coefficient
+$`\beta(\hat{H})`$ of the selected region, which has its own section
+below.
+
 ## Notation and Setup
 
 ### Potential Outcomes Framework
@@ -652,7 +659,11 @@ The notation aligns across both summary functions: $`H`$ denotes the
 true (oracle) subgroup, $`\hat{H}`$ denotes the identified (data-driven)
 subgroup, and $`*`$ is reserved exclusively for bootstrap bias-corrected
 estimates ($`\hat{\theta}^*`$)—it is never used to denote “true
-subgroup.”
+subgroup.” These are the columns of
+[`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md),
+the 2024 framework; the multiplier-resampling estimate and the one-sided
+bounds are not among them (their operating characteristics: 2026b,
+Section 5; 2026a, Section 7).
 
 This decomposition allows the simulation to separate two sources of
 error: (1) **subgroup misidentification** (the identified $`\hat{H}`$
@@ -1116,15 +1127,55 @@ results <- cox_ahr_cde_analysis(
 )
 ```
 
+## The Post-Selection Target: the Standard Analysis of the Selected Region
+
+The inference of León and Anderson (2026a, 2026b) targets the standard
+analysis of the selected region: $`\beta(\hat{H})`$, the treatment
+coefficient of the working model fitted within $`\hat{H}`$ — a Cox log
+hazard ratio for a time-to-event outcome — and $`\beta(\hat{H}^c)`$ for
+the patients outside it. It is the working model’s least-false value,
+the value the coefficient estimates whether or not the model is correct,
+with the candidate family held fixed at what the data produced (2026a,
+Section 1.2 and equation 15). Three properties matter for simulation
+work.
+
+- **It is random across replicates.** $`\hat{H}`$ varies, so
+  $`\beta(\hat{H})`$ varies with it, and it is neither
+  $`\theta^\dagger(H)`$, $`\theta^\ddagger(H)`$ nor the AHR of the
+  planted region. In the GBSG-based designs of 2026a its mean sits below
+  the planted marginal hazard ratio, because the selected region absorbs
+  patients from the complement (2026a, Supplementary Section S8.1).
+- **It is the quantity the correction is built to cover.** The
+  multiplier-resampling interval is characterized for $`\beta(\hat{H})`$
+  (2026a, Theorem 2), and the field’s one-sided bounds and the
+  Bonferroni pair are stated for $`\beta(\hat{H})`$ and
+  $`\beta(\hat{H}^c)`$ (2026b, Section 3).
+- **Both families of targets are reported.** 2026a scores bias and
+  coverage against the oracle refit on $`H`$, the marginal
+  $`\theta^\dagger`$, the controlled direct effect $`\theta^\ddagger`$
+  and the conditional estimand $`\theta(\hat{H}) = \exp\beta(\hat{H})`$
+  (Section 7; Supplementary Section S8), and reports the mismatch
+  between the true and the realized region as the identification factor
+  $`\kappa = \beta(H)/\beta(\hat{H})`$; 2026b reports bias against the
+  planted target separately (Supplementary Section S2.3).
+
+The DGM-level quantities of this article therefore keep their role —
+they are what a simulation plants and what classification is scored
+against — while $`\beta(\hat{H})`$ is what the reported interval is
+about.
+
 ## Guidance for Choosing an Estimand
 
 The choice among these three measures depends on the analytic objective:
 
-**Use AHR** as the default estimand for ForestSearch simulation studies.
-It is deterministic, directly interpretable, and aligns with the
-geometric-mean interpretation of treatment effect heterogeneity. The AHR
-is a primary target when evaluating operating characteristics
-(sensitivity, PPV, bias) across simulation replications.
+**Use AHR** as the default *design* quantity for ForestSearch simulation
+studies. It is deterministic, directly interpretable, and aligns with
+the geometric-mean interpretation of treatment effect heterogeneity. It
+sets the planted effect and is a natural target when evaluating
+identification (sensitivity, PPV) and bias against the planted region
+across simulation replications. For the inference reported on an
+identified subgroup the target is $`\beta(\hat{H})`$, the previous
+section.
 
 **Use marginal HR** for validation purposes. The stacked-Cox approach
 provides a familiar, model-based estimand that confirms the DGM’s causal
@@ -1155,6 +1206,14 @@ highly variable.
   (2024). Exploratory subgroup identification in the heterogeneous Cox
   model: A relatively simple procedure. *Statistics in Medicine*.
   <doi:10.1002/sim.10163>.
+
+- León, L.F. & Anderson, K.M. (2026a). Inference for standard trial
+  estimands after data-driven subgroup discovery. arXiv:2609.38361.
+  <doi:10.48550/arXiv.2609.38361>.
+
+- León, L.F. & Anderson, K.M. (2026b). Interpretable subgroup
+  identification across survival and generalized-linear outcomes.
+  arXiv:2610.28379. <doi:10.48550/arXiv.2610.28379>.
 
 - Rubin, D.B. (1974). Estimating causal effects of treatments in
   randomized and nonrandomized studies. *Journal of Educational

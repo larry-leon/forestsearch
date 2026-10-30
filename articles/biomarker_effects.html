@@ -122,6 +122,13 @@ estimate from stacked potential outcomes.</li>
 mechanism (DGM); the third serves as a stochastic validation target.
 Their theoretical relationships, conditions for agreement and
 divergence, and causal standing are developed below.</p>
+<p>This DGM family is the one behind the published simulation studies.
+León and Anderson (2026a, Section 7) evaluate the post-selection
+correction on an accelerated-failure-time super-population built from
+the GBSG data by <code><a href="../reference/create_gbsg_dgm.html">create_gbsg_dgm()</a></code> and
+<code><a href="../reference/generate_aft_dgm_flex.html">generate_aft_dgm_flex()</a></code> (their Supplementary Section S9),
+and 2026b (Section 5.1) builds its survival design from the same trial’s
+covariate structure, censoring and event rates.</p>
 </div>
 <div class="section level2">
 <h2 id="the-weibull-aftcox-model">The Weibull AFT/Cox Model<a class="anchor" aria-label="anchor" href="#the-weibull-aftcox-model"></a>
@@ -726,14 +733,26 @@ follows:</p>
 <ul>
 <li>The <em>true</em> treatment effects are defined through
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>ψ</mi><mn>0</mn></msup><mo stretchy="false" form="prefix">(</mo><mi>z</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\psi^0(z)</annotation></semantics></math>,
-a baseline causal quantity.</li>
-<li>Subgroup <em>selection</em> uses the Cox HR as an efficient
-screening tool.</li>
-<li>Subgroup <em>evaluation</em> uses the AHR and CDE, which avoid the
-conditioning-set problem.</li>
-<li>Bootstrap bias correction (<code>hr.H.bc</code>) and the
-decomposition of error into subgroup misidentification versus
-finite-sample noise provide further safeguards.</li>
+a baseline causal quantity; the AHR and CDE summarize it over a region
+and are the truths a simulation plants.</li>
+<li>Subgroup <em>selection</em> ranks candidates on the within-subgroup
+Cox coefficient
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mi>g</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat\beta(g)</annotation></semantics></math>,
+and the <em>reported</em> estimand is that coefficient’s least-false
+value in the selected region,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\beta(\hat{H})</annotation></semantics></math>,
+corrected for selection by multiplier resampling (León and Anderson
+2026a, Sections 1.2 and 3) — taken as the target by institutional
+choice, with the interpretive limits of a hazard ratio acknowledged
+(2026a, Section 8).</li>
+<li>Evaluation in simulations scores bias and coverage against both the
+planted quantities (AHR, CDE, marginal HR) and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\beta(\hat{H})</annotation></semantics></math>
+(2026a, Section 7; Supplementary Section S8); the decomposition of error
+into subgroup misidentification versus finite-sample noise applies to
+the planted targets. The bootstrap bias correction of the 2024 workflow
+(<code>hr.H.bc</code>) is reproduced to first order by the multiplier
+correction (2026a, Theorem 1).</li>
 </ul>
 </div>
 </div>
@@ -884,7 +903,14 @@ hazard ratio in randomized clinical trials. <em>Clinical Trials</em>,
 <em>Epidemiology</em>, 21(1), 13–15.</p></li>
 <li><p>Leon, L.F., Jemielita, T., Guo, Z., Marceau West, R. &amp;
 Anderson, K.M. (2024). Exploratory subgroup identification in the
-heterogeneous Cox model. <em>Statistics in Medicine</em>. <a href="doi:10.1002/sim.10163" class="uri">doi:10.1002/sim.10163</a>.</p></li>
+heterogeneous Cox model: A relatively simple procedure. <em>Statistics
+in Medicine</em>, 43(20), 3921–3942. <a href="doi:10.1002/sim.10163" class="uri">doi:10.1002/sim.10163</a>.</p></li>
+<li><p>Leon, L.F. &amp; Anderson, K.M. (2026a). Inference for standard
+trial estimands after data-driven subgroup discovery. arXiv:2609.38361.
+<a href="doi:10.48550/arXiv.2609.38361" class="uri">doi:10.48550/arXiv.2609.38361</a>.</p></li>
+<li><p>Leon, L.F. &amp; Anderson, K.M. (2026b). Interpretable subgroup
+identification across survival and generalized-linear outcomes.
+arXiv:2610.28379. <a href="doi:10.48550/arXiv.2610.28379" class="uri">doi:10.48550/arXiv.2610.28379</a>.</p></li>
 <li><p>Martinussen, T. (2022). Causality and the Cox regression model.
 <em>Annual Review of Statistics and Its Application</em>, 9,
 249–259.</p></li>

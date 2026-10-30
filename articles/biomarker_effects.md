@@ -26,6 +26,17 @@ mechanism (DGM); the third serves as a stochastic validation target.
 Their theoretical relationships, conditions for agreement and
 divergence, and causal standing are developed below.
 
+This DGM family is the one behind the published simulation studies. León
+and Anderson (2026a, Section 7) evaluate the post-selection correction
+on an accelerated-failure-time super-population built from the GBSG data
+by
+[`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
+and
+[`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
+(their Supplementary Section S9), and 2026b (Section 5.1) builds its
+survival design from the same trial’s covariate structure, censoring and
+event rates.
+
 ## The Weibull AFT/Cox Model
 
 ### Weibull Distribution Essentials
@@ -435,13 +446,22 @@ Within the ForestSearch framework, this distinction is addressed as
 follows:
 
 - The *true* treatment effects are defined through $`\psi^0(z)`$, a
-  baseline causal quantity.
-- Subgroup *selection* uses the Cox HR as an efficient screening tool.
-- Subgroup *evaluation* uses the AHR and CDE, which avoid the
-  conditioning-set problem.
-- Bootstrap bias correction (`hr.H.bc`) and the decomposition of error
-  into subgroup misidentification versus finite-sample noise provide
-  further safeguards.
+  baseline causal quantity; the AHR and CDE summarize it over a region
+  and are the truths a simulation plants.
+- Subgroup *selection* ranks candidates on the within-subgroup Cox
+  coefficient $`\hat\beta(g)`$, and the *reported* estimand is that
+  coefficient’s least-false value in the selected region,
+  $`\beta(\hat{H})`$, corrected for selection by multiplier resampling
+  (León and Anderson 2026a, Sections 1.2 and 3) — taken as the target by
+  institutional choice, with the interpretive limits of a hazard ratio
+  acknowledged (2026a, Section 8).
+- Evaluation in simulations scores bias and coverage against both the
+  planted quantities (AHR, CDE, marginal HR) and $`\beta(\hat{H})`$
+  (2026a, Section 7; Supplementary Section S8); the decomposition of
+  error into subgroup misidentification versus finite-sample noise
+  applies to the planted targets. The bootstrap bias correction of the
+  2024 workflow (`hr.H.bc`) is reproduced to first order by the
+  multiplier correction (2026a, Theorem 1).
 
 ## Computation Pipeline
 
@@ -512,7 +532,16 @@ The correspondences are:
 
 - Leon, L.F., Jemielita, T., Guo, Z., Marceau West, R. & Anderson, K.M.
   (2024). Exploratory subgroup identification in the heterogeneous Cox
-  model. *Statistics in Medicine*. <doi:10.1002/sim.10163>.
+  model: A relatively simple procedure. *Statistics in Medicine*,
+  43(20), 3921–3942. <doi:10.1002/sim.10163>.
+
+- Leon, L.F. & Anderson, K.M. (2026a). Inference for standard trial
+  estimands after data-driven subgroup discovery. arXiv:2609.38361.
+  <doi:10.48550/arXiv.2609.38361>.
+
+- Leon, L.F. & Anderson, K.M. (2026b). Interpretable subgroup
+  identification across survival and generalized-linear outcomes.
+  arXiv:2610.28379. <doi:10.48550/arXiv.2610.28379>.
 
 - Martinussen, T. (2022). Causality and the Cox regression model.
   *Annual Review of Statistics and Its Application*, 9, 249–259.

@@ -103,7 +103,10 @@ current methodology is documented in
 <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> and the <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html">post-selection
 article</a>; the argument listings below are kept for the 2024 workflow
 and are not the complete current signature of
-<code><a href="../reference/forestsearch.html">forestsearch()</a></code> — see <code><a href="../reference/forestsearch.html">?forestsearch</a></code>.</p>
+<code><a href="../reference/forestsearch.html">forestsearch()</a></code> — see <code><a href="../reference/forestsearch.html">?forestsearch</a></code>. Where a
+statement below has been superseded, a <strong>2026 note</strong> at
+that point says what the current method does and where it is
+documented.</p>
 </blockquote>
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
@@ -246,6 +249,18 @@ beneficial,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">ITT</mtext><mo stretchy="false" form="postfix">)</mo><mo>&lt;</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(\text{ITT}) &lt; 1</annotation></semantics></math>,
 so no detrimental subgroup effects exist.</li>
 </ol>
+<blockquote>
+<p><strong>2026 note.</strong> Scenario (ii) — uniform benefit, no
+detrimental subgroup — is the event whose family-wise rate León and
+Anderson (2026b, Section 4) control: the probability that the search
+declares <em>any</em> subgroup when every candidate’s effect is at least
+a clinically specified benefit
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>c</mi><mn>0</mn></msub><annotation encoding="application/x-tex">c_0</annotation></semantics></math>.
+<code><a href="../reference/fs_declaration_calibration.html">fs_declaration_calibration()</a></code> reports that rate for the
+thresholds as executed and the calibrated cutoff that holds it at a
+nominal level; <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> runs it on the GBSG
+analysis.</p>
+</blockquote>
 </div>
 <div class="section level3">
 <h3 id="marginal-vs--controlled-direct-effects">Marginal vs. Controlled Direct Effects<a class="anchor" aria-label="anchor" href="#marginal-vs--controlled-direct-effects"></a>
@@ -271,6 +286,25 @@ and
 can differ substantially from the CDEs. Forest Search targets marginal
 hazard ratios via the unadjusted Cox model, which is the standard
 approach in oncology forest plots.</p>
+<blockquote>
+<p><strong>2026 note.</strong> The post-selection papers take as their
+target the standard analysis of the <em>selected</em> region:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\beta(\widehat{H})</annotation></semantics></math>,
+the treatment coefficient of the working model fitted within
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\widehat{H}</annotation></semantics></math>,
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\beta(\widehat{H}^c)</annotation></semantics></math>
+for the patients outside it — the model’s least-false value whether or
+not it is correctly specified, with the candidate family held fixed at
+what the data produced (León and Anderson 2026a, Section 1.2 and
+equation 15; 2026b, Section 1). It is a data-adaptive estimand, distinct
+from
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>H</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(H)</annotation></semantics></math>
+of a hypothetical true subgroup, and it is the quantity the
+multiplier-resampling interval covers (2026a, Theorem 2). Bias and
+coverage against both families of targets are reported in 2026a, Section
+7 and Supplementary Section S8.</p>
+</blockquote>
 </div>
 </div>
 <div class="section level2">
@@ -426,6 +460,34 @@ The consistency rate is:</p>
 \hat{p}_{\text{consistency}} = \frac{1}{R} \sum_{r=1}^{R}
 I\!\left(\min(\hat{\beta}_s^{1r}, \hat{\beta}_s^{2r}) \geq 0\right).
 </annotation></semantics></math></p>
+<blockquote>
+<p><strong>2026 note.</strong> The rate is now evaluated in closed form
+from one fit of the working model within the candidate: to first order
+the two half-sample estimates are a mirror pair about the full-sample
+fit, so
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>p</mi><mtext mathvariant="normal">cons</mtext></msub><mo stretchy="false" form="prefix">(</mo><mi>g</mi><mo stretchy="false" form="postfix">)</mo><mo>≈</mo><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">{</mo><mn>0</mn><mo>,</mo><mspace width="0.278em"></mspace><mn>2</mn><mspace width="0.167em"></mspace><mi mathvariant="normal">Φ</mi><mo stretchy="false" form="prefix">(</mo><mo stretchy="false" form="prefix">(</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mi>g</mi><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>c</mi><mtext mathvariant="normal">cons</mtext></msub><mo stretchy="false" form="postfix">)</mo><mi>/</mi><msub><mi>σ</mi><mrow><mi>D</mi><mo>,</mo><mi>g</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mn>1</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">p_{\text{cons}}(g) \approx \max\{0,\; 2\,\Phi((\hat\beta(g) - c_{\text{cons}})/\sigma_{D,g}) - 1\}</annotation></semantics></math>,
+with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>c</mi><mtext mathvariant="normal">cons</mtext></msub><mo>=</mo><mi mathvariant="normal">log</mi></mrow><annotation encoding="application/x-tex">c_{\text{cons}} = \log</annotation></semantics></math><code>hr.consistency</code> and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>σ</mi><mrow><mi>D</mi><mo>,</mo><mi>g</mi></mrow></msub><annotation encoding="application/x-tex">\sigma_{D,g}</annotation></semantics></math>
+the robust (influence-function) standard error of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mi>g</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat\beta(g)</annotation></semantics></math>
+(León and Anderson 2026b, Section 2.2; 2026a, Supplementary Section S3).
+Nothing is drawn: <code>consistency_method = "resample"</code> is the
+default and evaluates this expression, and <code>fs.splits</code> is
+used only where the closed form is unavailable for a candidate (a
+non-convergent fit, or a GLM effect it cannot represent), when the
+literal split-and-refit calculation runs as the fallback. The screen is
+complementary-pairs stability selection applied to a smooth
+estimating-function coefficient, which is why its rate has a closed
+form; passing at level
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>p</mi><mo>⋆</mo></msup><annotation encoding="application/x-tex">p^\star</annotation></semantics></math>
+is the same as the one-sided
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>+</mo><msup><mi>p</mi><mo>⋆</mo></msup><mo stretchy="false" form="postfix">)</mo><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">(1+p^\star)/2</annotation></semantics></math>
+robust lower confidence bound for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><mi>g</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\beta(g)</annotation></semantics></math>
+clearing
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>c</mi><mtext mathvariant="normal">cons</mtext></msub><annotation encoding="application/x-tex">c_{\text{cons}}</annotation></semantics></math>.</p>
+</blockquote>
 </div>
 </div>
 <div class="section level3">
@@ -496,6 +558,20 @@ threshold</td>
 </tbody>
 </table>
 <p><strong>Table:</strong> ForestSearch subgroup selection criteria.</p>
+<blockquote>
+<p><strong>2026 note.</strong> The applications of León and Anderson
+(2026a, 2026b) use the largest admitted region within an effect band of
+the strongest effect — <code>sg_focus = "hrMaxSG"</code> (alias
+<code>"effMaxSG"</code>) with
+<code>selection_rule = "neighborhood"</code> and
+<code>effect_neighborhood</code> of 0.10 (2026a, Section 6) or 0.20
+(2026b, Section 6.1) — and treat the rule as an operating-characteristic
+choice that moves the returned region along a frontier of size against
+effect, for which no optimality is claimed (2026b, Section 2.3). The
+package default remains <code>"hr"</code>; <code><a href="../reference/forestsearch.html">?forestsearch</a></code>
+lists the current spellings, including <code>"maxeffCons"</code> and
+<code>"maxeff"</code>.</p>
+</blockquote>
 <p>Additional constraints can include median survival thresholds for the
 experimental arm, control arm, or both.</p>
 <div class="figure" style="text-align: center">
@@ -676,6 +752,24 @@ the approximation yields:</p>
 </table>
 <p><strong>Table:</strong> Type-1 error and approximate 80% power
 thresholds.</p>
+<blockquote>
+<p><strong>2026 note.</strong> This rationale is per candidate. León and
+Anderson (2026b, Section 4) treat the family-wise event — any candidate
+declared — through the law of the maximum of the standardized statistics
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>T</mi><mi>g</mi></msub><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mi>g</mi><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>c</mi><mtext mathvariant="normal">cons</mtext></msub><mo stretchy="false" form="postfix">)</mo><mi>/</mi><msub><mi>σ</mi><mrow><mi>D</mi><mo>,</mo><mi>g</mi></mrow></msub></mrow><annotation encoding="application/x-tex">T_g = (\hat\beta(g) - c_{\text{cons}})/\sigma_{D,g}</annotation></semantics></math>
+over the enumerated family, which gives both the rate the executed
+thresholds imply under a uniform benefit
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>c</mi><mn>0</mn></msub><annotation encoding="application/x-tex">c_0</annotation></semantics></math>
+(a diagnostic) and the cutoff
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>κ</mi><mo accent="true">̂</mo></mover><mi>α</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>c</mi><mn>0</mn></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat\kappa_\alpha(c_0)</annotation></semantics></math>
+that holds it at a nominal level;
+<code><a href="../reference/fs_declaration_calibration.html">fs_declaration_calibration()</a></code> computes both. Their
+applications set the screening and consistency thresholds at a hazard
+ratio of one with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>p</mi><mo>⋆</mo></msup><mo>=</mo><mn>0.90</mn></mrow><annotation encoding="application/x-tex">p^\star = 0.90</annotation></semantics></math>
+(2026a, Section 6; 2026b, Section 6.1); the package defaults remain
+1.25, 1.0 and 0.90.</p>
+</blockquote>
 </div>
 </div>
 <div class="section level2">
@@ -835,6 +929,25 @@ bootstrap sample, and let
 <p>Confidence intervals for hazard ratios are based on standard normal
 approximations (exponentiated):
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><mo>±</mo><mn>1.96</mn><msqrt><mover><mi>V</mi><mo accent="true">̂</mo></mover></msqrt><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp\!\left(\hat{\beta}^* \pm 1.96\sqrt{\hat{V}}\right)</annotation></semantics></math>.</p>
+<blockquote>
+<p><strong>2026 note.</strong> Multiplier resampling
+(<code>mr_inference = TRUE</code>), the post-selection inference of León
+and Anderson (2026a), reproduces this correction to first order on the
+enumerated family without refitting: one shared multiplier draw perturbs
+every candidate’s effect through its influence values, the selection
+rule is re-applied to the perturbed effects, and the two-term de-biased
+estimate and the infinitesimal-jackknife variance above are read from a
+single matrix product (2026a, Sections 2.5 and 3; Theorem 1). It runs in
+seconds where the bootstrap runs in minutes (2026a, Section 6). The full
+bootstrap remains available as
+<code><a href="../reference/forestsearch_bootstrap_dofuture.html">forestsearch_bootstrap_dofuture()</a></code> and is the reference on a
+fixed family; on a model-generated family (GRF, DINA) the two answer
+different questions (2026a, Section 5). The one-sided field bounds and
+the two-subgroup claim are built from the same influence matrix and
+multiplier draws (2026b, Section 3); the <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html">post-selection
+article</a> sets the bootstrap and the multiplier correction side by
+side on the GBSG data.</p>
+</blockquote>
 <div class="figure" style="text-align: center">
 <div id="htmlwidget-e5c8c404fe174e4c81bd" style="width:900px;height:400px;" class="grViz html-widget"></div>
 <script type="application/json" data-for="htmlwidget-e5c8c404fe174e4c81bd">{"x":{"diagram":"\ndigraph Bootstrap {\n  graph [rankdir = LR, fontname = Helvetica, nodesep = 0.5, ranksep = 1.0]\n  node [shape = box, style = filled, fontname = Helvetica, fontsize = 11,\n        margin = 0.2]\n  edge [fontsize = 9]\n\n  subgraph cluster_0 {\n    label = \"Observed Data\"\n    style = filled\n    color = \"#E8F4F8\"\n    fontsize = 12\n    A [label = \"Observed data \\nRun ForestSearch\\nGet Ĥ\",\n       fillcolor = white]\n    B [label = \"Estimate β̂(Ĥ)\", fillcolor = white]\n  }\n\n  subgraph cluster_1 {\n    label = \"Bootstrap b = 1,...,B\"\n    style = filled\n    color = \"#FFF3CD\"\n    fontsize = 12\n    C [label = \"Resample Data \\nBootstrap data \\nb = 1,...,B\",\n       fillcolor = white]\n    D [label = \"Run ForestSearch\\nGet Ĥ*b\", fillcolor = white]\n    E [label = \"Compute η*b(Ĥ*b)\\nand η*b(Ĥ)\",\n       fillcolor = white]\n  }\n\n  subgraph cluster_2 {\n    label = \"Bias Correction\"\n    style = filled\n    color = \"#D4EDDA\"\n    fontsize = 12\n    F [label = \"Average Bias\\nTerms\", fillcolor = white]\n    G [label = \"β̂*(Ĥ) = β̂(Ĥ) - bias\",\n       fillcolor = white]\n    H [label = \"IJ Variance\\nEstimation\", fillcolor = white]\n  }\n\n  {rank = same; A; B}\n  {rank = same; C; D; E}\n\n  A:s -> B:n\n  A -> C -> D -> E\n  E -> F -> G\n  F -> H\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script><p class="caption">
@@ -848,6 +961,17 @@ Bootstrap Bias Correction Workflow
 </h2>
 <p>Cross-validation is used for evaluating the quality and stability of
 the selection algorithm. Two forms are implemented.</p>
+<blockquote>
+<p><strong>2026 note.</strong> The current diagnostics of selection
+stability come from the multiplier draws themselves: the re-selection
+frequency
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>p</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\hat p(\widehat{H})</annotation></semantics></math>,
+the share of draws on which the observed region wins again, and the
+membership recovery of the field (<code>field_recovery = TRUE</code>),
+read as flags rather than instruments in the <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html">post-selection
+article</a>. The cross-validation below is the 2024 workflow’s and
+remains available.</p>
+</blockquote>
 <div class="section level3">
 <h3 id="n-fold-leave-one-out-cross-validation">N-Fold (Leave-One-Out) Cross-Validation<a class="anchor" aria-label="anchor" href="#n-fold-leave-one-out-cross-validation"></a>
 </h3>
@@ -1423,6 +1547,23 @@ were
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>≥</mo><mn>93</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">\ge 93\%</annotation></semantics></math>
 for each target, and the oracle coverage rates for both estimators were
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>≥</mo><mn>95</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">\ge 95\%</annotation></semantics></math>.</p>
+<blockquote>
+<p><strong>2026 note.</strong> The operating characteristics of the
+current inference — the multiplier-resampling correction, the one-sided
+field and field-s bounds and the Bonferroni pair, scored against
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\beta(\widehat{H})</annotation></semantics></math>
+and against the planted targets — are in León and Anderson (2026b,
+Section 5 and Supplementary Section S2) and (2026a, Section 7 and
+Supplementary Section S8). Those studies run the fully enumerated search
+under their own designs and thresholds — 2026b at the conventional
+thresholds with 2,000 replicates per cell and no strict-null cell
+(Section 5.1); 2026a at deliberately permissive thresholds,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mn>0.9</mn></mrow><annotation encoding="application/x-tex">\log 0.9</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mn>0.8</mn></mrow><annotation encoding="application/x-tex">\log 0.8</annotation></semantics></math>,
+to stress false identification (Supplementary Section S8) — so their
+numbers are not comparable with the table above.</p>
+</blockquote>
 </div>
 </div>
 <div class="section level2">
@@ -1458,6 +1599,17 @@ for additional candidate selection:</p>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>H</mi><mi>c</mi></msup><annotation encoding="application/x-tex">H^c</annotation></semantics></math>
 suggests a slightly stronger benefit (0.64 vs 0.69 for ITT) that is
 statistically significant.</p>
+<blockquote>
+<p><strong>2026 note.</strong> The same trial analysed with the current
+method is Table 1 of León and Anderson (2026b), run end to end in
+<code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code>: forest search returns
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">{</mo><mi>e</mi><mi>r</mi><mo>≤</mo><mn>0</mn><mo stretchy="false" form="postfix">}</mo><mo>∩</mo><mo stretchy="false" form="prefix">{</mo><mi>p</mi><mi>g</mi><mi>r</mi><mo>≤</mo><mn>26</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\{er \le 0\} \cap \{pgr \le 26\}</annotation></semantics></math>
+(75 patients), with a corrected hazard ratio of 1.276 and a one-sided
+95% field lower bound of 0.634; the complement’s corrected hazard ratio
+is 0.645 with a field-s upper bound of 0.804. Each is read by its
+location against the trial’s own effect of 0.695 and against clinically
+meaningful effect sizes, not as a test at a hazard ratio of one.</p>
+</blockquote>
 <p><strong>Cross-validation:</strong> N-fold CV showed perfect stability
 (all 686 training sets reproduced Estrogen = 0). Across 200 random
 10-fold CV analyses, the median number of folds identifying a subgroup
@@ -1510,6 +1662,14 @@ selecting the largest subgroup with consistency
 </ul>
 <p>The bias-corrected estimate suggests a relatively strong benefit
 (0.59 vs 0.84 for ITT) that is statistically significant.</p>
+<blockquote>
+<p><strong>2026 note.</strong> The 2026 papers analyse ACTG 175 on its
+binary and continuous endpoints in the harm orientation — the odds ratio
+of no CD4 improvement (2026a, Supplementary Section S7 and Table S3;
+2026b, Supplementary Section S3.4) and the mean difference in CD4 change
+(2026b, Supplementary Section S3.4) — not the time-to-event benefit
+search above, which has no counterpart there.</p>
+</blockquote>
 <p><strong>Cross-validation:</strong> N-fold CV reproduced the full
 analysis subgroup definition in all but 7 of 1,083 training sets. The
 N-fold predicted Cox estimate was 0.59 (0.37, 0.94), identical to the
@@ -1775,6 +1935,19 @@ splits) rather than as the primary identification procedure.</p>
 </tbody>
 </table>
 <p><strong>Table:</strong> Variable selection recommendations.</p>
+<blockquote>
+<p><strong>2026 note.</strong> The current recommendation is the fully
+enumerated family with no fitted model deciding it
+(<code>use_lasso = FALSE</code>, <code>use_grf = FALSE</code>, the
+package defaults): on a fixed family the multiplier correction is
+first-order exact against the full bootstrap, whereas a prognostic LASSO
+prefilter shapes the family and trades that exactness for a target
+conditional on the family it proposes (León and Anderson 2026a, Section
+5 and Supplementary Section S1). The GRF variable-importance screen is
+removed as of 0.4.1. The robustness of the current method to noise
+covariates is examined in 2026a, Supplementary Sections S8.7 and
+S8.8.</p>
+</blockquote>
 <p>In the ACTG-175 analysis, when 20 random noise factors were
 artificially added without LASSO, ForestSearch identified a nonsensical
 subgroup based on a noise factor. In contrast, when LASSO was included,
@@ -1853,10 +2026,30 @@ typically 300–2000), and the number of CV repetitions.</p>
 <p><strong>Table:</strong> Computational timing for ForestSearch.
 Parallel computing is implemented via the <code>doFuture</code>
 package.</p>
+<blockquote>
+<p><strong>2026 note.</strong> These are 2024 timings. With the
+closed-form screen, the GBSG forest search of
+<code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> — fully enumerated family,
+5,000-draw multiplier-resampling inference and the field bounds included
+— runs in under a minute on one core, and the vignette prints its own
+timing. In 2026a, Section 6, the full bootstrap at
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>=</mo><mn>1</mn><mo>,</mo><mn>000</mn></mrow><annotation encoding="application/x-tex">B = 1{,}000</annotation></semantics></math>
+took from about 72 s to about 10 min per identifier where the multiplier
+correction with 5,000 draws took 0.11 s to 0.38 s.</p>
+</blockquote>
 </div>
 <div class="section level3">
 <h3 id="interpretation-guidelines">Interpretation Guidelines<a class="anchor" aria-label="anchor" href="#interpretation-guidelines"></a>
 </h3>
+<p>These are the 2024 guidelines. The current products are the corrected
+(two-term) estimate, the one-sided field lower bound on the region and
+the field-s upper bound on its complement, and the Bonferroni pair for a
+joint claim, each read by its location against the trial’s own effect
+and against clinically meaningful effect sizes rather than as a test at
+the null (León and Anderson 2026b, Sections 3 and 6.1;
+<code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code>). Whether and how to act on a
+finding remains a broader judgement of benefit and risk, which the
+inference is meant to inform.</p>
 <ol style="list-style-type: decimal">
 <li>
 <strong>Bias-corrected estimates</strong> should be reported

@@ -17,6 +17,14 @@
 > [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
 > and the [post-selection
 > article](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html).
+> The settings below (`hr.threshold = 1.25`, LASSO and GRF candidate
+> selection, `fs.splits = 400`) are the 2024 workflow’s and differ from
+> those of the 2026 studies (screening and consistency thresholds at a
+> hazard ratio of one, p\* = 0.90, the `max N(ε)` rule at ε = 0.20, the
+> fully enumerated family, 2,000 replicates per cell: 2026b, Sections
+> 5.1 and 6.1), so the operating characteristics here are not those of
+> the current inference and are not comparable with 2026b, Figure 3 or
+> 2026a, Section 7.
 
 ## Introduction
 
@@ -37,6 +45,18 @@ The simulation framework allows you to:
 - Compare different analysis methods (ForestSearch, GRF)
 - Estimate Type I error under null hypothesis
 - Track and summarize computational timings across simulations
+
+The uniform-benefit (null) runs are the simulation estimate of a
+search’s declaration rate — the rate at which it declares some subgroup
+when the treatment in fact benefits every patient. León and Anderson
+(2026a, Section 8) recommend estimating that rate by simulation
+calibrated to the analyst’s own trial, using these data-generating
+mechanisms, and reporting it beside, but distinctly from, the de-biased
+effect; 2026b (Section 4) adds the family-wise size diagnostic of the
+executed screen,
+[`fs_declaration_calibration()`](https://larry-leon.github.io/forestsearch/reference/fs_declaration_calibration.md),
+and its Supplementary Section S1.8.4 compares the diagnostic with a
+realized rate on a design of this kind.
 
 1.  **Create DGM**: Define a data generating mechanism with specified
     treatment effects
@@ -135,9 +155,11 @@ datasets. Each simulated trial:
 - Carries forward the true subgroup indicator `flag_harm` and individual
   `loghr_po` for evaluation.
 
-Because ForestSearch uses random-split consistency evaluation, each
-simulated trial is an independent replicate of the full analysis
-pipeline.
+Each simulated trial is an independent replicate of the full analysis
+pipeline. The consistency screen within each is evaluated in closed form
+(`consistency_method = "resample"`, the default; 2026b, Section 2.2), so
+`fs.splits` has no effect on these runs unless the closed form is
+unavailable for a candidate.
 
 #### Step 3: Run Analyses on Each Trial
 
@@ -189,7 +211,15 @@ focuses on estimation bias: for each estimator (naive Cox HR,
 bias-corrected HR, AHR) in both H and H^(c), it reports the mean, SD,
 range, and relative bias versus the DGM truth. When CDE values are
 available, dual bias columns (b‡ vs CDE, b† vs marginal HR) are shown,
-matching the notation of Table 5 in Leon et al. (2024).
+matching the notation of Table 5 in Leon et al. (2024). Its
+bias-corrected rows are the bootstrap correction of the 2024 workflow,
+shown when the `hr.H.bc` / `hr.Hc.bc` columns are present; the
+multiplier-resampling estimate and the one-sided bounds of the current
+inference are not among the columns
+[`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md)
+records, and their operating characteristics are reported in 2026b
+(Section 5 and Supplementary Section S2) and 2026a (Section 7 and
+Supplementary Section S8).
 
 [`build_classification_table()`](https://larry-leon.github.io/forestsearch/reference/build_classification_table.md)
 assembles detection and classification rates across multiple DGM
@@ -1331,7 +1361,7 @@ results_alt <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Per-arm events criteria: control >= 12, treatment >= 12
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.02 minutes
+    ## Subgroup search completed in 0.03 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1355,7 +1385,7 @@ results_alt <- foreach(
     ## Subgroup 3: resample Pcons=0.82 (threshold 0.9)
     ## Evaluated 3 of 3 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 5.567 0.0928 
+    ## Seconds and minutes forestsearch overall = 5.786 0.0964 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.90727 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1374,7 +1404,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 1.8 minutes
+    ## Completed in 1.9 minutes
 
 ``` r
 
@@ -1475,7 +1505,7 @@ results_null <- foreach(
     ## Subgroup 2: resample Pcons=0.57 (threshold 0.9)
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 5.515 0.0919 
+    ## Seconds and minutes forestsearch overall = 5.114 0.0852 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 43.8823 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1494,7 +1524,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 1.7 minutes
+    ## Completed in 1.8 minutes
 
 ## Summarizing Results
 
@@ -2383,15 +2413,15 @@ reproducibility information.
 | 44 H1 + 44 H0 simulations, 3 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.1 | 0.00 | 0.1 |
-| Calibrate k_inter (Cox) | 7.3 | 0.12 | 2.8 |
-| Calibrate k_inter (AHR) | 3.2 | 0.05 | 1.2 |
-| Validate k_inter | 0.7 | 0.01 | 0.2 |
+| Calibrate k_inter (Cox) | 8.0 | 0.13 | 3.0 |
+| Calibrate k_inter (AHR) | 3.1 | 0.05 | 1.1 |
+| Validate k_inter | 0.7 | 0.01 | 0.3 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.0 |
-| Simulations H1 | 110.4 | 1.84 | 41.7 |
-| Simulations H0 | 104.5 | 1.74 | 39.5 |
+| Simulations H1 | 111.6 | 1.86 | 41.4 |
+| Simulations H0 | 106.8 | 1.78 | 39.7 |
 | Summarize H1 | 0.2 | 0.00 | 0.1 |
-| Summarize H0 | 0.1 | 0.00 | 0.1 |
-| Total vignette | 264.9 | 4.42 | 100.0 |
+| Summarize H0 | 0.2 | 0.00 | 0.1 |
+| Total vignette | 269.4 | 4.49 | 100.0 |
 | ¹ Parallel backend: 3 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -3735,9 +3765,10 @@ Key comparisons:
   reflecting the gap between the two truth targets.
 
 Note that exact replication requires the same DGM calibration, censoring
-rate, and random seeds. The vignette’s reduced simulation count
-(`n_sims = 1000`) will show higher Monte Carlo variability than the
-published 20,000-simulation results.
+rate, and random seeds. The vignette’s reduced simulation count (44
+simulated trials under the alternative and 44 under the null) will show
+higher Monte Carlo variability than the published 20,000-simulation
+results.
 
 ## Cleanup
 
@@ -3753,8 +3784,8 @@ gc(verbose = FALSE)
 ```
 
     ##           used  (Mb) gc trigger  (Mb) max used  (Mb)
-    ## Ncells 3579305 191.2    5462721 291.8  5462721 291.8
-    ## Vcells 6938606  53.0   14826130 113.2 12288442  93.8
+    ## Ncells 3579338 191.2    5465315 291.9  5465315 291.9
+    ## Vcells 6939786  53.0   14804349 113.0 12270291  93.7
 
 ## Session Info
 
@@ -3817,12 +3848,21 @@ sessionInfo()
 
 ## References
 
-1.  Leon LF, Marceau-West CT, He W, et al. (2024). “Identifying Patient
-    Subgroups with Differential Treatment Effects: A Forest Search
-    Approach.” *Statistics in Medicine*.
+1.  León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM. (2024).
+    “Exploratory subgroup identification in the heterogeneous Cox model:
+    A relatively simple procedure.” *Statistics in Medicine*,
+    43(20):3921-3942. <https://doi.org/10.1002/sim.10163>
 
 2.  Athey S, Imbens GW. (2016). “Recursive partitioning for
     heterogeneous causal effects.” *PNAS*, 113(27):7353-7360.
 
 3.  Wager S, Athey S. (2018). “Estimation and inference of heterogeneous
     treatment effects using random forests.” *JASA*, 113(523):1228-1242.
+
+4.  León LF, Anderson KM. (2026a). “Inference for standard trial
+    estimands after data-driven subgroup discovery.” arXiv:2609.38361.
+    <https://doi.org/10.48550/arXiv.2609.38361>
+
+5.  León LF, Anderson KM. (2026b). “Interpretable subgroup
+    identification across survival and generalized-linear outcomes.”
+    arXiv:2610.28379. <https://doi.org/10.48550/arXiv.2610.28379>

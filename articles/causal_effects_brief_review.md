@@ -18,7 +18,9 @@
 > HR as a causal estimand; the fourth clarifies what hazard modeling
 > *can* validly deliver; the fifth provides a unifying taxonomy that
 > reconciles all four. Together they frame the estimand choices
-> implemented in ForestSearch.
+> implemented in ForestSearch. Where the review bears on what the
+> package *reports* for an identified subgroup, the closing section
+> states the position León and Anderson (2026a, 2026b) take.
 
 ------------------------------------------------------------------------
 
@@ -356,7 +358,7 @@ object of inference is precisely specified:
 | CHR = log S1(t)/log S0(t) is causally valid under non-PH | Fay & Li (2024); Wei & Schaubel (2008) | The CHR directly contrasts survival functions without conditioning on survival at intermediate times. Recommended over Cox AHR under non-PH. |
 | RMST difference and survival difference are both individual- and population-level | Fay & Li (2024) | Because E\[S1(t) - S0(t)\] = E\[I(Y(1) \> t) - I(Y(0) \> t)\], these estimands compare-then-summarize at the individual level and are also identifiable as population summaries. |
 | AFT exp(-beta) is both individual-level and population-level | Fay & Li (2024); Aalen et al. (2015) | The geometric mean log ratio exp(E\[log Y(1)\] - E\[log Y(0)\]) is both individually and population interpretable -- the log transformation makes it collapsible. |
-| Time-varying HRs -\> 1 do not imply effect waning | Martinussen (2022); Fay & Li (2024) | A correctly specified piecewise HR declining to 1 reflects growing frailty imbalance, not biological effect waning. The Fay & Li vaccine example shows two indistinguishable worlds. Baseline covariate conditioning (GRF/LASSO) is the correct remedy. |
+| Time-varying HRs -\> 1 do not imply effect waning | Martinussen (2022); Fay & Li (2024) | A correctly specified piecewise HR declining to 1 reflects growing frailty imbalance, not biological effect waning. The Fay & Li vaccine example shows two indistinguishable worlds. Baseline covariate conditioning -- in ForestSearch, through the covariate cuts that define a subgroup -- is the correct remedy. |
 | Hazard function functionals are causally valid in RCTs | Prentice & Aragaki (2022); Martinussen et al. (2020) | Randomization confers causal validity on hazard function estimates; functionals (AHR, RMST, survival contrasts) inherit this. Cox is a valid estimation engine. |
 | Markov property cannot hold under frailty | Knudsen et al. (2025) | Any non-degenerate frailty violates the Markov property required for causal interpretation of Cox MSMs with time-varying treatment. |
 
@@ -632,34 +634,45 @@ ForestSearch.
 |----|----|
 | From causal inference literature to ForestSearch estimand design |  |
 | **Theoretical Issue** | **ForestSearch Design Response** |
-| Cox HR e^beta mixes treatment effect and selection bias; conditioning sets are not comparable (Aalen 2015; Martinussen 2022; Fay & Li 2024) | AHR and CDE are computed directly from AFT potential outcomes; no risk-set conditioning involved. Stacked PO marginal HR bypasses partial likelihood risk sets entirely; observed Cox HR treated as biased comparator |
-| Under PH, theta = log S1(t)/log S0(t) achieves valid population-level causal status (Fay & Li 2024) | When Cox models are used for AHR/RMST estimation in applied output, proportionality should be assessed and CHR reported as primary summary |
-| CHR is cleanest estimand under non-PH; recommended over Cox AHR (Fay & Li 2024; Wei & Schaubel 2008) | ForestSearch applied output should report CHR alongside AHR; the nonparametric AHR tracks CHR closely in practice |
+| Cox HR e^beta mixes treatment effect and selection bias; conditioning sets are not comparable (Aalen 2015; Martinussen 2022; Fay & Li 2024) | AHR and CDE are computed directly from AFT potential outcomes; no risk-set conditioning involved. Stacked PO marginal HR bypasses partial likelihood risk sets entirely. In applications the reported estimand is the within-subgroup Cox coefficient itself, corrected for selection (Leon & Anderson 2026a) |
+| Under PH, theta = log S1(t)/log S0(t) achieves valid population-level causal status (Fay & Li 2024) | When Cox models are used for AHR/RMST estimation, proportionality should be assessed; the package's applied products are the standard-analysis coefficient and its selection-adjusted bounds (Leon & Anderson 2026a, 2026b) |
+| CHR is cleanest estimand under non-PH; recommended over Cox AHR (Fay & Li 2024; Wei & Schaubel 2008) | A CHR or AHR can accompany the standard-analysis hazard ratio in applied output; the package reports the latter with selection-adjusted bounds (Leon & Anderson 2026a, 2026b) |
 | AFT exp(-beta) is both individual-level and population-level; the only survival ratio estimand with dual status (Fay & Li 2024; Aalen 2015) | Weibull AFT DGM provides ground truth with both individual- and population-level causal validity; beta0 = -gamma/sigma links to all hazard-scale estimands |
 | RMST and survival differences are both individual- and population-level causal estimands (Fay & Li 2024) | RMST difference is a natural complement to AHR in ForestSearch output; less sensitive to early effects but cleanly dual-causal |
-| Declining observed HR cannot distinguish genuine effect waning from frailty aliasing (Martinussen 2022; Fay & Li 2024) | GRF/LASSO subgroup identification conditions on baseline X_i, which Fay & Li show moves estimation toward individual-level effects and resolves the aliasing |
+| Declining observed HR cannot distinguish genuine effect waning from frailty aliasing (Martinussen 2022; Fay & Li 2024) | Candidate subgroups are conjunctions of baseline covariate cuts, so the within-subgroup coefficient conditions on baseline X_i, which Fay & Li show moves estimation toward individual-level effects |
 | Hazard differences share the same causal limitation as HRs (Martinussen 2022) | CDE = mean(exp(theta_i(1))) / mean(exp(theta_i(0))) operates on exponential scale, avoiding log compression; parallels the Prentice & Aragaki AHR weighting structure |
-| Adding baseline covariates moves Cox HR toward individual-level causal estimand (Fay & Li 2024) | GRF baseline covariate conditioning is justified by Fay & Li: adding covariates moves the estimated HR toward individual-level causal truth |
+| Adding baseline covariates moves Cox HR toward individual-level causal estimand (Fay & Li 2024) | Conditioning on baseline covariates through the subgroup definition is consistent with Fay & Li; the recommended family is fully enumerated from the covariates, with no fitted model deciding it (Leon & Anderson 2026a, Section 5) |
 | Markov property fails under any non-degenerate frailty in time-varying treatment (Knudsen 2025) | Baseline-only treatment keeps ForestSearch in the Aalen et al. / Fay & Li safe zone; no Markov assumption required |
 
 ### Estimand Selection Guide
 
-**Primary simulation estimand: ForestSearch AHR.** Computed from AFT
-potential outcomes as the geometric mean individual log-hazard
+**Primary simulation design quantity: ForestSearch AHR.** Computed from
+AFT potential outcomes as the geometric mean individual log-hazard
 difference, it is the only hazard-ratio-scale estimand that achieves
 both individual-level and population-level causal status (Fay & Li
 framework). It is unaffected by conditioning-set distortion,
 deterministic given the superpopulation, and more sensitive to early
 effects than RMST. From the WHI empirical evidence, this sensitivity
 advantage is clinically material: AHR detected the breast cancer risk
-elevation at 6 years while RMST required 12.
+elevation at 6 years while RMST required 12. It is the planted truth;
+the inference reported for an identified subgroup is scored against
+$`\beta(\hat{H})`$, the standard-analysis coefficient of the selected
+region, as well as against the planted targets (León and Anderson 2026a,
+Section 7).
 
-**Applied reporting: CHR alongside AHR.** For applied output — subgroup
-hazard ratio summaries reported to clinical trialists — the cumulative
-hazard ratio $`\log \hat{S}_1(t)/\log \hat{S}_0(t)`$ is the most
-defensible population-level causal estimand under non-PH (Fay & Li; Wei
-& Schaubel). The nonparametric AHR of Prentice & Aragaki tracks this
-closely in practice and adds useful time-averaged narrative.
+**Applied reporting: the standard analysis, corrected for selection.**
+For an identified subgroup and its complement the package reports the
+within-subgroup Cox coefficient — the analysis the trial would have run
+had the subgroup been prespecified — with the multiplier-resampling
+correction and one-sided bounds (León and Anderson 2026a, Section 1.2;
+2026b, Section 3). The choice is institutional, not a claim of causal
+optimality: hazard ratios are non-collapsible, and the corrected
+estimate inherits the interpretive limits of the standard analysis
+(2026a, Section 8). Under non-PH the cumulative hazard ratio
+$`\log \hat{S}_1(t)/\log \hat{S}_0(t)`$ remains the most defensible
+population-level causal functional (Fay & Li; Wei & Schaubel), and it or
+the nonparametric AHR of Prentice & Aragaki can accompany the reported
+estimate as a time-averaged summary.
 
 **Complement: RMST difference.** Both individual- and population-level
 causal (Fay & Li). Less sensitive than AHR/CHR for rare outcomes over
@@ -680,21 +693,27 @@ population-level Cox model would target. Bias in the naive Cox HR
 of finite-sample noise, censoring, and the selection bias documented by
 Aalen et al.
 
-**GRF baseline covariate conditioning is theoretically justified.** Fay
+**Baseline covariate conditioning through the subgroup definition.** Fay
 & Li demonstrate that conditioning on more baseline covariates moves the
 Cox HR estimand continuously from a population-level toward an
-individual-level causal quantity. ForestSearch’s GRF/LASSO covariate
-conditioning is not merely a statistical procedure — it is the mechanism
-by which individual-level heterogeneous treatment effects become
-estimable and by which the frailty aliasing illustrated in the vaccine
-efficacy example is resolved.
+individual-level causal quantity. A forest-search subgroup is a
+conjunction of baseline covariate cuts, so its within-subgroup
+coefficient conditions on those covariates by construction. The
+recommended candidate family is enumerated from the covariates alone; a
+LASSO prefilter or a GRF or DINA generator makes the selection
+correction conditional on the family it proposes (León and Anderson
+2026a, Section 5), and the GRF variable-importance screen is removed as
+of 0.4.1.
 
 **Avoid interpreting per-replicate Cox HR causally.** The `hr.H.hat`
 column in simulation results estimates the marginal Cox AHR, which under
 non-PH depends on the censoring distribution, is not cleanly
 individual-level, and conflates treatment effect with selection. Its
 divergence from `dgm$hr_H_true` quantifies the combined selection bias,
-finite-sample noise, and censoring distortion.
+finite-sample noise, and censoring distortion. The selection part is
+what multiplier resampling removes: the corrected estimate and its
+interval target $`\beta(\hat{H})`$, the least-false coefficient of the
+realized region (León and Anderson 2026a, Section 3 and Theorem 2).
 
 ------------------------------------------------------------------------
 
@@ -729,8 +748,8 @@ finite-sample noise, and censoring distortion.
     effect waning from constant individual-level effects in a
     heterogeneous population.** The Fay & Li vaccine example and
     Martinussen’s piecewise Cox model both demonstrate this aliasing.
-    Baseline covariate conditioning (GRF/LASSO in ForestSearch) is the
-    correct remedy.
+    Conditioning on baseline covariates — in ForestSearch, through the
+    covariate cuts that define a subgroup — is the correct remedy.
 
 7.  **AHR is more sensitive than RMST to early effects for rare
     outcomes** (Prentice & Aragaki). The WHI breast cancer example —
@@ -753,7 +772,32 @@ finite-sample noise, and censoring distortion.
     interpretive frame.** All five papers support the same division of
     labour: use Cox models for efficient, flexible estimation of hazard
     functions; communicate causal effects through functionals (CHR, AHR,
-    RMST, survival contrasts) rather than as point-in-time HRs.
+    RMST, survival contrasts) rather than as point-in-time HRs. The
+    subgroup estimand the package reports is nonetheless the standard
+    analysis, by institutional choice, with its interpretive limits
+    stated (León and Anderson 2026a, Sections 1.2 and 8).
+
+------------------------------------------------------------------------
+
+## What forestsearch Reports, Read Against This Review
+
+The papers reviewed here concern the causal reading of a hazard ratio.
+León and Anderson (2026a, 2026b) take a different question as theirs:
+how to report, with valid inference, the effect of a subgroup the
+trial’s own data selected. Their target is the standard analysis of the
+selected region, the within-subgroup Cox coefficient $`\beta(\hat{H})`$
+and its counterpart $`\beta(\hat{H}^c)`$ for the patients outside it —
+the working model’s least-false value, by institutional choice: it is
+the scale on which trials are designed and read, and “not a claim of
+causal optimality” (2026a, Section 1.2). The corrected estimate
+“inherits the interpretive limits of the standard analysis”; hazard and
+odds ratios are non-collapsible (2026a, Section 8). The AHR, CDE and
+marginal hazard ratio of the companion articles are simulation-truth
+constructs, planted by a data-generating mechanism and used to design
+simulations and to score identification; they are not the reported
+estimand. Bounds are read by their location against the trial’s own
+effect and against clinically meaningful effect sizes, not as tests at
+the null (2026b, Section 6.1).
 
 ------------------------------------------------------------------------
 
@@ -780,6 +824,14 @@ finite-sample noise, and censoring distortion.
 - Knudsen, M.B., Gabriel, E.E., Martinussen, T., Rytgaard, H.C.W., &
   Sjolander, A. (2025). On the limitations for causal inference in Cox
   models with time-varying treatment. *arXiv:2504.01524*.
+
+- León, L.F., & Anderson, K.M. (2026a). Inference for standard trial
+  estimands after data-driven subgroup discovery. *arXiv:2609.38361*.
+  <https://doi.org/10.48550/arXiv.2609.38361>
+
+- León, L.F., & Anderson, K.M. (2026b). Interpretable subgroup
+  identification across survival and generalized-linear outcomes.
+  *arXiv:2610.28379*. <https://doi.org/10.48550/arXiv.2610.28379>
 
 - Martinussen, T. (2022). Causality and the Cox regression model.
   *Annual Review of Statistics and Its Application*, 9, 249–259.

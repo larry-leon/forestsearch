@@ -24,6 +24,8 @@
 > [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
 > — see
 > [`?forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md).
+> Where a statement below has been superseded, a **2026 note** at that
+> point says what the current method does and where it is documented.
 
 ## Introduction
 
@@ -117,6 +119,17 @@ error scenarios for false subgroup identification are defined:
     $`\theta^{\dagger}(\text{ITT}) < 1`$, so no detrimental subgroup
     effects exist.
 
+> **2026 note.** Scenario (ii) — uniform benefit, no detrimental
+> subgroup — is the event whose family-wise rate León and Anderson
+> (2026b, Section 4) control: the probability that the search declares
+> *any* subgroup when every candidate’s effect is at least a clinically
+> specified benefit $`c_0`$.
+> [`fs_declaration_calibration()`](https://larry-leon.github.io/forestsearch/reference/fs_declaration_calibration.md)
+> reports that rate for the thresholds as executed and the calibrated
+> cutoff that holds it at a nominal level;
+> [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
+> runs it on the GBSG analysis.
+
 ### Marginal vs. Controlled Direct Effects
 
 An important distinction in Forest Search is between marginal hazard
@@ -135,6 +148,19 @@ describe, marginal effects for $`H`$ and $`H^c`$ can differ
 substantially from the CDEs. Forest Search targets marginal hazard
 ratios via the unadjusted Cox model, which is the standard approach in
 oncology forest plots.
+
+> **2026 note.** The post-selection papers take as their target the
+> standard analysis of the *selected* region: $`\beta(\widehat{H})`$,
+> the treatment coefficient of the working model fitted within
+> $`\widehat{H}`$, and $`\beta(\widehat{H}^c)`$ for the patients outside
+> it — the model’s least-false value whether or not it is correctly
+> specified, with the candidate family held fixed at what the data
+> produced (León and Anderson 2026a, Section 1.2 and equation 15; 2026b,
+> Section 1). It is a data-adaptive estimand, distinct from
+> $`\theta^{\dagger}(H)`$ of a hypothetical true subgroup, and it is the
+> quantity the multiplier-resampling interval covers (2026a, Theorem 2).
+> Bias and coverage against both families of targets are reported in
+> 2026a, Section 7 and Supplementary Section S8.
 
 ## The ForestSearch Algorithm
 
@@ -241,6 +267,24 @@ $`r`$th random split for $`r = 1, \ldots, R`$. The consistency rate is:
 I\!\left(\min(\hat{\beta}_s^{1r}, \hat{\beta}_s^{2r}) \geq 0\right).
 ```
 
+> **2026 note.** The rate is now evaluated in closed form from one fit
+> of the working model within the candidate: to first order the two
+> half-sample estimates are a mirror pair about the full-sample fit, so
+> $`p_{\text{cons}}(g) \approx \max\{0,\; 2\,\Phi((\hat\beta(g) - c_{\text{cons}})/\sigma_{D,g}) - 1\}`$,
+> with $`c_{\text{cons}} = \log`$`hr.consistency` and $`\sigma_{D,g}`$
+> the robust (influence-function) standard error of $`\hat\beta(g)`$
+> (León and Anderson 2026b, Section 2.2; 2026a, Supplementary Section
+> S3). Nothing is drawn: `consistency_method = "resample"` is the
+> default and evaluates this expression, and `fs.splits` is used only
+> where the closed form is unavailable for a candidate (a non-convergent
+> fit, or a GLM effect it cannot represent), when the literal
+> split-and-refit calculation runs as the fallback. The screen is
+> complementary-pairs stability selection applied to a smooth
+> estimating-function coefficient, which is why its rate has a closed
+> form; passing at level $`p^\star`$ is the same as the one-sided
+> $`(1+p^\star)/2`$ robust lower confidence bound for $`\beta(g)`$
+> clearing $`c_{\text{cons}}`$.
+
 ### Step 4: Subgroup Selection
 
 For subgroups with consistency rates at least 90%, choose the subgroup
@@ -267,6 +311,17 @@ Step 4 can be modified in several ways:
 | `"hrMinSG"` | Among consistent candidates, select smallest with best HR |
 
 **Table:** ForestSearch subgroup selection criteria.
+
+> **2026 note.** The applications of León and Anderson (2026a, 2026b)
+> use the largest admitted region within an effect band of the strongest
+> effect — `sg_focus = "hrMaxSG"` (alias `"effMaxSG"`) with
+> `selection_rule = "neighborhood"` and `effect_neighborhood` of 0.10
+> (2026a, Section 6) or 0.20 (2026b, Section 6.1) — and treat the rule
+> as an operating-characteristic choice that moves the returned region
+> along a frontier of size against effect, for which no optimality is
+> claimed (2026b, Section 2.3). The package default remains `"hr"`;
+> [`?forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
+> lists the current spellings, including `"maxeffCons"` and `"maxeff"`.
 
 Additional constraints can include median survival thresholds for the
 experimental arm, control arm, or both.
@@ -394,6 +449,20 @@ approximation yields:
 | $`n = 100`$ | 2.2% | HR $`\approx`$ 1.73 |
 
 **Table:** Type-1 error and approximate 80% power thresholds.
+
+> **2026 note.** This rationale is per candidate. León and Anderson
+> (2026b, Section 4) treat the family-wise event — any candidate
+> declared — through the law of the maximum of the standardized
+> statistics $`T_g = (\hat\beta(g) - c_{\text{cons}})/\sigma_{D,g}`$
+> over the enumerated family, which gives both the rate the executed
+> thresholds imply under a uniform benefit $`c_0`$ (a diagnostic) and
+> the cutoff $`\hat\kappa_\alpha(c_0)`$ that holds it at a nominal
+> level;
+> [`fs_declaration_calibration()`](https://larry-leon.github.io/forestsearch/reference/fs_declaration_calibration.md)
+> computes both. Their applications set the screening and consistency
+> thresholds at a hazard ratio of one with $`p^\star = 0.90`$ (2026a,
+> Section 6; 2026b, Section 6.1); the package defaults remain 1.25, 1.0
+> and 0.90.
 
 ## Bootstrap Bias Correction
 
@@ -531,12 +600,42 @@ Confidence intervals for hazard ratios are based on standard normal
 approximations (exponentiated):
 $`\exp\!\left(\hat{\beta}^* \pm 1.96\sqrt{\hat{V}}\right)`$.
 
+> **2026 note.** Multiplier resampling (`mr_inference = TRUE`), the
+> post-selection inference of León and Anderson (2026a), reproduces this
+> correction to first order on the enumerated family without refitting:
+> one shared multiplier draw perturbs every candidate’s effect through
+> its influence values, the selection rule is re-applied to the
+> perturbed effects, and the two-term de-biased estimate and the
+> infinitesimal-jackknife variance above are read from a single matrix
+> product (2026a, Sections 2.5 and 3; Theorem 1). It runs in seconds
+> where the bootstrap runs in minutes (2026a, Section 6). The full
+> bootstrap remains available as
+> [`forestsearch_bootstrap_dofuture()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
+> and is the reference on a fixed family; on a model-generated family
+> (GRF, DINA) the two answer different questions (2026a, Section 5). The
+> one-sided field bounds and the two-subgroup claim are built from the
+> same influence matrix and multiplier draws (2026b, Section 3); the
+> [post-selection
+> article](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html)
+> sets the bootstrap and the multiplier correction side by side on the
+> GBSG data.
+
 Bootstrap Bias Correction Workflow
 
 ## Cross-Validation
 
 Cross-validation is used for evaluating the quality and stability of the
 selection algorithm. Two forms are implemented.
+
+> **2026 note.** The current diagnostics of selection stability come
+> from the multiplier draws themselves: the re-selection frequency
+> $`\hat p(\widehat{H})`$, the share of draws on which the observed
+> region wins again, and the membership recovery of the field
+> (`field_recovery = TRUE`), read as flags rather than instruments in
+> the [post-selection
+> article](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html).
+> The cross-validation below is the 2024 workflow’s and remains
+> available.
 
 ### N-Fold (Leave-One-Out) Cross-Validation
 
@@ -843,6 +942,19 @@ Coverage rates for $`\hat{\theta}^*(\widehat{H}^c)`$ were $`\ge 93\%`$
 for each target, and the oracle coverage rates for both estimators were
 $`\ge 95\%`$.
 
+> **2026 note.** The operating characteristics of the current inference
+> — the multiplier-resampling correction, the one-sided field and
+> field-s bounds and the Bonferroni pair, scored against
+> $`\beta(\widehat{H})`$ and against the planted targets — are in León
+> and Anderson (2026b, Section 5 and Supplementary Section S2) and
+> (2026a, Section 7 and Supplementary Section S8). Those studies run the
+> fully enumerated search under their own designs and thresholds — 2026b
+> at the conventional thresholds with 2,000 replicates per cell and no
+> strict-null cell (Section 5.1); 2026a at deliberately permissive
+> thresholds, $`\log 0.9`$ and $`\log 0.8`$, to stress false
+> identification (Supplementary Section S8) — so their numbers are not
+> comparable with the table above.
+
 ## Applications
 
 ### GBSG Breast Cancer Trial
@@ -865,6 +977,17 @@ additional candidate selection:
 
 The bias-corrected estimate for $`H^c`$ suggests a slightly stronger
 benefit (0.64 vs 0.69 for ITT) that is statistically significant.
+
+> **2026 note.** The same trial analysed with the current method is
+> Table 1 of León and Anderson (2026b), run end to end in
+> [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md):
+> forest search returns $`\{er \le 0\} \cap \{pgr \le 26\}`$ (75
+> patients), with a corrected hazard ratio of 1.276 and a one-sided 95%
+> field lower bound of 0.634; the complement’s corrected hazard ratio is
+> 0.645 with a field-s upper bound of 0.804. Each is read by its
+> location against the trial’s own effect of 0.695 and against
+> clinically meaningful effect sizes, not as a test at a hazard ratio of
+> one.
 
 **Cross-validation:** N-fold CV showed perfect stability (all 686
 training sets reproduced Estrogen = 0). Across 200 random 10-fold CV
@@ -903,6 +1026,13 @@ consistency $`\ge`$ 90%.
 
 The bias-corrected estimate suggests a relatively strong benefit (0.59
 vs 0.84 for ITT) that is statistically significant.
+
+> **2026 note.** The 2026 papers analyse ACTG 175 on its binary and
+> continuous endpoints in the harm orientation — the odds ratio of no
+> CD4 improvement (2026a, Supplementary Section S7 and Table S3; 2026b,
+> Supplementary Section S3.4) and the mean difference in CD4 change
+> (2026b, Supplementary Section S3.4) — not the time-to-event benefit
+> search above, which has no counterpart there.
 
 **Cross-validation:** N-fold CV reproduced the full analysis subgroup
 definition in all but 7 of 1,083 training sets. The N-fold predicted Cox
@@ -1150,6 +1280,17 @@ result <- forestsearch(
 
 **Table:** Variable selection recommendations.
 
+> **2026 note.** The current recommendation is the fully enumerated
+> family with no fitted model deciding it (`use_lasso = FALSE`,
+> `use_grf = FALSE`, the package defaults): on a fixed family the
+> multiplier correction is first-order exact against the full bootstrap,
+> whereas a prognostic LASSO prefilter shapes the family and trades that
+> exactness for a target conditional on the family it proposes (León and
+> Anderson 2026a, Section 5 and Supplementary Section S1). The GRF
+> variable-importance screen is removed as of 0.4.1. The robustness of
+> the current method to noise covariates is examined in 2026a,
+> Supplementary Sections S8.7 and S8.8.
+
 In the ACTG-175 analysis, when 20 random noise factors were artificially
 added without LASSO, ForestSearch identified a nonsensical subgroup
 based on a noise factor. In contrast, when LASSO was included, the same
@@ -1187,7 +1328,27 @@ a candidate), the number of bootstrap iterations ($`B`$, typically
 **Table:** Computational timing for ForestSearch. Parallel computing is
 implemented via the `doFuture` package.
 
+> **2026 note.** These are 2024 timings. With the closed-form screen,
+> the GBSG forest search of
+> [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
+> — fully enumerated family, 5,000-draw multiplier-resampling inference
+> and the field bounds included — runs in under a minute on one core,
+> and the vignette prints its own timing. In 2026a, Section 6, the full
+> bootstrap at $`B = 1{,}000`$ took from about 72 s to about 10 min per
+> identifier where the multiplier correction with 5,000 draws took 0.11
+> s to 0.38 s.
+
 ### Interpretation Guidelines
+
+These are the 2024 guidelines. The current products are the corrected
+(two-term) estimate, the one-sided field lower bound on the region and
+the field-s upper bound on its complement, and the Bonferroni pair for a
+joint claim, each read by its location against the trial’s own effect
+and against clinically meaningful effect sizes rather than as a test at
+the null (León and Anderson 2026b, Sections 3 and 6.1;
+[`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)).
+Whether and how to act on a finding remains a broader judgement of
+benefit and risk, which the inference is meant to inform.
 
 1.  **Bias-corrected estimates** should be reported alongside unadjusted
     estimates

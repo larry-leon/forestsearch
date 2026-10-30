@@ -202,13 +202,13 @@ p_{\mathrm{cons}}(g) \;=\; 2\,\Phi\!\left(\frac{\hat\beta(g) - \log c_2}{\sigma_
 <div class="sourceCode cell-code" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"Fit including inference: %.1f s\n"</span>, <span class="va">fit_sec_fs</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; Fit including inference: 34.4 s</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; Fit including inference: 34.1 s</span></span></code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"  multiplier stage %.1f s; field blocks %.1f + %.1f s\n"</span>, <span class="va">g_fs</span><span class="op">$</span><span class="va">timing_seconds</span>,</span>
 <span>            <span class="va">g_fs</span><span class="op">$</span><span class="va">field</span><span class="op">$</span><span class="va">timing_seconds</span>, <span class="va">g_fs</span><span class="op">$</span><span class="va">field</span><span class="op">$</span><span class="va">complement</span><span class="op">$</span><span class="va">timing_seconds</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt;   multiplier stage 1.0 s; field blocks 16.7 + 2.5 s</span></span></code></pre>
+<pre><code><span><span class="co">#&gt;   multiplier stage 1.0 s; field blocks 16.4 + 2.7 s</span></span></code></pre>
 </div>
 </div>
 <p>The identified region is <code>{er &lt;= 0} &amp; {pgr &lt;= 26}</code>: no measured estrogen receptor and progesterone receptor at most 26 fmol/l. Two arguments in the call are not the defaults and are there for a reason: <code>stop_threshold = NULL</code> has the consistency stage evaluate every screened candidate rather than stop at the first that passes, and <code>field_decompose = TRUE</code> returns the supporting quantities shown below. Everything else that is not the default is the specification itself.</p>
@@ -554,13 +554,13 @@ N(\varepsilon)</annotation></semantics></math> rule takes the 75 patients with n
 <span>            <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">fit_dina</span><span class="op">$</span><span class="va">sg.harm</span>, collapse <span class="op">=</span> <span class="st">" &amp; "</span><span class="op">)</span>, <span class="va">fit_sec_dina</span>,</span>
 <span>            <span class="va">g_dina</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; DINA: {grade3 &gt;= 1} &amp; {pgr &lt;= 20}  (fit 10.4 s; re-selection family 30)</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; DINA: {grade3 &gt;= 1} &amp; {pgr &lt;= 20}  (fit 10.5 s; re-selection family 30)</span></span></code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"GRF:  %s  (fit %.1f s; re-selection family %d)\n"</span>,</span>
 <span>            <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">fit_grf</span><span class="op">$</span><span class="va">sg.harm</span>, collapse <span class="op">=</span> <span class="st">" &amp; "</span><span class="op">)</span>, <span class="va">fit_sec_grf</span>, <span class="va">g_grf</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; GRF:  {er &lt;= 0}  (fit 26.8 s; re-selection family 858)</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; GRF:  {er &lt;= 0}  (fit 28.0 s; re-selection family 858)</span></span></code></pre>
 </div>
 </div>
 <p>GRF returns the 82 patients with no measured estrogen receptor, a region that contains forest search’s; DINA returns the 113 who are grade 3 with progesterone receptor at most 20 fmol/l, a different classification. For the two model-based identifiers the candidate family is generated from a surface fitted to the outcome, so their bounds are conditional on the family proposed (Supplementary Section S1.9 of León and Anderson 2026b); forest search’s family is enumerated from the covariates alone.</p>

@@ -98,7 +98,14 @@ bounds, the two-subgroup claim and the declaration calibration — are
 reported in León and Anderson (2026a, arXiv:2609.38361) and (2026b,
 arXiv:2610.28379); the methodology is documented in
 <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> and the <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html">post-selection
-article</a>.</p>
+article</a>. The settings below (<code>hr.threshold = 1.25</code>, LASSO
+and GRF candidate selection, <code>fs.splits = 400</code>) are the 2024
+workflow’s and differ from those of the 2026 studies (screening and
+consistency thresholds at a hazard ratio of one, p* = 0.90, the
+<code>max N(ε)</code> rule at ε = 0.20, the fully enumerated family,
+2,000 replicates per cell: 2026b, Sections 5.1 and 6.1), so the
+operating characteristics here are not those of the current inference
+and are not comparable with 2026b, Figure 3 or 2026a, Section 7.</p>
 </blockquote>
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
@@ -119,6 +126,16 @@ heterogeneity</li>
 <li>Estimate Type I error under null hypothesis</li>
 <li>Track and summarize computational timings across simulations</li>
 </ul>
+<p>The uniform-benefit (null) runs are the simulation estimate of a
+search’s declaration rate — the rate at which it declares some subgroup
+when the treatment in fact benefits every patient. León and Anderson
+(2026a, Section 8) recommend estimating that rate by simulation
+calibrated to the analyst’s own trial, using these data-generating
+mechanisms, and reporting it beside, but distinctly from, the de-biased
+effect; 2026b (Section 4) adds the family-wise size diagnostic of the
+executed screen, <code><a href="../reference/fs_declaration_calibration.html">fs_declaration_calibration()</a></code>, and its
+Supplementary Section S1.8.4 compares the diagnostic with a realized
+rate on a design of this kind.</p>
 <ol style="list-style-type: decimal">
 <li>
 <strong>Create DGM</strong>: Define a data generating mechanism with
@@ -259,9 +276,11 @@ parameters.</li>
 <li>Carries forward the true subgroup indicator <code>flag_harm</code>
 and individual <code>loghr_po</code> for evaluation.</li>
 </ul>
-<p>Because ForestSearch uses random-split consistency evaluation, each
-simulated trial is an independent replicate of the full analysis
-pipeline.</p>
+<p>Each simulated trial is an independent replicate of the full analysis
+pipeline. The consistency screen within each is evaluated in closed form
+(<code>consistency_method = "resample"</code>, the default; 2026b,
+Section 2.2), so <code>fs.splits</code> has no effect on these runs
+unless the closed form is unavailable for a candidate.</p>
 </div>
 <div class="section level4">
 <h4 id="step-3-run-analyses-on-each-trial">Step 3: Run Analyses on Each Trial<a class="anchor" aria-label="anchor" href="#step-3-run-analyses-on-each-trial"></a>
@@ -333,7 +352,14 @@ each estimator (naive Cox HR, bias-corrected HR, AHR) in both H and
 H<sup>c</sup>, it reports the mean, SD, range, and relative bias versus
 the DGM truth. When CDE values are available, dual bias columns (b‡ vs
 CDE, b† vs marginal HR) are shown, matching the notation of Table 5 in
-Leon et al. (2024).</p>
+Leon et al. (2024). Its bias-corrected rows are the bootstrap correction
+of the 2024 workflow, shown when the <code>hr.H.bc</code> /
+<code>hr.Hc.bc</code> columns are present; the multiplier-resampling
+estimate and the one-sided bounds of the current inference are not among
+the columns <code><a href="../reference/run_simulation_analysis.html">run_simulation_analysis()</a></code> records, and their
+operating characteristics are reported in 2026b (Section 5 and
+Supplementary Section S2) and 2026a (Section 7 and Supplementary Section
+S8).</p>
 <p><code><a href="../reference/build_classification_table.html">build_classification_table()</a></code> assembles detection and
 classification rates across multiple DGM scenarios (e.g., null and
 alternative) in a single table, facilitating comparison with the
@@ -1784,7 +1810,7 @@ search algorithm:</p>
 <span><span class="co">## Number of possible configurations (&lt;= maxk): maxk = 2 , # combinations = 406 </span></span>
 <span><span class="co">## Per-arm events criteria: control &gt;= 12, treatment &gt;= 12</span></span>
 <span><span class="co">## Sample size criteria: n &gt;= 60 </span></span>
-<span><span class="co">## Subgroup search completed in 0.02 minutes</span></span>
+<span><span class="co">## Subgroup search completed in 0.03 minutes</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## --- Filtering Summary ---</span></span>
 <span><span class="co">##   Combinations evaluated: 406 </span></span>
@@ -1808,7 +1834,7 @@ search algorithm:</p>
 <span><span class="co">## Subgroup 3: resample Pcons=0.82 (threshold 0.9)</span></span>
 <span><span class="co">## Evaluated 3 of 3 candidates (complete) </span></span>
 <span><span class="co">## No subgroups found meeting consistency threshold</span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 5.567 0.0928 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 5.786 0.0964 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## tau, maxdepth = 47.90727 2 </span></span>
 <span><span class="co">##    leaf.node control.mean control.size control.se depth</span></span>
@@ -1823,7 +1849,7 @@ search algorithm:</p>
 <span><span class="va">runtime_alt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/difftime.html" class="external-link">difftime</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">start_time</span>, units <span class="op">=</span> <span class="st">"mins"</span><span class="op">)</span></span>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">sims_alt_wall</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">runtime_alt</span><span class="op">)</span> <span class="op">*</span> <span class="fl">60</span>  <span class="co"># store in seconds</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Completed in"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">runtime_alt</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"minutes\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Completed in 1.8 minutes</span></span></code></pre>
+<pre><code><span><span class="co">## Completed in 1.9 minutes</span></span></code></pre>
 <div class="sourceCode" id="cb143"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Results:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">results_alt</span><span class="op">)</span>, <span class="st">"rows\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Results: 88 rows</span></span></code></pre>
@@ -1914,7 +1940,7 @@ search algorithm:</p>
 <span><span class="co">## Subgroup 2: resample Pcons=0.57 (threshold 0.9)</span></span>
 <span><span class="co">## Evaluated 2 of 2 candidates (complete) </span></span>
 <span><span class="co">## No subgroups found meeting consistency threshold</span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 5.515 0.0919 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 5.114 0.0852 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## tau, maxdepth = 43.8823 2 </span></span>
 <span><span class="co">##   leaf.node control.mean control.size control.se depth</span></span>
@@ -1929,7 +1955,7 @@ search algorithm:</p>
 <span><span class="va">runtime_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/difftime.html" class="external-link">difftime</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">start_time</span>, units <span class="op">=</span> <span class="st">"mins"</span><span class="op">)</span></span>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">sims_null_wall</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">runtime_null</span><span class="op">)</span> <span class="op">*</span> <span class="fl">60</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Completed in"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">runtime_null</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"minutes\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Completed in 1.7 minutes</span></span></code></pre>
+<pre><code><span><span class="co">## Completed in 1.8 minutes</span></span></code></pre>
 </div>
 </div>
 <div class="section level2">
@@ -6334,21 +6360,21 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Calibrate k_inter (Cox)</td>
-<td headers="Seconds" class="gt_row gt_right">7.3</td>
-<td headers="Minutes" class="gt_row gt_right">0.12</td>
-<td headers="Pct" class="gt_row gt_right">2.8</td>
+<td headers="Seconds" class="gt_row gt_right">8.0</td>
+<td headers="Minutes" class="gt_row gt_right">0.13</td>
+<td headers="Pct" class="gt_row gt_right">3.0</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Calibrate k_inter (AHR)</td>
-<td headers="Seconds" class="gt_row gt_right">3.2</td>
+<td headers="Seconds" class="gt_row gt_right">3.1</td>
 <td headers="Minutes" class="gt_row gt_right">0.05</td>
-<td headers="Pct" class="gt_row gt_right">1.2</td>
+<td headers="Pct" class="gt_row gt_right">1.1</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Validate k_inter</td>
 <td headers="Seconds" class="gt_row gt_right">0.7</td>
 <td headers="Minutes" class="gt_row gt_right">0.01</td>
-<td headers="Pct" class="gt_row gt_right">0.2</td>
+<td headers="Pct" class="gt_row gt_right">0.3</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">DGM creation (H0)</td>
@@ -6358,15 +6384,15 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Simulations H1</td>
-<td headers="Seconds" class="gt_row gt_right">110.4</td>
-<td headers="Minutes" class="gt_row gt_right">1.84</td>
-<td headers="Pct" class="gt_row gt_right">41.7</td>
+<td headers="Seconds" class="gt_row gt_right">111.6</td>
+<td headers="Minutes" class="gt_row gt_right">1.86</td>
+<td headers="Pct" class="gt_row gt_right">41.4</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Simulations H0</td>
-<td headers="Seconds" class="gt_row gt_right">104.5</td>
-<td headers="Minutes" class="gt_row gt_right">1.74</td>
-<td headers="Pct" class="gt_row gt_right">39.5</td>
+<td headers="Seconds" class="gt_row gt_right">106.8</td>
+<td headers="Minutes" class="gt_row gt_right">1.78</td>
+<td headers="Pct" class="gt_row gt_right">39.7</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Summarize H1</td>
@@ -6376,14 +6402,14 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Summarize H0</td>
-<td headers="Seconds" class="gt_row gt_right">0.1</td>
+<td headers="Seconds" class="gt_row gt_right">0.2</td>
 <td headers="Minutes" class="gt_row gt_right">0.00</td>
 <td headers="Pct" class="gt_row gt_right">0.1</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left" style="font-weight: bold;">Total vignette</td>
-<td headers="Seconds" class="gt_row gt_right" style="font-weight: bold;">264.9</td>
-<td headers="Minutes" class="gt_row gt_right" style="font-weight: bold;">4.42</td>
+<td headers="Seconds" class="gt_row gt_right" style="font-weight: bold;">269.4</td>
+<td headers="Minutes" class="gt_row gt_right" style="font-weight: bold;">4.49</td>
 <td headers="Pct" class="gt_row gt_right" style="font-weight: bold;">100.0</td>
 </tr>
 </tbody>
@@ -10448,8 +10474,9 @@ between the two truth targets.</li>
 </ul>
 <p>Note that exact replication requires the same DGM calibration,
 censoring rate, and random seeds. The vignette’s reduced simulation
-count (<code>n_sims = 1000</code>) will show higher Monte Carlo
-variability than the published 20,000-simulation results.</p>
+count (44 simulated trials under the alternative and 44 under the null)
+will show higher Monte Carlo variability than the published
+20,000-simulation results.</p>
 </div>
 </div>
 <div class="section level2">
@@ -10463,8 +10490,8 @@ before the next operation (or before the vignette terminates).</p>
 <code class="sourceCode R"><span><span class="fu">future</span><span class="fu">::</span><span class="fu"><a href="https://future.futureverse.org/reference/plan.html" class="external-link">plan</a></span><span class="op">(</span><span class="st">"sequential"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/gc.html" class="external-link">gc</a></span><span class="op">(</span>verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##           used  (Mb) gc trigger  (Mb) max used  (Mb)</span></span>
-<span><span class="co">## Ncells 3579305 191.2    5462721 291.8  5462721 291.8</span></span>
-<span><span class="co">## Vcells 6938606  53.0   14826130 113.2 12288442  93.8</span></span></code></pre>
+<span><span class="co">## Ncells 3579338 191.2    5465315 291.9  5465315 291.9</span></span>
+<span><span class="co">## Vcells 6939786  53.0   14804349 113.0 12270291  93.7</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="session-info">Session Info<a class="anchor" aria-label="anchor" href="#session-info"></a>
@@ -10527,15 +10554,21 @@ before the next operation (or before the vignette terminates).</p>
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
 <ol style="list-style-type: decimal">
-<li><p>Leon LF, Marceau-West CT, He W, et al. (2024). “Identifying
-Patient Subgroups with Differential Treatment Effects: A Forest Search
-Approach.” <em>Statistics in Medicine</em>.</p></li>
+<li><p>León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM. (2024).
+“Exploratory subgroup identification in the heterogeneous Cox model: A
+relatively simple procedure.” <em>Statistics in Medicine</em>,
+43(20):3921-3942. <a href="https://doi.org/10.1002/sim.10163" class="external-link uri">https://doi.org/10.1002/sim.10163</a></p></li>
 <li><p>Athey S, Imbens GW. (2016). “Recursive partitioning for
 heterogeneous causal effects.” <em>PNAS</em>,
 113(27):7353-7360.</p></li>
 <li><p>Wager S, Athey S. (2018). “Estimation and inference of
 heterogeneous treatment effects using random forests.” <em>JASA</em>,
 113(523):1228-1242.</p></li>
+<li><p>León LF, Anderson KM. (2026a). “Inference for standard trial
+estimands after data-driven subgroup discovery.” arXiv:2609.38361. <a href="https://doi.org/10.48550/arXiv.2609.38361" class="external-link uri">https://doi.org/10.48550/arXiv.2609.38361</a></p></li>
+<li><p>León LF, Anderson KM. (2026b). “Interpretable subgroup
+identification across survival and generalized-linear outcomes.”
+arXiv:2610.28379. <a href="https://doi.org/10.48550/arXiv.2610.28379" class="external-link uri">https://doi.org/10.48550/arXiv.2610.28379</a></p></li>
 </ol>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
