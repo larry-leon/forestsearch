@@ -1,0 +1,428 @@
+Table of contents
+
+-   The design
+-   The truth: \(\beta(c)\) along the continuum
+-   The four bounds on \(\hat H\), and the complement
+    -   One replicate at the manuscript’s settings
+-   The Monte Carlo
+    -   What the argmax selects
+    -   The selected subgroup’s lower bound
+    -   The complement, and the joint claim
+    -   Bias and coverage, with the manuscript’s values beside them
+-   The manuscript’s results
+    -   What the argmax selects (Tables S20 and S21)
+    -   The selected subgroup’s lower bound (Tables S22 and S25)
+    -   The complement and the joint claim (Tables S24 and S28)
+    -   The sixteen replicated cells (Table S23)
+-   Limits
+-   Running the manuscript’s design
+-   References
+
+Post-selection bounds on a nested continuum: the Guo and He (2021) design
+
+Section S4 of León and Anderson (2026b), with the code that produces it
+
+Author
+
+Larry Leon
+
+Published
+
+October 30, 2026
+
+User settings. These are the only values to change to run this article at another size (see Running the manuscript’s design at the end).
+
+Guo and He (2021) treat subgroup analysis in two steps: identify the subgroup with the largest estimated effect by the argmax over a prespecified candidate family, then bound the effect of the subgroup so identified. Their post hoc design (their Section 5.2 and Table 7) runs both steps on a nested continuum of cutpoints, where neighbouring candidates differ by a single subject. It therefore shows what the argmax identifies on such a family, and what inference must then correct. Section S4 of León and Anderson (2026b) runs that design exactly as published and sets forest search’s post-selection bounds beside Guo and He’s. This article is that section with its code.
+
+What the section compares, and why the targets coincide.
+
+-   Guo and He’s selection is the argmax of the candidate effects. Forest search without its consistency screen reduces to the same primitive, so on this design the two methods identify the same subgroup \(\hat H\) and differ only in how they correct its effect (León and Anderson 2026a, Supplementary Section S3.5).
+-   Their targets — the best subgroup effect and the best selected subgroup effect — are forest search’s two estimands, \(\log\theta^{\dagger}(H)\) for the true harm region and \(\beta(\hat H)\) for the region actually selected. Everything below is scored against \(\beta(\hat H)\), the effect of the subgroup actually selected.
+-   On the selected subgroup, four one-sided 95% lower bounds on \(\beta(\hat H)\) are compared: the unadjusted bound (the within-subgroup Cox analysis of \(\hat H\) as if it had been prespecified), Guo and He’s bound at \(r = 1/12\), MR (field) and MR (IJ two-term), the conservative reference.
+-   On the complement \(\hat H^{c}\), Guo and He’s framework defines no bound: the complement is not a member of their family and not the argmax of any functional. The field-s upper bound and the Bonferroni pair are shown there as a capability the comparison does not score against them.
+
+What this article does. It carries the complete code — the data-generating mechanism, the nested family, the truth curve, the four bounds, the complement and the pair, the Monte Carlo loop and the summaries — in a form a reader can run. Its own run is small (2 cells, 25 replicates each, Guo and He at \(B\) = 200), enough to exercise every path and draw the figure. The manuscript’s results, from 2,000 replicates per cell at \(B\) = 2000, are then given in full so the reader has them in mind. The seeds follow the manuscript’s own scheme, so a run at its settings reproduces its per-replicate records, not only its summaries.
+
+Bounds are read by their location on the hazard-ratio scale against one and against the planted effect: a lower bound on the hazard ratio in \(\hat H\) above one is on the harm side; an upper bound on the hazard ratio in \(\hat H^{c}\) below one is on the benefit side. The locations reported are where the bounds sit, not claims.
+
+The design
+
+Guo and He’s Section 5.2 generates \(n = 400\) subjects with \(W \sim \mathrm{Unif}[0, 80]\) and treatment \(D \sim \mathrm{Bernoulli}(0.5)\) from the proportional hazards model \(\lambda_0(t)\exp\{b(W)D\}\) with a unit exponential baseline hazard, \(b(w) = \beta_2\) for \(w \le 30\) and \(0\) otherwise, and censoring with \(\log C \sim \mathrm{Unif}(-1.25, 1.00)\), about 40% across the cells; \(\beta_2 \in \{0, 0.1, \ldots, 0.5\}\). The true harm region is \(H = \{W \le 30\}\), about 150 subjects. The candidates are \(S(c) = \{W \le c\}\) for \(c \in [30, 60]\). Because an estimate changes only where \(c\) passes an observed value of \(W\), the family is taken to be the distinct cuts at 30 and at every observed \(w \in (30, 60]\) — nested, cut at every observed value, about 151 candidates per replicate. This discretisation is the manuscript’s; Guo and He do not state one.
+
+One trial, to see the objects:
+
+The truth: \(\beta(c)\) along the continuum
+
+\(\beta(c)\) is the Cox log hazard ratio of treatment within \(S(c)\): a weighted average of \(b(\cdot)\) over \([0, c]\), the working model’s least-false value under the censoring the design imposes. Two facts anchor it: \(\beta(30) = \beta_2\) exactly, because \(b\) is constant on \([0, 30]\); and \(\beta(c)\) is non-increasing for \(c > 30\), diluted by the null region alone. At \(\beta_2 = 0\) the curve is exactly zero everywhere. For \(\beta_2 > 0\) there is no closed form, and the curve is computed from one large sample by a prefix sweep over a grid of \(c\), with the isotonic non-increasing projection as the interpolation basis. The manuscript uses \(n_{\mathrm{big}} = 2 \times 10^6\) on a 0.25 grid; this article uses 200,000 on a unit grid, which costs a few seconds and places \(\beta(c)\) within about 0.006 of the manuscript’s curve.
+
+  --------------------------------------------------------------------------------------
+    beta2 beta(30), estimated   anchor deviation / SE   beta(60)   basis
+  ------- --------------------- ----------------------- ---------- ---------------------
+      0.0 -0.0140               -1.48                   0.0000     exact zero
+
+      0.3 0.2967                -0.36                   0.1484     isotonic projection
+  --------------------------------------------------------------------------------------
+
+  : The truth curve by cell (n_big = 200,000; 14.2 s).
+
+The four bounds on \(\hat H\), and the complement
+
+Everything the comparison needs is read from two calls on one trial.
+
+-   guohe_algorithm3() is the package’s independent implementation of Guo and He’s Algorithm 3: deterministic offsets \(d(c) = (1 - n^{\,r - 1/2})\{\hat\gamma_{\max} - \hat\beta(c)\}\) are added to every candidate, the maximum is re-taken over bootstrap samples, and a bootstrap quantile of the re-centred maximum is subtracted from \(\hat\gamma_{\max}\); the bias-reduced estimate subtracts the bootstrap mean instead. orient = +1 makes a larger coefficient the effect of interest; \(r = 1/12\) is the manuscript’s reported value (its other values are sensitivity only); \(B\) is the manuscript’s own choice, since Guo and He state none for their Section 5.
+-   fs_mr_inference() is multiplier resampling over the fixed family: each draw perturbs every candidate estimate through one shared multiplier vector and re-applies the argmax (reselection = "maxeff", with no admission floor). From the same draws it returns the two-term de-biased estimate \(\tilde\beta(\hat H)\) with its infinitesimal-jackknife bound, MR (IJ two-term); the field, which inverts around \(\tilde\beta(\hat H)\) the law of the selection discrepancy \(\Lambda^{*}\) — its bound is \(\tilde\beta(\hat H) - q_{0.95}(\Lambda^{*})\) and its point estimate subtracts the mean of \(\Lambda^{*}\) (R_out outer and R_in inner draws); the complement’s two-term estimate and its field-s upper bound, studentized to the selected complement’s own scale; and the Bonferroni pair, the field lower bound on \(\hat H\) and the field-s upper bound on \(\hat H^{c}\) each at one-sided 0.975, for a joint claim at level at least 0.95. The re-selection frequency \(\hat p(\hat H)\) — the share of draws whose argmax is \(\hat H\) itself — comes with it.
+-   The unadjusted bounds are the standard analyses as if the regions had been prespecified: the model-based Cox standard error on \(\hat H\), the robust standard error on \(\hat H^{c}\), as in the manuscript.
+
+The seeds are the manuscript’s: a cell’s base seed is a function of its label, the data of replicate \(m\) use base \(+ m\), Guo and He’s bootstrap base \(+ m + 500{,}000\) and the multiplier draws base \(+ m + 700{,}000\), so a run at the manuscript’s settings reproduces its records replicate for replicate.
+
+One replicate at the manuscript’s settings
+
+Replicate 1 of the \(\beta_2 = 0.3\) cell, with Guo and He at \(B = 2000\) and the field at 1000 × 500: the manuscript’s own first replicate of that cell. It takes about a minute, almost all of it the bootstrap.
+
+  ----------------------------------------------------------------------------------------
+                                                                      hazard-ratio scale
+  ------------------------------------------------------------------- --------------------
+  selected cutpoint c-hat (true boundary 30)                          35.5
+
+  selected subgroup |H-hat| (H is about 150)                          176 of 400
+
+  hazard ratio in H-hat, the target exp{beta(H-hat)}                  1.28
+
+  unadjusted: estimate, 95% lower bound                               1.58, 1.13
+
+  Guo-He r = 1/12: bias-reduced estimate, 95% lower bound             1.41, 1.02
+
+  MR (field): estimate, 95% lower bound                               1.47, 1.08
+
+  MR (IJ two-term): estimate, 95% lower bound                         1.48, 0.80
+
+  re-selection frequency p-hat(H-hat)                                 0.218
+
+  complement, 95% upper bound: unadjusted / IJ two-term / field-s     1.22 / 1.70 / 1.31
+
+  Bonferroni pair: lower on H-hat / upper on H-hat^c (0.975 a side)   1.01 / 1.35
+  ----------------------------------------------------------------------------------------
+
+  : Replicate 1, beta_2 = 0.3, at the manuscript’s settings (141 candidates; 64 s).
+
+The argmax selected \(\hat c\) = 35.5, an overshoot of 5.5 beyond the true boundary, so \(\hat H\) holds 176 subjects against about 150 in \(H\) and its true hazard ratio is 1.28, diluted from the planted 1.35. The three identifications agree on this replicate: Guo and He’s argmax and the multiplier resampling both carry the same candidate. The four lower bounds sit where the section says they typically sit: the unadjusted highest, the IJ two-term lowest, Guo and He’s and the field between them and close to each other. On the complement, whose true hazard ratio is exactly one on this design, the field-s upper bound is 1.31 and the unadjusted 1.22; the pair places the hazard ratio in \(\hat H\) at or above 1.01 and in \(\hat H^{c}\) at or below 1.35, which overlap — the two groups are not separated by this trial.
+
+The Monte Carlo
+
+The loop runs bounds_one() over replicates, in parallel across 2 workers (the seeds are fixed per replicate, so the results do not depend on the plan). Coverage is scored against \(\beta(\hat H)\) for the selected subgroup and against exactly zero for the complement — every \(\hat H^{c} = \{W > \hat c\}\) lies inside \(\{W > 30\}\), where \(b = 0\) — so a complement bound covers when it is at least zero.
+
+What the argmax selects
+
+  -------------------------------------------------------------------------------------------------------------------------------------------------
+    beta_2    n   candidates   c-hat median      q25      q75   share c-hat = 30   mean |H-hat|   mean beta(H-hat)   dilution   p-hat(H-hat) median
+  -------- ---- ------------ -------------- -------- -------- ------------------ -------------- ------------------ ---------- ---------------------
+       0.0   25        150.7         39.975   30.987   52.796               0.08         211.08              0.000      0.000                 0.221
+
+       0.3   25        152.9         33.402   30.994   39.078               0.12         183.88              0.252      0.048                 0.241
+  -------------------------------------------------------------------------------------------------------------------------------------------------
+
+  : This article’s run: what the argmax selects, by cell (25 replicates each).
+
+For \(\beta_2 > 0\) every candidate contains \(H = S(30)\), so \(H \subseteq \hat H\) in every replicate: sensitivity and negative predictive value are identically one by nesting, not by merit, and overshoot of \(\hat c\) beyond 30 is the only identification error. Overshoot reaches the estimand: \(\beta(\hat H)\) falls below \(\beta_2\) whenever \(\hat c > 30\), the dilution column. At \(\beta_2 = 0\) there is no harm region and every selection is a false identification; that cell shows the argmax’s own pull toward the smallest candidate.
+
+The selected subgroup’s lower bound
+
+  -------------------------------------------------------------------------------------------------------------------------
+    beta_2 method             coverage (Wilson 95%)     mean margin bias of the point estimate     typical lower bound (HR)
+  -------- ------------------ ----------------------- ------------- ---------------------------- --------------------------
+       0.0 Unadjusted         0.880 (0.700, 0.958)            0.305 +0.147 (SE 0.029)                                 0.854
+
+       0.0 Guo-He r = 1/12    0.960 (0.805, 0.993)            0.307 +0.040 (SE 0.030)                                 0.766
+
+       0.0 MR (field)         0.960 (0.805, 0.993)            0.306 +0.056 (SE 0.031)                                 0.779
+
+       0.0 MR (IJ two-term)   1.000 (0.867, 1.000)            0.576 +0.071 (SE 0.030)                                 0.604
+
+       0.3 Unadjusted         0.760 (0.566, 0.885)            0.319 +0.159 (SE 0.037)                                 1.097
+
+       0.3 Guo-He r = 1/12    0.880 (0.700, 0.958)            0.309 +0.047 (SE 0.037)                                 0.990
+
+       0.3 MR (field)         0.840 (0.653, 0.936)            0.319 +0.079 (SE 0.040)                                 1.013
+
+       0.3 MR (IJ two-term)   1.000 (0.867, 1.000)            0.595 +0.091 (SE 0.039)                                 0.777
+  -------------------------------------------------------------------------------------------------------------------------
+
+  : This article’s run: one-sided 95% lower bounds on beta(H-hat), 25 replicates per cell. Margin: estimate minus lower bound, log scale. Bias: mean of estimate minus beta(H-hat), log scale, with its Monte Carlo standard error. Typical lower bound: exp of the mean log-scale bound. Monte Carlo standard error of a coverage near 0.95 is about 0.044.
+
+The complement, and the joint claim
+
+  -----------------------------------------------------------------------------------
+    beta_2 method             coverage of 0 (Wilson 95%)     typical upper bound (HR)
+  -------- ------------------ ---------------------------- --------------------------
+       0.0 Unadjusted         0.920 (0.750, 0.978)                               1.28
+
+       0.0 MR (IJ two-term)   1.000 (0.867, 1.000)                               1.82
+
+       0.0 MR (field-s)       0.960 (0.805, 0.993)                               1.38
+
+       0.3 Unadjusted         0.880 (0.700, 0.958)                               1.25
+
+       0.3 MR (IJ two-term)   1.000 (0.867, 1.000)                               1.73
+
+       0.3 MR (field-s)       0.960 (0.805, 0.993)                               1.33
+  -----------------------------------------------------------------------------------
+
+  : This article’s run: one-sided 95% upper bounds on beta(H-hat^c), whose truth is exactly 0.
+
+  ------------------------------------------------------------------------------------------------
+    beta_2 joint coverage (Wilson 95%)     pair: lower on H-hat (HR)   pair: upper on H-hat^c (HR)
+  -------- ----------------------------- --------------------------- -----------------------------
+       0.0 0.920 (0.750, 0.978)                                 0.73                          1.48
+
+       0.3 0.960 (0.805, 0.993)                                 0.95                          1.41
+  ------------------------------------------------------------------------------------------------
+
+  : This article’s run: the Bonferroni pair, field on H-hat and field-s on H-hat^c at 0.975 a side.
+
+Bias and coverage, with the manuscript’s values beside them
+
+The manuscript’s results as data (Tables S20-S25 and S28 of León and Anderson 2026b; 2,000 paired replicates per cell)
+
+[]
+
+Bias of the point estimate against beta(H-hat) (A) and coverage of the one-sided 95% lower bound (B), by cell and method. Filled points: this article’s run, with bars at ±1.96 Monte Carlo standard errors (A) and the Wilson 95% interval (B); the shaded band in B is where a coverage estimate at this replicate count falls with probability 0.95 when the true coverage is exactly nominal. Hollow points: the manuscript’s values from 2,000 replicates per cell. Points are offset horizontally so the bars separate.
+
+[]
+
+The complement and the joint claim, by cell. A: coverage of the one-sided 95% upper bound on beta(H-hat^c) against its truth of exactly 0. B: joint coverage of the Bonferroni pair with field-s on H-hat^c. Filled points and bars: this article’s run (Wilson 95%); hollow points: the manuscript’s values; shaded band as in the previous figure. Guo and He have no counterpart to either panel.
+
+  ------------------------------------------------------------------------------------
+  cell             replicates   seconds   seconds per replicate (wall, across workers)
+  -------------- ------------ --------- ----------------------------------------------
+  beta_2 = 0.0             25     117.7                                            4.7
+
+  beta_2 = 0.3             25     120.2                                            4.8
+  ------------------------------------------------------------------------------------
+
+  : Wall-clock of this article’s run on 2 workers (Guo and He at B = 200; MR at 5000 draws, field 1000 x 500; truth curves 14.2 s in addition).
+
+The manuscript’s results
+
+The tables below are Section S4’s, from 2,000 paired replicates per cell at the manuscript’s settings, so that the Monte Carlo standard error of a coverage near 0.95 is about 0.005. They are reproduced here as data; the package repository holds the record they were computed from (quarto/GuoHe/, with its per-replicate bundles).
+
+What the argmax selects (Tables S20 and S21)
+
+  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  beta2   c-hat median (IQR)   c-hat range   share c-hat = 30   mean specificity   mean PPV   mean |H-hat| (median)   mean beta(H-hat)   dilution   p-hat(H-hat) median (IQR)   M_eff median
+  ------- -------------------- ------------- ------------------ ------------------ ---------- ----------------------- ------------------ ---------- --------------------------- --------------
+  0.0     40.0 (32.4, 52.4)    30.0-60.0     0.062              -                  -          212.4 (202)             0.000              0.000      0.196 (0.135, 0.276)        2.12
+
+  0.1     36.3 (31.2, 48.7)    30.0-60.0     0.090              0.794              0.788      201.8 (183)             0.082              0.018      0.209 (0.142, 0.299)        2.13
+
+  0.2     33.5 (30.7, 42.1)    30.0-60.0     0.114              0.848              0.836      188.3 (171)             0.169              0.031      0.229 (0.159, 0.324)        2.14
+
+  0.3     32.3 (30.4, 37.5)    30.0-60.0     0.145              0.890              0.874      177.8 (165)             0.261              0.039      0.244 (0.166, 0.347)        2.16
+
+  0.4     31.4 (30.2, 35.3)    30.0-60.0     0.168              0.912              0.898      171.9 (161)             0.358              0.042      0.272 (0.183, 0.393)        2.20
+
+  0.5     30.9 (30.1, 33.5)    30.0-59.9     0.213              0.939              0.924      165.3 (158)             0.459              0.041      0.309 (0.204, 0.442)        2.23
+  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+  : The manuscript’s Tables S20 and S21. Specificity = (80 - c-hat)/50 and PPV = 30/c-hat are exact functions of c-hat on this design; sensitivity and NPV are identically 1 by nesting for beta_2 > 0. At beta_2 = 0 there is no harm region. Dilution is beta_2 minus the mean beta(H-hat). M_eff is the effective number of competitors: the number of independent standard normals whose expected maximum equals that of the family’s correlated null field.
+
+As \(\beta_2\) grows, \(\hat c\) concentrates on 30: its median falls from 40.0 at the null to 30.9 at \(\beta_2 = 0.5\), and the mean selected size from 212 to 165, against \(|H| \approx 150\). Re-selection is spread thin throughout — the median \(\hat p(\hat H)\) rises only from 0.196 to 0.309 — because near-duplicate candidates share the re-selection mass, and about 151 nested candidates compete like two independent ones (\(M_{\mathrm{eff}}\) of 2.1 to 2.2 in every cell).
+
+The selected subgroup’s lower bound (Tables S22 and S25)
+
+  ------------------------------------------------------------------------------------------------------------------------
+  beta_2   HR in H   HR in H-hat   method             coverage (Wilson 95%)   margin   bias     typical lower bound (HR)
+  -------- --------- ------------- ------------------ ----------------------- -------- -------- --------------------------
+  0.0      1.00      1.00          Unadjusted         0.866 (0.850, 0.880)    0.305    +0.122   0.83
+
+  0.0      1.00      1.00          Guo-He r = 1/12    0.952 (0.941, 0.960)    0.306    +0.014   0.75
+
+  0.0      1.00      1.00          MR (field)         0.940 (0.928, 0.949)    0.310    +0.030   0.76
+
+  0.0      1.00      1.00          MR (IJ two-term)   0.998 (0.994, 0.999)    0.577    +0.045   0.59
+
+  0.1      1.11      1.09          Unadjusted         0.870 (0.855, 0.884)    0.310    +0.116   0.89
+
+  0.1      1.11      1.09          Guo-He r = 1/12    0.952 (0.941, 0.960)    0.305    +0.008   0.81
+
+  0.1      1.11      1.09          MR (field)         0.933 (0.922, 0.944)    0.310    +0.026   0.82
+
+  0.1      1.11      1.09          MR (IJ two-term)   0.998 (0.995, 0.999)    0.582    +0.040   0.63
+
+  0.2      1.22      1.18          Unadjusted         0.882 (0.868, 0.896)    0.317    +0.111   0.96
+
+  0.2      1.22      1.18          Guo-He r = 1/12    0.958 (0.948, 0.965)    0.305    +0.002   0.87
+
+  0.2      1.22      1.18          MR (field)         0.938 (0.926, 0.947)    0.313    +0.025   0.89
+
+  0.2      1.22      1.18          MR (IJ two-term)   0.999 (0.996, 0.999)    0.591    +0.039   0.68
+
+  0.3      1.35      1.30          Unadjusted         0.895 (0.881, 0.908)    0.323    +0.103   1.04
+
+  0.3      1.35      1.30          Guo-He r = 1/12    0.961 (0.952, 0.969)    0.305    -0.007   0.95
+
+  0.3      1.35      1.30          MR (field)         0.937 (0.925, 0.947)    0.314    +0.021   0.97
+
+  0.3      1.35      1.30          MR (IJ two-term)   0.999 (0.996, 0.999)    0.598    +0.033   0.74
+
+  0.4      1.49      1.43          Unadjusted         0.901 (0.887, 0.913)    0.325    +0.094   1.13
+
+  0.4      1.49      1.43          Guo-He r = 1/12    0.965 (0.956, 0.972)    0.305    -0.018   1.03
+
+  0.4      1.49      1.43          MR (field)         0.941 (0.929, 0.950)    0.316    +0.017   1.06
+
+  0.4      1.49      1.43          MR (IJ two-term)   0.999 (0.996, 1.000)    0.601    +0.028   0.81
+
+  0.5      1.65      1.58          Unadjusted         0.918 (0.905, 0.929)    0.329    +0.076   1.23
+
+  0.5      1.65      1.58          Guo-He r = 1/12    0.972 (0.963, 0.978)    0.306    -0.037   1.12
+
+  0.5      1.65      1.58          MR (field)         0.951 (0.941, 0.960)    0.320    +0.007   1.16
+
+  0.5      1.65      1.58          MR (IJ two-term)   0.999 (0.996, 1.000)    0.608    +0.015   0.88
+  ------------------------------------------------------------------------------------------------------------------------
+
+  : The manuscript’s Table S25 with the hazard ratios of Table S22. HR in H is exp(beta_2); HR in H-hat is exp of the mean beta(H-hat). Margin: estimate minus lower bound; bias: of the point estimate against beta(H-hat); both on the log scale. Typical lower bound: exp of the mean log-scale bound.
+
+The unadjusted bound covers at 0.866 to 0.918, below nominal in every cell and furthest below it when \(\beta_2\) is small, and its point estimate carries much the largest bias throughout. Guo and He’s bound at \(r = 1/12\) covers at 0.952 to 0.972 and MR (field) at 0.933 to 0.951; MR (IJ two-term) covers at 0.998 to 0.999 with nearly twice their margin. The two corrections depart from nominal in opposite directions: Guo and He’s bound is conservative where \(\beta_2 \ge 0.3\), as their own account of a small \(r\) leads one to expect, and the field sits below the pointwise band in the four cells \(\beta_2 \le 0.3\), at its lowest 0.933. Their point estimates part the same way — Guo and He’s bias-reduced estimate crosses zero and over-corrects as \(\beta_2\) grows, the field’s retains a positive bias in every cell. The field reaches Guo and He’s width on this family (margin 0.310 to 0.320 against 0.305 to 0.306), so it gets its coverage by correcting less, not by a narrower interval.
+
+Read against one, every typical lower bound lies below the selected subgroup’s hazard ratio in its cell. The typical Guo–He and field bounds are above one, on the harm side, at \(\beta_2 = 0.4\) and 0.5 and below one in the other cells, the field a little above Guo and He’s in every cell; the IJ two-term bound is below one in every cell.
+
+Guo and He’s published Table 7 is more conservative still than the manuscript’s replication of it: at \(r = 1/12\) the published coverages run 0.961 to 0.972, about 0.01 above the replicated columns, a deficit the manuscript carries unchanged.
+
+The complement and the joint claim (Tables S24 and S28)
+
+  -----------------------------------------------------------------------------------
+  beta_2   method             coverage of 0 (Wilson 95%)   typical upper bound (HR)
+  -------- ------------------ ---------------------------- --------------------------
+  0.0      Unadjusted         0.863 (0.847, 0.877)         1.24
+
+  0.0      MR (IJ two-term)   1.000 (0.998, 1.000)         1.77
+
+  0.0      MR (field-s)       0.928 (0.916, 0.939)         1.34
+
+  0.1      Unadjusted         0.881 (0.866, 0.894)         1.24
+
+  0.1      MR (IJ two-term)   0.999 (0.996, 1.000)         1.76
+
+  0.1      MR (field-s)       0.940 (0.928, 0.949)         1.34
+
+  0.2      Unadjusted         0.895 (0.881, 0.908)         1.24
+
+  0.2      MR (IJ two-term)   0.999 (0.996, 1.000)         1.73
+
+  0.2      MR (field-s)       0.938 (0.927, 0.948)         1.33
+
+  0.3      Unadjusted         0.896 (0.882, 0.909)         1.24
+
+  0.3      MR (IJ two-term)   0.999 (0.996, 0.999)         1.71
+
+  0.3      MR (field-s)       0.941 (0.930, 0.951)         1.31
+
+  0.4      Unadjusted         0.913 (0.900, 0.925)         1.26
+
+  0.4      MR (IJ two-term)   1.000 (0.997, 1.000)         1.72
+
+  0.4      MR (field-s)       0.948 (0.937, 0.957)         1.33
+
+  0.5      Unadjusted         0.917 (0.904, 0.928)         1.26
+
+  0.5      MR (IJ two-term)   0.999 (0.996, 0.999)         1.71
+
+  0.5      MR (field-s)       0.936 (0.925, 0.946)         1.32
+  -----------------------------------------------------------------------------------
+
+  : The manuscript’s Table S24, complement rows, with the Wilson intervals of Table S28: one-sided 95% upper bounds on beta(H-hat^c) against its truth of exactly 0. The unadjusted bound uses the robust standard error. Guo and He have no counterpart to any row.
+
+  ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+  beta_2   joint coverage, field-s   joint coverage, unscaled field   corr of the two draws (field-s / unscaled)   pair: lower on H-hat / upper on H-hat^c (HR)
+  -------- ------------------------- -------------------------------- -------------------------------------------- ----------------------------------------------
+  0.0      0.933 (0.921, 0.943)      0.931 (0.919, 0.941)             +0.015 / +0.018                              0.71 / 1.42
+
+  0.1      0.933 (0.921, 0.943)      0.932 (0.920, 0.942)             +0.020 / +0.021                              0.77 / 1.42
+
+  0.2      0.942 (0.931, 0.951)      0.941 (0.930, 0.951)             +0.021 / +0.021                              0.83 / 1.40
+
+  0.3      0.946 (0.935, 0.955)      0.944 (0.933, 0.953)             +0.019 / +0.018                              0.91 / 1.39
+
+  0.4      0.946 (0.935, 0.955)      0.947 (0.936, 0.956)             +0.017 / +0.015                              1.00 / 1.40
+
+  0.5      0.942 (0.930, 0.951)      0.943 (0.931, 0.952)             +0.012 / +0.009                              1.09 / 1.39
+  ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+  : The manuscript’s Table S24, joint rows: the Bonferroni pair at 0.975 a side, with field-s or the unscaled field on H-hat^c.
+
+The field-s upper bound covers at 0.928 to 0.948, with its low point in the null cell, where the selection is loosest. Its typical location, 1.31 to 1.34, sits above one — a typical bound is not on the benefit side in \(\hat H^{c}\) — so no benefit claim arises. The unadjusted upper bound sits lower, at 1.24 to 1.26, but covers at only 0.863 to 0.917: selecting the most harmful subgroup pushes the complement’s estimate toward benefit, so an unadjusted upper bound is too low. The IJ two-term bound covers at 0.999 or above, at 1.71 to 1.77. The Bonferroni pair covers jointly at 0.933 to 0.946; the correlation between the harm and complement draws is +0.009 to +0.021 under either scaling, so a pair calibrated to it coincides with Bonferroni. At 0.975 a side, the typical pair puts the hazard ratio in \(\hat H\) at or above 0.71 to 1.09 across the cells and the hazard ratio in \(\hat H^{c}\) at or below 1.39 to 1.42; the two ranges overlap in every cell — at this sample size the typical joint claim does not separate the two groups. Two cautions: joint coverage concerns the effects of the two subgroups actually selected, not whether they partition the population correctly; and because the complement’s truth is a hazard ratio of one in every cell, a benefit claim for \(\hat H^{c}\) is never exercised.
+
+The sixteen replicated cells (Table S23)
+
+  ------------------------------------------------------------------------------------------------------------------------------
+  design                       cell           Guo-He r = 1/12: coverage / margin / bias   MR (field): coverage / margin / bias
+  ---------------------------- -------------- ------------------------------------------- --------------------------------------
+  Two subgroups (Tables 3-5)   beta_2 = 0.0   0.946 / 0.265 / +0.003                      0.945 / 0.302 / +0.010
+
+  Two subgroups (Tables 3-5)   beta_2 = 0.1   0.953 / 0.263 / -0.006                      0.949 / 0.301 / +0.004
+
+  Two subgroups (Tables 3-5)   beta_2 = 0.2   0.948 / 0.262 / -0.017                      0.945 / 0.304 / +0.003
+
+  Two subgroups (Tables 3-5)   beta_2 = 0.3   0.945 / 0.260 / -0.035                      0.936 / 0.307 / -0.003
+
+  Two subgroups (Tables 3-5)   beta_2 = 0.4   0.950 / 0.260 / -0.057                      0.936 / 0.309 / -0.012
+
+  Two subgroups (Tables 3-5)   beta_2 = 0.5   0.953 / 0.260 / -0.068                      0.942 / 0.311 / -0.011
+
+  k null subgroups (Table 6)   k = 2          0.948 / 0.265 / +0.002                      0.944 / 0.302 / +0.008
+
+  k null subgroups (Table 6)   k = 6          0.945 / 0.218 / +0.008                      0.941 / 0.294 / +0.030
+
+  k null subgroups (Table 6)   k = 10         0.949 / 0.203 / +0.007                      0.944 / 0.291 / +0.038
+
+  k null subgroups (Table 6)   k = 12         0.947 / 0.198 / +0.006                      0.942 / 0.290 / +0.041
+
+  Nested (Table 7)             beta_2 = 0.0   0.952 / 0.306 / +0.014                      0.940 / 0.310 / +0.030
+
+  Nested (Table 7)             beta_2 = 0.1   0.952 / 0.305 / +0.008                      0.933 / 0.310 / +0.026
+
+  Nested (Table 7)             beta_2 = 0.2   0.958 / 0.305 / +0.002                      0.938 / 0.313 / +0.025
+
+  Nested (Table 7)             beta_2 = 0.3   0.961 / 0.305 / -0.007                      0.937 / 0.314 / +0.021
+
+  Nested (Table 7)             beta_2 = 0.4   0.965 / 0.305 / -0.018                      0.941 / 0.316 / +0.017
+
+  Nested (Table 7)             beta_2 = 0.5   0.972 / 0.306 / -0.037                      0.951 / 0.320 / +0.007
+  ------------------------------------------------------------------------------------------------------------------------------
+
+  : The manuscript’s Table S23: Guo and He’s bound at r = 1/12 and MR (field) on the sixteen cells of Guo and He’s Tables 3-7, 2,000 paired replicates per cell. Two subgroups: a disjoint pair with effects 0 and beta_2; k null subgroups: k disjoint candidates with no effect; nested: the continuum above.
+
+Across the sixteen cells Guo and He’s bound covers at 0.945 to 0.972 and the field at 0.933 to 0.951. The field’s margin stays at 0.290 to 0.320 in every design, whereas Guo and He’s is 0.305 to 0.306 on the nested family, 0.260 to 0.265 on the two-subgroup design and down to 0.198 with twelve disjoint null subgroups: the field reaches their width on the nested family only. Guo and He’s bias-reduced estimate over-corrects as separation grows, while the field’s retained bias grows with the number of tied null subgroups.
+
+Limits
+
+The manuscript records these; they bound what the design can show.
+
+1.  The field’s low points are under-correction on a nested family. Its harm-side coverage bottoms out at 0.933 (\(\beta_2 = 0.1\)), with its point estimate biased upward in every cell, and the field-s complement bound bottoms out at 0.928 in the null cell. Both sit where the pick is least settled: re-selection is spread thin throughout, with median \(\hat p(\hat H)\) from 0.196 to 0.309. Across Guo and He’s replicated designs the nested family is the hardest case for the field’s second-order correction.
+2.  Theory scope. The design lies inside Guo and He’s theory. Its roughly 151 candidates, each differing from its neighbour by one subject, are the near-duplicate case that strains the no-tie condition on which the multiplier-resampling theory rests, so the field’s calibration here is an empirical finding on this design, not a consequence of that theory.
+3.  Identification is flattered by construction. The true boundary is the family’s smallest member, toward which the argmax is drawn even when there is no harm region; for \(\beta_2 > 0\) sensitivity and negative predictive value are identically one, and overshoot is the only error.
+4.  Forest search’s screen and family construction are not exercised. The identifier is the pure argmax over Guo and He’s family. Forest search’s screened identifier is evaluated in Section 5 of the manuscript and in vignette("forestsearch").
+5.  A benefit claim is untested. The complement’s truth is zero in every cell, so no cell holds a benefit for a bound to establish.
+6.  One design, one sample size. Everything is at \(n = 400\) on Guo and He’s Section 5.2 design.
+7.  Guo and He are not run on a screened family. Their method is applied exactly as published, on the family their Section 5.2 specifies; their suggestion that it serves as a conservative approach after other identification is not tested, and no claim is made either way.
+8.  No adaptive choice of \(r\). Guo and He’s Table 7 reports none, and neither does the manuscript: in a pilot of their cross-validated choice on this design, changing only the seed of the adaptive procedure changed \(\hat r\) on 5 of 10 replicates with the data and the selection unchanged.
+9.  Everything is one-sided. Every construction compared is a one-sided bound, so nothing depends on the choice of a two-sided interval method.
+
+Running the manuscript’s design
+
+Set, at the top of this article,
+
+and leave the multiplier settings as they are (they are already the manuscript’s). Everything else follows: the seeds reproduce the manuscript’s replicates, the summaries and figures are those of Section S4 at full size, and the reference tables above are what the run should reproduce up to Monte Carlo error of the truth curve (a few thousandths on the log scale at \(n_{\mathrm{big}} = 2 \times 10^6\)).
+
+The cost is Guo and He’s bootstrap. On one core of a Linux workstation, one replicate at these settings takes about 72 s, of which the bootstrap at \(B = 2000\) is about 70 s and the multiplier resampling with its field about 2 s; the six cells at 2,000 replicates are therefore about 240 core-hours — some 2.5 hours on 100 workers, or a weekend on 8. At \(B = 200\) a replicate takes about 10 s. The truth curve at \(n_{\mathrm{big}} = 2 \times 10^6\) costs about a minute per cell, once.
+
+References
+
+Guo, X. and He, X. (2021). Inference on selected subgroups in clinical trials. Journal of the American Statistical Association 116(535), 1498–1506. https://doi.org/10.1080/01621459.2020.1740096
+
+León, L. F. and Anderson, K. M. (2026a). Inference for standard trial estimands after data-driven subgroup discovery. arXiv:2609.38361. https://doi.org/10.48550/arXiv.2609.38361
+
+León, L. F. and Anderson, K. M. (2026b). Interpretable subgroup identification across survival and generalized-linear outcomes. arXiv:2610.28379. https://doi.org/10.48550/arXiv.2610.28379
+
+León, L. F., Jemielita, T., Guo, Z., Marceau West, R. and Anderson, K. M. (2024). Exploratory subgroup identification in the heterogeneous Cox model: A relatively simple procedure. Statistics in Medicine. https://doi.org/10.1002/sim.10163

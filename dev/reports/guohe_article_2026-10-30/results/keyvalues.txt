@@ -1,0 +1,51 @@
+reference_gate_comparisons = 504
+reference_gate_passes = 504
+reference_gate_failures = 0
+reference_gate_by_table: ref_16 = 96/96
+reference_gate_by_table: ref_gh_published = 12/12
+reference_gate_by_table: ref_joint = 60/60
+reference_gate_by_table: ref_location = 12/12
+reference_gate_by_table: ref_lower = 144/144
+reference_gate_by_table: ref_select = 108/108
+reference_gate_by_table: ref_upper = 72/72
+payload_meta_nrep = 2000  (article states 2000; agree = TRUE)
+payload_meta_draws = 5000  (article states 5000; agree = TRUE)
+payload_meta_field_R_out = 1000  (article states 1000; agree = TRUE)
+payload_meta_field_R_in = 500  (article states 500; agree = TRUE)
+payload_meta_head_at_render = d975a51eda0420775f6b6e4f55b424380e5657e8
+payload_meta_forestsearch_version = 0.3.5
+render_exit = 0 ; render_wallclock = 5:24.18 ; html_files_dir = absent
+tg1_walkthrough_manuscript_settings = 2  (expect 1)
+tg2a_own_lower = 1  (expect 1)
+tg2b_own_select = 2  (expect 1)
+tg2c_own_pair = 2  (expect 1)
+tg3_wallclock_2_workers = 1  (expect 1)
+tg4a_0.952_(0.941,_0.960) = 2  (expect >= 2)
+tg4b_0.928_(0.916,_0.939) = 1  (expect >= 1)
+tg4c_0.945_/_0.302_/_+0.010 = 1  (expect 1)
+tg5a_NaN = 0  (expect 0)
+tg5b_NA_paren = 0  (expect 0)
+tg5c_Inf = 1  (expect 0)
+tg6_selection_agreement = 1  (expect 1)
+tg8a_fig_lower_caption = 1  (expect >= 1)
+tg8b_fig_complement_caption = 1  (expect >= 1)
+tg7_numbered_inside = 9 ; tg7_numbered_outside = 0  (expect outside 0)
+TEXT GATE §5: RED (tg1, tg2b, tg2c, tg5c out of range) -- task stopped
+--- v2 sec. 5 (output only; article_output.txt = HTML with all 28 <pre> elements removed: 26 echoed code, 2 printed output) ---
+tg1_walkthrough_manuscript_settings output_only = 1 ; whole_page_v1 = 2 ; diff = 1 ; expect: n==1 ; PASS
+tg2a_own_lower output_only = 1 ; whole_page_v1 = 1 ; diff = 0 ; expect: n==1 ; PASS
+tg2b_own_select output_only = 1 ; whole_page_v1 = 2 ; diff = 1 ; expect: n==1 ; PASS
+tg2c_own_pair output_only = 1 ; whole_page_v1 = 2 ; diff = 1 ; expect: n==1 ; PASS
+tg3_wallclock_2_workers output_only = 1 ; whole_page_v1 = 1 ; diff = 0 ; expect: n==1 ; PASS
+tg4a_0.952 output_only = 2 ; whole_page_v1 = 2 ; diff = 0 ; expect: n>=2 ; PASS
+tg4b_0.928 output_only = 1 ; whole_page_v1 = 1 ; diff = 0 ; expect: n>=1 ; PASS
+tg4c_S23_row1 output_only = 1 ; whole_page_v1 = 1 ; diff = 0 ; expect: n==1 ; PASS
+tg5a_NaN output_only = 0 ; whole_page_v1 = 0 ; diff = 0 ; expect: n==0 ; PASS
+tg5b_NA_paren output_only = 0 ; whole_page_v1 = 0 ; diff = 0 ; expect: n==0 ; PASS
+tg5c_Inf output_only = 0 ; whole_page_v1 = 1 ; diff = 1 ; expect: n==0 ; PASS
+tg6_selection_agreement output_only = 1 ; whole_page_v1 = 1 ; diff = 0 ; expect: n==1 ; PASS
+tg7_numbered_list (source) inside_Limits = 9 ; outside = 0 ; expect: outside==0 ; PASS
+tg8a_fig_lower_caption output_only = 1 ; whole_page_v1 = 1 ; diff = 0 ; expect: n>=1 ; PASS
+tg8b_fig_complement_caption output_only = 1 ; whole_page_v1 = 1 ; diff = 0 ; expect: n>=1 ; PASS
+v1_to_v2_difference: whole-page minus output-only = +1 on tg1, tg2b, tg2c, tg5c; 0 elsewhere (as v2 states)
+TEXT GATE §5 (v2): GREEN
