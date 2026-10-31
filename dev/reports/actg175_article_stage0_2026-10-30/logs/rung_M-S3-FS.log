@@ -1,0 +1,75 @@
+RUNG M-S3-FS | forestsearch 0.4.1 | built R 4.6.1; ; 2026-10-30 16:08:45 UTC; unix 
+Using 102 of 128 total cores for parallel processingLoading required package: leaps
+Loading required package: survival
+
+Attaching package: ‘data.table’
+
+The following object is masked from ‘package:base’:
+
+    %notin%
+
+Loading required package: foreach
+Loading required package: future
+
+Attaching package: ‘future’
+
+The following object is masked from ‘package:survival’:
+
+    cluster
+
+Sample size: 1083 
+Adverse events (no improvement): 430 (39.7%)
+Baseline factors: age, preanti, wtkg, karnof, cd40, cd80, hemo, homo, drugs, race, gender, symptom 
+Continuous candidates: age, preanti, wtkg, karnof, cd40, cd80 
+Binary candidates:     hemo, homo, drugs, race, gender, symptom 
+
+ForestSearch completed in 52 seconds
+Warning message:
+forestsearch(): 'vi.grf.min' is deprecated and ignored. GRF variable-importance screening of the candidate cut columns was removed; the candidate family is the cut grid alone unless use_lasso, use_grf or use_dina is TRUE. The argument will be removed in a future release -- drop it from the call. 
+List of 4
+ $ rung    : chr "M-S3-FS"
+ $ fit_sec : 'proc_time' Named num [1:5] 52.2 53.3 52 53.5 53.5
+ $ cells   :List of 18
+  ..$ region        : chr "!{cd40 <= 380} & !{wtkg <= 86}"
+  ..$ n_H           : int 72
+  ..$ n_Hc          : int 1011
+  ..$ naive_est     : num 3.58
+  ..$ naive_lo      : num 1.31
+  ..$ naive_hi      : num 9.77
+  ..$ mr_est        : num 1.79
+  ..$ mr_lo         : num 0.632
+  ..$ mr_hi         : num 5.09
+  ..$ c_naive_est   : num 0.587
+  ..$ c_naive_lo    : num 0.454
+  ..$ c_naive_hi    : num 0.759
+  ..$ c_mr_est      : num 0.616
+  ..$ c_mr_lo       : num 0.37
+  ..$ c_mr_hi       : num 1.03
+  ..$ n_family      : int 2794
+  ..$ selection_bias: num 0.692
+  ..$ mr_sec        : num 11.2
+ $ rung_sec: num 52.2
+RUNG_DONE M-S3-FS 52.2 
+	Command being timed: "Rscript dev/reports/actg175_article_stage0_2026-10-30/ladder.R M-S3-FS"
+	User time (seconds): 52.74
+	System time (seconds): 0.86
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:53.61
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 1224100
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 417025
+	Voluntary context switches: 76
+	Involuntary context switches: 652
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 312
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

@@ -1,0 +1,211 @@
+---
+title: "Payload manifest — `.rds` inputs of the main and supplement"
+date: today
+format:
+  html:
+    toc: false
+    embed-resources: true
+bibliography: references.bib
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+<!--
+  payload_manifest.qmd — living inventory of every .rds the main and supplement
+  consume, with consumers, provenance, status vs the re-run queue, and the source
+  generator file. Static columns are maintained by hand from the survey record
+  (manuscript/_survey_2026-08/ reports B, D, and the mr_sweep follow-up); the
+  metadata columns (Built / Sims / MB) are READ LIVE from the payloads at render,
+  so this document self-updates as post-fix payloads land.
+  Sections use the post-A4 numbering (reorder of 2026-08-17): apps S6/S7,
+  sims S8.1–S8.7, computational details S9.
+  This file is NOT part of the submission render set — render standalone:
+      quarto render payload_manifest.qmd
+  Generator entries were filled by the CC manifest session of 2026-08-17 from repo
+  evidence only (payload-export commits cf4d6432/43b051b6, gbsg_redux and gbsg_020
+  driver documents, actg175/binary sweep drivers, git --follow provenance) — none
+  guessed; paths are forestsearch-repo-relative except where marked.
+-->
+
+```{=html}
+<style>
+.manifest { table-layout: fixed; width: 100%; font-size: 0.78rem; border-collapse: collapse; margin-bottom: 1.5em; }
+.manifest th, .manifest td { padding: 4px 6px; border-bottom: 1px solid #ddd; vertical-align: top; text-align: left; overflow-wrap: anywhere; }
+.manifest thead th { border-bottom: 2px solid #888; }
+.manifest tbody tr:nth-child(odd) { background: #f7f7f7; }
+.manifest td:first-child { word-break: break-all; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.7rem; }
+.manifest.active  th:nth-child(1) { width: 16%; } .manifest.active  th:nth-child(2) { width: 5%; }
+.manifest.active  th:nth-child(3) { width: 29%; } .manifest.active  th:nth-child(4) { width: 17%; }
+.manifest.active  th:nth-child(5) { width: 16%; } .manifest.active  th:nth-child(6) { width: 8%; }
+.manifest.active  th:nth-child(7) { width: 4.5%; } .manifest.active th:nth-child(8) { width: 4.5%; }
+.manifest.inactive th:nth-child(1) { width: 22%; } .manifest.inactive th:nth-child(2) { width: 24%; }
+.manifest.inactive th:nth-child(3) { width: 28%; } .manifest.inactive th:nth-child(4) { width: 17%; }
+.manifest.inactive th:nth-child(5) { width: 9%; }
+</style>
+```
+
+```{r setup}
+`%||%` <- function(a, b) if (is.null(a)) b else a
+payload_dir <- "_payloads"
+
+read_meta <- function(rel) {
+  path <- file.path(payload_dir, rel)
+  out <- data.frame(Exists = file.exists(path), Built = NA_character_,
+                    Seed = NA_real_, Sims = NA_real_, MB = NA_real_)
+  if (!out$Exists) return(out)
+  out$MB <- round(file.info(path)$size / 1e6, 2)
+  x <- tryCatch(suppressWarnings(readRDS(path)), error = function(e) NULL)
+  if (is.null(x) || !is.list(x)) return(out)
+  m <- x$meta %||% list()
+  b <- x$built %||% x$built_at %||% m$built %||% m$built_at
+  if (!is.null(b)) out$Built <- format(as.POSIXct(b), "%Y-%m-%d %H:%M")
+  s <- m$seed_base %||% x$seed_base
+  if (!is.null(s)) out$Seed <- as.numeric(s)
+  ns <- m$n_sims %||% x$n_sims
+  if (!is.null(ns)) out$Sims <- as.numeric(ns)
+  out
+}
+
+manifest_kable <- function(df, cls) {
+  knitr::kable(df, format = "html", row.names = FALSE, escape = TRUE,
+               table.attr = sprintf('class="manifest %s"', cls))
+}
+```
+
+```{r rows-active}
+active <- tibble::tribble(
+  ~Payload, ~Fam, ~Consumers, ~Status, ~Generator,
+  "analysis_gbsg_survival_multimethod_payload.rds", "app",
+    "_gbsg_section6_1 (main Sec 6.1); _supp_gbsg_table (supp S6)",
+    "keep - post-audit (built 08-15)",
+    "forestsearch quarto/applications/gbsg/analysis_gbsg_survival_multimethod.qmd, chunk export-section6-2-payload (writes <stem>_payload.rds; export machinery cf4d6432, latest run 43b051b6)",
+  "analysis_actg175_binary_multimethod_fixed_family_payload.rds", "app",
+    "_actg175_supp (supp S7)",
+    "keep - post-audit (built 08-16); fd1ce74f: full-pool run diverges from published table",
+    "forestsearch quarto/applications/actg175/analysis_actg175_binary_multimethod_fixed_family.qmd (same <stem>_payload.rds machinery; cf4d6432, latest run 43b051b6)",
+  "fs_t1_t2_m1_h10_knoise0_n500_combined_1_500.rds", "est.",
+    "_sim_estimation_fs_h10 (S8.1); _sim_synthesis_h10 (main Sec 7); _supp_sim_synthesis (S8.4); _sim_additional_results_intro (S8 intro); fs_identification_figures_h10 (S8.7)",
+    "HOLD - post-fix successor partial in gbsg_020 (fs h10 sims 1-100); complete to 500",
+    "original: gbsg_redux/fs_t1_t2_m1_h10_knoise0_n500_batch_*.qmd -> fs_t1_t2_m1_h10_knoise0_n500_combine_1_500.qmd (84095eb8); post-fix successor driver: gbsg_020/sim_fs_maxeffCons_fb_mr_m1_h10_knoise0_n500_batch_1_100.qmd (11375890)",
+  "dina_t1_t2_m1_h10_knoise0_n500_combined_1_500.rds", "est.",
+    "_sim_estimation_dina_h10 (S8.2); both syntheses; S8 intro",
+    "re-run queue (pre-audit)", "gbsg_redux/dina_t1_t2_m1_h10_knoise0_n500_batch_{1_20,21_500}.qmd -> dina_t1_t2_m1_h10_knoise0_n500_combine_1_500.qmd",
+  "grf_t1_t2_m1_h10_knoise0_n500_combined_1_500.rds", "est.",
+    "_sim_estimation_grf_h10 (S8.3); both syntheses; S8 intro",
+    "re-run queue (pre-audit)", "gbsg_redux/grf_t1_t2_m1_h10_knoise0_n500_batch_{1_20,21_100,101_200,201_400,401_500}.qmd -> grf_t1_t2_m1_h10_knoise0_n500_combine_1_500.qmd",
+  "fs_t1_t2_m1_h10_knoise0_n1000_combined_1_500.rds", "est.",
+    "fs_identification_figures_h10 (S8.7); (_sim_estimation_fs_h10_n1000 - INACTIVE include)",
+    "re-run queue (pre-audit)", "gbsg_redux/fs_t1_t2_m1_h10_knoise0_n1000_batch_*.qmd (8 docs) -> legacy/fs_t1_t2_m1_h10_knoise0_n1000_combine_1_500.qmd (archived by 98115f3)",
+  "fs_t1_t2_m1_h15_knoise0_n500_combined_1_500.rds", "est.",
+    "fs_identification_figures_h15 (S8.7)",
+    "re-run queue (pre-audit)", "gbsg_redux/fs_t1_t2_m1_h15_knoise0_n500_batch_{1_100,101_200,201_300,301_400,401_500}.qmd -> legacy/fs_t1_t2_m1_h15_knoise0_n500_combine_1_500.qmd",
+  "fs_t1_t2_m1_h15_knoise0_n1000_combined_1_500.rds", "est.",
+    "_sim_estimation_fs_h15_n1000 (S8.5); fs_identification_figures_h15 (S8.7); S8 intro",
+    "re-run queue (pre-audit)", "gbsg_redux/fs_t1_t2_m1_h15_knoise0_n1000_batch_*.qmd -> fs_t1_t2_m1_h15_knoise0_n1000_combine_1_500.qmd (root)",
+  "fs_t1_t2_m1_h15_knoise3_n1500_combined_1_500.rds", "est.",
+    "_sim_noise_pair_n1500 (S8.6)",
+    "re-run queue (pre-audit)", "gbsg_redux/fs_t1_t2_m1_h15_knoise3_n1500_batch_*.qmd (10 docs) -> legacy/fs_t1_t2_m1_h15_knoise3_n1500_combine_1_500.qmd",
+  "fs_t1_t2_m1_h20_knoise3_n1500_combined_1_500.rds", "est.",
+    "_sim_noise_pair_n1500 (S8.6)",
+    "re-run queue (pre-audit)", "gbsg_redux/fs_t1_t2_m1_h20_knoise3_n1500 batch/combine-range docs (root) -> legacy/fs_t1_t2_m1_h20_knoise3_n1500_combine_1_500.qmd",
+  "mr_coverage_grid_m1_h075_knoise0_s1000.rds", "grid",
+    "_sim_mr_coverage_h075_{cond,marg} (S8.7); _supp_intro_sim_summary (front matter); S8 intro",
+    "re-run queue (pre-audit; built 06-30)", "gbsg_redux/mr_coverage_sweep_h075.qmd (run_tag m1_h075_knoise0_s1000; current file is the Aug-7 engine revision f8bdb80f, run vintage 06-30)",
+  "mr_coverage_grid_m1_h10_knoise0_s1000.rds", "grid",
+    "_sim_mr_coverage_h10_{cond,marg} (S8.7); both intros",
+    "re-run queue (pre-audit; built 06-30)", "gbsg_redux/mr_coverage_sweep_h10.qmd (run_tag m1_h10_knoise0_s1000)",
+  "mr_coverage_grid_m1_h15_knoise0_s1000.rds", "grid",
+    "_sim_mr_coverage_h15_{cond,marg} (S8.7); both intros",
+    "re-run queue (pre-audit; built 06-30)", "gbsg_redux/mr_coverage_sweep_h15.qmd (run_tag m1_h15_knoise0_s1000)",
+  "mr_coverage_grid_actg175_or075_s1000.rds", "grid",
+    "_sim_mr_coverage_or075_actg175_{marg,cond} (S8.7); both intros",
+    "re-run queue (pre-audit; built 07-02)", "forestsearch quarto/simulations/actg175/binary/mr_coverage_sweep_or075_s1k.qmd (run_tag actg175_or075_s1000)",
+  "m1_h10_knoise0new_s1000/mr_coverage_grid_m1_h10_knoise0new_s1000.rds", "knoise",
+    "_sim_mr_coverage_h10_knoise (S8.7 fig); _sim_noise_null_sweep (S8.7 table; also reads the dir's per-cell fs_mr_n*_res bundles)",
+    "re-run queue (pre-audit; built 07-09; 'new' = July revision, NOT post-audit)",
+    "gbsg_redux/mr_coverage_sweep_h10_knoise0.qmd as of bc58ec48 (07-09, committed with the dir); current file has moved to a v2 run_tag scheme and no longer writes this tag",
+  "m1_h10_knoise3new_s1000/mr_coverage_grid_m1_h10_knoise3new_s1000.rds", "knoise",
+    "same consumers as knoise0new",
+    "re-run queue (pre-audit; built 07-09)", "gbsg_redux/mr_coverage_sweep_h10_knoise3.qmd (run_tag m1_h10_knoise3new_s1000)",
+  "m1_h10_knoise6new_s1000/mr_coverage_grid_m1_h10_knoise6new_s1000.rds", "knoise",
+    "same consumers as knoise0new",
+    "re-run queue (pre-audit; built 07-09)", "gbsg_redux/mr_coverage_sweep_h10_knoise6.qmd (run_tag m1_h10_knoise6new_s1000)"
+)
+meta <- do.call(rbind, lapply(active$Payload, read_meta))
+active_tbl <- cbind(active, meta)
+```
+
+## Active payloads (consumed by the current render)
+
+Fam: `app` = application table payload · `est.` = t1_t2 estimation bundle ·
+`grid` = mr-coverage grid · `knoise` = noise-sweep directory (row points at the
+directory's grid; its 21 per-cell bundles share the provenance). `Built`/`Sims`/`MB`
+are read live from `_payloads/` at render; a blank `Built` on an existing file
+means it embeds no timestamp (true of all legacy `t1_t2` bundles — itself a
+provenance finding). `seed_base` is checked live and flagged below only if any
+file deviates from 8316951.
+
+```{r table-active}
+disp <- active_tbl
+disp$Built[disp$Exists & is.na(disp$Built)] <- ""
+disp$Built[!disp$Exists] <- "MISSING"
+disp$Exists <- NULL; disp$Seed <- NULL
+manifest_kable(disp, "active")
+```
+
+```{r seed-check, results='asis'}
+bad <- active_tbl$Payload[active_tbl$Exists & !is.na(active_tbl$Seed) &
+                          active_tbl$Seed != 8316951]
+if (length(bad))
+  cat("**Seed anomaly - `seed_base` differs from 8316951 in:** ",
+      paste0("`", bad, "`", collapse = ", "), "\n")
+```
+
+## Inactive-include and missing expectations
+
+Wired into the supplement via `{{{< >}}}`-escaped (inactive) includes; they render
+nothing today but constrain any reactivation decision.
+
+```{r rows-inactive}
+inactive <- tibble::tribble(
+  ~Payload, ~Consumers, ~Status, ~Generator,
+  "fs_t1_t2_m1_h10_knoise0_n1000_combined_1_400.rds",
+    "fs_identification_figures (INACTIVE)",
+    "pre-audit; decide with reactivation",
+    "gbsg_redux/legacy/fs_t1_t2_m1_h10_knoise0_n1000_combine_1_400.qmd (archived by 98115f3)",
+  "mr_coverage_grid_m1_h20_knoise0_s1000.rds",
+    "_sim_mr_coverage_h20 (INACTIVE)",
+    "pre-audit; decide with reactivation",
+    "gbsg_redux/mr_coverage_sweep_h20.qmd (run_tag m1_h20_knoise0_s1000)",
+  "mr_coverage_grid_m1_h25_knoise0_s1000.rds",
+    "_sim_mr_coverage_h25 (INACTIVE)",
+    "MISSING in _payloads - s1000 copy in manuscript_v40/ (flat; built 06-21, older 252x18 schema); s500 variant in _payloads + mr_sweep",
+    "June-21 sweep suite (pre-split ancestor of gbsg_redux/mr_coverage_sweep_h25.qmd per git --follow; current file is s500-configured)",
+  "mr_coverage_grid_actg175_or15_s500.rds",
+    "_sim_mr_coverage_or15_actg175 (INACTIVE; run_tag actg175_or15_s500)",
+    "MISSING in _payloads - copies in manuscript_v40/ (flat) and forestsearch actg175/binary/mr_sweep_legacy/actg175_or15_s500/",
+    "forestsearch quarto/simulations/actg175/binary/mr_coverage_sweep_or15.qmd (run_tag actg175_or15_s500)"
+)
+meta_i <- do.call(rbind, lapply(inactive$Payload, read_meta))
+disp_i <- cbind(inactive, meta_i)
+disp_i$Built[disp_i$Exists & is.na(disp_i$Built)] <- ""
+disp_i$Built[!disp_i$Exists] <- "MISSING"
+disp_i$Exists <- NULL; disp_i$Seed <- NULL; disp_i$Sims <- NULL; disp_i$MB <- NULL
+manifest_kable(disp_i, "inactive")
+```
+
+## Notes
+
+Status and provenance follow the survey record in `_survey_2026-08/` (Report B:
+consumption chain and pre-audit classification; Report D + mr_sweep follow-up:
+`gbsg_redux` holds nothing newer under old names, post-fix generation =
+`quarto/simulations/gbsg_020/` in the `forestsearch` repo, currently fs h10 sims
+1–100 only). The audit boundary is 2026-08-06/07 with the MR-denominator fix of
+~Aug 5; every live simulation payload above predates it. Unconsumed and archived
+payloads (`_payloads/_archive/`, duplicates, `manuscript_legacy/`,
+`manuscript_v40/`) are intentionally out of scope here — see Report B §B6.
+The three Aug-2 selection-variant sweeps (`effMaxSG` / `effMinSG` / `maxcons`,
+h10 knoise0) in `gbsg_redux/mr_sweep/` are new design points with no manuscript
+consumer — pre-fix, diagnostic context for the selection-rule decision only.

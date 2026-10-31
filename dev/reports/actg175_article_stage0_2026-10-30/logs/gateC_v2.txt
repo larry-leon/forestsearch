@@ -1,0 +1,36 @@
+GATE C (v2 restatement, §2.4), M-S3-FS, installed forestsearch 0.4.1 
+
+Region: see compare_M-S3-FS.txt (membership identical to Table S3 region)
+REGION label (this fit): !{cd40 <= 380} & !{wtkg <= 86} 
+REGION label (payload):  !{wtkg <= 86} & !{cd40 <= 380} 
+REGION membership identical to Table S3's region: TRUE 
+
+[1] exact at 2 dp (n, both naive rows):
+         cell         ours ours_printed   table   ok
+          H n   72.0000000        72.00   72.00 TRUE
+  H naive est    3.5844156         3.58    3.58 TRUE
+   H naive lo    1.3145204         1.31    1.31 TRUE
+   H naive hi    9.7739336         9.77    9.77 TRUE
+         Hc n 1011.0000000      1011.00 1011.00 TRUE
+ Hc naive est    0.5867698         0.59    0.59 TRUE
+  Hc naive lo    0.4539203         0.45    0.45 TRUE
+  Hc naive hi    0.7585006         0.76    0.76 TRUE
+
+[2] multiplier point estimates, exact at 2 dp:
+      cell      ours ours_printed table   ok
+  H MR est 1.7945231         1.79  1.79 TRUE
+ Hc MR est 0.6163855         0.62  0.62 TRUE
+
+[3] multiplier interval limits, within 0.01 (one unit in the 2nd decimal) at 2 dp:
+     cell      ours ours_printed table diff_2dp_units   ok   payload
+  H MR lo 0.6320850         0.63  0.63              0 TRUE 0.6333541
+  H MR hi 5.0947467         5.09  5.08              1 TRUE 5.0821221
+ Hc MR lo 0.3698888         0.37  0.37              0 TRUE 0.3698846
+ Hc MR hi 1.0271492         1.03  1.03              0 TRUE 1.0264276
+ fullprec_minus_payload fullprec_minus_table
+             -1.269e-03            0.0020850
+              1.262e-02            0.0147500
+              4.227e-06           -0.0001112
+              7.217e-04           -0.0028510
+
+GATE C: PASS 

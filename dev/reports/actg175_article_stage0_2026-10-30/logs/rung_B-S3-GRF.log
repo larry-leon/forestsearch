@@ -1,0 +1,96 @@
+RUNG B-S3-GRF | forestsearch 0.4.1 | built R 4.6.1; ; 2026-10-30 16:08:45 UTC; unix 
+Using 102 of 128 total cores for parallel processingLoading required package: leaps
+Loading required package: survival
+
+Attaching package: ‘data.table’
+
+The following object is masked from ‘package:base’:
+
+    %notin%
+
+Loading required package: foreach
+Loading required package: future
+
+Attaching package: ‘future’
+
+The following object is masked from ‘package:survival’:
+
+    cluster
+
+Sample size: 1083 
+Adverse events (no improvement): 430 (39.7%)
+Baseline factors: age, preanti, wtkg, karnof, cd40, cd80, hemo, homo, drugs, race, gender, symptom 
+Continuous candidates: age, preanti, wtkg, karnof, cd40, cd80 
+Binary candidates:     hemo, homo, drugs, race, gender, symptom 
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use:  workers with 'sequential' plan
+Bootstrap iteration 1/5
+Bootstrap iteration 5/5
+
+GRF-mode bootstrap completed in 0.4 minutes
+Warning message:
+In forestsearch::forestsearch_bootstrap_dofuture(fs.est = fs_grf,  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+List of 8
+ $ rung        : chr "B-S3-GRF"
+ $ boot_sec    : 'proc_time' Named num [1:5] 23.2 24.7 23 24.8 24.8
+ $ boot_status : chr "ok"
+ $ per_rep_min : num [1:5] 0.0695 0.0693 0.0663 0.0666 0.0642
+ $ timing_attr :List of 5
+  ..$ total_minutes       : Named num 0.379
+  ..$ total_hours         : Named num 0.00632
+  ..$ n_boots             : int 5
+  ..$ avg_minutes_per_boot: Named num 0.0758
+  ..$ avg_seconds_per_boot: Named num 4.55
+ $ H_estimates :Classes ‘data.table’ and 'data.frame':	1 obs. of  12 variables:
+  ..$ H0      : num 2.25
+  ..$ sdH0    : num 0.942
+  ..$ H0_lower: num 0.99
+  ..$ H0_upper: num 5.11
+  ..$ H1      : num 0.904
+  ..$ sdH1    : num 1.72
+  ..$ H1_lower: num 0.0219
+  ..$ H1_upper: num 37.3
+  ..$ H2      : num 0.961
+  ..$ sdH2    : num 0.572
+  ..$ H2_lower: num 0.3
+  ..$ H2_upper: num 3.08
+ $ Hc_estimates:Classes ‘data.table’ and 'data.frame':	1 obs. of  12 variables:
+  ..$ H0      : num 0.585
+  ..$ sdH0    : num 0.0774
+  ..$ H0_lower: num 0.451
+  ..$ H0_upper: num 0.758
+  ..$ H1      : num 0.594
+  ..$ sdH1    : num 1.03
+  ..$ H1_lower: num 0.02
+  ..$ H1_upper: num 17.6
+  ..$ H2      : num 0.561
+  ..$ sdH2    : num 0.264
+  ..$ H2_lower: num 0.223
+  ..$ H2_upper: num 1.41
+ $ rung_sec    : num 23.6
+RUNG_DONE B-S3-GRF 23.6 
+	Command being timed: "Rscript dev/reports/actg175_article_stage0_2026-10-30/ladder.R B-S3-GRF"
+	User time (seconds): 43.81
+	System time (seconds): 1.01
+	Percent of CPU this job got: 179%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:25.02
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 585460
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 178883
+	Voluntary context switches: 4206
+	Involuntary context switches: 2031
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 1352
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

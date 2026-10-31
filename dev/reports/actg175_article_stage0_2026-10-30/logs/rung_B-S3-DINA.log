@@ -1,0 +1,96 @@
+RUNG B-S3-DINA | forestsearch 0.4.1 | built R 4.6.1; ; 2026-10-30 16:08:45 UTC; unix 
+Using 102 of 128 total cores for parallel processingLoading required package: leaps
+Loading required package: survival
+
+Attaching package: ‘data.table’
+
+The following object is masked from ‘package:base’:
+
+    %notin%
+
+Loading required package: foreach
+Loading required package: future
+
+Attaching package: ‘future’
+
+The following object is masked from ‘package:survival’:
+
+    cluster
+
+Sample size: 1083 
+Adverse events (no improvement): 430 (39.7%)
+Baseline factors: age, preanti, wtkg, karnof, cd40, cd80, hemo, homo, drugs, race, gender, symptom 
+Continuous candidates: age, preanti, wtkg, karnof, cd40, cd80 
+Binary candidates:     hemo, homo, drugs, race, gender, symptom 
+Bootstrap parallel config: Using user-provided settings
+System max cores available: 128
+Bootstrap will use:  workers with 'sequential' plan
+Bootstrap iteration 1/5
+Bootstrap iteration 5/5
+
+DINA-mode bootstrap completed in 0.2 minutes
+Warning message:
+In forestsearch::forestsearch_bootstrap_dofuture(fs.est = fs_dina,  :
+  nb_boots < 100 may produce unreliable confidence intervals. Recommend at least 500 for production use.
+List of 8
+ $ rung        : chr "B-S3-DINA"
+ $ boot_sec    : 'proc_time' Named num [1:5] 9.49 10.69 9.36 10.81 10.8
+ $ boot_status : chr "ok"
+ $ per_rep_min : num [1:5] 0.0156 0.0103 0.051 0.0108 0.017
+ $ timing_attr :List of 5
+  ..$ total_minutes       : Named num 0.152
+  ..$ total_hours         : Named num 0.00253
+  ..$ n_boots             : int 5
+  ..$ avg_minutes_per_boot: Named num 0.0304
+  ..$ avg_seconds_per_boot: Named num 1.82
+ $ H_estimates :Classes ‘data.table’ and 'data.frame':	1 obs. of  12 variables:
+  ..$ H0      : num 1.94
+  ..$ sdH0    : num 0.81
+  ..$ H0_lower: num 0.852
+  ..$ H0_upper: num 4.4
+  ..$ H1      : num 0.659
+  ..$ sdH1    : num 0.866
+  ..$ H1_lower: num 0.05
+  ..$ H1_upper: num 8.67
+  ..$ H2      : num 0.487
+  ..$ sdH2    : num 1.74
+  ..$ H2_lower: num 0.000437
+  ..$ H2_upper: num 542
+ $ Hc_estimates:Classes ‘data.table’ and 'data.frame':	1 obs. of  12 variables:
+  ..$ H0      : num 0.6
+  ..$ sdH0    : num 0.0797
+  ..$ H0_lower: num 0.463
+  ..$ H0_upper: num 0.779
+  ..$ H1      : num 0.615
+  ..$ sdH1    : num 1.19
+  ..$ H1_lower: num 0.0137
+  ..$ H1_upper: num 27.5
+  ..$ H2      : num 0.594
+  ..$ sdH2    : num 2.24
+  ..$ H2_lower: num 0.000363
+  ..$ H2_upper: num 972
+ $ rung_sec    : num 9.56
+RUNG_DONE B-S3-DINA 9.6 
+	Command being timed: "Rscript dev/reports/actg175_article_stage0_2026-10-30/ladder.R B-S3-DINA"
+	User time (seconds): 10.72
+	System time (seconds): 0.28
+	Percent of CPU this job got: 100%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:10.99
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 385020
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 102442
+	Voluntary context switches: 116
+	Involuntary context switches: 185
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 1344
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

@@ -1,0 +1,73 @@
+RUNG M-S3-DINA | forestsearch 0.4.1 | built R 4.6.1; ; 2026-10-30 16:08:45 UTC; unix 
+Using 102 of 128 total cores for parallel processingLoading required package: leaps
+Loading required package: survival
+
+Attaching package: ‘data.table’
+
+The following object is masked from ‘package:base’:
+
+    %notin%
+
+Loading required package: foreach
+Loading required package: future
+
+Attaching package: ‘future’
+
+The following object is masked from ‘package:survival’:
+
+    cluster
+
+Sample size: 1083 
+Adverse events (no improvement): 430 (39.7%)
+Baseline factors: age, preanti, wtkg, karnof, cd40, cd80, hemo, homo, drugs, race, gender, symptom 
+Continuous candidates: age, preanti, wtkg, karnof, cd40, cd80 
+Binary candidates:     hemo, homo, drugs, race, gender, symptom 
+DINA-selected subgroup (H): {preanti >= 849.4} & {cd40 >= 338} 
+Subgroup size: 98 (9.0% of ITT)
+List of 4
+ $ rung    : chr "M-S3-DINA"
+ $ fit_sec : 'proc_time' Named num [1:5] 3.1 4.3 2.97 4.42 4.4
+ $ cells   :List of 18
+  ..$ region        : chr "{preanti >= 849.40000000000009} & {cd40 >= 338}"
+  ..$ n_H           : int 98
+  ..$ n_Hc          : int 985
+  ..$ naive_est     : num 1.94
+  ..$ naive_lo      : num 0.837
+  ..$ naive_hi      : num 4.47
+  ..$ mr_est        : num 0.955
+  ..$ mr_lo         : num 0.294
+  ..$ mr_hi         : num 3.1
+  ..$ c_naive_est   : num 0.6
+  ..$ c_naive_lo    : num 0.463
+  ..$ c_naive_hi    : num 0.779
+  ..$ c_mr_est      : num 0.632
+  ..$ c_mr_lo       : num 0.376
+  ..$ c_mr_hi       : num 1.06
+  ..$ n_family      : int 147
+  ..$ selection_bias: num 0.708
+  ..$ mr_sec        : num 1.04
+ $ rung_sec: num 3.12
+RUNG_DONE M-S3-DINA 3.1 
+	Command being timed: "Rscript dev/reports/actg175_article_stage0_2026-10-30/ladder.R M-S3-DINA"
+	User time (seconds): 4.10
+	System time (seconds): 0.40
+	Percent of CPU this job got: 100%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:04.51
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 493988
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 206756
+	Voluntary context switches: 58
+	Involuntary context switches: 73
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 248
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

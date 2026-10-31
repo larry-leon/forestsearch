@@ -1,0 +1,188 @@
+
+######## print( M-bin )
+ForestSearch Results
+====================
+
+Selected Subgroup:
+  Definition: !{cd40 <= 380} & !{wtkg <= 86} 
+  sg_focus: hrMaxSG 
+  N: 72 
+  HR: 1.277 
+  Pcons: 0.99 
+  Algorithm: twostage 
+  Candidate family: no-front-end 
+  Admission set: effect floor 0; consistency floor 0 at p* = 0.9 
+  Candidates evaluated: 137 
+  Candidates passed: 5 
+
+Post-selection inference (selection-adjusted; Leon & Anderson 2026):
+  Harm subgroup H:        one-sided 95% lower bound on OR   0.686
+  Complement Hc:          one-sided 95% upper bound on OR   0.786   [field-s]
+  Joint (Bonferroni):     H lower 0.597, Hc upper 0.817  (gamma 0.025 each side) [field-s]
+  Two-sided (IJ, secondary): H (0.604, 5.206)
+  Re-selection frequency  p-hat(H) = 0.317
+
+  One-sided bounds are the primary products; the two-sided IJ interval is 
+  secondary. p-hat(H) is a descriptive diagnostic. Read each bound by its 
+  location relative to a clinically meaningful effect size. Methods and 
+  simulation operating characteristics: Leon & Anderson (2026), 
+  arXiv:2609.38361. 
+
+Computation time: 0.04 minutes
+
+######## summary( M-bin )
+ForestSearch Summary
+====================
+
+Analysis Parameters:
+  sg_focus: hrMaxSG
+  hr.threshold: 1
+  hr.consistency: 1
+  pconsistency.threshold: 0.9
+  n.min: 60
+  fs.splits: 1000
+  maxk: 2
+  use_twostage: TRUE
+  use_lasso: FALSE
+  use_grf: FALSE
+  use_dina: FALSE
+  candidate family: no-front-end
+  admission set: effect floor 0; consistency floor 0 at p* = 0.9
+
+Variable Selection:
+  Candidate confounders: 40 
+  Confounders evaluated: 40 
+
+Search Space:
+  Proportion of max combinations searched: 1 
+  Maximum subgroup OR estimate: 3.584
+
+Consistency Evaluation:
+  Algorithm: twostage 
+  Candidates evaluated: 137 
+  Candidates passed: 5 
+  Stage 1 screening splits: 
+  Stage 2 batch size: 
+
+Selected Subgroup:
+  Definition: !{cd40 <= 380} & !{wtkg <= 86} 
+  Sample size: 72 
+  Hazard ratio: 1.277 
+  Consistency: 99 %
+  Estimation data: n = 1083 (harm = 72 , complement = 1011 )
+
+Post-selection inference (selection-adjusted; Leon & Anderson 2026):
+  Harm subgroup H:        one-sided 95% lower bound on OR   0.686
+  Complement Hc:          one-sided 95% upper bound on OR   0.786   [field-s]
+  Joint (Bonferroni):     H lower 0.597, Hc upper 0.817  (gamma 0.025 each side) [field-s]
+  Two-sided (IJ, secondary): H (0.604, 5.206)
+
+  Standard errors (log scale):
+    field (H)                 se_field    0.467
+    field-s (Hc)              se_field_s  0.126   (naive complement SE 0.131)
+    IJ two-term (H)           se_ij       0.550
+  Re-selection frequency  p-hat(H) = 0.317
+    top-3 re-selection mass:  q7.0 & q19.0 0.317 | q8.0 & q18.0 0.093 | q9.0 & q29.1 0.078
+    p_hat_sum = 0.994 over a family of 2794 candidates
+
+  One-sided bounds are the primary products; the two-sided IJ interval is 
+  secondary. p-hat(H) is a descriptive diagnostic. Read each bound by its 
+  location relative to a clinically meaningful effect size. Methods and 
+  simulation operating characteristics: Leon & Anderson (2026), 
+  arXiv:2609.38361. 
+
+Computation time: 0.04 minutes
+
+######## print( M-cont )
+ForestSearch Results
+====================
+
+Selected Subgroup:
+  Definition: !{cd40 <= 507} & {gender} 
+  sg_focus: hrMaxSG 
+  N: 79 
+  HR: 71.096 
+  Pcons: 0.91 
+  Algorithm: twostage 
+  Candidate family: no-front-end 
+  Admission set: effect floor 10; consistency floor 5 at p* = 0.9 
+  Candidates evaluated: 131 
+  Candidates passed: 8 
+
+Post-selection inference (selection-adjusted; Leon & Anderson 2026):
+  Harm subgroup H:        one-sided 95% lower bound on MD   -38.314
+  Complement Hc:          one-sided 95% upper bound on MD   -17.637   [field-s]
+  Joint (Bonferroni):     H lower -51.162, Hc upper -15.819  (gamma 0.025 each side) [field-s]
+  Two-sided (IJ, secondary): H (-77.476, 121.580)
+  Re-selection frequency  p-hat(H) = 0.064
+
+  One-sided bounds are the primary products; the two-sided IJ interval is 
+  secondary. p-hat(H) is a descriptive diagnostic. Read each bound by its 
+  location relative to a clinically meaningful effect size. Methods and 
+  simulation operating characteristics: Leon & Anderson (2026), 
+  arXiv:2609.38361. 
+
+Computation time: 0.03 minutes
+
+######## summary( M-cont )
+ForestSearch Summary
+====================
+
+Analysis Parameters:
+  sg_focus: hrMaxSG
+  hr.threshold: 10
+  hr.consistency: 5
+  pconsistency.threshold: 0.9
+  n.min: 60
+  fs.splits: 500
+  maxk: 2
+  use_twostage: TRUE
+  use_lasso: FALSE
+  use_grf: FALSE
+  use_dina: FALSE
+  candidate family: no-front-end
+  admission set: effect floor 10; consistency floor 5 at p* = 0.9
+
+Variable Selection:
+  Candidate confounders: 54 
+  Confounders evaluated: 54 
+
+Search Space:
+  Proportion of max combinations searched: 1 
+  Maximum subgroup MD estimate: 87.917
+
+Consistency Evaluation:
+  Algorithm: twostage 
+  Candidates evaluated: 131 
+  Candidates passed: 8 
+  Stage 1 screening splits: 
+  Stage 2 batch size: 
+
+Selected Subgroup:
+  Definition: !{cd40 <= 507} & {gender} 
+  Sample size: 79 
+  Hazard ratio: 71.096 
+  Consistency: 91 %
+  Estimation data: n = 1083 (harm = 79 , complement = 1004 )
+
+Post-selection inference (selection-adjusted; Leon & Anderson 2026):
+  Harm subgroup H:        one-sided 95% lower bound on MD   -38.314
+  Complement Hc:          one-sided 95% upper bound on MD   -17.637   [field-s]
+  Joint (Bonferroni):     H lower -51.162, Hc upper -15.819  (gamma 0.025 each side) [field-s]
+  Two-sided (IJ, secondary): H (-77.476, 121.580)
+
+  Standard errors (log scale):
+    field (H)                 se_field    32.473
+    field-s (Hc)              se_field_s  7.886   (naive complement SE 7.783)
+    IJ two-term (H)           se_ij       50.780
+  Re-selection frequency  p-hat(H) = 0.064
+    top-3 re-selection mass:  q25.0 & q36.0 0.078 | q7.1 & q38.0 0.077 | q8.1 & q38.0 0.066
+    p_hat_sum = 0.974 over a family of 4935 candidates
+
+  One-sided bounds are the primary products; the two-sided IJ interval is 
+  secondary. p-hat(H) is a descriptive diagnostic. Read each bound by its 
+  location relative to a clinically meaningful effect size. Methods and 
+  simulation operating characteristics: Leon & Anderson (2026), 
+  arXiv:2609.38361. 
+
+Computation time: 0.03 minutes

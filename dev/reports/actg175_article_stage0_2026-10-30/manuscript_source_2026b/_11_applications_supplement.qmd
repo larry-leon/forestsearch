@@ -1,0 +1,207 @@
+<!-- Supplementary Section S5: the detail behind Section 6 of the main paper. Every table is built by _R/app_tables.R from dev/payloads/applications/ at render; the prose is under dev/writeup/applications/R/verify_applications.R. -->
+
+```{r supp-app-setup, include=FALSE}
+.app_dir <- local({
+  for (p in c("../../payloads/applications", "../dev/payloads/applications", "dev/payloads/applications"))
+    if (dir.exists(p)) return(p)
+  stop("dev/payloads/applications not found from ", getwd())
+})
+.app_R <- local({
+  for (p in c("_R", "manuscript/_R", "../../manuscript/_R")) if (file.exists(file.path(p, "app_tables.R"))) return(p)
+  stop("manuscript/_R/app_tables.R not found from ", getwd())
+})
+source(file.path(.app_R, "app_tables.R"))
+if (file.exists(file.path(.app_R, "app_figures.R"))) source(file.path(.app_R, "app_figures.R"))
+APP <- app_load(.app_dir)
+# the two frontier counts no payload carries: the committed criteria payload and the binary analysis's report
+.app_criteria <- file.path(dirname(.app_R), "_payloads", "criteria", "gbsg", "criteria_candidates.csv")
+.app_binary_report <- file.path(dirname(dirname(.app_dir)), "..", "quarto", "actg175", "REPORT_actg175_binary_mr_2026-09-17.md")
+```
+
+# Applications: further detail {#sec-supp-applications}
+
+This section supports Section 6 of the main paper: the searches' settings and funnels, the
+regions in detail, the classification agreement on the breast cancer data, the ACTG 175 analyses
+in full, and the quantities that support each bound. Numbers without an S prefix refer to the
+main paper. Every table is drawn from the applications extract at render.
+
+## The searches in full {#sec-supp-app-searches}
+
+The German Breast Cancer Study Group search enters seven covariates: age, menopausal status,
+tumour size, grade, the number of positive lymph nodes, and the progesterone and estrogen
+receptor concentrations in fmol/l. The two receptors carry ten candidate cuts each, with the
+value zero, no measured receptor, forced in as a cut of its own; the remaining covariates take
+the package's default cuts. Of the 299 recurrences or deaths, 94 are among the treated and 205
+among the untreated, with 387 patients censored.
+
+ACTG 175 is analysed on its zidovudine-plus-didanosine and didanosine arms, 522 and 561
+patients, 1,083 in all; every one of them has a week-20 CD4 count, so the exclusion that would
+remove patients without one removes nobody, and only two of the trial's four arms are analysed,
+as in @leonanderson2026. The binary endpoint, the absence of CD4 improvement at week 20,
+is met by 430 patients; the whole-trial odds ratio of 0.665 means the combination leaves fewer
+patients without improvement. The continuous endpoint, the CD4 decline from baseline to week
+20, has a whole-trial mean difference of $-27.6$, about twenty-eight cells of decline spared,
+with a standard error of about eight cells. Orienting every endpoint so that the adverse
+direction is upward lets one search, one screen and one pair of bounds serve all three outcome
+families without any change of sign at the point of reading. Twelve covariates enter both
+searches: age, prior antiretroviral therapy, weight, Karnofsky score, baseline CD4 and CD8
+counts, and six binary indicators (haemophilia, homosexual activity, injecting drug use, race,
+sex and symptomatic status). The binary search carries ten candidate cuts on baseline CD4 and
+weight; the continuous search carries ten on each of the six continuous covariates. On the CD4
+scale the screening threshold and the per-split threshold are ten and five cells. The
+specification for the continuous endpoint follows an existing applied analysis of the same
+outcome, with the selection rule as its one departure; that analysis uses
+$\max_{\mathcal{A}} \beta$, and the two rules select different regions on these data. @leonanderson2026 set $\varepsilon$ at 0.10 on both trials.
+
+The field's own Monte Carlo runs at 1,000 outer and 500 inner draws. Beside the unadjusted
+analysis, the two-term estimate's two-sided infinitesimal-jackknife interval is carried in
+@tbl-supp-app-five as a reference only, since Section 3.3 gives the structural reason the
+two-sided interval is the harder object.
+
+## The candidate funnels {#sec-supp-app-funnels}
+
+```{r tbl-supp-app-funnels}
+#| label: tbl-supp-app-funnels
+#| tbl-cap: "The candidate funnels and the families over which each correction re-selects. The stages are not the same across the identifiers, because the funnels are not the same object: forest search enumerates and screens; GRF proposes a pool from the covariate quantiles, independently of the outcome, and admits on the hazard-ratio floor at re-ranking; DINA qualifies candidates on its fitted surface and admits on the same floor. A dash marks a stage the identifier does not have."
+#| tbl-colwidths: [30, 12, 13, 14, 15, 16]
+knitr::kable(app_tbl_funnels(APP, .app_criteria, .app_binary_report), row.names = FALSE, align = c("l", rep("r", 5)))
+```
+
+On the continuous endpoint the 5,886 enumerated candidates pass through three checks before the
+per-arm minimum: 5,631 pass the variance and prevalence checks and 5,416 the redundancy check.
+GRF's restricted-mean horizon is 62.3 months, and its pool of 858 is the same whatever the
+endpoint.
+
+## The breast cancer regions in detail {#sec-supp-app-gbsg}
+
+@fig-supp-app-gbsg draws the three regions with their estimates and bounds.
+
+```{r}
+#| label: fig-supp-app-gbsg
+#| fig-cap: "Selection-adjusted subgroup and complement inference in the German Breast Cancer Study Group trial. A: the regions forest search (FS), GRF and DINA return under the common $\\max_{\\mathcal{A}} N(\\varepsilon)$ rule. B: in each region, the unadjusted hazard ratio (open circle), the two-term corrected estimate (filled square) and the nominal 95% field lower bound on $\\beta(\\hat H)$ (filled triangle), the bound and the unadjusted estimate joined by a segment that implies no interval. C: the same for the complements, with the field-s upper bound on $\\beta(\\hat H^c)$. D: each region's field lower bound against its complement's field-s upper bound. Dotted lines mark the whole-trial 0.695. All three corrected region estimates lie above 0.90 with lower bounds below 1.0, suggestive of limited benefit with a benefit not ruled out, and all three corrected complement estimates lie below the whole-trial 0.695, a larger benefit than the trial's; the upper bounds, all below one, are reported beside them. The bounds target the working-model effects in the realized region and its complement, subject to the coverage characterizations of Section 3.3 of the main paper."
+#| fig-alt: "Four panels. A: horizontal bars of the three identified regions by size, 75, 82 and 113 patients. B: for each region the unadjusted hazard ratio, the corrected estimate and the field lower bound on a log axis. C: the same for the complements with the field-s upper bound. D: the three lower bounds plotted against the three upper bounds. Reference lines at the whole-trial hazard ratio and at 0.75."
+#| fig-width: 6.5
+#| fig-height: 4.15
+app_fig_gbsg(APP)
+```
+
+The frontier of Figure 1 offers three regions. The selected region — 25 patients receiving
+hormonal therapy and 50 not, with 41 events — has an unadjusted hazard ratio of 2.222, within
+the $\varepsilon$ band, hazard ratios of 2.03 and above, on which the rule takes the largest
+region. $\max_{\mathcal{A}} N$ returns the 82 patients with no measured estrogen receptor, a
+hazard ratio of 1.951, which contains the selected region entirely and adds 7 patients whose
+progesterone receptor exceeds 26 fmol/l; $\max_{\mathcal{A}} \beta$, and with it
+$\min_{\mathcal{A}} N$, $\min_{\mathcal{A}} N(\varepsilon)$ and the unscreened
+$\max_{\mathcal{S}} \beta$, returns the 61 with no measured estrogen receptor and tumour size at
+most 35 mm, a hazard ratio of 2.54, which shares 55 patients with the selected region, a Jaccard
+index of 0.68. The unadjusted elevation is concentrated where the regions overlap: the 55 shared
+patients carry a hazard ratio of 2.89 (1.40, 5.94), and the cells outside the overlap are too
+small to fit.
+
+GRF's region, the 82 with no measured estrogen receptor, has 26 treated and 56 not, with 45 events, and its complement holds 88% of the trial; it is the GRF region @leonanderson2026 report, reached here under a different
+$\varepsilon$ and a different floor, so a coincidence rather than an anchor. DINA's native
+winner on its surface is grade 3 with progesterone receptor at most 102.5 fmol/l; its re-ranked
+region, the 113 who are grade 3 with progesterone receptor at most 20 fmol/l, has 31 treated and 82 not, with 61 events, at an unadjusted hazard ratio of 1.315; its complement holds 84% of the trial.
+
+Forest search and GRF agree on 99.0% of patients with a kappa of 0.950 and a Jaccard index of
+0.915. DINA agrees with forest search on 82.8% of patients and with GRF on 81.8%, but those
+percentages are carried by the 526 patients every identifier leaves in the complement; the
+kappas, 0.277 and 0.256, and the Jaccard indices, 0.229 and 0.219, are the informative figures.
+In all, 160 patients are selected by at least one identifier and 526 by none. Three cells of the
+three-way partition are empty by construction, because forest search's rule implies GRF's and,
+among patients with no measured estrogen receptor, DINA's implies forest search's.
+
+```{r tbl-supp-app-pairwise}
+#| label: tbl-supp-app-pairwise
+#| tbl-cap: "Classification agreement on the breast cancer data, pairwise over the 686 patients."
+knitr::kable(app_tbl_pairwise(APP), row.names = FALSE, align = c("l", rep("r", 7)))
+```
+
+```{r tbl-supp-app-partition}
+#| label: tbl-supp-app-partition
+#| tbl-cap: "The three-way partition of the 686 patients."
+#| tbl-colwidths: [22, 8, 10, 60]
+knitr::kable(app_tbl_partition(APP), row.names = FALSE, align = c("l", "r", "r", "l"))
+```
+
+## The ACTG 175 analyses in full {#sec-supp-app-actg}
+
+On the binary endpoint the selected region, the 72 patients weighing more than 86 kg with
+baseline CD4 above 380 cells per cubic millimetre, has 67.6% of the treated showing no CD4
+improvement against 36.8% of the controls, with 37 events. On this frontier
+$\max_{\mathcal{A}} N(\varepsilon)$ and $\max_{\mathcal{A}} \beta$ coincide, so $\varepsilon$
+does not decide the selection; the next-largest passing candidate, baseline CD4 above 380 with
+weight above 81 kg, holds 117 patients at an odds ratio of 1.927 and lies outside the band; four
+of the five passing candidates form the frontier and the fifth is dominated. Where the selection
+is the same at $\varepsilon = 0.10$, the bounds move only in the third decimal with
+$\varepsilon$, the re-selection floor entering the field's draws. On the continuous endpoint the
+selected region, the 79 men with baseline CD4 above 507, has 40 on the combination and 39 on
+monotherapy, with a consistency proportion of 0.91; their mean CD4 decline is 89.3 cells under
+the combination against 18.2 under monotherapy. All eight passing candidates are defined by a
+baseline-CD4 cut above 449 or 507 crossed with age, weight, drug history or sex, so the
+elevation is carried by the high-CD4 margin, itself a small and noisy stratum: baseline CD4
+above 507 alone gives a mean difference of $+48.5$ over 97 patients ($-18.2$, 115.1), and men
+alone $-22.9$. The two regions are selected on different endpoints of the same patients and are
+not the same set; each leaves a complement of about 93% of the trial.
+
+```{r tbl-supp-app-five}
+#| label: tbl-supp-app-five
+#| tbl-cap: "The five analyses side by side. Each column states its own effect scale; the three breast cancer columns differ in the identifier alone and repeat Table 1 of the main paper. Corrected rows carry the two-term estimate with its two-sided infinitesimal-jackknife interval as a reference only. The field and field-s rows are one-sided bounds at nominal 0.95; the Bonferroni pair holds both at joint 0.95. Selection bias is on the log scale for the ratio columns and in CD4 cells for the last."
+#| tbl-colwidths: [20, 16, 16, 16, 16, 16]
+knitr::kable(app_tbl_five(APP), row.names = FALSE, align = c("l", rep("r", 5)))
+```
+
+*Reading the ACTG 175 estimates.* As in Section 6 of the main paper, the corrected estimates carry the reading and the bounds are reported beside them. On the binary endpoint the unadjusted odds ratio in the region is 3.584 (1.315, 9.774), and the correction, over the largest selection bias of the four ratio-scale analyses, 0.704 on the log scale, brings it to 1.773: suggestive of limited benefit, but with a field lower bound of 0.686, below 1.0, a benefit cannot be ruled out. Outside the region the corrected estimate favours the combination (@tbl-supp-app-five); the field-s upper bound is 0.786, and the Bonferroni pair's lower limit in the region is 0.597. The same shape appears on the additive scale. The unadjusted mean difference in the continuous region is 71.1 cells ($-5.1$, 147.3); the correction removes 47.9 cells of selection bias and leaves 22.1 on the adverse side: suggestive of limited benefit, but with a field lower bound of $-38.3$, below zero, a benefit cannot be ruled out. Outside the region the corrected estimate again favours the combination; the field-s upper bound is $-17.6$ cells, and the pair's lower limit in the region is $-51.2$. On the CD4 scale the screening thresholds sit well below the trial's own effect and the floors are elevated above the claim threshold, the case in which the control of Section 4 is conservative; on the ratio scales the thresholds sit at the claim threshold, the case in which Theorem 3 holds with the floors in force.
+
+*The common shape.* The five analyses return one reading in three outcome families and on two trials. An unadjusted analysis of any of these regions would report a substantial adverse effect; after correction each region's estimate is much attenuated, suggestive of limited benefit in every case, with a lower bound that does not rule a benefit out. In every case the corrected estimate in the complement, the part of the trial the search was not looking at, favours treatment, and the complement bounds are reported beside it (@tbl-supp-app-five).
+
+## Declaration at a protected level {#sec-supp-app-declaration}
+
+Section 6.2 of the main paper reads forest search's breast cancer declaration against the calibrated screen; @tbl-supp-app-declaration reads forest search's declaration on all three, the ACTG 175 endpoints at their own primary protected levels — an odds ratio of 0.75 on the binary endpoint and a mean difference of ten cells per cubic millimetre in the combination's favour on the continuous one, on grids of 0.70 to 0.85 and of five to fifteen cells — at $\alpha = 0.10$, from the same 5,000 draws as the bounds.
+
+| | GBSG, hazard ratio | ACTG 175 binary, odds ratio | ACTG 175 continuous, mean difference |
+|:---|:---|:---|:---|
+| Region declared at the default level, $N$ | 75 | 72 | 79 |
+| $T$ of the region / largest $T$ in the family | 2.438 / 2.564 | 2.494 / 2.494 | 1.701 / 2.043 |
+| Primary protected level $c_0$ | HR 0.75 | OR 0.75 | MD $-10$ cells |
+| Calibrated cutoff $\hat\kappa_{0.10}(c_0)$ | 2.726 | 2.889 | 2.952 |
+| Implied level $2\Phi(\hat\kappa) - 1$ | 0.994 | 0.996 | 0.997 |
+| Diagnostic at the default screen's cutoff, $\hat\alpha_{\mathrm{FW}}(c_0;\kappa)$ | 0.667 | 0.838 | 0.909 |
+| Calibrated cutoff at the claim threshold | 3.503 | 3.611 | 3.625 |
+| Diagnostic at the claim threshold | 0.974 | 0.989 | 0.997 |
+| Calibrated rule at $c_0$ | admits nothing | admits nothing | admits nothing |
+
+: The three declarations read against the calibrated screen of Section 4 of the main paper, at $\alpha = 0.10$. The statistic $T$ is the region's standardized effect against the claim threshold; the calibrated cutoff is equation (7) at the primary protected level; the diagnostic is equation (8), the family-wise size of the default screen under a uniform benefit of $c_0$, read at the cutoff that screen executes; the implied level is the screening level at which an exact comparison would reproduce the calibrated cutoff, reported for interpretation. {#tbl-supp-app-declaration tbl-colwidths="[40,20,20,20]"}
+
+In each trial the returned region's statistic sits below the calibrated cutoff — by 0.29, 0.40 and 1.25 — and so does the largest statistic in its family, so the calibrated screen admits no candidate; the same holds at every protected level on each trial's grid and at the claim threshold. Had the treatment benefited every patient by the protected amount, the default screen would still have returned a harm subgroup on 0.667, 0.838 and 0.909 of such trials, on these families and designs. At the claim threshold the diagnostic is a boundary size, 0.974, 0.989 and 0.997, the family-wise size of the default screen were every candidate exactly at the claim threshold, and not any trial's error rate. The implied levels, 0.994, 0.996 and 0.997, say what the calibration asks of these trials: a screen far tighter than the default, which is what a large overlapping family costs once the protection is placed at a clinically meaningful benefit rather than at the claim threshold.
+
+## The supporting quantities {#sec-supp-app-quantities}
+
+```{r tbl-supp-app-diag}
+#| label: tbl-supp-app-diag
+#| tbl-cap: "The quantities that support each bound. The mean of the simulated selection root and the correlation of the aligned roots are on each analysis's own working scale, the log scale for the ratio columns and CD4 cells for the last."
+#| tbl-colwidths: [30, 14, 14, 14, 14, 14]
+knitr::kable(app_tbl_diag(APP), row.names = FALSE, align = c("l", rep("r", 5)))
+```
+
+Three of the diagnostics deserve a word. The field's second-order estimate subtracts from the
+two-term estimate the mean of the simulated selection root on the estimand's scale, where the
+bound subtracts a quantile of the same law; the bound is not centred on it and no reading
+depends on it. When that mean is positive the ordering bound $\le$ second-order $\le$ two-term
+holds, as it does for GRF on the breast cancer data and for both ACTG 175 analyses; it does not
+hold for forest search and DINA there, where the mean is slightly negative ($-0.022$ and
+$-0.002$ on the log scale) and the second-order step moves the estimate back up, by 2.2% and
+0.2%, after first corrections of 0.55 and 0.20. The scale ratio $\rho^c$ (Proposition 3(iii)), the selected complement's influence scale over the draw winners' mean scale, sits
+between 0.985 and 1.013 wherever it is computed, so field-s and the unstudentized complement
+bound agree on these data; on the continuous endpoint it is not computed, and the two
+second-order estimates differ by 0.02 cells. And the Bonferroni pair is not conservative on any
+of the five: its simulated joint coverage lies between 0.9490 and 0.9510 against a nominal 0.95,
+the calibrated split of Section S1.5 settles at $\gamma = 0.025$, Bonferroni's own $\alpha/2$, in
+every case, and the aligned roots correlate at between $-0.039$ and 0.054.
+
+```{r tbl-supp-app-location}
+#| label: tbl-supp-app-location
+#| tbl-cap: "Where each bound sits. A region's lower bound below the whole-trial value does not rule out the trial's own benefit for that region; a complement's upper bound below one (or zero) lies on the benefit side."
+#| tbl-colwidths: [25, 15, 15, 15, 15, 15]
+knitr::kable(app_tbl_location(APP), row.names = FALSE, align = c("l", rep("r", 5)))
+```
