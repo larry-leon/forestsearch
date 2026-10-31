@@ -217,3 +217,72 @@ After both parts: `git log --oneline 0bdc2036..HEAD` (the v1 task commit, the v2
 ## 4. Out of scope
 
 The ACTG 175 article itself, `cran-comments.md`, the `R CMD check --as-cran` re-check and anything in `R/`, `man/`, `vignettes/forestsearch.qmd` (all part B, or Larry's call); the Guo–He article; `forestsearch-2024.Rmd` (stays R Markdown, as decided 2026-10-27); `extreme_subgroups.qmd`; merging.
+
+---
+
+## Closing block (CC, 2026-10-30)
+
+**Part 1 — complete.** v1 content gates §1.1–§1.8 all passed (not re-run). §1.9 resumed under v2: `8cde6811` was HEAD; the
+v1 closing block was dropped (`git checkout -- dev/tasks/cc_task_articles_finish_2026-10-30.md`); `git reset --soft HEAD~1`;
+this document committed alone (`40350847`); then commits 1–4, each with the index set to its paths only and
+`git diff --cached --name-status` checked (commit 2: five `R097`/`R099` renames). Post-conditions hold: the diff outside
+`dev/`, `vignettes/articles/`, `.gitignore` is exactly `NEWS.md`, `README.md`; no tracked article HTML; eight HTML on disk.
+
+**Part 2 — complete.** §2.2.4: 15 of 15 transplanted chunks identical to `43b051b6`; M-S3-FS not re-run. Gate C as
+restated: PASS. The tolerance was read on the 2-dp values: Ĥ MR upper 5.09 vs 5.08 is one unit. At full precision it is
+0.0126 from the payload and 0.0147 from the printed value, which Larry should confirm. M-S3-DINA and M-S3-GRF: 14/14
+Table S3 cells each, and the 0.2.0 payload to ~1e-14. B-S3-FS/-DINA/-GRF ran: 3.06 / 1.26 / 4.03 s mean per replicate,
+single core. Budget table in the report §11.4.
+
+`git log --oneline 0bdc2036..HEAD` (before this closing commit):
+```
+0ef5ce57 dev: report — ACTG 175 article stage 0 (2026-10-30)
+20f8daca dev: report — finish the articles, part A (2026-10-30)
+dc36e065 docs: README for the current method; NEWS for the articles; DINA floor note
+7afae118 docs: the five aligned articles as Quarto documents
+3e491054 chore: rendered article HTML stays on disk and is ignored by git
+40350847 task: finish the articles, part A — v2 (resume at §1.9 and §2.2.4)
+8400b49a task: finish the articles, part A — task document and inputs
+```
+
+`git status --porcelain | grep -v '^?? '`: (nothing). `git status --porcelain | grep '^?? '`: (nothing), equal to the §0 list ("untracked at start: (none)").
+
+Copies: `~/Downloads/articles_finish_2026-10-30/` (report, `results/`, `html/` with the six local renders) and
+`~/Downloads/actg175_article_stage0_2026-10-30/` (listing in the Part 2 report §11.6).
+
+```
+~/Downloads/actg175_article_stage0_2026-10-30:
+total 92
+drwxrwxr-x 7 larryleon larryleon  4096 Oct 30 17:36 .
+drwxr-xr-x 9 larryleon larryleon 20480 Oct 30 17:37 ..
+drwxrwxr-x 2 larryleon larryleon  4096 Oct 30 17:36 calls_2026a
+drwxrwxr-x 2 larryleon larryleon  4096 Oct 30 17:36 calls_2026b
+-rw-rw-r-- 1 larryleon larryleon   894 Oct 30 17:36 ladder.csv
+drwxrwxr-x 2 larryleon larryleon  4096 Oct 30 17:36 manuscript_source_2026a
+drwxrwxr-x 2 larryleon larryleon  4096 Oct 30 17:36 manuscript_source_2026b
+-rw-rw-r-- 1 larryleon larryleon  5879 Oct 30 17:36 package_facts.md
+drwxrwxr-x 2 larryleon larryleon  4096 Oct 30 17:36 producing_docs
+-rw-rw-r-- 1 larryleon larryleon 22880 Oct 30 17:36 REPORT_actg175_article_stage0_2026-10-30.md
+-rw-rw-r-- 1 larryleon larryleon  7151 Oct 30 17:36 settings.md
+
+~/Downloads/articles_finish_2026-10-30:
+total 52
+drwxrwxr-x 4 larryleon larryleon  4096 Oct 30 17:37 .
+drwxr-xr-x 9 larryleon larryleon 20480 Oct 30 17:37 ..
+drwxrwxr-x 2 larryleon larryleon  4096 Oct 30 17:37 html
+-rw-rw-r-- 1 larryleon larryleon 13804 Oct 30 17:37 REPORT_articles_finish_2026-10-30.md
+drwxrwxr-x 2 larryleon larryleon  4096 Oct 30 17:37 results
+
+~/Downloads/articles_finish_2026-10-30/html:
+total 9156
+drwxrwxr-x 2 larryleon larryleon    4096 Oct 30 17:37 .
+drwxrwxr-x 4 larryleon larryleon    4096 Oct 30 17:37 ..
+-rw-rw-r-- 1 larryleon larryleon 1316710 Oct 30 17:37 biomarker_effects.html
+-rw-rw-r-- 1 larryleon larryleon 1380563 Oct 30 17:37 causal_effects_brief_review.html
+-rw-rw-r-- 1 larryleon larryleon 1595530 Oct 30 17:37 methodology.html
+-rw-rw-r-- 1 larryleon larryleon 2271599 Oct 30 17:37 paper_simulations.html
+-rw-rw-r-- 1 larryleon larryleon 1379001 Oct 30 17:37 survival-post-selection.html
+-rw-rw-r-- 1 larryleon larryleon 1412432 Oct 30 17:37 treatment_effect_definitions.html
+```
+
+No push, no fetch, no merge.
