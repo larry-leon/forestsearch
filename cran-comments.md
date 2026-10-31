@@ -13,8 +13,10 @@ This is an update from forestsearch 0.4.0 (the current CRAN version) to
 * Bug fixes: the log axis of `plot_subgroup_results_forestplot()` (#7); the
   weighted fit for `ps_adjust_method = "iptw"` with a continuous outcome.
 * Documentation: a new getting-started vignette reproducing a published
-  analysis; the longer post-selection analysis is now an article on the
-  package website, so the package ships one vignette instead of two.
+  analysis; the longer analyses are articles on the package website, so the
+  package ships one vignette instead of two; the `?forestsearch` examples
+  are corrected (one called `mr_estimates_table()` without the bootstrap
+  result it requires).
 
 ## Test environments
 

@@ -136,12 +136,12 @@ fs_declaration_calibration(fit, alpha = 0.10, c0 = c(0.70, 0.75, 0.80, 0.85))
 - `vignette("forestsearch")`: the analysis above, end to end.
 - The package website, <https://larry-leon.github.io/forestsearch/>, has
   articles on post-selection inference for the same trial (the full
-  bootstrap beside multiplier resampling), on the comparison with Guo and He
-  (2021), on treatment-effect definitions and their causal reading, on the
+  bootstrap beside multiplier resampling), on the binary and continuous
+  analyses of the ACTG 175 trial, on the comparison with Guo and He (2021),
+  on treatment-effect definitions and their causal reading, on the
   simulation framework, and on the original workflow of León et al. (2024).
-- `?forestsearch` documents every argument, with examples for this analysis
-  and for the binary and continuous ACTG 175 analyses of León and Anderson
-  (2026b).
+- `?forestsearch` documents every argument, with examples on this trial and
+  on the binary and continuous ACTG 175 endpoints.
 
 ## Citation
 
