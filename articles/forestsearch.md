@@ -206,8 +206,8 @@ every size-eligible candidate the identifier proposes, the corrected
 (two-term) estimate of the effect in the identified region $`\hat H`$
 and in its complement $`\hat H^{c}`$ (León and Anderson 2026a); the
 nominal 95% one-sided *field* lower bound on $`\beta(\hat H)`$, the
-*field-s* upper bound on $`\beta(\hat H^{c})`$, the studentized
-complement bound, and the Bonferroni pair, a joint 95% claim on both
+*field-s* upper bound on $`\beta(\hat H^{c})`$ (the studentized
+complement bound), and the Bonferroni pair, a joint 95% claim on both
 (León and Anderson 2026b). The field’s own Monte Carlo runs at 1,000
 outer and 500 inner draws, the package’s fixed setting on this path. The
 only randomness in the analysis is in these draws; they are seeded by
@@ -259,7 +259,7 @@ cat(sprintf("Identified subgroup: %s\n", paste(fit_fs$sg.harm, collapse = " & ")
 cat(sprintf("Fit including inference: %.1f s\n", fit_sec_fs))
 ```
 
-    #> Fit including inference: 21.4 s
+    #> Fit including inference: 24.6 s
 
 ``` r
 
@@ -267,7 +267,7 @@ cat(sprintf("  multiplier stage %.1f s; field blocks %.1f + %.1f s\n", g_fs$timi
             g_fs$field$timing_seconds, g_fs$field$complement$timing_seconds))
 ```
 
-    #>   multiplier stage 0.8 s; field blocks 10.6 + 1.7 s
+    #>   multiplier stage 0.8 s; field blocks 11.6 + 1.8 s
 
 The identified region is `{er <= 0} & {pgr <= 26}`: no measured estrogen
 receptor and progesterone receptor at most 26 fmol/l. Two arguments in
@@ -534,7 +534,7 @@ cat(sprintf("DINA: %s  (fit %.1f s; re-selection family %d)\n",
             g_dina$n_family))
 ```
 
-    #> DINA: {grade3 >= 1} & {pgr <= 20}  (fit 5.9 s; re-selection family 30)
+    #> DINA: {grade3 >= 1} & {pgr <= 20}  (fit 6.9 s; re-selection family 30)
 
 ``` r
 
@@ -542,7 +542,7 @@ cat(sprintf("GRF:  %s  (fit %.1f s; re-selection family %d)\n",
             paste(fit_grf$sg.harm, collapse = " & "), fit_sec_grf, g_grf$n_family))
 ```
 
-    #> GRF:  {er <= 0}  (fit 15.6 s; re-selection family 858)
+    #> GRF:  {er <= 0}  (fit 19.3 s; re-selection family 858)
 
 GRF returns the 82 patients with no measured estrogen receptor, a region
 that contains forest search’s; DINA returns the 113 who are grade 3 with
@@ -746,10 +746,80 @@ error rate; at the claim threshold it is a boundary size. To run the
 screen at the implied level, set `pconsistency.threshold` to it and
 `pconsistency.digits` to at least 5, so the level is not rounded away;
 the package’s `pstar_settable` and `pstar_fine` columns in
-`cal$c0$table` give what the digit grid can express. The supplement’s
-Section S1.8.4 adds a realized-rate simulation on this design, which is
-not run here. The selection and every bound above are those of the fit
-as run; the calibration reads the fit and alters none of them.
+`cal$c0$table` give what the digit grid can express. The selection and
+every bound above are those of the fit as run; the calibration reads the
+fit and alters none of them.
+
+### The recommended cap
+
+The implied level at the primary protected level, 0.994, is above 0.99.
+Section 4.4 of León and Anderson (2026b) recommends capping the
+consistency level at 0.99 in that case. Consistency is a floor, not a
+ranking, and rates above 0.99 are not practically distinguishable; the
+capped screen is run, and the diagnostic (8) reports the family-wise
+rate the capped level carries. The control of the paper’s Theorem 4
+belongs to the uncapped cutoff, not to the cap. The cap’s cutoff and its
+diagnostic are read from the same draws as the table above; nothing is
+refitted.
+
+``` r
+
+# The screen admits a candidate when its rate, rounded to two decimals, reaches
+# p*: that is, when T(g) >= qnorm((1 + p_eff) / 2), with p_eff the smallest rate
+# that rounds up to p*.
+p_eff <- function(p_star, digits = 2) {
+  ceiling(round(p_star * 10^digits, 6)) / 10^digits - 0.5 * 10^(-digits)
+}
+z_screen <- function(p_star) qnorm((1 + p_eff(p_star)) / 2)
+# Two checks against the calibration above: the rule reproduces the package's
+# cutoff at p* = 0.90, and the draws reproduce the table's FW-size column.
+stopifnot(isTRUE(all.equal(z_screen(0.90), cal$z_pstar)))
+stopifnot(isTRUE(all.equal(unname(colMeans(cal$c0$Mstar_c0 > cal$z_pstar)),
+                           tb$fw_size)))
+z_cap  <- z_screen(0.99)
+fw_cap <- mean(cal$c0$Mstar_c0[, tb$c0 == 0.75] > z_cap)
+cap <- data.frame(
+  quantity = c("cutoff of the screen at p* = 0.99 (rate rounded to two decimals)",
+               "T of the declared region",
+               "margin of the region over the capped cutoff",
+               "uncapped calibrated cutoff, c0 = HR 0.75",
+               "diagnostic (8) at the capped cutoff, c0 = HR 0.75"),
+  value = sprintf("%.3f", c(z_cap, T_H, T_H - z_cap,
+                            tb$kappa_hat[tb$c0 == 0.75], fw_cap)))
+knitr::kable(cap, row.names = FALSE, col.names = c("", "value"),
+             caption = "The screen at the recommended cap, p* = 0.99.")
+```
+
+|                                                                   | value |
+|:------------------------------------------------------------------|:------|
+| cutoff of the screen at p\* = 0.99 (rate rounded to two decimals) | 2.432 |
+| T of the declared region                                          | 2.438 |
+| margin of the region over the capped cutoff                       | 0.006 |
+| uncapped calibrated cutoff, c0 = HR 0.75                          | 2.726 |
+| diagnostic (8) at the capped cutoff, c0 = HR 0.75                 | 0.186 |
+
+The screen at the recommended cap, p\* = 0.99. {.table .caption-top}
+
+At the cap the screen’s cutoff is 2.432. The region’s statistic, 2.438,
+clears it by 0.006, the narrowest of margins, so the capped screen
+declares the region; the uncapped calibrated cutoff, 2.726, does not.
+The diagnostic at the capped cutoff is 0.186. Like the FW-size column,
+it is computed with every candidate’s coefficient exactly at $`c_0`$,
+which the Cox model’s non-collapsibility makes an approximation, and it
+is a rough guide to the family’s multiplicity rather than a rate a trial
+would show.
+
+The evidence to weigh is the realized rate. Supplementary Section S1.8.4
+of the paper holds this trial’s 686 patients, their covariates and their
+treatment assignment fixed, generates outcomes under a uniform benefit
+at the protected hazard ratio of 0.75, and runs the screen as executed:
+it declares a subgroup on 0.432 of such trials at $`p^\star = 0.90`$, on
+0.074 at 0.99 and on 0.022 at 1.00. That simulation is not run here; the
+three rates are quoted from the paper. At the cap the realized
+false-declaration rate, 0.074, is below $`\alpha = 0.10`$. The region is
+declared at the cap by the narrowest of margins and not by the
+calibrated cutoff: the evidence for declaring it is marginal on either
+reading.
 
 ## Where to go next
 

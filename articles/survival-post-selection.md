@@ -191,9 +191,9 @@ for (m in names(fits)) {
 }
 ```
 
-    #> FS   {er <= 0} & {size <= 35}     N  61   fit  19.2 s (multiplier stage 0.8 s)   family 1744
-    #> DINA {grade3 >= 1} & {pgr <= 10}  N  89   fit   0.8 s (multiplier stage 0.2 s)   family 84
-    #> GRF  {er <= 0}                    N  82   fit   5.3 s (multiplier stage 0.2 s)   family 858
+    #> FS   {er <= 0} & {size <= 35}     N  61   fit  24.0 s (multiplier stage 0.9 s)   family 1744
+    #> DINA {grade3 >= 1} & {pgr <= 10}  N  89   fit   1.1 s (multiplier stage 0.2 s)   family 84
+    #> GRF  {er <= 0}                    N  82   fit   7.4 s (multiplier stage 0.2 s)   family 858
 
 ## The multiplier correction
 
@@ -287,7 +287,7 @@ round(boot_secs, 1)
 ```
 
     #>   FS DINA  GRF
-    #> 40.8 17.7 20.4
+    #> 55.2 23.6 24.5
 
 The package’s own summaries, shown for forest search. The first is the
 bootstrap table: the naive estimate beside the bootstrap-corrected one,
@@ -317,9 +317,9 @@ summ_fs <- summarize_bootstrap_results(sgharm = fit_fs$sg.harm, boot_results = b
     #> TIMING ANALYSIS:
     #> -------------------------------------------------------------
     #> Overall:
-    #>   Total bootstrap time:          0.66 minutes (0.01 hours)
-    #>   Average per iteration:         0.03 min (1.6 sec)
-    #>   Projected for 1000 boots:      26.53 min (0.44 hrs)
+    #>   Total bootstrap time:          0.90 minutes (0.02 hours)
+    #>   Average per iteration:         0.04 min (2.2 sec)
+    #>   Projected for 1000 boots:      36.12 min (0.60 hrs)
 
 ``` r
 
@@ -463,9 +463,9 @@ knitr::kable(cost, row.names = FALSE, digits = 2,
 
 | Method | MR (s) |   B | bootstrap (s) | s per replicate | projected at B = 1,000 (s) |
 |:-------|-------:|----:|--------------:|----------------:|---------------------------:|
-| FS     |   0.83 |  25 |         40.75 |            1.63 |                       1630 |
-| DINA   |   0.16 |  25 |         17.67 |            0.71 |                        707 |
-| GRF    |   0.22 |  10 |         20.35 |            2.04 |                       2035 |
+| FS     |   0.86 |  25 |         55.15 |            2.21 |                       2206 |
+| DINA   |   0.17 |  25 |         23.63 |            0.95 |                        945 |
+| GRF    |   0.25 |  10 |         24.54 |            2.45 |                       2454 |
 
 Wall-clock timings from this run: the multiplier stage under the fits’
 sequential plan, the bootstrap on 2 workers. The projection is linear in
