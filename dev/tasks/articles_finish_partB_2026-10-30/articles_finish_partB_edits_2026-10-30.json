@@ -1,0 +1,118 @@
+{
+ "issued": "2026-10-30",
+ "base_commit": "da17be3c",
+ "files": {
+  "R/forestsearch_main.R": {
+   "md5_before": "e0f48d94d712765c6c1659dd1d6e2b22",
+   "md5_after": "d640bdbfe093efac1581536e0df247f8",
+   "n_edits": 3
+  },
+  "vignettes/forestsearch.qmd": {
+   "md5_before": "2d1c763d1fcd4419afc1a222673cc103",
+   "md5_after": "037aad7ccfe9811bc59181356cc180a0",
+   "n_edits": 2
+  },
+  "NEWS.md": {
+   "md5_before": "4b1815355976269f6851f4488c659bc0",
+   "md5_after": "d86f61ac738223cafd4096bd76fee02b",
+   "n_edits": 1
+  },
+  "README.md": {
+   "md5_before": "2d3ff9f92188b80092a786eb4993da97",
+   "md5_after": "2d344e97cca3d91aeff7533c18d3780c",
+   "n_edits": 1
+  },
+  "cran-comments.md": {
+   "md5_before": "29a206ea1b763ff019423eb7c53e44fd",
+   "md5_after": "a5cc1963dc929d11806feb2175d77a9b",
+   "n_edits": 1
+  },
+  "_pkgdown.yml": {
+   "md5_before": "8b94b6bebb229bd95b79f41367c41870",
+   "md5_after": "ba8d83652048b347682a36b72825919f",
+   "n_edits": 2
+  }
+ },
+ "edits": [
+  {
+   "file": "R/forestsearch_main.R",
+   "id": "R1",
+   "section": "@examples, Example 1 header",
+   "old": "#' ## León and Anderson (2026a, Sec. 5) and of the survival-post-selection\n",
+   "new": "#' ## León and Anderson (2026a, Sec. 6) and of the survival-post-selection\n",
+   "basis": "2026a Section 6 is Applications (Section 5 is Scope); Larry approved 2026-10-30."
+  },
+  {
+   "file": "R/forestsearch_main.R",
+   "id": "R2",
+   "section": "@examples, Example 1 — mr_estimates_table() needs a bootstrap result",
+   "old": "#' print(fs_surv)\n#' mr_estimates_table(fs_surv)\n",
+   "new": "#' print(fs_surv)\n#'\n#' ## mr_estimates_table() lays the multiplier-resampling estimates out in the\n#' ## format of the bootstrap tables, so it takes a bootstrap result as its\n#' ## template (a few replicates are enough for the layout; the\n#' ## survival-post-selection article compares the two at full size).\n#' fs_boot <- forestsearch_bootstrap_dofuture(\n#'   fs.est        = fs_surv,\n#'   nb_boots      = 20,\n#'   parallel_args = list(plan = \"multisession\", workers = 4)\n#' )\n#' mr_estimates_table(fs_surv, boot_results = fs_boot, est.scale = \"hr\")\n",
+   "basis": "mr_estimates_table(fs, boot_results, est.scale, digits) has no default for boot_results (R/mr_estimates_table.R:43) and needs its FSsg_tab and SG_CIs; Larry approved 2026-10-30."
+  },
+  {
+   "file": "R/forestsearch_main.R",
+   "id": "R3",
+   "section": "@examples, Example 2 header — which paper's analysis it runs",
+   "old": "#' ## the binary application of León and Anderson (2026b). Adverse-scale\n#' ## outcome (1 = no CD4 improvement at week 20), OR thresholds at the null,\n#' ## same selection rule and multiplier-resampling gate as Example 1.\n",
+   "new": "#' ## the forest-search analysis of León and Anderson (2026a, Table S3); the\n#' ## binary analysis of León and Anderson (2026b) selects the same region\n#' ## with effect_neighborhood = 0.20. Adverse-scale outcome (1 = no CD4\n#' ## improvement at week 20), OR thresholds at the null, same selection rule\n#' ## and multiplier-resampling gate as Example 1.\n",
+   "basis": "Example 2's call is 2026a's ACTG 175 forest-search call (effect_neighborhood 0.10, fs.splits 500: stage-0 settings.md §1, §3); 2026b's binary call uses 0.20. Comment only."
+  },
+  {
+   "file": "vignettes/forestsearch.qmd",
+   "id": "V1",
+   "section": "Where to go next — the Guo and He and ACTG 175 articles",
+   "old": "  agreement, and what each construction does and does not say.\n- The package website carries the original workflow",
+   "new": "  agreement, and what each construction does and does not say.\n- The [Guo and He article](https://larry-leon.github.io/forestsearch/articles/guohe-nested-continuum.html)\n  sets the bounds beside the de-biased estimate and one-sided bound of Guo and\n  He (2021) on a nested continuum of subgroups, Section S4 of León and\n  Anderson (2026b).\n- The ACTG 175 analyses are an article on the\n  [package website](https://larry-leon.github.io/forestsearch/articles/):\n  forest search on a binary and a continuous endpoint, with the bounds and\n  the declaration calibration (León and Anderson 2026b, Section S3), and the\n  three identifiers on the binary endpoint with the full bootstrap beside\n  multiplier resampling (León and Anderson 2026a, Table S3).\n- The package website carries the original workflow",
+   "basis": "Larry approved 2026-10-30. The ACTG 175 article's own URL is not live until the merge, so the bullet links the articles index (URL checks)."
+  },
+  {
+   "file": "vignettes/forestsearch.qmd",
+   "id": "V2",
+   "section": "Where to go next — ?forestsearch",
+   "old": "- `?forestsearch` documents every argument, with examples for this analysis and\n  for the binary and continuous ACTG 175 analyses of León and Anderson\n  (2026b), and a section on the options not tested against the manuscript\n  analyses.\n",
+   "new": "- `?forestsearch` documents every argument, with examples on this trial and on\n  the binary and continuous ACTG 175 endpoints, and a section on the options\n  not tested against the manuscript analyses.\n",
+   "basis": "Example 1 is 2026a's GBSG call (epsilon 0.10) and Example 2 2026a's ACTG 175 call; neither is 2026b's (edit R3)."
+  },
+  {
+   "file": "NEWS.md",
+   "id": "N1",
+   "section": "0.4.1 Documentation — the ACTG 175 article and the examples",
+   "old": "* The README describes the current method and shows the analysis of `vignette(\"forestsearch\")`.\n",
+   "new": "* New article on the package website, \"Binary and continuous outcomes: the ACTG 175 analyses\": Section S3 of León and Anderson (2026b) — forest search on the binary and continuous endpoints, with the selection-adjusted bounds and the declaration calibration — and Table S3 of León and Anderson (2026a), the three identifiers on the binary endpoint with the full bootstrap, at a small number of replicates, beside multiplier resampling.\n* The README describes the current method and shows the analysis of `vignette(\"forestsearch\")`.\n* `?forestsearch`: Example 1 passes a bootstrap result to `mr_estimates_table()`, which needs one as its template (the example called it without one); Example 2 names the analysis it runs, León and Anderson (2026a, Table S3); a section reference is corrected.\n",
+   "basis": "No URL to an article not yet on the site (URL checks)."
+  },
+  {
+   "file": "README.md",
+   "id": "M1",
+   "section": "Documentation — the articles and the examples",
+   "old": "  articles on post-selection inference for the same trial (the full\n  bootstrap beside multiplier resampling), on the comparison with Guo and He\n  (2021), on treatment-effect definitions and their causal reading, on the\n  simulation framework, and on the original workflow of León et al. (2024).\n- `?forestsearch` documents every argument, with examples for this analysis\n  and for the binary and continuous ACTG 175 analyses of León and Anderson\n  (2026b).\n",
+   "new": "  articles on post-selection inference for the same trial (the full\n  bootstrap beside multiplier resampling), on the binary and continuous\n  analyses of the ACTG 175 trial, on the comparison with Guo and He (2021),\n  on treatment-effect definitions and their causal reading, on the\n  simulation framework, and on the original workflow of León et al. (2024).\n- `?forestsearch` documents every argument, with examples on this trial and\n  on the binary and continuous ACTG 175 endpoints.\n",
+   "basis": "As V2."
+  },
+  {
+   "file": "cran-comments.md",
+   "id": "C1",
+   "section": "Submission — Documentation bullet",
+   "old": "* Documentation: a new getting-started vignette reproducing a published\n  analysis; the longer post-selection analysis is now an article on the\n  package website, so the package ships one vignette instead of two.\n",
+   "new": "* Documentation: a new getting-started vignette reproducing a published\n  analysis; the longer analyses are articles on the package website, so the\n  package ships one vignette instead of two; the `?forestsearch` examples\n  are corrected (one called `mr_estimates_table()` without the bootstrap\n  result it requires).\n",
+   "basis": "The NEWS lines of N1."
+  },
+  {
+   "file": "_pkgdown.yml",
+   "id": "P1",
+   "section": "navbar — Articles menu",
+   "old": "        - text: Comparison with Guo & He (2021)\n          href: articles/guohe-nested-continuum.html\n",
+   "new": "        - text: Comparison with Guo & He (2021)\n          href: articles/guohe-nested-continuum.html\n        - text: Binary and Continuous Outcomes (ACTG 175)\n          href: articles/actg175-glm-outcomes.html\n",
+   "basis": "The new article."
+  },
+  {
+   "file": "_pkgdown.yml",
+   "id": "P2",
+   "section": "articles index — Post-Selection Inference",
+   "old": "      - articles/survival-post-selection\n      - articles/guohe-nested-continuum\n",
+   "new": "      - articles/survival-post-selection\n      - articles/guohe-nested-continuum\n      - articles/actg175-glm-outcomes\n",
+   "basis": "pkgdown requires every article in the index (check_pkgdown)."
+  }
+ ]
+}
