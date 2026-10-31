@@ -1,6 +1,6 @@
 # Treatment Effect Definitions in ForestSearch
 
-## Introduction
+## 1 Introduction
 
 ForestSearch implements multiple approaches for quantifying treatment
 effects in survival analysis, each grounded in the potential outcomes
@@ -27,9 +27,9 @@ identified subgroup, the standard-analysis coefficient
 $`\beta(\hat{H})`$ of the selected region, which has its own section
 below.
 
-## Notation and Setup
+## 2 Notation and Setup
 
-### Potential Outcomes Framework
+### 2.1 Potential Outcomes Framework
 
 For subject $`i`$ in a two-arm randomized trial with treatment
 $`A_i \in \{0, 1\}`$, the potential outcomes framework posits a pair of
@@ -43,7 +43,7 @@ survival times:
 Only one potential outcome is observed for each subject. Let
 $`\mathbf{X}_i`$ denote baseline covariates.
 
-### AFT Model Specification
+### 2.2 AFT Model Specification
 
 ForestSearch’s data-generating mechanisms are built on a Weibull AFT
 model:
@@ -69,7 +69,7 @@ treatment indicator and a treatment-by-subgroup interaction:
 where $`H_i \in \{0, 1\}`$ flags membership in the harm subgroup and
 $`\boldsymbol{\gamma}_Z`$ are prognostic covariate effects.
 
-### Hazard-Scale Coefficients
+### 2.3 Hazard-Scale Coefficients
 
 The AFT-to-hazard-scale transformation yields:
 
@@ -94,11 +94,11 @@ are:
 These are stored in the ForestSearch super-population data frame as
 `theta_1` (treatment) and `theta_0` (control).
 
-## Treatment Effect Definitions
+## 3 Treatment Effect Definitions
 
-### Marginal (Causal) Hazard Ratio
+### 3.1 Marginal (Causal) Hazard Ratio
 
-#### Definition
+#### 3.1.1 Definition
 
 The **marginal hazard ratio** for a subgroup $`\mathcal{S}`$ is the
 population-level treatment effect obtained by fitting a Cox proportional
@@ -106,7 +106,7 @@ hazards model to stacked potential outcomes within $`\mathcal{S}`$:
 
 ``` math
 \text{HR}_{\text{marg}}(\mathcal{S})
-= \exp\left(\hat{\beta}_{\text{Cox}}  \mid 
+= \exp\left(\hat{\beta}_{\text{Cox}}  \mid
 \text{data} = \left\{\left(T_i(1), 1, 1\right), \left(T_i(0), 1, 0\right)
 : i \in \mathcal{S}\right\}\right)
 ```
@@ -116,7 +116,7 @@ subject contributes two rows—one under treatment, one under control—both
 with event indicator 1 (since potential outcomes are fully observed in
 the super-population).
 
-#### Computation in ForestSearch
+#### 3.1.2 Computation in ForestSearch
 
 In
 [`calculate_hazard_ratios()`](https://larry-leon.github.io/forestsearch/reference/calculate_hazard_ratios.md)
@@ -141,7 +141,7 @@ the marginal HR is computed as follows:
 5.  Extract:
     $`\text{HR}_{\text{marg}} = \exp(\hat{\beta}_{\text{treat}})`$.
 
-#### Key Properties
+#### 3.1.3 Key Properties
 
 The marginal HR uses the same $`\varepsilon_i`$ for both potential
 outcomes, encoding the causal constraint that each subject’s latent
@@ -151,7 +151,7 @@ fit to stacked data targets a population-averaged effect and may deviate
 from the conditional (individual-level) hazard ratio when the
 proportional hazards assumption does not hold exactly.
 
-#### Package Variables
+#### 3.1.4 Package Variables
 
 | Variable                   | Description                                  |
 |:---------------------------|:---------------------------------------------|
@@ -159,9 +159,9 @@ proportional hazards assumption does not hold exactly.
 | `hr_H_true`                | Marginal HR in harm subgroup $`\mathcal{H}`$ |
 | `hr_Hc_true`               | Marginal HR in complement $`\mathcal{H}^c`$  |
 
-### Average Hazard Ratio (AHR)
+### 3.2 Average Hazard Ratio (AHR)
 
-#### Definition
+#### 3.2.1 Definition
 
 The **average hazard ratio** (AHR) for a subgroup $`\mathcal{S}`$ is
 defined directly from the individual-level potential-outcome log hazard
@@ -178,7 +178,7 @@ ratios:
 where $`\log \text{HR}_{i}^{(\text{po})} = \theta_i(1) - \theta_i(0)`$
 is the individual causal log hazard ratio.
 
-#### Computation in ForestSearch
+#### 3.2.2 Computation in ForestSearch
 
 The AHR is computed from the `loghr_po` column in the super-population
 data frame:
@@ -190,7 +190,7 @@ data frame:
 2.  Aggregate over the subgroup:
     $`\text{AHR}(\mathcal{S}) = \exp\left(\overline{\text{loghr\_po}}_{\mathcal{S}}\right)`$
 
-#### Key Properties
+#### 3.2.3 Key Properties
 
 The AHR is a deterministic function of the model coefficients and
 covariate distribution—it does not depend on the random error
@@ -202,7 +202,7 @@ a subgroup defined by a biomarker threshold $`z \geq c`$, the AHR curve
 $`\text{AHR}(c)`$ provides a smooth summary of how the treatment effect
 changes with the threshold.
 
-#### Package Variables
+#### 3.2.4 Package Variables
 
 | Variable                 | Description                                      |
 |:-------------------------|:-------------------------------------------------|
@@ -215,9 +215,9 @@ changes with the threshold.
 | `ahr.H.true`             | Per-replicate AHR in true $`H`$                  |
 | `ahr.Hc.true`            | Per-replicate AHR in true $`H^c`$                |
 
-### Controlled Direct Effect (CDE)
+### 3.3 Controlled Direct Effect (CDE)
 
-#### Definition
+#### 3.3.1 Definition
 
 The **controlled direct effect** (CDE) hazard ratio for a subgroup
 $`\mathcal{S}`$ is defined as the ratio of average exponentiated
@@ -238,7 +238,7 @@ scale) under treatment versus control. The term “controlled direct
 effect” reflects that each $`\theta_i(a)`$ controls for baseline
 covariates through the linear predictor.
 
-#### Computation in ForestSearch
+#### 3.3.2 Computation in ForestSearch
 
 In
 [`cox_ahr_cde_analysis()`](https://larry-leon.github.io/forestsearch/reference/cox_ahr_cde_analysis.md),
@@ -253,7 +253,7 @@ the CDE is computed from the `theta_1` and `theta_0` columns:
 2.  Compute subgroup CDE:
     $`\text{CDE}(\mathcal{S}) = \overline{\exp(\theta(1))}_{\mathcal{S}} / \overline{\exp(\theta(0))}_{\mathcal{S}}`$
 
-#### Key Properties
+#### 3.3.3 Key Properties
 
 Like the AHR, the CDE is deterministic given the super-population (no
 dependence on $`\varepsilon_i`$). However, by averaging on the hazard
@@ -263,7 +263,7 @@ inequality implies that in general
 $`\text{CDE}(\mathcal{S}) \neq \text{AHR}(\mathcal{S})`$, with the
 discrepancy increasing as within-subgroup heterogeneity grows.
 
-#### Package Variables
+#### 3.3.4 Package Variables
 
 | Variable | Description |
 |:---|:---|
@@ -277,9 +277,9 @@ discrepancy increasing as within-subgroup heterogeneity grows.
 | `cde.H.true` | Per-replicate CDE in true $`H`$ |
 | `cde.Hc.true` | Per-replicate CDE in true $`H^c`$ |
 
-## Theoretical Relationships
+## 4 Theoretical Relationships
 
-### When All Three Agree
+### 4.1 When All Three Agree
 
 Under a constant treatment effect model (no heterogeneity), the
 individual log hazard ratio is identical for all subjects:
@@ -292,7 +292,7 @@ individual log hazard ratio is identical for all subjects:
 In this case, all three measures coincide:
 $`\text{HR}_{\text{marg}} = \text{AHR} = \text{CDE} = \exp(\beta_{\text{treat}})`$.
 
-### Sources of Divergence
+### 4.2 Sources of Divergence
 
 When treatment effects are heterogeneous, three sources of divergence
 arise.
@@ -314,7 +314,7 @@ censoring** in the stacked framework.
 Third, the marginal HR depends on the realized $`\varepsilon_i`$ draw,
 introducing **Monte Carlo variability** absent from the AHR and CDE.
 
-### Practical Implications for ForestSearch
+### 4.3 Practical Implications for ForestSearch
 
 In the ForestSearch simulation framework, the AHR is the primary target
 estimand for characterising treatment effect heterogeneity because it is
@@ -325,9 +325,9 @@ population-level effects. The CDE provides a complementary perspective
 that is particularly useful when comparing treatment effects across
 subgroups defined by continuous biomarker thresholds.
 
-## Computation Under the ForestSearch AFT Model
+## 5 Computation Under the ForestSearch AFT Model
 
-### Step-by-Step Derivation
+### 5.1 Step-by-Step Derivation
 
 Given a fitted AFT model with parameters
 $`(\mu, \sigma, \boldsymbol{\gamma})`$:
@@ -376,7 +376,7 @@ accordingly.
 \text{Cox model on stacked potential outcomes}
 ```
 
-### GBSG Example: Harm Subgroup
+### 5.2 GBSG Example: Harm Subgroup
 
 For the GBSG-based DGM with alternative hypothesis, the harm subgroup is
 $`\mathcal{H} = \{z_1 = 1 \;\text{AND}\; z_3 = 1\}`$ (low estrogen
@@ -397,7 +397,7 @@ $`\gamma[\text{zh}] \leftarrow k_{\text{inter}} \times \gamma[\text{zh}]`$,
 providing direct control over the magnitude of treatment effect
 heterogeneity.
 
-## DGM-Level vs. Simulation-Level Hazard Ratios
+## 6 DGM-Level vs. Simulation-Level Hazard Ratios
 
 The variable names `hr.H.true` and `hr.Hc.true` appear in two distinct
 contexts within the ForestSearch codebase. Both use the same
@@ -406,7 +406,7 @@ computational core—a Cox model fit within the true subgroup defined by
 purposes. Understanding this distinction is essential for correctly
 interpreting simulation operating characteristics.
 
-### DGM-Level Truth (Super-Population)
+### 6.1 DGM-Level Truth (Super-Population)
 
 When
 [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
@@ -457,7 +457,7 @@ as $`n_{\text{super}} \to \infty`$.
 equivalently in `dgm$hazard_ratios$harm_subgroup`,
 `dgm$hazard_ratios$no_harm_subgroup`, `dgm$hazard_ratios$overall`.
 
-### Simulation-Level Truth (Per-Replicate)
+### 6.2 Simulation-Level Truth (Per-Replicate)
 
 During each simulation replicate, `run_fs_analysis()` and
 `run_grf_analysis()` in `oc_analyses_gbsg_refactored.R` recompute the
@@ -485,9 +485,9 @@ patterns, and the particular treatment randomization.
 **Stored as:** columns `hr.H.true` and `hr.Hc.true` in the simulation
 results `data.table`, one row per replicate.
 
-### Side-by-Side Comparison
+### 6.3 Side-by-Side Comparison
 
-| **DGM-Level vs. Simulation-Level True Hazard Ratios** |  |  |
+| **DGM-Level vs. Simulation-Level True Hazard Ratios** |  |  |
 |----|----|----|
 | Both use `coxph(Surv(time, event) ~ treat_sim)` within `flag_harm` subgroups, but on fundamentally different data |  |  |
 |  | **DGM-Level (Super-Population)** | **Simulation-Level (Per-Replicate)** |
@@ -614,7 +614,7 @@ gt(dgm_sim_df) |>
   )
 ```
 
-### Role in Operating Characteristics
+### 6.4 Role in Operating Characteristics
 
 In the simulation results produced by `run_oc_gbsg_sims()` and
 summarised by
@@ -679,7 +679,7 @@ and `mean(hr.H.true)` is attributable to subgroup misidentification,
 while the gap between `mean(hr.H.true)` and `dgm$hr_H_true` reflects
 finite-sample estimation noise.
 
-### Companion AHR and CDE Metrics
+### 6.5 Companion AHR and CDE Metrics
 
 For each context, parallel **Average Hazard Ratio** and **Controlled
 Direct Effect** values are available:
@@ -719,10 +719,10 @@ and `cde.Hc.hat` in the results `data.table`.
 
 The DGM-level AHR and Cox-based marginal HR generally agree closely but
 can diverge when within-subgroup treatment effects are highly
-heterogeneous, as discussed in Section @ref(theoretical-relationships).
-The CDE generally tracks the AHR but diverges due to Jensen’s
-inequality, with the gap increasing as within-subgroup heterogeneity
-grows.
+heterogeneous, as discussed in [Theoretical
+Relationships](#theoretical-relationships). The CDE generally tracks the
+AHR but diverges due to Jensen’s inequality, with the gap increasing as
+within-subgroup heterogeneity grows.
 
 In
 [`build_estimation_table()`](https://larry-leon.github.io/forestsearch/reference/build_estimation_table.md),
@@ -732,7 +732,7 @@ and CDE ($`\theta^\ddagger`$)—can appear as rows, each with appropriate
 bias columns. AHR and CDE rows appear conditionally when their source
 columns are present in the simulation results.
 
-## Summary Comparison Table
+## 7 Summary Comparison Table
 
 The following `gt` table provides a side-by-side comparison of all three
 treatment effect measures.
@@ -758,7 +758,7 @@ treatment effect measures.
 | **Interpretation & Use** |  |  |  |
 | Key package function(s) | calculate_hazard_ratios(), setup_gbsg_dgm(), build_estimation_table() | cox_ahr_cde_analysis(), build_estimation_table() | cox_ahr_cde_analysis(), compute_dgm_cde(), build_estimation_table() |
 | Interpretation | Population-average HR as estimated by Cox regression on potential outcomes | Geometric mean of individual causal hazard ratios across subjects | Ratio of average hazard contributions under treatment vs. control |
-| Based on the potential outcomes framework within the ForestSearch AFT data-generating mechanism. See León et al. (2024), *Statistics in Medicine*. |  |  |  |
+| Based on the potential outcomes framework within the ForestSearch AFT data-generating mechanism. See León et al. (2024), *Statistics in Medicine*. |  |  |  |
 
 [ Code](#collapse-comparisontable)
 
@@ -929,7 +929,7 @@ gt(comparison_df) |>
   )
 ```
 
-## Detailed Formulas: Quick-Reference Card
+## 8 Detailed Formulas: Quick-Reference Card
 
 | **Treatment Effect Computation Pipeline** |  |  |
 |----|----|----|
@@ -1049,10 +1049,12 @@ gt(formula_df) |>
   )
 ```
 
-## Worked Example
+## 9 Worked Example
 
 The following code demonstrates how the three measures are computed from
 a single DGM object, highlighting where they agree and diverge.
+
+Code
 
 ``` r
 
@@ -1127,7 +1129,7 @@ results <- cox_ahr_cde_analysis(
 )
 ```
 
-## The Post-Selection Target: the Standard Analysis of the Selected Region
+## 10 The Post-Selection Target: the Standard Analysis of the Selected Region
 
 The inference of León and Anderson (2026a, 2026b) targets the standard
 analysis of the selected region: $`\beta(\hat{H})`$, the treatment
@@ -1164,7 +1166,7 @@ they are what a simulation plants and what classification is scored
 against — while $`\beta(\hat{H})`$ is what the reported interval is
 about.
 
-## Guidance for Choosing an Estimand
+## 11 Guidance for Choosing an Estimand
 
 The choice among these three measures depends on the analytic objective:
 
@@ -1200,20 +1202,20 @@ the CDE’s natural-scale averaging can reveal patterns that are
 attenuated on the log scale, particularly when hazard contributions are
 highly variable.
 
-## References
+## 12 References
 
 - León, L.F., Jemielita, T., Guo, Z., Marceau West, R., & Anderson, K.M.
   (2024). Exploratory subgroup identification in the heterogeneous Cox
   model: A relatively simple procedure. *Statistics in Medicine*.
-  <doi:10.1002/sim.10163>.
+  doi:10.1002/sim.10163.
 
 - León, L.F. & Anderson, K.M. (2026a). Inference for standard trial
   estimands after data-driven subgroup discovery. arXiv:2609.38361.
-  <doi:10.48550/arXiv.2609.38361>.
+  doi:10.48550/arXiv.2609.38361.
 
 - León, L.F. & Anderson, K.M. (2026b). Interpretable subgroup
   identification across survival and generalized-linear outcomes.
-  arXiv:2610.28379. <doi:10.48550/arXiv.2610.28379>.
+  arXiv:2610.28379. doi:10.48550/arXiv.2610.28379.
 
 - Rubin, D.B. (1974). Estimating causal effects of treatments in
   randomized and nonrandomized studies. *Journal of Educational

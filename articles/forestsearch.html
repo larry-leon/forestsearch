@@ -41,6 +41,7 @@
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
+    <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
     <li><a class="dropdown-item" href="../articles/treatment_effect_definitions.html">Treatment Effect Definitions</a></li>
     <li><a class="dropdown-item" href="../articles/biomarker_effects.html">Biomarker Treatment Effects</a></li>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
@@ -69,7 +70,7 @@
       <h1>Interpretable subgroup identification with forestsearch</h1>
       <p class="subtitle">The German Breast Cancer Study Group analysis of León and Anderson (2026b), Table 1, run end to end</p>
       <p class="author">Larry Leon</p>
-      <p class="date">2026-10-30</p>
+      <p class="date">2026-10-31</p>
 
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/forestsearch.qmd" class="external-link"><code>vignettes/forestsearch.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -202,13 +203,13 @@ p_{\mathrm{cons}}(g) \;=\; 2\,\Phi\!\left(\frac{\hat\beta(g) - \log c_2}{\sigma_
 <div class="sourceCode cell-code" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"Fit including inference: %.1f s\n"</span>, <span class="va">fit_sec_fs</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; Fit including inference: 34.1 s</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; Fit including inference: 21.4 s</span></span></code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"  multiplier stage %.1f s; field blocks %.1f + %.1f s\n"</span>, <span class="va">g_fs</span><span class="op">$</span><span class="va">timing_seconds</span>,</span>
 <span>            <span class="va">g_fs</span><span class="op">$</span><span class="va">field</span><span class="op">$</span><span class="va">timing_seconds</span>, <span class="va">g_fs</span><span class="op">$</span><span class="va">field</span><span class="op">$</span><span class="va">complement</span><span class="op">$</span><span class="va">timing_seconds</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt;   multiplier stage 1.0 s; field blocks 16.4 + 2.7 s</span></span></code></pre>
+<pre><code><span><span class="co">#&gt;   multiplier stage 0.8 s; field blocks 10.6 + 1.7 s</span></span></code></pre>
 </div>
 </div>
 <p>The identified region is <code>{er &lt;= 0} &amp; {pgr &lt;= 26}</code>: no measured estrogen receptor and progesterone receptor at most 26 fmol/l. Two arguments in the call are not the defaults and are there for a reason: <code>stop_threshold = NULL</code> has the consistency stage evaluate every screened candidate rather than stop at the first that passes, and <code>field_decompose = TRUE</code> returns the supporting quantities shown below. Everything else that is not the default is the specification itself.</p>
@@ -554,13 +555,13 @@ N(\varepsilon)</annotation></semantics></math> rule takes the 75 patients with n
 <span>            <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">fit_dina</span><span class="op">$</span><span class="va">sg.harm</span>, collapse <span class="op">=</span> <span class="st">" &amp; "</span><span class="op">)</span>, <span class="va">fit_sec_dina</span>,</span>
 <span>            <span class="va">g_dina</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; DINA: {grade3 &gt;= 1} &amp; {pgr &lt;= 20}  (fit 10.5 s; re-selection family 30)</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; DINA: {grade3 &gt;= 1} &amp; {pgr &lt;= 20}  (fit 5.9 s; re-selection family 30)</span></span></code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"GRF:  %s  (fit %.1f s; re-selection family %d)\n"</span>,</span>
 <span>            <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">fit_grf</span><span class="op">$</span><span class="va">sg.harm</span>, collapse <span class="op">=</span> <span class="st">" &amp; "</span><span class="op">)</span>, <span class="va">fit_sec_grf</span>, <span class="va">g_grf</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; GRF:  {er &lt;= 0}  (fit 28.0 s; re-selection family 858)</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; GRF:  {er &lt;= 0}  (fit 15.6 s; re-selection family 858)</span></span></code></pre>
 </div>
 </div>
 <p>GRF returns the 82 patients with no measured estrogen receptor, a region that contains forest search’s; DINA returns the 113 who are grade 3 with progesterone receptor at most 20 fmol/l, a different classification. For the two model-based identifiers the candidate family is generated from a surface fitted to the outcome, so their bounds are conditional on the family proposed (Supplementary Section S1.9 of León and Anderson 2026b); forest search’s family is enumerated from the covariates alone.</p>
@@ -829,9 +830,11 @@ T(g) \;=\; \frac{\hat\beta(g) - \log c_2}{\sigma_D(g)},
 </h2>
 <ul>
 <li>The <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html">post-selection article</a> reads the bounds in more depth on the same trial: the re-selection frequency p̂ as a diagnostic, membership agreement, and what each construction does and does not say.</li>
+<li>The <a href="https://larry-leon.github.io/forestsearch/articles/guohe-nested-continuum.html">Guo and He article</a> sets the bounds beside the de-biased estimate and one-sided bound of Guo and He (2021) on a nested continuum of subgroups, Section S4 of León and Anderson (2026b).</li>
+<li>The ACTG 175 analyses are an article on the <a href="https://larry-leon.github.io/forestsearch/articles/">package website</a>: forest search on a binary and a continuous endpoint, with the bounds and the declaration calibration (León and Anderson 2026b, Section S3), and the three identifiers on the binary endpoint with the full bootstrap beside multiplier resampling (León and Anderson 2026a, Table S3).</li>
 <li>The package website carries the original workflow of León et al. (2024) — the full argument listing, the bootstrap bias correction and the cross-validation — as the article <em>Exploratory subgroup identification with forestsearch (the 2024 workflow)</em>, and the methodology and simulation articles.</li>
 <li>
-<code><a href="../reference/forestsearch.html">?forestsearch</a></code> documents every argument, with examples for this analysis and for the binary and continuous ACTG 175 analyses of León and Anderson (2026b), and a section on the options not tested against the manuscript analyses.</li>
+<code><a href="../reference/forestsearch.html">?forestsearch</a></code> documents every argument, with examples on this trial and on the binary and continuous ACTG 175 endpoints, and a section on the options not tested against the manuscript analyses.</li>
 </ul></section><section class="level2"><h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
 <p>Amatya, A. K., Fiero, M. H., Bloomquist, E. W., Sinha, A. K., Lemery, S. J., Singh, H., Ibrahim, A., Donoghue, M., Fashoyin-Aje, L. A., de Claro, R. A., Gormley, N. J., Amiri-Kordestani, L., Sridhara, R., Theoret, M. R., Kluetz, P. G., Pazdur, R., Beaver, J. A. and Tang, S. (2021). Subgroup analyses in oncology trials: Regulatory considerations and case examples. <em>Clinical Cancer Research</em> 27(21), 5753–5756.</p>

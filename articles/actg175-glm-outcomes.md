@@ -1,0 +1,856 @@
+# Binary and continuous outcomes: the ACTG 175 analyses
+
+``` r
+
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+library(forestsearch)
+# Written for forestsearch >= 0.4.0, the release the package website renders with.
+if (utils::packageVersion("forestsearch") < "0.4.0") {
+  stop("This article needs forestsearch >= 0.4.0. ",
+       "Update it with install.packages(\"forestsearch\").")
+}
+```
+
+Forest search works the same way on every outcome family. Each candidate
+subgroup receives the trial’s own analysis — here a logistic regression
+for a binary endpoint and a linear regression for a continuous one — and
+the selection correction and the one-sided bounds act on that analysis’s
+treatment coefficient: the log odds ratio, or the mean difference. This
+article runs the analyses of the AIDS Clinical Trials Group 175 trial in
+the two papers.
+
+- **Part 1 — León and Anderson (2026b), Supplementary Section S3.**
+  Forest search on the binary endpoint (no CD4 improvement at week 20,
+  analysed as an odds ratio) and on the continuous endpoint (the CD4
+  decline to week 20, analysed as a mean difference): the corrected
+  estimates, the one-sided field and field-s bounds and the Bonferroni
+  pair of its Table S16, and the declaration calibration of its Table
+  S17.
+- **Part 2 — León and Anderson (2026a), Table S3 (Supplementary Section
+  S7).** The binary endpoint with three identifiers — forest search
+  (FS), DINA and GRF — and the full bootstrap correction beside
+  multiplier resampling. The multiplier correction runs at the paper’s
+  5,000 draws; the bootstrap runs at a small number of replicates, to
+  show the machinery and its cost.
+
+Every endpoint is oriented so that the adverse direction is upward — an
+odds ratio above one, or a positive mean difference, is harm — so one
+screen and one pair of bounds serve both, with no change of sign at the
+point of reading. The bounds are read by where they lie against the
+trial’s own effect and against clinically meaningful effect sizes, not
+as tests at the null. The article runs in about six minutes; most of it
+is the five searches, which run on one core.
+
+## The data
+
+ACTG 175 randomized HIV-infected adults to four antiretroviral regimens.
+The analyses compare zidovudine plus didanosine (ZDV + ddI, arm 1) with
+didanosine alone (ddI, arm 3): 1,083 patients, every one of them with a
+week-20 CD4 count. Twelve baseline covariates enter every search: age,
+days of prior antiretroviral therapy, weight, Karnofsky score, baseline
+CD4 and CD8 counts, and six binary indicators — haemophilia, homosexual
+activity, a history of injecting drug use, race, sex and symptomatic
+status.
+
+``` r
+
+actg <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg$id    <- seq_len(nrow(actg))
+actg$treat <- as.integer(actg$arms == 1L)           # 1 = ZDV + ddI, 0 = ddI
+stopifnot(nrow(actg) == 1083, !anyNA(actg$cd420))   # every patient has a week-20 CD4 count
+
+cont_vars   <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+bin_vars    <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
+confounders <- c(cont_vars, bin_vars)
+
+# Binary endpoint: 1 = no CD4 improvement at week 20, the adverse outcome.
+# The binary covariates stay numeric 0/1; forest search treats them as categorical.
+df_bin <- actg
+df_bin$y_binary_neg <- as.integer(!(df_bin$cd420 > df_bin$cd40))
+for (v in bin_vars) df_bin[[v]] <- as.numeric(df_bin[[v]])
+
+# Continuous endpoint: the CD4 decline from baseline to week 20, positive = worse.
+# The binary covariates are factors, as in the applied analysis this one follows.
+df_cont <- actg
+df_cont$y_decline <- df_cont$cd40 - df_cont$cd420
+for (v in bin_vars) df_cont[[v]] <- as.factor(df_cont[[v]])
+
+# The whole-trial effects, with Wald 95% intervals
+wald <- function(fit, back = identity) {
+  b <- coef(fit)[["treat"]]; se <- sqrt(vcov(fit)["treat", "treat"])
+  back(b + c(0, -1, 1) * qnorm(0.975) * se)
+}
+whole_or <- wald(glm(y_binary_neg ~ treat, family = binomial, data = df_bin), exp)
+whole_md <- wald(lm(y_decline ~ treat, data = df_cont))
+c(patients = nrow(actg), ZDV_ddI = sum(actg$treat == 1), ddI = sum(actg$treat == 0),
+  no_improvement = sum(df_bin$y_binary_neg))
+```
+
+    #>       patients        ZDV_ddI            ddI no_improvement
+    #>           1083            522            561            430
+
+``` r
+
+cat(sprintf("Whole trial: odds ratio of no improvement %.3f (%.3f, %.3f)\n",
+            whole_or[1], whole_or[2], whole_or[3]),
+    sprintf("             mean difference in CD4 decline %.1f (%.1f, %.1f) cells per mm3\n",
+            whole_md[1], whole_md[2], whole_md[3]), sep = "")
+```
+
+    #> Whole trial: odds ratio of no improvement 0.665 (0.520, 0.850)
+    #>              mean difference in CD4 decline -27.6 (-43.1, -12.1) cells per mm3
+
+Over the trial as a whole the combination leaves fewer patients without
+CD4 improvement and spares about 28 cells per mm³ of CD4 decline. Every
+bound below is read against these two effects.
+
+## Part 1 — the analyses of León and Anderson (2026b)
+
+### The specification
+
+The binary search uses the settings of the breast cancer analysis in
+[`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md),
+on the odds-ratio scale. The continuous search follows an existing
+applied analysis of the same outcome, with the selection rule as its one
+departure.
+
+- **Candidates** are conjunctions of at most two covariate cuts
+  (`maxk = 2`) with more than 60 patients (`n.min`); on the binary
+  endpoint each arm must also hold ten patients without improvement
+  (`d0.min`, `d1.min`), a minimum that does not apply to a continuous
+  outcome. The binary search carries ten candidate cuts on baseline CD4
+  and on weight, the continuous search ten on each of the six continuous
+  covariates (`conf.cont_jcuts`); the remaining covariates take the
+  package’s default cuts.
+- **Thresholds.** On the binary endpoint the screening and per-split
+  thresholds are both an odds ratio of one, the claim threshold. On the
+  CD4 scale they are 10 and 5 cells per mm³, well below the trial’s own
+  effect. The consistency level is $`p^\star = 0.90`$, with the rate
+  evaluated in closed form (`consistency_method = "resample"`;
+  `fs.splits` sizes only the random-splitting fallback).
+- **The selection rule** is $`\max_{\mathcal{A}} N(\varepsilon)`$ at
+  $`\varepsilon = 0.20`$: the largest admitted region whose effect is
+  within 20% of the largest.
+- **Inference** from 5,000 multiplier draws: the corrected (two-term)
+  estimate with its two-sided infinitesimal-jackknife (IJ) interval, the
+  one-sided field lower bound on $`\beta(\hat H)`$, the field-s upper
+  bound on $`\beta(\hat H^{c})`$, and the Bonferroni pair, a joint 95%
+  claim on both. The field’s own Monte Carlo runs at 1,000 outer and 500
+  inner draws. The declaration field is kept for the calibration of the
+  last section of this part.
+
+``` r
+
+t0 <- proc.time()[["elapsed"]]
+fit_bin <- forestsearch(
+  df.analysis = df_bin,
+  outcome.name = "y_binary_neg", event.name = "y_binary_neg", treat.name = "treat", id.name = "id",
+  confounders.name = confounders,
+  is.RCT = TRUE, seedit = 8316951,
+  outcome_type = "binary", effect_measure = "OR", adverse_outcome = TRUE,
+  # the candidate family
+  conf.cont_jcuts = list(cd40 = 10, wtkg = 10),
+  n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
+  # the identifier, its thresholds and the selection rule
+  subgroup_method = "consistency", consistency_method = "resample",
+  effect.threshold = 1.00, consistency.threshold = 1.00, pconsistency.threshold = 0.90,
+  stop_threshold = NULL,                      # evaluate every candidate; no early stop
+  sg_focus = "effMaxSG", selection_rule = "neighborhood", effect_neighborhood = 0.20,
+  # selection-adjusted inference
+  mr_inference = TRUE,
+  mr_inference_args = list(ci_method = "field", draws = 5000L, include_complement = TRUE,
+                           field_scale_complement = "selected", field_decompose = TRUE,
+                           keep_declaration_field = TRUE,
+                           declaration_c0 = c(0.70, 0.75, 0.80, 0.85)),
+  quiet = TRUE, parallel_args = list(plan = "sequential"))
+sec_bin <- proc.time()[["elapsed"]] - t0
+```
+
+``` r
+
+t0 <- proc.time()[["elapsed"]]
+fit_cont <- forestsearch(
+  df.analysis = df_cont,
+  outcome.name = "y_decline", treat.name = "treat", id.name = "id",
+  confounders.name = confounders,
+  is.RCT = TRUE, seedit = 8316951,
+  outcome_type = "continuous", effect_measure = "MD", adverse_outcome = TRUE,
+  # the candidate family
+  conf.cont_jcuts = list(age = 10, preanti = 10, wtkg = 10, karnof = 10, cd40 = 10, cd80 = 10),
+  n.min = 60, maxk = 2,
+  # the identifier, its thresholds (CD4 cells per mm3) and the selection rule
+  consistency_method = "resample", fs.splits = 500,
+  effect.threshold = 10, consistency.threshold = 5, pconsistency.threshold = 0.90,
+  sg_focus = "effMaxSG", selection_rule = "neighborhood", effect_neighborhood = 0.20,
+  # selection-adjusted inference
+  mr_inference = TRUE,
+  mr_inference_args = list(ci_method = "field", draws = 5000L, include_complement = TRUE,
+                           field_scale_complement = "selected",
+                           keep_declaration_field = TRUE,
+                           declaration_c0 = c(-5, -10, -15)),
+  quiet = TRUE, parallel_args = list(plan = "sequential"))
+sec_cont <- proc.time()[["elapsed"]] - t0
+```
+
+``` r
+
+in_region <- function(fit, d) fit$df.est$treat.recommend[match(d$id, fit$df.est$id)] == 0
+in_bin  <- in_region(fit_bin, df_bin)
+in_cont <- in_region(fit_cont, df_cont)
+# the regions in words, checked against the package's membership
+stopifnot(identical(in_bin,  df_bin$wtkg > 86 & df_bin$cd40 > 380),
+          identical(in_cont, df_cont$cd40 > 507 & as.character(df_cont$gender) == "1"))
+for (x in list(list("Binary", fit_bin, in_bin, sec_bin),
+               list("Continuous", fit_cont, in_cont, sec_cont))) {
+  g <- x[[2]]$mr_inference
+  cat(sprintf("%-10s %-32s N %d   fit %.0f s (multiplier stage %.1f s)\n",
+              x[[1]], paste(x[[2]]$sg.harm, collapse = " & "), sum(x[[3]]), x[[4]],
+              g$timing_seconds))
+}
+```
+
+    #> Binary     !{cd40 <= 380} & !{wtkg <= 86}   N 72   fit 24 s (multiplier stage 1.1 s)
+    #> Continuous !{cd40 <= 507} & {gender}        N 79   fit 25 s (multiplier stage 0.8 s)
+
+On the binary endpoint forest search returns the 72 patients weighing
+more than 86 kg with baseline CD4 above 380 cells per mm³; on the
+continuous endpoint, the 79 men with baseline CD4 above 507. The package
+writes a region as a conjunction of the cut indicators it searched —
+`!{cd40 <= 380}` is “CD4 above 380” and
+[gender](https://github.com/lmullen/gender) is “male” — and the chunk
+above checks each against its description in words. The two regions are
+selected on different endpoints of the same patients and are not the
+same set; each leaves a complement of about 93% of the trial.
+
+### The regions and their adjusted effects
+
+Every number of Table S16 but the whole-trial row is in
+`fit$mr_inference`: the unadjusted and corrected estimates and the
+selection bias in its top level, the bounds in `$field`, and the
+complement’s quantities in `$complement` and `$field$complement`. The
+helper below reads them in the table’s order, on the outcome’s own
+scale.
+
+``` r
+
+s16_column <- function(fit, d, y, digits, events) {
+  g  <- fit$mr_inference; cc <- g$complement
+  fb <- g$field; fc <- fb$complement; js <- fb$joint_s
+  in_H <- in_region(fit, d)
+  stopifnot(!anyNA(in_H), sum(in_H) == g$n_selected, sum(!in_H) == cc$n)
+  f  <- function(x) sprintf("%.*f", digits, x)
+  ci <- function(e, l, u) sprintf("%s (%s, %s)", f(e), f(l), f(u))
+  n_ev <- function(sel) {
+    n <- format(sum(sel), big.mark = ",")
+    if (events) sprintf("%s (%d)", n, sum(d[[y]][sel])) else n
+  }
+  c(n_ev(rep(TRUE, nrow(d))),
+    paste(fit$sg.harm, collapse = " & "),
+    n_ev(in_H),
+    ci(g$naive$est, g$naive$lower, g$naive$upper),
+    ci(g$debiased$est, g$debiased$lower, g$debiased$upper),
+    f(fb$lower_1s),
+    n_ev(!in_H),
+    ci(cc$naive$est, cc$naive$lower, cc$naive$upper),
+    ci(cc$debiased$est, cc$debiased$lower, cc$debiased$upper),
+    f(fc$upper_1s_s),
+    sprintf("%s / %s", f(js$bonf_lower_H), f(js$bonf_upper_Hc)),
+    f(g$selection_bias),
+    format(g$n_family, big.mark = ","))
+}
+s16_rows <- c("Whole trial N (events)", "Whole-trial estimate, 95% CI", "Region", "N (events)",
+              "Unadjusted, 95% CI", "Corrected (two-term), IJ interval", "Field, lower bound",
+              "Complement N (events)", "Unadjusted, 95% CI", "Corrected (two-term), IJ interval",
+              "Field-s, upper bound", "Bonferroni pair", "Selection bias", "Re-selection family")
+col_bin  <- s16_column(fit_bin,  df_bin,  "y_binary_neg", digits = 3, events = TRUE)
+col_cont <- s16_column(fit_cont, df_cont, "y_decline",    digits = 1, events = FALSE)
+s16 <- data.frame(
+  row = s16_rows,
+  binary = c(col_bin[1], sprintf("%.3f (%.3f, %.3f)", whole_or[1], whole_or[2], whole_or[3]),
+             col_bin[-1]),
+  continuous = c(col_cont[1], sprintf("%.1f (%.1f, %.1f)", whole_md[1], whole_md[2], whole_md[3]),
+                 col_cont[-1]))
+knitr::kable(s16, col.names = c("", "Binary, OR", "Continuous, MD (CD4 cells)"),
+             row.names = FALSE, align = "lrr",
+             caption = paste("This article's run. Corrected rows carry the two-term estimate with its",
+                             "two-sided IJ interval; the field and field-s rows are one-sided bounds at",
+                             "nominal 0.95; the Bonferroni pair holds both at joint 0.95. Selection bias",
+                             "is on the log scale for the odds ratio and in CD4 cells for the mean difference."))
+```
+
+|  | Binary, OR | Continuous, MD (CD4 cells) |
+|:---|---:|---:|
+| Whole trial N (events) | 1,083 (430) | 1,083 |
+| Whole-trial estimate, 95% CI | 0.665 (0.520, 0.850) | -27.6 (-43.1, -12.1) |
+| Region | !{cd40 \<= 380} & !{wtkg \<= 86} | !{cd40 \<= 507} & {gender} |
+| N (events) | 72 (37) | 79 |
+| Unadjusted, 95% CI | 3.584 (1.315, 9.774) | 71.1 (-5.1, 147.3) |
+| Corrected (two-term), IJ interval | 1.773 (0.604, 5.206) | 22.1 (-77.5, 121.6) |
+| Field, lower bound | 0.686 | -38.3 |
+| Complement N (events) | 1,011 (393) | 1,004 |
+| Unadjusted, 95% CI | 0.587 (0.454, 0.759) | -36.2 (-51.4, -20.9) |
+| Corrected (two-term), IJ interval | 0.620 (0.372, 1.033) | -32.7 (-62.2, -3.2) |
+| Field-s, upper bound | 0.786 | -17.6 |
+| Bonferroni pair | 0.597 / 0.817 | -51.2 / -15.8 |
+| Selection bias | 0.704 | 47.9 |
+| Re-selection family | 2,794 | 4,935 |
+
+This article’s run. Corrected rows carry the two-term estimate with its
+two-sided IJ interval; the field and field-s rows are one-sided bounds
+at nominal 0.95; the Bonferroni pair holds both at joint 0.95. Selection
+bias is on the log scale for the odds ratio and in CD4 cells for the
+mean difference. {.table .caption-top}
+
+The two ACTG 175 columns of Table S16 of León and Anderson (2026b), as
+published:
+
+``` r
+
+s16_published <- data.frame(
+  row = s16_rows,
+  binary = c("1,083 (430)", "0.665 (0.520, 0.850)", "weight > 86 kg and CD4 > 380", "72 (37)",
+             "3.584 (1.315, 9.774)", "1.773 (0.604, 5.206)", "0.686", "1,011 (393)",
+             "0.587 (0.454, 0.759)", "0.620 (0.372, 1.033)", "0.786", "0.597 / 0.817",
+             "0.704", "2,794"),
+  continuous = c("1,083", "-27.6 (-43.1, -12.1)", "CD4 > 507 and male", "79",
+                 "71.1 (-5.1, 147.3)", "22.1 (-77.5, 121.6)", "-38.3", "1,004",
+                 "-36.2 (-51.4, -20.9)", "-32.7 (-62.2, -3.2)", "-17.6", "-51.2 / -15.8",
+                 "47.9", "4,935"))
+knitr::kable(s16_published, col.names = c("", "Binary, OR", "Continuous, MD (CD4 cells)"),
+             row.names = FALSE, align = "lrr",
+             caption = "Table S16 of León and Anderson (2026b), the two ACTG 175 columns, as published.")
+```
+
+|  | Binary, OR | Continuous, MD (CD4 cells) |
+|:---|---:|---:|
+| Whole trial N (events) | 1,083 (430) | 1,083 |
+| Whole-trial estimate, 95% CI | 0.665 (0.520, 0.850) | -27.6 (-43.1, -12.1) |
+| Region | weight \> 86 kg and CD4 \> 380 | CD4 \> 507 and male |
+| N (events) | 72 (37) | 79 |
+| Unadjusted, 95% CI | 3.584 (1.315, 9.774) | 71.1 (-5.1, 147.3) |
+| Corrected (two-term), IJ interval | 1.773 (0.604, 5.206) | 22.1 (-77.5, 121.6) |
+| Field, lower bound | 0.686 | -38.3 |
+| Complement N (events) | 1,011 (393) | 1,004 |
+| Unadjusted, 95% CI | 0.587 (0.454, 0.759) | -36.2 (-51.4, -20.9) |
+| Corrected (two-term), IJ interval | 0.620 (0.372, 1.033) | -32.7 (-62.2, -3.2) |
+| Field-s, upper bound | 0.786 | -17.6 |
+| Bonferroni pair | 0.597 / 0.817 | -51.2 / -15.8 |
+| Selection bias | 0.704 | 47.9 |
+| Re-selection family | 2,794 | 4,935 |
+
+Table S16 of León and Anderson (2026b), the two ACTG 175 columns, as
+published. {.table .caption-top}
+
+The run reproduces every number of the published columns; only the
+region is written differently, in the package’s notation.
+
+- **The binary endpoint.** In the region the unadjusted odds ratio is
+  3.584. The correction, over a selection bias of 0.704 on the log
+  scale, brings it to 1.773: much attenuated, suggestive of limited
+  benefit of the combination in these patients, but with a field lower
+  bound of 0.686, below one, a benefit cannot be ruled out. Outside the
+  region the corrected odds ratio, 0.620, favours the combination at
+  least as much as the trial’s own 0.665, with a field-s upper bound of
+  0.786.
+- **The continuous endpoint** has the same shape on the additive scale.
+  The unadjusted mean difference in the region is 71.1 cells; the
+  correction removes 47.9 cells of selection bias and leaves 22.1 on the
+  adverse side, with a field lower bound of -38.3, below zero. Outside
+  the region the corrected estimate, -32.7, again favours the
+  combination, with a field-s upper bound of -17.6 cells.
+- **The common reading.** An unadjusted analysis of either region would
+  report a substantial adverse effect. After correction each region’s
+  estimate is much attenuated, with a lower bound that does not rule out
+  a benefit; in each case the patients outside the region — the part of
+  the trial the search was not looking at — show a benefit of the
+  combination.
+
+### Declaration at a protected level
+
+Forest search declared both regions at the default screen,
+$`p^\star = 0.90`$. Section 4 of León and Anderson (2026b) asks whether
+a screen calibrated to protect a clinically meaningful uniform benefit
+would have declared them: an odds ratio of 0.75 on the binary endpoint,
+and ten cells per mm³ of CD4 decline spared on the continuous one, each
+on a grid around it, at a family-wise level $`\alpha = 0.10`$.
+[`fs_declaration_calibration()`](https://larry-leon.github.io/forestsearch/reference/fs_declaration_calibration.md)
+reads the answer from the multiplier draws each fit already made;
+nothing is redrawn (see
+[`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
+for the construction).
+
+``` r
+
+s17_column <- function(fit, c0_grid, c0_primary, fmt_c0) {
+  cal    <- fs_declaration_calibration(fit, alpha = 0.10, c0 = c0_grid)
+  cal_c2 <- fs_declaration_calibration(fit, alpha = 0.10)   # c0 = NULL: the claim threshold
+  stopifnot(identical(cal$c0$source, "capture"))            # read from the fit's own draws
+  fld <- fit$mr_inference$declaration_field
+  T_H <- cal$T_hat[[fld$family_id[fld$meta$selected_index]]]
+  tb  <- cal$c0$table; i <- which(tb$c0 == c0_primary)
+  admits_none <- all(lengths(cal$c0$admitted_calibrated) == 0) &&
+    length(cal_c2$admitted_calibrated) == 0
+  c(fit$mr_inference$n_selected,
+    sprintf("%.3f / %.3f", T_H, max(cal$T_hat, na.rm = TRUE)),
+    fmt_c0(c0_primary),
+    sprintf("%.3f", tb$kappa_hat[i]),
+    sprintf("%.3f", 2 * pnorm(tb$kappa_hat[i]) - 1),
+    sprintf("%.3f", tb$fw_size[i]),
+    sprintf("%.3f", cal_c2$kappa_hat),
+    sprintf("%.3f", cal_c2$fw_size),
+    if (admits_none) "admits nothing" else "admits a candidate")
+}
+s17_rows <- c("Region declared at the default level, N", "T of the region / largest T in the family",
+              "Primary protected level c0", "Calibrated cutoff, kappa-hat(c0)",
+              "Implied level, 2 Phi(kappa-hat) - 1",
+              "Diagnostic at the default screen's cutoff", "Calibrated cutoff at the claim threshold",
+              "Diagnostic at the claim threshold", "Calibrated rule, every c0 and the claim threshold")
+s17 <- data.frame(
+  row = s17_rows,
+  binary = s17_column(fit_bin, c(0.70, 0.75, 0.80, 0.85), 0.75, function(x) sprintf("OR %.2f", x)),
+  continuous = s17_column(fit_cont, c(-5, -10, -15), -10, function(x) sprintf("MD %g cells", x)))
+knitr::kable(s17, col.names = c("", "Binary, odds ratio", "Continuous, mean difference"),
+             row.names = FALSE, align = "lrr",
+             caption = paste("This article's run, at alpha = 0.10. The diagnostic is the family-wise size",
+                             "of the p* = 0.90 screen as executed, were every candidate to carry a uniform",
+                             "benefit of c0; at the claim threshold it is a boundary size."))
+```
+
+|  | Binary, odds ratio | Continuous, mean difference |
+|:---|---:|---:|
+| Region declared at the default level, N | 72 | 79 |
+| T of the region / largest T in the family | 2.494 / 2.494 | 1.701 / 2.043 |
+| Primary protected level c0 | OR 0.75 | MD -10 cells |
+| Calibrated cutoff, kappa-hat(c0) | 2.889 | 2.952 |
+| Implied level, 2 Phi(kappa-hat) - 1 | 0.996 | 0.997 |
+| Diagnostic at the default screen’s cutoff | 0.838 | 0.909 |
+| Calibrated cutoff at the claim threshold | 3.611 | 3.625 |
+| Diagnostic at the claim threshold | 0.989 | 0.997 |
+| Calibrated rule, every c0 and the claim threshold | admits nothing | admits nothing |
+
+This article’s run, at alpha = 0.10. The diagnostic is the family-wise
+size of the p\* = 0.90 screen as executed, were every candidate to carry
+a uniform benefit of c0; at the claim threshold it is a boundary size.
+{.table .caption-top style="width:100%;"}
+
+The two ACTG 175 columns of Table S17 of León and Anderson (2026b), as
+published:
+
+``` r
+
+s17_published <- data.frame(
+  row = s17_rows,
+  binary = c("72", "2.494 / 2.494", "OR 0.75", "2.889", "0.996", "0.838", "3.611", "0.989",
+             "admits nothing"),
+  continuous = c("79", "1.701 / 2.043", "MD -10 cells", "2.952", "0.997", "0.909", "3.625", "0.997",
+                 "admits nothing"))
+knitr::kable(s17_published, col.names = c("", "Binary, odds ratio", "Continuous, mean difference"),
+             row.names = FALSE, align = "lrr",
+             caption = "Table S17 of León and Anderson (2026b), the two ACTG 175 columns, as published.")
+```
+
+|  | Binary, odds ratio | Continuous, mean difference |
+|:---|---:|---:|
+| Region declared at the default level, N | 72 | 79 |
+| T of the region / largest T in the family | 2.494 / 2.494 | 1.701 / 2.043 |
+| Primary protected level c0 | OR 0.75 | MD -10 cells |
+| Calibrated cutoff, kappa-hat(c0) | 2.889 | 2.952 |
+| Implied level, 2 Phi(kappa-hat) - 1 | 0.996 | 0.997 |
+| Diagnostic at the default screen’s cutoff | 0.838 | 0.909 |
+| Calibrated cutoff at the claim threshold | 3.611 | 3.625 |
+| Diagnostic at the claim threshold | 0.989 | 0.997 |
+| Calibrated rule, every c0 and the claim threshold | admits nothing | admits nothing |
+
+Table S17 of León and Anderson (2026b), the two ACTG 175 columns, as
+published. {.table .caption-top style="width:100%;"}
+
+In both analyses the returned region’s statistic sits below the
+calibrated cutoff, and so does the largest statistic in its family, so
+the calibrated screen admits no candidate — at every protected level on
+the grid and at the claim threshold. Had the combination benefited every
+patient by the protected amount, the default screen would still have
+returned a harm subgroup in 0.838 (binary) and 0.909 (continuous) of
+such trials, on these families and this covariate design. The implied
+levels, 0.996 and 0.997, say what the calibration asks of these trials:
+a screen far tighter than the default, which is what a large overlapping
+family costs once the protection is placed at a clinically meaningful
+benefit.
+
+## Part 2 — Table S3 of León and Anderson (2026a)
+
+### The settings
+
+The forest-search call is the one in the paper’s own document: Part 1’s
+search with the neighbourhood at $`\varepsilon = 0.10`$, the value that
+paper sets, and the package’s default early stop in the consistency
+stage. Two further identifiers stand beside it. DINA and GRF propose
+their candidates from a surface fitted to the outcome, and their
+qualifying regions are re-ranked on the odds ratio
+(`*_select_statistic = "effect"`): DINA with a two-fold cross-fitted
+surface and a floor of an odds ratio of one, GRF on the frontier of its
+covariate grid at depth 2 with a floor of zero on its doubly-robust
+risk-difference score. Each fit carries multiplier resampling at 5,000
+draws, reported as the two-term corrected estimate with its two-sided IJ
+interval.
+
+``` r
+
+t0 <- proc.time()[["elapsed"]]
+fit_s3_fs <- forestsearch(
+  df.analysis = df_bin,
+  outcome.name = "y_binary_neg", event.name = "y_binary_neg", treat.name = "treat", id.name = "id",
+  confounders.name = confounders,
+  is.RCT = TRUE, seedit = 8316951,
+  outcome_type = "binary", effect_measure = "OR", adverse_outcome = TRUE,
+  conf.cont_jcuts = list(cd40 = 10, wtkg = 10),
+  n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
+  subgroup_method = "consistency", consistency_method = "resample", fs.splits = 500,
+  effect.threshold = 1.0, consistency.threshold = 1.0, pconsistency.threshold = 0.90,
+  sg_focus = "effMaxSG", selection_rule = "neighborhood", effect_neighborhood = 0.10,
+  mr_inference = TRUE, mr_inference_args = list(draws = 5000L),
+  quiet = TRUE, parallel_args = list(plan = "sequential"))
+sec_s3_fs <- proc.time()[["elapsed"]] - t0
+```
+
+``` r
+
+t0 <- proc.time()[["elapsed"]]
+fit_s3_dina <- forestsearch(
+  df.analysis = df_bin,
+  outcome.name = "y_binary_neg", event.name = "y_binary_neg", treat.name = "treat", id.name = "id",
+  confounders.name = confounders,
+  is.RCT = TRUE, seedit = 8316951,
+  outcome_type = "binary", effect_measure = "OR", adverse_outcome = TRUE,
+  subgroup_method = "dina", dina_select_statistic = "effect",
+  dina_args = list(seed = 8316951L, n_folds = 2L),
+  effect.threshold = 1.0, n.min = 60,
+  sg_focus = "effMaxSG", selection_rule = "neighborhood", effect_neighborhood = 0.10,
+  mr_inference = TRUE, mr_inference_args = list(draws = 5000L),
+  quiet = TRUE, parallel_args = list(plan = "sequential"))
+sec_s3_dina <- proc.time()[["elapsed"]] - t0
+```
+
+``` r
+
+t0 <- proc.time()[["elapsed"]]
+fit_s3_grf <- forestsearch(
+  df.analysis = df_bin,
+  outcome.name = "y_binary_neg", event.name = "y_binary_neg", treat.name = "treat", id.name = "id",
+  confounders.name = confounders,
+  is.RCT = TRUE, seedit = 8316951,
+  outcome_type = "binary", effect_measure = "OR", adverse_outcome = TRUE,
+  subgroup_method = "grf", grf_selection = "frontier", grf_select_statistic = "effect",
+  grf_depth = 2L, dmin.grf = 0.0, n.min = 60,
+  sg_focus = "effMaxSG", selection_rule = "neighborhood", effect_neighborhood = 0.10,
+  mr_inference = TRUE, mr_inference_args = list(draws = 5000L),
+  quiet = TRUE, parallel_args = list(plan = "sequential"))
+sec_s3_grf <- proc.time()[["elapsed"]] - t0
+```
+
+``` r
+
+fits_s3 <- list(FS = fit_s3_fs, DINA = fit_s3_dina, GRF = fit_s3_grf)
+secs_s3 <- c(FS = sec_s3_fs, DINA = sec_s3_dina, GRF = sec_s3_grf)
+stopifnot(identical(in_region(fit_s3_fs, df_bin), in_bin))   # the region of Part 1
+for (m in names(fits_s3)) {
+  gm <- fits_s3[[m]]$mr_inference
+  cat(sprintf("%-4s %-38s N %3d   fit %5.1f s (multiplier stage %4.1f s)   family %d\n",
+              m, paste(fits_s3[[m]]$sg.harm, collapse = " & "), gm$n_selected, secs_s3[[m]],
+              gm$timing_seconds, gm$n_family))
+}
+```
+
+    #> FS   !{cd40 <= 380} & !{wtkg <= 86}         N  72   fit  20.7 s (multiplier stage  0.4 s)   family 2794
+    #> DINA {preanti >= 849.40000000000009} & {cd40 >= 338} N  98   fit   1.2 s (multiplier stage  0.3 s)   family 147
+    #> GRF  {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005} N  95   fit   6.3 s (multiplier stage  0.3 s)   family 1289
+
+``` r
+
+agree <- in_region(fit_s3_fs, df_bin) == in_region(fit_s3_grf, df_bin)
+cat(sprintf("FS and GRF classify %d of %d patients alike\n", sum(agree), length(agree)))
+```
+
+    #> FS and GRF classify 1060 of 1083 patients alike
+
+Forest search returns Part 1’s region: on this frontier the largest
+admitted region is also the one with the largest odds ratio, so
+$`\varepsilon`$ does not decide the selection, though the multiplier
+draws re-apply the rule as each fit specifies it and the correction
+moves slightly. DINA returns the 98 patients with at least 849 days of
+prior antiretroviral therapy and baseline CD4 of at least 338; GRF the
+95 weighing more than 84.4 kg with baseline CD4 above 368, a region
+close to forest search’s but not the same.
+
+### The full bootstrap
+
+[`forestsearch_bootstrap_dofuture()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
+draws a nonparametric bootstrap sample and re-runs the identifier on it
+— the whole search, the screen and the selection, with the front-end
+surfaces refitted for DINA and GRF — and corrects the observed estimate
+by the bootstrap estimate of its selection bias (León et al. 2024).
+Multiplier resampling is not run inside the replicates
+(`mr_in_replicates = FALSE`, the default), so each replicate costs one
+search.
+
+The paper used B = 1,000. Here B is small, to show the implementation
+and its cost: the point estimates serve as an illustration, the
+intervals do not — the finite-B variance needs B in the hundreds — so
+the bootstrap column below carries the point estimate only. Replicates
+are independent and run through the **future** framework; this article
+uses at most two workers, and for a real run `n_workers` should be the
+cores you have.
+
+``` r
+
+n_workers <- min(2L, future::availableCores())   # set to your cores for a real run
+boot_plan <- if (n_workers > 1L) list(plan = "multisession", workers = n_workers) else
+  list(plan = "sequential")
+B <- c(FS = 25L, DINA = 25L, GRF = 10L)
+boots <- list(); boot_secs <- c()
+for (m in names(fits_s3)) {
+  t0 <- proc.time()[["elapsed"]]
+  boots[[m]] <- forestsearch_bootstrap_dofuture(
+    fs.est = fits_s3[[m]], nb_boots = B[[m]], seed = 8316951L,
+    mr_in_replicates = FALSE, parallel_args = boot_plan)
+  boot_secs[m] <- proc.time()[["elapsed"]] - t0
+}
+round(boot_secs, 1)
+```
+
+    #>   FS DINA  GRF
+    #> 68.5 15.2 26.1
+
+### Naive, bootstrap and multiplier side by side
+
+``` r
+
+three_columns <- function(method, fit, boot) {
+  g <- fit$mr_inference; cc <- g$complement
+  n_H <- g$n_selected; n_Hc <- cc$n
+  f2 <- function(e, l, u) sprintf("%.2f (%.2f, %.2f)", e, l, u)
+  data.frame(
+    method = method, region = c("H", "Hc"),
+    n = sprintf("%d (%d%%)", c(n_H, n_Hc), round(100 * c(n_H, n_Hc) / (n_H + n_Hc))),
+    naive = c(f2(g$naive$est, g$naive$lower, g$naive$upper),
+              f2(cc$naive$est, cc$naive$lower, cc$naive$upper)),
+    bootstrap = sprintf("%.2f", c(boot$H_estimates$H2, boot$Hc_estimates$H2)),
+    multiplier = c(f2(g$debiased$est, g$debiased$lower, g$debiased$upper),
+                   f2(cc$debiased$est, cc$debiased$lower, cc$debiased$upper)))
+}
+side_by_side <- do.call(rbind, lapply(names(fits_s3), function(m)
+  three_columns(m, fits_s3[[m]], boots[[m]])))
+boot_label <- sprintf("Full bootstrap estimate (B = %d / %d / %d)",
+                      B[["FS"]], B[["DINA"]], B[["GRF"]])
+knitr::kable(side_by_side, row.names = FALSE, align = "llrrrr",
+             col.names = c("Method", "SG", "n (%)", "Naive", boot_label, "Multiplier (5,000 draws)"),
+             caption = paste("This article's run: odds ratios of no CD4 improvement with 95% intervals;",
+                             "the bootstrap estimate at a small B, without an interval."))
+```
+
+| Method | SG | n (%) | Naive | Full bootstrap estimate (B = 25 / 25 / 10) | Multiplier (5,000 draws) |
+|:---|:---|---:|---:|---:|---:|
+| FS | H | 72 (7%) | 3.58 (1.31, 9.77) | 2.62 | 1.79 (0.63, 5.09) |
+| FS | Hc | 1011 (93%) | 0.59 (0.45, 0.76) | 0.58 | 0.62 (0.37, 1.03) |
+| DINA | H | 98 (9%) | 1.94 (0.84, 4.47) | 0.80 | 0.95 (0.29, 3.10) |
+| DINA | Hc | 985 (91%) | 0.60 (0.46, 0.78) | 0.62 | 0.63 (0.38, 1.06) |
+| GRF | H | 95 (9%) | 2.25 (0.97, 5.20) | 1.08 | 1.10 (0.43, 2.80) |
+| GRF | Hc | 988 (91%) | 0.58 (0.45, 0.76) | 0.60 | 0.62 (0.37, 1.04) |
+
+This article’s run: odds ratios of no CD4 improvement with 95%
+intervals; the bootstrap estimate at a small B, without an interval.
+{.table .caption-top}
+
+Table S3 of León and Anderson (2026a), as published, with the full
+bootstrap at B = 1,000:
+
+``` r
+
+table_s3 <- data.frame(
+  method = rep(c("FS", "DINA", "GRF"), each = 2), region = rep(c("H", "Hc"), 3),
+  n = c("72 (7%)", "1011 (93%)", "98 (9%)", "985 (91%)", "95 (9%)", "988 (91%)"),
+  naive = c("3.58 (1.31, 9.77)", "0.59 (0.45, 0.76)", "1.94 (0.84, 4.47)",
+            "0.60 (0.46, 0.78)", "2.25 (0.97, 5.20)", "0.58 (0.45, 0.76)"),
+  bootstrap = c("2.43 (0.80, 7.33)", "0.61 (0.41, 0.89)", "0.85 (0.23, 3.11)",
+                "0.63 (0.40, 1.02)", "1.09 (0.40, 3.01)", "0.63 (0.38, 1.04)"),
+  multiplier = c("1.79 (0.63, 5.08)", "0.62 (0.37, 1.03)", "0.95 (0.29, 3.10)",
+                 "0.63 (0.38, 1.06)", "1.10 (0.43, 2.80)", "0.62 (0.37, 1.04)"))
+knitr::kable(table_s3, row.names = FALSE, align = "llrrrr",
+             col.names = c("Method", "SG", "n (%)", "Naive", "Full bootstrap (B = 1,000)",
+                           "Multiplier"),
+             caption = "Table S3 of León and Anderson (2026a), as published.")
+```
+
+| Method | SG | n (%) | Naive | Full bootstrap (B = 1,000) | Multiplier |
+|:---|:---|---:|---:|---:|---:|
+| FS | H | 72 (7%) | 3.58 (1.31, 9.77) | 2.43 (0.80, 7.33) | 1.79 (0.63, 5.08) |
+| FS | Hc | 1011 (93%) | 0.59 (0.45, 0.76) | 0.61 (0.41, 0.89) | 0.62 (0.37, 1.03) |
+| DINA | H | 98 (9%) | 1.94 (0.84, 4.47) | 0.85 (0.23, 3.11) | 0.95 (0.29, 3.10) |
+| DINA | Hc | 985 (91%) | 0.60 (0.46, 0.78) | 0.63 (0.40, 1.02) | 0.63 (0.38, 1.06) |
+| GRF | H | 95 (9%) | 2.25 (0.97, 5.20) | 1.09 (0.40, 3.01) | 1.10 (0.43, 2.80) |
+| GRF | Hc | 988 (91%) | 0.58 (0.45, 0.76) | 0.63 (0.38, 1.04) | 0.62 (0.37, 1.04) |
+
+Table S3 of León and Anderson (2026a), as published. {.table
+.caption-top}
+
+- **Naive and multiplier columns.** The regions, their sizes and the
+  naive estimates are those of the published table, and so are the DINA
+  and GRF multiplier rows. The published table was computed under
+  forestsearch 0.2.0; under the current release the forest-search
+  multiplier cells move in the third decimal, so the region’s interval
+  ends at 5.09 where the table prints 5.08. DINA’s and GRF’s agree with
+  the earlier release to every printed digit.
+- **The bootstrap column** at this B illustrates the implementation. At
+  B = 1,000 the paper finds the two corrections close for GRF (1.09 and
+  1.10), apart for forest search (2.43 and 1.79, both far below the
+  naive 3.58), and both below one for DINA (0.85 and 0.95). DINA’s and
+  GRF’s families are themselves regenerated by the bootstrap, so there
+  the two routes answer different questions.
+- **Reading, by location.** The forest-search region’s corrected odds
+  ratios, 1.79 by multiplier resampling and 2.43 by the paper’s
+  bootstrap, stay above one, at about half the naive 3.58; GRF’s region
+  corrects to marginally above one and DINA’s to below one. In every
+  case the complement’s corrected odds ratio favours the combination.
+
+### The cost of the two corrections
+
+``` r
+
+cost <- data.frame(
+  method = names(fits_s3),
+  mr_seconds = sapply(fits_s3, function(f) f$mr_inference$timing_seconds),
+  bootstrap_B = B[names(fits_s3)],
+  bootstrap_seconds = boot_secs[names(fits_s3)])
+cost$seconds_per_replicate <- cost$bootstrap_seconds / cost$bootstrap_B
+cost$projected_B_1000 <- round(cost$seconds_per_replicate * 1000)
+plan_label <- if (n_workers > 1L) sprintf("%d workers", n_workers) else "one process"
+knitr::kable(cost, row.names = FALSE, digits = 2,
+             col.names = c("Method", "MR (s)", "B", "bootstrap (s)", "s per replicate",
+                           "projected at B = 1,000 (s)"),
+             caption = sprintf(paste(
+               "Wall-clock timings from this run: the multiplier stage under the fits'",
+               "sequential plan, the bootstrap on %s. The projection is linear in B",
+               "at that worker count."), plan_label))
+```
+
+| Method | MR (s) |   B | bootstrap (s) | s per replicate | projected at B = 1,000 (s) |
+|:-------|-------:|----:|--------------:|----------------:|---------------------------:|
+| FS     |   0.41 |  25 |         68.53 |            2.74 |                       2741 |
+| DINA   |   0.28 |  25 |         15.15 |            0.61 |                        606 |
+| GRF    |   0.30 |  10 |         26.15 |            2.61 |                       2615 |
+
+Wall-clock timings from this run: the multiplier stage under the fits’
+sequential plan, the bootstrap on 2 workers. The projection is linear in
+B at that worker count. {.table .caption-top}
+
+The multiplier correction is seconds; the bootstrap is minutes at the B
+its intervals need. The MR column is the whole multiplier stage as each
+fit records it (`timing_seconds`), here including the field bounds the
+current release computes by default; the bootstrap column is the whole
+[`forestsearch_bootstrap_dofuture()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
+call on 2 workers. The document behind Table S3 ran its B = 1,000 in 905
+s (FS), 63 s (DINA) and 342 s (GRF) on 14 workers, under forestsearch
+0.2.0 on another machine; those figures are not comparable second for
+second with this run, and the order of magnitude between the two routes
+is the point.
+
+## Running at the papers’ settings
+
+Part 1 already runs at the settings of León and Anderson (2026b), the
+5,000 multiplier draws and the field’s 1,000 outer and 500 inner draws
+included. For Part 2’s bootstrap at the paper’s size, set
+`B <- c(FS = 1000L, DINA = 1000L, GRF = 1000L)` and `n_workers` to the
+cores available, and use the cost table above to judge the wall-clock
+first.
+
+## Where to go next
+
+- [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
+  runs the same constructions on the breast cancer data of León and
+  Anderson (2026b), with the declaration calibration set out step by
+  step.
+- The [post-selection
+  article](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html)
+  is Part 2’s comparison on the survival scale, Table S2 of León and
+  Anderson (2026a), with the package’s own bootstrap summaries and the
+  diagnostics of the multiplier correction.
+- [`?forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
+  documents every argument, with examples for the binary and continuous
+  paths;
+  [`?fs_declaration_calibration`](https://larry-leon.github.io/forestsearch/reference/fs_declaration_calibration.md),
+  [`?forestsearch_bootstrap_dofuture`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md).
+
+## References
+
+Hammer, S. M., Katzenstein, D. A., Hughes, M. D., et al. (1996). A trial
+comparing nucleoside monotherapy with combination therapy in
+HIV-infected adults with CD4 cell counts from 200 to 500 per cubic
+millimeter. *New England Journal of Medicine* 335(15), 1081–1090.
+
+Juraska, M., with contributions from Gilbert, P. B., Lu, X., Zhang, M.,
+Davidian, M. and Tsiatis, A. A. (2022). speff2trial: Semiparametric
+efficient estimation for a two-sample treatment effect. R package.
+<https://CRAN.R-project.org/package=speff2trial>
+
+León, L. F. and Anderson, K. M. (2026a). Inference for standard trial
+estimands after data-driven subgroup discovery. arXiv:2609.38361.
+<https://doi.org/10.48550/arXiv.2609.38361>
+
+León, L. F. and Anderson, K. M. (2026b). Interpretable subgroup
+identification across survival and generalized-linear outcomes.
+arXiv:2610.28379. <https://doi.org/10.48550/arXiv.2610.28379>
+
+León, L. F., Jemielita, T., Guo, Z., Marceau West, R. and Anderson, K.
+M. (2024). Exploratory subgroup identification in the heterogeneous Cox
+model: A relatively simple procedure. *Statistics in Medicine*.
+<https://doi.org/10.1002/sim.10163>
+
+``` r
+
+sessionInfo()
+```
+
+    #> R version 4.6.2 (2026-10-29)
+    #> Platform: x86_64-pc-linux-gnu
+    #> Running under: Ubuntu 24.04.5 LTS
+    #>
+    #> Matrix products: default
+    #> BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
+    #> LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
+    #>
+    #> locale:
+    #>  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8
+    #>  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8
+    #>  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C
+    #> [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C
+    #>
+    #> time zone: UTC
+    #> tzcode source: system (glibc)
+    #>
+    #> attached base packages:
+    #> [1] stats     graphics  grDevices utils     datasets  methods   base
+    #>
+    #> other attached packages:
+    #> [1] future_1.80.0      forestsearch_0.4.0
+    #>
+    #> loaded via a namespace (and not attached):
+    #>  [1] gt_1.4.0             generics_0.1.4       xml2_1.6.0
+    #>  [4] shape_1.4.6.1        lattice_0.23-1       listenv_1.1.0
+    #>  [7] digest_0.6.39        magrittr_2.0.5       grf_2.6.1
+    #> [10] evaluate_1.0.5       grid_4.6.2           RColorBrewer_1.1-3
+    #> [13] iterators_1.0.14     policytree_1.2.5     mvtnorm_1.4-2
+    #> [16] fastmap_1.2.0        foreach_1.5.2        jsonlite_2.0.0
+    #> [19] Matrix_1.7-6         glmnet_5.2           survival_3.8-12
+    #> [22] scales_1.4.0         weightedsurv_0.1.0   codetools_0.2-20
+    #> [25] cli_3.6.6            rlang_1.3.0          parallelly_1.48.0
+    #> [28] future.apply_1.21.0  leaps_3.2            splines_4.6.2
+    #> [31] yaml_2.3.12          otel_0.2.0           tools_4.6.2
+    #> [34] parallel_4.6.2       doFuture_1.4.0       dplyr_1.2.1
+    #> [37] ggplot2_4.0.3        globals_0.20.0       vctrs_0.7.3
+    #> [40] R6_2.6.1             lifecycle_1.0.5      randomForest_4.7-1.2
+    #> [43] fs_2.1.0             speff2trial_1.0.5    pkgconfig_2.0.3
+    #> [46] progressr_1.1.0      pillar_1.11.1        gtable_0.3.6
+    #> [49] data.table_1.18.6.1  glue_1.8.1           Rcpp_1.1.2
+    #> [52] xfun_0.62            tibble_3.3.1         tidyselect_1.2.1
+    #> [55] knitr_1.52           farver_2.1.2         patchwork_1.3.2
+    #> [58] htmltools_0.5.9      rmarkdown_2.32       compiler_4.6.2
+    #> [61] S7_0.2.2

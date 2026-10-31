@@ -24,14 +24,14 @@
 
 ------------------------------------------------------------------------
 
-## A Foundational Taxonomy: Individual-Level vs. Population-Level Estimands
+## 1 A Foundational Taxonomy: Individual-Level vs. Population-Level Estimands
 
 Before examining what is and is not causally interpretable about the
 hazard ratio, Fay & Li (2024) establish a taxonomy that clarifies *why*
 the HR causes difficulty — a framework not made explicit in the earlier
 literature.
 
-### The Core Distinction
+### 1.1 The Core Distinction
 
 A causal estimand requires comparing two sets of potential outcomes
 $`\{Y_i(0) : i \in \Omega\}`$ and $`\{Y_i(1) : i \in \Omega\}`$ over a
@@ -81,7 +81,7 @@ individually interpretable. This is precisely why the AFT scale-change
 parameter has both individual-level and population-level causal status
 (see Section 6).
 
-### Classification of Key Survival Estimands
+### 1.2 Classification of Key Survival Estimands
 
 | **Causal Estimand Taxonomy** |  |  |  |  |
 |----|----|----|----|----|
@@ -99,9 +99,9 @@ parameter has both individual-level and population-level causal status
 
 ------------------------------------------------------------------------
 
-## The Core Problem: Why the Cox HR Is Not Causally Interpretable as an HR
+## 2 The Core Problem: Why the Cox HR Is Not Causally Interpretable as an HR
 
-### Setup and Notation
+### 2.1 Setup and Notation
 
 Consider a two-arm randomized trial with survival outcome $`T`$,
 treatment indicator $`A \in \{0, 1\}`$, and unmeasured frailty $`Z`$
@@ -122,7 +122,7 @@ regression yields a **consistent estimator** of $`\beta`$ when the model
 is correctly specified. But consistency of estimation does not imply
 causal interpretability of the estimand.
 
-### Three Sources of Interpretive Difficulty (Fay & Li 2024)
+### 2.2 Three Sources of Interpretive Difficulty (Fay & Li 2024)
 
 Fay & Li identify three distinct properties of $`\lambda_z(t)`$ that
 complicate its causal interpretation, beyond the collider argument:
@@ -144,7 +144,7 @@ complicate its causal interpretation, beyond the collider argument:
 
     1.  of Fay & Li) that defines a causal estimand.
 
-### The Mechanism: Collider Activation
+### 2.3 The Mechanism: Collider Activation
 
 Even though $`Z \perp\!\!\!\perp A`$ at baseline, among survivors at
 time $`t > 0`$
@@ -171,7 +171,7 @@ parameter that conflates the true treatment effect with the growing
 frailty imbalance between arms. Hernan (2010) termed this “built-in
 selection bias.”
 
-### Mathematical Elaboration (Martinussen 2022)
+### 2.4 Mathematical Elaboration (Martinussen 2022)
 
 Martinussen locates the root cause in the act of conditioning on
 survival at any $`t > 0`$, regardless of model structure. For a
@@ -214,7 +214,7 @@ arises purely from selection. Key results:
   survival past $`t = 0`$ and admits efficient doubly-robust estimation
   via the one-step estimator.
 
-### The Vaccine Waning Efficacy Problem (Fay & Li 2024)
+### 2.5 The Vaccine Waning Efficacy Problem (Fay & Li 2024)
 
 Fay & Li’s vaccine trial example (motivated by BNT162b2 COVID-19 data)
 makes the practical stakes vivid. They construct two data-generating
@@ -250,9 +250,9 @@ and practically important.
 
 ------------------------------------------------------------------------
 
-## The Cox HR Under and Without Proportional Hazards
+## 3 The Cox HR Under and Without Proportional Hazards
 
-### Under Proportional Hazards: A Valid Population-Level Causal Estimand
+### 3.1 Under Proportional Hazards: A Valid Population-Level Causal Estimand
 
 Fay & Li (2024) identify one setting where the constant Cox HR does
 achieve clean population-level causal status. When
@@ -278,7 +278,7 @@ that in the control arm at every time $`t`$. The individual-level causal
 HR requires untestable assumptions about the joint distribution
 $`(T^0, T^1)`$.
 
-### Without Proportional Hazards: The Cumulative Hazard Ratio Is Preferred
+### 3.2 Without Proportional Hazards: The Cumulative Hazard Ratio Is Preferred
 
 When $`\theta(t)`$ is not constant, the various weighted average HRs
 (simple AHR, geometric AHR, Cox AHR) all represent different parameters
@@ -309,9 +309,9 @@ is a treatment effect.
 
 ------------------------------------------------------------------------
 
-## A Practical Defense: What the Cox Model *Can* Legitimately Deliver
+## 4 A Practical Defense: What the Cox Model *Can* Legitimately Deliver
 
-### Prentice & Aragaki (2022): The ITT Perspective
+### 4.1 Prentice & Aragaki (2022): The ITT Perspective
 
 Prentice & Aragaki offer a critical counterpoint from decades of
 experience with the Women’s Health Initiative (WHI) hormone therapy
@@ -343,7 +343,7 @@ survival difference) or population-level estimands whose conditioning
 sets are not distorted by differential depletion (CHR, cumulative
 survival comparisons).
 
-### Reconciling All Five Papers
+### 4.2 Reconciling All Five Papers
 
 The apparent tension between the Aalen/Martinussen/Knudsen critique, the
 Prentice & Aragaki defense, and the Fay & Li taxonomy resolves when the
@@ -374,7 +374,7 @@ The key distinction is between:
   Aragaki defend, and Fay & Li formalise by classifying each
   functional’s individual- and population-level status.
 
-### What the Cox Model Can Legitimately Do
+### 4.3 What the Cox Model Can Legitimately Do
 
 Combining all five papers, the following uses of Cox regression are
 defensible:
@@ -408,9 +408,9 @@ defensible:
 
 ------------------------------------------------------------------------
 
-## The AFT Model as a Causal Ground Truth
+## 5 The AFT Model as a Causal Ground Truth
 
-### Collapsibility and Dual Causal Status
+### 5.1 Collapsibility and Dual Causal Status
 
 Both Aalen et al. (2015) and Fay & Li (2024) identify the AFT model as
 the natural causal alternative to the Cox model, with Fay & Li providing
@@ -452,7 +452,7 @@ functionals that flow from it.
 
 This is why ForestSearch builds its DGM on a Weibull AFT.
 
-### AFT-to-Hazard Scale Transformation
+### 5.2 AFT-to-Hazard Scale Transformation
 
 Under the Weibull AFT parameterisation, the hazard-scale coefficients
 are
@@ -470,9 +470,9 @@ population-level causal validity of the underlying DGM.
 
 ------------------------------------------------------------------------
 
-## The Average Hazard Ratio: A Causally Valid Functional
+## 6 The Average Hazard Ratio: A Causally Valid Functional
 
-### Definition and Estimation
+### 6.1 Definition and Estimation
 
 The nonparametric AHR of Kalbfleisch & Prentice (1981), prominently
 featured in Prentice & Aragaki (2022) and discussed in Fay & Li (2024),
@@ -492,7 +492,7 @@ conditioning-set standpoint, it is “at least in one example similar in
 magnitude to the ratio of cumulative hazards” — i.e., it tracks the
 clean CHR estimand in practice.
 
-### AHR vs. CHR vs. RMST: A Practical Ordering
+### 6.2 AHR vs. CHR vs. RMST: A Practical Ordering
 
 Fay & Li (2024) and Prentice & Aragaki (2022) together suggest the
 following ordering of causal cleanness for non-PH settings:
@@ -506,7 +506,7 @@ following ordering of causal cleanness for non-PH settings:
 | Cox HR under PH | Population | Yes (must verify) | Yes |
 | Instantaneous HR $`\theta(t)`$ | Problematic | N/A | Yes (but misleading) |
 
-### AHR vs. RMST: Empirical Evidence from WHI
+### 6.3 AHR vs. RMST: Empirical Evidence from WHI
 
 Prentice & Aragaki’s analyses of the CEE+MPA trial provide instructive
 real-data evidence for the relative sensitivity of these two estimands.
@@ -525,7 +525,7 @@ signal would not have been detectable at that point. This real-data
 finding validates the theoretical argument that AHR functionals are more
 sensitive to early or moderate effects in prevention-trial settings.
 
-### Relationship to ForestSearch’s AHR Estimand
+### 6.4 Relationship to ForestSearch’s AHR Estimand
 
 ForestSearch defines the AHR at the **individual level** from the DGM:
 
@@ -558,9 +558,9 @@ observed survival.
 
 ------------------------------------------------------------------------
 
-## Extension to Time-Varying Treatment (Knudsen et al. 2025)
+## 7 Extension to Time-Varying Treatment (Knudsen et al. 2025)
 
-### The Markov Property and Its Impossibility
+### 7.1 The Markov Property and Its Impossibility
 
 When treatment $`A(t)`$ evolves over time, Cox MSMs require the **Markov
 property** — that the marginal hazard depends only on current treatment
@@ -582,7 +582,7 @@ corresponding to a point-mass distribution. Since unmeasured
 heterogeneity (genetic, environmental, behavioural) is universal, the
 Markov property **cannot realistically hold in any real dataset**.
 
-### Implications for Cox MSMs and Extended Kaplan-Meier
+### 7.2 Implications for Cox MSMs and Extended Kaplan-Meier
 
 Marginal structural Cox models estimate $`\beta`$ in
 $`\lambda^a(t) = \lambda_0(t)\, e^{\beta a(t)}`$ using IPTW weighting.
@@ -608,7 +608,7 @@ effects up to $`t`$. Fay & Li address this for fixed baseline treatment;
 Knudsen et al. extend it to the time-varying case where the distortion
 is actively controlled by the treatment regime being studied.
 
-### Relevance to ForestSearch
+### 7.3 Relevance to ForestSearch
 
 ForestSearch’s DGM uses **fixed baseline treatment assignment**, placing
 it in the Fay & Li baseline-treatment setting where these complications
@@ -625,7 +625,7 @@ critical.
 
 ------------------------------------------------------------------------
 
-## Connections to ForestSearch Estimands
+## 8 Connections to ForestSearch Estimands
 
 The five papers collectively motivate the specific estimand choices in
 ForestSearch.
@@ -644,7 +644,7 @@ ForestSearch.
 | Adding baseline covariates moves Cox HR toward individual-level causal estimand (Fay & Li 2024) | Conditioning on baseline covariates through the subgroup definition is consistent with Fay & Li; the recommended family is fully enumerated from the covariates, with no fitted model deciding it (Leon & Anderson 2026a, Section 5) |
 | Markov property fails under any non-degenerate frailty in time-varying treatment (Knudsen 2025) | Baseline-only treatment keeps ForestSearch in the Aalen et al. / Fay & Li safe zone; no Markov assumption required |
 
-### Estimand Selection Guide
+### 8.1 Estimand Selection Guide
 
 **Primary simulation design quantity: ForestSearch AHR.** Computed from
 AFT potential outcomes as the geometric mean individual log-hazard
@@ -717,7 +717,7 @@ realized region (León and Anderson 2026a, Section 3 and Theorem 2).
 
 ------------------------------------------------------------------------
 
-## Key Takeaways
+## 9 Key Takeaways
 
 1.  **Causal estimands fall into individual-level, population-level, or
     both (Fay & Li 2024).** The RMST difference, survival difference,
@@ -779,7 +779,7 @@ realized region (León and Anderson 2026a, Section 3 and Theorem 2).
 
 ------------------------------------------------------------------------
 
-## What forestsearch Reports, Read Against This Review
+## 10 What forestsearch Reports, Read Against This Review
 
 The papers reviewed here concern the causal reading of a hazard ratio.
 León and Anderson (2026a, 2026b) take a different question as theirs:
@@ -801,16 +801,16 @@ the null (2026b, Section 6.1).
 
 ------------------------------------------------------------------------
 
-## References
+## 11 References
 
 - Aalen, O.O., Cook, R.J., & Røysland, K. (2015). Does Cox analysis of a
   randomized survival study yield a causal treatment effect? *Lifetime
   Data Analysis*, 21(4), 579–593.
-  <https://doi.org/10.1007/s10985-015-9335-y>
+  https://doi.org/10.1007/s10985-015-9335-y
 
 - Fay, M.P., & Li, F. (2024). Causal interpretation of the hazard ratio
   in randomized clinical trials. *Clinical Trials*, 21(5), 623–635.
-  <https://doi.org/10.1177/17407745241243308>
+  https://doi.org/10.1177/17407745241243308
 
 - Hernan, M.A. (2010). The hazards of hazard ratios. *Epidemiology*,
   21(1), 13–15.
@@ -827,15 +827,15 @@ the null (2026b, Section 6.1).
 
 - León, L.F., & Anderson, K.M. (2026a). Inference for standard trial
   estimands after data-driven subgroup discovery. *arXiv:2609.38361*.
-  <https://doi.org/10.48550/arXiv.2609.38361>
+  https://doi.org/10.48550/arXiv.2609.38361
 
 - León, L.F., & Anderson, K.M. (2026b). Interpretable subgroup
   identification across survival and generalized-linear outcomes.
-  *arXiv:2610.28379*. <https://doi.org/10.48550/arXiv.2610.28379>
+  *arXiv:2610.28379*. https://doi.org/10.48550/arXiv.2610.28379
 
 - Martinussen, T. (2022). Causality and the Cox regression model.
   *Annual Review of Statistics and Its Application*, 9, 249–259.
-  <https://doi.org/10.1146/annurev-statistics-040320-114441>
+  https://doi.org/10.1146/annurev-statistics-040320-114441
 
 - Martinussen, T., Vansteelandt, S., & Andersen, P.K. (2020). Subtleties
   in the interpretation of hazard contrasts. *Lifetime Data Analysis*,
@@ -846,7 +846,7 @@ the null (2026b, Section 6.1).
 
 - Prentice, R.L., & Aragaki, A.K. (2022). Intention-to-treat comparisons
   in randomized trials. *Statistical Science*, 37(3), 380–393.
-  <https://doi.org/10.1214/21-STS830>
+  https://doi.org/10.1214/21-STS830
 
 - Rubin, D.B. (1974). Estimating causal effects of treatments in
   randomized and nonrandomized studies. *Journal of Educational

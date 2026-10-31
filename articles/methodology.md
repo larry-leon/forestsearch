@@ -27,7 +27,7 @@
 > Where a statement below has been superseded, a **2026 note** at that
 > point says what the current method does and where it is documented.
 
-## Introduction
+## 1 Introduction
 
 ForestSearch is a procedure for identifying subgroups with large
 treatment effects in clinical trials with survival endpoints, with
@@ -44,7 +44,7 @@ in the heterogeneous Cox model: A relatively simple procedure”*,
 published in *Statistics in Medicine*. Source code and replication
 materials are available at <https://github.com/larry-leon/forestSearch>.
 
-### Motivation
+### 1.1 Motivation
 
 In oncology trials, subgroup analyses via forest plots are standard
 presentations in regulatory reviews and clinical publications. The goal
@@ -67,7 +67,7 @@ with the following goals:
   appropriate bias correction
 - **Validate** findings through cross-validation to assess stability
 
-### Key Features
+### 1.2 Key Features
 
 1.  **Split-sample consistency evaluation** to identify subgroups
     “maximally consistent with harm”
@@ -79,9 +79,9 @@ with the following goals:
 5.  **Reversibility**: by switching the treatment indicator, the same
     framework can identify subgroups with substantial *benefit*
 
-## Statistical Framework
+## 2 Statistical Framework
 
-### The Cox Model Setting
+### 2.1 The Cox Model Setting
 
 Consider the two-sample random censorship model with $`N`$ observations
 from a randomized clinical trial. Let $`T`$ denote the survival time,
@@ -103,7 +103,7 @@ where $`\lambda_0(t)`$ is the baseline hazard and $`\beta`$ is the
 log-hazard ratio for treatment. This is the standard model used in
 oncology forest plot summaries—adjusted for treatment only.
 
-### Type-1 Error Framework
+### 2.2 Type-1 Error Framework
 
 Heterogeneous treatment effects are assumed to be induced by the
 existence of a detrimental subgroup $`H`$ with true marginal hazard
@@ -130,7 +130,7 @@ error scenarios for false subgroup identification are defined:
 > [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
 > runs it on the GBSG analysis.
 
-### Marginal vs. Controlled Direct Effects
+### 2.3 Marginal vs. Controlled Direct Effects
 
 An important distinction in Forest Search is between marginal hazard
 ratios $`\theta^{\dagger}(\cdot)`$ and controlled direct effects (CDEs)
@@ -162,11 +162,11 @@ oncology forest plots.
 > Bias and coverage against both families of targets are reported in
 > 2026a, Section 7 and Supplementary Section S8.
 
-## The ForestSearch Algorithm
+## 3 The ForestSearch Algorithm
 
 The ForestSearch algorithm proceeds through four main steps:
 
-### Step 1: Construct Candidate Factors
+### 3.1 Step 1: Construct Candidate Factors
 
 For candidate baseline factors $`X_k`$, $`k = 1, \ldots, K`$, construct
 dummy indicators for each unique factor level.
@@ -208,7 +208,7 @@ are:
 - $`FS_l`$: LASSO only for candidate selection
 - $`FS_{lg}`$: LASSO + GRF for candidate selection
 
-### Step 2: Enumerate Candidate Subgroups
+### 3.2 Step 2: Enumerate Candidate Subgroups
 
 There are $`2^L - 1`$ all-possible subgroup combinations. We restrict to
 those based on **at most two factors**. The total number of possible
@@ -227,9 +227,9 @@ subgroup combinations with:
 Let $`\{G_s, s = 1, \ldots, S\}`$ denote the collection of subgroups
 meeting the sample size criteria where $`S \leq L(L-1)/2 + L`$.
 
-### Step 3: Screening and Consistency Evaluation
+### 3.3 Step 3: Screening and Consistency Evaluation
 
-#### 3a. Hazard Ratio Screening
+#### 3.3.1 3a. Hazard Ratio Screening
 
 For subgroup $`G_s`$ (of size $`\ge`$ 60 and at least 20 events),
 estimate the Cox model log-hazard ratio $`\hat{\beta}_s`$, and consider
@@ -242,7 +242,7 @@ the subgroup as a candidate if:
 This corresponds to a hazard ratio threshold of 1.25, indicating
 potential harm.
 
-#### 3b. Split-Sample Consistency
+#### 3.3.2 3b. Split-Sample Consistency
 
 To judge the “consistency with harm”:
 
@@ -256,7 +256,7 @@ That is, $`\min(\hat{\beta}_s^1, \hat{\beta}_s^2) \geq \log(1.0)`$ for
 log-hazard ratio estimate pairs $`\{\hat{\beta}_s^1, \hat{\beta}_s^2\}`$
 corresponding to each random split.
 
-#### 3c. Consistency Rate Estimation
+#### 3.3.3 3c. Consistency Rate Estimation
 
 Repeat many times (e.g., $`R = 400`$) to estimate the consistency rate.
 Let $`\{\hat{\beta}_s^{1r}, \hat{\beta}_s^{2r}\}`$ denote pairs for the
@@ -285,7 +285,7 @@ I\!\left(\min(\hat{\beta}_s^{1r}, \hat{\beta}_s^{2r}) \geq 0\right).
 > $`(1+p^\star)/2`$ robust lower confidence bound for $`\beta(g)`$
 > clearing $`c_{\text{cons}}`$.
 
-### Step 4: Subgroup Selection
+### 3.4 Step 4: Subgroup Selection
 
 For subgroups with consistency rates at least 90%, choose the subgroup
 with the highest consistency rate as the estimated $`H`$, denoted
@@ -298,7 +298,7 @@ For the complementary group, $`H^c`$ is estimated as the complement of
 $`\widehat{H}`$, denoted $`\widehat{H}^c`$. If $`\widehat{H}`$ is null,
 then $`\widehat{H}^c`$ is the ITT population.
 
-### Selection Criteria Variants
+### 3.5 Selection Criteria Variants
 
 Step 4 can be modified in several ways:
 
@@ -326,11 +326,13 @@ Step 4 can be modified in several ways:
 Additional constraints can include median survival thresholds for the
 experimental arm, control arm, or both.
 
+![](data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzY4IiBoZWlnaHQ9IjU3NiIgdmlld2JveD0iMC4wMCAwLjAwIDE3NC4yMSA0MzcuNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHN0eWxlPSI7IG1heC13aWR0aDogbm9uZTsgbWF4LWhlaWdodDogbm9uZSI+PGcgaWQ9ImdyYXBoMCIgY2xhc3M9ImdyYXBoIiB0cmFuc2Zvcm09InNjYWxlKDEgMSkgcm90YXRlKDApIHRyYW5zbGF0ZSg0IDQzMy42KSI+PHRpdGxlPkZvcmVzdFNlYXJjaDwvdGl0bGU+Cjxwb2x5Z29uIGZpbGw9IndoaXRlIiBzdHJva2U9InRyYW5zcGFyZW50IiBwb2ludHM9Ii00LDQgLTQsLTQzMy42IDE3MC4yMSwtNDMzLjYgMTcwLjIxLDQgLTQsNCI+PC9wb2x5Z29uPjwhLS0gQSAtLT48ZyBpZD0ibm9kZTEiIGNsYXNzPSJub2RlIj48dGl0bGU+QTwvdGl0bGU+Cjxwb2x5Z29uIGZpbGw9IiNlOGY0ZjgiIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iMTQ4LjUsLTQyOS40IDE3LjcxLC00MjkuNCAxNy43MSwtMzg4LjIgMTQ4LjUsLTM4OC4yIDE0OC41LC00MjkuNCI+PC9wb2x5Z29uPjx0ZXh0IHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjgzLjEiIHk9Ii00MTMiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxNC4wMCI+U3RlcCAxOiBDb25zdHJ1Y3Q8L3RleHQ+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iODMuMSIgeT0iLTM5Ni4yIiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTQuMDAiPkNhbmRpZGF0ZSBGYWN0b3JzPC90ZXh0PjwvZz48IS0tIEIgLS0+PGcgaWQ9Im5vZGUyIiBjbGFzcz0ibm9kZSI+PHRpdGxlPkI8L3RpdGxlPgo8cG9seWdvbiBmaWxsPSIjZThmNGY4IiBzdHJva2U9ImJsYWNrIiBwb2ludHM9IjE2Ni4zMSwtMzUxLjggLTAuMSwtMzUxLjggLTAuMSwtMzEwLjYgMTY2LjMxLC0zMTAuNiAxNjYuMzEsLTM1MS44Ij48L3BvbHlnb24+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iODMuMSIgeT0iLTMzNS40IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTQuMDAiPlN0ZXAgMjogRW51bWVyYXRlPC90ZXh0Pjx0ZXh0IHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjgzLjEiIHk9Ii0zMTguNiIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjE0LjAwIj5TdWJncm91cCBDb21iaW5hdGlvbnM8L3RleHQ+PC9nPjwhLS0gQSYjNDU7Jmd0O0IgLS0+PGcgaWQ9ImVkZ2UxIiBjbGFzcz0iZWRnZSI+PHRpdGxlPkEtJmd0O0I8L3RpdGxlPgo8cGF0aCBmaWxsPSJub25lIiBzdHJva2U9ImJsYWNrIiBkPSJNODMuMSwtMzg3Ljk0QzgzLjEsLTM4MC4wNCA4My4xLC0zNzAuNzggODMuMSwtMzYyLjEiIC8+PHBvbHlnb24gZmlsbD0iYmxhY2siIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iODYuNiwtMzYxLjkzIDgzLjEsLTM1MS45MyA3OS42LC0zNjEuOTMgODYuNiwtMzYxLjkzIj48L3BvbHlnb24+PC9nPjwhLS0gQyAtLT48ZyBpZD0ibm9kZTMiIGNsYXNzPSJub2RlIj48dGl0bGU+QzwvdGl0bGU+Cjxwb2x5Z29uIGZpbGw9IiNmZmYzY2QiIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iMTYyLjgsLTI3NC4yIDMuNDEsLTI3NC4yIDMuNDEsLTIzMyAxNjIuOCwtMjMzIDE2Mi44LC0yNzQuMiI+PC9wb2x5Z29uPjx0ZXh0IHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjgzLjEiIHk9Ii0yNTcuOCIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjE0LjAwIj5TdGVwIDNhOiBIUiBTY3JlZW5pbmc8L3RleHQ+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iODMuMSIgeT0iLTI0MSIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjE0LjAwIj4odGhyZXNob2xkID0gMS4yNSk8L3RleHQ+PC9nPjwhLS0gQiYjNDU7Jmd0O0MgLS0+PGcgaWQ9ImVkZ2UyIiBjbGFzcz0iZWRnZSI+PHRpdGxlPkItJmd0O0M8L3RpdGxlPgo8cGF0aCBmaWxsPSJub25lIiBzdHJva2U9ImJsYWNrIiBkPSJNODMuMSwtMzEwLjM0QzgzLjEsLTMwMi40NCA4My4xLC0yOTMuMTggODMuMSwtMjg0LjUiIC8+PHBvbHlnb24gZmlsbD0iYmxhY2siIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iODYuNiwtMjg0LjMzIDgzLjEsLTI3NC4zMyA3OS42LC0yODQuMzMgODYuNiwtMjg0LjMzIj48L3BvbHlnb24+PC9nPjwhLS0gRCAtLT48ZyBpZD0ibm9kZTQiIGNsYXNzPSJub2RlIj48dGl0bGU+RDwvdGl0bGU+Cjxwb2x5Z29uIGZpbGw9IiNmZmYzY2QiIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iMTYzLjA2LC0xOTYuNiAzLjE1LC0xOTYuNiAzLjE1LC0xNTUuNCAxNjMuMDYsLTE1NS40IDE2My4wNiwtMTk2LjYiPjwvcG9seWdvbj48dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSI4My4xIiB5PSItMTgwLjIiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxNC4wMCI+U3RlcCAzYi1jOiBDb25zaXN0ZW5jeTwvdGV4dD48dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSI4My4xIiB5PSItMTYzLjQiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxNC4wMCI+RXZhbHVhdGlvbiAoUiBzcGxpdHMpPC90ZXh0PjwvZz48IS0tIEMmIzQ1OyZndDtEIC0tPjxnIGlkPSJlZGdlMyIgY2xhc3M9ImVkZ2UiPjx0aXRsZT5DLSZndDtEPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSJibGFjayIgZD0iTTgzLjEsLTIzMi43NEM4My4xLC0yMjQuODQgODMuMSwtMjE1LjU4IDgzLjEsLTIwNi45IiAvPjxwb2x5Z29uIGZpbGw9ImJsYWNrIiBzdHJva2U9ImJsYWNrIiBwb2ludHM9Ijg2LjYsLTIwNi43MyA4My4xLC0xOTYuNzMgNzkuNiwtMjA2LjczIDg2LjYsLTIwNi43MyI+PC9wb2x5Z29uPjwvZz48IS0tIEUgLS0+PGcgaWQ9Im5vZGU1IiBjbGFzcz0ibm9kZSI+PHRpdGxlPkU8L3RpdGxlPgo8cG9seWdvbiBmaWxsPSIjZDRlZGRhIiBzdHJva2U9ImJsYWNrIiBwb2ludHM9IjE1Ny4zNiwtMTE5IDguODQsLTExOSA4Ljg0LC03Ny44IDE1Ny4zNiwtNzcuOCAxNTcuMzYsLTExOSI+PC9wb2x5Z29uPjx0ZXh0IHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjgzLjEiIHk9Ii0xMDIuNiIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjE0LjAwIj5TdGVwIDQ6IFNlbGVjdDwvdGV4dD48dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSI4My4xIiB5PSItODUuOCIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjE0LjAwIj5NYXhpbWFsbHkgQ29uc2lzdGVudDwvdGV4dD48L2c+PCEtLSBEJiM0NTsmZ3Q7RSAtLT48ZyBpZD0iZWRnZTQiIGNsYXNzPSJlZGdlIj48dGl0bGU+RC0mZ3Q7RTwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iYmxhY2siIGQ9Ik04My4xLC0xNTUuMTRDODMuMSwtMTQ3LjI0IDgzLjEsLTEzNy45OCA4My4xLC0xMjkuMyIgLz48cG9seWdvbiBmaWxsPSJibGFjayIgc3Ryb2tlPSJibGFjayIgcG9pbnRzPSI4Ni42LC0xMjkuMTMgODMuMSwtMTE5LjEzIDc5LjYsLTEyOS4xMyA4Ni42LC0xMjkuMTMiPjwvcG9seWdvbj48L2c+PCEtLSBGIC0tPjxnIGlkPSJub2RlNiIgY2xhc3M9Im5vZGUiPjx0aXRsZT5GPC90aXRsZT4KPHBvbHlnb24gZmlsbD0iI2Y4ZDdkYSIgc3Ryb2tlPSJibGFjayIgcG9pbnRzPSIxMzYuNjUsLTQxLjQgMjkuNTYsLTQxLjQgMjkuNTYsLTAuMiAxMzYuNjUsLTAuMiAxMzYuNjUsLTQxLjQiPjwvcG9seWdvbj48dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSI4My4xIiB5PSItMjUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxNC4wMCI+Qm9vdHN0cmFwIEJpYXM8L3RleHQ+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iODMuMSIgeT0iLTguMiIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjE0LjAwIj5Db3JyZWN0aW9uPC90ZXh0PjwvZz48IS0tIEUmIzQ1OyZndDtGIC0tPjxnIGlkPSJlZGdlNSIgY2xhc3M9ImVkZ2UiPjx0aXRsZT5FLSZndDtGPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSJibGFjayIgZD0iTTgzLjEsLTc3LjU0QzgzLjEsLTY5LjY0IDgzLjEsLTYwLjM4IDgzLjEsLTUxLjciIC8+PHBvbHlnb24gZmlsbD0iYmxhY2siIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iODYuNiwtNTEuNTMgODMuMSwtNDEuNTMgNzkuNiwtNTEuNTMgODYuNiwtNTEuNTMiPjwvcG9seWdvbj48L2c+PC9nPjwvc3ZnPg==)
+
 ForestSearch Algorithm Overview
 
-## Asymptotic Considerations
+## 4 Asymptotic Considerations
 
-### Power Approximation
+### 4.1 Power Approximation
 
 We can approximate the probability of identifying subgroup $`H`$ via
 numerical integration. Let
@@ -356,6 +358,7 @@ $`P(\text{identify } H) \approx`$
 \int \int I(w_1 + w_2 \geq 2\log(1.25)) \cdot I(w_1 \geq 0) \cdot
 I(w_2 \geq 0) \cdot \varphi(w_1; \beta, 8/d) \cdot
 \varphi(w_2; \beta, 8/d) \, dw_1 \, dw_2,
+ \qquad(1)
 ```
 
 where $`\{W_1, W_2\} \sim N(\beta, 8/d)`$ independently, and
@@ -366,8 +369,7 @@ The following is based on Monte Carlo simulations. The package also
 contains a numerical integration implementation that is illustrated in
 the simulation vignette materials.
 
-![Approximate probability of finding H via
-ForestSearch](methodology_files/figure-html/power-approximation-1.png)
+![](methodology_files/figure-html/power-approximation-1.png)
 
 Approximate probability of finding H via ForestSearch
 
@@ -424,7 +426,7 @@ ggplot(power_data, aes(x = hr, y = power, color = n)) +
   annotate("text", x = 0.6, y = 0.82, label = "80% power", size = 3)
 ```
 
-### Threshold Selection Rationale
+### 4.2 Threshold Selection Rationale
 
 The choice of the 1.25 and 1.0 thresholds was based on the desire to
 control the rate for finding a subgroup $`H`$ to be approximately 10%
@@ -464,9 +466,9 @@ approximation yields:
 > Section 6; 2026b, Section 6.1); the package defaults remain 1.25, 1.0
 > and 0.90.
 
-## Bootstrap Bias Correction
+## 5 Bootstrap Bias Correction
 
-### Sources of Bias
+### 5.1 Sources of Bias
 
 By the nature of the ForestSearch procedure, we expect unadjusted Cox
 model estimates based on $`\widehat{H}`$ to be **upwardly biased** due
@@ -482,7 +484,7 @@ depending on:
   $`\theta^{\dagger}(H^c)`$ (e.g., a mixture of
   $`\theta^{\dagger}(H) = 2.0`$ vs. $`\theta^{\dagger}(H^c) = 0.65`$)
 
-### Bias-Corrected Estimator
+### 5.2 Bias-Corrected Estimator
 
 For bias correction, we proceed on the Cox regression coefficient scale,
 denoted $`\hat{\beta}(\widehat{H})`$, and then exponentiate to obtain
@@ -495,7 +497,7 @@ Cox estimators. The approach is along the lines of Harrell et
 al. (1996), but additionally incorporates the bias term
 $`\hat{\beta}_b^*(\widehat{H}) - \hat{\beta}(\widehat{H})`$.
 
-#### Notation
+#### 5.2.1 Notation
 
 For the observed data with estimated subgroup $`\widehat{H}`$:
 
@@ -511,7 +513,7 @@ $`\widehat{H}^*_b`$:
 - $`\hat{\beta}^*_b(\widehat{H})`$: Cox model parameter for bootstrap
   sample based on observed subgroup
 
-#### Bias Terms
+#### 5.2.2 Bias Terms
 
 Define the bias terms:
 
@@ -525,7 +527,7 @@ Define the bias terms:
 \hat{\beta}(\widehat{H})
 ```
 
-#### Bias-Corrected Estimators
+#### 5.2.3 Bias-Corrected Estimators
 
 The bias-corrected estimators are defined as:
 
@@ -555,7 +557,7 @@ selection) is mimicked in each bootstrap replicate. In general, the
 variance induced by the (well-defined) candidate selection algorithm is
 incorporated by mimicking the algorithm in the bootstrap process.
 
-### Infinitesimal Jackknife Variance Estimation
+### 5.3 Infinitesimal Jackknife Variance Estimation
 
 To estimate the variance, we apply an **infinitesimal jackknife
 approximation**, viewing the bias-corrected estimators as “bagged
@@ -620,9 +622,11 @@ $`\exp\!\left(\hat{\beta}^* \pm 1.96\sqrt{\hat{V}}\right)`$.
 > sets the bootstrap and the multiplier correction side by side on the
 > GBSG data.
 
+![](data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzY4IiBoZWlnaHQ9IjU3NiIgdmlld2JveD0iMC4wMCAwLjAwIDY5NC4wNSAzMTAuODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHN0eWxlPSI7IG1heC13aWR0aDogbm9uZTsgbWF4LWhlaWdodDogbm9uZSI+PGcgaWQ9ImdyYXBoMCIgY2xhc3M9ImdyYXBoIiB0cmFuc2Zvcm09InNjYWxlKDEgMSkgcm90YXRlKDApIHRyYW5zbGF0ZSg0IDMwNi44KSI+PHRpdGxlPkJvb3RzdHJhcDwvdGl0bGU+Cjxwb2x5Z29uIGZpbGw9IndoaXRlIiBzdHJva2U9InRyYW5zcGFyZW50IiBwb2ludHM9Ii00LDQgLTQsLTMwNi44IDY5MC4wNSwtMzA2LjggNjkwLjA1LDQgLTQsNCI+PC9wb2x5Z29uPjxnIGlkPSJjbHVzdDMiIGNsYXNzPSJjbHVzdGVyIj48dGl0bGU+Y2x1c3Rlcl8yPC90aXRsZT4KPHBvbHlnb24gZmlsbD0iI2Q0ZWRkYSIgc3Ryb2tlPSIjZDRlZGRhIiBwb2ludHM9IjM3MC41MiwtOCAzNzAuNTIsLTE3OSA2NzguMDUsLTE3OSA2NzguMDUsLTggMzcwLjUyLC04Ij48L3BvbHlnb24+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iNTI0LjI5IiB5PSItMTY0LjIiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxMi4wMCI+QmlhcyBDb3JyZWN0aW9uPC90ZXh0PjwvZz48IS0tIEEgLS0+PGcgaWQ9Im5vZGUxIiBjbGFzcz0ibm9kZSI+PHRpdGxlPkE8L3RpdGxlPgo8cG9seWdvbiBmaWxsPSJ3aGl0ZSIgc3Ryb2tlPSJibGFjayIgcG9pbnRzPSIxMTcuMzksLTMwMi42IC0wLjEzLC0zMDIuNiAtMC4xMywtMjM1LjQgMTE3LjM5LC0yMzUuNCAxMTcuMzksLTMwMi42Ij48L3BvbHlnb24+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iNTguNjMiIHk9Ii0yNzguOSIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjExLjAwIj5PYnNlcnZlZCBkYXRhIDwvdGV4dD48dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSI1OC42MyIgeT0iLTI2NS43IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTEuMDAiPlJ1biBGb3Jlc3RTZWFyY2g8L3RleHQ+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iNTguNjMiIHk9Ii0yNTIuNSIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjExLjAwIj5HZXQgxKQ8L3RleHQ+PC9nPjwhLS0gQiAtLT48ZyBpZD0ibm9kZTIiIGNsYXNzPSJub2RlIj48dGl0bGU+QjwvdGl0bGU+Cjxwb2x5Z29uIGZpbGw9IndoaXRlIiBzdHJva2U9ImJsYWNrIiBwb2ludHM9IjEwOC4xNCwtMTk5LjcgOS4xMiwtMTk5LjcgOS4xMiwtMTU4LjMgMTA4LjE0LC0xNTguMyAxMDguMTQsLTE5OS43Ij48L3BvbHlnb24+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iNTguNjMiIHk9Ii0xNzUuNyIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjExLjAwIj5Fc3RpbWF0ZSDOssyCKMSkKTwvdGV4dD48L2c+PCEtLSBBJiM0NTsmZ3Q7QiAtLT48ZyBpZD0iZWRnZTEiIGNsYXNzPSJlZGdlIj48dGl0bGU+QTpzLSZndDtCOm48L3RpdGxlPgo8cGF0aCBmaWxsPSJub25lIiBzdHJva2U9ImJsYWNrIiBkPSJNNTguNjMsLTIwOS42MUM1OC42MywtMjE4LjE0IDU4LjYzLC0yMjMuMzMgNTguNjMsLTIzNS4yIiAvPjxwb2x5Z29uIGZpbGw9ImJsYWNrIiBzdHJva2U9ImJsYWNrIiBwb2ludHM9IjYyLjEzLC0yMDkuNiA1OC42MywtMTk5LjYgNTUuMTMsLTIwOS42IDYyLjEzLC0yMDkuNiI+PC9wb2x5Z29uPjwvZz48IS0tIEMgLS0+PGcgaWQ9Im5vZGUzIiBjbGFzcz0ibm9kZSI+PHRpdGxlPkM8L3RpdGxlPgo8cG9seWdvbiBmaWxsPSJ3aGl0ZSIgc3Ryb2tlPSJibGFjayIgcG9pbnRzPSIzMDEuMjYsLTMwMi42IDE5NC41MiwtMzAyLjYgMTk0LjUyLC0yMzUuNCAzMDEuMjYsLTIzNS40IDMwMS4yNiwtMzAyLjYiPjwvcG9seWdvbj48dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIyNDcuODkiIHk9Ii0yNzguOSIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjExLjAwIj5SZXNhbXBsZSBEYXRhIDwvdGV4dD48dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIyNDcuODkiIHk9Ii0yNjUuNyIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjExLjAwIj5Cb290c3RyYXAgZGF0YSA8L3RleHQ+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMjQ3Ljg5IiB5PSItMjUyLjUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxMS4wMCI+YiA9IDEsLi4uLEI8L3RleHQ+PC9nPjwhLS0gQSYjNDU7Jmd0O0MgLS0+PGcgaWQ9ImVkZ2UyIiBjbGFzcz0iZWRnZSI+PHRpdGxlPkEtJmd0O0M8L3RpdGxlPgo8cGF0aCBmaWxsPSJub25lIiBzdHJva2U9ImJsYWNrIiBkPSJNMTE3LjM0LC0yNjlDMTM4LjU5LC0yNjkgMTYyLjc0LC0yNjkgMTg0LjM5LC0yNjkiIC8+PHBvbHlnb24gZmlsbD0iYmxhY2siIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iMTg0LjQ2LC0yNzIuNSAxOTQuNDYsLTI2OSAxODQuNDYsLTI2NS41IDE4NC40NiwtMjcyLjUiPjwvcG9seWdvbj48L2c+PCEtLSBEIC0tPjxnIGlkPSJub2RlNCIgY2xhc3M9Im5vZGUiPjx0aXRsZT5EPC90aXRsZT4KPHBvbHlnb24gZmlsbD0id2hpdGUiIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iMzA2LjY2LC0xOTkuNCAxODkuMTMsLTE5OS40IDE4OS4xMywtMTQ0LjYgMzA2LjY2LC0xNDQuNiAzMDYuNjYsLTE5OS40Ij48L3BvbHlnb24+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMjQ3Ljg5IiB5PSItMTc1LjMiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxMS4wMCI+UnVuIEZvcmVzdFNlYXJjaDwvdGV4dD48dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIyNDcuODkiIHk9Ii0xNjIuMSIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjExLjAwIj5HZXQgxKQqYjwvdGV4dD48L2c+PCEtLSBDJiM0NTsmZ3Q7RCAtLT48ZyBpZD0iZWRnZTMiIGNsYXNzPSJlZGdlIj48dGl0bGU+Qy0mZ3Q7RDwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iYmxhY2siIGQ9Ik0yNDcuODksLTIzNS4yM0MyNDcuODksLTIyNi42MiAyNDcuODksLTIxOCAyNDcuODksLTIwOS4zOSIgLz48cG9seWdvbiBmaWxsPSJibGFjayIgc3Ryb2tlPSJibGFjayIgcG9pbnRzPSIyNTEuMzksLTIwOS4yOCAyNDcuODksLTE5OS4yOCAyNDQuMzksLTIwOS4yOCAyNTEuMzksLTIwOS4yOCI+PC9wb2x5Z29uPjwvZz48IS0tIEUgLS0+PGcgaWQ9Im5vZGU1IiBjbGFzcz0ibm9kZSI+PHRpdGxlPkU8L3RpdGxlPgo8cG9seWdvbiBmaWxsPSJ3aGl0ZSIgc3Ryb2tlPSJibGFjayIgcG9pbnRzPSIzMDUuOTMsLTEwOS40IDE4OS44NiwtMTA5LjQgMTg5Ljg2LC01NC42IDMwNS45MywtNTQuNiAzMDUuOTMsLTEwOS40Ij48L3BvbHlnb24+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMjQ3Ljg5IiB5PSItODUuMyIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjExLjAwIj5Db21wdXRlIM63KmIoxKQqYik8L3RleHQ+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMjQ3Ljg5IiB5PSItNzIuMSIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjExLjAwIj5hbmQgzrcqYijEpCk8L3RleHQ+PC9nPjwhLS0gRCYjNDU7Jmd0O0UgLS0+PGcgaWQ9ImVkZ2U0IiBjbGFzcz0iZWRnZSI+PHRpdGxlPkQtJmd0O0U8L3RpdGxlPgo8cGF0aCBmaWxsPSJub25lIiBzdHJva2U9ImJsYWNrIiBkPSJNMjQ3Ljg5LC0xNDQuNjJDMjQ3Ljg5LC0xMzYuMjggMjQ3Ljg5LC0xMjcuOTQgMjQ3Ljg5LC0xMTkuNiIgLz48cG9seWdvbiBmaWxsPSJibGFjayIgc3Ryb2tlPSJibGFjayIgcG9pbnRzPSIyNTEuMzksLTExOS40MiAyNDcuODksLTEwOS40MiAyNDQuMzksLTExOS40MiAyNTEuMzksLTExOS40MiI+PC9wb2x5Z29uPjwvZz48IS0tIEYgLS0+PGcgaWQ9Im5vZGU2IiBjbGFzcz0ibm9kZSI+PHRpdGxlPkY8L3RpdGxlPgo8cG9seWdvbiBmaWxsPSJ3aGl0ZSIgc3Ryb2tlPSJibGFjayIgcG9pbnRzPSI0NzIuMTYsLTEwOS40IDM3OC4zMSwtMTA5LjQgMzc4LjMxLC01NC42IDQ3Mi4xNiwtNTQuNiA0NzIuMTYsLTEwOS40Ij48L3BvbHlnb24+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iNDI1LjI0IiB5PSItODUuMyIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjExLjAwIj5BdmVyYWdlIEJpYXM8L3RleHQ+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iNDI1LjI0IiB5PSItNzIuMSIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjExLjAwIj5UZXJtczwvdGV4dD48L2c+PCEtLSBFJiM0NTsmZ3Q7RiAtLT48ZyBpZD0iZWRnZTUiIGNsYXNzPSJlZGdlIj48dGl0bGU+RS0mZ3Q7RjwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iYmxhY2siIGQ9Ik0zMDYuMzEsLTgyQzMyNi4yMSwtODIgMzQ4LjQ4LC04MiAzNjguMjcsLTgyIiAvPjxwb2x5Z29uIGZpbGw9ImJsYWNrIiBzdHJva2U9ImJsYWNrIiBwb2ludHM9IjM2OC4zNiwtODUuNSAzNzguMzYsLTgyIDM2OC4zNiwtNzguNSAzNjguMzYsLTg1LjUiPjwvcG9seWdvbj48L2c+PCEtLSBHIC0tPjxnIGlkPSJub2RlNyIgY2xhc3M9Im5vZGUiPjx0aXRsZT5HPC90aXRsZT4KPHBvbHlnb24gZmlsbD0id2hpdGUiIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iNjcwLjEsLTU3LjcgNTQzLjksLTU3LjcgNTQzLjksLTE2LjMgNjcwLjEsLTE2LjMgNjcwLjEsLTU3LjciPjwvcG9seWdvbj48dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSI2MDciIHk9Ii0zMy43IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTEuMDAiPs6yzIIqKMSkKSA9IM6yzIIoxKQpIC0gYmlhczwvdGV4dD48L2c+PCEtLSBGJiM0NTsmZ3Q7RyAtLT48ZyBpZD0iZWRnZTYiIGNsYXNzPSJlZGdlIj48dGl0bGU+Ri0mZ3Q7RzwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iYmxhY2siIGQ9Ik00NzIuMDYsLTcwLjUzQzQ5MC44MywtNjUuODMgNTEzLC02MC4yOCA1MzMuODUsLTU1LjA2IiAvPjxwb2x5Z29uIGZpbGw9ImJsYWNrIiBzdHJva2U9ImJsYWNrIiBwb2ludHM9IjUzNC43OSwtNTguNDMgNTQzLjY0LC01Mi42MSA1MzMuMDksLTUxLjY0IDUzNC43OSwtNTguNDMiPjwvcG9seWdvbj48L2c+PCEtLSBIIC0tPjxnIGlkPSJub2RlOCIgY2xhc3M9Im5vZGUiPjx0aXRsZT5IPC90aXRsZT4KPHBvbHlnb24gZmlsbD0id2hpdGUiIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iNjQ4LjUzLC0xNDguNCA1NjUuNDcsLTE0OC40IDU2NS40NywtOTMuNiA2NDguNTMsLTkzLjYgNjQ4LjUzLC0xNDguNCI+PC9wb2x5Z29uPjx0ZXh0IHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjYwNyIgeT0iLTEyNC4zIiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTEuMDAiPklKIFZhcmlhbmNlPC90ZXh0Pjx0ZXh0IHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjYwNyIgeT0iLTExMS4xIiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTEuMDAiPkVzdGltYXRpb248L3RleHQ+PC9nPjwhLS0gRiYjNDU7Jmd0O0ggLS0+PGcgaWQ9ImVkZ2U3IiBjbGFzcz0iZWRnZSI+PHRpdGxlPkYtJmd0O0g8L3RpdGxlPgo8cGF0aCBmaWxsPSJub25lIiBzdHJva2U9ImJsYWNrIiBkPSJNNDcyLjA2LC05MS45NEM0OTcuNSwtOTcuNDYgNTI5LjE5LC0xMDQuMzQgNTU1LjM2LC0xMTAuMDEiIC8+PHBvbHlnb24gZmlsbD0iYmxhY2siIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iNTU0Ljk1LC0xMTMuNTEgNTY1LjQ2LC0xMTIuMjEgNTU2LjQzLC0xMDYuNjYgNTU0Ljk1LC0xMTMuNTEiPjwvcG9seWdvbj48L2c+PC9nPjwvc3ZnPg==)
+
 Bootstrap Bias Correction Workflow
 
-## Cross-Validation
+## 6 Cross-Validation
 
 Cross-validation is used for evaluating the quality and stability of the
 selection algorithm. Two forms are implemented.
@@ -637,7 +641,7 @@ selection algorithm. Two forms are implemented.
 > The cross-validation below is the 2024 workflow’s and remains
 > available.
 
-### N-Fold (Leave-One-Out) Cross-Validation
+### 6.1 N-Fold (Leave-One-Out) Cross-Validation
 
 For N-fold CV, we exclude each subject ($`i = 1, \ldots, N`$) from the
 analysis and predict their $`\widehat{H}`$ (or $`\widehat{H}^c`$)
@@ -669,7 +673,7 @@ they are classified.
   diagnostic value; in contrast, substantial lack of correspondence may
   suggest underlying instability
 
-### K-Fold Cross-Validation
+### 6.2 K-Fold Cross-Validation
 
 In K-fold CV (e.g., 10-fold):
 
@@ -681,7 +685,7 @@ In K-fold CV (e.g., 10-fold):
 Since this process depends on the random partition, repeat 50–200 times
 and summarize correspondence measures across the partitions.
 
-### CV Metrics
+### 6.3 CV Metrics
 
 The sensitivity and positive predictive value metrics are modified by
 replacing $`\widehat{H}`$ with $`\widehat{H}^{-i}`$ and the true $`H`$
@@ -704,7 +708,7 @@ with $`\widehat{H}`$:
 | ppvCV(Ĥᶜ) | Proportion of CV Ĥᶜ subjects that match full-analysis Ĥᶜ | Higher = CV predictions align with full analysis |
 | Exact Match | Proportion of CV folds reproducing exact subgroup definition | Higher = algorithm consistently identifies same subgroup |
 
-Cross-Validation Metrics for ForestSearch {.table}
+Cross-Validation Metrics for ForestSearch {.table .caption-top}
 
 [ Code](#collapse-cvmetricstable)
 
@@ -732,9 +736,9 @@ cv_metrics <- data.frame(
 knitr::kable(cv_metrics, caption = "Cross-Validation Metrics for ForestSearch")
 ```
 
-## Simulation Study
+## 7 Simulation Study
 
-### Data-Generating Model
+### 7.1 Data-Generating Model
 
 The simulation setting is based on the German Breast Cancer Study Group
 (GBSG) trial covariate structure. A “super-population” of 5,000 subjects
@@ -758,7 +762,7 @@ generate target marginal hazard ratio effects. A covariate-dependent
 censoring distribution was generated analogously with an overall
 censoring rate of approximately 46%.
 
-### Scenarios
+### 7.2 Scenarios
 
 Three models were evaluated across 20,000 simulations:
 
@@ -771,7 +775,7 @@ Three models were evaluated across 20,000 simulations:
 |  M3   |   Null    | 300 |   \-    |  0.55   |  \-   |   \-   |
 |  M3   |    Alt    | 300 |   30%   |  0.74   |  2.0  |  0.56  |
 
-Simulation model specifications. {.table}
+Simulation model specifications. {.table .caption-top}
 
 [ Code](#collapse-simmodelstable)
 
@@ -801,7 +805,7 @@ Each model was evaluated with and without additional random noise
 factors ($`N(0,1)`$ variables completely unrelated to the outcome): 3
 noise factors for $`M_1`$, and 5 noise factors for $`M_2`$ and $`M_3`$.
 
-### Comparator Methods
+### 7.3 Comparator Methods
 
 ForestSearch was compared against:
 
@@ -823,7 +827,7 @@ sensitivity and positive predictive value:
 \frac{\#\{i \in \widehat{H} \cap H\}}{\#\{i \in \widehat{H}\}}.
 ```
 
-### Key Results: Subgroup Identification
+### 7.4 Key Results: Subgroup Identification
 
 | Method | T1E | Power | sens(Ĥ) | T1E | Power | sens(Ĥ) |
 |:-------|:---:|:-----:|:-------:|:---:|:-----:|:-------:|
@@ -836,7 +840,8 @@ sensitivity and positive predictive value:
 
 Subgroup identification results with noise factors. T1E = type-1 error
 (any(H) under null); Power = any(H) under alternative; sens(H-hat) =
-sensitivity for H classification under alternative. {.table}
+sensitivity for H classification under alternative. {.table
+.caption-top}
 
 [ Code](#collapse-simresultstable)
 
@@ -882,10 +887,10 @@ knitr::kable(
   better-controlled type-1 error since the chance of forming subgroups
   with estimates in favor of control is less likely with a more
   pronounced ITT treatment effect
-- The power approximation from (**eq-power?**) was reasonably accurate
-  across all models
+- The power approximation from [Equation 1](#eq-power) was reasonably
+  accurate across all models
 
-### Key Results: Estimation Properties
+### 7.5 Key Results: Estimation Properties
 
 Estimation properties for $`FS_{lg}`$ with $`B = 300`$ bootstrap
 replicates (based on 1,000 simulations per model with noise factors):
@@ -899,7 +904,7 @@ replicates (based on 1,000 simulations per model with noise factors):
 
 Estimation properties for FS_lg across models M1-M3. Relative bias
 ranges shown across the three models. Oracle coverage = CI coverage for
-the oracle (true subgroup) estimate. {.table}
+the oracle (true subgroup) estimate. {.table .caption-top}
 
 [ Code](#collapse-estimationtable)
 
@@ -955,9 +960,9 @@ $`\ge 95\%`$.
 > identification (Supplementary Section S8) — so their numbers are not
 > comparable with the table above.
 
-## Applications
+## 8 Applications
 
-### GBSG Breast Cancer Trial
+### 8.1 GBSG Breast Cancer Trial
 
 The German Breast Cancer Study Group trial ($`N = 686`$) compared
 tamoxifen (hormonal therapy) to chemotherapy for tumor recurrence. The
@@ -1002,7 +1007,7 @@ Collaborative Group found for ER-negative (ER = 0) subjects, the
 event-rate ratio was 1.11 (SE = 0.13); whereas for ER-positive
 ($`\ge 10\%`$) subjects it was 0.62 (SE = 0.03).
 
-### ACTG-175 HIV Trial
+### 8.2 ACTG-175 HIV Trial
 
 The ACTG-175 study ($`N = 1{,}083`$) compared zidovudine + didanosine
 (experimental) to didanosine monotherapy (control). The survival outcome
@@ -1047,9 +1052,9 @@ among participants with no previous antiretroviral therapy or higher
 baseline CD4 counts. Of the $`\widehat{Q}`$ subgroup, 46.9% were
 antiretroviral treatment naive.
 
-## Variable Selection Methods
+## 9 Variable Selection Methods
 
-### LASSO
+### 9.1 LASSO
 
 LASSO (Least Absolute Shrinkage and Selection Operator) is used for Cox
 model covariate (prognostic) selection via `glmnet`. In simulations,
@@ -1159,7 +1164,7 @@ result <- forestsearch(
 )
 ```
 
-### Generalized Random Forests (GRF)
+### 9.2 Generalized Random Forests (GRF)
 
 GRF targets RMST (Restricted Mean Survival Time) via causal survival
 forests and can be used as a complementary variable selection method. In
@@ -1269,7 +1274,7 @@ result <- forestsearch(
 )
 ```
 
-### Recommendations
+### 9.3 Recommendations
 
 | Scenario | Recommendation |
 |----|----|
@@ -1297,9 +1302,9 @@ based on a noise factor. In contrast, when LASSO was included, the same
 subgroup and essentially the same bootstrap bias-corrected estimates
 were obtained.
 
-## Practical Considerations
+## 10 Practical Considerations
 
-### Sample Size Requirements
+### 10.1 Sample Size Requirements
 
 - **Minimum subgroup size:** 60 subjects (default `n.min = 60`)
 - **Minimum events:** 10 per treatment arm (default `d0.min = 10`,
@@ -1307,7 +1312,7 @@ were obtained.
 - **Recommended trial size:** $`N \ge 300`$ for Phase 2; $`N \ge 500`$
   for Phase 3
 
-### Computational Considerations
+### 10.2 Computational Considerations
 
 The computational time depends on the number of candidate factors
 ($`K`$), the number of subgroup combinations meeting size criteria
@@ -1338,7 +1343,7 @@ implemented via the `doFuture` package.
 > identifier where the multiplier correction with 5,000 draws took 0.11
 > s to 0.38 s.
 
-### Interpretation Guidelines
+### 10.3 Interpretation Guidelines
 
 These are the 2024 guidelines. The current products are the corrected
 (two-term) estimate, the one-sided field lower bound on the region and
@@ -1364,7 +1369,7 @@ benefit and risk, which the inference is meant to inform.
     extrapolated to comparisons of regimens other than the control
     regimens studied
 
-## References
+## 11 References
 
 Athey, Susan, Julie Tibshirani, and Stefan Wager. 2019. “Generalized
 Random Forests.” *The Annals of Statistics* 47 (2): 1148–78.
@@ -1387,46 +1392,44 @@ Wager, Stefan, Trevor Hastie, and Bradley Efron. 2014. “Confidence
 Intervals for Random Forests: The Jackknife and the Infinitesimal
 Jackknife.” *Journal of Machine Learning Research* 15: 1625–51.
 
-## Session Information
+## 12 Session Information
+
+Code
 
 ``` r
 
 sessionInfo()
 ```
 
-    ## R version 4.6.2 (2026-10-29)
-    ## Platform: x86_64-pc-linux-gnu
-    ## Running under: Ubuntu 24.04.5 LTS
-    ## 
-    ## Matrix products: default
-    ## BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
-    ## LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
-    ## 
-    ## locale:
-    ##  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       
-    ##  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   
-    ##  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          
-    ## [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   
-    ## 
-    ## time zone: UTC
-    ## tzcode source: system (glibc)
-    ## 
-    ## attached base packages:
-    ## [1] stats     graphics  grDevices utils     datasets  methods   base     
-    ## 
-    ## other attached packages:
-    ## [1] ggplot2_4.0.3     DiagrammeR_1.0.12
-    ## 
-    ## loaded via a namespace (and not attached):
-    ##  [1] gtable_0.3.6       jsonlite_2.0.0     dplyr_1.2.1        compiler_4.6.2    
-    ##  [5] tidyselect_1.2.1   jquerylib_0.1.4    systemfonts_1.3.2  scales_1.4.0      
-    ##  [9] textshaping_1.0.5  yaml_2.3.12        fastmap_1.2.0      R6_2.6.1          
-    ## [13] generics_0.1.4     knitr_1.52         htmlwidgets_1.6.4  visNetwork_2.1.4  
-    ## [17] tibble_3.3.1       desc_1.4.3         bslib_0.12.0       pillar_1.11.1     
-    ## [21] RColorBrewer_1.1-3 rlang_1.3.0        cachem_1.1.0       xfun_0.62         
-    ## [25] fs_2.1.0           sass_0.4.10        S7_0.2.2           otel_0.2.0        
-    ## [29] cli_3.6.6          withr_3.0.3        pkgdown_2.2.1      magrittr_2.0.5    
-    ## [33] digest_0.6.39      grid_4.6.2         rstudioapi_0.19.0  lifecycle_1.0.5   
-    ## [37] vctrs_0.7.3        evaluate_1.0.5     glue_1.8.1         farver_2.1.2      
-    ## [41] ragg_1.5.2         rmarkdown_2.32     tools_4.6.2        pkgconfig_2.0.3   
-    ## [45] htmltools_0.5.9
+    R version 4.6.2 (2026-10-29)
+    Platform: x86_64-pc-linux-gnu
+    Running under: Ubuntu 24.04.5 LTS
+
+    Matrix products: default
+    BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
+    LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
+
+    locale:
+     [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8
+     [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8
+     [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C
+    [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C
+
+    time zone: UTC
+    tzcode source: system (glibc)
+
+    attached base packages:
+    [1] stats     graphics  grDevices utils     datasets  methods   base
+
+    other attached packages:
+    [1] ggplot2_4.0.3
+
+    loaded via a namespace (and not attached):
+     [1] vctrs_0.7.3        cli_3.6.6          knitr_1.52         rlang_1.3.0
+     [5] xfun_0.62          otel_0.2.0         generics_0.1.4     S7_0.2.2
+     [9] jsonlite_2.0.0     glue_1.8.1         htmltools_0.5.9    scales_1.4.0
+    [13] rmarkdown_2.32     grid_4.6.2         tibble_3.3.1       evaluate_1.0.5
+    [17] fastmap_1.2.0      yaml_2.3.12        lifecycle_1.0.5    compiler_4.6.2
+    [21] dplyr_1.2.1        RColorBrewer_1.1-3 pkgconfig_2.0.3    farver_2.1.2
+    [25] digest_0.6.39      R6_2.6.1           tidyselect_1.2.1   pillar_1.11.1
+    [29] magrittr_2.0.5     withr_3.0.3        tools_4.6.2        gtable_0.3.6      

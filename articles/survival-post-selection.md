@@ -106,9 +106,11 @@ below follow the document that produced its Table S2:
   size at most 35 mm — the effect-maximising region of that vignette’s
   candidate table.
 - **DINA** is re-ranked on the Cox coefficient against a floor of 0.90,
-  with a two-fold cross-fit surface; **GRF** uses the frontier of its
-  covariate grid, re-ranked on the Cox coefficient, at depth 2 with a
-  doubly-robust-score floor of 0.
+  with a two-fold cross-fit surface. The floor of 0.90 is the one in the
+  document that produced Table S2, which this call reproduces; Section 6
+  of the paper gives a hazard ratio of 1.0. **GRF** uses the frontier of
+  its covariate grid, re-ranked on the Cox coefficient, at depth 2 with
+  a doubly-robust-score floor of 0.
 - **Multiplier resampling** at 5,000 draws, reported as the two-term
   corrected estimate with its IJ two-sided 95% interval
   (`ci_method = "ij"` for DINA and GRF). The forest-search fit asks for
@@ -189,9 +191,9 @@ for (m in names(fits)) {
 }
 ```
 
-    #> FS   {er <= 0} & {size <= 35}     N  61   fit  32.7 s (multiplier stage 1.0 s)   family 1744
-    #> DINA {grade3 >= 1} & {pgr <= 10}  N  89   fit   1.5 s (multiplier stage 0.3 s)   family 84
-    #> GRF  {er <= 0}                    N  82   fit   9.8 s (multiplier stage 0.3 s)   family 858
+    #> FS   {er <= 0} & {size <= 35}     N  61   fit  19.2 s (multiplier stage 0.8 s)   family 1744
+    #> DINA {grade3 >= 1} & {pgr <= 10}  N  89   fit   0.8 s (multiplier stage 0.2 s)   family 84
+    #> GRF  {er <= 0}                    N  82   fit   5.3 s (multiplier stage 0.2 s)   family 858
 
 ## The multiplier correction
 
@@ -285,7 +287,7 @@ round(boot_secs, 1)
 ```
 
     #>   FS DINA  GRF
-    #> 79.5 34.7 34.6
+    #> 40.8 17.7 20.4
 
 The package’s own summaries, shown for forest search. The first is the
 bootstrap table: the naive estimate beside the bootstrap-corrected one,
@@ -315,9 +317,9 @@ summ_fs <- summarize_bootstrap_results(sgharm = fit_fs$sg.harm, boot_results = b
     #> TIMING ANALYSIS:
     #> -------------------------------------------------------------
     #> Overall:
-    #>   Total bootstrap time:          1.31 minutes (0.02 hours)
-    #>   Average per iteration:         0.05 min (3.1 sec)
-    #>   Projected for 1000 boots:      52.21 min (0.87 hrs)
+    #>   Total bootstrap time:          0.66 minutes (0.01 hours)
+    #>   Average per iteration:         0.03 min (1.6 sec)
+    #>   Projected for 1000 boots:      26.53 min (0.44 hrs)
 
 ``` r
 
@@ -461,9 +463,9 @@ knitr::kable(cost, row.names = FALSE, digits = 2,
 
 | Method | MR (s) |   B | bootstrap (s) | s per replicate | projected at B = 1,000 (s) |
 |:-------|-------:|----:|--------------:|----------------:|---------------------------:|
-| FS     |   1.00 |  25 |         79.49 |            3.18 |                       3180 |
-| DINA   |   0.27 |  25 |         34.68 |            1.39 |                       1387 |
-| GRF    |   0.35 |  10 |         34.63 |            3.46 |                       3463 |
+| FS     |   0.83 |  25 |         40.75 |            1.63 |                       1630 |
+| DINA   |   0.16 |  25 |         17.67 |            0.71 |                        707 |
+| GRF    |   0.22 |  10 |         20.35 |            2.04 |                       2035 |
 
 Wall-clock timings from this run: the multiplier stage under the fits’
 sequential plan, the bootstrap on 2 workers. The projection is linear in

@@ -1,4 +1,4 @@
-# Simulation Studies for Evaluating ForestSearch Performance
+# setup_gbsg_dgm() and generate_aft_dgm_flex(): Relationship and Usage
 
 > **About this article (updated October 2026).** This article reproduces
 > the simulation framework of León, Jemielita, Guo, Marceau West and
@@ -26,7 +26,7 @@
 > the current inference and are not comparable with 2026b, Figure 3 or
 > 2026a, Section 7.
 
-## Introduction
+## 1 Introduction
 
 This vignette demonstrates how to conduct simulation studies to evaluate
 the performance of forestsearch for identifying subgroups with
@@ -80,7 +80,9 @@ methodology:
 | **`use_twostage` Parameter** | Faster exploratory analysis option |
 | **Backward Compatible** | Works with old and new DGM formats |
 
-## Setup
+## 2 Setup
+
+Code
 
 ``` r
 
@@ -101,17 +103,19 @@ library(future)
 library(katex)
 ```
 
-### Simulation Workflow Overview
+### 2.1 Simulation Workflow Overview
 
 This section outlines the end-to-end workflow for evaluating
 ForestSearch performance via simulation. Each step is described below
 the workflow diagram, with cross-references to the corresponding
 vignette sections.
 
+![](data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODY0IiBoZWlnaHQ9IjU3NiIgdmlld2JveD0iMC4wMCAwLjAwIDYzNi4wMCA1MS4wMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgc3R5bGU9IjsgbWF4LXdpZHRoOiBub25lOyBtYXgtaGVpZ2h0OiBub25lIj48ZyBpZD0iZ3JhcGgwIiBjbGFzcz0iZ3JhcGgiIHRyYW5zZm9ybT0ic2NhbGUoMSAxKSByb3RhdGUoMCkgdHJhbnNsYXRlKDQgNDcpIj48dGl0bGU+d29ya2Zsb3c8L3RpdGxlPgo8IS0tIEEgLS0+PGcgaWQ9Im5vZGUxIiBjbGFzcz0ibm9kZSI+PHRpdGxlPkE8L3RpdGxlPgo8cGF0aCBmaWxsPSIjZTNmMmZkIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjEuMiIgZD0iTTExOCwtNDNDMTE4LC00MyAxMiwtNDMgMTIsLTQzIDYsLTQzIDAsLTM3IDAsLTMxIDAsLTMxIDAsLTEyIDAsLTEyIDAsLTYgNiwwIDEyLDAgMTIsMCAxMTgsMCAxMTgsMCAxMjQsMCAxMzAsLTYgMTMwLC0xMiAxMzAsLTEyIDEzMCwtMzEgMTMwLC0zMSAxMzAsLTM3IDEyNCwtNDMgMTE4LC00MyIgLz48dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSI2NSIgeT0iLTE3LjkiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxMi4wMCI+MS4gQ3JlYXRlIERHTTwvdGV4dD48L2c+PCEtLSBCIC0tPjxnIGlkPSJub2RlMiIgY2xhc3M9Im5vZGUiPjx0aXRsZT5CPC90aXRsZT4KPHBhdGggZmlsbD0iI2UzZjJmZCIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIxLjIiIGQ9Ik0yODQsLTQzQzI4NCwtNDMgMTc4LC00MyAxNzgsLTQzIDE3MiwtNDMgMTY2LC0zNyAxNjYsLTMxIDE2NiwtMzEgMTY2LC0xMiAxNjYsLTEyIDE2NiwtNiAxNzIsMCAxNzgsMCAxNzgsMCAyODQsMCAyODQsMCAyOTAsMCAyOTYsLTYgMjk2LC0xMiAyOTYsLTEyIDI5NiwtMzEgMjk2LC0zMSAyOTYsLTM3IDI5MCwtNDMgMjg0LC00MyIgLz48dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIyMzEiIHk9Ii0xNy45IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTIuMDAiPjIuIFNpbXVsYXRlIFRyaWFsczwvdGV4dD48L2c+PCEtLSBBJiM0NTsmZ3Q7QiAtLT48ZyBpZD0iZWRnZTEiIGNsYXNzPSJlZGdlIj48dGl0bGU+QS0mZ3Q7QjwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzU1NTU1NSIgc3Ryb2tlLXdpZHRoPSIxLjUiIGQ9Ik0xMzAuMzUsLTIxLjVDMTM5LjI4LC0yMS41IDE0OC41LC0yMS41IDE1Ny41NywtMjEuNSIgLz48cG9seWdvbiBmaWxsPSIjNTU1NTU1IiBzdHJva2U9IiM1NTU1NTUiIHN0cm9rZS13aWR0aD0iMS41IiBwb2ludHM9IjE1Ny44NCwtMjQuMyAxNjUuODQsLTIxLjUgMTU3Ljg0LC0xOC43IDE1Ny44NCwtMjQuMyI+PC9wb2x5Z29uPjwvZz48IS0tIEMgLS0+PGcgaWQ9Im5vZGUzIiBjbGFzcz0ibm9kZSI+PHRpdGxlPkM8L3RpdGxlPgo8cGF0aCBmaWxsPSIjZTNmMmZkIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjEuMiIgZD0iTTQ1MCwtNDNDNDUwLC00MyAzNDQsLTQzIDM0NCwtNDMgMzM4LC00MyAzMzIsLTM3IDMzMiwtMzEgMzMyLC0zMSAzMzIsLTEyIDMzMiwtMTIgMzMyLC02IDMzOCwwIDM0NCwwIDM0NCwwIDQ1MCwwIDQ1MCwwIDQ1NiwwIDQ2MiwtNiA0NjIsLTEyIDQ2MiwtMTIgNDYyLC0zMSA0NjIsLTMxIDQ2MiwtMzcgNDU2LC00MyA0NTAsLTQzIiAvPjx0ZXh0IHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjM5NyIgeT0iLTE3LjkiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxMi4wMCI+My4gUnVuIEFuYWx5c2VzPC90ZXh0PjwvZz48IS0tIEImIzQ1OyZndDtDIC0tPjxnIGlkPSJlZGdlMiIgY2xhc3M9ImVkZ2UiPjx0aXRsZT5CLSZndDtDPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNTU1NTU1IiBzdHJva2Utd2lkdGg9IjEuNSIgZD0iTTI5Ni4zNSwtMjEuNUMzMDUuMjgsLTIxLjUgMzE0LjUsLTIxLjUgMzIzLjU3LC0yMS41IiAvPjxwb2x5Z29uIGZpbGw9IiM1NTU1NTUiIHN0cm9rZT0iIzU1NTU1NSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHBvaW50cz0iMzIzLjg0LC0yNC4zIDMzMS44NCwtMjEuNSAzMjMuODQsLTE4LjcgMzIzLjg0LC0yNC4zIj48L3BvbHlnb24+PC9nPjwhLS0gRCAtLT48ZyBpZD0ibm9kZTQiIGNsYXNzPSJub2RlIj48dGl0bGU+RDwvdGl0bGU+CjxwYXRoIGZpbGw9IiNlM2YyZmQiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMS4yIiBkPSJNNjE2LC00M0M2MTYsLTQzIDUxMCwtNDMgNTEwLC00MyA1MDQsLTQzIDQ5OCwtMzcgNDk4LC0zMSA0OTgsLTMxIDQ5OCwtMTIgNDk4LC0xMiA0OTgsLTYgNTA0LDAgNTEwLDAgNTEwLDAgNjE2LDAgNjE2LDAgNjIyLDAgNjI4LC02IDYyOCwtMTIgNjI4LC0xMiA2MjgsLTMxIDYyOCwtMzEgNjI4LC0zNyA2MjIsLTQzIDYxNiwtNDMiIC8+PHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iNTYzIiB5PSItMTcuOSIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjEyLjAwIj40LiBTdW1tYXJpemUgT0NzPC90ZXh0PjwvZz48IS0tIEMmIzQ1OyZndDtEIC0tPjxnIGlkPSJlZGdlMyIgY2xhc3M9ImVkZ2UiPjx0aXRsZT5DLSZndDtEPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNTU1NTU1IiBzdHJva2Utd2lkdGg9IjEuNSIgZD0iTTQ2Mi4zNSwtMjEuNUM0NzEuMjgsLTIxLjUgNDgwLjUsLTIxLjUgNDg5LjU3LC0yMS41IiAvPjxwb2x5Z29uIGZpbGw9IiM1NTU1NTUiIHN0cm9rZT0iIzU1NTU1NSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHBvaW50cz0iNDg5Ljg0LC0yNC4zIDQ5Ny44NCwtMjEuNSA0ODkuODQsLTE4LjcgNDg5Ljg0LC0yNC4zIj48L3BvbHlnb24+PC9nPjwvZz48L3N2Zz4=)
+
 Four-stage simulation workflow for evaluating subgroup identification
 performance.
 
-#### Step 1: Create a Data Generating Mechanism (DGM)
+#### 2.1.1 Step 1: Create a Data Generating Mechanism (DGM)
 
 The DGM defines the ground truth for the simulation. Building on the
 GBSG breast cancer dataset as a covariate template,
@@ -142,7 +146,7 @@ The resulting DGM object stores the super-population, true hazard ratios
 (both Cox-based and AHR), individual-level potential outcomes
 (`loghr_po`), and all model parameters needed for downstream simulation.
 
-#### Step 2: Simulate Clinical Trials
+#### 2.1.2 Step 2: Simulate Clinical Trials
 
 [`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
 draws random samples from the super-population to create synthetic trial
@@ -161,7 +165,7 @@ pipeline. The consistency screen within each is evaluated in closed form
 `fs.splits` has no effect on these runs unless the closed form is
 unavailable for a candidate.
 
-#### Step 3: Run Analyses on Each Trial
+#### 2.1.3 Step 3: Run Analyses on Each Trial
 
 [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md)
 wraps the ForestSearch algorithm (and optionally GRF) and returns a
@@ -194,7 +198,7 @@ results_alt <- foreach(
 }
 ```
 
-#### Step 4: Summarise Operating Characteristics
+#### 2.1.4 Step 4: Summarise Operating Characteristics
 
 Three complementary summary functions distil the raw simulation output
 into interpretable results:
@@ -232,7 +236,7 @@ generates a templated narrative paragraph that auto-populates with the
 numerical results, suitable for direct inclusion in reports via
 `results = "asis"`.
 
-#### Putting It Together
+#### 2.1.5 Putting It Together
 
 The sections that follow implement each step in detail. A compact
 version of the full workflow (excluding diagnostics) is:
@@ -255,12 +259,14 @@ build_estimation_table(results, dgm, analysis_method = "FS")
 interpret_estimation_table(results, dgm, scenario = "alt")
 ```
 
-### Initializing the Timing Framework
+### 2.2 Initializing the Timing Framework
 
 A structured timing framework tracks computational cost at each stage of
 the simulation study. We initialize a named list that accumulates
 elapsed times for DGM creation, calibration, validation, simulation
 loops under H1 and H0, summarization, and table formatting.
+
+Code
 
 ``` r
 
@@ -272,13 +278,13 @@ timings <- list()
 t_vignette_start <- proc.time()
 ```
 
-## Creating a Data Generating Mechanism
+## 3 Creating a Data Generating Mechanism
 
 The simulation framework uses the German Breast Cancer Study Group
 (GBSG) dataset as a template for realistic covariate distributions and
 censoring patterns.
 
-### Understanding the DGM
+### 3.1 Understanding the DGM
 
 The
 [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
@@ -292,7 +298,7 @@ features:
 - **Subgroup definition**: H = {low estrogen receptor AND premenopausal}
 - **Censoring**: Weibull or uniform censoring model
 
-#### New Output Structure (Aligned with generate_aft_dgm_flex)
+#### 3.1.1 New Output Structure (Aligned with generate_aft_dgm_flex)
 
 The DGM now includes:
 
@@ -327,7 +333,7 @@ The super-population data (`dgm$df_super_rand`) now contains:
 | `theta_1`  | Log-hazard contribution under treatment                |
 | `loghr_po` | Individual causal log hazard ratio (theta_1 - theta_0) |
 
-### What `setup_gbsg_dgm()` does
+### 3.2 What `setup_gbsg_dgm()` does
 
 [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
 is a **GBSG-specific convenience wrapper**. It encodes the particular
@@ -336,6 +342,8 @@ definition (ER ≤ q25, premenopausal), the binary discretisation of
 continuous covariates, the Weibull outcome and censoring models — so
 that a calibrated DGM for the GBSG simulation setting can be created
 with a single call:
+
+Code
 
 ``` r
 
@@ -356,7 +364,7 @@ and
 
 ------------------------------------------------------------------------
 
-### Replicating `setup_gbsg_dgm()` with `generate_aft_dgm_flex()`
+### 3.3 Replicating `setup_gbsg_dgm()` with `generate_aft_dgm_flex()`
 
 [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
 is the general DGM builder. It requires the analyst to supply the
@@ -364,6 +372,8 @@ dataset and make every modelling choice explicitly. The GBSG DGM in
 [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
 is equivalent to the following call — it simply automates this
 preparation:
+
+Code
 
 ``` r
 
@@ -419,7 +429,7 @@ preparation steps by hand.
 
 ------------------------------------------------------------------------
 
-### When to use each function
+### 3.4 When to use each function
 
 | Scenario | Recommended function |
 |----|----|
@@ -439,7 +449,7 @@ dataset or subgroup structure**.
 
 ------------------------------------------------------------------------
 
-### Simulating from either DGM
+### 3.5 Simulating from either DGM
 
 Both
 [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
@@ -448,6 +458,8 @@ and
 return an object of class `"aft_dgm_flex"`, so
 [`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
 works identically with either:
+
+Code
 
 ``` r
 
@@ -468,10 +480,12 @@ sim_data <- simulate_from_dgm(
 #   loghr_po    — individual log-HR (for AHR calculation)
 ```
 
-### Alternative Hypothesis (Heterogeneous Treatment Effect)
+### 3.6 Alternative Hypothesis (Heterogeneous Treatment Effect)
 
 Under the alternative hypothesis, we create a DGM where the treatment
 effect varies across patient subgroups:
+
+Code
 
 ``` r
 
@@ -500,40 +514,44 @@ dgm_alt <- compute_dgm_cde(dgm_alt)
 print(dgm_alt)
 ```
 
-    ## GBSG-Based AFT Data Generating Mechanism (Aligned)
-    ## ===================================================
-    ## 
-    ## Model type: alt 
-    ## Super-population size: 5000 
-    ## 
-    ## Effect Modifiers:
-    ##   k_treat: 1 
-    ##   k_inter: 2 
-    ##   k_z3: 1 
-    ## 
-    ## Hazard Ratios (Cox-based, stacked PO):
-    ##   Overall (causal): 0.7331 
-    ##   Harm subgroup (H): 2.9651 
-    ##   Complement (Hc): 0.6612 
-    ##   Ratio HR(H)/HR(Hc): 4.4846 
-    ## 
-    ## Average Hazard Ratios (from loghr_po):
-    ##   AHR (overall): 0.7431 
-    ##   AHR_harm (H): 3.8687 
-    ##   AHR_no_harm (Hc): 0.5848 
-    ##   Ratio AHR(H)/AHR(Hc): 6.6157 
-    ## 
-    ## Subgroup definition: z1 == 1 & z3 == 1 (low ER & premenopausal) 
-    ## ER threshold: 8 (quantile = 0.25)
-    ## Subgroup size: 634 (12.7%)
-    ## Analysis variables: v1, v2, v3, v4, v5, v6, v7
+    GBSG-Based AFT Data Generating Mechanism (Aligned)
+    ===================================================
+
+    Model type: alt
+    Super-population size: 5000
+
+    Effect Modifiers:
+      k_treat: 1
+      k_inter: 2
+      k_z3: 1
+
+    Hazard Ratios (Cox-based, stacked PO):
+      Overall (causal): 0.7331
+      Harm subgroup (H): 2.9651
+      Complement (Hc): 0.6612
+      Ratio HR(H)/HR(Hc): 4.4846
+
+    Average Hazard Ratios (from loghr_po):
+      AHR (overall): 0.7431
+      AHR_harm (H): 3.8687
+      AHR_no_harm (Hc): 0.5848
+      Ratio AHR(H)/AHR(Hc): 6.6157
+
+    Subgroup definition: z1 == 1 & z3 == 1 (low ER & premenopausal)
+    ER threshold: 8 (quantile = 0.25)
+    Subgroup size: 634 (12.7%)
+    Analysis variables: v1, v2, v3, v4, v5, v6, v7 
+
+Code
 
 ``` r
 
 timings$dgm_creation <- proc.time()[3] - t0
 ```
 
-#### Accessing Hazard Ratios (New Aligned Format)
+#### 3.6.1 Accessing Hazard Ratios (New Aligned Format)
+
+Code
 
 ``` r
 
@@ -541,28 +559,36 @@ timings$dgm_creation <- proc.time()[3] - t0
 cat("Cox-based HRs:\n")
 ```
 
-    ## Cox-based HRs:
+    Cox-based HRs:
+
+Code
 
 ``` r
 
 cat("  HR(H):", round(dgm_alt$hr_H_true, 4), "\n")
 ```
 
-    ##   HR(H): 2.9651
+      HR(H): 2.9651 
+
+Code
 
 ``` r
 
 cat("  HR(Hc):", round(dgm_alt$hr_Hc_true, 4), "\n")
 ```
 
-    ##   HR(Hc): 0.6612
+      HR(Hc): 0.6612 
+
+Code
 
 ``` r
 
 cat("  HR(overall):", round(dgm_alt$hr_causal, 4), "\n")
 ```
 
-    ##   HR(overall): 0.7331
+      HR(overall): 0.7331 
+
+Code
 
 ``` r
 
@@ -570,29 +596,37 @@ cat("  HR(overall):", round(dgm_alt$hr_causal, 4), "\n")
 cat("\nAverage Hazard Ratios (from loghr_po):\n")
 ```
 
-    ## 
-    ## Average Hazard Ratios (from loghr_po):
+
+    Average Hazard Ratios (from loghr_po):
+
+Code
 
 ``` r
 
 cat("  AHR(H):", round(dgm_alt$AHR_H_true, 4), "\n")
 ```
 
-    ##   AHR(H): 3.8687
+      AHR(H): 3.8687 
+
+Code
 
 ``` r
 
 cat("  AHR(Hc):", round(dgm_alt$AHR_Hc_true, 4), "\n")
 ```
 
-    ##   AHR(Hc): 0.5848
+      AHR(Hc): 0.5848 
+
+Code
 
 ``` r
 
 cat("  AHR(overall):", round(dgm_alt$AHR, 4), "\n")
 ```
 
-    ##   AHR(overall): 0.7431
+      AHR(overall): 0.7431 
+
+Code
 
 ``` r
 
@@ -601,29 +635,37 @@ cat("  AHR(overall):", round(dgm_alt$AHR, 4), "\n")
 cat("\nControlled Direct Effects:\n")
 ```
 
-    ## 
-    ## Controlled Direct Effects:
+
+    Controlled Direct Effects:
+
+Code
 
 ``` r
 
 cat("  CDE(H):", round(dgm_alt$hazard_ratios$CDE_harm, 4), "\n")
 ```
 
-    ##   CDE(H): 3.8687
+      CDE(H): 3.8687 
+
+Code
 
 ``` r
 
 cat("  CDE(Hc):", round(dgm_alt$hazard_ratios$CDE_no_harm, 4), "\n")
 ```
 
-    ##   CDE(Hc): 0.5848
+      CDE(Hc): 0.5848 
+
+Code
 
 ``` r
 
 cat("  CDE(overall):", round(dgm_alt$hazard_ratios$CDE, 4), "\n")
 ```
 
-    ##   CDE(overall): 1.098
+      CDE(overall): 1.098 
+
+Code
 
 ``` r
 
@@ -631,31 +673,39 @@ cat("  CDE(overall):", round(dgm_alt$hazard_ratios$CDE, 4), "\n")
 cat("\nVia hazard_ratios list:\n")
 ```
 
-    ## 
-    ## Via hazard_ratios list:
+
+    Via hazard_ratios list:
+
+Code
 
 ``` r
 
 cat("  harm_subgroup:", round(dgm_alt$hazard_ratios$harm_subgroup, 4), "\n")
 ```
 
-    ##   harm_subgroup: 2.9651
+      harm_subgroup: 2.9651 
+
+Code
 
 ``` r
 
 cat("  AHR_harm:", round(dgm_alt$hazard_ratios$AHR_harm, 4), "\n")
 ```
 
-    ##   AHR_harm: 3.8687
+      AHR_harm: 3.8687 
+
+Code
 
 ``` r
 
 cat("  CDE_harm:", round(dgm_alt$hazard_ratios$CDE_harm, 4), "\n")
 ```
 
-    ##   CDE_harm: 3.8687
+      CDE_harm: 3.8687 
 
-#### Examining Individual-Level Treatment Effects
+#### 3.6.2 Examining Individual-Level Treatment Effects
+
+Code
 
 ``` r
 
@@ -665,7 +715,9 @@ df_super <- dgm_alt$df_super_rand
 cat("Individual-level potential outcomes:\n")
 ```
 
-    ## Individual-level potential outcomes:
+    Individual-level potential outcomes:
+
+Code
 
 ``` r
 
@@ -673,7 +725,9 @@ cat("  theta_0 (control log-hazard) range:",
     round(range(df_super$theta_0), 3), "\n")
 ```
 
-    ##   theta_0 (control log-hazard) range: -0.891 1.76
+      theta_0 (control log-hazard) range: -0.891 1.76 
+
+Code
 
 ``` r
 
@@ -681,7 +735,9 @@ cat("  theta_1 (treatment log-hazard) range:",
     round(range(df_super$theta_1), 3), "\n")
 ```
 
-    ##   theta_1 (treatment log-hazard) range: -1.427 2.909
+      theta_1 (treatment log-hazard) range: -1.427 2.909 
+
+Code
 
 ``` r
 
@@ -689,7 +745,9 @@ cat("  loghr_po (individual log-HR) range:",
     round(range(df_super$loghr_po), 3), "\n")
 ```
 
-    ##   loghr_po (individual log-HR) range: -0.537 1.353
+      loghr_po (individual log-HR) range: -0.537 1.353 
+
+Code
 
 ``` r
 
@@ -698,22 +756,28 @@ ahr_manual <- exp(mean(df_super$loghr_po))
 cat("\nAHR verification:\n")
 ```
 
-    ## 
-    ## AHR verification:
+
+    AHR verification:
+
+Code
 
 ``` r
 
 cat("  exp(mean(loghr_po)) =", round(ahr_manual, 4), "\n")
 ```
 
-    ##   exp(mean(loghr_po)) = 0.7431
+      exp(mean(loghr_po)) = 0.7431 
+
+Code
 
 ``` r
 
 cat("  dgm$AHR =", round(dgm_alt$AHR, 4), "\n")
 ```
 
-    ##   dgm$AHR = 0.7431
+      dgm$AHR = 0.7431 
+
+Code
 
 ``` r
 
@@ -723,29 +787,37 @@ cde_manual <- mean(exp(df_super$theta_1)) / mean(exp(df_super$theta_0))
 cat("\nCDE verification (overall):\n")
 ```
 
-    ## 
-    ## CDE verification (overall):
+
+    CDE verification (overall):
+
+Code
 
 ``` r
 
 cat("  mean(exp(theta_1)) / mean(exp(theta_0)) =", round(cde_manual, 4), "\n")
 ```
 
-    ##   mean(exp(theta_1)) / mean(exp(theta_0)) = 1.098
+      mean(exp(theta_1)) / mean(exp(theta_0)) = 1.098 
+
+Code
 
 ``` r
 
 cat("  AHR = exp(mean(loghr_po)) =", round(ahr_manual, 4), "\n")
 ```
 
-    ##   AHR = exp(mean(loghr_po)) = 0.7431
+      AHR = exp(mean(loghr_po)) = 0.7431 
+
+Code
 
 ``` r
 
 cat("  Note: CDE != AHR due to Jensen's inequality\n")
 ```
 
-    ##   Note: CDE != AHR due to Jensen's inequality
+      Note: CDE != AHR due to Jensen's inequality
+
+Code
 
 ``` r
 
@@ -753,8 +825,10 @@ cat("  Note: CDE != AHR due to Jensen's inequality\n")
 cat("\nIndividual HR distribution:\n")
 ```
 
-    ## 
-    ## Individual HR distribution:
+
+    Individual HR distribution:
+
+Code
 
 ``` r
 
@@ -762,30 +836,36 @@ individual_hr <- exp(df_super$loghr_po)
 cat("  Mean:", round(mean(individual_hr), 4), "\n")
 ```
 
-    ##   Mean: 1.0012
+      Mean: 1.0012 
+
+Code
 
 ``` r
 
 cat("  Median:", round(median(individual_hr), 4), "\n")
 ```
 
-    ##   Median: 0.5848
+      Median: 0.5848 
+
+Code
 
 ``` r
 
 cat("  SD:", round(sd(individual_hr), 4), "\n")
 ```
 
-    ##   SD: 1.0928
+      SD: 1.0928 
 
-### Calibrating for a Target Hazard Ratio
+### 3.7 Calibrating for a Target Hazard Ratio
 
 Often, you want to specify the exact hazard ratio in the harm subgroup.
 Use
 [`calibrate_k_inter()`](https://larry-leon.github.io/forestsearch/reference/calibrate_k_inter.md)
 to find the interaction parameter that achieves this.
 
-#### Calibrate to Cox-based HR (Default)
+#### 3.7.1 Calibrate to Cox-based HR (Default)
+
+Code
 
 ``` r
 
@@ -812,36 +892,46 @@ dgm_calibrated_cox <- setup_gbsg_dgm(
 cat("\nVerification (Cox-based):\n")
 ```
 
-    ## 
-    ## Verification (Cox-based):
+
+    Verification (Cox-based):
+
+Code
 
 ``` r
 
 cat("Achieved HR(H):", round(dgm_calibrated_cox$hr_H_true, 3), "\n")
 ```
 
-    ## Achieved HR(H): 2
+    Achieved HR(H): 2 
+
+Code
 
 ``` r
 
 cat("HR(H^c):", round(dgm_calibrated_cox$hr_Hc_true, 3), "\n")
 ```
 
-    ## HR(H^c): 0.661
+    HR(H^c): 0.661 
+
+Code
 
 ``` r
 
 cat("Overall HR:", round(dgm_calibrated_cox$hr_causal, 3), "\n")
 ```
 
-    ## Overall HR: 0.722
+    Overall HR: 0.722 
+
+Code
 
 ``` r
 
 timings$calibrate_cox <- proc.time()[3] - t0
 ```
 
-#### Calibrate to AHR (New Option)
+#### 3.7.2 Calibrate to AHR (New Option)
+
+Code
 
 ``` r
 
@@ -868,36 +958,46 @@ dgm_calibrated_ahr <- setup_gbsg_dgm(
 cat("\nVerification (AHR-based):\n")
 ```
 
-    ## 
-    ## Verification (AHR-based):
+
+    Verification (AHR-based):
+
+Code
 
 ``` r
 
 cat("Achieved AHR(H):", round(dgm_calibrated_ahr$AHR_H_true, 3), "\n")
 ```
 
-    ## Achieved AHR(H): 2
+    Achieved AHR(H): 2 
+
+Code
 
 ``` r
 
 cat("AHR(H^c):", round(dgm_calibrated_ahr$AHR_Hc_true, 3), "\n")
 ```
 
-    ## AHR(H^c): 0.585
+    AHR(H^c): 0.585 
+
+Code
 
 ``` r
 
 cat("Overall AHR:", round(dgm_calibrated_ahr$AHR, 3), "\n")
 ```
 
-    ## Overall AHR: 0.683
+    Overall AHR: 0.683 
+
+Code
 
 ``` r
 
 timings$calibrate_ahr <- proc.time()[3] - t0
 ```
 
-#### Compare Cox HR vs AHR Calibration
+#### 3.7.3 Compare Cox HR vs AHR Calibration
+
+Code
 
 ``` r
 
@@ -905,21 +1005,27 @@ timings$calibrate_ahr <- proc.time()[3] - t0
 cat("Comparison of calibration methods:\n")
 ```
 
-    ## Comparison of calibration methods:
+    Comparison of calibration methods:
+
+Code
 
 ``` r
 
 cat(sprintf("%-20s %-12s %-12s\n", "Metric", "Cox-calib", "AHR-calib"))
 ```
 
-    ## Metric               Cox-calib    AHR-calib
+    Metric               Cox-calib    AHR-calib   
+
+Code
 
 ``` r
 
 cat(sprintf("%-20s %-12.4f %-12.4f\n", "k_inter", k_inter_cox, k_inter_ahr))
 ```
 
-    ## k_inter              1.4947       1.3016
+    k_inter              1.4947       1.3016      
+
+Code
 
 ``` r
 
@@ -927,7 +1033,9 @@ cat(sprintf("%-20s %-12.4f %-12.4f\n", "HR(H)",
             dgm_calibrated_cox$hr_H_true, dgm_calibrated_ahr$hr_H_true))
 ```
 
-    ## HR(H)                2.0000       1.7233
+    HR(H)                2.0000       1.7233      
+
+Code
 
 ``` r
 
@@ -935,14 +1043,16 @@ cat(sprintf("%-20s %-12.4f %-12.4f\n", "AHR(H)",
             dgm_calibrated_cox$AHR_H_true, dgm_calibrated_ahr$AHR_H_true))
 ```
 
-    ## AHR(H)               2.4001       2.0000
+    AHR(H)               2.4001       2.0000      
 
-### Validating k_inter Effect on Heterogeneity
+### 3.8 Validating k_inter Effect on Heterogeneity
 
 Use
 [`validate_k_inter_effect()`](https://larry-leon.github.io/forestsearch/reference/validate_k_inter_effect.md)
 to verify the interaction parameter properly modulates treatment effect
 heterogeneity:
+
+Code
 
 ``` r
 
@@ -956,36 +1066,40 @@ validation_results <- validate_k_inter_effect(
 )
 ```
 
-    ## Testing k_inter effect on HR heterogeneity...
-    ## 
-    ## k_inter  HR(H)    HR(Hc)   AHR(H)   AHR(Hc)  Ratio(Cox) Ratio(AHR)
-    ## ---------------------------------------------------------------------- 
-    ## -2.0     0.1336   0.6612   0.0884   0.5848   0.2021     0.1512    
-    ## -1.0     0.3033   0.6612   0.2274   0.5848   0.4587     0.3888    
-    ## 0.0      0.6552   0.6612   0.5848   0.5848   0.9909     1.0000    
-    ## 1.0      1.3873   0.6612   1.5041   0.5848   2.0982     2.5721    
-    ## 2.0      2.9651   0.6612   3.8687   0.5848   4.4846     6.6157    
-    ## 3.0      6.6375   0.6612   9.9507   0.5848   10.0387    17.0162   
-    ## 
-    ## PASS: k_inter = 0 gives Cox ratio ~= 1 (no heterogeneity)
-    ## PASS: k_inter = 0 gives AHR ratio ~= 1 (no heterogeneity)
-    ## 
-    ## AHR vs Cox HR alignment:
-    ##   k_inter = -2.0: HR(H) vs AHR(H) diff = 0.0452
-    ##   k_inter = -1.0: HR(H) vs AHR(H) diff = 0.0759
-    ##   k_inter = 0.0: HR(H) vs AHR(H) diff = 0.0704
-    ##   k_inter = 1.0: HR(H) vs AHR(H) diff = 0.1168
-    ##   k_inter = 2.0: HR(H) vs AHR(H) diff = 0.9036
-    ##   k_inter = 3.0: HR(H) vs AHR(H) diff = 3.3132
+    Testing k_inter effect on HR heterogeneity...
+
+    k_inter  HR(H)    HR(Hc)   AHR(H)   AHR(Hc)  Ratio(Cox) Ratio(AHR)
+    ----------------------------------------------------------------------
+    -2.0     0.1336   0.6612   0.0884   0.5848   0.2021     0.1512
+    -1.0     0.3033   0.6612   0.2274   0.5848   0.4587     0.3888
+    0.0      0.6552   0.6612   0.5848   0.5848   0.9909     1.0000
+    1.0      1.3873   0.6612   1.5041   0.5848   2.0982     2.5721
+    2.0      2.9651   0.6612   3.8687   0.5848   4.4846     6.6157
+    3.0      6.6375   0.6612   9.9507   0.5848   10.0387    17.0162
+
+    PASS: k_inter = 0 gives Cox ratio ~= 1 (no heterogeneity)
+    PASS: k_inter = 0 gives AHR ratio ~= 1 (no heterogeneity)
+
+    AHR vs Cox HR alignment:
+      k_inter = -2.0: HR(H) vs AHR(H) diff = 0.0452
+      k_inter = -1.0: HR(H) vs AHR(H) diff = 0.0759
+      k_inter = 0.0: HR(H) vs AHR(H) diff = 0.0704
+      k_inter = 1.0: HR(H) vs AHR(H) diff = 0.1168
+      k_inter = 2.0: HR(H) vs AHR(H) diff = 0.9036
+      k_inter = 3.0: HR(H) vs AHR(H) diff = 3.3132
+
+Code
 
 ``` r
 
 timings$validation <- proc.time()[3] - t0
 ```
 
-### Null Hypothesis (Uniform Treatment Effect)
+### 3.9 Null Hypothesis (Uniform Treatment Effect)
 
 For Type I error evaluation, create a DGM with uniform treatment effect:
+
+Code
 
 ``` r
 
@@ -1001,49 +1115,61 @@ dgm_null <- setup_gbsg_dgm(
 cat("\nNull hypothesis HRs:\n")
 ```
 
-    ## 
-    ## Null hypothesis HRs:
+
+    Null hypothesis HRs:
+
+Code
 
 ``` r
 
 cat("Overall HR:", round(dgm_null$hr_causal, 3), "\n")
 ```
 
-    ## Overall HR: 0.722
+    Overall HR: 0.722 
+
+Code
 
 ``` r
 
 cat("HR(H^c):", round(dgm_null$hr_Hc_true, 3), "\n")
 ```
 
-    ## HR(H^c): 0.722
+    HR(H^c): 0.722 
+
+Code
 
 ``` r
 
 cat("AHR(H^c):", round(dgm_null$AHR_Hc_true, 3), "\n")
 ```
 
-    ## AHR(H^c): 0.654
+    AHR(H^c): 0.654 
+
+Code
 
 ``` r
 
 cat("AHR:", round(dgm_null$AHR, 3), "\n")
 ```
 
-    ## AHR: 0.654
+    AHR: 0.654 
+
+Code
 
 ``` r
 
 timings$dgm_null <- proc.time()[3] - t0
 ```
 
-## Simulating Trial Data
+## 4 Simulating Trial Data
 
-### Single Trial Simulation
+### 4.1 Single Trial Simulation
 
 Use
 [`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
 to generate a single simulated trial:
+
+Code
 
 ``` r
 
@@ -1064,14 +1190,18 @@ sim_data <- simulate_from_dgm(
 cat("Simulated trial:\n")
 ```
 
-    ## Simulated trial:
+    Simulated trial:
+
+Code
 
 ``` r
 
 cat("  N =", nrow(sim_data), "\n")
 ```
 
-    ##   N = 700
+      N = 700 
+
+Code
 
 ``` r
 
@@ -1079,7 +1209,9 @@ cat("  Events =", sum(sim_data$event_sim),
     "(", round(100 * mean(sim_data$event_sim), 1), "%)\n")
 ```
 
-    ##   Events = 351 ( 50.1 %)
+      Events = 351 ( 50.1 %)
+
+Code
 
 ``` r
 
@@ -1087,7 +1219,9 @@ cat("  Harm subgroup size =", sum(sim_data$flag_harm),
     "(", round(100 * mean(sim_data$flag_harm), 1), "%)\n")
 ```
 
-    ##   Harm subgroup size = 90 ( 12.9 %)
+      Harm subgroup size = 90 ( 12.9 %)
+
+Code
 
 ``` r
 
@@ -1096,9 +1230,11 @@ fit_itt <- coxph(Surv(y_sim, event_sim) ~ treat_sim, data = sim_data)
 cat("  Estimated ITT HR =", round(exp(coef(fit_itt)), 3), "\n")
 ```
 
-    ##   Estimated ITT HR = 0.69
+      Estimated ITT HR = 0.69 
 
-#### Examining Individual-Level Effects in Simulated Data
+#### 4.1.1 Examining Individual-Level Effects in Simulated Data
+
+Code
 
 ``` r
 
@@ -1119,13 +1255,15 @@ if ("loghr_po" %in% names(sim_data)) {
 }
 ```
 
-    ## 
-    ## Individual treatment effects in simulated trial:
-    ##   AHR(H) in sim: 2.4 
-    ##   AHR(Hc) in sim: 0.585 
-    ##   AHR(overall) in sim: 0.701
 
-### Examining Covariate Structure
+    Individual treatment effects in simulated trial:
+      AHR(H) in sim: 2.4
+      AHR(Hc) in sim: 0.585
+      AHR(overall) in sim: 0.701 
+
+### 4.2 Examining Covariate Structure
+
+Code
 
 ``` r
 
@@ -1141,6 +1279,8 @@ plot_weighted_km(dfcount, conf.int = TRUE, show.logrank = TRUE,
 ```
 
 ![](paper_simulations_files/figure-html/km-plot-1.png)
+
+Code
 
 ``` r
 
@@ -1188,11 +1328,13 @@ create_summary_table(
 | ¹ P-values: t-test for continuous, chi-square/Fisher's exact for categorical/binary variables |  |  |  |  |  |
 | ² SMD = Standardized mean difference (Cohen's d for continuous, Cramer's V for categorical) |  |  |  |  |  |
 
-## Running Simulation Studies
+## 5 Running Simulation Studies
 
-### Setting Up Parallel Processing
+### 5.1 Setting Up Parallel Processing
 
 For efficient simulation studies, use parallel processing:
+
+Code
 
 ``` r
 
@@ -1204,9 +1346,11 @@ plan(multisession, workers = n_workers)
 cat("Using", n_workers, "parallel workers\n")
 ```
 
-    ## Using 3 parallel workers
+    Using 3 parallel workers
 
-### Define Simulation Parameters
+### 5.2 Define Simulation Parameters
+
+Code
 
 ``` r
 
@@ -1264,10 +1408,12 @@ fs_params <- list(
 confounders_base <- c("z1", "z2", "z3", "z4", "z5", "size", "grade3")
 ```
 
-#### Two-Stage Algorithm Option
+#### 5.2.1 Two-Stage Algorithm Option
 
 The `use_twostage` parameter enables a faster two-stage search
 algorithm:
+
+Code
 
 ``` r
 
@@ -1284,23 +1430,29 @@ fs_params_fast <- modifyList(fs_params, list(
 cat("Standard search: use_twostage =", fs_params$use_twostage, "\n")
 ```
 
-    ## Standard search: use_twostage = TRUE
+    Standard search: use_twostage = TRUE 
+
+Code
 
 ``` r
 
 cat("Fast search: use_twostage =", fs_params_fast$use_twostage, "\n")
 ```
 
-    ## Fast search: use_twostage = TRUE
+    Fast search: use_twostage = TRUE 
 
-### Running Alternative Hypothesis Simulations
+### 5.3 Running Alternative Hypothesis Simulations
+
+Code
 
 ``` r
 
 cat("Running", sim_config_alt$n_sims, "simulations under H1...\n")
 ```
 
-    ## Running 44 simulations under H1...
+    Running 44 simulations under H1...
+
+Code
 
 ``` r
 
@@ -1349,52 +1501,54 @@ results_alt <- foreach(
 }
 ```
 
-    ## GRF subgroup: z3 > 0 & z1 > 0 
-    ## GRF cuts identified: 3 
-    ##   Cuts: z3 <= 0, size <= 56, z1 <= 0 
-    ## Cox-LASSO selected: 6 of 7 candidate factors
-    ##   Omitted: z2 
-    ## Candidate factors: 14 
-    ##  [1] "size <= 56" "z4 <= 2.5"  "z4 <= 3"    "z4 <= 2"    "z5 <= 2"   
-    ##  [6] "z5 <= 1"    "z5 <= 3"    "size <= 29" "size <= 25" "size <= 20"
-    ## [11] "size <= 35" "z1"         "z3"         "grade3"    
-    ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
-    ## Per-arm events criteria: control >= 12, treatment >= 12
-    ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.03 minutes
-    ## 
-    ## --- Filtering Summary ---
-    ##   Combinations evaluated: 406 
-    ##   Passed variance check: 375 
-    ##   Passed prevalence (>= 0.025 ): 375 
-    ##   Passed redundancy check: 358 
-    ##   Passed events counts (d0>= 12, d1>= 12): 308
-    ##   Passed sample size (n>= 60 ): 299 
-    ##   Cox model fit successfully: 299
-    ##   Passed effect threshold (effect >= 1.2500): 3
-    ## -------------------------
-    ## 
-    ## Found 3 subgroup candidate(s)
-    ## # of candidate subgroups (meeting all criteria) = 3 
-    ## # of unique initial candidates: 3 
-    ## # Restricting to top stop_Kgroups = Inf 
-    ## # of candidates to evaluate: 3 
-    ## Parallel config: sequential plan -- running the consistency screen as a plain loop
-    ## Subgroup 1: resample Pcons=0.84 (threshold 0.9)
-    ## Subgroup 2: resample Pcons=0.8 (threshold 0.9)
-    ## Subgroup 3: resample Pcons=0.82 (threshold 0.9)
-    ## Evaluated 3 of 3 candidates (complete) 
-    ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 5.786 0.0964 
-    ## Consistency algorithm used: twostage 
-    ## tau, maxdepth = 47.90727 2 
-    ##    leaf.node control.mean control.size control.se depth
-    ## 1          2        -2.43       556.00       1.10     1
-    ## 2          3         1.78       144.00       2.55     1
-    ## 11         4        -3.77       383.00       1.36     2
-    ## 3          6        -1.28       205.00       1.68     2
-    ## 4          7         4.22        94.00       3.27     2
-    ## GRF subgroup NOT found
+    GRF subgroup: z3 > 0 & z1 > 0
+    GRF cuts identified: 3
+      Cuts: z3 <= 0, size <= 56, z1 <= 0
+    Cox-LASSO selected: 6 of 7 candidate factors
+      Omitted: z2
+    Candidate factors: 14
+     [1] "size <= 56" "z4 <= 2.5"  "z4 <= 3"    "z4 <= 2"    "z5 <= 2"
+     [6] "z5 <= 1"    "z5 <= 3"    "size <= 29" "size <= 25" "size <= 20"
+    [11] "size <= 35" "z1"         "z3"         "grade3"
+    Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406
+    Per-arm events criteria: control >= 12, treatment >= 12
+    Sample size criteria: n >= 60
+    Subgroup search completed in 0.02 minutes
+
+    --- Filtering Summary ---
+      Combinations evaluated: 406
+      Passed variance check: 375
+      Passed prevalence (>= 0.025 ): 375
+      Passed redundancy check: 358
+      Passed events counts (d0>= 12, d1>= 12): 308
+      Passed sample size (n>= 60 ): 299
+      Cox model fit successfully: 299
+      Passed effect threshold (effect >= 1.2500): 3
+    -------------------------
+
+    Found 3 subgroup candidate(s)
+    # of candidate subgroups (meeting all criteria) = 3
+    # of unique initial candidates: 3
+    # Restricting to top stop_Kgroups = Inf
+    # of candidates to evaluate: 3
+    Parallel config: sequential plan -- running the consistency screen as a plain loop
+    Subgroup 1: resample Pcons=0.84 (threshold 0.9)
+    Subgroup 2: resample Pcons=0.8 (threshold 0.9)
+    Subgroup 3: resample Pcons=0.82 (threshold 0.9)
+    Evaluated 3 of 3 candidates (complete)
+    No subgroups found meeting consistency threshold
+    Seconds and minutes forestsearch overall = 3.784 0.0631
+    Consistency algorithm used: twostage
+    tau, maxdepth = 47.90727 2
+       leaf.node control.mean control.size control.se depth
+    1          2        -2.43       556.00       1.10     1
+    2          3         1.78       144.00       2.55     1
+    11         4        -3.77       383.00       1.36     2
+    3          6        -1.28       205.00       1.68     2
+    4          7         4.22        94.00       3.27     2
+    GRF subgroup NOT found
+
+Code
 
 ``` r
 
@@ -1404,23 +1558,29 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 1.9 minutes
+    Completed in 1.1 minutes
+
+Code
 
 ``` r
 
 cat("Results:", nrow(results_alt), "rows\n")
 ```
 
-    ## Results: 88 rows
+    Results: 88 rows
 
-### Running Null Hypothesis Simulations
+### 5.4 Running Null Hypothesis Simulations
+
+Code
 
 ``` r
 
 cat("Running", sim_config_null$n_sims, "simulations under H0...\n")
 ```
 
-    ## Running 44 simulations under H0...
+    Running 44 simulations under H0...
+
+Code
 
 ``` r
 
@@ -1470,51 +1630,53 @@ results_null <- foreach(
 }
 ```
 
-    ## GRF subgroup: size <= 24 & size > 22 
-    ## GRF cuts identified: 3 
-    ##   Cuts: size <= 24, size <= 22, z4 <= 3 
-    ## Cox-LASSO selected: 5 of 7 candidate factors
-    ##   Omitted: z1, z2 
-    ## Candidate factors: 14 
-    ##  [1] "size <= 24" "size <= 22" "z4 <= 3"    "z4 <= 2.5"  "z4 <= 2"   
-    ##  [6] "z5 <= 2"    "z5 <= 1"    "z5 <= 3"    "size <= 29" "size <= 25"
-    ## [11] "size <= 20" "size <= 35" "z3"         "grade3"    
-    ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
-    ## Per-arm events criteria: control >= 12, treatment >= 12
-    ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.02 minutes
-    ## 
-    ## --- Filtering Summary ---
-    ##   Combinations evaluated: 406 
-    ##   Passed variance check: 370 
-    ##   Passed prevalence (>= 0.025 ): 370 
-    ##   Passed redundancy check: 348 
-    ##   Passed events counts (d0>= 12, d1>= 12): 319
-    ##   Passed sample size (n>= 60 ): 312 
-    ##   Cox model fit successfully: 312
-    ##   Passed effect threshold (effect >= 1.2500): 2
-    ## -------------------------
-    ## 
-    ## Found 2 subgroup candidate(s)
-    ## # of candidate subgroups (meeting all criteria) = 2 
-    ## # of unique initial candidates: 2 
-    ## # Restricting to top stop_Kgroups = Inf 
-    ## # of candidates to evaluate: 2 
-    ## Parallel config: sequential plan -- running the consistency screen as a plain loop
-    ## Subgroup 1: resample Pcons=0.66 (threshold 0.9)
-    ## Subgroup 2: resample Pcons=0.57 (threshold 0.9)
-    ## Evaluated 2 of 2 candidates (complete) 
-    ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 5.114 0.0852 
-    ## Consistency algorithm used: twostage 
-    ## tau, maxdepth = 43.8823 2 
-    ##   leaf.node control.mean control.size control.se depth
-    ## 1         2        -2.57       661.00       0.92     1
-    ## 2         4        -4.46       255.00       1.36     2
-    ## 3         5         4.80        65.00       3.13     2
-    ## 4         6        -4.43       206.00       1.75     2
-    ## 5         7         0.85       174.00       1.83     2
-    ## GRF subgroup NOT found
+    GRF subgroup: size <= 24 & size > 22
+    GRF cuts identified: 3
+      Cuts: size <= 24, size <= 22, z4 <= 3
+    Cox-LASSO selected: 5 of 7 candidate factors
+      Omitted: z1, z2
+    Candidate factors: 14
+     [1] "size <= 24" "size <= 22" "z4 <= 3"    "z4 <= 2.5"  "z4 <= 2"
+     [6] "z5 <= 2"    "z5 <= 1"    "z5 <= 3"    "size <= 29" "size <= 25"
+    [11] "size <= 20" "size <= 35" "z3"         "grade3"
+    Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406
+    Per-arm events criteria: control >= 12, treatment >= 12
+    Sample size criteria: n >= 60
+    Subgroup search completed in 0.01 minutes
+
+    --- Filtering Summary ---
+      Combinations evaluated: 406
+      Passed variance check: 370
+      Passed prevalence (>= 0.025 ): 370
+      Passed redundancy check: 348
+      Passed events counts (d0>= 12, d1>= 12): 319
+      Passed sample size (n>= 60 ): 312
+      Cox model fit successfully: 312
+      Passed effect threshold (effect >= 1.2500): 2
+    -------------------------
+
+    Found 2 subgroup candidate(s)
+    # of candidate subgroups (meeting all criteria) = 2
+    # of unique initial candidates: 2
+    # Restricting to top stop_Kgroups = Inf
+    # of candidates to evaluate: 2
+    Parallel config: sequential plan -- running the consistency screen as a plain loop
+    Subgroup 1: resample Pcons=0.66 (threshold 0.9)
+    Subgroup 2: resample Pcons=0.57 (threshold 0.9)
+    Evaluated 2 of 2 candidates (complete)
+    No subgroups found meeting consistency threshold
+    Seconds and minutes forestsearch overall = 2.928 0.0488
+    Consistency algorithm used: twostage
+    tau, maxdepth = 43.8823 2
+      leaf.node control.mean control.size control.se depth
+    1         2        -2.57       661.00       0.92     1
+    2         4        -4.46       255.00       1.36     2
+    3         5         4.80        65.00       3.13     2
+    4         6        -4.43       206.00       1.75     2
+    5         7         0.85       174.00       1.83     2
+    GRF subgroup NOT found
+
+Code
 
 ``` r
 
@@ -1524,11 +1686,13 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 1.8 minutes
+    Completed in 1.1 minutes
 
-## Summarizing Results
+## 6 Summarizing Results
 
-### Operating Characteristics Summary Under HTEs
+### 6.1 Operating Characteristics Summary Under HTEs
+
+Code
 
 ``` r
 
@@ -1544,6 +1708,8 @@ format_oc_results(results_alt, metrics = c("detection","classification","cde_est
 
 [TABLE]
 
+Code
+
 ``` r
 
 # Check for AHR columns in results
@@ -1551,7 +1717,9 @@ ahr_cols <- grep("ahr", names(results_alt), value = TRUE)
 cat("AHR columns in results:", paste(ahr_cols, collapse = ", "), "\n\n")
 ```
 
-    ## AHR columns in results: ahr.H.true, ahr.Hc.true, ahr.H.hat, ahr.Hc.hat
+    AHR columns in results: ahr.H.true, ahr.Hc.true, ahr.H.hat, ahr.Hc.hat 
+
+Code
 
 ``` r
 
@@ -1569,11 +1737,13 @@ if (length(ahr_cols) > 0) {
 }
 ```
 
-    ## AHR estimates (when subgroup found):
-    ##   Mean AHR(H) estimated: 2.161 
-    ##   Mean AHR(Hc) estimated: 0.6 
-    ##   True AHR(H): 2.4 
-    ##   True AHR(Hc): 0.585
+    AHR estimates (when subgroup found):
+      Mean AHR(H) estimated: 2.161
+      Mean AHR(Hc) estimated: 0.6
+      True AHR(H): 2.4
+      True AHR(Hc): 0.585 
+
+Code
 
 ``` r
 
@@ -1603,12 +1773,16 @@ build_estimation_table(
 | θ‡(Ĥᶜ) | 0.63 | 0.07 | 0.58 | 0.85 | NA | 7.46 |
 | θ̂(Ĥ) = plugin Cox HR in identified subgroup; θ̂\*(Ĥ) = bootstrap bias-corrected; âhr(Ĥ) = average hazard ratio in identified subgroup; b† = bias relative to marginal HR θ† (causal truth); θ‡(Ĥ) = controlled direct effect in identified subgroup; b‡ = bias relative to CDE θ‡ |  |  |  |  |  |  |
 
+Code
+
 ``` r
 
 timings$summarize_alt <- proc.time()[3] - t0
 ```
 
-#### Interpretation of estimated treatment effects
+#### 6.1.1 Interpretation of estimated treatment effects
+
+Code
 
 ``` r
 
@@ -1637,7 +1811,9 @@ The average hazard ratio (AHR) in the identified subgroup averaged 2.16
 relative to the Cox HR, consistent with AHR being a marginal rather than
 conditional estimand.
 
-### Operating Characteristics Under NULL (no HTEs)
+### 6.2 Operating Characteristics Under NULL (no HTEs)
+
+Code
 
 ``` r
 
@@ -1654,6 +1830,8 @@ format_oc_results(results_null, metrics = c("detection","classification","cde_es
 
 [TABLE]
 
+Code
+
 ``` r
 
 # Check for AHR columns in results
@@ -1661,7 +1839,9 @@ ahr_cols <- grep("ahr", names(results_null), value = TRUE)
 cat("AHR columns in results:", paste(ahr_cols, collapse = ", "), "\n\n")
 ```
 
-    ## AHR columns in results: ahr.H.true, ahr.Hc.true, ahr.H.hat, ahr.Hc.hat
+    AHR columns in results: ahr.H.true, ahr.Hc.true, ahr.H.hat, ahr.Hc.hat 
+
+Code
 
 ``` r
 
@@ -1679,11 +1859,13 @@ if (length(ahr_cols) > 0) {
 }
 ```
 
-    ## AHR estimates (when subgroup found):
-    ##   Mean AHR(H) estimated: 0.654 
-    ##   Mean AHR(Hc) estimated: 0.654 
-    ##   True AHR(H): NA 
-    ##   True AHR(Hc): 0.654
+    AHR estimates (when subgroup found):
+      Mean AHR(H) estimated: 0.654
+      Mean AHR(Hc) estimated: 0.654
+      True AHR(H): NA
+      True AHR(Hc): 0.654 
+
+Code
 
 ``` r
 
@@ -1713,12 +1895,16 @@ build_estimation_table(
 | θ‡(Ĥᶜ) | 0.65 | 0.00 | 0.65 | 0.65 | NA | 0.00 |
 | θ̂(Ĥ) = plugin Cox HR in identified subgroup; θ̂\*(Ĥ) = bootstrap bias-corrected; âhr(Ĥ) = average hazard ratio in identified subgroup; b† = bias relative to marginal HR θ† (causal truth); θ‡(Ĥ) = controlled direct effect in identified subgroup; b‡ = bias relative to CDE θ‡ |  |  |  |  |  |  |
 
+Code
+
 ``` r
 
 timings$summarize_null <- proc.time()[3] - t0
 ```
 
-#### Interpretation of estimated treatment effects
+#### 6.2.1 Interpretation of estimated treatment effects
+
+Code
 
 ``` r
 
@@ -1755,7 +1941,9 @@ These results underscore that under the null, the few false detections
 produce highly biased estimates, reinforcing the need for bootstrap bias
 correction for any subgroup identified by a data-driven search.
 
-#### Classification Rate Details
+#### 6.2.2 Classification Rate Details
+
+Code
 
 ``` r
 
@@ -1808,11 +1996,13 @@ build_classification_table(
 | ppv(Hc) | 0.98 | 1.00 |
 | avg\|H\| | 83.00 | 96.00 |
 
-## Theoretical Subgroup Detection Rate Approximation
+## 7 Theoretical Subgroup Detection Rate Approximation
 
 The function
 [`compute_detection_probability()`](https://larry-leon.github.io/forestsearch/reference/compute_detection_probability.md)
 provides an analytical approximation based on asymptotic normal theory:
+
+Code
 
 ``` r
 
@@ -1827,35 +2017,45 @@ prop_cens <- mean(results_alt$p.cens)  # Censoring proportion
 cat("=== Subgroup Characteristics ===\n")
 ```
 
-    ## === Subgroup Characteristics ===
+    === Subgroup Characteristics ===
+
+Code
 
 ``` r
 
 cat("Expected subgroup size (n_sg):", round(n_sg_expected), "\n")
 ```
 
-    ## Expected subgroup size (n_sg): 89
+    Expected subgroup size (n_sg): 89 
+
+Code
 
 ``` r
 
 cat("Censoring proportion:", round(prop_cens, 3), "\n")
 ```
 
-    ## Censoring proportion: 0.483
+    Censoring proportion: 0.483 
+
+Code
 
 ``` r
 
 cat("True HR in H:", round(dgm_calibrated$hr_H_true, 3), "\n")
 ```
 
-    ## True HR in H: 2
+    True HR in H: 2 
+
+Code
 
 ``` r
 
 cat("HR threshold:", fs_params$hr.threshold, "\n")
 ```
 
-    ## HR threshold: 1.25
+    HR threshold: 1.25 
+
+Code
 
 ``` r
 
@@ -1870,8 +2070,10 @@ cat("HR threshold:", fs_params$hr.threshold, "\n")
 dgm_calibrated$hr_H_true
 ```
 
-    ##    treat 
-    ## 1.999999
+       treat
+    1.999999 
+
+Code
 
 ``` r
 
@@ -1889,29 +2091,37 @@ prob_detect <- compute_detection_probability(
 cat("\n=== Detection Probability Comparison ===\n")
 ```
 
-    ## 
-    ## === Detection Probability Comparison ===
+
+    === Detection Probability Comparison ===
+
+Code
 
 ``` r
 
 cat("Theoretical FS (asymptotic):", round(prob_detect, 3), "\n")
 ```
 
-    ## Theoretical FS (asymptotic): 0.89
+    Theoretical FS (asymptotic): 0.89 
+
+Code
 
 ``` r
 
 cat("Empirical FS:", round(mean(results_alt[analysis == "FS"]$any.H), 3), "\n")
 ```
 
-    ## Empirical FS: 0.886
+    Empirical FS: 0.886 
+
+Code
 
 ``` r
 
 cat("Empirical FSlg:", round(mean(results_alt[analysis == "FSlg"]$any.H), 3), "\n")
 ```
 
-    ## Empirical FSlg: NaN
+    Empirical FSlg: NaN 
+
+Code
 
 ``` r
 
@@ -1920,7 +2130,9 @@ if ("GRF" %in% results_alt$analysis) {
 }
 ```
 
-    ## Empirical GRF: 0.614
+    Empirical GRF: 0.614 
+
+Code
 
 ``` r
 
@@ -1944,36 +2156,46 @@ prob_detect_null <- compute_detection_probability(
 cat("\n=== Detection Probability Comparison ===\n")
 ```
 
-    ## 
-    ## === Detection Probability Comparison ===
+
+    === Detection Probability Comparison ===
+
+Code
 
 ``` r
 
 cat("Under the null calculate at min SG size:", fs_params$n.min,"\n")
 ```
 
-    ## Under the null calculate at min SG size: 60
+    Under the null calculate at min SG size: 60 
+
+Code
 
 ``` r
 
 cat("Theoretical FS at min(SG) (asymptotic):", round(prob_detect_null, 6), "\n")
 ```
 
-    ## Theoretical FS at min(SG) (asymptotic): 0.042886
+    Theoretical FS at min(SG) (asymptotic): 0.042886 
+
+Code
 
 ``` r
 
 cat("Empirical FS:", round(mean(results_null[analysis == "FS"]$any.H), 6), "\n")
 ```
 
-    ## Empirical FS: 0.045455
+    Empirical FS: 0.045455 
+
+Code
 
 ``` r
 
 cat("Empirical FSlg:", round(mean(results_null[analysis == "FSlg"]$any.H), 6), "\n")
 ```
 
-    ## Empirical FSlg: NaN
+    Empirical FSlg: NaN 
+
+Code
 
 ``` r
 
@@ -1982,7 +2204,9 @@ if ("GRF" %in% results_null$analysis) {
 }
 ```
 
-    ## Empirical GRF: 0.022727
+    Empirical GRF: 0.022727 
+
+Code
 
 ``` r
 
@@ -1990,7 +2214,9 @@ prop_cens <- mean(results_null$p.cens)  # Censoring proportion
 cat("Censoring proportion:", round(prop_cens, 3), "\n")
 ```
 
-    ## Censoring proportion: 0.496
+    Censoring proportion: 0.496 
+
+Code
 
 ``` r
 
@@ -2063,6 +2289,8 @@ legend(
 
 ![](paper_simulations_files/figure-html/theoretical-detection-rates-1.png)
 
+Code
+
 ``` r
 
 # Format operating characteristics for H0
@@ -2079,7 +2307,9 @@ format_oc_results(
 
 [TABLE]
 
-### Key Metrics
+### 7.1 Key Metrics
+
+Code
 
 ``` r
 
@@ -2087,14 +2317,18 @@ format_oc_results(
 cat("=== KEY OPERATING CHARACTERISTICS ===\n\n")
 ```
 
-    ## === KEY OPERATING CHARACTERISTICS ===
+    === KEY OPERATING CHARACTERISTICS ===
+
+Code
 
 ``` r
 
 cat("Alternative Hypothesis (H1):\n")
 ```
 
-    ## Alternative Hypothesis (H1):
+    Alternative Hypothesis (H1):
+
+Code
 
 ``` r
 
@@ -2109,16 +2343,20 @@ for (analysis in unique(results_alt$analysis)) {
 }
 ```
 
-    ##   FS: Power = 0.750, Sens = 0.692, Spec = 0.961, PPV = 0.691
-    ##   GRF: Power = 0.750, Sens = 0.692, Spec = 0.961, PPV = 0.691
+      FS: Power = 0.750, Sens = 0.692, Spec = 0.961, PPV = 0.691
+      GRF: Power = 0.750, Sens = 0.692, Spec = 0.961, PPV = 0.691
+
+Code
 
 ``` r
 
 cat("\nNull Hypothesis (H0):\n")
 ```
 
-    ## 
-    ## Null Hypothesis (H0):
+
+    Null Hypothesis (H0):
+
+Code
 
 ``` r
 
@@ -2130,10 +2368,10 @@ for (analysis in unique(results_null$analysis)) {
 }
 ```
 
-    ##   FS: Type I Error = 0.0341
-    ##   GRF: Type I Error = 0.0341
+      FS: Type I Error = 0.0341
+      GRF: Type I Error = 0.0341
 
-## Using `format_oc_results()`
+## 8 Using `format_oc_results()`
 
 The
 [`format_oc_results()`](https://larry-leon.github.io/forestsearch/reference/format_oc_results.md)
@@ -2143,7 +2381,7 @@ simulation results. It accepts the raw `data.table` produced by
 (or combined via `rbind` / `rbindlist` across simulations) and returns
 either a `gt` table object or a plain `data.frame`.
 
-### Function Signature
+### 8.1 Function Signature
 
 ``` r
 
@@ -2159,7 +2397,7 @@ format_oc_results(
 )
 ```
 
-### Key Parameters
+### 8.2 Key Parameters
 
 | Parameter | Default | Description |
 |----|----|----|
@@ -2172,7 +2410,7 @@ format_oc_results(
 | `subtitle` | `NULL` | Optional subtitle (e.g., sample size and true HR). |
 | `use_gt` | `TRUE` | If `TRUE` and the `gt` package is available, returns a styled `gt` table; otherwise returns a `data.frame`. |
 
-### Output Structure
+### 8.3 Output Structure
 
 When `metrics = "all"`, the returned table contains one row per analysis
 method with the following columns:
@@ -2189,7 +2427,7 @@ method with the following columns:
 | `HR_ITT` | Mean overall (ITT) HR across all simulations |
 | `Size_H_mean` | Mean size of identified subgroup (when found) |
 
-### Usage Patterns
+### 8.4 Usage Patterns
 
 **Pattern 1: Quick summary of a single simulation run**
 
@@ -2269,9 +2507,11 @@ summary_df <- summarize_simulation_results(results_alt)
 format_oc_results(results_alt, title = "Publication Table")
 ```
 
-## Advanced Topics
+## 9 Advanced Topics
 
-### Comparing Standard vs Two-Stage Algorithm
+### 9.1 Comparing Standard vs Two-Stage Algorithm
+
+Code
 
 ``` r
 
@@ -2303,9 +2543,11 @@ cat("Standard algorithm power:", round(mean(results_alt$any.H[results_alt$analys
 cat("Two-stage algorithm power:", round(mean(results_twostage$any.H), 3), "\n")
 ```
 
-### Adding Noise Variables
+### 9.2 Adding Noise Variables
 
 Test ForestSearch robustness by including irrelevant noise variables:
+
+Code
 
 ``` r
 
@@ -2337,7 +2579,9 @@ cat("Without noise:", round(mean(results_alt$any.H), 3), "\n")
 cat("With 10 noise vars:", round(mean(results_noise$any.H), 3), "\n")
 ```
 
-### Sensitivity Analysis: Varying Parameters
+### 9.3 Sensitivity Analysis: Varying Parameters
+
+Code
 
 ``` r
 
@@ -2374,7 +2618,9 @@ combined[, .(power = mean(any.H), ppv = mean(ppv, na.rm = TRUE)),
          by = .(threshold, analysis)]
 ```
 
-## Saving Results
+## 10 Saving Results
+
+Code
 
 ``` r
 
@@ -2402,7 +2648,7 @@ save_simulation_results(
 )
 ```
 
-## Computational Timing Summary
+## 11 Computational Timing Summary
 
 Tracking wall-clock time for every stage of a simulation study is
 essential for planning larger experiments and for reporting
@@ -2413,15 +2659,15 @@ reproducibility information.
 | 44 H1 + 44 H0 simulations, 3 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.1 | 0.00 | 0.1 |
-| Calibrate k_inter (Cox) | 8.0 | 0.13 | 3.0 |
-| Calibrate k_inter (AHR) | 3.1 | 0.05 | 1.1 |
-| Validate k_inter | 0.7 | 0.01 | 0.3 |
+| Calibrate k_inter (Cox) | 4.2 | 0.07 | 2.6 |
+| Calibrate k_inter (AHR) | 1.6 | 0.03 | 1.0 |
+| Validate k_inter | 0.5 | 0.01 | 0.3 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.0 |
-| Simulations H1 | 111.6 | 1.86 | 41.4 |
-| Simulations H0 | 106.8 | 1.78 | 39.7 |
-| Summarize H1 | 0.2 | 0.00 | 0.1 |
-| Summarize H0 | 0.2 | 0.00 | 0.1 |
-| Total vignette | 269.4 | 4.49 | 100.0 |
+| Simulations H1 | 68.3 | 1.14 | 42.8 |
+| Simulations H0 | 64.3 | 1.07 | 40.3 |
+| Summarize H1 | 0.1 | 0.00 | 0.1 |
+| Summarize H0 | 0.1 | 0.00 | 0.1 |
+| Total vignette | 159.4 | 2.66 | 100.0 |
 | ¹ Parallel backend: 3 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -2493,11 +2739,13 @@ gt(timing_df) |>
   )
 ```
 
-#### Per-Simulation Timing
+#### 11.0.1 Per-Simulation Timing
 
 If per-simulation timing is available in the results (via a
 `time_elapsed` column or similar), it can be summarized to characterize
 the distribution of runtimes across individual simulations:
+
+Code
 
 ``` r
 
@@ -2524,12 +2772,16 @@ Alternatively, the overall wall-clock time divided by the number of
 simulations gives the effective per-simulation cost accounting for
 parallel overhead:
 
+Code
+
 ``` r
 
 cat("Effective per-simulation cost:\n")
 ```
 
-    ## Effective per-simulation cost:
+    Effective per-simulation cost:
+
+Code
 
 ``` r
 
@@ -2538,7 +2790,9 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-    ##   H1: 2.5 sec/sim (wall) across 44 sims on 3 workers
+      H1: 1.6 sec/sim (wall) across 44 sims on 3 workers
+
+Code
 
 ``` r
 
@@ -2547,11 +2801,13 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-    ##   H0: 2.4 sec/sim (wall) across 44 sims on 3 workers
+      H0: 1.5 sec/sim (wall) across 44 sims on 3 workers
 
-## Complete Example Script
+## 12 Complete Example Script
 
 Here’s a minimal self-contained script for running a simulation study:
+
+Code
 
 ``` r
 
@@ -2640,7 +2896,7 @@ if (nrow(results_found) > 0 && "ahr.H.hat" %in% names(results_found)) {
 }
 ```
 
-## Summary
+## 13 Summary
 
 This vignette demonstrated the complete workflow for evaluating
 ForestSearch performance through simulation:
@@ -2671,7 +2927,7 @@ ForestSearch performance through simulation:
 - **Individual effects**: Access `theta_0`, `theta_1`, `loghr_po` per
   subject
 
-## Appendix A: Publication-Quality Tables
+## 14 Appendix A: Publication-Quality Tables
 
 This appendix demonstrates how to build publication-quality tables from
 [`summarize_simulation_results()`](https://larry-leon.github.io/forestsearch/reference/summarize_simulation_results.md)
@@ -2685,7 +2941,7 @@ al. (2024). The two target table formats are:
     coverage, and confidence interval metrics for the identified
     subgroup hazard ratios.
 
-### Package Functions for Table Construction
+### 14.1 Package Functions for Table Construction
 
 The `forestsearch` package provides three exported functions for
 building publication-quality simulation tables. These are defined in
@@ -2712,7 +2968,7 @@ and
 [`?render_reference_table`](https://larry-leon.github.io/forestsearch/reference/render_reference_table.md)
 for full documentation.
 
-### Generating Tables from Current Simulation Results
+### 14.2 Generating Tables from Current Simulation Results
 
 Using the package table functions, we construct tables from the
 simulation results obtained in this vignette. These demonstrate the
@@ -2720,9 +2976,11 @@ table format; for a full replication of the Leon et al. (2024) tables,
 one would run multiple scenarios (e.g., M1: N=700, M2: N=500, M3: N=300)
 with 20,000 simulations each.
 
-#### Table 1: Classification Rates
+#### 14.2.1 Table 1: Classification Rates
 
 This is a repeat from above (do not run)
+
+Code
 
 ``` r
 
@@ -2757,11 +3015,13 @@ build_classification_table(
 )
 ```
 
-#### Table 2: Estimation Properties
+#### 14.2.2 Table 2: Estimation Properties
 
 Not run (duplicate of above).
 
 Detailed calculations follow.
+
+Code
 
 ``` r
 
@@ -2782,13 +3042,13 @@ build_estimation_table(
 )
 ```
 
-## Detailed Summary: How `build_estimation_table()` Calculates Results
+## 15 Detailed Summary: How `build_estimation_table()` Calculates Results
 
-### `R/simulation_tables.R`
+### 15.1 `R/simulation_tables.R`
 
 ------------------------------------------------------------------------
 
-### Purpose
+### 15.2 Purpose
 
 [`build_estimation_table()`](https://larry-leon.github.io/forestsearch/reference/build_estimation_table.md)
 produces a gt table summarizing how well ForestSearch (or GRF) estimates
@@ -2801,7 +3061,7 @@ marginal HR θ†), aligning with Table 5 of Leon et al. (2024).
 
 ------------------------------------------------------------------------
 
-### Input Requirements
+### 15.3 Input Requirements
 
 | Argument | Role |
 |----|----|
@@ -2816,9 +3076,9 @@ marginal HR θ†), aligning with Table 5 of Leon et al. (2024).
 
 ------------------------------------------------------------------------
 
-### Step-by-Step Calculation Pipeline
+### 15.4 Step-by-Step Calculation Pipeline
 
-#### 1. Filter to Estimable Realizations
+#### 15.4.1 1. Filter to Estimable Realizations
 
 ``` r
 
@@ -2832,7 +3092,7 @@ Only simulations where the algorithm **identified a subgroup**
 (`any.H == 1`) contribute to estimation summaries. If
 `n_estimable == 0`, the function returns `NULL` with a message.
 
-#### 2. Extract True Values from the DGM
+#### 15.4.2 2. Extract True Values from the DGM
 
 **Alternative hypothesis DGM** (`model = "alt"`):
 
@@ -2883,7 +3143,7 @@ theta_Hc_true <- hr_overall   # same value under the null
 
 The same logic applies for AHR via `get_dgm_hr(dgm, "ahr")` / `dgm$AHR`.
 
-#### 3. Compute Per-Estimator Summary Statistics
+#### 15.4.3 3. Compute Per-Estimator Summary Statistics
 
 The core computation is handled by the `make_est_row()` helper:
 
@@ -2934,12 +3194,12 @@ effect (θ‡). This dual-column layout matches the `Bias_dagger` /
 indicate upward bias (common for naive Cox HR in data-driven subgroups
 due to selection bias).
 
-#### 4. Assemble Rows by Subgroup
+#### 15.4.4 4. Assemble Rows by Subgroup
 
 The function builds up to **four rows per subgroup** (H and Hᶜ), each
 conditional on the corresponding column existing in `res_found`:
 
-##### Rows for Ĥ (identified harm subgroup)
+##### 15.4.4.1 Rows for Ĥ (identified harm subgroup)
 
 | Row label | Source column | True value | CDE value | When included |
 |----|----|----|----|----|
@@ -2948,7 +3208,7 @@ conditional on the corresponding column existing in `res_found`:
 | `ahr-hat(H-hat)` | `ahr.H.hat` | `ahr_H_true` | — | Only if AHR columns exist AND `ahr_H_true` is non-NA |
 | `cde-hat(H-hat)` | `cde.H.hat` | `cde_H` | — | Only if CDE columns exist AND CDE truth available |
 
-##### Rows for Ĥᶜ (identified complement)
+##### 15.4.4.2 Rows for Ĥᶜ (identified complement)
 
 | Row label | Source column | True value | CDE value | When included |
 |----|----|----|----|----|
@@ -3003,7 +3263,7 @@ conditional on the corresponding column existing in `res_found`:
   Jensen’s inequality. The `b‡` column measures bias relative to this
   target.
 
-#### 5. Attach Row-Group Headers
+#### 15.4.5 5. Attach Row-Group Headers
 
 Each subgroup block gets a descriptive Unicode header that encodes the
 ground truth and sample characteristics:
@@ -3021,7 +3281,7 @@ The CDE portion (θ‡) is conditionally appended only when CDE values are
 available. The notation uses θ† for marginal/causal HR and θ‡ for CDE,
 matching Leon et al. (2024) Table 5 conventions.
 
-#### 6. Apply Unicode Labels
+#### 15.4.6 6. Apply Unicode Labels
 
 Plain-text estimator keys are replaced with Unicode mathematical
 notation *before* creating the gt object, via a `label_map` lookup:
@@ -3040,7 +3300,7 @@ notation *before* creating the gt object, via a `label_map` lookup:
 This avoids HTML tags (which gt strips) and `fmt_markdown` /
 `text_transform` (which can corrupt row-group rendering).
 
-#### 7. Render gt Table
+#### 15.4.7 7. Render gt Table
 
 The final gt table uses:
 
@@ -3054,7 +3314,7 @@ The final gt table uses:
 
 ------------------------------------------------------------------------
 
-### Example Output Structure
+### 15.5 Example Output Structure
 
 For an alternative-hypothesis simulation with 18/20 detections,
 bootstrap correction, AHR columns, and CDE values present:
@@ -3098,7 +3358,7 @@ applies, but:
 
 ------------------------------------------------------------------------
 
-### Column-to-Calculation Mapping
+### 15.6 Column-to-Calculation Mapping
 
 | Output column | Calculation |
 |----|----|
@@ -3116,7 +3376,7 @@ calculations use only non-NA values from `res_found$<column>`.
 
 ------------------------------------------------------------------------
 
-### Source Columns in Simulation Results
+### 15.7 Source Columns in Simulation Results
 
 These columns are produced by
 [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md)
@@ -3143,7 +3403,7 @@ and `extract_fs_estimates()` / `extract_grf_estimates()`:
 
 ------------------------------------------------------------------------
 
-### Notation Alignment with `format_oc_results()`
+### 15.8 Notation Alignment with `format_oc_results()`
 
 Both
 [`build_estimation_table()`](https://larry-leon.github.io/forestsearch/reference/build_estimation_table.md)
@@ -3164,11 +3424,13 @@ follow the same notation conventions from Leon et al. (2024):
 The asterisk (\*) is reserved exclusively for bootstrap bias-corrected
 estimates (θ̂\*).
 
-#### Producing Multi-Scenario Tables (Full Replication)
+#### 15.8.1 Producing Multi-Scenario Tables (Full Replication)
 
 To produce a table matching Table 4 of Leon et al. (2024) with three
 model scenarios (M1, M2, M3), noise / no-noise comparisons, and six
 analysis methods, the following pattern extends the above approach:
+
+Code
 
 ``` r
 
@@ -3213,7 +3475,7 @@ table_noise
 # gt::gtsave(table_noise,   filename = "table4_noise.tex")
 ```
 
-#### Notes on Matching the Leon et al. (2024) Table Format
+#### 15.8.2 Notes on Matching the Leon et al. (2024) Table Format
 
 The LaTeX tables in the reference use specific formatting conventions:
 
@@ -3241,7 +3503,7 @@ The oracle estimator (θ̂(H), fitted in the *true* subgroup) is not
 currently produced by ForestSearch simulations. The package focuses on
 the plugin and bias-corrected estimators that are available in practice.
 
-## Appendix B: Reference Tables from Leon et al. (2024)
+## 16 Appendix B: Reference Tables from Leon et al. (2024)
 
 This appendix reproduces the published simulation results from Leon et
 al. (2024) Tables 4 and 5 as `gt` tables, enabling direct visual
@@ -3256,7 +3518,7 @@ function from the package accepts a pre-assembled data frame and returns
 a styled `gt` object with the same visual conventions used by
 [`build_classification_table()`](https://larry-leon.github.io/forestsearch/reference/build_classification_table.md).
 
-### Table B1: Classification Rates (Table 4 of Leon et al.)
+### 16.1 Table B1: Classification Rates (Table 4 of Leon et al.)
 
 | Reference: Classification Rates (No Noise Factors) |  |  |  |  |  |  |
 |----|----|----|----|----|----|----|
@@ -3512,7 +3774,7 @@ render_reference_table(
 )
 ```
 
-### Table B2: Estimation Properties (Table 5 of Leon et al.)
+### 16.2 Table B2: Estimation Properties (Table 5 of Leon et al.)
 
 The estimation properties table reports bias, variability, and coverage
 for the FSlg method across all three DGM scenarios. Three estimators are
@@ -3739,7 +4001,7 @@ gt_ref_est <- gt::gt(ref_est, groupname_col = "Scenario") |>
 gt_ref_est
 ```
 
-### Comparing Vignette Results with Published Benchmarks
+### 16.3 Comparing Vignette Results with Published Benchmarks
 
 When running the full 20,000-simulation study, you can place the
 vignette’s
@@ -3770,12 +4032,14 @@ simulated trials under the alternative and 44 under the null) will show
 higher Monte Carlo variability than the published 20,000-simulation
 results.
 
-## Cleanup
+## 17 Cleanup
 
 Reset the parallel backend to sequential and release worker resources.
 Required by the package’s worker-lifecycle convention – every
 parallel-to-sequential transition should hand workers back to the OS
 before the next operation (or before the vignette terminates).
+
+Code
 
 ``` r
 
@@ -3783,75 +4047,74 @@ future::plan("sequential")
 gc(verbose = FALSE)
 ```
 
-    ##           used  (Mb) gc trigger  (Mb) max used  (Mb)
-    ## Ncells 3579338 191.2    5465315 291.9  5465315 291.9
-    ## Vcells 6939786  53.0   14804349 113.0 12270291  93.7
+              used  (Mb) gc trigger  (Mb) max used  (Mb)
+    Ncells 2766629 147.8    4655215 248.7  4655215 248.7
+    Vcells 5824718  44.5   12274587  93.7 10162156  77.6
 
-## Session Info
+## 18 Session Info
+
+Code
 
 ``` r
 
 sessionInfo()
 ```
 
-    ## R version 4.6.2 (2026-10-29)
-    ## Platform: x86_64-pc-linux-gnu
-    ## Running under: Ubuntu 24.04.5 LTS
-    ## 
-    ## Matrix products: default
-    ## BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
-    ## LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
-    ## 
-    ## locale:
-    ##  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       
-    ##  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   
-    ##  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          
-    ## [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   
-    ## 
-    ## time zone: UTC
-    ## tzcode source: system (glibc)
-    ## 
-    ## attached base packages:
-    ## [1] stats     graphics  grDevices utils     datasets  methods   base     
-    ## 
-    ## other attached packages:
-    ##  [1] katex_1.5.0         doFuture_1.4.0      future_1.80.0      
-    ##  [4] foreach_1.5.2       gt_1.4.0            ggplot2_4.0.3      
-    ##  [7] survival_3.8-12     data.table_1.18.6.1 weightedsurv_0.1.0 
-    ## [10] forestsearch_0.4.0 
-    ## 
-    ## loaded via a namespace (and not attached):
-    ##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.62           
-    ##  [4] bslib_0.12.0         visNetwork_2.1.4     htmlwidgets_1.6.4   
-    ##  [7] lattice_0.23-1       vctrs_0.7.3          tools_4.6.2         
-    ## [10] generics_0.1.4       curl_8.1.0           parallel_4.6.2      
-    ## [13] tibble_3.3.1         pkgconfig_2.0.3      Matrix_1.7-6        
-    ## [16] RColorBrewer_1.1-3   S7_0.2.2             desc_1.4.3          
-    ## [19] cubature_2.1.4-1     lifecycle_1.0.5      compiler_4.6.2      
-    ## [22] farver_2.1.2         textshaping_1.0.5    policytree_1.2.5    
-    ## [25] grf_2.6.1            codetools_0.2-20     litedown_0.11       
-    ## [28] htmltools_0.5.9      sass_0.4.10          yaml_2.3.12         
-    ## [31] glmnet_5.2           pillar_1.11.1        pkgdown_2.2.1       
-    ## [34] jquerylib_0.1.4      cachem_1.1.0         iterators_1.0.14    
-    ## [37] parallelly_1.48.0    commonmark_2.0.0     tidyselect_1.2.1    
-    ## [40] digest_0.6.39        mvtnorm_1.4-2        dplyr_1.2.1         
-    ## [43] listenv_1.1.0        splines_4.6.2        fastmap_1.2.0       
-    ## [46] grid_4.6.2           cli_3.6.6            DiagrammeR_1.0.12   
-    ## [49] magrittr_2.0.5       patchwork_1.3.2      randomForest_4.7-1.2
-    ## [52] future.apply_1.21.0  withr_3.0.3          scales_1.4.0        
-    ## [55] rmarkdown_2.32       globals_0.20.0       otel_0.2.0          
-    ## [58] progressr_1.1.0      ragg_1.5.2           evaluate_1.0.5      
-    ## [61] knitr_1.52           V8_8.2.1             markdown_2.1        
-    ## [64] rlang_1.3.0          Rcpp_1.1.2           glue_1.8.1          
-    ## [67] xml2_1.6.0           rstudioapi_0.19.0    jsonlite_2.0.0      
-    ## [70] R6_2.6.1             systemfonts_1.3.2    fs_2.1.0
+    R version 4.6.2 (2026-10-29)
+    Platform: x86_64-pc-linux-gnu
+    Running under: Ubuntu 24.04.5 LTS
 
-## References
+    Matrix products: default
+    BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
+    LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
+
+    locale:
+     [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8
+     [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8
+     [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C
+    [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C
+
+    time zone: UTC
+    tzcode source: system (glibc)
+
+    attached base packages:
+    [1] stats     graphics  grDevices utils     datasets  methods   base
+
+    other attached packages:
+     [1] katex_1.5.0         doFuture_1.4.0      future_1.80.0
+     [4] foreach_1.5.2       gt_1.4.0            ggplot2_4.0.3
+     [7] survival_3.8-12     data.table_1.18.6.1 weightedsurv_0.1.0
+    [10] forestsearch_0.4.0
+
+    loaded via a namespace (and not attached):
+     [1] sass_0.4.10          generics_0.1.4       xml2_1.6.0
+     [4] shape_1.4.6.1        lattice_0.23-1       cubature_2.1.4-1
+     [7] listenv_1.1.0        digest_0.6.39        magrittr_2.0.5
+    [10] grf_2.6.1            evaluate_1.0.5       grid_4.6.2
+    [13] RColorBrewer_1.1-3   iterators_1.0.14     policytree_1.2.5
+    [16] mvtnorm_1.4-2        fastmap_1.2.0        jsonlite_2.0.0
+    [19] Matrix_1.7-6         glmnet_5.2           scales_1.4.0
+    [22] codetools_0.2-20     cli_3.6.6            rlang_1.3.0
+    [25] litedown_0.11        parallelly_1.48.0    future.apply_1.21.0
+    [28] commonmark_2.0.0     splines_4.6.2        base64enc_0.1-6
+    [31] withr_3.0.3          yaml_2.3.12          otel_0.2.0
+    [34] tools_4.6.2          parallel_4.6.2       dplyr_1.2.1
+    [37] globals_0.20.0       curl_8.1.0           vctrs_0.7.3
+    [40] R6_2.6.1             lifecycle_1.0.5      randomForest_4.7-1.2
+    [43] V8_8.2.1             fs_2.1.0             pkgconfig_2.0.3
+    [46] progressr_1.1.0      pillar_1.11.1        gtable_0.3.6
+    [49] glue_1.8.1           Rcpp_1.1.2           xfun_0.62
+    [52] tibble_3.3.1         tidyselect_1.2.1     knitr_1.52
+    [55] farver_2.1.2         patchwork_1.3.2      htmltools_0.5.9
+    [58] rmarkdown_2.32       compiler_4.6.2       S7_0.2.2
+    [61] markdown_2.1        
+
+## 19 References
 
 1.  León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM. (2024).
     “Exploratory subgroup identification in the heterogeneous Cox model:
     A relatively simple procedure.” *Statistics in Medicine*,
-    43(20):3921-3942. <https://doi.org/10.1002/sim.10163>
+    43(20):3921-3942. https://doi.org/10.1002/sim.10163
 
 2.  Athey S, Imbens GW. (2016). “Recursive partitioning for
     heterogeneous causal effects.” *PNAS*, 113(27):7353-7360.
@@ -3861,8 +4124,8 @@ sessionInfo()
 
 4.  León LF, Anderson KM. (2026a). “Inference for standard trial
     estimands after data-driven subgroup discovery.” arXiv:2609.38361.
-    <https://doi.org/10.48550/arXiv.2609.38361>
+    https://doi.org/10.48550/arXiv.2609.38361
 
 5.  León LF, Anderson KM. (2026b). “Interpretable subgroup
     identification across survival and generalized-linear outcomes.”
-    arXiv:2610.28379. <https://doi.org/10.48550/arXiv.2610.28379>
+    arXiv:2610.28379. https://doi.org/10.48550/arXiv.2610.28379

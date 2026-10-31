@@ -24,6 +24,7 @@
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
+    <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
     <li><a class="dropdown-item" href="../articles/treatment_effect_definitions.html">Treatment Effect Definitions</a></li>
     <li><a class="dropdown-item" href="../articles/biomarker_effects.html">Biomarker Treatment Effects</a></li>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
@@ -86,7 +87,12 @@
 <ul><li>New getting-started vignette, <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code>: the German Breast Cancer Study Group analysis of León and Anderson (2026b), Table 1, run end to end — the three identifiers (forest search, DINA, GRF) and the selection-adjusted estimates and bounds of León and Anderson (2026a) — at the manuscript’s settings, with the declaration calibration at a protected level.</li>
 <li>The previous getting-started vignette, which documents the workflow of León et al. (2024), is now the pkgdown article “Exploratory subgroup identification with forestsearch (the 2024 workflow)” and is no longer built on CRAN.</li>
 <li>The post-selection analysis is now an article on the package website rather than a CRAN vignette, because the full analysis takes a few minutes to run: <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html" class="uri">https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html</a>. It reproduces the GBSG analysis of León and Anderson (2026a), illustrates the full bootstrap at a small number of replicates, and shows <code><a href="../reference/mr_estimates_table.html">mr_estimates_table()</a></code>.</li>
-<li>The methodology and simulation articles on the package website carry a note placing them as the 2024 workflow, with the deprecated arguments removed from their listings.</li>
+<li>The methodology and simulation articles on the package website keep their text as the record of the 2024 workflow, with the deprecated arguments removed from their listings and a dated note at each point where the current method differs. The articles on treatment-effect definitions, biomarker effects and the causal interpretation of hazard ratios now state the estimand the package reports for an identified subgroup, as in León and Anderson (2026a, 2026b). All five articles are now Quarto documents.</li>
+<li>New article on the package website, “Post-selection bounds on a nested continuum: the Guo and He (2021) design”: Section S4 of León and Anderson (2026b), with the complete code, a small default run, and the paper’s results beside it.</li>
+<li>New article on the package website, “Binary and continuous outcomes: the ACTG 175 analyses”: Section S3 of León and Anderson (2026b) — forest search on the binary and continuous endpoints, with the selection-adjusted bounds and the declaration calibration — and Table S3 of León and Anderson (2026a), the three identifiers on the binary endpoint with the full bootstrap, at a small number of replicates, beside multiplier resampling.</li>
+<li>The README describes the current method and shows the analysis of <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code>.</li>
+<li>
+<code><a href="../reference/forestsearch.html">?forestsearch</a></code>: Example 1 passes a bootstrap result to <code><a href="../reference/mr_estimates_table.html">mr_estimates_table()</a></code>, which needs one as its template (the example called it without one); Example 2 names the analysis it runs, León and Anderson (2026a, Table S3); a section reference is corrected.</li>
 <li>The <code><a href="../reference/run_null_calibration.html">run_null_calibration()</a></code> example runs at an illustrative size (two trial sizes, ten simulations, no LASSO/GRF screening); a calibration for use takes more simulations, as the example now says.</li>
 </ul></div>
 </div>

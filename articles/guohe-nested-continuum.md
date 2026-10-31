@@ -235,7 +235,7 @@ knitr::kable(data.frame(
 |   0.0 | -0.0140             | -1.48                 | 0.0000   | exact zero          |
 |   0.3 | 0.2967              | -0.36                 | 0.1484   | isotonic projection |
 
-The truth curve by cell (n_big = 200,000; 22.4 s). {.table .caption-top}
+The truth curve by cell (n_big = 200,000; 15.8 s). {.table .caption-top}
 
 ## The four bounds on $`\hat H`$, and the complement
 
@@ -387,7 +387,7 @@ knitr::kable(walk, col.names = c("", "hazard-ratio scale"), row.names = FALSE,
 | Bonferroni pair: lower on H-hat / upper on H-hat^c (0.975 a side) | 1.01 / 1.35 |
 
 Replicate 1, beta_2 = 0.3, at the manuscript’s settings (141 candidates;
-92 s). {.table .caption-top}
+47 s). {.table .caption-top}
 
 The argmax selected $`\hat c`$ = 35.5, an overshoot of 5.5 beyond the
 true boundary, so $`\hat H`$ holds 176 subjects against about 150 in
@@ -793,11 +793,11 @@ knitr::kable(data.frame(
 
 | cell | replicates | seconds | seconds per replicate (wall, across workers) |
 |:---|---:|---:|---:|
-| beta_2 = 0.0 | 25 | 168.8 | 6.8 |
-| beta_2 = 0.3 | 25 | 174.6 | 7.0 |
+| beta_2 = 0.0 | 25 | 91.7 | 3.7 |
+| beta_2 = 0.3 | 25 | 90.9 | 3.6 |
 
 Wall-clock of this article’s run on 2 workers (Guo and He at B = 200; MR
-at 5000 draws, field 1000 x 500; truth curves 22.4 s in addition).
+at 5000 draws, field 1000 x 500; truth curves 15.8 s in addition).
 {.table .caption-top}
 
 ## The manuscript’s results

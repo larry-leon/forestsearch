@@ -124,9 +124,33 @@
   illustrates the full bootstrap at a small number of replicates, and
   shows
   [`mr_estimates_table()`](https://larry-leon.github.io/forestsearch/reference/mr_estimates_table.md).
-- The methodology and simulation articles on the package website carry a
-  note placing them as the 2024 workflow, with the deprecated arguments
-  removed from their listings.
+- The methodology and simulation articles on the package website keep
+  their text as the record of the 2024 workflow, with the deprecated
+  arguments removed from their listings and a dated note at each point
+  where the current method differs. The articles on treatment-effect
+  definitions, biomarker effects and the causal interpretation of hazard
+  ratios now state the estimand the package reports for an identified
+  subgroup, as in León and Anderson (2026a, 2026b). All five articles
+  are now Quarto documents.
+- New article on the package website, “Post-selection bounds on a nested
+  continuum: the Guo and He (2021) design”: Section S4 of León and
+  Anderson (2026b), with the complete code, a small default run, and the
+  paper’s results beside it.
+- New article on the package website, “Binary and continuous outcomes:
+  the ACTG 175 analyses”: Section S3 of León and Anderson (2026b) —
+  forest search on the binary and continuous endpoints, with the
+  selection-adjusted bounds and the declaration calibration — and Table
+  S3 of León and Anderson (2026a), the three identifiers on the binary
+  endpoint with the full bootstrap, at a small number of replicates,
+  beside multiplier resampling.
+- The README describes the current method and shows the analysis of
+  [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md).
+- [`?forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md):
+  Example 1 passes a bootstrap result to
+  [`mr_estimates_table()`](https://larry-leon.github.io/forestsearch/reference/mr_estimates_table.md),
+  which needs one as its template (the example called it without one);
+  Example 2 names the analysis it runs, León and Anderson (2026a, Table
+  S3); a section reference is corrected.
 - The
   [`run_null_calibration()`](https://larry-leon.github.io/forestsearch/reference/run_null_calibration.md)
   example runs at an illustrative size (two trial sizes, ten

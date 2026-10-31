@@ -259,7 +259,7 @@ cat(sprintf("Identified subgroup: %s\n", paste(fit_fs$sg.harm, collapse = " & ")
 cat(sprintf("Fit including inference: %.1f s\n", fit_sec_fs))
 ```
 
-    #> Fit including inference: 34.1 s
+    #> Fit including inference: 21.4 s
 
 ``` r
 
@@ -267,7 +267,7 @@ cat(sprintf("  multiplier stage %.1f s; field blocks %.1f + %.1f s\n", g_fs$timi
             g_fs$field$timing_seconds, g_fs$field$complement$timing_seconds))
 ```
 
-    #>   multiplier stage 1.0 s; field blocks 16.4 + 2.7 s
+    #>   multiplier stage 0.8 s; field blocks 10.6 + 1.7 s
 
 The identified region is `{er <= 0} & {pgr <= 26}`: no measured estrogen
 receptor and progesterone receptor at most 26 fmol/l. Two arguments in
@@ -534,7 +534,7 @@ cat(sprintf("DINA: %s  (fit %.1f s; re-selection family %d)\n",
             g_dina$n_family))
 ```
 
-    #> DINA: {grade3 >= 1} & {pgr <= 20}  (fit 10.5 s; re-selection family 30)
+    #> DINA: {grade3 >= 1} & {pgr <= 20}  (fit 5.9 s; re-selection family 30)
 
 ``` r
 
@@ -542,7 +542,7 @@ cat(sprintf("GRF:  %s  (fit %.1f s; re-selection family %d)\n",
             paste(fit_grf$sg.harm, collapse = " & "), fit_sec_grf, g_grf$n_family))
 ```
 
-    #> GRF:  {er <= 0}  (fit 28.0 s; re-selection family 858)
+    #> GRF:  {er <= 0}  (fit 15.6 s; re-selection family 858)
 
 GRF returns the 82 patients with no measured estrogen receptor, a region
 that contains forest search’s; DINA returns the 113 who are grade 3 with
@@ -758,16 +758,26 @@ as run; the calibration reads the fit and alters none of them.
   reads the bounds in more depth on the same trial: the re-selection
   frequency p̂ as a diagnostic, membership agreement, and what each
   construction does and does not say.
+- The [Guo and He
+  article](https://larry-leon.github.io/forestsearch/articles/guohe-nested-continuum.html)
+  sets the bounds beside the de-biased estimate and one-sided bound of
+  Guo and He (2021) on a nested continuum of subgroups, Section S4 of
+  León and Anderson (2026b).
+- The ACTG 175 analyses are an article on the [package
+  website](https://larry-leon.github.io/forestsearch/articles/): forest
+  search on a binary and a continuous endpoint, with the bounds and the
+  declaration calibration (León and Anderson 2026b, Section S3), and the
+  three identifiers on the binary endpoint with the full bootstrap
+  beside multiplier resampling (León and Anderson 2026a, Table S3).
 - The package website carries the original workflow of León et
   al. (2024) — the full argument listing, the bootstrap bias correction
   and the cross-validation — as the article *Exploratory subgroup
   identification with forestsearch (the 2024 workflow)*, and the
   methodology and simulation articles.
 - [`?forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
-  documents every argument, with examples for this analysis and for the
-  binary and continuous ACTG 175 analyses of León and Anderson (2026b),
-  and a section on the options not tested against the manuscript
-  analyses.
+  documents every argument, with examples on this trial and on the
+  binary and continuous ACTG 175 endpoints, and a section on the options
+  not tested against the manuscript analyses.
 
 ## References
 

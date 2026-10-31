@@ -1,6 +1,6 @@
 # Biomarker Treatment Effects in the Weibull AFT/Cox Framework
 
-## Introduction
+## 1 Introduction
 
 This vignette develops the mathematical framework for
 **biomarker-dependent treatment effects** used in the ForestSearch
@@ -37,9 +37,9 @@ and
 survival design from the same trial’s covariate structure, censoring and
 event rates.
 
-## The Weibull AFT/Cox Model
+## 2 The Weibull AFT/Cox Model
 
-### Weibull Distribution Essentials
+### 2.1 Weibull Distribution Essentials
 
 For the Weibull distribution with shape parameter $`\nu > 0`$ and scale
 parameter $`\theta > 0`$, the density, survival, hazard, and cumulative
@@ -67,7 +67,7 @@ unit-exponential:
 This follows because $`\Pr(\Lambda(T) \leq t) = \Pr(T \leq
 \Lambda^{-1}(t)) = F(\Lambda^{-1}(t)) = 1 - e^{-t}`$.
 
-### The Dual AFT / Cox Representation
+### 2.2 The Dual AFT / Cox Representation
 
 Writing $`Q = \Lambda(T) \sim \mathrm{Exp}(1)`$ gives
 $`\log Q = \nu(\log T - \log\theta)`$, which rearranges to the **AFT
@@ -108,9 +108,9 @@ This transformation is the linchpin of the framework: potential outcomes
 are *simulated* on the AFT scale (3), while treatment effects are
 *interpreted* on the hazard-ratio scale via $`\beta`$.
 
-## Biomarker-Dependent Treatment Effects
+## 3 Biomarker-Dependent Treatment Effects
 
-### The Two-Phase Spline Model
+### 3.1 The Two-Phase Spline Model
 
 To induce treatment effects that vary with a continuous biomarker $`Z`$,
 the Cox linear predictor is specified as a piecewise-linear spline with
@@ -135,7 +135,7 @@ have the following roles:
 | $`\beta_4`$ | $`(Z-k)\mathbf{1}(Z>k)`$ | Spline term: change in prognostic slope above $`k`$ |
 | $`\beta_5`$ | $`(Z-k)\mathbf{1}(Z>k)\,X`$ | Spline term: change in treatment-effect slope above $`k`$ |
 
-### The Causal Log-Hazard-Ratio Function
+### 3.2 The Causal Log-Hazard-Ratio Function
 
 Under the potential outcomes framework, let $`\lambda_{x,z}(t)`$ denote
 the hazard function for a subject with biomarker level $`Z = z`$ had
@@ -160,7 +160,7 @@ piecewise:
 \end{cases}
 ```
 
-### Anchor-Point Parameterization
+### 3.3 Anchor-Point Parameterization
 
 Rather than specifying $`(\beta_1^0, \beta_3^0, \beta_5^0)`$ directly,
 the framework specifies the log-HR at three interpretable **anchor
@@ -182,7 +182,7 @@ solving for $`\beta_5^0`$ recovers the third expression in (7) exactly.
 The same check holds at $`z = 0`$ and $`z = k`$, confirming internal
 consistency.
 
-### Connection to Potential-Outcome Means
+### 3.4 Connection to Potential-Outcome Means
 
 There is an important link between the log-HR $`\psi^0(z)`$ and the
 conditional means of the potential log-survival times. Define
@@ -207,12 +207,15 @@ which gives $`\psi^0(z) = \{m(0,z) - m(1,z)\}/\tau`$ as required. This
 confirms that $`\psi^0(z)`$ measures the *causal difference* in expected
 log-survival between the two treatment arms, scaled by $`\tau`$.
 
-**Sign Convention.** Throughout this vignette, $`\psi^0(z) < 0`$ means
-treatment is **beneficial** (HR $`< 1`$), while $`\psi^0(z) > 0`$ means
-treatment is **detrimental** (HR $`> 1`$). This follows the standard Cox
-model convention where negative log-HR favors the experimental arm.
+> **Note**
+>
+> **Sign Convention.** Throughout this vignette, $`\psi^0(z) < 0`$ means
+> treatment is **beneficial** (HR $`< 1`$), while $`\psi^0(z) > 0`$
+> means treatment is **detrimental** (HR $`> 1`$). This follows the
+> standard Cox model convention where negative log-HR favors the
+> experimental arm.
 
-### Extension to Prognostic Factors
+### 3.5 Extension to Prognostic Factors
 
 When an additional baseline prognostic factor $`W`$ is included, the
 linear predictor becomes:
@@ -232,7 +235,7 @@ i.e., it depends on $`z`$ but not on $`w`$. When prognostic factors *do*
 interact with treatment, $`\psi^0`$ would depend on $`(z,w)`$ jointly,
 and the AHR/CDE definitions below would average over both.
 
-### Working Example
+### 3.6 Working Example
 
 A representative configuration for an oncology biomarker setting:
 
@@ -249,13 +252,13 @@ $`z = 10`$. The overall average hazard ratio across the full biomarker
 distribution is approximately $`0.74`$, indicating net benefit in the
 population.
 
-## Treatment Effect Estimands
+## 4 Treatment Effect Estimands
 
 Three estimands are used to summarize treatment effects across
 biomarker-defined sub-populations. Each captures a different aspect of
 treatment effect heterogeneity.
 
-### Average Hazard Ratio (AHR)
+### 4.1 Average Hazard Ratio (AHR)
 
 The **biomarker AHR** is the exponentiated mean of $`\psi^0(Z)`$ across
 a biomarker-threshold sub-population:
@@ -285,7 +288,7 @@ $`\text{AHR}(\mathcal{S}) = \exp\!\bigl(\overline{\text{loghr\_po}}_{\mathcal{S}
   $`E[\log(\text{HR}_i)] = E[\log\lambda_{1,Z}] - E[\log\lambda_{0,Z}]`$,
   and the order of comparison and summarization is irrelevant.
 
-### Controlled Direct Effect (CDE)
+### 4.2 Controlled Direct Effect (CDE)
 
 The **CDE** is the ratio of average exponentiated log-hazards under
 treatment versus control (Aalen, Cook & Roysland, 2015):
@@ -315,7 +318,7 @@ $`\text{CDE}(\mathcal{S}) = \overline{\exp(\theta_i(1))}_\mathcal{S}
   with the discrepancy growing as within-subgroup treatment-effect
   variability increases.
 
-### Marginal (Causal) Hazard Ratio
+### 4.3 Marginal (Causal) Hazard Ratio
 
 The **marginal HR** for a subgroup $`\mathcal{S}`$ is obtained by
 fitting a Cox model to *stacked potential outcomes* — a dataset where
@@ -340,7 +343,7 @@ $`\mathcal{S}`$.
 - *Validation role*: serves as the DGM-level ground truth against which
   per-replicate estimator bias is assessed.
 
-### When the Three Estimands Agree — and When They Diverge
+### 4.4 When the Three Estimands Agree — and When They Diverge
 
 Under a **constant treatment effect** (no heterogeneity), the individual
 log-HR is identical for all subjects, and all three measures coincide:
@@ -369,9 +372,9 @@ HR, and achieves dual causal status. The marginal HR serves as a
 validation target, and the CDE provides a complementary natural-scale
 perspective.
 
-## Causal Foundations
+## 5 Causal Foundations
 
-### Why the AFT Model Serves as the Causal DGM
+### 5.1 Why the AFT Model Serves as the Causal DGM
 
 Both Aalen, Cook & Roysland (2015) and Fay & Li (2024) identify the AFT
 model as a natural causal foundation for survival analysis. The Weibull
@@ -393,7 +396,7 @@ the ForestSearch DGM is built on the Weibull AFT. The biomarker log-HR
 $`\psi^0(z) = \{m(0,z) - m(1,z)\}/\tau`$ inherits this property at each
 biomarker level.
 
-### The AHR as a Causally Valid Functional
+### 5.2 The AHR as a Causally Valid Functional
 
 The ForestSearch AHR is defined from individual potential-outcome log-HR
 differences:
@@ -413,7 +416,7 @@ al. 2015; Martinussen 2022): among survivors at time $`t > 0`$, the
 treatment and frailty are no longer independent even in a randomized
 trial.
 
-### Proportional Hazards and Marginal Non-PH
+### 5.3 Proportional Hazards and Marginal Non-PH
 
 The Weibull DGM generates data satisfying proportional hazards
 *conditional on the biomarker*. Under conditional PH, the Cox HR is a
@@ -432,7 +435,7 @@ conditional parameter, while the AHR provides the appropriate marginal
 summary for real-data applications where unmeasured heterogeneity may
 exist.
 
-### Cox HR as an Operational Tool for Subgroup Selection
+### 5.4 Cox HR as an Operational Tool for Subgroup Selection
 
 In the ForestSearch workflow, per-replicate Cox HR estimates and
 thresholds (e.g., $`\hat\beta \geq \log(0.90)`$) serve as **operational
@@ -463,7 +466,7 @@ follows:
   2024 workflow (`hr.H.bc`) is reproduced to first order by the
   multiplier correction (2026a, Theorem 1).
 
-## Computation Pipeline
+## 6 Computation Pipeline
 
 The complete pipeline from model specification to estimand computation
 is summarized below.
@@ -506,7 +509,7 @@ The correspondences are:
 | $`\text{CDE}(\mathcal{S})`$ | $`\overline{\exp(\theta_1)}_{\mathcal{S}}/\overline{\exp(\theta_0)}_{\mathcal{S}}`$ | Natural-scale complement to AHR |
 | $`\beta = -\gamma/\tau`$ | $`\boldsymbol{\beta}_0 = -\boldsymbol{\gamma}/\sigma`$ | AFT-to-hazard transformation |
 
-## References
+## 7 References
 
 - Aalen, O.O., Cook, R.J. & Roysland, K. (2015). Does Cox analysis of a
   randomized survival study yield a causal treatment effect? *Lifetime
@@ -533,15 +536,15 @@ The correspondences are:
 - Leon, L.F., Jemielita, T., Guo, Z., Marceau West, R. & Anderson, K.M.
   (2024). Exploratory subgroup identification in the heterogeneous Cox
   model: A relatively simple procedure. *Statistics in Medicine*,
-  43(20), 3921–3942. <doi:10.1002/sim.10163>.
+  43(20), 3921–3942. doi:10.1002/sim.10163.
 
 - Leon, L.F. & Anderson, K.M. (2026a). Inference for standard trial
   estimands after data-driven subgroup discovery. arXiv:2609.38361.
-  <doi:10.48550/arXiv.2609.38361>.
+  doi:10.48550/arXiv.2609.38361.
 
 - Leon, L.F. & Anderson, K.M. (2026b). Interpretable subgroup
   identification across survival and generalized-linear outcomes.
-  arXiv:2610.28379. <doi:10.48550/arXiv.2610.28379>.
+  arXiv:2610.28379. doi:10.48550/arXiv.2610.28379.
 
 - Martinussen, T. (2022). Causality and the Cox regression model.
   *Annual Review of Statistics and Its Application*, 9, 249–259.

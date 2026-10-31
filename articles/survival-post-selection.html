@@ -41,6 +41,7 @@
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
+    <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
     <li><a class="dropdown-item" href="../articles/treatment_effect_definitions.html">Treatment Effect Definitions</a></li>
     <li><a class="dropdown-item" href="../articles/biomarker_effects.html">Biomarker Treatment Effects</a></li>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
@@ -69,7 +70,7 @@
       <h1>Post-selection inference for an identified survival subgroup</h1>
       <p class="subtitle">The GBSG analysis of León and Anderson (2026a): naive, full-bootstrap and multiplier-resampling estimates for three identifiers</p>
       <p class="author">Larry Leon</p>
-      <p class="date">2026-10-30</p>
+      <p class="date">2026-10-31</p>
 
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/survival-post-selection.qmd" class="external-link"><code>vignettes/articles/survival-post-selection.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -136,7 +137,7 @@
 <li>
 <strong>The selection rule</strong> is <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mi mathvariant="script">𝒜</mi></msub><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mi>ε</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\max_{\mathcal{A}} N(\varepsilon)</annotation></semantics></math> at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>=</mo><mn>0.10</mn></mrow><annotation encoding="application/x-tex">\varepsilon = 0.10</annotation></semantics></math>: the largest admitted region whose effect is within 10% of the largest effect over the family. The companion vignette uses <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>=</mo><mn>0.20</mn></mrow><annotation encoding="application/x-tex">\varepsilon = 0.20</annotation></semantics></math> and returns a larger forest-search region (N 75); at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>=</mo><mn>0.10</mn></mrow><annotation encoding="application/x-tex">\varepsilon = 0.10</annotation></semantics></math> the rule returns the 61 patients with no measured estrogen receptor and tumour size at most 35 mm — the effect-maximising region of that vignette’s candidate table.</li>
 <li>
-<strong>DINA</strong> is re-ranked on the Cox coefficient against a floor of 0.90, with a two-fold cross-fit surface; <strong>GRF</strong> uses the frontier of its covariate grid, re-ranked on the Cox coefficient, at depth 2 with a doubly-robust-score floor of 0.</li>
+<strong>DINA</strong> is re-ranked on the Cox coefficient against a floor of 0.90, with a two-fold cross-fit surface. The floor of 0.90 is the one in the document that produced Table S2, which this call reproduces; Section 6 of the paper gives a hazard ratio of 1.0. <strong>GRF</strong> uses the frontier of its covariate grid, re-ranked on the Cox coefficient, at depth 2 with a doubly-robust-score floor of 0.</li>
 <li>
 <strong>Multiplier resampling</strong> at 5,000 draws, reported as the two-term corrected estimate with its IJ two-sided 95% interval (<code>ci_method = "ij"</code> for DINA and GRF). The forest-search fit asks for <code>ci_method = "field"</code> with <code>field_recovery = TRUE</code>: the two-term estimate and the IJ interval are the same under both settings, and the field adds the one-sided bounds of the companion vignette and the membership-recovery diagnostics used below.</li>
 </ul></section><section class="level2"><h2 id="the-three-fits">The three fits<a class="anchor" aria-label="anchor" href="#the-three-fits"></a>
@@ -203,9 +204,9 @@
 <span>              <span class="va">gm</span><span class="op">$</span><span class="va">timing_seconds</span>, <span class="va">gm</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; FS   {er &lt;= 0} &amp; {size &lt;= 35}     N  61   fit  32.7 s (multiplier stage 1.0 s)   family 1744</span></span>
-<span><span class="co">#&gt; DINA {grade3 &gt;= 1} &amp; {pgr &lt;= 10}  N  89   fit   1.5 s (multiplier stage 0.3 s)   family 84</span></span>
-<span><span class="co">#&gt; GRF  {er &lt;= 0}                    N  82   fit   9.8 s (multiplier stage 0.3 s)   family 858</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; FS   {er &lt;= 0} &amp; {size &lt;= 35}     N  61   fit  19.2 s (multiplier stage 0.8 s)   family 1744</span></span>
+<span><span class="co">#&gt; DINA {grade3 &gt;= 1} &amp; {pgr &lt;= 10}  N  89   fit   0.8 s (multiplier stage 0.2 s)   family 84</span></span>
+<span><span class="co">#&gt; GRF  {er &lt;= 0}                    N  82   fit   5.3 s (multiplier stage 0.2 s)   family 858</span></span></code></pre>
 </div>
 </div>
 </section><section class="level2"><h2 id="the-multiplier-correction">The multiplier correction<a class="anchor" aria-label="anchor" href="#the-multiplier-correction"></a>
@@ -258,7 +259,7 @@
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">boot_secs</span>, <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code><span><span class="co">#&gt;   FS DINA  GRF</span></span>
-<span><span class="co">#&gt; 79.5 34.7 34.6</span></span></code></pre>
+<span><span class="co">#&gt; 40.8 17.7 20.4</span></span></code></pre>
 </div>
 </div>
 <p>The package’s own summaries, shown for forest search. The first is the bootstrap table: the naive estimate beside the bootstrap-corrected one, for the region and its complement.</p>
@@ -285,9 +286,9 @@
 <span><span class="co">#&gt; TIMING ANALYSIS:</span></span>
 <span><span class="co">#&gt; -------------------------------------------------------------</span></span>
 <span><span class="co">#&gt; Overall:</span></span>
-<span><span class="co">#&gt;   Total bootstrap time:          1.31 minutes (0.02 hours)</span></span>
-<span><span class="co">#&gt;   Average per iteration:         0.05 min (3.1 sec)</span></span>
-<span><span class="co">#&gt;   Projected for 1000 boots:      52.21 min (0.87 hrs)</span></span></code></pre>
+<span><span class="co">#&gt;   Total bootstrap time:          0.66 minutes (0.01 hours)</span></span>
+<span><span class="co">#&gt;   Average per iteration:         0.03 min (1.6 sec)</span></span>
+<span><span class="co">#&gt;   Projected for 1000 boots:      26.53 min (0.44 hrs)</span></span></code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">summ_fs</span><span class="op">$</span><span class="va">table</span></span></code></pre></div>
@@ -1624,27 +1625,27 @@ Treatment Effect
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">FS</td>
-<td style="text-align: right;">1.00</td>
+<td style="text-align: right;">0.83</td>
 <td style="text-align: right;">25</td>
-<td style="text-align: right;">79.49</td>
-<td style="text-align: right;">3.18</td>
-<td style="text-align: right;">3180</td>
+<td style="text-align: right;">40.75</td>
+<td style="text-align: right;">1.63</td>
+<td style="text-align: right;">1630</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">DINA</td>
-<td style="text-align: right;">0.27</td>
+<td style="text-align: right;">0.16</td>
 <td style="text-align: right;">25</td>
-<td style="text-align: right;">34.68</td>
-<td style="text-align: right;">1.39</td>
-<td style="text-align: right;">1387</td>
+<td style="text-align: right;">17.67</td>
+<td style="text-align: right;">0.71</td>
+<td style="text-align: right;">707</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">GRF</td>
-<td style="text-align: right;">0.35</td>
+<td style="text-align: right;">0.22</td>
 <td style="text-align: right;">10</td>
-<td style="text-align: right;">34.63</td>
-<td style="text-align: right;">3.46</td>
-<td style="text-align: right;">3463</td>
+<td style="text-align: right;">20.35</td>
+<td style="text-align: right;">2.04</td>
+<td style="text-align: right;">2035</td>
 </tr>
 </tbody>
 </table>

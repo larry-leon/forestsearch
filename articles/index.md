@@ -19,6 +19,8 @@ Inference for trial estimands after data-driven subgroup discovery
   subgroup](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.md):
 - [Post-selection bounds on a nested continuum: the Guo and He (2021)
   design](https://larry-leon.github.io/forestsearch/articles/guohe-nested-continuum.md):
+- [Binary and continuous outcomes: the ACTG 175
+  analyses](https://larry-leon.github.io/forestsearch/articles/actg175-glm-outcomes.md):
 
 ### Treatment Effect Definitions
 
@@ -36,8 +38,8 @@ and controlled direct effect (CDE) estimands.
 
 Operating characteristics and published benchmarks
 
-- [Simulation Studies for Evaluating ForestSearch
-  Performance](https://larry-leon.github.io/forestsearch/articles/paper_simulations.md):
+- [setup_gbsg_dgm() and generate_aft_dgm_flex(): Relationship and
+  Usage](https://larry-leon.github.io/forestsearch/articles/paper_simulations.md):
 - [Extreme Subgroup Effects Under a Uniform Treatment
   Benefit](https://larry-leon.github.io/forestsearch/articles/extreme_subgroups.md):
 
