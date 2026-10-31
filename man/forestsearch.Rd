@@ -1306,7 +1306,7 @@ subgroup.
 \examples{
 \dontrun{
 ## Example 1 -- Survival (GBSG, hormone therapy): the analysis of
-## León and Anderson (2026a, Sec. 5) and of the survival-post-selection
+## León and Anderson (2026a, Sec. 6) and of the survival-post-selection
 ## article on the package website. Forest search over the cut grid (no
 ## model-based front ends), effMaxSG selection in a 10\% effect
 ## neighbourhood, multiplier-resampling inference for the reported
@@ -1345,12 +1345,24 @@ fs_surv <- forestsearch(
   seedit                 = 8316951
 )
 print(fs_surv)
-mr_estimates_table(fs_surv)
+
+## mr_estimates_table() lays the multiplier-resampling estimates out in the
+## format of the bootstrap tables, so it takes a bootstrap result as its
+## template (a few replicates are enough for the layout; the
+## survival-post-selection article compares the two at full size).
+fs_boot <- forestsearch_bootstrap_dofuture(
+  fs.est        = fs_surv,
+  nb_boots      = 20,
+  parallel_args = list(plan = "multisession", workers = 4)
+)
+mr_estimates_table(fs_surv, boot_results = fs_boot, est.scale = "hr")
 
 ## Example 2 -- Binary outcome, odds ratio (ACTG175, ZDV+ddI vs ddI):
-## the binary application of León and Anderson (2026b). Adverse-scale
-## outcome (1 = no CD4 improvement at week 20), OR thresholds at the null,
-## same selection rule and multiplier-resampling gate as Example 1.
+## the forest-search analysis of León and Anderson (2026a, Table S3); the
+## binary analysis of León and Anderson (2026b) selects the same region
+## with effect_neighborhood = 0.20. Adverse-scale outcome (1 = no CD4
+## improvement at week 20), OR thresholds at the null, same selection rule
+## and multiplier-resampling gate as Example 1.
 if (requireNamespace("speff2trial", quietly = TRUE)) {
   actg <- subset(speff2trial::ACTG175, arms \%in\% c(1L, 3L))
   actg <- actg[!is.na(actg$cd420), ]
