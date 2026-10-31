@@ -2,17 +2,17 @@
 title: "Methodology"
 subtitle: "Exploratory Subgroup Identification with Bootstrap Bias Correction"
 author: "Larry F. Leon, Thomas Jemielita, Zifang Guo, Rachel Marceau West, Keaven M. Anderson"
-date: "`r Sys.Date()`"
-output:
-  html_document:
+date: today
+format:
+  html:
+    embed-resources: true
     toc: true
-    toc_depth: 3
-    number_sections: true
-    code_folding: hide
-    theme: flatly
-    highlight: tango
-    fig_width: 8
-    fig_height: 6
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-overflow: wrap
+    fig-width: 8
+    fig-height: 6
 bibliography: references.bib
 nocite: |
   @Leon_2024
@@ -22,7 +22,7 @@ nocite: |
   @Leon_Anderson_2026b
 vignette: >
   %\VignetteIndexEntry{ForestSearch Methodology}
-  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 ---
 
@@ -350,26 +350,21 @@ Step 4 can be modified in several ways:
 Additional constraints can include median survival thresholds for the
 experimental arm, control arm, or both.
 
-```{r algorithm-diagram, echo=FALSE, fig.cap="ForestSearch Algorithm Overview"}
-
-# Create a simple flow diagram
-library(DiagrammeR)
-
-grViz("
+```{dot}
+//| fig-cap: "ForestSearch Algorithm Overview"
 digraph ForestSearch {
   graph [rankdir = TB, fontname = Helvetica]
   node [shape = box, style = filled, fontname = Helvetica]
 
-  A [label = 'Step 1: Construct\\nCandidate Factors', fillcolor = '#E8F4F8']
-  B [label = 'Step 2: Enumerate\\nSubgroup Combinations', fillcolor = '#E8F4F8']
-  C [label = 'Step 3a: HR Screening\\n(threshold = 1.25)', fillcolor = '#FFF3CD']
-  D [label = 'Step 3b-c: Consistency\\nEvaluation (R splits)', fillcolor = '#FFF3CD']
-  E [label = 'Step 4: Select\\nMaximally Consistent', fillcolor = '#D4EDDA']
-  F [label = 'Bootstrap Bias\\nCorrection', fillcolor = '#F8D7DA']
+  A [label = "Step 1: Construct\nCandidate Factors", fillcolor = "#E8F4F8"]
+  B [label = "Step 2: Enumerate\nSubgroup Combinations", fillcolor = "#E8F4F8"]
+  C [label = "Step 3a: HR Screening\n(threshold = 1.25)", fillcolor = "#FFF3CD"]
+  D [label = "Step 3b-c: Consistency\nEvaluation (R splits)", fillcolor = "#FFF3CD"]
+  E [label = "Step 4: Select\nMaximally Consistent", fillcolor = "#D4EDDA"]
+  F [label = "Bootstrap Bias\nCorrection", fillcolor = "#F8D7DA"]
 
   A -> B -> C -> D -> E -> F
 }
-", width = 500, height = 600)
 ```
 
 ## Asymptotic Considerations {#sec-asymptotics}
@@ -399,7 +394,7 @@ $$
 \int \int I(w_1 + w_2 \geq 2\log(1.25)) \cdot I(w_1 \geq 0) \cdot
 I(w_2 \geq 0) \cdot \varphi(w_1; \beta, 8/d) \cdot
 \varphi(w_2; \beta, 8/d) \, dw_1 \, dw_2,
-$$
+$$ {#eq-power}
 
 where $\{W_1, W_2\} \sim N(\beta, 8/d)$ independently, and
 $\varphi(\cdot; \beta, 8/d)$ denotes the normal density with mean $\beta$
@@ -647,9 +642,8 @@ $\exp\!\left(\hat{\beta}^* \pm 1.96\sqrt{\hat{V}}\right)$.
 > sets the bootstrap and the multiplier correction side by side on the GBSG
 > data.
 
-```{r bootstrap-diagram4, echo=FALSE, fig.cap="Bootstrap Bias Correction Workflow"}
-
-grViz("
+```{dot}
+//| fig-cap: "Bootstrap Bias Correction Workflow"
 digraph Bootstrap {
   graph [rankdir = LR, fontname = Helvetica, nodesep = 0.5, ranksep = 1.0]
   node [shape = box, style = filled, fontname = Helvetica, fontsize = 11,
@@ -657,36 +651,36 @@ digraph Bootstrap {
   edge [fontsize = 9]
 
   subgraph cluster_0 {
-    label = 'Observed Data'
+    label = "Observed Data"
     style = filled
-    color = '#E8F4F8'
+    color = "#E8F4F8"
     fontsize = 12
-    A [label = 'Observed data \\nRun ForestSearch\\nGet Ĥ',
+    A [label = "Observed data \nRun ForestSearch\nGet Ĥ",
        fillcolor = white]
-    B [label = 'Estimate β̂(Ĥ)', fillcolor = white]
+    B [label = "Estimate β̂(Ĥ)", fillcolor = white]
   }
 
   subgraph cluster_1 {
-    label = 'Bootstrap b = 1,...,B'
+    label = "Bootstrap b = 1,...,B"
     style = filled
-    color = '#FFF3CD'
+    color = "#FFF3CD"
     fontsize = 12
-    C [label = 'Resample Data \\nBootstrap data \\nb = 1,...,B',
+    C [label = "Resample Data \nBootstrap data \nb = 1,...,B",
        fillcolor = white]
-    D [label = 'Run ForestSearch\\nGet Ĥ*b', fillcolor = white]
-    E [label = 'Compute η*b(Ĥ*b)\\nand η*b(Ĥ)',
+    D [label = "Run ForestSearch\nGet Ĥ*b", fillcolor = white]
+    E [label = "Compute η*b(Ĥ*b)\nand η*b(Ĥ)",
        fillcolor = white]
   }
 
   subgraph cluster_2 {
-    label = 'Bias Correction'
+    label = "Bias Correction"
     style = filled
-    color = '#D4EDDA'
+    color = "#D4EDDA"
     fontsize = 12
-    F [label = 'Average Bias\\nTerms', fillcolor = white]
-    G [label = 'β̂*(Ĥ) = β̂(Ĥ) - bias',
+    F [label = "Average Bias\nTerms", fillcolor = white]
+    G [label = "β̂*(Ĥ) = β̂(Ĥ) - bias",
        fillcolor = white]
-    H [label = 'IJ Variance\\nEstimation', fillcolor = white]
+    H [label = "IJ Variance\nEstimation", fillcolor = white]
   }
 
   {rank = same; A; B}
@@ -697,7 +691,6 @@ digraph Bootstrap {
   E -> F -> G
   F -> H
 }
-", width = 900, height = 400)
 ```
 
 ## Cross-Validation {#sec-cv}

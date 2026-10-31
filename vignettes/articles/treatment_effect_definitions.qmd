@@ -2,20 +2,20 @@
 title: "Treatment Effect Definitions in ForestSearch"
 subtitle: "Marginal Effects, Controlled Direct Effects, Average Hazard Ratios, and Simulation Truth"
 author: "ForestSearch Package Documentation"
-date: "`r Sys.Date()`"
-output:
-  html_document:
+date: today
+format:
+  html:
+    embed-resources: true
     toc: true
-    toc_depth: 3
-    number_sections: true
-    code_folding: hide
-    theme: cosmo
-    highlight: tango
-    fig_width: 8
-    fig_height: 5
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-overflow: wrap
+    fig-width: 8
+    fig-height: 5
 vignette: >
   %\VignetteIndexEntry{Treatment Effect Definitions in ForestSearch}
-  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 ---
 
@@ -734,7 +734,7 @@ in the results `data.table`.
 
 The DGM-level AHR and Cox-based marginal HR generally agree closely
 but can diverge when within-subgroup treatment effects are highly
-heterogeneous, as discussed in Section \@ref(theoretical-relationships).
+heterogeneous, as discussed in [Theoretical Relationships](#theoretical-relationships).
 The CDE generally tracks the AHR but diverges due to Jensen's
 inequality, with the gap increasing as within-subgroup heterogeneity
 grows.

@@ -2,20 +2,20 @@
 title: "Simulation Studies for Evaluating ForestSearch Performance"
 subtitle: "Operating Characteristics and Power Analysis"
 author: "ForestSearch Package"
-date: "`r Sys.Date()`"
-output:
-  html_document:
+date: today
+format:
+  html:
+    embed-resources: true
     toc: true
-    toc_depth: 3
-    number_sections: true
-    code_folding: hide
-    theme: cosmo
-    highlight: tango
-    fig_width: 9
-    fig_height: 6
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-overflow: wrap
+    fig-width: 9
+    fig-height: 6
 vignette: >
   %\VignetteIndexEntry{Simulation Studies for Evaluating ForestSearch Performance}
-  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 ---
 
@@ -136,24 +136,21 @@ This section outlines the end-to-end workflow for evaluating ForestSearch
 performance via simulation. Each step is described below the workflow diagram,
 with cross-references to the corresponding vignette sections.
 
-```{r sim-workflow-diagram, echo=FALSE, fig.cap="Four-stage simulation workflow for evaluating subgroup identification performance.", fig.height=2.0, fig.width=9}
-if (requireNamespace("DiagrammeR", quietly = TRUE)) {
-  DiagrammeR::grViz("
-  digraph workflow {
-    graph [rankdir = LR, bgcolor = transparent, nodesep = 0.8]
-    node  [shape = box, style = 'rounded,filled', fillcolor = '#e3f2fd',
-           fontname = 'Helvetica', fontsize = 12, penwidth = 1.2,
-           width = 1.8, height = 0.6]
-    edge  [color = '#555555', penwidth = 1.5, arrowsize = 0.8]
+```{dot}
+//| fig-cap: "Four-stage simulation workflow for evaluating subgroup identification performance."
+digraph workflow {
+  graph [rankdir = LR, bgcolor = transparent, nodesep = 0.8]
+  node  [shape = box, style = "rounded,filled", fillcolor = "#e3f2fd",
+         fontname = "Helvetica", fontsize = 12, penwidth = 1.2,
+         width = 1.8, height = 0.6]
+  edge  [color = "#555555", penwidth = 1.5, arrowsize = 0.8]
 
-    A [label = '1. Create DGM']
-    B [label = '2. Simulate Trials']
-    C [label = '3. Run Analyses']
-    D [label = '4. Summarize OCs']
+  A [label = "1. Create DGM"]
+  B [label = "2. Simulate Trials"]
+  C [label = "3. Run Analyses"]
+  D [label = "4. Summarize OCs"]
 
-    A -> B -> C -> D
-  }
-  ")
+  A -> B -> C -> D
 }
 ```
 
