@@ -1,0 +1,242 @@
+Skip to contents
+
+forestsearch 0.4.1
+
+-   Getting Started
+-   Reference
+-   Articles
+    -   Introduction to forestsearch
+
+    -   
+
+        ------------------------------------------------------------------------
+
+    -   Methodology
+
+    -   Post-Selection Inference
+
+    -   Comparison with Guo & He (2021)
+
+    -   Treatment Effect Definitions
+
+    -   Biomarker Treatment Effects
+
+    -   Causal Interpretation of Hazard Ratios
+
+    -   Simulation Studies
+
+    -   Extreme Subgroup Effects
+
+    -   
+
+        ------------------------------------------------------------------------
+
+    -   The 2024 workflow (León et al. 2024)
+-   Changelog
+
+-   
+-   
+
+Post-selection inference for an identified survival subgroup
+
+The GBSG analysis of León and Anderson (2026a): naive, full-bootstrap and multiplier-resampling estimates for three identifiers
+
+Larry Leon
+
+2026-10-30
+
+Source: vignettes/articles/survival-post-selection.qmd
+
+  A website article. In forestsearch 0.4.0 this was a CRAN vignette; from 0.4.1 it is an article on the package website, because the full analysis takes a few minutes to run, too long for CRAN’s package checks. The text is otherwise unchanged; where it says “vignette”, read “article”.
+
+A subgroup discovered in a trial is reported through the standard analysis the trial would have run had that subgroup been the only one: the treatment coefficient of the working model fitted within it, a Cox log hazard ratio here. Selection by an effect-driven rule — rewarding large estimated effects subject to screening and size criteria — inflates that coefficient. This is the winner’s curse, and it invalidates a naive interval whether or not the identifier’s own internal estimand was de-biased by cross-fitting (León and Anderson 2026a). The same selection distorts the estimate for the patients outside the subgroup.
+
+What is corrected, and how. The target is the standard-analysis effect of the selected region, with the candidate family held fixed: β(Ĥ) for the region and β(Ĥ^(c)) for its complement. Two routes remove the optimism of selection.
+
+-   The full bootstrap re-runs the whole pipeline — enumerate, screen, select — on each resample, and corrects the observed estimate by the bootstrap estimate of its selection bias. It is the procedure of León et al. (2024). It is costly, because every replicate repeats the search.
+-   Multiplier resampling (MR) never refits. Once the candidate family and every candidate’s effect and influence function are in hand, resampling the search reduces to perturbing all candidate effects jointly with one set of multiplier weights and re-selecting; the correction is read from the re-selected effects, and an infinitesimal-jackknife (IJ) interval comes from the same draws. León and Anderson (2026a) show the IJ interval’s coverage under standard regularity and an explicit condition on the limiting competition between candidates, and that MR matches the full bootstrap on a fixed family.
+-   Model-generated families. For DINA and GRF the candidate family is proposed from a surface fitted to the outcome, so a bootstrap regenerates it. There MR remains valid for the same conditional target — the effect of the selected region given the family proposed — which the bootstrap reproduces only under further conditions.
+
+This vignette runs the GBSG analysis of León and Anderson (2026a) for the three identifiers — forest search (FS), DINA and GRF — at the manuscript’s settings, with the multiplier correction in full (5,000 draws) and the full bootstrap implemented and run at a small number of replicates to show the machinery and its cost. The manuscript’s Table S2 (Supplementary Section S6), computed with B = 1,000 bootstrap replicates, is reproduced for comparison. vignette("forestsearch") runs the companion analysis of León and Anderson (2026b) on the same trial — the search, the one-sided bounds and the declaration calibration; this vignette is about the two-sided correction and the bootstrap it replaces.
+
+The data
+
+The settings
+
+The analysis of León and Anderson (2026a), Section 6, and the calls below follow the document that produced its Table S2:
+
+-   Candidates are conjunctions of at most two covariate cuts with at least 60 patients and 10 events in each arm. Forest search carries ten candidate cuts on each receptor with zero forced in as a cut of its own; DINA and GRF propose their candidates from a fitted surface on the covariates as given.
+-   Forest search screens at a hazard ratio of 1.0 and requires splitting consistency at p^(⋆) = 0.90, evaluated in closed form (consistency_method = "resample"); stop_threshold = NULL has every screened candidate evaluated.
+-   The selection rule is max_(𝒜)N(ε) at ε = 0.10: the largest admitted region whose effect is within 10% of the largest effect over the family. The companion vignette uses ε = 0.20 and returns a larger forest-search region (N 75); at ε = 0.10 the rule returns the 61 patients with no measured estrogen receptor and tumour size at most 35 mm — the effect-maximising region of that vignette’s candidate table.
+-   DINA is re-ranked on the Cox coefficient against a floor of 0.90, with a two-fold cross-fit surface. The floor of 0.90 is the one in the document that produced Table S2, which this call reproduces; Section 6 of the paper gives a hazard ratio of 1.0. GRF uses the frontier of its covariate grid, re-ranked on the Cox coefficient, at depth 2 with a doubly-robust-score floor of 0.
+-   Multiplier resampling at 5,000 draws, reported as the two-term corrected estimate with its IJ two-sided 95% interval (ci_method = "ij" for DINA and GRF). The forest-search fit asks for ci_method = "field" with field_recovery = TRUE: the two-term estimate and the IJ interval are the same under both settings, and the field adds the one-sided bounds of the companion vignette and the membership-recovery diagnostics used below.
+
+The three fits
+
+The fits run on one core here (parallel_args = list(plan = "sequential")); the bootstrap below uses up to two, the limit a CRAN check imposes. The package’s default plan is parallel.
+
+The multiplier correction
+
+For each identifier, fit$mr_inference holds the unadjusted (naive) estimate of the selected region, the selection bias the draws estimate, and the two-term corrected estimate with its IJ interval; $complement holds the same for the patients outside the region. The family size is the number of candidates the draws re-select over.
+
+The correction moves the forest-search region’s estimate from an apparent harm to a value near one, and widens the interval: the IJ interval accounts for the selection’s own variability, which a naive interval ignores. The complement moves the other way and by much less — it is most of the trial, and the selection barely touches it.
+
+The full bootstrap
+
+forestsearch_bootstrap_dofuture() draws a nonparametric bootstrap sample, re-runs the identifier on it — the whole search, the screen and the selection, with the front-end surfaces refitted for DINA and GRF — and records the selected region’s effect on the resample and on the original data. The bias-corrected estimate is the observed estimate less the bootstrap estimate of its selection bias, averaged over replicates (the correction of León et al. 2024); its interval uses an infinitesimal-jackknife variance of the bootstrap mean with a finite-B correction. Multiplier resampling is not run inside the replicates (mr_in_replicates = FALSE, the default), so each replicate costs one search.
+
+The manuscript used B = 1,000. Here B is small, to show the implementation and its cost: the point estimates are usable as an illustration, the intervals are not — the finite-B variance needs B in the hundreds, the package warns below 100, and at small B the variance can fall back to its uncorrected form. Read the interval columns of the bootstrap tables below as what the machinery produces at this B, not as results.
+
+Replicates are independent, so the bootstrap parallelises across them: forestsearch_bootstrap_dofuture() dispatches them through the future framework, and parallel_args = list(plan = "multisession", workers = k) runs them on k processes. The document behind Table S2 ran its B = 1,000 on 11 workers. This vignette uses at most two, the limit a CRAN check imposes (future::availableCores() returns what the host allows); for a real run, set n_workers below to the cores you have.
+
+The package’s own summaries, shown for forest search. The first is the bootstrap table: the naive estimate beside the bootstrap-corrected one, for the region and its complement.
+
++-----------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+--------------------+
+| Treatment Effect by Subgroup                                                                                                                        |             |             |             |          |         |          |                   |                    |
++=====================================================================================================================================================+=============+=============+=============+==========+=========+==========+===================+====================+
+| Bootstrap bias-corrected estimates (25 iterations)                                                                                                  |             |             |             |          |         |          |                   |                    |
++-----------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+--------------------+
+| Subgroup                                                                                                                                            | Sample Size |             |             | Survival |         |          | Treatment Effect  |                    |
++-----------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+--------------------+
+|                                                                                                                                                     | N           | N_(T)       | Events      | Med_(T)  | Med_(C) | RMST_(d) | HR                | HR^(‡)             |
+|                                                                                                                                                     |             |             |             |          |         |          | (95% CI)^(†)¹     | (95% CI)²          |
++-----------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+--------------------+
+| Qstnbl³                                                                                                                                             | 61 (8.9%)   | 23 (37.7%)  | 34 (55.7%)  | 18.5     | 48      | -19      | 2.54 (1.25, 5.17) | 1.88 (0.01,485.27) |
++-----------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+--------------------+
+| Recmnd                                                                                                                                              | 625 (91.1%) | 223 (35.7%) | 265 (42.4%) | 66.7     | 52.2    | 9.6      | 0.61 (0.47, 0.79) | 0.63 (0.34,1.20)   |
++-----------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+--------------------+
+| ¹ Unadjusted HR: Standard Cox regression hazard ratio with robust standard errors                                                                   |             |             |             |          |         |          |                   |                    |
++-----------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+--------------------+
+| ² Bias-corrected HR: Bootstrap-adjusted estimate using infinitesimal jackknife method (25 iterations). Corrects for optimism in subgroup selection. |             |             |             |          |         |          |                   |                    |
++-----------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+--------------------+
+| ³ Identified subgroup: {er <= 0} & {size <= 35}                                                                                                     |             |             |             |          |         |          |                   |                    |
++-----------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+--------------------+
+| Note: Med = Median survival time (months). RMST_(d) = Restricted mean survival time difference. Subgroup identified in 92.0% of bootstrap samples.  |             |             |             |          |         |          |                   |                    |
++-----------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+--------------------+
+
+mr_estimates_table() puts the multiplier correction into the same layout: it takes the bootstrap table as its template — the descriptive columns and the naive estimate — and replaces the corrected column by the two-term estimate with its IJ interval, so the two corrections can be read side by side in one format.
+
++-------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+------------------+
+| Treatment Effect by Subgroup                                                                                                                          |             |             |             |          |         |          |                   |                  |
++=======================================================================================================================================================+=============+=============+=============+==========+=========+==========+===================+==================+
+| MR de-biased estimate (multiplier resampling, 5000 draws)                                                                                             |             |             |             |          |         |          |                   |                  |
++-------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+------------------+
+| Subgroup                                                                                                                                              | Sample Size |             |             | Survival |         |          | Treatment Effect  |                  |
++-------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+------------------+
+|                                                                                                                                                       | N           | N_(T)       | Events      | Med_(T)  | Med_(C) | RMST_(d) | HR                | HR^(‡)           |
+|                                                                                                                                                       |             |             |             |          |         |          | (95% CI)^(†)¹     | (95% CI)²        |
++-------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+------------------+
+| Qstnbl³                                                                                                                                               | 61 (8.9%)   | 23 (37.7%)  | 34 (55.7%)  | 18.5     | 48      | -19      | 2.54 (1.25, 5.17) | 1.44 (0.62,3.36) |
++-------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+------------------+
+| Recmnd                                                                                                                                                | 625 (91.1%) | 223 (35.7%) | 265 (42.4%) | 66.7     | 52.2    | 9.6      | 0.61 (0.47, 0.79) | 0.64 (0.40,1.03) |
++-------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+------------------+
+| ¹ Unadjusted HR: Standard Cox regression hazard ratio with robust standard errors                                                                     |             |             |             |          |         |          |                   |                  |
++-------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+------------------+
+| ² Bias-corrected HR: Bootstrap-adjusted estimate using infinitesimal jackknife method (5000 iterations). Corrects for optimism in subgroup selection. |             |             |             |          |         |          |                   |                  |
++-------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+------------------+
+| ³ Identified subgroup: {er <= 0} & {size <= 35}                                                                                                       |             |             |             |          |         |          |                   |                  |
++-------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+------------------+
+| Note: Med = Median survival time (months). RMST_(d) = Restricted mean survival time difference.                                                       |             |             |             |          |         |          |                   |                  |
++-------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+-------------+-------------+----------+---------+----------+-------------------+------------------+
+
+Naive, bootstrap and multiplier side by side
+
+The three columns for the three identifiers, assembled from the fit objects and the bootstrap objects. The bootstrap column carries the point estimate only: at this B its interval is not a result (the package’s own table above shows what the machinery returns for it).
+
+  ---------------------------------------------------------------------------------------------------------------------
+  Method   SG         n (%)               Naive   Full bootstrap estimate (B = 25 / 25 / 10)   Multiplier (5,000 draws)
+  -------- ---- ----------- ------------------- -------------------------------------------- --------------------------
+  FS       H        61 (9%)   2.54 (1.25, 5.17)                                         1.88          1.44 (0.62, 3.36)
+
+  FS       Hc     625 (91%)   0.61 (0.47, 0.79)                                         0.63          0.64 (0.40, 1.03)
+
+  DINA     H       89 (13%)   1.60 (0.88, 2.91)                                         0.83          1.11 (0.45, 2.75)
+
+  DINA     Hc     597 (87%)   0.63 (0.48, 0.82)                                         0.66          0.66 (0.40, 1.09)
+
+  GRF      H       82 (12%)   1.95 (1.04, 3.67)                                         1.29          1.05 (0.47, 2.34)
+
+  GRF      Hc     604 (88%)   0.61 (0.47, 0.80)                                         0.73          0.66 (0.41, 1.06)
+  ---------------------------------------------------------------------------------------------------------------------
+
+  : This vignette’s run: hazard ratios with 95% intervals; the bootstrap estimate at a small B, without an interval.
+
+Table S2 of León and Anderson (2026a), as published, with the full bootstrap at B = 1,000:
+
+  ----------------------------------------------------------------------------------------------
+  Method   SG         n (%)               Naive   Full bootstrap (B = 1,000)          Multiplier
+  -------- ---- ----------- ------------------- ---------------------------- -------------------
+  FS       H        61 (9%)   2.54 (1.25, 5.17)            1.94 (0.89, 4.21)   1.44 (0.62, 3.36)
+
+  FS       Hc     625 (91%)   0.61 (0.47, 0.79)            0.63 (0.43, 0.93)   0.64 (0.40, 1.03)
+
+  DINA     H       89 (13%)   1.60 (0.88, 2.91)            0.89 (0.38, 2.07)   1.11 (0.45, 2.75)
+
+  DINA     Hc     597 (87%)   0.63 (0.48, 0.82)            0.66 (0.40, 1.11)   0.66 (0.40, 1.09)
+
+  GRF      H       82 (12%)   1.95 (1.04, 3.67)            1.04 (0.49, 2.24)   1.05 (0.47, 2.34)
+
+  GRF      Hc     604 (88%)   0.61 (0.47, 0.80)            0.66 (0.39, 1.13)   0.66 (0.41, 1.06)
+  ----------------------------------------------------------------------------------------------
+
+  : Table S2 of León and Anderson (2026a), as published.
+
+-   Naive and multiplier columns. The regions, their sizes, the naive estimates and the multiplier estimates and intervals are those of the published table at its precision: the calls, the seed and the draw count are the manuscript’s.
+-   The bootstrap column at this B is an illustration of the implementation. At B = 1,000 the manuscript finds the two corrections agree closely for GRF (1.04 and 1.05), remain apart for forest search (1.94 and 1.44, both well below the naive 2.54), and fall on opposite sides of one for DINA (0.89 and 1.11) — the two routes estimate the same selection bias from different perturbations of the search, and DINA’s family is itself regenerated by the bootstrap.
+-   Reading, by location. The forest-search region’s corrected estimates, 1.44 by multiplier resampling and 1.94 by the manuscript’s bootstrap, sit far below its naive 2.54: most of the apparent harm was selection. The complement’s corrected estimate, 0.64, is a benefit at least as large as the trial’s own 0.695 for the patients outside the region. Neither is read as a test at a hazard ratio of one.
+
+The cost of the two corrections
+
+  -------------------------------------------------------------------------------------
+  Method     MR (s)    B   bootstrap (s)   s per replicate   projected at B = 1,000 (s)
+  -------- -------- ---- --------------- ----------------- ----------------------------
+  FS           4.66   25           33.25              1.33                         1330
+
+  DINA         0.33   25           23.76              0.95                          950
+
+  GRF          2.13   10           21.97              2.20                         2197
+  -------------------------------------------------------------------------------------
+
+  : Wall-clock timings from this run: the multiplier stage under the fits’ sequential plan, the bootstrap on 2 workers. The projection is linear in B at that worker count.
+
+The multiplier correction is seconds; the bootstrap is minutes at the B its intervals need, and the ratio widens with B. The seconds are those of this machine and this package version: the MR column is the whole multiplier stage as the fit records it (timing_seconds); the bootstrap column is the whole forestsearch_bootstrap_dofuture() call on 2 workers, in wall-clock seconds, so the per-replicate figure and the projection fall as workers are added. The manuscript’s figures — 72 s to about 10 minutes at B = 1,000 on 11 workers, 0.1 to 0.4 s for the multiplier stage — were recorded under forestsearch 0.2.0 on another machine, and are not comparable second for second; the order of magnitude between the two routes is the point.
+
+Diagnostics
+
+The re-selection frequency
+
+p̂(Ĥ) is the frequency with which the re-selection picks exactly the identified region across the multiplier draws. It is a recorded diagnostic — computed after the correction, read by no construction, and estimated from the same draws — so it is a flag, not an instrument.
+
+A small p̂ says the exact boundary of the region is not stable under perturbation; by itself it is neither evidence for nor against the correction.
+
+What p̂ alone cannot say
+
+p̂ counts exact re-selections. Over a family in which most candidates differ from Ĥ by a single cut, a small exact-match rate is compatible with the draws re-selecting near-twins of Ĥ or unrelated regions, and p̂ does not distinguish them. Membership agreement does: each draw’s re-selection is compared with Ĥ as a set of patients, in the vocabulary of the cross-validation agreement metrics of forestsearch_Kfold() (sens_H, ppv_H). These diagnostics are computed from the field draws, which the forest-search fit asked for.
+
+Read together: the median draw retains 66% of the region’s members, at least a tenth of the draws retain none of them, and 2% of draws contain all of it. Exact re-selection is rare; what moves from draw to draw is the boundary. These diagnostics measure re-selection within the fixed candidate family under multiplier perturbation; the bootstrap’s and the cross-validation’s recovery rates (forestsearch_bootstrap_dofuture(), forestsearch_Kfold()) measure re-discovery from resampled data with the family rebuilt, which is stronger and costs a full re-run each time.
+
+Scope
+
+The coverage result of León and Anderson (2026a) is for a fixed, enumerated family — forest search’s. DINA and GRF propose their families from the outcomes, and a bootstrap regenerates them; for those identifiers the multiplier correction targets the effect of the selected region conditional on the family proposed, and the results above are empirical evaluations of how the correction behaves on such families, not instances of the theorem. The one-sided bounds, the two-subgroup claim and the declaration calibration that build on this correction are the subject of León and Anderson (2026b) and of vignette("forestsearch").
+
+Where to go next
+
+-   vignette("forestsearch"): the same trial under the identification paper — the search, the three identifiers at the max_(𝒜)N(ε=0.20) rule, the one-sided field bounds, the two-subgroup claim and the declaration calibration.
+-   The package website’s article Exploratory subgroup identification with forestsearch (the 2024 workflow): the full bootstrap at a working B with its diagnostics and plots, and K-fold cross-validation.
+-   ?forestsearch_bootstrap_dofuture, ?summarize_bootstrap_results, ?mr_estimates_table.
+
+References
+
+Efron, B. (2014). Estimation and accuracy after model selection. Journal of the American Statistical Association 109(507), 991–1007.
+
+León, L. F. and Anderson, K. M. (2026a). Inference for standard trial estimands after data-driven subgroup discovery. arXiv:2609.38361. https://doi.org/10.48550/arXiv.2609.38361
+
+León, L. F. and Anderson, K. M. (2026b). Interpretable subgroup identification across survival and generalized-linear outcomes. arXiv:2610.28379. https://doi.org/10.48550/arXiv.2610.28379
+
+León, L. F., Jemielita, T., Guo, Z., Marceau West, R. and Anderson, K. M. (2024). Exploratory subgroup identification in the heterogeneous Cox model: A relatively simple procedure. Statistics in Medicine. https://doi.org/10.1002/sim.10163
+
+On this page
+
+Developed by Larry Leon.
+
+Site built with pkgdown 2.2.1.

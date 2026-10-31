@@ -1,0 +1,138 @@
+sg_focus 'effMaxSG' resolves to canonical rule 'hrMaxSG' (aliases: effMaxSG).
+
+[forestsearch] Subgroup Identification Configuration
+  Outcome type:   survival (Cox PH)
+  Effect measure: HR (hazard ratio)
+  Scale:          log (ratio)
+
+  Screening:      HR >= 1.00  (log: 0.0000)
+  Consistency:    HR >= 1.00  (log: 0.0000)
+  Consistency rate threshold: 90%
+
+  Interpretation:
+    Candidates: subgroup hazard ratio >= 1.00
+    Splits:     each split HR >= 1.00
+
+Multiplier resampling (MR): constructing de-biased estimates from 5000 draws.
+  This is post-selection inference on the completed search; it cannot change the identified subgroup.
+MR harm confirmation: HR = 1.276 (point rule vs 1.00) -> consistent with harm
+ForestSearch Results
+====================
+
+Selected Subgroup:
+  Definition: {er <= 0} & {pgr <= 26} 
+  sg_focus: hrMaxSG 
+  N: 75 
+  HR: 2.222 
+  Pcons: 0.99 
+  Algorithm: twostage 
+  Candidate family: no-front-end 
+  Admission set: effect floor 0; consistency floor 0 at p* = 0.9 
+  Candidates evaluated: 120 
+  Candidates passed: 9 
+
+Post-selection inference (selection-adjusted; Leon & Anderson 2026):
+  Harm subgroup H:        one-sided 95% lower bound on HR   0.634
+  Complement Hc:          one-sided 95% upper bound on HR   0.804   [field-s]
+  Joint (Bonferroni):     H lower 0.509, Hc upper 0.840  (gamma 0.025 each side) [field-s]
+  Two-sided (IJ, secondary): H (0.570, 2.857)
+  Re-selection frequency  p-hat(H) = 0.005
+
+  One-sided bounds are the primary products; the two-sided IJ interval is 
+  secondary. p-hat(H) is a descriptive diagnostic. Read each bound by its 
+  location relative to a clinically meaningful effect size. Methods and 
+  simulation operating characteristics: Leon & Anderson (2026), 
+  arXiv:2609.38361. 
+
+Computation time: 0.03 minutes
+ForestSearch Summary
+====================
+
+Analysis Parameters:
+  sg_focus: hrMaxSG
+  hr.threshold: 1
+  hr.consistency: 1
+  pconsistency.threshold: 0.9
+  n.min: 60
+  fs.splits: 1000
+  maxk: 2
+  use_twostage: TRUE
+  use_lasso: FALSE
+  use_grf: FALSE
+  use_dina: FALSE
+  candidate family: no-front-end
+  admission set: effect floor 0; consistency floor 0 at p* = 0.9
+
+Variable Selection:
+  Candidate confounders: 33 
+  Confounders evaluated: 33 
+
+Search Space:
+  Proportion of max combinations searched: 1 
+  Maximum subgroup HR estimate: 2.537
+
+Consistency Evaluation:
+  Algorithm: twostage 
+  Candidates evaluated: 120 
+  Candidates passed: 9 
+  Stage 1 screening splits: 
+  Stage 2 batch size: 
+
+Selected Subgroup:
+  Definition: {er <= 0} & {pgr <= 26} 
+  Sample size: 75 
+  Hazard ratio: 2.222 
+  Consistency: 99 %
+  Estimation data: n = 686 (harm = 75 , complement = 611 )
+
+Post-selection inference (selection-adjusted; Leon & Anderson 2026):
+  Harm subgroup H:        one-sided 95% lower bound on HR   0.634
+  Complement Hc:          one-sided 95% upper bound on HR   0.804   [field-s]
+  Joint (Bonferroni):     H lower 0.509, Hc upper 0.840  (gamma 0.025 each side) [field-s]
+  Two-sided (IJ, secondary): H (0.570, 2.857)
+
+  Standard errors (log scale):
+    field (H)                 se_field    0.408
+    field-s (Hc)              se_field_s  0.134   (naive complement SE 0.134)
+    IJ two-term (H)           se_ij       0.411
+  Re-selection frequency  p-hat(H) = 0.005
+    top-3 re-selection mass:  q1.1 & q18.1 0.187 | q1.1 & q27.1 0.142 | q10.0 & q30.0 0.069
+    p_hat_sum = 0.993 over a family of 1744 candidates
+
+  One-sided bounds are the primary products; the two-sided IJ interval is 
+  secondary. p-hat(H) is a descriptive diagnostic. Read each bound by its 
+  location relative to a clinically meaningful effect size. Methods and 
+  simulation operating characteristics: Leon & Anderson (2026), 
+  arXiv:2609.38361. 
+
+Computation time: 0.03 minutes
+Declaration calibration (post-hoc, reported; admission unchanged)
+  family source:        prereduction 
+  family:               pre-reduction family (covariate-measurable) 
+  n family (pre / red): 1744 / 1743 
+  multiplier law, B:    poisson , 5000 
+  alpha:                  0.1 
+  kappa_hat(alpha):     3.503 
+  p_star, digits:         0.9 , 2 (fit$args_call_all$pconsistency.digits) 
+  screen threshold:     Pcons >= 0.895 ; T >= 1.621 (rounded admission rule)
+  fw_size (as screened): 0.9744 
+  c_cons, c_screen:     0 , 0 
+  admitted (current):   9 
+  admitted (p-star rule, this family):    23 
+  admitted (calibrated rule, this family): 0 
+  Protected null level c0 (source: capture):
+    c0 kappa_hat fw_size pstar_set z_eff   z_gap digits_fine pstar_fine
+   0.7     2.578  0.5576         1 2.807  0.2294           4     0.9902
+  0.75     2.726  0.6672         1 2.807 0.08074           4     0.9937
+   0.8     2.891   0.769      none    NA      NA           4     0.9963
+  0.85     3.039   0.844      none    NA      NA           4     0.9977
+ n_admitted   q95
+          0 2.885
+          0 3.045
+          0 3.185
+          0 3.335
+  pstar_set: smallest p* settable at digits = 2 whose rounded screen is at least kappa_hat (z_eff; z_gap = z_eff - kappa_hat,
+  positive = conservative); digits_fine / pstar_fine: smallest digits with z_gap < 0.01.
+  No p* <= 1 at digits = 2 reaches kappa_hat for c0 =   0.8,  0.85 ; use more digits (digits_fine).
+REGION {er <= 0} & {pgr <= 26} 
+CHECK corrected 1.276 field_lower 0.634 complement 0.645 field_s 0.804

@@ -1,0 +1,27 @@
+§1.9 GATE FAILURE record
+commit 1: 8cde681156fbdd4e39f5b2750d1c13a32047a238 chore: rendered article HTML stays on disk and is ignored by git
+--- paths in commit 1 (git show --name-status):
+M	.gitignore
+R100	vignettes/articles/biomarker_effects.Rmd	vignettes/articles/biomarker_effects.qmd
+R100	vignettes/articles/causal_effects_brief_review.Rmd	vignettes/articles/causal_effects_brief_review.qmd
+D	vignettes/articles/forestsearch-2024.html
+D	vignettes/articles/guohe-nested-continuum.html
+D	vignettes/articles/methodology.html
+R100	vignettes/articles/methodology.Rmd	vignettes/articles/methodology.qmd
+D	vignettes/articles/paper_simulations.html
+R100	vignettes/articles/paper_simulations.Rmd	vignettes/articles/paper_simulations.qmd
+D	vignettes/articles/survival-post-selection.html
+R100	vignettes/articles/treatment_effect_definitions.Rmd	vignettes/articles/treatment_effect_definitions.qmd
+--- expected: .gitignore and five 'D' of vignettes/articles/{forestsearch-2024,guohe-nested-continuum,methodology,paper_simulations,survival-post-selection}.html
+--- extra: five renames R .Rmd -> .qmd, with the pre-conversion (R Markdown) content
+--- git status --porcelain after the stop:
+ M NEWS.md
+ M README.md
+ M vignettes/articles/biomarker_effects.qmd
+ M vignettes/articles/causal_effects_brief_review.qmd
+ M vignettes/articles/methodology.qmd
+ M vignettes/articles/paper_simulations.qmd
+ M vignettes/articles/survival-post-selection.qmd
+ M vignettes/articles/treatment_effect_definitions.qmd
+?? dev/reports/actg175_article_stage0_2026-10-30/
+?? dev/reports/articles_finish_2026-10-30/
