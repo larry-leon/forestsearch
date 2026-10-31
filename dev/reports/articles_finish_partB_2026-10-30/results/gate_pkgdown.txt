@@ -1,0 +1,30 @@
+seven tables, each rectangular                             PASS  found 7
+S16 shape 15 x 3 (run and published)                       PASS  
+S16 every cell but the Region row                          PASS  
+S16 Region, binary: the package's label                    PASS  !{cd40 <= 380} & !{wtkg <= 86}
+S16 Region, continuous: the package's label                PASS  !{cd40 <= 507} & {gender}
+S17 shape 10 x 3 (run and published)                       PASS  
+S17 every cell                                             PASS  
+S3 shape 7 x 6 (run and published)                         PASS  
+S3 Method, SG, n (%), Naive                                PASS  
+S3 Multiplier, every row but FS H                          PASS  
+S3 Multiplier, FS H: 1.79 (0.63, 5.09) under 0.4.1 (Gate C, 10-30) PASS  run '1.79 (0.63, 5.09)'
+S3 bootstrap column: six finite positive numbers           PASS  2.62 0.58 0.80 0.62 1.08 0.60
+cost shape 4 x 6                                           PASS  
+cost table: methods FS, DINA, GRF; numbers finite          PASS  FS 11.31 25 43.65 1.75 1746 | DINA 0.73 25 19.89 0.80 796 | GRF 4.91 10 26.08 2.61 2608
+count "FS and GRF classify 1060 of 1083 patients alike" == 1 PASS  found 1
+count "brings it to 1.773" == 1                            PASS  found 1
+count "field lower bound of 0.686" == 1                    PASS  found 1
+count "field-s upper bound of 0.786" == 1                  PASS  found 1
+count "leaves 22.1 on the adverse side" == 1               PASS  found 1
+count "field lower bound of -38.3" == 1                    PASS  found 1
+count "field-s upper bound of -17.6 cells" == 1            PASS  found 1
+count "harm subgroup in 0.838 (binary) and 0.909 (continuous)" == 1 PASS  found 1
+count "The implied levels, 0.996 and 0.997" == 1           PASS  found 1
+count "interval ends at 5.09 where the table prints 5.08" == 1 PASS  found 1
+count "1.79 by multiplier resampling" == 1                 PASS  found 1
+count "about half the naive 3.58" == 1                     PASS  found 1
+count "NaN" == 0                                           PASS  found 0
+count "?@" == 0                                            PASS  found 0
+recorded (not gated): count "Warning"                      0
+RESULT: OK

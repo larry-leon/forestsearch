@@ -1,0 +1,22 @@
+# Key values, from docs/articles/actg175-glm-outcomes.html (pkgdown render)
+
+## Part 1 (2026b): region lines
+Binary     !{cd40 <= 380} & !{wtkg <= 86}   N 72   fit 66 s (multiplier stage 11.5 s)
+Continuous !{cd40 <= 507} & {gender}        N 79   fit 102 s (multiplier stage 19.6 s)
+
+## Part 3 (2026a Table S3): region lines
+FS   !{cd40 <= 380} & !{wtkg <= 86}         N  72   fit  53.0 s (multiplier stage 11.3 s)   family 2794
+DINA {preanti >= 849.40000000000009} & {cd40 >= 338} N  98   fit   2.4 s (multiplier stage  0.7 s)   family 147
+GRF  {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005} N  95   fit  16.7 s (multiplier stage  4.9 s)   family 1289
+FS and GRF classify 1060 of 1083 patients alike
+
+## Bootstrap seconds and cost table (2 workers)
+Method     MR (s)    B   bootstrap (s)   s per replicate   projected at B = 1,000 (s)
+FS          11.31   25           43.65              1.75                         1746
+DINA         0.73   25           19.89              0.80                          796
+GRF          4.91   10           26.08              2.61                         2608
+
+## Render wall-clocks
+pkgdown build_article: 349 s
+local quarto render:   328 s
+(both under 10 min; no OPEN ITEM on render time)
