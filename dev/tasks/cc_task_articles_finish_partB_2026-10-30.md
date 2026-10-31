@@ -133,3 +133,22 @@ Review; merge `feature/articles-finish` into `master` and push — the pkgdown w
 ## 12. Out of scope
 
 `print()`/`summary()` labelling the GLM consistency column "HR" (stage-0 finding; `R/forestsearch_methods.R:277`, `:499`) — a code change, not made here. `mr_estimates_table()` on a binary fit (untested; the article does not call it). Examples 2 and 3's code. Every other article. Pushing and merging.
+
+---
+
+## Closing block (CC, 2026-10-30)
+
+`git log --oneline da17be3c..HEAD`:
+```
+5e28fa7a dev: report — articles finish, part B (2026-10-30)
+cd153dfe docs: vignette next steps, NEWS, README and cran-comments for the articles
+75285f8d docs: ?forestsearch examples — mr_estimates_table() with its bootstrap template; Example 2's source; a section reference
+17f0c718 docs: article — the ACTG 175 analyses (2026b S3, 2026a Table S3)
+2150ba5c task: finish the articles, part B — task document and inputs
+```
+`git status --porcelain | grep -v '^?? '`: (empty). `git status --porcelain | grep '^?? '`: (empty) = UNTRACKED_0 (empty).
+
+**Outcome:** every gate (§0–§10) passed, with no article deviations. Article gates: `RESULT: OK` on both renders (349 s pkgdown, 328 s local).
+Example 1 ran in 57 s. `R CMD check --as-cran --run-donttest`: `Status: OK` (vignette 74 s, examples 44 s).
+Execution note: `git ls-files` quoting of two non-ASCII paths under `dev/` and `quarto/` made §8.1's `cp` fail on them. The copied tree was verified identical to the intended set (627 files); see the report.
+Report: `dev/reports/REPORT_articles_finish_partB_2026-10-30.md` (four OPEN ITEMS, none blocking). No push, no fetch, no merge.
