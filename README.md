@@ -6,242 +6,142 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 <!-- badges: end -->
 
-Exploratory subgroup identification in clinical trials with survival
-endpoints using bootstrap bias correction.
+Interpretable subgroup identification in randomized clinical trials, with
+post-selection inference for the effect the trial reports.
 
-**forestsearch** implements the Forest Search methodology described in
-Leon et al. (2024),
-*"Exploratory subgroup identification in the heterogeneous Cox model,"*
-[*Statistics in Medicine*](https://doi.org/10.1002/sim.10163). The
-package screens all possible subgroups (formed by combinations of
-baseline factors) against Cox hazard ratio thresholds indicative of
-harm, selects the subgroup "maximally consistent with harm" via
-split-sample evaluation, and provides bias-corrected treatment effect
-estimates with valid confidence intervals through an infinitesimal
-jackknife bootstrap procedure.
+**forestsearch** identifies a subgroup defined by explicit covariate cuts,
+such as "no measured estrogen receptor and progesterone receptor at most
+26 fmol/l". It reports the trial's standard analysis for that subgroup and
+for the patients outside it, corrected for the selection that produced the
+subgroup. Survival outcomes use the Cox hazard ratio. Binary, continuous and
+count outcomes use the coefficient of a generalized linear model: an odds
+ratio, relative risk, risk difference, mean difference or incidence-rate
+ratio.
 
-## Overview
+The methods are described in León and Anderson (2026a, 2026b), and in León
+et al. (2024) for the original procedure (see Citation below).
 
-In randomized clinical trials, important subgroups based on patient
-characteristics may not be anticipated or well understood prior to the
-trial. Forest Search addresses the need for exploratory, post-hoc
-subgroup identification by:
+## How it works
 
-1. **Constructing candidate factors** via LASSO, Generalized Random
-   Forests (GRF), and quartile-based binary splits.
-2. **Enumerating** all one- and two-factor subgroup combinations meeting
-   minimum sample size and event criteria.
-3. **Screening** candidates against a hazard ratio threshold (default
-   HR >= 1.25) and evaluating **split-sample consistency** across
-   repeated random 50/50 splits (default *R* = 400).
-4. **Selecting** the subgroup with the highest consistency rate (>=
-   90%) as the estimated detrimental subgroup.
-5. **Correcting** for selection bias via bootstrap bias correction with
-   infinitesimal jackknife variance estimation.
-6. **Validating** stability through N-fold (leave-one-out) and K-fold
-   cross-validation.
+1. **Candidates.** The search enumerates every conjunction of at most two
+   covariate cuts (`maxk = 2`) that meets minimum size and event counts. The
+   candidates come from the covariates alone; no outcome model decides them.
+2. **Screen.** Each candidate receives the trial's own analysis within the
+   subgroup. A candidate is admitted when its effect clears the screening
+   threshold and its splitting-consistency rate reaches `p*`. The rate is the
+   probability that both halves of a random half-split clear the
+   consistency threshold, and it is evaluated in closed form from one fit
+   (`consistency_method = "resample"`, the default).
+3. **Select.** A stated rule chooses among the admitted candidates. For
+   example, `sg_focus = "effMaxSG"` with `effect_neighborhood = 0.20` takes
+   the largest subgroup whose effect is within 20% of the strongest. The
+   search can also return no subgroup.
+4. **Correct.** With `mr_inference = TRUE`, multiplier resampling re-applies
+   the selection rule to jointly perturbed candidate effects, without
+   refitting. It reports a de-biased estimate for the subgroup and for its
+   complement, a one-sided selection-adjusted bound for each, and a
+   Bonferroni pair for a joint claim on both.
+5. **Calibrate.** `fs_declaration_calibration()` estimates how often the
+   screen, as run, would declare a subgroup if every patient benefited by a
+   clinically specified amount. It also gives the cutoff that would hold that
+   rate at a nominal level.
 
-By reversing the treatment indicator, the same framework identifies
-subgroups with substantial **benefit**.
+Model-based identifiers can propose the candidates instead: DINA
+(`subgroup_method = "dina"`) and causal forests (`subgroup_method = "grf"`).
+Their regions are re-ranked on the same coefficient and receive the same
+inference, conditional on the candidate family they propose. The full
+bootstrap correction and the cross-validation of León et al. (2024) remain
+available.
+
+Bounds are read by where they lie against the trial's own effect and against
+clinically meaningful effect sizes, not as tests at a hazard ratio of one.
 
 ## Installation
 
-You can install the development version of **forestsearch** from
-GitHub:
+From CRAN:
+
+``` r
+install.packages("forestsearch")
+```
+
+The development version from GitHub:
 
 ``` r
 # install.packages("pak")
 pak::pak("larry-leon/forestsearch")
 ```
 
-Or using `remotes`:
+## Quick start
 
-``` r
-# install.packages("remotes")
-remotes::install_github("larry-leon/forestsearch")
-```
-
-The package depends on
-[weightedsurv](https://github.com/larry-leon/weightedsurv), which is
-installed automatically from GitHub via the `Remotes` field in the
-DESCRIPTION.
-
-## Quick Start
+This is the forest-search analysis of the German Breast Cancer Study Group
+trial in Table 1 of León and Anderson (2026b). `vignette("forestsearch")` runs
+it in full, with the two model-based identifiers, and reads every number.
 
 ``` r
 library(forestsearch)
+library(survival)
 
-# --- Step 1: Run ForestSearch ---
-fs <- forestsearch(
-  df.analysis     = trial_data,
-  outcome.name    = "tte",
-  event.name      = "event",
-  treat.name      = "treat",
-  confounders.name = c("age", "biomarker", "stage", "region"),
-  sg_focus        = "maxSG",
-  hr.threshold    = 1.25,
-  hr.consistency  = 1.0,
-  pconsistency.threshold = 0.90,
-  fs.splits       = 400,
-  use_lasso       = TRUE,
-  use_grf         = TRUE,
-  parallel_args   = list(plan = "multisession", workers = 4)
+df <- within(gbsg, {
+  id          <- seq_len(nrow(gbsg))
+  time_months <- rfstime / 30.4375
+  grade3      <- ifelse(grade == "3", 1, 0)
+})
+
+fit <- forestsearch(
+  df.analysis = df,
+  outcome.name = "time_months", event.name = "status",
+  treat.name = "hormon", id.name = "id",
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  is.RCT = TRUE, est.scale = "hr", seedit = 8316951,
+  # the candidate family
+  conf.cont_jcuts = list(er = 10, pgr = 10), conf_force = c("er <= 0", "pgr <= 0"),
+  n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
+  # the thresholds and the selection rule
+  hr.threshold = 1.00, hr.consistency = 1.00, pconsistency.threshold = 0.90,
+  stop_threshold = NULL,
+  sg_focus = "effMaxSG", selection_rule = "neighborhood", effect_neighborhood = 0.20,
+  # selection-adjusted inference
+  mr_inference = TRUE,
+  mr_inference_args = list(ci_method = "field", draws = 5000L, include_complement = TRUE,
+                           field_scale_complement = "selected", field_decompose = TRUE,
+                           keep_declaration_field = TRUE,
+                           declaration_c0 = c(0.70, 0.75, 0.80, 0.85)),
+  parallel_args = list(plan = "sequential")
 )
 
-print(fs)
-summary(fs)
+print(fit)
+summary(fit)
 
-# --- Step 2: Bootstrap Bias Correction ---
-fs_bc <- forestsearch_bootstrap_dofuture(
-  fs.est    = fs,
-  nb_boots  = 2000,
-  parallel_args = list(plan = "multisession", workers = 6)
-)
-
-# Publication-ready tables
-summaries <- summarize_bootstrap_results(fs_bc)
-summaries$main_table_gt
-
-# --- Step 3: Cross-Validation ---
-# K-fold CV (repeated 10-fold)
-fs_cv <- forestsearch_tenfold(
-  fs.est  = fs,
-  sims    = 200,
-  Kfolds  = 10,
-  parallel_args = list(plan = "multisession", workers = 6)
-)
-
-cv_metrics_tables(fs_cv)
-
-# N-fold (leave-one-out) CV
-fs_oob <- forestsearch_Kfold(
-  fs.est  = fs,
-  Kfolds  = nrow(trial_data),
-  parallel_args = list(plan = "multisession", workers = 6)
-)
-
-# --- Step 4: Visualization ---
-# Forest plot with bias-corrected estimates and CV metrics
-plot_subgroup_results_forestplot(
-  fs_results  = list(fs.est = fs, fs_bc = fs_bc, fs_kfold = fs_cv),
-  df_analysis = trial_data,
-  outcome.name = "tte",
-  event.name   = "event",
-  treat.name   = "treat"
-)
-
-# Weighted Kaplan-Meier curves by subgroup
-plot_sg_weighted_km(fs, fs_bc = fs_bc)
+# Would a screen protecting a uniform benefit (HR 0.70 to 0.85) have declared it?
+fs_declaration_calibration(fit, alpha = 0.10, c0 = c(0.70, 0.75, 0.80, 0.85))
 ```
 
-## Key Features
+## Main functions
 
-### Core Algorithm
-
-| Feature | Description |
+| Function | Purpose |
 |---|---|
-| `forestsearch()` | Main search engine: LASSO/GRF candidate selection, exhaustive enumeration, consistency evaluation |
-| `subgroup.consistency()` | Split-sample consistency with optional two-stage sequential early stopping |
-| `select_best_subgroup()` | Multiple selection criteria: `"hr"`, `"maxSG"`, `"minSG"`, `"hrMaxSG"`, `"hrMinSG"` |
-
-### Bootstrap Inference
-
-| Feature | Description |
-|---|---|
-| `forestsearch_bootstrap_dofuture()` | Parallelised bootstrap with `doFuture`; full algorithm mimicked in each replicate |
-| Bias correction | Two-source correction on the log-HR scale (Leon et al., Eq. 6--7) |
-| IJ variance | Infinitesimal jackknife variance estimation for valid confidence intervals |
-| `summarize_bootstrap_results()` | Publication-ready `gt` tables with diagnostics |
-
-### Cross-Validation
-
-| Feature | Description |
-|---|---|
-| `forestsearch_Kfold()` | N-fold (leave-one-out) CV for algorithmic stability assessment |
-| `forestsearch_tenfold()` | Repeated K-fold CV (e.g., 200 x 10-fold) |
-| `cv_metrics_tables()` | sensCV, ppvCV, and exact-match correspondence metrics |
-
-### Visualization
-
-| Feature | Description |
-|---|---|
-| `plot_subgroup_results_forestplot()` | Forest plot with bias-corrected HRs, reference subgroups, and CV annotations |
-| `plot_sg_weighted_km()` | Weighted Kaplan-Meier curves for identified subgroups |
-| `plot_km_band_forestsearch()` | Multi-subgroup KM comparison bands |
-| `plot_spline_treatment_effect()` | Spline-based treatment effect curves |
-| `plot_detection_curve()` | Power/detection probability across effect sizes |
-
-### Simulation Framework
-
-| Feature | Description |
-|---|---|
-| `generate_aft_dgm_flex()` | Flexible AFT data-generating mechanism with configurable heterogeneity |
-| `create_gbsg_dgm()` | GBSG-based DGM for replicating paper simulations |
-| `run_simulation_analysis()` | Full simulation wrapper: FS, FS+GRF, and standalone GRF |
-| `summarize_simulation_results()` | Operating characteristics tables (type-1 error, power, sensitivity, PPV) |
-
-### Multi-Regional Clinical Trials
-
-| Feature | Description |
-|---|---|
-| `mrct_region_sims()` | Regional consistency evaluation in MRCTs |
-| `create_dgm_for_mrct()` | DGM with region-level heterogeneity |
-
-## Methodology at a Glance
-
-Forest Search identifies the subgroup *maximally consistent with harm*
-through the following procedure:
-
-```
-Candidate Factors ──► Enumerate Subgroups ──► HR Screening (≥ 1.25)
-                                                     │
-                                              Consistency Evaluation
-                                              (R = 400 random 50/50 splits)
-                                                     │
-                                              Select Ĥ (consistency ≥ 90%)
-                                                     │
-                                              Bootstrap Bias Correction
-                                              (B = 300–2000 replicates)
-```
-
-The **bias-corrected estimator** accounts for two sources of optimism:
-
-```
-β̂*(Ĥ) = β̂(Ĥ) − (1/B) Σ [η*_b(Ĥ*_b) + η*_b(Ĥ)]
-```
-
-where η\*\_b(Ĥ\*\_b) and η\*\_b(Ĥ) capture the discrepancies between
-bootstrap and observed data estimates for the bootstrap-selected and
-observed subgroups, respectively. Confidence intervals use the
-**infinitesimal jackknife** variance estimator.
-
-Simulation studies (20,000 replicates) demonstrate:
-
-- **Type-1 error** ≤ 3% for FS with LASSO (FS_l), even with noise
-  factors
-- **Power** 71--96% for detecting HR = 2.0 subgroups (N = 300--700)
-- **Conservative estimation**: bias-corrected estimates underestimate
-  harm and overestimate benefit---a favorable property for exploratory
-  analyses
-- **Oracle CI coverage** ≥ 95% across all scenarios
-
-## Requirements
-
-- **R** ≥ 4.1.0
-- Key dependencies: `survival`, `data.table`, `glmnet`, `grf`,
-  `doFuture`, `future`, `ggplot2`, `gt`
-- Optional: `forestploter` (forest plots), `DiagrammeR` (diagrams),
-  `cubature` (numerical integration)
+| `forestsearch()` | Candidate enumeration, screening, selection and (with `mr_inference = TRUE`) selection-adjusted inference, in one call |
+| `fs_mr_inference()` | Multiplier-resampling inference on a supplied candidate family |
+| `fs_declaration_calibration()` | Family-wise declaration rate of the screen at a protected level, and the calibrated cutoff |
+| `mr_estimates_table()` | The multiplier-resampling estimates in the layout of the bootstrap tables |
+| `guohe_algorithm3()` | The de-biased estimate and one-sided bootstrap bound of Guo and He (2021), for comparison |
+| `forestsearch_bootstrap_dofuture()`, `summarize_bootstrap_results()` | The full bootstrap bias correction of León et al. (2024) |
+| `forestsearch_Kfold()`, `forestsearch_tenfold()`, `cv_metrics_tables()` | Cross-validation of the identification |
+| `plot_subgroup_results_forestplot()`, `plot_sg_weighted_km()` | Forest plots and weighted Kaplan-Meier curves |
+| `generate_aft_dgm_flex()`, `create_gbsg_dgm()`, `run_simulation_analysis()` | Data-generating mechanisms and the simulation framework |
+| `mrct_region_sims()`, `create_dgm_for_mrct()` | Regional consistency in multi-regional trials |
 
 ## Documentation
 
-- **Getting Started vignette**: `vignette("forestsearch")` --- end-to-end
-  walkthrough with the GBSG breast cancer trial
-- **Methodology vignette**: `vignette("methodology")` --- detailed
-  statistical framework, algorithm, simulation results, and applications
-- **pkgdown site**: <https://larry-leon.github.io/forestsearch/>
-- **Function reference**: organised across 16 topic areas (core
-  algorithm, bootstrap, CV, visualization, simulation, MRCT, and more)
+- `vignette("forestsearch")`: the analysis above, end to end.
+- The package website, <https://larry-leon.github.io/forestsearch/>, has
+  articles on post-selection inference for the same trial (the full
+  bootstrap beside multiplier resampling), on the comparison with Guo and He
+  (2021), on treatment-effect definitions and their causal reading, on the
+  simulation framework, and on the original workflow of León et al. (2024).
+- `?forestsearch` documents every argument, with examples for this analysis
+  and for the binary and continuous ACTG 175 analyses of León and Anderson
+  (2026b).
 
 ## Citation
 
@@ -281,8 +181,10 @@ If you use **forestsearch** in your work, please cite:
 }
 ```
 
-## Related Work
+## Related work
 
+- Guo, X. & He, X. (2021). Inference on selected subgroups in clinical
+  trials. *JASA*.
 - Athey, S. & Imbens, G. (2016). Recursive partitioning for
   heterogeneous causal effects. *PNAS*.
 - Wager, S. & Athey, S. (2018). Estimation and inference of

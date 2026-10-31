@@ -87,7 +87,9 @@
   pkgdown article "Exploratory subgroup identification with forestsearch (the 2024 workflow)" and is no
   longer built on CRAN.
 * The post-selection analysis is now an article on the package website rather than a CRAN vignette, because the full analysis takes a few minutes to run: <https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html>. It reproduces the GBSG analysis of León and Anderson (2026a), illustrates the full bootstrap at a small number of replicates, and shows `mr_estimates_table()`.
-* The methodology and simulation articles on the package website carry a note placing them as the 2024 workflow, with the deprecated arguments removed from their listings.
+* The methodology and simulation articles on the package website keep their text as the record of the 2024 workflow, with the deprecated arguments removed from their listings and a dated note at each point where the current method differs. The articles on treatment-effect definitions, biomarker effects and the causal interpretation of hazard ratios now state the estimand the package reports for an identified subgroup, as in León and Anderson (2026a, 2026b). All five articles are now Quarto documents.
+* New article on the package website, "Post-selection bounds on a nested continuum: the Guo and He (2021) design": Section S4 of León and Anderson (2026b), with the complete code, a small default run, and the paper's results beside it.
+* The README describes the current method and shows the analysis of `vignette("forestsearch")`.
 * The `run_null_calibration()` example runs at an illustrative size (two trial sizes, ten simulations, no LASSO/GRF screening); a calibration for use takes more simulations, as the example now says.
 
 # forestsearch 0.4.0
