@@ -90,6 +90,10 @@
 #'   \code{verbose_n_sims} simulation replicates. Set to 0 to suppress per-sim
 #'   output, or \code{Inf} to print all. Default: 2
 #' @param seed Integer. Base random seed for reproducibility. Default: NULL
+#' @param record Character. \code{"point"} (default) returns the point
+#'   estimates only, exactly as before this argument existed. \code{"full"}
+#'   adds, from the same simulated trials (nothing is redrawn), the
+#'   per-replicate record described under \emph{Full record} below.
 #'
 #' @return A data.table with simulation results containing:
 #' \describe{
@@ -112,6 +116,11 @@
 #'   \item{POhr_sg_train}{Potential outcome hazard ratio in subgroup (training)}
 #'   \item{hr_sg_null}{Subgroup HR when found, NA otherwise}
 #' }
+#' With \code{record = "full"}, the same table followed by the columns
+#' \code{TP_nonregion}, \code{FP_nonregion}, \code{FN_nonregion},
+#' \code{TN_nonregion}, \code{TP_region}, \code{FP_region},
+#' \code{FN_region}, \code{TN_region}, and the attribute
+#' \code{"estimators"} (see \emph{Full record}).
 #'
 #' @details
 #' ## Simulation Process
@@ -130,6 +139,45 @@
 #' populations. It does not imply any prognostic effect. To include prognostic
 #' confounder effects, specify them when creating the DGM using
 #' \code{\link{create_dgm_for_mrct}} or \code{\link{generate_aft_dgm_flex}}.
+#'
+#' ## Full record
+#'
+#' With \code{record = "full"} the returned table is the \code{"point"}
+#' table with eight columns added and a second table attached as an
+#' attribute, \code{est <- attr(res, "estimators")}; \code{res$hr_itt},
+#' \code{nrow(res)} and every \code{"point"} column are unchanged. (A
+#' data.table subset such as \code{res[order(sim)]} drops the attribute:
+#' take it first.)
+#'
+#' \code{estimators} has one row per trial and patient set:
+#' \code{itt_all} (all patients), \code{itt_nonregion}
+#' (\code{region_var == 0}), \code{itt_region} (\code{region_var == 1}),
+#' \code{region_Ghat} (the region outside the declared harm subgroup
+#' \eqn{\hat H}; the whole region in an undeclared trial),
+#' \code{region_Gstar} (the region with \code{flag_harm == 0}) and
+#' \code{Hstar_nonregion} (the non-region patients with
+#' \code{flag_harm == 1}). Columns: \code{sim}, \code{estimator},
+#' \code{n}, \code{n_exp}, \code{events_exp}, \code{events_ctl}; the
+#' unadjusted two-sample Cox fit \code{Surv(y_sim, event_sim) ~ treat_sim}
+#' on the set, \code{hr}, \code{lo}, \code{hi} (Wald 95\%) and
+#' \code{se_loghr} (a fit with an arm without events is kept; a fit that
+#' errors, e.g. on an empty set, gives \code{NA}); the targets on the same
+#' patients, \code{ahr} = \code{exp(mean(loghr_po))} and \code{cde} =
+#' \code{mean(exp(theta_1)) / mean(exp(theta_0))} (\code{NA} when the
+#' simulated trial lacks those columns); and \code{declared} (0/1, the
+#' trial's \code{any_found}). \code{itt_all} is unadjusted, so it equals
+#' \code{hr_itt} only when the trial has no \code{strat} column.
+#'
+#' The added columns of the per-trial table are the 2 x 2 counts of
+#' \eqn{\hat H} membership against \code{flag_harm == 1} over the
+#' non-region patients and over the region patients. \eqn{\hat H} is
+#' evaluated from the selected definition with \code{\link{get_dfpred}}
+#' (the route of \code{df.test}); it is empty in an undeclared trial, whose
+#' counts are kept.
+#'
+#' When the simulated trial has no \code{flag_harm} column, the
+#' \code{region_Gstar} and \code{Hstar_nonregion} rows are omitted and the
+#' counts are \code{NA}, with a message.
 #'
 #' @examples
 #' \dontrun{
@@ -189,7 +237,8 @@ mrct_region_sims <- function(
     parallel_args = list(plan = "multisession", workers = NULL, show_message = TRUE),
     details = FALSE,
     verbose_n_sims = 2L,
-    seed = NULL
+    seed = NULL,
+    record = c("point", "full")
 ) {
 
   # ===========================================================================
@@ -207,6 +256,8 @@ mrct_region_sims <- function(
   if (!region_var %in% names(dgm$df_super)) {
     stop("region_var '", region_var, "' not found in dgm$df_super")
   }
+
+  record <- match.arg(record)
 
   t_start <- proc.time()[3]
 
@@ -300,6 +351,11 @@ mrct_region_sims <- function(
 
   # Setup progress handler (safe for callr and other backends)
   progressr::handlers("progress")
+
+  # Internal helper bound locally: the worker expression resolves exported
+  # functions through the attached package only, so the record helper is
+  # shipped to the workers as a global.
+  full_record_fn <- .mrct_full_record
 
   run_foreach <- function() {
     p <- progressr::progressor(along = seq_len(n_sims))
@@ -559,7 +615,7 @@ mrct_region_sims <- function(
       # -----------------------------------------------------------------------
       # Return results
       # -----------------------------------------------------------------------
-      data.table::data.table(
+      out_point <- data.table::data.table(
         sim = sim,
         n_itt = n_itt,
         hr_itt = hr_itt,
@@ -578,6 +634,15 @@ mrct_region_sims <- function(
         hr_sg_train = hr_sg_train,
         POhr_sg_train = POhr_sg_train
       )
+
+      if (record == "full") {
+        sg_harm <- if (any_found == 1) fs_result$sg.harm else NULL
+        full <- full_record_fn(dfs, region_var, sg_harm, sim, any_found)
+        out_point <- cbind(out_point, full$counts)
+        out_point[, .estimators := list(list(full$estimators))]
+      }
+
+      out_point
     }
   }
 
@@ -599,6 +664,19 @@ mrct_region_sims <- function(
   results <- data.table::as.data.table(results)
   results[, hr_sg_null := data.table::fifelse(any_found == 0, NA_real_, hr_sg)]
 
+  if (record == "full") {
+    estimators <- data.table::rbindlist(results$.estimators)
+    results[, .estimators := NULL]
+    count_cols <- .mrct_count_cols()
+    data.table::setcolorder(results, c(setdiff(names(results), count_cols), count_cols))
+    if (all(is.na(results$TP_region)) && nrow(results) > 0) {
+      message("mrct_region_sims(record = \"full\"): the simulated trials have no ",
+              "flag_harm column; the region_Gstar and Hstar_nonregion rows are ",
+              "omitted and the H-hat confusion counts are NA.")
+    }
+    data.table::setattr(results, "estimators", estimators)
+  }
+
   # ===========================================================================
   # SECTION 6: REPORT SUMMARY
   # ===========================================================================
@@ -618,6 +696,93 @@ mrct_region_sims <- function(
   }
 
   return(results)
+}
+
+
+# =============================================================================
+# Full per-replicate record (record = "full")
+# =============================================================================
+
+#' Names of the H-hat confusion columns of the full record
+#' @noRd
+.mrct_count_cols <- function() {
+  paste0(rep(c("TP", "FP", "FN", "TN"), 2),
+         rep(c("_nonregion", "_region"), each = 4))
+}
+
+#' One estimator row of the full record on the patients `idx` of trial `s`
+#'
+#' The unadjusted two-sample Cox fit (errors give NA; a fit with an arm
+#' without events is kept, as safe_coxph()), from one summary(), and the
+#' targets AHR = exp(mean(loghr_po)) and CDE = mean(exp(theta_1)) /
+#' mean(exp(theta_0)) on the same patients.
+#' @noRd
+.mrct_record_fit <- function(s, idx) {
+  d <- s[idx]
+  ex <- d$treat_sim == 1
+  f <- tryCatch(
+    suppressWarnings(summary(survival::coxph(
+      survival::Surv(y_sim, event_sim) ~ treat_sim, data = d))),
+    error = function(e) NULL
+  )
+  ok <- !is.null(f) && is.numeric(f$conf.int[1])
+  data.table::data.table(
+    n = nrow(d),
+    n_exp = sum(ex),
+    events_exp = sum(d$event_sim[ex]),
+    events_ctl = sum(d$event_sim[!ex]),
+    hr = if (ok) unname(f$conf.int[1, "exp(coef)"]) else NA_real_,
+    lo = if (ok) unname(f$conf.int[1, "lower .95"]) else NA_real_,
+    hi = if (ok) unname(f$conf.int[1, "upper .95"]) else NA_real_,
+    se_loghr = if (ok) unname(f$coefficients[1, "se(coef)"]) else NA_real_,
+    ahr = if ("loghr_po" %in% names(d)) exp(mean(d$loghr_po)) else NA_real_,
+    cde = if (all(c("theta_1", "theta_0") %in% names(d))) {
+      mean(exp(d$theta_1)) / mean(exp(d$theta_0))
+    } else NA_real_
+  )
+}
+
+#' The full record of one simulated trial
+#'
+#' @param dfs The trial (data.table), as drawn in the replicate.
+#' @param region_var Region indicator column.
+#' @param sg_harm The selected subgroup definition (fs_result$sg.harm), or
+#'   NULL when no subgroup is declared.
+#' @param sim Replicate index.
+#' @param any_found 0/1.
+#' @return list(estimators = data.table, counts = one-row data.table)
+#' @noRd
+.mrct_full_record <- function(dfs, region_var, sg_harm, sim, any_found) {
+  reg <- dfs[[region_var]] == 1
+  H <- if (is.null(sg_harm)) {
+    rep(FALSE, nrow(dfs))
+  } else {
+    get_dfpred(as.data.frame(dfs), sg.harm = sg_harm, version = 2)$treat.recommend == 0
+  }
+  has_band <- "flag_harm" %in% names(dfs)
+  band <- if (has_band) dfs$flag_harm == 1 else NULL
+
+  sets <- list(itt_all = rep(TRUE, nrow(dfs)), itt_nonregion = !reg,
+               itt_region = reg, region_Ghat = reg & !H)
+  if (has_band) {
+    sets$region_Gstar <- reg & !band
+    sets$Hstar_nonregion <- !reg & band
+  }
+  est <- data.table::rbindlist(lapply(names(sets), function(k) {
+    cbind(data.table::data.table(sim = sim, estimator = k),
+          .mrct_record_fit(dfs, sets[[k]]))
+  }))
+  est[, declared := as.integer(any_found)]
+
+  cc <- function(h, b) c(sum(h & b), sum(h & !b), sum(!h & b), sum(!h & !b))
+  counts <- if (has_band) {
+    as.integer(c(cc(H[!reg], band[!reg]), cc(H[reg], band[reg])))
+  } else {
+    rep(NA_integer_, 8)
+  }
+  counts <- data.table::as.data.table(as.list(stats::setNames(counts, .mrct_count_cols())))
+
+  list(estimators = est, counts = counts)
 }
 
 

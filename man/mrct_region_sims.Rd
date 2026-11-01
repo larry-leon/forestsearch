@@ -23,7 +23,8 @@ mrct_region_sims(
   parallel_args = list(plan = "multisession", workers = NULL, show_message = TRUE),
   details = FALSE,
   verbose_n_sims = 2L,
-  seed = NULL
+  seed = NULL,
+  record = c("point", "full")
 )
 }
 \arguments{
@@ -109,6 +110,11 @@ ForestSearch diagnostics (including internal output) for only the first
 output, or \code{Inf} to print all. Default: 2}
 
 \item{seed}{Integer. Base random seed for reproducibility. Default: NULL}
+
+\item{record}{Character. \code{"point"} (default) returns the point
+estimates only, exactly as before this argument existed. \code{"full"}
+adds, from the same simulated trials (nothing is redrawn), the
+per-replicate record described under \emph{Full record} below.}
 }
 \value{
 A data.table with simulation results containing:
@@ -132,6 +138,11 @@ A data.table with simulation results containing:
 \item{POhr_sg_train}{Potential outcome hazard ratio in subgroup (training)}
 \item{hr_sg_null}{Subgroup HR when found, NA otherwise}
 }
+With \code{record = "full"}, the same table followed by the columns
+\code{TP_nonregion}, \code{FP_nonregion}, \code{FN_nonregion},
+\code{TN_nonregion}, \code{TP_region}, \code{FP_region},
+\code{FN_region}, \code{TN_region}, and the attribute
+\code{"estimators"} (see \emph{Full record}).
 }
 \description{
 Simulates multi-regional clinical trials and evaluates ForestSearch subgroup
@@ -159,6 +170,46 @@ The region_var parameter is used ONLY for splitting data into training/testing
 populations. It does not imply any prognostic effect. To include prognostic
 confounder effects, specify them when creating the DGM using
 \code{\link{create_dgm_for_mrct}} or \code{\link{generate_aft_dgm_flex}}.
+}
+
+\subsection{Full record}{
+
+With \code{record = "full"} the returned table is the \code{"point"}
+table with eight columns added and a second table attached as an
+attribute, \code{est <- attr(res, "estimators")}; \code{res$hr_itt},
+\code{nrow(res)} and every \code{"point"} column are unchanged. (A
+data.table subset such as \code{res[order(sim)]} drops the attribute:
+take it first.)
+
+\code{estimators} has one row per trial and patient set:
+\code{itt_all} (all patients), \code{itt_nonregion}
+(\code{region_var == 0}), \code{itt_region} (\code{region_var == 1}),
+\code{region_Ghat} (the region outside the declared harm subgroup
+\eqn{\hat H}; the whole region in an undeclared trial),
+\code{region_Gstar} (the region with \code{flag_harm == 0}) and
+\code{Hstar_nonregion} (the non-region patients with
+\code{flag_harm == 1}). Columns: \code{sim}, \code{estimator},
+\code{n}, \code{n_exp}, \code{events_exp}, \code{events_ctl}; the
+unadjusted two-sample Cox fit \code{Surv(y_sim, event_sim) ~ treat_sim}
+on the set, \code{hr}, \code{lo}, \code{hi} (Wald 95\\%) and
+\code{se_loghr} (a fit with an arm without events is kept; a fit that
+errors, e.g. on an empty set, gives \code{NA}); the targets on the same
+patients, \code{ahr} = \code{exp(mean(loghr_po))} and \code{cde} =
+\code{mean(exp(theta_1)) / mean(exp(theta_0))} (\code{NA} when the
+simulated trial lacks those columns); and \code{declared} (0/1, the
+trial's \code{any_found}). \code{itt_all} is unadjusted, so it equals
+\code{hr_itt} only when the trial has no \code{strat} column.
+
+The added columns of the per-trial table are the 2 x 2 counts of
+\eqn{\hat H} membership against \code{flag_harm == 1} over the
+non-region patients and over the region patients. \eqn{\hat H} is
+evaluated from the selected definition with \code{\link{get_dfpred}}
+(the route of \code{df.test}); it is empty in an undeclared trial, whose
+counts are kept.
+
+When the simulated trial has no \code{flag_harm} column, the
+\code{region_Gstar} and \code{Hstar_nonregion} rows are omitted and the
+counts are \code{NA}, with a message.
 }
 }
 \examples{

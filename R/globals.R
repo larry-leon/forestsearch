@@ -240,6 +240,7 @@ utils::globalVariables(c(
   "sim",
   "hr_test",
   "any_found", "sg_found", "hr_sg_null",
+  ".estimators", "declared",
   "hr_sg_train", "POhr_sg_train", "n_sg_train",
   "regAflag", "sg_le85", "regAflag2", "regAflag3",
   "found",

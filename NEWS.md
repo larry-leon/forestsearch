@@ -35,6 +35,17 @@
   (default `NULL`, the current behaviour): a supplied latent correlation
   matrix is validated and used as given, with no latentcor fit, so a DGM can
   be rebuilt identically on any platform from a stored `dgm$mrct$latent_R`.
+* `mrct_region_sims()` gains `record = c("point", "full")`. `"point"` (the
+  default) returns exactly the current table. `"full"` keeps the
+  per-replicate record of the same trials (nothing is redrawn): the table
+  gains the 2 x 2 counts of Ĥ membership against `flag_harm` over the
+  non-region and the region patients (`TP_nonregion`, ..., `TN_region`), and
+  carries `attr(res, "estimators")`, one row per trial and patient set
+  (`itt_all`, `itt_nonregion`, `itt_region`, `region_Ghat`, `region_Gstar`,
+  `Hstar_nonregion`) with the unadjusted Cox fit (`hr`, Wald `lo`/`hi`,
+  `se_loghr`), patients and events by arm, the set's `ahr` and `cde`, and
+  `declared`. It reproduces the redraw-based records of mrct-consistency
+  (`sims/123_ident_rlog4_full_records.R`) exactly.
 
 ### Behaviour changes
 
