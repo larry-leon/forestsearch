@@ -8,6 +8,7 @@ S3method(plot,fs_forestplot)
 S3method(plot,fs_sg_plot)
 S3method(plot,subgroup_sims_summary)
 S3method(predict,dina)
+S3method(print,ahr_population)
 S3method(print,cox_ahr_cde)
 S3method(print,detection_curve)
 S3method(print,dina)
@@ -64,6 +65,10 @@ export(CV_sgs)
 export(FS_labels)
 export(SG_tab_estimates)
 export(SGplot_estimates)
+export(ahr_design)
+export(ahr_limit)
+export(ahr_population)
+export(ahr_solve)
 export(analysis_covariates)
 export(analyze_subgroup)
 export(benchmark_spec)
@@ -439,7 +444,11 @@ importFrom(gt,
   tab_spanner,
   tab_style
 )
-importFrom(mvtnorm,rmvnorm)
+importFrom(mvtnorm,
+  Miwa,
+  pmvnorm,
+  rmvnorm
+)
 importFrom(parallel,detectCores)
 importFrom(patchwork,
   plot_annotation,

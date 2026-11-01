@@ -1,3 +1,48 @@
+# forestsearch 0.4.1.9000 (development)
+
+### New features
+
+* The analytic layer of the MRCT regional-consistency work, moved from the
+  mrct-consistency repository (`docs/theory/scripts/sk_limit.R`,
+  `ahr_setup.R`, `sims/regional_entry_design.R`) in its per-patient-entry
+  form. For any patient set of a Weibull AFT DGM built by
+  `inject_mrct_structure()`, analysed at a calendar time with uniform
+  staggered entry and administrative censoring only, it computes by
+  quadrature (nothing is drawn) the exact limit of the two-sample Cox
+  estimate, its information and robust variance, the expected events, the
+  exact correlation between nested sets' estimates, the set's AHR and CDE,
+  and the normal-approximation trigger probabilities at a trial size:
+  * `ahr_population()`: the population of a DGM, with an optional
+    per-patient or per-group entry delay (`entry_delay`);
+  * `ahr_limit()`: the limit and its companions for a named or logical set;
+  * `ahr_design()`: SEs, events, correlations and `p_itt_ub_lt1`,
+    `p_region_itt_gt1`, `p_region_Gstar_lt1`, `p_trigger`,
+    `p_trigger_and_Gstar_lt1` at a trial size `n`;
+  * `ahr_solve()`: the scan-and-`uniroot()` solve of P(trigger) = target in
+    one free parameter, returning every bracketed root.
+  With no delay the layer reproduces the committed mrct-consistency records
+  to below 1e-14.
+* `scale_dgm_hazard(dgm, m)`: multiplies every hazard of a DGM by `m`
+  (`mu <- mu_fitted - tau * log(m)`, hazard ratios unchanged), recording `m`
+  in `dgm$mrct$hazard_multiplier` and `attr(dgm, "m")`.
+* `simulate_from_dgm()` gains `entry_delay` (default `NULL`, the current
+  behaviour): `list(var = <column>, delay = a)` makes patients with
+  `var == 1` enter at `a + U(0, max_entry)`, redrawn every call; a numeric
+  vector gives each sampled patient's delay. `entry_var` keeps precedence.
+  `mrct_region_sims()` passes it through `sim_args`; its documentation now
+  states the `entrytime` column convention.
+* `expand_covariates()` and `inject_mrct_structure()` gain `latent_R`
+  (default `NULL`, the current behaviour): a supplied latent correlation
+  matrix is validated and used as given, with no latentcor fit, so a DGM can
+  be rebuilt identically on any platform from a stored `dgm$mrct$latent_R`.
+
+### Behaviour changes
+
+* `expand_covariates()` (and so `inject_mrct_structure()`) now warns when
+  the latent correlation is not fitted by latentcor (package not installed,
+  or its call failed) and the normal-score correlation is used instead. The
+  computation is unchanged.
+
 # forestsearch 0.4.1
 
 ### Deprecated
