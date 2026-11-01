@@ -19,7 +19,8 @@ simulate_from_dgm(
   keep_rand = FALSE,
   time_eos = NULL,
   replace = TRUE,
-  baseline = c("resample", "fixed")
+  baseline = c("resample", "fixed"),
+  entry_delay = NULL
 )
 }
 \arguments{
@@ -34,7 +35,12 @@ Default \code{1} (1:1 allocation).}
 
 \item{entry_var}{Character string naming an entry-time variable in the
 super population. If \code{NULL}, entry times are drawn as
-\code{Uniform(0, max_entry)}. Default \code{NULL}.}
+\code{Uniform(0, max_entry)}. Default \code{NULL}. When supplied it
+takes precedence over \code{entry_delay}, which is then ignored.
+(\code{\link{mrct_region_sims}} sets \code{entry_var = "entrytime"}
+whenever \code{dgm$df_super} has a column \code{entrytime}: one fixed
+entry time per super-population row, carried with the row into every
+trial that samples it.)}
 
 \item{max_entry}{Numeric maximum entry time for staggered entry simulation.
 Only used when \code{entry_var = NULL}. Default \code{24}.}
@@ -91,6 +97,21 @@ Requires a DGM built by a package version that stores \code{df_source}
 (rebuild with \code{generate_aft_dgm_flex()} if absent). With
 \code{baseline = "fixed"}, \code{n} must be \code{NULL} or equal
 \code{nrow(dgm$df_source)}, and \code{replace} is ignored.}
+
+\item{entry_delay}{\code{NULL} (default: every patient enters at
+\code{Uniform(0, max_entry)}), or a per-patient delay added to that
+entry time, in the DGM's time units. Either
+\code{list(var = <column>, delay = a)}: patients with
+\code{var == 1} enter at \code{a + Uniform(0, max_entry)}, the others
+at \code{Uniform(0, max_entry)} (e.g. \code{list(var = "z_region",
+delay = 6)} for a region enrolling six months later); or a numeric
+vector of length \code{n} (non-negative), the delay of each sampled
+patient in sampling order. The uniform part is redrawn every call, with
+the same random numbers as \code{entry_delay = NULL}, so only the
+delayed patients' entry (and hence follow-up
+\code{analysis_time - entry}) changes. Ignored when \code{entry_var} is
+supplied and on the \code{n = NULL} path (no entry). Passed by
+\code{\link{mrct_region_sims}} through its \code{sim_args}.}
 }
 \value{
 A \code{data.frame} with columns: \describe{

@@ -22,7 +22,8 @@ inject_mrct_structure(
   factor_vars_cens = NULL,
   cens_type = "weibull",
   seed = 8316951L,
-  verbose = FALSE
+  verbose = FALSE,
+  latent_R = NULL
 )
 }
 \arguments{
@@ -64,6 +65,17 @@ interaction (the residual Region-U-TE pathway).  Mutually exclusive with x3
 \item{seed}{RNG seed}
 
 \item{verbose}{logical}
+
+\item{latent_R}{NULL (default), or the latent correlation matrix of the
+copula expansion, passed to \code{\link[=expand_covariates]{expand_covariates()}}: named rows and columns
+matching the expanded covariates (\code{continuous_vars}, \code{factor_vars}, the
+censoring covariates and the \code{x3} variables), symmetric and positive
+definite. When supplied no latentcor fit is made, so the super-population
+is the same on every platform; e.g. pass \code{dgm$mrct$latent_R} of a stored
+build to rebuild it. With NULL the matrix is fitted by latentcor when
+installed; otherwise (or if the fit fails) the normal-score correlation is
+used with a warning (see \code{\link[=expand_covariates]{expand_covariates()}}). The matrix used is
+stored in \code{dgm$mrct$latent_R} either way.}
 }
 \value{
 aft_dgm_flex with df_super = expanded population (+ \verb{z_<region>}), and

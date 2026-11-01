@@ -65,6 +65,23 @@
 #' @param integer_vars variables to round back to integers (auto-detected if NULL)
 #' @param method    "copula" (default) or "bootstrap" (row resampling, as the
 #'                  package does by default -- no novel covariate patterns)
+#' @param latent_R  NULL (default), or a latent correlation matrix to use in
+#'   place of a fitted one. It must be numeric, square, with row and column
+#'   names equal (as sets) to `vars`; it is reordered to `vars`, and checked
+#'   symmetric with unit diagonal and positive definite. A supplied matrix is
+#'   used as given and no fit is attempted (latentcor is not called), so a DGM
+#'   can be rebuilt on any platform from a stored
+#'   `dgm$mrct$latent_R`. Ignored when `method = "bootstrap"`.
+#' @details
+#' Latent correlation (copula). With `latent_R = NULL` the latent correlation
+#' is fitted by `latentcor::latentcor()` (types "bin"/"con", method
+#' "original", nearPD) when latentcor is installed. When latentcor is not
+#' installed, or its call fails, the normal-score (van der Waerden)
+#' correlation of the seed rows, projected by `Matrix::nearPD()`, is used
+#' instead and a warning names the fallback and the reason. The two give
+#' different super-populations from the same seed, so a DGM built without
+#' latentcor is not the one built with it; pass `latent_R` to make the build
+#' platform-independent. The matrix used is returned as `attr(, "latent_R")`.
 #' @return data.frame with n_super rows and columns `vars`
 #' @importFrom mvtnorm rmvnorm
 #' @importFrom Matrix nearPD
@@ -72,7 +89,8 @@
 #' @export
 expand_covariates <- function(seed_df, vars, n_super, seed = 20260903L,
                               integer_vars = NULL,
-                              method = c("copula", "bootstrap")) {
+                              method = c("copula", "bootstrap"),
+                              latent_R = NULL) {
   method <- match.arg(method)
   X <- seed_df[, vars, drop = FALSE]
   X <- X[stats::complete.cases(X), , drop = FALSE]
@@ -91,20 +109,33 @@ expand_covariates <- function(seed_df, vars, n_super, seed = 20260903L,
     integer_vars <- vars[!binary & vapply(X, function(v) all(v == round(v)), logical(1))]
 
   ## latent correlation --------------------------------------------------------
-  R <- NULL
-  if (requireNamespace("latentcor", quietly = TRUE)) {
-    R <- tryCatch({
-      types <- ifelse(binary, "bin", "con")
-      lc <- latentcor::latentcor(X, types = types, method = "original",
-                                 use.nearPD = TRUE, showplot = FALSE)
-      as.matrix(lc$R)
-    }, error = function(e) NULL)
-  }
-  if (is.null(R)) {
-    ## normal-score (van der Waerden) correlation as a fallback
-    Zs <- sapply(X, function(v) stats::qnorm((rank(v, ties.method = "average") - 0.5) / length(v)))
-    R  <- stats::cor(Zs)
-    R  <- as.matrix(Matrix::nearPD(R, corr = TRUE)$mat)
+  if (!is.null(latent_R)) {
+    R <- .check_latent_R(latent_R, vars)
+  } else {
+    R <- NULL
+    why <- "the latentcor package is not installed"
+    if (.latentcor_available()) {
+      R <- tryCatch({
+        types <- ifelse(binary, "bin", "con")
+        lc <- latentcor::latentcor(X, types = types, method = "original",
+                                   use.nearPD = TRUE, showplot = FALSE)
+        as.matrix(lc$R)
+      }, error = function(e) {
+        why <<- paste0("latentcor::latentcor() failed: ", conditionMessage(e))
+        NULL
+      })
+    }
+    if (is.null(R)) {
+      warning("expand_covariates(): latent correlation not fitted (", why,
+              "); using the normal-score (van der Waerden) correlation of the ",
+              "seed rows instead. The super-population differs from a ",
+              "latentcor build; supply latent_R to reproduce one.",
+              call. = FALSE)
+      ## normal-score (van der Waerden) correlation as a fallback
+      Zs <- sapply(X, function(v) stats::qnorm((rank(v, ties.method = "average") - 0.5) / length(v)))
+      R  <- stats::cor(Zs)
+      R  <- as.matrix(Matrix::nearPD(R, corr = TRUE)$mat)
+    }
   }
   dimnames(R) <- list(vars, vars)
 
@@ -127,6 +158,35 @@ expand_covariates <- function(seed_df, vars, n_super, seed = 20260903L,
   }
   attr(out, "latent_R") <- R
   out
+}
+
+#' Whether latentcor can be used (a separate function so tests can mock it)
+#' @noRd
+.latentcor_available <- function() requireNamespace("latentcor", quietly = TRUE)
+
+#' Validate a supplied latent correlation matrix and order it to `vars`
+#' @noRd
+.check_latent_R <- function(latent_R, vars, tol = 1e-8) {
+  R <- latent_R
+  if (inherits(R, "Matrix")) R <- as.matrix(R)
+  if (!is.matrix(R) || !is.numeric(R) || nrow(R) != ncol(R))
+    stop("latent_R must be a numeric square matrix.", call. = FALSE)
+  rn <- rownames(R); cn <- colnames(R)
+  if (is.null(rn) || is.null(cn) || !identical(rn, cn))
+    stop("latent_R must have identical row and column names.", call. = FALSE)
+  if (length(rn) != length(vars) || !setequal(rn, vars) || anyDuplicated(rn))
+    stop("latent_R names must match the covariates: ",
+         paste(vars, collapse = ", "), ".", call. = FALSE)
+  R <- R[vars, vars, drop = FALSE]
+  if (anyNA(R) || !isSymmetric(unname(R), tol = tol))
+    stop("latent_R must be symmetric without missing values.", call. = FALSE)
+  if (max(abs(diag(R) - 1)) > tol)
+    stop("latent_R must have unit diagonal (a correlation matrix).", call. = FALSE)
+  ev <- eigen(R, symmetric = TRUE, only.values = TRUE)$values
+  if (min(ev) <= 0)
+    stop("latent_R must be positive definite (smallest eigenvalue ",
+         signif(min(ev), 3), ").", call. = FALSE)
+  R
 }
 
 
@@ -252,6 +312,16 @@ make_region_model <- function(pop, x_pred = NULL, or_pred = 1,
 #' @param continuous_vars_cens,factor_vars_cens,cens_type  passed through
 #' @param seed          RNG seed
 #' @param verbose       logical
+#' @param latent_R      NULL (default), or the latent correlation matrix of the
+#'   copula expansion, passed to [expand_covariates()]: named rows and columns
+#'   matching the expanded covariates (`continuous_vars`, `factor_vars`, the
+#'   censoring covariates and the `x3` variables), symmetric and positive
+#'   definite. When supplied no latentcor fit is made, so the super-population
+#'   is the same on every platform; e.g. pass `dgm$mrct$latent_R` of a stored
+#'   build to rebuild it. With NULL the matrix is fitted by latentcor when
+#'   installed; otherwise (or if the fit fails) the normal-score correlation is
+#'   used with a warning (see [expand_covariates()]). The matrix used is
+#'   stored in `dgm$mrct$latent_R` either way.
 #' @return aft_dgm_flex with df_super = expanded population (+ `z_<region>`), and
 #'   a `$mrct` element documenting the injected structure.
 #' @importFrom stats complete.cases setNames
@@ -271,7 +341,8 @@ inject_mrct_structure <- function(seed_data,
                                   factor_vars_cens = NULL,
                                   cens_type = "weibull",
                                   seed = 8316951L,
-                                  verbose = FALSE) {
+                                  verbose = FALSE,
+                                  latent_R = NULL) {
   expand <- match.arg(expand)
   region <- utils::modifyList(
     list(name = "region", prevalence = 0.20, or_pred = 10,
@@ -303,7 +374,8 @@ inject_mrct_structure <- function(seed_data,
   }
 
   ## 1. expand covariates ----------------------------------------------------
-  df_pop <- expand_covariates(seed_df, covs, n_super, seed = seed, method = expand)
+  df_pop <- expand_covariates(seed_df, covs, n_super, seed = seed, method = expand,
+                              latent_R = latent_R)
 
   ## 2. region -----------------------------------------------------------------
   rm_ <- make_region_model(df_pop, x_pred = x_pred, or_pred = region$or_pred,

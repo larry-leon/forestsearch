@@ -10,7 +10,8 @@ expand_covariates(
   n_super,
   seed = 20260903L,
   integer_vars = NULL,
-  method = c("copula", "bootstrap")
+  method = c("copula", "bootstrap"),
+  latent_R = NULL
 )
 }
 \arguments{
@@ -26,10 +27,29 @@ expand_covariates(
 
 \item{method}{"copula" (default) or "bootstrap" (row resampling, as the
 package does by default -- no novel covariate patterns)}
+
+\item{latent_R}{NULL (default), or a latent correlation matrix to use in
+place of a fitted one. It must be numeric, square, with row and column
+names equal (as sets) to \code{vars}; it is reordered to \code{vars}, and checked
+symmetric with unit diagonal and positive definite. A supplied matrix is
+used as given and no fit is attempted (latentcor is not called), so a DGM
+can be rebuilt on any platform from a stored
+\code{dgm$mrct$latent_R}. Ignored when \code{method = "bootstrap"}.}
 }
 \value{
 data.frame with n_super rows and columns \code{vars}
 }
 \description{
 Expand a seed covariate frame to n_super rows via a Gaussian copula.
+}
+\details{
+Latent correlation (copula). With \code{latent_R = NULL} the latent correlation
+is fitted by \code{latentcor::latentcor()} (types "bin"/"con", method
+"original", nearPD) when latentcor is installed. When latentcor is not
+installed, or its call fails, the normal-score (van der Waerden)
+correlation of the seed rows, projected by \code{Matrix::nearPD()}, is used
+instead and a warning names the fallback and the reason. The two give
+different super-populations from the same seed, so a DGM built without
+latentcor is not the one built with it; pass \code{latent_R} to make the build
+platform-independent. The matrix used is returned as \code{attr(, "latent_R")}.
 }

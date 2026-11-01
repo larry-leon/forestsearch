@@ -65,7 +65,12 @@
 #'   Default: list() (uses forestsearch defaults)
 #' @param sim_args Named list. Additional arguments passed to
 #'   \code{\link{simulate_from_dgm}} inside each replicate (e.g.,
-#'   \code{rand_ratio}, \code{draw_treatment}).
+#'   \code{rand_ratio}, \code{draw_treatment}, \code{max_entry}, or
+#'   \code{entry_delay = list(var = "z_region", delay = a)} for a region
+#'   enrolling \code{a} time units later, redrawn every replicate).
+#'   If \code{dgm$df_super} has a column \code{entrytime}, it is passed as
+#'   \code{entry_var = "entrytime"} (one fixed entry time per
+#'   super-population row) and takes precedence over \code{entry_delay}.
 #'   Parameters already in the \code{mrct_region_sims} signature
 #'   (\code{analysis_time}, \code{cens_adjust}) take precedence.
 #'   Default: list(rand_ratio = 1, draw_treatment = TRUE)

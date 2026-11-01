@@ -26,9 +26,28 @@
 #'   Default \code{1} (1:1 allocation).
 #' @param entry_var Character string naming an entry-time variable in the
 #'   super population. If \code{NULL}, entry times are drawn as
-#'   \code{Uniform(0, max_entry)}. Default \code{NULL}.
+#'   \code{Uniform(0, max_entry)}. Default \code{NULL}. When supplied it
+#'   takes precedence over \code{entry_delay}, which is then ignored.
+#'   (\code{\link{mrct_region_sims}} sets \code{entry_var = "entrytime"}
+#'   whenever \code{dgm$df_super} has a column \code{entrytime}: one fixed
+#'   entry time per super-population row, carried with the row into every
+#'   trial that samples it.)
 #' @param max_entry Numeric maximum entry time for staggered entry simulation.
 #'   Only used when \code{entry_var = NULL}. Default \code{24}.
+#' @param entry_delay \code{NULL} (default: every patient enters at
+#'   \code{Uniform(0, max_entry)}), or a per-patient delay added to that
+#'   entry time, in the DGM's time units. Either
+#'   \code{list(var = <column>, delay = a)}: patients with
+#'   \code{var == 1} enter at \code{a + Uniform(0, max_entry)}, the others
+#'   at \code{Uniform(0, max_entry)} (e.g. \code{list(var = "z_region",
+#'   delay = 6)} for a region enrolling six months later); or a numeric
+#'   vector of length \code{n} (non-negative), the delay of each sampled
+#'   patient in sampling order. The uniform part is redrawn every call, with
+#'   the same random numbers as \code{entry_delay = NULL}, so only the
+#'   delayed patients' entry (and hence follow-up
+#'   \code{analysis_time - entry}) changes. Ignored when \code{entry_var} is
+#'   supplied and on the \code{n = NULL} path (no entry). Passed by
+#'   \code{\link{mrct_region_sims}} through its \code{sim_args}.
 #' @param analysis_time Numeric calendar time of analysis. Follow-up is
 #'   \code{analysis_time - entry_time}. Must be on the same time scale as
 #'   the DGM (i.e. the same units as \code{outcome_var} passed to
@@ -164,7 +183,8 @@ simulate_from_dgm <- function(dgm,
                               keep_rand      = FALSE,
                               time_eos       = NULL,
                               replace        = TRUE,
-                              baseline       = c("resample", "fixed")) {
+                              baseline       = c("resample", "fixed"),
+                              entry_delay    = NULL) {
 
   if (!inherits(dgm, c("aft_dgm_flex", "aft_dgm")))
     stop("dgm must be an object created by generate_aft_dgm_flex()")
@@ -237,6 +257,8 @@ simulate_from_dgm <- function(dgm,
       entry_time <- df_sim[[entry_var]]
     } else {
       entry_time <- runif(n, min = 0, max = max_entry)
+      if (!is.null(entry_delay))
+        entry_time <- entry_time + .entry_delay_vector(entry_delay, df_sim, n)
     }
     follow_up <- analysis_time - entry_time     # per-subject follow-up window
 
@@ -905,4 +927,31 @@ calibrate_cens_adjust <- function(dgm,
     iterations   = sol$iter,
     diagnostic   = diag_final
   ))
+}
+
+
+#' Per-patient entry delay of simulate_from_dgm()
+#'
+#' @param entry_delay list(var, delay) or a numeric vector of length n.
+#' @param df_sim The sampled trial frame.
+#' @param n Number of sampled patients.
+#' @return Numeric vector of length n.
+#' @noRd
+.entry_delay_vector <- function(entry_delay, df_sim, n) {
+  if (is.list(entry_delay)) {
+    if (!all(c("var", "delay") %in% names(entry_delay)))
+      stop("entry_delay must be list(var = <column>, delay = <number>) or a ",
+           "numeric vector of length n.", call. = FALSE)
+    v <- entry_delay$var; a <- entry_delay$delay
+    if (!is.character(v) || length(v) != 1L || !v %in% names(df_sim))
+      stop("entry_delay$var must name a column of dgm$df_super.", call. = FALSE)
+    if (!is.numeric(a) || length(a) != 1L || !is.finite(a) || a < 0)
+      stop("entry_delay$delay must be one non-negative number.", call. = FALSE)
+    return(a * as.numeric(df_sim[[v]] == 1))
+  }
+  if (!is.numeric(entry_delay) || length(entry_delay) != n ||
+      any(!is.finite(entry_delay)) || any(entry_delay < 0))
+    stop("A numeric entry_delay must have length n = ", n,
+         " with finite non-negative values.", call. = FALSE)
+  as.numeric(entry_delay)
 }
