@@ -28,9 +28,15 @@ knitr::opts_chunk$set(
   fig.height = 6
 )
 
-# Replicates of the live demonstration in the simulation section (the
-# committed campaign ran 10,000 per cell).
+# Replicates of the case-study run of section 2, summarised again in the
+# simulation section (the committed campaign ran 10,000 per cell).
 nsims_demo <- 100L
+```
+
+```{=html}
+<style>
+.math.display, mjx-container[display="true"] { overflow-x: auto; }
+</style>
 ```
 
 ```{r packages}
@@ -116,33 +122,97 @@ $\hat H$ is selected; @sec-rep5-mr bounds it by multiplier resampling.
 
 ## The data-generating mechanism, built from ACTG 175 {#sec-dgm}
 
-A Weibull accelerated-failure-time model is fitted to ACTG 175 (arms ZDV + ddI vs ddI, twelve
-prognostic covariates) and expanded to a super-population of 20,000 rows by a Gaussian copula whose
-latent correlation is the one stored with the campaign's build (shipped as `latent_R.csv`, so the
-build is identical on any platform with no latentcor fit). A region of about 20% of patients is planted
-by a logistic model with odds ratio 3 on symptomatic status and no CD4 term, and its baseline hazard is
+A Weibull accelerated-failure-time model is fitted to a published trial and expanded to a
+super-population of 20,000 rows by a Gaussian copula. A region of about 20% of patients is planted by
+a logistic model with odds ratio 3 on symptomatic status and no CD4 term, and its baseline hazard is
 shifted by $r$; every patient's hazard ratio is $b = 0.55$ outside $H^*$ = {CD4 $\le$ 230} and $h$
-inside it, in every region; all hazards are then multiplied by $m = 3$ with `scale_dgm_hazard()`.
+inside it, in every region; all hazards are then multiplied by $m = 3$. Three calls build it, shown
+here as a reader would make them with their own trial.
+
+**1. The trial data.** ACTG 175 (`speff2trial`), arms ZDV + ddI (`arms == 1`, experimental) and ddI
+alone (`arms == 3`, control). The outcome is `days` to the composite endpoint, in months, with event
+indicator `cens`; the prognostic covariates are age, weight (`wtkg`), Karnofsky score (`karnof`),
+days of prior antiretroviral therapy (`preanti`), baseline CD4 (`cd40`) and CD8 (`cd80`) counts, and
+the binary haemophilia (`hemo`), homosexual activity (`homo`), drug use (`drugs`), race, gender and
+symptomatic status (`symptom`).
+
+```{r reader-data}
+#| code-fold: show
+actg <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg$treat_mrct <- as.integer(actg$arms == 1L)   # ZDV + ddI = 1, ddI = 0
+actg$time_months <- actg$days / 30.4375
+rownames(actg) <- NULL
+c(patients = nrow(actg), events = sum(actg$cens), experimental = sum(actg$treat_mrct))
+```
+
+**2. The region and the harmed subgroup.** `inject_mrct_structure()` fits the Weibull model on the
+twelve covariates, expands it by the copula, plants the region (`region`: prevalence, the logistic
+model's odds ratios, the prognostic log hazard ratio $r$) and the harmed subgroup (`spline_spec` sets
+$b$ everywhere; `x3` multiplies it by $h/b$ in CD4 $\le$ 230), here for cell S2 ($h = 2$). The
+copula's latent correlation is fitted live by latentcor (Suggests); without latentcor the call warns
+and uses the normal-score correlation instead, which gives a valid but different super-population.
+
+```{r reader-dgm}
+#| code-fold: show
+#| warning: true
+dgm_live <- inject_mrct_structure(
+  actg,
+  outcome_var = "time_months", event_var = "cens", treatment_var = "treat_mrct",
+  continuous_vars = c("age", "wtkg", "karnof", "preanti", "cd40", "cd80"),
+  factor_vars = c("hemo", "homo", "drugs", "race", "gender", "symptom"),
+  x_pred = "cd40",
+  spline_spec = list(knot = 300, zeta = 800, log_hrs = rep(log(0.55), 3)),  # b = 0.55
+  region = list(prevalence = 0.20, or_pred = 1, x1_vars = "symptom", or_x1 = 3,
+                loghr = -log(4),                                          # r
+                band = list(cut = 230, or = 1)),
+  x3 = list(vars = "cd40", cuts = list(cd40 = 230), loghr = log(2 / 0.55)),  # h = 2 in H*
+  region_treat_loghr = NULL,
+  n_super = 20000, expand = "copula", seed = 7L,
+  continuous_vars_cens = c("age", "cd40"), factor_vars_cens = "symptom")
+```
+
+**3. The hazard scale.** `scale_dgm_hazard()` multiplies every hazard by $m$ and leaves every hazard
+ratio unchanged.
+
+```{r reader-scale}
+#| code-fold: show
+dgm_live <- scale_dgm_hazard(dgm_live, m = 3)
+c(rows = nrow(dgm_live$df_super), region = mean(dgm_live$df_super$z_region),
+  Hstar = mean(dgm_live$df_super$flag_harm))
+```
+
+**To use your own trial**, change these and nothing else:
+
+- the data frame and its outcome, event and treatment names (`outcome_var`, `event_var`,
+  `treatment_var`; treatment coded 1 = experimental);
+- the covariates (`continuous_vars`, `factor_vars`, binary factors coded 0/1, and the censoring
+  model's `continuous_vars_cens`, `factor_vars_cens`);
+- the region model (`region`: its prevalence, the covariates that predict membership and their odds
+  ratios, its prognostic log hazard ratio $r$);
+- $H^*$ and its effects: the covariate and cut that define it (`x3`, `region$band`), $b$ outside it
+  (`spline_spec$log_hrs`) and $h$ inside it (`x3$loghr` $= \log(h/b)$);
+- the analysis window and entry: the analysis time and the uniform entry period used below
+  (`analysis_time = 40`, `max_entry = 11`), and `cens_adjust` for the dropout model.
+
+::: {.callout-note collapse="true"}
+## Reproducing this report's build exactly
+
+This chunk exists only so that the committed record is reproduced to the last digit on any platform:
+it builds the cells with the latent correlation stored with the campaign's build (`latent_R.csv`,
+passed as `latent_R`), so no latentcor fit is made. A reader never needs it. Everything from the
+build check onward uses the cells built here (`build_cell()`).
 
 ```{r build-fn}
+#| code-fold: show
 latent_R <- as.matrix(rd("latent_R.csv", row.names = 1))
-seed_data <- local({
-  e <- new.env()
-  utils::data("ACTG175", package = "speff2trial", envir = e)
-  d <- e$ACTG175[e$ACTG175$arms %in% c(1, 3), ]
-  d$treat_mrct <- as.integer(d$arms == 1)
-  rownames(d) <- NULL
-  d$time_months <- d$days / 30.4375
-  d
-})
 
 # One cell: hazard ratio h in H* = {CD4 <= 230}, b = 0.55 elsewhere, region
-# prognostic log-HR r, all hazards x m.
+# prognostic log-HR r, all hazards x m; the calls of steps 2 and 3 above.
 build_cell <- function(h, r = -log(4), b = 0.55, cut = 230, m = 3) {
   w <- character(0)
   dgm <- withCallingHandlers(
     inject_mrct_structure(
-      seed_data,
+      actg,
       outcome_var = "time_months", event_var = "cens", treatment_var = "treat_mrct",
       continuous_vars = c("age", "wtkg", "karnof", "preanti", "cd40", "cd80"),
       factor_vars = c("hemo", "homo", "drugs", "race", "gender", "symptom"),
@@ -163,8 +233,16 @@ build_cell <- function(h, r = -log(4), b = 0.55, cut = 230, m = 3) {
 t_build <- proc.time()[["elapsed"]]
 dgm_S2 <- build_cell(h = 2)
 t_build <- proc.time()[["elapsed"]] - t_build
-c(seconds = round(t_build, 1), rows = nrow(dgm_S2$df_super))
+# the live fit of step 2 against the shipped matrix
+R_live <- dgm_live$mrct$latent_R
+R_diff <- if (is.null(R_live)) NA_real_ else max(abs(R_live[rownames(latent_R), colnames(latent_R)] - latent_R))
+live_same <- isTRUE(R_diff == 0) && identical(dgm_live$df_super, dgm_S2$df_super)
+c(seconds = round(t_build, 1), rows = nrow(dgm_S2$df_super), latent_R_max_abs_diff = R_diff,
+  super_population_identical = live_same)
 ```
+
+`r if (live_same) "On this render machine the live fit of step 2 equals the shipped matrix exactly (largest absolute difference 0) and the two super-populations are identical, so the reader's path and this chunk give the same build." else sprintf("On this render machine the live fit of step 2 differs from the shipped matrix (largest absolute difference %s), so the reader's path gives a slightly different super-population; the checks below use this chunk's build.", format(R_diff, digits = 2))`
+:::
 
 **Build check.** The build must equal the campaign's build record of S2
 (`build_full_summary.csv`, the `S2_rmlog4` row) in every numeric column that describes the build;
@@ -390,20 +468,115 @@ the treated $H^*$ patients are failing: a delay of `r f2(sol_a$roots)` months at
 months at $r = -\log `r f3(exp(-sol_r6$roots))`$, does what the shift to $-\log 4$ does at no delay.
 The analytic computations of this section took `r round(t_an)` seconds.
 
+# Finding a case study {#sec-find}
+
+The report's case example is one trial of the S2 cell, chosen by a stated rule: the first replicate,
+by index, that reaches the trigger, declares $\hat H$ and has region($\hat G$) < 1.0. Four calls find
+and examine such a trial in any simulation. They are shown on S2 with the campaign's arguments and
+call seed at `r nsims_demo` replicates (`nsims_demo`, set at the top of the file), on workers from
+`parallel::detectCores()`; with the campaign's seed these replicates are the campaign's first
+`r nsims_demo`. The same run is summarised beside the campaign in @sec-demo.
+
+**1. Simulate with the full record.** `mrct_region_sims(record = "full")` keeps, for every trial, the
+Cox fits of the patient sets (the `"estimators"` attribute) that the selection reads.
+
+```{r find-sims}
+#| code-fold: show
+seed_S2 <- cells$seed[cells$cell == "S2"]
+confounders <- analysis_covariates(dgm_S2, "observed")
+workers_demo <- max(1L, min(parallel::detectCores(), nsims_demo))
+t_demo <- proc.time()[["elapsed"]]
+demo <- mrct_region_sims(
+  dgm_S2, n_sims = nsims_demo, n_sample = 1000, region_var = "z_region",
+  sg_focus = "hrMaxSG", maxk = 2,
+  hr.threshold = 0.90, hr.consistency = 0.80, pconsistency.threshold = 0.90,
+  confounders.name = confounders, conf_force = character(0),
+  fs_args = list(conf.cont_jcuts = list(z_cd40 = 10, z_wtkg = 10, z_preanti = 10),
+                 effect_neighborhood = 0.20, use_grf = FALSE, use_lasso = FALSE),
+  sim_args = list(rand_ratio = 1, draw_treatment = TRUE, max_entry = 11, cens_adjust = 50),
+  analysis_time = 40, cens_adjust = 50,
+  parallel_args = list(plan = "multisession", workers = workers_demo, show_message = FALSE),
+  details = FALSE, verbose_n_sims = 0, seed = seed_S2, record = "full")
+t_demo <- proc.time()[["elapsed"]] - t_demo
+future::plan(future::sequential)
+c(replicates = nsims_demo, workers = workers_demo, seconds = round(t_demo, 1))
+```
+
+**2. Select the trial.** `mrct_select_case()` flags every trial for the trigger, a declaration and
+region($\hat G$) < 1.0, and returns the first meeting all three.
+
+```{r find-select}
+#| code-fold: show
+case <- mrct_select_case(demo)
+case
+```
+
+```{r find-select-check}
+# the selection returns replicate 5, the report's case example
+stopifnot(nrow(case) == 1, case$sim == 5)
+est <- as.data.frame(attr(demo, "estimators")); demo <- as.data.frame(demo)[order(demo$sim), ]
+stopifnot(nrow(demo) == nsims_demo, identical(demo$sim, seq_len(nsims_demo)))
+# the campaign's first replicates, as the shipped record has them
+trials5 <- rd("s2_example_trials.csv")
+k5 <- intersect(trials5$sim, demo$sim)
+stopifnot(near(demo$hr_itt[match(k5, demo$sim)], trials5$hr_itt[match(k5, trials5$sim)], 1e-10),
+          near(demo$hr_test[match(k5, demo$sim)], trials5$hr_region[match(k5, trials5$sim)], 1e-10),
+          identical(demo$sg_found[match(k5, demo$sim)], trials5$sg_found[match(k5, trials5$sim)]))
+```
+
+**3. Redraw and examine it.** `mrct_case_study()` redraws trial `k` exactly as the simulation drew it,
+runs the identifier on its non-region patients with the simulation's arguments (the arguments
+`mrct_region_sims()` takes directly go into `fs_args` here) followed by multiplier resampling, and
+analyses the four sets.
+
+```{r find-case}
+#| code-fold: show
+t_mr <- proc.time()[["elapsed"]]
+cs <- mrct_case_study(
+  dgm_S2, seed = seed_S2, k = case$sim, n = 1000, region_var = "z_region",
+  fs_args = list(sg_focus = "hrMaxSG", maxk = 2,
+                 hr.threshold = 0.90, hr.consistency = 0.80, pconsistency.threshold = 0.90,
+                 confounders.name = confounders, conf_force = character(0),
+                 conf.cont_jcuts = list(z_cd40 = 10, z_wtkg = 10, z_preanti = 10),
+                 effect_neighborhood = 0.20, use_grf = FALSE, use_lasso = FALSE),
+  sim_args = list(rand_ratio = 1, draw_treatment = TRUE, max_entry = 11, cens_adjust = 50),
+  analysis_time = 40, cens_adjust = 50,
+  mr_inference = TRUE,
+  mr_inference_args = list(ci_method = "field", include_complement = TRUE, field_complement = TRUE,
+                           draws = 2000, multiplier = "poisson", return_reselection = TRUE))
+t_mr <- proc.time()[["elapsed"]] - t_mr
+```
+
+**4. Print and plot.** The four sets and the multiplier-resampling bounds for $\hat H$ and its
+non-region complement; the forest plot of the four sets (`plot(cs)` also draws the Kaplan–Meier
+panels, shown in @sec-rep5).
+
+```{r find-print}
+#| code-fold: show
+print(cs)
+```
+
+```{r fig-case-forest}
+#| code-fold: show
+#| fig-width: 8
+#| fig-height: 3.2
+#| fig-cap: "Replicate 5 of S2: hazard ratio, experimental vs control, with 95% CI (log scale)."
+plot(cs, which = "forest")
+```
+
+The selection returns replicate `r case$sim`, the report's case example; the rest of the article
+examines that trial in detail.
+
 # Replicate 5 of S2 {#sec-rep5}
 
 Replicate $k$ of a cell was drawn under L'Ecuyer-CMRG by `simulate_from_dgm()` with seed equal to the
-call seed plus $k$. Replicate 5 of S2 is the first triggered trial of the campaign's S2 cell; its four
-hazard ratios and its $\hat H$ are shipped as the reproduction target.
+call seed plus $k$; `mrct_case_study()` redraws it that way and restores R's default generator.
+Replicate 5 of S2 is the first triggered trial of the campaign's S2 cell meeting the rule of
+@sec-find; its four hazard ratios and its $\hat H$ are shipped as the reproduction target.
 
 ```{r draw}
-seed_S2 <- cells$seed[cells$cell == "S2"]
-rng_kind <- RNGkind("L'Ecuyer-CMRG")
-trial <- as.data.frame(simulate_from_dgm(dgm = dgm_S2, n = 1000, rand_ratio = 1, draw_treatment = TRUE,
-                                         max_entry = 11, entry_var = NULL, analysis_time = 40,
-                                         cens_adjust = 50, seed = seed_S2 + 5))
-do.call(RNGkind, as.list(rng_kind))
-stopifnot(RNGkind()[1] == "Mersenne-Twister")
+trial <- cs$trial
+stopifnot(RNGkind()[1] == "Mersenne-Twister", cs$call_args$sim_args$seed == seed_S2 + 5)
 c(seed = seed_S2 + 5, patients = nrow(trial), experimental = sum(trial$treat_sim == 1),
   events = sum(trial$event_sim), region = sum(trial$z_region == 1), non_region = sum(trial$z_region == 0))
 ```
@@ -417,30 +590,18 @@ for screening and 0.80 for consistency at probability 0.90, the largest consiste
 effect neighbourhood of 0.20 of the largest effect. Multiplier resampling (MR, `mr_inference = TRUE`)
 follows in the same call: 2,000 Poisson multiplier draws, the complement de-biased and given its own
 field (`include_complement`, `field_complement`), the field method at its default Monte Carlo sizes, the
-re-selections returned, seed equal to the replicate's. It runs under R's default generator, restored
-above.
+re-selections returned, seed equal to the replicate's (`mrct_case_study()`'s default, `seed + k`). It
+runs under R's default generator. The call of @sec-find made both steps; its arguments:
 
 ```{r identifier-mr}
-non_region <- trial[trial$z_region == 0, ]; region <- trial[trial$z_region == 1, ]
-confounders <- analysis_covariates(dgm_S2, "observed")
-mr_args <- list(ci_method = "field", include_complement = TRUE, field_complement = TRUE, draws = 2000,
-                multiplier = "poisson", return_reselection = TRUE, seed = seed_S2 + 5)
-t_mr <- proc.time()[["elapsed"]]
-fs <- suppressWarnings(
-  forestsearch(df.analysis = non_region, df.test = region, confounders.name = confounders,
-               outcome.name = "y_sim", treat.name = "treat_sim", event.name = "event_sim",
-               id.name = "id", potentialOutcome.name = "loghr_po",
-               hr.threshold = 0.90, hr.consistency = 0.80, pconsistency.threshold = 0.90,
-               sg_focus = "hrMaxSG", effect_neighborhood = 0.20, maxk = 2, conf_force = character(0),
-               conf.cont_jcuts = list(z_cd40 = 10, z_wtkg = 10, z_preanti = 10),
-               use_grf = FALSE, use_lasso = FALSE,
-               show_candidate_summary = FALSE, details = FALSE, plot.sg = FALSE,
-               parallel_args = list(plan = "sequential"), quiet = TRUE,
-               mr_inference = TRUE, mr_inference_args = mr_args))
-t_mr <- proc.time()[["elapsed"]] - t_mr
-mr <- fs$mr_inference
-Hhat_def <- paste(fs$sg.harm, collapse = " & ")
-stopifnot(mr$ci_method == "field", mr$settings$draws == 2000, mr$field$n_out_used == mr$field$R_out)
+fs <- cs$fs; mr <- cs$mr; Hhat_def <- cs$Hhat
+# the identifier's arguments, as mrct_case_study() passed them to forestsearch()
+a <- cs$call_args$fs_args
+str(a[c("sg_focus", "maxk", "hr.threshold", "hr.consistency", "pconsistency.threshold",
+        "effect_neighborhood", "conf_force", "conf.cont_jcuts", "use_grf", "use_lasso")])
+str(a$mr_inference_args)
+stopifnot(identical(a$confounders.name, confounders), a$mr_inference_args$seed == seed_S2 + 5,
+          mr$ci_method == "field", mr$settings$draws == 2000, mr$field$n_out_used == mr$field$R_out)
 c(seconds = round(t_mr, 1), candidate_family = mr$n_family, n_Hhat = mr$n_selected,
   n_Hhat_complement = mr$complement$n)
 Hhat_def
@@ -448,8 +609,8 @@ Hhat_def
 
 $\hat H$ is `` `r Hhat_def` `` (`!{…}` is the complement): CD4 $\le$
 `r sub(".*z_cd40 <= ([0-9.]+).*", "\\1", Hhat_def)` and prior ART over
-`r sub(".*z_preanti <= ([0-9.]+).*", "\\1", Hhat_def)` days, against $H^*$ = CD4 $\le$ 230. The call
-took `r round(t_mr)` seconds on one thread.
+`r sub(".*z_preanti <= ([0-9.]+).*", "\\1", Hhat_def)` days, against $H^*$ = CD4 $\le$ 230. The
+case-study call took `r round(t_mr)` seconds on one thread.
 
 **The Pareto frontier**: the admitted candidates that no other candidate beats on both hazard ratio
 and size, with half-sample (split) 95% intervals from `compute_frontier_cis()` (1,000 random halvings
@@ -504,25 +665,19 @@ $\hat H$ benefit. $\hat H$ is re-selected on a share
 ## The four sets
 
 Each set is analysed by the unweighted two-sample Cox fit of treatment, with the Wald 95% interval.
-$\hat H$ is read for every patient from the identifier's classification of the analysis and test sets.
+$\hat H$ is read for every patient from the identifier's selected rule (`get_dfpred()`), checked against
+its classification of the analysis and test sets. @fig-case-forest is their forest plot.
 
 ```{r four-sets}
-in_Hhat <- trial$id %in% c(fs$df.est$id[fs$df.est$treat.recommend == 0],
-                           fs$df.test$id[fs$df.test$treat.recommend == 0])
+in_Hhat <- cs$in_Hhat
 stopifnot(!anyDuplicated(trial$id),
-          identical(in_Hhat, get_dfpred(trial, sg.harm = fs$sg.harm, version = 2)$treat.recommend == 0))
+          identical(in_Hhat, trial$id %in% c(fs$df.est$id[fs$df.est$treat.recommend == 0],
+                                             fs$df.test$id[fs$df.test$treat.recommend == 0])))
 reg <- trial$z_region == 1; Hstar <- trial$flag_harm == 1
-sets <- list(itt_all = rep(TRUE, nrow(trial)), itt_region = reg,
-             region_Gstar = reg & !Hstar, region_Ghat = reg & !in_Hhat)
 set_label <- c(itt_all = "All patients, ITT", itt_region = "Region, ITT",
                region_Gstar = "Region minus H* (G*)", region_Ghat = "Region minus Ĥ (Ĝ)")
-cox_set <- function(idx) {
-  d <- trial[idx, ]; f <- summary(coxph(Surv(y_sim, event_sim) ~ treat_sim, data = d))
-  data.frame(n = nrow(d), n_exp = sum(d$treat_sim == 1), events_exp = sum(d$event_sim[d$treat_sim == 1]),
-             n_ctl = sum(d$treat_sim == 0), events_ctl = sum(d$event_sim[d$treat_sim == 0]),
-             hr = f$conf.int[1, 1], lo = f$conf.int[1, 3], hi = f$conf.int[1, 4], se_loghr = f$coefficients[1, 3])
-}
-four <- do.call(rbind, lapply(names(sets), function(k) cbind(set = k, cox_set(sets[[k]]))))
+four <- cs$sets
+stopifnot(identical(four$set, c("itt_all", "itt_region", "region_Gstar", "region_Ghat")))
 knitr::kable(data.frame(Set = set_label[four$set], n = four$n,
                         `experimental n / events` = sprintf("%d / %d", four$n_exp, four$events_exp),
                         `control n / events` = sprintf("%d / %d", four$n_ctl, four$events_ctl),
@@ -531,48 +686,11 @@ knitr::kable(data.frame(Set = set_label[four$set], n = four$n,
              row.names = FALSE, align = "lrrrrr", caption = "Replicate 5 of S2: the four sets.")
 ```
 
-```{r forest}
-#| fig-width: 8
-#| fig-height: 3.2
-#| fig-cap: "Replicate 5 of S2: hazard ratio, experimental vs control, with 95% CI (log scale)."
-ord <- c("itt_all", "itt_region", "region_Ghat", "region_Gstar")
-lab <- c(itt_all = "All patients, ITT", itt_region = "Region, ITT",
-         region_Ghat = "Region minus the identified subgroup", region_Gstar = "Region minus the true harmed subgroup")
-cols4 <- c("black", "firebrick", "steelblue", "grey40")
-f4s <- four[match(ord, four$set), ]; y <- rev(seq_along(ord))
-op <- par(mar = c(4, 17, 1, 9))
-plot(f4s$hr, y, log = "x", xlim = c(0.3, 2), ylim = c(0.5, length(ord) + 0.5), pch = 15, cex = 1.3, yaxt = "n",
-     xaxt = "n", xlab = "hazard ratio, experimental vs control (log scale, 95% CI)", ylab = "", col = cols4)
-segments(f4s$lo, y, pmin(f4s$hi, 2), y, lwd = 2, col = cols4)
-abline(v = 1, lty = 2)
-axis(1, at = c(0.3, 0.5, 0.7, 1, 1.5, 2), labels = c("0.3", "0.5", "0.7", "1", "1.5", "2"))
-axis(2, at = y, labels = lab[ord], las = 1, tick = FALSE)
-mtext(sprintf("%.3f (%.3f, %.3f)", f4s$hr, f4s$lo, f4s$hi), side = 4, at = y, las = 1, line = 0.5)
-par(op)
-```
-
 ```{r km}
 #| fig-width: 12
 #| fig-height: 9
-#| fig-cap: "Replicate 5 of S2: Kaplan–Meier by arm in the four sets (experimental blue, control black)."
-annot <- function(i) paste(sprintf("HR %.3f (95%% CI %.3f, %.3f)", four$hr[i], four$lo[i], four$hi[i]),
-                           sprintf("experimental n = %d, events %d", four$n_exp[i], four$events_exp[i]),
-                           sprintf("control n = %d, events %d", four$n_ctl[i], four$events_ctl[i]), sep = "\n")
-op <- par(mfrow = c(2, 2), mar = c(4.5, 4.2, 3, 1))
-for (i in seq_len(4)) {
-  d <- trial[sets[[four$set[i]]], ]
-  dfc <- suppressWarnings(weightedsurv::df_counting(df = d, by.risk = 10, tte.name = "y_sim", event.name = "event_sim",
-                                                    treat.name = "treat_sim", arms = c("experimental", "control")))
-  weightedsurv::plot_weighted_km(dfc, conf.int = FALSE, show.cox = FALSE, show.logrank = FALSE, show.med = FALSE,
-                                 show_arm_legend = TRUE, arms = c("experimental", "control"), put.legend.arms = "left",
-                                 by.risk = 10, xmin = 0, xmax = 40, ymin = 0, ymax = 1.12, Xlab = "months",
-                                 Ylab = "proportion event-free", col.0 = "black", col.1 = "blue", lwds = c(1.5, 1.5),
-                                 censor.mark.all = FALSE, risk.cex = 0.8, arm.cex = 0.85)
-  axis(1, at = seq(0, 40, 10))
-  text(40, 1.12, labels = annot(i), adj = c(1, 1), cex = 0.85)
-  title(sprintf("%d. %s", i, set_label[four$set[i]]), cex.main = 1.05)
-}
-par(op)
+#| fig-cap: "Replicate 5 of S2: Kaplan–Meier by arm in the four sets (experimental blue, control black; months)."
+plot(cs, which = "km")
 ```
 
 The trial is positive (ITT upper limit `r f3(four$hi[1])` < 1.0) and its region is above 1.0
@@ -581,9 +699,7 @@ The trial is positive (ITT upper limit `r f3(four$hi[1])` < 1.0) and its region 
 ## $\hat H$ against $H^*$, in the region and outside
 
 ```{r hhat-vs-hstar}
-cf2 <- function(w) c(TP = sum(in_Hhat[w] & Hstar[w]), FP = sum(in_Hhat[w] & !Hstar[w]),
-                     FN = sum(!in_Hhat[w] & Hstar[w]), TN = sum(!in_Hhat[w] & !Hstar[w]))
-cf_non <- cf2(!reg); cf_reg <- cf2(reg)
+cf_non <- cs$confusion$nonregion; cf_reg <- cs$confusion$region
 sens <- function(x) x[["TP"]] / (x[["TP"]] + x[["FN"]]); spec <- function(x) x[["TN"]] / (x[["TN"]] + x[["FP"]])
 knitr::kable(data.frame(population = c("non-region (where the identifier ran)", "region (where Ĥ is applied)"),
                         n = c(sum(!reg), sum(reg)),
@@ -663,7 +779,7 @@ harmed subgroup and a finite window move the region's limit toward 1, and sampli
 # Simulation results {#sec-sims}
 
 The campaign ran 10,000 replicates per cell at $n = 1{,}000$ with `mrct_region_sims()`. Its records are
-summarised here from the shipped core tables; @sec-demo runs a small demonstration live.
+summarised here from the shipped core tables; @sec-demo summarises the small run of @sec-find beside them.
 
 ## The core operating characteristics at $n = 1{,}000$
 
@@ -851,38 +967,12 @@ two later-enrolling cells `r round(te$wall_sec[1] / 60)` and `r round(te$wall_se
 the other. The MR field campaign ran the eight cells one after another on the
 `r big(sum(mft$mr_trials))` triggered trials in `r f2(sum(mft$mr_wall_sec) / 3600)` hours.
 
-## A live demonstration {#sec-demo}
+## The demonstration run {#sec-demo}
 
-A demonstration, not the campaign: `mrct_region_sims(record = "full")` on S2 with the campaign's
-arguments and call seed, at `r nsims_demo` replicates (`nsims_demo`, set at the top of the file), on
-workers from `parallel::detectCores()`, summarised into the core rows by the definitions of the core
-table. With the campaign's seed, its replicates are the campaign's first `r nsims_demo`.
-
-```{r demo}
-workers_demo <- max(1L, min(parallel::detectCores(), nsims_demo))
-t_demo <- proc.time()[["elapsed"]]
-demo <- mrct_region_sims(
-  dgm_S2, n_sims = nsims_demo, n_sample = 1000, region_var = "z_region",
-  sg_focus = "hrMaxSG", maxk = 2,
-  hr.threshold = 0.90, hr.consistency = 0.80, pconsistency.threshold = 0.90,
-  confounders.name = confounders, conf_force = character(0),
-  fs_args = list(conf.cont_jcuts = list(z_cd40 = 10, z_wtkg = 10, z_preanti = 10),
-                 effect_neighborhood = 0.20, use_grf = FALSE, use_lasso = FALSE),
-  sim_args = list(rand_ratio = 1, draw_treatment = TRUE, max_entry = 11, cens_adjust = 50),
-  analysis_time = 40, cens_adjust = 50,
-  parallel_args = list(plan = "multisession", workers = workers_demo, show_message = FALSE),
-  details = FALSE, verbose_n_sims = 0, seed = seed_S2, record = "full")
-t_demo <- proc.time()[["elapsed"]] - t_demo
-future::plan(future::sequential)
-est <- as.data.frame(attr(demo, "estimators")); demo <- as.data.frame(demo)[order(demo$sim), ]
-stopifnot(nrow(demo) == nsims_demo, identical(demo$sim, seq_len(nsims_demo)))
-# the campaign's first replicates, as the shipped record has them
-k5 <- intersect(trials5$sim, demo$sim)
-stopifnot(near(demo$hr_itt[match(k5, demo$sim)], trials5$hr_itt[match(k5, trials5$sim)], 1e-10),
-          near(demo$hr_test[match(k5, demo$sim)], trials5$hr_region[match(k5, trials5$sim)], 1e-10),
-          identical(demo$sg_found[match(k5, demo$sim)], trials5$sg_found[match(k5, trials5$sim)]))
-c(replicates = nsims_demo, workers = workers_demo, seconds = round(t_demo, 1))
-```
+The run of @sec-find (`r nsims_demo` replicates of S2 with the campaign's arguments and call seed, on
+`r workers_demo` workers, `r round(t_demo)` seconds), summarised into the core rows by the definitions of
+the core table. With the campaign's seed, its replicates are the campaign's first `r nsims_demo`; @sec-find
+checks its first replicates against the shipped record.
 
 ```{r demo-summary}
 g_est <- function(k) { y <- est[est$estimator == k, ]; y[match(demo$sim, y$sim), ] }
@@ -946,8 +1036,10 @@ on arm $z$ is exponential with rate $e^{\theta_{z,i}}$; with
 $A_z(u) = |\mathcal S|^{-1}\sum_{\mathcal S} e^{-u e^{\theta_{z,i}}}$, $f_z = -A_z'$ and the entry factor
 $H_w(u) = H(t_a - \Lambda_0^{-1}(u))$, $H$ the entry distribution function, the limit is the unique root of
 $$
-U_{\mathcal S}(\beta) = \tfrac12 \int_0^{\Lambda_0(t_a)} H_w(u)\Bigl\{f_1(u) - r(u, \beta)\,[f_1(u) + f_0(u)]\Bigr\}\,du,
-\qquad r(u, \beta) = \frac{e^\beta A_1(u)}{e^\beta A_1(u) + A_0(u)} ,
+\begin{aligned}
+U_{\mathcal S}(\beta) &= \tfrac12 \int_0^{\Lambda_0(t_a)} H_w(u)\Bigl\{f_1(u) - r(u, \beta)\,[f_1(u) + f_0(u)]\Bigr\}\,du,\\
+r(u, \beta) &= \frac{e^\beta A_1(u)}{e^\beta A_1(u) + A_0(u)} ,
+\end{aligned}
 $$
 and margHR($\infty$) is the root with $H_w \equiv 1$ to $u = \infty$. $\partial U/\partial\beta < 0$, so
 the root is unique. With $\delta(u) = \log\{A_1/A_0\}$ and the set's instantaneous hazard ratio
@@ -998,9 +1090,11 @@ ratio of the arms' numbers at risk at the event times.
 **The design layer.** For a trial of $n$ patients, 1:1, with $n_{\mathcal S} \sim \mathrm{Bin}(n, \pi_{\mathcal S})$
 in $\mathcal S$ and $i_1 = \int r(1 - r)\,dN$ the information per patient,
 $$
-\mathrm{Var}(\hat\beta_{\mathcal S}) \approx \frac{1}{i_1}\,\mathrm E\Bigl[\frac{1}{n_{\mathcal S}}\Bigr]\ \text{(model)},\qquad
-\frac{\Sigma}{i_1^2}\,\mathrm E\Bigl[\frac{1}{n_{\mathcal S}}\Bigr]\ \text{(robust)},\qquad
-\mathrm E\Bigl[\frac{1}{n_{\mathcal S}}\Bigr] \approx \frac{1}{n\pi_{\mathcal S}}\Bigl\{1 + \frac{1 - \pi_{\mathcal S}}{n\pi_{\mathcal S}}\Bigr\},
+\begin{aligned}
+\mathrm{Var}(\hat\beta_{\mathcal S}) &\approx \frac{1}{i_1}\,\mathrm E\Bigl[\frac{1}{n_{\mathcal S}}\Bigr] && \text{(model)},\\
+&\approx \frac{\Sigma}{i_1^2}\,\mathrm E\Bigl[\frac{1}{n_{\mathcal S}}\Bigr] && \text{(robust)},\\
+\mathrm E\Bigl[\frac{1}{n_{\mathcal S}}\Bigr] &\approx \frac{1}{n\pi_{\mathcal S}}\Bigl\{1 + \frac{1 - \pi_{\mathcal S}}{n\pi_{\mathcal S}}\Bigr\},
+\end{aligned}
 $$
 $\Sigma$ the variance of the Lin–Wei influence. Under a common proportional-hazards model the
 correlation of nested estimates is the square root of the information share,
@@ -1008,9 +1102,11 @@ $\rho = \mathrm{Corr}(\hat\beta_{\text{all}}, \hat\beta_R) = \sqrt{I_R/I_{\text{
 misspecification the layer uses the exact covariance of the two influences. With $\mu_{\mathcal S} = \beta^*_{\mathcal S}$,
 $\sigma_{\mathcal S}$ the robust SD, $\tilde\sigma_{\text{all}}$ the model SE and $z = 1.96$,
 $$
-P(\text{ITT ub} < 1) = \Phi(z_A),\ z_A = \frac{-z\tilde\sigma_{\text{all}} - \mu_{\text{all}}}{\sigma_{\text{all}}};\qquad
-P(\text{region ITT} > 1) = \Phi(-z_B),\ z_B = \frac{-\mu_R}{\sigma_R};\qquad
-P(\text{trigger}) = \Phi_2(z_A, -z_B; -\rho_{\text{all},R}),
+\begin{aligned}
+P(\text{ITT ub} < 1) &= \Phi(z_A), & z_A &= \frac{-z\tilde\sigma_{\text{all}} - \mu_{\text{all}}}{\sigma_{\text{all}}};\\
+P(\text{region ITT} > 1) &= \Phi(-z_B), & z_B &= \frac{-\mu_R}{\sigma_R};\\
+P(\text{trigger}) &= \Phi_2(z_A, -z_B; -\rho_{\text{all},R}),
+\end{aligned}
 $$
 and the oracle joint is the trivariate $\Phi_3(z_A, -z_B, z_C; \mathbf R)$ with
 $z_C = -\mu_{G^*}/\sigma_{G^*}$, $\mathbf R$ the correlation matrix of

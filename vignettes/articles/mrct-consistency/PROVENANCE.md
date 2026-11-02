@@ -60,11 +60,16 @@ What each file is used for:
 
 | File | Used for |
 |---|---|
-| `latent_R.csv` | the builds of every cell |
+| `latent_R.csv` | the builds of every cell, in the collapsed "Reproducing this report's build exactly" chunk (the reader's path fits the correlation live) |
 | `build_full_summary.csv` | the build check (the `S2_rmlog4` row); the cells' `h` and `r` |
 | `predictions_full.csv`, `predictions_S1.csv`, `predictions_n700.csv` | checks of the live analytic layer (truths and design probabilities at n = 1,000 and 700) |
 | `entry_roots.csv` | checks of the three roots (r at no delay; D1, D2) |
 | `s2_example_four_sets.csv`, `s2_example_trials.csv`, `s2_example_definitions.md` | the replicate-5 reproduction check (four HRs, H-hat, the 2 x 2 tables); replicates 1-5 for the live demonstration's check |
+
+The three `s2_example_*` files also ship, byte-identical, as the fixture of
+`tests/testthat/test-mrct-case-study.R` (`tests/testthat/fixtures/mrct_case_study/`,
+TASK_fs-mrct-article-r2_2026-11-01), which checks that `mrct_select_case()` and
+`mrct_case_study()` reproduce replicate 5.
 | `mr_field_S2_rep5.csv` | the check of the replicate-5 MR call |
 | `core_n1000.csv` | the core OC table at n = 1,000 (displayed) |
 | `core_full_numeric.csv`, `core_S1_numeric.csv` | the recount of the core table's counts; observed trigger and oracle-joint frequencies |
