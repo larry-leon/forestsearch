@@ -12,6 +12,12 @@
 #'   (e.g., "\{age>=50\} & \{nodes>=3\}"). If NULL, no subgroup footnote is added.
 #' @param title Character. Custom title (optional)
 #' @param subtitle Character. Custom subtitle (optional)
+#' @param bc_footnote Character or \code{NULL} (default). The footnote on the
+#'   bias-corrected column. \code{NULL} writes the bootstrap footnote
+#'   ("Bootstrap-adjusted estimate using infinitesimal jackknife method
+#'   (\code{nb_boots} iterations)"); \code{\link{mr_estimates_table}} passes
+#'   the multiplier-resampling one when it uses a bootstrap result as its
+#'   template.
 #'
 #' @return A gt table object
 #'
@@ -33,7 +39,8 @@ format_bootstrap_table <- function(FSsg_tab,
                                    boot_success_rate = NULL,
                                    sg_definition = NULL,
                                    title = NULL,
-                                   subtitle = NULL) {
+                                   subtitle = NULL,
+                                   bc_footnote = NULL) {
 
   if (!requireNamespace("gt", quietly = TRUE)) {
     stop("Package 'gt' is required for table formatting.", call. = FALSE)
@@ -208,7 +215,7 @@ format_bootstrap_table <- function(FSsg_tab,
   }
 
   if (!is.na(bc_col)) {
-    bc_label <- sprintf(
+    bc_label <- if (!is.null(bc_footnote)) bc_footnote else sprintf(
       "**Bias-corrected %s**: Bootstrap-adjusted estimate using infinitesimal jackknife method (%d iterations). Corrects for optimism in subgroup selection.",
       if (is_glm_table) effect_measure_detected else "HR",
       nb_boots

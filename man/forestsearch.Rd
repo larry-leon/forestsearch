@@ -1347,9 +1347,11 @@ fs_surv <- forestsearch(
 print(fs_surv)
 
 ## mr_estimates_table() lays the multiplier-resampling estimates out in the
-## format of the bootstrap tables, so it takes a bootstrap result as its
-## template (a few replicates are enough for the layout; the
-## survival-post-selection article compares the two at full size).
+## format of the bootstrap tables. A bootstrap template is optional:
+## mr_estimates_table(fs_surv) builds the table from fs_surv alone. With a
+## template, the descriptive columns come from the bootstrap result (a few
+## replicates are enough for the layout; the survival-post-selection
+## article compares the two at full size).
 fs_boot <- forestsearch_bootstrap_dofuture(
   fs.est        = fs_surv,
   nb_boots      = 20,

@@ -11,7 +11,8 @@ format_bootstrap_table(
   boot_success_rate = NULL,
   sg_definition = NULL,
   title = NULL,
-  subtitle = NULL
+  subtitle = NULL,
+  bc_footnote = NULL
 )
 }
 \arguments{
@@ -29,6 +30,13 @@ format_bootstrap_table(
 \item{title}{Character. Custom title (optional)}
 
 \item{subtitle}{Character. Custom subtitle (optional)}
+
+\item{bc_footnote}{Character or \code{NULL} (default). The footnote on the
+bias-corrected column. \code{NULL} writes the bootstrap footnote
+("Bootstrap-adjusted estimate using infinitesimal jackknife method
+(\code{nb_boots} iterations)"); \code{\link{mr_estimates_table}} passes
+the multiplier-resampling one when it uses a bootstrap result as its
+template.}
 }
 \value{
 A gt table object

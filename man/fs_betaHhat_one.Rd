@@ -13,7 +13,12 @@ fs_betaHhat_one(
   outcome.name = "y_sim",
   event.name = "event_sim",
   treat.name = "treat_sim",
-  sg_def_struct = NULL
+  sg_def_struct = NULL,
+  method = c("frame", "exact"),
+  dgm = NULL,
+  analysis_time = 84,
+  max_entry = 24,
+  cens_adjust = log(1.5)
 )
 }
 \arguments{
@@ -40,6 +45,21 @@ their fitted targets.}
 supplied it takes precedence over \code{rule} and membership is computed by
 \code{.grf_evaluate_subgroup()}, which is the package's own answer for GRF
 membership.}
+
+\item{method}{Character. \code{"frame"} (default) scores the rule on \code{frame}
+by the per-family fit, exactly as before this argument existed.
+\code{"exact"} (survival only) computes the same population quantity from the
+analytic layer; see the section \emph{The exact route}.}
+
+\item{dgm}{The DGM \code{frame} was drawn from (an \code{\link[=inject_mrct_structure]{inject_mrct_structure()}}
+build). Required by \code{method = "exact"}; ignored by \code{"frame"}.}
+
+\item{analysis_time, max_entry, cens_adjust}{The analysis time, the entry
+maximum and the censoring adjustment of the evaluation draw. Used by
+\code{method = "exact"} only; the defaults are those of the draw
+\code{\link[=fs_build_eval_frame]{fs_build_eval_frame()}} makes (\code{analysis_time = 84}, \code{cens_adjust = log(1.5)}, and \code{\link[=simulate_from_dgm]{simulate_from_dgm()}}'s default \code{max_entry = 24}, which
+\code{\link[=fs_build_eval_frame]{fs_build_eval_frame()}} does not override). Pass the values the frame was
+drawn with.}
 }
 \value{
 A one-row data frame with columns \code{betaHhat_H}, \code{betaHhat_Hc},
@@ -76,6 +96,41 @@ A rule naming a column the frame lacks has no membership on that frame. The
 record is all-\code{NA} with \code{status = "unresolved"} and \code{missing_cols} naming
 the columns, rather than a partially-resolved region. Silently dropping the
 offending clause returns a finite value for the wrong region.
+}
+
+\section{The exact route}{
+
+
+With \code{method = "exact"} the survival target is computed without a draw:
+\code{\link[=ahr_population]{ahr_population()}}\verb{(dgm, analysis_time, max_entry)} once, then
+\verb{exp(beta*)} from \code{\link[=ahr_limit]{ahr_limit()}}\verb{(pop, set = <membership>, psi = pop$psi)}
+for the realized region and for its complement, where \verb{beta*} is the
+Struthers-Kalbfleisch limit of the two-sample Cox estimate (1:1
+randomisation, entry U(0, \code{max_entry}), analysis at \code{analysis_time}).
+Membership is resolved on \code{dgm$df_super} by the same internal
+\code{.fs_resolve_membership()} (the \code{\link[=get_dfpred]{get_dfpred()}} route) the frame route uses
+on \code{frame}, so a rule the frame route cannot evaluate is \code{NA} on both
+routes, and the counts \code{nH_eval} / \code{nHc_eval} are over \code{dgm$df_super}.
+An empty region is \code{NA}, as on the frame route.
+
+The two routes estimate the same population quantity: the frame route
+fits \code{\link[survival:coxph]{survival::coxph()}} on one \code{\link[=simulate_from_dgm]{simulate_from_dgm()}} draw of the whole
+super-population and so carries the Monte Carlo error of that single
+evaluation draw; the exact route has none. The frame route's
+small-region guard (fewer than five events or a single arm in the draw)
+has no counterpart: the limit exists for any non-empty region.
+
+The exact route applies when the censoring is administrative only: the
+analytic layer has no random-censoring factor. It stops, rather than
+approximating, unless the DGM's random censoring time falls before
+\code{analysis_time} with probability below \code{.Machine$double.eps} for every
+patient in both arms under \code{cens_adjust}. In \code{\link[=simulate_from_dgm]{simulate_from_dgm()}}
+\code{cens_adjust = 0} means \emph{no adjustment} of the DGM's censoring model, not
+no random censoring, and the frame route's default \code{log(1.5)} lengthens the
+random censoring times but keeps them; \code{cens_adjust = 50} (the
+administrative-only convention of the MRCT campaigns) or \code{Inf} removes
+it. Requires a DGM made by \code{\link[=inject_mrct_structure]{inject_mrct_structure()}}, as
+\code{\link[=ahr_population]{ahr_population()}} does.
 }
 
 \keyword{internal}

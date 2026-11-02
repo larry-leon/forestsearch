@@ -119,8 +119,14 @@
 #' With \code{record = "full"}, the same table followed by the columns
 #' \code{TP_nonregion}, \code{FP_nonregion}, \code{FN_nonregion},
 #' \code{TN_nonregion}, \code{TP_region}, \code{FP_region},
-#' \code{FN_region}, \code{TN_region}, and the attribute
-#' \code{"estimators"} (see \emph{Full record}).
+#' \code{FN_region}, \code{TN_region}, then the multiplier-resampling
+#' columns \code{mr_ci_method}, \code{mr_debiased_H}, \code{mr_ij_lower_H},
+#' \code{mr_ij_upper_H}, \code{mr_field_lower_1s_H}, \code{mr_debiased_Hc},
+#' \code{mr_ij_lower_Hc}, \code{mr_ij_upper_Hc},
+#' \code{mr_field_upper_1s_Hc}, \code{mr_field_upper_1s_s_Hc},
+#' \code{mr_bonf_lower_H}, \code{mr_bonf_upper_Hc}, \code{mr_p_hat_H},
+#' \code{mr_selection_rate}, and the attribute \code{"estimators"} (see
+#' \emph{Full record}).
 #'
 #' @details
 #' ## Simulation Process
@@ -143,7 +149,8 @@
 #' ## Full record
 #'
 #' With \code{record = "full"} the returned table is the \code{"point"}
-#' table with eight columns added and a second table attached as an
+#' table with twenty-two columns added (eight counts, then fourteen
+#' multiplier-resampling columns) and a second table attached as an
 #' attribute, \code{est <- attr(res, "estimators")}; \code{res$hr_itt},
 #' \code{nrow(res)} and every \code{"point"} column are unchanged. (A
 #' data.table subset such as \code{res[order(sim)]} drops the attribute:
@@ -178,6 +185,38 @@
 #' When the simulated trial has no \code{flag_harm} column, the
 #' \code{region_Gstar} and \code{Hstar_nonregion} rows are omitted and the
 #' counts are \code{NA}, with a message.
+#'
+#' After the counts come fourteen columns read from the trial's
+#' \code{forestsearch()} result \code{fs$mr_inference} (multiplier
+#' resampling, \code{fs_args = list(mr_inference = TRUE, ...)}; see
+#' \code{\link{fs_mr_inference}}), on the effect (HR) scale:
+#' \describe{
+#'   \item{\code{mr_ci_method}}{\code{ci_method}.}
+#'   \item{\code{mr_debiased_H}, \code{mr_ij_lower_H},
+#'     \code{mr_ij_upper_H}}{\code{debiased$est}, \code{$lower},
+#'     \code{$upper}: the de-biased estimate on \eqn{\hat H} and its
+#'     interval (IJ SE under \code{"ij"} and \code{"field"}, robust SE under
+#'     \code{"wald"}).}
+#'   \item{\code{mr_field_lower_1s_H}}{\code{field$lower_1s}.}
+#'   \item{\code{mr_debiased_Hc}, \code{mr_ij_lower_Hc},
+#'     \code{mr_ij_upper_Hc}}{\code{complement$debiased$est},
+#'     \code{$lower}, \code{$upper}.}
+#'   \item{\code{mr_field_upper_1s_Hc},
+#'     \code{mr_field_upper_1s_s_Hc}}{\code{field$complement$upper_1s} and
+#'     its studentized companion \code{field$complement$upper_1s_s}.}
+#'   \item{\code{mr_bonf_lower_H}, \code{mr_bonf_upper_Hc}}{
+#'     \code{field$joint$bonf_lower_H}, \code{field$joint$bonf_upper_Hc}.}
+#'   \item{\code{mr_p_hat_H}}{\code{reselection$p_hat[selected_index]}.}
+#'   \item{\code{mr_selection_rate}}{\code{selection_rate}.}
+#' }
+#' Each is \code{NA} when its element is absent: every one in a trial
+#' without \code{mr_inference} or without a declared subgroup (nothing to
+#' de-bias), or with the short MR return; the
+#' complement columns without \code{include_complement = TRUE}; the field
+#' columns unless \code{ci_method = "field"}; the complement field and
+#' Bonferroni columns without \code{field_complement = TRUE};
+#' \code{mr_p_hat_H} without \code{return_reselection = TRUE}. Under
+#' \code{record = "point"} none of these columns is added.
 #'
 #' @examples
 #' \dontrun{
@@ -356,6 +395,7 @@ mrct_region_sims <- function(
   # functions through the attached package only, so the record helper is
   # shipped to the workers as a global.
   full_record_fn <- .mrct_full_record
+  mr_record_fn <- .mrct_mr_record
 
   run_foreach <- function() {
     p <- progressr::progressor(along = seq_len(n_sims))
@@ -638,7 +678,9 @@ mrct_region_sims <- function(
       if (record == "full") {
         sg_harm <- if (any_found == 1) fs_result$sg.harm else NULL
         full <- full_record_fn(dfs, region_var, sg_harm, sim, any_found)
-        out_point <- cbind(out_point, full$counts)
+        out_point <- cbind(out_point, full$counts,
+                           mr_record_fn(if (any_found == 1)
+                                          fs_result$mr_inference else NULL))
         out_point[, .estimators := list(list(full$estimators))]
       }
 
@@ -668,7 +710,9 @@ mrct_region_sims <- function(
     estimators <- data.table::rbindlist(results$.estimators)
     results[, .estimators := NULL]
     count_cols <- .mrct_count_cols()
-    data.table::setcolorder(results, c(setdiff(names(results), count_cols), count_cols))
+    mr_cols <- .mrct_mr_cols()
+    data.table::setcolorder(results, c(setdiff(names(results), c(count_cols, mr_cols)),
+                                       count_cols, mr_cols))
     if (all(is.na(results$TP_region)) && nrow(results) > 0) {
       message("mrct_region_sims(record = \"full\"): the simulated trials have no ",
               "flag_harm column; the region_Gstar and Hstar_nonregion rows are ",
@@ -708,6 +752,56 @@ mrct_region_sims <- function(
 .mrct_count_cols <- function() {
   paste0(rep(c("TP", "FP", "FN", "TN"), 2),
          rep(c("_nonregion", "_region"), each = 4))
+}
+
+#' Names of the multiplier-resampling columns of the full record
+#' @noRd
+.mrct_mr_cols <- function() {
+  c("mr_ci_method", "mr_debiased_H", "mr_ij_lower_H", "mr_ij_upper_H",
+    "mr_field_lower_1s_H", "mr_debiased_Hc", "mr_ij_lower_Hc", "mr_ij_upper_Hc",
+    "mr_field_upper_1s_Hc", "mr_field_upper_1s_s_Hc", "mr_bonf_lower_H",
+    "mr_bonf_upper_Hc", "mr_p_hat_H", "mr_selection_rate")
+}
+
+#' The multiplier-resampling columns of one trial's full record
+#'
+#' @param mr `fs_result$mr_inference`, or NULL (no MR, or no declaration).
+#' @return A one-row data.table with the .mrct_mr_cols() columns; NA where
+#'   the element is absent.
+#' @noRd
+.mrct_mr_record <- function(mr) {
+  num <- function(x) {
+    if (is.null(x) || length(x) != 1L || !is.numeric(x)) NA_real_ else as.numeric(x)
+  }
+  g <- function(...) {
+    x <- mr
+    for (k in c(...)) {
+      if (!is.list(x) || is.null(x[[k]])) return(NULL)
+      x <- x[[k]]
+    }
+    x
+  }
+  p_hat <- g("reselection", "p_hat")
+  sel <- g("selected_index")
+  p_hat_H <- if (!is.null(p_hat) && length(sel) == 1L && !is.na(sel) &&
+                 sel >= 1L && sel <= length(p_hat)) p_hat[[sel]] else NULL
+  ci <- g("ci_method")
+  data.table::data.table(
+    mr_ci_method           = if (is.character(ci) && length(ci) == 1L) ci else NA_character_,
+    mr_debiased_H          = num(g("debiased", "est")),
+    mr_ij_lower_H          = num(g("debiased", "lower")),
+    mr_ij_upper_H          = num(g("debiased", "upper")),
+    mr_field_lower_1s_H    = num(g("field", "lower_1s")),
+    mr_debiased_Hc         = num(g("complement", "debiased", "est")),
+    mr_ij_lower_Hc         = num(g("complement", "debiased", "lower")),
+    mr_ij_upper_Hc         = num(g("complement", "debiased", "upper")),
+    mr_field_upper_1s_Hc   = num(g("field", "complement", "upper_1s")),
+    mr_field_upper_1s_s_Hc = num(g("field", "complement", "upper_1s_s")),
+    mr_bonf_lower_H        = num(g("field", "joint", "bonf_lower_H")),
+    mr_bonf_upper_Hc       = num(g("field", "joint", "bonf_upper_Hc")),
+    mr_p_hat_H             = num(p_hat_H),
+    mr_selection_rate      = num(g("selection_rate"))
+  )
 }
 
 #' One estimator row of the full record on the patients `idx` of trial `s`

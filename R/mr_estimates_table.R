@@ -136,6 +136,20 @@ mr_estimates_table <- function(fs, boot_results = NULL, est.scale = "hr",
 
   draws <- if (!is.null(g$settings$draws)) g$settings$draws else NA_integer_
   cc_note <- if (has_cc) "" else "; complement not de-biased"
+  # The bias-corrected footnote names the method used here, not the
+  # bootstrap's: the MR de-biased estimate, its interval from the IJ variance
+  # on the multiplier draws (the robust SE under ci_method = "wald").
+  bc_measure <- sub("\\*$", "", bc_col)
+  se_txt <- if (identical(g$ci_method, "wald")) {
+    "the subgroup robust (sandwich) standard error"
+  } else {
+    "the infinitesimal-jackknife (IJ) variance computed on the multiplier draws"
+  }
+  bc_footnote <- sprintf(paste0(
+    "**Bias-corrected %s**: multiplier-resampling (MR) de-biased estimate ",
+    "(%s draws), with its 95%% interval from %s. Corrects for optimism in ",
+    "subgroup selection."),
+    bc_measure, if (is.na(draws)) "?" else format(draws), se_txt)
   format_bootstrap_table(
     FSsg_tab          = tab,
     nb_boots          = draws,
@@ -145,7 +159,8 @@ mr_estimates_table <- function(fs, boot_results = NULL, est.scale = "hr",
     title             = "Treatment Effect by Subgroup",
     subtitle          = sprintf(
       "MR de-biased estimate (multiplier resampling, %s draws)%s",
-      if (is.na(draws)) "?" else format(draws), cc_note))
+      if (is.na(draws)) "?" else format(draws), cc_note),
+    bc_footnote       = bc_footnote)
 }
 
 

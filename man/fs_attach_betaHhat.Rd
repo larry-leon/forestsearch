@@ -13,7 +13,12 @@ fs_attach_betaHhat(
   outcome.name = "y_sim",
   event.name = "event_sim",
   treat.name = "treat_sim",
-  sg_def_structs = NULL
+  sg_def_structs = NULL,
+  method = c("frame", "exact"),
+  dgm = NULL,
+  analysis_time = 84,
+  max_entry = 24,
+  cens_adjust = log(1.5)
 )
 }
 \arguments{
@@ -24,6 +29,14 @@ fs_attach_betaHhat(
 \item{focus, outcome_type, effect_measure, outcome.name, event.name, treat.name}{Passed to \code{\link[=fs_betaHhat_one]{fs_betaHhat_one()}}.}
 
 \item{sg_def_structs}{Optional named list of structured GRF definitions.}
+
+\item{method, dgm, analysis_time, max_entry, cens_adjust}{Passed to
+\code{\link[=fs_betaHhat_one]{fs_betaHhat_one()}}. \code{method = "frame"} (default) is the route above,
+unchanged. \code{method = "exact"} (survival only, administrative censoring
+only) replaces the fit on \code{frame} by the analytic limit on \code{dgm}'s
+super-population, built once; the returned columns are the same. See
+\emph{The exact route} in \code{\link[=fs_betaHhat_one]{fs_betaHhat_one()}}. Under \code{"exact"}, \code{frame} is
+not used and the counts are over \code{dgm$df_super}.}
 }
 \value{
 \code{results} with \code{betaHhat_H}, \code{betaHhat_Hc}, \code{betaHhat_status} and

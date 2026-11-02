@@ -141,8 +141,14 @@ A data.table with simulation results containing:
 With \code{record = "full"}, the same table followed by the columns
 \code{TP_nonregion}, \code{FP_nonregion}, \code{FN_nonregion},
 \code{TN_nonregion}, \code{TP_region}, \code{FP_region},
-\code{FN_region}, \code{TN_region}, and the attribute
-\code{"estimators"} (see \emph{Full record}).
+\code{FN_region}, \code{TN_region}, then the multiplier-resampling
+columns \code{mr_ci_method}, \code{mr_debiased_H}, \code{mr_ij_lower_H},
+\code{mr_ij_upper_H}, \code{mr_field_lower_1s_H}, \code{mr_debiased_Hc},
+\code{mr_ij_lower_Hc}, \code{mr_ij_upper_Hc},
+\code{mr_field_upper_1s_Hc}, \code{mr_field_upper_1s_s_Hc},
+\code{mr_bonf_lower_H}, \code{mr_bonf_upper_Hc}, \code{mr_p_hat_H},
+\code{mr_selection_rate}, and the attribute \code{"estimators"} (see
+\emph{Full record}).
 }
 \description{
 Simulates multi-regional clinical trials and evaluates ForestSearch subgroup
@@ -175,7 +181,8 @@ confounder effects, specify them when creating the DGM using
 \subsection{Full record}{
 
 With \code{record = "full"} the returned table is the \code{"point"}
-table with eight columns added and a second table attached as an
+table with twenty-two columns added (eight counts, then fourteen
+multiplier-resampling columns) and a second table attached as an
 attribute, \code{est <- attr(res, "estimators")}; \code{res$hr_itt},
 \code{nrow(res)} and every \code{"point"} column are unchanged. (A
 data.table subset such as \code{res[order(sim)]} drops the attribute:
@@ -210,6 +217,38 @@ counts are kept.
 When the simulated trial has no \code{flag_harm} column, the
 \code{region_Gstar} and \code{Hstar_nonregion} rows are omitted and the
 counts are \code{NA}, with a message.
+
+After the counts come fourteen columns read from the trial's
+\code{forestsearch()} result \code{fs$mr_inference} (multiplier
+resampling, \code{fs_args = list(mr_inference = TRUE, ...)}; see
+\code{\link{fs_mr_inference}}), on the effect (HR) scale:
+\describe{
+\item{\code{mr_ci_method}}{\code{ci_method}.}
+\item{\code{mr_debiased_H}, \code{mr_ij_lower_H},
+\code{mr_ij_upper_H}}{\code{debiased$est}, \code{$lower},
+\code{$upper}: the de-biased estimate on \eqn{\hat H} and its
+interval (IJ SE under \code{"ij"} and \code{"field"}, robust SE under
+\code{"wald"}).}
+\item{\code{mr_field_lower_1s_H}}{\code{field$lower_1s}.}
+\item{\code{mr_debiased_Hc}, \code{mr_ij_lower_Hc},
+\code{mr_ij_upper_Hc}}{\code{complement$debiased$est},
+\code{$lower}, \code{$upper}.}
+\item{\code{mr_field_upper_1s_Hc},
+\code{mr_field_upper_1s_s_Hc}}{\code{field$complement$upper_1s} and
+its studentized companion \code{field$complement$upper_1s_s}.}
+\item{\code{mr_bonf_lower_H}, \code{mr_bonf_upper_Hc}}{
+\code{field$joint$bonf_lower_H}, \code{field$joint$bonf_upper_Hc}.}
+\item{\code{mr_p_hat_H}}{\code{reselection$p_hat[selected_index]}.}
+\item{\code{mr_selection_rate}}{\code{selection_rate}.}
+}
+Each is \code{NA} when its element is absent: every one in a trial
+without \code{mr_inference} or without a declared subgroup (nothing to
+de-bias), or with the short MR return; the
+complement columns without \code{include_complement = TRUE}; the field
+columns unless \code{ci_method = "field"}; the complement field and
+Bonferroni columns without \code{field_complement = TRUE};
+\code{mr_p_hat_H} without \code{return_reselection = TRUE}. Under
+\code{record = "point"} none of these columns is added.
 }
 }
 \examples{

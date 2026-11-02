@@ -30,6 +30,10 @@ point_cols <- c("sim", "n_itt", "hr_itt", "hr_ittX", "n_train", "hr_train", "n_t
                 "hr_test", "any_found", "sg_found", "n_sg", "hr_sg", "POhr_sg", "prev_sg",
                 "n_sg_train", "hr_sg_train", "POhr_sg_train", "hr_sg_null")
 count_cols <- paste0(rep(c("TP", "FP", "FN", "TN"), 2), rep(c("_nonregion", "_region"), each = 4))
+mr_cols <- c("mr_ci_method", "mr_debiased_H", "mr_ij_lower_H", "mr_ij_upper_H",
+             "mr_field_lower_1s_H", "mr_debiased_Hc", "mr_ij_lower_Hc", "mr_ij_upper_Hc",
+             "mr_field_upper_1s_Hc", "mr_field_upper_1s_s_Hc", "mr_bonf_lower_H",
+             "mr_bonf_upper_Hc", "mr_p_hat_H", "mr_selection_rate")
 estimator_names <- c("itt_all", "itt_nonregion", "itt_region", "region_Ghat",
                      "region_Gstar", "Hstar_nonregion")
 
@@ -49,7 +53,7 @@ test_that("record = 'point' is the call without the argument and the pre-change 
   expect_identical(as.list(pp), as.list(fx))
   # the full path leaves every point column as it is and appends the counts
   pf <- rs_full()
-  expect_identical(names(pf), c(point_cols, count_cols))
+  expect_identical(names(pf), c(point_cols, count_cols, mr_cols))
   expect_identical(as.list(pf)[point_cols], as.list(pp))
 })
 

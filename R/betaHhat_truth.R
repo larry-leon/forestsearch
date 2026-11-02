@@ -205,6 +205,133 @@
 }
 
 
+# --- the exact survival route (method = "exact") ---------------------------
+# The analytic layer's population for the exact route, and the censoring
+# guard that decides whether the route applies.
+
+# Largest probability, over the super-population's patients and both arms,
+# that the DGM's random censoring time falls at or before `analysis_time`
+# under simulate_from_dgm()'s censoring model and `cens_adjust`.  Zero (to
+# double precision) means the only censoring the trial sees is administrative.
+#
+# @noRd
+.fs_random_cens_prob <- function(dgm, analysis_time, cens_adjust) {
+  cm <- dgm$model_params$censoring
+  type <- cm$type
+  if (is.null(type))
+    stop("dgm$model_params$censoring$type is missing; cannot decide whether ",
+         "the censoring is administrative only.", call. = FALSE)
+  if (identical(type, "uniform")) {
+    # simulate_from_dgm() ignores cens_adjust for uniform censoring.
+    return(stats::punif(analysis_time, min = cm$min, max = cm$max))
+  }
+  if (!type %in% c("weibull", "lognormal"))
+    stop("Unknown censoring type in DGM: '", type, "'.", call. = FALSE)
+  ds <- dgm$df_super
+  lp <- c(ds$lin_pred_cens_0, ds$lin_pred_cens_1)
+  if (!length(lp) || anyNA(lp))
+    stop("dgm$df_super lacks lin_pred_cens_0 / lin_pred_cens_1.", call. = FALSE)
+  if (is.infinite(cens_adjust) && cens_adjust > 0) return(0)
+  # logC = mu_c + cens_adjust + tau_c * eps + lp: P(C <= t) = F_eps(z).
+  z <- (log(analysis_time) - cm$mu - cens_adjust - lp) / cm$tau
+  pr <- if (identical(type, "weibull")) -expm1(-exp(z)) else stats::pnorm(z)
+  max(pr)
+}
+
+# Validate the exact route's preconditions and build what it scores on:
+# NULL for method = "frame"; otherwise list(pop = ahr_population(), df =
+# dgm$df_super).
+#
+# @noRd
+.fs_exact_setup <- function(method, dgm, outcome_type, analysis_time,
+                            max_entry, cens_adjust) {
+  if (identical(method, "frame")) return(NULL)
+  if (!identical(outcome_type, "survival"))
+    stop("method = \"exact\" is survival only (outcome_type = \"",
+         outcome_type, "\").", call. = FALSE)
+  if (is.null(dgm))
+    stop("method = \"exact\" needs `dgm`: the DGM the evaluation frame was ",
+         "drawn from (an inject_mrct_structure() build).", call. = FALSE)
+  if (!is.numeric(cens_adjust) || length(cens_adjust) != 1L || is.na(cens_adjust))
+    stop("`cens_adjust` must be one number.", call. = FALSE)
+  p <- .fs_random_cens_prob(dgm, analysis_time, cens_adjust)
+  if (!(p < .Machine$double.eps))
+    stop(sprintf(paste0(
+      "method = \"exact\" covers administrative censoring only: with ",
+      "cens_adjust = %s the DGM's random censoring falls before the analysis ",
+      "time (%g) with probability up to %.3g.  Use method = \"frame\", or a ",
+      "cens_adjust that removes the random censoring (e.g. 50, the ",
+      "administrative-only convention of the MRCT campaigns, or Inf)."),
+      format(cens_adjust), analysis_time, p), call. = FALSE)
+  list(pop = ahr_population(dgm, analysis_time = analysis_time,
+                            max_entry = max_entry),
+       df = dgm$df_super)
+}
+
+# beta(Hhat) on a region of the exact route: exp(beta*), the analytic limit
+# of the two-sample Cox estimate on the region's super-population patients.
+#
+# @noRd
+.fs_region_effect_exact <- function(pop, idx) {
+  if (is.null(idx) || !length(idx) || !any(idx)) return(NA_real_)
+  ahr_limit(pop, set = idx, psi = pop$psi, variance = FALSE)$hr
+}
+
+
+# --- LAYER 3: one rule ------------------------------------------------------
+# The shared body of fs_betaHhat_one(), fs_betaHhat_table() and
+# fs_attach_betaHhat().  `exact` is NULL on the frame route, or the list
+# .fs_exact_setup() returns.
+#
+# @noRd
+.fs_betaHhat_one_impl <- function(rule, frame, focus, outcome_type,
+                                  effect_measure, outcome.name, event.name,
+                                  treat.name, sg_def_struct, exact) {
+  df <- if (is.null(exact)) frame else exact$df
+  stopifnot(is.data.frame(df))
+  N <- nrow(df)
+
+  rec <- function(H, Hc, nH, nHc, status, missing) {
+    data.frame(betaHhat_H = H, betaHhat_Hc = Hc,
+               nH_eval = nH, nHc_eval = nHc,
+               status = status,
+               missing_cols = paste(missing, collapse = ","),
+               stringsAsFactors = FALSE)
+  }
+
+  res <- .fs_resolve_membership(df, rule, sg_def_struct)
+
+  if (identical(res$status, "unresolved")) {
+    return(rec(NA_real_, NA_real_, NA_integer_, NA_integer_,
+               "unresolved", res$missing))
+  }
+
+  in_region <- res$in_region
+  if (identical(focus, "benefit")) in_region <- !in_region
+
+  nH  <- sum(in_region)
+  nHc <- sum(!in_region)
+
+  # HARD INVARIANT.  Checked whenever the rule resolved; skipped only on the
+  # unresolved branch above, where both counts are NA by construction.
+  if (!identical(nH + nHc, N)) {
+    stop(sprintf(paste0("partition invariant violated: nH_eval + nHc_eval = ",
+                        "%d + %d = %d, but nrow(frame) = %d.  Membership is ",
+                        "incoherent; refusing to return a target."),
+                 nH, nHc, nH + nHc, N), call. = FALSE)
+  }
+
+  eff <- if (is.null(exact)) {
+    function(idx) .fs_region_effect(frame, idx, outcome_type,
+                                    effect_measure, outcome.name,
+                                    event.name, treat.name)
+  } else {
+    function(idx) .fs_region_effect_exact(exact$pop, idx)
+  }
+  rec(eff(in_region), eff(!in_region), nH, nHc, "ok", character(0))
+}
+
+
 #' Conditional estimand `beta(Hhat)` for one realized rule
 #'
 #' Computes the population value of the standard within-subgroup analysis on a
@@ -250,10 +377,57 @@
 #'   `.grf_evaluate_subgroup()`, which is the package's own answer for GRF
 #'   membership.
 #'
+#' @param method Character. `"frame"` (default) scores the rule on `frame`
+#'   by the per-family fit, exactly as before this argument existed.
+#'   `"exact"` (survival only) computes the same population quantity from the
+#'   analytic layer; see the section *The exact route*.
+#' @param dgm The DGM `frame` was drawn from (an [inject_mrct_structure()]
+#'   build). Required by `method = "exact"`; ignored by `"frame"`.
+#' @param analysis_time,max_entry,cens_adjust The analysis time, the entry
+#'   maximum and the censoring adjustment of the evaluation draw. Used by
+#'   `method = "exact"` only; the defaults are those of the draw
+#'   [fs_build_eval_frame()] makes (`analysis_time = 84`, `cens_adjust =
+#'   log(1.5)`, and [simulate_from_dgm()]'s default `max_entry = 24`, which
+#'   [fs_build_eval_frame()] does not override). Pass the values the frame was
+#'   drawn with.
+#'
 #' @return A one-row data frame with columns `betaHhat_H`, `betaHhat_Hc`,
 #'   `nH_eval`, `nHc_eval`, `status` and `missing_cols`. The column names are
 #'   scale-agnostic and identical across families so downstream
 #'   `paste0("betaHhat_", suffix)` scoring is shared verbatim.
+#'
+#' @section The exact route:
+#'
+#' With `method = "exact"` the survival target is computed without a draw:
+#' [ahr_population()]`(dgm, analysis_time, max_entry)` once, then
+#' `exp(beta*)` from [ahr_limit()]`(pop, set = <membership>, psi = pop$psi)`
+#' for the realized region and for its complement, where `beta*` is the
+#' Struthers-Kalbfleisch limit of the two-sample Cox estimate (1:1
+#' randomisation, entry U(0, `max_entry`), analysis at `analysis_time`).
+#' Membership is resolved on `dgm$df_super` by the same internal
+#' `.fs_resolve_membership()` (the [get_dfpred()] route) the frame route uses
+#' on `frame`, so a rule the frame route cannot evaluate is `NA` on both
+#' routes, and the counts `nH_eval` / `nHc_eval` are over `dgm$df_super`.
+#' An empty region is `NA`, as on the frame route.
+#'
+#' The two routes estimate the same population quantity: the frame route
+#' fits [survival::coxph()] on one [simulate_from_dgm()] draw of the whole
+#' super-population and so carries the Monte Carlo error of that single
+#' evaluation draw; the exact route has none. The frame route's
+#' small-region guard (fewer than five events or a single arm in the draw)
+#' has no counterpart: the limit exists for any non-empty region.
+#'
+#' The exact route applies when the censoring is administrative only: the
+#' analytic layer has no random-censoring factor. It stops, rather than
+#' approximating, unless the DGM's random censoring time falls before
+#' `analysis_time` with probability below `.Machine$double.eps` for every
+#' patient in both arms under `cens_adjust`. In [simulate_from_dgm()]
+#' `cens_adjust = 0` means *no adjustment* of the DGM's censoring model, not
+#' no random censoring, and the frame route's default `log(1.5)` lengthens the
+#' random censoring times but keeps them; `cens_adjust = 50` (the
+#' administrative-only convention of the MRCT campaigns) or `Inf` removes
+#' it. Requires a DGM made by [inject_mrct_structure()], as
+#' [ahr_population()] does.
 #'
 #' @keywords internal
 #' @export
@@ -264,46 +438,21 @@ fs_betaHhat_one <- function(rule, frame, focus,
                             outcome.name = "y_sim",
                             event.name = "event_sim",
                             treat.name = "treat_sim",
-                            sg_def_struct = NULL) {
+                            sg_def_struct = NULL,
+                            method = c("frame", "exact"),
+                            dgm = NULL,
+                            analysis_time = 84,
+                            max_entry = 24,
+                            cens_adjust = log(1.5)) {
   .fs_check_focus(focus)
   outcome_type <- match.arg(outcome_type)
-  stopifnot(is.data.frame(frame))
-  N <- nrow(frame)
-
-  rec <- function(H, Hc, nH, nHc, status, missing) {
-    data.frame(betaHhat_H = H, betaHhat_Hc = Hc,
-               nH_eval = nH, nHc_eval = nHc,
-               status = status,
-               missing_cols = paste(missing, collapse = ","),
-               stringsAsFactors = FALSE)
-  }
-
-  res <- .fs_resolve_membership(frame, rule, sg_def_struct)
-
-  if (identical(res$status, "unresolved")) {
-    return(rec(NA_real_, NA_real_, NA_integer_, NA_integer_,
-               "unresolved", res$missing))
-  }
-
-  in_region <- res$in_region
-  if (identical(focus, "benefit")) in_region <- !in_region
-
-  nH  <- sum(in_region)
-  nHc <- sum(!in_region)
-
-  # HARD INVARIANT.  Checked whenever the rule resolved; skipped only on the
-  # unresolved branch above, where both counts are NA by construction.
-  if (!identical(nH + nHc, N)) {
-    stop(sprintf(paste0("partition invariant violated: nH_eval + nHc_eval = ",
-                        "%d + %d = %d, but nrow(frame) = %d.  Membership is ",
-                        "incoherent; refusing to return a target."),
-                 nH, nHc, nH + nHc, N), call. = FALSE)
-  }
-
-  eff <- function(idx) .fs_region_effect(frame, idx, outcome_type,
-                                         effect_measure, outcome.name,
-                                         event.name, treat.name)
-  rec(eff(in_region), eff(!in_region), nH, nHc, "ok", character(0))
+  method <- match.arg(method)
+  if (identical(method, "frame")) stopifnot(is.data.frame(frame))
+  exact <- .fs_exact_setup(method, dgm, outcome_type, analysis_time,
+                           max_entry, cens_adjust)
+  .fs_betaHhat_one_impl(rule, frame, focus, outcome_type, effect_measure,
+                        outcome.name, event.name, treat.name, sg_def_struct,
+                        exact)
 }
 
 
@@ -333,6 +482,9 @@ fs_betaHhat_one <- function(rule, frame, focus,
 #'   Passed to [fs_betaHhat_one()].
 #' @param sg_def_structs Optional named list of structured GRF definitions,
 #'   keyed by the rule string, used in preference to string parsing.
+#' @param method,dgm,analysis_time,max_entry,cens_adjust Passed to
+#'   [fs_betaHhat_one()]; under `method = "exact"` the analytic population is
+#'   built once for all rules.
 #'
 #' @return A data frame keyed by `sg_def`, one row per distinct rule, with the
 #'   [fs_betaHhat_one()] schema. Resolution counters are attached as
@@ -347,10 +499,29 @@ fs_betaHhat_table <- function(sg_defs, frame, focus,
                               outcome.name = "y_sim",
                               event.name = "event_sim",
                               treat.name = "treat_sim",
-                              sg_def_structs = NULL) {
+                              sg_def_structs = NULL,
+                              method = c("frame", "exact"),
+                              dgm = NULL,
+                              analysis_time = 84,
+                              max_entry = 24,
+                              cens_adjust = log(1.5)) {
   .fs_check_focus(focus)
   outcome_type <- match.arg(outcome_type)
+  method <- match.arg(method)
+  exact <- .fs_exact_setup(method, dgm, outcome_type, analysis_time,
+                           max_entry, cens_adjust)
+  .fs_betaHhat_table_impl(sg_defs, frame, focus, outcome_type,
+                          effect_measure, outcome.name, event.name,
+                          treat.name, sg_def_structs, exact)
+}
 
+
+# The shared body of fs_betaHhat_table() and fs_attach_betaHhat().
+#
+# @noRd
+.fs_betaHhat_table_impl <- function(sg_defs, frame, focus, outcome_type,
+                                    effect_measure, outcome.name, event.name,
+                                    treat.name, sg_def_structs, exact) {
   empty <- data.frame(sg_def = character(0), betaHhat_H = numeric(0),
                       betaHhat_Hc = numeric(0), nH_eval = integer(0),
                       nHc_eval = integer(0), status = character(0),
@@ -360,12 +531,11 @@ fs_betaHhat_table <- function(sg_defs, frame, focus,
   u <- unique(sg_defs[has_rule])
 
   out <- if (!length(u)) empty else do.call(rbind, lapply(u, function(g) {
-    r <- fs_betaHhat_one(g, frame, focus = focus, outcome_type = outcome_type,
-                         effect_measure = effect_measure,
-                         outcome.name = outcome.name, event.name = event.name,
-                         treat.name = treat.name,
-                         sg_def_struct = if (!is.null(sg_def_structs))
-                                           sg_def_structs[[g]] else NULL)
+    r <- .fs_betaHhat_one_impl(g, frame, focus, outcome_type, effect_measure,
+                               outcome.name, event.name, treat.name,
+                               sg_def_struct = if (!is.null(sg_def_structs))
+                                                 sg_def_structs[[g]] else NULL,
+                               exact = exact)
     cbind(data.frame(sg_def = g, stringsAsFactors = FALSE), r)
   }))
 
@@ -416,6 +586,13 @@ fs_betaHhat_counts <- function(x) attr(x, "betaHhat_counts")
 #' @param focus,outcome_type,effect_measure,outcome.name,event.name,treat.name
 #'   Passed to [fs_betaHhat_one()].
 #' @param sg_def_structs Optional named list of structured GRF definitions.
+#' @param method,dgm,analysis_time,max_entry,cens_adjust Passed to
+#'   [fs_betaHhat_one()]. `method = "frame"` (default) is the route above,
+#'   unchanged. `method = "exact"` (survival only, administrative censoring
+#'   only) replaces the fit on `frame` by the analytic limit on `dgm`'s
+#'   super-population, built once; the returned columns are the same. See
+#'   *The exact route* in [fs_betaHhat_one()]. Under `"exact"`, `frame` is
+#'   not used and the counts are over `dgm$df_super`.
 #'
 #' @return `results` with `betaHhat_H`, `betaHhat_Hc`, `betaHhat_status` and
 #'   `nH_eval` / `nHc_eval` columns added, and counters attached.
@@ -429,17 +606,24 @@ fs_attach_betaHhat <- function(results, frame, focus,
                                outcome.name = "y_sim",
                                event.name = "event_sim",
                                treat.name = "treat_sim",
-                               sg_def_structs = NULL) {
+                               sg_def_structs = NULL,
+                               method = c("frame", "exact"),
+                               dgm = NULL,
+                               analysis_time = 84,
+                               max_entry = 24,
+                               cens_adjust = log(1.5)) {
   .fs_check_focus(focus)
   outcome_type <- match.arg(outcome_type)
+  method <- match.arg(method)
+  exact <- .fs_exact_setup(method, dgm, outcome_type, analysis_time,
+                           max_entry, cens_adjust)
 
   # The no-subgroup record: Hhat is empty, so Hhat^c IS the ITT population.
   # Computed once -- it depends only on the frame, not on any replicate.
-  none <- fs_betaHhat_one(NULL, frame, focus = focus,
-                          outcome_type = outcome_type,
-                          effect_measure = effect_measure,
-                          outcome.name = outcome.name,
-                          event.name = event.name, treat.name = treat.name)
+  none <- .fs_betaHhat_one_impl(NULL, frame, focus, outcome_type,
+                                effect_measure, outcome.name, event.name,
+                                treat.name, sg_def_struct = NULL,
+                                exact = exact)
 
   if (is.null(results$sg_def)) {
     results$betaHhat_H      <- none$betaHhat_H
@@ -454,12 +638,9 @@ fs_attach_betaHhat <- function(results, frame, focus,
     return(results)
   }
 
-  bt <- fs_betaHhat_table(results$sg_def, frame, focus = focus,
-                          outcome_type = outcome_type,
-                          effect_measure = effect_measure,
-                          outcome.name = outcome.name,
-                          event.name = event.name, treat.name = treat.name,
-                          sg_def_structs = sg_def_structs)
+  bt <- .fs_betaHhat_table_impl(results$sg_def, frame, focus, outcome_type,
+                                effect_measure, outcome.name, event.name,
+                                treat.name, sg_def_structs, exact)
   j <- match(results$sg_def, bt$sg_def)
   results$betaHhat_H      <- bt$betaHhat_H[j]
   results$betaHhat_Hc     <- bt$betaHhat_Hc[j]

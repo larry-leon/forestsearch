@@ -46,6 +46,26 @@
   `se_loghr`), patients and events by arm, the set's `ahr` and `cde`, and
   `declared`. It reproduces the redraw-based records of mrct-consistency
   (`sims/123_ident_rlog4_full_records.R`) exactly.
+* `mrct_region_sims(record = "full")` adds, after the counts, the trial's
+  multiplier-resampling bounds from `fs$mr_inference` when `fs_args`
+  carries `mr_inference = TRUE`: `mr_ci_method`, `mr_debiased_H`,
+  `mr_ij_lower_H`, `mr_ij_upper_H`, `mr_field_lower_1s_H`,
+  `mr_debiased_Hc`, `mr_ij_lower_Hc`, `mr_ij_upper_Hc`,
+  `mr_field_upper_1s_Hc`, `mr_field_upper_1s_s_Hc`, `mr_bonf_lower_H`,
+  `mr_bonf_upper_Hc`, `mr_p_hat_H`, `mr_selection_rate`; `NA` where the
+  element was not computed (no MR, no declaration, complement or field
+  options off, `return_reselection = FALSE` for `mr_p_hat_H`).
+  `record = "point"` is unchanged.
+* `fs_attach_betaHhat()`, `fs_betaHhat_table()` and `fs_betaHhat_one()`
+  gain `method = c("frame", "exact")` (with `dgm`, `analysis_time`,
+  `max_entry`, `cens_adjust`). `"frame"` (the default) is the current route.
+  `"exact"` (survival only) computes beta(Ĥ) and beta(Ĥᶜ) without a draw,
+  from `ahr_population()` / `ahr_limit()` on the realised membership in
+  `dgm$df_super`: the same population quantity as the frame route, without
+  the Monte Carlo error of its single evaluation draw. It covers
+  administrative censoring only and stops when `cens_adjust` leaves the
+  DGM's random censoring in place (as `0` and the frame default `log(1.5)`
+  do; `50` or `Inf` remove it).
 
 ### Behaviour changes
 
@@ -60,7 +80,12 @@
   complement) and the Bonferroni pair; complement cells carry MR values only
   under `include_complement = TRUE`. The returned table carries the numbers
   it displays as `attr(, "mr_values")`. A call that supplies
-  `boot_results` is unchanged.
+  `boot_results` returns the same numbers; its bias-corrected footnote now
+  names the method used (the MR de-biased estimate with the number of
+  draws, and its interval from the IJ variance on the multiplier draws, or
+  the robust SE under `ci_method = "wald"`) instead of the bootstrap's
+  "infinitesimal jackknife method (draws iterations)". `format_bootstrap_table()`
+  gains `bc_footnote` (default `NULL`, the bootstrap footnote) for this.
 
 * `expand_covariates()` (and so `inject_mrct_structure()`) now warns when
   the latent correlation is not fitted by latentcor (package not installed,

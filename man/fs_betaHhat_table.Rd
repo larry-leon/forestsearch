@@ -13,7 +13,12 @@ fs_betaHhat_table(
   outcome.name = "y_sim",
   event.name = "event_sim",
   treat.name = "treat_sim",
-  sg_def_structs = NULL
+  sg_def_structs = NULL,
+  method = c("frame", "exact"),
+  dgm = NULL,
+  analysis_time = 84,
+  max_entry = 24,
+  cens_adjust = log(1.5)
 )
 }
 \arguments{
@@ -26,6 +31,10 @@ fs_betaHhat_table(
 
 \item{sg_def_structs}{Optional named list of structured GRF definitions,
 keyed by the rule string, used in preference to string parsing.}
+
+\item{method, dgm, analysis_time, max_entry, cens_adjust}{Passed to
+\code{\link[=fs_betaHhat_one]{fs_betaHhat_one()}}; under \code{method = "exact"} the analytic population is
+built once for all rules.}
 }
 \value{
 A data frame keyed by \code{sg_def}, one row per distinct rule, with the
