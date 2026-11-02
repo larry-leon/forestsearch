@@ -6,7 +6,7 @@ for the article `vignettes/articles/mrct-consistency.qmd`
 (TASK_fs-mrct-article_2026-11-01). The article reads only the files of this
 directory; it never reads mrct-consistency.
 
-Every file except two is a byte-for-byte copy of its source (checked with
+Every file except three is a byte-for-byte copy of its source (checked with
 `cmp` when copied). The source commit is the last mrct-consistency commit that
 changed the source path; the hash is the first 12 hex digits of the shipped
 file's SHA-256.
@@ -40,8 +40,9 @@ file's SHA-256.
 | `timing_mr_field_S2_D2.csv` | `results/mr_field_campaign/S2_D2/timing.csv` | 23420aa (2026-11-01) | `5ce59a839927` |
 | `mr_field_S2_rep5.csv` | `results/mr_field_campaign/S2/mr_field.csv` (header + line 2, replicate 5) | 23420aa (2026-11-01) | `8cf7a9d3cd7c` |
 | `latent_R.csv` | written from `build_full("S2")$mrct$latent_R` (`sims/ident_rlog4_full_design.R`, run at `2341f96` with forestsearch 0.4.1.9000 installed from `5db25a27`) | `2341f96` (2026-11-01) | `2f959b361809` |
+| `rep5_trial.csv` | written by `dev/article/make_rep5_trial.R` in this repository (forestsearch 0.4.1.9000 installed from `0b1f5ba7`, run on branch `mrct-article-r3` at `ee570e21`; TASK_fs-mrct-article-r3_2026-11-02) | added with the script | `f7c7fa8216af` |
 
-The two files that are not whole copies:
+The three files that are not whole copies:
 
 - `latent_R.csv`: the 12 x 12 latent correlation of the copula expansion of
   the S2 build of record, one row per covariate (`var` gives the row name),
@@ -55,6 +56,17 @@ The two files that are not whole copies:
   `results/mr_field_campaign/S2/mr_field.csv` (lines 1-2), the MR field
   campaign's record of the article's case example; the article checks its
   own MR call against it.
+- `rep5_trial.csv`: replicate 5 of S2 as drawn, 1,000 rows, one per patient:
+  `id`, `y_sim` (months), `event_sim`, `treat_sim` (1 = experimental),
+  `z_region`, the twelve covariates of `analysis_covariates(dgm_S2,
+  "observed")` (`z_age` ... `z_symptom`) and `flag_harm` (membership of H*).
+  The draw is `mrct_case_study()`'s: `simulate_from_dgm()` under
+  L'Ecuyer-CMRG on the S2 build of record (`latent_R.csv` supplied, `m = 3`)
+  with n = 1000, `max_entry = 11`, `analysis_time = 40`, `cens_adjust = 50`
+  and call seed 613800005 (the S2 call seed 613800000 + 5). The script checks
+  the draw identical to `mrct_case_study(mr_inference = FALSE)$trial` and the
+  CSV read back equal to it in every value (each double written as the
+  shortest decimal that reads back exactly).
 
 What each file is used for:
 
@@ -71,6 +83,7 @@ The three `s2_example_*` files also ship, byte-identical, as the fixture of
 TASK_fs-mrct-article-r2_2026-11-01), which checks that `mrct_select_case()` and
 `mrct_case_study()` reproduce replicate 5.
 | `mr_field_S2_rep5.csv` | the check of the replicate-5 MR call |
+| `rep5_trial.csv` | the case study (read first in the case-study section); the own-trial simulation setup; checked against the redraw by `mrct_case_study()` |
 | `core_n1000.csv` | the core OC table at n = 1,000 (displayed) |
 | `core_full_numeric.csv`, `core_S1_numeric.csv` | the recount of the core table's counts; observed trigger and oracle-joint frequencies |
 | `entry_cells_core.csv`, `entry_cells_core_numeric.csv` | the later-enrolling cells' table (displayed, recounted), observed frequencies |
