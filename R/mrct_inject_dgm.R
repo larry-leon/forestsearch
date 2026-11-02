@@ -300,8 +300,19 @@ make_region_model <- function(pop, x_pred = NULL, or_pred = 1,
 #'   DGM; -log(5) reproduces the Feb-2026 deck's strongly prognostic region);
 #'   scale = "rank" (ECDF) or "minmax" (the paper's `[0,1]` scaling);
 #'   optional band = list(cut, or) (and optional var, default `x_pred`) adds
-#'   `log(or) * 1(var <= cut)` to the region logit, see make_region_model()
-#' @param x3            NULL, or list(vars = c(...), cuts = list(...), loghr = ...)
+#'   `log(or) * 1(var <= cut)` to the region logit, see make_region_model().
+#'   Observed-region mode: `region = list(observed = "<col>", loghr = NULL)`
+#'   takes the region from `seed_data[[col]]`, a 0/1 column (a 2-level factor
+#'   is recoded as the other covariates are) that must have both levels in the
+#'   complete seed rows. The region is then named `col` (`z_<col>` in
+#'   `df_super`; `col` must not also be in `continuous_vars` or
+#'   `factor_vars`), it is expanded with the covariates, and
+#'   make_region_model() is not called. `prevalence`, `or_pred`, `x1_vars`,
+#'   `or_x1`, `scale` and `band` describe the planted model, and giving any of
+#'   them with `observed` is an error. In this mode `loghr = NULL` (the
+#'   default) means the region's prognostic log-HR is estimated by the AFT
+#'   fit; a number fixes it, as in the planted mode.
+#' @param x3           NULL, or list(vars = c(...), cuts = list(...), loghr = ...)
 #'   for a balanced effect modifier: cuts as in generate_aft_dgm_flex (use
 #'   fixed values), loghr = log-HR change (treatment x subgroup).
 #' @param region_treat_loghr  NULL, or a log-HR for a direct treat x Region
@@ -315,15 +326,24 @@ make_region_model <- function(pop, x_pred = NULL, or_pred = 1,
 #' @param latent_R      NULL (default), or the latent correlation matrix of the
 #'   copula expansion, passed to [expand_covariates()]: named rows and columns
 #'   matching the expanded covariates (`continuous_vars`, `factor_vars`, the
-#'   censoring covariates and the `x3` variables), symmetric and positive
-#'   definite. When supplied no latentcor fit is made, so the super-population
+#'   censoring covariates, the `x3` variables and, with `region$observed`, the
+#'   region column), symmetric and positive definite (a matrix without the
+#'   observed region column fails the check). When supplied no latentcor fit
+#'   is made, so the super-population
 #'   is the same on every platform; e.g. pass `dgm$mrct$latent_R` of a stored
 #'   build to rebuild it. With NULL the matrix is fitted by latentcor when
 #'   installed; otherwise (or if the fit fails) the normal-score correlation is
 #'   used with a warning (see [expand_covariates()]). The matrix used is
 #'   stored in `dgm$mrct$latent_R` either way.
+#' @details
+#' An observed region (`region$observed`) is carried through the expansion
+#' with the covariates; nothing about its membership is modelled.
 #' @return aft_dgm_flex with df_super = expanded population (+ `z_<region>`), and
-#'   a `$mrct` element documenting the injected structure.
+#'   a `$mrct` element documenting the injected structure. `$mrct$region$observed`
+#'   is `TRUE` in the observed-region mode, where `prevalence_target`, `alpha0`,
+#'   `coefs`, `scale`, `band` and `$mrct$region_model` are `NULL`,
+#'   `$mrct$classes$X1` is `character(0)`, and `prognostic_loghr` is the
+#'   log-HR used (the fixed `loghr`, or the AFT estimate `model_params$b0[z_name]`).
 #' @importFrom stats complete.cases setNames
 #' @importFrom utils modifyList
 #' @export
@@ -344,9 +364,34 @@ inject_mrct_structure <- function(seed_data,
                                   verbose = FALSE,
                                   latent_R = NULL) {
   expand <- match.arg(expand)
-  region <- utils::modifyList(
-    list(name = "region", prevalence = 0.20, or_pred = 10,
-         x1_vars = character(0), or_x1 = 1, loghr = 0, scale = "rank"), region)
+  observed <- !is.null(region$observed)
+  if (observed) {
+    ## observed-region mode: the planted-model elements are not allowed;
+    ## "supplied" is judged on the user's list, before defaults are filled
+    obs <- region$observed
+    if (!is.character(obs) || length(obs) != 1L || !obs %in% names(seed_data))
+      stop("region$observed must name one column of seed_data.", call. = FALSE)
+    planted <- intersect(c("prevalence", "or_pred", "x1_vars", "or_x1", "scale", "band"),
+                         names(region))
+    if (length(planted))
+      stop("region$observed is given, so the region is not modelled: remove ",
+           paste(planted, collapse = ", "), " from region.", call. = FALSE)
+    if (!is.null(region$name) && !identical(region$name, obs))
+      stop("region$name must be region$observed ('", obs, "') when region$observed ",
+           "is given.", call. = FALSE)
+    if (obs %in% c(continuous_vars, factor_vars))
+      stop("region$observed ('", obs, "') must not also be in continuous_vars or ",
+           "factor_vars; it enters the AFT model as the region term.", call. = FALSE)
+    region <- utils::modifyList(list(name = obs, loghr = NULL), region)
+    if (!is.null(region$loghr) &&
+        (!is.numeric(region$loghr) || length(region$loghr) != 1L ||
+         !is.finite(region$loghr)))
+      stop("region$loghr must be NULL or one finite number.", call. = FALSE)
+  } else {
+    region <- utils::modifyList(
+      list(name = "region", prevalence = 0.20, or_pred = 10,
+           x1_vars = character(0), or_x1 = 1, loghr = 0, scale = "rank"), region)
+  }
   if (!is.null(x3) && !is.null(region_treat_loghr))
     stop("x3 and region_treat_loghr are mutually exclusive: the AFT DGM ",
          "carries a single treatment interaction term.")
@@ -360,11 +405,12 @@ inject_mrct_structure <- function(seed_data,
   ## keep only complete seed rows on the variables we use -------------------
   use_vars <- unique(c(outcome_var, event_var, treatment_var, continuous_vars,
                        factor_vars, continuous_vars_cens, factor_vars_cens,
-                       if (!is.null(x3)) x3$vars))
+                       if (!is.null(x3)) x3$vars, if (observed) region$name))
   seed_df  <- seed_data[stats::complete.cases(seed_data[, use_vars]), use_vars]
   rownames(seed_df) <- NULL
   covs <- unique(c(continuous_vars, factor_vars, continuous_vars_cens,
-                   factor_vars_cens, if (!is.null(x3)) x3$vars))
+                   factor_vars_cens, if (!is.null(x3)) x3$vars,
+                   if (observed) region$name))
   ## factors -> 0/1
   for (v in covs) if (is.factor(seed_df[[v]])) {
     if (nlevels(seed_df[[v]]) != 2L)
@@ -372,25 +418,41 @@ inject_mrct_structure <- function(seed_data,
            " levels; recode to 0/1 dummies before calling.")
     seed_df[[v]] <- as.numeric(seed_df[[v]] == levels(seed_df[[v]])[2])
   }
+  if (observed) {
+    ro <- seed_df[[region$name]]
+    if (!is.numeric(ro) || !all(ro %in% c(0, 1)))
+      stop("region$observed column '", region$name, "' must be 0/1 or a ",
+           "2-level factor.", call. = FALSE)
+    if (length(unique(ro)) < 2L)
+      stop("region$observed column '", region$name, "' has one level in the ",
+           "complete seed rows; both 0 and 1 are needed.", call. = FALSE)
+  }
 
   ## 1. expand covariates ----------------------------------------------------
   df_pop <- expand_covariates(seed_df, covs, n_super, seed = seed, method = expand,
                               latent_R = latent_R)
 
   ## 2. region -----------------------------------------------------------------
-  rm_ <- make_region_model(df_pop, x_pred = x_pred, or_pred = region$or_pred,
-                           x1_vars = region$x1_vars, or_x1 = region$or_x1,
-                           prevalence = region$prevalence, scale_ref = df_pop,
-                           scale = region$scale, band = band)
-  df_pop[[region$name]]  <- rm_$draw(df_pop,  seed = seed + 1L)
-  seed_df[[region$name]] <- rm_$draw(seed_df, seed = seed + 2L)
-  ## guard: survreg needs both region levels in the seed
-  if (length(unique(seed_df[[region$name]])) < 2L)
-    seed_df[[region$name]][sample.int(nrow(seed_df), 2)] <- c(0, 1)
+  if (observed) {
+    ## the region was expanded with the covariates; nothing is modelled
+    rm_ <- NULL
+  } else {
+    rm_ <- make_region_model(df_pop, x_pred = x_pred, or_pred = region$or_pred,
+                             x1_vars = region$x1_vars, or_x1 = region$or_x1,
+                             prevalence = region$prevalence, scale_ref = df_pop,
+                             scale = region$scale, band = band)
+    df_pop[[region$name]]  <- rm_$draw(df_pop,  seed = seed + 1L)
+    seed_df[[region$name]] <- rm_$draw(seed_df, seed = seed + 2L)
+    ## guard: survreg needs both region levels in the seed
+    if (length(unique(seed_df[[region$name]])) < 2L)
+      seed_df[[region$name]][sample.int(nrow(seed_df), 2)] <- c(0, 1)
+  }
 
   ## 3. AFT DGM on the seed (prognostic structure from data) ------------------
   z_region <- paste0("z_", region$name)
-  set_var  <- z_region
+  ## region$loghr = NULL (observed mode only): the region's log-HR is the
+  ## AFT estimate, so z_<region> is not fixed in set_beta_spec
+  set_var  <- if (observed && is.null(region$loghr)) NULL else z_region
   beta_var <- region$loghr
   subgroup_vars <- NULL; subgroup_cuts <- NULL; model <- "alt"
   if (!is.null(x3)) {
@@ -469,13 +531,16 @@ inject_mrct_structure <- function(seed_data,
     seed_n        = nrow(seed_df),
     expand        = expand,
     region        = list(name = region$name, z_name = z_region,
+                         observed = observed,
                          prevalence_target = region$prevalence,
                          prevalence_pop = mean(df_super[[z_region]]),
                          alpha0 = rm_$alpha0, coefs = rm_$coefs, scale = region$scale,
                          band = band,
-                         prognostic_loghr = region$loghr,
+                         prognostic_loghr = if (is.null(region$loghr))
+                           unname(mp$b0[z_region]) else region$loghr,
                          treat_interaction_loghr = region_treat_loghr),
-    classes       = list(X1 = region$x1_vars, X2 = x_pred,
+    classes       = list(X1 = if (observed) character(0) else region$x1_vars,
+                         X2 = x_pred,
                          X3 = if (!is.null(x3)) x3$vars else character(0),
                          other = setdiff(c(continuous_vars, factor_vars),
                                          c(x_pred, region$x1_vars,

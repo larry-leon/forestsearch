@@ -46,7 +46,18 @@ the prognostic log-HR of Region (no TE modification; 0 for the paper's
 DGM; -log(5) reproduces the Feb-2026 deck's strongly prognostic region);
 scale = "rank" (ECDF) or "minmax" (the paper's \verb{[0,1]} scaling);
 optional band = list(cut, or) (and optional var, default \code{x_pred}) adds
-\code{log(or) * 1(var <= cut)} to the region logit, see make_region_model()}
+\code{log(or) * 1(var <= cut)} to the region logit, see make_region_model().
+Observed-region mode: \code{region = list(observed = "<col>", loghr = NULL)}
+takes the region from \code{seed_data[[col]]}, a 0/1 column (a 2-level factor
+is recoded as the other covariates are) that must have both levels in the
+complete seed rows. The region is then named \code{col} (\verb{z_<col>} in
+\code{df_super}; \code{col} must not also be in \code{continuous_vars} or
+\code{factor_vars}), it is expanded with the covariates, and
+make_region_model() is not called. \code{prevalence}, \code{or_pred}, \code{x1_vars},
+\code{or_x1}, \code{scale} and \code{band} describe the planted model, and giving any of
+them with \code{observed} is an error. In this mode \code{loghr = NULL} (the
+default) means the region's prognostic log-HR is estimated by the AFT
+fit; a number fixes it, as in the planted mode.}
 
 \item{x3}{NULL, or list(vars = c(...), cuts = list(...), loghr = ...)
 for a balanced effect modifier: cuts as in generate_aft_dgm_flex (use
@@ -69,8 +80,10 @@ interaction (the residual Region-U-TE pathway).  Mutually exclusive with x3
 \item{latent_R}{NULL (default), or the latent correlation matrix of the
 copula expansion, passed to \code{\link[=expand_covariates]{expand_covariates()}}: named rows and columns
 matching the expanded covariates (\code{continuous_vars}, \code{factor_vars}, the
-censoring covariates and the \code{x3} variables), symmetric and positive
-definite. When supplied no latentcor fit is made, so the super-population
+censoring covariates, the \code{x3} variables and, with \code{region$observed}, the
+region column), symmetric and positive definite (a matrix without the
+observed region column fails the check). When supplied no latentcor fit
+is made, so the super-population
 is the same on every platform; e.g. pass \code{dgm$mrct$latent_R} of a stored
 build to rebuild it. With NULL the matrix is fitted by latentcor when
 installed; otherwise (or if the fit fails) the normal-score correlation is
@@ -79,8 +92,16 @@ stored in \code{dgm$mrct$latent_R} either way.}
 }
 \value{
 aft_dgm_flex with df_super = expanded population (+ \verb{z_<region>}), and
-a \verb{$mrct} element documenting the injected structure.
+a \verb{$mrct} element documenting the injected structure. \verb{$mrct$region$observed}
+is \code{TRUE} in the observed-region mode, where \code{prevalence_target}, \code{alpha0},
+\code{coefs}, \code{scale}, \code{band} and \verb{$mrct$region_model} are \code{NULL},
+\verb{$mrct$classes$X1} is \code{character(0)}, and \code{prognostic_loghr} is the
+log-HR used (the fixed \code{loghr}, or the AFT estimate \code{model_params$b0[z_name]}).
 }
 \description{
 Build an aft_dgm_flex with synthetic regions and paper-style effect structure.
+}
+\details{
+An observed region (\code{region$observed}) is carried through the expansion
+with the covariates; nothing about its membership is modelled.
 }

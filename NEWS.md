@@ -90,6 +90,14 @@ MRCT consistency article.
     (forest plot; Kaplan–Meier panels with weightedsurv) methods;
     `mr_estimates_table(x$fs)` gives the inference table.
 
+* `inject_mrct_structure()` has an observed-region mode:
+  `region = list(observed = "<col>")` takes the region from a 0/1 column of
+  `seed_data`, expands it with the covariates (no region model is fitted or
+  drawn), and estimates its prognostic log-HR by the AFT fit unless
+  `region$loghr` fixes it. The planted-model elements (`prevalence`,
+  `or_pred`, `x1_vars`, `or_x1`, `scale`, `band`) are errors in this mode;
+  `dgm$mrct$region$observed` records the mode. Defaults are unchanged.
+
 ### Behaviour changes
 
 * `mr_estimates_table()` no longer needs a bootstrap template:
