@@ -65,6 +65,46 @@ mrct-consistency technical report: a multiregional trial is positive overall, on
 unfavourable, and a subgroup identified by `forestsearch()` **on the patients outside the region** is
 applied inside it.
 
+::: {.callout-note}
+## Installing forestsearch
+
+The CRAN release of forestsearch (0.4.0) does not yet contain the functions this article uses. Until
+the next CRAN release, install the development version from GitHub. The article also uses two
+packages that forestsearch only suggests: `speff2trial`, for the ACTG 175 data, and `latentcor`, for
+the copula expansion.
+
+```r
+# the CRAN release (does not yet include this article's functions)
+install.packages("forestsearch")
+
+# the development version from GitHub, with the suggested packages
+install.packages("remotes")
+remotes::install_github("larry-leon/forestsearch", dependencies = TRUE)
+
+# or install the two suggested packages directly
+install.packages(c("speff2trial", "latentcor"))
+```
+
+Rendering the article itself needs the Quarto command-line tools. The chunk below stops with a
+message naming what is missing, before any computation starts.
+:::
+
+```{r install-check}
+#| code-fold: show
+needed <- c("scale_dgm_hazard", "ahr_population", "ahr_limit", "ahr_design", "ahr_solve",
+            "mrct_select_case", "mrct_case_study")
+missing_fns <- setdiff(needed, getNamespaceExports("forestsearch"))
+if (length(missing_fns))
+  stop("This article needs the development version of forestsearch (see 'Installing forestsearch'); ",
+       "the installed version (", as.character(packageVersion("forestsearch")), ") lacks: ",
+       paste(missing_fns, collapse = ", "), ".", call. = FALSE)
+missing_pkgs <- c("speff2trial", "latentcor")[!vapply(c("speff2trial", "latentcor"), requireNamespace, NA, quietly = TRUE)]
+if (length(missing_pkgs))
+  stop("This article needs: ", paste(missing_pkgs, collapse = ", "),
+       " (install.packages(c(", paste0('"', missing_pkgs, '"', collapse = ", "), ")).", call. = FALSE)
+c(forestsearch = as.character(packageVersion("forestsearch")))
+```
+
 
 # Overview: the question and the design {#sec-overview}
 
