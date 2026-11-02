@@ -66,6 +66,23 @@
   administrative censoring only and stops when `cens_adjust` leaves the
   DGM's random censoring in place (as `0` and the frame default `log(1.5)`
   do; `50` or `Inf` remove it).
+* Two helpers find and examine a case-study trial of an MRCT simulation:
+  * `mrct_select_case(res)`: on a `mrct_region_sims(record = "full")`
+    result, flags each trial for the trigger (ITT upper 95% limit <
+    `itt_ub` and region HR > `region_itt`), a declared subgroup, and
+    region(Ĝ) < 1.0, and returns the first trial meeting the chosen
+    conditions (`which = "first"`, the rule that chose replicate 5 of S2 in
+    the mrct-consistency report) or all of them, with the trial's hazard
+    ratios. A missing HR never satisfies a condition.
+  * `mrct_case_study(dgm, seed, k, ...)`: redraws trial `k` exactly as
+    `mrct_region_sims()` drew it (`simulate_from_dgm(seed = seed + k)` under
+    L'Ecuyer-CMRG, the caller's generator restored), runs `forestsearch()`
+    on the non-region patients with the run's arguments and multiplier
+    resampling (seeded `seed + k`), and returns the four sets (all, region,
+    region(G*), region(Ĝ)) with their Cox fits, Ĥ membership, the 2 × 2
+    tables of Ĥ against H* and the MR result. `print()` and `plot()`
+    (forest plot; Kaplan–Meier panels with weightedsurv) methods;
+    `mr_estimates_table(x$fs)` gives the inference table.
 
 ### Behaviour changes
 
