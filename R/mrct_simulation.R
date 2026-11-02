@@ -1301,7 +1301,7 @@ create_dgm_for_mrct <- function(
 #'
 #' @examples
 #' \dontrun{
-#' # Default (no trimming) — backward compatible
+#' # Default (no trimming) -- backward compatible
 #' plot_results <- SGplot_estimates(
 #'   results_alt,
 #'   label_training = "Non-Region A, ITT",

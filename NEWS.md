@@ -1,5 +1,11 @@
 # forestsearch 0.4.1.9000 (development)
 
+This development version adds the MRCT regional-consistency series: the
+MRCT consistency analytic layer, new DGM arguments, the per-replicate record
+of `mrct_region_sims()`, the exact survival beta(Ĥ) option,
+`mr_estimates_table()` without a template, the case-study helpers, and the
+MRCT consistency article.
+
 ### New features
 
 * The analytic layer of the MRCT regional-consistency work, moved from the

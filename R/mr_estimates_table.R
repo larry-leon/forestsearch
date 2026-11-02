@@ -266,12 +266,12 @@ mr_estimates_table <- function(fs, boot_results = NULL, est.scale = "hr",
     lo <- if (inv) u else l; up <- if (inv) l else u
     paste0(f(e), " (", f(lo), ", ", f(up), ")")
   }
-  dash <- "—"
+  dash <- "\u2014"
   # A one-sided bound, with its side: H's lower bound, the complement's upper
   # bound on the HR scale; reversed on 1/hr.
   bnd <- function(x, lower) {
     if (!is.finite(x)) return(dash)
-    side <- if (xor(lower, inv)) "≥ " else "≤ "
+    side <- if (xor(lower, inv)) "\u2265 " else "\u2264 "
     paste0(side, f(x))
   }
 
@@ -314,7 +314,7 @@ mr_estimates_table <- function(fs, boot_results = NULL, est.scale = "hr",
 
   mr_cols <- intersect(c("MR_debiased", "MR_field", "MR_bonferroni"), colnames(tab))
   lab <- list()
-  lab[[eff_col]] <- gt::md(paste0(measure, "<br/>(95% CI, robust)<sup>†</sup>"))
+  lab[[eff_col]] <- gt::md(paste0(measure, "<br/>(95% CI, robust)<sup>\u2020</sup>"))
   lab$MR_debiased <- gt::md("De-biased<br/>(95% IJ CI)")
   if (has_fl) lab$MR_field <- gt::md("Field<br/>one-sided 95%")
   if (has_jt) lab$MR_bonferroni <- gt::md("Bonferroni pair<br/>(joint 95%)")

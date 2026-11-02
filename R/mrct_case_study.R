@@ -435,12 +435,17 @@ print.mrct_case_study <- function(x, digits = 3, ...) {
 #' @param which Any of \code{"forest"}, \code{"km"}. Default both.
 #' @param xlim Hazard-ratio range of the forest plot. Default
 #'   \code{c(0.3, 2)}; intervals are clipped to it.
+#' @param time_unit Character. The unit of the Kaplan-Meier time axis, used
+#'   as its label (e.g. \code{"months"}); \code{NULL} (default) labels it
+#'   \code{"time"}.
 #' @param ... Unused.
 #' @return \code{x}, invisibly.
 #' @importFrom graphics par plot segments abline axis mtext text title
 #' @export
-plot.mrct_case_study <- function(x, which = c("forest", "km"), xlim = c(0.3, 2), ...) {
+plot.mrct_case_study <- function(x, which = c("forest", "km"), xlim = c(0.3, 2),
+                                 time_unit = NULL, ...) {
   which <- match.arg(which, several.ok = TRUE)
+  if (is.null(time_unit)) time_unit <- "time"
   s <- x$sets
   if ("forest" %in% which) {
     ord <- intersect(c("itt_all", "itt_region", "region_Ghat", "region_Gstar"), s$set)
@@ -483,7 +488,7 @@ plot.mrct_case_study <- function(x, which = c("forest", "km"), xlim = c(0.3, 2),
       weightedsurv::plot_weighted_km(
         dfc, conf.int = FALSE, show.cox = FALSE, show.logrank = FALSE, show.med = FALSE,
         show_arm_legend = TRUE, arms = c("experimental", "control"), put.legend.arms = "left",
-        by.risk = br, xmin = 0, xmax = ta, ymin = 0, ymax = 1.12, Xlab = "time",
+        by.risk = br, xmin = 0, xmax = ta, ymin = 0, ymax = 1.12, Xlab = time_unit,
         Ylab = "proportion event-free", col.0 = "black", col.1 = "blue", lwds = c(1.5, 1.5),
         censor.mark.all = FALSE, risk.cex = 0.8, arm.cex = 0.85)
       graphics::axis(1, at = seq(0, ta, br))

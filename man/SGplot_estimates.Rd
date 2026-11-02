@@ -77,7 +77,7 @@ the display when small subgroups produce very large HR estimates.
 }
 \examples{
 \dontrun{
-# Default (no trimming) — backward compatible
+# Default (no trimming) -- backward compatible
 plot_results <- SGplot_estimates(
   results_alt,
   label_training = "Non-Region A, ITT",

@@ -4,7 +4,7 @@
 \alias{plot.mrct_case_study}
 \title{Plot an MRCT case study}
 \usage{
-\method{plot}{mrct_case_study}(x, which = c("forest", "km"), xlim = c(0.3, 2), ...)
+\method{plot}{mrct_case_study}(x, which = c("forest", "km"), xlim = c(0.3, 2), time_unit = NULL, ...)
 }
 \arguments{
 \item{x}{An \code{mrct_case_study} object.}
@@ -13,6 +13,10 @@
 
 \item{xlim}{Hazard-ratio range of the forest plot. Default
 \code{c(0.3, 2)}; intervals are clipped to it.}
+
+\item{time_unit}{Character. The unit of the Kaplan-Meier time axis, used
+as its label (e.g. \code{"months"}); \code{NULL} (default) labels it
+\code{"time"}.}
 
 \item{...}{Unused.}
 }

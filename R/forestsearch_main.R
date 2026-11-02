@@ -989,10 +989,11 @@
 #'       Passed as \code{TRUE} by every internal caller.}
 #'     \item{\code{seed}}{Seed for the multiplier draws; defaults to
 #'       \code{seedit}.}
-#'     \item{\code{return_reselection}}{Logical, default \code{FALSE}.  When
+#'     \item{\code{return_reselection}}{Logical, default \code{TRUE}.  When
 #'       \code{TRUE} the gate's return gains the \code{reselection} element
 #'       (per-draw winners and the re-selection frequencies \code{p_hat});
-#'       add-only pass-through, the default reproduces prior output exactly.}
+#'       nothing in the arithmetic depends on it, and \code{FALSE} restores
+#'       the smaller return object.}
 #'     \item{\code{field_M_cap}}{Optional override of the uniform (kappa)
 #'       sweep's mass-carrying cap; \code{NULL} (default) keeps
 #'       \code{fs_mr_field_uniform()}'s default.  Consulted only when
