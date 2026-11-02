@@ -4,38 +4,68 @@
 \alias{mr_estimates_table}
 \title{Multiplier-resampling (MR) estimates table (bootstrap-table format)}
 \usage{
-mr_estimates_table(fs, boot_results, est.scale = "hr", digits = 2)
+mr_estimates_table(fs, boot_results = NULL, est.scale = "hr", digits = 2)
 }
 \arguments{
 \item{fs}{A \code{\link[=forestsearch]{forestsearch()}} result with a non-NULL \code{mr_inference} element.}
 
-\item{boot_results}{A \code{\link[=forestsearch_bootstrap_dofuture]{forestsearch_bootstrap_dofuture()}} result used as the
-template for the descriptive columns, the naive effect, the complement row,
-and the subgroup footnote.  Must contain \code{FSsg_tab} and \code{SG_CIs}.}
+\item{boot_results}{\code{NULL} (default) to build the table from \code{fs} alone, or
+a \code{\link[=forestsearch_bootstrap_dofuture]{forestsearch_bootstrap_dofuture()}} result used as the template for the
+descriptive columns, the naive effect, the complement row, and the
+subgroup footnote.  A template must contain \code{FSsg_tab} and \code{SG_CIs}.}
 
 \item{est.scale}{Character, \code{"hr"} or \code{"1/hr"}; passed to
-\code{\link[=format_bootstrap_table]{format_bootstrap_table()}}.  Should match the scale of \code{boot_results}.}
+\code{\link[=format_bootstrap_table]{format_bootstrap_table()}}.  With a template it should match the scale of
+\code{boot_results}; without one, \code{"1/hr"} inverts every ratio (limits swap,
+and a one-sided lower bound becomes an upper bound) and is accepted for
+ratio measures only.}
 
 \item{digits}{Integer display precision (default \code{2}), applied with the same
 reformatter \code{\link[=summarize_bootstrap_results]{summarize_bootstrap_results()}} uses so the two tables align.}
 }
 \value{
-A \code{gt} table.
+A \code{gt} table.  Without a template it carries the attribute
+\code{"mr_values"}: a data frame, one row per subgroup (\code{row} \code{"H"}, \code{"Hc"}),
+of the numbers the table displays, on the effect scale of
+\code{fs$mr_inference} (before any \code{"1/hr"} inversion): \code{naive_est},
+\code{naive_lower}, \code{naive_upper}, \code{debiased_est}, \code{ij_lower}, \code{ij_upper}, and,
+when present, \code{field_bound} and \code{bonferroni_bound} (\code{NA} where a
+complement quantity was not computed; the complement's naive columns are
+then the descriptive table's own robust Cox fit, not stored here).
 }
 \description{
 Renders the selected subgroup's MR de-biased estimate (\code{\link[=forestsearch]{forestsearch()}} with
-\code{mr_inference = TRUE}) in the same \code{gt} layout as the bias-corrected table
-produced by \code{\link[=summarize_bootstrap_results]{summarize_bootstrap_results()}}.  The descriptive columns
-(sample size, medians/RMST or rates) and the naive effect do not depend on
-which de-biasing method was used, so they are inherited from a full-bootstrap
-(FB) result used as a template; the bias-corrected column is replaced with
-the MR values from \code{fs$mr_inference} -- the de-biased estimate for the
-selected subgroup and, when MR was run with \code{include_complement = TRUE}, for
-the complement as well (otherwise the complement cell is marked, since MR
-de-biases the selected subgroup only).
+\code{mr_inference = TRUE}) in the \code{gt} layout of the bias-corrected table
+produced by \code{\link[=summarize_bootstrap_results]{summarize_bootstrap_results()}}.
 }
 \details{
-The selected-subgroup row is matched by its bias-corrected string
+\strong{With a bootstrap template} (\code{boot_results} supplied): the descriptive
+columns (sample size, medians/RMST or rates) and the naive effect do not
+depend on which de-biasing method was used, so they are inherited from a
+full-bootstrap (FB) result used as a template; the bias-corrected column is
+replaced with the MR values from \code{fs$mr_inference} -- the de-biased
+estimate for the selected subgroup and, when MR was run with
+\code{include_complement = TRUE}, for the complement as well (otherwise the
+complement cell is marked, since MR de-biases the selected subgroup only).
+
+\strong{Without a template} (\code{boot_results = NULL}, the default): the table is
+built from \code{fs} alone. The descriptive columns are computed from
+\code{fs$df.est} (the analysis data with the declared rule's \code{treat.recommend})
+by the builder the bootstrap uses (\code{\link[=SG_tab_estimates]{SG_tab_estimates()}}; for GLM outcomes
+its GLM counterpart), one row for the selected subgroup and one for its
+complement in the analysis data. The naive effect is \code{fs$mr_inference$naive}
+(and \verb{$complement$naive}) with its robust (sandwich) limits, and its header
+says so. The MR columns follow: the de-biased estimate with its IJ interval
+(\code{debiased}); when \code{fs$mr_inference$field} exists, the field one-sided 95\%
+bound (\code{field$lower_1s} for the selected subgroup, \code{field$complement$upper_1s}
+for the complement); and when the joint block exists, the Bonferroni pair
+(\code{field$joint$bonf_lower_H}, \code{field$joint$bonf_upper_Hc}). The field and
+Bonferroni columns appear only when those quantities exist. Complement
+cells carry MR values only when MR was run with \code{include_complement = TRUE}
+(and the complement field with \code{field_complement = TRUE}); otherwise they
+are marked with an em dash, as with a template.
+
+With a template, the selected-subgroup row is matched by its bias-corrected string
 (\code{boot_results$SG_CIs$H_bc}) rather than by position, so the substitution is
 robust to row ordering.  The MR de-biased confidence interval is a
 leading-order approximation of the full-bootstrap infinitesimal-jackknife

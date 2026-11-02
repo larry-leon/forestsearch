@@ -49,6 +49,19 @@
 
 ### Behaviour changes
 
+* `mr_estimates_table()` no longer needs a bootstrap template:
+  `boot_results` now defaults to `NULL`, and the table is then built from
+  the `forestsearch(mr_inference = TRUE)` result alone. The descriptive
+  columns come from `fs$df.est` (by `SG_tab_estimates()`, as the bootstrap
+  lays them out), the naive effect is `fs$mr_inference$naive` with its
+  robust limits (the header says "robust"), followed by the MR de-biased
+  estimate with its IJ interval and, when the field quantities exist, the
+  field one-sided 95% bound (lower for the selected subgroup, upper for its
+  complement) and the Bonferroni pair; complement cells carry MR values only
+  under `include_complement = TRUE`. The returned table carries the numbers
+  it displays as `attr(, "mr_values")`. A call that supplies
+  `boot_results` is unchanged.
+
 * `expand_covariates()` (and so `inject_mrct_structure()`) now warns when
   the latent correlation is not fitted by latentcor (package not installed,
   or its call failed) and the normal-score correlation is used instead. The
