@@ -407,37 +407,37 @@ This section treats `rep5_trial.csv` as if it were your trial, with its region *
 `z_region` is taken as recorded, and nothing about who is in the region is modelled. $H^*$ and the
 effects in the cells are then your statements. Five steps, in order.
 
-**1. A data-generating mechanism that carries the observed region.** `inject_mrct_structure()`, used in
-@sec-dgm, always plants its region with a logistic membership model (`make_region_model()`), so it
-cannot carry an observed one. `generate_aft_dgm_flex()`, the function `inject_mrct_structure()` calls
-for its Weibull AFT fit, can: the region is one more binary covariate of the fit, so its prognostic
-effect is estimated from the data, and $H^*$, $b$ and $h$ are set as `inject_mrct_structure()` sets them
-(`spline_spec` gives $b$ everywhere, `subgroup_vars` and `subgroup_cuts` define $H^*$, and
-`set_beta_spec` fixes the treatment-by-$H^*$ term `treat_harm` at $\log(h/b)$). The build differs from
-the report's in two ways. Its super-population resamples the trial's rows: the copula expansion exists
-only inside `inject_mrct_structure()`. And the analytic layer cannot be run on it: `ahr_population()`
-accepts only DGMs built by `inject_mrct_structure()` (it requires `dgm$mrct$region$z_name`, which only
-that function sets), so step 3 below is shown, not run. `analysis_covariates()` reads the same field,
-so the covariates are named explicitly in step 4.
+**1. A data-generating mechanism that carries the observed region.** `inject_mrct_structure()`, the
+function of the report's build (@sec-dgm), is given the trial and `region = list(observed = "region")`:
+with `region$observed`, the region is carried through the expansion with the covariates and nothing
+about membership is modelled. With `loghr` left at `NULL` the region's prognostic log hazard ratio is
+estimated by the Weibull AFT fit, as the other covariates' effects are; $H^*$, $b$ and $h$ are set as in
+the report's build (`spline_spec` gives $b$ everywhere, `x3` defines $H^*$ = CD4 $\le$ 230 and multiplies
+the hazard ratio in it by $h/b$), and the super-population is expanded by the copula. There is no
+`scale_dgm_hazard()` step here: the trial's own data carry its hazard scale (replicate 5 was drawn with
+all hazards multiplied by 3), and the AFT fit to it estimates that scale.
 
 ```{r own-build}
 #| code-fold: show
+#| warning: true
 own <- rd("rep5_trial.csv")
 own <- own[, setdiff(names(own), c("id", "flag_harm"))]   # your trial has no flag_harm
 names(own) <- sub("^z_", "", names(own))                   # plain names; the build adds z_
 build_own <- function(h, b = 0.55, cut = 230) {
   w <- character(0)
-  dgm <- withCallingHandlers(
-    generate_aft_dgm_flex(
-      data = own, outcome_var = "y_sim", event_var = "event_sim", treatment_var = "treat_sim",
+  dgm <- withCallingHandlers(                              # warnings recorded and shown
+    inject_mrct_structure(
+      own,
+      outcome_var = "y_sim", event_var = "event_sim", treatment_var = "treat_sim",
       continuous_vars = c("age", "wtkg", "karnof", "preanti", "cd40", "cd80"),
-      factor_vars = c("hemo", "homo", "drugs", "race", "gender", "symptom", "region"),
-      continuous_vars_cens = c("age", "cd40"), factor_vars_cens = "symptom",
-      subgroup_vars = "cd40", subgroup_cuts = list(cd40 = cut),                  # H*
-      set_beta_spec = list(set_var = "treat_harm", beta_var = log(h / b)),       # h in H*
-      spline_spec = list(var = "z_cd40", knot = 300, zeta = 800, log_hrs = rep(log(b), 3)),  # b
-      model = "alt", k_inter = 1, n_super = 20000, seed = 7, verbose = FALSE, standardize = FALSE),
-    warning = function(cnd) { w <<- c(w, conditionMessage(cnd)); invokeRestart("muffleWarning") })
+      factor_vars = c("hemo", "homo", "drugs", "race", "gender", "symptom"),
+      x_pred = "cd40",
+      spline_spec = list(knot = 300, zeta = 800, log_hrs = rep(log(b), 3)),      # b
+      region = list(observed = "region"),                                        # r estimated
+      x3 = list(vars = "cd40", cuts = list(cd40 = cut), loghr = log(h / b)),     # h in H*
+      n_super = 20000, expand = "copula", seed = 7L,
+      continuous_vars_cens = c("age", "cd40"), factor_vars_cens = "symptom"),
+    warning = function(cnd) w <<- c(w, conditionMessage(cnd)))
   attr(dgm, "build_warnings") <- w
   dgm
 }
@@ -445,25 +445,22 @@ t_own <- proc.time()[["elapsed"]]
 dgm_own <- build_own(h = 2)
 t_own <- proc.time()[["elapsed"]] - t_own
 ds_own <- dgm_own$df_super
-stopifnot(all(ds_own$z_region == ds_own$region),
+stopifnot(isTRUE(dgm_own$mrct$region$observed), dgm_own$mrct$region$z_name == "z_region",
+          "z_cd40" %in% names(ds_own), !any(grepl("^z_z_", names(ds_own))),
           near(ds_own$loghr_po, ifelse(ds_own$z_cd40 <= 230, log(2), log(0.55)), 1e-12),
           all((ds_own$z_cd40 <= 230) == (ds_own$flag_harm == 1)))
-r_own <- unname(dgm_own$model_params$b0["z_region"])
-c(rows = nrow(ds_own), region = mean(ds_own$z_region), Hstar = mean(ds_own$flag_harm),
-  region_prognostic_loghr = r_own, build_warnings = length(attr(dgm_own, "build_warnings")),
-  seconds = round(t_own, 1))
-unique(attr(dgm_own, "build_warnings"))
+r_own <- dgm_own$mrct$region$prognostic_loghr
+c(rows = nrow(ds_own), region_super = mean(ds_own$z_region), region_trial = mean(own$region),
+  Hstar = mean(ds_own$flag_harm), region_prognostic_loghr = r_own, generating_r = -log(4),
+  build_warnings = length(attr(dgm_own, "build_warnings")), seconds = round(t_own, 1))
 ```
 
 Every patient's log hazard ratio is $\log 0.55$ outside $H^*$ and $\log 2$ inside it. The region's
 prognostic log hazard ratio, estimated from the trial, is `r f3(r_own)` ($e^{r}$ =
 `r f3(exp(r_own))`); the mechanism that generated replicate 5 used $r = -\log 4$ = `r f3(-log(4))`
-(@sec-dgm). The build took `r formatC(t_own, format = "f", digits = 1)` seconds. Its
-`r length(attr(dgm_own, "build_warnings"))` warnings come from the censoring model's fit: every
-censoring time in this trial lies between `r f2(min(own$y_sim[own$event_sim == 0]))` and `r f2(max(own$y_sim[own$event_sim == 0]))` months,
-that is, all censoring is administrative, and the Weibull fit to it does not converge. Trials are
-drawn below with `cens_adjust = 50`, which pushes that model far beyond the window, so all censoring
-is again administrative.
+(@sec-dgm). The region is `r pc(mean(ds_own$z_region))`% of the super-population and
+`r pc(mean(own$region))`% of the trial. The build took `r formatC(t_own, format = "f", digits = 1)`
+seconds. `r n_w <- length(attr(dgm_own, "build_warnings")); if (n_w == 0) "It gave no warnings." else sprintf("Its %d warning%s, shown above, come%s from the censoring model's fit: every censoring time in this trial lies between %s and %s months, that is, all censoring is administrative, and the Weibull fit to it does not converge. Trials are drawn below with \x60cens_adjust = 50\x60, which pushes that model far beyond the window, so all censoring is again administrative.", n_w, if (n_w == 1) "" else "s", if (n_w == 1) "s" else "", f2(min(own$y_sim[own$event_sim == 0])), f2(max(own$y_sim[own$event_sim == 0])))`
 
 **2. $H^*$ and the cells.** The build above is one cell: S2's $h = 2$ in $H^*$ = CD4 $\le$ 230 and
 $b = 0.55$ outside it. The other cells change only $h$ (shown, not run):
@@ -483,25 +480,34 @@ $b$ and 1; $h = 1$): those are where the strategy explains a trigger that has no
 explanation, and the rate at which it does so is a result to report.
 :::
 
-**3. The analytic layer on that mechanism.** The four truths of the four sets and the design
-probabilities at $n = 1{,}000$, with this trial's analysis at 40 months and entry over 11. These calls
-are shown, not run: `ahr_population()` accepts only DGMs built by `inject_mrct_structure()`, and the
-mechanism of step 1 is built by `generate_aft_dgm_flex()`, so there is at present no analytic layer
-for a trial whose region is observed.
+**3. The analytic layer on that mechanism.** The four truths of the region, the non-region patients
+and $G^*$, and the design probabilities at $n = 1{,}000$, with this trial's analysis at 40 months and
+entry over 11.
 
-```{r own-analytic, eval = FALSE}
+```{r own-analytic}
+#| code-fold: show
 pop_own <- ahr_population(dgm_own, analysis_time = 40, max_entry = 11)
-sets_own <- c(all = "all patients", nonregion = "non-region", region = "region", region_Gstar = "G* (region minus H*)")
-truths_own <- do.call(rbind, lapply(names(sets_own), function(s) {
-  e <- ahr_limit(pop_own, s, b = 0.55, h = 2, variance = FALSE)
-  data.frame(set = sets_own[[s]], marghr_40 = f3(e$hr), marghr_inf = f3(e$marghr_inf), ahr = f3(e$ahr), cde = f3(e$cde))
-}))
-knitr::kable(setNames(truths_own, c("set", "margHR(40)", "margHR(∞)", "AHR", "CDE")), row.names = FALSE,
-             align = "lrrrr", caption = "The four truths of four sets, on the mechanism built from the trial.")
+sets_own <- c(region = "region", nonregion = "non-region", region_Gstar = "G* (region minus H*)")
+lim_own <- lapply(setNames(names(sets_own), names(sets_own)),
+                  function(s) ahr_limit(pop_own, s, b = 0.55, h = 2, variance = FALSE))
 p_own <- ahr_design(pop_own, b = 0.55, h = 2, n = 1000)$prob
-c(`P(ITT ub < 1.0)` = p_own[["p_itt_ub_lt1"]], `P(region ITT > 1.0)` = p_own[["p_region_itt_gt1"]],
-  `P(trigger)` = p_own[["p_trigger"]], `P(oracle joint)` = p_own[["p_trigger_and_Gstar_lt1"]])
+tab_own <- rbind(
+  do.call(rbind, lapply(names(sets_own), function(s) { e <- lim_own[[s]]
+    data.frame(row = sets_own[[s]], a = f3(e$hr), b = f3(e$marghr_inf), c = f3(e$ahr), d = f3(e$cde)) })),
+  data.frame(row = c("P(trigger), n = 1,000", "P(oracle joint), n = 1,000"),
+             a = f3(c(p_own[["p_trigger"]], p_own[["p_trigger_and_Gstar_lt1"]])), b = "", c = "", d = ""))
+knitr::kable(setNames(tab_own, c("", "margHR(40)", "margHR(∞)", "AHR", "CDE")), row.names = FALSE,
+             align = "lrrrr", caption = "The analytic layer on the mechanism built from the trial (h = 2, b = 0.55).")
+# S2's values from the campaign's analytic record (the same numbers as in the analytic-layer section)
+pred_S2 <- rd("predictions_full.csv"); pred_S2 <- pred_S2[pred_S2$cell == "S2_rmlog4", ]
+s2 <- function(q, set) { v <- pred_S2$value[pred_S2$quantity == q & pred_S2$set == set]; stopifnot(length(v) == 1); v }
 ```
+
+As a reading, not a check: the region's margHR(40) is `r f3(lim_own$region$hr)` here against
+`r f3(s2("marghr_40", "region"))` in S2, P(trigger) `r f3(p_own[["p_trigger"]])` against
+`r f3(s2("p_A_B", ""))` and the oracle joint `r f3(p_own[["p_trigger_and_Gstar_lt1"]])` against
+`r f3(s2("p_A_B_Cstar", ""))` (@sec-analytic); the build from one trial of 1,000 is not S2's build from
+ACTG 175 and is not expected to reproduce it.
 
 ::: {.callout-note}
 ## 4.3b — The analytic layer
@@ -523,7 +529,8 @@ res_own <- mrct_region_sims(
   dgm_own, n_sims = 10000, n_sample = 1000, region_var = "z_region",
   sg_focus = "hrMaxSG", maxk = 2,
   hr.threshold = 0.90, hr.consistency = 0.80, pconsistency.threshold = 0.90,
-  confounders.name = covs, conf_force = character(0),   # the covariates of @sec-case
+  confounders.name = analysis_covariates(dgm_own, "observed"),   # all z_ but z_region
+  conf_force = character(0),
   fs_args = list(conf.cont_jcuts = list(z_cd40 = 10, z_wtkg = 10, z_preanti = 10),
                  effect_neighborhood = 0.20, use_grf = FALSE, use_lasso = FALSE),
   sim_args = list(rand_ratio = 1, draw_treatment = TRUE, max_entry = 11, cens_adjust = 50),
