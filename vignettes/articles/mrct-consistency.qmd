@@ -68,25 +68,29 @@ applied inside it.
 ::: {.callout-note}
 ## Installing forestsearch
 
-The CRAN release of forestsearch (0.4.0) does not yet contain the functions this article uses. Until
-the next CRAN release, install the development version from GitHub. The article also uses two
-packages that forestsearch only suggests: `speff2trial`, for the ACTG 175 data, and `latentcor`, for
-the copula expansion.
+The CRAN release of forestsearch (0.4.0) does not yet contain the functions this article uses, so the
+last step below installs the development version from GitHub. Run the steps in a fresh R session.
 
 ```r
-# the CRAN release (does not yet include this article's functions)
+# 1. a reliable CRAN mirror, and a longer download limit than R's default of 60 seconds
+options(repos = c(CRAN = "https://cloud.r-project.org"), timeout = 600)
+
+# 2. the CRAN release, which installs every package forestsearch needs
 install.packages("forestsearch")
 
-# the development version from GitHub, with the suggested packages
-install.packages("remotes")
-remotes::install_github("larry-leon/forestsearch", dependencies = TRUE)
+# 3. two packages forestsearch only suggests, which this article uses (speff2trial for the
+#    ACTG 175 data, latentcor for the copula expansion), and remotes for the next step
+install.packages(c("speff2trial", "latentcor", "remotes"))
 
-# or install the two suggested packages directly
-install.packages(c("speff2trial", "latentcor"))
+# 4. the development version from GitHub; upgrade = "never" leaves the packages above as they are
+remotes::install_github("larry-leon/forestsearch", upgrade = "never")
+packageVersion("forestsearch")
 ```
 
-Rendering the article itself needs the Quarto command-line tools. The chunk below stops with a
-message naming what is missing, before any computation starts.
+Step 4 downloads the whole forestsearch repository, several gigabytes, and builds only the package
+from it, so it takes several minutes; the longer download limit of step 1 is what lets it finish. If a
+step asks whether to install packages from sources, answer no. The chunk below stops with a message
+naming anything that is missing, before any computation starts.
 :::
 
 ```{r install-check}
@@ -104,6 +108,22 @@ if (length(missing_pkgs))
        " (install.packages(c(", paste0('"', missing_pkgs, '"', collapse = ", "), ")).", call. = FALSE)
 c(forestsearch = as.character(packageVersion("forestsearch")))
 ```
+
+::: {.callout-tip collapse="true"}
+## Rendering this article yourself
+
+Rendering needs the Quarto command-line tools and about five minutes. To render the article outside any
+working copy of the repository, fetch only the article and its data folder (a few megabytes) into a
+scratch folder and render it there:
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/larry-leon/forestsearch.git ~/scratch/fs-article
+cd ~/scratch/fs-article && git sparse-checkout set vignettes/articles
+cd vignettes/articles && quarto render mrct-consistency.qmd
+```
+
+The rendered `mrct-consistency.html` is written beside the `.qmd`. Delete the scratch folder when done.
+:::
 
 
 # Overview: the question and the design {#sec-overview}
@@ -1046,7 +1066,7 @@ simulation drew it (under L'Ecuyer-CMRG, by `simulate_from_dgm()` with seed equa
 $k$, restoring R's default generator after), runs the identifier on its non-region patients with the
 simulation's arguments (the arguments `mrct_region_sims()` takes directly go into `fs_args` here) and
 analyses the four sets. It runs here with `mr_inference = FALSE`: the MR draws are made once, in
-@sec-rep5-mr. The redrawn trial must equal the shipped `rep5_trial.csv` in every shipped column, and
+@sec-rep5-mr. The redrawn trial must equal the shipped `rep5_trial.csv` in every shipped column, to floating-point precision (see the note below the check), and
 its $\hat H$ and four sets those of @sec-case; the article stops otherwise.
 
 ```{r find-case}
@@ -1067,10 +1087,14 @@ t_cs <- proc.time()[["elapsed"]] - t_cs
 
 ```{r find-check}
 # the simulation route against the case study of @sec-case
+redraw_rel <- max(vapply(names(trial), function(v) {
+  a <- as.numeric(cs$trial[[v]]); b <- as.numeric(trial[[v]])
+  max(abs(a - b) / pmax(abs(b), .Machine$double.eps))
+}, 0))
 stopifnot(RNGkind()[1] == "Mersenne-Twister", seed_S2 + case$sim == seed_rep5,
           cs$call_args$sim_args$seed == seed_rep5, identical(confounders, covs),
           nrow(cs$trial) == nrow(trial), all(names(trial) %in% names(cs$trial)),
-          all(vapply(names(trial), function(v) all(as.numeric(cs$trial[[v]]) == as.numeric(trial[[v]])), NA)),
+          all(vapply(names(trial), function(v) isTRUE(all.equal(as.numeric(cs$trial[[v]]), as.numeric(trial[[v]]), tolerance = 1e-12)), NA)),
           identical(cs$Hhat, Hhat_def), identical(cs$in_Hhat, in_Hhat), identical(cs$sets$set, four$set),
           all(cs$sets$n == four$n, cs$sets$events_exp == four$events_exp, cs$sets$events_ctl == four$events_ctl),
           near(c(cs$sets$hr, cs$sets$lo, cs$sets$hi), c(four$hr, four$lo, four$hi), 1e-12))
@@ -1080,9 +1104,19 @@ knitr::kable(data.frame(set = set_label[four$set], `mrct_case_study()` = f3(cs$s
              caption = sprintf("The four hazard ratios by the simulation route and by the case study; Ĥ the same (%s).", Hhat_def))
 ```
 
-**Passed**: the redrawn trial equals `rep5_trial.csv`, and its $\hat H$ and four hazard ratios
+**Passed**: the redrawn trial equals `rep5_trial.csv` (largest relative difference `r format(redraw_rel, digits = 2)`), and its $\hat H$ and four hazard ratios
 (largest absolute difference `r format(max(abs(cs$sets$hr - four$hr)), digits = 2)`) are those of
 @sec-case. The call took `r round(t_cs)` seconds.
+
+::: {.callout-note}
+## Platform precision
+
+`rep5_trial.csv` was written on the Linux machine that ran the campaign. On another platform the redraw
+is the same trial, but continuous columns can differ in their last digits, because the linear-algebra
+library and floating-point arithmetic differ. On macOS (arm64, R 4.5.2, Apple's Accelerate library),
+two columns differ, `y_sim` and `z_wtkg`, by at most 5e-15 relative, and every integer and 0/1 column
+is identical. The check therefore compares with a relative tolerance of 1e-12, not exactly.
+:::
 
 **4. Print and plot.** The four sets (and, when it is run with `mr_inference = TRUE`, the
 multiplier-resampling bounds for $\hat H$ and its non-region complement); the forest plot of the four
