@@ -26,8 +26,8 @@ The case example of the mrct-consistency report, `results/s2_example/` of
 2026-10-06), copied byte for byte (whole files) for
 `test-mrct-case-study.R` (TASK_fs-mrct-article-r2_2026-11-01, section 2):
 replicate 5 of the S2 cell, its four sets, its H-hat and its 2 x 2 tables.
-The same three files ship with the article
-(`vignettes/articles/mrct-consistency/`) and are identical to these.
+The same three files ship with the package
+(`inst/extdata/mrct-consistency/`) and are identical to these.
 
 | Fixture | Source (mrct-consistency) | SHA-256 (12) |
 |---|---|---|

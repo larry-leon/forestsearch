@@ -1,5 +1,7 @@
 # Provenance of the article's data files
 
+Installed with the package at `system.file("extdata", "mrct-consistency", package = "forestsearch")`; moved from `vignettes/articles/mrct-consistency/` on 2026-11-02.
+
 Records of the mrct-consistency repository, read at commit `2341f96`
 (2026-11-01, the commit that closed `TASK_mr-field-campaign_2026-11-01`),
 for the article `vignettes/articles/mrct-consistency.qmd`

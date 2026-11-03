@@ -45,11 +45,13 @@ suppressPackageStartupMessages({
   library(survival)
   library(data.table)
 })
-# The article's data directory: small records shipped with the article
-# (provenance in mrct-consistency/PROVENANCE.md). Nothing else is read.
-dd <- if (dir.exists("mrct-consistency")) "mrct-consistency" else
-  file.path("vignettes", "articles", "mrct-consistency")
-stopifnot(file.exists(file.path(dd, "PROVENANCE.md")))
+# The article's records ship with the package (inst/extdata/mrct-consistency; provenance in its
+# PROVENANCE.md). From a source tree the local copy is used; otherwise the installed one.
+dd <- c(file.path("..", "..", "inst", "extdata", "mrct-consistency"),
+        file.path("inst", "extdata", "mrct-consistency"),
+        system.file("extdata", "mrct-consistency", package = "forestsearch"))
+dd <- dd[nzchar(dd) & dir.exists(dd)][1]
+stopifnot(!is.na(dd), file.exists(file.path(dd, "PROVENANCE.md")))
 rd <- function(f, ...) read.csv(file.path(dd, f), stringsAsFactors = FALSE, check.names = FALSE, ...)
 f2 <- function(x) formatC(x, format = "f", digits = 2)
 f3 <- function(x) formatC(x, format = "f", digits = 3)
@@ -79,8 +81,8 @@ options(repos = c(CRAN = "https://cloud.r-project.org"), timeout = 600)
 install.packages("forestsearch")
 
 # 3. two packages forestsearch only suggests, which this article uses (speff2trial for the
-#    ACTG 175 data, latentcor for the copula expansion), and remotes for the next step
-install.packages(c("speff2trial", "latentcor", "remotes"))
+#    ACTG 175 data, latentcor for the copula expansion), knitr for the tables, and remotes for the next step
+install.packages(c("speff2trial", "latentcor", "knitr", "remotes"))
 
 # 4. the development version from GitHub; upgrade = "never" leaves the packages above as they are
 remotes::install_github("larry-leon/forestsearch", upgrade = "never")
@@ -102,7 +104,7 @@ if (length(missing_fns))
   stop("This article needs the development version of forestsearch (see 'Installing forestsearch'); ",
        "the installed version (", as.character(packageVersion("forestsearch")), ") lacks: ",
        paste(missing_fns, collapse = ", "), ".", call. = FALSE)
-missing_pkgs <- c("speff2trial", "latentcor")[!vapply(c("speff2trial", "latentcor"), requireNamespace, NA, quietly = TRUE)]
+missing_pkgs <- c("speff2trial", "latentcor", "knitr")[!vapply(c("speff2trial", "latentcor", "knitr"), requireNamespace, NA, quietly = TRUE)]
 if (length(missing_pkgs))
   stop("This article needs: ", paste(missing_pkgs, collapse = ", "),
        " (install.packages(c(", paste0('"', missing_pkgs, '"', collapse = ", "), ")).", call. = FALSE)
@@ -112,14 +114,18 @@ c(forestsearch = as.character(packageVersion("forestsearch")))
 ::: {.callout-tip collapse="true"}
 ## Rendering this article yourself
 
-Rendering needs the Quarto command-line tools and about five minutes. To render the article outside any
-working copy of the repository, fetch only the article and its data folder (a few megabytes) into a
-scratch folder and render it there:
+Rendering needs the Quarto command-line tools and about five minutes. The article's records are
+installed with the package, so only the `.qmd` file itself is needed. Download it into a scratch
+folder and render it there:
+
+```r
+dir.create("~/scratch/mrct-article", recursive = TRUE, showWarnings = FALSE)
+download.file("https://raw.githubusercontent.com/larry-leon/forestsearch/master/vignettes/articles/mrct-consistency.qmd",
+              "~/scratch/mrct-article/mrct-consistency.qmd")
+```
 
 ```bash
-git clone --depth 1 --filter=blob:none --sparse https://github.com/larry-leon/forestsearch.git ~/scratch/fs-article
-cd ~/scratch/fs-article && git sparse-checkout set vignettes/articles
-cd vignettes/articles && quarto render mrct-consistency.qmd
+cd ~/scratch/mrct-article && quarto render mrct-consistency.qmd
 ```
 
 The rendered `mrct-consistency.html` is written beside the `.qmd`. Delete the scratch folder when done.
@@ -473,6 +479,55 @@ their intervals by location as well.
 
 Because replicate 5 is simulated, its $\hat H$ can also be set against $H^*$ and its estimates against
 their limits; that needs the simulation design, and is in @sec-case-sim.
+
+## The S2 campaign in brief {#sec-case-campaign}
+
+Replicate 5 is one trial of S2. The campaign ran 10,000 trials of the same design (@sec-sims); the table
+gives how often each step of the pipeline above went the same way. The numbers are read from the
+campaign's records, shipped with the package.
+
+```{r case-campaign}
+cc_core <- rd("core_full_numeric.csv")
+cc_core <- cc_core[cc_core$setting == "S2_rmlog4", ]
+cc_mr <- rd("mr_field_core.csv")
+cc_ent <- rd("entry_cells_core_numeric.csv")
+cc_ev <- function(q) cc_ent$S2[cc_ent$quantity == q]
+stopifnot(nrow(cc_core) == 1, sum(cc_mr$row == "lb_100") == 1,
+          sum(cc_ent$quantity %in% c("trigger_n", "joint", "Ghat_region")) == 3)
+camp <- list(
+  reps = cc_core$replicates, n_trig = cc_core$n_trigger, n_decl = cc_core$n_declared,
+  n_joint = cc_core$n_declared_Ghat_lt1,
+  lb100 = as.numeric(cc_mr$S2[cc_mr$row == "lb_100"]),
+  ghat_reg = cc_ev("Ghat_region"))
+camp$p_trig <- 100 * camp$n_trig / camp$reps
+camp$p_decl <- 100 * camp$n_decl / camp$n_trig
+camp$p_joint <- 100 * camp$n_joint / camp$n_trig
+# the two records agree on S2
+stopifnot(camp$n_trig == cc_ev("trigger_n"), abs(camp$p_joint - cc_ev("joint")) <= 1e-9)
+# the reading's verbal claims
+stopifnot(round(camp$p_trig / 25) == 1, abs(camp$p_joint - 50) < 5)
+pc1 <- function(x) formatC(x, format = "f", digits = 1)
+knitr::kable(
+  data.frame(
+    step = c("trigger: ITT ub < 1.0 and region ITT > 1.0", "subgroup declared",
+             "Ĥ field lower bound (one-sided 95%) > 1.0", "declared, region(Ĝ) < 1.0",
+             "Ĝ, % of region patients"),
+    S2 = c(sprintf("%s (%s)", pc1(camp$p_trig), big(camp$n_trig)),
+           sprintf("%s (%s)", formatC(camp$p_decl, format = "f", digits = 2), big(camp$n_decl)),
+           pc1(camp$lb100),
+           sprintf("%s (%s)", pc1(camp$p_joint), big(camp$n_joint)),
+           pc1(camp$ghat_reg)),
+    of = c(sprintf("all trials (%s)", big(camp$reps)), "triggered trials", "declared triggered trials",
+           "triggered trials", "declared triggered trials")),
+  align = "lrl",
+  caption = "S2 at n = 1,000, 10,000 trials: the pipeline of this section, as often as it went each way.")
+```
+
+About one S2 trial in four reached the trigger (`r pc1(camp$p_trig)`%). In the triggered trials a subgroup was
+declared in `r big(camp$n_decl)` of `r big(camp$n_trig)`, region(Ĝ) was below 1.0 in about half (`r pc1(camp$p_joint)`%), and Ĝ kept on average
+`r pc1(camp$ghat_reg)`% of the region's patients. The field lower bound for Ĥ was above 1.0 in `r pc1(camp$lb100)`% of the declared
+triggered trials; in the others it lies below 1.0, and it is read by its location, as for replicate 5
+in step 5. Replicate 5 is one of the triggered trials with region(Ĝ) < 1.0.
 
 # Setting up simulations from your own trial {#sec-own-sims}
 

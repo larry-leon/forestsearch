@@ -1,7 +1,7 @@
 ## =============================================================================
 ## dev/article/make_rep5_trial.R
 ##
-## Writes vignettes/articles/mrct-consistency/rep5_trial.csv: replicate 5 of
+## Writes inst/extdata/mrct-consistency/rep5_trial.csv: replicate 5 of
 ## cell S2 of the mrct-consistency campaign, as drawn, one row per patient.
 ## (TASK_fs-mrct-article-r3_2026-11-02, section 3.) The article reads the CSV;
 ## it never reads this script.
@@ -17,7 +17,7 @@
 ## =============================================================================
 
 suppressPackageStartupMessages(library(forestsearch))
-dd <- file.path("vignettes", "articles", "mrct-consistency")
+dd <- file.path("inst", "extdata", "mrct-consistency")
 stopifnot(file.exists(file.path(dd, "PROVENANCE.md")))
 rd <- function(f, ...) read.csv(file.path(dd, f), stringsAsFactors = FALSE, check.names = FALSE, ...)
 
