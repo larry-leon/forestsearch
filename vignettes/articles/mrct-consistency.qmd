@@ -119,9 +119,9 @@ estimate.
 We consider two explanations for the trigger: the region differs in its treatment effect, or the trial contains a
 subgroup that is harmed, present in every region, and the region's estimate is pulled up by it (with
 the region's prognosis and the finite follow-up window shaping how far). The question is whether a
-subgroup identified on the non-region patients can explain the regional result: if removing it from the
+subgroup identified on the non-region patients can account for the regional result: if removing it from the
 region leaves a Cox estimate below 1.0, the regional result is compatible with a trial-wide subgroup
-and is not evidence of a region-specific effect. The strategy is **signal generation, not
+and does not by itself point to a region-specific effect. The strategy is **signal generation, not
 confirmation**.
 
 ::: {.callout-important}
@@ -382,6 +382,19 @@ regional sets have few events, so the move of the regional estimate from above 1
 explanation consistent with a trial-wide harmed subgroup, not confirmation of it. *With your trial:*
 `get_dfpred()` applies your $\hat H$ to all your rows; drop the region($G^*$) row, as $H^*$ is unknown.
 
+::: {.callout-warning}
+## What the move below 1.0 shows, and what it does not
+
+Removing $\hat H$ from the region and refitting the Cox model compares two different patient sets; it
+does not decompose the regional hazard ratio. The region's estimate is not a weighted average of the
+estimates in $\hat H$ and in $\hat G$: removing patients changes the risk sets, the events and the
+censoring mixture, and each Cox estimate converges to the limit of its own set at the analysis time
+(@sec-analytic), which can differ from that set's AHR or CDE. A regional estimate that moves from above
+1.0 to below 1.0 is therefore compatible with a trial-wide subgroup accounting for the regional result.
+It does not show that $\hat H$ caused it, does not validate $\hat H$ as a clinically actionable
+subgroup, and, read with the null cells (@sec-sims), can arise when there is no harmed subgroup at all.
+:::
+
 ## Step 5: the Pareto frontier and the bounds
 
 **The Pareto frontier**: the admitted candidates that no other candidate beats on both hazard ratio
@@ -612,7 +625,7 @@ case_own <- mrct_select_case(res_own)                         # the first trial 
 Summarise the campaign conditional on the trigger: a team runs the joint analysis only when the trial
 is positive and the region's estimate is above 1.0, so the triggered trials are the denominator that
 matters. Report for each cell the share of triggered trials with a declaration, the joint and, beside
-it, the oracle joint as the ceiling that removing $H^*$ exactly would give; then the same rows in the
+it, the oracle joint as the benchmark that removing $H^*$ exactly would give under the stated mechanism (a benchmark, not a bound: in a given trial $\hat G$ can do better); then the same rows in the
 null cells. `mrct_select_case()` picks a case by a stated rule before it is looked at, and
 `mrct_case_study()` redraws and examines it (@sec-find).
 :::
@@ -1231,7 +1244,7 @@ stopifnot(!is.unsorted(xs$n_trigger), all(xs[c("S2", "S3", "S4"), "pct_declared"
           all(xs[c("S2", "S3", "S4"), "sens_nonregion"] > 55 & xs[c("S2", "S3", "S4"), "sens_nonregion"] < 65),
           all(xs[c("S2", "S3", "S4"), "spec_nonregion"] > 95))
 knitr::kable(wide, row.names = FALSE, align = c("l", rep("r", 6)),
-             caption = "Core operating characteristics, n = 1,000, 10,000 replicates per cell. Rows 3–8 are % of the triggered trials (Sens / Spec averaged over the declared triggered trials), with binomial SE.")
+             caption = "Core operating characteristics, n = 1,000, 10,000 replicates per cell. Rows 3–8 are % of the triggered trials (Sens / Spec: recovery of the simulation's $H^*$, averaged over the declared triggered trials; not available in a real trial), with binomial SE.")
 ```
 
 Every count-derived entry equals its recount from the numeric records. Reading: the trigger becomes more
@@ -1241,7 +1254,7 @@ a subgroup is declared in essentially every triggered trial, it overlaps $H^*$ w
 and specificity above 0.95, and the joint holds in
 `r pc(cn$n_declared_Ghat_lt1[cn$setting == "S2_rmlog4"] / cn$n_trigger[cn$setting == "S2_rmlog4"])`% to
 `r pc(cn$n_declared_Ghat_lt1[cn$setting == "S4_rmlog4"] / cn$n_trigger[cn$setting == "S4_rmlog4"])`% of
-triggered trials, against an oracle ceiling of
+triggered trials, against an oracle benchmark of
 `r pc(cn$n_Gstar_lt1[cn$setting == "S2_rmlog4"] / cn$n_trigger[cn$setting == "S2_rmlog4"])`% to
 `r pc(cn$n_Gstar_lt1[cn$setting == "S4_rmlog4"] / cn$n_trigger[cn$setting == "S4_rmlog4"])`%. Where there
 is nothing harmful to find (N0) a subgroup is still declared in

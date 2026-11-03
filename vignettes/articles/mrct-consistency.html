@@ -2504,7 +2504,7 @@ window.Quarto = {
 <section id="the-trigger-and-the-question" class="level2" data-number="1.1">
 <h2 data-number="1.1" class="anchored" data-anchor-id="the-trigger-and-the-question"><span class="header-section-number">1.1</span> The trigger and the question</h2>
 <p>A global trial meets its primary endpoint: the upper 95% limit of the all-patient Cox hazard ratio is below 1.0 (<strong>ITT ub &lt; 1.0</strong>). One region, about a fifth of the patients, has a Cox point estimate above 1.0 (<strong>region ITT &gt; 1.0</strong>). The pair, in the same trial, is the <strong>trigger</strong>: the regional consistency failure as it presents in oncology multiregional trials. Region ITT &gt; 1.0 describes a point estimate.</p>
-<p>We consider two explanations for the trigger: the region differs in its treatment effect, or the trial contains a subgroup that is harmed, present in every region, and the region’s estimate is pulled up by it (with the region’s prognosis and the finite follow-up window shaping how far). The question is whether a subgroup identified on the non-region patients can explain the regional result: if removing it from the region leaves a Cox estimate below 1.0, the regional result is compatible with a trial-wide subgroup and is not evidence of a region-specific effect. The strategy is <strong>signal generation, not confirmation</strong>.</p>
+<p>We consider two explanations for the trigger: the region differs in its treatment effect, or the trial contains a subgroup that is harmed, present in every region, and the region’s estimate is pulled up by it (with the region’s prognosis and the finite follow-up window shaping how far). The question is whether a subgroup identified on the non-region patients can account for the regional result: if removing it from the region leaves a Cox estimate below 1.0, the regional result is compatible with a trial-wide subgroup and does not by itself point to a region-specific effect. The strategy is <strong>signal generation, not confirmation</strong>.</p>
 <div class="callout callout-style-default callout-important callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -2701,7 +2701,7 @@ window.Quarto = {
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>          seconds  candidate_family            n_Hhat n_Hhat_complement 
-             51.6            3003.0              73.0             733.0 </code></pre>
+             50.7            3003.0              73.0             733.0 </code></pre>
 </div>
 <details open class="code-fold">
 <summary>Code</summary>
@@ -2711,7 +2711,7 @@ window.Quarto = {
 <pre><code>[1] &quot;{z_cd40 &lt;= 236} &amp; !{z_preanti &lt;= 196}&quot;</code></pre>
 </div>
 </div>
-<p><span class="math inline">\(\hat H\)</span> is <code>{z_cd40 &lt;= 236} &amp; !{z_preanti &lt;= 196}</code> (<code>!{…}</code> is the complement): CD4 <span class="math inline">\(\le\)</span> 236 and prior ART over 196 days. The call took 52 seconds on one thread. <em>With your trial:</em> <code>df.analysis</code> and <code>df.test</code> are your non-region and region rows; your column names go in <code>outcome.name</code>, <code>event.name</code>, <code>treat.name</code> and <code>id.name</code>, your covariates in <code>confounders.name</code>, and those of your continuous covariates to be cut at deciles in <code>conf.cont_jcuts</code>; the other arguments are the identifier’s settings used throughout this article, and <code>seed</code> is yours.</p>
+<p><span class="math inline">\(\hat H\)</span> is <code>{z_cd40 &lt;= 236} &amp; !{z_preanti &lt;= 196}</code> (<code>!{…}</code> is the complement): CD4 <span class="math inline">\(\le\)</span> 236 and prior ART over 196 days. The call took 51 seconds on one thread. <em>With your trial:</em> <code>df.analysis</code> and <code>df.test</code> are your non-region and region rows; your column names go in <code>outcome.name</code>, <code>event.name</code>, <code>treat.name</code> and <code>id.name</code>, your covariates in <code>confounders.name</code>, and those of your continuous covariates to be cut at deciles in <code>conf.cont_jcuts</code>; the other arguments are the identifier’s settings used throughout this article, and <code>seed</code> is yours.</p>
 </section>
 <section id="step-4-hat-h-applied-to-the-region-the-four-sets" class="level2" data-number="2.4">
 <h2 data-number="2.4" class="anchored" data-anchor-id="step-4-hat-h-applied-to-the-region-the-four-sets"><span class="header-section-number">2.4</span> Step 4: <span class="math inline">\(\hat H\)</span> applied to the region; the four sets</h2>
@@ -2870,6 +2870,19 @@ Figure 1: Replicate 5 of S2: hazard ratio, experimental vs control, with 95% CI
 </details>
 </div>
 <p>The trial is positive (ITT upper limit 0.983 &lt; 1.0) and its region is above 1.0 (1.036, 40 events): the trigger. Applied in the region, <span class="math inline">\(\hat H\)</span> removes 20 patients, and region(<span class="math inline">\(\hat G\)</span>) is 0.844, below 1.0: the trial is joint. Every interval is wide: the regional sets have few events, so the move of the regional estimate from above 1 to below 1 is an explanation consistent with a trial-wide harmed subgroup, not confirmation of it. <em>With your trial:</em> <code>get_dfpred()</code> applies your <span class="math inline">\(\hat H\)</span> to all your rows; drop the region(<span class="math inline">\(G^*\)</span>) row, as <span class="math inline">\(H^*\)</span> is unknown.</p>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>What the move below 1.0 shows, and what it does not
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Removing <span class="math inline">\(\hat H\)</span> from the region and refitting the Cox model compares two different patient sets; it does not decompose the regional hazard ratio. The region’s estimate is not a weighted average of the estimates in <span class="math inline">\(\hat H\)</span> and in <span class="math inline">\(\hat G\)</span>: removing patients changes the risk sets, the events and the censoring mixture, and each Cox estimate converges to the limit of its own set at the analysis time (<a href="#sec-analytic" class="quarto-xref">Section 4.3</a>), which can differ from that set’s AHR or CDE. A regional estimate that moves from above 1.0 to below 1.0 is therefore compatible with a trial-wide subgroup accounting for the regional result. It does not show that <span class="math inline">\(\hat H\)</span> caused it, does not validate <span class="math inline">\(\hat H\)</span> as a clinically actionable subgroup, and, read with the null cells (<a href="#sec-sims" class="quarto-xref">Section 5</a>), can arise when there is no harmed subgroup at all.</p>
+</div>
+</div>
 </section>
 <section id="step-5-the-pareto-frontier-and-the-bounds" class="level2" data-number="2.5">
 <h2 data-number="2.5" class="anchored" data-anchor-id="step-5-the-pareto-frontier-and-the-bounds"><span class="header-section-number">2.5</span> Step 5: the Pareto frontier and the bounds</h2>
@@ -3472,10 +3485,10 @@ control, : Ran out of iterations and did not converge</code></pre>
                   Hstar region_prognostic_loghr            generating_r 
                0.164250               -1.541238               -1.386294 
          build_warnings                 seconds 
-               3.000000                0.400000 </code></pre>
+               3.000000                0.300000 </code></pre>
 </div>
 </div>
-<p>Every patient’s log hazard ratio is <span class="math inline">\(\log 0.55\)</span> outside <span class="math inline">\(H^*\)</span> and <span class="math inline">\(\log 2\)</span> inside it. The region’s prognostic log hazard ratio, estimated from the trial, is -1.541 (<span class="math inline">\(e^{r}\)</span> = 0.214); the mechanism that generated replicate 5 used <span class="math inline">\(r = -\log 4\)</span> = -1.386 (<a href="#sec-dgm" class="quarto-xref">Section 4.1</a>). The region is 19.6% of the super-population and 19.4% of the trial. The build took 0.4 seconds. Its 3 warnings, shown above, come from the censoring model’s fit: every censoring time in this trial lies between 29.01 and 39.98 months, that is, all censoring is administrative, and the Weibull fit to it does not converge. Trials are drawn below with <code>cens_adjust = 50</code>, which pushes that model far beyond the window, so all censoring is again administrative.</p>
+<p>Every patient’s log hazard ratio is <span class="math inline">\(\log 0.55\)</span> outside <span class="math inline">\(H^*\)</span> and <span class="math inline">\(\log 2\)</span> inside it. The region’s prognostic log hazard ratio, estimated from the trial, is -1.541 (<span class="math inline">\(e^{r}\)</span> = 0.214); the mechanism that generated replicate 5 used <span class="math inline">\(r = -\log 4\)</span> = -1.386 (<a href="#sec-dgm" class="quarto-xref">Section 4.1</a>). The region is 19.6% of the super-population and 19.4% of the trial. The build took 0.3 seconds. Its 3 warnings, shown above, come from the censoring model’s fit: every censoring time in this trial lies between 29.01 and 39.98 months, that is, all censoring is administrative, and the Weibull fit to it does not converge. Trials are drawn below with <code>cens_adjust = 50</code>, which pushes that model far beyond the window, so all censoring is again administrative.</p>
 <p><strong>2. <span class="math inline">\(H^*\)</span> and the cells.</strong> The build above is one cell: S2’s <span class="math inline">\(h = 2\)</span> in <span class="math inline">\(H^*\)</span> = CD4 <span class="math inline">\(\le\)</span> 230 and <span class="math inline">\(b = 0.55\)</span> outside it. The other cells change only <span class="math inline">\(h\)</span> (shown, not run):</p>
 <div class="cell">
 <details class="code-fold">
@@ -3642,7 +3655,7 @@ control, : Ran out of iterations and did not converge</code></pre>
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Summarise the campaign conditional on the trigger: a team runs the joint analysis only when the trial is positive and the region’s estimate is above 1.0, so the triggered trials are the denominator that matters. Report for each cell the share of triggered trials with a declaration, the joint and, beside it, the oracle joint as the ceiling that removing <span class="math inline">\(H^*\)</span> exactly would give; then the same rows in the null cells. <code>mrct_select_case()</code> picks a case by a stated rule before it is looked at, and <code>mrct_case_study()</code> redraws and examines it (<a href="#sec-find" class="quarto-xref">Section 4.4</a>).</p>
+<p>Summarise the campaign conditional on the trigger: a team runs the joint analysis only when the trial is positive and the region’s estimate is above 1.0, so the triggered trials are the denominator that matters. Report for each cell the share of triggered trials with a declaration, the joint and, beside it, the oracle joint as the benchmark that removing <span class="math inline">\(H^*\)</span> exactly would give under the stated mechanism (a benchmark, not a bound: in a given trial <span class="math inline">\(\hat G\)</span> can do better); then the same rows in the null cells. <code>mrct_select_case()</code> picks a case by a stated rule before it is looked at, and <code>mrct_case_study()</code> redraws and examines it (<a href="#sec-find" class="quarto-xref">Section 4.4</a>).</p>
 </div>
 </div>
 </section>
@@ -3709,7 +3722,7 @@ control, : Ran out of iterations and did not converge</code></pre>
 <li>the analysis window and entry: the analysis time and the uniform entry period used below (<code>analysis_time = 40</code>, <code>max_entry = 11</code>), and <code>cens_adjust</code> for the dropout model.</li>
 </ul>
 <div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-9-contents" aria-controls="callout-9" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-10-contents" aria-controls="callout-10" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -3718,7 +3731,7 @@ control, : Ran out of iterations and did not converge</code></pre>
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-9" class="callout-9-contents callout-collapse collapse">
+<div id="callout-10" class="callout-10-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <p>This chunk exists only so that the committed record is reproduced to the last digit on any platform: it builds the cells with the latent correlation stored with the campaign’s build (<code>latent_R.csv</code>, passed as <code>latent_R</code>), so no latentcor fit is made. A reader never needs it. Everything from the build check onward uses the cells built here (<code>build_cell()</code>).</p>
 <div class="cell">
@@ -3762,7 +3775,7 @@ control, : Ran out of iterations and did not converge</code></pre>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>                   seconds                       rows 
-                     5e-01                      2e+04 
+                     2e-01                      2e+04 
      latent_R_max_abs_diff super_population_identical 
                      0e+00                      1e+00 </code></pre>
 </div>
@@ -4537,7 +4550,7 @@ control, : Ran out of iterations and did not converge</code></pre>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>replicates    workers    seconds 
-     100.0      100.0      139.8 </code></pre>
+     100.0      100.0      136.9 </code></pre>
 </div>
 </div>
 <p><strong>2. Select the trial.</strong> <code>mrct_select_case()</code> flags every trial for the trigger, a declaration and region(<span class="math inline">\(\hat G\)</span>) &lt; 1.0, and returns the first meeting all three.</p>
@@ -4986,11 +4999,11 @@ Figure 2: Replicate 5 of S2 by the simulation route: hazard ratio, experimental
 <span id="cb67-27"><a href="#cb67-27" aria-hidden="true" tabindex="-1"></a>          <span class="fu">all</span>(xs[<span class="fu">c</span>(<span class="st">&quot;S2&quot;</span>, <span class="st">&quot;S3&quot;</span>, <span class="st">&quot;S4&quot;</span>), <span class="st">&quot;sens_nonregion&quot;</span>] <span class="sc">&gt;</span> <span class="dv">55</span> <span class="sc">&amp;</span> xs[<span class="fu">c</span>(<span class="st">&quot;S2&quot;</span>, <span class="st">&quot;S3&quot;</span>, <span class="st">&quot;S4&quot;</span>), <span class="st">&quot;sens_nonregion&quot;</span>] <span class="sc">&lt;</span> <span class="dv">65</span>),</span>
 <span id="cb67-28"><a href="#cb67-28" aria-hidden="true" tabindex="-1"></a>          <span class="fu">all</span>(xs[<span class="fu">c</span>(<span class="st">&quot;S2&quot;</span>, <span class="st">&quot;S3&quot;</span>, <span class="st">&quot;S4&quot;</span>), <span class="st">&quot;spec_nonregion&quot;</span>] <span class="sc">&gt;</span> <span class="dv">95</span>))</span>
 <span id="cb67-29"><a href="#cb67-29" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(wide, <span class="at">row.names =</span> <span class="cn">FALSE</span>, <span class="at">align =</span> <span class="fu">c</span>(<span class="st">&quot;l&quot;</span>, <span class="fu">rep</span>(<span class="st">&quot;r&quot;</span>, <span class="dv">6</span>)),</span>
-<span id="cb67-30"><a href="#cb67-30" aria-hidden="true" tabindex="-1"></a>             <span class="at">caption =</span> <span class="st">&quot;Core operating characteristics, n = 1,000, 10,000 replicates per cell. Rows 3–8 are % of the triggered trials (Sens / Spec averaged over the declared triggered trials), with binomial SE.&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb67-30"><a href="#cb67-30" aria-hidden="true" tabindex="-1"></a>             <span class="at">caption =</span> <span class="st">&quot;Core operating characteristics, n = 1,000, 10,000 replicates per cell. Rows 3–8 are % of the triggered trials (Sens / Spec: recovery of the simulation&#39;s $H^*$, averaged over the declared triggered trials; not available in a real trial), with binomial SE.&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
-<caption>Core operating characteristics, n = 1,000, 10,000 replicates per cell. Rows 3–8 are % of the triggered trials (Sens / Spec averaged over the declared triggered trials), with binomial SE.</caption>
+<caption>Core operating characteristics, n = 1,000, 10,000 replicates per cell. Rows 3–8 are % of the triggered trials (Sens / Spec: recovery of the simulation’s <span class="math inline">\(H^*\)</span>, averaged over the declared triggered trials; not available in a real trial), with binomial SE.</caption>
 <colgroup>
 <col style="width: 16%">
 <col style="width: 13%">
@@ -5088,7 +5101,7 @@ Figure 2: Replicate 5 of S2 by the simulation route: hazard ratio, experimental
 </table>
 </div>
 </div>
-<p>Every count-derived entry equals its recount from the numeric records. Reading: the trigger becomes more frequent as the harm in <span class="math inline">\(H^*\)</span> grows (from 540 triggered trials in N0 to 3,048 in S4). Where there is something to find (S2–S4) a subgroup is declared in essentially every triggered trial, it overlaps <span class="math inline">\(H^*\)</span> with sensitivity about 0.6 and specificity above 0.95, and the joint holds in 51.2% to 61.6% of triggered trials, against an oracle ceiling of 77.7% to 89.2%. Where there is nothing harmful to find (N0) a subgroup is still declared in 52.2% of triggered trials and the joint holds in 10.6%: the strategy “explains” some triggers when there is nothing to explain, which is why it is signal generation.</p>
+<p>Every count-derived entry equals its recount from the numeric records. Reading: the trigger becomes more frequent as the harm in <span class="math inline">\(H^*\)</span> grows (from 540 triggered trials in N0 to 3,048 in S4). Where there is something to find (S2–S4) a subgroup is declared in essentially every triggered trial, it overlaps <span class="math inline">\(H^*\)</span> with sensitivity about 0.6 and specificity above 0.95, and the joint holds in 51.2% to 61.6% of triggered trials, against an oracle benchmark of 77.7% to 89.2%. Where there is nothing harmful to find (N0) a subgroup is still declared in 52.2% of triggered trials and the joint holds in 10.6%: the strategy “explains” some triggers when there is nothing to explain, which is why it is signal generation.</p>
 </section>
 <section id="the-later-enrolling-cells" class="level2" data-number="5.2">
 <h2 data-number="5.2" class="anchored" data-anchor-id="the-later-enrolling-cells"><span class="header-section-number">5.2</span> The later-enrolling cells</h2>
@@ -5600,7 +5613,7 @@ Figure 2: Replicate 5 of S2 by the simulation route: hazard ratio, experimental
 </section>
 <section id="sec-demo" class="level2" data-number="5.6">
 <h2 data-number="5.6" class="anchored" data-anchor-id="sec-demo"><span class="header-section-number">5.6</span> The demonstration run</h2>
-<p>The run of <a href="#sec-find" class="quarto-xref">Section 4.4</a> (100 replicates of S2 with the campaign’s arguments and call seed, on 100 workers, 140 seconds), summarised into the core rows by the definitions of the core table. With the campaign’s seed, its replicates are the campaign’s first 100; <a href="#sec-find" class="quarto-xref">Section 4.4</a> checks its first replicates against the shipped record.</p>
+<p>The run of <a href="#sec-find" class="quarto-xref">Section 4.4</a> (100 replicates of S2 with the campaign’s arguments and call seed, on 100 workers, 137 seconds), summarised into the core rows by the definitions of the core table. With the campaign’s seed, its replicates are the campaign’s first 100; <a href="#sec-find" class="quarto-xref">Section 4.4</a> checks its first replicates against the shipped record.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
@@ -5685,7 +5698,7 @@ Figure 2: Replicate 5 of S2 by the simulation route: hazard ratio, experimental
 </table>
 </div>
 </div>
-<p>At 100 replicates the demonstration has 20 triggered trials, so its rows carry large Monte Carlo error; they are a check of the pipeline, not an estimate of its operating characteristics. The whole article took 4.6 minutes to run.</p>
+<p>At 100 replicates the demonstration has 20 triggered trials, so its rows carry large Monte Carlo error; they are a check of the pipeline, not an estimate of its operating characteristics. The whole article took 4.5 minutes to run.</p>
 </section>
 </section>
 <section id="sec-appendix" class="level1" data-number="6">
