@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="ForestSearch Package">
-<meta name="dcterms.date" content="2026-11-02">
+<meta name="dcterms.date" content="2026-11-04">
 
 <title>MRCT regional consistency via subgroup identification</title>
 <style>
@@ -2417,7 +2417,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">November 2, 2026</p>
+      <p class="date">November 4, 2026</p>
     </div>
   </div>
   
@@ -2729,7 +2729,7 @@ window.Quarto = {
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>          seconds  candidate_family            n_Hhat n_Hhat_complement 
-             52.3            3003.0              73.0             733.0 </code></pre>
+             51.1            3003.0              73.0             733.0 </code></pre>
 </div>
 <details open class="code-fold">
 <summary>Code</summary>
@@ -2739,7 +2739,7 @@ window.Quarto = {
 <pre><code>[1] &quot;{z_cd40 &lt;= 236} &amp; !{z_preanti &lt;= 196}&quot;</code></pre>
 </div>
 </div>
-<p><span class="math inline">\(\hat H\)</span> is <code>{z_cd40 &lt;= 236} &amp; !{z_preanti &lt;= 196}</code> (<code>!{…}</code> is the complement): CD4 <span class="math inline">\(\le\)</span> 236 and prior ART over 196 days. The call took 52 seconds on one thread. <em>With your trial:</em> <code>df.analysis</code> and <code>df.test</code> are your non-region and region rows; your column names go in <code>outcome.name</code>, <code>event.name</code>, <code>treat.name</code> and <code>id.name</code>, your covariates in <code>confounders.name</code>, and those of your continuous covariates to be cut at deciles in <code>conf.cont_jcuts</code>; the other arguments are the identifier’s settings used throughout this article, and <code>seed</code> is yours.</p>
+<p><span class="math inline">\(\hat H\)</span> is <code>{z_cd40 &lt;= 236} &amp; !{z_preanti &lt;= 196}</code> (<code>!{…}</code> is the complement): CD4 <span class="math inline">\(\le\)</span> 236 and prior ART over 196 days. The call took 51 seconds on one thread. <em>With your trial:</em> <code>df.analysis</code> and <code>df.test</code> are your non-region and region rows; your column names go in <code>outcome.name</code>, <code>event.name</code>, <code>treat.name</code> and <code>id.name</code>, your covariates in <code>confounders.name</code>, and those of your continuous covariates to be cut at deciles in <code>conf.cont_jcuts</code>; the other arguments are the identifier’s settings used throughout this article, and <code>seed</code> is yours.</p>
 </section>
 <section id="step-4-hat-h-applied-to-the-region-the-four-sets" class="level2" data-number="2.4">
 <h2 data-number="2.4" class="anchored" data-anchor-id="step-4-hat-h-applied-to-the-region-the-four-sets"><span class="header-section-number">2.4</span> Step 4: <span class="math inline">\(\hat H\)</span> applied to the region; the four sets</h2>
@@ -3601,10 +3601,10 @@ control, : Ran out of iterations and did not converge</code></pre>
                   Hstar region_prognostic_loghr            generating_r 
                0.164250               -1.541238               -1.386294 
          build_warnings                 seconds 
-               3.000000                0.300000 </code></pre>
+               3.000000                0.400000 </code></pre>
 </div>
 </div>
-<p>Every patient’s log hazard ratio is <span class="math inline">\(\log 0.55\)</span> outside <span class="math inline">\(H^*\)</span> and <span class="math inline">\(\log 2\)</span> inside it. The region’s prognostic log hazard ratio, estimated from the trial, is -1.541 (<span class="math inline">\(e^{r}\)</span> = 0.214); the mechanism that generated replicate 5 used <span class="math inline">\(r = -\log 4\)</span> = -1.386 (<a href="#sec-dgm" class="quarto-xref">Section 4.1</a>). The region is 19.6% of the super-population and 19.4% of the trial. The build took 0.3 seconds. Its 3 warnings, shown above, come from the censoring model’s fit: every censoring time in this trial lies between 29.01 and 39.98 months, that is, all censoring is administrative, and the Weibull fit to it does not converge. Trials are drawn below with <code>cens_adjust = 50</code>, which pushes that model far beyond the window, so all censoring is again administrative.</p>
+<p>Every patient’s log hazard ratio is <span class="math inline">\(\log 0.55\)</span> outside <span class="math inline">\(H^*\)</span> and <span class="math inline">\(\log 2\)</span> inside it. The region’s prognostic log hazard ratio, estimated from the trial, is -1.541 (<span class="math inline">\(e^{r}\)</span> = 0.214); the mechanism that generated replicate 5 used <span class="math inline">\(r = -\log 4\)</span> = -1.386 (<a href="#sec-dgm" class="quarto-xref">Section 4.1</a>). The region is 19.6% of the super-population and 19.4% of the trial. The build took 0.4 seconds. Its 3 warnings, shown above, come from the censoring model’s fit: every censoring time in this trial lies between 29.01 and 39.98 months, that is, all censoring is administrative, and the Weibull fit to it does not converge. Trials are drawn below with <code>cens_adjust = 50</code>, which pushes that model far beyond the window, so all censoring is again administrative.</p>
 <p><strong>2. <span class="math inline">\(H^*\)</span> and the cells.</strong> The build above is one cell: S2’s <span class="math inline">\(h = 2\)</span> in <span class="math inline">\(H^*\)</span> = CD4 <span class="math inline">\(\le\)</span> 230 and <span class="math inline">\(b = 0.55\)</span> outside it. The other cells change only <span class="math inline">\(h\)</span> (shown, not run):</p>
 <div class="cell">
 <details class="code-fold">
@@ -4635,7 +4635,7 @@ control, : Ran out of iterations and did not converge</code></pre>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a>t_an <span class="ot">&lt;-</span> <span class="fu">proc.time</span>()[[<span class="st">&quot;elapsed&quot;</span>]] <span class="sc">-</span> t_an</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
-<p>A later-enrolling region is followed for less time, which keeps its 40-month window in the phase where the treated <span class="math inline">\(H^*\)</span> patients are failing: a delay of 11.62 months at <span class="math inline">\(r = -\log 2\)</span>, or of 6 months at <span class="math inline">\(r = -\log 2.946\)</span>, does what the shift to <span class="math inline">\(-\log 4\)</span> does at no delay. The analytic computations of this section took 17 seconds.</p>
+<p>A later-enrolling region is followed for less time, which keeps its 40-month window in the phase where the treated <span class="math inline">\(H^*\)</span> patients are failing: a delay of 11.62 months at <span class="math inline">\(r = -\log 2\)</span>, or of 6 months at <span class="math inline">\(r = -\log 2.946\)</span>, does what the shift to <span class="math inline">\(-\log 4\)</span> does at no delay. The analytic computations of this section took 20 seconds.</p>
 </section>
 </section>
 <section id="sec-find" class="level2" data-number="4.4">
@@ -4666,7 +4666,7 @@ control, : Ran out of iterations and did not converge</code></pre>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>replicates    workers    seconds 
-     100.0      100.0      137.8 </code></pre>
+     100.0      100.0      139.9 </code></pre>
 </div>
 </div>
 <p><strong>2. Select the trial.</strong> <code>mrct_select_case()</code> flags every trial for the trigger, a declaration and region(<span class="math inline">\(\hat G\)</span>) &lt; 1.0, and returns the first meeting all three.</p>
@@ -5746,7 +5746,7 @@ Figure 2: Replicate 5 of S2 by the simulation route: hazard ratio, experimental
 </section>
 <section id="sec-demo" class="level2" data-number="5.6">
 <h2 data-number="5.6" class="anchored" data-anchor-id="sec-demo"><span class="header-section-number">5.6</span> The demonstration run</h2>
-<p>The run of <a href="#sec-find" class="quarto-xref">Section 4.4</a> (100 replicates of S2 with the campaign’s arguments and call seed, on 100 workers, 138 seconds), summarised into the core rows by the definitions of the core table. With the campaign’s seed, its replicates are the campaign’s first 100; <a href="#sec-find" class="quarto-xref">Section 4.4</a> checks its first replicates against the shipped record.</p>
+<p>The run of <a href="#sec-find" class="quarto-xref">Section 4.4</a> (100 replicates of S2 with the campaign’s arguments and call seed, on 100 workers, 140 seconds), summarised into the core rows by the definitions of the core table. With the campaign’s seed, its replicates are the campaign’s first 100; <a href="#sec-find" class="quarto-xref">Section 4.4</a> checks its first replicates against the shipped record.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
@@ -5836,43 +5836,128 @@ Figure 2: Replicate 5 of S2 by the simulation route: hazard ratio, experimental
 </section>
 <section id="sec-appendix" class="level1" data-number="6">
 <h1 data-number="6"><span class="header-section-number">6</span> Appendix: the analytic tools</h1>
-<p>This appendix condenses the analytic chapter of the technical report (Chapter 6, “The analytic layer”; theory notes <code>AHR_mrct_dgm.qmd</code> and <code>AHR_complete.qmd</code> of the mrct-consistency repository), where the derivations are.</p>
+<p>This appendix condenses Section 3.5 of the accompanying manuscript (in submission) and its supporting document <strong>Analytic Derivations</strong>, where the derivations are; the sections of that document are cited inline below by their section numbers (the development record is in the theory notes <code>AHR_mrct_dgm.qmd</code> and <code>AHR_complete.qmd</code> and Chapter 6 of the technical report, in the mrct-consistency repository). Each display carries the manuscript’s role tag: <strong>[computed]</strong> results produce reported numbers and name the forestsearch function that computes them; <strong>[identity]</strong> results are exact consequences of them; <strong>[assumption]</strong> marks a modelling assumption; and <strong>[interpretation]</strong> marks an approximation used only to read the exact results, which enters no reported number. The modelling assumptions used below are (A1) 1:1 allocation, (A3) uniform staggered entry with a calendar-time analysis, entry independent of event time, and (A5) joint asymptotic normality; the full list (A1)–(A6) is in the Analytic Derivations, §B.1.3.</p>
 <p><strong>The DGM in closed form.</strong> The Weibull AFT draws <span class="math inline">\(\log T = \mu + \ell_z(x) + \tau\varepsilon\)</span> with <span class="math inline">\(\varepsilon = \log \mathrm{Exp}(1)\)</span>, so <span class="math display">\[
 \bar F(s \mid x, z) = \exp\{-\Lambda_0(s)\, e^{\theta_z(x)}\}, \qquad
 \Lambda_0(s) = (s e^{-\mu})^{1/\tau}, \qquad \theta_z(x) = -\ell_z(x)/\tau ,
 \]</span> a proportional-hazards model in <span class="math inline">\((x, z)\)</span> with Weibull baseline. The prognostic part is <span class="math inline">\(\theta_0(x) = x^\top\beta + r\,\mathbf 1\{x \in R\}\)</span>, the treatment effect <span class="math inline">\(\psi(x) = \theta_1(x) - \theta_0(x) = \log b + \log(h/b)\,\mathbf 1\{\mathrm{CD4} \le 230\}\)</span>, and <code>scale_dgm_hazard()</code> sets <span class="math inline">\(\mu \leftarrow \mu_{\text{fit}} - \tau \log m\)</span>, multiplying every hazard by <span class="math inline">\(m\)</span> and leaving every <span class="math inline">\(\theta\)</span> unchanged.</p>
-<p><strong>The counting-process setting and the least-false limit.</strong> On a patient set <span class="math inline">\(\mathcal S\)</span> with entry <span class="math inline">\(E \sim U(0, t_e)\)</span> and analysis at calendar time <span class="math inline">\(t_a\)</span> (here 11 and 40 months), patient <span class="math inline">\(i\)</span> has window <span class="math inline">\(t_a - E_i\)</span>, at-risk process <span class="math inline">\(Y_i(s)\)</span> and counting process <span class="math inline">\(N_i(s)\)</span>. The two-sample Cox estimate <span class="math inline">\(\hat\beta_{\mathcal S}\)</span> is the root of the partial-likelihood score <span class="math inline">\(U_{n,\mathcal S}(\beta) = \sum_{i \in \mathcal S}\int_0^{t_a}\{Z_i - \bar Z_{\mathcal S}(s, \beta)\}\,dN_i(s)\)</span>, <span class="math inline">\(\bar Z_{\mathcal S} = S^{(1)}_{\mathcal S}/S^{(0)}_{\mathcal S}\)</span>. The model is misspecified (the set mixes patients with different hazard ratios), and <span class="math inline">\(\hat\beta_{\mathcal S}\)</span> converges to the least-false parameter <span class="math inline">\(\beta^*_{\mathcal S}\)</span>, the root of the population score (Struthers and Kalbfleisch 1986; Gerds and Schumacher 2001); margHR(40) <span class="math inline">\(= e^{\beta^*_{\mathcal S}}\)</span>. Breslow’s estimator converges to <span class="math inline">\(\Lambda_0^*\)</span>, with <span class="math inline">\(\lambda_0^*/\lambda_0 = (f_1 + f_0)/(e^{\beta^*}A_1 + A_0)\)</span> in operational time.</p>
-<p><strong>The Struthers–Kalbfleisch root for a patient set.</strong> In operational time <span class="math inline">\(u = \Lambda_0(s)\)</span> patient <span class="math inline">\(i\)</span> on arm <span class="math inline">\(z\)</span> is exponential with rate <span class="math inline">\(e^{\theta_{z,i}}\)</span>; with <span class="math inline">\(A_z(u) = |\mathcal S|^{-1}\sum_{\mathcal S} e^{-u e^{\theta_{z,i}}}\)</span>, <span class="math inline">\(f_z = -A_z&#39;\)</span> and the entry factor <span class="math inline">\(H_w(u) = H(t_a - \Lambda_0^{-1}(u))\)</span>, <span class="math inline">\(H\)</span> the entry distribution function, the limit is the unique root of <span class="math display">\[
+<p><strong>The clock and the arm functions.</strong> Each patient’s event time <span class="math inline">\(T\)</span> follows the Weibull proportional-hazards law above, with log hazard multiplier <span class="math inline">\(\theta_z\)</span> on arm <span class="math inline">\(z \in \{0, 1\}\)</span>. <span class="math inline">\(\Lambda_0\)</span> is continuous and strictly increasing from 0 to <span class="math inline">\(\infty\)</span>, so on the operational clock</p>
+<p><strong>[identity]</strong> <span class="math display">\[
+u = \Lambda_0(s) = \bigl(s\,e^{-\mu}\bigr)^{1/\tau}, \qquad
+P\bigl(\Lambda_0(T) &gt; u\bigr) = P\bigl(T &gt; \Lambda_0^{-1}(u)\bigr) = e^{-u e^{\theta_z}}
+\]</span> every patient is exponential with rate <span class="math inline">\(e^{\theta_z}\)</span> (derivation: Analytic Derivations, §B.3a). For a patient set <span class="math inline">\(\mathcal S\)</span>, the set-averaged arm survivor and event-density functions on the operational clock are therefore finite mixtures of exponentials,</p>
+<p><strong>[computed]</strong> <code>ahr_limit()</code> <span class="math display">\[
+A_z(u) = \frac{1}{|\mathcal S|}\sum_{i \in \mathcal S} e^{-u e^{\theta_{z,i}}}, \qquad
+f_z(u) = -A_z&#39;(u) = \frac{1}{|\mathcal S|}\sum_{i \in \mathcal S} e^{\theta_{z,i}} e^{-u e^{\theta_{z,i}}}
+\]</span> (derivation: Analytic Derivations, §B.3a), and arm <span class="math inline">\(z\)</span> of the set has marginal survivor function <span class="math inline">\(A_z(\Lambda_0(s))\)</span> in on-study time.</p>
+<p><strong>The window function.</strong> Entry <span class="math inline">\(E\)</span> is uniform on <span class="math inline">\((0, t_e)\)</span> and independent of the event time, and the trial is analysed at calendar time <span class="math inline">\(t_a\)</span> (here 11 and 40 months). A patient is at risk at on-study time <span class="math inline">\(s\)</span> only if they entered by <span class="math inline">\(t_a - s\)</span>, which has probability <span class="math inline">\(H(t_a - s)\)</span> with <span class="math inline">\(H(v) = \min\{1, \max(v, 0)/t_e\}\)</span>. Composing with the inverse clock <span class="math inline">\(\Lambda_0^{-1}(u) = e^{\mu} u^{\tau}\)</span> gives the probability <span class="math inline">\(H_w(u)\)</span> that a patient is still inside their follow-up window at operational time <span class="math inline">\(u\)</span>:</p>
+<p><strong>[identity]</strong> <span class="math display">\[
+H_w(u) = H\bigl(t_a - \Lambda_0^{-1}(u)\bigr) =
+\begin{cases}
+1, &amp; 0 \le u \le u_\kappa,\\[2pt]
+\dfrac{t_a - e^{\mu} u^{\tau}}{t_e}, &amp; u_\kappa &lt; u &lt; \Lambda_0(t_a),\\[2pt]
+0, &amp; u \ge \Lambda_0(t_a),
+\end{cases}
+\qquad u_\kappa = \Lambda_0(t_a - t_e)
+\]</span> (derivation: Analytic Derivations, §B.3b). The entry kink <span class="math inline">\(u_\kappa\)</span> is the last operational time at which every patient is still in their window; beyond it <span class="math inline">\(H_w\)</span> falls, linearly in <span class="math inline">\(s\)</span>, and it is 0 from <span class="math inline">\(\Lambda_0(t_a)\)</span> on.</p>
+<p><strong>The expected-event measure of the window.</strong> Per patient of <span class="math inline">\(\mathcal S\)</span>, the expected number of events at operational time <span class="math inline">\(u\)</span> inside the window is</p>
+<p><strong>[identity]</strong> <span class="math display">\[
+dN(u) = \tfrac12 H_w(u)\bigl\{f_1(u) + f_0(u)\bigr\}\,du, \qquad
+\int dN = \tfrac12\bigl(D_1 + D_0\bigr), \qquad D_z = \int H_w f_z\,du
+\]</span> (derivation: Analytic Derivations, §B.3a for <span class="math inline">\(dN\)</span>, §B.5 for its total). A patient on arm <span class="math inline">\(z\)</span> has an event at <span class="math inline">\(u\)</span> with density <span class="math inline">\(f_z(u)\)</span>, and the event falls in the window with probability <span class="math inline">\(H_w(u)\)</span>; the product <span class="math inline">\(H_w f_z\)</span> is exact because entry and event time are independent (A3), and the <span class="math inline">\(\tfrac12\)</span> averages the two arms under 1:1 allocation (A1). <span class="math inline">\(D_z\)</span> is arm <span class="math inline">\(z\)</span>’s per-patient probability of an event in the window, so <span class="math inline">\(\int dN\)</span> is the expected number of window events per patient of <span class="math inline">\(\mathcal S\)</span>. A trial of <span class="math inline">\(n\)</span> patients has <span class="math inline">\(n_{\mathcal S} \sim \mathrm{Bin}(n, \pi_{\mathcal S})\)</span> of them in <span class="math inline">\(\mathcal S\)</span> and therefore expects <span class="math inline">\(n\pi_{\mathcal S}\int dN\)</span> window events from <span class="math inline">\(\mathcal S\)</span>: the expected-events number the layer reports (derivation: Analytic Derivations, §B.1.2 and §B.8.2).</p>
+<p><strong>The events-weighted average over the window.</strong> For a function <span class="math inline">\(g\)</span> of operational time,</p>
+<p><strong>[identity]</strong> <span class="math display">\[
+\langle g\rangle_N = \frac{\int g\,dN}{\int dN}
+\]</span> is the average of <span class="math inline">\(g\)</span> over the expected events in the window (derivation: Analytic Derivations, §B.5). Every windowed summary of the layer is an integral or an average under <span class="math inline">\(dN\)</span>: the score and information, the events form and the imbalance moments below.</p>
+<p><strong>The least-false limit.</strong> On a patient set <span class="math inline">\(\mathcal S\)</span> patient <span class="math inline">\(i\)</span> has window <span class="math inline">\(t_a - E_i\)</span>, at-risk process <span class="math inline">\(Y_i(s)\)</span> and counting process <span class="math inline">\(N_i(s)\)</span>. The two-sample Cox estimate <span class="math inline">\(\hat\beta_{\mathcal S}\)</span> is the root of the partial-likelihood score <span class="math inline">\(U_{n,\mathcal S}(\beta) = \sum_{i \in \mathcal S}\int_0^{t_a}\{Z_i - \bar Z_{\mathcal S}(s, \beta)\}\,dN_i(s)\)</span>, <span class="math inline">\(\bar Z_{\mathcal S} = S^{(1)}_{\mathcal S}/S^{(0)}_{\mathcal S}\)</span>. The model is misspecified (the set mixes patients with different hazard ratios), and <span class="math inline">\(\hat\beta_{\mathcal S}\)</span> converges to the least-false parameter <span class="math inline">\(\beta^*_{\mathcal S}\)</span> (Struthers and Kalbfleisch 1986; Gerds and Schumacher 2001), which on the operational clock is the unique root of the population score</p>
+<p><strong>[computed]</strong> <code>ahr_population()</code>, <code>ahr_limit()</code> <span class="math display">\[
 \begin{aligned}
-U_{\mathcal S}(\beta) &amp;= \tfrac12 \int_0^{\Lambda_0(t_a)} H_w(u)\Bigl\{f_1(u) - r(u, \beta)\,[f_1(u) + f_0(u)]\Bigr\}\,du,\\
+U_{\mathcal S}(\beta) &amp;= \tfrac12 \int_0^{\Lambda_0(t_a)} H_w(u)\Bigl\{f_1(u) - r(u, \beta)\,\bigl[f_1(u) + f_0(u)\bigr]\Bigr\}\,du,\\
 r(u, \beta) &amp;= \frac{e^\beta A_1(u)}{e^\beta A_1(u) + A_0(u)} ,
 \end{aligned}
-\]</span> and margHR(<span class="math inline">\(\infty\)</span>) is the root with <span class="math inline">\(H_w \equiv 1\)</span> to <span class="math inline">\(u = \infty\)</span>. <span class="math inline">\(\partial U/\partial\beta &lt; 0\)</span>, so the root is unique. With <span class="math inline">\(\delta(u) = \log\{A_1/A_0\}\)</span> and the set’s instantaneous hazard ratio <span class="math inline">\(\vartheta_{\mathcal S}(u) = (f_1/A_1)/(f_0/A_0)\)</span> the score is <span class="math inline">\(\int\{\operatorname{expit}(\log\vartheta_{\mathcal S} + \delta) - \operatorname{expit}(\beta + \delta)\}\,dN\)</span>, <span class="math inline">\(dN = \tfrac12 H_w (f_1 + f_0)\,du\)</span>: the score of a time-varying-effect model whose profile is induced by composition. <code>ahr_limit()</code> evaluates the arm functions as finite sums over the super-population rows of the set, integrates by composite Gauss–Legendre quadrature on geometric panels in <span class="math inline">\(u\)</span> with breaks at the entry kinks, and finds the root by <code>uniroot()</code>. The set’s other truths are <span class="math display">\[
+\]</span> with margHR(40) <span class="math inline">\(= e^{\beta^*_{\mathcal S}}\)</span> at <span class="math inline">\(t_a = 40\)</span> (derivation: Analytic Derivations, §B.3a and §B.3c). The root is unique because <span class="math inline">\(\partial U_{\mathcal S}/\partial\beta = -\int r(1 - r)\,dN &lt; 0\)</span>: the Struthers–Kalbfleisch limit written on the operational clock. With <span class="math inline">\(\delta(u) = \log\{A_1/A_0\}\)</span> and the set’s instantaneous hazard ratio <span class="math inline">\(\vartheta_{\mathcal S}(u) = (f_1/A_1)/(f_0/A_0)\)</span> the score is <span class="math inline">\(\int\{\operatorname{expit}(\log\vartheta_{\mathcal S} + \delta) - \operatorname{expit}(\beta + \delta)\}\,dN\)</span>: the score of a time-varying-effect model whose profile is induced by composition. <code>ahr_limit()</code> evaluates the arm functions as finite sums over the super-population rows of the set, integrates by composite Gauss–Legendre quadrature on geometric panels in <span class="math inline">\(u\)</span> with breaks at the entry kinks, and finds the root by <code>uniroot()</code>. Breslow’s estimator converges to <span class="math inline">\(\Lambda_0^*\)</span>, with <span class="math inline">\(\lambda_0^*/\lambda_0 = (f_1 + f_0)/(e^{\beta^*}A_1 + A_0)\)</span> in operational time (Analytic Derivations).</p>
+<p>margHR(<span class="math inline">\(\infty\)</span>) is <span class="math inline">\(e^{\beta}\)</span> at the root of the same score with no censoring, <span class="math inline">\(H_w \equiv 1\)</span> and the integral run to infinity,</p>
+<p><strong>[computed]</strong> <code>ahr_limit()</code> <span class="math display">\[
+U^{\infty}_{\mathcal S}(\beta) = \tfrac12 \int_0^{\infty} \Bigl\{f_1(u) - r(u, \beta)\,\bigl[f_1(u) + f_0(u)\bigr]\Bigr\}\,du
+\]</span> (derivation: Analytic Derivations, §B.3c); it depends on the set’s patients alone, not on <span class="math inline">\(\mu\)</span> or <span class="math inline">\(\tau\)</span>. With <span class="math inline">\(\psi = \theta_1 - \theta_0\)</span> a patient’s log hazard ratio, <span class="math inline">\(p_{\mathcal S}\)</span> the set’s <span class="math inline">\(H^*\)</span> patient share and <span class="math inline">\(\omega^0_{\mathcal S} = \sum_{\mathcal S \cap H^*} e^{\theta_0} / \sum_{\mathcal S} e^{\theta_0}\)</span> the share of its baseline hazard carried by <span class="math inline">\(H^*\)</span>, the set’s other truths are closed forms:</p>
+<p><strong>[computed]</strong> <code>ahr_limit()</code> <span class="math display">\[
 \mathrm{AHR}(\mathcal S) = \exp\Bigl\{\tfrac1{|\mathcal S|}\textstyle\sum_{\mathcal S}\psi\Bigr\} = b^{1 - p_{\mathcal S}} h^{p_{\mathcal S}},
 \qquad
-\mathrm{CDE}(\mathcal S) = \frac{\sum_{\mathcal S} e^{\theta_1}}{\sum_{\mathcal S} e^{\theta_0}} = (1 - \omega^0_{\mathcal S})\,b + \omega^0_{\mathcal S}\,h ,
-\]</span> <span class="math inline">\(p_{\mathcal S}\)</span> the set’s <span class="math inline">\(H^*\)</span> share and <span class="math inline">\(\omega^0_{\mathcal S}\)</span> the share of its baseline hazard carried by <span class="math inline">\(H^*\)</span>.</p>
-<p><strong>The clock identity and the frailty reading.</strong> Under a uniform effect (<span class="math inline">\(h = b\)</span>), <span class="math inline">\(A_1(u) = L_{\mathcal S}(bu)\)</span> and <span class="math inline">\(A_0(u) = L_{\mathcal S}(u)\)</span> with <span class="math inline">\(L_{\mathcal S}\)</span> the Laplace transform of <span class="math inline">\(e^{\theta_0}\)</span> over the set: the covariate-driven baseline acts as a frailty, and <span class="math inline">\(\vartheta_{\mathcal S}(s) = b\,\ell_{\mathcal S}(b\Lambda_0(s))/\ell_{\mathcal S}(\Lambda_0(s))\)</span>, with <span class="math inline">\(\ell_{\mathcal S}\)</span> the survival-weighted mean of <span class="math inline">\(e^{\theta_0}\)</span> among the set’s survivors, drifts from <span class="math inline">\(b\)</span> toward 1 as high-hazard patients leave. The regional shift adds <span class="math inline">\(r\)</span> to <span class="math inline">\(\theta_0\)</span> on every region row, so for a set inside the region every arm function at <span class="math inline">\(r\)</span> is the function at <span class="math inline">\(r = 0\)</span> evaluated at <span class="math inline">\(e^r u\)</span>: <strong><span class="math inline">\(r\)</span> is a clock on the region</strong>. margHR(<span class="math inline">\(\infty\)</span>), the AHR and the CDE do not see <span class="math inline">\(r\)</span>; only the windowed margHR(40) moves. With a harmed <span class="math inline">\(H^*\)</span> the region’s profile starts at its CDE, above 1, while the treated <span class="math inline">\(H^*\)</span> patients fail, crosses 1 once they are spent and settles near <span class="math inline">\(b\)</span>; the slower clock keeps the 40-month window in the harm phase and moves the region’s margHR(40) toward the null. A regional prognostic effect, a harmed subgroup and a finite window are needed together.</p>
-<p><strong>The first-order and events forms.</strong> Setting every imbalance to zero gives <span class="math display">\[
+\mathrm{CDE}(\mathcal S) = \frac{\sum_{\mathcal S} e^{\theta_1}}{\sum_{\mathcal S} e^{\theta_0}} = (1 - \omega^0_{\mathcal S})\,b + \omega^0_{\mathcal S}\,h
+\]</span> (derivation: Analytic Derivations, §B.3c).</p>
+<p><strong>The events form.</strong> With <span class="math inline">\(\delta(u) = \log\{A_1(u)/A_0(u)\}\)</span> the log ratio of the arms’ numbers at risk and <span class="math inline">\(\bar P = D_1/(D_1 + D_0)\)</span>, the score equation at the root reads exactly</p>
+<p><strong>[identity]</strong> <span class="math display">\[
+\bar P = \frac{D_1}{D_1 + D_0} = \bigl\langle\operatorname{expit}\bigl(\beta^*_{\mathcal S} + \delta\bigr)\bigr\rangle_N :
+\]</span> the experimental arm’s share of the expected window events equals the events-weighted average of the fitted risk-set share. Expanding the right side to second order about <span class="math inline">\(\bar\delta = \langle\delta\rangle_N\)</span>, where the first-order term vanishes, gives</p>
+<p><strong>[interpretation]</strong> <span class="math display">\[
+\beta^*_{\mathcal S} \approx \log\frac{D_1}{D_0} - \bar\delta - \tfrac12(1 - 2\bar P)\,\mathrm{Var}_N(\delta),
+\qquad \mathrm{Var}_N(\delta) = \langle\delta^2\rangle_N - \bar\delta^{\,2} :
+\]</span> the marginal hazard ratio is the ratio of the arms’ event probabilities divided by the geometric-mean ratio of the arms’ numbers at risk at the event times, corrected by the dispersion of that ratio. The approximation ladder, and its tabulation against the exact root, are in the Analytic Derivations, §B.6. Setting every imbalance to zero gives the first-order form</p>
+<p><strong>[interpretation]</strong> <span class="math display">\[
 \operatorname{expit}(\beta^*_{\mathcal S}) \approx (1 - \omega_{\mathcal S})\frac{b}{1+b} + \omega_{\mathcal S}\frac{h}{1+h},
-\]</span> <span class="math inline">\(\omega_{\mathcal S}\)</span> the share of the set’s expected events in the window carried by <span class="math inline">\(H^*\)</span>, with a closed form through the event probability <span class="math inline">\(\pi(\theta) = 1 - \tfrac{1}{t_e}\int_{t_a - t_e}^{t_a}\exp\{-c\,w^{1/\tau}\}\,dw\)</span>, <span class="math inline">\(c = e^{\theta - \mu/\tau}\)</span>. It fails for a harmed <span class="math inline">\(H^*\)</span>, whose treated patients are used up early. Exactly, the score equation is <span class="math inline">\(D_1/(D_1 + D_0) = \langle\operatorname{expit}(\beta^* + \delta)\rangle_N\)</span>, <span class="math inline">\(D_z\)</span> the arms’ event probabilities and <span class="math inline">\(\langle\cdot\rangle_N\)</span> the events-weighted average over the window; expanded about <span class="math inline">\(\bar\delta = \langle\delta\rangle_N\)</span>, <span class="math display">\[
-\beta^* \approx \log\frac{D_1}{D_0} - \bar\delta - \tfrac12(1 - 2\bar P)\,\mathrm{Var}_N(\delta),
-\qquad \bar P = \frac{D_1}{D_1 + D_0}:
-\]</span> the marginal hazard ratio is the ratio of the arms’ event probabilities divided by the geometric-mean ratio of the arms’ numbers at risk at the event times.</p>
-<p><strong>The design layer.</strong> For a trial of <span class="math inline">\(n\)</span> patients, 1:1, with <span class="math inline">\(n_{\mathcal S} \sim \mathrm{Bin}(n, \pi_{\mathcal S})\)</span> in <span class="math inline">\(\mathcal S\)</span> and <span class="math inline">\(i_1 = \int r(1 - r)\,dN\)</span> the information per patient, <span class="math display">\[
+\]</span> <span class="math inline">\(\omega_{\mathcal S}\)</span> the share of the set’s expected events in the window carried by <span class="math inline">\(H^*\)</span>, with a closed form through the event probability <span class="math inline">\(\pi(\theta) = 1 - \tfrac{1}{t_e}\int_{t_a - t_e}^{t_a}\exp\{-c\,w^{1/\tau}\}\,dw\)</span>, <span class="math inline">\(c = e^{\theta - \mu/\tau}\)</span> (Analytic Derivations). It fails for a harmed <span class="math inline">\(H^*\)</span>, whose treated patients are used up early.</p>
+<p><strong>The clock identity and the frailty reading.</strong> Under a uniform effect (<span class="math inline">\(h = b\)</span>), <span class="math inline">\(A_1(u) = L_{\mathcal S}(bu)\)</span> and <span class="math inline">\(A_0(u) = L_{\mathcal S}(u)\)</span> with <span class="math inline">\(L_{\mathcal S}\)</span> the Laplace transform of <span class="math inline">\(e^{\theta_0}\)</span> over the set: the covariate-driven baseline acts as a frailty, and <span class="math inline">\(\vartheta_{\mathcal S}(s) = b\,\ell_{\mathcal S}(b\Lambda_0(s))/\ell_{\mathcal S}(\Lambda_0(s))\)</span>, with <span class="math inline">\(\ell_{\mathcal S}\)</span> the survival-weighted mean of <span class="math inline">\(e^{\theta_0}\)</span> among the set’s survivors, drifts from <span class="math inline">\(b\)</span> toward 1 as high-hazard patients leave. The regional prognostic shift <span class="math inline">\(r\)</span> adds <span class="math inline">\(r\)</span> to <span class="math inline">\(\theta_0\)</span> on every region row, so for a set inside the region the arm functions at shift <span class="math inline">\(r\)</span> are those at shift 0 read at <span class="math inline">\(e^r u\)</span>:</p>
+<p><strong>[identity]</strong> <span class="math display">\[
+A^{(r)}_z(u) = A^{(0)}_z(e^r u), \qquad f^{(r)}_z(u) = e^r f^{(0)}_z(e^r u) .
+\]</span> <strong><span class="math inline">\(r\)</span> is a clock on the region</strong>: margHR(<span class="math inline">\(\infty\)</span>), the AHR and the CDE do not depend on <span class="math inline">\(r\)</span>; only the windowed margHR(40) moves, and a region delayed by <span class="math inline">\(a\)</span> is the undelayed region analysed at horizon <span class="math inline">\(t_a - a\)</span>. With a harmed <span class="math inline">\(H^*\)</span> the region’s profile starts at its CDE, above 1, while the treated <span class="math inline">\(H^*\)</span> patients fail, crosses 1 once they are spent and settles near <span class="math inline">\(b\)</span>; the slower clock keeps the 40-month window in the harm phase and moves the region’s margHR(40) toward the null. A regional prognostic effect, a harmed subgroup and a finite window are needed together.</p>
+<p><strong>The design layer.</strong> <strong>[assumption]</strong> (A5): the three estimates entering the trigger and the oracle joint, <span class="math inline">\(\hat\beta_{\text{all}}\)</span>, <span class="math inline">\(\hat\beta_R\)</span> and <span class="math inline">\(\hat\beta_{G^*}\)</span>, are treated as jointly normal around their limits, with the robust standard deviations and the correlations of their influences. For a trial of <span class="math inline">\(n\)</span> patients, 1:1, with <span class="math inline">\(n_{\mathcal S} \sim \mathrm{Bin}(n, \pi_{\mathcal S})\)</span> in <span class="math inline">\(\mathcal S\)</span> and <span class="math inline">\(i_1 = \int r(1 - r)\,dN\)</span> the information per patient,</p>
+<p><strong>[computed]</strong> <code>ahr_design()</code> <span class="math display">\[
 \begin{aligned}
 \mathrm{Var}(\hat\beta_{\mathcal S}) &amp;\approx \frac{1}{i_1}\,\mathrm E\Bigl[\frac{1}{n_{\mathcal S}}\Bigr] &amp;&amp; \text{(model)},\\
 &amp;\approx \frac{\Sigma}{i_1^2}\,\mathrm E\Bigl[\frac{1}{n_{\mathcal S}}\Bigr] &amp;&amp; \text{(robust)},\\
 \mathrm E\Bigl[\frac{1}{n_{\mathcal S}}\Bigr] &amp;\approx \frac{1}{n\pi_{\mathcal S}}\Bigl\{1 + \frac{1 - \pi_{\mathcal S}}{n\pi_{\mathcal S}}\Bigr\},
 \end{aligned}
-\]</span> <span class="math inline">\(\Sigma\)</span> the variance of the Lin–Wei influence. Under a common proportional-hazards model the correlation of nested estimates is the square root of the information share, <span class="math inline">\(\rho = \mathrm{Corr}(\hat\beta_{\text{all}}, \hat\beta_R) = \sqrt{I_R/I_{\text{all}}}\)</span>; under misspecification the layer uses the exact covariance of the two influences. With <span class="math inline">\(\mu_{\mathcal S} = \beta^*_{\mathcal S}\)</span>, <span class="math inline">\(\sigma_{\mathcal S}\)</span> the robust SD, <span class="math inline">\(\tilde\sigma_{\text{all}}\)</span> the model SE and <span class="math inline">\(z = 1.96\)</span>, <span class="math display">\[
+\]</span> <span class="math inline">\(\Sigma\)</span> the variance of the Lin–Wei influence (Analytic Derivations). Under a common proportional-hazards model the correlation of nested estimates is the square root of the information share, <span class="math inline">\(\rho = \mathrm{Corr}(\hat\beta_{\text{all}}, \hat\beta_R) = \sqrt{I_R/I_{\text{all}}}\)</span>; under misspecification the layer uses the exact covariance of the two influences. With <span class="math inline">\(\mu_{\mathcal S} = \beta^*_{\mathcal S}\)</span>, <span class="math inline">\(\sigma_{\mathcal S}\)</span> the robust SD, <span class="math inline">\(\tilde\sigma_{\text{all}}\)</span> the model SE and <span class="math inline">\(z_{0.975} = \Phi^{-1}(0.975) \approx 1.96\)</span>,</p>
+<p><strong>[computed]</strong> <code>ahr_design()</code> <span class="math display">\[
 \begin{aligned}
-P(\text{ITT ub} &lt; 1) &amp;= \Phi(z_A), &amp; z_A &amp;= \frac{-z\tilde\sigma_{\text{all}} - \mu_{\text{all}}}{\sigma_{\text{all}}};\\
+P(\text{ITT ub} &lt; 1) &amp;= \Phi(z_A), &amp; z_A &amp;= \frac{-z_{0.975}\,\tilde\sigma_{\text{all}} - \mu_{\text{all}}}{\sigma_{\text{all}}};\\
 P(\text{region ITT} &gt; 1) &amp;= \Phi(-z_B), &amp; z_B &amp;= \frac{-\mu_R}{\sigma_R};\\
 P(\text{trigger}) &amp;= \Phi_2(z_A, -z_B; -\rho_{\text{all},R}),
 \end{aligned}
-\]</span> and the oracle joint is the trivariate <span class="math inline">\(\Phi_3(z_A, -z_B, z_C; \mathbf R)\)</span> with <span class="math inline">\(z_C = -\mu_{G^*}/\sigma_{G^*}\)</span>, <span class="math inline">\(\mathbf R\)</span> the correlation matrix of <span class="math inline">\((\hat\beta_{\text{all}}, -\hat\beta_R, \hat\beta_{G^*})\)</span> (<code>ahr_design()</code>).</p>
-<p><strong>Per-patient entry.</strong> With <code>entry_delay</code>, patient <span class="math inline">\(i\)</span> enters at <span class="math inline">\(a_i + E\)</span>, <span class="math inline">\(E \sim U(0, t_e)\)</span>; each patient carries their own entry factor <span class="math inline">\(H_{w,i}(u)\)</span>, and the arm functions of the score become the entry-weighted sums <span class="math inline">\(A_{H}(u) = |\mathcal S|^{-1}\sum_{\mathcal S} H_{w,i}(u)\,e^{-u e^{\theta_{1,i}}}\)</span> (and likewise for the control arm and the event densities), with quadrature breaks at each entry group’s kinks. For a set inside a region delayed by <span class="math inline">\(a\)</span>, the limit equals the undelayed limit at horizon <span class="math inline">\(t_a - a\)</span>: a later-enrolling region is a region analysed earlier. With no delay every <span class="math inline">\(H_{w,i}\)</span> is the common <span class="math inline">\(H_w\)</span> and the layer is the one above.</p>
+\]</span> and the oracle joint is the trivariate <span class="math inline">\(\Phi_3(z_A, -z_B, z_C; \mathbf R)\)</span> with <span class="math inline">\(z_C = -\mu_{G^*}/\sigma_{G^*}\)</span>, <span class="math inline">\(\mathbf R\)</span> the correlation matrix of <span class="math inline">\((\hat\beta_{\text{all}}, -\hat\beta_R, \hat\beta_{G^*})\)</span> (<code>ahr_design()</code>; derivation: Analytic Derivations).</p>
+<p><strong>Per-patient entry.</strong> With <code>entry_delay</code>, patient <span class="math inline">\(i\)</span> enters at <span class="math inline">\(a_i + E\)</span>, <span class="math inline">\(E \sim U(0, t_e)\)</span>; each patient carries their own entry factor <span class="math inline">\(H_{w,i}(u)\)</span>, and the arm functions of the score become the entry-weighted sums <span class="math inline">\(A_{H}(u) = |\mathcal S|^{-1}\sum_{\mathcal S} H_{w,i}(u)\,e^{-u e^{\theta_{1,i}}}\)</span> (and likewise for the control arm and the event densities), with quadrature breaks at each entry group’s kinks. For a set inside a region delayed by <span class="math inline">\(a\)</span>, the limit equals the undelayed limit at horizon <span class="math inline">\(t_a - a\)</span>: a later-enrolling region is a region analysed earlier. With no delay every <span class="math inline">\(H_{w,i}\)</span> is the common <span class="math inline">\(H_w\)</span> and the layer is the one above (derivation: Analytic Derivations).</p>
+<p><strong>The functions.</strong> The analytic layer’s exports, what each computes, and where it is derived:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Function</th>
+<th style="text-align: left;">Computes</th>
+<th style="text-align: left;">Derivation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>scale_dgm_hazard()</code></td>
+<td style="text-align: left;">the hazard multiplier <span class="math inline">\(m\)</span>: <span class="math inline">\(\mu \leftarrow \mu_{\text{fit}} - \tau\log m\)</span> (the DGM in closed form)</td>
+<td style="text-align: left;">Analytic Derivations</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>ahr_population()</code></td>
+<td style="text-align: left;">each patient’s <span class="math inline">\(\theta_0\)</span>, <span class="math inline">\(\psi\)</span>, <span class="math inline">\(H^*\)</span> and region flags, entry delays, <span class="math inline">\(\mu\)</span>, <span class="math inline">\(\tau\)</span>, <span class="math inline">\(t_a\)</span>, <span class="math inline">\(t_e\)</span>: the inputs of the arm functions and of the least-false limit</td>
+<td style="text-align: left;">§B.3a</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>ahr_limit()</code></td>
+<td style="text-align: left;">evaluates the arm functions <span class="math inline">\(A_z\)</span>, <span class="math inline">\(f_z\)</span>; returns the least-false root <span class="math inline">\(\beta^*_{\mathcal S}\)</span> and margHR(40); margHR(<span class="math inline">\(\infty\)</span>); the AHR and the CDE; <span class="math inline">\(D_1\)</span>, <span class="math inline">\(D_0\)</span></td>
+<td style="text-align: left;">§B.3a, §B.3c</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>ahr_design()</code></td>
+<td style="text-align: left;">at trial size <span class="math inline">\(n\)</span>: each set’s model and robust SEs with <span class="math inline">\(\mathrm E[1/n_{\mathcal S}]\)</span>, its expected events <span class="math inline">\(n\pi_{\mathcal S}\int dN\)</span>, the nested-set correlations, <span class="math inline">\(P(\text{ITT ub} &lt; 1)\)</span>, <span class="math inline">\(P(\text{region ITT} &gt; 1)\)</span>, <span class="math inline">\(P(\text{trigger})\)</span> and the oracle joint</td>
+<td style="text-align: left;">§B.8.2; Analytic Derivations</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>ahr_solve()</code></td>
+<td style="text-align: left;">the value of one free design parameter at which <span class="math inline">\(P(\text{trigger})\)</span> attains a target (scan and <code>uniroot()</code>)</td>
+<td style="text-align: left;">Analytic Derivations</td>
+</tr>
+</tbody>
+</table>
 </section>
 
 </main>
