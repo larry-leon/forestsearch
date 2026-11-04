@@ -1524,9 +1524,17 @@ characteristics. The whole article took
 
 # Appendix: the analytic tools {#sec-appendix}
 
-This appendix condenses the analytic chapter of the technical report (Chapter 6, "The analytic layer";
-theory notes `AHR_mrct_dgm.qmd` and `AHR_complete.qmd` of the mrct-consistency repository), where the
-derivations are.
+This appendix condenses Section 3.5 of the accompanying manuscript (in submission) and its supporting
+document **Analytic Derivations**, where the derivations are; the sections of that document are cited
+inline below by their section numbers (the development record is in the theory notes `AHR_mrct_dgm.qmd` and
+`AHR_complete.qmd` and Chapter 6 of the technical report, in the mrct-consistency repository). Each
+display carries the manuscript's role tag: **[computed]** results produce reported numbers and name
+the forestsearch function that computes them; **[identity]** results are exact consequences of them;
+**[assumption]** marks a modelling assumption; and **[interpretation]** marks an approximation used
+only to read the exact results, which enters no reported number. The modelling assumptions used
+below are (A1) 1:1 allocation, (A3) uniform staggered entry with a calendar-time analysis, entry
+independent of event time, and (A5) joint asymptotic normality; the full list (A1)–(A6) is in the
+Analytic Derivations, §B.1.3.
 
 **The DGM in closed form.** The Weibull AFT draws $\log T = \mu + \ell_z(x) + \tau\varepsilon$ with
 $\varepsilon = \log \mathrm{Exp}(1)$, so
@@ -1540,75 +1548,180 @@ $\psi(x) = \theta_1(x) - \theta_0(x) = \log b + \log(h/b)\,\mathbf 1\{\mathrm{CD
 `scale_dgm_hazard()` sets $\mu \leftarrow \mu_{\text{fit}} - \tau \log m$, multiplying every hazard by
 $m$ and leaving every $\theta$ unchanged.
 
-**The counting-process setting and the least-false limit.** On a patient set $\mathcal S$ with entry
-$E \sim U(0, t_e)$ and analysis at calendar time $t_a$ (here 11 and 40 months), patient $i$ has window
-$t_a - E_i$, at-risk process $Y_i(s)$ and counting process $N_i(s)$. The two-sample Cox estimate
-$\hat\beta_{\mathcal S}$ is the root of the partial-likelihood score
+**The clock and the arm functions.** Each patient's event time $T$ follows the Weibull
+proportional-hazards law above, with log hazard multiplier $\theta_z$ on arm $z \in \{0, 1\}$.
+$\Lambda_0$ is continuous and strictly increasing from 0 to $\infty$, so on the operational clock
+
+**[identity]**
+$$
+u = \Lambda_0(s) = \bigl(s\,e^{-\mu}\bigr)^{1/\tau}, \qquad
+P\bigl(\Lambda_0(T) > u\bigr) = P\bigl(T > \Lambda_0^{-1}(u)\bigr) = e^{-u e^{\theta_z}}
+$$
+every patient is exponential with rate $e^{\theta_z}$ (derivation: Analytic Derivations, §B.3a). For a
+patient set $\mathcal S$, the set-averaged arm survivor and event-density functions on the operational
+clock are therefore finite mixtures of exponentials,
+
+**[computed]** `ahr_limit()`
+$$
+A_z(u) = \frac{1}{|\mathcal S|}\sum_{i \in \mathcal S} e^{-u e^{\theta_{z,i}}}, \qquad
+f_z(u) = -A_z'(u) = \frac{1}{|\mathcal S|}\sum_{i \in \mathcal S} e^{\theta_{z,i}} e^{-u e^{\theta_{z,i}}}
+$$
+(derivation: Analytic Derivations, §B.3a), and arm $z$ of the set has marginal survivor function
+$A_z(\Lambda_0(s))$ in on-study time.
+
+**The window function.** Entry $E$ is uniform on $(0, t_e)$ and independent of the event time, and the
+trial is analysed at calendar time $t_a$ (here 11 and 40 months). A patient is at risk at on-study time
+$s$ only if they entered by $t_a - s$, which has probability $H(t_a - s)$ with
+$H(v) = \min\{1, \max(v, 0)/t_e\}$. Composing with the inverse clock $\Lambda_0^{-1}(u) = e^{\mu} u^{\tau}$
+gives the probability $H_w(u)$ that a patient is still inside their follow-up window at operational
+time $u$:
+
+**[identity]**
+$$
+H_w(u) = H\bigl(t_a - \Lambda_0^{-1}(u)\bigr) =
+\begin{cases}
+1, & 0 \le u \le u_\kappa,\\[2pt]
+\dfrac{t_a - e^{\mu} u^{\tau}}{t_e}, & u_\kappa < u < \Lambda_0(t_a),\\[2pt]
+0, & u \ge \Lambda_0(t_a),
+\end{cases}
+\qquad u_\kappa = \Lambda_0(t_a - t_e)
+$$
+(derivation: Analytic Derivations, §B.3b). The entry kink $u_\kappa$ is the last operational time at
+which every patient is still in their window; beyond it $H_w$ falls, linearly in $s$, and it is 0 from
+$\Lambda_0(t_a)$ on.
+
+**The expected-event measure of the window.** Per patient of $\mathcal S$, the expected number of
+events at operational time $u$ inside the window is
+
+**[identity]**
+$$
+dN(u) = \tfrac12 H_w(u)\bigl\{f_1(u) + f_0(u)\bigr\}\,du, \qquad
+\int dN = \tfrac12\bigl(D_1 + D_0\bigr), \qquad D_z = \int H_w f_z\,du
+$$
+(derivation: Analytic Derivations, §B.3a for $dN$, §B.5 for its total). A patient on arm $z$ has an
+event at $u$ with density $f_z(u)$, and the event falls in the window with probability $H_w(u)$; the
+product $H_w f_z$ is exact because entry and event time are independent (A3), and the $\tfrac12$
+averages the two arms under 1:1 allocation (A1). $D_z$ is arm $z$'s per-patient probability of an event
+in the window, so $\int dN$ is the expected number of window events per patient of $\mathcal S$. A trial
+of $n$ patients has $n_{\mathcal S} \sim \mathrm{Bin}(n, \pi_{\mathcal S})$ of them in $\mathcal S$ and
+therefore expects $n\pi_{\mathcal S}\int dN$ window events from $\mathcal S$: the expected-events number
+the layer reports (derivation: Analytic Derivations, §B.1.2 and §B.8.2).
+
+**The events-weighted average over the window.** For a function $g$ of operational time,
+
+**[identity]**
+$$
+\langle g\rangle_N = \frac{\int g\,dN}{\int dN}
+$$
+is the average of $g$ over the expected events in the window (derivation: Analytic Derivations, §B.5).
+Every windowed summary of the layer is an integral or an average under $dN$: the score and information,
+the events form and the imbalance moments below.
+
+**The least-false limit.** On a patient set $\mathcal S$ patient $i$ has window $t_a - E_i$, at-risk
+process $Y_i(s)$ and counting process $N_i(s)$. The two-sample Cox estimate $\hat\beta_{\mathcal S}$ is
+the root of the partial-likelihood score
 $U_{n,\mathcal S}(\beta) = \sum_{i \in \mathcal S}\int_0^{t_a}\{Z_i - \bar Z_{\mathcal S}(s, \beta)\}\,dN_i(s)$,
 $\bar Z_{\mathcal S} = S^{(1)}_{\mathcal S}/S^{(0)}_{\mathcal S}$. The model is misspecified (the set
 mixes patients with different hazard ratios), and $\hat\beta_{\mathcal S}$ converges to the least-false
-parameter $\beta^*_{\mathcal S}$, the root of the population score (Struthers and Kalbfleisch 1986;
-Gerds and Schumacher 2001); margHR(40) $= e^{\beta^*_{\mathcal S}}$. Breslow's estimator converges to
-$\Lambda_0^*$, with $\lambda_0^*/\lambda_0 = (f_1 + f_0)/(e^{\beta^*}A_1 + A_0)$ in operational time.
+parameter $\beta^*_{\mathcal S}$ (Struthers and Kalbfleisch 1986; Gerds and Schumacher 2001), which on
+the operational clock is the unique root of the population score
 
-**The Struthers–Kalbfleisch root for a patient set.** In operational time $u = \Lambda_0(s)$ patient $i$
-on arm $z$ is exponential with rate $e^{\theta_{z,i}}$; with
-$A_z(u) = |\mathcal S|^{-1}\sum_{\mathcal S} e^{-u e^{\theta_{z,i}}}$, $f_z = -A_z'$ and the entry factor
-$H_w(u) = H(t_a - \Lambda_0^{-1}(u))$, $H$ the entry distribution function, the limit is the unique root of
+**[computed]** `ahr_population()`, `ahr_limit()`
 $$
 \begin{aligned}
-U_{\mathcal S}(\beta) &= \tfrac12 \int_0^{\Lambda_0(t_a)} H_w(u)\Bigl\{f_1(u) - r(u, \beta)\,[f_1(u) + f_0(u)]\Bigr\}\,du,\\
+U_{\mathcal S}(\beta) &= \tfrac12 \int_0^{\Lambda_0(t_a)} H_w(u)\Bigl\{f_1(u) - r(u, \beta)\,\bigl[f_1(u) + f_0(u)\bigr]\Bigr\}\,du,\\
 r(u, \beta) &= \frac{e^\beta A_1(u)}{e^\beta A_1(u) + A_0(u)} ,
 \end{aligned}
 $$
-and margHR($\infty$) is the root with $H_w \equiv 1$ to $u = \infty$. $\partial U/\partial\beta < 0$, so
-the root is unique. With $\delta(u) = \log\{A_1/A_0\}$ and the set's instantaneous hazard ratio
-$\vartheta_{\mathcal S}(u) = (f_1/A_1)/(f_0/A_0)$ the score is
-$\int\{\operatorname{expit}(\log\vartheta_{\mathcal S} + \delta) - \operatorname{expit}(\beta + \delta)\}\,dN$,
-$dN = \tfrac12 H_w (f_1 + f_0)\,du$: the score of a time-varying-effect model whose profile is induced by
-composition. `ahr_limit()` evaluates the arm functions as finite sums over the super-population rows of
-the set, integrates by composite Gauss–Legendre quadrature on geometric panels in $u$ with breaks at the
-entry kinks, and finds the root by `uniroot()`. The set's other truths are
+with margHR(40) $= e^{\beta^*_{\mathcal S}}$ at $t_a = 40$ (derivation: Analytic Derivations, §B.3a and
+§B.3c). The root is unique because $\partial U_{\mathcal S}/\partial\beta = -\int r(1 - r)\,dN < 0$:
+the Struthers–Kalbfleisch limit written on the operational clock. With $\delta(u) = \log\{A_1/A_0\}$ and
+the set's instantaneous hazard ratio $\vartheta_{\mathcal S}(u) = (f_1/A_1)/(f_0/A_0)$ the score is
+$\int\{\operatorname{expit}(\log\vartheta_{\mathcal S} + \delta) - \operatorname{expit}(\beta + \delta)\}\,dN$:
+the score of a time-varying-effect model whose profile is induced by composition. `ahr_limit()`
+evaluates the arm functions as finite sums over the super-population rows of the set, integrates by
+composite Gauss–Legendre quadrature on geometric panels in $u$ with breaks at the entry kinks, and finds
+the root by `uniroot()`. Breslow's estimator converges to $\Lambda_0^*$, with
+$\lambda_0^*/\lambda_0 = (f_1 + f_0)/(e^{\beta^*}A_1 + A_0)$ in operational time (Analytic Derivations).
+
+margHR($\infty$) is $e^{\beta}$ at the root of the same score with no censoring, $H_w \equiv 1$ and the
+integral run to infinity,
+
+**[computed]** `ahr_limit()`
+$$
+U^{\infty}_{\mathcal S}(\beta) = \tfrac12 \int_0^{\infty} \Bigl\{f_1(u) - r(u, \beta)\,\bigl[f_1(u) + f_0(u)\bigr]\Bigr\}\,du
+$$
+(derivation: Analytic Derivations, §B.3c); it depends on the set's patients alone, not on $\mu$ or
+$\tau$. With $\psi = \theta_1 - \theta_0$ a patient's log hazard ratio, $p_{\mathcal S}$ the set's $H^*$
+patient share and
+$\omega^0_{\mathcal S} = \sum_{\mathcal S \cap H^*} e^{\theta_0} / \sum_{\mathcal S} e^{\theta_0}$ the
+share of its baseline hazard carried by $H^*$, the set's other truths are closed forms:
+
+**[computed]** `ahr_limit()`
 $$
 \mathrm{AHR}(\mathcal S) = \exp\Bigl\{\tfrac1{|\mathcal S|}\textstyle\sum_{\mathcal S}\psi\Bigr\} = b^{1 - p_{\mathcal S}} h^{p_{\mathcal S}},
 \qquad
-\mathrm{CDE}(\mathcal S) = \frac{\sum_{\mathcal S} e^{\theta_1}}{\sum_{\mathcal S} e^{\theta_0}} = (1 - \omega^0_{\mathcal S})\,b + \omega^0_{\mathcal S}\,h ,
+\mathrm{CDE}(\mathcal S) = \frac{\sum_{\mathcal S} e^{\theta_1}}{\sum_{\mathcal S} e^{\theta_0}} = (1 - \omega^0_{\mathcal S})\,b + \omega^0_{\mathcal S}\,h
 $$
-$p_{\mathcal S}$ the set's $H^*$ share and $\omega^0_{\mathcal S}$ the share of its baseline hazard carried by $H^*$.
+(derivation: Analytic Derivations, §B.3c).
+
+**The events form.** With $\delta(u) = \log\{A_1(u)/A_0(u)\}$ the log ratio of the arms' numbers at risk
+and $\bar P = D_1/(D_1 + D_0)$, the score equation at the root reads exactly
+
+**[identity]**
+$$
+\bar P = \frac{D_1}{D_1 + D_0} = \bigl\langle\operatorname{expit}\bigl(\beta^*_{\mathcal S} + \delta\bigr)\bigr\rangle_N :
+$$
+the experimental arm's share of the expected window events equals the events-weighted average of the
+fitted risk-set share. Expanding the right side to second order about $\bar\delta = \langle\delta\rangle_N$,
+where the first-order term vanishes, gives
+
+**[interpretation]**
+$$
+\beta^*_{\mathcal S} \approx \log\frac{D_1}{D_0} - \bar\delta - \tfrac12(1 - 2\bar P)\,\mathrm{Var}_N(\delta),
+\qquad \mathrm{Var}_N(\delta) = \langle\delta^2\rangle_N - \bar\delta^{\,2} :
+$$
+the marginal hazard ratio is the ratio of the arms' event probabilities divided by the geometric-mean
+ratio of the arms' numbers at risk at the event times, corrected by the dispersion of that ratio. The
+approximation ladder, and its tabulation against the exact root, are in the Analytic Derivations, §B.6.
+Setting every imbalance to zero gives the first-order form
+
+**[interpretation]**
+$$
+\operatorname{expit}(\beta^*_{\mathcal S}) \approx (1 - \omega_{\mathcal S})\frac{b}{1+b} + \omega_{\mathcal S}\frac{h}{1+h},
+$$
+$\omega_{\mathcal S}$ the share of the set's expected events in the window carried by $H^*$, with a
+closed form through the event probability
+$\pi(\theta) = 1 - \tfrac{1}{t_e}\int_{t_a - t_e}^{t_a}\exp\{-c\,w^{1/\tau}\}\,dw$, $c = e^{\theta - \mu/\tau}$
+(Analytic Derivations). It fails for a harmed $H^*$, whose treated patients are used up early.
 
 **The clock identity and the frailty reading.** Under a uniform effect ($h = b$),
 $A_1(u) = L_{\mathcal S}(bu)$ and $A_0(u) = L_{\mathcal S}(u)$ with $L_{\mathcal S}$ the Laplace transform
 of $e^{\theta_0}$ over the set: the covariate-driven baseline acts as a frailty, and
 $\vartheta_{\mathcal S}(s) = b\,\ell_{\mathcal S}(b\Lambda_0(s))/\ell_{\mathcal S}(\Lambda_0(s))$, with
 $\ell_{\mathcal S}$ the survival-weighted mean of $e^{\theta_0}$ among the set's survivors, drifts from $b$
-toward 1 as high-hazard patients leave. The regional shift adds $r$ to $\theta_0$ on every region row, so
-for a set inside the region every arm function at $r$ is the function at $r = 0$ evaluated at $e^r u$:
-**$r$ is a clock on the region**. margHR($\infty$), the AHR and the CDE do not see $r$; only the windowed
-margHR(40) moves. With a harmed $H^*$ the region's profile starts at its CDE, above 1, while the treated
-$H^*$ patients fail, crosses 1 once they are spent and settles near $b$; the slower clock keeps the
-40-month window in the harm phase and moves the region's margHR(40) toward the null. A regional
-prognostic effect, a harmed subgroup and a finite window are needed together.
+toward 1 as high-hazard patients leave. The regional prognostic shift $r$ adds $r$ to $\theta_0$ on every
+region row, so for a set inside the region the arm functions at shift $r$ are those at shift 0 read at
+$e^r u$:
 
-**The first-order and events forms.** Setting every imbalance to zero gives
+**[identity]**
 $$
-\operatorname{expit}(\beta^*_{\mathcal S}) \approx (1 - \omega_{\mathcal S})\frac{b}{1+b} + \omega_{\mathcal S}\frac{h}{1+h},
+A^{(r)}_z(u) = A^{(0)}_z(e^r u), \qquad f^{(r)}_z(u) = e^r f^{(0)}_z(e^r u) .
 $$
-$\omega_{\mathcal S}$ the share of the set's expected events in the window carried by $H^*$, with a
-closed form through the event probability
-$\pi(\theta) = 1 - \tfrac{1}{t_e}\int_{t_a - t_e}^{t_a}\exp\{-c\,w^{1/\tau}\}\,dw$, $c = e^{\theta - \mu/\tau}$.
-It fails for a harmed $H^*$, whose treated patients are used up early. Exactly, the score equation is
-$D_1/(D_1 + D_0) = \langle\operatorname{expit}(\beta^* + \delta)\rangle_N$, $D_z$ the arms' event
-probabilities and $\langle\cdot\rangle_N$ the events-weighted average over the window; expanded about
-$\bar\delta = \langle\delta\rangle_N$,
-$$
-\beta^* \approx \log\frac{D_1}{D_0} - \bar\delta - \tfrac12(1 - 2\bar P)\,\mathrm{Var}_N(\delta),
-\qquad \bar P = \frac{D_1}{D_1 + D_0}:
-$$
-the marginal hazard ratio is the ratio of the arms' event probabilities divided by the geometric-mean
-ratio of the arms' numbers at risk at the event times.
+**$r$ is a clock on the region**: margHR($\infty$), the AHR and the CDE do not depend on $r$; only the
+windowed margHR(40) moves, and a region delayed by $a$ is the undelayed region analysed at horizon
+$t_a - a$. With a harmed $H^*$ the region's profile starts at its CDE, above 1, while the treated $H^*$
+patients fail, crosses 1 once they are spent and settles near $b$; the slower clock keeps the 40-month
+window in the harm phase and moves the region's margHR(40) toward the null. A regional prognostic
+effect, a harmed subgroup and a finite window are needed together.
 
-**The design layer.** For a trial of $n$ patients, 1:1, with $n_{\mathcal S} \sim \mathrm{Bin}(n, \pi_{\mathcal S})$
+**The design layer.** **[assumption]** (A5): the three estimates entering the trigger and the oracle
+joint, $\hat\beta_{\text{all}}$, $\hat\beta_R$ and $\hat\beta_{G^*}$, are treated as jointly normal around
+their limits, with the robust standard deviations and the correlations of their influences.
+For a trial of $n$ patients, 1:1, with $n_{\mathcal S} \sim \mathrm{Bin}(n, \pi_{\mathcal S})$
 in $\mathcal S$ and $i_1 = \int r(1 - r)\,dN$ the information per patient,
+
+**[computed]** `ahr_design()`
 $$
 \begin{aligned}
 \mathrm{Var}(\hat\beta_{\mathcal S}) &\approx \frac{1}{i_1}\,\mathrm E\Bigl[\frac{1}{n_{\mathcal S}}\Bigr] && \text{(model)},\\
@@ -1616,21 +1729,25 @@ $$
 \mathrm E\Bigl[\frac{1}{n_{\mathcal S}}\Bigr] &\approx \frac{1}{n\pi_{\mathcal S}}\Bigl\{1 + \frac{1 - \pi_{\mathcal S}}{n\pi_{\mathcal S}}\Bigr\},
 \end{aligned}
 $$
-$\Sigma$ the variance of the Lin–Wei influence. Under a common proportional-hazards model the
-correlation of nested estimates is the square root of the information share,
-$\rho = \mathrm{Corr}(\hat\beta_{\text{all}}, \hat\beta_R) = \sqrt{I_R/I_{\text{all}}}$; under
-misspecification the layer uses the exact covariance of the two influences. With $\mu_{\mathcal S} = \beta^*_{\mathcal S}$,
-$\sigma_{\mathcal S}$ the robust SD, $\tilde\sigma_{\text{all}}$ the model SE and $z = 1.96$,
+$\Sigma$ the variance of the Lin–Wei influence (Analytic Derivations). Under a common
+proportional-hazards model the correlation of nested estimates is the square root of the information
+share, $\rho = \mathrm{Corr}(\hat\beta_{\text{all}}, \hat\beta_R) = \sqrt{I_R/I_{\text{all}}}$; under
+misspecification the layer uses the exact covariance of the two influences. With
+$\mu_{\mathcal S} = \beta^*_{\mathcal S}$, $\sigma_{\mathcal S}$ the robust SD, $\tilde\sigma_{\text{all}}$
+the model SE and $z_{0.975} = \Phi^{-1}(0.975) \approx 1.96$,
+
+**[computed]** `ahr_design()`
 $$
 \begin{aligned}
-P(\text{ITT ub} < 1) &= \Phi(z_A), & z_A &= \frac{-z\tilde\sigma_{\text{all}} - \mu_{\text{all}}}{\sigma_{\text{all}}};\\
+P(\text{ITT ub} < 1) &= \Phi(z_A), & z_A &= \frac{-z_{0.975}\,\tilde\sigma_{\text{all}} - \mu_{\text{all}}}{\sigma_{\text{all}}};\\
 P(\text{region ITT} > 1) &= \Phi(-z_B), & z_B &= \frac{-\mu_R}{\sigma_R};\\
 P(\text{trigger}) &= \Phi_2(z_A, -z_B; -\rho_{\text{all},R}),
 \end{aligned}
 $$
 and the oracle joint is the trivariate $\Phi_3(z_A, -z_B, z_C; \mathbf R)$ with
 $z_C = -\mu_{G^*}/\sigma_{G^*}$, $\mathbf R$ the correlation matrix of
-$(\hat\beta_{\text{all}}, -\hat\beta_R, \hat\beta_{G^*})$ (`ahr_design()`).
+$(\hat\beta_{\text{all}}, -\hat\beta_R, \hat\beta_{G^*})$ (`ahr_design()`; derivation: Analytic
+Derivations).
 
 **Per-patient entry.** With `entry_delay`, patient $i$ enters at $a_i + E$, $E \sim U(0, t_e)$; each
 patient carries their own entry factor $H_{w,i}(u)$, and the arm functions of the score become the
@@ -1638,4 +1755,14 @@ entry-weighted sums $A_{H}(u) = |\mathcal S|^{-1}\sum_{\mathcal S} H_{w,i}(u)\,e
 likewise for the control arm and the event densities), with quadrature breaks at each entry group's
 kinks. For a set inside a region delayed by $a$, the limit equals the undelayed limit at horizon
 $t_a - a$: a later-enrolling region is a region analysed earlier. With no delay every $H_{w,i}$ is the
-common $H_w$ and the layer is the one above.
+common $H_w$ and the layer is the one above (derivation: Analytic Derivations).
+
+**The functions.** The analytic layer's exports, what each computes, and where it is derived:
+
+| Function | Computes | Derivation |
+|:--|:--|:--|
+| `scale_dgm_hazard()` | the hazard multiplier $m$: $\mu \leftarrow \mu_{\text{fit}} - \tau\log m$ (the DGM in closed form) | Analytic Derivations |
+| `ahr_population()` | each patient's $\theta_0$, $\psi$, $H^*$ and region flags, entry delays, $\mu$, $\tau$, $t_a$, $t_e$: the inputs of the arm functions and of the least-false limit | §B.3a |
+| `ahr_limit()` | evaluates the arm functions $A_z$, $f_z$; returns the least-false root $\beta^*_{\mathcal S}$ and margHR(40); margHR($\infty$); the AHR and the CDE; $D_1$, $D_0$ | §B.3a, §B.3c |
+| `ahr_design()` | at trial size $n$: each set's model and robust SEs with $\mathrm E[1/n_{\mathcal S}]$, its expected events $n\pi_{\mathcal S}\int dN$, the nested-set correlations, $P(\text{ITT ub} < 1)$, $P(\text{region ITT} > 1)$, $P(\text{trigger})$ and the oracle joint | §B.8.2; Analytic Derivations |
+| `ahr_solve()` | the value of one free design parameter at which $P(\text{trigger})$ attains a target (scan and `uniroot()`) | Analytic Derivations |
