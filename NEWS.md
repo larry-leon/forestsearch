@@ -1,4 +1,4 @@
-# forestsearch 0.4.1.9001 (development)
+# forestsearch 0.4.1.9002 (development)
 
 This development version adds the MRCT regional-consistency series: the
 MRCT consistency analytic layer, new DGM arguments, the per-replicate record
@@ -136,6 +136,16 @@ MRCT consistency article.
   the latent correlation is not fitted by latentcor (package not installed,
   or its call failed) and the normal-score correlation is used instead. The
   computation is unchanged.
+
+### Internal
+
+* Test-suite reconciliation of the estimability-boundary invariant with
+  `glm_effect_estimators` behaviour; no functional change. The source-level
+  test in `test-estimability-boundary.R` counted exactly one
+  non-convergence catch. A second, verbatim catch was added with the
+  OR-only fast closure `.make_glm_or_estimator_fast()` (the lean binary OR
+  fit), and the test now asserts that structure: one OR/RR-scoped catch in
+  the slow closure, one in the fast closure, and neither reachable by RD.
 
 # forestsearch 0.4.1
 

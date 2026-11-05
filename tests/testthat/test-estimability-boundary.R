@@ -159,7 +159,19 @@ test_that("converged is read at the boundary, and the catch is scoped off RD", {
   gl <- paste(readLines(f, warn = FALSE), collapse = "\n")
   expect_true(grepl('isFALSE(result$converged)', gl, fixed = TRUE))
   expect_true(grepl('effect_measure %in% c("OR", "RR") &&', gl, fixed = TRUE))
-  # exactly one non-convergence catch, and RD is not in its scope
-  expect_identical(
-    length(gregexpr('isFALSE(result$converged)', gl, fixed = TRUE)[[1]]), 1L)
+  # Two non-convergence catches, and RD is in the scope of neither. The second
+  # was added by d9761a71 (2026-10-26, the lean binary OR fit; not f6735639):
+  # .make_glm_or_estimator_fast() applies the slow closure's rule verbatim and
+  # is constructed only for binary OR without adjustment (forestsearch_main.R),
+  # so it never sees RD. Every other catch must carry the OR/RR scope.
+  fast_start <- regexpr(".make_glm_or_estimator_fast <- function(", gl, fixed = TRUE)
+  expect_true(fast_start > 0)
+  fast_end <- fast_start + regexpr("\n}\n", substring(gl, fast_start), fixed = TRUE)
+  fast_body <- substring(gl, fast_start, fast_end)
+  rest <- paste0(substring(gl, 1, fast_start - 1), substring(gl, fast_end + 1))
+  n_catch <- function(x) sum(gregexpr('isFALSE(result$converged)', x, fixed = TRUE)[[1]] > 0)
+  expect_identical(n_catch(fast_body), 1L)
+  expect_true(grepl('fs_fast_core <- "logit_or"', fast_body, fixed = TRUE))
+  expect_identical(n_catch(rest), 1L)
+  expect_true(grepl('effect_measure %in% c\\("OR", "RR"\\) &&\\s*isFALSE\\(result\\$converged\\)', rest))
 })
