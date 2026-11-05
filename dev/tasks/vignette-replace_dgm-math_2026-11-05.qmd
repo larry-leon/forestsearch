@@ -1,0 +1,136 @@
+<!--
+REPLACEMENT for vignettes/articles/mrct-consistency.qmd — TASK_fs-vignette-dgm-math_2026-11-05.
+Replace EVERYTHING from the line "## The data-generating mechanism {#sec-dgm-overview}" up to (not
+including) the line "## The pipeline, for one trial" with the content between the REPLACE-BEGIN and
+REPLACE-END markers (markers and this comment excluded). The pre-build chunk is unchanged and is
+included so the splice is one contiguous block.
+-->
+
+<!-- REPLACE-BEGIN -->
+## The data-generating mechanism {#sec-dgm-overview}
+
+Replicate 5 is one trial drawn from the report's S2 cell; this is the mechanism behind it, stated
+before the analysis so that its assumptions are on the table. Every simulated trial draws from a
+Weibull accelerated-failure-time law built from ACTG 175 (the construction — the Weibull fit, the
+copula expansion to a super-population of 20,000 rows, the planted region — is in @sec-dgm). For
+patient $i$ on arm $z \in \{0, 1\}$, with baseline covariates $X_i$,
+$$
+\log T_i = \mu + \ell_z(X_i) + \tau\,\varepsilon_i, \qquad \varepsilon_i \sim \log \mathrm{Exp}(1),
+$$
+which is a proportional-hazards model with Weibull baseline: the hazard of patient $i$ on arm $z$ is
+$\Lambda_0'(s)\, e^{\theta_z(X_i)}$ with $\Lambda_0(s) = (s\,e^{-\mu})^{1/\tau}$ and
+$\theta_z(x) = -\ell_z(x)/\tau$. The log hazard splits into a prognostic part and a treatment part,
+$$
+\theta_z(X) = \theta_0(X) + z\,\psi(X), \qquad \theta_0(X) = X^\top \beta + r\,\mathbf 1\{X \in R\}.
+$$
+The regional prognostic effect enters only through $r$: an additive log-hazard shift carried by every
+patient of the region, on both arms equally, leaving every patient's treatment effect untouched. The
+planted subgroup $H^*$ carries the treatment-effect heterogeneity: the patient-level log hazard ratio
+is
+$$
+\psi(X) = \log b + \log(h/b)\,\mathbf 1\{X \in H^*\},
+$$
+so the hazard ratio of treatment is $b$ outside $H^*$ and $h$ inside it, on both sides of the region
+boundary. Here $H^* = \{\text{CD4} \le 230\}$.
+
+The mechanism therefore assumes, inside and outside the region alike: **(M1)** proportional hazards
+within each patient, with patient-specific ratio $e^{\psi(X)}$; **(M2)** a common effect law across
+the region boundary — $\psi$ does not involve $R$, so $(b, h)$ are the same inside and outside the
+region; **(M3)** a purely prognostic region — $r$ shifts $\theta_0$ for all region patients and
+neither arm is favored; and **(M4)** free regional composition — the distribution of $X$, and with it
+the region's $H^*$ share, may differ between the region and the non-region population. Under
+(M1)–(M4) any divergence of the region's windowed Cox limit from the trial's is produced by
+composition and by the finite analysis window (the clock identity of @sec-appendix), not by any
+region-dependent treatment effect.
+
+Writing the effect with treatment-by-region interactions makes (M2) a testable restriction rather
+than a built-in one:
+$$
+\psi(X) = \log b + \log(h/b)\,\mathbf 1\{X \in H^*\}
+          + \gamma_R\,\mathbf 1\{X \in R\}
+          + \gamma_{H^*\!R}\,\mathbf 1\{X \in H^*\}\,\mathbf 1\{X \in R\},
+$$
+with $\gamma_R = \log(b_R/b)$ and $\gamma_{H^*\!R} = \log(h_R/h) - \log(b_R/b)$: the hazard ratio of
+treatment is $b$ outside and $b_R$ inside the region for patients outside $H^*$, and $h$ outside and
+$h_R$ inside the region for patients in $H^*$. The base model is the null
+$\gamma_R = \gamma_{H^*\!R} = 0$. Every cell of this article is the base model.
+
+In S2, the cell that produced replicate 5: $b = 0.55$, $h = 2$, $r = -\log 4$, the region about 20%
+of patients (planted by a logistic model with odds ratio 3 on symptomatic status and no CD4 term),
+all hazards multiplied by 3, and a trial is $n = 1{,}000$ patients, 1:1, entry uniform over 11
+months, analysed at 40 months, with administrative censoring only. The full build, the other cells
+and the checks against the committed record are in @sec-dgm onward.
+
+## Analytic predictions before the analysis {#sec-predictions}
+
+Before a single Cox model is fitted, the design's event probabilities can be computed with no
+simulation. Three calls do it: rebuild the mechanism **from `rep5_trial.csv`**, with its region taken
+as observed and S2's stated effects ($h = 2$ in $H^*$ = {CD4 $\le$ 230}, $b = 0.55$ outside; the
+region's prognostic shift $r$ is estimated from the trial); `ahr_population()` at the design's
+window; `ahr_design()` at the trial size.
+
+```{r pre-build}
+#| code-fold: show
+trial_pre <- rd("rep5_trial.csv")
+trial_pre <- trial_pre[, setdiff(names(trial_pre), c("id", "flag_harm"))]  # a real trial has neither
+names(trial_pre) <- sub("^z_", "", names(trial_pre))                       # plain names; the build adds z_
+w_pre <- character(0)
+t_pre <- proc.time()[["elapsed"]]
+dgm_pre <- withCallingHandlers(
+  inject_mrct_structure(
+    trial_pre,
+    outcome_var = "y_sim", event_var = "event_sim", treatment_var = "treat_sim",
+    continuous_vars = c("age", "wtkg", "karnof", "preanti", "cd40", "cd80"),
+    factor_vars = c("hemo", "homo", "drugs", "race", "gender", "symptom"),
+    x_pred = "cd40",
+    spline_spec = list(knot = 300, zeta = 800, log_hrs = rep(log(0.55), 3)),   # b = 0.55 everywhere
+    region = list(observed = "region"),                                       # region as recorded; r estimated
+    x3 = list(vars = "cd40", cuts = list(cd40 = 230), loghr = log(2 / 0.55)), # h = 2 in H*
+    n_super = 20000, expand = "copula", seed = 7L,
+    continuous_vars_cens = c("age", "cd40"), factor_vars_cens = "symptom"),
+  warning = function(cnd) { w_pre <<- c(w_pre, conditionMessage(cnd)); invokeRestart("muffleWarning") })
+pop_pre <- ahr_population(dgm_pre, analysis_time = 40, max_entry = 11)
+p_pre <- ahr_design(pop_pre, b = 0.55, h = 2, n = 1000)$prob
+t_pre <- proc.time()[["elapsed"]] - t_pre
+r_pre <- dgm_pre$mrct$region$prognostic_loghr
+c(region_prognostic_loghr = r_pre, generating_r = -log(4),
+  build_warnings = length(w_pre), seconds = round(t_pre, 1))
+```
+
+Seven design probabilities follow from four of them: with $A$ = {ITT ub < 1.0}, $B$ = {region ITT >
+1.0} and $C^*$ = {region($G^*$) < 1.0}, consistency is $A \setminus B$, non-consistency (the
+trigger) is $A \cap B$, oracle consistency (the oracle joint) is $A \cap B \cap C^*$, and row (7)
+adds the two routes to consistency.
+
+```{r pre-table}
+#| code-fold: show
+pA <- p_pre[["p_itt_ub_lt1"]]; pB <- p_pre[["p_region_itt_gt1"]]
+pAB <- p_pre[["p_trigger"]];   pABC <- p_pre[["p_trigger_and_Gstar_lt1"]]
+rows_pre <- c(pA, pB, pA - pAB, pAB, pABC, pAB - pABC, (pA - pAB) + pABC)
+# identities by construction
+stopifnot(near(rows_pre[3] + rows_pre[4], rows_pre[1], 1e-12),
+          near(rows_pre[5] + rows_pre[6], rows_pre[4], 1e-12),
+          near(rows_pre[3] + rows_pre[5], rows_pre[7], 1e-12))
+lab <- c("(1) P(ITT ub < 1.0): the trial is positive",
+         "(2) P(region ITT > 1.0)",
+         "(3) P(consistency): positive, region ITT ≤ 1.0",
+         "(4) P(non-consistency): the trigger",
+         "(5) P(oracle consistency): the oracle joint",
+         "(6) P(oracle non-consistency)",
+         "(7) P(consistency or oracle consistency)")
+knitr::kable(data.frame(row = lab, `from rep5_trial` = f3(rows_pre), check.names = FALSE),
+             row.names = FALSE, align = "lr",
+             caption = "Analytic predictions under S2's assumptions, computed from rep5_trial. The campaign-observed counterparts of these rows are in @sec-case-campaign and @sec-sims.")
+```
+
+This build estimates the region's prognostic shift from the trial: $\hat r$ = `r f3(r_pre)`
+($e^{\hat r}$ = `r f3(exp(r_pre))`), against the generating $-\log 4$ = `r f3(-log(4))` of
+@sec-dgm-overview, and its covariates are one trial of 1,000 re-expanded by the copula — so these
+values carry the sampling of that one trial, and a build from the full construction of @sec-dgm
+gives slightly different ones. Consistency, non-consistency and oracle consistency are the names
+used in the accompanying manuscript; this article's trigger is the non-consistency event and its
+oracle joint the oracle consistency, as the rows state. Any build warnings are the censoring model's
+fit and are explained in @sec-own-sims. *With your trial:* the same three calls, with your columns
+and your stated $H^*$, $b$ and $h$ (@sec-own-sims walks through them); if P(non-consistency) is very
+small at your design, a campaign will have few triggered trials to summarise.
+<!-- REPLACE-END -->
