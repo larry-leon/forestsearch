@@ -280,7 +280,7 @@ print.ahr_population <- function(x, ...) {
     band_share = mean(pop$band[S]), omega0 = sum(e0[pop$band[S]]) / sum(e0))
 }
 
-.ahr_psi <- function(pop, b, h, psi) {
+.ahr_psi <- function(pop, b, h, psi, b_R = b, h_R = h) {
   if (!is.null(psi)) {
     if (!is.numeric(psi) || length(psi) != pop$N || any(!is.finite(psi)))
       stop("psi must be a finite numeric vector of length pop$N.", call. = FALSE)
@@ -290,7 +290,22 @@ print.ahr_population <- function(x, ...) {
   for (v in list(b, h))
     if (!is.numeric(v) || length(v) != 1L || !is.finite(v) || v <= 0)
       stop("b and h must be positive numbers.", call. = FALSE)
-  log(b) + log(h / b) * pop$band
+  for (v in list(b_R, h_R))
+    if (!is.numeric(v) || length(v) != 1L || !is.finite(v) || v <= 0)
+      stop("b_R and h_R must be positive numbers.", call. = FALSE)
+  psi <- log(b) + log(h / b) * pop$band
+  if (b_R != b || h_R != h) {
+    ## four cells H* x region: log b, log h outside the region, log b_R, log h_R in it
+    psi[pop$region & !pop$band] <- log(b_R)
+    psi[pop$region & pop$band] <- log(h_R)
+  }
+  psi
+}
+
+## The treated-arm multiplier of a standard cell at (b, h, b_R, h_R).
+.ahr_cell_mult <- function(cell, b, h, b_R, h_R) {
+  band <- startsWith(cell, "band_"); reg <- endsWith(cell, "_region")
+  if (band) { if (reg) h_R else h } else { if (reg) b_R else b }
 }
 
 
@@ -384,7 +399,7 @@ print.ahr_population <- function(x, ...) {
 }
 
 ## A standard set at (b, h) on the cached grid (the library's sk_fast()).
-.ahr_fast <- function(pop, set, b, h, horizon, variance) {
+.ahr_fast <- function(pop, set, b, h, horizon, variance, b_R = b, h_R = h) {
   g <- .ahr_cache_grid(pop, horizon)
   cell_all <- .ahr_cell(pop)
   cells <- .ahr_set_cells[[set]]
@@ -392,16 +407,18 @@ print.ahr_population <- function(x, ...) {
   for (ty in c("band", "nonband")) {
     ck <- cells[startsWith(cells, paste0(ty, "_"))]
     if (!length(ck)) next
-    mult <- if (ty == "band") h else b
-    l1 <- list(); l0 <- list(); js <- integer(0); n <- 0
+    l1 <- list(); l0 <- list(); js <- integer(0); n <- 0; mults <- numeric(0)
     for (k in ck) for (j in seq_along(pop$delays)) {
       nk <- sum(cell_all == k & pop$group == j)
       if (!nk) next
+      mult <- .ahr_cell_mult(k, b, h, b_R, h_R)
       l1[[length(l1) + 1]] <- .ahr_cache_lt(pop, horizon, k, j, mult)
       l0[[length(l0) + 1]] <- .ahr_cache_lt(pop, horizon, k, j, 1)
-      js <- c(js, j); n <- n + nk
+      js <- c(js, j); n <- n + nk; mults <- c(mults, mult)
     }
-    if (n) parts[[ty]] <- .ahr_part(l1, l0, js, g, n, log(mult))
+    ## a type's log-HR is NA when its cells carry different multipliers
+    if (n) parts[[ty]] <- .ahr_part(l1, l0, js, g, n,
+                                    if (all(mults == mults[1])) log(mults[1]) else NA_real_)
   }
   out <- .ahr_core(parts, g, variance)
   out$grid <- g
@@ -421,7 +438,8 @@ print.ahr_population <- function(x, ...) {
       e0 <- exp(pop$theta0[ij]); e1 <- e0 * exp(psi[ij])
       l1[[length(l1) + 1]] <- .ahr_lt(e1, g$u); l0[[length(l0) + 1]] <- .ahr_lt(e0, g$u)
     }
-    .ahr_part(l1, l0, js, g, length(ix), if (two) psi[ix[1]] else NA_real_)
+    .ahr_part(l1, l0, js, g, length(ix),
+              if (two && all(psi[ix] == psi[ix[1]])) psi[ix[1]] else NA_real_)
   })
   out <- .ahr_core(parts, g, variance)
   out$grid <- g
@@ -431,12 +449,14 @@ print.ahr_population <- function(x, ...) {
 ## Dispatch: the cached route for a standard set at (b, h) within the cache's
 ## range (0.2 <= b, h <= 30), else the direct route. force_fast: always the
 ## cached route (ahr_design(), whose correlations need one grid for all sets).
-.ahr_exact <- function(pop, set, b, h, psi, horizon, variance, force_fast = FALSE) {
+.ahr_exact <- function(pop, set, b, h, psi, horizon, variance, force_fast = FALSE,
+                       b_R = b, h_R = h) {
   S <- .ahr_set_index(pop, set)
-  psi_v <- .ahr_psi(pop, b, h, psi)
+  psi_v <- .ahr_psi(pop, b, h, psi, b_R, h_R)
   two <- is.null(psi) && !is.null(b) && !is.null(h)
-  fast <- two && is.character(set) && (force_fast || (min(b, h) >= 0.2 && max(b, h) <= 30))
-  out <- if (fast) .ahr_fast(pop, set, b, h, horizon, variance) else
+  fast <- two && is.character(set) &&
+    (force_fast || (min(b, h, b_R, h_R) >= 0.2 && max(b, h, b_R, h_R) <= 30))
+  out <- if (fast) .ahr_fast(pop, set, b, h, horizon, variance, b_R, h_R) else
     .ahr_direct(pop, S, psi_v, two, horizon, variance)
   out$omega <- if (two && "band" %in% out$types$type)
     out$types$share[out$types$type == "band"] else if (two) 0 else NA_real_
@@ -476,10 +496,18 @@ print.ahr_population <- function(x, ...) {
 #'   \eqn{\theta_0 + \log b + \log(h/b) 1\{H^*\}}. Both `NULL` (and `psi`
 #'   `NULL`): the DGM's own per-patient log hazard ratios (`loghr_po`).
 #' @param psi `NULL`, or a per-patient log hazard ratio vector of length
-#'   `pop$N` (overrides `b`, `h`).
+#'   `pop$N` (overrides `b`, `h`, `b_R`, `h_R`).
 #' @param horizon Calendar time of the analysis; `NULL` (default) is
 #'   `pop$x`; `Inf` gives the uncensored limit.
 #' @param variance Logical: compute the robust variance (default `TRUE`).
+#' @param b_R,h_R Hazard ratios inside the region, outside and inside H*:
+#'   with `b` and `h` they give the four-cell treated log hazard
+#'   \eqn{\theta_0 + \log b} (outside H*, outside the region),
+#'   \eqn{\log h} (H*, outside), \eqn{\log b_R} (outside H*, region),
+#'   \eqn{\log h_R} (H*, region). `NULL` (default) means `b_R = b` and
+#'   `h_R = h`, the two-cell model. Used only with `b` and `h`. When they
+#'   differ from `b`, `h`, a type group whose cells carry different hazard
+#'   ratios has `psi = NA` in `types`.
 #' @return A list: `beta` (the limit) and `hr` (margHR at the horizon),
 #'   `i1` (information per patient), `var_model`, `var_robust`,
 #'   `var_robust_fixed` (allocation fixed at n/2) (variances per patient, so
@@ -500,20 +528,24 @@ print.ahr_population <- function(x, ...) {
 #' }
 #' @export
 ahr_limit <- function(pop, set, b = NULL, h = NULL, psi = NULL, horizon = NULL,
-                      variance = TRUE) {
+                      variance = TRUE, b_R = NULL, h_R = NULL) {
   if (!inherits(pop, "ahr_population"))
     stop("pop must be an ahr_population().", call. = FALSE)
   if (xor(is.null(b), is.null(h)))
     stop("Give both b and h, or neither.", call. = FALSE)
+  if ((!is.null(b_R) || !is.null(h_R)) && is.null(b))
+    stop("b_R and h_R need b and h.", call. = FALSE)
+  if (is.null(b_R)) b_R <- b
+  if (is.null(h_R)) h_R <- h
   if (is.null(horizon)) horizon <- pop$x
   if (!is.numeric(horizon) || length(horizon) != 1L || horizon <= 0)
     stop("horizon must be one positive number (or Inf).", call. = FALSE)
-  out <- .ahr_exact(pop, set, b, h, psi, horizon, variance)
+  out <- .ahr_exact(pop, set, b, h, psi, horizon, variance, b_R = b_R, h_R = h_R)
   cz <- .ahr_causal(pop, out$S, out$psi_v)
   out$ahr <- cz[["ahr"]]; out$cde <- cz[["cde"]]
   out$band_share <- cz[["band_share"]]; out$omega0 <- cz[["omega0"]]
   out$marghr_inf <- if (is.infinite(horizon)) out$hr else
-    .ahr_exact(pop, set, b, h, psi, Inf, FALSE)$hr
+    .ahr_exact(pop, set, b, h, psi, Inf, FALSE, b_R = b_R, h_R = h_R)$hr
   out$share <- out$n_pop / pop$N
   out$horizon <- horizon
   out$S <- NULL; out$psi_v <- NULL
@@ -557,12 +589,15 @@ ahr_limit <- function(pop, set, b = NULL, h = NULL, psi = NULL, horizon = NULL,
 #' @param n Trial size (both arms).
 #' @param sets Standard set names to report (see [ahr_limit()]); the trigger
 #'   sets `"all"`, `"region"` and `"region_Gstar"` are always computed.
+#' @param b_R,h_R Hazard ratios inside the region, outside and inside H*
+#'   (the four-cell model of [ahr_limit()]); default `b_R = b`, `h_R = h`,
+#'   the two-cell model.
 #' @return A list: `sets` (a data.frame per set: `set`, `share`, `beta`,
 #'   `marghr` (at the analysis time), `se_model`, `se_robust`, `se_d4`
 #'   (\eqn{\sqrt{4/events}}), `info_ratio`, `events` (expected, of `n`),
 #'   `ahr`, `cde`), `corr` (a data.frame per nested pair: `big`, `small`,
 #'   `exact`, `se_ratio`, `pi`), `prob` (the named probabilities above), and
-#'   `b`, `h`, `n`.
+#'   `b`, `h`, `n`, `b_R`, `h_R`.
 #' @seealso [ahr_limit()], [ahr_solve()]
 #' @examples
 #' \dontrun{
@@ -572,7 +607,8 @@ ahr_limit <- function(pop, set, b = NULL, h = NULL, psi = NULL, horizon = NULL,
 #' @importFrom mvtnorm pmvnorm Miwa
 #' @importFrom stats pnorm qnorm uniroot
 #' @export
-ahr_design <- function(pop, b, h, n, sets = c("all", "region", "region_Gstar")) {
+ahr_design <- function(pop, b, h, n, sets = c("all", "region", "region_Gstar"),
+                       b_R = b, h_R = h) {
   if (!inherits(pop, "ahr_population"))
     stop("pop must be an ahr_population().", call. = FALSE)
   if (!is.numeric(n) || length(n) != 1L || !is.finite(n) || n < 1)
@@ -583,7 +619,7 @@ ahr_design <- function(pop, b, h, n, sets = c("all", "region", "region_Gstar")) 
   trig <- c("all", "region", "region_Gstar")
   nm <- unique(c(sets, trig))
   e <- lapply(stats::setNames(nm, nm), function(st)
-    .ahr_exact(pop, st, b, h, NULL, pop$x, TRUE, force_fast = TRUE))
+    .ahr_exact(pop, st, b, h, NULL, pop$x, TRUE, force_fast = TRUE, b_R = b_R, h_R = h_R))
   w <- e[[1]]$grid$w
   q <- lapply(e, function(x) {
     pi <- x$n_pop / pop$N
@@ -627,7 +663,7 @@ ahr_design <- function(pop, b, h, n, sets = c("all", "region", "region_Gstar")) 
             p_region_Gstar_lt1 = stats::pnorm(zC),
             p_trigger = pm(c(-Inf, zB), c(zA, Inf), 1:2),
             p_trigger_and_Gstar_lt1 = pm(c(-Inf, zB, -Inf), c(zA, Inf, zC), 1:3))
-  list(sets = tab, corr = corr, prob = prob, b = b, h = h, n = n)
+  list(sets = tab, corr = corr, prob = prob, b = b, h = h, n = n, b_R = b_R, h_R = h_R)
 }
 
 #' Solve P(trigger) = target in one free parameter

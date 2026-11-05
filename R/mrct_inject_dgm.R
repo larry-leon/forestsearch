@@ -318,6 +318,24 @@ make_region_model <- function(pop, x_pred = NULL, or_pred = 1,
 #' @param region_treat_loghr  NULL, or a log-HR for a direct treat x Region
 #'   interaction (the residual Region-U-TE pathway).  Mutually exclusive with x3
 #'   (the package supports one interaction term).
+#' @param region_loghr_shift  Log hazard-ratio shift \eqn{\gamma_R} added to
+#'   the treatment effect of every region patient (default `0`, no shift).
+#'   With `region_harm_loghr_shift` it gives the region-dependent effect
+#'   \deqn{\psi(X) = \psi_{base}(X) + \gamma_R 1\{X \in R\} +
+#'   \gamma_{H^*R} 1\{X \in H^*\} 1\{X \in R\},}
+#'   where \eqn{\psi_{base}} is the effect built from `spline_spec` and `x3`
+#'   and \eqn{H^*} is the `x3` subgroup (`flag_harm`). When the base effect is
+#'   \eqn{\log b} outside \eqn{H^*} and \eqn{\log h} inside it, hazard
+#'   ratios \eqn{b_R} and \eqn{h_R} inside the region are obtained with
+#'   \eqn{\gamma_R = \log(b_R/b)} and
+#'   \eqn{\gamma_{H^*R} = \log(h_R/h) - \log(b_R/b)}. The shift is applied
+#'   to the treated potential outcome (`theta_1`, `lin_pred_1`, `loghr_po`,
+#'   and `lin_pred_obs` of treated rows) after the AFT fit, so the control arm
+#'   and the prognostic structure are unchanged. Not available with
+#'   `region_treat_loghr`.
+#' @param region_harm_loghr_shift  Log hazard-ratio shift \eqn{\gamma_{H^*R}}
+#'   added for patients in both \eqn{H^*} and the region (default `0`). A
+#'   non-zero value needs `x3` (which defines \eqn{H^*}).
 #' @param n_super       size of the expanded super-population
 #' @param expand        "copula" or "bootstrap"
 #' @param continuous_vars_cens,factor_vars_cens,cens_type  passed through
@@ -344,6 +362,9 @@ make_region_model <- function(pop, x_pred = NULL, or_pred = 1,
 #'   `coefs`, `scale`, `band` and `$mrct$region_model` are `NULL`,
 #'   `$mrct$classes$X1` is `character(0)`, and `prognostic_loghr` is the
 #'   log-HR used (the fixed `loghr`, or the AFT estimate `model_params$b0[z_name]`).
+#'   When `region_loghr_shift` or `region_harm_loghr_shift` is non-zero,
+#'   `$mrct$region_effect` records both shifts; with both at `0` (the
+#'   default) the object is exactly the one built without them.
 #' @importFrom stats complete.cases setNames
 #' @importFrom utils modifyList
 #' @export
@@ -355,6 +376,8 @@ inject_mrct_structure <- function(seed_data,
                                   region = list(),
                                   x3 = NULL,
                                   region_treat_loghr = NULL,
+                                  region_loghr_shift = 0,
+                                  region_harm_loghr_shift = 0,
                                   n_super = 5000L,
                                   expand = c("copula", "bootstrap"),
                                   continuous_vars_cens = NULL,
@@ -395,6 +418,17 @@ inject_mrct_structure <- function(seed_data,
   if (!is.null(x3) && !is.null(region_treat_loghr))
     stop("x3 and region_treat_loghr are mutually exclusive: the AFT DGM ",
          "carries a single treatment interaction term.")
+  for (nm in c("region_loghr_shift", "region_harm_loghr_shift")) {
+    v <- get(nm)
+    if (!is.numeric(v) || length(v) != 1L || !is.finite(v))
+      stop(nm, " must be one finite number.", call. = FALSE)
+  }
+  region_shifted <- region_loghr_shift != 0 || region_harm_loghr_shift != 0
+  if (region_shifted && !is.null(region_treat_loghr))
+    stop("region_treat_loghr and region_loghr_shift / region_harm_loghr_shift ",
+         "are mutually exclusive.", call. = FALSE)
+  if (region_harm_loghr_shift != 0 && is.null(x3))
+    stop("region_harm_loghr_shift needs x3, which defines H*.", call. = FALSE)
   stopifnot(x_pred %in% continuous_vars)
   band <- region$band
   if (!is.null(band)) {
@@ -519,6 +553,18 @@ inject_mrct_structure <- function(seed_data,
   df_super[[outcome_var]] <- NULL; df_super[[event_var]] <- NULL
   df_super$y <- NULL; df_super$event <- NULL
 
+  ## region-dependent treatment effect: shift the treated potential outcome
+  ## (log-hazard theta_1; log-time lin_pred_1 = -tau * theta_1 + const)
+  if (region_shifted) {
+    shift <- .region_effect_shift(df_super$flag_harm, df_super[[z_region]],
+                                  region_loghr_shift, region_harm_loghr_shift)
+    df_super$theta_1    <- df_super$theta_1 + shift
+    df_super$loghr_po   <- df_super$theta_1 - df_super$theta_0
+    df_super$lin_pred_1 <- df_super$lin_pred_1 - mp$tau * shift
+    df_super$lin_pred_obs <- df_super$lin_pred_obs -
+      mp$tau * shift * as.numeric(df_super$treat == 1)
+  }
+
   dgm$df_super <- df_super
   dgm$n_super  <- nrow(df_super)
   dgm$subgroup_info$size       <- sum(df_super$flag_harm)
@@ -549,7 +595,19 @@ inject_mrct_structure <- function(seed_data,
     region_model  = rm_,
     latent_R      = attr(df_pop, "latent_R")
   )
+  if (region_shifted)
+    dgm$mrct$region_effect <- list(region_loghr_shift = region_loghr_shift,
+                                   region_harm_loghr_shift = region_harm_loghr_shift)
   dgm
+}
+
+#' Per-patient region shift of the log hazard ratio:
+#' gamma_R 1{R} + gamma_HR 1{H*} 1{R}
+#' @noRd
+.region_effect_shift <- function(harm, region, region_loghr_shift,
+                                 region_harm_loghr_shift) {
+  r <- as.numeric(region == 1)
+  region_loghr_shift * r + region_harm_loghr_shift * as.numeric(harm == 1) * r
 }
 
 

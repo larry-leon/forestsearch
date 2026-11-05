@@ -1,4 +1,4 @@
-# forestsearch 0.4.1.9000 (development)
+# forestsearch 0.4.1.9001 (development)
 
 This development version adds the MRCT regional-consistency series: the
 MRCT consistency analytic layer, new DGM arguments, the per-replicate record
@@ -97,6 +97,20 @@ MRCT consistency article.
   `region$loghr` fixes it. The planted-model elements (`prevalence`,
   `or_pred`, `x1_vars`, `or_x1`, `scale`, `band`) are errors in this mode;
   `dgm$mrct$region$observed` records the mode. Defaults are unchanged.
+
+* Region-dependent treatment effect. `inject_mrct_structure()` gains
+  `region_loghr_shift` and `region_harm_loghr_shift` (default `0`, the
+  current build exactly): the treated log hazard of region patients is
+  shifted by γ_R, plus γ_H\*R for region patients in
+  H\* (the `x3` subgroup), so with a base effect of `b` outside H\* and `h`
+  inside it the region hazard ratios are b_R = b·exp(γ_R) and
+  h_R = h·exp(γ_R + γ_H\*R). The shift is applied to
+  `theta_1`, `lin_pred_1`, `loghr_po` and treated `lin_pred_obs`; the control
+  arm is unchanged; non-zero shifts are recorded in `dgm$mrct$region_effect`.
+  `ahr_limit()` and `ahr_design()` gain `b_R` and `h_R` (default `b`, `h`):
+  the four-cell (H\* × region) parametric effect, so the analytic layer's
+  (`b`, `h`) route matches the extended DGM. `ahr_design()` returns `b_R`
+  and `h_R`.
 
 ### Behaviour changes
 

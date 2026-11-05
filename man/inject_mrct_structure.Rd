@@ -16,6 +16,8 @@ inject_mrct_structure(
   region = list(),
   x3 = NULL,
   region_treat_loghr = NULL,
+  region_loghr_shift = 0,
+  region_harm_loghr_shift = 0,
   n_super = 5000L,
   expand = c("copula", "bootstrap"),
   continuous_vars_cens = NULL,
@@ -67,6 +69,26 @@ fixed values), loghr = log-HR change (treatment x subgroup).}
 interaction (the residual Region-U-TE pathway).  Mutually exclusive with x3
 (the package supports one interaction term).}
 
+\item{region_loghr_shift}{Log hazard-ratio shift \eqn{\gamma_R} added to
+the treatment effect of every region patient (default \code{0}, no shift).
+With \code{region_harm_loghr_shift} it gives the region-dependent effect
+\deqn{\psi(X) = \psi_{base}(X) + \gamma_R 1\{X \in R\} +
+\gamma_{H^*R} 1\{X \in H^*\} 1\{X \in R\},}
+where \eqn{\psi_{base}} is the effect built from \code{spline_spec} and \code{x3}
+and \eqn{H^*} is the \code{x3} subgroup (\code{flag_harm}). When the base effect is
+\eqn{\log b} outside \eqn{H^*} and \eqn{\log h} inside it, hazard
+ratios \eqn{b_R} and \eqn{h_R} inside the region are obtained with
+\eqn{\gamma_R = \log(b_R/b)} and
+\eqn{\gamma_{H^*R} = \log(h_R/h) - \log(b_R/b)}. The shift is applied
+to the treated potential outcome (\code{theta_1}, \code{lin_pred_1}, \code{loghr_po},
+and \code{lin_pred_obs} of treated rows) after the AFT fit, so the control arm
+and the prognostic structure are unchanged. Not available with
+\code{region_treat_loghr}.}
+
+\item{region_harm_loghr_shift}{Log hazard-ratio shift \eqn{\gamma_{H^*R}}
+added for patients in both \eqn{H^*} and the region (default \code{0}). A
+non-zero value needs \code{x3} (which defines \eqn{H^*}).}
+
 \item{n_super}{size of the expanded super-population}
 
 \item{expand}{"copula" or "bootstrap"}
@@ -97,6 +119,9 @@ is \code{TRUE} in the observed-region mode, where \code{prevalence_target}, \cod
 \code{coefs}, \code{scale}, \code{band} and \verb{$mrct$region_model} are \code{NULL},
 \verb{$mrct$classes$X1} is \code{character(0)}, and \code{prognostic_loghr} is the
 log-HR used (the fixed \code{loghr}, or the AFT estimate \code{model_params$b0[z_name]}).
+When \code{region_loghr_shift} or \code{region_harm_loghr_shift} is non-zero,
+\verb{$mrct$region_effect} records both shifts; with both at \code{0} (the
+default) the object is exactly the one built without them.
 }
 \description{
 Build an aft_dgm_flex with synthetic regions and paper-style effect structure.

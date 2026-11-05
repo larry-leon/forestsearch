@@ -4,7 +4,15 @@
 \alias{ahr_design}
 \title{Design quantities and trigger probabilities at a trial size}
 \usage{
-ahr_design(pop, b, h, n, sets = c("all", "region", "region_Gstar"))
+ahr_design(
+  pop,
+  b,
+  h,
+  n,
+  sets = c("all", "region", "region_Gstar"),
+  b_R = b,
+  h_R = h
+)
 }
 \arguments{
 \item{pop}{An \code{\link[=ahr_population]{ahr_population()}}.}
@@ -17,6 +25,10 @@ that range the grid's first panel is coarser than the library's).}
 
 \item{sets}{Standard set names to report (see \code{\link[=ahr_limit]{ahr_limit()}}); the trigger
 sets \code{"all"}, \code{"region"} and \code{"region_Gstar"} are always computed.}
+
+\item{b_R, h_R}{Hazard ratios inside the region, outside and inside H*
+(the four-cell model of \code{\link[=ahr_limit]{ahr_limit()}}); default \code{b_R = b}, \code{h_R = h},
+the two-cell model.}
 }
 \value{
 A list: \code{sets} (a data.frame per set: \code{set}, \code{share}, \code{beta},
@@ -24,7 +36,7 @@ A list: \code{sets} (a data.frame per set: \code{set}, \code{share}, \code{beta}
 (\eqn{\sqrt{4/events}}), \code{info_ratio}, \code{events} (expected, of \code{n}),
 \code{ahr}, \code{cde}), \code{corr} (a data.frame per nested pair: \code{big}, \code{small},
 \code{exact}, \code{se_ratio}, \code{pi}), \code{prob} (the named probabilities above), and
-\code{b}, \code{h}, \code{n}.
+\code{b}, \code{h}, \code{n}, \code{b_R}, \code{h_R}.
 }
 \description{
 At trial size \code{n}, for the standard sets of an \code{\link[=ahr_population]{ahr_population()}} with

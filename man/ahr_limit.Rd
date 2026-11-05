@@ -11,7 +11,9 @@ ahr_limit(
   h = NULL,
   psi = NULL,
   horizon = NULL,
-  variance = TRUE
+  variance = TRUE,
+  b_R = NULL,
+  h_R = NULL
 )
 }
 \arguments{
@@ -26,12 +28,21 @@ ahr_limit(
 \code{NULL}): the DGM's own per-patient log hazard ratios (\code{loghr_po}).}
 
 \item{psi}{\code{NULL}, or a per-patient log hazard ratio vector of length
-\code{pop$N} (overrides \code{b}, \code{h}).}
+\code{pop$N} (overrides \code{b}, \code{h}, \code{b_R}, \code{h_R}).}
 
 \item{horizon}{Calendar time of the analysis; \code{NULL} (default) is
 \code{pop$x}; \code{Inf} gives the uncensored limit.}
 
 \item{variance}{Logical: compute the robust variance (default \code{TRUE}).}
+
+\item{b_R, h_R}{Hazard ratios inside the region, outside and inside H*:
+with \code{b} and \code{h} they give the four-cell treated log hazard
+\eqn{\theta_0 + \log b} (outside H*, outside the region),
+\eqn{\log h} (H*, outside), \eqn{\log b_R} (outside H*, region),
+\eqn{\log h_R} (H*, region). \code{NULL} (default) means \code{b_R = b} and
+\code{h_R = h}, the two-cell model. Used only with \code{b} and \code{h}. When they
+differ from \code{b}, \code{h}, a type group whose cells carry different hazard
+ratios has \code{psi = NA} in \code{types}.}
 }
 \value{
 A list: \code{beta} (the limit) and \code{hr} (margHR at the horizon),
