@@ -170,26 +170,65 @@ Replicate 5 of S2, the case study, is one simulated trial. From the point at whi
 
 ## The data-generating mechanism {#sec-dgm-overview}
 
-Replicate 5 is one trial drawn from the report's S2 cell. Its mechanism, stated here so that the
-assumptions behind the analysis are on the table before it starts, is built from ACTG 175: a Weibull
-accelerated-failure-time model is fitted to the trial and expanded to a super-population of 20,000
-rows by a Gaussian copula. A region of about 20% of patients is planted by a logistic model (odds
-ratio 3 on symptomatic status, no CD4 term), and its baseline hazard is shifted by $r = -\log 4$.
-Every patient's hazard ratio is $b = 0.55$ outside $H^*$ = {CD4 $\le$ 230} and $h = 2$ inside it
-(S2's harm), **in every region**; all hazards are then multiplied by 3. A trial is $n = 1{,}000$
-patients drawn from the super-population, 1:1, entry uniform over 11 months, analysed at 40 months,
-with administrative censoring only. The full build, the other cells and the checks against the
-committed record are in @sec-dgm onward.
+Replicate 5 is one trial drawn from the report's S2 cell; this is the mechanism behind it, stated
+before the analysis so that its assumptions are on the table. Every simulated trial draws from a
+Weibull accelerated-failure-time law built from ACTG 175 (the construction — the Weibull fit, the
+copula expansion to a super-population of 20,000 rows, the planted region — is in @sec-dgm). For
+patient $i$ on arm $z \in \{0, 1\}$, with baseline covariates $X_i$,
+$$
+\log T_i = \mu + \ell_z(X_i) + \tau\,\varepsilon_i, \qquad \varepsilon_i \sim \log \mathrm{Exp}(1),
+$$
+which is a proportional-hazards model with Weibull baseline: the hazard of patient $i$ on arm $z$ is
+$\Lambda_0'(s)\, e^{\theta_z(X_i)}$ with $\Lambda_0(s) = (s\,e^{-\mu})^{1/\tau}$ and
+$\theta_z(x) = -\ell_z(x)/\tau$. The log hazard splits into a prognostic part and a treatment part,
+$$
+\theta_z(X) = \theta_0(X) + z\,\psi(X), \qquad \theta_0(X) = X^\top \beta + r\,\mathbf 1\{X \in R\}.
+$$
+The regional prognostic effect enters only through $r$: an additive log-hazard shift carried by every
+patient of the region, on both arms equally, leaving every patient's treatment effect untouched. The
+planted subgroup $H^*$ carries the treatment-effect heterogeneity: the patient-level log hazard ratio
+is
+$$
+\psi(X) = \log b + \log(h/b)\,\mathbf 1\{X \in H^*\},
+$$
+so the hazard ratio of treatment is $b$ outside $H^*$ and $h$ inside it, on both sides of the region
+boundary. Here $H^* = \{\text{CD4} \le 230\}$.
+
+The mechanism therefore assumes, inside and outside the region alike: **(M1)** proportional hazards
+within each patient, with patient-specific ratio $e^{\psi(X)}$; **(M2)** a common effect law across
+the region boundary — $\psi$ does not involve $R$, so $(b, h)$ are the same inside and outside the
+region; **(M3)** a purely prognostic region — $r$ shifts $\theta_0$ for all region patients and
+neither arm is favored; and **(M4)** free regional composition — the distribution of $X$, and with it
+the region's $H^*$ share, may differ between the region and the non-region population. Under
+(M1)–(M4) any divergence of the region's windowed Cox limit from the trial's is produced by
+composition and by the finite analysis window (the clock identity of @sec-appendix), not by any
+region-dependent treatment effect.
+
+Writing the effect with treatment-by-region interactions makes (M2) a testable restriction rather
+than a built-in one:
+$$
+\psi(X) = \log b + \log(h/b)\,\mathbf 1\{X \in H^*\}
+          + \gamma_R\,\mathbf 1\{X \in R\}
+          + \gamma_{H^*\!R}\,\mathbf 1\{X \in H^*\}\,\mathbf 1\{X \in R\},
+$$
+with $\gamma_R = \log(b_R/b)$ and $\gamma_{H^*\!R} = \log(h_R/h) - \log(b_R/b)$: the hazard ratio of
+treatment is $b$ outside and $b_R$ inside the region for patients outside $H^*$, and $h$ outside and
+$h_R$ inside the region for patients in $H^*$. The base model is the null
+$\gamma_R = \gamma_{H^*\!R} = 0$. Every cell of this article is the base model.
+
+In S2, the cell that produced replicate 5: $b = 0.55$, $h = 2$, $r = -\log 4$, the region about 20%
+of patients (planted by a logistic model with odds ratio 3 on symptomatic status and no CD4 term),
+all hazards multiplied by 3, and a trial is $n = 1{,}000$ patients, 1:1, entry uniform over 11
+months, analysed at 40 months, with administrative censoring only. The full build, the other cells
+and the checks against the committed record are in @sec-dgm onward.
 
 ## Analytic predictions before the analysis {#sec-predictions}
 
 Before a single Cox model is fitted, the design's event probabilities can be computed with no
-simulation. The report's Table 2 (the manuscript's analytic-predictions table) computes them from the
-build above; a reader with one trial in hand can produce the same column from the trial itself. Three
-calls do it: rebuild the mechanism **from `rep5_trial.csv`**, with its region taken as observed and
-S2's stated effects ($h = 2$ in $H^*$ = {CD4 $\le$ 230}, $b = 0.55$ outside; the region's prognostic
-shift $r$ is estimated from the trial); `ahr_population()` at the design's window; `ahr_design()` at
-the trial size.
+simulation. Three calls do it: rebuild the mechanism **from `rep5_trial.csv`**, with its region taken
+as observed and S2's stated effects ($h = 2$ in $H^*$ = {CD4 $\le$ 230}, $b = 0.55$ outside; the
+region's prognostic shift $r$ is estimated from the trial); `ahr_population()` at the design's
+window; `ahr_design()` at the trial size.
 
 ```{r pre-build}
 #| code-fold: show
@@ -219,28 +258,20 @@ c(region_prognostic_loghr = r_pre, generating_r = -log(4),
   build_warnings = length(w_pre), seconds = round(t_pre, 1))
 ```
 
-The seven analytic rows of the report's Table 2 follow from four of the design probabilities: with
-$A$ = {ITT ub < 1.0}, $B$ = {region ITT > 1.0} and $C^*$ = {region($G^*$) < 1.0}, consistency is
-$A \setminus B$, non-consistency (the trigger) is $A \cap B$, oracle consistency (the oracle joint)
-is $A \cap B \cap C^*$, and row (7) adds the two routes to consistency. The same four quantities are
-in the campaign's analytic record (`predictions_full.csv`), which gives the report's column beside
-this build's.
+Seven design probabilities follow from four of them: with $A$ = {ITT ub < 1.0}, $B$ = {region ITT >
+1.0} and $C^*$ = {region($G^*$) < 1.0}, consistency is $A \setminus B$, non-consistency (the
+trigger) is $A \cap B$, oracle consistency (the oracle joint) is $A \cap B \cap C^*$, and row (7)
+adds the two routes to consistency.
 
 ```{r pre-table}
 #| code-fold: show
 pA <- p_pre[["p_itt_ub_lt1"]]; pB <- p_pre[["p_region_itt_gt1"]]
 pAB <- p_pre[["p_trigger"]];   pABC <- p_pre[["p_trigger_and_Gstar_lt1"]]
-rows_of <- function(a, b, ab, abc) c(a, b, a - ab, ab, abc, ab - abc, (a - ab) + abc)
-rows_pre <- rows_of(pA, pB, pAB, pABC)
-# the report's column, from the shipped analytic record of the S2 cell
-pr <- rd("predictions_full.csv"); pr <- pr[pr$cell == "S2_rmlog4" & pr$set == "", ]
-pq <- function(q) { v <- pr$value[pr$quantity == q]; stopifnot(length(v) == 1); v }
-rows_rep <- rows_of(pq("p_A"), pq("p_B"), pq("p_A_B"), pq("p_A_B_Cstar"))
-# identities by construction, and the record column prints the report's Table 2 values
+rows_pre <- c(pA, pB, pA - pAB, pAB, pABC, pAB - pABC, (pA - pAB) + pABC)
+# identities by construction
 stopifnot(near(rows_pre[3] + rows_pre[4], rows_pre[1], 1e-12),
           near(rows_pre[5] + rows_pre[6], rows_pre[4], 1e-12),
-          near(rows_pre[3] + rows_pre[5], rows_pre[7], 1e-12),
-          identical(f3(rows_rep), c("0.844", "0.326", "0.602", "0.241", "0.187", "0.054", "0.790")))
+          near(rows_pre[3] + rows_pre[5], rows_pre[7], 1e-12))
 lab <- c("(1) P(ITT ub < 1.0): the trial is positive",
          "(2) P(region ITT > 1.0)",
          "(3) P(consistency): positive, region ITT ≤ 1.0",
@@ -248,23 +279,21 @@ lab <- c("(1) P(ITT ub < 1.0): the trial is positive",
          "(5) P(oracle consistency): the oracle joint",
          "(6) P(oracle non-consistency)",
          "(7) P(consistency or oracle consistency)")
-knitr::kable(data.frame(row = lab, `this build (from rep5_trial)` = f3(rows_pre),
-                        `the report (Table 2, S2)` = f3(rows_rep), check.names = FALSE),
-             row.names = FALSE, align = "lrr",
-             caption = "Analytic predictions under S2's assumptions: computed from rep5_trial beside the report's Table 2 S2 column. Rows (8)-(9) of Table 2 are campaign-observed, not analytic (@sec-case-campaign, @sec-sims).")
+knitr::kable(data.frame(row = lab, `from rep5_trial` = f3(rows_pre), check.names = FALSE),
+             row.names = FALSE, align = "lr",
+             caption = "Analytic predictions under S2's assumptions, computed from rep5_trial. The campaign-observed counterparts of these rows are in @sec-case-campaign and @sec-sims.")
 ```
 
-The two columns are close and are not expected to be equal: this build starts from one simulated
-trial of 1,000 patients (its covariates re-expanded by the copula) and estimates the region's
-prognostic shift from it ($\hat r$ = `r f3(r_pre)`, $e^{\hat r}$ = `r f3(exp(r_pre))`, against the
-generating $-\log 4$ = `r f3(-log(4))`), where the report's column comes from the build of
-@sec-dgm-overview. Differences of a few hundredths are sampling, not error. Consistency,
-non-consistency and oracle consistency are the manuscript's names; this article's trigger is the
-non-consistency event and its oracle joint the oracle consistency, as the rows state. Any build
-warnings are the censoring model's fit and are explained in @sec-own-sims. *With your trial:* the
-same three calls, with your columns and your stated $H^*$, $b$ and $h$ (@sec-own-sims walks through
-them); if P(non-consistency) is very small at your design, a campaign will have few triggered trials
-to summarise.
+This build estimates the region's prognostic shift from the trial: $\hat r$ = `r f3(r_pre)`
+($e^{\hat r}$ = `r f3(exp(r_pre))`), against the generating $-\log 4$ = `r f3(-log(4))` of
+@sec-dgm-overview, and its covariates are one trial of 1,000 re-expanded by the copula — so these
+values carry the sampling of that one trial, and a build from the full construction of @sec-dgm
+gives slightly different ones. Consistency, non-consistency and oracle consistency are the names
+used in the accompanying manuscript; this article's trigger is the non-consistency event and its
+oracle joint the oracle consistency, as the rows state. Any build warnings are the censoring model's
+fit and are explained in @sec-own-sims. *With your trial:* the same three calls, with your columns
+and your stated $H^*$, $b$ and $h$ (@sec-own-sims walks through them); if P(non-consistency) is very
+small at your design, a campaign will have few triggered trials to summarise.
 
 ## The pipeline, for one trial
 
