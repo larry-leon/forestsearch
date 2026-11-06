@@ -8,6 +8,11 @@ MRCT consistency article.
 
 ### New features
 
+* Wrappers for the analyses the articles write by hand. Each returns a plain data
+  frame and no existing function changes:
+  - `mrct_core_summary()`: the core operating characteristics of an
+    `mrct_region_sims(record = "full")` campaign.
+
 * `mrct_trial_analysis()`: the regional-consistency pipeline on an observed trial,
   the counterpart of `mrct_case_study()` for real data: the all-patient and region
   Cox fits and the trigger; `forestsearch()` on the non-region patients with the
