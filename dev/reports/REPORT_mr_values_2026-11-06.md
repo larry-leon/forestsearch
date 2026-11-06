@@ -2,7 +2,7 @@
 
 Task: `dev/tasks/TASK_mr_values_2026-11-06.md` (review proposal P5).
 **Outcome: Gates 0, 1 and 2 pass, with 0 errors, 0 warnings and 0 notes from `check()`, the same as baseline.**
-The work is on branch `fs-mr-values`, unmerged and unpushed, for your review. One thing needs your decision before a pkgdown build: OPEN ITEM 1.
+The work is on branch `fs-mr-values`, unmerged and unpushed, for your review.
 
 ## Branch, HEAD and commits
 
@@ -11,12 +11,13 @@ The work is on branch `fs-mr-values`, unmerged and unpushed, for your review. On
 | Start | `master` at `e1ed6f1f` (even with `origin/master`) |
 | Task commit | `92792bf0`, the task doc only, on `master` |
 | Work branch | `fs-mr-values`, created from `92792bf0` before any `R/` change |
-| End | the top of `fs-mr-values`: the commit that adds this report, on top of `90eed9b9` |
+| End | the top of `fs-mr-values` |
 
 Commits on `fs-mr-values` beyond `master`:
 
 - `90eed9b9` feat: `mr_values()` (Stage 1)
 - the report commit (Stage 3)
+- the `_pkgdown.yml` index entry, added on your request after the gates (OPEN ITEM 1)
 
 The task doc says to work on the current checkout's branch, which was `master`. You asked during the run for R changes to be on a branch and for the task-doc commit to stay on `master`, so `master` is one commit ahead of origin with the task doc only.
 
@@ -402,7 +403,7 @@ identical to the bare result: TRUE
 
 ## OPEN ITEMS
 
-1. **`pkgdown::check_pkgdown()` now fails, and this needs your decision.** It reports `In _pkgdown.yml, 1 topic missing from index: "mr_values".` It passed before this change. `_pkgdown.yml` is outside the task's permitted change set (Gate 1), so I did not edit it. The fix is one line, `- mr_values`, after `- mr_estimates_table` at `_pkgdown.yml:504`. `R CMD check` is unaffected.
+1. **`pkgdown::check_pkgdown()`: resolved after the gates.** Adding the export made it report `In _pkgdown.yml, 1 topic missing from index: "mr_values".` `_pkgdown.yml` is outside the task's permitted change set (Gate 1), so the gated commit `90eed9b9` leaves it alone. You then asked for the index entry (2026-11-06), so a separate later commit adds `- mr_values` after `- mr_estimates_table`, and `check_pkgdown()` reports no problems again. It changes only the website index; the `R CMD check` and test results above are unaffected.
 2. **Behaviour you may want to review: `ij_lower` and `ij_upper` are `NA` under `ci_method = "wald"` or `ij_residual != "two_term"`.** On those fits `debiased$lower` and `$upper` hold a robust-SE or winner-variant interval, which the task excludes, and the two-term interval isn't stored; computing it would break "nothing new is computed". `ij_se` still reports the two-term SE. `mr_estimates_table()`'s attribute reads those limits regardless of these settings, so the two differ on such fits. Default fits are unaffected.
 3. **Choices where the spec left room.**
    - D2 says the `"Hc"` row appears "when the complement block exists". I took that literally, so a note-only complement gives an all-`NA` `"Hc"` row.
