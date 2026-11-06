@@ -172,3 +172,20 @@ branch/HEAD and commits; the Stage-0 partition map (file:line); baseline-capture
 **verbatim** Gate 1–3 outputs (the rep5 comparisons with their largest differences, as the
 simulations article prints them); a before/after sketch of `mrct_case_study()`'s structure
 (lines moved vs lines remaining); OPEN ITEMS for anything non-blocking. No push.
+
+---
+
+## Amendment 1 (Larry, 2026-11-06, in chat; arrived after Stages 0-4 had run)
+
+Amendment to TASK_mrct_trial_analysis_2026-11-06.md, effective immediately:
+1. Baseline (Stage 0): do NOT run the full suite or check(). Verify by
+   git diff that nothing R CMD check sees (R/, tests/, man/, vignettes/,
+   DESCRIPTION, NAMESPACE) changed since the P5 gated commit 90eed9b9;
+   then reuse REPORT_mr_values_2026-11-06.md's final figures as the
+   baseline and record that reuse in the report.
+2. Inner loop: while developing, run ONLY the targeted test files and the
+   FX-fast fixture. Never run the full suite or check() between edits.
+3. The heavy FX-rep5 fixture runs exactly three times total: baseline
+   capture, Gate 1, Gate 2. Do not re-run it per edit.
+4. Full suite + check(): ONCE, at Stage 3 only.
+All gates, tolerances and deliverables otherwise unchanged.
