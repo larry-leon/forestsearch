@@ -4,6 +4,29 @@ Task: `dev/tasks/TASK_mrct_trial_analysis_2026-11-06.md` (review proposals P1+P2
 **Outcome: Gates 0, 1, 2 and 3 pass, with 0 errors, 0 warnings and 0 notes from `check()`, the same as baseline.**
 The work is on branch `fs-mrct-trial`, unmerged and unpushed, for your review.
 
+## Amendment 1: arrived after the work had run
+
+Amendment 1 (appended to the task doc) limits the compute. It arrived after Stages 0-4 had finished, so items 1, 3 and 4 were not followed as written. Nothing was re-run on receiving it: the runs had already happened, and repeating them could not change a result.
+
+| Amendment | What actually ran |
+|---|---|
+| 1. No baseline suite or `check()`; reuse the P5 figures after a `git diff` | The baseline suite and `check()` ran once at Stage 0. The reuse check was then done; see below |
+| 2. Inner loop: targeted tests and FX-fast only; no full suite or `check()` between edits | Followed for tests: only the new test file ran between edits, with no full suite or `check()`. But the first Gate 1 capture ran FX-rep5 along with FX-fast |
+| 3. FX-rep5 exactly three times | **Six heavy runs.** `mrct_case_study()` four times: two baseline captures (the control), one for Gate 1 at Stage 1, one more at the final commit. `mrct_trial_analysis()` on replicate 5 twice: Gate 2's first run and its rerun at the final commit |
+| 4. Full suite and `check()` once, at Stage 3 only | Twice: Stage 0 and Stage 3 |
+
+**The baseline reuse the amendment asks to record.** `git diff 90eed9b9 168e6a1e -- R tests man vignettes DESCRIPTION NAMESPACE` is empty, and so is the same diff over `inst` and `.Rbuildignore`. The only files changed in that range are `_pkgdown.yml`, the P5 report and this task's doc. So `REPORT_mr_values_2026-11-06.md`'s final figures apply as the baseline, and they equal this task's own Stage 0 run exactly:
+
+| | P5 final figures (`90eed9b9`) | Stage 0 run (`168e6a1e`) |
+|---|---|---|
+| `check()` errors / warnings / notes | 0 / 0 / 0 | 0 / 0 / 0 |
+| Test failures | 0 | 0 |
+| Skipped tests | 3 | 3 (the same three) |
+| Test warnings | 38 | 38 |
+| Expectations | 7,831 | 7,831 |
+
+The gates, tolerances and results below are unaffected: every comparison in them holds against either baseline. Stage 0's own run was what made the block-by-block comparison in Gate 3 possible, because the P5 report kept totals, not per-block results. The extra FX-rep5 runs gave the timing-field control (the second baseline capture) and let Gates 1 and 2 report on the final commit, rather than the code before the new exports were added.
+
 ## Branch, HEAD and commits
 
 | | |
@@ -18,6 +41,7 @@ Commits on `fs-mrct-trial` beyond `master`:
 - `d9fa0255` refactor: `mrct_case_study()` on a shared analysis core (Stage 1)
 - `84afa853` feat: `mrct_trial_analysis()` and `mrct_four_sets()` (Stage 2)
 - this report (Stage 4)
+- Amendment 1 appended to the task doc, and this report updated for it
 
 ## Stage 0: source map and baseline (Gate 0: PASS)
 
