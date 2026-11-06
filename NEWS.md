@@ -14,6 +14,8 @@ MRCT consistency article.
     `mrct_region_sims(record = "full")` campaign.
   - `ahr_truths_table()`, `ahr_design_table()`: the analytic layer's truths and design
     probabilities over cells and sets, with the seven consistency rows.
+  - `mr_method_comparison()`, `mr_cost_table()`: naive, full-bootstrap and multiplier
+    estimates side by side, method by method, and what the two corrections cost.
 
 * `mrct_trial_analysis()`: the regional-consistency pipeline on an observed trial,
   the counterpart of `mrct_case_study()` for real data: the all-patient and region
