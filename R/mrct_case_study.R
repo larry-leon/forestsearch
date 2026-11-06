@@ -9,6 +9,9 @@
 #     patients and analyse the four patient sets
 #   - print() / plot() methods for mrct_case_study
 #
+# The analysis and the print / plot workhorses are in R/mrct_trial_helpers.R,
+# shared with mrct_trial_analysis() and mrct_four_sets().
+#
 # =============================================================================
 
 
@@ -278,9 +281,6 @@ mrct_case_study <- function(dgm, seed, k, n = NULL, region_var = "z_regA",
   dfs <- data.table::as.data.table(do.call(simulate_from_dgm, sim_call_args))
   do.call(RNGkind, as.list(old_kind))
 
-  df_non <- dfs[dfs[[region_var]] == 0]
-  df_reg <- dfs[dfs[[region_var]] == 1]
-
   # ---- the identifier: mrct_region_sims()'s construction of the call
   defaults <- list(
     sg_focus = "minSG", maxk = 1, hr.threshold = 0.90, hr.consistency = 0.80,
@@ -296,76 +296,29 @@ mrct_case_study <- function(dgm, seed, k, n = NULL, region_var = "z_regA",
   } else {
     mr_args <- c(mr_inference_args, list(seed = seed + k))
   }
-  fs_base <- list(
-    df.analysis = as.data.frame(df_non), df.test = as.data.frame(df_reg),
-    outcome.name = "y_sim", treat.name = "treat_sim", event.name = "event_sim",
-    id.name = if ("id" %in% names(df_non)) "id" else NULL,
-    potentialOutcome.name = if ("loghr_po" %in% names(df_non)) "loghr_po" else NULL,
-    show_candidate_summary = FALSE, details = FALSE, plot.sg = FALSE,
-    parallel_args = list(plan = "sequential"), quiet = TRUE,
-    mr_inference = isTRUE(mr_inference),
-    mr_inference_args = if (isTRUE(mr_inference)) mr_args else list())
-  fs_call_args <- utils::modifyList(fs_spec, fs_base)
-  fs_warn <- character(0)
-  fs <- withCallingHandlers(
-    do.call(forestsearch, fs_call_args),
-    warning = function(w) {
-      if (!grepl("parallel_args missing required elements", conditionMessage(w)))
-        fs_warn <<- c(fs_warn, conditionMessage(w))
-      invokeRestart("muffleWarning")
-    })
-  if (length(fs_warn))
-    message("mrct_case_study(): forestsearch() raised ", length(fs_warn),
-            " warning(s), kept in $warnings.")
 
-  # ---- the sets
-  trial <- as.data.frame(dfs)
-  declared <- !is.null(fs$sg.harm)
-  in_Hhat <- if (declared) {
-    get_dfpred(trial, sg.harm = fs$sg.harm, version = 2)$treat.recommend == 0
-  } else {
-    rep(FALSE, nrow(trial))
-  }
-  reg <- trial[[region_var]] == 1
-  has_band <- "flag_harm" %in% names(trial)
-  band <- if (has_band) trial$flag_harm == 1 else NULL
-  set_idx <- list(itt_all = rep(TRUE, nrow(trial)), itt_region = reg)
-  if (has_band) set_idx$region_Gstar <- reg & !band
-  set_idx$region_Ghat <- reg & !in_Hhat
-  labels <- c(itt_all = "All patients, ITT", itt_region = "Region, ITT",
-              region_Gstar = "Region minus H* (G*)", region_Ghat = "Region minus H-hat (G-hat)")
-  dt <- data.table::as.data.table(trial)
-  sets <- do.call(rbind, lapply(names(set_idx), function(s) {
-    f <- as.data.frame(.mrct_record_fit(dt, set_idx[[s]]))
-    data.frame(set = s, label = unname(labels[s]), n = f$n, n_exp = f$n_exp,
-               n_ctl = f$n - f$n_exp, events_exp = f$events_exp, events_ctl = f$events_ctl,
-               hr = f$hr, lo = f$lo, hi = f$hi, se_loghr = f$se_loghr,
-               stringsAsFactors = FALSE)
-  }))
-  rownames(sets) <- NULL
-
-  confusion <- NULL
-  if (has_band) {
-    cc <- function(w) c(TP = sum(in_Hhat[w] & band[w]), FP = sum(in_Hhat[w] & !band[w]),
-                        FN = sum(!in_Hhat[w] & band[w]), TN = sum(!in_Hhat[w] & !band[w]))
-    confusion <- list(nonregion = cc(!reg), region = cc(reg))
-  } else {
+  # ---- the analysis: the core shared with mrct_trial_analysis()
+  core <- .mrct_analyze_trial(
+    dfs, region_var,
+    truth_var = if ("flag_harm" %in% names(dfs)) "flag_harm" else NULL,
+    fs_spec, mr_inference, mr_args,
+    nm = list(outcome = "y_sim", treat = "treat_sim", event = "event_sim",
+              id = if ("id" %in% names(dfs)) "id" else NULL,
+              po = if ("loghr_po" %in% names(dfs)) "loghr_po" else NULL),
+    caller = "mrct_case_study")
+  if (is.null(core$confusion))
     message("mrct_case_study(): the trial has no flag_harm column; the region(G*) set ",
             "and the 2 x 2 tables of H-hat against H* are omitted.")
-  }
 
-  itt <- sets[sets$set == "itt_all", ]; rgn <- sets[sets$set == "itt_region", ]
-  trigger <- !is.na(itt$hi) && itt$hi < 1 && !is.na(rgn$hr) && rgn$hr > 1
-
+  fs_call_args <- core$fs_call_args
   structure(list(
-    trial = trial, fs = fs, sets = sets, in_Hhat = in_Hhat, confusion = confusion,
-    Hhat = if (declared) paste(fs$sg.harm, collapse = " & ") else "none",
-    mr = fs$mr_inference, trigger = trigger,
+    trial = core$trial, fs = core$fs, sets = core$sets, in_Hhat = core$in_Hhat,
+    confusion = core$confusion, Hhat = core$Hhat, mr = core$mr, trigger = core$trigger,
     call_args = list(seed = seed, k = k, n = n, region_var = region_var,
                      analysis_time = analysis_time,
                      sim_args = sim_call_args[setdiff(names(sim_call_args), "dgm")],
                      fs_args = fs_call_args[setdiff(names(fs_call_args), c("df.analysis", "df.test"))]),
-    warnings = fs_warn),
+    warnings = core$warnings),
     class = "mrct_case_study")
 }
 
@@ -382,45 +335,16 @@ mrct_case_study <- function(dgm, seed, k, n = NULL, region_var = "z_regA",
 #' @return \code{x}, invisibly.
 #' @export
 print.mrct_case_study <- function(x, digits = 3, ...) {
-  fm <- function(v) ifelse(is.na(v), "NA", formatC(v, format = "f", digits = digits))
+  fm <- .mrct_fm(digits)
   a <- x$call_args
   cat(sprintf("MRCT case study: trial %d (seed %s + %d), n = %d, region '%s'\n",
               as.integer(a$k), format(a$seed, scientific = FALSE), as.integer(a$k),
               nrow(x$trial), a$region_var))
   cat(sprintf("H-hat: %s\n", x$Hhat))
   cat(sprintf("Trigger (ITT ub < 1.0 and region ITT > 1.0): %s\n\n", x$trigger))
-  s <- x$sets
-  tab <- data.frame(Set = s$label, n = s$n,
-                    `exp n/events` = sprintf("%d/%d", s$n_exp, s$events_exp),
-                    `ctl n/events` = sprintf("%d/%d", s$n_ctl, s$events_ctl),
-                    HR = fm(s$hr), `95% CI` = sprintf("%s, %s", fm(s$lo), fm(s$hi)),
-                    check.names = FALSE)
-  print(tab, row.names = FALSE, right = FALSE)
-  if (!is.null(x$confusion)) {
-    cat("\nH-hat against H* (TP, FP, FN, TN):\n")
-    for (p in names(x$confusion))
-      cat(sprintf("  %-10s %s\n", p, paste(x$confusion[[p]], collapse = ", ")))
-  }
-  mr <- x$mr
-  if (is.null(mr) || is.null(mr$debiased)) {
-    cat("\nMultiplier resampling: not run, or nothing declared.\n")
-    return(invisible(x))
-  }
-  cat(sprintf("\nMultiplier resampling (%s, %s draws):\n", mr$ci_method,
-              if (!is.null(mr$settings$draws)) mr$settings$draws else "?"))
-  g <- function(...) { v <- mr; for (k in c(...)) { if (!is.list(v) || is.null(v[[k]])) return(NA_real_); v <- v[[k]] }; v }
-  rows <- data.frame(
-    set = c("H-hat", "H-hat complement (non-region)"),
-    naive = fm(c(g("naive", "est"), g("complement", "naive", "est"))),
-    debiased = fm(c(g("debiased", "est"), g("complement", "debiased", "est"))),
-    `IJ 95% CI` = sprintf("%s, %s", fm(c(g("debiased", "lower"), g("complement", "debiased", "lower"))),
-                          fm(c(g("debiased", "upper"), g("complement", "debiased", "upper")))),
-    `field 1-sided 95%` = c(paste(">=", fm(g("field", "lower_1s"))),
-                            paste("<=", fm(g("field", "complement", "upper_1s")))),
-    Bonferroni = c(paste(">=", fm(g("field", "joint", "bonf_lower_H"))),
-                   paste("<=", fm(g("field", "joint", "bonf_upper_Hc")))),
-    check.names = FALSE)
-  print(rows, row.names = FALSE, right = FALSE)
+  .mrct_print_sets(x$sets, fm)
+  .mrct_print_confusion(x$confusion)
+  .mrct_print_mr(x$mr, fm)
   invisible(x)
 }
 
@@ -445,70 +369,9 @@ print.mrct_case_study <- function(x, digits = 3, ...) {
 plot.mrct_case_study <- function(x, which = c("forest", "km"), xlim = c(0.3, 2),
                                  time_unit = NULL, ...) {
   which <- match.arg(which, several.ok = TRUE)
-  if (is.null(time_unit)) time_unit <- "time"
-  s <- x$sets
-  if ("forest" %in% which) {
-    ord <- intersect(c("itt_all", "itt_region", "region_Ghat", "region_Gstar"), s$set)
-    lab <- c(itt_all = "All patients, ITT", itt_region = "Region, ITT",
-             region_Ghat = "Region minus the identified subgroup",
-             region_Gstar = "Region minus the true harmed subgroup")
-    cols <- c(itt_all = "black", itt_region = "firebrick", region_Ghat = "steelblue",
-              region_Gstar = "grey40")[ord]
-    f <- s[match(ord, s$set), ]; y <- rev(seq_along(ord))
-    op <- graphics::par(mar = c(4, 17, 1, 9)); on.exit(graphics::par(op), add = TRUE)
-    graphics::plot(pmin(pmax(f$hr, xlim[1]), xlim[2]), y, log = "x", xlim = xlim,
-                   ylim = c(0.5, length(ord) + 0.5), pch = 15, cex = 1.3, yaxt = "n", xaxt = "n",
-                   xlab = "hazard ratio, experimental vs control (log scale, 95% CI)", ylab = "",
-                   col = cols)
-    graphics::segments(pmax(f$lo, xlim[1]), y, pmin(f$hi, xlim[2]), y, lwd = 2, col = cols)
-    graphics::abline(v = 1, lty = 2)
-    at <- c(0.3, 0.5, 0.7, 1, 1.5, 2, 3, 5)
-    at <- at[at >= xlim[1] & at <= xlim[2]]
-    graphics::axis(1, at = at, labels = format(at))
-    graphics::axis(2, at = y, labels = lab[ord], las = 1, tick = FALSE)
-    graphics::mtext(sprintf("%.3f (%.3f, %.3f)", f$hr, f$lo, f$hi), side = 4, at = y,
-                    las = 1, line = 0.5)
-    graphics::par(op)
-  }
-  if ("km" %in% which) {
-    if (!requireNamespace("weightedsurv", quietly = TRUE)) {
-      message("plot.mrct_case_study(): weightedsurv is not installed; the Kaplan-Meier ",
-              "figure is skipped.")
-      return(invisible(x))
-    }
-    ta <- x$call_args$analysis_time
-    br <- ta / 4
-    op <- graphics::par(mfrow = c(2, 2), mar = c(4.5, 4.2, 3, 1))
-    on.exit(graphics::par(op), add = TRUE)
-    for (i in seq_len(nrow(s))) {
-      d <- x$trial[.mrct_case_set(x, s$set[i]), ]
-      dfc <- suppressWarnings(weightedsurv::df_counting(
-        df = d, by.risk = br, tte.name = "y_sim", event.name = "event_sim",
-        treat.name = "treat_sim", arms = c("experimental", "control")))
-      weightedsurv::plot_weighted_km(
-        dfc, conf.int = FALSE, show.cox = FALSE, show.logrank = FALSE, show.med = FALSE,
-        show_arm_legend = TRUE, arms = c("experimental", "control"), put.legend.arms = "left",
-        by.risk = br, xmin = 0, xmax = ta, ymin = 0, ymax = 1.12, Xlab = time_unit,
-        Ylab = "proportion event-free", col.0 = "black", col.1 = "blue", lwds = c(1.5, 1.5),
-        censor.mark.all = FALSE, risk.cex = 0.8, arm.cex = 0.85)
-      graphics::axis(1, at = seq(0, ta, br))
-      graphics::text(ta, 1.12, adj = c(1, 1), cex = 0.85, labels = paste(
-        sprintf("HR %.3f (95%% CI %.3f, %.3f)", s$hr[i], s$lo[i], s$hi[i]),
-        sprintf("experimental n = %d, events %d", s$n_exp[i], s$events_exp[i]),
-        sprintf("control n = %d, events %d", s$n_ctl[i], s$events_ctl[i]), sep = "\n"))
-      graphics::title(sprintf("%d. %s", i, s$label[i]), cex.main = 1.05)
-    }
-  }
+  .mrct_plot_sets(x$sets, x$trial, x$call_args$region_var, "flag_harm", x$in_Hhat, which, xlim,
+                  time_unit, x$call_args$analysis_time,
+                  list(outcome = "y_sim", treat = "treat_sim", event = "event_sim"),
+                  "plot.mrct_case_study")
   invisible(x)
-}
-
-#' Rows of the trial in one of the case study's sets
-#' @noRd
-.mrct_case_set <- function(x, set) {
-  reg <- x$trial[[x$call_args$region_var]] == 1
-  switch(set,
-         itt_all = rep(TRUE, nrow(x$trial)),
-         itt_region = reg,
-         region_Gstar = reg & x$trial$flag_harm != 1,
-         region_Ghat = reg & !x$in_Hhat)
 }
