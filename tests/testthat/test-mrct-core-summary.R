@@ -104,3 +104,38 @@ test_that("an empty denominator, no truth, and a result without the record", {
   bad <- data.frame(sim = 1); attr(bad, "estimators") <- data.frame(sim = 1)
   expect_error(mrct_core_summary(bad), "lacks the columns")
 })
+
+test_that("a real record = \"full\" campaign: equal to the article's rows", {
+  skip_on_cran()                                     # about 5 s
+  set.seed(1); n <- 400
+  d <- data.frame(age = stats::rnorm(n, 50, 10), lab = stats::rnorm(n, 300, 100),
+                  f1 = stats::rbinom(n, 1, 0.4), treat = stats::rbinom(n, 1, 0.5))
+  d$tte <- stats::rexp(n, 0.05 * exp(-0.5 * d$treat))
+  d$event <- as.integer(d$tte < 40); d$tte <- pmin(d$tte, 40)
+  dgm <- suppressWarnings(inject_mrct_structure(
+    d, outcome_var = "tte", event_var = "event", treatment_var = "treat",
+    continuous_vars = c("age", "lab"), factor_vars = "f1", x_pred = "lab",
+    spline_spec = list(knot = 300, zeta = 800, log_hrs = rep(log(0.55), 3)),
+    region = list(prevalence = 0.25, or_pred = 1, x1_vars = "f1", or_x1 = 3, loghr = -log(3),
+                  band = list(cut = 230, or = 1)),
+    x3 = list(vars = "lab", cuts = list(lab = 230), loghr = log(3 / 0.55)),
+    n_super = 2000, expand = "bootstrap", seed = 7L,
+    continuous_vars_cens = c("age", "lab"), factor_vars_cens = "f1"))
+  dgm <- scale_dgm_hazard(dgm, m = 3)
+  demo <- mrct_region_sims(
+    dgm, n_sims = 8, n_sample = 800, region_var = "z_region", sg_focus = "hrMaxSG",
+    confounders.name = analysis_covariates(dgm, "observed"), conf_force = character(0),
+    fs_args = list(use_grf = FALSE, use_lasso = FALSE),
+    sim_args = list(rand_ratio = 1, draw_treatment = TRUE, max_entry = 6, cens_adjust = 20),
+    analysis_time = 30, cens_adjust = 20, parallel_args = list(plan = "sequential"),
+    details = FALSE, verbose_n_sims = 0, seed = 5000L, record = "full")
+  est <- as.data.frame(attr(demo, "estimators"))
+  g_est <- function(k) { y <- est[est$estimator == k, ]; y[match(demo$sim, y$sim), ] }
+  itt <- g_est("itt_all"); rgn <- g_est("itt_region"); gh <- g_est("region_Ghat")
+  A <- !is.na(itt$hi) & itt$hi < 1; K <- A & !is.na(rgn$hr) & rgn$hr > 1
+  s <- mrct_core_summary(demo)
+  expect_identical(s$count[s$quantity == "power"], as.numeric(sum(A)))
+  expect_identical(s$count[s$quantity == "trigger"], as.numeric(sum(K)))
+  expect_gt(sum(K), 0)
+  expect_identical(s$count[s$quantity == "declared"], as.numeric(sum(demo$any_found == 1 & K)))
+})

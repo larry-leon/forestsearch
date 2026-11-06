@@ -49,7 +49,7 @@
 #' d$tte <- rexp(n, 0.05 * exp(-0.5 * d$treat))
 #' d$event <- as.integer(d$tte < 40)
 #' d$tte <- pmin(d$tte, 40)
-#' dgm <- inject_mrct_structure(
+#' dgm <- suppressWarnings(inject_mrct_structure(
 #'   d, outcome_var = "tte", event_var = "event", treatment_var = "treat",
 #'   continuous_vars = c("age", "lab"), factor_vars = "f1", x_pred = "lab",
 #'   spline_spec = list(knot = 300, zeta = 800, log_hrs = rep(log(0.55), 3)),
@@ -57,13 +57,14 @@
 #'                 loghr = -log(3), band = list(cut = 230, or = 1)),
 #'   x3 = list(vars = "lab", cuts = list(lab = 230), loghr = log(3 / 0.55)),
 #'   n_super = 2000, expand = "bootstrap", seed = 7L,
-#'   continuous_vars_cens = c("age", "lab"), factor_vars_cens = "f1")
+#'   continuous_vars_cens = c("age", "lab"), factor_vars_cens = "f1"))
+#' dgm <- scale_dgm_hazard(dgm, m = 3)
 #' res <- mrct_region_sims(
-#'   dgm, n_sims = 5, n_sample = 400, region_var = "z_region", sg_focus = "hrMaxSG",
+#'   dgm, n_sims = 8, n_sample = 800, region_var = "z_region", sg_focus = "hrMaxSG",
 #'   confounders.name = analysis_covariates(dgm, "observed"), conf_force = character(0),
 #'   fs_args = list(use_grf = FALSE, use_lasso = FALSE),
-#'   sim_args = list(rand_ratio = 1, draw_treatment = TRUE, max_entry = 6),
-#'   analysis_time = 30, parallel_args = list(plan = "sequential"),
+#'   sim_args = list(rand_ratio = 1, draw_treatment = TRUE, max_entry = 6, cens_adjust = 20),
+#'   analysis_time = 30, cens_adjust = 20, parallel_args = list(plan = "sequential"),
 #'   details = FALSE, verbose_n_sims = 0, seed = 5000L, record = "full")
 #' mrct_core_summary(res)[, c("quantity", "estimate", "se", "denominator", "display")]
 #' }
