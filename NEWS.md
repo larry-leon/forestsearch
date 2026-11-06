@@ -8,6 +8,16 @@ MRCT consistency article.
 
 ### New features
 
+* `mr_values()`: a new tidy accessor for the multiplier-resampling (MR) results of
+  a `forestsearch()` fit or a bare `fs_mr_inference()` result. It returns a data
+  frame with one row per region (`"H"`, and `"Hc"` when the complement was
+  computed) and a fixed set of columns: the naive estimate, the two-term de-biased
+  estimate with its IJ interval and SE, the field and field-s one-sided bounds, the
+  Bonferroni pairs, and the fit-level diagnostics (selection bias, `p_hat`, family
+  size, timing). A quantity the fit did not compute is `NA`. Pure extraction:
+  nothing is recomputed, apart from the optional `log()` of `scale = "log"`, and
+  no existing function changes.
+
 * The analytic layer of the MRCT regional-consistency work, moved from the
   mrct-consistency repository (`docs/theory/scripts/sk_limit.R`,
   `ahr_setup.R`, `sims/regional_entry_design.R`) in its per-patient-entry
