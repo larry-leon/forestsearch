@@ -96,7 +96,7 @@ mrct_core_summary <- function(res) {
   has_truth <- any(est$estimator == "region_Gstar")
   N <- nrow(demo)
 
-  dash <- "–"
+  dash <- "\u2013"
   pc <- function(x) formatC(100 * x, format = "f", digits = 1)
   out <- function(quantity, label, p, se, count, denominator, display = NULL) {
     defined <- is.finite(p)
