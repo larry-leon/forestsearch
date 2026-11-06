@@ -18,6 +18,9 @@ MRCT consistency article.
     estimates side by side, method by method, and what the two corrections cost.
   - `fs_declaration_table()`: the declaration calibration at protected levels and the
     claim threshold, from one fit.
+  - `mrct_record()`, `fs_in_subgroup()`, `mrct_build_dgm()`: small helpers for the
+    shipped records, the declared subgroup's membership, and a DGM build that keeps its
+    warnings.
 
 * `mrct_trial_analysis()`: the regional-consistency pipeline on an observed trial,
   the counterpart of `mrct_case_study()` for real data: the all-patient and region
