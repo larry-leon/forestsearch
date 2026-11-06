@@ -91,8 +91,8 @@ mrct_core_summary <- function(res) {
   lt1 <- function(v) !is.na(v) & v < 1; gt1 <- function(v) !is.na(v) & v > 1
   A <- lt1(itt$hi); K <- A & gt1(rgn$hr); dec <- demo$any_found == 1; DK <- dec & K
   ss <- function(tp, fn) tp / (tp + fn)
-  sens_non <- with(demo, ss(TP_nonregion, FN_nonregion)); spec_non <- with(demo, ss(TN_nonregion, FP_nonregion))
-  sens_reg <- with(demo, ss(TP_region, FN_region)); spec_reg <- with(demo, ss(TN_region, FP_region))
+  sens_non <- ss(demo$TP_nonregion, demo$FN_nonregion); spec_non <- ss(demo$TN_nonregion, demo$FP_nonregion)
+  sens_reg <- ss(demo$TP_region, demo$FN_region); spec_reg <- ss(demo$TN_region, demo$FP_region)
   has_truth <- any(est$estimator == "region_Gstar")
   N <- nrow(demo)
 
