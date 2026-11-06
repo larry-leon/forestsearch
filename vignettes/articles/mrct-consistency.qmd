@@ -42,13 +42,7 @@ suppressPackageStartupMessages({
   library(data.table)
 })
 # The article's records ship with the package (inst/extdata/mrct-consistency; provenance in its
-# PROVENANCE.md). From a source tree the local copy is used; otherwise the installed one.
-dd <- c(file.path("..", "..", "inst", "extdata", "mrct-consistency"),
-        file.path("inst", "extdata", "mrct-consistency"),
-        system.file("extdata", "mrct-consistency", package = "forestsearch"))
-dd <- dd[nzchar(dd) & dir.exists(dd)][1]
-stopifnot(!is.na(dd), file.exists(file.path(dd, "PROVENANCE.md")))
-rd <- function(f, ...) read.csv(file.path(dd, f), stringsAsFactors = FALSE, check.names = FALSE, ...)
+# PROVENANCE.md). mrct_record() reads them: from a source tree the local copy, otherwise the installed one.
 f2 <- function(x) formatC(x, format = "f", digits = 2)
 f3 <- function(x) formatC(x, format = "f", digits = 3)
 f4 <- function(x) formatC(x, format = "f", digits = 4)
@@ -96,7 +90,8 @@ naming anything that is missing, before any computation starts.
 ```{r install-check}
 #| code-fold: show
 needed <- c("inject_mrct_structure", "ahr_population", "ahr_design", "get_dfpred", "compute_frontier_cis",
-            "mr_estimates_table")
+            "mr_estimates_table", "mrct_record", "fs_in_subgroup", "mrct_four_sets", "mrct_trial_analysis",
+            "mr_values")
 missing_fns <- setdiff(needed, getNamespaceExports("forestsearch"))
 if (length(missing_fns))
   stop("This article needs the development version of forestsearch (see 'Installing forestsearch'); ",
@@ -230,7 +225,7 @@ window; `ahr_design()` at the trial size.
 
 ```{r pre-build}
 #| code-fold: show
-trial_pre <- rd("rep5_trial.csv")
+trial_pre <- mrct_record("rep5_trial.csv")
 trial_pre <- trial_pre[, setdiff(names(trial_pre), c("id", "flag_harm"))]  # a real trial has neither
 names(trial_pre) <- sub("^z_", "", names(trial_pre))                       # plain names; the build adds z_
 w_pre <- character(0)
@@ -349,11 +344,11 @@ region indicator `z_region`, the twelve baseline covariates the identifier is gi
 
 ```{r case-read}
 #| code-fold: show
-trial <- rd("rep5_trial.csv")
+trial <- mrct_record("rep5_trial.csv")
 covs <- c("z_age", "z_wtkg", "z_karnof", "z_preanti", "z_cd40", "z_cd80",
           "z_hemo", "z_homo", "z_drugs", "z_race", "z_gender", "z_symptom")
 # the replicate's call seed, from the MR campaign's record of this trial
-seed_rep5 <- rd("mr_field_S2_rep5.csv")$seed
+seed_rep5 <- mrct_record("mr_field_S2_rep5.csv")$seed
 stopifnot(length(seed_rep5) == 1, !anyDuplicated(trial$id),
           all(c("id", "y_sim", "event_sim", "treat_sim", "z_region", covs, "flag_harm") %in% names(trial)))
 c(patients = nrow(trial), experimental = sum(trial$treat_sim == 1), events = sum(trial$event_sim),
@@ -361,7 +356,8 @@ c(patients = nrow(trial), experimental = sum(trial$treat_sim == 1), events = sum
 ```
 
 *With your trial:* read your data frame, and name its time, event, treatment (1 = experimental) and
-region (1 = in the region) columns and the baseline covariates the identifier may use.
+region (1 = in the region) columns and the baseline covariates the identifier may use: they are the
+arguments of `mrct_trial_analysis()`, the one-call form of the steps below, which closes this section.
 
 ## Step 1: the all-patient Cox fit
 
@@ -374,8 +370,8 @@ stopifnot(itt_ub < 1)
 ```
 
 The upper 95% limit is `r f3(itt_ub)`, below 1.0: the trial is positive.
-*With your trial:* your time, event and treatment columns in the formula; if ITT ub $\ge$ 1.0 the
-pipeline stops here.
+*With your trial:* `mrct_trial_analysis()` fits this from your time, event and treatment columns; if
+ITT ub $\ge$ 1.0 the pipeline stops here, at stage `not_positive`.
 
 ## Step 2: the region's Cox fit, and the trigger
 
@@ -391,8 +387,8 @@ stopifnot(trigger)
 ```
 
 The region's estimate is `r f3(hr_reg)`, above 1.0, from `r sum(trial$event_sim[reg])` events: the
-trigger. *With your trial:* your region column in `reg`; if region ITT $\le$ 1.0 the pipeline stops
-here.
+trigger. *With your trial:* `mrct_trial_analysis()` fits this from your region column; if region ITT
+$\le$ 1.0 the pipeline stops here, at stage `no_trigger`.
 
 ## Step 3: the identifier on the non-region patients, with post-selection inference {#sec-rep5-mr}
 
@@ -445,13 +441,13 @@ the other arguments are the identifier's settings used throughout this article, 
 ## Step 4: $\hat H$ applied to the region; the four sets
 
 Each set is analysed by the unweighted two-sample Cox fit of treatment, with the Wald 95% interval.
-$\hat H$ is read for every patient from the identifier's selected rule (`get_dfpred()`), checked against
+$\hat H$ is read for every patient from the identifier's selected rule (`fs_in_subgroup()`), checked against
 its classification of the analysis and test sets; $\hat G$ is the region minus $\hat H$. The
 region($G^*$) row is here only because the trial is simulated (`flag_harm`).
 
 ```{r case-sets}
 #| code-fold: show
-in_Hhat <- get_dfpred(trial, sg.harm = fs$sg.harm, version = 2)$treat.recommend == 0
+in_Hhat <- fs_in_subgroup(fs, trial)
 stopifnot(identical(in_Hhat, trial$id %in% c(fs$df.est$id[fs$df.est$treat.recommend == 0],
                                               fs$df.test$id[fs$df.test$treat.recommend == 0])))
 cox_set <- function(d) {
@@ -477,52 +473,24 @@ knitr::kable(data.frame(Set = set_label[four$set], n = four$n,
              row.names = FALSE, align = "lrrrrr", caption = "Replicate 5 of S2: the four sets.")
 ```
 
-The package's `plot()` draws the forest plot and the Kaplan–Meier panels from an `mrct_case_study`
-object only (simulations article), so here they are drawn from these objects with the same code, kept short.
+`mrct_four_sets()` takes the trial's columns and this membership of $\hat H$, and its `plot()` draws the
+forest plot and the Kaplan–Meier panels, by the code `plot()` uses for an `mrct_case_study` object
+(simulations article).
 
 ```{r fig-case-forest}
 #| fig-width: 8
 #| fig-height: 3.2
 #| fig-cap: "Replicate 5 of S2: hazard ratio, experimental vs control, with 95% CI (log scale)."
-ord <- c("itt_all", "itt_region", "region_Ghat", "region_Gstar")
-fp <- four[match(ord, four$set), ]; y <- rev(seq_along(ord))
-cols <- c("black", "firebrick", "steelblue", "grey40"); at <- c(0.3, 0.5, 0.7, 1, 1.5, 2)
-op <- par(mar = c(4, 17, 1, 9))
-plot(pmin(pmax(fp$hr, 0.3), 2), y, log = "x", xlim = c(0.3, 2), ylim = c(0.5, 4.5), pch = 15, cex = 1.3,
-     yaxt = "n", xaxt = "n", col = cols, ylab = "",
-     xlab = "hazard ratio, experimental vs control (log scale, 95% CI)")
-segments(pmax(fp$lo, 0.3), y, pmin(fp$hi, 2), y, lwd = 2, col = cols)
-abline(v = 1, lty = 2)
-axis(1, at = at, labels = format(at))
-axis(2, at = y, las = 1, tick = FALSE,
-     labels = c("All patients, ITT", "Region, ITT", "Region minus the identified subgroup",
-                "Region minus the true harmed subgroup"))
-mtext(sprintf("%.3f (%.3f, %.3f)", fp$hr, fp$lo, fp$hi), side = 4, at = y, las = 1, line = 0.5)
-par(op)
+sets4 <- mrct_four_sets(trial, "y_sim", "event_sim", "treat_sim", region.name = "z_region",
+                        in_Hhat = in_Hhat, truth.name = "flag_harm")
+plot(sets4, which = "forest")
 ```
 
 ```{r case-km}
 #| fig-width: 12
 #| fig-height: 9
 #| fig-cap: "Replicate 5 of S2: Kaplan–Meier by arm in the four sets (experimental blue, control black; months)."
-op <- par(mfrow = c(2, 2), mar = c(4.5, 4.2, 3, 1))
-for (i in seq_len(nrow(four))) {
-  dfc <- suppressWarnings(weightedsurv::df_counting(
-    df = trial[set_idx[[four$set[i]]], ], by.risk = 10, tte.name = "y_sim", event.name = "event_sim",
-    treat.name = "treat_sim", arms = c("experimental", "control")))
-  weightedsurv::plot_weighted_km(
-    dfc, conf.int = FALSE, show.cox = FALSE, show.logrank = FALSE, show.med = FALSE,
-    show_arm_legend = TRUE, arms = c("experimental", "control"), put.legend.arms = "left",
-    by.risk = 10, xmin = 0, xmax = 40, ymin = 0, ymax = 1.12, Xlab = "months",
-    Ylab = "proportion event-free", col.0 = "black", col.1 = "blue", lwds = c(1.5, 1.5),
-    censor.mark.all = FALSE, risk.cex = 0.8, arm.cex = 0.85)
-  axis(1, at = seq(0, 40, 10))
-  text(40, 1.12, adj = c(1, 1), cex = 0.85, labels = with(four[i, ], sprintf(
-    "HR %.3f (95%% CI %.3f, %.3f)\nexperimental n = %d, events %d\ncontrol n = %d, events %d",
-    hr, lo, hi, n_exp, events_exp, n_ctl, events_ctl)))
-  title(sprintf("%d. %s", i, set_label[four$set[i]]), cex.main = 1.05)
-}
-par(op)
+plot(sets4, which = "km", time_unit = "months", analysis_time = 40)
 ```
 
 The trial is positive (ITT upper limit `r f3(four$hi[1])` < 1.0) and its region is above 1.0
@@ -531,7 +499,8 @@ region, $\hat H$ removes `r sum(in_Hhat & reg)` patients, and region($\hat G$) i
 `r f3(four$hr[four$set == "region_Ghat"])`, below 1.0: the trial is joint. Every interval is wide: the
 regional sets have few events, so the move of the regional estimate from above 1 to below 1 is an
 explanation consistent with a trial-wide harmed subgroup, not confirmation of it. *With your trial:*
-`get_dfpred()` applies your $\hat H$ to all your rows; drop the region($G^*$) row, as $H^*$ is unknown.
+`fs_in_subgroup()` applies your $\hat H$ to all your rows; without `truth.name`, `mrct_four_sets()` drops
+the region($G^*$) row, as $H^*$ is unknown.
 
 ::: {.callout-warning}
 ## What the move below 1.0 shows, and what it does not
@@ -612,10 +581,10 @@ gives how often each step of the pipeline above went the same way. The numbers a
 campaign's records, shipped with the package.
 
 ```{r case-campaign}
-cc_core <- rd("core_full_numeric.csv")
+cc_core <- mrct_record("core_full_numeric.csv")
 cc_core <- cc_core[cc_core$setting == "S2_rmlog4", ]
-cc_mr <- rd("mr_field_core.csv")
-cc_ent <- rd("entry_cells_core_numeric.csv")
+cc_mr <- mrct_record("mr_field_core.csv")
+cc_ent <- mrct_record("entry_cells_core_numeric.csv")
 cc_ev <- function(q) cc_ent$S2[cc_ent$quantity == q]
 stopifnot(nrow(cc_core) == 1, sum(cc_mr$row == "lb_100") == 1,
           sum(cc_ent$quantity %in% c("trigger_n", "joint", "Ghat_region")) == 3)
@@ -653,5 +622,40 @@ declared in `r big(camp$n_decl)` of `r big(camp$n_trig)`, region(Ĝ) was below 1
 `r pc1(camp$ghat_reg)`% of the region's patients. The field lower bound for Ĥ was above 1.0 in `r pc1(camp$lb100)`% of the declared
 triggered trials; in the others it lies below 1.0, and it is read by its location, as for replicate 5
 in step 5. Replicate 5 is one of the triggered trials with region(Ĝ) < 1.0.
+
+## The one-call form {#sec-one-call}
+
+`mrct_trial_analysis()` is steps 1 to 5 in one call: the two Cox fits and the trigger, the identifier on
+the non-region patients with multiplier resampling, $\hat H$ applied to every row, and the four sets. Here
+it runs on the same trial, with the identifier's arguments of step 3 and the record's seed.
+
+```{r one-call}
+#| code-fold: show
+one_call <- mrct_trial_analysis(
+  trial, "y_sim", "event_sim", "treat_sim", region.name = "z_region", id.name = "id",
+  truth.name = "flag_harm",
+  fs_args = list(confounders.name = covs, conf_force = character(0),
+                 conf.cont_jcuts = list(z_cd40 = 10, z_wtkg = 10, z_preanti = 10),
+                 use_grf = FALSE, use_lasso = FALSE, maxk = 2,
+                 hr.threshold = 0.90, hr.consistency = 0.80, pconsistency.threshold = 0.90,
+                 sg_focus = "hrMaxSG", effect_neighborhood = 0.20),
+  mr_inference_args = list(ci_method = "field", include_complement = TRUE, field_complement = TRUE,
+                           draws = 2000, multiplier = "poisson", return_reselection = TRUE,
+                           seed = seed_rep5))
+one_call
+# its H-hat, four sets and MR values equal the step-by-step objects above
+num <- c("n", "n_exp", "n_ctl", "events_exp", "events_ctl", "hr", "lo", "hi")
+mv_call <- mr_values(one_call$fs); mv_step <- mr_values(fs)
+keep <- !grepl("timing", names(mv_step))
+stopifnot(identical(one_call$Hhat, Hhat_def), identical(one_call$in_Hhat, in_Hhat),
+          identical(one_call$sets$set, four$set),
+          isTRUE(all.equal(one_call$sets[num], four[num], tolerance = 1e-12)),
+          isTRUE(all.equal(mv_call[keep], mv_step[keep], tolerance = 1e-12)))
+```
+
+*With your trial:* your column names, your covariates in `fs_args$confounders.name` and your seed in
+`mr_inference_args`, without `truth.name`. `$stage` says how far the pipeline went (`not_positive`,
+`no_trigger`, `no_declaration` or `complete`), and none of these is an error; `plot()` on the result draws
+the two figures of step 4, and `mr_values()` and `mr_estimates_table()` read its `$fs`.
 
 The article took `r round((proc.time()[["elapsed"]] - t_article) / 60, 1)` minutes to run.
