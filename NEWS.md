@@ -8,6 +8,21 @@ MRCT consistency article.
 
 ### New features
 
+* `mrct_trial_analysis()`: the regional-consistency pipeline on an observed trial,
+  the counterpart of `mrct_case_study()` for real data: the all-patient and region
+  Cox fits and the trigger; `forestsearch()` on the non-region patients with the
+  region as the test set; the declared subgroup applied; the four-set Cox summary;
+  and multiplier-resampling inference. `$stage` reports how far it went
+  (`not_positive`, `no_trigger`, `no_declaration`, `complete`), and none of these
+  is an error. A column of the true subgroup is optional, as in simulation.
+
+* `mrct_four_sets()`: the four-set Cox summary from columns you name, with
+  `print()`, `plot(which = c("forest", "km"))` and `as.data.frame()` methods, so
+  these no longer need an `mrct_case_study` object.
+
+* `mrct_case_study()` now runs on the same analysis code as `mrct_trial_analysis()`.
+  Its arguments, result, printed output and plots are unchanged.
+
 * `mr_values()`: a new tidy accessor for the multiplier-resampling (MR) results of
   a `forestsearch()` fit or a bare `fs_mr_inference()` result. It returns a data
   frame with one row per region (`"H"`, and `"Hc"` when the complement was
