@@ -50,7 +50,6 @@ draws the fit already made.
 carry a uniform effect of \code{c0}; at the claim threshold it is a boundary size.
 }
 \examples{
-\donttest{
 set.seed(1)
 n <- 500
 d <- data.frame(id = seq_len(n), treat = rbinom(n, 1, 0.5), x1 = rnorm(n), x2 = rnorm(n))
@@ -66,7 +65,6 @@ fit <- forestsearch(
   parallel_args = list(plan = "sequential"), quiet = TRUE, details = FALSE,
   plot.sg = FALSE, show_candidate_summary = FALSE)
 fs_declaration_table(fit, c0 = c(0.6, 0.7), c0_primary = 0.7)
-}
 
 }
 \seealso{
