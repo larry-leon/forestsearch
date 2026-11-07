@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Larry Leon">
-<meta name="dcterms.date" content="2026-10-30">
+<meta name="dcterms.date" content="2026-11-06">
 
 <title>Binary and continuous outcomes: the ACTG 175 analyses</title>
 <style>
@@ -2393,7 +2393,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">October 30, 2026</p>
+      <p class="date">November 6, 2026</p>
     </div>
   </div>
   
@@ -2535,73 +2535,71 @@ window.Quarto = {
 <span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>sec_cont <span class="ot">&lt;-</span> <span class="fu">proc.time</span>()[[<span class="st">&quot;elapsed&quot;</span>]] <span class="sc">-</span> t0</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>in_region <span class="ot">&lt;-</span> <span class="cf">function</span>(fit, d) fit<span class="sc">$</span>df.est<span class="sc">$</span>treat.recommend[<span class="fu">match</span>(d<span class="sc">$</span>id, fit<span class="sc">$</span>df.est<span class="sc">$</span>id)] <span class="sc">==</span> <span class="dv">0</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>in_bin  <span class="ot">&lt;-</span> <span class="fu">in_region</span>(fit_bin, df_bin)</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>in_cont <span class="ot">&lt;-</span> <span class="fu">in_region</span>(fit_cont, df_cont)</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># the regions in words, checked against the package&#39;s membership</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">identical</span>(in_bin,  df_bin<span class="sc">$</span>wtkg <span class="sc">&gt;</span> <span class="dv">86</span> <span class="sc">&amp;</span> df_bin<span class="sc">$</span>cd40 <span class="sc">&gt;</span> <span class="dv">380</span>),</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>          <span class="fu">identical</span>(in_cont, df_cont<span class="sc">$</span>cd40 <span class="sc">&gt;</span> <span class="dv">507</span> <span class="sc">&amp;</span> <span class="fu">as.character</span>(df_cont<span class="sc">$</span>gender) <span class="sc">==</span> <span class="st">&quot;1&quot;</span>))</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (x <span class="cf">in</span> <span class="fu">list</span>(<span class="fu">list</span>(<span class="st">&quot;Binary&quot;</span>, fit_bin, in_bin, sec_bin),</span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>               <span class="fu">list</span>(<span class="st">&quot;Continuous&quot;</span>, fit_cont, in_cont, sec_cont))) {</span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  g <span class="ot">&lt;-</span> x[[<span class="dv">2</span>]]<span class="sc">$</span>mr_inference</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%-10s %-32s N %d   fit %.0f s (multiplier stage %.1f s)</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>              x[[<span class="dv">1</span>]], <span class="fu">paste</span>(x[[<span class="dv">2</span>]]<span class="sc">$</span>sg.harm, <span class="at">collapse =</span> <span class="st">&quot; &amp; &quot;</span>), <span class="fu">sum</span>(x[[<span class="dv">3</span>]]), x[[<span class="dv">4</span>]],</span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>              g<span class="sc">$</span>timing_seconds))</span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>in_bin  <span class="ot">&lt;-</span> <span class="fu">fs_in_subgroup</span>(fit_bin, df_bin)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>in_cont <span class="ot">&lt;-</span> <span class="fu">fs_in_subgroup</span>(fit_cont, df_cont)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co"># the regions in words, checked against the package&#39;s membership</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">identical</span>(in_bin,  df_bin<span class="sc">$</span>wtkg <span class="sc">&gt;</span> <span class="dv">86</span> <span class="sc">&amp;</span> df_bin<span class="sc">$</span>cd40 <span class="sc">&gt;</span> <span class="dv">380</span>),</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>          <span class="fu">identical</span>(in_cont, df_cont<span class="sc">$</span>cd40 <span class="sc">&gt;</span> <span class="dv">507</span> <span class="sc">&amp;</span> <span class="fu">as.character</span>(df_cont<span class="sc">$</span>gender) <span class="sc">==</span> <span class="st">&quot;1&quot;</span>))</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (x <span class="cf">in</span> <span class="fu">list</span>(<span class="fu">list</span>(<span class="st">&quot;Binary&quot;</span>, fit_bin, in_bin, sec_bin),</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>               <span class="fu">list</span>(<span class="st">&quot;Continuous&quot;</span>, fit_cont, in_cont, sec_cont))) {</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  g <span class="ot">&lt;-</span> x[[<span class="dv">2</span>]]<span class="sc">$</span>mr_inference</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%-10s %-32s N %d   fit %.0f s (multiplier stage %.1f s)</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>              x[[<span class="dv">1</span>]], <span class="fu">paste</span>(x[[<span class="dv">2</span>]]<span class="sc">$</span>sg.harm, <span class="at">collapse =</span> <span class="st">&quot; &amp; &quot;</span>), <span class="fu">sum</span>(x[[<span class="dv">3</span>]]), x[[<span class="dv">4</span>]],</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>              g<span class="sc">$</span>timing_seconds))</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Binary     !{cd40 &lt;= 380} &amp; !{wtkg &lt;= 86}   N 72   fit 65 s (multiplier stage 11.8 s)
-#&gt; Continuous !{cd40 &lt;= 507} &amp; {gender}        N 79   fit 99 s (multiplier stage 19.1 s)</code></pre>
+<pre><code>#&gt; Binary     !{cd40 &lt;= 380} &amp; !{wtkg &lt;= 86}   N 72   fit 72 s (multiplier stage 12.8 s)
+#&gt; Continuous !{cd40 &lt;= 507} &amp; {gender}        N 79   fit 110 s (multiplier stage 21.0 s)</code></pre>
 </div>
 </div>
 <p>On the binary endpoint forest search returns the 72 patients weighing more than 86 kg with baseline CD4 above 380 cells per mm³; on the continuous endpoint, the 79 men with baseline CD4 above 507. The package writes a region as a conjunction of the cut indicators it searched — <code>!{cd40 &lt;= 380}</code> is “CD4 above 380” and <code>{gender}</code> is “male” — and the chunk above checks each against its description in words. The two regions are selected on different endpoints of the same patients and are not the same set; each leaves a complement of about 93% of the trial.</p>
 </section>
 <section id="the-regions-and-their-adjusted-effects" class="level3">
 <h3 class="anchored" data-anchor-id="the-regions-and-their-adjusted-effects">The regions and their adjusted effects</h3>
-<p>Every number of Table S16 but the whole-trial row is in <code>fit$mr_inference</code>: the unadjusted and corrected estimates and the selection bias in its top level, the bounds in <code>$field</code>, and the complement’s quantities in <code>$complement</code> and <code>$field$complement</code>. The helper below reads them in the table’s order, on the outcome’s own scale.</p>
+<p>Every number of Table S16 but the whole-trial row is in <code>fit$mr_inference</code>, and <code>mr_values()</code> returns them as a row for the region and a row for its complement. The helper below reads them in the table’s order, on the outcome’s own scale.</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>s16_column <span class="ot">&lt;-</span> <span class="cf">function</span>(fit, d, y, digits, events) {</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  g  <span class="ot">&lt;-</span> fit<span class="sc">$</span>mr_inference; cc <span class="ot">&lt;-</span> g<span class="sc">$</span>complement</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  fb <span class="ot">&lt;-</span> g<span class="sc">$</span>field; fc <span class="ot">&lt;-</span> fb<span class="sc">$</span>complement; js <span class="ot">&lt;-</span> fb<span class="sc">$</span>joint_s</span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  in_H <span class="ot">&lt;-</span> <span class="fu">in_region</span>(fit, d)</span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stopifnot</span>(<span class="sc">!</span><span class="fu">anyNA</span>(in_H), <span class="fu">sum</span>(in_H) <span class="sc">==</span> g<span class="sc">$</span>n_selected, <span class="fu">sum</span>(<span class="sc">!</span>in_H) <span class="sc">==</span> cc<span class="sc">$</span>n)</span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  f  <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="fu">sprintf</span>(<span class="st">&quot;%.*f&quot;</span>, digits, x)</span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  ci <span class="ot">&lt;-</span> <span class="cf">function</span>(e, l, u) <span class="fu">sprintf</span>(<span class="st">&quot;%s (%s, %s)&quot;</span>, <span class="fu">f</span>(e), <span class="fu">f</span>(l), <span class="fu">f</span>(u))</span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  n_ev <span class="ot">&lt;-</span> <span class="cf">function</span>(sel) {</span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    n <span class="ot">&lt;-</span> <span class="fu">format</span>(<span class="fu">sum</span>(sel), <span class="at">big.mark =</span> <span class="st">&quot;,&quot;</span>)</span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (events) <span class="fu">sprintf</span>(<span class="st">&quot;%s (%d)&quot;</span>, n, <span class="fu">sum</span>(d[[y]][sel])) <span class="cf">else</span> n</span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="fu">n_ev</span>(<span class="fu">rep</span>(<span class="cn">TRUE</span>, <span class="fu">nrow</span>(d))),</span>
-<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste</span>(fit<span class="sc">$</span>sg.harm, <span class="at">collapse =</span> <span class="st">&quot; &amp; &quot;</span>),</span>
-<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">n_ev</span>(in_H),</span>
-<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ci</span>(g<span class="sc">$</span>naive<span class="sc">$</span>est, g<span class="sc">$</span>naive<span class="sc">$</span>lower, g<span class="sc">$</span>naive<span class="sc">$</span>upper),</span>
-<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ci</span>(g<span class="sc">$</span>debiased<span class="sc">$</span>est, g<span class="sc">$</span>debiased<span class="sc">$</span>lower, g<span class="sc">$</span>debiased<span class="sc">$</span>upper),</span>
-<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">f</span>(fb<span class="sc">$</span>lower_1s),</span>
-<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">n_ev</span>(<span class="sc">!</span>in_H),</span>
-<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ci</span>(cc<span class="sc">$</span>naive<span class="sc">$</span>est, cc<span class="sc">$</span>naive<span class="sc">$</span>lower, cc<span class="sc">$</span>naive<span class="sc">$</span>upper),</span>
-<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ci</span>(cc<span class="sc">$</span>debiased<span class="sc">$</span>est, cc<span class="sc">$</span>debiased<span class="sc">$</span>lower, cc<span class="sc">$</span>debiased<span class="sc">$</span>upper),</span>
-<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">f</span>(fc<span class="sc">$</span>upper_1s_s),</span>
-<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;%s / %s&quot;</span>, <span class="fu">f</span>(js<span class="sc">$</span>bonf_lower_H), <span class="fu">f</span>(js<span class="sc">$</span>bonf_upper_Hc)),</span>
-<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>    <span class="fu">f</span>(g<span class="sc">$</span>selection_bias),</span>
-<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>    <span class="fu">format</span>(g<span class="sc">$</span>n_family, <span class="at">big.mark =</span> <span class="st">&quot;,&quot;</span>))</span>
-<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>s16_rows <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;Whole trial N (events)&quot;</span>, <span class="st">&quot;Whole-trial estimate, 95% CI&quot;</span>, <span class="st">&quot;Region&quot;</span>, <span class="st">&quot;N (events)&quot;</span>,</span>
-<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;Unadjusted, 95% CI&quot;</span>, <span class="st">&quot;Corrected (two-term), IJ interval&quot;</span>, <span class="st">&quot;Field, lower bound&quot;</span>,</span>
-<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;Complement N (events)&quot;</span>, <span class="st">&quot;Unadjusted, 95% CI&quot;</span>, <span class="st">&quot;Corrected (two-term), IJ interval&quot;</span>,</span>
-<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;Field-s, upper bound&quot;</span>, <span class="st">&quot;Bonferroni pair&quot;</span>, <span class="st">&quot;Selection bias&quot;</span>, <span class="st">&quot;Re-selection family&quot;</span>)</span>
-<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>col_bin  <span class="ot">&lt;-</span> <span class="fu">s16_column</span>(fit_bin,  df_bin,  <span class="st">&quot;y_binary_neg&quot;</span>, <span class="at">digits =</span> <span class="dv">3</span>, <span class="at">events =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>col_cont <span class="ot">&lt;-</span> <span class="fu">s16_column</span>(fit_cont, df_cont, <span class="st">&quot;y_decline&quot;</span>,    <span class="at">digits =</span> <span class="dv">1</span>, <span class="at">events =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>s16 <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">row =</span> s16_rows,</span>
-<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">binary =</span> <span class="fu">c</span>(col_bin[<span class="dv">1</span>], <span class="fu">sprintf</span>(<span class="st">&quot;%.3f (%.3f, %.3f)&quot;</span>, whole_or[<span class="dv">1</span>], whole_or[<span class="dv">2</span>], whole_or[<span class="dv">3</span>]),</span>
-<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>             col_bin[<span class="sc">-</span><span class="dv">1</span>]),</span>
-<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">continuous =</span> <span class="fu">c</span>(col_cont[<span class="dv">1</span>], <span class="fu">sprintf</span>(<span class="st">&quot;%.1f (%.1f, %.1f)&quot;</span>, whole_md[<span class="dv">1</span>], whole_md[<span class="dv">2</span>], whole_md[<span class="dv">3</span>]),</span>
-<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>                 col_cont[<span class="sc">-</span><span class="dv">1</span>]))</span>
-<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(s16, <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;&quot;</span>, <span class="st">&quot;Binary, OR&quot;</span>, <span class="st">&quot;Continuous, MD (CD4 cells)&quot;</span>),</span>
-<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a>             <span class="at">row.names =</span> <span class="cn">FALSE</span>, <span class="at">align =</span> <span class="st">&quot;lrr&quot;</span>,</span>
-<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a>             <span class="at">caption =</span> <span class="fu">paste</span>(<span class="st">&quot;This article&#39;s run. Corrected rows carry the two-term estimate with its&quot;</span>,</span>
-<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>                             <span class="st">&quot;two-sided IJ interval; the field and field-s rows are one-sided bounds at&quot;</span>,</span>
-<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>                             <span class="st">&quot;nominal 0.95; the Bonferroni pair holds both at joint 0.95. Selection bias&quot;</span>,</span>
-<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a>                             <span class="st">&quot;is on the log scale for the odds ratio and in CD4 cells for the mean difference.&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  v  <span class="ot">&lt;-</span> <span class="fu">mr_values</span>(fit); H <span class="ot">&lt;-</span> v[v<span class="sc">$</span>row <span class="sc">==</span> <span class="st">&quot;H&quot;</span>, ]; Hc <span class="ot">&lt;-</span> v[v<span class="sc">$</span>row <span class="sc">==</span> <span class="st">&quot;Hc&quot;</span>, ]</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  in_H <span class="ot">&lt;-</span> <span class="fu">fs_in_subgroup</span>(fit, d)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stopifnot</span>(<span class="sc">!</span><span class="fu">anyNA</span>(in_H), <span class="fu">sum</span>(in_H) <span class="sc">==</span> H<span class="sc">$</span>n_selected, <span class="fu">sum</span>(<span class="sc">!</span>in_H) <span class="sc">==</span> Hc<span class="sc">$</span>n)</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  f  <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="fu">sprintf</span>(<span class="st">&quot;%.*f&quot;</span>, digits, x)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  ci <span class="ot">&lt;-</span> <span class="cf">function</span>(e, l, u) <span class="fu">sprintf</span>(<span class="st">&quot;%s (%s, %s)&quot;</span>, <span class="fu">f</span>(e), <span class="fu">f</span>(l), <span class="fu">f</span>(u))</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  n_ev <span class="ot">&lt;-</span> <span class="cf">function</span>(sel) {</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    n <span class="ot">&lt;-</span> <span class="fu">format</span>(<span class="fu">sum</span>(sel), <span class="at">big.mark =</span> <span class="st">&quot;,&quot;</span>)</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (events) <span class="fu">sprintf</span>(<span class="st">&quot;%s (%d)&quot;</span>, n, <span class="fu">sum</span>(d[[y]][sel])) <span class="cf">else</span> n</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="fu">n_ev</span>(<span class="fu">rep</span>(<span class="cn">TRUE</span>, <span class="fu">nrow</span>(d))),</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste</span>(fit<span class="sc">$</span>sg.harm, <span class="at">collapse =</span> <span class="st">&quot; &amp; &quot;</span>),</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">n_ev</span>(in_H),</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ci</span>(H<span class="sc">$</span>naive_est, H<span class="sc">$</span>naive_lower, H<span class="sc">$</span>naive_upper),</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ci</span>(H<span class="sc">$</span>debiased_est, H<span class="sc">$</span>ij_lower, H<span class="sc">$</span>ij_upper),</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">f</span>(H<span class="sc">$</span>field_lower_1s),</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">n_ev</span>(<span class="sc">!</span>in_H),</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ci</span>(Hc<span class="sc">$</span>naive_est, Hc<span class="sc">$</span>naive_lower, Hc<span class="sc">$</span>naive_upper),</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ci</span>(Hc<span class="sc">$</span>debiased_est, Hc<span class="sc">$</span>ij_lower, Hc<span class="sc">$</span>ij_upper),</span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">f</span>(Hc<span class="sc">$</span>field_upper_1s_s),</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;%s / %s&quot;</span>, <span class="fu">f</span>(H<span class="sc">$</span>bonf_lower_H_s), <span class="fu">f</span>(Hc<span class="sc">$</span>bonf_upper_Hc_s)),</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">f</span>(H<span class="sc">$</span>selection_bias),</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>    <span class="fu">format</span>(H<span class="sc">$</span>n_family, <span class="at">big.mark =</span> <span class="st">&quot;,&quot;</span>))</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>s16_rows <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;Whole trial N (events)&quot;</span>, <span class="st">&quot;Whole-trial estimate, 95% CI&quot;</span>, <span class="st">&quot;Region&quot;</span>, <span class="st">&quot;N (events)&quot;</span>,</span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;Unadjusted, 95% CI&quot;</span>, <span class="st">&quot;Corrected (two-term), IJ interval&quot;</span>, <span class="st">&quot;Field, lower bound&quot;</span>,</span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;Complement N (events)&quot;</span>, <span class="st">&quot;Unadjusted, 95% CI&quot;</span>, <span class="st">&quot;Corrected (two-term), IJ interval&quot;</span>,</span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;Field-s, upper bound&quot;</span>, <span class="st">&quot;Bonferroni pair&quot;</span>, <span class="st">&quot;Selection bias&quot;</span>, <span class="st">&quot;Re-selection family&quot;</span>)</span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>col_bin  <span class="ot">&lt;-</span> <span class="fu">s16_column</span>(fit_bin,  df_bin,  <span class="st">&quot;y_binary_neg&quot;</span>, <span class="at">digits =</span> <span class="dv">3</span>, <span class="at">events =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>col_cont <span class="ot">&lt;-</span> <span class="fu">s16_column</span>(fit_cont, df_cont, <span class="st">&quot;y_decline&quot;</span>,    <span class="at">digits =</span> <span class="dv">1</span>, <span class="at">events =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>s16 <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">row =</span> s16_rows,</span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">binary =</span> <span class="fu">c</span>(col_bin[<span class="dv">1</span>], <span class="fu">sprintf</span>(<span class="st">&quot;%.3f (%.3f, %.3f)&quot;</span>, whole_or[<span class="dv">1</span>], whole_or[<span class="dv">2</span>], whole_or[<span class="dv">3</span>]),</span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a>             col_bin[<span class="sc">-</span><span class="dv">1</span>]),</span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">continuous =</span> <span class="fu">c</span>(col_cont[<span class="dv">1</span>], <span class="fu">sprintf</span>(<span class="st">&quot;%.1f (%.1f, %.1f)&quot;</span>, whole_md[<span class="dv">1</span>], whole_md[<span class="dv">2</span>], whole_md[<span class="dv">3</span>]),</span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a>                 col_cont[<span class="sc">-</span><span class="dv">1</span>]))</span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(s16, <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;&quot;</span>, <span class="st">&quot;Binary, OR&quot;</span>, <span class="st">&quot;Continuous, MD (CD4 cells)&quot;</span>),</span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a>             <span class="at">row.names =</span> <span class="cn">FALSE</span>, <span class="at">align =</span> <span class="st">&quot;lrr&quot;</span>,</span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a>             <span class="at">caption =</span> <span class="fu">paste</span>(<span class="st">&quot;This article&#39;s run. Corrected rows carry the two-term estimate with its&quot;</span>,</span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a>                             <span class="st">&quot;two-sided IJ interval; the field and field-s rows are one-sided bounds at&quot;</span>,</span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>                             <span class="st">&quot;nominal 0.95; the Bonferroni pair holds both at joint 0.95. Selection bias&quot;</span>,</span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>                             <span class="st">&quot;is on the log scale for the odds ratio and in CD4 cells for the mean difference.&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <caption>This article’s run. Corrected rows carry the two-term estimate with its two-sided IJ interval; the field and field-s rows are one-sided bounds at nominal 0.95; the Bonferroni pair holds both at joint 0.95. Selection bias is on the log scale for the odds ratio and in CD4 cells for the mean difference.</caption>
@@ -2806,41 +2804,36 @@ window.Quarto = {
 </section>
 <section id="declaration-at-a-protected-level" class="level3">
 <h3 class="anchored" data-anchor-id="declaration-at-a-protected-level">Declaration at a protected level</h3>
-<p>Forest search declared both regions at the default screen, <span class="math inline">\(p^\star = 0.90\)</span>. Section 4 of León and Anderson (2026b) asks whether a screen calibrated to protect a clinically meaningful uniform benefit would have declared them: an odds ratio of 0.75 on the binary endpoint, and ten cells per mm³ of CD4 decline spared on the continuous one, each on a grid around it, at a family-wise level <span class="math inline">\(\alpha = 0.10\)</span>. <code>fs_declaration_calibration()</code> reads the answer from the multiplier draws each fit already made; nothing is redrawn (see <code>vignette(&quot;forestsearch&quot;)</code> for the construction).</p>
+<p>Forest search declared both regions at the default screen, <span class="math inline">\(p^\star = 0.90\)</span>. Section 4 of León and Anderson (2026b) asks whether a screen calibrated to protect a clinically meaningful uniform benefit would have declared them: an odds ratio of 0.75 on the binary endpoint, and ten cells per mm³ of CD4 decline spared on the continuous one, each on a grid around it, at a family-wise level <span class="math inline">\(\alpha = 0.10\)</span>. <code>fs_declaration_table()</code> tabulates <code>fs_declaration_calibration()</code>, which reads the answer from the multiplier draws each fit already made; nothing is redrawn (see <code>vignette(&quot;forestsearch&quot;)</code> for the construction).</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>s17_column <span class="ot">&lt;-</span> <span class="cf">function</span>(fit, c0_grid, c0_primary, fmt_c0) {</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  cal    <span class="ot">&lt;-</span> <span class="fu">fs_declaration_calibration</span>(fit, <span class="at">alpha =</span> <span class="fl">0.10</span>, <span class="at">c0 =</span> c0_grid)</span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  cal_c2 <span class="ot">&lt;-</span> <span class="fu">fs_declaration_calibration</span>(fit, <span class="at">alpha =</span> <span class="fl">0.10</span>)   <span class="co"># c0 = NULL: the claim threshold</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stopifnot</span>(<span class="fu">identical</span>(cal<span class="sc">$</span>c0<span class="sc">$</span>source, <span class="st">&quot;capture&quot;</span>))            <span class="co"># read from the fit&#39;s own draws</span></span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  fld <span class="ot">&lt;-</span> fit<span class="sc">$</span>mr_inference<span class="sc">$</span>declaration_field</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  T_H <span class="ot">&lt;-</span> cal<span class="sc">$</span>T_hat[[fld<span class="sc">$</span>family_id[fld<span class="sc">$</span>meta<span class="sc">$</span>selected_index]]]</span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  tb  <span class="ot">&lt;-</span> cal<span class="sc">$</span>c0<span class="sc">$</span>table; i <span class="ot">&lt;-</span> <span class="fu">which</span>(tb<span class="sc">$</span>c0 <span class="sc">==</span> c0_primary)</span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>  admits_none <span class="ot">&lt;-</span> <span class="fu">all</span>(<span class="fu">lengths</span>(cal<span class="sc">$</span>c0<span class="sc">$</span>admitted_calibrated) <span class="sc">==</span> <span class="dv">0</span>) <span class="sc">&amp;&amp;</span></span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">length</span>(cal_c2<span class="sc">$</span>admitted_calibrated) <span class="sc">==</span> <span class="dv">0</span></span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(fit<span class="sc">$</span>mr_inference<span class="sc">$</span>n_selected,</span>
-<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;%.3f / %.3f&quot;</span>, T_H, <span class="fu">max</span>(cal<span class="sc">$</span>T_hat, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)),</span>
-<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt_c0</span>(c0_primary),</span>
-<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, tb<span class="sc">$</span>kappa_hat[i]),</span>
-<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, <span class="dv">2</span> <span class="sc">*</span> <span class="fu">pnorm</span>(tb<span class="sc">$</span>kappa_hat[i]) <span class="sc">-</span> <span class="dv">1</span>),</span>
-<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, tb<span class="sc">$</span>fw_size[i]),</span>
-<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, cal_c2<span class="sc">$</span>kappa_hat),</span>
-<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, cal_c2<span class="sc">$</span>fw_size),</span>
-<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (admits_none) <span class="st">&quot;admits nothing&quot;</span> <span class="cf">else</span> <span class="st">&quot;admits a candidate&quot;</span>)</span>
-<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>s17_rows <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;Region declared at the default level, N&quot;</span>, <span class="st">&quot;T of the region / largest T in the family&quot;</span>,</span>
-<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;Primary protected level c0&quot;</span>, <span class="st">&quot;Calibrated cutoff, kappa-hat(c0)&quot;</span>,</span>
-<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;Implied level, 2 Phi(kappa-hat) - 1&quot;</span>,</span>
-<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;Diagnostic at the default screen&#39;s cutoff&quot;</span>, <span class="st">&quot;Calibrated cutoff at the claim threshold&quot;</span>,</span>
-<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;Diagnostic at the claim threshold&quot;</span>, <span class="st">&quot;Calibrated rule, every c0 and the claim threshold&quot;</span>)</span>
-<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>s17 <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">row =</span> s17_rows,</span>
-<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">binary =</span> <span class="fu">s17_column</span>(fit_bin, <span class="fu">c</span>(<span class="fl">0.70</span>, <span class="fl">0.75</span>, <span class="fl">0.80</span>, <span class="fl">0.85</span>), <span class="fl">0.75</span>, <span class="cf">function</span>(x) <span class="fu">sprintf</span>(<span class="st">&quot;OR %.2f&quot;</span>, x)),</span>
-<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">continuous =</span> <span class="fu">s17_column</span>(fit_cont, <span class="fu">c</span>(<span class="sc">-</span><span class="dv">5</span>, <span class="sc">-</span><span class="dv">10</span>, <span class="sc">-</span><span class="dv">15</span>), <span class="sc">-</span><span class="dv">10</span>, <span class="cf">function</span>(x) <span class="fu">sprintf</span>(<span class="st">&quot;MD %g cells&quot;</span>, x)))</span>
-<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(s17, <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;&quot;</span>, <span class="st">&quot;Binary, odds ratio&quot;</span>, <span class="st">&quot;Continuous, mean difference&quot;</span>),</span>
-<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>             <span class="at">row.names =</span> <span class="cn">FALSE</span>, <span class="at">align =</span> <span class="st">&quot;lrr&quot;</span>,</span>
-<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>             <span class="at">caption =</span> <span class="fu">paste</span>(<span class="st">&quot;This article&#39;s run, at alpha = 0.10. The diagnostic is the family-wise size&quot;</span>,</span>
-<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>                             <span class="st">&quot;of the p* = 0.90 screen as executed, were every candidate to carry a uniform&quot;</span>,</span>
-<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>                             <span class="st">&quot;benefit of c0; at the claim threshold it is a boundary size.&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  tb <span class="ot">&lt;-</span> <span class="fu">fs_declaration_table</span>(fit, <span class="at">alpha =</span> <span class="fl">0.10</span>, <span class="at">c0 =</span> c0_grid, <span class="at">c0_primary =</span> c0_primary)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stopifnot</span>(<span class="fu">identical</span>(<span class="fu">unique</span>(tb<span class="sc">$</span>source[tb<span class="sc">$</span>row <span class="sc">==</span> <span class="st">&quot;c0&quot;</span>]), <span class="st">&quot;capture&quot;</span>))   <span class="co"># read from the fit&#39;s own draws</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">&lt;-</span> tb[tb<span class="sc">$</span>row <span class="sc">==</span> <span class="st">&quot;c0&quot;</span> <span class="sc">&amp;</span> tb<span class="sc">$</span>primary, ]; cl <span class="ot">&lt;-</span> tb[tb<span class="sc">$</span>row <span class="sc">==</span> <span class="st">&quot;claim_threshold&quot;</span>, ]</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(p<span class="sc">$</span>n_region,</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;%.3f / %.3f&quot;</span>, p<span class="sc">$</span>T_region, p<span class="sc">$</span>T_max),</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt_c0</span>(c0_primary),</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, p<span class="sc">$</span>kappa_hat),</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, p<span class="sc">$</span>implied_level),</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, p<span class="sc">$</span>fw_size),</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, cl<span class="sc">$</span>kappa_hat),</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, cl<span class="sc">$</span>fw_size),</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (p<span class="sc">$</span>admits_none) <span class="st">&quot;admits nothing&quot;</span> <span class="cf">else</span> <span class="st">&quot;admits a candidate&quot;</span>)</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>s17_rows <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;Region declared at the default level, N&quot;</span>, <span class="st">&quot;T of the region / largest T in the family&quot;</span>,</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;Primary protected level c0&quot;</span>, <span class="st">&quot;Calibrated cutoff, kappa-hat(c0)&quot;</span>,</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;Implied level, 2 Phi(kappa-hat) - 1&quot;</span>,</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;Diagnostic at the default screen&#39;s cutoff&quot;</span>, <span class="st">&quot;Calibrated cutoff at the claim threshold&quot;</span>,</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;Diagnostic at the claim threshold&quot;</span>, <span class="st">&quot;Calibrated rule, every c0 and the claim threshold&quot;</span>)</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>s17 <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">row =</span> s17_rows,</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">binary =</span> <span class="fu">s17_column</span>(fit_bin, <span class="fu">c</span>(<span class="fl">0.70</span>, <span class="fl">0.75</span>, <span class="fl">0.80</span>, <span class="fl">0.85</span>), <span class="fl">0.75</span>, <span class="cf">function</span>(x) <span class="fu">sprintf</span>(<span class="st">&quot;OR %.2f&quot;</span>, x)),</span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>  <span class="at">continuous =</span> <span class="fu">s17_column</span>(fit_cont, <span class="fu">c</span>(<span class="sc">-</span><span class="dv">5</span>, <span class="sc">-</span><span class="dv">10</span>, <span class="sc">-</span><span class="dv">15</span>), <span class="sc">-</span><span class="dv">10</span>, <span class="cf">function</span>(x) <span class="fu">sprintf</span>(<span class="st">&quot;MD %g cells&quot;</span>, x)))</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(s17, <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;&quot;</span>, <span class="st">&quot;Binary, odds ratio&quot;</span>, <span class="st">&quot;Continuous, mean difference&quot;</span>),</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>             <span class="at">row.names =</span> <span class="cn">FALSE</span>, <span class="at">align =</span> <span class="st">&quot;lrr&quot;</span>,</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>             <span class="at">caption =</span> <span class="fu">paste</span>(<span class="st">&quot;This article&#39;s run, at alpha = 0.10. The diagnostic is the family-wise size&quot;</span>,</span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>                             <span class="st">&quot;of the p* = 0.90 screen as executed, were every candidate to carry a uniform&quot;</span>,</span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>                             <span class="st">&quot;benefit of c0; at the claim threshold it is a boundary size.&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <caption>This article’s run, at alpha = 0.10. The diagnostic is the family-wise size of the p* = 0.90 screen as executed, were every candidate to carry a uniform benefit of c0; at the claim threshold it is a boundary size.</caption>
@@ -3041,7 +3034,7 @@ window.Quarto = {
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>fits_s3 <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">FS =</span> fit_s3_fs, <span class="at">DINA =</span> fit_s3_dina, <span class="at">GRF =</span> fit_s3_grf)</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>secs_s3 <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="at">FS =</span> sec_s3_fs, <span class="at">DINA =</span> sec_s3_dina, <span class="at">GRF =</span> sec_s3_grf)</span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">identical</span>(<span class="fu">in_region</span>(fit_s3_fs, df_bin), in_bin))   <span class="co"># the region of Part 1</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">identical</span>(<span class="fu">fs_in_subgroup</span>(fit_s3_fs, df_bin), in_bin))   <span class="co"># the region of Part 1</span></span>
 <span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (m <span class="cf">in</span> <span class="fu">names</span>(fits_s3)) {</span>
 <span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  gm <span class="ot">&lt;-</span> fits_s3[[m]]<span class="sc">$</span>mr_inference</span>
 <span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%-4s %-38s N %3d   fit %5.1f s (multiplier stage %4.1f s)   family %d</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
@@ -3049,11 +3042,11 @@ window.Quarto = {
 <span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>              gm<span class="sc">$</span>timing_seconds, gm<span class="sc">$</span>n_family))</span>
 <span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; FS   !{cd40 &lt;= 380} &amp; !{wtkg &lt;= 86}         N  72   fit  50.4 s (multiplier stage 10.6 s)   family 2794
-#&gt; DINA {preanti &gt;= 849.40000000000009} &amp; {cd40 &gt;= 338} N  98   fit   2.3 s (multiplier stage  0.7 s)   family 147
-#&gt; GRF  {wtkg &gt; 84.369600000000005} &amp; {cd40 &gt; 368.20000000000005} N  95   fit  16.7 s (multiplier stage  4.9 s)   family 1289</code></pre>
+<pre><code>#&gt; FS   !{cd40 &lt;= 380} &amp; !{wtkg &lt;= 86}         N  72   fit  55.0 s (multiplier stage 11.6 s)   family 2794
+#&gt; DINA {preanti &gt;= 849.40000000000009} &amp; {cd40 &gt;= 338} N  98   fit   2.6 s (multiplier stage  0.8 s)   family 147
+#&gt; GRF  {wtkg &gt; 84.369600000000005} &amp; {cd40 &gt; 368.20000000000005} N  95   fit  17.7 s (multiplier stage  5.2 s)   family 1289</code></pre>
 </div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>agree <span class="ot">&lt;-</span> <span class="fu">in_region</span>(fit_s3_fs, df_bin) <span class="sc">==</span> <span class="fu">in_region</span>(fit_s3_grf, df_bin)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>agree <span class="ot">&lt;-</span> <span class="fu">fs_in_subgroup</span>(fit_s3_fs, df_bin) <span class="sc">==</span> <span class="fu">fs_in_subgroup</span>(fit_s3_grf, df_bin)</span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;FS and GRF classify %d of %d patients alike</span><span class="sc">\n</span><span class="st">&quot;</span>, <span class="fu">sum</span>(agree), <span class="fu">length</span>(agree)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; FS and GRF classify 1060 of 1083 patients alike</code></pre>
@@ -3081,34 +3074,20 @@ window.Quarto = {
 <span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(boot_secs, <span class="dv">1</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt;   FS DINA  GRF 
-#&gt; 42.9 19.1 25.9</code></pre>
+#&gt; 45.1 19.6 26.6</code></pre>
 </div>
 </div>
 </section>
 <section id="naive-bootstrap-and-multiplier-side-by-side" class="level3">
 <h3 class="anchored" data-anchor-id="naive-bootstrap-and-multiplier-side-by-side">Naive, bootstrap and multiplier side by side</h3>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>three_columns <span class="ot">&lt;-</span> <span class="cf">function</span>(method, fit, boot) {</span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  g <span class="ot">&lt;-</span> fit<span class="sc">$</span>mr_inference; cc <span class="ot">&lt;-</span> g<span class="sc">$</span>complement</span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  n_H <span class="ot">&lt;-</span> g<span class="sc">$</span>n_selected; n_Hc <span class="ot">&lt;-</span> cc<span class="sc">$</span>n</span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  f2 <span class="ot">&lt;-</span> <span class="cf">function</span>(e, l, u) <span class="fu">sprintf</span>(<span class="st">&quot;%.2f (%.2f, %.2f)&quot;</span>, e, l, u)</span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
-<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">method =</span> method, <span class="at">region =</span> <span class="fu">c</span>(<span class="st">&quot;H&quot;</span>, <span class="st">&quot;Hc&quot;</span>),</span>
-<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">n =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%d (%d%%)&quot;</span>, <span class="fu">c</span>(n_H, n_Hc), <span class="fu">round</span>(<span class="dv">100</span> <span class="sc">*</span> <span class="fu">c</span>(n_H, n_Hc) <span class="sc">/</span> (n_H <span class="sc">+</span> n_Hc))),</span>
-<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">naive =</span> <span class="fu">c</span>(<span class="fu">f2</span>(g<span class="sc">$</span>naive<span class="sc">$</span>est, g<span class="sc">$</span>naive<span class="sc">$</span>lower, g<span class="sc">$</span>naive<span class="sc">$</span>upper),</span>
-<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>              <span class="fu">f2</span>(cc<span class="sc">$</span>naive<span class="sc">$</span>est, cc<span class="sc">$</span>naive<span class="sc">$</span>lower, cc<span class="sc">$</span>naive<span class="sc">$</span>upper)),</span>
-<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">bootstrap =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.2f&quot;</span>, <span class="fu">c</span>(boot<span class="sc">$</span>H_estimates<span class="sc">$</span>H2, boot<span class="sc">$</span>Hc_estimates<span class="sc">$</span>H2)),</span>
-<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">multiplier =</span> <span class="fu">c</span>(<span class="fu">f2</span>(g<span class="sc">$</span>debiased<span class="sc">$</span>est, g<span class="sc">$</span>debiased<span class="sc">$</span>lower, g<span class="sc">$</span>debiased<span class="sc">$</span>upper),</span>
-<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>                   <span class="fu">f2</span>(cc<span class="sc">$</span>debiased<span class="sc">$</span>est, cc<span class="sc">$</span>debiased<span class="sc">$</span>lower, cc<span class="sc">$</span>debiased<span class="sc">$</span>upper)))</span>
-<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>side_by_side <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, <span class="fu">lapply</span>(<span class="fu">names</span>(fits_s3), <span class="cf">function</span>(m)</span>
-<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">three_columns</span>(m, fits_s3[[m]], boots[[m]])))</span>
-<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a>boot_label <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">&quot;Full bootstrap estimate (B = %d / %d / %d)&quot;</span>,</span>
-<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a>                      B[[<span class="st">&quot;FS&quot;</span>]], B[[<span class="st">&quot;DINA&quot;</span>]], B[[<span class="st">&quot;GRF&quot;</span>]])</span>
-<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(side_by_side, <span class="at">row.names =</span> <span class="cn">FALSE</span>, <span class="at">align =</span> <span class="st">&quot;llrrrr&quot;</span>,</span>
-<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a>             <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;Method&quot;</span>, <span class="st">&quot;SG&quot;</span>, <span class="st">&quot;n (%)&quot;</span>, <span class="st">&quot;Naive&quot;</span>, boot_label, <span class="st">&quot;Multiplier (5,000 draws)&quot;</span>),</span>
-<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a>             <span class="at">caption =</span> <span class="fu">paste</span>(<span class="st">&quot;This article&#39;s run: odds ratios of no CD4 improvement with 95% intervals;&quot;</span>,</span>
-<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a>                             <span class="st">&quot;the bootstrap estimate at a small B, without an interval.&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>side_by_side <span class="ot">&lt;-</span> <span class="fu">mr_method_comparison</span>(fits_s3, boots, <span class="at">est.scale =</span> <span class="st">&quot;hr&quot;</span>, <span class="at">digits =</span> <span class="dv">2</span>)</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>boot_label <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">&quot;Full bootstrap estimate (B = %d / %d / %d)&quot;</span>,</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>                      B[[<span class="st">&quot;FS&quot;</span>]], B[[<span class="st">&quot;DINA&quot;</span>]], B[[<span class="st">&quot;GRF&quot;</span>]])</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(side_by_side, <span class="at">row.names =</span> <span class="cn">FALSE</span>, <span class="at">align =</span> <span class="st">&quot;llrrrr&quot;</span>,</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>             <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;Method&quot;</span>, <span class="st">&quot;SG&quot;</span>, <span class="st">&quot;n (%)&quot;</span>, <span class="st">&quot;Naive&quot;</span>, boot_label, <span class="st">&quot;Multiplier (5,000 draws)&quot;</span>),</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>             <span class="at">caption =</span> <span class="fu">paste</span>(<span class="st">&quot;This article&#39;s run: odds ratios of no CD4 improvement with 95% intervals;&quot;</span>,</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>                             <span class="st">&quot;the bootstrap estimate at a small B, without an interval.&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <caption>This article’s run: odds ratios of no CD4 improvement with 95% intervals; the bootstrap estimate at a small B, without an interval.</caption>
@@ -3281,21 +3260,15 @@ window.Quarto = {
 <section id="the-cost-of-the-two-corrections" class="level3">
 <h3 class="anchored" data-anchor-id="the-cost-of-the-two-corrections">The cost of the two corrections</h3>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>cost <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="fu">names</span>(fits_s3),</span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">mr_seconds =</span> <span class="fu">sapply</span>(fits_s3, <span class="cf">function</span>(f) f<span class="sc">$</span>mr_inference<span class="sc">$</span>timing_seconds),</span>
-<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">bootstrap_B =</span> B[<span class="fu">names</span>(fits_s3)],</span>
-<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">bootstrap_seconds =</span> boot_secs[<span class="fu">names</span>(fits_s3)])</span>
-<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>cost<span class="sc">$</span>seconds_per_replicate <span class="ot">&lt;-</span> cost<span class="sc">$</span>bootstrap_seconds <span class="sc">/</span> cost<span class="sc">$</span>bootstrap_B</span>
-<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>cost<span class="sc">$</span>projected_B_1000 <span class="ot">&lt;-</span> <span class="fu">round</span>(cost<span class="sc">$</span>seconds_per_replicate <span class="sc">*</span> <span class="dv">1000</span>)</span>
-<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>plan_label <span class="ot">&lt;-</span> <span class="cf">if</span> (n_workers <span class="sc">&gt;</span> <span class="dv">1</span>L) <span class="fu">sprintf</span>(<span class="st">&quot;%d workers&quot;</span>, n_workers) <span class="cf">else</span> <span class="st">&quot;one process&quot;</span></span>
-<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(cost, <span class="at">row.names =</span> <span class="cn">FALSE</span>, <span class="at">digits =</span> <span class="dv">2</span>,</span>
-<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>             <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;Method&quot;</span>, <span class="st">&quot;MR (s)&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;bootstrap (s)&quot;</span>, <span class="st">&quot;s per replicate&quot;</span>,</span>
-<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>                           <span class="st">&quot;projected at B = 1,000 (s)&quot;</span>),</span>
-<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>             <span class="at">caption =</span> <span class="fu">sprintf</span>(<span class="fu">paste</span>(</span>
-<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>               <span class="st">&quot;Wall-clock timings from this run: the multiplier stage under the fits&#39;&quot;</span>,</span>
-<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a>               <span class="st">&quot;sequential plan, the bootstrap on %s. The projection is linear in B&quot;</span>,</span>
-<span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a>               <span class="st">&quot;at that worker count.&quot;</span>), plan_label))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>cost <span class="ot">&lt;-</span> <span class="fu">mr_cost_table</span>(fits_s3, boots, <span class="at">boot_seconds =</span> boot_secs)</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>plan_label <span class="ot">&lt;-</span> <span class="cf">if</span> (n_workers <span class="sc">&gt;</span> <span class="dv">1</span>L) <span class="fu">sprintf</span>(<span class="st">&quot;%d workers&quot;</span>, n_workers) <span class="cf">else</span> <span class="st">&quot;one process&quot;</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(cost, <span class="at">row.names =</span> <span class="cn">FALSE</span>, <span class="at">digits =</span> <span class="dv">2</span>,</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>             <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;Method&quot;</span>, <span class="st">&quot;MR (s)&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;bootstrap (s)&quot;</span>, <span class="st">&quot;s per replicate&quot;</span>,</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>                           <span class="st">&quot;projected at B = 1,000 (s)&quot;</span>),</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>             <span class="at">caption =</span> <span class="fu">sprintf</span>(<span class="fu">paste</span>(</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>               <span class="st">&quot;Wall-clock timings from this run: the multiplier stage under the fits&#39;&quot;</span>,</span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>               <span class="st">&quot;sequential plan, the bootstrap on %s. The projection is linear in B&quot;</span>,</span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>               <span class="st">&quot;at that worker count.&quot;</span>), plan_label))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <caption>Wall-clock timings from this run: the multiplier stage under the fits’ sequential plan, the bootstrap on 2 workers. The projection is linear in B at that worker count.</caption>
@@ -3320,27 +3293,27 @@ window.Quarto = {
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">FS</td>
-<td style="text-align: right;">10.58</td>
+<td style="text-align: right;">11.55</td>
 <td style="text-align: right;">25</td>
-<td style="text-align: right;">42.92</td>
-<td style="text-align: right;">1.72</td>
-<td style="text-align: right;">1717</td>
+<td style="text-align: right;">45.07</td>
+<td style="text-align: right;">1.80</td>
+<td style="text-align: right;">1803</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">DINA</td>
-<td style="text-align: right;">0.75</td>
+<td style="text-align: right;">0.84</td>
 <td style="text-align: right;">25</td>
-<td style="text-align: right;">19.14</td>
-<td style="text-align: right;">0.77</td>
-<td style="text-align: right;">766</td>
+<td style="text-align: right;">19.63</td>
+<td style="text-align: right;">0.79</td>
+<td style="text-align: right;">785</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">GRF</td>
-<td style="text-align: right;">4.89</td>
+<td style="text-align: right;">5.17</td>
 <td style="text-align: right;">10</td>
-<td style="text-align: right;">25.91</td>
-<td style="text-align: right;">2.59</td>
-<td style="text-align: right;">2591</td>
+<td style="text-align: right;">26.58</td>
+<td style="text-align: right;">2.66</td>
+<td style="text-align: right;">2658</td>
 </tr>
 </tbody>
 </table>
@@ -3371,7 +3344,7 @@ window.Quarto = {
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; R version 4.6.1 (2026-06-24)
+<pre><code>#&gt; R version 4.6.2 (2026-10-29)
 #&gt; Platform: x86_64-pc-linux-gnu
 #&gt; Running under: Pop!_OS 24.04 LTS
 #&gt; 
@@ -3394,21 +3367,21 @@ window.Quarto = {
 #&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     
 #&gt; 
 #&gt; other attached packages:
-#&gt; [1] future_1.80.0      forestsearch_0.4.1
+#&gt; [1] future_1.80.0           forestsearch_0.4.1.9002
 #&gt; 
 #&gt; loaded via a namespace (and not attached):
 #&gt;  [1] gt_1.4.0             generics_0.1.4       xml2_1.6.0          
 #&gt;  [4] shape_1.4.6.1        lattice_0.23-1       listenv_1.1.0       
 #&gt;  [7] digest_0.6.39        magrittr_2.0.5       grf_2.6.1           
-#&gt; [10] evaluate_1.0.5       grid_4.6.1           RColorBrewer_1.1-3  
+#&gt; [10] evaluate_1.0.5       grid_4.6.2           RColorBrewer_1.1-3  
 #&gt; [13] iterators_1.0.14     policytree_1.2.5     mvtnorm_1.4-2       
 #&gt; [16] fastmap_1.2.0        foreach_1.5.2        jsonlite_2.0.0      
 #&gt; [19] Matrix_1.7-6         glmnet_5.1           survival_3.8-12     
 #&gt; [22] scales_1.4.0         weightedsurv_0.1.0   codetools_0.2-20    
 #&gt; [25] cli_3.6.6            rlang_1.3.0          parallelly_1.48.0   
-#&gt; [28] future.apply_1.21.0  leaps_3.2            splines_4.6.1       
-#&gt; [31] yaml_2.3.12          otel_0.2.0           tools_4.6.1         
-#&gt; [34] parallel_4.6.1       doFuture_1.4.0       dplyr_1.2.1         
+#&gt; [28] future.apply_1.21.0  leaps_3.2            splines_4.6.2       
+#&gt; [31] yaml_2.3.12          otel_0.2.0           tools_4.6.2         
+#&gt; [34] parallel_4.6.2       doFuture_1.4.0       dplyr_1.2.1         
 #&gt; [37] ggplot2_4.0.3        globals_0.20.0       vctrs_0.7.3         
 #&gt; [40] R6_2.6.1             lifecycle_1.0.5      randomForest_4.7-1.2
 #&gt; [43] fs_2.1.0             htmlwidgets_1.6.4    speff2trial_1.0.5   
@@ -3417,7 +3390,7 @@ window.Quarto = {
 #&gt; [52] Rcpp_1.1.2           xfun_0.62            tibble_3.3.1        
 #&gt; [55] tidyselect_1.2.1     knitr_1.52           farver_2.1.2        
 #&gt; [58] patchwork_1.3.2      htmltools_0.5.9      rmarkdown_2.32      
-#&gt; [61] compiler_4.6.1       S7_0.2.2</code></pre>
+#&gt; [61] compiler_4.6.2       S7_0.2.2</code></pre>
 </div>
 </div>
 </section>
