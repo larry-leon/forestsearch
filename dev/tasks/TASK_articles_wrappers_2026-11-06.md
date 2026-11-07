@@ -135,3 +135,18 @@ replaced with before/after line counts; every prose edit quoted; removed scaffol
 assertions with their covering batch gate; the volatile set; the Gate R token comparison
 (counts compared, zero non-volatile differences); the protected-check inventory with
 before/after `stopifnot` counts. Plus the Stage 3 record and the commit list. No push.
+
+## Amendment 2 (2026-11-06, received in chat, verbatim)
+
+Amendment 2 to TASK_articles_wrappers_2026-11-06.md: track ALL four HTML
+renders, survival-post-selection.html included.
+1. Check whether it is untracked by an explicit .gitignore rule or simply
+   never added. If a rule excludes it, lift that rule for this file only
+   (one-line .gitignore edit, permitted by this amendment).
+2. After Gate R passes, commit its Gate-R render in its own commit, same
+   pattern as the other three.
+3. Stage 3 confinement is amended accordingly: the permitted change set
+   now includes the four tracked HTML files (and .gitignore if item 1
+   required it).
+4. Record the finding (rule vs omission) and this amendment in the report.
+Everything else unchanged.
