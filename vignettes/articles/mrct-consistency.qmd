@@ -225,7 +225,11 @@ In S2, the cell that produced replicate 5:
 - **effects** — $b = 0.55$ outside $H^*$, $h = 2$ inside it;
 - **region** — about 20% of patients, planted by a logistic model with odds ratio 3 on symptomatic
   status and no CD4 term, with prognostic shift $r = -\log 4$;
-- **hazard scale** — all hazards multiplied by 3;
+- **hazard scale** — all hazards multiplied by 3: the Weibull fit to ACTG 175 carries that trial's
+  own event rate, roughly 20–30% of patients within the 40-month window, and the multiplier raises
+  the design to about 40%, nearer a modern trial's event rate. It rescales event frequency only:
+  every patient's hazard ratio — and with it $b$, $h$, and each set's AHR and CDE — is exactly as
+  set (the windowed Cox limits do move, since the window sits later on the faster clock);
 - **the trial** — $n = 1{,}000$ patients, 1:1, entry uniform over 11 months, analysed at 40 months,
   with administrative censoring only.
 
@@ -279,10 +283,14 @@ Seven design probabilities follow from four of them, built from three events:
 
 The named rows:
 
-- **consistency** = $A \setminus B$;
-- **non-consistency (the trigger)** = $A \cap B$;
-- **oracle consistency (the oracle joint)** = $A \cap B \cap C^*$;
-- **row (7)** adds the two routes to consistency.
+- **consistency** = $A \setminus B$ — the standard pathway: the trial is positive and the region is
+  not above 1.0;
+- **non-consistency (the trigger)** = $A \cap B$ — the standard pathway fails, and the investigation
+  begins;
+- **oracle consistency (the oracle joint)** = $A \cap B \cap C^*$ — the subgroup pathway, in its
+  oracle form: the trigger occurs and removing $H^*$ exactly leaves the region below 1.0;
+- **row (7)** — the two routes together: consistency and oracle consistency are mutually exclusive
+  (the region is above 1.0 in one and not the other), so their probabilities add.
 
 ```{r pre-table}
 #| code-fold: show

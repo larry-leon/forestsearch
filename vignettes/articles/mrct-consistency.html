@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="ForestSearch Package">
-<meta name="dcterms.date" content="2026-11-06">
+<meta name="dcterms.date" content="2026-11-07">
 
 <title>MRCT regional consistency via subgroup identification</title>
 <style>
@@ -2393,7 +2393,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">November 6, 2026</p>
+      <p class="date">November 7, 2026</p>
     </div>
   </div>
   
@@ -2554,7 +2554,7 @@ window.Quarto = {
 <ul>
 <li><strong>effects</strong> — <span class="math inline">\(b = 0.55\)</span> outside <span class="math inline">\(H^*\)</span>, <span class="math inline">\(h = 2\)</span> inside it;</li>
 <li><strong>region</strong> — about 20% of patients, planted by a logistic model with odds ratio 3 on symptomatic status and no CD4 term, with prognostic shift <span class="math inline">\(r = -\log 4\)</span>;</li>
-<li><strong>hazard scale</strong> — all hazards multiplied by 3;</li>
+<li><strong>hazard scale</strong> — all hazards multiplied by 3: the Weibull fit to ACTG 175 carries that trial’s own event rate, roughly 20–30% of patients within the 40-month window, and the multiplier raises the design to about 40%, nearer a modern trial’s event rate. It rescales event frequency only: every patient’s hazard ratio — and with it <span class="math inline">\(b\)</span>, <span class="math inline">\(h\)</span>, and each set’s AHR and CDE — is exactly as set (the windowed Cox limits do move, since the window sits later on the faster clock);</li>
 <li><strong>the trial</strong> — <span class="math inline">\(n = 1{,}000\)</span> patients, 1:1, entry uniform over 11 months, analysed at 40 months, with administrative censoring only.</li>
 </ul>
 <p>The full build, the other cells and the checks against the committed record are in the companion article <a href="mrct-consistency-simulations.html">mrct-consistency-simulations</a>.</p>
@@ -2610,10 +2610,10 @@ window.Quarto = {
 </ul>
 <p>The named rows:</p>
 <ul>
-<li><strong>consistency</strong> = <span class="math inline">\(A \setminus B\)</span>;</li>
-<li><strong>non-consistency (the trigger)</strong> = <span class="math inline">\(A \cap B\)</span>;</li>
-<li><strong>oracle consistency (the oracle joint)</strong> = <span class="math inline">\(A \cap B \cap C^*\)</span>;</li>
-<li><strong>row (7)</strong> adds the two routes to consistency.</li>
+<li><strong>consistency</strong> = <span class="math inline">\(A \setminus B\)</span> — the standard pathway: the trial is positive and the region is not above 1.0;</li>
+<li><strong>non-consistency (the trigger)</strong> = <span class="math inline">\(A \cap B\)</span> — the standard pathway fails, and the investigation begins;</li>
+<li><strong>oracle consistency (the oracle joint)</strong> = <span class="math inline">\(A \cap B \cap C^*\)</span> — the subgroup pathway, in its oracle form: the trigger occurs and removing <span class="math inline">\(H^*\)</span> exactly leaves the region below 1.0;</li>
+<li><strong>row (7)</strong> — the two routes together: consistency and oracle consistency are mutually exclusive (the region is above 1.0 in one and not the other), so their probabilities add.</li>
 </ul>
 <div class="cell">
 <details open class="code-fold">
@@ -2879,7 +2879,7 @@ window.Quarto = {
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>          seconds  candidate_family            n_Hhat n_Hhat_complement 
-             52.2            3003.0              73.0             733.0 </code></pre>
+             51.7            3003.0              73.0             733.0 </code></pre>
 </div>
 <details open class="code-fold">
 <summary>Code</summary>
@@ -3716,7 +3716,7 @@ Multiplier resampling (field, 2000 draws):
 </details>
 </div>
 <p><em>With your trial:</em> your column names, your covariates in <code>fs_args$confounders.name</code> and your seed in <code>mr_inference_args</code>, without <code>truth.name</code>. <code>$stage</code> says how far the pipeline went (<code>not_positive</code>, <code>no_trigger</code>, <code>no_declaration</code> or <code>complete</code>), and none of these is an error; <code>plot()</code> on the result draws the two figures of step 4, and <code>mr_values()</code> and <code>mr_estimates_table()</code> read its <code>$fs</code>.</p>
-<p>The article took 2.8 minutes to run.</p>
+<p>The article took 2.7 minutes to run.</p>
 </section>
 </section>
 
