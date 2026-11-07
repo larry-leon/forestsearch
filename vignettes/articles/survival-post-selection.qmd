@@ -305,23 +305,7 @@ only: at this B its interval is not a result (the package's own table above
 shows what the machinery returns for it).
 
 ```{r three-columns}
-three_columns <- function(method, fit, boot) {
-  g <- fit$mr_inference; cc <- g$complement
-  n_H <- g$n_selected; n_Hc <- cc$n
-  f2 <- function(e, l, u) sprintf("%.2f (%.2f, %.2f)", e, l, u)
-  data.frame(
-    method = method, region = c("H", "Hc"),
-    n = c(sprintf("%d (%d%%)", n_H, round(100 * n_H / (n_H + n_Hc))),
-          sprintf("%d (%d%%)", n_Hc, round(100 * n_Hc / (n_H + n_Hc)))),
-    naive = c(f2(g$naive$est, g$naive$lower, g$naive$upper),
-              f2(cc$naive$est, cc$naive$lower, cc$naive$upper)),
-    bootstrap = sprintf("%.2f", c(boot$H_estimates$H2, boot$Hc_estimates$H2)),
-    multiplier = c(f2(g$debiased$est, g$debiased$lower, g$debiased$upper),
-                   f2(cc$debiased$est, cc$debiased$lower, cc$debiased$upper)))
-}
-side_by_side <- rbind(three_columns("FS", fit_fs, boots$FS),
-                      three_columns("DINA", fit_dina, boots$DINA),
-                      three_columns("GRF", fit_grf, boots$GRF))
+side_by_side <- mr_method_comparison(fits, boots, est.scale = "hr", digits = 2)
 boot_label <- sprintf("Full bootstrap estimate (B = %d / %d / %d)",
                       B[["FS"]], B[["DINA"]], B[["GRF"]])
 knitr::kable(side_by_side, row.names = FALSE, align = "llrrrr",
@@ -380,13 +364,7 @@ gd <- fit_dina$mr_inference; gg <- fit_grf$mr_inference
 ### The cost of the two corrections
 
 ```{r cost}
-cost <- data.frame(
-  method = names(fits),
-  mr_seconds = sapply(fits, function(f) f$mr_inference$timing_seconds),
-  bootstrap_B = B[names(fits)],
-  bootstrap_seconds = boot_secs[names(fits)])
-cost$seconds_per_replicate <- cost$bootstrap_seconds / cost$bootstrap_B
-cost$projected_B_1000 <- round(cost$seconds_per_replicate * 1000)
+cost <- mr_cost_table(fits, boots, boot_seconds = boot_secs)
 plan_label <- if (n_workers > 1L) sprintf("%d workers", n_workers) else "one process"
 knitr::kable(cost, row.names = FALSE, digits = 2,
              col.names = c("Method", "MR (s)", "B", "bootstrap (s)", "s per replicate",
