@@ -137,9 +137,14 @@ estimate.
 
 We consider two explanations for the trigger:
 
-- **a region-specific effect** — the region differs in its treatment effect; or
-- **a trial-wide harmed subgroup** — present in every region, with the region's estimate pulled up
-  by it (the region's prognosis and the finite follow-up window shaping how far).
+- **a trial-wide harmed subgroup** — the explanation this article's analysis pursues: a subgroup
+  present in every region, with the region's estimate pulled up by it (the region's prognosis and
+  the finite follow-up window shaping how far);
+- **a region-specific effect** — the region differs in its treatment effect. The analysis approach
+  does not pursue this explanation; it enters through the extension of @sec-dgm-overview, whose
+  configurations with no regional treatment benefit ($b_R = 1.0$) quantify how often the strategy
+  explains a trigger that a region-specific effect produced — the false-positive rate of the
+  subgroup pathway (the accompanying manuscript's region-interaction cells).
 
 The question is whether a
 subgroup identified on the non-region patients can account for the regional result: if removing it from the
@@ -161,8 +166,9 @@ hypothetical: about 20% of patients, planted in a simulated population by a logi
   region, it is planted by a model. With a trial that has an observed region, the observed region is
   carried into the data-generating mechanism instead (the simulations article).
 
-Replicate 5 of S2, the case study, is one simulated trial. From the point at which its data are read
-(@sec-case), it is analysed exactly as a real trial would be.
+Replicate 5 of S2 (the simulation cell defined in @sec-dgm-overview), the case study, is one
+simulated trial. From the point at which its data are read (@sec-case), it is analysed exactly as a
+real trial would be.
 :::
 
 ## The data-generating mechanism {#sec-dgm-overview}
@@ -275,11 +281,14 @@ c(region_prognostic_loghr = r_pre, generating_r = -log(4),
   build_warnings = length(w_pre), seconds = round(t_pre, 1))
 ```
 
-Seven design probabilities follow from four of them, built from three events:
+Seven design probabilities follow from four of them, built from three events (the manuscript's full
+event notation is reproduced in the [appendix](#sec-event-notation)):
 
-- $A$ = {ITT ub < 1.0} — the trial is positive;
-- $B$ = {region ITT > 1.0} — the region's point estimate is unfavourable;
-- $C^*$ = {region($G^*$) < 1.0} — removing $H^*$ exactly leaves the region's estimate below 1.0.
+- $A$ = {ITT ub < 1.0} — the trial is positive (the manuscript's $\mathrm{ITT}^+$);
+- $B$ = {region ITT > 1.0} — the region's point estimate is unfavourable (the manuscript's
+  $\mathrm{R}^-$);
+- $C^*$ = {region($G^*$) < 1.0} — removing $H^*$ exactly leaves the region's estimate below 1.0 (the
+  manuscript's $\mathrm{R}(G^*)^+$).
 
 The named rows:
 
@@ -340,6 +349,14 @@ campaign will have few triggered trials to summarise.
    **joint**. Record, as the oracle, whether region($G^*$) < 1.0, with $G^*$ = region minus the true
    harmed subgroup $H^*$. In simulation, also record the sensitivity and specificity of $\hat H$
    against $H^*$ on both sides.
+
+::: {.callout-tip}
+## The pipeline in one call
+
+@sec-case runs the five steps one at a time, each call visible. `mrct_trial_analysis()` runs the
+same pipeline in one call — @sec-one-call shows it on the case study and checks it against the
+step-by-step objects.
+:::
 
 $\hat H$ is learned on the non-region patients only and applied to the region, whose outcomes the
 identifier never sees: the region is a held-out test set, and its Cox fits on the whole region and
@@ -651,21 +668,60 @@ their limits; that needs the simulation design, and is in the simulations articl
 
 ## The S2 campaign in brief {#sec-case-campaign}
 
-Replicate 5 is one trial of S2. The campaign ran 10,000 trials of the same design (the simulations article); the table
-gives how often each step of the pipeline above went the same way. The numbers are read from the
-campaign's records, shipped with the package.
+Replicate 5 is one trial of S2. The campaign ran 10,000 trials of the same design (the simulations
+article). The first table gives the campaign-observed counterparts of the analytic rows of
+@sec-predictions — unconditional, over all trials; the second follows the pipeline of this section,
+conditional on the trigger where its denominators say so. The numbers are read from the campaign's
+records, shipped with the package.
 
 ```{r case-campaign}
 cc_core <- mrct_record("core_full_numeric.csv")
 cc_core <- cc_core[cc_core$setting == "S2_rmlog4", ]
-cc_mr <- mrct_record("mr_field_core.csv")
+cc_disp <- mrct_record("core_n1000.csv")
+stopifnot(nrow(cc_core) == 1, cc_core$replicates == 10000)
+# the trial-positive count, from the display record's first row for S2 ("...; N of M)")
+r1 <- cc_disp$value[cc_disp$row == "r1" & cc_disp$column == "S2"]
+n_A <- as.numeric(gsub(",", "", sub("^.*; ([0-9,]+) of [0-9,]+\\)$", "\\1", r1)))
+reps <- cc_core$replicates
+n_trig <- cc_core$n_trigger
+n_orac <- cc_core$n_Gstar_lt1
+n_dcl  <- cc_core$n_declared_Ghat_lt1
+stopifnot(length(n_A) == 1, !is.na(n_A), n_trig <= n_A, n_orac <= n_trig, n_dcl <= n_trig)
+# row (2), over all trials: the entry-cells record's S2 column is this campaign (three shared counts checked)
 cc_ent <- mrct_record("entry_cells_core_numeric.csv")
 cc_ev <- function(q) cc_ent$S2[cc_ent$quantity == q]
-stopifnot(nrow(cc_core) == 1, sum(cc_mr$row == "lb_100") == 1,
+n_B <- round(cc_ev("p_region_itt_gt1") * reps)
+stopifnot(cc_ev("n_trials") == reps, near(cc_ev("p_region_itt_gt1") * reps, n_B), n_trig <= n_B,
+          near(c(cc_ev("p_itt_ub_lt1"), cc_ev("p_trigger"), cc_ev("p_trigger_Gstar_lt1")) * reps,
+               c(n_A, n_trig, n_orac)))
+counts <- c(n_A, n_A - n_trig, n_trig, n_orac, n_trig - n_orac,
+            (n_A - n_trig) + n_orac, n_dcl, (n_A - n_trig) + n_dcl)
+obs <- counts / reps
+# identities by construction: (3)+(4)=(1), (5)+(6)=(4), (3)+(5)=(7), (3)+(8)=(9)
+stopifnot(near(obs[2] + obs[3], obs[1], 1e-12), near(obs[4] + obs[5], obs[3], 1e-12),
+          near(obs[2] + obs[4], obs[6], 1e-12), near(obs[2] + obs[7], obs[8], 1e-12))
+lab_obs <- c("(1) P(ITT ub < 1.0): the trial is positive",
+             "(3) P(consistency): positive, region ITT ≤ 1.0",
+             "(4) P(non-consistency): the trigger",
+             "(5) P(oracle consistency): the oracle joint",
+             "(6) P(oracle non-consistency)",
+             "(7) P(consistency or oracle consistency)",
+             "(8) P̂(declared consistency)",
+             "(9) P̂(consistency or declared consistency)")
+knitr::kable(data.frame(row = append(lab_obs, "(2) P(region ITT > 1.0)", after = 1),
+                        `campaign-observed` = append(sprintf("%s (%s)", f3(obs), big(counts)),
+                                                     sprintf("%s (%s)", f3(n_B / reps), big(n_B)), after = 1),
+                        check.names = FALSE),
+             row.names = FALSE, align = "lr",
+             caption = "S2 at n = 1,000, campaign-observed over 10,000 trials; rows as in @sec-predictions, identities asserted.")
+```
+
+```{r case-campaign-pipeline}
+cc_mr <- mrct_record("mr_field_core.csv")
+stopifnot(sum(cc_mr$row == "lb_100") == 1,
           sum(cc_ent$quantity %in% c("trigger_n", "joint", "Ghat_region")) == 3)
 camp <- list(
-  reps = cc_core$replicates, n_trig = cc_core$n_trigger, n_decl = cc_core$n_declared,
-  n_joint = cc_core$n_declared_Ghat_lt1,
+  reps = reps, n_trig = n_trig, n_decl = cc_core$n_declared, n_joint = n_dcl,
   lb100 = as.numeric(cc_mr$S2[cc_mr$row == "lb_100"]),
   ghat_reg = cc_ev("Ghat_region"))
 camp$p_trig <- 100 * camp$n_trig / camp$reps
@@ -689,14 +745,19 @@ knitr::kable(
     of = c(sprintf("all trials (%s)", big(camp$reps)), "triggered trials", "declared triggered trials",
            "triggered trials", "declared triggered trials")),
   align = "lrl",
-  caption = "S2 at n = 1,000, 10,000 trials: the pipeline of this section, as often as it went each way.")
+  caption = "Conditional on the trigger: the pipeline of this section, as often as it went each way (each row's denominator stated).")
 ```
 
-About one S2 trial in four reached the trigger (`r pc1(camp$p_trig)`%). In the triggered trials a subgroup was
-declared in `r big(camp$n_decl)` of `r big(camp$n_trig)`, region(Ĝ) was below 1.0 in about half (`r pc1(camp$p_joint)`%), and Ĝ kept on average
-`r pc1(camp$ghat_reg)`% of the region's patients. The field lower bound for Ĥ was above 1.0 in `r pc1(camp$lb100)`% of the declared
-triggered trials; in the others it lies below 1.0, and it is read by its location, as for replicate 5
-in step 5. Replicate 5 is one of the triggered trials with region(Ĝ) < 1.0.
+Read unconditionally: the trial is positive in `r f3(obs[1])` of trials; consistency holds outright
+in `r f3(obs[2])`, and the trigger occurs in `r f3(obs[3])` — about one S2 trial in four. The oracle
+resolution holds in `r f3(obs[4])` of all trials (row 5) and the declared subgroup's in
+`r f3(obs[7])` (row 8), so the two routes together give `r f3(obs[6])` by the oracle pathway and
+`r f3(obs[8])` by the declared pathway (rows 7 and 9). Conditional on the trigger: a subgroup was
+declared in `r big(camp$n_decl)` of `r big(camp$n_trig)` triggered trials, region(Ĝ) was below 1.0
+in about half (`r pc1(camp$p_joint)`%), and Ĝ kept on average `r pc1(camp$ghat_reg)`% of the
+region's patients. The field lower bound for Ĥ was above 1.0 in `r pc1(camp$lb100)`% of the declared
+triggered trials; in the others it lies below 1.0, and it is read by its location, as for replicate
+5 in step 5. Replicate 5 is one of the triggered trials with region(Ĝ) < 1.0.
 
 ## The one-call form {#sec-one-call}
 
@@ -734,3 +795,25 @@ stopifnot(identical(one_call$Hhat, Hhat_def), identical(one_call$in_Hhat, in_Hha
 the two figures of step 4, and `mr_values()` and `mr_estimates_table()` read its `$fs`.
 
 The article took `r round((proc.time()[["elapsed"]] - t_article) / 60, 1)` minutes to run.
+
+# Appendix: the manuscript's event notation {#sec-event-notation .unnumbered}
+
+The accompanying manuscript collects the design's events in its Table 1, reproduced here; a
+superscript $+$ ($-$) marks a point estimate or bound in (opposite to) the direction of consistency.
+This article's $A$, $B$ and $C^*$ are $\mathrm{ITT}^+$, $\mathrm{R}^-$ and $\mathrm{R}(G^*)^+$.
+
+| Event | Definition | Reading |
+|---|---|---|
+| *Primitive events* | | |
+| $\mathrm{ITT}^+$ | {ITT 95% upper bound < 1.0} | The trial is positive |
+| $\mathrm{R}^-$, $\mathrm{R}^+$ | {region ITT > 1.0}, {region ITT $\le$ 1.0} | Region point estimate opposite to, in, the direction of consistency |
+| $\mathrm{R}(G^*)^-$, $\mathrm{R}(G^*)^+$ | {region($G^*$) > 1.0}, {region($G^*$) $\le$ 1.0} | Likewise, for the region outside the true subgroup $H^*$ |
+| $\mathrm{R}(\hat G)^+$ | {subgroup declared, region($\hat G$) < 1.0} | The declared resolution is in the consistent direction |
+| *Named events* | | |
+| consistency | $\mathrm{ITT}^+ \cap \mathrm{R}^+$ | Positive trial, region in the consistent direction — the standard pathway |
+| non-consistency | $\mathrm{ITT}^+ \cap \mathrm{R}^-$ | Positive trial, region opposite — the trigger for subgroup identification |
+| oracle consistency | $\mathrm{ITT}^+ \cap \mathrm{R}^- \cap \mathrm{R}(G^*)^+$ | Non-consistency resolved by the true subgroup |
+| oracle non-consistency | $\mathrm{ITT}^+ \cap \mathrm{R}^- \cap \mathrm{R}(G^*)^-$ | Non-consistency persisting under the oracle resolution |
+| declared consistency | $\mathrm{ITT}^+ \cap \mathrm{R}^- \cap \mathrm{R}(\hat G)^+$ | Non-consistency resolved by the declared subgroup |
+
+: The manuscript's Table 1: event notation.

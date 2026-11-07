@@ -2368,6 +2368,7 @@ window.Quarto = {
   <li><a href="#sec-case-campaign" id="toc-sec-case-campaign" class="nav-link" data-scroll-target="#sec-case-campaign"><span class="header-section-number">2.6</span> The S2 campaign in brief</a></li>
   <li><a href="#sec-one-call" id="toc-sec-one-call" class="nav-link" data-scroll-target="#sec-one-call"><span class="header-section-number">2.7</span> The one-call form</a></li>
   </ul></li>
+  <li><a href="#sec-event-notation" id="toc-sec-event-notation" class="nav-link" data-scroll-target="#sec-event-notation">Appendix: the manuscript’s event notation</a></li>
   </ul>
 </nav>
 </div>
@@ -2505,8 +2506,8 @@ window.Quarto = {
 <p>A global trial meets its primary endpoint: the upper 95% limit of the all-patient Cox hazard ratio is below 1.0 (<strong>ITT ub &lt; 1.0</strong>). One region, about a fifth of the patients, has a Cox point estimate above 1.0 (<strong>region ITT &gt; 1.0</strong>). The pair, in the same trial, is the <strong>trigger</strong>: the regional consistency failure as it presents in oncology multiregional trials. Region ITT &gt; 1.0 describes a point estimate.</p>
 <p>We consider two explanations for the trigger:</p>
 <ul>
-<li><strong>a region-specific effect</strong> — the region differs in its treatment effect; or</li>
-<li><strong>a trial-wide harmed subgroup</strong> — present in every region, with the region’s estimate pulled up by it (the region’s prognosis and the finite follow-up window shaping how far).</li>
+<li><strong>a trial-wide harmed subgroup</strong> — the explanation this article’s analysis pursues: a subgroup present in every region, with the region’s estimate pulled up by it (the region’s prognosis and the finite follow-up window shaping how far);</li>
+<li><strong>a region-specific effect</strong> — the region differs in its treatment effect. The analysis approach does not pursue this explanation; it enters through the extension of <a href="#sec-dgm-overview" class="quarto-xref">Section 1.2</a>, whose configurations with no regional treatment benefit (<span class="math inline">\(b_R = 1.0\)</span>) quantify how often the strategy explains a trigger that a region-specific effect produced — the false-positive rate of the subgroup pathway (the accompanying manuscript’s region-interaction cells).</li>
 </ul>
 <p>The question is whether a subgroup identified on the non-region patients can account for the regional result: if removing it from the region leaves a Cox estimate below 1.0, the regional result is compatible with a trial-wide subgroup and does not by itself point to a region-specific effect. The strategy is <strong>signal generation, not confirmation</strong>.</p>
 <div class="callout callout-style-default callout-important callout-titled">
@@ -2524,7 +2525,7 @@ window.Quarto = {
 <li><strong>In a real analysis</strong> the region is an observed column of the trial data and nothing about it is modelled. The trial is split into the region’s patients and the rest; the identifier runs on the rest; the declared rule is applied to the region.</li>
 <li><strong>In simulation</strong> the region has to be generated together with the patients. Here, with no observed region, it is planted by a model. With a trial that has an observed region, the observed region is carried into the data-generating mechanism instead (the simulations article).</li>
 </ul>
-<p>Replicate 5 of S2, the case study, is one simulated trial. From the point at which its data are read (<a href="#sec-case" class="quarto-xref">Section 2</a>), it is analysed exactly as a real trial would be.</p>
+<p>Replicate 5 of S2 (the simulation cell defined in <a href="#sec-dgm-overview" class="quarto-xref">Section 1.2</a>), the case study, is one simulated trial. From the point at which its data are read (<a href="#sec-case" class="quarto-xref">Section 2</a>), it is analysed exactly as a real trial would be.</p>
 </div>
 </div>
 </section>
@@ -2602,11 +2603,11 @@ window.Quarto = {
                1.100000 </code></pre>
 </div>
 </div>
-<p>Seven design probabilities follow from four of them, built from three events:</p>
+<p>Seven design probabilities follow from four of them, built from three events (the manuscript’s full event notation is reproduced in the <a href="#sec-event-notation">appendix</a>):</p>
 <ul>
-<li><span class="math inline">\(A\)</span> = {ITT ub &lt; 1.0} — the trial is positive;</li>
-<li><span class="math inline">\(B\)</span> = {region ITT &gt; 1.0} — the region’s point estimate is unfavourable;</li>
-<li><span class="math inline">\(C^*\)</span> = {region(<span class="math inline">\(G^*\)</span>) &lt; 1.0} — removing <span class="math inline">\(H^*\)</span> exactly leaves the region’s estimate below 1.0.</li>
+<li><span class="math inline">\(A\)</span> = {ITT ub &lt; 1.0} — the trial is positive (the manuscript’s <span class="math inline">\(\mathrm{ITT}^+\)</span>);</li>
+<li><span class="math inline">\(B\)</span> = {region ITT &gt; 1.0} — the region’s point estimate is unfavourable (the manuscript’s <span class="math inline">\(\mathrm{R}^-\)</span>);</li>
+<li><span class="math inline">\(C^*\)</span> = {region(<span class="math inline">\(G^*\)</span>) &lt; 1.0} — removing <span class="math inline">\(H^*\)</span> exactly leaves the region’s estimate below 1.0 (the manuscript’s <span class="math inline">\(\mathrm{R}(G^*)^+\)</span>).</li>
 </ul>
 <p>The named rows:</p>
 <ul>
@@ -2691,6 +2692,19 @@ window.Quarto = {
 <li>Apply <span class="math inline">\(\hat H\)</span> inside the region; <span class="math inline">\(\hat G\)</span> = region minus <span class="math inline">\(\hat H\)</span>. Fit the region’s Cox model on <span class="math inline">\(\hat G\)</span>.</li>
 <li>Record whether region(<span class="math inline">\(\hat G\)</span>) &lt; 1.0; the trigger together with region(<span class="math inline">\(\hat G\)</span>) &lt; 1.0 is <strong>joint</strong>. Record, as the oracle, whether region(<span class="math inline">\(G^*\)</span>) &lt; 1.0, with <span class="math inline">\(G^*\)</span> = region minus the true harmed subgroup <span class="math inline">\(H^*\)</span>. In simulation, also record the sensitivity and specificity of <span class="math inline">\(\hat H\)</span> against <span class="math inline">\(H^*\)</span> on both sides.</li>
 </ol>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>The pipeline in one call
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><a href="#sec-case" class="quarto-xref">Section 2</a> runs the five steps one at a time, each call visible. <code>mrct_trial_analysis()</code> runs the same pipeline in one call — <a href="#sec-one-call" class="quarto-xref">Section 2.7</a> shows it on the case study and checks it against the step-by-step objects.</p>
+</div>
+</div>
 <p><span class="math inline">\(\hat H\)</span> is learned on the non-region patients only and applied to the region, whose outcomes the identifier never sees: the region is a held-out test set, and its Cox fits on the whole region and on <span class="math inline">\(\hat G\)</span> are ordinary Wald fits on sets defined by a fixed rule. The hold-out removes one selection, not two: the region’s fits carry no bias from a search their outcomes never entered, but the pipeline itself runs only when the region’s estimate is already above 1.0, so everything after step 2 is conditioned on an unfavourable regional draw. That conditioning is why the strategy stays signal generation: the null cells of the simulations article show how often it “explains” a trigger with nothing to find. The non-region estimate inside <span class="math inline">\(\hat H\)</span> is selected; <a href="#sec-rep5-mr" class="quarto-xref">Section 2.3</a> bounds it by multiplier resampling.</p>
 <table class="caption-top table">
 <caption>Labels used throughout.</caption>
@@ -2879,7 +2893,7 @@ window.Quarto = {
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>          seconds  candidate_family            n_Hhat n_Hhat_complement 
-             51.7            3003.0              73.0             733.0 </code></pre>
+             53.6            3003.0              73.0             733.0 </code></pre>
 </div>
 <details open class="code-fold">
 <summary>Code</summary>
@@ -2889,7 +2903,7 @@ window.Quarto = {
 <pre><code>[1] &quot;{z_cd40 &lt;= 236} &amp; !{z_preanti &lt;= 196}&quot;</code></pre>
 </div>
 </div>
-<p><span class="math inline">\(\hat H\)</span> is <code>{z_cd40 &lt;= 236} &amp; !{z_preanti &lt;= 196}</code> (<code>!{…}</code> is the complement): CD4 <span class="math inline">\(\le\)</span> 236 and prior ART over 196 days. The call took 52 seconds on one thread. <em>With your trial:</em> <code>df.analysis</code> and <code>df.test</code> are your non-region and region rows; your column names go in <code>outcome.name</code>, <code>event.name</code>, <code>treat.name</code> and <code>id.name</code>, your covariates in <code>confounders.name</code>, and those of your continuous covariates to be cut at deciles in <code>conf.cont_jcuts</code>; the other arguments are the identifier’s settings used throughout this article, and <code>seed</code> is yours.</p>
+<p><span class="math inline">\(\hat H\)</span> is <code>{z_cd40 &lt;= 236} &amp; !{z_preanti &lt;= 196}</code> (<code>!{…}</code> is the complement): CD4 <span class="math inline">\(\le\)</span> 236 and prior ART over 196 days. The call took 54 seconds on one thread. <em>With your trial:</em> <code>df.analysis</code> and <code>df.test</code> are your non-region and region rows; your column names go in <code>outcome.name</code>, <code>event.name</code>, <code>treat.name</code> and <code>id.name</code>, your covariates in <code>confounders.name</code>, and those of your continuous covariates to be cut at deciles in <code>conf.cont_jcuts</code>; the other arguments are the identifier’s settings used throughout this article, and <code>seed</code> is yours.</p>
 </section>
 <section id="step-4-hat-h-applied-to-the-region-the-four-sets" class="level2" data-number="2.4">
 <h2 data-number="2.4" class="anchored" data-anchor-id="step-4-hat-h-applied-to-the-region-the-four-sets"><span class="header-section-number">2.4</span> Step 4: <span class="math inline">\(\hat H\)</span> applied to the region; the four sets</h2>
@@ -3574,48 +3588,136 @@ Multiplier resampling (MR)<span class="gt_footnote_marks" style="white-space:now
 </section>
 <section id="sec-case-campaign" class="level2" data-number="2.6">
 <h2 data-number="2.6" class="anchored" data-anchor-id="sec-case-campaign"><span class="header-section-number">2.6</span> The S2 campaign in brief</h2>
-<p>Replicate 5 is one trial of S2. The campaign ran 10,000 trials of the same design (the simulations article); the table gives how often each step of the pipeline above went the same way. The numbers are read from the campaign’s records, shipped with the package.</p>
+<p>Replicate 5 is one trial of S2. The campaign ran 10,000 trials of the same design (the simulations article). The first table gives the campaign-observed counterparts of the analytic rows of <a href="#sec-predictions" class="quarto-xref">Section 1.3</a> — unconditional, over all trials; the second follows the pipeline of this section, conditional on the trigger where its denominators say so. The numbers are read from the campaign’s records, shipped with the package.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>cc_core <span class="ot">&lt;-</span> <span class="fu">mrct_record</span>(<span class="st">&quot;core_full_numeric.csv&quot;</span>)</span>
 <span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>cc_core <span class="ot">&lt;-</span> cc_core[cc_core<span class="sc">$</span>setting <span class="sc">==</span> <span class="st">&quot;S2_rmlog4&quot;</span>, ]</span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>cc_mr <span class="ot">&lt;-</span> <span class="fu">mrct_record</span>(<span class="st">&quot;mr_field_core.csv&quot;</span>)</span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>cc_ent <span class="ot">&lt;-</span> <span class="fu">mrct_record</span>(<span class="st">&quot;entry_cells_core_numeric.csv&quot;</span>)</span>
-<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>cc_ev <span class="ot">&lt;-</span> <span class="cf">function</span>(q) cc_ent<span class="sc">$</span>S2[cc_ent<span class="sc">$</span>quantity <span class="sc">==</span> q]</span>
-<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">nrow</span>(cc_core) <span class="sc">==</span> <span class="dv">1</span>, <span class="fu">sum</span>(cc_mr<span class="sc">$</span>row <span class="sc">==</span> <span class="st">&quot;lb_100&quot;</span>) <span class="sc">==</span> <span class="dv">1</span>,</span>
-<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>          <span class="fu">sum</span>(cc_ent<span class="sc">$</span>quantity <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;trigger_n&quot;</span>, <span class="st">&quot;joint&quot;</span>, <span class="st">&quot;Ghat_region&quot;</span>)) <span class="sc">==</span> <span class="dv">3</span>)</span>
-<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>camp <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">reps =</span> cc_core<span class="sc">$</span>replicates, <span class="at">n_trig =</span> cc_core<span class="sc">$</span>n_trigger, <span class="at">n_decl =</span> cc_core<span class="sc">$</span>n_declared,</span>
-<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_joint =</span> cc_core<span class="sc">$</span>n_declared_Ghat_lt1,</span>
-<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">lb100 =</span> <span class="fu">as.numeric</span>(cc_mr<span class="sc">$</span>S2[cc_mr<span class="sc">$</span>row <span class="sc">==</span> <span class="st">&quot;lb_100&quot;</span>]),</span>
-<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">ghat_reg =</span> <span class="fu">cc_ev</span>(<span class="st">&quot;Ghat_region&quot;</span>))</span>
-<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a>camp<span class="sc">$</span>p_trig <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="sc">*</span> camp<span class="sc">$</span>n_trig <span class="sc">/</span> camp<span class="sc">$</span>reps</span>
-<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a>camp<span class="sc">$</span>p_decl <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="sc">*</span> camp<span class="sc">$</span>n_decl <span class="sc">/</span> camp<span class="sc">$</span>n_trig</span>
-<span id="cb27-15"><a href="#cb27-15" aria-hidden="true" tabindex="-1"></a>camp<span class="sc">$</span>p_joint <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="sc">*</span> camp<span class="sc">$</span>n_joint <span class="sc">/</span> camp<span class="sc">$</span>n_trig</span>
-<span id="cb27-16"><a href="#cb27-16" aria-hidden="true" tabindex="-1"></a><span class="co"># the two records agree on S2</span></span>
-<span id="cb27-17"><a href="#cb27-17" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(camp<span class="sc">$</span>n_trig <span class="sc">==</span> <span class="fu">cc_ev</span>(<span class="st">&quot;trigger_n&quot;</span>), <span class="fu">abs</span>(camp<span class="sc">$</span>p_joint <span class="sc">-</span> <span class="fu">cc_ev</span>(<span class="st">&quot;joint&quot;</span>)) <span class="sc">&lt;=</span> <span class="fl">1e-9</span>)</span>
-<span id="cb27-18"><a href="#cb27-18" aria-hidden="true" tabindex="-1"></a><span class="co"># the reading&#39;s verbal claims</span></span>
-<span id="cb27-19"><a href="#cb27-19" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">round</span>(camp<span class="sc">$</span>p_trig <span class="sc">/</span> <span class="dv">25</span>) <span class="sc">==</span> <span class="dv">1</span>, <span class="fu">abs</span>(camp<span class="sc">$</span>p_joint <span class="sc">-</span> <span class="dv">50</span>) <span class="sc">&lt;</span> <span class="dv">5</span>)</span>
-<span id="cb27-20"><a href="#cb27-20" aria-hidden="true" tabindex="-1"></a>pc1 <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="fu">formatC</span>(x, <span class="at">format =</span> <span class="st">&quot;f&quot;</span>, <span class="at">digits =</span> <span class="dv">1</span>)</span>
-<span id="cb27-21"><a href="#cb27-21" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
-<span id="cb27-22"><a href="#cb27-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
-<span id="cb27-23"><a href="#cb27-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">step =</span> <span class="fu">c</span>(<span class="st">&quot;trigger: ITT ub &lt; 1.0 and region ITT &gt; 1.0&quot;</span>, <span class="st">&quot;subgroup declared&quot;</span>,</span>
-<span id="cb27-24"><a href="#cb27-24" aria-hidden="true" tabindex="-1"></a>             <span class="st">&quot;Ĥ field lower bound (one-sided 95%) &gt; 1.0&quot;</span>, <span class="st">&quot;declared, region(Ĝ) &lt; 1.0&quot;</span>,</span>
-<span id="cb27-25"><a href="#cb27-25" aria-hidden="true" tabindex="-1"></a>             <span class="st">&quot;Ĝ, % of region patients&quot;</span>),</span>
-<span id="cb27-26"><a href="#cb27-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">S2 =</span> <span class="fu">c</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%s (%s)&quot;</span>, <span class="fu">pc1</span>(camp<span class="sc">$</span>p_trig), <span class="fu">big</span>(camp<span class="sc">$</span>n_trig)),</span>
-<span id="cb27-27"><a href="#cb27-27" aria-hidden="true" tabindex="-1"></a>           <span class="fu">sprintf</span>(<span class="st">&quot;%s (%s)&quot;</span>, <span class="fu">formatC</span>(camp<span class="sc">$</span>p_decl, <span class="at">format =</span> <span class="st">&quot;f&quot;</span>, <span class="at">digits =</span> <span class="dv">2</span>), <span class="fu">big</span>(camp<span class="sc">$</span>n_decl)),</span>
-<span id="cb27-28"><a href="#cb27-28" aria-hidden="true" tabindex="-1"></a>           <span class="fu">pc1</span>(camp<span class="sc">$</span>lb100),</span>
-<span id="cb27-29"><a href="#cb27-29" aria-hidden="true" tabindex="-1"></a>           <span class="fu">sprintf</span>(<span class="st">&quot;%s (%s)&quot;</span>, <span class="fu">pc1</span>(camp<span class="sc">$</span>p_joint), <span class="fu">big</span>(camp<span class="sc">$</span>n_joint)),</span>
-<span id="cb27-30"><a href="#cb27-30" aria-hidden="true" tabindex="-1"></a>           <span class="fu">pc1</span>(camp<span class="sc">$</span>ghat_reg)),</span>
-<span id="cb27-31"><a href="#cb27-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">of =</span> <span class="fu">c</span>(<span class="fu">sprintf</span>(<span class="st">&quot;all trials (%s)&quot;</span>, <span class="fu">big</span>(camp<span class="sc">$</span>reps)), <span class="st">&quot;triggered trials&quot;</span>, <span class="st">&quot;declared triggered trials&quot;</span>,</span>
-<span id="cb27-32"><a href="#cb27-32" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;triggered trials&quot;</span>, <span class="st">&quot;declared triggered trials&quot;</span>)),</span>
-<span id="cb27-33"><a href="#cb27-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">align =</span> <span class="st">&quot;lrl&quot;</span>,</span>
-<span id="cb27-34"><a href="#cb27-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">caption =</span> <span class="st">&quot;S2 at n = 1,000, 10,000 trials: the pipeline of this section, as often as it went each way.&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>cc_disp <span class="ot">&lt;-</span> <span class="fu">mrct_record</span>(<span class="st">&quot;core_n1000.csv&quot;</span>)</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">nrow</span>(cc_core) <span class="sc">==</span> <span class="dv">1</span>, cc_core<span class="sc">$</span>replicates <span class="sc">==</span> <span class="dv">10000</span>)</span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a><span class="co"># the trial-positive count, from the display record&#39;s first row for S2 (&quot;...; N of M)&quot;)</span></span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>r1 <span class="ot">&lt;-</span> cc_disp<span class="sc">$</span>value[cc_disp<span class="sc">$</span>row <span class="sc">==</span> <span class="st">&quot;r1&quot;</span> <span class="sc">&amp;</span> cc_disp<span class="sc">$</span>column <span class="sc">==</span> <span class="st">&quot;S2&quot;</span>]</span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>n_A <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">gsub</span>(<span class="st">&quot;,&quot;</span>, <span class="st">&quot;&quot;</span>, <span class="fu">sub</span>(<span class="st">&quot;^.*; ([0-9,]+) of [0-9,]+</span><span class="sc">\\</span><span class="st">)$&quot;</span>, <span class="st">&quot;</span><span class="sc">\\</span><span class="st">1&quot;</span>, r1)))</span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>reps <span class="ot">&lt;-</span> cc_core<span class="sc">$</span>replicates</span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>n_trig <span class="ot">&lt;-</span> cc_core<span class="sc">$</span>n_trigger</span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>n_orac <span class="ot">&lt;-</span> cc_core<span class="sc">$</span>n_Gstar_lt1</span>
+<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a>n_dcl  <span class="ot">&lt;-</span> cc_core<span class="sc">$</span>n_declared_Ghat_lt1</span>
+<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">length</span>(n_A) <span class="sc">==</span> <span class="dv">1</span>, <span class="sc">!</span><span class="fu">is.na</span>(n_A), n_trig <span class="sc">&lt;=</span> n_A, n_orac <span class="sc">&lt;=</span> n_trig, n_dcl <span class="sc">&lt;=</span> n_trig)</span>
+<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a><span class="co"># row (2), over all trials: the entry-cells record&#39;s S2 column is this campaign (three shared counts checked)</span></span>
+<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a>cc_ent <span class="ot">&lt;-</span> <span class="fu">mrct_record</span>(<span class="st">&quot;entry_cells_core_numeric.csv&quot;</span>)</span>
+<span id="cb27-15"><a href="#cb27-15" aria-hidden="true" tabindex="-1"></a>cc_ev <span class="ot">&lt;-</span> <span class="cf">function</span>(q) cc_ent<span class="sc">$</span>S2[cc_ent<span class="sc">$</span>quantity <span class="sc">==</span> q]</span>
+<span id="cb27-16"><a href="#cb27-16" aria-hidden="true" tabindex="-1"></a>n_B <span class="ot">&lt;-</span> <span class="fu">round</span>(<span class="fu">cc_ev</span>(<span class="st">&quot;p_region_itt_gt1&quot;</span>) <span class="sc">*</span> reps)</span>
+<span id="cb27-17"><a href="#cb27-17" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">cc_ev</span>(<span class="st">&quot;n_trials&quot;</span>) <span class="sc">==</span> reps, <span class="fu">near</span>(<span class="fu">cc_ev</span>(<span class="st">&quot;p_region_itt_gt1&quot;</span>) <span class="sc">*</span> reps, n_B), n_trig <span class="sc">&lt;=</span> n_B,</span>
+<span id="cb27-18"><a href="#cb27-18" aria-hidden="true" tabindex="-1"></a>          <span class="fu">near</span>(<span class="fu">c</span>(<span class="fu">cc_ev</span>(<span class="st">&quot;p_itt_ub_lt1&quot;</span>), <span class="fu">cc_ev</span>(<span class="st">&quot;p_trigger&quot;</span>), <span class="fu">cc_ev</span>(<span class="st">&quot;p_trigger_Gstar_lt1&quot;</span>)) <span class="sc">*</span> reps,</span>
+<span id="cb27-19"><a href="#cb27-19" aria-hidden="true" tabindex="-1"></a>               <span class="fu">c</span>(n_A, n_trig, n_orac)))</span>
+<span id="cb27-20"><a href="#cb27-20" aria-hidden="true" tabindex="-1"></a>counts <span class="ot">&lt;-</span> <span class="fu">c</span>(n_A, n_A <span class="sc">-</span> n_trig, n_trig, n_orac, n_trig <span class="sc">-</span> n_orac,</span>
+<span id="cb27-21"><a href="#cb27-21" aria-hidden="true" tabindex="-1"></a>            (n_A <span class="sc">-</span> n_trig) <span class="sc">+</span> n_orac, n_dcl, (n_A <span class="sc">-</span> n_trig) <span class="sc">+</span> n_dcl)</span>
+<span id="cb27-22"><a href="#cb27-22" aria-hidden="true" tabindex="-1"></a>obs <span class="ot">&lt;-</span> counts <span class="sc">/</span> reps</span>
+<span id="cb27-23"><a href="#cb27-23" aria-hidden="true" tabindex="-1"></a><span class="co"># identities by construction: (3)+(4)=(1), (5)+(6)=(4), (3)+(5)=(7), (3)+(8)=(9)</span></span>
+<span id="cb27-24"><a href="#cb27-24" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">near</span>(obs[<span class="dv">2</span>] <span class="sc">+</span> obs[<span class="dv">3</span>], obs[<span class="dv">1</span>], <span class="fl">1e-12</span>), <span class="fu">near</span>(obs[<span class="dv">4</span>] <span class="sc">+</span> obs[<span class="dv">5</span>], obs[<span class="dv">3</span>], <span class="fl">1e-12</span>),</span>
+<span id="cb27-25"><a href="#cb27-25" aria-hidden="true" tabindex="-1"></a>          <span class="fu">near</span>(obs[<span class="dv">2</span>] <span class="sc">+</span> obs[<span class="dv">4</span>], obs[<span class="dv">6</span>], <span class="fl">1e-12</span>), <span class="fu">near</span>(obs[<span class="dv">2</span>] <span class="sc">+</span> obs[<span class="dv">7</span>], obs[<span class="dv">8</span>], <span class="fl">1e-12</span>))</span>
+<span id="cb27-26"><a href="#cb27-26" aria-hidden="true" tabindex="-1"></a>lab_obs <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;(1) P(ITT ub &lt; 1.0): the trial is positive&quot;</span>,</span>
+<span id="cb27-27"><a href="#cb27-27" aria-hidden="true" tabindex="-1"></a>             <span class="st">&quot;(3) P(consistency): positive, region ITT ≤ 1.0&quot;</span>,</span>
+<span id="cb27-28"><a href="#cb27-28" aria-hidden="true" tabindex="-1"></a>             <span class="st">&quot;(4) P(non-consistency): the trigger&quot;</span>,</span>
+<span id="cb27-29"><a href="#cb27-29" aria-hidden="true" tabindex="-1"></a>             <span class="st">&quot;(5) P(oracle consistency): the oracle joint&quot;</span>,</span>
+<span id="cb27-30"><a href="#cb27-30" aria-hidden="true" tabindex="-1"></a>             <span class="st">&quot;(6) P(oracle non-consistency)&quot;</span>,</span>
+<span id="cb27-31"><a href="#cb27-31" aria-hidden="true" tabindex="-1"></a>             <span class="st">&quot;(7) P(consistency or oracle consistency)&quot;</span>,</span>
+<span id="cb27-32"><a href="#cb27-32" aria-hidden="true" tabindex="-1"></a>             <span class="st">&quot;(8) P̂(declared consistency)&quot;</span>,</span>
+<span id="cb27-33"><a href="#cb27-33" aria-hidden="true" tabindex="-1"></a>             <span class="st">&quot;(9) P̂(consistency or declared consistency)&quot;</span>)</span>
+<span id="cb27-34"><a href="#cb27-34" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="fu">data.frame</span>(<span class="at">row =</span> <span class="fu">append</span>(lab_obs, <span class="st">&quot;(2) P(region ITT &gt; 1.0)&quot;</span>, <span class="at">after =</span> <span class="dv">1</span>),</span>
+<span id="cb27-35"><a href="#cb27-35" aria-hidden="true" tabindex="-1"></a>                        <span class="st">`</span><span class="at">campaign-observed</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">append</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%s (%s)&quot;</span>, <span class="fu">f3</span>(obs), <span class="fu">big</span>(counts)),</span>
+<span id="cb27-36"><a href="#cb27-36" aria-hidden="true" tabindex="-1"></a>                                                     <span class="fu">sprintf</span>(<span class="st">&quot;%s (%s)&quot;</span>, <span class="fu">f3</span>(n_B <span class="sc">/</span> reps), <span class="fu">big</span>(n_B)), <span class="at">after =</span> <span class="dv">1</span>),</span>
+<span id="cb27-37"><a href="#cb27-37" aria-hidden="true" tabindex="-1"></a>                        <span class="at">check.names =</span> <span class="cn">FALSE</span>),</span>
+<span id="cb27-38"><a href="#cb27-38" aria-hidden="true" tabindex="-1"></a>             <span class="at">row.names =</span> <span class="cn">FALSE</span>, <span class="at">align =</span> <span class="st">&quot;lr&quot;</span>,</span>
+<span id="cb27-39"><a href="#cb27-39" aria-hidden="true" tabindex="-1"></a>             <span class="at">caption =</span> <span class="st">&quot;S2 at n = 1,000, campaign-observed over 10,000 trials; rows as in @sec-predictions, identities asserted.&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
-<caption>S2 at n = 1,000, 10,000 trials: the pipeline of this section, as often as it went each way.</caption>
+<caption>S2 at n = 1,000, campaign-observed over 10,000 trials; rows as in <a href="#sec-predictions" class="quarto-xref">Section 1.3</a>, identities asserted.</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;">row</th>
+<th style="text-align: right;">campaign-observed</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">(1) P(ITT ub &lt; 1.0): the trial is positive</td>
+<td style="text-align: right;">0.840 (8,397)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">(2) P(region ITT &gt; 1.0)</td>
+<td style="text-align: right;">0.327 (3,266)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">(3) P(consistency): positive, region ITT ≤ 1.0</td>
+<td style="text-align: right;">0.600 (5,999)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">(4) P(non-consistency): the trigger</td>
+<td style="text-align: right;">0.240 (2,398)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">(5) P(oracle consistency): the oracle joint</td>
+<td style="text-align: right;">0.186 (1,864)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">(6) P(oracle non-consistency)</td>
+<td style="text-align: right;">0.053 (534)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">(7) P(consistency or oracle consistency)</td>
+<td style="text-align: right;">0.786 (7,863)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">(8) P̂(declared consistency)</td>
+<td style="text-align: right;">0.123 (1,228)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">(9) P̂(consistency or declared consistency)</td>
+<td style="text-align: right;">0.723 (7,227)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>cc_mr <span class="ot">&lt;-</span> <span class="fu">mrct_record</span>(<span class="st">&quot;mr_field_core.csv&quot;</span>)</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">sum</span>(cc_mr<span class="sc">$</span>row <span class="sc">==</span> <span class="st">&quot;lb_100&quot;</span>) <span class="sc">==</span> <span class="dv">1</span>,</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>          <span class="fu">sum</span>(cc_ent<span class="sc">$</span>quantity <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;trigger_n&quot;</span>, <span class="st">&quot;joint&quot;</span>, <span class="st">&quot;Ghat_region&quot;</span>)) <span class="sc">==</span> <span class="dv">3</span>)</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>camp <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">reps =</span> reps, <span class="at">n_trig =</span> n_trig, <span class="at">n_decl =</span> cc_core<span class="sc">$</span>n_declared, <span class="at">n_joint =</span> n_dcl,</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">lb100 =</span> <span class="fu">as.numeric</span>(cc_mr<span class="sc">$</span>S2[cc_mr<span class="sc">$</span>row <span class="sc">==</span> <span class="st">&quot;lb_100&quot;</span>]),</span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">ghat_reg =</span> <span class="fu">cc_ev</span>(<span class="st">&quot;Ghat_region&quot;</span>))</span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>camp<span class="sc">$</span>p_trig <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="sc">*</span> camp<span class="sc">$</span>n_trig <span class="sc">/</span> camp<span class="sc">$</span>reps</span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>camp<span class="sc">$</span>p_decl <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="sc">*</span> camp<span class="sc">$</span>n_decl <span class="sc">/</span> camp<span class="sc">$</span>n_trig</span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a>camp<span class="sc">$</span>p_joint <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="sc">*</span> camp<span class="sc">$</span>n_joint <span class="sc">/</span> camp<span class="sc">$</span>n_trig</span>
+<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a><span class="co"># the two records agree on S2</span></span>
+<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(camp<span class="sc">$</span>n_trig <span class="sc">==</span> <span class="fu">cc_ev</span>(<span class="st">&quot;trigger_n&quot;</span>), <span class="fu">abs</span>(camp<span class="sc">$</span>p_joint <span class="sc">-</span> <span class="fu">cc_ev</span>(<span class="st">&quot;joint&quot;</span>)) <span class="sc">&lt;=</span> <span class="fl">1e-9</span>)</span>
+<span id="cb28-13"><a href="#cb28-13" aria-hidden="true" tabindex="-1"></a><span class="co"># the reading&#39;s verbal claims</span></span>
+<span id="cb28-14"><a href="#cb28-14" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">round</span>(camp<span class="sc">$</span>p_trig <span class="sc">/</span> <span class="dv">25</span>) <span class="sc">==</span> <span class="dv">1</span>, <span class="fu">abs</span>(camp<span class="sc">$</span>p_joint <span class="sc">-</span> <span class="dv">50</span>) <span class="sc">&lt;</span> <span class="dv">5</span>)</span>
+<span id="cb28-15"><a href="#cb28-15" aria-hidden="true" tabindex="-1"></a>pc1 <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="fu">formatC</span>(x, <span class="at">format =</span> <span class="st">&quot;f&quot;</span>, <span class="at">digits =</span> <span class="dv">1</span>)</span>
+<span id="cb28-16"><a href="#cb28-16" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
+<span id="cb28-17"><a href="#cb28-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
+<span id="cb28-18"><a href="#cb28-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">step =</span> <span class="fu">c</span>(<span class="st">&quot;trigger: ITT ub &lt; 1.0 and region ITT &gt; 1.0&quot;</span>, <span class="st">&quot;subgroup declared&quot;</span>,</span>
+<span id="cb28-19"><a href="#cb28-19" aria-hidden="true" tabindex="-1"></a>             <span class="st">&quot;Ĥ field lower bound (one-sided 95%) &gt; 1.0&quot;</span>, <span class="st">&quot;declared, region(Ĝ) &lt; 1.0&quot;</span>,</span>
+<span id="cb28-20"><a href="#cb28-20" aria-hidden="true" tabindex="-1"></a>             <span class="st">&quot;Ĝ, % of region patients&quot;</span>),</span>
+<span id="cb28-21"><a href="#cb28-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">S2 =</span> <span class="fu">c</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%s (%s)&quot;</span>, <span class="fu">pc1</span>(camp<span class="sc">$</span>p_trig), <span class="fu">big</span>(camp<span class="sc">$</span>n_trig)),</span>
+<span id="cb28-22"><a href="#cb28-22" aria-hidden="true" tabindex="-1"></a>           <span class="fu">sprintf</span>(<span class="st">&quot;%s (%s)&quot;</span>, <span class="fu">formatC</span>(camp<span class="sc">$</span>p_decl, <span class="at">format =</span> <span class="st">&quot;f&quot;</span>, <span class="at">digits =</span> <span class="dv">2</span>), <span class="fu">big</span>(camp<span class="sc">$</span>n_decl)),</span>
+<span id="cb28-23"><a href="#cb28-23" aria-hidden="true" tabindex="-1"></a>           <span class="fu">pc1</span>(camp<span class="sc">$</span>lb100),</span>
+<span id="cb28-24"><a href="#cb28-24" aria-hidden="true" tabindex="-1"></a>           <span class="fu">sprintf</span>(<span class="st">&quot;%s (%s)&quot;</span>, <span class="fu">pc1</span>(camp<span class="sc">$</span>p_joint), <span class="fu">big</span>(camp<span class="sc">$</span>n_joint)),</span>
+<span id="cb28-25"><a href="#cb28-25" aria-hidden="true" tabindex="-1"></a>           <span class="fu">pc1</span>(camp<span class="sc">$</span>ghat_reg)),</span>
+<span id="cb28-26"><a href="#cb28-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">of =</span> <span class="fu">c</span>(<span class="fu">sprintf</span>(<span class="st">&quot;all trials (%s)&quot;</span>, <span class="fu">big</span>(camp<span class="sc">$</span>reps)), <span class="st">&quot;triggered trials&quot;</span>, <span class="st">&quot;declared triggered trials&quot;</span>,</span>
+<span id="cb28-27"><a href="#cb28-27" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;triggered trials&quot;</span>, <span class="st">&quot;declared triggered trials&quot;</span>)),</span>
+<span id="cb28-28"><a href="#cb28-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">align =</span> <span class="st">&quot;lrl&quot;</span>,</span>
+<span id="cb28-29"><a href="#cb28-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">caption =</span> <span class="st">&quot;Conditional on the trigger: the pipeline of this section, as often as it went each way (each row&#39;s denominator stated).&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Conditional on the trigger: the pipeline of this section, as often as it went each way (each row’s denominator stated).</caption>
 <colgroup>
 <col style="width: 51%">
 <col style="width: 16%">
@@ -3658,7 +3760,7 @@ Multiplier resampling (MR)<span class="gt_footnote_marks" style="white-space:now
 </table>
 </div>
 </div>
-<p>About one S2 trial in four reached the trigger (24.0%). In the triggered trials a subgroup was declared in 2,397 of 2,398, region(Ĝ) was below 1.0 in about half (51.2%), and Ĝ kept on average 87.2% of the region’s patients. The field lower bound for Ĥ was above 1.0 in 13.6% of the declared triggered trials; in the others it lies below 1.0, and it is read by its location, as for replicate 5 in step 5. Replicate 5 is one of the triggered trials with region(Ĝ) &lt; 1.0.</p>
+<p>Read unconditionally: the trial is positive in 0.840 of trials; consistency holds outright in 0.600, and the trigger occurs in 0.240 — about one S2 trial in four. The oracle resolution holds in 0.186 of all trials (row 5) and the declared subgroup’s in 0.123 (row 8), so the two routes together give 0.786 by the oracle pathway and 0.723 by the declared pathway (rows 7 and 9). Conditional on the trigger: a subgroup was declared in 2,397 of 2,398 triggered trials, region(Ĝ) was below 1.0 in about half (51.2%), and Ĝ kept on average 87.2% of the region’s patients. The field lower bound for Ĥ was above 1.0 in 13.6% of the declared triggered trials; in the others it lies below 1.0, and it is read by its location, as for replicate 5 in step 5. Replicate 5 is one of the triggered trials with region(Ĝ) &lt; 1.0.</p>
 </section>
 <section id="sec-one-call" class="level2" data-number="2.7">
 <h2 data-number="2.7" class="anchored" data-anchor-id="sec-one-call"><span class="header-section-number">2.7</span> The one-call form</h2>
@@ -3666,18 +3768,18 @@ Multiplier resampling (MR)<span class="gt_footnote_marks" style="white-space:now
 <div class="cell">
 <details open class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>one_call <span class="ot">&lt;-</span> <span class="fu">mrct_trial_analysis</span>(</span>
-<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>  trial, <span class="st">&quot;y_sim&quot;</span>, <span class="st">&quot;event_sim&quot;</span>, <span class="st">&quot;treat_sim&quot;</span>, <span class="at">region.name =</span> <span class="st">&quot;z_region&quot;</span>, <span class="at">id.name =</span> <span class="st">&quot;id&quot;</span>,</span>
-<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">truth.name =</span> <span class="st">&quot;flag_harm&quot;</span>,</span>
-<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_args =</span> <span class="fu">list</span>(<span class="at">confounders.name =</span> covs, <span class="at">conf_force =</span> <span class="fu">character</span>(<span class="dv">0</span>),</span>
-<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>                 <span class="at">conf.cont_jcuts =</span> <span class="fu">list</span>(<span class="at">z_cd40 =</span> <span class="dv">10</span>, <span class="at">z_wtkg =</span> <span class="dv">10</span>, <span class="at">z_preanti =</span> <span class="dv">10</span>),</span>
-<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>                 <span class="at">use_grf =</span> <span class="cn">FALSE</span>, <span class="at">use_lasso =</span> <span class="cn">FALSE</span>, <span class="at">maxk =</span> <span class="dv">2</span>,</span>
-<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>                 <span class="at">hr.threshold =</span> <span class="fl">0.90</span>, <span class="at">hr.consistency =</span> <span class="fl">0.80</span>, <span class="at">pconsistency.threshold =</span> <span class="fl">0.90</span>,</span>
-<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>                 <span class="at">sg_focus =</span> <span class="st">&quot;hrMaxSG&quot;</span>, <span class="at">effect_neighborhood =</span> <span class="fl">0.20</span>),</span>
-<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">mr_inference_args =</span> <span class="fu">list</span>(<span class="at">ci_method =</span> <span class="st">&quot;field&quot;</span>, <span class="at">include_complement =</span> <span class="cn">TRUE</span>, <span class="at">field_complement =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a>                           <span class="at">draws =</span> <span class="dv">2000</span>, <span class="at">multiplier =</span> <span class="st">&quot;poisson&quot;</span>, <span class="at">return_reselection =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a>                           <span class="at">seed =</span> seed_rep5))</span>
-<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a>one_call</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>one_call <span class="ot">&lt;-</span> <span class="fu">mrct_trial_analysis</span>(</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>  trial, <span class="st">&quot;y_sim&quot;</span>, <span class="st">&quot;event_sim&quot;</span>, <span class="st">&quot;treat_sim&quot;</span>, <span class="at">region.name =</span> <span class="st">&quot;z_region&quot;</span>, <span class="at">id.name =</span> <span class="st">&quot;id&quot;</span>,</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">truth.name =</span> <span class="st">&quot;flag_harm&quot;</span>,</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_args =</span> <span class="fu">list</span>(<span class="at">confounders.name =</span> covs, <span class="at">conf_force =</span> <span class="fu">character</span>(<span class="dv">0</span>),</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>                 <span class="at">conf.cont_jcuts =</span> <span class="fu">list</span>(<span class="at">z_cd40 =</span> <span class="dv">10</span>, <span class="at">z_wtkg =</span> <span class="dv">10</span>, <span class="at">z_preanti =</span> <span class="dv">10</span>),</span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>                 <span class="at">use_grf =</span> <span class="cn">FALSE</span>, <span class="at">use_lasso =</span> <span class="cn">FALSE</span>, <span class="at">maxk =</span> <span class="dv">2</span>,</span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>                 <span class="at">hr.threshold =</span> <span class="fl">0.90</span>, <span class="at">hr.consistency =</span> <span class="fl">0.80</span>, <span class="at">pconsistency.threshold =</span> <span class="fl">0.90</span>,</span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>                 <span class="at">sg_focus =</span> <span class="st">&quot;hrMaxSG&quot;</span>, <span class="at">effect_neighborhood =</span> <span class="fl">0.20</span>),</span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">mr_inference_args =</span> <span class="fu">list</span>(<span class="at">ci_method =</span> <span class="st">&quot;field&quot;</span>, <span class="at">include_complement =</span> <span class="cn">TRUE</span>, <span class="at">field_complement =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a>                           <span class="at">draws =</span> <span class="dv">2000</span>, <span class="at">multiplier =</span> <span class="st">&quot;poisson&quot;</span>, <span class="at">return_reselection =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a>                           <span class="at">seed =</span> seed_rep5))</span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a>one_call</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>MRCT trial analysis: n = 1000, region &#39;z_region&#39;
@@ -3705,19 +3807,95 @@ Multiplier resampling (field, 2000 draws):
 </div>
 <details open class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co"># its H-hat, four sets and MR values equal the step-by-step objects above</span></span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>num <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;n&quot;</span>, <span class="st">&quot;n_exp&quot;</span>, <span class="st">&quot;n_ctl&quot;</span>, <span class="st">&quot;events_exp&quot;</span>, <span class="st">&quot;events_ctl&quot;</span>, <span class="st">&quot;hr&quot;</span>, <span class="st">&quot;lo&quot;</span>, <span class="st">&quot;hi&quot;</span>)</span>
-<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>mv_call <span class="ot">&lt;-</span> <span class="fu">mr_values</span>(one_call<span class="sc">$</span>fs); mv_step <span class="ot">&lt;-</span> <span class="fu">mr_values</span>(fs)</span>
-<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>keep <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">grepl</span>(<span class="st">&quot;timing&quot;</span>, <span class="fu">names</span>(mv_step))</span>
-<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">identical</span>(one_call<span class="sc">$</span>Hhat, Hhat_def), <span class="fu">identical</span>(one_call<span class="sc">$</span>in_Hhat, in_Hhat),</span>
-<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>          <span class="fu">identical</span>(one_call<span class="sc">$</span>sets<span class="sc">$</span>set, four<span class="sc">$</span>set),</span>
-<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>          <span class="fu">isTRUE</span>(<span class="fu">all.equal</span>(one_call<span class="sc">$</span>sets[num], four[num], <span class="at">tolerance =</span> <span class="fl">1e-12</span>)),</span>
-<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>          <span class="fu">isTRUE</span>(<span class="fu">all.equal</span>(mv_call[keep], mv_step[keep], <span class="at">tolerance =</span> <span class="fl">1e-12</span>)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># its H-hat, four sets and MR values equal the step-by-step objects above</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>num <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;n&quot;</span>, <span class="st">&quot;n_exp&quot;</span>, <span class="st">&quot;n_ctl&quot;</span>, <span class="st">&quot;events_exp&quot;</span>, <span class="st">&quot;events_ctl&quot;</span>, <span class="st">&quot;hr&quot;</span>, <span class="st">&quot;lo&quot;</span>, <span class="st">&quot;hi&quot;</span>)</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>mv_call <span class="ot">&lt;-</span> <span class="fu">mr_values</span>(one_call<span class="sc">$</span>fs); mv_step <span class="ot">&lt;-</span> <span class="fu">mr_values</span>(fs)</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>keep <span class="ot">&lt;-</span> <span class="sc">!</span><span class="fu">grepl</span>(<span class="st">&quot;timing&quot;</span>, <span class="fu">names</span>(mv_step))</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">identical</span>(one_call<span class="sc">$</span>Hhat, Hhat_def), <span class="fu">identical</span>(one_call<span class="sc">$</span>in_Hhat, in_Hhat),</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>          <span class="fu">identical</span>(one_call<span class="sc">$</span>sets<span class="sc">$</span>set, four<span class="sc">$</span>set),</span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>          <span class="fu">isTRUE</span>(<span class="fu">all.equal</span>(one_call<span class="sc">$</span>sets[num], four[num], <span class="at">tolerance =</span> <span class="fl">1e-12</span>)),</span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>          <span class="fu">isTRUE</span>(<span class="fu">all.equal</span>(mv_call[keep], mv_step[keep], <span class="at">tolerance =</span> <span class="fl">1e-12</span>)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <p><em>With your trial:</em> your column names, your covariates in <code>fs_args$confounders.name</code> and your seed in <code>mr_inference_args</code>, without <code>truth.name</code>. <code>$stage</code> says how far the pipeline went (<code>not_positive</code>, <code>no_trigger</code>, <code>no_declaration</code> or <code>complete</code>), and none of these is an error; <code>plot()</code> on the result draws the two figures of step 4, and <code>mr_values()</code> and <code>mr_estimates_table()</code> read its <code>$fs</code>.</p>
-<p>The article took 2.7 minutes to run.</p>
+<p>The article took 2.9 minutes to run.</p>
 </section>
+</section>
+<section id="sec-event-notation" class="level1 unnumbered">
+<h1 class="unnumbered">Appendix: the manuscript’s event notation</h1>
+<p>The accompanying manuscript collects the design’s events in its Table 1, reproduced here; a superscript <span class="math inline">\(+\)</span> (<span class="math inline">\(-\)</span>) marks a point estimate or bound in (opposite to) the direction of consistency. This article’s <span class="math inline">\(A\)</span>, <span class="math inline">\(B\)</span> and <span class="math inline">\(C^*\)</span> are <span class="math inline">\(\mathrm{ITT}^+\)</span>, <span class="math inline">\(\mathrm{R}^-\)</span> and <span class="math inline">\(\mathrm{R}(G^*)^+\)</span>.</p>
+<table class="caption-top table">
+<caption>The manuscript’s Table 1: event notation.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Event</th>
+<th>Definition</th>
+<th>Reading</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><em>Primitive events</em></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(\mathrm{ITT}^+\)</span></td>
+<td>{ITT 95% upper bound &lt; 1.0}</td>
+<td>The trial is positive</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(\mathrm{R}^-\)</span>, <span class="math inline">\(\mathrm{R}^+\)</span></td>
+<td>{region ITT &gt; 1.0}, {region ITT <span class="math inline">\(\le\)</span> 1.0}</td>
+<td>Region point estimate opposite to, in, the direction of consistency</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(\mathrm{R}(G^*)^-\)</span>, <span class="math inline">\(\mathrm{R}(G^*)^+\)</span></td>
+<td>{region(<span class="math inline">\(G^*\)</span>) &gt; 1.0}, {region(<span class="math inline">\(G^*\)</span>) <span class="math inline">\(\le\)</span> 1.0}</td>
+<td>Likewise, for the region outside the true subgroup <span class="math inline">\(H^*\)</span></td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(\mathrm{R}(\hat G)^+\)</span></td>
+<td>{subgroup declared, region(<span class="math inline">\(\hat G\)</span>) &lt; 1.0}</td>
+<td>The declared resolution is in the consistent direction</td>
+</tr>
+<tr class="even">
+<td><em>Named events</em></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>consistency</td>
+<td><span class="math inline">\(\mathrm{ITT}^+ \cap \mathrm{R}^+\)</span></td>
+<td>Positive trial, region in the consistent direction — the standard pathway</td>
+</tr>
+<tr class="even">
+<td>non-consistency</td>
+<td><span class="math inline">\(\mathrm{ITT}^+ \cap \mathrm{R}^-\)</span></td>
+<td>Positive trial, region opposite — the trigger for subgroup identification</td>
+</tr>
+<tr class="odd">
+<td>oracle consistency</td>
+<td><span class="math inline">\(\mathrm{ITT}^+ \cap \mathrm{R}^- \cap \mathrm{R}(G^*)^+\)</span></td>
+<td>Non-consistency resolved by the true subgroup</td>
+</tr>
+<tr class="even">
+<td>oracle non-consistency</td>
+<td><span class="math inline">\(\mathrm{ITT}^+ \cap \mathrm{R}^- \cap \mathrm{R}(G^*)^-\)</span></td>
+<td>Non-consistency persisting under the oracle resolution</td>
+</tr>
+<tr class="odd">
+<td>declared consistency</td>
+<td><span class="math inline">\(\mathrm{ITT}^+ \cap \mathrm{R}^- \cap \mathrm{R}(\hat G)^+\)</span></td>
+<td>Non-consistency resolved by the declared subgroup</td>
+</tr>
+</tbody>
+</table>
 </section>
 
 </main>
