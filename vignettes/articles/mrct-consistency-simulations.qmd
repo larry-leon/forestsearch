@@ -46,13 +46,7 @@ suppressPackageStartupMessages({
   library(data.table)
 })
 # The article's records ship with the package (inst/extdata/mrct-consistency; provenance in its
-# PROVENANCE.md). From a source tree the local copy is used; otherwise the installed one.
-dd <- c(file.path("..", "..", "inst", "extdata", "mrct-consistency"),
-        file.path("inst", "extdata", "mrct-consistency"),
-        system.file("extdata", "mrct-consistency", package = "forestsearch"))
-dd <- dd[nzchar(dd) & dir.exists(dd)][1]
-stopifnot(!is.na(dd), file.exists(file.path(dd, "PROVENANCE.md")))
-rd <- function(f, ...) read.csv(file.path(dd, f), stringsAsFactors = FALSE, check.names = FALSE, ...)
+# PROVENANCE.md). mrct_record() reads them: from a source tree the local copy, otherwise the installed one.
 f2 <- function(x) formatC(x, format = "f", digits = 2)
 f3 <- function(x) formatC(x, format = "f", digits = 3)
 f4 <- function(x) formatC(x, format = "f", digits = 4)
@@ -94,7 +88,8 @@ naming anything that is missing, before any computation starts.
 #| code-fold: show
 needed <- c("inject_mrct_structure", "scale_dgm_hazard", "ahr_population", "ahr_limit", "ahr_design", "ahr_solve",
             "mrct_region_sims", "mrct_select_case", "mrct_case_study", "analysis_covariates", "get_dfpred",
-            "mr_estimates_table")
+            "mr_estimates_table", "mrct_record", "mrct_build_dgm", "mrct_trial_analysis", "mrct_core_summary",
+            "ahr_truths_table", "ahr_design_table")
 missing_fns <- setdiff(needed, getNamespaceExports("forestsearch"))
 if (length(missing_fns))
   stop("This article needs the development version of forestsearch (see 'Installing forestsearch'); ",
@@ -142,62 +137,46 @@ The application article analyses one trial, replicate 5 of S2, from its shipped 
 (`rep5_trial.csv`) to its multiplier-resampling bounds, with every call explained. The simulation
 sections below check themselves against that analysis — the redraw of @sec-find must reproduce the
 trial, its $\hat H$ and its four Cox fits, and @sec-case-sim reads its MR values — so this chunk
-recomputes the same objects with the same calls, condensed; the application article is the
-walkthrough.
+recomputes the same objects by the one call of `mrct_trial_analysis()`, on the same arguments; the
+application article is the walkthrough.
 
 ```{r bridge-case}
-trial <- rd("rep5_trial.csv")
+trial <- mrct_record("rep5_trial.csv")
 covs <- c("z_age", "z_wtkg", "z_karnof", "z_preanti", "z_cd40", "z_cd80",
           "z_hemo", "z_homo", "z_drugs", "z_race", "z_gender", "z_symptom")
 # the replicate's call seed, from the MR campaign's record of this trial
-seed_rep5 <- rd("mr_field_S2_rep5.csv")$seed
+seed_rep5 <- mrct_record("mr_field_S2_rep5.csv")$seed
 stopifnot(length(seed_rep5) == 1, !anyDuplicated(trial$id),
           all(c("id", "y_sim", "event_sim", "treat_sim", "z_region", covs, "flag_harm") %in% names(trial)))
-fit_itt <- summary(coxph(Surv(y_sim, event_sim) ~ treat_sim, data = trial))
-itt_ub <- fit_itt$conf.int[1, "upper .95"]
-stopifnot(itt_ub < 1)
-reg <- trial$z_region == 1
-fit_reg <- summary(coxph(Surv(y_sim, event_sim) ~ treat_sim, data = trial[reg, ]))
-hr_reg <- fit_reg$conf.int[1, "exp(coef)"]
-trigger <- itt_ub < 1 && hr_reg > 1
-stopifnot(trigger)
 stopifnot(RNGkind()[1] == "Mersenne-Twister")
 t_mr <- proc.time()[["elapsed"]]
-fs <- forestsearch(
-  df.analysis = trial[!reg, ], df.test = trial[reg, ],
-  outcome.name = "y_sim", event.name = "event_sim", treat.name = "treat_sim", id.name = "id",
-  confounders.name = covs, conf_force = character(0),
-  conf.cont_jcuts = list(z_cd40 = 10, z_wtkg = 10, z_preanti = 10),
-  use_grf = FALSE, use_lasso = FALSE, maxk = 2,
-  hr.threshold = 0.90, hr.consistency = 0.80, pconsistency.threshold = 0.90,
-  sg_focus = "hrMaxSG", effect_neighborhood = 0.20,
-  mr_inference = TRUE,
+ta5 <- mrct_trial_analysis(
+  trial, "y_sim", "event_sim", "treat_sim", region.name = "z_region", id.name = "id",
+  truth.name = "flag_harm",
+  fs_args = list(confounders.name = covs, conf_force = character(0),
+                 conf.cont_jcuts = list(z_cd40 = 10, z_wtkg = 10, z_preanti = 10),
+                 use_grf = FALSE, use_lasso = FALSE, maxk = 2,
+                 hr.threshold = 0.90, hr.consistency = 0.80, pconsistency.threshold = 0.90,
+                 sg_focus = "hrMaxSG", effect_neighborhood = 0.20),
   mr_inference_args = list(ci_method = "field", include_complement = TRUE, field_complement = TRUE,
                            draws = 2000, multiplier = "poisson", return_reselection = TRUE,
-                           seed = seed_rep5),
-  parallel_args = list(plan = "sequential"),
-  show_candidate_summary = FALSE, details = FALSE, plot.sg = FALSE, quiet = TRUE)
+                           seed = seed_rep5))
 t_mr <- proc.time()[["elapsed"]] - t_mr
-mr <- fs$mr_inference
-Hhat_def <- paste(fs$sg.harm, collapse = " & ")
+four <- ta5$sets
+itt_ub <- four$hi[four$set == "itt_all"]
+stopifnot(itt_ub < 1)
+reg <- trial$z_region == 1
+trigger <- ta5$trigger
+stopifnot(trigger)
+fs <- ta5$fs
+mr <- ta5$mr
+Hhat_def <- ta5$Hhat
 stopifnot(!is.null(fs$sg.harm), mr$ci_method == "field", mr$settings$draws == 2000,
           mr$field$n_out_used == mr$field$R_out)
-in_Hhat <- get_dfpred(trial, sg.harm = fs$sg.harm, version = 2)$treat.recommend == 0
+in_Hhat <- ta5$in_Hhat
 stopifnot(identical(in_Hhat, trial$id %in% c(fs$df.est$id[fs$df.est$treat.recommend == 0],
                                               fs$df.test$id[fs$df.test$treat.recommend == 0])))
-cox_set <- function(d) {
-  f <- summary(coxph(Surv(y_sim, event_sim) ~ treat_sim, data = d))
-  ex <- d$treat_sim == 1
-  data.frame(n = nrow(d), n_exp = sum(ex), n_ctl = sum(!ex),
-             events_exp = sum(d$event_sim[ex]), events_ctl = sum(d$event_sim[!ex]),
-             hr = f$conf.int[1, "exp(coef)"], lo = f$conf.int[1, "lower .95"], hi = f$conf.int[1, "upper .95"])
-}
 Hstar <- trial$flag_harm == 1                       # simulation only: H* is unknown in a real trial
-set_idx <- list(itt_all = rep(TRUE, nrow(trial)), itt_region = reg,
-                region_Gstar = reg & !Hstar, region_Ghat = reg & !in_Hhat)
-four <- data.frame(set = names(set_idx), do.call(rbind, lapply(set_idx, function(i) cox_set(trial[i, ]))),
-                   row.names = NULL)
-stopifnot(near(four$hr[1:2], c(fit_itt$conf.int[1, "exp(coef)"], hr_reg), 1e-12))
 set_label <- c(itt_all = "All patients, ITT", itt_region = "Region, ITT",
                region_Gstar = "Region minus H* (G*)", region_Ghat = "Region minus Ĥ (Ĝ)")
 mr_tab <- mr_estimates_table(fs, est.scale = "hr", digits = 3)
@@ -232,30 +211,26 @@ all hazards multiplied by 3), and the AFT fit to it estimates that scale.
 ```{r own-build}
 #| code-fold: show
 #| warning: true
-own <- rd("rep5_trial.csv")
+own <- mrct_record("rep5_trial.csv")
 own <- own[, setdiff(names(own), c("id", "flag_harm"))]   # your trial has no flag_harm
 names(own) <- sub("^z_", "", names(own))                   # plain names; the build adds z_
 build_own <- function(h, b = 0.55, cut = 230) {
-  w <- character(0)
-  dgm <- withCallingHandlers(                              # warnings recorded and shown
-    inject_mrct_structure(
-      own,
-      outcome_var = "y_sim", event_var = "event_sim", treatment_var = "treat_sim",
-      continuous_vars = c("age", "wtkg", "karnof", "preanti", "cd40", "cd80"),
-      factor_vars = c("hemo", "homo", "drugs", "race", "gender", "symptom"),
-      x_pred = "cd40",
-      spline_spec = list(knot = 300, zeta = 800, log_hrs = rep(log(b), 3)),      # b
-      region = list(observed = "region"),                                        # r estimated
-      x3 = list(vars = "cd40", cuts = list(cd40 = cut), loghr = log(h / b)),     # h in H*
-      n_super = 20000, expand = "copula", seed = 7L,
-      continuous_vars_cens = c("age", "cd40"), factor_vars_cens = "symptom"),
-    warning = function(cnd) w <<- c(w, conditionMessage(cnd)))
-  attr(dgm, "build_warnings") <- w
-  dgm
+  mrct_build_dgm(
+    own,
+    outcome_var = "y_sim", event_var = "event_sim", treatment_var = "treat_sim",
+    continuous_vars = c("age", "wtkg", "karnof", "preanti", "cd40", "cd80"),
+    factor_vars = c("hemo", "homo", "drugs", "race", "gender", "symptom"),
+    x_pred = "cd40",
+    spline_spec = list(knot = 300, zeta = 800, log_hrs = rep(log(b), 3)),      # b
+    region = list(observed = "region"),                                        # r estimated
+    x3 = list(vars = "cd40", cuts = list(cd40 = cut), loghr = log(h / b)),     # h in H*
+    n_super = 20000, expand = "copula", seed = 7L,
+    continuous_vars_cens = c("age", "cd40"), factor_vars_cens = "symptom")
 }
 t_own <- proc.time()[["elapsed"]]
 dgm_own <- build_own(h = 2)
 t_own <- proc.time()[["elapsed"]] - t_own
+for (w in attr(dgm_own, "build_warnings")) warning(w, call. = FALSE)   # kept by the build, shown here
 ds_own <- dgm_own$df_super
 stopifnot(isTRUE(dgm_own$mrct$region$observed), dgm_own$mrct$region$z_name == "z_region",
           "z_cd40" %in% names(ds_own), !any(grepl("^z_z_", names(ds_own))),
@@ -300,22 +275,21 @@ entry over 11.
 #| code-fold: show
 pop_own <- ahr_population(dgm_own, analysis_time = 40, max_entry = 11)
 sets_own <- c(region = "region", nonregion = "non-region", region_Gstar = "G* (region minus H*)")
-lim_own <- lapply(setNames(names(sets_own), names(sets_own)),
-                  function(s) ahr_limit(pop_own, s, b = 0.55, h = 2, variance = FALSE))
-p_own <- ahr_design(pop_own, b = 0.55, h = 2, n = 1000)$prob
+lim_own <- ahr_truths_table(pop_own, sets = names(sets_own), b = 0.55, h = 2)
+p_own <- ahr_design_table(pop_own, b = 0.55, h = 2, n = 1000)
 tab_own <- rbind(
-  do.call(rbind, lapply(names(sets_own), function(s) { e <- lim_own[[s]]
-    data.frame(row = sets_own[[s]], a = f3(e$hr), b = f3(e$marghr_inf), c = f3(e$ahr), d = f3(e$cde)) })),
+  data.frame(row = unname(sets_own[lim_own$set]), a = f3(lim_own$marghr), b = f3(lim_own$marghr_inf),
+             c = f3(lim_own$ahr), d = f3(lim_own$cde)),
   data.frame(row = c("P(trigger), n = 1,000", "P(oracle joint), n = 1,000"),
              a = f3(c(p_own[["p_trigger"]], p_own[["p_trigger_and_Gstar_lt1"]])), b = "", c = "", d = ""))
 knitr::kable(setNames(tab_own, c("", "margHR(40)", "margHR(∞)", "AHR", "CDE")), row.names = FALSE,
              align = "lrrrr", caption = "The analytic layer on the mechanism built from the trial (h = 2, b = 0.55).")
 # S2's values from the campaign's analytic record (the same numbers as in the analytic-layer section)
-pred_S2 <- rd("predictions_full.csv"); pred_S2 <- pred_S2[pred_S2$cell == "S2_rmlog4", ]
+pred_S2 <- mrct_record("predictions_full.csv"); pred_S2 <- pred_S2[pred_S2$cell == "S2_rmlog4", ]
 s2 <- function(q, set) { v <- pred_S2$value[pred_S2$quantity == q & pred_S2$set == set]; stopifnot(length(v) == 1); v }
 ```
 
-As a reading, not a check: the region's margHR(40) is `r f3(lim_own$region$hr)` here against
+As a reading, not a check: the region's margHR(40) is `r f3(lim_own$marghr[lim_own$set == "region"])` here against
 `r f3(s2("marghr_40", "region"))` in S2, P(trigger) `r f3(p_own[["p_trigger"]])` against
 `r f3(s2("p_A_B", ""))` and the oracle joint `r f3(p_own[["p_trigger_and_Gstar_lt1"]])` against
 `r f3(s2("p_A_B_Cstar", ""))` (@sec-analytic); the build from one trial of 1,000 is not S2's build from
@@ -325,9 +299,9 @@ ACTG 175 and is not expected to reproduce it.
 ## 4.3b — The analytic layer
 
 `ahr_population()` on each cell's mechanism, with your analysis time and entry period, then
-`ahr_limit()` on the sets you care about gives each set's four truths: read margHR at the analysis
+`ahr_truths_table()` on the sets you care about gives each set's four truths: read margHR at the analysis
 time as what the set's Cox estimate converges to, and the AHR and CDE as the effect in the set.
-`ahr_design()` at your trial size gives P(ITT ub < 1.0), P(region ITT > 1.0), P(trigger) and the
+`ahr_design_table()` at your trial size gives P(ITT ub < 1.0), P(region ITT > 1.0), P(trigger) and the
 oracle joint before any simulation; if P(trigger) is very small, the campaign will have few triggered
 trials to summarise. `ahr_solve()` places one free parameter so that P(trigger) reaches a target
 (@sec-roots). These are computed by quadrature and take seconds per cell.
@@ -367,14 +341,7 @@ the triggered trials, from the per-trial Cox fits of the full record, and a case
 of @sec-find.
 
 ```{r own-summary, eval = FALSE}
-e <- as.data.frame(attr(res_own, "estimators")); r <- as.data.frame(res_own)
-fit_of <- function(k) e[e$estimator == k, ][match(r$sim, e$sim[e$estimator == k]), ]
-itt <- fit_of("itt_all"); rgn <- fit_of("itt_region"); gh <- fit_of("region_Ghat"); gs <- fit_of("region_Gstar")
-lt1 <- function(v) !is.na(v) & v < 1
-K <- lt1(itt$hi) & !is.na(rgn$hr) & rgn$hr > 1               # the trigger
-dec <- r$any_found == 1
-c(triggered = sum(K), declared = mean(dec[K]), joint = mean(dec[K] & lt1(gh$hr[K])),
-  oracle_joint = mean(lt1(gs$hr[K])))
+mrct_core_summary(res_own)                                    # the core rows, on the triggered trials
 case_own <- mrct_select_case(res_own)                         # the first trial meeting the rule
 ```
 
@@ -480,31 +447,26 @@ build check onward uses the cells built here (`build_cell()`).
 
 ```{r build-fn}
 #| code-fold: show
-latent_R <- as.matrix(rd("latent_R.csv", row.names = 1))
+latent_R <- as.matrix(mrct_record("latent_R.csv", row.names = 1))
 
 # One cell: hazard ratio h in H* = {CD4 <= 230}, b = 0.55 elsewhere, region
 # prognostic log-HR r, all hazards x m; the calls of steps 2 and 3 above.
 build_cell <- function(h, r = -log(4), b = 0.55, cut = 230, m = 3) {
-  w <- character(0)
-  dgm <- withCallingHandlers(
-    inject_mrct_structure(
-      actg,
-      outcome_var = "time_months", event_var = "cens", treatment_var = "treat_mrct",
-      continuous_vars = c("age", "wtkg", "karnof", "preanti", "cd40", "cd80"),
-      factor_vars = c("hemo", "homo", "drugs", "race", "gender", "symptom"),
-      x_pred = "cd40",
-      spline_spec = list(knot = 300, zeta = 800, log_hrs = rep(log(b), 3)),
-      region = list(prevalence = 0.20, or_pred = 1, x1_vars = "symptom", or_x1 = 3,
-                    loghr = r, band = list(cut = cut, or = 1)),
-      x3 = list(vars = "cd40", cuts = list(cd40 = cut), loghr = log(h / b)),
-      region_treat_loghr = NULL,
-      n_super = 20000, expand = "copula", seed = 7L,
-      continuous_vars_cens = c("age", "cd40"), factor_vars_cens = "symptom",
-      latent_R = latent_R),
-    warning = function(cnd) { w <<- c(w, conditionMessage(cnd)); invokeRestart("muffleWarning") })
-  dgm <- scale_dgm_hazard(dgm, m = m)
-  attr(dgm, "build_warnings") <- w
-  dgm
+  mrct_build_dgm(
+    actg,
+    outcome_var = "time_months", event_var = "cens", treatment_var = "treat_mrct",
+    continuous_vars = c("age", "wtkg", "karnof", "preanti", "cd40", "cd80"),
+    factor_vars = c("hemo", "homo", "drugs", "race", "gender", "symptom"),
+    x_pred = "cd40",
+    spline_spec = list(knot = 300, zeta = 800, log_hrs = rep(log(b), 3)),
+    region = list(prevalence = 0.20, or_pred = 1, x1_vars = "symptom", or_x1 = 3,
+                  loghr = r, band = list(cut = cut, or = 1)),
+    x3 = list(vars = "cd40", cuts = list(cd40 = cut), loghr = log(h / b)),
+    region_treat_loghr = NULL,
+    n_super = 20000, expand = "copula", seed = 7L,
+    continuous_vars_cens = c("age", "cd40"), factor_vars_cens = "symptom",
+    latent_R = latent_R,
+    m = m)
 }
 t_build <- proc.time()[["elapsed"]]
 dgm_S2 <- build_cell(h = 2)
@@ -542,7 +504,7 @@ ours <- c(
   events_n1000_region = 1000 * mean(reg_s) * e_reg$d, events_n1000_nonregion = 1000 * mean(!reg_s) * e_non$d,
   mean_theta0_region = mean(ds$theta_0[reg_s]), mean_theta0_nonregion = mean(ds$theta_0[!reg_s]),
   n_build_warnings = length(attr(dgm_S2, "build_warnings")))
-br <- rd("build_full_summary.csv"); br <- br[br$cell == "S2_rmlog4", ]
+br <- mrct_record("build_full_summary.csv"); br <- br[br$cell == "S2_rmlog4", ]
 num_cols <- names(br)[vapply(br, is.numeric, NA)]
 stopifnot(nrow(br) == 1,
           setequal(setdiff(num_cols, names(ours)), c("prevalence_trials", "seed", "truth_seed", "replicates")),
@@ -568,7 +530,7 @@ keep S2's effects and let the region enter later, with $r$ or the delay solved s
 P(trigger) = 0.25 (@sec-roots). The specifications as the committed runs' timing records state them:
 
 ```{r cells}
-tf <- rd("timing_full.csv"); ts1 <- rd("timing_S1.csv"); te <- rd("timing_entry_cells.csv")
+tf <- mrct_record("timing_full.csv"); ts1 <- mrct_record("timing_S1.csv"); te <- mrct_record("timing_entry_cells.csv")
 cells <- rbind(
   data.frame(cell = sub("_rmlog4$", "", tf$setting), h = tf$h, r = -log(4), delay = 0, n = 1000,
              replicates = tf$replicates, seed = tf$seed),
@@ -579,7 +541,7 @@ cells <- rbind(
 cells <- cells[match(c("N0", "N1", "S1", "S2", "S3", "S4", "S2_D1", "S2_D2"), cells$cell), ]
 rownames(cells) <- NULL
 # the shipped build record's h and r for the five full cells
-bfull <- rd("build_full_summary.csv")
+bfull <- mrct_record("build_full_summary.csv")
 stopifnot(!anyNA(cells$cell), near(bfull$h, cells$h[match(sub("_rmlog4$", "", bfull$cell), cells$cell)]),
           near(bfull$r, -log(4), 1e-12))
 find <- ifelse(cells$h == 0.55, "nothing: the same benefit everywhere",
@@ -603,6 +565,7 @@ information and robust variance, the expected events, the correlation between ne
 estimates, the set's AHR and CDE, and the normal-approximation probability of the trigger at a trial
 size. `ahr_population()` reads the DGM; `ahr_limit()` gives a set's four truths; `ahr_design()` gives
 the trial-level probabilities; `ahr_solve()` solves P(trigger) = target in one free parameter.
+`ahr_truths_table()` and `ahr_design_table()` tabulate `ahr_limit()` and `ahr_design()` over the cells.
 @sec-appendix states the formulas.
 
 ```{r analytic-cells}
@@ -611,15 +574,11 @@ cells6 <- cells[cells$delay == 0, ]
 dgms <- lapply(setNames(cells6$h, cells6$cell), function(h) if (h == 2) dgm_S2 else build_cell(h = h))
 pops <- lapply(dgms, ahr_population, analysis_time = 40, max_entry = 11)
 sets4 <- c(all = "all patients", nonregion = "non-region", region = "region", region_Gstar = "G* (region minus H*)")
-truths <- do.call(rbind, lapply(names(pops), function(k) {
-  h <- cells6$h[cells6$cell == k]
-  do.call(rbind, lapply(names(sets4), function(s) {
-    e <- ahr_limit(pops[[k]], s, b = 0.55, h = h, variance = FALSE)
-    data.frame(cell = k, set = s, marghr_40 = e$hr, marghr_inf = e$marghr_inf, ahr = e$ahr, cde = e$cde)
-  }))
-}))
+h6 <- setNames(cells6$h, cells6$cell)
+truths <- ahr_truths_table(pops, sets = names(sets4), b = 0.55, h = h6)
+truths$horizon <- NULL; names(truths)[names(truths) == "marghr"] <- "marghr_40"
 # against the committed predictions (the analytic records of the campaign)
-pred <- rbind(rd("predictions_full.csv"), rd("predictions_S1.csv"))
+pred <- rbind(mrct_record("predictions_full.csv"), mrct_record("predictions_S1.csv"))
 pv <- function(cell, q, set) { v <- pred$value[pred$cell == cell & pred$quantity == q & pred$set == set]; stopifnot(length(v) == 1); v }
 tr_ref <- mapply(function(c, s, q) pv(paste0(c, "_rmlog4"), q, s),
                  rep(truths$cell, 4), rep(truths$set, 4),
@@ -630,7 +589,7 @@ tt$set <- sets4[tt$set]; tt[3:6] <- lapply(tt[3:6], f3)
 reg_S2 <- truths[truths$cell == "S2" & truths$set == "region", ]
 stopifnot(reg_S2$marghr_40 < 1, reg_S2$cde > 1)
 knitr::kable(setNames(tt, c("cell", "set", "margHR(40)", "margHR(∞)", "AHR", "CDE")), row.names = FALSE,
-             align = "llrrrr", caption = "The four truths of four sets in the six cells at r = −log 4 (ahr_limit()); equal to the committed predictions to 1e-9.")
+             align = "llrrrr", caption = "The four truths of four sets in the six cells at r = −log 4 (ahr_truths_table()); equal to the committed predictions to 1e-9.")
 ```
 
 The four truths differ, and the difference is the point. The AHR and the CDE depend on a set only
@@ -643,16 +602,14 @@ around a regional limit below 1.
 **The trigger predictions at $n = 1{,}000$**, and the oracle joint, P(trigger and region($G^*$) < 1.0):
 
 ```{r design-n1000}
-design_tab <- function(n, cells_k, pops_k, ref_cell) {
-  do.call(rbind, lapply(names(pops_k), function(k) {
-    h <- cells_k$h[cells_k$cell == k]
-    p <- ahr_design(pops_k[[k]], b = 0.55, h = h, n = n)$prob
-    data.frame(cell = k, n = n, p_A = p[["p_itt_ub_lt1"]], p_B = p[["p_region_itt_gt1"]],
-               p_A_B = p[["p_trigger"]], p_Cstar = p[["p_region_Gstar_lt1"]],
-               p_A_B_Cstar = p[["p_trigger_and_Gstar_lt1"]], ref = ref_cell(k))
-  }))
+# ahr_design_table()'s probabilities, under the names of the committed predictions
+design_tab <- function(n, ref_cell) {
+  d <- ahr_design_table(pops, b = 0.55, h = h6, n = n)
+  data.frame(cell = d$cell, n = d$n, p_A = d$p_itt_ub_lt1, p_B = d$p_region_itt_gt1,
+             p_A_B = d$p_trigger, p_Cstar = d$p_region_Gstar_lt1,
+             p_A_B_Cstar = d$p_trigger_and_Gstar_lt1, ref = ref_cell(d$cell))
 }
-d1000 <- design_tab(1000, cells6, pops, function(k) paste0(k, "_rmlog4"))
+d1000 <- design_tab(1000, function(k) paste0(k, "_rmlog4"))
 for (q in c("p_A", "p_B", "p_A_B", "p_Cstar", "p_A_B_Cstar"))
   stopifnot(all(abs(d1000[[q]] - vapply(d1000$ref, function(cc) pv(cc, q, ""), 0)) < 1e-9))
 show_design <- function(d) knitr::kable(data.frame(
@@ -666,9 +623,9 @@ show_design(d1000)
 At $n = 700$ (predictions only; the $n = 700$ campaign is in the report and is not reproduced here):
 
 ```{r design-n700}
-pred700 <- rbind(rd("predictions_n700.csv"), rd("predictions_S1.csv"))
+pred700 <- rbind(mrct_record("predictions_n700.csv"), mrct_record("predictions_S1.csv"))
 pv7 <- function(cell, q) { v <- pred700$value[pred700$cell == cell & pred700$quantity == q & pred700$set == ""]; stopifnot(length(v) == 1); v }
-d700 <- design_tab(700, cells6, pops, function(k) paste0(k, "_rmlog4_n700"))
+d700 <- design_tab(700, function(k) paste0(k, "_rmlog4_n700"))
 for (q in c("p_A", "p_B", "p_A_B", "p_Cstar", "p_A_B_Cstar"))
   stopifnot(all(abs(d700[[q]] - vapply(d700$ref, pv7, 0, q = q)) < 1e-9))
 show_design(d700)
@@ -691,7 +648,7 @@ p_trig_r <- function(r, delay = NULL) {
   d <- build_cell(h = 2, r = r)
   ahr_design(ahr_population(d, 40, 11, entry_delay = delay), b = 0.55, h = 2, n = 1000)$prob[["p_trigger"]]
 }
-roots <- rd("entry_roots.csv")
+roots <- mrct_record("entry_roots.csv")
 rref <- function(tag) { x <- roots[startsWith(roots$row, tag), ]; stopifnot(nrow(x) == 1); x }
 sol_r <- ahr_solve(p_trig_r, 0.25, c(-log(5), -log(3.5)), n_scan = 5L, tol = 1e-10)
 ref0 <- rref("Reference: a = 0, r solving")
@@ -793,7 +750,7 @@ stopifnot(nrow(case) == 1, case$sim == 5)
 est <- as.data.frame(attr(demo, "estimators")); demo <- as.data.frame(demo)[order(demo$sim), ]
 stopifnot(nrow(demo) == nsims_demo, identical(demo$sim, seq_len(nsims_demo)))
 # the campaign's first replicates, as the shipped record has them
-trials5 <- rd("s2_example_trials.csv")
+trials5 <- mrct_record("s2_example_trials.csv")
 k5 <- intersect(trials5$sim, demo$sim)
 stopifnot(near(demo$hr_itt[match(k5, demo$sim)], trials5$hr_itt[match(k5, trials5$sim)], 1e-10),
           near(demo$hr_test[match(k5, demo$sim)], trials5$hr_region[match(k5, trials5$sim)], 1e-10),
@@ -915,10 +872,10 @@ the committed definition, the $2 \times 2$ tables the committed ones, and the MR
 campaign's record of this replicate (same call, same seed); the article stops otherwise.
 
 ```{r reproduction}
-rec <- rd("s2_example_four_sets.csv", colClasses = c(hr_3dp = "character", ci_3dp = "character"))
+rec <- mrct_record("s2_example_four_sets.csv", colClasses = c(hr_3dp = "character", ci_3dp = "character"))
 rec <- rec[match(four$set, rec$set), ]
-trials5 <- rd("s2_example_trials.csv")
-defs <- readLines(file.path(dd, "s2_example_definitions.md"))
+trials5 <- mrct_record("s2_example_trials.csv")
+defs <- readLines(system.file("extdata", "mrct-consistency", "s2_example_definitions.md", package = "forestsearch"))
 rec2x2 <- function(lab) {
   l <- defs[grepl(paste0("^- ", lab, "( \\(|:)"), defs)]; stopifnot(length(l) == 1)
   vapply(c(TP = "TP", FP = "FP", FN = "FN", TN = "TN"),
@@ -940,7 +897,7 @@ both $2 \times 2$ tables equal the record.
 
 ```{r mr-repro}
 # against the MR campaign's record of this replicate (same call, same seed)
-mf <- rd("mr_field_S2_rep5.csv")
+mf <- mrct_record("mr_field_S2_rep5.csv")
 stopifnot(nrow(mf) == 1, mf$sim == 5, identical(mf$sg_found, Hhat_def),
           near(c(mv$naive_est[1], mv$debiased_est[1], mv$ij_lower[1], mv$ij_upper[1], mv$field_bound[1],
                  mv$naive_est[2], mv$debiased_est[2], mv$field_bound[2], mv$bonferroni_bound),
@@ -988,8 +945,8 @@ summarised here from the shipped core tables; @sec-demo summarises the small run
 ## The core operating characteristics at $n = 1{,}000$
 
 ```{r core-n1000}
-core <- rd("core_n1000.csv")
-cn <- rbind(rd("core_full_numeric.csv"), rd("core_S1_numeric.csv")[, names(rd("core_full_numeric.csv"))])
+core <- mrct_record("core_n1000.csv")
+cn <- rbind(mrct_record("core_full_numeric.csv"), mrct_record("core_S1_numeric.csv")[, names(mrct_record("core_full_numeric.csv"))])
 cn <- cn[cn$setting %in% paste0(cells6$cell, "_rmlog4"), ]
 ord6 <- c("N0", "N1", "S1", "S2", "S3", "S4")
 wide <- reshape(core[, c("row", "label", "column", "value")], idvar = c("row", "label"), timevar = "column",
@@ -1040,7 +997,7 @@ generation.
 ## The later-enrolling cells
 
 ```{r core-entry}
-ce <- rd("entry_cells_core.csv"); cen <- rd("entry_cells_core_numeric.csv")
+ce <- mrct_record("entry_cells_core.csv"); cen <- mrct_record("entry_cells_core_numeric.csv")
 gv <- function(q, k) cen[[k]][cen$quantity == q]
 for (k in c("S2", "S2_D1", "S2_D2")) {
   stopifnot(abs(gv("trigger_pct", k) - 100 * gv("trigger_n", k) / gv("n_trials", k)) < 1e-9,
@@ -1098,7 +1055,7 @@ trials whose $\hat H$ lower bound is above 0.90 and above 1.0, and the share who
 bound is below 1.0.
 
 ```{r mr-field}
-mfc <- rd("mr_field_core.csv")
+mfc <- mrct_record("mr_field_core.csv")
 knitr::kable(mfc[, -1], row.names = FALSE, align = c("l", rep("r", 8)),
              caption = "MR field inference on the triggered trials (rows 1–3: % of declared triggered trials).")
 mv_ <- function(row, k) mfc[[k]][mfc$row == row]
@@ -1155,7 +1112,7 @@ tm <- rbind(data.frame(cell = sub("_rmlog4$", "", tf$setting), workers = tf$work
             data.frame(cell = te$setting, workers = te$workers, wall_sec = te$wall_sec))
 tm <- tm[match(cells$cell, tm$cell), ]
 mft <- do.call(rbind, lapply(cells$cell, function(k) {
-  x <- rd(sprintf("timing_mr_field_%s.csv", k))
+  x <- mrct_record(sprintf("timing_mr_field_%s.csv", k))
   data.frame(cell = k, mr_trials = sum(x$trials_run_this_session), mr_workers = x$workers[1], mr_wall_sec = sum(x$wall_sec))
 }))
 stopifnot(identical(mft$cell, tm$cell))
@@ -1179,22 +1136,17 @@ the core table. With the campaign's seed, its replicates are the campaign's firs
 checks its first replicates against the shipped record.
 
 ```{r demo-summary}
-g_est <- function(k) { y <- est[est$estimator == k, ]; y[match(demo$sim, y$sim), ] }
-itt <- g_est("itt_all"); rgn <- g_est("itt_region"); gh <- g_est("region_Ghat"); gs <- g_est("region_Gstar")
-lt1 <- function(v) !is.na(v) & v < 1; gt1 <- function(v) !is.na(v) & v > 1
-A <- lt1(itt$hi); K <- A & gt1(rgn$hr); dec <- demo$any_found == 1; DK <- dec & K
-ss <- function(tp, fn) tp / (tp + fn)
-sens_non <- with(demo, ss(TP_nonregion, FN_nonregion)); spec_non <- with(demo, ss(TN_nonregion, FP_nonregion))
-sens_reg <- with(demo, ss(TP_region, FN_region)); spec_reg <- with(demo, ss(TN_region, FP_region))
-pk <- function(w, d = K) if (sum(d)) pc(sum(w & d) / sum(d)) else "–"
-av <- function(v) if (sum(DK)) pc(mean(v[DK], na.rm = TRUE)) else "–"
+demo_core <- mrct_core_summary(structure(demo, estimators = est))
+dsp <- setNames(demo_core$display, demo_core$quantity)
+K <- demo_core$count[demo_core$quantity == "trigger"]
 demo_rows <- data.frame(
   row = c("trial power (ITT ub < 1.0)", "trials reaching the trigger (count)", "subgroup declared",
           "Sens / Spec of Ĥ vs H*, non-region", "Sens / Spec of Ĥ vs H*, region",
           "declared, region(Ĝ) < 1.0", "region(G*) < 1.0", "declared, region(Ĝ) ≥ 1.0"),
-  demonstration = c(pc(mean(A)), sprintf("%d of %d", sum(K), nsims_demo), pk(dec),
-                    paste(av(sens_non), "/", av(spec_non)), paste(av(sens_reg), "/", av(spec_reg)),
-                    pk(dec & lt1(gh$hr)), pk(lt1(gs$hr)), pk(dec & !lt1(gh$hr))),
+  demonstration = c(dsp[["power"]], dsp[["trigger"]], dsp[["declared"]],
+                    paste(dsp[["sens_nonregion"]], "/", dsp[["spec_nonregion"]]),
+                    paste(dsp[["sens_region"]], "/", dsp[["spec_region"]]),
+                    dsp[["declared_Ghat_lt1"]], dsp[["Gstar_lt1"]], dsp[["declared_Ghat_ge1"]]),
   campaign = wide$S2)
 knitr::kable(demo_rows, row.names = FALSE, align = "lrr",
              col.names = c("", sprintf("demonstration (%d replicates)", nsims_demo), "campaign (10,000)"),
