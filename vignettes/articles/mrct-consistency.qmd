@@ -302,9 +302,14 @@ small at your design, a campaign will have few triggered trials to summarise.
    against $H^*$ on both sides.
 
 $\hat H$ is learned on the non-region patients only and applied to the region, whose outcomes the
-identifier never sees: the region is a held-out test set, and its Cox fits on the whole region and on
-$\hat G$ are ordinary Wald fits on sets defined by a fixed rule. The non-region estimate inside
-$\hat H$ is selected; @sec-rep5-mr bounds it by multiplier resampling.
+identifier never sees: the region is a held-out test set, and its Cox fits on the whole region and
+on $\hat G$ are ordinary Wald fits on sets defined by a fixed rule. The hold-out removes one
+selection, not two: the region's fits carry no bias from a search their outcomes never entered, but
+the pipeline itself runs only when the region's estimate is already above 1.0, so everything after
+step 2 is conditioned on an unfavourable regional draw. That conditioning is why the strategy stays
+signal generation: the null cells of the simulations article show how often it "explains" a trigger
+with nothing to find. The non-region estimate inside $\hat H$ is selected; @sec-rep5-mr bounds it by
+multiplier resampling.
 
 | Label | Meaning |
 |---|---|
@@ -386,17 +391,26 @@ c(region_HR = hr_reg, lower = fit_reg$conf.int[1, "lower .95"], upper = fit_reg$
 stopifnot(trigger)
 ```
 
-The region's estimate is `r f3(hr_reg)`, above 1.0, from `r sum(trial$event_sim[reg])` events: the
-trigger. *With your trial:* `mrct_trial_analysis()` fits this from your region column; if region ITT
+The region's estimate is `r f3(hr_reg)` (95% CI `r f3(fit_reg$conf.int[1, "lower .95"])`,
+`r f3(fit_reg$conf.int[1, "upper .95"])`), above 1.0, from `r sum(trial$event_sim[reg])` events: the
+trigger. The interval is wide, and a point estimate above 1.0 is not evidence that treatment harms
+the region's patients; it is the second half of the trigger, and what it triggers is an
+investigation, not a conclusion.
+*With your trial:* `mrct_trial_analysis()` fits this from your region column; if region ITT
 $\le$ 1.0 the pipeline stops here, at stage `no_trigger`.
 
 ## Step 3: the identifier on the non-region patients, with post-selection inference {#sec-rep5-mr}
 
 `forestsearch()` runs on the non-region patients, with the region's patients passed as the test set
-(`df.test`) to which the declared rule is applied, with the campaign's arguments: candidate cuts on the
-observed covariates with deciles for CD4, weight and prior ART, at most two factors, hazard-ratio
-threshold 0.90 for screening and 0.80 for consistency at probability 0.90, the largest consistent
-subgroup within an effect neighbourhood of 0.20 of the largest effect. Multiplier resampling (MR,
+(`df.test`) to which the declared rule is applied, with the campaign's arguments: candidate cuts on
+the observed covariates with deciles for CD4, weight and prior ART, and at most two factors per
+rule. Two thresholds do different work: the screen admits a candidate whose full-data hazard ratio
+is at least 0.90 (`hr.threshold`), and the consistency requirement then asks the candidate to show a
+hazard ratio of at least 0.80 in both halves of a random split of the data, in at least 90% of the
+splits (`hr.consistency`, `pconsistency.threshold`). A candidate must also meet the identifier's
+subgroup-size and per-arm event minimums, at their defaults here. Among the candidates that pass,
+the declared subgroup is the largest within an effect neighbourhood of 0.20 of the largest effect.
+Multiplier resampling (MR,
 `mr_inference = TRUE`) follows in the same call: 2,000 Poisson multiplier draws, the complement
 de-biased and given its own field (`include_complement`, `field_complement`), the field method at its
 default Monte Carlo sizes, the re-selections returned, and the replicate's call seed. The call is the
@@ -509,10 +523,14 @@ Removing $\hat H$ from the region and refitting the Cox model compares two diffe
 does not decompose the regional hazard ratio. The region's estimate is not a weighted average of the
 estimates in $\hat H$ and in $\hat G$: removing patients changes the risk sets, the events and the
 censoring mixture, and each Cox estimate converges to the limit of its own set at the analysis time
-(simulations article), which can differ from that set's AHR or CDE. A regional estimate that moves from above
-1.0 to below 1.0 is therefore compatible with a trial-wide subgroup accounting for the regional result.
-It does not show that $\hat H$ caused it, does not validate $\hat H$ as a clinically actionable
-subgroup, and, read with the null cells of the simulations article, can arise when there is no harmed subgroup at all.
+(simulations article), which can differ from that set's AHR or CDE. A regional estimate that moves
+from above 1.0 to below 1.0 is therefore compatible with a trial-wide subgroup accounting for the
+regional result. It does not show that $\hat H$ caused it, does not validate $\hat H$ as a
+clinically actionable subgroup, and, read with the null cells of the simulations article, can arise
+when there is no harmed subgroup at all. Nor is the distance between region($\hat G$) and
+region($G^*$) a measure of how well $\hat H$ recovered $H^*$: they are different patient sets, and
+each estimate converges to its own set's limit (the simulations article sets $\hat H$ against $H^*$
+directly).
 :::
 
 ## Step 5: the Pareto frontier and the bounds
@@ -546,12 +564,14 @@ mr_tab
 
 Read by location: the naive hazard ratio of $\hat H$ is `r f3(mr$naive$est)` and its de-biased value
 `r f3(mr$debiased$est)`, but the field lower bound is `r f3(fl$lower_1s)`,
-`r if (fl$lower_1s < 0.90) "below 0.90" else "above 0.90 but below 1.0"`:
-once the selection is accounted for, the data do not rule out a modest benefit in $\hat H$. The field
-upper bound for $\hat H^c$ is `r f3(fl$complement$upper_1s)`,
-below 1.0: the non-region patients outside
-$\hat H$ benefit. $\hat H$ is re-selected on a share
-`r f3(mr$reselection$p_hat[[mr$selected_index]])` of the draws. *With your trial:* nothing changes;
+`r if (fl$lower_1s < 0.90) "below 0.90" else "above 0.90 but below 1.0"`: once the selection is
+accounted for, the data do not rule out a modest benefit in $\hat H$ — and a lower bound does not
+establish harm there either. The field upper bound for $\hat H^c$ is `r f3(fl$complement$upper_1s)`,
+below 1.0: the non-region patients outside $\hat H$ benefit. The two bounds are one-sided statements
+about two different sets, not an interval for the contrast between them, so together they do not
+establish that the two effects are separated; the Bonferroni pair in the table is the joint
+statement. $\hat H$ is re-selected on a share `r f3(mr$reselection$p_hat[[mr$selected_index]])` of
+the draws. *With your trial:* nothing changes;
 `compute_frontier_cis()` and `mr_estimates_table()` take your `forestsearch()` result.
 
 ::: {.callout-note}
@@ -563,8 +583,12 @@ in your setting: a lower bound well below 1.0 leaves benefit in $\hat H$ open; o
 says that, after accounting for the selection, little benefit remains there. Read the field upper
 bound for $\hat H^c$ the same way: below 1.0 says the non-region patients outside $\hat H$ benefit.
 Use the Bonferroni pair when both statements are made together. The naive estimate in $\hat H$ is
-selected and is not a bound. The re-selection share $\hat p(\hat H)$ is a stability diagnostic: a
-small share says another rule would often have been declared from similar data.
+selected and is not a bound. The field bounds are not ordinary intervals computed after treating
+$\hat H$ as fixed: they are selection-adjusted by construction, bounds over the multiplier draws of
+the whole candidate family. The re-selection share $\hat p(\hat H)$ is a stability diagnostic for
+the exact declared rule: a small share says another rule would often have been declared from similar
+data. It does not say whether neighbouring rules or the broader patient pattern are stable, and it
+is not evidence for or against a harmed subgroup existing.
 
 These bounds are for sets among the non-region patients. The region's fits on the whole region and
 on $\hat G$ are ordinary Wald fits on sets defined by a fixed rule, with the region's few events; read
