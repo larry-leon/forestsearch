@@ -2503,7 +2503,12 @@ window.Quarto = {
 <section id="the-trigger-and-the-question" class="level2" data-number="1.1">
 <h2 data-number="1.1" class="anchored" data-anchor-id="the-trigger-and-the-question"><span class="header-section-number">1.1</span> The trigger and the question</h2>
 <p>A global trial meets its primary endpoint: the upper 95% limit of the all-patient Cox hazard ratio is below 1.0 (<strong>ITT ub &lt; 1.0</strong>). One region, about a fifth of the patients, has a Cox point estimate above 1.0 (<strong>region ITT &gt; 1.0</strong>). The pair, in the same trial, is the <strong>trigger</strong>: the regional consistency failure as it presents in oncology multiregional trials. Region ITT &gt; 1.0 describes a point estimate.</p>
-<p>We consider two explanations for the trigger: the region differs in its treatment effect, or the trial contains a subgroup that is harmed, present in every region, and the region’s estimate is pulled up by it (with the region’s prognosis and the finite follow-up window shaping how far). The question is whether a subgroup identified on the non-region patients can account for the regional result: if removing it from the region leaves a Cox estimate below 1.0, the regional result is compatible with a trial-wide subgroup and does not by itself point to a region-specific effect. The strategy is <strong>signal generation, not confirmation</strong>.</p>
+<p>We consider two explanations for the trigger:</p>
+<ul>
+<li><strong>a region-specific effect</strong> — the region differs in its treatment effect; or</li>
+<li><strong>a trial-wide harmed subgroup</strong> — present in every region, with the region’s estimate pulled up by it (the region’s prognosis and the finite follow-up window shaping how far).</li>
+</ul>
+<p>The question is whether a subgroup identified on the non-region patients can account for the regional result: if removing it from the region leaves a Cox estimate below 1.0, the regional result is compatible with a trial-wide subgroup and does not by itself point to a region-specific effect. The strategy is <strong>signal generation, not confirmation</strong>.</p>
 <div class="callout callout-style-default callout-important callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -2545,11 +2550,23 @@ window.Quarto = {
           + \gamma_R\,\mathbf 1\{X \in R\}
           + \gamma_{H^*\!R}\,\mathbf 1\{X \in H^*\}\,\mathbf 1\{X \in R\},
 \]</span> with <span class="math inline">\(\gamma_R = \log(b_R/b)\)</span> and <span class="math inline">\(\gamma_{H^*\!R} = \log(h_R/h) - \log(b_R/b)\)</span>: the hazard ratio of treatment is <span class="math inline">\(b\)</span> outside and <span class="math inline">\(b_R\)</span> inside the region for patients outside <span class="math inline">\(H^*\)</span>, and <span class="math inline">\(h\)</span> outside and <span class="math inline">\(h_R\)</span> inside the region for patients in <span class="math inline">\(H^*\)</span>. The base model is the null <span class="math inline">\(\gamma_R = \gamma_{H^*\!R} = 0\)</span>. Every cell of this article is the base model.</p>
-<p>In S2, the cell that produced replicate 5: <span class="math inline">\(b = 0.55\)</span>, <span class="math inline">\(h = 2\)</span>, <span class="math inline">\(r = -\log 4\)</span>, the region about 20% of patients (planted by a logistic model with odds ratio 3 on symptomatic status and no CD4 term), all hazards multiplied by 3, and a trial is <span class="math inline">\(n = 1{,}000\)</span> patients, 1:1, entry uniform over 11 months, analysed at 40 months, with administrative censoring only. The full build, the other cells and the checks against the committed record are in the companion article <a href="mrct-consistency-simulations.html">mrct-consistency-simulations</a>.</p>
+<p>In S2, the cell that produced replicate 5:</p>
+<ul>
+<li><strong>effects</strong> — <span class="math inline">\(b = 0.55\)</span> outside <span class="math inline">\(H^*\)</span>, <span class="math inline">\(h = 2\)</span> inside it;</li>
+<li><strong>region</strong> — about 20% of patients, planted by a logistic model with odds ratio 3 on symptomatic status and no CD4 term, with prognostic shift <span class="math inline">\(r = -\log 4\)</span>;</li>
+<li><strong>hazard scale</strong> — all hazards multiplied by 3;</li>
+<li><strong>the trial</strong> — <span class="math inline">\(n = 1{,}000\)</span> patients, 1:1, entry uniform over 11 months, analysed at 40 months, with administrative censoring only.</li>
+</ul>
+<p>The full build, the other cells and the checks against the committed record are in the companion article <a href="mrct-consistency-simulations.html">mrct-consistency-simulations</a>.</p>
 </section>
 <section id="sec-predictions" class="level2" data-number="1.3">
 <h2 data-number="1.3" class="anchored" data-anchor-id="sec-predictions"><span class="header-section-number">1.3</span> Analytic predictions before the analysis</h2>
-<p>Before a single Cox model is fitted, the design’s event probabilities can be computed with no simulation. Three calls do it: rebuild the mechanism <strong>from <code>rep5_trial.csv</code></strong>, with its region taken as observed and S2’s stated effects (<span class="math inline">\(h = 2\)</span> in <span class="math inline">\(H^*\)</span> = {CD4 <span class="math inline">\(\le\)</span> 230}, <span class="math inline">\(b = 0.55\)</span> outside; the region’s prognostic shift <span class="math inline">\(r\)</span> is estimated from the trial); <code>ahr_population()</code> at the design’s window; <code>ahr_design()</code> at the trial size.</p>
+<p>Before a single Cox model is fitted, the design’s event probabilities can be computed with no simulation. Three calls do it:</p>
+<ol type="1">
+<li>rebuild the mechanism <strong>from <code>rep5_trial.csv</code></strong>, with its region taken as observed and S2’s stated effects (<span class="math inline">\(h = 2\)</span> in <span class="math inline">\(H^*\)</span> = {CD4 <span class="math inline">\(\le\)</span> 230}, <span class="math inline">\(b = 0.55\)</span> outside; the region’s prognostic shift <span class="math inline">\(r\)</span> is estimated from the trial);</li>
+<li><code>ahr_population()</code> at the design’s window;</li>
+<li><code>ahr_design()</code> at the trial size.</li>
+</ol>
 <div class="cell">
 <details open class="code-fold">
 <summary>Code</summary>
@@ -2585,7 +2602,19 @@ window.Quarto = {
                1.100000 </code></pre>
 </div>
 </div>
-<p>Seven design probabilities follow from four of them: with <span class="math inline">\(A\)</span> = {ITT ub &lt; 1.0}, <span class="math inline">\(B\)</span> = {region ITT &gt; 1.0} and <span class="math inline">\(C^*\)</span> = {region(<span class="math inline">\(G^*\)</span>) &lt; 1.0}, consistency is <span class="math inline">\(A \setminus B\)</span>, non-consistency (the trigger) is <span class="math inline">\(A \cap B\)</span>, oracle consistency (the oracle joint) is <span class="math inline">\(A \cap B \cap C^*\)</span>, and row (7) adds the two routes to consistency.</p>
+<p>Seven design probabilities follow from four of them, built from three events:</p>
+<ul>
+<li><span class="math inline">\(A\)</span> = {ITT ub &lt; 1.0} — the trial is positive;</li>
+<li><span class="math inline">\(B\)</span> = {region ITT &gt; 1.0} — the region’s point estimate is unfavourable;</li>
+<li><span class="math inline">\(C^*\)</span> = {region(<span class="math inline">\(G^*\)</span>) &lt; 1.0} — removing <span class="math inline">\(H^*\)</span> exactly leaves the region’s estimate below 1.0.</li>
+</ul>
+<p>The named rows:</p>
+<ul>
+<li><strong>consistency</strong> = <span class="math inline">\(A \setminus B\)</span>;</li>
+<li><strong>non-consistency (the trigger)</strong> = <span class="math inline">\(A \cap B\)</span>;</li>
+<li><strong>oracle consistency (the oracle joint)</strong> = <span class="math inline">\(A \cap B \cap C^*\)</span>;</li>
+<li><strong>row (7)</strong> adds the two routes to consistency.</li>
+</ul>
 <div class="cell">
 <details open class="code-fold">
 <summary>Code</summary>
@@ -2649,7 +2678,9 @@ window.Quarto = {
 </table>
 </div>
 </div>
-<p>This build estimates the region’s prognostic shift from the trial: <span class="math inline">\(\hat r\)</span> = -1.541 (<span class="math inline">\(e^{\hat r}\)</span> = 0.214), against the generating <span class="math inline">\(-\log 4\)</span> = -1.386 of <a href="#sec-dgm-overview" class="quarto-xref">Section 1.2</a>, and its covariates are one trial of 1,000 re-expanded by the copula — so these values carry the sampling of that one trial, and a build from the full construction (the simulations article) gives slightly different ones. Consistency, non-consistency and oracle consistency are the names used in the accompanying manuscript; this article’s trigger is the non-consistency event and its oracle joint the oracle consistency, as the rows state. Any build warnings are the censoring model’s fit and are explained in the simulations article. <em>With your trial:</em> the same three calls, with your columns and your stated <span class="math inline">\(H^*\)</span>, <span class="math inline">\(b\)</span> and <span class="math inline">\(h\)</span> (the simulations article walks through them); if P(non-consistency) is very small at your design, a campaign will have few triggered trials to summarise.</p>
+<p>This build estimates the region’s prognostic shift from the trial: <span class="math inline">\(\hat r\)</span> = -1.541 (<span class="math inline">\(e^{\hat r}\)</span> = 0.214), against the generating <span class="math inline">\(-\log 4\)</span> = -1.386 of <a href="#sec-dgm-overview" class="quarto-xref">Section 1.2</a>, and its covariates are one trial of 1,000 re-expanded by the copula — so these values carry the sampling of that one trial, and a build from the full construction (the simulations article) gives slightly different ones. Any build warnings are the censoring model’s fit and are explained in the simulations article.</p>
+<p>Consistency, non-consistency and oracle consistency are the names used in the accompanying manuscript; this article’s trigger is the non-consistency event and its oracle joint the oracle consistency, as the rows state.</p>
+<p><em>With your trial:</em> the same three calls, with your columns and your stated <span class="math inline">\(H^*\)</span>, <span class="math inline">\(b\)</span> and <span class="math inline">\(h\)</span> (the simulations article walks through them); if P(non-consistency) is very small at your design, a campaign will have few triggered trials to summarise.</p>
 </section>
 <section id="the-pipeline-for-one-trial" class="level2" data-number="1.4">
 <h2 data-number="1.4" class="anchored" data-anchor-id="the-pipeline-for-one-trial"><span class="header-section-number">1.4</span> The pipeline, for one trial</h2>
@@ -2737,7 +2768,15 @@ window.Quarto = {
 </section>
 <section id="sec-case" class="level1" data-number="2">
 <h1 data-number="2"><span class="header-section-number">2</span> The case study: replicate 5 of S2</h1>
-<p>This section analyses one trial from its data to its bounds. The trial is replicate 5 of S2, shipped as <code>rep5_trial.csv</code> (one row per patient; its provenance is in <code>PROVENANCE.md</code>), and nothing below reads the simulation sections. The columns are the ones the analysis uses: the patient <code>id</code>, the time <code>y_sim</code> in months, the event indicator <code>event_sim</code>, the treatment <code>treat_sim</code> (1 = experimental), the region indicator <code>z_region</code>, the twelve baseline covariates the identifier is given (<code>z_age</code> to <code>z_symptom</code>, on their natural scales), and <code>flag_harm</code>, membership of <span class="math inline">\(H^*\)</span>. A real trial has no <code>flag_harm</code>; here it is used only for the region(<span class="math inline">\(G^*\)</span>) row of step 4 and in the simulations article.</p>
+<p>This section analyses one trial from its data to its bounds. The trial is replicate 5 of S2, shipped as <code>rep5_trial.csv</code> (one row per patient; its provenance is in <code>PROVENANCE.md</code>), and nothing below reads the simulation sections. The columns are the ones the analysis uses:</p>
+<ul>
+<li><code>id</code> — the patient;</li>
+<li><code>y_sim</code>, <code>event_sim</code> — the time in months, and the event indicator;</li>
+<li><code>treat_sim</code> — the treatment (1 = experimental);</li>
+<li><code>z_region</code> — the region indicator;</li>
+<li><code>z_age</code> to <code>z_symptom</code> — the twelve baseline covariates the identifier is given, on their natural scales;</li>
+<li><code>flag_harm</code> — membership of <span class="math inline">\(H^*\)</span>. A real trial has no <code>flag_harm</code>; here it is used only for the region(<span class="math inline">\(G^*\)</span>) row of step 4 and in the simulations article.</li>
+</ul>
 <div class="cell">
 <details open class="code-fold">
 <summary>Code</summary>
@@ -2802,7 +2841,15 @@ window.Quarto = {
 </section>
 <section id="sec-rep5-mr" class="level2" data-number="2.3">
 <h2 data-number="2.3" class="anchored" data-anchor-id="sec-rep5-mr"><span class="header-section-number">2.3</span> Step 3: the identifier on the non-region patients, with post-selection inference</h2>
-<p><code>forestsearch()</code> runs on the non-region patients, with the region’s patients passed as the test set (<code>df.test</code>) to which the declared rule is applied, with the campaign’s arguments: candidate cuts on the observed covariates with deciles for CD4, weight and prior ART, and at most two factors per rule. Two thresholds do different work: the screen admits a candidate whose full-data hazard ratio is at least 0.90 (<code>hr.threshold</code>), and the consistency requirement then asks the candidate to show a hazard ratio of at least 0.80 in both halves of a random split of the data, in at least 90% of the splits (<code>hr.consistency</code>, <code>pconsistency.threshold</code>). A candidate must also meet the identifier’s subgroup-size and per-arm event minimums, at their defaults here. Among the candidates that pass, the declared subgroup is the largest within an effect neighbourhood of 0.20 of the largest effect. Multiplier resampling (MR, <code>mr_inference = TRUE</code>) follows in the same call: 2,000 Poisson multiplier draws, the complement de-biased and given its own field (<code>include_complement</code>, <code>field_complement</code>), the field method at its default Monte Carlo sizes, the re-selections returned, and the replicate’s call seed. The call is the one <code>mrct_case_study()</code> makes (see the simulations article), written out; it runs under R’s default generator.</p>
+<p><code>forestsearch()</code> runs on the non-region patients, with the region’s patients passed as the test set (<code>df.test</code>) to which the declared rule is applied, with the campaign’s arguments:</p>
+<ul>
+<li><strong>candidates</strong> — cuts on the observed covariates, with deciles for CD4, weight and prior ART, and at most two factors per rule;</li>
+<li><strong>the screen</strong> — a candidate is admitted when its full-data hazard ratio is at least 0.90 (<code>hr.threshold</code>);</li>
+<li><strong>the consistency requirement</strong> — the candidate must show a hazard ratio of at least 0.80 in both halves of a random split of the data, in at least 90% of the splits (<code>hr.consistency</code>, <code>pconsistency.threshold</code>);</li>
+<li><strong>admissibility</strong> — the identifier’s subgroup-size and per-arm event minimums, at their defaults here;</li>
+<li><strong>selection</strong> — among the candidates that pass, the declared subgroup is the largest within an effect neighbourhood of 0.20 of the largest effect.</li>
+</ul>
+<p>Multiplier resampling (MR, <code>mr_inference = TRUE</code>) follows in the same call: 2,000 Poisson multiplier draws, the complement de-biased and given its own field (<code>include_complement</code>, <code>field_complement</code>), the field method at its default Monte Carlo sizes, the re-selections returned, and the replicate’s call seed. The call is the one <code>mrct_case_study()</code> makes (see the simulations article), written out; it runs under R’s default generator.</p>
 <div class="cell">
 <details open class="code-fold">
 <summary>Code</summary>
@@ -2832,7 +2879,7 @@ window.Quarto = {
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>          seconds  candidate_family            n_Hhat n_Hhat_complement 
-             51.9            3003.0              73.0             733.0 </code></pre>
+             52.2            3003.0              73.0             733.0 </code></pre>
 </div>
 <details open class="code-fold">
 <summary>Code</summary>
@@ -3669,7 +3716,7 @@ Multiplier resampling (field, 2000 draws):
 </details>
 </div>
 <p><em>With your trial:</em> your column names, your covariates in <code>fs_args$confounders.name</code> and your seed in <code>mr_inference_args</code>, without <code>truth.name</code>. <code>$stage</code> says how far the pipeline went (<code>not_positive</code>, <code>no_trigger</code>, <code>no_declaration</code> or <code>complete</code>), and none of these is an error; <code>plot()</code> on the result draws the two figures of step 4, and <code>mr_values()</code> and <code>mr_estimates_table()</code> read its <code>$fs</code>.</p>
-<p>The article took 2.7 minutes to run.</p>
+<p>The article took 2.8 minutes to run.</p>
 </section>
 </section>
 
