@@ -63,3 +63,26 @@ exactly once; `new` written with its list structure, prose re-wrapped at ~100 ch
   branch (`git branch -r` checked first). Larry pushes. `git status --porcelain` empty at close.
 - `NOTES_fs-article-rationale-two-routes_2026-11-06.md` to `~/Downloads`: HEADs, gate outcomes,
   the G4 values, the G6 delta listing, the legacy-copy paths.
+
+## Amendment 1 (2026-11-07, received in chat, verbatim)
+
+> Yes, use about 40%
+
+Context: the run stopped at G4(b) (S2_rmlog4: `event_prob_40_nonregion` 0.4577, prevalence-weighted
+overall 0.4070). The reply answers the suggested rewording in that run's NOTES, which replaces only
+the failing clause of E-A:
+
+> ... roughly 20–30% of patients within the 40-month window, and the multiplier raises the design
+> to about 40%, nearer a modern trial's event rate.
+
+Applied as (Claude's reading, recorded here):
+
+1. E-A's new text: "and the multiplier raises the design toward a modern trial's 50–70%." becomes
+   "and the multiplier raises the design to about 40%, nearer a modern trial's event rate." The rest
+   of E-A, and E-B, are as in the companion.
+2. G4(b): the prevalence-weighted overall must lie in [0.35, 0.45] (the suggested bound for "about
+   40%"). The amended text states no non-region rate, so `event_prob_40_nonregion` is recorded, not
+   gated. G4(a) is unchanged.
+3. G6's expected constants for E-A become 3, 20, 30, 40 (none computed); "175" in "ACTG 175" is a
+   label and is reported, not stopped on. E-B's are unchanged (1.0).
+4. Legacy copies go to the new date's directory.
