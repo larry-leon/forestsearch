@@ -187,15 +187,22 @@ $$
 so the hazard ratio of treatment is $b$ outside $H^*$ and $h$ inside it, on both sides of the region
 boundary. Here $H^* = \{\text{CD4} \le 230\}$.
 
-The mechanism therefore assumes, inside and outside the region alike: **(M1)** proportional hazards
-within each patient, with patient-specific ratio $e^{\psi(X)}$; **(M2)** a common effect law across
-the region boundary — $\psi$ does not involve $R$, so $(b, h)$ are the same inside and outside the
-region; **(M3)** a purely prognostic region — $r$ shifts $\theta_0$ for all region patients and
-neither arm is favored; and **(M4)** free regional composition — the distribution of $X$, and with it
-the region's $H^*$ share, may differ between the region and the non-region population. Under
-(M1)–(M4) any divergence of the region's windowed Cox limit from the trial's is produced by
-composition and by the finite analysis window (the clock identity of the simulations article), not by any
-region-dependent treatment effect.
+The mechanism therefore assumes, inside and outside the region alike:
+
+- **(M1) Proportional hazards within each patient**, with patient-specific ratio $e^{\psi(X)}$.
+- **(M2) A common effect law across the region boundary** — $\psi$ does not involve $R$, so $(b, h)$
+  are the same inside and outside the region. The extension below relaxes this: with
+  treatment-by-region interactions $\gamma_R$ and $\gamma_{H^*\!R}$, $\psi$ may depend on $R$, the
+  effects inside the region become $(b_R, h_R)$, and (M2) is then the testable null
+  $\gamma_R = \gamma_{H^*\!R} = 0$.
+- **(M3) A purely prognostic region** — $r$ shifts $\theta_0$ for all region patients and neither
+  arm is favored.
+- **(M4) Free regional composition** — the distribution of $X$, and with it the region's $H^*$
+  share, may differ between the region and the non-region population.
+
+Under (M1)–(M4) any divergence of the region's windowed Cox limit from the trial's is produced by
+composition and by the finite analysis window (the clock identity of the simulations article), not
+by any region-dependent treatment effect.
 
 Writing the effect with treatment-by-region interactions makes (M2) a testable restriction rather
 than a built-in one:

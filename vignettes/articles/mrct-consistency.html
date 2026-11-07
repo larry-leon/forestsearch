@@ -2532,7 +2532,14 @@ window.Quarto = {
 \]</span> The regional prognostic effect enters only through <span class="math inline">\(r\)</span>: an additive log-hazard shift carried by every patient of the region, on both arms equally, leaving every patient’s treatment effect untouched. The planted subgroup <span class="math inline">\(H^*\)</span> carries the treatment-effect heterogeneity: the patient-level log hazard ratio is <span class="math display">\[
 \psi(X) = \log b + \log(h/b)\,\mathbf 1\{X \in H^*\},
 \]</span> so the hazard ratio of treatment is <span class="math inline">\(b\)</span> outside <span class="math inline">\(H^*\)</span> and <span class="math inline">\(h\)</span> inside it, on both sides of the region boundary. Here <span class="math inline">\(H^* = \{\text{CD4} \le 230\}\)</span>.</p>
-<p>The mechanism therefore assumes, inside and outside the region alike: <strong>(M1)</strong> proportional hazards within each patient, with patient-specific ratio <span class="math inline">\(e^{\psi(X)}\)</span>; <strong>(M2)</strong> a common effect law across the region boundary — <span class="math inline">\(\psi\)</span> does not involve <span class="math inline">\(R\)</span>, so <span class="math inline">\((b, h)\)</span> are the same inside and outside the region; <strong>(M3)</strong> a purely prognostic region — <span class="math inline">\(r\)</span> shifts <span class="math inline">\(\theta_0\)</span> for all region patients and neither arm is favored; and <strong>(M4)</strong> free regional composition — the distribution of <span class="math inline">\(X\)</span>, and with it the region’s <span class="math inline">\(H^*\)</span> share, may differ between the region and the non-region population. Under (M1)–(M4) any divergence of the region’s windowed Cox limit from the trial’s is produced by composition and by the finite analysis window (the clock identity of the simulations article), not by any region-dependent treatment effect.</p>
+<p>The mechanism therefore assumes, inside and outside the region alike:</p>
+<ul>
+<li><strong>(M1) Proportional hazards within each patient</strong>, with patient-specific ratio <span class="math inline">\(e^{\psi(X)}\)</span>.</li>
+<li><strong>(M2) A common effect law across the region boundary</strong> — <span class="math inline">\(\psi\)</span> does not involve <span class="math inline">\(R\)</span>, so <span class="math inline">\((b, h)\)</span> are the same inside and outside the region. The extension below relaxes this: with treatment-by-region interactions <span class="math inline">\(\gamma_R\)</span> and <span class="math inline">\(\gamma_{H^*\!R}\)</span>, <span class="math inline">\(\psi\)</span> may depend on <span class="math inline">\(R\)</span>, the effects inside the region become <span class="math inline">\((b_R, h_R)\)</span>, and (M2) is then the testable null <span class="math inline">\(\gamma_R = \gamma_{H^*\!R} = 0\)</span>.</li>
+<li><strong>(M3) A purely prognostic region</strong> — <span class="math inline">\(r\)</span> shifts <span class="math inline">\(\theta_0\)</span> for all region patients and neither arm is favored.</li>
+<li><strong>(M4) Free regional composition</strong> — the distribution of <span class="math inline">\(X\)</span>, and with it the region’s <span class="math inline">\(H^*\)</span> share, may differ between the region and the non-region population.</li>
+</ul>
+<p>Under (M1)–(M4) any divergence of the region’s windowed Cox limit from the trial’s is produced by composition and by the finite analysis window (the clock identity of the simulations article), not by any region-dependent treatment effect.</p>
 <p>Writing the effect with treatment-by-region interactions makes (M2) a testable restriction rather than a built-in one: <span class="math display">\[
 \psi(X) = \log b + \log(h/b)\,\mathbf 1\{X \in H^*\}
           + \gamma_R\,\mathbf 1\{X \in R\}
@@ -2825,7 +2832,7 @@ window.Quarto = {
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>          seconds  candidate_family            n_Hhat n_Hhat_complement 
-             52.7            3003.0              73.0             733.0 </code></pre>
+             51.9            3003.0              73.0             733.0 </code></pre>
 </div>
 <details open class="code-fold">
 <summary>Code</summary>
@@ -2835,7 +2842,7 @@ window.Quarto = {
 <pre><code>[1] &quot;{z_cd40 &lt;= 236} &amp; !{z_preanti &lt;= 196}&quot;</code></pre>
 </div>
 </div>
-<p><span class="math inline">\(\hat H\)</span> is <code>{z_cd40 &lt;= 236} &amp; !{z_preanti &lt;= 196}</code> (<code>!{…}</code> is the complement): CD4 <span class="math inline">\(\le\)</span> 236 and prior ART over 196 days. The call took 53 seconds on one thread. <em>With your trial:</em> <code>df.analysis</code> and <code>df.test</code> are your non-region and region rows; your column names go in <code>outcome.name</code>, <code>event.name</code>, <code>treat.name</code> and <code>id.name</code>, your covariates in <code>confounders.name</code>, and those of your continuous covariates to be cut at deciles in <code>conf.cont_jcuts</code>; the other arguments are the identifier’s settings used throughout this article, and <code>seed</code> is yours.</p>
+<p><span class="math inline">\(\hat H\)</span> is <code>{z_cd40 &lt;= 236} &amp; !{z_preanti &lt;= 196}</code> (<code>!{…}</code> is the complement): CD4 <span class="math inline">\(\le\)</span> 236 and prior ART over 196 days. The call took 52 seconds on one thread. <em>With your trial:</em> <code>df.analysis</code> and <code>df.test</code> are your non-region and region rows; your column names go in <code>outcome.name</code>, <code>event.name</code>, <code>treat.name</code> and <code>id.name</code>, your covariates in <code>confounders.name</code>, and those of your continuous covariates to be cut at deciles in <code>conf.cont_jcuts</code>; the other arguments are the identifier’s settings used throughout this article, and <code>seed</code> is yours.</p>
 </section>
 <section id="step-4-hat-h-applied-to-the-region-the-four-sets" class="level2" data-number="2.4">
 <h2 data-number="2.4" class="anchored" data-anchor-id="step-4-hat-h-applied-to-the-region-the-four-sets"><span class="header-section-number">2.4</span> Step 4: <span class="math inline">\(\hat H\)</span> applied to the region; the four sets</h2>
@@ -3662,7 +3669,7 @@ Multiplier resampling (field, 2000 draws):
 </details>
 </div>
 <p><em>With your trial:</em> your column names, your covariates in <code>fs_args$confounders.name</code> and your seed in <code>mr_inference_args</code>, without <code>truth.name</code>. <code>$stage</code> says how far the pipeline went (<code>not_positive</code>, <code>no_trigger</code>, <code>no_declaration</code> or <code>complete</code>), and none of these is an error; <code>plot()</code> on the result draws the two figures of step 4, and <code>mr_values()</code> and <code>mr_estimates_table()</code> read its <code>$fs</code>.</p>
-<p>The article took 2.8 minutes to run.</p>
+<p>The article took 2.7 minutes to run.</p>
 </section>
 </section>
 
