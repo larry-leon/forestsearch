@@ -74,3 +74,29 @@ given. Record the finding in NOTES.
   branch (`git branch -r` checked first). Larry pushes. `git status --porcelain` empty at close.
 - `NOTES_fs-article-ms-alignment_2026-11-07.md` to `~/Downloads`: HEADs, gate outcomes, the row-(2)
   finding, the G5 delta listing, the legacy-copy paths.
+
+## Amendment 1 (2026-11-07, received in chat, verbatim)
+
+> Yes, fix and re-run
+
+Context: the run stopped at G4. The new `case-campaign` chunk reads the trial-positive count as
+`cc_disp$S2[cc_disp$row == "r1"]`, but `core_n1000.csv` is long-format (columns
+`n | row | label | column | h | setting | value | source`, no `S2` column), so `n_A` was
+`numeric(0)` and the chunk's guard `stopifnot(length(n_A) == 1, ...)` stopped the render. The reply
+answers the question in that run's NOTES: apply the one-line fix and re-run.
+
+Applied as (Claude's reading, recorded here):
+
+1. In `case-campaign`, `r1 <- cc_disp$S2[cc_disp$row == "r1"]` becomes
+   `r1 <- cc_disp$value[cc_disp$row == "r1" & cc_disp$column == "S2"]`. The comment above it and the
+   regex line are unchanged.
+2. Row (2), by the task's either-way action: `entry_cells_core_numeric.csv` carries
+   `p_region_itt_gt1` (S2: 0.3266) with `n_trials` 10,000, over all trials of the committed
+   S2_rmlog4 records, so row (2) is filled from it (0.327 (3,266)) and the caption's analytic-only
+   clause is dropped. The fill asserts `n_trials == reps`, a whole count, `n_trig <= n_B`, and three
+   cross-record equalities (`p_itt_ub_lt1`, `p_trigger`, `p_trigger_Gstar_lt1` × 10,000 = `n_A`,
+   `n_trigger`, `n_Gstar_lt1`). The pipeline chunk's `cc_ent` / `cc_ev` lines move up into
+   `case-campaign` rather than reading the record twice; the pipeline chunk is otherwise as given.
+3. Everything else is the companion as given; the run's text is that of the stopped run's proof.
+   Gates G0-G6 unchanged.
+4. Legacy copies go to the next free directory, `07Nov2026_3/`.
