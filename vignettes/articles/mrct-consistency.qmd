@@ -112,13 +112,13 @@ installed with the package, so only the `.qmd` file itself is needed. Download i
 folder and render it there:
 
 ```r
-dir.create("~/scratch/mrct-article", recursive = TRUE, showWarnings = FALSE)
+dir.create("~/Downloads/scratch/mrct-article", recursive = TRUE, showWarnings = FALSE)
 download.file("https://raw.githubusercontent.com/larry-leon/forestsearch/master/vignettes/articles/mrct-consistency.qmd",
-              "~/scratch/mrct-article/mrct-consistency.qmd")
+              "~/Downloads/scratch/mrct-article/mrct-consistency.qmd")
 ```
 
 ```bash
-cd ~/scratch/mrct-article && quarto render mrct-consistency.qmd
+cd ~/Downloads/scratch/mrct-article && quarto render mrct-consistency.qmd
 ```
 
 The rendered `mrct-consistency.html` is written beside the `.qmd`. Delete the scratch folder when done.
@@ -252,7 +252,7 @@ In S2, the cell that produced replicate 5:
   rate: the Weibull fit to ACTG 175 carries that trial's own, about a fifth of patients within the
   40-month window, and the multiplier raises the design to about 40%, nearer a modern trial's event
   rate. It rescales event frequency only: every patient's hazard ratio — and with it $b$, $h$, and
-  each set's AHR and CDE — is exactly as set (the windowed Cox limits do move, as the callout above
+  each set's AHR and CDE — is exactly as set (the windowed Cox limits do move, as the note above
   explains);
 - **the trial** — $n = 1{,}000$ patients, 1:1, entry uniform over 11 months, analysed at 40 months,
   with administrative censoring only.
@@ -382,9 +382,8 @@ step-by-step objects.
 
 $\hat H$ is learned on the non-region patients only and applied to the region, whose outcomes the
 identifier never sees: the region is a held-out test set, and its Cox fits on the whole region and
-on $\hat G$ are ordinary Wald fits on sets defined by a fixed rule. The hold-out removes one
-selection, not two: the region's fits carry no bias from a search their outcomes never entered, but
-the pipeline itself fully runs only when the region's estimate is above 1.0, so everything after
+on $\hat G$ are ordinary Wald fits on sets defined by a fixed rule. The hold-out removes the subgroup selection, the region's fits carry no bias from a search their outcomes never entered.
+The pipeline itself fully runs only when the region's estimate is above 1.0, so everything after
 step 2 is conditioned on an unfavourable regional draw. While the analysis is post-hoc, we propose 
 a pre-specified identifier algorithm (with key elements set in order to provide as much pre-specification as possible).  
 
@@ -396,7 +395,7 @@ a pre-specified identifier algorithm (with key elements set in order to provide 
 | $\hat G$, $G^*$ | region minus $\hat H$; region minus $H^*$ (the oracle) |
 | $\hat H^c$ | the non-region complement of $\hat H$: non-region patients not in $\hat H$ (not $\hat G$) |
 | joint | the trigger and region($\hat G$) < 1.0; with $G^*$ in place of $\hat G$, the oracle joint |
-| consistency / non-consistency | the manuscript's names: a positive trial with region ITT $\le$ 1.0; the trigger |
+| consistency / non-consistency | a positive trial with region ITT $\le$ 1.0; the trigger |
 | Sens / Spec | of $\hat H$ against $H^*$, on the non-region patients and in the region |
 | AHR | average hazard ratio of a set: $\exp$ of its patients' mean log hazard ratio |
 | CDE | controlled direct effect: the ratio of the set's mean hazards under the two arms |

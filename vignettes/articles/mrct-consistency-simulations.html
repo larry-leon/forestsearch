@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="ForestSearch Package">
-<meta name="dcterms.date" content="2026-11-06">
+<meta name="dcterms.date" content="2026-11-09">
 
 <title>MRCT regional consistency: simulations</title>
 <style>
@@ -2404,7 +2404,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">November 6, 2026</p>
+      <p class="date">November 9, 2026</p>
     </div>
   </div>
   
@@ -2564,7 +2564,7 @@ window.Quarto = {
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>  patients seconds_mr 
-    1000.0       58.6 </code></pre>
+    1000.0       50.5 </code></pre>
 </div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] &quot;{z_cd40 &lt;= 236} &amp; !{z_preanti &lt;= 196}&quot;</code></pre>
@@ -2623,10 +2623,10 @@ Warning: Ran out of iterations and did not converge</code></pre>
                   Hstar region_prognostic_loghr            generating_r 
                0.164250               -1.541238               -1.386294 
          build_warnings                 seconds 
-               3.000000                0.400000 </code></pre>
+               3.000000                0.300000 </code></pre>
 </div>
 </div>
-<p>Every patient’s log hazard ratio is <span class="math inline">\(\log 0.55\)</span> outside <span class="math inline">\(H^*\)</span> and <span class="math inline">\(\log 2\)</span> inside it. The region’s prognostic log hazard ratio, estimated from the trial, is -1.541 (<span class="math inline">\(e^{r}\)</span> = 0.214); the mechanism that generated replicate 5 used <span class="math inline">\(r = -\log 4\)</span> = -1.386 (<a href="#sec-dgm" class="quarto-xref">Section 3.1</a>). The region is 19.6% of the super-population and 19.4% of the trial. The build took 0.4 seconds. Its 3 warnings, shown above, come from the censoring model’s fit: every censoring time in this trial lies between 29.01 and 39.98 months, that is, all censoring is administrative, and the Weibull fit to it does not converge. Trials are drawn below with <code>cens_adjust = 50</code>, which pushes that model far beyond the window, so all censoring is again administrative.</p>
+<p>Every patient’s log hazard ratio is <span class="math inline">\(\log 0.55\)</span> outside <span class="math inline">\(H^*\)</span> and <span class="math inline">\(\log 2\)</span> inside it. The region’s prognostic log hazard ratio, estimated from the trial, is -1.541 (<span class="math inline">\(e^{r}\)</span> = 0.214); the mechanism that generated replicate 5 used <span class="math inline">\(r = -\log 4\)</span> = -1.386 (<a href="#sec-dgm" class="quarto-xref">Section 3.1</a>). The region is 19.6% of the super-population and 19.4% of the trial. The build took 0.3 seconds. Its 3 warnings, shown above, come from the censoring model’s fit: every censoring time in this trial lies between 29.01 and 39.98 months, that is, all censoring is administrative, and the Weibull fit to it does not converge. Trials are drawn below with <code>cens_adjust = 50</code>, which pushes that model far beyond the window, so all censoring is again administrative.</p>
 <p><strong>2. <span class="math inline">\(H^*\)</span> and the cells.</strong> The build above is one cell: S2’s <span class="math inline">\(h = 2\)</span> in <span class="math inline">\(H^*\)</span> = CD4 <span class="math inline">\(\le\)</span> 230 and <span class="math inline">\(b = 0.55\)</span> outside it. The other cells change only <span class="math inline">\(h\)</span> (shown, not run):</p>
 <div class="cell">
 <details class="code-fold">
@@ -2900,7 +2900,7 @@ Warning: Ran out of iterations and did not converge</code></pre>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>                   seconds                       rows 
-                     3e-01                      2e+04 
+                     2e-01                      2e+04 
      latent_R_max_abs_diff super_population_identical 
                      0e+00                      1e+00 </code></pre>
 </div>
@@ -3638,7 +3638,7 @@ Warning: Ran out of iterations and did not converge</code></pre>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>t_an <span class="ot">&lt;-</span> <span class="fu">proc.time</span>()[[<span class="st">&quot;elapsed&quot;</span>]] <span class="sc">-</span> t_an</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
-<p>A later-enrolling region is followed for less time, which keeps its 40-month window in the phase where the treated <span class="math inline">\(H^*\)</span> patients are failing: a delay of 11.62 months at <span class="math inline">\(r = -\log 2\)</span>, or of 6 months at <span class="math inline">\(r = -\log 2.946\)</span>, does what the shift to <span class="math inline">\(-\log 4\)</span> does at no delay. The analytic computations of this section took 20 seconds.</p>
+<p>A later-enrolling region is followed for less time, which keeps its 40-month window in the phase where the treated <span class="math inline">\(H^*\)</span> patients are failing: a delay of 11.62 months at <span class="math inline">\(r = -\log 2\)</span>, or of 6 months at <span class="math inline">\(r = -\log 2.946\)</span>, does what the shift to <span class="math inline">\(-\log 4\)</span> does at no delay. The analytic computations of this section took 17 seconds.</p>
 </section>
 </section>
 <section id="sec-find" class="level2" data-number="3.4">
@@ -3669,7 +3669,7 @@ Warning: Ran out of iterations and did not converge</code></pre>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>replicates    workers    seconds 
-       100        100        146 </code></pre>
+     100.0      100.0      142.5 </code></pre>
 </div>
 </div>
 <p><strong>2. Select the trial.</strong> <code>mrct_select_case()</code> flags every trial for the trigger, a declaration and region(<span class="math inline">\(\hat G\)</span>) &lt; 1.0, and returns the first meeting all three.</p>
@@ -3785,7 +3785,7 @@ Warning: Ran out of iterations and did not converge</code></pre>
 </table>
 </div>
 </div>
-<p><strong>Passed</strong>: the redrawn trial equals <code>rep5_trial.csv</code> (largest relative difference 0), and its <span class="math inline">\(\hat H\)</span> and four hazard ratios (largest absolute difference 0) are those of <a href="#sec-case-objects" class="quarto-xref">Section 1</a>. The call took 7 seconds.</p>
+<p><strong>Passed</strong>: the redrawn trial equals <code>rep5_trial.csv</code> (largest relative difference 0), and its <span class="math inline">\(\hat H\)</span> and four hazard ratios (largest absolute difference 0) are those of <a href="#sec-case-objects" class="quarto-xref">Section 1</a>. The call took 6 seconds.</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -4749,7 +4749,7 @@ Figure 1: Replicate 5 of S2 by the simulation route: hazard ratio, experimental
 </section>
 <section id="sec-demo" class="level2" data-number="4.6">
 <h2 data-number="4.6" class="anchored" data-anchor-id="sec-demo"><span class="header-section-number">4.6</span> The demonstration run</h2>
-<p>The run of <a href="#sec-find" class="quarto-xref">Section 3.4</a> (100 replicates of S2 with the campaign’s arguments and call seed, on 100 workers, 146 seconds), summarised into the core rows by the definitions of the core table. With the campaign’s seed, its replicates are the campaign’s first 100; <a href="#sec-find" class="quarto-xref">Section 3.4</a> checks its first replicates against the shipped record.</p>
+<p>The run of <a href="#sec-find" class="quarto-xref">Section 3.4</a> (100 replicates of S2 with the campaign’s arguments and call seed, on 100 workers, 142 seconds), summarised into the core rows by the definitions of the core table. With the campaign’s seed, its replicates are the campaign’s first 100; <a href="#sec-find" class="quarto-xref">Section 3.4</a> checks its first replicates against the shipped record.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
@@ -4829,7 +4829,7 @@ Figure 1: Replicate 5 of S2 by the simulation route: hazard ratio, experimental
 </table>
 </div>
 </div>
-<p>At 100 replicates the demonstration has 20 triggered trials, so its rows carry large Monte Carlo error; they are a check of the pipeline, not an estimate of its operating characteristics. The whole article took 3.9 minutes to run.</p>
+<p>At 100 replicates the demonstration has 20 triggered trials, so its rows carry large Monte Carlo error; they are a check of the pipeline, not an estimate of its operating characteristics. The whole article took 3.7 minutes to run.</p>
 </section>
 </section>
 <section id="sec-appendix" class="level1" data-number="5">
