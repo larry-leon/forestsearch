@@ -130,32 +130,26 @@ The rendered `mrct-consistency.html` is written beside the `.qmd`. Delete the sc
 ## The trigger and the question
 
 A global trial meets its primary endpoint: the upper 95% limit of the all-patient Cox hazard ratio is
-below 1.0 (**ITT ub < 1.0**). One region, about a fifth of the patients, has a Cox point estimate
-above 1.0 (**region ITT > 1.0**). The pair, in the same trial, is the **trigger**: the regional
-consistency failure as it presents in oncology multiregional trials. Region ITT > 1.0 describes a point
-estimate.
+below 1.0 (**ITT ub < 1.0**). The region of interest, about a fifth of the patients in our illustrations, has a Cox point estimate above 1.0 (**region ITT > 1.0**). This pair is the **trigger**: the regional
+consistency failure as it presents in oncology multiregional clinical trials (MRCTs). 
 
-We consider two explanations for the trigger:
+The question is whether a subgroup identified based on the non-region patients can account for the regional result: if removing it from the region leaves a Cox estimate below 1.0, the regional result is suggestive/compatible with a trial-wide subgroup. We therefore cast the MRCT regional consistency criteria in terms of the identified subgroup -- whether the regional subgroup point estimate is below 1.0 -- as if the subgroup was pre-specified.  While the subgroup is not pre-specified, our proposal pre-specifies the identification procedure and does not include the regional data to which it is applied. The strategy is **signal generation, not confirmation**.
 
-- **a trial-wide harmed subgroup** — the explanation this article's analysis pursues: a subgroup
-  present in every region, with the region's estimate pulled up by it (the region's prognosis and
-  the finite follow-up window shaping how far);
+We consider two mechanisms for the trigger:
+
+- **a trial-wide harmed subgroup** — the explanation this article's analysis pursues: a subgroup effect present 
+in the region and non-region populations, resulting in attenuation of the region's estimate (the region's prognostic effect and the finite follow-up window shaping how far);
 - **a region-specific effect** — the region differs in its treatment effect. The analysis approach
   does not pursue this explanation; it enters through the extension of @sec-dgm-overview, whose
-  configurations with no regional treatment benefit ($b_R = 1.0$) quantify how often the strategy
-  explains a trigger that a region-specific effect produced — the false-positive rate of the
-  subgroup pathway (the accompanying manuscript's region-interaction cells).
+  configurations with no regional treatment benefit (the true region effect is $> 1.0$) quantify how often the strategy
+  falsely leads to meeting consistency in an identified subgroup — the false-positive rate of the
+  subgroup pathway.  
 
-The question is whether a
-subgroup identified on the non-region patients can account for the regional result: if removing it from the
-region leaves a Cox estimate below 1.0, the regional result is compatible with a trial-wide subgroup
-and does not by itself point to a region-specific effect. The strategy is **signal generation, not
-confirmation**.
 
 ::: {.callout-important}
 ## The region in this article
-
-ACTG 175 was not a multiregional trial and has no region variable. The region used here is
+ACTG 175 was not a multiregional trial and has no region variable. We are utilizing this dataset because 
+it is publicly available and the trial collected survival and GLM (binary and continuous) outcomes. The region used here is
 hypothetical: about 20% of patients, planted in a simulated population by a logistic model
 (the simulations article). The way a region enters an analysis differs between real data and simulation:
 
@@ -173,8 +167,8 @@ real trial would be.
 
 ## The data-generating mechanism {#sec-dgm-overview}
 
-Replicate 5 is one trial drawn from the report's S2 cell; this is the mechanism behind it, stated
-before the analysis so that its assumptions are on the table. Every simulated trial draws from a
+Replicate 5 is one trial drawn from the report's S2 cell; we describe the mechanism behind it, stated
+before the analysis so that its assumptions are clearly stated. Every simulated trial draws from a
 Weibull accelerated-failure-time law built from ACTG 175 (the construction — the Weibull fit, the
 copula expansion to a super-population of 20,000 rows, the planted region — is in the simulations article). For
 patient $i$ on arm $z \in \{0, 1\}$, with baseline covariates $X_i$,
@@ -203,19 +197,39 @@ The mechanism therefore assumes, inside and outside the region alike:
 - **(M2) A common effect law across the region boundary** — $\psi$ does not involve $R$, so $(b, h)$
   are the same inside and outside the region. The extension below relaxes this: with
   treatment-by-region interactions $\gamma_R$ and $\gamma_{H^*\!R}$, $\psi$ may depend on $R$, the
-  effects inside the region become $(b_R, h_R)$, and (M2) is then the testable null
-  $\gamma_R = \gamma_{H^*\!R} = 0$.
+  effects inside the region become $(b_R, h_R)$, and (M2) is then $\gamma_R = \gamma_{H^*\!R} = 0$.
 - **(M3) A purely prognostic region** — $r$ shifts $\theta_0$ for all region patients and neither
   arm is favored.
 - **(M4) Free regional composition** — the distribution of $X$, and with it the region's $H^*$
-  share, may differ between the region and the non-region population.
+  share, may differ between the region and the non-region population per the observed configuration of ACTG 175 (we take patient's observed covariates as-is).
 
 Under (M1)–(M4) any divergence of the region's windowed Cox limit from the trial's is produced by
-composition and by the finite analysis window (the clock identity of the simulations article), not
-by any region-dependent treatment effect.
+composition and by the finite analysis window, not by any region-dependent treatment effect.
 
-Writing the effect with treatment-by-region interactions makes (M2) a testable restriction rather
-than a built-in one:
+::: {.callout-note}
+## The windowed Cox limit
+
+A two-sample Cox fit of treatment on a set of patients — all patients, the region, or the region
+minus a subgroup — assumes one hazard ratio for the set. With S2's design (entry uniform over 11
+months, analysis at 40 months, so every patient is followed for 29 to 40 months), the estimate
+converges, as the trial grows, to a limit that depends on the set and on that window: the set's
+**windowed Cox limit**, margHR(40). With no censoring the limit is margHR($\infty$).
+
+Every patient's hazard ratio is constant, but a set's is not. Compared among the patients still
+event-free, the two arms' mean hazards start in the ratio of the set's CDE (the ratio of the arms'
+mean hazards when every patient is at risk) and then drift as patients have events: the high-risk
+patients first, and in $H^*$ the experimental patients, with hazard ratio $h$, faster than their
+controls. margHR(40) is in effect an average of this drifting ratio over the events that fall inside
+the window, so it depends on how far through the drift the window reaches, and that depends on the
+set's event rate: higher hazards take the set through the drift faster, so the same 40 months cover
+more of it. Under (M1)–(M4) this has two consequences. The hazard multiplier of S2 (below) moves
+every margHR(40) while leaving each patient's hazard ratio, and each set's AHR, CDE and
+margHR($\infty$), unchanged. And a region whose prognostic shift $r$ lowers its hazards ($r < 0$, as
+in S2) goes through the drift more slowly, so in S2 its margHR(40) stays nearer its CDE than the
+trial's does. The [appendix](#sec-window) shows both for S2, with a figure.
+:::
+
+Writing the effect with treatment-by-region interactions extends (M2):
 $$
 \psi(X) = \log b + \log(h/b)\,\mathbf 1\{X \in H^*\}
           + \gamma_R\,\mathbf 1\{X \in R\}
@@ -231,11 +245,15 @@ In S2, the cell that produced replicate 5:
 - **effects** — $b = 0.55$ outside $H^*$, $h = 2$ inside it;
 - **region** — about 20% of patients, planted by a logistic model with odds ratio 3 on symptomatic
   status and no CD4 term, with prognostic shift $r = -\log 4$;
-- **hazard scale** — all hazards multiplied by 3: the Weibull fit to ACTG 175 carries that trial's
-  own event rate, roughly 20–30% of patients within the 40-month window, and the multiplier raises
-  the design to about 40%, nearer a modern trial's event rate. It rescales event frequency only:
-  every patient's hazard ratio — and with it $b$, $h$, and each set's AHR and CDE — is exactly as
-  set (the windowed Cox limits do move, since the window sits later on the faster clock);
+- **hazard scale** — every hazard multiplied by 3, by shifting the Weibull intercept: $\mu$, as
+  fitted to ACTG 175, is replaced by $\mu - \tau\log 3$, so that $\Lambda_0(s) = (s\,e^{-\mu})^{1/\tau}$
+  becomes $3\,\Lambda_0(s)$ on both arms while every $\theta_z(X)$ is unchanged (the call is
+  `scale_dgm_hazard(dgm, m = 3)`; the [appendix](#sec-window) uses it). The reason is the event
+  rate: the Weibull fit to ACTG 175 carries that trial's own, about a fifth of patients within the
+  40-month window, and the multiplier raises the design to about 40%, nearer a modern trial's event
+  rate. It rescales event frequency only: every patient's hazard ratio — and with it $b$, $h$, and
+  each set's AHR and CDE — is exactly as set (the windowed Cox limits do move, as the callout above
+  explains);
 - **the trial** — $n = 1{,}000$ patients, 1:1, entry uniform over 11 months, analysed at 40 months,
   with administrative censoring only.
 
@@ -248,10 +266,15 @@ Before a single Cox model is fitted, the design's event probabilities can be com
 simulation. Three calls do it:
 
 1. rebuild the mechanism **from `rep5_trial.csv`**, with its region taken as observed and S2's
-   stated effects ($h = 2$ in $H^*$ = {CD4 $\le$ 230}, $b = 0.55$ outside; the region's prognostic
-   shift $r$ is estimated from the trial);
+   stated effects ($h = 2$ in $H^*$ = {CD4 $\le$ 230}, $b = 0.55$ outside), and with two quantities
+   estimated from the trial rather than set: the region's prognostic shift $r$, and the hazard scale;
 2. `ahr_population()` at the design's window;
 3. `ahr_design()` at the trial size.
+
+There is no `scale_dgm_hazard()` call here: replicate 5's outcomes were drawn with every hazard
+already multiplied by 3, so the Weibull fit to them estimates the scaled intercept directly, and a
+`scale_dgm_hazard(…, m = 3)` call would multiply every hazard by 3 a second time.
+
 
 ```{r pre-build}
 #| code-fold: show
@@ -281,8 +304,7 @@ c(region_prognostic_loghr = r_pre, generating_r = -log(4),
   build_warnings = length(w_pre), seconds = round(t_pre, 1))
 ```
 
-Seven design probabilities follow from four of them, built from three events (the manuscript's full
-event notation is reproduced in the [appendix](#sec-event-notation)):
+Seven design probabilities follow from four of them, built from three events (the event notation is in the [appendix](#sec-event-notation)):
 
 - $A$ = {ITT ub < 1.0} — the trial is positive (the manuscript's $\mathrm{ITT}^+$);
 - $B$ = {region ITT > 1.0} — the region's point estimate is unfavourable (the manuscript's
@@ -322,7 +344,7 @@ knitr::kable(data.frame(row = lab, `from rep5_trial` = f3(rows_pre), check.names
              caption = "Analytic predictions under S2's assumptions, computed from rep5_trial. The campaign-observed counterparts of these rows are in @sec-case-campaign and in the simulations article.")
 ```
 
-This build estimates the region's prognostic shift from the trial: $\hat r$ = `r f3(r_pre)`
+This build estimates the region's prognostic shift and the hazard scale from the trial: $\hat r$ = `r f3(r_pre)`
 ($e^{\hat r}$ = `r f3(exp(r_pre))`), against the generating $-\log 4$ = `r f3(-log(4))` of
 @sec-dgm-overview, and its covariates are one trial of 1,000 re-expanded by the copula — so these
 values carry the sampling of that one trial, and a build from the full construction (the simulations
@@ -362,11 +384,9 @@ $\hat H$ is learned on the non-region patients only and applied to the region, w
 identifier never sees: the region is a held-out test set, and its Cox fits on the whole region and
 on $\hat G$ are ordinary Wald fits on sets defined by a fixed rule. The hold-out removes one
 selection, not two: the region's fits carry no bias from a search their outcomes never entered, but
-the pipeline itself runs only when the region's estimate is already above 1.0, so everything after
-step 2 is conditioned on an unfavourable regional draw. That conditioning is why the strategy stays
-signal generation: the null cells of the simulations article show how often it "explains" a trigger
-with nothing to find. The non-region estimate inside $\hat H$ is selected; @sec-rep5-mr bounds it by
-multiplier resampling.
+the pipeline itself fully runs only when the region's estimate is above 1.0, so everything after
+step 2 is conditioned on an unfavourable regional draw. While the analysis is post-hoc, we propose 
+a pre-specified identifier algorithm (with key elements set in order to provide as much pre-specification as possible).  
 
 | Label | Meaning |
 |---|---|
@@ -591,7 +611,7 @@ Removing $\hat H$ from the region and refitting the Cox model compares two diffe
 does not decompose the regional hazard ratio. The region's estimate is not a weighted average of the
 estimates in $\hat H$ and in $\hat G$: removing patients changes the risk sets, the events and the
 censoring mixture, and each Cox estimate converges to the limit of its own set at the analysis time
-(simulations article), which can differ from that set's AHR or CDE. A regional estimate that moves
+([appendix](#sec-window)), which can differ from that set's AHR or CDE. A regional estimate that moves
 from above 1.0 to below 1.0 is therefore compatible with a trial-wide subgroup accounting for the
 regional result. It does not show that $\hat H$ caused it, does not validate $\hat H$ as a
 clinically actionable subgroup, and, read with the null cells of the simulations article, can arise
@@ -795,6 +815,158 @@ stopifnot(identical(one_call$Hhat, Hhat_def), identical(one_call$in_Hhat, in_Hha
 the two figures of step 4, and `mr_values()` and `mr_estimates_table()` read its `$fs`.
 
 The article took `r round((proc.time()[["elapsed"]] - t_article) / 60, 1)` minutes to run.
+
+# Appendix: the analysis window and the windowed Cox limit {#sec-window .unnumbered}
+
+This appendix works through the callout "The windowed Cox limit" of @sec-dgm-overview for S2, on the
+build of @sec-predictions (`dgm_pre`, whose hazard scale and regional shift are estimated from
+replicate 5).
+
+**What the multiplier changes.** `scale_dgm_hazard(dgm, m)` replaces the intercept $\mu$ by
+$\mu - \tau\log m$, so $\Lambda_0(s) = (s\,e^{-\mu})^{1/\tau}$ becomes
+$$
+m\,\Lambda_0(s) = \Lambda_0(m^{\tau} s):
+$$
+every patient's hazard, on both arms, is multiplied by $m$, which is the same as running every
+patient's clock $m^{\tau}$ times faster. No $\theta_z(X)$ changes, so no patient's hazard ratio
+changes, and neither do three summaries of a set that depend on the $\theta$'s alone: the AHR, the
+CDE, and margHR($\infty$) — a Cox fit with no censoring uses only the order of the event times, and
+running every clock faster does not reorder them. What changes is how many events fall inside the
+analysis window, whose limits are fixed in calendar months.
+
+**A set's hazard ratio over follow-up.** At month $s$ of follow-up, a set's hazard ratio is each arm's
+mean hazard among its patients still event-free, experimental over control. At $s = 0$ every patient
+is at risk and it is the CDE; then it moves as patients have events (@fig-window, panel a). In S2 both
+the trial's and the region's start above 1.0 and fall below it within the first year.
+
+**What the Cox fit estimates.** margHR(40) is the constant hazard ratio that, applied to the patients
+at risk at every event time, reproduces the experimental arm's share of the events inside the window:
+in effect, an average of the set's curve over the window's events. In panel (a) the window is shaded
+(every patient is followed to 29 months, the last enrolled to 40) and the dashed segments are the two
+sets' margHR(40).
+
+```{r window-limits}
+#| code-fold: show
+# dgm_pre runs on S2's clock (x 3, estimated from the trial): scaling it by M / 3 puts it at M x ACTG 175's hazards
+M_grid <- 3^seq(-3, 4, by = 0.25)
+clock <- do.call(rbind, lapply(M_grid, function(M) {
+  pop_M <- ahr_population(scale_dgm_hazard(dgm_pre, M / 3), analysis_time = 40, max_entry = 11)
+  do.call(rbind, lapply(c("all", "region"), function(s) {
+    e <- ahr_limit(pop_M, s, b = 0.55, h = 2, variance = FALSE)
+    data.frame(M = M, set = s, margHR40 = e$hr, AHR = e$ahr, CDE = e$cde,
+               margHRinf = e$marghr_inf, events = e$d)
+  }))
+}))
+ck <- function(s, M, v) clock[[v]][clock$set == s & abs(clock$M - M) < 1e-9]
+# the region without its prognostic shift, at S2's rate: S2 with every hazard multiplied by exp(-r)
+pop_nor <- ahr_population(scale_dgm_hazard(dgm_pre, exp(-r_pre)), analysis_time = 40, max_entry = 11)
+reg_nor <- ahr_limit(pop_nor, "region", b = 0.55, h = 2, variance = FALSE)$hr
+# a set's hazard ratio at month s: each arm's mean hazard among its event-free patients
+hr_at <- function(dgm, in_set, months) {
+  ds <- dgm$df_super[in_set, ]; mp <- dgm$model_params
+  e0 <- exp(ds$theta_0); e1 <- exp(ds$theta_1)
+  vapply(months, function(s) {
+    u <- (s * exp(-mp$mu))^(1 / mp$tau)                  # Lambda_0(s), S2's clock
+    (sum(e1 * exp(-u * e1)) / sum(exp(-u * e1))) / (sum(e0 * exp(-u * e0)) / sum(exp(-u * e0)))
+  }, numeric(1))
+}
+months <- seq(0, 120, by = 0.5)
+in_reg <- dgm_pre$df_super$z_region == 1
+prof <- list(all = hr_at(dgm_pre, rep(TRUE, length(in_reg)), months), region = hr_at(dgm_pre, in_reg, months))
+tau <- dgm_pre$model_params$tau
+reach <- 40 * (c(1, 3, 9) / 3)^tau                         # where 40 months at x1, x3, x9 end on S2's clock
+# the multiplier leaves each set's AHR, CDE and margHR(inf) unchanged; each curve starts at its CDE
+for (s in c("all", "region")) for (v in c("AHR", "CDE", "margHRinf"))
+  stopifnot(near(clock[[v]][clock$set == s], ck(s, 3, v), 1e-6))
+stopifnot(near(c(prof$all[1], prof$region[1]), c(ck("all", 3, "CDE"), ck("region", 3, "CDE")), 1e-9))
+# the verbal claims of this appendix and of the callout in the design section
+stopifnot(all(vapply(prof, function(p) p[1] > 1 && min(p[months <= 12]) < 1, NA)),
+          abs(ck("all", 1/27, "margHR40") / ck("all", 3, "CDE") - 1) < 0.02,
+          abs(ck("all", 81, "margHR40") / ck("all", 3, "margHRinf") - 1) < 0.002,
+          abs(log(ck("all", 3, "AHR") / c(ck("all", 3, "CDE"), ck("all", 3, "margHRinf")))) > 0.01,
+          ck("region", 3, "margHR40") / ck("region", 3, "CDE") > ck("all", 3, "margHR40") / ck("all", 3, "CDE"),
+          ck("region", 3, "margHR40") > ck("all", 3, "margHR40"), reg_nor < ck("all", 3, "margHR40"),
+          round(5 * ck("all", 1, "events")) == 1)
+```
+
+```{r fig-window}
+#| fig-width: 11
+#| fig-height: 4.6
+#| fig-cap: "S2, as built in @sec-predictions. (a) Each set's hazard ratio at each month of follow-up on S2's clock (each arm's mean hazard among the set's event-free patients); shaded, the 40-month analysis window; dashed, each set's margHR(40); bars, how far 40 months reach on this clock at 1, 3 and 9 times ACTG 175's hazards. (b) margHR(40) against the hazard multiplier, with each set's CDE (dashed) and margHR(∞) (dotted); the right-hand ticks are the AHRs."
+col_set <- c(all = "#1f3b73", region = "#c4661f")
+op <- par(mfrow = c(1, 2), mar = c(4.2, 4.2, 2.6, 5.4), mgp = c(2.4, 0.7, 0), las = 1)
+# (a) each set's hazard ratio over follow-up
+plot(NA, xlim = c(0, 120), ylim = c(0.55, 1.32), log = "y", xaxs = "i",
+     xlab = "months of follow-up (S2's clock)", ylab = "hazard ratio, experimental / control",
+     main = "(a) the sets' hazard ratio over follow-up", font.main = 1)
+rect(0, 0.5, 29, 1.4, col = "grey88", border = NA); rect(29, 0.5, 40, 1.4, col = "grey94", border = NA)
+abline(h = 1, col = "grey50", lty = 3)
+for (s in names(prof)) {
+  lines(months, prof[[s]], col = col_set[[s]], lwd = 2)
+  segments(0, ck(s, 3, "margHR40"), 40, ck(s, 3, "margHR40"), col = col_set[[s]], lty = 2, lwd = 1.5)
+}
+y_bar <- c(1.28, 1.21, 1.14)
+segments(0, y_bar, reach, y_bar, lwd = 2.5, col = "grey25")
+text(reach, y_bar, c("x1 (ACTG 175)", "x3 (S2)", "x9"), pos = 4, cex = 0.8)
+legend("bottomright", c("all patients", "region"), col = col_set, lwd = 2, bty = "n", cex = 0.85)
+box()
+# (b) margHR(40) against the hazard multiplier
+plot(NA, xlim = range(clock$M), ylim = c(0.55, 1.32), log = "xy", xaxt = "n",
+     xlab = "hazard multiplier (x ACTG 175's hazards)", ylab = "hazard ratio",
+     main = "(b) margHR(40) as the multiplier changes", font.main = 1)
+axis(1, at = 3^(-3:4), labels = c("1/27", "1/9", "1/3", "1", "3", "9", "27", "81"))
+abline(v = c(1, 3, 9), col = "grey80"); abline(h = 1, col = "grey50", lty = 3)
+for (s in c("all", "region")) {
+  d <- clock[clock$set == s, ]
+  abline(h = d$CDE[1], col = col_set[[s]], lty = 2)
+  abline(h = d$margHRinf[1], col = col_set[[s]], lty = 3, lwd = 1.5)
+  axis(4, at = d$AHR[1], labels = FALSE, col.ticks = col_set[[s]], lwd.ticks = 2, tcl = 1.2)
+  lines(d$M, d$margHR40, col = col_set[[s]], lwd = 2)
+  keep <- d$M %in% c(1, 3, 9)
+  points(d$M[keep], d$margHR40[keep], pch = 19, col = col_set[[s]])
+}
+mtext(c("CDE", expression("margHR(" * infinity * ")"), "AHR"), side = 4, line = 0.5, las = 1,
+      cex = 0.75,
+      at = c(ck("all", 3, "CDE"), ck("all", 3, "margHRinf"), mean(c(ck("all", 3, "AHR"), ck("region", 3, "AHR")))))
+par(op)
+```
+
+**The window sits later on the faster clock.** By $m\,\Lambda_0(s) = \Lambda_0(m^{\tau} s)$, a trial at
+$m$ times the hazards, analysed at 40 months, sees what the unscaled trial sees at $40\,m^{\tau}$
+months, with its entry period stretched alike: the curves stay where they are, and the fixed 40-month
+window covers more of them. With $\hat\tau$ = `r f3(tau)`, 40 months at ACTG 175's rate (×1) cover
+the first `r round(reach[1])` months of S2's clock, and at ×9 the first `r round(reach[3])` (the bars
+in panel a). Panel (b) follows margHR(40) across multipliers. As $m \to 0$ the few events come before
+anyone has left, and the limit tends to the CDE; as $m \to \infty$ every event falls inside the window,
+and it tends to margHR($\infty$). In between it moves although no patient's hazard ratio has: for all
+patients from `r f3(ck("all", 1, "margHR40"))` at ×1 to `r f3(ck("all", 3, "margHR40"))` at S2's ×3,
+and for the region from `r f3(ck("region", 1, "margHR40"))` to `r f3(ck("region", 3, "margHR40"))`,
+while the share of patients with an event in the window goes from `r pc(ck("all", 1, "events"))`% to
+`r pc(ck("all", 3, "events"))`%. Neither end is the AHR (`r f3(ck("all", 3, "AHR"))` for all
+patients).
+
+**The region runs on a slower clock.** The shift $r$ multiplies the region's hazards by $e^{r}$ on
+both arms, so it acts on the region exactly as a multiplier acts on the trial: the region with its
+shift, at multiplier $m$, is the region without it at $m\,e^{r}$. Here $e^{\hat r}$ =
+`r f3(exp(r_pre))` slows the region's clock: its curve in panel (a) runs later, and its 40-month
+window ends earlier on it, nearer the CDE. Removing the shift — for the region's own limit, the same
+as multiplying every hazard by $e^{-\hat r}$, one more `scale_dgm_hazard()` call — moves the region's
+margHR(40) at S2's rate from `r f3(ck("region", 3, "margHR40"))` to `r f3(reg_nor)`, below the trial's
+`r f3(ck("all", 3, "margHR40"))`.
+
+**What follows.**
+
+- The multiplier sets the event rate and nothing else: $b$, $h$, and every set's AHR, CDE and
+  margHR($\infty$) are as set at every multiplier.
+- The pipeline's Cox fits estimate their sets' margHR(40), so where the trial's estimates fall — and
+  with them the probabilities of @sec-predictions — depends on the event rate and the window as well
+  as on the effects. A regional estimate near or above 1.0 can come from a trial-wide harmed subgroup
+  in a region of lower baseline risk, with no regional difference in treatment effect: the region's
+  window holds the early part of its curve, where the harmed patients' events weigh most.
+- In a real trial nothing is multiplied: the trial's own event rate and follow-up set the clock. The
+  same set can give a different Cox estimate at a later analysis with no patient's effect changed, and
+  a region of lower baseline risk is seen earlier on its curve than the rest of the trial at the same
+  analysis time.
 
 # Appendix: the manuscript's event notation {#sec-event-notation .unnumbered}
 
