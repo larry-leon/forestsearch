@@ -110,16 +110,16 @@ installed with the package, so only the `.qmd` file itself is needed. Download i
 folder and render it there:
 
 ```r
-dir.create("~/scratch/mrct-article", recursive = TRUE, showWarnings = FALSE)
+dir.create("~/Downloads/scratch/mrct-article", recursive = TRUE, showWarnings = FALSE)
 download.file("https://raw.githubusercontent.com/larry-leon/forestsearch/master/vignettes/articles/mrct-consistency-simulations.qmd",
-              "~/scratch/mrct-article/mrct-consistency.qmd")
+              "~/Downloads/scratch/mrct-article/mrct-consistency-simulations.qmd")
 ```
 
 ```bash
-cd ~/scratch/mrct-article && quarto render mrct-consistency.qmd
+cd ~/Downloads/scratch/mrct-article && quarto render mrct-consistency-simulations.qmd
 ```
 
-The rendered `mrct-consistency.html` is written beside the `.qmd`. Delete the scratch folder when done.
+The rendered `mrct-consistency-simulations.html` is written beside the `.qmd`. Delete the scratch folder when done.
 :::
 
 
@@ -205,8 +205,9 @@ about membership is modelled. With `loghr` left at `NULL` the region's prognosti
 estimated by the Weibull AFT fit, as the other covariates' effects are; $H^*$, $b$ and $h$ are set as in
 the report's build (`spline_spec` gives $b$ everywhere, `x3` defines $H^*$ = CD4 $\le$ 230 and multiplies
 the hazard ratio in it by $h/b$), and the super-population is expanded by the copula. There is no
-`scale_dgm_hazard()` step here: the trial's own data carry its hazard scale (replicate 5 was drawn with
-all hazards multiplied by 3), and the AFT fit to it estimates that scale.
+`scale_dgm_hazard()` call here: replicate 5's outcomes were drawn with every hazard already
+multiplied by 3, so the Weibull fit to them estimates the scaled intercept directly, and a
+`scale_dgm_hazard(…, m = 3)` call would multiply every hazard by 3 a second time.
 
 ```{r own-build}
 #| code-fold: show
@@ -243,7 +244,7 @@ c(rows = nrow(ds_own), region_super = mean(ds_own$z_region), region_trial = mean
 ```
 
 Every patient's log hazard ratio is $\log 0.55$ outside $H^*$ and $\log 2$ inside it. The region's
-prognostic log hazard ratio, estimated from the trial, is `r f3(r_own)` ($e^{r}$ =
+prognostic log hazard ratio, estimated from the trial, is $\hat r$ = `r f3(r_own)` ($e^{\hat r}$ =
 `r f3(exp(r_own))`); the mechanism that generated replicate 5 used $r = -\log 4$ = `r f3(-log(4))`
 (@sec-dgm). The region is `r pc(mean(ds_own$z_region))`% of the super-population and
 `r pc(mean(own$region))`% of the trial. The build took `r formatC(t_own, format = "f", digits = 1)`
@@ -258,7 +259,7 @@ dgms_own <- lapply(h_cells, build_own)
 ```
 
 ::: {.callout-note}
-## 4.3a — Choosing the cells
+## Choosing the cells
 
 A cell is one data-generating mechanism: your trial's build with a stated $H^*$, a hazard ratio $h$
 inside it and $b$ outside it, in every region. Choose $h$ as the sizes of harm you want the strategy
@@ -296,11 +297,13 @@ As a reading, not a check: the region's margHR(40) is `r f3(lim_own$marghr[lim_o
 ACTG 175 and is not expected to reproduce it.
 
 ::: {.callout-note}
-## 4.3b — The analytic layer
+## The analytic layer
 
 `ahr_population()` on each cell's mechanism, with your analysis time and entry period, then
 `ahr_truths_table()` on the sets you care about gives each set's four truths: read margHR at the analysis
-time as what the set's Cox estimate converges to, and the AHR and CDE as the effect in the set.
+time as the set's windowed Cox limit, what its Cox estimate converges to — it moves with the event rate
+and the window while the AHR and CDE do not (the application article's
+[appendix](mrct-consistency.html#sec-window) shows why) — and the AHR and CDE as the effect in the set.
 `ahr_design_table()` at your trial size gives P(ITT ub < 1.0), P(region ITT > 1.0), P(trigger) and the
 oracle joint before any simulation; if P(trigger) is very small, the campaign will have few triggered
 trials to summarise. `ahr_solve()` places one free parameter so that P(trigger) reaches a target
@@ -326,7 +329,7 @@ res_own <- mrct_region_sims(
 ```
 
 ::: {.callout-note}
-## 4.3c — The campaign
+## The campaign
 
 Give `mrct_region_sims()` your cell's mechanism, your trial size, your region variable and the
 identifier's arguments you used in @sec-case-objects; `sim_args` and `analysis_time` carry the entry, window
@@ -346,7 +349,7 @@ case_own <- mrct_select_case(res_own)                         # the first trial 
 ```
 
 ::: {.callout-note}
-## 4.3d — Reading the results
+## Reading the results
 
 Summarise the campaign conditional on the trigger: a team runs the joint analysis only when the trial
 is positive and the region's estimate is above 1.0, so the triggered trials are the denominator that
@@ -414,8 +417,12 @@ dgm_live <- inject_mrct_structure(
   continuous_vars_cens = c("age", "cd40"), factor_vars_cens = "symptom")
 ```
 
-**3. The hazard scale.** `scale_dgm_hazard()` multiplies every hazard by $m$ and leaves every hazard
-ratio unchanged.
+**3. The hazard scale.** `scale_dgm_hazard()` multiplies every hazard by $m$ on both arms, by shifting
+the fitted Weibull intercept (@sec-appendix, the DGM in closed form), and leaves every hazard ratio
+unchanged. The Weibull fit to ACTG 175 carries that trial's own event rate; $m = 3$ raises it toward a
+modern trial's (the [application article](mrct-consistency.html#sec-dgm-overview) gives both rates).
+The windowed Cox limits move with $m$ although no hazard ratio does; the application article's
+[appendix](mrct-consistency.html#sec-window) shows why.
 
 ```{r reader-scale}
 #| code-fold: show
@@ -560,7 +567,7 @@ knitr::kable(data.frame(
 
 For any patient set of such a DGM, analysed at a calendar time with uniform staggered entry and
 administrative censoring only, the analytic layer computes by quadrature (nothing is drawn) the exact
-limit of the two-sample Cox estimate on the set (the Struthers–Kalbfleisch root, margHR(40)), its
+limit of the two-sample Cox estimate on the set (the Struthers–Kalbfleisch root, margHR(40): the set's windowed Cox limit), its
 information and robust variance, the expected events, the correlation between nested sets'
 estimates, the set's AHR and CDE, and the normal-approximation probability of the trigger at a trial
 size. `ahr_population()` reads the DGM; `ahr_limit()` gives a set's four truths; `ahr_design()` gives
@@ -599,7 +606,8 @@ prognostic structure. In S2 the region's margHR(40) is
 `r f3(truths$cde[truths$cell == "S2" & truths$set == "region"])`: the trigger in S2 is a sampling event
 around a regional limit below 1.
 
-**The trigger predictions at $n = 1{,}000$**, and the oracle joint, P(trigger and region($G^*$) < 1.0):
+**The trigger predictions at $n = 1{,}000$**, and the oracle joint, P(trigger and region($G^*$) < 1.0) —
+in the application article's named events, non-consistency and oracle consistency:
 
 ```{r design-n1000}
 # ahr_design_table()'s probabilities, under the names of the committed predictions
@@ -1346,10 +1354,15 @@ A^{(r)}_z(u) = A^{(0)}_z(e^r u), \qquad f^{(r)}_z(u) = e^r f^{(0)}_z(e^r u) .
 $$
 **$r$ is a clock on the region**: margHR($\infty$), the AHR and the CDE do not depend on $r$; only the
 windowed margHR(40) moves, and a region delayed by $a$ is the undelayed region analysed at horizon
-$t_a - a$. With a harmed $H^*$ the region's profile starts at its CDE, above 1, while the treated $H^*$
-patients fail, crosses 1 once they are spent and settles near $b$; the slower clock keeps the 40-month
-window in the harm phase and moves the region's margHR(40) toward the null. A regional prognostic
-effect, a harmed subgroup and a finite window are needed together.
+$t_a - a$. The hazard multiplier is the same clock on every patient: multiplying every hazard by $m$
+gives $A^{(m)}_z(u) = A_z(m u)$, so a trial at $m$ times the hazards, analysed at $t_a$ with entry over
+$t_e$, is the unscaled trial analysed at $m^{\tau} t_a$ with entry over $m^{\tau} t_e$; again only
+margHR(40) moves. With a harmed $H^*$ the region's profile starts at its CDE, above 1, while the treated
+$H^*$ patients fail, crosses 1 once they are spent and falls toward $b$, before drifting back up as
+high-hazard patients leave; the slower clock keeps the 40-month window in the harm phase and moves the
+region's margHR(40) toward the null. A regional prognostic effect, a harmed subgroup and a finite window
+are needed together. The application article's [appendix](mrct-consistency.html#sec-window) draws this
+profile for S2, for all patients and for the region, and margHR(40) against $m$.
 
 **The design layer.** **[assumption]** (A5): the three estimates entering the trigger and the oracle
 joint, $\hat\beta_{\text{all}}$, $\hat\beta_R$ and $\hat\beta_{G^*}$, are treated as jointly normal around
