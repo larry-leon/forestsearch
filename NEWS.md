@@ -153,6 +153,14 @@ MRCT consistency article.
 
 ### Behaviour changes
 
+* Bootstrap bias correction on the consistency path now evaluates the
+  bootstrap-selected subgroup on the original data and on the bootstrap sample
+  as Eq. 7 defines. Previously both terms were computed on the resample, through
+  a merge on repeated ids. Bias-corrected H/Hc estimates from
+  `forestsearch_bootstrap_dofuture()` after a consistency-path fit change.
+  Naive estimates, selection, DINA/GRF and multiplier resampling are unchanged
+  (A-002).
+
 * `mr_estimates_table()` no longer needs a bootstrap template:
   `boot_results` now defaults to `NULL`, and the table is then built from
   the `forestsearch(mr_inference = TRUE)` result alone. The descriptive

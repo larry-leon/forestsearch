@@ -3719,7 +3719,11 @@ forestsearch <- function(df.analysis,
              "ambiguous merge with internal subgroup-flag tables.",
              call. = FALSE)
       }
-      df.est_out <- merge(df, temp, by.x = id.name, by.y = "id", all.x = TRUE)
+      # Flags attach by row position (the flag table is built row-wise from df) and df.predict is
+      # evaluated by the rule: a bootstrap resample repeats ids, so a merge on id would compute
+      # Eq. 7's observed-data term on the resample.
+      df.est_out <- df
+      df.est_out$treat.recommend <- temp$treat.recommend
 
       # Return df.predict
       if (!is.null(df.predict)) {
@@ -3730,7 +3734,7 @@ forestsearch <- function(df.analysis,
                "ambiguous merge with internal subgroup-flag tables.",
                call. = FALSE)
         }
-        df.predict_out <- merge(df.predict, temp, by.x = id.name, by.y = "id", all.x = TRUE)
+        df.predict_out <- get_dfpred(df.predict, sg.harm, version = 2)
       }
 
       # Return df.test
