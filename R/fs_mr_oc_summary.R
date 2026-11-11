@@ -51,9 +51,17 @@
 #' \describe{
 #'   \item{\code{conditional}}{Averaged over DETECTED replicates only. This is
 #'     the detected-only summary.}
-#'   \item{\code{unconditional}}{Averaged over ALL replicates, following
-#'     \code{build_classification_table()} and Leon et al. (2024, Table 1),
-#'     with non-detection scored as sens = 0, ppv = 0, spec = 1, npv = 1.}
+#'   \item{\code{unconditional}}{Averaged over ALL replicates. A replicate with
+#'     no identified subgroup has everyone in its estimated complement, so it
+#'     is scored as sens = 0, ppv = 0, spec = 1 and npv = |Hc|/N, the share of
+#'     that replicate's subjects truly in the complement (Leon et al. 2024,
+#'     Section 3), computed as \code{1 - n_true / meta$n_sample}.  Under the
+#'     null this is 1.  These are the spec and npv values
+#'     \code{run_simulation_analysis()} stores for such a replicate.  The
+#'     unconditional npv is \code{NA} when the payload has no numeric
+#'     \code{n_true} column or no usable \code{meta$n_sample}, or when
+#'     \code{n_true} is missing for any non-detected replicate (for example
+#'     a replicate that failed before its data were simulated).}
 #' }
 #' With detection at 999/1000 the two agree to three decimals; in a null cell
 #' at 0.930 they do not. Quote which one you mean.
@@ -179,7 +187,7 @@ fs_mr_oc_summary <- function(payload,
 
   out <- list(
     estimation     = est_tab,
-    identification = .fs_oc_identification(res, rd, digits),
+    identification = .fs_oc_identification(res, rd, digits, meta$n_sample),
     targets        = list(
       orient      = orient,
       struct_H    = orient * truth$effect_Q,
@@ -277,18 +285,31 @@ print.fs_mr_oc <- function(x, ...) {
 #' Classification metrics under both conventions
 #' @keywords internal
 #' @noRd
-.fs_oc_identification <- function(res, rd, digits = NULL) {
+.fs_oc_identification <- function(res, rd, digits = NULL, n_sample = NULL) {
   n_all <- nrow(res)
   det   <- res$status %in% "DETECTED"
 
-  # Unconditional: non-detection scores sens = 0, ppv = 0, spec = 1, npv = 1,
-  # matching build_classification_table() and Leon et al. (2024, Table 1).
+  # Unconditional: non-detection scores sens = 0, ppv = 0, spec = 1 and
+  # npv = |Hc|/N = 1 - n_true / n_sample, the share of that replicate's
+  # subjects truly in the complement (Leon et al. 2024, Section 3; 1 under
+  # the null), as run_simulation_analysis() stores it.  A detected replicate
+  # with no stored npv is still filled with 1.  NA when |Hc|/N is unknown
+  # for any non-detected replicate (no n_true, or no usable n_sample).
   fill <- function(col, miss) {
     v <- res[[col]]
     if (is.null(v)) return(rep(NA_real_, n_all))
-    v[!det | is.na(v)] <- miss
+    miss <- rep_len(miss, n_all)
+    v[!det | is.na(v)] <- miss[!det | is.na(v)]
     v
   }
+  hc_share <- if (!is.numeric(res$n_true) || !is.numeric(n_sample) ||
+                  length(n_sample) != 1L || !isTRUE(n_sample > 0)) {
+    rep(NA_real_, n_all)
+  } else {
+    1 - res$n_true / n_sample
+  }
+  npv_u <- fill("npv", ifelse(det, 1, hc_share))
+  npv_unknown <- any(!det & is.na(hc_share))
 
   out <- rbind(
     data.frame(
@@ -306,7 +327,8 @@ print.fs_mr_oc <- function(x, ...) {
       detection   = mean(det),
       mean_size_H = .fs_oc_mean(rd$n_harm),
       sens = .fs_oc_mean(fill("sens", 0)), spec = .fs_oc_mean(fill("spec", 1)),
-      ppv  = .fs_oc_mean(fill("ppv",  0)), npv  = .fs_oc_mean(fill("npv",  1)),
+      ppv  = .fs_oc_mean(fill("ppv",  0)),
+      npv  = if (npv_unknown) NA_real_ else .fs_oc_mean(npv_u),
       stringsAsFactors = FALSE
     )
   )

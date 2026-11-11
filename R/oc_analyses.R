@@ -680,7 +680,9 @@ format_oc_results <- function(
     # Detection rate
     detection_rate <- mean(res$any.H, na.rm = TRUE)
 
-    # Classification metrics (averaged across sims with detection).
+    # Classification metrics (averaged over every sim with a stored value: a
+    # sim with no subgroup contributes spec = 1 and npv = |Hc|/N as
+    # run_simulation_analysis() stores them; NA rows drop out).
     # Under null models (León et al. 2024, Sec 3): Q = emptyset,
     # so sens = NA and ppv = 0.  NaN from mean(all-NA) is replaced
     # with NA for clean table display.

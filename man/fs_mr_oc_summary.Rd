@@ -78,9 +78,17 @@ whenever detection is not near certain:
 \describe{
 \item{\code{conditional}}{Averaged over DETECTED replicates only. This is
 the detected-only summary.}
-\item{\code{unconditional}}{Averaged over ALL replicates, following
-\code{build_classification_table()} and Leon et al. (2024, Table 1),
-with non-detection scored as sens = 0, ppv = 0, spec = 1, npv = 1.}
+\item{\code{unconditional}}{Averaged over ALL replicates. A replicate with
+no identified subgroup has everyone in its estimated complement, so it
+is scored as sens = 0, ppv = 0, spec = 1 and npv = |Hc|/N, the share of
+that replicate's subjects truly in the complement (Leon et al. 2024,
+Section 3), computed as \code{1 - n_true / meta$n_sample}.  Under the
+null this is 1.  These are the spec and npv values
+\code{run_simulation_analysis()} stores for such a replicate.  The
+unconditional npv is \code{NA} when the payload has no numeric
+\code{n_true} column or no usable \code{meta$n_sample}, or when
+\code{n_true} is missing for any non-detected replicate (for example
+a replicate that failed before its data were simulated).}
 }
 With detection at 999/1000 the two agree to three decimals; in a null cell
 at 0.930 they do not. Quote which one you mean.

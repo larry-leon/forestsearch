@@ -153,6 +153,20 @@ MRCT consistency article.
 
 ### Behaviour changes
 
+* `fs_mr_oc_summary()` and `build_classification_table()`: a replicate with no
+  identified subgroup now contributes NPV = |Hc|/N, the share of that
+  replicate's subjects truly in the complement (it was 1). Under the null this
+  is still 1. Specificity, sensitivity, PPV and detected-only summaries are
+  unchanged. Stored payloads are not regenerated.
+  - `fs_mr_oc_summary()` (unconditional convention) takes |Hc|/N as
+    `1 - n_true / meta$n_sample`. Its unconditional NPV is `NA` when that is
+    not available for every non-detected replicate (no numeric `n_true` or
+    usable `meta$n_sample`, or `n_true` missing on a non-detected row).
+  - `build_classification_table()` changes only rows stored with `npv = NA`
+    and `any.H == 0` under an alternative (output of an older package version
+    or another producer). It takes |Hc|/N from the row's `propHc_true`. A row
+    without it (no truth column) is still filled with 1.
+
 * `run_simulation_analysis()`: when no subgroup is identified under an
   alternative, `spec` is now 1 and `npv` is |Hc|/N (the two were stored the
   other way round). All-replicate averages of specificity and NPV from
