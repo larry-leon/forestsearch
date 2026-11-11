@@ -1012,7 +1012,8 @@ run_simulation_analysis <- function(
     out$size.Hc <- nrow(df)
 
     # Classification when nothing found: everyone is predicted Hc.
-    # Matches fs.estimates.out() from the paper's original code.
+    # With nothing found the complement is everyone: sens(Hc) = 1 and
+    # ppv(Hc) = |Hc|/N, as defined in León et al. (2024), Section 3.
     if (harm_col %in% names(df)) {
       true_H <- df[[harm_col]] == 1L
       n_true_H <- sum(true_H)
@@ -1022,8 +1023,8 @@ run_simulation_analysis <- function(
         # sens = 0 (none of H captured), ppv = 0 (no Ĥ predicted).
         out$sens <- 0
         out$ppv  <- 0
-        out$spec <- sum(!true_H) / nrow(df)  # = |Hc|/N
-        out$npv  <- 1                          # all Hc correctly in Ĥc
+        out$spec <- 1                          # sens(Hc): all of Hc is in the complement
+        out$npv  <- sum(!true_H) / nrow(df)    # ppv(Hc) = |Hc|/N
       }
       # Null (n_true_H == 0): sens/ppv remain NA (undefined).
       # spec = 1, npv = 1 (everyone is Hc and predicted Hc).
@@ -1063,7 +1064,7 @@ run_simulation_analysis <- function(
         n_true_H <- sum(true_H)
         if (n_true_H > 0) {
           out$sens <- 0;  out$ppv <- 0
-          out$spec <- sum(!true_H) / nrow(df);  out$npv <- 1
+          out$spec <- 1;  out$npv <- sum(!true_H) / nrow(df)
         } else {
           out$spec <- 1;  out$npv <- 1
         }
@@ -1389,7 +1390,7 @@ run_simulation_analysis <- function(
       n_true_H <- sum(true_H)
       if (n_true_H > 0) {
         out$sens <- 0;  out$ppv <- 0
-        out$spec <- sum(!true_H) / nrow(df);  out$npv <- 1
+        out$spec <- 1;  out$npv <- sum(!true_H) / nrow(df)
       } else {
         out$spec <- 1;  out$npv <- 1
       }
@@ -1415,7 +1416,7 @@ run_simulation_analysis <- function(
       n_true_H <- sum(true_H)
       if (n_true_H > 0) {
         out$sens <- 0;  out$ppv <- 0
-        out$spec <- sum(!true_H) / nrow(df);  out$npv <- 1
+        out$spec <- 1;  out$npv <- sum(!true_H) / nrow(df)
       } else {
         out$spec <- 1;  out$npv <- 1
       }

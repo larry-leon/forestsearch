@@ -153,6 +153,13 @@ MRCT consistency article.
 
 ### Behaviour changes
 
+* `run_simulation_analysis()`: when no subgroup is identified under an
+  alternative, `spec` is now 1 and `npv` is |Hc|/N (the two were stored the
+  other way round). All-replicate averages of specificity and NPV from
+  `build_classification_table()`, `format_oc_results()` and
+  `summarize_single_analysis()` change accordingly. Replicates with a subgroup
+  found, null scenarios, `sens` and `ppv` are unchanged.
+
 * Bootstrap bias correction on the consistency path now evaluates the
   bootstrap-selected subgroup on the original data and on the bootstrap sample
   as Eq. 7 defines. Previously both terms were computed on the resample, through
