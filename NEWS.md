@@ -1,4 +1,4 @@
-# forestsearch 0.4.1.9008 (development)
+# forestsearch 0.4.1.9009 (development)
 
 This development version adds the MRCT regional-consistency series: the
 MRCT consistency analytic layer, new DGM arguments, the per-replicate record
@@ -292,7 +292,85 @@ MRCT consistency article.
   or its call failed) and the normal-score correlation is used instead. The
   computation is unchanged.
 
+### Removed
+
+* `create_gbsg_dgm()` and `simulate_from_gbsg_dgm()` are removed, with the
+  internal `.simulate_from_gbsg_dgm_()` and `get_dgm_with_output()`. Both
+  exported functions had warned that they were deprecated since before 0.1.0,
+  and nothing in the package, its tests, its vignettes and articles, or the
+  quarto analyses called any of the four. Use `generate_aft_dgm_flex()` with
+  `simulate_from_dgm()`; to reproduce the legacy GBSG mechanism exactly, use
+  `setup_gbsg_dgm()`, which builds it with the same internal builder. No
+  remaining function changes behaviour.
+
+### Superseded
+
+* `setup_gbsg_dgm()`, `calibrate_k_inter()` and
+  `generate_gbsg_bootstrap_general()` are now documented as superseded (a
+  "Superseded" section on each help page; no run-time message). They are kept
+  so that published simulations reproduce and will be deprecated in a future
+  release. Replacements: `generate_aft_dgm_flex()` with `simulate_from_dgm()`,
+  `find_k_inter_for_target_hr()`, and `generate_bootstrap_synthetic()`
+  (whose first example returns the same data as
+  `generate_gbsg_bootstrap_general()` with the same `n`, `seed` and
+  `noise_level`).
+
+* The censoring step of the legacy GBSG wrapper is documented on
+  `setup_gbsg_dgm()`, with a note on `fs_fdr_report()` and
+  `validate_k_inter_effect()`: the Weibull censoring model is fitted to the
+  resampled super-population with the arm assigned for simulation, and its
+  covariate term is the fitted term multiplied by the ratio of the event-model
+  scale to the censoring-model scale. `generate_aft_dgm_flex()` uses the
+  censoring fit's own term. The true hazard ratios and the `k_inter`
+  calibration do not depend on it; simulated censoring times do. The step is
+  unchanged so that published simulations reproduce.
+
+### Documentation
+
+* Help pages corrected to say what the code does (no behaviour change):
+  - `generate_bootstrap_with_noise()`: by default every numeric column except
+    `id_var` is treated as continuous (by design), so a numeric-coded category
+    such as a 0/1 indicator gets noise, rounded back to its value at a small
+    `noise_level`, unless `continuous_vars` is given without it; the
+    `cat_vars` auto-detection and the `grade` special case are stated
+    exactly.
+  - `generate_bootstrap_synthetic()`: `ordinal_vars` only marks which of the
+    `cat_vars` are ordinal; a variable listed only there is kept as
+    resampled; a factor listed in both becomes NA at a changed row unless its
+    levels are "1", "2", ...; and at the lowest or highest level of a
+    numeric-coded variable the new value is not always the adjacent level.
+  - `generate_gbsg_bootstrap_general()`: `grade` is resampled, not perturbed.
+  - `forestsearch()`, `dina_subgroup()`, `dina_subgroup_refit()`: DINA's
+    Poisson quantity is the log mean-count ratio (DINA takes no exposure
+    offset), which equals log(IRR) only when mean follow-up does not depend
+    on arm. The printed `"log-IRR"` label is unchanged.
+  - `forestsearch()`: `dmin.grf` is a harm threshold on GRF's doubly robust
+    scale, not a number of events; under `grf_select_statistic = "effect"` it
+    is an existence gate and is then not applied per candidate.
+  - `forestsearch()` and `subgroup.consistency()`: a sequential and a
+    parallel plan can give different consistency proportions, and possibly a
+    different selection, whenever literal splitting runs
+    (`consistency_method = "split"`, an IRD effect under `"resample"`, or a
+    candidate whose closed form is not available), except under
+    `sg_focus = "maxeff"`.
+  - `fs_fdr_report()`: `k_inter` is calibrated on the builder's default
+    super-population size, not on `n_super`; the calibrated value does not
+    depend on that size beyond the root-finding tolerance.
+  - `setup_gbsg_dgm()` documents its own arguments (they were inherited from
+    the removed `create_gbsg_dgm()`), and the examples that called
+    `create_gbsg_dgm()` now call `setup_gbsg_dgm()`.
+  - Examples load `survival::gbsg` directly instead of
+    `data(gbsg, package = "survival")`, which loads nothing.
+
 ### Internal
+
+* New test file `test-synthetic-data-documented-behaviour.R` pins what the
+  synthetic-data help pages now say: `grade` is resampled but not perturbed by
+  `generate_gbsg_bootstrap_general()`, which returns the data of
+  `generate_bootstrap_synthetic()`'s first example call; under auto-detection
+  `generate_bootstrap_with_noise()` leaves a numeric 0/1 column as resampled and
+  perturbs a factor; named in `cat_vars` with `continuous_vars` given, the 0/1
+  column is perturbed.
 
 * Test-suite reconciliation of the estimability-boundary invariant with
   `glm_effect_estimators` behaviour; no functional change. The source-level
