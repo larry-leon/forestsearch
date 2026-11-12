@@ -1,4 +1,4 @@
-# forestsearch 0.4.1.9009 (development)
+# forestsearch 0.4.1.9010 (development)
 
 This development version adds the MRCT regional-consistency series: the
 MRCT consistency analytic layer, new DGM arguments, the per-replicate record
@@ -291,6 +291,109 @@ MRCT consistency article.
   the latent correlation is not fitted by latentcor (package not installed,
   or its call failed) and the normal-score correlation is used instead. The
   computation is unchanged.
+
+* `summarize_bootstrap_subgroups()` (and so `summarize_bootstrap_results()`)
+  now counts a bootstrap consistency or subgroup size that lies exactly on a
+  bin edge in the bin whose label starts there: a consistency of 0.95 is in
+  ">=0.95" and a size of 50 in "50-99". Both were counted one bin lower.
+  Values off an edge are binned as before. (Code audit A-147.)
+
+* `forestsearch_KfoldOut()`, and so `forestsearch_Kfold()` and
+  `forestsearch_tenfold()`, no longer stop with "subscript out of bounds" when
+  the held-out assignments are one level plus `NA` (`{1, NA}` or `{0, NA}`).
+  The agreement values follow the existing single-level rule. Assignments
+  `{0, 1}` and `{0, 1, NA}` give the same values as before.
+
+* Missing values in a covariate that defines the subgroup now say so; no
+  returned value changes. `run_simulation_analysis()` stops in the same
+  cases as before, but with "N of M subjects have no subgroup assignment: a
+  covariate that defines the identified subgroup ... has missing values"
+  instead of "missing value where TRUE/FALSE needed". The GRF route for
+  binary, continuous and count outcomes warns once with the count and the
+  defining covariates when the selected cut leaves subjects unassigned, and
+  `forestsearch_Kfold()` and `forestsearch_tenfold()` warn once per call with
+  the count of held-out assignments that are `NA`.
+
+* Cross-validation "Exact" (`find_metrics["Exact"]`, and `exact_match` of
+  `CV_sgs()`) for a one-factor full-data subgroup now counts a fold only when
+  its subgroup is that factor alone. A fold that adds a second factor still
+  counts for "At least 1" and "Cov1 exact", which keep their values. So the
+  Exact rate can fall for such analyses; two-factor subgroups are unchanged.
+  (Code audit A-103.)
+
+* `test_hte_from_forestsearch()` now uses the continuous covariates of the
+  fit: an evaluated cut label such as `"age <= 55"` is mapped to its column
+  `age`. Only labels that were exact column names were used before, so
+  continuous covariates were left out, and a fit with only continuous
+  confounders returned `NULL`. A label that cannot be resolved is named in a
+  warning, and when no covariate remains the function warns before returning
+  `NULL`. (Code audit A-151.)
+
+* `lasso_selection()` for binary, continuous and count outcomes no longer
+  lists `"(Intercept)"` in `selected` or `omitted` (it stays in
+  `coefficients`). When LASSO keeps no covariate, `forestsearch()` therefore
+  keeps the full candidate pool, as it already did for survival, instead of
+  failing at `get_FSdata` with "no candidate cut expressions could be
+  constructed". With `details = TRUE` the printed line names the model by
+  outcome type ("Logistic-LASSO", "Linear-LASSO", "Poisson-LASSO") and its
+  counts no longer include the intercept. (Code audit A-042.)
+
+* `fpr_calibration()` with neither `outcome_type_approx` nor
+  `fs_params$outcome_type` given now approximates `P1` for `"survival"`,
+  `forestsearch()`'s default (it used `"binary"`), so the printed `P1`,
+  `d_eff` and implied `L_eff` change; the simulated false-positive rate does
+  not. An outcome type other than `"survival"`, `"binary"`, `"continuous"` or
+  `"count"` now stops with an error naming it. (Code audit A-107.)
+
+* `get_FSdata()`, and so `forestsearch()` with GRF or DINA cuts, drops a cut
+  as a duplicate only when its variable is exactly a categorical confounder or
+  the whole cut is already in the pool. A cut on `bmi` is no longer dropped
+  because a categorical confounder `bm` exists, and `x <= 25.3` is kept when
+  the pool holds `x <= 2`. A median cut is removed only for a variable GRF cut
+  exactly. (Code audit A-047.)
+
+* `mrct_region_sims()` and `mrct_case_study()` with `confounders.name = NULL`
+  and a mechanism built with a spline no longer include the three internal
+  spline columns in the default confounders (`z_bm_treat`, `z_bm_k`,
+  `z_bm_k_treat` for `create_dgm_for_mrct()`). Covariates such as
+  `z_prior_treat`, and the region indicator, stay. (Code audit A-125.)
+
+* `grf.subg.harm.glm()` with a count outcome and `adverse_outcome = TRUE` (the
+  default for counts), and so `forestsearch()` with `use_grf = TRUE` or
+  `subgroup_method = "grf"` and the GRF arm of `run_simulation_analysis()`,
+  now looks for the region where treatment raises the count. It looked for
+  the region where treatment lowers it. (Code audit A-064.)
+
+* `forestsearch()` with `use_dina = TRUE` now orients the DINA screening cut
+  as `subgroup_method = "dina"` does. For a continuous outcome with the
+  default orientation, or a binary outcome with `adverse_outcome = FALSE`, the
+  proposed cut was on the benefit side; it now points at the harm region, so
+  the candidate pool and the selected subgroup can change. Survival, count and
+  `adverse_outcome = TRUE` fits are unchanged.
+
+* `plot_sg_glm_outcomes()`, `plot_subgroup_results_forestplot()` and
+  `mr_estimates_table()` without `boot_results` now show a GLM fit's effect
+  on the fit's own orientation (its `adverse_outcome`). For a continuous fit
+  with the default orientation the displayed effect had the opposite sign of
+  the fit's estimate. The raw arm means and their difference in the summary
+  table are unchanged.
+
+* Change of method: the risk-difference standard error of
+  `make_effect_estimator(outcome_type = "binary", effect_measure = "RD")`
+  without adjustment covariates is now the two-sample binomial form
+  `sqrt(p1 (1 - p1) / n1 + p0 (1 - p0) / n0)` when the logistic tier is used.
+  With 40 patients per arm, control 30% and treated 100%, it is 0.0725 (it was
+  about 5e-06, giving a zero-width interval); with control 0% and treated
+  80%, 0.0632 (it was 448.5). The estimate is unchanged, and so is the
+  covariate-adjusted case. (Code audit A-055.)
+
+* `forestsearch()` with a binary risk difference or a count rate difference,
+  `dina_args = list(family = "gaussian")` and a supplied ratio-scale
+  threshold that is remapped with a warning (for example 1.5 to 0.05) now
+  uses the remapped value as the DINA floor in the fit, the value the object
+  records and the bootstrap and cross-validation replay. The fit used the
+  supplied 1.5 and so usually found no subgroup. This narrows the A-001 entry
+  above: every other supplied threshold gives the same floor as before.
 
 ### Removed
 
