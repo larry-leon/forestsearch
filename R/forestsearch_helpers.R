@@ -1988,6 +1988,21 @@ reset_workers <- function(workers   = NULL,
   # Membership from the structured definition (reproduces predict(tree, X);
   # valid on df / df.predict / df.test).
   tr_est  <- .grf_evaluate_subgroup(sg_def, df)
+  # A missing value in a covariate of the definition can leave a subject with
+  # no assignment (NA; e.g. a GLM GRF fit on complete cases, applied here to
+  # every subject).  Say so once, naming the defining covariates; the
+  # membership is returned as it is.
+  if (anyNA(tr_est)) {
+    sg_vars <- unique(unlist(lapply(sg_def$conjunctions,
+                                    function(cj) as.character(cj$variable)),
+                             use.names = FALSE))
+    warning(sprintf(paste0("%d of %d subjects have no subgroup assignment ",
+                           "(treat.recommend is NA): a covariate that defines ",
+                           "the GRF-selected subgroup (%s) has missing values."),
+                    sum(is.na(tr_est)), length(tr_est),
+                    paste(sg_vars, collapse = ", ")),
+            call. = FALSE)
+  }
   df.est  <- df; df.est$treat.recommend <- tr_est
   df.predict_out <- if (!is.null(df.predict)) {
     o <- df.predict; o$treat.recommend <- .grf_evaluate_subgroup(sg_def, df.predict); o

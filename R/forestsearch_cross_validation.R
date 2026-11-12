@@ -551,6 +551,18 @@ forestsearch_Kfold <- function(
 
   resCV <- .collect_cv_results(resCV)
 
+  # Held-out subjects with no subgroup assignment (a missing value in a
+  # covariate of their fold's subgroup).  One warning for the call, raised
+  # here in the calling session after the folds are collected (the fold loop
+  # runs under suppressWarnings()); the assignments are returned as they are.
+  n_na_cv <- sum(is.na(resCV$treat.recommend))
+  if (n_na_cv > 0L)
+    warning(sprintf(paste0("%d of %d held-out subjects have no subgroup ",
+                           "assignment (treat.recommend is NA): a covariate ",
+                           "that defines their fold's subgroup has missing ",
+                           "values."), n_na_cv, nrow(resCV)),
+            call. = FALSE)
+
   # ===========================================================================
   # SECTION 7: POST-PROCESSING AND VALIDATION
   # ===========================================================================
@@ -1181,7 +1193,11 @@ forestsearch_tenfold <- function(
       sim_id                = ksim,
       fold_summary          = fold_summary_i,
       resCV                 = if (isTRUE(keep_resCV)) resCV else NULL,
-      mr_replicates         = if (isTRUE(mr_in_replicates)) mr_list else NULL
+      mr_replicates         = if (isTRUE(mr_in_replicates)) mr_list else NULL,
+      # NA held-out assignments, counted here and reported by the caller
+      # (one warning per call, after collection); not part of the result.
+      n_na_assign           = sum(is.na(resCV$treat.recommend)),
+      n_assign              = nrow(resCV)
     )
   }
 })
@@ -1205,6 +1221,20 @@ forestsearch_tenfold <- function(
   if (length(valid_results) < sims && details) {
     warning(sims - length(valid_results), " simulations failed and were excluded.")
   }
+
+  # Held-out assignments with no subgroup (see forestsearch_Kfold()): one
+  # warning for the call, raised here in the calling session from the
+  # per-simulation counts, after the simulations are collected.
+  n_na_cv <- sum(vapply(valid_results, `[[`, integer(1), "n_na_assign"))
+  if (n_na_cv > 0L)
+    warning(sprintf(paste0("%d of %d held-out assignments across %d ",
+                           "simulations have no subgroup assignment ",
+                           "(treat.recommend is NA): a covariate that defines ",
+                           "the fold's subgroup has missing values."),
+                    n_na_cv,
+                    sum(vapply(valid_results, `[[`, integer(1), "n_assign")),
+                    length(valid_results)),
+            call. = FALSE)
 
   sens_out <- do.call(rbind, lapply(valid_results, `[[`, "sens_metrics_original"))
   find_out <- do.call(rbind, lapply(valid_results, `[[`, "find_metrics"))

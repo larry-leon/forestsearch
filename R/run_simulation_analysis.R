@@ -915,6 +915,47 @@ run_simulation_analysis <- function(
 
 
 # =============================================================================
+# Internal: NA subgroup membership in the classification extractors
+# =============================================================================
+# A subject whose membership (sg_hat) is NA cannot be scored as in or out of
+# the identified subgroup.  In .extract_fs_estimates_gen() the confusion
+# counts then become NA and `if ((tp + fn) > 0)` / `if ((tn + fp) > 0)`
+# stopped with R's "missing value where TRUE/FALSE needed"; in
+# .extract_grf_estimates_gen() size.H becomes NA and `if (out$size.H > 10)`
+# stopped the same way.  .stop_na_membership() is called at those two points
+# only when membership has an NA, so exactly the same cases stop; it gives the
+# reason instead.  Membership is not dropped or recoded (no na.rm).
+# `sg_def` is the subgroup definition at hand (cut labels, cut expressions or
+# M.* factor names); the columns of `cols` it refers to are named, and the
+# count is given alone when none is found.
+.stop_na_membership <- function(sg_hat, sg_def = NULL, cols = character(0)) {
+  covs <- tryCatch(.sg_def_columns(sg_def, cols),
+                   error = function(e) character(0))
+  stop(sprintf(paste0("%d of %d subjects have no subgroup assignment: a ",
+                      "covariate that defines the identified subgroup%s has ",
+                      "missing values."),
+               sum(is.na(sg_hat)), length(sg_hat),
+               if (length(covs)) sprintf(" (%s)", paste(covs, collapse = ", "))
+               else ""),
+       call. = FALSE)
+}
+
+# Columns of `cols` named in subgroup-definition strings, in order of first
+# appearance.  Each identifier-like token that is a column is kept; a token
+# that is not (an M.* factor name "var.level", see create_subgroup_indicator())
+# is cut at its first dot.
+.sg_def_columns <- function(sg_def, cols) {
+  txt <- as.character(unlist(sg_def, use.names = FALSE))
+  txt <- txt[!is.na(txt)]
+  if (!length(txt) || !length(cols)) return(character(0))
+  toks <- unlist(regmatches(txt, gregexpr("[A-Za-z.][A-Za-z0-9._]*", txt)),
+                 use.names = FALSE)
+  toks <- ifelse(toks %in% cols, toks, sub("\\..*$", "", toks))
+  as.character(intersect(toks, cols))
+}
+
+
+# =============================================================================
 # Internal: extract FS estimates  (column-name-general)
 # =============================================================================
 
@@ -1049,6 +1090,7 @@ run_simulation_analysis <- function(
   if (!is.null(fs_full) && !is.null(fs_full$df.est) &&
       "treat.recommend" %in% names(fs_full$df.est)) {
     df$sg_hat <- as.integer(fs_full$df.est$treat.recommend == 0)
+    sg_def_txt <- fs_full$sg.harm  # definition at hand, for the NA message
   } else {
     sg_factors <- character(0)
     for (i in seq_len(min(7, ncol(fs_res)))) {
@@ -1056,6 +1098,7 @@ run_simulation_analysis <- function(
       if (cn %in% names(fs_res) && !is.na(fs_res[[cn]][1]))
         sg_factors <- c(sg_factors, fs_res[[cn]][1])
     }
+    sg_def_txt <- sg_factors       # definition at hand, for the NA message
     if (length(sg_factors) > 0)
       df$sg_hat <- create_subgroup_indicator(df, sg_factors)
     if (length(sg_factors) == 0 || !any(df$sg_hat == 1L, na.rm = TRUE)) {
@@ -1127,6 +1170,9 @@ run_simulation_analysis <- function(
   if (harm_col %in% names(df)) {
     true_H <- df[[harm_col]] == 1L
     hat_H  <- df$sg_hat == 1L
+    # NA membership: tp and fn, or tn and fp, below would be NA and the first
+    # `if` would stop.  Stop here with the reason (same cases stop).
+    if (anyNA(hat_H)) .stop_na_membership(df$sg_hat, sg_def_txt, names(df))
 
     tp <- sum(true_H & hat_H);   fp <- sum(!true_H & hat_H)
     tn <- sum(!true_H & !hat_H); fn <- sum(true_H & !hat_H)
@@ -1440,6 +1486,10 @@ run_simulation_analysis <- function(
   grf_data  <- grf_est$data
   harm_ind  <- as.integer(grf_data$treat.recommend == 0)
   grf_data$sg_hat <- harm_ind
+  # NA membership: size.H below would be NA and `if (out$size.H > 10)` would
+  # stop.  Stop here with the reason (same cases stop).
+  if (anyNA(harm_ind))
+    .stop_na_membership(harm_ind, sg_harm_id, names(grf_data))
 
   out$size.H  <- sum(harm_ind)
   out$size.Hc <- sum(harm_ind == 0L)
