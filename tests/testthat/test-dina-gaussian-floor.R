@@ -58,10 +58,11 @@ skip_on_cran()
 
 # Replay the parent's args_call_all the way the bootstrap does
 # (R/bootstrap_analysis_dofuture.R: args_FS_boot <- fs.est$args_call_all, the
-# DINA / GRF inputs nulled, output suppressed, sequential plan).
-.gf_replay <- function(fs) {
+# DINA / GRF inputs nulled, output suppressed, sequential plan).  `df` is the
+# parent's analysis data (default: the continuous fixture above).
+.gf_replay <- function(fs, df = .gf_df()) {
   a <- fs$args_call_all
-  a$df.analysis <- .gf_df()
+  a$df.analysis <- df
   a$grf_res <- NULL
   a$grf_cuts <- NULL
   a$dina_res <- NULL
@@ -120,10 +121,12 @@ test_that("a supplied threshold is the floor at both sites (either spelling)", {
   }
 })
 
-test_that("a supplied ratio-scale threshold that is remapped for RD is still the floor as given", {
+test_that("a supplied ratio-scale threshold that is remapped for RD is the floor as remapped", {
   # Binary RD with the gaussian family forced through dina_args: a supplied
-  # effect.threshold = 1.5 is remapped (with a warning) to the recorded 0.05,
-  # but a supplied threshold leaves the floor unchanged from before A-001.
+  # effect.threshold = 1.5 is remapped (with a warning) to the recorded 0.05.
+  # The gaussian floor is the resolved effect.threshold (?forestsearch,
+  # dina_args: "identity for gaussian -- from the resolved effect.threshold"),
+  # so the fit's floor is that 0.05 too (F14; before F14 it was the raw 1.5).
   set.seed(7); N <- 300L
   df <- data.frame(id = seq_len(N), treat = rbinom(N, 1L, 0.5),
                    x1 = round(rnorm(N), 3), x2 = round(runif(N, 0, 10), 2))
@@ -141,8 +144,75 @@ test_that("a supplied ratio-scale threshold that is remapped for RD is still the
       details = FALSE, quiet = TRUE, plot.sg = FALSE, plot.grf = FALSE,
       parallel_args = list(plan = "sequential", workers = 1L,
                            show_message = FALSE)), route_args)))
-    expect_identical(unique(fit$floors), 1.5, info = route)
+    # 0.05: the RD row of ?forestsearch "Resolved defaults, per estimand"
+    # (c1 = 0.05), the value the remap warning names ("Remapping to
+    # default: 0.05").
+    expect_identical(unique(fit$floors), 0.05, info = route)
     expect_identical(fit$value$args_call_all$effect.threshold, 0.05, info = route)
+  }
+})
+
+test_that("forced-gaussian corner (binary RD, count IRD): fit, record and replay floors agree", {
+  # Setting: an identity-scale estimand (binary RD, count IRD) with
+  # dina_args = list(family = "gaussian") forced and a supplied ratio-scale
+  # threshold (effect.threshold = 1.5 > 1) that forestsearch() warns about and
+  # remaps.  Expected recorded values, from ?forestsearch "Resolved defaults,
+  # per estimand": RD -> c1 = 0.05, IRD -> c1 = 0.01 (identity scale, so
+  # threshold_config$screening is that value itself, not its log).  The
+  # gaussian DINA floor is "identity for gaussian -- from the resolved
+  # effect.threshold" (?forestsearch, dina_args), so the floor the fit hands
+  # dina_subgroup() must equal the recorded value, and a replay of
+  # args_call_all (as the bootstrap / CV do) must use the same floor.
+  set.seed(7); N <- 300L
+  df_bin <- data.frame(id = seq_len(N), treat = rbinom(N, 1L, 0.5),
+                       x1 = round(rnorm(N), 3), x2 = round(runif(N, 0, 10), 2))
+  df_bin$y <- rbinom(N, 1L, plogis(-0.5 + 0.8 * df_bin$treat * (df_bin$x1 <= 0)))
+  df_cnt <- .make_count_data(N = 300L, IRR_harm = 2.0, seed = 7L)
+
+  settings <- list(
+    RD = list(df = df_bin, expected = 0.05,
+              args = list(confounders.name = c("x1", "x2"),
+                          outcome.name = "y", event.name = "y",
+                          treat.name = "treat", id.name = "id",
+                          outcome_type = "binary", effect_measure = "RD",
+                          adverse_outcome = TRUE)),
+    IRD = list(df = df_cnt, expected = 0.01,
+               args = list(confounders.name = c("age", "biomarker"),
+                           outcome.name = "y", treat.name = "treat",
+                           id.name = "id", offset.name = "ftime",
+                           outcome_type = "count", effect_measure = "IRD",
+                           adverse_outcome = TRUE)))
+
+  for (em in names(settings)) {
+    s <- settings[[em]]
+    for (route in c("dina", "use_dina")) {
+      route_args <- switch(route,
+        dina = list(subgroup_method = "dina", use_dina = FALSE),
+        use_dina = list(subgroup_method = "consistency", use_dina = TRUE))
+      info <- paste(em, route)
+      fit <- .gf_capture(function() do.call(forestsearch, c(
+        list(df.analysis = s$df), s$args, list(
+        dina_args = list(family = "gaussian"), effect.threshold = 1.5,
+        sg_focus = "maxSG", n.min = 40L, use_grf = FALSE, use_lasso = FALSE,
+        max_subgroups_search = 5L, fs.splits = 100L, seedit = 42L,
+        details = FALSE, quiet = TRUE, plot.sg = FALSE, plot.grf = FALSE,
+        parallel_args = list(plan = "sequential", workers = 1L,
+                             show_message = FALSE)), route_args)))
+      fs <- fit$value
+
+      # One dina_subgroup() call per fit (one derivation site per route).
+      expect_length(fit$floors, 1L)
+      # The recorded values (documented resolved default for the estimand).
+      expect_identical(fs$args_call_all$effect.threshold, s$expected, info = info)
+      expect_identical(fs$threshold_config$screening, s$expected, info = info)
+      # The fit's floor equals the recorded value.
+      expect_identical(fit$floors, fs$args_call_all$effect.threshold, info = info)
+
+      # The replay (bootstrap / CV) uses the same floor as the fit.
+      rep <- .gf_replay(fs, df = s$df)
+      expect_length(rep$floors, 1L)
+      expect_identical(rep$floors, fit$floors, info = info)
+    }
   }
 })
 
