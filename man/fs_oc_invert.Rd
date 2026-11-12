@@ -39,7 +39,7 @@ specification and floors for \code{\link{fs_oc_family_enumerate}}.}
 \code{c1}).}
 
 \item{c1, c2}{The fixed threshold (the one not solved for; the solved-for
-argument is ignored).  Defaults from \code{forestsearch_args}.}
+argument is ignored).  Default \code{NULL}, which takes the value from \code{forestsearch_args}.}
 
 \item{family}{\code{NULL} (enumerate per \code{n}) or an \code{fs_oc_family}
 object, accepted only when its \code{n} equals the single \code{n}
@@ -52,7 +52,8 @@ floor for another.}
 for the \code{"resample"} gate -- the \verb{p*} of
 \code{\link{forestsearch}}'s \code{pconsistency.threshold}: the fraction
 of splits that must clear \code{c2}, not an effect threshold.  Default
-\code{forestsearch_args$pconsistency.threshold}, itself defaulting to
+\code{NULL}, which takes \code{forestsearch_args$pconsistency.threshold},
+itself defaulting to
 \code{forestsearch()}'s default (0.90); an explicit value overrides.
 Ignored by \code{"split"}.}
 

@@ -67,9 +67,10 @@
 #' @param theme An fs_forest_theme object from \code{create_forest_theme()}.
 #'   Use this to control plot sizing (fonts, row height, CI appearance,
 #'   CV annotation font size). Default: NULL (uses default theme).
-#' @param outcome_type Character or \code{NULL}. One of \code{"survival"}
-#'   (default), \code{"binary"}, or \code{"continuous"}.  If \code{NULL},
-#'   auto-detected from \code{fs_results$fs.est$outcome_type}.
+#' @param outcome_type Character or \code{NULL} (default). One of
+#'   \code{"survival"}, \code{"binary"}, or \code{"continuous"}.  If \code{NULL},
+#'   auto-detected from \code{fs_results$fs.est$outcome_type}, or
+#'   \code{"survival"} when that is absent.
 #' @param effect_measure Character or \code{NULL}. Effect measure for GLM
 #'   outcomes (e.g., \code{"OR"}, \code{"RR"}, \code{"IRR"}, \code{"RD"},
 #'   \code{"IRD"}, \code{"MD"}).  Auto-detected from

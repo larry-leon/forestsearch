@@ -77,7 +77,7 @@
 #' @param vert_lty Line type of secondary vertical lines (default "dotted").
 #' @param xlim Numeric vector length 2. X-axis limits for the CI panel.
 #' @param ticks_at Numeric vector. X-axis tick positions.
-#' @param tick_labels Character vector. Custom tick labels (default: as.character(ticks_at)).
+#' @param tick_labels Character vector. Custom tick labels (default: NULL, giving as.character(ticks_at)).
 #' @param xlog Logical. If TRUE (default), x-axis on log scale.
 #' @param xlab Character. X-axis label (default "Hazard Ratio").
 #' @param title   Character. Overall plot title (default NULL).
@@ -89,7 +89,7 @@
 #' @param base_size  Numeric. ggplot2 base font size in pt (default 11).
 #'   Controls all text — increase to make the plot larger; no other knob needed.
 #' @param widths Numeric vector. Relative patchwork column widths:
-#'   c(label, ci, annot_1, annot_2, …). Default: c(3.5, 5, rep(1, n_annot)).
+#'   c(label, ci, annot_1, annot_2, …). Default: NULL, giving c(3.5, 5, rep(1.1, n_annot)).
 #' @param row_expand Numeric. Extra space above and below row range on y-axis,
 #'   in row units (default 0.6).
 #' @param clip_marker Character. How to mark whiskers whose 1st or 99th

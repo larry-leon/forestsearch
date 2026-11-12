@@ -534,7 +534,7 @@ cox_cs_fit <- function(df,
 #' @param z Character string specifying the column name to use as the subgroup
 #'   score (e.g., "z_age", "z_size", "subgroup"). Required.
 #' @param hrz_crit Critical hazard ratio threshold for defining optimal subgroup.
-#'   Default is 1 (HR=1 on log scale is 0).
+#'   Default is 0 (on the log scale, HR=1).
 #' @param log.hrs Optional vector of reference log hazard ratios to display as
 #'   horizontal lines. Default is NULL.
 #' @param ahr_empirical Optional empirical average hazard ratio to display.

@@ -202,7 +202,7 @@ expand_covariates <- function(seed_df, vars, n_super, seed = 20260903L,
 #' @param x1_vars  names of imbalanced-only covariates (X1); character(0) for none
 #' @param or_x1    odds ratios for the X1 terms (recycled)
 #' @param prevalence target marginal P(Region = 1)
-#' @param scale_ref data.frame used to define the scaling (defaults to pop)
+#' @param scale_ref data.frame used to define the scaling (default NULL, meaning pop)
 #' @param scale    "rank" (ECDF, default) or "minmax" (the paper's scaling)
 #' @param band     NULL (default, no band term), or list(var, cut, or): adds
 #'                 `log(or) * 1(df[[var]] <= cut)` to the logit (var on its

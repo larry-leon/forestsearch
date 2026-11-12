@@ -35,7 +35,7 @@ filtering to the analysis method.}
 
 \item{digits}{Integer. Decimal places for reported values. Default: 2.}
 
-\item{scenario}{Character. One of \code{"null"} or \code{"alt"} (default).
+\item{scenario}{Character or \code{NULL} (default). One of \code{"null"} or \code{"alt"}.
 Controls the interpretive framing:
 \itemize{
 \item \code{"null"}: emphasises false-positive rate and selection bias

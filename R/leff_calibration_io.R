@@ -120,7 +120,7 @@ save_leff_calibration <- function(C, alpha, n_min,
 #' @param outcome_type Character. One of "binary", "survival",
 #'   "count", "continuous".
 #' @param output_dir Character. Directory containing .rds files.
-#'   Default: \code{"_data"}.
+#'   Default: \code{NULL}, which resolves to \code{"_data"}.
 #' @param verbose Logical. Print summary on load. Default: TRUE.
 #'
 #' @return A list with components C, alpha, n_min, outcome_type,

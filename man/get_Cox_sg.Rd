@@ -19,8 +19,9 @@ get_Cox_sg(
 
 \item{est.loghr}{Logical. Is estimate on log(HR) scale?}
 
-\item{cox_initial}{Optional pre-fitted Cox model object to use instead of
-fitting a new model. Default NULL}
+\item{cox_initial}{Numeric. Starting value for the treatment coefficient,
+passed to \code{coxph()} as \code{init} when the formula has a single term.
+Default \code{log(1)}}
 
 \item{treat.name}{Character or \code{NULL}. Name of the treatment term whose
 coefficient is the effect of interest.  When the formula is adjusted

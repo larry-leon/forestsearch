@@ -35,7 +35,7 @@ For ratio measures: the ratio (e.g., 1.25).
 For difference measures: the difference (e.g., 0.2).}
 
 \item{c2}{Numeric. Consistency threshold on the natural scale.
-Default: 1.0 for ratio, 0.0 for difference.}
+Default: 1.0 on both scales; supply \code{c2} for difference measures.}
 
 \item{effect_scale}{Character. \code{"ratio"} (default) for log-scale
 effects (HR, OR, IRR); \code{"difference"} for identity-scale (MD).}

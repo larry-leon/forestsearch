@@ -71,7 +71,7 @@ downstream functions (e.g., \code{\link{run_simulation_analysis}})
 can auto-coordinate the analysis direction.  Default \code{FALSE}.}
 
 \item{k_inter_range}{Numeric vector of length 2. Search range for
-\code{k_inter}. Default \code{c(0, 10)}.}
+\code{k_inter}. Default \code{c(-10, 10)}.}
 
 \item{grid_step}{Numeric. Grid resolution. Default \code{0.05}.}
 

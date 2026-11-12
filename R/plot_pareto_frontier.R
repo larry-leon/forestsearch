@@ -20,7 +20,7 @@ utils::globalVariables(c("is_selected", "split_lcl", "split_ucl", "label"))
 #'   \code{"hrMaxSG"} or \code{"hrMinSG"}, shade the effect-size
 #'   neighborhood band on the right of the plot.  Default \code{FALSE}.
 #' @param effect_neighborhood Numeric.  Override of the band width;
-#'   defaults to the value used in the original \code{forestsearch}
+#'   default \code{NULL}, which uses the value from the original \code{forestsearch}
 #'   call (or \code{0.10} if not recoverable).
 #' @param label_members Logical.  If \code{TRUE}, label each frontier
 #'   member with its short cut description.  Default \code{TRUE}.

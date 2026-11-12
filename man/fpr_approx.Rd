@@ -70,7 +70,7 @@ of independent tests.  When set, overrides the \code{rho}-based
 Sidak adjustment.  Default \code{NULL} (compute from \code{rho}).}
 
 \item{thresholds}{Numeric vector.  Additional thresholds to evaluate
-besides \code{c1}.  Default \code{c(1.0, 1.5, 2.0)}.}
+besides \code{c1}.  Default \code{NULL} (only \code{c1} is evaluated).}
 
 \item{verbose}{Logical.  Print a formatted summary.  Default
 \code{TRUE}.}

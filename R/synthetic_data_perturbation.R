@@ -3,11 +3,11 @@
 #' @param data Original dataset to bootstrap from
 #' @param continuous_vars Character vector of continuous variable names
 #' @param cat_vars Character vector of categorical variable names
-#' @param n Number of synthetic observations to generate (default: same as original)
+#' @param n Number of synthetic observations to generate (default: NULL, meaning same as original)
 #' @param seed Random seed for reproducibility
 #' @param noise_level Noise level for perturbation (0 to 1, default 0.1)
 #' @param id_var Optional name of ID variable to regenerate (will be numbered 1:n)
-#' @param cat_flip_prob Probability of flipping categorical values (default: noise_level/2)
+#' @param cat_flip_prob Probability of flipping categorical values (default: NULL, giving noise_level/2)
 #' @param preserve_bounds Logical: should continuous variables stay within original bounds? (default: TRUE)
 #' @param ordinal_vars Optional character vector of ordinal categorical variables
 #'                     (these will be perturbed to adjacent values rather than randomly flipped)

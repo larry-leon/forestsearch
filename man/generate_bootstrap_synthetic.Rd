@@ -24,7 +24,7 @@ generate_bootstrap_synthetic(
 
 \item{cat_vars}{Character vector of categorical variable names}
 
-\item{n}{Number of synthetic observations to generate (default: same as original)}
+\item{n}{Number of synthetic observations to generate (default: NULL, meaning same as original)}
 
 \item{seed}{Random seed for reproducibility}
 
@@ -32,7 +32,7 @@ generate_bootstrap_synthetic(
 
 \item{id_var}{Optional name of ID variable to regenerate (will be numbered 1:n)}
 
-\item{cat_flip_prob}{Probability of flipping categorical values (default: noise_level/2)}
+\item{cat_flip_prob}{Probability of flipping categorical values (default: NULL, giving noise_level/2)}
 
 \item{preserve_bounds}{Logical: should continuous variables stay within original bounds? (default: TRUE)}
 

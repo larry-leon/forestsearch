@@ -26,7 +26,7 @@ fs_identification_structure(
 \code{partner}.}
 
 \item{confounders}{Character vector. The analysis covariate pool, for the
-involvement vector. Defaults to the three named roles.}
+involvement vector. Default \code{NULL}, which uses the three named roles.}
 
 \item{sg_def_col, covs_col}{Character. Columns holding the realized rule and
 its projected covariate names.}

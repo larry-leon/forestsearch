@@ -11,7 +11,7 @@ load_leff_calibration(outcome_type, output_dir = NULL, verbose = TRUE)
 "count", "continuous".}
 
 \item{output_dir}{Character. Directory containing .rds files.
-Default: \code{"_data"}.}
+Default: \code{NULL}, which resolves to \code{"_data"}.}
 
 \item{verbose}{Logical. Print summary on load. Default: TRUE.}
 }

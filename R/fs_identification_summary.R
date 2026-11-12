@@ -124,7 +124,7 @@
 #' @param proxy Character. A correlated covariate that may substitute for
 #'   `partner`.
 #' @param confounders Character vector. The analysis covariate pool, for the
-#'   involvement vector. Defaults to the three named roles.
+#'   involvement vector. Default `NULL`, which uses the three named roles.
 #' @param sg_def_col,covs_col Character. Columns holding the realized rule and
 #'   its projected covariate names.
 #'
@@ -299,7 +299,7 @@ print.fs_identification <- function(x, ...) {
 #' sweep dimension.
 #'
 #' @param x An `fs_identification` object.
-#' @param roles Character vector. Which covariates to draw; defaults to the
+#' @param roles Character vector. Which covariates to draw; default `NULL`, which uses the
 #'   anchor/partner/proxy triple.
 #' @param palette Named character vector of colours, or `NULL` for the
 #'   colour-blind-safe default used in the supplement.

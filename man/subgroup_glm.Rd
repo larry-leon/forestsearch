@@ -27,8 +27,8 @@ validated; count requires \code{offset.name}).}
 
 \item{effect_measure}{\code{NULL} resolves to the wrapper default for the
 outcome type: \code{"MD"} (continuous), \code{"OR"} (binary -- the
-\code{\link[=generate_glm_dgm]{generate_glm_dgm()}} default and the calibration target; note that
-\code{\link[=make_effect_estimator]{make_effect_estimator()}}'s own binary default is \code{"RD"}), or
+\code{\link[=generate_glm_dgm]{generate_glm_dgm()}} default and the calibration target; it is also
+\code{\link[=make_effect_estimator]{make_effect_estimator()}}'s own binary default), or
 \code{"IRR"} (count -- all layers agree). Binary also accepts \code{"RD"};
 count also accepts \code{"IRD"}; see the supported-settings section for
 the gated measures.}

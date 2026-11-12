@@ -73,8 +73,7 @@ returned object (\verb{$n_min}), so \code{\link[=dina_subgroup_bootstrap]{dina_s
 
 \item{n_min.frac}{numeric in (0, 1); fraction of \code{nrow(df)} used for the
 adaptive \code{n_min} floor when \code{n_min = NULL}. Default \code{0.10}. Ignored when
-\code{n_min} is supplied.
-Default \code{60L}, matching the convention in GRF and \code{forestsearch()}.}
+\code{n_min} is supplied.}
 
 \item{direction}{one of \code{"both"} (default), \code{"left"}, or \code{"right"}.
 For each covariate \code{x_j} controls whether to search subgroups of

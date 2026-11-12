@@ -211,7 +211,8 @@
 #' @section Post-selection inference:
 #' When the fit carries multiplier-resampling results (`mr_inference = TRUE`,
 #' attached as `x$mr_inference`) and the field block ran
-#' (`ci_method = "field"`, the default), a further block reports: the
+#' (`ci_method = "field"`, the default under `subgroup_method = "consistency"`),
+#' a further block reports: the
 #' one-sided 95% lower bound for the identified subgroup (the field); the
 #' one-sided 95% upper bound for its complement (field-s, the studentized
 #' complement field); the Bonferroni pair for a joint two-subgroup

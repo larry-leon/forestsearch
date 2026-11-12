@@ -9,7 +9,7 @@ plot_fs_identification_involvement(x, roles = NULL, palette = NULL)
 \arguments{
 \item{x}{An \code{fs_identification} object.}
 
-\item{roles}{Character vector. Which covariates to draw; defaults to the
+\item{roles}{Character vector. Which covariates to draw; default \code{NULL}, which uses the
 anchor/partner/proxy triple.}
 
 \item{palette}{Named character vector of colours, or \code{NULL} for the

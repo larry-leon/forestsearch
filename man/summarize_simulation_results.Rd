@@ -14,7 +14,7 @@ summarize_simulation_results(
 \arguments{
 \item{results}{data.table with simulation results from run_simulation_analysis}
 
-\item{analyses}{Character vector. Analysis methods to include. Default: all}
+\item{analyses}{Character vector. Analysis methods to include. Default: NULL, meaning all analyses in results}
 
 \item{digits}{Integer. Decimal places for proportions. Default: 2}
 

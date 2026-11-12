@@ -227,7 +227,7 @@ to worker count holds within any plan.}
 genuinely parallel plan -- the knob for the per-batch overhead
 described above.  Smaller
 values provide finer-grained early stopping but may increase overhead.
-Default: When stop_threshold is set and sg_focus is "hr" or "minSG",
+Default: When stop_threshold is set and sg_focus is "maxeffCons",
 defaults to 1 (stop immediately when first candidate passes). For other
 sg_focus values with stop_threshold, defaults to min(workers, n_candidates/4).
 When stop_threshold is NULL, defaults to workers*2 for efficiency.}

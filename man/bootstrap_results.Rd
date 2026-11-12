@@ -40,7 +40,7 @@ created by \code{\link{build_cox_formula}}. Should be of form
 More iterations provide better bias correction but increase computation time.}
 
 \item{show_three}{Logical. If \code{TRUE}, prints detailed progress for the
-first three bootstrap iterations for debugging purposes. Default: \code{FALSE}.}
+first three bootstrap iterations for debugging purposes. No default; must be supplied.}
 
 \item{H_obs}{Numeric. Observed log hazard ratio for subgroup H (harm/questionable group,
 \code{treat.recommend == 0}) from original sample. Used as reference for

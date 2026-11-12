@@ -1050,7 +1050,7 @@ build_estimation_table <- function(
 #'   filtering to the analysis method.
 #' @param n_boots Integer. Number of bootstraps (for narrative). Default: 300.
 #' @param digits Integer. Decimal places for reported values. Default: 2.
-#' @param scenario Character. One of \code{"null"} or \code{"alt"} (default).
+#' @param scenario Character or \code{NULL} (default). One of \code{"null"} or \code{"alt"}.
 #'   Controls the interpretive framing:
 #'   \itemize{
 #'     \item \code{"null"}: emphasises false-positive rate and selection bias

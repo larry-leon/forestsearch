@@ -402,7 +402,7 @@ compute_cde <- function(df, subset_indicator = NULL) {
 #' Includes both HR and AHR metrics.
 #'
 #' @param results data.table with simulation results from run_simulation_analysis
-#' @param analyses Character vector. Analysis methods to include. Default: all
+#' @param analyses Character vector. Analysis methods to include. Default: NULL, meaning all analyses in results
 #' @param digits Integer. Decimal places for proportions. Default: 2
 #' @param digits_hr Integer. Decimal places for hazard ratios. Default: 3
 #'

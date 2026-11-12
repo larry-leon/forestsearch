@@ -165,7 +165,6 @@
 #' @param n_min.frac numeric in (0, 1); fraction of `nrow(df)` used for the
 #'   adaptive `n_min` floor when `n_min = NULL`. Default `0.10`. Ignored when
 #'   `n_min` is supplied.
-#'   Default `60L`, matching the convention in GRF and `forestsearch()`.
 #' @param direction one of `"both"` (default), `"left"`, or `"right"`.
 #'   For each covariate `x_j` controls whether to search subgroups of
 #'   the form `x_j <= q` (left), `x_j >= q` (right), or both.

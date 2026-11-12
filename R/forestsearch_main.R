@@ -379,7 +379,7 @@
 #' @param df.test Data frame. Test dataset (optional).
 #' @param is.RCT Logical. Is this a randomized controlled trial? Default TRUE.
 #' @param seedit Integer. Random seed. Default 8316951.
-#' @param est.scale Character. Estimation scale ("hr" or "rmst"). Default "hr".
+#' @param est.scale Character. Estimation scale ("hr" or "1/hr"). Default "hr".
 #' @param use_lasso Logical. Use LASSO for variable selection. Default FALSE.
 #'   The default changed from \code{TRUE} in an earlier release: with
 #'   \code{subgroup_method = "consistency"} a model-based front end makes the
@@ -925,7 +925,7 @@
 #'   unless \code{use_lasso}, \code{use_grf} or \code{use_dina} is
 #'   \code{TRUE}.  Will be removed in a future release; drop it from the call.
 #' @param use_twostage Logical. Use two-stage sequential consistency algorithm for
-#'   improved performance. Default FALSE for backward compatibility. When TRUE,
+#'   improved performance. Default TRUE. When TRUE,
 #'   \code{fs.splits} becomes the maximum number of splits, and early stopping
 #'   is enabled. See Details.  Overridden to \code{FALSE} under
 #'   \code{sg_focus = "maxeff"} (no two-stage screening).
@@ -975,7 +975,9 @@
 #'       \code{"poisson"} (centred Poisson(1) weights, the multiplier-bootstrap
 #'       analogue of nonparametric-bootstrap multiplicities); also
 #'       \code{"gaussian"}, \code{"rademacher"}.}
-#'     \item{\code{ci_method}}{\code{"field"} (default) additionally runs the
+#'     \item{\code{ci_method}}{\code{"field"} (default under
+#'       \code{subgroup_method = "consistency"}; the \code{"dina"} and
+#'       \code{"grf"} methods default to \code{"ij"}) additionally runs the
 #'       field-calibrated block, whose one-sided bounds are the primary
 #'       reported products; the de-biased element, its infinitesimal-jackknife SE and its
 #'       IJ intervals are returned in every call regardless, so nothing is
@@ -998,13 +1000,13 @@
 #'       sweep's mass-carrying cap; \code{NULL} (default) keeps
 #'       \code{fs_mr_field_uniform()}'s default.  Consulted only when
 #'       \code{field_uniform = TRUE}.}
-#'     \item{\code{field_complement}}{Logical, default \code{FALSE}.  Under
+#'     \item{\code{field_complement}}{Logical, default \code{TRUE}.  Under
 #'       \code{ci_method = "field"} with \code{include_complement = TRUE},
 #'       also evaluate the field block for the complement subgroup, attached
 #'       as \code{field$complement} with the one-sided 95\% \emph{upper}
 #'       bound as its primary product (the benefit-claim orientation; see
-#'       \code{\link{fs_mr_inference}}).  Add-only pass-through: the default
-#'       reproduces prior output exactly.}
+#'       \code{\link{fs_mr_inference}}).  \code{FALSE} omits the complement's
+#'       field block (the prior behaviour).}
 #'     \item{\code{ij_residual}}{\code{"two_term"} (default), \code{"winner"}
 #'       or \code{"winner_floor"}: which infinitesimal-jackknife residual
 #'       populates the reported de-biased SE and interval (both blocks); all
@@ -1061,7 +1063,8 @@
 #'   uses the hazard ratio.
 #' @param offset.name Character or \code{NULL}. Name of the follow-up time
 #'   column for rate-based measures (IRR, IRD).
-#' @param adverse_outcome Logical or \code{NULL}. If \code{TRUE}, higher
+#' @param adverse_outcome Logical or \code{NULL} (default, resolved by
+#'   outcome type). If \code{TRUE}, higher
 #'   outcome values indicate harm (default for binary and count).  If \code{FALSE},
 #'   higher values indicate benefit (default for continuous).
 #' @param overdispersion Character. Overdispersion correction for
@@ -1105,8 +1108,8 @@
 #'   treatment-only fits.
 #'   Character or \code{NULL}. Propensity score estimation
 #'   method: \code{"grf"}, \code{"lasso"}, \code{"logistic"}, or
-#'   \code{"none"}.  Default: \code{"none"} for RCT, \code{"grf"} for
-#'   observational.
+#'   \code{"none"}.  Default: \code{NULL}, which resolves to \code{"none"}
+#'   for RCT and \code{"grf"} for observational.
 #'
 #'   **GLM outcome types only** (\code{"binary"}, \code{"continuous"},
 #'   \code{"count"}). Propensity adjustment is **not implemented for
@@ -1218,9 +1221,10 @@
 #'       (\code{naive}, \code{debiased}, \code{selection_bias},
 #'       \code{settings}, \code{harm_flag}, \code{timing_seconds}).  MR
 #'       approximates the full bootstrap (FB) to leading order; its interval is
-#'       the infinitesimal-jackknife analogue of the FB interval under the
-#'       default \code{ci_method = "field"} and under \code{"ij"}, and the
-#'       subgroup robust-SE interval under \code{"wald"}.  Under the default
+#'       the infinitesimal-jackknife analogue of the FB interval under
+#'       \code{ci_method = "field"} (the default under
+#'       \code{subgroup_method = "consistency"}) and under \code{"ij"}, and the
+#'       subgroup robust-SE interval under \code{"wald"}.  Under \code{"field"}
 #'       the return also carries the \code{field} element.}
 #'     \item{mr_harm_confirmed}{Logical, three-valued.  \code{TRUE} when MR ran
 #'       and the de-biased estimate still indicates harm under

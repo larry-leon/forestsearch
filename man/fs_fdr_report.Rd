@@ -44,7 +44,7 @@ is inert; here it annotates the null's operating characteristics only.}
 \item{nsims}{Integer; null replicates per null.  Default 1000.}
 
 \item{n}{Integer or \code{NULL}; simulated trial size.  Default
-\code{nrow(df_analysis)}.  The published reference baseline used
+\code{NULL}, giving \code{nrow(df_analysis)}.  The published reference baseline used
 \code{n = 700}; pass that to reproduce it exactly.}
 
 \item{confounders}{Character vector or \code{NULL}; candidate covariates.

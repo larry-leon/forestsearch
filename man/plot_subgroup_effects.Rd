@@ -25,7 +25,7 @@ loghr_po (log hazard ratios), and optionally theta_1 and theta_0
 score (e.g., "z_age", "z_size", "subgroup"). Required.}
 
 \item{hrz_crit}{Critical hazard ratio threshold for defining optimal subgroup.
-Default is 1 (HR=1 on log scale is 0).}
+Default is 0 (on the log scale, HR=1).}
 
 \item{log.hrs}{Optional vector of reference log hazard ratios to display as
 horizontal lines. Default is NULL.}

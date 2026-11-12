@@ -62,8 +62,8 @@ Default: \code{"binary"}.}
 \code{"RD"} (risk difference, binary/identity link),
 \code{"MD"} (mean difference, continuous/Gaussian), or
 \code{"log_IRR"} (log incidence rate ratio, count/Poisson with offset).
-Default is \code{"log_OR"} for binary, \code{"MD"} for continuous,
-and \code{"log_IRR"} for count.}
+Default \code{NULL}, which resolves to \code{"log_OR"} for binary,
+\code{"MD"} for continuous, and \code{"log_IRR"} for count.}
 
 \item{offset.name}{Character or \code{NULL}. Name of the person-time
 (exposure) column. When supplied, \code{log(offset)} enters the linear

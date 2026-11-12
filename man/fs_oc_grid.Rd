@@ -45,7 +45,8 @@ floor for another.}
 for the \code{"resample"} gate -- the \verb{p*} of
 \code{\link{forestsearch}}'s \code{pconsistency.threshold}: the fraction
 of splits that must clear \code{c2}, not an effect threshold.  Default
-\code{forestsearch_args$pconsistency.threshold}, itself defaulting to
+\code{NULL}, which takes \code{forestsearch_args$pconsistency.threshold},
+itself defaulting to
 \code{forestsearch()}'s default (0.90); an explicit value overrides.
 Ignored by \code{"split"}.}
 

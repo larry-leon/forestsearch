@@ -71,7 +71,7 @@ Drawn as a dashed red line.}
 
 \item{ticks_at}{Numeric vector. X-axis tick positions.}
 
-\item{tick_labels}{Character vector. Custom tick labels (default: as.character(ticks_at)).}
+\item{tick_labels}{Character vector. Custom tick labels (default: NULL, giving as.character(ticks_at)).}
 
 \item{xlog}{Logical. If TRUE (default), x-axis on log scale.}
 
@@ -93,7 +93,7 @@ Drawn as a dashed red line.}
 Controls all text — increase to make the plot larger; no other knob needed.}
 
 \item{widths}{Numeric vector. Relative patchwork column widths:
-c(label, ci, annot_1, annot_2, …). Default: c(3.5, 5, rep(1, n_annot)).}
+c(label, ci, annot_1, annot_2, …). Default: NULL, giving c(3.5, 5, rep(1.1, n_annot)).}
 
 \item{row_expand}{Numeric. Extra space above and below row range on y-axis,
 in row units (default 0.6).}

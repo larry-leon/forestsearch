@@ -51,7 +51,8 @@
 #' @param confounders.name Character vector. Confounder variable names for ForestSearch.
 #'   If NULL, automatically extracted from dgm
 #' @param conf_force Character vector. Forced cuts to consider in ForestSearch.
-#'   Default: c("z_age <= 65", "z_bm <= 0", "z_bm <= 1", "z_bm <= 2", "z_bm <= 5")
+#'   Default: NULL, which resolves to
+#'   c("z_age <= 65", "z_bm <= 0", "z_bm <= 1", "z_bm <= 2", "z_bm <= 5")
 #' @param fs_args Named list. Additional arguments passed directly to
 #'   \code{\link{forestsearch}} inside each simulation replicate. Use this to
 #'   control parameters not exposed by \code{mrct_region_sims} (e.g.,
@@ -1281,8 +1282,8 @@ create_dgm_for_mrct <- function(
 #'   Default: NULL (auto).
 #' @param show_summary Logical. Annotate each violin with mean (SD) below
 #'   the x-axis labels. When trimming is active, displays trimmed
-#'   statistics. Default: TRUE when \code{trim_fraction} is non-NULL,
-#'   FALSE otherwise.
+#'   statistics. Default: \code{NULL}, which resolves to \code{TRUE} when
+#'   \code{trim_fraction} is non-NULL and \code{FALSE} otherwise.
 #' @param title Character. Plot title. Default: "Distribution of HR
 #'   Estimates Across Simulations".
 #' @param subtitle Character or NULL. Plot subtitle. When trimming is

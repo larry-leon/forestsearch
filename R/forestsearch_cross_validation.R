@@ -187,7 +187,8 @@
 #'
 #' @param fs.est List. ForestSearch results object from \code{\link{forestsearch}}.
 #'   Must contain \code{df.est} (data frame) and \code{args_call_all} (list of arguments).
-#' @param Kfolds Integer. Number of folds (default: \code{nrow(fs.est$df.est)} for LOO).
+#' @param Kfolds Integer. Number of folds (default: \code{nrow(fs.est$df.est)} for LOO;
+#'   when no subgroup was found, the number of rows of the original analysis data).
 #' @param seedit Integer. Random seed for fold assignment (default: 8316951).
 #' @param parallel_args List. Parallelization configuration with elements:
 #'   \itemize{

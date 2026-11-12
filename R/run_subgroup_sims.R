@@ -197,8 +197,8 @@ subgroup_cox <- function(formula, lean = TRUE) {
 #'   validated; count requires `offset.name`).
 #' @param effect_measure `NULL` resolves to the wrapper default for the
 #'   outcome type: `"MD"` (continuous), `"OR"` (binary -- the
-#'   [generate_glm_dgm()] default and the calibration target; note that
-#'   [make_effect_estimator()]'s own binary default is `"RD"`), or
+#'   [generate_glm_dgm()] default and the calibration target; it is also
+#'   [make_effect_estimator()]'s own binary default), or
 #'   `"IRR"` (count -- all layers agree). Binary also accepts `"RD"`;
 #'   count also accepts `"IRD"`; see the supported-settings section for
 #'   the gated measures.

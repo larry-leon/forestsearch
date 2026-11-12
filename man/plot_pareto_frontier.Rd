@@ -28,7 +28,7 @@ Default \code{NULL} (no error bars).}
 neighborhood band on the right of the plot.  Default \code{FALSE}.}
 
 \item{effect_neighborhood}{Numeric.  Override of the band width;
-defaults to the value used in the original \code{forestsearch}
+default \code{NULL}, which uses the value from the original \code{forestsearch}
 call (or \code{0.10} if not recoverable).}
 
 \item{label_members}{Logical.  If \code{TRUE}, label each frontier

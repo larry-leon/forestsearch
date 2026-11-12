@@ -63,7 +63,8 @@ Default: 0.90}
 If NULL, automatically extracted from dgm}
 
 \item{conf_force}{Character vector. Forced cuts to consider in ForestSearch.
-Default: c("z_age <= 65", "z_bm <= 0", "z_bm <= 1", "z_bm <= 2", "z_bm <= 5")}
+Default: NULL, which resolves to
+c("z_age <= 65", "z_bm <= 0", "z_bm <= 1", "z_bm <= 2", "z_bm <= 5")}
 
 \item{fs_args}{Named list. Additional arguments passed directly to
 \code{\link{forestsearch}} inside each simulation replicate. Use this to

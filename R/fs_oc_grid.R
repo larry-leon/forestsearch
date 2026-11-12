@@ -229,7 +229,7 @@ fs_oc_grid <- function(dgm = NULL, forestsearch_args = list(), n, c1, c2,
 #' @param solve_for \code{"c1"} (at fixed \code{c2}) or \code{"c2"} (at fixed
 #'   \code{c1}).
 #' @param c1,c2 The fixed threshold (the one not solved for; the solved-for
-#'   argument is ignored).  Defaults from \code{forestsearch_args}.
+#'   argument is ignored).  Default \code{NULL}, which takes the value from \code{forestsearch_args}.
 #' @param consistency_method One gate.
 #' @param tol Bisection tolerance on the threshold scale (\code{solve_for =
 #'   "c2"} only).

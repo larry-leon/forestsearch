@@ -46,8 +46,8 @@ Default: NULL (auto).}
 
 \item{show_summary}{Logical. Annotate each violin with mean (SD) below
 the x-axis labels. When trimming is active, displays trimmed
-statistics. Default: TRUE when \code{trim_fraction} is non-NULL,
-FALSE otherwise.}
+statistics. Default: \code{NULL}, which resolves to \code{TRUE} when
+\code{trim_fraction} is non-NULL and \code{FALSE} otherwise.}
 
 \item{title}{Character. Plot title. Default: "Distribution of HR
 Estimates Across Simulations".}

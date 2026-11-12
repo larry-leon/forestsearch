@@ -95,14 +95,14 @@
 #'   enumerated family and converts expected prevalence to expected subjects.
 #' @param c1 Numeric.  Screening floor on the full-sample effect -- the `c1`
 #'   of \code{\link{forestsearch}}'s \code{effect.threshold} (legacy
-#'   \code{hr.threshold}).  Default
+#'   \code{hr.threshold}).  Default \code{NULL}, which takes
 #'   \code{forestsearch_args$effect.threshold}; an explicit value overrides.
 #' @param c2 Numeric.  Consistency floor on each half-sample effect -- the
 #'   `c2` of \code{\link{forestsearch}}'s \code{consistency.threshold}
 #'   (legacy \code{hr.consistency}).  An \strong{effect} threshold, not a
 #'   proportion; the proportion is \code{pconsistency} below.  Default
-#'   \code{forestsearch_args$consistency.threshold}; an explicit value
-#'   overrides.
+#'   \code{NULL}, which takes \code{forestsearch_args$consistency.threshold};
+#'   an explicit value overrides.
 #' @param family \code{NULL} (enumerate with
 #'   \code{\link{fs_oc_family_enumerate}}) or an \code{fs_oc_family} object
 #'   used as-is.
@@ -113,7 +113,8 @@
 #'   for the \code{"resample"} gate -- the `p*` of
 #'   \code{\link{forestsearch}}'s \code{pconsistency.threshold}: the fraction
 #'   of splits that must clear `c2`, not an effect threshold.  Default
-#'   \code{forestsearch_args$pconsistency.threshold}, itself defaulting to
+#'   \code{NULL}, which takes \code{forestsearch_args$pconsistency.threshold},
+#'   itself defaulting to
 #'   \code{forestsearch()}'s default (0.90); an explicit value overrides.
 #'   Ignored by \code{"split"}.
 #' @param draws Integer.  Number of Monte-Carlo draws.

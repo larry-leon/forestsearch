@@ -5,8 +5,9 @@
 #' Function is utilized throughout codebase
 #'
 #' @param df_sg Data frame for subgroup.
-#' @param cox_initial Optional pre-fitted Cox model object to use instead of
-#'   fitting a new model. Default NULL
+#' @param cox_initial Numeric. Starting value for the treatment coefficient,
+#'   passed to `coxph()` as `init` when the formula has a single term.
+#'   Default `log(1)`
 #' @param cox.formula Cox model formula.
 #' @param est.loghr Logical. Is estimate on log(HR) scale?
 #' @param treat.name Character or `NULL`. Name of the treatment term whose

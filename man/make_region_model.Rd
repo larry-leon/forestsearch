@@ -30,7 +30,7 @@ no X2 term (regional imbalance only through x1_vars)}
 
 \item{prevalence}{target marginal P(Region = 1)}
 
-\item{scale_ref}{data.frame used to define the scaling (defaults to pop)}
+\item{scale_ref}{data.frame used to define the scaling (default NULL, meaning pop)}
 
 \item{scale}{"rank" (ECDF, default) or "minmax" (the paper's scaling)}
 

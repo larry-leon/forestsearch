@@ -1,4 +1,4 @@
-# forestsearch 0.4.1.9002 (development)
+# forestsearch 0.4.1.9007 (development)
 
 This development version adds the MRCT regional-consistency series: the
 MRCT consistency analytic layer, new DGM arguments, the per-replicate record

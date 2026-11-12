@@ -147,7 +147,7 @@ To disable parallelism entirely, pass
 
 \item{seedit}{Integer. Random seed. Default 8316951.}
 
-\item{est.scale}{Character. Estimation scale ("hr" or "rmst"). Default "hr".}
+\item{est.scale}{Character. Estimation scale ("hr" or "1/hr"). Default "hr".}
 
 \item{use_lasso}{Logical. Use LASSO for variable selection. Default FALSE.
 The default changed from \code{TRUE} in an earlier release: with
@@ -750,7 +750,7 @@ unless \code{use_lasso}, \code{use_grf} or \code{use_dina} is
 \code{TRUE}.  Will be removed in a future release; drop it from the call.}
 
 \item{use_twostage}{Logical. Use two-stage sequential consistency algorithm for
-improved performance. Default FALSE for backward compatibility. When TRUE,
+improved performance. Default TRUE. When TRUE,
 \code{fs.splits} becomes the maximum number of splits, and early stopping
 is enabled. See Details.  Overridden to \code{FALSE} under
 \code{sg_focus = "maxeff"} (no two-stage screening).}
@@ -804,7 +804,8 @@ uses the hazard ratio.}
 \item{offset.name}{Character or \code{NULL}. Name of the follow-up time
 column for rate-based measures (IRR, IRD).}
 
-\item{adverse_outcome}{Logical or \code{NULL}. If \code{TRUE}, higher
+\item{adverse_outcome}{Logical or \code{NULL} (default, resolved by
+outcome type). If \code{TRUE}, higher
 outcome values indicate harm (default for binary and count).  If \code{FALSE},
 higher values indicate benefit (default for continuous).}
 
@@ -853,8 +854,8 @@ León and Anderson (2026a, 2026b), which use the unadjusted
 treatment-only fits.
 Character or \code{NULL}. Propensity score estimation
 method: \code{"grf"}, \code{"lasso"}, \code{"logistic"}, or
-\code{"none"}.  Default: \code{"none"} for RCT, \code{"grf"} for
-observational.
+\code{"none"}.  Default: \code{NULL}, which resolves to \code{"none"}
+for RCT and \code{"grf"} for observational.
 
 \strong{GLM outcome types only} (\code{"binary"}, \code{"continuous"},
 \code{"count"}). Propensity adjustment is \strong{not implemented for
@@ -928,7 +929,9 @@ perturbed draw when forming the bias term.  Defaults to the rule
 \code{"poisson"} (centred Poisson(1) weights, the multiplier-bootstrap
 analogue of nonparametric-bootstrap multiplicities); also
 \code{"gaussian"}, \code{"rademacher"}.}
-\item{\code{ci_method}}{\code{"field"} (default) additionally runs the
+\item{\code{ci_method}}{\code{"field"} (default under
+\code{subgroup_method = "consistency"}; the \code{"dina"} and
+\code{"grf"} methods default to \code{"ij"}) additionally runs the
 field-calibrated block, whose one-sided bounds are the primary
 reported products; the de-biased element, its infinitesimal-jackknife SE and its
 IJ intervals are returned in every call regardless, so nothing is
@@ -951,13 +954,13 @@ the smaller return object.}
 sweep's mass-carrying cap; \code{NULL} (default) keeps
 \code{fs_mr_field_uniform()}'s default.  Consulted only when
 \code{field_uniform = TRUE}.}
-\item{\code{field_complement}}{Logical, default \code{FALSE}.  Under
+\item{\code{field_complement}}{Logical, default \code{TRUE}.  Under
 \code{ci_method = "field"} with \code{include_complement = TRUE},
 also evaluate the field block for the complement subgroup, attached
 as \code{field$complement} with the one-sided 95\\% \emph{upper}
 bound as its primary product (the benefit-claim orientation; see
-\code{\link{fs_mr_inference}}).  Add-only pass-through: the default
-reproduces prior output exactly.}
+\code{\link{fs_mr_inference}}).  \code{FALSE} omits the complement's
+field block (the prior behaviour).}
 \item{\code{ij_residual}}{\code{"two_term"} (default), \code{"winner"}
 or \code{"winner_floor"}: which infinitesimal-jackknife residual
 populates the reported de-biased SE and interval (both blocks); all
@@ -1059,9 +1062,10 @@ when MR did not run.  See \code{\link{fs_mr_inference}} for fields
 (\code{naive}, \code{debiased}, \code{selection_bias},
 \code{settings}, \code{harm_flag}, \code{timing_seconds}).  MR
 approximates the full bootstrap (FB) to leading order; its interval is
-the infinitesimal-jackknife analogue of the FB interval under the
-default \code{ci_method = "field"} and under \code{"ij"}, and the
-subgroup robust-SE interval under \code{"wald"}.  Under the default
+the infinitesimal-jackknife analogue of the FB interval under
+\code{ci_method = "field"} (the default under
+\code{subgroup_method = "consistency"}) and under \code{"ij"}, and the
+subgroup robust-SE interval under \code{"wald"}.  Under \code{"field"}
 the return also carries the \code{field} element.}
 \item{mr_harm_confirmed}{Logical, three-valued.  \code{TRUE} when MR ran
 and the de-biased estimate still indicates harm under
