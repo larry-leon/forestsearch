@@ -144,7 +144,7 @@ See \code{\link{compute_frontier_cis}} for the algebra.
 \examples{
 \dontrun{
 # Survival example
-data(gbsg, package = "survival")
+gbsg <- survival::gbsg
 fs <- forestsearch(gbsg, ...)
 
 # Basic table (no CIs)

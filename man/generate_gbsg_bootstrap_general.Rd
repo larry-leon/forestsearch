@@ -17,8 +17,18 @@ generate_gbsg_bootstrap_general(n = 686, seed = 123, noise_level = 0.1)
 Synthetic GBSG dataset
 }
 \description{
-Generate Synthetic GBSG Data using Generalized Bootstrap
+Calls \code{\link{generate_bootstrap_synthetic}()} on \code{survival::gbsg}
+with fixed variable lists. \code{grade} is passed in \code{ordinal_vars}
+only, so it is resampled but not perturbed.
 }
+\section{Superseded}{
+
+This GBSG-specific wrapper is kept for existing code. New work should call
+\code{\link{generate_bootstrap_synthetic}()} directly: the call in its first
+example, with the same \code{n}, \code{seed} and \code{noise_level},
+returns the same data. This wrapper will be deprecated in a future release.
+}
+
 \examples{
 \dontrun{
 df_synth <- generate_gbsg_bootstrap_general(n = 200, seed = 42)

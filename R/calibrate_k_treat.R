@@ -52,7 +52,7 @@
 #' @examples
 #' \dontrun{
 #' library(survival)
-#' data(gbsg)
+#' gbsg <- survival::gbsg
 #' gbsg$time_months <- gbsg$rfstime / 30.4375
 #'
 #' base_args <- list(
