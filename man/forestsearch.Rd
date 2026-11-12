@@ -137,7 +137,13 @@ batches \emph{splits} within Stage 2 of the two-stage consistency
 algorithm -- a different quantity in different units.}
 }
 To disable parallelism entirely, pass
-\code{parallel_args = list(plan = "sequential")}.}
+\code{parallel_args = list(plan = "sequential")}.
+A sequential and a parallel plan can give different consistency
+proportions, and possibly a different selection, whenever literal
+splitting runs (\code{consistency_method = "split"}, an incidence-rate
+difference (\code{effect_measure = "IRD"}) under \code{"resample"}, or a
+candidate whose closed form is not available), except under
+\code{sg_focus = "maxeff"}, which runs the same loop on every plan.}
 
 \item{df.predict}{Data frame. Prediction dataset (optional).}
 
@@ -218,7 +224,10 @@ contribute the full frontier candidate set instead.
 derived rather than taken from this list.}  It is the harm floor a
 candidate must clear to enter the qualifying family that \code{sg_focus}
 then ranks -- \code{log(HR)} for \code{cox}, \code{log(OR)} for
-\code{binomial}, \code{log(IRR)} for \code{poisson}, and the raw mean
+\code{binomial}, the log mean-count ratio for \code{poisson} (DINA takes
+no exposure offset -- \code{offset.name} is not passed to its fit -- so
+this equals \code{log(IRR)} only when mean follow-up does not depend on
+arm given the covariates), and the raw mean
 difference for \code{gaussian}.  Under \code{subgroup_method = "dina"}
 (and under \code{selected_only = TRUE} screening) it is computed as
 \code{log(hr.threshold)} -- identity for \code{gaussian} -- from the
@@ -332,10 +341,33 @@ selection is the exact event MR de-biases (and MR's
 native-family restriction follows the effect rather than the DR score).
 \code{"effect"} is the default because only it ranks on the inferential
 coefficient; \code{"dr"} is rejected under \code{mr_inference = TRUE}.
+Under \code{"effect"}, \code{dmin.grf} is applied first, on the DR scale,
+as an existence gate: if no DR candidate reaches it, no subgroup is
+returned.  Otherwise it is not applied per candidate: the whole
+DR-candidate family (filtered by \code{n.min}, not by \code{dmin.grf}) is
+re-ranked, and admission uses the effect floor from \code{hr.threshold}
+(the resolved \code{effect.threshold} for GLM outcomes).  If no candidate
+can be scored on the effect, the DR winner, which did reach
+\code{dmin.grf}, is kept; if candidates are scored but none clears the
+effect floor, no subgroup is returned.
 Ignored for \code{grf_selection = "tree"} (the policy-tree leaf is the
 selection, with no enumerated family to rank).}
 
-\item{dmin.grf}{Numeric. Minimum events for GRF. Default 0.0.}
+\item{dmin.grf}{Numeric. Harm threshold on GRF's doubly robust (DR) scale,
+not a number of events.  It is compared with a subgroup's DR harm effect,
+the subgroup mean of the DR score for control minus the subgroup mean of
+the DR score for treatment (the two columns of
+\code{policytree::double_robust_scores()}, computed for every patient):
+for survival a difference in restricted mean survival time up
+to the GRF horizon (see \code{frac.tau}); for other outcomes a difference
+on the scale of the outcome given to GRF (see \code{grf_count_transform}).
+Under \code{grf_selection = "tree"} (and in \code{use_grf} screening) the
+policy-tree subgroup with the largest DR harm effect must reach it; under
+\code{grf_selection = "frontier"} with \code{grf_select_statistic = "dr"}
+it is applied to every frontier candidate.  Under
+\code{grf_select_statistic = "effect"} it is applied first as an existence
+gate on the DR scale and is then not applied per candidate; see
+\code{grf_select_statistic}.  Default 0.0.}
 
 \item{frac.tau}{Numeric in (0, 1]. Multiplier on the GRF time horizon
 passed to \code{grf::causal_survival_forest()}. The effective
@@ -782,7 +814,13 @@ coefficient (OR, RR, RD, MD, IRR); configurations it cannot represent that
 way (IRD, propensity-adjusted effects, or a non-convergent fit on a given
 candidate) fall back to \code{"split"} automatically. When
 \code{use_twostage = TRUE}, \code{"resample"} bypasses the two-stage
-split screening entirely (the rate is computed directly).}
+split screening entirely (the rate is computed directly).
+A sequential and a parallel plan can give different consistency
+proportions, and possibly a different selection, whenever literal
+splitting runs (\code{consistency_method = "split"}, an incidence-rate
+difference (\code{effect_measure = "IRD"}) under \code{"resample"}, or a
+candidate whose closed form is not available), except under
+\code{sg_focus = "maxeff"}, which runs the same loop on every plan.}
 
 \item{outcome_type}{Character. One of \code{"survival"} (default),
 \code{"binary"}, \code{"continuous"}, or \code{"count"}.}

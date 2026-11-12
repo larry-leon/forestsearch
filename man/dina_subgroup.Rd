@@ -44,7 +44,9 @@ family, not by changing the sort.
 
 \strong{Scale.}  The link (tau) scale of \code{fit$family}, which is not the scale
 the effect is usually reported on: \code{log(HR)} for \code{cox}, \code{log(OR)} for
-\code{binomial}, \code{log(IRR)} for \code{poisson}, and the raw mean difference for
+\code{binomial}, the log mean-count ratio for \code{poisson} (DINA takes no exposure
+offset, so this equals \code{log(IRR)} only when mean follow-up does not depend
+on arm given the covariates), and the raw mean difference for
 \code{gaussian}.  A harm threshold of HR 1.25 is therefore
 \code{m_diff = log(1.25)}, not \code{1.25}.
 

@@ -52,7 +52,13 @@ Default \code{NULL} inherits \code{confounders.name} from the fitted
 object (intersected per replicate with the DGM columns), falling back to
 the GBSG covariate set when the analysis carried none.}
 
-\item{n_super}{Integer; super-population size for the DGM.  Default 25000.}
+\item{n_super}{Integer; super-population size for the DGM.  Default 25000.
+Under \code{null = "harm"}, \code{k_inter} is calibrated by
+\code{\link{calibrate_k_inter}} on the GBSG builder's default
+super-population size (5000), not on \code{n_super}; the calibrated value
+does not depend on that size beyond the root-finding tolerance (1e-6),
+because the root is fixed by the AFT coefficients fitted to
+\code{survival::gbsg}.}
 
 \item{analysis_time}{Numeric; administrative censoring time (months).
 Default 84.}

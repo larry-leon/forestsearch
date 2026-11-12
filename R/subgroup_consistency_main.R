@@ -319,14 +319,19 @@
 #'       is set up and no per-batch globals resolution is paid.  A parallel
 #'       plan with \code{workers = 1} is honoured as parallel (one-worker
 #'       batched backend); pass \code{plan = "sequential"} to run the plain
-#'       loop.  Results under \code{consistency_method = "resample"} are
-#'       identical on every path (the closed form consumes no RNG).  Under
-#'       \code{"split"} the plain loop draws from a single RNG stream seeded
-#'       once, whereas the batched backend gives each candidate its own
-#'       L'Ecuyer-CMRG stream indexed by global position, so a sequential
-#'       plan's \code{p.consistency} values differ from a parallel plan's
-#'       within Monte-Carlo noise at the stated \code{fs.splits}; invariance
-#'       to worker count holds within any plan.}
+#'       loop.  Under \code{consistency_method = "resample"} a candidate whose
+#'       closed form is available consumes no RNG, so its result is identical
+#'       on every path.  Literal splitting -- \code{"split"}, an IRD effect
+#'       under \code{"resample"}, or a candidate whose closed form is not
+#'       available and falls back to splitting -- draws, in the plain loop,
+#'       from a single RNG stream seeded once, whereas the batched backend
+#'       gives each candidate its own L'Ecuyer-CMRG stream indexed by global
+#'       position, so a sequential plan's \code{p.consistency} values can
+#'       differ from a parallel plan's within Monte-Carlo noise at the stated
+#'       \code{n.splits}, and admission and selection can differ too;
+#'       invariance to worker count holds within any plan (with a non-NULL
+#'       \code{seed}).  Under
+#'       \code{sg_focus = "maxeff"} every plan runs the same plain loop.}
 #'     \item{workers}{Number of parallel workers on a parallel plan.}
 #'     \item{batch_size}{Number of candidates to evaluate per batch on a
 #'       genuinely parallel plan -- the knob for the per-batch overhead
@@ -771,9 +776,15 @@ subgroup.consistency <- function(df,
   # parallel plan with workers = 1 stays on the batched path, so results are
   # invariant to worker count WITHIN any plan (the per-candidate RNG streams of
   # .make_candidate_rng_seeds() are indexed by global position; the plain loop
-  # seeds a single stream once).  Under consistency_method = "resample" no RNG
-  # is consumed and every path gives identical results.  No warning: this is
-  # the code doing what it was asked, once per replicate in a bootstrap.
+  # seeds a single stream once).  Under consistency_method = "resample" a
+  # candidate with an available closed form consumes no RNG and gives the same
+  # result on every path.  Literal splitting ("split", IRD under "resample", or
+  # a candidate whose closed form is NA and falls back to splitting) draws from
+  # that single stream here but from per-candidate streams on the batched path,
+  # so Pcons -- and possibly admission and selection -- can differ between a
+  # sequential and a parallel plan.  The maxeff fast path runs the same loop on
+  # every plan.  No warning: this is the code doing what it was asked, once per
+  # replicate in a bootstrap.
   if (use_parallel && identical(parallel_args$plan, "sequential")) {
     if (details) {
       cat("Parallel config: sequential plan -- running the consistency ",

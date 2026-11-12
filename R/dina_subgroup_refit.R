@@ -40,10 +40,13 @@
 #' \code{sg$family == "cox"}, or a generalized linear model otherwise.
 #' The reported effect is the treatment coefficient on the
 #' natural-parameter scale (log-HR for Cox, log-OR for binomial,
-#' log-IRR for Poisson, mean difference for Gaussian), directly
-#' comparable to the DINA effect returned by \code{dina_subgroup()} but
-#' obtained from a conventional within-subgroup regression rather than
-#' from the cross-fitted CATE surface.
+#' the log mean-count ratio for Poisson, mean difference for Gaussian),
+#' directly comparable to the DINA effect returned by \code{dina_subgroup()}
+#' but obtained from a conventional within-subgroup regression rather than
+#' from the cross-fitted CATE surface.  The Poisson fit takes no exposure
+#' offset, so its effect equals log(IRR) only when mean follow-up does not
+#' depend on arm within the subgroup (given any adjustment covariates); its
+#' \code{effect_scale} label remains \code{"log-IRR"}.
 #'
 #' The model is unadjusted by default (\code{~ treatment}); optional
 #' covariate adjustment and stratification are available via
