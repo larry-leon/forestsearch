@@ -1337,10 +1337,10 @@ format_oc_results(
 cat("=== KEY OPERATING CHARACTERISTICS ===\n\n")
 
 cat("Alternative Hypothesis (H1):\n")
-for (analysis in unique(results_alt$analysis)) {
-  res <- results_alt[results_alt$analysis == analysis, ]
+for (this_analysis in unique(results_alt$analysis)) {
+  res <- results_alt[results_alt$analysis == this_analysis, ]
   cat(sprintf("  %s: Power = %.3f, Sens = %.3f, Spec = %.3f, PPV = %.3f\n",
-              analysis,
+              this_analysis,
               mean(res$any.H),
               mean(res$sens, na.rm = TRUE),
               mean(res$spec, na.rm = TRUE),
@@ -1348,10 +1348,10 @@ for (analysis in unique(results_alt$analysis)) {
 }
 
 cat("\nNull Hypothesis (H0):\n")
-for (analysis in unique(results_null$analysis)) {
-  res <- results_null[results_null$analysis == analysis, ]
+for (this_analysis in unique(results_null$analysis)) {
+  res <- results_null[results_null$analysis == this_analysis, ]
   cat(sprintf("  %s: Type I Error = %.4f\n",
-              analysis,
+              this_analysis,
               mean(res$any.H)))
 }
 ```
