@@ -293,8 +293,10 @@ print.fs_mr_oc <- function(x, ...) {
   # npv = |Hc|/N = 1 - n_true / n_sample, the share of that replicate's
   # subjects truly in the complement (Leon et al. 2024, Section 3; 1 under
   # the null), as run_simulation_analysis() stores it.  A detected replicate
-  # with no stored npv is still filled with 1.  NA when |Hc|/N is unknown
-  # for any non-detected replicate (no n_true, or no usable n_sample).
+  # with no stored npv is filled with 0 when its identified set is everyone
+  # (n_harm equals n_sample: empty complement, npv 0/0 = 0), else with 1.
+  # NA when |Hc|/N is unknown for any non-detected replicate (no n_true, or
+  # no usable n_sample).
   fill <- function(col, miss) {
     v <- res[[col]]
     if (is.null(v)) return(rep(NA_real_, n_all))
@@ -308,7 +310,13 @@ print.fs_mr_oc <- function(x, ...) {
   } else {
     1 - res$n_true / n_sample
   }
-  npv_u <- fill("npv", ifelse(det, 1, hc_share))
+  all_H <- if (is.numeric(res$n_harm) && is.numeric(n_sample) &&
+               length(n_sample) == 1L && !is.na(n_sample)) {
+    res$n_harm %in% n_sample
+  } else {
+    rep(FALSE, n_all)
+  }
+  npv_u <- fill("npv", ifelse(det, ifelse(all_H, 0, 1), hc_share))
   npv_unknown <- any(!det & is.na(hc_share))
 
   out <- rbind(

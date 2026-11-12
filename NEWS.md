@@ -188,6 +188,15 @@ MRCT consistency article.
   agree. Results with only numeric confounders are unchanged. (Code audit
   A-059.)
 
+* `run_simulation_analysis()` and `fs_mr_oc_summary()`: a replicate whose
+  identified subgroup is the whole sample has an empty estimated complement, and
+  its NPV (0/0) is now 0, by the same convention that gives PPV = 0 for an empty
+  identified subgroup. `run_simulation_analysis()` stored `NA` (dropped by later
+  averages) in both the ForestSearch and GRF rows; `fs_mr_oc_summary()`'s
+  unconditional NPV filled such a detected replicate with 1. Every other missing
+  NPV keeps its previous treatment, and stored payloads are not regenerated.
+  This affects simulation summaries in which a method can select everyone.
+
 * `run_simulation_analysis()`: a replicate whose identified set is empty is now
   scored as a no-find on every path (`any.H` = 0; `ppv` = 0 under an
   alternative). The detection rate and the all-replicate PPV average can change

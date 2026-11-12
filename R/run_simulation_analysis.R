@@ -1133,7 +1133,8 @@ run_simulation_analysis <- function(
     out$sens <- if ((tp + fn) > 0) tp / (tp + fn) else NA_real_
     out$spec <- if ((tn + fp) > 0) tn / (tn + fp) else NA_real_
     out$ppv  <- if ((tp + fp) > 0) tp / (tp + fp) else NA_real_
-    out$npv  <- if ((tn + fn) > 0) tn / (tn + fn) else NA_real_
+    # Empty estimated complement (everyone identified): npv 0/0 = 0.
+    out$npv  <- if ((tn + fn) > 0) tn / (tn + fn) else 0
 
     # True-subgroup effect estimates
     if (is_glm) {
@@ -1540,7 +1541,8 @@ run_simulation_analysis <- function(
       out$sens <- if ((tp + fn) > 0) tp / (tp + fn) else NA_real_
       out$spec <- if ((tn + fp) > 0) tn / (tn + fp) else NA_real_
       out$ppv  <- if ((tp + fp) > 0) tp / (tp + fp) else NA_real_
-      out$npv  <- if ((tn + fn) > 0) tn / (tn + fn) else NA_real_
+      # Empty estimated complement (everyone identified): npv 0/0 = 0.
+      out$npv  <- if ((tn + fn) > 0) tn / (tn + fn) else 0
     }
 
     true_H_df <- df[[harm_col]] == 1L
