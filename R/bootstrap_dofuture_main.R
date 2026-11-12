@@ -355,14 +355,11 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   old_warn <- getOption("warn")
   options(warn = -1)
 
+  old_plan <- future::plan()
   on.exit({
     options(warn = old_warn)  # Restore first
 
-    if (exists(".Last.future.plan")) {
-      future::plan(.Last.future.plan)
-    } else {
-      future::plan("sequential")
-    }
+    future::plan(old_plan)
     big_objs <- c("Ystar_mat", "boot_index_mat")
     if (any(vapply(big_objs, function(nm) {
       exists(nm, inherits = FALSE) &&

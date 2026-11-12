@@ -269,9 +269,10 @@ fpr_calibration <- function(c1,
 
   # ── Set up parallel workers ──────────────────────────────────────
   if (n_workers > 1L) {
+    old_plan <- future::plan()
     future::plan("multisession", workers = n_workers)
     on.exit({
-      future::plan("sequential")
+      future::plan(old_plan)
       gc(verbose = FALSE)
     }, add = TRUE)
   }

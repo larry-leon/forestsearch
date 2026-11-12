@@ -201,6 +201,15 @@ MRCT consistency article.
   `data("gbsg", package = "survival")` loads nothing under current survival, so
   every call stopped with an error. (Code audit A-004.)
 
+* Functions that set a `future` plan for their own work now restore the
+  caller's plan on exit, including after an error: `subgroup.search()` (and so
+  `forestsearch()` and the functions that call it in the session),
+  `forestsearch_bootstrap_dofuture()`, `mrct_region_sims()`,
+  `fpr_calibration()` (with `n_workers > 1`) and `fs_fdr_report()`. They left
+  the session on a sequential plan, replacing a plan the user had set. Results
+  are unchanged. `setup_parallel_SGcons()` and `reset_workers()` still set the
+  plan, which is their purpose. (Code audit INV-2, plan half.)
+
 * `run_simulation_analysis()`: a replicate whose identified set is empty is now
   scored as a no-find on every path (`any.H` = 0; `ppv` = 0 under an
   alternative). The detection rate and the all-replicate PPV average can change

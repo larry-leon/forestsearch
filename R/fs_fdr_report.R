@@ -277,6 +277,8 @@ fs_fdr_report <- function(fs_analysis,
   if (!quiet)
     message(sprintf("Running %d reps/null x %d null(s) at n = %d on %d workers ...",
                     nsims, length(dgms), n, n_workers))
+  old_plan <- future::plan()
+  on.exit(future::plan(old_plan), add = TRUE)
   runs <- lapply(seq_along(dgms), function(j) {
     .fs_fdr_run_null(
       gen_df = gen_for(dgms[[j]]), label = names(dgms)[j],

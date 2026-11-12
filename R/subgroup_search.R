@@ -171,6 +171,8 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
   t.start <- proc.time()[3]
 
   # Set up parallel plan
+  old_plan <- future::plan()
+  on.exit(future::plan(old_plan), add = TRUE)
   future::plan(future::multisession, workers = parallel_workers)
 
   search_result <- search_combinations_parallel(

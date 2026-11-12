@@ -354,6 +354,8 @@ mrct_region_sims <- function(
   workers <- parallel_args$workers
   show_message <- null_or(parallel_args$show_message, TRUE)
 
+  old_plan <- future::plan()
+  on.exit(future::plan(old_plan), add = TRUE)
   if (plan_type == "sequential") {
     future::plan(future::sequential)
   } else {
