@@ -533,7 +533,18 @@ make_effect_estimator <- function(
     se_treat <- sqrt(diag(stats::vcov(fit_logit)))[[treat.name]]
     # Convert logistic SE to RD scale using average marginal effect
     avg_deriv <- mean(pred1 * (1 - pred1))
-    se_rd <- abs(avg_deriv) * se_treat
+    se_rd <- if (n_adj == 0L) {
+      # Unadjusted (A-055): the two-arm logistic model is saturated, so the
+      # arm means of pred0 and pred1 are the observed proportions p0 and p1,
+      # and the exact delta-method SE of rd_est is the two-sample binomial
+      # SE.  The scaled-coefficient form below drops the control arm's
+      # variance and degenerates when an arm is at 0% or 100%.  No weights
+      # reach this tier: the IPTW path (the only weighted one) returns
+      # above, and neither glm() call here takes a weights argument.
+      sqrt(p1 * (1 - p1) / n1 + p0 * (1 - p0) / n0)
+    } else {
+      abs(avg_deriv) * se_treat
+    }
 
     list(
       estimate    = rd_est,
