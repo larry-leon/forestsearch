@@ -178,6 +178,16 @@ MRCT consistency article.
   such analyses. A supplied threshold, and every non-gaussian DINA family, give
   the same floor as before. (Code audit A-001.)
 
+* Survival GRF (`grf.subg.harm.survival()`, and `forestsearch()` with
+  `use_grf = TRUE` or `subgroup_method = "grf"`) now codes the covariate matrix
+  column by column as the GLM path does. When a confounder was a factor or
+  character column, every numeric column was rounded to 7 significant digits
+  and factor labels such as `"EU"`/`"US"` became `NA` (the GRF step then stopped,
+  or its cuts were dropped with a warning). Numeric columns now keep their exact
+  values, so the matrix GRF sees and the data a selected cut is evaluated on
+  agree. Results with only numeric confounders are unchanged. (Code audit
+  A-059.)
+
 * `run_simulation_analysis()`: a replicate whose identified set is empty is now
   scored as a no-find on every path (`any.H` = 0; `ppv` = 0 under an
   alternative). The detection rate and the all-replicate PPV average can change

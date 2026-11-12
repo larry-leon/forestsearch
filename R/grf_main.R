@@ -222,8 +222,11 @@ grf.subg.harm.survival <- function(data,
   # Purpose: Convert data to appropriate format for GRF analysis
   # ===========================================================================
 
-  # Convert confounders to numeric matrix
-  X <- apply(data[, confounders.name, drop = FALSE], 2, as.numeric)
+  # Convert confounders to numeric matrix, coding each column as the GLM path
+  # and .grf_evaluate_subgroup() do (.build_grf_X() / .grf_code_column()), so
+  # numeric columns keep their exact values and factor/character columns are
+  # not turned into NA by a character-matrix pass.
+  X <- apply(.build_grf_X(data, confounders.name), 2, as.numeric)
 
   # Extract outcome variables
   Y <- data[, outcome.name]
