@@ -2774,7 +2774,11 @@ forestsearch <- function(df.analysis,
                         else adverse_outcome,
       # The SAME resolved admission set MR re-selects over, so the identifier
       # and MR cannot disagree about which candidates were in contention.
-      admission = admission_resolved)
+      admission = admission_resolved,
+      # Gaussian floor: the resolved threshold when neither threshold was
+      # supplied (A-001); a supplied threshold is used as given.
+      effect.threshold = if (user_set_threshold) hr.threshold
+                         else effect.threshold)
 
     t.min_all <- (proc.time()[3] - t.start_all) / 60
 
@@ -3234,9 +3238,14 @@ forestsearch <- function(df.analysis,
         # This route is optional screening, so the refusal surfaces through
         # the enclosing tryCatch as "DINA analysis failed: ..." and the run
         # continues with no DINA cuts.
+        # With neither threshold supplied, the gaussian floor is the resolved
+        # effect.threshold (SECTION 2B-ii), the value the returned object
+        # records and a replay re-uses (A-001); a supplied threshold is used
+        # as given.
         .dina_assert_ratio_estimand(da$fit$family, effect_measure)
-        m_diff_sel <- if (identical(da$fit$family, "gaussian")) hr.threshold
-                      else log(hr.threshold)
+        m_diff_sel <- if (identical(da$fit$family, "gaussian")) {
+                        if (user_set_threshold) hr.threshold else effect.threshold
+                      } else log(hr.threshold)
         sgsel <- dina_subgroup(
           fit                 = dina_res,
           df                  = df.dina,

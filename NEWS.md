@@ -169,6 +169,15 @@ MRCT consistency article.
   estimator (it used `TRUE`). Scripts that negated the bootstrap output by
   `adverse_outcome` should drop that step. (Code audit A-009.)
 
+* `forestsearch()` with a continuous outcome, DINA (`subgroup_method = "dina"`,
+  or `use_dina = TRUE`), and neither `effect.threshold` nor `hr.threshold`
+  supplied now uses the resolved screening threshold (0 for a mean difference)
+  as the DINA harm floor, the value the returned object records and that
+  bootstrap and cross-validation replays use. The fit used the raw survival
+  default 1.25. The selected subgroup and the DINA screening cut can change for
+  such analyses. A supplied threshold, and every non-gaussian DINA family, give
+  the same floor as before. (Code audit A-001.)
+
 * `run_simulation_analysis()`: a replicate whose identified set is empty is now
   scored as a no-find on every path (`any.H` = 0; `ppv` = 0 under an
   alternative). The detection rate and the all-replicate PPV average can change

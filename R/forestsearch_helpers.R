@@ -1485,7 +1485,8 @@ reset_workers <- function(workers   = NULL,
                                       effect_measure = NULL, offset.name = NULL,
                                       adjust_covariates = NULL,
                                       adverse_outcome = TRUE,
-                                      admission = NULL) {
+                                      admission = NULL,
+                                      effect.threshold = hr.threshold) {
   da <- .resolve_dina_args(dina_args, outcome_type,
                            n_min_default = n.min, seed_default = seedit)
 
@@ -1521,8 +1522,10 @@ reset_workers <- function(workers   = NULL,
   # Harm floor on the link scale: log(hr.threshold) for ratio families
   # (cox/binomial/poisson), identity (mean difference) for gaussian.
   # Derived BEFORE the fit so the identity-scale refusal costs no model run.
+  # The gaussian floor is the resolved threshold forestsearch() records and a
+  # bootstrap / CV replay re-uses (effect.threshold), not the raw hr.threshold.
   .dina_assert_ratio_estimand(da$fit$family, effect_measure)
-  m_diff <- if (identical(da$fit$family, "gaussian")) hr.threshold
+  m_diff <- if (identical(da$fit$family, "gaussian")) effect.threshold
             else log(hr.threshold)
 
   # Fit DINA unless a fit was supplied.
