@@ -1414,14 +1414,18 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE,
     names(find_metrics) <- c("Any", "Exact", "At least 1", "Cov1", "Cov2",
                              "Cov 1 & 2", "Cov1 exact", "Cov2 exact")
 
-    if (n_sgfound == 2) {
-      tabit <- with(df_CV, table(treat.recommend, treat.recommend.original))
+    # Fold-by-original table (table() leaves out NA assignments).  Fold
+    # assignments {1, NA} or {0, NA} count as two values in n_sgfound but
+    # give a one-row table, so the two-level branch is taken only when the
+    # table has two rows and two columns; other shapes use the single-level
+    # branch.
+    tabit <- with(df_CV, table(treat.recommend, treat.recommend.original))
+    if (n_sgfound == 2 && nrow(tabit) == 2L && ncol(tabit) == 2L) {
       sensH <- tabit[1, 1] / sum(tabit[, 1])
       sensHc <- tabit[2, 2] / sum(tabit[, 2])
       ppvH <- tabit[1, 1] / sum(tabit[1, ])
       ppvHc <- tabit[2, 2] / sum(tabit[2, ])
     } else {
-      tabit <- with(df_CV, table(treat.recommend, treat.recommend.original))
       if (nrow(tabit) == 1L && identical(colnames(tabit), c("0", "1")) &&
           all(tabit[1, ] > 0)) {
         # The folds assign a single level while the full-data assignment has
