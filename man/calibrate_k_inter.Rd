@@ -56,6 +56,20 @@ hazard ratio in the harm subgroup.
 This function uses \code{uniroot} to find the k_inter value such that
 the empirical HR (or AHR) in the harm subgroup equals target_hr_harm.
 }
+\section{Superseded}{
+
+This function is kept so that published simulations can be reproduced; it
+calibrates \code{k_inter} for \code{\link{setup_gbsg_dgm}()}. New work
+should use \code{\link{find_k_inter_for_target_hr}()}, which calibrates
+\code{k_inter} for \code{\link{generate_aft_dgm_flex}()} on any survival
+dataset with a 0/1 treatment column. It targets the Cox-based harm-subgroup hazard ratio, as
+\code{use_ahr = FALSE} does here; there is no packaged equivalent of
+\code{use_ahr = TRUE}. The calibrated quantity does not depend on the
+censoring model, so the censoring step of the GBSG wrapper (see
+\code{\link{setup_gbsg_dgm}}) does not affect the calibrated value. This
+function will be deprecated in a future release.
+}
+
 \examples{
 \dontrun{
 # Find k_inter for HR = 1.5 in harm subgroup

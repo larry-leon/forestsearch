@@ -484,6 +484,9 @@ cut_size <- function(x, breaks = c(20, 50)) {
     mu_cens <- stats::coef(fit_cens)[1]
     gamma_cens <- stats::coef(fit_cens)[-1]
     b0_cens <- -gamma_cens / sigma_cens
+    # b_cens is the fitted censoring term times sigma / sigma_cens. Kept as is so
+    # that published simulations reproduce; true values (hazard ratios, k_inter
+    # calibration) do not depend on it. See ?setup_gbsg_dgm, section Superseded.
     b_cens <- -b0_cens * sigma
 
     # Censoring linear predictors for potential outcomes
@@ -635,6 +638,17 @@ cut_size <- function(x, breaks = c(20, 50)) {
 #' @param tol_rel Numeric. Maximum tolerated relative error, in percent; the
 #'   call stops if the achieved HR is not within \code{tol_rel} percent of the
 #'   target. Default \code{2.5}.
+#' @section Superseded:
+#' This function is kept so that published simulations can be reproduced; it
+#' calibrates \code{k_inter} for \code{\link{setup_gbsg_dgm}()}. New work
+#' should use \code{\link{find_k_inter_for_target_hr}()}, which calibrates
+#' \code{k_inter} for \code{\link{generate_aft_dgm_flex}()} on any survival
+#' dataset with a 0/1 treatment column. It targets the Cox-based harm-subgroup hazard ratio, as
+#' \code{use_ahr = FALSE} does here; there is no packaged equivalent of
+#' \code{use_ahr = TRUE}. The calibrated quantity does not depend on the
+#' censoring model, so the censoring step of the GBSG wrapper (see
+#' \code{\link{setup_gbsg_dgm}}) does not affect the calibrated value. This
+#' function will be deprecated in a future release.
 #' @importFrom stats uniroot
 #' @export
 calibrate_k_inter <- function(
@@ -763,6 +777,12 @@ print.gbsg_dgm <- function(x, ...) {
 #'   \code{use_rand_params} and \code{seed}, with the meanings given there.
 #'
 #' @return Data frame with k_inter, hr_H, hr_Hc, AHR_H, AHR_Hc, and ratio columns
+#'
+#' @note This function builds its mechanisms through the superseded GBSG
+#'   wrapper (see \code{\link{setup_gbsg_dgm}}). That wrapper's censoring step,
+#'   in which the covariate term of the censoring model is multiplied by the
+#'   ratio of the event-model scale to the censoring-model scale, does not
+#'   affect the hazard ratios this function reports.
 #'
 #' @examples
 #' \dontrun{

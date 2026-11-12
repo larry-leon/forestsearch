@@ -164,6 +164,14 @@
 #' fs_fdr_report(fit, gbsg_df, n = 700, nsims = 1000, n_workers = 100)
 #' }
 #'
+#' @note This function builds its null data through the superseded GBSG wrapper
+#'   (\code{\link{setup_gbsg_dgm}}, with \code{\link{calibrate_k_inter}} for
+#'   the \code{"harm"} null), in which the censoring model is fitted to the
+#'   resampled super-population and its covariate term is multiplied by the
+#'   ratio of the event-model scale to the censoring-model scale; this changes
+#'   the simulated censoring times, and with them the rates in \code{fdr}, but
+#'   not the true hazard ratios in \code{hr_structure}.
+#'
 #' @seealso \code{\link{forestsearch}} (and its vocabulary section),
 #'   \code{\link{fs_mr_inference}} for the MR step this forces on,
 #'   \code{\link{mr_estimates_table}},

@@ -28,6 +28,13 @@ Data frame with k_inter, hr_H, hr_Hc, AHR_H, AHR_Hc, and ratio columns
 Test function to verify that k_inter properly modulates the difference
 between HR(H) and HR(Hc), and that AHR metrics align with Cox-based HRs.
 }
+\note{
+This function builds its mechanisms through the superseded GBSG
+wrapper (see \code{\link{setup_gbsg_dgm}}). That wrapper's censoring step,
+in which the covariate term of the censoring model is multiplied by the
+ratio of the event-model scale to the censoring-model scale, does not
+affect the hazard ratios this function reports.
+}
 \examples{
 \dontrun{
 # Test k_inter effect

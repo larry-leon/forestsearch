@@ -149,6 +149,15 @@ because \code{simulate_from_dgm()} emits fixed names
 is forced \code{TRUE} so B is computable.
 }
 }
+\note{
+This function builds its null data through the superseded GBSG wrapper
+(\code{\link{setup_gbsg_dgm}}, with \code{\link{calibrate_k_inter}} for
+the \code{"harm"} null), in which the censoring model is fitted to the
+resampled super-population and its covariate term is multiplied by the
+ratio of the event-model scale to the censoring-model scale; this changes
+the simulated censoring times, and with them the rates in \code{fdr}, but
+not the true hazard ratios in \code{hr_structure}.
+}
 \examples{
 \dontrun{
 # A fitted survival/Cox analysis (thresholds and knobs live on the object)

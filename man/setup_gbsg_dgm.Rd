@@ -110,6 +110,30 @@ builder never puts them in the outcome model. They are drawn once onto
 the super-population (both \code{df_super_rand} and \code{df_super}),
 so simulated trials and evaluation frames inherit them by row resampling.
 }
+\section{Superseded}{
+
+This function is kept so that published simulations can be reproduced.
+New work should use \code{\link{generate_aft_dgm_flex}()} with
+\code{\link{simulate_from_dgm}()}, which take any survival dataset with a
+0/1 treatment column. On the GBSG data they give the same outcome model,
+true hazard ratios and \code{k_inter} calibration once the caller has built
+the GBSG covariates, at \code{k_z3 = 1} and \code{use_rand_params = FALSE}
+(\code{generate_aft_dgm_flex()} has neither argument); there is no drop-in
+replacement call. The censoring step differs: here (with the default
+\code{cens_type = "weibull"}) a Weibull censoring model is fitted to the
+resampled super-population, in which treatment is the arm assigned for
+simulation, not the observed treatment, and its covariate term is the
+fitted term multiplied by the ratio of the event-model scale to the
+censoring-model scale. The true hazard ratios stored in the object and the
+\code{k_inter} calibration are not affected; simulated censoring times are,
+and with them the observed times and event indicators and anything computed
+from them, such as the beta(Hhat) targets scored on a frame from
+\code{\link{fs_build_eval_frame}()}. The "Extreme Subgroup
+Effects" article on the package website shows the general machinery on the
+GBSG data, with a uniform treatment effect. This function will be deprecated
+in a future release.
+}
+
 \examples{
 \dontrun{
 dgm <- setup_gbsg_dgm(model = "alt", k_inter = 2, verbose = FALSE)
