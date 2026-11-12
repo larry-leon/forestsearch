@@ -309,6 +309,18 @@ plot_subgroup_results_forestplot <- function(
     adjust_covariates <- fs.est$args_call_all$adjust_covariates
   }
 
+  # Orientation of the GLM rows: the fit's resolved adverse_outcome, so each
+  # row's effect is on the fit's own scale, sign included.  NULL only on an
+  # object not built by forestsearch(); resolved by forestsearch()'s rule.
+  # Without a fit (fs.est = NULL) the estimator's default (TRUE) is kept.
+  adverse_outcome <- TRUE
+  if (!is.null(fs.est)) {
+    adverse_outcome <- fs.est$args_call_all$adverse_outcome
+    if (is.null(adverse_outcome)) {
+      adverse_outcome <- outcome_type %in% c("binary", "count")
+    }
+  }
+
   is_glm <- outcome_type != "survival"
   is_log_scale <- is_glm && !is.null(effect_measure) &&
     effect_measure %in% c("OR", "RR", "IRR")
@@ -435,6 +447,7 @@ plot_subgroup_results_forestplot <- function(
       outcome.name   = outcome.name,
       offset.name    = offset.name,
       effect_measure = effect_measure,
+      adverse_outcome = adverse_outcome,
       adjust_covariates = adjust_covariates,
       ps_adjust_method = "none"
     )

@@ -163,6 +163,14 @@ plot_sg_glm_outcomes <- function(
     adjust_covariates <- fs.est$args_call_all$adjust_covariates
   }
 
+  # Orientation: the fit's resolved adverse_outcome, so the annotated effect
+  # is the fit's own estimate, sign included.  NULL only on an object not
+  # built by forestsearch(); resolved by forestsearch()'s rule.
+  adverse_outcome <- fs.est$args_call_all$adverse_outcome
+  if (is.null(adverse_outcome)) {
+    adverse_outcome <- outcome_type %in% c("binary", "count")
+  }
+
   is_log_scale <- effect_measure %in% c("OR", "RR", "IRR")
   z_alpha <- qnorm(1 - (1 - conf.level) / 2)
 
@@ -257,6 +265,7 @@ plot_sg_glm_outcomes <- function(
       outcome.name = outcome.name,
       offset.name = offset.name,
       effect_measure = effect_measure,
+      adverse_outcome = adverse_outcome,
       adjust_covariates = adjust_covariates,
       ps_adjust_method = "none"
     )

@@ -201,10 +201,18 @@ mr_estimates_table <- function(fs, boot_results = NULL, est.scale = "hr",
       potentialOutcome.name = a$potentialOutcome.name,
       est.scale = est.scale, sg0_name = "Qstnbl", sg1_name = "Recmnd")
   } else {
+    # Orientation: the fit's resolved adverse_outcome, so the effect cells are
+    # the fit's own estimates, sign included.  NULL only on an object not
+    # built by forestsearch(); resolved by forestsearch()'s rule.
+    adverse_outcome <- a$adverse_outcome
+    if (is.null(adverse_outcome)) {
+      adverse_outcome <- outcome_type %in% c("binary", "count")
+    }
     est_fn <- make_effect_estimator(
       outcome_type = outcome_type, treat.name = a$treat.name,
       outcome.name = a$outcome.name, event.name = NULL,
       offset.name = a$offset.name, effect_measure = a$effect_measure,
+      adverse_outcome = adverse_outcome,
       adjust_covariates = a$adjust_covariates)
     tab <- SG_tab_estimates_glm(
       df = df, SG_flag = "treat.recommend", outcome.name = a$outcome.name,
