@@ -153,6 +153,17 @@ MRCT consistency article.
 
 ### Behaviour changes
 
+* `run_simulation_analysis()`: a replicate whose identified set is empty is now
+  scored as a no-find on every path (`any.H` = 0; `ppv` = 0 under an
+  alternative). The detection rate and the all-replicate PPV average can change
+  where such replicates occur.
+
+* `forestsearch_KfoldOut()`: when the folds identify no subgroup and the
+  full-data analysis has one, the agreement metrics (`sens_H`, `ppv_H`,
+  `sens_Hc`, `ppv_Hc`) are now 0, 0, 1 and the full-data complement share
+  (the sensitivity for H was reported as 1). When the folds put everyone in
+  the subgroup, `sens_Hc` and `ppv_Hc` are now 0 (they were NA).
+
 * `fs_mr_oc_summary()` and `build_classification_table()`: a replicate with no
   identified subgroup now contributes NPV = |Hc|/N, the share of that
   replicate's subjects truly in the complement (it was 1). Under the null this

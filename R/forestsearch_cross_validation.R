@@ -1414,10 +1414,26 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE,
       ppvHc <- tabit[2, 2] / sum(tabit[2, ])
     } else {
       tabit <- with(df_CV, table(treat.recommend, treat.recommend.original))
-      sensH <- if (nrow(tabit) > 0 && ncol(tabit) > 0) tabit[1, 1] / sum(tabit[, 1]) else NA
-      sensHc <- NA
-      ppvH <- if (nrow(tabit) > 0) tabit[1, 1] / sum(tabit[1, ]) else NA
-      ppvHc <- NA
+      if (nrow(tabit) == 1L && identical(colnames(tabit), c("0", "1")) &&
+          all(tabit[1, ] > 0)) {
+        # The folds assign a single level while the full-data assignment has
+        # both: the two-level definitions above, with the missing fold level
+        # counted as zero subjects and 0/0 = 0.  Folds identifying nothing
+        # give 0, 1, 0 and the full-data complement share; folds putting
+        # everyone in H give 1, 0, the full-data H share and 0.
+        tab2 <- with(df_CV, table(factor(treat.recommend, levels = c(0, 1)),
+                                  factor(treat.recommend.original, levels = c(0, 1))))
+        .agree <- function(num, den) if (den > 0) num / den else 0
+        sensH  <- .agree(tab2[1, 1], sum(tab2[, 1]))
+        sensHc <- .agree(tab2[2, 2], sum(tab2[, 2]))
+        ppvH   <- .agree(tab2[1, 1], sum(tab2[1, ]))
+        ppvHc  <- .agree(tab2[2, 2], sum(tab2[2, ]))
+      } else {
+        sensH <- if (nrow(tabit) > 0 && ncol(tabit) > 0) tabit[1, 1] / sum(tabit[, 1]) else NA
+        sensHc <- NA
+        ppvH <- if (nrow(tabit) > 0) tabit[1, 1] / sum(tabit[1, ]) else NA
+        ppvHc <- NA
+      }
     }
 
     sens_metrics_original <- c(sensH, sensHc, ppvH, ppvHc)

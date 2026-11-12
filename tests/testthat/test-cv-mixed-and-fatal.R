@@ -135,17 +135,68 @@ test_that("mixed identify/no-identify per-sim shapes aggregate without mislabeli
   expect_equal(unname(find_out[2L, ]),
                c(0.75, 0.25, 0.50, 0.50, 0.50, 0.25, 0.25, 0.50))
 
-  # Zero-found-under-identified-primary row (row 3): find all-0; sens
-  # degenerates to the single-level table branch (sens_Hc/ppv_Hc NA,
-  # sens_H = 1 and ppv_H = share of orig=0 among the all-ITT frame)
+  # Zero-found-under-identified-primary row (row 3): find all-0; the folds
+  # put nobody in H, so the two-level agreement definitions with the empty
+  # fold level counted as zero (0/0 = 0) give sens_H 0, sens_Hc 1, ppv_H 0
+  # and ppv_Hc = share of orig=1 (the full-data complement), 65/100
   expect_identical(unname(find_out[3L, ]), rep(0, 8L))
-  expect_equal(unname(sens_out[3L, ]), c(1, NA, 0.35, NA))
+  expect_equal(unname(sens_out[3L, ]), c(0, 1, 0, 0.65))
 
   # The median summaries (same apply() lines) stay canonically named
   sens_summary <- apply(sens_out, 2, median, na.rm = TRUE)
   find_summary <- apply(find_out, 2, median, na.rm = TRUE)
   expect_identical(names(sens_summary), .sens_names_t1)
   expect_identical(names(find_summary), .find_names_t1)
+})
+
+
+# ----------------------------------------------------------------------------
+# Agreement metrics when the folds assign a single level and the full-data
+# assignment has both (forestsearch_KfoldOut() single-level branch): the
+# two-level definitions with the missing fold level counted as zero subjects
+# and 0/0 = 0.  Hand-built inputs; no search.
+# ----------------------------------------------------------------------------
+
+test_that("CV agreement: folds identify nothing / everyone, full data has both levels", {
+  base_res <- list(
+    cv_args = list(confounders.name = c("age", "sex"), outcome.name = "time",
+                   event.name = "event", treat.name = "treat"),
+    sg0.name = "Not recommend", sg1.name = "Recommend", Kfolds = 4L,
+    sg_analysis = c("{age <= 50}", "{sex >= 1}"))
+  cvidx <- rep(1:4, each = 25L)
+  # full-data assignment: 35 in H (0), 65 in the complement (1)
+  orig <- c(rep(0, 30), rep(1, 10), rep(0, 5), rep(1, 55))
+  kfo <- function(rec, sg1) {
+    res <- c(base_res, list(resCV = data.frame(
+      cvindex = cvidx, sg1 = sg1, sg2 = NA_character_,
+      treat.recommend = rec, treat.recommend.original = orig,
+      stringsAsFactors = FALSE)))
+    forestsearch_KfoldOut(res, outall = FALSE)$sens_metrics_original
+  }
+
+  # Nobody in H (folds identify nothing): 0, 1, 0, |orig Hc| / N
+  s_none <- kfo(rec = rep(1, 100), sg1 = NA_character_)
+  expect_identical(names(s_none), .sens_names_t1)
+  expect_equal(unname(s_none), c(0, 1, 0, 65 / 100))
+
+  # Everybody in H: 1, 0, |orig H| / N, 0
+  s_all <- kfo(rec = rep(0, 100), sg1 = "{age <= 50}")
+  expect_identical(names(s_all), .sens_names_t1)
+  expect_equal(unname(s_all), c(1, 0, 35 / 100, 0))
+
+  # Two levels in the folds: unchanged from the start SHA
+  #   rec=0&orig=0: 30, rec=0&orig=1: 10, rec=1&orig=0: 5, rec=1&orig=1: 55
+  s_two <- kfo(rec = c(rep(0, 40), rep(1, 60)), sg1 = "{age <= 50}")
+  expect_equal(unname(s_two), c(30 / 35, 55 / 65, 30 / 40, 55 / 60))
+
+  # Full-data assignment with a single observed level (a factor carrying an
+  # unused level): left as it was, (0/0, NA, 0, NA)
+  res_one <- c(base_res, list(resCV = data.frame(
+    cvindex = cvidx, sg1 = NA_character_, sg2 = NA_character_,
+    treat.recommend = 1, treat.recommend.original = factor(rep(1, 100), levels = c(0, 1)),
+    stringsAsFactors = FALSE)))
+  expect_identical(unname(forestsearch_KfoldOut(res_one, outall = FALSE)$sens_metrics_original),
+                   c(NaN, NA, 0, NA))
 })
 
 

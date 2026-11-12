@@ -1002,11 +1002,14 @@ run_simulation_analysis <- function(
   # A subgroup is "found" when the consistency result table has rows OR the
   # engine returned a treat.recommend assignment with harm members (GRF / DINA
   # modes, where fs_res is NULL but membership lives in fs_full$df.est).
+  # A treat.recommend assignment with no harm member is an empty identified
+  # set: a no-find, whatever the result table holds.
   .has_treat_rec <- !is.null(fs_full) && !is.null(fs_full$df.est) &&
     "treat.recommend" %in% names(fs_full$df.est) &&
     any(fs_full$df.est$treat.recommend == 0L, na.rm = TRUE)
 
-  if ((is.null(fs_res) || nrow(fs_res) == 0) && !.has_treat_rec) {
+  if ((is.null(fs_res) || nrow(fs_res) == 0 ||
+       "treat.recommend" %in% names(fs_full$df.est)) && !.has_treat_rec) {
     out$hr.Hc.hat <- out$hr.itt
     out$size.H  <- 0L
     out$size.Hc <- nrow(df)
@@ -1054,7 +1057,10 @@ run_simulation_analysis <- function(
     }
     if (length(sg_factors) > 0)
       df$sg_hat <- create_subgroup_indicator(df, sg_factors)
-    else {
+    if (length(sg_factors) == 0 || !any(df$sg_hat == 1L, na.rm = TRUE)) {
+      # No factor recovered, or an indicator with no member: an empty
+      # identified set, scored as the no-find path above scores it.
+      out$any.H <- 0L
       out$hr.Hc.hat <- out$hr.itt
       out$size.H  <- 0L
       out$size.Hc <- nrow(df)
@@ -1406,7 +1412,10 @@ run_simulation_analysis <- function(
   has_tr     <- !is.null(grf_est$data) &&
                 "treat.recommend" %in% names(grf_est$data)
 
-  if (!has_sg || !has_tr) {
+  # A treat.recommend assignment with no harm member is an empty identified
+  # set: a no-find, whatever sg.harm.id holds.
+  if (!has_sg || !has_tr ||
+      !any(grf_est$data$treat.recommend == 0L, na.rm = TRUE)) {
     out$hr.Hc.hat <- out$hr.itt
     out$size.H  <- 0L
     out$size.Hc <- nrow(df)
