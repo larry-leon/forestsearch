@@ -1822,12 +1822,16 @@ CV_sgs <- function(sg1, sg2, confs, sg_analysis) {
   } else if (sg_depth == 1) {
     sg1a <- sg_analysis[1]
 
-    # Exact match
-    exact_match <- ifelse((sg1 == sg1a | sg2 == sg1a), 1, 0)
+    # Factor appears in the fold's subgroup (either slot)
+    contains_match <- ifelse((sg1 == sg1a | sg2 == sg1a), 1, 0)
+    contains_match[is.na(contains_match)] <- 0.0
+
+    # Exact match: the fold's subgroup is that factor alone (other slot NA)
+    exact_match <- ifelse((sg1 == sg1a & is.na(sg2)) | (sg2 == sg1a & is.na(sg1)), 1, 0)
     exact_match[is.na(exact_match)] <- 0.0
 
-    one_match <- exact_match
-    cov1_match <- exact_match
+    one_match <- contains_match
+    cov1_match <- contains_match
     cov2_match <- NA
 
     # Find covariate any match
