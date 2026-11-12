@@ -435,10 +435,12 @@ grf.subg.harm.glm <- function(
 
   # ---------------------------------------------------------------------------
   # Adverse outcome flip: align CATE direction with ForestSearch convention.
-  # When adverse_outcome = TRUE, Y is flipped (binary: 1-Y, continuous: -Y)
-  # so that positive CATE = treatment increases the BAD outcome = harm.
-  # This ensures the most-negative-CATE subgroup is the true "harm" group,
-  # matching forestsearch()'s internal GRF pre-screening behavior.
+  # When adverse_outcome = TRUE, Y is flipped (binary: 1-Y, continuous: -Y,
+  # count: minus the transformed count above, -log(Y + 0.5) or -Y) so that a
+  # higher Y_grf is better and positive -CATE = treatment increases the BAD
+  # outcome = harm.  This ensures the most-negative-CATE subgroup is the true
+  # "harm" group, matching forestsearch()'s internal GRF pre-screening
+  # behavior.
   # ---------------------------------------------------------------------------
   if (adverse_outcome) {
     if (outcome_type == "binary") {
@@ -447,8 +449,12 @@ grf.subg.harm.glm <- function(
     } else if (outcome_type == "continuous") {
       Y_grf <- -Y_grf
       if (verbose) message("[grf.subg.harm.glm] adverse_outcome=TRUE: using -Y for causal_forest()")
+    } else if (outcome_type == "count") {
+      # count: the log(Y + 0.5) or identity transform above keeps "higher
+      # count = higher Y_grf", so negate it: a higher count is then worse,
+      # as for binary and continuous.
+      Y_grf <- -Y_grf
     }
-    # count: log transform already applied above; flip not needed
   }
 
   # ---------------------------------------------------------------------------
@@ -512,9 +518,10 @@ grf.subg.harm.glm <- function(
   # candidates on the SAME DR scores, take the Pareto frontier, select under
   # frontier_rule.  dr_scores columns are [control (Gamma_0), treated (Gamma_1)];
   # the frontier's harm-effect = mean(control) - mean(treated) matches the tree
-  # path's score = -CATE convention.  When adverse_outcome = TRUE the Y-flip was
-  # applied before causal_forest(), so dr_scores are already harm-oriented and
-  # need no special handling here.  grf_selection = "tree" skips this entirely.
+  # path's score = -CATE convention.  When adverse_outcome = TRUE the Y-flip
+  # (binary, continuous and count alike) was applied before causal_forest(), so
+  # dr_scores are already harm-oriented and need no special handling here.
+  # grf_selection = "tree" skips this entirely.
   if (identical(grf_selection, "frontier")) {
     cand <- .grf_dr_candidates(X, dr_scores, n_min = n.min)
     if (maxdepth >= 2L) {
