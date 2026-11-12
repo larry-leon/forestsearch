@@ -60,7 +60,15 @@ Default: 0.80}
 Default: 0.90}
 
 \item{confounders.name}{Character vector. Confounder variable names for ForestSearch.
-If NULL, automatically extracted from dgm}
+If NULL, automatically extracted from dgm: the columns of
+\code{dgm$df_super} whose names start with \code{z_}, \code{ecog} or
+\code{strat}, except that, for a mechanism built with a spline
+(\code{dgm$model_params$spline_info}), the three internal columns of the
+spline variable \code{<var>} are left out by their exact names
+\code{<var>_treat}, \code{<var>_k} and \code{<var>_k_treat} (for
+\code{\link{create_dgm_for_mrct}}: \code{z_bm_treat}, \code{z_bm_k},
+\code{z_bm_k_treat}). A covariate such as \code{z_prior_treat} and the
+region indicator stay in the set.}
 
 \item{conf_force}{Character vector. Forced cuts to consider in ForestSearch.
 Default: NULL, which resolves to

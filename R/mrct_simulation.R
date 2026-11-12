@@ -49,7 +49,15 @@
 #'   \code{hr.consistency} (`c2`).  Not an effect threshold.
 #'   Default: 0.90
 #' @param confounders.name Character vector. Confounder variable names for ForestSearch.
-#'   If NULL, automatically extracted from dgm
+#'   If NULL, automatically extracted from dgm: the columns of
+#'   \code{dgm$df_super} whose names start with \code{z_}, \code{ecog} or
+#'   \code{strat}, except that, for a mechanism built with a spline
+#'   (\code{dgm$model_params$spline_info}), the three internal columns of the
+#'   spline variable \code{<var>} are left out by their exact names
+#'   \code{<var>_treat}, \code{<var>_k} and \code{<var>_k_treat} (for
+#'   \code{\link{create_dgm_for_mrct}}: \code{z_bm_treat}, \code{z_bm_k},
+#'   \code{z_bm_k_treat}). A covariate such as \code{z_prior_treat} and the
+#'   region indicator stay in the set.
 #' @param conf_force Character vector. Forced cuts to consider in ForestSearch.
 #'   Default: NULL, which resolves to
 #'   c("z_age <= 65", "z_bm <= 0", "z_bm <= 1", "z_bm <= 2", "z_bm <= 5")
@@ -318,9 +326,19 @@ mrct_region_sims <- function(
     exclude_vars <- c("id", "treat", "tte", "event", "y_sim", "treat_sim",
                       "event_sim", "t_true", "c_time", "lin_pred_0", "lin_pred_1",
                       "loghr_po", "entrytime", "flag_harm")
+    # A mechanism built with a spline carries three internal columns of the
+    # spline variable: <var>_treat, <var>_k and <var>_k_treat. They are not
+    # baseline covariates. Exclude exactly these names (never a suffix match,
+    # which would also drop a covariate such as z_prior_treat).
+    spline_info <- dgm$model_params$spline_info
+    spline_helpers <- if (!is.null(spline_info)) {
+      paste0(spline_info$var, c("_treat", "_k", "_k_treat"))
+    } else {
+      character(0)
+    }
     confounders.name <- setdiff(
       all_vars[grepl("^z_|^ecog|^strat", all_vars)],
-      exclude_vars
+      c(exclude_vars, spline_helpers)
     )
   }
 

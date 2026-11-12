@@ -40,7 +40,12 @@ hold the arguments that \code{mrct_region_sims()} takes directly
 \code{hr.consistency}, \code{pconsistency.threshold},
 \code{confounders.name}, \code{conf_force}); those not given take
 \code{mrct_region_sims()}'s defaults, so a run's direct arguments and
-its \code{fs_args} together reproduce its identifier. The data, the
+its \code{fs_args} together reproduce its identifier. The default
+\code{confounders.name} is that of \code{mrct_region_sims()}: for a
+mechanism built with a spline, it leaves out the three internal columns
+of the spline variable \code{<var>} by their exact names
+\code{<var>_treat}, \code{<var>_k} and \code{<var>_k_treat}; a covariate
+such as \code{z_prior_treat} and the region indicator stay. The data, the
 outcome, treatment, event, id and potential-outcome names, the display
 flags and the (sequential) parallel plan are set here, as in
 \code{mrct_region_sims()}.}

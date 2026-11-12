@@ -169,7 +169,12 @@ mrct_select_case <- function(res,
 #'   \code{hr.consistency}, \code{pconsistency.threshold},
 #'   \code{confounders.name}, \code{conf_force}); those not given take
 #'   \code{mrct_region_sims()}'s defaults, so a run's direct arguments and
-#'   its \code{fs_args} together reproduce its identifier. The data, the
+#'   its \code{fs_args} together reproduce its identifier. The default
+#'   \code{confounders.name} is that of \code{mrct_region_sims()}: for a
+#'   mechanism built with a spline, it leaves out the three internal columns
+#'   of the spline variable \code{<var>} by their exact names
+#'   \code{<var>_treat}, \code{<var>_k} and \code{<var>_k_treat}; a covariate
+#'   such as \code{z_prior_treat} and the region indicator stay. The data, the
 #'   outcome, treatment, event, id and potential-outcome names, the display
 #'   flags and the (sequential) parallel plan are set here, as in
 #'   \code{mrct_region_sims()}.
@@ -283,13 +288,24 @@ mrct_case_study <- function(dgm, seed, k, n = NULL, region_var = "z_regA",
   do.call(RNGkind, as.list(old_kind))
 
   # ---- the identifier: mrct_region_sims()'s construction of the call
+  # A mechanism built with a spline carries three internal columns of the
+  # spline variable: <var>_treat, <var>_k and <var>_k_treat. They are not
+  # baseline covariates. Exclude exactly these names (never a suffix match,
+  # which would also drop a covariate such as z_prior_treat).
+  spline_info <- dgm$model_params$spline_info
+  spline_helpers <- if (!is.null(spline_info)) {
+    paste0(spline_info$var, c("_treat", "_k", "_k_treat"))
+  } else {
+    character(0)
+  }
   defaults <- list(
     sg_focus = "minSG", maxk = 1, hr.threshold = 0.90, hr.consistency = 0.80,
     pconsistency.threshold = 0.90,
     confounders.name = setdiff(
       grep("^z_|^ecog|^strat", names(dgm$df_super), value = TRUE),
       c("id", "treat", "tte", "event", "y_sim", "treat_sim", "event_sim", "t_true",
-        "c_time", "lin_pred_0", "lin_pred_1", "loghr_po", "entrytime", "flag_harm")),
+        "c_time", "lin_pred_0", "lin_pred_1", "loghr_po", "entrytime", "flag_harm",
+        spline_helpers)),
     conf_force = c("z_age <= 65", "z_bm <= 0", "z_bm <= 1", "z_bm <= 2", "z_bm <= 5"))
   fs_spec <- utils::modifyList(defaults, fs_args)
   if (!is.null(mr_inference_args$seed)) {
