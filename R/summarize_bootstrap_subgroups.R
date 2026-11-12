@@ -418,7 +418,8 @@ summarize_bootstrap_subgroups <- function(results,
       sg_found$Pcons,
       breaks = c(0, 0.5, 0.7, 0.8, 0.85, 0.95, 1.0),
       labels = c("<0.5", "0.5-0.7", "0.7-0.8", "0.8-0.85", "0.85-0.95", ">=0.95"),
-      include.lowest = TRUE
+      include.lowest = TRUE,
+      right = FALSE
     )
 
     if (sum(!is.na(sg_found$Pcons_bin)) > 0) {
@@ -445,7 +446,8 @@ summarize_bootstrap_subgroups <- function(results,
       sg_found$N_sg,
       breaks = size_breaks,
       labels = size_labels,
-      include.lowest = TRUE
+      include.lowest = TRUE,
+      right = FALSE
     )
 
     if (sum(!is.na(sg_found$N_sg_bin)) > 0) {
