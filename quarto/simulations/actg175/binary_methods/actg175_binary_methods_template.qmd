@@ -121,9 +121,11 @@ the true marginal effect is denoted $\theta^\dagger(\cdot)$ on the
 natural-parameter scale (here the **odds ratio** for the binary adverse
 outcome), detection is $\mathrm{any}(\cdot)$, and the classification quartet
 $\{\text{sens}(\hat H), \text{ppv}(\hat H), \text{sens}(\hat H^c),
-\text{ppv}(\hat H^c)\}$ is averaged **unconditionally** (a replication with no
-detected subgroup contributes sens $= 0$, ppv $= 0$ for $\hat H$ and
-spec $= 1$, npv $= 1$ for $\hat H^c$).
+\text{ppv}(\hat H^c)\}$ is averaged **unconditionally**.  When no subgroup is
+detected, the estimated complement $\hat H^c$ is everyone, so the replication
+contributes $\text{sens}(\hat H) = 0$ and $\text{ppv}(\hat H) = 0$ for the
+subgroup, and $\text{sens}(\hat H^c) = 1$ and $\text{ppv}(\hat H^c) = |Q^c|/N$
+for the complement (León et al. 2024, Section 3).
 
 ```{r setup}
 #| code-fold: true
@@ -353,11 +355,14 @@ method_family <- function(label) {
 # convention.  One row per arm (`analysis` column).
 oc_agg_from_results <- function(res) {
   dt <- data.table::as.data.table(res)
+  # No find: npv = ppv(Hc) = |Hc|/N, the row's propHc_true (León et al. 2024,
+  # Section 3); 1 only when the row carries no truth (propHc_true absent or NA).
+  hc <- if ("propHc_true" %in% names(dt)) dt$propHc_true else rep(NA_real_, nrow(dt))
   dt[, `:=`(
     sens_u = ifelse(is.na(sens) & any.H == 0, 0, sens),
     ppv_u  = ifelse(is.na(ppv)  & any.H == 0, 0, ppv),
     spec_u = ifelse(is.na(spec) & any.H == 0, 1, spec),
-    npv_u  = ifelse(is.na(npv)  & any.H == 0, 1, npv)
+    npv_u  = ifelse(is.na(npv)  & any.H == 0, ifelse(is.na(hc), 1, hc), npv)
   )]
   agg <- dt[, .(
     Detection = mean(any.H,  na.rm = TRUE),

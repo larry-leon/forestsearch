@@ -1300,13 +1300,12 @@ The operating-characteristics tables report these as:
 
 Classification metrics are averaged across **all** simulations
 (León et al. 2024, Table 1).  When no subgroup is detected
-($\hat{Q} = \emptyset$), the simulation contributes
+($\hat{Q} = \emptyset$), the estimated complement $\hat{Q}^c$
+is everyone, so the simulation contributes
 $\text{sens}(\hat{Q}) = 0$ and $\text{ppv}(\hat{Q}) = 0$
-(since no member of $Q$ is captured and no subjects are
-assigned to $\hat{Q}$).  This convention is implemented
-at the source in `run_simulation_analysis()`, matching
-the original `fs.estimates.out()` function used in
-León et al. (2024).
+for the subgroup, and $\text{sens}(\hat{Q}^c) = 1$ and
+$\text{ppv}(\hat{Q}^c) = |Q^c|/N$ for the complement
+(León et al. 2024, Section 3).
 
 ::: {.callout-note}
 ## Classification metrics with discovered cuts

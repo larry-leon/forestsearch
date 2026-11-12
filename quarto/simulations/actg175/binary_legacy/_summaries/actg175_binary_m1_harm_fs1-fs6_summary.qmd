@@ -169,6 +169,17 @@ for (i in seq_len(nrow(configs))) {
     ), call. = FALSE)
   }
 }
+
+# Bundles built before the A-003 fix store spec = |Hc|/N and npv = 1 for a no-find H1
+# replicate; León et al. (2024, Section 3) give spec = 1 and npv = |Hc|/N, so re-score here.
+bundles <- lapply(bundles, function(b) {
+  a  <- b$results$alt
+  nf <- a$any.H == 0L & !is.na(a$propHc_true)
+  a$spec[nf] <- 1
+  a$npv[nf]  <- a$propHc_true[nf]
+  b$results$alt <- a
+  b
+})
 ```
 
 ## Bundle metadata

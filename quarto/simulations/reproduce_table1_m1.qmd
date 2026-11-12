@@ -638,7 +638,9 @@ for (m in our$Method) {
   ra_sens <- ifelse(is.na(ra$sens) & ra$any.H == 0, 0, ra$sens)
   ra_ppv  <- ifelse(is.na(ra$ppv)  & ra$any.H == 0, 0, ra$ppv)
   ra_spec <- ifelse(is.na(ra$spec) & ra$any.H == 0, 1, ra$spec)
-  ra_npv  <- ifelse(is.na(ra$npv)  & ra$any.H == 0, 1, ra$npv)
+  hc      <- if (is.null(ra$propHc_true)) rep(NA_real_, nrow(ra)) else ra$propHc_true
+  ra_npv  <- ifelse(is.na(ra$npv)  & ra$any.H == 0,
+                    ifelse(is.na(hc), 1, hc), ra$npv)
 
   our$alt_any[our$Method == m]      <- mean(ra$any.H, na.rm = TRUE)
   our$alt_sens_H[our$Method == m]   <- mean(ra_sens, na.rm = TRUE)

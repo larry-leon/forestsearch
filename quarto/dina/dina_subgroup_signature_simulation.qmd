@@ -237,6 +237,14 @@ score_replication <- function(sg, df, truth, thr_tol) {
   } else {
     out[, c("covariate_correct", "direction_correct",
             "signature_correct") := FALSE]
+    # No subgroup: the estimated complement is everyone (León et al. 2024,
+    # Section 3), so sens = 0, ppv = 0 and spec = 1 for this replicate.
+    true_mask <- if (truth$direction == "left")
+      df[[truth$covariate]] <= truth$threshold
+    else df[[truth$covariate]] >= truth$threshold
+    out[, `:=`(sensitivity = if (any(true_mask)) 0 else NA_real_,
+               specificity = 1,
+               ppv         = if (any(true_mask)) 0 else NA_real_)]
   }
   out
 }

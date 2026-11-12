@@ -488,7 +488,19 @@ extract_binary_estimates <- function(df, fs_res, dgm, analysis = "FS") {
     stringsAsFactors = FALSE
   )
 
-  if (is.null(fs_res)) return(out)
+  # No subgroup: the estimated complement is everyone (León et al. 2024, Section 3).
+  # Alternative: sens 0, ppv 0, spec 1, npv |Hc|/N; null: spec 1, npv 1, sens/ppv NA.
+  fill_nofind <- function(out) {
+    if (identical(dgm$model_type, "null")) {
+      out$spec <- 1; out$npv <- 1
+    } else if ("flag_harm" %in% names(df)) {
+      out$sens <- 0; out$ppv <- 0
+      out$spec <- 1; out$npv <- mean(df$flag_harm != 1)
+    }
+    out
+  }
+
+  if (is.null(fs_res)) return(fill_nofind(out))
 
   sg_harm <- fs_res$grp.consistency$sg.harm.id
   if (is.null(sg_harm) || length(sg_harm) == 0 ||
@@ -498,7 +510,7 @@ extract_binary_estimates <- function(df, fs_res, dgm, analysis = "FS") {
       error = function(e) NULL
     )
     if (!is.null(itt_fit)) out$hr.itt <- exp(coef(itt_fit)["treat_sim"])
-    return(out)
+    return(fill_nofind(out))
   }
 
   out$any.H <- 1L

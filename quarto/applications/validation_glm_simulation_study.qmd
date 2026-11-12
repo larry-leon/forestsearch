@@ -583,6 +583,15 @@ run_one_sim <- function(scenario_id, sim_num) {
     out$ppv  <- if ((tp + fp) > 0) tp / (tp + fp) else NA_real_
     out$npv  <- if ((tn + fn) > 0) tn / (tn + fn) else NA_real_
     out$size_H <- sum(sg_ind == 0)
+  } else if (!found) {
+    # No subgroup: the estimated complement is everyone (León et al. 2024, Section 3).
+    # Alternative: sens 0, ppv 0, spec 1, npv |Hc|/N; null: spec 1, npv 1, sens/ppv NA.
+    is_alt <- !is.na(result$true_H)
+    out$sens <- if (is_alt) 0 else NA_real_
+    out$ppv  <- if (is_alt) 0 else NA_real_
+    out$spec <- 1
+    out$npv  <- if (is_alt) mean(result$df$flag_harm == 0) else 1
+    out$size_H <- NA_integer_
   } else {
     out$sens <- out$spec <- out$ppv <- out$npv <- NA_real_
     out$size_H <- NA_integer_
