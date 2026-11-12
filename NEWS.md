@@ -298,11 +298,13 @@ MRCT consistency article.
   ">=0.95" and a size of 50 in "50-99". Both were counted one bin lower.
   Values off an edge are binned as before. (Code audit A-147.)
 
-* `forestsearch_KfoldOut()`, and so `forestsearch_Kfold()` and
-  `forestsearch_tenfold()`, no longer stop with "subscript out of bounds" when
-  the held-out assignments are one level plus `NA` (`{1, NA}` or `{0, NA}`).
-  The agreement values follow the existing single-level rule. Assignments
-  `{0, 1}` and `{0, 1, NA}` give the same values as before.
+* `forestsearch_KfoldOut()` no longer stops with "subscript out of bounds"
+  when the held-out assignments are one level plus `NA` (`{1, NA}` or
+  `{0, NA}`); the agreement values follow the existing single-level rule.
+  `forestsearch_tenfold()`, which stopped too, now completes, and
+  `forestsearch_Kfold()`, which caught the error and returned all-`NA`
+  agreement summaries, now returns the values. Assignments `{0, 1}` and
+  `{0, 1, NA}` give the same values as before.
 
 * Missing values in a covariate that defines the subgroup now say so; no
   returned value changes. `run_simulation_analysis()` stops in the same
@@ -352,14 +354,15 @@ MRCT consistency article.
   the pool holds `x <= 2`. A median cut is removed only for a variable GRF cut
   exactly. (Code audit A-047.)
 
-* `mrct_region_sims()` and `mrct_case_study()` with `confounders.name = NULL`
-  and a mechanism built with a spline no longer include the three internal
+* `mrct_region_sims()` and `mrct_case_study()` without a `confounders.name`
+  and with a mechanism built with a spline no longer include the three internal
   spline columns in the default confounders (`z_bm_treat`, `z_bm_k`,
   `z_bm_k_treat` for `create_dgm_for_mrct()`). Covariates such as
   `z_prior_treat`, and the region indicator, stay. (Code audit A-125.)
 
 * `grf.subg.harm.glm()` with a count outcome and `adverse_outcome = TRUE` (the
-  default for counts), and so `forestsearch()` with `use_grf = TRUE` or
+  value `forestsearch()` and `run_simulation_analysis()` resolve for counts),
+  and so `forestsearch()` with `use_grf = TRUE` or
   `subgroup_method = "grf"` and the GRF arm of `run_simulation_analysis()`,
   now looks for the region where treatment raises the count. It looked for
   the region where treatment lowers it. (Code audit A-064.)
@@ -385,7 +388,10 @@ MRCT consistency article.
   With 40 patients per arm, control 30% and treated 100%, it is 0.0725 (it was
   about 5e-06, giving a zero-width interval); with control 0% and treated
   80%, 0.0632 (it was 448.5). The estimate is unchanged, and so is the
-  covariate-adjusted case. (Code audit A-055.)
+  covariate-adjusted case, except a direct call with `adjust_covariates` and
+  `ps_adjust_method = "dr_gcomp"` (or `"iptw"` without an `sw` column), whose
+  covariates are dropped before the fit and which now gets the new form.
+  (Code audit A-055.)
 
 * `forestsearch()` with a binary risk difference or a count rate difference,
   `dina_args = list(family = "gaussian")` and a supplied ratio-scale
