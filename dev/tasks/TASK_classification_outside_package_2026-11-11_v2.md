@@ -243,3 +243,7 @@ One table, one row per tracked render that displays classification values produc
 4. Copy the report to `~/Downloads/REPORT_classification_outside_package_2026-11-11.md`.
 5. Print the status table, the Part R group lines, the gate results and both branch HEAD
    SHAs. Do not push or merge in either repository.
+
+## Amendment 1 (2026-11-11, received in chat during the run; verbatim)
+
+> TASK_empty_set_nofind_2026-11-11.md is now in ~/Downloads; proceed with Step 0.3. Amendment to Part B, authorized by Larry, record it verbatim in the report: (1) the per-file gate compares the recomputed $oc with the stored one using a numeric tolerance of 1e-8, not exact equality; a file is BLOCKED only if some value other than the unconditional NPV differs by more than that. (2) Write only the unconditional NPV cell into the stored payload; keep every other stored value bit for bit, and confirm after writing that the object is identical() to the original except that one cell. (3) Do not write a file whose unconditional NPV changes by 1e-8 or less.
