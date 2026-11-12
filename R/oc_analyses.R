@@ -106,8 +106,8 @@ get_dgm_hr <- function(dgm, which = "hr_H") {
 #' checking for \code{flag.harm}, \code{flag_harm}, and \code{H} in
 #' the super-population data frame.
 #'
-#' @param dgm A DGM object (e.g., from \code{create_gbsg_dgm} or
-#'   \code{generate_aft_dgm_flex}). Must contain \code{df_super_rand}
+#' @param dgm A DGM object (e.g., from \code{generate_aft_dgm_flex} or
+#'   \code{setup_gbsg_dgm}). Must contain \code{df_super_rand}
 #'   with columns \code{theta_0} and \code{theta_1}.
 #' @param harm_col Character. Name of the subgroup indicator column in
 #'   \code{dgm$df_super_rand}. If \code{NULL} (default), auto-detected
@@ -120,7 +120,7 @@ get_dgm_hr <- function(dgm, which = "hr_H") {
 #'
 #' @examples
 #' \dontrun{
-#' dgm <- create_gbsg_dgm(model = "alt", k_inter = 2.0)
+#' dgm <- setup_gbsg_dgm(model = "alt", k_inter = 2.0)
 #' dgm <- compute_dgm_cde(dgm)
 #' dgm$hazard_ratios$CDE_harm   # theta-ddagger(H)
 #' dgm$hazard_ratios$CDE         # theta-ddagger overall
@@ -410,7 +410,7 @@ compute_cde <- function(df, subset_indicator = NULL) {
 #'
 #' @examples
 #' \dontrun{
-#' dgm <- create_gbsg_dgm()
+#' dgm <- setup_gbsg_dgm()
 #' sim_res <- run_simulation_analysis(dgm, nsim = 10)
 #' summarize_simulation_results(sim_res)
 #' }

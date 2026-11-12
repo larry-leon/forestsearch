@@ -128,7 +128,7 @@ fs_declaration_calibration(fit, alpha = 0.10, c0 = c(0.70, 0.75, 0.80, 0.85))
 | `forestsearch_bootstrap_dofuture()`, `summarize_bootstrap_results()` | The full bootstrap bias correction of León et al. (2024) |
 | `forestsearch_Kfold()`, `forestsearch_tenfold()`, `cv_metrics_tables()` | Cross-validation of the identification |
 | `plot_subgroup_results_forestplot()`, `plot_sg_weighted_km()` | Forest plots and weighted Kaplan-Meier curves |
-| `generate_aft_dgm_flex()`, `create_gbsg_dgm()`, `run_simulation_analysis()` | Data-generating mechanisms and the simulation framework |
+| `generate_aft_dgm_flex()`, `simulate_from_dgm()`, `run_simulation_analysis()` | Data-generating mechanisms and the simulation framework |
 | `mrct_region_sims()`, `create_dgm_for_mrct()` | Regional consistency in multi-regional trials |
 
 ## Documentation

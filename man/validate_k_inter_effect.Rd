@@ -16,7 +16,10 @@ Default: c(-2, -1, 0, 1, 2, 3)}
 
 \item{verbose}{Logical. Print results. Default: TRUE}
 
-\item{...}{Additional arguments passed to create_gbsg_dgm}
+\item{...}{Additional arguments passed to the internal GBSG builder that
+\code{\link{setup_gbsg_dgm}} also calls: \code{k_treat}, \code{k_z3},
+\code{z1_quantile}, \code{n_super}, \code{cens_type},
+\code{use_rand_params} and \code{seed}, with the meanings given there.}
 }
 \value{
 Data frame with k_inter, hr_H, hr_Hc, AHR_H, AHR_Hc, and ratio columns

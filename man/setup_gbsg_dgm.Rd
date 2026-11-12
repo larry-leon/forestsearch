@@ -64,7 +64,12 @@ committed population-noise seed (commit \code{2a4787bc}).}
 }
 \value{
 An object of class \code{c("aft_dgm_flex", "gbsg_dgm", "list")}
-with all fields from \code{create_gbsg_dgm()} plus:
+with the builder's fields (\code{df_super_rand}; the true hazard ratios
+\code{hr_causal}, \code{hr_H_true}, \code{hr_Hc_true}, \code{AHR},
+\code{AHR_H_true}, \code{AHR_Hc_true} and the list
+\code{hazard_ratios}; \code{model_params}, \code{cens_params},
+\code{subgroup_info}, \code{effect_modifiers}, \code{analysis_vars},
+\code{model_type}, \code{n_super} and \code{seed}) plus:
 \describe{
 \item{\code{df_super}}{Super-population data frame with
 \code{simulate_from_dgm()}-compatible column names.}
@@ -81,13 +86,12 @@ otherwise \code{"none"}.}
 }
 \description{
 Creates a GBSG-based data generating mechanism that is fully compatible with
-\code{\link{simulate_from_dgm}}.  This is the replacement for
-\code{create_gbsg_dgm()}: it accepts exactly the same arguments and produces
-the same numeric output, but returns an object of class
-\code{"aft_dgm_flex"} instead of \code{"gbsg_dgm"}.
+\code{\link{simulate_from_dgm}}.  It builds the mechanism with the
+package's internal GBSG builder and returns it as an object of class
+\code{c("aft_dgm_flex", "gbsg_dgm", "list")}.
 }
 \details{
-Internally the function calls \code{create_gbsg_dgm()} and then:
+Internally the function calls that builder and then:
 \enumerate{
 \item Adds a \code{df_super} field with column names aligned to
 \code{simulate_from_dgm()} conventions
@@ -116,6 +120,6 @@ sim <- simulate_from_dgm(dgm, n = 400, seed = 1)
 
 }
 \seealso{
-\code{\link{create_gbsg_dgm}}, \code{\link{simulate_from_dgm}},
+\code{\link{generate_aft_dgm_flex}}, \code{\link{simulate_from_dgm}},
 \code{\link{compute_dgm_cde}}
 }

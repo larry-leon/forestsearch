@@ -7,10 +7,10 @@
 # and generate_aft_dgm_flex() / calculate_hazard_ratios() methodology.
 #
 # Key functions:
-#   - create_gbsg_dgm(): Create DGM with treatment effect heterogeneity
-#   - simulate_from_gbsg_dgm(): Generate simulated trial data
+#   - .create_gbsg_dgm_(): Internal GBSG builder used by setup_gbsg_dgm()
+#     (R/setup_gbsg_dgm.R), calibrate_k_inter() and validate_k_inter_effect()
 #   - calibrate_k_inter(): Find k_inter for target subgroup HR
-#   - get_dgm_with_output(): Wrapper for DGM creation with file output
+#   - validate_k_inter_effect(): Tabulate subgroup HRs over k_inter values
 #
 # Alignment with generate_aft_dgm_flex():
 #   - Computes theta_0, theta_1, loghr_po for each subject
@@ -79,159 +79,8 @@ cut_size <- function(x, breaks = c(20, 50)) {
 # Main DGM Creation Function
 # =============================================================================
 
-#' Create GBSG-Based AFT Data Generating Mechanism
-#'
-#' Creates a data generating mechanism (DGM) for survival simulations based on
-#' the German Breast Cancer Study Group (GBSG) dataset. Supports heterogeneous
-#' treatment effects via treatment-subgroup interactions.
-#'
-#' This version is aligned with \code{generate_aft_dgm_flex()} and
-#' \code{calculate_hazard_ratios()} methodology, computing individual-level
-#' potential outcomes and average hazard ratios (AHR).
-#'
-#' @param model Character. Either "alt" for alternative hypothesis with
-#'   heterogeneous treatment effects, or "null" for uniform treatment effect.
-#'   Default: "alt"
-#' @param k_treat Numeric. Treatment effect multiplier applied to the treatment
-#'   coefficient from the fitted AFT model. Values > 1 strengthen the treatment
-#'   effect. Default: 1
-#' @param k_inter Numeric. Interaction effect multiplier for the
-#'   treatment-subgroup interaction (z1 * z3). Only used when model = "alt".
-#'   Higher values create more heterogeneity between HR(H) and HR(Hc).
-#'   Default: 1
-#' @param k_z3 Numeric. Effect multiplier for the z3 (menopausal status)
-#'   coefficient. Default: 1
-#' @param z1_quantile Numeric. Quantile threshold for z1 (estrogen receptor).
-#'   Observations with ER <= quantile are coded as z1 = 1. Default: 0.25
-#' @param n_super Integer. Size of super-population for empirical HR estimation.
-#'   Default: 5000
-#' @param cens_type Character. Censoring distribution type: "weibull" or
-#'   "uniform". Default: "weibull"
-#' @param use_rand_params Logical. If TRUE, modifies confounder coefficients
-#'   using estimates from randomized subset (meno == 0). Default: FALSE
-#' @param seed Integer. Random seed for super-population generation.
-#'   Default: 8316951
-#' @param verbose Logical. Print diagnostic information. Default: FALSE
-#'
-#' @return A list of class "gbsg_dgm" containing:
-#' \describe{
-#'   \item{df_super_rand}{Data frame with randomized super-population including
-#'     potential outcomes (theta_0, theta_1, loghr_po)}
-#'   \item{hr_H_true}{Empirical hazard ratio in harm subgroup (Cox-based)}
-#'   \item{hr_Hc_true}{Empirical hazard ratio in complement subgroup (Cox-based)}
-#'   \item{hr_causal}{Overall causal (ITT) hazard ratio (Cox-based)}
-#'   \item{AHR}{Overall average hazard ratio (from loghr_po)}
-#'   \item{AHR_H_true}{Average hazard ratio in harm subgroup}
-#'   \item{AHR_Hc_true}{Average hazard ratio in complement subgroup}
-#'   \item{hazard_ratios}{List matching generate_aft_dgm_flex output format}
-#'   \item{model_params}{List with AFT model parameters (mu, sigma, gamma, etc.)}
-#'   \item{cens_params}{List with censoring model parameters}
-#'   \item{subgroup_info}{List with subgroup definitions and true factor names}
-#'   \item{analysis_vars}{Character vector of analysis variable names}
-#'   \item{model_type}{Character indicating "alt" or "null"}
-#' }
-#'
-#' @details
-#' ## Subgroup Definition
-#'
-#' The harm subgroup H is defined as: z1 = 1 AND z3 = 1, where:
-#' \itemize{
-#'   \item z1: Low estrogen receptor (ER <= 25th percentile by default)
-#'   \item z3: Premenopausal status (meno == 0)
-#' }
-#'
-#' ## Model Specification
-#'
-#' The AFT model uses covariates: treat, z1, z2, z3, z4, z5, and (for "alt")
-#' the interaction zh = treat * z1 * z3.
-#'
-#' ## Interaction Effect (k_inter)
-#'
-#' The k_inter parameter modifies the zh coefficient in the AFT model:
-#' \preformatted{gamma[zh] <- k_inter * gamma[zh]}
-#'
-#' This affects the hazard ratio for the harm subgroup:
-#' \itemize{
-#'   \item HR(H) = exp(-gamma\[treat\]/sigma - gamma\[zh\]/sigma)
-#'   \item HR(Hc) = exp(-gamma\[treat\]/sigma)
-#' }
-#'
-#' When k_inter = 0, HR(H) = HR(Hc) (no heterogeneity).
-#'
-#' ## Alignment with generate_aft_dgm_flex
-#'
-#' This function now computes:
-#' \itemize{
-#'   \item theta_0: Log-hazard contribution under control
-#'   \item theta_1: Log-hazard contribution under treatment
-#'   \item loghr_po: Individual causal log hazard ratio (theta_1 - theta_0)
-#'   \item AHR metrics: exp(mean(loghr_po)) for overall and subgroups
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' # Alternative hypothesis with default parameters
-#' dgm_alt <- create_gbsg_dgm(model = "alt", verbose = TRUE)
-#'
-#' # Null hypothesis
-#' dgm_null <- create_gbsg_dgm(model = "null", verbose = TRUE)
-#'
-#' # Custom subgroup HR via k_inter
-#' dgm_custom <- create_gbsg_dgm(
-#'   model = "alt",
-#'   k_treat = 1.2,
-#'   k_inter = 2.0,
-#'   verbose = TRUE
-#' )
-#'
-#' # Access AHR metrics (aligned with generate_aft_dgm_flex)
-#' dgm_alt$hazard_ratios$AHR_harm
-#' dgm_alt$hazard_ratios$AHR_no_harm
-#' }
-#'
-#' @seealso
-#' \code{\link{simulate_from_gbsg_dgm}} for generating data from the DGM
-#' \code{\link{calibrate_k_inter}} for finding k_inter to achieve target HR
-#'
-#' @importFrom survival survreg coxph Surv
-#' @importFrom stats coef quantile rexp
-#' @export
-create_gbsg_dgm <- function(
-    model = c("alt", "null"),
-    k_treat = 1,
-    k_inter = 1,
-    k_z3 = 1,
-    z1_quantile = 0.25,
-    n_super = DEFAULT_N_SUPER,
-    cens_type = c("weibull", "uniform"),
-    use_rand_params = FALSE,
-    seed = SEED_BASE,
-    verbose = FALSE
-) {
-  .Deprecated(
-    new     = "generate_aft_dgm_flex",
-    package = "forestsearch",
-    msg = paste0(
-      "'create_gbsg_dgm' is deprecated.\n",
-      "Use 'generate_aft_dgm_flex()' with the GBSG dataset directly:\n",
-      "  dgm <- generate_aft_dgm_flex(\n",
-      "    data = survival::gbsg, outcome = \"rfstime\", event = \"status\",\n",
-      "    treat = \"hormon\", id = \"pid\",\n",
-      "    confounders = c(\"age\",\"meno\",\"size\",\"grade\",\"nodes\",\"pgr\",\"er\"),\n",
-      "    model = model, k_inter = k_inter, seed = seed\n",
-      "  )\n",
-      "Then wrap with setup_gbsg_dgm() for a compatible aft_dgm_flex object."
-    )
-  )
-  .create_gbsg_dgm_(
-    model = model, k_treat = k_treat, k_inter = k_inter, k_z3 = k_z3,
-    z1_quantile = z1_quantile, n_super = n_super, cens_type = cens_type,
-    use_rand_params = use_rand_params, seed = seed, verbose = verbose
-  )
-}
-
-# Internal implementation used by calibrate_k_inter(), get_dgm_with_output(),
-# scan_k_inter_effect(), and setup_gbsg_dgm(). No deprecation warning.
+# Internal implementation used by setup_gbsg_dgm(), calibrate_k_inter() and
+# validate_k_inter_effect().
 #' @keywords internal
 .create_gbsg_dgm_ <- function(
     model = c("alt", "null"),
@@ -739,222 +588,6 @@ create_gbsg_dgm <- function(
 
 
 # =============================================================================
-# Simulation Function
-# =============================================================================
-
-#' Simulate Trial Data from GBSG DGM
-#'
-#' Generates simulated clinical trial data from a GBSG-based data generating
-#' mechanism.
-#'
-#' @param dgm A "gbsg_dgm" object from \code{\link{create_gbsg_dgm}}
-#' @param n Integer. Sample size. If NULL, uses full super-population.
-#'   Default: NULL
-#' @param rand_ratio Numeric. Randomization ratio (treatment:control).
-#'   Default: 1 (1:1 randomization)
-#' @param sim_id Integer. Simulation ID used for seed offset. Default: 1
-#' @param max_follow Numeric. Administrative censoring time (months).
-#'   Default: Inf (no administrative censoring)
-#' @param muC_adj Numeric. Adjustment to censoring distribution location
-#'   parameter. Positive values increase censoring. Default: 0
-#' @param min_cens Numeric. Minimum censoring time for uniform censoring.
-#'   Required if cens_type = "uniform"
-#' @param max_cens Numeric. Maximum censoring time for uniform censoring.
-#'   Required if cens_type = "uniform"
-#' @param draw_treatment Logical. If TRUE, randomly assigns treatment.
-#'   If FALSE, samples from existing treatment arms. Default: TRUE
-#'
-#' @return Data frame with simulated trial data including:
-#' \describe{
-#'   \item{id}{Subject identifier}
-#'   \item{y.sim}{Observed follow-up time}
-#'   \item{event.sim}{Event indicator (1 = event, 0 = censored)}
-#'   \item{t.sim}{True event time (before censoring)}
-#'   \item{treat}{Treatment indicator}
-#'   \item{flag.harm}{Harm subgroup indicator}
-#'   \item{loghr_po}{Individual log hazard ratio (potential outcome)}
-#'   \item{v1-v7}{Analysis factors}
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' dgm <- create_gbsg_dgm(model = "alt", k_inter = 2.0)
-#' sim_data <- simulate_from_gbsg_dgm(dgm, n = 500, sim_id = 1)
-#'
-#' # Check AHR in simulated data
-#' exp(mean(sim_data$loghr_po))
-#' }
-#'
-#' @export
-simulate_from_gbsg_dgm <- function(
-    dgm,
-    n = NULL,
-    rand_ratio = 1,
-    sim_id = 1,
-    max_follow = Inf,
-    muC_adj = 0,
-    min_cens = NULL,
-    max_cens = NULL,
-    draw_treatment = TRUE
-) {
-  .Deprecated(
-    new     = "simulate_from_dgm",
-    package = "forestsearch",
-    msg = paste0(
-      "'simulate_from_gbsg_dgm' is deprecated.\n",
-      "Use 'simulate_from_dgm()' instead:\n",
-      "  sim <- simulate_from_dgm(dgm, n = n, seed = seed,\n",
-      "                           analysis_time = Inf)\n",
-      "Note: pass analysis_time = Inf to match the legacy max_follow = Inf default.\n",
-      "Column names in the result use underscore notation:\n",
-      "  y_sim / event_sim / treat_sim / flag_harm  (was y.sim / event.sim / treat / flag.harm)"
-    )
-  )
-  .simulate_from_gbsg_dgm_(
-    dgm = dgm, n = n, rand_ratio = rand_ratio, sim_id = sim_id,
-    max_follow = max_follow, muC_adj = muC_adj,
-    min_cens = min_cens, max_cens = max_cens,
-    draw_treatment = draw_treatment
-  )
-}
-
-# Internal implementation. No deprecation warning.
-#' @keywords internal
-.simulate_from_gbsg_dgm_ <- function(
-    dgm,
-    n = NULL,
-    rand_ratio = 1,
-    sim_id = 1,
-    max_follow = Inf,
-    muC_adj = 0,
-    min_cens = NULL,
-    max_cens = NULL,
-    draw_treatment = TRUE
-) {
-
-  stopifnot(
-    "dgm must be a gbsg_dgm object" = inherits(dgm, "gbsg_dgm"),
-    "rand_ratio must be positive" = rand_ratio > 0
-  )
-
-  cens_type <- dgm$cens_params$type
-
-  # -------------------------------------------------------------------------
-  # Sample from Super-Population
-  # -------------------------------------------------------------------------
-  df_super <- dgm$df_super_rand
-
-  if (is.null(n)) {
-    df_sim <- df_super
-  } else {
-    # Calculate group sizes
-    n0 <- round(n / (1 + rand_ratio))
-    n1 <- n - n0
-
-    if (draw_treatment) {
-      # Random sampling with treatment assignment
-      set.seed(dgm$seed + sim_id)
-      id_sample <- sample(seq_len(nrow(df_super)), size = n, replace = TRUE)
-      df_sample <- df_super[id_sample, ]
-
-      # Assign treatment
-      df_treat <- df_sample[seq_len(n1), ]
-      df_treat$treat <- 1L
-      df_treat$lin.conf.true <- df_treat$lin1.conf
-      df_treat$zh <- df_treat$z1 * df_treat$z3
-      if ("linC1.conf" %in% names(df_treat)) {
-        df_treat$linC.conf <- df_treat$linC1.conf
-      }
-
-      df_control <- df_sample[(n1 + 1):n, ]
-      df_control$treat <- 0L
-      df_control$lin.conf.true <- df_control$lin0.conf
-      df_control$zh <- 0L
-      if ("linC0.conf" %in% names(df_control)) {
-        df_control$linC.conf <- df_control$linC0.conf
-      }
-
-      df_sim <- rbind(df_control, df_treat)
-
-    } else {
-      # Sample from existing treatment arms
-      df1_super <- subset(df_super, treat == 1)
-      df0_super <- subset(df_super, treat == 0)
-
-      set.seed(dgm$seed + sim_id)
-      id1 <- sample(seq_len(nrow(df1_super)), size = n1, replace = TRUE)
-      id0 <- sample(seq_len(nrow(df0_super)), size = n0, replace = TRUE)
-
-      df_sim <- rbind(df0_super[id0, ], df1_super[id1, ])
-    }
-  }
-
-  n_obs <- nrow(df_sim)
-
-  # -------------------------------------------------------------------------
-  # Generate Event Times
-  # -------------------------------------------------------------------------
-  mu <- dgm$model_params$mu
-  sigma <- dgm$model_params$sigma
-
-  set.seed(dgm$seed + sim_id + 1000)
-  epsilon <- log(stats::rexp(n_obs))
-  log_T <- mu + sigma * epsilon + df_sim$lin.conf.true
-  T_sim <- exp(log_T)
-
-  # -------------------------------------------------------------------------
-  # Generate Censoring Times
-  # -------------------------------------------------------------------------
-  set.seed(dgm$seed + sim_id + 2000)
-
-  if (cens_type == "weibull" && !is.null(dgm$cens_params$mu)) {
-    mu_cens <- dgm$cens_params$mu + muC_adj
-    sigma_cens <- dgm$cens_params$sigma
-
-    epsilon_cens <- log(stats::rexp(n_obs))
-    log_C <- mu_cens + sigma_cens * epsilon_cens + df_sim$linC.conf
-    C_sim <- exp(log_C)
-
-  } else {
-    if (is.null(min_cens) || is.null(max_cens)) {
-      min_cens <- 0
-      max_cens <- max(T_sim) * 1.5
-    }
-    C_sim <- stats::runif(n_obs, min = min_cens, max = max_cens)
-  }
-
-  # Apply administrative censoring
-  C_sim <- pmin(C_sim, max_follow)
-
-  # -------------------------------------------------------------------------
-  # Create Observed Outcomes
-  # -------------------------------------------------------------------------
-  event_sim <- ifelse(T_sim <= C_sim, 1L, 0L)
-  y_sim <- pmin(T_sim, C_sim)
-
-  # -------------------------------------------------------------------------
-  # Finalize Output
-  # -------------------------------------------------------------------------
-  df_sim$y.sim <- y_sim
-  df_sim$event.sim <- event_sim
-  df_sim$t.sim <- T_sim
-  df_sim$id <- seq_len(n_obs)
-
-  # Select output columns (including new aligned variables)
-  keep_cols <- c(
-    "id", "y.sim", "event.sim", "t.sim", "treat", "flag.harm",
-    "v1", "v2", "v3", "v4", "v5", "v6", "v7",
-    "z1", "z2", "z3", "z4", "z5", "zh", "grade3", "size",
-    "theta_0", "theta_1", "loghr_po",
-    "hlin.ratio", "h1.potential", "h0.potential"
-  )
-  keep_cols <- intersect(keep_cols, names(df_sim))
-
-  as.data.frame(df_sim[, keep_cols])
-}
-
-
-# =============================================================================
 # Calibration Functions
 # =============================================================================
 
@@ -973,7 +606,10 @@ simulate_from_gbsg_dgm <- function(
 #' @param use_ahr Logical. If TRUE, calibrate to AHR instead of Cox-based HR.
 #'   Default: FALSE
 #' @param verbose Logical. Print diagnostic information. Default: FALSE
-#' @param ... Additional arguments passed to \code{\link{create_gbsg_dgm}}
+#' @param ... Additional arguments passed to the internal GBSG builder that
+#'   \code{\link{setup_gbsg_dgm}} also calls: \code{k_z3},
+#'   \code{z1_quantile}, \code{n_super}, \code{use_rand_params} and
+#'   \code{seed}, with the meanings given there.
 #'
 #' @return Numeric value of k_inter that achieves the target HR
 #'
@@ -987,12 +623,12 @@ simulate_from_gbsg_dgm <- function(
 #' k <- calibrate_k_inter(target_hr_harm = 1.5, verbose = TRUE)
 #'
 #' # Verify
-#' dgm <- create_gbsg_dgm(model = "alt", k_inter = k, verbose = TRUE)
+#' dgm <- setup_gbsg_dgm(model = "alt", k_inter = k, verbose = TRUE)
 #' print(dgm$hr_H_true)  # Should be close to 1.5
 #'
 #' # Calibrate to AHR instead
 #' k_ahr <- calibrate_k_inter(target_hr_harm = 1.5, use_ahr = TRUE, verbose = TRUE)
-#' dgm_ahr <- create_gbsg_dgm(model = "alt", k_inter = k_ahr, verbose = TRUE)
+#' dgm_ahr <- setup_gbsg_dgm(model = "alt", k_inter = k_ahr, verbose = TRUE)
 #' print(dgm_ahr$AHR_H_true)  # Should be close to 1.5
 #' }
 #'
@@ -1045,98 +681,6 @@ calibrate_k_inter <- function(
 }
 
 
-#' Create DGM with Output File Path
-#'
-#' Wrapper function that creates a GBSG DGM and generates a standardized
-#' output file path for saving results.
-#'
-#' @param model_harm Character. Model type ("alt" or "null")
-#' @param n Integer. Planned sample size (for filename)
-#' @param k_treat Numeric. Treatment effect multiplier
-#' @param target_hr_harm Numeric. Target HR for harm subgroup (used for
-#'   calibration when model = "alt")
-#' @param cens_type Character. Censoring type
-#' @param out_dir Character. Output directory path. If NULL, no file path
-#'   is generated
-#' @param file_prefix Character. Prefix for output filename
-#' @param file_suffix Character. Suffix for output filename
-#' @param include_hr_in_name Logical. Include achieved HR in filename.
-#'   Default: FALSE
-#' @param verbose Logical. Print diagnostic information. Default: FALSE
-#' @param ... Additional arguments passed to \code{\link{create_gbsg_dgm}}
-#'
-#' @return List with components:
-#' \describe{
-#'   \item{dgm}{The gbsg_dgm object}
-#'   \item{out_file}{Character path to output file (NULL if out_dir is NULL)}
-#'   \item{k_inter}{The k_inter value used (either calibrated or default)}
-#' }
-#'
-#' @keywords internal
-get_dgm_with_output <- function(
-    model_harm,
-    n,
-    k_treat = 1,
-    target_hr_harm = NULL,
-    cens_type = "weibull",
-    out_dir = NULL,
-    file_prefix = "sim",
-    file_suffix = "",
-    include_hr_in_name = FALSE,
-    verbose = FALSE,
-    ...
-) {
-
-  # Calibrate k_inter if needed
-  k_inter <- 1
-  if (model_harm != "null" && !is.null(target_hr_harm)) {
-    k_inter <- calibrate_k_inter(
-      target_hr_harm = target_hr_harm,
-      model = model_harm,
-      k_treat = k_treat,
-      cens_type = cens_type,
-      verbose = verbose,
-      ...
-    )
-    if (is.na(k_inter)) {
-      warning("Calibration failed, using k_inter = 1")
-      k_inter <- 1
-    }
-  }
-
-  # Create DGM
-  dgm <- .create_gbsg_dgm_(
-    model = model_harm,
-    k_treat = k_treat,
-    k_inter = k_inter,
-    cens_type = cens_type,
-    verbose = verbose,
-    ...
-  )
-
-  # Generate output file path
-  out_file <- NULL
-  if (!is.null(out_dir)) {
-    out_file <- file.path(
-      out_dir,
-      paste0(
-        file_prefix, "_",
-        "N=", n, "_",
-        model_harm, "_",
-        "ktreat=", k_treat,
-        if (include_hr_in_name && model_harm == "alt") {
-          paste0("_hrH=", round(dgm$hr_H_true, 2))
-        } else "",
-        file_suffix,
-        ".Rdata"
-      )
-    )
-  }
-
-  list(dgm = dgm, out_file = out_file, k_inter = k_inter)
-}
-
-
 # =============================================================================
 # Print Method
 # =============================================================================
@@ -1150,7 +694,7 @@ get_dgm_with_output <- function(
 #'
 #' @examples
 #' \dontrun{
-#' dgm <- create_gbsg_dgm()
+#' dgm <- setup_gbsg_dgm()
 #' print(dgm)
 #' }
 #' @export
@@ -1213,7 +757,10 @@ print.gbsg_dgm <- function(x, ...) {
 #' @param k_inter_values Numeric vector of k_inter values to test.
 #'   Default: c(-2, -1, 0, 1, 2, 3)
 #' @param verbose Logical. Print results. Default: TRUE
-#' @param ... Additional arguments passed to create_gbsg_dgm
+#' @param ... Additional arguments passed to the internal GBSG builder that
+#'   \code{\link{setup_gbsg_dgm}} also calls: \code{k_treat}, \code{k_z3},
+#'   \code{z1_quantile}, \code{n_super}, \code{cens_type},
+#'   \code{use_rand_params} and \code{seed}, with the meanings given there.
 #'
 #' @return Data frame with k_inter, hr_H, hr_Hc, AHR_H, AHR_Hc, and ratio columns
 #'

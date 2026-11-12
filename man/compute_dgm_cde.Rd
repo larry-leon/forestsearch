@@ -7,8 +7,8 @@
 compute_dgm_cde(dgm, harm_col = NULL)
 }
 \arguments{
-\item{dgm}{A DGM object (e.g., from \code{create_gbsg_dgm} or
-\code{generate_aft_dgm_flex}). Must contain \code{df_super_rand}
+\item{dgm}{A DGM object (e.g., from \code{generate_aft_dgm_flex} or
+\code{setup_gbsg_dgm}). Must contain \code{df_super_rand}
 with columns \code{theta_0} and \code{theta_1}.}
 
 \item{harm_col}{Character. Name of the subgroup indicator column in
@@ -43,7 +43,7 @@ the super-population data frame.
 }
 \examples{
 \dontrun{
-dgm <- create_gbsg_dgm(model = "alt", k_inter = 2.0)
+dgm <- setup_gbsg_dgm(model = "alt", k_inter = 2.0)
 dgm <- compute_dgm_cde(dgm)
 dgm$hazard_ratios$CDE_harm   # theta-ddagger(H)
 dgm$hazard_ratios$CDE         # theta-ddagger overall

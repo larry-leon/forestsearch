@@ -3,8 +3,8 @@
 # =============================================================================
 #
 # Replaces oc_analyses_gbsg.R::run_simulation_analysis(), which was coupled
-# to simulate_from_gbsg_dgm() and hardcoded column names (y.sim, event.sim,
-# flag.harm, treat).
+# to the legacy GBSG simulator (since removed) and hardcoded column names
+# (y.sim, event.sim, flag.harm, treat).
 #
 # Design:
 #   - Calls simulate_from_dgm() (the general simulator).
@@ -195,8 +195,8 @@ default_grf_params_gen <- function() {
 #' Run One Simulation Replicate
 #'
 #' General replacement for the legacy \code{run_simulation_analysis()} that
-#' was coupled to \code{simulate_from_gbsg_dgm()} and GBSG-specific column
-#' names.  This version calls \code{\link{simulate_from_dgm}} and accepts
+#' was coupled to the legacy GBSG simulator (since removed) and GBSG-specific
+#' column names.  This version calls \code{\link{simulate_from_dgm}} and accepts
 #' explicit column-name parameters, making it applicable to any DGM built
 #' with \code{\link{generate_aft_dgm_flex}}.
 #'

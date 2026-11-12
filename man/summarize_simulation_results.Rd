@@ -29,7 +29,7 @@ Includes both HR and AHR metrics.
 }
 \examples{
 \dontrun{
-dgm <- create_gbsg_dgm()
+dgm <- setup_gbsg_dgm()
 sim_res <- run_simulation_analysis(dgm, nsim = 10)
 summarize_simulation_results(sim_res)
 }

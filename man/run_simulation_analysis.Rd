@@ -201,8 +201,8 @@ element per keeper (\code{fs_full}, \code{grf_full}, etc.).
 }
 \description{
 General replacement for the legacy \code{run_simulation_analysis()} that
-was coupled to \code{simulate_from_gbsg_dgm()} and GBSG-specific column
-names.  This version calls \code{\link{simulate_from_dgm}} and accepts
+was coupled to the legacy GBSG simulator (since removed) and GBSG-specific
+column names.  This version calls \code{\link{simulate_from_dgm}} and accepts
 explicit column-name parameters, making it applicable to any DGM built
 with \code{\link{generate_aft_dgm_flex}}.
 }
