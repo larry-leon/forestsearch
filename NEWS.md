@@ -1,4 +1,4 @@
-# forestsearch 0.4.1.9007 (development)
+# forestsearch 0.4.1.9008 (development)
 
 This development version adds the MRCT regional-consistency series: the
 MRCT consistency analytic layer, new DGM arguments, the per-replicate record
@@ -209,6 +209,25 @@ MRCT consistency article.
   the session on a sequential plan, replacing a plan the user had set. Results
   are unchanged. `setup_parallel_SGcons()` and `reset_workers()` still set the
   plan, which is their purpose. (Code audit INV-2, plan half.)
+
+* `forestsearch()` and the other exported functions that can reach the fixed
+  seed in `subgroup.consistency()` (`set.seed(8316951)`, which `forestsearch()`
+  does not expose) no longer leave the caller's random-number state changed.
+  These are `subgroup.consistency()` itself and the functions that call
+  `forestsearch()`: `forestsearch_bootstrap_dofuture()`, `bootstrap_results()`,
+  `forestsearch_Kfold()`, `forestsearch_tenfold()`, `run_simulation_analysis()`,
+  `mrct_region_sims()`, `mrct_case_study()`, `mrct_trial_analysis()`,
+  `compare_selection_rules()`, `fpr_calibration()`, `fpr_calibration_transfer()`,
+  `run_null_calibration()` and `fs_fdr_report()`. The outermost such call saves
+  `.Random.seed` on entry and restores it on exit (absent again if it was
+  absent), whatever seeds are set inside it. Their own results are unchanged:
+  every draw inside a call comes from the same stream as before. A later call
+  that draws random numbers without its own seed, straight after
+  `forestsearch()` (for example `sample()`, or `simulate_from_dgm()` with
+  `seed = NULL`), used to continue the stream `forestsearch()` had seeded and
+  now depends on the caller's seed, so set one. `forestsearch_bootstrap_dofuture()`
+  seeds itself (`seed = 8316951L`) and is not affected. Functions that only set a
+  seed passed to them (for example `simulate_from_dgm(seed = )`) still set it.
 
 * `run_simulation_analysis()`: a replicate whose identified set is empty is now
   scored as a no-find on every path (`any.H` = 0; `ppv` = 0 under an

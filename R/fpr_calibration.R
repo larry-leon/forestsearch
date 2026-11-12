@@ -204,6 +204,7 @@ fpr_calibration <- function(c1,
                              sim_seed      = 42L,
                              n_workers     = 1L,
                              quiet         = FALSE) {
+  .fs_preserve_rng()
 
   # ── Input validation ────────────────────────────────────────────
   stopifnot(
@@ -500,6 +501,7 @@ fpr_calibration_transfer <- function(cal_result,
                                       delta_c2 = NULL,
                                       nsims_check = 200L,
                                       ...) {
+  .fs_preserve_rng()
 
   stopifnot(inherits(cal_result, "fpr_calibration"))
   if (is.na(cal_result$L_eff_implied))

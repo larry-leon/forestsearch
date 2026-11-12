@@ -192,6 +192,7 @@ fs_fdr_report <- function(fs_analysis,
                           n_workers     = NULL,
                           seed_base     = 8316951L,
                           quiet         = FALSE) {
+  .fs_preserve_rng()
 
   # ---- validate the fitted object and extract the inherited configuration ----
   if (is.null(fs_analysis$args_call_all))

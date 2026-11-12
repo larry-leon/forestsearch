@@ -217,6 +217,7 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
                                             digits = 4,
                                             mr_in_replicates = FALSE
 ){
+  .fs_preserve_rng()
 
   # =======================================================================
   # SECTION 1: INPUT VALIDATION

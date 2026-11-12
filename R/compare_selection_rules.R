@@ -491,6 +491,7 @@ compare_selection_rules <- function(df.analysis,
                                     combo_labels = NULL,
                                     verbose      = TRUE,
                                     ...) {
+  .fs_preserve_rng()
   # --- 1. Validate inputs --------------------------------------------------
   if (!is.character(sg_focus) || !is.character(selection_rule)) {
     stop("`sg_focus` and `selection_rule` must be character vectors.",

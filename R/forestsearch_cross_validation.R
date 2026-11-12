@@ -295,6 +295,7 @@ forestsearch_Kfold <- function(
     details = FALSE,
     mr_in_replicates = FALSE
 ) {
+  .fs_preserve_rng()
 
   # ===========================================================================
   # SECTION 1: INPUT VALIDATION
@@ -811,6 +812,7 @@ forestsearch_tenfold <- function(
     keep_resCV = FALSE,
     mr_in_replicates = FALSE
 ) {
+  .fs_preserve_rng()
 
   # ===========================================================================
   # SECTION 1: INPUT VALIDATION
@@ -991,6 +993,11 @@ forestsearch_tenfold <- function(
     # candidates passed the threshold); NA_integer_ when the training
     # FS call errored or consistency evaluation did not run at all.
     n_candidates_list <- rep(NA_integer_, Kfolds)
+
+    # The K forestsearch() calls below run one after another in this
+    # evaluation; in a worker they must not restore the generator between
+    # folds (see .fs_rng_hold()).
+    .fs_rng_hold()
 
     for (cv_index in seq_len(Kfolds)) {
       testIndexes <- which(folds == cv_index, arr.ind = TRUE)

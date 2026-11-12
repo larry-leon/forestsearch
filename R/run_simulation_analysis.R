@@ -417,6 +417,7 @@ run_simulation_analysis <- function(
     keep             = character(0),
     keep_first_n     = Inf
 ) {
+  .fs_preserve_rng()
 
   show_verbose <- verbose && (is.null(verbose_n) || sim_id <= verbose_n)
 

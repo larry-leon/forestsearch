@@ -66,6 +66,65 @@
 }
 
 
+# ---------------------------------------------------------------------------
+# The caller's random-number state across exported calls.
+#
+# subgroup.consistency() seeds the generator (set.seed(seed); seed = 8316951
+# unless supplied, and forestsearch() does not supply it), and other exported
+# functions seed it from their own arguments.  Every exported function that
+# can reach that call starts with .fs_preserve_rng(): the OUTERMOST such call
+# saves the caller's .Random.seed (or its absence) and puts it back when it
+# exits, normally or by an error.  A nested exported call (forestsearch()
+# inside a bootstrap or cross-validation loop, subgroup.consistency() inside
+# forestsearch()) does nothing, so every draw made inside the outer call comes
+# from the same stream as before and every computed value is unchanged.
+# ---------------------------------------------------------------------------
+.fs_rng <- new.env(parent = emptyenv())
+.fs_rng$active <- FALSE
+
+#' Restore the caller's RNG state when the outermost exported call exits
+#'
+#' @param envir The calling function's frame; the restore is registered there
+#'   with \code{on.exit(add = TRUE)}.
+#' @return Invisibly, \code{TRUE} when this call registered the restore,
+#'   \code{FALSE} when an enclosing exported call already had.
+#' @noRd
+.fs_preserve_rng <- function(envir = parent.frame()) {
+  if (isTRUE(.fs_rng$active)) return(invisible(FALSE))
+  .fs_rng$active <- TRUE
+  had_seed <- exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+  old_seed <- if (had_seed) get(".Random.seed", envir = globalenv(), inherits = FALSE)
+  old_kind <- RNGkind()
+  restore <- function() {
+    .fs_rng$active <- FALSE
+    if (had_seed) {
+      assign(".Random.seed", old_seed, envir = globalenv())
+    } else {
+      suppressWarnings(do.call(RNGkind, as.list(old_kind)))
+      if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+        rm(".Random.seed", envir = globalenv())
+      }
+    }
+  }
+  do.call(base::on.exit, list(as.call(list(restore)), TRUE, FALSE),
+          envir = envir)
+  invisible(TRUE)
+}
+
+#' Mark the rest of a future evaluation as inside an exported call
+#'
+#' A future worker does not share \code{.fs_rng$active} with the main
+#' process, so the first exported call made there would restore the worker's
+#' generator when it returns.  A future body that makes several exported calls
+#' in one evaluation calls this first, so those calls leave the stream alone
+#' between them, as they do in the main process.  It never clears the flag.
+#' @noRd
+.fs_rng_hold <- function() {
+  .fs_rng$active <- TRUE
+  invisible(NULL)
+}
+
+
 #' Evaluate Subgroup Consistency
 #'
 #' Evaluates candidate subgroups using split-sample consistency validation.
@@ -406,6 +465,7 @@ subgroup.consistency <- function(df,
                                  adjust_covariates = NULL,
                                  consistency_method = c("resample", "split"),
                                  glm_resample_spec = NULL) {
+  .fs_preserve_rng()
 
   # ===========================================================================
   # SECTION 1: INPUT VALIDATION

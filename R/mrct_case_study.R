@@ -247,6 +247,7 @@ mrct_case_study <- function(dgm, seed, k, n = NULL, region_var = "z_regA",
                                                      include_complement = TRUE,
                                                      field_complement = TRUE),
                             entry_delay = NULL) {
+  .fs_preserve_rng()
   if (!inherits(dgm, c("aft_dgm_flex", "aft_dgm")))
     stop("dgm must be an object created by generate_aft_dgm_flex()", call. = FALSE)
   if (missing(seed) || !is.numeric(seed) || length(seed) != 1L || !is.finite(seed))

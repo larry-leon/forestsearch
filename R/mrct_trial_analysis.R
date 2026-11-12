@@ -89,6 +89,7 @@ mrct_trial_analysis <- function(df, outcome.name, event.name, treat.name, id.nam
                                                          include_complement = TRUE,
                                                          field_complement = TRUE),
                                 proceed_without_trigger = FALSE) {
+  .fs_preserve_rng()
   .mrct_check_trial(df, outcome.name, event.name, treat.name, region.name, truth.name, id.name)
   if (!is.list(fs_args) || !is.list(mr_inference_args))
     stop("fs_args and mr_inference_args must be lists.", call. = FALSE)

@@ -304,6 +304,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
                               effect_measure = NULL,
                               boot_index_mat = NULL,
                               mr_in_replicates = FALSE) {
+  .fs_preserve_rng()
   # =========================================================================
   # SECTION: PRECONDITION -- AN IDENTIFIED SUBGROUP IS REQUIRED
   # =========================================================================

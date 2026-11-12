@@ -280,6 +280,7 @@ mrct_region_sims <- function(
     seed = NULL,
     record = c("point", "full")
 ) {
+  .fs_preserve_rng()
 
   # ===========================================================================
   # SECTION 1: INPUT VALIDATION

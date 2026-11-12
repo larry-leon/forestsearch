@@ -312,6 +312,7 @@ run_null_calibration <- function(
     seed_base = 42L,
     verbose = TRUE
 ) {
+  .fs_preserve_rng()
 
   # --- Validation ---
   stopifnot(is.function(sim_null_fn))

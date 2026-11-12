@@ -1722,6 +1722,7 @@ forestsearch <- function(df.analysis,
                          # Multiplier resampling (optional; GLM resample path)
                          mr_inference = FALSE,
                          mr_inference_args = list()) {
+  .fs_preserve_rng()
 
   # ===========================================================================
   # SECTION 1A: RESOLVE FORMAL DEFAULTS BEFORE ARGUMENT CAPTURE
