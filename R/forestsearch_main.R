@@ -3297,7 +3297,8 @@ forestsearch <- function(df.analysis,
           grid_probs          = da$select$grid_probs,
           sg_focus            = sg_focus,
           selection_rule      = selection_rule,
-          effect_neighborhood = effect_neighborhood
+          effect_neighborhood = effect_neighborhood,
+          tau_sign            = .dina_tau_sign(outcome_type, adverse_outcome)
         )
         if (isTRUE(sgsel$found)) {
           # Vectorized over the 1-or-2 selected cuts: a depth-2 conjunction
