@@ -396,7 +396,23 @@ test_hte_from_forestsearch <- function(fs_result, df,
   covs <- NULL; source_desc <- NULL
   if (!is.null(fs_result$confounders.evaluated) &&
       length(fs_result$confounders.evaluated) > 0) {
-    covs <- fs_result$confounders.evaluated
+    # Evaluated labels are bare column names (categorical) or cut
+    # expressions such as "age <= 55" (continuous): map each label to the
+    # df columns it refers to, and use the unique columns.  A label that is
+    # exactly a column name is that column (it may not be a syntactic R
+    # name, e.g. "ER-pos"); any other label is parsed.
+    covs <- character(0)
+    for (lab in fs_result$confounders.evaluated) {
+      lab_vars <- if (lab %in% names(df)) lab else
+        intersect(tryCatch(all.vars(parse(text = lab)),
+                           error = function(e) character(0)),
+                  names(df))
+      if (length(lab_vars) == 0)
+        warning("Label '", lab, "' in confounders.evaluated cannot be ",
+                "resolved to a column of df; skipped.")
+      covs <- c(covs, lab_vars)
+    }
+    covs <- unique(covs)
     source_desc <- "confounders.evaluated (GRF/LASSO selected)"
   } else if (!is.null(fs_result$confounders.candidate) &&
              length(fs_result$confounders.candidate) > 0) {
@@ -413,7 +429,11 @@ test_hte_from_forestsearch <- function(fs_result, df,
     else if (is.character(col)) X_cols[[v]] <- as.numeric(as.factor(col)) - 1
     else X_cols[[v]] <- as.numeric(col)
   }
-  if (length(X_cols) == 0) return(NULL)
+  if (length(X_cols) == 0) {
+    warning("No covariate found in df for the ForestSearch covariates; ",
+            "returning NULL.")
+    return(NULL)
+  }
 
   X <- do.call(cbind, X_cols)
   colnames(X) <- names(X_cols)
