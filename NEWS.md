@@ -197,6 +197,10 @@ MRCT consistency article.
   NPV keeps its previous treatment, and stored payloads are not regenerated.
   This affects simulation summaries in which a method can select everyone.
 
+* `generate_gbsg_bootstrap_general()` now takes its data from `survival::gbsg`.
+  `data("gbsg", package = "survival")` loads nothing under current survival, so
+  every call stopped with an error. (Code audit A-004.)
+
 * `run_simulation_analysis()`: a replicate whose identified set is empty is now
   scored as a no-find on every path (`any.H` = 0; `ppv` = 0 under an
   alternative). The detection rate and the all-replicate PPV average can change

@@ -363,7 +363,7 @@ generate_gbsg_bootstrap_general <- function(n = 686, seed = 123, noise_level = 0
 
   # Load gbsg data into local environment
   gbsg <- NULL  # Avoid R CMD check NOTE
-  data("gbsg", package = "survival", envir = environment())
+  gbsg <- survival::gbsg
 
   synthetic_data <- generate_bootstrap_synthetic(
     data = gbsg,
