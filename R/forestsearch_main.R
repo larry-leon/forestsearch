@@ -3394,7 +3394,14 @@ forestsearch <- function(df.analysis,
   if (details && use_lasso) {
     n_kept <- length(lassokeep)
     n_total <- n_kept + length(lassoomit)
-    cat("Cox-LASSO selected:", n_kept, "of", n_total, "candidate factors\n")
+    lasso_label <- switch(outcome_type,
+      binary     = "Logistic-LASSO",
+      continuous = "Linear-LASSO",
+      count      = "Poisson-LASSO",
+      "Cox-LASSO"
+    )
+    cat(paste0(lasso_label, " selected:"), n_kept, "of", n_total,
+        "candidate factors\n")
     if (length(lassoomit) > 0) {
       cat("  Omitted:", paste(lassoomit, collapse = ", "), "\n")
     }

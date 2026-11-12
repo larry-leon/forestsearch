@@ -211,9 +211,12 @@ get_conf_force_jq <- function(df, conf_jcuts, cont.cutoff = 4) {
   if (is.null(out)) character(0) else out
 }
 
-#' LASSO selection for Cox model
+#' LASSO selection for survival and GLM outcomes
 #'
-#' Performs LASSO variable selection using Cox regression.
+#' Performs LASSO variable selection with \code{glmnet}: a Cox model for
+#' \code{outcome_type = "survival"}, and a logistic (binomial), linear
+#' (gaussian) or Poisson model for binary, continuous and count outcomes
+#' (Poisson also for a binary outcome when \code{offset.name} is given).
 #'
 #' @param df Data frame.
 #' @param confounders.name Character vector of confounder names.
@@ -225,6 +228,9 @@ get_conf_force_jq <- function(df, conf_jcuts, cont.cutoff = 4) {
 #' @param offset.name Character or \code{NULL}. Name of the follow-up time
 #'   column for rate-based measures (IRR, IRD).
 #' @return List with selected, omitted variables, coefficients, lambda, and fits.
+#'   \code{selected} and \code{omitted} contain confounders only; the
+#'   \code{"(Intercept)"} of a GLM fit is in neither, but is kept in
+#'   \code{coefficients}.
 #' @importFrom glmnet cv.glmnet glmnet
 #' @importFrom survival Surv
 #' @examples
@@ -333,9 +339,13 @@ if (!requireNamespace("survival", quietly = TRUE)) stop("Package 'survival' is r
   coefs <- as.vector(coef(fit))
   names(coefs) <- rownames(coef(fit))
 
-  # Determine selected and omitted variables
-  selected <- names(coefs)[coefs != 0]
-  omitted <- names(coefs)[coefs == 0]
+  # Determine selected and omitted variables from the confounder rows only.
+  # For the GLM families coef(fit) also has an "(Intercept)" row; the
+  # intercept is not a candidate variable, so it is kept in `coefficients`
+  # but never counted as selected or omitted.
+  conf_coefs <- coefs[names(coefs) %in% confounders.name]
+  selected <- names(conf_coefs)[conf_coefs != 0]
+  omitted <- names(conf_coefs)[conf_coefs == 0]
 
   # Return results as a list
   list(

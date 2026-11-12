@@ -2,7 +2,7 @@
 % Please edit documentation in R/get_FSdata_helpers.R
 \name{lasso_selection}
 \alias{lasso_selection}
-\title{LASSO selection for Cox model}
+\title{LASSO selection for survival and GLM outcomes}
 \usage{
 lasso_selection(
   df,
@@ -33,9 +33,15 @@ column for rate-based measures (IRR, IRD).}
 }
 \value{
 List with selected, omitted variables, coefficients, lambda, and fits.
+\code{selected} and \code{omitted} contain confounders only; the
+\code{"(Intercept)"} of a GLM fit is in neither, but is kept in
+\code{coefficients}.
 }
 \description{
-Performs LASSO variable selection using Cox regression.
+Performs LASSO variable selection with \code{glmnet}: a Cox model for
+\code{outcome_type = "survival"}, and a logistic (binomial), linear
+(gaussian) or Poisson model for binary, continuous and count outcomes
+(Poisson also for a binary outcome when \code{offset.name} is given).
 }
 \examples{
 \donttest{
