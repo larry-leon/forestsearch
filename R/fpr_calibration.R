@@ -89,7 +89,9 @@
 #' @param outcome_type_approx Character. One of \code{"binary"},
 #'   \code{"survival"}, \code{"count"}, \code{"continuous"}.  Used only
 #'   for computing the asymptotic \eqn{P_1} approximation.  If \code{NULL}
-#'   (default), inferred from \code{fs_params$outcome_type}.
+#'   (default), inferred from \code{fs_params$outcome_type}.  If neither is
+#'   given, \code{"survival"} is used, which is the default
+#'   \code{outcome_type} of \code{\link{forestsearch}}.
 #' @param d_eff_approx Numeric or \code{NULL}.  Effective information for
 #'   \eqn{P_1}.  If \code{NULL} (default), estimated from \code{df.analysis}
 #'   (or \code{n_sample}) using \code{d_eff_*()}.  Supply explicitly if you
@@ -234,7 +236,16 @@ fpr_calibration <- function(c1,
   }
 
   # ── Infer outcome type for approximation ───────────────────────
-  otype <- outcome_type_approx %||% fs_params$outcome_type %||% "binary"
+  # Neither given: "survival", forestsearch()'s default outcome_type.
+  otype <- outcome_type_approx %||% fs_params$outcome_type %||% "survival"
+  otype_ok <- c("survival", "binary", "continuous", "count")
+  if (!is.character(otype) || length(otype) != 1L || is.na(otype) ||
+      !(otype %in% otype_ok))
+    stop(sprintf(paste0(
+      "Unrecognised outcome type %s (from outcome_type_approx or ",
+      "fs_params$outcome_type); it must be one of %s."),
+      paste(deparse(otype), collapse = ""),
+      paste0("\"", otype_ok, "\"", collapse = ", ")))
 
   # ── Compute d_eff and P1 ────────────────────────────────────────
   if (is.null(d_eff_approx)) {
@@ -242,8 +253,7 @@ fpr_calibration <- function(c1,
       "survival"   = d_eff_survival(n_min, prop_cens),
       "binary"     = d_eff_binary(n_min, p_event),
       "count"      = d_eff_binary(n_min, p_event),   # approximate
-      "continuous" = d_eff_continuous(n_min, sigma_y),
-      d_eff_binary(n_min, p_event)  # fallback
+      "continuous" = d_eff_continuous(n_min, sigma_y)
     )
   }
 

@@ -77,7 +77,9 @@ Default 60.}
 \item{outcome_type_approx}{Character. One of \code{"binary"},
 \code{"survival"}, \code{"count"}, \code{"continuous"}.  Used only
 for computing the asymptotic \eqn{P_1} approximation.  If \code{NULL}
-(default), inferred from \code{fs_params$outcome_type}.}
+(default), inferred from \code{fs_params$outcome_type}.  If neither is
+given, \code{"survival"} is used, which is the default
+\code{outcome_type} of \code{\link{forestsearch}}.}
 
 \item{d_eff_approx}{Numeric or \code{NULL}.  Effective information for
 \eqn{P_1}.  If \code{NULL} (default), estimated from \code{df.analysis}
