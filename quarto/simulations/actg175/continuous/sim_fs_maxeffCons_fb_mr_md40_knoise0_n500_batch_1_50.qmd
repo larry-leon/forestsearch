@@ -920,10 +920,9 @@ record_replicate <- function(sim_id) {
     # upper bound on X); sdH2 is a standard deviation and is unaffected.
     if (!is.null(fb) && !is.null(fb$H_estimates)) {
       he <- fb$H_estimates
-      .orient <- if (isTRUE(adverse_outcome)) 1 else -1
-      rec$fb_H_est <- .orient * (he$H2 %||% NA_real_)
-      fb_ci <- sort(.orient * c(he$H2_lower %||% NA_real_,
-                                he$H2_upper %||% NA_real_), na.last = TRUE)
+      rec$fb_H_est <- he$H2 %||% NA_real_
+      fb_ci <- sort(c(he$H2_lower %||% NA_real_,
+                      he$H2_upper %||% NA_real_), na.last = TRUE)
       rec$fb_H_lo  <- fb_ci[1]
       rec$fb_H_hi  <- fb_ci[2]
       rec$fb_H_se  <- he$sdH2 %||% NA_real_   # scale-free, NOT negated
@@ -978,10 +977,9 @@ record_replicate <- function(sim_id) {
     # two bias sources are recorded for the harm block only, as before.
     if (!is.null(fb) && !is.null(fb$Hc_estimates)) {
       hce <- fb$Hc_estimates
-      .orient_c <- if (isTRUE(adverse_outcome)) 1 else -1
-      rec$fb_Hc_est <- .orient_c * (hce$H2 %||% NA_real_)
-      fbc_ci <- sort(.orient_c * c(hce$H2_lower %||% NA_real_,
-                                   hce$H2_upper %||% NA_real_), na.last = TRUE)
+      rec$fb_Hc_est <- hce$H2 %||% NA_real_
+      fbc_ci <- sort(c(hce$H2_lower %||% NA_real_,
+                       hce$H2_upper %||% NA_real_), na.last = TRUE)
       rec$fb_Hc_lo  <- fbc_ci[1]
       rec$fb_Hc_hi  <- fbc_ci[2]
       rec$fb_Hc_se  <- hce$sdH2 %||% NA_real_

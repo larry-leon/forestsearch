@@ -153,6 +153,22 @@ MRCT consistency article.
 
 ### Behaviour changes
 
+* `forestsearch_bootstrap_dofuture()` on GLM outcomes now builds the estimator
+  behind its bias correction with the parent fit's resolved `adverse_outcome`
+  and `ps_adjust_method` (it used `adverse_outcome = TRUE` and no propensity
+  weighting). For a continuous fit with `adverse_outcome` unset (it resolves to
+  `FALSE`), or any fit with `adverse_outcome = FALSE`, `H_estimates`,
+  `Hc_estimates`, `SG_CIs`, the `*_biasadj_*` columns and the effect columns of
+  `FSsg_tab` were on the raw outcome scale, the opposite sign to the fit; they
+  are now on the fit's scale (an exact sign change for MD, RD and log OR; for
+  RR the old values were the ratio of 1 - Y risks). With propensity adjustment
+  the bootstrap estimates are now weighted like the fit. Fits with
+  `adverse_outcome = TRUE` and no propensity adjustment, which include binary
+  and count fits at defaults, are unchanged. `forestsearch()` with propensity
+  adjustment on a GLM outcome also keeps `adverse_outcome` when it rebuilds its
+  estimator (it used `TRUE`). Scripts that negated the bootstrap output by
+  `adverse_outcome` should drop that step. (Code audit A-009.)
+
 * `run_simulation_analysis()`: a replicate whose identified set is empty is now
   scored as a no-find on every path (`any.H` = 0; `ppv` = 0 under an
   alternative). The detection rate and the all-replicate PPV average can change

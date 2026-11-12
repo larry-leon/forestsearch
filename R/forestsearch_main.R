@@ -2708,6 +2708,7 @@ forestsearch <- function(df.analysis,
         outcome.name     = outcome.name,
         offset.name      = offset.name,
         effect_measure   = effect_measure,
+        adverse_outcome  = adverse_outcome,
         ps_adjust_method = ps_adjust_resolved
       )
     }

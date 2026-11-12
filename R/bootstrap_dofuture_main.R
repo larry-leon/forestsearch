@@ -298,7 +298,14 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   cox.formula.boot  <- NULL
 
   if (is_glm) {
-    # GLM path: build the estimator closure from saved arguments
+    # GLM path: build the estimator closure from saved arguments, with the
+    # parent's resolved adverse_outcome and ps_adjust_method so the estimates
+    # behind the bias correction are on the parent fit's scale.  NULL only on
+    # an object not built by forestsearch(); resolved by forestsearch()'s rule.
+    boot_adverse_outcome <- args_forestsearch_call$adverse_outcome
+    if (is.null(boot_adverse_outcome)) {
+      boot_adverse_outcome <- outcome_type %in% c("binary", "count")
+    }
     estimator_fn_boot <- make_effect_estimator(
       outcome_type      = outcome_type,
       treat.name        = args_forestsearch_call$treat.name,
@@ -306,7 +313,9 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
       event.name        = NULL,
       offset.name       = args_forestsearch_call$offset.name,
       effect_measure    = args_forestsearch_call$effect_measure,
-      adjust_covariates = args_forestsearch_call$adjust_covariates
+      adverse_outcome   = boot_adverse_outcome,
+      adjust_covariates = args_forestsearch_call$adjust_covariates,
+      ps_adjust_method  = args_forestsearch_call$ps_adjust_method
     )
   } else {
     # Survival path: build Cox formula.  Covariate adjustment (incl. strata())
