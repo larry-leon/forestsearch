@@ -20,6 +20,8 @@ where they already warned that they were deprecated).
 
 The local check above ended with `Status: OK`.
 
+Long-running tests are skipped on CRAN with `skip_on_cran()`; the full suite runs locally.
+
 ## Reverse dependencies
 
 There are no reverse dependencies: CRAN's package index (read on
