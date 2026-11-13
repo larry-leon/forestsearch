@@ -68,6 +68,11 @@ RD, RR and IRD scales and the detection, PPV, NPV and specificity of
 
 ### Bug fixes
 
+* `mrct_region_sims()` now restores the caller's `progressr.handlers` option
+  when it returns or stops. It set the progress handler with
+  `progressr::handlers("progress")` and left that setting in the session. The
+  progress display during the call and the returned values are unchanged.
+
 * `forestsearch()` with a continuous outcome, DINA (`subgroup_method = "dina"`,
   or `use_dina = TRUE`), and neither `effect.threshold` nor `hr.threshold`
   supplied now uses the resolved screening threshold (0 for a mean difference)

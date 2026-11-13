@@ -410,7 +410,10 @@ mrct_region_sims <- function(
   # SECTION 4: RUN SIMULATIONS
   # ===========================================================================
 
-  # Setup progress handler (safe for callr and other backends)
+  # Setup progress handler (safe for callr and other backends); the caller's
+  # progressr.handlers option is restored on exit
+  old_handlers <- getOption("progressr.handlers")
+  on.exit(options(progressr.handlers = old_handlers), add = TRUE)
   progressr::handlers("progress")
 
   # Internal helper bound locally: the worker expression resolves exported
