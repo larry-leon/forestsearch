@@ -9,13 +9,16 @@ where they already warned that they were deprecated).
 
 ## Test environments
 
-None yet for 0.5.0. The local release check (`R CMD build`, then
-`R CMD check --as-cran` on the tarball), win-builder and R-hub have not
-been run for this version.
+- Local: Pop!_OS 24.04 LTS, x86_64-pc-linux-gnu, R 4.6.2 (2026-10-29);
+  `R CMD check --as-cran` on the tarball built by `R CMD build`.
+- win-builder (devel and release): TO BE FILLED BY MAINTAINER
+- R-hub: TO BE FILLED BY MAINTAINER
 
 ## R CMD check results
 
-The release check has not been run yet.
+0 errors | 0 warnings | 0 notes
+
+The local check above ended with `Status: OK`.
 
 ## Reverse dependencies
 
