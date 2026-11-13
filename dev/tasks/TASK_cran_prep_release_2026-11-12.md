@@ -169,3 +169,7 @@ that Larry can decide whether to submit.
 3. **Final gates:** `git status --porcelain` is empty; both sibling repositories are
    unchanged; `git diff <start> --stat` lists only files the report names, and nothing under
    `vignettes/` or `quarto/`. Nothing is pushed, merged, tagged or uploaded.
+
+## Amendment 1 (Larry, in chat, 2026-11-12, during Part 3)
+
+> Change to the running task, from Larry: do NOT run the full check or the full suite. Skip Part 3 step 5 (R CMD check --as-cran), step 6 (the full suite) and the timing table of step 8. If either run has already started, stop it now. In cran-comments.md say the release check has not been run yet. Keep the rest lean: no separate verifier, polish or report-drafting agents, one short report, no detail file. Say in the report's first lines that these steps were skipped at Larry's instruction.
