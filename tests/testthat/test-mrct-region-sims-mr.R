@@ -6,6 +6,8 @@
 # (helper-mrct-region-sims-record.R) on the S2 build at 2 replicates, 2
 # workers. The workers run the installed build: install before running.
 
+skip_on_cran()
+
 mr_cols <- c("mr_ci_method", "mr_debiased_H", "mr_ij_lower_H", "mr_ij_upper_H",
              "mr_field_lower_1s_H", "mr_debiased_Hc", "mr_ij_lower_Hc", "mr_ij_upper_Hc",
              "mr_field_upper_1s_Hc", "mr_field_upper_1s_s_Hc", "mr_bonf_lower_H",

@@ -8,6 +8,8 @@
 # Multiplier resampling is reduced (200 draws, field 50/25) where the check
 # does not depend on it.
 
+skip_on_cran()
+
 cs_fixture <- function(f) testthat::test_path("fixtures", "mrct_case_study", f)
 cs_seed <- 613800000L   # the campaign's call seed of S2
 
