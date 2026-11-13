@@ -137,6 +137,14 @@ compute_frontier_cis <- function(fs,
   effect_measure <- fs$effect_measure %||%
     switch(outcome_type, survival = "HR", binary = "RD",
            continuous = "MD", count = "IRR")
+  # Orientation: the fit's stored adverse_outcome.  A fit returned by
+  # forestsearch() always stores it (resolved before args_call_all is
+  # captured); if none is stored, use forestsearch()'s own rule on the
+  # resolved outcome_type, not TRUE for every outcome type.
+  adverse_outcome <- args$adverse_outcome
+  if (is.null(adverse_outcome)) {
+    adverse_outcome <- outcome_type %in% c("binary", "count")
+  }
 
   # --- 1. Build the per-data-slice estimator closure ----------------------
   est_fn <- tryCatch(
@@ -147,7 +155,7 @@ compute_frontier_cis <- function(fs,
       event.name     = event.name,
       offset.name    = offset.name,
       effect_measure = effect_measure,
-      adverse_outcome   = args$adverse_outcome %||% TRUE,
+      adverse_outcome   = adverse_outcome,
       adjust_covariates = NULL,        # frontier CIs are unadjusted by design
       ps_adjust_method  = "none"
     ),
