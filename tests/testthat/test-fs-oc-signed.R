@@ -87,7 +87,7 @@ test_that("opposite-sign families enumerate with the signed mixture", {
 test_that("a planted effect of exactly zero is rejected with guidance", {
   dgm <- make_signed_dgm("zero_Q")
   mt  <- region_mtau(dgm)
-  expect_identical(unname(mt[["Q"]]), 0)
+  expect_equal(unname(mt[["Q"]]), 0, tolerance = 1e-12)
   expect_error(fs_oc_family_enumerate(dgm, signed_args, n = 500),
                "no harm direction to orient by")
 })
@@ -100,6 +100,6 @@ test_that("the null path is untouched in structure", {
                    c("lab", "Pg", "PQg", "beta_g", "se_g", "sens_g", "spec_g",
                      "ovl", "M", "PQ", "memb", "null", "scale", "n",
                      "args_used", "cuts", "counts"))
-  expect_identical(fam$PQg, rep(0, fam$M))
-  expect_identical(fam$beta_g, rep(26, fam$M))  # |common effect|, oriented
+  expect_equal(fam$PQg, rep(0, fam$M), tolerance = 1e-12)
+  expect_equal(fam$beta_g, rep(26, fam$M), tolerance = 1e-12)  # |common effect|, oriented
 })

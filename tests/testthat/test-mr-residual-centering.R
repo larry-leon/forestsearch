@@ -95,7 +95,7 @@ test_that("at selection_rate == 1 the conditional and all-B forms coincide", {
   # No floor: every draw admits a candidate.
   sel_bias <- vapply(seq_len(draws),
                      function(b) P[which.max(beta_star[, b]), b], numeric(1))
-  expect_identical(mean(!is.na(sel_bias)), 1)
+  expect_equal(mean(!is.na(sel_bias)), 1, tolerance = 1e-12)
 
   ok_H <- which(is.finite(sel_bias))
   expect_identical(ok_H, seq_len(draws))

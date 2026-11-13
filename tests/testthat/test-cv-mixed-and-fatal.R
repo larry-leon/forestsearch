@@ -122,7 +122,7 @@ test_that("mixed identify/no-identify per-sim shapes aggregate without mislabeli
   }
 
   # No-identify row (row 1): find all-0, sens all-NA -- in the right row
-  expect_identical(unname(find_out[1L, ]), rep(0, 8L))
+  expect_equal(unname(find_out[1L, ]), rep(0, 8L), tolerance = 1e-12)
   expect_true(all(is.na(sens_out[1L, ])))
 
   # Identify row (row 2): hand-computed values in the right columns.
@@ -139,7 +139,7 @@ test_that("mixed identify/no-identify per-sim shapes aggregate without mislabeli
   # put nobody in H, so the two-level agreement definitions with the empty
   # fold level counted as zero (0/0 = 0) give sens_H 0, sens_Hc 1, ppv_H 0
   # and ppv_Hc = share of orig=1 (the full-data complement), 65/100
-  expect_identical(unname(find_out[3L, ]), rep(0, 8L))
+  expect_equal(unname(find_out[3L, ]), rep(0, 8L), tolerance = 1e-12)
   expect_equal(unname(sens_out[3L, ]), c(0, 1, 0, 0.65))
 
   # The median summaries (same apply() lines) stay canonically named

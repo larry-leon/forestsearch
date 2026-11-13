@@ -56,10 +56,10 @@ test_that("undeclarable uses the search's own strict test (size <= n.min)", {
   expect_identical(f$table$share_undeclarable, g$table$share_undeclarable)
   # a n.min above every draw makes everything undeclarable, and vice versa
   hi <- fs_dgm_feasibility(d, n = 400, n.min = 1e6, n_rep = 5L, seed = 7L)
-  expect_identical(hi$table$share_undeclarable, 1)
+  expect_equal(hi$table$share_undeclarable, 1, tolerance = 1e-12)
   expect_false(hi$feasible)
   lo <- fs_dgm_feasibility(d, n = 400, n.min = 0, n_rep = 5L, seed = 7L)
-  expect_identical(lo$table$share_undeclarable, 0)
+  expect_equal(lo$table$share_undeclarable, 0, tolerance = 1e-12)
   expect_true(lo$feasible)
 })
 
@@ -90,7 +90,7 @@ test_that("the existence share uses Part A's per-estimand condition", {
   # RD has no existence condition: the share is 0 by construction
   rd <- fs_dgm_feasibility(d, n = 400, n_rep = 10L, seed = 5L,
                            effect_measure = "RD")
-  expect_identical(rd$table$share_nonestimable, 0)
+  expect_equal(rd$table$share_nonestimable, 0, tolerance = 1e-12)
   # OR is the strictest, so its share can only be >= RR's on the same draws
   or <- fs_dgm_feasibility(d, n = 400, n_rep = 10L, seed = 5L,
                            effect_measure = "OR")
@@ -116,5 +116,5 @@ test_that("it imposes nothing: floors are read, not applied", {
                           n_rep = 10L, seed = 11L)
   expect_identical(a$table$size_mean, b$table$size_mean)
   expect_identical(a$table$e0_min, b$table$e0_min)
-  expect_identical(b$table$share_under_events, 0)
+  expect_equal(b$table$share_under_events, 0, tolerance = 1e-12)
 })

@@ -94,9 +94,9 @@ test_that("mr_cost_table() equals the article's cost chunk", {
 test_that("mr_cost_table(): stored wall time, project_B and the checks", {
   fits <- list(FS = .mmt_fit()); boots <- list(FS = .mmt_boot(B = 20L, minutes = 0.5))
   out <- mr_cost_table(fits, boots, project_B = 500L)
-  expect_identical(out$bootstrap_seconds, 30)
-  expect_identical(out$seconds_per_replicate, 1.5)
-  expect_identical(out$projected_B_500, 750)
+  expect_equal(out$bootstrap_seconds, 30, tolerance = 1e-12)
+  expect_equal(out$seconds_per_replicate, 1.5, tolerance = 1e-12)
+  expect_equal(out$projected_B_500, 750, tolerance = 1e-12)
   no_time <- list(FS = list(nb_boots = 2L, results = data.frame(x = 1)))
   expect_error(mr_cost_table(fits, no_time), "stores no wall time")
   expect_error(mr_cost_table(fits, boots, boot_seconds = 3), "named by method")

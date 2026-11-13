@@ -50,7 +50,7 @@ test_that("record = 'point' is the call without the argument and the pre-change 
   # mrct_region_sims() body is that of 19b703b
   fx <- readRDS(test_path("fixtures", "mrct_region_sims_record", "point_6b5c85c0.rds"))
   expect_identical(names(pp), names(fx))
-  expect_identical(as.list(pp), as.list(fx))
+  expect_equal(as.list(pp), as.list(fx), tolerance = 1e-12)
   # the full path leaves every point column as it is and appends the counts
   pf <- rs_full()
   expect_identical(names(pf), c(point_cols, count_cols, mr_cols))

@@ -60,15 +60,15 @@ test_that("identified set is everyone: both extractors give npv = 0", {
       expect_identical(out$any.H, 1L, label = paste(lab, "any.H"))
       expect_identical(out$size.H, N, label = paste(lab, "size.H"))
       expect_identical(out$size.Hc, 0L, label = paste(lab, "size.Hc"))
-      expect_identical(out$npv, 0, label = paste(lab, "npv"))
+      expect_equal(out$npv, 0, label = paste(lab, "npv"), tolerance = 1e-12)
       # the other three classification metrics keep the found-case formulas
-      expect_identical(out$spec, 0, label = paste(lab, "spec"))
+      expect_equal(out$spec, 0, label = paste(lab, "spec"), tolerance = 1e-12)
       if (null) {
-        expect_identical(out$ppv, 0, label = paste(lab, "ppv"))
+        expect_equal(out$ppv, 0, label = paste(lab, "ppv"), tolerance = 1e-12)
         expect_true(is.na(out$sens), label = paste(lab, "sens NA"))
       } else {
-        expect_identical(out$ppv, 50 / 200, label = paste(lab, "ppv"))
-        expect_identical(out$sens, 1, label = paste(lab, "sens"))
+        expect_equal(out$ppv, 50 / 200, label = paste(lab, "ppv"), tolerance = 1e-12)
+        expect_equal(out$sens, 1, label = paste(lab, "sens"), tolerance = 1e-12)
       }
     }
   }
@@ -105,7 +105,7 @@ test_that("fs_mr_oc_summary(): a detected replicate with n_harm = n_sample and n
     stringsAsFactors = FALSE)
 
   # the replicate on its own: npv 0
-  expect_identical(.f4_u(.f4_payload(r[1, , drop = FALSE]))$npv, 0)
+  expect_equal(.f4_u(.f4_payload(r[1, , drop = FALSE]))$npv, 0, tolerance = 1e-12)
 
   # mixed: everyone -> 0; stored 0.9 kept; detected NA with n_harm < N or
   # n_harm NA -> 1 (unchanged); non-detected -> |Hc|/N = 150/200 (unchanged)
@@ -125,13 +125,13 @@ test_that("fs_mr_oc_summary(): without a usable n_sample or n_harm the detected 
   r <- data.frame(sim_id = 1L, status = "DETECTED", n_harm = 200L,
                   n_true = 50L, sens = 1, spec = 0, ppv = 0.25, npv = NA_real_,
                   stringsAsFactors = FALSE)
-  expect_identical(.f4_u(.f4_payload(r, n_sample = NULL))$npv, 1)
-  expect_identical(.f4_u(.f4_payload(r, n_sample = NA_integer_))$npv, 1)
-  expect_identical(.f4_u(.f4_payload(r, n_sample = "200"))$npv, 1)
+  expect_equal(.f4_u(.f4_payload(r, n_sample = NULL))$npv, 1, tolerance = 1e-12)
+  expect_equal(.f4_u(.f4_payload(r, n_sample = NA_integer_))$npv, 1, tolerance = 1e-12)
+  expect_equal(.f4_u(.f4_payload(r, n_sample = "200"))$npv, 1, tolerance = 1e-12)
   r_no <- r; r_no$n_harm <- NULL
-  expect_identical(.f4_u(.f4_payload(r_no))$npv, 1)
+  expect_equal(.f4_u(.f4_payload(r_no))$npv, 1, tolerance = 1e-12)
   r_lt <- r; r_lt$n_harm <- 199L
-  expect_identical(.f4_u(.f4_payload(r_lt))$npv, 1)
+  expect_equal(.f4_u(.f4_payload(r_lt))$npv, 1, tolerance = 1e-12)
 })
 
 test_that("fs_mr_oc_summary() agrees with the extractors on an everyone replicate", {

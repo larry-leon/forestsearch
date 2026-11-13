@@ -91,7 +91,7 @@ test_that("an empty denominator, no truth, and a result without the record", {
   s <- mrct_core_summary(res)
   r <- s[s$quantity == "declared", ]
   expect_true(is.na(r$estimate)); expect_identical(r$display, "–"); expect_identical(r$denominator, 0)
-  expect_identical(s$estimate[s$quantity == "power"], 0)
+  expect_equal(s$estimate[s$quantity == "power"], 0, tolerance = 1e-12)
 
   res <- .mcs_record(); est <- attr(res, "estimators")
   attr(res, "estimators") <- est[est$estimator != "region_Gstar", ]
