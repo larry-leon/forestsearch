@@ -923,11 +923,34 @@ sg_tables <- function(fs,
 
     # CATE footnote (GRF-specific context)
     if (!is.null(fs$cate_sg)) {
+      # The CATE is on the scale of the outcome given to causal_forest().
+      # For a count that is the per-subject count (the offset does not
+      # enter it), transformed as recorded in grf_y_transform
+      # ("log(Y + 0.5)" or "identity").  The sign is not named: negating
+      # the outcome for adverse_outcome = TRUE does not change the scale,
+      # and the object does not record whether that negation was applied
+      # (counts were not negated before part 4's fix F10, commit f2e8de47).
+      # Other outcome types keep the original label.
+      cate_scale <- "risk-difference scale"
+      if (identical(outcome_type, "count")) {
+        count_scales <- c("log(Y + 0.5)" = "log(Y + 0.5) scale, Y = count",
+                          "identity"     = "count scale")
+        y_tr <- fs$grf_y_transform
+        if (is.character(y_tr) && length(y_tr) == 1L &&
+            y_tr %in% names(count_scales)) {
+          cate_scale <- count_scales[[y_tr]]
+          if (!is.null(offset.name)) {
+            cate_scale <- paste0(cate_scale, ", not offset-adjusted")
+          }
+        } else {
+          cate_scale <- "scale not recorded"
+        }
+      }
       tab_estimates_grf <- tab_estimates_grf |>
         gt::tab_source_note(
           source_note = gt::md(sprintf(
-            "**GRF CATE:** H&#x302; = %.4f, H&#x302;<sup>c</sup> = %.4f (risk-difference scale)",
-            fs$cate_sg, fs$cate_sgc
+            "**GRF CATE:** H&#x302; = %.4f, H&#x302;<sup>c</sup> = %.4f (%s)",
+            fs$cate_sg, fs$cate_sgc, cate_scale
           ))
         )
     }
