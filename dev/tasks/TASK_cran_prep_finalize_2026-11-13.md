@@ -152,3 +152,7 @@ Rewrite only the sections "Test environments" and "R CMD check results":
    - nothing was pushed, merged or tagged.
 4. Delete `/tmp/cran8/lib` and `/tmp/cran8/src`. Keep `/tmp/cran8/build`.
 5. Print the first line, the top table and every NOTE as the closing message.
+
+## Amendment 1 (Larry, 2026-11-13, in chat during Step 4)
+
+Amendment 1 (Larry, 2026-11-13): in the Step 4.5 repair, also add an .Rbuildignore line that excludes tests/testthat/Rplots.pdf, in the same commit as the legacy_vignette line. Then re-run the build and check once as Step 4.5 says, and report the tarball size before and after and confirm that neither stray is in the new tarball. Append this amendment to the task file as its own commit. Everything else in the task stands.
