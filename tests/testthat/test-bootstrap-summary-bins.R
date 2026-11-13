@@ -73,6 +73,12 @@ test_that("A-147: counts over all five rows at once match the labels", {
   out <- summarize_bootstrap_subgroups(res, nb_boots = 5L, maxk = 2)
 
   # Labels in the documented order (the rows of each distribution table).
+  # These two label checks pass before and after the A-147 fix (on the
+  # pre-fix code they pass while the per-value, Count and Percent checks
+  # fail): the labels are the `labels` of the two cut() calls, and table()
+  # of a factor keeps every level, zero counts included, in level order; the
+  # fix changed only right = FALSE.  They anchor the row order that the
+  # positional Count and Percent checks below rely on.
   expect_identical(
     out$consistency_dist$`Consistency Range`,
     c("<0.5", "0.5-0.7", "0.7-0.8", "0.8-0.85", "0.85-0.95", ">=0.95")

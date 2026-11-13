@@ -47,6 +47,13 @@ test_that("A-125: the default confounders leave out the spline helper columns, i
   # region indicator z_regA stays (F9: "The region indicator stays").
   # z_prior_treat is a baseline covariate and stays, although its name ends
   # in "_treat". The three spline helpers above are not in the list.
+  # The other columns of df_super are outside the default for another
+  # reason: both functions keep only names matching "^z_|^ecog|^strat", so
+  # the raw copies age, bm, male, histology, prior_treat and regA, and
+  # zcens_age and zcens_prior_treat ("zcens_" does not match "^z_"), never
+  # enter it, nor do id, y, treat, event, flag_harm, lin_pred_*, theta_* and
+  # loghr_po. Among the matching names only the three spline helpers are
+  # removed, by exact name.
   expected <- c("z_age", "z_bm", "z_male", "z_histology", "z_prior_treat", "z_regA")
 
   # mrct_region_sims(): confounders.name omitted (formal default NULL). With
@@ -60,6 +67,9 @@ test_that("A-125: the default confounders leave out the spline helper columns, i
                                                 show_message = FALSE),
                            seed = 100)))
   line <- grep("^\\s*Confounders:", out, value = TRUE)
+  # Exactly one line: one replicate (n_sims = 1), and with details = TRUE the
+  # line is printed for each replicate sim <= verbose_n_sims (= 1) that runs
+  # forestsearch() (inside if (!is.na(hr_test)) in mrct_region_sims()).
   expect_length(line, 1L)
   rs_set <- strsplit(trimws(sub("^\\s*Confounders:", "", line)), ", ", fixed = TRUE)[[1]]
   expect_identical(rs_set, expected)
@@ -79,5 +89,8 @@ test_that("A-125: the default confounders leave out the spline helper columns, i
   # The two defaults are the same, so the case study reproduces the
   # replicate's identifier (mrct_case_study() documentation: a run's direct
   # arguments and its fs_args together reproduce its identifier).
+  # A regression guard, not a check of the fix: it passes before and after
+  # the fix here, since this trial's identifier (!{z_male} on both trees)
+  # uses no spline helper column.
   expect_identical(cs$Hhat, as.character(rs$sg_found))
 })

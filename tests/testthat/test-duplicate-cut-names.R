@@ -160,6 +160,16 @@ test_that("DINA cut 'x <= 25.3' is kept when the pool holds the GRF cut 'x <= 2'
 
 
 test_that("an exact duplicate cut is still dropped (appears once)", {
+  # What this block pins: the outcome "the duplicate appears once", not the
+  # `grf_cuts %in% confs` / `dina_cuts %in% confs` clause of the merges by
+  # itself.  Both merges end in confs <- unique(c(confs, grf_cuts_keep)) or
+  # unique(c(confs, dina_cuts_keep)) (get_fsdata.R), which drops an exact
+  # duplicate anyway: a copy of get_fsdata.R with that clause removed from
+  # both merges still passes every check in this file.  The clause's only
+  # other effect is that the duplicate stays out of grf_cuts_keep /
+  # dina_cuts_keep, and so out of the `protect` list passed to
+  # collapse_redundant_cuts(), which runs only with collapse_cuts = TRUE
+  # (FALSE here).
   # GRF: the pool holds the median cut "x <= 2"; the GRF cut "x <= 2" is the
   # same whole string -> dropped.  Final pool exactly {"x <= 2"}.
   res_grf <- .f8_fsdata(.f8_data_b(), "x",

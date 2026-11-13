@@ -94,6 +94,15 @@ test_that("a fit with only continuous confounders returns a test", {
 
   r <- .a151_collect(test_hte_from_forestsearch(fit, df, "time", "treat"))
 
+  # By hand: every label in ev is a cut label "age <= v" or "bmi <= v"
+  # (precondition above); all.vars() of the parsed label is "age" or "bmi",
+  # both columns of df, so no label is skipped (no "cannot be resolved"
+  # warning) and X gets two columns (no "No covariate found" warning, no
+  # NULL).  hte_test is test_hte()'s return value, whose class test_hte()
+  # sets to "hte_test".
+  # Before the A-151 fix the labels were looked up as column names, none
+  # matched, and the call returned NULL without a warning: the warning
+  # count passed then too; the NULL and class checks did not.
   expect_length(r$warnings, 0)
   expect_false(is.null(r$value))
   expect_s3_class(r$value$hte_test, "hte_test")

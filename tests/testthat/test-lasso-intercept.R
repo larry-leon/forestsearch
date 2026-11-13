@@ -62,11 +62,17 @@ test_that("lasso_selection(): (Intercept) is in coefficients, not in selected or
     # returns it as the first row, named "(Intercept)", followed by one row
     # per column of x.  So `coefficients` has 1 + 4 entries, the first being
     # the intercept, the rest the four confounders in the order supplied.
+    # This check passes before and after the fix, which leaves
+    # `coefficients` as it was (every row of coef(fit)).
     expect_identical(names(res$coefficients), c("(Intercept)", .f6_confs),
                      info = ot)
 
     # The fix's specification: the intercept is not a confounder, so it is in
-    # neither `selected` nor `omitted`.
+    # neither `selected` nor `omitted`.  The `selected` check is the red:
+    # before the fix the non-zero fitted intercept was listed in `selected`.
+    # The `omitted` check passes before and after: `omitted` held only the
+    # zero coefficients, and the fitted intercept is non-zero in these three
+    # fits.
     expect_false("(Intercept)" %in% res$selected, info = ot)
     expect_false("(Intercept)" %in% res$omitted,  info = ot)
 
@@ -85,6 +91,12 @@ test_that("lasso_selection(): (Intercept) is in coefficients, not in selected or
 })
 
 
+# This test passes before and after the fix (on the pre-fix code every check
+# in it passes).  It replaces lasso_selection(), the function the fix
+# changes, so it cannot show the defect, and get_FSdata()'s rule "if LASSO
+# selects nothing, keep the full pool" was already right.  It is kept as a
+# lock on that rule.  The red for this case is the next test, which runs the
+# real lasso_selection().
 test_that("get_FSdata(): lasso_selection() mocked to select nothing keeps the full pool [A-042]", {
   # The mock is what a non-survival LASSO fit that keeps no covariate
   # returns under the corrected contract: nothing selected, every confounder
@@ -183,6 +195,14 @@ test_that("forestsearch(details = TRUE): LASSO summary is labelled by outcome ty
   # survival.  The count "of N candidate factors" is
   # length(lassokeep) + length(lassoomit) = the 4 confounders supplied
   # (the intercept is not a candidate factor).
+  # The survival case passes before and after the fix (the line always said
+  # "Cox-LASSO" before it).  Before the fix the binary fit printed no LASSO
+  # summary line at all: LASSO selected only "(Intercept)", get_FSdata()
+  # built no candidate cuts and forestsearch() returned before the summary,
+  # so both checks fail on the empty grep() result.  The continuous and
+  # count fits printed "Cox-LASSO selected: 4 of 5" and "2 of 5 candidate
+  # factors" (old label, intercept counted): one line, so only the match
+  # check fails for them.
   expect_label <- list(binary = "Logistic-LASSO", continuous = "Linear-LASSO",
                        count = "Poisson-LASSO", survival = "Cox-LASSO")
   data_for <- list(

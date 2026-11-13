@@ -75,6 +75,12 @@ test_that("RD, control 0% and treated 80%, 40 per arm: Wald SE", {
   # Estimate: difference of the arm proportions, 0.8 - 0.0 = 0.8.
   expect_equal(res$estimate, 0.8 - 0.0, tolerance = .rdse_est_tol)
 
+  # As in the first test: tier 2 returns converged = TRUE and, with no
+  # adjustment covariates, method_used "logistic_margins" (tier 3 would give
+  # FALSE and "raw_means"); measure is "RD", the effect_measure requested;
+  # n0 and n1 are the arm sizes, 40 each by construction of .rdse_slice(),
+  # counted as integers (sum() of a logical).  These four checks pass before
+  # and after the fix, which changes only the standard error.
   expect_true(res$converged)
   expect_identical(res$method_used, "logistic_margins")
   expect_identical(res$measure, "RD")

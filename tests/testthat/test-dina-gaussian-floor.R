@@ -156,9 +156,16 @@ test_that("forced-gaussian corner (binary RD, count IRD): fit, record and replay
   # Setting: an identity-scale estimand (binary RD, count IRD) with
   # dina_args = list(family = "gaussian") forced and a supplied ratio-scale
   # threshold (effect.threshold = 1.5 > 1) that forestsearch() warns about and
-  # remaps.  Expected recorded values, from ?forestsearch "Resolved defaults,
-  # per estimand": RD -> c1 = 0.05, IRD -> c1 = 0.01 (identity scale, so
-  # threshold_config$screening is that value itself, not its log).  The
+  # remaps.  Expected recorded values: a supplied RD/IRD effect.threshold
+  # above 1 is remapped "to default" (forestsearch_main.R, the branch
+  # `user_set_threshold && effect_threshold > 1.0`, which warns and sets
+  # switch(effect_measure, RD = 0.05, IRD = 0.01)).  These are the defaults
+  # ?forestsearch "Resolved defaults, per estimand" lists for a run with
+  # neither threshold supplied, RD -> c1 = 0.05, IRD -> c1 = 0.01 (identity
+  # scale, so threshold_config$screening is that value itself, not its log);
+  # here they come from the remap step, since a threshold is supplied.
+  # .gf_capture() muffles the remap warning and the earlier validator
+  # warning on the same value.  The
   # gaussian DINA floor is "identity for gaussian -- from the resolved
   # effect.threshold" (?forestsearch, dina_args), so the floor the fit hands
   # dina_subgroup() must equal the recorded value, and a replay of

@@ -100,6 +100,16 @@ test_that("count + adverse_outcome: tree path reports where treatment raises the
 
   in_adv <- .a064_members(res_adv)
   in_ben <- .a064_members(res_ben)
+  # Existence checks, so that a missing subgroup fails here and not as an
+  # empty (NaN) share below.  By hand: in each orientation one region has a
+  # positive harm score -CATE on the forest's scale (header: 1.10 in z == 1
+  # with adverse_outcome = TRUE, 0.93 in z == 0 with FALSE), so the policy
+  # tree that gives control to that region yields a subgroup of about 500
+  # subjects, at least n.min (60, the default) and fewer than n = 1000, with
+  # a score above dmin.grf (0, the default); sg.harm.id is NULL, with no
+  # members, only when no tree depth passes these (.select_best_sg_glm()).
+  # They pass before and after the fix: before it both fits found the same
+  # z == 0 subgroup, the wrong region for adverse_outcome = TRUE.
   expect_false(is.null(res_adv$sg.harm.id))
   expect_false(is.null(res_ben$sg.harm.id))
   expect_gt(sum(in_adv), 0L)
@@ -126,6 +136,13 @@ test_that("count + adverse_outcome: frontier path (identity scale) is oriented",
 
   in_adv <- .a064_members(res_adv)
   in_ben <- .a064_members(res_ben)
+  # Existence checks, as in the tree test.  By hand: a frontier candidate is
+  # eligible when it has at least n.min (60) and at most n - 1 (999) members
+  # (.grf_dr_candidates()) and a harm-effect of at least dmin.grf (0)
+  # (.grf_frontier_select()); the candidate on z has 500 members and a
+  # harm-effect of about 6 (z > 0, TRUE) or 2 (z <= 0, FALSE) (header), so
+  # a subgroup is selected in both orientations.  They pass before and
+  # after the fix: before it both fits selected z <= 0.
   expect_false(is.null(res_adv$sg.harm.id))
   expect_false(is.null(res_ben$sg.harm.id))
   expect_gt(sum(in_adv), 0L)

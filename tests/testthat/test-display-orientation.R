@@ -24,10 +24,18 @@
 #     -(mean(y | T = 1) - mean(y | T = 0)), with the same standard error.
 #   The hand value for the selected subgroup is also checked against the fit's
 #   own reported estimate (max_sg_est), which does not depend on the displays.
-# Tolerances are the display rounding: half a unit of the last printed digit
-# (labels at 3 decimals: 5e-4; the MR table at digits = 4: 5e-5 for the
-# estimate, 1e-4 for its limits, whose z is the literal 1.96 rather than
-# qnorm(0.975), a difference below 1e-5 at these standard errors).
+# Tolerances.  For printed numbers the tolerance is the display rounding,
+# half a unit of the last printed digit: labels at 3 decimals, 5e-4 (the
+# labels' limits and the hand limits both use z = qnorm(0.975)); the MR
+# table at digits = 4, 5e-5 for the estimate.  The MR limits checked (the
+# complement row's) are printed from est +/- 1.96 * se with the literal
+# z = 1.96 (analyze_subgroup_glm()), and the hand limits below use the same
+# 1.96, so no z difference enters: only the 4-decimal rounding (at most
+# 5e-5) separates them, and the 1e-4 used is twice that bound.  (With
+# qnorm(0.975) in the hand limits the difference would grow by
+# (1.96 - qnorm(0.975)) * se, below 1e-5 at the complement's se of about
+# 0.12.)  The forest plot's est and se are unrounded numbers, not printed
+# text: see the comment at that check.
 # =============================================================================
 
 .dor_pa <- list(plan = "sequential", workers = 1L, show_message = FALSE)
@@ -124,6 +132,13 @@
   for (k in names(pick)) {
     i <- which(rt == pick[[k]])
     expect_length(i, 1L)
+    # dt$est and dt$se are the estimator's unrounded estimate and standard
+    # error (MD is on the identity scale, so est is not transformed), not
+    # printed text; they and the hand formulas compute the same OLS
+    # quantities, so they differ only by floating-point error.  1e-10 is
+    # therefore a numerical tolerance (testthat 3e: a relative difference,
+    # as in all.equal()), far above that error and far below the 0.19 to 2.2
+    # by which a sign flip moves these estimates (twice |est|).
     expect_equal(dt$est[i], ref[[k]]$est, tolerance = 1e-10,
                  label = paste("forest est", k))
     expect_equal(dt$se[i], ref[[k]]$se, tolerance = 1e-10,
