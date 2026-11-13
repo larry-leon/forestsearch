@@ -9,6 +9,8 @@
 # tested here (it needs the tracked payload); see
 # dev/glm-continuous-sims/fidelity_fs_oc_predict_2026-08-28.R.
 
+skip_on_cran()
+
 # ---- fixtures ---------------------------------------------------------------
 
 make_oc_dgm <- function(N = 2000L, seed = 1L) {

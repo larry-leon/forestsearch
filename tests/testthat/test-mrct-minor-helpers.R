@@ -3,6 +3,8 @@
 # mrct_record(), fs_in_subgroup() and mrct_build_dgm() (TASK_wrapper_batch_2026-11-06,
 # B5).
 
+skip_on_cran()
+
 # ---- transplanted: the packages chunk of the MRCT consistency articles
 .mmh_dd <- function() {
   dd <- c(file.path("..", "..", "inst", "extdata", "mrct-consistency"),

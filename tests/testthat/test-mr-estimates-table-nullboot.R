@@ -11,6 +11,8 @@
 #      complement-only columns do not appear when their quantities are absent;
 #   4. supplying boot_results is still required to have FSsg_tab / SG_CIs.
 
+skip_on_cran()
+
 CONF_MRT <- c("age", "stage", "sex", "noise")
 .mrt_data <- .make_survival_data(N = 400L, HR_harm = 3.0)
 .mrt_fit <- function(...) {

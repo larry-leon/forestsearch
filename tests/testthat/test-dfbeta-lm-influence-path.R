@@ -31,6 +31,8 @@
 # end-to-end assertions at the bottom -- they run forestsearch() and inspect
 # the MR object, rather than checking the leaf and inferring the rest.
 
+skip_on_cran()
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

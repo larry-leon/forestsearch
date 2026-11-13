@@ -10,6 +10,8 @@
 #
 # Spec: dev/betaHhat-consolidation/SPEC_betaHhat_package_function.md
 
+skip_on_cran()
+
 .resolve <- forestsearch:::.fs_resolve_membership
 .rulecols <- forestsearch:::.fs_rule_columns
 

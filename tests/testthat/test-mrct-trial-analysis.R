@@ -4,6 +4,8 @@
 # mrct_case_study() (TASK_mrct_trial_analysis_2026-11-06, D9). The replicate-5 gates
 # against the committed record run once as gate artifacts, not here.
 
+skip_on_cran()
+
 # ---- FX-fast: a small simulated cell and one case study, regenerated in the test
 .mta_fast_dgm <- function() {
   set.seed(101L); n <- 500L

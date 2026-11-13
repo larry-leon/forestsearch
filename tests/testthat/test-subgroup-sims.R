@@ -7,6 +7,8 @@
 # sequential) is covered by dev/accept_phase1_bitident.R, which is run as
 # a release gate rather than on every test invocation.
 
+skip_on_cran()
+
 test_that("benchmark_spec stores and validates its fields", {
   b <- benchmark_spec()
   expect_s3_class(b, "benchmark_spec")

@@ -16,6 +16,8 @@
 # single-covariate configs, mixed vs all-continuous vs all-factor designs.
 # ============================================================================
 
+skip_on_cran()
+
 
 # ---------------------------------------------------------------------------
 # FIX B REGRESSION: diagnostic message content

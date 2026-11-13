@@ -6,6 +6,8 @@
 #   psi(X) = log b + log(h/b) 1{H*} + gamma_R 1{R} + gamma_HR 1{H*} 1{R},
 #   gamma_R = log(b_R / b),  gamma_HR = log(h_R / h) - log(b_R / b).
 
+skip_on_cran()
+
 # Fingerprint of a data.frame or list: md5 of every element's name and values
 # written as hexadecimal doubles (%a), so equal fingerprints mean bit-equal values.
 mrct_fingerprint <- function(x) {

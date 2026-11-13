@@ -3,6 +3,8 @@
 # latent correlation of expand_covariates() / inject_mrct_structure(). The
 # builders are in helper-mrct-analytic.R.
 
+skip_on_cran()
+
 # ---- scale_dgm_hazard() ---------------------------------------------------
 
 test_that("scale_dgm_hazard() sets mu from the fitted value and records m", {

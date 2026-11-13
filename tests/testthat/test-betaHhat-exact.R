@@ -4,6 +4,8 @@
 # rules, and the identity with ahr_limit() on the replicate-5 membership.
 # The DGM is the S2 build of helper-mrct-analytic.R.
 
+skip_on_cran()
+
 # Realised rules: the committed replicate-5 Hhat of the S2 case example
 # (mrct-consistency results/s2_example/s2_example_definitions.md), the Hhat of
 # replicates 1 and 2 (s2_example_trials.csv), and H* = {z_cd40 <= 230}.

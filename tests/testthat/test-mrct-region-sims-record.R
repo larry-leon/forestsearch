@@ -5,6 +5,8 @@
 # on the S2 build (helper-mrct-analytic.R). The workers run the installed
 # build: install before running this file.
 
+skip_on_cran()
+
 rs_memo <- new.env()
 rs_get <- function(key, expr) {
   if (is.null(rs_memo[[key]])) rs_memo[[key]] <- expr

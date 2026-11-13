@@ -19,6 +19,8 @@
 # outcome types is slow even at tiny N.
 # ============================================================================
 
+skip_on_cran()
+
 
 # ---------------------------------------------------------------------------
 # HAPPY-PATH PARITY: same slots across outcome types

@@ -12,6 +12,8 @@
 # lm(), the path 411a448 repaired -- a sigma_D assertion here fails on contact
 # if that path breaks again, rather than degrading silently to n_family = 0.
 
+skip_on_cran()
+
 SPEC_MD <- list(outcome_type = "continuous", effect_measure = "MD",
                 treat.name = "trt", outcome.name = "y", event.name = NULL,
                 offset.name = NULL, adjust_covariates = NULL,

@@ -20,6 +20,8 @@
 # GRF forest is not fitted), and the CV fold refits are replaced by a mock that
 # returns a fixed subgroup.
 
+skip_on_cran()
+
 .f3_pa <- list(plan = "sequential", workers = 1L, show_message = FALSE)
 
 # Run `expr`, muffle and record every warning (message and whether it

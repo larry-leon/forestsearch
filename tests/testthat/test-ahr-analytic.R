@@ -3,6 +3,8 @@
 # S2 build of the records (TASK_fs-mrct-analytic-layer_2026-11-01, section 5,
 # tests 1-3). The builders are in helper-mrct-analytic.R.
 
+skip_on_cran()
+
 tol_ref <- 1e-9   # probabilities absolute; other quantities relative to max(1, |ref|)
 near <- function(ours, ref, tol = tol_ref) abs(ours - ref) <= tol * pmax(1, abs(ref))
 

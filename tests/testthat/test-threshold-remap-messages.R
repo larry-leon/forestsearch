@@ -17,6 +17,8 @@
 # The remapped value itself does not change: the fit records the default.
 # =============================================================================
 
+skip_on_cran()
+
 # Small synthetic data, built here so the test does not depend on a helper.
 .trm_bin <- function() {
   set.seed(11); N <- 200L
