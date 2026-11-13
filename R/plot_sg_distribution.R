@@ -72,13 +72,24 @@
 #'
 #' @examples
 #' \dontrun{
-#' # MRCT / mrct_region_sims() output (default column schema)
-#' fs <- forestsearch(gbsg,
-#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
-#' plot_sg_distribution(fs$grp.consistency$result_new)
+#' # MRCT / mrct_region_sims() output (default column schema): one row per
+#' # simulated trial, a 0/1 detection flag (any_found) and the label of the
+#' # subgroup found (sg_found).  A small stand-in table is built here.
+#' sims_mrct <- data.frame(
+#'   any_found = rep(c(1L, 0L), c(40L, 10L)),
+#'   sg_found  = rep(c("{z_regA <= 0}", "{z_age <= 50}", "{z_er <= 0}",
+#'                     "none"), c(24L, 10L, 6L, 10L))
+#' )
+#' plot_sg_distribution(sims_mrct)
 #'
-#' # run_simulation_analysis() output with top-K cap and auto-halving
+#' # run_simulation_analysis() output with top-K cap and auto-halving.
+#' # A stand-in with its analysis, any.H and sg.def columns: 30 replicates
+#' # each find a different subgroup, so no label reaches min_pct = 5.
+#' results_alt <- data.frame(
+#'   analysis = "FS",
+#'   any.H    = rep(c(1L, 0L), c(30L, 20L)),
+#'   sg.def   = c(sprintf("{er <= %d}", 1:30), rep("", 20L))
+#' )
 #' fs_rows <- results_alt[results_alt$analysis == "FS", ]
 #' p <- plot_sg_distribution(
 #'   fs_rows,

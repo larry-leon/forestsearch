@@ -415,7 +415,13 @@ compute_cde <- function(df, subset_indicator = NULL) {
 #' @examples
 #' \dontrun{
 #' dgm <- setup_gbsg_dgm()
-#' sim_res <- run_simulation_analysis(dgm, nsim = 10)
+#' # run_simulation_analysis() runs one replicate per call; ten are stacked.
+#' # confounders_base names the DGM's numeric candidate covariates, as in the
+#' # simulations article (the default v1-v7 columns are factors).
+#' sim_res <- data.table::rbindlist(lapply(1:10, function(i)
+#'   run_simulation_analysis(sim_id = i, dgm = dgm, n_sample = 500,
+#'     confounders_base = c("z1", "z2", "z3", "z4", "z5", "size", "grade3"))),
+#'   fill = TRUE)
 #' summarize_simulation_results(sim_res)
 #' }
 #' @export

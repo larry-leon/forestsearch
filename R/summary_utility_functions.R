@@ -759,9 +759,11 @@ filter_call_args <- function(source_args, target_func, override_args = NULL) {
 #' @importFrom gt gt fmt_number tab_header tab_spanner tab_source_note tab_options md px
 #' @examples
 #' \dontrun{
-#' library(survival)
+#' gbsg <- survival::gbsg
+#' gbsg$grade3 <- as.integer(gbsg$grade == 3)
 #' fs <- forestsearch(
 #'   gbsg,
+#'   id.name          = "pid",
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
 #'   outcome.name     = "rfstime",
 #'   treat.name       = "hormon",

@@ -141,6 +141,28 @@ generic-threshold duty for GLM outcomes in \code{\link[=forestsearch]{forestsear
 }
 \examples{
 \dontrun{
+# Uniform-effect DGM on the GBSG trial, as in the extreme-subgroups
+# article: k_treat calibrated so that the average hazard ratio is 0.70,
+# the censoring shift calibrated to the observed censoring rate.
+gbsg <- survival::gbsg
+gbsg$time_months <- gbsg$rfstime / 30.4375
+base_args <- list(
+  data = gbsg, continuous_vars = c("age", "size", "nodes", "pgr", "er"),
+  factor_vars = c("meno", "grade"), outcome_var = "time_months",
+  event_var = "status", treatment_var = "hormon", model = "null",
+  n_super = 5000, seed = 99, verbose = FALSE)
+k_treat_uniform <- calibrate_k_treat(target_hr_overall = 0.70,
+  base_args = base_args, use_ahr = TRUE)
+dgm_uniform <- do.call(generate_aft_dgm_flex,
+  c(base_args, list(k_treat = k_treat_uniform)))
+cal_uniform <- calibrate_cens_adjust(dgm_uniform, target = "rate",
+  n = nrow(dgm_uniform$df_source), n_eval = nrow(dgm_uniform$df_source),
+  analysis_time = 84, max_entry = 24, verbose = FALSE, baseline = "fixed")
+subgroups <- list(
+  list(id = "meno == 0",      name = "Pre-menopausal", grp = "Clinical"),
+  list(id = "age <= age_med", name = "Age (young)",    grp = "Continuous"),
+  list(id = "random60 == 1",  name = "random60",       grp = "Random (N~60)"))
+
 sims <- run_subgroup_sims(
   dgm = dgm_uniform, subgroups = subgroups, n_sims = 1000,
   fit = subgroup_cox(survival::Surv(y_sim, event_sim) ~ treat_sim +
@@ -151,7 +173,7 @@ sims <- run_subgroup_sims(
   cutpoints = list(age_med = median(gbsg$age)),
   hr_true = 0.70, k_treat = k_treat_uniform
 )
-saveRDS(sims, "results/extreme_sims_fixed_1000_payload.rds")
+saveRDS(sims, file.path(tempdir(), "extreme_sims_fixed_1000_payload.rds"))
 }
 }
 \seealso{

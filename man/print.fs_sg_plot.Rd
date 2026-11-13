@@ -20,10 +20,13 @@ Print Method for fs_sg_plot Objects
 }
 \examples{
 \dontrun{
-fs <- forestsearch(gbsg,
+gbsg <- survival::gbsg
+gbsg$grade3 <- as.integer(gbsg$grade == 3)
+fs <- forestsearch(gbsg, id.name = "pid",
   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
-p <- plot_subgroup(fs)
+p <- plot_sg_results(fs, outcome.name = "rfstime", event.name = "status",
+  treat.name = "hormon")
 print(p)
 }
 }

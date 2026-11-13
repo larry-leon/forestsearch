@@ -149,6 +149,13 @@
 #'
 #' @examples
 #' \dontrun{
+#' # The GBSG trial with time in months and the column names used below
+#' gbsg_df <- within(survival::gbsg, {
+#'   id    <- pid
+#'   time  <- rfstime / 30.4375
+#'   treat <- hormon
+#' })
+#'
 #' # A fitted survival/Cox analysis (thresholds and knobs live on the object)
 #' fit <- forestsearch(
 #'   df.analysis = gbsg_df,
@@ -162,12 +169,12 @@
 #'   mr_inference = TRUE)
 #'
 #' # Characterize its operating FDR and whether harm confirmation helps
-#' rep <- fs_fdr_report(fit, gbsg_df, nsims = 1000, n_workers = 100)
+#' rep <- fs_fdr_report(fit, gbsg_df, nsims = 1000)
 #' rep                       # prints the realized-HR table and the A/B table
 #' rep$fdr                   # one row per null x c_confirm
 #'
 #' # Reproduce the published reference (n = 700): A ~ 0.138 (hom), 0.278 (harm)
-#' fs_fdr_report(fit, gbsg_df, n = 700, nsims = 1000, n_workers = 100)
+#' fs_fdr_report(fit, gbsg_df, n = 700, nsims = 1000)
 #' }
 #'
 #' @note This function builds its null data through the superseded GBSG wrapper

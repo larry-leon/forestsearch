@@ -145,7 +145,10 @@ See \code{\link{compute_frontier_cis}} for the algebra.
 \dontrun{
 # Survival example
 gbsg <- survival::gbsg
-fs <- forestsearch(gbsg, ...)
+gbsg$grade3 <- as.integer(gbsg$grade == 3)
+fs <- forestsearch(gbsg, id.name = "pid",
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
 
 # Basic table (no CIs)
 pareto_frontier_table(fs)

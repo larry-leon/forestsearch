@@ -1032,7 +1032,9 @@ plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, 
 #' \dontrun{
 #' # sg_consistency_out is called internally by forestsearch().
 #' # See forestsearch() for the standard entry point.
-#' fs <- forestsearch(gbsg,
+#' gbsg <- survival::gbsg
+#' gbsg$grade3 <- as.integer(gbsg$grade == 3)
+#' fs <- forestsearch(gbsg, id.name = "pid",
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
 #'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
 #' fs$grp.consistency$out_sg
@@ -1362,7 +1364,9 @@ remove_redundant_subgroups <- function(found.hrs) {
 #' \dontrun{
 #' # evaluate_subgroup_consistency() is called internally by forestsearch().
 #' # Use forestsearch() as the entry point:
-#' fs <- forestsearch(gbsg,
+#' gbsg <- survival::gbsg
+#' gbsg$grade3 <- as.integer(gbsg$grade == 3)
+#' fs <- forestsearch(gbsg, id.name = "pid",
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
 #'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
 #' }
@@ -1646,7 +1650,9 @@ evaluate_subgroup_consistency <- function(
 #' \dontrun{
 #' # evaluate_consistency_twostage() is called internally by forestsearch()
 #' # when use_twostage = TRUE. Use forestsearch() as the entry point:
-#' fs <- forestsearch(gbsg,
+#' gbsg <- survival::gbsg
+#' gbsg$grade3 <- as.integer(gbsg$grade == 3)
+#' fs <- forestsearch(gbsg, id.name = "pid",
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
 #'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status",
 #'   use_twostage = TRUE)

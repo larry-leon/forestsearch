@@ -102,9 +102,11 @@ so for them \code{adverse_outcome} does not change the effect column.
 }
 \examples{
 \dontrun{
-library(survival)
+gbsg <- survival::gbsg
+gbsg$grade3 <- as.integer(gbsg$grade == 3)
 fs <- forestsearch(
   gbsg,
+  id.name          = "pid",
   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
   outcome.name     = "rfstime",
   treat.name       = "hormon",
