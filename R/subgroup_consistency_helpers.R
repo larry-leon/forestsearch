@@ -334,8 +334,12 @@ run_single_consistency_split <- function(df.x, N.x, hr.consistency, cox_init = 0
 #' model coefficient with a well-defined influence function. That holds for
 #' OR/RR (logistic / log-binomial), RD (identity-link binomial), MD (OLS), and
 #' IRR (Poisson with offset). It does not hold for IRD (a delta-method rate
-#' difference) or propensity-adjusted (IPTW / G-computation) effects, for which
-#' the caller falls back to literal splitting.
+#' difference), for which the caller falls back to literal splitting.
+#' The decision reads `spec$effect_measure` only.  The spec carries no
+#' propensity setting, so a propensity-adjusted (IPTW / G-computation)
+#' analysis with a supported measure also takes the resampling path, whose
+#' model is fitted without the propensity weights (see
+#' `.consistency_glm_pieces()`).
 #'
 #' @param spec List; the `glm_resample_spec` threaded from [forestsearch()].
 #' @return Logical scalar.

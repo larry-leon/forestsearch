@@ -130,6 +130,30 @@
 #'   \item Roles are reversed: H becomes the benefit group
 #' }
 #'
+#' ## Orientation of the GLM rows
+#'
+#' For a non-survival outcome every row estimated from the data (ITT,
+#' reference and post-hoc subgroups) is a GLM effect.  What follows is for
+#' the default \code{est.scale = "hr"}.  With a fit
+#' (\code{fs_results$fs.est}) its estimator is built with the fit's stored
+#' \code{adverse_outcome} or, when none is stored, with
+#' \code{\link{forestsearch}}'s rule (\code{TRUE} for binary and count
+#' outcomes, \code{FALSE} otherwise), so each row is on the scale of the
+#' fit's own estimates, sign included; without a fit the estimator's
+#' default (\code{adverse_outcome = TRUE}) is used.  The rows show the arm
+#' sizes, not the arm means; the arm means and their raw difference
+#' (\code{Diff} in \code{\link{sg_tables}} and
+#' \code{\link{mr_estimates_table}}) do not follow the orientation.  So for
+#' an unadjusted fit where a lower outcome is adverse
+#' (\code{adverse_outcome = FALSE}, the default for continuous outcomes) a
+#' row's effect and the raw treated-minus-control difference have opposite
+#' signs (for OR and RR, the log of the effect): an MD row is the control
+#' mean minus the treated mean.  Count outcomes and the rate measures (IRR,
+#' IRD) are not reoriented (see \code{\link{make_effect_estimator}}).
+#' Bias-corrected rows are taken from \code{fs_results$fs_bc}, whose
+#' estimator \code{\link{forestsearch_bootstrap_dofuture}} builds with the
+#' same rule.
+#'
 #' @examples
 #' \dontrun{
 #' # Load ForestSearch results

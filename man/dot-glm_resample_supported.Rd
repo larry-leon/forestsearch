@@ -17,7 +17,11 @@ The resampling approximation requires the treatment effect to be a single
 model coefficient with a well-defined influence function. That holds for
 OR/RR (logistic / log-binomial), RD (identity-link binomial), MD (OLS), and
 IRR (Poisson with offset). It does not hold for IRD (a delta-method rate
-difference) or propensity-adjusted (IPTW / G-computation) effects, for which
-the caller falls back to literal splitting.
+difference), for which the caller falls back to literal splitting.
+The decision reads \code{spec$effect_measure} only.  The spec carries no
+propensity setting, so a propensity-adjusted (IPTW / G-computation)
+analysis with a supported measure also takes the resampling path, whose
+model is fitted without the propensity weights (see
+\code{.consistency_glm_pieces()}).
 }
 \keyword{internal}

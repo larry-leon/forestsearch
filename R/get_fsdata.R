@@ -324,7 +324,9 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
   lassokeep <- NULL
   lassoomit <- NULL
   if(use_lasso){
-    # Reduce dimension via LASSO (Cox for survival, GLM for binary/continuous)
+    # Reduce dimension via LASSO: Cox for survival; a GLM otherwise --
+    # logistic for binary (Poisson when offset.name is given), linear for
+    # continuous, Poisson for count (log offset when offset.name is given).
     get_lasso <- lasso_selection(
       df = df.FS,
       confounders.name = confounders.name,

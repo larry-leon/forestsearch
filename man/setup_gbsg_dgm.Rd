@@ -104,6 +104,42 @@ and a \code{model_params$censoring} sub-list.
 The original \code{df_super_rand} field is kept so that
 \code{compute_dgm_cde()} and \code{print.gbsg_dgm} continue to work.
 
+\strong{Subgroup.} The harm subgroup H is \code{z1 = 1} and \code{z3 = 1}:
+\code{z1} is 1 when the estrogen receptor value \code{er} is at or below
+its \code{z1_quantile} sample quantile in \code{survival::gbsg} (the 25th
+percentile by default), and \code{z3} is 1 for premenopausal patients
+(\code{meno == 0}). Its indicator is \code{flag.harm} in
+\code{df_super_rand} and \code{flag_harm} in \code{df_super}. Under
+\code{model = "null"} the indicator is 0 for every patient.
+
+\strong{Model.} A Weibull accelerated failure time model is fitted with
+\code{survival::survreg()} to \code{survival::gbsg}, with time
+\code{rfstime / 30.4375} (months), event \code{status} and treatment
+\code{treat = hormon}. Its covariates are \code{treat}, \code{z1},
+\code{z2}, \code{z3}, \code{z4} and \code{z5}, where \code{z2}, \code{z4}
+and \code{z5} are the quartile groups of \code{age}, \code{pgr} and
+\code{nodes}, entered as scores 1 to 4; under \code{model = "alt"} the
+interaction \code{zh = treat * z1 * z3} is added. \code{k_treat} and
+\code{k_z3} multiply the fitted \code{treat} and \code{z3} coefficients.
+With AFT coefficients \code{gamma} and scale \code{sigma}, the
+hazard-scale coefficients are \code{-gamma / sigma}
+(\code{model_params$b_hr}).
+
+\strong{Interaction (\code{k_inter}).} Under \code{model = "alt"}, \code{k_inter}
+multiplies the fitted \code{zh} coefficient,
+\code{gamma[zh] <- k_inter * gamma[zh]} (the default \code{k_inter = 1} keeps
+the fitted value). Each patient's log hazard ratio
+(\code{loghr_po = theta_1 - theta_0} in \code{df_super_rand}) is then
+\code{-(gamma[treat] + gamma[zh]) / sigma} in H and \code{-gamma[treat] / sigma} in
+its complement, so \code{k_inter = 0} gives every patient the same hazard
+ratio. The exponentials of these two values are the stored
+\code{AHR_H_true} and \code{AHR_Hc_true}. The Cox-based
+\code{hr_H_true} and \code{hr_Hc_true} are fitted to stacked potential
+outcomes of the \code{n_super} patients drawn with replacement from the
+GBSG rows, and differ from them; at \code{k_inter = 0} they still differ
+slightly from each other. Under \code{model = "null"}, \code{k_inter} is
+not used.
+
 Noise columns requested via \code{k_random_noise} are inert
 N(0,1) population attributes intended as candidate confounders; the
 builder never puts them in the outcome model. They are drawn once onto

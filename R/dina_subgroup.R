@@ -401,7 +401,9 @@ dina_subgroup <- function(fit, df, covariates,
   .validate_selection_rule(selection_rule, sg_focus, effect_neighborhood)
 
   # DINA's tau-hat is the link-scale linear predictor: identity (MD) for
-  # gaussian, log-OR for binomial, log-IRR for poisson, log-HR for cox.
+  # gaussian, log-OR for binomial, the log mean-count ratio for poisson
+  # (dina() takes no exposure offset, so this is log-IRR only when mean
+  # follow-up does not depend on arm given the covariates), log-HR for cox.
   # Mirror forestsearch by applying the neighborhood band on the natural
   # scale for ratio families (exponentiate before the inclusion test).
   effect_log_scale <- isTRUE(fit$family %in% c("binomial", "poisson", "cox"))

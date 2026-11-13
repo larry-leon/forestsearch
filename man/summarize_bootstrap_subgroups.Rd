@@ -21,8 +21,20 @@ analysis (e.g., c("\{age>=50\}", "\{nodes>=3\}") for a 2-factor subgroup)}
 List with summary components:
 \describe{
 \item{basic_stats}{Data.table of summary statistics}
-\item{consistency_dist}{Data.table of Pcons distribution by bins}
-\item{size_dist}{Data.table of subgroup size distribution}
+\item{consistency_dist}{Data.table of Pcons distribution by bins
+(columns \code{Consistency Range}, \code{Count}, \code{Percent} =
+\code{100 * Count / n_found}).  The bins are closed on the left:
+a label \code{"a-b"} holds \code{a <= Pcons < b} (for example
+\code{"0.85-0.95"} holds \code{0.85 <= Pcons < 0.95}),
+\code{"<0.5"} holds \code{Pcons < 0.5}, and the top bin
+\code{">=0.95"} holds \code{0.95 <= Pcons <= 1}.  A value on a
+break counts in the bin that starts there (0.95 is in
+\code{">=0.95"}).}
+\item{size_dist}{Data.table of subgroup size distribution
+(columns \code{Size Range}, \code{Count}, \code{Percent}), with
+bins closed on the left in the same way: \code{"<50"} holds
+\code{N_sg < 50}, \code{"50-99"} holds \code{50 <= N_sg < 100},
+and so on to \code{">=300"}, which holds \code{N_sg >= 300}.}
 \item{factor_freq}{Data.table of factor frequencies by position}
 \item{agreement}{Data.table of subgroup definition agreement counts}
 \item{factor_presence}{Data.table of base factor presence counts}

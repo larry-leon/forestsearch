@@ -8,7 +8,9 @@
 #'   the harm subgroup. Must be positive.
 #' @param data A data.frame containing the dataset to use for model fitting.
 #' @param continuous_vars Character vector of continuous variable names to be
-#'   standardized and included as covariates.
+#'   included as covariates on their original scale: the function calls
+#'   \code{\link{generate_aft_dgm_flex}} at its default
+#'   \code{standardize = FALSE} and has no argument to change it.
 #' @param factor_vars Character vector of factor/categorical variable names to be
 #'   converted to dummy variables.
 #' @param outcome_var Character string specifying the name of the outcome/time variable.
@@ -32,15 +34,15 @@
 #' @param tol_rel Numeric. Maximum tolerated relative error, in percent; the
 #'   call stops if the achieved HR is not within \code{tol_rel} percent of the
 #'   target. Default \code{2.5}.
-#' @return A list of class "k_inter_result" containing:
+#' @return A plain list (no class attribute) containing:
 #' \describe{
 #'   \item{k_inter}{Numeric value of optimal k_inter parameter}
 #'   \item{achieved_hr_harm}{Numeric value of achieved hazard ratio in harm subgroup}
 #'   \item{target_hr_harm}{Numeric value of target hazard ratio (for reference)}
 #'   \item{error}{Numeric value of absolute error between achieved and target HR}
 #'   \item{dgm}{Object of class "aft_dgm_flex" containing the final DGM}
-#'   \item{convergence}{Integer number of iterations to convergence}
-#'   \item{method}{Character string "root-finding" indicating method used}
+#'   \item{convergence}{Integer number of \code{uniroot} iterations, including
+#'     any automatic extensions of the search range}
 #' }
 #'
 #' @details
@@ -48,8 +50,10 @@
 #' \deqn{HR_{harm}(k_{inter}) - HR_{target} = 0}
 #'
 #' The algorithm typically converges within 5-10 iterations and achieves high
-#' precision (within the specified tolerance). If the root-finding fails, the
-#' function evaluates the boundaries and provides diagnostic information.
+#' precision (within the specified tolerance). The search range is widened
+#' automatically until it brackets the target; if no root can be bracketed, or
+#' the achieved HR is not within \code{tol_rel} percent of the target, the call
+#' stops with an error.
 #'
 #' @seealso
 #' \code{\link{sensitivity_analysis_k_inter}} for sensitivity analysis

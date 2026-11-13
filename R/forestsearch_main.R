@@ -447,9 +447,16 @@
 #'   When \code{selected_only = TRUE} (the default), \code{use_dina} screening
 #'   contributes the cut(s) chosen by \code{\link{dina_subgroup}} -- using
 #'   this call's \code{sg_focus} / \code{selection_rule} /
-#'   \code{effect_neighborhood} / \code{n.min} / \code{hr.threshold}, i.e. the
-#'   same cut \code{subgroup_method = "dina"} would select. Set \code{FALSE} to
-#'   contribute the full frontier candidate set instead.
+#'   \code{effect_neighborhood} / \code{n.min} / \code{hr.threshold}, ranked by
+#'   \code{sg_focus} with DINA's native tau-hat as the effect statistic (under
+#'   \code{"maxSG"} / \code{"minSG"} size ranks first and tau-hat breaks
+#'   ties).  That is the cut \code{subgroup_method = "dina"}
+#'   would select only under \code{dina_select_statistic = "dina"}; under the
+#'   default \code{dina_select_statistic = "effect"},
+#'   \code{subgroup_method = "dina"} re-ranks the qualifying family on the
+#'   inferential effect and can select a different cut, while this screening
+#'   step does not re-rank.  Set \code{FALSE} to contribute the full frontier
+#'   candidate set instead.
 #'
 #'   \strong{\code{m_diff} is the candidacy floor, on the link scale, and is
 #'   derived rather than taken from this list.}  It is the harm floor a
@@ -1080,9 +1087,17 @@
 #'   representation, and taking that representation to its analytic limit
 #'   yields the closed form implemented here. The \code{"resample"} path applies to the Cox
 #'   (survival) outcome and to GLM outcomes whose effect is a single model
-#'   coefficient (OR, RR, RD, MD, IRR); configurations it cannot represent that
-#'   way (IRD, propensity-adjusted effects, or a non-convergent fit on a given
-#'   candidate) fall back to \code{"split"} automatically. When
+#'   coefficient (OR, RR, RD, MD, IRR); an IRD effect, or a candidate whose
+#'   closed form is not available (for example a non-convergent fit), falls
+#'   back to \code{"split"} automatically.  The route is decided by the
+#'   effect measure alone: propensity adjustment
+#'   (\code{ps_adjust_method = "iptw"} or \code{"dr_gcomp"}, with
+#'   \code{ps_method} other than \code{"none"}) does not send a supported
+#'   measure to \code{"split"}.  Under propensity adjustment the
+#'   closed form fits the treatment effect without the propensity weights,
+#'   and without covariates (\code{adjust_covariates} cannot be combined with
+#'   \code{ps_method} other than \code{"none"}), so the consistency rate is
+#'   that of the unadjusted effect. When
 #'   \code{use_twostage = TRUE}, \code{"resample"} bypasses the two-stage
 #'   split screening entirely (the rate is computed directly).
 #'   A sequential and a parallel plan can give different consistency
@@ -1318,8 +1333,23 @@
 #' }
 #'
 #' Supplying \code{effect.threshold} or \code{consistency.threshold} (or the
-#' legacy names) suppresses the corresponding remap and the supplied value is
-#' used on the scale shown above.
+#' legacy names) suppresses the corresponding default remap, and the supplied
+#' value is used on the scale shown above, with one exception: for \code{RD}
+#' and \code{IRD} a supplied value greater than 1 is taken to be on a ratio
+#' scale and is replaced by the default in the table: \code{effect.threshold}
+#' by 0.05 for \code{RD} or 0.01 for \code{IRD}, with two warnings (one from
+#' the input check, one from the remap), and \code{consistency.threshold} by
+#' 0, with one warning.  The remapped \code{effect.threshold}
+#' is the value the fit records (in \code{threshold_config} and
+#' \code{args_call_all}, which a bootstrap or cross-validation replay
+#' re-uses), and it is also the DINA harm floor wherever DINA selects a cut
+#' (\code{subgroup_method = "dina"}, or \code{use_dina = TRUE} screening with
+#' \code{selected_only = TRUE}): on these two routes \code{RD} and \code{IRD}
+#' run with DINA only on the \code{gaussian} family, whose floor is the
+#' resolved \code{effect.threshold} (see \code{dina_args}).  Screening with
+#' \code{selected_only = FALSE} has neither the restriction nor this floor:
+#' it contributes the frontier candidate set on any family, for \code{RD} and
+#' \code{IRD} too.
 #'
 #' \strong{The pair rule, on the consistency path with a ratio estimand.}  For
 #' \code{subgroup_method = "consistency"} with survival (HR) or binary
@@ -2507,12 +2537,17 @@ forestsearch <- function(df.analysis,
     )
 
     # Resolve dmin.grf for GLM outcomes.
-    # The survival default for dmin.grf is on the RMST scale (event count
-    # threshold over a window) and would filter out all candidates for
-    # binary/continuous outcomes where DR score differences are on the
-    # probability/mean scale (0--1).  When the user has not supplied a
-    # value, default to 0.0 (any positive harm qualifies); when the user
-    # supplied a value explicitly, respect it.
+    # dmin.grf is a harm threshold on GRF's doubly robust (DR) scale, not a
+    # number of events: a subgroup's DR harm effect (mean control DR score
+    # minus mean treated DR score) must reach it (>= dmin.grf).  For survival
+    # that effect is a difference in restricted mean survival time up to the
+    # GRF horizon; for GLM outcomes it is a difference on the scale of the
+    # outcome given to GRF (a probability for binary, outcome units for
+    # continuous, log(Y + 0.5) or raw counts for count, per
+    # grf_count_transform), so a value chosen on the RMST scale does not
+    # carry over.  When the user has not supplied a value, use 0.0 (the
+    # formal default: any non-negative DR harm effect qualifies); a supplied
+    # value is used as given.
     if (missing(dmin.grf)) {
       dmin.grf <- 0.0
     }
@@ -3286,8 +3321,12 @@ forestsearch <- function(df.analysis,
 
       if (isTRUE(da$selected_only)) {
         # Selected-cut screening: contribute the SINGLE cut dina_subgroup()
-        # selects, using forestsearch's own selection criteria (so this
-        # matches what subgroup_method = "dina" would choose).  m_diff is the
+        # selects, using forestsearch's own selection criteria with DINA's
+        # native tau-hat as the effect statistic.  That is the cut
+        # subgroup_method = "dina" would choose only under
+        # dina_select_statistic = "dina"; under the default "effect" that
+        # route re-ranks the qualifying family on the inferential effect
+        # (.dina_reselect_on_effect()), and this step does not.  m_diff is the
         # harm floor on the link scale: log(hr.threshold) for ratio families
         # (cox/binomial/poisson), identity for gaussian.  The same refusal the
         # subgroup_method = "dina" derivation applies: there is no identity-

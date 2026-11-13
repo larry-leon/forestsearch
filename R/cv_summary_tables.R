@@ -32,6 +32,22 @@
 #'   }
 #'   If \code{use_gt = FALSE}, returns equivalent data.frames.
 #'
+#' @details
+#' The estimate tables are those of \code{kfold_out}, formatted without
+#' recomputation.  For GLM outcomes \code{\link{forestsearch_KfoldOut}}
+#' builds their effect column with the fit's orientation (the fit's stored
+#' \code{adverse_outcome} or, when none is stored,
+#' \code{\link{forestsearch}}'s rule: \code{TRUE} for binary and count
+#' outcomes, \code{FALSE} otherwise), while, for a fit with the default
+#' \code{est.scale = "hr"}, the arm columns (\code{Rate(C)} or
+#' \code{Mean(C)}, \code{Rate(T)} or \code{Mean(T)}) and their raw
+#' difference \code{Diff} (treated minus control) are the raw outcome.  So
+#' for an unadjusted fit where a lower outcome is adverse
+#' (\code{adverse_outcome = FALSE}, the default for continuous outcomes)
+#' the effect and \code{Diff} have opposite signs.  Count outcomes and the
+#' rate measures (IRR, IRD) are not reoriented.  See
+#' \code{\link{sg_tables}} for the details.
+#'
 #' @examples
 #' \dontrun{
 #' # Run K-fold CV

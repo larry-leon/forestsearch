@@ -42,11 +42,29 @@ is \code{"OR"} -- the same default \code{\link{forestsearch}} uses.}
 
 \item{adverse_outcome}{Logical. If \code{TRUE} (default), higher
 outcome values indicate harm and the effect is computed on the
-raw outcome.  If \code{FALSE}, the outcome is beneficial (e.g.,
-improvement) and the effect is computed on \code{1 - Y} internally
-so that effect > 0 (or OR > 1) consistently indicates treatment
-harm.  Only applies to binary outcomes; ignored for survival,
-continuous, and count.}
+raw outcome.  If \code{FALSE}, higher values indicate benefit
+(e.g., improvement) and, where it applies, the effect is computed
+on a reversed outcome so that effect > 0 (or a ratio > 1) indicates
+treatment harm.  By outcome type and effect measure:
+\itemize{
+\item \code{"binary"} with \code{"OR"}, \code{"RR"} or \code{"RD"}:
+with \code{FALSE} the outcome is replaced by \code{1 - Y} before
+fitting.  The log-OR and the RD change sign; the log-RR becomes
+the log risk ratio of the complementary event,
+\code{log((1 - p1) / (1 - p0))}, which is not \code{-log(p1 / p0)}
+(\code{p1}, \code{p0}: the treated and control risks).
+\item \code{"continuous"} (\code{"MD"}): with \code{FALSE} the
+outcome is replaced by \code{-Y} before fitting, so the MD
+changes sign.
+\item \code{"count"} (\code{"IRR"}, \code{"IRD"}), and
+\code{"binary"} with \code{"IRR"} or \code{"IRD"}: ignored; the
+Poisson rate estimator always uses the raw outcome.
+\item \code{"survival"}: ignored; the Cox estimator always uses the
+raw time and event.
+}
+\code{\link{forestsearch}} resolves its own default (\code{TRUE} for
+binary and count outcomes, \code{FALSE} otherwise) and passes it here;
+this function's default is \code{TRUE} for every outcome type.}
 
 \item{robust_se}{Logical. Use sandwich robust SE when available.
 Default \code{TRUE}.}

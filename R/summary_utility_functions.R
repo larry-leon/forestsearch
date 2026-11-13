@@ -733,6 +733,26 @@ filter_call_args <- function(source_args, target_func, override_args = NULL) {
 #'   for harm).  Default \code{NULL} (use "Recommend"/"Questionable").
 #' @param font_size Numeric. Font size in pixels for table text (default: 12).
 #'
+#' @details
+#' \strong{Orientation of the GLM estimates table.}  For a non-survival fit
+#' with the default \code{est.scale = "hr"} (and for a
+#' \code{grf_glm_result}), the estimates table shows the per-arm
+#' \code{Rate(C)}, \code{Rate(T)} (binary) or \code{Mean(C)}, \code{Mean(T)}
+#' (continuous, count), their raw difference \code{Diff} (treated minus
+#' control; in percentage points for binary outcomes) and the effect column.
+#' The effect column follows the fit's orientation: its estimator is built
+#' with the fit's stored \code{adverse_outcome} or, when none is stored,
+#' with \code{\link{forestsearch}}'s rule (\code{TRUE} for binary and count
+#' outcomes, \code{FALSE} otherwise), so it is on the scale of the fit's own
+#' estimates.  The arm columns and \code{Diff} do not follow it: they are
+#' the raw outcome.  So for an unadjusted fit where a lower outcome is
+#' adverse (\code{adverse_outcome = FALSE}, the default for continuous
+#' outcomes) the effect and \code{Diff} have opposite signs: an MD is
+#' \code{-Diff}, an RD is \code{-Diff / 100}, and the log of an OR or RR has
+#' the sign opposite to \code{Diff}.  Count outcomes and the rate measures
+#' (IRR, IRD) are not reoriented (see \code{\link{make_effect_estimator}}),
+#' so for them \code{adverse_outcome} does not change the effect column.
+#'
 #' @return List with gt tables for estimates, subgroups, and optionally
 #'   search info.
 #'

@@ -383,7 +383,38 @@ print.hte_test <- function(x, ...) {
 #' @param regression Character: "ols", "logistic", or "poisson".
 #' @param offset Numeric offset vector (Poisson only).
 #' @param poly_order Integer. Default: 1.
-#' @return List with hte_test, covariates_used, source.
+#' @return List with \code{hte_test} (the \code{\link{test_hte}} result),
+#'   \code{covariates_used} (the \code{df} columns entered in the test),
+#'   \code{n_covariates} (their number), \code{n_candidates}
+#'   (\code{length(fs_result$find.grps$max_sg_est)}, \code{NA} when that
+#'   is absent) and \code{source}; or \code{NULL} with a warning when no
+#'   covariate is found.
+#'
+#'   The covariates come from \code{fs_result$confounders.evaluated} when
+#'   it is non-empty, else from \code{fs_result$confounders.candidate},
+#'   taken as column names.  Each \code{confounders.evaluated} label is
+#'   mapped to columns of \code{df}: a label that is exactly a column name
+#'   (a categorical confounder such as \code{"meno"}, including a
+#'   non-syntactic name such as \code{"ER-pos"}) is that column; any other
+#'   label (a cut such as \code{"age <= 53"}) is parsed, and its variables
+#'   that are columns of \code{df} are used.  Each column is used once, in
+#'   the order first met.  Two warnings: a label that resolves to no column
+#'   of \code{df} warns that it "cannot be resolved to a column of df" and
+#'   is skipped; and when no covariate column is left, the function warns
+#'   "No covariate found in df for the ForestSearch covariates" and returns
+#'   \code{NULL}.  (When neither field is present it warns "No covariates
+#'   found." and returns \code{NULL}.)  Factor and character columns enter
+#'   the test as their level codes minus 1, other columns as numbers.
+#'
+#'   \code{source} names the field used:
+#'   \code{"confounders.evaluated (GRF/LASSO selected)"} or
+#'   \code{"confounders.candidate (all candidates)"}.  The first string is
+#'   fixed.  On the default (consistency) route
+#'   \code{confounders.evaluated} holds the fit's candidate factor labels,
+#'   which are LASSO-screened or include GRF cuts only when the fit used
+#'   \code{use_lasso} or \code{use_grf} (both \code{FALSE} by default); on
+#'   the \code{subgroup_method = "dina"} and \code{"grf"} routes it is the
+#'   fit's \code{confounders.name}.
 #' @export
 test_hte_from_forestsearch <- function(fs_result, df,
                                         outcome.name,

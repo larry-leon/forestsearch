@@ -64,6 +64,24 @@
 #' Either way the bias-corrected cell may differ
 #' slightly from the full bootstrap even when the naive effect matches exactly.
 #'
+#' For GLM outcomes the effect columns follow the fit's orientation: the
+#' naive and MR values are those of `fs$mr_inference`, on the scale of the
+#' fit's own estimates; the descriptive table's estimator (which gives the
+#' complement's naive cell when MR did not cover the complement) is built
+#' with the fit's stored `adverse_outcome` or, when none is stored, with
+#' [forestsearch()]'s rule (`TRUE` for binary and count outcomes, `FALSE`
+#' otherwise); and a template's effect column comes from
+#' [forestsearch_bootstrap_dofuture()], which builds its estimator with the
+#' same rule.  With the default `est.scale = "hr"`, the descriptive columns
+#' `Rate(C)` or `Mean(C)`, `Rate(T)` or `Mean(T)`, and their raw difference
+#' `Diff` (treated minus control) are the raw outcome and do not follow it.
+#' So for an unadjusted fit where a
+#' lower outcome is adverse (`adverse_outcome = FALSE`, the default for
+#' continuous outcomes) the effect and `Diff` have opposite signs: an MD is
+#' `-Diff`, an RD is `-Diff / 100`, and the log of an OR or RR has the sign
+#' opposite to `Diff`.  Count outcomes and the rate measures (IRR, IRD) are
+#' not reoriented (see [make_effect_estimator()]).
+#'
 #' @seealso [forestsearch()] for the `mr_inference` switch and the vocabulary
 #'   section; [fs_mr_inference()] for the MR computation itself;
 #'   [forestsearch_bootstrap_dofuture()] for the full bootstrap that supplies

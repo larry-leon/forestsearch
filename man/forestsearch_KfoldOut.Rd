@@ -27,6 +27,20 @@ outcomes.  Ignored when \code{outall = FALSE}.}
 \value{
 If \code{outall=FALSE}, a list with \code{sens_metrics_original} and
 \code{find_metrics}. If \code{outall=TRUE}, a list with summary tables and metrics.
+For GLM outcomes the tables (\code{itt_tab}, \code{SG_tab_original},
+\code{SG_tab_Kfold}, \code{tab_all}) are built by
+\code{\link{SG_tab_estimates_glm}}.  Their effect column follows the
+fit's orientation (the fit's stored \code{adverse_outcome} or, when
+none is stored, \code{\link{forestsearch}}'s rule: \code{TRUE} for
+binary and count outcomes, \code{FALSE} otherwise), while, for a fit
+with the default \code{est.scale = "hr"}, the arm columns
+(\code{Rate(C)} or \code{Mean(C)}, \code{Rate(T)} or \code{Mean(T)})
+and their raw difference \code{Diff} (treated minus control) do not.
+So for an unadjusted fit where a lower outcome is
+adverse (\code{adverse_outcome = FALSE}, the default for continuous
+outcomes) the effect and \code{Diff} have opposite signs.  Count
+outcomes and the rate measures (IRR, IRD) are not reoriented.  See
+\code{\link{sg_tables}} for the details.
 }
 \description{
 Summarizes cross-validation results for ForestSearch, including subgroup

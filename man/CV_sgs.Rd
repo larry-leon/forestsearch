@@ -17,7 +17,32 @@ CV_sgs(sg1, sg2, confs, sg_analysis)
 }
 \value{
 List with indicators for any match, exact match, one match, and
-covariate-specific matches.
+covariate-specific matches, one value per fold (\code{sg1[i]},
+\code{sg2[i]} are the factor labels of fold \code{i}'s subgroup,
+\code{NA} for an empty slot):
+\describe{
+\item{any_found}{1 if the fold found a subgroup (either slot not
+\code{NA}), else 0.}
+\item{exact_match}{1 if the fold's subgroup is the full-data
+subgroup \code{sg_analysis}, else 0.  For a two-factor
+\code{sg_analysis}, both factors appear in the fold's two slots,
+in either order.  For a one-factor \code{sg_analysis}, the fold's
+subgroup is that factor alone: one slot holds it and the other is
+\code{NA}.  A fold subgroup that combines it with a second factor
+is not exact; it counts in \code{one_match}.}
+\item{one_match}{1 if at least one full-data factor appears in
+either slot, else 0.}
+\item{cov1_any, cov2_any}{1 if the fold's subgroup uses the
+covariate of the first (second) full-data factor, with any cut
+(see \code{\link{find_covariate_any_match}}), else 0.}
+\item{cov1_exact, cov2_exact}{1 if the first (second) full-data
+factor appears in either slot, else 0.}
+}
+\code{cov2_any} and \code{cov2_exact} are \code{NA} unless
+\code{sg_analysis} has two factors.  A comparison with \code{NA}
+counts as 0.  When \code{sg_analysis} has no element, or more than
+two, \code{exact_match}, \code{one_match}, \code{cov1_any} and
+\code{cov1_exact} are 0 for every fold.
 }
 \description{
 Summarizes the match between cross-validation subgroups and analysis subgroups.

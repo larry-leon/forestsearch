@@ -56,13 +56,16 @@ over \code{k_treat} with every other argument to
 \code{generate_aft_dgm_flex()} held fixed.
 }
 \details{
-This is the natural sibling of \code{\link{calibrate_k_inter}} (which
-targets the harm-subgroup HR under \code{model = "alt"}) and
-\code{\link{calibrate_cens_adjust}} (which targets the censoring rate).
-It is typically used with \code{model = "null"} to fix the overall HR
-for a uniform-effect DGM, but also works with \code{model = "alt"}
-when the marginal HR is the calibration target rather than the
-subgroup-specific HR.
+This is the natural sibling of \code{\link{find_k_inter_for_target_hr}}
+(which targets the harm-subgroup HR of a \code{generate_aft_dgm_flex()}
+DGM under \code{model = "alt"}) and \code{\link{calibrate_cens_adjust}}
+(which targets the censoring rate). \code{\link{calibrate_k_inter}}
+targets the harm-subgroup HR of the GBSG mechanism of
+\code{\link{setup_gbsg_dgm}} instead.
+\code{calibrate_k_treat()} is typically used with \code{model = "null"}
+to fix the overall HR for a uniform-effect DGM, but also works with
+\code{model = "alt"} when the marginal HR is the calibration target
+rather than the subgroup-specific HR.
 
 Reproducibility requires the \code{uniroot} objective to be deterministic
 in \code{k_treat}.  This is achieved by including an integer
@@ -112,6 +115,7 @@ print(dgm_ahr$hazard_ratios$AHR)   # ~ 0.70
 
 }
 \seealso{
+\code{\link{find_k_inter_for_target_hr}},
 \code{\link{calibrate_k_inter}},
 \code{\link{calibrate_cens_adjust}},
 \code{\link{generate_aft_dgm_flex}}

@@ -216,9 +216,16 @@ formerly accepted here as \code{select_statistic} is now the top-level
 When \code{selected_only = TRUE} (the default), \code{use_dina} screening
 contributes the cut(s) chosen by \code{\link{dina_subgroup}} -- using
 this call's \code{sg_focus} / \code{selection_rule} /
-\code{effect_neighborhood} / \code{n.min} / \code{hr.threshold}, i.e. the
-same cut \code{subgroup_method = "dina"} would select. Set \code{FALSE} to
-contribute the full frontier candidate set instead.
+\code{effect_neighborhood} / \code{n.min} / \code{hr.threshold}, ranked by
+\code{sg_focus} with DINA's native tau-hat as the effect statistic (under
+\code{"maxSG"} / \code{"minSG"} size ranks first and tau-hat breaks
+ties).  That is the cut \code{subgroup_method = "dina"}
+would select only under \code{dina_select_statistic = "dina"}; under the
+default \code{dina_select_statistic = "effect"},
+\code{subgroup_method = "dina"} re-ranks the qualifying family on the
+inferential effect and can select a different cut, while this screening
+step does not re-rank.  Set \code{FALSE} to contribute the full frontier
+candidate set instead.
 
 \strong{\code{m_diff} is the candidacy floor, on the link scale, and is
 derived rather than taken from this list.}  It is the harm floor a
@@ -810,9 +817,17 @@ consistency rate admits an equivalent multiplier-resampling (MR)
 representation, and taking that representation to its analytic limit
 yields the closed form implemented here. The \code{"resample"} path applies to the Cox
 (survival) outcome and to GLM outcomes whose effect is a single model
-coefficient (OR, RR, RD, MD, IRR); configurations it cannot represent that
-way (IRD, propensity-adjusted effects, or a non-convergent fit on a given
-candidate) fall back to \code{"split"} automatically. When
+coefficient (OR, RR, RD, MD, IRR); an IRD effect, or a candidate whose
+closed form is not available (for example a non-convergent fit), falls
+back to \code{"split"} automatically.  The route is decided by the
+effect measure alone: propensity adjustment
+(\code{ps_adjust_method = "iptw"} or \code{"dr_gcomp"}, with
+\code{ps_method} other than \code{"none"}) does not send a supported
+measure to \code{"split"}.  Under propensity adjustment the
+closed form fits the treatment effect without the propensity weights,
+and without covariates (\code{adjust_covariates} cannot be combined with
+\code{ps_method} other than \code{"none"}), so the consistency rate is
+that of the unadjusted effect. When
 \code{use_twostage = TRUE}, \code{"resample"} bypasses the two-stage
 split screening entirely (the rate is computed directly).
 A sequential and a parallel plan can give different consistency
@@ -1210,8 +1225,23 @@ resolved from the estimand.  The resolved pairs are:
 }
 
 Supplying \code{effect.threshold} or \code{consistency.threshold} (or the
-legacy names) suppresses the corresponding remap and the supplied value is
-used on the scale shown above.
+legacy names) suppresses the corresponding default remap, and the supplied
+value is used on the scale shown above, with one exception: for \code{RD}
+and \code{IRD} a supplied value greater than 1 is taken to be on a ratio
+scale and is replaced by the default in the table: \code{effect.threshold}
+by 0.05 for \code{RD} or 0.01 for \code{IRD}, with two warnings (one from
+the input check, one from the remap), and \code{consistency.threshold} by
+0, with one warning.  The remapped \code{effect.threshold}
+is the value the fit records (in \code{threshold_config} and
+\code{args_call_all}, which a bootstrap or cross-validation replay
+re-uses), and it is also the DINA harm floor wherever DINA selects a cut
+(\code{subgroup_method = "dina"}, or \code{use_dina = TRUE} screening with
+\code{selected_only = TRUE}): on these two routes \code{RD} and \code{IRD}
+run with DINA only on the \code{gaussian} family, whose floor is the
+resolved \code{effect.threshold} (see \code{dina_args}).  Screening with
+\code{selected_only = FALSE} has neither the restriction nor this floor:
+it contributes the frontier candidate set on any family, for \code{RD} and
+\code{IRD} too.
 
 \strong{The pair rule, on the consistency path with a ratio estimand.}  For
 \code{subgroup_method = "consistency"} with survival (HR) or binary

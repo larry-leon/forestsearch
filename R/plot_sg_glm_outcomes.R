@@ -23,6 +23,21 @@
 #' are annotated with the effect estimate and optional bias-corrected
 #' estimate from the bootstrap.
 #'
+#' The effect annotation follows the fit's orientation: its estimator is
+#' built with the fit's stored \code{adverse_outcome}
+#' (\code{fs.est$args_call_all$adverse_outcome}) or, when none is stored,
+#' with \code{\link{forestsearch}}'s rule (\code{TRUE} for binary and count
+#' outcomes, \code{FALSE} otherwise), so it is on the scale of the fit's
+#' own estimates, sign included.  The plotted per-arm rates or means (and
+#' the returned \code{data}) are the raw outcome and do not follow it.  So
+#' for an unadjusted fit where a lower outcome is adverse
+#' (\code{adverse_outcome = FALSE}, the default for continuous outcomes)
+#' the annotated effect and the treated-minus-control difference of the
+#' plotted values have opposite signs (for OR and RR, the log of the
+#' effect): an MD annotation is the control mean minus the treated mean.
+#' Count outcomes and the rate measures (IRR, IRD) are not reoriented (see
+#' \code{\link{make_effect_estimator}}).
+#'
 #' @param fs.est A forestsearch object containing \code{df.est} with
 #'   \code{treat.recommend} column.
 #' @param fs_bc Optional. Bootstrap results from

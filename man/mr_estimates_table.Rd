@@ -75,6 +75,24 @@ under \code{ci_method = "ij"} or \code{"field"} (the forest-search path defaults
 \code{"ij"}), and from the subgroup robust SE only under \code{ci_method = "wald"}.
 Either way the bias-corrected cell may differ
 slightly from the full bootstrap even when the naive effect matches exactly.
+
+For GLM outcomes the effect columns follow the fit's orientation: the
+naive and MR values are those of \code{fs$mr_inference}, on the scale of the
+fit's own estimates; the descriptive table's estimator (which gives the
+complement's naive cell when MR did not cover the complement) is built
+with the fit's stored \code{adverse_outcome} or, when none is stored, with
+\code{\link[=forestsearch]{forestsearch()}}'s rule (\code{TRUE} for binary and count outcomes, \code{FALSE}
+otherwise); and a template's effect column comes from
+\code{\link[=forestsearch_bootstrap_dofuture]{forestsearch_bootstrap_dofuture()}}, which builds its estimator with the
+same rule.  With the default \code{est.scale = "hr"}, the descriptive columns
+\code{Rate(C)} or \code{Mean(C)}, \code{Rate(T)} or \code{Mean(T)}, and their raw difference
+\code{Diff} (treated minus control) are the raw outcome and do not follow it.
+So for an unadjusted fit where a
+lower outcome is adverse (\code{adverse_outcome = FALSE}, the default for
+continuous outcomes) the effect and \code{Diff} have opposite signs: an MD is
+\code{-Diff}, an RD is \code{-Diff / 100}, and the log of an OR or RR has the sign
+opposite to \code{Diff}.  Count outcomes and the rate measures (IRR, IRD) are
+not reoriented (see \code{\link[=make_effect_estimator]{make_effect_estimator()}}).
 }
 \seealso{
 \code{\link[=forestsearch]{forestsearch()}} for the \code{mr_inference} switch and the vocabulary

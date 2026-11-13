@@ -1323,6 +1323,20 @@ forestsearch_tenfold <- function(
 #'
 #' @return If \code{outall=FALSE}, a list with \code{sens_metrics_original} and
 #'   \code{find_metrics}. If \code{outall=TRUE}, a list with summary tables and metrics.
+#'   For GLM outcomes the tables (\code{itt_tab}, \code{SG_tab_original},
+#'   \code{SG_tab_Kfold}, \code{tab_all}) are built by
+#'   \code{\link{SG_tab_estimates_glm}}.  Their effect column follows the
+#'   fit's orientation (the fit's stored \code{adverse_outcome} or, when
+#'   none is stored, \code{\link{forestsearch}}'s rule: \code{TRUE} for
+#'   binary and count outcomes, \code{FALSE} otherwise), while, for a fit
+#'   with the default \code{est.scale = "hr"}, the arm columns
+#'   (\code{Rate(C)} or \code{Mean(C)}, \code{Rate(T)} or \code{Mean(T)})
+#'   and their raw difference \code{Diff} (treated minus control) do not.
+#'   So for an unadjusted fit where a lower outcome is
+#'   adverse (\code{adverse_outcome = FALSE}, the default for continuous
+#'   outcomes) the effect and \code{Diff} have opposite signs.  Count
+#'   outcomes and the rate measures (IRR, IRD) are not reoriented.  See
+#'   \code{\link{sg_tables}} for the details.
 #'
 
 #' @examples
@@ -1823,7 +1837,32 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE,
 #' @param sg_analysis Character vector. Subgroup analysis labels.
 #'
 #' @return List with indicators for any match, exact match, one match, and
-#'   covariate-specific matches.
+#'   covariate-specific matches, one value per fold (\code{sg1[i]},
+#'   \code{sg2[i]} are the factor labels of fold \code{i}'s subgroup,
+#'   \code{NA} for an empty slot):
+#'   \describe{
+#'     \item{any_found}{1 if the fold found a subgroup (either slot not
+#'       \code{NA}), else 0.}
+#'     \item{exact_match}{1 if the fold's subgroup is the full-data
+#'       subgroup \code{sg_analysis}, else 0.  For a two-factor
+#'       \code{sg_analysis}, both factors appear in the fold's two slots,
+#'       in either order.  For a one-factor \code{sg_analysis}, the fold's
+#'       subgroup is that factor alone: one slot holds it and the other is
+#'       \code{NA}.  A fold subgroup that combines it with a second factor
+#'       is not exact; it counts in \code{one_match}.}
+#'     \item{one_match}{1 if at least one full-data factor appears in
+#'       either slot, else 0.}
+#'     \item{cov1_any, cov2_any}{1 if the fold's subgroup uses the
+#'       covariate of the first (second) full-data factor, with any cut
+#'       (see \code{\link{find_covariate_any_match}}), else 0.}
+#'     \item{cov1_exact, cov2_exact}{1 if the first (second) full-data
+#'       factor appears in either slot, else 0.}
+#'   }
+#'   \code{cov2_any} and \code{cov2_exact} are \code{NA} unless
+#'   \code{sg_analysis} has two factors.  A comparison with \code{NA}
+#'   counts as 0.  When \code{sg_analysis} has no element, or more than
+#'   two, \code{exact_match}, \code{one_match}, \code{cov1_any} and
+#'   \code{cov1_exact} are 0 for every fold.
 #'
 
 #' @examples

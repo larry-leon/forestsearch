@@ -426,7 +426,9 @@ generate_gbsg_bootstrap_general <- function(n = 686, seed = 123, noise_level = 0
 #'   uses the same number of rows as the input data.
 #' @param continuous_vars Character vector of column names to treat as continuous
 #'   variables. If NULL (default), every numeric column except \code{id_var} is
-#'   used, including numeric columns with few distinct values.
+#'   used, including numeric columns with few distinct values. A column named
+#'   here must be numeric: a factor or character column stops the call with an
+#'   error, and a logical column is returned as a numeric 0/1 column.
 #' @param cat_vars Character vector of column names to treat as categorical
 #'   variables. If NULL (default), factor and logical columns are used, together
 #'   with numeric columns that have 10 or fewer unique values; columns in
@@ -446,8 +448,12 @@ generate_gbsg_bootstrap_general <- function(n = 686, seed = 123, noise_level = 0
 #'   determine noise magnitude. For categorical variables, this is divided by 2
 #'   to determine the probability of value changes. Default is 0.1.
 #'
-#' @return A data frame with the same structure as the input data, containing
-#'   bootstrap sampled observations with added noise.
+#' @return A data frame of \code{n} rows, with the columns of \code{data} in
+#'   the same order and row names \code{1:n}, containing bootstrap sampled
+#'   observations with added noise. Column types are kept, except that every
+#'   column in \code{continuous_vars} is returned as double (an integer column
+#'   comes back double, holding whole numbers) and \code{id_var}, if present,
+#'   is replaced by the integer sequence \code{1:n}.
 #'
 #' @details
 #' The function performs the following operations:
@@ -458,9 +464,11 @@ generate_gbsg_bootstrap_general <- function(n = 686, seed = 123, noise_level = 0
 #'
 #' \subsection{Continuous Variable Noise}{
 #'   \itemize{
-#'     \item Adds Gaussian noise with standard deviation = original SD × noise_level
+#'     \item Adds Gaussian noise with standard deviation = original SD times noise_level
 #'     \item Constrains values to remain within original variable bounds
-#'     \item Preserves integer type for variables that appear to be integers
+#'     \item Rounds to whole numbers the variables that appear to be integers
+#'       (see below); the column is returned as double, not integer
+#'     \item Leaves missing values missing
 #'   }
 #'   Integer-valued columns (every non-missing value a whole number) are
 #'   rounded after the noise is added, so a 0/1 column treated as continuous is
@@ -514,8 +522,19 @@ generate_gbsg_bootstrap_general <- function(n = 686, seed = 123, noise_level = 0
 #' \itemize{
 #'   \item The function assumes that categorical variables with numeric encoding
 #'     should maintain their numeric type unless they are factors in the input
-#'   \item Missing values (NA) are handled appropriately in calculations but
-#'     are not imputed
+#'   \item Missing values (NA) in a column treated only as continuous (not
+#'     also in \code{cat_vars}) stay missing. In a
+#'     categorical column a missing value is selected for change with the same
+#'     probability, \code{noise_level / 2}, as any other value; if it is not
+#'     selected it stays missing. A selected missing value in an ordered
+#'     factor, or a column named \code{grade}, with more than two levels stops
+#'     the call with the error "replacement has length zero". Otherwise, in a
+#'     column with two levels (for a non-factor column, two distinct
+#'     non-missing values in \code{data}) it is replaced by the first level
+#'     (for a non-factor column, the smallest value); in a column with more
+#'     than two levels, by a level drawn at random from all its levels; and in
+#'     a column with fewer than two levels (for a non-factor column, fewer than
+#'     two distinct non-missing values) it stays missing.
 #'   \item For an ordered factor, or a column named \code{grade}, that is
 #'     processed as categorical and has more than two levels, the perturbation
 #'     favors adjacent levels. A numeric \code{grade} column is processed as
