@@ -299,13 +299,20 @@
     effect_measure %in% c("RD", "IRD")
 
   if (is_bounded_identity && user_set_threshold && hr.threshold > 1.0) {
+    # Name the measure and its ratio-scale counterpart: RD -> OR, IRD -> IRR
+    # (the ratio measure of the same rate model).  A rate difference is not
+    # bounded by 1 in itself; [-1, 1] is the range the threshold remap uses.
+    bound_line <- switch(effect_measure,
+      RD  = "  A risk difference cannot exceed 1.0.\n",
+      IRD = "  A rate-difference threshold above 1.0 is outside that range.\n")
+    ratio_measure <- switch(effect_measure, RD = "OR", IRD = "IRR")
     warning(
       sprintf(paste0(
         "effect.threshold = %.2f but effect_measure = '%s' ",
         "(identity scale, range [-1, 1]).\n",
-        "  A risk difference cannot exceed 1.0.\n",
-        "  Did you mean effect_measure = 'OR' (ratio scale)?"),
-        hr.threshold, effect_measure),
+        "%s",
+        "  Did you mean effect_measure = '%s' (ratio scale)?"),
+        hr.threshold, effect_measure, bound_line, ratio_measure),
       call. = FALSE)
   }
 
@@ -2332,6 +2339,14 @@ forestsearch <- function(df.analysis,
       # NOTE: RD/IRD are probability/rate differences bounded in [-1, 1].
       # MD (mean difference) has no natural bounds and is NOT checked here.
       if (user_set_threshold && effect_threshold > 1.0) {
+        # The measure's ratio-scale counterpart, its default and an example:
+        # RD -> OR, 0.05; IRD -> IRR, 0.01 (?forestsearch, "Resolved defaults,
+        # per estimand").  The message prints the value the remap assigns.
+        .fs_remap_ratio   <- switch(effect_measure, RD = "OR", IRD = "IRR")
+        .fs_remap_default <- switch(effect_measure, RD = 0.05, IRD = 0.01)
+        .fs_remap_example <- switch(effect_measure,
+          RD  = "effect.threshold = 0.07 for a 7 pct-point threshold",
+          IRD = "effect.threshold = 0.02 for a rate difference of 0.02")
         warning(
           sprintf(
             paste0(
@@ -2341,12 +2356,12 @@ forestsearch <- function(df.analysis,
               "  Did you mean effect.threshold = %.2f on the %s scale?\n",
               "  Remapping to default: %.2f.\n",
               "  To use a custom %s threshold, pass a value in [-1, 1] ",
-              "(e.g., effect.threshold = 0.07 for a 7 pct-point threshold)."),
+              "(e.g., %s)."),
             effect_threshold, effect_measure,
-            effect_threshold, "OR", 0.05, effect_measure),
+            effect_threshold, .fs_remap_ratio, .fs_remap_default,
+            effect_measure, .fs_remap_example),
           call. = FALSE)
-        effect_threshold <- switch(effect_measure,
-          RD = 0.05, IRD = 0.01)
+        effect_threshold <- .fs_remap_default
       }
 
       if (consistency_threshold >= 1.0 && !user_set_consistency) {
