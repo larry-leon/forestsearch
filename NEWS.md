@@ -475,6 +475,21 @@ MRCT consistency article.
   sign convention of the printed CATEs is unchanged. Binary and continuous
   results print the same note as before.
 
+* `run_simulation_analysis()` with a GLM outcome now reports the risk
+  difference (`fs_params$effect_measure = "RD"`), the risk ratio (`"RR"`) and
+  the rate difference (`"IRD"`) in `hr.itt`, `hr.H.hat`, `hr.Hc.hat`,
+  `hr.H.true` and `hr.Hc.true` on their own scales: the difference and the
+  ratio of the two fitted arm proportions, and the difference of the two
+  fitted arm rates, treatment against control. They were the log odds ratio,
+  the odds ratio and the log rate ratio. Tables and plots built from these
+  columns change accordingly. With an offset (the column named by
+  `fs_params$offset.name`, when it is in the data) the rate difference is per
+  unit of exposure, the convention of the rate ratio, while the IRD truth in
+  the `ahr.*` columns and the DGM's IRD are per patient, so the two are not on
+  the same scale. Odds-ratio, rate-ratio, mean-difference and survival results
+  are unchanged, and stored payloads are not regenerated. (Code audit A-138,
+  in part.)
+
 ### Removed
 
 * `create_gbsg_dgm()` and `simulate_from_gbsg_dgm()` are removed, with the
