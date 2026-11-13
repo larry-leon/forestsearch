@@ -363,8 +363,10 @@ title: "setup_gbsg_dgm() and generate_aft_dgm_flex(): Relationship and Usage"
 
 `setup_gbsg_dgm()` is a **GBSG-specific convenience wrapper**. It encodes
 the particular data preparation choices made in León et al. (2024) — the
-subgroup definition (ER ≤ q25, premenopausal), the binary discretisation of
-continuous covariates, the Weibull outcome and censoring models — so that a
+subgroup definition (ER ≤ q25, premenopausal), the discretisation of
+continuous covariates (age, progesterone receptor and nodes in quartile
+groups; tumour size in three groups cut at 20 and 50 mm), the Weibull
+outcome and censoring models — so that a
 calibrated DGM for the GBSG simulation setting can be created with a single
 call:
 
@@ -385,12 +387,13 @@ compatible with `simulate_from_dgm()` and `run_simulation_analysis()`.
 
 ---
 
-## Replicating `setup_gbsg_dgm()` with `generate_aft_dgm_flex()`
+## A comparable construction with `generate_aft_dgm_flex()`
 
 `generate_aft_dgm_flex()` is the general DGM builder. It requires the analyst
-to supply the dataset and make every modelling choice explicitly. The GBSG
-DGM in `setup_gbsg_dgm()` is equivalent to the following call — it simply
-automates this preparation:
+to supply the dataset and make every modelling choice explicitly. The call
+below is a comparable construction of the GBSG mechanism with the general
+generator. It is not numerically equivalent to `setup_gbsg_dgm()`; the
+differences are listed after the code.
 
 ```{r generate-aft-equivalent}
 #| eval: false
@@ -439,10 +442,37 @@ dgm_flex <- generate_aft_dgm_flex(
 )
 ```
 
-`setup_gbsg_dgm()` is preferred for the GBSG simulation setting because it
-guarantees exact replication of the León et al. (2024) covariate
-construction and subgroup definition without requiring the analyst to
-reproduce all preparation steps by hand.
+The block and `setup_gbsg_dgm()` share the source data, the outcome time in
+months, the subgroup $H$ (ER at or below its 25th percentile and
+premenopausal), `k_treat`, `k_inter`, `n_super` and `seed`. With the same
+seed they resample the same source rows into the super-population, so the
+random draws are not what differs. The super-population's treatment column
+does differ: `setup_gbsg_dgm()` assigns treatment to half of the resampled
+rows (share 0.5), while the block, with the default
+`draw_treatment = FALSE` of `generate_aft_dgm_flex()`, keeps the observed
+`hormon` (share about 0.36). In a simulated trial this column matters only
+when treatment is not redrawn; `simulate_from_dgm()` redraws it in every
+trial by default (`draw_treatment = TRUE`). The models differ:
+
+- **Covariates and cut points.** `setup_gbsg_dgm()` fits the Weibull outcome
+  model on treatment, the ER and premenopausal indicators, and the quartile
+  group (1 to 4, entered as a number) of age, progesterone receptor and
+  nodes, plus the treatment-by-$H$ interaction; tumour size and grade are
+  analysis factors only. The block uses median splits (0/1) of age,
+  progesterone receptor and nodes, and adds tumour size (median split) and
+  grade 3 to the outcome model.
+- **Interaction.** Both builders multiply the fitted interaction coefficient
+  by `k_inter`, but the coefficient comes from a different outcome model, so
+  `k_inter = 2.5` does not give the same interaction: the true hazard ratio
+  in $H$ is about 4.4 from `setup_gbsg_dgm()` and 4.1 from the block.
+- **Censoring.** `setup_gbsg_dgm()` fits a Weibull censoring model to the
+  resampled super-population, in which treatment is the arm assigned for
+  simulation, and multiplies its covariate term by the ratio of the
+  event-model scale to the censoring-model scale (`?setup_gbsg_dgm`, section
+  Superseded). `generate_aft_dgm_flex()`, with its default
+  `select_censoring = TRUE`, fits the censoring model to the source data and
+  chooses by AIC among Weibull and log-normal models with and without
+  covariates; for this call it chooses an intercept-only Weibull model.
 
 ---
 
@@ -451,16 +481,16 @@ reproduce all preparation steps by hand.
 | Scenario | Recommended function |
 |---|---|
 | Replicating León et al. (2024) simulations | `setup_gbsg_dgm()` |
-| GBSG-based simulation with custom parameters | `setup_gbsg_dgm()` |
+| New GBSG-based simulation with custom parameters | `generate_aft_dgm_flex()` |
 | DGM based on a different dataset | `generate_aft_dgm_flex()` |
 | Custom subgroup definition or covariate structure | `generate_aft_dgm_flex()` |
 | Multi-regional or MRCT simulation | `generate_aft_dgm_flex()` via `create_dgm_for_mrct()` |
 
-`setup_gbsg_dgm()` is not deprecated in the sense of being removed or
-discouraged for GBSG work — it remains the correct entry point for the
-simulation studies in this package. The general function `generate_aft_dgm_flex()`
-is the right choice when the simulation is based on a **different dataset or
-subgroup structure**.
+`setup_gbsg_dgm()` is used in this article to reproduce the published
+simulations, and the package keeps it for that purpose. It is superseded
+for new work and will be deprecated in a future release: new simulations,
+on the GBSG data or another dataset, should use `generate_aft_dgm_flex()`
+with `simulate_from_dgm()`.
 
 ---
 
