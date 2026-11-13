@@ -825,6 +825,17 @@ sg_tables <- function(fs,
       effect_measure <- em_map[[effect_measure]]
     }
 
+    # Orientation: the GRF result's own adverse_outcome (stored at the top
+    # level; a grf_glm_result has no args_call_all), so the effect column has
+    # the fit's own orientation (MD: the sign; binary OR, RR, RD: which level
+    # is coded as the event; count, and binary IRR or IRD: no change, as the
+    # rate estimator takes no adverse_outcome).  NULL only on an object not
+    # built by grf.subg.harm.glm(); resolved by forestsearch()'s rule.
+    adverse_outcome <- fs$adverse_outcome
+    if (is.null(adverse_outcome)) {
+      adverse_outcome <- outcome_type %in% c("binary", "count")
+    }
+
     # Build estimator closure
     estimator_fn_grf <- tryCatch(
       make_effect_estimator(
@@ -833,6 +844,7 @@ sg_tables <- function(fs,
         outcome.name      = outcome.name,
         offset.name       = offset.name,
         effect_measure    = effect_measure,
+        adverse_outcome   = adverse_outcome,
         adjust_covariates = fs$args_call_all$adjust_covariates
       ),
       error = function(e) NULL
@@ -978,6 +990,15 @@ sg_tables <- function(fs,
     effect_measure <- args_fs$effect_measure
     if (is.null(effect_measure)) effect_measure <- "RD"
 
+    # Orientation: the fit's resolved adverse_outcome, so the effect column
+    # is the fit's own estimate, sign included (the arm means and Diff stay
+    # raw).  NULL only on an object not built by forestsearch(); resolved by
+    # forestsearch()'s rule.
+    adverse_outcome <- args_fs$adverse_outcome
+    if (is.null(adverse_outcome)) {
+      adverse_outcome <- outcome_type %in% c("binary", "count")
+    }
+
     # Build estimator closure for the table
     estimator_fn_tab <- tryCatch(
       make_effect_estimator(
@@ -986,6 +1007,7 @@ sg_tables <- function(fs,
         outcome.name      = args_fs$outcome.name,
         offset.name       = args_fs$offset.name,
         effect_measure    = effect_measure,
+        adverse_outcome   = adverse_outcome,
         adjust_covariates = args_fs$adjust_covariates
       ),
       error = function(e) NULL
