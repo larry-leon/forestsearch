@@ -1,4 +1,4 @@
-# forestsearch 0.4.1.9010 (development)
+# forestsearch 0.4.1.9011 (development)
 
 This development version adds the MRCT regional-consistency series: the
 MRCT consistency analytic layer, new DGM arguments, the per-replicate record
@@ -401,6 +401,68 @@ MRCT consistency article.
   supplied 1.5 and so usually found no subgroup. This narrows the A-001 entry
   above: every other supplied threshold gives the same floor as before.
 
+* `sg_tables()` now builds the effect column of its GLM tables with the fit's
+  own orientation: the `adverse_outcome` that `forestsearch()` stored (for a
+  `grf.subg.harm.glm()` result, the value stored on it), or `forestsearch()`'s
+  rule when none is stored. For a continuous fit at the default orientation
+  the subgroup effect reads MD 1.094, the fit's `max_sg_est`, where it read
+  -1.094; a binary OR, RR or RD fit with `adverse_outcome = FALSE` now shows
+  the effect for the non-event, as the fit does. `Mean(C)`, `Mean(T)` and
+  `Diff` stay raw. Survival tables, count and rate-measure (IRR, IRD) rows,
+  and fits with `adverse_outcome = TRUE` are unchanged.
+
+* `forestsearch_KfoldOut(outall = TRUE)`, the tables of a
+  `forestsearch_Kfold()` or `forestsearch_tenfold()` result, now builds the
+  effect column of its GLM tables (ITT, full-data and fold subgroups) with
+  the fit's own `adverse_outcome`, or `forestsearch()`'s rule when none is
+  stored. A continuous fit at the default orientation showed the selected
+  subgroup as MD -1.0941 where the fit's estimate is 1.0941; it now shows
+  1.0941. Binary OR, RR and RD fits with `adverse_outcome = FALSE` now show
+  the effect for the non-event. Arm means and `Diff` stay raw. Survival
+  tables, count and rate-measure (IRR, IRD) rows, and fits with
+  `adverse_outcome = TRUE` are unchanged.
+
+* `compute_frontier_cis()` on a fit object that stores no `adverse_outcome`
+  now orients the effect as `forestsearch()` does (`TRUE` for binary and
+  count outcomes, `FALSE` for continuous); it used `TRUE`. For a continuous
+  outcome the table's estimates and limits now have the sign of the fit's
+  own estimate. A stored value is used as before, so objects built by
+  `forestsearch()` are unchanged.
+
+* Change of method: the risk-difference standard error of
+  `make_effect_estimator(outcome_type = "binary", effect_measure = "RD")`
+  with `adjust_covariates`, when the logistic g-computation tier is used
+  (`method_used = "logistic_gcomp_adj"`), is now the full delta-method SE
+  `sqrt(g' V g)` of the averaged predictions over every estimable
+  coefficient of the logistic fit. It was the treatment coefficient's SE
+  scaled by the average derivative, which left out the other coefficients
+  and could collapse to about 0 when an arm had 0% or 100% events: with
+  control 14/40, treated 40/40 and one covariate it is 0.0775 (it was
+  6.8e-06, giving a zero-width interval). If the new value is not a finite,
+  non-negative number, or a column that treatment changes is aliased, the
+  previous value is kept. The estimate, the unadjusted risk difference, the
+  identity-link tier and every other measure are unchanged. The SE reaches
+  the confidence limits of `forestsearch()`'s candidate table, the
+  bootstrap's observed-estimate interval and the GLM tables and plots of a
+  fit with `adjust_covariates`; no default call reaches this tier.
+
+* The internal `format_subgroup_summary_tables()` now highlights the
+  `">=0.95"` row of the bootstrap consistency distribution, as its footnote
+  says. The label was written `">= 0.95"`, which matched no row.
+
+* `forestsearch()` with `effect_measure = "IRD"` and an `effect.threshold`
+  above 1: the validator warning now names the rate difference and the IRR
+  scale (it said "A risk difference cannot exceed 1.0" and suggested OR),
+  and the remap warning names the IRR scale and prints the 0.01 it assigns
+  (it suggested the OR scale and printed "Remapping to default: 0.05"). The
+  risk-difference messages and every remapped value are unchanged.
+
+* `sg_tables()` on a `grf.subg.harm.glm()` result with a count outcome no
+  longer labels the GRF CATE note "(risk-difference scale)". It names the
+  scale the forest was fitted on, "(log(Y + 0.5) scale, Y = count)" or
+  "(count scale)", adding ", not offset-adjusted" when the fit has an
+  offset. Binary and continuous results print the same note as before.
+
 ### Removed
 
 * `create_gbsg_dgm()` and `simulate_from_gbsg_dgm()` are removed, with the
@@ -470,6 +532,34 @@ MRCT consistency article.
     `create_gbsg_dgm()` now call `setup_gbsg_dgm()`.
   - Examples load `survival::gbsg` directly instead of
     `data(gbsg, package = "survival")`, which loads nothing.
+
+* Documentation pass (part 5 of the CRAN preparation; no behaviour change):
+  - The display help pages (`sg_tables()`, `forestsearch_KfoldOut()`,
+    `cv_summary_tables()`, `plot_sg_glm_outcomes()`,
+    `plot_subgroup_results_forestplot()`, `mr_estimates_table()`) say that the
+    effect column follows the fit's orientation while the arm means or rates
+    and `Diff` stay raw, so for a fit where a lower outcome is adverse the two
+    can have opposite signs. `?make_effect_estimator` says what
+    `adverse_outcome` does for each outcome type.
+  - `?forestsearch`: an out-of-range risk- or rate-difference threshold is
+    remapped with a warning and the remapped value is also the DINA floor;
+    the `use_dina` screening cut matches `subgroup_method = "dina"` only under
+    `dina_select_statistic = "dina"`; what `consistency_method` does under
+    propensity adjustment.
+  - `CV_sgs()` defines "Exact" for a one-factor subgroup;
+    `summarize_bootstrap_subgroups()` says its bins are closed on the left;
+    `test_hte_from_forestsearch()` describes how cut labels map to columns and
+    its warnings; `calibrate_k_treat()`, `find_k_inter_for_target_hr()`,
+    `compute_dgm_cde()` and `generate_bootstrap_with_noise()` are corrected to
+    the code; `setup_gbsg_dgm()` carries the model description of the removed
+    `create_gbsg_dgm()` page.
+  - Sixteen `\dontrun{}` examples now run as written after
+    `library(forestsearch)` (they used a bare `gbsg`, the missing `grade3` and
+    id columns, undefined objects, a placeholder call, or a nonexistent
+    `nsim` argument).
+  - The "Biomarker effects" article names `setup_gbsg_dgm()`; the simulation
+    article no longer calls its `generate_aft_dgm_flex()` block equivalent to
+    `setup_gbsg_dgm()` and says how the two differ.
 
 ### Internal
 
