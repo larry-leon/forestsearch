@@ -212,14 +212,16 @@ format_subgroup_summary_tables <- function(subgroup_summary, nb_boots) {
           Percent = "Percentage (%)"
         ) |>
 
-        # Color coding: High consistency (green)
+        # Color coding: High consistency (green).  The labels in the three
+        # highlight sets are the Pcons bin labels of
+        # summarize_bootstrap_subgroups() (no space in ">=0.95").
         gt::tab_style(
           style = list(
             gt::cell_fill(color = "#d4edda"),
             gt::cell_text(weight = "bold")
           ),
           locations = gt::cells_body(
-            rows = `Consistency Range` %in% c("0.85-0.95", ">= 0.95")
+            rows = `Consistency Range` %in% c("0.85-0.95", ">=0.95")
           )
         ) |>
 
