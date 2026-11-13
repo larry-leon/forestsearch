@@ -26,6 +26,7 @@ Notes:
 - After editing any roxygen block, `@importFrom`, or `@export`, run `devtools::document()` — `NAMESPACE` and `man/*.Rd` are generated, never edit by hand.
 - `dev/devtools_package.R` is a scratch log of every dev/CRAN/pkgdown command the author has used (not a script to run top-to-bottom); consult it for the exact incantation of a rare task (e.g. corrupt-install recovery, pkgdown deploy).
 - Vignettes/articles are Quarto (`.qmd`) under `quarto/` and `vignettes/`; render with `quarto render <file>.qmd`. Preserve `embed-resources: true`. The package `vignettes/forestsearch.Rmd` is the knitr-built one.
+- Rendered article `.html` never stays in `vignettes/` or `vignettes/articles/`; renders go to a scratch directory or to `dev/article_renders/`. A sibling's `.html` there gets copied into the site and pkgdown skips the fresh page (`dev/reports/REPORT_site_render_0.5.0_2026-11-13.md`, note 1).
 - If package install/load errors with a corrupt `.rdb`, remove the installed copy (`rm -rf ~/R/x86_64-pc-linux-gnu-library/<ver>/forestsearch`) and restart R before reinstalling.
 
 ## Architecture
