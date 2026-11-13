@@ -302,7 +302,26 @@ default_grf_params_gen <- function() {
 #'   counterparts), classification metrics against the DGM-stored
 #'   subgroup (\code{sens}, \code{spec}, \code{ppv}, \code{npv}), and
 #'   pairwise concordance between methods (\code{agree.*.*},
-#'   \code{kappa.*.*}).  As of v0.2.0 the following ForestSearch
+#'   \code{kappa.*.*}).  For a GLM outcome (\code{fs_params$outcome_type}
+#'   set and not \code{"survival"}) \code{hr.itt}, \code{hr.H.hat},
+#'   \code{hr.Hc.hat}, \code{hr.H.true} and \code{hr.Hc.true} come from a
+#'   two-arm \code{glm()} in each set and are on the scale
+#'   \code{fs_params$effect_measure} names, treatment against control: the
+#'   odds ratio (\code{"OR"}) and rate ratio (\code{"IRR"}) are the
+#'   exponentiated treatment coefficient and the mean difference
+#'   (\code{"MD"}) the coefficient; the risk difference (\code{"RD"}) and
+#'   risk ratio (\code{"RR"}) are the difference and ratio of the two fitted
+#'   arm proportions, and the rate difference (\code{"IRD"}) the difference
+#'   of the two fitted arm rates, per unit of exposure when the column named
+#'   by \code{fs_params$offset.name} is in the data (the convention under
+#'   which the \code{"IRR"} value is their ratio).  The \code{ahr.*} truth
+#'   columns (\code{\link{compute_aor}}) use the same scales, with one
+#'   exception: with an offset (the DGM's \code{offset_var} in
+#'   \code{\link{generate_glm_dgm}}, and \code{fs_params$offset.name}),
+#'   the \code{"IRD"} truth is a difference in
+#'   expected counts per patient, over each patient's own exposure, not per
+#'   unit of exposure (for a constant rate difference it is the mean exposure
+#'   times the per-unit value).  As of v0.2.0 the following ForestSearch
 #'   diagnostic columns are also always populated (\code{NA} for GRF
 #'   rows):
 #'   \describe{
@@ -955,6 +974,28 @@ run_simulation_analysis <- function(
 }
 
 
+# Effect on the arms' own scale from a two-arm fit glm(y ~ treat) made by
+# the estimate extractors below (treat coded 0/1: the intercept is the control
+# arm, intercept + coefficient the treatment arm).  "RD" = p1 - p0 and
+# "RR" = p1 / p0, the fitted arm proportions of the binomial fit; "IRD" =
+# r1 - r0, the fitted arm rates of the Poisson fit, per unit of exposure when
+# the fit has the log-exposure offset, the convention under which the "IRR"
+# value exp(coefficient) equals r1 / r0.  Treatment minus (over) control, the
+# direction compute_aor() uses for the truth columns.  (With an offset on a
+# binomial fit, which no measure documents, the values are those at
+# log-exposure 0.)  A value that is not finite is NA_real_, the extractors'
+# failure value.  An arm with no events has a fitted proportion near zero, so
+# RR is extreme but finite (very large when the control arm has none, near
+# zero when the treatment arm has none), as OR is.
+.glm_arm_effect <- function(fit, effect_measure) {
+  cf <- stats::coef(fit)
+  v0 <- fit$family$linkinv(cf[[1]])
+  v1 <- fit$family$linkinv(cf[[1]] + cf[[2]])
+  val <- if (effect_measure == "RR") v1 / v0 else v1 - v0
+  if (is.finite(val)) val else NA_real_
+}
+
+
 # =============================================================================
 # Internal: extract FS estimates  (column-name-general)
 # =============================================================================
@@ -999,8 +1040,12 @@ run_simulation_analysis <- function(
       "MD"  =          stats::gaussian(),
       stats::binomial()
     )
-    # Whether the effect is on log scale (exponentiate) or identity
+    # Whether the treatment coefficient is exponentiated (OR, IRR) or used as
+    # it is (MD).  RD, RR and IRD are taken from the fitted arm values instead
+    # (arm_scale, tested first; see .glm_arm_effect()), so the "RR" entry of
+    # log_scale is not reached.
     log_scale <- effect_measure %in% c("OR", "IRR", "RR")
+    arm_scale <- effect_measure %in% c("RD", "RR", "IRD")
 
     .glm_effect <- function(sub_df) {
       tryCatch({
@@ -1017,7 +1062,8 @@ run_simulation_analysis <- function(
                             family = glm_family)
         }
         b <- coef(fit)[[2]]  # treatment coefficient
-        if (log_scale) exp(b) else b
+        if (arm_scale) .glm_arm_effect(fit, effect_measure)
+        else if (log_scale) exp(b) else b
       }, error = function(e) NA_real_)
     }
 
@@ -1396,7 +1442,12 @@ run_simulation_analysis <- function(
       "MD"  =          stats::gaussian(),
       stats::binomial()
     )
+    # Whether the treatment coefficient is exponentiated (OR, IRR) or used as
+    # it is (MD).  RD, RR and IRD are taken from the fitted arm values instead
+    # (arm_scale, tested first; see .glm_arm_effect()), so the "RR" entry of
+    # log_scale is not reached.
     log_scale <- effect_measure %in% c("OR", "IRR", "RR")
+    arm_scale <- effect_measure %in% c("RD", "RR", "IRD")
 
     .glm_effect_grf <- function(sub_df, oc, ec, tc) {
       tryCatch({
@@ -1412,7 +1463,8 @@ run_simulation_analysis <- function(
                             family = glm_family)
         }
         b <- coef(fit)[[2]]
-        if (log_scale) exp(b) else b
+        if (arm_scale) .glm_arm_effect(fit, effect_measure)
+        else if (log_scale) exp(b) else b
       }, error = function(e) NA_real_)
     }
 

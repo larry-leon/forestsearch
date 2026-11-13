@@ -166,7 +166,26 @@ subgroup size (\code{size.H}, \code{size.Hc}), effect estimates
 counterparts), classification metrics against the DGM-stored
 subgroup (\code{sens}, \code{spec}, \code{ppv}, \code{npv}), and
 pairwise concordance between methods (\code{agree.*.*},
-\code{kappa.*.*}).  As of v0.2.0 the following ForestSearch
+\code{kappa.*.*}).  For a GLM outcome (\code{fs_params$outcome_type}
+set and not \code{"survival"}) \code{hr.itt}, \code{hr.H.hat},
+\code{hr.Hc.hat}, \code{hr.H.true} and \code{hr.Hc.true} come from a
+two-arm \code{glm()} in each set and are on the scale
+\code{fs_params$effect_measure} names, treatment against control: the
+odds ratio (\code{"OR"}) and rate ratio (\code{"IRR"}) are the
+exponentiated treatment coefficient and the mean difference
+(\code{"MD"}) the coefficient; the risk difference (\code{"RD"}) and
+risk ratio (\code{"RR"}) are the difference and ratio of the two fitted
+arm proportions, and the rate difference (\code{"IRD"}) the difference
+of the two fitted arm rates, per unit of exposure when the column named
+by \code{fs_params$offset.name} is in the data (the convention under
+which the \code{"IRR"} value is their ratio).  The \code{ahr.*} truth
+columns (\code{\link{compute_aor}}) use the same scales, with one
+exception: with an offset (the DGM's \code{offset_var} in
+\code{\link{generate_glm_dgm}}, and \code{fs_params$offset.name}),
+the \code{"IRD"} truth is a difference in
+expected counts per patient, over each patient's own exposure, not per
+unit of exposure (for a constant rate difference it is the mean exposure
+times the per-unit value).  As of v0.2.0 the following ForestSearch
 diagnostic columns are also always populated (\code{NA} for GRF
 rows):
 \describe{
