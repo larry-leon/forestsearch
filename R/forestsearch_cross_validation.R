@@ -1495,6 +1495,16 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE,
     outcome_type <- res$cv_args$outcome_type
     is_glm <- !is.null(outcome_type) && outcome_type != "survival"
 
+    # Orientation for the GLM effect column: the fit's resolved
+    # adverse_outcome (cv_args is the fit's args_call_all), so the table's
+    # estimate is the fit's own, sign included.  NULL only on an object not
+    # built by forestsearch(); resolved by forestsearch()'s rule.  Arm means
+    # and Diff stay raw.
+    adverse_outcome <- res$cv_args$adverse_outcome
+    if (is_glm && is.null(adverse_outcome)) {
+      adverse_outcome <- outcome_type %in% c("binary", "count")
+    }
+
     if (no_original_sg) {
       # No original subgroup identified: return ITT-only tables.  There is no
       # subgroup to tabulate, and the survival subgroup-table path would split
@@ -1513,6 +1523,7 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE,
             outcome.name      = outcome.name,
             offset.name       = res$cv_args$offset.name,
             effect_measure    = effect_measure,
+            adverse_outcome   = adverse_outcome,
             adjust_covariates = res$cv_args$adjust_covariates),
           error = function(e) NULL)
         itt_tab <- tryCatch(
@@ -1569,6 +1580,7 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE,
           outcome.name      = outcome.name,
           offset.name       = offset.name,
           effect_measure    = effect_measure,
+          adverse_outcome   = adverse_outcome,
           adjust_covariates = res$cv_args$adjust_covariates
         ),
         error = function(e) NULL
