@@ -18,7 +18,7 @@
 #
 # Internal helpers (not exported):
 #   - .make_cox_estimator, .make_glm_binary_estimator, etc.
-#   - .estimate_rd, .estimate_or, .estimate_rr
+#   - .estimate_rd, .estimate_or, .estimate_rr, .fs_rd_gcomp_se
 #   - .ps_grf, .ps_lasso, .ps_logistic
 #   - .build_adjusted_formula, .robust_or_model_se
 # =============================================================================
@@ -528,8 +528,11 @@ make_effect_estimator <- function(
     pred1 <- stats::predict(fit_logit, newdata = nd1, type = "response")
     rd_est <- mean(pred1) - mean(pred0)
 
-    # SE via coefficient SE as approximation (exact delta method is complex
-    # with covariates; this is conservative for subgroup estimation)
+    # SE of rd_est by the delta method: the two-sample binomial SE when
+    # unadjusted, sqrt(g' V g) over every estimable coefficient when
+    # adjusted (.fs_rd_gcomp_se()).  The scaled-coefficient form
+    # abs(avg_deriv) * se_treat, which uses the treatment coefficient alone,
+    # is kept only as the adjusted branch's fallback.
     se_treat <- sqrt(diag(stats::vcov(fit_logit)))[[treat.name]]
     # Convert logistic SE to RD scale using average marginal effect
     avg_deriv <- mean(pred1 * (1 - pred1))
@@ -543,7 +546,17 @@ make_effect_estimator <- function(
       # above, and neither glm() call here takes a weights argument.
       sqrt(p1 * (1 - p1) / n1 + p0 * (1 - p0) / n0)
     } else {
-      abs(avg_deriv) * se_treat
+      # Adjusted (B1): the full delta method.  A value that is not a finite,
+      # non-negative number keeps the scaled-coefficient form (NA when the
+      # treatment coefficient is aliased, i.e. the effect is not
+      # estimable); the helper never errors, so no slice is routed to tier
+      # 3 by it.
+      se_dm <- .fs_rd_gcomp_se(fit_logit, nd0, nd1, pred0, pred1)
+      if (length(se_dm) == 1L && is.finite(se_dm) && se_dm >= 0) {
+        se_dm
+      } else {
+        abs(avg_deriv) * se_treat
+      }
     }
 
     list(
@@ -574,6 +587,64 @@ make_effect_estimator <- function(
     measure     = "RD",
     method_used = "raw_means"
   )
+}
+
+
+#' Delta-method SE of the logistic g-computation risk difference
+#'
+#' The estimate is rd(b) = mean(plogis(X1 b)) - mean(plogis(X0 b)), with X1,
+#' X0 the design matrices of every row of the slice with treatment set to 1
+#' and to 0.  Its gradient in b is
+#' g = colMeans(p1 (1 - p1) X1) - colMeans(p0 (1 - p0) X0), and the SE is
+#' sqrt(g' V g) with V = vcov(fit).  Aliased coefficients (NA) are dropped
+#' from b, X1, X0 and V.  When any aliased column is one on which X1 and X0
+#' differ (a column that treatment changes), NA_real_ is returned, and the
+#' caller, .estimate_rd(), keeps its previous expression abs(avg_deriv) *
+#' se_treat.  This covers the slice where the treatment effect is not
+#' estimable: the treatment column itself is aliased when one arm is empty
+#' or has no observed outcome, dropping it would leave g = 0, and the
+#' previous expression is NA there.  It also covers an aliased user-supplied
+#' treatment-interaction column (e.g. adjust_covariates = c("site",
+#' "treat:age") with age constant and nonzero on the slice), where the
+#' treatment coefficient is estimable.
+#' The design matrices are built as predict.lm() builds them (the fit's
+#' terms, xlevels and contrasts), so the rows match p0 and p1, the fitted
+#' probabilities the estimate averages.
+#'
+#' @param fit A converged logistic glm.
+#' @param nd0,nd1 The slice with treatment set to 0 and to 1.
+#' @param p0,p1 Fitted probabilities for nd0 and nd1 (predict(type =
+#'   "response")).
+#' @return The SE, or NA_real_ when it is not a finite, non-negative number,
+#'   when an aliased column is one that treatment changes (see above), or
+#'   when any step fails (an error or a warning); never an error.
+#' @noRd
+.fs_rd_gcomp_se <- function(fit, nd0, nd1, p0, p1) {
+  tryCatch({
+    b   <- stats::coef(fit)
+    est <- names(b)[!is.na(b)]
+    al  <- names(b)[is.na(b)]
+    tt  <- stats::delete.response(stats::terms(fit))
+    design <- function(nd) {
+      mf <- stats::model.frame(tt, nd, na.action = stats::na.pass,
+                               xlev = fit$xlevels)
+      stats::model.matrix(tt, mf, contrasts.arg = fit$contrasts)
+    }
+    X0 <- design(nd0)
+    X1 <- design(nd1)
+    # Treatment changes an aliased column (stop -> NA; see above).
+    stopifnot(!any(X1[, al, drop = FALSE] != X0[, al, drop = FALSE],
+                   na.rm = TRUE))
+    X0 <- X0[, est, drop = FALSE]
+    X1 <- X1[, est, drop = FALSE]
+    stopifnot(length(p0) == nrow(X0), length(p1) == nrow(X1))
+    V <- stats::vcov(fit)[est, est, drop = FALSE]
+    g <- colMeans(p1 * (1 - p1) * X1) - colMeans(p0 * (1 - p0) * X0)
+    v <- sum(g * drop(V %*% g))
+    if (is.finite(v) && v >= 0) sqrt(v) else NA_real_
+  },
+  error   = function(e) NA_real_,
+  warning = function(w) NA_real_)
 }
 
 
