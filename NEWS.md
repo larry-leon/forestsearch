@@ -68,6 +68,17 @@ RD, RR and IRD scales and the detection, PPV, NPV and specificity of
 
 ### Bug fixes
 
+* `run_simulation_analysis()` with a count outcome (`fs_params$outcome_type =
+  "count"`, `effect_measure` `"IRR"` or `"IRD"`) now runs the GRF analysis. It
+  passed the simulation's effect measure to `grf.subg.harm.glm()`, which accepts
+  only `"log_IRR"` or `"log_RR"` for a count, so every count GRF row failed with
+  a warning and was scored as a no-find. It now passes `"log_IRR"`, which the
+  forest fit does not use; the simulation computes the GRF row's effects on its
+  own scale (IRR or IRD). Count GRF rows change, and so do the `agree.*.GRF` and
+  `kappa.*.GRF` columns of count replicates; other outcome types are unchanged.
+  Without `fs_params$offset.name` the count GRF row completes with
+  `grf.subg.harm.glm()`'s no-offset warning.
+
 * `mrct_region_sims()` now restores the caller's `progressr.handlers` option
   when it returns or stops. It set the progress handler with
   `progressr::handlers("progress")` and left that setting in the session. The

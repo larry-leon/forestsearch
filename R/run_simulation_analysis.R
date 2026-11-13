@@ -1337,7 +1337,15 @@ run_simulation_analysis <- function(
   # GLM-specific parameters (ignored by grf.subg.harm.survival)
   if (is_glm) {
     grf_args$outcome_type  <- outcome_type
-    if (!is.null(effect_measure)) grf_args$effect_measure <- effect_measure
+    # Count outcome: pass "log_IRR" for the simulation's "IRR" or "IRD".  The
+    # forest fit does not use effect_measure (grf.subg.harm.glm() accepts
+    # only "log_IRR" or "log_RR" for a count and stores it); the extractor
+    # below computes the reported effect on the simulation's own scale.
+    if (identical(outcome_type, "count")) {
+      grf_args$effect_measure <- "log_IRR"
+    } else if (!is.null(effect_measure)) {
+      grf_args$effect_measure <- effect_measure
+    }
     if (!is.null(offset_name))    grf_args$offset.name    <- offset_name
     # grf.subg.harm.glm() does NOT accept event.name — remove it
     # to prevent "unused argument" error from do.call()
