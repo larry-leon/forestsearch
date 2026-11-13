@@ -40,7 +40,7 @@ cs_runs <- function() cs_get("runs", {
                                           sim_args = cs_sim_args, analysis_time = 40,
                                           cens_adjust = 50,
                                           parallel_args = list(plan = "multisession",
-                                                               workers = min(6L, max(2L, parallel::detectCores())),
+                                                               workers = 2L,
                                                                show_message = FALSE),
                                           details = FALSE, seed = cs_seed, record = "full")))
   future::plan(future::sequential)
