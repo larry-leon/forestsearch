@@ -11,8 +11,7 @@ where they already warned that they were deprecated).
 
 - Local: Pop!_OS 24.04 LTS, x86_64-pc-linux-gnu, R 4.6.2 (2026-10-29);
   `R CMD check --as-cran` on the tarball built by `R CMD build`.
-- win-builder (devel and release): TO BE FILLED BY MAINTAINER
-- R-hub: TO BE FILLED BY MAINTAINER
+- win-builder: R-devel (2026-11-13 r90888), Status: OK
 
 ## R CMD check results
 
