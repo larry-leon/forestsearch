@@ -30,7 +30,7 @@ remaining CRAN-run comparison of repeated results uses a numerical tolerance.
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
+0 errors | 0 warnings | 0 notes
 
 The local check above ended with `Status: OK`.
 
