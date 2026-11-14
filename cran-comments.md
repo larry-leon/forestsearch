@@ -20,7 +20,8 @@ where they already warned that they were deprecated).
 
 The local check above ended with `Status: OK`.
 
-Long-running tests are skipped on CRAN with `skip_on_cran()`; the full suite runs locally.
+On CRAN a small core set of tests of the main function `forestsearch()` is run. The full
+test suite is run locally before each release.
 
 ## Reverse dependencies
 
