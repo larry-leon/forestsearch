@@ -168,3 +168,14 @@ as a negative control, a second call with another `seedit` still fails the block
    nothing was pushed, merged or tagged.
 4. Delete `/tmp/cran11/lib`. Keep `/tmp/cran11/build`.
 5. Print the first line, the top table and the timing table as the closing message.
+
+## Amendment 1 (Larry, in chat, 2026-11-14, at the Step 0 gate)
+
+Context: the Step 0 gate failed as written because `git status --porcelain` listed two untracked
+files, `AGENTS.md` and `CRAN-SUBMISSION`.
+
+> Proceed, with one addition. Leave both files untracked and untouched. First add the line
+> ^AGENTS\.md$ to .Rbuildignore, as its own commit, so that any build from this checkout leaves
+> AGENTS.md out. Then continue the task as written, reading the Step 0 and final clean-tree
+> conditions as "no modified tracked files"; list the two untracked files in the final status
+> check. Build the repository as written in Step 7 and confirm AGENTS.md is not in the tarball.
