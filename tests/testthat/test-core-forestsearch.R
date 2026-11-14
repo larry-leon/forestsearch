@@ -4,8 +4,9 @@
 # One complete default survival forestsearch() call on survival::gbsg
 # (hormonal therapy as the treatment), on a sequential plan.  It checks the
 # structure documented in ?forestsearch (Value) and that a second call with
-# the same seed returns an identical object.  Structure checks and
+# the same seed returns the same result.  Structure checks and
 # same-session comparisons only: no numeric value is typed into this file.
+# The comparison uses a tolerance because some linear-algebra libraries (MKL) do not reproduce floating-point results bit for bit, even within a session.
 # The default call fits no grf forest and starts no parallel workers.
 # =============================================================================
 
@@ -115,11 +116,11 @@ test_that("a default survival forestsearch() call returns the documented structu
   expect_identical(fs$mr_harm_confirmed, NA)
 })
 
-test_that("a second call with the same seed returns an identical result", {
+test_that("a second call with the same seed returns the same result", {
   a <- .core_fit()
   b <- .core_run()
   # serialize() round trips drop data.table's session-only self-reference
   # pointers, so the comparison sees values only
   roundtrip <- function(x) unserialize(serialize(x, NULL))
-  expect_identical(roundtrip(.core_strip_timing(b)), roundtrip(.core_strip_timing(a)))
+  expect_equal(roundtrip(.core_strip_timing(b)), roundtrip(.core_strip_timing(a)), tolerance = 1e-8)
 })
