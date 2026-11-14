@@ -15,6 +15,8 @@
 # as test-plan-restored.R): each iteration reports "no subgroup found".
 # =============================================================================
 
+skip_on_cran()
+
 # One "no subgroup found" result per iteration of the foreach loop.
 .fc_fake_dofuture <- function(obj, ex) {
   rep(list(list(found = 0L)), length(obj$args[[1L]]))

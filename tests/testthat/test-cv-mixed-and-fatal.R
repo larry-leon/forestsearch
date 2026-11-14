@@ -25,6 +25,8 @@
 # lands on a chosen fold/sim.
 # ============================================================================
 
+skip_on_cran()
+
 
 .cv_pa_t1 <- list(plan = "sequential", workers = 1L, show_message = FALSE)
 

@@ -6,6 +6,8 @@
 # bit-identical to the formula-interface fits they replace, warnings included.
 # =============================================================================
 
+skip_on_cran()
+
 # Collects the warning texts raised by expr (muffled) alongside its value.
 .lf_with_warnings <- function(expr) {
   w <- character(0)

@@ -4,6 +4,8 @@
 # a zero planted effect rejected; the null path untouched in structure.
 # =============================================================================
 
+skip_on_cran()
+
 # Hand-built continuous DGMs in the shape of the fs_oc_family_enumerate()
 # example: covariates + potential-outcome columns + flag_harm.  sign_Qc
 # controls the complement's effect direction relative to the (negative)

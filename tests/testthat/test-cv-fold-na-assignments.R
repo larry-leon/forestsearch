@@ -23,6 +23,8 @@
 # NA out).  Hand-built inputs; no search.
 # ============================================================================
 
+skip_on_cran()
+
 .sens_names_f2 <- c("sens_H", "sens_Hc", "ppv_H", "ppv_Hc")
 
 # 100 subjects in 4 folds of 25; 0 = in H, 1 = in the complement Hc.

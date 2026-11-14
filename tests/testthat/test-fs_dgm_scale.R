@@ -8,6 +8,8 @@
 # to 0.12% and 0.10%); those runs are too slow for the test suite and the
 # algebraic identities below pin the same quantities exactly.
 
+skip_on_cran()
+
 # ---- fixtures ---------------------------------------------------------------
 
 make_continuous_dgm <- function(N = 2000, nQ = 700,

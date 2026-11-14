@@ -8,6 +8,8 @@
 # it together with the draw's consistency-standardized statistic, so the
 # admission rule is checked on MR's own draws without restating its internals.
 
+skip_on_cran()
+
 .mr_rounded_fixture <- function() {
   set.seed(20260923)
   n <- 400

@@ -2,6 +2,8 @@
 # withr is not a declared dependency, so the variable is saved at the start
 # of each test and restored on exit with base Sys.setenv()/Sys.unsetenv().
 
+skip_on_cran()
+
 .restore_check_limit <- function(old) {
   if (is.na(old)) Sys.unsetenv("_R_CHECK_LIMIT_CORES_")
   else Sys.setenv("_R_CHECK_LIMIT_CORES_" = old)

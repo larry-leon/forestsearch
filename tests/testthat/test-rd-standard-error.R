@@ -18,6 +18,8 @@
 #
 # Every expected value below is worked out by hand from the formula above.
 
+skip_on_cran()
+
 # Two arms of 40 patients, with a given number of events in each arm.
 .rdse_slice <- function(e0, e1, n = 40L) {
   data.frame(

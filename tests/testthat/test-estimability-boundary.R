@@ -4,6 +4,8 @@
 # event in each arm; RD/IRD/MD have no condition and must be byte-identical.
 # No admission floor is added anywhere and nothing is forwarded to DINA/GRF.
 
+skip_on_cran()
+
 mkb <- function(y, t) data.frame(treat = as.integer(t), y = as.integer(y))
 
 d_ok   <- mkb(c(1,1,0,0,0, 1,1,1,0,0), c(0,0,0,0,0, 1,1,1,1,1))  # four cells >= 1

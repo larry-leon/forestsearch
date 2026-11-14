@@ -12,6 +12,8 @@
 # The first three blocks build no forest: fit_causal_forest() is mocked to
 # capture the matrix it is handed and stop.
 
+skip_on_cran()
+
 .grf_capture_X <- function(data, confounders.name) {
   cap <- new.env()
   testthat::local_mocked_bindings(

@@ -4,6 +4,8 @@
 # declaration field, the article's S17 entries are recovered exactly. s17_column() is
 # transplanted from vignettes/articles/actg175-glm-outcomes.qmd.
 
+skip_on_cran()
+
 .fdt_memo <- new.env()
 .fdt_fit <- function() {
   if (is.null(.fdt_memo$fit)) {

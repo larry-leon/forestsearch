@@ -5,6 +5,8 @@
 # inert row.
 # =============================================================================
 
+skip_on_cran()
+
 # Counts grf forest fits made anywhere inside expr, via base::trace() on the
 # grf namespace (forestsearch calls grf::causal_forest / grf::causal_survival_forest
 # through `::`, which resolves in that namespace).  Session-only; untraced on exit.

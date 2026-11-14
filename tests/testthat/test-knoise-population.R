@@ -3,6 +3,8 @@
 # draw noise ONCE onto the super-population at construction (scheme of commit
 # 2a4787bc, previously inline in the gbsg_redux sweep drivers).
 
+skip_on_cran()
+
 # Survival builder shared by several tests (small n_super for speed).
 .make_gbsg_noise_dgm <- function(...) {
   setup_gbsg_dgm(model = "alt", n_super = 1000L, verbose = FALSE, ...)

@@ -10,6 +10,8 @@
 # F2: the NA-fill fixture (ci_method = "ij", no complement).
 # The variants cover each remaining absence condition of the field map.
 
+skip_on_cran()
+
 .mrv_data <- function(n = 300L, seed = 11L) {
   set.seed(seed)
   data.frame(time  = stats::rexp(n, 0.2),

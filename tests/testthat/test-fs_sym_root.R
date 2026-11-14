@@ -11,6 +11,8 @@
 # so the asymmetric root's failure is asserted alongside the symmetric root's
 # success on the same input.
 
+skip_on_cran()
+
 # ---- fixtures ---------------------------------------------------------------
 
 orth <- function(n, seed) {

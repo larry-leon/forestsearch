@@ -18,6 +18,8 @@
 # devtools::test() runs all of them.
 # ============================================================================
 
+skip_on_cran()
+
 
 # ---------------------------------------------------------------------------
 # DOWNSTREAM CONSUMERS ON FIX A's EARLY-RETURN OBJECTS

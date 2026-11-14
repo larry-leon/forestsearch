@@ -6,6 +6,8 @@
 # (n_harm equals meta$n_sample); every other missing npv keeps its fill.
 # Hand-built inputs; no search, no simulation.
 
+skip_on_cran()
+
 .f4_data <- function(null = FALSE) {
   set.seed(1)
   N <- 200; nH <- 50

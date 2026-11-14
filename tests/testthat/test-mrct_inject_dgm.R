@@ -2,6 +2,8 @@
 # on survival::cgd, time to first serious infection.
 # TASK_fs-add-mrct-inject-module (2026-10-02), section 3.
 
+skip_on_cran()
+
 test_that("inject_mrct_structure builds a usable aft_dgm_flex on cgd", {
   cgd <- survival::cgd
   cgd1 <- cgd[cgd$enum == 1, ]

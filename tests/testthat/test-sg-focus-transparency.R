@@ -5,6 +5,8 @@
 # tests pin both halves: that the messages say the right thing, and that
 # turning them on changed no subgroup and no estimate.
 
+skip_on_cran()
+
 # ---------------------------------------------------------------------------
 # The alias table and its two readers
 # ---------------------------------------------------------------------------

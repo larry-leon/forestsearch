@@ -4,6 +4,8 @@
 # standalone MR result with a stand-in bootstrap, equal to the survival-post-selection
 # article's code, transplanted below. The gate on a real fit and bootstrap ran once.
 
+skip_on_cran()
+
 .mmt_mr <- function(seed = 4242L, ...) {
   set.seed(11L); n <- 300L
   df <- data.frame(time = stats::rexp(n, 0.2), event = stats::rbinom(n, 1L, 0.8),

@@ -12,6 +12,8 @@
 #      pair bounds consistent with the marginal quantiles, Bonferroni pair
 #      never tighter than the calibrated pair.
 
+skip_on_cran()
+
 .mrj_data <- function(n = 400L, seed = 21L) {
   set.seed(seed)
   data.frame(time  = stats::rexp(n, 0.2), event = stats::rbinom(n, 1L, 0.8),

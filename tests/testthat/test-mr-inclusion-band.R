@@ -21,6 +21,8 @@
 #                   where the perturbed effects were extreme.
 # =============================================================================
 
+skip_on_cran()
+
 .old_fs_mr_select <- function(beta, zcons, sizes, passers, rule, nbhd,
                               selection_rule = "neighborhood", log_scale = TRUE) {
   if (!length(passers)) return(NA_integer_)

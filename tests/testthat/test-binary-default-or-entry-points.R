@@ -12,6 +12,8 @@
 # statement it is.
 # ============================================================================
 
+skip_on_cran()
+
 # The resolution site itself, evaluated as the single statement it is.  The
 # returned closure only carries effect_measure on the branches that pass it to
 # their maker (binary does; survival and continuous do not), so reading it back

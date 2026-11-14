@@ -2,6 +2,8 @@
 # (TASK_grf_dina_fixes_2026-09-16, P1).  No forest is fitted: the structured
 # subgroup definitions are constructed by hand.
 
+skip_on_cran()
+
 .grf_cut_def <- function(...) {
   cuts <- list(...)
   cj <- data.frame(

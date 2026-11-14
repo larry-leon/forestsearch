@@ -17,6 +17,8 @@
 # arm event shares (count / exposure); the expected values below are worked
 # out from the cell totals by hand.  No search, no simulation.
 
+skip_on_cran()
+
 .es_cells <- data.frame(
   treat = c(1, 1, 1, 1, 0, 0, 0, 0),
   H     = c(1, 1, 0, 0, 1, 1, 0, 0),

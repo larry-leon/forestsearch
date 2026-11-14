@@ -18,6 +18,8 @@
 # sequential.
 # ============================================================================
 
+skip_on_cran()
+
 .f6_confs <- c("age", "biomarker", "biomarker_hi", "sex")
 
 # The three non-survival data sets, with the arguments lasso_selection() and

@@ -20,6 +20,8 @@
 # plus CV, taking several seconds.  Local devtools::test() runs them all.
 # ============================================================================
 
+skip_on_cran()
+
 
 # Null-DGM fit for a family: no real treatment-effect subgroup, and
 # thresholds tight enough that nothing is identified.  Asserts the

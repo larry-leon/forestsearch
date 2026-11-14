@@ -1,6 +1,8 @@
 # Tests for fs_oc_grid() and fs_oc_invert(), and the refactor guard on
 # fs_oc_predict().  Small families, a few thousand draws.
 
+skip_on_cran()
+
 # ---- fixtures ---------------------------------------------------------------
 
 .grid_hand_family <- function(piQ = 0.34, n = 500) {

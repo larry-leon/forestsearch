@@ -10,6 +10,8 @@
 # so each test rebuilds those row indices itself.
 # ============================================================================
 
+skip_on_cran()
+
 resample_idx <- function(n_data, n, seed) {
   set.seed(seed)
   sample(n_data, n, replace = TRUE)

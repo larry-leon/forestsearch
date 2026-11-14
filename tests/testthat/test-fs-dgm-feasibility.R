@@ -1,6 +1,8 @@
 # Acceptance tests for fs_dgm_feasibility() (Part B).
 # Tiny DGM, small n_rep -- seconds.
 
+skip_on_cran()
+
 mkdgm <- function(n_super = 1500L, seed = 8316951L) {
   d <- .make_binary_data(N = 300L, seed = seed)
   generate_glm_dgm(

@@ -13,6 +13,8 @@
 # `Consistency Range` / `Size Range` columns.  No expected value was
 # taken from the output of the fixed code.
 
+skip_on_cran()
+
 # One synthetic "found" bootstrap row per call, so exactly one bin of each
 # distribution has Count == 1 and that bin's label is the bin of the value.
 .a147_bins_of <- function(pcons, n_sg) {

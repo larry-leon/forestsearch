@@ -7,6 +7,8 @@
 # Before that change every count GRF row failed with "GRF failed: For
 # outcome_type = 'count', effect_measure must be 'log_IRR' or 'log_RR'".
 
+skip_on_cran()
+
 test_that("count GRF rows complete for IRR and IRD with an exposure offset", {
   skip_if_not_installed("grf")
   skip_if_not_installed("policytree")

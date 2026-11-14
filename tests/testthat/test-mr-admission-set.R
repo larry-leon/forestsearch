@@ -14,6 +14,8 @@
 # These tests pin the resolution table and the representation of absence.
 # =============================================================================
 
+skip_on_cran()
+
 test_that("every (focus, engine) pair resolves to the intended admission set", {
   expect_true(forestsearch:::.assert_admission_resolution_complete())
 })

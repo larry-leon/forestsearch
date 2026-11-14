@@ -29,6 +29,8 @@
 # the merge being tested (no near-redundant coarsening afterwards).
 # ============================================================================
 
+skip_on_cran()
+
 # Dataset A: bm categorical, bmi and age continuous.
 #   bm  = 0,1,0,1,...         -> 2 distinct values < 4 -> categorical
 #   bmi = 25 x 20, 25 x 24, 25 x 28, 25 x 32 -> 4 distinct -> continuous

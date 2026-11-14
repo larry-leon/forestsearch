@@ -5,6 +5,8 @@
 # resolution, and Gate 3 (helper vs round() on a dense grid).
 # =============================================================================
 
+skip_on_cran()
+
 .ra_field <- function(G = 5L, n = 200L, B = 4000L, seed = 20260923L) {
   set.seed(seed)
   db <- matrix(stats::rnorm(n * G) * stats::rexp(n * G), n, G)

@@ -5,6 +5,8 @@
 # complement (1 under the null).  Hand-built results; no search, no
 # simulation.
 
+skip_on_cran()
+
 .bct_dgm <- function() {
   list(hazard_ratios = list(overall = 0.8, harm_subgroup = 1.5,
                             no_harm_subgroup = 0.7),

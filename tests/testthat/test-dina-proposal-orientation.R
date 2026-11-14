@@ -2,6 +2,8 @@
 # (TASK_grf_dina_fixes_2026-09-16, P2).  The DINA fits are constructed: a
 # "dina" object only needs coefficients, vcov and family here.
 
+skip_on_cran()
+
 .fake_dina_fit <- function(slope, family = "gaussian") {
   structure(
     list(

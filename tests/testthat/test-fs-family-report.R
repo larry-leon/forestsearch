@@ -3,6 +3,8 @@
 # forestsearch()'s formals, status sensitivity, and the fitted-object path.
 # =============================================================================
 
+skip_on_cran()
+
 .FR_STATUSES <- c("deterministic", "disabled", "inert", "data-dependent",
                   "data-dependent (not disableable)")
 

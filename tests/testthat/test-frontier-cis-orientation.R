@@ -42,6 +42,8 @@
 # (order 1e-15 here); an orientation error is 2 * |MD|, of order 1.
 # =============================================================================
 
+skip_on_cran()
+
 .fco_pa  <- list(plan = "sequential", workers = 1L, show_message = FALSE)
 .fco_tol <- 1e-10
 

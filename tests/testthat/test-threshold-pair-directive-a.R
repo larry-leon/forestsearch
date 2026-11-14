@@ -23,6 +23,8 @@
 # only compute, and they are the smallest that exercise the real entry point.
 # ============================================================================
 
+skip_on_cran()
+
 .DA_IN_SCOPE <- c("survival", "binary-unset", "binary-OR")
 
 .da_probe <- function(validate) {

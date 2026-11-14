@@ -7,6 +7,8 @@
 #   3. the Gaussian reference is evaluated at the same (b, r) formula on
 #      either scale, and the output columns are identical.
 
+skip_on_cran()
+
 .bcs_frame <- function(n = 300L, seed = 7L, shift = 0) {
   set.seed(seed)
   tr <- shift + stats::rnorm(n, 0, 20)          # MD-scale targets (any sign)

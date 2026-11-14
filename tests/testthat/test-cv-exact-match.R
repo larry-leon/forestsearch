@@ -16,6 +16,8 @@
 #   5. none         (NA, NA)  -- no subgroup found, scored 0
 # ============================================================================
 
+skip_on_cran()
+
 .A_lab <- "{age <= 50}"
 .B_lab <- "{sex >= 1}"
 .sg1_folds <- c(.A_lab, .A_lab, .B_lab, .B_lab, NA)

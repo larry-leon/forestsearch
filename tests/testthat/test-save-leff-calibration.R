@@ -1,6 +1,8 @@
 # Tests for save_leff_calibration(): output_dir is required (no default
 # write to "_data" in the working directory).
 
+skip_on_cran()
+
 test_that("save_leff_calibration() errors when output_dir is not supplied", {
   wd_files <- list.files(getwd(), all.files = TRUE)
   expect_error(

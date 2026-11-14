@@ -6,6 +6,8 @@
 # dev/glm-continuous-sims/parity_fs_mr_oc_summary.R, which needs those payloads
 # and so cannot live in the suite.
 
+skip_on_cran()
+
 make_payload <- function(n_sims = 10, detected = rep(TRUE, n_sims),
                          adverse = FALSE, nb_boots = NULL) {
   s <- seq_len(n_sims)

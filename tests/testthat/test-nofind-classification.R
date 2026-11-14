@@ -6,6 +6,8 @@
 # (dev/reports/REPORT_audit_revisit_2026-11-11.md, section A-003).
 # No search, no simulation: the extractors are called on hand-built inputs.
 
+skip_on_cran()
+
 .a003_data <- function(null = FALSE) {
   set.seed(1)
   N <- 200; nH <- 50

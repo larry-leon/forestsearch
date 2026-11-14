@@ -14,6 +14,8 @@
 # dispatch sites.
 # =============================================================================
 
+skip_on_cran()
+
 test_that("every canonical sg_focus has a branch at every dispatch site", {
   expect_true(forestsearch:::.assert_sg_focus_dispatch_complete())
 })

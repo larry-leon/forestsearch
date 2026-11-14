@@ -1,6 +1,8 @@
 # inject_mrct_structure() observed-region mode on ACTG 175.
 # TASK_fs-inject-observed-region_2026-11-02, section 3.
 
+skip_on_cran()
+
 obs_seed_data <- function() {
   d <- mrct_seed_data()                     # helper-mrct-analytic.R
   set.seed(20261102L)

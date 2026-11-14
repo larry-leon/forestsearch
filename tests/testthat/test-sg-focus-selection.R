@@ -8,6 +8,8 @@
 #               argmax Pcons among qualifiers, effect breaks ties
 #   maxSG/minSG argmax/argmin N among qualifiers, Pcons breaks ties
 
+skip_on_cran()
+
 # Candidate table in the post-consistency column convention used by
 # sort_subgroups(). Constructed so the effect argmax and the Pcons argmax are
 # DIFFERENT rows, which is what separates maxeffCons from hr.

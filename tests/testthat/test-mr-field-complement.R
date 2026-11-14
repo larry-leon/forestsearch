@@ -11,6 +11,8 @@
 #   4. fs_sim_bias_coverage(side = "upper") reads fld_Hc_up1s and scores
 #      truth <= upper bound; the default side is unchanged.
 
+skip_on_cran()
+
 .mfc_data <- function(n = 300L, seed = 11L) {
   set.seed(seed)
   data.frame(time  = stats::rexp(n, 0.2),

@@ -41,6 +41,8 @@
 # it changes nothing these tests can see, and they still pass.
 # No expected value was taken from the output of the fixed code.
 
+skip_on_cran()
+
 .c1_green  <- toupper("#d4edda")
 .c1_yellow <- toupper("#fff3cd")
 .c1_red    <- toupper("#f8d7da")

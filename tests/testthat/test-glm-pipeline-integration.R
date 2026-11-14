@@ -7,6 +7,8 @@
 # correctness of subgroup identification; they test infrastructure.
 # =============================================================================
 
+skip_on_cran()
+
 test_that("binary pipeline completes without internal failure", {
   set.seed(42)
   n <- 300

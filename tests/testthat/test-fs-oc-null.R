@@ -1,6 +1,8 @@
 # Tests for the null branch of fs_oc_family_enumerate() and its propagation
 # through fs_oc_predict() / fs_oc_grid() / fs_oc_invert().
 
+skip_on_cran()
+
 .null_dgm <- function(N = 2000L, seed = 1L, model = "null") {
   set.seed(seed)
   age <- round(stats::rnorm(N, 35, 9)); pre <- round(stats::rexp(N, 1 / 500))

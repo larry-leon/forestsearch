@@ -4,6 +4,8 @@
 # Closure-level identity against lm(weights = ...), and the path end to end.
 # =============================================================================
 
+skip_on_cran()
+
 test_that("continuous IPTW closure reproduces the weighted OLS fit", {
   set.seed(11)
   n <- 200L

@@ -7,6 +7,8 @@
 # forward it to subgroup.search().
 # =============================================================================
 
+skip_on_cran()
+
 .mm_df <- .make_continuous_data(N = 300L, MD_harm = 1.5, seed = 42L)
 
 .mm_run <- function(...) {

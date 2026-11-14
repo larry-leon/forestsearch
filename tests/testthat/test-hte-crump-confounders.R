@@ -8,6 +8,8 @@
 # resolved is skipped with a warning naming it, and a call left with no
 # covariate warns before returning NULL.
 
+skip_on_cran()
+
 .a151_data <- function() {
   set.seed(11); n <- 300
   df <- data.frame(id = seq_len(n), treat = rbinom(n, 1, 0.5),

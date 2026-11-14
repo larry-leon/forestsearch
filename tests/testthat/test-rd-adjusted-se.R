@@ -33,6 +33,8 @@
 # central finite differences on a separately fitted glm(); none is taken
 # from the code under test.
 
+skip_on_cran()
+
 # ---------------------------------------------------------------------------
 # Data
 # ---------------------------------------------------------------------------

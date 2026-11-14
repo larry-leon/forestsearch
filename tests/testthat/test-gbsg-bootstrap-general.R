@@ -7,6 +7,8 @@
 # call stop with "'data' must be a data frame" (audit finding A-004).
 # ============================================================================
 
+skip_on_cran()
+
 test_that("generate_gbsg_bootstrap_general() returns without error on a small call", {
   expect_no_error(
     out <- suppressMessages(

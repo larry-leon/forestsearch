@@ -31,6 +31,8 @@
 # because the property is about how the pieces combine and the fixture needs a
 # controlled selection rate.  .fs_mr_ij_var() is the package's own.
 
+skip_on_cran()
+
 test_that("the residual is exactly centered over the draws the IJ uses", {
   set.seed(20260805)
   n <- 200L; draws <- 3000L; n_cand <- 3L; sel <- 1L

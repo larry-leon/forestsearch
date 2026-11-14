@@ -4,6 +4,8 @@
 # rows equal the demo-summary chunk of the simulations article, transplanted below,
 # and the counted values worked out by hand. The gate on a real campaign ran once.
 
+skip_on_cran()
+
 # Twelve trials: 3 not positive; 2 positive, region <= 1; 7 triggered, of which 5
 # declared (Ghat < 1, < 1, >= 1, >= 1, NA), one of them with an undefined Sens.
 .mcs_record <- function() {

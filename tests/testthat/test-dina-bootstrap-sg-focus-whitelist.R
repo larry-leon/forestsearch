@@ -5,6 +5,8 @@
 # so a focus that forestsearch() and dina_subgroup() both accept was rejected
 # here and the bootstrap stopped before its first iteration.
 
+skip_on_cran()
+
 .dbs_demo_df <- function(n = 300L, seed = 1L) {
   set.seed(seed)
   df <- data.frame(

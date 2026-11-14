@@ -6,6 +6,8 @@
 # cell is where they got it wrong: the run ranks by the effect argmax there,
 # so the stem must say "eff", not "maxeffCons".
 
+skip_on_cran()
+
 .FT_MATRIX <- read.table(
   header = TRUE, stringsAsFactors = FALSE, text = "
 sg_focus     consistency  dina      grf
