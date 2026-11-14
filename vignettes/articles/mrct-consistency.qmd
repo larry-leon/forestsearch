@@ -62,29 +62,40 @@ companion article [mrct-consistency-simulations](mrct-consistency-simulations.ht
 ::: {.callout-note}
 ## Installing forestsearch
 
-The CRAN release of forestsearch (0.4.0) does not yet contain the functions this article uses, so the
-last step below installs the development version from GitHub. Run the steps in a fresh R session.
+This article needs forestsearch 0.5.0 or later. Run the steps in a fresh R session.
 
 ```r
-# 1. a reliable CRAN mirror, and a longer download limit than R's default of 60 seconds
-options(repos = c(CRAN = "https://cloud.r-project.org"), timeout = 600)
+# 1. a reliable CRAN mirror
+options(repos = c(CRAN = "https://cloud.r-project.org"))
 
-# 2. the CRAN release, which installs every package forestsearch needs
+# 2. forestsearch from CRAN, which also installs every package it needs
 install.packages("forestsearch")
 
 # 3. two packages forestsearch only suggests, which this article uses (speff2trial for the
-#    ACTG 175 data, latentcor for the copula expansion), knitr for the tables, and remotes for the next step
-install.packages(c("speff2trial", "latentcor", "knitr", "remotes"))
+#    ACTG 175 data, latentcor for the copula expansion), and knitr for the tables
+install.packages(c("speff2trial", "latentcor", "knitr"))
 
-# 4. the development version from GitHub; upgrade = "never" leaves the packages above as they are
+packageVersion("forestsearch")   # this article needs 0.5.0 or later
+```
+
+If a step asks whether to install packages from sources, answer no. The chunk below stops with a
+message naming anything that is missing, before any computation starts.
+
+**Installing from GitHub.** The GitHub repository holds the version under development, which can be
+ahead of the CRAN release. Use it if you want changes that have not reached CRAN yet, or if the
+chunk below reports that your installed version is too old and CRAN has nothing newer. Do steps 1 to
+3 first, so that every package forestsearch needs is already installed, then:
+
+```r
+install.packages("remotes")
+options(timeout = 600)   # R's default download limit of 60 seconds is too short for this repository
 remotes::install_github("larry-leon/forestsearch", upgrade = "never")
 packageVersion("forestsearch")
 ```
 
-Step 4 downloads the whole forestsearch repository, several gigabytes, and builds only the package
-from it, so it takes several minutes; the longer download limit of step 1 is what lets it finish. If a
-step asks whether to install packages from sources, answer no. The chunk below stops with a message
-naming anything that is missing, before any computation starts.
+`upgrade = "never"` leaves the packages already installed as they are. The call downloads the whole
+forestsearch repository, several gigabytes, and builds only the package from it, so it takes several
+minutes. Restart R afterwards, so that the new version is the one loaded.
 :::
 
 ```{r install-check}
@@ -94,7 +105,7 @@ needed <- c("inject_mrct_structure", "ahr_population", "ahr_design", "get_dfpred
             "mr_values")
 missing_fns <- setdiff(needed, getNamespaceExports("forestsearch"))
 if (length(missing_fns))
-  stop("This article needs the development version of forestsearch (see 'Installing forestsearch'); ",
+  stop("This article needs forestsearch 0.5.0 or later (see 'Installing forestsearch'); ",
        "the installed version (", as.character(packageVersion("forestsearch")), ") lacks: ",
        paste(missing_fns, collapse = ", "), ".", call. = FALSE)
 missing_pkgs <- c("speff2trial", "latentcor", "knitr")[!vapply(c("speff2trial", "latentcor", "knitr"), requireNamespace, NA, quietly = TRUE)]
