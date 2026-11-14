@@ -74,8 +74,9 @@ pak::pak("larry-leon/forestsearch")
 ## Quick start
 
 This is the forest-search analysis of the German Breast Cancer Study Group
-trial in Table 1 of León and Anderson (2026b). `vignette("forestsearch")` runs
-it in full, with the two model-based identifiers, and reads every number.
+trial in Table 1 of León and Anderson (2026b). The article
+[Interpretable subgroup identification with forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html)
+runs it in full, with the two model-based identifiers, and reads every number.
 
 ``` r
 library(forestsearch)
@@ -133,7 +134,8 @@ fs_declaration_calibration(fit, alpha = 0.10, c0 = c(0.70, 0.75, 0.80, 0.85))
 
 ## Documentation
 
-- `vignette("forestsearch")`: the analysis above, end to end.
+- The article [Interpretable subgroup identification with forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html):
+  the analysis above, end to end.
 - The package website, <https://larry-leon.github.io/forestsearch/>, has
   articles on post-selection inference for the same trial (the full
   bootstrap beside multiplier resampling), on the binary and continuous

@@ -719,10 +719,15 @@ RD, RR and IRD scales and the detection, PPV, NPV and specificity of
   fit), and the test now asserts that structure: one OR/RR-scoped catch in
   the slow closure, one in the fast closure, and neither reachable by RD.
 
-* New getting-started vignette, `vignette("forestsearch")`: the German Breast Cancer Study Group analysis of
+* New article on the package website, *Interpretable subgroup identification with forestsearch* (`articles/gbsg-table1`): the German Breast Cancer Study Group analysis of
   León and Anderson (2026b), Table 1, run end to end — the three identifiers (forest search, DINA, GRF) and
   the selection-adjusted estimates and bounds of León and Anderson (2026a) — at the manuscript's settings,
   with the declaration calibration at a protected level.
+
+* The package vignette is now a short introduction: identification by forest search on the GBSG trial,
+  with the inference call shown. The complete analysis it used to run (Table 1 of León and Anderson 2026b:
+  the three identifiers, the selection-adjusted bounds and the declaration calibration) is the website
+  article *Interpretable subgroup identification with forestsearch* (`articles/gbsg-table1`).
 
 * The previous getting-started vignette, which documents the workflow of León et al. (2024), is now the
   pkgdown article "Exploratory subgroup identification with forestsearch (the 2024 workflow)" and is no
@@ -736,7 +741,7 @@ RD, RR and IRD scales and the detection, PPV, NPV and specificity of
 
 * New article on the package website, "Binary and continuous outcomes: the ACTG 175 analyses": Section S3 of León and Anderson (2026b) — forest search on the binary and continuous endpoints, with the selection-adjusted bounds and the declaration calibration — and Table S3 of León and Anderson (2026a), the three identifiers on the binary endpoint with the full bootstrap, at a small number of replicates, beside multiplier resampling.
 
-* The README describes the current method and shows the analysis of `vignette("forestsearch")`.
+* The README describes the current method and shows the analysis of the website article *Interpretable subgroup identification with forestsearch* (`articles/gbsg-table1`).
 
 * `?forestsearch`: Example 1 passes a bootstrap result to `mr_estimates_table()`, which needs one as its template (the example called it without one); Example 2 names the analysis it runs, León and Anderson (2026a, Table S3); a section reference is corrected.
 

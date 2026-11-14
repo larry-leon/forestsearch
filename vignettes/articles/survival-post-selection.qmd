@@ -76,7 +76,8 @@ settings, with the multiplier correction in full (5,000 draws) and the full
 bootstrap implemented and run at a small number of replicates to show the
 machinery and its cost. The manuscript's Table S2 (Supplementary Section S6),
 computed with B = 1,000 bootstrap replicates, is reproduced for comparison.
-`vignette("forestsearch")` runs the companion analysis of León and Anderson
+The article [Interpretable subgroup identification with forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html)
+runs the companion analysis of León and Anderson
 (2026b) on the same trial — the search, the one-sided bounds and the
 declaration calibration; this vignette is about the two-sided correction and
 the bootstrap it replaces.
@@ -113,11 +114,11 @@ follow the document that produced its Table S2:
   screened candidate evaluated.
 - **The selection rule** is $\max_{\mathcal{A}} N(\varepsilon)$ at
   $\varepsilon = 0.10$: the largest admitted region whose effect is within 10%
-  of the largest effect over the family. The companion vignette uses
+  of the largest effect over the family. The companion article uses
   $\varepsilon = 0.20$ and returns a larger forest-search region (N 75); at
   $\varepsilon = 0.10$ the rule returns the 61 patients with no measured
   estrogen receptor and tumour size at most 35 mm — the effect-maximising
-  region of that vignette's candidate table.
+  region of that article's candidate table.
 - **DINA** is re-ranked on the Cox coefficient against a floor of 0.90, with a
   two-fold cross-fit surface. The floor of 0.90 is the one in the document that
   produced Table S2, which this call reproduces; Section 6 of the paper gives a
@@ -129,7 +130,7 @@ follow the document that produced its Table S2:
   GRF). The forest-search fit asks for `ci_method = "field"` with
   `field_recovery = TRUE`: the two-term estimate and the IJ interval are the
   same under both settings, and the field adds the one-sided bounds of the
-  companion vignette and the membership-recovery diagnostics used below.
+  companion article and the membership-recovery diagnostics used below.
 
 ## The three fits
 
@@ -446,11 +447,12 @@ the family proposed, and the results above are empirical evaluations of how the
 correction behaves on such families, not instances of the theorem. The
 one-sided bounds, the two-subgroup claim and the declaration calibration that
 build on this correction are the subject of León and Anderson (2026b) and of
-`vignette("forestsearch")`.
+the article [Interpretable subgroup identification with forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html).
 
 ## Where to go next
 
-- `vignette("forestsearch")`: the same trial under the identification paper —
+- The article [Interpretable subgroup identification with forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html):
+  the same trial under the identification paper —
   the search, the three identifiers at the $\max_{\mathcal{A}} N(\varepsilon = 0.20)$ rule, the one-sided
   field bounds, the two-subgroup claim and the declaration calibration.
 - The package website's article *Exploratory subgroup identification with
